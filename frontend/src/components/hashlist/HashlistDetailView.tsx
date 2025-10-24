@@ -56,6 +56,7 @@ export default function HashlistDetailView() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editClientDialogOpen, setEditClientDialogOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
+  const [downloadingHashlist, setDownloadingHashlist] = useState(false);
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
 
@@ -144,6 +145,78 @@ export default function HashlistDetailView() {
     setEditClientDialogOpen(false);
   };
 
+  const handleDownloadClick = async () => {
+    if (!id || downloadingHashlist) return;
+    setDownloadingHashlist(true);
+
+    try {
+      const response = await api.get(`/api/hashlists/${id}/download`, {
+        responseType: 'blob',
+      });
+
+      // Check if the response looks like an error
+      if (response.data.type === 'application/json') {
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const errorJson = JSON.parse(reader.result as string);
+            enqueueSnackbar(errorJson.error || 'Failed to download file', { variant: 'error' });
+          } catch (e) {
+            enqueueSnackbar('Failed to download file', { variant: 'error' });
+          }
+        };
+        reader.readAsText(response.data);
+        setDownloadingHashlist(false);
+        return;
+      }
+
+      const blob = new Blob([response.data]);
+      const contentDisposition = response.headers['content-disposition'];
+
+      // Extract filename from Content-Disposition header
+      let filename = `${hashlist?.name || 'hashlist'}.txt`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"])(.*?)\2|[^;\n]*)/i);
+        if (filenameMatch && filenameMatch[3]) {
+          filename = filenameMatch[3];
+        }
+      }
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+
+      // Cleanup
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      enqueueSnackbar(`Downloaded ${filename}`, { variant: 'success' });
+
+    } catch (error: any) {
+      console.error("Error downloading hashlist:", error);
+      let errorMsg = 'Failed to download hashlist';
+      if (error.response?.data instanceof Blob && error.response.data.type === 'application/json') {
+        try {
+          const errorJsonText = await error.response.data.text();
+          const errorJson = JSON.parse(errorJsonText);
+          errorMsg = errorJson.error || `Server error (${error.response.status})`;
+        } catch (parseError) {
+          errorMsg = `Server error (${error.response.status})`;
+        }
+      } else if (error.response?.data?.error) {
+        errorMsg = error.response.data.error;
+      } else if (error.message) {
+        errorMsg = error.message;
+      }
+      enqueueSnackbar(errorMsg, { variant: 'error' });
+    } finally {
+      setDownloadingHashlist(false);
+    }
+  };
+
   if (isLoading) return <LinearProgress />;
 
   return (
@@ -171,9 +244,14 @@ export default function HashlistDetailView() {
               Create Job
             </Button>
             <Tooltip title="Download">
-              <IconButton>
-                <DownloadIcon />
-              </IconButton>
+              <span>
+                <IconButton
+                  onClick={handleDownloadClick}
+                  disabled={downloadingHashlist}
+                >
+                  <DownloadIcon />
+                </IconButton>
+              </span>
             </Tooltip>
             <Tooltip title="Delete">
               <IconButton color="error" onClick={handleDeleteClick}>

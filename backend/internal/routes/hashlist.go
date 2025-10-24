@@ -781,9 +781,21 @@ func (h *hashlistHandler) handleDownloadHashlist(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// For agent requests, serve the static processed file
+	if isAgentRequest {
+		h.serveProcessedHashlist(w, r, hashlist)
+		return
+	}
+
+	// For user requests, generate the original format dynamically from the database
+	h.serveOriginalHashlist(w, r, hashlist)
+}
+
+// serveProcessedHashlist serves the static processed hashlist file for agents
+func (h *hashlistHandler) serveProcessedHashlist(w http.ResponseWriter, r *http.Request, hashlist *models.HashList) {
 	// Check file path exists
 	if hashlist.FilePath == "" {
-		debug.Warning("Attempt to download hashlist %d with no file path", id)
+		debug.Warning("Attempt to download hashlist %d with no file path", hashlist.ID)
 		jsonError(w, "Hashlist file path not found", http.StatusNotFound)
 		return
 	}
@@ -791,18 +803,18 @@ func (h *hashlistHandler) handleDownloadHashlist(w http.ResponseWriter, r *http.
 	// Security check: Ensure the path is within the data directory
 	cleanPath := filepath.Clean(hashlist.FilePath)
 	if !strings.HasPrefix(cleanPath, h.dataDir) {
-		debug.Error("Attempt to download file outside data directory: %s (Hashlist ID: %d)", hashlist.FilePath, id)
-		jsonError(w, "Invalid file path", http.StatusInternalServerError) // Internal error, path shouldn't be like this
+		debug.Error("Attempt to download file outside data directory: %s (Hashlist ID: %d)", hashlist.FilePath, hashlist.ID)
+		jsonError(w, "Invalid file path", http.StatusInternalServerError)
 		return
 	}
 
 	file, err := os.Open(cleanPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			debug.Warning("Hashlist file %s not found on disk for hashlist %d", cleanPath, id)
+			debug.Warning("Hashlist file %s not found on disk for hashlist %d", cleanPath, hashlist.ID)
 			jsonError(w, "Hashlist file not found on disk", http.StatusNotFound)
 		} else {
-			debug.Error("Error opening hashlist file %s (Hashlist ID: %d): %v", cleanPath, id, err)
+			debug.Error("Error opening hashlist file %s (Hashlist ID: %d): %v", cleanPath, hashlist.ID, err)
 			jsonError(w, "Error opening hashlist file", http.StatusInternalServerError)
 		}
 		return
@@ -811,15 +823,71 @@ func (h *hashlistHandler) handleDownloadHashlist(w http.ResponseWriter, r *http.
 
 	// Set headers for file download
 	filename := filepath.Base(cleanPath)
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename)) // Quoted filename
-	w.Header().Set("Content-Type", "application/octet-stream")                                  // General binary type
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	w.Header().Set("Content-Type", "application/octet-stream")
 
 	// Stream the file
 	_, err = io.Copy(w, file)
 	if err != nil {
-		// Client might have disconnected, log but don't change status code if already sent
-		debug.Error("Error streaming hashlist file %s (Hashlist ID: %d): %v", filename, id, err)
+		debug.Error("Error streaming hashlist file %s (Hashlist ID: %d): %v", filename, hashlist.ID, err)
 	}
+}
+
+// serveOriginalHashlist generates and serves the original format hashlist from the database
+func (h *hashlistHandler) serveOriginalHashlist(w http.ResponseWriter, r *http.Request, hashlist *models.HashList) {
+	ctx := r.Context()
+
+	// Set headers for file download
+	filename := fmt.Sprintf("%s.txt", hashlist.Name)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Transfer-Encoding", "chunked")
+
+	// Stream hashes from database
+	err := h.hashRepo.StreamHashesForHashlist(ctx, hashlist.ID, func(hash *models.Hash) error {
+		// Format the hash in its original format
+		line := formatHashForDownload(hash)
+
+		// Write the line (with newline)
+		if _, err := fmt.Fprintln(w, line); err != nil {
+			return fmt.Errorf("failed to write hash line: %w", err)
+		}
+
+		// Flush the writer to ensure streaming
+		if flusher, ok := w.(http.Flusher); ok {
+			flusher.Flush()
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		debug.Error("Error streaming hashlist %d: %v", hashlist.ID, err)
+		// Can't send error response here as headers are already sent
+	}
+}
+
+// formatHashForDownload formats a hash in its original upload format
+func formatHashForDownload(hash *models.Hash) string {
+	// Use original_hash if available, otherwise fall back to hash_value
+	hashStr := hash.OriginalHash
+	if hashStr == "" {
+		hashStr = hash.HashValue
+	}
+
+	// If there's a username or domain, reconstruct the original format
+	// Common formats: DOMAIN\username:hash, username@domain:hash, username:hash
+	if hash.Username != nil && *hash.Username != "" {
+		if hash.Domain != nil && *hash.Domain != "" {
+			// DOMAIN\username:hash format (common for NetNTLM, NTLM, etc.)
+			return fmt.Sprintf("%s\\%s:%s", *hash.Domain, *hash.Username, hashStr)
+		}
+		// username:hash format
+		return fmt.Sprintf("%s:%s", *hash.Username, hashStr)
+	}
+
+	// Just the hash (no username/domain metadata)
+	return hashStr
 }
 
 // handleGetHashlistHashes retrieves hashes for a specific hashlist with pagination

@@ -764,3 +764,59 @@ func (r *HashRepository) GetCrackedHashesByJob(ctx context.Context, jobID uuid.U
 
 	return hashes, totalCount, nil
 }
+
+// StreamHashesForHashlist streams all hashes for a hashlist with their original format.
+// This is used for generating download files in the original uploaded format.
+// The callback is called for each hash to allow streaming without loading all into memory.
+func (r *HashRepository) StreamHashesForHashlist(ctx context.Context, hashlistID int64, callback func(*models.Hash) error) error {
+	query := `
+		SELECT
+			h.id,
+			h.hash_value,
+			h.original_hash,
+			h.username,
+			h.domain,
+			h.hash_type_id,
+			h.is_cracked,
+			h.password,
+			h.last_updated
+		FROM hashes h
+		INNER JOIN hashlist_hashes hh ON h.id = hh.hash_id
+		WHERE hh.hashlist_id = $1
+		ORDER BY h.id
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, hashlistID)
+	if err != nil {
+		return fmt.Errorf("failed to query hashes for hashlist %d: %w", hashlistID, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var hash models.Hash
+		if err := rows.Scan(
+			&hash.ID,
+			&hash.HashValue,
+			&hash.OriginalHash,
+			&hash.Username,
+			&hash.Domain,
+			&hash.HashTypeID,
+			&hash.IsCracked,
+			&hash.Password,
+			&hash.LastUpdated,
+		); err != nil {
+			return fmt.Errorf("failed to scan hash row for hashlist %d: %w", hashlistID, err)
+		}
+
+		// Call the callback for this hash
+		if err := callback(&hash); err != nil {
+			return fmt.Errorf("callback error for hash %s in hashlist %d: %w", hash.ID, hashlistID, err)
+		}
+	}
+
+	if err = rows.Err(); err != nil {
+		return fmt.Errorf("error iterating hash rows for hashlist %d: %w", hashlistID, err)
+	}
+
+	return nil
+}
