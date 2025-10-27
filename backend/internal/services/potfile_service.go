@@ -21,12 +21,19 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/wordlist"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
+	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 )
 
 // ErrNoBinaryVersions is returned when no binary versions exist in the database
 var ErrNoBinaryVersions = errors.New("no binary versions found")
+
+// PotfileStagingEntry represents a password to be staged in the potfile
+type PotfileStagingEntry struct {
+	Password  string
+	HashValue string
+}
 
 // PotfileService manages the pot-file and its staging mechanism
 type PotfileService struct {
@@ -43,6 +50,11 @@ type PotfileService struct {
 	wg                 sync.WaitGroup
 	batchInterval      time.Duration
 	maxBatchSize       int
+
+	// Bloom filter for efficient duplicate detection
+	bloomFilter  *bloom.BloomFilter
+	bloomMutex   sync.RWMutex
+	lastReload   time.Time
 }
 
 // NewPotfileService creates a new pot-file service
@@ -57,7 +69,7 @@ func NewPotfileService(
 ) *PotfileService {
 	potfilePath := filepath.Join(dataDir, "wordlists", "custom", "potfile.txt")
 
-	return &PotfileService{
+	service := &PotfileService{
 		db:                 database,
 		dataDir:            dataDir,
 		potfilePath:        potfilePath,
@@ -68,8 +80,16 @@ func NewPotfileService(
 		jobUpdateService:   jobUpdateService,
 		stopChan:           make(chan struct{}),
 		batchInterval:      60 * time.Second, // Default, will be updated from settings
-		maxBatchSize:       1000,              // Default, will be updated from settings
+		maxBatchSize:       100000,            // Increased from 1000 - process large batches efficiently
 	}
+
+	// Initialize bloom filter
+	if err := service.initBloomFilter(); err != nil {
+		debug.Error("Failed to initialize bloom filter: %v", err)
+		// Continue without bloom filter (fallback to linear search)
+	}
+
+	return service
 }
 
 // Start begins the background worker for processing staged entries
@@ -113,13 +133,42 @@ func (s *PotfileService) StagePassword(ctx context.Context, password, hashValue 
 		INSERT INTO potfile_staging (password, hash_value)
 		VALUES ($1, $2)
 	`
-	
+
 	_, err := s.db.ExecContext(ctx, query, password, hashValue)
 	if err != nil {
 		return fmt.Errorf("failed to stage password: %w", err)
 	}
-	
+
 	debug.Debug("Staged password for hash %s", hashValue)
+	return nil
+}
+
+// StageBatch adds multiple passwords to the staging table in a single transaction
+func (s *PotfileService) StageBatch(ctx context.Context, entries []PotfileStagingEntry) error {
+	if len(entries) == 0 {
+		return nil
+	}
+
+	// Build multi-row insert query
+	query := `INSERT INTO potfile_staging (password, hash_value) VALUES `
+	args := make([]interface{}, 0, len(entries)*2)
+
+	for i, entry := range entries {
+		if i > 0 {
+			query += ", "
+		}
+		query += fmt.Sprintf("($%d, $%d)", i*2+1, i*2+2)
+		args = append(args, entry.Password, entry.HashValue)
+	}
+
+	query += ` ON CONFLICT DO NOTHING` // Ignore duplicates
+
+	_, err := s.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to stage password batch: %w", err)
+	}
+
+	debug.Debug("Staged batch of %d passwords", len(entries))
 	return nil
 }
 
@@ -248,32 +297,67 @@ func (s *PotfileService) ProcessStagedEntries(ctx context.Context) {
 
 	debug.Info("Processing %d staged pot-file entries", len(entries))
 
-	// Load existing pot-file into memory
-	existingPasswords, err := s.loadPotfileIntoMemory()
-	if err != nil {
-		debug.Error("Failed to load pot-file into memory: %v", err)
-		return
-	}
-
-	// Filter out duplicates
+	// Filter out duplicates using bloom filter - track both new entries and duplicate IDs
 	var newEntries []potfileStagingEntry
+	var duplicateIDs []int
+	seenInBatch := make(map[string]bool) // Track duplicates within this batch
+
 	for _, entry := range entries {
-		if _, exists := existingPasswords[entry.Password]; !exists {
+		// Check if already seen in this batch
+		if seenInBatch[entry.Password] {
+			duplicateIDs = append(duplicateIDs, entry.ID)
+			continue
+		}
+
+		// Check if exists in potfile (uses bloom filter for fast lookup)
+		if s.isDuplicatePassword(entry.Password) {
+			duplicateIDs = append(duplicateIDs, entry.ID)
+		} else {
 			newEntries = append(newEntries, entry)
-			existingPasswords[entry.Password] = true // Add to map to catch duplicates within batch
+			seenInBatch[entry.Password] = true // Mark as seen in this batch
 		}
 	}
+
+	debug.Info("Found %d new passwords, %d duplicates", len(newEntries), len(duplicateIDs))
+
+	// Track IDs of successfully written entries
+	var writtenIDs []int
 
 	// Append new entries to pot-file
 	if len(newEntries) > 0 {
 		// Get old line count before updating
 		oldLineCount, _ := s.countPotfileLines()
 
-		if err := s.appendToPotfile(newEntries); err != nil {
-			debug.Error("Failed to append to pot-file: %v", err)
-			return
+		writtenIDs, err = s.appendToPotfile(newEntries)
+		if err != nil {
+			debug.Error("Failed to append %d entries to pot-file: %v", len(newEntries), err)
+			// DO NOT delete anything if write failed
+			if len(writtenIDs) == 0 {
+				return
+			}
+			// Partial success - continue with deletion of successfully written entries
+			debug.Warning("Partial write success: %d of %d entries written", len(writtenIDs), len(newEntries))
 		}
-		debug.Info("Added %d new unique entries to pot-file", len(newEntries))
+		debug.Info("Successfully wrote %d new entries to pot-file", len(writtenIDs))
+
+		// Update bloom filter with new passwords
+		if len(writtenIDs) > 0 {
+			var passwords []string
+			for i, id := range writtenIDs {
+				// Find the password for this ID
+				for _, entry := range newEntries {
+					if entry.ID == id {
+						passwords = append(passwords, entry.Password)
+						break
+					}
+				}
+				// Fallback: use index if IDs match by position
+				if len(passwords) == i && i < len(newEntries) {
+					passwords = append(passwords, newEntries[i].Password)
+				}
+			}
+			s.updateBloomFilter(passwords)
+		}
 
 		// Update MD5 hash and file size in the database
 		if err := s.UpdatePotfileMetadata(ctx); err != nil {
@@ -302,14 +386,23 @@ func (s *PotfileService) ProcessStagedEntries(ctx context.Context) {
 		}
 	}
 
-	// Delete processed entries from staging table
-	if err := s.deleteProcessedEntries(ctx, entries); err != nil {
-		debug.Error("Failed to delete processed entries: %v", err)
-		return
+	// Only delete entries that were successfully processed:
+	// 1. Written to potfile (writtenIDs)
+	// 2. Confirmed duplicates (duplicateIDs)
+	idsToDelete := append(writtenIDs, duplicateIDs...)
+
+	if len(idsToDelete) > 0 {
+		if err := s.deleteProcessedEntriesByIDs(ctx, idsToDelete); err != nil {
+			debug.Warning("Failed to delete %d processed entries from staging: %v", len(idsToDelete), err)
+			// Don't return - entries were written successfully
+		} else {
+			debug.Info("Deleted %d processed entries from staging (%d written, %d duplicates)",
+				len(idsToDelete), len(writtenIDs), len(duplicateIDs))
+		}
 	}
 
 	// Trigger keyspace recalculation if needed
-	if len(newEntries) > 0 {
+	if len(writtenIDs) > 0 {
 		s.triggerKeyspaceRecalculation(ctx)
 	}
 }
@@ -395,25 +488,39 @@ func (s *PotfileService) loadPotfileIntoMemory() (map[string]bool, error) {
 }
 
 // appendToPotfile appends new entries to the pot-file
-func (s *PotfileService) appendToPotfile(entries []potfileStagingEntry) error {
+func (s *PotfileService) appendToPotfile(entries []potfileStagingEntry) ([]int, error) {
 	file, err := os.OpenFile(s.potfilePath, os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
-		return fmt.Errorf("failed to open pot-file for appending: %w", err)
+		return nil, fmt.Errorf("failed to open pot-file for appending: %w", err)
 	}
 	defer file.Close()
 
 	writer := bufio.NewWriter(file)
+	var writtenIDs []int
+
 	for _, entry := range entries {
 		if _, err := writer.WriteString(entry.Password + "\n"); err != nil {
-			return fmt.Errorf("failed to write password to pot-file: %w", err)
+			// Flush what we have and return partial success
+			writer.Flush()
+			return writtenIDs, fmt.Errorf("failed to write password to pot-file: %w", err)
 		}
+		writtenIDs = append(writtenIDs, entry.ID)
 	}
 
 	if err := writer.Flush(); err != nil {
-		return fmt.Errorf("failed to flush pot-file writer: %w", err)
+		return writtenIDs, fmt.Errorf("failed to flush pot-file writer: %w", err)
 	}
 
-	return nil
+	return writtenIDs, nil
+}
+
+// deleteProcessedEntriesByIDs deletes staging entries by their IDs
+func (s *PotfileService) deleteProcessedEntriesByIDs(ctx context.Context, ids []int) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	return s.deleteProcessedEntriesInternal(ctx, ids)
 }
 
 // deleteProcessedEntries deletes staging entries after they have been processed
@@ -426,6 +533,15 @@ func (s *PotfileService) deleteProcessedEntries(ctx context.Context, entries []p
 	ids := make([]int, len(entries))
 	for i, entry := range entries {
 		ids[i] = entry.ID
+	}
+
+	return s.deleteProcessedEntriesInternal(ctx, ids)
+}
+
+// deleteProcessedEntriesInternal is the internal implementation of deletion
+func (s *PotfileService) deleteProcessedEntriesInternal(ctx context.Context, ids []int) error {
+	if len(ids) == 0 {
+		return nil
 	}
 
 	// Delete in batches of 100 to avoid query length issues
@@ -444,7 +560,7 @@ func (s *PotfileService) deleteProcessedEntries(ctx context.Context, entries []p
 		}
 	}
 
-	debug.Info("Deleted %d processed entries from potfile_staging", len(entries))
+	debug.Info("Deleted %d processed entries from potfile_staging", len(ids))
 	return nil
 }
 
@@ -887,4 +1003,94 @@ func (s *PotfileService) UpdatePotfileMetadata(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// initBloomFilter initializes the bloom filter with existing potfile data
+func (s *PotfileService) initBloomFilter() error {
+	// Create bloom filter: 15M entries (for growth), 1% false positive rate
+	// Does NOT require sorted data
+	s.bloomFilter = bloom.NewWithEstimates(15000000, 0.01)
+
+	debug.Info("Loading potfile into bloom filter...")
+
+	// Load existing potfile passwords
+	file, err := os.Open(s.potfilePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			debug.Info("Potfile does not exist yet, starting with empty bloom filter")
+			return nil
+		}
+		return fmt.Errorf("failed to open potfile: %w", err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	count := 0
+
+	for scanner.Scan() {
+		password := scanner.Text()
+		s.bloomFilter.Add([]byte(password))
+		count++
+	}
+
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("error reading potfile: %w", err)
+	}
+
+	s.lastReload = time.Now()
+	// Calculate memory usage: Cap() returns bits, divide by 8 for bytes, then by 1024^2 for MB
+	memoryMB := float64(s.bloomFilter.Cap()) / 8 / 1024 / 1024
+	debug.Info("Loaded %d passwords into bloom filter (%.2f MB memory)", count, memoryMB)
+
+	return nil
+}
+
+// isDuplicatePassword checks if a password exists in the potfile using bloom filter
+func (s *PotfileService) isDuplicatePassword(password string) bool {
+	s.bloomMutex.RLock()
+	defer s.bloomMutex.RUnlock()
+
+	// If no bloom filter, fall back to linear search
+	if s.bloomFilter == nil {
+		return s.linearSearchPassword(password)
+	}
+
+	// Check bloom filter (fast, O(1))
+	// With 1% false positive rate, we accept that ~1% of duplicates might be kept in staging
+	// This is MUCH faster than verifying every match with a linear file scan
+	return s.bloomFilter.Test([]byte(password))
+}
+
+// linearSearchPassword searches for a password in the potfile (fallback method)
+func (s *PotfileService) linearSearchPassword(password string) bool {
+	file, err := os.Open(s.potfilePath)
+	if err != nil {
+		return false
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		if scanner.Text() == password {
+			return true
+		}
+	}
+
+	return false
+}
+
+// updateBloomFilter adds new passwords to the bloom filter
+func (s *PotfileService) updateBloomFilter(passwords []string) {
+	if s.bloomFilter == nil {
+		return
+	}
+
+	s.bloomMutex.Lock()
+	defer s.bloomMutex.Unlock()
+
+	for _, password := range passwords {
+		s.bloomFilter.Add([]byte(password))
+	}
+
+	debug.Debug("Updated bloom filter with %d new passwords", len(passwords))
 }

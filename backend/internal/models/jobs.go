@@ -365,6 +365,12 @@ type JobProgress struct {
 	AllHashesCracked       bool           `json:"all_hashes_cracked,omitempty"`         // Flag indicating all hashes in hashlist were cracked (exit code 6)
 }
 
+// CrackBatch represents crack-only message from agent (asynchronous, dual-channel)
+type CrackBatch struct {
+	TaskID        uuid.UUID     `json:"task_id"`
+	CrackedHashes []CrackedHash `json:"cracked_hashes"`
+}
+
 // CrackedHash represents a cracked hash with all available information
 type CrackedHash struct {
 	Hash     string `json:"hash"`      // The original hash

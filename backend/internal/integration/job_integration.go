@@ -96,6 +96,16 @@ func (m *JobIntegrationManager) ProcessJobProgress(ctx context.Context, agentID 
 	return m.wsIntegration.HandleJobProgress(ctx, agentID, &progress)
 }
 
+// ProcessCrackBatch handles crack batch messages from agents (implements interfaces.JobHandler)
+func (m *JobIntegrationManager) ProcessCrackBatch(ctx context.Context, agentID int, payload json.RawMessage) error {
+	var crackBatch models.CrackBatch
+	if err := json.Unmarshal(payload, &crackBatch); err != nil {
+		return fmt.Errorf("failed to unmarshal crack batch: %w", err)
+	}
+
+	return m.wsIntegration.HandleCrackBatch(ctx, agentID, &crackBatch)
+}
+
 // ProcessBenchmarkResult handles benchmark result messages from agents (implements interfaces.JobHandler)
 func (m *JobIntegrationManager) ProcessBenchmarkResult(ctx context.Context, agentID int, payload json.RawMessage) error {
 	var result wsservice.BenchmarkResultPayload

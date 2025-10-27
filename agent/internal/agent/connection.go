@@ -48,6 +48,8 @@ const (
 	// Job execution message types
 	WSTypeTaskAssignment   WSMessageType = "task_assignment"
 	WSTypeJobProgress      WSMessageType = "job_progress"
+	WSTypeJobStatus        WSMessageType = "job_status"        // Status-only (synchronous)
+	WSTypeCrackBatch       WSMessageType = "crack_batch"       // Cracks-only (asynchronous)
 	WSTypeJobStop          WSMessageType = "job_stop"
 	WSTypeBenchmarkRequest WSMessageType = "benchmark_request"
 	WSTypeBenchmarkResult  WSMessageType = "benchmark_result"
@@ -1301,14 +1303,50 @@ func (c *Connection) readPump() {
 					}
 				}
 
-				// Check if hashlist exists locally before running benchmark
+				// Check if hashlist exists locally and is valid before running benchmark
 				if benchmarkPayload.HashlistID > 0 {
 					hashlistFileName := fmt.Sprintf("%d.hash", benchmarkPayload.HashlistID)
 					dataDirs, _ := config.GetDataDirs()
 					localPath := filepath.Join(dataDirs.Hashlists, hashlistFileName)
-					
-					if _, err := os.Stat(localPath); os.IsNotExist(err) {
+
+					needsDownload := false
+					if fileInfo, err := os.Stat(localPath); err == nil {
+						// File exists, check if it's valid
+						if fileInfo.Size() == 0 {
+							// File is empty (likely from hashcat --remove removing all hashes)
+							debug.Warning("Hashlist %d exists but is empty (0 bytes), will re-download for benchmark", benchmarkPayload.HashlistID)
+							needsDownload = true
+						} else {
+							debug.Info("Hashlist %d already exists locally for benchmark (size: %d bytes)", benchmarkPayload.HashlistID, fileInfo.Size())
+						}
+					} else if os.IsNotExist(err) {
 						debug.Info("Hashlist %d not found locally for benchmark, downloading...", benchmarkPayload.HashlistID)
+						needsDownload = true
+					} else {
+						debug.Error("Error checking hashlist file for benchmark: %v", err)
+						// Send failure result
+						resultPayload := map[string]interface{}{
+							"job_execution_id": benchmarkPayload.JobExecutionID,
+							"attack_mode":      benchmarkPayload.AttackMode,
+							"hash_type":        benchmarkPayload.HashType,
+							"speed":            int64(0),
+							"device_speeds":    []jobs.DeviceSpeed{},
+							"success":          false,
+							"error":            fmt.Sprintf("Error checking hashlist file: %v", err),
+						}
+						payloadBytes, _ := json.Marshal(resultPayload)
+						response := WSMessage{
+							Type:      WSTypeBenchmarkResult,
+							Payload:   payloadBytes,
+							Timestamp: time.Now(),
+						}
+						if err := c.ws.WriteJSON(response); err != nil {
+							debug.Error("Failed to send benchmark failure result: %v", err)
+						}
+						return
+					}
+
+					if needsDownload {
 						
 						// Create FileInfo for download
 						fileInfo := &filesync.FileInfo{
@@ -1372,8 +1410,6 @@ func (c *Connection) readPump() {
 						}
 						
 						debug.Info("Successfully downloaded hashlist %d for benchmark", benchmarkPayload.HashlistID)
-					} else {
-						debug.Info("Hashlist %d already exists locally for benchmark", benchmarkPayload.HashlistID)
 					}
 				}
 
@@ -1775,6 +1811,74 @@ func (c *Connection) SendJobProgress(progress *jobs.JobProgress) error {
 	debug.Debug("Queued job progress update for task %s: %d keyspace processed, %d H/s",
 		progress.TaskID, progress.KeyspaceProcessed, progress.HashRate)
 	return nil
+}
+
+// SendJobStatus sends job status update synchronously (blocking until sent)
+func (c *Connection) SendJobStatus(status *jobs.JobStatus) error {
+	if !c.isConnected.Load() {
+		return fmt.Errorf("not connected")
+	}
+
+	// Marshal status payload to JSON
+	statusJSON, err := json.Marshal(status)
+	if err != nil {
+		debug.Error("Failed to marshal job status: %v", err)
+		return fmt.Errorf("failed to marshal job status: %w", err)
+	}
+
+	// Create and send status message
+	msg := &WSMessage{
+		Type:      WSTypeJobStatus,
+		Payload:   statusJSON,
+		Timestamp: time.Now(),
+	}
+
+	// Send via safeSendMessage with timeout (must be delivered)
+	if !c.safeSendMessage(msg, 5000) {
+		debug.Error("Failed to send job status: channel blocked or closed")
+		return fmt.Errorf("failed to send status: channel blocked")
+	}
+
+	debug.Debug("Sent job status for task %s: %.2f%% complete",
+		status.TaskID, status.ProgressPercent)
+	return nil
+}
+
+// SendCrackBatchAsync sends crack batch asynchronously (non-blocking)
+func (c *Connection) SendCrackBatchAsync(batch *jobs.CrackBatch) error {
+	// Panic recovery (send on closed channel)
+	defer func() {
+		if r := recover(); r != nil {
+			debug.Error("Panic in SendCrackBatchAsync: %v", r)
+		}
+	}()
+
+	if !c.isConnected.Load() {
+		return fmt.Errorf("not connected")
+	}
+
+	// Marshal batch payload to JSON
+	batchJSON, err := json.Marshal(batch)
+	if err != nil {
+		return fmt.Errorf("failed to marshal crack batch: %w", err)
+	}
+
+	msg := &WSMessage{
+		Type:      WSTypeCrackBatch,
+		Payload:   batchJSON,
+		Timestamp: time.Now(),
+	}
+
+	// Non-blocking send - drop if channel full (recovered from outfile)
+	select {
+	case c.outbound <- msg:
+		debug.Debug("Queued crack batch: %d cracks for task %s", len(batch.CrackedHashes), batch.TaskID)
+		return nil
+	default:
+		debug.Warning("Crack batch dropped (channel full): %d cracks for task %s - will recover from outfile",
+			len(batch.CrackedHashes), batch.TaskID)
+		return fmt.Errorf("channel full, cracks dropped")
+	}
 }
 
 // SendHashcatOutput sends hashcat output to the server
@@ -2506,9 +2610,9 @@ func (c *Connection) TryDetectDevicesIfNeeded() {
 // shouldBufferMessage determines if a message should be buffered
 func (c *Connection) shouldBufferMessage(msg *WSMessage) bool {
 	switch msg.Type {
-	case WSTypeJobProgress, WSTypeHashcatOutput, WSTypeBenchmarkResult:
+	case WSTypeJobProgress, WSTypeCrackBatch, WSTypeHashcatOutput, WSTypeBenchmarkResult:
 		// Check if message contains crack information
-		if msg.Type == WSTypeJobProgress || msg.Type == WSTypeHashcatOutput {
+		if msg.Type == WSTypeJobProgress || msg.Type == WSTypeCrackBatch || msg.Type == WSTypeHashcatOutput {
 			return buffer.HasCrackedHashes(msg.Payload)
 		}
 		return true

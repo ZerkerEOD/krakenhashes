@@ -496,7 +496,7 @@ journalctl -f | grep -i "oom\|memory"
    ```bash
    # Verify agent is connected
    journalctl -u krakenhashes-agent | grep -i "websocket\|connected" | tail -5
-   
+
    # Look for progress send errors
    journalctl -u krakenhashes-agent | grep -i "progress\|send.*fail" | tail -10
    ```
@@ -505,10 +505,176 @@ journalctl -f | grep -i "oom\|memory"
    ```bash
    # Restart agent service
    systemctl restart krakenhashes-agent
-   
+
    # Monitor connection establishment
    journalctl -u krakenhashes-agent -f | grep -i "connect\|progress"
    ```
+
+## Agent Stability and Connection Issues
+
+### Agent Crashes During High-Volume Cracking
+
+**Symptoms:**
+- Agent crashes when thousands of hashes crack rapidly
+- Panic errors related to closed channels
+- Connection drops during large password discoveries
+- "send on closed channel" errors
+
+**Root Cause:**
+High-volume cracking (e.g., 4,000+ cracks in seconds) can overwhelm the WebSocket message system if not properly buffered.
+
+**Solutions Implemented (v1.2.1+):**
+
+The system now includes automatic protections:
+
+1. **Crack Batching System**
+   - Cracks are batched in 500ms windows or 10,000-crack groups
+   - Reduces message volume by 100x (8,000 messages → 80 messages)
+   - See [Crack Batching System](../../reference/architecture/crack-batching-system.md) for details
+
+2. **Increased Channel Buffers**
+   ```go
+   // Agent outbound buffer increased from 256 → 4,096 messages
+   // Handles burst traffic during high-volume cracking
+   ```
+
+3. **Channel Monitoring**
+   - Automatic warnings when buffer reaches 75% capacity
+   - Critical alerts at 90% capacity
+   - Graceful message dropping instead of crashes
+
+**Monitoring for Issues:**
+```bash
+# Check for channel fullness warnings
+journalctl -u krakenhashes-agent | grep -i "channel.*full\|fullness"
+
+# Look for dropped messages (indicates overload)
+journalctl -u krakenhashes-agent | grep -i "dropped message"
+
+# Monitor batch sizes (should be 500-10000 cracks)
+journalctl -u krakenhashes-agent | grep -i "flush.*batch"
+```
+
+**Expected Log Messages (Normal Operation):**
+```
+[INFO] Flushing crack batch for task abc-123: 2453 cracks
+[DEBUG] Crack batch sent successfully
+```
+
+**Warning Signs:**
+```
+[WARNING] Outbound channel filling up (78.2%)
+[ERROR] Outbound channel critically full (92.5%)
+[ERROR] Dropped message - channel full (95.0%)
+```
+
+**Recovery Actions:**
+
+If you see persistent channel fullness warnings:
+
+1. **Check Backend Performance**
+   ```bash
+   # Verify backend is processing batches quickly
+   docker logs krakenhashes-backend | grep -i "crack batch\|processing.*cracks"
+   ```
+
+2. **Monitor Network Bandwidth**
+   ```bash
+   # Ensure adequate bandwidth for WebSocket traffic
+   iftop -i eth0  # or your network interface
+   ```
+
+3. **Verify Database Performance**
+   ```bash
+   # Check for slow crack processing queries
+   # (See backend logs for timing information)
+   docker logs krakenhashes-backend | grep -i "processed.*cracks.*seconds"
+   ```
+
+### Double-Close Panic Prevention
+
+**Historical Issue (Fixed in v1.2.1):**
+Agents could crash with "close of closed channel" panics during connection cleanup.
+
+**Symptoms (if using older version):**
+```
+panic: close of closed channel
+goroutine 123 [running]:
+agent/internal/agent.(*AgentConnection).cleanup()
+```
+
+**Solution:**
+Update to v1.2.1+ which includes:
+- Mutex-protected channel closing
+- Close-once semantics with sync.Once
+- Graceful shutdown during connection cleanup
+
+**If Still Experiencing Issues:**
+```bash
+# Verify agent version
+/path/to/krakenhashes-agent --version
+
+# Should show v1.2.1 or later
+# If older, update agent binary
+```
+
+### Channel Overflow Protection
+
+**How the System Protects You:**
+
+1. **Automatic Batching**
+   - Individual cracks accumulated in memory
+   - Sent in bulk every 500ms or when 10k accumulated
+   - Reduces network traffic and message count
+
+2. **Buffer Monitoring**
+   - System tracks outbound channel capacity
+   - Warnings logged before critical levels reached
+   - Allows proactive investigation
+
+3. **Graceful Degradation**
+   - If channel is full, message is dropped (not crashed)
+   - Drop events are logged for investigation
+   - Agent remains operational
+
+**Performance Tuning:**
+
+For environments with extremely high crack rates:
+
+```bash
+# Increase channel buffer (requires agent rebuild)
+# Edit agent/internal/agent/connection.go:
+# outbound: make(chan []byte, 8192)  // Double the default
+
+# Or reduce batch window for more frequent smaller batches
+# Edit agent/internal/jobs/hashcat_executor.go:
+# crackBatchInterval: 250 * time.Millisecond  // Half the window
+```
+
+**⚠️ Warning:** Custom tuning is rarely needed. The defaults handle >99% of scenarios including extremely high-volume cracking.
+
+### Connection Stability Best Practices
+
+1. **Monitor Logs Proactively**
+   ```bash
+   # Set up log monitoring for early warning signs
+   journalctl -u krakenhashes-agent -f | grep -E "WARNING|ERROR|full|dropped"
+   ```
+
+2. **Network Quality**
+   - Ensure stable, low-latency connection to backend
+   - Avoid Wi-Fi for production agents (use wired connections)
+   - Monitor for packet loss: `mtr your-backend-host`
+
+3. **Backend Capacity**
+   - Ensure backend can process batches quickly (<5 seconds)
+   - Monitor backend CPU/memory during high-volume jobs
+   - Scale backend resources if consistent warnings appear
+
+4. **Update Regularly**
+   - Keep agent binary up to date for latest stability fixes
+   - Review release notes for performance improvements
+   - Test updates in dev environment first
 
 ## Performance Problems
 

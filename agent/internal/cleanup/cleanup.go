@@ -113,6 +113,11 @@ func (cs *CleanupService) performCleanup(ctx context.Context) {
 	totalDeleted += deleted
 	totalSize += size
 
+	// Clean orphaned outfiles
+	deleted, size = cs.cleanupOutfiles()
+	totalDeleted += deleted
+	totalSize += size
+
 	if totalDeleted > 0 {
 		debug.Info("Cleanup completed: deleted %d files, freed %s", totalDeleted, formatBytes(totalSize))
 	} else {
@@ -356,4 +361,60 @@ func (cs *CleanupService) GetLastCleanupTime() time.Time {
 // ForceCleanup triggers an immediate cleanup
 func (cs *CleanupService) ForceCleanup(ctx context.Context) {
 	go cs.performCleanup(ctx)
+}
+
+// cleanupOutfiles removes orphaned hashcat outfiles older than 24 hours
+func (cs *CleanupService) cleanupOutfiles() (int, int64) {
+	// Get base directory from binaries path (parent directory)
+	baseDir := filepath.Dir(cs.dataDirs.Binaries)
+	outfileDir := filepath.Join(baseDir, "outfile")
+	if _, err := os.Stat(outfileDir); os.IsNotExist(err) {
+		return 0, 0 // Directory doesn't exist yet
+	}
+
+	// Clean outfiles older than 1 day (much shorter than other files)
+	// These should be deleted immediately after task completion
+	deleted := 0
+	totalSize := int64(0)
+	cutoffTime := time.Now().Add(-24 * time.Hour)
+
+	err := filepath.Walk(outfileDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			debug.Debug("Error accessing path %s: %v", path, err)
+			return nil
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		// Only delete .txt files (our outfile format)
+		if filepath.Ext(info.Name()) != ".txt" {
+			return nil
+		}
+
+		// Check if older than 24 hours
+		if info.ModTime().After(cutoffTime) {
+			return nil
+		}
+
+		// Delete orphaned outfile
+		size := info.Size()
+		if err := os.Remove(path); err != nil {
+			debug.Error("Failed to delete orphaned outfile %s: %v", path, err)
+		} else {
+			debug.Debug("Deleted orphaned outfile: %s (age: %s, size: %d bytes)",
+				path, time.Since(info.ModTime()), size)
+			deleted++
+			totalSize += size
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		debug.Error("Error walking outfile directory for cleanup: %v", err)
+	}
+
+	return deleted, totalSize
 }

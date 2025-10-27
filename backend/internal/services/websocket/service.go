@@ -16,6 +16,7 @@ import (
 // JobHandler interface for handling job-related WebSocket messages
 type JobHandler interface {
 	ProcessJobProgress(ctx context.Context, agentID int, payload json.RawMessage) error
+	ProcessCrackBatch(ctx context.Context, agentID int, payload json.RawMessage) error
 	ProcessBenchmarkResult(ctx context.Context, agentID int, payload json.RawMessage) error
 	RecoverTask(ctx context.Context, taskID string, agentID int, keyspaceProcessed int64) error
 	HandleAgentReconnectionWithNoTask(ctx context.Context, agentID int) (int, error)
@@ -30,6 +31,8 @@ const (
 	TypeHeartbeat       MessageType = "heartbeat"
 	TypeTaskStatus      MessageType = "task_status"
 	TypeJobProgress     MessageType = "job_progress"
+	TypeJobStatus       MessageType = "job_status"        // Status-only (synchronous)
+	TypeCrackBatch      MessageType = "crack_batch"       // Cracks-only (asynchronous)
 	TypeBenchmarkResult MessageType = "benchmark_result"
 	TypeAgentStatus     MessageType = "agent_status"
 	TypeErrorReport     MessageType = "error_report"
@@ -266,13 +269,22 @@ type Service struct {
 	clients      map[int]*Client
 	mu           sync.RWMutex
 	jobHandler   JobHandler // Interface for handling job-related messages
+
+	// Semaphore for limiting concurrent crack batch processing
+	crackBatchSem chan struct{}
+	crackBatchWg  sync.WaitGroup
 }
 
 // NewService creates a new WebSocket service
 func NewService(agentService *services.AgentService) *Service {
+	// Limit concurrent crack batch processing to 5 goroutines
+	// This prevents database connection pool exhaustion and deadlocks
+	maxConcurrentCrackBatches := 5
+
 	return &Service{
-		agentService: agentService,
-		clients:      make(map[int]*Client),
+		agentService:  agentService,
+		clients:       make(map[int]*Client),
+		crackBatchSem: make(chan struct{}, maxConcurrentCrackBatches),
 	}
 }
 
@@ -302,6 +314,10 @@ func (s *Service) HandleMessage(ctx context.Context, agent *models.Agent, msg *M
 		return s.handleTaskStatus(ctx, agent, msg)
 	case TypeJobProgress:
 		return s.handleJobProgress(ctx, agent, msg)
+	case TypeJobStatus:
+		return s.handleJobStatus(ctx, agent, msg)
+	case TypeCrackBatch:
+		return s.handleCrackBatch(ctx, agent, msg)
 	case TypeBenchmarkResult:
 		return s.handleBenchmarkResult(ctx, agent, msg)
 	case TypeAgentStatus:
@@ -530,6 +546,60 @@ func (s *Service) handleJobProgress(ctx context.Context, agent *models.Agent, ms
 
 		if err := s.jobHandler.ProcessJobProgress(asyncCtx, agent.ID, msg.Payload); err != nil {
 			debug.Error("Failed to process job progress from agent %d: %v", agent.ID, err)
+		}
+	}()
+
+	return nil
+}
+
+// handleJobStatus processes job status messages from agents (status-only, synchronous)
+func (s *Service) handleJobStatus(ctx context.Context, agent *models.Agent, msg *Message) error {
+	// If no job handler is set, just log and ignore
+	if s.jobHandler == nil {
+		debug.Debug("Received job status from agent %d but no job handler set", agent.ID)
+		return nil
+	}
+
+	// Process job status synchronously (small, frequent messages)
+	// This is the same as job progress handler since they both update the same data
+	if err := s.jobHandler.ProcessJobProgress(ctx, agent.ID, msg.Payload); err != nil {
+		debug.Error("Failed to process job status from agent %d: %v", agent.ID, err)
+		return err
+	}
+
+	return nil
+}
+
+// handleCrackBatch processes crack batch messages from agents (cracks-only, asynchronous)
+func (s *Service) handleCrackBatch(ctx context.Context, agent *models.Agent, msg *Message) error {
+	// If no job handler is set, just log and ignore
+	if s.jobHandler == nil {
+		debug.Debug("Received crack batch from agent %d but no job handler set", agent.ID)
+		return nil
+	}
+
+	// Increment wait group before spawning goroutine
+	s.crackBatchWg.Add(1)
+
+	// Process crack batch asynchronously to avoid blocking the read loop
+	// Use semaphore to limit concurrent processing and prevent database overload
+	go func() {
+		defer s.crackBatchWg.Done()
+
+		// Acquire semaphore (blocks if at capacity)
+		s.crackBatchSem <- struct{}{}
+		defer func() { <-s.crackBatchSem }() // Release semaphore when done
+
+		// Create a new context with timeout for the async operation
+		// Extended timeout for large batches (10k cracks can take time to insert)
+		asyncCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+
+		debug.Debug("Processing crack batch from agent %d (semaphore acquired)", agent.ID)
+		if err := s.jobHandler.ProcessCrackBatch(asyncCtx, agent.ID, msg.Payload); err != nil {
+			debug.Error("Failed to process crack batch from agent %d: %v", agent.ID, err)
+		} else {
+			debug.Debug("Successfully processed crack batch from agent %d", agent.ID)
 		}
 	}()
 

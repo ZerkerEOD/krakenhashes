@@ -662,10 +662,7 @@ func main() {
 	// Create job manager before establishing connection
 	debug.Info("Creating job manager...")
 	agentConfig := config.NewConfig()
-	
-	// Progress callback will be set after connection is established
-	var progressCallback func(*jobs.JobProgress)
-	
+
 	// Job manager will be created after connection is established
 	// so we can pass the hardware monitor
 	var jobManager *jobs.JobManager
@@ -711,18 +708,29 @@ func main() {
 		debug.Info("Checking for device detection at startup...")
 		conn.TryDetectDevicesIfNeeded()
 		
-		// Now set up the progress callback with the connection
-		progressCallback = func(progress *jobs.JobProgress) {
-			debug.Info("Job progress: Task %s, Keyspace %d, Hash rate %d H/s", 
-				progress.TaskID, progress.KeyspaceProcessed, progress.HashRate)
-			
-			// Send progress to backend via WebSocket
-			if err := conn.SendJobProgress(progress); err != nil {
-				debug.Error("Failed to send job progress to backend: %v", err)
+		// Set up dual callbacks for status and cracks
+		statusCallback := func(status *jobs.JobStatus) {
+			debug.Debug("Job status: Task %s, Progress %.2f%%, Hash rate %d H/s",
+				status.TaskID, status.ProgressPercent, status.HashRate)
+
+			// Send status to backend via WebSocket (synchronous, must be delivered)
+			if err := conn.SendJobStatus(status); err != nil {
+				debug.Error("Failed to send job status to backend: %v", err)
 			}
 		}
-		jobManager.SetProgressCallback(progressCallback)
-		debug.Info("Progress callback configured to send updates to backend")
+		jobManager.SetStatusCallback(statusCallback)
+		debug.Info("Status callback configured to send updates to backend")
+
+		crackCallback := func(batch *jobs.CrackBatch) {
+			debug.Info("Crack batch: Task %s, %d cracks", batch.TaskID, len(batch.CrackedHashes))
+
+			// Send crack batch to backend via WebSocket (asynchronous, can drop)
+			if err := conn.SendCrackBatchAsync(batch); err != nil {
+				debug.Warning("Failed to send crack batch to backend: %v (will recover from outfile)", err)
+			}
+		}
+		jobManager.SetCrackCallback(crackCallback)
+		debug.Info("Crack callback configured to send batches to backend")
 		
 		// Set up output callback to send hashcat output via websocket
 		outputCallback := func(taskID string, output string, isError bool) {

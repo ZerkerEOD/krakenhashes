@@ -212,6 +212,104 @@ Monitor agent health through:
    - Error frequency
    - Recovery status
 
+## Job Scheduling Robustness (v1.2.1+)
+
+### Agent Crash Recovery
+
+Starting with version 1.2.1, the system includes automatic recovery from agent crashes with improved keyspace accounting:
+
+**Problem Solved**: When an agent crashes while executing a task, the system now properly returns the unfinished work back to the pool for reassignment.
+
+**How It Works**:
+1. Agent crashes with task assigned (e.g., keyspace 0-100,000)
+2. Backend detects disconnect and resets task to "pending"
+3. **NEW**: `dispatched_keyspace` is decremented by the task's chunk size
+4. Scheduler can now reassign the work to another agent
+5. No manual intervention required
+
+**Monitoring Recovery Operations**:
+
+```sql
+-- Check for jobs with recently reset tasks
+SELECT
+    je.id as job_id,
+    je.name as job_name,
+    je.status,
+    je.dispatched_keyspace,
+    je.total_keyspace,
+    COUNT(CASE WHEN jt.status = 'pending'
+               AND jt.keyspace_start IS NOT NULL
+          THEN 1 END) as reset_tasks,
+    COUNT(jt.id) as total_tasks
+FROM job_executions je
+JOIN job_tasks jt ON je.id = jt.job_execution_id
+WHERE je.status IN ('running', 'pending')
+GROUP BY je.id, je.name, je.status, je.dispatched_keyspace, je.total_keyspace
+HAVING COUNT(CASE WHEN jt.status = 'pending'
+                   AND jt.keyspace_start IS NOT NULL
+              THEN 1 END) > 0;
+```
+
+**Expected Results:**
+- Reset tasks should be reassigned within next scheduling cycle
+- `dispatched_keyspace` should be less than `total_keyspace` when reset tasks exist
+- No jobs should remain stuck with pending work that can't be assigned
+
+**Validation Query**:
+```sql
+-- Verify keyspace accounting is correct
+SELECT
+    je.id,
+    je.name,
+    je.total_keyspace,
+    je.dispatched_keyspace,
+    COALESCE(SUM(CASE WHEN jt.status != 'pending'
+                      THEN jt.keyspace_end - jt.keyspace_start
+                      ELSE 0 END), 0) as actual_dispatched,
+    (je.dispatched_keyspace - COALESCE(SUM(CASE WHEN jt.status != 'pending'
+                                                  THEN jt.keyspace_end - jt.keyspace_start
+                                                  ELSE 0 END), 0)) as keyspace_mismatch
+FROM job_executions je
+LEFT JOIN job_tasks jt ON je.id = jt.job_execution_id
+WHERE je.status IN ('running', 'pending')
+GROUP BY je.id, je.name, je.total_keyspace, je.dispatched_keyspace
+HAVING ABS(je.dispatched_keyspace - COALESCE(SUM(CASE WHEN jt.status != 'pending'
+                                                       THEN jt.keyspace_end - jt.keyspace_start
+                                                       ELSE 0 END), 0)) > 1000;
+```
+
+**Interpretation:**
+- `keyspace_mismatch` should be near zero (within 1000 for rounding)
+- Large mismatches indicate potential accounting issues
+- Empty results = healthy keyspace tracking
+
+### Agent Crash Patterns
+
+Track agent reliability:
+
+```sql
+-- Agents with frequent task resets (potential stability issues)
+SELECT
+    a.id,
+    a.name,
+    COUNT(CASE WHEN jt.retry_count > 0 THEN 1 END) as reset_count,
+    COUNT(jt.id) as total_tasks,
+    (COUNT(CASE WHEN jt.retry_count > 0 THEN 1 END)::float /
+     NULLIF(COUNT(jt.id), 0) * 100) as reset_percentage
+FROM agents a
+LEFT JOIN job_tasks jt ON a.id = jt.agent_id
+WHERE jt.created_at > NOW() - INTERVAL '7 days'
+GROUP BY a.id, a.name
+HAVING COUNT(CASE WHEN jt.retry_count > 0 THEN 1 END) > 5
+ORDER BY reset_percentage DESC;
+```
+
+**Action Items:**
+- Agents with >10% reset rate may have stability issues
+- Check agent logs for crashes or disconnections
+- Investigate hardware problems (overheating, power issues)
+- Consider updating agent software if outdated
+
 ### Database Queries for Agent Monitoring
 
 ```sql
