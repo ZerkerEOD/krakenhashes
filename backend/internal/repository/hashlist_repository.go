@@ -11,6 +11,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 // HashListRepository handles database operations for hashlists.
@@ -454,38 +455,84 @@ func (r *HashListRepository) Delete(ctx context.Context, id int64) error {
 	}
 	debug.Info("[Delete:%d] Deleted hashlist record.", id)
 
-	// 3. Check and delete orphaned hashes
+	// 3. Check and delete orphaned hashes in batches
 	if len(associatedHashIDs) > 0 {
-		// Query to check if a hash ID still exists in hashlist_hashes
-		// We need to check one by one or construct a potentially large IN query.
-		// Checking one by one might be safer with many hashes.
-		checkOrphanQuery := `SELECT 1 FROM hashlist_hashes WHERE hash_id = $1 LIMIT 1`
-		deleteOrphanQuery := `DELETE FROM hashes WHERE id = $1`
-		orphansDeleted := 0
+		debug.Info("[Delete:%d] Checking for orphaned hashes among %d candidates...", id, len(associatedHashIDs))
 
-		for _, hashID := range associatedHashIDs {
-			var exists int
-			err := tx.QueryRowContext(ctx, checkOrphanQuery, hashID).Scan(&exists)
+		// Process in batches to avoid shared memory issues with large arrays
+		checkBatchSize := 50000 // Check 50k hashes at a time for orphan status
+		deleteBatchSize := 10000 // Delete in smaller batches
+		totalOrphansDeleted := 0
+
+		for batchStart := 0; batchStart < len(associatedHashIDs); batchStart += checkBatchSize {
+			batchEnd := batchStart + checkBatchSize
+			if batchEnd > len(associatedHashIDs) {
+				batchEnd = len(associatedHashIDs)
+			}
+
+			checkBatch := associatedHashIDs[batchStart:batchEnd]
+
+			// Find orphaned hashes in this batch
+			// An orphan is a hash that was in this hashlist but is NOT in any other hashlist
+			// After the CASCADE delete, orphaned hashes will have NO entries in hashlist_hashes
+			orphanQuery := `
+				SELECT id FROM hashes
+				WHERE id = ANY($1)
+				AND NOT EXISTS (
+					SELECT 1 FROM hashlist_hashes WHERE hash_id = hashes.id
+				)
+			`
+
+			rows, err := tx.QueryContext(ctx, orphanQuery, pq.Array(checkBatch))
 			if err != nil {
-				if err == sql.ErrNoRows {
-					// This hash ID is no longer in hashlist_hashes, it's an orphan.
-					debug.Debug("[Delete:%d] Hash %s is orphaned. Deleting...", id, hashID)
-					_, delErr := tx.ExecContext(ctx, deleteOrphanQuery, hashID)
-					if delErr != nil {
-						// Log error but attempt to continue deleting other orphans
-						debug.Error("[Delete:%d] Failed to delete orphaned hash %s: %v", id, hashID, delErr)
-						// Optionally: return error immediately? For now, continue.
-					} else {
-						orphansDeleted++
-					}
-				} else {
-					// Unexpected error checking orphan status
-					debug.Error("[Delete:%d] Failed to check orphan status for hash %s: %v", id, hashID, err)
-					return fmt.Errorf("failed to check orphan status for hash %s: %w", hashID, err)
+				debug.Error("[Delete:%d] Failed to query orphaned hashes in batch %d-%d: %v", id, batchStart, batchEnd, err)
+				return fmt.Errorf("failed to query orphaned hashes for hashlist %d: %w", id, err)
+			}
+
+			var orphanedHashIDs []uuid.UUID
+			for rows.Next() {
+				var hashID uuid.UUID
+				if err := rows.Scan(&hashID); err != nil {
+					rows.Close()
+					debug.Error("[Delete:%d] Failed to scan orphaned hash ID: %v", id, err)
+					return fmt.Errorf("failed to scan orphaned hash ID: %w", err)
 				}
-			} // else: exists == 1, hash is still referenced, do nothing
+				orphanedHashIDs = append(orphanedHashIDs, hashID)
+			}
+			rows.Close()
+
+			if len(orphanedHashIDs) > 0 {
+				debug.Info("[Delete:%d] Found %d orphaned hashes in batch %d-%d", id, len(orphanedHashIDs), batchStart, batchEnd)
+
+				// Delete orphaned hashes in smaller batches
+				for i := 0; i < len(orphanedHashIDs); i += deleteBatchSize {
+					end := i + deleteBatchSize
+					if end > len(orphanedHashIDs) {
+						end = len(orphanedHashIDs)
+					}
+
+					deleteBatch := orphanedHashIDs[i:end]
+					deleteOrphanQuery := `DELETE FROM hashes WHERE id = ANY($1)`
+
+					result, err := tx.ExecContext(ctx, deleteOrphanQuery, pq.Array(deleteBatch))
+					if err != nil {
+						debug.Error("[Delete:%d] Failed to delete orphaned hash batch: %v", id, err)
+						return fmt.Errorf("failed to delete orphaned hash batch: %w", err)
+					}
+
+					deleted, _ := result.RowsAffected()
+					totalOrphansDeleted += int(deleted)
+				}
+			}
+
+			// Progress logging every 100k candidates checked
+			if batchStart > 0 && batchStart%100000 == 0 {
+				debug.Info("[Delete:%d] Progress: checked %d/%d candidates, deleted %d orphans so far...",
+					id, batchEnd, len(associatedHashIDs), totalOrphansDeleted)
+			}
 		}
-		debug.Info("[Delete:%d] Deleted %d orphaned hashes.", id, orphansDeleted)
+
+		debug.Info("[Delete:%d] Deleted %d orphaned hashes total.", id, totalOrphansDeleted)
 	}
 
 	// 4. Commit the transaction
@@ -624,4 +671,72 @@ func (r *HashListRepository) IsExcludedFromPotfile(ctx context.Context, hashlist
 		return false, fmt.Errorf("failed to check potfile exclusion for hashlist %d: %w", hashlistID, err)
 	}
 	return excluded, nil
+}
+
+// GetHashlistsContainingHashes returns all hashlists that contain any of the specified hash values
+// This is used to find all hashlists affected by newly cracked hashes for cross-hashlist updates
+func (r *HashListRepository) GetHashlistsContainingHashes(ctx context.Context, hashValues []string) ([]models.HashList, error) {
+	if len(hashValues) == 0 {
+		return []models.HashList{}, nil
+	}
+
+	query := `
+		SELECT DISTINCT hl.id, hl.name, hl.hash_type_id, hl.file_path, hl.total_hashes,
+		       hl.cracked_hashes, hl.user_id, hl.client_id, hl.created_at, hl.updated_at,
+		       hl.status, hl.exclude_from_potfile
+		FROM hashlists hl
+		JOIN hashlist_hashes hh ON hl.id = hh.hashlist_id
+		JOIN hashes h ON hh.hash_id = h.id
+		WHERE h.hash_value = ANY($1)
+		ORDER BY hl.id`
+
+	rows, err := r.db.QueryContext(ctx, query, pq.Array(hashValues))
+	if err != nil {
+		return nil, fmt.Errorf("failed to query hashlists containing hashes: %w", err)
+	}
+	defer rows.Close()
+
+	var hashlists []models.HashList
+	for rows.Next() {
+		var hl models.HashList
+		var clientID sql.NullString
+		err := rows.Scan(&hl.ID, &hl.Name, &hl.HashTypeID, &hl.FilePath, &hl.TotalHashes,
+			&hl.CrackedHashes, &hl.UserID, &clientID, &hl.CreatedAt, &hl.UpdatedAt,
+			&hl.Status, &hl.ExcludeFromPotfile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan hashlist: %w", err)
+		}
+
+		if clientID.Valid {
+			if parsedUUID, parseErr := uuid.Parse(clientID.String); parseErr == nil {
+				hl.ClientID = parsedUUID
+			}
+		}
+
+		hashlists = append(hashlists, hl)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating hashlists: %w", err)
+	}
+
+	return hashlists, nil
+}
+
+// GetUncrackedHashCount returns the number of uncracked hashes for a given hashlist
+// Used for progressive effective keyspace refinement when hashlist changes
+func (r *HashListRepository) GetUncrackedHashCount(ctx context.Context, hashlistID int64) (int, error) {
+	query := `
+		SELECT COUNT(DISTINCT h.id)
+		FROM hashes h
+		JOIN hashlist_hashes hh ON h.id = hh.hash_id
+		WHERE hh.hashlist_id = $1 AND h.is_cracked = false`
+
+	var count int
+	err := r.db.QueryRowContext(ctx, query).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get uncracked hash count: %w", err)
+	}
+
+	return count, nil
 }

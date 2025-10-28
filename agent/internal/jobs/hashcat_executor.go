@@ -91,6 +91,29 @@ type JobProgress struct {
 	AllHashesCracked       bool           `json:"all_hashes_cracked,omitempty"`         // Flag indicating all hashes in hashlist were cracked (exit code 6)
 }
 
+// JobStatus represents status-only message (synchronous, no crack data)
+type JobStatus struct {
+	TaskID                 string   `json:"task_id"`
+	KeyspaceProcessed      int64    `json:"keyspace_processed"`
+	EffectiveProgress      int64    `json:"effective_progress"`
+	ProgressPercent        float64  `json:"progress_percent"`
+	TotalEffectiveKeyspace *int64   `json:"total_effective_keyspace,omitempty"`
+	IsFirstUpdate          bool     `json:"is_first_update"`
+	HashRate               int64    `json:"hash_rate"`
+	TimeRemaining          *int     `json:"time_remaining,omitempty"`
+	CrackedCount           int      `json:"cracked_count"` // Total count only, not actual hashes
+	Status                 string   `json:"status,omitempty"`
+	ErrorMessage           string   `json:"error_message,omitempty"`
+	DeviceMetrics          []DeviceMetric `json:"device_metrics,omitempty"`
+	AllHashesCracked       bool     `json:"all_hashes_cracked,omitempty"`
+}
+
+// CrackBatch represents crack-only message (asynchronous)
+type CrackBatch struct {
+	TaskID        string         `json:"task_id"`
+	CrackedHashes []CrackedHash  `json:"cracked_hashes"`
+}
+
 // CrackedHash represents a cracked hash with all available information
 type CrackedHash struct {
 	Hash         string `json:"hash"`          // The original hash
@@ -153,6 +176,12 @@ type HashcatProcess struct {
 	// Hashlist tracking for crack parsing
 	HashlistContent []string  // Store the hashes we're cracking
 
+	// Outfile tracking for reliable crack capture
+	OutfilePath       string            // Path to hashcat --outfile
+	OutfileSentHashes map[string]bool   // Track sent hash:password lines (deduplication)
+	OutfileMutex      sync.Mutex        // Protect outfile state
+	OutfileOffset     int64             // Current read position in outfile
+
 	// Error tracking
 	AlreadyRunningError bool
 	mutex              sync.Mutex
@@ -169,7 +198,7 @@ func NewHashcatExecutor(dataDirectory string) *HashcatExecutor {
 		activeProcesses:    make(map[string]*HashcatProcess),
 		crackBatchBuffers:  make(map[string][]CrackedHash),
 		crackBatchTimers:   make(map[string]*time.Timer),
-		crackBatchInterval: 100 * time.Millisecond, // 100ms batching window
+		crackBatchInterval: 500 * time.Millisecond, // 500ms batching window (reduced frequency)
 	}
 	
 	// Clean up any orphaned processes on startup
@@ -307,6 +336,13 @@ func (e *HashcatExecutor) executeTaskInternal(ctx context.Context, assignment *J
 	// Create process context with cancellation
 	processCtx, cancel := context.WithCancel(ctx)
 
+	// Create outfile directory if not exists
+	outfileDir := filepath.Join(e.dataDirectory, "outfile")
+	if err := os.MkdirAll(outfileDir, 0755); err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to create outfile directory: %w", err)
+	}
+
 	// Build hashcat command
 	command, statusFile, potFile, outputFile, err := e.buildHashcatCommand(assignment)
 	if err != nil {
@@ -349,18 +385,21 @@ func (e *HashcatExecutor) executeTaskInternal(ctx context.Context, assignment *J
 
 	// Create process structure
 	process := &HashcatProcess{
-		TaskID:          assignment.TaskID,
-		Assignment:      assignment,
-		Cmd:             command,
-		Cancel:          cancel,
-		ProgressChannel: make(chan *JobProgress, 100),
-		StatusFile:      statusFile,
-		PotFile:         potFile,
-		OutputFile:      outputFile,
-		StdinPipe:       stdinPipe,
-		IsRunning:       false,
-		StartTime:       time.Now(),
-		HashlistContent: hashlistContent,
+		TaskID:            assignment.TaskID,
+		Assignment:        assignment,
+		Cmd:               command,
+		Cancel:            cancel,
+		ProgressChannel:   make(chan *JobProgress, 100),
+		StatusFile:        statusFile,
+		PotFile:           potFile,
+		OutputFile:        outputFile,
+		StdinPipe:         stdinPipe,
+		IsRunning:         false,
+		StartTime:         time.Now(),
+		HashlistContent:   hashlistContent,
+		OutfilePath:       outputFile, // Set outfile path for monitoring
+		OutfileSentHashes: make(map[string]bool), // Initialize deduplication map
+		OutfileOffset:     0, // Start reading from beginning
 	}
 
 	// Store process
@@ -433,9 +472,21 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 		args = append(args, extraParamsList...)
 	}
 	
-	// Only add --remove for actual job execution, not benchmarks
+	// Only add --outfile for actual job execution, not benchmarks
+	// Note: --remove flag removed as it's not needed for distributed cracking
+	// The backend tracks which hashes are cracked via the database
 	if !isBenchmark {
-		args = append(args, "--remove") // Remove cracked hashes from hashlist
+		// Add outfile for reliable crack capture
+		outfileDir := filepath.Join(e.dataDirectory, "outfile")
+		if err := os.MkdirAll(outfileDir, 0755); err != nil {
+			return nil, "", "", "", fmt.Errorf("failed to create outfile directory: %w", err)
+		}
+
+		outfilePath := filepath.Join(outfileDir, fmt.Sprintf("%s.txt", assignment.TaskID))
+		args = append(args, "--outfile", outfilePath)
+		args = append(args, "--outfile-format", "1,2") // Format 1,2: hash:plain (colon-separated)
+		outputFile = outfilePath // Store for return value
+		debug.Info("Outfile configured: %s", outfilePath)
 	}
 
 	// Add skip and limit for keyspace distribution
@@ -538,6 +589,29 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 // runHashcatProcess executes and monitors a hashcat process
 func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *HashcatProcess, stdoutPipe, stderrPipe io.ReadCloser) {
 	defer func() {
+		// Final outfile read to catch any remaining cracks
+		if process.OutfilePath != "" {
+			debug.Info("Performing final outfile read for task %s", process.TaskID)
+			e.readNewOutfileLines(process)
+
+			// Flush any pending crack batches immediately
+			debug.Info("Flushing pending crack batches for task %s", process.TaskID)
+			e.cleanupBatchState(process)
+
+			// Wait briefly for any batch timers that just fired to complete
+			// This prevents race condition where timer fires after final read but before cleanup
+			time.Sleep(150 * time.Millisecond)
+			debug.Info("Batch flush wait completed for task %s", process.TaskID)
+
+			// Don't delete outfile here - let monitorOutfile handle it after confirming all batches sent
+			// This prevents premature deletion when processing large numbers of cracks (e.g., 1.75M)
+			// if err := os.Remove(process.OutfilePath); err != nil {
+			// 	debug.Warning("Failed to delete outfile %s: %v", process.OutfilePath, err)
+			// } else {
+			// 	debug.Info("Deleted outfile artifact: %s", process.OutfilePath)
+			// }
+		}
+
 		e.mutex.Lock()
 		delete(e.activeProcesses, process.TaskID)
 		e.mutex.Unlock()
@@ -545,10 +619,10 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 		if process.StdinPipe != nil {
 			process.StdinPipe.Close()
 		}
-		
+
 		// Clean up PID file
 		os.Remove(hashcatPIDFile)
-		
+
 		// Ensure the process is killed if still running
 		if process.Cmd != nil && process.Cmd.Process != nil {
 			// Send SIGTERM first
@@ -870,7 +944,15 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 	}
 	
 	debug.Info("Hashcat process started successfully with PID: %d", process.Cmd.Process.Pid)
-	
+
+	// Start outfile monitoring goroutine
+	if process.OutfilePath != "" {
+		outfileCtx, outfileCancel := context.WithCancel(ctx)
+		defer outfileCancel()
+		go e.monitorOutfile(outfileCtx, process)
+		debug.Info("Started outfile monitor for task %s", process.TaskID)
+	}
+
 	// Write PID to file for tracking
 	if err := e.writePIDFile(process.Cmd.Process.Pid); err != nil {
 		debug.Warning("Failed to write PID file: %v", err)
@@ -1071,31 +1153,32 @@ func (e *HashcatExecutor) sendErrorProgress(process *HashcatProcess, errorMsg st
 }
 
 // addCrackToBatch adds a cracked hash to the batch buffer for the given task.
-// If the buffer reaches 50 cracks, it flushes immediately. Otherwise, it starts
-// or resets the batch timer to flush after 100ms.
+// Batches are flushed after 500ms timer OR when buffer reaches 10k cracks (WebSocket limit).
+// This balances efficiency with WebSocket message size constraints.
 func (e *HashcatExecutor) addCrackToBatch(process *HashcatProcess, cracked *CrackedHash) {
 	e.crackBatchMutex.Lock()
 	defer e.crackBatchMutex.Unlock()
 
 	taskID := process.TaskID
 
-	// Initialize buffer if needed
+	// Initialize buffer if needed (10k capacity to stay under WebSocket message size)
 	if e.crackBatchBuffers[taskID] == nil {
-		e.crackBatchBuffers[taskID] = make([]CrackedHash, 0, 50)
+		e.crackBatchBuffers[taskID] = make([]CrackedHash, 0, 10000)
 	}
 
 	// Add crack to buffer
 	e.crackBatchBuffers[taskID] = append(e.crackBatchBuffers[taskID], *cracked)
 
-	// Check if we should flush immediately (buffer full)
-	if len(e.crackBatchBuffers[taskID]) >= 50 {
-		debug.Debug("Crack batch buffer full for task %s (%d cracks), flushing immediately",
+	// Flush immediately if buffer reaches 10k cracks (WebSocket message size limit)
+	// Otherwise let the timer handle batching naturally
+	if len(e.crackBatchBuffers[taskID]) >= 10000 {
+		debug.Info("Crack batch buffer reached size limit for task %s (%d cracks), flushing immediately",
 			taskID, len(e.crackBatchBuffers[taskID]))
 		e.flushCrackBatchLocked(process)
 		return
 	}
 
-	// Start or reset the batch timer
+	// Start or reset the batch timer (will send everything after 500ms)
 	e.startBatchTimerLocked(process)
 }
 
@@ -1116,7 +1199,7 @@ func (e *HashcatExecutor) flushCrackBatchLocked(process *HashcatProcess) {
 		return // Nothing to flush
 	}
 
-	debug.Debug("Flushing crack batch for task %s with %d cracks", taskID, len(buffer))
+	debug.Info("Flushing crack batch for task %s with %d cracks", taskID, len(buffer))
 
 	// Send the batched progress update
 	progress := &JobProgress{
@@ -1126,8 +1209,8 @@ func (e *HashcatExecutor) flushCrackBatchLocked(process *HashcatProcess) {
 	}
 	e.sendProgressUpdate(process, progress, "cracked")
 
-	// Clear the buffer
-	e.crackBatchBuffers[taskID] = make([]CrackedHash, 0, 50)
+	// Clear the buffer (reset to 10k capacity for next batch)
+	e.crackBatchBuffers[taskID] = make([]CrackedHash, 0, 10000)
 
 	// Stop and clear the timer
 	if timer := e.crackBatchTimers[taskID]; timer != nil {
@@ -1388,14 +1471,16 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 				
 				statusUpdates = append(statusUpdates, status)
 				
-				// Check if hashcat has completed (status 5 = exhausted)
+				// Check if hashcat has completed
+				// Status codes: 1=init, 2=running, 3=paused, 4=bypassed, 5=exhausted, 6=cracked, 7=aborted, 8=quit, 9=error
 				// Parse the status field to see if the job is done
 				var statusCheck struct {
 					Status int `json:"status"`
 				}
 				if err := json.Unmarshal([]byte(status), &statusCheck); err == nil {
-					if statusCheck.Status == 5 {
-						debug.Info("[Speed test] Hashcat exhausted (status 5) after %d updates, stopping collection", len(statusUpdates))
+					// Status 5 (exhausted) or 6 (all cracked) means the job is complete
+					if statusCheck.Status == 5 || statusCheck.Status == 6 {
+						debug.Info("[Speed test] Hashcat completed (status %d) after %d updates, stopping collection", statusCheck.Status, len(statusUpdates))
 						timer.Stop()
 						close(statusCollected)
 						return
@@ -1702,4 +1787,99 @@ func (e *HashcatExecutor) parseCrackedHash(line string, hashlistContent []string
 	}
 
 	return nil
+}
+
+// monitorOutfile monitors the hashcat outfile for new cracks
+func (e *HashcatExecutor) monitorOutfile(ctx context.Context, process *HashcatProcess) {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			// Final read before exit
+			e.readNewOutfileLines(process)
+			return
+
+		case <-ticker.C:
+			e.readNewOutfileLines(process)
+		}
+	}
+}
+
+// readNewOutfileLines reads new lines from the outfile and sends them as crack batches
+func (e *HashcatExecutor) readNewOutfileLines(process *HashcatProcess) {
+	// Open file
+	file, err := os.Open(process.OutfilePath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			debug.Error("Failed to open outfile %s: %v", process.OutfilePath, err)
+		}
+		return
+	}
+	defer file.Close()
+
+	// Seek to last read position
+	process.OutfileMutex.Lock()
+	offset := process.OutfileOffset
+	process.OutfileMutex.Unlock()
+
+	file.Seek(offset, 0)
+	reader := bufio.NewReader(file)
+
+	var newCracks []CrackedHash
+	var newOffset int64 = offset
+
+	for {
+		line, err := reader.ReadString('\n')
+		if err == io.EOF {
+			break // No more complete lines
+		}
+		if err != nil {
+			debug.Error("Error reading outfile: %v", err)
+			return
+		}
+
+		// Parse format 1,2: hash:password (colon-separated)
+		parts := strings.SplitN(strings.TrimSpace(line), ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+
+		hash := parts[0]
+		password := parts[1]
+		lineKey := line // Use full line as key (includes newline for uniqueness)
+
+		// Check if already sent
+		process.OutfileMutex.Lock()
+		if process.OutfileSentHashes == nil {
+			process.OutfileSentHashes = make(map[string]bool)
+		}
+
+		if !process.OutfileSentHashes[lineKey] {
+			process.OutfileSentHashes[lineKey] = true
+			newCracks = append(newCracks, CrackedHash{
+				Hash:  hash,
+				Plain: password,
+			})
+		}
+		process.OutfileMutex.Unlock()
+
+		// Update offset after each line
+		newOffset, _ = file.Seek(0, io.SeekCurrent)
+	}
+
+	// Update stored offset
+	process.OutfileMutex.Lock()
+	process.OutfileOffset = newOffset
+	process.OutfileMutex.Unlock()
+
+	// Send batch if any new cracks
+	if len(newCracks) > 0 {
+		debug.Info("Outfile monitor found %d new cracks for task %s", len(newCracks), process.TaskID)
+		// Add each crack to the batch (uses existing batching logic)
+		for _, crack := range newCracks {
+			e.addCrackToBatch(process, &crack)
+		}
+	}
 }

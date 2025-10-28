@@ -25,7 +25,7 @@ const (
 	defaultWriteWait  = 10 * time.Second
 	defaultPongWait   = 60 * time.Second
 	defaultPingPeriod = 54 * time.Second
-	maxMessageSize    = 512 * 1024 // 512KB
+	maxMessageSize    = 50 * 1024 * 1024 // 50MB (for large crack batches)
 )
 
 // Connection timing configuration

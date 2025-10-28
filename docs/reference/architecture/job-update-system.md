@@ -284,6 +284,137 @@ Potential improvements under consideration:
 - **Update History**: Track all keyspace changes for job audit trail
 - **Predictive Updates**: Estimate impact before applying changes
 
+## Progressive Keyspace Refinement
+
+In addition to handling file changes, the job system implements progressive keyspace refinement to improve accuracy as tasks complete. This is especially important for rule-splitting jobs where hashlist size changes between task assignments.
+
+### The Challenge
+
+Consider this scenario:
+```
+Job Start: 10,000 hashes × 1,000 rules = 10,000,000 effective keyspace
+After 500 rules: 200 hashes cracked
+Remaining: 9,800 hashes × 500 rules = ?
+```
+
+The remaining work is NOT simply "50% of original" because the hashlist has changed.
+
+### How Progressive Refinement Works
+
+The system continuously recalculates `effective_keyspace` using:
+```
+Refined Keyspace = Actual Completed + Estimated Remaining
+```
+
+**Actual Completed**: Sum of `chunk_actual_keyspace` from finished tasks
+**Estimated Remaining**: Uses average keyspace-per-rule from completed tasks
+
+### Implementation
+
+**For Single-Task Jobs (No Rule Splitting)**:
+
+When the first task completes with actual keyspace from hashcat:
+```go
+if !job.UsesRuleSplitting && task.ChunkNumber == 1 && len(allTasks) == 1 {
+    // Update effective_keyspace to match actual total
+    newEffectiveKeyspace := chunkActualKeyspace
+    jobExecRepo.UpdateEffectiveKeyspace(ctx, jobID, newEffectiveKeyspace)
+}
+```
+
+**For Multi-Task Jobs (Rule Splitting)**:
+
+After each task completion:
+```go
+// Calculate actual completed work
+totalActualKeyspace := sum(completed_task.chunk_actual_keyspace)
+totalActualRules := sum(completed_task.rule_count)
+
+// Estimate remaining work
+avgKeyspacePerRule := totalActualKeyspace / totalActualRules
+currentHashCount := hashlistRepo.GetUncrackedHashCount(hashlistID)
+estimatedRemaining := avgKeyspacePerRule × remainingRules
+
+// Update job's effective_keyspace
+newEffectiveKeyspace := totalActualKeyspace + estimatedRemaining
+jobExecRepo.UpdateEffectiveKeyspace(ctx, jobID, newEffectiveKeyspace)
+```
+
+### Benefits
+
+1. **Accurate Progress**: Progress percentages reflect current reality, not initial estimates
+2. **Adapts to Cracks**: As hashes are cracked, estimates adjust automatically
+3. **No Retroactive Changes**: Only affects undispatched work
+4. **Improves Over Time**: More completed tasks = better estimates
+
+### Example Walkthrough
+
+**Initial State**:
+- Job: 10,000 hashes × 1,000 rules (10 tasks of 100 rules each)
+- Estimated effective_keyspace: 10,000,000
+
+**After Task 1 Completes**:
+- Actual keyspace: 1,005,234 (not exactly 1,000,000 due to rule effectiveness)
+- Avg per rule: 1,005,234 / 100 = 10,052
+- Current hash count: 9,950 (50 cracked)
+- Estimated remaining: 10,052 × 900 = 9,046,800
+- **New effective_keyspace: 1,005,234 + 9,046,800 = 10,052,034**
+
+**After Task 2 Completes**:
+- Total actual: 2,008,123 (tasks 1-2)
+- Avg per rule: 2,008,123 / 200 = 10,040
+- Current hash count: 9,880 (120 cracked total)
+- Estimated remaining: 10,040 × 800 = 8,032,000
+- **New effective_keyspace: 2,008,123 + 8,032,000 = 10,040,123**
+
+**After All Tasks Complete**:
+- Total actual: 9,892,456 (sum of all actuals)
+- No remaining work
+- **Final effective_keyspace: 9,892,456** (matches processed_keyspace)
+
+### Threshold for Updates
+
+To avoid unnecessary database writes for tiny changes:
+```go
+if absInt64(*job.EffectiveKeyspace - newEffectiveKeyspace) > 1000 {
+    jobExecRepo.UpdateEffectiveKeyspace(ctx, jobID, newEffectiveKeyspace)
+}
+```
+
+Only updates if change exceeds 1,000 keyspace units.
+
+### Integration with Other Systems
+
+Progressive refinement works alongside:
+- **Benchmark System**: Initial `effective_keyspace` from first benchmark or progress
+- **Job Update System**: File changes trigger immediate recalculation
+- **Cross-Hashlist Sync**: Hashlist changes detected via current hash count queries
+
+### Debugging Progressive Refinement
+
+Enable debug logging to see refinement in action:
+```
+DEBUG: Progressive refinement for job abc-123:
+  actual=2,008,123 (from 200 rules),
+  estimated=8,032,000 (for 800 rules with 9,880 hashes),
+  total=10,040,123
+DEBUG: Updated job abc-123 effective_keyspace from 10,000,000 to 10,040,123
+```
+
+### Edge Cases
+
+**All Tasks Complete Before Refinement**:
+- Final update sets `effective_keyspace = processed_keyspace`
+- Ensures 100% progress at completion
+
+**Large Hashlist Changes During Execution**:
+- Refinement uses CURRENT hash count from database
+- Automatically adapts to cross-hashlist crack propagation
+
+**First Task Has Unusual Keyspace**:
+- Subsequent tasks smooth out the average
+- More data = better estimates
+
 ## Summary
 
-The Job Update System ensures KrakenHashes jobs remain accurate and efficient as resources change. By following a forward-only philosophy, it provides a balance between consistency for running tasks and adaptability for future work. Understanding this system helps explain why job keyspaces may change during execution and how the system maintains integrity without disrupting active cracking operations.
+The Job Update System ensures KrakenHashes jobs remain accurate and efficient as resources change. By following a forward-only philosophy combined with progressive keyspace refinement, it provides a balance between consistency for running tasks and adaptability for future work. Understanding this system helps explain why job keyspaces may change during execution and how the system maintains integrity without disrupting active cracking operations.

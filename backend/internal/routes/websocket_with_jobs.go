@@ -119,6 +119,7 @@ func SetupWebSocketWithJobRoutes(
 		systemSettingsRepo,
 		jobExecutionRepo,
 		appConfig.DataDir,
+		sqlDB,
 	)
 
 	jobSchedulingService := services.NewJobSchedulingService(

@@ -21,11 +21,13 @@ import (
 type JobManager struct {
 	executor         *HashcatExecutor
 	config           *config.Config
-	progressCallback func(*JobProgress)
+	statusCallback   func(*JobStatus)   // Callback for status updates (synchronous)
+	crackCallback    func(*CrackBatch)  // Callback for crack batches (asynchronous)
+	progressCallback func(*JobProgress) // Legacy callback (deprecated, use statusCallback/crackCallback)
 	outputCallback   func(taskID string, output string, isError bool) // Callback for sending output via websocket
 	fileSync         *filesync.FileSync
 	hwMonitor        HardwareMonitor // Interface for hardware monitor
-	
+
 	// Job state
 	mutex           sync.RWMutex
 	activeJobs      map[string]*JobExecution
@@ -118,11 +120,25 @@ func (jm *JobManager) GetCurrentTaskStatus() (hasTask bool, taskID string, jobID
 	return false, "", "", 0
 }
 
-// SetProgressCallback sets the progress callback function
+// SetProgressCallback sets the progress callback function (deprecated)
 func (jm *JobManager) SetProgressCallback(callback func(*JobProgress)) {
 	jm.mutex.Lock()
 	defer jm.mutex.Unlock()
 	jm.progressCallback = callback
+}
+
+// SetStatusCallback sets the status callback function
+func (jm *JobManager) SetStatusCallback(callback func(*JobStatus)) {
+	jm.mutex.Lock()
+	defer jm.mutex.Unlock()
+	jm.statusCallback = callback
+}
+
+// SetCrackCallback sets the crack callback function
+func (jm *JobManager) SetCrackCallback(callback func(*CrackBatch)) {
+	jm.mutex.Lock()
+	defer jm.mutex.Unlock()
+	jm.crackCallback = callback
 }
 
 // ProcessJobAssignment processes a job assignment from the backend
@@ -205,14 +221,15 @@ func (jm *JobManager) ensureHashlist(ctx context.Context, assignment *JobTaskAss
 	debug.Info("Ensuring hashlist %d is available", assignment.HashlistID)
 	debug.Info("Expected local path: %s", localPath)
 	debug.Info("Data directory: %s", jm.config.DataDirectory)
-	
-	// Check if the file already exists
-	if fileInfo, err := os.Stat(localPath); err == nil {
-		debug.Info("Hashlist file already exists locally: %s (size: %d bytes)", localPath, fileInfo.Size())
-		return nil
-	} else if !os.IsNotExist(err) {
-		debug.Error("Error checking hashlist file: %v", err)
-		return fmt.Errorf("error checking hashlist file: %w", err)
+
+	// Always re-download hashlist for each task to ensure we have a fresh copy
+	// This prevents issues with stale/modified hashlists from previous tasks
+	if _, err := os.Stat(localPath); err == nil {
+		debug.Info("Removing existing hashlist to download fresh copy: %s", localPath)
+		if err := os.Remove(localPath); err != nil {
+			debug.Warning("Failed to remove existing hashlist (will overwrite): %v", err)
+			// Continue anyway - download will overwrite
+		}
 	}
 	
 	debug.Info("Hashlist file not found locally, need to download from backend")
@@ -453,8 +470,47 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 					continue
 				}
 				
-				// Send progress to backend via callback
-				if jm.progressCallback != nil {
+				// Send to backend via dual callbacks (new approach)
+				jm.mutex.RLock()
+				hasStatusCallback := jm.statusCallback != nil
+				hasCrackCallback := jm.crackCallback != nil
+				hasLegacyCallback := jm.progressCallback != nil
+				jm.mutex.RUnlock()
+
+				// New dual-channel approach: separate status from cracks
+				if hasStatusCallback || hasCrackCallback {
+					// Send status update (JobStatus without crack data)
+					// IMPORTANT: Skip status updates for crack-only messages (status=="cracked")
+					// This prevents zero values from overwriting real progress in the database
+					if hasStatusCallback && progress.Status != "cracked" {
+						status := &JobStatus{
+							TaskID:                 progress.TaskID,
+							KeyspaceProcessed:      progress.KeyspaceProcessed,
+							EffectiveProgress:      progress.EffectiveProgress,
+							ProgressPercent:        progress.ProgressPercent,
+							TotalEffectiveKeyspace: progress.TotalEffectiveKeyspace,
+							IsFirstUpdate:          progress.IsFirstUpdate,
+							HashRate:               progress.HashRate,
+							TimeRemaining:          progress.TimeRemaining,
+							CrackedCount:           progress.CrackedCount,
+							Status:                 progress.Status,
+							ErrorMessage:           progress.ErrorMessage,
+							DeviceMetrics:          progress.DeviceMetrics,
+							AllHashesCracked:       progress.AllHashesCracked,
+						}
+						jm.statusCallback(status)
+					}
+
+					// Send crack batch if there are cracks (CrackBatch with only cracks)
+					if hasCrackCallback && len(progress.CrackedHashes) > 0 {
+						batch := &CrackBatch{
+							TaskID:        progress.TaskID,
+							CrackedHashes: progress.CrackedHashes,
+						}
+						jm.crackCallback(batch)
+					}
+				} else if hasLegacyCallback {
+					// Fallback to legacy callback
 					jm.progressCallback(progress)
 				}
 
@@ -462,9 +518,41 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 				if progress.CrackedCount > 0 {
 					console.Info("Found %d cracked hashes", progress.CrackedCount)
 				}
-				
-				// If this was a final status (completed or failed), exit monitoring
+
+				// If this was a final status (completed or failed), drain remaining messages then exit
 				if progress.Status == "completed" || progress.Status == "failed" {
+					// Drain any remaining crack batches from the channel before exiting
+					debug.Info("Job %s finished with status %s, draining remaining crack batches", progress.TaskID, progress.Status)
+
+				drainLoop:
+					for {
+						select {
+						case remaining, ok := <-jobExecution.Process.ProgressChannel:
+							if !ok {
+								break drainLoop // Channel closed
+							}
+
+							// Process any remaining crack batches
+							if remaining != nil && len(remaining.CrackedHashes) > 0 {
+								debug.Info("Processing %d remaining cracks after job completion", len(remaining.CrackedHashes))
+
+								if hasCrackCallback {
+									batch := &CrackBatch{
+										TaskID:        remaining.TaskID,
+										CrackedHashes: remaining.CrackedHashes,
+									}
+									jm.crackCallback(batch)
+								}
+
+								console.Info("Found %d cracked hashes", remaining.CrackedCount)
+							}
+						case <-time.After(500 * time.Millisecond):
+							// No more messages after 500ms, safe to exit
+							debug.Info("No more messages in channel after 500ms, exiting monitoring for task %s", progress.TaskID)
+							break drainLoop
+						}
+					}
+
 					return
 				}
 			}

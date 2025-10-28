@@ -1,8 +1,8 @@
 /var/log/krakenhashes/backend/*.log {
-    size 10M
+    size 100M
     daily
     missingok
-    rotate 0
+    rotate 20
     compress
     delaycompress
     notifempty
@@ -14,10 +14,10 @@
 }
 
 /var/log/krakenhashes/frontend/*.log {
-    size 10M
+    size 100M
     daily
     missingok
-    rotate 0
+    rotate 20
     compress
     delaycompress
     notifempty
@@ -25,10 +25,10 @@
 }
 
 /var/log/krakenhashes/nginx/*.log {
-    size 10M
+    size 100M
     daily
     missingok
-    rotate 0
+    rotate 20
     compress
     delaycompress
     notifempty
@@ -40,10 +40,10 @@
 }
 
 /var/log/krakenhashes/postgres/*.log {
-    size 10M
+    size 100M
     daily
     missingok
-    rotate 0
+    rotate 20
     compress
     delaycompress
     notifempty

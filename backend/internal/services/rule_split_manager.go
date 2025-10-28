@@ -264,23 +264,36 @@ func (m *RuleSplitManager) CreateSingleRuleChunk(ctx context.Context, jobID uuid
 
 	writer := bufio.NewWriter(chunkFile)
 	scanner := bufio.NewScanner(file)
-	
-	// Skip to startIndex
-	currentIndex := 0
-	for scanner.Scan() && currentIndex < startIndex {
-		currentIndex++
+
+	// Skip to startIndex (counting only actual rules, not empty lines/comments)
+	ruleIndex := 0
+	for ruleIndex < startIndex {
+		if !scanner.Scan() {
+			break // End of file reached before startIndex
+		}
+		line := strings.TrimSpace(scanner.Text())
+		// Only count non-empty, non-comment lines
+		if line != "" && !strings.HasPrefix(line, "#") {
+			ruleIndex++
+		}
 	}
-	
-	// Write numRules lines to chunk file
+
+	// Write numRules actual rules to chunk file (skipping empty lines and comments)
 	rulesWritten := 0
 	for scanner.Scan() && rulesWritten < numRules {
 		line := scanner.Text()
+		trimmed := strings.TrimSpace(line)
+
+		// Skip empty lines and comments
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+
 		if _, err := writer.WriteString(line + "\n"); err != nil {
 			os.Remove(chunkPath) // Clean up on error
 			return nil, fmt.Errorf("failed to write rule to chunk: %w", err)
 		}
 		rulesWritten++
-		currentIndex++
 	}
 
 	if err := writer.Flush(); err != nil {

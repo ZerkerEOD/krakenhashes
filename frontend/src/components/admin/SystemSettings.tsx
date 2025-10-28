@@ -30,6 +30,8 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
   });
   const [agentSchedulingEnabled, setAgentSchedulingEnabled] = useState(false);
   const [requireClientForHashlist, setRequireClientForHashlist] = useState(false);
+  const [potfileBatchSize, setPotfileBatchSize] = useState<number>(100000);
+  const [potfileBatchInterval, setPotfileBatchInterval] = useState<number>(60);
   const [loadingData, setLoadingData] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +59,14 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
         const requireClientSetting = settings.data?.find((s: any) => s.key === 'require_client_for_hashlist');
         if (requireClientSetting) {
           setRequireClientForHashlist(requireClientSetting.value === 'true');
+        }
+        const potfileBatchSizeSetting = settings.data?.find((s: any) => s.key === 'potfile_max_batch_size');
+        if (potfileBatchSizeSetting) {
+          setPotfileBatchSize(parseInt(potfileBatchSizeSetting.value) || 100000);
+        }
+        const potfileBatchIntervalSetting = settings.data?.find((s: any) => s.key === 'potfile_batch_interval');
+        if (potfileBatchIntervalSetting) {
+          setPotfileBatchInterval(parseInt(potfileBatchIntervalSetting.value) || 60);
         }
       } catch (err) {
         console.error('Failed to load general settings:', err);
@@ -324,6 +334,102 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
               <Typography variant="body2" color="text.secondary">
                 <strong>Note:</strong> This only affects new hashlist uploads. Existing hashlists can still
                 be edited to change their client assignment regardless of this setting.
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Card sx={{ height: '100%' }}>
+            <CardContent>
+              <Box display="flex" alignItems="center" mb={2}>
+                <Typography variant="h6" component="h3">
+                  Potfile Settings
+                </Typography>
+                <Tooltip title="Configure how the potfile processes cracked passwords for reuse across jobs">
+                  <IconButton size="small" sx={{ ml: 1 }}>
+                    <InfoIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+
+              <TextField
+                fullWidth
+                label="Maximum Batch Size"
+                type="number"
+                value={potfileBatchSize}
+                onChange={async (e) => {
+                  const newValue = parseInt(e.target.value) || 100000;
+                  setPotfileBatchSize(newValue);
+                }}
+                onBlur={async (e) => {
+                  const newValue = parseInt(e.target.value) || 100000;
+                  if (newValue < 1000 || newValue > 500000) {
+                    enqueueSnackbar('Batch size must be between 1,000 and 500,000', { variant: 'warning' });
+                    setPotfileBatchSize(100000);
+                    return;
+                  }
+                  try {
+                    await updateSystemSetting('potfile_max_batch_size', newValue.toString());
+                    enqueueSnackbar('Potfile batch size updated', { variant: 'success' });
+                  } catch (error) {
+                    console.error('Failed to update batch size:', error);
+                    enqueueSnackbar('Failed to update batch size', { variant: 'error' });
+                    await loadSettings(); // Reload to revert
+                  }
+                }}
+                disabled={loading || saving || loadingData}
+                inputProps={{
+                  min: 1000,
+                  max: 500000,
+                }}
+                helperText="Number of staged passwords to process in each batch cycle (1,000 - 500,000)"
+                sx={{ mb: 2 }}
+              />
+
+              <TextField
+                fullWidth
+                label="Batch Interval (seconds)"
+                type="number"
+                value={potfileBatchInterval}
+                onChange={async (e) => {
+                  const newValue = parseInt(e.target.value) || 60;
+                  setPotfileBatchInterval(newValue);
+                }}
+                onBlur={async (e) => {
+                  const newValue = parseInt(e.target.value) || 60;
+                  if (newValue < 5 || newValue > 600) {
+                    enqueueSnackbar('Interval must be between 5 and 600 seconds', { variant: 'warning' });
+                    setPotfileBatchInterval(60);
+                    return;
+                  }
+                  try {
+                    await updateSystemSetting('potfile_batch_interval', newValue.toString());
+                    enqueueSnackbar('Potfile batch interval updated', { variant: 'success' });
+                  } catch (error) {
+                    console.error('Failed to update batch interval:', error);
+                    enqueueSnackbar('Failed to update batch interval', { variant: 'error' });
+                    await loadSettings(); // Reload to revert
+                  }
+                }}
+                disabled={loading || saving || loadingData}
+                inputProps={{
+                  min: 10,
+                  max: 600,
+                }}
+                helperText="Seconds between pot-file batch processing cycles (10 - 600)"
+                sx={{ mb: 2 }}
+              />
+
+              <Typography variant="body2" color="text.secondary" paragraph>
+                The potfile collects cracked passwords from all jobs and reuses them in subsequent attacks.
+                Higher batch sizes process more passwords at once but take longer per cycle.
+              </Typography>
+
+              <Typography variant="body2" color="text.secondary">
+                <strong>Processing Rate:</strong> {(potfileBatchSize / potfileBatchInterval).toLocaleString()} passwords/second
+                <br />
+                <strong>Current Settings:</strong> {potfileBatchSize.toLocaleString()} passwords every {potfileBatchInterval} seconds
               </Typography>
             </CardContent>
           </Card>

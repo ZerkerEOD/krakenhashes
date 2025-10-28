@@ -147,6 +147,31 @@ func (s *HashlistCompletionService) stopJobTasks(ctx context.Context, jobID uuid
 	for _, task := range tasks {
 		// Only send stop signals for running or assigned tasks
 		if task.AgentID != nil && (task.Status == models.JobTaskStatusRunning || task.Status == models.JobTaskStatusAssigned) {
+			// Check if task has completed its keyspace (race condition: task finished but status not updated yet)
+			// If keyspace is complete, mark as completed instead of cancelling
+			if task.KeyspaceEnd > 0 && task.KeyspaceProcessed >= task.KeyspaceEnd {
+				debug.Info("Task %s has completed its keyspace (%d/%d), marking as completed instead of cancelled",
+					task.ID, task.KeyspaceProcessed, task.KeyspaceEnd)
+
+				if err := s.jobTaskRepo.UpdateStatus(ctx, task.ID, models.JobTaskStatusCompleted); err != nil {
+					debug.Error("Failed to mark task %s as completed: %v", task.ID, err)
+				}
+				continue
+			}
+
+			// Also check effective keyspace for brute-force tasks
+			if task.EffectiveKeyspaceEnd != nil && *task.EffectiveKeyspaceEnd > 0 &&
+				task.EffectiveKeyspaceProcessed != nil && *task.EffectiveKeyspaceProcessed >= *task.EffectiveKeyspaceEnd {
+				debug.Info("Task %s has completed its effective keyspace (%d/%d), marking as completed instead of cancelled",
+					task.ID, *task.EffectiveKeyspaceProcessed, *task.EffectiveKeyspaceEnd)
+
+				if err := s.jobTaskRepo.UpdateStatus(ctx, task.ID, models.JobTaskStatusCompleted); err != nil {
+					debug.Error("Failed to mark task %s as completed: %v", task.ID, err)
+				}
+				continue
+			}
+
+			// Task hasn't finished - send stop signal and cancel it
 			// Create stop message payload
 			stopPayload := map[string]string{
 				"task_id": task.ID.String(),

@@ -42,10 +42,10 @@ type Hash struct {
 	OriginalHash string    `json:"original_hash"`      // The original hash string from the input file
 	Username     *string   `json:"username,omitempty"` // Optional username extracted from the original hash
 	Domain       *string   `json:"domain,omitempty"`   // Optional domain extracted from formats like DOMAIN\user or user@domain
-	HashTypeID   int       `json:"hash_type_id"`       // FK to hash_types table
-	IsCracked    bool      `json:"is_cracked"`         // Flag indicating if the hash is cracked
-	Password     string    `json:"password"`           // The cracked password (if is_cracked is true)
-	LastUpdated  time.Time `json:"last_updated"`       // Timestamp of the last update (e.g., when cracked)
+	HashTypeID   int       `json:"hash_type_id"`          // FK to hash_types table
+	IsCracked    bool      `json:"is_cracked"`            // Flag indicating if the hash is cracked
+	Password     *string   `json:"password,omitempty"`    // The cracked password (if is_cracked is true)
+	LastUpdated  time.Time `json:"last_updated"`          // Timestamp of the last update (e.g., when cracked)
 }
 
 // HashType represents a type of hash algorithm recognized by the system.

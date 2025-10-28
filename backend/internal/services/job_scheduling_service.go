@@ -691,10 +691,10 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 
 		// Check if all rules have been dispatched
 		totalRules := 0
-		if nextJob.RuleSplitCount > 0 {
+		if nextJob.UsesRuleSplitting {
 			// Get total rules from job metadata
 			// The job_executions table contains all needed information
-			
+
 			// Get the rule file to count total rules
 			if len(nextJob.RuleIDs) > 0 {
 				rulePath, err := s.jobExecutionService.resolveRulePath(ctx, nextJob.RuleIDs[0])
@@ -708,7 +708,7 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 			}
 		}
 
-		if nextRuleStart >= totalRules {
+		if totalRules > 0 && nextRuleStart >= totalRules {
 			debug.Log("All rules have been dispatched", map[string]interface{}{
 				"job_id":          nextJob.ID,
 				"total_rules":     totalRules,
@@ -1374,6 +1374,40 @@ func (s *JobSchedulingService) ProcessJobCompletion(ctx context.Context, jobExec
 					"percentage": float64(job.DispatchedKeyspace) / float64(*job.TotalKeyspace) * 100,
 				})
 				return nil // Don't complete yet, more work to dispatch
+			}
+		}
+
+		// CRITICAL SAFETY: Don't complete rule-split jobs if not all rules dispatched
+		// This is a final safety net in case effective_keyspace was set incorrectly
+		if job.UsesRuleSplitting {
+			// Get actual rule count from file(s)
+			totalRulesNeeded := 0
+			for _, ruleID := range job.RuleIDs {
+				rulePath, err := s.jobExecutionService.resolveRulePath(ctx, ruleID)
+				if err == nil {
+					ruleCount, err := s.jobExecutionService.ruleSplitManager.CountRules(ctx, rulePath)
+					if err == nil {
+						totalRulesNeeded += ruleCount
+					}
+				}
+			}
+
+			if totalRulesNeeded > 0 {
+				maxRuleEnd, _ := s.jobExecutionService.jobTaskRepo.GetMaxRuleEndIndex(ctx, jobExecutionID)
+				rulesDispatched := 0
+				if maxRuleEnd != nil {
+					rulesDispatched = *maxRuleEnd
+				}
+
+				if rulesDispatched < totalRulesNeeded {
+					debug.Log("Rule-split job incomplete - safety check prevented premature completion", map[string]interface{}{
+						"job_id": jobExecutionID,
+						"rules_dispatched": rulesDispatched,
+						"total_rules": totalRulesNeeded,
+						"percent_complete": float64(rulesDispatched) / float64(totalRulesNeeded) * 100,
+					})
+					return nil // NOT DONE - more rules to dispatch
+				}
 			}
 		}
 

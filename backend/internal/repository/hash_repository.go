@@ -424,6 +424,60 @@ func (r *HashRepository) GetByHashValueForUpdate(tx *sql.Tx, hashValue string) (
 }
 
 // UpdateCrackStatus updates the cracked status and password for a hash within a transaction.
+// HashUpdate represents a single hash update for batch processing
+type HashUpdate struct {
+	HashID    uuid.UUID
+	Password  string
+	Username  *string
+	CrackedAt time.Time
+}
+
+// UpdateCrackStatusBatch updates multiple hashes at once using an efficient bulk query
+// This dramatically reduces database round-trips compared to individual updates
+func (r *HashRepository) UpdateCrackStatusBatch(tx *sql.Tx, updates []HashUpdate) (int64, error) {
+	if len(updates) == 0 {
+		return 0, nil
+	}
+
+	// Build a bulk UPDATE using PostgreSQL's UPDATE ... FROM pattern
+	// This updates all hashes in a single query instead of N individual queries
+	query := `
+		UPDATE hashes h
+		SET
+			is_cracked = TRUE,
+			password = u.password,
+			username = COALESCE(h.username, u.username),
+			last_updated = u.cracked_at
+		FROM (VALUES
+	`
+
+	args := make([]interface{}, 0, len(updates)*4)
+	for i, update := range updates {
+		if i > 0 {
+			query += ", "
+		}
+		query += fmt.Sprintf("($%d::uuid, $%d::text, $%d::text, $%d::timestamp)",
+			i*4+1, i*4+2, i*4+3, i*4+4)
+		args = append(args, update.HashID, update.Password, update.Username, update.CrackedAt)
+	}
+
+	query += `) AS u(hash_id, password, username, cracked_at)
+		WHERE h.id = u.hash_id AND h.is_cracked = FALSE
+	`
+
+	result, err := tx.Exec(query, args...)
+	if err != nil {
+		return 0, fmt.Errorf("failed to batch update crack status: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("error getting rows affected: %w", err)
+	}
+
+	return rowsAffected, nil
+}
+
 func (r *HashRepository) UpdateCrackStatus(tx *sql.Tx, hashID uuid.UUID, password string, crackedAt time.Time, username *string) error {
 	query := `
 		UPDATE hashes
@@ -819,4 +873,35 @@ func (r *HashRepository) StreamHashesForHashlist(ctx context.Context, hashlistID
 	}
 
 	return nil
+}
+
+// GetHashlistIDsForHash returns all hashlist IDs that contain a specific hash.
+// This is used to determine which hashlists need their counters updated when a hash is cracked.
+func (r *HashRepository) GetHashlistIDsForHash(ctx context.Context, hashID uuid.UUID) ([]int64, error) {
+	query := `
+		SELECT hashlist_id
+		FROM hashlist_hashes
+		WHERE hash_id = $1
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, hashID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query hashlists for hash %s: %w", hashID, err)
+	}
+	defer rows.Close()
+
+	var hashlistIDs []int64
+	for rows.Next() {
+		var hashlistID int64
+		if err := rows.Scan(&hashlistID); err != nil {
+			return nil, fmt.Errorf("failed to scan hashlist ID for hash %s: %w", hashID, err)
+		}
+		hashlistIDs = append(hashlistIDs, hashlistID)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating hashlist rows for hash %s: %w", hashID, err)
+	}
+
+	return hashlistIDs, nil
 }

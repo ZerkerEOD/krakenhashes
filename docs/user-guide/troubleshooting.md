@@ -127,6 +127,8 @@ This guide helps you resolve common issues when using KrakenHashes. If your issu
   - Verify agent GPU requirements match job
   - Check agent logs for errors
 
+**Note (v1.2.1+)**: If an agent crashes while working on your job, the system automatically returns the unfinished work to the pool and reassigns it to another available agent. No manual intervention is required.
+
 ### Job Failed Immediately
 
 **Error**: `Hashcat execution failed`
@@ -169,6 +171,8 @@ This guide helps you resolve common issues when using KrakenHashes. If your issu
   - Check network connectivity
   - Increase WebSocket timeout settings
   - Monitor backend resource usage
+
+**Note (v1.2.1+)**: Agent disconnections are now handled gracefully. If an agent crashes during high-volume cracking, the crack batching system prevents data loss and automatically recovers the connection when the agent reconnects. Your job progress will be preserved.
 
 ### Agent Not Detecting GPUs
 

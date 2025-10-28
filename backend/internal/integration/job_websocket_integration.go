@@ -689,16 +689,128 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 				progress.TaskID, effectiveStart, actualEffectiveEnd, chunkActualKeyspace)
 
 			// Adjust job's dispatched keyspace to reflect actual vs estimated
-			if dispatchedAdjustment != 0 {
-				database := &db.DB{DB: s.db}
-				jobExecRepo := repository.NewJobExecutionRepository(database)
+			database := &db.DB{DB: s.db}
+			jobExecRepo := repository.NewJobExecutionRepository(database)
 
+			if dispatchedAdjustment != 0 {
 				err = jobExecRepo.IncrementDispatchedKeyspace(ctx, task.JobExecutionID, dispatchedAdjustment)
 				if err != nil {
 					debug.Error("Failed to adjust job dispatched keyspace: %v", err)
 				} else {
 					debug.Info("Adjusted job %s dispatched keyspace by %d (actual vs estimated)",
 						task.JobExecutionID, dispatchedAdjustment)
+				}
+			}
+
+			// For single-task jobs (NO RULE SPLITTING), also update effective_keyspace to match actual
+			// This ensures progress calculations use actual keyspace, not estimates
+			// Rule-splitting jobs are handled by progressive refinement below
+			job, err := jobExecRepo.GetByID(ctx, task.JobExecutionID)
+			if err == nil && !job.UsesRuleSplitting && task.ChunkNumber == 1 {
+				// Check if this is the only task for this job
+				allTasks, err := s.jobTaskRepo.GetTasksByJobExecution(ctx, task.JobExecutionID)
+				if err == nil && len(allTasks) == 1 {
+					// Single task job - update effective_keyspace to match actual total
+					if job.EffectiveKeyspace != nil {
+						newEffectiveKeyspace := chunkActualKeyspace
+						if *job.EffectiveKeyspace != newEffectiveKeyspace {
+							err = jobExecRepo.UpdateEffectiveKeyspace(ctx, task.JobExecutionID, newEffectiveKeyspace)
+							if err != nil {
+								debug.Error("Failed to update job effective keyspace to actual: %v", err)
+							} else {
+								debug.Info("Updated job %s effective_keyspace from %d (estimated) to %d (actual from hashcat)",
+									task.JobExecutionID, *job.EffectiveKeyspace, newEffectiveKeyspace)
+							}
+						}
+					}
+				}
+			}
+
+			// PROGRESSIVE REFINEMENT: Recalculate job's effective_keyspace based on completed actuals + estimate for remaining
+			// This handles multi-task jobs where hashlist changes between tasks
+			// Reuse job variable from above
+			// IMPORTANT: Only refine if we have a valid baseline from benchmark
+			// Progressive refinement should ENHANCE accuracy, not replace initial benchmark value
+			if job != nil && job.UsesRuleSplitting && job.IsAccurateKeyspace && job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
+				// Get all tasks for this job
+				allTasks, err := s.jobTaskRepo.GetTasksByJobExecution(ctx, task.JobExecutionID)
+				if err == nil && len(allTasks) > 0 {
+					// Calculate: sum of actuals + smart estimate for remaining
+					totalActualKeyspace := int64(0)
+					totalActualRules := 0
+					totalRemainingRules := 0
+					pendingTaskCount := 0
+
+					for _, t := range allTasks {
+						// Include tasks that have reported actual keyspace (completed OR running with actual)
+						if t.ChunkActualKeyspace != nil && *t.ChunkActualKeyspace > 0 {
+							totalActualKeyspace += *t.ChunkActualKeyspace
+							if t.RuleStartIndex != nil && t.RuleEndIndex != nil {
+								totalActualRules += (*t.RuleEndIndex - *t.RuleStartIndex)
+							}
+						} else if t.Status == "pending" {
+							// Only count truly pending tasks (not running)
+							pendingTaskCount++
+							if t.RuleStartIndex != nil && t.RuleEndIndex != nil {
+								totalRemainingRules += (*t.RuleEndIndex - *t.RuleStartIndex)
+							}
+						}
+					}
+
+					// Calculate new effective_keyspace
+					newEffectiveKeyspace := totalActualKeyspace
+
+					if pendingTaskCount > 0 && totalActualRules > 0 {
+						// Estimate remaining based on: (avg keyspace per rule from completed) × (remaining rules)
+						// Use current hashlist size for estimate
+						hashlistRepo := repository.NewHashListRepository(database)
+						currentHashCount, err := hashlistRepo.GetUncrackedHashCount(ctx, job.HashlistID)
+						if err == nil && currentHashCount > 0 {
+							// Average actual keyspace per rule from completed tasks
+							avgKeyspacePerRule := float64(totalActualKeyspace) / float64(totalActualRules)
+
+							// Estimate for remaining tasks using CURRENT hashlist size
+							estimatedRemaining := int64(avgKeyspacePerRule * float64(totalRemainingRules))
+
+							newEffectiveKeyspace = totalActualKeyspace + estimatedRemaining
+
+							debug.Info("Progressive refinement for job %s: actual=%d (from %d rules), estimated=%d (for %d rules with %d hashes), total=%d",
+								task.JobExecutionID, totalActualKeyspace, totalActualRules, estimatedRemaining, totalRemainingRules, currentHashCount, newEffectiveKeyspace)
+						}
+					}
+
+					// Update if changed significantly (avoid tiny fluctuations)
+					if job.EffectiveKeyspace == nil || absInt64(*job.EffectiveKeyspace-newEffectiveKeyspace) > 1000 {
+						// SAFETY: Never reduce effective_keyspace to 0 or a tiny value for rule-split jobs
+						// This prevents overwriting benchmark results with incomplete chunk data
+						if newEffectiveKeyspace == 0 {
+							debug.Log("Skipping progressive refinement - calculated keyspace is 0", map[string]interface{}{
+								"job_id": task.JobExecutionID,
+								"current_effective": *job.EffectiveKeyspace,
+							})
+						} else if job.EffectiveKeyspace != nil && newEffectiveKeyspace < (*job.EffectiveKeyspace / 10) {
+							// New value is less than 10% of current - suspicious, log warning
+							debug.Warning("Skipping progressive refinement - new value too low", map[string]interface{}{
+								"job_id": task.JobExecutionID,
+								"current": *job.EffectiveKeyspace,
+								"new": newEffectiveKeyspace,
+								"reduction_percent": (1.0 - float64(newEffectiveKeyspace)/float64(*job.EffectiveKeyspace)) * 100,
+							})
+						} else {
+							// Safe to update
+							err = jobExecRepo.UpdateEffectiveKeyspace(ctx, task.JobExecutionID, newEffectiveKeyspace)
+							if err != nil {
+								debug.Error("Failed to update progressive effective keyspace: %v", err)
+							} else {
+								oldValue := int64(0)
+								if job.EffectiveKeyspace != nil {
+									oldValue = *job.EffectiveKeyspace
+								}
+								debug.Info("Updated job %s effective_keyspace from %d to %d (progressive refinement)",
+									task.JobExecutionID, oldValue, newEffectiveKeyspace)
+							}
+						}
+					}
 				}
 			}
 
@@ -726,10 +838,11 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			"error":   progress.ErrorMessage,
 		})
 
-		// Update task status to failed
-		err := s.jobTaskRepo.UpdateTaskError(ctx, progress.TaskID, progress.ErrorMessage)
+		// Mark task as permanently failed and decrement dispatched keyspace
+		// Agent-reported failures are considered permanent and the job will be marked as failed
+		err := s.jobTaskRepo.MarkTaskFailedPermanently(ctx, progress.TaskID, progress.ErrorMessage)
 		if err != nil {
-			debug.Error("Failed to update task error: %v", err)
+			debug.Error("Failed to mark task as permanently failed: %v", err)
 		}
 
 		// Clear agent busy status
@@ -916,6 +1029,56 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 				"job_execution_id": task.JobExecutionID,
 				"error":            err.Error(),
 			})
+		}
+	}
+
+	return nil
+}
+
+// absInt64 returns the absolute value of an int64
+func absInt64(x int64) int64 {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
+// HandleCrackBatch processes crack batch messages from agents
+func (s *JobWebSocketIntegration) HandleCrackBatch(ctx context.Context, agentID int, crackBatch *models.CrackBatch) error {
+	debug.Log("Processing crack batch from agent", map[string]interface{}{
+		"agent_id":      agentID,
+		"task_id":       crackBatch.TaskID,
+		"crack_count":   len(crackBatch.CrackedHashes),
+	})
+
+	// Validate task exists
+	task, err := s.jobTaskRepo.GetByID(ctx, crackBatch.TaskID)
+	if err != nil {
+		debug.Warning("Received crack batch for non-existent task %s (ignoring): agent=%d, error=%v",
+			crackBatch.TaskID, agentID, err)
+		return nil
+	}
+
+	// Verify the task is assigned to this agent
+	if task.AgentID == nil || *task.AgentID != agentID {
+		expectedAgent := 0
+		if task.AgentID != nil {
+			expectedAgent = *task.AgentID
+		}
+		debug.Error("Crack batch from wrong agent: task=%s, expected=%d, actual=%d",
+			crackBatch.TaskID, expectedAgent, agentID)
+		return fmt.Errorf("task not assigned to this agent")
+	}
+
+	// Process cracked hashes
+	if len(crackBatch.CrackedHashes) > 0 {
+		err = s.processCrackedHashes(ctx, crackBatch.TaskID, crackBatch.CrackedHashes)
+		if err != nil {
+			debug.Log("Failed to process cracked hashes", map[string]interface{}{
+				"task_id": crackBatch.TaskID,
+				"error":   err.Error(),
+			})
+			return err
 		}
 	}
 
@@ -1114,15 +1277,106 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 		return fmt.Errorf("failed to get job execution: %w", err)
 	}
 
-	// Start a transaction for updating cracked hashes
-	tx, err := s.db.Begin()
-	if err != nil {
-		return fmt.Errorf("failed to start transaction: %w", err)
-	}
-	defer tx.Rollback()
-
 	var crackedCount int
 	crackedAt := time.Now()
+
+	// OPTIMIZATION: Do ONE bulk lookup for all hash values instead of individual queries
+	hashValues := make([]string, len(crackedHashes))
+	for i, crackedEntry := range crackedHashes {
+		hashValues[i] = crackedEntry.Hash
+	}
+
+	// Bulk lookup all hashes in one query
+	allHashes, err := s.hashRepo.GetByHashValues(ctx, hashValues)
+	if err != nil {
+		return fmt.Errorf("failed to bulk lookup hashes: %w", err)
+	}
+
+	// Create a map for quick lookup: hash_value -> []*models.Hash
+	hashMap := make(map[string][]*models.Hash)
+	for _, hash := range allHashes {
+		hashMap[hash.HashValue] = append(hashMap[hash.HashValue], hash)
+	}
+
+	// Process hashes in mini-batches with separate transactions to avoid connection leaks
+	// Larger batch size (20000) reduces transaction count and lock contention
+	// For 1.75M cracks: 20000/batch = 88 transactions vs 5000/batch = 350 transactions
+	const batchSize = 20000
+	var tx *sql.Tx
+	var txHashCount int
+	var hashUpdateBatch []repository.HashUpdate
+
+	// Batch potfile staging inserts to reduce database overhead
+	// For 1.75M cracks, this reduces 1.75M inserts to ~175 batch inserts (10k each)
+	const potfileBatchSize = 10000
+	var potfileBatch []services.PotfileStagingEntry
+
+	// Pre-load potfile settings ONCE instead of querying for every crack
+	// This eliminates millions of redundant database queries (N+1 problem)
+	var shouldStagePotfile bool
+
+	if s.potfileService != nil && s.systemSettingsRepo != nil && s.hashlistRepo != nil && s.clientRepo != nil {
+		// Check if potfile is globally enabled
+		potfileSetting, err := s.systemSettingsRepo.GetSetting(ctx, "potfile_enabled")
+		if err == nil && potfileSetting != nil && potfileSetting.Value != nil && *potfileSetting.Value == "true" {
+			// Get hashlist ONCE to check exclusions
+			hashlist, err := s.hashlistRepo.GetByID(ctx, jobExecution.HashlistID)
+			if err != nil {
+				debug.Warning("Failed to get hashlist for potfile check: %v", err)
+				shouldStagePotfile = false
+			} else {
+				// Check if client has potfile excluded
+				clientExcluded := false
+				if hashlist.ClientID != uuid.Nil {
+					clientExcluded, err = s.clientRepo.IsExcludedFromPotfile(ctx, hashlist.ClientID)
+					if err != nil {
+						debug.Warning("Failed to check client potfile exclusion: %v", err)
+					}
+				}
+
+				if clientExcluded {
+					debug.Info("Client %s is excluded from potfile", hashlist.ClientID)
+					shouldStagePotfile = false
+				} else {
+					// Check if hashlist is excluded
+					hashlistExcluded, err := s.hashlistRepo.IsExcludedFromPotfile(ctx, jobExecution.HashlistID)
+					if err != nil {
+						debug.Warning("Failed to check hashlist potfile exclusion: %v", err)
+						shouldStagePotfile = false
+					} else {
+						shouldStagePotfile = !hashlistExcluded
+						if shouldStagePotfile {
+							debug.Info("Potfile staging enabled for hashlist %d", jobExecution.HashlistID)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Helper to commit current transaction
+	commitTx := func() error {
+		if tx != nil {
+			if err := tx.Commit(); err != nil {
+				tx.Rollback()
+				return fmt.Errorf("failed to commit transaction: %w", err)
+			}
+			tx = nil
+			txHashCount = 0
+		}
+		return nil
+	}
+
+	// Ensure final commit/rollback
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Track which hashlists are affected by these cracks and by how many
+	// Key: hashlist ID, Value: count of newly cracked hashes
+	affectedHashlists := make(map[int64]int)
 
 	// Process each cracked hash
 	for _, crackedEntry := range crackedHashes {
@@ -1130,13 +1384,9 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 		password := crackedEntry.Plain
 		crackPos := crackedEntry.CrackPos
 
-		// Find the hash in the database
-		hashes, err := s.hashRepo.GetByHashValues(ctx, []string{hashValue})
-		if err != nil {
-			return fmt.Errorf("failed to find hash: %w", err)
-		}
-
-		if len(hashes) == 0 {
+		// Lookup from our pre-loaded map instead of querying database
+		hashes, found := hashMap[hashValue]
+		if !found || len(hashes) == 0 {
 			debug.Log("Hash not found in hashlist", map[string]interface{}{
 				"hash_value":  hashValue,
 				"hashlist_id": jobExecution.HashlistID,
@@ -1146,30 +1396,45 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 
 		// Update ALL hashes with this hash_value (e.g., multiple users with same password)
 		// This ensures that Administrator, Administrator1, Administrator2 all get marked as cracked
-		hashesUpdated := 0
 		for _, hash := range hashes {
 			// Check if hash is already cracked to prevent double counting
 			if hash.IsCracked {
-				debug.Log("Hash already cracked, skipping", map[string]interface{}{
-					"hash_id":     hash.ID,
-					"hash_value":  hashValue,
-					"hashlist_id": jobExecution.HashlistID,
-				})
+				debug.Warning("Skipping already-cracked hash in crack batch [hash_id=%s, hash_value=%s, current_password=%s, new_password=%s, last_updated=%v, hashlist_id=%d]",
+					hash.ID, hashValue, hash.Password, password, hash.LastUpdated, jobExecution.HashlistID)
 				continue
 			}
 
-			// Update crack status
-			err = s.hashRepo.UpdateCrackStatus(tx, hash.ID, password, crackedAt, nil)
+			// Start new transaction if needed
+			if tx == nil {
+				tx, err = s.db.Begin()
+				if err != nil {
+					return fmt.Errorf("failed to start transaction: %w", err)
+				}
+				txHashCount = 0
+			}
+
+			// Collect hash update for batch processing
+			hashUpdateBatch = append(hashUpdateBatch, repository.HashUpdate{
+				HashID:    hash.ID,
+				Password:  password,
+				Username:  nil,
+				CrackedAt: crackedAt,
+			})
+
+			crackedCount++
+			txHashCount++
+
+			// Query which hashlists contain this hash and increment their counters
+			hashlistIDs, err := s.hashRepo.GetHashlistIDsForHash(ctx, hash.ID)
 			if err != nil {
-				debug.Log("Failed to update crack status", map[string]interface{}{
-					"hash_id": hash.ID,
-					"error":   err.Error(),
-				})
-				continue
+				debug.Warning("Failed to get hashlist IDs for hash %s: %v", hash.ID, err)
+			} else {
+				for _, hashlistID := range hashlistIDs {
+					affectedHashlists[hashlistID]++
+				}
 			}
 
-			hashesUpdated++
-			debug.Log("Successfully cracked hash", map[string]interface{}{
+			debug.Log("Queued hash for batch update", map[string]interface{}{
 				"hash_id":     hash.ID,
 				"hash_value":  hashValue,
 				"username":    hash.Username,
@@ -1177,78 +1442,113 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 				"crack_pos":   crackPos,
 				"password":    password,
 			})
+
+			// Execute batched updates and commit when batch is full
+			if txHashCount >= batchSize {
+				// Execute the batched updates in one query
+				rowsAffected, err := s.hashRepo.UpdateCrackStatusBatch(tx, hashUpdateBatch)
+				if err != nil {
+					return fmt.Errorf("failed to batch update hashes: %w", err)
+				}
+				debug.Info("Batch updated %d hashes out of %d queued", rowsAffected, len(hashUpdateBatch))
+
+				// Critical validation: detect if we lost updates
+				if rowsAffected != int64(len(hashUpdateBatch)) {
+					debug.Error("CRITICAL: Batch UPDATE mismatch! Queued %d but updated only %d (LOST %d updates)",
+						len(hashUpdateBatch), rowsAffected, len(hashUpdateBatch)-int(rowsAffected))
+				}
+
+				hashUpdateBatch = nil // Reset batch
+
+				if err := commitTx(); err != nil {
+					return err
+				}
+			}
 		}
 
-		// Increment crack count by number of hashes actually updated
-		crackedCount += hashesUpdated
+		// Stage password for pot-file (batched, done once per unique hash value)
+		// All checks pre-loaded before loop to avoid millions of redundant queries
+		if shouldStagePotfile {
+			potfileBatch = append(potfileBatch, services.PotfileStagingEntry{
+				Password:  password,
+				HashValue: hashValue,
+			})
 
-		// Stage password for pot-file (non-blocking)
-		// Check global potfile setting, client-level exclusion, AND per-hashlist exclusion
-		if s.potfileService != nil && s.systemSettingsRepo != nil && s.hashlistRepo != nil && s.clientRepo != nil {
-			potfileEnabled, err := s.systemSettingsRepo.GetSetting(ctx, "potfile_enabled")
-			if err == nil && potfileEnabled != nil && potfileEnabled.Value != nil && *potfileEnabled.Value == "true" {
-				// Get hashlist to find client_id
-				hashlist, err := s.hashlistRepo.GetByID(ctx, jobExecution.HashlistID)
-				if err != nil {
-					debug.Warning("Failed to get hashlist for potfile check: %v", err)
+			// Flush batch when it reaches size limit
+			if len(potfileBatch) >= potfileBatchSize {
+				if err := s.potfileService.StageBatch(ctx, potfileBatch); err != nil {
+					debug.Warning("Failed to stage password batch for pot-file: %v", err)
 				} else {
-					// Check if client has potfile excluded (if hashlist has a client)
-					clientExcluded := false
-					if hashlist.ClientID != uuid.Nil {
-						clientExcluded, err = s.clientRepo.IsExcludedFromPotfile(ctx, hashlist.ClientID)
-						if err != nil {
-							debug.Warning("Failed to check client potfile exclusion: %v", err)
-							clientExcluded = false // Default to not excluded on error
-						}
-					}
-
-					if clientExcluded {
-						debug.Info("Client %s is excluded from potfile, skipping password staging", hashlist.ClientID)
-					} else {
-						// Check if this specific hashlist is excluded from potfile
-						hashlistExcluded, err := s.hashlistRepo.IsExcludedFromPotfile(ctx, jobExecution.HashlistID)
-						if err != nil {
-							debug.Warning("Failed to check hashlist potfile exclusion: %v", err)
-						} else if hashlistExcluded {
-							debug.Info("Hashlist %d is excluded from potfile, skipping password staging", jobExecution.HashlistID)
-						} else {
-							// All checks passed (global enabled, client not excluded, hashlist not excluded) - stage the password
-							if err := s.potfileService.StagePassword(ctx, password, hashValue); err != nil {
-								debug.Warning("Failed to stage password for pot-file: %v", err)
-							} else {
-								debug.Info("Successfully staged password for pot-file: hash=%s", hashValue)
-							}
-						}
-					}
+					debug.Info("Successfully staged %d passwords for pot-file", len(potfileBatch))
 				}
+				potfileBatch = nil // Reset batch
 			}
 		}
 	}
 
-	// Update hashlist cracked count
-	if crackedCount > 0 {
-		err = s.hashlistRepo.IncrementCrackedCount(ctx, jobExecution.HashlistID, crackedCount)
+	// Flush any remaining hash updates before committing
+	if len(hashUpdateBatch) > 0 && tx != nil {
+		rowsAffected, err := s.hashRepo.UpdateCrackStatusBatch(tx, hashUpdateBatch)
 		if err != nil {
-			debug.Log("Failed to update hashlist cracked count", map[string]interface{}{
-				"hashlist_id": jobExecution.HashlistID,
-				"error":       err.Error(),
-			})
+			return fmt.Errorf("failed to batch update final hashes: %w", err)
+		}
+		debug.Info("Final batch updated %d hashes out of %d queued", rowsAffected, len(hashUpdateBatch))
+
+		// Critical validation: detect if we lost updates
+		if rowsAffected != int64(len(hashUpdateBatch)) {
+			debug.Error("CRITICAL: Final batch UPDATE mismatch! Queued %d but updated only %d (LOST %d updates)",
+				len(hashUpdateBatch), rowsAffected, len(hashUpdateBatch)-int(rowsAffected))
 		}
 
-		// Update job task crack count
-		err = s.jobTaskRepo.UpdateCrackCount(ctx, taskID, crackedCount)
-		if err != nil {
-			debug.Log("Failed to update job task crack count", map[string]interface{}{
-				"task_id": taskID,
-				"error":   err.Error(),
-			})
+		hashUpdateBatch = nil
+	}
+
+	// Flush any remaining potfile staging entries
+	if len(potfileBatch) > 0 {
+		if err := s.potfileService.StageBatch(ctx, potfileBatch); err != nil {
+			debug.Warning("Failed to stage final password batch for pot-file: %v", err)
+		} else {
+			debug.Info("Successfully staged final batch of %d passwords for pot-file", len(potfileBatch))
 		}
 	}
 
-	// Commit the transaction
-	err = tx.Commit()
-	if err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
+	// Commit any remaining updates
+	if err := commitTx(); err != nil {
+		return err
+	}
+
+	// Update cracked count for ALL affected hashlists AFTER all hashes are processed
+	// This ensures that if a hash appears in multiple hashlists, all of them get updated
+	// For example, if 2 cracked hashes belong to hashlists [98, 98, 99, 100]:
+	//   - Hashlist 98 increments by 2
+	//   - Hashlist 99 increments by 1
+	//   - Hashlist 100 increments by 1
+	if len(affectedHashlists) > 0 {
+		debug.Info("Updating cracked counts for %d affected hashlists", len(affectedHashlists))
+		for hashlistID, count := range affectedHashlists {
+			debug.Info("Incrementing hashlist %d cracked count by %d", hashlistID, count)
+			err = s.hashlistRepo.IncrementCrackedCount(ctx, hashlistID, count)
+			if err != nil {
+				debug.Error("Failed to update hashlist cracked count for hashlist %d: %v",
+					hashlistID, err)
+				// Don't fail the entire batch if counter update fails
+			}
+		}
+	} else if crackedCount > 0 {
+		// This should not happen - if we cracked hashes, they should belong to at least one hashlist
+		debug.Warning("Cracked %d hashes but no affected hashlists found - this indicates a data integrity issue", crackedCount)
+	}
+
+	// Update job task crack count (still use total crackedCount for the task)
+	if crackedCount > 0 {
+		err = s.jobTaskRepo.UpdateCrackCount(ctx, taskID, crackedCount)
+		if err != nil {
+			debug.Error("Failed to update job task crack count for task %s: %v",
+				taskID, err)
+			// Don't fail the entire batch if counter update fails
+		}
+	} else {
+		debug.Debug("No new cracks to update counters for task %s", taskID)
 	}
 
 	// Update hashlist file to remove cracked hashes
@@ -1552,16 +1852,16 @@ func (s *JobWebSocketIntegration) HandleAgentReconnectionWithNoTask(ctx context.
 		} else {
 			// Mark as permanently failed after all retries exhausted
 			errorMsg := fmt.Sprintf("Agent %d reconnected without task after %d retry attempts", agentID, task.RetryCount)
-			err := s.jobTaskRepo.UpdateTaskError(ctx, task.ID, errorMsg)
+			err := s.jobTaskRepo.MarkTaskFailedPermanently(ctx, task.ID, errorMsg)
 			if err != nil {
-				debug.Log("Failed to mark task as failed", map[string]interface{}{
+				debug.Log("Failed to mark task as permanently failed", map[string]interface{}{
 					"task_id":  task.ID,
 					"agent_id": agentID,
 					"error":    err.Error(),
 				})
 				continue
 			}
-			
+
 			debug.Log("Task permanently failed after max retries", map[string]interface{}{
 				"task_id":     task.ID,
 				"agent_id":    agentID,

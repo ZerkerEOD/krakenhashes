@@ -70,7 +70,11 @@ The backend processor performs the following steps:
     *   The system checks if any hashes in the batch already exist in the central `hashes` table (based on `original_hash` and hash type ID).
     *   New, unique hashes are inserted into the `hashes` table with both `hash_value` and `original_hash`.
     *   Entries are created in the `hashlist_hashes` join table to link both new and existing hashes from the batch to the current hashlist.
-    *   **Cross-Hashlist Crack Propagation:** When a hash is cracked, ALL hashes with the same `hash_value` (across all hashlists) are automatically marked as cracked. This means if "Administrator", "Administrator1", and "Administrator2" share the same password, cracking one updates all three.
+    *   **Cross-Hashlist Crack Propagation:** When a hash is cracked, ALL hashes with the same `hash_value` (across all hashlists) are automatically marked as cracked. Additionally, ALL hashlist files containing that hash are automatically regenerated to remove the cracked hash. This ensures:
+        *   If "Administrator", "Administrator1", and "Administrator2" share the same password across different hashlists, cracking one updates all three
+        *   All affected hashlist files are regenerated with only uncracked hashes remaining
+        *   Agents automatically download updated hashlist files on their next task
+        *   The `cracked_hashes` counter is incremented for each affected hashlist
     *   If a hash being added includes a pre-cracked password, the corresponding record in the `hashes` table is updated (`is_cracked`=true, `password`=...).
 7.  **Update Status:** Once the entire file is processed, the hashlist status is updated to `ready`, `ready_with_errors`, or `error`, along with the final `total_hashes` and `cracked_hashes` counts.
 
@@ -144,6 +148,70 @@ KrakenHashes automatically extracts username and domain information from support
 - **DCC/MS Cache (1100)**: Extracts from `hash:username`
 
 Machine accounts (with `$` suffix) are fully preserved: `COMPUTER01$`, `WKS01$`, etc.
+
+## Hashlist File Synchronization
+
+### Automatic Updates After Cracks
+
+When hashes are cracked during job execution, KrakenHashes automatically maintains file consistency across all affected hashlists:
+
+**Update Process**:
+1. Agent reports cracked hashes via crack batch mechanism
+2. Backend marks ALL matching hashes as cracked (by `hash_value`)
+3. System identifies ALL hashlists containing the cracked hashes
+4. Each affected hashlist file is regenerated with only uncracked hashes
+5. Agents are notified that their local copies are outdated
+6. On next task assignment, agents automatically download fresh files
+
+**Example Scenario**:
+```
+Initial State:
+- Hashlist A: 10,000 hashes (Administrator, User1, Guest, ...)
+- Hashlist B: 5,000 hashes (john@corp.com, admin@corp.com, ...)
+- Both contain hash "5F4DCC3B..." (password: "password123")
+
+After Crack:
+1. Agent cracks "5F4DCC3B..." while working on Hashlist A
+2. Backend marks hash as cracked in central database
+3. System finds that BOTH Hashlist A and B contain this hash
+4. BOTH hashlist files are regenerated without the cracked hash
+5. Hashlist A: 9,999 hashes remaining
+6. Hashlist B: 4,999 hashes remaining
+7. All agents with either hashlist are marked for update
+```
+
+**Benefits**:
+- **No Duplicate Work**: Agents never attempt already-cracked hashes
+- **Consistency**: All hashlists remain synchronized
+- **Efficiency**: File sizes shrink as cracks accumulate
+- **Automatic**: No manual intervention required
+
+**User Experience**:
+- You may notice hashlist file sizes decreasing as cracks occur
+- Progress percentages update across all affected hashlists
+- Download hashlist via UI to get current uncracked hashes
+- Original uploaded file preserved if needed for audit purposes
+
+### Cross-Hashlist Impact
+
+If you upload multiple hashlists that share common hashes (e.g., same organization, different departments):
+
+**Advantages**:
+- Cracking work in one hashlist benefits all others
+- Faster overall completion across all hashlists
+- Reduced computational cost (each unique hash cracked only once)
+
+**Considerations**:
+- More hashlists = more file regeneration operations per crack
+- Performance impact minimal for typical deployments (< 100 hashlists)
+- Monitor backend disk I/O during high-volume cracking sessions
+
+**Best Practices**:
+1. Group related hashlists (same organization/campaign)
+2. Separate unrelated hashlists for clearer progress tracking
+3. Use client associations to organize hashlist collections
+
+For technical details on the cross-hashlist synchronization system, see [Cross-Hashlist Sync Architecture](../reference/architecture/cross-hashlist-sync.md).
 
 ## Data Retention
 
