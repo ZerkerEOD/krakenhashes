@@ -133,6 +133,91 @@ Hashcat provides the actual keyspace through `progress[1]` values, which the sys
 **job_tasks table:**
 - `is_actual_keyspace` (boolean): True when task has actual keyspace from progress update
 
+## Hashlist Download Strategy for Benchmarks
+
+### Always-Fresh Hashlist Downloads
+
+To ensure accurate keyspace calculations, benchmarks ALWAYS download a fresh copy of the hashlist from the backend, even if a local copy exists. This prevents stale hash counts from affecting keyspace estimates.
+
+**Why This Matters**:
+- Hashlists change as hashes are cracked and files are regenerated
+- Benchmark keyspace must reflect the CURRENT number of uncracked hashes
+- Stale local copies can lead to incorrect `effective_keyspace` values
+- Cross-hashlist crack propagation means files update frequently
+
+**Implementation**:
+```go
+// Agent removes existing hashlist before benchmark
+if _, err := os.Stat(localPath); err == nil {
+    debug.Info("Removing existing hashlist to download fresh copy for benchmark")
+    os.Remove(localPath)
+}
+
+// Download fresh copy from backend
+fileInfo := &filesync.FileInfo{
+    Name:     fmt.Sprintf("%d.hash", hashlistID),
+    FileType: "hashlist",
+    ID:       int(hashlistID),
+    MD5Hash:  "", // Skip verification for speed
+}
+c.fileSync.DownloadFileFromInfo(ctx, fileInfo)
+```
+
+**Benchmark Workflow with Fresh Download**:
+1. Backend requests benchmark for job execution
+2. Agent receives benchmark request with hashlist ID
+3. Agent deletes any existing local hashlist file
+4. Agent downloads current version from backend (may be empty if all cracked)
+5. Agent runs hashcat benchmark with fresh hashlist
+6. Agent reports actual keyspace from `progress[1]`
+
+**Benefits**:
+- Keyspace values always accurate
+- Benchmarks work correctly even after massive crack batches
+- Prevents "empty hashlist" errors from hashcat
+- Consistent behavior across all agents
+
+**Performance Impact**:
+- Minimal: Hashlists are typically < 10 MB
+- Download completes in seconds over LAN
+- Only occurs once per job (first agent)
+- Subsequent agents use job-level cached keyspace
+
+### Task Execution Strategy
+
+Similar to benchmarks, job tasks also ALWAYS re-download hashlists:
+
+**Rationale**:
+- Ensures consistent behavior between benchmarks and tasks
+- Prevents agents from working with stale data
+- Handles cross-hashlist crack propagation automatically
+- Eliminates edge cases with modified local files
+
+**Implementation**:
+```go
+// Agent ensures fresh hashlist for each task
+if _, err := os.Stat(localPath); err == nil {
+    debug.Info("Removing existing hashlist to download fresh copy")
+    os.Remove(localPath)
+}
+
+// Download current version
+s.fileSync.DownloadFileFromInfo(ctx, fileInfo)
+```
+
+**Trade-offs**:
+- Slightly higher network usage
+- Guaranteed data freshness
+- Simplified agent logic (no staleness checks)
+- Better fault tolerance
+
+## Related Systems
+
+This benchmark workflow integrates with several other systems:
+
+- **[Cross-Hashlist Sync](cross-hashlist-sync.md)**: Understanding why hashlists change frequently
+- **[Job Update System](job-update-system.md)**: How keyspace values flow into job calculations, including progressive refinement
+
 ## Future Enhancements
 
 1. **Benchmark History**: Track benchmark trends over time
@@ -140,3 +225,4 @@ Hashcat provides the actual keyspace through `progress[1]` values, which the sys
 3. **Dynamic Re-benchmarking**: Trigger new benchmarks on performance anomalies
 4. **Multi-GPU Optimization**: Per-device benchmark tracking
 5. **Keyspace Prediction**: Use historical multipliers to improve initial estimates
+6. **Intelligent Caching**: Detect when hashlist hasn't changed to skip download

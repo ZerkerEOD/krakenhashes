@@ -262,7 +262,10 @@ func (s *AnalyticsService) calculateLengthDistribution(passwords []*models.Hash)
 	var count8to11 int
 
 	for _, pwd := range passwords {
-		length := len([]rune(pwd.Password))
+		if pwd.Password == nil {
+			continue // Skip entries without passwords
+		}
+		length := len([]rune(*pwd.Password))
 		lengthMap[length]++
 		totalLength += int64(length)
 
@@ -362,9 +365,12 @@ func (s *AnalyticsService) calculateComplexity(passwords []*models.Hash) models.
 	complexLongCount := 0
 
 	for _, pwd := range passwords {
-		charTypes := s.detectCharacterTypes(pwd.Password)
+		if pwd.Password == nil {
+			continue // Skip entries without passwords
+		}
+		charTypes := s.detectCharacterTypes(*pwd.Password)
 		typeCount := charTypes.CountTypes()
-		length := len([]rune(pwd.Password))
+		length := len([]rune(*pwd.Password))
 
 		switch typeCount {
 		case 1:
@@ -468,7 +474,10 @@ func (s *AnalyticsService) calculatePositionalAnalysis(passwords []*models.Hash)
 	endsSpecial := 0
 
 	for _, pwd := range passwords {
-		runes := []rune(pwd.Password)
+		if pwd.Password == nil {
+			continue // Skip entries without passwords
+		}
+		runes := []rune(*pwd.Password)
 		if len(runes) == 0 {
 			continue
 		}
@@ -526,7 +535,10 @@ func (s *AnalyticsService) detectPatterns(passwords []*models.Hash) models.Patte
 	commonWords := []string{"password", "welcome", "admin", "user", "login", "spring", "summer", "fall", "winter", "autumn"}
 
 	for _, pwd := range passwords {
-		lower := strings.ToLower(pwd.Password)
+		if pwd.Password == nil {
+			continue // Skip entries without passwords
+		}
+		lower := strings.ToLower(*pwd.Password)
 
 		// Check keyboard walks
 		for _, re := range keyboardRegexes {
@@ -537,12 +549,12 @@ func (s *AnalyticsService) detectPatterns(passwords []*models.Hash) models.Patte
 		}
 
 		// Check sequential
-		if sequentialRegex.MatchString(pwd.Password) {
+		if sequentialRegex.MatchString(*pwd.Password) {
 			sequential++
 		}
 
 		// Check repeating
-		if hasRepeatingChars(pwd.Password) {
+		if hasRepeatingChars(*pwd.Password) {
 			repeating++
 		}
 
@@ -576,12 +588,12 @@ func (s *AnalyticsService) analyzeUsernameCorrelation(passwords []*models.Hash) 
 	suffixRegex := regexp.MustCompile(`\d{1,4}|!+|@+`)
 
 	for _, pwd := range passwords {
-		if pwd.Username == nil || *pwd.Username == "" {
+		if pwd.Password == nil || pwd.Username == nil || *pwd.Username == "" {
 			continue
 		}
 
 		username := strings.ToLower(*pwd.Username)
-		password := strings.ToLower(pwd.Password)
+		password := strings.ToLower(*pwd.Password)
 
 		if username == password {
 			equals++
@@ -630,7 +642,10 @@ func (s *AnalyticsService) detectPasswordReuse(hashesWithHashlists []repository.
 	passwordUserHashlists := make(map[string]map[string]map[int64]bool)
 
 	for _, hwh := range hashesWithHashlists {
-		password := hwh.Hash.Password
+		if hwh.Hash.Password == nil {
+			continue // Skip entries without passwords
+		}
+		password := *hwh.Hash.Password
 		username := "NULL"
 		if hwh.Hash.Username != nil {
 			username = *hwh.Hash.Username
@@ -719,12 +734,15 @@ func (s *AnalyticsService) detectTemporalPatterns(passwords []*models.Hash) mode
 	seasons := []string{"spring", "summer", "fall", "winter", "autumn"}
 
 	for _, pwd := range passwords {
-		lower := strings.ToLower(pwd.Password)
+		if pwd.Password == nil {
+			continue // Skip entries without passwords
+		}
+		lower := strings.ToLower(*pwd.Password)
 
 		// Check years
 		foundYear := false
 		for _, year := range years {
-			if strings.Contains(pwd.Password, year) {
+			if strings.Contains(*pwd.Password, year) {
 				yearBreakdown[year]++
 				if !foundYear {
 					containsYear++
@@ -768,11 +786,14 @@ func (s *AnalyticsService) analyzeMasks(passwords []*models.Hash) models.MaskSta
 	})
 
 	for _, pwd := range passwords {
-		mask := s.passwordToMask(pwd.Password)
+		if pwd.Password == nil {
+			continue // Skip entries without passwords
+		}
+		mask := s.passwordToMask(*pwd.Password)
 		existing := maskCounts[mask]
 		existing.count++
 		if existing.example == "" {
-			existing.example = pwd.Password
+			existing.example = *pwd.Password
 		}
 		maskCounts[mask] = existing
 	}
@@ -838,7 +859,10 @@ func (s *AnalyticsService) checkCustomPatterns(passwords []*models.Hash, customP
 	patternsDetected := make(map[string]int)
 
 	for _, pwd := range passwords {
-		lower := strings.ToLower(pwd.Password)
+		if pwd.Password == nil {
+			continue // Skip entries without passwords
+		}
+		lower := strings.ToLower(*pwd.Password)
 		for _, pattern := range patterns {
 			if strings.Contains(lower, strings.ToLower(pattern)) {
 				patternsDetected[pattern]++
@@ -872,7 +896,10 @@ func (s *AnalyticsService) calculateStrengthMetrics(passwords []*models.Hash, sp
 	highEntropy := 0
 
 	for _, pwd := range passwords {
-		entropy := s.calculateEntropy(pwd.Password)
+		if pwd.Password == nil {
+			continue // Skip entries without passwords
+		}
+		entropy := s.calculateEntropy(*pwd.Password)
 
 		if entropy < 78 {
 			lowEntropy++
@@ -941,7 +968,10 @@ func (s *AnalyticsService) calculateSpeedLevelEstimate(passwords []*models.Hash,
 	)
 
 	for _, pwd := range passwords {
-		seconds := s.estimateCrackTime(pwd.Password, speedHPS)
+		if pwd.Password == nil {
+			continue // Skip entries without passwords
+		}
+		seconds := s.estimateCrackTime(*pwd.Password, speedHPS)
 
 		if seconds < hour {
 			under1Hour++
@@ -1001,7 +1031,10 @@ func (s *AnalyticsService) getTopPasswords(passwords []*models.Hash, limit int) 
 	passwordCounts := make(map[string]int)
 
 	for _, pwd := range passwords {
-		passwordCounts[pwd.Password]++
+		if pwd.Password == nil {
+			continue // Skip entries without passwords
+		}
+		passwordCounts[*pwd.Password]++
 	}
 
 	topList := []models.TopPassword{}

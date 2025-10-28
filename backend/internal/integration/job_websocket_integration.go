@@ -689,16 +689,108 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 				progress.TaskID, effectiveStart, actualEffectiveEnd, chunkActualKeyspace)
 
 			// Adjust job's dispatched keyspace to reflect actual vs estimated
-			if dispatchedAdjustment != 0 {
-				database := &db.DB{DB: s.db}
-				jobExecRepo := repository.NewJobExecutionRepository(database)
+			database := &db.DB{DB: s.db}
+			jobExecRepo := repository.NewJobExecutionRepository(database)
 
+			if dispatchedAdjustment != 0 {
 				err = jobExecRepo.IncrementDispatchedKeyspace(ctx, task.JobExecutionID, dispatchedAdjustment)
 				if err != nil {
 					debug.Error("Failed to adjust job dispatched keyspace: %v", err)
 				} else {
 					debug.Info("Adjusted job %s dispatched keyspace by %d (actual vs estimated)",
 						task.JobExecutionID, dispatchedAdjustment)
+				}
+			}
+
+			// For single-task jobs (NO RULE SPLITTING), also update effective_keyspace to match actual
+			// This ensures progress calculations use actual keyspace, not estimates
+			// Rule-splitting jobs are handled by progressive refinement below
+			job, err := jobExecRepo.GetByID(ctx, task.JobExecutionID)
+			if err == nil && !job.UsesRuleSplitting && task.ChunkNumber == 1 {
+				// Check if this is the only task for this job
+				allTasks, err := s.jobTaskRepo.GetTasksByJobExecution(ctx, task.JobExecutionID)
+				if err == nil && len(allTasks) == 1 {
+					// Single task job - update effective_keyspace to match actual total
+					if job.EffectiveKeyspace != nil {
+						newEffectiveKeyspace := chunkActualKeyspace
+						if *job.EffectiveKeyspace != newEffectiveKeyspace {
+							err = jobExecRepo.UpdateEffectiveKeyspace(ctx, task.JobExecutionID, newEffectiveKeyspace)
+							if err != nil {
+								debug.Error("Failed to update job effective keyspace to actual: %v", err)
+							} else {
+								debug.Info("Updated job %s effective_keyspace from %d (estimated) to %d (actual from hashcat)",
+									task.JobExecutionID, *job.EffectiveKeyspace, newEffectiveKeyspace)
+							}
+						}
+					}
+				}
+			}
+
+			// PROGRESSIVE REFINEMENT: Recalculate job's effective_keyspace based on completed actuals + estimate for remaining
+			// This handles multi-task jobs where hashlist changes between tasks
+			// Reuse job variable from above
+			if job != nil && job.UsesRuleSplitting {
+				// Get all tasks for this job
+				allTasks, err := s.jobTaskRepo.GetTasksByJobExecution(ctx, task.JobExecutionID)
+				if err == nil && len(allTasks) > 0 {
+					// Calculate: sum of actuals + smart estimate for remaining
+					totalActualKeyspace := int64(0)
+					totalActualRules := 0
+					totalRemainingRules := 0
+					pendingTaskCount := 0
+
+					for _, t := range allTasks {
+						// Include tasks that have reported actual keyspace (completed OR running with actual)
+						if t.ChunkActualKeyspace != nil && *t.ChunkActualKeyspace > 0 {
+							totalActualKeyspace += *t.ChunkActualKeyspace
+							if t.RuleStartIndex != nil && t.RuleEndIndex != nil {
+								totalActualRules += (*t.RuleEndIndex - *t.RuleStartIndex)
+							}
+						} else if t.Status == "pending" {
+							// Only count truly pending tasks (not running)
+							pendingTaskCount++
+							if t.RuleStartIndex != nil && t.RuleEndIndex != nil {
+								totalRemainingRules += (*t.RuleEndIndex - *t.RuleStartIndex)
+							}
+						}
+					}
+
+					// Calculate new effective_keyspace
+					newEffectiveKeyspace := totalActualKeyspace
+
+					if pendingTaskCount > 0 && totalActualRules > 0 {
+						// Estimate remaining based on: (avg keyspace per rule from completed) × (remaining rules)
+						// Use current hashlist size for estimate
+						hashlistRepo := repository.NewHashListRepository(database)
+						currentHashCount, err := hashlistRepo.GetUncrackedHashCount(ctx, job.HashlistID)
+						if err == nil && currentHashCount > 0 {
+							// Average actual keyspace per rule from completed tasks
+							avgKeyspacePerRule := float64(totalActualKeyspace) / float64(totalActualRules)
+
+							// Estimate for remaining tasks using CURRENT hashlist size
+							estimatedRemaining := int64(avgKeyspacePerRule * float64(totalRemainingRules))
+
+							newEffectiveKeyspace = totalActualKeyspace + estimatedRemaining
+
+							debug.Info("Progressive refinement for job %s: actual=%d (from %d rules), estimated=%d (for %d rules with %d hashes), total=%d",
+								task.JobExecutionID, totalActualKeyspace, totalActualRules, estimatedRemaining, totalRemainingRules, currentHashCount, newEffectiveKeyspace)
+						}
+					}
+
+					// Update if changed significantly (avoid tiny fluctuations)
+					if job.EffectiveKeyspace == nil || absInt64(*job.EffectiveKeyspace-newEffectiveKeyspace) > 1000 {
+						err = jobExecRepo.UpdateEffectiveKeyspace(ctx, task.JobExecutionID, newEffectiveKeyspace)
+						if err != nil {
+							debug.Error("Failed to update progressive effective keyspace: %v", err)
+						} else {
+							oldValue := int64(0)
+							if job.EffectiveKeyspace != nil {
+								oldValue = *job.EffectiveKeyspace
+							}
+							debug.Info("Updated job %s effective_keyspace from %d to %d (progressive refinement)",
+								task.JobExecutionID, oldValue, newEffectiveKeyspace)
+						}
+					}
 				}
 			}
 
@@ -726,10 +818,11 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			"error":   progress.ErrorMessage,
 		})
 
-		// Update task status to failed
-		err := s.jobTaskRepo.UpdateTaskError(ctx, progress.TaskID, progress.ErrorMessage)
+		// Mark task as permanently failed and decrement dispatched keyspace
+		// Agent-reported failures are considered permanent and the job will be marked as failed
+		err := s.jobTaskRepo.MarkTaskFailedPermanently(ctx, progress.TaskID, progress.ErrorMessage)
 		if err != nil {
-			debug.Error("Failed to update task error: %v", err)
+			debug.Error("Failed to mark task as permanently failed: %v", err)
 		}
 
 		// Clear agent busy status
@@ -920,6 +1013,14 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 	}
 
 	return nil
+}
+
+// absInt64 returns the absolute value of an int64
+func absInt64(x int64) int64 {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 // HandleCrackBatch processes crack batch messages from agents
@@ -1253,6 +1354,10 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 		}
 	}()
 
+	// Track which hashlists are affected by these cracks and by how many
+	// Key: hashlist ID, Value: count of newly cracked hashes
+	affectedHashlists := make(map[int64]int)
+
 	// Process each cracked hash
 	for _, crackedEntry := range crackedHashes {
 		hashValue := crackedEntry.Hash
@@ -1298,6 +1403,16 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 
 			crackedCount++
 			txHashCount++
+
+			// Query which hashlists contain this hash and increment their counters
+			hashlistIDs, err := s.hashRepo.GetHashlistIDsForHash(ctx, hash.ID)
+			if err != nil {
+				debug.Warning("Failed to get hashlist IDs for hash %s: %v", hash.ID, err)
+			} else {
+				for _, hashlistID := range hashlistIDs {
+					affectedHashlists[hashlistID]++
+				}
+			}
 
 			debug.Log("Queued hash for batch update", map[string]interface{}{
 				"hash_id":     hash.ID,
@@ -1382,18 +1497,30 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 		return err
 	}
 
-	// Update hashlist cracked count AFTER all hashes are processed
-	// This reduces concurrent counter updates during high-volume cracking
-	if crackedCount > 0 {
-		debug.Info("Updating hashlist %d cracked count by %d", jobExecution.HashlistID, crackedCount)
-		err = s.hashlistRepo.IncrementCrackedCount(ctx, jobExecution.HashlistID, crackedCount)
-		if err != nil {
-			debug.Error("Failed to update hashlist cracked count for hashlist %d: %v",
-				jobExecution.HashlistID, err)
-			// Don't fail the entire batch if counter update fails
+	// Update cracked count for ALL affected hashlists AFTER all hashes are processed
+	// This ensures that if a hash appears in multiple hashlists, all of them get updated
+	// For example, if 2 cracked hashes belong to hashlists [98, 98, 99, 100]:
+	//   - Hashlist 98 increments by 2
+	//   - Hashlist 99 increments by 1
+	//   - Hashlist 100 increments by 1
+	if len(affectedHashlists) > 0 {
+		debug.Info("Updating cracked counts for %d affected hashlists", len(affectedHashlists))
+		for hashlistID, count := range affectedHashlists {
+			debug.Info("Incrementing hashlist %d cracked count by %d", hashlistID, count)
+			err = s.hashlistRepo.IncrementCrackedCount(ctx, hashlistID, count)
+			if err != nil {
+				debug.Error("Failed to update hashlist cracked count for hashlist %d: %v",
+					hashlistID, err)
+				// Don't fail the entire batch if counter update fails
+			}
 		}
+	} else if crackedCount > 0 {
+		// This should not happen - if we cracked hashes, they should belong to at least one hashlist
+		debug.Warning("Cracked %d hashes but no affected hashlists found - this indicates a data integrity issue", crackedCount)
+	}
 
-		// Update job task crack count
+	// Update job task crack count (still use total crackedCount for the task)
+	if crackedCount > 0 {
 		err = s.jobTaskRepo.UpdateCrackCount(ctx, taskID, crackedCount)
 		if err != nil {
 			debug.Error("Failed to update job task crack count for task %s: %v",
@@ -1705,16 +1832,16 @@ func (s *JobWebSocketIntegration) HandleAgentReconnectionWithNoTask(ctx context.
 		} else {
 			// Mark as permanently failed after all retries exhausted
 			errorMsg := fmt.Sprintf("Agent %d reconnected without task after %d retry attempts", agentID, task.RetryCount)
-			err := s.jobTaskRepo.UpdateTaskError(ctx, task.ID, errorMsg)
+			err := s.jobTaskRepo.MarkTaskFailedPermanently(ctx, task.ID, errorMsg)
 			if err != nil {
-				debug.Log("Failed to mark task as failed", map[string]interface{}{
+				debug.Log("Failed to mark task as permanently failed", map[string]interface{}{
 					"task_id":  task.ID,
 					"agent_id": agentID,
 					"error":    err.Error(),
 				})
 				continue
 			}
-			
+
 			debug.Log("Task permanently failed after max retries", map[string]interface{}{
 				"task_id":     task.ID,
 				"agent_id":    agentID,

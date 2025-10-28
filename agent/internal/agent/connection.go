@@ -363,8 +363,7 @@ type Connection struct {
 	// Sync status tracking
 	syncStatus      string
 	syncMutex       sync.RWMutex
-	filesToDownload []filesync.FileInfo
-	filesDownloaded int
+	// Note: File download tracking now handled by downloadManager.GetDownloadStats()
 
 	// Job manager - initialized externally and set via SetJobManager
 	jobManager JobManager
@@ -1057,14 +1056,8 @@ func (c *Connection) readPump() {
 			// Send sync started message
 			c.sendSyncStarted(len(commandPayload.Files))
 
-			// Track files to download
-			c.syncMutex.Lock()
-			for _, file := range commandPayload.Files {
-				c.filesToDownload = append(c.filesToDownload, file)
-			}
-			c.syncMutex.Unlock()
-
 			// Queue downloads using the download manager
+			// Note: Download manager tracks all file states internally
 			ctx := context.Background()
 			if c.downloadManager != nil {
 				for _, file := range commandPayload.Files {
@@ -1303,115 +1296,86 @@ func (c *Connection) readPump() {
 					}
 				}
 
-				// Check if hashlist exists locally and is valid before running benchmark
+				// Always re-download hashlist for benchmarks to ensure fresh data after cracks
 				if benchmarkPayload.HashlistID > 0 {
 					hashlistFileName := fmt.Sprintf("%d.hash", benchmarkPayload.HashlistID)
 					dataDirs, _ := config.GetDataDirs()
 					localPath := filepath.Join(dataDirs.Hashlists, hashlistFileName)
 
-					needsDownload := false
-					if fileInfo, err := os.Stat(localPath); err == nil {
-						// File exists, check if it's valid
-						if fileInfo.Size() == 0 {
-							// File is empty (likely from hashcat --remove removing all hashes)
-							debug.Warning("Hashlist %d exists but is empty (0 bytes), will re-download for benchmark", benchmarkPayload.HashlistID)
-							needsDownload = true
-						} else {
-							debug.Info("Hashlist %d already exists locally for benchmark (size: %d bytes)", benchmarkPayload.HashlistID, fileInfo.Size())
+					// Remove existing hashlist if it exists to force fresh download
+					if _, err := os.Stat(localPath); err == nil {
+						debug.Info("Removing existing hashlist %d to download fresh copy for benchmark", benchmarkPayload.HashlistID)
+						if err := os.Remove(localPath); err != nil {
+							debug.Warning("Failed to remove existing hashlist: %v", err)
 						}
-					} else if os.IsNotExist(err) {
-						debug.Info("Hashlist %d not found locally for benchmark, downloading...", benchmarkPayload.HashlistID)
-						needsDownload = true
-					} else {
-						debug.Error("Error checking hashlist file for benchmark: %v", err)
-						// Send failure result
-						resultPayload := map[string]interface{}{
-							"job_execution_id": benchmarkPayload.JobExecutionID,
-							"attack_mode":      benchmarkPayload.AttackMode,
-							"hash_type":        benchmarkPayload.HashType,
-							"speed":            int64(0),
-							"device_speeds":    []jobs.DeviceSpeed{},
-							"success":          false,
-							"error":            fmt.Sprintf("Error checking hashlist file: %v", err),
-						}
-						payloadBytes, _ := json.Marshal(resultPayload)
-						response := WSMessage{
-							Type:      WSTypeBenchmarkResult,
-							Payload:   payloadBytes,
-							Timestamp: time.Now(),
-						}
-						if err := c.ws.WriteJSON(response); err != nil {
-							debug.Error("Failed to send benchmark failure result: %v", err)
-						}
-						return
 					}
 
-					if needsDownload {
-						
-						// Create FileInfo for download
-						fileInfo := &filesync.FileInfo{
-							Name:     hashlistFileName,
-							FileType: "hashlist",
-							ID:       int(benchmarkPayload.HashlistID),
-							MD5Hash:  "", // Empty hash means skip verification
-						}
-						
-						// Download with timeout
-						downloadCtx, downloadCancel := context.WithTimeout(context.Background(), 5*time.Minute)
-						defer downloadCancel()
-						
-						if err := c.fileSync.DownloadFileFromInfo(downloadCtx, fileInfo); err != nil {
-							debug.Error("Failed to download hashlist for benchmark: %v", err)
-							// Send failure result
-							resultPayload := map[string]interface{}{
-								"job_execution_id": benchmarkPayload.JobExecutionID,
-								"attack_mode":      benchmarkPayload.AttackMode,
-								"hash_type":        benchmarkPayload.HashType,
-								"speed":            int64(0),
-								"device_speeds":    []jobs.DeviceSpeed{},
-								"success":          false,
-								"error":            fmt.Sprintf("Failed to download hashlist: %v", err),
-							}
-							payloadBytes, _ := json.Marshal(resultPayload)
-							response := WSMessage{
-								Type:      WSTypeBenchmarkResult,
-								Payload:   payloadBytes,
-								Timestamp: time.Now(),
-							}
-							if err := c.ws.WriteJSON(response); err != nil {
-								debug.Error("Failed to send benchmark failure result: %v", err)
-							}
-							return
+					// Always download for benchmarks to get current hash count
+					debug.Info("Downloading hashlist %d for benchmark...", benchmarkPayload.HashlistID)
+
+					// Create FileInfo for download
+					fileInfo := &filesync.FileInfo{
+						Name:     hashlistFileName,
+						FileType: "hashlist",
+						ID:       int(benchmarkPayload.HashlistID),
+						MD5Hash:  "", // Empty hash means skip verification
+					}
+
+					// Download with timeout
+					downloadCtx, downloadCancel := context.WithTimeout(context.Background(), 5*time.Minute)
+					defer downloadCancel()
+
+					if err := c.fileSync.DownloadFileFromInfo(downloadCtx, fileInfo); err != nil {
+					debug.Error("Failed to download hashlist for benchmark: %v", err)
+					// Send failure result
+					resultPayload := map[string]interface{}{
+						"job_execution_id": benchmarkPayload.JobExecutionID,
+						"attack_mode":      benchmarkPayload.AttackMode,
+						"hash_type":        benchmarkPayload.HashType,
+						"speed":            int64(0),
+						"device_speeds":    []jobs.DeviceSpeed{},
+						"success":          false,
+						"error":            fmt.Sprintf("Failed to download hashlist: %v", err),
+					}
+					payloadBytes, _ := json.Marshal(resultPayload)
+					response := WSMessage{
+						Type:      WSTypeBenchmarkResult,
+						Payload:   payloadBytes,
+						Timestamp: time.Now(),
+					}
+					if err := c.ws.WriteJSON(response); err != nil {
+						debug.Error("Failed to send benchmark failure result: %v", err)
+					}
+					return
 						}
 						
 						// Verify the file was downloaded
 						if _, err := os.Stat(localPath); err != nil {
-							debug.Error("Hashlist file not found after download: %s", localPath)
-							// Send failure result
-							resultPayload := map[string]interface{}{
-								"job_execution_id": benchmarkPayload.JobExecutionID,
-								"attack_mode":      benchmarkPayload.AttackMode,
-								"hash_type":        benchmarkPayload.HashType,
-								"speed":            int64(0),
-								"device_speeds":    []jobs.DeviceSpeed{},
-								"success":          false,
-								"error":            "Hashlist file not found after download",
-							}
-							payloadBytes, _ := json.Marshal(resultPayload)
-							response := WSMessage{
-								Type:      WSTypeBenchmarkResult,
-								Payload:   payloadBytes,
-								Timestamp: time.Now(),
-							}
-							if err := c.ws.WriteJSON(response); err != nil {
-								debug.Error("Failed to send benchmark failure result: %v", err)
-							}
-							return
+					debug.Error("Hashlist file not found after download: %s", localPath)
+					// Send failure result
+					resultPayload := map[string]interface{}{
+						"job_execution_id": benchmarkPayload.JobExecutionID,
+						"attack_mode":      benchmarkPayload.AttackMode,
+						"hash_type":        benchmarkPayload.HashType,
+						"speed":            int64(0),
+						"device_speeds":    []jobs.DeviceSpeed{},
+						"success":          false,
+						"error":            "Hashlist file not found after download",
+					}
+					payloadBytes, _ := json.Marshal(resultPayload)
+					response := WSMessage{
+						Type:      WSTypeBenchmarkResult,
+						Payload:   payloadBytes,
+						Timestamp: time.Now(),
+					}
+					if err := c.ws.WriteJSON(response); err != nil {
+						debug.Error("Failed to send benchmark failure result: %v", err)
+					}
+					return
 						}
 						
 						debug.Info("Successfully downloaded hashlist %d for benchmark", benchmarkPayload.HashlistID)
 					}
-				}
 
 				// Create a JobTaskAssignment from benchmark request
 				assignment := &jobs.JobTaskAssignment{
@@ -2356,14 +2320,20 @@ func (c *Connection) monitorDownloadProgress() {
 	}
 
 	progressChan := c.downloadManager.GetProgressChannel()
-	for progress := range progressChan {
-		// Send progress updates via WebSocket
-		if progress.Status == filesync.DownloadStatusCompleted {
-			c.filesDownloaded++
-		}
+	for range progressChan {
+		// Query download manager for actual state (single source of truth)
+		total, pending, downloading, completed, failed := c.downloadManager.GetDownloadStats()
 
-		// Check if all downloads are complete
-		if c.filesDownloaded >= len(c.filesToDownload) && len(c.filesToDownload) > 0 {
+		// Log progress for debugging
+		debug.Info("Download progress: %d completed, %d failed, %d pending, %d downloading (total: %d)",
+			completed, failed, pending, downloading, total)
+
+		// Check if all downloads are resolved (no active downloads remaining)
+		if pending == 0 && downloading == 0 && total > 0 {
+			// All downloads finished (either completed or failed)
+			if failed > 0 {
+				debug.Warning("File sync completed with %d failures out of %d total files", failed, total)
+			}
 			c.sendSyncCompleted()
 		}
 	}
@@ -2373,8 +2343,6 @@ func (c *Connection) monitorDownloadProgress() {
 func (c *Connection) sendSyncStarted(filesToSync int) {
 	c.syncMutex.Lock()
 	c.syncStatus = "in_progress"
-	c.filesToDownload = make([]filesync.FileInfo, 0, filesToSync)
-	c.filesDownloaded = 0
 	c.syncMutex.Unlock()
 
 	payload, _ := json.Marshal(map[string]interface{}{
@@ -2404,12 +2372,16 @@ func (c *Connection) sendSyncCompleted() {
 		return // Already sent
 	}
 	c.syncStatus = "completed"
-	filesDownloaded := c.filesDownloaded
 	c.syncMutex.Unlock()
+
+	// Get final stats from download manager (single source of truth)
+	total, _, _, completed, failed := c.downloadManager.GetDownloadStats()
 
 	payload, _ := json.Marshal(map[string]interface{}{
 		"agent_id":     c.agentID,
-		"files_synced": filesDownloaded,
+		"files_synced": completed,
+		"files_failed": failed,
+		"files_total":  total,
 	})
 
 	message := WSMessage{
@@ -2420,8 +2392,12 @@ func (c *Connection) sendSyncCompleted() {
 
 	select {
 	case c.outbound <- &message:
-		debug.Info("Sent sync completed message with %d files synced", filesDownloaded)
-		console.Success("File synchronization complete (%d files downloaded)", filesDownloaded)
+		debug.Info("Sent sync completed message: %d succeeded, %d failed out of %d total", completed, failed, total)
+		if failed > 0 {
+			console.Warning("File synchronization complete with issues (%d/%d files downloaded, %d failed)", completed, total, failed)
+		} else {
+			console.Success("File synchronization complete (%d/%d files downloaded)", completed, total)
+		}
 	default:
 		debug.Warning("Failed to send sync completed message: outbound channel full")
 	}

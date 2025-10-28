@@ -472,10 +472,10 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 		args = append(args, extraParamsList...)
 	}
 	
-	// Only add --remove and --outfile for actual job execution, not benchmarks
+	// Only add --outfile for actual job execution, not benchmarks
+	// Note: --remove flag removed as it's not needed for distributed cracking
+	// The backend tracks which hashes are cracked via the database
 	if !isBenchmark {
-		args = append(args, "--remove") // Remove cracked hashes from hashlist
-
 		// Add outfile for reliable crack capture
 		outfileDir := filepath.Join(e.dataDirectory, "outfile")
 		if err := os.MkdirAll(outfileDir, 0755); err != nil {

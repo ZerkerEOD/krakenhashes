@@ -1168,19 +1168,30 @@ func (s *JobExecutionService) CreateJobTask(ctx context.Context, jobExecution *m
 	}
 
 	// Update dispatched keyspace for the job execution
-	chunkSize := keyspaceEnd - keyspaceStart
-	if err := s.jobExecRepo.IncrementDispatchedKeyspace(ctx, jobExecution.ID, chunkSize); err != nil {
+	// Use the EFFECTIVE keyspace estimate that we calculated and stored in the task
+	// This ensures the adjustment logic has the correct baseline to work from
+	effectiveChunkSize := effectiveEnd - effectiveStart
+	baseChunkSize := keyspaceEnd - keyspaceStart
+
+	debug.Log("Incrementing dispatched keyspace", map[string]interface{}{
+		"job_id":               jobExecution.ID,
+		"effective_chunk_size": effectiveChunkSize,
+		"base_chunk_size":      baseChunkSize,
+	})
+
+	if err := s.jobExecRepo.IncrementDispatchedKeyspace(ctx, jobExecution.ID, effectiveChunkSize); err != nil {
 		debug.Error("Failed to update dispatched keyspace for job %s: %v", jobExecution.ID, err)
 		// Continue processing - this is not a critical error
 	}
 
 	debug.Log("Job task created", map[string]interface{}{
-		"task_id":        jobTask.ID,
-		"agent_id":       agent.ID,
-		"keyspace_start": keyspaceStart,
-		"keyspace_end":   keyspaceEnd,
-		"chunk_duration": chunkDuration,
-		"chunk_size":     chunkSize,
+		"task_id":               jobTask.ID,
+		"agent_id":              agent.ID,
+		"keyspace_start":        keyspaceStart,
+		"keyspace_end":          keyspaceEnd,
+		"chunk_duration":        chunkDuration,
+		"base_chunk_size":       baseChunkSize,
+		"effective_chunk_size":  effectiveChunkSize,
 	})
 
 	return jobTask, nil
@@ -1202,8 +1213,45 @@ func (s *JobExecutionService) StartJobExecution(ctx context.Context, jobExecutio
 
 // CompleteJobExecution marks a job execution as completed
 func (s *JobExecutionService) CompleteJobExecution(ctx context.Context, jobExecutionID uuid.UUID) error {
-	// First mark the job as completed
-	err := s.jobExecRepo.CompleteExecution(ctx, jobExecutionID)
+	// Get all tasks to check if we have actual keyspace values from hashcat
+	tasks, err := s.jobTaskRepo.GetTasksByJobExecution(ctx, jobExecutionID)
+	if err != nil {
+		debug.Error("Failed to get tasks for keyspace check: %v", err)
+		// Continue with completion even if we can't update keyspace
+	} else {
+		// Check if all tasks have actual keyspace values from hashcat
+		allTasksHaveActualKeyspace := len(tasks) > 0
+		for _, task := range tasks {
+			if !task.IsActualKeyspace {
+				allTasksHaveActualKeyspace = false
+				break
+			}
+		}
+
+		// If all tasks reported actual keyspace, update job's effective_keyspace to match processed
+		if allTasksHaveActualKeyspace {
+			job, err := s.jobExecRepo.GetByID(ctx, jobExecutionID)
+			if err == nil && job.ProcessedKeyspace > 0 {
+				// Update effective_keyspace to match actual processed
+				if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace != job.ProcessedKeyspace {
+					oldEffective := *job.EffectiveKeyspace
+					if updateErr := s.jobExecRepo.UpdateEffectiveKeyspace(ctx, jobExecutionID, job.ProcessedKeyspace); updateErr != nil {
+						debug.Error("Failed to update effective keyspace: %v", updateErr)
+					} else {
+						debug.Info("Updated effective_keyspace from %d to %d (actual from hashcat)", oldEffective, job.ProcessedKeyspace)
+
+						// Recalculate progress percentage (will be 100%)
+						if progressErr := s.UpdateJobProgressPercent(ctx, jobExecutionID, 100.0); progressErr != nil {
+							debug.Error("Failed to update progress percent: %v", progressErr)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Mark the job as completed
+	err = s.jobExecRepo.CompleteExecution(ctx, jobExecutionID)
 	if err != nil {
 		return fmt.Errorf("failed to complete job execution: %w", err)
 	}

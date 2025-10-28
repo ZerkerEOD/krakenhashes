@@ -149,7 +149,7 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64) {
 		// Note: ProcessHashIfNeeded doesn't handle cracking detection currently.
 		// We might need a separate mechanism or refine processing rules.
 		// For now, let's assume a simple heuristic for :password suffix if no specific processor modified it.
-		password := ""
+		var password *string
 		isCracked := false
 		if hashValue == originalHash { // Only apply suffix check if ProcessHashIfNeeded didn't modify it
 			parts := strings.SplitN(originalHash, ":", 2)
@@ -157,7 +157,8 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64) {
 				// Basic check: is the first part potentially the hashValue we expect?
 				// This is weak. A better approach might involve hash length/format checks.
 				if parts[0] == hashValue { // Check if splitting by ':' gives back the expected hash
-					password = parts[1]
+					pwd := parts[1]
+					password = &pwd
 					isCracked = true
 				}
 				// Else: it might be user:hash or some other format, don't assume crack.

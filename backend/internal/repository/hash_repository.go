@@ -874,3 +874,34 @@ func (r *HashRepository) StreamHashesForHashlist(ctx context.Context, hashlistID
 
 	return nil
 }
+
+// GetHashlistIDsForHash returns all hashlist IDs that contain a specific hash.
+// This is used to determine which hashlists need their counters updated when a hash is cracked.
+func (r *HashRepository) GetHashlistIDsForHash(ctx context.Context, hashID uuid.UUID) ([]int64, error) {
+	query := `
+		SELECT hashlist_id
+		FROM hashlist_hashes
+		WHERE hash_id = $1
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, hashID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query hashlists for hash %s: %w", hashID, err)
+	}
+	defer rows.Close()
+
+	var hashlistIDs []int64
+	for rows.Next() {
+		var hashlistID int64
+		if err := rows.Scan(&hashlistID); err != nil {
+			return nil, fmt.Errorf("failed to scan hashlist ID for hash %s: %w", hashID, err)
+		}
+		hashlistIDs = append(hashlistIDs, hashlistID)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating hashlist rows for hash %s: %w", hashID, err)
+	}
+
+	return hashlistIDs, nil
+}

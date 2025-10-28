@@ -227,6 +227,40 @@ type Example struct {
 }
 ```
 
+**Important Pattern - Nullable String Fields**:
+
+For fields that may be null (e.g., passwords in hash records), use `*string` instead of `string`:
+
+```go
+// internal/models/hashlist.go
+type Hash struct {
+    ID           uuid.UUID  `json:"id"`
+    OriginalHash string     `json:"original_hash"`
+    Username     *string    `json:"username,omitempty"`    // Nullable
+    Domain       *string    `json:"domain,omitempty"`      // Nullable
+    HashTypeID   int        `json:"hash_type_id"`
+    IsCracked    bool       `json:"is_cracked"`
+    Password     *string    `json:"password,omitempty"`    // Nullable - only present when cracked
+    LastUpdated  time.Time  `json:"last_updated"`
+}
+```
+
+**Why Use Pointers for Nullable Fields**:
+- Distinguishes between empty string (`""`) and no value (`nil`)
+- Matches SQL NULL semantics in the database
+- Prevents invalid empty string values in uncracked hashes
+- JSON marshaling with `omitempty` excludes `nil` fields from output
+
+**When to Use `*string`**:
+- Optional fields that may not be set (username, domain)
+- Fields only present under certain conditions (password only when cracked)
+- Fields that should be omitted from JSON when null
+
+**When to Use `string`**:
+- Required fields that always have a value
+- Fields where empty string is a valid value
+- Primary identifiers or keys
+
 ### Step 2: Create the Repository
 
 ```go
@@ -905,21 +939,114 @@ func ValidateCreateUserRequest(req *CreateUserRequest) error {
     if req.Username == "" {
         return errors.New("username is required")
     }
-    
+
     if len(req.Username) < 3 || len(req.Username) > 50 {
         return errors.New("username must be between 3 and 50 characters")
     }
-    
+
     if !emailRegex.MatchString(req.Email) {
         return errors.New("invalid email format")
     }
-    
+
     if err := password.Validate(req.Password); err != nil {
         return fmt.Errorf("invalid password: %w", err)
     }
-    
+
     return nil
 }
+```
+
+### Working with Nullable Fields
+
+When working with `*string` and other pointer fields, always check for `nil` before dereferencing:
+
+```go
+// Bad - will panic if password is nil
+func processHash(hash *models.Hash) string {
+    return *hash.Password // PANIC if hash not cracked!
+}
+
+// Good - safe nil checking
+func processHash(hash *models.Hash) string {
+    if hash.Password == nil {
+        return "" // or handle appropriately
+    }
+    return *hash.Password
+}
+
+// Best - guard clause pattern
+func processHash(hash *models.Hash) string {
+    if hash.Password == nil {
+        return ""
+    }
+
+    password := *hash.Password
+    // ... process password
+    return password
+}
+```
+
+**Common Patterns**:
+
+```go
+// Analytics service - skip nil passwords
+for _, pwd := range passwords {
+    if pwd.Password == nil {
+        continue // Skip entries without passwords
+    }
+    length := len([]rune(*pwd.Password))
+    // ... process
+}
+
+// Setting nullable fields
+hash := &models.Hash{
+    OriginalHash: "5F4DCC3B...",
+    IsCracked:    true,
+}
+plaintext := "password123"
+hash.Password = &plaintext  // Set pointer to value
+
+// Or inline
+hash.Password = stringPtr("password123")
+
+// Helper function for creating string pointers
+func stringPtr(s string) *string {
+    return &s
+}
+```
+
+**Database Scanning**:
+
+Use `sql.NullString` when scanning, then convert to `*string`:
+
+```go
+var password sql.NullString
+err := row.Scan(&hash.ID, &hash.OriginalHash, &password)
+
+if password.Valid {
+    hash.Password = &password.String
+} else {
+    hash.Password = nil
+}
+```
+
+**JSON Handling**:
+
+The `omitempty` tag automatically excludes `nil` pointer fields:
+
+```go
+type Hash struct {
+    Password *string `json:"password,omitempty"`
+}
+
+// When marshaling:
+uncracked := Hash{Password: nil}
+json.Marshal(uncracked) // {"id": "...", "original_hash": "..."}
+// password field omitted
+
+cracked := Hash{Password: stringPtr("test123")}
+json.Marshal(cracked) // {"id": "...", "original_hash": "...", "password": "test123"}
+// password field included
 ```
 
 ## Debugging and Logging

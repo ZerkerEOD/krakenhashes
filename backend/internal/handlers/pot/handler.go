@@ -38,7 +38,7 @@ func NewHandler(
 type CrackedHashResponse struct {
 	ID           uuid.UUID `json:"id"`
 	OriginalHash string    `json:"original_hash"`
-	Password     string    `json:"password"`
+	Password     *string   `json:"password,omitempty"`
 	HashTypeID   int       `json:"hash_type_id"`
 	Username     *string   `json:"username,omitempty"`
 }

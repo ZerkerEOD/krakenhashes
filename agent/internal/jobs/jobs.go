@@ -221,33 +221,15 @@ func (jm *JobManager) ensureHashlist(ctx context.Context, assignment *JobTaskAss
 	debug.Info("Ensuring hashlist %d is available", assignment.HashlistID)
 	debug.Info("Expected local path: %s", localPath)
 	debug.Info("Data directory: %s", jm.config.DataDirectory)
-	
-	// Check if the file already exists and is valid
-	needsDownload := false
-	if fileInfo, err := os.Stat(localPath); err == nil {
-		// File exists, check if it's valid
-		if fileInfo.Size() == 0 {
-			// File is empty (likely from hashcat --remove removing all hashes)
-			// Need to re-download fresh copy from backend
-			debug.Warning("Hashlist file exists but is empty (0 bytes), will re-download: %s", localPath)
-			console.Warning("Hashlist %d is empty locally, re-downloading from backend...", assignment.HashlistID)
-			needsDownload = true
-		} else {
-			// File exists with content, assume it's valid
-			// In the future, we could add MD5 verification here if needed
-			debug.Info("Hashlist file already exists locally: %s (size: %d bytes)", localPath, fileInfo.Size())
-			return nil
-		}
-	} else if !os.IsNotExist(err) {
-		debug.Error("Error checking hashlist file: %v", err)
-		return fmt.Errorf("error checking hashlist file: %w", err)
-	} else {
-		// File doesn't exist
-		needsDownload = true
-	}
 
-	if !needsDownload {
-		return nil
+	// Always re-download hashlist for each task to ensure we have a fresh copy
+	// This prevents issues with stale/modified hashlists from previous tasks
+	if _, err := os.Stat(localPath); err == nil {
+		debug.Info("Removing existing hashlist to download fresh copy: %s", localPath)
+		if err := os.Remove(localPath); err != nil {
+			debug.Warning("Failed to remove existing hashlist (will overwrite): %v", err)
+			// Continue anyway - download will overwrite
+		}
 	}
 	
 	debug.Info("Hashlist file not found locally, need to download from backend")

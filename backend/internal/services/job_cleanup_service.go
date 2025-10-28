@@ -150,7 +150,7 @@ func (s *JobCleanupService) handleGracePeriodExpiration(ctx context.Context, tas
 					// Fall back to marking as failed
 					errorMsg := fmt.Sprintf("Agent failed to reconnect within grace period (attempt %d/%d)", 
 						currentTask.RetryCount+1, maxRetries)
-					s.jobTaskRepo.UpdateTaskError(ctx, currentTask.ID, errorMsg)
+					s.jobTaskRepo.MarkTaskFailedPermanently(ctx, currentTask.ID, errorMsg)
 				} else {
 					debug.Info("Task reset for retry after grace period - Task ID: %s, Agent: %d, Retry: %d/%d", 
 						currentTask.ID, agentID, currentTask.RetryCount+1, maxRetries)
@@ -158,7 +158,7 @@ func (s *JobCleanupService) handleGracePeriodExpiration(ctx context.Context, tas
 			} else {
 				// Mark as permanently failed after all retries exhausted
 				errorMsg := fmt.Sprintf("Agent failed to reconnect after %d attempts", currentTask.RetryCount)
-				err := s.jobTaskRepo.UpdateTaskError(ctx, currentTask.ID, errorMsg)
+				err := s.jobTaskRepo.MarkTaskFailedPermanently(ctx, currentTask.ID, errorMsg)
 				if err != nil {
 					debug.Error("Failed to mark task %s as failed: %v", currentTask.ID, err)
 					continue
@@ -280,9 +280,9 @@ func (s *JobCleanupService) checkForStaleTasks(ctx context.Context) {
 		if task.RetryCount >= 3 {
 			// Mark task as permanently failed
 			errorMsg := fmt.Sprintf("Task failed after %d retry attempts (last timeout after %v without progress update)", task.RetryCount, taskTimeout)
-			err := s.jobTaskRepo.UpdateTaskError(ctx, task.ID, errorMsg)
+			err := s.jobTaskRepo.MarkTaskFailedPermanently(ctx, task.ID, errorMsg)
 			if err != nil {
-				debug.Log("Failed to mark stale task as failed", map[string]interface{}{
+				debug.Log("Failed to mark stale task as permanently failed", map[string]interface{}{
 					"task_id": task.ID,
 					"error":   err.Error(),
 				})

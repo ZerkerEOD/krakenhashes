@@ -691,10 +691,10 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 
 		// Check if all rules have been dispatched
 		totalRules := 0
-		if nextJob.RuleSplitCount > 0 {
+		if nextJob.UsesRuleSplitting {
 			// Get total rules from job metadata
 			// The job_executions table contains all needed information
-			
+
 			// Get the rule file to count total rules
 			if len(nextJob.RuleIDs) > 0 {
 				rulePath, err := s.jobExecutionService.resolveRulePath(ctx, nextJob.RuleIDs[0])
@@ -708,7 +708,7 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 			}
 		}
 
-		if nextRuleStart >= totalRules {
+		if totalRules > 0 && nextRuleStart >= totalRules {
 			debug.Log("All rules have been dispatched", map[string]interface{}{
 				"job_id":          nextJob.ID,
 				"total_rules":     totalRules,

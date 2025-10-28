@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"crypto/md5"
+	"database/sql"
 	"fmt"
 	"io"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
@@ -24,6 +26,7 @@ type HashlistSyncService struct {
 	systemSettingsRepo *repository.SystemSettingsRepository
 	jobExecutionRepo   *repository.JobExecutionRepository
 	dataDirectory      string
+	db                 *sql.DB
 }
 
 // NewHashlistSyncService creates a new hashlist sync service
@@ -33,6 +36,7 @@ func NewHashlistSyncService(
 	systemSettingsRepo *repository.SystemSettingsRepository,
 	jobExecutionRepo *repository.JobExecutionRepository,
 	dataDirectory string,
+	sqlDB *sql.DB,
 ) *HashlistSyncService {
 	return &HashlistSyncService{
 		agentHashlistRepo:  agentHashlistRepo,
@@ -40,6 +44,7 @@ func NewHashlistSyncService(
 		systemSettingsRepo: systemSettingsRepo,
 		jobExecutionRepo:   jobExecutionRepo,
 		dataDirectory:      dataDirectory,
+		db:                 sqlDB,
 	}
 }
 
@@ -265,32 +270,120 @@ func (s *HashlistSyncService) GetAgentHashlists(ctx context.Context, agentID int
 	return hashlists, nil
 }
 
-// UpdateHashlistAfterCracks updates the hashlist file after hashes are cracked
+// UpdateHashlistAfterCracks updates all hashlist files after hashes are cracked
+// This handles cross-hashlist deduplication: if the same hash exists in multiple hashlists,
+// all affected hashlist files will be regenerated to remove the cracked hash
 func (s *HashlistSyncService) UpdateHashlistAfterCracks(ctx context.Context, hashlistID int64, crackedHashes []string) error {
-	debug.Log("Updating hashlist after cracks", map[string]interface{}{
-		"hashlist_id":   hashlistID,
-		"cracked_count": len(crackedHashes),
+	debug.Log("Updating hashlists after cracks", map[string]interface{}{
+		"source_hashlist_id": hashlistID,
+		"cracked_count":      len(crackedHashes),
 	})
 
-	// This would typically involve:
-	// 1. Reading the current hashlist file
-	// 2. Removing the cracked hashes
-	// 3. Writing the updated file
-	// 4. Updating the file hash
-	// 5. Marking all agent copies as outdated
-
-	hashlistFilePath := filepath.Join(s.dataDirectory, "hashlists", fmt.Sprintf("%d.hash", hashlistID))
-
-	// For now, we'll just recalculate the file hash and mark all agent copies as outdated
-	// The actual file update logic would need to be implemented based on the hashlist format
-
-	newFileHash, err := s.calculateFileHash(hashlistFilePath)
-	if err != nil {
-		return fmt.Errorf("failed to calculate updated file hash: %w", err)
+	if len(crackedHashes) == 0 {
+		return nil
 	}
 
+	// Extract hash values from "hash:plain" format
+	hashValues := make([]string, 0, len(crackedHashes))
+	for _, crack := range crackedHashes {
+		parts := strings.SplitN(crack, ":", 2)
+		if len(parts) >= 1 {
+			hashValues = append(hashValues, parts[0])
+		}
+	}
+
+	if len(hashValues) == 0 {
+		return nil
+	}
+
+	debug.Debug("Extracted %d hash values from cracked hashes", len(hashValues))
+
+	// Find all hashlists containing any of these cracked hashes
+	// This enables cross-hashlist deduplication
+	affectedHashlists, err := s.hashlistRepo.GetHashlistsContainingHashes(ctx, hashValues)
+	if err != nil {
+		return fmt.Errorf("failed to find affected hashlists: %w", err)
+	}
+
+	debug.Log("Found affected hashlists for cross-hashlist update", map[string]interface{}{
+		"affected_count": len(affectedHashlists),
+		"hashlist_ids":   func() []int64 {
+			ids := make([]int64, len(affectedHashlists))
+			for i, hl := range affectedHashlists {
+				ids[i] = hl.ID
+			}
+			return ids
+		}(),
+	})
+
+	// Update each affected hashlist file
+	for _, hashlist := range affectedHashlists {
+		if err := s.updateHashlistFile(ctx, &hashlist); err != nil {
+			debug.Error("Failed to update hashlist file for hashlist %d: %v", hashlist.ID, err)
+			// Continue updating other hashlists even if one fails
+		}
+	}
+
+	debug.Info("Successfully updated %d hashlist files after cracks", len(affectedHashlists))
+	return nil
+}
+
+// updateHashlistFile regenerates a hashlist file with only uncracked hashes
+// and updates all agents to mark them as needing the new version
+func (s *HashlistSyncService) updateHashlistFile(ctx context.Context, hashlist *models.HashList) error {
+	debug.Debug("Regenerating hashlist file %d", hashlist.ID)
+
+	// Create hash repository to query uncracked hashes
+	database := &db.DB{DB: s.db}
+	hashRepo := repository.NewHashRepository(database)
+
+	// Get all uncracked hash values for this hashlist
+	uncrackedHashes, err := hashRepo.GetUncrackedHashValuesByHashlistID(ctx, hashlist.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get uncracked hashes: %w", err)
+	}
+
+	debug.Debug("Found %d uncracked hashes for hashlist %d", len(uncrackedHashes), hashlist.ID)
+
+	// Build the hashlist file path
+	hashlistFilePath := filepath.Join(s.dataDirectory, "hashlists", fmt.Sprintf("%d.hash", hashlist.ID))
+
+	// Write to a temporary file first for atomic updates
+	tempFilePath := hashlistFilePath + ".tmp"
+
+	file, err := os.Create(tempFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to create temp hashlist file: %w", err)
+	}
+	defer os.Remove(tempFilePath) // Clean up temp file on error
+
+	// Write each uncracked hash to the file
+	for _, hash := range uncrackedHashes {
+		if _, err := file.WriteString(hash + "\n"); err != nil {
+			file.Close()
+			return fmt.Errorf("failed to write hash to temp file: %w", err)
+		}
+	}
+
+	if err := file.Close(); err != nil {
+		return fmt.Errorf("failed to close temp hashlist file: %w", err)
+	}
+
+	// Atomically replace the old file with the new one
+	if err := os.Rename(tempFilePath, hashlistFilePath); err != nil {
+		return fmt.Errorf("failed to rename temp file to hashlist file: %w", err)
+	}
+
+	// Calculate the new file hash
+	newFileHash, err := s.calculateFileHash(hashlistFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to calculate new file hash: %w", err)
+	}
+
+	debug.Debug("Regenerated hashlist file %d with new hash: %s", hashlist.ID, newFileHash)
+
 	// Get all agents that have this hashlist
-	distribution, err := s.agentHashlistRepo.GetHashlistDistribution(ctx, hashlistID)
+	distribution, err := s.agentHashlistRepo.GetHashlistDistribution(ctx, hashlist.ID)
 	if err != nil {
 		return fmt.Errorf("failed to get hashlist distribution: %w", err)
 	}
@@ -298,22 +391,13 @@ func (s *HashlistSyncService) UpdateHashlistAfterCracks(ctx context.Context, has
 	// Update file hash for all agents (this will mark them as needing updates)
 	for _, agentHashlist := range distribution {
 		agentHashlist.FileHash = &newFileHash
-		err = s.agentHashlistRepo.CreateOrUpdate(ctx, &agentHashlist)
-		if err != nil {
-			debug.Log("Failed to update agent hashlist hash", map[string]interface{}{
-				"agent_id":    agentHashlist.AgentID,
-				"hashlist_id": hashlistID,
-				"error":       err.Error(),
-			})
+		if err := s.agentHashlistRepo.CreateOrUpdate(ctx, &agentHashlist); err != nil {
+			debug.Error("Failed to update agent hashlist hash for agent %d: %v", agentHashlist.AgentID, err)
+			// Continue updating other agents even if one fails
 		}
 	}
 
-	debug.Log("Hashlist updated after cracks", map[string]interface{}{
-		"hashlist_id":     hashlistID,
-		"new_file_hash":   newFileHash,
-		"affected_agents": len(distribution),
-	})
-
+	debug.Info("Updated hashlist %d file and marked %d agents for sync", hashlist.ID, len(distribution))
 	return nil
 }
 

@@ -672,3 +672,71 @@ func (r *HashListRepository) IsExcludedFromPotfile(ctx context.Context, hashlist
 	}
 	return excluded, nil
 }
+
+// GetHashlistsContainingHashes returns all hashlists that contain any of the specified hash values
+// This is used to find all hashlists affected by newly cracked hashes for cross-hashlist updates
+func (r *HashListRepository) GetHashlistsContainingHashes(ctx context.Context, hashValues []string) ([]models.HashList, error) {
+	if len(hashValues) == 0 {
+		return []models.HashList{}, nil
+	}
+
+	query := `
+		SELECT DISTINCT hl.id, hl.name, hl.hash_type_id, hl.file_path, hl.total_hashes,
+		       hl.cracked_hashes, hl.user_id, hl.client_id, hl.created_at, hl.updated_at,
+		       hl.status, hl.exclude_from_potfile
+		FROM hashlists hl
+		JOIN hashlist_hashes hh ON hl.id = hh.hashlist_id
+		JOIN hashes h ON hh.hash_id = h.id
+		WHERE h.hash_value = ANY($1)
+		ORDER BY hl.id`
+
+	rows, err := r.db.QueryContext(ctx, query, pq.Array(hashValues))
+	if err != nil {
+		return nil, fmt.Errorf("failed to query hashlists containing hashes: %w", err)
+	}
+	defer rows.Close()
+
+	var hashlists []models.HashList
+	for rows.Next() {
+		var hl models.HashList
+		var clientID sql.NullString
+		err := rows.Scan(&hl.ID, &hl.Name, &hl.HashTypeID, &hl.FilePath, &hl.TotalHashes,
+			&hl.CrackedHashes, &hl.UserID, &clientID, &hl.CreatedAt, &hl.UpdatedAt,
+			&hl.Status, &hl.ExcludeFromPotfile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan hashlist: %w", err)
+		}
+
+		if clientID.Valid {
+			if parsedUUID, parseErr := uuid.Parse(clientID.String); parseErr == nil {
+				hl.ClientID = parsedUUID
+			}
+		}
+
+		hashlists = append(hashlists, hl)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating hashlists: %w", err)
+	}
+
+	return hashlists, nil
+}
+
+// GetUncrackedHashCount returns the number of uncracked hashes for a given hashlist
+// Used for progressive effective keyspace refinement when hashlist changes
+func (r *HashListRepository) GetUncrackedHashCount(ctx context.Context, hashlistID int64) (int, error) {
+	query := `
+		SELECT COUNT(DISTINCT h.id)
+		FROM hashes h
+		JOIN hashlist_hashes hh ON h.id = hh.hash_id
+		WHERE hh.hashlist_id = $1 AND h.is_cracked = false`
+
+	var count int
+	err := r.db.QueryRowContext(ctx, query).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get uncracked hash count: %w", err)
+	}
+
+	return count, nil
+}

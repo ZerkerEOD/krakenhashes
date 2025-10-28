@@ -333,6 +333,8 @@ func (r *JobTaskRepository) GetTasksNotUpdatedSince(ctx context.Context, since t
 }
 
 // UpdateTaskError marks a task as failed with an error message
+// NOTE: This function does NOT adjust dispatched_keyspace. Use MarkTaskFailedPermanently
+// if the task should be permanently failed and dispatched keyspace needs to be decremented.
 func (r *JobTaskRepository) UpdateTaskError(ctx context.Context, taskID uuid.UUID, errorMessage string) error {
 	query := `
 		UPDATE job_tasks
@@ -345,6 +347,96 @@ func (r *JobTaskRepository) UpdateTaskError(ctx context.Context, taskID uuid.UUI
 	_, err := r.db.ExecContext(ctx, query, taskID, models.JobTaskStatusFailed, errorMessage)
 	if err != nil {
 		return fmt.Errorf("failed to update task error: %w", err)
+	}
+
+	return nil
+}
+
+// MarkTaskFailedPermanently marks a task as permanently failed and decrements the job's dispatched keyspace
+// This should be used when a task fails and will NOT be retried (e.g., max retries exceeded)
+func (r *JobTaskRepository) MarkTaskFailedPermanently(ctx context.Context, taskID uuid.UUID, errorMessage string) error {
+	// Get task details including keyspace ranges
+	var jobExecutionID uuid.UUID
+	var keyspaceProcessed int64
+	var keyspaceStart int64
+	var keyspaceEnd int64
+	var effectiveKeyspaceStart sql.NullInt64
+	var effectiveKeyspaceEnd sql.NullInt64
+	err := r.db.QueryRowContext(ctx,
+		"SELECT job_execution_id, keyspace_processed, keyspace_start, keyspace_end, "+
+		"effective_keyspace_start, effective_keyspace_end FROM job_tasks WHERE id = $1",
+		taskID).Scan(&jobExecutionID, &keyspaceProcessed, &keyspaceStart, &keyspaceEnd,
+		&effectiveKeyspaceStart, &effectiveKeyspaceEnd)
+	if err != nil {
+		return fmt.Errorf("failed to get task details: %w", err)
+	}
+
+	// Begin transaction to ensure atomicity
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Mark task as failed
+	query := `
+		UPDATE job_tasks
+		SET status = $2,
+		    error_message = $3,
+		    completed_at = NOW(),
+		    updated_at = NOW()
+		WHERE id = $1`
+	_, err = tx.ExecContext(ctx, query, taskID, models.JobTaskStatusFailed, errorMessage)
+	if err != nil {
+		return fmt.Errorf("failed to mark task as failed: %w", err)
+	}
+
+	// Subtract any processed keyspace from the job execution
+	if keyspaceProcessed > 0 {
+		updateJobQuery := `
+			UPDATE job_executions
+			SET processed_keyspace = processed_keyspace - $1,
+			    updated_at = CURRENT_TIMESTAMP
+			WHERE id = $2 AND processed_keyspace >= $1`
+		_, err = tx.ExecContext(ctx, updateJobQuery, keyspaceProcessed, jobExecutionID)
+		if err != nil {
+			return fmt.Errorf("failed to update job processed keyspace: %w", err)
+		}
+	}
+
+	// Decrement the dispatched keyspace since this work will never complete
+	// Use the EFFECTIVE chunk size that was originally dispatched
+	var chunkSize int64
+	if effectiveKeyspaceStart.Valid && effectiveKeyspaceEnd.Valid {
+		chunkSize = effectiveKeyspaceEnd.Int64 - effectiveKeyspaceStart.Int64
+	} else {
+		// Fallback to base keyspace if effective not set
+		chunkSize = keyspaceEnd - keyspaceStart
+	}
+
+	if chunkSize > 0 {
+		decrementDispatchedQuery := `
+			UPDATE job_executions
+			SET dispatched_keyspace = GREATEST(dispatched_keyspace - $1, 0),
+			    updated_at = CURRENT_TIMESTAMP
+			WHERE id = $2`
+		_, err = tx.ExecContext(ctx, decrementDispatchedQuery, chunkSize, jobExecutionID)
+		if err != nil {
+			return fmt.Errorf("failed to decrement job dispatched keyspace: %w", err)
+		}
+
+		debug.Log("Decremented dispatched keyspace for permanently failed task", map[string]interface{}{
+			"task_id":                 taskID,
+			"job_execution_id":        jobExecutionID,
+			"chunk_size_decremented":  chunkSize,
+			"used_effective_keyspace": effectiveKeyspaceStart.Valid && effectiveKeyspaceEnd.Valid,
+			"error_message":           errorMessage,
+		})
+	}
+
+	// Commit transaction
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
@@ -715,29 +807,33 @@ func (r *JobTaskRepository) UpdateTaskStatus(ctx context.Context, id uuid.UUID, 
 
 // ResetTaskForRetry resets a task for retry by incrementing retry count and resetting status
 func (r *JobTaskRepository) ResetTaskForRetry(ctx context.Context, id uuid.UUID) error {
-	// First, get the current task details including keyspace range
+	// First, get the current task details including both base and effective keyspace ranges
 	var jobExecutionID uuid.UUID
 	var keyspaceProcessed int64
 	var keyspaceStart int64
 	var keyspaceEnd int64
+	var effectiveKeyspaceStart sql.NullInt64
+	var effectiveKeyspaceEnd sql.NullInt64
 	err := r.db.QueryRowContext(ctx,
-		"SELECT job_execution_id, keyspace_processed, keyspace_start, keyspace_end FROM job_tasks WHERE id = $1",
-		id).Scan(&jobExecutionID, &keyspaceProcessed, &keyspaceStart, &keyspaceEnd)
+		"SELECT job_execution_id, keyspace_processed, keyspace_start, keyspace_end, "+
+		"effective_keyspace_start, effective_keyspace_end FROM job_tasks WHERE id = $1",
+		id).Scan(&jobExecutionID, &keyspaceProcessed, &keyspaceStart, &keyspaceEnd,
+		&effectiveKeyspaceStart, &effectiveKeyspaceEnd)
 	if err != nil {
 		return fmt.Errorf("failed to get task details: %w", err)
 	}
-	
+
 	// Begin transaction to ensure atomicity
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback()
-	
+
 	// Reset the task
 	query := `
-		UPDATE job_tasks 
-		SET 
+		UPDATE job_tasks
+		SET
 			status = 'pending',
 			detailed_status = 'pending',
 			retry_count = retry_count + 1,
@@ -755,7 +851,7 @@ func (r *JobTaskRepository) ResetTaskForRetry(ctx context.Context, id uuid.UUID)
 	if err != nil {
 		return fmt.Errorf("failed to reset task for retry: %w", err)
 	}
-	
+
 	// Subtract the processed keyspace from the job execution
 	if keyspaceProcessed > 0 {
 		updateJobQuery := `
@@ -770,8 +866,16 @@ func (r *JobTaskRepository) ResetTaskForRetry(ctx context.Context, id uuid.UUID)
 	}
 
 	// Decrement the dispatched keyspace to return the work back to the pool
-	// This ensures the scheduler knows this keyspace is available for reassignment
-	chunkSize := keyspaceEnd - keyspaceStart
+	// Use the EFFECTIVE chunk size that was originally dispatched, not the base chunk size
+	// This matches what was added when the task was assigned
+	var chunkSize int64
+	if effectiveKeyspaceStart.Valid && effectiveKeyspaceEnd.Valid {
+		chunkSize = effectiveKeyspaceEnd.Int64 - effectiveKeyspaceStart.Int64
+	} else {
+		// Fallback to base keyspace if effective not set (shouldn't happen with new code)
+		chunkSize = keyspaceEnd - keyspaceStart
+	}
+
 	if chunkSize > 0 {
 		decrementDispatchedQuery := `
 			UPDATE job_executions
@@ -782,13 +886,20 @@ func (r *JobTaskRepository) ResetTaskForRetry(ctx context.Context, id uuid.UUID)
 		if err != nil {
 			return fmt.Errorf("failed to decrement job dispatched keyspace: %w", err)
 		}
+
+		debug.Log("Decremented dispatched keyspace for task retry", map[string]interface{}{
+			"task_id": id,
+			"job_execution_id": jobExecutionID,
+			"chunk_size_decremented": chunkSize,
+			"used_effective_keyspace": effectiveKeyspaceStart.Valid && effectiveKeyspaceEnd.Valid,
+		})
 	}
 
 	// Commit transaction
 	if err = tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
-	
+
 	return nil
 }
 
