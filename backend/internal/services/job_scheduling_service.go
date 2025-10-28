@@ -1377,6 +1377,40 @@ func (s *JobSchedulingService) ProcessJobCompletion(ctx context.Context, jobExec
 			}
 		}
 
+		// CRITICAL SAFETY: Don't complete rule-split jobs if not all rules dispatched
+		// This is a final safety net in case effective_keyspace was set incorrectly
+		if job.UsesRuleSplitting {
+			// Get actual rule count from file(s)
+			totalRulesNeeded := 0
+			for _, ruleID := range job.RuleIDs {
+				rulePath, err := s.jobExecutionService.resolveRulePath(ctx, ruleID)
+				if err == nil {
+					ruleCount, err := s.jobExecutionService.ruleSplitManager.CountRules(ctx, rulePath)
+					if err == nil {
+						totalRulesNeeded += ruleCount
+					}
+				}
+			}
+
+			if totalRulesNeeded > 0 {
+				maxRuleEnd, _ := s.jobExecutionService.jobTaskRepo.GetMaxRuleEndIndex(ctx, jobExecutionID)
+				rulesDispatched := 0
+				if maxRuleEnd != nil {
+					rulesDispatched = *maxRuleEnd
+				}
+
+				if rulesDispatched < totalRulesNeeded {
+					debug.Log("Rule-split job incomplete - safety check prevented premature completion", map[string]interface{}{
+						"job_id": jobExecutionID,
+						"rules_dispatched": rulesDispatched,
+						"total_rules": totalRulesNeeded,
+						"percent_complete": float64(rulesDispatched) / float64(totalRulesNeeded) * 100,
+					})
+					return nil // NOT DONE - more rules to dispatch
+				}
+			}
+		}
+
 		// All tasks are complete AND all keyspace has been dispatched, mark job as completed
 		err = s.jobExecutionService.CompleteJobExecution(ctx, jobExecutionID)
 		if err != nil {

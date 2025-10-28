@@ -729,7 +729,9 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			// PROGRESSIVE REFINEMENT: Recalculate job's effective_keyspace based on completed actuals + estimate for remaining
 			// This handles multi-task jobs where hashlist changes between tasks
 			// Reuse job variable from above
-			if job != nil && job.UsesRuleSplitting {
+			// IMPORTANT: Only refine if we have a valid baseline from benchmark
+			// Progressive refinement should ENHANCE accuracy, not replace initial benchmark value
+			if job != nil && job.UsesRuleSplitting && job.IsAccurateKeyspace && job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
 				// Get all tasks for this job
 				allTasks, err := s.jobTaskRepo.GetTasksByJobExecution(ctx, task.JobExecutionID)
 				if err == nil && len(allTasks) > 0 {
@@ -779,16 +781,34 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 
 					// Update if changed significantly (avoid tiny fluctuations)
 					if job.EffectiveKeyspace == nil || absInt64(*job.EffectiveKeyspace-newEffectiveKeyspace) > 1000 {
-						err = jobExecRepo.UpdateEffectiveKeyspace(ctx, task.JobExecutionID, newEffectiveKeyspace)
-						if err != nil {
-							debug.Error("Failed to update progressive effective keyspace: %v", err)
+						// SAFETY: Never reduce effective_keyspace to 0 or a tiny value for rule-split jobs
+						// This prevents overwriting benchmark results with incomplete chunk data
+						if newEffectiveKeyspace == 0 {
+							debug.Log("Skipping progressive refinement - calculated keyspace is 0", map[string]interface{}{
+								"job_id": task.JobExecutionID,
+								"current_effective": *job.EffectiveKeyspace,
+							})
+						} else if job.EffectiveKeyspace != nil && newEffectiveKeyspace < (*job.EffectiveKeyspace / 10) {
+							// New value is less than 10% of current - suspicious, log warning
+							debug.Warning("Skipping progressive refinement - new value too low", map[string]interface{}{
+								"job_id": task.JobExecutionID,
+								"current": *job.EffectiveKeyspace,
+								"new": newEffectiveKeyspace,
+								"reduction_percent": (1.0 - float64(newEffectiveKeyspace)/float64(*job.EffectiveKeyspace)) * 100,
+							})
 						} else {
-							oldValue := int64(0)
-							if job.EffectiveKeyspace != nil {
-								oldValue = *job.EffectiveKeyspace
+							// Safe to update
+							err = jobExecRepo.UpdateEffectiveKeyspace(ctx, task.JobExecutionID, newEffectiveKeyspace)
+							if err != nil {
+								debug.Error("Failed to update progressive effective keyspace: %v", err)
+							} else {
+								oldValue := int64(0)
+								if job.EffectiveKeyspace != nil {
+									oldValue = *job.EffectiveKeyspace
+								}
+								debug.Info("Updated job %s effective_keyspace from %d to %d (progressive refinement)",
+									task.JobExecutionID, oldValue, newEffectiveKeyspace)
 							}
-							debug.Info("Updated job %s effective_keyspace from %d to %d (progressive refinement)",
-								task.JobExecutionID, oldValue, newEffectiveKeyspace)
 						}
 					}
 				}
