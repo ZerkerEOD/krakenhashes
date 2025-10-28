@@ -140,11 +140,14 @@ func (r *JobTaskRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.
 	query := `
 		SELECT
 			jt.id, jt.job_execution_id, jt.agent_id, jt.status,
+			jt.priority, jt.attack_cmd,
 			jt.keyspace_start, jt.keyspace_end, jt.keyspace_processed,
 			jt.effective_keyspace_start, jt.effective_keyspace_end, jt.effective_keyspace_processed,
 			jt.benchmark_speed, jt.average_speed, jt.chunk_duration, jt.assigned_at,
 			jt.started_at, jt.completed_at, jt.last_checkpoint, jt.error_message,
+			jt.crack_count, jt.detailed_status, jt.retry_count,
 			jt.rule_start_index, jt.rule_end_index, jt.rule_chunk_path, jt.is_rule_split_task,
+			jt.progress_percent,
 			a.name as agent_name
 		FROM job_tasks jt
 		JOIN agents a ON jt.agent_id = a.id
@@ -153,11 +156,14 @@ func (r *JobTaskRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.
 	var task models.JobTask
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&task.ID, &task.JobExecutionID, &task.AgentID, &task.Status,
+		&task.Priority, &task.AttackCmd,
 		&task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
 		&task.EffectiveKeyspaceStart, &task.EffectiveKeyspaceEnd, &task.EffectiveKeyspaceProcessed,
 		&task.BenchmarkSpeed, &task.AverageSpeed, &task.ChunkDuration, &task.AssignedAt,
 		&task.StartedAt, &task.CompletedAt, &task.LastCheckpoint, &task.ErrorMessage,
+		&task.CrackCount, &task.DetailedStatus, &task.RetryCount,
 		&task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath, &task.IsRuleSplitTask,
+		&task.ProgressPercent,
 		&task.AgentName,
 	)
 
