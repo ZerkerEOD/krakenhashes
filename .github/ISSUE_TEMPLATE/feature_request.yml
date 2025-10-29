@@ -1,0 +1,77 @@
+name: Feature Request
+description: Suggest a new feature or enhancement for KrakenHashes
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+    - type: markdown
+      attributes:
+          value: |
+              Thanks for suggesting a new feature! Please fill out the form below to help us understand your request.
+
+    - type: input
+      id: title
+      attributes:
+          label: Feature Title
+          description: A short, descriptive title for the feature
+          placeholder: "e.g., Add support for distributed rule splitting"
+      validations:
+          required: true
+
+    - type: textarea
+      id: description
+      attributes:
+          label: Feature Description
+          description: A detailed description of the feature you'd like to see
+          placeholder: Describe the feature in detail...
+      validations:
+          required: true
+
+    - type: textarea
+      id: use-case
+      attributes:
+          label: Use Case / Why is this important?
+          description: |
+              Explain the use case for this feature and why it would be valuable.
+              What problem does it solve? What workflow does it improve?
+          placeholder: |
+              Example: As a security analyst managing multiple clients, I need to...
+              This would help me because...
+      validations:
+          required: true
+
+    - type: textarea
+      id: implementation
+      attributes:
+          label: What would it look like?
+          description: |
+              Describe potential ways this feature could be implemented.
+              How would it appear in the UI? What configuration would be needed?
+              What would the user experience be?
+          placeholder: |
+              Possible implementation approaches:
+              - Option 1: ...
+              - Option 2: ...
+
+              UI changes: ...
+              Configuration: ...
+      validations:
+          required: true
+
+    - type: textarea
+      id: workarounds
+      attributes:
+          label: Current Workarounds
+          description: If you have any current workarounds for this missing functionality, please describe them
+          placeholder: Currently, I work around this by...
+      validations:
+          required: false
+
+    - type: textarea
+      id: additional
+      attributes:
+          label: Additional Context
+          description: |
+              Any additional information, mockups, screenshots, or examples that might help explain the feature request.
+          placeholder: Add any other context, examples, or screenshots here...
+      validations:
+          required: false

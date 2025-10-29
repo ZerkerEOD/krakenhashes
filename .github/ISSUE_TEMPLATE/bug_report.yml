@@ -1,0 +1,166 @@
+name: Bug Report
+description: Report a bug or issue with KrakenHashes
+title: "[Bug]: "
+labels: ["bug"]
+body:
+    - type: markdown
+      attributes:
+          value: |
+              Thanks for taking the time to report a bug! Please fill out the form below to help us diagnose and fix the issue.
+
+    - type: markdown
+      attributes:
+          value: |
+              ## ⚠️ Warning: Review Logs Before Submitting
+
+              Before attaching logs, please review them for sensitive information such as:
+              - Client names
+              - Hash values during authentication
+              - Internal IP addresses or hostnames you wish to keep private
+
+              Most data in KrakenHashes uses UUIDs and IDs, but some context may include identifiable information.
+
+    - type: input
+      id: version
+      attributes:
+          label: KrakenHashes Version
+          description: What version of KrakenHashes are you running? (Found at `/about` in the web interface)
+          placeholder: "e.g., 1.2.0"
+      validations:
+          required: true
+
+    - type: dropdown
+      id: component
+      attributes:
+          label: Component Affected
+          description: Which component is experiencing the issue?
+          options:
+              - Backend
+              - Frontend
+              - Agent
+              - Database
+              - Multiple Components
+              - Unsure
+      validations:
+          required: true
+
+    - type: input
+      id: server-os
+      attributes:
+          label: Server OS/Distribution
+          description: What OS and distribution is running the backend, PostgreSQL, and frontend? (Docker host OS)
+          placeholder: "e.g., Ubuntu 22.04, Debian 12, CentOS 9"
+      validations:
+          required: true
+
+    - type: input
+      id: agent-os
+      attributes:
+          label: Agent OS/Distribution
+          description: If this is an agent-related issue, what OS and distribution is the agent running on?
+          placeholder: "e.g., Ubuntu 22.04, Windows 11, leave blank if not agent related"
+      validations:
+          required: false
+
+    - type: input
+      id: agent-version
+      attributes:
+          label: Agent Version
+          description: If this is an agent-related issue, what version is the agent? (Found at `/agents` in the web interface)
+          placeholder: "e.g., 1.2.0, leave blank if not agent related"
+      validations:
+          required: false
+
+    - type: input
+      id: browser
+      attributes:
+          label: Browser Information
+          description: If this is a frontend issue, what browser and version are you using?
+          placeholder: "e.g., Chrome 120, Firefox 121, Safari 17, leave blank if not frontend related"
+      validations:
+          required: false
+
+    - type: textarea
+      id: description
+      attributes:
+          label: Description of the Problem
+          description: A clear and concise description of what the bug is.
+          placeholder: Tell us what happened in detail...
+      validations:
+          required: true
+
+    - type: textarea
+      id: steps
+      attributes:
+          label: Steps to Reproduce
+          description: Steps to reproduce the behavior
+          placeholder: |
+              1. Go to '...'
+              2. Click on '...'
+              3. Scroll down to '...'
+              4. See error
+      validations:
+          required: true
+
+    - type: textarea
+      id: expected
+      attributes:
+          label: Expected Outcome
+          description: What did you expect to happen?
+          placeholder: Describe the expected behavior...
+      validations:
+          required: true
+
+    - type: textarea
+      id: actual
+      attributes:
+          label: Actual Outcome
+          description: What actually happened?
+          placeholder: Describe what actually occurred...
+      validations:
+          required: true
+
+    - type: dropdown
+      id: reproducibility
+      attributes:
+          label: Reproducibility
+          description: How often can you reproduce this issue?
+          options:
+              - Always (100% of the time)
+              - Sometimes (intermittent)
+              - Once (unable to reproduce)
+      validations:
+          required: true
+
+    - type: textarea
+      id: logs
+      attributes:
+          label: Relevant Logs
+          description: |
+              Please include relevant logs. See our documentation for how to enable debug logging:
+              - **Agent**: Use `-debug` flag or set `DEBUG=true` in `.env` file. See [Agent Debugging Guide](https://github.com/ZerkerEOD/krakenhashes/blob/master/docs/agent-guide/debugging.md)
+              - **Backend**: Set `DEBUG=true` and `LOG_LEVEL=DEBUG` in `.env` file. See [User Troubleshooting Guide](https://github.com/ZerkerEOD/krakenhashes/blob/master/docs/user-guide/troubleshooting.md)
+
+              ⚠️ Remember to review logs for sensitive information before pasting!
+          placeholder: Paste relevant log entries here...
+          render: shell
+      validations:
+          required: false
+
+    - type: textarea
+      id: additional
+      attributes:
+          label: Additional Context
+          description: |
+              Any additional information that might help diagnose the issue.
+
+              Examples of helpful information:
+              - Hash type/mode (if job-related)
+              - Network configuration (if connectivity issues)
+              - Number of hashes or agents (if performance issues)
+              - Performance metrics or resource usage
+              - Recent changes to your environment
+              - Screenshots or error messages
+          placeholder: Add any other context about the problem here...
+      validations:
+          required: false
