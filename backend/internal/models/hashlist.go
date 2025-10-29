@@ -25,7 +25,6 @@ type HashList struct {
 	ClientID           uuid.UUID      `json:"client_id"`                     // Optional FK to clients table (nullable in DB)
 	ClientName         *string        `json:"clientName,omitempty"`          // Optional Client Name (from JOIN)
 	HashTypeID         int            `json:"hash_type_id"`                  // FK to hash_types table
-	FilePath           string         `json:"-"`                             // Path to the stored hashlist file (omitted from JSON)
 	TotalHashes        int            `json:"total_hashes"`                  // Total number of hashes in the list
 	CrackedHashes      int            `json:"cracked_hashes"`                // Number of hashes found cracked
 	Status             string         `json:"status"`                        // Processing status (uploading, processing, ready, error)

@@ -57,26 +57,6 @@ func (r *HashListRepository) Create(ctx context.Context, hashlist *models.HashLi
 	return nil
 }
 
-// UpdateFilePathAndStatus updates the file path and status of a hashlist, typically after file upload is complete.
-func (r *HashListRepository) UpdateFilePathAndStatus(ctx context.Context, id int64, filePath string, status string) error {
-	query := `
-		UPDATE hashlists
-		SET file_path = $1, status = $2, updated_at = $3
-		WHERE id = $4
-	`
-	result, err := r.db.ExecContext(ctx, query, filePath, status, time.Now(), id)
-	if err != nil {
-		return fmt.Errorf("failed to update hashlist file path and status for %d: %w", id, err)
-	}
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		// Log warning
-	} else if rowsAffected == 0 {
-		return fmt.Errorf("hashlist %d not found for file path/status update: %w", id, ErrNotFound)
-	}
-	return nil
-}
-
 // UpdateStatus updates the status and optionally the error message of a hashlist.
 func (r *HashListRepository) UpdateStatus(ctx context.Context, id int64, status string, errorMessage string) error {
 	query := `
@@ -149,7 +129,7 @@ func (r *HashListRepository) UpdateClientID(ctx context.Context, id int64, clien
 func (r *HashListRepository) GetByID(ctx context.Context, id int64) (*models.HashList, error) {
 	query := `
 		SELECT
-			h.id, h.name, h.user_id, h.client_id, h.hash_type_id, h.file_path,
+			h.id, h.name, h.user_id, h.client_id, h.hash_type_id,
 			h.total_hashes, h.cracked_hashes, h.status, h.error_message,
 			h.exclude_from_potfile, h.created_at, h.updated_at,
 			c.name AS client_name
@@ -159,7 +139,6 @@ func (r *HashListRepository) GetByID(ctx context.Context, id int64) (*models.Has
 	`
 	var hashlist models.HashList
 	var clientID sql.Null[uuid.UUID] // Handle nullable client_id
-	var filePath sql.NullString       // Handle nullable file_path
 	var clientName sql.NullString     // Handle nullable client_name
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&hashlist.ID,
@@ -167,7 +146,6 @@ func (r *HashListRepository) GetByID(ctx context.Context, id int64) (*models.Has
 		&hashlist.UserID,
 		&clientID,
 		&hashlist.HashTypeID,
-		&filePath,
 		&hashlist.TotalHashes,
 		&hashlist.CrackedHashes,
 		&hashlist.Status,
@@ -185,9 +163,6 @@ func (r *HashListRepository) GetByID(ctx context.Context, id int64) (*models.Has
 	}
 	if clientID.Valid {
 		hashlist.ClientID = clientID.V
-	}
-	if filePath.Valid {
-		hashlist.FilePath = filePath.String
 	}
 	if clientName.Valid {
 		hashlist.ClientName = &clientName.String
@@ -211,7 +186,7 @@ func (r *HashListRepository) List(ctx context.Context, params ListHashlistsParam
 	baseQuery := `
 		SELECT
 			h.id, h.name, h.user_id, h.client_id, h.hash_type_id,
-			h.file_path, h.total_hashes, h.cracked_hashes, h.status,
+			h.total_hashes, h.cracked_hashes, h.status,
 			h.error_message, h.exclude_from_potfile, h.created_at, h.updated_at,
 			c.name AS client_name
 		FROM hashlists h
@@ -304,7 +279,6 @@ func (r *HashListRepository) List(ctx context.Context, params ListHashlistsParam
 		var hashlist models.HashList
 		var clientID sql.Null[uuid.UUID] // Use sql.Null for nullable UUID
 		var clientName sql.NullString    // Use sql.NullString for nullable client name from LEFT JOIN
-		var filePath sql.NullString       // Use sql.NullString for nullable file_path
 
 		if err := rows.Scan(
 			&hashlist.ID,
@@ -312,7 +286,6 @@ func (r *HashListRepository) List(ctx context.Context, params ListHashlistsParam
 			&hashlist.UserID,
 			&clientID, // Scan into nullable UUID
 			&hashlist.HashTypeID,
-			&filePath, // Scan into nullable string
 			&hashlist.TotalHashes,
 			&hashlist.CrackedHashes,
 			&hashlist.Status,
@@ -336,10 +309,6 @@ func (r *HashListRepository) List(ctx context.Context, params ListHashlistsParam
 			hashlist.ClientName = &clientName.String
 		}
 
-		// Explicitly set FilePath to empty string for list view (security)
-		// Note: filePath.Valid check is not needed here since we're always setting to empty
-		hashlist.FilePath = ""
-
 		hashlists = append(hashlists, hashlist)
 	}
 	if err = rows.Err(); err != nil {
@@ -358,7 +327,7 @@ func (r *HashListRepository) List(ctx context.Context, params ListHashlistsParam
 // GetByClientID retrieves all hashlists associated with a specific client ID.
 func (r *HashListRepository) GetByClientID(ctx context.Context, clientID uuid.UUID) ([]models.HashList, error) {
 	query := `
-		SELECT id, name, user_id, client_id, hash_type_id, file_path, total_hashes, cracked_hashes, status, error_message, created_at, updated_at
+		SELECT id, name, user_id, client_id, hash_type_id, total_hashes, cracked_hashes, status, error_message, created_at, updated_at
 		FROM hashlists
 		WHERE client_id = $1
 		ORDER BY created_at DESC
@@ -380,7 +349,6 @@ func (r *HashListRepository) GetByClientID(ctx context.Context, clientID uuid.UU
 			&hashlist.UserID,
 			&dbClientID, // Scan into nullable
 			&hashlist.HashTypeID,
-			&hashlist.FilePath,
 			&hashlist.TotalHashes,
 			&hashlist.CrackedHashes,
 			&hashlist.Status,
@@ -681,7 +649,7 @@ func (r *HashListRepository) GetHashlistsContainingHashes(ctx context.Context, h
 	}
 
 	query := `
-		SELECT DISTINCT hl.id, hl.name, hl.hash_type_id, hl.file_path, hl.total_hashes,
+		SELECT DISTINCT hl.id, hl.name, hl.hash_type_id, hl.total_hashes,
 		       hl.cracked_hashes, hl.user_id, hl.client_id, hl.created_at, hl.updated_at,
 		       hl.status, hl.exclude_from_potfile
 		FROM hashlists hl
@@ -700,7 +668,7 @@ func (r *HashListRepository) GetHashlistsContainingHashes(ctx context.Context, h
 	for rows.Next() {
 		var hl models.HashList
 		var clientID sql.NullString
-		err := rows.Scan(&hl.ID, &hl.Name, &hl.HashTypeID, &hl.FilePath, &hl.TotalHashes,
+		err := rows.Scan(&hl.ID, &hl.Name, &hl.HashTypeID, &hl.TotalHashes,
 			&hl.CrackedHashes, &hl.UserID, &clientID, &hl.CreatedAt, &hl.UpdatedAt,
 			&hl.Status, &hl.ExcludeFromPotfile)
 		if err != nil {

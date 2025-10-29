@@ -390,27 +390,24 @@ func (h *hashlistHandler) handleUploadHashlist(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// --- Update database entry with file path and trigger processing ---
-	hashlist.FilePath = hashlistPath                  // Set the path for the update
+	// --- Update database status and trigger processing ---
 	hashlist.Status = models.HashListStatusProcessing // Ready for background processing
 	hashlist.UpdatedAt = time.Now()
 
-	err = h.hashlistRepo.UpdateFilePathAndStatus(ctx, hashlist.ID, hashlist.FilePath, hashlist.Status)
+	err = h.hashlistRepo.UpdateStatus(ctx, hashlist.ID, hashlist.Status, "")
 	if err != nil {
-		debug.Error("Failed to update hashlist path/status for %d: %v", hashlist.ID, err)
-		// Attempt cleanup of the saved file
+		debug.Error("Failed to update hashlist status for %d: %v", hashlist.ID, err)
+		// Attempt cleanup of the uploaded file
 		os.Remove(hashlistPath)
-		// Maybe update status again to error?
 		jsonError(w, "Failed to finalize hashlist upload", http.StatusInternalServerError)
 		return
 	}
 
 	// --- Start background processing ---
-	go h.processor.SubmitHashlistForProcessing(hashlist.ID)
+	go h.processor.SubmitHashlistForProcessing(hashlist.ID, hashlistPath)
 	debug.Info("Hashlist %d uploaded successfully, path: %s. Background processing triggered.", hashlist.ID, hashlistPath)
 
-	// Return the initial hashlist record (without file path for security)
-	hashlist.FilePath = ""                         // Don't expose file path in response
+	// Return the initial hashlist record
 	jsonResponse(w, http.StatusAccepted, hashlist) // Use 202 Accepted as processing is happening
 }
 
@@ -638,17 +635,6 @@ func (h *hashlistHandler) handleDeleteHashlist(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	hashlist, err := h.hashlistRepo.GetByID(ctx, id)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			jsonError(w, "Hashlist not found", http.StatusNotFound) // Or just return 204? Debateable.
-		} else {
-			debug.Error("Error checking hashlist %d before delete: %v", id, err)
-			jsonError(w, "Failed to retrieve hashlist before deletion", http.StatusInternalServerError)
-		}
-		return
-	}
-
 	// Delete from database (associations are handled by ON DELETE CASCADE)
 	err = h.hashlistRepo.Delete(ctx, id)
 	if err != nil {
@@ -657,14 +643,7 @@ func (h *hashlistHandler) handleDeleteHashlist(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Delete the physical file
-	if hashlist.FilePath != "" {
-		err := os.Remove(hashlist.FilePath)
-		if err != nil && !os.IsNotExist(err) {
-			// Log error but proceed, DB record is gone.
-			debug.Warning("Failed to delete hashlist file %s after DB delete for ID %d: %v", hashlist.FilePath, id, err)
-		}
-	}
+	// No physical files to delete - hashlists are generated on-demand from database
 
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -781,9 +760,9 @@ func (h *hashlistHandler) handleDownloadHashlist(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// For agent requests, serve the static processed file
+	// For agent requests, generate uncracked hashes dynamically from database
 	if isAgentRequest {
-		h.serveProcessedHashlist(w, r, hashlist)
+		h.serveUncrackedHashlist(w, r, hashlist)
 		return
 	}
 
@@ -791,45 +770,38 @@ func (h *hashlistHandler) handleDownloadHashlist(w http.ResponseWriter, r *http.
 	h.serveOriginalHashlist(w, r, hashlist)
 }
 
-// serveProcessedHashlist serves the static processed hashlist file for agents
-func (h *hashlistHandler) serveProcessedHashlist(w http.ResponseWriter, r *http.Request, hashlist *models.HashList) {
-	// Check file path exists
-	if hashlist.FilePath == "" {
-		debug.Warning("Attempt to download hashlist %d with no file path", hashlist.ID)
-		jsonError(w, "Hashlist file path not found", http.StatusNotFound)
-		return
-	}
+// serveUncrackedHashlist generates and streams uncracked hash_value fields for agents
+func (h *hashlistHandler) serveUncrackedHashlist(w http.ResponseWriter, r *http.Request, hashlist *models.HashList) {
+	ctx := r.Context()
 
-	// Security check: Ensure the path is within the data directory
-	cleanPath := filepath.Clean(hashlist.FilePath)
-	if !strings.HasPrefix(cleanPath, h.dataDir) {
-		debug.Error("Attempt to download file outside data directory: %s (Hashlist ID: %d)", hashlist.FilePath, hashlist.ID)
-		jsonError(w, "Invalid file path", http.StatusInternalServerError)
-		return
-	}
-
-	file, err := os.Open(cleanPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			debug.Warning("Hashlist file %s not found on disk for hashlist %d", cleanPath, hashlist.ID)
-			jsonError(w, "Hashlist file not found on disk", http.StatusNotFound)
-		} else {
-			debug.Error("Error opening hashlist file %s (Hashlist ID: %d): %v", cleanPath, hashlist.ID, err)
-			jsonError(w, "Error opening hashlist file", http.StatusInternalServerError)
-		}
-		return
-	}
-	defer file.Close()
-
-	// Set headers for file download
-	filename := filepath.Base(cleanPath)
+	// Set headers for streaming download
+	filename := fmt.Sprintf("%d.hash", hashlist.ID)
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
-	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Transfer-Encoding", "chunked")
 
-	// Stream the file
-	_, err = io.Copy(w, file)
+	debug.Debug("Streaming uncracked hashes for agent download [hashlist_id=%d]", hashlist.ID)
+
+	// Stream uncracked hash values from database
+	err := h.hashRepo.StreamUncrackedHashValuesForHashlist(ctx, hashlist.ID, func(hashValue string) error {
+		// Write hash_value (with newline)
+		if _, err := fmt.Fprintln(w, hashValue); err != nil {
+			return fmt.Errorf("failed to write hash: %w", err)
+		}
+
+		// Flush to ensure streaming (critical for large hashlists)
+		if flusher, ok := w.(http.Flusher); ok {
+			flusher.Flush()
+		}
+
+		return nil
+	})
+
 	if err != nil {
-		debug.Error("Error streaming hashlist file %s (Hashlist ID: %d): %v", filename, hashlist.ID, err)
+		debug.Error("Error streaming uncracked hashes for hashlist %d: %v", hashlist.ID, err)
+		// Can't send error response here as headers are already sent
+	} else {
+		debug.Debug("Successfully streamed uncracked hashes for hashlist %d", hashlist.ID)
 	}
 }
 

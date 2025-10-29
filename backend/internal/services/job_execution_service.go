@@ -2072,12 +2072,9 @@ func (s *JobExecutionService) buildAttackCommand(ctx context.Context, presetJob 
 		return "", fmt.Errorf("failed to get hashcat binary path: %w", err)
 	}
 
-	// Get the hashlist path
-	hashlist, err := s.hashlistRepo.GetByID(ctx, job.HashlistID)
-	if err != nil {
-		return "", fmt.Errorf("failed to get hashlist: %w", err)
-	}
-	hashlistPath := filepath.Join(s.dataDirectory, "hashlists", hashlist.FilePath)
+	// Construct the hashlist path where agent will store it locally
+	// Agents download hashlists and store them as: data/hashlists/<hashlist_id>.hash
+	hashlistPath := filepath.Join("hashlists", fmt.Sprintf("%d.hash", job.HashlistID))
 
 	// Build the command
 	var args []string

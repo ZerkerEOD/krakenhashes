@@ -1635,22 +1635,6 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 		debug.Debug("No new cracks to update counters for task %s", taskID)
 	}
 
-	// Update hashlist file to remove cracked hashes
-	// Convert CrackedHash array to string array for backward compatibility
-	var crackedHashStrings []string
-	for _, cracked := range crackedHashes {
-		// Format as hash:plain for hashlist sync
-		crackedHashStrings = append(crackedHashStrings, fmt.Sprintf("%s:%s", cracked.Hash, cracked.Plain))
-	}
-
-	err = s.hashlistSyncService.UpdateHashlistAfterCracks(ctx, jobExecution.HashlistID, crackedHashStrings)
-	if err != nil {
-		debug.Log("Failed to update hashlist file after cracks", map[string]interface{}{
-			"hashlist_id": jobExecution.HashlistID,
-			"error":       err.Error(),
-		})
-	}
-
 	return nil
 }
 

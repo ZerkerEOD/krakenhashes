@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -54,15 +53,15 @@ func NewHashlistDBProcessor(
 }
 
 // SubmitHashlistForProcessing initiates the background processing for a given hashlist ID.
-func (p *HashlistDBProcessor) SubmitHashlistForProcessing(hashlistID int64) {
+func (p *HashlistDBProcessor) SubmitHashlistForProcessing(hashlistID int64, filePath string) {
 	// Launch the actual processing in a goroutine
-	go p.processHashlist(hashlistID)
+	go p.processHashlist(hashlistID, filePath)
 }
 
 // processHashlist contains the main logic for reading, processing, and storing hashes from a list.
-func (p *HashlistDBProcessor) processHashlist(hashlistID int64) {
+func (p *HashlistDBProcessor) processHashlist(hashlistID int64, filePath string) {
 	ctx := context.Background() // Use background context for async task
-	debug.Info("Starting background processing for hashlist %d", hashlistID)
+	debug.Info("Starting background processing for hashlist %d from file: %s", hashlistID, filePath)
 
 	// Get hashlist details
 	hashlist, err := p.hashlistRepo.GetByID(ctx, hashlistID)
@@ -75,7 +74,7 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64) {
 		debug.Warning("Background task: Hashlist %d status is %s, expected 'processing'. Aborting.", hashlistID, hashlist.Status)
 		return
 	}
-	if hashlist.FilePath == "" {
+	if filePath == "" {
 		p.updateHashlistStatus(ctx, hashlistID, models.HashListStatusError, "File path is missing")
 		return
 	}
@@ -89,9 +88,9 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64) {
 	}
 
 	// Open the file
-	file, err := os.Open(hashlist.FilePath)
+	file, err := os.Open(filePath)
 	if err != nil {
-		debug.Error("Background task: Failed to open file %s for hashlist %d: %v", hashlist.FilePath, hashlistID, err)
+		debug.Error("Background task: Failed to open file %s for hashlist %d: %v", filePath, hashlistID, err)
 		p.updateHashlistStatus(ctx, hashlistID, models.HashListStatusError, "Failed to open hashlist file")
 		return
 	}
@@ -227,81 +226,22 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64) {
 
 	// Check for scanner errors after loop
 	if err := scanner.Err(); err != nil {
-		debug.Error("Background task: Error reading file %s for hashlist %d: %v", hashlist.FilePath, hashlistID, err)
+		debug.Error("Background task: Error reading file %s for hashlist %d: %v", filePath, hashlistID, err)
 		p.updateHashlistStatus(ctx, hashlistID, models.HashListStatusError, "Error reading hashlist file")
 		return
 	}
 
 	debug.Info("Successfully created all hashlist associations for %d", hashlistID)
 
-	// --- Generate <id>.hash file with uncracked hashes ---
-	var finalFilePath string
-	uncrackedHashes, err := p.hashRepo.GetUncrackedHashValuesByHashlistID(ctx, hashlistID)
-	if err != nil {
-		errMsg := fmt.Sprintf("Failed to retrieve uncracked hashes for final file generation: %v", err)
-		debug.Error("Background task: %s (Hashlist: %d)", errMsg, hashlistID)
-		p.updateHashlistStatus(ctx, hashlistID, models.HashListStatusError, errMsg)
-		return
-	}
+	// Hashlists are now generated on-demand from database when agents request them
+	// No static files are created during processing
 
-	if len(uncrackedHashes) > 0 {
-		// Define the output path: <DataDir>/hashlists/<id>.hash
-		outputFilename := fmt.Sprintf("%d.hash", hashlistID)
-		// Construct path relative to the main DataDir
-		finalFilePath = filepath.Join(p.config.DataDir, "hashlists", outputFilename)
-		debug.Info("Generating final hash file for agents: %s", finalFilePath)
-
-		outFile, err := os.Create(finalFilePath)
-		if err != nil {
-			errMsg := fmt.Sprintf("Failed to create final hash file %s: %v", finalFilePath, err)
-			debug.Error("Background task: %s (Hashlist: %d)", errMsg, hashlistID)
-			p.updateHashlistStatus(ctx, hashlistID, models.HashListStatusError, errMsg)
-			return // Critical failure if we can't write the output file
-		}
-
-		writer := bufio.NewWriter(outFile)
-		for _, h := range uncrackedHashes {
-			_, err = writer.WriteString(h + "\n")
-			if err != nil {
-				_ = outFile.Close() // Close file before returning on write error
-				errMsg := fmt.Sprintf("Failed to write to final hash file %s: %v", finalFilePath, err)
-				debug.Error("Background task: %s (Hashlist: %d)", errMsg, hashlistID)
-				p.updateHashlistStatus(ctx, hashlistID, models.HashListStatusError, errMsg)
-				return
-			}
-		}
-
-		if err = writer.Flush(); err != nil {
-			_ = outFile.Close()
-			errMsg := fmt.Sprintf("Failed to flush final hash file %s: %v", finalFilePath, err)
-			debug.Error("Background task: %s (Hashlist: %d)", errMsg, hashlistID)
-			p.updateHashlistStatus(ctx, hashlistID, models.HashListStatusError, errMsg)
-			return
-		}
-		if err = outFile.Close(); err != nil {
-			// Log error, but proceed as file is likely written
-			debug.Warning("Failed to close final hash file %s cleanly: %v", finalFilePath, err)
-		}
-		debug.Info("Successfully wrote %d uncracked hashes to %s", len(uncrackedHashes), finalFilePath)
-
-	} else {
-		// No uncracked hashes, maybe skip file creation or create an empty file?
-		// Let's log this and set finalFilePath to empty, indicating no file for agents.
-		finalFilePath = ""
-		debug.Info("No uncracked hashes found for hashlist %d. No agent file generated.", hashlistID)
-	}
-
-	// --- Optionally delete original uploaded file ---
-	originalUploadPath := hashlist.FilePath                              // Path stored when processing started
-	if originalUploadPath != "" && originalUploadPath != finalFilePath { // Avoid deleting the file we just created!
-		if err := os.Remove(originalUploadPath); err != nil {
-			debug.Warning("Failed to delete original uploaded file %s for hashlist %d: %v", originalUploadPath, hashlistID, err)
+	// --- Delete temporary upload file after processing ---
+	if filePath != "" {
+		if err := os.Remove(filePath); err != nil {
+			debug.Warning("Failed to delete temporary upload file %s for hashlist %d: %v", filePath, hashlistID, err)
 		} else {
-			debug.Info("Deleted original uploaded file %s for hashlist %d", originalUploadPath, hashlistID)
-			// Optionally try removing empty parent directories
-			dir := filepath.Dir(originalUploadPath)
-			_ = os.Remove(dir)               // Remove hashlistID/filename dir
-			_ = os.Remove(filepath.Dir(dir)) // Remove userID dir
+			debug.Info("Deleted temporary upload file %s for hashlist %d", filePath, hashlistID)
 		}
 	}
 
@@ -316,10 +256,10 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64) {
 	hashlist.CrackedHashes = int(crackedHashes) // Note: This counts cracks found *during* ingest heuristic, not pre-cracked ones
 	hashlist.Status = finalStatus
 	hashlist.ErrorMessage = sql.NullString{String: firstLineErrorMsg, Valid: firstLineErrorMsg != ""}
-	hashlist.FilePath = finalFilePath // *** Update FilePath to the new <id>.hash path ***
+	// FilePath no longer needed - hashlists generated on-demand from database
 	hashlist.UpdatedAt = time.Now()
 
-	err = p.hashlistRepo.UpdateStatsAndStatusWithPath(ctx, hashlist.ID, int(totalHashes), int(crackedHashes), hashlist.Status, hashlist.ErrorMessage.String, hashlist.FilePath)
+	err = p.hashlistRepo.UpdateStatsAndStatus(ctx, hashlist.ID, int(totalHashes), int(crackedHashes), hashlist.Status, hashlist.ErrorMessage.String)
 	if err != nil {
 		debug.Error("Background task: Failed to update final stats/status/path for hashlist %d: %v", hashlistID, err)
 		// Status is likely 'processing' still, but processing technically finished.
@@ -327,7 +267,7 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64) {
 		return
 	}
 
-	debug.Info("Successfully processed hashlist %d. Total: %d, Final Agent File: %s", hashlistID, totalHashes, finalFilePath)
+	debug.Info("Successfully processed hashlist %d. Total: %d hashes", hashlistID, totalHashes)
 
 	// Sync the cracked count to reflect actual state (including pre-cracked hashes)
 	if err := p.hashlistRepo.SyncCrackedCount(ctx, hashlistID); err != nil {

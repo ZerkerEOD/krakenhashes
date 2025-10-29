@@ -277,9 +277,10 @@ type Service struct {
 
 // NewService creates a new WebSocket service
 func NewService(agentService *services.AgentService) *Service {
-	// Limit concurrent crack batch processing to 5 goroutines
-	// This prevents database connection pool exhaustion and deadlocks
-	maxConcurrentCrackBatches := 5
+	// Limit concurrent crack batch processing to 10 goroutines
+	// With 100-connection pool: 10 batches * ~5 connections/batch = ~50 connections peak
+	// This doubles crack processing throughput while staying under 50% pool capacity
+	maxConcurrentCrackBatches := 10
 
 	return &Service{
 		agentService:  agentService,

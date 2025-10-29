@@ -914,6 +914,47 @@ func (r *HashRepository) StreamHashesForHashlist(ctx context.Context, hashlistID
 	return nil
 }
 
+// StreamUncrackedHashValuesForHashlist streams only uncracked hash_value fields for agents.
+// This is optimized for agent hashlist downloads - only returns hash_value (not full hash object)
+// and only returns uncracked hashes. Uses streaming to minimize memory usage.
+func (r *HashRepository) StreamUncrackedHashValuesForHashlist(
+	ctx context.Context,
+	hashlistID int64,
+	callback func(hashValue string) error,
+) error {
+	query := `
+		SELECT DISTINCT h.hash_value
+		FROM hashes h
+		INNER JOIN hashlist_hashes hh ON h.id = hh.hash_id
+		WHERE hh.hashlist_id = $1 AND h.is_cracked = FALSE
+		ORDER BY h.hash_value
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, hashlistID)
+	if err != nil {
+		return fmt.Errorf("failed to query uncracked hash values for hashlist %d: %w", hashlistID, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var hashValue string
+		if err := rows.Scan(&hashValue); err != nil {
+			return fmt.Errorf("failed to scan hash value for hashlist %d: %w", hashlistID, err)
+		}
+
+		// Call callback for each hash value
+		if err := callback(hashValue); err != nil {
+			return fmt.Errorf("callback error for hashlist %d: %w", hashlistID, err)
+		}
+	}
+
+	if err = rows.Err(); err != nil {
+		return fmt.Errorf("error iterating hash values for hashlist %d: %w", hashlistID, err)
+	}
+
+	return nil
+}
+
 // GetHashlistIDsForHash returns all hashlist IDs that contain a specific hash.
 // This is used to determine which hashlists need their counters updated when a hash is cracked.
 func (r *HashRepository) GetHashlistIDsForHash(ctx context.Context, hashID uuid.UUID) ([]int64, error) {

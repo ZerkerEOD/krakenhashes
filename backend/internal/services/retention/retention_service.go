@@ -3,7 +3,6 @@ package retention
 import (
 	"context"
 	"crypto/rand"
-	"database/sql"
 	"fmt"
 	"os"
 	"strconv"
@@ -262,21 +261,8 @@ func (s *RetentionService) PurgeOldAnalyticsReports(ctx context.Context) error {
 }
 
 // DeleteHashlistAndOrphanedHashes deletes a hashlist and any hashes that become orphaned as a result.
-// It also securely deletes the associated file from disk.
 func (s *RetentionService) DeleteHashlistAndOrphanedHashes(ctx context.Context, hashlistID int64) error {
-	// First, get the hashlist details including file path BEFORE starting transaction
-	hashlist, err := s.hashlistRepo.GetByID(ctx, hashlistID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			debug.Warning("Purge: Hashlist %d not found, may have been already deleted", hashlistID)
-			return nil
-		}
-		return fmt.Errorf("failed to get hashlist %d details: %w", hashlistID, err)
-	}
-
-	// Store the file path for later deletion
-	filePath := hashlist.FilePath
-	debug.Info("Purge: Will delete hashlist %d and its file at: %s", hashlistID, filePath)
+	debug.Info("Purge: Will delete hashlist %d (no file deletion needed - hashlists generated on-demand)", hashlistID)
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -329,19 +315,7 @@ func (s *RetentionService) DeleteHashlistAndOrphanedHashes(ctx context.Context, 
 		return fmt.Errorf("failed to commit transaction for deleting hashlist %d: %w", hashlistID, err)
 	}
 
-	// 6. After successful database deletion, securely delete the file from disk
-	if filePath != "" {
-		if err := s.secureDeleteFile(filePath); err != nil {
-			// Log the error but don't fail the whole operation since DB deletion succeeded
-			debug.Error("Purge: Failed to delete file %s for hashlist %d: %v", filePath, hashlistID, err)
-			// Continue anyway - the DB records are gone which is the critical part
-		} else {
-			debug.Info("Purge: Successfully deleted file %s for hashlist %d", filePath, hashlistID)
-		}
-	} else {
-		debug.Warning("Purge: Hashlist %d had no file path recorded", hashlistID)
-	}
-
+	debug.Info("Purge: Successfully deleted hashlist %d from database", hashlistID)
 	return nil
 }
 
