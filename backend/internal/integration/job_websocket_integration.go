@@ -1070,19 +1070,103 @@ func (s *JobWebSocketIntegration) HandleCrackBatch(ctx context.Context, agentID 
 		return fmt.Errorf("task not assigned to this agent")
 	}
 
-	// Process cracked hashes
+	// Process cracked hashes with retry logic
 	if len(crackBatch.CrackedHashes) > 0 {
-		err = s.processCrackedHashes(ctx, crackBatch.TaskID, crackBatch.CrackedHashes)
+		err = s.retryProcessCrackedHashes(ctx, agentID, crackBatch.TaskID, crackBatch.CrackedHashes)
 		if err != nil {
-			debug.Log("Failed to process cracked hashes", map[string]interface{}{
-				"task_id": crackBatch.TaskID,
-				"error":   err.Error(),
-			})
+			debug.Error("CRITICAL: Crack batch permanently failed after retries [agent_id=%d, task_id=%s, batch_size=%d, error=%v]",
+				agentID, crackBatch.TaskID, len(crackBatch.CrackedHashes), err)
 			return err
 		}
 	}
 
 	return nil
+}
+
+// retryProcessCrackedHashes wraps processCrackedHashes with retry logic for transient database errors
+func (s *JobWebSocketIntegration) retryProcessCrackedHashes(ctx context.Context, agentID int, taskID uuid.UUID, crackedHashes []models.CrackedHash) error {
+	const maxRetries = 3
+	backoffDelays := []time.Duration{0, 1 * time.Second, 2 * time.Second} // Exponential backoff
+
+	var lastErr error
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		// Wait before retry (skip on first attempt)
+		if attempt > 1 {
+			delay := backoffDelays[attempt-1]
+			debug.Info("Retrying crack batch processing (attempt %d/%d, delay=%v) [agent_id=%d, task_id=%s, batch_size=%d]",
+				attempt, maxRetries, delay, agentID, taskID, len(crackedHashes))
+			time.Sleep(delay)
+		}
+
+		// Attempt to process cracks
+		err := s.processCrackedHashes(ctx, taskID, crackedHashes)
+		if err == nil {
+			// Success!
+			if attempt > 1 {
+				debug.Info("Crack batch processed successfully after %d retries [agent_id=%d, task_id=%s, batch_size=%d]",
+					attempt, agentID, taskID, len(crackedHashes))
+			}
+			return nil
+		}
+
+		// Check if error is transient and retryable
+		if !isTransientDatabaseError(err) {
+			// Non-transient error, fail immediately
+			debug.Error("Non-retryable error processing crack batch [agent_id=%d, task_id=%s, batch_size=%d, error=%v]",
+				agentID, taskID, len(crackedHashes), err)
+			return err
+		}
+
+		// Transient error, log and retry
+		lastErr = err
+		debug.Warning("Transient database error processing crack batch (attempt %d/%d) [agent_id=%d, task_id=%s, batch_size=%d, error=%v]",
+			attempt, maxRetries, agentID, taskID, len(crackedHashes), err)
+	}
+
+	// All retries exhausted
+	return fmt.Errorf("max retries exhausted: %w", lastErr)
+}
+
+// isTransientDatabaseError determines if an error is transient and should be retried
+func isTransientDatabaseError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errStr := strings.ToLower(err.Error())
+
+	// PostgreSQL shared memory exhaustion
+	if strings.Contains(errStr, "could not resize shared memory") ||
+		strings.Contains(errStr, "no space left on device") {
+		return true
+	}
+
+	// PostgreSQL deadlocks
+	if strings.Contains(errStr, "deadlock detected") {
+		return true
+	}
+
+	// Connection failures
+	if strings.Contains(errStr, "connection refused") ||
+		strings.Contains(errStr, "connection reset") ||
+		strings.Contains(errStr, "broken pipe") ||
+		strings.Contains(errStr, "connection closed") {
+		return true
+	}
+
+	// Timeouts
+	if strings.Contains(errStr, "context deadline exceeded") ||
+		strings.Contains(errStr, "timeout") {
+		return true
+	}
+
+	// Temporary network errors
+	if strings.Contains(errStr, "temporary failure") ||
+		strings.Contains(errStr, "too many connections") {
+		return true
+	}
+
+	return false
 }
 
 // HandleBenchmarkResult processes benchmark results from agents

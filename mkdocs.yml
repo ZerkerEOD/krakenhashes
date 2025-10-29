@@ -168,6 +168,8 @@ nav:
     - Agent Development: developer/agent.md
   - Reference:
     - reference/index.md
+    - System Requirements: reference/system-requirements.md
+    - PostgreSQL Tuning: reference/postgresql-tuning.md
     - Architecture:
       - Chunking System: reference/architecture/chunking.md
       - Rule Splitting: reference/architecture/rule-splitting.md

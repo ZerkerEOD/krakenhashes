@@ -524,6 +524,10 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 					// Drain any remaining crack batches from the channel before exiting
 					debug.Info("Job %s finished with status %s, draining remaining crack batches", progress.TaskID, progress.Status)
 
+					// Track batches processed during drain to ensure we don't exit prematurely
+					drainedBatches := 0
+					drainedCracks := 0
+
 				drainLoop:
 					for {
 						select {
@@ -534,7 +538,11 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 
 							// Process any remaining crack batches
 							if remaining != nil && len(remaining.CrackedHashes) > 0 {
-								debug.Info("Processing %d remaining cracks after job completion", len(remaining.CrackedHashes))
+								drainedBatches++
+								drainedCracks += len(remaining.CrackedHashes)
+
+								debug.Info("Processing %d remaining cracks after job completion (batch %d, total drained: %d)",
+									len(remaining.CrackedHashes), drainedBatches, drainedCracks)
 
 								if hasCrackCallback {
 									batch := &CrackBatch{
@@ -546,13 +554,17 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 
 								console.Info("Found %d cracked hashes", remaining.CrackedCount)
 							}
-						case <-time.After(500 * time.Millisecond):
-							// No more messages after 500ms, safe to exit
-							debug.Info("No more messages in channel after 500ms, exiting monitoring for task %s", progress.TaskID)
+						case <-time.After(30 * time.Second):
+							// No more messages after 30s, safe to exit
+							// Increased from 500ms to 30s to handle large crack bursts at job completion
+							debug.Info("No more messages in channel after 30s, exiting monitoring for task %s (drained %d batches, %d cracks)",
+								progress.TaskID, drainedBatches, drainedCracks)
 							break drainLoop
 						}
 					}
 
+					debug.Info("Drain complete for task %s: processed %d batches with %d total cracks",
+						progress.TaskID, drainedBatches, drainedCracks)
 					return
 				}
 			}

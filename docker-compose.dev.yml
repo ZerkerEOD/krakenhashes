@@ -12,65 +12,76 @@
 # This runs the complete application with hot reload for development
 
 services:
-  postgres:
-    image: postgres:15-alpine
-    container_name: krakenhashes-postgres
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ${LOG_DIR:-./logs}/postgres:/var/log/postgresql
-    environment:
-      - POSTGRES_USER=${DB_USER:-krakenhashes}
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-krakenhashes}
-      - POSTGRES_DB=${DB_NAME:-krakenhashes}
-      - PGDATA=/var/lib/postgresql/data
-    ports:
-      - "${DB_PORT:-5432}:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-krakenhashes}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-    networks:
-      - krakenhashes-net
+    postgres:
+        image: postgres:15-alpine
+        container_name: krakenhashes-postgres
+        # PostgreSQL memory configuration (defaults optimized for 8GB RAM systems)
+        # Override in .env file for different system configurations
+        # See docs/reference/system-requirements.md for detailed guidance
+        command: >
+            postgres
+            -c shared_buffers=${POSTGRES_SHARED_BUFFERS:-1GB}
+            -c work_mem=${POSTGRES_WORK_MEM:-64MB}
+            -c effective_cache_size=${POSTGRES_EFFECTIVE_CACHE_SIZE:-4GB}
+            -c maintenance_work_mem=${POSTGRES_MAINTENANCE_WORK_MEM:-256MB}
+            -c max_connections=${POSTGRES_MAX_CONNECTIONS:-100}
 
-  krakenhashes:
-    build: .
-    container_name: krakenhashes-app
-    depends_on:
-      postgres:
-        condition: service_healthy
-    env_file:
-      - .env
-    ports:
-      - "${FRONTEND_PORT:-443}:443"
-      - "${KH_HTTPS_PORT:-31337}:31337"
-      - "${KH_HTTP_PORT:-1337}:1337"
-    volumes:
-      - krakenhashes_data:/var/lib/krakenhashes
-      - ${LOG_DIR:-./logs}:/var/log/krakenhashes
-      - ${KH_CONFIG_DIR_HOST:-./config}:/etc/krakenhashes
-      - ${KH_DATA_DIR_HOST:-./data}:/var/lib/krakenhashes
-    environment:
-      - TZ=UTC
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
-      - DB_HOST=postgres  # Must be 'postgres' for docker networking
-      - DB_PORT=${DB_PORT:-5432}
-      - DB_NAME=${DB_NAME:-krakenhashes}
-      - DB_USER=${DB_USER:-krakenhashes}
-      - DB_PASSWORD=${DB_PASSWORD:-krakenhashes}
-      - DEBUG=${DEBUG:-true}
-      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
-      # Enable all debug flags for development
-      - DEBUG_SQL=${DEBUG_SQL:-true}
-      - DEBUG_HTTP=${DEBUG_HTTP:-true}
-      - DEBUG_WEBSOCKET=${DEBUG_WEBSOCKET:-true}
-      - DEBUG_AUTH=${DEBUG_AUTH:-true}
-      - DEBUG_JOBS=${DEBUG_JOBS:-true}
-    restart: unless-stopped
-    networks:
-      - krakenhashes-net
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+            - ${LOG_DIR:-./logs}/postgres:/var/log/postgresql
+        environment:
+            - POSTGRES_USER=${DB_USER:-krakenhashes}
+            - POSTGRES_PASSWORD=${DB_PASSWORD:-krakenhashes}
+            - POSTGRES_DB=${DB_NAME:-krakenhashes}
+            - PGDATA=/var/lib/postgresql/data
+        ports:
+            - "${DB_PORT:-5432}:5432"
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-krakenhashes}"]
+            interval: 5s
+            timeout: 5s
+            retries: 5
+        restart: unless-stopped
+        networks:
+            - krakenhashes-net
+
+    krakenhashes:
+        build: .
+        container_name: krakenhashes-app
+        depends_on:
+            postgres:
+                condition: service_healthy
+        env_file:
+            - .env
+        ports:
+            - "${FRONTEND_PORT:-443}:443"
+            - "${KH_HTTPS_PORT:-31337}:31337"
+            - "${KH_HTTP_PORT:-1337}:1337"
+        volumes:
+            - krakenhashes_data:/var/lib/krakenhashes
+            - ${LOG_DIR:-./logs}:/var/log/krakenhashes
+            - ${KH_CONFIG_DIR_HOST:-./config}:/etc/krakenhashes
+            - ${KH_DATA_DIR_HOST:-./data}:/var/lib/krakenhashes
+        environment:
+            - TZ=UTC
+            - PUID=${PUID:-1000}
+            - PGID=${PGID:-1000}
+            - DB_HOST=postgres # Must be 'postgres' for docker networking
+            - DB_PORT=${DB_PORT:-5432}
+            - DB_NAME=${DB_NAME:-krakenhashes}
+            - DB_USER=${DB_USER:-krakenhashes}
+            - DB_PASSWORD=${DB_PASSWORD:-krakenhashes}
+            - DEBUG=${DEBUG:-true}
+            - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
+            # Enable all debug flags for development
+            - DEBUG_SQL=${DEBUG_SQL:-true}
+            - DEBUG_HTTP=${DEBUG_HTTP:-true}
+            - DEBUG_WEBSOCKET=${DEBUG_WEBSOCKET:-true}
+            - DEBUG_AUTH=${DEBUG_AUTH:-true}
+            - DEBUG_JOBS=${DEBUG_JOBS:-true}
+        restart: unless-stopped
+        networks:
+            - krakenhashes-net
 
 # ============================================
 # OPTION 2: Individual Services (Advanced)
@@ -147,16 +158,16 @@ services:
 #     - krakenhashes-net
 
 networks:
-  krakenhashes-net:
-    driver: bridge
+    krakenhashes-net:
+        driver: bridge
 
 volumes:
-  postgres_data:
-    name: krakenhashes_postgres_data
-  krakenhashes_data:
-    name: krakenhashes_app_data
-  # Uncomment these if using individual services
-  # go_mod_cache:
-  #   name: krakenhashes_go_mod_cache
-  # node_modules:
-  #   name: krakenhashes_node_modules
+    postgres_data:
+        name: krakenhashes_postgres_data
+    krakenhashes_data:
+        name: krakenhashes_app_data
+    # Uncomment these if using individual services
+    # go_mod_cache:
+    #   name: krakenhashes_go_mod_cache
+    # node_modules:
+    #   name: krakenhashes_node_modules

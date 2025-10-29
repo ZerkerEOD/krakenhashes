@@ -15,9 +15,10 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
-	
+
 	"github.com/ZerkerEOD/krakenhashes/agent/pkg/console"
 	"github.com/ZerkerEOD/krakenhashes/agent/pkg/debug"
 )
@@ -185,6 +186,9 @@ type HashcatProcess struct {
 	// Error tracking
 	AlreadyRunningError bool
 	mutex              sync.Mutex
+
+	// Cleanup coordination
+	CleanupInProgress atomic.Bool // Flag to prevent timer creation during cleanup
 }
 
 
@@ -591,17 +595,25 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 	defer func() {
 		// Final outfile read to catch any remaining cracks
 		if process.OutfilePath != "" {
+			// Set cleanup flag to prevent new timers during final read
+			process.CleanupInProgress.Store(true)
+
+			// Stop all existing timers before final read
+			e.crackBatchMutex.Lock()
+			if timer := e.crackBatchTimers[process.TaskID]; timer != nil {
+				timer.Stop()
+				delete(e.crackBatchTimers, process.TaskID)
+			}
+			e.crackBatchMutex.Unlock()
+
 			debug.Info("Performing final outfile read for task %s", process.TaskID)
 			e.readNewOutfileLines(process)
 
-			// Flush any pending crack batches immediately
+			// Flush any pending crack batches immediately (no new timers will be created)
 			debug.Info("Flushing pending crack batches for task %s", process.TaskID)
-			e.cleanupBatchState(process)
+			e.flushCrackBatch(process)
 
-			// Wait briefly for any batch timers that just fired to complete
-			// This prevents race condition where timer fires after final read but before cleanup
-			time.Sleep(150 * time.Millisecond)
-			debug.Info("Batch flush wait completed for task %s", process.TaskID)
+			debug.Info("Batch flush completed for task %s", process.TaskID)
 
 			// Don't delete outfile here - let monitorOutfile handle it after confirming all batches sent
 			// This prevents premature deletion when processing large numbers of cracks (e.g., 1.75M)
@@ -1179,7 +1191,10 @@ func (e *HashcatExecutor) addCrackToBatch(process *HashcatProcess, cracked *Crac
 	}
 
 	// Start or reset the batch timer (will send everything after 500ms)
-	e.startBatchTimerLocked(process)
+	// Skip timer creation if cleanup is in progress - cracks will be flushed explicitly
+	if !process.CleanupInProgress.Load() {
+		e.startBatchTimerLocked(process)
+	}
 }
 
 // flushCrackBatch flushes the crack batch buffer for the given task with mutex protection.

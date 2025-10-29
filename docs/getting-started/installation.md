@@ -6,10 +6,11 @@ This guide covers both production and development installation of KrakenHashes.
 
 ### Prerequisites
 
--   Docker Engine 20.10+ and Docker Compose 2.0+
--   4GB+ RAM recommended
--   20GB+ disk space for hash files, wordlists, and rules (Very dependent on your wordlist size)
--   Linux host (Ubuntu 20.04+, Debian 11+, RHEL 8+, or similar)
+-   :material-docker:{ .lg .middle } Docker Engine 20.10+ and Docker Compose 2.0+
+-   :material-memory:{ .lg .middle } 4GB RAM minimum, 8GB RAM recommended (see [System Requirements](../reference/system-requirements.md))
+-   :material-harddisk:{ .lg .middle } 20GB+ disk space for hash files, wordlists, and rules
+-   :material-expansion-card:{ .lg .middle } GPU recommended for optimal performance (NVIDIA, AMD, or Intel)
+-   :material-linux:{ .lg .middle } Linux host (Ubuntu 20.04+, Debian 11+, RHEL 8+, or similar)
 
 ### Docker Compose v2 Requirements
 

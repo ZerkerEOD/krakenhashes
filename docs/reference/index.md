@@ -6,6 +6,18 @@ Quick reference guides and technical specifications for KrakenHashes.
 
 <div class="grid cards" markdown>
 
+-   :material-server:{ .lg .middle } **[System Requirements](system-requirements.md)**
+
+    ---
+
+    Hardware requirements and memory configurations for all deployment scales
+
+-   :material-database-cog:{ .lg .middle } **[PostgreSQL Tuning](postgresql-tuning.md)**
+
+    ---
+
+    Database optimization for high-volume crack processing operations
+
 -   :material-cog:{ .lg .middle } **[Environment Variables](environment.md)**
 
     ---
@@ -33,6 +45,12 @@ Quick reference guides and technical specifications for KrakenHashes.
 </div>
 
 ## Quick Links
+
+### System Configuration
+- [System Requirements by Tier](system-requirements.md#quick-reference-table)
+- [PostgreSQL Memory Settings](postgresql-tuning.md#understanding-each-setting)
+- [Applying Configuration Changes](system-requirements.md#applying-configuration-changes)
+- [Performance Troubleshooting](postgresql-tuning.md#troubleshooting)
 
 ### Configuration Reference
 - [Backend Environment Variables](environment.md#backend-configuration)
