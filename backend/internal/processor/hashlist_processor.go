@@ -102,7 +102,6 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64) {
 	var totalHashes, crackedHashes int64
 	batchSize := p.config.HashlistBatchSize
 	hashesToProcess := make([]*models.Hash, 0, batchSize)
-	associationsToCreate := make([]*models.HashListHash, 0, batchSize)
 	lineNumber := 0
 	firstLineErrorMsg := ""     // Store the first line processing error
 	lineErrorsOccurred := false // Track if any line errors happened
@@ -193,7 +192,15 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64) {
 				p.updateHashlistStatus(ctx, hashlistID, models.HashListStatusError, "Error processing hash batch")
 				return // Stop processing on batch error
 			}
-			associationsToCreate = append(associationsToCreate, newAssociations...)
+			// Create associations immediately for this batch instead of accumulating
+			if len(newAssociations) > 0 {
+				err = p.hashRepo.AddBatchToHashList(ctx, newAssociations)
+				if err != nil {
+					debug.Error("Background task: Error creating hashlist associations for batch (hashlist %d): %v", hashlistID, err)
+					p.updateHashlistStatus(ctx, hashlistID, models.HashListStatusError, "Error saving hash associations")
+					return
+				}
+			}
 			hashesToProcess = hashesToProcess[:0] // Clear batch
 		}
 	}
@@ -207,7 +214,15 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64) {
 			p.updateHashlistStatus(ctx, hashlistID, models.HashListStatusError, "Error processing final hash batch")
 			return
 		}
-		associationsToCreate = append(associationsToCreate, newAssociations...)
+		// Create associations for final batch
+		if len(newAssociations) > 0 {
+			err = p.hashRepo.AddBatchToHashList(ctx, newAssociations)
+			if err != nil {
+				debug.Error("Background task: Error creating hashlist associations for final batch (hashlist %d): %v", hashlistID, err)
+				p.updateHashlistStatus(ctx, hashlistID, models.HashListStatusError, "Error saving final hash associations")
+				return
+			}
+		}
 	}
 
 	// Check for scanner errors after loop
@@ -217,17 +232,7 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64) {
 		return
 	}
 
-	// Create final associations batch (if any)
-	if len(associationsToCreate) > 0 {
-		err = p.hashRepo.AddBatchToHashList(ctx, associationsToCreate)
-		if err != nil {
-			debug.Error("Background task: Error creating final hashlist associations for %d: %v", hashlistID, err)
-			p.updateHashlistStatus(ctx, hashlistID, models.HashListStatusError, "Error saving final hash associations")
-			return
-		}
-	}
-
-	debug.Info("Successfully created final hashlist associations for %d", hashlistID)
+	debug.Info("Successfully created all hashlist associations for %d", hashlistID)
 
 	// --- Generate <id>.hash file with uncracked hashes ---
 	var finalFilePath string

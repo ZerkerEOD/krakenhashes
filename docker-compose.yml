@@ -8,10 +8,12 @@ services:
         command: >
             postgres
             -c shared_buffers=${POSTGRES_SHARED_BUFFERS:-1GB}
-            -c work_mem=${POSTGRES_WORK_MEM:-64MB}
+            -c work_mem=${POSTGRES_WORK_MEM:-256MB}
             -c effective_cache_size=${POSTGRES_EFFECTIVE_CACHE_SIZE:-4GB}
             -c maintenance_work_mem=${POSTGRES_MAINTENANCE_WORK_MEM:-256MB}
             -c max_connections=${POSTGRES_MAX_CONNECTIONS:-100}
+            -c enable_parallel_hash=${POSTGRES_ENABLE_PARALLEL_HASH:-off}
+            -c hash_mem_multiplier=${POSTGRES_HASH_MEM_MULTIPLIER:-1}
         volumes:
             - postgres_data:/var/lib/postgresql/data
             - ${LOG_DIR:-./logs}/postgres:/var/log/postgresql

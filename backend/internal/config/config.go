@@ -150,7 +150,7 @@ func NewConfig() *Config {
 	debug.Info("Using data directory: %s", dataDir)
 
 	// Get hashlist batch size from environment or use default
-	hashlistBatchSize := 1000 // Default batch size
+	hashlistBatchSize := 3000 // Default batch size (optimized for multi-row INSERT performance)
 	if batchSizeStr := os.Getenv("KH_HASHLIST_BATCH_SIZE"); batchSizeStr != "" {
 		if bs, err := strconv.Atoi(batchSizeStr); err == nil && bs > 0 {
 			hashlistBatchSize = bs

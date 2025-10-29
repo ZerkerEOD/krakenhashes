@@ -11,14 +11,16 @@ KrakenHashes is **optimized by default for 8GB RAM systems**, providing a balanc
 
 ## Quick Reference Table
 
-| Total RAM | Configuration | PostgreSQL Settings | Typical Use Case | Multi-Agent Support |
-|-----------|---------------|-------------------|------------------|---------------------|
-| 4GB | Minimum | 512MB / 32MB | Development, small jobs (<500k hashes) | ✅ Yes |
-| **8GB** | **Default/Recommended** | **1GB / 64MB** | **Production, standard operations (1-10M hashes)** | ✅ Yes |
-| 16GB | High-Volume | 4GB / 128MB | Large-scale operations, multiple concurrent jobs | ✅ Yes |
-| 32GB | Enterprise | 8GB / 256MB | Enterprise multi-agent deployments | ✅ Yes |
-| 64GB | Large-Scale | 16GB / 512MB | Extreme parallel processing | ✅ Yes |
-| 96-128GB | Extreme | 24-32GB / 512MB-1GB | Maximum throughput operations | ✅ Yes |
+| Total RAM | Configuration | PostgreSQL Settings (SB/WM/EC/MW) | Typical Use Case | Multi-Agent Support |
+|-----------|---------------|-----------------------------------|------------------|---------------------|
+| 4GB | Minimum | 512MB / 32MB / 2GB / 128MB | Development, small jobs (<500k hashes) | ✅ Yes |
+| **8GB** | **Default/Recommended** | **1GB / 256MB / 4GB / 256MB** | **Production, standard operations (1-10M hashes)** | ✅ Yes |
+| 16GB | High-Volume | 4GB / 256MB / 8GB / 1GB | Large-scale operations, multiple concurrent jobs | ✅ Yes |
+| 32GB | Enterprise | 8GB / 512MB / 16GB / 2GB | Enterprise multi-agent deployments | ✅ Yes |
+| 64GB | Large-Scale | 16GB / 512MB / 32GB / 4GB | Extreme parallel processing | ✅ Yes |
+| 96-128GB | Extreme | 24-32GB / 1GB / 48GB / 8GB | Maximum throughput operations | ✅ Yes |
+
+*SB=shared_buffers, WM=work_mem, EC=effective_cache_size, MW=maintenance_work_mem*
 
 !!! tip "8GB Default"
     KrakenHashes ships with PostgreSQL settings optimized for 8GB systems. No configuration changes are needed for standard deployments.
@@ -39,6 +41,8 @@ POSTGRES_WORK_MEM=32MB
 POSTGRES_EFFECTIVE_CACHE_SIZE=2GB
 POSTGRES_MAINTENANCE_WORK_MEM=128MB
 POSTGRES_MAX_CONNECTIONS=100
+POSTGRES_ENABLE_PARALLEL_HASH=off
+POSTGRES_HASH_MEM_MULTIPLIER=1
 ```
 
 **Suitable For:**
@@ -64,10 +68,12 @@ POSTGRES_MAX_CONNECTIONS=100
 **PostgreSQL Settings (Default):**
 ```bash
 POSTGRES_SHARED_BUFFERS=1GB
-POSTGRES_WORK_MEM=64MB
+POSTGRES_WORK_MEM=256MB
 POSTGRES_EFFECTIVE_CACHE_SIZE=4GB
 POSTGRES_MAINTENANCE_WORK_MEM=256MB
 POSTGRES_MAX_CONNECTIONS=100
+POSTGRES_ENABLE_PARALLEL_HASH=off
+POSTGRES_HASH_MEM_MULTIPLIER=1
 ```
 
 **Suitable For:**
@@ -95,7 +101,6 @@ POSTGRES_MAX_CONNECTIONS=100
 **PostgreSQL Settings:**
 ```bash
 POSTGRES_SHARED_BUFFERS=4GB
-POSTGRES_WORK_MEM=128MB
 POSTGRES_EFFECTIVE_CACHE_SIZE=8GB
 POSTGRES_MAINTENANCE_WORK_MEM=1GB
 POSTGRES_MAX_CONNECTIONS=100
@@ -125,7 +130,6 @@ POSTGRES_MAX_CONNECTIONS=100
 **PostgreSQL Settings:**
 ```bash
 POSTGRES_SHARED_BUFFERS=8GB
-POSTGRES_WORK_MEM=256MB
 POSTGRES_EFFECTIVE_CACHE_SIZE=16GB
 POSTGRES_MAINTENANCE_WORK_MEM=2GB
 POSTGRES_MAX_CONNECTIONS=150
@@ -155,7 +159,6 @@ POSTGRES_MAX_CONNECTIONS=150
 **PostgreSQL Settings:**
 ```bash
 POSTGRES_SHARED_BUFFERS=16GB
-POSTGRES_WORK_MEM=512MB
 POSTGRES_EFFECTIVE_CACHE_SIZE=32GB
 POSTGRES_MAINTENANCE_WORK_MEM=4GB
 POSTGRES_MAX_CONNECTIONS=200
@@ -179,7 +182,6 @@ POSTGRES_MAX_CONNECTIONS=200
 **PostgreSQL Settings:**
 ```bash
 POSTGRES_SHARED_BUFFERS=24GB  # or 32GB for 128GB systems
-POSTGRES_WORK_MEM=1GB
 POSTGRES_EFFECTIVE_CACHE_SIZE=48GB
 POSTGRES_MAINTENANCE_WORK_MEM=8GB
 POSTGRES_MAX_CONNECTIONS=250
@@ -200,10 +202,14 @@ Add or modify the PostgreSQL memory settings in your `.env` file:
 ```bash
 # PostgreSQL Memory Configuration
 POSTGRES_SHARED_BUFFERS=1GB
-POSTGRES_WORK_MEM=64MB
+POSTGRES_WORK_MEM=256MB
 POSTGRES_EFFECTIVE_CACHE_SIZE=4GB
 POSTGRES_MAINTENANCE_WORK_MEM=256MB
 POSTGRES_MAX_CONNECTIONS=100
+
+# PostgreSQL Query Optimization (prevents memory issues with large datasets)
+POSTGRES_ENABLE_PARALLEL_HASH=off
+POSTGRES_HASH_MEM_MULTIPLIER=1
 ```
 
 !!! warning "Restart Required"
@@ -225,7 +231,7 @@ docker-compose up -d
 ### Step 3: Verify Settings
 
 ```bash
-docker exec krakenhashes-postgres psql -U krakenhashes -d krakenhashes -c "SHOW shared_buffers; SHOW work_mem;"
+docker exec krakenhashes-postgres psql -U krakenhashes -d krakenhashes -c "SHOW shared_buffers; SHOW effective_cache_size; SHOW maintenance_work_mem;"
 ```
 
 Expected output:
@@ -235,9 +241,14 @@ Expected output:
  1GB
 (1 row)
 
- work_mem
-----------
- 64MB
+ effective_cache_size
+----------------------
+ 4GB
+(1 row)
+
+ maintenance_work_mem
+----------------------
+ 256MB
 (1 row)
 ```
 
@@ -305,12 +316,9 @@ For 10 agents running continuously:
 
 **Symptom**: PostgreSQL shared memory errors in logs
 
-**Solution**: Increase `POSTGRES_WORK_MEM`
+**Cause**: Large work_mem settings can cause PostgreSQL to attempt oversized memory allocations that exceed kernel limits.
 
-```bash
-# In .env file
-POSTGRES_WORK_MEM=128MB  # or higher
-```
+**Solution**: KrakenHashes uses PostgreSQL's default work_mem (4MB) which prevents these errors. If you've manually configured work_mem, remove it from your configuration.
 
 See [PostgreSQL Tuning Guide](postgresql-tuning.md#troubleshooting) for detailed troubleshooting.
 
@@ -332,8 +340,7 @@ POSTGRES_SHARED_BUFFERS=2GB  # or higher
 **Solution**: This is usually correct behavior. PostgreSQL actively uses allocated memory for caching. If the host system is struggling:
 
 1. Reduce `POSTGRES_SHARED_BUFFERS`
-2. Reduce `POSTGRES_WORK_MEM`
-3. Consider upgrading system RAM
+2. Consider upgrading system RAM
 
 ## Related Documentation
 

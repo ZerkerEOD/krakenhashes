@@ -81,14 +81,9 @@ func (r *HashRepository) CreateBatch(ctx context.Context, hashes []*models.Hash)
 	}
 	defer txn.Rollback() // Rollback if commit isn't reached
 
-	stmt, err := txn.PrepareContext(ctx, `
-		INSERT INTO hashes (id, hash_value, original_hash, username, domain, hash_type_id, is_cracked, password, last_updated)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-	`)
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare statement for batch hash create: %w", err)
-	}
-	defer stmt.Close()
+	// Build multi-row INSERT query for better performance
+	query := `INSERT INTO hashes (id, hash_value, original_hash, username, domain, hash_type_id, is_cracked, password, last_updated) VALUES `
+	args := make([]interface{}, 0, len(hashes)*9)
 
 	for i, hash := range hashes {
 		// Generate UUID if not already set (though handler usually does this)
@@ -98,8 +93,19 @@ func (r *HashRepository) CreateBatch(ctx context.Context, hashes []*models.Hash)
 		if hash.LastUpdated.IsZero() {
 			hash.LastUpdated = time.Now()
 		}
-		debug.Debug("[DB:CreateBatch] Attempting insert %d: ID=%s, Value='%s'", i+1, hash.ID, hash.HashValue)
-		_, err := stmt.ExecContext(ctx,
+
+		if i > 0 {
+			query += ", "
+		}
+
+		// Add placeholders for this hash's 9 parameters
+		baseParam := i * 9
+		query += fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d)",
+			baseParam+1, baseParam+2, baseParam+3, baseParam+4, baseParam+5,
+			baseParam+6, baseParam+7, baseParam+8, baseParam+9)
+
+		// Add parameters in the correct order
+		args = append(args,
 			hash.ID,
 			hash.HashValue,
 			hash.OriginalHash,
@@ -110,11 +116,12 @@ func (r *HashRepository) CreateBatch(ctx context.Context, hashes []*models.Hash)
 			hash.Password,
 			hash.LastUpdated,
 		)
-		if err != nil {
-			// If ON CONFLICT is removed, we might need error handling for other potential issues.
-			// For now, let's return the error directly if ExecContext fails.
-			return nil, fmt.Errorf("failed to execute batch hash insert for hash %s (ID: %s): %w", hash.HashValue, hash.ID, err)
-		}
+	}
+
+	debug.Debug("[DB:CreateBatch] Executing multi-row INSERT for %d hashes", len(hashes))
+	_, err = txn.ExecContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute batch hash insert: %w", err)
 	}
 
 	if err = txn.Commit(); err != nil {
@@ -139,37 +146,59 @@ func (r *HashRepository) UpdateBatch(ctx context.Context, hashes []*models.Hash)
 	}
 	defer txn.Rollback()
 
-	stmt, err := txn.PrepareContext(ctx, `
-		UPDATE hashes
-		SET is_cracked = $1, password = $2, username = COALESCE(username, $3), domain = COALESCE(domain, $4), last_updated = $5
-		WHERE id = $6
-	`)
-	if err != nil {
-		return fmt.Errorf("failed to prepare statement for batch hash update: %w", err)
-	}
-	defer stmt.Close()
+	// Build UPDATE FROM VALUES query for better performance
+	query := `UPDATE hashes h SET
+		is_cracked = v.is_cracked,
+		password = v.password,
+		username = COALESCE(h.username, v.username),
+		domain = COALESCE(h.domain, v.domain),
+		last_updated = v.last_updated
+	FROM (VALUES `
+
+	args := make([]interface{}, 0, len(hashes)*6)
+	validHashes := 0
 
 	for _, hash := range hashes {
 		if hash.ID == uuid.Nil {
-			fmt.Printf("Warning: Skipping hash update for hash value %s due to missing ID\n", hash.HashValue)
-			continue // Cannot update without an ID
+			debug.Warning("Skipping hash update for hash value %s due to missing ID", hash.HashValue)
+			continue
 		}
-		result, err := stmt.ExecContext(ctx,
+
+		if validHashes > 0 {
+			query += ", "
+		}
+
+		// Add placeholders for this hash's 6 parameters
+		baseParam := validHashes * 6
+		query += fmt.Sprintf("($%d::uuid, $%d::boolean, $%d::text, $%d::text, $%d::text, $%d::timestamp)",
+			baseParam+1, baseParam+2, baseParam+3, baseParam+4, baseParam+5, baseParam+6)
+
+		// Add parameters in the correct order
+		args = append(args,
+			hash.ID,
 			hash.IsCracked,
 			hash.Password,
-			hash.Username, // Add username argument (COALESCE handles NULL case in SQL)
-			hash.Domain,   // Add domain argument (COALESCE handles NULL case in SQL)
-			time.Now(),    // Update last_updated time
-			hash.ID,
+			hash.Username,
+			hash.Domain,
+			time.Now(),
 		)
-		if err != nil {
-			return fmt.Errorf("failed to execute batch hash update for hash ID %s: %w", hash.ID, err)
-		}
-		rowsAffected, _ := result.RowsAffected() // Ignore error checking rows affected for simplicity
-		if rowsAffected == 0 {
-			fmt.Printf("Warning: No rows affected when updating hash ID %s\n", hash.ID)
-		}
+		validHashes++
 	}
+
+	if validHashes == 0 {
+		return nil // Nothing to update
+	}
+
+	query += `) AS v(id, is_cracked, password, username, domain, last_updated) WHERE h.id = v.id`
+
+	debug.Debug("[DB:UpdateBatch] Executing multi-row UPDATE for %d hashes", validHashes)
+	result, err := txn.ExecContext(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to execute batch hash update: %w", err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	debug.Info("[DB:UpdateBatch] Updated %d hash records", rowsAffected)
 
 	if err = txn.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction for batch hash update: %w", err)
@@ -190,36 +219,46 @@ func (r *HashRepository) AddBatchToHashList(ctx context.Context, associations []
 	}
 	defer txn.Rollback()
 
-	stmt, err := txn.PrepareContext(ctx, `
-		INSERT INTO hashlist_hashes (hashlist_id, hash_id)
-		VALUES ($1, $2)
-		ON CONFLICT (hashlist_id, hash_id) DO NOTHING -- Ignore if association already exists
-	`)
-	if err != nil {
-		return fmt.Errorf("failed to prepare statement for batch hashlist association: %w", err)
-	}
-	defer stmt.Close()
+	// Build multi-row INSERT query for better performance
+	query := `INSERT INTO hashlist_hashes (hashlist_id, hash_id) VALUES `
+	args := make([]interface{}, 0, len(associations)*2)
+	validAssociations := 0
 
 	for _, assoc := range associations {
 		if assoc.HashID == uuid.Nil {
-			fmt.Printf("Warning: Skipping hashlist association due to missing HashID (List: %d, Hash: %s)\n", assoc.HashlistID, assoc.HashID)
+			debug.Warning("Skipping hashlist association due to missing HashID (List: %d, Hash: %s)", assoc.HashlistID, assoc.HashID)
 			continue
 		}
-		_, err := stmt.ExecContext(ctx, assoc.HashlistID, assoc.HashID)
-		if err != nil {
-			// Should be handled by ON CONFLICT, but log if not.
-			if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
-				fmt.Printf("Warning: Unique constraint violation during batch association (should be handled by ON CONFLICT): %v\n", err)
-			} else {
-				return fmt.Errorf("failed to execute batch hashlist association for List %d, Hash %s: %w", assoc.HashlistID, assoc.HashID, err)
-			}
+
+		if validAssociations > 0 {
+			query += ", "
 		}
+
+		// Add placeholders for this association's 2 parameters
+		baseParam := validAssociations * 2
+		query += fmt.Sprintf("($%d, $%d)", baseParam+1, baseParam+2)
+
+		// Add parameters
+		args = append(args, assoc.HashlistID, assoc.HashID)
+		validAssociations++
+	}
+
+	if validAssociations == 0 {
+		return nil // Nothing to insert
+	}
+
+	query += " ON CONFLICT (hashlist_id, hash_id) DO NOTHING"
+
+	debug.Debug("[DB:AddBatchToHashList] Executing multi-row INSERT for %d associations", validAssociations)
+	_, err = txn.ExecContext(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to execute batch hashlist association: %w", err)
 	}
 
 	if err = txn.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction for batch hashlist association: %w", err)
 	}
-	debug.Info("[DB:AddBatchToHashList] Transaction committed successfully for %d associations", len(associations))
+	debug.Info("[DB:AddBatchToHashList] Transaction committed successfully for %d associations", validAssociations)
 
 	return nil
 }
@@ -302,10 +341,10 @@ func (r *HashRepository) SearchHashes(ctx context.Context, hashValues []string, 
 // GetHashesByHashlistID retrieves hashes associated with a specific hashlist, with pagination.
 func (r *HashRepository) GetHashesByHashlistID(ctx context.Context, hashlistID int64, limit, offset int) ([]models.Hash, int, error) {
 	// Query to count total hashes for the hashlist
-	countQuery := `SELECT COUNT(h.id)
-				  FROM hashes h
-				  JOIN hashlist_hashes hlh ON h.id = hlh.hash_id
-				  WHERE hlh.hashlist_id = $1`
+	// Optimized: Query directly from hashlist_hashes instead of expensive JOIN
+	countQuery := `SELECT COUNT(*)
+				  FROM hashlist_hashes
+				  WHERE hashlist_id = $1`
 	var totalCount int
 	err := r.db.QueryRowContext(ctx, countQuery, hashlistID).Scan(&totalCount)
 	if err != nil {

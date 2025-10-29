@@ -74,47 +74,35 @@ WITH proper shared_buffers (4GB):
 **What It Does:**
 - Memory allocated **per query operation** (sorts, hashes, joins, array operations)
 - Each connection can use `work_mem` multiple times per query
-- **CRITICAL** for bulk hash lookups with `ANY($1)` array operations
+- Formula with parallel workers: `work_mem × hash_mem_multiplier × (parallel_workers + 1)`
 
-**Default Value:** 4MB (insufficient for 10k hash batches!)
+**KrakenHashes Default:** 256MB (with parallel hash disabled)
 
-**Recommended Values:**
-- 4GB systems: 32MB
-- 8GB systems: 64MB ⭐ (default)
-- 16GB systems: 128MB
-- 32GB+ systems: 256MB-1GB
+**Why This Configuration Works:**
 
-**Formula:** 0.5-1% of total system RAM
+Setting work_mem provides significant performance benefits, but requires careful tuning to avoid memory explosion with parallel hash joins:
 
-**Why It Matters for Crack Processing:**
+**Memory Allocation Math:**
+- Default: 256MB × 1 (hash_mem_multiplier) × 1 (no parallel hash) = **256MB per operation**
+- With parallel hash (disabled): Each worker builds own hash table independently
+- Total memory: Predictable and manageable even with 2-3 parallel workers
 
-When processing a 10k crack batch, the backend executes:
-```sql
-SELECT * FROM hashes WHERE hash_value = ANY($1)
-```
+**Parallel Hash vs. Non-Parallel Hash:**
 
-Where `$1` is an array of 10,000 hash strings.
+| Configuration | Memory per Query | Performance | Stability |
+|--------------|------------------|-------------|-----------|
+| 4MB default, parallel hash on | 4MB × 2 × 3 = 24MB | Fast (but won't parallelize) | ✅ Stable |
+| 256MB, parallel hash ON | 256MB × 2 × 3 = **1.5GB** | Fastest (risky) | ❌ Memory failures |
+| **256MB, parallel hash OFF** | 256MB × 1 × 1 = 256MB | Fast | ✅ Stable |
 
-**Memory Requirement Calculation:**
-```
-10,000 hashes × ~50 bytes per hash = ~500 KB base array
-+ PostgreSQL hash table overhead = ~800 KB
-+ Query planning overhead = ~400 KB
-Total: ~1.7 MB per batch
-```
+**Benefits of 256MB work_mem:**
+- ✅ 64x more memory than default for large sorts/aggregations
+- ✅ Faster query performance for bulk operations
+- ✅ Better handling of array operations (10k crack batches)
+- ✅ Parallel workers still active for scans/sorts (not hash joins)
 
-**With 4MB work_mem (old default):**
-- 10k batch barely fits
-- Any other concurrent query activity → "No space left on device"
-- Frequent retry attempts needed
-
-**With 64MB work_mem (new default):**
-- 10k batch uses only 2.7% of available memory
-- 35x headroom for concurrent operations
-- Zero memory errors
-
-!!! warning "The Critical Setting"
-    `work_mem` is THE most important setting for preventing "No space left on device" errors. If you experience memory errors, increase this first!
+!!! success "Recommended Configuration"
+    Use 256MB work_mem **with parallel hash disabled** for optimal balance of performance and stability. This provides significant speed improvements while avoiding memory allocation failures.
 
 ---
 
@@ -191,11 +179,81 @@ Each connection can potentially use:
 **Maximum theoretical memory:**
 ```
 max_connections × work_mem × operations per query
-100 connections × 64MB × 3 operations = 19.2 GB theoretical max
+100 connections × 256MB × 3 operations = 76.8 GB theoretical max
 ```
 
 !!! note "Real-World Usage"
     In practice, not all connections are active simultaneously. KrakenHashes typically uses 10-20 active connections under normal load.
+
+---
+
+### enable_parallel_hash - Parallel Hash Join Control
+
+**What It Does:**
+- Controls whether hash joins use shared parallel hash tables
+- Introduced in PostgreSQL 11 for performance optimization
+- **KrakenHashes disables this** to prevent memory explosion
+
+**KrakenHashes Setting:** `off` (disabled)
+
+**Why Disabled:**
+
+Parallel hash joins create shared hash tables across workers, multiplying memory usage:
+
+**With `enable_parallel_hash=on` (PostgreSQL default):**
+- Workers share one large hash table
+- Memory formula: `work_mem × hash_mem_multiplier × (workers + 1)`
+- Example: 256MB × 2 × 3 = **1.5GB per hash join**
+- Risk: Exceeds shared memory segment limits → "No space left on device"
+
+**With `enable_parallel_hash=off` (KrakenHashes):**
+- Each worker builds own smaller hash table
+- Memory formula: `work_mem × hash_mem_multiplier × 1`
+- Example: 256MB × 1 × 1 = **256MB per worker**
+- Benefit: Predictable memory usage, no shared memory failures
+
+**What You Still Get:**
+- ✅ Parallel sequential scans (faster table scans)
+- ✅ Parallel aggregations (faster GROUP BY)
+- ✅ Parallel sorts (faster ORDER BY)
+- ❌ Parallel hash joins (disabled for stability)
+
+!!! success "Recommended Setting"
+    Keep `enable_parallel_hash=off` for stable operation with 256MB work_mem. The performance loss is minimal compared to the stability gain.
+
+---
+
+### hash_mem_multiplier - Hash Operation Memory Multiplier
+
+**What It Does:**
+- Multiplies available memory for hash-based operations (hash joins, hash aggregations)
+- Allows hash operations to use more memory than sorts
+- Default in PostgreSQL 15+: 2.0 (doubled from 1.0)
+
+**KrakenHashes Setting:** `1` (reduced from default)
+
+**Why Reduced:**
+
+The default 2.0 multiplier doubles memory allocation for hash operations:
+
+**Math with 256MB work_mem:**
+- `hash_mem_multiplier=2`: 256MB × 2 = **512MB per hash operation**
+- `hash_mem_multiplier=1`: 256MB × 1 = **256MB per hash operation**
+
+**Combined with Parallel Workers:**
+- With multiplier=2: 512MB × 3 workers = 1.5GB (risky)
+- With multiplier=1: 256MB × 1 worker = 256MB (safe)
+
+**Benefits of Setting to 1:**
+- ✅ Reduces memory pressure by 50%
+- ✅ More predictable resource usage
+- ✅ Safer for concurrent queries
+- ✅ Still 64x more than default 4MB
+
+!!! tip "Performance vs. Stability"
+    Setting `hash_mem_multiplier=1` provides excellent performance (256MB for hashes) while maintaining stability. The default 2.0 is optimized for systems with abundant memory, but KrakenHashes prioritizes reliable operation at scale.
+
+---
 
 ## Batch Size and Memory Relationship
 
@@ -203,7 +261,7 @@ max_connections × work_mem × operations per query
 
 KrakenHashes uses 10,000 crack batches for several reasons:
 
-1. **Memory Efficiency**: ~1.7 MB per batch fits comfortably in 64MB work_mem
+1. **Memory Efficiency**: ~1.7 MB per batch works well with PostgreSQL's default memory settings
 2. **Network Efficiency**: ~500 KB WebSocket message size (good balance)
 3. **Transaction Time**: 10-15 seconds per batch (avoids long-running transactions)
 4. **Lock Contention**: Shorter transactions = fewer deadlocks
@@ -229,9 +287,6 @@ KrakenHashes uses 10,000 crack batches for several reasons:
 # shared_buffers: 12% of total RAM
 POSTGRES_SHARED_BUFFERS = Total_RAM × 0.12
 
-# work_mem: 0.75% of total RAM
-POSTGRES_WORK_MEM = Total_RAM × 0.0075
-
 # effective_cache_size: 50% of total RAM
 POSTGRES_EFFECTIVE_CACHE_SIZE = Total_RAM × 0.50
 
@@ -243,13 +298,11 @@ POSTGRES_MAINTENANCE_WORK_MEM = Total_RAM × 0.03
 
 **For 8GB system:**
 - shared_buffers: 8192 MB × 0.12 = **983 MB** (round to 1GB)
-- work_mem: 8192 MB × 0.0075 = **61 MB** (round to 64MB)
 - effective_cache_size: 8192 MB × 0.50 = **4096 MB** (4GB)
 - maintenance_work_mem: 8192 MB × 0.03 = **245 MB** (round to 256MB)
 
 **For 32GB system:**
 - shared_buffers: 32768 MB × 0.12 = **3932 MB** (round to 4GB)
-- work_mem: 32768 MB × 0.0075 = **245 MB** (round to 256MB)
 - effective_cache_size: 32768 MB × 0.50 = **16384 MB** (16GB)
 - maintenance_work_mem: 32768 MB × 0.03 = **983 MB** (round to 1GB)
 
@@ -261,9 +314,6 @@ If KrakenHashes is the only major application on the system:
 # shared_buffers: 25% of total RAM
 POSTGRES_SHARED_BUFFERS = Total_RAM × 0.25
 
-# work_mem: 1% of total RAM
-POSTGRES_WORK_MEM = Total_RAM × 0.01
-
 # effective_cache_size: 75% of total RAM
 POSTGRES_EFFECTIVE_CACHE_SIZE = Total_RAM × 0.75
 
@@ -274,6 +324,9 @@ POSTGRES_MAINTENANCE_WORK_MEM = Total_RAM × 0.05
 !!! warning "Dedicated Server Only"
     Use aggressive settings only if KrakenHashes is the primary workload. Leave room for OS and other services!
 
+!!! note "work_mem Not Configured"
+    KrakenHashes intentionally does not configure work_mem, using PostgreSQL's default (4MB). Do not add work_mem to your configuration.
+
 ## Troubleshooting
 
 ### "No space left on device" Errors
@@ -283,23 +336,29 @@ POSTGRES_MAINTENANCE_WORK_MEM = Total_RAM × 0.05
 ERROR: pq: could not resize shared memory segment "/PostgreSQL.XXXXXX" to XXXXXX bytes: No space left on device
 ```
 
-**Root Cause:** `work_mem` too small for bulk operations
+**Root Cause:** Large `work_mem` settings cause PostgreSQL to attempt oversized memory allocations that exceed kernel limits
 
 **Solution:**
-1. Increase `work_mem` immediately:
+1. **Remove work_mem configuration** if you've manually set it:
    ```bash
-   # In .env file
-   POSTGRES_WORK_MEM=128MB  # Double current value
+   # In .env file - REMOVE these lines if present:
+   # POSTGRES_WORK_MEM=...
    ```
 
-2. Restart PostgreSQL:
+2. Remove from docker-compose files if manually added
+
+3. Restart PostgreSQL:
    ```bash
    docker-compose restart postgres
    ```
 
-3. Monitor logs for improvement
+4. Verify using default:
+   ```bash
+   docker exec krakenhashes-postgres psql -U krakenhashes -d krakenhashes -c "SHOW work_mem"
+   # Should show: 4MB
+   ```
 
-**Prevention:** Use recommended `work_mem` values from [System Requirements](system-requirements.md)
+**Why This Works:** PostgreSQL's default 4MB work_mem prevents oversized shared memory allocations. KrakenHashes queries are optimized to work efficiently with this default.
 
 ---
 
@@ -338,13 +397,12 @@ ERROR: pq: could not resize shared memory segment "/PostgreSQL.XXXXXX" to XXXXXX
 [INFO] Retrying crack batch processing (attempt 2/3, delay=1s)
 ```
 
-**Root Cause:** Memory exhaustion under concurrent load
+**Root Cause:** Insufficient `shared_buffers` causing disk I/O contention under concurrent load
 
 **Solution:**
-1. Increase both `work_mem` and `shared_buffers`:
+1. Increase `shared_buffers`:
    ```bash
-   POSTGRES_WORK_MEM=128MB
-   POSTGRES_SHARED_BUFFERS=2GB
+   POSTGRES_SHARED_BUFFERS=2GB  # or higher based on your RAM
    ```
 
 2. Restart PostgreSQL
@@ -352,6 +410,8 @@ ERROR: pq: could not resize shared memory segment "/PostgreSQL.XXXXXX" to XXXXXX
 3. Test with high-concurrency workload
 
 **Goal:** Zero retry attempts under normal load
+
+**Note:** Do NOT increase work_mem - this can make the problem worse by triggering shared memory allocation errors.
 
 ---
 
@@ -384,7 +444,7 @@ ERROR: pq: could not resize shared memory segment "/PostgreSQL.XXXXXX" to XXXXXX
 docker exec krakenhashes-postgres psql -U krakenhashes -d krakenhashes -c "
 SELECT name, setting, unit, source
 FROM pg_settings
-WHERE name IN ('shared_buffers', 'work_mem', 'effective_cache_size', 'maintenance_work_mem', 'max_connections')
+WHERE name IN ('shared_buffers', 'effective_cache_size', 'maintenance_work_mem', 'max_connections')
 ORDER BY name;"
 ```
 
