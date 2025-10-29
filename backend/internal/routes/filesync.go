@@ -31,6 +31,8 @@ func SetupFileDownloadRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, a
 	dbWrapper := &db.DB{DB: sqlDB}
 	fileRepo := repository.NewFileRepository(dbWrapper, cfg.DataDir)
 	jobTaskRepo := repository.NewJobTaskRepository(dbWrapper)
+	hashRepo := repository.NewHashRepository(dbWrapper)
+	hashlistRepo := repository.NewHashListRepository(dbWrapper)
 
 	// Create rule split manager for chunk recreation
 	ruleSplitDir := filepath.Join(cfg.DataDir, "temp", "rule_chunks")
@@ -333,44 +335,55 @@ func SetupFileDownloadRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, a
 	// Handler for /api/agent/hashlists/{id}/download
 	hashlistRouter.HandleFunc("/{id}/download", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
-		hashlistID := vars["id"]
+		hashlistIDStr := vars["id"]
 
-		debug.Info("Hashlist download request from agent: id=%s", hashlistID)
+		debug.Info("Hashlist download request from agent: id=%s", hashlistIDStr)
 
-		// Build the hashlist file path
-		hashlistPath := filepath.Join(cfg.DataDir, "hashlists", fmt.Sprintf("%s.hash", hashlistID))
+		// Parse hashlist ID
+		var hashlistID int64
+		if _, err := fmt.Sscanf(hashlistIDStr, "%d", &hashlistID); err != nil {
+			debug.Error("Invalid hashlist ID: %s", hashlistIDStr)
+			http.Error(w, "Invalid hashlist ID", http.StatusBadRequest)
+			return
+		}
 
-		debug.Info("Looking for hashlist at path: %s", hashlistPath)
+		ctx := r.Context()
 
-		// Check if file exists
-		fileInfo, err := os.Stat(hashlistPath)
+		// Verify hashlist exists
+		hashlist, err := hashlistRepo.GetByID(ctx, hashlistID)
 		if err != nil {
-			debug.Error("Hashlist file not found: %s", hashlistPath)
+			debug.Error("Failed to get hashlist %d: %v", hashlistID, err)
 			http.Error(w, "Hashlist not found", http.StatusNotFound)
 			return
 		}
 
-		// Open file
-		file, err := os.Open(hashlistPath)
-		if err != nil {
-			debug.Error("Failed to open hashlist file: %s - %v", hashlistPath, err)
-			http.Error(w, "Failed to open hashlist", http.StatusInternalServerError)
-			return
-		}
-		defer file.Close()
+		debug.Info("Streaming uncracked hashes for hashlist %d (%s) to agent", hashlist.ID, hashlist.Name)
 
-		// Set headers
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.hash", hashlistID))
-		w.Header().Set("Content-Type", "text/plain")
-		w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
+		// Set response headers for streaming
+		filename := fmt.Sprintf("%d.hash", hashlist.ID)
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("Transfer-Encoding", "chunked")
 
-		// Stream file to response
-		written, err := io.Copy(w, file)
+		// Stream uncracked hash values to agent
+		hashCount := 0
+		err = hashRepo.StreamUncrackedHashValuesForHashlist(ctx, hashlist.ID, func(hashValue string) error {
+			hashCount++
+			if _, err := fmt.Fprintln(w, hashValue); err != nil {
+				return fmt.Errorf("failed to write hash: %w", err)
+			}
+			// Flush after every hash to ensure streaming
+			if flusher, ok := w.(http.Flusher); ok {
+				flusher.Flush()
+			}
+			return nil
+		})
+
 		if err != nil {
-			debug.Error("Failed to stream hashlist file: %v", err)
+			debug.Error("Failed to stream hashlist %d to agent: %v", hashlist.ID, err)
 			// Can't send error response here as headers are already sent
 		} else {
-			debug.Info("Successfully sent hashlist %s to agent (%d bytes)", hashlistID, written)
+			debug.Info("Successfully streamed %d uncracked hashes from hashlist %d to agent", hashCount, hashlist.ID)
 		}
 	}).Methods(http.MethodGet)
 

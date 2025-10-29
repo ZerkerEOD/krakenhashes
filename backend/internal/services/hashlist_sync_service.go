@@ -77,14 +77,12 @@ func (s *HashlistSyncService) EnsureHashlistOnAgent(ctx context.Context, agentID
 		return fmt.Errorf("failed to get hashlist: %w", err)
 	}
 
-	// Get current hashlist file path and hash
-	hashlistFilePath := filepath.Join(s.dataDirectory, "hashlists", fmt.Sprintf("%d.hash", hashlistID))
-	currentFileHash, err := s.calculateFileHash(hashlistFilePath)
-	if err != nil {
-		return fmt.Errorf("failed to calculate hashlist file hash: %w", err)
-	}
+	// Hashlists are now generated on-demand from the database, not static files
+	// Agents download them directly via /api/agent/hashlists/{id}/download
+	// We use an empty hash to signal dynamic content (no MD5 verification needed)
+	currentFileHash := ""
 
-	// Check if agent already has current version
+	// Check if agent already has a hashlist record
 	isCurrentOnAgent, err := s.agentHashlistRepo.IsHashlistCurrentForAgent(ctx, agentID, hashlistID, currentFileHash)
 	if err != nil {
 		return fmt.Errorf("failed to check hashlist currency on agent: %w", err)
@@ -101,7 +99,7 @@ func (s *HashlistSyncService) EnsureHashlistOnAgent(ctx context.Context, agentID
 			})
 		}
 
-		debug.Log("Agent already has current hashlist", map[string]interface{}{
+		debug.Log("Agent already has hashlist metadata", map[string]interface{}{
 			"agent_id":    agentID,
 			"hashlist_id": hashlistID,
 		})
@@ -109,12 +107,13 @@ func (s *HashlistSyncService) EnsureHashlistOnAgent(ctx context.Context, agentID
 	}
 
 	// Create or update agent hashlist record
+	// Agent will download the actual content on-demand when needed
 	targetFilePath := fmt.Sprintf("hashlists/%d.hash", hashlistID)
 	agentHashlist := &models.AgentHashlist{
 		AgentID:    agentID,
 		HashlistID: hashlistID,
 		FilePath:   targetFilePath,
-		FileHash:   &currentFileHash,
+		FileHash:   &currentFileHash, // Empty hash = dynamic content, no verification
 	}
 
 	err = s.agentHashlistRepo.CreateOrUpdate(ctx, agentHashlist)
