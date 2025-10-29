@@ -850,7 +850,13 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 							}
 						}
 						
-						e.sendProgressUpdate(process, progress, "running")
+						// When hashcat reports status code 6 (all hashes cracked),
+						// mark task as completed immediately
+						status := "running"
+						if progress.AllHashesCracked {
+							status = "completed"
+						}
+						e.sendProgressUpdate(process, progress, status)
 						// Update last progress and checkpoint on the process
 						process.LastProgress = progress
 						process.LastCheckpoint = time.Now()
