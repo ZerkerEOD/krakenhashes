@@ -611,13 +611,21 @@ func (fs *FileSync) DownloadFileWithInfoRetry(ctx context.Context, fileInfo *Fil
 		// Hashlists use a different endpoint that requires the ID
 		url = fmt.Sprintf("%s/api/agent/hashlists/%d/download", fs.urlConfig.BaseURL, fileInfo.ID)
 	} else {
-		// Other file types use the generic file endpoint
-		// If we have a category, include it in the URL path
-		if fileInfo.Category != "" {
-			// Include category in the path
+		// For wordlists/rules, Name often contains the full path (e.g., "general/file.txt")
+		// The Category field represents the classification enum (wordlist_type/rule_type) which
+		// may not match the actual directory path in the filesystem.
+		// We prioritize the path information in Name over the Category enum to avoid mismatches.
+		if strings.Contains(fileInfo.Name, "/") {
+			// Name contains path separator - use fallback route which extracts category from path
+			// This handles cases where Category enum may not match the directory path
+			// Example: file_name="general/file.txt", wordlist_type="custom" -> use path from Name
+			url = fmt.Sprintf("%s/api/files/%s/%s", fs.urlConfig.BaseURL, fileInfo.FileType, fileInfo.Name)
+		} else if fileInfo.Category != "" {
+			// Name is just a filename without path - use Category to build the path
+			// This handles legacy files or files where category determines the directory
 			url = fmt.Sprintf("%s/api/files/%s/%s/%s", fs.urlConfig.BaseURL, fileInfo.FileType, fileInfo.Category, fileInfo.Name)
 		} else {
-			// No category, use direct path
+			// No category and no path in name - use direct path
 			url = fmt.Sprintf("%s/api/files/%s/%s", fs.urlConfig.BaseURL, fileInfo.FileType, fileInfo.Name)
 		}
 	}
