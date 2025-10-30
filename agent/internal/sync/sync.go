@@ -615,10 +615,20 @@ func (fs *FileSync) DownloadFileWithInfoRetry(ctx context.Context, fileInfo *Fil
 		// The Category field represents the classification enum (wordlist_type/rule_type) which
 		// may not match the actual directory path in the filesystem.
 		// We prioritize the path information in Name over the Category enum to avoid mismatches.
-		if strings.Contains(fileInfo.Name, "/") {
+		//
+		// SPECIAL CASE: Rule chunks are different - they MUST include the "chunks" category
+		// in the URL even though Name contains "/" (e.g., "job_<ID>/chunk_<N>.rule").
+		// This is because they're temporary files sent only during task assignments, not file sync.
+		if fileInfo.FileType == "rule" && fileInfo.Category == "chunks" {
+			// Rule chunks: /api/files/rule/chunks/{job_id}/{chunk_file}
+			// Name contains the job directory and chunk filename (e.g., "job_<ID>/chunk_<N>.rule")
+			// Category "chunks" MUST be in the URL path
+			url = fmt.Sprintf("%s/api/files/%s/%s/%s", fs.urlConfig.BaseURL, fileInfo.FileType, fileInfo.Category, fileInfo.Name)
+		} else if strings.Contains(fileInfo.Name, "/") {
 			// Name contains path separator - use fallback route which extracts category from path
 			// This handles cases where Category enum may not match the directory path
 			// Example: file_name="general/file.txt", wordlist_type="custom" -> use path from Name
+			// This prevents double-path issues like "general/general/file.txt"
 			url = fmt.Sprintf("%s/api/files/%s/%s", fs.urlConfig.BaseURL, fileInfo.FileType, fileInfo.Name)
 		} else if fileInfo.Category != "" {
 			// Name is just a filename without path - use Category to build the path

@@ -1144,6 +1144,26 @@ func (c *Connection) readPump() {
 
 			if err := c.jobManager.ProcessJobAssignment(ctx, msg.Payload); err != nil {
 				debug.Error("Failed to process job assignment: %v", err)
+
+				// Extract task ID from the assignment payload to report failure to backend
+				var assignment struct {
+					TaskID string `json:"task_id"`
+				}
+				if unmarshalErr := json.Unmarshal(msg.Payload, &assignment); unmarshalErr == nil && assignment.TaskID != "" {
+					// Send failure status to backend so it can update task state
+					failureStatus := &jobs.JobStatus{
+						TaskID:       assignment.TaskID,
+						Status:       "failed",
+						ErrorMessage: fmt.Sprintf("Failed to prepare task: %v", err),
+					}
+					if sendErr := c.SendJobStatus(failureStatus); sendErr != nil {
+						debug.Error("Failed to send task failure status to backend: %v", sendErr)
+					} else {
+						debug.Info("Sent task failure status to backend for task %s", assignment.TaskID)
+					}
+				} else {
+					debug.Error("Could not extract task ID from failed assignment to report failure")
+				}
 			} else {
 				debug.Info("Successfully processed job assignment")
 			}
