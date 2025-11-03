@@ -21,17 +21,21 @@ export interface AnalyticsReport {
 
 export interface AnalyticsData {
   overview: OverviewStats;
+  windows_hashes?: WindowsHashStats;
   length_distribution: LengthStats;
   complexity_analysis: ComplexityStats;
   positional_analysis: PositionalStats;
   pattern_detection: PatternStats;
   username_correlation: UsernameStats;
   password_reuse: ReuseStats;
+  hash_reuse?: HashReuseStats;
   temporal_patterns: TemporalStats;
   mask_analysis: MaskStats;
   custom_patterns: CustomPatternStats;
   strength_metrics: StrengthStats;
   top_passwords: TopPassword[];
+  lm_partial_cracks?: LMPartialCrackStats;
+  lm_to_ntlm_masks?: LMToNTLMMaskStats;
   recommendations: Recommendation[];
   domain_analytics?: DomainAnalytics[];
 }
@@ -39,17 +43,21 @@ export interface AnalyticsData {
 export interface DomainAnalytics {
   domain: string;
   overview: OverviewStats;
+  windows_hashes?: WindowsHashStats;
   length_distribution: LengthStats;
   complexity_analysis: ComplexityStats;
   positional_analysis: PositionalStats;
   pattern_detection: PatternStats;
   username_correlation: UsernameStats;
   password_reuse: ReuseStats;
+  hash_reuse?: HashReuseStats;
   temporal_patterns: TemporalStats;
   mask_analysis: MaskStats;
   custom_patterns: CustomPatternStats;
   strength_metrics: StrengthStats;
   top_passwords: TopPassword[];
+  lm_partial_cracks?: LMPartialCrackStats;
+  lm_to_ntlm_masks?: LMToNTLMMaskStats;
 }
 
 export interface OverviewStats {
@@ -214,4 +222,104 @@ export interface CreateAnalyticsReportRequest {
 export interface QueueStatus {
   queue_length: number;
   is_processing: boolean;
+}
+
+// Windows Hash Analytics Types
+export interface WindowsHashStats {
+  overview: WindowsOverviewStats;
+  ntlm?: WindowsHashTypeStats;
+  lm?: LMHashStats;
+  netntlmv1?: WindowsHashTypeStats;
+  netntlmv2?: WindowsHashTypeStats;
+  dcc?: WindowsHashTypeStats;
+  dcc2?: WindowsHashTypeStats;
+  kerberos?: KerberosStats;
+  linkedCorrelation?: LinkedHashCorrelationStats;
+}
+
+export interface WindowsOverviewStats {
+  total_windows: number;
+  cracked_windows: number;
+  percentage_windows: number;
+  unique_users: number;
+  linked_pairs: number;
+}
+
+export interface WindowsHashTypeStats {
+  total: number;
+  cracked: number;
+  percentage: number;
+}
+
+export interface LMHashStats extends WindowsHashTypeStats {
+  under_8: number;
+  '8_to_14': number;
+  partially_cracked: number;
+}
+
+export interface KerberosStats extends WindowsHashTypeStats {
+  by_type?: Record<string, WindowsHashTypeStats>;
+}
+
+export interface LinkedHashCorrelationStats {
+  total_linked_pairs: number;
+  both_cracked: number;
+  percentage_both: number;
+  only_ntlm_cracked: number;
+  only_lm_cracked: number;
+  neither_cracked: number;
+}
+
+// Hash Reuse Types
+export interface HashReuseStats {
+  total_reused: number;
+  percentage_reused: number;
+  total_unique: number;
+  hash_reuse_info: HashReuseInfo[];
+}
+
+export interface HashReuseInfo {
+  hash_value: string;
+  hash_type: string;
+  password?: string;
+  users: UserOccurrence[];
+  total_occurrences: number;
+  user_count: number;
+}
+
+// LM Partial Crack Types
+export interface LMPartialCrackStats {
+  total_partial: number;
+  first_half_only: number;
+  second_half_only: number;
+  percentage_partial: number;
+  partial_crack_details: LMPartialCrackDetail[];
+}
+
+export interface LMPartialCrackDetail {
+  username?: string;
+  domain?: string;
+  first_half_cracked: boolean;
+  first_half_pwd?: string;
+  second_half_cracked: boolean;
+  second_half_pwd?: string;
+  hashlist_name: string;
+}
+
+// LM-to-NTLM Mask Types
+export interface LMToNTLMMaskStats {
+  total_lm_cracked: number;
+  total_masks_generated: number;
+  total_estimated_keyspace: number;
+  masks: LMNTLMMaskInfo[];
+}
+
+export interface LMNTLMMaskInfo {
+  mask: string;
+  lm_pattern: string;
+  count: number;
+  percentage: number;
+  match_percentage: number;
+  estimated_keyspace: number;
+  example_lm: string;
 }

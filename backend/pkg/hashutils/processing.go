@@ -307,7 +307,8 @@ type HashProcessor func(rawHash string) string
 // hashProcessingRules maps hash_type_id to a specific processing function.
 // Add more functions for types where needs_processing is true.
 var hashProcessingRules = map[int]HashProcessor{
-	1000: processNTLM, // NTLM needs specific LM hash extraction
+	1000: processNTLM, // NTLM needs specific NT hash extraction
+	3000: processLM,   // LM needs specific LM hash extraction
 }
 
 // ProcessHashIfNeeded processes the hash only if required by the hash type's needs_processing flag.
@@ -348,6 +349,30 @@ func processNTLM(rawHash string) string {
 
 	// Log warning? logging.Warnf("Could not extract NT hash from NTLM input format: %s", rawHash)
 	// Fallback: return the original hash if format is unexpected or doesn't contain a clear NT hash.
+	return rawHash
+}
+
+// processLM extracts just the LMHASH portion for Hashcat mode 3000 processing.
+// It prioritizes formats like user:rid:LM:NT::: and then LM:NT, finally just LM.
+func processLM(rawHash string) string {
+	parts := strings.Split(rawHash, ":")
+
+	// Check common LM dump formats:
+	// 1. user:rid:LMHASH:NTHASH:... (LM is index 2)
+	if len(parts) >= 4 && len(parts[2]) == 32 && isHexString(parts[2]) {
+		return parts[2] // Return LM hash
+	}
+	// 2. LMHASH:NTHASH (LM is index 0) - Common Hashcat input
+	if len(parts) >= 2 && len(parts[0]) == 32 && isHexString(parts[0]) {
+		return parts[0] // Return LM hash
+	}
+	// 3. Just LMHASH (LM is index 0) - Less common, but possible
+	if len(parts) == 1 && len(parts[0]) == 32 && isHexString(parts[0]) {
+		return parts[0] // Return LM hash
+	}
+
+	// Log warning? logging.Warnf("Could not extract LM hash from LM input format: %s", rawHash)
+	// Fallback: return the original hash if format is unexpected or doesn't contain a clear LM hash.
 	return rawHash
 }
 

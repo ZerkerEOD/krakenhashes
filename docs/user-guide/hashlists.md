@@ -37,6 +37,98 @@ The frontend interacts with the `POST /api/hashlists` endpoint. This endpoint ex
 -   Within the data directory, hashlists are stored in a specific subdirectory, typically `hashlist_uploads`, but configurable via `KH_HASH_UPLOAD_DIR`.
 -   The maximum allowed upload size is determined by the `KH_MAX_UPLOAD_SIZE_MB` environment variable (default: 32 MiB).
 
+### LM/NTLM Linked Hashlists (v1.2.1+)
+
+When uploading hashlist files in pwdump format (commonly from Windows domain exports), KrakenHashes can automatically detect and create linked LM/NTLM hashlist pairs.
+
+#### Automatic Detection
+
+When you select a file containing pwdump-format hashes, the system automatically:
+
+1. **Analyzes the file** to detect both LM and NTLM hashes
+2. **Counts hash types**:
+   - Non-blank LM hashes (mode 3000)
+   - NTLM hashes (mode 1000)
+   - Blank LM hashes (constant: `aad3b435b51404eeaad3b435b51404ee`)
+3. **Presents a dialog** if both hash types are found
+
+**Example pwdump format:**
+```
+DOMAIN\Administrator:500:01FC5A6BE7BC6929AAD3B435B51404EE:0CB6948805F797BF2A82807973B89537:::
+DOMAIN\Guest:501:AAD3B435B51404EEAAD3B435B51404EE:31D6CFE0D16AE931B73C59D7E0C089C0:::
+DOMAIN\User1:1001:E52CAC67419A9A224A3B108F3FA6CB6D:8846F7EAEE8FB117AD06BDD830B7586C:::
+```
+
+#### Linked Hashlist Creation Dialog
+
+When pwdump format is detected, you'll see a dialog showing:
+
+- **LM hash count**: Number of non-blank LM hashes found
+- **NTLM hash count**: Number of NTLM hashes found
+- **Blank LM count**: Number of blank LM hashes (will be skipped)
+- **Two options**:
+  - **Upload as Single List**: Process as-is with your selected hash type
+  - **Create Linked Lists**: Create two separate, linked hashlists
+
+**Example:**
+```
+Detected pwdump format file with:
+- 1,428 LM hashes (non-blank)
+- 1,500 NTLM hashes
+- 72 blank LM hashes (empty password - will be skipped)
+
+Would you like to create two linked hashlists for separate cracking workflows?
+
+This will create "DomainDump-LM" and "DomainDump-NTLM" hashlists that are linked together.
+```
+
+#### Benefits of Linked Hashlists
+
+**Separate Attack Strategies:**
+- LM hashes are much weaker (uppercase, 7-char halves) and crack faster
+- NTLM hashes are stronger but can be informed by cracked LM hashes
+- Run different wordlists/rules optimized for each hash type
+
+**Username/Domain Linking:**
+- System automatically links hashes by matching username and domain
+- View correlation: which users have both LM and NTLM cracked
+- Analytics show linked pair statistics
+
+**Progress Tracking:**
+- Each hashlist shows independent progress
+- Linked pairs counted as ONE hashlist in analytics overview
+- See correlation statistics (both cracked, only LM, only NTLM)
+
+**Analytics Advantages:**
+- **Windows Hash Analytics** section shows linked correlation
+- **LM Partial Cracks** tracked separately
+- **LM-to-NTLM Mask Generation** uses cracked LM patterns to attack NTLM
+- Domain filtering works across both linked hashlists
+
+#### Blank LM Hash Filtering
+
+LM hashes with the constant `aad3b435b51404eeaad3b435b51404ee` indicate:
+- Password was blank/empty when LM hash was created, OR
+- LM hash storage was disabled (Windows Vista+ default)
+
+These hashes are **automatically filtered** during processing:
+- Not counted toward total hash count
+- Not sent to agents for cracking
+- Appear in upload dialog count for awareness
+
+#### When to Use Linked Hashlists
+
+**Use Linked Hashlists When:**
+- Uploading pwdump format files (LM + NTLM)
+- Want to track LM and NTLM progress separately
+- Plan different attack strategies for each hash type
+- Need analytics on LM/NTLM correlation
+
+**Use Single Hashlist When:**
+- File contains only one hash type
+- Prefer simpler management
+- Don't need separate progress tracking
+
 ## Hashlist Processing
 
 Once a hashlist file is uploaded and initial metadata is saved, it enters an asynchronous processing queue.
@@ -83,6 +175,68 @@ The backend processor performs the following steps:
 When generating hashlist files for hashcat:
 *   **DISTINCT Query:** The system uses a DISTINCT query on `hash_value` to prevent sending duplicate password hashes to hashcat. Even if multiple users share the same password, hashcat only needs to crack it once.
 *   **Ordering:** Results are ordered by `hash_value` for stable, consistent output.
+
+### LM Hash Special Processing (v1.2.1+)
+
+LM hashes (hash type 3000) require special handling due to their unique structure. LM hashes consist of two 7-character DES-encrypted halves, resulting in a 32-character hex string.
+
+#### How LM Processing Works
+
+**Structure:**
+- Full LM hash: 32 hex characters (e.g., `01FC5A6BE7BC6929AAD3B435B51404EE`)
+- First half: Characters 1-16 (represents first 7 chars of password)
+- Second half: Characters 17-32 (represents next 7 chars of password)
+- Maximum password length: 14 characters (7 + 7)
+
+**Agent Download Behavior:**
+When agents download LM hashlists for cracking:
+
+1. **Backend splits hashes**: Each 32-char LM hash is split into two 16-char halves
+2. **Unique halves streamed**: System sends unique 16-char halves to agents (not full 32-char hashes)
+3. **Automatic deduplication**: Common halves (like blank constant `aad3b435b51404ee`) appear only once
+4. **Hashcat processes independently**: Each half is cracked as a separate 16-char hash
+
+**Why This Approach:**
+- LM's DES encryption processes each half independently
+- Hashcat can't crack 32-char LM hashes; it expects 16-char halves
+- Deduplication reduces redundant work (many passwords share common halves)
+- Partial cracks are possible (one half cracked, not the other)
+
+#### Partial Crack Tracking
+
+When agents crack LM hash halves, the system tracks partial crack status:
+
+**Partial Crack States:**
+- **First half cracked**: First 7 characters known (e.g., `PASSWOR`)
+- **Second half cracked**: Next 7 characters known (e.g., `D123`)
+- **Fully cracked**: Both halves known, full password assembled (e.g., `PASSWORD123`)
+
+**Database Tracking:**
+- `lm_hash_metadata` table stores first/second half crack status
+- Each half stores its 7-character password fragment
+- When both halves crack, full password is assembled and hash marked complete
+- Partial cracks visible in hash table view and analytics
+
+**Strategic Value:**
+Knowing one half of an LM password significantly reduces the keyspace for the other half:
+- Full 14-char LM keyspace: ~95^14 combinations
+- One half known: Reduces to ~95^7 combinations
+- See [Analytics Reports](analytics-reports.md#lm-partial-cracks-v121) for partial crack analysis
+
+#### Blank LM Hash Constant
+
+The blank LM hash constant `aad3b435b51404eeaad3b435b51404ee` appears when:
+- Password was empty when LM hash was created
+- LM hash storage was disabled (Windows Vista+ default)
+- Account created after LM storage was disabled
+
+**Processing Behavior:**
+- Automatically filtered during hashlist processing
+- Not counted in total hash count
+- Not sent to agents for cracking
+- Appears in upload detection dialog for awareness
+
+See [Hash Types Reference](../reference/hash-types.md#lm-hash-special-processing-v121) for more details on LM hash structure and security implications.
 
 ## Supported Input Formats
 

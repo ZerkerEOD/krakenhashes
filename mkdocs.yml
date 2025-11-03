@@ -178,6 +178,7 @@ nav:
       - Benchmark Workflow: reference/architecture/benchmark-workflow.md
       - Crack Batching System: reference/architecture/crack-batching-system.md
       - Username Extraction: reference/architecture/username-extraction.md
+      - LM/NTLM Linking: reference/architecture/lm-ntlm-linking.md
     - Environment Variables: reference/environment.md
     - Database Schema: reference/database.md
     - Hash Types: reference/hash-types.md

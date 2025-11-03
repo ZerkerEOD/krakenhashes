@@ -102,20 +102,53 @@ func (s *AnalyticsService) GenerateAnalytics(ctx context.Context, reportID uuid.
 		return fmt.Errorf("failed to calculate domain breakdown: %w", err)
 	}
 
+	// Calculate Windows hash statistics
+	windowsHashStats, err := s.calculateWindowsHashStats(ctx, hashlistIDs)
+	if err != nil {
+		return fmt.Errorf("failed to calculate Windows hash stats: %w", err)
+	}
+
+	// Calculate hash reuse (NTLM/LM)
+	hashReuse := s.detectHashReuse(ctx, hashlistIDs, hashTypes)
+
+	// Calculate LM partial cracks if LM hashes exist
+	var lmPartialCracks *models.LMPartialCrackStats
+	totalLMHashes := 0
+	if windowsHashStats != nil && windowsHashStats.LM.Total > 0 {
+		totalLMHashes = windowsHashStats.LM.Total
+		lmPartialCracks, err = s.calculateLMPartialCracks(ctx, hashlistIDs, totalLMHashes)
+		if err != nil {
+			return fmt.Errorf("failed to calculate LM partial cracks: %w", err)
+		}
+	}
+
+	// Generate LM-to-NTLM masks if LM passwords exist
+	var lmToNTLMMasks *models.LMToNTLMMaskStats
+	if windowsHashStats != nil && windowsHashStats.LM.Cracked > 0 {
+		lmPasswords, err := s.repo.GetCrackedLMPasswords(ctx, hashlistIDs)
+		if err == nil && len(lmPasswords) > 0 {
+			lmToNTLMMasks = s.generateLMToNTLMMasks(lmPasswords)
+		}
+	}
+
 	// Generate all analytics for "All" view
 	analyticsData := &models.AnalyticsData{
 		Overview:            s.calculateOverview(totalHashes, totalCracked, hashCounts, hashTypes, domainBreakdown),
+		WindowsHashes:       windowsHashStats,
 		LengthDistribution:  s.calculateLengthDistribution(passwords),
 		ComplexityAnalysis:  s.calculateComplexity(passwords),
 		PositionalAnalysis:  s.calculatePositionalAnalysis(passwords),
 		PatternDetection:    s.detectPatterns(passwords),
 		UsernameCorrelation: s.analyzeUsernameCorrelation(passwords),
 		PasswordReuse:       s.detectPasswordReuse(passwordsWithHashlists),
+		HashReuse:           hashReuse,
 		TemporalPatterns:    s.detectTemporalPatterns(passwords),
 		MaskAnalysis:        s.analyzeMasks(passwords),
 		CustomPatterns:      s.checkCustomPatterns(passwords, report.CustomPatterns, report.ClientID.String()),
 		StrengthMetrics:     s.calculateStrengthMetrics(passwords, speeds),
 		TopPasswords:        s.getTopPasswords(passwords, 50),
+		LMPartialCracks:     lmPartialCracks,
+		LMToNTLMMasks:       lmToNTLMMasks,
 	}
 
 	// Calculate per-domain analytics if domains exist
@@ -147,21 +180,56 @@ func (s *AnalyticsService) GenerateAnalytics(ctx context.Context, reportID uuid.
 				return fmt.Errorf("failed to get hash counts for domain %s: %w", domain, err)
 			}
 
+			// Calculate Windows hash statistics for this domain
+			domainWindowsHashStats, err := s.calculateWindowsHashStatsDomain(ctx, hashlistIDs, domain)
+			if err != nil {
+				return fmt.Errorf("failed to calculate Windows hash stats for domain %s: %w", domain, err)
+			}
+
+			// Calculate hash reuse for this domain
+			domainHashReuse := s.detectHashReuseDomain(ctx, hashlistIDs, hashTypes, domain)
+
+			// Calculate LM partial cracks for this domain (if LM hashes exist)
+			var domainLMPartialCracks *models.LMPartialCrackStats
+			var domainLMToNTLMMasks *models.LMToNTLMMaskStats
+			if domainWindowsHashStats != nil && domainWindowsHashStats.LM.Total > 0 {
+				totalLMHashes := domainWindowsHashStats.LM.Total
+
+				// Calculate LM partial cracks
+				domainLMPartialCracks, err = s.calculateLMPartialCracksDomain(ctx, hashlistIDs, domain, totalLMHashes)
+				if err != nil {
+					return fmt.Errorf("failed to calculate LM partial cracks for domain %s: %w", domain, err)
+				}
+
+				// Generate LM-to-NTLM masks if we have cracked LM passwords
+				if domainWindowsHashStats.LM.Cracked > 0 {
+					lmPasswords, err := s.repo.GetCrackedLMPasswordsDomain(ctx, hashlistIDs, domain)
+					if err != nil {
+						return fmt.Errorf("failed to get cracked LM passwords for domain %s: %w", domain, err)
+					}
+					domainLMToNTLMMasks = s.generateLMToNTLMMasks(lmPasswords)
+				}
+			}
+
 			// Calculate all analytics for this domain
 			domainAnalytic := models.DomainAnalytics{
 				Domain:              domain,
 				Overview:            s.calculateOverview(domainTotal, domainCracked, domainHashCounts, hashTypes, nil),
+				WindowsHashes:       domainWindowsHashStats,
 				LengthDistribution:  s.calculateLengthDistribution(domainPasswords),
 				ComplexityAnalysis:  s.calculateComplexity(domainPasswords),
 				PositionalAnalysis:  s.calculatePositionalAnalysis(domainPasswords),
 				PatternDetection:    s.detectPatterns(domainPasswords),
 				UsernameCorrelation: s.analyzeUsernameCorrelation(domainPasswords),
 				PasswordReuse:       s.detectPasswordReuse(domainPasswordsWithHashlists),
+				HashReuse:           &domainHashReuse,
 				TemporalPatterns:    s.detectTemporalPatterns(domainPasswords),
 				MaskAnalysis:        s.analyzeMasks(domainPasswords),
 				CustomPatterns:      s.checkCustomPatterns(domainPasswords, report.CustomPatterns, report.ClientID.String()),
 				StrengthMetrics:     s.calculateStrengthMetrics(domainPasswords, speeds),
 				TopPasswords:        s.getTopPasswords(domainPasswords, 50),
+				LMPartialCracks:     domainLMPartialCracks,
+				LMToNTLMMasks:       domainLMToNTLMMasks,
 			}
 
 			domainAnalytics = append(domainAnalytics, domainAnalytic)
@@ -178,9 +246,16 @@ func (s *AnalyticsService) GenerateAnalytics(ctx context.Context, reportID uuid.
 		return fmt.Errorf("failed to update analytics data: %w", err)
 	}
 
+	// Calculate effective hashlist count (treating linked pairs as ONE hashlist)
+	linkedPairCount, err := s.repo.GetLinkedHashlistCount(ctx, hashlistIDs)
+	if err != nil {
+		return fmt.Errorf("failed to get linked hashlist count: %w", err)
+	}
+
 	// Update summary fields (total_hashlists, total_hashes, total_cracked)
-	totalHashlists := len(hashlistIDs)
-	if err := s.repo.UpdateSummaryFields(ctx, reportID, totalHashlists, totalHashes, totalCracked); err != nil {
+	// Linked hashlists count as ONE, so subtract the number of pairs
+	effectiveHashlistCount := len(hashlistIDs) - linkedPairCount
+	if err := s.repo.UpdateSummaryFields(ctx, reportID, effectiveHashlistCount, totalHashes, totalCracked); err != nil {
 		return fmt.Errorf("failed to update summary fields: %w", err)
 	}
 
@@ -1165,5 +1240,963 @@ func (s *AnalyticsService) generateRecommendations(data *models.AnalyticsData) [
 		})
 	}
 
+	// Windows-specific recommendations
+	if data.WindowsHashes != nil {
+		// CRITICAL: LM hashes detected
+		if data.WindowsHashes.LM.Total > 0 {
+			recs = append(recs, models.Recommendation{
+				Severity:   "CRITICAL",
+				Count:      data.WindowsHashes.LM.Total,
+				Percentage: float64(data.WindowsHashes.LM.Total) / float64(data.Overview.TotalHashes) * 100,
+				Message:    fmt.Sprintf("%d LM hashes detected in the environment. LM hashing is a legacy authentication protocol with severe security weaknesses: passwords are converted to uppercase (reducing complexity), split into 7-character halves (enabling independent cracking), and use weak DES encryption. Organizations must immediately disable LM hash storage in Active Directory by configuring the 'Network security: Do not store LAN Manager hash value on next password change' Group Policy setting. All affected accounts should perform a password reset after this policy is applied to remove existing LM hashes from the domain.", data.WindowsHashes.LM.Total),
+			})
+		}
+
+		// HIGH: NetNTLMv1 detected
+		if data.WindowsHashes.NetNTLMv1.Total > 0 {
+			recs = append(recs, models.Recommendation{
+				Severity:   "HIGH",
+				Count:      data.WindowsHashes.NetNTLMv1.Total,
+				Percentage: float64(data.WindowsHashes.NetNTLMv1.Total) / float64(data.Overview.TotalHashes) * 100,
+				Message:    fmt.Sprintf("%d NetNTLMv1 hashes detected. NetNTLMv1 is vulnerable to relay attacks and should be disabled in favor of NetNTLMv2. Configure the 'Network security: LAN Manager authentication level' Group Policy setting to 'Send NTLMv2 response only' or higher.", data.WindowsHashes.NetNTLMv1.Total),
+			})
+		}
+
+		// MEDIUM: Weak Kerberos encryption
+		if kerberosEtype23, ok := data.WindowsHashes.Kerberos.ByType["etype_23"]; ok && kerberosEtype23.Total > 0 {
+			recs = append(recs, models.Recommendation{
+				Severity:   "MEDIUM",
+				Count:      kerberosEtype23.Total,
+				Percentage: float64(kerberosEtype23.Total) / float64(data.Overview.TotalHashes) * 100,
+				Message:    fmt.Sprintf("%d Kerberos hashes using RC4 encryption (etype 23) detected. RC4 is considered weak and vulnerable to brute-force attacks. Enable AES encryption (etype 17/18) in Active Directory by configuring the 'Network security: Configure encryption types allowed for Kerberos' Group Policy setting to prefer AES256 and AES128.", kerberosEtype23.Total),
+			})
+		}
+	}
+
+	// LM partial cracks
+	if data.LMPartialCracks != nil && data.LMPartialCracks.TotalPartial > 0 {
+		recs = append(recs, models.Recommendation{
+			Severity:   "HIGH",
+			Count:      data.LMPartialCracks.TotalPartial,
+			Percentage: data.LMPartialCracks.PercentagePartial,
+			Message:    fmt.Sprintf("%d LM hashes are partially cracked. This indicates the password has been partially recovered, making full compromise significantly easier. These accounts require immediate password resets and LM hash storage must be disabled domain-wide.", data.LMPartialCracks.TotalPartial),
+		})
+	}
+
+	// Sort recommendations by severity: CRITICAL > HIGH > MEDIUM > LOW > INFO
+	severityOrder := map[string]int{
+		"CRITICAL": 0,
+		"HIGH":     1,
+		"MEDIUM":   2,
+		"LOW":      3,
+		"INFO":     4,
+	}
+
+	sort.Slice(recs, func(i, j int) bool {
+		return severityOrder[recs[i].Severity] < severityOrder[recs[j].Severity]
+	})
+
 	return recs
+}
+
+// calculateWindowsHashStats generates Windows hash statistics
+func (s *AnalyticsService) calculateWindowsHashStats(ctx context.Context, hashlistIDs []int64) (*models.WindowsHashStats, error) {
+	// Get all Windows hash counts (raw counts for individual cards)
+	counts, err := s.repo.GetWindowsHashCounts(ctx, hashlistIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	// If no Windows hashes found, return nil
+	if len(counts) == 0 {
+		return nil, nil
+	}
+
+	// Get effective overview counts (linked-aware for overview section)
+	totalWindows, crackedWindows, err := s.repo.GetWindowsOverviewCounts(ctx, hashlistIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	percentageWindows := 0.0
+	if totalWindows > 0 {
+		percentageWindows = float64(crackedWindows) / float64(totalWindows) * 100
+	}
+
+	// Helper function to calculate percentage
+	calcPercentage := func(cracked, total int) float64 {
+		if total == 0 {
+			return 0.0
+		}
+		return float64(cracked) / float64(total) * 100
+	}
+
+	// Build individual hash type stats
+	ntlm := models.WindowsHashTypeStats{}
+	if count, ok := counts[1000]; ok {
+		ntlm.Total = count.Total
+		ntlm.Cracked = count.Cracked
+		ntlm.Percentage = calcPercentage(count.Cracked, count.Total)
+	}
+
+	// LM with length breakdown
+	lm := models.LMHashStats{}
+	if count, ok := counts[3000]; ok {
+		lm.Total = count.Total
+		lm.Cracked = count.Cracked
+		lm.Percentage = calcPercentage(count.Cracked, count.Total)
+
+		// Get LM password lengths
+		underEight, eightToFourteen, err := s.repo.GetLMPasswordLengths(ctx, hashlistIDs)
+		if err == nil {
+			lm.UnderEight = underEight
+			lm.EightToFourteen = eightToFourteen
+		}
+
+		// Get partial crack count
+		partialCount, err := s.repo.GetLMPartialCrackCount(ctx, hashlistIDs)
+		if err == nil {
+			lm.PartiallyCracked = partialCount
+		}
+	}
+
+	netntlmv1 := models.WindowsHashTypeStats{}
+	if count, ok := counts[5500]; ok {
+		netntlmv1.Total = count.Total
+		netntlmv1.Cracked = count.Cracked
+		netntlmv1.Percentage = calcPercentage(count.Cracked, count.Total)
+	}
+	// Also check 27000 (NetNTLMv1 NT variant)
+	if count, ok := counts[27000]; ok {
+		netntlmv1.Total += count.Total
+		netntlmv1.Cracked += count.Cracked
+		if netntlmv1.Total > 0 {
+			netntlmv1.Percentage = calcPercentage(netntlmv1.Cracked, netntlmv1.Total)
+		}
+	}
+
+	netntlmv2 := models.WindowsHashTypeStats{}
+	if count, ok := counts[5600]; ok {
+		netntlmv2.Total = count.Total
+		netntlmv2.Cracked = count.Cracked
+		netntlmv2.Percentage = calcPercentage(count.Cracked, count.Total)
+	}
+	// Also check 27100 (NetNTLMv2 NT variant)
+	if count, ok := counts[27100]; ok {
+		netntlmv2.Total += count.Total
+		netntlmv2.Cracked += count.Cracked
+		if netntlmv2.Total > 0 {
+			netntlmv2.Percentage = calcPercentage(netntlmv2.Cracked, netntlmv2.Total)
+		}
+	}
+
+	dcc := models.WindowsHashTypeStats{}
+	if count, ok := counts[1100]; ok {
+		dcc.Total = count.Total
+		dcc.Cracked = count.Cracked
+		dcc.Percentage = calcPercentage(count.Cracked, count.Total)
+	}
+
+	dcc2 := models.WindowsHashTypeStats{}
+	if count, ok := counts[2100]; ok {
+		dcc2.Total = count.Total
+		dcc2.Cracked = count.Cracked
+		dcc2.Percentage = calcPercentage(count.Cracked, count.Total)
+	}
+
+	// Kerberos stats (aggregate all types)
+	kerberosTotal := 0
+	kerberosCracked := 0
+	kerberosTypes := make(map[string]models.WindowsHashTypeStats)
+
+	// etype 23 (RC4)
+	etype23Total := 0
+	etype23Cracked := 0
+	for _, typeID := range []int{7500, 13100, 18200} {
+		if count, ok := counts[typeID]; ok {
+			etype23Total += count.Total
+			etype23Cracked += count.Cracked
+			kerberosTotal += count.Total
+			kerberosCracked += count.Cracked
+		}
+	}
+	if etype23Total > 0 {
+		kerberosTypes["etype_23"] = models.WindowsHashTypeStats{
+			Total:      etype23Total,
+			Cracked:    etype23Cracked,
+			Percentage: calcPercentage(etype23Cracked, etype23Total),
+		}
+	}
+
+	// etype 17 (AES128)
+	etype17Total := 0
+	etype17Cracked := 0
+	for _, typeID := range []int{19600, 19800, 28800} {
+		if count, ok := counts[typeID]; ok {
+			etype17Total += count.Total
+			etype17Cracked += count.Cracked
+			kerberosTotal += count.Total
+			kerberosCracked += count.Cracked
+		}
+	}
+	if etype17Total > 0 {
+		kerberosTypes["etype_17"] = models.WindowsHashTypeStats{
+			Total:      etype17Total,
+			Cracked:    etype17Cracked,
+			Percentage: calcPercentage(etype17Cracked, etype17Total),
+		}
+	}
+
+	// etype 18 (AES256)
+	etype18Total := 0
+	etype18Cracked := 0
+	for _, typeID := range []int{19700, 19900, 28900} {
+		if count, ok := counts[typeID]; ok {
+			etype18Total += count.Total
+			etype18Cracked += count.Cracked
+			kerberosTotal += count.Total
+			kerberosCracked += count.Cracked
+		}
+	}
+	if etype18Total > 0 {
+		kerberosTypes["etype_18"] = models.WindowsHashTypeStats{
+			Total:      etype18Total,
+			Cracked:    etype18Cracked,
+			Percentage: calcPercentage(etype18Cracked, etype18Total),
+		}
+	}
+
+	kerberos := models.KerberosStats{
+		Total:      kerberosTotal,
+		Cracked:    kerberosCracked,
+		Percentage: calcPercentage(kerberosCracked, kerberosTotal),
+		ByType:     kerberosTypes,
+	}
+
+	// Get linked hash correlation
+	both, onlyNTLM, onlyLM, neither, err := s.repo.GetLinkedHashCorrelation(ctx, hashlistIDs)
+	totalLinked := both + onlyNTLM + onlyLM + neither
+	percentageBoth := 0.0
+	if totalLinked > 0 {
+		percentageBoth = float64(both) / float64(totalLinked) * 100
+	}
+
+	linkedCorrelation := models.LinkedHashCorrelationStats{
+		TotalLinkedPairs: totalLinked,
+		BothCracked:      both,
+		OnlyNTLMCracked:  onlyNTLM,
+		OnlyLMCracked:    onlyLM,
+		NeitherCracked:   neither,
+		PercentageBoth:   percentageBoth,
+	}
+
+	// Get unique user count
+	uniqueUsers, err := s.repo.GetWindowsUniqueUserCount(ctx, hashlistIDs)
+	if err != nil {
+		// Log but don't fail - default to 0 if there's an error
+		uniqueUsers = 0
+	}
+
+	return &models.WindowsHashStats{
+		Overview: models.WindowsOverviewStats{
+			TotalWindows:      totalWindows,
+			CrackedWindows:    crackedWindows,
+			PercentageWindows: percentageWindows,
+			UniqueUsers:       uniqueUsers,
+			LinkedPairs:       totalLinked,
+		},
+		NTLM:              ntlm,
+		LM:                lm,
+		NetNTLMv1:         netntlmv1,
+		NetNTLMv2:         netntlmv2,
+		DCC:               dcc,
+		DCC2:              dcc2,
+		Kerberos:          kerberos,
+		LinkedCorrelation: linkedCorrelation,
+	}, nil
+}
+
+// detectHashReuse analyzes hash value reuse across users (for NTLM/LM)
+func (s *AnalyticsService) detectHashReuse(ctx context.Context, hashlistIDs []int64, hashTypes map[int]string) models.HashReuseStats {
+	// Get hashes grouped by hash value for NTLM and LM
+	hashesWithHashlists, err := s.repo.GetHashesGroupedByHashValue(ctx, hashlistIDs, []int{1000, 3000})
+	if err != nil || len(hashesWithHashlists) == 0 {
+		return models.HashReuseStats{
+			TotalReused:   0,
+			TotalUnique:   0,
+			HashReuseInfo: []models.HashReuseInfo{},
+		}
+	}
+
+	// Build map: hash_value -> username -> set of hashlist IDs
+	hashValueUserHashlists := make(map[string]map[string]map[int64]bool)
+	hashValueToType := make(map[string]int)
+	hashValueToPassword := make(map[string]string)
+
+	for _, hwh := range hashesWithHashlists {
+		hashValue := hwh.Hash.HashValue
+		username := "NULL"
+		if hwh.Hash.Username != nil {
+			username = *hwh.Hash.Username
+		}
+
+		// Track hash type and password
+		hashValueToType[hashValue] = hwh.Hash.HashTypeID
+		if hwh.Hash.Password != nil {
+			hashValueToPassword[hashValue] = *hwh.Hash.Password
+		}
+
+		// Initialize nested maps
+		if hashValueUserHashlists[hashValue] == nil {
+			hashValueUserHashlists[hashValue] = make(map[string]map[int64]bool)
+		}
+		if hashValueUserHashlists[hashValue][username] == nil {
+			hashValueUserHashlists[hashValue][username] = make(map[int64]bool)
+		}
+
+		// Track this hashlist for this user-hash combo
+		hashValueUserHashlists[hashValue][username][hwh.HashlistID] = true
+	}
+
+	// Build HashReuseInfo entries for hashes used across 2+ hashlists
+	hashReuseList := []models.HashReuseInfo{}
+	totalReused := 0
+	totalUnique := 0
+
+	for hashValue, userHashlists := range hashValueUserHashlists {
+		// Calculate total occurrences across all users
+		users := []models.UserOccurrence{}
+		totalOccurrences := 0
+
+		for username, hashlists := range userHashlists {
+			hashlistCount := len(hashlists)
+			users = append(users, models.UserOccurrence{
+				Username:      username,
+				HashlistCount: hashlistCount,
+			})
+			totalOccurrences += hashlistCount
+		}
+
+		// Check if hash is reused based on total occurrences
+		if totalOccurrences >= 2 {
+			// Sort users alphabetically
+			sort.Slice(users, func(i, j int) bool {
+				return users[i].Username < users[j].Username
+			})
+
+			// Get hash type name
+			hashTypeName := "Unknown"
+			if typeID, ok := hashValueToType[hashValue]; ok {
+				if name, found := hashTypes[typeID]; found {
+					hashTypeName = name
+				}
+			}
+
+			// Get password if available
+			var password *string
+			if pwd, ok := hashValueToPassword[hashValue]; ok {
+				password = &pwd
+			}
+
+			hashReuseList = append(hashReuseList, models.HashReuseInfo{
+				HashValue:        hashValue,
+				HashType:         hashTypeName,
+				Password:         password,
+				Users:            users,
+				TotalOccurrences: totalOccurrences,
+				UserCount:        len(users),
+			})
+			totalReused += totalOccurrences
+		} else {
+			totalUnique += totalOccurrences
+		}
+	}
+
+	// Sort by total occurrences (descending)
+	sort.Slice(hashReuseList, func(i, j int) bool {
+		return hashReuseList[i].TotalOccurrences > hashReuseList[j].TotalOccurrences
+	})
+
+	// Limit to top 50
+	if len(hashReuseList) > 50 {
+		hashReuseList = hashReuseList[:50]
+	}
+
+	total := totalReused + totalUnique
+	percentageReused := 0.0
+	if total > 0 {
+		percentageReused = float64(totalReused) / float64(total) * 100
+	}
+
+	return models.HashReuseStats{
+		TotalReused:      totalReused,
+		PercentageReused: percentageReused,
+		TotalUnique:      totalUnique,
+		HashReuseInfo:    hashReuseList,
+	}
+}
+
+// calculateLMPartialCracks generates LM partial crack statistics
+func (s *AnalyticsService) calculateLMPartialCracks(ctx context.Context, hashlistIDs []int64, totalLMHashes int) (*models.LMPartialCrackStats, error) {
+	// Get partial crack details (limit to 50)
+	details, firstHalfOnly, secondHalfOnly, err := s.repo.GetLMPartialCracks(ctx, hashlistIDs, 50)
+	if err != nil {
+		return nil, err
+	}
+
+	totalPartial := len(details)
+	if totalPartial == 0 {
+		return nil, nil
+	}
+
+	percentagePartial := 0.0
+	if totalLMHashes > 0 {
+		percentagePartial = float64(totalPartial) / float64(totalLMHashes) * 100
+	}
+
+	return &models.LMPartialCrackStats{
+		TotalPartial:        totalPartial,
+		FirstHalfOnly:       firstHalfOnly,
+		SecondHalfOnly:      secondHalfOnly,
+		PercentagePartial:   percentagePartial,
+		PartialCrackDetails: details,
+	}, nil
+}
+
+// generateLMToNTLMMasks generates hashcat masks for cracking NTLM from LM passwords
+func (s *AnalyticsService) generateLMToNTLMMasks(lmPasswords []*models.Hash) *models.LMToNTLMMaskStats {
+	if len(lmPasswords) == 0 {
+		return nil
+	}
+
+	// Pattern analysis: map LM pattern to count and examples
+	type PatternInfo struct {
+		Count     int
+		Examples  []string
+		Masks     []string
+	}
+	patterns := make(map[string]*PatternInfo)
+
+	for _, hash := range lmPasswords {
+		if hash.Password == nil {
+			continue
+		}
+
+		password := *hash.Password
+		pattern := generateLMPattern(password)
+
+		if patterns[pattern] == nil {
+			patterns[pattern] = &PatternInfo{
+				Count:    0,
+				Examples: []string{},
+			}
+		}
+
+		patterns[pattern].Count++
+		if len(patterns[pattern].Examples) < 5 {
+			patterns[pattern].Examples = append(patterns[pattern].Examples, password)
+		}
+	}
+
+	// Generate masks for each pattern
+	totalLM := len(lmPasswords)
+	var maskInfos []models.LMNTLMMaskInfo
+	totalKeyspace := int64(0)
+
+	for pattern, info := range patterns {
+		masks := generateMasksForPattern(pattern)
+
+		for _, mask := range masks {
+			keyspace := calculateMaskKeyspace(mask)
+			matchPercentage := float64(info.Count) / float64(totalLM) * 100
+			percentage := matchPercentage // For individual mask
+
+			example := ""
+			if len(info.Examples) > 0 {
+				example = info.Examples[0]
+			}
+
+			maskInfos = append(maskInfos, models.LMNTLMMaskInfo{
+				Mask:              mask,
+				LMPattern:         pattern,
+				Count:             info.Count,
+				Percentage:        percentage,
+				MatchPercentage:   matchPercentage,
+				EstimatedKeyspace: keyspace,
+				ExampleLM:         example,
+			})
+
+			totalKeyspace += keyspace
+		}
+	}
+
+	// Sort by match percentage (most effective first)
+	sort.Slice(maskInfos, func(i, j int) bool {
+		return maskInfos[i].MatchPercentage > maskInfos[j].MatchPercentage
+	})
+
+	// Limit to top 50
+	if len(maskInfos) > 50 {
+		maskInfos = maskInfos[:50]
+	}
+
+	return &models.LMToNTLMMaskStats{
+		TotalLMCracked:        totalLM,
+		TotalMasksGenerated:   len(maskInfos),
+		Masks:                 maskInfos,
+		TotalEstimatedKeyspace: totalKeyspace,
+	}
+}
+
+// generateLMPattern generates a pattern string from an LM password
+// A = alpha, D = digit, S = special
+func generateLMPattern(password string) string {
+	pattern := ""
+	for _, char := range password {
+		if unicode.IsLetter(char) {
+			pattern += "A"
+		} else if unicode.IsDigit(char) {
+			pattern += "D"
+		} else {
+			pattern += "S"
+		}
+	}
+	return pattern
+}
+
+// generateMasksForPattern generates hashcat masks for a given pattern
+func generateMasksForPattern(pattern string) []string {
+	masks := []string{}
+
+	// Generate title case mask (most common)
+	titleMask := ""
+	for i, char := range pattern {
+		if char == 'A' {
+			if i == 0 {
+				titleMask += "?u"
+			} else {
+				titleMask += "?l"
+			}
+		} else if char == 'D' {
+			titleMask += "?d"
+		} else {
+			titleMask += "?s"
+		}
+	}
+	masks = append(masks, titleMask)
+
+	// Generate all uppercase mask
+	allUpperMask := ""
+	for _, char := range pattern {
+		if char == 'A' {
+			allUpperMask += "?u"
+		} else if char == 'D' {
+			allUpperMask += "?d"
+		} else {
+			allUpperMask += "?s"
+		}
+	}
+	if allUpperMask != titleMask {
+		masks = append(masks, allUpperMask)
+	}
+
+	// Generate all lowercase mask
+	allLowerMask := ""
+	for _, char := range pattern {
+		if char == 'A' {
+			allLowerMask += "?l"
+		} else if char == 'D' {
+			allLowerMask += "?d"
+		} else {
+			allLowerMask += "?s"
+		}
+	}
+	if allLowerMask != titleMask && allLowerMask != allUpperMask {
+		masks = append(masks, allLowerMask)
+	}
+
+	return masks
+}
+
+// calculateMaskKeyspace estimates the keyspace for a hashcat mask
+func calculateMaskKeyspace(mask string) int64 {
+	keyspace := int64(1)
+	i := 0
+	for i < len(mask) {
+		if mask[i] == '?' && i+1 < len(mask) {
+			switch mask[i+1] {
+			case 'l': // lowercase
+				keyspace *= 26
+			case 'u': // uppercase
+				keyspace *= 26
+			case 'd': // digits
+				keyspace *= 10
+			case 's': // special
+				keyspace *= 32
+			case 'a': // all printable
+				keyspace *= 95
+			}
+			i += 2
+		} else {
+			i++
+		}
+	}
+	return keyspace
+}
+
+// ==================== Domain-Specific Windows Hash Service Methods ====================
+
+// calculateWindowsHashStatsDomain generates Windows hash statistics for a specific domain
+func (s *AnalyticsService) calculateWindowsHashStatsDomain(ctx context.Context, hashlistIDs []int64, domain string) (*models.WindowsHashStats, error) {
+	// Get Windows hash counts for this domain (raw counts for individual cards)
+	counts, err := s.repo.GetWindowsHashCountsDomain(ctx, hashlistIDs, domain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Windows hash counts for domain %s: %w", domain, err)
+	}
+
+	// Get effective overview counts (linked-aware for overview section)
+	totalWindows, crackedWindows, err := s.repo.GetWindowsOverviewCountsDomain(ctx, hashlistIDs, domain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Windows overview counts for domain %s: %w", domain, err)
+	}
+
+	// If no Windows hashes in this domain, return nil
+	if totalWindows == 0 {
+		return nil, nil
+	}
+
+	percentageWindows := 0.0
+	if totalWindows > 0 {
+		percentageWindows = float64(crackedWindows) / float64(totalWindows) * 100
+	}
+
+	// Build individual hash type stats
+	ntlm := models.WindowsHashTypeStats{}
+	lm := models.LMHashStats{}
+	netntlmv1 := models.WindowsHashTypeStats{}
+	netntlmv2 := models.WindowsHashTypeStats{}
+	dcc := models.WindowsHashTypeStats{}
+	dcc2 := models.WindowsHashTypeStats{}
+	kerberos := models.KerberosStats{}
+
+	// NTLM (1000)
+	if count, ok := counts[1000]; ok {
+		ntlm.Total = count.Total
+		ntlm.Cracked = count.Cracked
+		if count.Total > 0 {
+			ntlm.Percentage = float64(count.Cracked) / float64(count.Total) * 100
+		}
+	}
+
+	// LM (3000)
+	if count, ok := counts[3000]; ok {
+		lm.Total = count.Total
+		lm.Cracked = count.Cracked
+		if count.Total > 0 {
+			lm.Percentage = float64(count.Cracked) / float64(count.Total) * 100
+		}
+
+		// Get LM password length distribution
+		underEight, eightToFourteen, err := s.repo.GetLMPasswordLengthsDomain(ctx, hashlistIDs, domain)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get LM password lengths for domain %s: %w", domain, err)
+		}
+		lm.UnderEight = underEight
+		lm.EightToFourteen = eightToFourteen
+
+		// Get LM partial crack count
+		partialCount, err := s.repo.GetLMPartialCrackCountDomain(ctx, hashlistIDs, domain)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get LM partial crack count for domain %s: %w", domain, err)
+		}
+		lm.PartiallyCracked = partialCount
+	}
+
+	// NetNTLMv1 (5500 + 27000)
+	if count, ok := counts[5500]; ok {
+		netntlmv1.Total += count.Total
+		netntlmv1.Cracked += count.Cracked
+	}
+	if count, ok := counts[27000]; ok {
+		netntlmv1.Total += count.Total
+		netntlmv1.Cracked += count.Cracked
+	}
+	if netntlmv1.Total > 0 {
+		netntlmv1.Percentage = float64(netntlmv1.Cracked) / float64(netntlmv1.Total) * 100
+	}
+
+	// NetNTLMv2 (5600 + 27100)
+	if count, ok := counts[5600]; ok {
+		netntlmv2.Total += count.Total
+		netntlmv2.Cracked += count.Cracked
+	}
+	if count, ok := counts[27100]; ok {
+		netntlmv2.Total += count.Total
+		netntlmv2.Cracked += count.Cracked
+	}
+	if netntlmv2.Total > 0 {
+		netntlmv2.Percentage = float64(netntlmv2.Cracked) / float64(netntlmv2.Total) * 100
+	}
+
+	// DCC (1100)
+	if count, ok := counts[1100]; ok {
+		dcc.Total = count.Total
+		dcc.Cracked = count.Cracked
+		if count.Total > 0 {
+			dcc.Percentage = float64(count.Cracked) / float64(count.Total) * 100
+		}
+	}
+
+	// DCC2 (2100)
+	if count, ok := counts[2100]; ok {
+		dcc2.Total = count.Total
+		dcc2.Cracked = count.Cracked
+		if count.Total > 0 {
+			dcc2.Percentage = float64(count.Cracked) / float64(count.Total) * 100
+		}
+	}
+
+	// Kerberos aggregate and by encryption type
+	kerberosTypes := make(map[string]models.WindowsHashTypeStats)
+
+	// RC4/etype 23: 7500, 13100, 18200
+	rc4Total, rc4Cracked := 0, 0
+	for _, typeID := range []int{7500, 13100, 18200} {
+		if count, ok := counts[typeID]; ok {
+			rc4Total += count.Total
+			rc4Cracked += count.Cracked
+			kerberos.Total += count.Total
+			kerberos.Cracked += count.Cracked
+		}
+	}
+	if rc4Total > 0 {
+		kerberosTypes["RC4 (etype 23)"] = models.WindowsHashTypeStats{
+			Total:      rc4Total,
+			Cracked:    rc4Cracked,
+			Percentage: float64(rc4Cracked) / float64(rc4Total) * 100,
+		}
+	}
+
+	// AES128/etype 17: 19600, 19800, 28800
+	aes128Total, aes128Cracked := 0, 0
+	for _, typeID := range []int{19600, 19800, 28800} {
+		if count, ok := counts[typeID]; ok {
+			aes128Total += count.Total
+			aes128Cracked += count.Cracked
+			kerberos.Total += count.Total
+			kerberos.Cracked += count.Cracked
+		}
+	}
+	if aes128Total > 0 {
+		kerberosTypes["AES128 (etype 17)"] = models.WindowsHashTypeStats{
+			Total:      aes128Total,
+			Cracked:    aes128Cracked,
+			Percentage: float64(aes128Cracked) / float64(aes128Total) * 100,
+		}
+	}
+
+	// AES256/etype 18: 19700, 19900, 28900
+	aes256Total, aes256Cracked := 0, 0
+	for _, typeID := range []int{19700, 19900, 28900} {
+		if count, ok := counts[typeID]; ok {
+			aes256Total += count.Total
+			aes256Cracked += count.Cracked
+			kerberos.Total += count.Total
+			kerberos.Cracked += count.Cracked
+		}
+	}
+	if aes256Total > 0 {
+		kerberosTypes["AES256 (etype 18)"] = models.WindowsHashTypeStats{
+			Total:      aes256Total,
+			Cracked:    aes256Cracked,
+			Percentage: float64(aes256Cracked) / float64(aes256Total) * 100,
+		}
+	}
+
+	if kerberos.Total > 0 {
+		kerberos.Percentage = float64(kerberos.Cracked) / float64(kerberos.Total) * 100
+		kerberos.ByType = kerberosTypes
+	}
+
+	// Get linked hash correlation
+	both, onlyNTLM, onlyLM, neither, err := s.repo.GetLinkedHashCorrelationDomain(ctx, hashlistIDs, domain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get linked hash correlation for domain %s: %w", domain, err)
+	}
+
+	totalLinked := both + onlyNTLM + onlyLM + neither
+	percentageBoth := 0.0
+	if totalLinked > 0 {
+		percentageBoth = float64(both) / float64(totalLinked) * 100
+	}
+
+	linkedCorrelation := models.LinkedHashCorrelationStats{
+		TotalLinkedPairs: totalLinked,
+		BothCracked:      both,
+		PercentageBoth:   percentageBoth,
+		OnlyNTLMCracked:  onlyNTLM,
+		OnlyLMCracked:    onlyLM,
+		NeitherCracked:   neither,
+	}
+
+	// Get unique user count for this domain
+	uniqueUsers, err := s.repo.GetWindowsUniqueUserCountDomain(ctx, hashlistIDs, domain)
+	if err != nil {
+		// Log but don't fail - default to 0 if there's an error
+		uniqueUsers = 0
+	}
+
+	return &models.WindowsHashStats{
+		Overview: models.WindowsOverviewStats{
+			TotalWindows:      totalWindows,
+			CrackedWindows:    crackedWindows,
+			PercentageWindows: percentageWindows,
+			UniqueUsers:       uniqueUsers,
+			LinkedPairs:       totalLinked,
+		},
+		NTLM:              ntlm,
+		LM:                lm,
+		NetNTLMv1:         netntlmv1,
+		NetNTLMv2:         netntlmv2,
+		DCC:               dcc,
+		DCC2:              dcc2,
+		Kerberos:          kerberos,
+		LinkedCorrelation: linkedCorrelation,
+	}, nil
+}
+
+// detectHashReuseDomain analyzes hash value reuse across users for a specific domain (for NTLM/LM)
+func (s *AnalyticsService) detectHashReuseDomain(ctx context.Context, hashlistIDs []int64, hashTypes map[int]string, domain string) models.HashReuseStats {
+	// Only analyze NTLM (1000) and LM (3000) for hash reuse
+	windowsHashTypes := []int{1000, 3000}
+
+	// Get hashes grouped by hash_value for this domain
+	hashes, err := s.repo.GetHashesGroupedByHashValueDomain(ctx, hashlistIDs, windowsHashTypes, domain)
+	if err != nil {
+		// Return empty stats on error
+		return models.HashReuseStats{
+			TotalReused:      0,
+			PercentageReused: 0,
+			TotalUnique:      0,
+			HashReuseInfo:    []models.HashReuseInfo{},
+		}
+	}
+
+	// Group hashes by hash_value
+	hashValueMap := make(map[string][]repository.HashWithHashlist)
+	for _, h := range hashes {
+		hashValueMap[h.Hash.HashValue] = append(hashValueMap[h.Hash.HashValue], h)
+	}
+
+	// Find reused hashes (appearing 2+ times)
+	var reuseInfo []models.HashReuseInfo
+	totalReused := 0
+	totalUnique := len(hashValueMap)
+
+	for hashValue, hashList := range hashValueMap {
+		if len(hashList) < 2 {
+			continue // Not reused
+		}
+
+		totalReused += len(hashList)
+
+		// Group users by hashlist
+		userOccurrences := make(map[string]int) // username -> count
+		for _, h := range hashList {
+			if h.Hash.Username != nil {
+				userOccurrences[*h.Hash.Username]++
+			}
+		}
+
+		// Convert to UserOccurrence slice
+		var users []models.UserOccurrence
+		for username, count := range userOccurrences {
+			users = append(users, models.UserOccurrence{
+				Username:      username,
+				HashlistCount: count,
+			})
+		}
+
+		// Sort users by username
+		sort.Slice(users, func(i, j int) bool {
+			return users[i].Username < users[j].Username
+		})
+
+		// Get hash type name
+		hashTypeName := fmt.Sprintf("Mode %d", hashList[0].Hash.HashTypeID)
+		if name, exists := hashTypes[hashList[0].Hash.HashTypeID]; exists {
+			hashTypeName = name
+		}
+
+		var password *string
+		if hashList[0].Hash.Password != nil {
+			pwd := *hashList[0].Hash.Password
+			password = &pwd
+		}
+
+		reuseInfo = append(reuseInfo, models.HashReuseInfo{
+			HashValue:        hashValue,
+			HashType:         hashTypeName,
+			Password:         password,
+			Users:            users,
+			TotalOccurrences: len(hashList),
+			UserCount:        len(userOccurrences),
+		})
+	}
+
+	// Sort by user count (most reused first), limit to 50
+	sort.Slice(reuseInfo, func(i, j int) bool {
+		return reuseInfo[i].UserCount > reuseInfo[j].UserCount
+	})
+	if len(reuseInfo) > 50 {
+		reuseInfo = reuseInfo[:50]
+	}
+
+	percentageReused := 0.0
+	if len(hashes) > 0 {
+		percentageReused = float64(totalReused) / float64(len(hashes)) * 100
+	}
+
+	return models.HashReuseStats{
+		TotalReused:      totalReused,
+		PercentageReused: percentageReused,
+		TotalUnique:      totalUnique,
+		HashReuseInfo:    reuseInfo,
+	}
+}
+
+// calculateLMPartialCracksDomain generates LM partial crack statistics for a specific domain
+func (s *AnalyticsService) calculateLMPartialCracksDomain(ctx context.Context, hashlistIDs []int64, domain string, totalLMHashes int) (*models.LMPartialCrackStats, error) {
+	if totalLMHashes == 0 {
+		return nil, nil
+	}
+
+	// Get partial crack count for this domain
+	partialCount, err := s.repo.GetLMPartialCrackCountDomain(ctx, hashlistIDs, domain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get LM partial crack count for domain %s: %w", domain, err)
+	}
+
+	if partialCount == 0 {
+		return nil, nil
+	}
+
+	// Get partial crack details (limit 50)
+	details, firstHalfOnly, secondHalfOnly, err := s.repo.GetLMPartialCracksDomain(ctx, hashlistIDs, domain, 50)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get LM partial crack details for domain %s: %w", domain, err)
+	}
+
+	percentagePartial := 0.0
+	if totalLMHashes > 0 {
+		percentagePartial = float64(partialCount) / float64(totalLMHashes) * 100
+	}
+
+	return &models.LMPartialCrackStats{
+		TotalPartial:        partialCount,
+		FirstHalfOnly:       firstHalfOnly,
+		SecondHalfOnly:      secondHalfOnly,
+		PercentagePartial:   percentagePartial,
+		PartialCrackDetails: details,
+	}, nil
 }
