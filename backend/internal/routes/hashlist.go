@@ -1,12 +1,14 @@
 package routes
 
 import (
+	"bufio"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -114,6 +116,7 @@ func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, ag
 	hashlistRouter := r.PathPrefix("/hashlists").Subrouter() // Use 'r' directly
 	hashlistRouter.HandleFunc("", h.handleUploadHashlist).Methods(http.MethodPost, http.MethodOptions)
 	hashlistRouter.HandleFunc("", h.handleListHashlists).Methods(http.MethodGet, http.MethodOptions)
+	hashlistRouter.HandleFunc("/detect-linked", h.handleDetectLinkedHashes).Methods(http.MethodPost, http.MethodOptions)
 	hashlistRouter.HandleFunc("/{id}", h.handleGetHashlist).Methods(http.MethodGet, http.MethodOptions)
 	hashlistRouter.HandleFunc("/{id}", h.handleDeleteHashlist).Methods(http.MethodDelete, http.MethodOptions)
 	hashlistRouter.HandleFunc("/{id}/download", h.handleDownloadHashlist).Methods(http.MethodGet, http.MethodOptions)
@@ -164,6 +167,101 @@ func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, ag
 
 // 2.1. Hashlist Management Handlers
 
+// handleDetectLinkedHashes analyzes an uploaded file to detect if it contains both LM and NTLM hashes
+func (h *hashlistHandler) handleDetectLinkedHashes(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	_, err := getUserIDFromContext(ctx)
+	if err != nil {
+		jsonError(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Limit request body size (e.g., 1GB for the whole request)
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<30)
+
+	if err := r.ParseMultipartForm(32 << 20); err != nil { // 32MB max memory
+		debug.Error("Failed to parse multipart form for linked hash detection: %v", err)
+		jsonError(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		debug.Error("Failed to retrieve file from form: %v", err)
+		jsonError(w, "File is required", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// Scan the entire file to detect both LM and NTLM hashes
+	detection := &models.LinkedHashlistDetection{
+		HasBothTypes: false,
+		LMCount:      0,
+		NTLMCount:    0,
+		BlankLMCount: 0,
+		TotalLines:   0,
+	}
+
+	const blankLMHash = "aad3b435b51404eeaad3b435b51404ee"
+	scanner := bufio.NewScanner(file)
+	lineNum := 0
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		lineNum++
+		detection.TotalLines++
+
+		if line == "" {
+			continue
+		}
+
+		// Save first non-empty line as sample
+		if detection.SampleLine == "" {
+			detection.SampleLine = line
+		}
+
+		// Check for pwdump format: [DOMAIN\]username:rid:LMHASH:NTHASH:::
+		parts := strings.Split(line, ":")
+		if len(parts) >= 4 {
+			lmHash := strings.ToLower(strings.TrimSpace(parts[2]))
+			ntHash := strings.ToLower(strings.TrimSpace(parts[3]))
+
+			// Check if LM hash is valid
+			if len(lmHash) == 32 && isHexString(lmHash) {
+				if lmHash == blankLMHash {
+					detection.BlankLMCount++
+				} else {
+					detection.LMCount++
+				}
+			}
+
+			// Check if NTLM hash is valid
+			if len(ntHash) == 32 && isHexString(ntHash) {
+				detection.NTLMCount++
+			}
+
+			if detection.DetectedFormat == "" && len(parts) >= 4 {
+				detection.DetectedFormat = "pwdump"
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		debug.Error("Error reading file for detection: %v", err)
+		jsonError(w, "Error reading file", http.StatusInternalServerError)
+		return
+	}
+
+	// Determine if both types are present
+	detection.HasBothTypes = detection.LMCount > 0 && detection.NTLMCount > 0
+
+	debug.Info("Linked hash detection complete: LM=%d, NTLM=%d, Blank=%d, Total=%d",
+		detection.LMCount, detection.NTLMCount, detection.BlankLMCount, detection.TotalLines)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(detection)
+}
+
 func (h *hashlistHandler) handleUploadHashlist(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	userID, err := getUserIDFromContext(ctx)
@@ -192,7 +290,8 @@ func (h *hashlistHandler) handleUploadHashlist(w http.ResponseWriter, r *http.Re
 	hashTypeIDStr := r.FormValue("hash_type_id")
 	clientName := r.FormValue("client_name") // Expect client_name
 	excludeStr := r.FormValue("exclude_from_potfile")
-	debug.Info("Received hashlist upload: name='%s', hashTypeID='%s', clientName='%s', excludeFromPotfile='%s'", name, hashTypeIDStr, clientName, excludeStr)
+	createLinkedStr := r.FormValue("create_linked") // Support linked LM/NTLM hashlists
+	debug.Info("Received hashlist upload: name='%s', hashTypeID='%s', clientName='%s', excludeFromPotfile='%s', createLinked='%s'", name, hashTypeIDStr, clientName, excludeStr, createLinkedStr)
 
 	// --- Parse and validate hash type ID ---
 	hashTypeID, err := strconv.Atoi(hashTypeIDStr)
@@ -335,6 +434,23 @@ func (h *hashlistHandler) handleUploadHashlist(w http.ResponseWriter, r *http.Re
 	}
 	debug.Info("Parsed exclude_from_potfile as: %v", excludeFromPotfile)
 
+	// --- Parse create_linked boolean ---
+	createLinked := false
+	if createLinkedStr != "" {
+		createLinked, err = strconv.ParseBool(createLinkedStr)
+		if err != nil {
+			debug.Error("Failed to parse create_linked '%s': %v, defaulting to false", createLinkedStr, err)
+			createLinked = false
+		}
+	}
+
+	// --- Check if linked hashlist creation is requested and valid ---
+	if createLinked && (hashTypeID == 1000 || hashTypeID == 3000) {
+		debug.Info("Linked hashlist creation requested for hash type %d", hashTypeID)
+		h.handleLinkedHashlistUpload(w, r, ctx, userID, clientID, name, excludeFromPotfile, file, header)
+		return
+	}
+
 	// --- Create database entry ---
 	now := time.Now()
 	hashlist := &models.HashList{
@@ -409,6 +525,124 @@ func (h *hashlistHandler) handleUploadHashlist(w http.ResponseWriter, r *http.Re
 
 	// Return the initial hashlist record
 	jsonResponse(w, http.StatusAccepted, hashlist) // Use 202 Accepted as processing is happening
+}
+
+// handleLinkedHashlistUpload creates two linked hashlists (LM and NTLM) from a single pwdump file
+func (h *hashlistHandler) handleLinkedHashlistUpload(w http.ResponseWriter, r *http.Request, ctx context.Context,
+	userID, clientID uuid.UUID, baseName string, excludeFromPotfile bool, file multipart.File, header *multipart.FileHeader) {
+
+	debug.Info("Creating linked LM/NTLM hashlists for base name: %s", baseName)
+
+	// Create two hashlist records: one for LM (3000), one for NTLM (1000)
+	now := time.Now()
+
+	lmHashlist := &models.HashList{
+		Name:               baseName + "-LM",
+		UserID:             userID,
+		ClientID:           clientID,
+		HashTypeID:         3000, // LM
+		Status:             models.HashListStatusUploading,
+		ExcludeFromPotfile: excludeFromPotfile,
+		CreatedAt:          now,
+		UpdatedAt:          now,
+	}
+
+	ntlmHashlist := &models.HashList{
+		Name:               baseName + "-NTLM",
+		UserID:             userID,
+		ClientID:           clientID,
+		HashTypeID:         1000, // NTLM
+		Status:             models.HashListStatusUploading,
+		ExcludeFromPotfile: excludeFromPotfile,
+		CreatedAt:          now,
+		UpdatedAt:          now,
+	}
+
+	// Create both hashlists in database
+	err := h.hashlistRepo.Create(ctx, lmHashlist)
+	if err != nil {
+		debug.Error("Error creating LM hashlist DB entry: %v", err)
+		jsonError(w, "Failed to create LM hashlist record", http.StatusInternalServerError)
+		return
+	}
+
+	err = h.hashlistRepo.Create(ctx, ntlmHashlist)
+	if err != nil {
+		debug.Error("Error creating NTLM hashlist DB entry: %v", err)
+		jsonError(w, "Failed to create NTLM hashlist record", http.StatusInternalServerError)
+		return
+	}
+
+	debug.Info("Created hashlists: LM=%d, NTLM=%d", lmHashlist.ID, ntlmHashlist.ID)
+
+	// Link the hashlists
+	err = h.hashlistRepo.LinkHashlists(ctx, lmHashlist.ID, ntlmHashlist.ID, "lm_ntlm")
+	if err != nil {
+		debug.Error("Error linking hashlists %d and %d: %v", lmHashlist.ID, ntlmHashlist.ID, err)
+		jsonError(w, "Failed to link hashlists", http.StatusInternalServerError)
+		return
+	}
+
+	debug.Info("Linked hashlists %d and %d with link_type='lm_ntlm'", lmHashlist.ID, ntlmHashlist.ID)
+
+	// Save the file (shared by both hashlists)
+	filename := fmt.Sprintf("%d_%s%s",
+		lmHashlist.ID,
+		SanitizeFilenameSimple(strings.ReplaceAll(strings.ToLower(baseName), " ", "_")),
+		filepath.Ext(header.Filename),
+	)
+	hashlistPath := filepath.Join(h.dataDir, filename)
+
+	// Reset file position to beginning
+	file.Seek(0, 0)
+
+	dst, err := os.Create(hashlistPath)
+	if err != nil {
+		debug.Error("Failed to create hashlist file %s: %v", hashlistPath, err)
+		h.updateHashlistStatus(ctx, lmHashlist.ID, models.HashListStatusError, "Failed to save uploaded file")
+		h.updateHashlistStatus(ctx, ntlmHashlist.ID, models.HashListStatusError, "Failed to save uploaded file")
+		jsonError(w, "Failed to save uploaded file", http.StatusInternalServerError)
+		return
+	}
+	defer dst.Close()
+
+	_, err = io.Copy(dst, file)
+	if err != nil {
+		debug.Error("Failed to copy uploaded file to %s: %v", hashlistPath, err)
+		h.updateHashlistStatus(ctx, lmHashlist.ID, models.HashListStatusError, "Failed to copy uploaded file data")
+		h.updateHashlistStatus(ctx, ntlmHashlist.ID, models.HashListStatusError, "Failed to copy uploaded file data")
+		jsonError(w, "Failed to copy uploaded file data", http.StatusInternalServerError)
+		return
+	}
+
+	// Update both hashlists to processing status
+	err = h.hashlistRepo.UpdateStatus(ctx, lmHashlist.ID, models.HashListStatusProcessing, "")
+	if err != nil {
+		debug.Error("Failed to update LM hashlist status: %v", err)
+		jsonError(w, "Failed to update LM hashlist status", http.StatusInternalServerError)
+		return
+	}
+
+	err = h.hashlistRepo.UpdateStatus(ctx, ntlmHashlist.ID, models.HashListStatusProcessing, "")
+	if err != nil {
+		debug.Error("Failed to update NTLM hashlist status: %v", err)
+		jsonError(w, "Failed to update NTLM hashlist status", http.StatusInternalServerError)
+		return
+	}
+
+	// Start background processing for both hashlists
+	go h.processor.SubmitHashlistForProcessing(lmHashlist.ID, hashlistPath)
+	go h.processor.SubmitHashlistForProcessing(ntlmHashlist.ID, hashlistPath)
+
+	debug.Info("Linked hashlists uploaded successfully. LM=%d, NTLM=%d, path=%s", lmHashlist.ID, ntlmHashlist.ID, hashlistPath)
+
+	// Return both hashlists
+	response := map[string]interface{}{
+		"lm_hashlist":   lmHashlist,
+		"ntlm_hashlist": ntlmHashlist,
+		"linked":        true,
+	}
+	jsonResponse(w, http.StatusAccepted, response)
 }
 
 func (h *hashlistHandler) handleListHashlists(w http.ResponseWriter, r *http.Request) {
@@ -780,22 +1014,42 @@ func (h *hashlistHandler) serveUncrackedHashlist(w http.ResponseWriter, r *http.
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Transfer-Encoding", "chunked")
 
-	debug.Debug("Streaming uncracked hashes for agent download [hashlist_id=%d]", hashlist.ID)
+	debug.Debug("Streaming uncracked hashes for agent download [hashlist_id=%d, hash_type=%d]", hashlist.ID, hashlist.HashTypeID)
 
-	// Stream uncracked hash values from database
-	err := h.hashRepo.StreamUncrackedHashValuesForHashlist(ctx, hashlist.ID, func(hashValue string) error {
-		// Write hash_value (with newline)
-		if _, err := fmt.Fprintln(w, hashValue); err != nil {
-			return fmt.Errorf("failed to write hash: %w", err)
-		}
+	var err error
 
-		// Flush to ensure streaming (critical for large hashlists)
-		if flusher, ok := w.(http.Flusher); ok {
-			flusher.Flush()
-		}
+	// For LM hashes (hash_type_id 3000), stream unique 16-character halves
+	// LM hashes must be cracked as two separate halves, not as full 32-char hashes
+	if hashlist.HashTypeID == 3000 {
+		err = h.hashRepo.StreamUncrackedLMHashHalvesForHashlist(ctx, hashlist.ID, func(hashHalf string) error {
+			// Write 16-char LM hash half (with newline)
+			if _, err := fmt.Fprintln(w, hashHalf); err != nil {
+				return fmt.Errorf("failed to write LM hash half: %w", err)
+			}
 
-		return nil
-	})
+			// Flush to ensure streaming (critical for large hashlists)
+			if flusher, ok := w.(http.Flusher); ok {
+				flusher.Flush()
+			}
+
+			return nil
+		})
+	} else {
+		// For non-LM hashes, stream full hash values as before
+		err = h.hashRepo.StreamUncrackedHashValuesForHashlist(ctx, hashlist.ID, func(hashValue string) error {
+			// Write hash_value (with newline)
+			if _, err := fmt.Fprintln(w, hashValue); err != nil {
+				return fmt.Errorf("failed to write hash: %w", err)
+			}
+
+			// Flush to ensure streaming (critical for large hashlists)
+			if flusher, ok := w.(http.Flusher); ok {
+				flusher.Flush()
+			}
+
+			return nil
+		})
+	}
 
 	if err != nil {
 		debug.Error("Error streaming uncracked hashes for hashlist %d: %v", hashlist.ID, err)
@@ -1493,4 +1747,17 @@ func (h *hashlistHandler) handleCreateJob(w http.ResponseWriter, r *http.Request
 		return
 	}
 	h.jobsHandler.CreateJobFromHashlist(w, r)
+}
+
+// isHexString checks if a string consists only of hexadecimal characters
+func isHexString(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if !((r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')) {
+			return false
+		}
+	}
+	return true
 }

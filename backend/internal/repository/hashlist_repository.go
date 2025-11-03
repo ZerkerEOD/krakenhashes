@@ -708,3 +708,69 @@ func (r *HashListRepository) GetUncrackedHashCount(ctx context.Context, hashlist
 
 	return count, nil
 }
+
+// LinkHashlists creates a bidirectional link between two hashlists
+func (r *HashListRepository) LinkHashlists(ctx context.Context, hashlistID1, hashlistID2 int64, linkType string) error {
+	query := `
+		INSERT INTO linked_hashlists (hashlist_id_1, hashlist_id_2, link_type, created_at)
+		VALUES ($1, $2, $3, $4)
+	`
+	_, err := r.db.ExecContext(ctx, query, hashlistID1, hashlistID2, linkType, time.Now())
+	if err != nil {
+		return fmt.Errorf("failed to link hashlists %d and %d: %w", hashlistID1, hashlistID2, err)
+	}
+	return nil
+}
+
+// GetLinkedHashlist returns the linked hashlist for a given hashlist ID
+func (r *HashListRepository) GetLinkedHashlist(ctx context.Context, hashlistID int64, linkType string) (*models.HashList, error) {
+	// Check both directions: either hashlist_id_1 or hashlist_id_2 could be our ID
+	query := `
+		SELECT hl.id, hl.name, hl.user_id, hl.client_id, hl.hash_type_id,
+		       hl.total_hashes, hl.cracked_hashes, hl.status, hl.error_message,
+		       hl.exclude_from_potfile, hl.created_at, hl.updated_at
+		FROM hashlists hl
+		INNER JOIN linked_hashlists lhl ON (
+			(lhl.hashlist_id_1 = $1 AND lhl.hashlist_id_2 = hl.id) OR
+			(lhl.hashlist_id_2 = $1 AND lhl.hashlist_id_1 = hl.id)
+		)
+		WHERE lhl.link_type = $2
+		LIMIT 1
+	`
+
+	var hl models.HashList
+	var clientID sql.NullString
+	var errorMessage sql.NullString
+
+	err := r.db.QueryRowContext(ctx, query, hashlistID, linkType).Scan(
+		&hl.ID,
+		&hl.Name,
+		&hl.UserID,
+		&clientID,
+		&hl.HashTypeID,
+		&hl.TotalHashes,
+		&hl.CrackedHashes,
+		&hl.Status,
+		&errorMessage,
+		&hl.ExcludeFromPotfile,
+		&hl.CreatedAt,
+		&hl.UpdatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, nil // No linked hashlist found
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get linked hashlist for %d: %w", hashlistID, err)
+	}
+
+	// Handle nullable fields
+	if clientID.Valid {
+		if parsedUUID, err := uuid.Parse(clientID.String); err == nil {
+			hl.ClientID = parsedUUID
+		}
+	}
+	hl.ErrorMessage = errorMessage
+
+	return &hl, nil
+}

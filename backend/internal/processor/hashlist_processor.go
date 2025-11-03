@@ -124,6 +124,16 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64, filePath string)
 		usernameAndDomain := hashutils.ExtractUsernameAndDomain(originalHash, hashType.ID)
 		hashValue := hashutils.ProcessHashIfNeeded(originalHash, hashType.ID, needsProcessing)
 
+		// Skip blank LM hashes for LM hash type (3000)
+		if hashType.ID == 3000 {
+			upperHashValue := strings.ToUpper(hashValue)
+			if upperHashValue == "AAD3B435B51404EEAAD3B435B51404EE" {
+				debug.Debug("[Processor:%d] Line %d: Skipping blank LM hash", hashlistID, lineNumber)
+				totalHashes-- // Don't count blank LM hashes
+				continue
+			}
+		}
+
 		// Extract username and domain from result
 		var username *string
 		var domain *string
@@ -276,6 +286,106 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64, filePath string)
 	} else {
 		debug.Info("Successfully synced cracked count for hashlist %d", hashlistID)
 	}
+
+	// Check if this hashlist is linked to another hashlist for LM/NTLM pairing
+	linkedHashlist, err := p.hashlistRepo.GetLinkedHashlist(ctx, hashlistID, "lm_ntlm")
+	if err != nil {
+		debug.Warning("Failed to check for linked hashlist: %v", err)
+	} else if linkedHashlist != nil {
+		debug.Info("Hashlist %d is linked to hashlist %d (link_type=lm_ntlm), creating individual hash links", hashlistID, linkedHashlist.ID)
+
+		// Determine which is LM (3000) and which is NTLM (1000)
+		var lmHashlistID, ntlmHashlistID int64
+		if hashlist.HashTypeID == 3000 {
+			lmHashlistID = hashlistID
+			ntlmHashlistID = linkedHashlist.ID
+		} else if hashlist.HashTypeID == 1000 {
+			ntlmHashlistID = hashlistID
+			lmHashlistID = linkedHashlist.ID
+		} else {
+			debug.Warning("Linked hashlists are not LM/NTLM (hash_type %d and %d)", hashlist.HashTypeID, linkedHashlist.HashTypeID)
+			goto skipLinking
+		}
+
+		// Call helper to create hash links
+		if err := p.createHashLinksForLMNTLM(ctx, lmHashlistID, ntlmHashlistID); err != nil {
+			debug.Error("Failed to create hash links between hashlists %d and %d: %v", lmHashlistID, ntlmHashlistID, err)
+		} else {
+			debug.Info("Successfully created hash links between LM hashlist %d and NTLM hashlist %d", lmHashlistID, ntlmHashlistID)
+		}
+	}
+skipLinking:
+}
+
+// createHashLinksForLMNTLM creates individual hash-to-hash links between LM and NTLM hashlists
+func (p *HashlistDBProcessor) createHashLinksForLMNTLM(ctx context.Context, lmHashlistID, ntlmHashlistID int64) error {
+	// Get all hashes from both hashlists with username/domain
+	lmHashes, err := p.hashRepo.GetAllHashesByHashlistID(ctx, lmHashlistID)
+	if err != nil {
+		return fmt.Errorf("failed to get LM hashes: %w", err)
+	}
+
+	ntlmHashes, err := p.hashRepo.GetAllHashesByHashlistID(ctx, ntlmHashlistID)
+	if err != nil {
+		return fmt.Errorf("failed to get NTLM hashes: %w", err)
+	}
+
+	// Create map: username+domain -> NTLM hash
+	ntlmMap := make(map[string]*models.Hash)
+	for _, h := range ntlmHashes {
+		key := makeUserDomainKey(h.Username, h.Domain)
+		ntlmMap[key] = h
+	}
+
+	// Match LM hashes to NTLM hashes and build link array
+	var hashLinks []struct {
+		HashID1  uuid.UUID
+		HashID2  uuid.UUID
+		LinkType string
+	}
+
+	for _, lmHash := range lmHashes {
+		key := makeUserDomainKey(lmHash.Username, lmHash.Domain)
+		if ntlmHash, found := ntlmMap[key]; found {
+			hashLinks = append(hashLinks, struct {
+				HashID1  uuid.UUID
+				HashID2  uuid.UUID
+				LinkType string
+			}{
+				HashID1:  lmHash.ID,
+				HashID2:  ntlmHash.ID,
+				LinkType: "lm_ntlm",
+			})
+		}
+	}
+
+	if len(hashLinks) == 0 {
+		debug.Warning("No matching username/domain pairs found between LM and NTLM hashlists")
+		return nil
+	}
+
+	debug.Info("Creating %d hash links between LM hashlist %d and NTLM hashlist %d", len(hashLinks), lmHashlistID, ntlmHashlistID)
+
+	// Call BatchLinkHashes to create links
+	return p.hashRepo.BatchLinkHashes(ctx, hashLinks)
+}
+
+// makeUserDomainKey creates a consistent key for matching hashes by username and domain
+func makeUserDomainKey(username, domain *string) string {
+	user := ""
+	if username != nil {
+		user = *username
+	}
+
+	dom := ""
+	if domain != nil {
+		dom = *domain
+	}
+
+	if dom != "" {
+		return fmt.Sprintf("%s\\%s", dom, user)
+	}
+	return user
 }
 
 // batchProcessHashes handles creating/updating hashes and preparing associations.

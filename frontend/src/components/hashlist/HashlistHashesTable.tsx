@@ -40,6 +40,10 @@ interface HashDetail {
   is_cracked: boolean;
   password?: string;
   last_updated: string;
+  // LM hash partial crack status (only for hash_type_id 3000)
+  is_partially_lm_cracked?: boolean;
+  lm_first_half_password?: string;
+  lm_second_half_password?: string;
 }
 
 interface HashlistHashesTableProps {
@@ -263,12 +267,28 @@ export default function HashlistHashesTable({
                       whiteSpace: 'nowrap',
                     }}
                   >
-                    {hash.password || '-'}
+                    {hash.is_cracked
+                      ? hash.password || '-'
+                      : hash.is_partially_lm_cracked
+                      ? `[${hash.lm_first_half_password || '?'}][${hash.lm_second_half_password || '?'}]`
+                      : '-'}
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={hash.is_cracked ? 'Cracked' : 'Pending'}
-                      color={hash.is_cracked ? 'success' : 'default'}
+                      label={
+                        hash.is_cracked
+                          ? 'Cracked'
+                          : hash.is_partially_lm_cracked
+                          ? 'Partial'
+                          : 'Pending'
+                      }
+                      color={
+                        hash.is_cracked
+                          ? 'success'
+                          : hash.is_partially_lm_cracked
+                          ? 'warning'
+                          : 'default'
+                      }
                       size="small"
                     />
                   </TableCell>

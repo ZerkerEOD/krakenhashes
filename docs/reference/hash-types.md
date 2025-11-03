@@ -66,6 +66,7 @@ Each hash type in KrakenHashes has the following properties:
 | Mode | Algorithm | Use Case |
 |------|-----------|----------|
 | 1000 | NTLM | Windows password hashes |
+| 3000 | LM | Legacy LAN Manager hashes (pre-Vista) |
 | 5500 | NetNTLMv1 | Network authentication |
 | 5600 | NetNTLMv2 | Network authentication |
 | 7500 | Kerberos 5 AS-REQ | Domain authentication |
@@ -200,6 +201,160 @@ For hash types without custom extractors, a heuristic approach attempts extracti
 2. Identifies potential username patterns
 3. Preserves special characters like `$` for machine accounts
 4. Stores `NULL` for domain when not detected
+
+### LM Hash Special Processing (v1.2.1+)
+
+LM (LAN Manager) hashes have unique characteristics that require special handling in KrakenHashes. This section explains the structure, weaknesses, and processing approach.
+
+#### Structure and Weaknesses
+
+**Hash Structure:**
+- **Full hash**: 32 hexadecimal characters
+- **Two halves**: Each 16 characters (representing 7-character DES-encrypted password segments)
+- **Maximum password length**: 14 characters total (7 + 7)
+
+**Example:**
+```
+Full LM Hash: 01FC5A6BE7BC6929AAD3B435B51404EE
+First Half:   01FC5A6BE7BC6929 (represents chars 1-7: "PASSWOR")
+Second Half:  AAD3B435B51404EE (represents chars 8-14 or blank)
+```
+
+**Critical Weaknesses:**
+1. **Uppercase Conversion**: Passwords are converted to uppercase before hashing, eliminating case complexity
+2. **Split Processing**: Each 7-character half is encrypted independently using DES
+3. **No Salting**: All identical password halves produce identical hashes
+4. **Weak Encryption**: DES encryption is cryptographically weak and fast to brute-force
+
+**Security Impact:**
+- **Keyspace Reduction**: Uppercase-only dramatically reduces combinations (26 vs 52 for letters)
+- **Parallel Cracking**: Each half can be cracked independently in parallel
+- **Pattern Recognition**: Common password halves can be precomputed (rainbow tables)
+- **Maximum 7-char Complexity**: Each half limited to 7 characters reduces search space
+
+#### KrakenHashes Processing
+
+**Agent Download Behavior:**
+
+KrakenHashes processes LM hashes differently from other hash types to optimize cracking efficiency:
+
+1. **Hash Splitting**: Backend splits each 32-char LM hash into two 16-char halves
+2. **Unique Halves**: System sends only unique 16-char halves to agents (not full 32-char hashes)
+3. **Automatic Deduplication**: Common halves (like blank constant) appear only once
+4. **Hashcat Processing**: Agents crack each 16-char half as an independent hash
+
+**Why This Approach:**
+- **Hashcat Requirement**: Hashcat mode 3000 expects 16-char halves, not 32-char full hashes
+- **Efficiency**: Deduplication eliminates redundant work on common password halves
+- **Parallel Capability**: Two halves can be cracked simultaneously on different agents
+- **Partial Crack Support**: System can track when only one half is cracked
+
+**Example Workflow:**
+```
+Upload: DOMAIN\user:500:01FC5A6BE7BC6929AAD3B435B51404EE:hash::: (pwdump format)
+
+Processing:
+1. Extract LM hash: 01FC5A6BE7BC6929AAD3B435B51404EE
+2. Split into halves:
+   - First:  01FC5A6BE7BC6929
+   - Second: AAD3B435B51404EE
+3. Check second half = blank constant (aad3b435b51404ee)
+4. Send only first half to agents for cracking
+5. Agents crack: 01FC5A6BE7BC6929 → "PASSWOR"
+
+Result: Partial crack (first 7 chars known)
+```
+
+#### Partial Crack Tracking
+
+KrakenHashes v1.2.1+ tracks partial crack status for LM hashes in the `lm_hash_metadata` table:
+
+**Partial Crack States:**
+- **First Half Only**: First 7 characters cracked (e.g., `PASSWOR`)
+- **Second Half Only**: Last 7 characters cracked (e.g., `D123`)
+- **Both Halves**: Full password assembled (e.g., `PASSWORD123`)
+
+**Database Storage:**
+```sql
+lm_hash_metadata table:
+- hash_id: Reference to main hash
+- first_half_cracked: Boolean
+- first_half_password: VARCHAR(7)  -- Up to 7 chars
+- second_half_cracked: Boolean
+- second_half_password: VARCHAR(7) -- Up to 7 chars
+```
+
+**Strategic Value:**
+Partial cracks provide significant intelligence:
+- Knowing one half reduces remaining keyspace from ~95^14 to ~95^7 combinations
+- Pattern recognition helps inform attacks on other hashes
+- Can generate targeted masks for NTLM attacks (see Analytics section)
+
+See [Hashlists - LM Hash Special Processing](../user-guide/hashlists.md#lm-hash-special-processing-v121) for upload and processing details.
+
+#### Pwdump Format Support
+
+KrakenHashes automatically detects and processes pwdump-format files containing both LM and NTLM hashes:
+
+**Pwdump Format:**
+```
+DOMAIN\username:RID:LM_HASH:NTLM_HASH:::
+```
+
+**Example:**
+```
+CORP\Administrator:500:01FC5A6BE7BC6929AAD3B435B51404EE:0CB6948805F797BF2A82807973B89537:::
+CORP\Guest:501:AAD3B435B51404EEAAD3B435B51404EE:31D6CFE0D16AE931B73C59D7E0C089C0:::
+```
+
+**Automatic Linking:**
+- System can create separate but linked LM and NTLM hashlists
+- Links maintained by matching username and domain
+- Analytics show correlation between LM and NTLM crack status
+- See [Hashlists - LM/NTLM Linked Hashlists](../user-guide/hashlists.md#lmntlm-linked-hashlists-v121)
+
+#### Blank LM Hash Constant
+
+The constant `aad3b435b51404eeaad3b435b51404ee` appears in pwdump files when:
+
+**Causes:**
+- Password was blank/empty when LM hash was created
+- LM hash storage was disabled (Windows Vista+ default setting)
+- Account created after LM storage was disabled via Group Policy
+
+**KrakenHashes Handling:**
+- Automatically detected and filtered during processing
+- Not counted in hash totals
+- Not sent to agents for cracking
+- Displayed in upload dialog for user awareness
+
+**Group Policy Setting:**
+```
+"Network security: Do not store LAN Manager hash value on next password change"
+```
+When enabled, Windows stores only the blank constant instead of the actual LM hash.
+
+#### Security Implications and Deprecation
+
+**Industry Status:**
+- **Deprecated**: Microsoft deprecated LM hashing with Windows Vista (2007)
+- **Disabled by Default**: Windows Vista+ do not store LM hashes by default
+- **Legacy Support Only**: May still be found in older Active Directory environments
+
+**Security Risk Assessment:**
+- **CRITICAL**: Presence of LM hashes indicates severe security misconfiguration
+- **Fast Cracking**: LM hashes can be cracked in seconds to minutes with modern hardware
+- **No Defense**: Uppercase conversion and 7-char splitting make LM indefensible
+- **Compliance Violations**: Many security frameworks prohibit LM hash storage
+
+**Remediation:**
+1. **Disable LM Hash Storage**: Configure Group Policy on all domain controllers
+2. **Force Password Resets**: Require all users to change passwords after policy change
+3. **Verify Removal**: Audit domain controllers to confirm LM hashes are no longer stored
+4. **Network Segmentation**: Isolate any systems that still require LM support
+
+**Analytics Integration:**
+KrakenHashes automatically generates CRITICAL severity recommendations when LM hashes are detected in analytics reports. See [Analytics Reports - Windows Hash Analytics](../user-guide/analytics-reports.md#windows-hash-analytics-v121).
 
 ## Hash Type Identification
 

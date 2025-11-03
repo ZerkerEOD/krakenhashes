@@ -15,17 +15,21 @@ import {
 import { Replay as RetryIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { AnalyticsReport } from '../../types/analytics';
 import OverviewSection from './OverviewSection';
+import WindowsHashSection from './WindowsHashSection';
 import LengthDistributionSection from './LengthDistributionSection';
 import ComplexityAnalysisSection from './ComplexityAnalysisSection';
 import PositionalAnalysisSection from './PositionalAnalysisSection';
 import PatternDetectionSection from './PatternDetectionSection';
 import UsernameCorrelationSection from './UsernameCorrelationSection';
 import PasswordReuseSection from './PasswordReuseSection';
+import HashReuseSection from './HashReuseSection';
 import TemporalPatternsSection from './TemporalPatternsSection';
 import MaskAnalysisSection from './MaskAnalysisSection';
 import CustomPatternsSection from './CustomPatternsSection';
 import StrengthMetricsSection from './StrengthMetricsSection';
 import TopPasswordsSection from './TopPasswordsSection';
+import LMPartialCracksSection from './LMPartialCracksSection';
+import LMToNTLMMasksSection from './LMToNTLMMasksSection';
 import RecommendationsSection from './RecommendationsSection';
 
 interface AnalyticsReportDisplayProps {
@@ -122,17 +126,21 @@ export default function AnalyticsReportDisplay({
     // Return domain-filtered analytics
     return {
       overview: domainData.overview,
+      windows_hashes: domainData.windows_hashes,
       length_distribution: domainData.length_distribution,
       complexity_analysis: domainData.complexity_analysis,
       positional_analysis: domainData.positional_analysis,
       pattern_detection: domainData.pattern_detection,
       username_correlation: domainData.username_correlation,
       password_reuse: domainData.password_reuse,
+      hash_reuse: domainData.hash_reuse,
       temporal_patterns: domainData.temporal_patterns,
       mask_analysis: domainData.mask_analysis,
       custom_patterns: domainData.custom_patterns,
       strength_metrics: domainData.strength_metrics,
       top_passwords: domainData.top_passwords,
+      lm_partial_cracks: domainData.lm_partial_cracks,
+      lm_to_ntlm_masks: domainData.lm_to_ntlm_masks,
       recommendations: data.recommendations, // Keep global recommendations
       domain_analytics: data.domain_analytics, // Keep for reference
     };
@@ -158,6 +166,9 @@ export default function AnalyticsReportDisplay({
         selectedDomain={selectedDomain}
         onDomainChange={setSelectedDomain}
       />
+
+      {/* Windows Hash Analytics - Full Width */}
+      {filteredData.windows_hashes && <WindowsHashSection data={filteredData.windows_hashes} />}
 
       {/* Masonry-style layout using CSS columns - cards flow vertically to fill space */}
       <Box
@@ -196,7 +207,16 @@ export default function AnalyticsReportDisplay({
 
       <PasswordReuseSection data={filteredData.password_reuse} />
 
+      {/* Hash Reuse - Full Width */}
+      {filteredData.hash_reuse && <HashReuseSection data={filteredData.hash_reuse} />}
+
       <TopPasswordsSection data={filteredData.top_passwords} />
+
+      {/* LM Partial Cracks - Full Width */}
+      {filteredData.lm_partial_cracks && <LMPartialCracksSection data={filteredData.lm_partial_cracks} />}
+
+      {/* LM-to-NTLM Masks - Full Width */}
+      {filteredData.lm_to_ntlm_masks && <LMToNTLMMasksSection data={filteredData.lm_to_ntlm_masks} />}
 
       <RecommendationsSection data={filteredData.recommendations} />
     </Box>

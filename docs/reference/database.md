@@ -28,23 +28,27 @@ This document provides a comprehensive reference for the KrakenHashes database s
    - [hashlists](#hashlists)
    - [hashes](#hashes)
    - [hashcat_hash_types](#hashcat_hash_types)
-6. [Job Management](#job-management)
+6. [LM/NTLM Support](#lmntlm-support-v121)
+   - [lm_hash_metadata](#lm_hash_metadata)
+   - [linked_hashlists](#linked_hashlists)
+   - [linked_hashes](#linked_hashes)
+7. [Job Management](#job-management)
    - [job_workflows](#job_workflows)
    - [job_executions](#job_executions)
    - [job_tasks](#job_tasks)
    - [job_execution_settings](#job_execution_settings)
-7. [Resource Management](#resource-management)
+8. [Resource Management](#resource-management)
    - [wordlists](#wordlists)
    - [rules](#rules)
    - [binary_versions](#binary_versions)
-8. [Client & Settings](#client--settings)
+9. [Client & Settings](#client--settings)
    - [clients](#clients)
    - [client_settings](#client_settings)
    - [system_settings](#system_settings)
-9. [Performance & Scheduling](#performance--scheduling)
+10. [Performance & Scheduling](#performance--scheduling)
    - [performance_metrics](#performance_metrics)
    - [agent_scheduling](#agent_scheduling)
-10. [Migration History](#migration-history)
+11. [Migration History](#migration-history)
 
 ---
 
@@ -439,6 +443,145 @@ Stores hashcat-specific hash type information (added in migration 16).
 | test_hash | TEXT | | | Test hash value |
 | test_password | VARCHAR(255) | | | Test password |
 | valid_hash_regex | TEXT | | | Valid hash format regex |
+
+---
+
+## LM/NTLM Support (v1.2.1+)
+
+### lm_hash_metadata
+
+Tracks partial crack status for LM hashes (hash type 3000). This table is only populated for LM hashes and has zero impact on other hash types.
+
+**Purpose**: LM hashes consist of two 7-character halves that can be cracked independently. This table tracks the crack status of each half and stores the password fragments.
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| hash_id | UUID | PRIMARY KEY, FK → hashes(id) | | Reference to parent hash record |
+| first_half_cracked | BOOLEAN | NOT NULL | FALSE | True if first 16 chars of LM hash cracked |
+| second_half_cracked | BOOLEAN | NOT NULL | FALSE | True if last 16 chars of LM hash cracked |
+| first_half_password | VARCHAR(7) | | NULL | Password for first half (max 7 chars) |
+| second_half_password | VARCHAR(7) | | NULL | Password for second half (max 7 chars) |
+| created_at | TIMESTAMP | NOT NULL | CURRENT_TIMESTAMP | Record creation timestamp |
+| updated_at | TIMESTAMP | NOT NULL | CURRENT_TIMESTAMP | Last update timestamp |
+
+**Indexes:**
+- `PRIMARY KEY (hash_id)`
+- `idx_lm_metadata_crack_status (first_half_cracked, second_half_cracked)` - Fast partial crack queries
+- `idx_lm_metadata_hash_id (hash_id)` - Foreign key lookup
+
+**ON DELETE**: CASCADE - When parent hash is deleted, metadata is automatically removed
+
+**Use Cases:**
+- Track partial crack progress: "First half cracked, second half pending"
+- Analytics: Count of partially cracked LM hashes
+- Strategic intelligence: Keyspace reduction from 95^14 to 95^7 when one half known
+- LM-to-NTLM mask generation from partial crack patterns
+
+**Example Query - Find Partial Cracks:**
+```sql
+SELECT h.username, h.domain,
+       lm.first_half_password, lm.second_half_password
+FROM lm_hash_metadata lm
+INNER JOIN hashes h ON lm.hash_id = h.id
+WHERE (lm.first_half_cracked OR lm.second_half_cracked)
+  AND NOT (lm.first_half_cracked AND lm.second_half_cracked);
+```
+
+### linked_hashlists
+
+Manages relationships between entire hashlists (e.g., LM hashlist ↔ NTLM hashlist from same pwdump file).
+
+**Purpose**: Track which hashlists are related to enable analytics calculations and proper hashlist counting.
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| id | UUID | PRIMARY KEY | gen_random_uuid() | Unique link identifier |
+| hashlist_id_1 | BIGINT | NOT NULL, FK → hashlists(id) | | First hashlist in relationship |
+| hashlist_id_2 | BIGINT | NOT NULL, FK → hashlists(id) | | Second hashlist in relationship |
+| link_type | VARCHAR(50) | NOT NULL | | Type of relationship (e.g., 'lm_ntlm') |
+| created_at | TIMESTAMP | NOT NULL | CURRENT_TIMESTAMP | Link creation timestamp |
+
+**Constraints:**
+- `UNIQUE (hashlist_id_1, hashlist_id_2)` - Prevents duplicate links
+- `CHECK (hashlist_id_1 != hashlist_id_2)` - Prevents self-linking
+
+**Indexes:**
+- `PRIMARY KEY (id)`
+- `idx_linked_hashlists_id2 (hashlist_id_2)` - Bidirectional lookup
+- `idx_linked_hashlists_type (link_type)` - Filter by link type
+
+**ON DELETE**: CASCADE - When either hashlist is deleted, link is automatically removed
+
+**Link Types:**
+- `lm_ntlm`: LM and NTLM hashlists from same pwdump file
+
+**Use Cases:**
+- Analytics: Count linked pairs as ONE hashlist (prevent double-counting)
+- Determine when to create individual hash-to-hash links
+- Track which hashlists were created together
+
+**Example Query - Find Linked Hashlists:**
+```sql
+SELECT hl1.name AS lm_hashlist, hl2.name AS ntlm_hashlist
+FROM linked_hashlists lh
+INNER JOIN hashlists hl1 ON lh.hashlist_id_1 = hl1.id
+INNER JOIN hashlists hl2 ON lh.hashlist_id_2 = hl2.id
+WHERE lh.link_type = 'lm_ntlm';
+```
+
+### linked_hashes
+
+Manages relationships between individual hash records (e.g., specific LM hash ↔ specific NTLM hash for same user).
+
+**Purpose**: Enable correlation analysis showing which users have both LM and NTLM hashes cracked, partially cracked, or uncracked.
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| id | UUID | PRIMARY KEY | gen_random_uuid() | Unique link identifier |
+| hash_id_1 | UUID | NOT NULL, FK → hashes(id) | | First hash in relationship (typically LM) |
+| hash_id_2 | UUID | NOT NULL, FK → hashes(id) | | Second hash in relationship (typically NTLM) |
+| link_type | VARCHAR(50) | NOT NULL | | Type of relationship (e.g., 'lm_ntlm') |
+| created_at | TIMESTAMP | NOT NULL | CURRENT_TIMESTAMP | Link creation timestamp |
+
+**Constraints:**
+- `UNIQUE (hash_id_1, hash_id_2)` - Prevents duplicate links
+- `CHECK (hash_id_1 != hash_id_2)` - Prevents self-linking
+
+**Indexes:**
+- `PRIMARY KEY (id)`
+- `idx_linked_hashes_id2 (hash_id_2)` - Bidirectional lookup
+- `idx_linked_hashes_type (link_type)` - Filter by link type
+
+**ON DELETE**: CASCADE - When either hash is deleted, link is automatically removed
+
+**Link Types:**
+- `lm_ntlm`: LM and NTLM hashes for same username/domain
+
+**Linking Strategy:**
+Links are created by matching `username` and `domain` columns in the `hashes` table. This approach handles:
+- Domain migrations (links persist across RID changes)
+- Account renames (links updated if username changes)
+- Multi-domain environments (links only within same domain)
+
+**Use Cases:**
+- Analytics: "Linked Hash Correlation" statistics
+- Show: "Administrator's LM cracked but NTLM still unknown"
+- Domain-filtered correlation analysis
+- Identify high-value targets (both hashes cracked = full compromise)
+
+**Example Query - Correlation Statistics:**
+```sql
+SELECT
+    COUNT(*) AS total_pairs,
+    COUNT(CASE WHEN lm.is_cracked AND ntlm.is_cracked THEN 1 END) AS both_cracked,
+    COUNT(CASE WHEN NOT lm.is_cracked AND ntlm.is_cracked THEN 1 END) AS only_ntlm,
+    COUNT(CASE WHEN lm.is_cracked AND NOT ntlm.is_cracked THEN 1 END) AS only_lm,
+    COUNT(CASE WHEN NOT lm.is_cracked AND NOT ntlm.is_cracked THEN 1 END) AS neither
+FROM linked_hashes lh
+INNER JOIN hashes lm ON lh.hash_id_1 = lm.id
+INNER JOIN hashes ntlm ON lh.hash_id_2 = ntlm.id
+WHERE lh.link_type = 'lm_ntlm';
+```
 
 ---
 

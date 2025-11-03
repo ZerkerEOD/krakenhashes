@@ -46,8 +46,9 @@ func NewHashlistCompletionService(
 	}
 }
 
-// HandleHashlistFullyCracked processes all jobs for a hashlist when all hashes are cracked
-func (s *HashlistCompletionService) HandleHashlistFullyCracked(ctx context.Context, hashlistID int64) error {
+// HandleHashlistFullyCracked processes all jobs for a hashlist when all hashes are cracked.
+// triggeringTaskID: Optional ID of the task that triggered this handler (won't be stopped)
+func (s *HashlistCompletionService) HandleHashlistFullyCracked(ctx context.Context, hashlistID int64, triggeringTaskID *uuid.UUID) error {
 	debug.Info("HandleHashlistFullyCracked called for hashlist %d", hashlistID)
 
 	// Note: We skip database verification here because this handler is triggered by
@@ -91,7 +92,7 @@ func (s *HashlistCompletionService) HandleHashlistFullyCracked(ctx context.Conte
 			debug.Info("Job %s (%s) has %d tasks - marking as completed", job.ID, job.Name, taskCount)
 
 			// Stop any active tasks
-			stoppedCount, err := s.stopJobTasks(ctx, job.ID)
+			stoppedCount, err := s.stopJobTasks(ctx, job.ID, triggeringTaskID)
 			if err != nil {
 				debug.Error("Failed to stop tasks for job %s: %v", job.ID, err)
 				// Continue anyway - best effort
@@ -132,9 +133,10 @@ func (s *HashlistCompletionService) HandleHashlistFullyCracked(ctx context.Conte
 	return nil
 }
 
-// stopJobTasks sends stop signals to all agents working on tasks for a job
+// stopJobTasks sends stop signals to all agents working on tasks for a job.
+// triggeringTaskID: Optional ID of the task that triggered completion (will be skipped)
 // Returns the number of tasks that were stopped
-func (s *HashlistCompletionService) stopJobTasks(ctx context.Context, jobID uuid.UUID) (int, error) {
+func (s *HashlistCompletionService) stopJobTasks(ctx context.Context, jobID uuid.UUID, triggeringTaskID *uuid.UUID) (int, error) {
 	// Get all tasks for this job
 	tasks, err := s.jobTaskRepo.GetTasksByJobExecution(ctx, jobID)
 	if err != nil {
@@ -145,6 +147,12 @@ func (s *HashlistCompletionService) stopJobTasks(ctx context.Context, jobID uuid
 	// Send stop signals to agents working on active tasks
 	stoppedCount := 0
 	for _, task := range tasks {
+		// Skip the task that triggered this handler (it already completed)
+		if triggeringTaskID != nil && task.ID == *triggeringTaskID {
+			debug.Info("Skipping stop signal for task %s (triggered hashlist completion)", task.ID)
+			continue
+		}
+
 		// Only send stop signals for running or assigned tasks
 		if task.AgentID != nil && (task.Status == models.JobTaskStatusRunning || task.Status == models.JobTaskStatusAssigned) {
 			// Check if task has completed its keyspace (race condition: task finished but status not updated yet)
@@ -256,5 +264,5 @@ func (s *HashlistCompletionService) completeJob(ctx context.Context, job *models
 
 // StopJobTasks is a public method that stops all tasks for a job (for use by other handlers)
 func (s *HashlistCompletionService) StopJobTasks(ctx context.Context, jobID uuid.UUID) (int, error) {
-	return s.stopJobTasks(ctx, jobID)
+	return s.stopJobTasks(ctx, jobID, nil)
 }

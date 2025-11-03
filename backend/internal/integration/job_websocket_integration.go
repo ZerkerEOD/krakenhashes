@@ -35,6 +35,7 @@ type JobWebSocketIntegration struct {
 	presetJobRepo        repository.PresetJobRepository
 	hashlistRepo         *repository.HashListRepository
 	hashRepo             *repository.HashRepository
+	lmHashRepo           *repository.LMHashRepository
 	jobTaskRepo          *repository.JobTaskRepository
 	agentRepo            *repository.AgentRepository
 	deviceRepo           *repository.AgentDeviceRepository
@@ -64,6 +65,7 @@ func NewJobWebSocketIntegration(
 	presetJobRepo repository.PresetJobRepository,
 	hashlistRepo *repository.HashListRepository,
 	hashRepo *repository.HashRepository,
+	lmHashRepo *repository.LMHashRepository,
 	jobTaskRepo *repository.JobTaskRepository,
 	agentRepo *repository.AgentRepository,
 	deviceRepo *repository.AgentDeviceRepository,
@@ -85,6 +87,7 @@ func NewJobWebSocketIntegration(
 		presetJobRepo:             presetJobRepo,
 		hashlistRepo:              hashlistRepo,
 		hashRepo:                  hashRepo,
+		lmHashRepo:                lmHashRepo,
 		jobTaskRepo:               jobTaskRepo,
 		agentRepo:                 agentRepo,
 		deviceRepo:                deviceRepo,
@@ -897,7 +900,9 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 				bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 				defer cancel()
 
-				if err := s.hashlistCompletionService.HandleHashlistFullyCracked(bgCtx, job.HashlistID); err != nil {
+				// Pass the triggering task ID to prevent sending stop signal to it
+				taskID := progress.TaskID
+				if err := s.hashlistCompletionService.HandleHashlistFullyCracked(bgCtx, job.HashlistID, &taskID); err != nil {
 					debug.Error("Failed to handle hashlist fully cracked: %v", err)
 				}
 			}()
@@ -1370,16 +1375,35 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 		hashValues[i] = crackedEntry.Hash
 	}
 
+	// Check if this is an LM hash job (hash_type = 3000)
+	// LM hashes are split into two 16-char halves by hashcat, so we need special handling
+	isLMHash := jobExecution.HashType == 3000
+
 	// Bulk lookup all hashes in one query
-	allHashes, err := s.hashRepo.GetByHashValues(ctx, hashValues)
-	if err != nil {
-		return fmt.Errorf("failed to bulk lookup hashes: %w", err)
+	var allHashes []*models.Hash
+	var lmHashMatches map[string][]*repository.LMHashMatch
+
+	if isLMHash {
+		// For LM hashes, use partial matching (16-char halves)
+		lmHashMatches, err = s.hashRepo.GetByHashValuesLMPartial(ctx, hashValues)
+		if err != nil {
+			return fmt.Errorf("failed to bulk lookup LM hashes: %w", err)
+		}
+		debug.Info("LM hash lookup found %d matches for %d half-hashes", len(lmHashMatches), len(hashValues))
+	} else {
+		// For other hash types, use exact matching
+		allHashes, err = s.hashRepo.GetByHashValues(ctx, hashValues)
+		if err != nil {
+			return fmt.Errorf("failed to bulk lookup hashes: %w", err)
+		}
 	}
 
 	// Create a map for quick lookup: hash_value -> []*models.Hash
 	hashMap := make(map[string][]*models.Hash)
-	for _, hash := range allHashes {
-		hashMap[hash.HashValue] = append(hashMap[hash.HashValue], hash)
+	if !isLMHash {
+		for _, hash := range allHashes {
+			hashMap[hash.HashValue] = append(hashMap[hash.HashValue], hash)
+		}
 	}
 
 	// Process hashes in mini-batches with separate transactions to avoid connection leaks
@@ -1462,25 +1486,187 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 	// Key: hashlist ID, Value: count of newly cracked hashes
 	affectedHashlists := make(map[int64]int)
 
-	// Process each cracked hash
-	for _, crackedEntry := range crackedHashes {
-		hashValue := crackedEntry.Hash
-		password := crackedEntry.Plain
-		crackPos := crackedEntry.CrackPos
-
-		// Lookup from our pre-loaded map instead of querying database
-		hashes, found := hashMap[hashValue]
-		if !found || len(hashes) == 0 {
-			debug.Log("Hash not found in hashlist", map[string]interface{}{
-				"hash_value":  hashValue,
-				"hashlist_id": jobExecution.HashlistID,
-			})
-			continue
+	// Process LM hashes differently (partial crack tracking)
+	if isLMHash {
+		// Pre-load LM metadata for all matched hashes
+		var hashIDs []uuid.UUID
+		for _, matches := range lmHashMatches {
+			for _, match := range matches {
+				hashIDs = append(hashIDs, match.Hash.ID)
+			}
 		}
 
-		// Update ALL hashes with this hash_value (e.g., multiple users with same password)
-		// This ensures that Administrator, Administrator1, Administrator2 all get marked as cracked
-		for _, hash := range hashes {
+		lmMetadataMap, err := s.lmHashRepo.GetLMMetadataByHashes(ctx, hashIDs)
+		if err != nil {
+			return fmt.Errorf("failed to get LM metadata: %w", err)
+		}
+
+		// Process each LM half-hash crack
+		for _, crackedEntry := range crackedHashes {
+			halfHash := crackedEntry.Hash  // This is a 16-char half
+			password := crackedEntry.Plain
+
+			matches, found := lmHashMatches[halfHash]
+			if !found || len(matches) == 0 {
+				debug.Warning("LM half-hash not found: %s", halfHash)
+				continue
+			}
+
+			for _, match := range matches {
+				hash := match.Hash
+				halfPosition := match.MatchedHalf  // "first" or "second"
+
+				// Get or create LM metadata
+				metadata := lmMetadataMap[hash.ID]
+				if metadata == nil {
+					// Create metadata entry
+					if err := s.lmHashRepo.CreateLMMetadata(ctx, hash.ID); err != nil {
+						debug.Error("Failed to create LM metadata for hash %s: %v", hash.ID, err)
+						continue
+					}
+					metadata = &models.LMHashMetadata{HashID: hash.ID}
+					lmMetadataMap[hash.ID] = metadata
+				}
+
+				// Check if this half already cracked
+				if (halfPosition == "first" && metadata.FirstHalfCracked) ||
+				   (halfPosition == "second" && metadata.SecondHalfCracked) {
+					debug.Info("LM %s half already cracked, skipping [hash_id=%s]", halfPosition, hash.ID)
+					continue
+				}
+
+				// Start transaction if needed
+				if tx == nil {
+					tx, err = s.db.Begin()
+					if err != nil {
+						return fmt.Errorf("failed to start transaction: %w", err)
+					}
+					txHashCount = 0
+				}
+
+				// Update this half as cracked
+				err = s.lmHashRepo.UpdateLMHalfCrack(ctx, tx, hash.ID, halfPosition, password)
+				if err != nil {
+					debug.Error("Failed to update LM half crack: %v", err)
+					continue
+				}
+
+				debug.Info("LM %s half cracked [hash_id=%s, password='%s']", halfPosition, hash.ID, password)
+
+				// Update metadata in our map
+				if halfPosition == "first" {
+					metadata.FirstHalfCracked = true
+					metadata.FirstHalfPassword = sql.NullString{String: password, Valid: true}
+
+					// Auto-complete blank second half (the constant aad3b435b51404ee is not an encrypted value)
+					secondHalf := strings.ToLower(hash.HashValue[16:32])
+					if secondHalf == "aad3b435b51404ee" {
+						debug.Info("Auto-completing blank LM second half [hash_id=%s]", hash.ID)
+						err = s.lmHashRepo.UpdateLMHalfCrack(ctx, tx, hash.ID, "second", "")
+						if err != nil {
+							debug.Error("Failed to auto-complete blank second half: %v", err)
+						} else {
+							metadata.SecondHalfCracked = true
+							metadata.SecondHalfPassword = sql.NullString{String: "", Valid: true}
+						}
+					}
+				} else {
+					metadata.SecondHalfCracked = true
+					metadata.SecondHalfPassword = sql.NullString{String: password, Valid: true}
+
+					// Auto-complete blank first half if applicable
+					firstHalf := strings.ToLower(hash.HashValue[0:16])
+					if firstHalf == "aad3b435b51404ee" && !metadata.FirstHalfCracked {
+						debug.Info("Auto-completing blank LM first half [hash_id=%s]", hash.ID)
+						err = s.lmHashRepo.UpdateLMHalfCrack(ctx, tx, hash.ID, "first", "")
+						if err != nil {
+							debug.Error("Failed to auto-complete blank first half: %v", err)
+						} else {
+							metadata.FirstHalfCracked = true
+							metadata.FirstHalfPassword = sql.NullString{String: "", Valid: true}
+						}
+					}
+				}
+
+				// Check if both halves are now cracked
+				wasFinalized, fullPassword, err := s.lmHashRepo.CheckAndFinalizeLMCrack(ctx, tx, hash.ID)
+				if err != nil {
+					debug.Error("Failed to check LM finalization: %v", err)
+					continue
+				}
+
+				if wasFinalized {
+					// Both halves cracked - mark main hash as cracked
+					hashUpdateBatch = append(hashUpdateBatch, repository.HashUpdate{
+						HashID:    hash.ID,
+						Password:  fullPassword,
+						Username:  nil,
+						CrackedAt: crackedAt,
+					})
+
+					crackedCount++
+					txHashCount++
+
+					debug.Info("LM FULLY CRACKED [hash_id=%s, full_password='%s']", hash.ID, fullPassword)
+
+					// Query which hashlists contain this hash and increment their counters
+					hashlistIDs, err := s.hashRepo.GetHashlistIDsForHash(ctx, hash.ID)
+					if err != nil {
+						debug.Warning("Failed to get hashlist IDs for hash %s: %v", hash.ID, err)
+					} else {
+						for _, hashlistID := range hashlistIDs {
+							affectedHashlists[hashlistID]++
+						}
+					}
+
+					// Stage for potfile if enabled
+					if shouldStagePotfile {
+						potfileBatch = append(potfileBatch, services.PotfileStagingEntry{
+							Password:  fullPassword,
+							HashValue: hash.HashValue,
+						})
+					}
+				}
+
+				// Execute batched updates and commit when batch is full
+				if txHashCount >= batchSize {
+					// Execute the batched updates in one query
+					if len(hashUpdateBatch) > 0 {
+						rowsAffected, err := s.hashRepo.UpdateCrackStatusBatch(tx, hashUpdateBatch)
+						if err != nil {
+							return fmt.Errorf("failed to batch update hashes: %w", err)
+						}
+						debug.Info("Batch updated %d LM hashes out of %d queued", rowsAffected, len(hashUpdateBatch))
+						hashUpdateBatch = nil
+					}
+
+					if err := commitTx(); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	} else {
+		// NON-LM HASH PROCESSING (original logic)
+		// Process each cracked hash
+		for _, crackedEntry := range crackedHashes {
+			hashValue := crackedEntry.Hash
+			password := crackedEntry.Plain
+			crackPos := crackedEntry.CrackPos
+
+			// Lookup from our pre-loaded map instead of querying database
+			hashes, found := hashMap[hashValue]
+			if !found || len(hashes) == 0 {
+				debug.Log("Hash not found in hashlist", map[string]interface{}{
+					"hash_value":  hashValue,
+					"hashlist_id": jobExecution.HashlistID,
+				})
+				continue
+			}
+
+			// Update ALL hashes with this hash_value (e.g., multiple users with same password)
+			// This ensures that Administrator, Administrator1, Administrator2 all get marked as cracked
+			for _, hash := range hashes {
 			// Check if hash is already cracked to prevent double counting
 			if hash.IsCracked {
 				debug.Warning("Skipping already-cracked hash in crack batch [hash_id=%s, hash_value=%s, current_password=%s, new_password=%s, last_updated=%v, hashlist_id=%d]",
@@ -1527,6 +1713,44 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 				"password":    password,
 			})
 
+			// Check if this NTLM hash has a linked LM hash and propagate crack
+			if jobExecution.HashType == 1000 { // NTLM
+				linkedLMHash, err := s.hashRepo.GetLinkedHash(ctx, hash.ID, "lm_ntlm")
+				if err != nil {
+					debug.Warning("Failed to check for linked LM hash: %v", err)
+				} else if linkedLMHash != nil && linkedLMHash.HashTypeID == 3000 {
+					// Check if LM hash is already cracked
+					if !linkedLMHash.IsCracked {
+						// Uppercase the NTLM password for LM
+						lmPassword := strings.ToUpper(password)
+
+						debug.Info("Propagating crack from NTLM hash %s to linked LM hash %s (password: %s -> %s)",
+							hash.ID, linkedLMHash.ID, password, lmPassword)
+
+						// Add LM hash to update batch
+						hashUpdateBatch = append(hashUpdateBatch, repository.HashUpdate{
+							HashID:    linkedLMHash.ID,
+							Password:  lmPassword,
+							Username:  nil,
+							CrackedAt: crackedAt,
+						})
+						txHashCount++
+
+						// Track affected hashlists for the linked LM hash
+						lmHashlistIDs, err := s.hashRepo.GetHashlistIDsForHash(ctx, linkedLMHash.ID)
+						if err != nil {
+							debug.Warning("Failed to get hashlist IDs for linked LM hash %s: %v", linkedLMHash.ID, err)
+						} else {
+							for _, hashlistID := range lmHashlistIDs {
+								affectedHashlists[hashlistID]++
+							}
+						}
+					} else {
+						debug.Debug("Linked LM hash %s is already cracked, skipping propagation", linkedLMHash.ID)
+					}
+				}
+			}
+
 			// Execute batched updates and commit when batch is full
 			if txHashCount >= batchSize {
 				// Execute the batched updates in one query
@@ -1550,25 +1774,26 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 			}
 		}
 
-		// Stage password for pot-file (batched, done once per unique hash value)
-		// All checks pre-loaded before loop to avoid millions of redundant queries
-		if shouldStagePotfile {
-			potfileBatch = append(potfileBatch, services.PotfileStagingEntry{
-				Password:  password,
-				HashValue: hashValue,
-			})
+			// Stage password for pot-file (batched, done once per unique hash value)
+			// All checks pre-loaded before loop to avoid millions of redundant queries
+			if shouldStagePotfile {
+				potfileBatch = append(potfileBatch, services.PotfileStagingEntry{
+					Password:  password,
+					HashValue: hashValue,
+				})
 
-			// Flush batch when it reaches size limit
-			if len(potfileBatch) >= potfileBatchSize {
-				if err := s.potfileService.StageBatch(ctx, potfileBatch); err != nil {
-					debug.Warning("Failed to stage password batch for pot-file: %v", err)
-				} else {
-					debug.Info("Successfully staged %d passwords for pot-file", len(potfileBatch))
+				// Flush batch when it reaches size limit
+				if len(potfileBatch) >= potfileBatchSize {
+					if err := s.potfileService.StageBatch(ctx, potfileBatch); err != nil {
+						debug.Warning("Failed to stage password batch for pot-file: %v", err)
+					} else {
+						debug.Info("Successfully staged %d passwords for pot-file", len(potfileBatch))
+					}
+					potfileBatch = nil // Reset batch
 				}
-				potfileBatch = nil // Reset batch
 			}
 		}
-	}
+	} // End of else block for non-LM processing
 
 	// Flush any remaining hash updates before committing
 	if len(hashUpdateBatch) > 0 && tx != nil {

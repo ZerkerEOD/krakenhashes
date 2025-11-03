@@ -78,6 +78,7 @@ func SetupWebSocketWithJobRoutes(
 	presetJobRepo := repository.NewPresetJobRepository(sqlDB)
 	hashlistRepo := repository.NewHashListRepository(database)
 	hashRepo := repository.NewHashRepository(database)
+	lmHashRepo := repository.NewLMHashRepository(database)
 	jobTaskRepo := repository.NewJobTaskRepository(database)
 	agentRepo := repository.NewAgentRepository(database)
 	jobExecutionRepo := repository.NewJobExecutionRepository(database)
@@ -187,6 +188,7 @@ func SetupWebSocketWithJobRoutes(
 		presetJobRepo,
 		hashlistRepo,
 		hashRepo,
+		lmHashRepo,
 		jobTaskRepo,
 		agentRepo,
 		deviceRepo,

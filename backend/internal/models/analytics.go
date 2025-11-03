@@ -32,36 +32,44 @@ type AnalyticsReport struct {
 // AnalyticsData contains all calculated analytics metrics
 type AnalyticsData struct {
 	Overview            OverviewStats       `json:"overview"`
+	WindowsHashes       *WindowsHashStats   `json:"windows_hashes,omitempty"`
 	LengthDistribution  LengthStats         `json:"length_distribution"`
 	ComplexityAnalysis  ComplexityStats     `json:"complexity_analysis"`
 	PositionalAnalysis  PositionalStats     `json:"positional_analysis"`
 	PatternDetection    PatternStats        `json:"pattern_detection"`
 	UsernameCorrelation UsernameStats       `json:"username_correlation"`
 	PasswordReuse       ReuseStats          `json:"password_reuse"`
+	HashReuse           HashReuseStats      `json:"hash_reuse"`
 	TemporalPatterns    TemporalStats       `json:"temporal_patterns"`
 	MaskAnalysis        MaskStats           `json:"mask_analysis"`
 	CustomPatterns      CustomPatternStats  `json:"custom_patterns"`
 	StrengthMetrics     StrengthStats       `json:"strength_metrics"`
 	TopPasswords        []TopPassword       `json:"top_passwords"`
+	LMPartialCracks     *LMPartialCrackStats `json:"lm_partial_cracks,omitempty"`
+	LMToNTLMMasks       *LMToNTLMMaskStats   `json:"lm_to_ntlm_masks,omitempty"`
 	Recommendations     []Recommendation    `json:"recommendations"`
 	DomainAnalytics     []DomainAnalytics   `json:"domain_analytics"`
 }
 
 // DomainAnalytics contains complete analytics for a specific domain
 type DomainAnalytics struct {
-	Domain              string             `json:"domain"`
-	Overview            OverviewStats      `json:"overview"`
-	LengthDistribution  LengthStats        `json:"length_distribution"`
-	ComplexityAnalysis  ComplexityStats    `json:"complexity_analysis"`
-	PositionalAnalysis  PositionalStats    `json:"positional_analysis"`
-	PatternDetection    PatternStats       `json:"pattern_detection"`
-	UsernameCorrelation UsernameStats      `json:"username_correlation"`
-	PasswordReuse       ReuseStats         `json:"password_reuse"`
-	TemporalPatterns    TemporalStats      `json:"temporal_patterns"`
-	MaskAnalysis        MaskStats          `json:"mask_analysis"`
-	CustomPatterns      CustomPatternStats `json:"custom_patterns"`
-	StrengthMetrics     StrengthStats      `json:"strength_metrics"`
-	TopPasswords        []TopPassword      `json:"top_passwords"`
+	Domain              string                `json:"domain"`
+	Overview            OverviewStats         `json:"overview"`
+	WindowsHashes       *WindowsHashStats     `json:"windows_hashes,omitempty"`
+	LengthDistribution  LengthStats           `json:"length_distribution"`
+	ComplexityAnalysis  ComplexityStats       `json:"complexity_analysis"`
+	PositionalAnalysis  PositionalStats       `json:"positional_analysis"`
+	PatternDetection    PatternStats          `json:"pattern_detection"`
+	UsernameCorrelation UsernameStats         `json:"username_correlation"`
+	PasswordReuse       ReuseStats            `json:"password_reuse"`
+	HashReuse           *HashReuseStats       `json:"hash_reuse,omitempty"`
+	TemporalPatterns    TemporalStats         `json:"temporal_patterns"`
+	MaskAnalysis        MaskStats             `json:"mask_analysis"`
+	CustomPatterns      CustomPatternStats    `json:"custom_patterns"`
+	StrengthMetrics     StrengthStats         `json:"strength_metrics"`
+	TopPasswords        []TopPassword         `json:"top_passwords"`
+	LMPartialCracks     *LMPartialCrackStats  `json:"lm_partial_cracks,omitempty"`
+	LMToNTLMMasks       *LMToNTLMMaskStats    `json:"lm_to_ntlm_masks,omitempty"`
 }
 
 // Scan implements sql.Scanner for AnalyticsData
@@ -302,6 +310,118 @@ func (ct CharacterTypes) GetCharsetSize() int {
 		size += 32 // Common special characters
 	}
 	return size
+}
+
+// WindowsHashStats contains statistics for all Windows-related hash types
+type WindowsHashStats struct {
+	Overview          WindowsOverviewStats        `json:"overview"`
+	NTLM              WindowsHashTypeStats        `json:"ntlm"`
+	LM                LMHashStats                 `json:"lm"`
+	NetNTLMv1         WindowsHashTypeStats        `json:"netntlmv1"`
+	NetNTLMv2         WindowsHashTypeStats        `json:"netntlmv2"`
+	DCC               WindowsHashTypeStats        `json:"dcc"`        // MS Cache
+	DCC2              WindowsHashTypeStats        `json:"dcc2"`       // MS Cache 2
+	Kerberos          KerberosStats               `json:"kerberos"`
+	LinkedCorrelation LinkedHashCorrelationStats  `json:"linked_correlation"`
+}
+
+// WindowsOverviewStats contains high-level Windows hash statistics
+type WindowsOverviewStats struct {
+	TotalWindows      int     `json:"total_windows"`      // Total Windows hash records (NTLM + LM + others)
+	CrackedWindows    int     `json:"cracked_windows"`
+	PercentageWindows float64 `json:"percentage_windows"`
+	UniqueUsers       int     `json:"unique_users"`       // Distinct usernames across all Windows hashes
+	LinkedPairs       int     `json:"linked_pairs"`       // Number of LM/NTLM linked pairs
+}
+
+// WindowsHashTypeStats contains statistics for a specific Windows hash type
+type WindowsHashTypeStats struct {
+	Total      int     `json:"total"`
+	Cracked    int     `json:"cracked"`
+	Percentage float64 `json:"percentage"`
+}
+
+// LMHashStats contains LM-specific statistics with length breakdown
+type LMHashStats struct {
+	WindowsHashTypeStats
+	UnderEight       int `json:"under_8"`           // Passwords <= 7 chars
+	EightToFourteen  int `json:"8_to_14"`           // Passwords 8-14 chars
+	PartiallyCracked int `json:"partially_cracked"` // Partial cracks
+}
+
+// KerberosStats contains Kerberos statistics with type breakdown
+type KerberosStats struct {
+	Total      int                             `json:"total"`   // All Kerberos types combined
+	Cracked    int                             `json:"cracked"`
+	Percentage float64                         `json:"percentage"`
+	ByType     map[string]WindowsHashTypeStats `json:"by_type"` // Breakdown by etype
+}
+
+// LinkedHashCorrelationStats shows correlation between LM and NTLM hashes
+type LinkedHashCorrelationStats struct {
+	TotalLinkedPairs int     `json:"total_linked_pairs"` // How many LM-NTLM pairs exist
+	BothCracked      int     `json:"both_cracked"`       // Both LM and NTLM cracked
+	OnlyNTLMCracked  int     `json:"only_ntlm_cracked"`  // NTLM cracked (implies LM known)
+	OnlyLMCracked    int     `json:"only_lm_cracked"`    // LM cracked (NTLM still unknown)
+	NeitherCracked   int     `json:"neither_cracked"`    // Neither cracked yet
+	PercentageBoth   float64 `json:"percentage_both"`
+}
+
+// HashReuseStats contains hash-based password reuse analysis
+type HashReuseStats struct {
+	TotalReused      int             `json:"total_reused"`       // Hashes appearing 2+ times
+	PercentageReused float64         `json:"percentage_reused"`
+	TotalUnique      int             `json:"total_unique"`
+	HashReuseInfo    []HashReuseInfo `json:"hash_reuse_info"`    // Top 50, paginated
+}
+
+// HashReuseInfo contains information about a reused hash value
+type HashReuseInfo struct {
+	HashValue        string            `json:"hash_value"`         // The actual hash
+	HashType         string            `json:"hash_type"`          // e.g., "NTLM", "LM"
+	Password         *string           `json:"password,omitempty"` // Cracked password if available
+	Users            []UserOccurrence  `json:"users"`              // All users with this hash
+	TotalOccurrences int               `json:"total_occurrences"`  // Total count across hashlists
+	UserCount        int               `json:"user_count"`         // Unique user count
+}
+
+// LMPartialCrackStats contains LM partial crack statistics
+type LMPartialCrackStats struct {
+	TotalPartial        int                     `json:"total_partial"`
+	FirstHalfOnly       int                     `json:"first_half_only"`
+	SecondHalfOnly      int                     `json:"second_half_only"`
+	PercentagePartial   float64                 `json:"percentage_partial"`     // Of total LM hashes
+	PartialCrackDetails []LMPartialCrackDetail  `json:"partial_crack_details"`  // Top 50, paginated
+}
+
+// LMPartialCrackDetail contains details about a partially cracked LM hash
+type LMPartialCrackDetail struct {
+	Username          *string `json:"username,omitempty"`
+	Domain            *string `json:"domain,omitempty"`
+	FirstHalfCracked  bool    `json:"first_half_cracked"`
+	FirstHalfPwd      *string `json:"first_half_pwd,omitempty"`
+	SecondHalfCracked bool    `json:"second_half_cracked"`
+	SecondHalfPwd     *string `json:"second_half_pwd,omitempty"`
+	HashlistName      string  `json:"hashlist_name"`
+}
+
+// LMToNTLMMaskStats contains LM-to-NTLM mask generation statistics
+type LMToNTLMMaskStats struct {
+	TotalLMCracked        int              `json:"total_lm_cracked"`
+	TotalMasksGenerated   int              `json:"total_masks_generated"`
+	Masks                 []LMNTLMMaskInfo `json:"masks"`                      // Top 50
+	TotalEstimatedKeyspace int64           `json:"total_estimated_keyspace"`   // Total combinations
+}
+
+// LMNTLMMaskInfo contains information about a generated mask for NTLM cracking
+type LMNTLMMaskInfo struct {
+	Mask              string  `json:"mask"`               // Hashcat mask (e.g., "?u?l?l?l?l?l?l?l?d?d?d")
+	LMPattern         string  `json:"lm_pattern"`         // Original LM pattern (e.g., "AAAAAADDD")
+	Count             int     `json:"count"`              // How many LM hashes match this pattern
+	Percentage        float64 `json:"percentage"`         // Percentage of total LM hashes
+	MatchPercentage   float64 `json:"match_percentage"`   // % of LM hashes matching this mask
+	EstimatedKeyspace int64   `json:"estimated_keyspace"` // Keyspace for this mask
+	ExampleLM         string  `json:"example_lm"`         // Example LM password
 }
 
 // CreateAnalyticsReportRequest represents the request to create a new analytics report

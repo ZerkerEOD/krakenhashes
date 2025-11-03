@@ -45,6 +45,11 @@ type Hash struct {
 	IsCracked    bool      `json:"is_cracked"`            // Flag indicating if the hash is cracked
 	Password     *string   `json:"password,omitempty"`    // The cracked password (if is_cracked is true)
 	LastUpdated  time.Time `json:"last_updated"`          // Timestamp of the last update (e.g., when cracked)
+
+	// LM hash partial crack status (only populated for hash_type_id 3000)
+	IsPartiallyLMCracked bool    `json:"is_partially_lm_cracked"` // True if only one half of the LM hash is cracked
+	LMFirstHalfPassword  *string `json:"lm_first_half_password,omitempty"`  // Password for first 7 chars (if first half cracked)
+	LMSecondHalfPassword *string `json:"lm_second_half_password,omitempty"` // Password for second 7 chars (if second half cracked)
 }
 
 // HashType represents a type of hash algorithm recognized by the system.
@@ -89,4 +94,25 @@ type HashSearchResult struct {
 type HashlistInfo struct {
 	ID   int64  `json:"id"`   // Hashlist ID (Changed from UUID)
 	Name string `json:"name"` // Hashlist Name
+}
+
+// LinkedHashlistDetection represents the detection results for LM/NTLM hashes
+type LinkedHashlistDetection struct {
+	HasBothTypes   bool   `json:"has_both_types"`    // Whether file contains both LM and NTLM hashes
+	LMCount        int    `json:"lm_count"`          // Count of LM hashes (excluding blank hashes)
+	NTLMCount      int    `json:"ntlm_count"`        // Count of NTLM hashes
+	BlankLMCount   int    `json:"blank_lm_count"`    // Count of blank LM hashes (AAD3B435B51404EE)
+	TotalLines     int    `json:"total_lines"`       // Total lines processed
+	SampleLine     string `json:"sample_line"`       // Sample line for format verification
+	DetectedFormat string `json:"detected_format"`   // Format detected (e.g., "pwdump")
+}
+
+// LinkedHashlistCreationRequest represents the request to create linked hashlists
+type LinkedHashlistCreationRequest struct {
+	Name               string    `json:"name" binding:"required"`
+	ClientID           uuid.UUID `json:"client_id"`
+	ExcludeFromPotfile bool      `json:"exclude_from_potfile"`
+	CreateLinked       bool      `json:"create_linked"`       // Whether to create linked hashlists
+	LMHashlistName     string    `json:"lm_hashlist_name"`   // Optional custom name for LM hashlist
+	NTLMHashlistName   string    `json:"ntlm_hashlist_name"` // Optional custom name for NTLM hashlist
 }

@@ -67,6 +67,80 @@ func (r *HashRepository) GetByHashValues(ctx context.Context, hashValues []strin
 	return hashes, nil
 }
 
+// LMHashMatch contains a hash and which half (first or second) matched the search
+type LMHashMatch struct {
+	Hash        *models.Hash
+	MatchedHalf string // "first" or "second"
+}
+
+// GetByHashValuesLMPartial finds LM hashes by matching 16-char half hashes
+// against the first or second 16 characters of full 32-char LM hashes.
+// Returns a map of: 16-char search half -> list of matching hashes with position indicator
+func (r *HashRepository) GetByHashValuesLMPartial(ctx context.Context, hashHalves []string) (map[string][]*LMHashMatch, error) {
+	if len(hashHalves) == 0 {
+		return make(map[string][]*LMHashMatch), nil
+	}
+
+	// Query that matches each 16-char half against LEFT or RIGHT of full hash
+	// and returns which position matched
+	query := `
+		SELECT
+			h.id, h.hash_value, h.original_hash, h.hash_type_id, h.is_cracked,
+			h.password, h.last_updated, h.username, h.domain,
+			search_half,
+			CASE
+				WHEN LEFT(h.hash_value, 16) = search_half THEN 'first'
+				WHEN RIGHT(h.hash_value, 16) = search_half THEN 'second'
+			END AS matched_half
+		FROM hashes h
+		CROSS JOIN LATERAL unnest($1::text[]) AS search_half
+		WHERE (LEFT(h.hash_value, 16) = search_half OR RIGHT(h.hash_value, 16) = search_half)
+		  AND h.hash_type_id = 3000
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, pq.Array(hashHalves))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get LM hashes by partial values: %w", err)
+	}
+	defer rows.Close()
+
+	// Build map: 16-char half -> list of matches
+	result := make(map[string][]*LMHashMatch)
+	for rows.Next() {
+		var hash models.Hash
+		var searchHalf string
+		var matchedHalf string
+
+		if err := rows.Scan(
+			&hash.ID,
+			&hash.HashValue,
+			&hash.OriginalHash,
+			&hash.HashTypeID,
+			&hash.IsCracked,
+			&hash.Password,
+			&hash.LastUpdated,
+			&hash.Username,
+			&hash.Domain,
+			&searchHalf,
+			&matchedHalf,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan LM hash row: %w", err)
+		}
+
+		match := &LMHashMatch{
+			Hash:        &hash,
+			MatchedHalf: matchedHalf,
+		}
+
+		result[searchHalf] = append(result[searchHalf], match)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating LM hash rows: %w", err)
+	}
+
+	return result, nil
+}
+
 // CreateBatch inserts multiple new hash records into the database.
 // It returns the newly created hashes (potentially with updated IDs from the DB, though UUIDs are generated client-side here).
 func (r *HashRepository) CreateBatch(ctx context.Context, hashes []*models.Hash) ([]*models.Hash, error) {
@@ -357,10 +431,19 @@ func (r *HashRepository) GetHashesByHashlistID(ctx context.Context, hashlistID i
 
 	// Query to retrieve the paginated hashes
 	// Sort by is_cracked DESC to show cracked hashes first, then by id for consistency
+	// Include LM metadata for partial crack status
 	query := `
-		SELECT h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated
+		SELECT
+			h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated,
+			COALESCE(
+				(lm.first_half_cracked OR lm.second_half_cracked) AND NOT (lm.first_half_cracked AND lm.second_half_cracked),
+				FALSE
+			) AS is_partially_lm_cracked,
+			lm.first_half_password,
+			lm.second_half_password
 		FROM hashes h
 		JOIN hashlist_hashes hlh ON h.id = hlh.hash_id
+		LEFT JOIN lm_hash_metadata lm ON h.id = lm.hash_id
 		WHERE hlh.hashlist_id = $1
 		ORDER BY h.is_cracked DESC, h.id
 		LIMIT $2 OFFSET $3
@@ -374,6 +457,62 @@ func (r *HashRepository) GetHashesByHashlistID(ctx context.Context, hashlistID i
 	var hashes []models.Hash
 	for rows.Next() {
 		var hash models.Hash
+		var lmFirstHalfPassword, lmSecondHalfPassword sql.NullString
+
+		if err := rows.Scan(
+			&hash.ID,
+			&hash.HashValue,
+			&hash.OriginalHash,
+			&hash.Username,
+			&hash.Domain,
+			&hash.HashTypeID,
+			&hash.IsCracked,
+			&hash.Password,
+			&hash.LastUpdated,
+			&hash.IsPartiallyLMCracked,
+			&lmFirstHalfPassword,
+			&lmSecondHalfPassword,
+		); err != nil {
+			return nil, 0, fmt.Errorf("failed to scan hash row for hashlist %d: %w", hashlistID, err)
+		}
+
+		// Convert sql.NullString to *string for LM passwords
+		if lmFirstHalfPassword.Valid {
+			hash.LMFirstHalfPassword = &lmFirstHalfPassword.String
+		}
+		if lmSecondHalfPassword.Valid {
+			hash.LMSecondHalfPassword = &lmSecondHalfPassword.String
+		}
+
+		hashes = append(hashes, hash)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("error iterating hash rows for hashlist %d: %w", hashlistID, err)
+	}
+
+	return hashes, totalCount, nil
+}
+
+// GetAllHashesByHashlistID retrieves ALL hashes for a hashlist (no pagination)
+// Used for creating hash links between hashlists
+func (r *HashRepository) GetAllHashesByHashlistID(ctx context.Context, hashlistID int64) ([]*models.Hash, error) {
+	query := `
+		SELECT h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated
+		FROM hashes h
+		JOIN hashlist_hashes hlh ON h.id = hlh.hash_id
+		WHERE hlh.hashlist_id = $1
+		ORDER BY h.id
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, hashlistID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all hashes for hashlist %d: %w", hashlistID, err)
+	}
+	defer rows.Close()
+
+	var hashes []*models.Hash
+	for rows.Next() {
+		hash := &models.Hash{}
 		if err := rows.Scan(
 			&hash.ID,
 			&hash.HashValue,
@@ -385,15 +524,16 @@ func (r *HashRepository) GetHashesByHashlistID(ctx context.Context, hashlistID i
 			&hash.Password,
 			&hash.LastUpdated,
 		); err != nil {
-			return nil, 0, fmt.Errorf("failed to scan hash row for hashlist %d: %w", hashlistID, err)
+			return nil, fmt.Errorf("failed to scan hash row: %w", err)
 		}
 		hashes = append(hashes, hash)
 	}
-	if err = rows.Err(); err != nil {
-		return nil, 0, fmt.Errorf("error iterating hash rows for hashlist %d: %w", hashlistID, err)
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating hash rows for hashlist %d: %w", hashlistID, err)
 	}
 
-	return hashes, totalCount, nil
+	return hashes, nil
 }
 
 // GetUncrackedHashValuesByHashlistID retrieves only the hash_value strings for uncracked hashes
@@ -955,6 +1095,56 @@ func (r *HashRepository) StreamUncrackedHashValuesForHashlist(
 	return nil
 }
 
+// StreamUncrackedLMHashHalvesForHashlist streams unique 16-character halves for LM hashlists.
+// LM hashes must be cracked as two separate 16-character halves, not as full 32-character hashes.
+// This method extracts both first and second halves from each LM hash and returns only unique values
+// to avoid sending duplicates (e.g., the blank constant aad3b435b51404ee will appear only once).
+func (r *HashRepository) StreamUncrackedLMHashHalvesForHashlist(
+	ctx context.Context,
+	hashlistID int64,
+	callback func(hashHalf string) error,
+) error {
+	query := `
+		SELECT DISTINCT half
+		FROM (
+			SELECT SUBSTRING(h.hash_value, 1, 16) AS half
+			FROM hashes h
+			INNER JOIN hashlist_hashes hh ON h.id = hh.hash_id
+			WHERE hh.hashlist_id = $1 AND h.is_cracked = FALSE
+			UNION
+			SELECT SUBSTRING(h.hash_value, 17, 16) AS half
+			FROM hashes h
+			INNER JOIN hashlist_hashes hh ON h.id = hh.hash_id
+			WHERE hh.hashlist_id = $1 AND h.is_cracked = FALSE
+		) AS halves
+		ORDER BY half
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, hashlistID)
+	if err != nil {
+		return fmt.Errorf("failed to query LM hash halves for hashlist %d: %w", hashlistID, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var hashHalf string
+		if err := rows.Scan(&hashHalf); err != nil {
+			return fmt.Errorf("failed to scan LM hash half for hashlist %d: %w", hashlistID, err)
+		}
+
+		// Call callback for each unique hash half
+		if err := callback(hashHalf); err != nil {
+			return fmt.Errorf("callback error for hashlist %d: %w", hashlistID, err)
+		}
+	}
+
+	if err = rows.Err(); err != nil {
+		return fmt.Errorf("error iterating LM hash halves for hashlist %d: %w", hashlistID, err)
+	}
+
+	return nil
+}
+
 // GetHashlistIDsForHash returns all hashlist IDs that contain a specific hash.
 // This is used to determine which hashlists need their counters updated when a hash is cracked.
 func (r *HashRepository) GetHashlistIDsForHash(ctx context.Context, hashID uuid.UUID) ([]int64, error) {
@@ -984,4 +1174,104 @@ func (r *HashRepository) GetHashlistIDsForHash(ctx context.Context, hashID uuid.
 	}
 
 	return hashlistIDs, nil
+}
+
+// BatchLinkHashes creates links between pairs of hashes in bulk
+func (r *HashRepository) BatchLinkHashes(ctx context.Context, links []struct {
+	HashID1  uuid.UUID
+	HashID2  uuid.UUID
+	LinkType string
+}) error {
+	if len(links) == 0 {
+		return nil
+	}
+
+	query := `
+		INSERT INTO linked_hashes (hash_id_1, hash_id_2, link_type, created_at)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (hash_id_1, hash_id_2) DO NOTHING
+	`
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction for batch link hashes: %w", err)
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.PrepareContext(ctx, query)
+	if err != nil {
+		return fmt.Errorf("failed to prepare batch link hashes statement: %w", err)
+	}
+	defer stmt.Close()
+
+	now := time.Now()
+	for _, link := range links {
+		_, err := stmt.ExecContext(ctx, link.HashID1, link.HashID2, link.LinkType, now)
+		if err != nil {
+			return fmt.Errorf("failed to link hashes %s and %s: %w", link.HashID1, link.HashID2, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit batch link hashes transaction: %w", err)
+	}
+
+	return nil
+}
+
+// GetLinkedHash returns the linked hash for a given hash ID
+func (r *HashRepository) GetLinkedHash(ctx context.Context, hashID uuid.UUID, linkType string) (*models.Hash, error) {
+	// Check both directions: either hash_id_1 or hash_id_2 could be our ID
+	query := `
+		SELECT h.id, h.hash_value, h.original_hash, h.password, h.is_cracked,
+		       h.username, h.domain, h.hash_type_id, h.last_updated
+		FROM hashes h
+		INNER JOIN linked_hashes lh ON (
+			(lh.hash_id_1 = $1 AND lh.hash_id_2 = h.id) OR
+			(lh.hash_id_2 = $1 AND lh.hash_id_1 = h.id)
+		)
+		WHERE lh.link_type = $2
+		LIMIT 1
+	`
+
+	var hash models.Hash
+	var originalHash sql.NullString
+	var password sql.NullString
+	var username sql.NullString
+	var domain sql.NullString
+
+	err := r.db.QueryRowContext(ctx, query, hashID, linkType).Scan(
+		&hash.ID,
+		&hash.HashValue,
+		&originalHash,
+		&password,
+		&hash.IsCracked,
+		&username,
+		&domain,
+		&hash.HashTypeID,
+		&hash.LastUpdated,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, nil // No linked hash found
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get linked hash for %s: %w", hashID, err)
+	}
+
+	// Handle nullable fields
+	if originalHash.Valid {
+		hash.OriginalHash = originalHash.String
+	}
+	if password.Valid {
+		hash.Password = &password.String
+	}
+	if username.Valid {
+		hash.Username = &username.String
+	}
+	if domain.Valid {
+		hash.Domain = &domain.String
+	}
+
+	return &hash, nil
 }

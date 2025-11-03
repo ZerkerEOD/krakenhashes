@@ -11,7 +11,11 @@ import {
   IconButton,
   Chip,
   FormControlLabel,
-  Checkbox
+  Checkbox,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import { Clear as ClearIcon } from '@mui/icons-material';
 import ClientAutocomplete from './ClientAutocomplete';
@@ -67,10 +71,14 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
   const [potfileGloballyEnabled, setPotfileGloballyEnabled] = useState(true);
   const [clientPotfileEnabled, setClientPotfileEnabled] = useState(true);
   const [requireClient, setRequireClient] = useState(false);
+  const [detectionResult, setDetectionResult] = useState<any>(null);
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [isDetecting, setIsDetecting] = useState(false);
+  const [createLinked, setCreateLinked] = useState(false);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  const { control, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
+  const { control, handleSubmit, reset, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(createSchema(requireClient)),
     defaultValues: {
       name: '',
@@ -87,11 +95,29 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
     .filter(line => line.trim().length > 0)
     .length;
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
-      setFile(acceptedFiles[0]);
-      // Clear pasted content when file is selected
+      const selectedFile = acceptedFiles[0];
+      setFile(selectedFile);
       setPastedHashes('');
+
+      // Call detection endpoint to check for LM/NTLM hashes
+      setIsDetecting(true);
+      try {
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        const response = await api.post('/api/hashlists/detect-linked', formData);
+
+        if (response.data.has_both_types) {
+          setDetectionResult(response.data);
+          setShowLinkDialog(true);
+        }
+      } catch (error) {
+        console.error('Detection failed:', error);
+        // Continue with normal upload on detection failure
+      } finally {
+        setIsDetecting(false);
+      }
     }
   }, []);
 
@@ -192,6 +218,9 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
       if (data.clientName) formData.append('client_name', data.clientName);
       if (data.excludeFromPotfile !== undefined) {
         formData.append('exclude_from_potfile', data.excludeFromPotfile.toString());
+      }
+      if (createLinked) {
+        formData.append('create_linked', 'true');
       }
 
       return api.post('/api/hashlists', formData, {
@@ -442,6 +471,41 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
           Error uploading hashlist: {(uploadMutation.error as Error)?.message || 'An unknown error occurred'}
         </Typography>
       )}
+
+      {/* Detection Dialog */}
+      <Dialog open={showLinkDialog} onClose={() => setShowLinkDialog(false)}>
+        <DialogTitle>LM/NTLM Hashes Detected</DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" gutterBottom>
+            Detected pwdump format file with:
+          </Typography>
+          <Box component="ul" sx={{ mt: 1 }}>
+            <li><Typography variant="body2">{detectionResult?.lm_count || 0} LM hashes (non-blank)</Typography></li>
+            <li><Typography variant="body2">{detectionResult?.ntlm_count || 0} NTLM hashes</Typography></li>
+            <li><Typography variant="body2">{detectionResult?.blank_lm_count || 0} blank LM hashes (empty password - will be skipped)</Typography></li>
+          </Box>
+          <Typography variant="body2" sx={{ mt: 2 }}>
+            Would you like to create two linked hashlists for separate cracking workflows?
+          </Typography>
+          <Typography variant="caption" color="textSecondary" display="block" sx={{ mt: 1 }}>
+            This will create "{control._formValues.name}-LM" and "{control._formValues.name}-NTLM" hashlists that are linked together.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setShowLinkDialog(false);
+            setCreateLinked(false);
+          }}>
+            Upload as Single List
+          </Button>
+          <Button variant="contained" onClick={() => {
+            setShowLinkDialog(false);
+            setCreateLinked(true);
+          }}>
+            Create Linked Lists
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
