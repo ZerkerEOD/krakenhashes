@@ -1041,8 +1041,8 @@ func (h *UserJobsHandler) ForceCompleteJob(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Get the job
-	job, err := h.jobExecRepo.GetByID(ctx, jobID)
+	// Get the job to verify it exists
+	_, err = h.jobExecRepo.GetByID(ctx, jobID)
 	if err != nil {
 		debug.Error("Failed to get job %s: %v", jobID, err)
 		http.Error(w, "Job not found", http.StatusNotFound)
