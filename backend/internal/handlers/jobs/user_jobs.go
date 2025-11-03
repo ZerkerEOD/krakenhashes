@@ -1029,6 +1029,62 @@ func (h *UserJobsHandler) RetryTask(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ForceCompleteJob handles POST /api/jobs/{id}/force-complete
+// This is a temporary endpoint to force complete jobs that are stuck
+func (h *UserJobsHandler) ForceCompleteJob(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+
+	jobID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get the job
+	job, err := h.jobExecRepo.GetByID(ctx, jobID)
+	if err != nil {
+		debug.Error("Failed to get job %s: %v", jobID, err)
+		http.Error(w, "Job not found", http.StatusNotFound)
+		return
+	}
+
+	// Get all tasks for this job
+	tasks, err := h.jobTaskRepo.GetTasksByJobExecution(ctx, jobID)
+	if err != nil {
+		debug.Error("Failed to get tasks for job %s: %v", jobID, err)
+		http.Error(w, "Failed to get tasks", http.StatusInternalServerError)
+		return
+	}
+
+	// Mark all non-completed/non-failed tasks as completed
+	completedCount := 0
+	for _, task := range tasks {
+		if task.Status != models.JobTaskStatusCompleted && task.Status != models.JobTaskStatusFailed {
+			if err := h.jobTaskRepo.UpdateStatus(ctx, task.ID, models.JobTaskStatusCompleted); err != nil {
+				debug.Error("Failed to update task %s status: %v", task.ID, err)
+				continue
+			}
+			completedCount++
+		}
+	}
+
+	// Update job status to completed
+	if err := h.jobExecRepo.UpdateStatus(ctx, jobID, models.JobExecutionStatusCompleted); err != nil {
+		debug.Error("Failed to update job status: %v", err)
+		http.Error(w, "Failed to complete job", http.StatusInternalServerError)
+		return
+	}
+
+	debug.Info("Force completed job %s: %d tasks marked as completed", jobID, completedCount)
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message":         fmt.Sprintf("Job force completed successfully. %d tasks marked as completed.", completedCount),
+		"tasks_completed": completedCount,
+	})
+}
+
 // stopAgentTasks sends stop signals to all agents working on tasks for a job
 func (h *UserJobsHandler) stopAgentTasks(ctx context.Context, jobID uuid.UUID) error {
 	// Get all tasks for this job

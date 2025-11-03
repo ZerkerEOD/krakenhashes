@@ -18,7 +18,12 @@ import {
   Skeleton,
   TextField,
   IconButton,
-  Link
+  Link,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions
 } from '@mui/material';
 import {
   ArrowBack,
@@ -26,7 +31,8 @@ import {
   Save as SaveIcon,
   Cancel as CancelIcon,
   Refresh as RefreshIcon,
-  Replay as ReplayIcon
+  Replay as ReplayIcon,
+  CheckCircle as CheckCircleIcon
 } from '@mui/icons-material';
 import { getJobDetails, api } from '../../services/api';
 import { JobDetailsResponse, JobTask } from '../../types/jobs';
@@ -53,7 +59,11 @@ const JobDetails: React.FC = () => {
   const [tempMaxAgents, setTempMaxAgents] = useState<string>('');
   const [tempChunkSize, setTempChunkSize] = useState<string>('');
   const [saving, setSaving] = useState(false);
-  
+
+  // Force complete dialog state
+  const [forceCompleteDialogOpen, setForceCompleteDialogOpen] = useState(false);
+  const [forceCompleting, setForceCompleting] = useState(false);
+
   // Completed tasks pagination state
   const [completedTasksPage, setCompletedTasksPage] = useState(0);
   const [completedTasksPageSize, setCompletedTasksPageSize] = useState(25);
@@ -289,6 +299,25 @@ const JobDetails: React.FC = () => {
     } catch (err) {
       console.error('Failed to retry task:', err);
       setError('Failed to retry task');
+    }
+  };
+
+  // Handle force complete job
+  const handleForceComplete = async () => {
+    if (!id) return;
+
+    setForceCompleting(true);
+    try {
+      await api.post(`/api/jobs/${id}/force-complete`);
+      await fetchJobDetails();
+      setForceCompleteDialogOpen(false);
+      enqueueSnackbar('Job force completed successfully', { variant: 'success' });
+    } catch (err: any) {
+      console.error('Failed to force complete job:', err);
+      const errorMessage = err.response?.data?.message || 'Failed to force complete job';
+      enqueueSnackbar(errorMessage, { variant: 'error' });
+    } finally {
+      setForceCompleting(false);
     }
   };
 
@@ -541,9 +570,22 @@ const JobDetails: React.FC = () => {
             />
           )}
         </Box>
-        <IconButton onClick={fetchJobDetails} disabled={loading} title="Refresh now">
-          <RefreshIcon />
-        </IconButton>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {(jobData.status === 'running' || jobData.status === 'pending') && (
+            <Button
+              variant="contained"
+              color="warning"
+              startIcon={<CheckCircleIcon />}
+              onClick={() => setForceCompleteDialogOpen(true)}
+              size="small"
+            >
+              Force Complete
+            </Button>
+          )}
+          <IconButton onClick={fetchJobDetails} disabled={loading} title="Refresh now">
+            <RefreshIcon />
+          </IconButton>
+        </Box>
       </Box>
 
       {/* Error Alert */}
@@ -998,6 +1040,46 @@ const JobDetails: React.FC = () => {
           )}
         </Paper>
       )}
+
+      {/* Force Complete Warning Dialog */}
+      <Dialog
+        open={forceCompleteDialogOpen}
+        onClose={() => !forceCompleting && setForceCompleteDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Force Complete Job</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            <strong>Warning:</strong> This will mark all incomplete tasks as completed and set the job status to completed.
+          </DialogContentText>
+          <DialogContentText sx={{ mt: 2 }}>
+            <strong>Only use this if:</strong>
+          </DialogContentText>
+          <DialogContentText component="ul" sx={{ mt: 1, pl: 2 }}>
+            <li>The job has actually finished processing all work</li>
+            <li>The job is stuck in running/pending status</li>
+            <li>You have verified the keyspace has been fully searched</li>
+          </DialogContentText>
+          <DialogContentText sx={{ mt: 2, fontStyle: 'italic', fontSize: '0.9em' }}>
+            Note: We are working on better ways to handle keyspace calculations and job completion detection under various circumstances.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setForceCompleteDialogOpen(false)} disabled={forceCompleting}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleForceComplete}
+            color="warning"
+            variant="contained"
+            disabled={forceCompleting}
+            startIcon={forceCompleting ? <CircularProgress size={20} /> : <CheckCircleIcon />}
+          >
+            {forceCompleting ? 'Completing...' : 'Force Complete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

@@ -127,6 +127,7 @@ func SetupUserRoutes(router *mux.Router, database *db.DB, dataDir string, binary
 	router.HandleFunc("/jobs/{id}", jobsHandler.GetJobDetail).Methods("GET", "OPTIONS")
 	router.HandleFunc("/jobs/{id}", jobsHandler.UpdateJob).Methods("PATCH", "OPTIONS")
 	router.HandleFunc("/jobs/{id}/retry", jobsHandler.RetryJob).Methods("POST", "OPTIONS")
+	router.HandleFunc("/jobs/{id}/force-complete", jobsHandler.ForceCompleteJob).Methods("POST", "OPTIONS")
 	router.HandleFunc("/jobs/{id}/tasks/{taskId}/retry", jobsHandler.RetryTask).Methods("POST", "OPTIONS")
 	router.HandleFunc("/jobs/{id}", jobsHandler.DeleteJob).Methods("DELETE", "OPTIONS")
 
