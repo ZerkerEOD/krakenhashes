@@ -147,6 +147,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Start auto-renewal for certbot mode (if enabled)
+	if certbotProvider, ok := tlsProvider.(*tlsprovider.CertbotProvider); ok {
+		certbotProvider.StartAutoRenewal()
+		debug.Info("Auto-renewal started for certbot mode")
+	}
+
 	// Get TLS configuration for server
 	serverTLSConfig, err := tlsProvider.GetTLSConfig()
 	if err != nil {

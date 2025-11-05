@@ -201,14 +201,28 @@ If you need to regenerate certificates (e.g., to add new SANs):
 KrakenHashes supports three TLS modes:
 
 1. **self-signed** (default): Automatically generates and manages certificates
-2. **provided**: Use your own certificates (set paths via environment variables)
-3. **certbot**: Integration with Let's Encrypt for public domains
+2. **provided**: Use your own certificates from any CA - [Detailed Guide](ssl-tls-provided-mode.md)
+3. **certbot**: Automated ACME certificate management (Let's Encrypt or custom CA) - [Custom ACME Guide](ssl-tls-custom-acme.md)
 
 To change modes, set the `KH_TLS_MODE` environment variable.
 
-## Certbot Mode (Let's Encrypt)
+### Choosing a Mode
 
-This mode allows you to use Let's Encrypt certificates via Certbot with Cloudflare DNS-01 challenge. This is ideal for internal applications that aren't publicly accessible.
+- **Self-Signed**: Best for development, testing, and isolated environments
+- **Provided**: Best for commercial CAs, existing certificates, or external certificate management
+- **Certbot**: Best for automated certificate lifecycle with ACME-compatible CAs
+
+## Certbot Mode (Automated ACME)
+
+This mode provides automated certificate management using the ACME protocol. It supports:
+- **Let's Encrypt** (default) - Public CA with 90-day certificates
+- **Custom ACME servers** - Internal PKI like Smallstep, HashiCorp Vault, etc.
+
+See the [Custom ACME Server Guide](ssl-tls-custom-acme.md) for using internal PKI systems.
+
+### Let's Encrypt Setup
+
+This setup uses Let's Encrypt with Cloudflare DNS-01 challenge, ideal for internal applications that aren't publicly accessible.
 
 ### Prerequisites
 

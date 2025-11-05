@@ -16,11 +16,8 @@ func NewProvider(config *ProviderConfig) (Provider, error) {
 		debug.Debug("Initializing self-signed certificate provider")
 		return NewSelfSignedProvider(config), nil
 	case ModeProvided:
-		debug.Debug("User-provided certificate provider requested")
-		// TODO: Implement provided certificate provider
-		err := fmt.Errorf("provided certificate provider not implemented yet")
-		debug.Error("Failed to create provider: %v", err)
-		return nil, err
+		debug.Debug("Initializing user-provided certificate provider")
+		return NewProvidedProvider(config), nil
 	case ModeCertbot:
 		debug.Debug("Initializing certbot certificate provider")
 		return NewCertbotProvider(config), nil

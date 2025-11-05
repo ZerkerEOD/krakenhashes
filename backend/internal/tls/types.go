@@ -59,6 +59,8 @@ type CertbotConfig struct {
 	Staging   bool
 	AutoRenew bool
 	RenewHook string
+	Server    string // Custom ACME server URL (default: Let's Encrypt)
+	ExtraArgs string // Additional certbot arguments for advanced configuration
 }
 
 // Provider defines the interface for different TLS providers

@@ -120,8 +120,14 @@ func (p *CertbotProvider) obtainCertificates() error {
 		"-d", p.config.CertbotConfig.Domain,
 	}
 
-	// Add staging flag if configured
-	if p.config.CertbotConfig.Staging {
+	// Add custom ACME server if specified
+	if p.config.CertbotConfig.Server != "" {
+		debug.Info("Using custom ACME server: %s", p.config.CertbotConfig.Server)
+		args = append(args, "--server", p.config.CertbotConfig.Server)
+	}
+
+	// Add staging flag if configured (only if no custom server specified)
+	if p.config.CertbotConfig.Staging && p.config.CertbotConfig.Server == "" {
 		debug.Info("Using Let's Encrypt staging environment")
 		args = append(args, "--staging")
 	}
@@ -131,6 +137,13 @@ func (p *CertbotProvider) obtainCertificates() error {
 		if domain != "" && domain != p.config.CertbotConfig.Domain {
 			args = append(args, "-d", domain)
 		}
+	}
+
+	// Add extra arguments for advanced configuration
+	if p.config.CertbotConfig.ExtraArgs != "" {
+		debug.Info("Adding extra certbot arguments: %s", p.config.CertbotConfig.ExtraArgs)
+		extraArgs := strings.Fields(p.config.CertbotConfig.ExtraArgs)
+		args = append(args, extraArgs...)
 	}
 
 	cmd := exec.Command("certbot", args...)
@@ -161,14 +174,25 @@ func (p *CertbotProvider) renewCertificates() error {
 		"--logs-dir", filepath.Join(p.config.CertsDir, "logs"),
 	}
 
-	// Add staging flag if configured
-	if p.config.CertbotConfig.Staging {
+	// Add custom ACME server if specified
+	if p.config.CertbotConfig.Server != "" {
+		args = append(args, "--server", p.config.CertbotConfig.Server)
+	}
+
+	// Add staging flag if configured (only if no custom server specified)
+	if p.config.CertbotConfig.Staging && p.config.CertbotConfig.Server == "" {
 		args = append(args, "--staging")
 	}
 
 	// Add renewal hook if specified
 	if p.config.CertbotConfig.RenewHook != "" {
 		args = append(args, "--deploy-hook", p.config.CertbotConfig.RenewHook)
+	}
+
+	// Add extra arguments for advanced configuration
+	if p.config.CertbotConfig.ExtraArgs != "" {
+		extraArgs := strings.Fields(p.config.CertbotConfig.ExtraArgs)
+		args = append(args, extraArgs...)
 	}
 
 	cmd := exec.Command("certbot", args...)

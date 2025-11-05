@@ -119,6 +119,8 @@ func LoadProviderConfig(appConfig *config.Config) (*ProviderConfig, error) {
 			Staging:   env.GetBool("KH_CERTBOT_STAGING"),
 			AutoRenew: env.GetBool("KH_CERTBOT_AUTO_RENEW"),
 			RenewHook: env.GetOrDefault("KH_CERTBOT_RENEW_HOOK", ""),
+			Server:    env.GetOrDefault("KH_CERTBOT_SERVER", ""),
+			ExtraArgs: env.GetOrDefault("KH_CERTBOT_EXTRA_ARGS", ""),
 		}
 
 		if domain == "" || email == "" {

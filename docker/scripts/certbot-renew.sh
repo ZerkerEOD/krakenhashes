@@ -33,9 +33,19 @@ CERTBOT_ARGS="${CERTBOT_ARGS} --config-dir /etc/krakenhashes/certs"
 CERTBOT_ARGS="${CERTBOT_ARGS} --work-dir /etc/krakenhashes/certs/work"
 CERTBOT_ARGS="${CERTBOT_ARGS} --logs-dir /etc/krakenhashes/certs/logs"
 
-# Add staging flag if configured
-if [ "${KH_CERTBOT_STAGING}" = "true" ]; then
+# Add custom ACME server if specified
+if [ -n "${KH_CERTBOT_SERVER}" ]; then
+    CERTBOT_ARGS="${CERTBOT_ARGS} --server ${KH_CERTBOT_SERVER}"
+fi
+
+# Add staging flag if configured (only if no custom server specified)
+if [ "${KH_CERTBOT_STAGING}" = "true" ] && [ -z "${KH_CERTBOT_SERVER}" ]; then
     CERTBOT_ARGS="${CERTBOT_ARGS} --staging"
+fi
+
+# Add extra arguments if specified
+if [ -n "${KH_CERTBOT_EXTRA_ARGS}" ]; then
+    CERTBOT_ARGS="${CERTBOT_ARGS} ${KH_CERTBOT_EXTRA_ARGS}"
 fi
 
 # Add post-hook to reload services
