@@ -205,13 +205,19 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 		}
 	}
 
-	// Get binary path from binary version
-	binaryVersion, err := s.binaryManager.GetVersion(ctx, int64(jobExecution.BinaryVersionID))
+	// Determine which binary to use: Agent → Job → Default
+	effectiveBinaryID, err := s.jobExecutionService.DetermineBinaryForTask(ctx, agent.ID, jobExecution.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get binary version %d: %w", jobExecution.BinaryVersionID, err)
+		return fmt.Errorf("failed to determine binary for task: %w", err)
+	}
+
+	// Get binary version details
+	binaryVersion, err := s.binaryManager.GetVersion(ctx, effectiveBinaryID)
+	if err != nil {
+		return fmt.Errorf("failed to get binary version %d: %w", effectiveBinaryID, err)
 	}
 	if binaryVersion == nil {
-		return fmt.Errorf("binary version %d not found", jobExecution.BinaryVersionID)
+		return fmt.Errorf("binary version %d not found", effectiveBinaryID)
 	}
 
 	// Use the actual binary path - the ID is used as the directory name
@@ -504,13 +510,19 @@ func (s *JobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, age
 		rulePaths = append(rulePaths, rulePath)
 	}
 
-	// Get binary path from binary version
-	binaryVersion, err := s.binaryManager.GetVersion(ctx, int64(jobExecution.BinaryVersionID))
+	// Determine which binary to use: Agent → Job → Default
+	effectiveBinaryID, err := s.jobExecutionService.DetermineBinaryForTask(ctx, agent.ID, jobExecution.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get binary version %d: %w", jobExecution.BinaryVersionID, err)
+		return fmt.Errorf("failed to determine binary for benchmark: %w", err)
+	}
+
+	// Get binary path from binary version
+	binaryVersion, err := s.binaryManager.GetVersion(ctx, effectiveBinaryID)
+	if err != nil {
+		return fmt.Errorf("failed to get binary version %d: %w", effectiveBinaryID, err)
 	}
 	if binaryVersion == nil {
-		return fmt.Errorf("binary version %d not found", jobExecution.BinaryVersionID)
+		return fmt.Errorf("binary version %d not found", effectiveBinaryID)
 	}
 
 	// Use the actual binary path - the ID is used as the directory name

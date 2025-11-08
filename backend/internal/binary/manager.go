@@ -466,6 +466,11 @@ func (m *manager) GetLatestActive(ctx context.Context, binaryType BinaryType) (*
 	return m.store.GetLatestActive(ctx, binaryType)
 }
 
+// GetDefault implements Manager.GetDefault
+func (m *manager) GetDefault(ctx context.Context, binaryType BinaryType) (*BinaryVersion, error) {
+	return m.store.GetDefault(ctx, binaryType)
+}
+
 // getBinaryPath returns the full path for a binary version
 func (m *manager) getBinaryPath(version *BinaryVersion) string {
 	path := filepath.Join(m.config.DataDir, fmt.Sprintf("%d", version.ID), version.FileName)

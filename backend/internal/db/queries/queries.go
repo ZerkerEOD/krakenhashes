@@ -19,6 +19,7 @@ const (
 			a.api_key_last_used, a.metadata, a.owner_id, a.extra_parameters, a.is_enabled,
 			a.consecutive_failures, a.scheduling_enabled, a.schedule_timezone,
 			a.sync_status, a.sync_started_at, a.sync_completed_at, a.files_to_sync, a.files_synced, a.sync_error,
+			a.binary_version_id, a.binary_override,
 			u.id, u.username, u.email, u.role
 		FROM agents a
 		LEFT JOIN users u ON a.created_by_id = u.id
@@ -32,6 +33,7 @@ const (
 			a.api_key_last_used, a.metadata, a.owner_id, a.extra_parameters, a.is_enabled,
 			a.consecutive_failures, a.scheduling_enabled, a.schedule_timezone,
 			a.sync_status, a.sync_started_at, a.sync_completed_at, a.files_to_sync, a.files_synced, a.sync_error,
+			a.binary_version_id, a.binary_override,
 			u.id, u.username, u.email, u.role
 		FROM agents a
 		LEFT JOIN users u ON a.created_by_id = u.id
@@ -80,12 +82,13 @@ const (
 		WHERE id = $1`
 
 	GetAgentByAPIKey = `
-		SELECT 
+		SELECT
 			a.id, a.name, a.status, a.last_error, a.last_heartbeat,
 			a.version, a.hardware, a.os_info, a.created_by_id, a.created_at,
 			a.updated_at, a.api_key, a.api_key_created_at,
 			a.api_key_last_used, a.metadata, a.owner_id, a.extra_parameters, a.is_enabled,
 			a.consecutive_failures, a.scheduling_enabled, a.schedule_timezone,
+			a.binary_version_id, a.binary_override,
 			u.id, u.username, u.email, u.role
 		FROM agents a
 		LEFT JOIN users u ON a.created_by_id = u.id

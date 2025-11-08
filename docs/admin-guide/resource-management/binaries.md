@@ -158,6 +158,8 @@ Agents download binaries through the following process:
 4. **Streaming Download**: Binary is streamed to the agent
 5. **Local Verification**: Agent verifies MD5 hash after download
 
+**Note**: Agents can be configured with a preferred binary version override. When an agent has a binary override set, it will download and use that specific version instead of the latest active version. This allows for per-agent binary selection based on hardware compatibility, testing requirements, or performance optimization.
+
 ### API Endpoints for Agents
 
 ```http
@@ -177,6 +179,53 @@ The agent file sync system (`agent/internal/sync/sync.go`) handles:
 - Retry logic for failed downloads
 - Local caching to avoid re-downloads
 - Integrity verification with MD5 hashes
+
+### Per-Agent Binary Overrides
+
+Users can configure individual agents to use specific binary versions, overriding system defaults.
+
+#### Configuration
+
+Agent binary overrides are set via the Agent Details page or API:
+
+```json
+// PUT /api/agents/{id}
+{
+  "binaryVersionId": 3,
+  "binaryOverride": true
+}
+```
+
+#### Selection Priority
+
+When determining which binary to use for an agent:
+
+1. **Agent Override**: If enabled, the agent uses its configured binary version
+2. **Job Binary**: For specific job executions, use the job's binary version
+3. **System Default**: Use the active default binary
+
+#### Impact on Agent Operations
+
+Agent binary overrides affect:
+- **Device Detection**: The agent uses the preferred binary to detect GPU/CPU capabilities
+- **Benchmarks**: Performance benchmarks run with the preferred binary for accurate metrics
+- **Job Execution**: Tasks execute using the agent's preferred binary (unless job specifies otherwise)
+
+#### Version Compatibility
+
+⚠️ **Hashcat 7.x Compatibility Note**: Hashcat version 7.x may detect GPU devices but fail to recognize them as usable for job execution, particularly with older GPU driver versions. If you experience device detection issues where devices appear in hardware detection but are not available for jobs:
+
+- Use Hashcat 6.x binaries (e.g., 6.2.6, 6.2.5) which have better driver compatibility
+- Configure affected agents to use 6.x binaries via the binary override feature
+- Update GPU drivers to the latest version before trying 7.x binaries
+
+#### Automatic Synchronization
+
+When an agent binary override is set or changed:
+1. Backend sends a `config_update` WebSocket message with the preferred binary version
+2. Agent receives the preference and updates its configuration
+3. If the binary isn't already downloaded, the file sync system downloads it
+4. Device detection runs with the preferred binary after download completes
 
 ## Updating and Replacing Binaries
 

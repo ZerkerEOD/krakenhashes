@@ -66,6 +66,8 @@ type Agent struct {
 	SyncError           sql.NullString    `json:"syncError"`
 	FilesToSync         int               `json:"filesToSync"`
 	FilesSynced         int               `json:"filesSynced"`
+	BinaryVersionID     sql.NullInt64     `json:"binaryVersionId,omitempty"` // Optional override binary version
+	BinaryOverride      bool              `json:"binaryOverride"`            // Whether binary_version_id is manually set
 }
 
 // Hardware represents the hardware configuration of an agent
@@ -133,4 +135,80 @@ func (a *Agent) ScanHardware(value interface{}) error {
 // Value returns the JSON encoding of Hardware for database storage
 func (h Hardware) Value() (driver.Value, error) {
 	return json.Marshal(h)
+}
+
+// MarshalJSON implements custom JSON marshalling for Agent to handle sql.NullInt64
+func (a Agent) MarshalJSON() ([]byte, error) {
+	// Create a struct with explicit fields to avoid embedding issues
+	type AgentJSON struct {
+		ID                  int               `json:"id"`
+		Name                string            `json:"name"`
+		Status              string            `json:"status"`
+		LastError           sql.NullString    `json:"lastError"`
+		LastSeen            time.Time         `json:"lastSeen"`
+		LastHeartbeat       time.Time         `json:"lastHeartbeat"`
+		Version             string            `json:"version"`
+		Hardware            Hardware          `json:"hardware"`
+		OSInfo              json.RawMessage   `json:"os_info"`
+		CreatedByID         uuid.UUID         `json:"createdById"`
+		CreatedBy           *User             `json:"createdBy,omitempty"`
+		Teams               []Team            `json:"teams,omitempty"`
+		CreatedAt           time.Time         `json:"createdAt"`
+		UpdatedAt           time.Time         `json:"updatedAt"`
+		Metadata            map[string]string `json:"metadata,omitempty"`
+		OwnerID             *uuid.UUID        `json:"ownerId,omitempty"`
+		ExtraParameters     string            `json:"extraParameters"`
+		IsEnabled           bool              `json:"isEnabled"`
+		ConsecutiveFailures int               `json:"consecutiveFailures"`
+		SchedulingEnabled   bool              `json:"schedulingEnabled"`
+		ScheduleTimezone    string            `json:"scheduleTimezone"`
+		SyncStatus          string            `json:"syncStatus"`
+		SyncCompletedAt     sql.NullTime      `json:"syncCompletedAt"`
+		SyncStartedAt       sql.NullTime      `json:"syncStartedAt"`
+		SyncError           sql.NullString    `json:"syncError"`
+		FilesToSync         int               `json:"filesToSync"`
+		FilesSynced         int               `json:"filesSynced"`
+		BinaryVersionID     *int64            `json:"binaryVersionId,omitempty"` // Custom handling for sql.NullInt64
+		BinaryOverride      bool              `json:"binaryOverride"`
+	}
+
+	temp := AgentJSON{
+		ID:                  a.ID,
+		Name:                a.Name,
+		Status:              a.Status,
+		LastError:           a.LastError,
+		LastSeen:            a.LastSeen,
+		LastHeartbeat:       a.LastHeartbeat,
+		Version:             a.Version,
+		Hardware:            a.Hardware,
+		OSInfo:              a.OSInfo,
+		CreatedByID:         a.CreatedByID,
+		CreatedBy:           a.CreatedBy,
+		Teams:               a.Teams,
+		CreatedAt:           a.CreatedAt,
+		UpdatedAt:           a.UpdatedAt,
+		Metadata:            a.Metadata,
+		OwnerID:             a.OwnerID,
+		ExtraParameters:     a.ExtraParameters,
+		IsEnabled:           a.IsEnabled,
+		ConsecutiveFailures: a.ConsecutiveFailures,
+		SchedulingEnabled:   a.SchedulingEnabled,
+		ScheduleTimezone:    a.ScheduleTimezone,
+		SyncStatus:          a.SyncStatus,
+		SyncCompletedAt:     a.SyncCompletedAt,
+		SyncStartedAt:       a.SyncStartedAt,
+		SyncError:           a.SyncError,
+		FilesToSync:         a.FilesToSync,
+		FilesSynced:         a.FilesSynced,
+		BinaryOverride:      a.BinaryOverride,
+	}
+
+	// Convert sql.NullInt64 to *int64 for proper JSON marshalling
+	if a.BinaryVersionID.Valid && a.BinaryVersionID.Int64 > 0 {
+		temp.BinaryVersionID = &a.BinaryVersionID.Int64
+	} else {
+		temp.BinaryVersionID = nil
+	}
+
+	return json.Marshal(temp)
 }

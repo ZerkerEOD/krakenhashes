@@ -285,6 +285,61 @@ lspci | grep -i vga  # General
    find ~/.krakenhashes/agent/data/binaries -name "hashcat*" -type f | xargs chmod +x
    ```
 
+### Devices Detected But Not Usable
+
+**Symptoms:**
+- Agent shows devices in hardware detection output
+- Devices appear in the admin panel
+- However, devices are not available for job execution
+- Jobs fail with "no devices available" errors
+
+**Common Cause:**
+
+Hashcat 7.x compatibility issues with older GPU drivers. Hashcat 7.x may detect devices but fail to initialize them for compute operations with certain driver versions.
+
+**Solutions:**
+
+1. **Use Hashcat 6.x Binary (Recommended)**
+   - Navigate to your Agent Details page in the web UI
+   - Enable "Binary Override" toggle
+   - Select a Hashcat 6.x version (e.g., 6.2.6 or 6.2.5) from the dropdown
+   - Click "Save"
+   - The agent will automatically download the binary
+   - Device detection will re-run with the 6.x binary
+
+2. **Update GPU Drivers**
+   ```bash
+   # NVIDIA - Use drivers 545.x or newer
+   sudo apt update
+   sudo apt install nvidia-driver-545  # or latest
+   sudo reboot
+
+   # AMD - Use ROCm 5.7 or newer / Adrenalin 23.12 or newer
+   # Follow AMD's official ROCm installation guide
+
+   # Verify driver installation
+   nvidia-smi  # NVIDIA
+   rocm-smi    # AMD
+   ```
+
+3. **Verify Driver Compatibility**
+   ```bash
+   # For NVIDIA - check driver version
+   nvidia-smi --query-gpu=driver_version --format=csv,noheader
+
+   # For AMD - check ROCm version
+   rocminfo | grep "Agent"
+
+   # Manually test hashcat with specific binary
+   ~/.krakenhashes/agent/data/binaries/3/hashcat.bin -I  # Replace 3 with your binary version
+   ```
+
+4. **Check Agent Logs**
+   ```bash
+   # Look for device initialization errors
+   journalctl -u krakenhashes-agent -n 100 | grep -i "device\|gpu\|opencl\|cuda"
+   ```
+
 ### Partial Device Detection
 
 **Symptoms:**
@@ -298,7 +353,7 @@ lspci | grep -i vga  # General
    ```bash
    # Ensure all necessary drivers installed
    nvidia-smi && rocm-smi && intel_gpu_top --list
-   
+
    # Check for driver conflicts
    dmesg | grep -i "gpu\|nvidia\|amd\|intel" | tail -20
    ```

@@ -329,6 +329,8 @@ func (h *AgentHandler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 		IsEnabled       bool    `json:"isEnabled"`
 		OwnerID         *string `json:"ownerId"`
 		ExtraParameters string  `json:"extraParameters"`
+		BinaryVersionID *int64  `json:"binaryVersionId"`
+		BinaryOverride  bool    `json:"binaryOverride"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -336,7 +338,7 @@ func (h *AgentHandler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update agent
-	if err := h.service.UpdateAgent(r.Context(), id, req.IsEnabled, req.OwnerID, req.ExtraParameters); err != nil {
+	if err := h.service.UpdateAgent(r.Context(), id, req.IsEnabled, req.OwnerID, req.ExtraParameters, req.BinaryVersionID, req.BinaryOverride); err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, "Agent not found", http.StatusNotFound)
 			return

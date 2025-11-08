@@ -48,11 +48,12 @@ import { api } from '../services/api';
 import { formatDistanceToNow } from 'date-fns';
 import DeviceMetricsChart from '../components/agent/DeviceMetricsChart';
 import AgentScheduling from '../components/agent/AgentScheduling';
-import { 
-  getAgentSchedules, 
-  toggleAgentScheduling, 
-  bulkUpdateAgentSchedules, 
-  deleteAgentSchedule 
+import {
+  getAgentSchedules,
+  toggleAgentScheduling,
+  bulkUpdateAgentSchedules,
+  deleteAgentSchedule,
+  getBinaryVersions
 } from '../services/api';
 import { AgentSchedule, AgentScheduleDTO } from '../types/scheduling';
 
@@ -83,6 +84,16 @@ interface Agent {
   ownerId?: string;
   extraParameters?: string;
   isEnabled?: boolean;
+  binaryVersionId?: number;
+  binaryOverride?: boolean;
+}
+
+interface BinaryVersion {
+  id: number;
+  file_name: string;
+  binary_type: string;
+  is_active: boolean;
+  is_default: boolean;
 }
 
 interface AgentDevice {
@@ -143,9 +154,15 @@ const AgentDetails: React.FC = () => {
   const [scheduleTimezone, setScheduleTimezone] = useState('UTC');
   const [schedules, setSchedules] = useState<AgentSchedule[]>([]);
 
+  // Binary configuration state
+  const [binaryVersions, setBinaryVersions] = useState<BinaryVersion[]>([]);
+  const [selectedBinaryId, setSelectedBinaryId] = useState<number | ''>('');
+  const [binaryOverride, setBinaryOverride] = useState(false);
+
   useEffect(() => {
     fetchAgentDetails();
     fetchUsers();
+    fetchBinaryVersions();
   }, [id]);
   
   // Fetch device metrics periodically
@@ -192,6 +209,8 @@ const AgentDetails: React.FC = () => {
       setIsEnabled(agentData.isEnabled !== undefined ? agentData.isEnabled : true);
       setOwnerId(agentData.ownerId || '');
       setExtraParameters(agentData.extraParameters || '');
+      setSelectedBinaryId(agentData.binaryVersionId || '');
+      setBinaryOverride(agentData.binaryOverride || false);
       
       // Initialize device states using device_id as the key
       const initialDeviceStates: { [key: number]: boolean } = {};
@@ -224,6 +243,16 @@ const AgentDetails: React.FC = () => {
       setUsers(response.data || []);
     } catch (err) {
       console.error('Failed to fetch users:', err);
+    }
+  };
+
+  const fetchBinaryVersions = async () => {
+    try {
+      const binaries = await getBinaryVersions('hashcat');
+      // Filter to only active binaries
+      setBinaryVersions(binaries.filter((b: BinaryVersion) => b.is_active));
+    } catch (err) {
+      console.error('Failed to fetch binary versions:', err);
     }
   };
   
@@ -434,6 +463,31 @@ const AgentDetails: React.FC = () => {
     }, 1000); // 1 second debounce
   };
 
+  // Handle binary configuration change
+  const handleBinaryChange = async (binaryId: number | '', override: boolean) => {
+    setSelectedBinaryId(binaryId);
+    setBinaryOverride(override);
+
+    try {
+      await api.put(`/api/agents/${id}`, {
+        isEnabled: isEnabled,
+        ownerId: ownerId || null,
+        extraParameters: extraParameters.trim(),
+        binaryVersionId: binaryId === '' ? null : binaryId,
+        binaryOverride: override
+      });
+      setSuccess(override && binaryId ? 'Agent binary override set' : 'Agent binary reset to default');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to update binary configuration');
+      // Revert on error
+      if (agent) {
+        setSelectedBinaryId(agent.binaryVersionId || '');
+        setBinaryOverride(agent.binaryOverride || false);
+      }
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
@@ -489,7 +543,38 @@ const AgentDetails: React.FC = () => {
                   label="Enabled"
                 />
               </Grid>
-              
+
+              <Grid item xs={12}>
+                <Typography variant="body2" color="text.secondary" gutterBottom>Agent Binary Configuration</Typography>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Hashcat Binary</InputLabel>
+                  <Select
+                    value={selectedBinaryId}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      handleBinaryChange(value === '' ? '' : Number(value), value !== '');
+                    }}
+                    label="Hashcat Binary"
+                  >
+                    <MenuItem value="">
+                      <em>Use System Default</em>
+                    </MenuItem>
+                    {binaryVersions.map((binary) => (
+                      <MenuItem key={binary.id} value={binary.id}>
+                        {binary.file_name} {binary.is_default && '(Default)'}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                  {binaryOverride && selectedBinaryId ? (
+                    <span style={{ color: '#ff9800' }}>⚠ Agent Override Active</span>
+                  ) : (
+                    'Using job or system default binary'
+                  )}
+                </Typography>
+              </Grid>
+
               <Grid item xs={12}>
                 <Typography variant="body2" color="text.secondary">Last Activity</Typography>
                 <Typography variant="body1">

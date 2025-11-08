@@ -18,11 +18,15 @@ The job scheduling service now implements a benchmark-first approach for job ass
 3. **Benchmark Request (if needed)**
    - If no valid benchmark exists, system sends enhanced benchmark request
    - Request includes actual job configuration:
-     - Binary version
+     - Binary version (determined by Agent Override → Job Binary → Default hierarchy)
      - Wordlists and rules (if applicable)
      - Mask (for brute force attacks)
      - Hash type and attack mode
      - Test duration (30 seconds)
+   - Binary version is determined using the hierarchy:
+     1. Agent-specific binary override (if configured)
+     2. Job execution's binary version
+     3. System default binary
    - Job assignment is deferred until benchmark completes
 
 4. **Benchmark Execution (Agent side)**
@@ -62,6 +66,7 @@ The job scheduling service now implements a benchmark-first approach for job ass
    - New method implementing the interface
    - Sends enhanced benchmark request with full job configuration
    - Includes wordlists, rules, mask, and binary information
+   - Uses `DetermineBinaryForTask()` to select appropriate binary (Agent → Job → Default)
 
 3. **WebSocket Types**
    - `BenchmarkRequestPayload` enhanced with job-specific fields

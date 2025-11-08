@@ -40,6 +40,8 @@ export interface Agent {
     isEnabled?: boolean;
     ownerId?: string;
     extraParameters?: string;
+    binaryVersionId?: number;
+    binaryOverride?: boolean;
     metadata?: {
         busy_status?: string;
         current_task_id?: string;
@@ -166,4 +168,17 @@ export interface ClaimVoucher {
         Int64: number;
         Valid: boolean;
     };
+}
+
+/**
+ * Represents a binary version available in the system
+ */
+export interface BinaryVersion {
+    id: number;
+    binary_type: 'hashcat' | 'john';
+    file_name: string;
+    is_active: boolean;
+    is_default: boolean;
+    verification_status: 'pending' | 'verified' | 'failed' | 'deleted';
+    created_at: string;
 } 
