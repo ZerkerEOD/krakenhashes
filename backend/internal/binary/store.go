@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db/queries"
+	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 )
 
 // store implements the Store interface for PostgreSQL
@@ -310,6 +311,24 @@ func (s *store) UpdateReferencesToDefault(ctx context.Context, oldID, newID int6
 	_, err = tx.ExecContext(ctx, queries.UpdateJobExecutionsBinaryReference, oldID, newID)
 	if err != nil {
 		return fmt.Errorf("failed to update job_executions references: %w", err)
+	}
+
+	// Reset agent binary overrides for agents using the deleted binary
+	// The ON DELETE SET NULL constraint will handle binary_version_id
+	// We just need to reset the binary_override flag to false
+	resetAgentsQuery := `
+		UPDATE agents
+		SET binary_override = false
+		WHERE binary_version_id = $1`
+	result, err := tx.ExecContext(ctx, resetAgentsQuery, oldID)
+	if err != nil {
+		return fmt.Errorf("failed to reset agent binary overrides: %w", err)
+	}
+
+	// Log how many agents were affected
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected > 0 {
+		debug.Info("Reset binary override for %d agents using binary %d", rowsAffected, oldID)
 	}
 
 	// Commit transaction

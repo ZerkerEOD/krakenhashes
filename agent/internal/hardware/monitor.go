@@ -10,10 +10,11 @@ import (
 
 // Monitor manages hardware monitoring
 type Monitor struct {
-	mu             sync.RWMutex
-	devices        []types.Device
-	hashcatDetector *HashcatDetector
-	dataDirectory   string
+	mu                     sync.RWMutex
+	devices                []types.Device
+	hashcatDetector        *HashcatDetector
+	dataDirectory          string
+	preferredBinaryVersion int64
 }
 
 // NewMonitor creates a new hardware monitor
@@ -25,6 +26,13 @@ func NewMonitor(dataDirectory string) (*Monitor, error) {
 	}
 
 	return m, nil
+}
+
+// SetPreferredBinaryVersion sets the preferred binary version for device detection
+func (m *Monitor) SetPreferredBinaryVersion(version int64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.preferredBinaryVersion = version
 }
 
 // Cleanup releases monitor resources
@@ -39,22 +47,50 @@ func (m *Monitor) Cleanup() error {
 
 // DetectDevices uses hashcat to detect available compute devices
 func (m *Monitor) DetectDevices() (*types.DeviceDetectionResult, error) {
-	result, err := m.hashcatDetector.DetectDevices()
+	// Get preferred binary version
+	m.mu.RLock()
+	preferredVersion := m.preferredBinaryVersion
+	m.mu.RUnlock()
+
+	// Pass preferred version to detector
+	var result *types.DeviceDetectionResult
+	var err error
+	if preferredVersion > 0 {
+		result, err = m.hashcatDetector.DetectDevices(preferredVersion)
+	} else {
+		result, err = m.hashcatDetector.DetectDevices()
+	}
+
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Store devices in monitor
 	m.mu.Lock()
 	m.devices = result.Devices
 	m.mu.Unlock()
-	
+
 	return result, nil
 }
 
 // HasBinary checks if any hashcat binary is available
 func (m *Monitor) HasBinary() bool {
 	return m.hashcatDetector.HasHashcatBinary()
+}
+
+// HasPreferredBinary checks if the preferred binary version is available
+func (m *Monitor) HasPreferredBinary() bool {
+	m.mu.RLock()
+	preferredVersion := m.preferredBinaryVersion
+	m.mu.RUnlock()
+
+	// If no preferred version set, check for any binary
+	if preferredVersion == 0 {
+		return m.HasBinary()
+	}
+
+	// Check if the specific preferred version exists
+	return m.hashcatDetector.HasSpecificBinary(preferredVersion)
 }
 
 // GetDevices returns the currently detected devices

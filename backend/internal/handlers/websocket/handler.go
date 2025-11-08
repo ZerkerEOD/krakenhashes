@@ -78,14 +78,15 @@ var upgrader = websocket.Upgrader{
 
 // Handler manages WebSocket connections for agents
 type Handler struct {
-	wsService          *wsservice.Service
-	agentService       *services.AgentService
-	systemSettingsRepo *repository.SystemSettingsRepository
-	jobTaskRepo        *repository.JobTaskRepository
-	jobExecRepo        *repository.JobExecutionRepository
-	tlsConfig          *tls.Config
-	clients            map[int]*Client
-	mu                 sync.RWMutex
+	wsService           *wsservice.Service
+	agentService        *services.AgentService
+	jobExecutionService *services.JobExecutionService
+	systemSettingsRepo  *repository.SystemSettingsRepository
+	jobTaskRepo         *repository.JobTaskRepository
+	jobExecRepo         *repository.JobExecutionRepository
+	tlsConfig           *tls.Config
+	clients             map[int]*Client
+	mu                  sync.RWMutex
 }
 
 // Client represents a connected agent
@@ -99,18 +100,19 @@ type Client struct {
 }
 
 // NewHandler creates a new WebSocket handler
-func NewHandler(wsService *wsservice.Service, agentService *services.AgentService, systemSettingsRepo *repository.SystemSettingsRepository, jobTaskRepo *repository.JobTaskRepository, jobExecRepo *repository.JobExecutionRepository, tlsConfig *tls.Config) *Handler {
+func NewHandler(wsService *wsservice.Service, agentService *services.AgentService, jobExecutionService *services.JobExecutionService, systemSettingsRepo *repository.SystemSettingsRepository, jobTaskRepo *repository.JobTaskRepository, jobExecRepo *repository.JobExecutionRepository, tlsConfig *tls.Config) *Handler {
 	// Initialize timing configuration
 	initTimingConfig()
 
 	return &Handler{
-		wsService:          wsService,
-		agentService:       agentService,
-		systemSettingsRepo: systemSettingsRepo,
-		jobTaskRepo:        jobTaskRepo,
-		jobExecRepo:        jobExecRepo,
-		tlsConfig:          tlsConfig,
-		clients:            make(map[int]*Client),
+		wsService:           wsService,
+		agentService:        agentService,
+		jobExecutionService: jobExecutionService,
+		systemSettingsRepo:  systemSettingsRepo,
+		jobTaskRepo:         jobTaskRepo,
+		jobExecRepo:         jobExecRepo,
+		tlsConfig:           tlsConfig,
+		clients:             make(map[int]*Client),
 	}
 }
 
@@ -568,9 +570,25 @@ func (h *Handler) sendInitialConfiguration(client *Client) {
 		}
 	}
 
+	// Get preferred binary version for this agent (if job execution service is available)
+	var preferredBinaryID int64
+	if h.jobExecutionService != nil {
+		var err error
+		preferredBinaryID, err = h.jobExecutionService.GetAgentPreferredBinary(ctx, client.agent.ID)
+		if err != nil {
+			debug.Error("Failed to get preferred binary for agent %d: %v", client.agent.ID, err)
+			// Don't fail completely, just log the error
+			preferredBinaryID = 0
+		}
+	} else {
+		debug.Debug("JobExecutionService not available, skipping preferred binary version")
+		preferredBinaryID = 0
+	}
+
 	// Create configuration payload
 	configPayload := map[string]interface{}{
-		"download_settings": settings,
+		"download_settings":        settings,
+		"preferred_binary_version": preferredBinaryID,
 	}
 
 	payloadBytes, err := json.Marshal(configPayload)
@@ -588,7 +606,7 @@ func (h *Handler) sendInitialConfiguration(client *Client) {
 	// Send configuration to agent
 	select {
 	case client.send <- msg:
-		debug.Info("Sent initial configuration to agent %d with download settings", client.agent.ID)
+		debug.Info("Sent initial configuration to agent %d with download settings and preferred binary version %d", client.agent.ID, preferredBinaryID)
 	case <-client.ctx.Done():
 		debug.Warning("Failed to send configuration: agent %d disconnected", client.agent.ID)
 	}

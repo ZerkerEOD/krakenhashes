@@ -2460,3 +2460,82 @@ func parseIntValueFromString(value string) (int, error) {
 func (s *JobExecutionService) GetPreviousChunksActualKeyspace(ctx context.Context, jobExecutionID uuid.UUID, currentChunkNumber int) (int64, error) {
 	return s.jobTaskRepo.GetPreviousChunksActualKeyspace(ctx, jobExecutionID, currentChunkNumber)
 }
+
+// DetermineBinaryForTask implements the binary selection hierarchy: Agent → Job → Default
+// Returns the binary version ID to use for a given agent and job execution
+// GetAgentPreferredBinary returns the preferred binary version for an agent
+// This is used for device detection and other agent-level operations that don't have a specific job context
+func (s *JobExecutionService) GetAgentPreferredBinary(ctx context.Context, agentID int) (int64, error) {
+	// Check agent-level override first
+	agent, err := s.agentRepo.GetByID(ctx, agentID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get agent: %w", err)
+	}
+
+	// If agent has binary override enabled and binary_version_id is set, use it
+	if agent.BinaryOverride && agent.BinaryVersionID.Valid && agent.BinaryVersionID.Int64 > 0 {
+		debug.Log("Using agent binary override for device detection", map[string]interface{}{
+			"agent_id":          agentID,
+			"binary_version_id": agent.BinaryVersionID.Int64,
+		})
+		return agent.BinaryVersionID.Int64, nil
+	}
+
+	// Fall back to system default
+	defaultBinary, err := s.binaryManager.GetDefault(ctx, binary.BinaryTypeHashcat)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get default binary: %w", err)
+	}
+
+	debug.Log("Using system default binary for device detection", map[string]interface{}{
+		"agent_id":          agentID,
+		"binary_version_id": defaultBinary.ID,
+	})
+	return defaultBinary.ID, nil
+}
+
+func (s *JobExecutionService) DetermineBinaryForTask(ctx context.Context, agentID int, jobExecutionID uuid.UUID) (int64, error) {
+	// 1. Check agent-level override (highest priority)
+	agent, err := s.agentRepo.GetByID(ctx, agentID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get agent: %w", err)
+	}
+
+	// If agent has binary override enabled and binary_version_id is set, use it
+	if agent.BinaryOverride && agent.BinaryVersionID.Valid && agent.BinaryVersionID.Int64 > 0 {
+		debug.Log("Using agent binary override", map[string]interface{}{
+			"agent_id":          agentID,
+			"binary_version_id": agent.BinaryVersionID.Int64,
+		})
+		return agent.BinaryVersionID.Int64, nil
+	}
+
+	// 2. Check job-level binary (medium priority)
+	jobExecution, err := s.jobExecRepo.GetByID(ctx, jobExecutionID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get job execution: %w", err)
+	}
+
+	if jobExecution.BinaryVersionID > 0 {
+		debug.Log("Using job binary", map[string]interface{}{
+			"job_execution_id":  jobExecutionID,
+			"binary_version_id": jobExecution.BinaryVersionID,
+		})
+		return int64(jobExecution.BinaryVersionID), nil
+	}
+
+	// 3. Fall back to system default (lowest priority)
+	defaultBinary, err := s.binaryManager.GetDefault(ctx, binary.BinaryTypeHashcat)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get default binary: %w", err)
+	}
+
+	if defaultBinary == nil {
+		return 0, fmt.Errorf("no default hashcat binary configured")
+	}
+
+	debug.Log("Using system default binary", map[string]interface{}{
+		"binary_version_id": defaultBinary.ID,
+	})
+	return defaultBinary.ID, nil
+}

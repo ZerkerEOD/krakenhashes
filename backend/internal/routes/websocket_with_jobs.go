@@ -152,7 +152,7 @@ func SetupWebSocketWithJobRoutes(
 	}
 
 	// Create WebSocket handler
-	wsHandler := wshandler.NewHandler(wsService, agentService, systemSettingsRepo, jobTaskRepo, jobExecutionRepo, agentTLSConfig)
+	wsHandler := wshandler.NewHandler(wsService, agentService, jobExecutionService, systemSettingsRepo, jobTaskRepo, jobExecutionRepo, agentTLSConfig)
 
 	// Store WebSocket handler globally for access by other handlers
 	WSHandler = wsHandler

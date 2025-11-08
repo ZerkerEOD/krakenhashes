@@ -31,15 +31,33 @@ func NewHashcatDetector(dataDirectory string) *HashcatDetector {
 }
 
 // DetectDevices detects all available compute devices using hashcat
-func (d *HashcatDetector) DetectDevices() (*types.DeviceDetectionResult, error) {
+// If preferredVersion is > 0, it will use that specific binary version instead of the latest
+func (d *HashcatDetector) DetectDevices(preferredVersion ...int64) (*types.DeviceDetectionResult, error) {
 	debug.Info("Starting hashcat device detection")
-	
-	// Find the most recent hashcat binary
-	binaryPath, err := d.findLatestHashcatBinary()
-	if err != nil {
-		return nil, fmt.Errorf("failed to find hashcat binary: %w", err)
+
+	var binaryPath string
+	var err error
+
+	// Check if a preferred version was specified
+	if len(preferredVersion) > 0 && preferredVersion[0] > 0 {
+		binaryPath, err = d.findSpecificHashcatBinary(preferredVersion[0])
+		if err != nil {
+			debug.Warning("Failed to find preferred binary version %d: %v, falling back to latest", preferredVersion[0], err)
+			binaryPath, err = d.findLatestHashcatBinary()
+			if err != nil {
+				return nil, fmt.Errorf("failed to find hashcat binary: %w", err)
+			}
+		} else {
+			debug.Info("Using preferred hashcat binary version %d", preferredVersion[0])
+		}
+	} else {
+		// Find the most recent hashcat binary
+		binaryPath, err = d.findLatestHashcatBinary()
+		if err != nil {
+			return nil, fmt.Errorf("failed to find hashcat binary: %w", err)
+		}
 	}
-	
+
 	debug.Info("Using hashcat binary: %s", binaryPath)
 	
 	// Run hashcat -I command
@@ -131,9 +149,45 @@ func (d *HashcatDetector) findLatestHashcatBinary() (string, error) {
 	return binaryPath, nil
 }
 
+// findSpecificHashcatBinary finds a specific hashcat binary version
+func (d *HashcatDetector) findSpecificHashcatBinary(version int64) (string, error) {
+	binariesDir := filepath.Join(d.dataDirectory, "binaries")
+
+	// Construct path to the specific version directory
+	versionDir := filepath.Join(binariesDir, fmt.Sprintf("%d", version))
+
+	// Check if version directory exists
+	if _, err := os.Stat(versionDir); os.IsNotExist(err) {
+		return "", fmt.Errorf("binary version %d directory not found", version)
+	}
+
+	// Determine binary extension based on OS
+	var binaryName string
+	if runtime.GOOS == "windows" {
+		binaryName = "hashcat.exe"
+	} else {
+		binaryName = "hashcat.bin"
+	}
+
+	binaryPath := filepath.Join(versionDir, binaryName)
+
+	// Check if binary exists
+	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("hashcat binary not found at %s", binaryPath)
+	}
+
+	return binaryPath, nil
+}
+
 // HasHashcatBinary checks if any hashcat binary is available
 func (d *HashcatDetector) HasHashcatBinary() bool {
 	_, err := d.findLatestHashcatBinary()
+	return err == nil
+}
+
+// HasSpecificBinary checks if a specific hashcat binary version is available
+func (d *HashcatDetector) HasSpecificBinary(version int64) bool {
+	_, err := d.findSpecificHashcatBinary(version)
 	return err == nil
 }
 

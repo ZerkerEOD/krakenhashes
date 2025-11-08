@@ -563,5 +563,16 @@ export const isSSESupported = (): boolean => {
   return typeof EventSource !== 'undefined';
 };
 
+// --- Binary Versions ---
+
+// Get all binary versions (optionally filtered by type)
+export const getBinaryVersions = async (binaryType?: 'hashcat' | 'john'): Promise<any[]> => {
+  const url = binaryType ? `/api/admin/binary?type=${binaryType}&active=true` : '/api/admin/binary?active=true';
+  logApiCall('GET', url);
+  const response = await api.get(url);
+  logApiResponse('GET', url, response.data);
+  return response.data;
+};
+
 // Export API_URL for SSE service
 export { API_URL }; 

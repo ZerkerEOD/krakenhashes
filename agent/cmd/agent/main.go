@@ -705,8 +705,11 @@ func main() {
 
 		// Try to detect and send device information at startup
 		// This will only work if hashcat binaries are already present
-		debug.Info("Checking for device detection at startup...")
-		conn.TryDetectDevicesIfNeeded()
+		// FIXME: TESTING - Temporarily disabled to prevent race condition with config_update
+		// This line should be REMOVED after testing confirms binary override works correctly
+		// Device detection will be triggered by config_update and file sync completion instead
+		// debug.Info("Checking for device detection at startup...")
+		// conn.TryDetectDevicesIfNeeded()
 		
 		// Set up dual callbacks for status and cracks
 		statusCallback := func(status *jobs.JobStatus) {

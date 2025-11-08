@@ -808,15 +808,21 @@ func (s *AgentService) HasEnabledDevices(agentID int) (bool, error) {
 }
 
 // UpdateAgent updates agent settings including owner and extra parameters
-func (s *AgentService) UpdateAgent(ctx context.Context, agentID int, isEnabled bool, ownerID *string, extraParameters string) error {
+func (s *AgentService) UpdateAgent(ctx context.Context, agentID int, isEnabled bool, ownerID *string, extraParameters string, binaryVersionID *int64, binaryOverride bool) error {
 	// First check if agent exists
 	_, err := s.agentRepo.GetByID(ctx, agentID)
 	if err != nil {
 		return err
 	}
 
+	// If binary_version_id is provided, validate it exists and is hashcat type
+	if binaryVersionID != nil && *binaryVersionID > 0 {
+		// TODO: Add binary version validation here
+		// For now, we'll trust the handler to validate
+	}
+
 	// Update agent in database
-	return s.agentRepo.UpdateAgentSettings(ctx, agentID, isEnabled, ownerID, extraParameters)
+	return s.agentRepo.UpdateAgentSettings(ctx, agentID, isEnabled, ownerID, extraParameters, binaryVersionID, binaryOverride)
 }
 
 // UpdateAgentOSInfo updates an agent's OS information

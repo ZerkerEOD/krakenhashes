@@ -40,6 +40,9 @@ const (
 	WSTypeHeartbeat    WSMessageType = "heartbeat"
 	WSTypeAgentStatus  WSMessageType = "agent_status"
 
+	// Configuration message types
+	WSTypeConfigUpdate WSMessageType = "config_update"
+
 	// File synchronization message types
 	WSTypeFileSyncRequest  WSMessageType = "file_sync_request"
 	WSTypeFileSyncResponse WSMessageType = "file_sync_response"
@@ -56,15 +59,15 @@ const (
 	WSTypeHashcatOutput    WSMessageType = "hashcat_output"
 	WSTypeForceCleanup     WSMessageType = "force_cleanup"
 	WSTypeCurrentTaskStatus WSMessageType = "current_task_status"
-	
+
 	// Device detection message types
 	WSTypeDeviceDetection  WSMessageType = "device_detection"
 	WSTypeDeviceUpdate     WSMessageType = "device_update"
-	
+
 	// Buffer-related message types
 	WSTypeBufferedMessages WSMessageType = "buffered_messages"
 	WSTypeBufferAck        WSMessageType = "buffer_ack"
-	
+
 	// Shutdown message type
 	WSTypeAgentShutdown    WSMessageType = "agent_shutdown"
 )
@@ -367,6 +370,10 @@ type Connection struct {
 
 	// Job manager - initialized externally and set via SetJobManager
 	jobManager JobManager
+
+	// Preferred binary version for device detection and operations
+	preferredBinaryVersion int64
+	binaryMutex            sync.RWMutex
 
 	// Mutex for write synchronization
 	writeMux sync.Mutex
@@ -980,6 +987,39 @@ func (c *Connection) readPump() {
 			if err := c.ws.WriteJSON(response); err != nil {
 				debug.Error("Failed to send hardware info: %v", err)
 			}
+		case WSTypeConfigUpdate:
+			// Server sent configuration update
+			debug.Info("Received configuration update")
+
+			// Parse the configuration payload
+			var configPayload map[string]interface{}
+			if err := json.Unmarshal(msg.Payload, &configPayload); err != nil {
+				debug.Error("Failed to parse configuration update: %v", err)
+				continue
+			}
+
+			// Check for preferred_binary_version
+			if preferredBinary, ok := configPayload["preferred_binary_version"]; ok {
+				if binaryID, ok := preferredBinary.(float64); ok { // JSON numbers decode as float64
+					c.SetPreferredBinaryVersion(int64(binaryID))
+					// Also set it on the hardware monitor for device detection
+					if c.hwMonitor != nil {
+						c.hwMonitor.SetPreferredBinaryVersion(int64(binaryID))
+					}
+					debug.Info("Set preferred binary version to %d", int64(binaryID))
+
+					// Only trigger detection if the preferred binary is already available
+					// If not, detection will be triggered after file sync downloads it
+					if c.hwMonitor != nil && c.hwMonitor.HasPreferredBinary() {
+						debug.Info("Preferred binary version %d is available, triggering device detection", int64(binaryID))
+						c.TryDetectDevicesIfNeeded()
+					} else {
+						debug.Info("Preferred binary version %d not yet available, skipping detection (will run after download)", int64(binaryID))
+					}
+				}
+			}
+
+			debug.Info("Configuration update processed successfully")
 		case WSTypeFileSyncRequest:
 			// Server requested file list
 			debug.Info("Received file sync request")
@@ -2307,6 +2347,20 @@ func (c *Connection) sendCurrentTaskStatus() {
 // GetHardwareMonitor returns the hardware monitor for device management
 func (c *Connection) GetHardwareMonitor() *hardware.Monitor {
 	return c.hwMonitor
+}
+
+// SetPreferredBinaryVersion sets the preferred binary version for device detection
+func (c *Connection) SetPreferredBinaryVersion(version int64) {
+	c.binaryMutex.Lock()
+	defer c.binaryMutex.Unlock()
+	c.preferredBinaryVersion = version
+}
+
+// GetPreferredBinaryVersion gets the preferred binary version for device detection
+func (c *Connection) GetPreferredBinaryVersion() int64 {
+	c.binaryMutex.RLock()
+	defer c.binaryMutex.RUnlock()
+	return c.preferredBinaryVersion
 }
 
 // checkAndExtractBinaryArchives checks all binary directories for .7z files without extracted executables

@@ -131,9 +131,58 @@ KH_PING_PERIOD: "54s"     # Ping interval (must be < pong wait)
 {
   "isEnabled": true,
   "ownerId": "user-uuid",
-  "extraParameters": "--custom-charset1=?l?u?d"
+  "extraParameters": "--custom-charset1=?l?u?d",
+  "binaryVersionId": 3,
+  "binaryOverride": true
 }
 ```
+
+### Agent Binary Version Override
+
+Users can configure their agents to use a specific hashcat binary version instead of the job-level or system default binary.
+
+#### Configuring Binary Override
+
+1. **Via Agent Details Page**
+   - Navigate to your agent's detail page
+   - Scroll to the "Binary Version Override" section
+   - Enable "Override Binary" toggle
+   - Select desired binary version from dropdown
+   - Click "Save"
+
+2. **Via API**
+   ```json
+   // PUT /api/agents/{id}
+   {
+     "binaryVersionId": 3,
+     "binaryOverride": true
+   }
+   ```
+
+#### Binary Selection Hierarchy
+
+When an agent needs to execute a job or benchmark, the system uses this priority order:
+
+1. **Agent Override** (highest priority) - Binary specified in agent settings
+2. **Job Binary** - Binary specified for the specific job execution
+3. **System Default** (lowest priority) - Active default binary for the system
+
+#### Use Cases
+
+- **Testing New Versions**: Test new hashcat releases on specific agents before wider deployment
+- **Compatibility Issues**: Work around driver or hardware compatibility problems
+- **Performance Optimization**: Use specific binary versions that perform better on certain hardware
+- **Gradual Rollouts**: Migrate agents to new versions incrementally
+
+#### Hashcat Version Compatibility Note
+
+⚠️ **Important**: Hashcat 7.x may detect devices but fail to recognize them as usable compute devices depending on GPU driver versions. If your agent shows devices in the hardware detection but they are not available for job execution, it is recommended to use Hashcat 6.x binaries (such as 6.2.6 or 6.2.5) as they have better compatibility with older driver versions.
+
+#### Important Notes
+
+- Agent binary override affects device detection, benchmarks, and job execution
+- The preferred binary is automatically downloaded to the agent if not present
+- If the preferred binary becomes unavailable, the system falls back to the next priority level
 
 ### Disabling/Enabling Agents
 
