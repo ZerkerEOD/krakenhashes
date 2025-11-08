@@ -103,6 +103,7 @@ LABEL org.opencontainers.image.version="${VERSION}" \
 # Copy Nginx configuration
 COPY docker/nginx/nginx.conf /etc/nginx/nginx.conf
 COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY docker/nginx/templates /etc/nginx/templates
 
 # Copy logrotate configuration
 COPY docker/logrotate/krakenhashes /etc/logrotate.d/krakenhashes
@@ -137,7 +138,7 @@ ENV KH_IN_DOCKER=TRUE \
     KH_HOST=0.0.0.0
 
 # Expose ports
-EXPOSE 443 1337 31337
+EXPOSE 443 1337 31337 80
 
 # Set entrypoint
 ENTRYPOINT ["/entrypoint.sh"]

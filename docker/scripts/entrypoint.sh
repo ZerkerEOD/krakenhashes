@@ -66,6 +66,64 @@ if [ -n "$(ls -A /etc/krakenhashes/certs 2>/dev/null)" ]; then
     find /etc/krakenhashes/certs -type f -exec chown krakenhashes:krakenhashes {} \;
 fi
 
+# Install custom CA certificate if specified (for internal ACME servers)
+if [ -n "$KH_CERTBOT_CUSTOM_CA_CERT" ] && [ -f "$KH_CERTBOT_CUSTOM_CA_CERT" ]; then
+    echo "Installing custom CA certificate from: $KH_CERTBOT_CUSTOM_CA_CERT"
+    cp "$KH_CERTBOT_CUSTOM_CA_CERT" /usr/local/share/ca-certificates/krakenhashes-custom-ca.crt
+    chmod 644 /usr/local/share/ca-certificates/krakenhashes-custom-ca.crt
+    update-ca-certificates
+    echo "Custom CA certificate installed successfully"
+elif [ -n "$KH_CERTBOT_CUSTOM_CA_CERT" ]; then
+    echo "WARNING: KH_CERTBOT_CUSTOM_CA_CERT is set but file not found: $KH_CERTBOT_CUSTOM_CA_CERT"
+fi
+
+# Configure nginx based on TLS mode
+echo "Configuring nginx for TLS mode: ${KH_TLS_MODE:-self-signed}"
+
+# Ensure nginx conf.d directory exists
+mkdir -p /etc/nginx/conf.d
+
+# Remove any existing default configs
+rm -f /etc/nginx/conf.d/default*.conf
+
+# Set nginx error log level
+NGINX_ERROR_LOG_LEVEL=${NGINX_ERROR_LOG_LEVEL:-warn}
+
+# Select and configure nginx based on TLS mode
+case "${KH_TLS_MODE:-self-signed}" in
+    "certbot")
+        if [ -n "${KH_CERTBOT_DOMAIN}" ]; then
+            echo "Using certbot nginx configuration for domain: ${KH_CERTBOT_DOMAIN}"
+            sed -e "s/CERTBOT_DOMAIN/${KH_CERTBOT_DOMAIN}/g" \
+                -e "s/\${NGINX_ERROR_LOG_LEVEL}/${NGINX_ERROR_LOG_LEVEL}/g" \
+                /etc/nginx/templates/certbot.conf > /etc/nginx/conf.d/default.conf
+
+            # Create webroot directory for ACME challenges
+            mkdir -p /var/www/certbot
+            chown -R www-data:www-data /var/www/certbot
+            chmod 755 /var/www/certbot
+            echo "Created webroot directory: /var/www/certbot"
+        else
+            echo "WARNING: KH_CERTBOT_DOMAIN not set for certbot mode, using self-signed"
+            sed "s/\${NGINX_ERROR_LOG_LEVEL}/${NGINX_ERROR_LOG_LEVEL}/g" \
+                /etc/nginx/templates/self-signed.conf > /etc/nginx/conf.d/default.conf
+        fi
+        ;;
+    "provided")
+        echo "Using provided certificates nginx configuration"
+        sed "s/\${NGINX_ERROR_LOG_LEVEL}/${NGINX_ERROR_LOG_LEVEL}/g" \
+            /etc/nginx/templates/provided.conf > /etc/nginx/conf.d/default.conf
+        ;;
+    *)
+        # Default to self-signed
+        echo "Using self-signed certificates nginx configuration"
+        sed "s/\${NGINX_ERROR_LOG_LEVEL}/${NGINX_ERROR_LOG_LEVEL}/g" \
+            /etc/nginx/templates/self-signed.conf > /etc/nginx/conf.d/default.conf
+        ;;
+esac
+
+echo "Nginx configuration complete"
+
 # Create required log directories
 for dir in backend nginx; do
     mkdir -p "/var/log/krakenhashes/$dir"
@@ -122,6 +180,7 @@ JWT_EXPIRATION=${JWT_EXPIRATION:-24h}
 
 # TLS Configuration
 TLS_MODE=${TLS_MODE:-self-signed}
+KH_TLS_MODE=${KH_TLS_MODE:-self-signed}
 TLS_CERT_FILE=${TLS_CERT_FILE:-/etc/krakenhashes/certs/cert.pem}
 TLS_KEY_FILE=${TLS_KEY_FILE:-/etc/krakenhashes/certs/key.pem}
 
@@ -147,16 +206,6 @@ until nc -z ${DB_HOST} ${DB_PORT} 2>/dev/null; do
     sleep 2
 done
 echo "PostgreSQL is up - continuing with startup"
-
-# Process nginx configuration to substitute environment variables
-NGINX_ERROR_LOG_LEVEL=${NGINX_ERROR_LOG_LEVEL:-warn}
-echo "Setting nginx error log level to: ${NGINX_ERROR_LOG_LEVEL}"
-
-# Substitute the log level in the nginx config
-if [ -f /etc/nginx/conf.d/default.conf ]; then
-    sed -i "s/\${NGINX_ERROR_LOG_LEVEL}/${NGINX_ERROR_LOG_LEVEL}/g" /etc/nginx/conf.d/default.conf
-    echo "Updated nginx config with log level: ${NGINX_ERROR_LOG_LEVEL}"
-fi
 
 # Print environment variables for debugging
 echo "Environment variables:"

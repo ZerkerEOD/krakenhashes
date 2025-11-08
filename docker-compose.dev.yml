@@ -58,6 +58,7 @@ services:
             - "${FRONTEND_PORT:-443}:443"
             - "${KH_HTTPS_PORT:-31337}:31337"
             - "${KH_HTTP_PORT:-1337}:1337"
+            - "80:80"  # Required for HTTP-01 ACME challenges
         volumes:
             - krakenhashes_data:/var/lib/krakenhashes
             - ${LOG_DIR:-./logs}:/var/log/krakenhashes

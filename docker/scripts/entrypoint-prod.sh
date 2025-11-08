@@ -42,6 +42,17 @@ if [ -n "$(ls -A /etc/krakenhashes/certs 2>/dev/null)" ]; then
     find /etc/krakenhashes/certs -type f -exec chown krakenhashes:krakenhashes {} \;
 fi
 
+# Install custom CA certificate if specified (for internal ACME servers)
+if [ -n "$KH_CERTBOT_CUSTOM_CA_CERT" ] && [ -f "$KH_CERTBOT_CUSTOM_CA_CERT" ]; then
+    echo "Installing custom CA certificate from: $KH_CERTBOT_CUSTOM_CA_CERT"
+    cp "$KH_CERTBOT_CUSTOM_CA_CERT" /usr/local/share/ca-certificates/krakenhashes-custom-ca.crt
+    chmod 644 /usr/local/share/ca-certificates/krakenhashes-custom-ca.crt
+    update-ca-certificates
+    echo "Custom CA certificate installed successfully"
+elif [ -n "$KH_CERTBOT_CUSTOM_CA_CERT" ]; then
+    echo "WARNING: KH_CERTBOT_CUSTOM_CA_CERT is set but file not found: $KH_CERTBOT_CUSTOM_CA_CERT"
+fi
+
 # Create required log directories
 for dir in backend nginx; do
     mkdir -p "/var/log/krakenhashes/$dir"
@@ -80,6 +91,7 @@ JWT_EXPIRATION=${JWT_EXPIRATION:-24h}
 
 # TLS Configuration
 TLS_MODE=${TLS_MODE:-self-signed}
+KH_TLS_MODE=${KH_TLS_MODE:-self-signed}
 TLS_CERT_FILE=${TLS_CERT_FILE:-/etc/krakenhashes/certs/cert.pem}
 TLS_KEY_FILE=${TLS_KEY_FILE:-/etc/krakenhashes/certs/key.pem}
 
@@ -137,6 +149,12 @@ case "${KH_TLS_MODE}" in
             sed -e "s/CERTBOT_DOMAIN/${KH_CERTBOT_DOMAIN}/g" \
                 -e "s/\${NGINX_ERROR_LOG_LEVEL}/${NGINX_ERROR_LOG_LEVEL}/g" \
                 /etc/nginx/templates/certbot.conf > /etc/nginx/conf.d/default.conf
+
+            # Create webroot directory for ACME challenges
+            mkdir -p /var/www/certbot
+            chown -R www-data:www-data /var/www/certbot
+            chmod 755 /var/www/certbot
+            echo "Created webroot directory: /var/www/certbot"
         else
             echo "ERROR: KH_CERTBOT_DOMAIN not set for certbot mode"
             exit 1

@@ -114,13 +114,15 @@ func LoadProviderConfig(appConfig *config.Config) (*ProviderConfig, error) {
 		domain := env.GetOrDefault("KH_CERTBOT_DOMAIN", "")
 		email := env.GetOrDefault("KH_CERTBOT_EMAIL", "")
 		certbotConfig := &CertbotConfig{
-			Domain:    domain,
-			Email:     email,
-			Staging:   env.GetBool("KH_CERTBOT_STAGING"),
-			AutoRenew: env.GetBool("KH_CERTBOT_AUTO_RENEW"),
-			RenewHook: env.GetOrDefault("KH_CERTBOT_RENEW_HOOK", ""),
-			Server:    env.GetOrDefault("KH_CERTBOT_SERVER", ""),
-			ExtraArgs: env.GetOrDefault("KH_CERTBOT_EXTRA_ARGS", ""),
+			Domain:        domain,
+			Email:         email,
+			Staging:       env.GetBool("KH_CERTBOT_STAGING"),
+			AutoRenew:     env.GetBool("KH_CERTBOT_AUTO_RENEW"),
+			RenewHook:     env.GetOrDefault("KH_CERTBOT_RENEW_HOOK", ""),
+			Server:        env.GetOrDefault("KH_CERTBOT_SERVER", ""),
+			ExtraArgs:     env.GetOrDefault("KH_CERTBOT_EXTRA_ARGS", ""),
+			ChallengeType: env.GetOrDefault("KH_CERTBOT_CHALLENGE_TYPE", ""),
+			CustomCACert:  env.GetOrDefault("KH_CERTBOT_CUSTOM_CA_CERT", ""),
 		}
 
 		if domain == "" || email == "" {

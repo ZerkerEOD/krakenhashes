@@ -44,9 +44,26 @@ func (p *CertbotProvider) Initialize() error {
 		return fmt.Errorf("certbot is not installed: %w", err)
 	}
 
-	// Create Cloudflare credentials file
-	if err := p.createCloudflareCredentials(); err != nil {
-		return fmt.Errorf("failed to create Cloudflare credentials: %w", err)
+	// Detect challenge type
+	challengeType := p.detectChallengeType()
+	debug.Info("Using ACME challenge type: %s", challengeType)
+
+	// Create DNS provider credentials ONLY if using DNS-01 challenge
+	if challengeType == "dns-01" {
+		debug.Info("DNS-01 challenge detected, setting up DNS credentials")
+		if err := p.createDNSCredentials(); err != nil {
+			return fmt.Errorf("failed to create DNS credentials: %w", err)
+		}
+	} else {
+		debug.Info("Non-DNS challenge type, skipping DNS credentials setup")
+	}
+
+	// Install custom CA certificate if specified (for internal ACME servers)
+	if p.config.CertbotConfig.CustomCACert != "" {
+		debug.Info("Custom CA certificate specified, installing to system trust store")
+		if err := p.installCustomCA(); err != nil {
+			return fmt.Errorf("failed to install custom CA certificate: %w", err)
+		}
 	}
 
 	// Check if certificates already exist
@@ -70,12 +87,125 @@ func (p *CertbotProvider) Initialize() error {
 		}
 	}
 
-	// Update config paths to point to Let's Encrypt certificates
+	// Update config paths to point to certificates
 	p.config.CertFile = certPath
 	p.config.KeyFile = keyPath
-	p.config.CAFile = filepath.Join(p.config.CertsDir, "live", p.config.CertbotConfig.Domain, "chain.pem")
+
+	// Set CA file based on whether custom CA was provided
+	if p.config.CertbotConfig.CustomCACert != "" {
+		// Use custom CA for agent distribution (already copied by installCustomCA)
+		p.config.CAFile = filepath.Join(p.config.CertsDir, "custom-ca.pem")
+		debug.Info("Using custom CA for agent distribution: %s", p.config.CAFile)
+	} else {
+		// Use certbot's certificate chain for public CA (e.g., Let's Encrypt)
+		p.config.CAFile = filepath.Join(p.config.CertsDir, "live", p.config.CertbotConfig.Domain, "chain.pem")
+		debug.Info("Using certbot chain for agent distribution: %s", p.config.CAFile)
+	}
 
 	debug.Info("Certbot provider initialized successfully")
+	return nil
+}
+
+// detectChallengeType determines which ACME challenge type to use
+// Priority: 1) Explicit config, 2) Parse EXTRA_ARGS, 3) Check Cloudflare token, 4) Default http-01
+func (p *CertbotProvider) detectChallengeType() string {
+	// 1. Explicit configuration takes precedence
+	if p.config.CertbotConfig.ChallengeType != "" {
+		debug.Debug("Using explicitly configured challenge type: %s", p.config.CertbotConfig.ChallengeType)
+		return p.config.CertbotConfig.ChallengeType
+	}
+
+	// 2. Parse EXTRA_ARGS for challenge indicators
+	extraArgs := p.config.CertbotConfig.ExtraArgs
+	if strings.Contains(extraArgs, "--dns-") {
+		debug.Debug("Detected DNS challenge from EXTRA_ARGS")
+		return "dns-01"
+	}
+	if strings.Contains(extraArgs, "--standalone") ||
+	   strings.Contains(extraArgs, "--preferred-challenges http") {
+		debug.Debug("Detected HTTP-01 challenge from EXTRA_ARGS")
+		return "http-01"
+	}
+	if strings.Contains(extraArgs, "--webroot") {
+		debug.Debug("Detected HTTP-01 challenge (webroot) from EXTRA_ARGS")
+		return "http-01"
+	}
+
+	// 3. Check for Cloudflare token (backward compatibility)
+	if os.Getenv("CLOUDFLARE_API_TOKEN") != "" {
+		debug.Info("CLOUDFLARE_API_TOKEN detected, defaulting to dns-01 for backward compatibility")
+		return "dns-01"
+	}
+
+	// 4. Default to http-01 (most common, no API credentials needed)
+	debug.Info("No challenge type specified, defaulting to http-01")
+	return "http-01"
+}
+
+// createDNSCredentials creates DNS provider credentials based on available tokens
+// Currently supports Cloudflare, can be extended for other providers
+func (p *CertbotProvider) createDNSCredentials() error {
+	// Check for Cloudflare token
+	if os.Getenv("CLOUDFLARE_API_TOKEN") != "" {
+		debug.Debug("Creating Cloudflare DNS credentials")
+		return p.createCloudflareCredentials()
+	}
+
+	// Future: Add support for other DNS providers (Route53, Google Cloud DNS, etc.)
+
+	return fmt.Errorf("no DNS provider credentials found (checked: CLOUDFLARE_API_TOKEN)")
+}
+
+// installCustomCA installs a custom CA certificate to the system trust store
+// This is needed for internal ACME servers using self-signed or internal CAs
+func (p *CertbotProvider) installCustomCA() error {
+	caPath := p.config.CertbotConfig.CustomCACert
+	debug.Info("Installing custom CA certificate from: %s", caPath)
+
+	// Check if file exists
+	if _, err := os.Stat(caPath); os.IsNotExist(err) {
+		return fmt.Errorf("custom CA certificate file not found: %s", caPath)
+	}
+
+	// Read the CA certificate
+	caCert, err := os.ReadFile(caPath)
+	if err != nil {
+		return fmt.Errorf("failed to read custom CA certificate: %w", err)
+	}
+
+	// Validate it's a PEM certificate
+	if !strings.Contains(string(caCert), "BEGIN CERTIFICATE") {
+		return fmt.Errorf("custom CA file does not appear to be a valid PEM certificate")
+	}
+
+	// Copy to system CA certificate directory (for certbot to trust ACME server)
+	systemDestPath := "/usr/local/share/ca-certificates/krakenhashes-custom-ca.crt"
+	if err := os.WriteFile(systemDestPath, caCert, 0644); err != nil {
+		return fmt.Errorf("failed to write CA certificate to system directory: %w", err)
+	}
+
+	// Update system CA trust store
+	debug.Info("Updating system CA trust store")
+	cmd := exec.Command("update-ca-certificates")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		debug.Error("Failed to update CA certificates: %s", string(output))
+		return fmt.Errorf("failed to update CA certificates: %w", err)
+	}
+	debug.Info("Successfully installed custom CA to system trust store")
+
+	// Copy to certs directory for agent distribution
+	agentDestPath := filepath.Join(p.config.CertsDir, "custom-ca.pem")
+	if err := os.MkdirAll(p.config.CertsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create certs directory: %w", err)
+	}
+	if err := os.WriteFile(agentDestPath, caCert, 0644); err != nil {
+		return fmt.Errorf("failed to write CA certificate to certs directory: %w", err)
+	}
+	debug.Info("Successfully copied custom CA to certs directory for agent distribution: %s", agentDestPath)
+
+	debug.Info("Custom CA certificate installation complete")
+	debug.Debug("update-ca-certificates output: %s", string(output))
 	return nil
 }
 
@@ -112,12 +242,22 @@ func (p *CertbotProvider) obtainCertificates() error {
 		"--non-interactive",
 		"--agree-tos",
 		"--email", p.config.CertbotConfig.Email,
-		"--dns-cloudflare",
-		"--dns-cloudflare-credentials", filepath.Join(p.config.CertsDir, "cloudflare.ini"),
 		"--config-dir", p.config.CertsDir,
 		"--work-dir", filepath.Join(p.config.CertsDir, "work"),
 		"--logs-dir", filepath.Join(p.config.CertsDir, "logs"),
 		"-d", p.config.CertbotConfig.Domain,
+	}
+
+	// Detect challenge type and add DNS-01 specific flags ONLY if using DNS-01
+	challengeType := p.detectChallengeType()
+	if challengeType == "dns-01" {
+		debug.Info("Adding DNS-01 challenge flags for certificate issuance")
+		args = append(args,
+			"--dns-cloudflare",
+			"--dns-cloudflare-credentials", filepath.Join(p.config.CertsDir, "cloudflare.ini"),
+		)
+	} else {
+		debug.Info("Using %s challenge (configured via EXTRA_ARGS)", challengeType)
 	}
 
 	// Add custom ACME server if specified
@@ -167,11 +307,21 @@ func (p *CertbotProvider) renewCertificates() error {
 	args := []string{
 		"renew",
 		"--non-interactive",
-		"--dns-cloudflare",
-		"--dns-cloudflare-credentials", filepath.Join(p.config.CertsDir, "cloudflare.ini"),
 		"--config-dir", p.config.CertsDir,
 		"--work-dir", filepath.Join(p.config.CertsDir, "work"),
 		"--logs-dir", filepath.Join(p.config.CertsDir, "logs"),
+	}
+
+	// Detect challenge type and add DNS-01 specific flags ONLY if using DNS-01
+	challengeType := p.detectChallengeType()
+	if challengeType == "dns-01" {
+		debug.Info("Adding DNS-01 challenge flags for certificate renewal")
+		args = append(args,
+			"--dns-cloudflare",
+			"--dns-cloudflare-credentials", filepath.Join(p.config.CertsDir, "cloudflare.ini"),
+		)
+	} else {
+		debug.Info("Using %s challenge for renewal (configured via EXTRA_ARGS)", challengeType)
 	}
 
 	// Add custom ACME server if specified

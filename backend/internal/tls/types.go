@@ -54,13 +54,15 @@ type CertificateAuthority struct {
 
 // CertbotConfig holds the configuration for certbot integration
 type CertbotConfig struct {
-	Domain    string
-	Email     string
-	Staging   bool
-	AutoRenew bool
-	RenewHook string
-	Server    string // Custom ACME server URL (default: Let's Encrypt)
-	ExtraArgs string // Additional certbot arguments for advanced configuration
+	Domain        string
+	Email         string
+	Staging       bool
+	AutoRenew     bool
+	RenewHook     string
+	Server        string // Custom ACME server URL (default: Let's Encrypt)
+	ExtraArgs     string // Additional certbot arguments for advanced configuration
+	ChallengeType string // ACME challenge type: dns-01, http-01, or empty for auto-detect
+	CustomCACert  string // Path to custom CA certificate for internal ACME servers
 }
 
 // Provider defines the interface for different TLS providers
