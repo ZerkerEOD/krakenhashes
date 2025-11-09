@@ -131,15 +131,30 @@ export interface AgentHardware {
 }
 
 /**
+ * Represents a runtime option for a device (CUDA, HIP, OpenCL)
+ */
+export interface RuntimeOption {
+    backend: string;
+    device_id: number;
+    processors: number;
+    clock: number;
+    memory_total: number;
+    memory_free: number;
+    pci_address: string;
+}
+
+/**
  * Represents a device detected by an agent
  */
 export interface AgentDevice {
     id: number;
     agent_id: number;
-    device_id: number;
+    device_id: number; // Physical device index (0-based)
     device_name: string;
     device_type: string;
     enabled: boolean;
+    runtime_options: RuntimeOption[];
+    selected_runtime: string;
     created_at: string;
     updated_at: string;
 }

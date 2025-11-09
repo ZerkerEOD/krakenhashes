@@ -392,6 +392,9 @@ func (c *Client) readPump() {
 		case wsservice.TypeDeviceDetection:
 			c.handler.handleDeviceDetection(c, &msg)
 
+		case wsservice.TypePhysicalDeviceDetection:
+			c.handler.handlePhysicalDeviceDetection(c, &msg)
+
 		case wsservice.TypeDeviceUpdate:
 			c.handler.handleDeviceUpdate(c, &msg)
 			
@@ -859,6 +862,61 @@ func (h *Handler) handleDeviceDetection(client *Client, msg *wsservice.Message) 
 	}
 
 	debug.Info("Agent %d: Successfully updated %d devices", client.agent.ID, len(result.Devices))
+}
+
+// handlePhysicalDeviceDetection handles physical device detection results from agents
+func (h *Handler) handlePhysicalDeviceDetection(client *Client, msg *wsservice.Message) {
+	debug.Info("Agent %d: Received physical device detection result", client.agent.ID)
+
+	// Parse the physical device detection result
+	var result models.PhysicalDeviceDetectionResult
+	if err := json.Unmarshal(msg.Payload, &result); err != nil {
+		debug.Error("Agent %d: Failed to parse physical device detection result: %v", client.agent.ID, err)
+		return
+	}
+
+	// Check if there was an error in detection
+	if result.Error != "" {
+		debug.Error("Agent %d: Physical device detection failed: %s", client.agent.ID, result.Error)
+		// Update agent status to error
+		if err := h.agentService.UpdateDeviceDetectionStatus(client.agent.ID, "error", &result.Error); err != nil {
+			debug.Error("Failed to update device detection status: %v", err)
+		}
+		return
+	}
+
+	// Store physical devices in database
+	if err := h.agentService.UpdateAgentPhysicalDevices(client.agent.ID, result.Devices); err != nil {
+		debug.Error("Agent %d: Failed to update physical devices: %v", client.agent.ID, err)
+		errorMsg := err.Error()
+		if updateErr := h.agentService.UpdateDeviceDetectionStatus(client.agent.ID, "error", &errorMsg); updateErr != nil {
+			debug.Error("Failed to update device detection status: %v", updateErr)
+		}
+		return
+	}
+
+	// Update agent device detection status to success
+	if err := h.agentService.UpdateDeviceDetectionStatus(client.agent.ID, "success", nil); err != nil {
+		debug.Error("Failed to update device detection status: %v", err)
+	}
+
+	// Check if agent has enabled devices, disable agent if not
+	hasEnabledDevices := false
+	for _, device := range result.Devices {
+		if device.Enabled {
+			hasEnabledDevices = true
+			break
+		}
+	}
+
+	if !hasEnabledDevices {
+		debug.Warning("Agent %d: No enabled physical devices found, disabling agent", client.agent.ID)
+		if err := h.agentService.UpdateAgentStatus(context.Background(), client.agent.ID, "disabled", nil); err != nil {
+			debug.Error("Failed to disable agent: %v", err)
+		}
+	}
+
+	debug.Info("Agent %d: Successfully updated %d physical devices", client.agent.ID, len(result.Devices))
 }
 
 // handleDeviceUpdate handles device update responses from agents

@@ -56,6 +56,7 @@ import {
   getBinaryVersions
 } from '../services/api';
 import { AgentSchedule, AgentScheduleDTO } from '../types/scheduling';
+import { AgentDevice } from '../types/agent';
 
 interface Agent {
   id: number;
@@ -94,15 +95,6 @@ interface BinaryVersion {
   binary_type: string;
   is_active: boolean;
   is_default: boolean;
-}
-
-interface AgentDevice {
-  id: number;
-  agent_id: number;
-  device_id: number;
-  device_name: string;
-  device_type: string;
-  enabled: boolean;
 }
 
 interface User {
@@ -344,16 +336,39 @@ const AgentDetails: React.FC = () => {
       await api.put(`/api/agents/${id}/devices/${deviceId}`, {
         enabled: newState
       });
-      
+
       setDeviceStates(prev => ({
         ...prev,
         [deviceId]: newState
       }));
-      
+
       setSuccess('Device status updated successfully');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to update device status');
+    }
+  };
+
+  const handleRuntimeChange = async (deviceId: number, runtime: string) => {
+    try {
+      await api.patch(`/api/agents/${id}/devices/${deviceId}/runtime`, {
+        runtime: runtime
+      });
+
+      // Update local state
+      setDevices(prevDevices =>
+        prevDevices.map(device =>
+          device.device_id === deviceId
+            ? { ...device, selected_runtime: runtime }
+            : device
+        )
+      );
+
+      setSuccess(`Runtime updated to ${runtime} successfully`);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to update device runtime');
+      setTimeout(() => setError(''), 5000);
     }
   };
 
@@ -658,6 +673,8 @@ const AgentDetails: React.FC = () => {
                       <TableCell>Device ID</TableCell>
                       <TableCell>Type</TableCell>
                       <TableCell>Name</TableCell>
+                      <TableCell>Runtime</TableCell>
+                      <TableCell>Specs</TableCell>
                       <TableCell>Enabled</TableCell>
                     </TableRow>
                   </TableHead>
@@ -667,6 +684,30 @@ const AgentDetails: React.FC = () => {
                         <TableCell>{device.device_id}</TableCell>
                         <TableCell>{device.device_type}</TableCell>
                         <TableCell>{device.device_name}</TableCell>
+                        <TableCell>
+                          <FormControl size="small" sx={{ minWidth: 120 }}>
+                            <Select
+                              value={device.selected_runtime || ''}
+                              onChange={(e) => handleRuntimeChange(device.device_id, e.target.value)}
+                              displayEmpty
+                            >
+                              {device.runtime_options?.map((option) => (
+                                <MenuItem key={option.backend} value={option.backend}>
+                                  {option.backend} #{option.device_id}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        </TableCell>
+                        <TableCell>
+                          {device.runtime_options?.find(opt => opt.backend === device.selected_runtime) && (
+                            <Typography variant="caption" display="block">
+                              {device.runtime_options.find(opt => opt.backend === device.selected_runtime)!.processors} cores,
+                              {' '}{device.runtime_options.find(opt => opt.backend === device.selected_runtime)!.clock} MHz,
+                              {' '}{device.runtime_options.find(opt => opt.backend === device.selected_runtime)!.memory_total} MB
+                            </Typography>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <Switch
                             checked={deviceStates[device.device_id] || false}

@@ -61,8 +61,9 @@ const (
 	WSTypeCurrentTaskStatus WSMessageType = "current_task_status"
 
 	// Device detection message types
-	WSTypeDeviceDetection  WSMessageType = "device_detection"
-	WSTypeDeviceUpdate     WSMessageType = "device_update"
+	WSTypeDeviceDetection         WSMessageType = "device_detection"
+	WSTypePhysicalDeviceDetection WSMessageType = "physical_device_detection"
+	WSTypeDeviceUpdate            WSMessageType = "device_update"
 
 	// Buffer-related message types
 	WSTypeBufferedMessages WSMessageType = "buffered_messages"
@@ -391,8 +392,9 @@ type Connection struct {
 	agentID int
 
 	// Device detection tracking
-	devicesDetected bool
-	deviceMutex     sync.Mutex
+	devicesDetected       bool
+	detectionInProgress   bool
+	deviceMutex           sync.Mutex
 }
 
 // JobManager interface defines the methods required for job management
@@ -2575,54 +2577,54 @@ func (c *Connection) checkAndExtractBinaryArchives() error {
 // DetectAndSendDevices detects available compute devices and sends them to the server
 // This is exported so it can be called from main.go at startup
 func (c *Connection) DetectAndSendDevices() error {
-	debug.Info("Starting device detection using hashcat")
-	
-	// Detect devices using hashcat
-	result, err := c.hwMonitor.DetectDevices()
+	debug.Info("Starting physical device detection using hashcat")
+
+	// Detect physical devices using hashcat (grouped by physical GPU)
+	result, err := c.hwMonitor.DetectPhysicalDevices()
 	if err != nil {
-		debug.Error("Failed to detect devices: %v", err)
+		debug.Error("Failed to detect physical devices: %v", err)
 		// Send error status to server
 		errorPayload := map[string]interface{}{
 			"error": err.Error(),
 			"status": "error",
 		}
 		errorJSON, _ := json.Marshal(errorPayload)
-		
+
 		msg := &WSMessage{
-			Type:      WSTypeDeviceDetection,
+			Type:      WSTypePhysicalDeviceDetection,
 			Payload:   errorJSON,
 			Timestamp: time.Now(),
 		}
-		
+
 		// Use safeSendMessage to avoid concurrent writes
 		if !c.safeSendMessage(msg, 5000) {
-			debug.Error("Failed to send device detection error")
+			debug.Error("Failed to send physical device detection error")
 		}
-		
+
 		return err
 	}
-	
-	// Marshal device detection result
+
+	// Marshal physical device detection result
 	devicesJSON, err := json.Marshal(result)
 	if err != nil {
-		debug.Error("Failed to marshal device detection result: %v", err)
-		return fmt.Errorf("failed to marshal device detection result: %w", err)
+		debug.Error("Failed to marshal physical device detection result: %v", err)
+		return fmt.Errorf("failed to marshal physical device detection result: %w", err)
 	}
-	
-	// Send device information to server
+
+	// Send physical device information to server
 	msg := &WSMessage{
-		Type:      WSTypeDeviceDetection,
+		Type:      WSTypePhysicalDeviceDetection,
 		Payload:   devicesJSON,
 		Timestamp: time.Now(),
 	}
-	
+
 	// Use safeSendMessage to avoid concurrent writes
 	if !c.safeSendMessage(msg, 5000) {
-		debug.Error("Failed to send device detection result")
-		return fmt.Errorf("failed to send device detection result: channel blocked or timeout")
+		debug.Error("Failed to send physical device detection result")
+		return fmt.Errorf("failed to send physical device detection result: channel blocked or timeout")
 	}
-	
-	debug.Info("Successfully sent device detection result with %d devices", len(result.Devices))
+
+	debug.Info("Successfully sent physical device detection result with %d devices", len(result.Devices))
 
 	// Mark devices as detected
 	c.deviceMutex.Lock()
@@ -2634,15 +2636,33 @@ func (c *Connection) DetectAndSendDevices() error {
 
 // TryDetectDevicesIfNeeded attempts to detect devices if they haven't been detected yet and a binary is available
 func (c *Connection) TryDetectDevicesIfNeeded() {
-	// Check if we've already detected devices
+	// Atomically check and set detection status to prevent race conditions
 	c.deviceMutex.Lock()
-	alreadyDetected := c.devicesDetected
-	c.deviceMutex.Unlock()
 
-	if alreadyDetected {
+	// If already detected, skip
+	if c.devicesDetected {
+		c.deviceMutex.Unlock()
 		debug.Info("Devices already detected, skipping detection")
 		return
 	}
+
+	// If detection is in progress, skip to avoid concurrent hashcat processes
+	if c.detectionInProgress {
+		c.deviceMutex.Unlock()
+		debug.Info("Device detection already in progress, skipping duplicate detection")
+		return
+	}
+
+	// Set detection in progress flag
+	c.detectionInProgress = true
+	c.deviceMutex.Unlock()
+
+	// Ensure we clear the in-progress flag when done
+	defer func() {
+		c.deviceMutex.Lock()
+		c.detectionInProgress = false
+		c.deviceMutex.Unlock()
+	}()
 
 	// Check if hashcat binary is available
 	if !c.hwMonitor.HasBinary() {

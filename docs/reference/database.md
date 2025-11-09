@@ -1090,16 +1090,18 @@ Tracks hashlist distribution to agents.
 
 ### agent_devices
 
-Tracks individual compute devices (added in migration 29).
+Tracks individual physical compute devices with runtime selection support (updated in migration 81).
 
 | Column | Type | Constraints | Default | Description |
 |--------|------|-------------|---------|-------------|
 | id | SERIAL | PRIMARY KEY | | Device record ID |
 | agent_id | INTEGER | NOT NULL, FK → agents(id) | | Agent reference |
-| device_id | INTEGER | NOT NULL | | Device ID |
+| device_id | INTEGER | NOT NULL | | Physical device index (0-based) |
 | device_name | VARCHAR(255) | NOT NULL | | Device name |
 | device_type | VARCHAR(50) | NOT NULL | | Type: GPU or CPU |
 | enabled | BOOLEAN | NOT NULL | TRUE | Device enabled status |
+| runtime_options | JSONB | NOT NULL | '[]'::jsonb | Available runtimes with capabilities |
+| selected_runtime | VARCHAR(50) | | | Active runtime (CUDA/HIP/OpenCL) |
 | created_at | TIMESTAMP WITH TIME ZONE | NOT NULL | CURRENT_TIMESTAMP | Creation time |
 | updated_at | TIMESTAMP WITH TIME ZONE | NOT NULL | CURRENT_TIMESTAMP | Last update time |
 
@@ -1111,6 +1113,25 @@ Tracks individual compute devices (added in migration 29).
 
 **Triggers:**
 - update_agent_devices_updated_at: Updates updated_at on row modification
+
+**Runtime Options Structure (JSONB):**
+```json
+[
+  {
+    "backend": "HIP",
+    "device_id": 1,
+    "processors": 16,
+    "clock": 2208,
+    "memory_total": 8176,
+    "memory_free": 8064,
+    "pci_address": "03:00.0"
+  }
+]
+```
+
+**Migration History:**
+- Migration 29: Initial table creation
+- Migration 81: Added runtime_options and selected_runtime columns for GPU runtime selection
 
 ### agent_schedules
 

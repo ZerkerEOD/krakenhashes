@@ -257,6 +257,67 @@ Each agent can have multiple devices (GPUs):
 }
 ```
 
+### Runtime Selection
+
+Each physical GPU device supports multiple compute backends (runtimes). Administrators can select which runtime to use per device.
+
+**Available Runtimes:**
+- **CUDA**: NVIDIA GPUs (optimal performance)
+- **HIP**: AMD GPUs (modern Radeon cards)
+- **OpenCL**: Universal (all vendors)
+
+**Update Runtime:**
+```json
+// PATCH /api/agents/{id}/devices/{deviceId}/runtime
+{
+  "runtime": "HIP"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Device runtime updated successfully"
+}
+```
+
+**Device Structure with Runtime Options:**
+```json
+{
+  "id": 1,
+  "device_id": 0,  // Physical device index
+  "device_type": "GPU",
+  "device_name": "AMD Radeon RX 7700S",
+  "enabled": true,
+  "selected_runtime": "HIP",
+  "runtime_options": [
+    {
+      "backend": "HIP",
+      "device_id": 1,      // Hashcat device ID
+      "processors": 16,
+      "clock": 2208,
+      "memory_total": 8176,
+      "memory_free": 8064,
+      "pci_address": "03:00.0"
+    },
+    {
+      "backend": "OpenCL",
+      "device_id": 3,      // Hashcat device ID
+      "processors": 16,
+      "clock": 2208,
+      "memory_total": 8176,
+      "memory_free": 8064,
+      "pci_address": "03:00.0"
+    }
+  ]
+}
+```
+
+**Important Notes:**
+- Changes take effect immediately for new jobs
+- Each physical GPU can only run under one runtime at a time
+- Runtime selection affects benchmark and job execution performance
+
 ## Agent Scheduling and Availability
 
 ### Scheduling Overview

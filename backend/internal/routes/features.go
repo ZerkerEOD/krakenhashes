@@ -39,6 +39,7 @@ func SetupAgentRoutes(jwtRouter *mux.Router, agentService *services.AgentService
 	// Device management routes
 	jwtRouter.HandleFunc("/agents/{id}/devices", agentHandler.GetAgentDevices).Methods("GET", "OPTIONS")
 	jwtRouter.HandleFunc("/agents/{id}/devices/{deviceId}", agentHandler.UpdateDeviceStatus).Methods("PUT", "OPTIONS")
+	jwtRouter.HandleFunc("/agents/{id}/devices/{deviceId}/runtime", agentHandler.UpdateDeviceRuntime).Methods("PATCH", "OPTIONS")
 	jwtRouter.HandleFunc("/agents/{id}/with-devices", agentHandler.GetAgentWithDevices).Methods("GET", "OPTIONS")
 	jwtRouter.HandleFunc("/agents/{id}/metrics", agentHandler.GetAgentMetrics).Methods("GET", "OPTIONS")
 

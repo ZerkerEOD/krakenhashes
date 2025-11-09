@@ -243,7 +243,7 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 				if !device.Enabled {
 					hasDisabledDevice = true
 				} else {
-					enabledDeviceIDs = append(enabledDeviceIDs, device.DeviceID)
+					enabledDeviceIDs = append(enabledDeviceIDs, device.GetHashcatDeviceID())
 				}
 			}
 			// If all devices are enabled, don't include the device list
@@ -541,7 +541,7 @@ func (s *JobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, age
 			if !device.Enabled {
 				hasDisabledDevice = true
 			} else {
-				enabledDeviceIDs = append(enabledDeviceIDs, device.DeviceID)
+				enabledDeviceIDs = append(enabledDeviceIDs, device.GetHashcatDeviceID())
 			}
 		}
 		// If all devices are enabled, don't include the device list

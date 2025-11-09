@@ -703,13 +703,9 @@ func main() {
 		debug.Info("Connection attempt %d successful", i+1)
 		console.Success("Connected to backend successfully")
 
-		// Try to detect and send device information at startup
-		// This will only work if hashcat binaries are already present
-		// FIXME: TESTING - Temporarily disabled to prevent race condition with config_update
-		// This line should be REMOVED after testing confirms binary override works correctly
-		// Device detection will be triggered by config_update and file sync completion instead
-		// debug.Info("Checking for device detection at startup...")
-		// conn.TryDetectDevicesIfNeeded()
+		// Device detection is triggered by config_update message from backend
+		// This ensures the preferred binary version is set before detection runs
+		// Running detection here would cause a race condition with config_update
 		
 		// Set up dual callbacks for status and cracks
 		statusCallback := func(status *jobs.JobStatus) {

@@ -30,12 +30,13 @@ func NewHashcatDetector(dataDirectory string) *HashcatDetector {
 	}
 }
 
-// DetectDevices detects all available compute devices using hashcat
+// DetectDevices detects all available compute devices using hashcat (DEPRECATED - use DetectPhysicalDevices)
 // If preferredVersion is > 0, it will use that specific binary version instead of the latest
 func (d *HashcatDetector) DetectDevices(preferredVersion ...int64) (*types.DeviceDetectionResult, error) {
 	debug.Info("Starting hashcat device detection")
 
 	var binaryPath string
+	var binaryVersion string
 	var err error
 
 	// Check if a preferred version was specified
@@ -47,7 +48,9 @@ func (d *HashcatDetector) DetectDevices(preferredVersion ...int64) (*types.Devic
 			if err != nil {
 				return nil, fmt.Errorf("failed to find hashcat binary: %w", err)
 			}
+			binaryVersion = "latest (preferred not found)"
 		} else {
+			binaryVersion = fmt.Sprintf("%d (preferred)", preferredVersion[0])
 			debug.Info("Using preferred hashcat binary version %d", preferredVersion[0])
 		}
 	} else {
@@ -56,50 +59,128 @@ func (d *HashcatDetector) DetectDevices(preferredVersion ...int64) (*types.Devic
 		if err != nil {
 			return nil, fmt.Errorf("failed to find hashcat binary: %w", err)
 		}
+		binaryVersion = "latest (no preference set)"
 	}
 
-	debug.Info("Using hashcat binary: %s", binaryPath)
-	
+	debug.Info("Using hashcat binary version %s: %s", binaryVersion, binaryPath)
+
 	// Run hashcat -I command
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	
+
 	cmd := exec.CommandContext(ctx, binaryPath, "-I")
 	// Set working directory to the hashcat binary directory so it can find relative dependencies like OpenCL
 	cmd.Dir = filepath.Dir(binaryPath)
-	
+
 	output, err := cmd.CombinedOutput()
 	outputStr := string(output)
-	
+
 	// Log any errors as warnings - hashcat may return non-zero exit codes for warnings
 	if err != nil {
 		debug.Warning("hashcat -I returned error (may be just warnings): %v", err)
 		// Continue to try parsing the output even if there was an error
 	}
-	
+
 	// Log the output regardless of error status
 	debug.Info("Raw hashcat -I output:\n%s", outputStr)
-	
+
 	// Parse the output
 	devices, parseErr := d.ParseHashcatOutput(outputStr)
 	if parseErr != nil {
 		return nil, fmt.Errorf("failed to parse hashcat output: %w", parseErr)
 	}
-	
+
 	// Only fail if we got an error AND no devices were found
 	if len(devices) == 0 && err != nil {
 		return nil, fmt.Errorf("failed to detect devices: hashcat returned error and no devices found: %w", err)
 	}
-	
+
 	debug.Info("Parsed %d devices before filtering", len(devices))
-	
+
 	// Filter out aliases
 	filteredDevices := d.FilterAliases(devices)
-	
+
 	debug.Info("Detected %d devices (filtered from %d total)", len(filteredDevices), len(devices))
-	
+
 	return &types.DeviceDetectionResult{
 		Devices: filteredDevices,
+	}, nil
+}
+
+// DetectPhysicalDevices detects all available compute devices and groups them by physical GPU
+// If preferredVersion is > 0, it will use that specific binary version instead of the latest
+func (d *HashcatDetector) DetectPhysicalDevices(preferredVersion ...int64) (*types.PhysicalDeviceDetectionResult, error) {
+	debug.Info("Starting hashcat physical device detection")
+
+	var binaryPath string
+	var binaryVersion string
+	var err error
+
+	// Check if a preferred version was specified
+	if len(preferredVersion) > 0 && preferredVersion[0] > 0 {
+		binaryPath, err = d.findSpecificHashcatBinary(preferredVersion[0])
+		if err != nil {
+			debug.Warning("Failed to find preferred binary version %d: %v, falling back to latest", preferredVersion[0], err)
+			binaryPath, err = d.findLatestHashcatBinary()
+			if err != nil {
+				return nil, fmt.Errorf("failed to find hashcat binary: %w", err)
+			}
+			binaryVersion = "latest (preferred not found)"
+		} else {
+			binaryVersion = fmt.Sprintf("%d (preferred)", preferredVersion[0])
+			debug.Info("Using preferred hashcat binary version %d", preferredVersion[0])
+		}
+	} else {
+		// Find the most recent hashcat binary
+		binaryPath, err = d.findLatestHashcatBinary()
+		if err != nil {
+			return nil, fmt.Errorf("failed to find hashcat binary: %w", err)
+		}
+		binaryVersion = "latest (no preference set)"
+	}
+
+	debug.Info("Using hashcat binary version %s: %s", binaryVersion, binaryPath)
+
+	// Run hashcat -I command
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, binaryPath, "-I")
+	// Set working directory to the hashcat binary directory so it can find relative dependencies like OpenCL
+	cmd.Dir = filepath.Dir(binaryPath)
+
+	output, err := cmd.CombinedOutput()
+	outputStr := string(output)
+
+	// Log any errors as warnings - hashcat may return non-zero exit codes for warnings
+	if err != nil {
+		debug.Warning("hashcat -I returned error (may be just warnings): %v", err)
+		// Continue to try parsing the output even if there was an error
+	}
+
+	// Log the output regardless of error status
+	debug.Info("Raw hashcat -I output:\n%s", outputStr)
+
+	// Parse the output
+	devices, parseErr := d.ParseHashcatOutput(outputStr)
+	if parseErr != nil {
+		return nil, fmt.Errorf("failed to parse hashcat output: %w", parseErr)
+	}
+
+	// Only fail if we got an error AND no devices were found
+	if len(devices) == 0 && err != nil {
+		return nil, fmt.Errorf("failed to detect devices: hashcat returned error and no devices found: %w", err)
+	}
+
+	debug.Info("Parsed %d individual devices before grouping", len(devices))
+
+	// Group devices by physical GPU
+	physicalDevices := d.GroupPhysicalDevices(devices)
+
+	debug.Info("Detected %d physical devices (grouped from %d total)", len(physicalDevices), len(devices))
+
+	return &types.PhysicalDeviceDetectionResult{
+		Devices: physicalDevices,
 	}, nil
 }
 
@@ -307,14 +388,213 @@ func (d *HashcatDetector) ParseHashcatOutput(output string) ([]types.Device, err
 	return devices, nil
 }
 
-// FilterAliases removes aliased devices from the list using hashcat's alias information (exported for testing)
+// GroupPhysicalDevices groups devices by physical GPU, creating one entry per physical device
+// with multiple runtime options (exported for testing)
+func (d *HashcatDetector) GroupPhysicalDevices(devices []types.Device) []types.PhysicalDevice {
+	// Backend priority for auto-selection: CUDA > HIP > OpenCL
+	backendPriority := map[string]int{
+		"CUDA":   3,
+		"HIP":    2,
+		"OpenCL": 1,
+	}
+
+	// Separate devices by backend
+	devicesByBackend := make(map[string][]types.Device)
+	for _, device := range devices {
+		if device.Backend != "" && device.Name != "" {
+			devicesByBackend[device.Backend] = append(devicesByBackend[device.Backend], device)
+		}
+	}
+
+	// Sort devices within each backend by device ID
+	for backend := range devicesByBackend {
+		sort.Slice(devicesByBackend[backend], func(i, j int) bool {
+			return devicesByBackend[backend][i].ID < devicesByBackend[backend][j].ID
+		})
+	}
+
+	// Build alias map for newer hashcat versions
+	aliasMap := make(map[int]int) // device ID -> alias ID
+	hasAnyAliases := false
+	for _, device := range devices {
+		if device.AliasOf > 0 {
+			aliasMap[device.ID] = device.AliasOf
+			hasAnyAliases = true
+			debug.Info("Device #%d has alias #%d", device.ID, device.AliasOf)
+		}
+	}
+
+	var physicalDevices []types.PhysicalDevice
+
+	if hasAnyAliases {
+		// Use alias-based grouping for versions 6.2.6+
+		debug.Info("Using alias-based device grouping")
+		physicalDevices = d.groupByAliases(devices, aliasMap, backendPriority)
+	} else {
+		// Use positional matching for older versions
+		debug.Info("Using positional device grouping (no aliases detected)")
+		physicalDevices = d.groupByPosition(devicesByBackend, backendPriority)
+	}
+
+	debug.Info("Grouped %d devices into %d physical devices", len(devices), len(physicalDevices))
+	return physicalDevices
+}
+
+// groupByAliases groups devices using explicit alias relationships (hashcat 6.2.6+)
+func (d *HashcatDetector) groupByAliases(devices []types.Device, aliasMap map[int]int, backendPriority map[string]int) []types.PhysicalDevice {
+	// Build map of device ID -> device
+	deviceMap := make(map[int]types.Device)
+	for _, dev := range devices {
+		deviceMap[dev.ID] = dev
+	}
+
+	// Track which devices we've already grouped
+	processed := make(map[int]bool)
+	var physicalDevices []types.PhysicalDevice
+
+	// Group devices by their alias relationships
+	for _, device := range devices {
+		if processed[device.ID] {
+			continue
+		}
+
+		// Start a new physical device
+		physicalDev := types.PhysicalDevice{
+			Index:          len(physicalDevices),
+			Name:           device.Name,
+			Type:           device.Type,
+			Enabled:        true,
+			RuntimeOptions: []types.RuntimeOption{},
+		}
+
+		// Add this device as a runtime option
+		physicalDev.RuntimeOptions = append(physicalDev.RuntimeOptions, types.RuntimeOption{
+			Backend:     device.Backend,
+			DeviceID:    device.ID,
+			Processors:  device.Processors,
+			Clock:       device.Clock,
+			MemoryTotal: device.MemoryTotal,
+			MemoryFree:  device.MemoryFree,
+			PCIAddress:  device.PCIAddress,
+		})
+		processed[device.ID] = true
+
+		// Find aliased devices
+		if aliasID, hasAlias := aliasMap[device.ID]; hasAlias {
+			if aliasDevice, exists := deviceMap[aliasID]; exists && !processed[aliasID] {
+				physicalDev.RuntimeOptions = append(physicalDev.RuntimeOptions, types.RuntimeOption{
+					Backend:     aliasDevice.Backend,
+					DeviceID:    aliasDevice.ID,
+					Processors:  aliasDevice.Processors,
+					Clock:       aliasDevice.Clock,
+					MemoryTotal: aliasDevice.MemoryTotal,
+					MemoryFree:  aliasDevice.MemoryFree,
+					PCIAddress:  aliasDevice.PCIAddress,
+				})
+				processed[aliasID] = true
+				debug.Info("Grouped device #%d (%s) with alias #%d (%s) as physical device %d",
+					device.ID, device.Backend, aliasID, aliasDevice.Backend, physicalDev.Index)
+			}
+		}
+
+		// Select highest priority runtime
+		physicalDev.SelectedRuntime = d.selectDefaultRuntime(physicalDev.RuntimeOptions, backendPriority)
+		physicalDevices = append(physicalDevices, physicalDev)
+	}
+
+	return physicalDevices
+}
+
+// groupByPosition groups devices using positional matching (hashcat < 6.2.6)
+func (d *HashcatDetector) groupByPosition(devicesByBackend map[string][]types.Device, backendPriority map[string]int) []types.PhysicalDevice {
+	// Find the backend with the most devices (use as reference)
+	var backends []string
+	maxDevices := 0
+	var referenceBackend string
+
+	for backend, devs := range devicesByBackend {
+		backends = append(backends, backend)
+		if len(devs) > maxDevices {
+			maxDevices = len(devs)
+			referenceBackend = backend
+		}
+	}
+
+	if referenceBackend == "" {
+		debug.Warning("No devices found in any backend")
+		return []types.PhysicalDevice{}
+	}
+
+	debug.Info("Using %s as reference backend with %d devices", referenceBackend, maxDevices)
+
+	// Create physical devices based on reference backend positions
+	var physicalDevices []types.PhysicalDevice
+	for i := 0; i < maxDevices; i++ {
+		refDevice := devicesByBackend[referenceBackend][i]
+		physicalDev := types.PhysicalDevice{
+			Index:          i,
+			Name:           refDevice.Name,
+			Type:           refDevice.Type,
+			Enabled:        true,
+			RuntimeOptions: []types.RuntimeOption{},
+		}
+
+		// Add runtime options from all backends at this position
+		for _, backend := range backends {
+			backendDevices := devicesByBackend[backend]
+			if i < len(backendDevices) {
+				device := backendDevices[i]
+				physicalDev.RuntimeOptions = append(physicalDev.RuntimeOptions, types.RuntimeOption{
+					Backend:     device.Backend,
+					DeviceID:    device.ID,
+					Processors:  device.Processors,
+					Clock:       device.Clock,
+					MemoryTotal: device.MemoryTotal,
+					MemoryFree:  device.MemoryFree,
+					PCIAddress:  device.PCIAddress,
+				})
+
+				debug.Info("Matched %s device #%d at position %d for physical device %d (%s)",
+					backend, device.ID, i, physicalDev.Index, device.Name)
+			}
+		}
+
+		// Select highest priority runtime
+		physicalDev.SelectedRuntime = d.selectDefaultRuntime(physicalDev.RuntimeOptions, backendPriority)
+		physicalDevices = append(physicalDevices, physicalDev)
+	}
+
+	return physicalDevices
+}
+
+// selectDefaultRuntime chooses the highest priority runtime from available options
+func (d *HashcatDetector) selectDefaultRuntime(options []types.RuntimeOption, backendPriority map[string]int) string {
+	if len(options) == 0 {
+		return ""
+	}
+
+	bestRuntime := options[0].Backend
+	bestPriority := backendPriority[bestRuntime]
+
+	for _, opt := range options {
+		if priority := backendPriority[opt.Backend]; priority > bestPriority {
+			bestRuntime = opt.Backend
+			bestPriority = priority
+		}
+	}
+
+	debug.Info("Selected %s as default runtime (priority: %d)", bestRuntime, bestPriority)
+	return bestRuntime
+}
+
+// FilterAliases removes aliased devices from the list using hashcat's alias information (DEPRECATED - use GroupPhysicalDevices)
 func (d *HashcatDetector) FilterAliases(devices []types.Device) []types.Device {
 	// Build a map of device ID to device for easy lookup
 	deviceMap := make(map[int]*types.Device)
 	for i := range devices {
 		deviceMap[devices[i].ID] = &devices[i]
 	}
-	
+
 	// For devices with circular aliases, we need to determine which to keep
 	// Priority: HIP > CUDA > OpenCL
 	backendPriority := map[string]int{
@@ -322,11 +602,11 @@ func (d *HashcatDetector) FilterAliases(devices []types.Device) []types.Device {
 		"CUDA":   2,
 		"OpenCL": 1,
 	}
-	
+
 	// Track which devices to keep
 	keepDevice := make(map[int]bool)
 	processedPairs := make(map[string]bool)
-	
+
 	for _, device := range devices {
 		if device.AliasOf > 0 {
 			// Check if we've already processed this pair
@@ -335,7 +615,7 @@ func (d *HashcatDetector) FilterAliases(devices []types.Device) []types.Device {
 				continue
 			}
 			processedPairs[pairKey] = true
-			
+
 			// Get the aliased device
 			aliasDevice, exists := deviceMap[device.AliasOf]
 			if !exists {
@@ -343,16 +623,16 @@ func (d *HashcatDetector) FilterAliases(devices []types.Device) []types.Device {
 				keepDevice[device.ID] = true
 				continue
 			}
-			
+
 			// Check if it's a circular alias
 			if aliasDevice.AliasOf == device.ID {
-				debug.Info("Circular alias detected: #%d (%s) <-> #%d (%s)", 
+				debug.Info("Circular alias detected: #%d (%s) <-> #%d (%s)",
 					device.ID, device.Backend, aliasDevice.ID, aliasDevice.Backend)
-				
+
 				// Choose based on backend priority
 				devicePriority := backendPriority[device.Backend]
 				aliasPriority := backendPriority[aliasDevice.Backend]
-				
+
 				if devicePriority > aliasPriority {
 					keepDevice[device.ID] = true
 					debug.Info("Keeping device #%d (%s) over #%d (%s) based on backend priority",
@@ -380,7 +660,7 @@ func (d *HashcatDetector) FilterAliases(devices []types.Device) []types.Device {
 			keepDevice[device.ID] = true
 		}
 	}
-	
+
 	// Build final filtered list
 	var filtered []types.Device
 	for _, device := range devices {
@@ -388,7 +668,7 @@ func (d *HashcatDetector) FilterAliases(devices []types.Device) []types.Device {
 		if keep, exists := keepDevice[device.ID]; exists && !keep {
 			continue
 		}
-		
+
 		// Check if another device declares this as its alias (and we're keeping that device)
 		isAlias := false
 		for _, otherDevice := range devices {
@@ -399,27 +679,27 @@ func (d *HashcatDetector) FilterAliases(devices []types.Device) []types.Device {
 				break
 			}
 		}
-		
+
 		if isAlias {
 			continue
 		}
-		
+
 		// Also skip devices with no name or zero processors
 		if device.Name == "" || device.Processors == 0 {
 			debug.Info("Skipping invalid device #%d: name='%s', processors=%d",
 				device.ID, device.Name, device.Processors)
 			continue
 		}
-		
+
 		filtered = append(filtered, device)
 		debug.Info("Keeping device #%d: %s (%s backend)", device.ID, device.Name, device.Backend)
 	}
-	
+
 	// Sort by device ID for consistent ordering
 	sort.Slice(filtered, func(i, j int) bool {
 		return filtered[i].ID < filtered[j].ID
 	})
-	
+
 	return filtered
 }
 
@@ -437,11 +717,11 @@ func max(a, b int) int {
 	return b
 }
 
-// BuildDeviceFlags builds the -d flag for hashcat based on enabled devices
+// BuildDeviceFlags builds the -d flag for hashcat based on enabled devices (DEPRECATED - use BuildDeviceFlagsFromPhysical)
 func BuildDeviceFlags(devices []types.Device) string {
 	var enabledIDs []string
 	allEnabled := true
-	
+
 	for _, device := range devices {
 		if device.Enabled {
 			enabledIDs = append(enabledIDs, strconv.Itoa(device.ID))
@@ -449,17 +729,51 @@ func BuildDeviceFlags(devices []types.Device) string {
 			allEnabled = false
 		}
 	}
-	
+
 	// If all devices are enabled, no need for -d flag
 	if allEnabled || len(enabledIDs) == len(devices) {
 		return ""
 	}
-	
+
 	// If no devices are enabled, this is an error condition
 	if len(enabledIDs) == 0 {
 		return ""
 	}
-	
+
+	// Return comma-separated list of enabled device IDs
+	return strings.Join(enabledIDs, ",")
+}
+
+// BuildDeviceFlagsFromPhysical builds the -d flag for hashcat based on enabled physical devices
+// It uses each device's selected runtime to determine the correct hashcat device ID
+func BuildDeviceFlagsFromPhysical(devices []types.PhysicalDevice) string {
+	var enabledIDs []string
+	allEnabled := true
+
+	for _, device := range devices {
+		if device.Enabled {
+			// Find the hashcat device ID for the selected runtime
+			for _, opt := range device.RuntimeOptions {
+				if opt.Backend == device.SelectedRuntime {
+					enabledIDs = append(enabledIDs, strconv.Itoa(opt.DeviceID))
+					break
+				}
+			}
+		} else {
+			allEnabled = false
+		}
+	}
+
+	// If all devices are enabled, no need for -d flag
+	if allEnabled || len(enabledIDs) == len(devices) {
+		return ""
+	}
+
+	// If no devices are enabled, this is an error condition
+	if len(enabledIDs) == 0 {
+		return ""
+	}
+
 	// Return comma-separated list of enabled device IDs
 	return strings.Join(enabledIDs, ",")
 }

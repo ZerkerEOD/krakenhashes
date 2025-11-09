@@ -664,10 +664,16 @@ func (s *AgentService) GetDB() *sql.DB {
 	return s.agentRepo.GetDB()
 }
 
-// UpdateAgentDevices updates the devices for an agent
+// UpdateAgentDevices updates the devices for an agent (DEPRECATED - use UpdateAgentPhysicalDevices)
 func (s *AgentService) UpdateAgentDevices(agentID int, devices []models.Device) error {
 	debug.Info("Updating devices for agent %d with %d devices", agentID, len(devices))
 	return s.deviceRepo.UpsertDevices(agentID, devices)
+}
+
+// UpdateAgentPhysicalDevices updates the physical devices for an agent
+func (s *AgentService) UpdateAgentPhysicalDevices(agentID int, devices []models.PhysicalDevice) error {
+	debug.Info("Updating physical devices for agent %d with %d devices", agentID, len(devices))
+	return s.deviceRepo.UpsertPhysicalDevices(agentID, devices)
 }
 
 // GetAgentDevices retrieves all devices for an agent
@@ -679,6 +685,12 @@ func (s *AgentService) GetAgentDevices(agentID int) ([]models.AgentDevice, error
 func (s *AgentService) UpdateDeviceStatus(agentID int, deviceID int, enabled bool) error {
 	debug.Info("Updating device %d for agent %d to enabled=%v", deviceID, agentID, enabled)
 	return s.deviceRepo.UpdateDeviceStatus(agentID, deviceID, enabled)
+}
+
+// UpdateDeviceRuntime updates the selected runtime for a device
+func (s *AgentService) UpdateDeviceRuntime(agentID int, deviceID int, runtime string) error {
+	debug.Info("Updating device %d for agent %d to runtime=%s", deviceID, agentID, runtime)
+	return s.deviceRepo.UpdateDeviceRuntime(agentID, deviceID, runtime)
 }
 
 // UpdateDeviceDetectionStatus updates the device detection status for an agent

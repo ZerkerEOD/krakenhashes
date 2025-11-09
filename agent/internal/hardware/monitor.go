@@ -73,6 +73,33 @@ func (m *Monitor) DetectDevices() (*types.DeviceDetectionResult, error) {
 	return result, nil
 }
 
+// DetectPhysicalDevices detects and groups devices by physical GPU
+func (m *Monitor) DetectPhysicalDevices() (*types.PhysicalDeviceDetectionResult, error) {
+	// Get preferred binary version
+	m.mu.RLock()
+	preferredVersion := m.preferredBinaryVersion
+	m.mu.RUnlock()
+
+	// Pass preferred version to detector
+	var result *types.PhysicalDeviceDetectionResult
+	var err error
+	if preferredVersion > 0 {
+		result, err = m.hashcatDetector.DetectPhysicalDevices(preferredVersion)
+	} else {
+		result, err = m.hashcatDetector.DetectPhysicalDevices()
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Note: We don't store physical devices in the monitor's devices field
+	// since they have a different structure. The monitor still uses the
+	// old devices field for backward compatibility with existing code.
+
+	return result, nil
+}
+
 // HasBinary checks if any hashcat binary is available
 func (m *Monitor) HasBinary() bool {
 	return m.hashcatDetector.HasHashcatBinary()
