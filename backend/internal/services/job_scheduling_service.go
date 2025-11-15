@@ -19,6 +19,7 @@ type JobWebSocketIntegration interface {
 	SendJobAssignment(ctx context.Context, task *models.JobTask, jobExecution *models.JobExecution) error
 	RequestAgentBenchmark(ctx context.Context, agentID int, jobExecution *models.JobExecution) error
 	SendJobStop(ctx context.Context, taskID uuid.UUID, reason string) error
+	SyncAgentFiles(ctx context.Context, agentID int, timeout time.Duration) error
 }
 
 // JobSchedulingService handles the assignment of jobs to agents
@@ -331,6 +332,74 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 		}
 	}
 
+	// Check if we recently synced files for this job to avoid redundant syncs between benchmark and task assignment
+	skipSync := false
+	if agent.Metadata != nil {
+		lastSyncJob, hasJob := agent.Metadata["last_sync_for_job_id"]
+		lastSyncTime, hasTime := agent.Metadata["last_sync_timestamp"]
+
+		if hasJob && hasTime && lastSyncJob == nextJob.ID.String() {
+			// Parse timestamp
+			if syncTime, err := time.Parse(time.RFC3339, lastSyncTime); err == nil {
+				// Skip sync if less than 5 minutes old AND we're in benchmark workflow
+				if time.Since(syncTime) < 5*time.Minute {
+					// Check if we're waiting for benchmark or just completed one
+					if pendingBench, exists := agent.Metadata["pending_benchmark_job"]; exists && pendingBench == nextJob.ID.String() {
+						skipSync = true
+						debug.Log("Skipping file sync - already synced for this job's benchmark", map[string]interface{}{
+							"agent_id":     agent.ID,
+							"job_id":       nextJob.ID,
+							"last_sync":    lastSyncTime,
+							"time_elapsed": time.Since(syncTime).String(),
+						})
+					}
+				}
+			}
+		}
+	}
+
+	if !skipSync {
+		// Sync hashlist BEFORE any benchmark checks
+		debug.Log("Syncing hashlist to agent", map[string]interface{}{
+			"agent_id":    agent.ID,
+			"hashlist_id": nextJob.HashlistID,
+		})
+		err = s.hashlistSyncService.EnsureHashlistOnAgent(ctx, agent.ID, nextJob.HashlistID)
+		if err != nil {
+			debug.Log("Failed to sync hashlist to agent", map[string]interface{}{
+				"agent_id":    agent.ID,
+				"hashlist_id": nextJob.HashlistID,
+				"error":       err.Error(),
+			})
+			return nil, interruptedJobs, fmt.Errorf("failed to sync hashlist to agent: %w", err)
+		}
+
+		// Sync files (wordlists, rules, binaries) BEFORE any benchmark checks
+		if s.wsIntegration != nil {
+			syncTimeout := 30 * time.Second
+			err = s.wsIntegration.SyncAgentFiles(ctx, agent.ID, syncTimeout)
+			if err != nil {
+				debug.Log("File sync failed before benchmark, continuing anyway", map[string]interface{}{
+					"agent_id": agent.ID,
+					"error":    err.Error(),
+				})
+			} else {
+				// After successful sync, update metadata to track sync for this job
+				if agent.Metadata == nil {
+					agent.Metadata = make(map[string]string)
+				}
+				agent.Metadata["last_sync_for_job_id"] = nextJob.ID.String()
+				agent.Metadata["last_sync_timestamp"] = time.Now().Format(time.RFC3339)
+				if updateErr := s.agentRepo.UpdateMetadata(ctx, agent.ID, agent.Metadata); updateErr != nil {
+					debug.Log("Failed to update agent sync metadata", map[string]interface{}{
+						"agent_id": agent.ID,
+						"error":    updateErr.Error(),
+					})
+				}
+			}
+		}
+	}
+
 	// Check if this job needs a forced benchmark before first task assignment
 	if !nextJob.IsAccurateKeyspace {
 		// Check if any tasks have been created for this job yet
@@ -376,21 +445,6 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 				return nil, nil, nil // Wait for benchmark to complete before assigning task
 			}
 		}
-	}
-
-	// Ensure the hashlist is available on the agent
-	debug.Log("Syncing hashlist to agent", map[string]interface{}{
-		"agent_id":    agent.ID,
-		"hashlist_id": nextJob.HashlistID,
-	})
-	err = s.hashlistSyncService.EnsureHashlistOnAgent(ctx, agent.ID, nextJob.HashlistID)
-	if err != nil {
-		debug.Log("Failed to sync hashlist to agent", map[string]interface{}{
-			"agent_id":    agent.ID,
-			"hashlist_id": nextJob.HashlistID,
-			"error":       err.Error(),
-		})
-		return nil, interruptedJobs, fmt.Errorf("failed to sync hashlist to agent: %w", err)
 	}
 
 	// Hashlist was already retrieved in the prevention check above, so reuse it
@@ -1039,6 +1093,27 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 				"task_id": jobTask.ID,
 				"error":   err.Error(),
 			})
+		}
+	}
+
+	// Clear sync metadata after successful task assignment
+	// This allows fresh syncs for future jobs
+	if agent.Metadata != nil {
+		if _, hasSync := agent.Metadata["last_sync_for_job_id"]; hasSync {
+			delete(agent.Metadata, "last_sync_for_job_id")
+			delete(agent.Metadata, "last_sync_timestamp")
+			delete(agent.Metadata, "pending_benchmark_job") // Also clear benchmark metadata
+			if updateErr := s.agentRepo.UpdateMetadata(ctx, agent.ID, agent.Metadata); updateErr != nil {
+				debug.Log("Failed to clear agent sync metadata", map[string]interface{}{
+					"agent_id": agent.ID,
+					"error":    updateErr.Error(),
+				})
+			} else {
+				debug.Log("Cleared sync and benchmark metadata after task assignment", map[string]interface{}{
+					"agent_id": agent.ID,
+					"job_id":   nextJob.ID,
+				})
+			}
 		}
 	}
 

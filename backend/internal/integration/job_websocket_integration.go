@@ -103,6 +103,77 @@ func NewJobWebSocketIntegration(
 	}
 }
 
+// SyncAgentFiles triggers a file sync and waits for completion
+func (s *JobWebSocketIntegration) SyncAgentFiles(ctx context.Context, agentID int, timeout time.Duration) error {
+	// Reset agent sync status to pending before sending sync request
+	// This ensures we wait for a NEW sync completion, not an old one
+	agent, err := s.agentRepo.GetByID(ctx, agentID)
+	if err != nil {
+		return fmt.Errorf("failed to get agent: %w", err)
+	}
+
+	agent.SyncStatus = models.AgentSyncStatusPending
+	if err := s.agentRepo.Update(ctx, agent); err != nil {
+		return fmt.Errorf("failed to reset agent sync status: %w", err)
+	}
+
+	debug.Log("Reset agent sync status to pending", map[string]interface{}{
+		"agent_id": agentID,
+	})
+
+	// Create file sync request payload
+	payload := map[string]interface{}{
+		"request_id": fmt.Sprintf("sync-%d-%d", agentID, time.Now().UnixNano()),
+		"file_types": []string{"wordlist", "rule", "binary"},
+	}
+
+	payloadBytes, _ := json.Marshal(payload)
+	msg := &wsservice.Message{
+		Type:    wsservice.TypeSyncRequest,
+		Payload: payloadBytes,
+	}
+
+	// Send sync request to agent
+	if err := s.wsHandler.SendMessage(agentID, msg); err != nil {
+		return fmt.Errorf("failed to send sync request: %w", err)
+	}
+
+	debug.Log("Sent file sync request to agent, waiting for completion", map[string]interface{}{
+		"agent_id": agentID,
+		"timeout":  timeout,
+	})
+
+	// Poll agent.SyncStatus until completed or timeout
+	deadline := time.Now().Add(timeout)
+	pollInterval := 1 * time.Second
+
+	for time.Now().Before(deadline) {
+		agent, err := s.agentRepo.GetByID(ctx, agentID)
+		if err != nil {
+			return fmt.Errorf("failed to get agent status: %w", err)
+		}
+
+		if agent.SyncStatus == models.AgentSyncStatusCompleted {
+			debug.Log("Agent file sync completed successfully", map[string]interface{}{
+				"agent_id": agentID,
+			})
+			return nil
+		}
+
+		if agent.SyncStatus == models.AgentSyncStatusFailed {
+			errMsg := "unknown error"
+			if agent.SyncError.Valid {
+				errMsg = agent.SyncError.String
+			}
+			return fmt.Errorf("agent sync failed: %s", errMsg)
+		}
+
+		time.Sleep(pollInterval)
+	}
+
+	return fmt.Errorf("sync timed out after %v", timeout)
+}
+
 // SendJobAssignment sends a job task assignment to an agent via WebSocket
 func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *models.JobTask, jobExecution *models.JobExecution) error {
 	debug.Log("Sending job assignment to agent", map[string]interface{}{
@@ -111,12 +182,6 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 		"job_id":   jobExecution.ID,
 	})
 
-	// Get hashlist details
-	hashlist, err := s.hashlistRepo.GetByID(ctx, jobExecution.HashlistID)
-	if err != nil {
-		return fmt.Errorf("failed to get hashlist: %w", err)
-	}
-
 	// Get agent details to find agent int ID
 	if task.AgentID == nil {
 		return fmt.Errorf("task has no agent assigned")
@@ -124,6 +189,12 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 	agent, err := s.agentRepo.GetByID(ctx, *task.AgentID)
 	if err != nil {
 		return fmt.Errorf("failed to get agent: %w", err)
+	}
+
+	// Get hashlist details
+	hashlist, err := s.hashlistRepo.GetByID(ctx, jobExecution.HashlistID)
+	if err != nil {
+		return fmt.Errorf("failed to get hashlist: %w", err)
 	}
 
 	// Build wordlist and rule paths using job execution's self-contained configuration
@@ -1325,17 +1396,19 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 			}
 		}
 
-		// Clear pending benchmark metadata from the current agent that ran the benchmark
-		// This must run regardless of whether this was the first or subsequent benchmark
+		// Clear benchmark_requested_at but KEEP pending_benchmark_job to prevent redundant file syncs
+		// The pending_benchmark_job metadata is used by the scheduler to skip syncing files between
+		// benchmark completion and task assignment. It will be cleared after task assignment.
 		if agent.Metadata != nil {
 			if pendingJob, exists := agent.Metadata["pending_benchmark_job"]; exists && pendingJob == jobExec.ID.String() {
-				delete(agent.Metadata, "pending_benchmark_job")
+				// Only clear benchmark_requested_at since benchmark is complete
+				// Keep pending_benchmark_job until task assignment
 				delete(agent.Metadata, "benchmark_requested_at")
 				err := s.agentRepo.Update(ctx, agent)
 				if err != nil {
-					debug.Warning("Failed to clear benchmark metadata for agent %d: %v", agent.ID, err)
+					debug.Warning("Failed to clear benchmark_requested_at for agent %d: %v", agent.ID, err)
 				} else {
-					debug.Info("Cleared pending benchmark metadata for agent %d after job %s benchmark completed", agent.ID, jobExec.ID)
+					debug.Info("Cleared benchmark_requested_at for agent %d after job %s benchmark completed (keeping pending_benchmark_job for sync optimization)", agent.ID, jobExec.ID)
 				}
 			}
 		}
