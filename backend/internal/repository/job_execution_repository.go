@@ -698,11 +698,12 @@ func (r *JobExecutionRepository) DecrementDispatchedKeyspace(ctx context.Context
 	return nil
 }
 
-// GetJobsWithPendingWork returns jobs that have work available and are not at max agent capacity
+// GetJobsWithPendingWork returns jobs that have work available
+// Priority-based scheduling: max_agents filtering is now handled in the allocation algorithm
 func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]models.JobExecutionWithWork, error) {
 	query := `
 		WITH job_stats AS (
-			SELECT 
+			SELECT
 				je.id,
 				COUNT(DISTINCT CASE WHEN jt.status IN ('running', 'assigned') THEN jt.agent_id END) as active_agents,
 				COUNT(CASE WHEN jt.status IN ('pending') THEN 1 END) as pending_tasks,
@@ -736,20 +737,17 @@ func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]
 				-- Job has no tasks yet (new job)
 				(NOT EXISTS (SELECT 1 FROM job_tasks WHERE job_execution_id = je.id))
 				OR
-				-- Job has pending work and is not at max capacity
-				(COALESCE(js.pending_tasks, 0) + COALESCE(js.retryable_tasks, 0) > 0 
-				 AND COALESCE(js.active_agents, 0) < COALESCE(NULLIF(je.max_agents, 0), 999))
+				-- Job has pending work
+				(COALESCE(js.pending_tasks, 0) + COALESCE(js.retryable_tasks, 0) > 0)
 				OR
 				-- Rule-split job with more keyspace to dispatch
 				(je.uses_rule_splitting = true
-				 AND je.dispatched_keyspace < je.effective_keyspace
-				 AND COALESCE(js.active_agents, 0) < COALESCE(NULLIF(je.max_agents, 0), 999))
+				 AND je.dispatched_keyspace < je.effective_keyspace)
 				OR
 				-- Regular keyspace chunking job with more keyspace to dispatch
 				(je.uses_rule_splitting = false
 				 AND je.total_keyspace IS NOT NULL
-				 AND je.dispatched_keyspace < je.total_keyspace
-				 AND COALESCE(js.active_agents, 0) < COALESCE(NULLIF(je.max_agents, 0), 999))
+				 AND je.dispatched_keyspace < je.total_keyspace)
 			)
 		ORDER BY je.priority DESC, je.created_at ASC`
 

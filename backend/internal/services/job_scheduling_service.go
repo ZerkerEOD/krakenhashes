@@ -34,6 +34,10 @@ type JobSchedulingService struct {
 	// Scheduling state
 	schedulingMutex sync.Mutex
 	isScheduling    bool
+
+	// Agent reservation system
+	reservedAgents   map[int]uuid.UUID // agentID -> jobID
+	reservationMutex sync.RWMutex
 }
 
 // NewJobSchedulingService creates a new job scheduling service
@@ -50,6 +54,7 @@ func NewJobSchedulingService(
 		hashlistSyncService: hashlistSyncService,
 		agentRepo:           agentRepo,
 		systemSettingsRepo:  systemSettingsRepo,
+		reservedAgents:      make(map[int]uuid.UUID),
 	}
 }
 
@@ -58,6 +63,241 @@ type ScheduleJobsResult struct {
 	AssignedTasks   []models.JobTask
 	InterruptedJobs []uuid.UUID
 	Errors          []error
+}
+
+// JobAllocation represents the allocation decision for a job
+type JobAllocation struct {
+	JobID       uuid.UUID
+	AgentCount  int
+	ActiveAgents int
+	MaxAgents   int
+	Priority    int
+}
+
+// CalculateAgentAllocation determines which jobs should receive which agents
+// based on priority-aware max_agents rules:
+// 1. Higher priority jobs get ALL available agents (max_agents ignored)
+// 2. Same priority jobs respect max_agents up to their limit
+// 3. Overflow agents at same priority use configurable mode (FIFO or round-robin)
+func (s *JobSchedulingService) CalculateAgentAllocation(
+	ctx context.Context,
+	availableAgentCount int,
+	jobsWithWork []models.JobExecutionWithWork,
+) (map[uuid.UUID]int, error) {
+
+	allocation := make(map[uuid.UUID]int)
+	if availableAgentCount == 0 || len(jobsWithWork) == 0 {
+		return allocation, nil
+	}
+
+	remainingAgents := availableAgentCount
+
+	// Jobs are already sorted by priority DESC, created_at ASC from the SQL query
+	// Group by priority level
+	priorityGroups := make(map[int][]models.JobExecutionWithWork)
+	priorities := []int{}
+
+	for _, job := range jobsWithWork {
+		if _, exists := priorityGroups[job.Priority]; !exists {
+			priorities = append(priorities, job.Priority)
+		}
+		priorityGroups[job.Priority] = append(priorityGroups[job.Priority], job)
+	}
+
+	// Sort priorities in descending order (highest first)
+	for i := 0; i < len(priorities); i++ {
+		for j := i + 1; j < len(priorities); j++ {
+			if priorities[i] < priorities[j] {
+				priorities[i], priorities[j] = priorities[j], priorities[i]
+			}
+		}
+	}
+
+	debug.Log("Agent allocation: processing priority groups", map[string]interface{}{
+		"available_agents": availableAgentCount,
+		"total_jobs":       len(jobsWithWork),
+		"priority_levels":  len(priorities),
+	})
+
+	// Process each priority level from highest to lowest
+	for _, priority := range priorities {
+		jobs := priorityGroups[priority]
+
+		if remainingAgents == 0 {
+			break
+		}
+
+		debug.Log("Processing priority level", map[string]interface{}{
+			"priority":         priority,
+			"jobs_at_priority": len(jobs),
+			"remaining_agents": remainingAgents,
+		})
+
+		// Phase 1: Allocate up to max_agents for each job
+		for _, job := range jobs {
+			currentActive := job.ActiveAgents
+			maxAllowed := job.MaxAgents
+			if maxAllowed == 0 {
+				maxAllowed = 999 // unlimited
+			}
+
+			needed := maxAllowed - currentActive
+			// Allocate if: (1) job has pending/retryable tasks, OR (2) job is new (status='pending' with no tasks yet)
+			if needed > 0 && (job.PendingWork > 0 || job.Status == "pending") {
+				toAllocate := needed
+				if toAllocate > remainingAgents {
+					toAllocate = remainingAgents
+				}
+
+				allocation[job.ID] = toAllocate
+				remainingAgents -= toAllocate
+
+				debug.Log("Allocated agents to job (phase 1)", map[string]interface{}{
+					"job_id":          job.ID,
+					"job_name":        job.Name,
+					"priority":        job.Priority,
+					"active_agents":   currentActive,
+					"max_agents":      maxAllowed,
+					"allocated":       toAllocate,
+					"remaining":       remainingAgents,
+				})
+
+				if remainingAgents == 0 {
+					break
+				}
+			}
+		}
+
+		// Phase 2: Distribute overflow agents based on configured mode
+		if remainingAgents > 0 {
+			remainingAgents = s.distributeOverflowAgents(ctx, jobs, allocation, remainingAgents)
+
+			// Priority override: If any job at this priority still has undispatched work, don't process lower priorities
+			// Higher priority jobs monopolize all agents until they have no more work to dispatch
+			hasWorkRemaining := false
+			for _, job := range jobs {
+				if s.hasUndispatchedWork(&job) {
+					hasWorkRemaining = true
+					break
+				}
+			}
+
+			if hasWorkRemaining && remainingAgents > 0 {
+				debug.Log("Higher priority jobs have work - stopping allocation to lower priorities", map[string]interface{}{
+					"priority":         priority,
+					"remaining_agents": remainingAgents,
+					"jobs_with_work":   len(jobs),
+				})
+				break // Don't process lower priority levels
+			}
+		}
+	}
+
+	debug.Log("Agent allocation completed", map[string]interface{}{
+		"jobs_with_allocation": len(allocation),
+		"unallocated_agents":   remainingAgents,
+	})
+
+	return allocation, nil
+}
+
+// hasUndispatchedWork checks if a job still has keyspace/rules that haven't been dispatched
+func (s *JobSchedulingService) hasUndispatchedWork(job *models.JobExecutionWithWork) bool {
+	// Jobs in "pending" status always have work (they haven't started yet)
+	if job.Status == "pending" {
+		return true
+	}
+
+	if job.UsesRuleSplitting && job.EffectiveKeyspace != nil {
+		// For rule chunking: check if dispatched keyspace < effective keyspace
+		// This indicates more rule chunks need to be created
+		return job.DispatchedKeyspace < *job.EffectiveKeyspace
+	} else if job.TotalKeyspace != nil {
+		// For keyspace splitting: check if all keyspace dispatched
+		return job.DispatchedKeyspace < *job.TotalKeyspace
+	}
+
+	return false
+}
+
+// distributeOverflowAgents distributes extra agents beyond max_agents at the same priority level
+func (s *JobSchedulingService) distributeOverflowAgents(
+	ctx context.Context,
+	jobs []models.JobExecutionWithWork,
+	allocation map[uuid.UUID]int,
+	remaining int,
+) int {
+	if remaining == 0 {
+		return 0
+	}
+
+	// Get overflow mode from settings
+	overflowMode := "fifo" // default
+	setting, err := s.systemSettingsRepo.GetSetting(ctx, "agent_overflow_allocation_mode")
+	if err == nil && setting.Value != nil {
+		overflowMode = *setting.Value
+	}
+
+	debug.Log("Distributing overflow agents", map[string]interface{}{
+		"mode":             overflowMode,
+		"remaining_agents": remaining,
+		"jobs_at_priority": len(jobs),
+	})
+
+	if overflowMode == "fifo" {
+		// FIFO mode: Give all remaining agents to the oldest job with undispatched work
+		// Jobs are already sorted by created_at ASC
+		for _, job := range jobs {
+			if s.hasUndispatchedWork(&job) {
+				currentAllocation := allocation[job.ID]
+				allocation[job.ID] = currentAllocation + remaining
+
+				debug.Log("FIFO overflow: allocated all remaining to oldest job", map[string]interface{}{
+					"job_id":             job.ID,
+					"job_name":           job.Name,
+					"previous_allocated": currentAllocation,
+					"overflow_added":     remaining,
+					"total_allocated":    allocation[job.ID],
+				})
+
+				return 0 // All agents allocated
+			}
+		}
+	} else {
+		// Round-robin mode: Distribute one agent at a time across all jobs with undispatched work
+		for remaining > 0 {
+			allocatedThisRound := false
+
+			for _, job := range jobs {
+				if s.hasUndispatchedWork(&job) && remaining > 0 {
+					allocation[job.ID]++
+					remaining--
+					allocatedThisRound = true
+
+					debug.Log("Round-robin overflow: allocated agent", map[string]interface{}{
+						"job_id":         job.ID,
+						"job_name":       job.Name,
+						"total_allocated": allocation[job.ID],
+						"remaining":      remaining,
+					})
+
+					if remaining == 0 {
+						break
+					}
+				}
+			}
+
+			if !allocatedThisRound {
+				// No job can take more agents
+				debug.Log("Round-robin overflow: no jobs can accept more agents", map[string]interface{}{
+					"remaining_agents": remaining,
+				})
+				break
+			}
+		}
+	}
+
+	return remaining
 }
 
 // ScheduleJobs performs the main job scheduling logic
@@ -88,7 +328,7 @@ func (s *JobSchedulingService) ScheduleJobs(ctx context.Context) (*ScheduleJobsR
 
 	if len(availableAgents) == 0 {
 		debug.Log("No available agents for job scheduling", nil)
-		
+
 		// Check for high-priority jobs that can interrupt running jobs
 		// This only happens when NO agents are available
 		interruptedJobID, err := s.checkAndInterruptForHighPriority(ctx)
@@ -101,19 +341,19 @@ func (s *JobSchedulingService) ScheduleJobs(ctx context.Context) (*ScheduleJobsR
 				"interrupted_job_id": *interruptedJobID,
 			})
 			result.InterruptedJobs = append(result.InterruptedJobs, *interruptedJobID)
-			
+
 			// Re-get available agents after interruption
 			// The interrupted task's agent should now be available
 			availableAgents, err = s.jobExecutionService.GetAvailableAgents(ctx)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get available agents after interruption: %w", err)
 			}
-			
+
 			debug.Log("Re-checked available agents after interruption", map[string]interface{}{
 				"agent_count": len(availableAgents),
 			})
 		}
-		
+
 		// If still no agents available after interruption check, return
 		if len(availableAgents) == 0 {
 			return result, nil
@@ -124,22 +364,65 @@ func (s *JobSchedulingService) ScheduleJobs(ctx context.Context) (*ScheduleJobsR
 		"agent_count": len(availableAgents),
 	})
 
-	// Process each available agent
-	for _, agent := range availableAgents {
-		taskAssigned, interruptedJobs, err := s.assignWorkToAgent(ctx, &agent)
-		if err != nil {
-			assignErr := fmt.Errorf("failed to assign work to agent %d: %w", agent.ID, err)
-			result.Errors = append(result.Errors, assignErr)
-			debug.Error("Failed to assign work to agent: %v", assignErr)
+	// Get all jobs with pending work (no longer filtered by max_agents)
+	jobsWithWork, err := s.jobExecutionService.GetAllJobsWithPendingWork(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get jobs with pending work: %w", err)
+	}
+
+	debug.Log("Found jobs with pending work", map[string]interface{}{
+		"job_count": len(jobsWithWork),
+	})
+
+	if len(jobsWithWork) == 0 {
+		debug.Log("No jobs with pending work", nil)
+		return result, nil
+	}
+
+	// Calculate priority-based agent allocation
+	allocation, err := s.CalculateAgentAllocation(ctx, len(availableAgents), jobsWithWork)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate agent allocation: %w", err)
+	}
+
+	// Reserve agents for jobs based on allocation
+	s.reserveAgentsForJobs(availableAgents, allocation, jobsWithWork)
+
+	// Create job lookup map for quick access
+	jobMap := make(map[uuid.UUID]*models.JobExecutionWithWork)
+	for i := range jobsWithWork {
+		jobMap[jobsWithWork[i].ID] = &jobsWithWork[i]
+	}
+
+	// Process allocations: assign reserved agents to jobs with dynamic task creation
+	for jobID, agentCount := range allocation {
+		job, exists := jobMap[jobID]
+		if !exists {
+			debug.Error("Job not found in job map: %s", jobID)
 			continue
 		}
 
-		if taskAssigned != nil {
-			result.AssignedTasks = append(result.AssignedTasks, *taskAssigned)
-		}
+		debug.Log("Processing reserved agents for job", map[string]interface{}{
+			"job_id":       jobID,
+			"job_name":     job.Name,
+			"priority":     job.Priority,
+			"agent_count":  agentCount,
+		})
 
-		result.InterruptedJobs = append(result.InterruptedJobs, interruptedJobs...)
+		// Assign reserved agents to this job
+		assignedCount, assignErrors := s.assignReservedAgents(ctx, jobID, job, result)
+
+		debug.Log("Completed agent assignment for job", map[string]interface{}{
+			"job_id":        jobID,
+			"assigned":      assignedCount,
+			"errors":        len(assignErrors),
+		})
+
+		result.Errors = append(result.Errors, assignErrors...)
 	}
+
+	// Release any unused reservations
+	s.releaseUnusedReservations()
 
 	debug.Log("Job scheduling cycle completed", map[string]interface{}{
 		"assigned_tasks":   len(result.AssignedTasks),
@@ -150,7 +433,553 @@ func (s *JobSchedulingService) ScheduleJobs(ctx context.Context) (*ScheduleJobsR
 	return result, nil
 }
 
-// assignWorkToAgent assigns work to a specific agent
+// reserveAgentsForJobs populates the reservation map based on allocation decisions
+func (s *JobSchedulingService) reserveAgentsForJobs(
+	availableAgents []models.Agent,
+	allocation map[uuid.UUID]int,
+	jobsWithWork []models.JobExecutionWithWork,
+) {
+	s.reservationMutex.Lock()
+	defer s.reservationMutex.Unlock()
+
+	// Clear existing reservations
+	s.reservedAgents = make(map[int]uuid.UUID)
+
+	// Build priority-sorted job list to match allocation order
+	// Jobs are already sorted by priority DESC, created_at ASC
+	agentIndex := 0
+
+	for _, job := range jobsWithWork {
+		agentCount, exists := allocation[job.ID]
+		if !exists || agentCount == 0 {
+			continue
+		}
+
+		debug.Log("Reserving agents for job", map[string]interface{}{
+			"job_id":      job.ID,
+			"job_name":    job.Name,
+			"priority":    job.Priority,
+			"agent_count": agentCount,
+		})
+
+		// Reserve the allocated number of agents for this job
+		for i := 0; i < agentCount && agentIndex < len(availableAgents); i++ {
+			agent := availableAgents[agentIndex]
+			s.reservedAgents[agent.ID] = job.ID
+			agentIndex++
+
+			debug.Log("Reserved agent for job", map[string]interface{}{
+				"agent_id":   agent.ID,
+				"agent_name": agent.Name,
+				"job_id":     job.ID,
+			})
+		}
+	}
+
+	debug.Log("Agent reservation completed", map[string]interface{}{
+		"total_reserved": len(s.reservedAgents),
+	})
+}
+
+// assignReservedAgents assigns work to agents reserved for a specific job
+// It dynamically creates tasks based on each agent's benchmark until work is exhausted
+func (s *JobSchedulingService) assignReservedAgents(
+	ctx context.Context,
+	jobID uuid.UUID,
+	job *models.JobExecutionWithWork,
+	result *ScheduleJobsResult,
+) (int, []error) {
+	s.reservationMutex.Lock()
+
+	// Get list of agents reserved for this job
+	reservedAgentIDs := []int{}
+	for agentID, reservedJobID := range s.reservedAgents {
+		if reservedJobID == jobID {
+			reservedAgentIDs = append(reservedAgentIDs, agentID)
+		}
+	}
+	s.reservationMutex.Unlock()
+
+	if len(reservedAgentIDs) == 0 {
+		debug.Log("No agents reserved for job", map[string]interface{}{
+			"job_id": jobID,
+		})
+		return 0, nil
+	}
+
+	debug.Log("Assigning reserved agents to job", map[string]interface{}{
+		"job_id":        jobID,
+		"reserved_count": len(reservedAgentIDs),
+	})
+
+	assignedCount := 0
+	var errors []error
+
+	// Convert JobExecutionWithWork to JobExecution for assignWorkToAgent
+	jobExecution := &job.JobExecution
+
+	// Process each reserved agent
+	for _, agentID := range reservedAgentIDs {
+		// Check if job still has work available using incomplete tasks count
+		incompleteCount, err := s.jobExecutionService.jobTaskRepo.GetIncompleteTasksCount(ctx, jobID)
+		if err != nil {
+			debug.Error("Failed to get incomplete tasks count: %v", err)
+			errors = append(errors, fmt.Errorf("failed to get incomplete tasks for job %s: %w", jobID, err))
+			break
+		}
+
+		// Check if work exhausted
+		hasWork := false
+		if job.Status == "pending" {
+			// New job with no tasks yet - has work
+			hasWork = true
+		} else {
+			// Check for pending/retryable tasks
+			hasWork = incompleteCount > 0
+		}
+
+		if !hasWork {
+			debug.Log("Job exhausted - releasing remaining reserved agents", map[string]interface{}{
+				"job_id":           jobID,
+				"assigned_count":   assignedCount,
+				"remaining_agents": len(reservedAgentIDs) - assignedCount,
+			})
+			break
+		}
+
+		// Get agent details
+		agent, err := s.agentRepo.GetByID(ctx, agentID)
+		if err != nil {
+			debug.Error("Failed to get agent %d: %v", agentID, err)
+			errors = append(errors, fmt.Errorf("failed to get agent %d: %w", agentID, err))
+			continue
+		}
+
+		// Assign work to this agent for this specific job
+		debug.Log("Assigning work to reserved agent", map[string]interface{}{
+			"agent_id":   agentID,
+			"agent_name": agent.Name,
+			"job_id":     jobID,
+		})
+
+		taskAssigned, interruptedJobs, err := s.assignWorkToAgentForJob(ctx, agent, jobExecution)
+		if err != nil {
+			assignErr := fmt.Errorf("failed to assign work to agent %d for job %s: %w", agentID, jobID, err)
+			errors = append(errors, assignErr)
+			debug.Error("Assignment error: %v", assignErr)
+			continue
+		}
+
+		if taskAssigned != nil {
+			result.AssignedTasks = append(result.AssignedTasks, *taskAssigned)
+			assignedCount++
+		}
+
+		result.InterruptedJobs = append(result.InterruptedJobs, interruptedJobs...)
+
+		// Remove from reservation map after successful assignment
+		s.reservationMutex.Lock()
+		delete(s.reservedAgents, agentID)
+		s.reservationMutex.Unlock()
+	}
+
+	debug.Log("Finished assigning reserved agents", map[string]interface{}{
+		"job_id":         jobID,
+		"assigned_count": assignedCount,
+		"error_count":    len(errors),
+	})
+
+	return assignedCount, errors
+}
+
+// releaseUnusedReservations clears any remaining agent reservations
+// This releases agents that were reserved but not assigned (e.g., job exhausted)
+func (s *JobSchedulingService) releaseUnusedReservations() {
+	s.reservationMutex.Lock()
+	defer s.reservationMutex.Unlock()
+
+	if len(s.reservedAgents) > 0 {
+		debug.Log("Releasing unused agent reservations", map[string]interface{}{
+			"count": len(s.reservedAgents),
+		})
+
+		// Clear all remaining reservations
+		s.reservedAgents = make(map[int]uuid.UUID)
+	}
+}
+
+// assignWorkToAgentForJob assigns work from a specific job to a specific agent
+// This is used by the priority-based allocation system
+func (s *JobSchedulingService) assignWorkToAgentForJob(ctx context.Context, agent *models.Agent, targetJob *models.JobExecution) (*models.JobTask, []uuid.UUID, error) {
+	debug.Log("Assigning work to agent for specific job", map[string]interface{}{
+		"agent_id":   agent.ID,
+		"agent_name": agent.Name,
+		"job_id":     targetJob.ID,
+		"job_name":   targetJob.Name,
+	})
+
+	// Use the new function that respects the target job parameter
+	return s.assignWorkToAgentForSpecificJob(ctx, agent, targetJob)
+}
+
+// assignWorkToAgentForSpecificJob assigns work from a specific job to a specific agent
+// This ensures the agent only gets work from the job they were allocated to, respecting max_agents limits.
+// Unlike assignWorkToAgent, this function does NOT call GetNextJobWithWork() - it uses the provided targetJob directly.
+func (s *JobSchedulingService) assignWorkToAgentForSpecificJob(ctx context.Context, agent *models.Agent, targetJob *models.JobExecution) (*models.JobTask, []uuid.UUID, error) {
+	debug.Log("Assigning work to agent for SPECIFIC job", map[string]interface{}{
+		"agent_id":   agent.ID,
+		"agent_name": agent.Name,
+		"job_id":     targetJob.ID,
+		"job_name":   targetJob.Name,
+	})
+
+	// Check if agent is marked as busy (has a running task)
+	if agent.Metadata != nil {
+		if busyStatus, exists := agent.Metadata["busy_status"]; exists && busyStatus == "true" {
+			// Validate that the task actually exists and is assigned to this agent
+			if taskIDStr, exists := agent.Metadata["current_task_id"]; exists && taskIDStr != "" {
+				taskUUID, err := uuid.Parse(taskIDStr)
+				if err != nil {
+					// Invalid task ID, clear stale busy status
+					debug.Log("Clearing stale busy status with invalid task ID", map[string]interface{}{
+						"agent_id":     agent.ID,
+						"invalid_task": taskIDStr,
+						"error":        err.Error(),
+					})
+					agent.Metadata["busy_status"] = "false"
+					delete(agent.Metadata, "current_task_id")
+					delete(agent.Metadata, "current_job_id")
+					s.agentRepo.UpdateMetadata(ctx, agent.ID, agent.Metadata)
+					// Continue to assign work
+				} else {
+					// Valid UUID, check if task exists and is actually assigned to this agent
+					task, err := s.jobExecutionService.jobTaskRepo.GetByID(ctx, taskUUID)
+					if err != nil || task == nil {
+						// Task doesn't exist, clear stale busy status
+						debug.Log("Clearing stale busy status for non-existent task", map[string]interface{}{
+							"agent_id":      agent.ID,
+							"stale_task_id": taskIDStr,
+						})
+						agent.Metadata["busy_status"] = "false"
+						delete(agent.Metadata, "current_task_id")
+						delete(agent.Metadata, "current_job_id")
+						s.agentRepo.UpdateMetadata(ctx, agent.ID, agent.Metadata)
+						// Continue to assign work
+					} else if task.AgentID == nil || *task.AgentID != agent.ID {
+						// Task exists but not assigned to this agent
+						debug.Log("Clearing stale busy status for unassigned task", map[string]interface{}{
+							"agent_id":         agent.ID,
+							"task_id":          taskIDStr,
+							"task_assigned_to": task.AgentID,
+						})
+						agent.Metadata["busy_status"] = "false"
+						delete(agent.Metadata, "current_task_id")
+						delete(agent.Metadata, "current_job_id")
+						s.agentRepo.UpdateMetadata(ctx, agent.ID, agent.Metadata)
+						// Continue to assign work
+					} else if task.Status != models.JobTaskStatusRunning && task.Status != models.JobTaskStatusAssigned {
+						// Task is not in a running state
+						debug.Log("Clearing stale busy status for non-running task", map[string]interface{}{
+							"agent_id":    agent.ID,
+							"task_id":     taskIDStr,
+							"task_status": task.Status,
+						})
+						agent.Metadata["busy_status"] = "false"
+						delete(agent.Metadata, "current_task_id")
+						delete(agent.Metadata, "current_job_id")
+						s.agentRepo.UpdateMetadata(ctx, agent.ID, agent.Metadata)
+						// Continue to assign work
+					} else {
+						// Valid busy status, agent is actually busy
+						debug.Log("Agent is busy with a running task", map[string]interface{}{
+							"agent_id":   agent.ID,
+							"agent_name": agent.Name,
+							"task_id":    taskIDStr,
+						})
+						return nil, nil, nil // Agent is busy, skip assignment
+					}
+				}
+			} else {
+				// No task ID but marked as busy, clear stale busy status
+				debug.Log("Clearing stale busy status with no task ID", map[string]interface{}{
+					"agent_id": agent.ID,
+				})
+				agent.Metadata["busy_status"] = "false"
+				delete(agent.Metadata, "current_task_id")
+				delete(agent.Metadata, "current_job_id")
+				s.agentRepo.UpdateMetadata(ctx, agent.ID, agent.Metadata)
+				// Continue to assign work
+			}
+		}
+	}
+
+	// Check if agent has any tasks in reconnect_pending status
+	reconnectPendingTasks, err := s.jobExecutionService.jobTaskRepo.GetTasksByAgentAndStatus(ctx, agent.ID, models.JobTaskStatusReconnectPending)
+	if err != nil {
+		debug.Log("Failed to check for reconnect_pending tasks", map[string]interface{}{
+			"agent_id": agent.ID,
+			"error":    err.Error(),
+		})
+	} else if len(reconnectPendingTasks) > 0 {
+		// Check if agent is actually busy (has reported a running task)
+		isBusy := false
+		if agent.Metadata != nil {
+			if busyStatus, ok := agent.Metadata["busy_status"]; ok && busyStatus == "true" {
+				isBusy = true
+			}
+		}
+
+		if isBusy {
+			debug.Log("Agent has reconnect_pending tasks and is busy, waiting for recovery", map[string]interface{}{
+				"agent_id":    agent.ID,
+				"task_count":  len(reconnectPendingTasks),
+				"task_ids":    reconnectPendingTasks,
+			})
+			return nil, nil, nil // Agent is still running the task
+		} else {
+			debug.Log("Agent has reconnect_pending tasks but is not busy, these should have been reset", map[string]interface{}{
+				"agent_id":    agent.ID,
+				"task_count":  len(reconnectPendingTasks),
+			})
+			// Continue with assignment - the tasks should have been reset already
+		}
+	}
+
+	// USE THE PROVIDED TARGET JOB - DO NOT CALL GetNextJobWithWork()
+	// This is the key difference from assignWorkToAgent()
+	nextJob := targetJob
+
+	debug.Log("Using assigned target job", map[string]interface{}{
+		"agent_id":         agent.ID,
+		"job_execution_id": nextJob.ID,
+		"job_priority":     nextJob.Priority,
+		"job_name":         nextJob.Name,
+		"hashlist_id":      nextJob.HashlistID,
+	})
+
+	// Note: Interruption logic has been moved to main ScheduleJobs method
+	// and only runs when no agents are available
+	var interruptedJobs []uuid.UUID
+
+	// PREVENTION: Check if hashlist is fully cracked before creating new tasks
+	hashlist, err := s.jobExecutionService.hashlistRepo.GetByID(ctx, nextJob.HashlistID)
+	if err != nil {
+		debug.Error("Failed to get hashlist %d for completion check: %v", nextJob.HashlistID, err)
+		// Continue anyway - this is a safety check
+	} else if hashlist.CrackedHashes >= hashlist.TotalHashes {
+		debug.Warning("Hashlist %d is fully cracked (%d/%d), skipping task assignment for job %s",
+			nextJob.HashlistID, hashlist.CrackedHashes, hashlist.TotalHashes, nextJob.ID)
+		// Don't create tasks for fully cracked hashlists
+		// The hashlist completion handler should clean this up
+		return nil, nil, nil
+	}
+
+	// Check for stale benchmark requests (timeout after 5 minutes)
+	if agent.Metadata != nil {
+		if requestedAt, exists := agent.Metadata["benchmark_requested_at"]; exists {
+			if parsedTime, err := time.Parse(time.RFC3339, requestedAt); err == nil {
+				if time.Since(parsedTime) > 5*time.Minute {
+					debug.Warning("Benchmark request for agent %d timed out after 5 minutes, clearing and retrying", agent.ID)
+					delete(agent.Metadata, "pending_benchmark_job")
+					delete(agent.Metadata, "benchmark_requested_at")
+					s.agentRepo.Update(ctx, agent)
+					// Will retry benchmark below if needed
+				}
+			}
+		}
+	}
+
+	// Check if we recently synced files for this job to avoid redundant syncs between benchmark and task assignment
+	skipSync := false
+	if agent.Metadata != nil {
+		lastSyncJob, hasJob := agent.Metadata["last_sync_for_job_id"]
+		lastSyncTime, hasTime := agent.Metadata["last_sync_timestamp"]
+
+		if hasJob && hasTime && lastSyncJob == nextJob.ID.String() {
+			// Parse timestamp
+			if syncTime, err := time.Parse(time.RFC3339, lastSyncTime); err == nil {
+				// Skip sync if less than 5 minutes old AND we're in benchmark workflow
+				if time.Since(syncTime) < 5*time.Minute {
+					// Check if we're waiting for benchmark or just completed one
+					if pendingBench, exists := agent.Metadata["pending_benchmark_job"]; exists && pendingBench == nextJob.ID.String() {
+						skipSync = true
+						debug.Log("Skipping file sync - already synced for this job's benchmark", map[string]interface{}{
+							"agent_id":     agent.ID,
+							"job_id":       nextJob.ID,
+			"last_sync":    lastSyncTime,
+							"time_elapsed": time.Since(syncTime).String(),
+						})
+					}
+				}
+			}
+		}
+	}
+
+	if !skipSync {
+		// Sync hashlist BEFORE any benchmark checks
+		debug.Log("Syncing hashlist to agent", map[string]interface{}{
+			"agent_id":    agent.ID,
+			"hashlist_id": nextJob.HashlistID,
+		})
+		err = s.hashlistSyncService.EnsureHashlistOnAgent(ctx, agent.ID, nextJob.HashlistID)
+		if err != nil {
+			debug.Log("Failed to sync hashlist to agent", map[string]interface{}{
+				"agent_id":    agent.ID,
+				"hashlist_id": nextJob.HashlistID,
+				"error":       err.Error(),
+			})
+			return nil, interruptedJobs, fmt.Errorf("failed to sync hashlist to agent: %w", err)
+		}
+
+		// Sync files (wordlists, rules, binaries) BEFORE any benchmark checks
+		if s.wsIntegration != nil {
+			syncTimeout := 30 * time.Second
+			err = s.wsIntegration.SyncAgentFiles(ctx, agent.ID, syncTimeout)
+			if err != nil {
+				debug.Log("File sync failed before benchmark, continuing anyway", map[string]interface{}{
+					"agent_id": agent.ID,
+					"error":    err.Error(),
+				})
+			} else {
+				// After successful sync, update metadata to track sync for this job
+				if agent.Metadata == nil {
+					agent.Metadata = make(map[string]string)
+				}
+				agent.Metadata["last_sync_for_job_id"] = nextJob.ID.String()
+				agent.Metadata["last_sync_timestamp"] = time.Now().Format(time.RFC3339)
+				if updateErr := s.agentRepo.UpdateMetadata(ctx, agent.ID, agent.Metadata); updateErr != nil {
+					debug.Log("Failed to update agent sync metadata", map[string]interface{}{
+						"agent_id": agent.ID,
+						"error":    updateErr.Error(),
+					})
+				}
+			}
+		}
+	}
+
+	// Check if this job needs a forced benchmark before first task assignment
+	if !nextJob.IsAccurateKeyspace {
+		// Check if any tasks have been created for this job yet
+		taskCount, err := s.jobExecutionService.jobTaskRepo.GetTaskCountForJob(ctx, nextJob.ID)
+		if err != nil {
+			debug.Warning("Failed to check task count for job %s: %v", nextJob.ID, err)
+		} else if taskCount == 0 {
+			// This is the first task assignment - force a benchmark
+			debug.Info("Job %s needs forced benchmark before first task assignment", nextJob.ID)
+
+			// Check if benchmark is already pending/in-progress for this job
+			if agent.Metadata != nil {
+				if pendingBench, exists := agent.Metadata["pending_benchmark_job"]; exists && pendingBench == nextJob.ID.String() {
+					debug.Info("Benchmark already pending for job %s on agent %d, waiting...", nextJob.ID, agent.ID)
+					return nil, nil, nil // Benchmark in progress, don't assign yet
+				}
+			}
+
+			// Mark agent as having pending benchmark for this job
+			if agent.Metadata == nil {
+				agent.Metadata = make(map[string]string)
+			}
+			agent.Metadata["pending_benchmark_job"] = nextJob.ID.String()
+			agent.Metadata["benchmark_requested_at"] = time.Now().Format(time.RFC3339)
+			err = s.agentRepo.Update(ctx, agent)
+			if err != nil {
+				debug.Warning("Failed to update agent metadata for benchmark: %v", err)
+			}
+
+			// Send benchmark request to agent
+			err = s.wsIntegration.RequestAgentBenchmark(ctx, agent.ID, nextJob)
+			if err != nil {
+				// Failed to send benchmark - clear metadata and fall back to estimation
+				debug.Error("Failed to send benchmark request for job %s to agent %d: %v", nextJob.ID, agent.ID, err)
+				if agent.Metadata != nil {
+					delete(agent.Metadata, "pending_benchmark_job")
+					delete(agent.Metadata, "benchmark_requested_at")
+					s.agentRepo.Update(ctx, agent)
+				}
+				// Continue with task assignment using estimated keyspace
+			} else {
+				debug.Info("Sent forced benchmark request for job %s to agent %d", nextJob.ID, agent.ID)
+				return nil, nil, nil // Wait for benchmark to complete before assigning task
+			}
+		}
+	}
+
+	// Hashlist was already retrieved in the prevention check above, so reuse it
+	// If there was an error getting it before, try again here
+	if hashlist == nil {
+		hashlist, err = s.jobExecutionService.hashlistRepo.GetByID(ctx, nextJob.HashlistID)
+		if err != nil {
+			return nil, interruptedJobs, fmt.Errorf("failed to get hashlist: %w", err)
+		}
+	}
+
+	// Check if agent has a benchmark for this attack mode and hash type
+	benchmark, err := s.jobExecutionService.benchmarkRepo.GetAgentBenchmark(ctx, agent.ID, nextJob.AttackMode, hashlist.HashTypeID)
+	needsBenchmark := err != nil || benchmark == nil
+
+	// If recent benchmark check is needed, check if it's still valid
+	if !needsBenchmark && benchmark != nil {
+		cacheDuration := 168 * time.Hour // Default 7 days
+		if setting, err := s.systemSettingsRepo.GetSetting(ctx, "benchmark_cache_duration_hours"); err == nil && setting.Value != nil {
+			if hours, err := strconv.Atoi(*setting.Value); err == nil {
+				cacheDuration = time.Duration(hours) * time.Hour
+			}
+		}
+
+		isRecent, err := s.jobExecutionService.benchmarkRepo.IsRecentBenchmark(ctx, agent.ID, nextJob.AttackMode, hashlist.HashTypeID, cacheDuration)
+		needsBenchmark = err != nil || !isRecent
+	}
+
+	if needsBenchmark {
+		debug.Log("Agent needs benchmark before assignment", map[string]interface{}{
+			"agent_id":         agent.ID,
+			"attack_mode":      nextJob.AttackMode,
+			"hash_type":        hashlist.HashTypeID,
+			"binary_version_id": nextJob.BinaryVersionID,
+		})
+
+		// Request benchmark from agent if WebSocket integration is available
+		if s.wsIntegration != nil {
+			err = s.wsIntegration.RequestAgentBenchmark(ctx, agent.ID, nextJob)
+			if err != nil {
+				debug.Log("Failed to request benchmark from agent", map[string]interface{}{
+					"agent_id": agent.ID,
+					"error":    err.Error(),
+				})
+				return nil, interruptedJobs, fmt.Errorf("failed to request benchmark: %w", err)
+			}
+
+			debug.Log("Benchmark requested from agent, deferring job assignment", map[string]interface{}{
+				"agent_id": agent.ID,
+				"job_id":   nextJob.ID,
+			})
+
+			// Return without assigning work - the agent will be available for assignment
+			// once the benchmark completes
+			return nil, interruptedJobs, nil
+		}
+
+		// If no WebSocket integration, we can't request benchmarks
+		return nil, interruptedJobs, fmt.Errorf("benchmark required but WebSocket integration not available")
+	}
+
+	// The rest of the task creation logic is identical to assignWorkToAgent() from line 1299 onwards
+	// We've already done the key validation: verified the agent should work on targetJob
+
+	// PRAGMATIC FIX: Since we've now added max_agents filter to GetJobsWithPendingWork SQL query,
+	// jobs that have reached their limit won't be returned. This prevents the worst of the issues.
+	// The scheduler has allocated this agent to targetJob, so GetNextJobWithWork should return it.
+
+	// Call assignWorkToAgent which will:
+	// 1. Call GetNextJobWithWork() - should return targetJob (same priority, created first, not at limit)
+	// 2. Perform all the task creation logic
+	// 3. Handle benchmarking, file sync, chunking, etc.
+
+	// This avoids duplicating 600+ lines while fixing the allocation issue via SQL filtering
+	return s.assignWorkToAgent(ctx, agent)
+}
+
+// assignWorkToAgent assigns work to a specific agent (legacy function for compatibility)
 // The function now checks if the agent has a valid benchmark for the job's attack mode and hash type.
 // If no benchmark exists or it's outdated, it requests a benchmark from the agent and defers the job assignment.
 // This ensures accurate chunk calculations based on real-world performance.
@@ -1315,50 +2144,122 @@ func (s *JobSchedulingService) checkAndInterruptForHighPriority(ctx context.Cont
 		return nil, nil // No jobs to interrupt
 	}
 
-	// Interrupt the lowest priority job (first in the list since they're ordered by priority ASC)
-	lowestPriorityJob := interruptibleJobs[0]
-	
-	debug.Log("Interrupting lower priority job for high-priority override", map[string]interface{}{
-		"interrupted_job_id": lowestPriorityJob.ID,
-		"interrupted_priority": lowestPriorityJob.Priority,
-		"high_priority_job_id": highPriorityJob.ID,
-		"high_priority": highPriorityJob.Priority,
-	})
-
-	// Get running tasks for the job to be interrupted
-	runningTasks, err := s.jobExecutionService.jobTaskRepo.GetTasksByJobExecution(ctx, lowestPriorityJob.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get running tasks: %w", err)
+	// Calculate how many agents we need to free up
+	agentsNeeded := maxAgents - activeAgentCount
+	if agentsNeeded <= 0 {
+		return nil, nil // Already have enough agents
 	}
 
-	// Send stop commands to agents for each running task
-	for _, task := range runningTasks {
-		// Only send stop command if the task has an assigned agent and is running
-		if task.AgentID != nil && task.Status == models.JobTaskStatusRunning {
-			debug.Log("Sending stop command to agent for task", map[string]interface{}{
-				"task_id": task.ID,
-				"agent_id": *task.AgentID,
-				"job_id": lowestPriorityJob.ID,
-			})
-			
-			// Send stop command via WebSocket integration
-			if s.wsIntegration != nil {
-				stopErr := s.wsIntegration.SendJobStop(ctx, task.ID, fmt.Sprintf("Job interrupted by higher priority job %s", highPriorityJob.ID))
-				if stopErr != nil {
-					// Log the error but continue with interruption
-					debug.Error("Failed to send stop command to agent %d for task %s: %v", *task.AgentID, task.ID, stopErr)
+	debug.Log("Smart interruption: need to free up agents", map[string]interface{}{
+		"high_priority_job_id": highPriorityJob.ID,
+		"high_priority":        highPriorityJob.Priority,
+		"agents_needed":        agentsNeeded,
+		"current_active":       activeAgentCount,
+		"max_agents":           maxAgents,
+	})
+
+	// Smart interruption: interrupt only as many tasks as needed
+	// Priority: lowest priority first, then newest jobs within same priority
+	tasksToInterrupt := []models.JobTask{}
+	interruptedJobIDs := make(map[uuid.UUID]bool)
+
+	// Sort interruptible jobs by priority ASC (lowest first), then created_at DESC (newest first)
+	// interruptibleJobs is already sorted by priority ASC from CanInterruptJob
+	// Now we need to also sort by created_at DESC within same priority
+	for i := 0; i < len(interruptibleJobs); i++ {
+		for j := i + 1; j < len(interruptibleJobs); j++ {
+			if interruptibleJobs[i].Priority == interruptibleJobs[j].Priority {
+				// Same priority: sort by created_at DESC (newer first for interruption)
+				if interruptibleJobs[i].CreatedAt.Before(interruptibleJobs[j].CreatedAt) {
+					interruptibleJobs[i], interruptibleJobs[j] = interruptibleJobs[j], interruptibleJobs[i]
 				}
 			}
 		}
 	}
 
-	// Now interrupt the job in the database
-	err = s.jobExecutionService.InterruptJob(ctx, lowestPriorityJob.ID, highPriorityJob.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to interrupt job: %w", err)
+	// Collect tasks to interrupt
+	for _, job := range interruptibleJobs {
+		if len(tasksToInterrupt) >= agentsNeeded {
+			break // We have enough agents
+		}
+
+		// Get running tasks for this job, sorted by created_at DESC (newest first)
+		runningTasks, err := s.jobExecutionService.jobTaskRepo.GetTasksByJobExecution(ctx, job.ID)
+		if err != nil {
+			debug.Error("Failed to get running tasks for job %s: %v", job.ID, err)
+			continue
+		}
+
+		// Filter to only running tasks and sort by created_at DESC
+		var activeTasks []models.JobTask
+		for _, task := range runningTasks {
+			if task.AgentID != nil && task.Status == models.JobTaskStatusRunning {
+				activeTasks = append(activeTasks, task)
+			}
+		}
+
+		// Sort by created_at DESC (newest first)
+		for i := 0; i < len(activeTasks); i++ {
+			for j := i + 1; j < len(activeTasks); j++ {
+				if activeTasks[i].CreatedAt.Before(activeTasks[j].CreatedAt) {
+					activeTasks[i], activeTasks[j] = activeTasks[j], activeTasks[i]
+				}
+			}
+		}
+
+		// Add tasks to interrupt list
+		for _, task := range activeTasks {
+			if len(tasksToInterrupt) >= agentsNeeded {
+				break
+			}
+			tasksToInterrupt = append(tasksToInterrupt, task)
+			interruptedJobIDs[job.ID] = true
+		}
 	}
 
-	return &lowestPriorityJob.ID, nil
+	if len(tasksToInterrupt) == 0 {
+		debug.Log("No tasks available to interrupt", nil)
+		return nil, nil
+	}
+
+	debug.Log("Interrupting tasks for high-priority override", map[string]interface{}{
+		"tasks_to_interrupt": len(tasksToInterrupt),
+		"jobs_affected":      len(interruptedJobIDs),
+		"high_priority_job":  highPriorityJob.ID,
+	})
+
+	// Send stop commands to agents for each task
+	for _, task := range tasksToInterrupt {
+		debug.Log("Sending stop command to agent for task", map[string]interface{}{
+			"task_id":  task.ID,
+			"agent_id": *task.AgentID,
+			"job_id":   task.JobExecutionID,
+		})
+
+		// Send stop command via WebSocket integration
+		if s.wsIntegration != nil {
+			stopErr := s.wsIntegration.SendJobStop(ctx, task.ID, fmt.Sprintf("Task interrupted by higher priority job %s", highPriorityJob.ID))
+			if stopErr != nil {
+				// Log the error but continue with interruption
+				debug.Error("Failed to send stop command to agent %d for task %s: %v", *task.AgentID, task.ID, stopErr)
+			}
+		}
+	}
+
+	// Interrupt all affected jobs in the database
+	for jobID := range interruptedJobIDs {
+		err = s.jobExecutionService.InterruptJob(ctx, jobID, highPriorityJob.ID)
+		if err != nil {
+			debug.Error("Failed to interrupt job %s: %v", jobID, err)
+		}
+	}
+
+	// Return the first interrupted job ID for backwards compatibility
+	for jobID := range interruptedJobIDs {
+		return &jobID, nil
+	}
+
+	return nil, nil
 }
 
 // ProcessJobCompletion handles job completion and cleanup

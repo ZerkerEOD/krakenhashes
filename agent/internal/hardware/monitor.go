@@ -28,6 +28,20 @@ func NewMonitor(dataDirectory string) (*Monitor, error) {
 	return m, nil
 }
 
+// NewMonitorFromMock creates a Monitor wrapper around a MockMonitor
+// This allows mock monitors to be used where *Monitor is expected
+func NewMonitorFromMock(mock *MockMonitor) *Monitor {
+	// Get mock devices
+	mockDevices := mock.GetDevices()
+
+	return &Monitor{
+		hashcatDetector:        nil, // No real detector in mock mode
+		dataDirectory:          "",
+		devices:                mockDevices,
+		preferredBinaryVersion: 0,
+	}
+}
+
 // SetPreferredBinaryVersion sets the preferred binary version for device detection
 func (m *Monitor) SetPreferredBinaryVersion(version int64) {
 	m.mu.Lock()
@@ -47,6 +61,19 @@ func (m *Monitor) Cleanup() error {
 
 // DetectDevices uses hashcat to detect available compute devices
 func (m *Monitor) DetectDevices() (*types.DeviceDetectionResult, error) {
+	// If no detector (mock mode), return mock devices
+	if m.hashcatDetector == nil {
+		m.mu.RLock()
+		devices := make([]types.Device, len(m.devices))
+		copy(devices, m.devices)
+		m.mu.RUnlock()
+
+		result := &types.DeviceDetectionResult{
+			Devices: devices,
+		}
+		return result, nil
+	}
+
 	// Get preferred binary version
 	m.mu.RLock()
 	preferredVersion := m.preferredBinaryVersion
@@ -75,6 +102,41 @@ func (m *Monitor) DetectDevices() (*types.DeviceDetectionResult, error) {
 
 // DetectPhysicalDevices detects and groups devices by physical GPU
 func (m *Monitor) DetectPhysicalDevices() (*types.PhysicalDeviceDetectionResult, error) {
+	// If no detector (mock mode), return mock physical devices
+	if m.hashcatDetector == nil {
+		m.mu.RLock()
+		deviceCount := len(m.devices)
+		m.mu.RUnlock()
+
+		// Create mock physical devices (one per GPU)
+		physicalDevices := make([]types.PhysicalDevice, deviceCount)
+		for i := 0; i < deviceCount; i++ {
+			m.mu.RLock()
+			device := m.devices[i]
+			m.mu.RUnlock()
+
+			runtimes := []types.RuntimeOption{
+				{
+					Backend:     device.Backend,
+					DeviceID:    device.ID,
+					MemoryTotal: device.MemoryTotal,
+				},
+			}
+			physicalDevices[i] = types.PhysicalDevice{
+				Index:           i,
+				Name:            device.Name,
+				Type:            device.Type,
+				Enabled:         device.Enabled,
+				RuntimeOptions:  runtimes,
+				SelectedRuntime: device.Backend,
+			}
+		}
+
+		return &types.PhysicalDeviceDetectionResult{
+			Devices: physicalDevices,
+		}, nil
+	}
+
 	// Get preferred binary version
 	m.mu.RLock()
 	preferredVersion := m.preferredBinaryVersion
@@ -102,11 +164,18 @@ func (m *Monitor) DetectPhysicalDevices() (*types.PhysicalDeviceDetectionResult,
 
 // HasBinary checks if any hashcat binary is available
 func (m *Monitor) HasBinary() bool {
+	if m.hashcatDetector == nil {
+		return true // Mock mode always has "binary"
+	}
 	return m.hashcatDetector.HasHashcatBinary()
 }
 
 // HasPreferredBinary checks if the preferred binary version is available
 func (m *Monitor) HasPreferredBinary() bool {
+	if m.hashcatDetector == nil {
+		return true // Mock mode always has "binary"
+	}
+
 	m.mu.RLock()
 	preferredVersion := m.preferredBinaryVersion
 	m.mu.RUnlock()

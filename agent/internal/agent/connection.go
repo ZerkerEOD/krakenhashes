@@ -606,12 +606,19 @@ func NewConnection(urlConfig *config.URLConfig) (*Connection, error) {
 
 	// Get data directory for hardware monitor
 	cfg := config.NewConfig()
-	
-	// Initialize hardware monitor
-	hwMonitor, err := hardware.NewMonitor(cfg.DataDirectory)
-	if err != nil {
-		debug.Error("Failed to create hardware monitor: %v", err)
-		return nil, fmt.Errorf("failed to create hardware monitor: %w", err)
+
+	// Initialize hardware monitor (real or mock based on TEST_MODE)
+	var hwMonitor *hardware.Monitor
+	if os.Getenv("TEST_MODE") == "true" {
+		debug.Info("TEST_MODE enabled, using mock hardware monitor")
+		hwMonitor = hardware.NewMonitorFromMock(hardware.NewMockMonitor())
+	} else {
+		var monitorErr error
+		hwMonitor, monitorErr = hardware.NewMonitor(cfg.DataDirectory)
+		if monitorErr != nil {
+			debug.Error("Failed to create hardware monitor: %v", monitorErr)
+			return nil, fmt.Errorf("failed to create hardware monitor: %w", monitorErr)
+		}
 	}
 
 	// Check if certificates exist, if not try to renew them
@@ -1470,8 +1477,8 @@ func (c *Connection) readPump() {
 				ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutDuration)*time.Second)
 				defer cancel()
 
-				// Get the hashcat executor from job manager
-				executor := c.jobManager.(*jobs.JobManager).GetHashcatExecutor()
+				// Get the executor from job manager
+				executor := c.jobManager.(*jobs.JobManager).GetExecutor()
 				totalSpeed, deviceSpeeds, totalEffectiveKeyspace, err := executor.RunSpeedTest(ctx, assignment, testDuration)
 
 				if err != nil {

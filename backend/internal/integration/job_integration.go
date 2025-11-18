@@ -136,8 +136,8 @@ func (m *JobIntegrationManager) GetWebSocketIntegration() *JobWebSocketIntegrati
 // StartScheduler starts the job scheduling service
 func (m *JobIntegrationManager) StartScheduler(ctx context.Context) {
 	debug.Log("Starting job scheduler", nil)
-	// Start scheduler with 30 second interval
-	go m.jobSchedulingService.StartScheduler(ctx, 30*time.Second)
+	// Start scheduler with 3 second interval
+	go m.jobSchedulingService.StartScheduler(ctx, 3*time.Second)
 }
 
 // StopJob stops a running job
