@@ -63,6 +63,7 @@ Control job execution behavior and user interface settings.
 | Setting | Description | Default | Range | Notes |
 |---------|-------------|---------|--------|-------|
 | **Allow Job Interruption** | Higher priority jobs can interrupt running jobs | Enabled | On/Off | Ensures critical jobs run immediately |
+| **Agent Overflow Allocation Mode** | How to distribute extra agents when jobs hit max_agents limit | `fifo` | `fifo`, `round_robin` | Controls fairness vs speed tradeoff |
 | **Real-time Crack Notifications** | Send notifications when hashes are cracked | Enabled | On/Off | Can increase server load for large jobs |
 | **Job Refresh Interval** | How often the UI refreshes job status | 5 seconds | 1-60 seconds | Lower values increase server load |
 | **Max Chunk Retry Attempts** | Number of times to retry failed chunks | 3 | 0-10 | Set to 0 to disable retries |
@@ -74,6 +75,127 @@ When enabled, the system will:
 2. Save the state of interrupted jobs
 3. Resume interrupted jobs once higher priority jobs complete
 4. Maintain crack progress for all interrupted jobs
+
+#### Agent Overflow Allocation Mode
+
+This setting controls how "overflow" agents (agents beyond max_agents limits) are distributed among jobs at the **same priority level**.
+
+**Important**: This setting **only applies** to overflow agents when multiple jobs exist at the same priority. Higher priority jobs always override max_agents limits and take ALL available agents.
+
+**Available Modes:**
+
+##### FIFO Mode (Default)
+
+**Behavior**: Oldest job gets all overflow agents
+
+```sql
+-- Set FIFO mode
+UPDATE system_settings
+SET value = 'fifo'
+WHERE key = 'agent_overflow_allocation_mode';
+```
+
+**Use Cases:**
+- **Default mode**: Best for most scenarios
+- **Fairness**: Jobs get their turn in creation order
+- **Completion focus**: Concentrates resources to finish jobs faster
+- **Simple behavior**: Predictable allocation pattern
+
+**Example:**
+```
+3 jobs at priority 50, each with max_agents = 2
+15 available agents total
+
+Job A (created first):  2 agents (max_agents)
+Job B (created second): 2 agents (max_agents)
+Job C (created third):  2 agents (max_agents)
+Overflow:              9 agents → ALL go to Job A (oldest)
+
+Final: Job A = 11 agents, Job B = 2 agents, Job C = 2 agents
+```
+
+##### Round-Robin Mode
+
+**Behavior**: Distribute overflow agents evenly across all jobs at same priority
+
+```sql
+-- Set round-robin mode
+UPDATE system_settings
+SET value = 'round_robin'
+WHERE key = 'agent_overflow_allocation_mode';
+```
+
+**Use Cases:**
+- **Parallel progress**: Want all jobs to progress simultaneously
+- **Testing**: Running multiple test jobs at once
+- **Even distribution**: Prefer balanced allocation over speed
+- **Multiple clients**: Each job from different client, want fairness
+
+**Example:**
+```
+3 jobs at priority 50, each with max_agents = 2
+15 available agents total
+
+Job A (created first):  2 agents (max_agents)
+Job B (created second): 2 agents (max_agents)
+Job C (created third):  2 agents (max_agents)
+Overflow:              9 agents → distributed evenly (3 each)
+
+Final: Job A = 5 agents, Job B = 5 agents, Job C = 5 agents
+```
+
+**Allocation Logic:**
+```
+1. Calculate base allocation: 9 overflow / 3 jobs = 3 agents per job
+2. Calculate remainder: 9 % 3 = 0 (no remainder)
+3. Distribute base to all jobs: +3 each
+4. If remainder exists, give to oldest jobs first
+```
+
+##### Priority-Based Behavior
+
+**Critical**: The overflow allocation mode **does not affect** priority-based allocation:
+
+```
+Scenario: 2 jobs, 10 agents available
+
+Job A: Priority 100, max_agents = 3
+Job B: Priority 50,  max_agents = 5
+
+Result (regardless of overflow mode):
+- Job A gets ALL 10 agents (higher priority overrides max_agents)
+- Job B gets 0 agents (lower priority, waits for Job A to finish)
+```
+
+##### Configuration via SQL
+
+```sql
+-- View current setting
+SELECT key, value, description
+FROM system_settings
+WHERE key = 'agent_overflow_allocation_mode';
+
+-- Change to FIFO mode (default)
+UPDATE system_settings
+SET value = 'fifo'
+WHERE key = 'agent_overflow_allocation_mode';
+
+-- Change to round-robin mode
+UPDATE system_settings
+SET value = 'round_robin'
+WHERE key = 'agent_overflow_allocation_mode';
+```
+
+##### When to Use Each Mode
+
+| Scenario | Recommended Mode | Reason |
+|----------|------------------|--------|
+| Production cracking (default) | FIFO | Finish jobs faster by concentrating resources |
+| Multiple test jobs | Round-robin | See results from all tests simultaneously |
+| Multi-client environment | Round-robin | Fair distribution across clients |
+| Single large job | Either | No difference (only one job) |
+| Time-critical job | FIFO | Ensures oldest/most important finishes first |
+| Parallel research | Round-robin | Compare multiple approaches simultaneously |
 
 ### Rule Splitting
 
