@@ -439,37 +439,66 @@ func (s *JobSchedulingService) ScheduleJobs(ctx context.Context) (*ScheduleJobsR
 	// Reserve agents for jobs based on allocation
 	s.reserveAgentsForJobs(availableAgents, allocation, jobsWithWork)
 
-	// Create job lookup map for quick access
-	jobMap := make(map[uuid.UUID]*models.JobExecutionWithWork)
-	for i := range jobsWithWork {
-		jobMap[jobsWithWork[i].ID] = &jobsWithWork[i]
+	// NEW: Create all task assignment plans sequentially (prevents overlapping ranges)
+	debug.Info("Creating task assignment plans", map[string]interface{}{
+		"total_reserved_agents": len(s.reservedAgents),
+		"jobs_with_work":        len(jobsWithWork),
+	})
+
+	taskPlans, planErrors := s.CreateTaskAssignmentPlans(ctx, s.reservedAgents, jobsWithWork)
+	if len(planErrors) > 0 {
+		debug.Warning("Errors during task planning: %d errors", len(planErrors))
+		result.Errors = append(result.Errors, planErrors...)
 	}
 
-	// Process allocations: assign reserved agents to jobs with dynamic task creation
-	for jobID, agentCount := range allocation {
-		job, exists := jobMap[jobID]
-		if !exists {
-			debug.Error("Job not found in job map: %s", jobID)
-			continue
+	debug.Info("Task planning complete", map[string]interface{}{
+		"total_plans":   len(taskPlans),
+		"planning_errors": len(planErrors),
+	})
+
+	// NEW: Execute task assignments in parallel
+	if len(taskPlans) > 0 {
+		debug.Info("Executing task assignments in parallel", map[string]interface{}{
+			"total_plans": len(taskPlans),
+		})
+
+		assignmentResults, execErrors := s.ExecuteTaskAssignmentPlans(ctx, taskPlans)
+		if len(execErrors) > 0 {
+			debug.Warning("Errors during task execution: %d errors", len(execErrors))
+			result.Errors = append(result.Errors, execErrors...)
 		}
 
-		debug.Log("Processing reserved agents for job", map[string]interface{}{
-			"job_id":       jobID,
-			"job_name":     job.Name,
-			"priority":     job.Priority,
-			"agent_count":  agentCount,
+		// Process results and count skipped assignments
+		skippedCount := 0
+		for _, plan := range taskPlans {
+			if plan.SkipAssignment {
+				skippedCount++
+				debug.Info("Skipped agent assignment", map[string]interface{}{
+					"agent_id": plan.AgentID,
+					"reason":   plan.SkipReason,
+				})
+			}
+		}
+
+		// Count successful assignments and add tasks to result
+		successCount := 0
+		for _, assignResult := range assignmentResults {
+			if assignResult.Success {
+				successCount++
+				// Add task to result for compatibility with existing code
+				task := &models.JobTask{ID: assignResult.TaskID}
+				result.AssignedTasks = append(result.AssignedTasks, *task)
+			}
+		}
+
+		debug.Info("Task assignment phase complete", map[string]interface{}{
+			"assigned": successCount,
+			"skipped":  skippedCount,
+			"failed":   len(assignmentResults) - successCount,
+			"errors":   len(execErrors),
 		})
-
-		// Assign reserved agents to this job
-		assignedCount, assignErrors := s.assignReservedAgents(ctx, jobID, job, result)
-
-		debug.Log("Completed agent assignment for job", map[string]interface{}{
-			"job_id":        jobID,
-			"assigned":      assignedCount,
-			"errors":        len(assignErrors),
-		})
-
-		result.Errors = append(result.Errors, assignErrors...)
+	} else {
+		debug.Info("No task plans to execute", nil)
 	}
 
 	// Release any unused reservations
