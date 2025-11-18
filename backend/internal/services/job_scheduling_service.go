@@ -379,6 +379,57 @@ func (s *JobSchedulingService) ScheduleJobs(ctx context.Context) (*ScheduleJobsR
 		return result, nil
 	}
 
+	// NEW: Create benchmark plan
+	benchmarkPlan, err := s.CreateBenchmarkPlan(ctx, availableAgents, jobsWithWork)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create benchmark plan: %w", err)
+	}
+
+	// NEW: If ANY benchmarks needed, execute them and wait (blocking)
+	if len(benchmarkPlan.ForcedBenchmarks) > 0 || len(benchmarkPlan.AgentBenchmarks) > 0 {
+		debug.Info("Benchmarks needed, executing in parallel and waiting for completion", map[string]interface{}{
+			"forced_benchmarks": len(benchmarkPlan.ForcedBenchmarks),
+			"agent_benchmarks":  len(benchmarkPlan.AgentBenchmarks),
+			"total_benchmarks":  len(benchmarkPlan.ForcedBenchmarks) + len(benchmarkPlan.AgentBenchmarks),
+		})
+
+		// Insert benchmark request records for tracking
+		if err := s.InsertBenchmarkRequests(ctx, benchmarkPlan); err != nil {
+			debug.Error("Failed to insert benchmark requests: %v", err)
+		}
+
+		// Send all benchmark requests in parallel
+		if err := s.ExecuteBenchmarkPlan(ctx, benchmarkPlan); err != nil {
+			debug.Error("Failed to execute benchmark plan: %v", err)
+		}
+
+		// WAIT for all benchmarks to complete or timeout
+		allCompleted := s.WaitForBenchmarks(ctx)
+		if !allCompleted {
+			debug.Warning("Benchmark timeout reached, proceeding with completed benchmarks only")
+		}
+
+		// Clear benchmark requests table for next cycle
+		if err := s.ClearBenchmarkRequests(ctx); err != nil {
+			debug.Error("Failed to clear benchmark requests: %v", err)
+		}
+
+		// Refresh available agents (exclude timed out ones)
+		availableAgents, err = s.jobExecutionService.GetAvailableAgents(ctx)
+		if err != nil {
+			debug.Error("Failed to refresh available agents after benchmarks: %v", err)
+		}
+
+		debug.Info("Benchmark phase complete, proceeding to task assignment", map[string]interface{}{
+			"available_agents": len(availableAgents),
+		})
+	} else {
+		debug.Log("No benchmarks needed, proceeding directly to task assignment", nil)
+	}
+
+	// NEW: Prioritize agents that completed forced benchmarks for their jobs
+	s.PrioritizeForcedBenchmarkAgents(ctx, availableAgents, jobsWithWork)
+
 	// Calculate priority-based agent allocation
 	allocation, err := s.CalculateAgentAllocation(ctx, len(availableAgents), jobsWithWork)
 	if err != nil {

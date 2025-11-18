@@ -1301,6 +1301,29 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 		"speed":       result.Speed,
 	})
 
+	// Update benchmark_requests table to mark this benchmark as complete
+	_, err = s.db.ExecContext(ctx, `
+		UPDATE benchmark_requests
+		SET completed_at = CURRENT_TIMESTAMP,
+			success = $1,
+			error_message = $2
+		WHERE agent_id = $3
+		  AND attack_mode = $4
+		  AND hash_type = $5
+		  AND completed_at IS NULL
+	`, result.Success, result.Error, agentID, result.AttackMode, result.HashType)
+
+	if err != nil {
+		debug.Warning("Failed to update benchmark_requests table: %v", err)
+	} else {
+		debug.Log("Updated benchmark_requests table for completion", map[string]interface{}{
+			"agent_id":    agentID,
+			"hash_type":   result.HashType,
+			"attack_mode": result.AttackMode,
+			"success":     result.Success,
+		})
+	}
+
 	// Handle total effective keyspace from hashcat progress[1]
 	if result.TotalEffectiveKeyspace > 0 {
 		// Find the job this benchmark is for using the job_execution_id from the result
@@ -1396,19 +1419,20 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 			}
 		}
 
-		// Clear benchmark_requested_at but KEEP pending_benchmark_job to prevent redundant file syncs
-		// The pending_benchmark_job metadata is used by the scheduler to skip syncing files between
-		// benchmark completion and task assignment. It will be cleared after task assignment.
+		// Update metadata for forced benchmark completion
+		// This allows the scheduler to prioritize this agent for the job's first task
 		if agent.Metadata != nil {
 			if pendingJob, exists := agent.Metadata["pending_benchmark_job"]; exists && pendingJob == jobExec.ID.String() {
-				// Only clear benchmark_requested_at since benchmark is complete
-				// Keep pending_benchmark_job until task assignment
+				// This was a forced benchmark - set completion flag for prioritization
+				agent.Metadata["forced_benchmark_completed_for_job"] = jobExec.ID.String()
+				delete(agent.Metadata, "pending_benchmark_job")
 				delete(agent.Metadata, "benchmark_requested_at")
+
 				err := s.agentRepo.Update(ctx, agent)
 				if err != nil {
-					debug.Warning("Failed to clear benchmark_requested_at for agent %d: %v", agent.ID, err)
+					debug.Warning("Failed to update agent metadata after forced benchmark: %v", err)
 				} else {
-					debug.Info("Cleared benchmark_requested_at for agent %d after job %s benchmark completed (keeping pending_benchmark_job for sync optimization)", agent.ID, jobExec.ID)
+					debug.Info("Agent %d completed forced benchmark for job %s, set priority flag", agent.ID, jobExec.ID)
 				}
 			}
 		}
