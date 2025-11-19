@@ -71,12 +71,61 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
       console.debug('[ProviderConfig] Loading configuration...');
       setLoading(true);
 
-      const response = await getEmailConfig();
-      console.debug('[ProviderConfig] Loaded configuration:', response.data);
+      // Check for unsaved edits in sessionStorage first
+      const savedEditState = sessionStorage.getItem('email-config-editing');
+      if (savedEditState) {
+        try {
+          const { config: savedCfg, mode: savedMode, savedConfig: savedSaved } = JSON.parse(savedEditState);
+          console.debug('[ProviderConfig] Restoring unsaved edits from sessionStorage');
+          setConfig(savedCfg);
+          setMode(savedMode);
+          setSavedConfig(savedSaved);
+          setLoading(false);
+          return; // Don't reload from API
+        } catch (e) {
+          console.error('[ProviderConfig] Failed to parse saved edit state:', e);
+          sessionStorage.removeItem('email-config-editing');
+        }
+      }
 
-      const loadedConfig = response.data;
-      setSavedConfig(loadedConfig);
-      setConfig(loadedConfig);
+      // Load from API
+      const response = await getEmailConfig();
+      const backendConfig = response.data;
+      console.debug('[ProviderConfig] Loaded configuration:', backendConfig);
+
+      // Transform backend format to frontend format
+      const transformedConfig: EmailProviderConfig = {
+        id: backendConfig.id,
+        provider: backendConfig.provider_type,
+        apiKey: backendConfig.api_key,
+        monthlyLimit: backendConfig.monthly_limit,
+      };
+
+      // Parse additional_config into flat structure
+      if (backendConfig.additional_config) {
+        const ac = backendConfig.additional_config;
+
+        if (backendConfig.provider_type === 'smtp') {
+          transformedConfig.host = ac.host;
+          transformedConfig.port = ac.port;
+          transformedConfig.username = ac.username;
+          transformedConfig.fromEmail = ac.from_email;
+          transformedConfig.fromName = ac.from_name;
+          transformedConfig.encryption = ac.encryption;
+          transformedConfig.skipTLSVerify = ac.skip_tls_verify || false;
+        } else if (backendConfig.provider_type === 'mailgun') {
+          transformedConfig.domain = ac.domain;
+          transformedConfig.fromEmail = ac.from_email;
+          transformedConfig.fromName = ac.from_name;
+        } else if (backendConfig.provider_type === 'sendgrid') {
+          transformedConfig.fromEmail = ac.from_email;
+          transformedConfig.fromName = ac.from_name;
+        }
+      }
+
+      console.debug('[ProviderConfig] Transformed configuration:', transformedConfig);
+      setSavedConfig(transformedConfig);
+      setConfig(transformedConfig);
       setMode('view');
     } catch (error) {
       console.error('[ProviderConfig] Failed to load configuration:', error);
@@ -97,6 +146,20 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
   useEffect(() => {
     loadConfig();
   }, [loadConfig]);
+
+  // Persist editing state to sessionStorage when in edit/create mode
+  useEffect(() => {
+    if (mode === 'edit' || mode === 'create') {
+      const stateToSave = {
+        config,
+        mode,
+        savedConfig,
+      };
+      sessionStorage.setItem('email-config-editing', JSON.stringify(stateToSave));
+    } else if (mode === 'view') {
+      sessionStorage.removeItem('email-config-editing');
+    }
+  }, [config, mode, savedConfig]);
 
   const handleChange = (field: keyof EmailProviderConfig) => (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent
@@ -172,6 +235,7 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
 
   const handleCancel = () => {
     console.debug('[ProviderConfig] Canceling configuration');
+    sessionStorage.removeItem('email-config-editing');
     if (savedConfig) {
       setConfig(savedConfig);
       setMode('view');
@@ -276,7 +340,8 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
       await updateEmailConfig(payload);
       onNotification('Configuration saved successfully', 'success');
 
-      // Reload config and switch to view mode
+      // Clear sessionStorage and reload config to switch to view mode
+      sessionStorage.removeItem('email-config-editing');
       await loadConfig();
 
       if (withTest) {
@@ -307,7 +372,9 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}>
           <Typography variant="body2" color="text.secondary">Provider</Typography>
-          <Typography variant="body1" sx={{ textTransform: 'capitalize' }}>{config.provider}</Typography>
+          <Typography variant="body1" sx={{ textTransform: 'capitalize' }}>
+            {config.provider === 'smtp' ? 'SMTP' : config.provider}
+          </Typography>
         </Grid>
         <Grid item xs={12} md={6}>
           <Typography variant="body2" color="text.secondary">API Key / Password</Typography>

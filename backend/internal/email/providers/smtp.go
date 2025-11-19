@@ -7,8 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"net"
 	"net/smtp"
 	"strings"
+	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	emailtypes "github.com/ZerkerEOD/krakenhashes/backend/pkg/email"
@@ -289,9 +291,17 @@ func (p *smtpProvider) buildMessage(from string, to []string, subject, textConte
 func (p *smtpProvider) sendPlain(message []byte, to []string) error {
 	addr := fmt.Sprintf("%s:%d", p.config.Host, p.config.Port)
 
-	client, err := smtp.Dial(addr)
+	// Dial with timeout
+	dialer := &net.Dialer{Timeout: 30 * time.Second}
+	conn, err := dialer.Dial("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("failed to connect to SMTP server: %w", err)
+	}
+	defer conn.Close()
+
+	client, err := smtp.NewClient(conn, p.config.Host)
+	if err != nil {
+		return fmt.Errorf("failed to create SMTP client: %w", err)
 	}
 	defer client.Close()
 
@@ -322,9 +332,17 @@ func (p *smtpProvider) sendPlain(message []byte, to []string) error {
 func (p *smtpProvider) sendSTARTTLS(message []byte, to []string) error {
 	addr := fmt.Sprintf("%s:%d", p.config.Host, p.config.Port)
 
-	client, err := smtp.Dial(addr)
+	// Dial with timeout
+	dialer := &net.Dialer{Timeout: 30 * time.Second}
+	conn, err := dialer.Dial("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("failed to connect to SMTP server: %w", err)
+	}
+	defer conn.Close()
+
+	client, err := smtp.NewClient(conn, p.config.Host)
+	if err != nil {
+		return fmt.Errorf("failed to create SMTP client: %w", err)
 	}
 	defer client.Close()
 
@@ -371,13 +389,14 @@ func (p *smtpProvider) sendSTARTTLS(message []byte, to []string) error {
 func (p *smtpProvider) sendTLS(message []byte, to []string) error {
 	addr := fmt.Sprintf("%s:%d", p.config.Host, p.config.Port)
 
-	// Establish TLS connection first
+	// Establish TLS connection with timeout
+	dialer := &net.Dialer{Timeout: 30 * time.Second}
 	tlsConfig := &tls.Config{
 		ServerName:         p.config.Host,
 		InsecureSkipVerify: p.config.SkipTLSVerify,
 	}
 
-	conn, err := tls.Dial("tcp", addr, tlsConfig)
+	conn, err := tls.DialWithDialer(dialer, "tcp", addr, tlsConfig)
 	if err != nil {
 		return fmt.Errorf("failed to establish TLS connection: %w", err)
 	}
