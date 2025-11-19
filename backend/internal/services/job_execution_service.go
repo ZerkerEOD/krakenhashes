@@ -902,6 +902,13 @@ func (s *JobExecutionService) GetNextPendingJob(ctx context.Context) (*models.Jo
 	return nextJob, nil
 }
 
+// GetAllJobsWithPendingWork returns all jobs that have pending work
+// Used by the priority-based scheduling algorithm
+// Jobs are ordered by priority DESC, created_at ASC (FIFO for same priority)
+func (s *JobExecutionService) GetAllJobsWithPendingWork(ctx context.Context) ([]models.JobExecutionWithWork, error) {
+	return s.jobExecRepo.GetJobsWithPendingWork(ctx)
+}
+
 // GetNextJobWithWork returns the next job that has work available and isn't at max agent capacity
 // Jobs are ordered by priority DESC, created_at ASC (FIFO for same priority)
 func (s *JobExecutionService) GetNextJobWithWork(ctx context.Context) (*models.JobExecutionWithWork, error) {

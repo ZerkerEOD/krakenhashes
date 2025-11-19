@@ -32,6 +32,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
   const [requireClientForHashlist, setRequireClientForHashlist] = useState(false);
   const [potfileBatchSize, setPotfileBatchSize] = useState<number>(100000);
   const [potfileBatchInterval, setPotfileBatchInterval] = useState<number>(60);
+  const [agentOverflowMode, setAgentOverflowMode] = useState<string>('fifo');
   const [loadingData, setLoadingData] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +68,10 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
         const potfileBatchIntervalSetting = settings.data?.find((s: any) => s.key === 'potfile_batch_interval');
         if (potfileBatchIntervalSetting) {
           setPotfileBatchInterval(parseInt(potfileBatchIntervalSetting.value) || 60);
+        }
+        const agentOverflowModeSetting = settings.data?.find((s: any) => s.key === 'agent_overflow_allocation_mode');
+        if (agentOverflowModeSetting) {
+          setAgentOverflowMode(agentOverflowModeSetting.value || 'fifo');
         }
       } catch (err) {
         console.error('Failed to load general settings:', err);
@@ -285,6 +290,55 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
               <Typography variant="body2" color="text.secondary">
                 <strong>Note:</strong> Individual agents must also have scheduling enabled and schedules 
                 configured for this to take effect.
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Card sx={{ height: '100%' }}>
+            <CardContent>
+              <Box display="flex" alignItems="center" mb={2}>
+                <Typography variant="h6" component="h3">
+                  Agent Overflow Allocation
+                </Typography>
+                <Tooltip title="Configure how agents beyond max_agents limits are allocated when jobs have the same priority">
+                  <IconButton size="small" sx={{ ml: 1 }}>
+                    <InfoIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={agentOverflowMode === 'round_robin'}
+                    onChange={async (e) => {
+                      const newValue = e.target.checked ? 'round_robin' : 'fifo';
+                      setAgentOverflowMode(newValue);
+                      try {
+                        await updateSystemSetting('agent_overflow_allocation_mode', newValue);
+                        enqueueSnackbar('Agent overflow allocation mode updated', { variant: 'success' });
+                      } catch (error) {
+                        console.error('Failed to update overflow allocation mode:', error);
+                        setAgentOverflowMode(agentOverflowMode === 'round_robin' ? 'fifo' : 'round_robin'); // Revert on error
+                        enqueueSnackbar('Failed to update overflow allocation mode', { variant: 'error' });
+                      }
+                    }}
+                    disabled={loading || saving || loadingData}
+                  />
+                }
+                label={agentOverflowMode === 'round_robin' ? 'Round-Robin Mode' : 'FIFO Mode'}
+              />
+
+              <Typography variant="body2" color="text.secondary" paragraph sx={{ mt: 2 }}>
+                <strong>FIFO Mode (Default):</strong> When multiple jobs at the same priority exceed their
+                max_agents limits, the oldest job (created first) receives all extra agents.
+              </Typography>
+
+              <Typography variant="body2" color="text.secondary">
+                <strong>Round-Robin Mode:</strong> Extra agents are distributed evenly across all jobs at
+                the same priority, one agent at a time, ensuring fair allocation.
               </Typography>
             </CardContent>
           </Card>

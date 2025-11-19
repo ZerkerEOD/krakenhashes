@@ -19,7 +19,7 @@ import (
 
 // JobManager manages job execution on the agent
 type JobManager struct {
-	executor         *HashcatExecutor
+	executor         ExecutorInterface
 	config           *config.Config
 	statusCallback   func(*JobStatus)   // Callback for status updates (synchronous)
 	crackCallback    func(*CrackBatch)  // Callback for crack batches (asynchronous)
@@ -57,22 +57,52 @@ type BenchmarkResult struct {
 	Timestamp   time.Time
 }
 
+// ExecutorInterface defines the methods needed by JobManager
+type ExecutorInterface interface {
+	SetOutputCallback(callback func(taskID string, output string, isError bool))
+	SetDeviceFlagsCallback(callback func() string)
+	SetAgentExtraParams(params string)
+	ExecuteTask(ctx context.Context, assignment *JobTaskAssignment) (*HashcatProcess, error)
+	StopTask(taskID string) error
+	GetTaskProgress(taskID string) (*JobProgress, error)
+	GetActiveTaskIDs() []string
+	ForceCleanup() error
+	RunSpeedTest(ctx context.Context, assignment *JobTaskAssignment, testDuration int) (int64, []DeviceSpeed, int64, error)
+}
+
 // NewJobManager creates a new job manager
 func NewJobManager(cfg *config.Config, progressCallback func(*JobProgress), hwMonitor HardwareMonitor) *JobManager {
+	return NewJobManagerWithExecutor(cfg, progressCallback, hwMonitor, false)
+}
+
+// NewJobManagerWithExecutor creates a new job manager with a specific executor type
+func NewJobManagerWithExecutor(cfg *config.Config, progressCallback func(*JobProgress), hwMonitor HardwareMonitor, testMode bool) *JobManager {
 	dataDir := cfg.DataDirectory
-	
-	executor := NewHashcatExecutor(dataDir)
-	
-	// Set the agent's hashcat extra parameters
-	executor.SetAgentExtraParams(cfg.HashcatExtraParams)
-	
-	// Set device flags callback if hardware monitor is available
-	if hwMonitor != nil {
-		executor.SetDeviceFlagsCallback(func() string {
-			return hwMonitor.GetEnabledDeviceFlags()
-		})
+
+	var executor ExecutorInterface
+
+	if testMode {
+		// Create mock executor for testing
+		mockExec := NewMockHashcatExecutor(dataDir)
+		mockExec.SetAgentExtraParams(cfg.HashcatExtraParams)
+		if hwMonitor != nil {
+			mockExec.SetDeviceFlagsCallback(func() string {
+				return hwMonitor.GetEnabledDeviceFlags()
+			})
+		}
+		executor = mockExec
+	} else {
+		// Create real hashcat executor
+		hashcatExec := NewHashcatExecutor(dataDir)
+		hashcatExec.SetAgentExtraParams(cfg.HashcatExtraParams)
+		if hwMonitor != nil {
+			hashcatExec.SetDeviceFlagsCallback(func() string {
+				return hwMonitor.GetEnabledDeviceFlags()
+			})
+		}
+		executor = hashcatExec
 	}
-	
+
 	return &JobManager{
 		executor:         executor,
 		config:           cfg,
@@ -661,8 +691,9 @@ func (jm *JobManager) RunManualBenchmark(ctx context.Context, binaryPath string,
 	return nil, fmt.Errorf("manual benchmarks are deprecated - use speed tests through WebSocket benchmark requests")
 }
 
-// GetHashcatExecutor returns the hashcat executor for direct access
-func (jm *JobManager) GetHashcatExecutor() *HashcatExecutor {
+// GetExecutor returns the executor for direct access
+// Note: Returns ExecutorInterface which could be real or mock
+func (jm *JobManager) GetExecutor() ExecutorInterface {
 	return jm.executor
 }
 
