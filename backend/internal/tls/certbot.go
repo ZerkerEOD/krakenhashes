@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -156,6 +157,40 @@ func (p *CertbotProvider) createDNSCredentials() error {
 	return fmt.Errorf("no DNS provider credentials found (checked: CLOUDFLARE_API_TOKEN)")
 }
 
+// isValidatableDomain checks if a domain can be validated by an ACME server
+// Filters out domains that cannot be validated via HTTP-01 or DNS-01 challenges
+func isValidatableDomain(domain string) bool {
+	// Exclude localhost - cannot be validated by any CA
+	if domain == "localhost" {
+		debug.Debug("Filtering out domain '%s': localhost cannot be validated by ACME", domain)
+		return false
+	}
+
+	// Exclude .local domains - used for local network, cannot be validated publicly
+	if strings.HasSuffix(domain, ".local") {
+		debug.Debug("Filtering out domain '%s': .local domains cannot be validated by ACME", domain)
+		return false
+	}
+
+	// Exclude IP addresses - ACME requires DNS names, not IP addresses
+	if net.ParseIP(domain) != nil {
+		debug.Debug("Filtering out domain '%s': IP addresses cannot be used in ACME certificates", domain)
+		return false
+	}
+
+	// Exclude private/reserved domains
+	privateSuffixes := []string{".localhost", ".test", ".invalid", ".example"}
+	for _, suffix := range privateSuffixes {
+		if strings.HasSuffix(domain, suffix) {
+			debug.Debug("Filtering out domain '%s': private/reserved domain suffix", domain)
+			return false
+		}
+	}
+
+	debug.Debug("Domain '%s' is validatable by ACME", domain)
+	return true
+}
+
 // installCustomCA installs a custom CA certificate to the system trust store
 // This is needed for internal ACME servers using self-signed or internal CAs
 func (p *CertbotProvider) installCustomCA() error {
@@ -272,12 +307,22 @@ func (p *CertbotProvider) obtainCertificates() error {
 		args = append(args, "--staging")
 	}
 
-	// Add additional domains if specified
+	// Add additional domains if specified, filtering out unvalidatable domains
+	debug.Info("Filtering additional DNS names for ACME validation")
+	validDomains := 0
 	for _, domain := range p.config.AdditionalDNSNames {
 		if domain != "" && domain != p.config.CertbotConfig.Domain {
-			args = append(args, "-d", domain)
+			// Filter out domains that cannot be validated by ACME
+			if isValidatableDomain(domain) {
+				args = append(args, "-d", domain)
+				validDomains++
+				debug.Info("Added additional domain to certificate request: %s", domain)
+			} else {
+				debug.Info("Skipped unvalidatable domain: %s", domain)
+			}
 		}
 	}
+	debug.Info("Added %d additional validatable domains to certificate request", validDomains)
 
 	// Add extra arguments for advanced configuration
 	if p.config.CertbotConfig.ExtraArgs != "" {
@@ -297,6 +342,71 @@ func (p *CertbotProvider) obtainCertificates() error {
 	}
 
 	debug.Info("Successfully obtained certificates")
+
+	// If running in Docker with certbot mode, trigger nginx reload to enable HTTPS
+	if os.Getenv("KH_IN_DOCKER") == "TRUE" {
+		if err := p.reloadNginxWithHTTPS(); err != nil {
+			debug.Warning("Failed to reload nginx with HTTPS configuration: %v", err)
+			debug.Warning("You may need to manually reload nginx to enable HTTPS")
+			// Don't fail - certificates were obtained successfully
+		}
+	}
+
+	return nil
+}
+
+// reloadNginxWithHTTPS updates nginx configuration to enable HTTPS and reloads nginx
+// This is called after certificates are successfully obtained for the first time
+func (p *CertbotProvider) reloadNginxWithHTTPS() error {
+	debug.Info("Reloading nginx with HTTPS configuration after certificate acquisition")
+
+	// Get environment variables needed for nginx config generation
+	domain := p.config.CertbotConfig.Domain
+	logLevel := os.Getenv("NGINX_ERROR_LOG_LEVEL")
+	if logLevel == "" {
+		logLevel = "warn"
+	}
+
+	// Read the certbot.conf template
+	templatePath := "/etc/nginx/templates/certbot.conf"
+	templateContent, err := os.ReadFile(templatePath)
+	if err != nil {
+		return fmt.Errorf("failed to read nginx template: %w", err)
+	}
+
+	// Replace template variables
+	configContent := string(templateContent)
+	configContent = strings.ReplaceAll(configContent, "CERTBOT_DOMAIN", domain)
+	configContent = strings.ReplaceAll(configContent, "${NGINX_ERROR_LOG_LEVEL}", logLevel)
+
+	// Write the new nginx configuration
+	configPath := "/etc/nginx/conf.d/default.conf"
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		return fmt.Errorf("failed to write nginx configuration: %w", err)
+	}
+	debug.Info("Updated nginx configuration at %s with HTTPS settings", configPath)
+
+	// Test nginx configuration before reloading
+	debug.Info("Testing nginx configuration")
+	testCmd := exec.Command("nginx", "-t")
+	testOutput, err := testCmd.CombinedOutput()
+	if err != nil {
+		debug.Error("Nginx configuration test failed: %s", string(testOutput))
+		return fmt.Errorf("nginx configuration test failed: %w", err)
+	}
+	debug.Info("Nginx configuration test passed")
+
+	// Reload nginx using supervisorctl
+	debug.Info("Reloading nginx via supervisorctl")
+	reloadCmd := exec.Command("supervisorctl", "signal", "HUP", "nginx")
+	reloadOutput, err := reloadCmd.CombinedOutput()
+	if err != nil {
+		debug.Error("Failed to reload nginx: %s", string(reloadOutput))
+		return fmt.Errorf("failed to reload nginx: %w", err)
+	}
+	debug.Info("Successfully reloaded nginx with HTTPS configuration")
+	debug.Debug("supervisorctl output: %s", string(reloadOutput))
+
 	return nil
 }
 

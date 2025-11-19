@@ -93,16 +93,27 @@ NGINX_ERROR_LOG_LEVEL=${NGINX_ERROR_LOG_LEVEL:-warn}
 case "${KH_TLS_MODE:-self-signed}" in
     "certbot")
         if [ -n "${KH_CERTBOT_DOMAIN}" ]; then
-            echo "Using certbot nginx configuration for domain: ${KH_CERTBOT_DOMAIN}"
-            sed -e "s/CERTBOT_DOMAIN/${KH_CERTBOT_DOMAIN}/g" \
-                -e "s/\${NGINX_ERROR_LOG_LEVEL}/${NGINX_ERROR_LOG_LEVEL}/g" \
-                /etc/nginx/templates/certbot.conf > /etc/nginx/conf.d/default.conf
-
             # Create webroot directory for ACME challenges
             mkdir -p /var/www/certbot
             chown -R www-data:www-data /var/www/certbot
             chmod 755 /var/www/certbot
             echo "Created webroot directory: /var/www/certbot"
+
+            # Check if certificates already exist
+            CERT_PATH="/etc/krakenhashes/certs/live/${KH_CERTBOT_DOMAIN}/fullchain.pem"
+            if [ -f "$CERT_PATH" ]; then
+                echo "Certificates already exist at: $CERT_PATH"
+                echo "Using full certbot nginx configuration with HTTPS"
+                sed -e "s/CERTBOT_DOMAIN/${KH_CERTBOT_DOMAIN}/g" \
+                    -e "s/\${NGINX_ERROR_LOG_LEVEL}/${NGINX_ERROR_LOG_LEVEL}/g" \
+                    /etc/nginx/templates/certbot.conf > /etc/nginx/conf.d/default.conf
+            else
+                echo "Certificates do not exist yet (expected on first boot)"
+                echo "Using HTTP-only nginx configuration for certbot initialization"
+                echo "Nginx will reload with HTTPS after backend obtains certificates"
+                sed "s/\${NGINX_ERROR_LOG_LEVEL}/${NGINX_ERROR_LOG_LEVEL}/g" \
+                    /etc/nginx/templates/certbot-init.conf > /etc/nginx/conf.d/default.conf
+            fi
         else
             echo "WARNING: KH_CERTBOT_DOMAIN not set for certbot mode, using self-signed"
             sed "s/\${NGINX_ERROR_LOG_LEVEL}/${NGINX_ERROR_LOG_LEVEL}/g" \
@@ -164,7 +175,13 @@ KH_HTTPS_PORT=${KH_HTTPS_PORT:-31337}
 KH_IN_DOCKER=TRUE
 
 # Get container's hostname and IP
-KH_ADDITIONAL_DNS_NAMES=localhost,$(hostname)
+# For certbot mode, exclude localhost as it cannot be validated by any CA
+# For self-signed and provided modes, include localhost for local development
+if [ "${KH_TLS_MODE}" = "certbot" ]; then
+    KH_ADDITIONAL_DNS_NAMES=$(hostname)
+else
+    KH_ADDITIONAL_DNS_NAMES=localhost,$(hostname)
+fi
 KH_ADDITIONAL_IP_ADDRESSES=127.0.0.1,0.0.0.0,$(hostname -i)
 
 # Database Configuration

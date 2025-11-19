@@ -41,12 +41,14 @@ const CertificateCheck: React.FC<CertificateCheckProps> = ({ onCertVerified }) =
        */
       const apiUrl = process.env.REACT_APP_API_URL || 'https://localhost:31337';
 
-      // Determine protocol and port based on current page
-      const protocol = window.location.protocol.slice(0, -1); // 'http' or 'https'
-      const port = protocol === 'https' ? 31337 : 1337;
-      
+      // ALWAYS use HTTP port 1337 for CA certificate availability check
+      // This avoids chicken-and-egg problem where HTTPS might not be available yet
+      // (especially on first boot when certbot is obtaining certificates)
+      const httpPort = 1337;
+      const caCheckUrl = `http://${window.location.hostname}:${httpPort}/ca.crt`;
+
       // First try to fetch the CA cert to see if it exists
-      const caResponse = await fetch(`${protocol}://${window.location.hostname}:${port}/ca.crt`, {
+      const caResponse = await fetch(caCheckUrl, {
         method: 'HEAD',
         credentials: 'include',
         mode: 'cors',
