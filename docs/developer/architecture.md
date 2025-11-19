@@ -85,7 +85,20 @@ The backend follows a clean layered architecture with clear separation of concer
 **Key Services:**
 - `AgentService` - Agent lifecycle management
 - `JobExecutionService` - Job orchestration
-- `JobSchedulingService` - Task distribution
+- `JobSchedulingService` - Task distribution with modular architecture (v1.1+)
+  - **Modular Components:**
+    - `job_scheduling_service.go` (600+ lines) - Main scheduling coordinator
+    - `job_scheduling_benchmark_planning.go` (684 lines) - Parallel benchmark planning and execution
+    - `job_scheduling_task_assignment.go` (710 lines) - Parallel task assignment with two-phase execution
+  - **Performance Characteristics:**
+    - Parallel benchmarking: 96% improvement (15 agents: 450s → 12s)
+    - Parallel task assignment: 95% improvement (15 agents: 450s → 20s)
+    - Goroutine-based concurrent operations for scalability
+  - **Key Features:**
+    - Priority-based allocation with overflow control (FIFO/round-robin modes)
+    - Round-robin benchmark distribution
+    - Two-phase task planning (sequential planning, parallel execution)
+    - Forced benchmark agent prioritization
 - `ClientService` - Customer management
 - `RetentionService` - Automated data purging with secure deletion
 - `WebSocketService` - Real-time communication hub

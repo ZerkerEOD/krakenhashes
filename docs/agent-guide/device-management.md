@@ -153,13 +153,79 @@ Each detected device includes:
 
 ### Backend Priority
 
-When multiple backends are available for the same device, the agent uses this priority order:
+When multiple backends are available for the same device, the agent uses this default priority order:
 
-1. **HIP** (AMD optimized)
-2. **CUDA** (NVIDIA optimized)
-3. **OpenCL** (Universal fallback)
+1. **CUDA** (NVIDIA optimized - best performance)
+2. **HIP** (AMD optimized - modern cards)
+3. **OpenCL** (Universal fallback - widest compatibility)
 
-This ensures optimal performance by selecting the most efficient backend for each device.
+This ensures optimal performance by selecting the most efficient backend for each device. However, users can override this selection per device using the runtime selection feature (see below).
+
+## GPU Runtime Selection
+
+Modern GPUs often support multiple compute backends (runtimes) such as CUDA, HIP, and OpenCL. KrakenHashes allows you to select which runtime to use for each physical GPU.
+
+### Understanding Physical Devices and Runtimes
+
+When an agent detects devices, it groups them by physical GPU:
+- **Physical Device**: One entry per GPU hardware
+- **Runtime Options**: Multiple backends available for that GPU
+- **Selected Runtime**: The active backend used for job execution
+
+Example: An AMD Radeon RX 7700S might show:
+- Physical Device ID: 0
+- Runtime Options:
+  - HIP #1 (16 cores, 2208 MHz, 8176 MB)
+  - OpenCL #3 (16 cores, 2208 MHz, 8176 MB)
+- Selected Runtime: HIP (default)
+
+### Changing Runtime
+
+**Via Web Interface:**
+1. Navigate to Agent Details page
+2. Locate the "Hardware Configuration" section
+3. Find the device you want to modify
+4. Use the "Runtime" dropdown to select CUDA, HIP, or OpenCL
+5. Changes take effect immediately for new jobs
+
+**Via API:**
+```bash
+curl -X PATCH http://localhost:8080/api/agents/{agent_id}/devices/{device_id}/runtime \
+  -H "Content-Type: application/json" \
+  -d '{"runtime": "OpenCL"}'
+```
+
+### Runtime Selection Strategy
+
+Default priority when multiple runtimes are available:
+1. **CUDA** - NVIDIA GPUs (best performance)
+2. **HIP** - AMD GPUs (optimized for modern cards)
+3. **OpenCL** - Universal fallback (widest compatibility)
+
+You can override this default by manually selecting a different runtime for any device.
+
+### Hashcat Version Compatibility
+
+Different hashcat versions have varying device detection capabilities:
+
+**Versions 6.2.6+**
+- Explicit alias information ("Alias of #X")
+- More accurate device grouping
+- Recommended for most users
+
+**Versions 6.2.3-6.2.5**
+- No alias information
+- Uses positional matching for grouping
+- Works correctly but less explicit
+
+**All Tested Versions**: 6.2.3, 6.2.4, 6.2.5, 6.2.6, 7.1.2, 7.1.2-47+
+
+### Important Notes
+
+- Changing runtime takes effect immediately for new jobs
+- Each physical GPU can only run under one runtime at a time
+- Some hashcat algorithms perform better on specific runtimes
+- Runtime selection affects benchmark results
 
 ## Multi-GPU Configuration
 

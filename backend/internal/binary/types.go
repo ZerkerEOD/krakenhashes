@@ -88,6 +88,9 @@ type Manager interface {
 	// GetLatestActive returns the latest active version for a binary type
 	GetLatestActive(ctx context.Context, binaryType BinaryType) (*BinaryVersion, error)
 
+	// GetDefault returns the default binary version for a type
+	GetDefault(ctx context.Context, binaryType BinaryType) (*BinaryVersion, error)
+
 	// ExtractBinary extracts the binary archive to a local directory for server use
 	ExtractBinary(ctx context.Context, id int64) error
 

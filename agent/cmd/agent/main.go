@@ -36,6 +36,7 @@ type agentConfig struct {
 	hashcatExtraParams string // Extra parameters to pass to hashcat (e.g., "-O -w 3")
 	configDir          string // Configuration directory for certificates and credentials
 	dataDir            string // Data directory for binaries, wordlists, rules, and hashlists
+	testMode           bool   // Enable test mode (simulate GPU work without real hardware)
 }
 
 /*
@@ -118,6 +119,11 @@ func loadConfig(cfg agentConfig) agentConfig {
 	if !cfg.debug && envFileExists {
 		cfg.debug = envMap["DEBUG"] == "true"
 	}
+
+	// Test mode setting
+	if !cfg.testMode && envFileExists {
+		cfg.testMode = envMap["TEST_MODE"] == "true"
+	}
 	
 	// Hashcat extra params
 	if cfg.hashcatExtraParams == "" && envFileExists {
@@ -198,6 +204,7 @@ func updateEnvFile(cfg agentConfig, existingEnv map[string]string, fileExists bo
 		"KH_DATA_DIR":                 cfg.dataDir,
 		"HASHCAT_EXTRA_PARAMS":        cfg.hashcatExtraParams,
 		"DEBUG":                       fmt.Sprintf("%t", cfg.debug),
+		"TEST_MODE":                   fmt.Sprintf("%t", cfg.testMode),
 		"LOG_LEVEL":                   "DEBUG",
 		"KH_MAX_CONCURRENT_DOWNLOADS": "3",
 		"KH_DOWNLOAD_TIMEOUT":         "1h",
@@ -236,6 +243,9 @@ func updateEnvFile(cfg agentConfig, existingEnv map[string]string, fileExists bo
 		}
 		if isFlagPassed("debug") {
 			finalEnv["DEBUG"] = fmt.Sprintf("%t", cfg.debug)
+		}
+		if isFlagPassed("test-mode") {
+			finalEnv["TEST_MODE"] = fmt.Sprintf("%t", cfg.testMode)
 		}
 		if isFlagPassed("hashcat-params") {
 			finalEnv["HASHCAT_EXTRA_PARAMS"] = cfg.hashcatExtraParams
@@ -285,7 +295,10 @@ HASHCAT_EXTRA_PARAMS=%s
 # Logging Configuration
 DEBUG=%s
 LOG_LEVEL=%s
-`, 
+
+# Test Mode Configuration
+TEST_MODE=%s  # Enable mock mode for testing without GPUs
+`,
 		time.Now().Format(time.RFC3339),
 		finalEnv["KH_HOST"],
 		finalEnv["KH_PORT"],
@@ -299,7 +312,37 @@ LOG_LEVEL=%s
 		getEnvOrDefault(finalEnv, "KH_DOWNLOAD_TIMEOUT", "1h"),
 		finalEnv["HASHCAT_EXTRA_PARAMS"],
 		finalEnv["DEBUG"],
-		getEnvOrDefault(finalEnv, "LOG_LEVEL", "DEBUG"))
+		getEnvOrDefault(finalEnv, "LOG_LEVEL", "DEBUG"),
+		finalEnv["TEST_MODE"])
+
+	// Preserve any extra variables that exist in the original .env but aren't in the template
+	// This includes MOCK_* variables and any other custom configuration
+	templateKeys := map[string]bool{
+		"KH_HOST": true, "KH_PORT": true, "USE_TLS": true, "LISTEN_INTERFACE": true,
+		"HEARTBEAT_INTERVAL": true, "KH_CLAIM_CODE": true, "KH_CONFIG_DIR": true,
+		"KH_DATA_DIR": true, "KH_WRITE_WAIT": true, "KH_PONG_WAIT": true,
+		"KH_PING_PERIOD": true, "KH_MAX_CONCURRENT_DOWNLOADS": true,
+		"KH_DOWNLOAD_TIMEOUT": true, "HASHCAT_EXTRA_PARAMS": true,
+		"DEBUG": true, "LOG_LEVEL": true, "TEST_MODE": true,
+	}
+
+	if fileExists && len(existingEnv) > 0 {
+		var extraVars strings.Builder
+		for key, value := range existingEnv {
+			if !templateKeys[key] {
+				// Quote values that contain spaces
+				if strings.Contains(value, " ") {
+					extraVars.WriteString(fmt.Sprintf("%s=\"%s\"\n", key, value))
+				} else {
+					extraVars.WriteString(fmt.Sprintf("%s=%s\n", key, value))
+				}
+			}
+		}
+		if extraVars.Len() > 0 {
+			env += "\n# Additional Configuration (preserved from existing .env)\n"
+			env += extraVars.String()
+		}
+	}
 
 	if err := os.WriteFile(".env", []byte(env), 0644); err != nil {
 		log.Printf("Warning: Could not save configuration to .env file: %v", err)
@@ -396,6 +439,7 @@ func main() {
 	flag.IntVar(&cfg.heartbeatInterval, "heartbeat", 0, "Heartbeat interval in seconds (default: 5)")
 	flag.StringVar(&cfg.claimCode, "claim", "", "Agent claim code (required only for first-time registration)")
 	flag.BoolVar(&cfg.debug, "debug", false, "Enable debug logging (default: false)")
+	flag.BoolVar(&cfg.testMode, "test-mode", false, "Enable test mode (simulate GPU work without real hardware)")
 	flag.StringVar(&cfg.hashcatExtraParams, "hashcat-params", "", "Extra parameters to pass to hashcat (e.g., '-O -w 3')")
 	flag.StringVar(&cfg.configDir, "config-dir", "", "Configuration directory for certificates and credentials")
 	flag.StringVar(&cfg.dataDir, "data-dir", "", "Data directory for binaries, wordlists, rules, and hashlists")
@@ -407,13 +451,22 @@ func main() {
 		os.Setenv("LOG_LEVEL", "DEBUG")
 	}
 
+	// Set test mode environment variable if test mode flag is set
+	if cfg.testMode {
+		os.Setenv("TEST_MODE", "true")
+	}
+
 	// Initialize debug package with settings from flags/environment
 	debug.Reinitialize()
 	debug.Info("Debug logging initialized - Debug enabled: %v", cfg.debug || os.Getenv("DEBUG") == "true")
 
 	// Show startup message to console
 	agentVersion := version.GetVersion()
-	console.Info("Starting KrakenHashes Agent %s", agentVersion)
+	if cfg.testMode {
+		console.Info("Starting KrakenHashes Agent %s (TEST MODE - Simulated GPU Execution)", agentVersion)
+	} else {
+		console.Info("Starting KrakenHashes Agent %s", agentVersion)
+	}
 
 	// Get and log current working directory
 	cwd, err := os.Getwd()
@@ -688,8 +741,12 @@ func main() {
 
 		// Create job manager with hardware monitor from connection
 		hwMonitor := conn.GetHardwareMonitor()
-		jobManager = jobs.NewJobManager(agentConfig, nil, hwMonitor)
-		debug.Info("Job manager created successfully with hardware monitor")
+		jobManager = jobs.NewJobManagerWithExecutor(agentConfig, nil, hwMonitor, cfg.testMode)
+		if cfg.testMode {
+			debug.Info("Job manager created with MOCK executor (test mode)")
+		} else {
+			debug.Info("Job manager created successfully with hardware monitor")
+		}
 
 		// Set the job manager in the connection
 		conn.SetJobManager(jobManager)
@@ -703,10 +760,9 @@ func main() {
 		debug.Info("Connection attempt %d successful", i+1)
 		console.Success("Connected to backend successfully")
 
-		// Try to detect and send device information at startup
-		// This will only work if hashcat binaries are already present
-		debug.Info("Checking for device detection at startup...")
-		conn.TryDetectDevicesIfNeeded()
+		// Device detection is triggered by config_update message from backend
+		// This ensures the preferred binary version is set before detection runs
+		// Running detection here would cause a race condition with config_update
 		
 		// Set up dual callbacks for status and cracks
 		statusCallback := func(status *jobs.JobStatus) {

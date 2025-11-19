@@ -131,9 +131,58 @@ KH_PING_PERIOD: "54s"     # Ping interval (must be < pong wait)
 {
   "isEnabled": true,
   "ownerId": "user-uuid",
-  "extraParameters": "--custom-charset1=?l?u?d"
+  "extraParameters": "--custom-charset1=?l?u?d",
+  "binaryVersionId": 3,
+  "binaryOverride": true
 }
 ```
+
+### Agent Binary Version Override
+
+Users can configure their agents to use a specific hashcat binary version instead of the job-level or system default binary.
+
+#### Configuring Binary Override
+
+1. **Via Agent Details Page**
+   - Navigate to your agent's detail page
+   - Scroll to the "Binary Version Override" section
+   - Enable "Override Binary" toggle
+   - Select desired binary version from dropdown
+   - Click "Save"
+
+2. **Via API**
+   ```json
+   // PUT /api/agents/{id}
+   {
+     "binaryVersionId": 3,
+     "binaryOverride": true
+   }
+   ```
+
+#### Binary Selection Hierarchy
+
+When an agent needs to execute a job or benchmark, the system uses this priority order:
+
+1. **Agent Override** (highest priority) - Binary specified in agent settings
+2. **Job Binary** - Binary specified for the specific job execution
+3. **System Default** (lowest priority) - Active default binary for the system
+
+#### Use Cases
+
+- **Testing New Versions**: Test new hashcat releases on specific agents before wider deployment
+- **Compatibility Issues**: Work around driver or hardware compatibility problems
+- **Performance Optimization**: Use specific binary versions that perform better on certain hardware
+- **Gradual Rollouts**: Migrate agents to new versions incrementally
+
+#### Hashcat Version Compatibility Note
+
+⚠️ **Important**: Hashcat 7.x may detect devices but fail to recognize them as usable compute devices depending on GPU driver versions. If your agent shows devices in the hardware detection but they are not available for job execution, it is recommended to use Hashcat 6.x binaries (such as 6.2.6 or 6.2.5) as they have better compatibility with older driver versions.
+
+#### Important Notes
+
+- Agent binary override affects device detection, benchmarks, and job execution
+- The preferred binary is automatically downloaded to the agent if not present
+- If the preferred binary becomes unavailable, the system falls back to the next priority level
 
 ### Disabling/Enabling Agents
 
@@ -207,6 +256,67 @@ Each agent can have multiple devices (GPUs):
   "enabled": false  // Disable specific GPU
 }
 ```
+
+### Runtime Selection
+
+Each physical GPU device supports multiple compute backends (runtimes). Administrators can select which runtime to use per device.
+
+**Available Runtimes:**
+- **CUDA**: NVIDIA GPUs (optimal performance)
+- **HIP**: AMD GPUs (modern Radeon cards)
+- **OpenCL**: Universal (all vendors)
+
+**Update Runtime:**
+```json
+// PATCH /api/agents/{id}/devices/{deviceId}/runtime
+{
+  "runtime": "HIP"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Device runtime updated successfully"
+}
+```
+
+**Device Structure with Runtime Options:**
+```json
+{
+  "id": 1,
+  "device_id": 0,  // Physical device index
+  "device_type": "GPU",
+  "device_name": "AMD Radeon RX 7700S",
+  "enabled": true,
+  "selected_runtime": "HIP",
+  "runtime_options": [
+    {
+      "backend": "HIP",
+      "device_id": 1,      // Hashcat device ID
+      "processors": 16,
+      "clock": 2208,
+      "memory_total": 8176,
+      "memory_free": 8064,
+      "pci_address": "03:00.0"
+    },
+    {
+      "backend": "OpenCL",
+      "device_id": 3,      // Hashcat device ID
+      "processors": 16,
+      "clock": 2208,
+      "memory_total": 8176,
+      "memory_free": 8064,
+      "pci_address": "03:00.0"
+    }
+  ]
+}
+```
+
+**Important Notes:**
+- Changes take effect immediately for new jobs
+- Each physical GPU can only run under one runtime at a time
+- Runtime selection affects benchmark and job execution performance
 
 ## Agent Scheduling and Availability
 

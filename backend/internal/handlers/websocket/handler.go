@@ -78,14 +78,15 @@ var upgrader = websocket.Upgrader{
 
 // Handler manages WebSocket connections for agents
 type Handler struct {
-	wsService          *wsservice.Service
-	agentService       *services.AgentService
-	systemSettingsRepo *repository.SystemSettingsRepository
-	jobTaskRepo        *repository.JobTaskRepository
-	jobExecRepo        *repository.JobExecutionRepository
-	tlsConfig          *tls.Config
-	clients            map[int]*Client
-	mu                 sync.RWMutex
+	wsService           *wsservice.Service
+	agentService        *services.AgentService
+	jobExecutionService *services.JobExecutionService
+	systemSettingsRepo  *repository.SystemSettingsRepository
+	jobTaskRepo         *repository.JobTaskRepository
+	jobExecRepo         *repository.JobExecutionRepository
+	tlsConfig           *tls.Config
+	clients             map[int]*Client
+	mu                  sync.RWMutex
 }
 
 // Client represents a connected agent
@@ -99,18 +100,19 @@ type Client struct {
 }
 
 // NewHandler creates a new WebSocket handler
-func NewHandler(wsService *wsservice.Service, agentService *services.AgentService, systemSettingsRepo *repository.SystemSettingsRepository, jobTaskRepo *repository.JobTaskRepository, jobExecRepo *repository.JobExecutionRepository, tlsConfig *tls.Config) *Handler {
+func NewHandler(wsService *wsservice.Service, agentService *services.AgentService, jobExecutionService *services.JobExecutionService, systemSettingsRepo *repository.SystemSettingsRepository, jobTaskRepo *repository.JobTaskRepository, jobExecRepo *repository.JobExecutionRepository, tlsConfig *tls.Config) *Handler {
 	// Initialize timing configuration
 	initTimingConfig()
 
 	return &Handler{
-		wsService:          wsService,
-		agentService:       agentService,
-		systemSettingsRepo: systemSettingsRepo,
-		jobTaskRepo:        jobTaskRepo,
-		jobExecRepo:        jobExecRepo,
-		tlsConfig:          tlsConfig,
-		clients:            make(map[int]*Client),
+		wsService:           wsService,
+		agentService:        agentService,
+		jobExecutionService: jobExecutionService,
+		systemSettingsRepo:  systemSettingsRepo,
+		jobTaskRepo:         jobTaskRepo,
+		jobExecRepo:         jobExecRepo,
+		tlsConfig:           tlsConfig,
+		clients:             make(map[int]*Client),
 	}
 }
 
@@ -390,6 +392,9 @@ func (c *Client) readPump() {
 		case wsservice.TypeDeviceDetection:
 			c.handler.handleDeviceDetection(c, &msg)
 
+		case wsservice.TypePhysicalDeviceDetection:
+			c.handler.handlePhysicalDeviceDetection(c, &msg)
+
 		case wsservice.TypeDeviceUpdate:
 			c.handler.handleDeviceUpdate(c, &msg)
 			
@@ -568,9 +573,25 @@ func (h *Handler) sendInitialConfiguration(client *Client) {
 		}
 	}
 
+	// Get preferred binary version for this agent (if job execution service is available)
+	var preferredBinaryID int64
+	if h.jobExecutionService != nil {
+		var err error
+		preferredBinaryID, err = h.jobExecutionService.GetAgentPreferredBinary(ctx, client.agent.ID)
+		if err != nil {
+			debug.Error("Failed to get preferred binary for agent %d: %v", client.agent.ID, err)
+			// Don't fail completely, just log the error
+			preferredBinaryID = 0
+		}
+	} else {
+		debug.Debug("JobExecutionService not available, skipping preferred binary version")
+		preferredBinaryID = 0
+	}
+
 	// Create configuration payload
 	configPayload := map[string]interface{}{
-		"download_settings": settings,
+		"download_settings":        settings,
+		"preferred_binary_version": preferredBinaryID,
 	}
 
 	payloadBytes, err := json.Marshal(configPayload)
@@ -588,7 +609,7 @@ func (h *Handler) sendInitialConfiguration(client *Client) {
 	// Send configuration to agent
 	select {
 	case client.send <- msg:
-		debug.Info("Sent initial configuration to agent %d with download settings", client.agent.ID)
+		debug.Info("Sent initial configuration to agent %d with download settings and preferred binary version %d", client.agent.ID, preferredBinaryID)
 	case <-client.ctx.Done():
 		debug.Warning("Failed to send configuration: agent %d disconnected", client.agent.ID)
 	}
@@ -841,6 +862,61 @@ func (h *Handler) handleDeviceDetection(client *Client, msg *wsservice.Message) 
 	}
 
 	debug.Info("Agent %d: Successfully updated %d devices", client.agent.ID, len(result.Devices))
+}
+
+// handlePhysicalDeviceDetection handles physical device detection results from agents
+func (h *Handler) handlePhysicalDeviceDetection(client *Client, msg *wsservice.Message) {
+	debug.Info("Agent %d: Received physical device detection result", client.agent.ID)
+
+	// Parse the physical device detection result
+	var result models.PhysicalDeviceDetectionResult
+	if err := json.Unmarshal(msg.Payload, &result); err != nil {
+		debug.Error("Agent %d: Failed to parse physical device detection result: %v", client.agent.ID, err)
+		return
+	}
+
+	// Check if there was an error in detection
+	if result.Error != "" {
+		debug.Error("Agent %d: Physical device detection failed: %s", client.agent.ID, result.Error)
+		// Update agent status to error
+		if err := h.agentService.UpdateDeviceDetectionStatus(client.agent.ID, "error", &result.Error); err != nil {
+			debug.Error("Failed to update device detection status: %v", err)
+		}
+		return
+	}
+
+	// Store physical devices in database
+	if err := h.agentService.UpdateAgentPhysicalDevices(client.agent.ID, result.Devices); err != nil {
+		debug.Error("Agent %d: Failed to update physical devices: %v", client.agent.ID, err)
+		errorMsg := err.Error()
+		if updateErr := h.agentService.UpdateDeviceDetectionStatus(client.agent.ID, "error", &errorMsg); updateErr != nil {
+			debug.Error("Failed to update device detection status: %v", updateErr)
+		}
+		return
+	}
+
+	// Update agent device detection status to success
+	if err := h.agentService.UpdateDeviceDetectionStatus(client.agent.ID, "success", nil); err != nil {
+		debug.Error("Failed to update device detection status: %v", err)
+	}
+
+	// Check if agent has enabled devices, disable agent if not
+	hasEnabledDevices := false
+	for _, device := range result.Devices {
+		if device.Enabled {
+			hasEnabledDevices = true
+			break
+		}
+	}
+
+	if !hasEnabledDevices {
+		debug.Warning("Agent %d: No enabled physical devices found, disabling agent", client.agent.ID)
+		if err := h.agentService.UpdateAgentStatus(context.Background(), client.agent.ID, "disabled", nil); err != nil {
+			debug.Error("Failed to disable agent: %v", err)
+		}
+	}
+
+	debug.Info("Agent %d: Successfully updated %d physical devices", client.agent.ID, len(result.Devices))
 }
 
 // handleDeviceUpdate handles device update responses from agents

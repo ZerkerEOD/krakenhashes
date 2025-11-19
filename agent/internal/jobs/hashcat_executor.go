@@ -678,7 +678,7 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 			// We need to detect this BEFORE calling outputCallback
 			if strings.Contains(line, ":") && !strings.HasPrefix(line, "{") && !strings.Contains(line, "Skipping") && !strings.Contains(line, "\"status\"") {
 				// Try to parse as crack
-				cracked := e.parseCrackedHash(line, process.HashlistContent)
+				cracked := e.parseCrackedHash(line, process.HashlistContent, process.Assignment.HashType)
 				if cracked != nil {
 					// This is a crack line - skip outputCallback and add to batch
 					e.addCrackToBatch(process, cracked)
@@ -699,7 +699,7 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 
 				// Process crack part first
 				if len(crackPart) > 0 {
-					cracked := e.parseCrackedHash(crackPart, process.HashlistContent)
+					cracked := e.parseCrackedHash(crackPart, process.HashlistContent, process.Assignment.HashType)
 					if cracked != nil {
 						// Add crack to batch instead of sending immediately
 						e.addCrackToBatch(process, cracked)
@@ -1753,9 +1753,102 @@ func (e *HashcatExecutor) loadHashlist(hashlistPath string) ([]string, error) {
 	return hashes, nil
 }
 
+// parseWPAHash parses WPA/WPA2/WPA3 hashes where output format differs from input
+// Input format: WPA*01*PMK*MAC_AP*MAC_STA*ESSID_HEX***
+// Output format: PMK:MAC_AP:MAC_STA:ESSID:PASSWORD
+func (e *HashcatExecutor) parseWPAHash(line string, hashlistContent []string) *CrackedHash {
+	// Split the outfile line by colons
+	parts := strings.Split(line, ":")
+	if len(parts) < 5 {
+		// Not enough parts for WPA format
+		return nil
+	}
+
+	// Extract components from outfile
+	pmk := strings.ToLower(parts[0])          // PMK hash (e.g., 4d4fe7aac3a2cecab195321ceb99a7d0)
+	macAP := strings.ToLower(parts[1])        // MAC AP (e.g., fc690c158264)
+	macSTA := strings.ToLower(parts[2])       // MAC STA (e.g., f4747f87f9f4)
+	// parts[3] is ESSID (decoded from hex in original)
+	password := parts[len(parts)-1]           // Last part is always the password
+
+	debug.Debug("[WPA Parser] Parsed outfile - PMK: %s, MAC_AP: %s, MAC_STA: %s, Password: %s",
+		pmk, macAP, macSTA, password)
+
+	// Search hashlist for a hash containing these components
+	for _, knownHash := range hashlistContent {
+		knownHashLower := strings.ToLower(knownHash)
+
+		// WPA hash format: WPA*01*PMK*MAC_AP*MAC_STA*ESSID_HEX***
+		// Check if this hash contains the PMK and MAC addresses
+		if strings.Contains(knownHashLower, pmk) &&
+		   strings.Contains(knownHashLower, macAP) &&
+		   strings.Contains(knownHashLower, macSTA) {
+
+			debug.Info("[WPA Parser] Matched WPA hash via PMK+MAC matching")
+			return &CrackedHash{
+				Hash:     knownHash,  // Return original full format
+				Plain:    password,
+				FullLine: line,
+			}
+		}
+	}
+
+	debug.Warning("[WPA Parser] Could not match WPA hash - PMK: %s", pmk)
+	return nil
+}
+
+// parseNetNTLMv2Hash parses NetNTLMv2 hashes where output format differs from input
+// Input format: USER::DOMAIN:SERVER_CHALLENGE:NTPROOFSTR:BLOB
+// Output format: Same as input with :PASSWORD appended
+func (e *HashcatExecutor) parseNetNTLMv2Hash(line string, hashlistContent []string) *CrackedHash {
+	// NetNTLMv2 hashes maintain their format but append :PASSWORD
+	// The hashlist already contains the full hash, so we need to find where the password starts
+
+	// Try to match the line prefix against hashlist entries
+	for _, knownHash := range hashlistContent {
+		knownHashLower := strings.ToLower(knownHash)
+		lineLower := strings.ToLower(line)
+
+		// Check if the line starts with the known hash
+		if strings.HasPrefix(lineLower, knownHashLower) {
+			// Extract password - it comes after the known hash and a colon
+			if len(line) > len(knownHash)+1 && line[len(knownHash)] == ':' {
+				password := line[len(knownHash)+1:]
+
+				debug.Info("[NetNTLMv2 Parser] Matched NetNTLMv2 hash via prefix matching")
+				return &CrackedHash{
+					Hash:     knownHash,
+					Plain:    password,
+					FullLine: line,
+				}
+			}
+		}
+	}
+
+	debug.Warning("[NetNTLMv2 Parser] Could not match NetNTLMv2 hash")
+	return nil
+}
+
 // parseCrackedHash parses a cracked hash output line using hashlist knowledge
-func (e *HashcatExecutor) parseCrackedHash(line string, hashlistContent []string) *CrackedHash {
-	// First try to match against known hashes from the hashlist
+// Now with hash-type-aware parsing for formats that differ between input and output
+func (e *HashcatExecutor) parseCrackedHash(line string, hashlistContent []string, hashType int) *CrackedHash {
+	// First, try hash-type-specific parsers for known problematic types
+	switch hashType {
+	case 22000, 22001:  // WPA-PBKDF2-PMKID+EAPOL, WPA-PMK-PMKID+EAPOL
+		if cracked := e.parseWPAHash(line, hashlistContent); cracked != nil {
+			return cracked
+		}
+	case 2500:  // WPA-EAPOL-PBKDF2 (deprecated but may still be used)
+		if cracked := e.parseWPAHash(line, hashlistContent); cracked != nil {
+			return cracked
+		}
+	case 5600:  // NetNTLMv2
+		if cracked := e.parseNetNTLMv2Hash(line, hashlistContent); cracked != nil {
+			return cracked
+		}
+	}
+
+	// Try standard prefix matching (works for most hash types)
 	// Use case-insensitive matching since hashcat may output different case than stored
 	lineLower := strings.ToLower(line)
 
@@ -1861,14 +1954,13 @@ func (e *HashcatExecutor) readNewOutfileLines(process *HashcatProcess) {
 			return
 		}
 
-		// Parse format 1,2: hash:password (colon-separated)
-		parts := strings.SplitN(strings.TrimSpace(line), ":", 2)
-		if len(parts) != 2 {
+		// Parse using hash-type-aware parser (same as stdout reader)
+		lineStr := strings.TrimSpace(line)
+		cracked := e.parseCrackedHash(lineStr, process.HashlistContent, process.Assignment.HashType)
+		if cracked == nil {
 			continue
 		}
 
-		hash := parts[0]
-		password := parts[1]
 		lineKey := line // Use full line as key (includes newline for uniqueness)
 
 		// Check if already sent
@@ -1879,10 +1971,7 @@ func (e *HashcatExecutor) readNewOutfileLines(process *HashcatProcess) {
 
 		if !process.OutfileSentHashes[lineKey] {
 			process.OutfileSentHashes[lineKey] = true
-			newCracks = append(newCracks, CrackedHash{
-				Hash:  hash,
-				Plain: password,
-			})
+			newCracks = append(newCracks, *cracked)
 		}
 		process.OutfileMutex.Unlock()
 

@@ -223,6 +223,56 @@ func (h *AgentHandler) UpdateDeviceStatus(w http.ResponseWriter, r *http.Request
 	})
 }
 
+// UpdateDeviceRuntime updates the selected runtime for a device
+func (h *AgentHandler) UpdateDeviceRuntime(w http.ResponseWriter, r *http.Request) {
+	debug.Info("Updating device runtime selection")
+
+	// Parse agent ID and device ID from URL
+	vars := mux.Vars(r)
+	agentID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid agent ID", http.StatusBadRequest)
+		return
+	}
+
+	deviceID, err := strconv.Atoi(vars["deviceId"])
+	if err != nil {
+		http.Error(w, "Invalid device ID", http.StatusBadRequest)
+		return
+	}
+
+	// Parse request body
+	var req struct {
+		Runtime string `json:"runtime"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate runtime value
+	if req.Runtime != "CUDA" && req.Runtime != "HIP" && req.Runtime != "OpenCL" {
+		http.Error(w, "Invalid runtime: must be CUDA, HIP, or OpenCL", http.StatusBadRequest)
+		return
+	}
+
+	// Update device runtime in database
+	if err := h.service.UpdateDeviceRuntime(agentID, deviceID, req.Runtime); err != nil {
+		debug.Error("Failed to update device runtime: %v", err)
+		http.Error(w, "Failed to update device runtime", http.StatusInternalServerError)
+		return
+	}
+
+	// TODO: Send runtime update message to agent via WebSocket if needed
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":   true,
+		"device_id": deviceID,
+		"runtime":   req.Runtime,
+	})
+}
+
 // GetAgentWithDevices retrieves an agent with its devices
 func (h *AgentHandler) GetAgentWithDevices(w http.ResponseWriter, r *http.Request) {
 	debug.Info("Getting agent with devices")
@@ -329,6 +379,8 @@ func (h *AgentHandler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 		IsEnabled       bool    `json:"isEnabled"`
 		OwnerID         *string `json:"ownerId"`
 		ExtraParameters string  `json:"extraParameters"`
+		BinaryVersionID *int64  `json:"binaryVersionId"`
+		BinaryOverride  bool    `json:"binaryOverride"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -336,7 +388,7 @@ func (h *AgentHandler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update agent
-	if err := h.service.UpdateAgent(r.Context(), id, req.IsEnabled, req.OwnerID, req.ExtraParameters); err != nil {
+	if err := h.service.UpdateAgent(r.Context(), id, req.IsEnabled, req.OwnerID, req.ExtraParameters, req.BinaryVersionID, req.BinaryOverride); err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, "Agent not found", http.StatusNotFound)
 			return

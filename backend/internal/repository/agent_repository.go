@@ -103,6 +103,8 @@ func (r *AgentRepository) GetByID(ctx context.Context, id int) (*models.Agent, e
 		&agent.FilesToSync,
 		&agent.FilesSynced,
 		&agent.SyncError,
+		&agent.BinaryVersionID,
+		&agent.BinaryOverride,
 		&createdByUser.ID,
 		&createdByUser.Username,
 		&createdByUser.Email,
@@ -349,6 +351,8 @@ func (r *AgentRepository) List(ctx context.Context, filters map[string]interface
 			&agent.FilesToSync,
 			&agent.FilesSynced,
 			&agent.SyncError,
+			&agent.BinaryVersionID,
+			&agent.BinaryOverride,
 			&createdByUser.ID,
 			&createdByUser.Username,
 			&createdByUser.Email,
@@ -588,6 +592,8 @@ func (r *AgentRepository) GetByAPIKey(ctx context.Context, apiKey string) (*mode
 		&agent.ConsecutiveFailures,
 		&agent.SchedulingEnabled,
 		&agent.ScheduleTimezone,
+		&agent.BinaryVersionID,
+		&agent.BinaryOverride,
 		&createdByUser.ID,
 		&createdByUser.Username,
 		&createdByUser.Email,
@@ -662,16 +668,18 @@ func (r *AgentRepository) GetDB() *sql.DB {
 }
 
 // UpdateAgentSettings updates agent settings including is_enabled, owner and extra parameters
-func (r *AgentRepository) UpdateAgentSettings(ctx context.Context, agentID int, isEnabled bool, ownerID *string, extraParameters string) error {
+func (r *AgentRepository) UpdateAgentSettings(ctx context.Context, agentID int, isEnabled bool, ownerID *string, extraParameters string, binaryVersionID *int64, binaryOverride bool) error {
 	query := `
-		UPDATE agents 
+		UPDATE agents
 		SET is_enabled = $2,
-		    owner_id = $3, 
+		    owner_id = $3,
 		    extra_parameters = $4,
+		    binary_version_id = $5,
+		    binary_override = $6,
 		    updated_at = CURRENT_TIMESTAMP
 		WHERE id = $1`
 
-	result, err := r.db.ExecContext(ctx, query, agentID, isEnabled, ownerID, extraParameters)
+	result, err := r.db.ExecContext(ctx, query, agentID, isEnabled, ownerID, extraParameters, binaryVersionID, binaryOverride)
 	if err != nil {
 		return fmt.Errorf("failed to update agent settings: %w", err)
 	}

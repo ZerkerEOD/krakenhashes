@@ -103,6 +103,77 @@ func NewJobWebSocketIntegration(
 	}
 }
 
+// SyncAgentFiles triggers a file sync and waits for completion
+func (s *JobWebSocketIntegration) SyncAgentFiles(ctx context.Context, agentID int, timeout time.Duration) error {
+	// Reset agent sync status to pending before sending sync request
+	// This ensures we wait for a NEW sync completion, not an old one
+	agent, err := s.agentRepo.GetByID(ctx, agentID)
+	if err != nil {
+		return fmt.Errorf("failed to get agent: %w", err)
+	}
+
+	agent.SyncStatus = models.AgentSyncStatusPending
+	if err := s.agentRepo.Update(ctx, agent); err != nil {
+		return fmt.Errorf("failed to reset agent sync status: %w", err)
+	}
+
+	debug.Log("Reset agent sync status to pending", map[string]interface{}{
+		"agent_id": agentID,
+	})
+
+	// Create file sync request payload
+	payload := map[string]interface{}{
+		"request_id": fmt.Sprintf("sync-%d-%d", agentID, time.Now().UnixNano()),
+		"file_types": []string{"wordlist", "rule", "binary"},
+	}
+
+	payloadBytes, _ := json.Marshal(payload)
+	msg := &wsservice.Message{
+		Type:    wsservice.TypeSyncRequest,
+		Payload: payloadBytes,
+	}
+
+	// Send sync request to agent
+	if err := s.wsHandler.SendMessage(agentID, msg); err != nil {
+		return fmt.Errorf("failed to send sync request: %w", err)
+	}
+
+	debug.Log("Sent file sync request to agent, waiting for completion", map[string]interface{}{
+		"agent_id": agentID,
+		"timeout":  timeout,
+	})
+
+	// Poll agent.SyncStatus until completed or timeout
+	deadline := time.Now().Add(timeout)
+	pollInterval := 1 * time.Second
+
+	for time.Now().Before(deadline) {
+		agent, err := s.agentRepo.GetByID(ctx, agentID)
+		if err != nil {
+			return fmt.Errorf("failed to get agent status: %w", err)
+		}
+
+		if agent.SyncStatus == models.AgentSyncStatusCompleted {
+			debug.Log("Agent file sync completed successfully", map[string]interface{}{
+				"agent_id": agentID,
+			})
+			return nil
+		}
+
+		if agent.SyncStatus == models.AgentSyncStatusFailed {
+			errMsg := "unknown error"
+			if agent.SyncError.Valid {
+				errMsg = agent.SyncError.String
+			}
+			return fmt.Errorf("agent sync failed: %s", errMsg)
+		}
+
+		time.Sleep(pollInterval)
+	}
+
+	return fmt.Errorf("sync timed out after %v", timeout)
+}
+
 // SendJobAssignment sends a job task assignment to an agent via WebSocket
 func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *models.JobTask, jobExecution *models.JobExecution) error {
 	debug.Log("Sending job assignment to agent", map[string]interface{}{
@@ -111,12 +182,6 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 		"job_id":   jobExecution.ID,
 	})
 
-	// Get hashlist details
-	hashlist, err := s.hashlistRepo.GetByID(ctx, jobExecution.HashlistID)
-	if err != nil {
-		return fmt.Errorf("failed to get hashlist: %w", err)
-	}
-
 	// Get agent details to find agent int ID
 	if task.AgentID == nil {
 		return fmt.Errorf("task has no agent assigned")
@@ -124,6 +189,12 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 	agent, err := s.agentRepo.GetByID(ctx, *task.AgentID)
 	if err != nil {
 		return fmt.Errorf("failed to get agent: %w", err)
+	}
+
+	// Get hashlist details
+	hashlist, err := s.hashlistRepo.GetByID(ctx, jobExecution.HashlistID)
+	if err != nil {
+		return fmt.Errorf("failed to get hashlist: %w", err)
 	}
 
 	// Build wordlist and rule paths using job execution's self-contained configuration
@@ -205,13 +276,19 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 		}
 	}
 
-	// Get binary path from binary version
-	binaryVersion, err := s.binaryManager.GetVersion(ctx, int64(jobExecution.BinaryVersionID))
+	// Determine which binary to use: Agent → Job → Default
+	effectiveBinaryID, err := s.jobExecutionService.DetermineBinaryForTask(ctx, agent.ID, jobExecution.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get binary version %d: %w", jobExecution.BinaryVersionID, err)
+		return fmt.Errorf("failed to determine binary for task: %w", err)
+	}
+
+	// Get binary version details
+	binaryVersion, err := s.binaryManager.GetVersion(ctx, effectiveBinaryID)
+	if err != nil {
+		return fmt.Errorf("failed to get binary version %d: %w", effectiveBinaryID, err)
 	}
 	if binaryVersion == nil {
-		return fmt.Errorf("binary version %d not found", jobExecution.BinaryVersionID)
+		return fmt.Errorf("binary version %d not found", effectiveBinaryID)
 	}
 
 	// Use the actual binary path - the ID is used as the directory name
@@ -237,7 +314,7 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 				if !device.Enabled {
 					hasDisabledDevice = true
 				} else {
-					enabledDeviceIDs = append(enabledDeviceIDs, device.DeviceID)
+					enabledDeviceIDs = append(enabledDeviceIDs, device.GetHashcatDeviceID())
 				}
 			}
 			// If all devices are enabled, don't include the device list
@@ -504,13 +581,19 @@ func (s *JobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, age
 		rulePaths = append(rulePaths, rulePath)
 	}
 
-	// Get binary path from binary version
-	binaryVersion, err := s.binaryManager.GetVersion(ctx, int64(jobExecution.BinaryVersionID))
+	// Determine which binary to use: Agent → Job → Default
+	effectiveBinaryID, err := s.jobExecutionService.DetermineBinaryForTask(ctx, agent.ID, jobExecution.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get binary version %d: %w", jobExecution.BinaryVersionID, err)
+		return fmt.Errorf("failed to determine binary for benchmark: %w", err)
+	}
+
+	// Get binary path from binary version
+	binaryVersion, err := s.binaryManager.GetVersion(ctx, effectiveBinaryID)
+	if err != nil {
+		return fmt.Errorf("failed to get binary version %d: %w", effectiveBinaryID, err)
 	}
 	if binaryVersion == nil {
-		return fmt.Errorf("binary version %d not found", jobExecution.BinaryVersionID)
+		return fmt.Errorf("binary version %d not found", effectiveBinaryID)
 	}
 
 	// Use the actual binary path - the ID is used as the directory name
@@ -529,7 +612,7 @@ func (s *JobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, age
 			if !device.Enabled {
 				hasDisabledDevice = true
 			} else {
-				enabledDeviceIDs = append(enabledDeviceIDs, device.DeviceID)
+				enabledDeviceIDs = append(enabledDeviceIDs, device.GetHashcatDeviceID())
 			}
 		}
 		// If all devices are enabled, don't include the device list
@@ -1218,6 +1301,29 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 		"speed":       result.Speed,
 	})
 
+	// Update benchmark_requests table to mark this benchmark as complete
+	_, err = s.db.ExecContext(ctx, `
+		UPDATE benchmark_requests
+		SET completed_at = CURRENT_TIMESTAMP,
+			success = $1,
+			error_message = $2
+		WHERE agent_id = $3
+		  AND attack_mode = $4
+		  AND hash_type = $5
+		  AND completed_at IS NULL
+	`, result.Success, result.Error, agentID, result.AttackMode, result.HashType)
+
+	if err != nil {
+		debug.Warning("Failed to update benchmark_requests table: %v", err)
+	} else {
+		debug.Log("Updated benchmark_requests table for completion", map[string]interface{}{
+			"agent_id":    agentID,
+			"hash_type":   result.HashType,
+			"attack_mode": result.AttackMode,
+			"success":     result.Success,
+		})
+	}
+
 	// Handle total effective keyspace from hashcat progress[1]
 	if result.TotalEffectiveKeyspace > 0 {
 		// Find the job this benchmark is for using the job_execution_id from the result
@@ -1313,17 +1419,20 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 			}
 		}
 
-		// Clear pending benchmark metadata from the current agent that ran the benchmark
-		// This must run regardless of whether this was the first or subsequent benchmark
+		// Update metadata for forced benchmark completion
+		// This allows the scheduler to prioritize this agent for the job's first task
 		if agent.Metadata != nil {
 			if pendingJob, exists := agent.Metadata["pending_benchmark_job"]; exists && pendingJob == jobExec.ID.String() {
+				// This was a forced benchmark - set completion flag for prioritization
+				agent.Metadata["forced_benchmark_completed_for_job"] = jobExec.ID.String()
 				delete(agent.Metadata, "pending_benchmark_job")
 				delete(agent.Metadata, "benchmark_requested_at")
+
 				err := s.agentRepo.Update(ctx, agent)
 				if err != nil {
-					debug.Warning("Failed to clear benchmark metadata for agent %d: %v", agent.ID, err)
+					debug.Warning("Failed to update agent metadata after forced benchmark: %v", err)
 				} else {
-					debug.Info("Cleared pending benchmark metadata for agent %d after job %s benchmark completed", agent.ID, jobExec.ID)
+					debug.Info("Agent %d completed forced benchmark for job %s, set priority flag", agent.ID, jobExec.ID)
 				}
 			}
 		}
