@@ -430,9 +430,10 @@ func (s *JobSchedulingService) executeTaskAssignment(
 		return result
 	}
 
-	// Step 3: Sync files (30s blocking - includes rule chunks)
+	// Step 3: Sync files (5 minute blocking - includes rule chunks)
+	// Extended timeout allows agents to hash large wordlist files (50GB+)
 	if s.wsIntegration != nil {
-		syncTimeout := 30 * time.Second
+		syncTimeout := 5 * time.Minute
 		err = s.wsIntegration.SyncAgentFiles(ctx, plan.AgentID, syncTimeout)
 		if err != nil {
 			result.Error = fmt.Errorf("failed to sync files: %w", err)

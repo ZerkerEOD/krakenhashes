@@ -1600,7 +1600,8 @@ func (c *Connection) handleFileSyncAsync(requestPayload FileSyncRequestPayload) 
 	startTime := time.Now()
 
 	// Create a context with timeout for the entire operation
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	// 5 minute timeout allows hashing of large wordlist files (50GB+)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	// Initialize file sync if not already done
