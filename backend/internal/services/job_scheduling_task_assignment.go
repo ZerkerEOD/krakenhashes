@@ -40,6 +40,9 @@ type TaskAssignmentPlan struct {
 	// Flags
 	SkipAssignment bool // If no valid benchmark or job exhausted
 	SkipReason     string
+
+	// Existing pending task (if reassigning instead of creating new)
+	ExistingTask *models.JobTask
 }
 
 // TaskAssignmentResult contains the result of a task assignment
@@ -211,6 +214,76 @@ func (s *JobSchedulingService) createSingleTaskPlan(
 		return nil, fmt.Errorf("failed to get hashlist: %w", err)
 	}
 
+	// PRIORITY 1: Check for existing pending tasks FIRST - prioritize reassignment over new chunks
+	pendingTasks, err := s.jobExecutionService.jobTaskRepo.GetPendingTasksByJobExecution(ctx, currentState.JobExecution.ID)
+	if err == nil && len(pendingTasks) > 0 {
+		pendingTask := &pendingTasks[0] // Take oldest pending task (ORDER BY created_at ASC)
+
+		debug.Info("Found pending task for job, reassigning to agent", map[string]interface{}{
+			"job_id":       currentState.JobExecution.ID,
+			"agent_id":     agentID,
+			"task_id":      pendingTask.ID,
+			"chunk_number": pendingTask.ChunkNumber,
+		})
+
+		// Verify agent has benchmark for this job before reassigning
+		benchmark, err := s.jobExecutionService.benchmarkRepo.GetAgentBenchmark(
+			ctx, agentID, currentState.JobExecution.AttackMode, hashlist.HashTypeID)
+
+		if err != nil || benchmark == nil {
+			debug.Log("Agent missing benchmark for pending task job, skipping reassignment", map[string]interface{}{
+				"agent_id":  agentID,
+				"job_id":    currentState.JobExecution.ID,
+				"hash_type": hashlist.HashTypeID,
+			})
+			// Don't reassign - continue to new chunk logic below
+		} else {
+			// Create plan from existing pending task
+			plan := &TaskAssignmentPlan{
+				AgentID:        agentID,
+				Agent:          agent,
+				JobExecution:   currentState.JobExecution,
+				ChunkDuration:  pendingTask.ChunkDuration,
+				BenchmarkSpeed: *pendingTask.BenchmarkSpeed,
+				ExistingTask:   pendingTask, // Mark as pending task reassignment
+
+				// Copy keyspace fields from pending task
+				KeyspaceStart:          pendingTask.KeyspaceStart,
+				KeyspaceEnd:            pendingTask.KeyspaceEnd,
+				EffectiveKeyspaceStart: *pendingTask.EffectiveKeyspaceStart,
+				EffectiveKeyspaceEnd:   *pendingTask.EffectiveKeyspaceEnd,
+				AttackCmd:              pendingTask.AttackCmd,
+				ChunkNumber:            pendingTask.ChunkNumber,
+			}
+
+			// For rule-split tasks, copy rule fields and get source rule path
+			if pendingTask.IsRuleSplitTask {
+				plan.IsRuleSplit = true
+				plan.RuleStartIndex = *pendingTask.RuleStartIndex
+				plan.RuleEndIndex = *pendingTask.RuleEndIndex
+
+				// Get source rule file path from job
+				if len(currentState.JobExecution.RuleIDs) > 0 {
+					rulePath, err := s.jobExecutionService.resolveRulePath(ctx, currentState.JobExecution.RuleIDs[0])
+					if err == nil {
+						plan.RuleFilePath = rulePath
+					} else {
+						debug.Warning("Failed to resolve rule path for pending task: %v", err)
+					}
+				}
+
+				debug.Info("Reassigning pending rule-split task", map[string]interface{}{
+					"task_id":    pendingTask.ID,
+					"rule_start": plan.RuleStartIndex,
+					"rule_end":   plan.RuleEndIndex,
+				})
+			}
+
+			return plan, nil
+		}
+	}
+
+	// PRIORITY 2: No pending tasks OR agent lacks benchmark - create NEW chunk
 	// Check if agent has valid benchmark for this job
 	benchmark, err := s.jobExecutionService.benchmarkRepo.GetAgentBenchmark(
 		ctx, agentID, currentState.JobExecution.AttackMode, hashlist.HashTypeID)
@@ -441,42 +514,73 @@ func (s *JobSchedulingService) executeTaskAssignment(
 		}
 	}
 
-	// Step 4: Create task in database
-	task := &models.JobTask{
-		JobExecutionID:         plan.JobExecution.ID,
-		AgentID:                &plan.AgentID,
-		Status:                 models.JobTaskStatusPending,
-		Priority:               plan.JobExecution.Priority,
-		AttackCmd:              plan.AttackCmd,
-		KeyspaceStart:          plan.KeyspaceStart,
-		KeyspaceEnd:            plan.KeyspaceEnd,
-		KeyspaceProcessed:      0,
-		EffectiveKeyspaceStart: &plan.EffectiveKeyspaceStart,
-		EffectiveKeyspaceEnd:   &plan.EffectiveKeyspaceEnd,
-		ChunkNumber:            plan.ChunkNumber,
-		ChunkDuration:          plan.ChunkDuration,
-		BenchmarkSpeed:         &plan.BenchmarkSpeed,
-	}
+	// Step 4: Create or update task in database
+	var task *models.JobTask
 
-	// Add rule splitting fields if applicable
-	if plan.IsRuleSplit {
-		task.IsRuleSplitTask = true
-		task.RuleStartIndex = &plan.RuleStartIndex
-		task.RuleEndIndex = &plan.RuleEndIndex
-		task.RuleChunkPath = &ruleChunkPath
-	}
+	if plan.ExistingTask != nil {
+		// PENDING TASK PATH: Update existing task with new agent assignment
+		task = plan.ExistingTask
+		task.AgentID = &plan.AgentID
+		task.Status = models.JobTaskStatusAssigned
+		task.AttackCmd = plan.AttackCmd // Updated with new chunk path if rule-split
+		now := time.Now()
+		task.AssignedAt = &now
 
-	err = s.jobExecutionService.jobTaskRepo.Create(ctx, task)
-	if err != nil {
-		result.Error = fmt.Errorf("failed to create task: %w", err)
-		return result
-	}
+		// Update rule chunk path if this is a rule-split task
+		if plan.IsRuleSplit && ruleChunkPath != "" {
+			task.RuleChunkPath = &ruleChunkPath
+		}
 
-	debug.Log("Created task in database", map[string]interface{}{
-		"agent_id": plan.AgentID,
-		"task_id":  task.ID,
-		"job_id":   plan.JobExecution.ID,
-	})
+		err = s.jobExecutionService.jobTaskRepo.Update(ctx, task)
+		if err != nil {
+			result.Error = fmt.Errorf("failed to update pending task: %w", err)
+			return result
+		}
+
+		debug.Info("Reassigned pending task to agent", map[string]interface{}{
+			"agent_id":     plan.AgentID,
+			"task_id":      task.ID,
+			"job_id":       plan.JobExecution.ID,
+			"chunk_number": task.ChunkNumber,
+		})
+	} else {
+		// NEW TASK PATH: Create new task
+		task = &models.JobTask{
+			JobExecutionID:         plan.JobExecution.ID,
+			AgentID:                &plan.AgentID,
+			Status:                 models.JobTaskStatusPending,
+			Priority:               plan.JobExecution.Priority,
+			AttackCmd:              plan.AttackCmd,
+			KeyspaceStart:          plan.KeyspaceStart,
+			KeyspaceEnd:            plan.KeyspaceEnd,
+			KeyspaceProcessed:      0,
+			EffectiveKeyspaceStart: &plan.EffectiveKeyspaceStart,
+			EffectiveKeyspaceEnd:   &plan.EffectiveKeyspaceEnd,
+			ChunkNumber:            plan.ChunkNumber,
+			ChunkDuration:          plan.ChunkDuration,
+			BenchmarkSpeed:         &plan.BenchmarkSpeed,
+		}
+
+		// Add rule splitting fields if applicable
+		if plan.IsRuleSplit {
+			task.IsRuleSplitTask = true
+			task.RuleStartIndex = &plan.RuleStartIndex
+			task.RuleEndIndex = &plan.RuleEndIndex
+			task.RuleChunkPath = &ruleChunkPath
+		}
+
+		err = s.jobExecutionService.jobTaskRepo.Create(ctx, task)
+		if err != nil {
+			result.Error = fmt.Errorf("failed to create task: %w", err)
+			return result
+		}
+
+		debug.Log("Created new task in database", map[string]interface{}{
+			"agent_id": plan.AgentID,
+			"task_id":  task.ID,
+			"job_id":   plan.JobExecution.ID,
+		})
+	}
 
 	// Step 5: Start job execution if in pending status
 	if plan.JobExecution.Status == models.JobExecutionStatusPending {
