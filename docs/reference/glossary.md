@@ -78,6 +78,8 @@ This glossary provides definitions for terms used throughout the KrakenHashes sy
 
 **Data Retention**: Policies and mechanisms for automatically removing old data based on configured time periods.
 
+**FIFO Mode**: First-In-First-Out agent overflow allocation mode where the oldest job at the same priority receives all overflow agents beyond max_agents limits. Default allocation mode in KrakenHashes.
+
 **Heartbeat**: Regular status updates sent by agents to the backend to indicate they are alive and processing.
 
 **Job**: A single password cracking task with specific parameters, wordlists, rules, and target hashes.
@@ -88,9 +90,19 @@ This glossary provides definitions for terms used throughout the KrakenHashes sy
 
 **Job Workflow**: A sequence of jobs designed to implement a comprehensive attack strategy.
 
+**Max Agents**: Maximum number of agents a job can use simultaneously. Respected for jobs at the same priority; overridden when a job has higher priority than all others.
+
+**Max Agents Override**: Behavior where higher priority jobs receive ALL available agents regardless of their max_agents setting, ensuring critical work completes as fast as possible.
+
+**Overflow Agents**: Agents available beyond the max_agents limits of jobs at the same priority. Distributed according to the agent overflow allocation mode (FIFO or round-robin).
+
+**Overflow Allocation Mode**: System setting that controls how overflow agents are distributed among jobs at the same priority. Options: FIFO (oldest job gets all) or round-robin (distributed evenly).
+
 **Preset**: Pre-configured job templates or workflows for common attack scenarios.
 
 **Repository Pattern**: Software design pattern used in KrakenHashes for database access abstraction.
+
+**Round-Robin Mode**: Agent overflow allocation mode where overflow agents are distributed evenly among all jobs at the same priority, ensuring balanced progress across multiple jobs.
 
 **Service Layer**: Business logic layer in the backend that processes requests between handlers and repositories.
 

@@ -83,10 +83,50 @@ Jobs within workflows run in priority order:
 
 ### How Priority Affects Your Jobs
 
-1. **Execution Order**: Higher priority jobs start first when agents are available
-2. **Resource Allocation**: Critical jobs can use more agents simultaneously
-3. **Queue Management**: Jobs with the same priority run in the order they were submitted
-4. **Smart Scheduling**: The system optimizes agent assignment based on priorities
+Priority determines how many agents your job receives and when it runs:
+
+**1. Agent Allocation Based on Priority:**
+- **Higher priority jobs**: Get ALL available agents (max_agents setting is overridden)
+- **Same priority jobs**: Respect max_agents limit, share overflow agents based on allocation mode
+- **Lower priority jobs**: Wait until higher priority jobs complete or release agents
+
+**2. Execution Order:**
+- Jobs start in priority order (highest first)
+- Within the same priority, older jobs start first (FIFO)
+
+**3. Resource Control:**
+- **max_agents setting**: Controls resource usage for jobs at the **same priority**
+- **Overflow allocation mode**: Determines how extra agents are distributed (FIFO or round-robin)
+- **Priority override**: Higher priority jobs ignore max_agents and take all resources
+
+**Real-World Example:**
+
+You have 10 agents available and submit two jobs:
+```
+Job A: Priority 90, max_agents = 5 (urgent client deadline)
+Job B: Priority 50, max_agents = 10 (background research)
+
+Result:
+- Job A gets ALL 10 agents (higher priority overrides max_agents)
+- Job B waits until Job A completes
+```
+
+If both jobs have priority 50:
+```
+Job A: Priority 50, max_agents = 5
+Job B: Priority 50, max_agents = 5
+10 agents available
+
+FIFO Mode (default):
+- Job A: 10 agents (created first, gets overflow)
+- Job B: 0 agents (waits for Job A)
+
+Round-Robin Mode:
+- Job A: 5 agents
+- Job B: 5 agents
+```
+
+**Key Takeaway**: Use higher priority for time-critical jobs to get maximum resources immediately. For jobs at the same priority, max_agents controls resource sharing.
 
 <screenshot: Priority visualization>
 

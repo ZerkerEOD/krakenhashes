@@ -178,9 +178,73 @@ KrakenHashes uses a priority scale from **0 to 1000**, where:
 
 1. **Job Selection**: When agents request work, jobs are assigned in priority order
 2. **FIFO Within Priority**: Jobs with the same priority follow First-In-First-Out
-3. **Job Interruption**: Higher priority jobs with override enabled can interrupt lower priority running jobs
-4. **Resource Allocation**: High priority jobs can use more agents simultaneously
+3. **Job Interruption**: Higher priority jobs can interrupt lower priority running jobs
+4. **Priority-Based Agent Allocation**: How many agents your job receives depends on priority
 5. **Automatic Resumption**: Interrupted jobs automatically resume when resources are available
+
+### Priority-Based Agent Allocation
+
+The priority system uses intelligent allocation to ensure critical jobs get the resources they need:
+
+**Higher Priority Jobs Override max_agents:**
+- When your job has **higher priority** than all other jobs, it receives **ALL available agents**
+- The max_agents setting is **ignored** for highest priority jobs
+- Ensures critical work completes as fast as possible
+
+**Same Priority Jobs Respect max_agents:**
+- When multiple jobs share the **same priority**, each respects its **max_agents limit**
+- Overflow agents (beyond max_agents) are distributed based on **overflow allocation mode**:
+  - **FIFO mode** (default): Oldest job gets all overflow agents
+  - **Round-robin mode**: Overflow agents distributed evenly across all jobs
+
+**Lower Priority Jobs Wait:**
+- Jobs with lower priority wait for higher priority jobs to complete or release agents
+- Automatically start when resources become available
+
+**Examples:**
+
+*Scenario 1: Different Priorities*
+```
+Job A: Priority 100, max_agents = 3
+Job B: Priority 50,  max_agents = 5
+15 agents available
+
+Result:
+- Job A: 15 agents (highest priority, gets ALL agents)
+- Job B: 0 agents (lower priority, waits)
+```
+
+*Scenario 2: Same Priority with FIFO Mode*
+```
+Job A: Priority 50, max_agents = 2 (created first)
+Job B: Priority 50, max_agents = 2 (created second)
+Job C: Priority 50, max_agents = 2 (created third)
+15 agents available
+
+Result:
+- Job A: 11 agents (2 max + 9 overflow, oldest job)
+- Job B: 2 agents (max_agents only)
+- Job C: 2 agents (max_agents only)
+```
+
+*Scenario 3: Same Priority with Round-Robin Mode*
+```
+Job A: Priority 50, max_agents = 2
+Job B: Priority 50, max_agents = 2
+Job C: Priority 50, max_agents = 2
+15 agents available
+
+Result:
+- Job A: 5 agents (2 max + 3 overflow)
+- Job B: 5 agents (2 max + 3 overflow)
+- Job C: 5 agents (2 max + 3 overflow)
+```
+
+**Key Takeaways:**
+- Set higher priority for time-critical jobs to get all available resources
+- Use max_agents to control resource usage for jobs at the same priority
+- Overflow allocation mode (FIFO vs round-robin) affects same-priority job distribution
+- Administrators configure overflow mode via system settings
 
 ### Priority Guidelines
 
