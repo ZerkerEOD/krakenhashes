@@ -239,19 +239,36 @@ func (s *JobSchedulingService) createSingleTaskPlan(
 			// Don't reassign - continue to new chunk logic below
 		} else {
 			// Create plan from existing pending task
+
+			// Handle nullable BenchmarkSpeed - use fresh benchmark if nil
+			benchmarkSpeed := benchmark.Speed
+			if pendingTask.BenchmarkSpeed != nil {
+				benchmarkSpeed = *pendingTask.BenchmarkSpeed
+			}
+
+			// Handle nullable EffectiveKeyspace fields - use 0 if nil (will be set when task starts)
+			effectiveStart := int64(0)
+			if pendingTask.EffectiveKeyspaceStart != nil {
+				effectiveStart = *pendingTask.EffectiveKeyspaceStart
+			}
+			effectiveEnd := int64(0)
+			if pendingTask.EffectiveKeyspaceEnd != nil {
+				effectiveEnd = *pendingTask.EffectiveKeyspaceEnd
+			}
+
 			plan := &TaskAssignmentPlan{
 				AgentID:        agentID,
 				Agent:          agent,
 				JobExecution:   currentState.JobExecution,
 				ChunkDuration:  pendingTask.ChunkDuration,
-				BenchmarkSpeed: *pendingTask.BenchmarkSpeed,
+				BenchmarkSpeed: benchmarkSpeed,
 				ExistingTask:   pendingTask, // Mark as pending task reassignment
 
 				// Copy keyspace fields from pending task
 				KeyspaceStart:          pendingTask.KeyspaceStart,
 				KeyspaceEnd:            pendingTask.KeyspaceEnd,
-				EffectiveKeyspaceStart: *pendingTask.EffectiveKeyspaceStart,
-				EffectiveKeyspaceEnd:   *pendingTask.EffectiveKeyspaceEnd,
+				EffectiveKeyspaceStart: effectiveStart,
+				EffectiveKeyspaceEnd:   effectiveEnd,
 				AttackCmd:              pendingTask.AttackCmd,
 				ChunkNumber:            pendingTask.ChunkNumber,
 			}
@@ -259,8 +276,19 @@ func (s *JobSchedulingService) createSingleTaskPlan(
 			// For rule-split tasks, copy rule fields and get source rule path
 			if pendingTask.IsRuleSplitTask {
 				plan.IsRuleSplit = true
-				plan.RuleStartIndex = *pendingTask.RuleStartIndex
-				plan.RuleEndIndex = *pendingTask.RuleEndIndex
+
+				// Handle nullable RuleIndex fields - should always be set for rule-split tasks
+				if pendingTask.RuleStartIndex != nil && pendingTask.RuleEndIndex != nil {
+					plan.RuleStartIndex = *pendingTask.RuleStartIndex
+					plan.RuleEndIndex = *pendingTask.RuleEndIndex
+				} else {
+					debug.Warning("Pending rule-split task missing rule index fields", map[string]interface{}{
+						"task_id": pendingTask.ID,
+					})
+					// Skip this task - it's corrupted
+					// Fall through to new chunk logic
+					goto createNewChunk
+				}
 
 				// Get source rule file path from job
 				if len(currentState.JobExecution.RuleIDs) > 0 {
@@ -283,6 +311,7 @@ func (s *JobSchedulingService) createSingleTaskPlan(
 		}
 	}
 
+createNewChunk:
 	// PRIORITY 2: No pending tasks OR agent lacks benchmark - create NEW chunk
 	// Check if agent has valid benchmark for this job
 	benchmark, err := s.jobExecutionService.benchmarkRepo.GetAgentBenchmark(
