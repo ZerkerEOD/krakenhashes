@@ -47,6 +47,7 @@ const (
 	WSTypeFileSyncRequest  WSMessageType = "file_sync_request"
 	WSTypeFileSyncResponse WSMessageType = "file_sync_response"
 	WSTypeFileSyncCommand  WSMessageType = "file_sync_command"
+	WSTypeFileSyncStatus   WSMessageType = "file_sync_status"
 
 	// Job execution message types
 	WSTypeTaskAssignment        WSMessageType = "task_assignment"
@@ -2497,22 +2498,27 @@ func (c *Connection) sendSyncCompleted() {
 	// Get final stats from download manager (single source of truth)
 	total, _, _, completed, failed := c.downloadManager.GetDownloadStats()
 
+	// Send status message in the format the backend expects
+	statusMessage := "File sync completed successfully"
+	if failed > 0 {
+		statusMessage = fmt.Sprintf("File sync completed with %d failures out of %d files", failed, total)
+	}
+
 	payload, _ := json.Marshal(map[string]interface{}{
-		"agent_id":     c.agentID,
-		"files_synced": completed,
-		"files_failed": failed,
-		"files_total":  total,
+		"status":   "completed",
+		"progress": 100,
+		"message":  statusMessage,
 	})
 
 	message := WSMessage{
-		Type:      "sync_completed",
+		Type:      WSTypeFileSyncStatus,
 		Payload:   payload,
 		Timestamp: time.Now(),
 	}
 
 	select {
 	case c.outbound <- &message:
-		debug.Info("Sent sync completed message: %d succeeded, %d failed out of %d total", completed, failed, total)
+		debug.Info("Sent sync status completed message: %d succeeded, %d failed out of %d total", completed, failed, total)
 		if failed > 0 {
 			console.Warning("File synchronization complete with issues (%d/%d files downloaded, %d failed)", completed, total, failed)
 		} else {

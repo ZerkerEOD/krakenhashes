@@ -746,7 +746,17 @@ func (h *Handler) handleSyncStatus(client *Client, msg *wsservice.Message) {
 	// If sync is complete, update agent status
 	if payload.Status == "completed" {
 		debug.Info("File sync completed for agent %d", client.agent.ID)
-		// TODO: Update agent sync status in database
+
+		// Update agent sync status in database
+		if h.agentService != nil {
+			err := h.agentService.UpdateAgentSyncStatus(context.Background(), client.agent.ID,
+				models.AgentSyncStatusCompleted, "")
+			if err != nil {
+				debug.Error("Failed to update sync status for agent %d: %v", client.agent.ID, err)
+			} else {
+				debug.Info("Agent %d sync status updated to completed after file downloads", client.agent.ID)
+			}
+		}
 	}
 }
 
