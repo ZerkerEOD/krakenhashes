@@ -787,7 +787,18 @@ func main() {
 		}
 		jobManager.SetCrackCallback(crackCallback)
 		debug.Info("Crack callback configured to send batches to backend")
-		
+
+		crackBatchesCompleteCallback := func(signal *jobs.CrackBatchesComplete) {
+			debug.Info("Crack batches complete signal for task %s", signal.TaskID)
+
+			// Send completion signal to backend
+			if err := conn.SendCrackBatchesComplete(signal); err != nil {
+				debug.Error("Failed to send crack_batches_complete signal to backend: %v", err)
+			}
+		}
+		jobManager.SetCrackBatchesCompleteCallback(crackBatchesCompleteCallback)
+		debug.Info("Crack batches complete callback configured")
+
 		// Set up output callback to send hashcat output via websocket
 		outputCallback := func(taskID string, output string, isError bool) {
 			// Send output to backend via WebSocket

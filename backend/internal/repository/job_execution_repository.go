@@ -831,3 +831,28 @@ func (r *JobExecutionRepository) GetNonCompletedJobsByHashlistID(ctx context.Con
 
 	return executions, nil
 }
+
+// SetJobProcessing marks a job execution as processing (waiting for crack batch processing)
+func (r *JobExecutionRepository) SetJobProcessing(ctx context.Context, id uuid.UUID) error {
+	query := `
+		UPDATE job_executions
+		SET status = $2,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`
+
+	result, err := r.db.ExecContext(ctx, query, id, models.JobExecutionStatusProcessing)
+	if err != nil {
+		return fmt.Errorf("failed to set job processing: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}

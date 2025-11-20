@@ -116,10 +116,11 @@ When a high-priority job needs immediate attention:
 *The Jobs Management interface showing active password cracking jobs with status filtering (ALL, PENDING, RUNNING, COMPLETED, FAILED). The table displays job details including name, hashlist, progress, keyspace, cracked count, agents assigned, priority level, and available actions.*
 
 - **Pending**: Job is waiting for available agents
-- **Running**: Job is actively being processed
-- **Completed**: Job finished successfully
+- **Running**: Job is actively being processed by agents
+- **Processing**: Job execution has finished but system is receiving cracked passwords from agents
+- **Completed**: Job finished successfully and all results have been processed
 - **Failed**: Job encountered an error
-- **Interrupted**: Job was paused for a higher priority task (automatically resumes)
+- **Paused**: Job was manually paused or interrupted for a higher priority task
 
 ### Priority Best Practices
 
@@ -150,10 +151,13 @@ Hashcat's `--remove` option removes cracked hashes from the input file during ex
 
 ### What You'll See
 
-- Job status changes to "completed" even if not all keyspace was processed
-- Progress shows 100% when all target hashes are cracked
+- Job progress reaches 100% when hashcat finishes processing
+- Job status may briefly show "processing" while cracked passwords are being received
+- Job status changes to "completed" once all results are processed
+- Email notification sent when job truly completes (not during processing)
 - Related pending jobs for the same hashlist disappear from the queue
-- Email notification of job completion (if email is configured)
+
+The "processing" status ensures that completion emails contain accurate crack counts and that all discovered passwords are properly stored before the job is marked as complete.
 
 This ensures your workflow doesn't encounter errors when your cracking campaign is successful!
 

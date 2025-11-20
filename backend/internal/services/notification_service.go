@@ -19,6 +19,7 @@ type NotificationService struct {
 	db               *db.DB
 	userRepo         *repository.UserRepository
 	jobExecRepo      *repository.JobExecutionRepository
+	jobTaskRepo      *repository.JobTaskRepository
 	hashlistRepo     *repository.HashListRepository
 	emailService     *emailPkg.Service
 }
@@ -30,6 +31,7 @@ func NewNotificationService(dbConn *sql.DB) *NotificationService {
 		db:           database,
 		userRepo:     repository.NewUserRepository(database),
 		jobExecRepo:  repository.NewJobExecutionRepository(database),
+		jobTaskRepo:  repository.NewJobTaskRepository(database),
 		hashlistRepo: repository.NewHashListRepository(database),
 		emailService: emailPkg.NewService(dbConn),
 	}
@@ -92,7 +94,13 @@ func (s *NotificationService) SendJobCompletionEmail(ctx context.Context, jobExe
 		duration = fmt.Sprintf("%dh %dm %ds", hours, minutes, seconds)
 	}
 
-	crackedCount := hashlist.CrackedHashes
+	// Get crack count specific to this job execution (sum of all task crack_counts)
+	crackedCount, err := s.jobTaskRepo.GetTotalCracksForJob(ctx, jobExecutionID)
+	if err != nil {
+		debug.Warning("Failed to get crack count for job %s: %v", jobExecutionID, err)
+		crackedCount = 0 // Fall back to 0 if query fails
+	}
+
 	totalCount := hashlist.TotalHashes
 	successRate := float64(0)
 	if totalCount > 0 {

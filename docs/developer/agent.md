@@ -306,20 +306,22 @@ type Connection struct {
 type WSMessageType string
 
 const (
-    WSTypeHardwareInfo      WSMessageType = "hardware_info"
-    WSTypeMetrics           WSMessageType = "metrics"
-    WSTypeHeartbeat         WSMessageType = "heartbeat"
-    WSTypeAgentStatus       WSMessageType = "agent_status"
-    WSTypeFileSyncRequest   WSMessageType = "file_sync_request"
-    WSTypeFileSyncResponse  WSMessageType = "file_sync_response"
-    WSTypeTaskAssignment    WSMessageType = "task_assignment"
-    WSTypeJobProgress       WSMessageType = "job_progress"
-    WSTypeJobStop           WSMessageType = "job_stop"
-    WSTypeBenchmarkRequest  WSMessageType = "benchmark_request"
-    WSTypeBenchmarkResult   WSMessageType = "benchmark_result"
-    WSTypeHashcatOutput     WSMessageType = "hashcat_output"
-    WSTypeDeviceDetection   WSMessageType = "device_detection"
-    WSTypeDeviceUpdate      WSMessageType = "device_update"
+    WSTypeHardwareInfo         WSMessageType = "hardware_info"
+    WSTypeMetrics              WSMessageType = "metrics"
+    WSTypeHeartbeat            WSMessageType = "heartbeat"
+    WSTypeAgentStatus          WSMessageType = "agent_status"
+    WSTypeFileSyncRequest      WSMessageType = "file_sync_request"
+    WSTypeFileSyncResponse     WSMessageType = "file_sync_response"
+    WSTypeTaskAssignment       WSMessageType = "task_assignment"
+    WSTypeJobProgress          WSMessageType = "job_progress"
+    WSTypeJobStop              WSMessageType = "job_stop"
+    WSTypeBenchmarkRequest     WSMessageType = "benchmark_request"
+    WSTypeBenchmarkResult      WSMessageType = "benchmark_result"
+    WSTypeHashcatOutput        WSMessageType = "hashcat_output"
+    WSTypeDeviceDetection      WSMessageType = "device_detection"
+    WSTypeDeviceUpdate         WSMessageType = "device_update"
+    WSTypeCrackBatch           WSMessageType = "crack_batch"
+    WSTypeCrackBatchesComplete WSMessageType = "crack_batches_complete"  // NEW in v1.3.1
 )
 ```
 
@@ -379,6 +381,85 @@ func (c *Connection) SendJobProgress(progress *jobs.JobProgress) error {
     }
 }
 ```
+
+### Crack Batch Workflow
+
+The agent sends cracked passwords in batches and signals completion to enable the backend's processing status workflow.
+
+**Message Flow:**
+
+1. **Task Completes**: Agent sends final `job_progress` with `Status="completed"` and `CrackedCount` field
+2. **Send Crack Batches**: Agent sends one or more `crack_batch` messages with cracked passwords
+3. **Signal Completion**: Agent sends `crack_batches_complete` to signal all batches sent
+4. **Agent Available**: Agent is immediately available for new work
+
+**Implementation:**
+
+```go
+// Send final progress with crack count
+progress := &JobProgress{
+    TaskID:          taskID,
+    Status:          "completed",
+    ProgressPercent: 100.0,
+    CrackedCount:    totalCracks,  // Expected number of cracks
+}
+c.SendJobProgress(progress)
+
+// Send crack batches (batched during execution)
+for _, batch := range crackBatches {
+    crackBatch := &CrackBatch{
+        TaskID:        taskID,
+        CrackedHashes: batch,
+    }
+    c.SendCrackBatch(crackBatch)
+}
+
+// Signal all batches sent
+completion := &CrackBatchesComplete{
+    TaskID: taskID,
+}
+c.SendCrackBatchesComplete(completion)
+```
+
+**Message Structures:**
+
+```go
+// Final progress message
+type JobProgress struct {
+    TaskID          string  `json:"task_id"`
+    Status          string  `json:"status"`           // "completed"
+    ProgressPercent float64 `json:"progress_percent"` // 100.0
+    CrackedCount    int     `json:"cracked_count"`    // Expected cracks
+    // ... other fields
+}
+
+// Crack batch message
+type CrackBatch struct {
+    TaskID        string         `json:"task_id"`
+    CrackedHashes []CrackedHash  `json:"cracked_hashes"`
+}
+
+type CrackedHash struct {
+    Hash         string `json:"hash"`
+    Plaintext    string `json:"plaintext"`
+    OriginalLine string `json:"original_line"`
+}
+
+// Completion signal message
+type CrackBatchesComplete struct {
+    TaskID string `json:"task_id"`
+}
+```
+
+**Backend Processing:**
+
+When backend receives `crack_batches_complete`:
+1. Task transitions from `processing` to `completed`
+2. Backend verifies: `received_crack_count >= expected_crack_count`
+3. Agent busy status cleared
+4. Agent can immediately accept new tasks
+
+See [Crack Batching System](../reference/architecture/crack-batching-system.md) for full details on batching logic and performance optimization.
 
 ## File Synchronization
 

@@ -255,7 +255,7 @@ Email provider configuration.
 | Column | Type | Constraints | Default | Description |
 |--------|------|-------------|---------|-------------|
 | id | SERIAL | PRIMARY KEY | | Config ID |
-| provider_type | email_provider_type | NOT NULL | | Provider: mailgun, sendgrid, mailchimp, gmail |
+| provider_type | email_provider_type | NOT NULL | | Provider: mailgun, sendgrid, smtp (added in migration 084) |
 | api_key | TEXT | NOT NULL | | Provider API key |
 | additional_config | JSONB | | | Additional configuration |
 | monthly_limit | INTEGER | | | Monthly email limit |
@@ -653,7 +653,7 @@ Tracks actual job runs.
 | id | UUID | PRIMARY KEY | gen_random_uuid() | Execution identifier |
 | preset_job_id | UUID | NOT NULL, FK → preset_jobs(id) | | Preset job reference |
 | hashlist_id | BIGINT | NOT NULL, FK → hashlists(id) | | Hashlist reference |
-| status | VARCHAR(50) | NOT NULL, CHECK | 'pending' | Status: pending, running, completed, failed, cancelled, interrupted (Note: interrupted jobs return to pending) |
+| status | VARCHAR(50) | NOT NULL, CHECK | 'pending' | Status: pending, running, paused, processing, completed, failed, cancelled (added migration 085: processing status) |
 | priority | INT | NOT NULL | 0 | Execution priority |
 | total_keyspace | BIGINT | | | Total keyspace size |
 | processed_keyspace | BIGINT | | 0 | Processed keyspace |
@@ -672,6 +672,9 @@ Tracks actual job runs.
 | last_failure_at | TIMESTAMP WITH TIME ZONE | | | Last failure time (added in migration 37) |
 | is_accurate_keyspace | BOOLEAN | | false | True when keyspace is from hashcat progress[1] values (added in migration 63) |
 | avg_rule_multiplier | FLOAT | | | Actual/estimated keyspace ratio for improving future estimates (added in migration 63) |
+| completion_email_sent | BOOLEAN | | false | Whether completion email was sent (added in migration 085) |
+| completion_email_sent_at | TIMESTAMP WITH TIME ZONE | | | When completion email was sent (added in migration 085) |
+| completion_email_error | TEXT | | | Error message if email sending failed (added in migration 085) |
 
 **Indexes:**
 - idx_job_executions_status (status)
@@ -688,7 +691,7 @@ Individual chunks assigned to agents.
 | id | UUID | PRIMARY KEY | gen_random_uuid() | Task identifier |
 | job_execution_id | UUID | NOT NULL, FK → job_executions(id) | | Job execution reference |
 | agent_id | INTEGER | FK → agents(id) | | Assigned agent (nullable in migration 35) |
-| status | VARCHAR(50) | NOT NULL, CHECK | 'pending' | Status: pending, assigned, running, completed, failed, cancelled |
+| status | VARCHAR(50) | NOT NULL, CHECK | 'pending' | Status: pending, assigned, reconnect_pending, running, processing, completed, failed, cancelled (added migration 085: processing status) |
 | keyspace_start | BIGINT | NOT NULL | | Keyspace start |
 | keyspace_end | BIGINT | NOT NULL | | Keyspace end |
 | keyspace_processed | BIGINT | | 0 | Processed amount |
@@ -708,6 +711,10 @@ Individual chunks assigned to agents.
 | effective_keyspace | BIGINT | | | Effective keyspace size (added in migration 47) |
 | is_actual_keyspace | BOOLEAN | | false | True when task has actual keyspace from hashcat progress[1] (added in migration 63) |
 | chunk_actual_keyspace | BIGINT | | | Immutable chunk size from hashcat progress[1] for accurate keyspace tracking (added in migration 64) |
+| crack_count | INTEGER | | 0 | Number of hashes cracked by this task (existing field) |
+| expected_crack_count | INTEGER | | 0 | Expected number of cracks from final progress message (added in migration 085) |
+| received_crack_count | INTEGER | | 0 | Number of cracks received via crack_batch messages (added in migration 085) |
+| batches_complete_signaled | BOOLEAN | | false | Whether agent has signaled all crack batches sent (added in migration 085) |
 
 **Indexes:**
 - idx_job_tasks_agent_status (agent_id, status)

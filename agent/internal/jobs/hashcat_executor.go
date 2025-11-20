@@ -115,6 +115,11 @@ type CrackBatch struct {
 	CrackedHashes []CrackedHash  `json:"cracked_hashes"`
 }
 
+// CrackBatchesComplete signals that all crack batches have been sent
+type CrackBatchesComplete struct {
+	TaskID string `json:"task_id"`
+}
+
 // CrackedHash represents a cracked hash with all available information
 type CrackedHash struct {
 	Hash         string `json:"hash"`          // The original hash
@@ -773,6 +778,18 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 						// Determine if this is the first progress update
 						isFirstUpdate := process.LastProgress == nil || process.LastProgress.EffectiveProgress == 0
 
+						// Extract recovered hashes count when all hashes cracked
+						var crackedCount int
+						if allHashesCracked {
+							if recoveredHashes, ok := status["recovered_hashes"].([]interface{}); ok && len(recoveredHashes) >= 2 {
+								if recovered, ok := recoveredHashes[0].(float64); ok {
+									crackedCount = int(recovered)
+									debug.Info("[Hashcat] Extracted recovered_hashes for AllHashesCracked: %d out of %d total",
+										int(recovered), int(recoveredHashes[1].(float64)))
+								}
+							}
+						}
+
 						progress := &JobProgress{
 							TaskID:            process.TaskID,
 							KeyspaceProcessed: keyspaceProcessed,  // Restore point (word position)
@@ -780,6 +797,7 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 							ProgressPercent:   progressPercent,     // Actual progress percentage
 							IsFirstUpdate:     isFirstUpdate,       // Flag indicating first update
 							AllHashesCracked:  allHashesCracked,    // Flag when status code 6 detected
+							CrackedCount:      crackedCount,        // Number of hashes cracked (from recovered_hashes)
 						}
 
 						// Always include total effective keyspace from hashcat

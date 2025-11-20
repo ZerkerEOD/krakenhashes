@@ -35,6 +35,28 @@ func NewService(db *sql.DB) *Service {
 
 // ConfigureProvider sets up or updates the email provider configuration
 func (s *Service) ConfigureProvider(ctx context.Context, cfg *emailtypes.Config) error {
+	// Check if APIKey is empty or redacted, indicating we should preserve the existing password
+	preservePassword := cfg.APIKey == "" || cfg.APIKey == "[REDACTED]"
+
+	// If we need to preserve the password, fetch the existing config
+	if preservePassword {
+		existingCfg, err := s.GetConfig(ctx)
+		if err != nil && err != ErrConfigNotFound {
+			debug.Error("failed to get existing config: %v", err)
+			return err
+		}
+
+		// If an existing config was found, use its API key
+		if err == nil && existingCfg != nil {
+			debug.Info("preserving existing API key/password for provider: %s", cfg.ProviderType)
+			cfg.APIKey = existingCfg.APIKey
+		} else if preservePassword && err == ErrConfigNotFound {
+			// New config creation requires a password
+			debug.Error("cannot create new config without API key/password")
+			return errors.New("API key/password is required for new configuration")
+		}
+	}
+
 	provider, err := providers.New(cfg.ProviderType)
 	if err != nil {
 		debug.Error("failed to create provider: %v", err)

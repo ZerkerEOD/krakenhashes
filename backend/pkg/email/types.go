@@ -11,6 +11,7 @@ type ProviderType string
 const (
 	ProviderMailgun  ProviderType = "mailgun"
 	ProviderSendGrid ProviderType = "sendgrid"
+	ProviderSMTP     ProviderType = "smtp"
 	// Potential Future providers to be added in v2.0:
 	// - Gmail
 	// - Mailchimp

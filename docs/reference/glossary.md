@@ -168,6 +168,42 @@ This glossary provides definitions for terms used throughout the KrakenHashes sy
 
 **Workload Distribution**: Strategy for assigning job chunks to agents based on their capabilities.
 
+## Job and Task Statuses
+
+### Job Execution Statuses
+
+**Pending**: Job has been created but has not yet started execution. Waiting for available agents or higher priority jobs to complete.
+
+**Running**: Job is actively executing with one or more tasks assigned to agents. Agents are processing the job's keyspace.
+
+**Paused**: Job execution has been temporarily halted by user action. Tasks are stopped but can be resumed later.
+
+**Processing**: Job has finished execution but is waiting for crack batches to be transmitted from agents and processed by the backend. Progress shows 100% but final completion is pending crack data receipt.
+
+**Completed**: Job has finished all work, all crack batches have been received and processed, and email notifications (if enabled) have been sent.
+
+**Failed**: Job encountered an unrecoverable error during execution and cannot continue.
+
+**Cancelled**: Job was manually cancelled by a user before completion.
+
+### Task Statuses
+
+**Pending**: Task has been created but not yet assigned to an agent.
+
+**Assigned**: Task has been assigned to a specific agent but the agent hasn't started executing it yet.
+
+**Reconnect Pending**: Task was assigned to an agent that disconnected. Waiting for agent to reconnect or task to be reassigned.
+
+**Running**: Task is actively executing on an agent. Hashcat is processing the assigned keyspace.
+
+**Processing**: Task has completed hashcat execution but is waiting for all crack batches to be transmitted to the backend. Agent has signaled completion but crack data is still being sent.
+
+**Completed**: Task has finished execution, all crack batches have been received, and the task is fully complete.
+
+**Failed**: Task encountered an error during execution and could not complete successfully.
+
+**Cancelled**: Task was manually cancelled before completion, either by user action or due to job cancellation.
+
 ## Common Abbreviations
 
 ### A-Z
@@ -226,7 +262,7 @@ This glossary provides definitions for terms used throughout the KrakenHashes sy
 
 **SHA**: Secure Hash Algorithm
 
-**SMTP**: Simple Mail Transfer Protocol
+**SMTP**: Simple Mail Transfer Protocol (email transmission protocol)
 
 **SQL**: Structured Query Language
 
