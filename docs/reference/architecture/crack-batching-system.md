@@ -421,6 +421,87 @@ status.CrackedCount = 1523  // Updated immediately
 // Actual crack data arrives asynchronously
 ```
 
+### Processing Status Integration
+
+The crack batching system integrates with the processing status workflow to ensure jobs don't complete before all crack batches are received.
+
+**Workflow:**
+
+1. **Task Completes Execution**:
+   - Agent sends final progress message with `Status="completed"` and `CrackedCount` field
+   - Backend transitions task to `processing` status
+   - `expected_crack_count` set from progress message
+
+2. **Crack Batches Transmitted**:
+   - Agent sends crack batches via `crack_batch` WebSocket messages
+   - Backend increments `received_crack_count` for each batch
+   - Batches processed and stored in database
+
+3. **Batch Completion Signal**:
+   - Agent sends `crack_batches_complete` WebSocket message
+   - Backend sets `batches_complete_signaled` to true
+   - Agent is free to accept new work
+
+4. **Task Completion Check**:
+   - Backend checks: `received_crack_count >= expected_crack_count AND batches_complete_signaled == true`
+   - When conditions met: Task transitions from `processing` to `completed`
+   - Job completion check triggered
+
+**New WebSocket Message:**
+
+`crack_batches_complete` (Agent → Backend):
+```json
+{
+  "type": "crack_batches_complete",
+  "task_id": "uuid-here"
+}
+```
+
+**New Database Fields (job_tasks):**
+- `expected_crack_count` (INTEGER): Expected cracks from final progress message
+- `received_crack_count` (INTEGER): Cracks received via batches
+- `batches_complete_signaled` (BOOLEAN): Agent signaled all batches sent
+
+**Backend Handler:**
+
+```go
+func (s *JobWebSocketIntegration) HandleCrackBatchesComplete(
+    ctx context.Context,
+    agentID int,
+    message *models.CrackBatchesComplete,
+) error {
+    // Mark batches complete
+    err := s.jobTaskRepo.MarkBatchesComplete(ctx, message.TaskID)
+
+    // Check if task ready to complete
+    ready, err := s.jobTaskRepo.CheckTaskReadyToComplete(ctx, message.TaskID)
+    if ready {
+        // Complete the task
+        s.checkTaskCompletion(ctx, message.TaskID)
+    }
+
+    return nil
+}
+```
+
+**Repository Methods:**
+
+```go
+// JobTaskRepository
+SetTaskProcessing(taskID, expectedCracks)    // Transition to processing
+IncrementReceivedCrackCount(taskID, count)   // Track received batches
+MarkBatchesComplete(taskID)                  // Signal batches done
+CheckTaskReadyToComplete(taskID)             // Verify completion conditions
+```
+
+**Benefits:**
+- ✅ Jobs don't complete prematurely
+- ✅ Completion emails have accurate crack counts
+- ✅ No race conditions between crack batches and job completion
+- ✅ Agent can accept new work immediately after signaling completion
+
+See [Job Completion System](./job-completion-system.md) for full processing status workflow.
+
 ## Configuration and Tuning
 
 ### Default Settings

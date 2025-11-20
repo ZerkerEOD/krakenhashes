@@ -972,23 +972,66 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 	// flag with status="running" when hashcat reports status code 6 in JSON output
 	if progress.AllHashesCracked {
 		debug.Info("Task %s reported all hashes cracked (hashcat status code 6) - triggering hashlist completion handler", progress.TaskID)
+
+		// Determine expected crack count for processing status
+		// Agent should send this in progress.CrackedCount, but if it's 0, get from hashlist
+		expectedCracks := progress.CrackedCount
+
 		// Get job to find hashlist ID
 		job, err := s.jobExecutionService.GetJobExecutionByID(ctx, task.JobExecutionID)
 		if err != nil {
 			debug.Error("Failed to get job for hashlist completion check: %v", err)
-		} else if s.hashlistCompletionService != nil {
-			// Trigger hashlist completion handler in a goroutine to avoid blocking
-			go func() {
-				// Use a background context with timeout to avoid hanging
-				bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-				defer cancel()
-
-				// Pass the triggering task ID to prevent sending stop signal to it
-				taskID := progress.TaskID
-				if err := s.hashlistCompletionService.HandleHashlistFullyCracked(bgCtx, job.HashlistID, &taskID); err != nil {
-					debug.Error("Failed to handle hashlist fully cracked: %v", err)
+		} else {
+			// If agent didn't report crack count, get it from hashlist as fallback
+			if expectedCracks == 0 {
+				database := &db.DB{DB: s.db}
+				hashlistRepo := repository.NewHashListRepository(database)
+				hashlist, hashlistErr := hashlistRepo.GetByID(ctx, job.HashlistID)
+				if hashlistErr != nil {
+					debug.Error("Failed to get hashlist for crack count fallback: %v", hashlistErr)
+				} else if hashlist.CrackedHashes > 0 {
+					expectedCracks = hashlist.CrackedHashes
+					debug.Warning("Agent sent CrackedCount=0 for AllHashesCracked, using hashlist cracked count as fallback: %d", expectedCracks)
 				}
-			}()
+			}
+
+			// Set task to processing if we have expected cracks
+			if expectedCracks > 0 {
+				debug.Info("Task %s expects %d cracks from all-hashes-cracked - setting to processing status to wait for batches",
+					progress.TaskID, expectedCracks)
+
+				// Set task to processing with expected crack count
+				err = s.jobTaskRepo.SetTaskProcessing(ctx, progress.TaskID, expectedCracks)
+				if err != nil {
+					debug.Error("Failed to set task processing for all-hashes-cracked: %v", err)
+					// Continue anyway - hashlist completion will still proceed
+				} else {
+					debug.Info("Task set to processing for all-hashes-cracked, waiting for crack batches [task_id=%s, expected_cracks=%d]",
+						progress.TaskID, expectedCracks)
+
+					// Check if this was the last task with pending work for the job
+					// If so, set job to processing status as well
+					s.checkJobProcessingStatus(ctx, task.JobExecutionID)
+
+					// Return early to prevent Status=="completed" block from completing the task
+					return nil
+				}
+			}
+
+			// Trigger hashlist completion handler in a goroutine to avoid blocking
+			if s.hashlistCompletionService != nil {
+				go func() {
+					// Use a background context with timeout to avoid hanging
+					bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+					defer cancel()
+
+					// Pass the triggering task ID to prevent sending stop signal to it
+					taskID := progress.TaskID
+					if err := s.hashlistCompletionService.HandleHashlistFullyCracked(bgCtx, job.HashlistID, &taskID); err != nil {
+						debug.Error("Failed to handle hashlist fully cracked: %v", err)
+					}
+				}()
+			}
 		}
 	}
 
@@ -997,6 +1040,7 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 		debug.Log("Task completed", map[string]interface{}{
 			"task_id":          progress.TaskID,
 			"progress_percent": progress.ProgressPercent,
+			"cracked_count":    progress.CrackedCount,
 		})
 
 		// Update the final progress first
@@ -1005,7 +1049,40 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			debug.Error("Failed to process final task progress: %v", err)
 		}
 
-		// Then mark task as complete
+		// Check if we need to wait for crack batches
+		// If agent reports cracks in progress message, set task to processing status
+		// and wait for crack batches + completion signal
+		if progress.CrackedCount > 0 {
+			debug.Info("Task %s expects %d cracks - setting to processing status to wait for batches",
+				progress.TaskID, progress.CrackedCount)
+
+			// Set task to processing with expected crack count
+			err = s.jobTaskRepo.SetTaskProcessing(ctx, progress.TaskID, progress.CrackedCount)
+			if err != nil {
+				debug.Error("Failed to set task processing: %v", err)
+				// Fall through to complete anyway on error
+			} else {
+				// Don't clear agent busy status yet - agent will send crack_batches_complete signal
+				// Agent is free to take new work after sending completion signal
+				debug.Log("Task set to processing, waiting for crack batches", map[string]interface{}{
+					"task_id":         progress.TaskID,
+					"expected_cracks": progress.CrackedCount,
+				})
+
+				// Check if this was the last task with pending work for the job
+				// If so, set job to processing status as well
+				s.checkJobProcessingStatus(ctx, task.JobExecutionID)
+
+				return nil
+			}
+		}
+
+		// No cracks expected, complete task immediately
+		debug.Log("Task has no cracks, completing immediately", map[string]interface{}{
+			"task_id": progress.TaskID,
+		})
+
+		// Mark task as complete
 		err = s.jobTaskRepo.CompleteTask(ctx, progress.TaskID)
 		if err != nil {
 			debug.Log("Failed to mark task as complete", map[string]interface{}{
@@ -1166,6 +1243,30 @@ func (s *JobWebSocketIntegration) HandleCrackBatch(ctx context.Context, agentID 
 				agentID, crackBatch.TaskID, len(crackBatch.CrackedHashes), err)
 			return err
 		}
+
+		// Increment received crack count for processing status tracking
+		err = s.jobTaskRepo.IncrementReceivedCrackCount(ctx, crackBatch.TaskID, len(crackBatch.CrackedHashes))
+		if err != nil {
+			debug.Error("Failed to increment received crack count: %v", err)
+			// Don't fail the whole operation - cracks are already processed
+		} else {
+			debug.Log("Incremented received crack count", map[string]interface{}{
+				"task_id":     crackBatch.TaskID,
+				"batch_size":  len(crackBatch.CrackedHashes),
+			})
+
+			// Check if task is ready to complete (only if in processing status)
+			if task.Status == models.JobTaskStatusProcessing {
+				ready, err := s.jobTaskRepo.CheckTaskReadyToComplete(ctx, crackBatch.TaskID)
+				if err != nil {
+					debug.Error("Failed to check if task ready to complete: %v", err)
+				} else if ready {
+					debug.Info("Task %s has received all expected crack batches and agent signaled complete - completing task",
+						crackBatch.TaskID)
+					s.checkTaskCompletion(ctx, crackBatch.TaskID)
+				}
+			}
+		}
 	}
 
 	return nil
@@ -1255,6 +1356,178 @@ func isTransientDatabaseError(err error) bool {
 	}
 
 	return false
+}
+
+// HandleCrackBatchesComplete processes crack_batches_complete signal from agents
+// This signals that the agent has finished sending all crack batches for a task
+func (s *JobWebSocketIntegration) HandleCrackBatchesComplete(ctx context.Context, agentID int, message *models.CrackBatchesComplete) error {
+	debug.Log("Processing crack_batches_complete signal from agent", map[string]interface{}{
+		"agent_id": agentID,
+		"task_id":  message.TaskID,
+	})
+
+	// Validate task exists
+	task, err := s.jobTaskRepo.GetByID(ctx, message.TaskID)
+	if err != nil {
+		debug.Warning("Received crack_batches_complete for non-existent task %s (ignoring): agent=%d, error=%v",
+			message.TaskID, agentID, err)
+		return nil
+	}
+
+	// Verify the task is assigned to this agent
+	if task.AgentID == nil || *task.AgentID != agentID {
+		expectedAgent := 0
+		if task.AgentID != nil {
+			expectedAgent = *task.AgentID
+		}
+		debug.Error("crack_batches_complete from wrong agent: task=%s, expected=%d, actual=%d",
+			message.TaskID, expectedAgent, agentID)
+		return fmt.Errorf("task not assigned to this agent")
+	}
+
+	// Mark batches complete
+	err = s.jobTaskRepo.MarkBatchesComplete(ctx, message.TaskID)
+	if err != nil {
+		debug.Error("Failed to mark batches complete: %v", err)
+		return err
+	}
+
+	// Clear agent busy status - agent is now free for new work
+	agent, err := s.agentRepo.GetByID(ctx, agentID)
+	if err == nil && agent.Metadata != nil {
+		agent.Metadata["busy_status"] = "false"
+		delete(agent.Metadata, "current_task_id")
+		delete(agent.Metadata, "current_job_id")
+		if err := s.agentRepo.UpdateMetadata(ctx, agent.ID, agent.Metadata); err != nil {
+			debug.Error("Failed to clear agent busy status after batches complete: %v", err)
+		} else {
+			debug.Log("Cleared agent busy status - agent free for new work", map[string]interface{}{
+				"agent_id": agentID,
+				"task_id":  message.TaskID,
+			})
+		}
+	}
+
+	// Check if task is ready to complete
+	if task.Status == models.JobTaskStatusProcessing {
+		ready, err := s.jobTaskRepo.CheckTaskReadyToComplete(ctx, message.TaskID)
+		if err != nil {
+			debug.Error("Failed to check if task ready to complete: %v", err)
+			return err
+		}
+
+		if ready {
+			debug.Info("Task %s ready to complete after crack_batches_complete signal", message.TaskID)
+			s.checkTaskCompletion(ctx, message.TaskID)
+		} else {
+			debug.Log("Task %s not ready to complete yet (waiting for more crack batches)", map[string]interface{}{
+				"task_id": message.TaskID,
+			})
+		}
+	} else {
+		debug.Warning("Received crack_batches_complete for task not in processing status", map[string]interface{}{
+			"task_id": message.TaskID,
+			"status":  task.Status,
+		})
+	}
+
+	return nil
+}
+
+// checkJobProcessingStatus checks if a job should transition to processing status
+// This happens when the last task with no remaining work enters processing status
+func (s *JobWebSocketIntegration) checkJobProcessingStatus(ctx context.Context, jobExecutionID uuid.UUID) {
+	// Wrap sql.DB in custom DB type
+	database := &db.DB{DB: s.db}
+	jobExecRepo := repository.NewJobExecutionRepository(database)
+
+	// Get job
+	job, err := jobExecRepo.GetByID(ctx, jobExecutionID)
+	if err != nil {
+		debug.Error("Failed to get job for processing status check: %v", err)
+		return
+	}
+
+	// Only transition if job is currently running
+	if job.Status != models.JobExecutionStatusRunning {
+		return
+	}
+
+	// Check if there's any remaining work
+	jobsWithWork, err := jobExecRepo.GetJobsWithPendingWork(ctx)
+	if err != nil {
+		debug.Error("Failed to check jobs with pending work: %v", err)
+		return
+	}
+
+	hasRemainingWork := false
+	for _, j := range jobsWithWork {
+		if j.ID == jobExecutionID {
+			hasRemainingWork = true
+			break
+		}
+	}
+
+	// If no remaining work, check if there are processing tasks
+	if !hasRemainingWork {
+		processingTasks, err := s.jobTaskRepo.GetProcessingTasksForJob(ctx, jobExecutionID)
+		if err != nil {
+			debug.Error("Failed to get processing tasks: %v", err)
+			return
+		}
+
+		if len(processingTasks) > 0 {
+			// Job has no remaining work and has processing tasks - set job to processing
+			err = jobExecRepo.SetJobProcessing(ctx, jobExecutionID)
+			if err != nil {
+				debug.Error("Failed to set job to processing status: %v", err)
+			} else {
+				debug.Info("Set job %s to processing status (no remaining work, %d tasks processing)",
+					jobExecutionID, len(processingTasks))
+			}
+		}
+	}
+}
+
+// checkTaskCompletion completes a task that has received all crack batches
+func (s *JobWebSocketIntegration) checkTaskCompletion(ctx context.Context, taskID uuid.UUID) {
+	// Get task
+	task, err := s.jobTaskRepo.GetByID(ctx, taskID)
+	if err != nil {
+		debug.Error("Failed to get task for completion: %v", err)
+		return
+	}
+
+	// Mark task as complete
+	err = s.jobTaskRepo.CompleteTask(ctx, taskID)
+	if err != nil {
+		debug.Error("Failed to mark task as complete: %v", err)
+		return
+	}
+
+	debug.Log("Task completed after receiving all crack batches", map[string]interface{}{
+		"task_id":         taskID,
+		"expected_cracks": task.ExpectedCrackCount,
+		"received_cracks": task.ReceivedCrackCount,
+	})
+
+	// Reset consecutive failure counters on success
+	err = s.jobSchedulingService.HandleTaskSuccess(ctx, taskID)
+	if err != nil {
+		debug.Error("Failed to handle task success: %v", err)
+	}
+
+	// Handle task completion cleanup
+	err = s.jobExecutionService.HandleTaskCompletion(ctx, taskID)
+	if err != nil {
+		debug.Error("Failed to handle task completion: %v", err)
+	}
+
+	// Check if job is complete
+	err = s.jobSchedulingService.ProcessJobCompletion(ctx, task.JobExecutionID)
+	if err != nil {
+		debug.Error("Failed to process job completion: %v", err)
+	}
 }
 
 // HandleBenchmarkResult processes benchmark results from agents

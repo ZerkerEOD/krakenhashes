@@ -41,6 +41,21 @@ func (r *JobTaskRepository) GetPreviousChunksActualKeyspace(ctx context.Context,
 	return cumulativeKeyspace, nil
 }
 
+// GetTotalCracksForJob returns the sum of all crack_count values for tasks in a job execution
+func (r *JobTaskRepository) GetTotalCracksForJob(ctx context.Context, jobExecutionID uuid.UUID) (int, error) {
+	query := `
+		SELECT COALESCE(SUM(crack_count), 0) as total_cracks
+		FROM job_tasks
+		WHERE job_execution_id = $1
+	`
+	var totalCracks int
+	err := r.db.QueryRowContext(ctx, query, jobExecutionID).Scan(&totalCracks)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get total cracks for job %s: %w", jobExecutionID, err)
+	}
+	return totalCracks, nil
+}
+
 // Create creates a new job task
 func (r *JobTaskRepository) Create(ctx context.Context, task *models.JobTask) error {
 	query := `
@@ -1625,4 +1640,171 @@ func (r *JobTaskRepository) GetTaskCountForJob(ctx context.Context, jobExecution
 	}
 
 	return count, nil
+}
+
+// SetTaskProcessing marks a task as processing with expected crack count from final progress message
+func (r *JobTaskRepository) SetTaskProcessing(ctx context.Context, taskID uuid.UUID, expectedCracks int) error {
+	query := `
+		UPDATE job_tasks
+		SET status = $2,
+		    expected_crack_count = $3,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`
+
+	result, err := r.db.ExecContext(ctx, query, taskID, models.JobTaskStatusProcessing, expectedCracks)
+	if err != nil {
+		return fmt.Errorf("failed to set task processing: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	debug.Log("Set task to processing status", map[string]interface{}{
+		"task_id":         taskID,
+		"expected_cracks": expectedCracks,
+	})
+
+	return nil
+}
+
+// IncrementReceivedCrackCount increments the received crack count as batches arrive
+func (r *JobTaskRepository) IncrementReceivedCrackCount(ctx context.Context, taskID uuid.UUID, count int) error {
+	if count <= 0 {
+		return nil // Nothing to update
+	}
+
+	query := `
+		UPDATE job_tasks
+		SET received_crack_count = COALESCE(received_crack_count, 0) + $2,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`
+
+	result, err := r.db.ExecContext(ctx, query, taskID, count)
+	if err != nil {
+		return fmt.Errorf("failed to increment received crack count: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
+// MarkBatchesComplete signals that agent has finished sending all crack batches
+func (r *JobTaskRepository) MarkBatchesComplete(ctx context.Context, taskID uuid.UUID) error {
+	query := `
+		UPDATE job_tasks
+		SET batches_complete_signaled = true,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`
+
+	result, err := r.db.ExecContext(ctx, query, taskID)
+	if err != nil {
+		return fmt.Errorf("failed to mark batches complete: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	debug.Log("Marked batches complete for task", map[string]interface{}{
+		"task_id": taskID,
+	})
+
+	return nil
+}
+
+// CheckTaskReadyToComplete checks if a task has received all expected crack batches
+// Returns true if received_crack_count >= expected_crack_count AND batches_complete_signaled
+func (r *JobTaskRepository) CheckTaskReadyToComplete(ctx context.Context, taskID uuid.UUID) (bool, error) {
+	query := `
+		SELECT
+			COALESCE(expected_crack_count, 0) as expected,
+			COALESCE(received_crack_count, 0) as received,
+			COALESCE(batches_complete_signaled, false) as signaled
+		FROM job_tasks
+		WHERE id = $1`
+
+	var expected, received int
+	var signaled bool
+
+	err := r.db.QueryRowContext(ctx, query, taskID).Scan(&expected, &received, &signaled)
+	if err == sql.ErrNoRows {
+		return false, ErrNotFound
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to check task ready to complete: %w", err)
+	}
+
+	// Task is ready if:
+	// 1. Agent signaled all batches sent
+	// 2. We received at least as many cracks as expected
+	ready := signaled && received >= expected
+
+	debug.Log("Checked task ready to complete", map[string]interface{}{
+		"task_id":  taskID,
+		"expected": expected,
+		"received": received,
+		"signaled": signaled,
+		"ready":    ready,
+	})
+
+	return ready, nil
+}
+
+// GetProcessingTasksForJob retrieves all tasks in processing status for a job
+func (r *JobTaskRepository) GetProcessingTasksForJob(ctx context.Context, jobExecutionID uuid.UUID) ([]*models.JobTask, error) {
+	query := `
+		SELECT
+			id, job_execution_id, agent_id, status, priority,
+			attack_cmd, keyspace_start, keyspace_end, keyspace_processed,
+			progress_percent, benchmark_speed, chunk_duration,
+			created_at, assigned_at, started_at, completed_at, updated_at,
+			last_checkpoint, error_message, crack_count, detailed_status,
+			retry_count, expected_crack_count, received_crack_count, batches_complete_signaled
+		FROM job_tasks
+		WHERE job_execution_id = $1 AND status = $2
+		ORDER BY created_at ASC`
+
+	rows, err := r.db.QueryContext(ctx, query, jobExecutionID, models.JobTaskStatusProcessing)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get processing tasks: %w", err)
+	}
+	defer rows.Close()
+
+	var tasks []*models.JobTask
+	for rows.Next() {
+		var task models.JobTask
+		err := rows.Scan(
+			&task.ID, &task.JobExecutionID, &task.AgentID, &task.Status, &task.Priority,
+			&task.AttackCmd, &task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
+			&task.ProgressPercent, &task.BenchmarkSpeed, &task.ChunkDuration,
+			&task.CreatedAt, &task.AssignedAt, &task.StartedAt, &task.CompletedAt, &task.UpdatedAt,
+			&task.LastCheckpoint, &task.ErrorMessage, &task.CrackCount, &task.DetailedStatus,
+			&task.RetryCount, &task.ExpectedCrackCount, &task.ReceivedCrackCount, &task.BatchesCompleteSignaled,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan processing task: %w", err)
+		}
+		tasks = append(tasks, &task)
+	}
+
+	return tasks, nil
 }

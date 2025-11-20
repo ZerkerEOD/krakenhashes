@@ -49,16 +49,17 @@ const (
 	WSTypeFileSyncCommand  WSMessageType = "file_sync_command"
 
 	// Job execution message types
-	WSTypeTaskAssignment   WSMessageType = "task_assignment"
-	WSTypeJobProgress      WSMessageType = "job_progress"
-	WSTypeJobStatus        WSMessageType = "job_status"        // Status-only (synchronous)
-	WSTypeCrackBatch       WSMessageType = "crack_batch"       // Cracks-only (asynchronous)
-	WSTypeJobStop          WSMessageType = "job_stop"
-	WSTypeBenchmarkRequest WSMessageType = "benchmark_request"
-	WSTypeBenchmarkResult  WSMessageType = "benchmark_result"
-	WSTypeHashcatOutput    WSMessageType = "hashcat_output"
-	WSTypeForceCleanup     WSMessageType = "force_cleanup"
-	WSTypeCurrentTaskStatus WSMessageType = "current_task_status"
+	WSTypeTaskAssignment        WSMessageType = "task_assignment"
+	WSTypeJobProgress           WSMessageType = "job_progress"
+	WSTypeJobStatus             WSMessageType = "job_status"              // Status-only (synchronous)
+	WSTypeCrackBatch            WSMessageType = "crack_batch"             // Cracks-only (asynchronous)
+	WSTypeCrackBatchesComplete  WSMessageType = "crack_batches_complete" // Signal all batches sent
+	WSTypeJobStop               WSMessageType = "job_stop"
+	WSTypeBenchmarkRequest      WSMessageType = "benchmark_request"
+	WSTypeBenchmarkResult       WSMessageType = "benchmark_result"
+	WSTypeHashcatOutput         WSMessageType = "hashcat_output"
+	WSTypeForceCleanup          WSMessageType = "force_cleanup"
+	WSTypeCurrentTaskStatus     WSMessageType = "current_task_status"
 
 	// Device detection message types
 	WSTypeDeviceDetection         WSMessageType = "device_detection"
@@ -1911,6 +1912,42 @@ func (c *Connection) SendCrackBatchAsync(batch *jobs.CrackBatch) error {
 		debug.Warning("Crack batch dropped (channel full): %d cracks for task %s - will recover from outfile",
 			len(batch.CrackedHashes), batch.TaskID)
 		return fmt.Errorf("channel full, cracks dropped")
+	}
+}
+
+// SendCrackBatchesComplete sends signal that all crack batches have been sent for a task
+func (c *Connection) SendCrackBatchesComplete(signal *jobs.CrackBatchesComplete) error {
+	// Panic recovery (send on closed channel)
+	defer func() {
+		if r := recover(); r != nil {
+			debug.Error("Panic in SendCrackBatchesComplete: %v", r)
+		}
+	}()
+
+	if !c.isConnected.Load() {
+		return fmt.Errorf("not connected")
+	}
+
+	// Marshal signal payload to JSON
+	signalJSON, err := json.Marshal(signal)
+	if err != nil {
+		return fmt.Errorf("failed to marshal crack_batches_complete signal: %w", err)
+	}
+
+	msg := &WSMessage{
+		Type:      WSTypeCrackBatchesComplete,
+		Payload:   signalJSON,
+		Timestamp: time.Now(),
+	}
+
+	// Blocking send - this signal must be delivered
+	select {
+	case c.outbound <- msg:
+		debug.Debug("Queued crack_batches_complete signal for task %s", signal.TaskID)
+		return nil
+	case <-time.After(5 * time.Second):
+		debug.Error("Timeout sending crack_batches_complete signal for task %s", signal.TaskID)
+		return fmt.Errorf("timeout sending crack_batches_complete signal")
 	}
 }
 

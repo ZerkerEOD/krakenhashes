@@ -17,6 +17,7 @@ import (
 type JobHandler interface {
 	ProcessJobProgress(ctx context.Context, agentID int, payload json.RawMessage) error
 	ProcessCrackBatch(ctx context.Context, agentID int, payload json.RawMessage) error
+	ProcessCrackBatchesComplete(ctx context.Context, agentID int, payload json.RawMessage) error
 	ProcessBenchmarkResult(ctx context.Context, agentID int, payload json.RawMessage) error
 	RecoverTask(ctx context.Context, taskID string, agentID int, keyspaceProcessed int64) error
 	HandleAgentReconnectionWithNoTask(ctx context.Context, agentID int) (int, error)
@@ -28,24 +29,25 @@ type MessageType string
 
 const (
 	// Agent -> Server messages
-	TypeHeartbeat       MessageType = "heartbeat"
-	TypeTaskStatus      MessageType = "task_status"
-	TypeJobProgress     MessageType = "job_progress"
-	TypeJobStatus       MessageType = "job_status"        // Status-only (synchronous)
-	TypeCrackBatch      MessageType = "crack_batch"       // Cracks-only (asynchronous)
-	TypeBenchmarkResult MessageType = "benchmark_result"
-	TypeAgentStatus     MessageType = "agent_status"
-	TypeErrorReport               MessageType = "error_report"
-	TypeHardwareInfo              MessageType = "hardware_info"
-	TypeSyncResponse              MessageType = "file_sync_response"
-	TypeSyncStatus                MessageType = "file_sync_status"
-	TypeHashcatOutput             MessageType = "hashcat_output"
-	TypeDeviceDetection           MessageType = "device_detection"
-	TypePhysicalDeviceDetection   MessageType = "physical_device_detection"
-	TypeDeviceUpdate              MessageType = "device_update"
-	TypeBufferedMessages          MessageType = "buffered_messages"
-	TypeCurrentTaskStatus         MessageType = "current_task_status"
-	TypeAgentShutdown             MessageType = "agent_shutdown"
+	TypeHeartbeat            MessageType = "heartbeat"
+	TypeTaskStatus           MessageType = "task_status"
+	TypeJobProgress          MessageType = "job_progress"
+	TypeJobStatus            MessageType = "job_status"              // Status-only (synchronous)
+	TypeCrackBatch           MessageType = "crack_batch"             // Cracks-only (asynchronous)
+	TypeCrackBatchesComplete MessageType = "crack_batches_complete" // Signal that all crack batches sent
+	TypeBenchmarkResult      MessageType = "benchmark_result"
+	TypeAgentStatus          MessageType = "agent_status"
+	TypeErrorReport          MessageType = "error_report"
+	TypeHardwareInfo         MessageType = "hardware_info"
+	TypeSyncResponse         MessageType = "file_sync_response"
+	TypeSyncStatus           MessageType = "file_sync_status"
+	TypeHashcatOutput        MessageType = "hashcat_output"
+	TypeDeviceDetection      MessageType = "device_detection"
+	TypePhysicalDeviceDetection MessageType = "physical_device_detection"
+	TypeDeviceUpdate            MessageType = "device_update"
+	TypeBufferedMessages        MessageType = "buffered_messages"
+	TypeCurrentTaskStatus       MessageType = "current_task_status"
+	TypeAgentShutdown           MessageType = "agent_shutdown"
 
 	// Server -> Agent messages
 	TypeTaskAssignment   MessageType = "task_assignment"
@@ -320,6 +322,8 @@ func (s *Service) HandleMessage(ctx context.Context, agent *models.Agent, msg *M
 		return s.handleJobStatus(ctx, agent, msg)
 	case TypeCrackBatch:
 		return s.handleCrackBatch(ctx, agent, msg)
+	case TypeCrackBatchesComplete:
+		return s.handleCrackBatchesComplete(ctx, agent, msg)
 	case TypeBenchmarkResult:
 		return s.handleBenchmarkResult(ctx, agent, msg)
 	case TypeAgentStatus:
@@ -606,6 +610,18 @@ func (s *Service) handleCrackBatch(ctx context.Context, agent *models.Agent, msg
 	}()
 
 	return nil
+}
+
+// handleCrackBatchesComplete processes crack_batches_complete signal from agents
+func (s *Service) handleCrackBatchesComplete(ctx context.Context, agent *models.Agent, msg *Message) error {
+	// If no job handler is set, just log and ignore
+	if s.jobHandler == nil {
+		debug.Debug("Received crack_batches_complete from agent %d but no job handler set", agent.ID)
+		return nil
+	}
+
+	// Forward to job handler (which will parse and handle the message)
+	return s.jobHandler.ProcessCrackBatchesComplete(ctx, agent.ID, msg.Payload)
 }
 
 // handleBenchmarkResult processes benchmark result messages from agents
