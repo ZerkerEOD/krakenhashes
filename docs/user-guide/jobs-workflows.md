@@ -83,10 +83,50 @@ Jobs within workflows run in priority order:
 
 ### How Priority Affects Your Jobs
 
-1. **Execution Order**: Higher priority jobs start first when agents are available
-2. **Resource Allocation**: Critical jobs can use more agents simultaneously
-3. **Queue Management**: Jobs with the same priority run in the order they were submitted
-4. **Smart Scheduling**: The system optimizes agent assignment based on priorities
+Priority determines how many agents your job receives and when it runs:
+
+**1. Agent Allocation Based on Priority:**
+- **Higher priority jobs**: Get ALL available agents (max_agents setting is overridden)
+- **Same priority jobs**: Respect max_agents limit, share overflow agents based on allocation mode
+- **Lower priority jobs**: Wait until higher priority jobs complete or release agents
+
+**2. Execution Order:**
+- Jobs start in priority order (highest first)
+- Within the same priority, older jobs start first (FIFO)
+
+**3. Resource Control:**
+- **max_agents setting**: Controls resource usage for jobs at the **same priority**
+- **Overflow allocation mode**: Determines how extra agents are distributed (FIFO or round-robin)
+- **Priority override**: Higher priority jobs ignore max_agents and take all resources
+
+**Real-World Example:**
+
+You have 10 agents available and submit two jobs:
+```
+Job A: Priority 90, max_agents = 5 (urgent client deadline)
+Job B: Priority 50, max_agents = 10 (background research)
+
+Result:
+- Job A gets ALL 10 agents (higher priority overrides max_agents)
+- Job B waits until Job A completes
+```
+
+If both jobs have priority 50:
+```
+Job A: Priority 50, max_agents = 5
+Job B: Priority 50, max_agents = 5
+10 agents available
+
+FIFO Mode (default):
+- Job A: 10 agents (created first, gets overflow)
+- Job B: 0 agents (waits for Job A)
+
+Round-Robin Mode:
+- Job A: 5 agents
+- Job B: 5 agents
+```
+
+**Key Takeaway**: Use higher priority for time-critical jobs to get maximum resources immediately. For jobs at the same priority, max_agents controls resource sharing.
 
 <screenshot: Priority visualization>
 
@@ -116,10 +156,11 @@ When a high-priority job needs immediate attention:
 *The Jobs Management interface showing active password cracking jobs with status filtering (ALL, PENDING, RUNNING, COMPLETED, FAILED). The table displays job details including name, hashlist, progress, keyspace, cracked count, agents assigned, priority level, and available actions.*
 
 - **Pending**: Job is waiting for available agents
-- **Running**: Job is actively being processed
-- **Completed**: Job finished successfully
+- **Running**: Job is actively being processed by agents
+- **Processing**: Job execution has finished but system is receiving cracked passwords from agents
+- **Completed**: Job finished successfully and all results have been processed
 - **Failed**: Job encountered an error
-- **Interrupted**: Job was paused for a higher priority task (automatically resumes)
+- **Paused**: Job was manually paused or interrupted for a higher priority task
 
 ### Priority Best Practices
 
@@ -150,10 +191,13 @@ Hashcat's `--remove` option removes cracked hashes from the input file during ex
 
 ### What You'll See
 
-- Job status changes to "completed" even if not all keyspace was processed
-- Progress shows 100% when all target hashes are cracked
+- Job progress reaches 100% when hashcat finishes processing
+- Job status may briefly show "processing" while cracked passwords are being received
+- Job status changes to "completed" once all results are processed
+- Email notification sent when job truly completes (not during processing)
 - Related pending jobs for the same hashlist disappear from the queue
-- Email notification of job completion (if email is configured)
+
+The "processing" status ensures that completion emails contain accurate crack counts and that all discovered passwords are properly stored before the job is marked as complete.
 
 This ensures your workflow doesn't encounter errors when your cracking campaign is successful!
 

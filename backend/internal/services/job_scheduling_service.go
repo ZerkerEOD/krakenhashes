@@ -802,8 +802,9 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 		}
 
 		// Sync files (wordlists, rules, binaries) BEFORE any benchmark checks
+		// Extended timeout allows agents to hash large wordlist files (50GB+)
 		if s.wsIntegration != nil {
-			syncTimeout := 30 * time.Second
+			syncTimeout := 5 * time.Minute
 			err = s.wsIntegration.SyncAgentFiles(ctx, agent.ID, syncTimeout)
 			if err != nil {
 				debug.Log("File sync failed before benchmark, continuing anyway", map[string]interface{}{

@@ -47,18 +47,20 @@ const (
 	WSTypeFileSyncRequest  WSMessageType = "file_sync_request"
 	WSTypeFileSyncResponse WSMessageType = "file_sync_response"
 	WSTypeFileSyncCommand  WSMessageType = "file_sync_command"
+	WSTypeFileSyncStatus   WSMessageType = "file_sync_status"
 
 	// Job execution message types
-	WSTypeTaskAssignment   WSMessageType = "task_assignment"
-	WSTypeJobProgress      WSMessageType = "job_progress"
-	WSTypeJobStatus        WSMessageType = "job_status"        // Status-only (synchronous)
-	WSTypeCrackBatch       WSMessageType = "crack_batch"       // Cracks-only (asynchronous)
-	WSTypeJobStop          WSMessageType = "job_stop"
-	WSTypeBenchmarkRequest WSMessageType = "benchmark_request"
-	WSTypeBenchmarkResult  WSMessageType = "benchmark_result"
-	WSTypeHashcatOutput    WSMessageType = "hashcat_output"
-	WSTypeForceCleanup     WSMessageType = "force_cleanup"
-	WSTypeCurrentTaskStatus WSMessageType = "current_task_status"
+	WSTypeTaskAssignment        WSMessageType = "task_assignment"
+	WSTypeJobProgress           WSMessageType = "job_progress"
+	WSTypeJobStatus             WSMessageType = "job_status"              // Status-only (synchronous)
+	WSTypeCrackBatch            WSMessageType = "crack_batch"             // Cracks-only (asynchronous)
+	WSTypeCrackBatchesComplete  WSMessageType = "crack_batches_complete" // Signal all batches sent
+	WSTypeJobStop               WSMessageType = "job_stop"
+	WSTypeBenchmarkRequest      WSMessageType = "benchmark_request"
+	WSTypeBenchmarkResult       WSMessageType = "benchmark_result"
+	WSTypeHashcatOutput         WSMessageType = "hashcat_output"
+	WSTypeForceCleanup          WSMessageType = "force_cleanup"
+	WSTypeCurrentTaskStatus     WSMessageType = "current_task_status"
 
 	// Device detection message types
 	WSTypeDeviceDetection         WSMessageType = "device_detection"
@@ -1598,7 +1600,8 @@ func (c *Connection) handleFileSyncAsync(requestPayload FileSyncRequestPayload) 
 	startTime := time.Now()
 
 	// Create a context with timeout for the entire operation
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	// 5 minute timeout allows hashing of large wordlist files (50GB+)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	// Initialize file sync if not already done
@@ -1911,6 +1914,42 @@ func (c *Connection) SendCrackBatchAsync(batch *jobs.CrackBatch) error {
 		debug.Warning("Crack batch dropped (channel full): %d cracks for task %s - will recover from outfile",
 			len(batch.CrackedHashes), batch.TaskID)
 		return fmt.Errorf("channel full, cracks dropped")
+	}
+}
+
+// SendCrackBatchesComplete sends signal that all crack batches have been sent for a task
+func (c *Connection) SendCrackBatchesComplete(signal *jobs.CrackBatchesComplete) error {
+	// Panic recovery (send on closed channel)
+	defer func() {
+		if r := recover(); r != nil {
+			debug.Error("Panic in SendCrackBatchesComplete: %v", r)
+		}
+	}()
+
+	if !c.isConnected.Load() {
+		return fmt.Errorf("not connected")
+	}
+
+	// Marshal signal payload to JSON
+	signalJSON, err := json.Marshal(signal)
+	if err != nil {
+		return fmt.Errorf("failed to marshal crack_batches_complete signal: %w", err)
+	}
+
+	msg := &WSMessage{
+		Type:      WSTypeCrackBatchesComplete,
+		Payload:   signalJSON,
+		Timestamp: time.Now(),
+	}
+
+	// Blocking send - this signal must be delivered
+	select {
+	case c.outbound <- msg:
+		debug.Debug("Queued crack_batches_complete signal for task %s", signal.TaskID)
+		return nil
+	case <-time.After(5 * time.Second):
+		debug.Error("Timeout sending crack_batches_complete signal for task %s", signal.TaskID)
+		return fmt.Errorf("timeout sending crack_batches_complete signal")
 	}
 }
 
@@ -2460,22 +2499,27 @@ func (c *Connection) sendSyncCompleted() {
 	// Get final stats from download manager (single source of truth)
 	total, _, _, completed, failed := c.downloadManager.GetDownloadStats()
 
+	// Send status message in the format the backend expects
+	statusMessage := "File sync completed successfully"
+	if failed > 0 {
+		statusMessage = fmt.Sprintf("File sync completed with %d failures out of %d files", failed, total)
+	}
+
 	payload, _ := json.Marshal(map[string]interface{}{
-		"agent_id":     c.agentID,
-		"files_synced": completed,
-		"files_failed": failed,
-		"files_total":  total,
+		"status":   "completed",
+		"progress": 100,
+		"message":  statusMessage,
 	})
 
 	message := WSMessage{
-		Type:      "sync_completed",
+		Type:      WSTypeFileSyncStatus,
 		Payload:   payload,
 		Timestamp: time.Now(),
 	}
 
 	select {
 	case c.outbound <- &message:
-		debug.Info("Sent sync completed message: %d succeeded, %d failed out of %d total", completed, failed, total)
+		debug.Info("Sent sync status completed message: %d succeeded, %d failed out of %d total", completed, failed, total)
 		if failed > 0 {
 			console.Warning("File synchronization complete with issues (%d/%d files downloaded, %d failed)", completed, total, failed)
 		} else {

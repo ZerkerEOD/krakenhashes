@@ -18,10 +18,9 @@ import { PasswordPolicy } from '../../types/auth';
 import PasswordValidation from '../../components/common/PasswordValidation';
 import MFACard from '../../components/settings/MFACard';
 import NotificationCard from '../../components/settings/NotificationCard';
+import { usePasswordConfirm } from '../../hooks/usePasswordConfirm';
 
-interface UserProfile {
-  username: string;
-  email: string;
+interface PasswordChangeForm {
   currentPassword: string;
   newPassword: string;
   confirmPassword: string;
@@ -29,17 +28,25 @@ interface UserProfile {
 
 const ProfileSettings: React.FC = () => {
   const { user, setUser } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [policy, setPolicy] = useState<PasswordPolicy | null>(null);
-  const [profile, setProfile] = useState<UserProfile>({
-    username: user?.username || '',
-    email: user?.email || '',
+  const { showPasswordConfirm, PasswordConfirmDialog } = usePasswordConfirm();
+
+  // Email update state
+  const [email, setEmail] = useState(user?.email || '');
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [emailSuccess, setEmailSuccess] = useState<string | null>(null);
+
+  // Password change state
+  const [passwordForm, setPasswordForm] = useState<PasswordChangeForm>({
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+
+  const [policy, setPolicy] = useState<PasswordPolicy | null>(null);
 
   useEffect(() => {
     const loadPolicy = async () => {
@@ -67,66 +74,103 @@ const ProfileSettings: React.FC = () => {
     return Object.values(validation).every(Boolean);
   };
 
-  const handleChange = (field: keyof UserProfile) => (event: React.ChangeEvent<HTMLInputElement>) => {
-    setProfile(prev => ({ ...prev, [field]: event.target.value }));
+  const handlePasswordChange = (field: keyof PasswordChangeForm) => (event: React.ChangeEvent<HTMLInputElement>) => {
+    setPasswordForm(prev => ({ ...prev, [field]: event.target.value }));
   };
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setLoading(true);
-    setError(null);
-    setSuccess(null);
+  const handleEmailUpdate = async () => {
+    if (!email || email === user?.email) {
+      setEmailError('No changes to save');
+      return;
+    }
+
+    // Basic email validation
+    if (!email.includes('@')) {
+      setEmailError('Invalid email address');
+      return;
+    }
+
+    setEmailError(null);
+    setEmailSuccess(null);
+
+    // Show password confirmation dialog
+    const password = await showPasswordConfirm(
+      'Confirm Email Update',
+      'Please enter your current password to update your email address.'
+    );
+
+    if (!password) {
+      return; // User cancelled
+    }
+
+    setEmailLoading(true);
 
     try {
-      const updates: ProfileUpdate = {};
-
-      // Handle email update
-      if (profile.email !== user?.email) {
-        updates.email = profile.email;
-      }
-
-      // Only handle password update if current password is provided
-      if (profile.currentPassword) {
-        if (profile.newPassword) {
-          if (profile.newPassword !== profile.confirmPassword) {
-            throw new Error('New passwords do not match');
-          }
-          if (!validatePassword(profile.newPassword)) {
-            throw new Error('New password does not meet requirements');
-          }
-          updates.currentPassword = profile.currentPassword;
-          updates.newPassword = profile.newPassword;
-        } else {
-          throw new Error('Please enter a new password or clear the current password field');
-        }
-      } else if (profile.newPassword || profile.confirmPassword) {
-        throw new Error('Current password is required to change password');
-      }
-
-      if (Object.keys(updates).length === 0) {
-        setSuccess('No changes to save');
-        setLoading(false);
-        return;
-      }
+      const updates: ProfileUpdate = {
+        email: email,
+        currentPassword: password,
+      };
 
       await updateUserProfile(updates);
-      setSuccess('Profile updated successfully');
-      
-      if (updates.email && setUser && user) {
-        setUser({ ...user, email: updates.email });
+      setEmailSuccess('Email updated successfully');
+
+      if (setUser && user) {
+        setUser({ ...user, email: email });
+      }
+    } catch (error: any) {
+      const errorMessage = error?.response || error?.message || 'Failed to update email';
+      if (errorMessage.includes('password')) {
+        setEmailError('Incorrect password');
+      } else {
+        setEmailError(errorMessage);
+      }
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
+  const handlePasswordUpdate = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setPasswordLoading(true);
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    try {
+      if (!passwordForm.currentPassword) {
+        throw new Error('Current password is required');
       }
 
+      if (!passwordForm.newPassword) {
+        throw new Error('New password is required');
+      }
+
+      if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+        throw new Error('New passwords do not match');
+      }
+
+      if (!validatePassword(passwordForm.newPassword)) {
+        throw new Error('New password does not meet requirements');
+      }
+
+      const updates: ProfileUpdate = {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      };
+
+      await updateUserProfile(updates);
+      setPasswordSuccess('Password changed successfully');
+
       // Clear password fields after successful update
-      setProfile(prev => ({
-        ...prev,
+      setPasswordForm({
         currentPassword: '',
         newPassword: '',
         confirmPassword: '',
-      }));
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to update profile');
+      });
+    } catch (error: any) {
+      const errorMessage = error?.response || error?.message || 'Failed to update password';
+      setPasswordError(errorMessage);
     } finally {
-      setLoading(false);
+      setPasswordLoading(false);
     }
   };
 
@@ -136,63 +180,95 @@ const ProfileSettings: React.FC = () => {
         Profile Settings
       </Typography>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
+      <PasswordConfirmDialog />
 
-      {success && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          {success}
-        </Alert>
-      )}
+      {/* Account Information Card */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Account Information
+          </Typography>
 
-      <form onSubmit={handleSubmit}>
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Account Information
-            </Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Username"
-                  value={profile.username}
-                  disabled
-                  margin="normal"
-                  helperText="Username cannot be changed"
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Email"
-                  value={profile.email}
-                  onChange={handleChange('email')}
-                  type="email"
-                  margin="normal"
-                />
-              </Grid>
+          {emailError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {emailError}
+            </Alert>
+          )}
+
+          {emailSuccess && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {emailSuccess}
+            </Alert>
+          )}
+
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Username"
+                value={user?.username || ''}
+                disabled
+                margin="normal"
+                helperText="Username cannot be changed"
+              />
             </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setEmailError(null);
+                  setEmailSuccess(null);
+                }}
+                type="email"
+                margin="normal"
+              />
+            </Grid>
+          </Grid>
 
-            <Divider sx={{ my: 3 }} />
+          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleEmailUpdate}
+              disabled={emailLoading || email === user?.email}
+              startIcon={emailLoading && <CircularProgress size={20} color="inherit" />}
+            >
+              {emailLoading ? 'Saving...' : 'Save Email'}
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
 
-            <Typography variant="h6" gutterBottom>
-              Change Password
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              To change your password, enter your current password and a new password below.
-              Leave these fields empty if you only want to update your email.
-            </Typography>
+      {/* Change Password Card */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Change Password
+          </Typography>
+
+          {passwordError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {passwordError}
+            </Alert>
+          )}
+
+          {passwordSuccess && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {passwordSuccess}
+            </Alert>
+          )}
+
+          <form onSubmit={handlePasswordUpdate}>
             <Grid container spacing={2}>
               <Grid item xs={12}>
                 <TextField
                   fullWidth
                   label="Current Password"
-                  value={profile.currentPassword}
-                  onChange={handleChange('currentPassword')}
+                  value={passwordForm.currentPassword}
+                  onChange={handlePasswordChange('currentPassword')}
                   type="password"
                   margin="normal"
                 />
@@ -201,41 +277,41 @@ const ProfileSettings: React.FC = () => {
                 <TextField
                   fullWidth
                   label="New Password"
-                  value={profile.newPassword}
-                  onChange={handleChange('newPassword')}
+                  value={passwordForm.newPassword}
+                  onChange={handlePasswordChange('newPassword')}
                   type="password"
                   margin="normal"
-                  disabled={!profile.currentPassword}
-                  helperText={!profile.currentPassword ? "Enter current password first" : ""}
+                  disabled={!passwordForm.currentPassword}
+                  helperText={!passwordForm.currentPassword ? "Enter current password first" : ""}
                 />
-                {profile.newPassword && (
-                  <PasswordValidation password={profile.newPassword} />
+                {passwordForm.newPassword && (
+                  <PasswordValidation password={passwordForm.newPassword} />
                 )}
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
                   label="Confirm New Password"
-                  value={profile.confirmPassword}
-                  onChange={handleChange('confirmPassword')}
+                  value={passwordForm.confirmPassword}
+                  onChange={handlePasswordChange('confirmPassword')}
                   type="password"
                   margin="normal"
-                  disabled={!profile.currentPassword}
-                  error={profile.newPassword !== profile.confirmPassword && profile.confirmPassword !== ''}
+                  disabled={!passwordForm.currentPassword}
+                  error={passwordForm.newPassword !== passwordForm.confirmPassword && passwordForm.confirmPassword !== ''}
                   helperText={
-                    !profile.currentPassword ? "Enter current password first" :
-                    profile.confirmPassword !== '' && (
-                      profile.newPassword !== profile.confirmPassword 
+                    !passwordForm.currentPassword ? "Enter current password first" :
+                    passwordForm.confirmPassword !== '' && (
+                      passwordForm.newPassword !== passwordForm.confirmPassword
                         ? 'Passwords do not match'
-                        : profile.newPassword === profile.confirmPassword
+                        : passwordForm.newPassword === passwordForm.confirmPassword
                           ? 'Passwords match'
                           : ''
                     )
                   }
                   FormHelperTextProps={{
                     sx: {
-                      color: profile.confirmPassword !== '' && profile.newPassword === profile.confirmPassword 
-                        ? 'success.main' 
+                      color: passwordForm.confirmPassword !== '' && passwordForm.newPassword === passwordForm.confirmPassword
+                        ? 'success.main'
                         : 'error.main'
                     }
                   }}
@@ -248,27 +324,27 @@ const ProfileSettings: React.FC = () => {
                 variant="contained"
                 color="primary"
                 type="submit"
-                disabled={loading}
-                startIcon={loading && <CircularProgress size={20} color="inherit" />}
+                disabled={passwordLoading}
+                startIcon={passwordLoading && <CircularProgress size={20} color="inherit" />}
               >
-                {loading ? 'Saving...' : 'Save Changes'}
+                {passwordLoading ? 'Changing Password...' : 'Change Password'}
               </Button>
             </Box>
-          </CardContent>
-        </Card>
+          </form>
+        </CardContent>
+      </Card>
 
-        <MFACard onMFAChange={() => {
-          // Refresh user data when MFA settings change
-          if (setUser && user) {
-            setUser({ ...user });
-          }
-        }} />
+      <MFACard onMFAChange={() => {
+        // Refresh user data when MFA settings change
+        if (setUser && user) {
+          setUser({ ...user });
+        }
+      }} />
 
-        <NotificationCard onNotificationChange={() => {
-          // You can add any refresh logic here if needed
-          console.log('Notification preferences updated');
-        }} />
-      </form>
+      <NotificationCard onNotificationChange={() => {
+        // You can add any refresh logic here if needed
+        console.log('Notification preferences updated');
+      }} />
     </Box>
   );
 }

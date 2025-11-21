@@ -1,7 +1,7 @@
 # Email Settings Administration
 
 ## Overview
-KrakenHashes supports email functionality through multiple providers, currently SendGrid and Mailgun. This document covers the configuration and management of email settings through the admin interface.
+KrakenHashes supports email functionality through multiple providers: SendGrid, Mailgun, and SMTP. This document covers the configuration and management of email settings through the admin interface.
 
 ## Provider Configuration
 
@@ -28,6 +28,50 @@ To configure Mailgun as your email provider:
    - **From Email**: The verified sender email address
    - **From Name**: Display name for the sender (defaults to "KrakenHashes")
    - **Monthly Limit**: (Optional) Set a monthly email sending limit
+
+### SMTP
+To configure a custom SMTP server as your email provider:
+
+1. Select "SMTP" from the Provider dropdown
+2. Configure the following fields:
+   - **Host**: Your SMTP server hostname (e.g., `smtp.gmail.com`, `smtp.office365.com`)
+   - **Port**: SMTP server port (auto-selected based on encryption if not specified)
+   - **Username**: SMTP authentication username
+   - **Password**: SMTP authentication password
+   - **From Email**: The sender email address
+   - **From Name**: Display name for the sender (defaults to "KrakenHashes")
+   - **Encryption**: Select encryption mode:
+     - **None**: Plain SMTP without encryption (port 25, not recommended for production)
+     - **STARTTLS**: Start with plain connection and upgrade to TLS (port 587, recommended)
+     - **TLS/SSL**: Direct TLS connection (port 465, legacy but widely supported)
+   - **Skip TLS Verify**: ⚠️ Only enable for self-signed certificates (security risk)
+
+#### SMTP Configuration Notes
+
+**Default Ports:**
+- None (no encryption): Port 25
+- STARTTLS: Port 587 (recommended for most providers)
+- TLS/SSL: Port 465 (implicit TLS)
+
+**Connection Timeouts:**
+- All SMTP connections have a 30-second timeout to prevent indefinite hanging
+- If connection fails, check firewall rules and server availability
+
+**Password Management:**
+- When updating existing SMTP configuration, you can leave the password field empty to keep the current password
+- The password is stored securely and displayed as `[REDACTED]` in the UI
+- Only enter a password when creating new configuration or changing the existing password
+
+**Supported SMTP Providers:**
+- Gmail (requires App Password if 2FA enabled)
+- Office 365 / Outlook.com
+- Custom mail servers
+- Self-hosted SMTP servers
+
+**Security Warning:**
+- The "Skip TLS Verify" option should only be used for self-signed certificates in trusted environments
+- Always use STARTTLS or TLS/SSL encryption in production
+- Never use "None" encryption for production email
 
 ### Monthly Limit
 The monthly limit field is optional:
@@ -94,12 +138,22 @@ Email templates are managed separately from provider configuration.
    - Review provider dashboard for blocks
 
 2. **Test Emails Failing**
-   - Verify API key is correct
+   - Verify API key is correct (SendGrid, Mailgun)
+   - Verify SMTP credentials are correct (SMTP)
    - Check domain configuration (Mailgun)
+   - Check port and encryption settings (SMTP)
    - Ensure test email address is valid
    - Review error messages in admin interface
 
-3. **Template Issues**
+3. **SMTP Connection Issues**
+   - Verify hostname is correct and reachable
+   - Check if port is blocked by firewall
+   - Confirm encryption mode matches server requirements
+   - For Gmail: Use App Password, not account password
+   - For Office 365: Ensure SMTP AUTH is enabled
+   - Connection timeout (30 seconds) may indicate network issues
+
+4. **Template Issues**
    - Verify template syntax
    - Check variable names match expected format
    - Preview templates before saving

@@ -1,0 +1,16 @@
+-- Note: PostgreSQL does not support removing values from ENUMs easily.
+-- To properly rollback this migration, you would need to:
+-- 1. Create a new enum without 'smtp'
+-- 2. Update all references to use the new enum
+-- 3. Drop the old enum
+-- 4. Rename the new enum to the old name
+--
+-- This is complex and risky, so we document this limitation.
+-- In practice, adding enum values is considered a safe, forward-only migration.
+
+-- If absolutely necessary to rollback:
+-- ALTER TABLE email_config DROP CONSTRAINT IF EXISTS email_config_provider_type_check;
+-- CREATE TYPE email_provider_type_new AS ENUM ('mailgun', 'sendgrid', 'mailchimp', 'gmail');
+-- ALTER TABLE email_config ALTER COLUMN provider_type TYPE email_provider_type_new USING provider_type::text::email_provider_type_new;
+-- DROP TYPE email_provider_type;
+-- ALTER TYPE email_provider_type_new RENAME TO email_provider_type;

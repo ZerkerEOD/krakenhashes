@@ -78,6 +78,8 @@ This glossary provides definitions for terms used throughout the KrakenHashes sy
 
 **Data Retention**: Policies and mechanisms for automatically removing old data based on configured time periods.
 
+**FIFO Mode**: First-In-First-Out agent overflow allocation mode where the oldest job at the same priority receives all overflow agents beyond max_agents limits. Default allocation mode in KrakenHashes.
+
 **Heartbeat**: Regular status updates sent by agents to the backend to indicate they are alive and processing.
 
 **Job**: A single password cracking task with specific parameters, wordlists, rules, and target hashes.
@@ -88,9 +90,19 @@ This glossary provides definitions for terms used throughout the KrakenHashes sy
 
 **Job Workflow**: A sequence of jobs designed to implement a comprehensive attack strategy.
 
+**Max Agents**: Maximum number of agents a job can use simultaneously. Respected for jobs at the same priority; overridden when a job has higher priority than all others.
+
+**Max Agents Override**: Behavior where higher priority jobs receive ALL available agents regardless of their max_agents setting, ensuring critical work completes as fast as possible.
+
+**Overflow Agents**: Agents available beyond the max_agents limits of jobs at the same priority. Distributed according to the agent overflow allocation mode (FIFO or round-robin).
+
+**Overflow Allocation Mode**: System setting that controls how overflow agents are distributed among jobs at the same priority. Options: FIFO (oldest job gets all) or round-robin (distributed evenly).
+
 **Preset**: Pre-configured job templates or workflows for common attack scenarios.
 
 **Repository Pattern**: Software design pattern used in KrakenHashes for database access abstraction.
+
+**Round-Robin Mode**: Agent overflow allocation mode where overflow agents are distributed evenly among all jobs at the same priority, ensuring balanced progress across multiple jobs.
 
 **Service Layer**: Business logic layer in the backend that processes requests between handlers and repositories.
 
@@ -168,6 +180,42 @@ This glossary provides definitions for terms used throughout the KrakenHashes sy
 
 **Workload Distribution**: Strategy for assigning job chunks to agents based on their capabilities.
 
+## Job and Task Statuses
+
+### Job Execution Statuses
+
+**Pending**: Job has been created but has not yet started execution. Waiting for available agents or higher priority jobs to complete.
+
+**Running**: Job is actively executing with one or more tasks assigned to agents. Agents are processing the job's keyspace.
+
+**Paused**: Job execution has been temporarily halted by user action. Tasks are stopped but can be resumed later.
+
+**Processing**: Job has finished execution but is waiting for crack batches to be transmitted from agents and processed by the backend. Progress shows 100% but final completion is pending crack data receipt.
+
+**Completed**: Job has finished all work, all crack batches have been received and processed, and email notifications (if enabled) have been sent.
+
+**Failed**: Job encountered an unrecoverable error during execution and cannot continue.
+
+**Cancelled**: Job was manually cancelled by a user before completion.
+
+### Task Statuses
+
+**Pending**: Task has been created but not yet assigned to an agent.
+
+**Assigned**: Task has been assigned to a specific agent but the agent hasn't started executing it yet.
+
+**Reconnect Pending**: Task was assigned to an agent that disconnected. Waiting for agent to reconnect or task to be reassigned.
+
+**Running**: Task is actively executing on an agent. Hashcat is processing the assigned keyspace.
+
+**Processing**: Task has completed hashcat execution but is waiting for all crack batches to be transmitted to the backend. Agent has signaled completion but crack data is still being sent.
+
+**Completed**: Task has finished execution, all crack batches have been received, and the task is fully complete.
+
+**Failed**: Task encountered an error during execution and could not complete successfully.
+
+**Cancelled**: Task was manually cancelled before completion, either by user action or due to job cancellation.
+
 ## Common Abbreviations
 
 ### A-Z
@@ -226,7 +274,7 @@ This glossary provides definitions for terms used throughout the KrakenHashes sy
 
 **SHA**: Secure Hash Algorithm
 
-**SMTP**: Simple Mail Transfer Protocol
+**SMTP**: Simple Mail Transfer Protocol (email transmission protocol)
 
 **SQL**: Structured Query Language
 

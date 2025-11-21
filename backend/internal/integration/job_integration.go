@@ -108,6 +108,16 @@ func (m *JobIntegrationManager) ProcessCrackBatch(ctx context.Context, agentID i
 	return m.wsIntegration.HandleCrackBatch(ctx, agentID, &crackBatch)
 }
 
+// ProcessCrackBatchesComplete handles crack_batches_complete signal from agents (implements interfaces.JobHandler)
+func (m *JobIntegrationManager) ProcessCrackBatchesComplete(ctx context.Context, agentID int, payload json.RawMessage) error {
+	var signal models.CrackBatchesComplete
+	if err := json.Unmarshal(payload, &signal); err != nil {
+		return fmt.Errorf("failed to unmarshal crack_batches_complete: %w", err)
+	}
+
+	return m.wsIntegration.HandleCrackBatchesComplete(ctx, agentID, &signal)
+}
+
 // ProcessBenchmarkResult handles benchmark result messages from agents (implements interfaces.JobHandler)
 func (m *JobIntegrationManager) ProcessBenchmarkResult(ctx context.Context, agentID int, payload json.RawMessage) error {
 	var result wsservice.BenchmarkResultPayload

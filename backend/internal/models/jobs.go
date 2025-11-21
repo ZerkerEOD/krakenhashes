@@ -117,12 +117,13 @@ type PresetJobBasic struct {
 type JobExecutionStatus string
 
 const (
-	JobExecutionStatusPending   JobExecutionStatus = "pending"
-	JobExecutionStatusRunning   JobExecutionStatus = "running"
-	JobExecutionStatusPaused    JobExecutionStatus = "paused"
-	JobExecutionStatusCompleted JobExecutionStatus = "completed"
-	JobExecutionStatusFailed    JobExecutionStatus = "failed"
-	JobExecutionStatusCancelled JobExecutionStatus = "cancelled"
+	JobExecutionStatusPending    JobExecutionStatus = "pending"
+	JobExecutionStatusRunning    JobExecutionStatus = "running"
+	JobExecutionStatusPaused     JobExecutionStatus = "paused"
+	JobExecutionStatusProcessing JobExecutionStatus = "processing" // Waiting for crack batches to be processed
+	JobExecutionStatusCompleted  JobExecutionStatus = "completed"
+	JobExecutionStatusFailed     JobExecutionStatus = "failed"
+	JobExecutionStatusCancelled  JobExecutionStatus = "cancelled"
 )
 
 // JobExecution represents an actual running instance of a preset job
@@ -185,6 +186,7 @@ const (
 	JobTaskStatusAssigned         JobTaskStatus = "assigned"
 	JobTaskStatusReconnectPending JobTaskStatus = "reconnect_pending"
 	JobTaskStatusRunning          JobTaskStatus = "running"
+	JobTaskStatusProcessing       JobTaskStatus = "processing" // Waiting for crack batches to be processed
 	JobTaskStatusCompleted        JobTaskStatus = "completed"
 	JobTaskStatusFailed           JobTaskStatus = "failed"
 	JobTaskStatusCancelled        JobTaskStatus = "cancelled"
@@ -219,9 +221,12 @@ type JobTask struct {
 	ErrorMessage      *string       `json:"error_message" db:"error_message"`
 
 	// Enhanced fields for detailed chunk tracking
-	CrackCount     int    `json:"crack_count" db:"crack_count"`
-	DetailedStatus string `json:"detailed_status" db:"detailed_status"`
-	RetryCount     int    `json:"retry_count" db:"retry_count"`
+	CrackCount              int  `json:"crack_count" db:"crack_count"`
+	ExpectedCrackCount      int  `json:"expected_crack_count" db:"expected_crack_count"`           // Expected cracks from progress message
+	ReceivedCrackCount      int  `json:"received_crack_count" db:"received_crack_count"`           // Cracks received via batches
+	BatchesCompleteSignaled bool `json:"batches_complete_signaled" db:"batches_complete_signaled"` // Agent signaled batches done
+	DetailedStatus          string `json:"detailed_status" db:"detailed_status"`
+	RetryCount              int    `json:"retry_count" db:"retry_count"`
 
 	// Rule splitting fields
 	RuleStartIndex  *int    `json:"rule_start_index" db:"rule_start_index"`     // Starting rule index for this chunk
@@ -369,6 +374,11 @@ type JobProgress struct {
 type CrackBatch struct {
 	TaskID        uuid.UUID     `json:"task_id"`
 	CrackedHashes []CrackedHash `json:"cracked_hashes"`
+}
+
+// CrackBatchesComplete signals that agent has finished sending all crack batches for a task
+type CrackBatchesComplete struct {
+	TaskID uuid.UUID `json:"task_id"`
 }
 
 // CrackedHash represents a cracked hash with all available information

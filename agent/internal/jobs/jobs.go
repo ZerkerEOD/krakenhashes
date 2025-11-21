@@ -19,14 +19,15 @@ import (
 
 // JobManager manages job execution on the agent
 type JobManager struct {
-	executor         ExecutorInterface
-	config           *config.Config
-	statusCallback   func(*JobStatus)   // Callback for status updates (synchronous)
-	crackCallback    func(*CrackBatch)  // Callback for crack batches (asynchronous)
-	progressCallback func(*JobProgress) // Legacy callback (deprecated, use statusCallback/crackCallback)
-	outputCallback   func(taskID string, output string, isError bool) // Callback for sending output via websocket
-	fileSync         *filesync.FileSync
-	hwMonitor        HardwareMonitor // Interface for hardware monitor
+	executor                ExecutorInterface
+	config                  *config.Config
+	statusCallback          func(*JobStatus)             // Callback for status updates (synchronous)
+	crackCallback           func(*CrackBatch)            // Callback for crack batches (asynchronous)
+	crackBatchesCompleteCallback func(*CrackBatchesComplete) // Callback to signal all crack batches sent
+	progressCallback        func(*JobProgress)           // Legacy callback (deprecated, use statusCallback/crackCallback)
+	outputCallback          func(taskID string, output string, isError bool) // Callback for sending output via websocket
+	fileSync                *filesync.FileSync
+	hwMonitor               HardwareMonitor // Interface for hardware monitor
 
 	// Job state
 	mutex           sync.RWMutex
@@ -169,6 +170,13 @@ func (jm *JobManager) SetCrackCallback(callback func(*CrackBatch)) {
 	jm.mutex.Lock()
 	defer jm.mutex.Unlock()
 	jm.crackCallback = callback
+}
+
+// SetCrackBatchesCompleteCallback sets the callback for crack batches complete signal
+func (jm *JobManager) SetCrackBatchesCompleteCallback(callback func(*CrackBatchesComplete)) {
+	jm.mutex.Lock()
+	defer jm.mutex.Unlock()
+	jm.crackBatchesCompleteCallback = callback
 }
 
 // ProcessJobAssignment processes a job assignment from the backend
@@ -595,6 +603,18 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 
 					debug.Info("Drain complete for task %s: processed %d batches with %d total cracks",
 						progress.TaskID, drainedBatches, drainedCracks)
+
+					// Send crack_batches_complete signal to backend
+					if jm.crackBatchesCompleteCallback != nil {
+						completionSignal := &CrackBatchesComplete{
+							TaskID: progress.TaskID,
+						}
+						debug.Info("Sending crack_batches_complete signal for task %s", progress.TaskID)
+						jm.crackBatchesCompleteCallback(completionSignal)
+					} else {
+						debug.Warning("No crack_batches_complete callback set for task %s", progress.TaskID)
+					}
+
 					return
 				}
 			}

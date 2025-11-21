@@ -717,6 +717,150 @@ func (h *AgentUpdateHandler) processCrackUpdate(ctx context.Context, agentID int
 }
 ```
 
+### WebSocket Message Types
+
+KrakenHashes uses JSON-based WebSocket messages with a `type` field for routing. Below are the key message types used in agent-backend communication:
+
+#### Agent → Backend Messages
+
+**job_progress**: Progress updates during task execution
+```go
+type JobProgress struct {
+    TaskID            uuid.UUID `json:"task_id"`
+    KeyspaceProcessed int64     `json:"keyspace_processed"`
+    ProgressPercent   float64   `json:"progress_percent"`
+    HashRate          int64     `json:"hash_rate"`
+    CrackedCount      int       `json:"cracked_count"`        // Expected cracks when Status="completed"
+    Status            string    `json:"status"`               // "running" or "completed"
+    AllHashesCracked  bool      `json:"all_hashes_cracked"`   // Hashcat status code 6
+    DeviceMetrics     []Device  `json:"device_metrics"`
+}
+```
+
+**crack_batch**: Batched cracked passwords
+```go
+type CrackBatch struct {
+    TaskID        uuid.UUID      `json:"task_id"`
+    CrackedHashes []CrackedHash  `json:"cracked_hashes"`
+}
+
+type CrackedHash struct {
+    Hash         string `json:"hash"`
+    Plaintext    string `json:"plaintext"`
+    OriginalLine string `json:"original_line"`
+}
+```
+
+**crack_batches_complete**: Signals all crack batches sent (NEW in v1.3.1)
+```go
+type CrackBatchesComplete struct {
+    TaskID uuid.UUID `json:"task_id"`
+}
+```
+Agent sends this after sending all crack batches for a task. Backend uses this to transition task from `processing` to `completed` status.
+
+**heartbeat**: Agent status update
+```go
+type Heartbeat struct {
+    AgentID   int       `json:"agent_id"`
+    Timestamp time.Time `json:"timestamp"`
+    Status    string    `json:"status"`
+}
+```
+
+#### Backend → Agent Messages
+
+**task_assignment**: Assign new task to agent
+```go
+type TaskAssignment struct {
+    TaskID      uuid.UUID `json:"task_id"`
+    JobID       uuid.UUID `json:"job_id"`
+    AttackMode  int       `json:"attack_mode"`
+    HashFile    string    `json:"hash_file"`
+    Wordlists   []string  `json:"wordlists"`
+    Rules       []string  `json:"rules"`
+    // ... additional fields
+}
+```
+
+**stop_task**: Stop running task
+```go
+type StopTask struct {
+    TaskID uuid.UUID `json:"task_id"`
+    Reason string    `json:"reason"`
+}
+```
+
+### Processing Status Workflow
+
+The processing status system prevents premature job completion:
+
+1. **Agent sends final progress**: `job_progress` with `Status="completed"` and `CrackedCount` field
+2. **Backend transitions to processing**: Task status → `processing`, sets `expected_crack_count`
+3. **Agent sends crack batches**: One or more `crack_batch` messages
+4. **Agent signals completion**: `crack_batches_complete` message
+5. **Backend completes task**: Checks `received_crack_count >= expected_crack_count AND batches_complete_signaled`
+
+**New Repository Methods:**
+
+```go
+// JobTaskRepository
+SetTaskProcessing(ctx, taskID, expectedCracks)    // Transition to processing
+IncrementReceivedCrackCount(ctx, taskID, count)   // Track received batches
+MarkBatchesComplete(ctx, taskID)                  // Signal batches done
+CheckTaskReadyToComplete(ctx, taskID)             // Verify completion conditions
+GetTotalCracksForJob(ctx, jobExecutionID)         // Sum cracks across all tasks
+
+// JobExecutionRepository
+SetJobProcessing(ctx, jobExecutionID)             // Transition job to processing
+UpdateEmailStatus(ctx, jobID, sent, sentAt, err)  // Track completion email delivery
+```
+
+**Handler Implementation:**
+
+```go
+// backend/internal/integration/job_websocket_integration.go
+func (s *JobWebSocketIntegration) HandleCrackBatchesComplete(
+    ctx context.Context,
+    agentID int,
+    message *models.CrackBatchesComplete,
+) error {
+    // Verify task ownership
+    task, err := s.jobTaskRepo.GetByID(ctx, message.TaskID)
+    if task.AgentID == nil || *task.AgentID != agentID {
+        return fmt.Errorf("task not assigned to this agent")
+    }
+
+    // Mark batches complete
+    if err := s.jobTaskRepo.MarkBatchesComplete(ctx, message.TaskID); err != nil {
+        return err
+    }
+
+    // Check if ready to complete
+    ready, err := s.jobTaskRepo.CheckTaskReadyToComplete(ctx, message.TaskID)
+    if err != nil {
+        return err
+    }
+
+    if ready {
+        // Complete the task
+        if err := s.jobTaskRepo.CompleteTask(ctx, message.TaskID); err != nil {
+            return err
+        }
+
+        // Clear agent busy status
+        s.clearAgentBusyStatus(ctx, agentID, message.TaskID)
+
+        // Check if job can complete
+        s.checkJobCompletion(ctx, task.JobExecutionID)
+    }
+
+    return nil
+}
+```
+
+See [Job Completion System](../reference/architecture/job-completion-system.md) and [Crack Batching System](../reference/architecture/crack-batching-system.md) for full details.
+
 ## Testing Strategies
 
 ### Unit Testing

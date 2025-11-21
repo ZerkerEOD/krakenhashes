@@ -14,9 +14,15 @@ import {
   DialogContent,
   DialogActions,
   DialogContentText,
+  Paper,
+  Divider,
+  Checkbox,
+  FormControlLabel,
+  Alert,
 } from '@mui/material';
 import { LoadingButton } from '@mui/lab';
 import { SelectChangeEvent } from '@mui/material/Select';
+import EditIcon from '@mui/icons-material/Edit';
 import { getEmailConfig, updateEmailConfig, testEmailConfig } from '../../../services/api';
 
 interface ProviderConfigProps {
@@ -25,15 +31,21 @@ interface ProviderConfigProps {
 
 interface EmailProviderConfig {
   id?: number;
-  provider: 'sendgrid' | 'mailgun';
+  provider: 'sendgrid' | 'mailgun' | 'smtp';
   apiKey: string;
+  // SendGrid & Mailgun fields
   fromEmail?: string;
   fromName?: string;
   domain?: string;
+  // SMTP-specific fields
+  host?: string;
+  port?: number;
+  username?: string;
+  encryption?: 'none' | 'starttls' | 'tls';
+  skipTLSVerify?: boolean;
+  // Common
   monthlyLimit?: number;
 }
-
-const STORAGE_KEY = 'providerConfigState';
 
 const defaultConfig: EmailProviderConfig = {
   provider: 'sendgrid',
@@ -43,10 +55,12 @@ const defaultConfig: EmailProviderConfig = {
   monthlyLimit: undefined,
 };
 
+type ViewMode = 'view' | 'edit' | 'create';
+
 export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }) => {
   const [loading, setLoading] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [hasLoadedInitialConfig, setHasLoadedInitialConfig] = useState(false);
+  const [mode, setMode] = useState<ViewMode>('create');
+  const [savedConfig, setSavedConfig] = useState<EmailProviderConfig | null>(null);
   const [config, setConfig] = useState<EmailProviderConfig>(defaultConfig);
   const [testEmailOpen, setTestEmailOpen] = useState(false);
   const [testEmail, setTestEmail] = useState('');
@@ -57,37 +71,74 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
       console.debug('[ProviderConfig] Loading configuration...');
       setLoading(true);
 
-      // First check for unsaved changes
-      const savedState = localStorage.getItem(STORAGE_KEY);
-      if (savedState) {
+      // Check for unsaved edits in sessionStorage first
+      const savedEditState = sessionStorage.getItem('email-config-editing');
+      if (savedEditState) {
         try {
-          console.debug('[ProviderConfig] Found unsaved changes');
-          const parsedState = JSON.parse(savedState);
-          setConfig(parsedState);
-          setIsEditing(true);
-          setHasLoadedInitialConfig(true);
-          return; // Don't load from API if we have unsaved changes
-        } catch (error) {
-          console.error('[ProviderConfig] Failed to parse saved state:', error);
-          localStorage.removeItem(STORAGE_KEY);
+          const { config: savedCfg, mode: savedMode, savedConfig: savedSaved } = JSON.parse(savedEditState);
+          console.debug('[ProviderConfig] Restoring unsaved edits from sessionStorage');
+          setConfig(savedCfg);
+          setMode(savedMode);
+          setSavedConfig(savedSaved);
+          setLoading(false);
+          return; // Don't reload from API
+        } catch (e) {
+          console.error('[ProviderConfig] Failed to parse saved edit state:', e);
+          sessionStorage.removeItem('email-config-editing');
         }
       }
 
-      // Try to load from API
+      // Load from API
       const response = await getEmailConfig();
-      console.debug('[ProviderConfig] Loaded configuration:', response.data);
-      setConfig(response.data);
+      const backendConfig = response.data;
+      console.debug('[ProviderConfig] Loaded configuration:', backendConfig);
+
+      // Transform backend format to frontend format
+      const transformedConfig: EmailProviderConfig = {
+        id: backendConfig.id,
+        provider: backendConfig.provider_type,
+        apiKey: backendConfig.api_key,
+        monthlyLimit: backendConfig.monthly_limit,
+      };
+
+      // Parse additional_config into flat structure
+      if (backendConfig.additional_config) {
+        const ac = backendConfig.additional_config;
+
+        if (backendConfig.provider_type === 'smtp') {
+          transformedConfig.host = ac.host;
+          transformedConfig.port = ac.port;
+          transformedConfig.username = ac.username;
+          transformedConfig.fromEmail = ac.from_email;
+          transformedConfig.fromName = ac.from_name;
+          transformedConfig.encryption = ac.encryption;
+          transformedConfig.skipTLSVerify = ac.skip_tls_verify || false;
+        } else if (backendConfig.provider_type === 'mailgun') {
+          transformedConfig.domain = ac.domain;
+          transformedConfig.fromEmail = ac.from_email;
+          transformedConfig.fromName = ac.from_name;
+        } else if (backendConfig.provider_type === 'sendgrid') {
+          transformedConfig.fromEmail = ac.from_email;
+          transformedConfig.fromName = ac.from_name;
+        }
+      }
+
+      console.debug('[ProviderConfig] Transformed configuration:', transformedConfig);
+      setSavedConfig(transformedConfig);
+      setConfig(transformedConfig);
+      setMode('view');
     } catch (error) {
       console.error('[ProviderConfig] Failed to load configuration:', error);
-      // Only show notification if it's not a 404 (expected for new setup)
+      // 404 is expected for new setup
       if ((error as any).response?.status !== 404) {
         onNotification('Failed to load configuration', 'error');
       }
-      // Keep the default config for new setup
+      // No config exists, stay in create mode
+      setSavedConfig(null);
       setConfig(defaultConfig);
+      setMode('create');
     } finally {
       setLoading(false);
-      setHasLoadedInitialConfig(true);
     }
   }, [onNotification]);
 
@@ -96,24 +147,46 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
     loadConfig();
   }, [loadConfig]);
 
-  // Save state to localStorage when it changes and we're editing
+  // Persist editing state to sessionStorage when in edit/create mode
   useEffect(() => {
-    if (isEditing && hasLoadedInitialConfig) {
-      console.debug('[ProviderConfig] Saving state:', config);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    if (mode === 'edit' || mode === 'create') {
+      const stateToSave = {
+        config,
+        mode,
+        savedConfig,
+      };
+      sessionStorage.setItem('email-config-editing', JSON.stringify(stateToSave));
+    } else if (mode === 'view') {
+      sessionStorage.removeItem('email-config-editing');
     }
-  }, [config, isEditing, hasLoadedInitialConfig]);
+  }, [config, mode, savedConfig]);
 
   const handleChange = (field: keyof EmailProviderConfig) => (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent
   ) => {
     const value = event.target.value;
-    setIsEditing(true);
     setConfig(prev => {
       const newConfig = {
         ...prev,
-        [field]: field === 'monthlyLimit' ? Number(value) || undefined : value,
+        [field]: field === 'monthlyLimit' || field === 'port'
+          ? (value === '' ? undefined : Number(value))
+          : value,
       };
+
+      // SMTP: Auto-populate port based on encryption if not manually set
+      if (field === 'encryption' && newConfig.provider === 'smtp') {
+        switch (value) {
+          case 'none':
+            newConfig.port = 25;
+            break;
+          case 'starttls':
+            newConfig.port = 587;
+            break;
+          case 'tls':
+            newConfig.port = 465;
+            break;
+        }
+      }
 
       // Set default fromEmail for Mailgun when domain changes
       if (field === 'domain' && newConfig.provider === 'mailgun' && (!prev.fromEmail || prev.fromEmail === `noreply@${prev.domain}`)) {
@@ -130,36 +203,64 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
         }
       }
 
+      // Set defaults when switching to SMTP
+      if (field === 'provider' && value === 'smtp') {
+        if (!newConfig.encryption) {
+          newConfig.encryption = 'starttls';
+          newConfig.port = 587;
+        }
+        if (!newConfig.fromName) {
+          newConfig.fromName = 'KrakenHashes';
+        }
+      }
+
       return newConfig;
     });
+  };
+
+  const handleCheckboxChange = (field: keyof EmailProviderConfig) => (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setConfig(prev => ({
+      ...prev,
+      [field]: event.target.checked,
+    }));
+  };
+
+  const handleEdit = () => {
+    // Enter edit mode with current saved config
+    setConfig({ ...savedConfig!, apiKey: '' }); // Clear password for security
+    setMode('edit');
+  };
+
+  const handleCancel = () => {
+    console.debug('[ProviderConfig] Canceling configuration');
+    sessionStorage.removeItem('email-config-editing');
+    if (savedConfig) {
+      setConfig(savedConfig);
+      setMode('view');
+    } else {
+      setConfig(defaultConfig);
+      setMode('create');
+    }
   };
 
   const handleTest = async (email: string) => {
     setLoading(true);
     try {
-      // If we're testing after save, just send the test email
-      if (!isEditing) {
+      if (mode === 'view') {
+        // Testing saved config
         const payload = {
           test_email: email,
           test_only: true
         };
         await testEmailConfig(payload);
       } else {
-        // Use form data for direct testing
+        // Testing form config
         const payload = {
           test_email: email,
           test_only: true,
-          config: {
-            provider_type: config.provider,
-            api_key: config.apiKey,
-            additional_config: {
-              from_email: config.fromEmail,
-              from_name: config.fromName,
-              domain: config.domain,
-            },
-            monthly_limit: config.monthlyLimit,
-            is_active: true,
-          }
+          config: buildConfigPayload()
         };
         await testEmailConfig(payload);
       }
@@ -174,40 +275,75 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
     }
   };
 
+  const buildConfigPayload = () => {
+    const additionalConfig: any = {};
+
+    if (config.provider === 'sendgrid') {
+      additionalConfig.from_email = config.fromEmail;
+      additionalConfig.from_name = config.fromName;
+    } else if (config.provider === 'mailgun') {
+      additionalConfig.domain = config.domain;
+      additionalConfig.from_email = config.fromEmail;
+      additionalConfig.from_name = config.fromName;
+    } else if (config.provider === 'smtp') {
+      additionalConfig.host = config.host;
+      additionalConfig.port = config.port;
+      additionalConfig.username = config.username;
+      additionalConfig.from_email = config.fromEmail;
+      additionalConfig.from_name = config.fromName;
+      additionalConfig.encryption = config.encryption;
+      if (config.skipTLSVerify) {
+        additionalConfig.skip_tls_verify = config.skipTLSVerify;
+      }
+    }
+
+    return {
+      provider_type: config.provider,
+      api_key: config.apiKey || '', // Empty string signals backend to preserve existing
+      additional_config: additionalConfig,
+      monthly_limit: config.monthlyLimit,
+      is_active: true,
+    };
+  };
+
   const handleSave = async (withTest: boolean = false) => {
+    // Validation
     if (!config.fromEmail) {
       onNotification('From Email is required', 'error');
       return;
     }
 
+    if (mode === 'create' && !config.apiKey) {
+      onNotification('API Key/Password is required for new configuration', 'error');
+      return;
+    }
+
+    if (config.provider === 'smtp') {
+      if (!config.host) {
+        onNotification('SMTP Host is required', 'error');
+        return;
+      }
+      if (!config.username) {
+        onNotification('SMTP Username is required', 'error');
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const payload = {
-        config: {
-          provider_type: config.provider,
-          api_key: config.apiKey,
-          additional_config: {
-            from_email: config.fromEmail,
-            from_name: config.fromName,
-            domain: config.domain,
-          },
-          monthly_limit: config.monthlyLimit,
-          is_active: true,
-        },
+        config: buildConfigPayload(),
       };
 
       console.debug('[ProviderConfig] Saving configuration with payload:', payload);
 
-      // Save the config
       await updateEmailConfig(payload);
       onNotification('Configuration saved successfully', 'success');
-      
-      // Clear form and reload config
-      localStorage.removeItem(STORAGE_KEY);
-      setIsEditing(false);
+
+      // Clear sessionStorage and reload config to switch to view mode
+      sessionStorage.removeItem('email-config-editing');
       await loadConfig();
 
-      // If testing after save, use a separate call that will use the database config
       if (withTest) {
         setTestEmailOpen(true);
       }
@@ -220,17 +356,92 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
     }
   };
 
-  const handleCancel = () => {
-    console.debug('[ProviderConfig] Canceling configuration');
-    localStorage.removeItem(STORAGE_KEY);
-    setIsEditing(false);
-    loadConfig(); // Reload the original config
-  };
+  const renderViewMode = () => (
+    <Paper elevation={2} sx={{ p: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h6">Current Email Configuration</Typography>
+        <Button
+          variant="outlined"
+          startIcon={<EditIcon />}
+          onClick={handleEdit}
+        >
+          Edit Configuration
+        </Button>
+      </Box>
+      <Divider sx={{ mb: 2 }} />
+      <Grid container spacing={2}>
+        <Grid item xs={12} md={6}>
+          <Typography variant="body2" color="text.secondary">Provider</Typography>
+          <Typography variant="body1" sx={{ textTransform: 'capitalize' }}>
+            {config.provider === 'smtp' ? 'SMTP' : config.provider}
+          </Typography>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Typography variant="body2" color="text.secondary">API Key / Password</Typography>
+          <Typography variant="body1">••••••••••••</Typography>
+        </Grid>
+        {config.provider === 'mailgun' && config.domain && (
+          <Grid item xs={12} md={6}>
+            <Typography variant="body2" color="text.secondary">Domain</Typography>
+            <Typography variant="body1">{config.domain}</Typography>
+          </Grid>
+        )}
+        {config.provider === 'smtp' && (
+          <>
+            <Grid item xs={12} md={6}>
+              <Typography variant="body2" color="text.secondary">Host</Typography>
+              <Typography variant="body1">{config.host}</Typography>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Typography variant="body2" color="text.secondary">Port</Typography>
+              <Typography variant="body1">{config.port}</Typography>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Typography variant="body2" color="text.secondary">Username</Typography>
+              <Typography variant="body1">{config.username}</Typography>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Typography variant="body2" color="text.secondary">Encryption</Typography>
+              <Typography variant="body1" sx={{ textTransform: 'uppercase' }}>{config.encryption}</Typography>
+            </Grid>
+            {config.skipTLSVerify && (
+              <Grid item xs={12}>
+                <Alert severity="warning">TLS certificate verification is disabled</Alert>
+              </Grid>
+            )}
+          </>
+        )}
+        <Grid item xs={12} md={6}>
+          <Typography variant="body2" color="text.secondary">From Email</Typography>
+          <Typography variant="body1">{config.fromEmail}</Typography>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Typography variant="body2" color="text.secondary">From Name</Typography>
+          <Typography variant="body1">{config.fromName}</Typography>
+        </Grid>
+        {config.monthlyLimit && (
+          <Grid item xs={12} md={6}>
+            <Typography variant="body2" color="text.secondary">Monthly Limit</Typography>
+            <Typography variant="body1">{config.monthlyLimit} emails</Typography>
+          </Grid>
+        )}
+      </Grid>
+      <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+        <Button
+          variant="outlined"
+          onClick={() => setTestEmailOpen(true)}
+          disabled={loading}
+        >
+          Test Connection
+        </Button>
+      </Box>
+    </Paper>
+  );
 
-  return (
+  const renderFormMode = () => (
     <Box>
       <Typography variant="h6" gutterBottom>
-        Email Provider Configuration
+        {mode === 'create' ? 'Create Email Configuration' : 'Edit Email Configuration'}
       </Typography>
 
       <Grid container spacing={3}>
@@ -244,6 +455,7 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
             >
               <MenuItem value="sendgrid">SendGrid</MenuItem>
               <MenuItem value="mailgun">Mailgun</MenuItem>
+              <MenuItem value="smtp">SMTP</MenuItem>
             </Select>
           </FormControl>
         </Grid>
@@ -251,21 +463,89 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            label="API Key"
+            label={config.provider === 'smtp' ? 'Password' : 'API Key'}
             type="password"
             value={config.apiKey}
             onChange={handleChange('apiKey')}
+            placeholder={mode === 'edit' ? 'Leave empty to keep current' : ''}
+            helperText={mode === 'edit' ? 'Leave empty to keep current password/key' : ''}
           />
         </Grid>
+
+        {config.provider === 'smtp' && (
+          <>
+            <Grid item xs={12} md={6}>
+              <TextField
+                required
+                fullWidth
+                label="SMTP Host"
+                value={config.host || ''}
+                onChange={handleChange('host')}
+                placeholder="smtp.example.com"
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                required
+                fullWidth
+                label="Port"
+                type="number"
+                value={config.port || ''}
+                onChange={handleChange('port')}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                required
+                fullWidth
+                label="Username"
+                value={config.username || ''}
+                onChange={handleChange('username')}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth required>
+                <InputLabel>Encryption</InputLabel>
+                <Select
+                  value={config.encryption || 'starttls'}
+                  label="Encryption"
+                  onChange={handleChange('encryption')}
+                >
+                  <MenuItem value="none">None (Port 25)</MenuItem>
+                  <MenuItem value="starttls">STARTTLS (Port 587)</MenuItem>
+                  <MenuItem value="tls">TLS/SSL (Port 465)</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={config.skipTLSVerify || false}
+                    onChange={handleCheckboxChange('skipTLSVerify')}
+                  />
+                }
+                label="Skip TLS Certificate Verification (insecure, not recommended)"
+              />
+              {config.skipTLSVerify && (
+                <Alert severity="warning" sx={{ mt: 1 }}>
+                  Disabling TLS verification makes your connection vulnerable to man-in-the-middle attacks.
+                  Only use this for testing with self-signed certificates.
+                </Alert>
+              )}
+            </Grid>
+          </>
+        )}
 
         {config.provider === 'sendgrid' && (
           <>
             <Grid item xs={12} md={6}>
               <TextField
+                required
                 fullWidth
                 label="From Email"
                 type="email"
-                value={config.fromEmail}
+                value={config.fromEmail || ''}
                 onChange={handleChange('fromEmail')}
               />
             </Grid>
@@ -273,7 +553,7 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
               <TextField
                 fullWidth
                 label="From Name"
-                value={config.fromName}
+                value={config.fromName || ''}
                 onChange={handleChange('fromName')}
               />
             </Grid>
@@ -285,42 +565,52 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                variant="filled"
                 label="Domain"
-                value={config.domain}
+                value={config.domain || ''}
                 onChange={handleChange('domain')}
-                InputLabelProps={{
-                  shrink: true,
-                }}
               />
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
                 required
-                error={!config.fromEmail}
                 fullWidth
-                variant="filled"
                 label="From Email"
                 type="email"
-                value={config.fromEmail}
+                value={config.fromEmail || ''}
                 onChange={handleChange('fromEmail')}
-                helperText={!config.fromEmail ? "From Email is required" : "Usually noreply@yourdomain"}
-                InputLabelProps={{
-                  shrink: true,
-                }}
+                helperText="Usually noreply@yourdomain"
               />
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                variant="filled"
                 label="From Name"
-                value={config.fromName}
+                value={config.fromName || ''}
                 onChange={handleChange('fromName')}
                 helperText="Display name for emails"
-                InputLabelProps={{
-                  shrink: true,
-                }}
+              />
+            </Grid>
+          </>
+        )}
+
+        {config.provider === 'smtp' && (
+          <>
+            <Grid item xs={12} md={6}>
+              <TextField
+                required
+                fullWidth
+                label="From Email"
+                type="email"
+                value={config.fromEmail || ''}
+                onChange={handleChange('fromEmail')}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="From Name"
+                value={config.fromName || ''}
+                onChange={handleChange('fromName')}
               />
             </Grid>
           </>
@@ -329,15 +619,11 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            variant="filled"
             label="Monthly Limit"
             type="number"
             value={config.monthlyLimit || ''}
             onChange={handleChange('monthlyLimit')}
             helperText="Leave empty for unlimited"
-            InputLabelProps={{
-              shrink: true,
-            }}
           />
         </Grid>
 
@@ -367,6 +653,12 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
           </Box>
         </Grid>
       </Grid>
+    </Box>
+  );
+
+  return (
+    <Box>
+      {mode === 'view' ? renderViewMode() : renderFormMode()}
 
       {/* Test Email Dialog */}
       <Dialog open={testEmailOpen} onClose={() => setTestEmailOpen(false)}>
@@ -388,7 +680,7 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setTestEmailOpen(false)}>Cancel</Button>
-          <Button 
+          <Button
             onClick={() => handleTest(testEmail)}
             disabled={!testEmail || loading}
           >
@@ -413,4 +705,4 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
       </Dialog>
     </Box>
   );
-}; 
+};
