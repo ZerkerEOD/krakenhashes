@@ -34,9 +34,14 @@ func SetupV1Routes(r *mux.Router, database *db.DB) {
 	hashlistRepo := repository.NewHashListRepository(database)
 	hashRepo := repository.NewHashRepository(database)
 	hashTypeRepo := repository.NewHashTypeRepository(database)
+	agentRepo := repository.NewAgentRepository(database)
+	voucherRepo := repository.NewClaimVoucherRepository(database)
+	workflowRepo := repository.NewJobWorkflowRepository(database.DB)
+	presetJobRepo := repository.NewPresetJobRepository(database.DB)
 
 	// Create services
 	userAPIService := services.NewUserAPIService(userRepo)
+	voucherService := services.NewClaimVoucherService(voucherRepo)
 
 	// Create config for hashlist processor
 	cfg := &config.Config{
@@ -78,6 +83,20 @@ func SetupV1Routes(r *mux.Router, database *db.DB) {
 	v1Router.HandleFunc("/hashlists", hashlistHandler.ListHashlists).Methods("GET", "OPTIONS")
 	v1Router.HandleFunc("/hashlists/{id:[0-9]+}", hashlistHandler.GetHashlist).Methods("GET", "OPTIONS")
 	v1Router.HandleFunc("/hashlists/{id:[0-9]+}", hashlistHandler.DeleteHashlist).Methods("DELETE", "OPTIONS")
+
+	// Agent endpoints
+	agentHandler := v1handlers.NewAgentHandler(agentRepo, voucherService)
+	v1Router.HandleFunc("/agents/vouchers", agentHandler.GenerateVoucher).Methods("POST", "OPTIONS")
+	v1Router.HandleFunc("/agents", agentHandler.ListAgents).Methods("GET", "OPTIONS")
+	v1Router.HandleFunc("/agents/{id:[0-9]+}", agentHandler.GetAgent).Methods("GET", "OPTIONS")
+	v1Router.HandleFunc("/agents/{id:[0-9]+}", agentHandler.UpdateAgent).Methods("PATCH", "OPTIONS")
+	v1Router.HandleFunc("/agents/{id:[0-9]+}", agentHandler.DeleteAgent).Methods("DELETE", "OPTIONS")
+
+	// Helper/Metadata endpoints
+	helperHandler := v1handlers.NewHelperHandler(hashTypeRepo, workflowRepo, presetJobRepo)
+	v1Router.HandleFunc("/hash-types", helperHandler.ListHashTypes).Methods("GET", "OPTIONS")
+	v1Router.HandleFunc("/workflows", helperHandler.ListWorkflows).Methods("GET", "OPTIONS")
+	v1Router.HandleFunc("/preset-jobs", helperHandler.ListPresetJobs).Methods("GET", "OPTIONS")
 
 	// TODO: Add job endpoints here once we can properly initialize job services
 	// This requires:

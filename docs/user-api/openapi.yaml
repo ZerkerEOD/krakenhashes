@@ -1,0 +1,822 @@
+openapi: 3.0.3
+info:
+  title: KrakenHashes User API
+  description: |
+    REST API for programmatic access to KrakenHashes functionality.
+
+    ## Authentication
+    All endpoints require two headers:
+    - `X-User-Email`: Your user email address
+    - `X-API-Key`: Your 64-character API key
+
+    ## Getting Started
+    1. Log into the KrakenHashes web interface
+    2. Navigate to Profile Settings
+    3. Generate an API key (save it immediately - it won't be shown again!)
+    4. Use the email and API key in your API requests
+
+    ## Base URL
+    - Production: `https://your-domain.com/api/v1`
+    - Development: `http://localhost:31337/api/v1`
+
+  version: 1.0.0
+  contact:
+    name: KrakenHashes Support
+    url: https://github.com/ZerkerEOD/krakenhashes
+
+servers:
+  - url: https://your-domain.com/api/v1
+    description: Production server
+  - url: http://localhost:31337/api/v1
+    description: Development server
+
+security:
+  - UserAPIKey: []
+
+tags:
+  - name: Health
+    description: API health check
+  - name: Clients
+    description: Manage clients (organizations/engagements)
+  - name: Hashlists
+    description: Upload and manage password hashlists
+  - name: Jobs
+    description: Create and manage cracking jobs
+  - name: Agents
+    description: Manage compute agents and registration vouchers
+  - name: Metadata
+    description: Helper endpoints for hash types, workflows, and presets
+
+components:
+  securitySchemes:
+    UserAPIKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Your 64-character API key
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      description: Page number (1-indexed)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    PageSizeParam:
+      name: page_size
+      in: query
+      description: Items per page (max 100)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  schemas:
+    Error:
+      type: object
+      required:
+        - error
+        - code
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+        code:
+          type: string
+          description: Machine-readable error code
+      example:
+        error: "Client not found"
+        code: "CLIENT_NOT_FOUND"
+
+    Client:
+      type: object
+      required:
+        - id
+        - name
+        - created_by_id
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique client identifier
+        name:
+          type: string
+          description: Client name
+        description:
+          type: string
+          nullable: true
+          description: Client description
+        created_by_id:
+          type: string
+          format: uuid
+          description: User who created the client
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Hashlist:
+      type: object
+      required:
+        - id
+        - name
+        - client_id
+        - hash_type
+        - created_at
+      properties:
+        id:
+          type: integer
+          description: Unique hashlist identifier
+        name:
+          type: string
+          description: Hashlist name
+        client_id:
+          type: string
+          format: uuid
+          description: Associated client ID
+        hash_type:
+          type: integer
+          description: Hashcat hash type ID
+        total_hashes:
+          type: integer
+          description: Total number of hashes
+        cracked_hashes:
+          type: integer
+          description: Number of cracked hashes
+        created_at:
+          type: string
+          format: date-time
+
+    Agent:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - version
+        - created_at
+      properties:
+        id:
+          type: integer
+          description: Unique agent identifier
+        name:
+          type: string
+          description: Agent name
+        status:
+          type: string
+          enum: [pending, active, inactive, error, disabled]
+          description: Agent status
+        is_enabled:
+          type: boolean
+          description: Whether agent is enabled
+        version:
+          type: string
+          description: Agent version
+        hardware:
+          type: object
+          description: Hardware information
+          properties:
+            gpus:
+              type: array
+              items:
+                type: object
+                properties:
+                  vendor:
+                    type: string
+                  model:
+                    type: string
+                  memory:
+                    type: integer
+        last_heartbeat:
+          type: string
+          format: date-time
+          description: Last heartbeat timestamp
+        created_at:
+          type: string
+          format: date-time
+
+    Voucher:
+      type: object
+      required:
+        - code
+        - is_active
+        - is_continuous
+        - created_at
+      properties:
+        code:
+          type: string
+          description: 32-character voucher code
+        is_active:
+          type: boolean
+          description: Whether voucher is active
+        is_continuous:
+          type: boolean
+          description: Whether voucher can be used multiple times
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Expiration timestamp
+
+    HashType:
+      type: object
+      required:
+        - id
+        - name
+        - is_enabled
+      properties:
+        id:
+          type: integer
+          description: Hashcat mode number
+        name:
+          type: string
+          description: Hash type name (e.g., "MD5", "NTLM")
+        description:
+          type: string
+          nullable: true
+          description: Description of the hash type
+        example:
+          type: string
+          nullable: true
+          description: Example hash format
+        is_enabled:
+          type: boolean
+          description: Whether hash type is supported
+        slow:
+          type: boolean
+          description: Whether this is a slow hash algorithm
+
+    Workflow:
+      type: object
+      required:
+        - id
+        - name
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Workflow ID
+        name:
+          type: string
+          description: Workflow name
+        steps:
+          type: array
+          description: Ordered workflow steps
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              preset_job_id:
+                type: string
+                format: uuid
+              step_order:
+                type: integer
+              preset_job_name:
+                type: string
+        created_at:
+          type: string
+          format: date-time
+
+    PresetJob:
+      type: object
+      required:
+        - id
+        - name
+        - attack_mode
+        - hash_type
+        - priority
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Preset job ID
+        name:
+          type: string
+          description: Preset job name
+        wordlist_ids:
+          type: array
+          items:
+            type: string
+          description: Associated wordlist IDs
+        rule_ids:
+          type: array
+          items:
+            type: string
+          description: Associated rule IDs
+        attack_mode:
+          type: string
+          enum: [dictionary, combinator, mask, hybrid_wordlist_mask, hybrid_mask_wordlist]
+          description: Attack mode
+        hash_type:
+          type: integer
+          description: Hashcat hash type ID
+        priority:
+          type: integer
+          description: Job priority (higher = more priority)
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Verify the User API is operational
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: API is operational
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  message:
+                    type: string
+                    example: "User API v1 is operational"
+
+  /clients:
+    get:
+      summary: List clients
+      description: Retrieve a paginated list of clients owned by the user
+      tags: [Clients]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: List of clients
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  clients:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Client'
+                  page:
+                    type: integer
+                  page_size:
+                    type: integer
+                  total:
+                    type: integer
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      summary: Create client
+      description: Create a new client (organization/engagement)
+      tags: [Clients]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  description: Client name (must be unique)
+                description:
+                  type: string
+                  nullable: true
+                  description: Client description
+      responses:
+        '201':
+          description: Client created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /clients/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Client ID
+
+    get:
+      summary: Get client
+      description: Retrieve a specific client by ID
+      tags: [Clients]
+      responses:
+        '200':
+          description: Client details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+        '404':
+          description: Client not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      summary: Update client
+      description: Update client details
+      tags: [Clients]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          description: Client updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+        '404':
+          description: Client not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Delete client
+      description: Delete a client (only if no hashlists exist)
+      tags: [Clients]
+      responses:
+        '204':
+          description: Client deleted successfully
+        '400':
+          description: Client has associated hashlists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Client not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /hashlists:
+    get:
+      summary: List hashlists
+      description: Retrieve a paginated list of hashlists
+      tags: [Hashlists]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: client_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by client ID
+      responses:
+        '200':
+          description: List of hashlists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hashlists:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Hashlist'
+                  page:
+                    type: integer
+                  page_size:
+                    type: integer
+                  total:
+                    type: integer
+
+    post:
+      summary: Create hashlist
+      description: Upload a new hashlist file
+      tags: [Hashlists]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - name
+                - client_id
+                - hash_type
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Hashlist file (one hash per line)
+                name:
+                  type: string
+                  description: Hashlist name
+                client_id:
+                  type: string
+                  format: uuid
+                  description: Associated client ID
+                hash_type:
+                  type: integer
+                  description: Hashcat hash type ID
+      responses:
+        '201':
+          description: Hashlist created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Hashlist'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /hashlists/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: Hashlist ID
+
+    get:
+      summary: Get hashlist
+      description: Retrieve hashlist details with statistics
+      tags: [Hashlists]
+      responses:
+        '200':
+          description: Hashlist details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Hashlist'
+        '404':
+          description: Hashlist not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Delete hashlist
+      description: Delete a hashlist and all associated data
+      tags: [Hashlists]
+      responses:
+        '204':
+          description: Hashlist deleted successfully
+        '404':
+          description: Hashlist not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /agents/vouchers:
+    post:
+      summary: Generate voucher
+      description: Generate a registration voucher for a new agent
+      tags: [Agents]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expires_in:
+                  type: integer
+                  description: Voucher lifetime in seconds (default 604800 = 7 days)
+                  default: 604800
+                is_continuous:
+                  type: boolean
+                  description: Whether voucher can be used multiple times
+                  default: false
+      responses:
+        '201':
+          description: Voucher generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Voucher'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /agents:
+    get:
+      summary: List agents
+      description: Retrieve a paginated list of agents owned by the user
+      tags: [Agents]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, active, inactive, error, disabled]
+          description: Filter by agent status
+      responses:
+        '200':
+          description: List of agents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agents:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Agent'
+                  page:
+                    type: integer
+                  page_size:
+                    type: integer
+                  total:
+                    type: integer
+
+  /agents/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: Agent ID
+
+    get:
+      summary: Get agent
+      description: Retrieve agent details
+      tags: [Agents]
+      responses:
+        '200':
+          description: Agent details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '404':
+          description: Agent not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      summary: Update agent
+      description: Update agent settings
+      tags: [Agents]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Agent name
+                extra_parameters:
+                  type: string
+                  description: Extra hashcat parameters
+                is_enabled:
+                  type: boolean
+                  description: Enable/disable agent
+      responses:
+        '200':
+          description: Agent updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '404':
+          description: Agent not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Delete agent
+      description: Disable an agent (soft delete)
+      tags: [Agents]
+      responses:
+        '204':
+          description: Agent disabled successfully
+        '404':
+          description: Agent not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /hash-types:
+    get:
+      summary: List hash types
+      description: Retrieve all available hash types
+      tags: [Metadata]
+      parameters:
+        - name: enabled_only
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Only return enabled hash types
+      responses:
+        '200':
+          description: List of hash types
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hash_types:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/HashType'
+                  total:
+                    type: integer
+
+  /workflows:
+    get:
+      summary: List workflows
+      description: Retrieve all available job workflows
+      tags: [Metadata]
+      responses:
+        '200':
+          description: List of workflows
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  workflows:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Workflow'
+                  total:
+                    type: integer
+
+  /preset-jobs:
+    get:
+      summary: List preset jobs
+      description: Retrieve all available preset jobs
+      tags: [Metadata]
+      responses:
+        '200':
+          description: List of preset jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  preset_jobs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PresetJob'
+                  total:
+                    type: integer
