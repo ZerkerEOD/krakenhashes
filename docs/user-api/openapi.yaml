@@ -155,6 +155,53 @@ components:
           type: string
           format: date-time
 
+    Job:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - priority
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique job identifier
+        name:
+          type: string
+          description: Job name
+        status:
+          type: string
+          enum: [pending, running, paused, completed, failed, canceled]
+          description: Job status
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: Job priority (1=lowest, 10=highest)
+        max_agents:
+          type: integer
+          minimum: 0
+          description: Maximum number of agents to assign (0=unlimited)
+        dispatched_percent:
+          type: number
+          format: float
+          description: Percentage of work dispatched
+        searched_percent:
+          type: number
+          format: float
+          description: Percentage of keyspace searched
+        cracked_count:
+          type: integer
+          description: Number of hashes cracked
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
     Agent:
       type: object
       required:
@@ -607,6 +654,181 @@ paths:
           description: Hashlist deleted successfully
         '404':
           description: Hashlist not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /jobs:
+    get:
+      summary: List jobs
+      description: Retrieve a paginated list of jobs owned by the user
+      tags: [Jobs]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, running, paused, completed, failed, canceled]
+          description: Filter by job status
+      responses:
+        '200':
+          description: List of jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Job'
+                  page:
+                    type: integer
+                  page_size:
+                    type: integer
+                  total:
+                    type: integer
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      summary: Create job
+      description: Create a new cracking job using a preset configuration or workflow
+      tags: [Jobs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - hashlist_id
+              properties:
+                name:
+                  type: string
+                  description: Job name
+                hashlist_id:
+                  type: integer
+                  description: ID of the hashlist to crack
+                preset_job_id:
+                  type: string
+                  format: uuid
+                  description: Preset job ID (mutually exclusive with workflow_id)
+                workflow_id:
+                  type: string
+                  format: uuid
+                  description: Workflow ID (mutually exclusive with preset_job_id)
+                priority:
+                  type: integer
+                  minimum: 1
+                  maximum: 10
+                  default: 5
+                  description: Job priority (1=lowest, 10=highest)
+                max_agents:
+                  type: integer
+                  minimum: 0
+                  default: 0
+                  description: Maximum agents to assign (0=unlimited)
+              example:
+                name: "Potfile Run for Client ABC"
+                hashlist_id: 123
+                preset_job_id: "fe03b156-df7a-41a8-a591-abce3c0f0217"
+                priority: 8
+                max_agents: 5
+      responses:
+        '201':
+          description: Job created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Hashlist, preset, or workflow not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /jobs/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Job ID
+
+    get:
+      summary: Get job details
+      description: Retrieve detailed information about a specific job
+      tags: [Jobs]
+      responses:
+        '200':
+          description: Job details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      summary: Update job
+      description: Update job priority or max_agents allocation
+      tags: [Jobs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                priority:
+                  type: integer
+                  minimum: 1
+                  maximum: 10
+                  description: New job priority
+                max_agents:
+                  type: integer
+                  minimum: 0
+                  description: New max agents limit
+              example:
+                priority: 9
+                max_agents: 10
+      responses:
+        '200':
+          description: Job updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Job not found
           content:
             application/json:
               schema:

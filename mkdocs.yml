@@ -115,6 +115,12 @@ nav:
     - Analyzing Results: user-guide/analyzing-results.md
     - Analytics Reports: user-guide/analytics-reports.md
     - Troubleshooting: user-guide/troubleshooting.md
+  - User API:
+    - user-api/README.md
+    - User Guide: user-api/USER_GUIDE.md
+    - Examples:
+      - Python Client: user-api/examples/python_client.py
+      - cURL Examples: user-api/examples/curl_examples.sh
   - Admin Guide:
     - admin-guide/index.md
     - System Setup:

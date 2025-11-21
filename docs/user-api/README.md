@@ -39,6 +39,10 @@ All endpoints require `X-User-Email` and `X-API-Key` headers.
 | | `GET /agents/{id}` | Get agent |
 | | `PATCH /agents/{id}` | Update agent |
 | | `DELETE /agents/{id}` | Disable agent |
+| **Jobs** | `GET /jobs` | List jobs |
+| | `POST /jobs` | Create job |
+| | `GET /jobs/{id}` | Get job |
+| | `PATCH /jobs/{id}` | Update job |
 | **Metadata** | `GET /hash-types` | List hash types |
 | | `GET /workflows` | List workflows |
 | | `GET /preset-jobs` | List preset jobs |

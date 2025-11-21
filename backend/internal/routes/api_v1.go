@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/config"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	v1handlers "github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/api/v1"
@@ -17,16 +18,11 @@ import (
 )
 
 // SetupV1Routes configures all /api/v1 routes for the User API
-// Note: Job endpoints are currently disabled until proper service dependencies can be passed in
-func SetupV1Routes(r *mux.Router, database *db.DB) {
+func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager binary.Manager) {
 	debug.Info("Setting up /api/v1 User API routes")
 
-	// Get data directory from environment
-	dataDirectory := os.Getenv("KH_DATA_DIR")
-	if dataDirectory == "" {
-		dataDirectory = "/data/krakenhashes"
-	}
-	dataDirectory = filepath.Clean(dataDirectory)
+	// Use provided data directory
+	dataDirectory := filepath.Clean(dataDir)
 
 	// Create repositories
 	userRepo := repository.NewUserRepository(database)
@@ -98,13 +94,51 @@ func SetupV1Routes(r *mux.Router, database *db.DB) {
 	v1Router.HandleFunc("/workflows", helperHandler.ListWorkflows).Methods("GET", "OPTIONS")
 	v1Router.HandleFunc("/preset-jobs", helperHandler.ListPresetJobs).Methods("GET", "OPTIONS")
 
-	// TODO: Add job endpoints here once we can properly initialize job services
-	// This requires:
-	// - JobExecutionService
-	// - JobSchedulingService
-	// - PresetJobRepository
-	// - WorkflowRepository
-	// These services have complex dependencies that should be passed in from main.go
+	// Job endpoints - create necessary repositories and services
+	jobExecRepo := repository.NewJobExecutionRepository(database)
+	jobTaskRepo := repository.NewJobTaskRepository(database)
+	benchmarkRepo := repository.NewBenchmarkRepository(database)
+	agentHashlistRepo := repository.NewAgentHashlistRepository(database)
+	deviceRepo := repository.NewAgentDeviceRepository(database)
+	scheduleRepo := repository.NewAgentScheduleRepository(database)
+	systemSettingsRepo := repository.NewSystemSettingsRepository(database)
+	fileRepo := repository.NewFileRepository(database, dataDirectory)
+
+	// Create job execution service
+	jobExecutionService := services.NewJobExecutionService(
+		database,
+		jobExecRepo,
+		jobTaskRepo,
+		benchmarkRepo,
+		agentHashlistRepo,
+		agentRepo,
+		deviceRepo,
+		presetJobRepo,
+		hashlistRepo,
+		systemSettingsRepo,
+		fileRepo,
+		scheduleRepo,
+		binaryManager,
+		"", // hashcatBinaryPath - not needed for keyspace calculation
+		dataDirectory,
+	)
+
+	// Create job handler (schedulingService is nil as it's only needed for Delete/Stop operations)
+	jobHandler := v1handlers.NewJobHandler(
+		jobExecutionService,
+		jobExecRepo,
+		jobTaskRepo,
+		hashlistRepo,
+		clientRepo,
+		presetJobRepo,
+		workflowRepo,
+		nil, // schedulingService not needed for core CRUD operations
+	)
+
+	v1Router.HandleFunc("/jobs", jobHandler.CreateJob).Methods("POST", "OPTIONS")
+	v1Router.HandleFunc("/jobs", jobHandler.ListJobs).Methods("GET", "OPTIONS")
+	v1Router.HandleFunc("/jobs/{id}", jobHandler.GetJob).Methods("GET", "OPTIONS")
+	v1Router.HandleFunc("/jobs/{id}", jobHandler.UpdateJob).Methods("PATCH", "OPTIONS")
 
 	debug.Info("/api/v1 User API routes configured successfully")
 	debug.Info("User API authentication requires X-User-Email and X-API-Key headers")

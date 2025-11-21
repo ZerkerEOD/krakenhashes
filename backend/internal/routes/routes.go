@@ -256,7 +256,7 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	debug.Info("Setting up WebSocket routes...")
 
 	// Setup User API v1 routes
-	SetupV1Routes(r, database)
+	SetupV1Routes(r, database, appConfig.DataDir, binaryManager)
 
 	debug.Info("Route configuration completed successfully")
 	logRegisteredRoutes(r)

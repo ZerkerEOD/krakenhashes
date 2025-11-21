@@ -510,8 +510,9 @@ const ProfileSettings: React.FC = () => {
             <Button
               variant="text"
               component={Link}
-              href="/docs/user-api/"
+              href="https://zerkereod.github.io/krakenhashes/user-api/"
               target="_blank"
+              rel="noopener noreferrer"
             >
               View API Documentation
             </Button>

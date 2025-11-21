@@ -61,9 +61,7 @@ Compute agents perform the actual cracking work.
 
 ### 4. Jobs
 
-Jobs define cracking tasks (workflows or preset-based).
-
-**Note:** Job endpoints require additional service dependencies and are not yet available in the User API. Use the web interface for job management.
+Jobs define cracking tasks (workflows or preset-based). You can create jobs using preset configurations (like potfile runs) and manage their priority and agent allocation.
 
 ## Common Workflows
 

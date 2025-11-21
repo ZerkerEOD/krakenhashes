@@ -398,12 +398,33 @@ export const terminateAllUserSessions = async (userId: string) => {
 
 // Generate a new API key
 export const generateApiKey = async () => {
-  return api.post<ApiKeyResponse>('/api/user/api-key');
+  const response = await api.post<any>('/api/user/api-key');
+  // Backend returns {api_key, created_at} in snake_case without wrapper
+  // Transform to match expected format: {data: {data: {apiKey, createdAt}}}
+  return {
+    data: {
+      data: {
+        apiKey: response.data.api_key,
+        createdAt: response.data.created_at
+      }
+    }
+  };
 };
 
 // Get API key info
 export const getApiKeyInfo = async () => {
-  return api.get<ApiKeyInfoResponse>('/api/user/api-key/info');
+  const response = await api.get<any>('/api/user/api-key/info');
+  // Backend returns {has_key, created_at, last_used} in snake_case
+  // Transform to camelCase and wrap in data.data structure
+  return {
+    data: {
+      data: {
+        hasKey: response.data.has_key,
+        createdAt: response.data.created_at,
+        lastUsed: response.data.last_used
+      }
+    }
+  };
 };
 
 // Revoke API key
@@ -415,7 +436,18 @@ export const revokeApiKey = async () => {
 
 // Get user API key info (admin)
 export const getAdminUserApiKeyInfo = async (userId: string) => {
-  return api.get<ApiKeyInfoResponse>(`/api/admin/users/${userId}/api-key/info`);
+  const response = await api.get<any>(`/api/admin/users/${userId}/api-key/info`);
+  // Backend returns {has_key, created_at, last_used} in snake_case
+  // Transform to camelCase and wrap in data.data structure
+  return {
+    data: {
+      data: {
+        hasKey: response.data.has_key,
+        createdAt: response.data.created_at,
+        lastUsed: response.data.last_used
+      }
+    }
+  };
 };
 
 // Revoke user API key (admin)
