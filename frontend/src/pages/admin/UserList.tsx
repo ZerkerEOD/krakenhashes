@@ -274,9 +274,27 @@ const UserList: React.FC = () => {
             width: 180,
             renderCell: (params: GridRenderCellParams) => formatDate(params.value as string)
         },
-        { 
-            field: 'createdAt', 
-            headerName: 'Created', 
+        {
+            field: 'createdAt',
+            headerName: 'Created',
+            width: 180,
+            renderCell: (params: GridRenderCellParams) => formatDate(params.value as string)
+        },
+        {
+            field: 'hasApiKey',
+            headerName: 'API Key',
+            width: 100,
+            renderCell: (params: GridRenderCellParams) => {
+                const user = params.row as User;
+                if (user.hasApiKey) {
+                    return <Chip label="Active" size="small" color="success" />;
+                }
+                return <Chip label="None" size="small" color="default" />;
+            }
+        },
+        {
+            field: 'apiKeyLastUsed',
+            headerName: 'Last API Use',
             width: 180,
             renderCell: (params: GridRenderCellParams) => formatDate(params.value as string)
         },

@@ -405,4 +405,14 @@ func SetupUserRoutes(router *mux.Router, database *db.DB, dataDir string, binary
 			"accessToken": accessToken,
 		})
 	}).Methods("POST")
+
+	// User API Key management routes
+	userRepo := repository.NewUserRepository(database)
+	userAPIService := services.NewUserAPIService(userRepo)
+	apiKeyHandler := user.NewAPIKeyHandler(userAPIService)
+
+	router.HandleFunc("/user/api-key", apiKeyHandler.GenerateAPIKey).Methods("POST", "OPTIONS")
+	router.HandleFunc("/user/api-key", apiKeyHandler.RevokeAPIKey).Methods("DELETE", "OPTIONS")
+	router.HandleFunc("/user/api-key/info", apiKeyHandler.GetAPIKeyInfo).Methods("GET", "OPTIONS")
+	debug.Info("Configured user API key management routes")
 }

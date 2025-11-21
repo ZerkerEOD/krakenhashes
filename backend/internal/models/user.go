@@ -39,6 +39,9 @@ type User struct {
 	DisabledAt             *time.Time `json:"disabled_at" db:"disabled_at"`
 	DisabledBy             *uuid.UUID `json:"disabled_by" db:"disabled_by"`
 	NotifyOnJobCompletion  bool       `json:"notify_on_job_completion" db:"notify_on_job_completion"`
+	APIKey                 string     `json:"-" db:"api_key"`
+	APIKeyCreatedAt        *time.Time `json:"api_key_created_at,omitempty" db:"api_key_created_at"`
+	APIKeyLastUsed         *time.Time `json:"api_key_last_used,omitempty" db:"api_key_last_used"`
 }
 
 // NotificationPreferences represents user notification settings

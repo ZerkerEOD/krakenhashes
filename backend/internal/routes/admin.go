@@ -13,6 +13,7 @@ import (
 	emailhandler "github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/email"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/middleware"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/gorilla/mux"
 )
@@ -101,6 +102,13 @@ func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.S
 	adminRouter.HandleFunc("/users/{id:[0-9a-fA-F-]+}/sessions", userHandler.GetUserSessions).Methods(http.MethodGet, http.MethodOptions)
 	adminRouter.HandleFunc("/users/{id:[0-9a-fA-F-]+}/sessions", userHandler.TerminateAllUserSessions).Methods(http.MethodDelete, http.MethodOptions)
 	adminRouter.HandleFunc("/users/{id:[0-9a-fA-F-]+}/sessions/{sessionId:[0-9a-fA-F-]+}", userHandler.TerminateSession).Methods(http.MethodDelete, http.MethodOptions)
+
+	// User API Key management routes (admin)
+	userAPIService := services.NewUserAPIService(userRepo)
+	apiKeyAdminHandler := adminuser.NewAPIKeyAdminHandler(userAPIService)
+	adminRouter.HandleFunc("/users/{id:[0-9a-fA-F-]+}/api-key/info", apiKeyAdminHandler.GetUserAPIKeyInfo).Methods(http.MethodGet, http.MethodOptions)
+	adminRouter.HandleFunc("/users/{id:[0-9a-fA-F-]+}/api-key", apiKeyAdminHandler.RevokeUserAPIKey).Methods(http.MethodDelete, http.MethodOptions)
+	debug.Info("Configured admin user API key management routes")
 
 	// Email configuration endpoints
 	adminRouter.HandleFunc("/email/config", emailHandler.GetConfig).Methods("GET", "OPTIONS")

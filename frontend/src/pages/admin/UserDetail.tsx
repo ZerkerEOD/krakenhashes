@@ -22,6 +22,7 @@ import DevicesIcon from '@mui/icons-material/Devices';
 import HistoryIcon from '@mui/icons-material/History';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
+import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import { useSnackbar, closeSnackbar } from 'notistack';
 import { format, formatDistanceToNow } from 'date-fns';
 
@@ -37,8 +38,11 @@ import {
     getUserLoginAttempts,
     getUserSessions,
     terminateSession,
-    terminateAllUserSessions
+    terminateAllUserSessions,
+    getAdminUserApiKeyInfo,
+    revokeAdminUserApiKey
 } from '../../services/api';
+import { ApiKeyInfo } from '../../types/user';
 
 const UserDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -73,6 +77,11 @@ const UserDetail: React.FC = () => {
     const [terminateSessionId, setTerminateSessionId] = useState<string | null>(null);
     const [terminateAllDialogOpen, setTerminateAllDialogOpen] = useState(false);
     const [attemptFilter, setAttemptFilter] = useState<'all' | 'success' | 'failed'>('all');
+
+    // API Key state
+    const [apiKeyInfo, setApiKeyInfo] = useState<ApiKeyInfo | null>(null);
+    const [apiKeyLoading, setApiKeyLoading] = useState(false);
+    const [showRevokeApiKeyDialog, setShowRevokeApiKeyDialog] = useState(false);
 
     const fetchUser = useCallback(async () => {
         if (!id) return;
@@ -124,11 +133,27 @@ const UserDetail: React.FC = () => {
         }
     }, [id, enqueueSnackbar]);
 
+    const fetchApiKeyInfo = useCallback(async () => {
+        if (!id) return;
+
+        setApiKeyLoading(true);
+        try {
+            const response = await getAdminUserApiKeyInfo(id);
+            setApiKeyInfo(response.data.data);
+        } catch (err) {
+            console.error("Failed to fetch API key info:", err);
+            enqueueSnackbar('Failed to load API key info', { variant: 'error' });
+        } finally {
+            setApiKeyLoading(false);
+        }
+    }, [id, enqueueSnackbar]);
+
     useEffect(() => {
         fetchUser();
         fetchSessions();
         fetchLoginAttempts();
-    }, [fetchUser, fetchSessions, fetchLoginAttempts]);
+        fetchApiKeyInfo();
+    }, [fetchUser, fetchSessions, fetchLoginAttempts, fetchApiKeyInfo]);
 
     useEffect(() => {
         if (user) {
@@ -314,6 +339,23 @@ const UserDetail: React.FC = () => {
         } catch (err) {
             console.error('Failed to terminate all sessions:', err);
             enqueueSnackbar('Failed to terminate all sessions', { variant: 'error' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleRevokeApiKey = async () => {
+        if (!user) return;
+
+        setSaving(true);
+        try {
+            await revokeAdminUserApiKey(user.id);
+            enqueueSnackbar('API key revoked successfully', { variant: 'success' });
+            setShowRevokeApiKeyDialog(false);
+            fetchApiKeyInfo(); // Refresh API key info
+        } catch (err) {
+            console.error('Failed to revoke API key:', err);
+            enqueueSnackbar('Failed to revoke API key', { variant: 'error' });
         } finally {
             setSaving(false);
         }
@@ -542,6 +584,70 @@ const UserDetail: React.FC = () => {
                                     Reset Password
                                 </Button>
                             </Box>
+                        </CardContent>
+                    </Card>
+
+                    {/* API Key Management Card */}
+                    <Card sx={{ mt: 3 }}>
+                        <CardContent>
+                            <Typography variant="h6" gutterBottom>API Key Management</Typography>
+                            <Divider sx={{ mb: 2 }} />
+
+                            {apiKeyLoading ? (
+                                <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                                    <CircularProgress size={24} />
+                                </Box>
+                            ) : (
+                                <List>
+                                    <ListItem>
+                                        <ListItemIcon>
+                                            <VpnKeyIcon color={apiKeyInfo?.hasKey ? 'success' : 'disabled'} />
+                                        </ListItemIcon>
+                                        <ListItemText
+                                            primary="API Key Status"
+                                            secondary={apiKeyInfo?.hasKey ? 'Active' : 'No API Key Generated'}
+                                        />
+                                    </ListItem>
+
+                                    {apiKeyInfo?.hasKey && (
+                                        <>
+                                            <ListItem>
+                                                <ListItemText
+                                                    primary="Created"
+                                                    secondary={formatDate(apiKeyInfo.createdAt)}
+                                                    sx={{ pl: 7 }}
+                                                />
+                                            </ListItem>
+                                            <ListItem>
+                                                <ListItemText
+                                                    primary="Last Used"
+                                                    secondary={formatDate(apiKeyInfo.lastUsed)}
+                                                    sx={{ pl: 7 }}
+                                                />
+                                            </ListItem>
+                                        </>
+                                    )}
+                                </List>
+                            )}
+
+                            {apiKeyInfo?.hasKey && (
+                                <Box sx={{ mt: 2 }}>
+                                    <Button
+                                        variant="outlined"
+                                        color="error"
+                                        onClick={() => setShowRevokeApiKeyDialog(true)}
+                                        disabled={apiKeyLoading}
+                                    >
+                                        Revoke API Key
+                                    </Button>
+                                </Box>
+                            )}
+
+                            <Alert severity="info" sx={{ mt: 2 }}>
+                                <Typography variant="caption">
+                                    Admins can revoke API keys but cannot view the plaintext key for security reasons.
+                                </Typography>
+                            </Alert>
                         </CardContent>
                     </Card>
                 </Grid>
@@ -905,6 +1011,35 @@ const UserDetail: React.FC = () => {
                         disabled={saving}
                     >
                         Terminate All
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Revoke API Key Dialog */}
+            <Dialog
+                open={showRevokeApiKeyDialog}
+                onClose={() => setShowRevokeApiKeyDialog(false)}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle>Revoke User API Key?</DialogTitle>
+                <DialogContent>
+                    <Alert severity="error" sx={{ mb: 2 }}>
+                        This will immediately disable API access for this user. Any applications using this key will stop working.
+                    </Alert>
+                    <Typography>
+                        Are you sure you want to revoke this user's API key?
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setShowRevokeApiKeyDialog(false)}>Cancel</Button>
+                    <Button
+                        onClick={handleRevokeApiKey}
+                        variant="contained"
+                        color="error"
+                        disabled={saving}
+                    >
+                        Revoke API Key
                     </Button>
                 </DialogActions>
             </Dialog>

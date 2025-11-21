@@ -31,6 +31,11 @@ export interface User {
   
   // Teams (if applicable)
   teams?: Team[];
+
+  // API Key status
+  hasApiKey?: boolean;
+  apiKeyCreatedAt?: string;
+  apiKeyLastUsed?: string;
 }
 
 export interface Team {
@@ -115,4 +120,28 @@ export interface TerminateAllSessionsResponse {
     message: string;
     count: number;
   };
+}
+
+// API Key Management
+export interface ApiKeyInfo {
+  hasKey: boolean;
+  createdAt?: string;
+  lastUsed?: string;
+}
+
+export interface ApiKeyGenerateResponse {
+  apiKey: string;
+  createdAt: string;
+}
+
+export interface ApiKeyGenerateRequest {
+  // No fields needed - backend generates the key
+}
+
+export interface ApiKeyInfoResponse {
+  data: ApiKeyInfo;
+}
+
+export interface ApiKeyResponse {
+  data: ApiKeyGenerateResponse;
 }

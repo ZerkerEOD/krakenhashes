@@ -4,7 +4,7 @@
 import axios from 'axios';
 import type { AxiosError } from 'axios';
 import { Client } from '../types/client'; // Moved import to top
-import { User, UserUpdateRequest, DisableUserRequest, ResetPasswordRequest, UserListResponse, UserDetailResponse, LoginAttemptsResponse, ActiveSessionsResponse, TerminateSessionResponse, TerminateAllSessionsResponse } from '../types/user';
+import { User, UserUpdateRequest, DisableUserRequest, ResetPasswordRequest, UserListResponse, UserDetailResponse, LoginAttemptsResponse, ActiveSessionsResponse, TerminateSessionResponse, TerminateAllSessionsResponse, ApiKeyInfoResponse, ApiKeyResponse } from '../types/user';
 import { transformUserResponse, transformUserListResponse, transformLoginAttempt, transformActiveSession } from '../utils/userTransform';
 import {
   PresetJob,
@@ -392,6 +392,35 @@ export const terminateSession = async (userId: string, sessionId: string) => {
 // Terminate all user sessions
 export const terminateAllUserSessions = async (userId: string) => {
   return api.delete<TerminateAllSessionsResponse>(`/api/admin/users/${userId}/sessions`);
+};
+
+// --- API Key Management (User) ---
+
+// Generate a new API key
+export const generateApiKey = async () => {
+  return api.post<ApiKeyResponse>('/api/user/api-key');
+};
+
+// Get API key info
+export const getApiKeyInfo = async () => {
+  return api.get<ApiKeyInfoResponse>('/api/user/api-key/info');
+};
+
+// Revoke API key
+export const revokeApiKey = async () => {
+  return api.delete('/api/user/api-key');
+};
+
+// --- API Key Management (Admin) ---
+
+// Get user API key info (admin)
+export const getAdminUserApiKeyInfo = async (userId: string) => {
+  return api.get<ApiKeyInfoResponse>(`/api/admin/users/${userId}/api-key/info`);
+};
+
+// Revoke user API key (admin)
+export const revokeAdminUserApiKey = async (userId: string) => {
+  return api.delete(`/api/admin/users/${userId}/api-key`);
 };
 
 // --- Admin: Preset Jobs ---

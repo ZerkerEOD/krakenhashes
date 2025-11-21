@@ -106,7 +106,7 @@ const (
 		) RETURNING id`
 
 	GetUserByID = `
-		SELECT 
+		SELECT
 			id, username, email, password_hash, role,
 			created_at, updated_at, mfa_enabled, mfa_type,
 			mfa_secret, backup_codes, preferred_mfa_method,
@@ -114,7 +114,8 @@ const (
 			last_failed_attempt, account_locked,
 			account_locked_until, account_enabled,
 			last_login, disabled_reason, disabled_at,
-			disabled_by, notify_on_job_completion
+			disabled_by, notify_on_job_completion,
+			api_key, api_key_created_at, api_key_last_used
 		FROM users
 		WHERE id = $1`
 
