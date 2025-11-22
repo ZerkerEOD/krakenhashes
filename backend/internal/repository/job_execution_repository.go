@@ -27,9 +27,10 @@ func (r *JobExecutionRepository) Create(ctx context.Context, exec *models.JobExe
 		INSERT INTO job_executions (
 			preset_job_id, hashlist_id, status, priority, max_agents, attack_mode, total_keyspace, created_by,
 			name, wordlist_ids, rule_ids, mask, binary_version_id, hash_type,
-			chunk_size_seconds, status_updates_enabled, allow_high_priority_override, additional_args
+			chunk_size_seconds, status_updates_enabled, allow_high_priority_override, additional_args,
+			increment_mode, increment_min, increment_max
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
 		RETURNING id, created_at`
 
 	err := r.db.QueryRowContext(ctx, query,
@@ -51,6 +52,9 @@ func (r *JobExecutionRepository) Create(ctx context.Context, exec *models.JobExe
 		exec.StatusUpdatesEnabled,
 		exec.AllowHighPriorityOverride,
 		exec.AdditionalArgs,
+		exec.IncrementMode,
+		exec.IncrementMin,
+		exec.IncrementMax,
 	).Scan(&exec.ID, &exec.CreatedAt)
 
 	if err != nil {
@@ -76,7 +80,8 @@ func (r *JobExecutionRepository) GetByID(ctx context.Context, id uuid.UUID) (*mo
 			je.wordlist_ids, je.rule_ids, je.mask, je.binary_version_id,
 			je.chunk_size_seconds, je.status_updates_enabled, je.allow_high_priority_override,
 			je.additional_args, je.hash_type, je.updated_at,
-			je.avg_rule_multiplier, je.is_accurate_keyspace
+			je.avg_rule_multiplier, je.is_accurate_keyspace,
+			je.increment_mode, je.increment_min, je.increment_max
 		FROM job_executions je
 		WHERE je.id = $1`
 
@@ -95,6 +100,7 @@ func (r *JobExecutionRepository) GetByID(ctx context.Context, id uuid.UUID) (*mo
 		&exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled, &exec.AllowHighPriorityOverride,
 		&exec.AdditionalArgs, &exec.HashType, &exec.UpdatedAt,
 		&exec.AvgRuleMultiplier, &exec.IsAccurateKeyspace,
+		&exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
 	)
 
 	if err == sql.ErrNoRows {
@@ -124,7 +130,8 @@ func (r *JobExecutionRepository) GetPendingJobs(ctx context.Context) ([]models.J
 			je.name, je.wordlist_ids, je.rule_ids, je.mask,
 			je.binary_version_id, je.chunk_size_seconds, je.status_updates_enabled,
 			je.allow_high_priority_override, je.additional_args,
-			je.hash_type
+			je.hash_type,
+			je.increment_mode, je.increment_min, je.increment_max
 		FROM job_executions je
 		WHERE je.status = 'pending'
 		ORDER BY je.priority DESC, je.created_at ASC`
@@ -153,6 +160,7 @@ func (r *JobExecutionRepository) GetPendingJobs(ctx context.Context) ([]models.J
 			&exec.BinaryVersionID, &exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled,
 			&exec.AllowHighPriorityOverride, &exec.AdditionalArgs,
 			&exec.HashType,
+			&exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan job execution: %w", err)
@@ -166,10 +174,11 @@ func (r *JobExecutionRepository) GetPendingJobs(ctx context.Context) ([]models.J
 // GetRunningJobs retrieves all currently running jobs
 func (r *JobExecutionRepository) GetRunningJobs(ctx context.Context) ([]models.JobExecution, error) {
 	query := `
-		SELECT 
+		SELECT
 			je.id, je.preset_job_id, je.hashlist_id, je.status, je.priority,
 			je.total_keyspace, je.processed_keyspace, je.attack_mode,
-			je.created_at, je.started_at, je.completed_at, je.error_message, je.interrupted_by
+			je.created_at, je.started_at, je.completed_at, je.error_message, je.interrupted_by,
+			je.increment_mode, je.increment_min, je.increment_max
 		FROM job_executions je
 		WHERE je.status = 'running'`
 
@@ -186,6 +195,7 @@ func (r *JobExecutionRepository) GetRunningJobs(ctx context.Context) ([]models.J
 			&exec.ID, &exec.PresetJobID, &exec.HashlistID, &exec.Status, &exec.Priority,
 			&exec.TotalKeyspace, &exec.ProcessedKeyspace, &exec.AttackMode,
 			&exec.CreatedAt, &exec.StartedAt, &exec.CompletedAt, &exec.ErrorMessage, &exec.InterruptedBy,
+			&exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan job execution: %w", err)
@@ -728,6 +738,7 @@ func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]
 			je.binary_version_id, je.chunk_size_seconds, je.status_updates_enabled,
 			je.allow_high_priority_override, je.additional_args,
 			je.hash_type,
+			je.increment_mode, je.increment_min, je.increment_max,
 			COALESCE(js.active_agents, 0) as active_agents,
 			COALESCE(js.pending_tasks, 0) + COALESCE(js.retryable_tasks, 0) as pending_work
 		FROM job_executions je
@@ -775,6 +786,7 @@ func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]
 			&exec.BinaryVersionID, &exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled,
 			&exec.AllowHighPriorityOverride, &exec.AdditionalArgs,
 			&exec.HashType,
+			&exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
 			&exec.ActiveAgents, &exec.PendingWork,
 		)
 		if err != nil {
@@ -795,7 +807,7 @@ func (r *JobExecutionRepository) GetNonCompletedJobsByHashlistID(ctx context.Con
 			dispatched_keyspace, multiplication_factor, uses_rule_splitting, overall_progress_percent,
 			chunk_size_seconds, allow_high_priority_override, wordlist_ids, rule_ids, mask,
 			additional_args, binary_version_id, started_at, completed_at, error_message, created_by,
-			created_at, updated_at
+			created_at, updated_at, increment_mode, increment_min, increment_max
 		FROM job_executions
 		WHERE hashlist_id = $1 AND status != 'completed'
 		ORDER BY priority DESC, created_at ASC
@@ -817,7 +829,7 @@ func (r *JobExecutionRepository) GetNonCompletedJobsByHashlistID(ctx context.Con
 			&exec.OverallProgressPercent, &exec.ChunkSizeSeconds, &exec.AllowHighPriorityOverride,
 			&exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.AdditionalArgs, &exec.BinaryVersionID,
 			&exec.StartedAt, &exec.CompletedAt, &exec.ErrorMessage, &exec.CreatedBy,
-			&exec.CreatedAt, &exec.UpdatedAt,
+			&exec.CreatedAt, &exec.UpdatedAt, &exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan job execution: %w", err)

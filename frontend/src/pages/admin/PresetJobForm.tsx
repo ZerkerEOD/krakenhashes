@@ -62,7 +62,10 @@ const getInitialFormState = (defaultChunkDuration: number = 300): PresetJobFormD
   binary_version_id: 0,
   allow_high_priority_override: false,
   mask: '',
-  max_agents: 0
+  max_agents: 0,
+  increment_mode: 'off',
+  increment_min: '',
+  increment_max: ''
 });
 
 // Attack mode descriptions and requirements
@@ -193,7 +196,10 @@ const PresetJobFormPage: React.FC = () => {
               binary_version_id: presetJob.binary_version_id,
               allow_high_priority_override: presetJob.allow_high_priority_override,
               mask: presetJob.mask || '',
-              max_agents: presetJob.max_agents || 0
+              max_agents: presetJob.max_agents || 0,
+              increment_mode: presetJob.increment_mode || 'off',
+              increment_min: presetJob.increment_min || '',
+              increment_max: presetJob.increment_max || ''
             });
 
             // Initialize combination wordlists if in combination mode
@@ -687,6 +693,64 @@ const PresetJobFormPage: React.FC = () => {
               }
             />
           </Grid>
+        )}
+
+        {/* Increment Mode - only show for mask-based attack modes */}
+        {showMaskInput && (
+          <>
+            <Grid item xs={12}>
+              <FormControl fullWidth margin="normal">
+                <InputLabel id="increment-mode-label">Increment Mode</InputLabel>
+                <Select
+                  labelId="increment-mode-label"
+                  name="increment_mode"
+                  value={formData.increment_mode}
+                  onChange={(e) => setFormData({...formData, increment_mode: e.target.value as string})}
+                  label="Increment Mode"
+                >
+                  <MenuItem value="off">Off (Default)</MenuItem>
+                  <MenuItem value="increment">Increment (Left-to-Right: ?l → ?l?l → ?l?l?l)</MenuItem>
+                  <MenuItem value="increment_inverse">Increment Inverse (Right-to-Left)</MenuItem>
+                </Select>
+                <FormHelperText>
+                  Increment mode tries shorter masks first, growing progressively longer. Use inverse to grow from right instead of left.
+                </FormHelperText>
+              </FormControl>
+            </Grid>
+
+            {formData.increment_mode !== 'off' && (
+              <Grid item xs={12}>
+                <Grid container spacing={2}>
+                  <Grid item xs={6}>
+                    <TextField
+                      name="increment_min"
+                      label="Increment Min"
+                      type="number"
+                      value={formData.increment_min}
+                      onChange={handleChange}
+                      fullWidth
+                      margin="normal"
+                      inputProps={{ min: 1 }}
+                      helperText="Starting mask length (optional)"
+                    />
+                  </Grid>
+                  <Grid item xs={6}>
+                    <TextField
+                      name="increment_max"
+                      label="Increment Max"
+                      type="number"
+                      value={formData.increment_max}
+                      onChange={handleChange}
+                      fullWidth
+                      margin="normal"
+                      inputProps={{ min: 1 }}
+                      helperText="Maximum mask length (optional)"
+                    />
+                  </Grid>
+                </Grid>
+              </Grid>
+            )}
+          </>
         )}
 
         {/* Wordlists - Special handling for Combination mode */}

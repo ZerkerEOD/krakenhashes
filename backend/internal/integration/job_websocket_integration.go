@@ -337,19 +337,30 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 		WordlistPaths:   wordlistPaths,
 		RulePaths:       rulePaths,
 		Mask:            jobExecution.Mask,
+		IncrementMode:   jobExecution.IncrementMode,
+		IncrementMin:    jobExecution.IncrementMin,
+		IncrementMax:    jobExecution.IncrementMax,
 		BinaryPath:      binaryPath,
 		ChunkDuration:   task.ChunkDuration,
 		ReportInterval:  reportInterval,
 		OutputFormat:    "3",                   // hash:plain format
 		ExtraParameters: agent.ExtraParameters, // Agent-specific hashcat parameters
 		EnabledDevices:  enabledDeviceIDs,      // Only populated if some devices are disabled
+		IsKeyspaceSplit: task.IsKeyspaceSplit,
 	}
+
+	// DEBUG: Log increment mode values before marshaling
+	debug.Info("Task assignment increment values - Mode: %s, Min: %v, Max: %v",
+		assignment.IncrementMode, assignment.IncrementMin, assignment.IncrementMax)
 
 	// Marshal payload
 	payloadBytes, err := json.Marshal(assignment)
 	if err != nil {
 		return fmt.Errorf("failed to marshal task assignment: %w", err)
 	}
+
+	// DEBUG: Log the marshaled JSON
+	debug.Info("Marshaled task assignment JSON: %s", string(payloadBytes))
 
 	// Create WebSocket message
 	msg := &wsservice.Message{

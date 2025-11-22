@@ -60,6 +60,10 @@ type JobTaskAssignment struct {
 	OutputFormat    string      `json:"output_format"`    // Hashcat output format
 	ExtraParameters string      `json:"extra_parameters,omitempty"` // Agent-specific hashcat parameters
 	EnabledDevices  []int       `json:"enabled_devices,omitempty"`  // List of enabled device IDs
+	IncrementMode   string      `json:"increment_mode,omitempty"`   // Mask increment mode: off, increment, increment_inverse
+	IncrementMin    *int        `json:"increment_min,omitempty"`    // Starting mask length for increment mode
+	IncrementMax    *int        `json:"increment_max,omitempty"`    // Maximum mask length for increment mode
+	IsKeyspaceSplit bool        `json:"is_keyspace_split"`          // Whether this task uses keyspace splitting (--skip/--limit)
 }
 
 // DeviceMetric represents metrics for a single device
@@ -480,7 +484,28 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 		extraParamsList := strings.Fields(extraParams)
 		args = append(args, extraParamsList...)
 	}
-	
+
+	// Add increment flags for mask-based attacks
+	if assignment.IncrementMode == "increment" || assignment.IncrementMode == "increment_inverse" {
+		if assignment.IncrementMode == "increment" {
+			args = append(args, "--increment")
+			debug.Info("Adding --increment flag for left-to-right mask increment")
+		} else if assignment.IncrementMode == "increment_inverse" {
+			args = append(args, "--increment-inverse")
+			debug.Info("Adding --increment-inverse flag for right-to-left mask increment")
+		}
+
+		if assignment.IncrementMin != nil {
+			args = append(args, "--increment-min", strconv.Itoa(*assignment.IncrementMin))
+			debug.Info("Adding --increment-min %d", *assignment.IncrementMin)
+		}
+
+		if assignment.IncrementMax != nil {
+			args = append(args, "--increment-max", strconv.Itoa(*assignment.IncrementMax))
+			debug.Info("Adding --increment-max %d", *assignment.IncrementMax)
+		}
+	}
+
 	// Only add --outfile for actual job execution, not benchmarks
 	// Note: --remove flag removed as it's not needed for distributed cracking
 	// The backend tracks which hashes are cracked via the database
@@ -508,11 +533,13 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 		}
 	}
 	
-	if !isRuleSplitTask {
+	// Only use --skip/--limit when explicitly doing keyspace splitting
+	// Do NOT use for rule chunking (isRuleSplitTask) or increment mode
+	if assignment.IsKeyspaceSplit {
 		if assignment.KeyspaceStart > 0 {
 			args = append(args, "--skip", strconv.FormatInt(assignment.KeyspaceStart, 10))
 		}
-		
+
 		if assignment.KeyspaceEnd > assignment.KeyspaceStart {
 			keyspaceRange := assignment.KeyspaceEnd - assignment.KeyspaceStart
 			args = append(args, "--limit", strconv.FormatInt(keyspaceRange, 10))

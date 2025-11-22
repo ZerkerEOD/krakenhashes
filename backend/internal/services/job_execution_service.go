@@ -101,6 +101,9 @@ type CustomJobConfig struct {
 	BinaryVersionID           int
 	AllowHighPriorityOverride bool
 	ChunkSizeSeconds          int
+	IncrementMode             string
+	IncrementMin              *int
+	IncrementMax              *int
 }
 
 // CreateJobExecution creates a new job execution from a preset job and hashlist
@@ -163,6 +166,9 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		BinaryVersionID:           presetJob.BinaryVersionID,
 		Mask:                      presetJob.Mask,
 		AdditionalArgs:            presetJob.AdditionalArgs,
+		IncrementMode:             presetJob.IncrementMode,
+		IncrementMin:              presetJob.IncrementMin,
+		IncrementMax:              presetJob.IncrementMax,
 	}
 
 	err = s.jobExecRepo.Create(ctx, jobExecution)
@@ -245,6 +251,9 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		AllowHighPriorityOverride: config.AllowHighPriorityOverride,
 		ChunkSizeSeconds:          chunkSize,
 		StatusUpdatesEnabled:      true,
+		IncrementMode:             config.IncrementMode,
+		IncrementMin:              config.IncrementMin,
+		IncrementMax:              config.IncrementMax,
 	}
 
 	// Use the same keyspace calculation as preset jobs
@@ -277,6 +286,9 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		BinaryVersionID:           config.BinaryVersionID,
 		Mask:                      config.Mask,
 		AdditionalArgs:            nil,
+		IncrementMode:             config.IncrementMode,
+		IncrementMin:              config.IncrementMin,
+		IncrementMax:              config.IncrementMax,
 	}
 
 	err = s.jobExecRepo.Create(ctx, jobExecution)
@@ -2172,6 +2184,23 @@ func (s *JobExecutionService) buildAttackCommand(ctx context.Context, presetJob 
 	if job.AdditionalArgs != nil && *job.AdditionalArgs != "" {
 		additionalArgs := strings.Fields(*job.AdditionalArgs)
 		args = append(args, additionalArgs...)
+	}
+
+	// Add increment flags for mask-based attacks
+	if job.IncrementMode == "increment" || job.IncrementMode == "increment_inverse" {
+		if job.IncrementMode == "increment" {
+			args = append(args, "--increment")
+		} else if job.IncrementMode == "increment_inverse" {
+			args = append(args, "--increment-inverse")
+		}
+
+		if job.IncrementMin != nil {
+			args = append(args, "--increment-min", strconv.Itoa(*job.IncrementMin))
+		}
+
+		if job.IncrementMax != nil {
+			args = append(args, "--increment-max", strconv.Itoa(*job.IncrementMax))
+		}
 	}
 
 	// Join command

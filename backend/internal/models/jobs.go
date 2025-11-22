@@ -68,6 +68,9 @@ type PresetJob struct {
 	AdditionalArgs            *string    `json:"additional_args,omitempty" db:"additional_args"` // Additional hashcat arguments
 	Keyspace                  *int64     `json:"keyspace,omitempty" db:"keyspace"`               // Pre-calculated keyspace for this preset
 	MaxAgents                 int        `json:"max_agents" db:"max_agents"`                     // Max agents allowed (0 = unlimited)
+	IncrementMode             string     `json:"increment_mode,omitempty" db:"increment_mode"`   // Mask increment mode: off, increment, increment_inverse
+	IncrementMin              *int       `json:"increment_min,omitempty" db:"increment_min"`     // Starting mask length for increment mode
+	IncrementMax              *int       `json:"increment_max,omitempty" db:"increment_max"`     // Maximum mask length for increment mode
 	CreatedAt                 time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt                 time.Time  `json:"updated_at" db:"updated_at"`
 
@@ -157,6 +160,9 @@ type JobExecution struct {
 	BinaryVersionID           int     `json:"binary_version_id" db:"binary_version_id"`
 	Mask                      string  `json:"mask,omitempty" db:"mask"`
 	AdditionalArgs            *string `json:"additional_args,omitempty" db:"additional_args"`
+	IncrementMode             string  `json:"increment_mode,omitempty" db:"increment_mode"` // Mask increment mode: off, increment, increment_inverse
+	IncrementMin              *int    `json:"increment_min,omitempty" db:"increment_min"`   // Starting mask length for increment mode
+	IncrementMax              *int    `json:"increment_max,omitempty" db:"increment_max"`   // Maximum mask length for increment mode
 
 	// Enhanced chunking fields
 	BaseKeyspace         *int64   `json:"base_keyspace" db:"base_keyspace"`                 // Wordlist-only keyspace
@@ -233,6 +239,7 @@ type JobTask struct {
 	RuleEndIndex    *int    `json:"rule_end_index" db:"rule_end_index"`         // Ending rule index for this chunk
 	RuleChunkPath   *string `json:"rule_chunk_path" db:"rule_chunk_path"`       // Path to temporary rule chunk file
 	IsRuleSplitTask bool    `json:"is_rule_split_task" db:"is_rule_split_task"` // Whether this is a rule-split task
+	IsKeyspaceSplit bool    `json:"is_keyspace_split" db:"is_keyspace_split"`   // Whether this task uses keyspace splitting (--skip/--limit)
 
 	// Chunk tracking
 	ChunkNumber int `json:"chunk_number" db:"chunk_number"` // Sequential chunk number within this job (1, 2, 3...)
@@ -338,6 +345,9 @@ type JobTaskAssignment struct {
 	ChunkDuration  int        `json:"chunk_duration"`  // Expected duration in seconds
 	ReportInterval int        `json:"report_interval"` // Progress reporting interval
 	OutputFormat   string     `json:"output_format"`   // Hashcat output format
+	IncrementMode  string     `json:"increment_mode,omitempty"` // Mask increment mode: off, increment, increment_inverse
+	IncrementMin   *int       `json:"increment_min,omitempty"`  // Starting mask length for increment mode
+	IncrementMax   *int       `json:"increment_max,omitempty"`  // Maximum mask length for increment mode
 }
 
 // DeviceMetric represents metrics for a single device

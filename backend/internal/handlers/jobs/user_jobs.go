@@ -538,12 +538,24 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 				BinaryVersionID           int      `json:"binary_version_id"`
 				AllowHighPriorityOverride bool     `json:"allow_high_priority_override"`
 				ChunkSizeSeconds          int      `json:"chunk_size_seconds"`
+				IncrementMode             string   `json:"increment_mode"`
+				IncrementMin              *int     `json:"increment_min"`
+				IncrementMax              *int     `json:"increment_max"`
 			} `json:"custom_job"`
 		}
 		if err := json.Unmarshal(rawReq, &req); err != nil {
 			http.Error(w, "Invalid custom job request", http.StatusBadRequest)
 			return
 		}
+
+		// Debug logging for increment mode
+		debug.Info("Received custom job request with increment settings", map[string]interface{}{
+			"increment_mode": req.CustomJob.IncrementMode,
+			"increment_min":  req.CustomJob.IncrementMin,
+			"increment_max":  req.CustomJob.IncrementMax,
+			"mask":           req.CustomJob.Mask,
+			"attack_mode":    req.CustomJob.AttackMode,
+		})
 
 		// Create custom job configuration (NO preset job creation)
 		config := services.CustomJobConfig{
@@ -557,6 +569,9 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			BinaryVersionID:           req.CustomJob.BinaryVersionID,
 			AllowHighPriorityOverride: req.CustomJob.AllowHighPriorityOverride,
 			ChunkSizeSeconds:          req.CustomJob.ChunkSizeSeconds,
+			IncrementMode:             req.CustomJob.IncrementMode,
+			IncrementMin:              req.CustomJob.IncrementMin,
+			IncrementMax:              req.CustomJob.IncrementMax,
 		}
 
 		// Generate job name for custom job

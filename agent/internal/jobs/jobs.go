@@ -181,11 +181,18 @@ func (jm *JobManager) SetCrackBatchesCompleteCallback(callback func(*CrackBatche
 
 // ProcessJobAssignment processes a job assignment from the backend
 func (jm *JobManager) ProcessJobAssignment(ctx context.Context, assignmentData []byte) error {
+	// DEBUG: Log raw JSON received
+	debug.Info("Received task assignment JSON: %s", string(assignmentData))
+
 	var assignment JobTaskAssignment
 	err := json.Unmarshal(assignmentData, &assignment)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal job assignment: %w", err)
 	}
+
+	// DEBUG: Log increment values after unmarshaling
+	debug.Info("Unmarshaled increment values - Mode: %s, Min: %v, Max: %v",
+		assignment.IncrementMode, assignment.IncrementMin, assignment.IncrementMax)
 
 	// Processing is already shown by "Task received" message
 	debug.Info("Hashlist ID: %d, Hashlist Path: %s", assignment.HashlistID, assignment.HashlistPath)
