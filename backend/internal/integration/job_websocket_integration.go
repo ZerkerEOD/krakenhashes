@@ -758,13 +758,6 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 		// Calculate new end = start + chunk's actual size
 		actualEffectiveEnd := effectiveStart + chunkActualKeyspace
 
-		// Calculate adjustment for job dispatched keyspace
-		estimatedChunkSize := int64(0)
-		if task.EffectiveKeyspaceEnd != nil {
-			estimatedChunkSize = *task.EffectiveKeyspaceEnd - effectiveStart
-		}
-		dispatchedAdjustment := chunkActualKeyspace - estimatedChunkSize
-
 		// Update task with actual values AND store chunk size for cascade calculations
 		err = s.jobTaskRepo.UpdateTaskEffectiveKeyspaceWithChunkSize(ctx, progress.TaskID,
 			effectiveStart, actualEffectiveEnd, chunkActualKeyspace)
@@ -774,19 +767,9 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			debug.Info("Updated task %s: start=%d, end=%d, chunk_size=%d (is_actual_keyspace=true)",
 				progress.TaskID, effectiveStart, actualEffectiveEnd, chunkActualKeyspace)
 
-			// Adjust job's dispatched keyspace to reflect actual vs estimated
+			// Get job execution repository for effective keyspace updates
 			database := &db.DB{DB: s.db}
 			jobExecRepo := repository.NewJobExecutionRepository(database)
-
-			if dispatchedAdjustment != 0 {
-				err = jobExecRepo.IncrementDispatchedKeyspace(ctx, task.JobExecutionID, dispatchedAdjustment)
-				if err != nil {
-					debug.Error("Failed to adjust job dispatched keyspace: %v", err)
-				} else {
-					debug.Info("Adjusted job %s dispatched keyspace by %d (actual vs estimated)",
-						task.JobExecutionID, dispatchedAdjustment)
-				}
-			}
 
 			// For single-task jobs (NO RULE SPLITTING), also update effective_keyspace to match actual
 			// This ensures progress calculations use actual keyspace, not estimates

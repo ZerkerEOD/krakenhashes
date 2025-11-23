@@ -425,35 +425,8 @@ func (r *JobTaskRepository) MarkTaskFailedPermanently(ctx context.Context, taskI
 		}
 	}
 
-	// Decrement the dispatched keyspace since this work will never complete
-	// Use the EFFECTIVE chunk size that was originally dispatched
-	var chunkSize int64
-	if effectiveKeyspaceStart.Valid && effectiveKeyspaceEnd.Valid {
-		chunkSize = effectiveKeyspaceEnd.Int64 - effectiveKeyspaceStart.Int64
-	} else {
-		// Fallback to base keyspace if effective not set
-		chunkSize = keyspaceEnd - keyspaceStart
-	}
-
-	if chunkSize > 0 {
-		decrementDispatchedQuery := `
-			UPDATE job_executions
-			SET dispatched_keyspace = GREATEST(dispatched_keyspace - $1, 0),
-			    updated_at = CURRENT_TIMESTAMP
-			WHERE id = $2`
-		_, err = tx.ExecContext(ctx, decrementDispatchedQuery, chunkSize, jobExecutionID)
-		if err != nil {
-			return fmt.Errorf("failed to decrement job dispatched keyspace: %w", err)
-		}
-
-		debug.Log("Decremented dispatched keyspace for permanently failed task", map[string]interface{}{
-			"task_id":                 taskID,
-			"job_execution_id":        jobExecutionID,
-			"chunk_size_decremented":  chunkSize,
-			"used_effective_keyspace": effectiveKeyspaceStart.Valid && effectiveKeyspaceEnd.Valid,
-			"error_message":           errorMessage,
-		})
-	}
+	// Note: Job-level progress is now calculated by the polling service (JobProgressCalculationService)
+	// which runs every 2 seconds and recalculates from task data. No manual decrement needed.
 
 	// Commit transaction
 	if err = tx.Commit(); err != nil {
@@ -886,35 +859,8 @@ func (r *JobTaskRepository) ResetTaskForRetry(ctx context.Context, id uuid.UUID)
 		}
 	}
 
-	// Decrement the dispatched keyspace to return the work back to the pool
-	// Use the EFFECTIVE chunk size that was originally dispatched, not the base chunk size
-	// This matches what was added when the task was assigned
-	var chunkSize int64
-	if effectiveKeyspaceStart.Valid && effectiveKeyspaceEnd.Valid {
-		chunkSize = effectiveKeyspaceEnd.Int64 - effectiveKeyspaceStart.Int64
-	} else {
-		// Fallback to base keyspace if effective not set (shouldn't happen with new code)
-		chunkSize = keyspaceEnd - keyspaceStart
-	}
-
-	if chunkSize > 0 {
-		decrementDispatchedQuery := `
-			UPDATE job_executions
-			SET dispatched_keyspace = GREATEST(dispatched_keyspace - $1, 0),
-			    updated_at = CURRENT_TIMESTAMP
-			WHERE id = $2`
-		_, err = tx.ExecContext(ctx, decrementDispatchedQuery, chunkSize, jobExecutionID)
-		if err != nil {
-			return fmt.Errorf("failed to decrement job dispatched keyspace: %w", err)
-		}
-
-		debug.Log("Decremented dispatched keyspace for task retry", map[string]interface{}{
-			"task_id": id,
-			"job_execution_id": jobExecutionID,
-			"chunk_size_decremented": chunkSize,
-			"used_effective_keyspace": effectiveKeyspaceStart.Valid && effectiveKeyspaceEnd.Valid,
-		})
-	}
+	// Note: Job-level progress is now calculated by the polling service (JobProgressCalculationService)
+	// which runs every 2 seconds and recalculates from task data. No manual decrement needed.
 
 	// Commit transaction
 	if err = tx.Commit(); err != nil {

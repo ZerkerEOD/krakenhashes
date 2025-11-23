@@ -230,22 +230,8 @@ func (s *HashlistCompletionService) completeJob(ctx context.Context, job *models
 		return fmt.Errorf("failed to complete job execution: %w", err)
 	}
 
-	// Set progress to 100%
-	// Use effective keyspace if available, otherwise fall back to total keyspace
-	var targetKeyspace int64
-	if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
-		targetKeyspace = *job.EffectiveKeyspace
-	} else if job.TotalKeyspace != nil && *job.TotalKeyspace > 0 {
-		targetKeyspace = *job.TotalKeyspace
-	}
-
-	if targetKeyspace > 0 {
-		err = s.jobExecRepo.UpdateProgress(ctx, job.ID, targetKeyspace)
-		if err != nil {
-			debug.Error("Failed to set 100%% progress for job %s: %v", job.ID, err)
-			// Continue - not critical
-		}
-	}
+	// Note: Job-level progress is now calculated by the polling service (JobProgressCalculationService)
+	// which runs every 2 seconds and recalculates from task data
 
 	// TODO: Re-enable with special "hashlist fully cracked" email template
 	// Temporarily disabled to prevent duplicate emails (job_execution_service also sends completion email)
