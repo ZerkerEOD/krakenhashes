@@ -34,10 +34,10 @@ const (
 	IsTokenExpiredByIdleTimeout = `
 		SELECT EXISTS(
 			SELECT 1 FROM tokens t
-			JOIN auth_settings as
+			JOIN auth_settings a
 			ON true
 			WHERE t.token = $1
-			AND t.last_activity < CURRENT_TIMESTAMP - INTERVAL '1 minute' * as.jwt_expiry_minutes
+			AND t.last_activity < CURRENT_TIMESTAMP - INTERVAL '1 minute' * a.jwt_expiry_minutes
 		)`
 
 	// User MFA Data Query
