@@ -455,6 +455,13 @@ func main() {
 		debug.Warning("Job integration manager not initialized, job scheduler will not start")
 	}
 
+	// Initialize and start job progress calculation service
+	debug.Info("Starting job progress calculation service...")
+	jobProgressCalcService := services.NewJobProgressCalculationService(dbWrapper, jobExecutionRepo, jobTaskRepo)
+	jobProgressCalcService.Start()
+	defer jobProgressCalcService.Stop()
+	debug.Info("Job progress calculation service started successfully")
+
 	// Wait for interrupt signal or server error
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
