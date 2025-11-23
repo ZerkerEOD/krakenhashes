@@ -1146,16 +1146,7 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 			if err != nil {
 				return nil, interruptedJobs, fmt.Errorf("failed to assign pending task to agent: %w", err)
 			}
-			
-			// Update dispatched keyspace for the job
-			if pendingTask.EffectiveKeyspaceStart != nil && pendingTask.EffectiveKeyspaceEnd != nil {
-				dispatchedKeyspace := *pendingTask.EffectiveKeyspaceEnd - *pendingTask.EffectiveKeyspaceStart
-				err = s.jobExecutionService.jobExecRepo.IncrementDispatchedKeyspace(ctx, nextJob.ID, dispatchedKeyspace)
-				if err != nil {
-					debug.Error("Failed to update dispatched keyspace: %v", err)
-				}
-			}
-			
+
 			jobTask = pendingTask
 		} else {
 			// No pending tasks, create a new chunk
@@ -1392,14 +1383,6 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 			"job_id":  nextJob.ID,
 		})
 
-		// Update dispatched keyspace
-		// For rule splitting, we need to account for the number of rules in this chunk
-		dispatchedKeyspace := baseKeyspace * int64(chunk.RuleCount)
-		err = s.jobExecutionService.jobExecRepo.IncrementDispatchedKeyspace(ctx, nextJob.ID, dispatchedKeyspace)
-		if err != nil {
-			debug.Error("Failed to update dispatched keyspace: %v", err)
-		}
-		
 		// Update rule_split_count to reflect actual chunks created
 		actualChunksCreated := chunkNumber
 		nextJob.RuleSplitCount = actualChunksCreated
@@ -1407,13 +1390,12 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 		if err != nil {
 			debug.Error("Failed to update rule split count: %v", err)
 		}
-		
-		debug.Log("Updated dispatched keyspace and rule split count", map[string]interface{}{
-			"job_id":              nextJob.ID,
-			"base_keyspace":       baseKeyspace,
-			"rules_in_chunk":      chunk.RuleCount,
-			"dispatched_keyspace": dispatchedKeyspace,
-			"rule_split_count":    actualChunksCreated,
+
+		debug.Log("Updated rule split count", map[string]interface{}{
+			"job_id":           nextJob.ID,
+			"base_keyspace":    baseKeyspace,
+			"rules_in_chunk":   chunk.RuleCount,
+			"rule_split_count": actualChunksCreated,
 		})
 
 		jobTask = task
