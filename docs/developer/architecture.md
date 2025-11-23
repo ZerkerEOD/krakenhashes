@@ -99,6 +99,9 @@ The backend follows a clean layered architecture with clear separation of concer
     - Round-robin benchmark distribution
     - Two-phase task planning (sequential planning, parallel execution)
     - Forced benchmark agent prioritization
+- `JobProgressCalculationService` - Polling-based progress calculation
+  - Recalculates job progress every 2 seconds from task data
+  - Ensures accurate processed/dispatched keyspace tracking
 - `ClientService` - Customer management
 - `RetentionService` - Automated data purging with secure deletion
 - `WebSocketService` - Real-time communication hub
@@ -140,7 +143,7 @@ The backend follows a clean layered architecture with clear separation of concer
 - **File Synchronization**: Agent-backend file sync
 - **Monitoring**: System metrics and heartbeat management
 - **Data Retention**: Configurable retention policies
-- **Accurate Keyspace Tracking**: Captures real keyspace from hashcat `progress[1]` values for precise progress reporting
+- **Accurate Keyspace Tracking**: Captures real keyspace from hashcat `progress[1]` values and recalculates progress every 2 seconds for precise, self-healing progress reporting
 
 ## Frontend Architecture
 

@@ -280,26 +280,6 @@ func (r *JobExecutionRepository) UpdateErrorMessage(ctx context.Context, id uuid
 	return nil
 }
 
-// UpdateProgress updates the processed keyspace for a job execution
-func (r *JobExecutionRepository) UpdateProgress(ctx context.Context, id uuid.UUID, processedKeyspace int64) error {
-	query := `UPDATE job_executions SET processed_keyspace = $1 WHERE id = $2`
-	result, err := r.db.ExecContext(ctx, query, processedKeyspace, id)
-	if err != nil {
-		return fmt.Errorf("failed to update job execution progress: %w", err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-
-	if rowsAffected == 0 {
-		return ErrNotFound
-	}
-
-	return nil
-}
-
 // UpdateProgressPercent updates the overall progress percentage for a job execution
 func (r *JobExecutionRepository) UpdateProgressPercent(ctx context.Context, id uuid.UUID, progressPercent float64) error {
 	now := time.Now()
@@ -644,56 +624,6 @@ func (r *JobExecutionRepository) UpdateDispatchedKeyspace(ctx context.Context, i
 	result, err := r.db.ExecContext(ctx, query, dispatchedKeyspace, id)
 	if err != nil {
 		return fmt.Errorf("failed to update job execution dispatched keyspace: %w", err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-
-	if rowsAffected == 0 {
-		return ErrNotFound
-	}
-
-	return nil
-}
-
-// IncrementDispatchedKeyspace atomically increments the dispatched keyspace by the given amount
-func (r *JobExecutionRepository) IncrementDispatchedKeyspace(ctx context.Context, id uuid.UUID, increment int64) error {
-	query := `
-		UPDATE job_executions 
-		SET dispatched_keyspace = dispatched_keyspace + $1,
-		    updated_at = CURRENT_TIMESTAMP
-		WHERE id = $2`
-	
-	result, err := r.db.ExecContext(ctx, query, increment, id)
-	if err != nil {
-		return fmt.Errorf("failed to increment job execution dispatched keyspace: %w", err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-
-	if rowsAffected == 0 {
-		return ErrNotFound
-	}
-
-	return nil
-}
-
-// DecrementDispatchedKeyspace atomically decrements the dispatched keyspace by the given amount
-func (r *JobExecutionRepository) DecrementDispatchedKeyspace(ctx context.Context, id uuid.UUID, decrement int64) error {
-	query := `
-		UPDATE job_executions
-		SET dispatched_keyspace = GREATEST(dispatched_keyspace - $1, 0),
-		    updated_at = CURRENT_TIMESTAMP
-		WHERE id = $2`
-
-	result, err := r.db.ExecContext(ctx, query, decrement, id)
-	if err != nil {
-		return fmt.Errorf("failed to decrement job execution dispatched keyspace: %w", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()

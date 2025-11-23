@@ -1198,11 +1198,6 @@ func (s *JobExecutionService) CreateJobTask(ctx context.Context, jobExecution *m
 		"base_chunk_size":      baseChunkSize,
 	})
 
-	if err := s.jobExecRepo.IncrementDispatchedKeyspace(ctx, jobExecution.ID, effectiveChunkSize); err != nil {
-		debug.Error("Failed to update dispatched keyspace for job %s: %v", jobExecution.ID, err)
-		// Continue processing - this is not a critical error
-	}
-
 	debug.Log("Job task created", map[string]interface{}{
 		"task_id":               jobTask.ID,
 		"agent_id":              agent.ID,
@@ -1259,10 +1254,7 @@ func (s *JobExecutionService) CompleteJobExecution(ctx context.Context, jobExecu
 					} else {
 						debug.Info("Updated effective_keyspace from %d to %d (actual from hashcat)", oldEffective, job.ProcessedKeyspace)
 
-						// Recalculate progress percentage (will be 100%)
-						if progressErr := s.UpdateJobProgressPercent(ctx, jobExecutionID, 100.0); progressErr != nil {
-							debug.Error("Failed to update progress percent: %v", progressErr)
-						}
+						// Note: Progress percentage now calculated by polling service (JobProgressCalculationService)
 					}
 				}
 			}
@@ -1302,199 +1294,18 @@ func (s *JobExecutionService) CompleteJobExecution(ctx context.Context, jobExecu
 	return nil
 }
 
-// UpdateJobProgress updates the progress of a job execution
-func (s *JobExecutionService) UpdateJobProgress(ctx context.Context, jobExecutionID uuid.UUID, processedKeyspace int64) error {
-	err := s.jobExecRepo.UpdateProgress(ctx, jobExecutionID, processedKeyspace)
-	if err != nil {
-		return fmt.Errorf("failed to update job progress: %w", err)
-	}
-
-	return nil
-}
-
 // UpdateTaskProgress updates the progress of a task accounting for rule splitting
 func (s *JobExecutionService) UpdateTaskProgress(ctx context.Context, taskID uuid.UUID, keyspaceProcessed int64, effectiveProgress int64, hashRate *int64, progressPercent float64) error {
-	// Get the task to determine if it's a rule-split task
-	task, err := s.jobTaskRepo.GetByID(ctx, taskID)
-	if err != nil {
-		return fmt.Errorf("failed to get task: %w", err)
-	}
-
 	// Always use effective progress from hashcat's progress[0]
 	// Hashcat automatically accounts for rules, masks, etc.
 	effectiveKeyspaceProcessed := effectiveProgress
 
-	// Update the task progress first
-	err = s.jobTaskRepo.UpdateProgress(ctx, taskID, keyspaceProcessed, effectiveKeyspaceProcessed, hashRate, progressPercent)
+	// Update the task progress
+	// Note: Job-level progress is now calculated by the polling service (JobProgressCalculationService)
+	// which runs every 2 seconds and recalculates from task data
+	err := s.jobTaskRepo.UpdateProgress(ctx, taskID, keyspaceProcessed, effectiveKeyspaceProcessed, hashRate, progressPercent)
 	if err != nil {
 		return fmt.Errorf("failed to update task progress: %w", err)
-	}
-
-	// Calculate total job progress
-	totalProgress, err := s.calculateTotalJobProgress(ctx, task.JobExecutionID)
-	if err != nil {
-		return fmt.Errorf("failed to calculate total job progress: %w", err)
-	}
-
-	// Calculate overall progress percentage
-	overallPercent, err := s.calculateOverallProgressPercent(ctx, task.JobExecutionID)
-	if err != nil {
-		return fmt.Errorf("failed to calculate overall progress percent: %w", err)
-	}
-
-	// Update job execution progress
-	err = s.UpdateJobProgress(ctx, task.JobExecutionID, totalProgress)
-	if err != nil {
-		return fmt.Errorf("failed to update job progress: %w", err)
-	}
-
-	// Update overall progress percentage
-	err = s.UpdateJobProgressPercent(ctx, task.JobExecutionID, overallPercent)
-	if err != nil {
-		return fmt.Errorf("failed to update job progress percent: %w", err)
-	}
-
-	return nil
-}
-
-// calculateTotalJobProgress aggregates progress accounting for effective keyspace and rule splitting
-func (s *JobExecutionService) calculateTotalJobProgress(ctx context.Context, jobID uuid.UUID) (int64, error) {
-	job, err := s.jobExecRepo.GetByID(ctx, jobID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get job execution: %w", err)
-	}
-
-	tasks, err := s.jobTaskRepo.GetTasksByJobExecution(ctx, jobID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get tasks: %w", err)
-	}
-
-	var totalProgress int64
-
-	if job.UsesRuleSplitting {
-		// Sum effective progress from all rule chunks
-		for _, task := range tasks {
-			if task.IsRuleSplitTask && task.EffectiveKeyspaceProcessed != nil {
-				// Use the effective keyspace processed directly
-				totalProgress += *task.EffectiveKeyspaceProcessed
-			} else if task.IsRuleSplitTask && task.RuleStartIndex != nil && task.RuleEndIndex != nil {
-				// Fallback for tasks without effective_keyspace_processed (backward compatibility)
-				rulesInChunk := (*task.RuleEndIndex - *task.RuleStartIndex)
-				chunkProgress := task.KeyspaceProcessed * int64(rulesInChunk)
-				totalProgress += chunkProgress
-			} else {
-				// Non-rule split task in a job that uses rule splitting
-				totalProgress += task.KeyspaceProcessed
-			}
-		}
-	} else if job.MultiplicationFactor > 1 {
-		// Virtual keyspace tracking (e.g., combination attack)
-		for _, task := range tasks {
-			if task.EffectiveKeyspaceProcessed != nil {
-				totalProgress += *task.EffectiveKeyspaceProcessed
-			} else {
-				// Fallback calculation
-				totalProgress += task.KeyspaceProcessed * int64(job.MultiplicationFactor)
-			}
-		}
-	} else {
-		// Standard progress aggregation
-		for _, task := range tasks {
-			if task.EffectiveKeyspaceProcessed != nil {
-				totalProgress += *task.EffectiveKeyspaceProcessed
-			} else {
-				totalProgress += task.KeyspaceProcessed
-			}
-		}
-	}
-
-	debug.Log("Calculated total job progress", map[string]interface{}{
-		"job_id":                jobID,
-		"total_progress":        totalProgress,
-		"uses_rule_splitting":   job.UsesRuleSplitting,
-		"multiplication_factor": job.MultiplicationFactor,
-		"task_count":            len(tasks),
-	})
-
-	return totalProgress, nil
-}
-
-// calculateOverallProgressPercent calculates the overall progress percentage for a job
-func (s *JobExecutionService) calculateOverallProgressPercent(ctx context.Context, jobID uuid.UUID) (float64, error) {
-	job, err := s.jobExecRepo.GetByID(ctx, jobID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get job execution: %w", err)
-	}
-
-	tasks, err := s.jobTaskRepo.GetTasksByJobExecution(ctx, jobID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get tasks: %w", err)
-	}
-
-	var overallPercent float64
-
-	// For all jobs (including rule splitting), calculate based on effective keyspace
-	if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
-		var totalEffectiveProcessed int64 = 0
-		
-		// Sum up all effective keyspace processed from all tasks
-		for _, task := range tasks {
-			if task.EffectiveKeyspaceProcessed != nil {
-				totalEffectiveProcessed += *task.EffectiveKeyspaceProcessed
-			} else if job.UsesRuleSplitting && task.IsRuleSplitTask {
-				// Fallback for rule split tasks without effective_keyspace_processed
-				if task.RuleStartIndex != nil && task.RuleEndIndex != nil {
-					rulesInChunk := (*task.RuleEndIndex - *task.RuleStartIndex)
-					totalEffectiveProcessed += task.KeyspaceProcessed * int64(rulesInChunk)
-				}
-			} else if job.MultiplicationFactor > 1 {
-				// Fallback for jobs with multiplication factor
-				totalEffectiveProcessed += task.KeyspaceProcessed * int64(job.MultiplicationFactor)
-			} else {
-				// Standard tasks
-				totalEffectiveProcessed += task.KeyspaceProcessed
-			}
-		}
-		
-		// Calculate percentage based on effective keyspace
-		overallPercent = (float64(totalEffectiveProcessed) / float64(*job.EffectiveKeyspace)) * 100
-		
-		debug.Log("Effective keyspace-based progress calculation", map[string]interface{}{
-			"job_id":                    jobID,
-			"total_effective_keyspace":  *job.EffectiveKeyspace,
-			"total_effective_processed": totalEffectiveProcessed,
-			"overall_percent":           overallPercent,
-			"uses_rule_splitting":       job.UsesRuleSplitting,
-		})
-	} else if job.TotalKeyspace != nil && *job.TotalKeyspace > 0 {
-		// Fallback for jobs without effective keyspace
-		totalProcessed := int64(0)
-		for _, task := range tasks {
-			totalProcessed += task.KeyspaceProcessed
-		}
-		overallPercent = (float64(totalProcessed) / float64(*job.TotalKeyspace)) * 100
-	}
-
-	// Ensure percentage is within bounds
-	if overallPercent > 100 {
-		overallPercent = 100
-	}
-
-	debug.Log("Calculated overall job progress percentage", map[string]interface{}{
-		"job_id":              jobID,
-		"overall_percent":     overallPercent,
-		"uses_rule_splitting": job.UsesRuleSplitting,
-		"total_tasks":         len(tasks),
-	})
-
-	return overallPercent, nil
-}
-
-// UpdateJobProgressPercent updates the overall progress percentage for a job execution
-func (s *JobExecutionService) UpdateJobProgressPercent(ctx context.Context, jobExecutionID uuid.UUID, progressPercent float64) error {
-	err := s.jobExecRepo.UpdateProgressPercent(ctx, jobExecutionID, progressPercent)
-	if err != nil {
-		return fmt.Errorf("failed to update job progress percent: %w", err)
 	}
 
 	return nil
@@ -2405,13 +2216,6 @@ func (s *JobExecutionService) InitializeRuleSplitting(ctx context.Context, job *
 			// Cleanup on error
 			s.ruleSplitManager.CleanupJobChunks(jobIDInt)
 			return fmt.Errorf("failed to create task for chunk %d: %w", i, err)
-		}
-
-		// Update dispatched keyspace for the job execution
-		// For rule splitting, each task processes the full base keyspace with a subset of rules
-		if err := s.jobExecRepo.IncrementDispatchedKeyspace(ctx, job.ID, baseKeyspace); err != nil {
-			debug.Error("Failed to update dispatched keyspace for job %s: %v", job.ID, err)
-			// Continue processing - this is not a critical error
 		}
 	}
 
