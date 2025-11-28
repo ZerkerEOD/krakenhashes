@@ -551,6 +551,24 @@ export const getJobDetails = async (id: string): Promise<any> => {
   return response.data;
 };
 
+// Get job increment layers
+export const getJobLayers = async (id: string): Promise<any> => {
+  const url = `/api/jobs/${id}/layers`;
+  logApiCall('GET', url);
+  const response = await api.get(url);
+  logApiResponse('GET', url, response.data);
+  return response.data;
+};
+
+// Get tasks for a specific layer
+export const getJobLayerTasks = async (jobId: string, layerId: string): Promise<any> => {
+  const url = `/api/jobs/${jobId}/layers/${layerId}/tasks`;
+  logApiCall('GET', url);
+  const response = await api.get(url);
+  logApiResponse('GET', url, response.data);
+  return response.data;
+};
+
 // --- SSE Integration ---
 
 // Get the SSE endpoint URL for job streaming

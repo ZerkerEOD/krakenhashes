@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary"
@@ -21,19 +22,20 @@ import (
 
 // UserJobsHandler handles job-related requests from users
 type UserJobsHandler struct {
-	jobExecRepo         *repository.JobExecutionRepository
-	jobTaskRepo         *repository.JobTaskRepository
-	presetJobRepo       repository.PresetJobRepository
-	hashlistRepo        *repository.HashListRepository
-	clientRepo          *repository.ClientRepository
-	workflowRepo        repository.JobWorkflowRepository
-	hashTypeRepo        *repository.HashTypeRepository
-	wordlistStore       *wordlist.Store
-	ruleStore           *rule.Store
-	binaryStore         binary.Store
-	jobExecutionService *services.JobExecutionService
-	systemSettingsRepo  *repository.SystemSettingsRepository
-	wsHandler           WSHandler
+	jobExecRepo           *repository.JobExecutionRepository
+	jobTaskRepo           *repository.JobTaskRepository
+	jobIncrementLayerRepo *repository.JobIncrementLayerRepository
+	presetJobRepo         repository.PresetJobRepository
+	hashlistRepo          *repository.HashListRepository
+	clientRepo            *repository.ClientRepository
+	workflowRepo          repository.JobWorkflowRepository
+	hashTypeRepo          *repository.HashTypeRepository
+	wordlistStore         *wordlist.Store
+	ruleStore             *rule.Store
+	binaryStore           binary.Store
+	jobExecutionService   *services.JobExecutionService
+	systemSettingsRepo    *repository.SystemSettingsRepository
+	wsHandler             WSHandler
 }
 
 // WSHandler interface for WebSocket operations
@@ -50,6 +52,7 @@ func (h *UserJobsHandler) SetWSHandler(wsHandler WSHandler) {
 func NewUserJobsHandler(
 	jobExecRepo *repository.JobExecutionRepository,
 	jobTaskRepo *repository.JobTaskRepository,
+	jobIncrementLayerRepo *repository.JobIncrementLayerRepository,
 	presetJobRepo repository.PresetJobRepository,
 	hashlistRepo *repository.HashListRepository,
 	clientRepo *repository.ClientRepository,
@@ -62,19 +65,20 @@ func NewUserJobsHandler(
 	systemSettingsRepo *repository.SystemSettingsRepository,
 ) *UserJobsHandler {
 	return &UserJobsHandler{
-		jobExecRepo:         jobExecRepo,
-		jobTaskRepo:         jobTaskRepo,
-		presetJobRepo:       presetJobRepo,
-		hashlistRepo:        hashlistRepo,
-		clientRepo:          clientRepo,
-		workflowRepo:        workflowRepo,
-		hashTypeRepo:        hashTypeRepo,
-		wordlistStore:       wordlistStore,
-		ruleStore:           ruleStore,
-		binaryStore:         binaryStore,
-		jobExecutionService: jobExecutionService,
-		systemSettingsRepo:  systemSettingsRepo,
-		wsHandler:           nil, // Will be set later via SetWSHandler
+		jobExecRepo:           jobExecRepo,
+		jobTaskRepo:           jobTaskRepo,
+		jobIncrementLayerRepo: jobIncrementLayerRepo,
+		presetJobRepo:         presetJobRepo,
+		hashlistRepo:          hashlistRepo,
+		clientRepo:            clientRepo,
+		workflowRepo:          workflowRepo,
+		hashTypeRepo:          hashTypeRepo,
+		wordlistStore:         wordlistStore,
+		ruleStore:             ruleStore,
+		binaryStore:           binaryStore,
+		jobExecutionService:   jobExecutionService,
+		systemSettingsRepo:    systemSettingsRepo,
+		wsHandler:             nil, // Will be set later via SetWSHandler
 	}
 }
 
@@ -582,7 +586,16 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 		jobExecution, err := h.jobExecutionService.CreateCustomJobExecution(ctx, config, hashlistID, &userID, jobName)
 		if err != nil {
 			debug.Error("Failed to create custom job execution: %v", err)
-			http.Error(w, "Failed to create job", http.StatusInternalServerError)
+
+			// Propagate meaningful error messages for keyspace-related errors
+			errMsg := err.Error()
+			if strings.Contains(errMsg, "overflow") || strings.Contains(errMsg, "exceeds") ||
+				strings.Contains(errMsg, "too large") || strings.Contains(errMsg, "keyspace") {
+				http.Error(w, fmt.Sprintf("Keyspace error: %s", errMsg), http.StatusBadRequest)
+				return
+			}
+
+			http.Error(w, fmt.Sprintf("Failed to create job: %s", errMsg), http.StatusInternalServerError)
 			return
 		}
 
@@ -808,6 +821,9 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 		"overall_progress_percent":  overallProgressPercent,
 		"multiplication_factor":     job.MultiplicationFactor,
 		"uses_rule_splitting":       job.UsesRuleSplitting,
+		"increment_mode":            job.IncrementMode,
+		"increment_min":             job.IncrementMin,
+		"increment_max":             job.IncrementMax,
 		"cracked_count":             crackedCount,
 		"agent_count":               agentCount,
 		"total_speed":               totalSpeed,
@@ -1590,6 +1606,100 @@ func (h *UserJobsHandler) ListUserJobs(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
+		debug.Error("Failed to encode response: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
+// GetJobLayers returns all increment layers for a job with statistics
+func (h *UserJobsHandler) GetJobLayers(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	jobIDStr := vars["id"]
+
+	jobID, err := uuid.Parse(jobIDStr)
+	if err != nil {
+		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get the job to verify it exists and user has access
+	job, err := h.jobExecRepo.GetByID(r.Context(), jobID)
+	if err != nil {
+		debug.Error("Failed to get job: %v", err)
+		http.Error(w, "Job not found", http.StatusNotFound)
+		return
+	}
+
+	// Check if this is an increment mode job
+	if job.IncrementMode == "" || job.IncrementMode == "off" {
+		http.Error(w, "Job is not an increment mode job", http.StatusBadRequest)
+		return
+	}
+
+	// Get layers with stats
+	layers, err := h.jobIncrementLayerRepo.GetLayersWithStats(r.Context(), jobID)
+	if err != nil {
+		debug.Error("Failed to get job layers: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(layers); err != nil {
+		debug.Error("Failed to encode response: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
+// GetJobLayerTasks returns all tasks for a specific increment layer
+func (h *UserJobsHandler) GetJobLayerTasks(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	jobIDStr := vars["id"]
+	layerIDStr := vars["layer_id"]
+
+	jobID, err := uuid.Parse(jobIDStr)
+	if err != nil {
+		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	layerID, err := uuid.Parse(layerIDStr)
+	if err != nil {
+		http.Error(w, "Invalid layer ID", http.StatusBadRequest)
+		return
+	}
+
+	// Verify the layer belongs to this job
+	layer, err := h.jobIncrementLayerRepo.GetByID(r.Context(), layerID)
+	if err != nil {
+		debug.Error("Failed to get layer: %v", err)
+		http.Error(w, "Layer not found", http.StatusNotFound)
+		return
+	}
+
+	if layer.JobExecutionID != jobID {
+		http.Error(w, "Layer does not belong to this job", http.StatusBadRequest)
+		return
+	}
+
+	// Get all tasks for the job
+	tasks, err := h.jobTaskRepo.GetTasksByJobExecution(r.Context(), jobID)
+	if err != nil {
+		debug.Error("Failed to get tasks: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Filter tasks for this layer
+	var layerTasks []models.JobTask
+	for _, task := range tasks {
+		if task.IncrementLayerID != nil && *task.IncrementLayerID == layerID {
+			layerTasks = append(layerTasks, task)
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(layerTasks); err != nil {
 		debug.Error("Failed to encode response: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}

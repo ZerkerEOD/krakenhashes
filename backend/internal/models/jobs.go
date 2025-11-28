@@ -202,6 +202,7 @@ const (
 type JobTask struct {
 	ID                uuid.UUID     `json:"id" db:"id"`
 	JobExecutionID    uuid.UUID     `json:"job_execution_id" db:"job_execution_id"`
+	IncrementLayerID  *uuid.UUID    `json:"increment_layer_id" db:"increment_layer_id"` // References job_increment_layers if task belongs to a layer
 	AgentID           *int          `json:"agent_id" db:"agent_id"`
 	Status            JobTaskStatus `json:"status" db:"status"`
 	Priority          int           `json:"priority" db:"priority"`     // Task priority (inherited from job)
@@ -440,4 +441,57 @@ type JobExecutionWithWork struct {
 	JobExecution
 	ActiveAgents int `db:"active_agents" json:"active_agents"`
 	PendingWork  int `db:"pending_work" json:"pending_work"`
+}
+
+// JobIncrementLayerStatus represents the status of an increment layer
+// Uses same statuses as JobExecutionStatus since layers are jobs in their own right
+type JobIncrementLayerStatus string
+
+const (
+	JobIncrementLayerStatusPending   JobIncrementLayerStatus = "pending"
+	JobIncrementLayerStatusRunning   JobIncrementLayerStatus = "running"
+	JobIncrementLayerStatusPaused    JobIncrementLayerStatus = "paused"
+	JobIncrementLayerStatusCompleted JobIncrementLayerStatus = "completed"
+	JobIncrementLayerStatusFailed    JobIncrementLayerStatus = "failed"
+	JobIncrementLayerStatusCancelled JobIncrementLayerStatus = "cancelled"
+)
+
+// JobIncrementLayer represents a sub-layer for increment mode jobs
+// Each layer corresponds to one mask length (e.g., ?l?l for length 2)
+type JobIncrementLayer struct {
+	ID               uuid.UUID               `json:"id" db:"id"`
+	JobExecutionID   uuid.UUID               `json:"job_execution_id" db:"job_execution_id"`
+	LayerIndex       int                     `json:"layer_index" db:"layer_index"`             // Ordering based on increment mode
+	Mask             string                  `json:"mask" db:"mask"`                           // Specific mask for this layer
+	Status           JobIncrementLayerStatus `json:"status" db:"status"`
+
+	// Keyspace tracking
+	BaseKeyspace         *int64  `json:"base_keyspace" db:"base_keyspace"`                 // From --keyspace command
+	EffectiveKeyspace    *int64  `json:"effective_keyspace" db:"effective_keyspace"`       // From benchmark progress[1]
+	ProcessedKeyspace    int64   `json:"processed_keyspace" db:"processed_keyspace"`       // Sum from tasks
+	DispatchedKeyspace   int64   `json:"dispatched_keyspace" db:"dispatched_keyspace"`     // Total keyspace dispatched
+	IsAccurateKeyspace   bool    `json:"is_accurate_keyspace" db:"is_accurate_keyspace"`   // TRUE after benchmark
+
+	// Progress tracking
+	OverallProgressPercent float64    `json:"overall_progress_percent" db:"overall_progress_percent"`
+	LastProgressUpdate     *time.Time `json:"last_progress_update" db:"last_progress_update"`
+
+	// Timing
+	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
+	StartedAt   *time.Time `json:"started_at" db:"started_at"`
+	CompletedAt *time.Time `json:"completed_at" db:"completed_at"`
+	UpdatedAt   time.Time  `json:"updated_at" db:"updated_at"`
+
+	// Error handling
+	ErrorMessage *string `json:"error_message" db:"error_message"`
+}
+
+// JobIncrementLayerWithStats extends JobIncrementLayer with aggregated statistics
+type JobIncrementLayerWithStats struct {
+	JobIncrementLayer
+	TotalTasks     int `db:"total_tasks" json:"total_tasks"`         // Total tasks created for this layer
+	RunningTasks   int `db:"running_tasks" json:"running_tasks"`     // Tasks currently running/assigned/processing
+	CompletedTasks int `db:"completed_tasks" json:"completed_tasks"` // Tasks that completed successfully
+	FailedTasks    int `db:"failed_tasks" json:"failed_tasks"`       // Tasks that failed
+	CrackCount     int `db:"crack_count" json:"crack_count"`         // Total cracks from this layer's tasks
 }

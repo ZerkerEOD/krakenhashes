@@ -23,8 +23,8 @@ func (m *MockJobWebSocketIntegration) SendJobAssignment(ctx context.Context, tas
 	return args.Error(0)
 }
 
-func (m *MockJobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, agentID int, jobExecution *models.JobExecution) error {
-	args := m.Called(ctx, agentID, jobExecution)
+func (m *MockJobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, agentID int, jobExecution *models.JobExecution, layerID *uuid.UUID, layerMask string) error {
+	args := m.Called(ctx, agentID, jobExecution, layerID, layerMask)
 	return args.Error(0)
 }
 
@@ -46,11 +46,11 @@ func TestBenchmarkRequestFlow(t *testing.T) {
 		AttackMode:  models.AttackModeStraight,
 	}
 
-	// Set up expectation for benchmark request
-	mockWS.On("RequestAgentBenchmark", ctx, agentID, jobExecution).Return(nil)
+	// Set up expectation for benchmark request (no layer, so nil and "")
+	mockWS.On("RequestAgentBenchmark", ctx, agentID, jobExecution, (*uuid.UUID)(nil), "").Return(nil)
 
 	// Call the method
-	err := mockWS.RequestAgentBenchmark(ctx, agentID, jobExecution)
+	err := mockWS.RequestAgentBenchmark(ctx, agentID, jobExecution, nil, "")
 
 	// Verify
 	assert.NoError(t, err)

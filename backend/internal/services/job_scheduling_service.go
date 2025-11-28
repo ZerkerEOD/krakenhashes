@@ -17,7 +17,7 @@ import (
 // JobWebSocketIntegration interface for WebSocket integration
 type JobWebSocketIntegration interface {
 	SendJobAssignment(ctx context.Context, task *models.JobTask, jobExecution *models.JobExecution) error
-	RequestAgentBenchmark(ctx context.Context, agentID int, jobExecution *models.JobExecution) error
+	RequestAgentBenchmark(ctx context.Context, agentID int, jobExecution *models.JobExecution, layerID *uuid.UUID, layerMask string) error
 	SendJobStop(ctx context.Context, taskID uuid.UUID, reason string) error
 	SyncAgentFiles(ctx context.Context, agentID int, timeout time.Duration) error
 }
@@ -28,6 +28,7 @@ type JobSchedulingService struct {
 	jobChunkingService  *JobChunkingService
 	hashlistSyncService *HashlistSyncService
 	agentRepo           *repository.AgentRepository
+	jobTaskRepo         *repository.JobTaskRepository
 	systemSettingsRepo  *repository.SystemSettingsRepository
 	wsIntegration       JobWebSocketIntegration
 
@@ -46,6 +47,7 @@ func NewJobSchedulingService(
 	jobChunkingService *JobChunkingService,
 	hashlistSyncService *HashlistSyncService,
 	agentRepo *repository.AgentRepository,
+	jobTaskRepo *repository.JobTaskRepository,
 	systemSettingsRepo *repository.SystemSettingsRepository,
 ) *JobSchedulingService {
 	return &JobSchedulingService{
@@ -53,6 +55,7 @@ func NewJobSchedulingService(
 		jobChunkingService:  jobChunkingService,
 		hashlistSyncService: hashlistSyncService,
 		agentRepo:           agentRepo,
+		jobTaskRepo:         jobTaskRepo,
 		systemSettingsRepo:  systemSettingsRepo,
 		reservedAgents:      make(map[int]uuid.UUID),
 	}
@@ -72,6 +75,100 @@ type JobAllocation struct {
 	ActiveAgents int
 	MaxAgents   int
 	Priority    int
+}
+
+// expandIncrementJobsIntoLayers converts increment jobs into multiple entries (one per layer)
+// while preserving parent job's priority and max_agents for shared allocation
+func (s *JobSchedulingService) expandIncrementJobsIntoLayers(
+	ctx context.Context,
+	jobs []models.JobExecutionWithWork,
+) []models.JobExecutionWithWork {
+	expanded := []models.JobExecutionWithWork{}
+
+	for _, job := range jobs {
+		// Check if this is an increment mode job
+		if job.IncrementMode != "" && job.IncrementMode != "off" {
+			// Get layers with pending work
+			layers, err := s.jobExecutionService.jobIncrementLayerRepo.GetLayersWithPendingWork(ctx, job.ID)
+			if err != nil || len(layers) == 0 {
+				// No layers or error - keep original job
+				expanded = append(expanded, job)
+				continue
+			}
+
+			// Create separate entry for each layer with pending work
+			layerCount := 0
+			for _, layer := range layers {
+				if layer.Status == models.JobIncrementLayerStatusCompleted {
+					continue
+				}
+
+				// Skip layers without accurate keyspace - need benchmark first
+				if !layer.IsAccurateKeyspace {
+					debug.Log("Skipping layer - needs benchmark first", map[string]interface{}{
+						"layer_id":      layer.ID,
+						"layer_index":   layer.LayerIndex,
+						"parent_job_id": job.ID,
+					})
+					continue
+				}
+
+				// Check if layer has undispatched work
+				// Use BaseKeyspace for comparison since DispatchedKeyspace tracks base keyspace (for --skip/--limit)
+				var layerTotalKeyspace *int64
+				if layer.BaseKeyspace != nil {
+					layerTotalKeyspace = layer.BaseKeyspace
+				} else if layer.EffectiveKeyspace != nil {
+					layerTotalKeyspace = layer.EffectiveKeyspace
+				}
+				if layerTotalKeyspace != nil && layer.DispatchedKeyspace < *layerTotalKeyspace {
+					// Create virtual job entry for this layer
+					layerJob := job // Copy parent job
+
+					// Override with layer-specific values
+					layerJob.ID = layer.ID // Use layer ID as "job" ID for allocation map
+					layerJob.TotalKeyspace = layerTotalKeyspace // Use base keyspace for consistency
+					layerJob.DispatchedKeyspace = layer.DispatchedKeyspace
+
+					// Keep parent's priority, max_agents, created_at for correct allocation
+					// These are already in layerJob from the copy
+
+					expanded = append(expanded, layerJob)
+					layerCount++
+
+					debug.Log("Expanded increment layer as schedulable unit", map[string]interface{}{
+						"parent_job_id": job.ID,
+						"layer_id":      layer.ID,
+						"layer_index":   layer.LayerIndex,
+						"layer_mask":    layer.Mask,
+						"priority":      layerJob.Priority,
+						"max_agents":    layerJob.MaxAgents,
+					})
+				}
+			}
+
+			// If no layers were added, keep the original job for benchmark planning
+			// Task creation will be blocked in CreateTaskAssignmentPlans for increment jobs
+			// without a specific layer target (defense against increment_layer_id = NULL bug)
+			if layerCount == 0 {
+				debug.Log("Increment job has no schedulable layers - keeping for benchmark planning", map[string]interface{}{
+					"job_id":      job.ID,
+					"layer_count": len(layers),
+				})
+				expanded = append(expanded, job)
+			}
+		} else {
+			// Regular job - keep as-is
+			expanded = append(expanded, job)
+		}
+	}
+
+	debug.Log("Layer expansion complete", map[string]interface{}{
+		"original_count": len(jobs),
+		"expanded_count": len(expanded),
+	})
+
+	return expanded
 }
 
 // CalculateAgentAllocation determines which jobs should receive which agents
@@ -134,8 +231,42 @@ func (s *JobSchedulingService) CalculateAgentAllocation(
 		})
 
 		// Phase 1: Allocate up to max_agents for each job
+		// Track active agents by parent job for increment layers (they share max_agents)
+		parentActiveAgents := make(map[uuid.UUID]int)
+
 		for _, job := range jobs {
-			currentActive := job.ActiveAgents
+			// Determine if this is an increment layer entry and find parent job ID
+			parentJobID := job.ID // default: self
+			isIncrementLayer := false
+
+			if job.IncrementMode != "" && job.IncrementMode != "off" {
+				// This entry might represent a layer - check if ID is a layer ID
+				layer, err := s.jobExecutionService.jobIncrementLayerRepo.GetByID(ctx, job.ID)
+				if err == nil && layer != nil {
+					parentJobID = layer.JobExecutionID
+					isIncrementLayer = true
+				}
+			}
+
+			// Get current active agents (shared across layers of same parent)
+			currentActive := 0
+			if isIncrementLayer {
+				if tracked, exists := parentActiveAgents[parentJobID]; exists {
+					// Use tracked count (includes allocations made in this cycle)
+					currentActive = tracked
+				} else {
+					// First time seeing this parent - query actual active count from database
+					// Active agents = count of tasks with status 'running' or 'assigned'
+					activeCount, err := s.jobExecutionService.jobTaskRepo.GetActiveAgentCountByJob(ctx, parentJobID)
+					if err == nil {
+						currentActive = activeCount
+						parentActiveAgents[parentJobID] = currentActive
+					}
+				}
+			} else {
+				currentActive = job.ActiveAgents
+			}
+
 			maxAllowed := job.MaxAgents
 			if maxAllowed == 0 {
 				maxAllowed = 999 // unlimited
@@ -152,8 +283,15 @@ func (s *JobSchedulingService) CalculateAgentAllocation(
 				allocation[job.ID] = toAllocate
 				remainingAgents -= toAllocate
 
+				// Track allocation against parent for increment layers
+				if isIncrementLayer {
+					parentActiveAgents[parentJobID] += toAllocate
+				}
+
 				debug.Log("Allocated agents to job (phase 1)", map[string]interface{}{
 					"job_id":          job.ID,
+					"parent_job_id":   parentJobID,
+					"is_layer":        isIncrementLayer,
 					"job_name":        job.Name,
 					"priority":        job.Priority,
 					"active_agents":   currentActive,
@@ -176,7 +314,7 @@ func (s *JobSchedulingService) CalculateAgentAllocation(
 			// Higher priority jobs monopolize all agents until they have no more work to dispatch
 			hasWorkRemaining := false
 			for _, job := range jobs {
-				if s.hasUndispatchedWork(&job) {
+				if s.hasUndispatchedWork(ctx, &job) {
 					hasWorkRemaining = true
 					break
 				}
@@ -202,7 +340,7 @@ func (s *JobSchedulingService) CalculateAgentAllocation(
 }
 
 // hasUndispatchedWork checks if a job still has keyspace/rules that haven't been dispatched
-func (s *JobSchedulingService) hasUndispatchedWork(job *models.JobExecutionWithWork) bool {
+func (s *JobSchedulingService) hasUndispatchedWork(ctx context.Context, job *models.JobExecutionWithWork) bool {
 	// Jobs in "pending" status always have work (they haven't started yet)
 	if job.Status == "pending" {
 		return true
@@ -212,8 +350,29 @@ func (s *JobSchedulingService) hasUndispatchedWork(job *models.JobExecutionWithW
 		// For rule chunking: check if dispatched keyspace < effective keyspace
 		// This indicates more rule chunks need to be created
 		return job.DispatchedKeyspace < *job.EffectiveKeyspace
+	}
+
+	// For keyspace splitting (--skip/--limit): query actual BASE keyspace dispatched from tasks
+	// We can't use job.DispatchedKeyspace because it's tracked in EFFECTIVE units
+	// which doesn't match the BASE keyspace units used for hashcat --skip/--limit
+	if job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
+		// Query the maximum keyspace_end from tasks to get actual base keyspace dispatched
+		maxBaseDispatched, err := s.jobTaskRepo.GetMaxKeyspaceEnd(ctx, job.ID)
+		if err != nil {
+			debug.Warning("Failed to get max keyspace_end for job %s: %v, assuming work remains", job.ID, err)
+			return true // Fallback: assume work remains on error
+		}
+
+		hasWork := maxBaseDispatched < *job.BaseKeyspace
+		debug.Log("Checked undispatched work for keyspace-split job", map[string]interface{}{
+			"job_id":              job.ID,
+			"max_base_dispatched": maxBaseDispatched,
+			"base_keyspace":       *job.BaseKeyspace,
+			"has_work":            hasWork,
+		})
+		return hasWork
 	} else if job.TotalKeyspace != nil {
-		// For keyspace splitting: check if all keyspace dispatched
+		// Fallback to TotalKeyspace for jobs without BaseKeyspace
 		return job.DispatchedKeyspace < *job.TotalKeyspace
 	}
 
@@ -248,7 +407,7 @@ func (s *JobSchedulingService) distributeOverflowAgents(
 		// FIFO mode: Give all remaining agents to the oldest job with undispatched work
 		// Jobs are already sorted by created_at ASC
 		for _, job := range jobs {
-			if s.hasUndispatchedWork(&job) {
+			if s.hasUndispatchedWork(ctx, &job) {
 				currentAllocation := allocation[job.ID]
 				allocation[job.ID] = currentAllocation + remaining
 
@@ -269,7 +428,7 @@ func (s *JobSchedulingService) distributeOverflowAgents(
 			allocatedThisRound := false
 
 			for _, job := range jobs {
-				if s.hasUndispatchedWork(&job) && remaining > 0 {
+				if s.hasUndispatchedWork(ctx, &job) && remaining > 0 {
 					allocation[job.ID]++
 					remaining--
 					allocatedThisRound = true
@@ -370,6 +529,9 @@ func (s *JobSchedulingService) ScheduleJobs(ctx context.Context) (*ScheduleJobsR
 		return nil, fmt.Errorf("failed to get jobs with pending work: %w", err)
 	}
 
+	// Expand increment jobs into per-layer entries for independent scheduling
+	jobsWithWork = s.expandIncrementJobsIntoLayers(ctx, jobsWithWork)
+
 	debug.Log("Found jobs with pending work", map[string]interface{}{
 		"job_count": len(jobsWithWork),
 	})
@@ -420,8 +582,23 @@ func (s *JobSchedulingService) ScheduleJobs(ctx context.Context) (*ScheduleJobsR
 			debug.Error("Failed to refresh available agents after benchmarks: %v", err)
 		}
 
+		// CRITICAL: Re-fetch and re-expand jobs after benchmarks complete
+		// Benchmarks set is_accurate_keyspace=true on increment layers, which allows them
+		// to be scheduled. Without re-fetching, we'd still have the parent job entry
+		// which creates tasks without layer IDs (breaking hashcat with --skip/--limit + --increment)
+		jobsWithWork, err = s.jobExecutionService.GetAllJobsWithPendingWork(ctx)
+		if err != nil {
+			debug.Error("Failed to refresh jobs after benchmarks: %v", err)
+		} else {
+			jobsWithWork = s.expandIncrementJobsIntoLayers(ctx, jobsWithWork)
+			debug.Log("Re-expanded jobs after benchmarks", map[string]interface{}{
+				"job_count": len(jobsWithWork),
+			})
+		}
+
 		debug.Info("Benchmark phase complete, proceeding to task assignment", map[string]interface{}{
 			"available_agents": len(availableAgents),
+			"jobs_with_work":   len(jobsWithWork),
 		})
 	} else {
 		debug.Log("No benchmarks needed, proceeding directly to task assignment", nil)
@@ -857,8 +1034,8 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 				debug.Warning("Failed to update agent metadata for benchmark: %v", err)
 			}
 
-			// Send benchmark request to agent
-			err = s.wsIntegration.RequestAgentBenchmark(ctx, agent.ID, nextJob)
+			// Send benchmark request to agent (no layer, so nil and "")
+			err = s.wsIntegration.RequestAgentBenchmark(ctx, agent.ID, nextJob, nil, "")
 			if err != nil {
 				// Failed to send benchmark - clear metadata and fall back to estimation
 				debug.Error("Failed to send benchmark request for job %s to agent %d: %v", nextJob.ID, agent.ID, err)
@@ -911,7 +1088,7 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 
 		// Request benchmark from agent if WebSocket integration is available
 		if s.wsIntegration != nil {
-			err = s.wsIntegration.RequestAgentBenchmark(ctx, agent.ID, nextJob)
+			err = s.wsIntegration.RequestAgentBenchmark(ctx, agent.ID, nextJob, nil, "")
 			if err != nil {
 				debug.Log("Failed to request benchmark from agent", map[string]interface{}{
 					"agent_id": agent.ID,
@@ -1295,7 +1472,7 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 			"wordlist_ids":      nextJob.WordlistIDs,
 			"rule_ids":          nextJob.RuleIDs,
 		})
-		attackCmd, err := s.jobExecutionService.buildAttackCommand(ctx, nil, nextJob)
+		attackCmd, err := s.jobExecutionService.buildAttackCommand(ctx, nil, nextJob, "") // Empty layerMask - not an increment layer task
 		if err != nil {
 			debug.Error("Failed to build attack command: %v", err)
 			fmt.Printf("ERROR in assignWorkToAgent: Failed to build attack command for job %s: %v\n", nextJob.ID, err)
@@ -1861,6 +2038,43 @@ func (s *JobSchedulingService) ProcessJobCompletion(ctx context.Context, jobExec
 		return fmt.Errorf("failed to get incomplete tasks count: %w", err)
 	}
 
+	// For increment mode jobs, use layer-based completion instead of keyspace comparison
+	// This is necessary because dispatched_keyspace is in BASE units but effective_keyspace
+	// is in EFFECTIVE units, making direct comparison invalid for increment mode
+	if job.IncrementMode != "" && job.IncrementMode != "off" && incompleteTasks == 0 {
+		layers, err := s.jobExecutionService.jobIncrementLayerRepo.GetByJobExecutionID(ctx, jobExecutionID)
+		if err != nil {
+			return fmt.Errorf("failed to get increment layers for completion check: %w", err)
+		}
+
+		allLayersComplete := true
+		for _, layer := range layers {
+			if layer.Status != models.JobIncrementLayerStatusCompleted {
+				allLayersComplete = false
+				debug.Log("Increment job has incomplete layer", map[string]interface{}{
+					"job_id":       jobExecutionID,
+					"layer_index":  layer.LayerIndex,
+					"layer_status": string(layer.Status),
+					"layer_mask":   layer.Mask,
+				})
+				break
+			}
+		}
+
+		if allLayersComplete {
+			// All layers complete and no pending tasks - mark job complete
+			err = s.jobExecutionService.CompleteJobExecution(ctx, jobExecutionID)
+			if err != nil {
+				return fmt.Errorf("failed to complete increment job execution: %w", err)
+			}
+			debug.Log("Increment job completed - all layers done", map[string]interface{}{
+				"job_id":      jobExecutionID,
+				"layer_count": len(layers),
+			})
+		}
+		return nil // Don't fall through to regular keyspace comparison for increment jobs
+	}
+
 	// For rule-split jobs, also check if all rules have been dispatched
 	if job.UsesRuleSplitting && incompleteTasks == 0 {
 		// Get total rules from the job's effective keyspace and base keyspace
@@ -1904,33 +2118,45 @@ func (s *JobSchedulingService) ProcessJobCompletion(ctx context.Context, jobExec
 	}
 
 	if incompleteTasks == 0 {
-		// For non-rule-splitting jobs, verify all effective keyspace has been dispatched
-		if !job.UsesRuleSplitting && job.EffectiveKeyspace != nil {
-			// Check if all effective keyspace has been dispatched
-			if job.DispatchedKeyspace < *job.EffectiveKeyspace {
+		// For non-rule-splitting jobs, verify all keyspace has been dispatched
+		// DispatchedKeyspace is in EFFECTIVE units, so compare against EffectiveKeyspace
+		if !job.UsesRuleSplitting {
+			// Compare dispatched (effective) to effective keyspace - same units
+			if job.EffectiveKeyspace != nil && job.DispatchedKeyspace < *job.EffectiveKeyspace {
 				debug.Log("Job not complete - more effective keyspace to dispatch", map[string]interface{}{
-					"job_id": jobExecutionID,
-					"effective_keyspace": *job.EffectiveKeyspace,
+					"job_id":              jobExecutionID,
+					"effective_keyspace":  *job.EffectiveKeyspace,
 					"dispatched_keyspace": job.DispatchedKeyspace,
-					"remaining": *job.EffectiveKeyspace - job.DispatchedKeyspace,
-					"percentage": float64(job.DispatchedKeyspace) / float64(*job.EffectiveKeyspace) * 100,
+					"remaining":           *job.EffectiveKeyspace - job.DispatchedKeyspace,
+					"percentage":          float64(job.DispatchedKeyspace) / float64(*job.EffectiveKeyspace) * 100,
 				})
-				return nil // Don't complete yet, more work to dispatch
+				return nil // Don't complete yet
+			} else if job.TotalKeyspace != nil && job.DispatchedKeyspace < *job.TotalKeyspace {
+				// Fallback for jobs without EffectiveKeyspace
+				debug.Log("Job not complete - more total keyspace to dispatch", map[string]interface{}{
+					"job_id":              jobExecutionID,
+					"total_keyspace":      *job.TotalKeyspace,
+					"dispatched_keyspace": job.DispatchedKeyspace,
+					"remaining":           *job.TotalKeyspace - job.DispatchedKeyspace,
+				})
+				return nil
 			}
-		}
 
-		// Also check for regular jobs without multiplication
-		if job.MultiplicationFactor <= 1 && job.TotalKeyspace != nil {
-			// For jobs without rules, check against total keyspace
-			if job.DispatchedKeyspace < *job.TotalKeyspace {
-				debug.Log("Job not complete - more keyspace to dispatch", map[string]interface{}{
-					"job_id": jobExecutionID,
-					"total_keyspace": *job.TotalKeyspace,
-					"dispatched_keyspace": job.DispatchedKeyspace,
-					"remaining": *job.TotalKeyspace - job.DispatchedKeyspace,
-					"percentage": float64(job.DispatchedKeyspace) / float64(*job.TotalKeyspace) * 100,
-				})
-				return nil // Don't complete yet, more work to dispatch
+			// Safety check for keyspace-split jobs: ensure all base keyspace is covered
+			if job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
+				maxBaseDispatched, err := s.jobTaskRepo.GetMaxKeyspaceEnd(ctx, jobExecutionID)
+				if err != nil {
+					return fmt.Errorf("failed to get max keyspace end: %w", err)
+				}
+				if maxBaseDispatched < *job.BaseKeyspace {
+					debug.Log("Keyspace-split job has work remaining", map[string]interface{}{
+						"job_id":           jobExecutionID,
+						"base_keyspace":    *job.BaseKeyspace,
+						"max_keyspace_end": maxBaseDispatched,
+						"remaining":        *job.BaseKeyspace - maxBaseDispatched,
+					})
+					return nil // Don't complete - more keyspace chunks needed
+				}
 			}
 		}
 

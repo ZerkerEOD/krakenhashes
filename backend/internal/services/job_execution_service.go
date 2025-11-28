@@ -25,6 +25,7 @@ type JobExecutionService struct {
 	db                 *db.DB // Store db connection for notification service
 	jobExecRepo        *repository.JobExecutionRepository
 	jobTaskRepo        *repository.JobTaskRepository
+	jobIncrementLayerRepo *repository.JobIncrementLayerRepository
 	benchmarkRepo      *repository.BenchmarkRepository
 	agentHashlistRepo  *repository.AgentHashlistRepository
 	agentRepo          *repository.AgentRepository
@@ -47,6 +48,7 @@ func NewJobExecutionService(
 	database *db.DB,
 	jobExecRepo *repository.JobExecutionRepository,
 	jobTaskRepo *repository.JobTaskRepository,
+	jobIncrementLayerRepo *repository.JobIncrementLayerRepository,
 	benchmarkRepo *repository.BenchmarkRepository,
 	agentHashlistRepo *repository.AgentHashlistRepository,
 	agentRepo *repository.AgentRepository,
@@ -73,6 +75,7 @@ func NewJobExecutionService(
 		db:                 database,
 		jobExecRepo:        jobExecRepo,
 		jobTaskRepo:        jobTaskRepo,
+		jobIncrementLayerRepo: jobIncrementLayerRepo,
 		benchmarkRepo:      benchmarkRepo,
 		agentHashlistRepo:  agentHashlistRepo,
 		agentRepo:          agentRepo,
@@ -87,6 +90,32 @@ func NewJobExecutionService(
 		hashcatBinaryPath:  hashcatBinaryPath,
 		dataDirectory:      dataDirectory,
 	}
+}
+
+// GetFreshEffectiveKeyspace fetches the current effective_keyspace from the database.
+// This is needed because in-memory JobExecution objects may be stale after benchmark updates.
+func (s *JobExecutionService) GetFreshEffectiveKeyspace(ctx context.Context, jobID uuid.UUID, layerID *uuid.UUID) (int64, error) {
+	if layerID != nil {
+		// For increment layers, fetch from job_increment_layers table
+		layer, err := s.jobIncrementLayerRepo.GetByID(ctx, *layerID)
+		if err != nil {
+			return 0, fmt.Errorf("failed to fetch increment layer: %w", err)
+		}
+		if layer != nil && layer.EffectiveKeyspace != nil {
+			return *layer.EffectiveKeyspace, nil
+		}
+		return 0, nil
+	}
+
+	// For regular jobs, fetch from job_executions table
+	job, err := s.jobExecRepo.GetByID(ctx, jobID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to fetch job execution: %w", err)
+	}
+	if job != nil && job.EffectiveKeyspace != nil {
+		return *job.EffectiveKeyspace, nil
+	}
+	return 0, nil
 }
 
 // CustomJobConfig contains the configuration for a custom job
@@ -176,12 +205,25 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		return nil, fmt.Errorf("failed to create job execution: %w", err)
 	}
 
-	// Calculate effective keyspace after creating the job
-	err = s.calculateEffectiveKeyspace(ctx, jobExecution, presetJob)
+	// Initialize increment layers if increment mode is enabled
+	// This must happen BEFORE calculateEffectiveKeyspace
+	err = s.initializeIncrementLayers(ctx, jobExecution, presetJob)
 	if err != nil {
-		debug.Error("Failed to calculate effective keyspace: job_execution_id=%s, error=%v",
+		debug.Error("Failed to initialize increment layers: job_execution_id=%s, error=%v",
 			jobExecution.ID, err)
-		// Log the error but continue - we'll handle this in the scheduling logic
+		return nil, fmt.Errorf("failed to initialize increment layers: %w", err)
+	}
+
+	// Calculate effective keyspace after creating the job
+	// Skip for increment mode jobs - initializeIncrementLayers already sets both base_keyspace and effective_keyspace
+	// calculateEffectiveKeyspace would incorrectly overwrite base_keyspace with effective_keyspace value
+	if jobExecution.IncrementMode == "" || jobExecution.IncrementMode == "off" {
+		err = s.calculateEffectiveKeyspace(ctx, jobExecution, presetJob)
+		if err != nil {
+			debug.Error("Failed to calculate effective keyspace: job_execution_id=%s, error=%v",
+				jobExecution.ID, err)
+			// Log the error but continue - we'll handle this in the scheduling logic
+		}
 	}
 
 	// Determine if rule splitting should be used
@@ -296,12 +338,25 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		return nil, fmt.Errorf("failed to create custom job execution: %w", err)
 	}
 
-	// Use the same effective keyspace calculation
-	err = s.calculateEffectiveKeyspace(ctx, jobExecution, tempPreset)
+	// Initialize increment layers if increment mode is enabled
+	// This must happen BEFORE calculateEffectiveKeyspace
+	err = s.initializeIncrementLayers(ctx, jobExecution, tempPreset)
 	if err != nil {
-		debug.Error("Failed to calculate effective keyspace: job_execution_id=%s, error=%v",
+		debug.Error("Failed to initialize increment layers: job_execution_id=%s, error=%v",
 			jobExecution.ID, err)
-		// Log the error but continue - we'll handle this in the scheduling logic
+		return nil, fmt.Errorf("failed to initialize increment layers: %w", err)
+	}
+
+	// Use the same effective keyspace calculation
+	// Skip for increment mode jobs - initializeIncrementLayers already sets both base_keyspace and effective_keyspace
+	// calculateEffectiveKeyspace would incorrectly overwrite base_keyspace with effective_keyspace value
+	if jobExecution.IncrementMode == "" || jobExecution.IncrementMode == "off" {
+		err = s.calculateEffectiveKeyspace(ctx, jobExecution, tempPreset)
+		if err != nil {
+			debug.Error("Failed to calculate effective keyspace: job_execution_id=%s, error=%v",
+				jobExecution.ID, err)
+			// Log the error but continue - we'll handle this in the scheduling logic
+		}
 	}
 
 	// Use the same rule splitting logic
@@ -1294,16 +1349,37 @@ func (s *JobExecutionService) CompleteJobExecution(ctx context.Context, jobExecu
 	return nil
 }
 
-// UpdateTaskProgress updates the progress of a task accounting for rule splitting
+// UpdateTaskProgress updates the progress of a task accounting for rule splitting and keysplit tasks
 func (s *JobExecutionService) UpdateTaskProgress(ctx context.Context, taskID uuid.UUID, keyspaceProcessed int64, effectiveProgress int64, hashRate *int64, progressPercent float64) error {
-	// Always use effective progress from hashcat's progress[0]
-	// Hashcat automatically accounts for rules, masks, etc.
+	// Get the task to check for keysplit
+	task, err := s.jobTaskRepo.GetByID(ctx, taskID)
+	if err != nil {
+		return fmt.Errorf("failed to get task for progress update: %w", err)
+	}
+
+	// For keysplit tasks with EffectiveKeyspaceStart > 0, convert absolute to relative
+	// Hashcat reports progress[0] as cumulative absolute position in the keyspace
+	// For continuation tasks (keyspace_start > 0), we need to store the RELATIVE contribution
+	// Example: Task 2 with effective_keyspace_start=492B reports progress[0]=735B at completion
+	//          We should store 735B - 492B = 243B as the task's contribution
 	effectiveKeyspaceProcessed := effectiveProgress
+	if task.IsKeyspaceSplit && task.EffectiveKeyspaceStart != nil && *task.EffectiveKeyspaceStart > 0 {
+		if effectiveProgress >= *task.EffectiveKeyspaceStart {
+			effectiveKeyspaceProcessed = effectiveProgress - *task.EffectiveKeyspaceStart
+			debug.Log("Converted absolute to relative effective keyspace for keysplit task", map[string]interface{}{
+				"task_id":                   taskID,
+				"effective_progress_raw":   effectiveProgress,
+				"effective_keyspace_start": *task.EffectiveKeyspaceStart,
+				"effective_keyspace_processed": effectiveKeyspaceProcessed,
+			})
+		}
+		// If effectiveProgress < EffectiveKeyspaceStart, keep original (shouldn't happen but be safe)
+	}
 
 	// Update the task progress
 	// Note: Job-level progress is now calculated by the polling service (JobProgressCalculationService)
 	// which runs every 2 seconds and recalculates from task data
-	err := s.jobTaskRepo.UpdateProgress(ctx, taskID, keyspaceProcessed, effectiveKeyspaceProcessed, hashRate, progressPercent)
+	err = s.jobTaskRepo.UpdateProgress(ctx, taskID, keyspaceProcessed, effectiveKeyspaceProcessed, hashRate, progressPercent)
 	if err != nil {
 		return fmt.Errorf("failed to update task progress: %w", err)
 	}
@@ -1889,7 +1965,8 @@ func (s *JobExecutionService) createJobTasksWithRuleSplitting(ctx context.Contex
 // buildAttackCommand builds the hashcat attack command from a job execution
 // Job executions are self-contained and no longer require preset lookups
 // The presetJob parameter is deprecated and should always be nil
-func (s *JobExecutionService) buildAttackCommand(ctx context.Context, presetJob *models.PresetJob, job *models.JobExecution) (string, error) {
+// layerMask can be provided for increment layer tasks - if set, it overrides job.Mask and skips increment flags
+func (s *JobExecutionService) buildAttackCommand(ctx context.Context, presetJob *models.PresetJob, job *models.JobExecution, layerMask string) (string, error) {
 	// Use binary version ID from job (job_executions are self-contained)
 	if job.BinaryVersionID == 0 {
 		return "", fmt.Errorf("no binary version ID available in job execution")
@@ -1963,14 +2040,21 @@ func (s *JobExecutionService) buildAttackCommand(ctx context.Context, presetJob 
 		}
 
 	case models.AttackModeBruteForce:
-		// Add mask from job (job_executions are self-contained)
-		if job.Mask != "" {
-			args = append(args, job.Mask)
+		// Add mask - use layerMask if provided (for increment layers), otherwise use job.Mask
+		mask := job.Mask
+		if layerMask != "" {
+			mask = layerMask
+		}
+		if mask != "" {
+			args = append(args, mask)
 		}
 
 	case models.AttackModeHybridWordlistMask:
-		// Add wordlist and mask
+		// Add wordlist and mask - use layerMask if provided (for increment layers), otherwise use job.Mask
 		mask := job.Mask
+		if layerMask != "" {
+			mask = layerMask
+		}
 		if len(wordlistIDs) > 0 && mask != "" {
 			wordlistPath, err := s.resolveWordlistPath(ctx, wordlistIDs[0])
 			if err != nil {
@@ -1980,8 +2064,11 @@ func (s *JobExecutionService) buildAttackCommand(ctx context.Context, presetJob 
 		}
 
 	case models.AttackModeHybridMaskWordlist:
-		// Add mask and wordlist
+		// Add mask and wordlist - use layerMask if provided (for increment layers), otherwise use job.Mask
 		mask := job.Mask
+		if layerMask != "" {
+			mask = layerMask
+		}
 		if mask != "" && len(wordlistIDs) > 0 {
 			wordlistPath, err := s.resolveWordlistPath(ctx, wordlistIDs[0])
 			if err != nil {
@@ -1998,7 +2085,8 @@ func (s *JobExecutionService) buildAttackCommand(ctx context.Context, presetJob 
 	}
 
 	// Add increment flags for mask-based attacks
-	if job.IncrementMode == "increment" || job.IncrementMode == "increment_inverse" {
+	// SKIP increment flags when layerMask is provided - the backend handles layer distribution
+	if layerMask == "" && (job.IncrementMode == "increment" || job.IncrementMode == "increment_inverse") {
 		if job.IncrementMode == "increment" {
 			args = append(args, "--increment")
 		} else if job.IncrementMode == "increment_inverse" {
@@ -2083,16 +2171,88 @@ func (s *JobExecutionService) CleanupJobResources(ctx context.Context, jobID uui
 
 // HandleTaskCompletion handles cleanup when a task completes (success or failure)
 func (s *JobExecutionService) HandleTaskCompletion(ctx context.Context, taskID uuid.UUID) error {
+	debug.Log("HandleTaskCompletion called", map[string]interface{}{
+		"task_id": taskID,
+	})
+
 	// Get task
 	task, err := s.jobTaskRepo.GetByID(ctx, taskID)
 	if err != nil {
+		debug.Error("Failed to get task in HandleTaskCompletion: %v", err)
 		return fmt.Errorf("failed to get task: %w", err)
 	}
+
+	debug.Log("Retrieved task for completion handling", map[string]interface{}{
+		"task_id":             taskID,
+		"increment_layer_id":  task.IncrementLayerID,
+		"status":              task.Status,
+		"job_execution_id":    task.JobExecutionID,
+	})
 
 	// Cleanup task resources
 	if err := s.cleanupTaskResources(ctx, task); err != nil {
 		debug.Error("Failed to cleanup task resources on completion: %v", err)
 		// Don't fail the task completion
+	}
+
+	// If this task belongs to an increment layer, check if layer is complete
+	if task.IncrementLayerID != nil {
+		debug.Log("Task belongs to increment layer, checking completion status", map[string]interface{}{
+			"task_id":  taskID,
+			"layer_id": task.IncrementLayerID,
+		})
+
+		allLayerTasksComplete, err := s.jobTaskRepo.AreAllLayerTasksComplete(ctx, *task.IncrementLayerID)
+		if err != nil {
+			debug.Error("Failed to check if all layer tasks complete: %v", err)
+		} else {
+			debug.Log("Layer tasks completion check result", map[string]interface{}{
+				"layer_id":     task.IncrementLayerID,
+				"all_complete": allLayerTasksComplete,
+			})
+
+			if allLayerTasksComplete {
+				// Safety check: ensure all base keyspace is covered before marking layer complete
+				// This prevents premature completion when keyspace splitting is in use
+				layer, layerErr := s.jobIncrementLayerRepo.GetByID(ctx, *task.IncrementLayerID)
+				if layerErr != nil {
+					debug.Error("Failed to get layer for completion check: %v", layerErr)
+				} else if layer.BaseKeyspace != nil && *layer.BaseKeyspace > 0 {
+					maxBaseDispatched, maxErr := s.jobTaskRepo.GetMaxKeyspaceEndByLayer(ctx, *task.IncrementLayerID)
+					if maxErr != nil {
+						debug.Error("Failed to get max keyspace end for layer: %v", maxErr)
+					} else if maxBaseDispatched < *layer.BaseKeyspace {
+						// NOT all keyspace covered - keep layer running so scheduler creates more tasks
+						debug.Log("Layer has remaining work - not marking complete", map[string]interface{}{
+							"layer_id":         *task.IncrementLayerID,
+							"base_keyspace":    *layer.BaseKeyspace,
+							"max_keyspace_end": maxBaseDispatched,
+							"remaining":        *layer.BaseKeyspace - maxBaseDispatched,
+						})
+						return nil // Don't mark as completed - scheduler will create more tasks
+					}
+				}
+
+				debug.Log("All layer tasks complete and keyspace covered, marking layer as completed", map[string]interface{}{
+					"layer_id": task.IncrementLayerID,
+				})
+
+				// Mark layer as completed
+				err = s.jobIncrementLayerRepo.UpdateStatus(ctx, *task.IncrementLayerID, models.JobIncrementLayerStatusCompleted)
+				if err != nil {
+					debug.Error("Failed to mark layer as completed: %v", err)
+				} else {
+					debug.Log("Layer marked as completed", map[string]interface{}{
+						"layer_id": task.IncrementLayerID,
+						"job_id":   task.JobExecutionID,
+					})
+				}
+			}
+		}
+	} else {
+		debug.Log("Task does not belong to increment layer", map[string]interface{}{
+			"task_id": taskID,
+		})
 	}
 
 	// Check if all tasks for this job are complete
@@ -2103,7 +2263,24 @@ func (s *JobExecutionService) HandleTaskCompletion(ctx context.Context, taskID u
 	}
 
 	if allTasksComplete {
-		// Mark job as completed
+		// For increment jobs, check if more layers need processing before marking complete
+		job, err := s.jobExecRepo.GetByID(ctx, task.JobExecutionID)
+		if err != nil {
+			debug.Error("Failed to get job for completion check: %v", err)
+		} else if job.IncrementMode != "" && job.IncrementMode != "off" {
+			// Check if there are pending increment layers
+			hasPendingLayers, err := s.jobIncrementLayerRepo.HasPendingLayers(ctx, task.JobExecutionID)
+			if err != nil {
+				debug.Error("Failed to check for pending increment layers: %v", err)
+			} else if hasPendingLayers {
+				debug.Log("Not completing job - pending increment layers exist", map[string]interface{}{
+					"job_id": task.JobExecutionID,
+				})
+				return nil // Don't mark complete yet, more layers to process
+			}
+		}
+
+		// Mark job as completed (only if no pending layers or not increment job)
 		if err := s.jobExecRepo.CompleteExecution(ctx, task.JobExecutionID); err != nil {
 			debug.Error("Failed to mark job as completed: %v", err)
 			// Don't fail the task completion, but log the error

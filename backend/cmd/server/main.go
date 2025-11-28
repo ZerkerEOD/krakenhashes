@@ -177,8 +177,9 @@ func main() {
 	systemSettingsRepo := repository.NewSystemSettingsRepository(dbWrapper)
 	jobExecutionRepo := repository.NewJobExecutionRepository(dbWrapper)
 	jobTaskRepo := repository.NewJobTaskRepository(dbWrapper)
+	jobIncrementLayerRepo := repository.NewJobIncrementLayerRepository(dbWrapper)
 	presetJobRepo := repository.NewPresetJobRepository(sqlDB)
-	
+
 	// Initialize services with dependencies
 	agentService := services.NewAgentService(agentRepo, repository.NewClaimVoucherRepository(dbWrapper), repository.NewFileRepository(dbWrapper, appConfig.DataDir), deviceRepo, jobTaskRepo, jobExecutionRepo)
 
@@ -457,7 +458,7 @@ func main() {
 
 	// Initialize and start job progress calculation service
 	debug.Info("Starting job progress calculation service...")
-	jobProgressCalcService := services.NewJobProgressCalculationService(dbWrapper, jobExecutionRepo, jobTaskRepo)
+	jobProgressCalcService := services.NewJobProgressCalculationService(dbWrapper, jobExecutionRepo, jobTaskRepo, jobIncrementLayerRepo)
 	jobProgressCalcService.Start()
 	defer jobProgressCalcService.Stop()
 	debug.Info("Job progress calculation service started successfully")

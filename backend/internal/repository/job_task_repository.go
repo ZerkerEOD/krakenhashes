@@ -60,18 +60,19 @@ func (r *JobTaskRepository) GetTotalCracksForJob(ctx context.Context, jobExecuti
 func (r *JobTaskRepository) Create(ctx context.Context, task *models.JobTask) error {
 	query := `
 		INSERT INTO job_tasks (
-			job_execution_id, agent_id, status, priority, attack_cmd,
+			job_execution_id, increment_layer_id, agent_id, status, priority, attack_cmd,
 			keyspace_start, keyspace_end, keyspace_processed,
 			effective_keyspace_start, effective_keyspace_end, effective_keyspace_processed,
 			benchmark_speed, chunk_duration,
 			rule_start_index, rule_end_index, rule_chunk_path, is_rule_split_task,
-			chunk_number, is_actual_keyspace
+			chunk_number, is_actual_keyspace, is_keyspace_split
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
 		RETURNING id, assigned_at, created_at, updated_at`
 
 	err := r.db.QueryRowContext(ctx, query,
 		task.JobExecutionID,
+		task.IncrementLayerID,
 		task.AgentID,
 		task.Status,
 		task.Priority,
@@ -90,6 +91,7 @@ func (r *JobTaskRepository) Create(ctx context.Context, task *models.JobTask) er
 		task.IsRuleSplitTask,
 		task.ChunkNumber,
 		task.IsActualKeyspace,
+		task.IsKeyspaceSplit,
 	).Scan(&task.ID, &task.AssignedAt, &task.CreatedAt, &task.UpdatedAt)
 
 	if err != nil {
@@ -101,6 +103,7 @@ func (r *JobTaskRepository) Create(ctx context.Context, task *models.JobTask) er
 		"job_execution_id":   task.JobExecutionID,
 		"status":             task.Status,
 		"is_rule_split_task": task.IsRuleSplitTask,
+		"is_keyspace_split":  task.IsKeyspaceSplit,
 	})
 
 	return nil
@@ -111,18 +114,19 @@ func (r *JobTaskRepository) Create(ctx context.Context, task *models.JobTask) er
 func (r *JobTaskRepository) CreateWithRuleSplitting(ctx context.Context, task *models.JobTask) error {
 	query := `
 		INSERT INTO job_tasks (
-			job_execution_id, agent_id, status, priority, attack_cmd,
+			job_execution_id, increment_layer_id, agent_id, status, priority, attack_cmd,
 			keyspace_start, keyspace_end, keyspace_processed,
 			effective_keyspace_start, effective_keyspace_end, effective_keyspace_processed,
 			benchmark_speed, chunk_duration,
 			rule_start_index, rule_end_index, rule_chunk_path, is_rule_split_task,
-			chunk_number, is_actual_keyspace
+			chunk_number, is_actual_keyspace, is_keyspace_split
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
 		RETURNING id, assigned_at, created_at, updated_at`
 
 	err := r.db.QueryRowContext(ctx, query,
 		task.JobExecutionID,
+		task.IncrementLayerID,
 		task.AgentID,
 		task.Status,
 		task.Priority,
@@ -141,6 +145,7 @@ func (r *JobTaskRepository) CreateWithRuleSplitting(ctx context.Context, task *m
 		task.IsRuleSplitTask,
 		task.ChunkNumber,
 		task.IsActualKeyspace,
+		task.IsKeyspaceSplit,
 	).Scan(&task.ID, &task.AssignedAt, &task.CreatedAt, &task.UpdatedAt)
 
 	if err != nil {
@@ -154,7 +159,7 @@ func (r *JobTaskRepository) CreateWithRuleSplitting(ctx context.Context, task *m
 func (r *JobTaskRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.JobTask, error) {
 	query := `
 		SELECT
-			jt.id, jt.job_execution_id, jt.agent_id, jt.status,
+			jt.id, jt.job_execution_id, jt.increment_layer_id, jt.agent_id, jt.status,
 			jt.priority, jt.attack_cmd,
 			jt.keyspace_start, jt.keyspace_end, jt.keyspace_processed,
 			jt.effective_keyspace_start, jt.effective_keyspace_end, jt.effective_keyspace_processed,
@@ -162,7 +167,8 @@ func (r *JobTaskRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.
 			jt.started_at, jt.completed_at, jt.last_checkpoint, jt.error_message,
 			jt.crack_count, jt.detailed_status, jt.retry_count,
 			jt.rule_start_index, jt.rule_end_index, jt.rule_chunk_path, jt.is_rule_split_task,
-			jt.progress_percent,
+			jt.chunk_number, jt.is_actual_keyspace, jt.chunk_actual_keyspace, jt.is_keyspace_split,
+			jt.progress_percent, jt.created_at, jt.updated_at,
 			a.name as agent_name
 		FROM job_tasks jt
 		JOIN agents a ON jt.agent_id = a.id
@@ -170,7 +176,7 @@ func (r *JobTaskRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.
 
 	var task models.JobTask
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&task.ID, &task.JobExecutionID, &task.AgentID, &task.Status,
+		&task.ID, &task.JobExecutionID, &task.IncrementLayerID, &task.AgentID, &task.Status,
 		&task.Priority, &task.AttackCmd,
 		&task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
 		&task.EffectiveKeyspaceStart, &task.EffectiveKeyspaceEnd, &task.EffectiveKeyspaceProcessed,
@@ -178,7 +184,8 @@ func (r *JobTaskRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.
 		&task.StartedAt, &task.CompletedAt, &task.LastCheckpoint, &task.ErrorMessage,
 		&task.CrackCount, &task.DetailedStatus, &task.RetryCount,
 		&task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath, &task.IsRuleSplitTask,
-		&task.ProgressPercent,
+		&task.ChunkNumber, &task.IsActualKeyspace, &task.ChunkActualKeyspace, &task.IsKeyspaceSplit,
+		&task.ProgressPercent, &task.CreatedAt, &task.UpdatedAt,
 		&task.AgentName,
 	)
 
@@ -202,6 +209,7 @@ func (r *JobTaskRepository) GetTasksByJobExecution(ctx context.Context, jobExecu
 			jt.benchmark_speed, jt.average_speed, jt.chunk_duration, jt.assigned_at,
 			jt.started_at, jt.completed_at, jt.last_checkpoint, jt.error_message,
 			jt.crack_count,
+			jt.increment_layer_id,
 			jt.rule_start_index, jt.rule_end_index, jt.rule_chunk_path, jt.is_rule_split_task,
 			jt.progress_percent,
 			a.name as agent_name
@@ -226,6 +234,7 @@ func (r *JobTaskRepository) GetTasksByJobExecution(ctx context.Context, jobExecu
 			&task.BenchmarkSpeed, &task.AverageSpeed, &task.ChunkDuration, &task.AssignedAt,
 			&task.StartedAt, &task.CompletedAt, &task.LastCheckpoint, &task.ErrorMessage,
 			&task.CrackCount,
+			&task.IncrementLayerID,
 			&task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath, &task.IsRuleSplitTask,
 			&task.ProgressPercent,
 			&task.AgentName,
@@ -729,6 +738,24 @@ func (r *JobTaskRepository) GetMaxKeyspaceEnd(ctx context.Context, jobExecutionI
 	err := r.db.QueryRowContext(ctx, query, jobExecutionID).Scan(&maxEnd)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get max keyspace end: %w", err)
+	}
+
+	return maxEnd, nil
+}
+
+// GetMaxKeyspaceEndByLayer returns the maximum keyspace_end value for tasks in a specific increment layer.
+// This is used to determine where the next task should start for keyspace-split jobs.
+// Returns 0 if no tasks exist for the layer yet.
+func (r *JobTaskRepository) GetMaxKeyspaceEndByLayer(ctx context.Context, layerID uuid.UUID) (int64, error) {
+	query := `
+		SELECT COALESCE(MAX(keyspace_end), 0)
+		FROM job_tasks
+		WHERE increment_layer_id = $1`
+
+	var maxEnd int64
+	err := r.db.QueryRowContext(ctx, query, layerID).Scan(&maxEnd)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get max keyspace end for layer: %w", err)
 	}
 
 	return maxEnd, nil

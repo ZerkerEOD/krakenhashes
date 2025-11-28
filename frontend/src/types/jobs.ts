@@ -86,6 +86,7 @@ export interface JobTask {
   job_id?: string;
   job_execution_id?: string;
   agent_id?: number;
+  increment_layer_id?: string;
   status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'reconnect_pending';
   priority?: number;
   chunk_start?: number;
@@ -111,6 +112,41 @@ export interface JobTask {
   created_at?: string;
   updated_at?: string;
   retry_count?: number;
+}
+
+// Job increment layer status - matches job execution statuses since layers are jobs in their own right
+export type JobIncrementLayerStatus =
+  | 'pending'
+  | 'running'
+  | 'paused'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+
+// Job increment layer information
+export interface JobIncrementLayer {
+  id: string;
+  job_execution_id: string;
+  layer_index: number;
+  mask: string;
+  status: JobIncrementLayerStatus;
+  base_keyspace?: number;
+  effective_keyspace?: number;
+  processed_keyspace: number;
+  dispatched_keyspace: number;
+  is_accurate_keyspace: boolean;
+  overall_progress_percent: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// Job increment layer with statistics
+export interface JobIncrementLayerWithStats extends JobIncrementLayer {
+  total_tasks?: number;
+  completed_tasks?: number;
+  running_tasks?: number;
+  failed_tasks?: number;
+  crack_count?: number;
 }
 
 // Job agent information
@@ -172,6 +208,9 @@ export interface JobDetailsResponse {
   allow_high_priority_override?: boolean;
   additional_args?: string;
   hash_type?: string;
+  increment_mode?: string;
+  increment_min?: number;
+  increment_max?: number;
 }
 
 // Job detail response

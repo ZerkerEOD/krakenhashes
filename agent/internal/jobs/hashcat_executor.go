@@ -523,18 +523,8 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 		debug.Info("Outfile configured: %s", outfilePath)
 	}
 
-	// Add skip and limit for keyspace distribution
-	// Skip this for rule-split tasks (detected by rule chunk paths)
-	isRuleSplitTask := false
-	for _, rulePath := range assignment.RulePaths {
-		if strings.Contains(rulePath, "chunks/job_") {
-			isRuleSplitTask = true
-			break
-		}
-	}
-	
 	// Only use --skip/--limit when explicitly doing keyspace splitting
-	// Do NOT use for rule chunking (isRuleSplitTask) or increment mode
+	// Do NOT use for rule chunking or increment mode
 	if assignment.IsKeyspaceSplit {
 		if assignment.KeyspaceStart > 0 {
 			args = append(args, "--skip", strconv.FormatInt(assignment.KeyspaceStart, 10))
@@ -1395,11 +1385,59 @@ func (e *HashcatExecutor) ForceCleanup() error {
 	return nil
 }
 
+// waitForActiveProcesses waits for all active hashcat processes to complete.
+// This is critical before starting benchmarks because hashcat can only run one instance at a time.
+// Times out after 30 seconds to prevent indefinite blocking.
+func (e *HashcatExecutor) waitForActiveProcesses(ctx context.Context) error {
+	const maxWait = 30 * time.Second
+	const checkInterval = 100 * time.Millisecond
+
+	startTime := time.Now()
+
+	for {
+		// Check if we've exceeded max wait time
+		if time.Since(startTime) > maxWait {
+			e.mutex.RLock()
+			count := len(e.activeProcesses)
+			e.mutex.RUnlock()
+			return fmt.Errorf("timeout waiting for %d active processes to complete after %v", count, maxWait)
+		}
+
+		// Check context cancellation
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		// Check if any processes are still active
+		e.mutex.RLock()
+		count := len(e.activeProcesses)
+		e.mutex.RUnlock()
+
+		if count == 0 {
+			debug.Debug("No active processes, safe to proceed")
+			return nil
+		}
+
+		debug.Debug("Waiting for %d active processes to complete before speed test...", count)
+		time.Sleep(checkInterval)
+	}
+}
+
 // RunSpeedTest runs a real-world speed test with actual job configuration
 // Returns: totalSpeed (H/s), deviceSpeeds, totalEffectiveKeyspace (progress[1]), error
 func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskAssignment, testDuration int) (int64, []DeviceSpeed, int64, error) {
-	debug.Info("Running speed test for hash type %d, attack mode %d, duration %d seconds", 
+	debug.Info("Running speed test for hash type %d, attack mode %d, duration %d seconds",
 		assignment.HashType, assignment.AttackMode, testDuration)
+
+	// Part 9: Wait for any active hashcat processes to complete before starting benchmark.
+	// Hashcat can only run one instance at a time. If a task just completed (status=5 Exhausted),
+	// there's a ~1.3 second delay before the process fully exits and is removed from activeProcesses.
+	// Without this wait, the benchmark would fail with "Already an instance running" error.
+	if err := e.waitForActiveProcesses(ctx); err != nil {
+		return 0, nil, 0, fmt.Errorf("failed waiting for active processes: %w", err)
+	}
 	
 	// Build command similar to real job but without skip/limit and without --remove
 	cmd, _, _, _, err := e.buildHashcatCommandWithOptions(assignment, true)

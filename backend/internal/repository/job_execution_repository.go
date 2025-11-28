@@ -593,6 +593,23 @@ func (r *JobExecutionRepository) UpdateKeyspaceInfo(ctx context.Context, job *mo
 	return nil
 }
 
+// SetIsAccurateKeyspace updates only the is_accurate_keyspace flag for a job execution
+func (r *JobExecutionRepository) SetIsAccurateKeyspace(ctx context.Context, id uuid.UUID, isAccurate bool) error {
+	query := `UPDATE job_executions SET is_accurate_keyspace = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`
+	result, err := r.db.ExecContext(ctx, query, isAccurate, id)
+	if err != nil {
+		return fmt.Errorf("failed to update job is_accurate_keyspace: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // UpdateConsecutiveFailures updates the consecutive failures count for a job execution
 func (r *JobExecutionRepository) UpdateConsecutiveFailures(ctx context.Context, id uuid.UUID, count int) error {
 	query := `UPDATE job_executions SET consecutive_failures = $1 WHERE id = $2`
@@ -681,12 +698,23 @@ func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]
 				-- Job has pending work
 				(COALESCE(js.pending_tasks, 0) + COALESCE(js.retryable_tasks, 0) > 0)
 				OR
+				-- Increment mode job with layers that have pending work
+				(je.increment_mode IS NOT NULL AND je.increment_mode != 'off'
+				 AND EXISTS (
+					SELECT 1 FROM job_increment_layers jil
+					WHERE jil.job_execution_id = je.id
+					  AND jil.status IN ('pending', 'running', 'paused')
+					  AND (jil.effective_keyspace IS NULL
+					       OR jil.dispatched_keyspace < jil.effective_keyspace)
+				 ))
+				OR
 				-- Rule-split job with more keyspace to dispatch
 				(je.uses_rule_splitting = true
 				 AND je.dispatched_keyspace < je.effective_keyspace)
 				OR
 				-- Regular keyspace chunking job with more keyspace to dispatch
 				(je.uses_rule_splitting = false
+				 AND (je.increment_mode IS NULL OR je.increment_mode = 'off')
 				 AND je.total_keyspace IS NOT NULL
 				 AND je.dispatched_keyspace < je.total_keyspace)
 			)
@@ -785,6 +813,58 @@ func (r *JobExecutionRepository) SetJobProcessing(ctx context.Context, id uuid.U
 	result, err := r.db.ExecContext(ctx, query, id, models.JobExecutionStatusProcessing)
 	if err != nil {
 		return fmt.Errorf("failed to set job processing: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
+// UpdateTotalKeyspace updates the total_keyspace field for a job execution
+func (r *JobExecutionRepository) UpdateTotalKeyspace(ctx context.Context, id uuid.UUID, totalKeyspace int64) error {
+	query := `
+		UPDATE job_executions
+		SET total_keyspace = $2,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`
+
+	result, err := r.db.ExecContext(ctx, query, id, totalKeyspace)
+	if err != nil {
+		return fmt.Errorf("failed to update total_keyspace: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
+// UpdateIncrementSettings updates the increment_min and increment_max fields for a job execution
+// This is used to persist resolved default values when the user didn't specify them
+func (r *JobExecutionRepository) UpdateIncrementSettings(ctx context.Context, id uuid.UUID, incrementMin int, incrementMax int) error {
+	query := `
+		UPDATE job_executions
+		SET increment_min = $2,
+		    increment_max = $3,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`
+
+	result, err := r.db.ExecContext(ctx, query, id, incrementMin, incrementMax)
+	if err != nil {
+		return fmt.Errorf("failed to update increment settings: %w", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
