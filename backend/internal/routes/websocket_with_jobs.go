@@ -88,12 +88,16 @@ func SetupWebSocketWithJobRoutes(
 	deviceRepo := repository.NewAgentDeviceRepository(database)
 	scheduleRepo := repository.NewAgentScheduleRepository(database)
 	clientRepo := repository.NewClientRepository(database)
+	jobIncrementLayerRepo := repository.NewJobIncrementLayerRepository(database)
+	presetIncrementLayerRepo := repository.NewPresetIncrementLayerRepository(database)
 
 	// Create services
 	jobExecutionService := services.NewJobExecutionService(
 		database,
 		jobExecutionRepo,
 		jobTaskRepo,
+		jobIncrementLayerRepo,
+		presetIncrementLayerRepo,
 		benchmarkRepo,
 		agentHashlistRepo,
 		agentRepo,
@@ -128,6 +132,7 @@ func SetupWebSocketWithJobRoutes(
 		jobChunkingService,
 		hashlistSyncService,
 		agentRepo,
+		jobTaskRepo,
 		systemSettingsRepo,
 	)
 
@@ -173,6 +178,7 @@ func SetupWebSocketWithJobRoutes(
 		database,
 		jobExecutionRepo,
 		jobTaskRepo,
+		jobIncrementLayerRepo,
 		hashlistRepo,
 		notificationService,
 		&wsHandlerAdapter{handler: wsHandler},
@@ -190,6 +196,7 @@ func SetupWebSocketWithJobRoutes(
 		hashRepo,
 		lmHashRepo,
 		jobTaskRepo,
+		jobIncrementLayerRepo,
 		agentRepo,
 		deviceRepo,
 		clientRepo,

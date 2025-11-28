@@ -23,6 +23,8 @@ type BenchmarkPlan struct {
 type ForcedBenchmarkTask struct {
 	AgentID    int
 	JobID      uuid.UUID
+	LayerID    *uuid.UUID // For increment layers, the specific layer needing benchmark
+	Mask       string     // For increment layers, the specific mask to benchmark
 	HashType   int
 	AttackMode models.AttackMode
 	Priority   int
@@ -39,6 +41,9 @@ type AgentBenchmarkTask struct {
 // JobHashTypeInfo contains hash type information for a job
 type JobHashTypeInfo struct {
 	JobID                uuid.UUID
+	LayerID              *uuid.UUID // For increment layers
+	Mask                 string     // For increment layers, the specific mask
+	LayerIndex           int        // For increment layers, the ordering
 	HashType             int
 	AttackMode           models.AttackMode
 	Priority             int
@@ -134,23 +139,85 @@ func (s *JobSchedulingService) collectJobHashTypeInfo(
 			continue
 		}
 
-		// Check if job needs forced benchmark
-		taskCount, err := s.jobExecutionService.jobTaskRepo.GetTaskCountForJob(ctx, job.ID)
-		if err != nil {
-			debug.Warning("Failed to get task count for job %s: %v", job.ID, err)
-			taskCount = 1 // Assume has tasks if can't determine
+		// Check if job has increment layers
+		if job.IncrementMode != "" && job.IncrementMode != "off" {
+			// Check if this is an expanded layer entry (job.ID is actually a layer ID)
+			layer, err := s.jobExecutionService.jobIncrementLayerRepo.GetByID(ctx, job.ID)
+			if err == nil && layer != nil {
+				// This is a layer entry - benchmark this specific layer if needed
+				if !layer.IsAccurateKeyspace {
+					jobHashInfo = append(jobHashInfo, JobHashTypeInfo{
+						JobID:                layer.JobExecutionID, // Use parent job ID
+						LayerID:              &layer.ID,            // This specific layer
+						Mask:                 layer.Mask,           // Layer's mask
+						LayerIndex:           layer.LayerIndex,
+						HashType:             hashlist.HashTypeID,
+						AttackMode:           job.AttackMode,
+						Priority:             job.Priority,
+						CreatedAt:            job.CreatedAt,
+						NeedsForcedBenchmark: true,
+					})
+
+					debug.Log("Added layer entry for benchmarking", map[string]interface{}{
+						"parent_job_id": layer.JobExecutionID,
+						"layer_id":      layer.ID,
+						"layer_index":   layer.LayerIndex,
+						"layer_mask":    layer.Mask,
+					})
+				}
+			} else {
+				// Not a layer entry - this is a regular increment job
+				// Get all layers for this job
+				layers, err := s.jobExecutionService.jobIncrementLayerRepo.GetByJobExecutionID(ctx, job.ID)
+				if err != nil {
+					debug.Warning("Failed to get increment layers for job %s: %v", job.ID, err)
+					continue
+				}
+
+				// Add each layer that needs benchmarking
+				for _, layer := range layers {
+					if !layer.IsAccurateKeyspace {
+						jobHashInfo = append(jobHashInfo, JobHashTypeInfo{
+							JobID:                job.ID,
+							LayerID:              &layer.ID,
+							Mask:                 layer.Mask,
+							LayerIndex:           layer.LayerIndex,
+							HashType:             hashlist.HashTypeID,
+							AttackMode:           job.AttackMode,
+							Priority:             job.Priority,
+							CreatedAt:            job.CreatedAt,
+							NeedsForcedBenchmark: true,
+						})
+					}
+				}
+
+				debug.Log("Found increment layers needing benchmarks", map[string]interface{}{
+					"job_id":      job.ID,
+					"layer_count": len(layers),
+				})
+			}
+		} else {
+			// Regular (non-increment) job - use existing logic
+			taskCount, err := s.jobExecutionService.jobTaskRepo.GetTaskCountForJob(ctx, job.ID)
+			if err != nil {
+				debug.Warning("Failed to get task count for job %s: %v", job.ID, err)
+				taskCount = 1 // Assume has tasks if can't determine
+			}
+
+			needsForcedBenchmark := (taskCount == 0 && !job.IsAccurateKeyspace)
+
+			jobHashInfo = append(jobHashInfo, JobHashTypeInfo{
+				JobID:                job.ID,
+				LayerID:              nil, // Regular job, no layer
+				Mask:                 "",
+				LayerIndex:           0,
+				HashType:             hashlist.HashTypeID,
+				AttackMode:           job.AttackMode,
+				Priority:             job.Priority,
+				CreatedAt:            job.CreatedAt,
+				NeedsForcedBenchmark: needsForcedBenchmark,
+			})
 		}
-
-		needsForcedBenchmark := (taskCount == 0 && !job.IsAccurateKeyspace)
-
-		jobHashInfo = append(jobHashInfo, JobHashTypeInfo{
-			JobID:                job.ID,
-			HashType:             hashlist.HashTypeID,
-			AttackMode:           job.AttackMode,
-			Priority:             job.Priority,
-			CreatedAt:            job.CreatedAt,
-			NeedsForcedBenchmark: needsForcedBenchmark,
-		})
 	}
 
 	return jobHashInfo, nil
@@ -215,12 +282,29 @@ func (s *JobSchedulingService) allocateForcedBenchmarks(
 		}
 	}
 
-	// Sort by priority DESC, then created_at ASC
+	// Sort by priority DESC, then created_at ASC, then layer_index ASC (for increment layers)
 	for i := 0; i < len(jobsNeedingForced); i++ {
 		for j := i + 1; j < len(jobsNeedingForced); j++ {
-			if jobsNeedingForced[i].Priority < jobsNeedingForced[j].Priority ||
-				(jobsNeedingForced[i].Priority == jobsNeedingForced[j].Priority &&
-					jobsNeedingForced[i].CreatedAt.After(jobsNeedingForced[j].CreatedAt)) {
+			shouldSwap := false
+
+			// Primary: Priority (higher first)
+			if jobsNeedingForced[i].Priority < jobsNeedingForced[j].Priority {
+				shouldSwap = true
+			} else if jobsNeedingForced[i].Priority == jobsNeedingForced[j].Priority {
+				// Secondary: Created time (older first)
+				if jobsNeedingForced[i].CreatedAt.After(jobsNeedingForced[j].CreatedAt) {
+					shouldSwap = true
+				} else if jobsNeedingForced[i].CreatedAt.Equal(jobsNeedingForced[j].CreatedAt) {
+					// Tertiary: Layer index (lower index first) - for same job's layers
+					if jobsNeedingForced[i].JobID == jobsNeedingForced[j].JobID {
+						if jobsNeedingForced[i].LayerIndex > jobsNeedingForced[j].LayerIndex {
+							shouldSwap = true
+						}
+					}
+				}
+			}
+
+			if shouldSwap {
 				jobsNeedingForced[i], jobsNeedingForced[j] = jobsNeedingForced[j], jobsNeedingForced[i]
 			}
 		}
@@ -268,6 +352,8 @@ func (s *JobSchedulingService) allocateForcedBenchmarks(
 		forcedTasks = append(forcedTasks, ForcedBenchmarkTask{
 			AgentID:    bestAgent.ID,
 			JobID:      job.JobID,
+			LayerID:    job.LayerID,
+			Mask:       job.Mask,
 			HashType:   job.HashType,
 			AttackMode: job.AttackMode,
 			Priority:   job.Priority,
@@ -452,11 +538,17 @@ func (s *JobSchedulingService) executeForcedBenchmark(ctx context.Context, task 
 		return fmt.Errorf("failed to get agent: %w", err)
 	}
 
-	// Mark agent as having pending benchmark for this job
+	// Mark agent as having pending benchmark
+	// Use LAYER ID if this is a layer benchmark, otherwise job ID
+	benchmarkEntityID := task.JobID.String()
+	if task.LayerID != nil {
+		benchmarkEntityID = task.LayerID.String()
+	}
+
 	if agent.Metadata == nil {
 		agent.Metadata = make(map[string]string)
 	}
-	agent.Metadata["pending_benchmark_job"] = task.JobID.String()
+	agent.Metadata["pending_benchmark_job"] = benchmarkEntityID // Can be layer or job ID
 	agent.Metadata["benchmark_requested_at"] = time.Now().Format(time.RFC3339)
 	if err := s.agentRepo.Update(ctx, agent); err != nil {
 		debug.Warning("Failed to update agent metadata for benchmark: %v", err)
@@ -467,7 +559,8 @@ func (s *JobSchedulingService) executeForcedBenchmark(ctx context.Context, task 
 		return fmt.Errorf("WebSocket integration not available")
 	}
 
-	err = s.wsIntegration.RequestAgentBenchmark(ctx, task.AgentID, job)
+	// Pass layer information if this is a layer benchmark
+	err = s.wsIntegration.RequestAgentBenchmark(ctx, task.AgentID, job, task.LayerID, task.Mask)
 	if err != nil {
 		// Clear metadata on failure
 		if agent.Metadata != nil {
@@ -478,10 +571,15 @@ func (s *JobSchedulingService) executeForcedBenchmark(ctx context.Context, task 
 		return fmt.Errorf("failed to send benchmark request: %w", err)
 	}
 
-	debug.Info("Sent forced benchmark request", map[string]interface{}{
+	logFields := map[string]interface{}{
 		"agent_id": task.AgentID,
 		"job_id":   task.JobID,
-	})
+	}
+	if task.LayerID != nil {
+		logFields["layer_id"] = task.LayerID
+		logFields["layer_mask"] = task.Mask
+	}
+	debug.Info("Sent forced benchmark request", logFields)
 
 	return nil
 }
@@ -499,7 +597,8 @@ func (s *JobSchedulingService) executeAgentBenchmark(ctx context.Context, task A
 		return fmt.Errorf("WebSocket integration not available")
 	}
 
-	err = s.wsIntegration.RequestAgentBenchmark(ctx, task.AgentID, job)
+	// Pass nil for layer parameters (this is a regular agent benchmark, not layer-specific)
+	err = s.wsIntegration.RequestAgentBenchmark(ctx, task.AgentID, job, nil, "")
 	if err != nil {
 		return fmt.Errorf("failed to send benchmark request: %w", err)
 	}

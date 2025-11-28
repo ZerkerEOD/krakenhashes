@@ -345,6 +345,23 @@ func (r *JobTaskRepository) AreAllTasksComplete(ctx context.Context, jobExecutio
 	return true, nil
 }
 
+// AreAllLayerTasksComplete checks if all tasks for a specific layer are complete
+func (r *JobTaskRepository) AreAllLayerTasksComplete(ctx context.Context, layerID uuid.UUID) (bool, error) {
+	query := `
+		SELECT COUNT(*) = 0
+		FROM job_tasks
+		WHERE increment_layer_id = $1
+		  AND status NOT IN ('completed', 'cancelled')`
+
+	var allComplete bool
+	err := r.db.QueryRowContext(ctx, query, layerID).Scan(&allComplete)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if all layer tasks complete: %w", err)
+	}
+
+	return allComplete, nil
+}
+
 // GetPendingTasksByJobExecution retrieves all pending tasks for a specific job execution
 func (r *JobTaskRepository) GetPendingTasksByJobExecution(ctx context.Context, jobExecutionID uuid.UUID) ([]models.JobTask, error) {
 	query := `

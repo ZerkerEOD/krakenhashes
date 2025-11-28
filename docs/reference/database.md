@@ -36,6 +36,8 @@ This document provides a comprehensive reference for the KrakenHashes database s
    - [job_workflows](#job_workflows)
    - [job_executions](#job_executions)
    - [job_tasks](#job_tasks)
+   - [job_increment_layers](#job_increment_layers)
+   - [preset_increment_layers](#preset_increment_layers)
    - [job_execution_settings](#job_execution_settings)
 8. [Resource Management](#resource-management)
    - [wordlists](#wordlists)
@@ -715,15 +717,108 @@ Individual chunks assigned to agents.
 | expected_crack_count | INTEGER | | 0 | Expected number of cracks from final progress message (added in migration 085) |
 | received_crack_count | INTEGER | | 0 | Number of cracks received via crack_batch messages (added in migration 085) |
 | batches_complete_signaled | BOOLEAN | | false | Whether agent has signaled all crack batches sent (added in migration 085) |
+| increment_layer_id | UUID | FK → job_increment_layers(id) | | References increment layer for increment mode jobs (added in migration 089) |
 
 **Indexes:**
 - idx_job_tasks_agent_status (agent_id, status)
 - idx_job_tasks_execution (job_execution_id)
 - idx_job_tasks_consecutive_failures (consecutive_failures)
 - idx_job_tasks_chunk_number (job_execution_id, chunk_number)
+- idx_job_tasks_increment_layer (increment_layer_id) - added in migration 089
 
 **Triggers:**
 - update_job_tasks_updated_at: Updates updated_at on row modification
+
+### job_increment_layers
+
+Sub-layers for increment mode jobs. Each layer represents one mask length in the increment sequence. Added in migration 088.
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| id | UUID | PRIMARY KEY | gen_random_uuid() | Layer identifier |
+| job_execution_id | UUID | NOT NULL, FK → job_executions(id) ON DELETE CASCADE | | Parent job execution |
+| layer_index | INT | NOT NULL | | Order in sequence (1=first) |
+| mask | VARCHAR(255) | NOT NULL | | Layer-specific mask (e.g., `?l?l`) |
+| status | VARCHAR(50) | NOT NULL, CHECK | 'pending' | Status: pending, running, completed, failed, cancelled |
+| base_keyspace | BIGINT | | | Estimated keyspace from --keyspace |
+| effective_keyspace | BIGINT | | | Actual keyspace from benchmark |
+| processed_keyspace | BIGINT | | 0 | Completed keyspace |
+| dispatched_keyspace | BIGINT | | 0 | Assigned keyspace |
+| is_accurate_keyspace | BOOLEAN | | FALSE | TRUE after benchmark provides actual keyspace |
+| overall_progress_percent | NUMERIC(5,2) | | 0.00 | Layer completion percentage |
+| created_at | TIMESTAMP WITH TIME ZONE | NOT NULL | CURRENT_TIMESTAMP | Creation time |
+| updated_at | TIMESTAMP WITH TIME ZONE | NOT NULL | CURRENT_TIMESTAMP | Last update time |
+| started_at | TIMESTAMP WITH TIME ZONE | | | Layer start time |
+| completed_at | TIMESTAMP WITH TIME ZONE | | | Layer completion time |
+| error_message | TEXT | | | Error details if failed |
+
+**Unique Constraint:** (job_execution_id, layer_index)
+
+**Indexes:**
+- idx_job_increment_layers_execution (job_execution_id)
+- idx_job_increment_layers_status (status)
+
+**Triggers:**
+- update_job_increment_layers_updated_at: Updates updated_at on row modification
+
+**Purpose:**
+- Decomposes increment mode jobs into discrete layers for distributed processing
+- Each layer can be scheduled and tracked independently
+- Multiple agents can work on different layers simultaneously
+- Provides granular progress tracking per mask length
+
+**Use Cases:**
+- Track progress for each mask length in an increment mode attack
+- Enable parallel processing of different mask lengths
+- Provide detailed status per layer in the UI
+
+**Example Query - Layer Progress:**
+```sql
+SELECT layer_index, mask, status,
+       overall_progress_percent,
+       processed_keyspace, effective_keyspace
+FROM job_increment_layers
+WHERE job_execution_id = 'uuid-here'
+ORDER BY layer_index;
+```
+
+See [Increment Mode Architecture](architecture/increment-mode.md) for implementation details.
+
+### preset_increment_layers
+
+Pre-calculated increment layers for preset jobs. When a job is created from a preset with increment mode enabled, these layers are copied to `job_increment_layers`. Added in migration 090.
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| id | UUID | PRIMARY KEY | gen_random_uuid() | Layer identifier |
+| preset_job_id | UUID | NOT NULL, FK → preset_jobs(id) ON DELETE CASCADE | | Parent preset job |
+| layer_index | INT | NOT NULL | | Order in sequence (1=first) |
+| mask | VARCHAR(512) | NOT NULL | | Layer-specific mask (e.g., `?l?l`) |
+| base_keyspace | BIGINT | | | Estimated keyspace from --keyspace |
+| effective_keyspace | BIGINT | | | Calculated keyspace |
+| created_at | TIMESTAMP WITH TIME ZONE | NOT NULL | CURRENT_TIMESTAMP | Creation time |
+| updated_at | TIMESTAMP WITH TIME ZONE | NOT NULL | CURRENT_TIMESTAMP | Last update time |
+
+**Unique Constraint:** (preset_job_id, layer_index)
+
+**Indexes:**
+- idx_preset_increment_layers_preset_job_id (preset_job_id)
+
+**Triggers:**
+- update_preset_increment_layers_updated_at: Updates updated_at on row modification
+
+**Purpose:**
+- Pre-calculate layers at preset creation time rather than job creation time
+- Ensures consistent keyspace calculations across all jobs created from the same preset
+- Faster job creation (no need to re-run hashcat --keyspace for each layer)
+- Preset keyspace = sum of all layer effective_keyspaces
+
+**Data Flow:**
+1. Admin creates preset job with increment mode → `preset_increment_layers` populated
+2. User creates job from preset → layers copied from `preset_increment_layers` to `job_increment_layers`
+3. Job inherits preset's total keyspace
+
+See [Increment Mode Architecture](architecture/increment-mode.md) for implementation details.
 
 ### job_execution_settings
 
@@ -1549,6 +1644,20 @@ The database schema has evolved through 83 migrations:
    - Supports 96% performance improvement (15 agents: 450s → 12s)
    - Status tracking: pending, completed, failed
    - Automatic cleanup after each scheduling cycle
+84-87. **000084-000087**: [Various enhancements]
+88. **000088**: Add job_increment_layers table for increment mode support
+   - Stores sub-layers for increment mode jobs
+   - Each layer represents one mask length in the increment sequence
+   - Enables parallel processing of different mask lengths
+   - Tracks per-layer progress and status
+89. **000089**: Add increment_layer_id to job_tasks
+   - Links tasks to their parent increment layer
+   - NULL for non-increment mode jobs
+   - Enables layer-specific task tracking
+90. **000090**: Add preset_increment_layers table
+   - Pre-calculated increment layers for preset jobs
+   - Layers are copied to job_increment_layers when job is created from preset
+   - Ensures consistent keyspace calculations across jobs from same preset
 
 ---
 
