@@ -33,7 +33,7 @@ const createSchema = (requireClient: boolean) => {
   const baseSchema = z.object({
     name: z.string().min(1, 'Name is required'),
     description: z.string().optional(),
-    hashTypeId: z.number().min(1, 'Hash type is required'),
+    hashTypeId: z.number().min(0, 'Hash type is required'),
     clientName: z.string().nullish(),
     excludeFromPotfile: z.boolean().optional(),
   });
@@ -124,10 +124,9 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'text/plain': ['.txt', '.hash', '.hashes', '.lst'],
+      'text/plain': ['.txt', '.hash', '.hashes', '.lst', '.pot'],
       'text/csv': ['.csv'],
       'application/octet-stream': ['.hash', '.hashes'],
-      '*/*': ['.hash', '.hashes', '.txt', '.csv', '.lst', '.pot']
     },
     maxFiles: 1
   });
