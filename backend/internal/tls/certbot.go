@@ -191,13 +191,14 @@ func isValidatableDomain(domain string) bool {
 	return true
 }
 
-// installCustomCA installs a custom CA certificate to the system trust store
-// This is needed for internal ACME servers using self-signed or internal CAs
+// installCustomCA prepares the custom CA certificate for certbot and agent distribution
+// System-wide installation is handled by the Docker entrypoint (as root)
+// This function verifies the installation and sets up agent distribution
 func (p *CertbotProvider) installCustomCA() error {
 	caPath := p.config.CertbotConfig.CustomCACert
-	debug.Info("Installing custom CA certificate from: %s", caPath)
+	debug.Info("Preparing custom CA certificate from: %s", caPath)
 
-	// Check if file exists
+	// Check if source file exists
 	if _, err := os.Stat(caPath); os.IsNotExist(err) {
 		return fmt.Errorf("custom CA certificate file not found: %s", caPath)
 	}
@@ -213,23 +214,24 @@ func (p *CertbotProvider) installCustomCA() error {
 		return fmt.Errorf("custom CA file does not appear to be a valid PEM certificate")
 	}
 
-	// Copy to system CA certificate directory (for certbot to trust ACME server)
-	systemDestPath := "/usr/local/share/ca-certificates/krakenhashes-custom-ca.crt"
-	if err := os.WriteFile(systemDestPath, caCert, 0644); err != nil {
-		return fmt.Errorf("failed to write CA certificate to system directory: %w", err)
+	// Verify system CA installation (done by entrypoint as root)
+	// The backend runs as non-root, so we only verify - we don't attempt to install
+	systemCAPath := "/usr/local/share/ca-certificates/krakenhashes-custom-ca.crt"
+	if systemCert, err := os.ReadFile(systemCAPath); err == nil {
+		if string(systemCert) == string(caCert) {
+			debug.Info("Custom CA verified in system trust store: %s", systemCAPath)
+		} else {
+			debug.Warning("System CA exists but content differs from source - may cause trust issues")
+		}
+	} else if os.IsNotExist(err) {
+		debug.Warning("Custom CA not found in system trust store: %s", systemCAPath)
+		debug.Warning("Ensure CA is installed via Docker entrypoint or manually as root")
+		debug.Warning("Expected: copy CA to %s and run 'update-ca-certificates'", systemCAPath)
+	} else {
+		debug.Warning("Could not read system CA: %v", err)
 	}
 
-	// Update system CA trust store
-	debug.Info("Updating system CA trust store")
-	cmd := exec.Command("update-ca-certificates")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		debug.Error("Failed to update CA certificates: %s", string(output))
-		return fmt.Errorf("failed to update CA certificates: %w", err)
-	}
-	debug.Info("Successfully installed custom CA to system trust store")
-
-	// Copy to certs directory for agent distribution
+	// Copy to certs directory for agent distribution (this we CAN do as non-root)
 	agentDestPath := filepath.Join(p.config.CertsDir, "custom-ca.pem")
 	if err := os.MkdirAll(p.config.CertsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create certs directory: %w", err)
@@ -237,10 +239,9 @@ func (p *CertbotProvider) installCustomCA() error {
 	if err := os.WriteFile(agentDestPath, caCert, 0644); err != nil {
 		return fmt.Errorf("failed to write CA certificate to certs directory: %w", err)
 	}
-	debug.Info("Successfully copied custom CA to certs directory for agent distribution: %s", agentDestPath)
+	debug.Info("Copied custom CA for agent distribution: %s", agentDestPath)
 
-	debug.Info("Custom CA certificate installation complete")
-	debug.Debug("update-ca-certificates output: %s", string(output))
+	debug.Info("Custom CA certificate preparation complete")
 	return nil
 }
 
