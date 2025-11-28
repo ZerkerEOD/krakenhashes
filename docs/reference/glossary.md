@@ -34,6 +34,12 @@ This glossary provides definitions for terms used throughout the KrakenHashes sy
 
 **Hybrid Attack**: An attack combining wordlist entries with masks or rules to generate password candidates.
 
+**Increment Mode**: A hashcat feature that automatically runs mask attacks for each length from a minimum to maximum value. KrakenHashes decomposes increment mode into discrete layers for distributed processing. See [Increment Mode Architecture](architecture/increment-mode.md).
+
+**Increment Inverse**: Variant of increment mode that processes masks from longest to shortest instead of shortest to longest. Useful when longer passwords are more likely.
+
+**Increment Layer**: A sub-component of an increment mode job representing one specific mask length. Each layer is scheduled and tracked independently, enabling parallel processing across multiple agents.
+
 **Keyspace**: The total number of possible password combinations for a given attack configuration.
 
 **Mask**: A pattern defining the structure of passwords to generate in a mask attack (e.g., ?u?l?l?l?d?d?d?d for Abcd1234 format).

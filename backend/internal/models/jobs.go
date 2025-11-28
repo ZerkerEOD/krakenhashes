@@ -495,3 +495,21 @@ type JobIncrementLayerWithStats struct {
 	FailedTasks    int `db:"failed_tasks" json:"failed_tasks"`       // Tasks that failed
 	CrackCount     int `db:"crack_count" json:"crack_count"`         // Total cracks from this layer's tasks
 }
+
+// PresetIncrementLayer represents a pre-calculated increment layer for a preset job.
+// These layers are calculated when a preset job with increment mode is created,
+// and copied to job_increment_layers when a job is created from the preset.
+type PresetIncrementLayer struct {
+	ID                uuid.UUID `json:"id" db:"id"`
+	PresetJobID       uuid.UUID `json:"preset_job_id" db:"preset_job_id"`
+	LayerIndex        int       `json:"layer_index" db:"layer_index"` // Ordering based on increment mode
+	Mask              string    `json:"mask" db:"mask"`               // Specific mask for this layer
+
+	// Keyspace tracking (pre-calculated at preset creation time)
+	BaseKeyspace      *int64 `json:"base_keyspace,omitempty" db:"base_keyspace"`           // From --keyspace command
+	EffectiveKeyspace *int64 `json:"effective_keyspace,omitempty" db:"effective_keyspace"` // Calculated from mask
+
+	// Timing
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+}

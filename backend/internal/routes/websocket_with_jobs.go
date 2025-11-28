@@ -89,6 +89,7 @@ func SetupWebSocketWithJobRoutes(
 	scheduleRepo := repository.NewAgentScheduleRepository(database)
 	clientRepo := repository.NewClientRepository(database)
 	jobIncrementLayerRepo := repository.NewJobIncrementLayerRepository(database)
+	presetIncrementLayerRepo := repository.NewPresetIncrementLayerRepository(database)
 
 	// Create services
 	jobExecutionService := services.NewJobExecutionService(
@@ -96,6 +97,7 @@ func SetupWebSocketWithJobRoutes(
 		jobExecutionRepo,
 		jobTaskRepo,
 		jobIncrementLayerRepo,
+		presetIncrementLayerRepo,
 		benchmarkRepo,
 		agentHashlistRepo,
 		agentRepo,

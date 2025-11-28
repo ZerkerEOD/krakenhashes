@@ -64,8 +64,8 @@ const getInitialFormState = (defaultChunkDuration: number = 300): PresetJobFormD
   mask: '',
   max_agents: 0,
   increment_mode: 'off',
-  increment_min: '',
-  increment_max: ''
+  increment_min: undefined as number | undefined,
+  increment_max: undefined as number | undefined
 });
 
 // Attack mode descriptions and requirements
@@ -198,8 +198,8 @@ const PresetJobFormPage: React.FC = () => {
               mask: presetJob.mask || '',
               max_agents: presetJob.max_agents || 0,
               increment_mode: presetJob.increment_mode || 'off',
-              increment_min: presetJob.increment_min || '',
-              increment_max: presetJob.increment_max || ''
+              increment_min: presetJob.increment_min ?? undefined,
+              increment_max: presetJob.increment_max ?? undefined
             });
 
             // Initialize combination wordlists if in combination mode
@@ -726,12 +726,15 @@ const PresetJobFormPage: React.FC = () => {
                       name="increment_min"
                       label="Increment Min"
                       type="number"
-                      value={formData.increment_min}
-                      onChange={handleChange}
+                      value={formData.increment_min ?? ''}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        increment_min: e.target.value ? parseInt(e.target.value, 10) : undefined
+                      }))}
                       fullWidth
                       margin="normal"
                       inputProps={{ min: 1 }}
-                      helperText="Starting mask length (optional)"
+                      helperText="Starting mask length (default: 1)"
                     />
                   </Grid>
                   <Grid item xs={6}>
@@ -739,12 +742,15 @@ const PresetJobFormPage: React.FC = () => {
                       name="increment_max"
                       label="Increment Max"
                       type="number"
-                      value={formData.increment_max}
-                      onChange={handleChange}
+                      value={formData.increment_max ?? ''}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        increment_max: e.target.value ? parseInt(e.target.value, 10) : undefined
+                      }))}
                       fullWidth
                       margin="normal"
                       inputProps={{ min: 1 }}
-                      helperText="Maximum mask length (optional)"
+                      helperText="Maximum mask length (default: mask length)"
                     />
                   </Grid>
                 </Grid>

@@ -10,7 +10,115 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/utils"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
+	"github.com/google/uuid"
 )
+
+// copyPresetIncrementLayers copies pre-calculated layers from preset_increment_layers to job_increment_layers
+// Returns true if layers were successfully copied, false if no preset layers exist
+func (s *JobExecutionService) copyPresetIncrementLayers(ctx context.Context, jobExecution *models.JobExecution, presetJobID uuid.UUID) (bool, error) {
+	// Only copy if increment mode is enabled
+	if jobExecution.IncrementMode == "" || jobExecution.IncrementMode == "off" {
+		return false, nil
+	}
+
+	// Check if presetIncrementLayerRepo is available
+	if s.presetIncrementLayerRepo == nil {
+		debug.Warning("presetIncrementLayerRepo not available, cannot copy preset layers")
+		return false, nil
+	}
+
+	// Fetch preset increment layers
+	presetLayers, err := s.presetIncrementLayerRepo.GetByPresetJobID(ctx, presetJobID)
+	if err != nil {
+		return false, fmt.Errorf("failed to fetch preset increment layers: %w", err)
+	}
+
+	// If no preset layers exist, return false to trigger calculation from scratch
+	if len(presetLayers) == 0 {
+		debug.Log("No preset increment layers found, will calculate from scratch", map[string]interface{}{
+			"preset_job_id":    presetJobID,
+			"job_execution_id": jobExecution.ID,
+		})
+		return false, nil
+	}
+
+	debug.Log("Copying preset increment layers to job", map[string]interface{}{
+		"preset_job_id":    presetJobID,
+		"job_execution_id": jobExecution.ID,
+		"layer_count":      len(presetLayers),
+	})
+
+	// Copy each preset layer to job_increment_layers
+	var totalBaseKeyspace int64 = 0
+	var totalEffectiveKeyspace int64 = 0
+
+	for _, presetLayer := range presetLayers {
+		// Create job increment layer from preset layer
+		jobLayer := &models.JobIncrementLayer{
+			JobExecutionID:         jobExecution.ID,
+			LayerIndex:             presetLayer.LayerIndex,
+			Mask:                   presetLayer.Mask,
+			Status:                 models.JobIncrementLayerStatusPending,
+			BaseKeyspace:           presetLayer.BaseKeyspace,
+			EffectiveKeyspace:      presetLayer.EffectiveKeyspace,
+			ProcessedKeyspace:      0,
+			DispatchedKeyspace:     0,
+			IsAccurateKeyspace:     false, // Will be updated by benchmark
+			OverallProgressPercent: 0.0,
+		}
+
+		err = s.jobIncrementLayerRepo.Create(ctx, jobLayer)
+		if err != nil {
+			return false, fmt.Errorf("failed to create job increment layer %d: %w", presetLayer.LayerIndex, err)
+		}
+
+		// Track totals
+		if presetLayer.BaseKeyspace != nil {
+			totalBaseKeyspace += *presetLayer.BaseKeyspace
+		}
+		if presetLayer.EffectiveKeyspace != nil {
+			totalEffectiveKeyspace += *presetLayer.EffectiveKeyspace
+		}
+
+		debug.Log("Copied preset layer to job", map[string]interface{}{
+			"job_execution_id":   jobExecution.ID,
+			"layer_index":        jobLayer.LayerIndex,
+			"mask":               jobLayer.Mask,
+			"base_keyspace":      presetLayer.BaseKeyspace,
+			"effective_keyspace": presetLayer.EffectiveKeyspace,
+		})
+	}
+
+	// Update job's keyspace values
+	jobExecution.BaseKeyspace = &totalBaseKeyspace
+	jobExecution.TotalKeyspace = &totalEffectiveKeyspace
+	jobExecution.EffectiveKeyspace = &totalEffectiveKeyspace
+
+	// Persist the keyspace values to the database
+	err = s.jobExecRepo.UpdateTotalKeyspace(ctx, jobExecution.ID, totalEffectiveKeyspace)
+	if err != nil {
+		debug.Warning("Failed to update job total_keyspace: %v", err)
+	}
+
+	err = s.jobExecRepo.UpdateEffectiveKeyspace(ctx, jobExecution.ID, totalEffectiveKeyspace)
+	if err != nil {
+		debug.Warning("Failed to update job effective_keyspace: %v", err)
+	}
+
+	err = s.jobExecRepo.UpdateBaseKeyspace(ctx, jobExecution.ID, totalBaseKeyspace)
+	if err != nil {
+		debug.Warning("Failed to update job base_keyspace: %v", err)
+	}
+
+	debug.Log("Successfully copied preset increment layers", map[string]interface{}{
+		"job_execution_id":          jobExecution.ID,
+		"layer_count":               len(presetLayers),
+		"total_base_keyspace":       totalBaseKeyspace,
+		"total_effective_keyspace":  totalEffectiveKeyspace,
+	})
+
+	return true, nil
+}
 
 // initializeIncrementLayers creates increment layers for a job with increment mode enabled
 // This runs during job creation to:

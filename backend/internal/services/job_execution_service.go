@@ -26,6 +26,7 @@ type JobExecutionService struct {
 	jobExecRepo        *repository.JobExecutionRepository
 	jobTaskRepo        *repository.JobTaskRepository
 	jobIncrementLayerRepo *repository.JobIncrementLayerRepository
+	presetIncrementLayerRepo *repository.PresetIncrementLayerRepository
 	benchmarkRepo      *repository.BenchmarkRepository
 	agentHashlistRepo  *repository.AgentHashlistRepository
 	agentRepo          *repository.AgentRepository
@@ -49,6 +50,7 @@ func NewJobExecutionService(
 	jobExecRepo *repository.JobExecutionRepository,
 	jobTaskRepo *repository.JobTaskRepository,
 	jobIncrementLayerRepo *repository.JobIncrementLayerRepository,
+	presetIncrementLayerRepo *repository.PresetIncrementLayerRepository,
 	benchmarkRepo *repository.BenchmarkRepository,
 	agentHashlistRepo *repository.AgentHashlistRepository,
 	agentRepo *repository.AgentRepository,
@@ -72,23 +74,24 @@ func NewJobExecutionService(
 	ruleSplitManager := NewRuleSplitManager(ruleSplitDir, fileRepo)
 
 	return &JobExecutionService{
-		db:                 database,
-		jobExecRepo:        jobExecRepo,
-		jobTaskRepo:        jobTaskRepo,
-		jobIncrementLayerRepo: jobIncrementLayerRepo,
-		benchmarkRepo:      benchmarkRepo,
-		agentHashlistRepo:  agentHashlistRepo,
-		agentRepo:          agentRepo,
-		deviceRepo:         deviceRepo,
-		presetJobRepo:      presetJobRepo,
-		hashlistRepo:       hashlistRepo,
-		systemSettingsRepo: systemSettingsRepo,
-		fileRepo:           fileRepo,
-		scheduleRepo:       scheduleRepo,
-		binaryManager:      binaryManager,
-		ruleSplitManager:   ruleSplitManager,
-		hashcatBinaryPath:  hashcatBinaryPath,
-		dataDirectory:      dataDirectory,
+		db:                       database,
+		jobExecRepo:              jobExecRepo,
+		jobTaskRepo:              jobTaskRepo,
+		jobIncrementLayerRepo:    jobIncrementLayerRepo,
+		presetIncrementLayerRepo: presetIncrementLayerRepo,
+		benchmarkRepo:            benchmarkRepo,
+		agentHashlistRepo:        agentHashlistRepo,
+		agentRepo:                agentRepo,
+		deviceRepo:               deviceRepo,
+		presetJobRepo:            presetJobRepo,
+		hashlistRepo:             hashlistRepo,
+		systemSettingsRepo:       systemSettingsRepo,
+		fileRepo:                 fileRepo,
+		scheduleRepo:             scheduleRepo,
+		binaryManager:            binaryManager,
+		ruleSplitManager:         ruleSplitManager,
+		hashcatBinaryPath:        hashcatBinaryPath,
+		dataDirectory:            dataDirectory,
 	}
 }
 
@@ -207,11 +210,20 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 
 	// Initialize increment layers if increment mode is enabled
 	// This must happen BEFORE calculateEffectiveKeyspace
-	err = s.initializeIncrementLayers(ctx, jobExecution, presetJob)
+	// First, try to copy layers from preset_increment_layers (pre-calculated)
+	layersCopied, err := s.copyPresetIncrementLayers(ctx, jobExecution, presetJobID)
 	if err != nil {
-		debug.Error("Failed to initialize increment layers: job_execution_id=%s, error=%v",
-			jobExecution.ID, err)
-		return nil, fmt.Errorf("failed to initialize increment layers: %w", err)
+		debug.Warning("Failed to copy preset increment layers, will calculate from scratch: %v", err)
+	}
+
+	// If no layers were copied (preset didn't have them), calculate from scratch
+	if !layersCopied {
+		err = s.initializeIncrementLayers(ctx, jobExecution, presetJob)
+		if err != nil {
+			debug.Error("Failed to initialize increment layers: job_execution_id=%s, error=%v",
+				jobExecution.ID, err)
+			return nil, fmt.Errorf("failed to initialize increment layers: %w", err)
+		}
 	}
 
 	// Calculate effective keyspace after creating the job

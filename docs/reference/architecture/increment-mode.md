@@ -67,6 +67,36 @@ ALTER TABLE job_tasks
 
 Links tasks to their specific layer.
 
+### preset_increment_layers
+
+Created by migration `000090_create_preset_increment_layers.up.sql`
+
+Pre-calculated increment layers for preset jobs. When a job is created from a preset with increment mode enabled, these layers are copied to `job_increment_layers` rather than being recalculated.
+
+```sql
+CREATE TABLE preset_increment_layers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    preset_job_id UUID NOT NULL REFERENCES preset_jobs(id) ON DELETE CASCADE,
+    layer_index INT NOT NULL,
+    mask VARCHAR(512) NOT NULL,
+    base_keyspace BIGINT,
+    effective_keyspace BIGINT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(preset_job_id, layer_index)
+);
+```
+
+**Purpose**: Pre-calculate layers at preset creation time rather than job creation time. This ensures:
+- Consistent keyspace calculations across all jobs created from the same preset
+- Faster job creation (no need to re-run hashcat --keyspace for each layer)
+- Preset keyspace = sum of all layer effective_keyspaces
+
+**Data Flow**:
+1. Admin creates preset job with increment mode → `preset_increment_layers` populated
+2. User creates job from preset → layers copied from `preset_increment_layers` to `job_increment_layers`
+3. Job inherits preset's total keyspace
+
 ## Key Components
 
 ### 1. Mask Parser (`backend/internal/utils/mask_parser.go`)

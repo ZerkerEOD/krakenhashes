@@ -61,8 +61,8 @@ export interface PresetJobFormData {
   allow_high_priority_override: boolean;
   max_agents: number;
   increment_mode: string; // Mask increment mode
-  increment_min: number | string; // Allow string for empty state
-  increment_max: number | string; // Allow string for empty state
+  increment_min: number | undefined; // Optional, backend applies defaults
+  increment_max: number | undefined; // Optional, backend applies defaults
 }
 
 // API type for create/update operations - using string UUIDs
@@ -132,4 +132,5 @@ export interface PresetJobFormDataResponse {
 export type PresetJobInput = Omit<PresetJob, 'id' | 'created_at' | 'updated_at' | 'binary_version_name' | 'status_updates_enabled'> & {
   wordlist_ids: number[] | string[];
   rule_ids: number[] | string[];
+  // increment_min/max inherit from PresetJob as number | null | undefined
 }; 

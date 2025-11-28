@@ -127,6 +127,30 @@ Generates passwords based on mask patterns.
 
 <screenshot: Mask field with pattern examples>
 
+##### Increment Mode (Optional)
+
+Enable increment mode for brute force attacks to automatically test mask patterns of increasing lengths:
+
+- **Increment Mode**: Toggle to enable (`increment` or `increment_inverse`)
+- **Increment Min**: Minimum mask length to start with (default: 1)
+- **Increment Max**: Maximum mask length to end with (default: mask length)
+
+**Example**: Mask `?d?d?d?d` with min=2, max=4 tests:
+
+1. `?d?d` (00-99)
+2. `?d?d?d` (000-999)
+3. `?d?d?d?d` (0000-9999)
+
+**Increment Inverse**: Starts from longest mask and works down to shortest. Useful when longer passwords are more likely.
+
+!!! tip "When to Use Increment Mode"
+    - **PIN Discovery**: Testing 4-8 digit PINs with a single preset job
+    - **Length Exploration**: When password length policies are unknown
+    - **Exhaustive Searches**: Covering all lengths up to a maximum systematically
+
+!!! note "Technical Details"
+    KrakenHashes decomposes increment mode jobs into discrete "layers" (one per mask length) for efficient distributed processing. Each layer is scheduled and tracked independently, allowing multiple agents to work on different layers in parallel. See [Increment Mode Architecture](../../reference/architecture/increment-mode.md) for implementation details.
+
 #### 4. Hybrid Wordlist + Mask (Mode 6)
 Appends mask-generated characters to dictionary words.
 - **Requirements**: 1 wordlist and mask pattern
@@ -281,7 +305,10 @@ Create these preset jobs:
 
 3. **"4-6 Digit PINs"** (Priority: 80)
    - Mode: Brute Force
-   - Mask: ?d?d?d?d, ?d?d?d?d?d, ?d?d?d?d?d?d
+   - Mask: `?d?d?d?d?d?d`
+   - Increment Mode: enabled
+   - Increment Min: 4
+   - Increment Max: 6
 
 ### Example 2: Targeted Corporate Audit
 

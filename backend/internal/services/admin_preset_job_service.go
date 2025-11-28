@@ -15,6 +15,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/utils"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 )
@@ -34,27 +35,30 @@ type AdminPresetJobService interface {
 
 // adminPresetJobService implements AdminPresetJobService.
 type adminPresetJobService struct {
-	presetJobRepo      repository.PresetJobRepository
-	systemSettingsRepo *repository.SystemSettingsRepository
-	binaryManager      binary.Manager
-	fileRepo           *repository.FileRepository
-	dataDirectory      string
+	presetJobRepo            repository.PresetJobRepository
+	presetIncrementLayerRepo *repository.PresetIncrementLayerRepository
+	systemSettingsRepo       *repository.SystemSettingsRepository
+	binaryManager            binary.Manager
+	fileRepo                 *repository.FileRepository
+	dataDirectory            string
 }
 
 // NewAdminPresetJobService creates a new service for managing preset jobs.
 func NewAdminPresetJobService(
 	presetJobRepo repository.PresetJobRepository,
+	presetIncrementLayerRepo *repository.PresetIncrementLayerRepository,
 	systemSettingsRepo *repository.SystemSettingsRepository,
 	binaryManager binary.Manager,
 	fileRepo *repository.FileRepository,
 	dataDirectory string,
 ) AdminPresetJobService {
 	return &adminPresetJobService{
-		presetJobRepo:      presetJobRepo,
-		systemSettingsRepo: systemSettingsRepo,
-		binaryManager:      binaryManager,
-		fileRepo:           fileRepo,
-		dataDirectory:      dataDirectory,
+		presetJobRepo:            presetJobRepo,
+		presetIncrementLayerRepo: presetIncrementLayerRepo,
+		systemSettingsRepo:       systemSettingsRepo,
+		binaryManager:            binaryManager,
+		fileRepo:                 fileRepo,
+		dataDirectory:            dataDirectory,
 	}
 }
 
@@ -253,6 +257,7 @@ func (s *adminPresetJobService) CreatePresetJob(ctx context.Context, params mode
 	debug.Info("Creating preset job: %s", params.Name)
 
 	// Calculate keyspace for the preset job
+	// For increment mode jobs, this will be updated after layer initialization
 	keyspace, err := s.CalculateKeyspaceForPresetJob(ctx, &params)
 	if err != nil {
 		debug.Error("Failed to calculate keyspace for preset job: %v", err)
@@ -270,6 +275,23 @@ func (s *adminPresetJobService) CreatePresetJob(ctx context.Context, params mode
 		// TODO: Handle specific DB errors like unique constraint violations more gracefully
 		return nil, fmt.Errorf("failed to create preset job: %w", err)
 	}
+
+	// Initialize increment layers if increment mode is enabled
+	if s.hasIncrementMode(&params) {
+		totalKeyspace, err := s.initializePresetIncrementLayers(ctx, createdJob)
+		if err != nil {
+			// Log but don't fail - the preset is created, layers can be recalculated later
+			debug.Warning("Failed to initialize increment layers for preset job %s: %v", createdJob.ID, err)
+		} else {
+			// Update the keyspace with the sum of all layer keyspaces
+			createdJob.Keyspace = &totalKeyspace
+			_, updateErr := s.presetJobRepo.Update(ctx, createdJob.ID, *createdJob)
+			if updateErr != nil {
+				debug.Warning("Failed to update keyspace after layer initialization: %v", updateErr)
+			}
+		}
+	}
+
 	debug.Info("Successfully created preset job ID: %s with keyspace: %v", createdJob.ID, createdJob.Keyspace)
 	return createdJob, nil
 }
@@ -303,7 +325,7 @@ func (s *adminPresetJobService) ListPresetJobs(ctx context.Context) ([]models.Pr
 // UpdatePresetJob updates an existing preset job after validation.
 func (s *adminPresetJobService) UpdatePresetJob(ctx context.Context, id uuid.UUID, params models.PresetJob) (*models.PresetJob, error) {
 	// Ensure the job exists before validating/updating
-	_, err := s.GetPresetJobByID(ctx, id)
+	existingJob, err := s.GetPresetJobByID(ctx, id)
 	if err != nil {
 		return nil, err // Returns ErrNotFound if applicable
 	}
@@ -314,15 +336,14 @@ func (s *adminPresetJobService) UpdatePresetJob(ctx context.Context, id uuid.UUI
 
 	debug.Info("Updating preset job ID: %s", id)
 
-	// Get the existing job to check if keyspace recalculation is needed
-	existingJob, _ := s.presetJobRepo.GetByID(ctx, id)
+	// Check if increment settings changed (requires re-initializing layers)
+	incrementSettingsChanged := s.incrementSettingsChanged(existingJob, &params)
 
 	// Check if keyspace was explicitly provided (from recalculation endpoint)
 	if params.Keyspace != nil {
 		// Keyspace was explicitly set, use it
 		debug.Info("Using explicitly provided keyspace for preset job %s: %v", id, params.Keyspace)
-	} else if existingJob != nil && s.needsKeyspaceRecalculation(existingJob, &params) {
-		// Check if keyspace-affecting fields have changed
+	} else if s.needsKeyspaceRecalculation(existingJob, &params) || incrementSettingsChanged {
 		// Recalculate keyspace
 		keyspace, err := s.CalculateKeyspaceForPresetJob(ctx, &params)
 		if err != nil {
@@ -330,7 +351,7 @@ func (s *adminPresetJobService) UpdatePresetJob(ctx context.Context, id uuid.UUI
 			debug.Warning("Failed to calculate keyspace for preset job: %v", err)
 		}
 		params.Keyspace = keyspace
-	} else if existingJob != nil {
+	} else {
 		// Keep existing keyspace if no changes affecting it
 		params.Keyspace = existingJob.Keyspace
 	}
@@ -341,6 +362,30 @@ func (s *adminPresetJobService) UpdatePresetJob(ctx context.Context, id uuid.UUI
 		// TODO: Handle specific DB errors
 		return nil, fmt.Errorf("failed to update preset job: %w", err)
 	}
+
+	// Re-initialize increment layers if increment settings changed
+	if incrementSettingsChanged {
+		// Delete existing layers
+		if err := s.presetIncrementLayerRepo.DeleteByPresetJobID(ctx, id); err != nil {
+			debug.Warning("Failed to delete existing preset increment layers: %v", err)
+		}
+
+		// Create new layers if increment mode is now enabled
+		if s.hasIncrementMode(&params) {
+			totalKeyspace, err := s.initializePresetIncrementLayers(ctx, updatedJob)
+			if err != nil {
+				debug.Warning("Failed to re-initialize increment layers for preset job %s: %v", id, err)
+			} else {
+				// Update the keyspace with the sum of all layer keyspaces
+				updatedJob.Keyspace = &totalKeyspace
+				_, updateErr := s.presetJobRepo.Update(ctx, id, *updatedJob)
+				if updateErr != nil {
+					debug.Warning("Failed to update keyspace after layer re-initialization: %v", updateErr)
+				}
+			}
+		}
+	}
+
 	debug.Info("Successfully updated preset job ID: %s with keyspace: %v", updatedJob.ID, updatedJob.Keyspace)
 	return updatedJob, nil
 }
@@ -800,4 +845,243 @@ func (s *adminPresetJobService) RecalculateKeyspacesForRule(ctx context.Context,
 	}
 
 	return nil
+}
+
+// hasIncrementMode checks if a preset job has increment mode enabled
+func (s *adminPresetJobService) hasIncrementMode(presetJob *models.PresetJob) bool {
+	return presetJob.IncrementMode != "" && presetJob.IncrementMode != "off"
+}
+
+// incrementSettingsChanged checks if increment-related settings have changed between two preset jobs
+func (s *adminPresetJobService) incrementSettingsChanged(existing, updated *models.PresetJob) bool {
+	// Check if increment mode changed
+	if existing.IncrementMode != updated.IncrementMode {
+		return true
+	}
+
+	// Check if increment min changed
+	existingMin := 0
+	updatedMin := 0
+	if existing.IncrementMin != nil {
+		existingMin = *existing.IncrementMin
+	}
+	if updated.IncrementMin != nil {
+		updatedMin = *updated.IncrementMin
+	}
+	if existingMin != updatedMin {
+		return true
+	}
+
+	// Check if increment max changed
+	existingMax := 0
+	updatedMax := 0
+	if existing.IncrementMax != nil {
+		existingMax = *existing.IncrementMax
+	}
+	if updated.IncrementMax != nil {
+		updatedMax = *updated.IncrementMax
+	}
+	if existingMax != updatedMax {
+		return true
+	}
+
+	// Check if mask changed (affects layer generation)
+	if existing.Mask != updated.Mask {
+		return true
+	}
+
+	return false
+}
+
+// initializePresetIncrementLayers creates increment layers for a preset job with increment mode enabled
+// Returns the total effective keyspace (sum of all layer keyspaces)
+func (s *adminPresetJobService) initializePresetIncrementLayers(ctx context.Context, presetJob *models.PresetJob) (int64, error) {
+	// Only initialize layers if increment mode is enabled
+	if !s.hasIncrementMode(presetJob) {
+		return 0, nil
+	}
+
+	// Step 1: Get mask length (needed for applying defaults)
+	maskLength, err := utils.GetMaskLength(presetJob.Mask)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse mask: %w", err)
+	}
+
+	// Step 2: Apply sensible defaults if min/max are not specified
+	// This matches hashcat's behavior where:
+	// - --increment-min defaults to 1 if not specified
+	// - --increment-max defaults to mask length if not specified
+	incrementMin := 1
+	if presetJob.IncrementMin != nil {
+		incrementMin = *presetJob.IncrementMin
+	}
+	incrementMax := maskLength
+	if presetJob.IncrementMax != nil {
+		incrementMax = *presetJob.IncrementMax
+	}
+
+	// Clamp values to valid range
+	if incrementMin < 1 {
+		incrementMin = 1
+	}
+	if incrementMax > maskLength {
+		incrementMax = maskLength
+	}
+
+	// Validate constraints
+	if incrementMin > maskLength {
+		return 0, fmt.Errorf("increment_min (%d) exceeds mask length (%d)", incrementMin, maskLength)
+	}
+	if incrementMax < incrementMin {
+		return 0, fmt.Errorf("increment_max (%d) must be >= increment_min (%d)", incrementMax, incrementMin)
+	}
+
+	debug.Log("Initializing preset increment layers", map[string]interface{}{
+		"preset_job_id":  presetJob.ID,
+		"increment_mode": presetJob.IncrementMode,
+		"increment_min":  incrementMin,
+		"increment_max":  incrementMax,
+		"mask":           presetJob.Mask,
+		"mask_length":    maskLength,
+	})
+
+	// Generate layer masks
+	isInverse := presetJob.IncrementMode == "increment_inverse"
+	layerMasks, err := utils.GenerateIncrementLayers(presetJob.Mask, incrementMin, incrementMax, isInverse)
+	if err != nil {
+		return 0, fmt.Errorf("failed to generate layer masks: %w", err)
+	}
+
+	debug.Log("Generated preset increment layer masks", map[string]interface{}{
+		"preset_job_id": presetJob.ID,
+		"layer_count":   len(layerMasks),
+		"masks":         layerMasks,
+	})
+
+	// Get hashcat binary path
+	hashcatPath, err := s.binaryManager.GetLocalBinaryPath(ctx, int64(presetJob.BinaryVersionID))
+	if err != nil {
+		return 0, fmt.Errorf("failed to get hashcat binary path: %w", err)
+	}
+
+	// Create layers with keyspace calculation
+	var totalEffectiveKeyspace int64 = 0
+	for i, layerMask := range layerMasks {
+		// Calculate base_keyspace using hashcat --keyspace
+		baseKeyspace, err := s.calculateMaskKeyspace(ctx, hashcatPath, layerMask)
+		if err != nil {
+			return 0, fmt.Errorf("failed to calculate keyspace for layer %d mask %s: %w", i+1, layerMask, err)
+		}
+
+		// Calculate effective keyspace from mask
+		effectiveKeyspace, err := utils.CalculateEffectiveKeyspace(layerMask)
+		if err != nil {
+			debug.Warning("Failed to calculate effective keyspace for mask %s: %v, falling back to base", layerMask, err)
+			effectiveKeyspace = baseKeyspace
+		}
+
+		debug.Log("Calculated keyspace for preset layer", map[string]interface{}{
+			"layer_index":        i + 1,
+			"mask":               layerMask,
+			"base_keyspace":      baseKeyspace,
+			"effective_keyspace": effectiveKeyspace,
+		})
+
+		// Create layer record
+		layer := &models.PresetIncrementLayer{
+			PresetJobID:       presetJob.ID,
+			LayerIndex:        i + 1, // 1-indexed
+			Mask:              layerMask,
+			BaseKeyspace:      &baseKeyspace,
+			EffectiveKeyspace: &effectiveKeyspace,
+		}
+
+		err = s.presetIncrementLayerRepo.Create(ctx, layer)
+		if err != nil {
+			return 0, fmt.Errorf("failed to create preset increment layer %d: %w", i+1, err)
+		}
+
+		totalEffectiveKeyspace += effectiveKeyspace
+
+		debug.Log("Created preset increment layer", map[string]interface{}{
+			"preset_job_id":      presetJob.ID,
+			"layer_index":        layer.LayerIndex,
+			"mask":               layer.Mask,
+			"base_keyspace":      baseKeyspace,
+			"effective_keyspace": effectiveKeyspace,
+		})
+	}
+
+	debug.Log("Preset increment layers initialized successfully", map[string]interface{}{
+		"preset_job_id":           presetJob.ID,
+		"layer_count":             len(layerMasks),
+		"total_effective_keyspace": totalEffectiveKeyspace,
+	})
+
+	return totalEffectiveKeyspace, nil
+}
+
+// calculateMaskKeyspace runs hashcat --keyspace to get the keyspace for a specific mask
+func (s *adminPresetJobService) calculateMaskKeyspace(ctx context.Context, hashcatPath string, mask string) (int64, error) {
+	// Build command: hashcat -a 3 <mask> --keyspace
+	args := []string{"-a", "3", mask, "--keyspace", "--restore-disable", "--quiet"}
+
+	// Add a unique session ID to allow concurrent executions
+	sessionID := fmt.Sprintf("preset_keyspace_%d", time.Now().UnixNano())
+	args = append(args, "--session", sessionID)
+
+	debug.Log("Calculating keyspace for mask", map[string]interface{}{
+		"mask":         mask,
+		"hashcat_path": hashcatPath,
+	})
+
+	// Execute with timeout
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, hashcatPath, args...)
+	cmd.Dir = s.dataDirectory
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+
+	// Clean up session files
+	sessionFiles := []string{
+		filepath.Join(s.dataDirectory, sessionID+".log"),
+		filepath.Join(s.dataDirectory, sessionID+".potfile"),
+	}
+	for _, file := range sessionFiles {
+		_ = os.Remove(file)
+	}
+
+	if err != nil {
+		return 0, fmt.Errorf("hashcat --keyspace command failed: %w (stderr: %s)", err, stderr.String())
+	}
+
+	// Parse output
+	keyspaceStr := strings.TrimSpace(stdout.String())
+	// Get the last non-empty line
+	lines := strings.Split(keyspaceStr, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := strings.TrimSpace(lines[i])
+		if line != "" {
+			keyspaceStr = line
+			break
+		}
+	}
+
+	keyspace, err := strconv.ParseInt(keyspaceStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse keyspace output '%s': %w", keyspaceStr, err)
+	}
+
+	debug.Log("Calculated mask keyspace", map[string]interface{}{
+		"mask":     mask,
+		"keyspace": keyspace,
+	})
+
+	return keyspace, nil
 }

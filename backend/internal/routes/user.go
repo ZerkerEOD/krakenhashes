@@ -56,6 +56,7 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 	ruleStore := rule.NewStore(database.DB)
 	binaryStore := binary.NewStore(database.DB)
 	jobIncrementLayerRepo := repository.NewJobIncrementLayerRepository(dbWrapper)
+	presetIncrementLayerRepo := repository.NewPresetIncrementLayerRepository(dbWrapper)
 
 	// Create job execution service
 	jobExecutionService := services.NewJobExecutionService(
@@ -63,6 +64,7 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 		jobExecRepo,
 		jobTaskRepo,
 		jobIncrementLayerRepo,
+		presetIncrementLayerRepo,
 		benchmarkRepo,
 		agentHashlistRepo,
 		agentRepo,
