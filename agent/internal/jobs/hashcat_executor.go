@@ -60,6 +60,10 @@ type JobTaskAssignment struct {
 	OutputFormat    string      `json:"output_format"`    // Hashcat output format
 	ExtraParameters string      `json:"extra_parameters,omitempty"` // Agent-specific hashcat parameters
 	EnabledDevices  []int       `json:"enabled_devices,omitempty"`  // List of enabled device IDs
+	IncrementMode   string      `json:"increment_mode,omitempty"`   // Mask increment mode: off, increment, increment_inverse
+	IncrementMin    *int        `json:"increment_min,omitempty"`    // Starting mask length for increment mode
+	IncrementMax    *int        `json:"increment_max,omitempty"`    // Maximum mask length for increment mode
+	IsKeyspaceSplit bool        `json:"is_keyspace_split"`          // Whether this task uses keyspace splitting (--skip/--limit)
 }
 
 // DeviceMetric represents metrics for a single device
@@ -480,7 +484,28 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 		extraParamsList := strings.Fields(extraParams)
 		args = append(args, extraParamsList...)
 	}
-	
+
+	// Add increment flags for mask-based attacks
+	if assignment.IncrementMode == "increment" || assignment.IncrementMode == "increment_inverse" {
+		if assignment.IncrementMode == "increment" {
+			args = append(args, "--increment")
+			debug.Info("Adding --increment flag for left-to-right mask increment")
+		} else if assignment.IncrementMode == "increment_inverse" {
+			args = append(args, "--increment-inverse")
+			debug.Info("Adding --increment-inverse flag for right-to-left mask increment")
+		}
+
+		if assignment.IncrementMin != nil {
+			args = append(args, "--increment-min", strconv.Itoa(*assignment.IncrementMin))
+			debug.Info("Adding --increment-min %d", *assignment.IncrementMin)
+		}
+
+		if assignment.IncrementMax != nil {
+			args = append(args, "--increment-max", strconv.Itoa(*assignment.IncrementMax))
+			debug.Info("Adding --increment-max %d", *assignment.IncrementMax)
+		}
+	}
+
 	// Only add --outfile for actual job execution, not benchmarks
 	// Note: --remove flag removed as it's not needed for distributed cracking
 	// The backend tracks which hashes are cracked via the database
@@ -498,21 +523,13 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 		debug.Info("Outfile configured: %s", outfilePath)
 	}
 
-	// Add skip and limit for keyspace distribution
-	// Skip this for rule-split tasks (detected by rule chunk paths)
-	isRuleSplitTask := false
-	for _, rulePath := range assignment.RulePaths {
-		if strings.Contains(rulePath, "chunks/job_") {
-			isRuleSplitTask = true
-			break
-		}
-	}
-	
-	if !isRuleSplitTask {
+	// Only use --skip/--limit when explicitly doing keyspace splitting
+	// Do NOT use for rule chunking or increment mode
+	if assignment.IsKeyspaceSplit {
 		if assignment.KeyspaceStart > 0 {
 			args = append(args, "--skip", strconv.FormatInt(assignment.KeyspaceStart, 10))
 		}
-		
+
 		if assignment.KeyspaceEnd > assignment.KeyspaceStart {
 			keyspaceRange := assignment.KeyspaceEnd - assignment.KeyspaceStart
 			args = append(args, "--limit", strconv.FormatInt(keyspaceRange, 10))
@@ -1368,11 +1385,59 @@ func (e *HashcatExecutor) ForceCleanup() error {
 	return nil
 }
 
+// waitForActiveProcesses waits for all active hashcat processes to complete.
+// This is critical before starting benchmarks because hashcat can only run one instance at a time.
+// Times out after 30 seconds to prevent indefinite blocking.
+func (e *HashcatExecutor) waitForActiveProcesses(ctx context.Context) error {
+	const maxWait = 30 * time.Second
+	const checkInterval = 100 * time.Millisecond
+
+	startTime := time.Now()
+
+	for {
+		// Check if we've exceeded max wait time
+		if time.Since(startTime) > maxWait {
+			e.mutex.RLock()
+			count := len(e.activeProcesses)
+			e.mutex.RUnlock()
+			return fmt.Errorf("timeout waiting for %d active processes to complete after %v", count, maxWait)
+		}
+
+		// Check context cancellation
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		// Check if any processes are still active
+		e.mutex.RLock()
+		count := len(e.activeProcesses)
+		e.mutex.RUnlock()
+
+		if count == 0 {
+			debug.Debug("No active processes, safe to proceed")
+			return nil
+		}
+
+		debug.Debug("Waiting for %d active processes to complete before speed test...", count)
+		time.Sleep(checkInterval)
+	}
+}
+
 // RunSpeedTest runs a real-world speed test with actual job configuration
 // Returns: totalSpeed (H/s), deviceSpeeds, totalEffectiveKeyspace (progress[1]), error
 func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskAssignment, testDuration int) (int64, []DeviceSpeed, int64, error) {
-	debug.Info("Running speed test for hash type %d, attack mode %d, duration %d seconds", 
+	debug.Info("Running speed test for hash type %d, attack mode %d, duration %d seconds",
 		assignment.HashType, assignment.AttackMode, testDuration)
+
+	// Part 9: Wait for any active hashcat processes to complete before starting benchmark.
+	// Hashcat can only run one instance at a time. If a task just completed (status=5 Exhausted),
+	// there's a ~1.3 second delay before the process fully exits and is removed from activeProcesses.
+	// Without this wait, the benchmark would fail with "Already an instance running" error.
+	if err := e.waitForActiveProcesses(ctx); err != nil {
+		return 0, nil, 0, fmt.Errorf("failed waiting for active processes: %w", err)
+	}
 	
 	// Build command similar to real job but without skip/limit and without --remove
 	cmd, _, _, _, err := e.buildHashcatCommandWithOptions(assignment, true)

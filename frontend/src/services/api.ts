@@ -421,20 +421,23 @@ export const createPresetJob = async (data: PresetJobInput): Promise<PresetJob> 
     // Convert priority to number if it's a string
     priority: typeof data.priority === 'string' ? parseInt(data.priority) || 0 : data.priority,
     // Handle both number[] and string[] inputs by ensuring all IDs are strings
-    wordlist_ids: Array.isArray(data.wordlist_ids) 
+    wordlist_ids: Array.isArray(data.wordlist_ids)
       ? data.wordlist_ids.map(id => id.toString())
       : [],
-    rule_ids: Array.isArray(data.rule_ids) 
+    rule_ids: Array.isArray(data.rule_ids)
       ? data.rule_ids.map(id => id.toString())
       : [],
     // Add missing required fields
     status_updates_enabled: true, // Default to true for new jobs
     // Ensure allow_high_priority_override is properly set
-    allow_high_priority_override: Boolean(data.allow_high_priority_override)
+    allow_high_priority_override: Boolean(data.allow_high_priority_override),
+    // Convert undefined to null for backend (backend applies defaults for null values)
+    increment_min: data.increment_min ?? null,
+    increment_max: data.increment_max ?? null,
   };
-  
+
   console.log('Converted API data:', JSON.stringify(apiData, null, 2));
-  
+
   const response = await api.post<PresetJob>('/api/admin/preset-jobs', apiData);
   return response.data;
 };
@@ -442,26 +445,29 @@ export const createPresetJob = async (data: PresetJobInput): Promise<PresetJob> 
 export const updatePresetJob = async (id: string, data: PresetJobInput): Promise<PresetJob> => {
   // Prepare the data to match what the backend expects (convert to strings)
   console.log('Original update data:', JSON.stringify(data, null, 2));
-  
+
   const apiData = {
     ...data,
     // Convert priority to number if it's a string
     priority: typeof data.priority === 'string' ? parseInt(data.priority) || 0 : data.priority,
     // Handle both number[] and string[] inputs by ensuring all IDs are strings
-    wordlist_ids: Array.isArray(data.wordlist_ids) 
+    wordlist_ids: Array.isArray(data.wordlist_ids)
       ? data.wordlist_ids.map(id => id.toString())
       : [],
-    rule_ids: Array.isArray(data.rule_ids) 
+    rule_ids: Array.isArray(data.rule_ids)
       ? data.rule_ids.map(id => id.toString())
       : [],
     // Add missing required fields
     status_updates_enabled: true, // Default to true for updated jobs
     // Ensure allow_high_priority_override is properly set
-    allow_high_priority_override: Boolean(data.allow_high_priority_override)
+    allow_high_priority_override: Boolean(data.allow_high_priority_override),
+    // Convert undefined to null for backend (backend applies defaults for null values)
+    increment_min: data.increment_min ?? null,
+    increment_max: data.increment_max ?? null,
   };
-  
+
   console.log('Converted update API data:', JSON.stringify(apiData, null, 2));
-  
+
   const response = await api.put<PresetJob>(`/api/admin/preset-jobs/${id}`, apiData);
   return response.data;
 };
@@ -545,6 +551,24 @@ export const toggleAgentScheduling = async (agentId: number, enabled: boolean, t
 // Get detailed job information including tasks
 export const getJobDetails = async (id: string): Promise<any> => {
   const url = `/api/jobs/${id}`;
+  logApiCall('GET', url);
+  const response = await api.get(url);
+  logApiResponse('GET', url, response.data);
+  return response.data;
+};
+
+// Get job increment layers
+export const getJobLayers = async (id: string): Promise<any> => {
+  const url = `/api/jobs/${id}/layers`;
+  logApiCall('GET', url);
+  const response = await api.get(url);
+  logApiResponse('GET', url, response.data);
+  return response.data;
+};
+
+// Get tasks for a specific layer
+export const getJobLayerTasks = async (jobId: string, layerId: string): Promise<any> => {
+  const url = `/api/jobs/${jobId}/layers/${layerId}/tasks`;
   logApiCall('GET', url);
   const response = await api.get(url);
   logApiResponse('GET', url, response.data);

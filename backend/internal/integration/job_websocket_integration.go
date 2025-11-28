@@ -36,11 +36,12 @@ type JobWebSocketIntegration struct {
 	hashlistRepo         *repository.HashListRepository
 	hashRepo             *repository.HashRepository
 	lmHashRepo           *repository.LMHashRepository
-	jobTaskRepo          *repository.JobTaskRepository
-	agentRepo            *repository.AgentRepository
-	deviceRepo           *repository.AgentDeviceRepository
-	clientRepo           *repository.ClientRepository
-	systemSettingsRepo   *repository.SystemSettingsRepository
+	jobTaskRepo           *repository.JobTaskRepository
+	jobIncrementLayerRepo *repository.JobIncrementLayerRepository
+	agentRepo             *repository.AgentRepository
+	deviceRepo            *repository.AgentDeviceRepository
+	clientRepo            *repository.ClientRepository
+	systemSettingsRepo    *repository.SystemSettingsRepository
 	potfileService          *services.PotfileService
 	hashlistCompletionService *services.HashlistCompletionService
 	db                      *sql.DB
@@ -67,6 +68,7 @@ func NewJobWebSocketIntegration(
 	hashRepo *repository.HashRepository,
 	lmHashRepo *repository.LMHashRepository,
 	jobTaskRepo *repository.JobTaskRepository,
+	jobIncrementLayerRepo *repository.JobIncrementLayerRepository,
 	agentRepo *repository.AgentRepository,
 	deviceRepo *repository.AgentDeviceRepository,
 	clientRepo *repository.ClientRepository,
@@ -89,6 +91,7 @@ func NewJobWebSocketIntegration(
 		hashRepo:                  hashRepo,
 		lmHashRepo:                lmHashRepo,
 		jobTaskRepo:               jobTaskRepo,
+		jobIncrementLayerRepo:     jobIncrementLayerRepo,
 		agentRepo:                 agentRepo,
 		deviceRepo:                deviceRepo,
 		clientRepo:                clientRepo,
@@ -195,6 +198,28 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 	hashlist, err := s.hashlistRepo.GetByID(ctx, jobExecution.HashlistID)
 	if err != nil {
 		return fmt.Errorf("failed to get hashlist: %w", err)
+	}
+
+	// Check if this task belongs to an increment layer
+	var maskToUse string
+	if task.IncrementLayerID != nil {
+		// This task belongs to a layer - fetch the layer to get its mask
+		layer, err := s.jobIncrementLayerRepo.GetByID(ctx, *task.IncrementLayerID)
+		if err != nil {
+			return fmt.Errorf("failed to get increment layer: %w", err)
+		}
+
+		maskToUse = layer.Mask
+
+		debug.Log("Using layer-specific mask for task", map[string]interface{}{
+			"task_id":    task.ID,
+			"layer_id":   layer.ID,
+			"layer_mask": layer.Mask,
+			"layer_idx":  layer.LayerIndex,
+		})
+	} else {
+		// Regular job - use job's mask
+		maskToUse = jobExecution.Mask
 	}
 
 	// Build wordlist and rule paths using job execution's self-contained configuration
@@ -336,20 +361,36 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 		KeyspaceEnd:     task.KeyspaceEnd,
 		WordlistPaths:   wordlistPaths,
 		RulePaths:       rulePaths,
-		Mask:            jobExecution.Mask,
+		Mask:            maskToUse, // Layer mask or job mask
 		BinaryPath:      binaryPath,
 		ChunkDuration:   task.ChunkDuration,
 		ReportInterval:  reportInterval,
 		OutputFormat:    "3",                   // hash:plain format
 		ExtraParameters: agent.ExtraParameters, // Agent-specific hashcat parameters
 		EnabledDevices:  enabledDeviceIDs,      // Only populated if some devices are disabled
+		IsKeyspaceSplit: task.IsKeyspaceSplit,
 	}
+
+	// Only add increment fields for regular jobs (NOT for layer tasks)
+	if task.IncrementLayerID == nil {
+		assignment.IncrementMode = jobExecution.IncrementMode
+		assignment.IncrementMin = jobExecution.IncrementMin
+		assignment.IncrementMax = jobExecution.IncrementMax
+	}
+	// For layer tasks: increment fields remain empty/unset
+
+	// DEBUG: Log increment mode values before marshaling
+	debug.Info("Task assignment increment values - Mode: %s, Min: %v, Max: %v",
+		assignment.IncrementMode, assignment.IncrementMin, assignment.IncrementMax)
 
 	// Marshal payload
 	payloadBytes, err := json.Marshal(assignment)
 	if err != nil {
 		return fmt.Errorf("failed to marshal task assignment: %w", err)
 	}
+
+	// DEBUG: Log the marshaled JSON
+	debug.Info("Marshaled task assignment JSON: %s", string(payloadBytes))
 
 	// Create WebSocket message
 	msg := &wsservice.Message{
@@ -529,7 +570,7 @@ func (s *JobWebSocketIntegration) SendBenchmarkRequest(ctx context.Context, agen
 }
 
 // RequestAgentBenchmark implements the JobWebSocketIntegration interface for requesting benchmarks
-func (s *JobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, agentID int, jobExecution *models.JobExecution) error {
+func (s *JobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, agentID int, jobExecution *models.JobExecution, layerID *uuid.UUID, layerMask string) error {
 	// Get hashlist to get hash type
 	hashlist, err := s.hashlistRepo.GetByID(ctx, jobExecution.HashlistID)
 	if err != nil {
@@ -621,6 +662,22 @@ func (s *JobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, age
 		}
 	}
 
+	// Determine which ID and mask to use for the benchmark
+	benchmarkEntityID := jobExecution.ID.String()
+	maskToUse := jobExecution.Mask
+
+	if layerID != nil && layerMask != "" {
+		// This is a layer benchmark - use layer ID and mask
+		benchmarkEntityID = layerID.String()
+		maskToUse = layerMask
+
+		debug.Log("Requesting layer-specific benchmark", map[string]interface{}{
+			"job_id":     jobExecution.ID,
+			"layer_id":   layerID,
+			"layer_mask": layerMask,
+		})
+	}
+
 	requestID := fmt.Sprintf("benchmark-%d-%d-%d-%d", agentID, hashlist.HashTypeID, jobExecution.AttackMode, time.Now().Unix())
 
 	debug.Log("Sending enhanced benchmark request to agent", map[string]interface{}{
@@ -630,7 +687,10 @@ func (s *JobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, age
 		"request_id":      requestID,
 		"wordlist_count":  len(wordlistPaths),
 		"rule_count":      len(rulePaths),
-		"has_mask":        jobExecution.Mask != "",
+		"has_mask":        maskToUse != "",
+		"mask":            maskToUse,
+		"entity_id":       benchmarkEntityID,
+		"is_layer":        layerID != nil,
 		"enabled_devices": enabledDeviceIDs,
 	})
 
@@ -647,8 +707,8 @@ func (s *JobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, age
 	// Create enhanced benchmark request payload with job-specific configuration
 	benchmarkReq := wsservice.BenchmarkRequestPayload{
 		RequestID:       requestID,
-		JobExecutionID:  jobExecution.ID.String(),                                           // Include job ID for result tracking
-		TaskID:          fmt.Sprintf("benchmark-%s-%d", jobExecution.ID, time.Now().Unix()), // Generate a task ID for the benchmark
+		JobExecutionID:  benchmarkEntityID,                                                  // LAYER ID for layer benchmarks, JOB ID for regular
+		TaskID:          fmt.Sprintf("benchmark-%s-%d", benchmarkEntityID, time.Now().Unix()), // Generate a task ID for the benchmark
 		HashType:        hashlist.HashTypeID,
 		AttackMode:      int(jobExecution.AttackMode),
 		BinaryPath:      binaryPath,
@@ -656,7 +716,7 @@ func (s *JobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, age
 		HashlistPath:    fmt.Sprintf("hashlists/%d.hash", jobExecution.HashlistID),
 		WordlistPaths:   wordlistPaths,
 		RulePaths:       rulePaths,
-		Mask:            jobExecution.Mask,
+		Mask:            maskToUse,             // LAYER MASK for layer benchmarks, JOB MASK for regular
 		TestDuration:    30,                    // 30-second benchmark for accuracy
 		TimeoutDuration: speedtestTimeout,      // Configurable timeout for speedtest
 		ExtraParameters: agent.ExtraParameters, // Agent-specific hashcat parameters
@@ -741,12 +801,38 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 				"task_id": progress.TaskID,
 			})
 		}
+
+		// If this is an increment layer task starting for the first time, update layer status to running
+		if task.IncrementLayerID != nil {
+			layer, err := s.jobIncrementLayerRepo.GetByID(ctx, *task.IncrementLayerID)
+			if err != nil {
+				debug.Error("Failed to get layer for status update: %v", err)
+			} else if layer.Status == models.JobIncrementLayerStatusPending {
+				debug.Log("Updating layer status from pending to running", map[string]interface{}{
+					"layer_id":   task.IncrementLayerID,
+					"task_id":    progress.TaskID,
+				})
+
+				err = s.jobIncrementLayerRepo.UpdateStatus(ctx, *task.IncrementLayerID, models.JobIncrementLayerStatusRunning)
+				if err != nil {
+					debug.Error("Failed to update layer status to running: %v", err)
+				} else {
+					debug.Log("Layer status updated to running", map[string]interface{}{
+						"layer_id": task.IncrementLayerID,
+					})
+				}
+			}
+		}
 	}
 
 	// Update task effective keyspace from hashcat progress[1] if we haven't already
-	if progress.TotalEffectiveKeyspace != nil && *progress.TotalEffectiveKeyspace > 0 && !task.IsActualKeyspace {
+	// IMPORTANT: For keyspace-split tasks (mask attacks with --skip/--limit), progress[1] reports the
+	// ENTIRE job's effective keyspace, not the chunk's. We should NOT update effective keyspace for
+	// keyspace-split tasks because we already calculated proportional values during task creation.
+	// Only update for rule-split tasks where progress[1] correctly reflects the chunk's rule range.
+	if progress.TotalEffectiveKeyspace != nil && *progress.TotalEffectiveKeyspace > 0 && !task.IsActualKeyspace && !task.IsKeyspaceSplit {
 		// IMPORTANT: progress.TotalEffectiveKeyspace is the CHUNK's actual keyspace size (not cumulative!)
-		// It represents the total keyspace for this specific chunk's rules
+		// It represents the total keyspace for this specific chunk's rules (only valid for rule-split tasks)
 		chunkActualKeyspace := *progress.TotalEffectiveKeyspace
 
 		// Get the current start position (where this chunk begins in the cumulative keyspace)
@@ -771,24 +857,57 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			database := &db.DB{DB: s.db}
 			jobExecRepo := repository.NewJobExecutionRepository(database)
 
-			// For single-task jobs (NO RULE SPLITTING), also update effective_keyspace to match actual
-			// This ensures progress calculations use actual keyspace, not estimates
-			// Rule-splitting jobs are handled by progressive refinement below
+			// Get job details for keyspace update logic
 			job, err := jobExecRepo.GetByID(ctx, task.JobExecutionID)
-			if err == nil && !job.UsesRuleSplitting && task.ChunkNumber == 1 {
-				// Check if this is the only task for this job
-				allTasks, err := s.jobTaskRepo.GetTasksByJobExecution(ctx, task.JobExecutionID)
-				if err == nil && len(allTasks) == 1 {
-					// Single task job - update effective_keyspace to match actual total
-					if job.EffectiveKeyspace != nil {
-						newEffectiveKeyspace := chunkActualKeyspace
-						if *job.EffectiveKeyspace != newEffectiveKeyspace {
-							err = jobExecRepo.UpdateEffectiveKeyspace(ctx, task.JobExecutionID, newEffectiveKeyspace)
+			if err != nil {
+				debug.Error("Failed to get job for keyspace update: %v", err)
+			} else {
+				// Handle increment mode jobs differently - update layer, then recalc job total
+				if job.IncrementMode != "" && job.IncrementMode != "off" && task.IncrementLayerID != nil {
+					// Update the layer's effective keyspace
+					err = s.jobIncrementLayerRepo.UpdateEffectiveKeyspace(ctx, *task.IncrementLayerID, chunkActualKeyspace)
+					if err != nil {
+						debug.Error("Failed to update layer effective keyspace: %v", err)
+					} else {
+						debug.Info("Updated layer %s effective_keyspace to %d (actual from hashcat)",
+							*task.IncrementLayerID, chunkActualKeyspace)
+
+						// Recalculate job's total effective keyspace as sum of all layers
+						totalKeyspace, err := s.jobIncrementLayerRepo.GetTotalEffectiveKeyspace(ctx, task.JobExecutionID)
+						if err != nil {
+							debug.Error("Failed to get total effective keyspace from layers: %v", err)
+						} else {
+							// Update job's effective keyspace to the sum of all layers
+							err = jobExecRepo.UpdateEffectiveKeyspace(ctx, task.JobExecutionID, totalKeyspace)
 							if err != nil {
-								debug.Error("Failed to update job effective keyspace to actual: %v", err)
+								debug.Error("Failed to update job effective keyspace from layer sum: %v", err)
 							} else {
-								debug.Info("Updated job %s effective_keyspace from %d (estimated) to %d (actual from hashcat)",
-									task.JobExecutionID, *job.EffectiveKeyspace, newEffectiveKeyspace)
+								oldEffective := int64(0)
+								if job.EffectiveKeyspace != nil {
+									oldEffective = *job.EffectiveKeyspace
+								}
+								debug.Info("Updated increment job %s effective_keyspace from %d to %d (sum of all layers)",
+									task.JobExecutionID, oldEffective, totalKeyspace)
+							}
+						}
+					}
+				} else if !job.UsesRuleSplitting && task.ChunkNumber == 1 {
+					// Regular (non-increment) single-task jobs - update effective_keyspace to match actual
+					// This ensures progress calculations use actual keyspace, not estimates
+					// Check if this is the only task for this job
+					allTasks, err := s.jobTaskRepo.GetTasksByJobExecution(ctx, task.JobExecutionID)
+					if err == nil && len(allTasks) == 1 {
+						// Single task job - update effective_keyspace to match actual total
+						if job.EffectiveKeyspace != nil {
+							newEffectiveKeyspace := chunkActualKeyspace
+							if *job.EffectiveKeyspace != newEffectiveKeyspace {
+								err = jobExecRepo.UpdateEffectiveKeyspace(ctx, task.JobExecutionID, newEffectiveKeyspace)
+								if err != nil {
+									debug.Error("Failed to update job effective keyspace to actual: %v", err)
+								} else {
+									debug.Info("Updated job %s effective_keyspace from %d (estimated) to %d (actual from hashcat)",
+										task.JobExecutionID, *job.EffectiveKeyspace, newEffectiveKeyspace)
+								}
 							}
 						}
 					}
@@ -884,7 +1003,11 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			}
 
 			// CASCADE: Recalculate all subsequent chunks' positions
-			if task.ChunkNumber > 0 {
+			// IMPORTANT: Only do this for rule-split tasks where chunk_actual_keyspace accurately represents
+			// the chunk's portion of work. For keyspace-split tasks, hashcat's progress[1] reports the
+			// ENTIRE job's effective keyspace (not just the chunk's), so cascade recalculation would corrupt
+			// the effective keyspace chain with incorrect values.
+			if task.ChunkNumber > 0 && !task.IsKeyspaceSplit {
 				err = s.recalculateSubsequentChunks(ctx, task.JobExecutionID, task.ChunkNumber)
 				if err != nil {
 					debug.Error("Failed to cascade update subsequent chunks: %v", err)
@@ -956,6 +1079,26 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 	if progress.AllHashesCracked {
 		debug.Info("Task %s reported all hashes cracked (hashcat status code 6) - triggering hashlist completion handler", progress.TaskID)
 
+		// Part 18a: When all hashes are cracked, the task has fully processed its keyspace
+		// Set keyspace_processed to the full chunk size (even if restore_point is 0 due to instant completion)
+		fullKeyspaceProcessed := task.KeyspaceEnd - task.KeyspaceStart
+		effectiveProcessed := fullKeyspaceProcessed
+		if task.EffectiveKeyspaceEnd != nil && task.EffectiveKeyspaceStart != nil {
+			effectiveProcessed = *task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart
+		}
+
+		// Update task progress to 100% so the task shows correct completion status
+		var hashRatePtr *int64
+		if progress.HashRate > 0 {
+			hashRatePtr = &progress.HashRate
+		}
+		if err := s.jobTaskRepo.UpdateProgress(ctx, progress.TaskID, fullKeyspaceProcessed, effectiveProcessed, hashRatePtr, 100.0); err != nil {
+			debug.Error("Failed to update task progress for all-hashes-cracked: %v", err)
+		} else {
+			debug.Info("Updated task %s progress to 100%% for all-hashes-cracked (keyspace_processed=%d, effective=%d)",
+				progress.TaskID, fullKeyspaceProcessed, effectiveProcessed)
+		}
+
 		// Determine expected crack count for processing status
 		// Agent should send this in progress.CrackedCount, but if it's 0, get from hashlist
 		expectedCracks := progress.CrackedCount
@@ -965,9 +1108,10 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 		if err != nil {
 			debug.Error("Failed to get job for hashlist completion check: %v", err)
 		} else {
+			database := &db.DB{DB: s.db}
+
 			// If agent didn't report crack count, get it from hashlist as fallback
 			if expectedCracks == 0 {
-				database := &db.DB{DB: s.db}
 				hashlistRepo := repository.NewHashListRepository(database)
 				hashlist, hashlistErr := hashlistRepo.GetByID(ctx, job.HashlistID)
 				if hashlistErr != nil {
@@ -978,10 +1122,50 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 				}
 			}
 
+			// Part 18h: Set THIS job's progress to 100% IMMEDIATELY when AllHashesCracked is received.
+			// This prevents race conditions where ProcessJobCompletion (layer-based completion)
+			// might complete the job before HandleHashlistFullyCracked can set 100% progress.
+			// The polling service skips completed jobs, so we must set 100% BEFORE completion.
+			jobExecRepo := repository.NewJobExecutionRepository(database)
+			if err := jobExecRepo.UpdateProgressPercent(ctx, task.JobExecutionID, 100.0); err != nil {
+				debug.Warning("Failed to set job %s progress to 100%% on AllHashesCracked: %v", task.JobExecutionID, err)
+			} else {
+				debug.Info("Set job %s progress to 100%% on AllHashesCracked (status code 6)", task.JobExecutionID)
+			}
+
+			// Part 18f: ALWAYS trigger HandleHashlistFullyCracked BEFORE the early return
+			// This ensures all jobs on the hashlist are handled even when we return early
+			// for processing mode (waiting for crack batches)
+			if s.hashlistCompletionService != nil {
+				go func() {
+					// Use a background context with timeout to avoid hanging
+					bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+					defer cancel()
+
+					// Pass the triggering task ID to prevent sending stop signal to it
+					taskID := progress.TaskID
+					if err := s.hashlistCompletionService.HandleHashlistFullyCracked(bgCtx, job.HashlistID, &taskID); err != nil {
+						debug.Error("Failed to handle hashlist fully cracked: %v", err)
+					}
+				}()
+			}
+
 			// Set task to processing if we have expected cracks
 			if expectedCracks > 0 {
 				debug.Info("Task %s expects %d cracks from all-hashes-cracked - setting to processing status to wait for batches",
 					progress.TaskID, expectedCracks)
+
+				// Part 18i: Process any cracked hashes in this message BEFORE returning.
+				// This ensures the final crack that triggered AllHashesCracked is added to potfile.
+				// Without this, the early return would skip processCrackedHashes at the end of the function.
+				if progress.CrackedCount > 0 && len(progress.CrackedHashes) > 0 {
+					if err := s.processCrackedHashes(ctx, progress.TaskID, progress.CrackedHashes); err != nil {
+						debug.Error("Failed to process cracked hashes on AllHashesCracked: %v", err)
+					} else {
+						debug.Info("Processed %d cracked hashes from AllHashesCracked message for task %s",
+							len(progress.CrackedHashes), progress.TaskID)
+					}
+				}
 
 				// Set task to processing with expected crack count
 				err = s.jobTaskRepo.SetTaskProcessing(ctx, progress.TaskID, expectedCracks)
@@ -997,23 +1181,9 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 					s.checkJobProcessingStatus(ctx, task.JobExecutionID)
 
 					// Return early to prevent Status=="completed" block from completing the task
+					// HandleHashlistFullyCracked was already triggered above
 					return nil
 				}
-			}
-
-			// Trigger hashlist completion handler in a goroutine to avoid blocking
-			if s.hashlistCompletionService != nil {
-				go func() {
-					// Use a background context with timeout to avoid hanging
-					bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-					defer cancel()
-
-					// Pass the triggering task ID to prevent sending stop signal to it
-					taskID := progress.TaskID
-					if err := s.hashlistCompletionService.HandleHashlistFullyCracked(bgCtx, job.HashlistID, &taskID); err != nil {
-						debug.Error("Failed to handle hashlist fully cracked: %v", err)
-					}
-				}()
 			}
 		}
 	}
@@ -1138,8 +1308,10 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 	}
 
 	// Check if task is complete based on keyspace
-	if progress.KeyspaceProcessed >= (task.KeyspaceEnd - task.KeyspaceStart) {
-		// Task is complete
+	// KeyspaceProcessed is the restore_point from hashcat, which is ABSOLUTE (not relative to KeyspaceStart)
+	// Compare against KeyspaceEnd directly, not (KeyspaceEnd - KeyspaceStart)
+	if task.KeyspaceEnd > 0 && progress.KeyspaceProcessed >= task.KeyspaceEnd {
+		// Task is complete - restore_point has reached or exceeded the task's end position
 		err = s.jobTaskRepo.CompleteTask(ctx, progress.TaskID)
 		if err != nil {
 			debug.Log("Failed to mark task as complete", map[string]interface{}{
@@ -1582,57 +1754,71 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 
 	// Handle total effective keyspace from hashcat progress[1]
 	if result.TotalEffectiveKeyspace > 0 {
-		// Find the job this benchmark is for using the job_execution_id from the result
-		var jobExec *models.JobExecution
-
-		// PRIMARY: Use JobExecutionID from the benchmark result
-		if result.JobExecutionID != "" {
-			jobID, err := uuid.Parse(result.JobExecutionID)
-			if err != nil {
-				debug.Error("Failed to parse job_execution_id from benchmark result (agent %d): %v", agentID, err)
-				return fmt.Errorf("invalid job_execution_id in benchmark result: %w", err)
-			}
-
-			// Get the specific job by ID
-			jobExec, err = s.jobExecutionService.GetJobExecutionByID(ctx, jobID)
-			if err != nil {
-				debug.Error("Failed to find job %s for benchmark result from agent %d: %v", jobID, agentID, err)
-				return fmt.Errorf("job %s not found for benchmark result: %w", jobID, err)
-			}
-			if jobExec == nil {
-				debug.Error("Job %s not found for benchmark result from agent %d", jobID, agentID)
-				return fmt.Errorf("job %s not found", jobID)
-			}
-
-			debug.Info("Found job %s for benchmark result from agent %d via job_execution_id", jobID, agentID)
-		} else {
-			// FALLBACK: Try agent metadata for backwards compatibility with older agents
-			debug.Warning("Benchmark result from agent %d missing job_execution_id, falling back to metadata", agentID)
-
-			if agent.Metadata != nil {
-				if pendingJobIDStr, exists := agent.Metadata["pending_benchmark_job"]; exists && pendingJobIDStr != "" {
-					jobID, err := uuid.Parse(pendingJobIDStr)
-					if err != nil {
-						debug.Error("Failed to parse pending_benchmark_job ID for agent %d: %v", agentID, err)
-						return fmt.Errorf("invalid pending_benchmark_job in metadata: %w", err)
-					}
-
-					jobExec, err = s.jobExecutionService.GetJobExecutionByID(ctx, jobID)
-					if err != nil || jobExec == nil {
-						debug.Error("Could not find job %s from metadata for agent %d: %v", jobID, agentID, err)
-						return fmt.Errorf("job %s from metadata not found: %w", jobID, err)
-					}
-
-					debug.Info("Found job %s for benchmark result from agent %d via metadata fallback", jobID, agentID)
-				} else {
-					debug.Error("Agent %d has no job_execution_id in result and no pending_benchmark_job in metadata", agentID)
-					return fmt.Errorf("cannot determine which job the benchmark result is for")
-				}
-			} else {
-				debug.Error("Agent %d has no job_execution_id in result and no metadata", agentID)
-				return fmt.Errorf("cannot determine which job the benchmark result is for")
-			}
+		// Parse the ID from the result - could be a layer or a job
+		if result.JobExecutionID == "" {
+			debug.Error("Benchmark result from agent %d missing job_execution_id", agentID)
+			return fmt.Errorf("benchmark result missing job_execution_id")
 		}
+
+		entityID, err := uuid.Parse(result.JobExecutionID)
+		if err != nil {
+			debug.Error("Failed to parse job_execution_id from benchmark result: %v", err)
+			return fmt.Errorf("invalid job_execution_id in benchmark result: %w", err)
+		}
+
+		// First, try to interpret this as a LAYER ID
+		layer, err := s.jobIncrementLayerRepo.GetByID(ctx, entityID)
+		if err == nil && layer != nil {
+			// This is a LAYER benchmark
+			debug.Info("Benchmark result is for increment layer %s (mask: %s)", entityID, layer.Mask)
+
+			// Update LAYER's effective keyspace using the specialized method
+			err = s.jobIncrementLayerRepo.UpdateKeyspace(ctx, layer.ID, result.TotalEffectiveKeyspace, true)
+			if err != nil {
+				debug.Error("Failed to update layer keyspace: %v", err)
+				return fmt.Errorf("failed to update layer keyspace: %w", err)
+			}
+
+			debug.Info("Layer %s (mask %s): Set accurate effective keyspace from hashcat: %d",
+				layer.ID, layer.Mask, result.TotalEffectiveKeyspace)
+
+			// Also set parent job's is_accurate_keyspace to true
+			// This allows frontend to show "accurate" instead of "estimated" for increment mode jobs
+			database := &db.DB{DB: s.db}
+			jobExecRepo := repository.NewJobExecutionRepository(database)
+			if err := jobExecRepo.SetIsAccurateKeyspace(ctx, layer.JobExecutionID, true); err != nil {
+				debug.Warning("Failed to set job is_accurate_keyspace: %v", err)
+			} else {
+				debug.Info("Set job %s is_accurate_keyspace=true after layer benchmark", layer.JobExecutionID)
+			}
+
+			// Update metadata for forced benchmark completion
+			if agent.Metadata != nil {
+				if pendingJob, exists := agent.Metadata["pending_benchmark_job"]; exists && pendingJob == entityID.String() {
+					agent.Metadata["forced_benchmark_completed_for_job"] = layer.JobExecutionID.String() // Use parent job ID
+					delete(agent.Metadata, "pending_benchmark_job")
+					delete(agent.Metadata, "benchmark_requested_at")
+
+					err := s.agentRepo.Update(ctx, agent)
+					if err != nil {
+						debug.Warning("Failed to update agent metadata after layer benchmark: %v", err)
+					} else {
+						debug.Info("Agent %d completed forced benchmark for layer %s", agent.ID, layer.ID)
+					}
+				}
+			}
+
+			return nil // Layer benchmark handled, done
+		}
+
+		// Not a layer, treat as a regular JOB ID
+		jobExec, err := s.jobExecutionService.GetJobExecutionByID(ctx, entityID)
+		if err != nil || jobExec == nil {
+			debug.Error("ID %s is neither a layer nor a job: %v", entityID, err)
+			return fmt.Errorf("entity %s not found: %w", entityID, err)
+		}
+
+		debug.Info("Benchmark result is for job %s", entityID)
 
 		// First benchmark for this job?
 		if jobExec.EffectiveKeyspace == nil || !jobExec.IsAccurateKeyspace {

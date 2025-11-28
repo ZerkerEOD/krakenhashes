@@ -372,10 +372,16 @@ func (s *JobCleanupService) checkJobForPendingTransition(ctx context.Context, jo
 			hasRemainingWork := false
 
 			// For jobs with effective keyspace, check if it's been fully dispatched
-			if job.EffectiveKeyspace != nil {
+			// Note: DispatchedKeyspace now stores proportional effective keyspace for keyspace-split tasks
+			if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
 				hasRemainingWork = job.DispatchedKeyspace < *job.EffectiveKeyspace
-			} else if job.TotalKeyspace != nil && job.ProcessedKeyspace < *job.TotalKeyspace {
-				hasRemainingWork = true
+			} else if job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
+				// Fallback for jobs that haven't received effective keyspace yet
+				// This ensures keyspace-split jobs don't complete prematurely
+				hasRemainingWork = job.DispatchedKeyspace < *job.BaseKeyspace
+			} else if job.TotalKeyspace != nil && *job.TotalKeyspace > 0 {
+				// Legacy fallback for older jobs
+				hasRemainingWork = job.ProcessedKeyspace < *job.TotalKeyspace
 			}
 
 			if hasRemainingWork {

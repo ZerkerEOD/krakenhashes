@@ -34,8 +34,8 @@ import {
   Replay as ReplayIcon,
   CheckCircle as CheckCircleIcon
 } from '@mui/icons-material';
-import { getJobDetails, api } from '../../services/api';
-import { JobDetailsResponse, JobTask } from '../../types/jobs';
+import { getJobDetails, getJobLayers, api } from '../../services/api';
+import { JobDetailsResponse, JobTask, JobIncrementLayerWithStats } from '../../types/jobs';
 import JobProgressBar from '../../components/JobProgressBar';
 import { useSnackbar } from 'notistack';
 import { getMaxPriorityForUsers } from '../../services/systemSettings';
@@ -46,6 +46,7 @@ const JobDetails: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
   
   const [jobData, setJobData] = useState<JobDetailsResponse | null>(null);
+  const [layers, setLayers] = useState<JobIncrementLayerWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
@@ -88,15 +89,39 @@ const JobDetails: React.FC = () => {
   // Fetch job details
   const fetchJobDetails = useCallback(async () => {
     if (!id) return;
-    
+
     // Don't fetch if user is editing
     if (isEditingRef.current) {
       return;
     }
-    
+
     try {
       const data = await getJobDetails(id);
+      console.log('[JobDetails] Job data received:', {
+        id: data.id,
+        increment_mode: data.increment_mode,
+        has_increment_mode: !!(data.increment_mode && data.increment_mode !== 'off')
+      });
       setJobData(data);
+
+      // Fetch layers if this is an increment mode job
+      if (data.increment_mode && data.increment_mode !== 'off') {
+        console.log('[JobDetails] Fetching layers for increment mode job');
+        try {
+          const layersData = await getJobLayers(id);
+          console.log('[JobDetails] Layers received:', layersData);
+          // Handle null/undefined response - always ensure layers is an array
+          setLayers(layersData || []);
+        } catch (layerErr) {
+          console.error('[JobDetails] Failed to fetch increment layers:', layerErr);
+          // Don't fail the whole page if layers fail to load
+          setLayers([]);
+        }
+      } else {
+        console.log('[JobDetails] Not an increment job, skipping layers');
+        setLayers([]);
+      }
+
       setError(null);
     } catch (err) {
       console.error('Failed to fetch job details:', err);
@@ -469,6 +494,7 @@ const JobDetails: React.FC = () => {
       case 'completed': return 'info';
       case 'failed': return 'error';
       case 'cancelled': return 'default';
+      case 'paused': return 'warning';
       default: return 'default';
     }
   };
@@ -817,6 +843,87 @@ const JobDetails: React.FC = () => {
           </Table>
         </TableContainer>
       </Paper>
+
+      {/* Increment Layers Table */}
+      {layers.length > 0 && (
+        <Paper sx={{ mb: 3 }}>
+          <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+            <Typography variant="h6">
+              Increment Layers ({layers.length} total)
+            </Typography>
+          </Box>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Layer</TableCell>
+                  <TableCell>Mask</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Keyspace</TableCell>
+                  <TableCell>Effective Keyspace</TableCell>
+                  <TableCell>Progress</TableCell>
+                  <TableCell>Tasks</TableCell>
+                  <TableCell>Cracks</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {layers.map((layer) => (
+                  <TableRow key={layer.id}>
+                    <TableCell>{layer.layer_index}</TableCell>
+                    <TableCell sx={{ fontFamily: 'monospace' }}>{layer.mask}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={layer.status}
+                        color={getStatusColor(layer.status) as any}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>{formatKeyspace(layer.base_keyspace)}</TableCell>
+                    <TableCell>
+                      {formatKeyspace(layer.effective_keyspace)}
+                      {!layer.is_accurate_keyspace && (
+                        <Chip
+                          label="Estimated"
+                          size="small"
+                          color="warning"
+                          variant="outlined"
+                          sx={{ ml: 1 }}
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell>{layer.overall_progress_percent?.toFixed(2) || 0}%</TableCell>
+                    <TableCell>
+                      {layer.running_tasks || 0} running / {layer.total_tasks || 0} total
+                      {layer.failed_tasks != null && layer.failed_tasks > 0 && (
+                        <Chip
+                          label={`${layer.failed_tasks} failed`}
+                          size="small"
+                          color="error"
+                          sx={{ ml: 1 }}
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {(layer.crack_count ?? 0) > 0 ? (
+                        <Link
+                          component="button"
+                          variant="body2"
+                          onClick={() => navigate(`/pot/job/${jobData.id}`)}
+                          sx={{ fontWeight: 'medium' }}
+                        >
+                          {layer.crack_count}
+                        </Link>
+                      ) : (
+                        layer.crack_count ?? 0
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      )}
 
       {/* Visual Progress Tracking */}
       <Paper sx={{ p: 3, mb: 3 }}>
