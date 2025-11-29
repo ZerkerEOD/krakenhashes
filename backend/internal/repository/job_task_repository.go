@@ -250,18 +250,21 @@ func (r *JobTaskRepository) GetTasksByJobExecution(ctx context.Context, jobExecu
 
 // GetActiveTasksByAgent retrieves active tasks for an agent
 func (r *JobTaskRepository) GetActiveTasksByAgent(ctx context.Context, agentID int) ([]models.JobTask, error) {
+	debug.Info("GetActiveTasksByAgent called for agent %d", agentID)
+
 	query := `
-		SELECT 
+		SELECT
 			id, job_execution_id, agent_id, status,
-			keyspace_start, keyspace_end, keyspace_processed,
+			keyspace_start, keyspace_end, COALESCE(keyspace_processed, 0),
 			benchmark_speed, chunk_duration, assigned_at,
 			started_at, completed_at, last_checkpoint, error_message
 		FROM job_tasks
-		WHERE agent_id = $1 AND status IN ('assigned', 'running')
+		WHERE agent_id = $1 AND status IN ('assigned', 'running', 'processing')
 		ORDER BY assigned_at ASC`
 
 	rows, err := r.db.QueryContext(ctx, query, agentID)
 	if err != nil {
+		debug.Error("GetActiveTasksByAgent query error for agent %d: %v", agentID, err)
 		return nil, fmt.Errorf("failed to get active tasks by agent: %w", err)
 	}
 	defer rows.Close()
@@ -276,11 +279,20 @@ func (r *JobTaskRepository) GetActiveTasksByAgent(ctx context.Context, agentID i
 			&task.StartedAt, &task.CompletedAt, &task.LastCheckpoint, &task.ErrorMessage,
 		)
 		if err != nil {
+			debug.Error("GetActiveTasksByAgent scan error for agent %d: %v", agentID, err)
 			return nil, fmt.Errorf("failed to scan job task: %w", err)
 		}
+		debug.Info("GetActiveTasksByAgent found task %s for agent %d", task.ID, agentID)
 		tasks = append(tasks, task)
 	}
 
+	// Check for iteration errors
+	if err := rows.Err(); err != nil {
+		debug.Error("GetActiveTasksByAgent iteration error for agent %d: %v", agentID, err)
+		return nil, fmt.Errorf("error iterating tasks: %w", err)
+	}
+
+	debug.Info("GetActiveTasksByAgent returning %d tasks for agent %d", len(tasks), agentID)
 	return tasks, nil
 }
 

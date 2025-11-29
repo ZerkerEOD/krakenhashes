@@ -87,7 +87,7 @@ export interface JobTask {
   job_execution_id?: string;
   agent_id?: number;
   increment_layer_id?: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'reconnect_pending';
+  status: 'pending' | 'assigned' | 'running' | 'processing' | 'completed' | 'failed' | 'cancelled' | 'reconnect_pending';
   priority?: number;
   chunk_start?: number;
   chunk_end?: number;
