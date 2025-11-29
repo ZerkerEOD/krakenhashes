@@ -68,6 +68,9 @@ type PresetJob struct {
 	AdditionalArgs            *string    `json:"additional_args,omitempty" db:"additional_args"` // Additional hashcat arguments
 	Keyspace                  *int64     `json:"keyspace,omitempty" db:"keyspace"`               // Pre-calculated keyspace for this preset
 	MaxAgents                 int        `json:"max_agents" db:"max_agents"`                     // Max agents allowed (0 = unlimited)
+	IncrementMode             string     `json:"increment_mode,omitempty" db:"increment_mode"`   // Mask increment mode: off, increment, increment_inverse
+	IncrementMin              *int       `json:"increment_min,omitempty" db:"increment_min"`     // Starting mask length for increment mode
+	IncrementMax              *int       `json:"increment_max,omitempty" db:"increment_max"`     // Maximum mask length for increment mode
 	CreatedAt                 time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt                 time.Time  `json:"updated_at" db:"updated_at"`
 
@@ -157,6 +160,9 @@ type JobExecution struct {
 	BinaryVersionID           int     `json:"binary_version_id" db:"binary_version_id"`
 	Mask                      string  `json:"mask,omitempty" db:"mask"`
 	AdditionalArgs            *string `json:"additional_args,omitempty" db:"additional_args"`
+	IncrementMode             string  `json:"increment_mode,omitempty" db:"increment_mode"` // Mask increment mode: off, increment, increment_inverse
+	IncrementMin              *int    `json:"increment_min,omitempty" db:"increment_min"`   // Starting mask length for increment mode
+	IncrementMax              *int    `json:"increment_max,omitempty" db:"increment_max"`   // Maximum mask length for increment mode
 
 	// Enhanced chunking fields
 	BaseKeyspace         *int64   `json:"base_keyspace" db:"base_keyspace"`                 // Wordlist-only keyspace
@@ -196,6 +202,7 @@ const (
 type JobTask struct {
 	ID                uuid.UUID     `json:"id" db:"id"`
 	JobExecutionID    uuid.UUID     `json:"job_execution_id" db:"job_execution_id"`
+	IncrementLayerID  *uuid.UUID    `json:"increment_layer_id" db:"increment_layer_id"` // References job_increment_layers if task belongs to a layer
 	AgentID           *int          `json:"agent_id" db:"agent_id"`
 	Status            JobTaskStatus `json:"status" db:"status"`
 	Priority          int           `json:"priority" db:"priority"`     // Task priority (inherited from job)
@@ -233,6 +240,7 @@ type JobTask struct {
 	RuleEndIndex    *int    `json:"rule_end_index" db:"rule_end_index"`         // Ending rule index for this chunk
 	RuleChunkPath   *string `json:"rule_chunk_path" db:"rule_chunk_path"`       // Path to temporary rule chunk file
 	IsRuleSplitTask bool    `json:"is_rule_split_task" db:"is_rule_split_task"` // Whether this is a rule-split task
+	IsKeyspaceSplit bool    `json:"is_keyspace_split" db:"is_keyspace_split"`   // Whether this task uses keyspace splitting (--skip/--limit)
 
 	// Chunk tracking
 	ChunkNumber int `json:"chunk_number" db:"chunk_number"` // Sequential chunk number within this job (1, 2, 3...)
@@ -338,6 +346,9 @@ type JobTaskAssignment struct {
 	ChunkDuration  int        `json:"chunk_duration"`  // Expected duration in seconds
 	ReportInterval int        `json:"report_interval"` // Progress reporting interval
 	OutputFormat   string     `json:"output_format"`   // Hashcat output format
+	IncrementMode  string     `json:"increment_mode,omitempty"` // Mask increment mode: off, increment, increment_inverse
+	IncrementMin   *int       `json:"increment_min,omitempty"`  // Starting mask length for increment mode
+	IncrementMax   *int       `json:"increment_max,omitempty"`  // Maximum mask length for increment mode
 }
 
 // DeviceMetric represents metrics for a single device
@@ -430,4 +441,75 @@ type JobExecutionWithWork struct {
 	JobExecution
 	ActiveAgents int `db:"active_agents" json:"active_agents"`
 	PendingWork  int `db:"pending_work" json:"pending_work"`
+}
+
+// JobIncrementLayerStatus represents the status of an increment layer
+// Uses same statuses as JobExecutionStatus since layers are jobs in their own right
+type JobIncrementLayerStatus string
+
+const (
+	JobIncrementLayerStatusPending   JobIncrementLayerStatus = "pending"
+	JobIncrementLayerStatusRunning   JobIncrementLayerStatus = "running"
+	JobIncrementLayerStatusPaused    JobIncrementLayerStatus = "paused"
+	JobIncrementLayerStatusCompleted JobIncrementLayerStatus = "completed"
+	JobIncrementLayerStatusFailed    JobIncrementLayerStatus = "failed"
+	JobIncrementLayerStatusCancelled JobIncrementLayerStatus = "cancelled"
+)
+
+// JobIncrementLayer represents a sub-layer for increment mode jobs
+// Each layer corresponds to one mask length (e.g., ?l?l for length 2)
+type JobIncrementLayer struct {
+	ID               uuid.UUID               `json:"id" db:"id"`
+	JobExecutionID   uuid.UUID               `json:"job_execution_id" db:"job_execution_id"`
+	LayerIndex       int                     `json:"layer_index" db:"layer_index"`             // Ordering based on increment mode
+	Mask             string                  `json:"mask" db:"mask"`                           // Specific mask for this layer
+	Status           JobIncrementLayerStatus `json:"status" db:"status"`
+
+	// Keyspace tracking
+	BaseKeyspace         *int64  `json:"base_keyspace" db:"base_keyspace"`                 // From --keyspace command
+	EffectiveKeyspace    *int64  `json:"effective_keyspace" db:"effective_keyspace"`       // From benchmark progress[1]
+	ProcessedKeyspace    int64   `json:"processed_keyspace" db:"processed_keyspace"`       // Sum from tasks
+	DispatchedKeyspace   int64   `json:"dispatched_keyspace" db:"dispatched_keyspace"`     // Total keyspace dispatched
+	IsAccurateKeyspace   bool    `json:"is_accurate_keyspace" db:"is_accurate_keyspace"`   // TRUE after benchmark
+
+	// Progress tracking
+	OverallProgressPercent float64    `json:"overall_progress_percent" db:"overall_progress_percent"`
+	LastProgressUpdate     *time.Time `json:"last_progress_update" db:"last_progress_update"`
+
+	// Timing
+	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
+	StartedAt   *time.Time `json:"started_at" db:"started_at"`
+	CompletedAt *time.Time `json:"completed_at" db:"completed_at"`
+	UpdatedAt   time.Time  `json:"updated_at" db:"updated_at"`
+
+	// Error handling
+	ErrorMessage *string `json:"error_message" db:"error_message"`
+}
+
+// JobIncrementLayerWithStats extends JobIncrementLayer with aggregated statistics
+type JobIncrementLayerWithStats struct {
+	JobIncrementLayer
+	TotalTasks     int `db:"total_tasks" json:"total_tasks"`         // Total tasks created for this layer
+	RunningTasks   int `db:"running_tasks" json:"running_tasks"`     // Tasks currently running/assigned/processing
+	CompletedTasks int `db:"completed_tasks" json:"completed_tasks"` // Tasks that completed successfully
+	FailedTasks    int `db:"failed_tasks" json:"failed_tasks"`       // Tasks that failed
+	CrackCount     int `db:"crack_count" json:"crack_count"`         // Total cracks from this layer's tasks
+}
+
+// PresetIncrementLayer represents a pre-calculated increment layer for a preset job.
+// These layers are calculated when a preset job with increment mode is created,
+// and copied to job_increment_layers when a job is created from the preset.
+type PresetIncrementLayer struct {
+	ID                uuid.UUID `json:"id" db:"id"`
+	PresetJobID       uuid.UUID `json:"preset_job_id" db:"preset_job_id"`
+	LayerIndex        int       `json:"layer_index" db:"layer_index"` // Ordering based on increment mode
+	Mask              string    `json:"mask" db:"mask"`               // Specific mask for this layer
+
+	// Keyspace tracking (pre-calculated at preset creation time)
+	BaseKeyspace      *int64 `json:"base_keyspace,omitempty" db:"base_keyspace"`           // From --keyspace command
+	EffectiveKeyspace *int64 `json:"effective_keyspace,omitempty" db:"effective_keyspace"` // Calculated from mask
+
+	// Timing
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }

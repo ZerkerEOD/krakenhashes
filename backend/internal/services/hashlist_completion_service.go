@@ -19,12 +19,13 @@ type WSHandler interface {
 
 // HashlistCompletionService handles auto-completion/deletion of jobs when all hashes are cracked
 type HashlistCompletionService struct {
-	db                 *db.DB
-	jobExecRepo        *repository.JobExecutionRepository
-	jobTaskRepo        *repository.JobTaskRepository
-	hashlistRepo       *repository.HashListRepository
-	notificationService *NotificationService
-	wsHandler          WSHandler
+	db                    *db.DB
+	jobExecRepo           *repository.JobExecutionRepository
+	jobTaskRepo           *repository.JobTaskRepository
+	jobIncrementLayerRepo *repository.JobIncrementLayerRepository
+	hashlistRepo          *repository.HashListRepository
+	notificationService   *NotificationService
+	wsHandler             WSHandler
 }
 
 // NewHashlistCompletionService creates a new hashlist completion service
@@ -32,17 +33,19 @@ func NewHashlistCompletionService(
 	database *db.DB,
 	jobExecRepo *repository.JobExecutionRepository,
 	jobTaskRepo *repository.JobTaskRepository,
+	jobIncrementLayerRepo *repository.JobIncrementLayerRepository,
 	hashlistRepo *repository.HashListRepository,
 	notificationService *NotificationService,
 	wsHandler WSHandler,
 ) *HashlistCompletionService {
 	return &HashlistCompletionService{
-		db:                 database,
-		jobExecRepo:        jobExecRepo,
-		jobTaskRepo:        jobTaskRepo,
-		hashlistRepo:       hashlistRepo,
-		notificationService: notificationService,
-		wsHandler:          wsHandler,
+		db:                    database,
+		jobExecRepo:           jobExecRepo,
+		jobTaskRepo:           jobTaskRepo,
+		jobIncrementLayerRepo: jobIncrementLayerRepo,
+		hashlistRepo:          hashlistRepo,
+		notificationService:   notificationService,
+		wsHandler:             wsHandler,
 	}
 }
 
@@ -179,7 +182,7 @@ func (s *HashlistCompletionService) stopJobTasks(ctx context.Context, jobID uuid
 				continue
 			}
 
-			// Task hasn't finished - send stop signal and cancel it
+			// Task hasn't finished - send stop signal and mark as processing
 			// Create stop message payload
 			stopPayload := map[string]string{
 				"task_id": task.ID.String(),
@@ -208,9 +211,16 @@ func (s *HashlistCompletionService) stopJobTasks(ctx context.Context, jobID uuid
 				debug.Warning("WebSocket handler not available, cannot send stop signal to agent %d", *task.AgentID)
 			}
 
-			// Update task status to cancelled
-			if err := s.jobTaskRepo.UpdateStatus(ctx, task.ID, models.JobTaskStatusCancelled); err != nil {
-				debug.Error("Failed to update task %s status to cancelled: %v", task.ID, err)
+			// Part 18c: Update task keyspace to 100% before marking as processing
+			// This ensures progress displays correctly even though task was interrupted
+			if err := s.markTaskComplete100Percent(ctx, &task); err != nil {
+				debug.Error("Failed to update task %s keyspace to 100%%: %v", task.ID, err)
+			}
+
+			// Part 18b: Mark as "processing" instead of "cancelled" so remaining cracks can be recorded
+			// The task will complete normally once all pending crack batches are processed
+			if err := s.jobTaskRepo.UpdateStatus(ctx, task.ID, models.JobTaskStatusProcessing); err != nil {
+				debug.Error("Failed to update task %s status to processing: %v", task.ID, err)
 			}
 		}
 	}
@@ -222,30 +232,63 @@ func (s *HashlistCompletionService) stopJobTasks(ctx context.Context, jobID uuid
 	return stoppedCount, nil
 }
 
+// markTaskComplete100Percent updates task keyspace values to reflect 100% completion
+// This is called when all hashes are cracked and the task is being forcefully completed
+func (s *HashlistCompletionService) markTaskComplete100Percent(ctx context.Context, task *models.JobTask) error {
+	// Calculate full keyspace for this task
+	fullKeyspaceProcessed := task.KeyspaceEnd - task.KeyspaceStart
+	effectiveProcessed := fullKeyspaceProcessed
+	if task.EffectiveKeyspaceEnd != nil && task.EffectiveKeyspaceStart != nil {
+		effectiveProcessed = *task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart
+	}
+
+	// Update task progress to 100%
+	return s.jobTaskRepo.UpdateProgress(ctx, task.ID, fullKeyspaceProcessed, effectiveProcessed, nil, 100.0)
+}
+
 // completeJob marks a job as completed with 100% progress
 func (s *HashlistCompletionService) completeJob(ctx context.Context, job *models.JobExecution) error {
+	// Part 18d: For increment mode jobs, mark all layers as completed with 100% progress
+	if job.IncrementMode != "" && job.IncrementMode != "off" && s.jobIncrementLayerRepo != nil {
+		layers, err := s.jobIncrementLayerRepo.GetByJobExecutionID(ctx, job.ID)
+		if err != nil {
+			debug.Warning("Failed to get increment layers for job %s: %v", job.ID, err)
+		} else {
+			for _, layer := range layers {
+				if layer.Status != models.JobIncrementLayerStatusCompleted {
+					// Update layer to 100% progress
+					if layer.EffectiveKeyspace != nil && *layer.EffectiveKeyspace > 0 {
+						if err := s.jobIncrementLayerRepo.UpdateProgress(ctx, layer.ID, *layer.EffectiveKeyspace, 100.0); err != nil {
+							debug.Warning("Failed to update layer %s progress: %v", layer.ID, err)
+						}
+					}
+					// Mark layer as completed
+					if err := s.jobIncrementLayerRepo.UpdateStatus(ctx, layer.ID, models.JobIncrementLayerStatusCompleted); err != nil {
+						debug.Warning("Failed to complete layer %s: %v", layer.ID, err)
+					} else {
+						debug.Info("Marked increment layer %s as completed (all hashes cracked)", layer.ID)
+					}
+				}
+			}
+		}
+	}
+
+	// Set job progress to 100% since all hashes in the hashlist are cracked.
+	// This must be done BEFORE CompleteExecution() because the polling service
+	// skips completed jobs, so it would never update progress afterwards.
+	if err := s.jobExecRepo.UpdateProgressPercent(ctx, job.ID, 100.0); err != nil {
+		debug.Warning("Failed to set job %s progress to 100%%: %v", job.ID, err)
+		// Not fatal - continue with completion
+	}
+
 	// Mark job as completed (this also sets completed_at)
 	err := s.jobExecRepo.CompleteExecution(ctx, job.ID)
 	if err != nil {
 		return fmt.Errorf("failed to complete job execution: %w", err)
 	}
 
-	// Set progress to 100%
-	// Use effective keyspace if available, otherwise fall back to total keyspace
-	var targetKeyspace int64
-	if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
-		targetKeyspace = *job.EffectiveKeyspace
-	} else if job.TotalKeyspace != nil && *job.TotalKeyspace > 0 {
-		targetKeyspace = *job.TotalKeyspace
-	}
-
-	if targetKeyspace > 0 {
-		err = s.jobExecRepo.UpdateProgress(ctx, job.ID, targetKeyspace)
-		if err != nil {
-			debug.Error("Failed to set 100%% progress for job %s: %v", job.ID, err)
-			// Continue - not critical
-		}
-	}
+	// Note: Job-level progress is now calculated by the polling service (JobProgressCalculationService)
+	// which runs every 2 seconds and recalculates from task data
 
 	// TODO: Re-enable with special "hashlist fully cracked" email template
 	// Temporarily disabled to prevent duplicate emails (job_execution_service also sends completion email)

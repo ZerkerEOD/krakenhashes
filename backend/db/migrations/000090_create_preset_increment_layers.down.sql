@@ -1,0 +1,3 @@
+DROP TRIGGER IF EXISTS update_preset_increment_layers_updated_at ON preset_increment_layers;
+DROP INDEX IF EXISTS idx_preset_increment_layers_preset_job_id;
+DROP TABLE IF EXISTS preset_increment_layers;

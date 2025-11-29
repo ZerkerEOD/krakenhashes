@@ -72,6 +72,21 @@ Tries all possible combinations for a pattern:
 - All 4-digit PINs (0000-9999)
 - All 6-character lowercase (aaaaaa-zzzzzz)
 
+### Increment Mode Attacks
+Systematically tests patterns of increasing (or decreasing) length:
+- Starts with shortest pattern, progresses to longest
+- Each length is processed as a separate "layer"
+- Useful for PIN attacks (2-8 digit), password length exploration
+- Works with Brute Force and Hybrid attack modes
+
+**Example**: A mask `?d?d?d?d?d?d` with increment mode (min=4, max=6) tests:
+
+1. `?d?d?d?d` (4 digits: 0000-9999)
+2. `?d?d?d?d?d` (5 digits: 00000-99999)
+3. `?d?d?d?d?d?d` (6 digits: 000000-999999)
+
+This is more efficient than creating three separate preset jobs!
+
 ## Understanding Priorities
 
 Jobs within workflows run in priority order:
@@ -320,6 +335,17 @@ The keyspace represents the total search space:
 
 !!! tip "Accurate Progress Tracking"
     KrakenHashes captures actual keyspace values directly from hashcat (`progress[1]`), ensuring that progress percentages accurately reflect the real search progress, especially for jobs with rules or combination attacks where estimation can be inaccurate.
+
+#### Increment Mode Progress
+
+For increment mode jobs, progress represents the aggregate across all layers:
+
+- Each mask length runs as a separate layer
+- The Job Details page shows an **Increment Layers** table with per-layer progress
+- Overall progress aggregates all layers: (processed across all layers) / (total keyspace)
+
+!!! info "Layer-Based Execution"
+    KrakenHashes decomposes increment mode into discrete layers for distributed processing. Multiple agents can work on different layers simultaneously, maximizing efficiency. See [Increment Mode Architecture](../reference/architecture/increment-mode.md) for technical details.
 
 #### Time Estimates
 Estimated completion times are based on:

@@ -43,6 +43,9 @@ export interface PresetJob {
   mask?: string; // Mask pattern for mask-based attack modes
   keyspace?: number | null; // Pre-calculated keyspace
   max_agents: number; // Max agents allowed (0 = unlimited)
+  increment_mode?: string; // Mask increment mode: off, increment, increment_inverse
+  increment_min?: number | null; // Starting mask length
+  increment_max?: number | null; // Maximum mask length
 }
 
 // Internal form state type for use in the UI - keeps IDs as numbers
@@ -57,6 +60,9 @@ export interface PresetJobFormData {
   mask?: string; // Mask pattern for mask-based attack modes
   allow_high_priority_override: boolean;
   max_agents: number;
+  increment_mode: string; // Mask increment mode
+  increment_min: number | undefined; // Optional, backend applies defaults
+  increment_max: number | undefined; // Optional, backend applies defaults
 }
 
 // API type for create/update operations - using string UUIDs
@@ -126,4 +132,5 @@ export interface PresetJobFormDataResponse {
 export type PresetJobInput = Omit<PresetJob, 'id' | 'created_at' | 'updated_at' | 'binary_version_name' | 'status_updates_enabled'> & {
   wordlist_ids: number[] | string[];
   rule_ids: number[] | string[];
+  // increment_min/max inherit from PresetJob as number | null | undefined
 }; 

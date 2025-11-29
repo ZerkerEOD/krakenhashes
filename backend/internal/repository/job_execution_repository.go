@@ -27,9 +27,10 @@ func (r *JobExecutionRepository) Create(ctx context.Context, exec *models.JobExe
 		INSERT INTO job_executions (
 			preset_job_id, hashlist_id, status, priority, max_agents, attack_mode, total_keyspace, created_by,
 			name, wordlist_ids, rule_ids, mask, binary_version_id, hash_type,
-			chunk_size_seconds, status_updates_enabled, allow_high_priority_override, additional_args
+			chunk_size_seconds, status_updates_enabled, allow_high_priority_override, additional_args,
+			increment_mode, increment_min, increment_max
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
 		RETURNING id, created_at`
 
 	err := r.db.QueryRowContext(ctx, query,
@@ -51,6 +52,9 @@ func (r *JobExecutionRepository) Create(ctx context.Context, exec *models.JobExe
 		exec.StatusUpdatesEnabled,
 		exec.AllowHighPriorityOverride,
 		exec.AdditionalArgs,
+		exec.IncrementMode,
+		exec.IncrementMin,
+		exec.IncrementMax,
 	).Scan(&exec.ID, &exec.CreatedAt)
 
 	if err != nil {
@@ -76,7 +80,8 @@ func (r *JobExecutionRepository) GetByID(ctx context.Context, id uuid.UUID) (*mo
 			je.wordlist_ids, je.rule_ids, je.mask, je.binary_version_id,
 			je.chunk_size_seconds, je.status_updates_enabled, je.allow_high_priority_override,
 			je.additional_args, je.hash_type, je.updated_at,
-			je.avg_rule_multiplier, je.is_accurate_keyspace
+			je.avg_rule_multiplier, je.is_accurate_keyspace,
+			je.increment_mode, je.increment_min, je.increment_max
 		FROM job_executions je
 		WHERE je.id = $1`
 
@@ -95,6 +100,7 @@ func (r *JobExecutionRepository) GetByID(ctx context.Context, id uuid.UUID) (*mo
 		&exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled, &exec.AllowHighPriorityOverride,
 		&exec.AdditionalArgs, &exec.HashType, &exec.UpdatedAt,
 		&exec.AvgRuleMultiplier, &exec.IsAccurateKeyspace,
+		&exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
 	)
 
 	if err == sql.ErrNoRows {
@@ -124,7 +130,8 @@ func (r *JobExecutionRepository) GetPendingJobs(ctx context.Context) ([]models.J
 			je.name, je.wordlist_ids, je.rule_ids, je.mask,
 			je.binary_version_id, je.chunk_size_seconds, je.status_updates_enabled,
 			je.allow_high_priority_override, je.additional_args,
-			je.hash_type
+			je.hash_type,
+			je.increment_mode, je.increment_min, je.increment_max
 		FROM job_executions je
 		WHERE je.status = 'pending'
 		ORDER BY je.priority DESC, je.created_at ASC`
@@ -153,6 +160,7 @@ func (r *JobExecutionRepository) GetPendingJobs(ctx context.Context) ([]models.J
 			&exec.BinaryVersionID, &exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled,
 			&exec.AllowHighPriorityOverride, &exec.AdditionalArgs,
 			&exec.HashType,
+			&exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan job execution: %w", err)
@@ -166,10 +174,11 @@ func (r *JobExecutionRepository) GetPendingJobs(ctx context.Context) ([]models.J
 // GetRunningJobs retrieves all currently running jobs
 func (r *JobExecutionRepository) GetRunningJobs(ctx context.Context) ([]models.JobExecution, error) {
 	query := `
-		SELECT 
+		SELECT
 			je.id, je.preset_job_id, je.hashlist_id, je.status, je.priority,
 			je.total_keyspace, je.processed_keyspace, je.attack_mode,
-			je.created_at, je.started_at, je.completed_at, je.error_message, je.interrupted_by
+			je.created_at, je.started_at, je.completed_at, je.error_message, je.interrupted_by,
+			je.increment_mode, je.increment_min, je.increment_max
 		FROM job_executions je
 		WHERE je.status = 'running'`
 
@@ -186,6 +195,7 @@ func (r *JobExecutionRepository) GetRunningJobs(ctx context.Context) ([]models.J
 			&exec.ID, &exec.PresetJobID, &exec.HashlistID, &exec.Status, &exec.Priority,
 			&exec.TotalKeyspace, &exec.ProcessedKeyspace, &exec.AttackMode,
 			&exec.CreatedAt, &exec.StartedAt, &exec.CompletedAt, &exec.ErrorMessage, &exec.InterruptedBy,
+			&exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan job execution: %w", err)
@@ -256,26 +266,6 @@ func (r *JobExecutionRepository) UpdateErrorMessage(ctx context.Context, id uuid
 	result, err := r.db.ExecContext(ctx, query, errorMessage, id)
 	if err != nil {
 		return fmt.Errorf("failed to update job execution error message: %w", err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-
-	if rowsAffected == 0 {
-		return ErrNotFound
-	}
-
-	return nil
-}
-
-// UpdateProgress updates the processed keyspace for a job execution
-func (r *JobExecutionRepository) UpdateProgress(ctx context.Context, id uuid.UUID, processedKeyspace int64) error {
-	query := `UPDATE job_executions SET processed_keyspace = $1 WHERE id = $2`
-	result, err := r.db.ExecContext(ctx, query, processedKeyspace, id)
-	if err != nil {
-		return fmt.Errorf("failed to update job execution progress: %w", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
@@ -603,6 +593,23 @@ func (r *JobExecutionRepository) UpdateKeyspaceInfo(ctx context.Context, job *mo
 	return nil
 }
 
+// SetIsAccurateKeyspace updates only the is_accurate_keyspace flag for a job execution
+func (r *JobExecutionRepository) SetIsAccurateKeyspace(ctx context.Context, id uuid.UUID, isAccurate bool) error {
+	query := `UPDATE job_executions SET is_accurate_keyspace = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`
+	result, err := r.db.ExecContext(ctx, query, isAccurate, id)
+	if err != nil {
+		return fmt.Errorf("failed to update job is_accurate_keyspace: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // UpdateConsecutiveFailures updates the consecutive failures count for a job execution
 func (r *JobExecutionRepository) UpdateConsecutiveFailures(ctx context.Context, id uuid.UUID, count int) error {
 	query := `UPDATE job_executions SET consecutive_failures = $1 WHERE id = $2`
@@ -648,56 +655,6 @@ func (r *JobExecutionRepository) UpdateDispatchedKeyspace(ctx context.Context, i
 	return nil
 }
 
-// IncrementDispatchedKeyspace atomically increments the dispatched keyspace by the given amount
-func (r *JobExecutionRepository) IncrementDispatchedKeyspace(ctx context.Context, id uuid.UUID, increment int64) error {
-	query := `
-		UPDATE job_executions 
-		SET dispatched_keyspace = dispatched_keyspace + $1,
-		    updated_at = CURRENT_TIMESTAMP
-		WHERE id = $2`
-	
-	result, err := r.db.ExecContext(ctx, query, increment, id)
-	if err != nil {
-		return fmt.Errorf("failed to increment job execution dispatched keyspace: %w", err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-
-	if rowsAffected == 0 {
-		return ErrNotFound
-	}
-
-	return nil
-}
-
-// DecrementDispatchedKeyspace atomically decrements the dispatched keyspace by the given amount
-func (r *JobExecutionRepository) DecrementDispatchedKeyspace(ctx context.Context, id uuid.UUID, decrement int64) error {
-	query := `
-		UPDATE job_executions
-		SET dispatched_keyspace = GREATEST(dispatched_keyspace - $1, 0),
-		    updated_at = CURRENT_TIMESTAMP
-		WHERE id = $2`
-
-	result, err := r.db.ExecContext(ctx, query, decrement, id)
-	if err != nil {
-		return fmt.Errorf("failed to decrement job execution dispatched keyspace: %w", err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-
-	if rowsAffected == 0 {
-		return ErrNotFound
-	}
-
-	return nil
-}
-
 // GetJobsWithPendingWork returns jobs that have work available
 // Priority-based scheduling: max_agents filtering is now handled in the allocation algorithm
 func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]models.JobExecutionWithWork, error) {
@@ -728,6 +685,7 @@ func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]
 			je.binary_version_id, je.chunk_size_seconds, je.status_updates_enabled,
 			je.allow_high_priority_override, je.additional_args,
 			je.hash_type,
+			je.increment_mode, je.increment_min, je.increment_max,
 			COALESCE(js.active_agents, 0) as active_agents,
 			COALESCE(js.pending_tasks, 0) + COALESCE(js.retryable_tasks, 0) as pending_work
 		FROM job_executions je
@@ -740,12 +698,23 @@ func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]
 				-- Job has pending work
 				(COALESCE(js.pending_tasks, 0) + COALESCE(js.retryable_tasks, 0) > 0)
 				OR
+				-- Increment mode job with layers that have pending work
+				(je.increment_mode IS NOT NULL AND je.increment_mode != 'off'
+				 AND EXISTS (
+					SELECT 1 FROM job_increment_layers jil
+					WHERE jil.job_execution_id = je.id
+					  AND jil.status IN ('pending', 'running', 'paused')
+					  AND (jil.effective_keyspace IS NULL
+					       OR jil.dispatched_keyspace < jil.effective_keyspace)
+				 ))
+				OR
 				-- Rule-split job with more keyspace to dispatch
 				(je.uses_rule_splitting = true
 				 AND je.dispatched_keyspace < je.effective_keyspace)
 				OR
 				-- Regular keyspace chunking job with more keyspace to dispatch
 				(je.uses_rule_splitting = false
+				 AND (je.increment_mode IS NULL OR je.increment_mode = 'off')
 				 AND je.total_keyspace IS NOT NULL
 				 AND je.dispatched_keyspace < je.total_keyspace)
 			)
@@ -775,6 +744,7 @@ func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]
 			&exec.BinaryVersionID, &exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled,
 			&exec.AllowHighPriorityOverride, &exec.AdditionalArgs,
 			&exec.HashType,
+			&exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
 			&exec.ActiveAgents, &exec.PendingWork,
 		)
 		if err != nil {
@@ -795,7 +765,7 @@ func (r *JobExecutionRepository) GetNonCompletedJobsByHashlistID(ctx context.Con
 			dispatched_keyspace, multiplication_factor, uses_rule_splitting, overall_progress_percent,
 			chunk_size_seconds, allow_high_priority_override, wordlist_ids, rule_ids, mask,
 			additional_args, binary_version_id, started_at, completed_at, error_message, created_by,
-			created_at, updated_at
+			created_at, updated_at, increment_mode, increment_min, increment_max
 		FROM job_executions
 		WHERE hashlist_id = $1 AND status != 'completed'
 		ORDER BY priority DESC, created_at ASC
@@ -817,7 +787,7 @@ func (r *JobExecutionRepository) GetNonCompletedJobsByHashlistID(ctx context.Con
 			&exec.OverallProgressPercent, &exec.ChunkSizeSeconds, &exec.AllowHighPriorityOverride,
 			&exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.AdditionalArgs, &exec.BinaryVersionID,
 			&exec.StartedAt, &exec.CompletedAt, &exec.ErrorMessage, &exec.CreatedBy,
-			&exec.CreatedAt, &exec.UpdatedAt,
+			&exec.CreatedAt, &exec.UpdatedAt, &exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan job execution: %w", err)
@@ -843,6 +813,58 @@ func (r *JobExecutionRepository) SetJobProcessing(ctx context.Context, id uuid.U
 	result, err := r.db.ExecContext(ctx, query, id, models.JobExecutionStatusProcessing)
 	if err != nil {
 		return fmt.Errorf("failed to set job processing: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
+// UpdateTotalKeyspace updates the total_keyspace field for a job execution
+func (r *JobExecutionRepository) UpdateTotalKeyspace(ctx context.Context, id uuid.UUID, totalKeyspace int64) error {
+	query := `
+		UPDATE job_executions
+		SET total_keyspace = $2,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`
+
+	result, err := r.db.ExecContext(ctx, query, id, totalKeyspace)
+	if err != nil {
+		return fmt.Errorf("failed to update total_keyspace: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
+// UpdateIncrementSettings updates the increment_min and increment_max fields for a job execution
+// This is used to persist resolved default values when the user didn't specify them
+func (r *JobExecutionRepository) UpdateIncrementSettings(ctx context.Context, id uuid.UUID, incrementMin int, incrementMax int) error {
+	query := `
+		UPDATE job_executions
+		SET increment_min = $2,
+		    increment_max = $3,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`
+
+	result, err := r.db.ExecContext(ctx, query, id, incrementMin, incrementMax)
+	if err != nil {
+		return fmt.Errorf("failed to update increment settings: %w", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()

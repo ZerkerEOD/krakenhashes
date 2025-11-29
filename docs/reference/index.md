@@ -42,6 +42,12 @@ Quick reference guides and technical specifications for KrakenHashes.
 
     Technical terms and concepts explained
 
+-   :material-sitemap:{ .lg .middle } **[Architecture](architecture/)**
+
+    ---
+
+    System architecture and implementation details
+
 </div>
 
 ## Quick Links

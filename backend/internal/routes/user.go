@@ -55,12 +55,16 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 	wordlistStore := wordlist.NewStore(database.DB)
 	ruleStore := rule.NewStore(database.DB)
 	binaryStore := binary.NewStore(database.DB)
+	jobIncrementLayerRepo := repository.NewJobIncrementLayerRepository(dbWrapper)
+	presetIncrementLayerRepo := repository.NewPresetIncrementLayerRepository(dbWrapper)
 
 	// Create job execution service
 	jobExecutionService := services.NewJobExecutionService(
 		database,
 		jobExecRepo,
 		jobTaskRepo,
+		jobIncrementLayerRepo,
+		presetIncrementLayerRepo,
 		benchmarkRepo,
 		agentHashlistRepo,
 		agentRepo,
@@ -79,6 +83,7 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 	return jobs.NewUserJobsHandler(
 		jobExecRepo,
 		jobTaskRepo,
+		jobIncrementLayerRepo,
 		presetJobRepo,
 		hashlistRepo,
 		clientRepo,
@@ -130,6 +135,10 @@ func SetupUserRoutes(router *mux.Router, database *db.DB, dataDir string, binary
 	router.HandleFunc("/jobs/{id}/force-complete", jobsHandler.ForceCompleteJob).Methods("POST", "OPTIONS")
 	router.HandleFunc("/jobs/{id}/tasks/{taskId}/retry", jobsHandler.RetryTask).Methods("POST", "OPTIONS")
 	router.HandleFunc("/jobs/{id}", jobsHandler.DeleteJob).Methods("DELETE", "OPTIONS")
+
+	// Increment layer routes
+	router.HandleFunc("/jobs/{id}/layers", jobsHandler.GetJobLayers).Methods("GET", "OPTIONS")
+	router.HandleFunc("/jobs/{id}/layers/{layer_id}/tasks", jobsHandler.GetJobLayerTasks).Methods("GET", "OPTIONS")
 
 	// Get user profile
 	router.HandleFunc("/user/profile", func(w http.ResponseWriter, r *http.Request) {

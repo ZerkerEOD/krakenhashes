@@ -25,11 +25,16 @@ type TaskAssignmentPlan struct {
 	KeyspaceEnd   int64
 
 	// Rule splitting (calculated ranges, file created in Phase 2)
-	IsRuleSplit     bool
-	RuleStartIndex  int
-	RuleEndIndex    int
-	RuleFilePath    string // Source rule file path
-	ChunkNumber     int
+	IsRuleSplit      bool
+	IsKeyspaceSplit  bool   // Whether task uses keyspace splitting (--skip/--limit)
+	RuleStartIndex   int
+	RuleEndIndex     int
+	RuleFilePath     string // Source rule file path
+	ChunkNumber      int
+
+	// Increment layer support
+	IncrementLayerID *uuid.UUID // If set, task belongs to this increment layer
+	LayerMask        string      // The specific mask for this layer (overrides job mask)
 
 	// Effective keyspace
 	EffectiveKeyspaceStart int64
@@ -63,6 +68,10 @@ type JobPlanningState struct {
 	IsExhausted         bool
 	ChunkNumber         int
 	BaseKeyspace        int64
+
+	// Increment layer support
+	CurrentLayer        *models.JobIncrementLayer // The layer currently being worked on
+	AvailableLayers     []models.JobIncrementLayer // All layers needing work
 }
 
 // CreateTaskAssignmentPlans calculates chunk assignments for all reserved agents sequentially
@@ -80,17 +89,78 @@ func (s *JobSchedulingService) CreateTaskAssignmentPlans(
 	var plans []TaskAssignmentPlan
 	var errors []error
 
-	// Create job lookup map
+	// Create job lookup map (will be populated as we process jobs)
 	jobMap := make(map[uuid.UUID]*models.JobExecutionWithWork)
-	for i := range jobsWithWork {
-		jobMap[jobsWithWork[i].ID] = &jobsWithWork[i]
-	}
 
 	// Track planning state for each job
 	jobStates := make(map[uuid.UUID]*JobPlanningState)
 
+	// Track layer ID to parent job ID mapping for lookups
+	layerToJobMap := make(map[uuid.UUID]uuid.UUID)
+
+	// Track the original entry ID for each job (may be layer ID or job ID)
+	// This is needed because job.JobExecution.ID may change during layer processing
+	// due to Go struct embedding (JobExecutionWithWork embeds JobExecution, so
+	// job.ID accesses job.JobExecution.ID which gets overwritten when we copy parent job data)
+	entryIDs := make([]uuid.UUID, len(jobsWithWork))
+	for i := range jobsWithWork {
+		entryIDs[i] = jobsWithWork[i].ID
+	}
+
 	// Process jobs in priority order (jobs are already sorted)
-	for _, job := range jobsWithWork {
+	for i := range jobsWithWork {
+		job := &jobsWithWork[i]
+		originalID := entryIDs[i] // Use pre-captured entry ID (might be layer ID)
+
+		// Check if this entry represents an increment layer (job.ID is actually layer.ID)
+		var actualJobID uuid.UUID
+		var specificLayer *models.JobIncrementLayer
+
+		if job.IncrementMode != "" && job.IncrementMode != "off" {
+			// Try to load as a layer first
+			layer, err := s.jobExecutionService.jobIncrementLayerRepo.GetByID(ctx, job.ID)
+			if err == nil && layer != nil {
+				// This is a layer entry
+				actualJobID = layer.JobExecutionID
+				specificLayer = layer
+
+				// Load the actual parent job execution
+				parentJob, err := s.jobExecutionService.jobExecRepo.GetByID(ctx, actualJobID)
+				if err != nil {
+					debug.Warning("Failed to load parent job for layer %s: %v", job.ID, err)
+					continue
+				}
+
+				// Update job reference to use parent job data
+				// NOTE: This copies parent job's ID into job.JobExecution.ID (due to struct embedding)
+				// We use originalID (from entryIDs) for reservation lookups instead
+				job.JobExecution = *parentJob
+
+				// Track layer to job mapping (original layer ID -> parent job ID)
+				layerToJobMap[originalID] = actualJobID
+
+				debug.Log("Processing layer entry", map[string]interface{}{
+					"layer_id":      specificLayer.ID,
+					"layer_index":   specificLayer.LayerIndex,
+					"layer_mask":    specificLayer.Mask,
+					"parent_job_id": actualJobID,
+				})
+			} else {
+				// Not a layer - this is a parent job entry kept for benchmark planning
+				// Skip task creation to avoid increment_layer_id = NULL bug
+				debug.Log("Skipping increment parent job - no specific layer (waiting for benchmark)", map[string]interface{}{
+					"job_id": job.ID,
+				})
+				continue
+			}
+		} else {
+			actualJobID = job.ID
+		}
+
+		// Keep job.ID as original for agent reservation lookup
+		// But use actualJobID for job execution operations
+		jobMap[originalID] = job
+
 		// Initialize job state
 		state := &JobPlanningState{
 			JobExecution:       &job.JobExecution,
@@ -101,6 +171,21 @@ func (s *JobSchedulingService) CreateTaskAssignmentPlans(
 		// Get base keyspace for rule splitting calculations
 		if job.BaseKeyspace != nil {
 			state.BaseKeyspace = *job.BaseKeyspace
+		}
+
+		// If this is a specific layer entry, set it as the current layer
+		if specificLayer != nil {
+			state.CurrentLayer = specificLayer
+			state.AvailableLayers = []models.JobIncrementLayer{*specificLayer}
+
+			debug.Log("Using specific layer for task assignment", map[string]interface{}{
+				"job_id":              actualJobID,
+				"layer_id":            specificLayer.ID,
+				"layer_index":         specificLayer.LayerIndex,
+				"layer_mask":          specificLayer.Mask,
+				"effective_keyspace":  specificLayer.EffectiveKeyspace,
+				"dispatched_keyspace": specificLayer.DispatchedKeyspace,
+			})
 		}
 
 		// Get next rule index for rule splitting jobs
@@ -131,10 +216,13 @@ func (s *JobSchedulingService) CreateTaskAssignmentPlans(
 		}
 		state.ChunkNumber = chunkNum
 
-		jobStates[job.ID] = state
+		// Key state by originalID (layer ID for layers, job ID for regular jobs)
+		// This matches what reserveAgentsForJobs uses for reservation lookup
+		jobStates[originalID] = state
 
 		debug.Log("Initialized job planning state", map[string]interface{}{
-			"job_id":              job.ID,
+			"entry_id":            originalID,
+			"job_execution_id":    job.JobExecution.ID,
 			"dispatched_keyspace": state.DispatchedKeyspace,
 			"next_rule_index":     state.NextRuleIndex,
 			"total_rules":         state.TotalRules,
@@ -143,33 +231,40 @@ func (s *JobSchedulingService) CreateTaskAssignmentPlans(
 	}
 
 	// Process agents by job priority
-	for _, job := range jobsWithWork {
-		state := jobStates[job.ID]
-		if state.IsExhausted {
-			debug.Log("Job already exhausted, skipping", map[string]interface{}{
-				"job_id": job.ID,
+	for i := range jobsWithWork {
+		job := &jobsWithWork[i]
+		entryID := entryIDs[i] // Use pre-captured entry ID for lookups
+
+		state := jobStates[entryID]
+		if state == nil || state.IsExhausted {
+			debug.Log("Job already exhausted or no state, skipping", map[string]interface{}{
+				"entry_id": entryID,
 			})
 			continue
 		}
 
-		// Get agents reserved for this job
+		// Get agents reserved for this job entry
+		// entryID matches what reserveAgentsForJobs used (layer ID for layers, job ID for regular jobs)
 		var agentsForJob []int
-		for agentID, jobID := range reservedAgents {
-			if jobID == job.ID {
+		for agentID, reservedID := range reservedAgents {
+			if reservedID == entryID {
 				agentsForJob = append(agentsForJob, agentID)
 			}
 		}
 
 		debug.Log("Processing agents for job", map[string]interface{}{
-			"job_id":      job.ID,
-			"agent_count": len(agentsForJob),
+			"entry_id":         entryID,
+			"job_execution_id": job.JobExecution.ID,
+			"parent_job":       layerToJobMap[entryID],
+			"is_layer":         layerToJobMap[entryID] != uuid.Nil,
+			"agent_count":      len(agentsForJob),
 		})
 
 		// Process each agent for this job
 		for _, agentID := range agentsForJob {
 			if state.IsExhausted {
 				debug.Log("Job exhausted during planning, skipping remaining agents", map[string]interface{}{
-					"job_id": job.ID,
+					"entry_id": entryID,
 				})
 				break
 			}
@@ -393,6 +488,17 @@ createNewChunk:
 		BenchmarkSpeed: benchmark.Speed,
 	}
 
+	// Add increment layer information if this is an increment mode job
+	if targetState.CurrentLayer != nil {
+		plan.IncrementLayerID = &targetState.CurrentLayer.ID
+		plan.LayerMask = targetState.CurrentLayer.Mask
+		debug.Log("Added increment layer to task plan", map[string]interface{}{
+			"layer_id":    plan.IncrementLayerID,
+			"layer_mask":  plan.LayerMask,
+			"layer_index": targetState.CurrentLayer.LayerIndex,
+		})
+	}
+
 	if targetJob.UsesRuleSplitting {
 		// Rule splitting chunk calculation
 		err = s.calculateRuleSplitChunk(ctx, plan, targetState, hashlist)
@@ -588,6 +694,7 @@ func (s *JobSchedulingService) executeTaskAssignment(
 			ChunkNumber:            plan.ChunkNumber,
 			ChunkDuration:          plan.ChunkDuration,
 			BenchmarkSpeed:         &plan.BenchmarkSpeed,
+			IncrementLayerID:       plan.IncrementLayerID, // Set layer ID for increment mode tasks
 		}
 
 		// Add rule splitting fields if applicable
@@ -598,8 +705,19 @@ func (s *JobSchedulingService) executeTaskAssignment(
 			task.RuleChunkPath = &ruleChunkPath
 		}
 
+		// Set keyspace split flag
+		task.IsKeyspaceSplit = plan.IsKeyspaceSplit
+
 		err = s.jobExecutionService.jobTaskRepo.Create(ctx, task)
 		if err != nil {
+			debug.Error("Failed to create task in database", map[string]interface{}{
+				"error":              err.Error(),
+				"job_execution_id":   task.JobExecutionID,
+				"increment_layer_id": task.IncrementLayerID,
+				"agent_id":           task.AgentID,
+				"keyspace_start":     task.KeyspaceStart,
+				"keyspace_end":       task.KeyspaceEnd,
+			})
 			result.Error = fmt.Errorf("failed to create task: %w", err)
 			return result
 		}
@@ -609,6 +727,25 @@ func (s *JobSchedulingService) executeTaskAssignment(
 			"task_id":  task.ID,
 			"job_id":   plan.JobExecution.ID,
 		})
+
+		// Update layer dispatched_keyspace if this is an increment layer task
+		if plan.IncrementLayerID != nil {
+			dispatchedAmount := plan.KeyspaceEnd - plan.KeyspaceStart
+			err = s.jobExecutionService.jobIncrementLayerRepo.IncrementDispatchedKeyspace(
+				ctx,
+				*plan.IncrementLayerID,
+				dispatchedAmount,
+			)
+			if err != nil {
+				debug.Warning("Failed to increment layer dispatched keyspace: %v", err)
+				// Don't fail the task assignment for this
+			} else {
+				debug.Log("Incremented layer dispatched keyspace", map[string]interface{}{
+					"layer_id":         plan.IncrementLayerID,
+					"dispatched_amount": dispatchedAmount,
+				})
+			}
+		}
 	}
 
 	// Step 5: Start job execution if in pending status
@@ -706,8 +843,8 @@ func (s *JobSchedulingService) calculateRuleSplitChunk(
 		}
 	}
 
-	// Build attack command
-	attackCmd, err := s.jobExecutionService.buildAttackCommand(ctx, nil, plan.JobExecution)
+	// Build attack command (use plan.LayerMask if this is an increment layer task)
+	attackCmd, err := s.jobExecutionService.buildAttackCommand(ctx, nil, plan.JobExecution, plan.LayerMask)
 	if err != nil {
 		return fmt.Errorf("failed to build attack command: %w", err)
 	}
@@ -758,28 +895,148 @@ func (s *JobSchedulingService) calculateRuleSplitChunk(
 }
 
 // calculateKeyspaceChunk calculates keyspace range for a regular job
+// IMPORTANT: This function calculates keyspace for --skip/--limit which operate on
+// BASE keyspace (password candidates), not effective keyspace. We must use BaseKeyspace
+// here because hashcat's --skip and --limit parameters expect password candidate counts.
 func (s *JobSchedulingService) calculateKeyspaceChunk(
 	ctx context.Context,
 	plan *TaskAssignmentPlan,
 	state *JobPlanningState,
 ) error {
-	// Check if job has total keyspace
-	if plan.JobExecution.TotalKeyspace == nil {
-		return fmt.Errorf("job has no total keyspace")
+	// For increment layer tasks, use layer-specific keyspace
+	var totalKeyspace int64
+	var dispatchedKeyspace int64
+
+	if state.CurrentLayer != nil {
+		// Use layer's BASE keyspace for --skip/--limit (password candidates)
+		// BaseKeyspace is the number of password candidates (e.g., 95^6 for ?a?a?a?a?a?a)
+		// EffectiveKeyspace may include hash count or other multipliers which don't apply to --skip/--limit
+		if state.CurrentLayer.BaseKeyspace != nil {
+			totalKeyspace = *state.CurrentLayer.BaseKeyspace
+		} else if state.CurrentLayer.EffectiveKeyspace != nil {
+			// Fallback to effective if base not available (shouldn't happen normally)
+			totalKeyspace = *state.CurrentLayer.EffectiveKeyspace
+			debug.Warning("Layer %s has no BaseKeyspace, falling back to EffectiveKeyspace for --skip/--limit", state.CurrentLayer.ID)
+		} else {
+			return fmt.Errorf("layer has no keyspace information")
+		}
+
+		// Query max BASE keyspace_end from existing tasks for this layer
+		// CRITICAL: state.CurrentLayer.DispatchedKeyspace is in EFFECTIVE units, but we need BASE units
+		// for --skip/--limit. We must query the actual task keyspace_end values.
+		maxBaseEnd, err := s.jobExecutionService.jobTaskRepo.GetMaxKeyspaceEndByLayer(ctx, state.CurrentLayer.ID)
+		if err != nil {
+			debug.Warning("Failed to get max keyspace end for layer %s: %v, starting from 0", state.CurrentLayer.ID, err)
+			maxBaseEnd = 0
+		}
+		dispatchedKeyspace = maxBaseEnd
+
+		debug.Log("Got max base keyspace_end for layer", map[string]interface{}{
+			"layer_id":              state.CurrentLayer.ID,
+			"layer_index":           state.CurrentLayer.LayerIndex,
+			"max_base_keyspace_end": maxBaseEnd,
+			"total_base_keyspace":   totalKeyspace,
+		})
+	} else {
+		// Regular job - use BASE keyspace for --skip/--limit
+		// BaseKeyspace represents actual password candidates that hashcat will test
+		if plan.JobExecution.BaseKeyspace != nil {
+			totalKeyspace = *plan.JobExecution.BaseKeyspace
+		} else if plan.JobExecution.TotalKeyspace != nil {
+			// Fallback to TotalKeyspace if BaseKeyspace not set
+			totalKeyspace = *plan.JobExecution.TotalKeyspace
+		} else {
+			return fmt.Errorf("job has no keyspace information")
+		}
+
+		// Query max BASE keyspace_end from existing tasks for this job
+		// CRITICAL: state.DispatchedKeyspace is in EFFECTIVE units, but we need BASE units
+		// for --skip/--limit. We must query the actual task keyspace_end values.
+		maxBaseEnd, err := s.jobExecutionService.jobTaskRepo.GetMaxKeyspaceEnd(ctx, plan.JobExecution.ID)
+		if err != nil {
+			debug.Warning("Failed to get max keyspace end for job %s: %v, starting from 0", plan.JobExecution.ID, err)
+			maxBaseEnd = 0
+		}
+		dispatchedKeyspace = maxBaseEnd
+
+		debug.Log("Got max base keyspace_end for job", map[string]interface{}{
+			"job_id":                plan.JobExecution.ID,
+			"max_base_keyspace_end": maxBaseEnd,
+			"total_base_keyspace":   totalKeyspace,
+		})
 	}
 
-	totalKeyspace := *plan.JobExecution.TotalKeyspace
-	remainingKeyspace := totalKeyspace - state.DispatchedKeyspace
+	remainingKeyspace := totalKeyspace - dispatchedKeyspace
 
 	if remainingKeyspace <= 0 {
 		state.IsExhausted = true
 		plan.SkipAssignment = true
-		plan.SkipReason = fmt.Sprintf("No remaining keyspace for job %s", plan.JobExecution.ID)
+		if state.CurrentLayer != nil {
+			plan.SkipReason = fmt.Sprintf("No remaining keyspace for layer %d of job %s", state.CurrentLayer.LayerIndex, plan.JobExecution.ID)
+		} else {
+			plan.SkipReason = fmt.Sprintf("No remaining keyspace for job %s", plan.JobExecution.ID)
+		}
 		return nil
 	}
 
-	// Calculate chunk size based on benchmark and desired duration
-	desiredChunkSize := int64(plan.ChunkDuration) * plan.BenchmarkSpeed
+	// Calculate chunk size in BASE keyspace units
+	// BenchmarkSpeed is in effective H/s (hash operations per second), but --skip/--limit use base keyspace
+	// (password candidates). We need to convert the speed to base keyspace rate.
+	var desiredChunkSize int64
+
+	// Get FRESH effective keyspace from DB - in-memory value may be stale
+	// (Benchmark results update DB but not the in-memory JobExecution object)
+	var effectiveKeyspace int64
+	var layerID *uuid.UUID
+	if state.CurrentLayer != nil {
+		layerID = &state.CurrentLayer.ID
+	}
+	freshEffective, err := s.jobExecutionService.GetFreshEffectiveKeyspace(ctx, plan.JobExecution.ID, layerID)
+	if err != nil {
+		debug.Warning("Failed to fetch fresh effective keyspace: %v, falling back to in-memory", err)
+		// Fallback to in-memory values
+		if state.CurrentLayer != nil && state.CurrentLayer.EffectiveKeyspace != nil {
+			effectiveKeyspace = *state.CurrentLayer.EffectiveKeyspace
+		} else if plan.JobExecution.EffectiveKeyspace != nil {
+			effectiveKeyspace = *plan.JobExecution.EffectiveKeyspace
+		}
+	} else {
+		effectiveKeyspace = freshEffective
+	}
+
+	// Calculate multiplier (effective / base) and convert speed to base units
+	if effectiveKeyspace > 0 && totalKeyspace > 0 {
+		// multiplier = effective_keyspace / base_keyspace
+		// For mask attacks with many hashes, multiplier ≈ hash_count
+		multiplier := float64(effectiveKeyspace) / float64(totalKeyspace)
+
+		// Convert benchmark speed (effective H/s) to base keyspace per second
+		// base_per_second = effective_per_second / multiplier
+		basePerSecond := float64(plan.BenchmarkSpeed) / multiplier
+
+		// Calculate desired base keyspace chunk
+		desiredChunkSize = int64(float64(plan.ChunkDuration) * basePerSecond)
+
+		debug.Log("Converted benchmark speed to base keyspace rate", map[string]interface{}{
+			"job_id":              plan.JobExecution.ID,
+			"effective_keyspace":  effectiveKeyspace,
+			"base_keyspace":       totalKeyspace,
+			"multiplier":          multiplier,
+			"benchmark_speed_eff": plan.BenchmarkSpeed,
+			"base_per_second":     basePerSecond,
+			"chunk_duration":      plan.ChunkDuration,
+			"desired_base_chunk":  desiredChunkSize,
+		})
+	} else {
+		// Fallback: assume 1:1 ratio if effective keyspace not available yet
+		desiredChunkSize = int64(plan.ChunkDuration) * plan.BenchmarkSpeed
+		debug.Warning("No effective keyspace available for job %s, using 1:1 ratio for chunk calculation", plan.JobExecution.ID)
+	}
+
+	// Ensure at least 1 keyspace unit per chunk
+	if desiredChunkSize < 1 {
+		desiredChunkSize = 1
+	}
 
 	// Get fluctuation percentage setting
 	fluctuationSetting, _ := s.systemSettingsRepo.GetSetting(ctx, "chunk_fluctuation_percentage")
@@ -792,7 +1049,7 @@ func (s *JobSchedulingService) calculateKeyspaceChunk(
 		}
 	}
 
-	keyspaceStart := state.DispatchedKeyspace
+	keyspaceStart := dispatchedKeyspace
 	keyspaceEnd := keyspaceStart + desiredChunkSize
 
 	if keyspaceEnd >= totalKeyspace {
@@ -814,8 +1071,8 @@ func (s *JobSchedulingService) calculateKeyspaceChunk(
 		}
 	}
 
-	// Build attack command
-	attackCmd, err := s.jobExecutionService.buildAttackCommand(ctx, nil, plan.JobExecution)
+	// Build attack command (use plan.LayerMask if this is an increment layer task)
+	attackCmd, err := s.jobExecutionService.buildAttackCommand(ctx, nil, plan.JobExecution, plan.LayerMask)
 	if err != nil {
 		return fmt.Errorf("failed to build attack command: %w", err)
 	}
@@ -825,19 +1082,74 @@ func (s *JobSchedulingService) calculateKeyspaceChunk(
 	plan.KeyspaceEnd = keyspaceEnd
 	plan.AttackCmd = attackCmd
 	plan.ChunkNumber = state.ChunkNumber
+	// Mark as keyspace split if we're assigning a partial chunk (either starting past 0, or ending before total)
+	// This ensures continuation tasks (where keyspaceStart > 0) also get --skip and --limit parameters
+	plan.IsKeyspaceSplit = (keyspaceStart > 0 || keyspaceEnd < totalKeyspace)
 
-	// Update state for next agent
+	// Calculate proportional effective keyspace for this chunk
+	// For keyspace-split jobs, progress[1] from hashcat reports the ENTIRE job's effective keyspace,
+	// not the chunk's. We must calculate the proportional effective keyspace based on the base chunk.
+	if effectiveKeyspace > 0 && totalKeyspace > 0 {
+		// Scale effective keyspace proportionally to base keyspace chunk
+		// effective_chunk_start = (base_start / base_total) * effective_total
+		// effective_chunk_end = (base_end / base_total) * effective_total
+		plan.EffectiveKeyspaceStart = int64(float64(keyspaceStart) * float64(effectiveKeyspace) / float64(totalKeyspace))
+		plan.EffectiveKeyspaceEnd = int64(float64(keyspaceEnd) * float64(effectiveKeyspace) / float64(totalKeyspace))
+
+		// For increment layer tasks with LayerIndex > 1, add cumulative offset from previous layers
+		// This ensures effective_keyspace_start/end are GLOBAL job positions, not layer-relative
+		// which is required for the progress bar visualization to work correctly
+		if state.CurrentLayer != nil && state.CurrentLayer.LayerIndex > 1 {
+			cumulativeOffset, err := s.jobExecutionService.jobIncrementLayerRepo.GetCumulativeEffectiveKeyspace(
+				ctx, state.CurrentLayer.JobExecutionID, state.CurrentLayer.LayerIndex)
+			if err != nil {
+				debug.Warning("Failed to get cumulative effective keyspace for layer %d: %v", state.CurrentLayer.LayerIndex, err)
+				// Continue without offset - visualization may be slightly off but job will still work
+			} else if cumulativeOffset > 0 {
+				plan.EffectiveKeyspaceStart += cumulativeOffset
+				plan.EffectiveKeyspaceEnd += cumulativeOffset
+				debug.Log("Added cumulative layer offset to effective keyspace", map[string]interface{}{
+					"layer_id":              state.CurrentLayer.ID,
+					"layer_index":           state.CurrentLayer.LayerIndex,
+					"cumulative_offset":     cumulativeOffset,
+					"adjusted_start":        plan.EffectiveKeyspaceStart,
+					"adjusted_end":          plan.EffectiveKeyspaceEnd,
+				})
+			}
+		}
+
+		debug.Log("Calculated proportional effective keyspace for chunk", map[string]interface{}{
+			"job_id":                 plan.JobExecution.ID,
+			"base_chunk_start":       keyspaceStart,
+			"base_chunk_end":         keyspaceEnd,
+			"effective_chunk_start":  plan.EffectiveKeyspaceStart,
+			"effective_chunk_end":    plan.EffectiveKeyspaceEnd,
+			"total_base_keyspace":    totalKeyspace,
+			"total_effective_keyspace": effectiveKeyspace,
+		})
+	}
+
+	// Update state for next agent (in-memory tracking during planning)
 	dispatchedAmount := keyspaceEnd - keyspaceStart
-	state.DispatchedKeyspace += dispatchedAmount
+	if state.CurrentLayer != nil {
+		// Update layer's in-memory dispatched keyspace
+		state.CurrentLayer.DispatchedKeyspace += dispatchedAmount
+	} else {
+		// Update job's in-memory dispatched keyspace
+		state.DispatchedKeyspace += dispatchedAmount
+	}
 	state.ChunkNumber++
 
-	debug.Log("Calculated keyspace chunk", map[string]interface{}{
-		"agent_id":      plan.AgentID,
-		"job_id":        plan.JobExecution.ID,
-		"chunk_number":  plan.ChunkNumber,
-		"keyspace_start": keyspaceStart,
-		"keyspace_end":  keyspaceEnd,
-		"chunk_size":    dispatchedAmount,
+	debug.Log("Calculated keyspace chunk (base keyspace for --skip/--limit)", map[string]interface{}{
+		"agent_id":         plan.AgentID,
+		"job_id":           plan.JobExecution.ID,
+		"chunk_number":     plan.ChunkNumber,
+		"keyspace_start":   keyspaceStart,
+		"keyspace_end":     keyspaceEnd,
+		"chunk_size":       dispatchedAmount,
+		"total_keyspace":   totalKeyspace,
+		"is_keyspace_split": plan.IsKeyspaceSplit,
+		"benchmark_speed":  plan.BenchmarkSpeed,
 	})
 
 	return nil

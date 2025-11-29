@@ -30,8 +30,42 @@ const (
 // AgentWithTask represents an agent with its current task information
 type AgentWithTask struct {
 	Agent
-	CurrentTask    *JobTask       `json:"currentTask,omitempty"`
-	JobExecution   *JobExecution  `json:"jobExecution,omitempty"`
+	CurrentTask  *JobTask      `json:"currentTask,omitempty"`
+	JobExecution *JobExecution `json:"jobExecution,omitempty"`
+}
+
+// MarshalJSON implements custom JSON marshalling for AgentWithTask.
+// This is necessary because Agent has a custom MarshalJSON that would otherwise
+// shadow the AgentWithTask's additional fields (CurrentTask, JobExecution).
+func (a AgentWithTask) MarshalJSON() ([]byte, error) {
+	// First, marshal the embedded Agent to get its JSON representation
+	agentJSON, err := a.Agent.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+
+	// If no task info, just return the agent JSON
+	if a.CurrentTask == nil && a.JobExecution == nil {
+		return agentJSON, nil
+	}
+
+	// Unmarshal agent JSON into a map so we can add additional fields
+	var result map[string]interface{}
+	if err := json.Unmarshal(agentJSON, &result); err != nil {
+		return nil, err
+	}
+
+	// Add CurrentTask if present
+	if a.CurrentTask != nil {
+		result["currentTask"] = a.CurrentTask
+	}
+
+	// Add JobExecution if present
+	if a.JobExecution != nil {
+		result["jobExecution"] = a.JobExecution
+	}
+
+	return json.Marshal(result)
 }
 
 // Agent represents a registered agent in the system

@@ -111,7 +111,10 @@ export default function CreateJobDialog({
     max_agents: 0,
     binary_version_id: 1,
     allow_high_priority_override: false,
-    chunk_duration: 1200 // Default to 20 minutes (will be updated from system settings)
+    chunk_duration: 1200, // Default to 20 minutes (will be updated from system settings)
+    increment_mode: 'off' as string,
+    increment_min: undefined as number | undefined,
+    increment_max: undefined as number | undefined
   });
   
   // Available data
@@ -300,7 +303,10 @@ export default function CreateJobDialog({
         max_agents: 0,
         binary_version_id: 1,
         allow_high_priority_override: false,
-        chunk_duration: 1200 // Default to 20 minutes
+        chunk_duration: 1200, // Default to 20 minutes
+        increment_mode: 'off',
+        increment_min: undefined,
+        increment_max: undefined
       });
       setTabValue(0);
       setCustomJobName('');
@@ -731,6 +737,62 @@ export default function CreateJobDialog({
                           )}
                         />
                       </Grid>
+                    </>
+                  )}
+
+                  {/* Increment Mode - only for mask-based attacks */}
+                  {(customJob.attack_mode === 3 || customJob.attack_mode === 6 || customJob.attack_mode === 7) && (
+                    <>
+                      <Grid item xs={12}>
+                        <FormControl fullWidth>
+                          <InputLabel>Increment Mode</InputLabel>
+                          <Select
+                            value={customJob.increment_mode}
+                            onChange={(e) => setCustomJob(prev => ({ ...prev, increment_mode: e.target.value }))}
+                            label="Increment Mode"
+                          >
+                            <MenuItem value="off">Off</MenuItem>
+                            <MenuItem value="increment">Increment (L→R)</MenuItem>
+                            <MenuItem value="increment_inverse">Increment Inverse (R→L)</MenuItem>
+                          </Select>
+                          <FormHelperText>
+                            Increment tries shorter masks first, growing progressively
+                          </FormHelperText>
+                        </FormControl>
+                      </Grid>
+
+                      {customJob.increment_mode !== 'off' && (
+                        <Grid item xs={12}>
+                          <Grid container spacing={2}>
+                            <Grid item xs={6}>
+                              <TextField
+                                fullWidth
+                                label="Min Length"
+                                type="number"
+                                value={customJob.increment_min || ''}
+                                onChange={(e) => setCustomJob(prev => ({
+                                  ...prev,
+                                  increment_min: e.target.value ? parseInt(e.target.value) : undefined
+                                }))}
+                                inputProps={{ min: 1 }}
+                              />
+                            </Grid>
+                            <Grid item xs={6}>
+                              <TextField
+                                fullWidth
+                                label="Max Length"
+                                type="number"
+                                value={customJob.increment_max || ''}
+                                onChange={(e) => setCustomJob(prev => ({
+                                  ...prev,
+                                  increment_max: e.target.value ? parseInt(e.target.value) : undefined
+                                }))}
+                                inputProps={{ min: 1 }}
+                              />
+                            </Grid>
+                          </Grid>
+                        </Grid>
+                      )}
                     </>
                   )}
 
