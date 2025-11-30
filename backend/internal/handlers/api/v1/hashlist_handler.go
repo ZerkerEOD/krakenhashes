@@ -22,11 +22,12 @@ import (
 
 // HashlistHandler handles User API v1 hashlist operations
 type HashlistHandler struct {
-	hashlistRepo *repository.HashListRepository
-	clientRepo   *repository.ClientRepository
-	hashTypeRepo *repository.HashTypeRepository
-	processor    *processor.HashlistDBProcessor
-	dataDir      string
+	hashlistRepo       *repository.HashListRepository
+	clientRepo         *repository.ClientRepository
+	hashTypeRepo       *repository.HashTypeRepository
+	systemSettingsRepo *repository.SystemSettingsRepository
+	processor          *processor.HashlistDBProcessor
+	dataDir            string
 }
 
 // NewHashlistHandler creates a new hashlist handler for User API v1
@@ -34,15 +35,17 @@ func NewHashlistHandler(
 	hashlistRepo *repository.HashListRepository,
 	clientRepo *repository.ClientRepository,
 	hashTypeRepo *repository.HashTypeRepository,
+	systemSettingsRepo *repository.SystemSettingsRepository,
 	processor *processor.HashlistDBProcessor,
 	dataDir string,
 ) *HashlistHandler {
 	return &HashlistHandler{
-		hashlistRepo: hashlistRepo,
-		clientRepo:   clientRepo,
-		hashTypeRepo: hashTypeRepo,
-		processor:    processor,
-		dataDir:      dataDir,
+		hashlistRepo:       hashlistRepo,
+		clientRepo:         clientRepo,
+		hashTypeRepo:       hashTypeRepo,
+		systemSettingsRepo: systemSettingsRepo,
+		processor:          processor,
+		dataDir:            dataDir,
 	}
 }
 
@@ -77,8 +80,15 @@ func (h *HashlistHandler) CreateHashlist(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if clientIDStr == "" {
-		sendError(w, "Client ID is required", "CLIENT_REQUIRED", http.StatusBadRequest)
+	// Check if client is required based on system setting
+	requireClientSetting, settingErr := h.systemSettingsRepo.GetSetting(ctx, "require_client_for_hashlist")
+	requireClient := false
+	if settingErr == nil && requireClientSetting != nil && requireClientSetting.Value != nil {
+		requireClient = *requireClientSetting.Value == "true"
+	}
+
+	if requireClient && clientIDStr == "" {
+		sendError(w, "Client is required when uploading hashlists", "CLIENT_REQUIRED", http.StatusBadRequest)
 		return
 	}
 
@@ -87,12 +97,31 @@ func (h *HashlistHandler) CreateHashlist(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Parse and validate client_id (UUID format)
-	clientID, err := uuid.Parse(clientIDStr)
-	if err != nil {
-		sendError(w, "Invalid client_id format (must be UUID)", "VALIDATION_ERROR", http.StatusBadRequest)
-		return
+	// Parse and validate client_id if provided
+	var clientID uuid.UUID
+	var client *models.Client
+	if clientIDStr != "" {
+		var parseErr error
+		clientID, parseErr = uuid.Parse(clientIDStr)
+		if parseErr != nil {
+			sendError(w, "Invalid client_id format (must be UUID)", "VALIDATION_ERROR", http.StatusBadRequest)
+			return
+		}
+
+		// Verify client exists
+		client, err = h.clientRepo.GetByID(ctx, clientID)
+		if err != nil {
+			debug.Error("Failed to get client %s: %v", clientID.String(), err)
+			sendError(w, "Client not found", "RESOURCE_NOT_FOUND", http.StatusNotFound)
+			return
+		}
+
+		if client == nil {
+			sendError(w, "Client not found", "RESOURCE_NOT_FOUND", http.StatusNotFound)
+			return
+		}
 	}
+	// Note: Clients are global (no user ownership), all authenticated users can use any client
 
 	// Parse and validate hash_type_id
 	hashTypeID, err := strconv.Atoi(hashTypeIDStr)
@@ -109,21 +138,6 @@ func (h *HashlistHandler) CreateHashlist(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Verify client exists
-	client, err := h.clientRepo.GetByID(ctx, clientID)
-	if err != nil {
-		debug.Error("Failed to get client %s: %v", clientID.String(), err)
-		sendError(w, "Client not found", "RESOURCE_NOT_FOUND", http.StatusNotFound)
-		return
-	}
-
-	if client == nil {
-		sendError(w, "Client not found", "RESOURCE_NOT_FOUND", http.StatusNotFound)
-		return
-	}
-
-	// Note: Clients are global (no user ownership), all authenticated users can use any client
-
 	// Get file from form
 	file, header, err := r.FormFile("file")
 	if err != nil {
@@ -138,7 +152,7 @@ func (h *HashlistHandler) CreateHashlist(w http.ResponseWriter, r *http.Request)
 	hashlist := &models.HashList{
 		Name:               name,
 		UserID:             userID,
-		ClientID:           client.ID,
+		ClientID:           clientID, // Will be uuid.Nil if no client was provided
 		HashTypeID:         hashTypeID,
 		Status:             models.HashListStatusUploading,
 		ExcludeFromPotfile: false, // default value

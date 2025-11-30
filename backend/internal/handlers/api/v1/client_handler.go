@@ -19,28 +19,31 @@ import (
 
 // ClientHandler handles User API v1 client-related requests
 type ClientHandler struct {
-	clientRepo   *repository.ClientRepository
-	hashlistRepo *repository.HashListRepository
-	db           *db.DB
+	clientRepo         *repository.ClientRepository
+	hashlistRepo       *repository.HashListRepository
+	clientSettingsRepo *repository.ClientSettingsRepository
+	db                 *db.DB
 }
 
 // NewClientHandler creates a new client handler instance
-func NewClientHandler(clientRepo *repository.ClientRepository, hashlistRepo *repository.HashListRepository, database *db.DB) *ClientHandler {
+func NewClientHandler(clientRepo *repository.ClientRepository, hashlistRepo *repository.HashListRepository, clientSettingsRepo *repository.ClientSettingsRepository, database *db.DB) *ClientHandler {
 	return &ClientHandler{
-		clientRepo:   clientRepo,
-		hashlistRepo: hashlistRepo,
-		db:           database,
+		clientRepo:         clientRepo,
+		hashlistRepo:       hashlistRepo,
+		clientSettingsRepo: clientSettingsRepo,
+		db:                 database,
 	}
 }
 
 // ClientResponse represents the response for client operations
 type ClientResponse struct {
-	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"`
-	Description *string   `json:"description,omitempty"`
-	Domain      *string   `json:"domain,omitempty"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID                  uuid.UUID `json:"id"`
+	Name                string    `json:"name"`
+	Description         *string   `json:"description,omitempty"`
+	Domain              *string   `json:"domain,omitempty"`
+	DataRetentionMonths *int      `json:"data_retention_months,omitempty"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
 }
 
 // ClientListResponse represents the paginated list response
@@ -53,9 +56,10 @@ type ClientListResponse struct {
 
 // CreateClientRequest represents the request body for creating a client
 type CreateClientRequest struct {
-	Name        string  `json:"name"`
-	Description *string `json:"description,omitempty"`
-	Domain      *string `json:"domain,omitempty"`
+	Name                string  `json:"name"`
+	Description         *string `json:"description,omitempty"`
+	Domain              *string `json:"domain,omitempty"`
+	DataRetentionMonths *int    `json:"data_retention_months,omitempty"`
 }
 
 // UpdateClientRequest represents the request body for updating a client
@@ -84,18 +88,6 @@ func getUserID(r *http.Request) (uuid.UUID, error) {
 	return userID, nil
 }
 
-// clientBelongsToUser checks if a client belongs to the specified user via hashlists
-func (h *ClientHandler) clientBelongsToUser(ctx context.Context, clientID, userID uuid.UUID) (bool, error) {
-	// Query to check if there are any hashlists for this client owned by the user
-	query := `SELECT EXISTS(SELECT 1 FROM hashlists WHERE client_id = $1 AND user_id = $2)`
-	var exists bool
-	err := h.db.QueryRowContext(ctx, query, clientID, userID).Scan(&exists)
-	if err != nil {
-		return false, fmt.Errorf("failed to check client ownership: %w", err)
-	}
-	return exists, nil
-}
-
 // hasHashlists checks if a client has any associated hashlists
 func (h *ClientHandler) hasHashlists(ctx context.Context, clientID uuid.UUID) (bool, error) {
 	query := `SELECT EXISTS(SELECT 1 FROM hashlists WHERE client_id = $1)`
@@ -107,71 +99,17 @@ func (h *ClientHandler) hasHashlists(ctx context.Context, clientID uuid.UUID) (b
 	return exists, nil
 }
 
-// listUserClients returns all clients associated with the user's hashlists
-func (h *ClientHandler) listUserClients(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]models.Client, int, error) {
-	offset := (page - 1) * pageSize
-
-	// Get total count
-	countQuery := `
-		SELECT COUNT(DISTINCT c.id)
-		FROM clients c
-		INNER JOIN hashlists h ON c.id = h.client_id
-		WHERE h.user_id = $1
-	`
-	var total int
-	err := h.db.QueryRowContext(ctx, countQuery, userID).Scan(&total)
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to count user clients: %w", err)
-	}
-
-	// Get paginated clients
-	query := `
-		SELECT DISTINCT c.id, c.name, c.description, c.contact_info, c.data_retention_months,
-		       c.exclude_from_potfile, c.created_at, c.updated_at
-		FROM clients c
-		INNER JOIN hashlists h ON c.id = h.client_id
-		WHERE h.user_id = $1
-		ORDER BY c.name ASC
-		LIMIT $2 OFFSET $3
-	`
-	rows, err := h.db.QueryContext(ctx, query, userID, pageSize, offset)
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to list user clients: %w", err)
-	}
-	defer rows.Close()
-
-	var clients []models.Client
-	for rows.Next() {
-		var client models.Client
-		err := rows.Scan(
-			&client.ID,
-			&client.Name,
-			&client.Description,
-			&client.ContactInfo,
-			&client.DataRetentionMonths,
-			&client.ExcludeFromPotfile,
-			&client.CreatedAt,
-			&client.UpdatedAt,
-		)
-		if err != nil {
-			return nil, 0, fmt.Errorf("failed to scan client: %w", err)
-		}
-		clients = append(clients, client)
-	}
-
-	return clients, total, nil
-}
-
 // toClientResponse converts a models.Client to ClientResponse
 func toClientResponse(client *models.Client) ClientResponse {
 	// Use ContactInfo as Domain for API response
 	return ClientResponse{
-		ID:          client.ID,
-		Name:        client.Name,
-		Description: client.Description,
-		Domain:      client.ContactInfo, // Map ContactInfo to Domain
-		CreatedAt:   client.CreatedAt,
-		UpdatedAt:   client.UpdatedAt,
+		ID:                  client.ID,
+		Name:                client.Name,
+		Description:         client.Description,
+		Domain:              client.ContactInfo, // Map ContactInfo to Domain
+		DataRetentionMonths: client.DataRetentionMonths,
+		CreatedAt:           client.CreatedAt,
+		UpdatedAt:           client.UpdatedAt,
 	}
 }
 
@@ -196,14 +134,30 @@ func (h *ClientHandler) CreateClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Determine data retention months
+	var retentionMonths *int
+	if req.DataRetentionMonths != nil {
+		// User explicitly provided a value - use it (0 = keep forever, >0 = months)
+		retentionMonths = req.DataRetentionMonths
+	} else {
+		// User omitted the field - fetch and apply default from client_settings
+		defaultSetting, settingErr := h.clientSettingsRepo.GetSetting(r.Context(), "default_data_retention_months")
+		if settingErr == nil && defaultSetting.Value != nil {
+			if val, parseErr := strconv.Atoi(*defaultSetting.Value); parseErr == nil {
+				retentionMonths = &val
+			}
+		}
+	}
+
 	// Create client
 	client := &models.Client{
-		ID:          uuid.New(),
-		Name:        req.Name,
-		Description: req.Description,
-		ContactInfo: req.Domain, // Map Domain to ContactInfo
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		ID:                  uuid.New(),
+		Name:                req.Name,
+		Description:         req.Description,
+		ContactInfo:         req.Domain, // Map Domain to ContactInfo
+		DataRetentionMonths: retentionMonths,
+		CreatedAt:           time.Now(),
+		UpdatedAt:           time.Now(),
 	}
 
 	err = h.clientRepo.Create(r.Context(), client)
@@ -226,12 +180,7 @@ func (h *ClientHandler) CreateClient(w http.ResponseWriter, r *http.Request) {
 
 // ListClients handles GET /api/v1/clients
 func (h *ClientHandler) ListClients(w http.ResponseWriter, r *http.Request) {
-	userID, err := getUserID(r)
-	if err != nil {
-		debug.Error("Failed to get user ID: %v", err)
-		sendAPIError(w, "Authentication required", "AUTH_REQUIRED", http.StatusUnauthorized)
-		return
-	}
+	// Note: Authentication is handled by middleware, clients are global resources
 
 	// Parse pagination parameters
 	page := 1
@@ -249,13 +198,25 @@ func (h *ClientHandler) ListClients(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Get user's clients
-	clients, total, err := h.listUserClients(r.Context(), userID, page, pageSize)
+	// Get all clients (clients are global resources)
+	allClients, err := h.clientRepo.List(r.Context())
 	if err != nil {
 		debug.Error("Failed to list clients: %v", err)
 		sendAPIError(w, "Failed to retrieve clients", "INTERNAL_ERROR", http.StatusInternalServerError)
 		return
 	}
+
+	// Apply pagination in handler
+	total := len(allClients)
+	offset := (page - 1) * pageSize
+	end := offset + pageSize
+	if offset > total {
+		offset = total
+	}
+	if end > total {
+		end = total
+	}
+	clients := allClients[offset:end]
 
 	// Convert to response format
 	clientResponses := make([]ClientResponse, len(clients))
@@ -277,13 +238,7 @@ func (h *ClientHandler) ListClients(w http.ResponseWriter, r *http.Request) {
 
 // GetClient handles GET /api/v1/clients/{id}
 func (h *ClientHandler) GetClient(w http.ResponseWriter, r *http.Request) {
-	userID, err := getUserID(r)
-	if err != nil {
-		debug.Error("Failed to get user ID: %v", err)
-		sendAPIError(w, "Authentication required", "AUTH_REQUIRED", http.StatusUnauthorized)
-		return
-	}
-
+	// Note: Authentication is handled by middleware, clients are global resources
 	vars := mux.Vars(r)
 	clientID, err := uuid.Parse(vars["id"])
 	if err != nil {
@@ -291,20 +246,7 @@ func (h *ClientHandler) GetClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if client belongs to user
-	belongs, err := h.clientBelongsToUser(r.Context(), clientID, userID)
-	if err != nil {
-		debug.Error("Failed to check client ownership: %v", err)
-		sendAPIError(w, "Failed to retrieve client", "INTERNAL_ERROR", http.StatusInternalServerError)
-		return
-	}
-
-	if !belongs {
-		sendAPIError(w, "Client not found or access denied", "RESOURCE_NOT_FOUND", http.StatusNotFound)
-		return
-	}
-
-	// Get client
+	// Get client (clients are global resources - no ownership check needed)
 	client, err := h.clientRepo.GetByID(r.Context(), clientID)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
@@ -323,30 +265,11 @@ func (h *ClientHandler) GetClient(w http.ResponseWriter, r *http.Request) {
 
 // UpdateClient handles PATCH /api/v1/clients/{id}
 func (h *ClientHandler) UpdateClient(w http.ResponseWriter, r *http.Request) {
-	userID, err := getUserID(r)
-	if err != nil {
-		debug.Error("Failed to get user ID: %v", err)
-		sendAPIError(w, "Authentication required", "AUTH_REQUIRED", http.StatusUnauthorized)
-		return
-	}
-
+	// Note: Authentication is handled by middleware, clients are global resources
 	vars := mux.Vars(r)
 	clientID, err := uuid.Parse(vars["id"])
 	if err != nil {
 		sendAPIError(w, "Invalid client ID format", "VALIDATION_ERROR", http.StatusBadRequest)
-		return
-	}
-
-	// Check if client belongs to user
-	belongs, err := h.clientBelongsToUser(r.Context(), clientID, userID)
-	if err != nil {
-		debug.Error("Failed to check client ownership: %v", err)
-		sendAPIError(w, "Failed to update client", "INTERNAL_ERROR", http.StatusInternalServerError)
-		return
-	}
-
-	if !belongs {
-		sendAPIError(w, "Client not found or access denied", "RESOURCE_ACCESS_DENIED", http.StatusForbidden)
 		return
 	}
 
@@ -397,7 +320,7 @@ func (h *ClientHandler) UpdateClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	debug.Info("User %s updated client: %s (ID: %s)", userID.String(), client.Name, client.ID.String())
+	debug.Info("Client updated: %s (ID: %s)", client.Name, client.ID.String())
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -406,13 +329,7 @@ func (h *ClientHandler) UpdateClient(w http.ResponseWriter, r *http.Request) {
 
 // DeleteClient handles DELETE /api/v1/clients/{id}
 func (h *ClientHandler) DeleteClient(w http.ResponseWriter, r *http.Request) {
-	userID, err := getUserID(r)
-	if err != nil {
-		debug.Error("Failed to get user ID: %v", err)
-		sendAPIError(w, "Authentication required", "AUTH_REQUIRED", http.StatusUnauthorized)
-		return
-	}
-
+	// Note: Authentication is handled by middleware, clients are global resources
 	vars := mux.Vars(r)
 	clientID, err := uuid.Parse(vars["id"])
 	if err != nil {
@@ -420,20 +337,7 @@ func (h *ClientHandler) DeleteClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if client belongs to user
-	belongs, err := h.clientBelongsToUser(r.Context(), clientID, userID)
-	if err != nil {
-		debug.Error("Failed to check client ownership: %v", err)
-		sendAPIError(w, "Failed to delete client", "INTERNAL_ERROR", http.StatusInternalServerError)
-		return
-	}
-
-	if !belongs {
-		sendAPIError(w, "Client not found or access denied", "RESOURCE_ACCESS_DENIED", http.StatusForbidden)
-		return
-	}
-
-	// Check if client has hashlists
+	// Check if client has hashlists (prevent deletion if hashlists exist)
 	hasHashlists, err := h.hasHashlists(r.Context(), clientID)
 	if err != nil {
 		debug.Error("Failed to check hashlists: %v", err)
@@ -458,7 +362,7 @@ func (h *ClientHandler) DeleteClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	debug.Info("User %s deleted client: %s", userID.String(), clientID.String())
+	debug.Info("Client deleted: %s", clientID.String())
 
 	w.WriteHeader(http.StatusNoContent)
 }

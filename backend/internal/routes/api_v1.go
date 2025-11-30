@@ -27,6 +27,7 @@ func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager
 	// Create repositories
 	userRepo := repository.NewUserRepository(database)
 	clientRepo := repository.NewClientRepository(database)
+	clientSettingsRepo := repository.NewClientSettingsRepository(database)
 	hashlistRepo := repository.NewHashListRepository(database)
 	hashRepo := repository.NewHashRepository(database)
 	hashTypeRepo := repository.NewHashTypeRepository(database)
@@ -34,6 +35,7 @@ func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager
 	voucherRepo := repository.NewClaimVoucherRepository(database)
 	workflowRepo := repository.NewJobWorkflowRepository(database.DB)
 	presetJobRepo := repository.NewPresetJobRepository(database.DB)
+	systemSettingsRepo := repository.NewSystemSettingsRepository(database)
 
 	// Create services
 	userAPIService := services.NewUserAPIService(userRepo)
@@ -66,7 +68,7 @@ func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager
 	}).Methods("GET", "OPTIONS")
 
 	// Client endpoints
-	clientHandler := v1handlers.NewClientHandler(clientRepo, hashlistRepo, database)
+	clientHandler := v1handlers.NewClientHandler(clientRepo, hashlistRepo, clientSettingsRepo, database)
 	v1Router.HandleFunc("/clients", clientHandler.CreateClient).Methods("POST", "OPTIONS")
 	v1Router.HandleFunc("/clients", clientHandler.ListClients).Methods("GET", "OPTIONS")
 	v1Router.HandleFunc("/clients/{id}", clientHandler.GetClient).Methods("GET", "OPTIONS")
@@ -74,7 +76,7 @@ func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager
 	v1Router.HandleFunc("/clients/{id}", clientHandler.DeleteClient).Methods("DELETE", "OPTIONS")
 
 	// Hashlist endpoints
-	hashlistHandler := v1handlers.NewHashlistHandler(hashlistRepo, clientRepo, hashTypeRepo, hashlistProcessor, hashlistDataDir)
+	hashlistHandler := v1handlers.NewHashlistHandler(hashlistRepo, clientRepo, hashTypeRepo, systemSettingsRepo, hashlistProcessor, hashlistDataDir)
 	v1Router.HandleFunc("/hashlists", hashlistHandler.CreateHashlist).Methods("POST", "OPTIONS")
 	v1Router.HandleFunc("/hashlists", hashlistHandler.ListHashlists).Methods("GET", "OPTIONS")
 	v1Router.HandleFunc("/hashlists/{id:[0-9]+}", hashlistHandler.GetHashlist).Methods("GET", "OPTIONS")
@@ -97,11 +99,12 @@ func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager
 	// Job endpoints - create necessary repositories and services
 	jobExecRepo := repository.NewJobExecutionRepository(database)
 	jobTaskRepo := repository.NewJobTaskRepository(database)
+	jobIncrementLayerRepo := repository.NewJobIncrementLayerRepository(database)
+	presetIncrementLayerRepo := repository.NewPresetIncrementLayerRepository(database)
 	benchmarkRepo := repository.NewBenchmarkRepository(database)
 	agentHashlistRepo := repository.NewAgentHashlistRepository(database)
 	deviceRepo := repository.NewAgentDeviceRepository(database)
 	scheduleRepo := repository.NewAgentScheduleRepository(database)
-	systemSettingsRepo := repository.NewSystemSettingsRepository(database)
 	fileRepo := repository.NewFileRepository(database, dataDirectory)
 
 	// Create job execution service
@@ -109,6 +112,8 @@ func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager
 		database,
 		jobExecRepo,
 		jobTaskRepo,
+		jobIncrementLayerRepo,
+		presetIncrementLayerRepo,
 		benchmarkRepo,
 		agentHashlistRepo,
 		agentRepo,
@@ -133,12 +138,16 @@ func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager
 		presetJobRepo,
 		workflowRepo,
 		nil, // schedulingService not needed for core CRUD operations
+		jobIncrementLayerRepo,
+		systemSettingsRepo,
 	)
 
 	v1Router.HandleFunc("/jobs", jobHandler.CreateJob).Methods("POST", "OPTIONS")
 	v1Router.HandleFunc("/jobs", jobHandler.ListJobs).Methods("GET", "OPTIONS")
 	v1Router.HandleFunc("/jobs/{id}", jobHandler.GetJob).Methods("GET", "OPTIONS")
 	v1Router.HandleFunc("/jobs/{id}", jobHandler.UpdateJob).Methods("PATCH", "OPTIONS")
+	v1Router.HandleFunc("/jobs/{id}/layers", jobHandler.GetJobLayers).Methods("GET", "OPTIONS")
+	v1Router.HandleFunc("/jobs/{id}/layers/{layer_id}", jobHandler.GetJobLayerTasks).Methods("GET", "OPTIONS")
 
 	debug.Info("/api/v1 User API routes configured successfully")
 	debug.Info("User API authentication requires X-User-Email and X-API-Key headers")

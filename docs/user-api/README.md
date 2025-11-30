@@ -43,9 +43,23 @@ All endpoints require `X-User-Email` and `X-API-Key` headers.
 | | `POST /jobs` | Create job |
 | | `GET /jobs/{id}` | Get job |
 | | `PATCH /jobs/{id}` | Update job |
+| | `GET /jobs/{id}/layers` | Get job layers (increment mode) |
+| | `GET /jobs/{id}/layers/{layer_id}` | Get tasks for a layer |
 | **Metadata** | `GET /hash-types` | List hash types |
 | | `GET /workflows` | List workflows |
 | | `GET /preset-jobs` | List preset jobs |
+
+## Dynamic Validation
+
+Some API validation rules are configured via system settings:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `max_job_priority` | 1000 | Maximum allowed job priority value |
+| `require_client_for_hashlist` | false | Whether `client_id` is required for hashlist uploads |
+| `default_data_retention_months` | null | Default retention period for new clients |
+
+These settings can be adjusted by administrators through the system settings interface.
 
 ## Examples
 
@@ -117,15 +131,16 @@ Open: http://localhost:8080
 
 ## Current Status
 
-✅ **Available Now:**
-- Client management (CRUD)
-- Hashlist management (upload, list, delete)
-- Agent management (vouchers, list, update)
-- Metadata endpoints (hash types, workflows, presets)
+**All User API endpoints are fully implemented:**
 
-⏳ **Coming Soon:**
-- Job API endpoints (create, modify, monitor)
-- WebSocket support for real-time updates
+- Client management (CRUD with data retention settings)
+- Hashlist management (upload, list, delete)
+- Agent management (vouchers, list, update, delete)
+- Job management (create, list, update, layers)
+- Metadata endpoints (hash types, workflows, preset jobs)
+
+**Planned Enhancements:**
+- WebSocket support for real-time job status updates
 
 ## Support
 
@@ -137,4 +152,4 @@ Open: http://localhost:8080
 
 Current API Version: **v1.0.0**
 
-Last Updated: 2024
+Last Updated: November 2025

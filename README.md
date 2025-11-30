@@ -72,8 +72,8 @@ Instructions for setting up and running each component can be found in their res
 -   [ ] Additional authentication methods
 -   [ ] Advanced job dependencies
 -   [ ] Enhanced benchmarking with historical tracking
--   [ ] Job queuing and scheduling improvements
--   [ ] POT statistics and analytics
+-   [x] Job queuing and scheduling improvements
+-   [x] POT statistics and analytics
 -   [ ] Team system implementation
     -   [ ] Team management infrastructure
         -   [ ] Team manager roles
@@ -83,4 +83,4 @@ Instructions for setting up and running each component can be found in their res
         -   [ ] Team management UI
         -   [ ] Team assignment system
         -   [ ] Team management guidelines
--   [ ] Statistics and analytics (move to v2.0)
+-   [x] Statistics and analytics (move to v2.0)

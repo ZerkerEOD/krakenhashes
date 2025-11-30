@@ -19,6 +19,11 @@ info:
     - Production: `https://your-domain.com/api/v1`
     - Development: `http://localhost:31337/api/v1`
 
+    ## Dynamic Validation
+    Some validation limits are configurable via system settings:
+    - `max_job_priority`: Maximum job priority value (default: 1000)
+    - `require_client_for_hashlist`: Whether client_id is required for hashlist uploads (default: false)
+
   version: 1.0.0
   contact:
     name: KrakenHashes Support
@@ -97,7 +102,6 @@ components:
       required:
         - id
         - name
-        - created_by_id
         - created_at
         - updated_at
       properties:
@@ -112,10 +116,14 @@ components:
           type: string
           nullable: true
           description: Client description
-        created_by_id:
+        domain:
           type: string
-          format: uuid
-          description: User who created the client
+          nullable: true
+          description: Client domain or contact information
+        data_retention_months:
+          type: integer
+          nullable: true
+          description: Data retention period in months (0 = keep forever, null = use system default)
         created_at:
           type: string
           format: date-time
@@ -128,7 +136,6 @@ components:
       required:
         - id
         - name
-        - client_id
         - hash_type
         - created_at
       properties:
@@ -141,17 +148,31 @@ components:
         client_id:
           type: string
           format: uuid
-          description: Associated client ID
+          nullable: true
+          description: Associated client ID (may be null if client not required)
         hash_type:
+          type: string
+          description: Hash type name
+        hash_type_id:
           type: integer
           description: Hashcat hash type ID
-        total_hashes:
+        hash_count:
           type: integer
           description: Total number of hashes
-        cracked_hashes:
+        cracked_count:
           type: integer
           description: Number of cracked hashes
+        progress:
+          type: number
+          format: float
+          description: Crack progress percentage
+        status:
+          type: string
+          description: Hashlist processing status
         created_at:
+          type: string
+          format: date-time
+        updated_at:
           type: string
           format: date-time
 
@@ -178,12 +199,15 @@ components:
         priority:
           type: integer
           minimum: 1
-          maximum: 10
-          description: Job priority (1=lowest, 10=highest)
+          description: Job priority (1=lowest). Maximum determined by max_job_priority system setting (default 1000)
         max_agents:
           type: integer
           minimum: 0
           description: Maximum number of agents to assign (0=unlimited)
+        increment_mode:
+          type: string
+          enum: [off, enabled, enabled_with_brain]
+          description: Increment mode for variable-length attacks
         dispatched_percent:
           type: number
           format: float
@@ -195,12 +219,73 @@ components:
         cracked_count:
           type: integer
           description: Number of hashes cracked
+        hashlist_id:
+          type: integer
+          description: Associated hashlist ID
+        hashlist_name:
+          type: string
+          description: Associated hashlist name
+        client_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Associated client ID
+        client_name:
+          type: string
+          nullable: true
+          description: Associated client name
+        preset_job_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Preset job configuration ID
+        preset_job_name:
+          type: string
+          nullable: true
+          description: Preset job name
+        workflow_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Workflow ID
+        workflow_name:
+          type: string
+          nullable: true
+          description: Workflow name
         created_at:
           type: string
           format: date-time
         updated_at:
           type: string
           format: date-time
+
+    JobLayer:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Layer ID
+        job_id:
+          type: string
+          format: uuid
+          description: Parent job ID
+        min_length:
+          type: integer
+          description: Minimum password length for this layer
+        max_length:
+          type: integer
+          description: Maximum password length for this layer
+        status:
+          type: string
+          description: Layer status
+        dispatched_percent:
+          type: number
+          format: float
+          description: Percentage of layer work dispatched
+        searched_percent:
+          type: number
+          format: float
+          description: Percentage of layer keyspace searched
 
     Agent:
       type: object
@@ -260,7 +345,7 @@ components:
       properties:
         code:
           type: string
-          description: 32-character voucher code
+          description: Voucher code for agent registration
         is_active:
           type: boolean
           description: Whether voucher is active
@@ -270,11 +355,6 @@ components:
         created_at:
           type: string
           format: date-time
-        expires_at:
-          type: string
-          format: date-time
-          nullable: true
-          description: Expiration timestamp
 
     HashType:
       type: object
@@ -399,7 +479,7 @@ paths:
   /clients:
     get:
       summary: List clients
-      description: Retrieve a paginated list of clients owned by the user
+      description: Retrieve a paginated list of all clients (clients are global resources)
       tags: [Clients]
       parameters:
         - $ref: '#/components/parameters/PageParam'
@@ -449,6 +529,19 @@ paths:
                   type: string
                   nullable: true
                   description: Client description
+                domain:
+                  type: string
+                  nullable: true
+                  description: Client domain or contact information
+                data_retention_months:
+                  type: integer
+                  nullable: true
+                  description: Data retention in months (0 = keep forever). If omitted, uses system default.
+            example:
+              name: "Acme Corp"
+              description: "Annual penetration test"
+              domain: "acme.com"
+              data_retention_months: 12
       responses:
         '201':
           description: Client created successfully
@@ -458,6 +551,12 @@ paths:
                 $ref: '#/components/schemas/Client'
         '400':
           description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Client name already exists
           content:
             application/json:
               schema:
@@ -507,6 +606,9 @@ paths:
                 description:
                   type: string
                   nullable: true
+                domain:
+                  type: string
+                  nullable: true
       responses:
         '200':
           description: Client updated successfully
@@ -520,6 +622,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Client name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
     delete:
       summary: Delete client
@@ -528,7 +636,7 @@ paths:
       responses:
         '204':
           description: Client deleted successfully
-        '400':
+        '409':
           description: Client has associated hashlists
           content:
             application/json:
@@ -544,7 +652,7 @@ paths:
   /hashlists:
     get:
       summary: List hashlists
-      description: Retrieve a paginated list of hashlists
+      description: Retrieve a paginated list of hashlists owned by the authenticated user
       tags: [Hashlists]
       parameters:
         - $ref: '#/components/parameters/PageParam'
@@ -555,6 +663,11 @@ paths:
             type: string
             format: uuid
           description: Filter by client ID
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search by hashlist name
       responses:
         '200':
           description: List of hashlists
@@ -576,7 +689,12 @@ paths:
 
     post:
       summary: Create hashlist
-      description: Upload a new hashlist file
+      description: |
+        Upload a new hashlist file.
+
+        **Note:** The `client_id` field is conditionally required based on the
+        `require_client_for_hashlist` system setting. If the setting is `true`,
+        you must provide a client_id.
       tags: [Hashlists]
       requestBody:
         required: true
@@ -587,8 +705,7 @@ paths:
               required:
                 - file
                 - name
-                - client_id
-                - hash_type
+                - hash_type_id
               properties:
                 file:
                   type: string
@@ -597,13 +714,16 @@ paths:
                 name:
                   type: string
                   description: Hashlist name
+                description:
+                  type: string
+                  description: Hashlist description
                 client_id:
                   type: string
                   format: uuid
-                  description: Associated client ID
-                hash_type:
+                  description: Associated client ID (required if require_client_for_hashlist setting is true)
+                hash_type_id:
                   type: integer
-                  description: Hashcat hash type ID
+                  description: Hashcat hash type ID (e.g., 1000 for NTLM)
       responses:
         '201':
           description: Hashlist created successfully
@@ -612,7 +732,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Hashlist'
         '400':
-          description: Invalid request
+          description: Invalid request or CLIENT_REQUIRED if client_id missing when required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Client or hash type not found
           content:
             application/json:
               schema:
@@ -638,6 +764,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Hashlist'
+        '403':
+          description: Access denied (not owner)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Hashlist not found
           content:
@@ -652,8 +784,20 @@ paths:
       responses:
         '204':
           description: Hashlist deleted successfully
+        '403':
+          description: Access denied (not owner)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Hashlist not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Hashlist has active jobs
           content:
             application/json:
               schema:
@@ -662,7 +806,7 @@ paths:
   /jobs:
     get:
       summary: List jobs
-      description: Retrieve a paginated list of jobs owned by the user
+      description: Retrieve a paginated list of jobs owned by the authenticated user
       tags: [Jobs]
       parameters:
         - $ref: '#/components/parameters/PageParam'
@@ -700,7 +844,13 @@ paths:
 
     post:
       summary: Create job
-      description: Create a new cracking job using a preset configuration or workflow
+      description: |
+        Create a new cracking job using a preset configuration or workflow.
+
+        You must specify either `preset_job_id` OR `workflow_id`, but not both.
+
+        **Note:** The maximum priority value is determined by the `max_job_priority`
+        system setting (default: 1000).
       tags: [Jobs]
       requestBody:
         required: true
@@ -729,20 +879,24 @@ paths:
                 priority:
                   type: integer
                   minimum: 1
-                  maximum: 10
                   default: 5
-                  description: Job priority (1=lowest, 10=highest)
+                  description: Job priority (1=lowest). Max determined by system setting (default 1000)
                 max_agents:
                   type: integer
                   minimum: 0
                   default: 0
                   description: Maximum agents to assign (0=unlimited)
-              example:
-                name: "Potfile Run for Client ABC"
-                hashlist_id: 123
-                preset_job_id: "fe03b156-df7a-41a8-a591-abce3c0f0217"
-                priority: 8
-                max_agents: 5
+                increment_mode:
+                  type: string
+                  enum: [off, enabled, enabled_with_brain]
+                  default: "off"
+                  description: Enable increment mode for variable-length password attacks
+            example:
+              name: "Potfile Run for Client ABC"
+              hashlist_id: 123
+              preset_job_id: "fe03b156-df7a-41a8-a591-abce3c0f0217"
+              priority: 8
+              max_agents: 5
       responses:
         '201':
           description: Job created successfully
@@ -751,7 +905,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Job'
         '400':
-          description: Invalid request
+          description: Invalid request or validation error
           content:
             application/json:
               schema:
@@ -784,6 +938,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Job'
+        '403':
+          description: Access denied (not owner)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Job not found
           content:
@@ -793,7 +953,11 @@ paths:
 
     patch:
       summary: Update job
-      description: Update job priority or max_agents allocation
+      description: |
+        Update job priority or max_agents allocation.
+
+        **Note:** The maximum priority value is determined by the `max_job_priority`
+        system setting (default: 1000).
       tags: [Jobs]
       requestBody:
         required: true
@@ -805,15 +969,14 @@ paths:
                 priority:
                   type: integer
                   minimum: 1
-                  maximum: 10
-                  description: New job priority
+                  description: New job priority. Max determined by system setting (default 1000)
                 max_agents:
                   type: integer
                   minimum: 0
                   description: New max agents limit
-              example:
-                priority: 9
-                max_agents: 10
+            example:
+              priority: 100
+              max_agents: 10
       responses:
         '200':
           description: Job updated successfully
@@ -822,7 +985,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Job'
         '400':
-          description: Invalid request
+          description: Invalid request or validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Access denied (not owner)
           content:
             application/json:
               schema:
@@ -834,26 +1003,115 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /jobs/{id}/layers:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Job ID
+
+    get:
+      summary: List job layers
+      description: |
+        Retrieve increment layers for a job. Only applicable for jobs with
+        increment_mode enabled. Each layer represents a password length range.
+      tags: [Jobs]
+      responses:
+        '200':
+          description: List of job layers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JobLayer'
+        '403':
+          description: Access denied (not owner)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /jobs/{id}/layers/{layer_id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Job ID
+      - name: layer_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: Layer ID
+
+    get:
+      summary: Get layer tasks
+      description: Retrieve tasks for a specific increment layer
+      tags: [Jobs]
+      responses:
+        '200':
+          description: List of tasks for the layer
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    status:
+                      type: string
+                    progress:
+                      type: number
+                    agent_id:
+                      type: integer
+                      nullable: true
+        '403':
+          description: Access denied (not owner)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Job or layer not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /agents/vouchers:
     post:
       summary: Generate voucher
       description: Generate a registration voucher for a new agent
       tags: [Agents]
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
               type: object
               properties:
-                expires_in:
-                  type: integer
-                  description: Voucher lifetime in seconds (default 604800 = 7 days)
-                  default: 604800
                 is_continuous:
                   type: boolean
                   description: Whether voucher can be used multiple times
                   default: false
+            example:
+              is_continuous: false
       responses:
         '201':
           description: Voucher generated successfully
@@ -871,7 +1129,7 @@ paths:
   /agents:
     get:
       summary: List agents
-      description: Retrieve a paginated list of agents owned by the user
+      description: Retrieve a paginated list of all agents
       tags: [Agents]
       parameters:
         - $ref: '#/components/parameters/PageParam'

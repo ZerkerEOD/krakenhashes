@@ -19,14 +19,16 @@ import (
 
 // JobHandler handles User API v1 job operations
 type JobHandler struct {
-	jobExecService *services.JobExecutionService
-	jobExecRepo    *repository.JobExecutionRepository
-	jobTaskRepo    *repository.JobTaskRepository
-	hashlistRepo   *repository.HashListRepository
-	clientRepo     *repository.ClientRepository
-	presetJobRepo  repository.PresetJobRepository
-	workflowRepo   repository.JobWorkflowRepository
-	schedulingService *services.JobSchedulingService
+	jobExecService        *services.JobExecutionService
+	jobExecRepo           *repository.JobExecutionRepository
+	jobTaskRepo           *repository.JobTaskRepository
+	hashlistRepo          *repository.HashListRepository
+	clientRepo            *repository.ClientRepository
+	presetJobRepo         repository.PresetJobRepository
+	workflowRepo          repository.JobWorkflowRepository
+	schedulingService     *services.JobSchedulingService
+	jobIncrementLayerRepo *repository.JobIncrementLayerRepository
+	systemSettingsRepo    *repository.SystemSettingsRepository
 }
 
 // NewJobHandler creates a new job handler for User API v1
@@ -39,16 +41,20 @@ func NewJobHandler(
 	presetJobRepo repository.PresetJobRepository,
 	workflowRepo repository.JobWorkflowRepository,
 	schedulingService *services.JobSchedulingService,
+	jobIncrementLayerRepo *repository.JobIncrementLayerRepository,
+	systemSettingsRepo *repository.SystemSettingsRepository,
 ) *JobHandler {
 	return &JobHandler{
-		jobExecService: jobExecService,
-		jobExecRepo:    jobExecRepo,
-		jobTaskRepo:    jobTaskRepo,
-		hashlistRepo:   hashlistRepo,
-		clientRepo:     clientRepo,
-		presetJobRepo:  presetJobRepo,
-		workflowRepo:   workflowRepo,
-		schedulingService: schedulingService,
+		jobExecService:        jobExecService,
+		jobExecRepo:           jobExecRepo,
+		jobTaskRepo:           jobTaskRepo,
+		hashlistRepo:          hashlistRepo,
+		clientRepo:            clientRepo,
+		presetJobRepo:         presetJobRepo,
+		workflowRepo:          workflowRepo,
+		schedulingService:     schedulingService,
+		jobIncrementLayerRepo: jobIncrementLayerRepo,
+		systemSettingsRepo:    systemSettingsRepo,
 	}
 }
 
@@ -78,25 +84,29 @@ type CreateJobResponse struct {
 
 // JobStatusResponse represents a detailed job status for polling
 type JobStatusResponse struct {
-	ID                     string    `json:"id"`
-	Name                   string    `json:"name"`
-	Status                 string    `json:"status"`
-	Priority               int       `json:"priority"`
-	MaxAgents              int       `json:"max_agents"`
-	DispatchedPercent      float64   `json:"dispatched_percent"`
-	SearchedPercent        float64   `json:"searched_percent"`
-	CrackedCount           int       `json:"cracked_count"`
-	AgentCount             int       `json:"agent_count"`
-	TotalSpeed             int64     `json:"total_speed"`
-	CreatedAt              time.Time `json:"created_at"`
+	ID                     string     `json:"id"`
+	Name                   string     `json:"name"`
+	Status                 string     `json:"status"`
+	Priority               int        `json:"priority"`
+	MaxAgents              int        `json:"max_agents"`
+	DispatchedPercent      float64    `json:"dispatched_percent"`
+	SearchedPercent        float64    `json:"searched_percent"`
+	CrackedCount           int        `json:"cracked_count"`
+	AgentCount             int        `json:"agent_count"`
+	TotalSpeed             int64      `json:"total_speed"`
+	CreatedAt              time.Time  `json:"created_at"`
 	StartedAt              *time.Time `json:"started_at,omitempty"`
 	CompletedAt            *time.Time `json:"completed_at,omitempty"`
-	ErrorMessage           *string   `json:"error_message,omitempty"`
-	TotalKeyspace          *int64    `json:"total_keyspace,omitempty"`
-	EffectiveKeyspace      *int64    `json:"effective_keyspace,omitempty"`
-	ProcessedKeyspace      int64     `json:"processed_keyspace"`
-	DispatchedKeyspace     int64     `json:"dispatched_keyspace"`
-	OverallProgressPercent float64   `json:"overall_progress_percent"`
+	ErrorMessage           *string    `json:"error_message,omitempty"`
+	TotalKeyspace          *int64     `json:"total_keyspace,omitempty"`
+	EffectiveKeyspace      *int64     `json:"effective_keyspace,omitempty"`
+	ProcessedKeyspace      int64      `json:"processed_keyspace"`
+	DispatchedKeyspace     int64      `json:"dispatched_keyspace"`
+	OverallProgressPercent float64    `json:"overall_progress_percent"`
+	// Increment mode fields
+	IncrementMode string `json:"increment_mode,omitempty"`
+	IncrementMin  *int   `json:"increment_min,omitempty"`
+	IncrementMax  *int   `json:"increment_max,omitempty"`
 }
 
 // ListJobsResponse represents the response for listing jobs
@@ -167,9 +177,14 @@ func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate priority
-	if req.Priority < 1 || req.Priority > 10 {
-		h.sendError(w, "VALIDATION_ERROR", "Priority must be between 1 and 10", http.StatusBadRequest)
+	// Validate priority against system setting
+	maxPriority, err := h.systemSettingsRepo.GetMaxJobPriority(ctx)
+	if err != nil {
+		debug.Error("Failed to get max job priority setting: %v", err)
+		maxPriority = 1000 // Default fallback
+	}
+	if req.Priority < 1 || req.Priority > maxPriority {
+		h.sendError(w, "VALIDATION_ERROR", fmt.Sprintf("Priority must be between 1 and %d", maxPriority), http.StatusBadRequest)
 		return
 	}
 
@@ -533,6 +548,10 @@ func (h *JobHandler) GetJob(w http.ResponseWriter, r *http.Request) {
 		ProcessedKeyspace:      job.ProcessedKeyspace,
 		DispatchedKeyspace:     job.DispatchedKeyspace,
 		OverallProgressPercent: job.OverallProgressPercent,
+		// Increment mode fields
+		IncrementMode: job.IncrementMode,
+		IncrementMin:  job.IncrementMin,
+		IncrementMax:  job.IncrementMax,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -584,8 +603,14 @@ func (h *JobHandler) UpdateJob(w http.ResponseWriter, r *http.Request) {
 
 	// Update priority if specified
 	if req.Priority != nil {
-		if *req.Priority < 1 || *req.Priority > 10 {
-			h.sendError(w, "VALIDATION_ERROR", "Priority must be between 1 and 10", http.StatusBadRequest)
+		// Get max priority from system settings
+		maxPriority, err := h.systemSettingsRepo.GetMaxJobPriority(ctx)
+		if err != nil {
+			debug.Error("Failed to get max job priority setting: %v", err)
+			maxPriority = 1000 // Fallback to default
+		}
+		if *req.Priority < 1 || *req.Priority > maxPriority {
+			h.sendError(w, "VALIDATION_ERROR", fmt.Sprintf("Priority must be between 1 and %d", maxPriority), http.StatusBadRequest)
 			return
 		}
 
@@ -839,4 +864,141 @@ func (h *JobHandler) sendError(w http.ResponseWriter, code, message string, stat
 		Code:    code,
 		Message: message,
 	})
+}
+
+// GetJobLayers returns all increment layers for a job with statistics
+// GET /api/v1/jobs/{id}/layers
+func (h *JobHandler) GetJobLayers(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+
+	// Get user ID from context
+	userID, ok := ctx.Value("user_uuid").(uuid.UUID)
+	if !ok {
+		h.sendError(w, "AUTHENTICATION_REQUIRED", "User authentication required", http.StatusUnauthorized)
+		return
+	}
+
+	jobID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		h.sendError(w, "VALIDATION_ERROR", "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get the job
+	job, err := h.jobExecRepo.GetByID(ctx, jobID)
+	if err != nil {
+		if err == repository.ErrNotFound || err == sql.ErrNoRows {
+			h.sendError(w, "RESOURCE_NOT_FOUND", "Job not found", http.StatusNotFound)
+			return
+		}
+		debug.Error("Failed to get job %s: %v", jobID, err)
+		h.sendError(w, "INTERNAL_ERROR", "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Verify user owns the job through hashlist ownership
+	if err := h.verifyJobOwnership(ctx, job, userID); err != nil {
+		h.sendError(w, "RESOURCE_ACCESS_DENIED", "You do not have access to this job", http.StatusForbidden)
+		return
+	}
+
+	// Check if this is an increment mode job
+	if job.IncrementMode == "" || job.IncrementMode == "off" {
+		h.sendError(w, "VALIDATION_ERROR", "Job is not an increment mode job", http.StatusBadRequest)
+		return
+	}
+
+	// Get layers with stats
+	layers, err := h.jobIncrementLayerRepo.GetLayersWithStats(ctx, jobID)
+	if err != nil {
+		debug.Error("Failed to get job layers: %v", err)
+		h.sendError(w, "INTERNAL_ERROR", "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(layers)
+}
+
+// GetJobLayerTasks returns all tasks for a specific increment layer
+// GET /api/v1/jobs/{id}/layers/{layer_id}/tasks
+func (h *JobHandler) GetJobLayerTasks(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+
+	// Get user ID from context
+	userID, ok := ctx.Value("user_uuid").(uuid.UUID)
+	if !ok {
+		h.sendError(w, "AUTHENTICATION_REQUIRED", "User authentication required", http.StatusUnauthorized)
+		return
+	}
+
+	jobID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		h.sendError(w, "VALIDATION_ERROR", "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	layerID, err := uuid.Parse(vars["layer_id"])
+	if err != nil {
+		h.sendError(w, "VALIDATION_ERROR", "Invalid layer ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get the job
+	job, err := h.jobExecRepo.GetByID(ctx, jobID)
+	if err != nil {
+		if err == repository.ErrNotFound || err == sql.ErrNoRows {
+			h.sendError(w, "RESOURCE_NOT_FOUND", "Job not found", http.StatusNotFound)
+			return
+		}
+		debug.Error("Failed to get job %s: %v", jobID, err)
+		h.sendError(w, "INTERNAL_ERROR", "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Verify user owns the job through hashlist ownership
+	if err := h.verifyJobOwnership(ctx, job, userID); err != nil {
+		h.sendError(w, "RESOURCE_ACCESS_DENIED", "You do not have access to this job", http.StatusForbidden)
+		return
+	}
+
+	// Verify the layer belongs to this job
+	layer, err := h.jobIncrementLayerRepo.GetByID(ctx, layerID)
+	if err != nil {
+		if err == repository.ErrNotFound || err == sql.ErrNoRows {
+			h.sendError(w, "RESOURCE_NOT_FOUND", "Layer not found", http.StatusNotFound)
+			return
+		}
+		debug.Error("Failed to get layer: %v", err)
+		h.sendError(w, "INTERNAL_ERROR", "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	if layer.JobExecutionID != jobID {
+		h.sendError(w, "VALIDATION_ERROR", "Layer does not belong to this job", http.StatusBadRequest)
+		return
+	}
+
+	// Get all tasks for the job
+	tasks, err := h.jobTaskRepo.GetTasksByJobExecution(ctx, jobID)
+	if err != nil {
+		debug.Error("Failed to get tasks: %v", err)
+		h.sendError(w, "INTERNAL_ERROR", "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Filter tasks for this layer
+	var layerTasks []models.JobTask
+	for _, task := range tasks {
+		if task.IncrementLayerID != nil && *task.IncrementLayerID == layerID {
+			layerTasks = append(layerTasks, task)
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(layerTasks)
 }

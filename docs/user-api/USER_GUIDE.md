@@ -32,12 +32,13 @@ curl -X GET https://your-domain.com/api/v1/health \
 
 ### 1. Clients
 
-Clients represent organizations or engagements. Each hashlist must be associated with a client.
+Clients represent organizations or engagements. Hashlists can optionally be associated with a client.
 
 **Key Points:**
 - Client names must be unique
 - Clients can only be deleted if they have no associated hashlists
-- All operations are scoped to your user account
+- Client assignment to hashlists may be required based on system settings
+- All clients are accessible to all authenticated users
 
 ### 2. Hashlists
 
@@ -45,9 +46,10 @@ Hashlists are collections of password hashes to crack.
 
 **Key Points:**
 - Upload via multipart form-data
-- Must specify hash type (Hashcat mode number)
+- Must specify hash type ID (Hashcat mode number)
 - Processing happens in background after upload
 - Check `/hash-types` endpoint for supported types
+- Client assignment may be optional or required based on `require_client_for_hashlist` setting
 
 ### 3. Agents
 
@@ -61,14 +63,33 @@ Compute agents perform the actual cracking work.
 
 ### 4. Jobs
 
-Jobs define cracking tasks (workflows or preset-based). You can create jobs using preset configurations (like potfile runs) and manage their priority and agent allocation.
+Jobs define cracking tasks using preset configurations.
+
+**Key Points:**
+- Jobs link hashlists to preset job configurations
+- Control priority (higher = processed first)
+- Set `max_agents` to limit concurrent agent allocation
+- Monitor progress via layers endpoint for increment mode jobs
+- Priority maximum is configurable via `max_job_priority` system setting (default: 1000)
+
+**Job Status Values:**
+- `pending` - Job created, waiting to be scheduled
+- `running` - Job is actively being processed
+- `paused` - Job manually paused
+- `completed` - All hashes cracked or exhausted
+- `failed` - Job failed due to error
+
+**Increment Mode:**
+- `off` - Standard attack (single layer)
+- `enabled` - Increment mode enabled
+- `enabled_with_brain` - Increment mode with brain feature
 
 ## Common Workflows
 
 ### Workflow 1: Upload and Crack Hashes
 
 ```bash
-# 1. Create a client
+# 1. Create a client (optional, based on system settings)
 CLIENT_ID=$(curl -s -X POST https://your-domain.com/api/v1/clients \
   -H "X-User-Email: user@example.com" \
   -H "X-API-Key: your-api-key" \
@@ -77,27 +98,46 @@ CLIENT_ID=$(curl -s -X POST https://your-domain.com/api/v1/clients \
   | jq -r .id)
 
 # 2. Check available hash types
-curl -s -X GET https://your-domain.com/api/v1/hash-types?enabled_only=true \
+curl -s -X GET "https://your-domain.com/api/v1/hash-types?enabled_only=true" \
   -H "X-User-Email: user@example.com" \
   -H "X-API-Key: your-api-key" \
   | jq '.hash_types[] | {id, name}'
 
 # 3. Upload hashlist
-curl -X POST https://your-domain.com/api/v1/hashlists \
+HASHLIST_ID=$(curl -s -X POST https://your-domain.com/api/v1/hashlists \
   -H "X-User-Email: user@example.com" \
   -H "X-API-Key: your-api-key" \
   -F "file=@hashes.txt" \
   -F "name=Domain Hashes" \
   -F "client_id=$CLIENT_ID" \
-  -F "hash_type=1000"
+  -F "hash_type_id=1000" \
+  | jq -r .id)
 
-# 4. Check hashlist status
-curl -s -X GET https://your-domain.com/api/v1/hashlists?client_id=$CLIENT_ID \
+# 4. Check available preset jobs
+curl -s -X GET https://your-domain.com/api/v1/preset-jobs \
   -H "X-User-Email: user@example.com" \
   -H "X-API-Key: your-api-key" \
-  | jq .
+  | jq '.preset_jobs[] | {id, name}'
 
-# 5. Create and manage jobs via web interface (Job API endpoints coming soon)
+# 5. Create a job
+JOB_ID=$(curl -s -X POST https://your-domain.com/api/v1/jobs \
+  -H "X-User-Email: user@example.com" \
+  -H "X-API-Key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"hashlist_id\": $HASHLIST_ID,
+    \"preset_job_id\": 1,
+    \"name\": \"Domain Hash Attack\",
+    \"priority\": 100,
+    \"max_agents\": 5
+  }" \
+  | jq -r .id)
+
+# 6. Monitor job progress
+curl -s -X GET "https://your-domain.com/api/v1/jobs/$JOB_ID" \
+  -H "X-User-Email: user@example.com" \
+  -H "X-API-Key: your-api-key" \
+  | jq '{status, progress, cracked_count, total_hashes}'
 ```
 
 ### Workflow 2: Agent Registration
@@ -109,7 +149,6 @@ VOUCHER=$(curl -s -X POST https://your-domain.com/api/v1/agents/vouchers \
   -H "X-API-Key: your-api-key" \
   -H "Content-Type: application/json" \
   -d '{
-    "expires_in": 604800,
     "is_continuous": false
   }' \
   | jq -r .code)
@@ -126,11 +165,41 @@ curl -s -X GET https://your-domain.com/api/v1/agents \
   | jq '.agents[] | {id, name, status, gpus: .hardware.gpus | length}'
 ```
 
-### Workflow 3: Batch Operations
+### Workflow 3: Job Management
+
+```bash
+# List all jobs with filtering
+curl -s -X GET "https://your-domain.com/api/v1/jobs?status=running&page=1&page_size=20" \
+  -H "X-User-Email: user@example.com" \
+  -H "X-API-Key: your-api-key" \
+  | jq .
+
+# Update job priority (boost to run sooner)
+curl -s -X PATCH "https://your-domain.com/api/v1/jobs/$JOB_ID" \
+  -H "X-User-Email: user@example.com" \
+  -H "X-API-Key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"priority": 500}'
+
+# Get job layers (for increment mode jobs)
+curl -s -X GET "https://your-domain.com/api/v1/jobs/$JOB_ID/layers" \
+  -H "X-User-Email: user@example.com" \
+  -H "X-API-Key: your-api-key" \
+  | jq '.layers[] | {id, name, status, progress}'
+
+# Get tasks within a specific layer
+curl -s -X GET "https://your-domain.com/api/v1/jobs/$JOB_ID/layers/1" \
+  -H "X-User-Email: user@example.com" \
+  -H "X-API-Key: your-api-key" \
+  | jq '.tasks[] | {id, status, agent_name, progress}'
+```
+
+### Workflow 4: Batch Operations
 
 ```python
 from krakenhashes import KrakenHashesClient
 import glob
+import os
 
 client = KrakenHashesClient(
     base_url='https://your-domain.com/api/v1',
@@ -142,7 +211,14 @@ client = KrakenHashesClient(
 client_obj = client.create_client(name="Batch Upload 2024")
 client_id = client_obj['id']
 
-# Upload all hash files from a directory
+# Get preset job for potfile attack
+preset_jobs = client.list_preset_jobs()
+potfile_preset_id = next(
+    p['id'] for p in preset_jobs['preset_jobs']
+    if 'potfile' in p['name'].lower()
+)
+
+# Upload all hash files and create jobs
 for hash_file in glob.glob('hashes/*.txt'):
     filename = os.path.basename(hash_file)
     print(f"Uploading {filename}...")
@@ -150,10 +226,20 @@ for hash_file in glob.glob('hashes/*.txt'):
     hashlist = client.create_hashlist(
         name=filename,
         client_id=client_id,
-        hash_type=1000,  # NTLM
+        hash_type_id=1000,  # NTLM
         file_path=hash_file
     )
     print(f"  Created hashlist ID: {hashlist['id']}")
+
+    # Create job for this hashlist
+    job = client.create_job(
+        name=f"Attack {filename}",
+        hashlist_id=hashlist['id'],
+        preset_job_id=potfile_preset_id,
+        priority=100,
+        max_agents=3
+    )
+    print(f"  Created job ID: {job['id']}")
 
 print("Batch upload complete!")
 ```
@@ -186,6 +272,16 @@ curl "https://your-domain.com/api/v1/clients?page=2&page_size=50" \
 }
 ```
 
+### Dynamic Validation
+
+Some API validation rules are configured via system settings:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `max_job_priority` | 1000 | Maximum allowed job priority value |
+| `require_client_for_hashlist` | false | Whether `client_id` is required for hashlist uploads |
+| `default_data_retention_months` | null | Default retention period for new clients |
+
 ### Error Handling
 
 All errors return JSON with this structure:
@@ -201,13 +297,14 @@ All errors return JSON with this structure:
 
 | Code | Description | HTTP Status |
 |------|-------------|-------------|
-| `INVALID_REQUEST` | Malformed request body | 400 |
-| `CLIENT_NOT_FOUND` | Client does not exist or not owned by user | 404 |
-| `HASHLIST_NOT_FOUND` | Hashlist does not exist or not owned by user | 404 |
-| `AGENT_NOT_FOUND` | Agent does not exist or not owned by user | 404 |
-| `INVALID_CREDENTIALS` | Missing or invalid API key | 401 |
-| `CLIENT_HAS_HASHLISTS` | Cannot delete client with hashlists | 400 |
-| `DUPLICATE_CLIENT_NAME` | Client name already exists | 400 |
+| `VALIDATION_ERROR` | Invalid request data | 400 |
+| `AUTH_REQUIRED` | Missing or invalid credentials | 401 |
+| `RESOURCE_ACCESS_DENIED` | Not authorized to access resource | 403 |
+| `RESOURCE_NOT_FOUND` | Resource does not exist | 404 |
+| `CLIENT_HAS_HASHLISTS` | Cannot delete client with hashlists | 409 |
+| `HASHLIST_HAS_ACTIVE_JOBS` | Cannot delete hashlist with active jobs | 409 |
+| `CLIENT_REQUIRED` | Client is required (based on system setting) | 400 |
+| `INTERNAL_ERROR` | Server error | 500 |
 
 ### Rate Limiting
 
@@ -260,7 +357,7 @@ The User API does not currently implement rate limiting. However, be mindful of:
    import time
    while True:
        status = client.get_hashlist(hashlist['id'])
-       if status.get('processing_complete'):
+       if status.get('status') == 'ready':
            break
        time.sleep(5)
    ```
@@ -288,10 +385,12 @@ try:
 except requests.exceptions.HTTPError as e:
     if e.response.status_code == 400:
         error_data = e.response.json()
-        if error_data.get('code') == 'DUPLICATE_CLIENT_NAME':
-            print("Client already exists, continuing...")
+        if error_data.get('code') == 'VALIDATION_ERROR':
+            print(f"Validation error: {error_data.get('error')}")
         else:
             raise
+    elif e.response.status_code == 409:
+        print("Client already exists, continuing...")
     else:
         raise
 ```
@@ -356,18 +455,40 @@ Import the OpenAPI specification (`openapi.yaml`) into Postman:
 **Symptom:** 400 Bad Request on hashlist upload
 
 **Solutions:**
-1. Verify client exists and you own it:
+1. If `CLIENT_REQUIRED` error, check if system requires client assignment:
+   ```bash
+   # Either provide a client_id or ask admin to disable requirement
+   ```
+2. Verify client exists (if provided):
    ```bash
    curl https://your-domain.com/api/v1/clients/CLIENT_ID \
      -H "X-User-Email: ..." -H "X-API-Key: ..."
    ```
-2. Check hash type is valid:
+3. Check hash type is valid:
    ```bash
-   curl https://your-domain.com/api/v1/hash-types?enabled_only=true \
+   curl "https://your-domain.com/api/v1/hash-types?enabled_only=true" \
      -H "X-User-Email: ..." -H "X-API-Key: ..."
    ```
-3. Verify file format (one hash per line, plain text)
-4. Check file size limits
+4. Verify file format (one hash per line, plain text)
+5. Check file size limits
+
+### Job Creation Fails
+
+**Symptom:** 400 Bad Request on job creation
+
+**Solutions:**
+1. Verify hashlist exists and is ready:
+   ```bash
+   curl https://your-domain.com/api/v1/hashlists/HASHLIST_ID \
+     -H "X-User-Email: ..." -H "X-API-Key: ..."
+   ```
+2. Verify preset job exists:
+   ```bash
+   curl https://your-domain.com/api/v1/preset-jobs \
+     -H "X-User-Email: ..." -H "X-API-Key: ..."
+   ```
+3. Check priority is within allowed range (default max: 1000)
+4. Ensure `max_agents` is a positive integer
 
 ### Agent Not Appearing
 
@@ -381,7 +502,7 @@ Import the OpenAPI specification (`openapi.yaml`) into Postman:
    ```
 2. Check agent logs for connection errors
 3. Verify network connectivity to backend
-4. Ensure voucher hasn't expired
+4. Ensure voucher is still active
 
 ## OpenAPI Specification
 
@@ -426,7 +547,6 @@ When reporting issues, include:
 
 The following features are planned for future releases:
 
-- **Job API Endpoints**: Create, modify, and monitor jobs
 - **WebSocket Support**: Real-time job progress updates
 - **Bulk Operations**: Batch create/update/delete endpoints
 - **Export Endpoints**: Download cracked passwords
