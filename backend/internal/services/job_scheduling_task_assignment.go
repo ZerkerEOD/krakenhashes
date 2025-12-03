@@ -98,6 +98,10 @@ func (s *JobSchedulingService) CreateTaskAssignmentPlans(
 	// Track layer ID to parent job ID mapping for lookups
 	layerToJobMap := make(map[uuid.UUID]uuid.UUID)
 
+	// Track in-cycle agent assignments per job for max_agents enforcement
+	// Key: job entry ID (may be layer ID), Value: number of agents assigned in this planning cycle
+	planningAssignments := make(map[uuid.UUID]int)
+
 	// Track the original entry ID for each job (may be layer ID or job ID)
 	// This is needed because job.JobExecution.ID may change during layer processing
 	// due to Go struct embedding (JobExecutionWithWork embeds JobExecution, so
@@ -269,7 +273,7 @@ func (s *JobSchedulingService) CreateTaskAssignmentPlans(
 				break
 			}
 
-			plan, err := s.createSingleTaskPlan(ctx, agentID, state, jobsWithWork, jobStates)
+			plan, err := s.createSingleTaskPlan(ctx, agentID, state, jobsWithWork, jobStates, planningAssignments)
 			if err != nil {
 				errors = append(errors, fmt.Errorf("failed to create plan for agent %d: %w", agentID, err))
 				continue
@@ -277,6 +281,10 @@ func (s *JobSchedulingService) CreateTaskAssignmentPlans(
 
 			if plan != nil {
 				plans = append(plans, *plan)
+				// Track assignment for max_agents enforcement
+				if plan.JobExecution != nil && !plan.SkipAssignment {
+					planningAssignments[plan.JobExecution.ID]++
+				}
 			}
 		}
 	}
@@ -296,6 +304,7 @@ func (s *JobSchedulingService) createSingleTaskPlan(
 	currentState *JobPlanningState,
 	allJobs []models.JobExecutionWithWork,
 	jobStates map[uuid.UUID]*JobPlanningState,
+	planningAssignments map[uuid.UUID]int,
 ) (*TaskAssignmentPlan, error) {
 	// Get agent details
 	agent, err := s.agentRepo.GetByID(ctx, agentID)
@@ -424,15 +433,37 @@ createNewChunk:
 		})
 
 		// Try to find another job with valid benchmark
+		// Jobs are already sorted by priority (highest first), so we respect priority order
 		foundAlternative := false
-		for _, otherJob := range allJobs {
+		for i := range allJobs {
+			otherJob := &allJobs[i]
 			if otherJob.ID == currentState.JobExecution.ID {
 				continue // Skip current job
 			}
 
 			otherState := jobStates[otherJob.ID]
-			if otherState.IsExhausted {
-				continue // Skip exhausted jobs
+			if otherState == nil || otherState.IsExhausted {
+				continue // Skip exhausted jobs or jobs without state
+			}
+
+			// Check max_agents limit (0 = unlimited, treated as 999)
+			effectiveMaxAgents := otherJob.MaxAgents
+			if effectiveMaxAgents == 0 {
+				effectiveMaxAgents = 999
+			}
+
+			// Calculate current agent count: active (from DB) + planned (this cycle)
+			currentAgentCount := otherJob.ActiveAgents + planningAssignments[otherJob.ID]
+			if currentAgentCount >= effectiveMaxAgents {
+				debug.Log("Skipping job due to max_agents limit", map[string]interface{}{
+					"job_id":              otherJob.ID,
+					"max_agents":          otherJob.MaxAgents,
+					"effective_max":       effectiveMaxAgents,
+					"active_agents":       otherJob.ActiveAgents,
+					"planned_assignments": planningAssignments[otherJob.ID],
+					"current_total":       currentAgentCount,
+				})
+				continue // Skip jobs at capacity
 			}
 
 			// Get hashlist for other job
@@ -446,7 +477,7 @@ createNewChunk:
 				ctx, agentID, otherJob.AttackMode, otherHashlist.HashTypeID)
 
 			if err == nil && otherBenchmark != nil {
-				// Found a job this agent can work on
+				// Found a job this agent can work on (respects priority order and max_agents)
 				targetJob = &otherJob.JobExecution
 				targetState = otherState
 				benchmark = otherBenchmark
@@ -454,21 +485,24 @@ createNewChunk:
 				foundAlternative = true
 
 				debug.Info("Reassigned agent to alternative job", map[string]interface{}{
-					"agent_id":       agentID,
-					"original_job":   currentState.JobExecution.ID,
-					"alternative_job": otherJob.ID,
-					"hash_type":      otherHashlist.HashTypeID,
+					"agent_id":            agentID,
+					"original_job":        currentState.JobExecution.ID,
+					"alternative_job":     otherJob.ID,
+					"alternative_priority": otherJob.Priority,
+					"hash_type":           otherHashlist.HashTypeID,
+					"max_agents":          otherJob.MaxAgents,
+					"current_agents":      currentAgentCount,
 				})
 				break
 			}
 		}
 
 		if !foundAlternative {
-			// No valid benchmark for any job
+			// No valid benchmark for any job with available capacity
 			return &TaskAssignmentPlan{
 				AgentID:        agentID,
 				SkipAssignment: true,
-				SkipReason:     fmt.Sprintf("No valid benchmark for any available job (agent_id=%d)", agentID),
+				SkipReason:     fmt.Sprintf("No valid benchmark for any available job with capacity (agent_id=%d)", agentID),
 			}, nil
 		}
 	}
@@ -799,15 +833,37 @@ func (s *JobSchedulingService) calculateRuleSplitChunk(
 	}
 
 	// Calculate how many rules this agent can process in the chunk duration
-	// rulesPerSecond = benchmarkSpeed / baseKeyspace (how many complete wordlist passes per second)
-	// rulesPerChunk = rulesPerSecond * chunkDuration
+	// Using effective_keyspace (which includes salt multiplication from benchmark) for accurate timing
+	// keyspacePerRule = effective_keyspace / total_rules
+	// chunkKeyspace = benchmarkSpeed * chunkDuration
+	// rulesPerChunk = chunkKeyspace / keyspacePerRule
 	rulesPerChunk := 100 // Default if calculation fails
-	if state.BaseKeyspace > 0 && plan.BenchmarkSpeed > 0 {
-		rulesPerSecond := float64(plan.BenchmarkSpeed) / float64(state.BaseKeyspace)
-		rulesPerChunk = int(rulesPerSecond * float64(plan.ChunkDuration))
+	if state.JobExecution.EffectiveKeyspace != nil && *state.JobExecution.EffectiveKeyspace > 0 && plan.BenchmarkSpeed > 0 {
+		totalRules := state.JobExecution.MultiplicationFactor
+		if totalRules == 0 {
+			totalRules = 1
+		}
+
+		// Keyspace per rule (includes salt multiplication via effective_keyspace)
+		keyspacePerRule := float64(*state.JobExecution.EffectiveKeyspace) / float64(totalRules)
+
+		// Keyspace we can process in target duration
+		chunkKeyspace := float64(plan.BenchmarkSpeed) * float64(plan.ChunkDuration)
+
+		// Rules per chunk
+		rulesPerChunk = int(chunkKeyspace / keyspacePerRule)
 		if rulesPerChunk < 1 {
 			rulesPerChunk = 1 // At least one rule per chunk
 		}
+
+		debug.Log("Rule chunk calculation", map[string]interface{}{
+			"effective_keyspace": *state.JobExecution.EffectiveKeyspace,
+			"total_rules":        totalRules,
+			"keyspace_per_rule":  keyspacePerRule,
+			"benchmark_speed":    plan.BenchmarkSpeed,
+			"chunk_duration":     plan.ChunkDuration,
+			"rules_per_chunk":    rulesPerChunk,
+		})
 	}
 
 	// Get fluctuation settings
