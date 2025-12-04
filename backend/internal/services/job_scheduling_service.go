@@ -273,8 +273,9 @@ func (s *JobSchedulingService) CalculateAgentAllocation(
 			}
 
 			needed := maxAllowed - currentActive
-			// Allocate if: (1) job has pending/retryable tasks, OR (2) job is new (status='pending' with no tasks yet)
-			if needed > 0 && (job.PendingWork > 0 || job.Status == "pending") {
+			// Allocate if job has undispatched keyspace (checks actual keyspace, not just pending task count)
+			// This ensures FIFO order is respected even when a job has all work dispatched but still has capacity
+			if needed > 0 && s.hasUndispatchedWork(ctx, &job) {
 				toAllocate := needed
 				if toAllocate > remainingAgents {
 					toAllocate = remainingAgents

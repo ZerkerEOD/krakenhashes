@@ -421,95 +421,25 @@ createNewChunk:
 	benchmark, err := s.jobExecutionService.benchmarkRepo.GetAgentBenchmark(
 		ctx, agentID, currentState.JobExecution.AttackMode, hashlist.HashTypeID)
 
-	// If no benchmark, try to find another job this agent can work on
-	targetJob := currentState.JobExecution
-	targetState := currentState
-
 	if err != nil || benchmark == nil {
-		debug.Log("Agent missing benchmark for assigned job, checking alternatives", map[string]interface{}{
-			"agent_id":   agentID,
-			"job_id":     currentState.JobExecution.ID,
-			"hash_type":  hashlist.HashTypeID,
+		// Agent lacks benchmark for reserved job - skip assignment to preserve FIFO order
+		// Agent will get benchmark via round-robin in the next scheduling cycle
+		// DO NOT fall back to other jobs - this would break FIFO ordering
+		debug.Log("Agent lacks benchmark for reserved job, skipping assignment (FIFO preserved)", map[string]interface{}{
+			"agent_id":  agentID,
+			"job_id":    currentState.JobExecution.ID,
+			"hash_type": hashlist.HashTypeID,
 		})
-
-		// Try to find another job with valid benchmark
-		// Jobs are already sorted by priority (highest first), so we respect priority order
-		foundAlternative := false
-		for i := range allJobs {
-			otherJob := &allJobs[i]
-			if otherJob.ID == currentState.JobExecution.ID {
-				continue // Skip current job
-			}
-
-			otherState := jobStates[otherJob.ID]
-			if otherState == nil || otherState.IsExhausted {
-				continue // Skip exhausted jobs or jobs without state
-			}
-
-			// Check max_agents limit (0 = unlimited, treated as 999)
-			effectiveMaxAgents := otherJob.MaxAgents
-			if effectiveMaxAgents == 0 {
-				effectiveMaxAgents = 999
-			}
-
-			// Calculate current agent count: active (from DB) + planned (this cycle)
-			currentAgentCount := otherJob.ActiveAgents + planningAssignments[otherJob.ID]
-			if currentAgentCount >= effectiveMaxAgents {
-				debug.Log("Skipping job due to max_agents limit", map[string]interface{}{
-					"job_id":              otherJob.ID,
-					"max_agents":          otherJob.MaxAgents,
-					"effective_max":       effectiveMaxAgents,
-					"active_agents":       otherJob.ActiveAgents,
-					"planned_assignments": planningAssignments[otherJob.ID],
-					"current_total":       currentAgentCount,
-				})
-				continue // Skip jobs at capacity
-			}
-
-			// Get hashlist for other job
-			otherHashlist, err := s.jobExecutionService.hashlistRepo.GetByID(ctx, otherJob.HashlistID)
-			if err != nil {
-				continue
-			}
-
-			// Check if agent has benchmark for this job
-			otherBenchmark, err := s.jobExecutionService.benchmarkRepo.GetAgentBenchmark(
-				ctx, agentID, otherJob.AttackMode, otherHashlist.HashTypeID)
-
-			if err == nil && otherBenchmark != nil {
-				// Found a job this agent can work on (respects priority order and max_agents)
-				targetJob = &otherJob.JobExecution
-				targetState = otherState
-				benchmark = otherBenchmark
-				hashlist = otherHashlist
-				foundAlternative = true
-
-				debug.Info("Reassigned agent to alternative job", map[string]interface{}{
-					"agent_id":            agentID,
-					"original_job":        currentState.JobExecution.ID,
-					"alternative_job":     otherJob.ID,
-					"alternative_priority": otherJob.Priority,
-					"hash_type":           otherHashlist.HashTypeID,
-					"max_agents":          otherJob.MaxAgents,
-					"current_agents":      currentAgentCount,
-				})
-				break
-			}
-		}
-
-		if !foundAlternative {
-			// No valid benchmark for any job with available capacity
-			return &TaskAssignmentPlan{
-				AgentID:        agentID,
-				SkipAssignment: true,
-				SkipReason:     fmt.Sprintf("No valid benchmark for any available job with capacity (agent_id=%d)", agentID),
-			}, nil
-		}
+		return &TaskAssignmentPlan{
+			AgentID:        agentID,
+			SkipAssignment: true,
+			SkipReason:     fmt.Sprintf("Agent %d lacks benchmark for reserved job %s (hash_type=%d) - will get benchmark in next cycle", agentID, currentState.JobExecution.ID, hashlist.HashTypeID),
+		}, nil
 	}
 
 	// Get chunk duration
 	chunkDuration := 1200 // Default 20 minutes
-	if duration, err := s.getChunkDuration(ctx, targetJob); err == nil {
+	if duration, err := s.getChunkDuration(ctx, currentState.JobExecution); err == nil {
 		chunkDuration = duration
 	}
 
@@ -517,31 +447,31 @@ createNewChunk:
 	plan := &TaskAssignmentPlan{
 		AgentID:        agentID,
 		Agent:          agent,
-		JobExecution:   targetJob,
+		JobExecution:   currentState.JobExecution,
 		ChunkDuration:  chunkDuration,
 		BenchmarkSpeed: benchmark.Speed,
 	}
 
 	// Add increment layer information if this is an increment mode job
-	if targetState.CurrentLayer != nil {
-		plan.IncrementLayerID = &targetState.CurrentLayer.ID
-		plan.LayerMask = targetState.CurrentLayer.Mask
+	if currentState.CurrentLayer != nil {
+		plan.IncrementLayerID = &currentState.CurrentLayer.ID
+		plan.LayerMask = currentState.CurrentLayer.Mask
 		debug.Log("Added increment layer to task plan", map[string]interface{}{
 			"layer_id":    plan.IncrementLayerID,
 			"layer_mask":  plan.LayerMask,
-			"layer_index": targetState.CurrentLayer.LayerIndex,
+			"layer_index": currentState.CurrentLayer.LayerIndex,
 		})
 	}
 
-	if targetJob.UsesRuleSplitting {
+	if currentState.JobExecution.UsesRuleSplitting {
 		// Rule splitting chunk calculation
-		err = s.calculateRuleSplitChunk(ctx, plan, targetState, hashlist)
+		err = s.calculateRuleSplitChunk(ctx, plan, currentState, hashlist)
 		if err != nil {
 			return nil, fmt.Errorf("failed to calculate rule split chunk: %w", err)
 		}
 	} else {
 		// Regular keyspace chunking
-		err = s.calculateKeyspaceChunk(ctx, plan, targetState)
+		err = s.calculateKeyspaceChunk(ctx, plan, currentState)
 		if err != nil {
 			return nil, fmt.Errorf("failed to calculate keyspace chunk: %w", err)
 		}
