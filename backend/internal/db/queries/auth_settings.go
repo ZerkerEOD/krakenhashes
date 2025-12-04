@@ -50,13 +50,3 @@ const (
 		SELECT mfa_code_expiry_minutes FROM auth_settings LIMIT 1;
 	`
 )
-
-// GetMFACodeExpiryMinutes gets the MFA code expiry minutes from auth settings
-func (db *DB) GetMFACodeExpiryMinutes() (int, error) {
-	var minutes int
-	err := db.QueryRow(GetMFACodeExpiryMinutesQuery).Scan(&minutes)
-	if err != nil {
-		return 5, err // Default to 5 minutes if error
-	}
-	return minutes, nil
-}

@@ -18,12 +18,15 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
+  ListItemSecondaryAction,
   IconButton,
   Tooltip,
   Select,
   MenuItem,
   FormControl,
   InputLabel,
+  Chip,
+  Divider,
 } from '@mui/material';
 import {
   Email as EmailIcon,
@@ -32,18 +35,33 @@ import {
   ContentCopy as CopyIcon,
   Check as CheckIcon,
   Warning as WarningIcon,
+  Fingerprint as FingerprintIcon,
+  Delete as DeleteIcon,
+  Edit as EditIcon,
+  Add as AddIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
-import { 
-  getUserMFASettings, 
-  enableMFA, 
-  disableMFA, 
-  verifyMFASetup, 
+import {
+  getUserMFASettings,
+  enableMFA,
+  disableMFA,
+  verifyMFASetup,
   generateBackupCodes,
   updatePreferredMFAMethod,
   disableAuthenticator,
+  getPasskeys,
+  beginPasskeyRegistration,
+  finishPasskeyRegistration,
+  deletePasskey,
+  renamePasskey,
 } from '../../services/auth';
-import { MFASettings } from '../../types/auth';
+import { MFASettings, Passkey } from '../../types/auth';
+import {
+  isWebAuthnSupported,
+  createPasskey,
+  getWebAuthnErrorMessage,
+} from '../../utils/webauthn';
+import MFAMethodSelectionDialog from './MFAMethodSelectionDialog';
 
 interface MFACardProps {
   onMFAChange?: () => void;
@@ -65,8 +83,24 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [secret, setSecret] = useState<string | null>(null);
 
+  // Passkey state
+  const [passkeys, setPasskeys] = useState<Passkey[]>([]);
+  const [showAddPasskeyDialog, setShowAddPasskeyDialog] = useState(false);
+  const [showDeletePasskeyDialog, setShowDeletePasskeyDialog] = useState(false);
+  const [showRenamePasskeyDialog, setShowRenamePasskeyDialog] = useState(false);
+  const [selectedPasskey, setSelectedPasskey] = useState<Passkey | null>(null);
+  const [passkeyName, setPasskeyName] = useState('');
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const webAuthnSupported = isWebAuthnSupported();
+
+  // MFA method selection state
+  const [showMethodSelection, setShowMethodSelection] = useState(false);
+  const [showPasskeyNameForMFA, setShowPasskeyNameForMFA] = useState(false);
+  const [mfaPasskeyName, setMfaPasskeyName] = useState('');
+
   useEffect(() => {
     loadMFASettings();
+    loadPasskeys();
   }, []);
 
   const loadMFASettings = async () => {
@@ -82,44 +116,159 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
     }
   };
 
+  const loadPasskeys = async () => {
+    try {
+      const passkeyList = await getPasskeys();
+      setPasskeys(passkeyList);
+    } catch (err) {
+      console.error('Failed to load passkeys:', err);
+      // Don't show error for passkeys as they may not be configured
+    }
+  };
+
   const handleMFAToggle = async () => {
     try {
       setLoading(true);
       setError(null);
+
       if (mfaSettings?.mfaEnabled) {
+        // Disable MFA
         await disableMFA();
         setSuccess('MFA disabled successfully');
-      } else {
-        // Check if email is available as a method
-        const hasEmailProvider = mfaSettings?.allowedMfaMethods.includes('email');
-        const hasAuthenticator = mfaSettings?.allowedMfaMethods.includes('authenticator');
+        await loadMFASettings();
+        if (onMFAChange) {
+          onMFAChange();
+        }
+        return;
+      }
 
-        if (!hasEmailProvider && hasAuthenticator) {
-          // If email is not available but authenticator is, trigger authenticator setup directly
+      // Calculate available methods for enabling MFA
+      const hasEmail = mfaSettings?.allowedMfaMethods.includes('email');
+      const hasAuthenticator = mfaSettings?.allowedMfaMethods.includes('authenticator');
+      const hasPasskey = mfaSettings?.allowedMfaMethods.includes('passkey') && webAuthnSupported;
+      const hasPasskeyMethodEnabled = mfaSettings?.allowedMfaMethods.includes('passkey');
+
+      // Build list of available non-email methods
+      const availableNonEmailMethods: ('authenticator' | 'passkey')[] = [];
+      if (hasAuthenticator) availableNonEmailMethods.push('authenticator');
+      if (hasPasskey) availableNonEmailMethods.push('passkey');
+
+      // Decision logic based on available methods
+      if (availableNonEmailMethods.length >= 2) {
+        // Multiple non-email methods available - show selection dialog
+        setShowMethodSelection(true);
+        setLoading(false);
+        return;
+      } else if (availableNonEmailMethods.length === 1) {
+        // Single non-email method available
+        if (hasAuthenticator) {
           await handleAuthenticatorSetup();
           return;
-        } else if (hasEmailProvider) {
-          await enableMFA('email');
-          // Update user state
-          if (setUser && user) {
-            setUser({ ...user, mfaEnabled: true, mfaType: 'email' });
-          }
-          setSuccess('MFA enabled successfully');
-        } else {
-          throw new Error('No MFA methods available');
+        } else if (hasPasskey) {
+          // Show passkey name dialog for MFA setup
+          setMfaPasskeyName('');
+          setShowPasskeyNameForMFA(true);
+          setLoading(false);
+          return;
         }
-      }
-      
-      // Reload MFA settings and notify parent if needed
-      await loadMFASettings();
-      if (onMFAChange) {
-        onMFAChange();
+      } else if (hasPasskeyMethodEnabled && !webAuthnSupported) {
+        // Passkey is the only non-email method but browser doesn't support WebAuthn
+        setError(
+          'Passkey authentication is required but your browser does not support WebAuthn. ' +
+          'Please use a modern browser like Chrome, Firefox, Safari, or Edge to enable MFA.'
+        );
+        setLoading(false);
+        return;
+      } else if (hasEmail) {
+        // Only email available - enable with email (no auto backup codes)
+        await enableMFA('email');
+        if (setUser && user) {
+          setUser({ ...user, mfaEnabled: true, mfaType: 'email' });
+        }
+        setSuccess('MFA enabled with email authentication');
+        await loadMFASettings();
+        if (onMFAChange) {
+          onMFAChange();
+        }
+        return;
+      } else {
+        // No MFA methods available
+        throw new Error('No MFA methods are available. Please contact your administrator.');
       }
     } catch (err) {
       console.error('MFA toggle failed:', err);
       setError(err instanceof Error ? err.message : 'Failed to toggle MFA');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleMethodSelection = (method: 'authenticator' | 'passkey') => {
+    setShowMethodSelection(false);
+    if (method === 'authenticator') {
+      handleAuthenticatorSetup();
+    } else if (method === 'passkey') {
+      setMfaPasskeyName('');
+      setShowPasskeyNameForMFA(true);
+    }
+  };
+
+  const handlePasskeySetupForMFA = async () => {
+    if (!mfaPasskeyName.trim()) {
+      setError('Please enter a name for the passkey');
+      return;
+    }
+
+    setPasskeyLoading(true);
+    setError(null);
+
+    try {
+      // Begin registration to get WebAuthn options from server
+      const options = await beginPasskeyRegistration();
+
+      // Create the credential using WebAuthn API
+      const credential = await createPasskey(options);
+
+      // Finish registration by sending credential to server
+      const newPasskey = await finishPasskeyRegistration(mfaPasskeyName, credential);
+
+      // Update passkeys list
+      setPasskeys([...passkeys, newPasskey]);
+
+      // Now enable MFA with passkey as the primary method
+      await enableMFA('passkey');
+
+      // Update user state
+      if (setUser && user) {
+        setUser({ ...user, mfaEnabled: true, mfaType: 'passkey' });
+      }
+
+      // Close the dialog and reset state
+      setShowPasskeyNameForMFA(false);
+      setMfaPasskeyName('');
+
+      // Generate backup codes automatically for passkey setup
+      try {
+        const codes = await generateBackupCodes();
+        setBackupCodes(codes);
+        setShowBackupCodes(true);
+        setSuccess('Passkey registered successfully! Please save your backup codes.');
+      } catch (backupErr) {
+        // If backup code generation fails, still show success for passkey
+        setSuccess('Passkey registered successfully. You can generate backup codes from the MFA settings.');
+      }
+
+      // Reload MFA settings to reflect new passkey and MFA status
+      await loadMFASettings();
+
+      if (onMFAChange) {
+        onMFAChange();
+      }
+    } catch (err) {
+      const errorMessage = getWebAuthnErrorMessage(err);
+      setError(errorMessage);
+    } finally {
+      setPasskeyLoading(false);
     }
   };
 
@@ -151,15 +300,15 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
       // Clear any existing errors
       setError(null);
       setSuccess(null);
-      
+
       const response = await verifyMFASetup(verificationCode);
-      
+
       // Update user state
       setUser({ ...user, mfaEnabled: true, mfaType: 'authenticator' });
-      
+
       // Reload MFA settings to get the latest state
       await loadMFASettings();
-      
+
       setSuccess('Authenticator app has been set up successfully');
       setShowQRDialog(false);
       setVerificationCode('');
@@ -263,6 +412,107 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
     }
   };
 
+  // Passkey handlers
+  const handleAddPasskey = async () => {
+    if (!passkeyName.trim()) {
+      setError('Please enter a name for the passkey');
+      return;
+    }
+
+    setPasskeyLoading(true);
+    setError(null);
+
+    try {
+      // Begin registration to get WebAuthn options from server
+      const options = await beginPasskeyRegistration();
+
+      // Create the credential using WebAuthn API
+      const credential = await createPasskey(options);
+
+      // Finish registration by sending credential to server
+      const newPasskey = await finishPasskeyRegistration(passkeyName, credential);
+
+      // Update passkeys list
+      setPasskeys([...passkeys, newPasskey]);
+      setShowAddPasskeyDialog(false);
+      setPasskeyName('');
+      setSuccess('Passkey registered successfully');
+
+      // Reload MFA settings to reflect new passkey
+      await loadMFASettings();
+
+      if (onMFAChange) {
+        onMFAChange();
+      }
+    } catch (err) {
+      const errorMessage = getWebAuthnErrorMessage(err);
+      setError(errorMessage);
+    } finally {
+      setPasskeyLoading(false);
+    }
+  };
+
+  const handleDeletePasskey = async () => {
+    if (!selectedPasskey) return;
+
+    setPasskeyLoading(true);
+    setError(null);
+
+    try {
+      await deletePasskey(selectedPasskey.id);
+      setPasskeys(passkeys.filter((p) => p.id !== selectedPasskey.id));
+      setShowDeletePasskeyDialog(false);
+      setSelectedPasskey(null);
+      setSuccess('Passkey deleted successfully');
+
+      // Reload MFA settings to reflect removed passkey
+      await loadMFASettings();
+
+      if (onMFAChange) {
+        onMFAChange();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete passkey');
+    } finally {
+      setPasskeyLoading(false);
+    }
+  };
+
+  const handleRenamePasskey = async () => {
+    if (!selectedPasskey || !passkeyName.trim()) return;
+
+    setPasskeyLoading(true);
+    setError(null);
+
+    try {
+      await renamePasskey(selectedPasskey.id, passkeyName);
+      setPasskeys(
+        passkeys.map((p) =>
+          p.id === selectedPasskey.id ? { ...p, name: passkeyName } : p
+        )
+      );
+      setShowRenamePasskeyDialog(false);
+      setSelectedPasskey(null);
+      setPasskeyName('');
+      setSuccess('Passkey renamed successfully');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to rename passkey');
+    } finally {
+      setPasskeyLoading(false);
+    }
+  };
+
+  const openRenameDialog = (passkey: Passkey) => {
+    setSelectedPasskey(passkey);
+    setPasskeyName(passkey.name);
+    setShowRenamePasskeyDialog(true);
+  };
+
+  const openDeleteDialog = (passkey: Passkey) => {
+    setSelectedPasskey(passkey);
+    setShowDeletePasskeyDialog(true);
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" p={4}>
@@ -272,6 +522,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
   }
 
   const isEmailRequired = mfaSettings?.mfaEnabled && mfaSettings?.allowedMfaMethods.includes('email');
+  const hasPasskeySupport = mfaSettings?.allowedMfaMethods?.includes('passkey') && webAuthnSupported;
 
   return (
     <Card sx={{ mb: 3 }}>
@@ -323,7 +574,7 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
                   .filter(method => method !== 'backup')  // Filter out backup from preferred methods
                   .map((method: string) => (
                     <MenuItem key={method} value={method}>
-                      {method.charAt(0).toUpperCase() + method.slice(1)}
+                      {method === 'passkey' ? 'Passkey' : method.charAt(0).toUpperCase() + method.slice(1)}
                     </MenuItem>
                   ))}
               </Select>
@@ -376,6 +627,88 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
                 )}
               </ListItem>
 
+              {/* Passkeys Section */}
+              {hasPasskeySupport && (
+                <>
+                  <Divider sx={{ my: 2 }} />
+                  <ListItem>
+                    <ListItemIcon>
+                      <FingerprintIcon color={passkeys.length > 0 ? "primary" : "disabled"} />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary="Passkeys"
+                      secondary={`${passkeys.length} passkey${passkeys.length !== 1 ? 's' : ''} registered`}
+                    />
+                    <Button
+                      variant="outlined"
+                      startIcon={<AddIcon />}
+                      onClick={() => {
+                        setPasskeyName('');
+                        setShowAddPasskeyDialog(true);
+                      }}
+                    >
+                      Add Passkey
+                    </Button>
+                  </ListItem>
+
+                  {passkeys.length > 0 && (
+                    <Box sx={{ pl: 7, pr: 2 }}>
+                      {passkeys.map((passkey) => (
+                        <Box
+                          key={passkey.id}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            py: 1,
+                            borderBottom: '1px solid',
+                            borderColor: 'divider',
+                          }}
+                        >
+                          <Box>
+                            <Typography variant="body2">{passkey.name}</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Added: {new Date(passkey.createdAt).toLocaleDateString()}
+                              {passkey.lastUsedAt && (
+                                <> | Last used: {new Date(passkey.lastUsedAt).toLocaleDateString()}</>
+                              )}
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Tooltip title="Rename">
+                              <IconButton
+                                size="small"
+                                onClick={() => openRenameDialog(passkey)}
+                              >
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Delete">
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => openDeleteDialog(passkey)}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
+                </>
+              )}
+
+              {/* WebAuthn not supported warning */}
+              {mfaSettings?.allowedMfaMethods?.includes('passkey') && !webAuthnSupported && (
+                <Alert severity="warning" sx={{ mt: 2 }}>
+                  Passkeys are not supported in this browser. Please use a modern browser to enable passkey authentication.
+                </Alert>
+              )}
+
+              <Divider sx={{ my: 2 }} />
+
               {/* Backup Codes */}
               <ListItem>
                 <ListItemIcon>
@@ -383,8 +716,8 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
                 </ListItemIcon>
                 <ListItemText
                   primary="Backup Codes"
-                  secondary={mfaSettings?.remainingBackupCodes 
-                    ? `${mfaSettings.remainingBackupCodes} backup ${mfaSettings.remainingBackupCodes === 1 ? 'code' : 'codes'} remaining` 
+                  secondary={mfaSettings?.remainingBackupCodes
+                    ? `${mfaSettings.remainingBackupCodes} backup ${mfaSettings.remainingBackupCodes === 1 ? 'code' : 'codes'} remaining`
                     : "No backup codes available"}
                 />
                 {mfaSettings?.mfaEnabled && (
@@ -490,8 +823,8 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
                 <Typography variant="body2" color="warning.main" sx={{ mb: 2 }}>
                   Save these codes in a secure location. They will not be shown again!
                 </Typography>
-                <Box 
-                  sx={{ 
+                <Box
+                  sx={{
                     fontFamily: 'monospace',
                     fontSize: '1.1rem',
                     mb: 3,
@@ -588,9 +921,171 @@ const MFACard: React.FC<MFACardProps> = ({ onMFAChange }): JSX.Element => {
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* Add Passkey Dialog */}
+        <Dialog
+          open={showAddPasskeyDialog}
+          onClose={() => setShowAddPasskeyDialog(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Add Passkey</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" sx={{ mb: 2 }}>
+              Register a new passkey (security key, fingerprint, or device) for two-factor authentication.
+            </Typography>
+            <TextField
+              fullWidth
+              label="Passkey Name"
+              value={passkeyName}
+              onChange={(e) => setPasskeyName(e.target.value)}
+              placeholder="e.g., YubiKey, MacBook Touch ID, Bitwarden"
+              margin="normal"
+              autoFocus
+            />
+            {!webAuthnSupported && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                WebAuthn is not supported in this browser. Please use a modern browser.
+              </Alert>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowAddPasskeyDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddPasskey}
+              variant="contained"
+              disabled={passkeyLoading || !passkeyName.trim() || !webAuthnSupported}
+              startIcon={passkeyLoading ? <CircularProgress size={16} /> : <FingerprintIcon />}
+            >
+              {passkeyLoading ? 'Registering...' : 'Register Passkey'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Rename Passkey Dialog */}
+        <Dialog
+          open={showRenamePasskeyDialog}
+          onClose={() => setShowRenamePasskeyDialog(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Rename Passkey</DialogTitle>
+          <DialogContent>
+            <TextField
+              fullWidth
+              label="Passkey Name"
+              value={passkeyName}
+              onChange={(e) => setPasskeyName(e.target.value)}
+              margin="normal"
+              autoFocus
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowRenamePasskeyDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRenamePasskey}
+              variant="contained"
+              disabled={passkeyLoading || !passkeyName.trim()}
+            >
+              {passkeyLoading ? 'Saving...' : 'Save'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Delete Passkey Dialog */}
+        <Dialog
+          open={showDeletePasskeyDialog}
+          onClose={() => setShowDeletePasskeyDialog(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box display="flex" alignItems="center" gap={1}>
+              <WarningIcon color="warning" />
+              <Typography>Delete Passkey</Typography>
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            <Typography>
+              Are you sure you want to delete the passkey "{selectedPasskey?.name}"? This action cannot be undone.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowDeletePasskeyDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeletePasskey}
+              variant="contained"
+              color="error"
+              disabled={passkeyLoading}
+            >
+              {passkeyLoading ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* MFA Method Selection Dialog */}
+        <MFAMethodSelectionDialog
+          open={showMethodSelection}
+          onClose={() => setShowMethodSelection(false)}
+          onSelectMethod={handleMethodSelection}
+          availableMethods={
+            [
+              ...(mfaSettings?.allowedMfaMethods.includes('authenticator') ? ['authenticator' as const] : []),
+              ...(mfaSettings?.allowedMfaMethods.includes('passkey') && webAuthnSupported ? ['passkey' as const] : []),
+            ]
+          }
+        />
+
+        {/* Passkey Name Dialog for MFA Setup */}
+        <Dialog
+          open={showPasskeyNameForMFA}
+          onClose={() => setShowPasskeyNameForMFA(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Setup Passkey for MFA</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" sx={{ mb: 2 }}>
+              Register a passkey to enable multi-factor authentication. Use a security key, fingerprint, face recognition, or device PIN.
+            </Typography>
+            <TextField
+              fullWidth
+              label="Passkey Name"
+              value={mfaPasskeyName}
+              onChange={(e) => setMfaPasskeyName(e.target.value)}
+              placeholder="e.g., YubiKey, MacBook Touch ID, Bitwarden"
+              margin="normal"
+              autoFocus
+            />
+            {!webAuthnSupported && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                WebAuthn is not supported in this browser. Please use a modern browser like Chrome, Firefox, Safari, or Edge.
+              </Alert>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowPasskeyNameForMFA(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handlePasskeySetupForMFA}
+              variant="contained"
+              disabled={passkeyLoading || !mfaPasskeyName.trim() || !webAuthnSupported}
+              startIcon={passkeyLoading ? <CircularProgress size={16} /> : <FingerprintIcon />}
+            >
+              {passkeyLoading ? 'Registering...' : 'Register & Enable MFA'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </CardContent>
     </Card>
   );
 };
 
-export default MFACard; 
+export default MFACard;

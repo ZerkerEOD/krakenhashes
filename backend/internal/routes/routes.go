@@ -199,8 +199,14 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	}
 	debug.Info("Initialized AgentBinaryService")
 
+	// Create auth handler (needed for both public and protected routes)
+	authHandler := auth.NewHandler(database, emailService)
+
 	// Setup public routes
 	SetupPublicRoutes(apiRouter, database, agentService, binaryService, appConfig, tlsProvider)
+
+	// Setup public passkey routes (MFA authentication flow - no JWT required)
+	SetupPublicPasskeyRoutes(apiRouter, authHandler)
 
 	// Setup JWT protected routes
 	jwtRouter := apiRouter.PathPrefix("").Subrouter()
@@ -208,7 +214,6 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	jwtRouter.Use(loggingMiddleware)
 
 	// Add token refresh endpoint (requires authentication)
-	authHandler := auth.NewHandler(database, emailService)
 	jwtRouter.HandleFunc("/refresh-token", authHandler.RefreshTokenHandler).Methods("POST", "OPTIONS")
 	debug.Info("Configured token refresh endpoint: /refresh-token")
 
@@ -233,6 +238,8 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	SetupAdminRoutes(jwtRouter, database, emailService, adminJobsHandler, binaryManager) // Pass adminJobsHandler and binaryManager
 	SetupUserRoutes(jwtRouter, database, appConfig.DataDir, binaryManager, agentService)
 	SetupMFARoutes(jwtRouter, mfaHandler, database, emailService)
+	SetupPasskeyRoutes(jwtRouter, authHandler, database)
+	SetupAdminPasskeyRoutes(jwtRouter, authHandler, database)
 	// Use the enhanced WebSocket setup with job integration
 	SetupWebSocketWithJobRoutes(r, agentService, tlsProvider, sqlDB, appConfig, wordlistManager, ruleManager, binaryManager, potfileService)
 	SetupBinaryRoutes(jwtRouter, sqlDB, appConfig, agentService)

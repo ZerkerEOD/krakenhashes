@@ -385,9 +385,11 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		// Adjust preferred method if email is not available
 		preferredMethod := mfaSettings.PreferredMFAMethod
 		if preferredMethod == "email" && !hasEmailProvider {
-			// Fall back to authenticator if available
+			// Fall back to authenticator or passkey if available
 			if contains(filteredMFATypes, "authenticator") {
 				preferredMethod = "authenticator"
+			} else if contains(filteredMFATypes, "passkey") {
+				preferredMethod = "passkey"
 			} else if len(filteredMFATypes) > 0 {
 				preferredMethod = filteredMFATypes[0]
 			}

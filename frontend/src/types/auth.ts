@@ -132,3 +132,86 @@ export interface MFAVerifyResponse {
   message?: string;
   remainingAttempts: number;
 }
+
+// Passkey/WebAuthn types
+export interface Passkey {
+  id: string;
+  name: string;
+  createdAt: string;
+  lastUsedAt?: string;
+}
+
+export interface PasskeyRegistrationBeginResponse {
+  options: PublicKeyCredentialCreationOptionsJSON;
+}
+
+export interface PasskeyRegistrationFinishResponse {
+  success: boolean;
+  passkey: Passkey;
+}
+
+export interface PasskeyAuthenticationBeginResponse {
+  options: PublicKeyCredentialRequestOptionsJSON;
+}
+
+export interface PasskeyAuthenticationFinishResponse {
+  success: boolean;
+  token: string;
+}
+
+export interface PasskeyListResponse {
+  passkeys: Passkey[];
+}
+
+export interface WebAuthnSettings {
+  rpId: string;
+  rpOrigins: string[];
+  rpDisplayName: string;
+  configured: boolean;
+}
+
+// JSON representations from server
+export interface PublicKeyCredentialCreationOptionsJSON {
+  publicKey: {
+    rp: {
+      name: string;
+      id?: string;
+    };
+    user: {
+      id: string;
+      name: string;
+      displayName: string;
+    };
+    challenge: string;
+    pubKeyCredParams: Array<{
+      type: 'public-key';
+      alg: number;
+    }>;
+    timeout?: number;
+    excludeCredentials?: Array<{
+      type: 'public-key';
+      id: string;
+      transports?: AuthenticatorTransport[];
+    }>;
+    authenticatorSelection?: {
+      authenticatorAttachment?: AuthenticatorAttachment;
+      residentKey?: ResidentKeyRequirement;
+      userVerification?: UserVerificationRequirement;
+    };
+    attestation?: AttestationConveyancePreference;
+  };
+}
+
+export interface PublicKeyCredentialRequestOptionsJSON {
+  publicKey: {
+    challenge: string;
+    timeout?: number;
+    rpId?: string;
+    allowCredentials?: Array<{
+      type: 'public-key';
+      id: string;
+      transports?: AuthenticatorTransport[];
+    }>;
+    userVerification?: UserVerificationRequirement;
+  };
+}

@@ -10,6 +10,9 @@ This document provides a comprehensive reference for the KrakenHashes database s
    - [user_teams](#user_teams)
 2. [Authentication & Security](#authentication--security)
    - [auth_tokens](#auth_tokens)
+   - [user_passkeys](#user_passkeys)
+   - [pending_passkey_registration](#pending_passkey_registration)
+   - [pending_passkey_authentication](#pending_passkey_authentication)
    - [mfa_methods](#mfa_methods)
    - [mfa_backup_codes](#mfa_backup_codes)
    - [login_attempts](#login_attempts)
@@ -134,6 +137,75 @@ Stores refresh tokens for JWT authentication.
 **Indexes:**
 - idx_auth_tokens_token (token)
 - idx_auth_tokens_user_id (user_id)
+
+### user_passkeys
+
+Stores registered WebAuthn/FIDO2 passkey credentials for users.
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| id | UUID | PRIMARY KEY | gen_random_uuid() | Passkey identifier |
+| user_id | UUID | NOT NULL, FK → users(id) ON DELETE CASCADE | | User reference |
+| credential_id | BYTEA | NOT NULL, UNIQUE | | WebAuthn credential ID |
+| public_key | BYTEA | NOT NULL | | Public key for verification |
+| aaguid | BYTEA | | | Authenticator attestation GUID |
+| sign_count | BIGINT | NOT NULL | 0 | Sign counter for clone detection |
+| transports | TEXT[] | | '{}' | Supported transports (usb, nfc, ble, internal) |
+| name | VARCHAR(255) | NOT NULL | 'Passkey' | User-assigned passkey name |
+| backup_eligible | BOOLEAN | NOT NULL | FALSE | Passkey can be synced/backed up |
+| backup_state | BOOLEAN | NOT NULL | FALSE | Passkey is currently backed up |
+| created_at | TIMESTAMP WITH TIME ZONE | NOT NULL | CURRENT_TIMESTAMP | Registration time |
+| last_used_at | TIMESTAMP WITH TIME ZONE | | | Last authentication time |
+
+**Unique Constraint:** (user_id, credential_id)
+
+**Indexes:**
+- idx_user_passkeys_user_id (user_id)
+- idx_user_passkeys_credential_id (credential_id)
+
+**Security Features:**
+- **Clone Detection**: Sign count must increase with each authentication; non-increasing counts indicate cloned authenticators
+- **Backup Flags**: Track whether passkey is synced across devices (Bitwarden, iCloud Keychain, etc.)
+- **Phishing Resistant**: Credentials are bound to the configured RP ID (domain)
+
+### pending_passkey_registration
+
+Stores temporary challenges during passkey registration flow (5-minute expiry).
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| user_id | UUID | PRIMARY KEY, FK → users(id) ON DELETE CASCADE | | User registering passkey |
+| challenge | BYTEA | NOT NULL | | WebAuthn challenge bytes |
+| session_data | BYTEA | NOT NULL | | Serialized session state |
+| created_at | TIMESTAMP WITH TIME ZONE | NOT NULL | CURRENT_TIMESTAMP | Challenge creation time |
+
+**Notes:**
+- Only one pending registration per user at a time
+- Challenges expire after 5 minutes
+- Cleanup trigger removes expired entries
+
+### pending_passkey_authentication
+
+Stores temporary challenges during passkey MFA authentication flow (5-minute expiry).
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| session_token | TEXT | PRIMARY KEY | | MFA session token |
+| user_id | UUID | NOT NULL, FK → users(id) ON DELETE CASCADE | | User authenticating |
+| challenge | BYTEA | NOT NULL | | WebAuthn challenge bytes |
+| session_data | BYTEA | NOT NULL | | Serialized session state |
+| created_at | TIMESTAMP WITH TIME ZONE | NOT NULL | CURRENT_TIMESTAMP | Challenge creation time |
+
+**Indexes:**
+- idx_pending_passkey_auth_user_id (user_id)
+
+**Notes:**
+- Linked to MFA session token from login flow
+- Challenges expire after 5 minutes
+- Cleanup trigger removes expired entries
+
+**Triggers:**
+- trigger_cleanup_passkey_challenges: Cleans up expired registration and authentication challenges
 
 ---
 
@@ -1316,7 +1388,7 @@ The users table has been extended with additional security columns added through
 | Column | Type | Constraints | Default | Description |
 |--------|------|-------------|---------|-------------|
 | mfa_enabled | BOOLEAN | | FALSE | MFA enabled status |
-| mfa_type | text[] | CHECK | ARRAY['email'] | MFA types enabled |
+| mfa_type | text[] | CHECK | ARRAY['email'] | MFA types enabled: email, authenticator, backup, passkey |
 | mfa_secret | TEXT | | | MFA secret |
 | backup_codes | TEXT[] | | | Hashed backup codes |
 | last_password_change | TIMESTAMP WITH TIME ZONE | | CURRENT_TIMESTAMP | Last password change |
@@ -1380,6 +1452,14 @@ Stores global authentication and security settings.
 | mfa_code_cooldown_minutes | INT | | 1 | MFA code cooldown |
 | mfa_code_expiry_minutes | INT | | 5 | MFA code expiry |
 | mfa_max_attempts | INT | | 3 | Max MFA attempts |
+| webauthn_rp_id | VARCHAR(255) | | | WebAuthn Relying Party ID (domain) |
+| webauthn_rp_origins | TEXT[] | | '{}' | Allowed WebAuthn origins |
+| webauthn_rp_display_name | VARCHAR(255) | | 'KrakenHashes' | Display name for passkey prompts |
+
+**WebAuthn Configuration Notes:**
+- `webauthn_rp_id` must be a domain name (not IP address per WebAuthn spec)
+- `webauthn_rp_origins` should include all URLs users access the system from
+- Changing `webauthn_rp_id` after passkeys are registered will invalidate all existing passkeys
 
 ### login_attempts
 
@@ -1658,6 +1738,20 @@ The database schema has evolved through 83 migrations:
    - Pre-calculated increment layers for preset jobs
    - Layers are copied to job_increment_layers when job is created from preset
    - Ensures consistent keyspace calculations across jobs from same preset
+91. **000091**: [Reserved]
+92. **000092**: Add WebAuthn/Passkey support
+   - Creates `user_passkeys` table for storing passkey credentials
+   - Creates `pending_passkey_registration` table for registration challenges
+   - Creates `pending_passkey_authentication` table for MFA authentication challenges
+   - Adds WebAuthn settings to `auth_settings` (rp_id, rp_origins, rp_display_name)
+   - Adds cleanup trigger for expired challenges
+93. **000093**: Add passkey to MFA type constraints
+   - Updates `users.mfa_type` CHECK constraint to allow 'passkey'
+   - Updates `users.preferred_mfa_method` CHECK constraint to allow 'passkey'
+94. **000094**: Add passkey backup flags
+   - Adds `backup_eligible` column to `user_passkeys`
+   - Adds `backup_state` column to `user_passkeys`
+   - Required for WebAuthn credential validation with synced passkeys
 
 ---
 

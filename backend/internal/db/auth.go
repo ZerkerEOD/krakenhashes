@@ -322,6 +322,8 @@ func (db *DB) GetUserByID(userID string) (*models.User, error) {
 	var lastFailedAttempt, accountLockedUntil, lastLogin, disabledAt sql.NullTime
 	var disabledBy sql.NullString
 	var mfaType []string
+	var apiKey sql.NullString
+	var apiKeyCreatedAt, apiKeyLastUsed sql.NullTime
 
 	err := db.QueryRow(queries.GetUserByID, userID).Scan(
 		&user.ID,
@@ -346,6 +348,10 @@ func (db *DB) GetUserByID(userID string) (*models.User, error) {
 		&disabledReason,
 		&disabledAt,
 		&disabledBy,
+		&user.NotifyOnJobCompletion,
+		&apiKey,
+		&apiKeyCreatedAt,
+		&apiKeyLastUsed,
 	)
 
 	if err != nil {
@@ -380,6 +386,15 @@ func (db *DB) GetUserByID(userID string) (*models.User, error) {
 		if err == nil {
 			user.DisabledBy = &id
 		}
+	}
+	if apiKey.Valid {
+		user.APIKey = apiKey.String
+	}
+	if apiKeyCreatedAt.Valid {
+		user.APIKeyCreatedAt = &apiKeyCreatedAt.Time
+	}
+	if apiKeyLastUsed.Valid {
+		user.APIKeyLastUsed = &apiKeyLastUsed.Time
 	}
 
 	return &user, nil

@@ -1,13 +1,16 @@
 import { api } from './api';
-import { 
-  LoginResponse, 
-  AuthSettings, 
-  MFASettings, 
+import {
+  LoginResponse,
+  AuthSettings,
+  MFASettings,
   PasswordPolicy,
   AccountSecurity,
   AuthSettingsUpdate,
   AuthCheckResponse,
-  MFAVerifyResponse
+  MFAVerifyResponse,
+  Passkey,
+  PasskeyListResponse,
+  WebAuthnSettings
 } from '../types/auth';
 
 export const login = async (username: string, password: string): Promise<LoginResponse> => {
@@ -292,6 +295,159 @@ export const disableAuthenticator = async (): Promise<void> => {
     await api.post('/api/user/mfa/disable-authenticator');
   } catch (error: any) {
     console.error('Disable Authenticator Error:', error.response?.data);
+    if (error.response?.data?.message) {
+      throw new Error(error.response.data.message);
+    }
+    throw error;
+  }
+};
+
+// Passkey/WebAuthn API
+
+// Get list of user's passkeys
+export const getPasskeys = async (): Promise<Passkey[]> => {
+  try {
+    const response = await api.get<PasskeyListResponse>('/api/user/passkeys');
+    return response.data.passkeys || [];
+  } catch (error: any) {
+    console.error('Get Passkeys Error:', error.response?.data);
+    if (error.response?.data?.message) {
+      throw new Error(error.response.data.message);
+    }
+    throw error;
+  }
+};
+
+// Begin passkey registration
+export const beginPasskeyRegistration = async (): Promise<any> => {
+  try {
+    const response = await api.post('/api/user/passkeys/register/begin');
+    return response.data.options;
+  } catch (error: any) {
+    console.error('Begin Passkey Registration Error:', error.response?.data);
+    if (error.response?.data?.message) {
+      throw new Error(error.response.data.message);
+    }
+    throw error;
+  }
+};
+
+// Finish passkey registration
+export const finishPasskeyRegistration = async (
+  name: string,
+  credential: object
+): Promise<Passkey> => {
+  try {
+    const response = await api.post('/api/user/passkeys/register/finish', {
+      name,
+      credential
+    });
+    return response.data.passkey;
+  } catch (error: any) {
+    console.error('Finish Passkey Registration Error:', error.response?.data);
+    if (error.response?.data?.message) {
+      throw new Error(error.response.data.message);
+    }
+    throw error;
+  }
+};
+
+// Delete a passkey
+export const deletePasskey = async (passkeyId: string): Promise<void> => {
+  try {
+    await api.delete(`/api/user/passkeys/${passkeyId}`);
+  } catch (error: any) {
+    console.error('Delete Passkey Error:', error.response?.data);
+    if (error.response?.data?.message) {
+      throw new Error(error.response.data.message);
+    }
+    throw error;
+  }
+};
+
+// Rename a passkey
+export const renamePasskey = async (
+  passkeyId: string,
+  name: string
+): Promise<void> => {
+  try {
+    await api.put(`/api/user/passkeys/${passkeyId}/rename`, { name });
+  } catch (error: any) {
+    console.error('Rename Passkey Error:', error.response?.data);
+    if (error.response?.data?.message) {
+      throw new Error(error.response.data.message);
+    }
+    throw error;
+  }
+};
+
+// Begin passkey authentication (MFA flow)
+export const beginPasskeyAuthentication = async (
+  sessionToken: string
+): Promise<any> => {
+  try {
+    const response = await api.post('/api/auth/passkey/authenticate/begin', {
+      sessionToken
+    });
+    return response.data.options;
+  } catch (error: any) {
+    console.error('Begin Passkey Authentication Error:', error.response?.data);
+    if (error.response?.data?.message) {
+      throw new Error(error.response.data.message);
+    }
+    throw error;
+  }
+};
+
+// Finish passkey authentication (MFA flow)
+export const finishPasskeyAuthentication = async (
+  sessionToken: string,
+  credential: object
+): Promise<MFAVerifyResponse> => {
+  try {
+    const response = await api.post('/api/auth/passkey/authenticate/finish', {
+      sessionToken,
+      credential
+    });
+    return {
+      success: response.data.success,
+      token: response.data.token || '',
+      remainingAttempts: 0
+    };
+  } catch (error: any) {
+    console.error('Finish Passkey Authentication Error:', error.response?.data);
+    const responseData = error.response?.data;
+    return {
+      success: false,
+      token: '',
+      message: responseData?.message || 'Passkey authentication failed',
+      remainingAttempts: responseData?.remainingAttempts || 0
+    };
+  }
+};
+
+// Admin: Get WebAuthn settings
+export const getWebAuthnSettings = async (): Promise<WebAuthnSettings> => {
+  try {
+    const response = await api.get<WebAuthnSettings>('/api/admin/webauthn/settings');
+    return response.data;
+  } catch (error: any) {
+    console.error('Get WebAuthn Settings Error:', error.response?.data);
+    if (error.response?.data?.message) {
+      throw new Error(error.response.data.message);
+    }
+    throw error;
+  }
+};
+
+// Admin: Update WebAuthn settings
+export const updateWebAuthnSettings = async (
+  settings: Partial<WebAuthnSettings>
+): Promise<void> => {
+  try {
+    await api.put('/api/admin/webauthn/settings', settings);
+  } catch (error: any) {
+    console.error('Update WebAuthn Settings Error:', error.response?.data);
     if (error.response?.data?.message) {
       throw new Error(error.response.data.message);
     }
