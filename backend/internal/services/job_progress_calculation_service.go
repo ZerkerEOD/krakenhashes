@@ -501,5 +501,96 @@ func (s *JobProgressCalculationService) batchUpdateProgress(ctx context.Context,
 	}
 
 	debug.Debug("Successfully updated %d/%d jobs", successCount, len(updates))
+
+	// FEEDBACK LOOP: Check if any updated jobs should complete.
+	// This addresses the issue where task completion triggers ProcessJobCompletion() with
+	// stale dispatched_keyspace values. Now that we've updated progress, re-check completion.
+	s.checkJobsForCompletion(ctx, updates)
+
 	return nil
+}
+
+// checkJobsForCompletion checks if any updated jobs should be marked complete.
+// This provides the feedback loop that was missing - after progress is updated,
+// we re-verify if jobs with all tasks complete should now be completed.
+func (s *JobProgressCalculationService) checkJobsForCompletion(ctx context.Context, updates map[uuid.UUID]*JobProgressUpdate) {
+	for jobID := range updates {
+		// Get fresh job data
+		job, err := s.jobExecRepo.GetByID(ctx, jobID)
+		if err != nil {
+			continue
+		}
+
+		// Skip if already completed
+		if job.Status == "completed" {
+			continue
+		}
+
+		// Check if all tasks are complete (including no remaining work)
+		allComplete, err := s.jobTaskRepo.AreAllTasksComplete(ctx, jobID)
+		if err != nil {
+			debug.Warning("Progress service: failed to check if all tasks complete for job %s: %v", jobID, err)
+			continue
+		}
+
+		if !allComplete {
+			continue
+		}
+
+		// Use structural check to verify job should complete
+		if s.shouldJobComplete(ctx, job) {
+			debug.Log("Progress service triggering job completion (feedback loop)", map[string]interface{}{
+				"job_id":              jobID,
+				"dispatched_keyspace": job.DispatchedKeyspace,
+				"effective_keyspace":  job.EffectiveKeyspace,
+			})
+
+			// Complete the job
+			err = s.jobExecRepo.CompleteExecution(ctx, jobID)
+			if err != nil {
+				debug.Error("Progress service failed to complete job %s: %v", jobID, err)
+			} else {
+				debug.Info("Progress service completed stuck job %s via feedback loop", jobID)
+			}
+		}
+	}
+}
+
+// shouldJobComplete performs structural checks to determine if a job should be marked complete.
+// Uses task ranges (stable) rather than counter comparisons (can drift).
+func (s *JobProgressCalculationService) shouldJobComplete(ctx context.Context, job *models.JobExecution) bool {
+	// For increment mode, check layer status
+	if job.IncrementMode != "" && job.IncrementMode != "off" {
+		layers, err := s.jobIncrementLayerRepo.GetByJobExecutionID(ctx, job.ID)
+		if err != nil {
+			return false
+		}
+		for _, layer := range layers {
+			if layer.Status != models.JobIncrementLayerStatusCompleted {
+				return false
+			}
+		}
+		return true
+	}
+
+	// For rule-split jobs, check max rule index
+	if job.UsesRuleSplitting {
+		maxRuleEnd, err := s.jobTaskRepo.GetMaxRuleEndIndex(ctx, job.ID)
+		if err != nil {
+			return false
+		}
+		return maxRuleEnd != nil && *maxRuleEnd >= job.MultiplicationFactor
+	}
+
+	// For keyspace-split jobs, check task ranges cover base_keyspace
+	if job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
+		maxEnd, err := s.jobTaskRepo.GetMaxKeyspaceEnd(ctx, job.ID)
+		if err != nil {
+			return false
+		}
+		return maxEnd >= *job.BaseKeyspace
+	}
+
+	// Fallback: all tasks complete means job complete
+	return true
 }

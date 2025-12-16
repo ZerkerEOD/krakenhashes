@@ -1294,34 +1294,67 @@ func (s *JobExecutionService) StartJobExecution(ctx context.Context, jobExecutio
 
 // CompleteJobExecution marks a job execution as completed
 func (s *JobExecutionService) CompleteJobExecution(ctx context.Context, jobExecutionID uuid.UUID) error {
-	// Get all tasks to check if we have actual keyspace values from hashcat
-	tasks, err := s.jobTaskRepo.GetTasksByJobExecution(ctx, jobExecutionID)
+	// KEYSPACE SYNC: Ensure effective_keyspace and dispatched_keyspace match actual work performed.
+	// This prevents stuck job issues where effective_keyspace drifted due to wordlist/potfile updates.
+	// We use the sum of chunk_actual_keyspace from completed tasks as the source of truth.
+	actualKeyspace, err := s.jobTaskRepo.GetSumChunkActualKeyspace(ctx, jobExecutionID)
 	if err != nil {
-		debug.Error("Failed to get tasks for keyspace check: %v", err)
-		// Continue with completion even if we can't update keyspace
-	} else {
-		// Check if all tasks have actual keyspace values from hashcat
-		allTasksHaveActualKeyspace := len(tasks) > 0
-		for _, task := range tasks {
-			if !task.IsActualKeyspace {
-				allTasksHaveActualKeyspace = false
-				break
+		debug.Warning("Failed to get sum of chunk actual keyspace: %v", err)
+		// Continue with completion even if we can't get actual keyspace
+	} else if actualKeyspace > 0 {
+		job, err := s.jobExecRepo.GetByID(ctx, jobExecutionID)
+		if err == nil {
+			needsUpdate := false
+			oldEffective := int64(0)
+			if job.EffectiveKeyspace != nil {
+				oldEffective = *job.EffectiveKeyspace
+			}
+
+			// Update if effective_keyspace differs from actual
+			if job.EffectiveKeyspace == nil || *job.EffectiveKeyspace != actualKeyspace {
+				needsUpdate = true
+			}
+
+			if needsUpdate {
+				// Update effective_keyspace to match actual work
+				if updateErr := s.jobExecRepo.UpdateEffectiveKeyspace(ctx, jobExecutionID, actualKeyspace); updateErr != nil {
+					debug.Error("Failed to update effective keyspace at completion: %v", updateErr)
+				} else {
+					debug.Info("Synced effective_keyspace at completion: %d -> %d (actual from tasks)", oldEffective, actualKeyspace)
+				}
+
+				// Also sync dispatched_keyspace to match (ensures 100% progress display)
+				if updateErr := s.jobExecRepo.UpdateDispatchedKeyspace(ctx, jobExecutionID, actualKeyspace); updateErr != nil {
+					debug.Error("Failed to update dispatched keyspace at completion: %v", updateErr)
+				}
 			}
 		}
+	}
 
-		// If all tasks reported actual keyspace, update job's effective_keyspace to match processed
-		if allTasksHaveActualKeyspace {
-			job, err := s.jobExecRepo.GetByID(ctx, jobExecutionID)
-			if err == nil && job.ProcessedKeyspace > 0 {
-				// Update effective_keyspace to match actual processed
-				if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace != job.ProcessedKeyspace {
-					oldEffective := *job.EffectiveKeyspace
-					if updateErr := s.jobExecRepo.UpdateEffectiveKeyspace(ctx, jobExecutionID, job.ProcessedKeyspace); updateErr != nil {
-						debug.Error("Failed to update effective keyspace: %v", updateErr)
-					} else {
-						debug.Info("Updated effective_keyspace from %d to %d (actual from hashcat)", oldEffective, job.ProcessedKeyspace)
+	// Legacy check: If no chunk_actual_keyspace data, fall back to old method
+	if actualKeyspace == 0 {
+		tasks, err := s.jobTaskRepo.GetTasksByJobExecution(ctx, jobExecutionID)
+		if err == nil {
+			// Check if all tasks have actual keyspace values from hashcat
+			allTasksHaveActualKeyspace := len(tasks) > 0
+			for _, task := range tasks {
+				if !task.IsActualKeyspace {
+					allTasksHaveActualKeyspace = false
+					break
+				}
+			}
 
-						// Note: Progress percentage now calculated by polling service (JobProgressCalculationService)
+			// If all tasks reported actual keyspace, update job's effective_keyspace to match processed
+			if allTasksHaveActualKeyspace {
+				job, err := s.jobExecRepo.GetByID(ctx, jobExecutionID)
+				if err == nil && job.ProcessedKeyspace > 0 {
+					if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace != job.ProcessedKeyspace {
+						oldEffective := *job.EffectiveKeyspace
+						if updateErr := s.jobExecRepo.UpdateEffectiveKeyspace(ctx, jobExecutionID, job.ProcessedKeyspace); updateErr != nil {
+							debug.Error("Failed to update effective keyspace (legacy): %v", updateErr)
+						} else {
+							debug.Info("Updated effective_keyspace from %d to %d (legacy method)", oldEffective, job.ProcessedKeyspace)
+						}
 					}
 				}
 			}

@@ -852,6 +852,69 @@ func (r *JobExecutionRepository) UpdateTotalKeyspace(ctx context.Context, id uui
 	return nil
 }
 
+// GetPotentiallyStuckJobs finds jobs that may be stuck: in pending/running status with no active tasks
+// and haven't been updated in minMinutes. These are candidates for structural completion checks.
+func (r *JobExecutionRepository) GetPotentiallyStuckJobs(ctx context.Context, minMinutes int) ([]models.JobExecution, error) {
+	query := fmt.Sprintf(`
+		SELECT
+			je.id, je.name, je.preset_job_id, je.hashlist_id, je.status, je.priority, COALESCE(je.max_agents, 0) as max_agents,
+			je.total_keyspace, je.processed_keyspace, je.attack_mode, je.created_by,
+			je.created_at, je.started_at, je.completed_at, je.error_message, je.interrupted_by,
+			je.consecutive_failures,
+			je.base_keyspace, je.effective_keyspace, je.multiplication_factor,
+			je.uses_rule_splitting, je.rule_split_count,
+			je.overall_progress_percent, je.last_progress_update,
+			je.dispatched_keyspace,
+			je.completion_email_sent, je.completion_email_sent_at, je.completion_email_error,
+			je.wordlist_ids, je.rule_ids, je.mask, je.binary_version_id,
+			je.chunk_size_seconds, je.status_updates_enabled, je.allow_high_priority_override,
+			je.additional_args, je.hash_type, je.updated_at,
+			je.avg_rule_multiplier, je.is_accurate_keyspace,
+			je.increment_mode, je.increment_min, je.increment_max
+		FROM job_executions je
+		WHERE je.status IN ('pending', 'running')
+		  AND je.updated_at < NOW() - INTERVAL '%d minutes'
+		  AND NOT EXISTS (
+			  SELECT 1 FROM job_tasks jt
+			  WHERE jt.job_execution_id = je.id
+			    AND jt.status NOT IN ('completed', 'cancelled', 'failed')
+		  )
+		ORDER BY je.created_at`, minMinutes)
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get potentially stuck jobs: %w", err)
+	}
+	defer rows.Close()
+
+	var executions []models.JobExecution
+	for rows.Next() {
+		var exec models.JobExecution
+		err := rows.Scan(
+			&exec.ID, &exec.Name, &exec.PresetJobID, &exec.HashlistID, &exec.Status, &exec.Priority, &exec.MaxAgents,
+			&exec.TotalKeyspace, &exec.ProcessedKeyspace, &exec.AttackMode, &exec.CreatedBy,
+			&exec.CreatedAt, &exec.StartedAt, &exec.CompletedAt, &exec.ErrorMessage, &exec.InterruptedBy,
+			&exec.ConsecutiveFailures,
+			&exec.BaseKeyspace, &exec.EffectiveKeyspace, &exec.MultiplicationFactor,
+			&exec.UsesRuleSplitting, &exec.RuleSplitCount,
+			&exec.OverallProgressPercent, &exec.LastProgressUpdate,
+			&exec.DispatchedKeyspace,
+			&exec.CompletionEmailSent, &exec.CompletionEmailSentAt, &exec.CompletionEmailError,
+			&exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.BinaryVersionID,
+			&exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled, &exec.AllowHighPriorityOverride,
+			&exec.AdditionalArgs, &exec.HashType, &exec.UpdatedAt,
+			&exec.AvgRuleMultiplier, &exec.IsAccurateKeyspace,
+			&exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan potentially stuck job: %w", err)
+		}
+		executions = append(executions, exec)
+	}
+
+	return executions, nil
+}
+
 // UpdateIncrementSettings updates the increment_min and increment_max fields for a job execution
 // This is used to persist resolved default values when the user didn't specify them
 func (r *JobExecutionRepository) UpdateIncrementSettings(ctx context.Context, id uuid.UUID, incrementMin int, incrementMax int) error {

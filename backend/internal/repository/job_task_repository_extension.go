@@ -329,14 +329,26 @@ func (r *JobTaskRepository) AreAllTasksComplete(ctx context.Context, jobExecutio
 			}
 		}
 	} else {
-		// For non-rule-splitting jobs, check if all keyspace has been dispatched
-		targetKeyspace := effectiveKeyspace
-		if targetKeyspace == nil {
-			targetKeyspace = totalKeyspace
-		}
-
-		if targetKeyspace != nil && dispatchedKeyspace < *targetKeyspace {
-			// More keyspace needs to be dispatched
+		// For non-rule-splitting jobs, use STRUCTURAL check to determine if all work is dispatched.
+		// We check max(keyspace_end) against base_keyspace instead of comparing counters,
+		// because effective_keyspace can drift due to wordlist/potfile updates after dispatch.
+		// This prevents jobs from getting stuck when effective > dispatched due to updates.
+		if baseKeyspace != nil && *baseKeyspace > 0 {
+			// Primary check: Use base_keyspace (stable) - verify task ranges cover full keyspace
+			maxKeyspaceEnd, err := r.GetMaxKeyspaceEnd(ctx, jobExecutionID)
+			if err != nil {
+				return false, fmt.Errorf("failed to get max keyspace end: %w", err)
+			}
+			if maxKeyspaceEnd < *baseKeyspace {
+				// More base keyspace needs to be dispatched
+				return false, nil
+			}
+		} else if effectiveKeyspace != nil && dispatchedKeyspace < *effectiveKeyspace {
+			// Fallback for jobs without base_keyspace: use counter comparison
+			// This is less reliable but necessary for backwards compatibility
+			return false, nil
+		} else if totalKeyspace != nil && dispatchedKeyspace < *totalKeyspace {
+			// Final fallback: check against total_keyspace
 			return false, nil
 		}
 	}

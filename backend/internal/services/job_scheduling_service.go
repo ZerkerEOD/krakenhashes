@@ -2119,12 +2119,31 @@ func (s *JobSchedulingService) ProcessJobCompletion(ctx context.Context, jobExec
 	}
 
 	if incompleteTasks == 0 {
-		// For non-rule-splitting jobs, verify all keyspace has been dispatched
-		// DispatchedKeyspace is in EFFECTIVE units, so compare against EffectiveKeyspace
+		// For non-rule-splitting jobs, use STRUCTURAL check to verify all work is dispatched.
+		// We check max(keyspace_end) against base_keyspace as the PRIMARY check instead of
+		// comparing counters, because effective_keyspace can drift due to wordlist/potfile
+		// updates after dispatch. This prevents jobs from getting stuck.
 		if !job.UsesRuleSplitting {
-			// Compare dispatched (effective) to effective keyspace - same units
-			if job.EffectiveKeyspace != nil && job.DispatchedKeyspace < *job.EffectiveKeyspace {
-				debug.Log("Job not complete - more effective keyspace to dispatch", map[string]interface{}{
+			// PRIMARY CHECK: Use base_keyspace (stable) - verify task ranges cover full keyspace
+			if job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
+				maxBaseDispatched, err := s.jobTaskRepo.GetMaxKeyspaceEnd(ctx, jobExecutionID)
+				if err != nil {
+					return fmt.Errorf("failed to get max keyspace end: %w", err)
+				}
+				if maxBaseDispatched < *job.BaseKeyspace {
+					debug.Log("Job has work remaining - structural check (base_keyspace)", map[string]interface{}{
+						"job_id":           jobExecutionID,
+						"base_keyspace":    *job.BaseKeyspace,
+						"max_keyspace_end": maxBaseDispatched,
+						"remaining":        *job.BaseKeyspace - maxBaseDispatched,
+					})
+					return nil // Don't complete - more keyspace chunks needed
+				}
+				// Structural check passed - base_keyspace is fully covered by task ranges
+			} else if job.EffectiveKeyspace != nil && job.DispatchedKeyspace < *job.EffectiveKeyspace {
+				// FALLBACK: Counter comparison for jobs without base_keyspace
+				// This is less reliable but necessary for backwards compatibility
+				debug.Log("Job not complete - counter check (no base_keyspace)", map[string]interface{}{
 					"job_id":              jobExecutionID,
 					"effective_keyspace":  *job.EffectiveKeyspace,
 					"dispatched_keyspace": job.DispatchedKeyspace,
@@ -2133,31 +2152,14 @@ func (s *JobSchedulingService) ProcessJobCompletion(ctx context.Context, jobExec
 				})
 				return nil // Don't complete yet
 			} else if job.TotalKeyspace != nil && job.DispatchedKeyspace < *job.TotalKeyspace {
-				// Fallback for jobs without EffectiveKeyspace
-				debug.Log("Job not complete - more total keyspace to dispatch", map[string]interface{}{
+				// Final fallback for jobs without EffectiveKeyspace
+				debug.Log("Job not complete - counter check (total_keyspace)", map[string]interface{}{
 					"job_id":              jobExecutionID,
 					"total_keyspace":      *job.TotalKeyspace,
 					"dispatched_keyspace": job.DispatchedKeyspace,
 					"remaining":           *job.TotalKeyspace - job.DispatchedKeyspace,
 				})
 				return nil
-			}
-
-			// Safety check for keyspace-split jobs: ensure all base keyspace is covered
-			if job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
-				maxBaseDispatched, err := s.jobTaskRepo.GetMaxKeyspaceEnd(ctx, jobExecutionID)
-				if err != nil {
-					return fmt.Errorf("failed to get max keyspace end: %w", err)
-				}
-				if maxBaseDispatched < *job.BaseKeyspace {
-					debug.Log("Keyspace-split job has work remaining", map[string]interface{}{
-						"job_id":           jobExecutionID,
-						"base_keyspace":    *job.BaseKeyspace,
-						"max_keyspace_end": maxBaseDispatched,
-						"remaining":        *job.BaseKeyspace - maxBaseDispatched,
-					})
-					return nil // Don't complete - more keyspace chunks needed
-				}
 			}
 		}
 
