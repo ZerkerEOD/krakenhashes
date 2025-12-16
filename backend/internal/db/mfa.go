@@ -230,3 +230,38 @@ func (db *DB) CreateMFASession(userID, sessionToken string) (*models.MFASession,
 	session.Attempts = 0
 	return session, nil
 }
+
+// GetMFASession retrieves an MFA session by token
+func (db *DB) GetMFASession(sessionToken string) (*models.MFASession, error) {
+	session := &models.MFASession{SessionToken: sessionToken}
+	err := db.QueryRow(queries.GetMFASessionQuery, sessionToken).Scan(&session.UserID, &session.Attempts, &session.ExpiresAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNotFound
+		}
+		debug.Error("Failed to get MFA session: %v", err)
+		return nil, err
+	}
+	return session, nil
+}
+
+// IncrementMFASessionAttempts increments the attempts counter for an MFA session
+func (db *DB) IncrementMFASessionAttempts(sessionToken string) (int, error) {
+	var attempts int
+	err := db.QueryRow(queries.IncrementMFASessionAttemptsQuery, sessionToken).Scan(&attempts)
+	if err != nil {
+		debug.Error("Failed to increment MFA session attempts: %v", err)
+		return 0, err
+	}
+	return attempts, nil
+}
+
+// DeleteMFASession deletes an MFA session
+func (db *DB) DeleteMFASession(sessionToken string) error {
+	_, err := db.Exec(queries.DeleteMFASessionQuery, sessionToken)
+	if err != nil {
+		debug.Error("Failed to delete MFA session: %v", err)
+		return err
+	}
+	return nil
+}

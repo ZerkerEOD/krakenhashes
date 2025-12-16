@@ -35,51 +35,20 @@ cp .env.example .env
 # - PUID/PGID (to match your user: run 'id -u' and 'id -g')
 ```
 
-## 2. Create docker-compose.yml
+## 2. Download docker-compose.yml
 
-Create this `docker-compose.yml` file:
-
-```yaml
-services:
-    postgres:
-        image: postgres:15-alpine
-        container_name: krakenhashes-postgres
-        volumes:
-            - postgres_data:/var/lib/postgresql/data
-        environment:
-            - POSTGRES_USER=${DB_USER}
-            - POSTGRES_PASSWORD=${DB_PASSWORD}
-            - POSTGRES_DB=${DB_NAME}
-        restart: unless-stopped
-        healthcheck:
-            test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
-            interval: 5s
-            retries: 5
-
-    krakenhashes:
-        image: zerkereod/krakenhashes:latest
-        container_name: krakenhashes-app
-        depends_on:
-            postgres:
-                condition: service_healthy
-        env_file:
-            - .env
-        ports:
-            - "${FRONTEND_PORT:-443}:443"
-            - "${KH_HTTPS_PORT:-31337}:31337"
-        volumes:
-            - krakenhashes_data:/var/lib/krakenhashes
-            - ./logs:/var/log/krakenhashes
-        environment:
-            - DB_HOST=postgres # Override to use container name
-            - PUID=${PUID}
-            - PGID=${PGID}
-        restart: unless-stopped
-
-volumes:
-    postgres_data:
-    krakenhashes_data:
+```bash
+# Download the docker-compose configuration
+wget https://raw.githubusercontent.com/ZerkerEOD/krakenhashes/master/docker-compose.yml
 ```
+
+This downloads the latest production docker-compose configuration which includes:
+
+- PostgreSQL with optimized memory settings
+- HTTPS (443) and agent (31337) ports
+- HTTP port (1337) for non-TLS connections
+- Proper volume mounts for data persistence
+- Network isolation
 
 ## 3. Start KrakenHashes
 
@@ -193,7 +162,7 @@ docker exec krakenhashes-postgres pg_dump -U krakenhashes krakenhashes > backup.
 
 1. Check if containers are running: `docker compose ps`
 2. Check logs for errors: `docker compose logs`
-3. Ensure ports 443 and 31337 are not in use: `netstat -tlnp | grep -E "443|31337"`
+3. Ensure ports 443, 31337, and 1337 are not in use: `netstat -tlnp | grep -E "443|31337|1337"`
 
 ### Database connection errors
 

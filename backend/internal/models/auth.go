@@ -23,6 +23,10 @@ type AuthSettings struct {
 	TokenCleanupIntervalSeconds    int       `json:"token_cleanup_interval_seconds" db:"token_cleanup_interval_seconds"`
 	MaxConcurrentSessions          int       `json:"max_concurrent_sessions" db:"max_concurrent_sessions"`
 	SessionAbsoluteTimeoutHours    int       `json:"session_absolute_timeout_hours" db:"session_absolute_timeout_hours"`
+	// WebAuthn/Passkey settings
+	WebAuthnRPID          *string  `json:"webauthn_rp_id" db:"webauthn_rp_id"`
+	WebAuthnRPOrigins     []string `json:"webauthn_rp_origins" db:"webauthn_rp_origins"`
+	WebAuthnRPDisplayName *string  `json:"webauthn_rp_display_name" db:"webauthn_rp_display_name"`
 }
 
 // LoginAttempt represents a user login attempt
@@ -57,6 +61,7 @@ const (
 	MFATypeEmail         MFAType = "email"
 	MFATypeAuthenticator MFAType = "authenticator"
 	MFATypeBackup        MFAType = "backup"
+	MFATypePasskey       MFAType = "passkey"
 )
 
 // ValidMFATypes returns all valid MFA types
@@ -65,6 +70,7 @@ func ValidMFATypes() []MFAType {
 		MFATypeEmail,
 		MFATypeAuthenticator,
 		MFATypeBackup,
+		MFATypePasskey,
 	}
 }
 
@@ -79,8 +85,9 @@ func IsValidMFAType(t string) bool {
 }
 
 // IsValidPreferredMFAType checks if a given string is a valid preferred MFA type
+// Note: backup codes cannot be set as preferred method
 func IsValidPreferredMFAType(t string) bool {
-	return t == string(MFATypeEmail) || t == string(MFATypeAuthenticator)
+	return t == string(MFATypeEmail) || t == string(MFATypeAuthenticator) || t == string(MFATypePasskey)
 }
 
 // MFASettings represents the MFA configuration

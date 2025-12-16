@@ -530,7 +530,7 @@ Then open: http://localhost:8080
 - **OpenAPI Spec**: `openapi.yaml`
 - **Python Examples**: `examples/python_client.py`
 - **cURL Examples**: `examples/curl_examples.sh`
-- **Main Docs**: `../../CLAUDE.md`
+- **Main Docs**: See the [documentation site](../index.md)
 
 ### Issues
 

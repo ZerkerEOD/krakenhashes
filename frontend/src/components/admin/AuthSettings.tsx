@@ -14,9 +14,10 @@ import {
   Grid,
   Checkbox,
 } from '@mui/material';
-import { getPasswordPolicy, getAccountSecurity, getAdminMFASettings, updateMFASettings } from '../../services/auth';
+import { getPasswordPolicy, getAccountSecurity, getAdminMFASettings, updateMFASettings, getWebAuthnSettings, updateWebAuthnSettings } from '../../services/auth';
 import { getEmailConfig } from '../../services/api';
-import { PasswordPolicy, AccountSecurity, AuthSettingsUpdate, MFASettings as MFASettingsType } from '../../types/auth';
+import { PasswordPolicy, AccountSecurity, AuthSettingsUpdate, MFASettings as MFASettingsType, WebAuthnSettings } from '../../types/auth';
+import { isWebAuthnSupported } from '../../utils/webauthn';
 
 interface AuthSettingsFormProps {
   onSave: (settings: AuthSettingsUpdate) => Promise<void>;
@@ -30,11 +31,13 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
   const [passwordPolicy, setPasswordPolicy] = useState<PasswordPolicy | null>(null);
   const [accountSecurity, setAccountSecurity] = useState<AccountSecurity | null>(null);
   const [mfaSettings, setMFASettings] = useState<MFASettingsType | null>(null);
+  const [webauthnSettings, setWebauthnSettings] = useState<WebAuthnSettings | null>(null);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasLocalChanges, setHasLocalChanges] = useState(false);
   const [lastSavedTimestamp, setLastSavedTimestamp] = useState<number>(0);
   const [hasEmailGateway, setHasEmailGateway] = useState(false);
+  const webAuthnSupported = isWebAuthnSupported();
 
   // Load settings on mount or when lastSavedTimestamp changes
   useEffect(() => {
@@ -87,6 +90,15 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
       } catch (err) {
         // If we can't fetch email config, assume no gateway
         setHasEmailGateway(false);
+      }
+
+      // Load WebAuthn settings
+      try {
+        const webauthn = await getWebAuthnSettings();
+        setWebauthnSettings(webauthn);
+      } catch (err) {
+        // WebAuthn settings may not be configured yet
+        setWebauthnSettings(null);
       }
 
       // If we have a saved draft and it's newer than our last fetch, use it
@@ -207,6 +219,21 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
         }
       }
       setError(errorMessage);
+    }
+  };
+
+  const handleSaveWebAuthn = async () => {
+    if (!webauthnSettings) return;
+
+    try {
+      await updateWebAuthnSettings(webauthnSettings);
+      // Refresh WebAuthn settings after save
+      const updatedSettings = await getWebAuthnSettings();
+      setWebauthnSettings(updatedSettings);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to save WebAuthn settings:', err);
+      setError('Failed to save WebAuthn settings');
     }
   };
 
@@ -487,11 +514,20 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
                 <FormControlLabel
                   control={
                     <Checkbox
-                      checked={false}
-                      disabled={true}
+                      checked={mfaSettings?.allowedMfaMethods.includes('passkey')}
+                      onChange={e => {
+                        const methods = new Set(mfaSettings?.allowedMfaMethods || []);
+                        if (e.target.checked) {
+                          methods.add('passkey');
+                        } else {
+                          methods.delete('passkey');
+                        }
+                        setMFASettings(prev => ({ ...prev!, allowedMfaMethods: Array.from(methods) }));
+                      }}
+                      disabled={!webAuthnSupported}
                     />
                   }
-                  label="Passkey (Not currently implemented)"
+                  label={!webAuthnSupported ? "Passkey (Not supported in this browser)" : "Passkey"}
                 />
                 <Typography variant="subtitle1" sx={{ mt: 3, mb: 1 }}>
                   Code Settings
@@ -566,6 +602,91 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
                   inputProps={{ min: 1 }}
                   helperText="Must be at least 1 code"
                 />
+              </FormGroup>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* WebAuthn / Passkey Configuration */}
+        <Grid item xs={12}>
+          <Card sx={{
+            backgroundColor: 'background.paper',
+            boxShadow: (theme) => `0 0 10px ${theme.palette.divider}`,
+            mt: 2
+          }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{
+                pb: 2,
+                borderBottom: (theme) => `1px solid ${theme.palette.divider}`
+              }}>
+                WebAuthn / Passkey Configuration
+              </Typography>
+
+              {!webAuthnSupported && (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  WebAuthn is not supported in this browser.
+                </Alert>
+              )}
+
+              <Alert severity="info" sx={{ mb: 2 }}>
+                WebAuthn requires a domain name (not IP address) for the Relying Party ID.
+                Origins should be full URLs where the application is accessed.
+              </Alert>
+
+              <FormGroup>
+                <TextField
+                  label="Relying Party ID (Domain)"
+                  value={webauthnSettings?.rpId ?? ''}
+                  onChange={e => setWebauthnSettings(prev => ({ ...prev!, rpId: e.target.value }))}
+                  fullWidth
+                  margin="normal"
+                  placeholder="krakenhashes.example.com"
+                  helperText="Domain name without protocol or port (e.g., localhost for development)"
+                />
+
+                <TextField
+                  label="Relying Party Display Name"
+                  value={webauthnSettings?.rpDisplayName ?? ''}
+                  onChange={e => setWebauthnSettings(prev => ({ ...prev!, rpDisplayName: e.target.value }))}
+                  fullWidth
+                  margin="normal"
+                  placeholder="KrakenHashes"
+                  helperText="Name shown to users during passkey registration"
+                />
+
+                <TextField
+                  label="Allowed Origins"
+                  value={webauthnSettings?.rpOrigins?.join('\n') ?? ''}
+                  onChange={e => {
+                    const origins = e.target.value
+                      .split(/[\n]/)
+                      .map(o => o.trim())
+                      .filter(o => o.length > 0);
+                    setWebauthnSettings(prev => ({ ...prev!, rpOrigins: origins }));
+                  }}
+                  fullWidth
+                  margin="normal"
+                  multiline
+                  rows={3}
+                  placeholder="https://localhost:3000"
+                  helperText="Full URLs with protocol, one per line (e.g., https://localhost:3000)"
+                />
+
+                {webauthnSettings?.rpId && webauthnSettings?.rpOrigins?.length > 0 && (
+                  <Alert severity="success" sx={{ mt: 2 }}>
+                    WebAuthn is configured. Users can register and use passkeys.
+                  </Alert>
+                )}
+
+                <Box sx={{ mt: 2 }}>
+                  <Button
+                    variant="contained"
+                    onClick={handleSaveWebAuthn}
+                    disabled={loading || !webauthnSettings?.rpId || !webauthnSettings?.rpOrigins?.length}
+                  >
+                    Save WebAuthn Settings
+                  </Button>
+                </Box>
               </FormGroup>
             </CardContent>
           </Card>

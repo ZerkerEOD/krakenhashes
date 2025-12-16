@@ -145,7 +145,7 @@ Open: http://localhost:8080
 ## Support
 
 - **Issues**: https://github.com/ZerkerEOD/krakenhashes/issues
-- **Main Documentation**: See `../../CLAUDE.md`
+- **Main Documentation**: See the [documentation site](../index.md)
 - **User Guide**: [USER_GUIDE.md](USER_GUIDE.md)
 
 ## Version

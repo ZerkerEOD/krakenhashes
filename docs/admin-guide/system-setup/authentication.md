@@ -89,11 +89,31 @@ The system supports multiple MFA methods:
    - Works offline once configured
    - Examples: Bitwarden, Google Authenticator, Authy, Microsoft Authenticator
 
-3. **Passkey (Future Feature)**
-   - Currently disabled
-   - Will support FIDO2/WebAuthn standard
+3. **Passkey (WebAuthn/FIDO2)**
+   - Supports FIDO2/WebAuthn standard
    - Provides highest security level
-   - Requires compatible hardware/devices
+   - Works with security keys (YubiKey), platform authenticators (Windows Hello, Face ID, Touch ID), and password managers (Bitwarden, 1Password)
+   - Requires WebAuthn-compatible browser and configured RP ID
+   - **Note**: WebAuthn does NOT support IP addresses as RP IDs - requires domain name
+
+### WebAuthn Configuration
+
+Before users can register passkeys, administrators must configure WebAuthn settings in the Authentication Settings page:
+
+1. **Relying Party ID (RP ID)**
+   - Domain name where KrakenHashes is hosted
+   - Examples: `localhost` (dev), `krakenhashes.example.com` (prod)
+   - Cannot be an IP address (WebAuthn specification limitation)
+   - **Warning**: Once set and credentials registered, changing this will invalidate all existing passkeys
+
+2. **Allowed Origins**
+   - Full URLs where the application is accessed
+   - Examples: `https://localhost:3000`, `https://krakenhashes.example.com`
+   - Include all URLs users might use to access the system
+
+3. **Display Name**
+   - Friendly name shown during passkey registration
+   - Default: "KrakenHashes"
 
 ### Code Settings
 

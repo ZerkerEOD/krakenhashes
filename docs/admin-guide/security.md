@@ -124,9 +124,19 @@ Agents automatically clean temporary files:
 
 KrakenHashes supports multiple MFA methods:
 
-- **TOTP**: Time-based One-Time Passwords via authenticator apps
+- **TOTP**: Time-based One-Time Passwords via authenticator apps (Bitwarden, Google Authenticator, Authy)
 - **Email**: Verification codes sent to registered email
+- **Passkey**: WebAuthn/FIDO2 credentials using security keys or platform authenticators
 - **Backup Codes**: Recovery codes for emergency access
+
+### Passkey Security
+
+Passkeys provide the highest level of MFA security:
+
+- **Phishing Resistant**: Credentials bound to specific domain (RP ID)
+- **Clone Detection**: Sign count validation detects duplicated authenticators
+- **No Shared Secrets**: Public key cryptography instead of shared secrets
+- **User Presence**: Requires user interaction (touch, biometric)
 
 ### Password Security
 
