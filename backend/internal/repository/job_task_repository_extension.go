@@ -329,14 +329,16 @@ func (r *JobTaskRepository) AreAllTasksComplete(ctx context.Context, jobExecutio
 			}
 		}
 	} else {
-		// For non-rule-splitting jobs, check if all keyspace has been dispatched
-		targetKeyspace := effectiveKeyspace
-		if targetKeyspace == nil {
-			targetKeyspace = totalKeyspace
-		}
-
-		if targetKeyspace != nil && dispatchedKeyspace < *targetKeyspace {
-			// More keyspace needs to be dispatched
+		// For non-rule-splitting jobs, check if all work has been dispatched
+		// using counter comparison. We use effective_keyspace as the target
+		// since that represents the actual total candidates to process.
+		// Note: base_keyspace is the wordlist size (different dimension) and
+		// should NOT be used for completion comparison.
+		if effectiveKeyspace != nil && *effectiveKeyspace > 0 && dispatchedKeyspace < *effectiveKeyspace {
+			// More effective keyspace needs to be dispatched
+			return false, nil
+		} else if totalKeyspace != nil && *totalKeyspace > 0 && dispatchedKeyspace < *totalKeyspace {
+			// Fallback: check against total_keyspace
 			return false, nil
 		}
 	}

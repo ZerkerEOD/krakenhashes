@@ -56,6 +56,26 @@ func (r *JobTaskRepository) GetTotalCracksForJob(ctx context.Context, jobExecuti
 	return totalCracks, nil
 }
 
+// GetSumChunkActualKeyspace returns the sum of chunk_actual_keyspace for completed/processing tasks.
+// This represents the actual work performed by completed tasks, used for keyspace reconciliation
+// at job completion to ensure effective_keyspace matches actual work done.
+func (r *JobTaskRepository) GetSumChunkActualKeyspace(ctx context.Context, jobExecutionID uuid.UUID) (int64, error) {
+	query := `
+		SELECT COALESCE(SUM(chunk_actual_keyspace), 0)
+		FROM job_tasks
+		WHERE job_execution_id = $1
+		  AND chunk_actual_keyspace IS NOT NULL
+		  AND status IN ('completed', 'processing')`
+
+	var totalKeyspace int64
+	err := r.db.QueryRowContext(ctx, query, jobExecutionID).Scan(&totalKeyspace)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get sum of chunk actual keyspace: %w", err)
+	}
+
+	return totalKeyspace, nil
+}
+
 // Create creates a new job task
 func (r *JobTaskRepository) Create(ctx context.Context, task *models.JobTask) error {
 	query := `

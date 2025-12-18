@@ -335,6 +335,9 @@ func (s *JobCleanupService) checkForStaleTasks(ctx context.Context) {
 	for jobID := range affectedJobs {
 		s.checkJobForPendingTransition(ctx, jobID)
 	}
+
+	// Run stuck job reconciliation as a safety net
+	s.reconcileStuckJobs(ctx)
 }
 
 // checkJobForPendingTransition checks if a job should be transitioned to pending
@@ -371,16 +374,13 @@ func (s *JobCleanupService) checkJobForPendingTransition(ctx context.Context, jo
 			// Check if job has remaining keyspace to process
 			hasRemainingWork := false
 
-			// For jobs with effective keyspace, check if it's been fully dispatched
-			// Note: DispatchedKeyspace now stores proportional effective keyspace for keyspace-split tasks
+			// Check if all work has been dispatched using effective_keyspace comparison
+			// Note: base_keyspace is wordlist size (different dimension) and should NOT
+			// be compared with dispatched_keyspace (which is in effective units)
 			if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
 				hasRemainingWork = job.DispatchedKeyspace < *job.EffectiveKeyspace
-			} else if job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
-				// Fallback for jobs that haven't received effective keyspace yet
-				// This ensures keyspace-split jobs don't complete prematurely
-				hasRemainingWork = job.DispatchedKeyspace < *job.BaseKeyspace
 			} else if job.TotalKeyspace != nil && *job.TotalKeyspace > 0 {
-				// Legacy fallback for older jobs
+				// Fallback for jobs without effective_keyspace
 				hasRemainingWork = job.ProcessedKeyspace < *job.TotalKeyspace
 			}
 
@@ -416,6 +416,144 @@ func (s *JobCleanupService) checkJobForPendingTransition(ctx context.Context, jo
 			}
 		}
 	}
+}
+
+// reconcileStuckJobs uses structural checks to identify and complete jobs that are stuck.
+// This is a safety net that catches jobs where effective_keyspace drifted from potfile/wordlist updates.
+func (s *JobCleanupService) reconcileStuckJobs(ctx context.Context) {
+	// Find jobs that haven't been updated in 5+ minutes with no active tasks
+	stuckJobs, err := s.jobExecutionRepo.GetPotentiallyStuckJobs(ctx, 5)
+	if err != nil {
+		debug.Log("Failed to get potentially stuck jobs", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	if len(stuckJobs) == 0 {
+		return
+	}
+
+	debug.Log("Found potentially stuck jobs for reconciliation", map[string]interface{}{
+		"count": len(stuckJobs),
+	})
+
+	for _, job := range stuckJobs {
+		// Skip if job is already completed
+		if job.Status == models.JobExecutionStatusCompleted {
+			continue
+		}
+
+		// First verify all tasks are truly complete (double-check the repository query)
+		allComplete, err := s.jobTaskRepo.AreAllTasksComplete(ctx, job.ID)
+		if err != nil {
+			debug.Log("Failed to check task completion for stuck job", map[string]interface{}{
+				"job_id": job.ID,
+				"error":  err.Error(),
+			})
+			continue
+		}
+
+		if !allComplete {
+			// Job has remaining work to dispatch, transition to pending
+			if job.Status == models.JobExecutionStatusRunning {
+				err = s.jobExecutionRepo.UpdateStatus(ctx, job.ID, models.JobExecutionStatusPending)
+				if err == nil {
+					debug.Log("Transitioned stuck job to pending - has remaining work", map[string]interface{}{
+						"job_id": job.ID,
+						"name":   job.Name,
+					})
+				}
+			}
+			continue
+		}
+
+		// All tasks complete AND structural checks pass - use structural completion logic
+		shouldComplete := s.shouldJobCompleteStructural(ctx, &job)
+
+		if shouldComplete {
+			// Sync keyspace before completing
+			actualKeyspace, err := s.jobTaskRepo.GetSumChunkActualKeyspace(ctx, job.ID)
+			if err == nil && actualKeyspace > 0 {
+				if job.EffectiveKeyspace == nil || *job.EffectiveKeyspace != actualKeyspace {
+					s.jobExecutionRepo.UpdateEffectiveKeyspace(ctx, job.ID, actualKeyspace)
+					s.jobExecutionRepo.UpdateDispatchedKeyspace(ctx, job.ID, actualKeyspace)
+					debug.Log("Synced keyspace for stuck job before completion", map[string]interface{}{
+						"job_id":          job.ID,
+						"actual_keyspace": actualKeyspace,
+					})
+				}
+			}
+
+			// Mark job as complete
+			err = s.jobExecutionRepo.CompleteExecution(ctx, job.ID)
+			if err != nil {
+				debug.Log("Failed to complete stuck job", map[string]interface{}{
+					"job_id": job.ID,
+					"error":  err.Error(),
+				})
+				continue
+			}
+
+			debug.Log("Reconciliation completed stuck job via structural check", map[string]interface{}{
+				"job_id":            job.ID,
+				"name":              job.Name,
+				"uses_rule_split":   job.UsesRuleSplitting,
+				"base_keyspace":     job.BaseKeyspace,
+				"effective_keyspace": job.EffectiveKeyspace,
+			})
+		} else {
+			// Structural check says more work needed but all tasks are complete
+			// This shouldn't happen normally - transition to pending for investigation
+			if job.Status == models.JobExecutionStatusRunning {
+				err = s.jobExecutionRepo.UpdateStatus(ctx, job.ID, models.JobExecutionStatusPending)
+				if err == nil {
+					debug.Warning("Stuck job has all tasks complete but structural check failed - transitioned to pending for investigation",
+						map[string]interface{}{
+							"job_id":          job.ID,
+							"name":            job.Name,
+							"base_keyspace":   job.BaseKeyspace,
+							"dispatched":      job.DispatchedKeyspace,
+						})
+				}
+			}
+		}
+	}
+}
+
+// shouldJobCompleteStructural performs structural checks to determine if a job should be marked complete.
+// This is called after AreAllTasksComplete() returns true, so dispatch validation is already done.
+// We only need additional checks for rule-split jobs.
+func (s *JobCleanupService) shouldJobCompleteStructural(ctx context.Context, job *models.JobExecution) bool {
+	// For increment mode jobs, rely on AreAllTasksComplete which handles increment layers
+	if job.IncrementMode != "" && job.IncrementMode != "off" {
+		return true
+	}
+
+	// For rule-split jobs, check if all rule chunks have been processed
+	if job.UsesRuleSplitting {
+		maxRuleEnd, err := s.jobTaskRepo.GetMaxRuleEndIndex(ctx, job.ID)
+		if err != nil {
+			debug.Log("Failed to get max rule end index", map[string]interface{}{
+				"job_id": job.ID,
+				"error":  err.Error(),
+			})
+			return false
+		}
+
+		if job.MultiplicationFactor > 0 {
+			if maxRuleEnd == nil || *maxRuleEnd < job.MultiplicationFactor {
+				return false // More rule chunks needed
+			}
+		}
+		return true
+	}
+
+	// For non-rule-split jobs, AreAllTasksComplete() already validates dispatch
+	// using effective_keyspace comparison. No additional structural check needed.
+	// Note: We intentionally do NOT compare base_keyspace here because base_keyspace
+	// (wordlist size) and effective_keyspace (total candidates) are different dimensions.
+	return true
 }
 
 // checkForOrphanedRunningJobs finds and fixes jobs stuck in running with no active tasks
