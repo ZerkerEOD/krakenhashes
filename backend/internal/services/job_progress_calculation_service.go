@@ -282,11 +282,17 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 
 	for _, task := range tasks {
 		// Calculate processed keyspace
-		// For keyspace-split tasks, KeyspaceProcessed storage is INCONSISTENT:
-		// - COMPLETED tasks: relative (chunk size)
-		// - RUNNING tasks: absolute (restore_point from hashcat)
-		// We detect absolute values by checking if KeyspaceProcessed >= KeyspaceStart
-		if isKeyspaceSplitJob {
+		// PRIORITY: Use effective_keyspace_processed when available (most accurate from hashcat)
+		// FALLBACK: For keyspace-split jobs without effective values, estimate using multiplier
+		if task.EffectiveKeyspaceProcessed != nil && *task.EffectiveKeyspaceProcessed > 0 {
+			// Use effective keyspace directly - this is the actual value reported by hashcat
+			processedKeyspace += *task.EffectiveKeyspaceProcessed
+		} else if isKeyspaceSplitJob {
+			// Fallback for keyspace-split tasks without effective values
+			// For keyspace-split tasks, KeyspaceProcessed storage is INCONSISTENT:
+			// - COMPLETED tasks: relative (chunk size)
+			// - RUNNING tasks: absolute (restore_point from hashcat)
+			// We detect absolute values by checking if KeyspaceProcessed >= KeyspaceStart
 			var relativeProcessed int64
 			// Check if keyspace_processed is absolute (for running tasks with keyspace splits)
 			// Absolute values are >= keyspace_start when keyspace_start > 0
@@ -298,9 +304,6 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 				relativeProcessed = task.KeyspaceProcessed
 			}
 			processedKeyspace += int64(float64(relativeProcessed) * multiplier)
-		} else if task.EffectiveKeyspaceProcessed != nil && *task.EffectiveKeyspaceProcessed > 0 {
-			// Non-keyspace-split task: use effective keyspace directly
-			processedKeyspace += *task.EffectiveKeyspaceProcessed
 		} else {
 			// Fallback to regular keyspace processed
 			processedKeyspace += task.KeyspaceProcessed
@@ -309,15 +312,18 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 		// Calculate dispatched keyspace for ALL tasks with defined ranges
 		// This includes pending, failed, and cancelled tasks because "dispatched"
 		// means work was allocated, showing total coverage (including gaps)
-		if isKeyspaceSplitJob {
-			// Keyspace-split task: calculate base chunk × multiplier for consistency
+		// PRIORITY: Use effective keyspace range when available
+		// FALLBACK: For keyspace-split jobs, estimate using multiplier
+		if task.EffectiveKeyspaceStart != nil && task.EffectiveKeyspaceEnd != nil {
+			// Use effective keyspace range if available (from hashcat or estimates)
+			dispatchedKeyspace += (*task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart)
+		} else if isKeyspaceSplitJob {
+			// Fallback: Keyspace-split task without effective values
+			// Calculate base chunk × multiplier for consistency
 			chunkSize := task.KeyspaceEnd - task.KeyspaceStart
 			if chunkSize > 0 {
 				dispatchedKeyspace += int64(float64(chunkSize) * multiplier)
 			}
-		} else if task.EffectiveKeyspaceStart != nil && task.EffectiveKeyspaceEnd != nil {
-			// Use effective keyspace range if available (from hashcat or estimates)
-			dispatchedKeyspace += (*task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart)
 		} else if task.KeyspaceEnd > task.KeyspaceStart {
 			// Fallback to regular keyspace range for tasks without effective keyspace
 			dispatchedKeyspace += (task.KeyspaceEnd - task.KeyspaceStart)
@@ -557,7 +563,7 @@ func (s *JobProgressCalculationService) checkJobsForCompletion(ctx context.Conte
 }
 
 // shouldJobComplete performs structural checks to determine if a job should be marked complete.
-// Uses task ranges (stable) rather than counter comparisons (can drift).
+// This is called after AreAllTasksComplete() returns true, so dispatch validation is already done.
 func (s *JobProgressCalculationService) shouldJobComplete(ctx context.Context, job *models.JobExecution) bool {
 	// For increment mode, check layer status
 	if job.IncrementMode != "" && job.IncrementMode != "off" {
@@ -582,15 +588,9 @@ func (s *JobProgressCalculationService) shouldJobComplete(ctx context.Context, j
 		return maxRuleEnd != nil && *maxRuleEnd >= job.MultiplicationFactor
 	}
 
-	// For keyspace-split jobs, check task ranges cover base_keyspace
-	if job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
-		maxEnd, err := s.jobTaskRepo.GetMaxKeyspaceEnd(ctx, job.ID)
-		if err != nil {
-			return false
-		}
-		return maxEnd >= *job.BaseKeyspace
-	}
-
-	// Fallback: all tasks complete means job complete
+	// For non-rule-split jobs, AreAllTasksComplete() already validates dispatch
+	// using effective_keyspace comparison. No additional structural check needed.
+	// Note: We intentionally do NOT compare base_keyspace here because base_keyspace
+	// (wordlist size) and effective_keyspace (total candidates) are different dimensions.
 	return true
 }

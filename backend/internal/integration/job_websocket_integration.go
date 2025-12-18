@@ -1133,6 +1133,23 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 				debug.Info("Set job %s progress to 100%% on AllHashesCracked (status code 6)", task.JobExecutionID)
 			}
 
+			// Part 18j: Sync effective_keyspace to match processed_keyspace for 100% display
+			// When all hashes are cracked early, the job didn't process the full keyspace.
+			// To ensure progress shows 100%, set effective_keyspace = processed_keyspace.
+			currentJob, jobErr := jobExecRepo.GetByID(ctx, task.JobExecutionID)
+			if jobErr == nil && currentJob.ProcessedKeyspace > 0 {
+				if err := jobExecRepo.UpdateEffectiveKeyspace(ctx, task.JobExecutionID, currentJob.ProcessedKeyspace); err != nil {
+					debug.Warning("Failed to sync effective_keyspace on AllHashesCracked: %v", err)
+				} else {
+					debug.Info("Synced effective_keyspace to processed_keyspace (%d) for 100%% display on AllHashesCracked",
+						currentJob.ProcessedKeyspace)
+				}
+				// Also sync dispatched_keyspace
+				if err := jobExecRepo.UpdateDispatchedKeyspace(ctx, task.JobExecutionID, currentJob.ProcessedKeyspace); err != nil {
+					debug.Warning("Failed to sync dispatched_keyspace on AllHashesCracked: %v", err)
+				}
+			}
+
 			// Part 18f: ALWAYS trigger HandleHashlistFullyCracked BEFORE the early return
 			// This ensures all jobs on the hashlist are handled even when we return early
 			// for processing mode (waiting for crack batches)

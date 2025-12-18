@@ -2033,6 +2033,38 @@ func (s *JobSchedulingService) ProcessJobCompletion(ctx context.Context, jobExec
 		return fmt.Errorf("failed to get job execution: %w", err)
 	}
 
+	// Check if already completed to avoid redundant updates
+	if job.Status == models.JobExecutionStatusCompleted {
+		debug.Log("Job already completed, skipping", map[string]interface{}{
+			"job_id": jobExecutionID,
+		})
+		return nil
+	}
+
+	// CODE 6 EARLY COMPLETION: Check if job progress is 100% AND hashlist is fully cracked.
+	// - Progress 100% is set by the AllHashesCracked handler (code 6 from hashcat)
+	// - Hashlist check confirms all hashes are actually cracked (cracks recorded to DB)
+	// When both conditions are met, complete immediately without keyspace checks.
+	if job.OverallProgressPercent >= 100.0 {
+		// Verify hashlist is fully cracked before bypassing keyspace checks
+		hashlist, hashlistErr := s.jobExecutionService.hashlistRepo.GetByID(ctx, job.HashlistID)
+		if hashlistErr == nil && hashlist.TotalHashes > 0 && hashlist.CrackedHashes >= hashlist.TotalHashes {
+			// All hashes cracked - complete the job without keyspace validation
+			err = s.jobExecutionService.CompleteJobExecution(ctx, jobExecutionID)
+			if err != nil {
+				return fmt.Errorf("failed to complete job execution (code 6 - all hashes cracked): %w", err)
+			}
+			debug.Log("Job completed via code 6 path (100% progress + hashlist fully cracked)", map[string]interface{}{
+				"job_execution_id": jobExecutionID,
+				"progress_percent": job.OverallProgressPercent,
+				"hashlist_id":      job.HashlistID,
+			})
+			return nil
+		}
+		// Hashlist not fully cracked yet or error - fall through to normal checks
+		// This handles race conditions where cracks haven't been recorded yet
+	}
+
 	// Check if all tasks for this job are completed
 	incompleteTasks, err := s.jobExecutionService.jobTaskRepo.GetIncompleteTasksCount(ctx, jobExecutionID)
 	if err != nil {
@@ -2119,31 +2151,15 @@ func (s *JobSchedulingService) ProcessJobCompletion(ctx context.Context, jobExec
 	}
 
 	if incompleteTasks == 0 {
-		// For non-rule-splitting jobs, use STRUCTURAL check to verify all work is dispatched.
-		// We check max(keyspace_end) against base_keyspace as the PRIMARY check instead of
-		// comparing counters, because effective_keyspace can drift due to wordlist/potfile
-		// updates after dispatch. This prevents jobs from getting stuck.
+		// For non-rule-splitting jobs, check if all work has been dispatched
+		// using counter comparison. We use effective_keyspace as the target
+		// since that represents the actual total candidates to process.
+		// Note: base_keyspace is the wordlist size (different dimension) and
+		// should NOT be used for completion comparison.
 		if !job.UsesRuleSplitting {
-			// PRIMARY CHECK: Use base_keyspace (stable) - verify task ranges cover full keyspace
-			if job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
-				maxBaseDispatched, err := s.jobTaskRepo.GetMaxKeyspaceEnd(ctx, jobExecutionID)
-				if err != nil {
-					return fmt.Errorf("failed to get max keyspace end: %w", err)
-				}
-				if maxBaseDispatched < *job.BaseKeyspace {
-					debug.Log("Job has work remaining - structural check (base_keyspace)", map[string]interface{}{
-						"job_id":           jobExecutionID,
-						"base_keyspace":    *job.BaseKeyspace,
-						"max_keyspace_end": maxBaseDispatched,
-						"remaining":        *job.BaseKeyspace - maxBaseDispatched,
-					})
-					return nil // Don't complete - more keyspace chunks needed
-				}
-				// Structural check passed - base_keyspace is fully covered by task ranges
-			} else if job.EffectiveKeyspace != nil && job.DispatchedKeyspace < *job.EffectiveKeyspace {
-				// FALLBACK: Counter comparison for jobs without base_keyspace
-				// This is less reliable but necessary for backwards compatibility
-				debug.Log("Job not complete - counter check (no base_keyspace)", map[string]interface{}{
+			if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 && job.DispatchedKeyspace < *job.EffectiveKeyspace {
+				// More effective keyspace needs to be dispatched
+				debug.Log("Job not complete - effective_keyspace check", map[string]interface{}{
 					"job_id":              jobExecutionID,
 					"effective_keyspace":  *job.EffectiveKeyspace,
 					"dispatched_keyspace": job.DispatchedKeyspace,
@@ -2151,9 +2167,9 @@ func (s *JobSchedulingService) ProcessJobCompletion(ctx context.Context, jobExec
 					"percentage":          float64(job.DispatchedKeyspace) / float64(*job.EffectiveKeyspace) * 100,
 				})
 				return nil // Don't complete yet
-			} else if job.TotalKeyspace != nil && job.DispatchedKeyspace < *job.TotalKeyspace {
-				// Final fallback for jobs without EffectiveKeyspace
-				debug.Log("Job not complete - counter check (total_keyspace)", map[string]interface{}{
+			} else if job.TotalKeyspace != nil && *job.TotalKeyspace > 0 && job.DispatchedKeyspace < *job.TotalKeyspace {
+				// Fallback: check against total_keyspace
+				debug.Log("Job not complete - total_keyspace check", map[string]interface{}{
 					"job_id":              jobExecutionID,
 					"total_keyspace":      *job.TotalKeyspace,
 					"dispatched_keyspace": job.DispatchedKeyspace,

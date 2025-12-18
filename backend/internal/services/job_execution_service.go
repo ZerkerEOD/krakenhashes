@@ -1361,6 +1361,30 @@ func (s *JobExecutionService) CompleteJobExecution(ctx context.Context, jobExecu
 		}
 	}
 
+	// EARLY COMPLETION SYNC: When all hashes are cracked before full keyspace is processed,
+	// the job completes "early" (e.g., hashcat code 6). In this case, effective_keyspace equals
+	// the full assigned keyspace (chunk_actual_keyspace), but processed_keyspace is much smaller.
+	// For correct 100% progress display, we must sync effective_keyspace DOWN to processed_keyspace.
+	// This runs AFTER the above sync to ensure we capture the final state.
+	{
+		job, err := s.jobExecRepo.GetByID(ctx, jobExecutionID)
+		if err == nil && job.ProcessedKeyspace > 0 {
+			if job.EffectiveKeyspace != nil && job.ProcessedKeyspace < *job.EffectiveKeyspace {
+				oldEffective := *job.EffectiveKeyspace
+				// Job completed early - sync effective to processed for 100% display
+				if updateErr := s.jobExecRepo.UpdateEffectiveKeyspace(ctx, jobExecutionID, job.ProcessedKeyspace); updateErr != nil {
+					debug.Error("Failed to sync effective_keyspace for early completion: %v", updateErr)
+				} else {
+					debug.Info("Synced effective_keyspace for early completion: %d -> %d", oldEffective, job.ProcessedKeyspace)
+				}
+				// Also sync dispatched_keyspace to match
+				if updateErr := s.jobExecRepo.UpdateDispatchedKeyspace(ctx, jobExecutionID, job.ProcessedKeyspace); updateErr != nil {
+					debug.Error("Failed to sync dispatched_keyspace for early completion: %v", updateErr)
+				}
+			}
+		}
+	}
+
 	// Mark the job as completed
 	err = s.jobExecRepo.CompleteExecution(ctx, jobExecutionID)
 	if err != nil {

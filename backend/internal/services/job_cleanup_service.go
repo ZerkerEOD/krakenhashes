@@ -374,16 +374,13 @@ func (s *JobCleanupService) checkJobForPendingTransition(ctx context.Context, jo
 			// Check if job has remaining keyspace to process
 			hasRemainingWork := false
 
-			// For jobs with effective keyspace, check if it's been fully dispatched
-			// Note: DispatchedKeyspace now stores proportional effective keyspace for keyspace-split tasks
+			// Check if all work has been dispatched using effective_keyspace comparison
+			// Note: base_keyspace is wordlist size (different dimension) and should NOT
+			// be compared with dispatched_keyspace (which is in effective units)
 			if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
 				hasRemainingWork = job.DispatchedKeyspace < *job.EffectiveKeyspace
-			} else if job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
-				// Fallback for jobs that haven't received effective keyspace yet
-				// This ensures keyspace-split jobs don't complete prematurely
-				hasRemainingWork = job.DispatchedKeyspace < *job.BaseKeyspace
 			} else if job.TotalKeyspace != nil && *job.TotalKeyspace > 0 {
-				// Legacy fallback for older jobs
+				// Fallback for jobs without effective_keyspace
 				hasRemainingWork = job.ProcessedKeyspace < *job.TotalKeyspace
 			}
 
@@ -525,12 +522,11 @@ func (s *JobCleanupService) reconcileStuckJobs(ctx context.Context) {
 }
 
 // shouldJobCompleteStructural performs structural checks to determine if a job should be marked complete.
-// Uses task ranges vs base_keyspace (stable) instead of counter comparisons (can drift).
+// This is called after AreAllTasksComplete() returns true, so dispatch validation is already done.
+// We only need additional checks for rule-split jobs.
 func (s *JobCleanupService) shouldJobCompleteStructural(ctx context.Context, job *models.JobExecution) bool {
-	// For increment mode jobs, check if all layers are complete
+	// For increment mode jobs, rely on AreAllTasksComplete which handles increment layers
 	if job.IncrementMode != "" && job.IncrementMode != "off" {
-		// TODO: Check increment layer status if needed
-		// For now, rely on AreAllTasksComplete which handles increment layers
 		return true
 	}
 
@@ -553,24 +549,10 @@ func (s *JobCleanupService) shouldJobCompleteStructural(ctx context.Context, job
 		return true
 	}
 
-	// For keyspace-split jobs, use structural check: max(keyspace_end) >= base_keyspace
-	if job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
-		maxKeyspaceEnd, err := s.jobTaskRepo.GetMaxKeyspaceEnd(ctx, job.ID)
-		if err != nil {
-			debug.Log("Failed to get max keyspace end", map[string]interface{}{
-				"job_id": job.ID,
-				"error":  err.Error(),
-			})
-			return false
-		}
-
-		if maxKeyspaceEnd < *job.BaseKeyspace {
-			return false // More keyspace chunks needed
-		}
-		return true
-	}
-
-	// Fallback: If all tasks are complete and no structural check fails, consider complete
+	// For non-rule-split jobs, AreAllTasksComplete() already validates dispatch
+	// using effective_keyspace comparison. No additional structural check needed.
+	// Note: We intentionally do NOT compare base_keyspace here because base_keyspace
+	// (wordlist size) and effective_keyspace (total candidates) are different dimensions.
 	return true
 }
 
