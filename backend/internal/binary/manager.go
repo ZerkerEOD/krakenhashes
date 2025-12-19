@@ -144,6 +144,67 @@ func (m *manager) AddVersion(ctx context.Context, version *BinaryVersion) error 
 	return nil
 }
 
+// AddVersionFromUpload implements Manager.AddVersionFromUpload
+// It handles binary uploads by saving the file directly instead of downloading from URL
+func (m *manager) AddVersionFromUpload(ctx context.Context, version *BinaryVersion, file io.Reader, fileSize int64) error {
+	// Set upload-specific defaults
+	version.SourceType = SourceTypeUpload
+	version.VerificationStatus = VerificationStatusPending
+	version.IsActive = true
+
+	// Create version record to get ID
+	if err := m.store.CreateVersion(ctx, version); err != nil {
+		return fmt.Errorf("failed to create version record: %w", err)
+	}
+
+	// Create directory: binaries/{id}/
+	binaryDir := filepath.Join(m.config.DataDir, fmt.Sprintf("%d", version.ID))
+	if err := os.MkdirAll(binaryDir, 0750); err != nil {
+		return fmt.Errorf("failed to create binary directory: %w", err)
+	}
+
+	// Save file and calculate MD5 hash
+	destPath := filepath.Join(binaryDir, version.FileName)
+	hash := md5.New()
+	destFile, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY, 0750)
+	if err != nil {
+		return fmt.Errorf("failed to create binary file: %w", err)
+	}
+
+	// Write to both file and hash calculator
+	written, err := io.Copy(io.MultiWriter(destFile, hash), file)
+	destFile.Close() // Close before checking error to ensure data is flushed
+	if err != nil {
+		os.Remove(destPath) // Clean up on error
+		return fmt.Errorf("failed to save binary file: %w", err)
+	}
+
+	// Update version with hash and size
+	version.MD5Hash = hex.EncodeToString(hash.Sum(nil))
+	version.FileSize = written
+	version.VerificationStatus = VerificationStatusVerified
+	now := time.Now()
+	version.LastVerifiedAt = &now
+
+	// Update database record with hash and file size
+	if err := m.store.UpdateVersion(ctx, version); err != nil {
+		os.Remove(destPath) // Clean up on error
+		return fmt.Errorf("failed to update version record: %w", err)
+	}
+
+	// Extract the binary for server-side use
+	if err := m.ExtractBinary(ctx, version.ID); err != nil {
+		debug.Warning("Failed to extract binary version %d: %v", version.ID, err)
+		// Don't fail the entire operation if extraction fails
+		// It can be extracted on-demand when needed
+	} else {
+		debug.Info("Successfully extracted binary version %d", version.ID)
+	}
+
+	debug.Info("Successfully uploaded and verified binary version %d with hash %s", version.ID, version.MD5Hash)
+	return nil
+}
+
 // GetVersion implements Manager.GetVersion
 func (m *manager) GetVersion(ctx context.Context, id int64) (*BinaryVersion, error) {
 	return m.store.GetVersion(ctx, id)

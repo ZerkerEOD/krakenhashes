@@ -4,27 +4,29 @@ package queries
 const (
 	CreateBinaryVersion = `
 		INSERT INTO binary_versions (
-			binary_type, compression_type, source_url, 
-			file_name, md5_hash, file_size, created_by, is_active, 
-			verification_status, is_default
+			binary_type, compression_type, source_url,
+			file_name, md5_hash, file_size, created_by, is_active,
+			verification_status, is_default, source_type, description, version
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
 		) RETURNING id, created_at`
 
 	GetBinaryVersion = `
-		SELECT 
+		SELECT
 			id, binary_type, compression_type, source_url,
 			file_name, md5_hash, file_size, created_at, created_by,
-			is_active, is_default, last_verified_at, verification_status
-		FROM binary_versions 
+			is_active, is_default, last_verified_at, verification_status,
+			source_type, description, version
+		FROM binary_versions
 		WHERE id = $1`
 
 	ListBinaryVersionsBase = `
-		SELECT 
+		SELECT
 			id, binary_type, compression_type, source_url,
 			file_name, md5_hash, file_size, created_at, created_by,
-			is_active, is_default, last_verified_at, verification_status
-		FROM binary_versions 
+			is_active, is_default, last_verified_at, verification_status,
+			source_type, description, version
+		FROM binary_versions
 		WHERE 1=1`
 
 	UpdateBinaryVersion = `
@@ -38,8 +40,11 @@ const (
 			is_active = $7,
 			is_default = $8,
 			last_verified_at = $9,
-			verification_status = $10
-		WHERE id = $11`
+			verification_status = $10,
+			source_type = $11,
+			description = $12,
+			version = $13
+		WHERE id = $14`
 
 	DeleteBinaryVersion = `
 		UPDATE binary_versions SET
@@ -47,15 +52,16 @@ const (
 		WHERE id = $1`
 
 	GetLatestActiveBinaryVersion = `
-		SELECT 
+		SELECT
 			id, binary_type, compression_type, source_url,
 			file_name, md5_hash, file_size, created_at, created_by,
-			is_active, is_default, last_verified_at, verification_status
-		FROM binary_versions 
-		WHERE binary_type = $1 
-		AND is_active = true 
+			is_active, is_default, last_verified_at, verification_status,
+			source_type, description, version
+		FROM binary_versions
+		WHERE binary_type = $1
+		AND is_active = true
 		AND verification_status = 'verified'
-		ORDER BY created_at DESC 
+		ORDER BY created_at DESC
 		LIMIT 1`
 
 	CreateBinaryAuditLog = `
@@ -75,13 +81,14 @@ const (
 		AND is_active = true`
 
 	GetDefaultBinaryVersion = `
-		SELECT 
+		SELECT
 			id, binary_type, compression_type, source_url,
 			file_name, md5_hash, file_size, created_at, created_by,
-			is_active, is_default, last_verified_at, verification_status
-		FROM binary_versions 
-		WHERE binary_type = $1 
-		AND is_default = true 
+			is_active, is_default, last_verified_at, verification_status,
+			source_type, description, version
+		FROM binary_versions
+		WHERE binary_type = $1
+		AND is_default = true
 		AND is_active = true`
 
 	CountActiveBinaries = `

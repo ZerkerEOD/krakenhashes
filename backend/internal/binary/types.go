@@ -2,6 +2,7 @@ package binary
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/google/uuid"
@@ -35,6 +36,14 @@ const (
 	VerificationStatusDeleted  VerificationStatus = "deleted"
 )
 
+// SourceType represents where the binary came from
+type SourceType string
+
+const (
+	SourceTypeURL    SourceType = "url"
+	SourceTypeUpload SourceType = "upload"
+)
+
 // BinaryVersion represents a stored binary version
 type BinaryVersion struct {
 	ID                 int64              `json:"id" db:"id"`
@@ -50,6 +59,9 @@ type BinaryVersion struct {
 	IsDefault          bool               `json:"is_default" db:"is_default"`
 	LastVerifiedAt     *time.Time         `json:"last_verified_at" db:"last_verified_at"`
 	VerificationStatus VerificationStatus `json:"verification_status" db:"verification_status"`
+	SourceType         SourceType         `json:"source_type" db:"source_type"`
+	Description        *string            `json:"description,omitempty" db:"description"`
+	Version            *string            `json:"version,omitempty" db:"version"`
 }
 
 // BinaryAuditLog represents an audit log entry for binary operations
@@ -96,6 +108,9 @@ type Manager interface {
 
 	// GetLocalBinaryPath returns the path to the extracted binary for server-side execution
 	GetLocalBinaryPath(ctx context.Context, id int64) (string, error)
+
+	// AddVersionFromUpload adds a new binary version from a direct file upload
+	AddVersionFromUpload(ctx context.Context, version *BinaryVersion, file io.Reader, fileSize int64) error
 }
 
 // Store defines the interface for binary version storage operations
