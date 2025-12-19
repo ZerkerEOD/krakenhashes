@@ -2332,11 +2332,29 @@ func (s *JobExecutionService) HandleTaskCompletion(ctx context.Context, taskID u
 	}
 
 	if allTasksComplete {
-		// For increment jobs, check if more layers need processing before marking complete
+		// Get job to check current status
 		job, err := s.jobExecRepo.GetByID(ctx, task.JobExecutionID)
 		if err != nil {
 			debug.Error("Failed to get job for completion check: %v", err)
-		} else if job.IncrementMode != "" && job.IncrementMode != "off" {
+			return nil
+		}
+
+		// Don't overwrite failed/cancelled status with completed
+		// This preserves the failed status set when a task fails
+		if job.Status == models.JobExecutionStatusFailed || job.Status == models.JobExecutionStatusCancelled {
+			debug.Log("Job already in terminal state - skipping completion", map[string]interface{}{
+				"job_id": task.JobExecutionID,
+				"status": job.Status,
+			})
+			// Still run cleanup for resources
+			if err := s.CleanupJobResources(ctx, task.JobExecutionID); err != nil {
+				debug.Error("Failed to cleanup job resources: %v", err)
+			}
+			return nil
+		}
+
+		// For increment jobs, check if more layers need processing before marking complete
+		if job.IncrementMode != "" && job.IncrementMode != "off" {
 			// Check if there are pending increment layers
 			hasPendingLayers, err := s.jobIncrementLayerRepo.HasPendingLayers(ctx, task.JobExecutionID)
 			if err != nil {
@@ -2349,7 +2367,7 @@ func (s *JobExecutionService) HandleTaskCompletion(ctx context.Context, taskID u
 			}
 		}
 
-		// Mark job as completed (only if no pending layers or not increment job)
+		// Mark job as completed (only if not failed/cancelled and no pending layers)
 		if err := s.jobExecRepo.CompleteExecution(ctx, task.JobExecutionID); err != nil {
 			debug.Error("Failed to mark job as completed: %v", err)
 			// Don't fail the task completion, but log the error
