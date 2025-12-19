@@ -918,22 +918,26 @@ Settings for job executions (added in migration 21).
 
 ### binary_versions
 
-Stores information about different versions of hash cracking binaries.
+Stores information about different versions of hash cracking binaries. Supports both URL downloads and direct uploads.
 
 | Column | Type | Constraints | Default | Description |
 |--------|------|-------------|---------|-------------|
 | id | SERIAL | PRIMARY KEY | | Version ID |
 | binary_type | binary_type | NOT NULL | | Type: hashcat, john |
 | compression_type | compression_type | NOT NULL | | Compression: 7z, zip, tar.gz, tar.xz |
-| source_url | TEXT | NOT NULL | | Download URL |
+| source_type | VARCHAR(50) | NOT NULL | 'url' | Source type: 'url' or 'upload' |
+| source_url | TEXT | | | Download URL (NULL for uploads) |
 | file_name | VARCHAR(255) | NOT NULL | | File name |
 | md5_hash | VARCHAR(32) | NOT NULL | | MD5 hash |
 | file_size | BIGINT | NOT NULL | | File size in bytes |
+| version | VARCHAR(100) | | | Version string (e.g., "6.2.6", "7.1.2+338") |
+| description | TEXT | | | Human-readable description |
 | created_at | TIMESTAMP WITH TIME ZONE | | CURRENT_TIMESTAMP | Creation time |
 | created_by | UUID | NOT NULL, FK → users(id) | | Creator user |
 | is_active | BOOLEAN | | true | Active status |
+| is_default | BOOLEAN | | false | Whether this is the default version |
 | last_verified_at | TIMESTAMP WITH TIME ZONE | | | Last verification time |
-| verification_status | VARCHAR(50) | | 'pending' | Status: pending, verified, failed |
+| verification_status | VARCHAR(50) | | 'pending' | Status: pending, verified, failed, deleted |
 
 **Indexes:**
 - idx_binary_versions_type_active (binary_type) WHERE is_active = true

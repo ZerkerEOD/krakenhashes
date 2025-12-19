@@ -40,9 +40,11 @@ Supported compression formats:
 
 ## Uploading New Binaries
 
-### Via Admin API
+KrakenHashes supports two methods for adding binaries: downloading from a URL or direct file upload.
 
-To add a new binary version, use the admin API endpoint:
+### Via URL Download
+
+To add a new binary version by downloading from a URL, use the admin API endpoint:
 
 ```http
 POST /api/admin/binary
@@ -53,7 +55,9 @@ Content-Type: application/json
   "binary_type": "hashcat",
   "compression_type": "7z",
   "source_url": "https://github.com/hashcat/hashcat/releases/download/v6.2.6/hashcat-6.2.6.7z",
-  "file_name": "hashcat-6.2.6.7z"
+  "file_name": "hashcat-6.2.6.7z",
+  "version": "6.2.6",
+  "description": "Official hashcat 6.2.6 release"
 }
 ```
 
@@ -63,6 +67,43 @@ The system will:
 3. Verify the download integrity
 4. Extract the binary for server-side use
 5. Mark the version as active and verified
+
+### Via Direct Upload
+
+For custom-compiled binaries or when URL download isn't available, use the multipart upload endpoint:
+
+```http
+POST /api/admin/binary/upload
+Authorization: Bearer <admin_token>
+Content-Type: multipart/form-data
+
+binary_type: hashcat
+compression_type: 7z
+version: 7.1.2+338
+description: Custom build with additional patches
+file: <binary_archive_file>
+```
+
+**Form fields:**
+| Field | Required | Description |
+|-------|----------|-------------|
+| `file` | Yes | The binary archive file |
+| `binary_type` | Yes | Type of binary (hashcat, john) |
+| `compression_type` | Yes | Archive format (7z, zip, tar.gz, tar.xz) |
+| `version` | No | Version string for identification |
+| `description` | No | Human-readable description |
+
+The system will:
+1. Receive and store the uploaded file
+2. Calculate and store the MD5 hash
+3. Extract the binary for server-side use
+4. Mark the version as active and verified
+
+**Use cases for direct upload:**
+- Custom-compiled hashcat builds with specific optimizations
+- Pre-release or beta versions not yet on GitHub
+- Patched versions for specific hardware compatibility
+- Internal builds with custom modifications
 
 ### Upload Process
 
@@ -80,20 +121,24 @@ When a binary is uploaded:
 
 Binary versions are tracked in the `binary_versions` table with the following fields:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | SERIAL | Unique version identifier |
-| `binary_type` | ENUM | Type of binary (hashcat, john) |
-| `compression_type` | ENUM | Compression format |
-| `source_url` | TEXT | Original download URL |
-| `file_name` | VARCHAR(255) | Stored filename |
-| `md5_hash` | VARCHAR(32) | MD5 checksum |
-| `file_size` | BIGINT | File size in bytes |
-| `created_at` | TIMESTAMP | Creation timestamp |
-| `created_by` | UUID | User who added the version |
-| `is_active` | BOOLEAN | Whether version is active |
-| `last_verified_at` | TIMESTAMP | Last verification time |
-| `verification_status` | VARCHAR(50) | Status: pending, verified, failed, deleted |
+| Field | Type | Nullable | Default | Description |
+|-------|------|----------|---------|-------------|
+| `id` | SERIAL | No | auto | Unique version identifier |
+| `binary_type` | ENUM | No | - | Type of binary (hashcat, john) |
+| `compression_type` | ENUM | No | - | Compression format |
+| `source_type` | VARCHAR(50) | No | 'url' | Source type: 'url' or 'upload' |
+| `source_url` | TEXT | Yes | NULL | Original download URL (NULL for uploads) |
+| `file_name` | VARCHAR(255) | No | - | Stored filename |
+| `md5_hash` | VARCHAR(32) | No | - | MD5 checksum |
+| `file_size` | BIGINT | No | - | File size in bytes |
+| `version` | VARCHAR(100) | Yes | NULL | Version string (e.g., "6.2.6", "7.1.2+338") |
+| `description` | TEXT | Yes | NULL | Human-readable description |
+| `created_at` | TIMESTAMP | Yes | now() | Creation timestamp |
+| `created_by` | UUID | No | - | User who added the version |
+| `is_active` | BOOLEAN | Yes | true | Whether version is active |
+| `is_default` | BOOLEAN | Yes | false | Whether this is the default version |
+| `last_verified_at` | TIMESTAMP | Yes | NULL | Last verification time |
+| `verification_status` | VARCHAR(50) | Yes | 'pending' | Status: pending, verified, failed, deleted |
 
 ### Verification Status
 
@@ -387,7 +432,8 @@ Note: This tracks KrakenHashes component versions, not binary tool versions.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/admin/binary` | Add new binary version |
+| POST | `/api/admin/binary` | Add new binary version via URL download |
+| POST | `/api/admin/binary/upload` | Add new binary version via direct upload |
 | GET | `/api/admin/binary` | List all versions |
 | GET | `/api/admin/binary/{id}` | Get specific version |
 | DELETE | `/api/admin/binary/{id}` | Delete/deactivate version |

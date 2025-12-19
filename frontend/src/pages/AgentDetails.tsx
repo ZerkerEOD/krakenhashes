@@ -95,7 +95,14 @@ interface BinaryVersion {
   binary_type: string;
   is_active: boolean;
   is_default: boolean;
+  version?: string;
 }
+
+// Helper function to extract version from filename
+const extractVersionFromFileName = (fileName: string): string => {
+  const match = fileName.match(/[-_](\d+\.\d+(?:\.\d+)?(?:[+\-]\w+(?:\.\d+)?)?)/);
+  return match ? match[1] : 'unknown';
+};
 
 interface User {
   id: string;
@@ -576,7 +583,7 @@ const AgentDetails: React.FC = () => {
                     </MenuItem>
                     {binaryVersions.map((binary) => (
                       <MenuItem key={binary.id} value={binary.id}>
-                        {binary.file_name} {binary.is_default && '(Default)'}
+                        ID: {binary.id} - {binary.version || extractVersionFromFileName(binary.file_name)} {binary.is_default && '(Default)'}
                       </MenuItem>
                     ))}
                   </Select>

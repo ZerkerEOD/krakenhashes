@@ -771,7 +771,14 @@ func (h *Handler) determineFilesToSync(agentID int, agentFiles []wsservice.FileI
 	// Create a map of agent files for quick lookup
 	agentFileMap := make(map[string]wsservice.FileInfo)
 	for _, file := range agentFiles {
-		key := fmt.Sprintf("%s:%s", file.FileType, file.Name)
+		var key string
+		if file.FileType == "binary" && file.ID > 0 {
+			// Binaries are stored by ID, so include ID in the key
+			key = fmt.Sprintf("%s:%d:%s", file.FileType, file.ID, file.Name)
+		} else {
+			// Wordlists and rules use path-based keys
+			key = fmt.Sprintf("%s:%s", file.FileType, file.Name)
+		}
 		agentFileMap[key] = file
 	}
 
@@ -779,7 +786,14 @@ func (h *Handler) determineFilesToSync(agentID int, agentFiles []wsservice.FileI
 	var filesToSync []wsservice.FileInfo
 
 	for _, file := range backendFiles {
-		key := fmt.Sprintf("%s:%s", file.FileType, file.Name)
+		var key string
+		if file.FileType == "binary" && file.ID > 0 {
+			// Binaries are stored by ID, so include ID in the key
+			key = fmt.Sprintf("%s:%d:%s", file.FileType, file.ID, file.Name)
+		} else {
+			// Wordlists and rules use path-based keys
+			key = fmt.Sprintf("%s:%s", file.FileType, file.Name)
+		}
 		agentFile, exists := agentFileMap[key]
 
 		// If the file doesn't exist on agent or MD5 hash doesn't match, add to sync list
