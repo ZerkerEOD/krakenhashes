@@ -229,6 +229,63 @@ for TASK_ID in $TASK_IDS; do
     fi
 done
 
+# ============================================
+# Scheduler Logs (10-minute window around job creation)
+# ============================================
+echo ""
+echo "=== SCHEDULER LOGS ==="
+echo "Searching for scheduler activity around job creation time..."
+
+# Get job created_at timestamp
+JOB_CREATED_AT=$(docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -t -c "
+SELECT to_char(created_at, 'YYYY-MM-DD HH24:MI') FROM job_executions WHERE id = '$JOB_ID';
+" 2>/dev/null | tr -d ' ')
+
+if [ -n "$JOB_CREATED_AT" ]; then
+    # Extract date and hour for searching
+    JOB_DATE=$(echo "$JOB_CREATED_AT" | cut -d' ' -f1)
+    JOB_TIME=$(echo "$JOB_CREATED_AT" | cut -d' ' -f2)
+    JOB_HOUR=$(echo "$JOB_TIME" | cut -d':' -f1)
+
+    echo "Job created at: $JOB_CREATED_AT (showing scheduler logs for hour ${JOB_HOUR}:xx)"
+
+    # Format for grep pattern (YYYY-MM-DD HH:)
+    TIME_PATTERN="${JOB_DATE} ${JOB_HOUR}:"
+
+    # Function to search scheduler logs with time filter
+    search_scheduler_logs() {
+        local logs_dir="$1"
+        local time_pattern="$2"
+
+        # Scheduler-related patterns
+        local scheduler_patterns="JobSchedulingService|CalculateAgentAllocation|reserveAgentsForJobs|executeTaskAssignment|Scheduling tick|no available agents|benchmark|GetAvailableAgents|agent_id.*job_id"
+
+        # Search uncompressed logs
+        for log in "$logs_dir"/backend.log*; do
+            if [ -f "$log" ] && [[ ! "$log" =~ \.gz$ ]]; then
+                if grep -l "$time_pattern" "$log" >/dev/null 2>&1; then
+                    echo "--- Found in: $log ---"
+                    grep "$time_pattern" "$log" | grep -E "$scheduler_patterns" | tail -200 | redact_sensitive
+                fi
+            fi
+        done
+
+        # Search compressed logs
+        for log in "$logs_dir"/backend.log*.gz; do
+            if [ -f "$log" ]; then
+                if zgrep -l "$time_pattern" "$log" >/dev/null 2>&1; then
+                    echo "--- Found in: $log ---"
+                    zgrep "$time_pattern" "$log" | grep -E "$scheduler_patterns" | tail -200 | redact_sensitive
+                fi
+            fi
+        done
+    }
+
+    search_scheduler_logs "$LOGS_DIR" "$TIME_PATTERN"
+else
+    echo "Could not retrieve job creation time"
+fi
+
 echo ""
 echo "========================================"
 echo "End of Troubleshooting Report"
