@@ -502,11 +502,187 @@ const JobDetails: React.FC = () => {
   const getAttackModeName = (mode?: number): string => {
     const modes: Record<number, string> = {
       0: 'Dictionary',
+      1: 'Combination',
       3: 'Brute-force',
       6: 'Hybrid Wordlist + Mask',
       7: 'Hybrid Mask + Wordlist',
+      9: 'Association',
     };
     return mode !== undefined ? modes[mode] || `Mode ${mode}` : 'N/A';
+  };
+
+  // Render attack configuration rows based on attack mode
+  const renderAttackConfigRows = () => {
+    if (!jobData) return null;
+
+    const rows: JSX.Element[] = [];
+    const attackMode = jobData.attack_mode;
+
+    switch (attackMode) {
+      case 0: // Dictionary/Straight
+        if (jobData.wordlist_names && jobData.wordlist_names.length > 0) {
+          rows.push(
+            <TableRow key="wordlists">
+              <TableCell sx={{ fontWeight: 'bold' }}>Wordlist(s)</TableCell>
+              <TableCell>{jobData.wordlist_names.join(', ')}</TableCell>
+            </TableRow>
+          );
+        }
+        if (jobData.rule_names && jobData.rule_names.length > 0) {
+          rows.push(
+            <TableRow key="rules">
+              <TableCell sx={{ fontWeight: 'bold' }}>Rules</TableCell>
+              <TableCell>{jobData.rule_names.join(', ')}</TableCell>
+            </TableRow>
+          );
+        }
+        // Splitting mode for dictionary attacks
+        rows.push(
+          <TableRow key="splitting-mode">
+            <TableCell sx={{ fontWeight: 'bold' }}>Splitting Mode</TableCell>
+            <TableCell>
+              <Chip
+                label={jobData.uses_rule_splitting ? "Rule Splitting" : "Keyspace"}
+                size="small"
+                color={jobData.uses_rule_splitting ? "primary" : "default"}
+                variant="outlined"
+              />
+            </TableCell>
+          </TableRow>
+        );
+        break;
+
+      case 1: // Combination
+        if (jobData.wordlist_names && jobData.wordlist_names.length >= 2) {
+          rows.push(
+            <TableRow key="first-wordlist">
+              <TableCell sx={{ fontWeight: 'bold' }}>First Wordlist</TableCell>
+              <TableCell>{jobData.wordlist_names[0]}</TableCell>
+            </TableRow>
+          );
+          rows.push(
+            <TableRow key="second-wordlist">
+              <TableCell sx={{ fontWeight: 'bold' }}>Second Wordlist</TableCell>
+              <TableCell>{jobData.wordlist_names[1]}</TableCell>
+            </TableRow>
+          );
+        } else if (jobData.wordlist_names && jobData.wordlist_names.length === 1) {
+          rows.push(
+            <TableRow key="wordlist">
+              <TableCell sx={{ fontWeight: 'bold' }}>Wordlist</TableCell>
+              <TableCell>{jobData.wordlist_names[0]}</TableCell>
+            </TableRow>
+          );
+        }
+        // Splitting mode for combination attacks
+        rows.push(
+          <TableRow key="splitting-mode">
+            <TableCell sx={{ fontWeight: 'bold' }}>Splitting Mode</TableCell>
+            <TableCell>
+              <Chip
+                label={jobData.uses_rule_splitting ? "Rule Splitting" : "Keyspace"}
+                size="small"
+                color={jobData.uses_rule_splitting ? "primary" : "default"}
+                variant="outlined"
+              />
+            </TableCell>
+          </TableRow>
+        );
+        break;
+
+      case 3: // Brute-force/Mask
+        if (jobData.mask) {
+          rows.push(
+            <TableRow key="mask">
+              <TableCell sx={{ fontWeight: 'bold' }}>Mask</TableCell>
+              <TableCell sx={{ fontFamily: 'monospace' }}>{jobData.mask}</TableCell>
+            </TableRow>
+          );
+        }
+        if (jobData.increment_mode && jobData.increment_mode !== 'off') {
+          rows.push(
+            <TableRow key="increment-mode">
+              <TableCell sx={{ fontWeight: 'bold' }}>Increment Mode</TableCell>
+              <TableCell>
+                <Chip
+                  label={jobData.increment_mode === 'increment' ? 'Increment' : 'Increment Inverse'}
+                  size="small"
+                  color="info"
+                  variant="outlined"
+                />
+              </TableCell>
+            </TableRow>
+          );
+          rows.push(
+            <TableRow key="increment-range">
+              <TableCell sx={{ fontWeight: 'bold' }}>Increment Range</TableCell>
+              <TableCell>
+                {jobData.increment_min ?? 1} - {jobData.increment_max ?? (jobData.mask?.length || 'N/A')}
+              </TableCell>
+            </TableRow>
+          );
+        }
+        break;
+
+      case 6: // Hybrid Wordlist + Mask
+        if (jobData.wordlist_names && jobData.wordlist_names.length > 0) {
+          rows.push(
+            <TableRow key="wordlists">
+              <TableCell sx={{ fontWeight: 'bold' }}>Wordlist(s)</TableCell>
+              <TableCell>{jobData.wordlist_names.join(', ')}</TableCell>
+            </TableRow>
+          );
+        }
+        if (jobData.mask) {
+          rows.push(
+            <TableRow key="mask">
+              <TableCell sx={{ fontWeight: 'bold' }}>Mask (suffix)</TableCell>
+              <TableCell sx={{ fontFamily: 'monospace' }}>{jobData.mask}</TableCell>
+            </TableRow>
+          );
+        }
+        break;
+
+      case 7: // Hybrid Mask + Wordlist
+        if (jobData.mask) {
+          rows.push(
+            <TableRow key="mask">
+              <TableCell sx={{ fontWeight: 'bold' }}>Mask (prefix)</TableCell>
+              <TableCell sx={{ fontFamily: 'monospace' }}>{jobData.mask}</TableCell>
+            </TableRow>
+          );
+        }
+        if (jobData.wordlist_names && jobData.wordlist_names.length > 0) {
+          rows.push(
+            <TableRow key="wordlists">
+              <TableCell sx={{ fontWeight: 'bold' }}>Wordlist(s)</TableCell>
+              <TableCell>{jobData.wordlist_names.join(', ')}</TableCell>
+            </TableRow>
+          );
+        }
+        break;
+
+      case 9: // Association
+        if (jobData.wordlist_names && jobData.wordlist_names.length > 0) {
+          rows.push(
+            <TableRow key="association-wordlist">
+              <TableCell sx={{ fontWeight: 'bold' }}>Association Hints</TableCell>
+              <TableCell>{jobData.wordlist_names.join(', ')}</TableCell>
+            </TableRow>
+          );
+        }
+        if (jobData.rule_names && jobData.rule_names.length > 0) {
+          rows.push(
+            <TableRow key="rules">
+              <TableCell sx={{ fontWeight: 'bold' }}>Rules</TableCell>
+              <TableCell>{jobData.rule_names.join(', ')}</TableCell>
+            </TableRow>
+          );
+        }
+        break;
+    }
+
+    return rows;
   };
 
   if (loading) {
@@ -761,6 +937,8 @@ const JobDetails: React.FC = () => {
                 <TableCell sx={{ fontWeight: 'bold' }}>Attack Mode</TableCell>
                 <TableCell>{getAttackModeName(jobData.attack_mode)}</TableCell>
               </TableRow>
+              {/* Attack configuration rows based on attack mode */}
+              {renderAttackConfigRows()}
               <TableRow>
                 <TableCell sx={{ fontWeight: 'bold' }}>Keyspace</TableCell>
                 <TableCell>{formatKeyspace(jobData.base_keyspace)}</TableCell>

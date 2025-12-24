@@ -661,6 +661,42 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Resolve wordlist IDs to names
+	wordlistNames := make([]string, 0, len(job.WordlistIDs))
+	for _, idStr := range job.WordlistIDs {
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			debug.Warning("Invalid wordlist ID %s for job %s: %v", idStr, jobID, err)
+			wordlistNames = append(wordlistNames, fmt.Sprintf("Unknown (ID: %s)", idStr))
+			continue
+		}
+		wl, err := h.wordlistStore.GetWordlist(ctx, id)
+		if err != nil || wl == nil {
+			debug.Warning("Failed to get wordlist %d for job %s: %v", id, jobID, err)
+			wordlistNames = append(wordlistNames, fmt.Sprintf("Unknown (ID: %d)", id))
+			continue
+		}
+		wordlistNames = append(wordlistNames, wl.Name)
+	}
+
+	// Resolve rule IDs to names
+	ruleNames := make([]string, 0, len(job.RuleIDs))
+	for _, idStr := range job.RuleIDs {
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			debug.Warning("Invalid rule ID %s for job %s: %v", idStr, jobID, err)
+			ruleNames = append(ruleNames, fmt.Sprintf("Unknown (ID: %s)", idStr))
+			continue
+		}
+		rl, err := h.ruleStore.GetRule(ctx, id)
+		if err != nil || rl == nil {
+			debug.Warning("Failed to get rule %d for job %s: %v", id, jobID, err)
+			ruleNames = append(ruleNames, fmt.Sprintf("Unknown (ID: %d)", id))
+			continue
+		}
+		ruleNames = append(ruleNames, rl.Name)
+	}
+
 	// Get ALL tasks for this job execution (no pagination)
 	// Frontend will handle filtering and client-side pagination
 	tasks, err := h.jobTaskRepo.GetAllTasksByJobExecution(ctx, jobID)
@@ -830,7 +866,12 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 		"created_at":                job.CreatedAt.Format(time.RFC3339),
 		"updated_at":                job.UpdatedAt.Format(time.RFC3339),
 		"tasks":                     taskSummaries,
-		"total_tasks": totalTasks,
+		"total_tasks":               totalTasks,
+		"wordlist_ids":              job.WordlistIDs,
+		"wordlist_names":            wordlistNames,
+		"rule_ids":                  job.RuleIDs,
+		"rule_names":                ruleNames,
+		"mask":                      job.Mask,
 	}
 
 	if job.StartedAt != nil {

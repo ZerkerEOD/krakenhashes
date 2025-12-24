@@ -199,8 +199,10 @@ export interface JobDetailsResponse {
   rule_split_count?: number;
   overall_progress_percent?: number;
   consecutive_failures?: number;
-  wordlist_ids?: number[];
-  rule_ids?: number[];
+  wordlist_ids?: string[];
+  wordlist_names?: string[];
+  rule_ids?: string[];
+  rule_names?: string[];
   mask?: string;
   binary_version_id?: number;
   chunk_size_seconds?: number;
