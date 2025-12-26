@@ -257,6 +257,16 @@ func (r *JobTaskRepository) GetTaskCountByJobExecution(ctx context.Context, jobE
 // AreAllTasksComplete checks if all tasks for a job execution are complete
 // AND all work has been dispatched (for rule-splitting and keyspace-chunking jobs)
 func (r *JobTaskRepository) AreAllTasksComplete(ctx context.Context, jobExecutionID uuid.UUID) (bool, error) {
+	// DEFENSIVE CHECK 1: At least one completed task must exist
+	// This prevents marking jobs as complete when no actual work has been done
+	completedCount, err := r.GetCompletedTaskCount(ctx, jobExecutionID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get completed task count: %w", err)
+	}
+	if completedCount == 0 {
+		return false, nil
+	}
+
 	// First check if all existing tasks are complete
 	query := `
 		SELECT COUNT(*) = 0
@@ -265,7 +275,7 @@ func (r *JobTaskRepository) AreAllTasksComplete(ctx context.Context, jobExecutio
 		AND status NOT IN ($2, $3, $4, $5)`
 
 	var allTasksComplete bool
-	err := r.db.QueryRowContext(ctx, query,
+	err = r.db.QueryRowContext(ctx, query,
 		jobExecutionID,
 		models.JobTaskStatusCompleted,
 		models.JobTaskStatusFailed,
@@ -305,6 +315,21 @@ func (r *JobTaskRepository) AreAllTasksComplete(ctx context.Context, jobExecutio
 	)
 	if err != nil {
 		return false, fmt.Errorf("failed to get job details: %w", err)
+	}
+
+	// DEFENSIVE CHECK 2: Valid keyspace must be defined
+	// Cannot determine completion without knowing total work to be done
+	hasValidKeyspace := (effectiveKeyspace != nil && *effectiveKeyspace > 0) ||
+		(totalKeyspace != nil && *totalKeyspace > 0)
+	if !hasValidKeyspace && !usesRuleSplitting {
+		// For non-rule-splitting jobs without keyspace, we cannot verify completion
+		return false, nil
+	}
+
+	// DEFENSIVE CHECK 3: Work must have been dispatched (for keyspace jobs)
+	// Prevents premature completion when dispatched_keyspace hasn't been updated yet
+	if !usesRuleSplitting && hasValidKeyspace && dispatchedKeyspace == 0 {
+		return false, nil
 	}
 
 	// For rule-splitting jobs, check if all rules have been dispatched

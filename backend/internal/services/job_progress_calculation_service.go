@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"sort"
 	"sync"
 	"time"
 
@@ -265,6 +266,28 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 		return nil, fmt.Errorf("failed to get tasks for job %s: %w", job.ID, err)
 	}
 
+	// OVERLAP DETECTION: Sort tasks by KeyspaceStart and detect overlapping ranges
+	// This is a safety net to catch keyspace assignment bugs
+	if len(tasks) > 1 && !job.UsesRuleSplitting {
+		// Make a copy for sorting to avoid modifying original slice
+		sortedTasks := make([]models.JobTask, len(tasks))
+		copy(sortedTasks, tasks)
+		sort.Slice(sortedTasks, func(i, j int) bool {
+			return sortedTasks[i].KeyspaceStart < sortedTasks[j].KeyspaceStart
+		})
+
+		var lastEnd int64 = 0
+		for _, task := range sortedTasks {
+			if task.KeyspaceStart < lastEnd && task.KeyspaceEnd > 0 {
+				debug.Error("OVERLAP DETECTED in job %s: task %s starts at %d but previous task ended at %d (overlap: %d)",
+					job.ID, task.ID, task.KeyspaceStart, lastEnd, lastEnd-task.KeyspaceStart)
+			}
+			if task.KeyspaceEnd > lastEnd {
+				lastEnd = task.KeyspaceEnd
+			}
+		}
+	}
+
 	var processedKeyspace int64
 	var dispatchedKeyspace int64
 
@@ -363,6 +386,24 @@ func (s *JobProgressCalculationService) calculateAndUpdateLayerProgress(ctx cont
 	for _, task := range tasks {
 		if task.IncrementLayerID != nil && *task.IncrementLayerID == layer.ID {
 			layerTasks = append(layerTasks, task)
+		}
+	}
+
+	// OVERLAP DETECTION: Sort layer tasks by KeyspaceStart and detect overlapping ranges
+	if len(layerTasks) > 1 {
+		sort.Slice(layerTasks, func(i, j int) bool {
+			return layerTasks[i].KeyspaceStart < layerTasks[j].KeyspaceStart
+		})
+
+		var lastEnd int64 = 0
+		for _, task := range layerTasks {
+			if task.KeyspaceStart < lastEnd && task.KeyspaceEnd > 0 {
+				debug.Error("OVERLAP DETECTED in layer %s (job %s): task %s starts at %d but previous task ended at %d (overlap: %d)",
+					layer.ID, layer.JobExecutionID, task.ID, task.KeyspaceStart, lastEnd, lastEnd-task.KeyspaceStart)
+			}
+			if task.KeyspaceEnd > lastEnd {
+				lastEnd = task.KeyspaceEnd
+			}
 		}
 	}
 

@@ -10,6 +10,9 @@
 6. [Metrics Collection](#metrics-collection)
 7. [Adding New Features](#adding-new-features)
 8. [Testing Agents](#testing-agents)
+9. [Mock Agent Mode](#mock-agent-mode)
+10. [Best Practices](#best-practices)
+11. [Troubleshooting](#troubleshooting)
 
 ## Agent Architecture Overview
 
@@ -814,6 +817,94 @@ go build -o krakenhashes-agent cmd/agent/main.go
 
 # Benchmark
 ./krakenhashes-agent -test-benchmark -m 0 -a 0
+```
+
+## Mock Agent Mode
+
+Mock agents simulate GPU work without requiring real hardware, enabling testing of the scheduling system on development machines.
+
+### Enabling Mock Mode
+
+Use the `--test-mode` flag or `TEST_MODE=true` environment variable:
+
+```bash
+# Via command line
+./krakenhashes-agent --host localhost:31337 --claim VOUCHER_CODE --test-mode
+
+# Via environment variable
+export TEST_MODE=true
+./krakenhashes-agent --host localhost:31337 --claim VOUCHER_CODE
+```
+
+### Mock Agent Configuration
+
+Configure mock agent behavior via environment variables:
+
+```bash
+MOCK_PROGRESS_SPEED=120    # Seconds to complete a task (default: 120)
+MOCK_CRACK_RATE=0.05       # Percentage of hashes to crack (0.05 = 5%)
+MOCK_HASH_RATE=1000000000  # Simulated hash rate in H/s
+MOCK_GPU_COUNT=2           # Number of fake GPUs to report
+MOCK_GPU_VENDOR=nvidia     # GPU vendor: nvidia, amd, intel
+MOCK_GPU_MODEL="RTX 4090"  # GPU model name
+MOCK_GPU_MEMORY_MB=24576   # GPU memory in MB
+```
+
+### ⚠️ Mock Agent Limitations
+
+!!! warning "Important"
+    Mock agents are designed for **testing scheduling algorithms**, NOT for accurate job progress simulation.
+
+Mock agents cannot accurately simulate job progress because:
+
+| Aspect | Mock Agent | Real Hashcat |
+|--------|------------|--------------|
+| Progress values | Reports BASE keyspace as progress | Reports EFFECTIVE keyspace (`progress[0]`/`progress[1]`) |
+| Job progress % | Shows very low % (e.g., 0.28%) | Shows accurate % based on actual candidates |
+| Keyspace calculation | Uses `--skip`/`--limit` values directly | Reports `candidates processed` × `rules applied` |
+
+**Why this happens:**
+
+1. `JobTaskAssignment` only includes `KeyspaceStart`/`KeyspaceEnd` (BASE keyspace units)
+2. Mock agents don't receive `EffectiveKeyspaceStart/End` values
+3. Real hashcat calculates and reports effective candidates internally via `progress[0]` and `progress[1]`
+
+### What Mock Agents ARE Good For
+
+- ✅ Testing agent registration, connection, and heartbeat
+- ✅ Testing priority-based scheduling and agent allocation
+- ✅ Testing task assignment and distribution across agents
+- ✅ Testing job start/stop/pause workflows
+- ✅ **Verifying keyspace/rule splitting logic (no overlaps)**
+- ✅ Testing file synchronization
+- ✅ Testing device enable/disable functionality
+
+### What Requires Real Agents
+
+- ❌ Accurate job progress percentage tracking
+- ❌ Accurate ETA calculations
+- ❌ Realistic crack rate statistics
+- ❌ Actual password recovery testing
+- ❌ Hashcat error handling verification
+- ❌ GPU memory and performance testing
+
+### Example: Testing Scheduling with Mock Agents
+
+```bash
+# Start 5 mock agents with different GPU configurations
+MOCK_GPU_COUNT=2 MOCK_HASH_RATE=1000000000 ./agent --test-mode --claim CODE1 &
+MOCK_GPU_COUNT=4 MOCK_HASH_RATE=2000000000 ./agent --test-mode --claim CODE2 &
+MOCK_GPU_COUNT=1 MOCK_HASH_RATE=500000000  ./agent --test-mode --claim CODE3 &
+MOCK_GPU_COUNT=2 MOCK_HASH_RATE=1500000000 ./agent --test-mode --claim CODE4 &
+MOCK_GPU_COUNT=3 MOCK_HASH_RATE=1800000000 ./agent --test-mode --claim CODE5 &
+
+# Create jobs and observe:
+# - Agent allocation based on priority
+# - Task distribution with no keyspace overlap
+# - Rule splitting with sequential rule ranges
+# - Job start/stop behavior
+
+# Note: Job progress % will NOT be accurate with mock agents
 ```
 
 ## Best Practices
