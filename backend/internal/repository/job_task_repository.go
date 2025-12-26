@@ -1139,15 +1139,32 @@ func (r *JobTaskRepository) GetTaskCountByJobExecution(ctx context.Context, jobE
 // GetActiveTasksCount returns the number of active tasks (running or assigned) for a job
 func (r *JobTaskRepository) GetActiveTasksCount(ctx context.Context, jobExecutionID uuid.UUID) (int, error) {
 	query := `
-		SELECT COUNT(*) 
-		FROM job_tasks 
-		WHERE job_execution_id = $1 
+		SELECT COUNT(*)
+		FROM job_tasks
+		WHERE job_execution_id = $1
 		  AND status IN ('running', 'assigned')`
 
 	var count int
 	err := r.db.QueryRowContext(ctx, query, jobExecutionID).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get active tasks count: %w", err)
+	}
+
+	return count, nil
+}
+
+// GetCompletedTaskCount returns the number of completed tasks for a job execution
+func (r *JobTaskRepository) GetCompletedTaskCount(ctx context.Context, jobExecutionID uuid.UUID) (int, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM job_tasks
+		WHERE job_execution_id = $1
+		  AND status = 'completed'`
+
+	var count int
+	err := r.db.QueryRowContext(ctx, query, jobExecutionID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get completed tasks count: %w", err)
 	}
 
 	return count, nil

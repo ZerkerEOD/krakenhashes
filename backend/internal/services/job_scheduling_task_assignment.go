@@ -69,9 +69,17 @@ type JobPlanningState struct {
 	ChunkNumber         int
 	BaseKeyspace        int64
 
+	// BASE keyspace tracking for --skip/--limit (in password candidate units, not EFFECTIVE hash operations)
+	// This is initialized once from DB at the start of planning and updated in-memory after each chunk.
+	// Using this prevents the race condition where all agents query DB before any tasks exist.
+	DispatchedBaseKeyspace int64
+
 	// Increment layer support
 	CurrentLayer        *models.JobIncrementLayer // The layer currently being worked on
 	AvailableLayers     []models.JobIncrementLayer // All layers needing work
+
+	// Per-layer BASE keyspace tracking (for increment mode)
+	LayerDispatchedBaseKeyspace map[uuid.UUID]int64
 }
 
 // CreateTaskAssignmentPlans calculates chunk assignments for all reserved agents sequentially
@@ -167,9 +175,10 @@ func (s *JobSchedulingService) CreateTaskAssignmentPlans(
 
 		// Initialize job state
 		state := &JobPlanningState{
-			JobExecution:       &job.JobExecution,
-			DispatchedKeyspace: job.DispatchedKeyspace,
-			IsExhausted:        false,
+			JobExecution:                &job.JobExecution,
+			DispatchedKeyspace:          job.DispatchedKeyspace,
+			IsExhausted:                 false,
+			LayerDispatchedBaseKeyspace: make(map[uuid.UUID]int64),
 		}
 
 		// Get base keyspace for rule splitting calculations
@@ -177,18 +186,43 @@ func (s *JobSchedulingService) CreateTaskAssignmentPlans(
 			state.BaseKeyspace = *job.BaseKeyspace
 		}
 
+		// Initialize BASE keyspace tracking from DB ONCE per job (not per agent)
+		// This prevents the race condition where all agents get the same starting value
+		// because they all query DB before any tasks are created.
+		if !job.UsesRuleSplitting {
+			maxBaseEnd, err := s.jobExecutionService.jobTaskRepo.GetMaxKeyspaceEnd(ctx, actualJobID)
+			if err != nil {
+				debug.Warning("Failed to get max keyspace end for job %s: %v, starting from 0", actualJobID, err)
+				maxBaseEnd = 0
+			}
+			state.DispatchedBaseKeyspace = maxBaseEnd
+			debug.Log("Initialized BASE keyspace tracking for job", map[string]interface{}{
+				"job_id":                   actualJobID,
+				"dispatched_base_keyspace": maxBaseEnd,
+			})
+		}
+
 		// If this is a specific layer entry, set it as the current layer
 		if specificLayer != nil {
 			state.CurrentLayer = specificLayer
 			state.AvailableLayers = []models.JobIncrementLayer{*specificLayer}
 
+			// Initialize per-layer BASE keyspace tracking
+			maxLayerBaseEnd, err := s.jobExecutionService.jobTaskRepo.GetMaxKeyspaceEndByLayer(ctx, specificLayer.ID)
+			if err != nil {
+				debug.Warning("Failed to get max keyspace end for layer %s: %v, starting from 0", specificLayer.ID, err)
+				maxLayerBaseEnd = 0
+			}
+			state.LayerDispatchedBaseKeyspace[specificLayer.ID] = maxLayerBaseEnd
+
 			debug.Log("Using specific layer for task assignment", map[string]interface{}{
-				"job_id":              actualJobID,
-				"layer_id":            specificLayer.ID,
-				"layer_index":         specificLayer.LayerIndex,
-				"layer_mask":          specificLayer.Mask,
-				"effective_keyspace":  specificLayer.EffectiveKeyspace,
-				"dispatched_keyspace": specificLayer.DispatchedKeyspace,
+				"job_id":                        actualJobID,
+				"layer_id":                      specificLayer.ID,
+				"layer_index":                   specificLayer.LayerIndex,
+				"layer_mask":                    specificLayer.Mask,
+				"effective_keyspace":            specificLayer.EffectiveKeyspace,
+				"dispatched_keyspace":           specificLayer.DispatchedKeyspace,
+				"layer_dispatched_base_keyspace": maxLayerBaseEnd,
 			})
 		}
 
@@ -907,20 +941,14 @@ func (s *JobSchedulingService) calculateKeyspaceChunk(
 			return fmt.Errorf("layer has no keyspace information")
 		}
 
-		// Query max BASE keyspace_end from existing tasks for this layer
-		// CRITICAL: state.CurrentLayer.DispatchedKeyspace is in EFFECTIVE units, but we need BASE units
-		// for --skip/--limit. We must query the actual task keyspace_end values.
-		maxBaseEnd, err := s.jobExecutionService.jobTaskRepo.GetMaxKeyspaceEndByLayer(ctx, state.CurrentLayer.ID)
-		if err != nil {
-			debug.Warning("Failed to get max keyspace end for layer %s: %v, starting from 0", state.CurrentLayer.ID, err)
-			maxBaseEnd = 0
-		}
-		dispatchedKeyspace = maxBaseEnd
+		// Use in-memory BASE keyspace tracking (initialized once from DB at the start of planning)
+		// This fixes the race condition where all agents query DB before any tasks exist.
+		dispatchedKeyspace = state.LayerDispatchedBaseKeyspace[state.CurrentLayer.ID]
 
-		debug.Log("Got max base keyspace_end for layer", map[string]interface{}{
+		debug.Log("Using in-memory base keyspace_end for layer", map[string]interface{}{
 			"layer_id":              state.CurrentLayer.ID,
 			"layer_index":           state.CurrentLayer.LayerIndex,
-			"max_base_keyspace_end": maxBaseEnd,
+			"base_keyspace_end":     dispatchedKeyspace,
 			"total_base_keyspace":   totalKeyspace,
 		})
 	} else {
@@ -935,20 +963,14 @@ func (s *JobSchedulingService) calculateKeyspaceChunk(
 			return fmt.Errorf("job has no keyspace information")
 		}
 
-		// Query max BASE keyspace_end from existing tasks for this job
-		// CRITICAL: state.DispatchedKeyspace is in EFFECTIVE units, but we need BASE units
-		// for --skip/--limit. We must query the actual task keyspace_end values.
-		maxBaseEnd, err := s.jobExecutionService.jobTaskRepo.GetMaxKeyspaceEnd(ctx, plan.JobExecution.ID)
-		if err != nil {
-			debug.Warning("Failed to get max keyspace end for job %s: %v, starting from 0", plan.JobExecution.ID, err)
-			maxBaseEnd = 0
-		}
-		dispatchedKeyspace = maxBaseEnd
+		// Use in-memory BASE keyspace tracking (initialized once from DB at the start of planning)
+		// This fixes the race condition where all agents query DB before any tasks exist.
+		dispatchedKeyspace = state.DispatchedBaseKeyspace
 
-		debug.Log("Got max base keyspace_end for job", map[string]interface{}{
-			"job_id":                plan.JobExecution.ID,
-			"max_base_keyspace_end": maxBaseEnd,
-			"total_base_keyspace":   totalKeyspace,
+		debug.Log("Using in-memory base keyspace_end for job", map[string]interface{}{
+			"job_id":            plan.JobExecution.ID,
+			"base_keyspace_end": dispatchedKeyspace,
+			"total_base_keyspace": totalKeyspace,
 		})
 	}
 
@@ -1118,24 +1140,31 @@ func (s *JobSchedulingService) calculateKeyspaceChunk(
 	// Update state for next agent (in-memory tracking during planning)
 	dispatchedAmount := keyspaceEnd - keyspaceStart
 	if state.CurrentLayer != nil {
-		// Update layer's in-memory dispatched keyspace
+		// Update layer's in-memory dispatched keyspace (EFFECTIVE units)
 		state.CurrentLayer.DispatchedKeyspace += dispatchedAmount
+		// Update layer's BASE keyspace tracking (for --skip/--limit)
+		// This is the KEY FIX: track the END position so next agent gets correct start
+		state.LayerDispatchedBaseKeyspace[state.CurrentLayer.ID] = keyspaceEnd
 	} else {
-		// Update job's in-memory dispatched keyspace
+		// Update job's in-memory dispatched keyspace (EFFECTIVE units)
 		state.DispatchedKeyspace += dispatchedAmount
+		// Update job's BASE keyspace tracking (for --skip/--limit)
+		// This is the KEY FIX: track the END position so next agent gets correct start
+		state.DispatchedBaseKeyspace = keyspaceEnd
 	}
 	state.ChunkNumber++
 
 	debug.Log("Calculated keyspace chunk (base keyspace for --skip/--limit)", map[string]interface{}{
-		"agent_id":         plan.AgentID,
-		"job_id":           plan.JobExecution.ID,
-		"chunk_number":     plan.ChunkNumber,
-		"keyspace_start":   keyspaceStart,
-		"keyspace_end":     keyspaceEnd,
-		"chunk_size":       dispatchedAmount,
-		"total_keyspace":   totalKeyspace,
-		"is_keyspace_split": plan.IsKeyspaceSplit,
-		"benchmark_speed":  plan.BenchmarkSpeed,
+		"agent_id":                   plan.AgentID,
+		"job_id":                     plan.JobExecution.ID,
+		"chunk_number":               plan.ChunkNumber,
+		"keyspace_start":             keyspaceStart,
+		"keyspace_end":               keyspaceEnd,
+		"chunk_size":                 dispatchedAmount,
+		"total_keyspace":             totalKeyspace,
+		"is_keyspace_split":          plan.IsKeyspaceSplit,
+		"benchmark_speed":            plan.BenchmarkSpeed,
+		"updated_base_keyspace_end":  keyspaceEnd,
 	})
 
 	return nil
