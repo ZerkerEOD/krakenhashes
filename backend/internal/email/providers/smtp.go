@@ -14,6 +14,7 @@ import (
 
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	emailtypes "github.com/ZerkerEOD/krakenhashes/backend/pkg/email"
+	"github.com/google/uuid"
 )
 
 // SMTPConfig represents SMTP-specific configuration
@@ -255,12 +256,17 @@ func (p *smtpProvider) TestConnection(ctx context.Context, testEmail string) err
 	return nil
 }
 
-// buildMessage constructs an RFC 822 compliant email message
+// buildMessage constructs an RFC 5322 compliant email message
 func (p *smtpProvider) buildMessage(from string, to []string, subject, textContent, htmlContent string) []byte {
 	var buf strings.Builder
 
 	buf.WriteString(fmt.Sprintf("From: %s\r\n", from))
 	buf.WriteString(fmt.Sprintf("To: %s\r\n", strings.Join(to, ", ")))
+	// Date header (RFC 5322 required)
+	buf.WriteString(fmt.Sprintf("Date: %s\r\n", time.Now().Format(time.RFC1123Z)))
+	// Message-ID header (RFC 5322 recommended)
+	domain := p.config.FromEmail[strings.LastIndex(p.config.FromEmail, "@")+1:]
+	buf.WriteString(fmt.Sprintf("Message-ID: <%s@%s>\r\n", uuid.New().String(), domain))
 	buf.WriteString(fmt.Sprintf("Subject: %s\r\n", subject))
 	buf.WriteString("MIME-Version: 1.0\r\n")
 	buf.WriteString("Content-Type: multipart/alternative; boundary=\"boundary-krakenhashes\"\r\n")
