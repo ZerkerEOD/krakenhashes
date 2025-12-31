@@ -142,12 +142,13 @@ type JobExecution struct {
 	AttackMode          AttackMode         `json:"attack_mode" db:"attack_mode"`
 	CreatedBy           *uuid.UUID         `json:"created_by" db:"created_by"`
 	CreatedAt           time.Time          `json:"created_at" db:"created_at"`
-	StartedAt           *time.Time         `json:"started_at" db:"started_at"`
-	CompletedAt         *time.Time         `json:"completed_at" db:"completed_at"`
-	UpdatedAt           time.Time          `json:"updated_at" db:"updated_at"`
-	ErrorMessage        *string            `json:"error_message" db:"error_message"`
-	InterruptedBy       *uuid.UUID         `json:"interrupted_by" db:"interrupted_by"`
-	ConsecutiveFailures int                `json:"consecutive_failures" db:"consecutive_failures"` // Track consecutive task failures
+	StartedAt             *time.Time         `json:"started_at" db:"started_at"`
+	CrackingCompletedAt   *time.Time         `json:"cracking_completed_at" db:"cracking_completed_at"` // When all tasks finished hashcat work (job enters processing)
+	CompletedAt           *time.Time         `json:"completed_at" db:"completed_at"`
+	UpdatedAt             time.Time          `json:"updated_at" db:"updated_at"`
+	ErrorMessage          *string            `json:"error_message" db:"error_message"`
+	InterruptedBy         *uuid.UUID         `json:"interrupted_by" db:"interrupted_by"`
+	ConsecutiveFailures   int                `json:"consecutive_failures" db:"consecutive_failures"` // Track consecutive task failures
 
 	// Self-contained configuration fields (no need to look up preset)
 	Name                      string  `json:"name" db:"name"`
@@ -192,7 +193,8 @@ const (
 	JobTaskStatusAssigned         JobTaskStatus = "assigned"
 	JobTaskStatusReconnectPending JobTaskStatus = "reconnect_pending"
 	JobTaskStatusRunning          JobTaskStatus = "running"
-	JobTaskStatusProcessing       JobTaskStatus = "processing" // Waiting for crack batches to be processed
+	JobTaskStatusProcessing       JobTaskStatus = "processing"       // Waiting for crack batches to be processed
+	JobTaskStatusProcessingError  JobTaskStatus = "processing_error" // Crack count mismatch after retries exhausted
 	JobTaskStatusCompleted        JobTaskStatus = "completed"
 	JobTaskStatusFailed           JobTaskStatus = "failed"
 	JobTaskStatusCancelled        JobTaskStatus = "cancelled"
@@ -219,13 +221,14 @@ type JobTask struct {
 	BenchmarkSpeed    *int64        `json:"benchmark_speed" db:"benchmark_speed"`   // hashes per second (current/last reported)
 	AverageSpeed      *int64        `json:"average_speed" db:"average_speed"`       // time-weighted average hashes per second
 	ChunkDuration     int           `json:"chunk_duration" db:"chunk_duration"`     // seconds
-	CreatedAt         time.Time     `json:"created_at" db:"created_at"`
-	AssignedAt        *time.Time    `json:"assigned_at" db:"assigned_at"`
-	StartedAt         *time.Time    `json:"started_at" db:"started_at"`
-	CompletedAt       *time.Time    `json:"completed_at" db:"completed_at"`
-	UpdatedAt         time.Time     `json:"updated_at" db:"updated_at"`
-	LastCheckpoint    *time.Time    `json:"last_checkpoint" db:"last_checkpoint"`
-	ErrorMessage      *string       `json:"error_message" db:"error_message"`
+	CreatedAt           time.Time     `json:"created_at" db:"created_at"`
+	AssignedAt          *time.Time    `json:"assigned_at" db:"assigned_at"`
+	StartedAt           *time.Time    `json:"started_at" db:"started_at"`
+	CrackingCompletedAt *time.Time    `json:"cracking_completed_at" db:"cracking_completed_at"` // When hashcat finished for this task (enters processing)
+	CompletedAt         *time.Time    `json:"completed_at" db:"completed_at"`
+	UpdatedAt           time.Time     `json:"updated_at" db:"updated_at"`
+	LastCheckpoint      *time.Time    `json:"last_checkpoint" db:"last_checkpoint"`
+	ErrorMessage        *string       `json:"error_message" db:"error_message"`
 
 	// Enhanced fields for detailed chunk tracking
 	CrackCount              int  `json:"crack_count" db:"crack_count"`
@@ -234,6 +237,10 @@ type JobTask struct {
 	BatchesCompleteSignaled bool `json:"batches_complete_signaled" db:"batches_complete_signaled"` // Agent signaled batches done
 	DetailedStatus          string `json:"detailed_status" db:"detailed_status"`
 	RetryCount              int    `json:"retry_count" db:"retry_count"`
+
+	// Retransmit tracking for crack transmission resilience
+	RetransmitCount    *int       `json:"retransmit_count" db:"retransmit_count"`
+	LastRetransmitAt   *time.Time `json:"last_retransmit_at" db:"last_retransmit_at"`
 
 	// Rule splitting fields
 	RuleStartIndex  *int    `json:"rule_start_index" db:"rule_start_index"`     // Starting rule index for this chunk
@@ -385,11 +392,13 @@ type JobProgress struct {
 type CrackBatch struct {
 	TaskID        uuid.UUID     `json:"task_id"`
 	CrackedHashes []CrackedHash `json:"cracked_hashes"`
+	IsRetransmit  bool          `json:"is_retransmit,omitempty"` // Marks this as a retransmission for deduplication
 }
 
 // CrackBatchesComplete signals that agent has finished sending all crack batches for a task
 type CrackBatchesComplete struct {
-	TaskID uuid.UUID `json:"task_id"`
+	TaskID       uuid.UUID `json:"task_id"`
+	IsRetransmit bool      `json:"is_retransmit,omitempty"` // True if this is from a retransmission
 }
 
 // CrackedHash represents a cracked hash with all available information

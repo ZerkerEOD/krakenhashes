@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"bufio"
 	"context"
 	"database/sql"
 	"fmt"
@@ -365,20 +366,39 @@ func SetupFileDownloadRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, a
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Header().Set("Transfer-Encoding", "chunked")
 
+		// Use buffered writer for much better performance
+		// 256KB buffer with 32KB flush interval reduces flushes from millions to thousands
+		const flushInterval = 32 * 1024 // 32KB flush interval
+		var bytesWritten int
+
+		bufWriter := bufio.NewWriterSize(w, 256*1024) // 256KB buffer
+		defer bufWriter.Flush()
+
 		// Stream uncracked hash values to agent
 		hashCount := 0
 		err = hashRepo.StreamUncrackedHashValuesForHashlist(ctx, hashlist.ID, func(hashValue string) error {
 			hashCount++
-			if _, err := fmt.Fprintln(w, hashValue); err != nil {
+			n, err := bufWriter.WriteString(hashValue)
+			if err != nil {
 				return fmt.Errorf("failed to write hash: %w", err)
 			}
-			// Flush after every hash to ensure streaming
-			if flusher, ok := w.(http.Flusher); ok {
-				flusher.Flush()
+			bufWriter.WriteByte('\n')
+			bytesWritten += n + 1
+
+			// Flush periodically for streaming (every 32KB, not every line)
+			if bytesWritten >= flushInterval {
+				if err := bufWriter.Flush(); err != nil {
+					return fmt.Errorf("failed to flush buffer: %w", err)
+				}
+				if flusher, ok := w.(http.Flusher); ok {
+					flusher.Flush()
+				}
+				bytesWritten = 0
 			}
 			return nil
 		})
 
+		// Final flush is handled by defer bufWriter.Flush()
 		if err != nil {
 			debug.Error("Failed to stream hashlist %d to agent: %v", hashlist.ID, err)
 			// Can't send error response here as headers are already sent

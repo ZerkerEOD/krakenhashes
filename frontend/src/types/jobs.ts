@@ -3,7 +3,7 @@
  */
 
 // Job status enum
-export type JobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+export type JobStatus = 'pending' | 'running' | 'processing' | 'completed' | 'failed' | 'cancelled';
 
 // Job summary for list views
 export interface JobSummary {
@@ -87,7 +87,7 @@ export interface JobTask {
   job_execution_id?: string;
   agent_id?: number;
   increment_layer_id?: string;
-  status: 'pending' | 'assigned' | 'running' | 'processing' | 'completed' | 'failed' | 'cancelled' | 'reconnect_pending';
+  status: 'pending' | 'assigned' | 'running' | 'processing' | 'processing_error' | 'completed' | 'failed' | 'cancelled' | 'reconnect_pending';
   priority?: number;
   chunk_start?: number;
   chunk_end?: number;
@@ -103,10 +103,13 @@ export interface JobTask {
   assigned_agent_id?: string;
   assigned_at?: string;
   started_at?: string;
+  cracking_completed_at?: string;
   completed_at?: string;
   last_checkpoint?: string;
   error_message?: string;
   crack_count: number;
+  expected_crack_count?: number;
+  received_crack_count?: number;
   progress_percent?: number;
   detailed_status?: string;
   created_at?: string;
@@ -187,6 +190,7 @@ export interface JobDetailsResponse {
   total_speed: number;
   created_at: string;
   started_at?: string;
+  cracking_completed_at?: string;
   completed_at?: string;
   updated_at?: string;
   error_message?: string;

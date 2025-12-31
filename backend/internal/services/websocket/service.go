@@ -19,6 +19,8 @@ type JobHandler interface {
 	ProcessCrackBatch(ctx context.Context, agentID int, payload json.RawMessage) error
 	ProcessCrackBatchesComplete(ctx context.Context, agentID int, payload json.RawMessage) error
 	ProcessBenchmarkResult(ctx context.Context, agentID int, payload json.RawMessage) error
+	ProcessPendingOutfiles(ctx context.Context, agentID int, payload json.RawMessage) error
+	ProcessOutfileDeleteRejected(ctx context.Context, agentID int, payload json.RawMessage) error
 	RecoverTask(ctx context.Context, taskID string, agentID int, keyspaceProcessed int64) error
 	HandleAgentReconnectionWithNoTask(ctx context.Context, agentID int) (int, error)
 	GetTask(ctx context.Context, taskID string) (*models.JobTask, error)
@@ -48,17 +50,21 @@ const (
 	TypeBufferedMessages        MessageType = "buffered_messages"
 	TypeCurrentTaskStatus       MessageType = "current_task_status"
 	TypeAgentShutdown           MessageType = "agent_shutdown"
+	TypePendingOutfiles         MessageType = "pending_outfiles"          // Agent reports tasks with unacknowledged outfiles
+	TypeOutfileDeleteRejected   MessageType = "outfile_delete_rejected"   // Agent rejects outfile deletion (line count mismatch)
 
 	// Server -> Agent messages
-	TypeTaskAssignment   MessageType = "task_assignment"
-	TypeJobStop          MessageType = "job_stop"
-	TypeBenchmarkRequest MessageType = "benchmark_request"
-	TypeAgentCommand     MessageType = "agent_command"
-	TypeConfigUpdate     MessageType = "config_update"
-	TypeSyncRequest      MessageType = "file_sync_request"
-	TypeSyncCommand      MessageType = "file_sync_command"
-	TypeForceCleanup     MessageType = "force_cleanup"
-	TypeBufferAck        MessageType = "buffer_ack"
+	TypeTaskAssignment         MessageType = "task_assignment"
+	TypeJobStop                MessageType = "job_stop"
+	TypeBenchmarkRequest       MessageType = "benchmark_request"
+	TypeAgentCommand           MessageType = "agent_command"
+	TypeConfigUpdate           MessageType = "config_update"
+	TypeSyncRequest            MessageType = "file_sync_request"
+	TypeSyncCommand            MessageType = "file_sync_command"
+	TypeForceCleanup           MessageType = "force_cleanup"
+	TypeBufferAck              MessageType = "buffer_ack"
+	TypeRequestCrackRetransmit MessageType = "request_crack_retransmit" // Backend requests full outfile retransmission
+	TypeOutfileDeleteApproved  MessageType = "outfile_delete_approved"  // Backend confirms safe to delete outfile
 
 	// Download progress messages
 	TypeDownloadProgress MessageType = "download_progress"

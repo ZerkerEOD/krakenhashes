@@ -10,4 +10,6 @@ type JobHandler interface {
 	ProcessJobProgress(ctx context.Context, agentID int, payload json.RawMessage) error
 	ProcessCrackBatch(ctx context.Context, agentID int, payload json.RawMessage) error
 	ProcessBenchmarkResult(ctx context.Context, agentID int, payload json.RawMessage) error
+	ProcessPendingOutfiles(ctx context.Context, agentID int, payload json.RawMessage) error
+	ProcessOutfileDeleteRejected(ctx context.Context, agentID int, payload json.RawMessage) error
 }

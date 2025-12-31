@@ -39,18 +39,20 @@ func SetupHashlistRoutes(jwtRouter *mux.Router) {
 
 // hashlistHandler handles HTTP requests for hashlist-related operations
 type hashlistHandler struct {
-	db                 *db.DB
-	hashlistRepo       *repository.HashListRepository
-	hashTypeRepo       *repository.HashTypeRepository
-	clientRepo         *repository.ClientRepository
-	hashRepo           *repository.HashRepository
-	fileRepo           *repository.FileRepository
-	clientSettingsRepo *repository.ClientSettingsRepository
-	systemSettingsRepo *repository.SystemSettingsRepository
-	dataDir            string // Base directory for storing hashlist files
-	cfg                *config.Config
-	agentService       *services.AgentService
-	processor          *processor.HashlistDBProcessor
+	db                         *db.DB
+	hashlistRepo               *repository.HashListRepository
+	hashTypeRepo               *repository.HashTypeRepository
+	clientRepo                 *repository.ClientRepository
+	hashRepo                   *repository.HashRepository
+	fileRepo                   *repository.FileRepository
+	clientSettingsRepo         *repository.ClientSettingsRepository
+	systemSettingsRepo         *repository.SystemSettingsRepository
+	deletionProgressService    *services.DeletionProgressService
+	processingProgressService  *services.ProcessingProgressService
+	dataDir                    string // Base directory for storing hashlist files
+	cfg                        *config.Config
+	agentService               *services.AgentService
+	processor                  *processor.HashlistDBProcessor
 	// Job-related dependencies
 	jobsHandler interface {
 		GetAvailablePresetJobs(w http.ResponseWriter, r *http.Request)
@@ -86,24 +88,32 @@ func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, ag
 		// Depending on requirements, might want to panic or handle differently
 	}
 
-	// Create processor
-	proc := processor.NewHashlistDBProcessor(hashlistRepo, hashTypeRepo, hashRepo, cfg)
+	// Create deletion progress service for async deletions
+	deletionProgressSvc := services.NewDeletionProgressService(hashlistRepo)
+
+	// Create processing progress service for tracking upload progress
+	processingProgressSvc := services.NewProcessingProgressService()
+
+	// Create processor with progress service
+	proc := processor.NewHashlistDBProcessor(hashlistRepo, hashTypeRepo, hashRepo, systemSettingsRepo, cfg, processingProgressSvc)
 
 	// Create handler
 	h := &hashlistHandler{
-		db:                 database,
-		hashlistRepo:       hashlistRepo,
-		hashTypeRepo:       hashTypeRepo,
-		clientRepo:         clientRepo,
-		clientSettingsRepo: clientSettingsRepo,
-		systemSettingsRepo: systemSettingsRepo,
-		hashRepo:           hashRepo,
-		fileRepo:           fileRepo,
-		dataDir:            hashlistDataDir,
-		cfg:                cfg,
-		agentService:       agentService,
-		processor:          proc,
-		jobsHandler:        jobsHandler,
+		db:                        database,
+		hashlistRepo:              hashlistRepo,
+		hashTypeRepo:              hashTypeRepo,
+		clientRepo:                clientRepo,
+		clientSettingsRepo:        clientSettingsRepo,
+		systemSettingsRepo:        systemSettingsRepo,
+		hashRepo:                  hashRepo,
+		fileRepo:                  fileRepo,
+		deletionProgressService:   deletionProgressSvc,
+		processingProgressService: processingProgressSvc,
+		dataDir:                   hashlistDataDir,
+		cfg:                       cfg,
+		agentService:              agentService,
+		processor:                 proc,
+		jobsHandler:               jobsHandler,
 	}
 
 	// === User Routes (Authenticated via JWT) ===
@@ -119,6 +129,8 @@ func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, ag
 	hashlistRouter.HandleFunc("/detect-linked", h.handleDetectLinkedHashes).Methods(http.MethodPost, http.MethodOptions)
 	hashlistRouter.HandleFunc("/{id}", h.handleGetHashlist).Methods(http.MethodGet, http.MethodOptions)
 	hashlistRouter.HandleFunc("/{id}", h.handleDeleteHashlist).Methods(http.MethodDelete, http.MethodOptions)
+	hashlistRouter.HandleFunc("/{id}/deletion-progress", h.handleGetDeletionProgress).Methods(http.MethodGet, http.MethodOptions)
+	hashlistRouter.HandleFunc("/{id}/processing-progress", h.handleGetProcessingProgress).Methods(http.MethodGet, http.MethodOptions)
 	hashlistRouter.HandleFunc("/{id}/download", h.handleDownloadHashlist).Methods(http.MethodGet, http.MethodOptions)
 	hashlistRouter.HandleFunc("/{id}/hashes", h.handleGetHashlistHashes).Methods(http.MethodGet, http.MethodOptions)
 	hashlistRouter.HandleFunc("/{id}/available-jobs", h.handleGetAvailableJobs).Methods(http.MethodGet, http.MethodOptions)
@@ -176,8 +188,8 @@ func (h *hashlistHandler) handleDetectLinkedHashes(w http.ResponseWriter, r *htt
 		return
 	}
 
-	// Limit request body size (e.g., 1GB for the whole request)
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<30)
+	// Limit request body size (10GB for the whole request)
+	r.Body = http.MaxBytesReader(w, r.Body, 10<<30)
 
 	if err := r.ParseMultipartForm(32 << 20); err != nil { // 32MB max memory
 		debug.Error("Failed to parse multipart form for linked hash detection: %v", err)
@@ -270,8 +282,8 @@ func (h *hashlistHandler) handleUploadHashlist(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Limit request body size (e.g., 1GB for the whole request)
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<30)
+	// Limit request body size (10GB for the whole request)
+	r.Body = http.MaxBytesReader(w, r.Body, 10<<30)
 
 	if err := r.ParseMultipartForm(32 << 20); err != nil { // 32MB max memory
 		if err == http.ErrNotMultipart {
@@ -858,10 +870,6 @@ func (h *hashlistHandler) handleDeleteHashlist(w http.ResponseWriter, r *http.Re
 	}
 	// Note: Ownership check removed - all authenticated users can delete all hashlists
 	// This will change when teams are implemented
-	// Check if user is admin
-	role, _ := getUserRoleFromContext(ctx) // Keeping for potential future use
-	isAdmin := role == "admin"
-	_ = isAdmin // Suppress unused variable warning
 
 	id, err := getInt64FromPath(r, "id")
 	if err != nil {
@@ -869,17 +877,116 @@ func (h *hashlistHandler) handleDeleteHashlist(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Delete from database (associations are handled by ON DELETE CASCADE)
-	err = h.hashlistRepo.Delete(ctx, id)
+	// Check if hashlist exists first
+	hashlist, err := h.hashlistRepo.GetByID(ctx, id)
 	if err != nil {
-		debug.Error("Error deleting hashlist %d from DB: %v", id, err)
-		jsonError(w, "Failed to delete hashlist record", http.StatusInternalServerError)
+		if errors.Is(err, repository.ErrNotFound) {
+			jsonError(w, "Hashlist not found", http.StatusNotFound)
+			return
+		}
+		debug.Error("Error fetching hashlist %d: %v", id, err)
+		jsonError(w, "Failed to fetch hashlist", http.StatusInternalServerError)
 		return
 	}
 
-	// No physical files to delete - hashlists are generated on-demand from database
+	// Query actual hash count from hashlist_hashes table (not cached total_hashes which may be stale)
+	var actualCount int64
+	err = h.db.DB.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM hashlist_hashes WHERE hashlist_id = $1", id).Scan(&actualCount)
+	if err != nil {
+		debug.Error("Error getting actual hash count for hashlist %d: %v", id, err)
+		// On error, default to async deletion to be safe
+		actualCount = 10000
+	}
+	debug.Info("[Delete] Hashlist %d: cached total_hashes=%d, actual count=%d", id, hashlist.TotalHashes, actualCount)
 
-	w.WriteHeader(http.StatusNoContent)
+	// For small hashlists (< 10,000 hashes), delete synchronously for faster response
+	if actualCount < 10000 {
+		err = h.hashlistRepo.Delete(ctx, id)
+		if err != nil {
+			debug.Error("Error deleting hashlist %d from DB: %v", id, err)
+			jsonError(w, "Failed to delete hashlist record", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	// For large hashlists, use async deletion with progress tracking
+	started := h.deletionProgressService.StartDeletion(id)
+	if !started {
+		// Deletion already in progress
+		jsonError(w, "Deletion already in progress for this hashlist", http.StatusConflict)
+		return
+	}
+
+	// Return 202 Accepted with progress URL
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message":      "Deletion started",
+		"hashlist_id":  id,
+		"progress_url": fmt.Sprintf("/api/hashlists/%d/deletion-progress", id),
+	})
+}
+
+// handleGetDeletionProgress returns the current progress of an async hashlist deletion.
+func (h *hashlistHandler) handleGetDeletionProgress(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	_, err := getUserIDFromContext(ctx)
+	if err != nil {
+		jsonError(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	id, err := getInt64FromPath(r, "id")
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	progress := h.deletionProgressService.GetProgress(id)
+	if progress == nil {
+		// No deletion in progress or recently completed
+		jsonError(w, "No deletion in progress for this hashlist", http.StatusNotFound)
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, progress)
+}
+
+// handleGetProcessingProgress returns the current progress of hashlist processing.
+func (h *hashlistHandler) handleGetProcessingProgress(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	_, err := getUserIDFromContext(ctx)
+	if err != nil {
+		jsonError(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	id, err := getInt64FromPath(r, "id")
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	progress := h.processingProgressService.GetProgress(id)
+	if progress == nil {
+		// No processing in progress - return hashlist status instead
+		hashlist, err := h.hashlistRepo.GetByID(ctx, id)
+		if err != nil {
+			jsonError(w, "Hashlist not found", http.StatusNotFound)
+			return
+		}
+		// Return minimal response with just the status
+		jsonResponse(w, http.StatusOK, map[string]interface{}{
+			"hashlist_id": id,
+			"status":      hashlist.Status,
+		})
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, progress)
 }
 
 func (h *hashlistHandler) handleUpdateHashlistClient(w http.ResponseWriter, r *http.Request) {
@@ -1016,6 +1123,14 @@ func (h *hashlistHandler) serveUncrackedHashlist(w http.ResponseWriter, r *http.
 
 	debug.Debug("Streaming uncracked hashes for agent download [hashlist_id=%d, hash_type=%d]", hashlist.ID, hashlist.HashTypeID)
 
+	// Use buffered writer for much better performance
+	// 256KB buffer with 32KB flush interval reduces flushes from millions to thousands
+	const flushInterval = 32 * 1024 // 32KB flush interval
+	var bytesWritten int
+
+	bufWriter := bufio.NewWriterSize(w, 256*1024) // 256KB buffer
+	defer bufWriter.Flush()
+
 	var err error
 
 	// For LM hashes (hash_type_id 3000), stream unique 16-character halves
@@ -1023,13 +1138,22 @@ func (h *hashlistHandler) serveUncrackedHashlist(w http.ResponseWriter, r *http.
 	if hashlist.HashTypeID == 3000 {
 		err = h.hashRepo.StreamUncrackedLMHashHalvesForHashlist(ctx, hashlist.ID, func(hashHalf string) error {
 			// Write 16-char LM hash half (with newline)
-			if _, err := fmt.Fprintln(w, hashHalf); err != nil {
+			n, err := bufWriter.WriteString(hashHalf)
+			if err != nil {
 				return fmt.Errorf("failed to write LM hash half: %w", err)
 			}
+			bufWriter.WriteByte('\n')
+			bytesWritten += n + 1
 
-			// Flush to ensure streaming (critical for large hashlists)
-			if flusher, ok := w.(http.Flusher); ok {
-				flusher.Flush()
+			// Flush periodically for streaming (every 32KB, not every line)
+			if bytesWritten >= flushInterval {
+				if err := bufWriter.Flush(); err != nil {
+					return fmt.Errorf("failed to flush buffer: %w", err)
+				}
+				if flusher, ok := w.(http.Flusher); ok {
+					flusher.Flush()
+				}
+				bytesWritten = 0
 			}
 
 			return nil
@@ -1038,19 +1162,29 @@ func (h *hashlistHandler) serveUncrackedHashlist(w http.ResponseWriter, r *http.
 		// For non-LM hashes, stream full hash values as before
 		err = h.hashRepo.StreamUncrackedHashValuesForHashlist(ctx, hashlist.ID, func(hashValue string) error {
 			// Write hash_value (with newline)
-			if _, err := fmt.Fprintln(w, hashValue); err != nil {
+			n, err := bufWriter.WriteString(hashValue)
+			if err != nil {
 				return fmt.Errorf("failed to write hash: %w", err)
 			}
+			bufWriter.WriteByte('\n')
+			bytesWritten += n + 1
 
-			// Flush to ensure streaming (critical for large hashlists)
-			if flusher, ok := w.(http.Flusher); ok {
-				flusher.Flush()
+			// Flush periodically for streaming (every 32KB, not every line)
+			if bytesWritten >= flushInterval {
+				if err := bufWriter.Flush(); err != nil {
+					return fmt.Errorf("failed to flush buffer: %w", err)
+				}
+				if flusher, ok := w.(http.Flusher); ok {
+					flusher.Flush()
+				}
+				bytesWritten = 0
 			}
 
 			return nil
 		})
 	}
 
+	// Final flush is handled by defer bufWriter.Flush()
 	if err != nil {
 		debug.Error("Error streaming uncracked hashes for hashlist %d: %v", hashlist.ID, err)
 		// Can't send error response here as headers are already sent
@@ -1069,24 +1203,42 @@ func (h *hashlistHandler) serveOriginalHashlist(w http.ResponseWriter, r *http.R
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Transfer-Encoding", "chunked")
 
+	// Use buffered writer for much better performance
+	// 256KB buffer with 32KB flush interval reduces flushes from millions to thousands
+	const flushInterval = 32 * 1024 // 32KB flush interval
+	var bytesWritten int
+
+	bufWriter := bufio.NewWriterSize(w, 256*1024) // 256KB buffer
+	defer bufWriter.Flush()
+
 	// Stream hashes from database
 	err := h.hashRepo.StreamHashesForHashlist(ctx, hashlist.ID, func(hash *models.Hash) error {
 		// Format the hash in its original format
 		line := formatHashForDownload(hash)
 
 		// Write the line (with newline)
-		if _, err := fmt.Fprintln(w, line); err != nil {
+		n, err := bufWriter.WriteString(line)
+		if err != nil {
 			return fmt.Errorf("failed to write hash line: %w", err)
 		}
+		bufWriter.WriteByte('\n')
+		bytesWritten += n + 1
 
-		// Flush the writer to ensure streaming
-		if flusher, ok := w.(http.Flusher); ok {
-			flusher.Flush()
+		// Flush periodically for streaming (every 32KB, not every line)
+		if bytesWritten >= flushInterval {
+			if err := bufWriter.Flush(); err != nil {
+				return fmt.Errorf("failed to flush buffer: %w", err)
+			}
+			if flusher, ok := w.(http.Flusher); ok {
+				flusher.Flush()
+			}
+			bytesWritten = 0
 		}
 
 		return nil
 	})
 
+	// Final flush is handled by defer bufWriter.Flush()
 	if err != nil {
 		debug.Error("Error streaming hashlist %d: %v", hashlist.ID, err)
 		// Can't send error response here as headers are already sent

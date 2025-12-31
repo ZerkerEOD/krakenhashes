@@ -184,14 +184,14 @@ func (r *JobTaskRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.
 			jt.keyspace_start, jt.keyspace_end, jt.keyspace_processed,
 			jt.effective_keyspace_start, jt.effective_keyspace_end, jt.effective_keyspace_processed,
 			jt.benchmark_speed, jt.average_speed, jt.chunk_duration, jt.assigned_at,
-			jt.started_at, jt.completed_at, jt.last_checkpoint, jt.error_message,
+			jt.started_at, jt.completed_at, jt.cracking_completed_at, jt.last_checkpoint, jt.error_message,
 			jt.crack_count, jt.detailed_status, jt.retry_count,
 			jt.rule_start_index, jt.rule_end_index, jt.rule_chunk_path, jt.is_rule_split_task,
 			jt.chunk_number, jt.is_actual_keyspace, jt.chunk_actual_keyspace, jt.is_keyspace_split,
 			jt.progress_percent, jt.created_at, jt.updated_at,
 			a.name as agent_name
 		FROM job_tasks jt
-		JOIN agents a ON jt.agent_id = a.id
+		LEFT JOIN agents a ON jt.agent_id = a.id
 		WHERE jt.id = $1`
 
 	var task models.JobTask
@@ -201,7 +201,7 @@ func (r *JobTaskRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.
 		&task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
 		&task.EffectiveKeyspaceStart, &task.EffectiveKeyspaceEnd, &task.EffectiveKeyspaceProcessed,
 		&task.BenchmarkSpeed, &task.AverageSpeed, &task.ChunkDuration, &task.AssignedAt,
-		&task.StartedAt, &task.CompletedAt, &task.LastCheckpoint, &task.ErrorMessage,
+		&task.StartedAt, &task.CompletedAt, &task.CrackingCompletedAt, &task.LastCheckpoint, &task.ErrorMessage,
 		&task.CrackCount, &task.DetailedStatus, &task.RetryCount,
 		&task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath, &task.IsRuleSplitTask,
 		&task.ChunkNumber, &task.IsActualKeyspace, &task.ChunkActualKeyspace, &task.IsKeyspaceSplit,
@@ -227,7 +227,7 @@ func (r *JobTaskRepository) GetTasksByJobExecution(ctx context.Context, jobExecu
 			jt.keyspace_start, jt.keyspace_end, jt.keyspace_processed,
 			jt.effective_keyspace_start, jt.effective_keyspace_end, jt.effective_keyspace_processed,
 			jt.benchmark_speed, jt.average_speed, jt.chunk_duration, jt.assigned_at,
-			jt.started_at, jt.completed_at, jt.last_checkpoint, jt.error_message,
+			jt.started_at, jt.completed_at, jt.cracking_completed_at, jt.last_checkpoint, jt.error_message,
 			jt.crack_count,
 			jt.increment_layer_id,
 			jt.rule_start_index, jt.rule_end_index, jt.rule_chunk_path, jt.is_rule_split_task,
@@ -252,7 +252,7 @@ func (r *JobTaskRepository) GetTasksByJobExecution(ctx context.Context, jobExecu
 			&task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
 			&task.EffectiveKeyspaceStart, &task.EffectiveKeyspaceEnd, &task.EffectiveKeyspaceProcessed,
 			&task.BenchmarkSpeed, &task.AverageSpeed, &task.ChunkDuration, &task.AssignedAt,
-			&task.StartedAt, &task.CompletedAt, &task.LastCheckpoint, &task.ErrorMessage,
+			&task.StartedAt, &task.CompletedAt, &task.CrackingCompletedAt, &task.LastCheckpoint, &task.ErrorMessage,
 			&task.CrackCount,
 			&task.IncrementLayerID,
 			&task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath, &task.IsRuleSplitTask,
@@ -633,7 +633,10 @@ func (r *JobTaskRepository) CompleteTask(ctx context.Context, id uuid.UUID) erro
 	}
 
 	// Update both status and detailed_status to maintain database constraint consistency
-	query := `UPDATE job_tasks SET status = $1, detailed_status = $2, completed_at = $3, progress_percent = 100 WHERE id = $4`
+	// Use COALESCE to preserve cracking_completed_at if already set (cracks > 0 path),
+	// otherwise set it to completed_at (0 cracks path - hashcat finished at same time as completion)
+	query := `UPDATE job_tasks SET status = $1, detailed_status = $2, completed_at = $3, progress_percent = 100,
+		cracking_completed_at = COALESCE(cracking_completed_at, $3) WHERE id = $4`
 	result, err := r.db.ExecContext(ctx, query, models.JobTaskStatusCompleted, "completed_no_cracks", now, id)
 	if err != nil {
 		return fmt.Errorf("failed to complete job task: %w", err)
@@ -939,12 +942,13 @@ func (r *JobTaskRepository) UpdateTaskWithCracks(ctx context.Context, id uuid.UU
 	}
 
 	query := `
-		UPDATE job_tasks 
-		SET 
+		UPDATE job_tasks
+		SET
 			status = $2,
 			detailed_status = $3,
 			crack_count = $4,
-			completed_at = CURRENT_TIMESTAMP
+			completed_at = CURRENT_TIMESTAMP,
+			cracking_completed_at = COALESCE(cracking_completed_at, CURRENT_TIMESTAMP)
 		WHERE id = $1`
 
 	_, err := r.db.ExecContext(ctx, query, id, status, detailedStatus, crackCount)
@@ -1665,11 +1669,13 @@ func (r *JobTaskRepository) GetTaskCountForJob(ctx context.Context, jobExecution
 }
 
 // SetTaskProcessing marks a task as processing with expected crack count from final progress message
+// Also sets cracking_completed_at to mark when hashcat finished for this task
 func (r *JobTaskRepository) SetTaskProcessing(ctx context.Context, taskID uuid.UUID, expectedCracks int) error {
 	query := `
 		UPDATE job_tasks
 		SET status = $2,
 		    expected_crack_count = $3,
+		    cracking_completed_at = CURRENT_TIMESTAMP,
 		    updated_at = CURRENT_TIMESTAMP
 		WHERE id = $1`
 
@@ -1691,6 +1697,32 @@ func (r *JobTaskRepository) SetTaskProcessing(ctx context.Context, taskID uuid.U
 		"task_id":         taskID,
 		"expected_cracks": expectedCracks,
 	})
+
+	return nil
+}
+
+// SetCrackingCompleted sets the cracking_completed_at timestamp for a task
+// This marks when hashcat finished for this task (enters processing state)
+func (r *JobTaskRepository) SetCrackingCompleted(ctx context.Context, taskID uuid.UUID) error {
+	query := `
+		UPDATE job_tasks
+		SET cracking_completed_at = CURRENT_TIMESTAMP,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`
+
+	result, err := r.db.ExecContext(ctx, query, taskID)
+	if err != nil {
+		return fmt.Errorf("failed to set cracking completed: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
 
 	return nil
 }
@@ -1829,4 +1861,48 @@ func (r *JobTaskRepository) GetProcessingTasksForJob(ctx context.Context, jobExe
 	}
 
 	return tasks, nil
+}
+
+// SetTaskProcessingError marks a task with processing_error status after crack count mismatch retries exhausted.
+func (r *JobTaskRepository) SetTaskProcessingError(ctx context.Context, taskID uuid.UUID, errorMsg string) error {
+	query := `
+		UPDATE job_tasks
+		SET status = 'processing_error',
+		    error_message = $2,
+		    updated_at = NOW()
+		WHERE id = $1`
+
+	result, err := r.db.ExecContext(ctx, query, taskID, errorMsg)
+	if err != nil {
+		return fmt.Errorf("failed to set task processing error: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("task %s not found", taskID)
+	}
+
+	debug.Info("Task %s marked as processing_error: %s", taskID, errorMsg)
+	return nil
+}
+
+// IncrementRetransmitCount increments the retransmit counter for a task and updates the timestamp.
+func (r *JobTaskRepository) IncrementRetransmitCount(ctx context.Context, taskID uuid.UUID) error {
+	query := `
+		UPDATE job_tasks
+		SET retransmit_count = COALESCE(retransmit_count, 0) + 1,
+		    last_retransmit_at = NOW(),
+		    updated_at = NOW()
+		WHERE id = $1`
+
+	_, err := r.db.ExecContext(ctx, query, taskID)
+	if err != nil {
+		return fmt.Errorf("failed to increment retransmit count: %w", err)
+	}
+
+	return nil
 }

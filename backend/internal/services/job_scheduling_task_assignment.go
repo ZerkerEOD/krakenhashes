@@ -394,6 +394,38 @@ func (s *JobSchedulingService) createSingleTaskPlan(
 				effectiveEnd = *pendingTask.EffectiveKeyspaceEnd
 			}
 
+			// Recovery optimization - use checkpoint to skip already-processed keyspace
+			recoveryKeyspaceStart := pendingTask.KeyspaceStart
+			recoveryIsKeyspaceSplit := pendingTask.IsKeyspaceSplit
+			recoveryEffectiveStart := effectiveStart
+
+			if pendingTask.KeyspaceProcessed > pendingTask.KeyspaceStart {
+				// Partial progress was made - resume from checkpoint
+				recoveryKeyspaceStart = pendingTask.KeyspaceProcessed
+				recoveryIsKeyspaceSplit = true // Force --skip/--limit flags
+
+				// Calculate new effective keyspace start proportionally
+				if pendingTask.EffectiveKeyspaceStart != nil && pendingTask.EffectiveKeyspaceEnd != nil &&
+					pendingTask.KeyspaceEnd > pendingTask.KeyspaceStart {
+					// multiplier = effective range / base range
+					baseRange := pendingTask.KeyspaceEnd - pendingTask.KeyspaceStart
+					effectiveRange := *pendingTask.EffectiveKeyspaceEnd - *pendingTask.EffectiveKeyspaceStart
+					multiplier := float64(effectiveRange) / float64(baseRange)
+
+					// New effective start = original effective start + (processed base * multiplier)
+					processedBase := pendingTask.KeyspaceProcessed - pendingTask.KeyspaceStart
+					recoveryEffectiveStart = *pendingTask.EffectiveKeyspaceStart + int64(float64(processedBase)*multiplier)
+				}
+
+				debug.Info("Task recovery: resuming from checkpoint", map[string]interface{}{
+					"task_id":            pendingTask.ID,
+					"original_start":     pendingTask.KeyspaceStart,
+					"recovery_start":     recoveryKeyspaceStart,
+					"keyspace_processed": pendingTask.KeyspaceProcessed,
+					"remaining_work":     pendingTask.KeyspaceEnd - recoveryKeyspaceStart,
+				})
+			}
+
 			plan := &TaskAssignmentPlan{
 				AgentID:        agentID,
 				Agent:          agent,
@@ -402,11 +434,12 @@ func (s *JobSchedulingService) createSingleTaskPlan(
 				BenchmarkSpeed: benchmarkSpeed,
 				ExistingTask:   pendingTask, // Mark as pending task reassignment
 
-				// Copy keyspace fields from pending task
-				KeyspaceStart:          pendingTask.KeyspaceStart,
+				// Copy keyspace fields - may be updated for recovery
+				KeyspaceStart:          recoveryKeyspaceStart,
 				KeyspaceEnd:            pendingTask.KeyspaceEnd,
-				EffectiveKeyspaceStart: effectiveStart,
+				EffectiveKeyspaceStart: recoveryEffectiveStart,
 				EffectiveKeyspaceEnd:   effectiveEnd,
+				IsKeyspaceSplit:        recoveryIsKeyspaceSplit,
 				AttackCmd:              pendingTask.AttackCmd,
 				ChunkNumber:            pendingTask.ChunkNumber,
 			}
@@ -658,6 +691,12 @@ func (s *JobSchedulingService) executeTaskAssignment(
 		task.AttackCmd = plan.AttackCmd // Updated with new chunk path if rule-split
 		now := time.Now()
 		task.AssignedAt = &now
+
+		// Apply recovery optimization - update keyspace fields from checkpoint
+		task.KeyspaceStart = plan.KeyspaceStart     // May be updated from keyspace_processed
+		task.IsKeyspaceSplit = plan.IsKeyspaceSplit // Ensure split flag is set
+		task.EffectiveKeyspaceStart = &plan.EffectiveKeyspaceStart
+		task.EffectiveKeyspaceEnd = &plan.EffectiveKeyspaceEnd
 
 		// Update rule chunk path if this is a rule-split task
 		if plan.IsRuleSplit && ruleChunkPath != "" {

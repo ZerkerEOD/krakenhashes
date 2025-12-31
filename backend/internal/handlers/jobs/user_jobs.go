@@ -192,7 +192,7 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 		var totalSpeed int64
 		var crackedCount int
 		var keyspaceSearched int64
-		var keyspaceDispatched int64
+		// Note: keyspaceDispatched removed - use job.DispatchedKeyspace instead (calculated by job_progress_calculation_service)
 
 		for _, task := range tasks {
 			if task.Status == models.JobTaskStatusRunning {
@@ -203,13 +203,6 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 			}
 			crackedCount += task.CrackCount
 			keyspaceSearched += task.KeyspaceProcessed
-
-			// Calculate dispatched keyspace (assigned to tasks)
-			if task.Status != models.JobTaskStatusPending {
-				// Task has been dispatched if it's not pending
-				taskKeyspace := task.KeyspaceEnd - task.KeyspaceStart
-				keyspaceDispatched += taskKeyspace
-			}
 		}
 
 		// Calculate percentages using effective keyspace when available
@@ -254,9 +247,11 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 					dispatchedPercent = float64(totalEffectiveDispatched) / float64(keyspaceForProgress) * 100
 				}
 			} else {
-				// For keyspace-based jobs
+				// For keyspace-based jobs (including keyspace-split jobs)
+				// Use the pre-calculated dispatched_keyspace from job_progress_calculation_service
+				// which correctly handles effective keyspace for keyspace-split jobs
 				searchedPercent = float64(job.ProcessedKeyspace) / float64(keyspaceForProgress) * 100
-				dispatchedPercent = float64(keyspaceDispatched) / float64(keyspaceForProgress) * 100
+				dispatchedPercent = float64(job.DispatchedKeyspace) / float64(keyspaceForProgress) * 100
 			}
 
 			// Cap percentages at 100%
@@ -820,6 +815,11 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 		if task.AverageSpeed != nil {
 			taskSummary["average_speed"] = *task.AverageSpeed
 		}
+		if task.CrackingCompletedAt != nil {
+			taskSummary["cracking_completed_at"] = task.CrackingCompletedAt.Format(time.RFC3339)
+		}
+		taskSummary["expected_crack_count"] = task.ExpectedCrackCount
+		taskSummary["received_crack_count"] = task.ReceivedCrackCount
 
 		taskSummaries = append(taskSummaries, taskSummary)
 	}
@@ -879,6 +879,9 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	if job.CompletedAt != nil {
 		response["completed_at"] = job.CompletedAt.Format(time.RFC3339)
+	}
+	if job.CrackingCompletedAt != nil {
+		response["cracking_completed_at"] = job.CrackingCompletedAt.Format(time.RFC3339)
 	}
 	if job.ErrorMessage != nil {
 		response["error_message"] = *job.ErrorMessage
@@ -1514,7 +1517,7 @@ func (h *UserJobsHandler) ListUserJobs(w http.ResponseWriter, r *http.Request) {
 		var totalSpeed int64
 		var crackedCount int
 		var keyspaceSearched int64
-		var keyspaceDispatched int64
+		// Note: keyspaceDispatched removed - use job.DispatchedKeyspace instead (calculated by job_progress_calculation_service)
 
 		for _, task := range tasks {
 			if task.Status == models.JobTaskStatusRunning {
@@ -1525,13 +1528,6 @@ func (h *UserJobsHandler) ListUserJobs(w http.ResponseWriter, r *http.Request) {
 			}
 			crackedCount += task.CrackCount
 			keyspaceSearched += task.KeyspaceProcessed
-
-			// Calculate dispatched keyspace (assigned to tasks)
-			if task.Status != models.JobTaskStatusPending {
-				// Task has been dispatched if it's not pending
-				taskKeyspace := task.KeyspaceEnd - task.KeyspaceStart
-				keyspaceDispatched += taskKeyspace
-			}
 		}
 
 		// Calculate percentages using effective keyspace when available
@@ -1576,9 +1572,11 @@ func (h *UserJobsHandler) ListUserJobs(w http.ResponseWriter, r *http.Request) {
 					dispatchedPercent = float64(totalEffectiveDispatched) / float64(keyspaceForProgress) * 100
 				}
 			} else {
-				// For keyspace-based jobs
+				// For keyspace-based jobs (including keyspace-split jobs)
+				// Use the pre-calculated dispatched_keyspace from job_progress_calculation_service
+				// which correctly handles effective keyspace for keyspace-split jobs
 				searchedPercent = float64(job.ProcessedKeyspace) / float64(keyspaceForProgress) * 100
-				dispatchedPercent = float64(keyspaceDispatched) / float64(keyspaceForProgress) * 100
+				dispatchedPercent = float64(job.DispatchedKeyspace) / float64(keyspaceForProgress) * 100
 			}
 
 			// Cap percentages at 100%

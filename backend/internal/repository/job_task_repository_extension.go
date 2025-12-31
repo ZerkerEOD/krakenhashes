@@ -372,13 +372,36 @@ func (r *JobTaskRepository) AreAllTasksComplete(ctx context.Context, jobExecutio
 	return true, nil
 }
 
-// AreAllLayerTasksComplete checks if all tasks for a specific layer are complete
+// HasFailedTasks checks if a job has any failed or processing_error tasks
+func (r *JobTaskRepository) HasFailedTasks(ctx context.Context, jobExecutionID uuid.UUID) (bool, error) {
+	query := `
+		SELECT COUNT(*) > 0
+		FROM job_tasks
+		WHERE job_execution_id = $1
+		AND status IN ($2, $3)`
+
+	var hasFailed bool
+	err := r.db.QueryRowContext(ctx, query,
+		jobExecutionID,
+		models.JobTaskStatusFailed,
+		models.JobTaskStatusProcessingError,
+	).Scan(&hasFailed)
+
+	if err != nil {
+		return false, fmt.Errorf("failed to check for failed tasks: %w", err)
+	}
+
+	return hasFailed, nil
+}
+
+// AreAllLayerTasksComplete checks if all tasks for a specific layer are in a terminal state
+// Note: This returns true if all tasks are completed, failed, cancelled, or processing_error
 func (r *JobTaskRepository) AreAllLayerTasksComplete(ctx context.Context, layerID uuid.UUID) (bool, error) {
 	query := `
 		SELECT COUNT(*) = 0
 		FROM job_tasks
 		WHERE increment_layer_id = $1
-		  AND status NOT IN ('completed', 'cancelled')`
+		  AND status NOT IN ('completed', 'cancelled', 'failed', 'processing_error')`
 
 	var allComplete bool
 	err := r.db.QueryRowContext(ctx, query, layerID).Scan(&allComplete)
@@ -389,6 +412,23 @@ func (r *JobTaskRepository) AreAllLayerTasksComplete(ctx context.Context, layerI
 	return allComplete, nil
 }
 
+// HasFailedLayerTasks checks if a layer has any failed or processing_error tasks
+func (r *JobTaskRepository) HasFailedLayerTasks(ctx context.Context, layerID uuid.UUID) (bool, error) {
+	query := `
+		SELECT COUNT(*) > 0
+		FROM job_tasks
+		WHERE increment_layer_id = $1
+		AND status IN ('failed', 'processing_error')`
+
+	var hasFailed bool
+	err := r.db.QueryRowContext(ctx, query, layerID).Scan(&hasFailed)
+	if err != nil {
+		return false, fmt.Errorf("failed to check for failed layer tasks: %w", err)
+	}
+
+	return hasFailed, nil
+}
+
 // GetPendingTasksByJobExecution retrieves all pending tasks for a specific job execution
 func (r *JobTaskRepository) GetPendingTasksByJobExecution(ctx context.Context, jobExecutionID uuid.UUID) ([]models.JobTask, error) {
 	query := `
@@ -397,7 +437,9 @@ func (r *JobTaskRepository) GetPendingTasksByJobExecution(ctx context.Context, j
 			chunk_duration, created_at, assigned_at, started_at, completed_at,
 			updated_at, last_checkpoint, error_message, crack_count,
 			detailed_status, retry_count, rule_start_index, rule_end_index,
-			rule_chunk_path, is_rule_split_task
+			rule_chunk_path, is_rule_split_task, is_keyspace_split,
+			effective_keyspace_start, effective_keyspace_end, chunk_number,
+			increment_layer_id
 		FROM job_tasks
 		WHERE job_execution_id = $1 AND status = $2
 		ORDER BY created_at ASC`
@@ -418,6 +460,8 @@ func (r *JobTaskRepository) GetPendingTasksByJobExecution(ctx context.Context, j
 			&task.StartedAt, &task.CompletedAt, &task.UpdatedAt, &task.LastCheckpoint,
 			&task.ErrorMessage, &task.CrackCount, &task.DetailedStatus, &task.RetryCount,
 			&task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath, &task.IsRuleSplitTask,
+			&task.IsKeyspaceSplit, &task.EffectiveKeyspaceStart, &task.EffectiveKeyspaceEnd,
+			&task.ChunkNumber, &task.IncrementLayerID,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan task: %w", err)
@@ -437,8 +481,9 @@ func (r *JobTaskRepository) Update(ctx context.Context, task *models.JobTask) er
 			benchmark_speed = $8, chunk_duration = $9, assigned_at = $10,
 			started_at = $11, completed_at = $12, updated_at = $13,
 			last_checkpoint = $14, error_message = $15, crack_count = $16,
-			detailed_status = $17, retry_count = $18
-		WHERE id = $19`
+			detailed_status = $17, retry_count = $18, is_keyspace_split = $19,
+			effective_keyspace_start = $20, effective_keyspace_end = $21
+		WHERE id = $22`
 
 	_, err := r.db.ExecContext(ctx, query,
 		task.AgentID, task.Status, task.Priority, task.AttackCmd,
@@ -446,7 +491,8 @@ func (r *JobTaskRepository) Update(ctx context.Context, task *models.JobTask) er
 		task.BenchmarkSpeed, task.ChunkDuration, task.AssignedAt,
 		task.StartedAt, task.CompletedAt, task.UpdatedAt,
 		task.LastCheckpoint, task.ErrorMessage, task.CrackCount,
-		task.DetailedStatus, task.RetryCount, task.ID,
+		task.DetailedStatus, task.RetryCount, task.IsKeyspaceSplit,
+		task.EffectiveKeyspaceStart, task.EffectiveKeyspaceEnd, task.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to update task: %w", err)

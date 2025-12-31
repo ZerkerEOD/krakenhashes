@@ -30,6 +30,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
   });
   const [agentSchedulingEnabled, setAgentSchedulingEnabled] = useState(false);
   const [requireClientForHashlist, setRequireClientForHashlist] = useState(false);
+  const [hashlistBatchSize, setHashlistBatchSize] = useState<number>(100000);
   const [potfileBatchSize, setPotfileBatchSize] = useState<number>(100000);
   const [potfileBatchInterval, setPotfileBatchInterval] = useState<number>(60);
   const [agentOverflowMode, setAgentOverflowMode] = useState<string>('fifo');
@@ -60,6 +61,10 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
         const requireClientSetting = settings.data?.find((s: any) => s.key === 'require_client_for_hashlist');
         if (requireClientSetting) {
           setRequireClientForHashlist(requireClientSetting.value === 'true');
+        }
+        const hashlistBatchSizeSetting = settings.data?.find((s: any) => s.key === 'hashlist_bulk_batch_size');
+        if (hashlistBatchSizeSetting) {
+          setHashlistBatchSize(parseInt(hashlistBatchSizeSetting.value) || 100000);
         }
         const potfileBatchSizeSetting = settings.data?.find((s: any) => s.key === 'potfile_max_batch_size');
         if (potfileBatchSizeSetting) {
@@ -385,9 +390,46 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
                 better organization and tracking of hashlists by client.
               </Typography>
 
-              <Typography variant="body2" color="text.secondary">
-                <strong>Note:</strong> This only affects new hashlist uploads. Existing hashlists can still
-                be edited to change their client assignment regardless of this setting.
+              <TextField
+                fullWidth
+                label="Bulk Import Batch Size"
+                type="number"
+                value={hashlistBatchSize}
+                onChange={(e) => {
+                  const newValue = parseInt(e.target.value) || 100000;
+                  setHashlistBatchSize(newValue);
+                }}
+                onBlur={async (e) => {
+                  const newValue = parseInt(e.target.value) || 100000;
+                  if (newValue < 10000 || newValue > 2000000) {
+                    enqueueSnackbar('Batch size must be between 10,000 and 2,000,000', { variant: 'warning' });
+                    setHashlistBatchSize(100000);
+                    return;
+                  }
+                  try {
+                    await updateSystemSetting('hashlist_bulk_batch_size', newValue.toString());
+                    enqueueSnackbar('Hashlist batch size updated', { variant: 'success' });
+                  } catch (error) {
+                    console.error('Failed to update batch size:', error);
+                    enqueueSnackbar('Failed to update batch size', { variant: 'error' });
+                    await loadSettings();
+                  }
+                }}
+                disabled={loading || saving || loadingData}
+                inputProps={{
+                  min: 10000,
+                  max: 2000000,
+                  step: 50000,
+                }}
+                helperText="Number of hashes processed per batch during uploads. Default: 100,000. Recommended: 500,000-1,000,000 for large hashlists (47M+)"
+                sx={{ mt: 2, mb: 2 }}
+              />
+
+              <Typography variant="body2" color="text.secondary" paragraph>
+                <strong>Performance Guide:</strong>
+                <br />• 100K (default): Good for most use cases
+                <br />• 500K: Better for large hashlists, may improve throughput
+                <br />• 1M: Best for very large hashlists (50M+), requires more RAM
               </Typography>
             </CardContent>
           </Card>

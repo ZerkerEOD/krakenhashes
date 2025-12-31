@@ -30,9 +30,10 @@ type JobManager struct {
 	hwMonitor               HardwareMonitor // Interface for hardware monitor
 
 	// Job state
-	mutex           sync.RWMutex
-	activeJobs      map[string]*JobExecution
-	benchmarkCache  map[string]*BenchmarkResult
+	mutex             sync.RWMutex
+	activeJobs        map[string]*JobExecution
+	benchmarkCache    map[string]*BenchmarkResult
+	lastCompletedTask *CompletedTaskInfo // Cache last completed task for reconnection
 }
 
 // HardwareMonitor interface for device management
@@ -58,6 +59,25 @@ type BenchmarkResult struct {
 	Timestamp   time.Time
 }
 
+// CompletedTaskInfo stores all progress data needed for reconnection
+// Used to report completion status if agent reconnects after task finished
+type CompletedTaskInfo struct {
+	TaskID                 string
+	JobID                  string
+	// Progress fields - copy from LastProgress
+	KeyspaceProcessed      int64
+	EffectiveProgress      int64
+	ProgressPercent        float64
+	TotalEffectiveKeyspace *int64
+	HashRate               int64
+	CrackedCount           int
+	AllHashesCracked       bool
+	// Status fields
+	Status                 string // "completed", "failed", or "running"
+	ErrorMessage           string
+	CompletedAt            time.Time
+}
+
 // ExecutorInterface defines the methods needed by JobManager
 type ExecutorInterface interface {
 	SetOutputCallback(callback func(taskID string, output string, isError bool))
@@ -69,6 +89,11 @@ type ExecutorInterface interface {
 	GetActiveTaskIDs() []string
 	ForceCleanup() error
 	RunSpeedTest(ctx context.Context, assignment *JobTaskAssignment, testDuration int) (int64, []DeviceSpeed, int64, error)
+	// Outfile acknowledgment protocol methods
+	RetransmitOutfile(taskID string) ([]CrackedHash, error)
+	DeleteOutfile(taskID string) error
+	GetPendingOutfiles() (taskIDs []string, currentTaskID string, err error)
+	GetOutfileLineCount(taskID string) (int64, error)
 }
 
 // NewJobManager creates a new job manager
@@ -128,27 +153,43 @@ func (jm *JobManager) SetOutputCallback(callback func(taskID string, output stri
 	jm.executor.SetOutputCallback(callback)
 }
 
-// GetCurrentTaskStatus returns information about the currently running task
-func (jm *JobManager) GetCurrentTaskStatus() (hasTask bool, taskID string, jobID string, keyspaceProcessed int64) {
+// GetCurrentTaskStatus returns information about the currently running or completed task
+// Returns nil if there is no active task and no cached completion
+func (jm *JobManager) GetCurrentTaskStatus() *CompletedTaskInfo {
 	jm.mutex.RLock()
 	defer jm.mutex.RUnlock()
-	
-	if len(jm.activeJobs) == 0 {
-		return false, "", "", 0
-	}
-	
-	// Return the first active job (agents typically run one job at a time)
+
+	// Check for active jobs first
 	for taskID, execution := range jm.activeJobs {
+		info := &CompletedTaskInfo{
+			TaskID: taskID,
+			Status: "running",
+		}
 		if execution.Assignment != nil {
-			jobID = execution.Assignment.JobExecutionID
+			info.JobID = execution.Assignment.JobExecutionID
 		}
 		if execution.LastProgress != nil {
-			keyspaceProcessed = execution.LastProgress.KeyspaceProcessed
+			info.KeyspaceProcessed = execution.LastProgress.KeyspaceProcessed
+			info.EffectiveProgress = execution.LastProgress.EffectiveProgress
+			info.ProgressPercent = execution.LastProgress.ProgressPercent
+			info.TotalEffectiveKeyspace = execution.LastProgress.TotalEffectiveKeyspace
+			info.HashRate = execution.LastProgress.HashRate
+			info.CrackedCount = execution.LastProgress.CrackedCount
+			info.AllHashesCracked = execution.LastProgress.AllHashesCracked
 		}
-		return true, taskID, jobID, keyspaceProcessed
+		return info
 	}
-	
-	return false, "", "", 0
+
+	// Return cached completion if exists (no timeout - cache indefinitely until cleared)
+	return jm.lastCompletedTask // nil if no cached task
+}
+
+// ClearLastCompletedTask clears the last completed task info
+// Called after backend acknowledges receipt of completion status
+func (jm *JobManager) ClearLastCompletedTask() {
+	jm.mutex.Lock()
+	defer jm.mutex.Unlock()
+	jm.lastCompletedTask = nil
 }
 
 // SetProgressCallback sets the progress callback function (deprecated)
@@ -200,11 +241,18 @@ func (jm *JobManager) ProcessJobAssignment(ctx context.Context, assignmentData [
 	debug.Info("Rule paths: %v", assignment.RulePaths)
 	debug.Info("Attack mode: %d, Hash type: %d", assignment.AttackMode, assignment.HashType)
 
-	// Check if task is already running
+	// Check if any task is already running (agent runs one task at a time)
+	// This is defense in depth - prevents concurrent task execution even if server has a bug
 	jm.mutex.RLock()
-	if _, exists := jm.activeJobs[assignment.TaskID]; exists {
+	if len(jm.activeJobs) > 0 {
+		// Get info about existing task for logging
+		var existingTaskID string
+		for taskID := range jm.activeJobs {
+			existingTaskID = taskID
+			break
+		}
 		jm.mutex.RUnlock()
-		return fmt.Errorf("task %s is already running", assignment.TaskID)
+		return fmt.Errorf("cannot accept task %s: already running task %s", assignment.TaskID, existingTaskID)
 	}
 	jm.mutex.RUnlock()
 
@@ -418,6 +466,34 @@ func (jm *JobManager) ensureBenchmark(ctx context.Context, assignment *JobTaskAs
 func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobExecution) {
 	defer func() {
 		jm.mutex.Lock()
+		// Cache completion info before deleting from activeJobs
+		if exec, exists := jm.activeJobs[jobExecution.Assignment.TaskID]; exists {
+			status := "completed"
+			info := &CompletedTaskInfo{
+				TaskID:      jobExecution.Assignment.TaskID,
+				JobID:       jobExecution.Assignment.JobExecutionID,
+				Status:      status,
+				CompletedAt: time.Now(),
+			}
+
+			if exec.LastProgress != nil {
+				if exec.LastProgress.Status == "failed" {
+					info.Status = "failed"
+				}
+				info.KeyspaceProcessed = exec.LastProgress.KeyspaceProcessed
+				info.EffectiveProgress = exec.LastProgress.EffectiveProgress
+				info.ProgressPercent = exec.LastProgress.ProgressPercent
+				info.TotalEffectiveKeyspace = exec.LastProgress.TotalEffectiveKeyspace
+				info.HashRate = exec.LastProgress.HashRate
+				info.CrackedCount = exec.LastProgress.CrackedCount
+				info.AllHashesCracked = exec.LastProgress.AllHashesCracked
+				info.ErrorMessage = exec.LastProgress.ErrorMessage
+			}
+
+			jm.lastCompletedTask = info
+			debug.Info("Cached completion for task %s with status %s, progress %.2f%%, keyspace %d",
+				info.TaskID, info.Status, info.ProgressPercent, info.KeyspaceProcessed)
+		}
 		delete(jm.activeJobs, jobExecution.Assignment.TaskID)
 		jm.mutex.Unlock()
 	}()
@@ -773,4 +849,24 @@ func (jm *JobManager) Shutdown(ctx context.Context) error {
 // Legacy function for compatibility
 func ProcessJobs() {
 	log.Println("ProcessJobs called - this is now handled by JobManager")
+}
+
+// RetransmitOutfile reads an outfile and returns all cracks for retransmission
+func (jm *JobManager) RetransmitOutfile(taskID string) ([]CrackedHash, error) {
+	return jm.executor.RetransmitOutfile(taskID)
+}
+
+// DeleteOutfile removes the outfile for a task after backend confirmation
+func (jm *JobManager) DeleteOutfile(taskID string) error {
+	return jm.executor.DeleteOutfile(taskID)
+}
+
+// GetPendingOutfiles returns all task IDs with unacknowledged outfiles
+func (jm *JobManager) GetPendingOutfiles() (taskIDs []string, currentTaskID string, err error) {
+	return jm.executor.GetPendingOutfiles()
+}
+
+// GetOutfileLineCount returns the number of lines in the outfile for a task
+func (jm *JobManager) GetOutfileLineCount(taskID string) (int64, error) {
+	return jm.executor.GetOutfileLineCount(taskID)
 }

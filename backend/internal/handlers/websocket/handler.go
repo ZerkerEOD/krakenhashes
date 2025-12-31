@@ -416,6 +416,12 @@ func (c *Client) readPump() {
 		case wsservice.TypeDownloadFailed:
 			c.handler.handleDownloadFailed(c, &msg)
 
+		case wsservice.TypePendingOutfiles:
+			c.handler.handlePendingOutfiles(c, &msg)
+
+		case wsservice.TypeOutfileDeleteRejected:
+			c.handler.handleOutfileDeleteRejected(c, &msg)
+
 		default:
 			// Handle other message types
 		}
@@ -1119,14 +1125,21 @@ func containsCracks(payload json.RawMessage) bool {
 func (h *Handler) handleCurrentTaskStatus(client *Client, msg *wsservice.Message) {
 	debug.Info("Agent %d: Received current task status", client.agent.ID)
 	
-	// Parse the status payload
+	// Parse the status payload - includes all progress fields for offline completion handling
 	var status struct {
-		AgentID           int    `json:"agent_id"`
-		HasRunningTask    bool   `json:"has_running_task"`
-		TaskID            string `json:"task_id,omitempty"`
-		JobID             string `json:"job_id,omitempty"`
-		KeyspaceProcessed int64  `json:"keyspace_processed,omitempty"`
-		Status            string `json:"status,omitempty"`
+		AgentID                int     `json:"agent_id"`
+		HasRunningTask         bool    `json:"has_running_task"`
+		TaskID                 string  `json:"task_id,omitempty"`
+		JobID                  string  `json:"job_id,omitempty"`
+		KeyspaceProcessed      int64   `json:"keyspace_processed,omitempty"`
+		EffectiveProgress      int64   `json:"effective_progress,omitempty"`
+		ProgressPercent        float64 `json:"progress_percent,omitempty"`
+		TotalEffectiveKeyspace *int64  `json:"total_effective_keyspace,omitempty"`
+		HashRate               int64   `json:"hash_rate,omitempty"`
+		CrackedCount           int     `json:"cracked_count,omitempty"`
+		AllHashesCracked       bool    `json:"all_hashes_cracked,omitempty"`
+		Status                 string  `json:"status,omitempty"`
+		ErrorMessage           string  `json:"error_message,omitempty"`
 	}
 	
 	if err := json.Unmarshal(msg.Payload, &status); err != nil {
@@ -1173,7 +1186,18 @@ func (h *Handler) handleCurrentTaskStatus(client *Client, msg *wsservice.Message
 				}
 				// Don't set busy status for unassigned task
 			} else {
-				// Task is valid and assigned to this agent, set busy status
+				// Task is valid and assigned to this agent
+
+				// Check if agent reports completed/failed status - process as final completion
+				// This handles the case where agent completed task while disconnected
+				if status.Status == "completed" || status.Status == "failed" {
+					debug.Info("Agent %d: Processing offline task completion for task %s with status %s",
+						client.agent.ID, status.TaskID, status.Status)
+					h.handleOfflineTaskCompletion(client, &status, task)
+					return
+				}
+
+				// Task is still running, set busy status
 				if client.agent.Metadata == nil {
 					client.agent.Metadata = make(map[string]string)
 				}
@@ -1252,6 +1276,81 @@ func (h *Handler) handleCurrentTaskStatus(client *Client, msg *wsservice.Message
 			debug.Info("Agent %d marked as active and available for work", client.agent.ID)
 		}
 	}
+}
+
+// handleOfflineTaskCompletion processes task completion that happened while agent was offline
+// This is called when agent reconnects and reports a completed/failed task status
+func (h *Handler) handleOfflineTaskCompletion(client *Client, status *struct {
+	AgentID                int     `json:"agent_id"`
+	HasRunningTask         bool    `json:"has_running_task"`
+	TaskID                 string  `json:"task_id,omitempty"`
+	JobID                  string  `json:"job_id,omitempty"`
+	KeyspaceProcessed      int64   `json:"keyspace_processed,omitempty"`
+	EffectiveProgress      int64   `json:"effective_progress,omitempty"`
+	ProgressPercent        float64 `json:"progress_percent,omitempty"`
+	TotalEffectiveKeyspace *int64  `json:"total_effective_keyspace,omitempty"`
+	HashRate               int64   `json:"hash_rate,omitempty"`
+	CrackedCount           int     `json:"cracked_count,omitempty"`
+	AllHashesCracked       bool    `json:"all_hashes_cracked,omitempty"`
+	Status                 string  `json:"status,omitempty"`
+	ErrorMessage           string  `json:"error_message,omitempty"`
+}, task *models.JobTask) {
+	debug.Info("Agent %d: Processing offline task completion for task %s with status %s, progress %.2f%%",
+		client.agent.ID, status.TaskID, status.Status, status.ProgressPercent)
+
+	// Construct a job_status message with the cached progress data
+	// This mimics what the agent would have sent if it was connected
+	jobStatusPayload := map[string]interface{}{
+		"task_id":            status.TaskID,
+		"keyspace_processed": status.KeyspaceProcessed,
+		"effective_progress": status.EffectiveProgress,
+		"progress_percent":   status.ProgressPercent,
+		"hash_rate":          status.HashRate,
+		"cracked_count":      status.CrackedCount,
+		"all_hashes_cracked": status.AllHashesCracked,
+		"status":             status.Status,
+		"error_message":      status.ErrorMessage,
+	}
+	if status.TotalEffectiveKeyspace != nil {
+		jobStatusPayload["total_effective_keyspace"] = *status.TotalEffectiveKeyspace
+	}
+
+	payloadBytes, err := json.Marshal(jobStatusPayload)
+	if err != nil {
+		debug.Error("Agent %d: Failed to marshal job status for offline completion: %v", client.agent.ID, err)
+		return
+	}
+
+	// Process as a normal job_status message (same path as live progress)
+	jobHandler := h.wsService.GetJobHandler()
+	if jobHandler != nil {
+		if err := jobHandler.ProcessJobProgress(client.ctx, client.agent.ID, payloadBytes); err != nil {
+			debug.Error("Agent %d: Failed to process offline completion: %v", client.agent.ID, err)
+			return
+		}
+	} else {
+		debug.Error("Agent %d: No job handler available to process offline completion", client.agent.ID)
+		return
+	}
+
+	// Clear agent busy status metadata since task is now complete
+	if client.agent.Metadata == nil {
+		client.agent.Metadata = make(map[string]string)
+	}
+	client.agent.Metadata["busy_status"] = "false"
+	delete(client.agent.Metadata, "current_task_id")
+	delete(client.agent.Metadata, "current_job_id")
+	if err := h.agentService.UpdateAgentMetadata(client.ctx, client.agent.ID, client.agent.Metadata); err != nil {
+		debug.Error("Agent %d: Failed to update agent metadata after offline completion: %v", client.agent.ID, err)
+	}
+
+	// Mark agent as active/available
+	if err := h.agentService.UpdateAgentStatus(client.ctx, client.agent.ID, models.AgentStatusActive, nil); err != nil {
+		debug.Error("Agent %d: Failed to update agent status to active: %v", client.agent.ID, err)
+	}
+
+	debug.Info("Agent %d: Successfully processed offline completion for task %s with status %s",
+		client.agent.ID, status.TaskID, status.Status)
 }
 
 // handleAgentShutdown processes graceful shutdown notification from an agent
@@ -1387,5 +1486,37 @@ func (h *Handler) handleDownloadFailed(client *Client, msg *wsservice.Message) {
 		debug.Error("Agent %d: Download permanently failed for %s: %s",
 			client.agent.ID, payload.FileName, payload.Error)
 		// TODO: Notify administrators or take corrective action
+	}
+}
+
+// handlePendingOutfiles processes pending outfiles notification from agents on reconnect
+func (h *Handler) handlePendingOutfiles(client *Client, msg *wsservice.Message) {
+	debug.Info("Agent %d: Received pending_outfiles notification", client.agent.ID)
+
+	// Forward to job handler for processing
+	jobHandler := h.wsService.GetJobHandler()
+	if jobHandler == nil {
+		debug.Error("Agent %d: Job handler not available for pending_outfiles processing", client.agent.ID)
+		return
+	}
+
+	if err := jobHandler.ProcessPendingOutfiles(client.ctx, client.agent.ID, msg.Payload); err != nil {
+		debug.Error("Agent %d: Failed to process pending_outfiles: %v", client.agent.ID, err)
+	}
+}
+
+// handleOutfileDeleteRejected processes outfile deletion rejection from agents (line count mismatch)
+func (h *Handler) handleOutfileDeleteRejected(client *Client, msg *wsservice.Message) {
+	debug.Info("Agent %d: Received outfile_delete_rejected notification", client.agent.ID)
+
+	// Forward to job handler for processing
+	jobHandler := h.wsService.GetJobHandler()
+	if jobHandler == nil {
+		debug.Error("Agent %d: Job handler not available for outfile_delete_rejected processing", client.agent.ID)
+		return
+	}
+
+	if err := jobHandler.ProcessOutfileDeleteRejected(client.ctx, client.agent.ID, msg.Payload); err != nil {
+		debug.Error("Agent %d: Failed to process outfile_delete_rejected: %v", client.agent.ID, err)
 	}
 }

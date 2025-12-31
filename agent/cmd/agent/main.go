@@ -846,8 +846,11 @@ func main() {
 	var hasTask bool
 	var taskID, jobID string
 	if jobManager != nil {
-		hasTask, taskID, jobID, _ = jobManager.GetCurrentTaskStatus()
-		if hasTask {
+		taskInfo := jobManager.GetCurrentTaskStatus()
+		if taskInfo != nil {
+			hasTask = true
+			taskID = taskInfo.TaskID
+			jobID = taskInfo.JobID
 			debug.Info("Capturing task status before shutdown - TaskID: %s, JobID: %s", taskID, jobID)
 			console.Status("Stopping active task: %s", taskID)
 		}

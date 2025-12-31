@@ -659,5 +659,78 @@ export const getBinaryVersions = async (binaryType?: 'hashcat' | 'john'): Promis
   return response.data;
 };
 
+// --- Hashlist Management ---
+
+// Deletion progress response type
+export interface DeletionProgressResponse {
+  hashlist_id: number;
+  status: 'pending' | 'deleting_hashes' | 'clearing_references' | 'cleaning_orphans' | 'finalizing' | 'completed' | 'failed';
+  phase: string;                // Human-readable phase description
+  checked: number;
+  total: number;
+  deleted: number;              // orphan hashes deleted
+  refs_cleared: number;         // cracked_by_task_id cleared count
+  refs_total: number;           // total refs to clear
+  jobs_deleted: number;         // job_executions deleted
+  shared_preserved: number;     // hashes preserved (in other lists)
+  started_at: string;
+  completed_at?: string;
+  duration?: string;            // human-readable duration
+  error?: string;
+}
+
+// Delete hashlist response (for async deletion)
+export interface DeleteHashlistResponse {
+  message: string;
+  hashlist_id: number;
+  progress_url: string;
+}
+
+// Delete a hashlist - returns 204 for sync delete, 202 for async with progress
+export const deleteHashlist = async (hashlistId: string): Promise<{ async: boolean; data?: DeleteHashlistResponse }> => {
+  const url = `/api/hashlists/${hashlistId}`;
+  logApiCall('DELETE', url);
+  const response = await api.delete(url);
+
+  // 202 means async deletion started
+  if (response.status === 202) {
+    return { async: true, data: response.data };
+  }
+
+  // 204 means sync deletion completed
+  return { async: false };
+};
+
+// Get deletion progress for a hashlist
+export const getDeletionProgress = async (hashlistId: string): Promise<DeletionProgressResponse> => {
+  const url = `/api/hashlists/${hashlistId}/deletion-progress`;
+  logApiCall('GET', url);
+  const response = await api.get<DeletionProgressResponse>(url);
+  logApiResponse('GET', url, response.data);
+  return response.data;
+};
+
+// Processing progress response type
+export interface ProcessingProgressResponse {
+  hashlist_id: number;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  processed_lines: number;
+  total_lines: number;  // Estimated from file size
+  inserted_hashes: number;
+  started_at: string;
+  last_update_at: string;
+  lines_per_second: number;  // For ETA calculation
+  error?: string;
+}
+
+// Get processing progress for a hashlist
+export const getProcessingProgress = async (hashlistId: string): Promise<ProcessingProgressResponse> => {
+  const url = `/api/hashlists/${hashlistId}/processing-progress`;
+  logApiCall('GET', url);
+  const response = await api.get<ProcessingProgressResponse>(url);
+  logApiResponse('GET', url, response.data);
+  return response.data;
+};
+
 // Export API_URL for SSE service
 export { API_URL }; 

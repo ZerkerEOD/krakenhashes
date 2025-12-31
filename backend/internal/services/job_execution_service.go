@@ -238,23 +238,14 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		}
 	}
 
-	// Determine if rule splitting should be used
-	if jobExecution.AttackMode == models.AttackModeStraight && jobExecution.EffectiveKeyspace != nil {
-		err = s.determineRuleSplitting(ctx, jobExecution, presetJob)
-		if err != nil {
-			debug.Log("Failed to determine rule splitting", map[string]interface{}{
-				"job_execution_id": jobExecution.ID,
-				"error":            err.Error(),
-			})
-		}
-	}
-
-	debug.Log("Job execution created", map[string]interface{}{
+	// NOTE: Rule splitting determination is DEFERRED until after forced benchmark
+	// The benchmark provides accurate effective keyspace from hashcat's progress[1]
+	// See HandleBenchmarkResult() in job_websocket_integration.go for the actual decision
+	debug.Log("Job execution created - rule split decision deferred to benchmark", map[string]interface{}{
 		"job_execution_id":      jobExecution.ID,
 		"total_keyspace":        totalKeyspace,
 		"effective_keyspace":    jobExecution.EffectiveKeyspace,
 		"multiplication_factor": jobExecution.MultiplicationFactor,
-		"uses_rule_splitting":   jobExecution.UsesRuleSplitting,
 	})
 
 	return jobExecution, nil
@@ -371,23 +362,14 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		}
 	}
 
-	// Use the same rule splitting logic
-	if jobExecution.AttackMode == models.AttackModeStraight && jobExecution.EffectiveKeyspace != nil {
-		err = s.determineRuleSplitting(ctx, jobExecution, tempPreset)
-		if err != nil {
-			debug.Log("Failed to determine rule splitting", map[string]interface{}{
-				"job_execution_id": jobExecution.ID,
-				"error":            err.Error(),
-			})
-		}
-	}
-
-	debug.Log("Custom job execution created", map[string]interface{}{
+	// NOTE: Rule splitting determination is DEFERRED until after forced benchmark
+	// The benchmark provides accurate effective keyspace from hashcat's progress[1]
+	// See HandleBenchmarkResult() in job_websocket_integration.go for the actual decision
+	debug.Log("Custom job execution created - rule split decision deferred to benchmark", map[string]interface{}{
 		"job_execution_id":      jobExecution.ID,
 		"total_keyspace":        totalKeyspace,
 		"effective_keyspace":    jobExecution.EffectiveKeyspace,
 		"multiplication_factor": jobExecution.MultiplicationFactor,
-		"uses_rule_splitting":   jobExecution.UsesRuleSplitting,
 	})
 
 	return jobExecution, nil
@@ -681,69 +663,68 @@ func (s *JobExecutionService) calculateEffectiveKeyspace(ctx context.Context, jo
 
 	switch models.AttackMode(attackMode) {
 	case models.AttackModeStraight: // Straight attack
-		ruleFiles, err := s.extractRuleFiles(ctx, presetJob)
-		if err != nil {
-			return fmt.Errorf("failed to extract rule files: %w", err)
-		}
+		if len(presetJob.RuleIDs) > 0 {
+			// Get all rules from database to get rule counts
+			allRules, err := s.fileRepo.GetRules(ctx, "")
+			if err != nil {
+				return fmt.Errorf("failed to get rules from database: %w", err)
+			}
 
-		debug.Log("Extracted rule files for effective keyspace calculation", map[string]interface{}{
-			"rule_files": ruleFiles,
-			"count":      len(ruleFiles),
-		})
+			// Build a map of rule ID to rule info for quick lookup
+			ruleMap := make(map[int]repository.FileInfo)
+			for _, rule := range allRules {
+				ruleMap[rule.ID] = rule
+			}
 
-		if len(ruleFiles) > 0 {
-			totalRules := 1
-			for _, ruleFile := range ruleFiles {
-				// First check if file exists
-				if _, err := os.Stat(ruleFile); err != nil {
-					debug.Error("Rule file does not exist at path: rule_file=%s, error=%v",
-						ruleFile, err)
-					// For now, just use the rule count from the database query we know works
-					// We know from the database that rule ID 2 has 123289 rules
-					if len(presetJob.RuleIDs) > 0 && presetJob.RuleIDs[0] == "2" {
-						totalRules = 123289
-						debug.Log("Using known rule count for _nsakey.v2.dive.rule", map[string]interface{}{
-							"rule_count": totalRules,
-						})
-						break
-					}
-					// If we still don't have a count, fail
-					if totalRules == 1 {
-						return fmt.Errorf("rule file not found and no database count available: %s", ruleFile)
-					}
-				} else {
-					count, err := s.countRulesInFile(ctx, ruleFile)
-					if err != nil {
-						debug.Log("Failed to count rules in file", map[string]interface{}{
-							"rule_file": ruleFile,
-							"error":     err.Error(),
-						})
-						// Try the hardcoded value for known rule
-						if len(presetJob.RuleIDs) > 0 && presetJob.RuleIDs[0] == "2" {
-							totalRules = 123289
-							debug.Log("Using fallback rule count for _nsakey.v2.dive.rule", map[string]interface{}{
-								"rule_count": totalRules,
-							})
-						} else {
-							return fmt.Errorf("failed to count rules in file %s: %w", ruleFile, err)
-						}
-					} else {
-						totalRules *= count
-					}
+			// Calculate total rule count (simple sum, no learned multipliers)
+			// NOTE: We do NOT use estimated_keyspace_multiplier for initial estimates.
+			// The benchmark will provide accurate effective keyspace from hashcat's progress[1].
+			var totalRuleCount int64
+
+			for _, ruleIDStr := range presetJob.RuleIDs {
+				ruleID, err := strconv.Atoi(ruleIDStr)
+				if err != nil {
+					debug.Error("Invalid rule ID format: rule_id=%s, error=%v", ruleIDStr, err)
+					continue
 				}
+
+				rule, ok := ruleMap[ruleID]
+				if !ok {
+					debug.Error("Rule not found in database: rule_id=%d", ruleID)
+					continue
+				}
+
+				totalRuleCount += rule.RuleCount
+
+				debug.Log("Processing rule for keyspace calculation", map[string]interface{}{
+					"rule_id":    ruleID,
+					"rule_count": rule.RuleCount,
+				})
 			}
 
 			job.BaseKeyspace = &baseKeyspace
-			job.MultiplicationFactor = totalRules
+			job.MultiplicationFactor = int(totalRuleCount)
 			job.IsAccurateKeyspace = false // Will be set by first agent benchmark
 
-			// Estimate effective keyspace (will be updated to actual from hashcat benchmark)
-			estimatedEffective := baseKeyspace * int64(totalRules)
+			// Get the hashlist to determine hash/salt count for salted hash types
+			// For salted types (NetNTLMv2, bcrypt, etc.), keyspace is multiplied by hash count
+			hashCount := 1
+			hashlist, err := s.hashlistRepo.GetByID(ctx, job.HashlistID)
+			if err != nil {
+				debug.Warning("Failed to get hashlist for salt count, using 1: %v", err)
+			} else if hashlist != nil && hashlist.TotalHashes > 0 {
+				hashCount = hashlist.TotalHashes
+			}
+
+			// Estimate effective keyspace using simple formula (no learned multipliers)
+			// Formula: base_keyspace × rule_count × hash_count
+			// NOTE: This is an estimate. The forced benchmark will provide accurate values.
+			estimatedEffective := baseKeyspace * totalRuleCount * int64(hashCount)
 			job.EffectiveKeyspace = &estimatedEffective
 
-			debug.Log("Straight attack with rules - using estimated effective keyspace", map[string]interface{}{
-				"rule_files":          len(ruleFiles),
-				"total_rules":         totalRules,
+			debug.Log("Straight attack with rules - estimated effective keyspace", map[string]interface{}{
+				"rule_count":          totalRuleCount,
+				"hash_count":          hashCount,
 				"base_keyspace":       baseKeyspace,
 				"estimated_effective": estimatedEffective,
 			})
@@ -1294,6 +1275,19 @@ func (s *JobExecutionService) StartJobExecution(ctx context.Context, jobExecutio
 
 // CompleteJobExecution marks a job execution as completed
 func (s *JobExecutionService) CompleteJobExecution(ctx context.Context, jobExecutionID uuid.UUID) error {
+	// CRITICAL: Check for failed tasks - job should be marked failed, not completed
+	hasFailed, err := s.jobTaskRepo.HasFailedTasks(ctx, jobExecutionID)
+	if err != nil {
+		debug.Error("Failed to check for failed tasks: %v", err)
+		// Continue with completion check, but log the error
+	} else if hasFailed {
+		debug.Warning("Job %s has failed tasks - marking as failed, not completed", jobExecutionID)
+		if failErr := s.jobExecRepo.FailExecution(ctx, jobExecutionID, "One or more tasks failed"); failErr != nil {
+			return fmt.Errorf("failed to mark job as failed: %w", failErr)
+		}
+		return nil
+	}
+
 	// KEYSPACE SYNC: Ensure effective_keyspace and dispatched_keyspace match actual work performed.
 	// This prevents stuck job issues where effective_keyspace drifted due to wordlist/potfile updates.
 	// We use the sum of chunk_actual_keyspace from completed tasks as the source of truth.
@@ -1361,17 +1355,17 @@ func (s *JobExecutionService) CompleteJobExecution(ctx context.Context, jobExecu
 		}
 	}
 
-	// EARLY COMPLETION SYNC: When all hashes are cracked before full keyspace is processed,
-	// the job completes "early" (e.g., hashcat code 6). In this case, effective_keyspace equals
-	// the full assigned keyspace (chunk_actual_keyspace), but processed_keyspace is much smaller.
-	// For correct 100% progress display, we must sync effective_keyspace DOWN to processed_keyspace.
-	// This runs AFTER the above sync to ensure we capture the final state.
+	// COMPLETION SYNC: Ensure effective_keyspace matches processed_keyspace for accurate 100% display.
+	// Two cases:
+	// 1. Early completion (processed < effective): hashcat code 6 when all hashes cracked early
+	// 2. Over-completion (processed > effective): benchmark estimate was lower than actual keyspace
+	// This runs AFTER the above task sync to ensure we capture the final state.
 	{
 		job, err := s.jobExecRepo.GetByID(ctx, jobExecutionID)
 		if err == nil && job.ProcessedKeyspace > 0 {
 			if job.EffectiveKeyspace != nil && job.ProcessedKeyspace < *job.EffectiveKeyspace {
+				// Case 1: Early completion - sync effective DOWN to processed
 				oldEffective := *job.EffectiveKeyspace
-				// Job completed early - sync effective to processed for 100% display
 				if updateErr := s.jobExecRepo.UpdateEffectiveKeyspace(ctx, jobExecutionID, job.ProcessedKeyspace); updateErr != nil {
 					debug.Error("Failed to sync effective_keyspace for early completion: %v", updateErr)
 				} else {
@@ -1380,6 +1374,18 @@ func (s *JobExecutionService) CompleteJobExecution(ctx context.Context, jobExecu
 				// Also sync dispatched_keyspace to match
 				if updateErr := s.jobExecRepo.UpdateDispatchedKeyspace(ctx, jobExecutionID, job.ProcessedKeyspace); updateErr != nil {
 					debug.Error("Failed to sync dispatched_keyspace for early completion: %v", updateErr)
+				}
+			} else if job.EffectiveKeyspace == nil || *job.EffectiveKeyspace < job.ProcessedKeyspace {
+				// Case 2: Over-completion - benchmark gave lower estimate than actual work
+				// Sync effective UP to processed to prevent >100% progress display
+				oldEffective := int64(0)
+				if job.EffectiveKeyspace != nil {
+					oldEffective = *job.EffectiveKeyspace
+				}
+				if updateErr := s.jobExecRepo.UpdateEffectiveKeyspace(ctx, jobExecutionID, job.ProcessedKeyspace); updateErr != nil {
+					debug.Error("Failed to sync effective_keyspace for over-completion: %v", updateErr)
+				} else {
+					debug.Info("Synced effective_keyspace for over-completion: %d -> %d", oldEffective, job.ProcessedKeyspace)
 				}
 			}
 		}
@@ -2281,40 +2287,52 @@ func (s *JobExecutionService) HandleTaskCompletion(ctx context.Context, taskID u
 			})
 
 			if allLayerTasksComplete {
-				// Safety check: ensure all base keyspace is covered before marking layer complete
-				// This prevents premature completion when keyspace splitting is in use
-				layer, layerErr := s.jobIncrementLayerRepo.GetByID(ctx, *task.IncrementLayerID)
-				if layerErr != nil {
-					debug.Error("Failed to get layer for completion check: %v", layerErr)
-				} else if layer.BaseKeyspace != nil && *layer.BaseKeyspace > 0 {
-					maxBaseDispatched, maxErr := s.jobTaskRepo.GetMaxKeyspaceEndByLayer(ctx, *task.IncrementLayerID)
-					if maxErr != nil {
-						debug.Error("Failed to get max keyspace end for layer: %v", maxErr)
-					} else if maxBaseDispatched < *layer.BaseKeyspace {
-						// NOT all keyspace covered - keep layer running so scheduler creates more tasks
-						debug.Log("Layer has remaining work - not marking complete", map[string]interface{}{
-							"layer_id":         *task.IncrementLayerID,
-							"base_keyspace":    *layer.BaseKeyspace,
-							"max_keyspace_end": maxBaseDispatched,
-							"remaining":        *layer.BaseKeyspace - maxBaseDispatched,
-						})
-						return nil // Don't mark as completed - scheduler will create more tasks
+				// CRITICAL: Check for failed layer tasks - don't mark layer as completed if any tasks failed
+				hasFailedLayerTasks, failErr := s.jobTaskRepo.HasFailedLayerTasks(ctx, *task.IncrementLayerID)
+				if failErr != nil {
+					debug.Error("Failed to check for failed layer tasks: %v", failErr)
+				} else if hasFailedLayerTasks {
+					debug.Warning("Layer %s has failed tasks - marking as failed, not completed", *task.IncrementLayerID)
+					if updateErr := s.jobIncrementLayerRepo.UpdateStatus(ctx, *task.IncrementLayerID, models.JobIncrementLayerStatusFailed); updateErr != nil {
+						debug.Error("Failed to mark layer as failed: %v", updateErr)
 					}
-				}
-
-				debug.Log("All layer tasks complete and keyspace covered, marking layer as completed", map[string]interface{}{
-					"layer_id": task.IncrementLayerID,
-				})
-
-				// Mark layer as completed
-				err = s.jobIncrementLayerRepo.UpdateStatus(ctx, *task.IncrementLayerID, models.JobIncrementLayerStatusCompleted)
-				if err != nil {
-					debug.Error("Failed to mark layer as completed: %v", err)
+					// Continue to check job completion (which will mark job as failed)
 				} else {
-					debug.Log("Layer marked as completed", map[string]interface{}{
+					// Safety check: ensure all base keyspace is covered before marking layer complete
+					// This prevents premature completion when keyspace splitting is in use
+					layer, layerErr := s.jobIncrementLayerRepo.GetByID(ctx, *task.IncrementLayerID)
+					if layerErr != nil {
+						debug.Error("Failed to get layer for completion check: %v", layerErr)
+					} else if layer.BaseKeyspace != nil && *layer.BaseKeyspace > 0 {
+						maxBaseDispatched, maxErr := s.jobTaskRepo.GetMaxKeyspaceEndByLayer(ctx, *task.IncrementLayerID)
+						if maxErr != nil {
+							debug.Error("Failed to get max keyspace end for layer: %v", maxErr)
+						} else if maxBaseDispatched < *layer.BaseKeyspace {
+							// NOT all keyspace covered - keep layer running so scheduler creates more tasks
+							debug.Log("Layer has remaining work - not marking complete", map[string]interface{}{
+								"layer_id":         *task.IncrementLayerID,
+								"base_keyspace":    *layer.BaseKeyspace,
+								"max_keyspace_end": maxBaseDispatched,
+								"remaining":        *layer.BaseKeyspace - maxBaseDispatched,
+							})
+							return nil // Don't mark as completed - scheduler will create more tasks
+						}
+					}
+
+					debug.Log("All layer tasks complete and keyspace covered, marking layer as completed", map[string]interface{}{
 						"layer_id": task.IncrementLayerID,
-						"job_id":   task.JobExecutionID,
 					})
+
+					// Mark layer as completed
+					err = s.jobIncrementLayerRepo.UpdateStatus(ctx, *task.IncrementLayerID, models.JobIncrementLayerStatusCompleted)
+					if err != nil {
+						debug.Error("Failed to mark layer as completed: %v", err)
+					} else {
+						debug.Log("Layer marked as completed", map[string]interface{}{
+							"layer_id": task.IncrementLayerID,
+							"job_id":   task.JobExecutionID,
+						})
+					}
 				}
 			}
 		}
@@ -2368,11 +2386,12 @@ func (s *JobExecutionService) HandleTaskCompletion(ctx context.Context, taskID u
 		}
 
 		// Mark job as completed (only if not failed/cancelled and no pending layers)
-		if err := s.jobExecRepo.CompleteExecution(ctx, task.JobExecutionID); err != nil {
-			debug.Error("Failed to mark job as completed: %v", err)
+		// Use CompleteJobExecution which checks for failed tasks and marks job as failed if any
+		if err := s.CompleteJobExecution(ctx, task.JobExecutionID); err != nil {
+			debug.Error("Failed to complete job execution: %v", err)
 			// Don't fail the task completion, but log the error
 		} else {
-			debug.Log("Job marked as completed", map[string]interface{}{
+			debug.Log("Job completion processed", map[string]interface{}{
 				"job_id": task.JobExecutionID,
 			})
 		}

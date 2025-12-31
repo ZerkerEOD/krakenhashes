@@ -70,7 +70,7 @@ func (r *JobExecutionRepository) GetByID(ctx context.Context, id uuid.UUID) (*mo
 		SELECT
 			je.id, je.name, je.preset_job_id, je.hashlist_id, je.status, je.priority, COALESCE(je.max_agents, 0) as max_agents,
 			je.total_keyspace, je.processed_keyspace, je.attack_mode, je.created_by,
-			je.created_at, je.started_at, je.completed_at, je.error_message, je.interrupted_by,
+			je.created_at, je.started_at, je.completed_at, je.cracking_completed_at, je.error_message, je.interrupted_by,
 			je.consecutive_failures,
 			je.base_keyspace, je.effective_keyspace, je.multiplication_factor,
 			je.uses_rule_splitting, je.rule_split_count,
@@ -89,7 +89,7 @@ func (r *JobExecutionRepository) GetByID(ctx context.Context, id uuid.UUID) (*mo
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&exec.ID, &exec.Name, &exec.PresetJobID, &exec.HashlistID, &exec.Status, &exec.Priority, &exec.MaxAgents,
 		&exec.TotalKeyspace, &exec.ProcessedKeyspace, &exec.AttackMode, &exec.CreatedBy,
-		&exec.CreatedAt, &exec.StartedAt, &exec.CompletedAt, &exec.ErrorMessage, &exec.InterruptedBy,
+		&exec.CreatedAt, &exec.StartedAt, &exec.CompletedAt, &exec.CrackingCompletedAt, &exec.ErrorMessage, &exec.InterruptedBy,
 		&exec.ConsecutiveFailures,
 		&exec.BaseKeyspace, &exec.EffectiveKeyspace, &exec.MultiplicationFactor,
 		&exec.UsesRuleSplitting, &exec.RuleSplitCount,
@@ -334,7 +334,8 @@ func (r *JobExecutionRepository) StartExecution(ctx context.Context, id uuid.UUI
 // CompleteExecution marks a job execution as completed
 func (r *JobExecutionRepository) CompleteExecution(ctx context.Context, id uuid.UUID) error {
 	now := time.Now()
-	query := `UPDATE job_executions SET status = $1, completed_at = $2 WHERE id = $3`
+	// Use COALESCE to preserve cracking_completed_at if already set, otherwise set it to completed_at
+	query := `UPDATE job_executions SET status = $1, completed_at = $2, cracking_completed_at = COALESCE(cracking_completed_at, $2) WHERE id = $3`
 	result, err := r.db.ExecContext(ctx, query, models.JobExecutionStatusCompleted, now, id)
 	if err != nil {
 		return fmt.Errorf("failed to complete job execution: %w", err)
@@ -803,16 +804,44 @@ func (r *JobExecutionRepository) GetNonCompletedJobsByHashlistID(ctx context.Con
 }
 
 // SetJobProcessing marks a job execution as processing (waiting for crack batch processing)
+// Also sets cracking_completed_at to mark when all hashcat work finished
 func (r *JobExecutionRepository) SetJobProcessing(ctx context.Context, id uuid.UUID) error {
 	query := `
 		UPDATE job_executions
 		SET status = $2,
+		    cracking_completed_at = CURRENT_TIMESTAMP,
 		    updated_at = CURRENT_TIMESTAMP
 		WHERE id = $1`
 
 	result, err := r.db.ExecContext(ctx, query, id, models.JobExecutionStatusProcessing)
 	if err != nil {
 		return fmt.Errorf("failed to set job processing: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
+// SetCrackingCompleted sets the cracking_completed_at timestamp for a job execution
+// This marks when all hashcat work finished (job enters processing state)
+func (r *JobExecutionRepository) SetCrackingCompleted(ctx context.Context, id uuid.UUID) error {
+	query := `
+		UPDATE job_executions
+		SET cracking_completed_at = CURRENT_TIMESTAMP,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`
+
+	result, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to set cracking completed: %w", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()

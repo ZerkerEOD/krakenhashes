@@ -130,6 +130,16 @@ func (m *JobIntegrationManager) ProcessBenchmarkResult(ctx context.Context, agen
 	return m.wsIntegration.HandleBenchmarkResult(ctx, agentID, &result)
 }
 
+// ProcessPendingOutfiles handles pending_outfiles messages from agents on reconnect (implements interfaces.JobHandler)
+func (m *JobIntegrationManager) ProcessPendingOutfiles(ctx context.Context, agentID int, payload json.RawMessage) error {
+	return m.wsIntegration.ProcessPendingOutfiles(ctx, agentID, payload)
+}
+
+// ProcessOutfileDeleteRejected handles outfile_delete_rejected messages when agent rejects deletion due to line count mismatch
+func (m *JobIntegrationManager) ProcessOutfileDeleteRejected(ctx context.Context, agentID int, payload json.RawMessage) error {
+	return m.wsIntegration.ProcessOutfileDeleteRejected(ctx, agentID, payload)
+}
+
 // RecoverTask attempts to recover a task that was in reconnect_pending state (implements interfaces.JobHandler)
 func (m *JobIntegrationManager) RecoverTask(ctx context.Context, taskID string, agentID int, keyspaceProcessed int64) error {
 	return m.wsIntegration.RecoverTask(ctx, taskID, agentID, keyspaceProcessed)

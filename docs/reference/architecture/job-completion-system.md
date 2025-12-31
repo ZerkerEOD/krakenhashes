@@ -131,6 +131,7 @@ When hashcat finishes processing a task:
 
 ```
 Task Running → Final Progress Received → Task Processing → All Batches Received → Task Completed
+                                         (cracking_completed_at set)                (completed_at set)
 ```
 
 1. **Agent Sends Final Progress**:
@@ -140,6 +141,7 @@ Task Running → Final Progress Received → Task Processing → All Batches Rec
 
 2. **Backend Transitions to Processing**:
    - Task status changes from `running` to `processing`
+   - **`cracking_completed_at` timestamp set to current time** (hashcat finished)
    - `expected_crack_count` field set from progress message
    - `received_crack_count` initialized to 0
    - `batches_complete_signaled` set to false
@@ -157,6 +159,7 @@ Task Running → Final Progress Received → Task Processing → All Batches Rec
 5. **Backend Completes Task**:
    - Backend checks: `received_crack_count >= expected_crack_count AND batches_complete_signaled == true`
    - If true: Task transitions from `processing` to `completed`
+   - **`completed_at` timestamp set to current time** (all batches received)
    - Agent busy status cleared
    - Job completion check triggered
 
@@ -164,16 +167,19 @@ Task Running → Final Progress Received → Task Processing → All Batches Rec
 
 ```
 Job Running → All Tasks Processing → Job Processing → All Tasks Completed → Job Completed (Email Sent)
+                                     (cracking_completed_at set)           (completed_at set)
 ```
 
 1. **Job Enters Processing**:
    - When all tasks transition to `processing` status
    - Job status changes from `running` to `processing`
+   - **`cracking_completed_at` timestamp set** (all tasks finished hashcat execution)
    - Progress shows 100% but job not yet complete
 
 2. **Job Completes**:
    - When all tasks reach `completed` status
    - Job status changes from `processing` to `completed`
+   - **`completed_at` timestamp set** (job fully finished)
    - Completion email notification sent with accurate crack count
 
 ### Email Notification Integration
@@ -192,15 +198,35 @@ Job Running → All Tasks Processing → Job Processing → All Tasks Completed 
 
 **job_executions:**
 - `status` includes `'processing'` value
+- `cracking_completed_at` (TIMESTAMP WITH TIME ZONE) - When all tasks finished hashcat execution
 - `completion_email_sent` (BOOLEAN)
 - `completion_email_sent_at` (TIMESTAMP)
 - `completion_email_error` (TEXT)
 
 **job_tasks:**
 - `status` includes `'processing'` value
+- `cracking_completed_at` (TIMESTAMP WITH TIME ZONE) - When hashcat finished for this task (enters processing state)
 - `expected_crack_count` (INTEGER)
 - `received_crack_count` (INTEGER)
 - `batches_complete_signaled` (BOOLEAN)
+
+### Timestamp Distinction
+
+The system uses two distinct completion timestamps:
+
+| Timestamp | Scope | Meaning |
+|-----------|-------|---------|
+| `cracking_completed_at` | Task | When hashcat exited - task enters `processing` state |
+| `completed_at` | Task | When all crack batches received and processed |
+| `cracking_completed_at` | Job | When all tasks finished hashcat execution |
+| `completed_at` | Job | When job is fully complete and email sent |
+
+**Why Two Timestamps?**
+
+1. **Accurate Duration Tracking**: `cracking_completed_at - started_at` gives the actual GPU cracking time
+2. **Processing Overhead Visibility**: `completed_at - cracking_completed_at` shows batch processing time
+3. **Debugging**: Helps identify where delays occur (cracking vs. data transmission)
+4. **Analytics**: Enables reporting on actual GPU utilization vs. total job duration
 
 ### Repository Methods
 

@@ -4,8 +4,8 @@ import PotTable from '../components/pot/PotTable';
 import { potService } from '../services/pot';
 
 export default function Pot() {
-  const fetchData = async (limit: number, offset: number) => {
-    return await potService.getPot({ limit, offset });
+  const fetchData = async (limit: number, offset: number, search?: string) => {
+    return await potService.getPot({ limit, offset, search });
   };
 
   return (

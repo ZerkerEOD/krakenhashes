@@ -42,12 +42,10 @@ func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager
 	voucherService := services.NewClaimVoucherService(voucherRepo)
 
 	// Create config for hashlist processor
-	cfg := &config.Config{
-		HashlistBatchSize: 1000, // Default batch size
-	}
+	cfg := &config.Config{}
 
-	// Create hashlist processor
-	hashlistProcessor := processor.NewHashlistDBProcessor(hashlistRepo, hashTypeRepo, hashRepo, cfg)
+	// Create hashlist processor (nil progress service for API v1 - progress tracking is for web UI)
+	hashlistProcessor := processor.NewHashlistDBProcessor(hashlistRepo, hashTypeRepo, hashRepo, systemSettingsRepo, cfg, nil)
 
 	// Define hashlists storage directory
 	hashlistDataDir := filepath.Join(dataDirectory, "hashlists")

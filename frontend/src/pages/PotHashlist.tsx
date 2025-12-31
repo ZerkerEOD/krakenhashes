@@ -32,9 +32,9 @@ export default function PotHashlist() {
     loadHashlistInfo();
   }, [id]);
 
-  const fetchData = async (limit: number, offset: number) => {
+  const fetchData = async (limit: number, offset: number, search?: string) => {
     if (!id) throw new Error('No hashlist ID provided');
-    return await potService.getPotByHashlist(id, { limit, offset });
+    return await potService.getPotByHashlist(id, { limit, offset, search });
   };
 
   const handleBack = () => {

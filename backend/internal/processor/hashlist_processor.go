@@ -2,9 +2,11 @@ package processor
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -12,6 +14,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/config"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/hashutils"
 	"github.com/google/uuid"
@@ -22,11 +25,12 @@ const HashListStatusReadyWithErrors = "ready_with_errors"
 
 // HashlistDBProcessor handles the asynchronous processing of uploaded hashlists, focusing on DB interactions.
 type HashlistDBProcessor struct {
-	hashlistRepo *repository.HashListRepository
-	hashTypeRepo *repository.HashTypeRepository
-	hashRepo     *repository.HashRepository
-	config       *config.Config
-	// valueProcessors map[int]HashValueProcessor // REMOVED: Replaced by hashutils
+	hashlistRepo       *repository.HashListRepository
+	hashTypeRepo       *repository.HashTypeRepository
+	hashRepo           *repository.HashRepository
+	systemSettingsRepo *repository.SystemSettingsRepository
+	config             *config.Config
+	progressService    *services.ProcessingProgressService
 }
 
 // NewHashlistDBProcessor creates a new instance of HashlistDBProcessor.
@@ -34,21 +38,17 @@ func NewHashlistDBProcessor(
 	hashlistRepo *repository.HashListRepository,
 	hashTypeRepo *repository.HashTypeRepository,
 	hashRepo *repository.HashRepository,
+	systemSettingsRepo *repository.SystemSettingsRepository,
 	config *config.Config,
+	progressService *services.ProcessingProgressService,
 ) *HashlistDBProcessor {
-	// REMOVED: Initialization of valueProcessors map
-	/*
-		valueProcessors := make(map[int]HashValueProcessor)
-		valueProcessors[1000] = &NTLMProcessor{} // Register NTLM processor
-		// Register other processors here...
-	*/
-
 	return &HashlistDBProcessor{
-		hashlistRepo: hashlistRepo,
-		hashTypeRepo: hashTypeRepo,
-		hashRepo:     hashRepo,
-		config:       config,
-		// valueProcessors: valueProcessors, // REMOVED
+		hashlistRepo:       hashlistRepo,
+		hashTypeRepo:       hashTypeRepo,
+		hashRepo:           hashRepo,
+		systemSettingsRepo: systemSettingsRepo,
+		config:             config,
+		progressService:    progressService,
 	}
 }
 
@@ -67,6 +67,9 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64, filePath string)
 	hashlist, err := p.hashlistRepo.GetByID(ctx, hashlistID)
 	if err != nil || hashlist == nil {
 		debug.Error("Background task: Failed to get hashlist %d: %v", hashlistID, err)
+		if p.progressService != nil {
+			p.progressService.FailProcessing(hashlistID, "Failed to get hashlist details")
+		}
 		return
 	}
 
@@ -76,6 +79,9 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64, filePath string)
 	}
 	if filePath == "" {
 		p.updateHashlistStatus(ctx, hashlistID, models.HashListStatusError, "File path is missing")
+		if p.progressService != nil {
+			p.progressService.FailProcessing(hashlistID, "File path is missing")
+		}
 		return
 	}
 
@@ -84,6 +90,9 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64, filePath string)
 	if err != nil || hashType == nil {
 		debug.Error("Background task: Failed to get hash type %d for hashlist %d: %v", hashlist.HashTypeID, hashlistID, err)
 		p.updateHashlistStatus(ctx, hashlistID, models.HashListStatusError, "Invalid hash type")
+		if p.progressService != nil {
+			p.progressService.FailProcessing(hashlistID, "Invalid hash type")
+		}
 		return
 	}
 
@@ -92,15 +101,47 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64, filePath string)
 	if err != nil {
 		debug.Error("Background task: Failed to open file %s for hashlist %d: %v", filePath, hashlistID, err)
 		p.updateHashlistStatus(ctx, hashlistID, models.HashListStatusError, "Failed to open hashlist file")
+		if p.progressService != nil {
+			p.progressService.FailProcessing(hashlistID, "Failed to open hashlist file")
+		}
 		return
 	}
 	defer file.Close()
 
+	// Count actual lines for accurate progress tracking
+	debug.Info("[Processor:%d] Counting lines in file...", hashlistID)
+	lineCount, err := countFileLines(filePath)
+	if err != nil {
+		debug.Warning("[Processor:%d] Failed to count lines, using estimate: %v", hashlistID, err)
+		// Fallback to file size estimation
+		if fileInfo, statErr := file.Stat(); statErr == nil {
+			lineCount = fileInfo.Size() / 50
+		}
+	}
+	if lineCount < 100 {
+		lineCount = 100 // Minimum for progress display
+	}
+	debug.Info("[Processor:%d] File has %d lines", hashlistID, lineCount)
+
+	// Start progress tracking
+	if p.progressService != nil {
+		p.progressService.StartProcessing(hashlistID, lineCount)
+	}
+
 	// --- Process the file line by line ---
 	scanner := bufio.NewScanner(file)
 	var totalHashes, crackedHashes int64
-	batchSize := p.config.HashlistBatchSize
-	hashesToProcess := make([]*models.Hash, 0, batchSize)
+
+	// Get configurable batch size from system settings
+	bulkBatchSize := 100000 // Default
+	if p.systemSettingsRepo != nil {
+		if size, err := p.systemSettingsRepo.GetHashlistBulkBatchSize(ctx); err == nil {
+			bulkBatchSize = size
+			debug.Info("Using hashlist bulk batch size from settings: %d", bulkBatchSize)
+		}
+	}
+
+	hashesToProcess := make([]*models.Hash, 0, bulkBatchSize)
 	lineNumber := 0
 	firstLineErrorMsg := ""     // Store the first line processing error
 	lineErrorsOccurred := false // Track if any line errors happened
@@ -142,15 +183,6 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64, filePath string)
 			domain = usernameAndDomain.Domain
 		}
 
-		usernameStr := ""
-		domainStr := ""
-		if username != nil {
-			usernameStr = *username
-		}
-		if domain != nil {
-			domainStr = *domain
-		}
-		debug.Debug("[Processor:%d] Line %d: Original='%s', ProcessedValue='%s', User='%s', Domain='%s'", hashlistID, lineNumber, originalHash, hashValue, usernameStr, domainStr)
 		// --- End New Processing Logic ---
 
 		// Determine if cracked (e.g., from input format like hash:pass)
@@ -189,55 +221,61 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64, filePath string)
 			Password:     password,   // Store potential password from heuristic
 			LastUpdated:  time.Now(), // Set initial time
 		}
-		debug.Debug("[Processor:%d] Line %d: Created Hash struct with ID: %s", hashlistID, lineNumber, hash.ID)
 		hashesToProcess = append(hashesToProcess, hash)
 
-		// Process in batches
-		if len(hashesToProcess) >= batchSize {
-			debug.Debug("[Processor:%d] Processing batch of %d hashes (Lines up to %d)", hashlistID, len(hashesToProcess), lineNumber)
-			newAssociations, err := p.batchProcessHashes(ctx, hashesToProcess, hashlist.ID)
+		// Log progress every 100K lines to avoid log overhead
+		if lineNumber%100000 == 0 {
+			debug.Info("[Processor:%d] Parsed %d lines...", hashlistID, lineNumber)
+		}
+
+		// Process in batches using bulk import (PostgreSQL COPY)
+		if len(hashesToProcess) >= bulkBatchSize {
+			debug.Debug("[Processor:%d] Bulk importing batch of %d hashes (Lines up to %d)", hashlistID, len(hashesToProcess), lineNumber)
+			result, err := p.hashRepo.BulkImportHashes(ctx, hashesToProcess, hashlist.ID)
 			if err != nil {
-				debug.Error("Background task: Error processing hash batch for hashlist %d: %v", hashlistID, err)
-				p.updateHashlistStatus(ctx, hashlistID, models.HashListStatusError, "Error processing hash batch")
-				return // Stop processing on batch error
-			}
-			// Create associations immediately for this batch instead of accumulating
-			if len(newAssociations) > 0 {
-				err = p.hashRepo.AddBatchToHashList(ctx, newAssociations)
-				if err != nil {
-					debug.Error("Background task: Error creating hashlist associations for batch (hashlist %d): %v", hashlistID, err)
-					p.updateHashlistStatus(ctx, hashlistID, models.HashListStatusError, "Error saving hash associations")
-					return
+				debug.Error("Background task: Error bulk importing hash batch for hashlist %d: %v", hashlistID, err)
+				p.updateHashlistStatus(ctx, hashlistID, models.HashListStatusError, "Error bulk importing hash batch")
+				if p.progressService != nil {
+					p.progressService.FailProcessing(hashlistID, "Error bulk importing hash batch")
 				}
+				return
 			}
+			crackedHashes += result.CrackedInBatch
+			debug.Info("[Processor:%d] Bulk import batch complete: New=%d, Updated=%d, Associations=%d",
+				hashlistID, result.NewHashes, result.UpdatedHashes, result.Associations)
 			hashesToProcess = hashesToProcess[:0] // Clear batch
+
+			// Update progress after each batch
+			if p.progressService != nil {
+				p.progressService.UpdateProgress(hashlistID, int64(lineNumber), totalHashes)
+			}
 		}
 	}
 
 	// Process any remaining hashes
 	if len(hashesToProcess) > 0 {
-		debug.Debug("[Processor:%d] Processing final batch of %d hashes (Lines up to %d)", hashlistID, len(hashesToProcess), lineNumber)
-		newAssociations, err := p.batchProcessHashes(ctx, hashesToProcess, hashlist.ID)
+		debug.Debug("[Processor:%d] Bulk importing final batch of %d hashes (Lines up to %d)", hashlistID, len(hashesToProcess), lineNumber)
+		result, err := p.hashRepo.BulkImportHashes(ctx, hashesToProcess, hashlist.ID)
 		if err != nil {
-			debug.Error("Background task: Error processing final hash batch for hashlist %d: %v", hashlistID, err)
-			p.updateHashlistStatus(ctx, hashlistID, models.HashListStatusError, "Error processing final hash batch")
+			debug.Error("Background task: Error bulk importing final hash batch for hashlist %d: %v", hashlistID, err)
+			p.updateHashlistStatus(ctx, hashlistID, models.HashListStatusError, "Error bulk importing final hash batch")
+			if p.progressService != nil {
+				p.progressService.FailProcessing(hashlistID, "Error bulk importing final hash batch")
+			}
 			return
 		}
-		// Create associations for final batch
-		if len(newAssociations) > 0 {
-			err = p.hashRepo.AddBatchToHashList(ctx, newAssociations)
-			if err != nil {
-				debug.Error("Background task: Error creating hashlist associations for final batch (hashlist %d): %v", hashlistID, err)
-				p.updateHashlistStatus(ctx, hashlistID, models.HashListStatusError, "Error saving final hash associations")
-				return
-			}
-		}
+		crackedHashes += result.CrackedInBatch
+		debug.Info("[Processor:%d] Bulk import final batch complete: New=%d, Updated=%d, Associations=%d",
+			hashlistID, result.NewHashes, result.UpdatedHashes, result.Associations)
 	}
 
 	// Check for scanner errors after loop
 	if err := scanner.Err(); err != nil {
 		debug.Error("Background task: Error reading file %s for hashlist %d: %v", filePath, hashlistID, err)
 		p.updateHashlistStatus(ctx, hashlistID, models.HashListStatusError, "Error reading hashlist file")
+		if p.progressService != nil {
+			p.progressService.FailProcessing(hashlistID, "Error reading hashlist file")
+		}
 		return
 	}
 
@@ -278,6 +316,11 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64, filePath string)
 	}
 
 	debug.Info("Successfully processed hashlist %d. Total: %d hashes", hashlistID, totalHashes)
+
+	// Mark processing as complete
+	if p.progressService != nil {
+		p.progressService.CompleteProcessing(hashlistID, totalHashes)
+	}
 
 	// Sync the cracked count to reflect actual state (including pre-cracked hashes)
 	if err := p.hashlistRepo.SyncCrackedCount(ctx, hashlistID); err != nil {
@@ -388,161 +431,35 @@ func makeUserDomainKey(username, domain *string) string {
 	return user
 }
 
-// batchProcessHashes handles creating/updating hashes and preparing associations.
-// It deduplicates by original_hash (full input line) to preserve unique entries
-// like different users with the same password hash. Each unique original_hash
-// gets its own hash record and association to the hashlist.
-func (p *HashlistDBProcessor) batchProcessHashes(ctx context.Context, hashes []*models.Hash, hashlistID int64) ([]*models.HashListHash, error) {
-	debug.Debug("[Processor:%d] batchProcessHashes received %d hashes", hashlistID, len(hashes))
-	if len(hashes) == 0 {
-		return nil, nil
-	}
-
-	// Deduplicate by original_hash (exact duplicate input lines)
-	// This preserves all unique entries (e.g., different users with same password)
-	uniqueHashesByOriginal := make(map[string]*models.Hash) // Key: original_hash
-	uniqueHashValues := make([]string, 0)
-	uniqueHashValueSet := make(map[string]struct{})
-
-	for _, h := range hashes {
-		// Skip exact duplicate lines (same original_hash)
-		if _, alreadySeen := uniqueHashesByOriginal[h.OriginalHash]; alreadySeen {
-			debug.Debug("[Processor:%d] Skipping duplicate original_hash: %s", hashlistID, h.OriginalHash)
-			continue
-		}
-
-		// Store this unique original line
-		uniqueHashesByOriginal[h.OriginalHash] = h
-
-		// Collect unique hash_values for DB existence check
-		if _, exists := uniqueHashValueSet[h.HashValue]; !exists {
-			uniqueHashValues = append(uniqueHashValues, h.HashValue)
-			uniqueHashValueSet[h.HashValue] = struct{}{}
-		}
-	}
-	debug.Debug("[Processor:%d] After deduplication: %d unique original hashes from %d inputs, %d unique hash values",
-		hashlistID, len(uniqueHashesByOriginal), len(hashes), len(uniqueHashValues))
-
-	// Find existing hashes in DB by hash_values, then filter by original_hash
-	existingHashesFromDB, err := p.hashRepo.GetByHashValues(ctx, uniqueHashValues)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check existing hashes: %w", err)
-	}
-
-	// Create map keyed by ORIGINAL_HASH for exact matching
-	existingHashMap := make(map[string]*models.Hash)
-	for _, eh := range existingHashesFromDB {
-		existingHashMap[eh.OriginalHash] = eh
-	}
-	debug.Debug("[Processor:%d] Found %d existing hash records in DB", hashlistID, len(existingHashMap))
-
-	// Prepare lists for creation, update, and final associations
-	newHashesToCreate := make([]*models.Hash, 0)
-	hashesToUpdate := make([]*models.Hash, 0)
-	finalAssociations := make([]*models.HashListHash, 0, len(uniqueHashesByOriginal))
-	newlyCrackedInBatch := 0
-
-	// Iterate through each unique original_hash
-	for originalHash, inputHash := range uniqueHashesByOriginal {
-		existingDBHash, existsInDB := existingHashMap[originalHash]
-
-		if existsInDB {
-			// This exact original_hash already exists in DB
-			// Just create association, and potentially update crack status
-			debug.Debug("[Processor:%d] Original hash '%s' exists in DB (ID: %s)",
-				hashlistID, originalHash, existingDBHash.ID)
-
-			finalAssociations = append(finalAssociations, &models.HashListHash{
-				HashlistID: hashlistID,
-				HashID:     existingDBHash.ID,
-			})
-
-			// Check if we need to update crack status
-			needsUpdate := false
-			if !existingDBHash.IsCracked && inputHash.IsCracked {
-				existingDBHash.IsCracked = true
-				existingDBHash.Password = inputHash.Password
-				needsUpdate = true
-				newlyCrackedInBatch++
-			}
-			// Update username if existing is null and new one is provided
-			if existingDBHash.Username == nil && inputHash.Username != nil {
-				existingDBHash.Username = inputHash.Username
-				needsUpdate = true
-			}
-			// Update domain if existing is null and new one is provided
-			if existingDBHash.Domain == nil && inputHash.Domain != nil {
-				existingDBHash.Domain = inputHash.Domain
-				needsUpdate = true
-			}
-
-			if needsUpdate {
-				existingDBHash.LastUpdated = time.Now()
-				hashesToUpdate = append(hashesToUpdate, existingDBHash)
-			}
-
-		} else {
-			// This is a NEW unique original_hash - create a new record
-			inputHash.ID = uuid.New()
-			newHashesToCreate = append(newHashesToCreate, inputHash)
-
-			debug.Debug("[Processor:%d] Creating new hash record for original: '%s' (ID: %s)",
-				hashlistID, originalHash, inputHash.ID)
-
-			finalAssociations = append(finalAssociations, &models.HashListHash{
-				HashlistID: hashlistID,
-				HashID:     inputHash.ID,
-			})
-
-			if inputHash.IsCracked {
-				newlyCrackedInBatch++
-			}
-		}
-	}
-
-	debug.Debug("[Processor:%d] Will create %d new hashes, update %d existing hashes, create %d associations",
-		hashlistID, len(newHashesToCreate), len(hashesToUpdate), len(finalAssociations))
-
-	// Create new hashes
-	if len(newHashesToCreate) > 0 {
-		// CreateBatch needs to handle potential duplicates if run concurrently,
-		// but here we assume it attempts to insert all. It should return only successfully created ones.
-		// We already assigned UUIDs, so we expect CreateBatch to use those.
-		_, err := p.hashRepo.CreateBatch(ctx, newHashesToCreate) // Don't need returned hashes if IDs are pre-set
-		if err != nil {
-			// If CreateBatch fails, we cannot reliably create associations for the new hashes.
-			return nil, fmt.Errorf("failed to create new hash batch: %w", err)
-		}
-	}
-
-	// Update existing hashes
-	if len(hashesToUpdate) > 0 {
-		err = p.hashRepo.UpdateBatch(ctx, hashesToUpdate)
-		if err != nil {
-			// Log the error but potentially continue to create associations?
-			// For now, return error to prevent potentially inconsistent state.
-			debug.Error("[Processor:%d] Failed to update hash batch: %v. Associations might be incomplete.", hashlistID, err)
-			return nil, fmt.Errorf("failed to update hash batch: %w", err)
-		}
-	}
-
-	// Increment cracked count in hashlists table
-	if newlyCrackedInBatch > 0 {
-		err = p.hashlistRepo.IncrementCrackedCount(ctx, hashlistID, newlyCrackedInBatch)
-		if err != nil {
-			// Log error but don't fail the whole process for this.
-			debug.Error("[Processor:%d] Failed to increment cracked count by %d: %v", hashlistID, newlyCrackedInBatch, err)
-		}
-	}
-
-	// Return the prepared list of all associations to be created in the next step
-	return finalAssociations, nil
-}
-
 // Helper to update hashlist status (avoids direct repo access from other funcs if needed)
 func (p *HashlistDBProcessor) updateHashlistStatus(ctx context.Context, id int64, status string, errMsg string) {
 	err := p.hashlistRepo.UpdateStatus(ctx, id, status, errMsg)
 	if err != nil {
 		debug.Error("Failed to update hashlist %d status to %s: %v", id, status, err)
+	}
+}
+
+// countFileLines efficiently counts newlines in a file using buffered reading.
+// This is much more accurate than file-size estimation for progress tracking.
+func countFileLines(filePath string) (int64, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return 0, err
+	}
+	defer file.Close()
+
+	var count int64
+	buf := make([]byte, 64*1024) // 64KB buffer for efficient reading
+	lineSep := []byte{'\n'}
+
+	for {
+		n, err := file.Read(buf)
+		count += int64(bytes.Count(buf[:n], lineSep))
+		if err == io.EOF {
+			return count, nil
+		}
+		if err != nil {
+			return count, err
+		}
 	}
 }

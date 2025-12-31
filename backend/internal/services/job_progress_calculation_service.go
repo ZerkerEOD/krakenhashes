@@ -586,6 +586,24 @@ func (s *JobProgressCalculationService) checkJobsForCompletion(ctx context.Conte
 
 		// Use structural check to verify job should complete
 		if s.shouldJobComplete(ctx, job) {
+			// CRITICAL: Check for failed tasks before completing
+			hasFailed, failErr := s.jobTaskRepo.HasFailedTasks(ctx, jobID)
+			if failErr != nil {
+				debug.Warning("Progress service: failed to check for failed tasks for job %s: %v", jobID, failErr)
+				continue
+			}
+			if hasFailed {
+				debug.Log("Progress service: Job has failed tasks - marking as failed", map[string]interface{}{
+					"job_id": jobID,
+				})
+				if failExecErr := s.jobExecRepo.FailExecution(ctx, jobID, "One or more tasks failed"); failExecErr != nil {
+					debug.Error("Progress service failed to mark job %s as failed: %v", jobID, failExecErr)
+				} else {
+					debug.Info("Progress service marked job %s as failed due to failed tasks", jobID)
+				}
+				continue
+			}
+
 			debug.Log("Progress service triggering job completion (feedback loop)", map[string]interface{}{
 				"job_id":              jobID,
 				"dispatched_keyspace": job.DispatchedKeyspace,
@@ -598,6 +616,20 @@ func (s *JobProgressCalculationService) checkJobsForCompletion(ctx context.Conte
 				debug.Error("Progress service failed to complete job %s: %v", jobID, err)
 			} else {
 				debug.Info("Progress service completed stuck job %s via feedback loop", jobID)
+
+				// Sync effective_keyspace to processed_keyspace to ensure 100% display
+				// This prevents >100% progress when effective_keyspace from benchmark was lower
+				// (similar to the AllHashesCracked handler in job_websocket_integration.go)
+				if job.ProcessedKeyspace > 0 {
+					if job.EffectiveKeyspace == nil || *job.EffectiveKeyspace < job.ProcessedKeyspace {
+						syncErr := s.jobExecRepo.UpdateEffectiveKeyspace(ctx, jobID, job.ProcessedKeyspace)
+						if syncErr != nil {
+							debug.Warning("Failed to sync effective_keyspace on completion for job %s: %v", jobID, syncErr)
+						} else {
+							debug.Info("Synced effective_keyspace to %d on job %s completion", job.ProcessedKeyspace, jobID)
+						}
+					}
+				}
 			}
 		}
 	}

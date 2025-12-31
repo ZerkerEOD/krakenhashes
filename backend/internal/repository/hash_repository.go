@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
@@ -337,6 +338,173 @@ func (r *HashRepository) AddBatchToHashList(ctx context.Context, associations []
 	return nil
 }
 
+// BulkImportResult contains statistics from a bulk import operation
+type BulkImportResult struct {
+	TotalRows      int64
+	NewHashes      int64
+	UpdatedHashes  int64
+	Associations   int64
+	CrackedInBatch int64
+}
+
+// BulkImportHashes uses PostgreSQL COPY for high-speed bulk import of hashes.
+// This method is 10-20x faster than batched INSERT for large datasets (100K+ rows).
+// It handles deduplication, updating existing hashes with new crack info, and creating associations.
+func (r *HashRepository) BulkImportHashes(ctx context.Context, hashes []*models.Hash, hashlistID int64) (*BulkImportResult, error) {
+	if len(hashes) == 0 {
+		return &BulkImportResult{}, nil
+	}
+
+	debug.Info("[BulkImport:%d] Starting bulk import of %d hashes using COPY", hashlistID, len(hashes))
+	startTime := time.Now()
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction for bulk import: %w", err)
+	}
+	defer tx.Rollback()
+
+	// 1. Create temp table for staging data
+	_, err = tx.ExecContext(ctx, `
+		CREATE TEMP TABLE temp_hash_import (
+			hash_value TEXT NOT NULL,
+			original_hash TEXT NOT NULL,
+			username TEXT,
+			domain TEXT,
+			hash_type_id INT NOT NULL,
+			is_cracked BOOLEAN NOT NULL DEFAULT FALSE,
+			password TEXT
+		) ON COMMIT DROP
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp table: %w", err)
+	}
+	debug.Debug("[BulkImport:%d] Created temp table", hashlistID)
+
+	// 2. COPY data into temp table using pq.CopyIn
+	stmt, err := tx.PrepareContext(ctx, pq.CopyIn("temp_hash_import",
+		"hash_value", "original_hash", "username", "domain", "hash_type_id", "is_cracked", "password"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare COPY statement: %w", err)
+	}
+
+	// Stream all hashes into the temp table
+	for _, h := range hashes {
+		var username, domain, password interface{}
+		if h.Username != nil {
+			username = *h.Username
+		}
+		if h.Domain != nil {
+			domain = *h.Domain
+		}
+		if h.Password != nil {
+			password = *h.Password
+		}
+
+		_, err = stmt.ExecContext(ctx, h.HashValue, h.OriginalHash, username, domain, h.HashTypeID, h.IsCracked, password)
+		if err != nil {
+			stmt.Close()
+			return nil, fmt.Errorf("failed to exec COPY for hash: %w", err)
+		}
+	}
+
+	// Close the COPY statement to flush all data
+	if err = stmt.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close COPY statement: %w", err)
+	}
+	debug.Debug("[BulkImport:%d] COPY completed in %v", hashlistID, time.Since(startTime))
+
+	// 3. Deduplicate within the temp table (keep first occurrence)
+	_, err = tx.ExecContext(ctx, `
+		DELETE FROM temp_hash_import t1
+		USING (
+			SELECT MIN(ctid) as min_ctid, original_hash
+			FROM temp_hash_import
+			GROUP BY original_hash
+			HAVING COUNT(*) > 1
+		) t2
+		WHERE t1.original_hash = t2.original_hash
+		AND t1.ctid != t2.min_ctid
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to deduplicate temp table: %w", err)
+	}
+
+	// 4. Insert NEW hashes using ON CONFLICT DO NOTHING (requires unique index on original_hash)
+	// This is MUCH faster than NOT EXISTS subquery which did full table scans
+	insertResult, err := tx.ExecContext(ctx, `
+		INSERT INTO hashes (id, hash_value, original_hash, username, domain, hash_type_id, is_cracked, password, last_updated)
+		SELECT gen_random_uuid(), t.hash_value, t.original_hash, t.username, t.domain, t.hash_type_id, t.is_cracked, t.password, NOW()
+		FROM temp_hash_import t
+		ON CONFLICT (original_hash) DO NOTHING
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to insert new hashes: %w", err)
+	}
+	newHashes, _ := insertResult.RowsAffected()
+	debug.Debug("[BulkImport:%d] Inserted %d new hashes", hashlistID, newHashes)
+
+	// 5. Update existing hashes that now have passwords (were cracked in this import)
+	updateResult, err := tx.ExecContext(ctx, `
+		UPDATE hashes h
+		SET is_cracked = TRUE,
+		    password = t.password,
+		    username = COALESCE(h.username, t.username),
+		    domain = COALESCE(h.domain, t.domain),
+		    last_updated = NOW()
+		FROM temp_hash_import t
+		WHERE h.original_hash = t.original_hash
+		  AND t.is_cracked = TRUE
+		  AND h.is_cracked = FALSE
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update existing hashes with cracks: %w", err)
+	}
+	updatedHashes, _ := updateResult.RowsAffected()
+	debug.Debug("[BulkImport:%d] Updated %d existing hashes with new crack info", hashlistID, updatedHashes)
+
+	// 6. Create associations for ALL hashes in this import
+	assocResult, err := tx.ExecContext(ctx, `
+		INSERT INTO hashlist_hashes (hashlist_id, hash_id)
+		SELECT DISTINCT $1::bigint, h.id
+		FROM hashes h
+		INNER JOIN temp_hash_import t ON h.original_hash = t.original_hash
+		ON CONFLICT (hashlist_id, hash_id) DO NOTHING
+	`, hashlistID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create hashlist associations: %w", err)
+	}
+	associations, _ := assocResult.RowsAffected()
+	debug.Debug("[BulkImport:%d] Created %d hashlist associations", hashlistID, associations)
+
+	// 7. Count cracked hashes in this batch for updating hashlist stats
+	var crackedCount int64
+	err = tx.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM temp_hash_import WHERE is_cracked = TRUE
+	`).Scan(&crackedCount)
+	if err != nil {
+		debug.Warning("[BulkImport:%d] Failed to count cracked hashes: %v", hashlistID, err)
+		crackedCount = 0
+	}
+
+	// Commit the transaction
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit bulk import transaction: %w", err)
+	}
+
+	duration := time.Since(startTime)
+	debug.Info("[BulkImport:%d] Bulk import completed in %v - New: %d, Updated: %d, Associations: %d, Cracked: %d",
+		hashlistID, duration, newHashes, updatedHashes, associations, crackedCount)
+
+	return &BulkImportResult{
+		TotalRows:      int64(len(hashes)),
+		NewHashes:      newHashes,
+		UpdatedHashes:  updatedHashes,
+		Associations:   associations,
+		CrackedInBatch: crackedCount,
+	}, nil
+}
+
 // SearchHashes finds hashes by value and retrieves associated hashlist info for a specific user.
 func (r *HashRepository) SearchHashes(ctx context.Context, hashValues []string, userID uuid.UUID) ([]models.HashSearchResult, error) {
 	if len(hashValues) == 0 {
@@ -609,6 +777,7 @@ type HashUpdate struct {
 	Password  string
 	Username  *string
 	CrackedAt time.Time
+	TaskID    *uuid.UUID // Optional: task that cracked this hash (for retransmit tracking)
 }
 
 // UpdateCrackStatusBatch updates multiple hashes at once using an efficient bulk query
@@ -626,21 +795,22 @@ func (r *HashRepository) UpdateCrackStatusBatch(tx *sql.Tx, updates []HashUpdate
 			is_cracked = TRUE,
 			password = u.password,
 			username = COALESCE(h.username, u.username),
-			last_updated = u.cracked_at
+			last_updated = u.cracked_at,
+			cracked_by_task_id = COALESCE(u.task_id, h.cracked_by_task_id)
 		FROM (VALUES
 	`
 
-	args := make([]interface{}, 0, len(updates)*4)
+	args := make([]interface{}, 0, len(updates)*5)
 	for i, update := range updates {
 		if i > 0 {
 			query += ", "
 		}
-		query += fmt.Sprintf("($%d::uuid, $%d::text, $%d::text, $%d::timestamp)",
-			i*4+1, i*4+2, i*4+3, i*4+4)
-		args = append(args, update.HashID, update.Password, update.Username, update.CrackedAt)
+		query += fmt.Sprintf("($%d::uuid, $%d::text, $%d::text, $%d::timestamp, $%d::uuid)",
+			i*5+1, i*5+2, i*5+3, i*5+4, i*5+5)
+		args = append(args, update.HashID, update.Password, update.Username, update.CrackedAt, update.TaskID)
 	}
 
-	query += `) AS u(hash_id, password, username, cracked_at)
+	query += `) AS u(hash_id, password, username, cracked_at, task_id)
 		WHERE h.id = u.hash_id AND h.is_cracked = FALSE
 	`
 
@@ -770,28 +940,63 @@ func (r *HashRepository) DeleteHashByIDTx(tx *sql.Tx, hashID uuid.UUID) error {
 type CrackedHashParams struct {
 	Limit  int
 	Offset int
+	Search string // Optional search term for ILIKE filtering across hash, password, username, domain
 }
 
-// GetCrackedHashes retrieves all cracked hashes with pagination
+// GetCrackedHashes retrieves all cracked hashes with pagination and optional search
 func (r *HashRepository) GetCrackedHashes(ctx context.Context, params CrackedHashParams) ([]*models.Hash, int64, error) {
+	// Build query with optional search
+	var countQuery, query string
+	var countArgs, queryArgs []interface{}
+
+	if params.Search != "" {
+		// Escape ILIKE special characters and wrap with wildcards
+		searchPattern := "%" + escapeILIKE(params.Search) + "%"
+
+		countQuery = `SELECT COUNT(*) FROM hashes WHERE is_cracked = true AND (
+			original_hash ILIKE $1 OR
+			password ILIKE $1 OR
+			username ILIKE $1 OR
+			domain ILIKE $1
+		)`
+		countArgs = []interface{}{searchPattern}
+
+		query = `
+			SELECT id, hash_value, original_hash, username, domain, hash_type_id, is_cracked, password, last_updated
+			FROM hashes
+			WHERE is_cracked = true AND (
+				original_hash ILIKE $1 OR
+				password ILIKE $1 OR
+				username ILIKE $1 OR
+				domain ILIKE $1
+			)
+			ORDER BY last_updated DESC
+			LIMIT $2 OFFSET $3
+		`
+		queryArgs = []interface{}{searchPattern, params.Limit, params.Offset}
+	} else {
+		countQuery = `SELECT COUNT(*) FROM hashes WHERE is_cracked = true`
+		countArgs = nil
+
+		query = `
+			SELECT id, hash_value, original_hash, username, domain, hash_type_id, is_cracked, password, last_updated
+			FROM hashes
+			WHERE is_cracked = true
+			ORDER BY last_updated DESC
+			LIMIT $1 OFFSET $2
+		`
+		queryArgs = []interface{}{params.Limit, params.Offset}
+	}
+
 	// First, get the total count
-	countQuery := `SELECT COUNT(*) FROM hashes WHERE is_cracked = true`
 	var totalCount int64
-	err := r.db.QueryRowContext(ctx, countQuery).Scan(&totalCount)
+	err := r.db.QueryRowContext(ctx, countQuery, countArgs...).Scan(&totalCount)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count cracked hashes: %w", err)
 	}
 
 	// Then get the paginated results
-	query := `
-		SELECT id, hash_value, original_hash, username, domain, hash_type_id, is_cracked, password, last_updated
-		FROM hashes
-		WHERE is_cracked = true
-		ORDER BY last_updated DESC
-		LIMIT $1 OFFSET $2
-	`
-
-	rows, err := r.db.QueryContext(ctx, query, params.Limit, params.Offset)
+	rows, err := r.db.QueryContext(ctx, query, queryArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to query cracked hashes: %w", err)
 	}
@@ -815,7 +1020,7 @@ func (r *HashRepository) GetCrackedHashes(ctx context.Context, params CrackedHas
 		}
 		hashes = append(hashes, &hash)
 	}
-	
+
 	if err = rows.Err(); err != nil {
 		return nil, 0, fmt.Errorf("error iterating cracked hash rows: %w", err)
 	}
@@ -823,32 +1028,80 @@ func (r *HashRepository) GetCrackedHashes(ctx context.Context, params CrackedHas
 	return hashes, totalCount, nil
 }
 
-// GetCrackedHashesByHashlist retrieves cracked hashes for a specific hashlist
+// escapeILIKE escapes special characters for PostgreSQL ILIKE queries
+func escapeILIKE(s string) string {
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, "%", "\\%")
+	s = strings.ReplaceAll(s, "_", "\\_")
+	return s
+}
+
+// GetCrackedHashesByHashlist retrieves cracked hashes for a specific hashlist with optional search
 func (r *HashRepository) GetCrackedHashesByHashlist(ctx context.Context, hashlistID int64, params CrackedHashParams) ([]*models.Hash, int64, error) {
+	// Build query with optional search
+	var countQuery, query string
+	var countArgs, queryArgs []interface{}
+
+	if params.Search != "" {
+		// Escape ILIKE special characters and wrap with wildcards
+		searchPattern := "%" + escapeILIKE(params.Search) + "%"
+
+		countQuery = `
+			SELECT COUNT(*)
+			FROM hashes h
+			JOIN hashlist_hashes hh ON h.id = hh.hash_id
+			WHERE hh.hashlist_id = $1 AND h.is_cracked = true AND (
+				h.original_hash ILIKE $2 OR
+				h.password ILIKE $2 OR
+				h.username ILIKE $2 OR
+				h.domain ILIKE $2
+			)
+		`
+		countArgs = []interface{}{hashlistID, searchPattern}
+
+		query = `
+			SELECT h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated
+			FROM hashes h
+			JOIN hashlist_hashes hh ON h.id = hh.hash_id
+			WHERE hh.hashlist_id = $1 AND h.is_cracked = true AND (
+				h.original_hash ILIKE $2 OR
+				h.password ILIKE $2 OR
+				h.username ILIKE $2 OR
+				h.domain ILIKE $2
+			)
+			ORDER BY h.last_updated DESC
+			LIMIT $3 OFFSET $4
+		`
+		queryArgs = []interface{}{hashlistID, searchPattern, params.Limit, params.Offset}
+	} else {
+		countQuery = `
+			SELECT COUNT(*)
+			FROM hashes h
+			JOIN hashlist_hashes hh ON h.id = hh.hash_id
+			WHERE hh.hashlist_id = $1 AND h.is_cracked = true
+		`
+		countArgs = []interface{}{hashlistID}
+
+		query = `
+			SELECT h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated
+			FROM hashes h
+			JOIN hashlist_hashes hh ON h.id = hh.hash_id
+			WHERE hh.hashlist_id = $1 AND h.is_cracked = true
+			ORDER BY h.last_updated DESC
+			LIMIT $2 OFFSET $3
+		`
+		queryArgs = []interface{}{hashlistID, params.Limit, params.Offset}
+	}
+
 	// First, get the total count
-	countQuery := `
-		SELECT COUNT(*)
-		FROM hashes h
-		JOIN hashlist_hashes hh ON h.id = hh.hash_id
-		WHERE hh.hashlist_id = $1 AND h.is_cracked = true
-	`
 	var totalCount int64
-	err := r.db.QueryRowContext(ctx, countQuery, hashlistID).Scan(&totalCount)
+	err := r.db.QueryRowContext(ctx, countQuery, countArgs...).Scan(&totalCount)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count cracked hashes for hashlist %d: %w", hashlistID, err)
 	}
 
 	// Then get the paginated results
-	query := `
-		SELECT h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated
-		FROM hashes h
-		JOIN hashlist_hashes hh ON h.id = hh.hash_id
-		WHERE hh.hashlist_id = $1 AND h.is_cracked = true
-		ORDER BY h.last_updated DESC
-		LIMIT $2 OFFSET $3
-	`
-	
-	rows, err := r.db.QueryContext(ctx, query, hashlistID, params.Limit, params.Offset)
+	rows, err := r.db.QueryContext(ctx, query, queryArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to query cracked hashes for hashlist %d: %w", hashlistID, err)
 	}
@@ -872,7 +1125,7 @@ func (r *HashRepository) GetCrackedHashesByHashlist(ctx context.Context, hashlis
 		}
 		hashes = append(hashes, &hash)
 	}
-	
+
 	if err = rows.Err(); err != nil {
 		return nil, 0, fmt.Errorf("error iterating cracked hash rows for hashlist %d: %w", hashlistID, err)
 	}
@@ -880,34 +1133,76 @@ func (r *HashRepository) GetCrackedHashesByHashlist(ctx context.Context, hashlis
 	return hashes, totalCount, nil
 }
 
-// GetCrackedHashesByClient retrieves cracked hashes for a specific client
+// GetCrackedHashesByClient retrieves cracked hashes for a specific client with optional search
 func (r *HashRepository) GetCrackedHashesByClient(ctx context.Context, clientID uuid.UUID, params CrackedHashParams) ([]*models.Hash, int64, error) {
+	// Build query with optional search
+	var countQuery, query string
+	var countArgs, queryArgs []interface{}
+
+	if params.Search != "" {
+		// Escape ILIKE special characters and wrap with wildcards
+		searchPattern := "%" + escapeILIKE(params.Search) + "%"
+
+		countQuery = `
+			SELECT COUNT(*)
+			FROM hashes h
+			JOIN hashlist_hashes hh ON h.id = hh.hash_id
+			JOIN hashlists hl ON hh.hashlist_id = hl.id
+			WHERE hl.client_id = $1 AND h.is_cracked = true AND (
+				h.original_hash ILIKE $2 OR
+				h.password ILIKE $2 OR
+				h.username ILIKE $2 OR
+				h.domain ILIKE $2
+			)
+		`
+		countArgs = []interface{}{clientID, searchPattern}
+
+		query = `
+			SELECT h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated
+			FROM hashes h
+			JOIN hashlist_hashes hh ON h.id = hh.hash_id
+			JOIN hashlists hl ON hh.hashlist_id = hl.id
+			WHERE hl.client_id = $1 AND h.is_cracked = true AND (
+				h.original_hash ILIKE $2 OR
+				h.password ILIKE $2 OR
+				h.username ILIKE $2 OR
+				h.domain ILIKE $2
+			)
+			ORDER BY h.last_updated DESC
+			LIMIT $3 OFFSET $4
+		`
+		queryArgs = []interface{}{clientID, searchPattern, params.Limit, params.Offset}
+	} else {
+		countQuery = `
+			SELECT COUNT(*)
+			FROM hashes h
+			JOIN hashlist_hashes hh ON h.id = hh.hash_id
+			JOIN hashlists hl ON hh.hashlist_id = hl.id
+			WHERE hl.client_id = $1 AND h.is_cracked = true
+		`
+		countArgs = []interface{}{clientID}
+
+		query = `
+			SELECT h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated
+			FROM hashes h
+			JOIN hashlist_hashes hh ON h.id = hh.hash_id
+			JOIN hashlists hl ON hh.hashlist_id = hl.id
+			WHERE hl.client_id = $1 AND h.is_cracked = true
+			ORDER BY h.last_updated DESC
+			LIMIT $2 OFFSET $3
+		`
+		queryArgs = []interface{}{clientID, params.Limit, params.Offset}
+	}
+
 	// First, get the total count
-	countQuery := `
-		SELECT COUNT(*)
-		FROM hashes h
-		JOIN hashlist_hashes hh ON h.id = hh.hash_id
-		JOIN hashlists hl ON hh.hashlist_id = hl.id
-		WHERE hl.client_id = $1 AND h.is_cracked = true
-	`
 	var totalCount int64
-	err := r.db.QueryRowContext(ctx, countQuery, clientID).Scan(&totalCount)
+	err := r.db.QueryRowContext(ctx, countQuery, countArgs...).Scan(&totalCount)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count cracked hashes for client %s: %w", clientID, err)
 	}
 
 	// Then get the paginated results
-	query := `
-		SELECT h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated
-		FROM hashes h
-		JOIN hashlist_hashes hh ON h.id = hh.hash_id
-		JOIN hashlists hl ON hh.hashlist_id = hl.id
-		WHERE hl.client_id = $1 AND h.is_cracked = true
-		ORDER BY h.last_updated DESC
-		LIMIT $2 OFFSET $3
-	`
-	
-	rows, err := r.db.QueryContext(ctx, query, clientID, params.Limit, params.Offset)
+	rows, err := r.db.QueryContext(ctx, query, queryArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to query cracked hashes for client %s: %w", clientID, err)
 	}
@@ -939,34 +1234,76 @@ func (r *HashRepository) GetCrackedHashesByClient(ctx context.Context, clientID 
 	return hashes, totalCount, nil
 }
 
-// GetCrackedHashesByJob retrieves cracked hashes for a specific job execution
+// GetCrackedHashesByJob retrieves cracked hashes for a specific job execution with optional search
 func (r *HashRepository) GetCrackedHashesByJob(ctx context.Context, jobID uuid.UUID, params CrackedHashParams) ([]*models.Hash, int64, error) {
+	// Build query with optional search
+	var countQuery, query string
+	var countArgs, queryArgs []interface{}
+
+	if params.Search != "" {
+		// Escape ILIKE special characters and wrap with wildcards
+		searchPattern := "%" + escapeILIKE(params.Search) + "%"
+
+		countQuery = `
+			SELECT COUNT(*)
+			FROM hashes h
+			JOIN hashlist_hashes hh ON h.id = hh.hash_id
+			JOIN job_executions j ON j.hashlist_id = hh.hashlist_id
+			WHERE j.id = $1 AND h.is_cracked = true AND (
+				h.original_hash ILIKE $2 OR
+				h.password ILIKE $2 OR
+				h.username ILIKE $2 OR
+				h.domain ILIKE $2
+			)
+		`
+		countArgs = []interface{}{jobID, searchPattern}
+
+		query = `
+			SELECT h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated
+			FROM hashes h
+			JOIN hashlist_hashes hh ON h.id = hh.hash_id
+			JOIN job_executions j ON j.hashlist_id = hh.hashlist_id
+			WHERE j.id = $1 AND h.is_cracked = true AND (
+				h.original_hash ILIKE $2 OR
+				h.password ILIKE $2 OR
+				h.username ILIKE $2 OR
+				h.domain ILIKE $2
+			)
+			ORDER BY h.last_updated DESC
+			LIMIT $3 OFFSET $4
+		`
+		queryArgs = []interface{}{jobID, searchPattern, params.Limit, params.Offset}
+	} else {
+		countQuery = `
+			SELECT COUNT(*)
+			FROM hashes h
+			JOIN hashlist_hashes hh ON h.id = hh.hash_id
+			JOIN job_executions j ON j.hashlist_id = hh.hashlist_id
+			WHERE j.id = $1 AND h.is_cracked = true
+		`
+		countArgs = []interface{}{jobID}
+
+		query = `
+			SELECT h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated
+			FROM hashes h
+			JOIN hashlist_hashes hh ON h.id = hh.hash_id
+			JOIN job_executions j ON j.hashlist_id = hh.hashlist_id
+			WHERE j.id = $1 AND h.is_cracked = true
+			ORDER BY h.last_updated DESC
+			LIMIT $2 OFFSET $3
+		`
+		queryArgs = []interface{}{jobID, params.Limit, params.Offset}
+	}
+
 	// First, get the total count
-	countQuery := `
-		SELECT COUNT(*)
-		FROM hashes h
-		JOIN hashlist_hashes hh ON h.id = hh.hash_id
-		JOIN job_executions j ON j.hashlist_id = hh.hashlist_id
-		WHERE j.id = $1 AND h.is_cracked = true
-	`
 	var totalCount int64
-	err := r.db.QueryRowContext(ctx, countQuery, jobID).Scan(&totalCount)
+	err := r.db.QueryRowContext(ctx, countQuery, countArgs...).Scan(&totalCount)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count cracked hashes for job %s: %w", jobID, err)
 	}
 
 	// Then get the paginated results
-	query := `
-		SELECT h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated
-		FROM hashes h
-		JOIN hashlist_hashes hh ON h.id = hh.hash_id
-		JOIN job_executions j ON j.hashlist_id = hh.hashlist_id
-		WHERE j.id = $1 AND h.is_cracked = true
-		ORDER BY h.last_updated DESC
-		LIMIT $2 OFFSET $3
-	`
-
-	rows, err := r.db.QueryContext(ctx, query, jobID, params.Limit, params.Offset)
+	rows, err := r.db.QueryContext(ctx, query, queryArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to query cracked hashes for job %s: %w", jobID, err)
 	}
@@ -1274,4 +1611,48 @@ func (r *HashRepository) GetLinkedHash(ctx context.Context, hashID uuid.UUID, li
 	}
 
 	return &hash, nil
+}
+
+// GetCrackedHashesByTaskID returns hash values cracked by a specific task.
+// Used for in-memory deduplication during retransmission.
+func (r *HashRepository) GetCrackedHashesByTaskID(ctx context.Context, taskID uuid.UUID) ([]string, error) {
+	query := `
+		SELECT hash_value
+		FROM hashes
+		WHERE cracked_by_task_id = $1`
+
+	rows, err := r.db.QueryContext(ctx, query, taskID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cracked hashes for task %s: %w", taskID, err)
+	}
+	defer rows.Close()
+
+	var hashes []string
+	for rows.Next() {
+		var hash string
+		if err := rows.Scan(&hash); err != nil {
+			return nil, fmt.Errorf("failed to scan hash value: %w", err)
+		}
+		hashes = append(hashes, hash)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating hash rows: %w", err)
+	}
+
+	return hashes, nil
+}
+
+// CountCrackedByTaskID returns the count of hashes cracked by a specific task.
+// This is used for verification to ensure all expected cracks were persisted to the database.
+func (r *HashRepository) CountCrackedByTaskID(ctx context.Context, taskID uuid.UUID) (int, error) {
+	query := `SELECT COUNT(*) FROM hashes WHERE cracked_by_task_id = $1`
+
+	var count int
+	err := r.db.QueryRowContext(ctx, query, taskID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count cracked hashes for task %s: %w", taskID, err)
+	}
+
+	return count, nil
 }

@@ -23,6 +23,23 @@ import (
 	"strings"
 )
 
+// retransmitCollectionState collects all retransmit batches before processing
+// This allows us to:
+// 1. Load existing hashes from DB ONCE (after all batches received)
+// 2. Dedupe all collected hashes in memory
+// 3. Save non-duplicates in batched transactions
+type retransmitCollectionState struct {
+	agentID           int
+	collectedHashes   []models.CrackedHash // All hashes from all batches
+	batchesReceived   int
+	lastBatchTime     time.Time
+	processingStarted bool
+	mu                sync.Mutex
+}
+
+var retransmitCollection = make(map[uuid.UUID]*retransmitCollectionState)
+var retransmitCollectionMu sync.Mutex
+
 // JobWebSocketIntegration handles the integration between job scheduling and WebSocket communication
 type JobWebSocketIntegration struct {
 	wsHandler interface {
@@ -1328,7 +1345,25 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 	// KeyspaceProcessed is the restore_point from hashcat, which is ABSOLUTE (not relative to KeyspaceStart)
 	// Compare against KeyspaceEnd directly, not (KeyspaceEnd - KeyspaceStart)
 	if task.KeyspaceEnd > 0 && progress.KeyspaceProcessed >= task.KeyspaceEnd {
-		// Task is complete - restore_point has reached or exceeded the task's end position
+		// Keyspace complete - but if there are cracks, wait for crack_batches_complete
+		// to ensure all cracks are confirmed in the database before marking complete
+		if progress.CrackedCount > 0 {
+			// Set to processing status - will be completed when crack_batches_complete is received
+			// and all cracks are verified in the database
+			err = s.jobTaskRepo.SetTaskProcessing(ctx, progress.TaskID, progress.CrackedCount)
+			if err != nil {
+				debug.Error("Failed to set task to processing status: %v", err)
+			} else {
+				debug.Info("Task %s keyspace complete with %d cracks - set to processing, waiting for crack_batches_complete",
+					progress.TaskID, progress.CrackedCount)
+			}
+			// Don't complete yet - HandleCrackBatchesComplete will complete the task
+			// after verifying all cracks are in the database
+			return nil
+		}
+
+		// No cracks - can complete immediately since there's nothing to verify
+		debug.Info("Task %s keyspace complete with 0 cracks - completing immediately", progress.TaskID)
 		err = s.jobTaskRepo.CompleteTask(ctx, progress.TaskID)
 		if err != nil {
 			debug.Log("Failed to mark task as complete", map[string]interface{}{
@@ -1386,6 +1421,7 @@ func (s *JobWebSocketIntegration) HandleCrackBatch(ctx context.Context, agentID 
 		"agent_id":      agentID,
 		"task_id":       crackBatch.TaskID,
 		"crack_count":   len(crackBatch.CrackedHashes),
+		"is_retransmit": crackBatch.IsRetransmit,
 	})
 
 	// Validate task exists
@@ -1396,7 +1432,17 @@ func (s *JobWebSocketIntegration) HandleCrackBatch(ctx context.Context, agentID 
 		return nil
 	}
 
-	// Verify the task is assigned to this agent
+	// Handle retransmit batches with deduplication
+	// NOTE: For retransmissions, skip the agent ownership check since the task's agent_id
+	// may have been reset to NULL when the agent went offline. The agent is retransmitting
+	// cracks from an outfile that it still has, regardless of current task assignment.
+	if crackBatch.IsRetransmit {
+		debug.Info("Processing retransmit batch for task %s with %d cracks",
+			crackBatch.TaskID, len(crackBatch.CrackedHashes))
+		return s.handleRetransmitBatch(ctx, agentID, crackBatch)
+	}
+
+	// Verify the task is assigned to this agent (only for non-retransmit batches)
 	if task.AgentID == nil || *task.AgentID != agentID {
 		expectedAgent := 0
 		if task.AgentID != nil {
@@ -1407,7 +1453,7 @@ func (s *JobWebSocketIntegration) HandleCrackBatch(ctx context.Context, agentID 
 		return fmt.Errorf("task not assigned to this agent")
 	}
 
-	// Process cracked hashes with retry logic
+	// Process cracked hashes with retry logic (normal flow)
 	if len(crackBatch.CrackedHashes) > 0 {
 		err = s.retryProcessCrackedHashes(ctx, agentID, crackBatch.TaskID, crackBatch.CrackedHashes)
 		if err != nil {
@@ -1546,7 +1592,15 @@ func (s *JobWebSocketIntegration) HandleCrackBatchesComplete(ctx context.Context
 		return nil
 	}
 
-	// Verify the task is assigned to this agent
+	// For retransmissions, process async - DON'T BLOCK the message loop
+	// This allows new task assignments to continue while processing large retransmits
+	if message.IsRetransmit {
+		debug.Info("Processing retransmission for task %s async (skipping agent ownership check)", message.TaskID)
+		go s.processRetransmitCompletionAsync(agentID, message.TaskID, task)
+		return nil // Return immediately, allow message loop to continue
+	}
+
+	// Verify the task is assigned to this agent (only for non-retransmit)
 	if task.AgentID == nil || *task.AgentID != agentID {
 		expectedAgent := 0
 		if task.AgentID != nil {
@@ -1562,6 +1616,53 @@ func (s *JobWebSocketIntegration) HandleCrackBatchesComplete(ctx context.Context
 	if err != nil {
 		debug.Error("Failed to mark batches complete: %v", err)
 		return err
+	}
+
+	// Re-fetch task to get updated received_crack_count after MarkBatchesComplete
+	task, err = s.jobTaskRepo.GetByID(ctx, message.TaskID)
+	if err != nil {
+		debug.Error("Failed to re-fetch task after marking batches complete: %v", err)
+		return err
+	}
+
+	// ============================================================================
+	// Outfile Acknowledgment Protocol - Check crack counts and send approval/retransmit
+	// ============================================================================
+	if task.ExpectedCrackCount > 0 { // Only check if we expect cracks
+		// Use actual database count for verification, NOT ReceivedCrackCount counter
+		// ReceivedCrackCount increments by batch size sent, but duplicates are skipped during save
+		// The actual DB count reflects what was truly persisted
+		actualDBCount, err := s.hashRepo.CountCrackedByTaskID(ctx, message.TaskID)
+		if err != nil {
+			debug.Error("Failed to count cracks in DB for task %s: %v", message.TaskID, err)
+			// Fall back to received count on error
+			actualDBCount = task.ReceivedCrackCount
+		}
+
+		debug.Info("Crack verification for task %s: expected=%d, received_counter=%d, actual_db_count=%d",
+			message.TaskID, task.ExpectedCrackCount, task.ReceivedCrackCount, actualDBCount)
+
+		if actualDBCount < task.ExpectedCrackCount {
+			// Mismatch detected - request retransmission
+			debug.Warning("Crack count mismatch for task %s: expected %d, actual in DB %d - requesting retransmit",
+				message.TaskID, task.ExpectedCrackCount, actualDBCount)
+
+			return s.handleCrackCountMismatch(ctx, agentID, message.TaskID,
+				task.ExpectedCrackCount, actualDBCount)
+		}
+
+		// All cracks verified in database - send delete approval
+		debug.Info("All cracks verified in DB for task %s (expected=%d, actual=%d) - sending delete approval",
+			message.TaskID, task.ExpectedCrackCount, actualDBCount)
+		if err := s.sendOutfileDeleteApproval(ctx, agentID, message.TaskID, actualDBCount); err != nil {
+			debug.Warning("Failed to send outfile delete approval: %v", err)
+			// Don't fail the whole operation - cracks are already processed
+		}
+	} else {
+		// No cracks expected - still send delete approval to clean up empty outfile
+		if err := s.sendOutfileDeleteApproval(ctx, agentID, message.TaskID, 0); err != nil {
+			debug.Warning("Failed to send outfile delete approval for zero-crack task: %v", err)
+		}
 	}
 
 	// Clear agent busy status - agent is now free for new work
@@ -1862,6 +1963,15 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 				debug.Error("Failed to update job keyspace info: %v", err)
 				return fmt.Errorf("failed to update job keyspace info: %w", err)
 			}
+
+			// NOW that we have accurate keyspace, determine if rule splitting should be used
+			// This decision was DEFERRED from job creation time
+			if jobExec.AttackMode == models.AttackModeStraight && len(jobExec.RuleIDs) > 0 {
+				if err := s.determineRuleSplittingAfterBenchmark(ctx, jobExec); err != nil {
+					debug.Warning("Failed to determine rule splitting after benchmark: %v", err)
+					// Non-fatal - job will use keyspace splitting as fallback
+				}
+			}
 		} else {
 			// Subsequent benchmark - validate consistency (should match job total)
 			diff := result.TotalEffectiveKeyspace - *jobExec.EffectiveKeyspace
@@ -1915,6 +2025,100 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 				}
 			}
 		}
+	}
+
+	return nil
+}
+
+// determineRuleSplittingAfterBenchmark makes the rule split decision using accurate keyspace from benchmark
+// This is called AFTER the forced benchmark provides accurate effective keyspace from hashcat's progress[1]
+func (s *JobWebSocketIntegration) determineRuleSplittingAfterBenchmark(ctx context.Context, job *models.JobExecution) error {
+	// Check if rule splitting is enabled
+	ruleSplitEnabled, err := s.systemSettingsRepo.GetSetting(ctx, "rule_split_enabled")
+	if err != nil || ruleSplitEnabled.Value == nil || *ruleSplitEnabled.Value != "true" {
+		debug.Log("Rule splitting is disabled, skipping determination", nil)
+		return nil // Rule splitting not enabled
+	}
+
+	if job.EffectiveKeyspace == nil || *job.EffectiveKeyspace == 0 {
+		debug.Log("No effective keyspace available for rule split decision", nil)
+		return nil
+	}
+
+	// Get threshold setting (default 0.5 = 50% of chunk duration)
+	threshold := 0.5
+	thresholdSetting, err := s.systemSettingsRepo.GetSetting(ctx, "rule_split_threshold")
+	if err == nil && thresholdSetting.Value != nil {
+		if parsed, parseErr := strconv.ParseFloat(*thresholdSetting.Value, 64); parseErr == nil {
+			threshold = parsed
+		}
+	}
+
+	// Get chunk duration setting (default 900 seconds = 15 min)
+	chunkDuration := 900
+	chunkDurationSetting, err := s.systemSettingsRepo.GetSetting(ctx, "default_chunk_duration")
+	if err == nil && chunkDurationSetting.Value != nil {
+		if parsed, parseErr := strconv.Atoi(*chunkDurationSetting.Value); parseErr == nil {
+			chunkDuration = parsed
+		}
+	}
+
+	// Get minimum rules setting (default 10)
+	minRules := 10
+	minRulesSetting, err := s.systemSettingsRepo.GetSetting(ctx, "rule_split_min_rules")
+	if err == nil && minRulesSetting.Value != nil {
+		if parsed, parseErr := strconv.Atoi(*minRulesSetting.Value); parseErr == nil {
+			minRules = parsed
+		}
+	}
+
+	// Estimate job duration using a conservative speed estimate
+	estimatedSpeed := int64(300_000_000) // 300 MH/s
+	estimatedDuration := float64(*job.EffectiveKeyspace) / float64(estimatedSpeed)
+
+	debug.Log("Rule split decision after benchmark", map[string]interface{}{
+		"job_id":             job.ID,
+		"effective_keyspace": *job.EffectiveKeyspace,
+		"estimated_duration": estimatedDuration,
+		"threshold":          threshold,
+		"chunk_duration":     chunkDuration,
+		"required_duration":  float64(chunkDuration) * threshold,
+		"rule_count":         job.MultiplicationFactor,
+		"min_rules":          minRules,
+	})
+
+	// Check if job duration exceeds threshold AND we have enough rules
+	if estimatedDuration > float64(chunkDuration)*threshold && job.MultiplicationFactor >= minRules {
+		job.UsesRuleSplitting = true
+
+		// Calculate number of splits needed
+		numSplits := int(estimatedDuration / float64(chunkDuration))
+		if numSplits < 2 {
+			numSplits = 2
+		}
+		// Cap at the number of rules we have
+		if numSplits > job.MultiplicationFactor {
+			numSplits = job.MultiplicationFactor
+		}
+		job.RuleSplitCount = numSplits
+
+		// Update job in database
+		if err := s.jobExecutionService.UpdateKeyspaceInfo(ctx, job); err != nil {
+			return fmt.Errorf("failed to update rule splitting info: %w", err)
+		}
+
+		debug.Info("Job %s: Enabled rule splitting after benchmark (effective=%d, duration=%.1fs, splits=%d)",
+			job.ID, *job.EffectiveKeyspace, estimatedDuration, job.RuleSplitCount)
+	} else {
+		debug.Log("Job does not meet rule splitting criteria", map[string]interface{}{
+			"job_id":                job.ID,
+			"estimated_duration":   estimatedDuration,
+			"required_duration":    float64(chunkDuration) * threshold,
+			"rule_count":           job.MultiplicationFactor,
+			"min_rules":            minRules,
+			"duration_meets":       estimatedDuration > float64(chunkDuration)*threshold,
+			"rule_count_meets":     job.MultiplicationFactor >= minRules,
+		})
 	}
 
 	return nil
@@ -2054,6 +2258,45 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 	// Key: hashlist ID, Value: count of newly cracked hashes
 	affectedHashlists := make(map[int64]int)
 
+	// Batch-level counters - only added to global counters AFTER successful batch update
+	// This prevents over-counting when UpdateCrackStatusBatch skips already-cracked hashes
+	var batchCrackedCount int
+	batchAffectedHashlists := make(map[int64]int)
+
+	// Helper to apply batch counters to global counters based on actual rows affected
+	applyBatchCounters := func(rowsAffected int64, batchSize int) {
+		if batchSize == 0 {
+			return
+		}
+
+		// If all updates succeeded, apply full batch counts
+		if rowsAffected == int64(batchSize) {
+			crackedCount += batchCrackedCount
+			for hlID, count := range batchAffectedHashlists {
+				affectedHashlists[hlID] += count
+			}
+		} else {
+			// Some updates were skipped (already-cracked hashes)
+			// Apply proportional counts based on success ratio
+			successRatio := float64(rowsAffected) / float64(batchSize)
+			adjustedCracked := int(float64(batchCrackedCount) * successRatio)
+			crackedCount += adjustedCracked
+
+			for hlID, count := range batchAffectedHashlists {
+				adjustedCount := int(float64(count) * successRatio)
+				affectedHashlists[hlID] += adjustedCount
+			}
+
+			skipped := batchSize - int(rowsAffected)
+			debug.Warning("Batch update: %d/%d succeeded (skipped %d already-cracked), adjusted counters by ratio %.2f",
+				rowsAffected, batchSize, skipped, successRatio)
+		}
+
+		// Reset batch counters
+		batchCrackedCount = 0
+		batchAffectedHashlists = make(map[int64]int)
+	}
+
 	// Process LM hashes differently (partial crack tracking)
 	if isLMHash {
 		// Pre-load LM metadata for all matched hashes
@@ -2170,20 +2413,22 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 						Password:  fullPassword,
 						Username:  nil,
 						CrackedAt: crackedAt,
+						TaskID:    &taskID,
 					})
 
-					crackedCount++
+					// Increment BATCH counters (not global) - will be applied after batch update
+					batchCrackedCount++
 					txHashCount++
 
 					debug.Info("LM FULLY CRACKED [hash_id=%s, full_password='%s']", hash.ID, fullPassword)
 
-					// Query which hashlists contain this hash and increment their counters
+					// Query which hashlists contain this hash and increment BATCH counters
 					hashlistIDs, err := s.hashRepo.GetHashlistIDsForHash(ctx, hash.ID)
 					if err != nil {
 						debug.Warning("Failed to get hashlist IDs for hash %s: %v", hash.ID, err)
 					} else {
 						for _, hashlistID := range hashlistIDs {
-							affectedHashlists[hashlistID]++
+							batchAffectedHashlists[hashlistID]++
 						}
 					}
 
@@ -2200,11 +2445,16 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 				if txHashCount >= batchSize {
 					// Execute the batched updates in one query
 					if len(hashUpdateBatch) > 0 {
+						batchLen := len(hashUpdateBatch)
 						rowsAffected, err := s.hashRepo.UpdateCrackStatusBatch(tx, hashUpdateBatch)
 						if err != nil {
 							return fmt.Errorf("failed to batch update hashes: %w", err)
 						}
-						debug.Info("Batch updated %d LM hashes out of %d queued", rowsAffected, len(hashUpdateBatch))
+						debug.Info("Batch updated %d LM hashes out of %d queued", rowsAffected, batchLen)
+
+						// Apply batch counters to global counters based on actual rows affected
+						applyBatchCounters(rowsAffected, batchLen)
+
 						hashUpdateBatch = nil
 					}
 
@@ -2257,18 +2507,20 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 				Password:  password,
 				Username:  nil,
 				CrackedAt: crackedAt,
+				TaskID:    &taskID,
 			})
 
-			crackedCount++
+			// Increment BATCH counters (not global) - will be applied after batch update
+			batchCrackedCount++
 			txHashCount++
 
-			// Query which hashlists contain this hash and increment their counters
+			// Query which hashlists contain this hash and increment BATCH counters
 			hashlistIDs, err := s.hashRepo.GetHashlistIDsForHash(ctx, hash.ID)
 			if err != nil {
 				debug.Warning("Failed to get hashlist IDs for hash %s: %v", hash.ID, err)
 			} else {
 				for _, hashlistID := range hashlistIDs {
-					affectedHashlists[hashlistID]++
+					batchAffectedHashlists[hashlistID]++
 				}
 			}
 
@@ -2301,16 +2553,17 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 							Password:  lmPassword,
 							Username:  nil,
 							CrackedAt: crackedAt,
+							TaskID:    &taskID,
 						})
 						txHashCount++
 
-						// Track affected hashlists for the linked LM hash
+						// Track affected hashlists for the linked LM hash (use BATCH counters)
 						lmHashlistIDs, err := s.hashRepo.GetHashlistIDsForHash(ctx, linkedLMHash.ID)
 						if err != nil {
 							debug.Warning("Failed to get hashlist IDs for linked LM hash %s: %v", linkedLMHash.ID, err)
 						} else {
 							for _, hashlistID := range lmHashlistIDs {
-								affectedHashlists[hashlistID]++
+								batchAffectedHashlists[hashlistID]++
 							}
 						}
 					} else {
@@ -2322,17 +2575,16 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 			// Execute batched updates and commit when batch is full
 			if txHashCount >= batchSize {
 				// Execute the batched updates in one query
+				batchLen := len(hashUpdateBatch)
 				rowsAffected, err := s.hashRepo.UpdateCrackStatusBatch(tx, hashUpdateBatch)
 				if err != nil {
 					return fmt.Errorf("failed to batch update hashes: %w", err)
 				}
-				debug.Info("Batch updated %d hashes out of %d queued", rowsAffected, len(hashUpdateBatch))
+				debug.Info("Batch updated %d hashes out of %d queued", rowsAffected, batchLen)
 
-				// Critical validation: detect if we lost updates
-				if rowsAffected != int64(len(hashUpdateBatch)) {
-					debug.Error("CRITICAL: Batch UPDATE mismatch! Queued %d but updated only %d (LOST %d updates)",
-						len(hashUpdateBatch), rowsAffected, len(hashUpdateBatch)-int(rowsAffected))
-				}
+				// Apply batch counters to global counters based on actual rows affected
+				// This prevents over-counting when some hashes were already cracked
+				applyBatchCounters(rowsAffected, batchLen)
 
 				hashUpdateBatch = nil // Reset batch
 
@@ -2365,17 +2617,16 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 
 	// Flush any remaining hash updates before committing
 	if len(hashUpdateBatch) > 0 && tx != nil {
+		batchLen := len(hashUpdateBatch)
 		rowsAffected, err := s.hashRepo.UpdateCrackStatusBatch(tx, hashUpdateBatch)
 		if err != nil {
 			return fmt.Errorf("failed to batch update final hashes: %w", err)
 		}
-		debug.Info("Final batch updated %d hashes out of %d queued", rowsAffected, len(hashUpdateBatch))
+		debug.Info("Final batch updated %d hashes out of %d queued", rowsAffected, batchLen)
 
-		// Critical validation: detect if we lost updates
-		if rowsAffected != int64(len(hashUpdateBatch)) {
-			debug.Error("CRITICAL: Final batch UPDATE mismatch! Queued %d but updated only %d (LOST %d updates)",
-				len(hashUpdateBatch), rowsAffected, len(hashUpdateBatch)-int(rowsAffected))
-		}
+		// Apply batch counters to global counters based on actual rows affected
+		// This prevents over-counting when some hashes were already cracked
+		applyBatchCounters(rowsAffected, batchLen)
 
 		hashUpdateBatch = nil
 	}
@@ -2489,8 +2740,9 @@ func (s *JobWebSocketIntegration) RecoverTask(ctx context.Context, taskID string
 		// Return an error to trigger job_stop on the agent
 		return fmt.Errorf("task %s is already completed", taskID)
 		
-	case models.JobTaskStatusReconnectPending, models.JobTaskStatusPending:
+	case models.JobTaskStatusAssigned, models.JobTaskStatusReconnectPending, models.JobTaskStatusPending:
 		// These states can be recovered
+		// "assigned" = task dispatched but agent may still be downloading files
 		debug.Log("Task can be recovered", map[string]interface{}{
 			"task_id": taskID,
 			"status":  task.Status,
@@ -2941,6 +3193,416 @@ func (s *JobWebSocketIntegration) recalculateSubsequentChunks(ctx context.Contex
 		debug.Info("Recalculated effective keyspace positions for job %s after chunk %d completed",
 			jobExecutionID, completedChunkNumber)
 	}
+
+	return nil
+}
+
+// ============================================================================
+// Outfile Acknowledgment Protocol - Crack Transmission Resilience
+// ============================================================================
+
+// requestCrackRetransmit sends a request to agent to retransmit all cracks from outfile
+func (s *JobWebSocketIntegration) requestCrackRetransmit(ctx context.Context, agentID int, taskID uuid.UUID, expectedCount int) error {
+	payload := map[string]interface{}{
+		"task_id":        taskID.String(),
+		"expected_count": expectedCount,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal retransmit request: %w", err)
+	}
+
+	msg := &wsservice.Message{
+		Type:    wsservice.TypeRequestCrackRetransmit,
+		Payload: payloadBytes,
+	}
+
+	debug.Info("Requesting crack retransmit from agent %d for task %s (expected %d cracks)",
+		agentID, taskID, expectedCount)
+
+	// Increment retransmit count in database
+	if err := s.jobTaskRepo.IncrementRetransmitCount(ctx, taskID); err != nil {
+		debug.Warning("Failed to increment retransmit count for task %s: %v", taskID, err)
+	}
+
+	return s.wsHandler.SendMessage(agentID, msg)
+}
+
+// sendOutfileDeleteApproval tells agent it's safe to delete the outfile for a task
+// expectedLineCount is the number of lines the backend expects in the outfile - agent will verify before deleting
+func (s *JobWebSocketIntegration) sendOutfileDeleteApproval(ctx context.Context, agentID int, taskID uuid.UUID, expectedLineCount int) error {
+	payload := map[string]interface{}{
+		"task_id":             taskID.String(),
+		"expected_line_count": expectedLineCount,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal delete approval: %w", err)
+	}
+
+	msg := &wsservice.Message{
+		Type:    wsservice.TypeOutfileDeleteApproved,
+		Payload: payloadBytes,
+	}
+
+	debug.Info("Sending outfile delete approval to agent %d for task %s (expected_line_count=%d)", agentID, taskID, expectedLineCount)
+	return s.wsHandler.SendMessage(agentID, msg)
+}
+
+// Retransmit retry constants
+const (
+	retransmitMaxRetries = 6 // 6 retries total = ~3 minutes with 30 second intervals
+)
+
+// handleCrackCountMismatch handles when received crack count doesn't match expected
+// It implements retry logic with exponential backoff before marking task as processing_error
+func (s *JobWebSocketIntegration) handleCrackCountMismatch(ctx context.Context, agentID int, taskID uuid.UUID, expected, received int) error {
+	// Get current retransmit count from task
+	task, err := s.jobTaskRepo.GetByID(ctx, taskID)
+	if err != nil {
+		return fmt.Errorf("failed to get task for mismatch handling: %w", err)
+	}
+
+	// Check if we have a retransmit count field - use the one from the migration
+	retransmitCount := 0
+	if task.RetransmitCount != nil {
+		retransmitCount = *task.RetransmitCount
+	}
+
+	if retransmitCount >= retransmitMaxRetries {
+		// Exhausted retries - mark task as processing_error
+		errorMsg := fmt.Sprintf("crack count mismatch after %d retries: expected %d, received %d",
+			retransmitMaxRetries, expected, received)
+
+		debug.Error("Task %s: exhausted %d retries, %s - marking as processing_error",
+			taskID, retransmitMaxRetries, errorMsg)
+
+		// Send delete approval to the agent that sent the message (they have the outfile)
+		// Use agentID (sender) instead of task.AgentID which may be NULL
+		// Use received count as expected - agent should have at least this many in outfile
+		s.sendOutfileDeleteApproval(ctx, agentID, taskID, received)
+
+		return s.jobTaskRepo.SetTaskProcessingError(ctx, taskID, errorMsg)
+	}
+
+	debug.Warning("Task %s: retry %d/%d for crack retransmission (expected %d, received %d)",
+		taskID, retransmitCount+1, retransmitMaxRetries, expected, received)
+
+	return s.requestCrackRetransmit(ctx, agentID, taskID, expected)
+}
+
+// handleRetransmitBatch collects retransmitted crack batches in memory
+// Processing is deferred until crack_batches_complete is received
+// This allows us to:
+// 1. Collect all batches first (don't process each one immediately)
+// 2. Load existing hashes from DB ONCE (after all batches received)
+// 3. Dedupe all collected hashes in memory
+// 4. Save non-duplicates in batched transactions
+func (s *JobWebSocketIntegration) handleRetransmitBatch(ctx context.Context, agentID int, crackBatch *models.CrackBatch) error {
+	// Get or create collection state for this task
+	retransmitCollectionMu.Lock()
+	state, exists := retransmitCollection[crackBatch.TaskID]
+	if !exists {
+		state = &retransmitCollectionState{
+			agentID:         agentID,
+			collectedHashes: make([]models.CrackedHash, 0, 100000), // Pre-allocate for performance
+		}
+		retransmitCollection[crackBatch.TaskID] = state
+	}
+	retransmitCollectionMu.Unlock()
+
+	state.mu.Lock()
+	defer state.mu.Unlock()
+
+	// Collect hashes from this batch
+	state.collectedHashes = append(state.collectedHashes, crackBatch.CrackedHashes...)
+	state.batchesReceived++
+	state.lastBatchTime = time.Now()
+
+	debug.Info("Collected retransmit batch %d with %d hashes (total collected: %d) [task=%s]",
+		state.batchesReceived, len(crackBatch.CrackedHashes), len(state.collectedHashes), crackBatch.TaskID)
+
+	// Don't process yet - wait for crack_batches_complete signal
+	return nil
+}
+
+// processRetransmitCompletionAsync is the async wrapper for processRetransmitCompletion
+// It creates a new context since the original may be cancelled and handles any errors
+func (s *JobWebSocketIntegration) processRetransmitCompletionAsync(agentID int, taskID uuid.UUID, task *models.JobTask) {
+	// Create new context (original context may be cancelled when message loop continues)
+	ctx := context.Background()
+
+	if err := s.processRetransmitCompletion(ctx, agentID, taskID, task); err != nil {
+		debug.Error("Async retransmit processing failed for task %s: %v", taskID, err)
+	}
+}
+
+// processRetransmitCompletion processes all collected retransmit batches when crack_batches_complete arrives
+// This is the main processing logic for retransmissions:
+// 1. Load existing hashes from DB ONCE
+// 2. Dedupe all collected hashes in memory
+// 3. Save non-duplicates in 10K batches (PostgreSQL parameter limit)
+// 4. Verify total matches expected
+// 5. Send delete approval or request another retransmit
+func (s *JobWebSocketIntegration) processRetransmitCompletion(ctx context.Context, agentID int, taskID uuid.UUID, task *models.JobTask) error {
+	// Get collection state for this task
+	retransmitCollectionMu.Lock()
+	state := retransmitCollection[taskID]
+	retransmitCollectionMu.Unlock()
+
+	if state == nil {
+		debug.Error("No collection state for retransmit completion [task=%s]", taskID)
+		return fmt.Errorf("missing retransmit collection state")
+	}
+
+	state.mu.Lock()
+	if state.processingStarted {
+		state.mu.Unlock()
+		debug.Warning("Retransmit already being processed for task %s", taskID)
+		return nil
+	}
+	state.processingStarted = true
+	collectedHashes := state.collectedHashes
+	totalCollected := len(collectedHashes)
+	batchesReceived := state.batchesReceived
+	state.mu.Unlock()
+
+	debug.Info("Processing retransmit: %d batches, %d total hashes collected [task=%s]",
+		batchesReceived, totalCollected, taskID)
+
+	// Step 1: Load existing hashes from DB ONCE
+	existingHashes, err := s.hashRepo.GetCrackedHashesByTaskID(ctx, taskID)
+	if err != nil {
+		// Reset state for retry
+		state.mu.Lock()
+		state.processingStarted = false
+		state.mu.Unlock()
+		return fmt.Errorf("failed to load existing hashes: %w", err)
+	}
+
+	existingSet := make(map[string]bool, len(existingHashes))
+	for _, hash := range existingHashes {
+		existingSet[hash] = true
+	}
+	debug.Info("Loaded %d existing hashes for deduplication [task=%s]", len(existingHashes), taskID)
+
+	// Step 2: Dedupe all collected hashes
+	var newCracks []models.CrackedHash
+	duplicateCount := 0
+	for _, crack := range collectedHashes {
+		if existingSet[crack.Hash] {
+			duplicateCount++
+		} else {
+			newCracks = append(newCracks, crack)
+			existingSet[crack.Hash] = true // Avoid counting same hash twice
+		}
+	}
+
+	debug.Info("Deduplication complete: %d duplicates, %d new cracks [task=%s]",
+		duplicateCount, len(newCracks), taskID)
+
+	// Step 3: Save non-duplicates in 10K batches (PostgreSQL 65K parameter limit)
+	if len(newCracks) > 0 {
+		const batchSize = 10000
+		totalSaved := 0
+
+		for start := 0; start < len(newCracks); start += batchSize {
+			end := start + batchSize
+			if end > len(newCracks) {
+				end = len(newCracks)
+			}
+
+			batch := newCracks[start:end]
+			err = s.retryProcessCrackedHashes(ctx, agentID, taskID, batch)
+			if err != nil {
+				debug.Error("Failed to save batch %d-%d of %d new cracks: %v",
+					start, end, len(newCracks), err)
+				// Reset state for retry
+				state.mu.Lock()
+				state.processingStarted = false
+				state.mu.Unlock()
+				return fmt.Errorf("failed to save new cracks batch: %w", err)
+			}
+			totalSaved += len(batch)
+			debug.Info("Saved batch %d-%d of %d new cracks [task=%s]",
+				start, end, len(newCracks), taskID)
+		}
+
+		debug.Info("All %d new cracks saved successfully [task=%s]", totalSaved, taskID)
+	}
+
+	// Step 4: Verify total processed matches expected
+	totalVerified := duplicateCount + len(newCracks)
+	if totalVerified < task.ExpectedCrackCount {
+		debug.Warning("Retransmit verification FAILED: only verified %d of %d expected [task=%s]",
+			totalVerified, task.ExpectedCrackCount, taskID)
+		// Clean up collection state for retry
+		retransmitCollectionMu.Lock()
+		delete(retransmitCollection, taskID)
+		retransmitCollectionMu.Unlock()
+		return s.handleCrackCountMismatch(ctx, agentID, taskID,
+			task.ExpectedCrackCount, totalVerified)
+	}
+
+	// Step 5: All verified - clean up and send approval
+	retransmitCollectionMu.Lock()
+	delete(retransmitCollection, taskID)
+	retransmitCollectionMu.Unlock()
+
+	debug.Info("Retransmit verification PASSED: %d duplicates + %d new = %d total (expected %d) [task=%s]",
+		duplicateCount, len(newCracks), totalVerified, task.ExpectedCrackCount, taskID)
+
+	// Query actual DB count for the expected_line_count verification
+	// This ensures we send the count of what's actually in the DB
+	dbCount, err := s.hashRepo.CountCrackedByTaskID(ctx, taskID)
+	if err != nil {
+		debug.Error("Failed to get cracked count for delete approval: %v", err)
+		dbCount = totalVerified // Fall back to totalVerified on error
+	}
+
+	if err := s.sendOutfileDeleteApproval(ctx, agentID, taskID, dbCount); err != nil {
+		debug.Warning("Failed to send outfile delete approval: %v", err)
+		// Don't fail - cracks are already processed
+	}
+
+	return nil
+}
+
+// cleanupStaleRetransmitCollection removes stale collection states to prevent memory leaks
+func (s *JobWebSocketIntegration) cleanupStaleRetransmitCollection() {
+	retransmitCollectionMu.Lock()
+	defer retransmitCollectionMu.Unlock()
+
+	cutoff := time.Now().Add(-30 * time.Minute)
+	for taskID, state := range retransmitCollection {
+		state.mu.Lock()
+		if state.lastBatchTime.Before(cutoff) && !state.processingStarted {
+			delete(retransmitCollection, taskID)
+			debug.Info("Cleaned up stale retransmit collection for task %s", taskID)
+		}
+		state.mu.Unlock()
+	}
+}
+
+// ProcessPendingOutfiles handles the pending_outfiles message from agents on reconnect
+// This message informs the backend about tasks with unacknowledged outfiles
+func (s *JobWebSocketIntegration) ProcessPendingOutfiles(ctx context.Context, agentID int, payload json.RawMessage) error {
+	var msg struct {
+		TaskIDs       []string `json:"task_ids"`
+		CurrentTaskID string   `json:"current_task_id,omitempty"` // Currently running task (prioritized)
+	}
+
+	if err := json.Unmarshal(payload, &msg); err != nil {
+		return fmt.Errorf("failed to unmarshal pending_outfiles payload: %w", err)
+	}
+
+	debug.Info("Agent %d: received pending_outfiles with %d tasks (current: %s)",
+		agentID, len(msg.TaskIDs), msg.CurrentTaskID)
+
+	if len(msg.TaskIDs) == 0 {
+		debug.Info("Agent %d: no pending outfiles to process", agentID)
+		return nil
+	}
+
+	// Reorder to prioritize current task if specified
+	taskIDs := make([]string, 0, len(msg.TaskIDs))
+	if msg.CurrentTaskID != "" {
+		// Add current task first
+		taskIDs = append(taskIDs, msg.CurrentTaskID)
+		// Add remaining tasks
+		for _, id := range msg.TaskIDs {
+			if id != msg.CurrentTaskID {
+				taskIDs = append(taskIDs, id)
+			}
+		}
+	} else {
+		taskIDs = msg.TaskIDs
+	}
+
+	// Process each pending outfile
+	for _, taskIDStr := range taskIDs {
+		taskID, err := uuid.Parse(taskIDStr)
+		if err != nil {
+			debug.Error("Agent %d: invalid task ID %s: %v", agentID, taskIDStr, err)
+			continue
+		}
+
+		// Get the task to check its status
+		task, err := s.jobTaskRepo.GetByID(ctx, taskID)
+		if err != nil {
+			debug.Error("Agent %d: failed to get task %s: %v", agentID, taskID, err)
+			// If we can't find the task, send delete approval to clean up orphaned outfiles
+			// Use 0 as expected count - agent should delete regardless of line count
+			s.sendOutfileDeleteApproval(ctx, agentID, taskID, 0)
+			continue
+		}
+
+		// Check if task is completed (all cracks processed)
+		if task.Status == models.JobTaskStatusCompleted {
+			// Task is complete, safe to delete the outfile
+			// Query DB for actual cracked count to verify against agent's outfile
+			dbCount, err := s.hashRepo.CountCrackedByTaskID(ctx, taskID)
+			if err != nil {
+				debug.Error("Failed to get cracked count for completed task %s: %v", taskID, err)
+				dbCount = 0 // Fall back, agent will reject if mismatch
+			}
+			debug.Info("Agent %d: task %s is completed, sending delete approval (expected_line_count=%d)", agentID, taskID, dbCount)
+			s.sendOutfileDeleteApproval(ctx, agentID, taskID, dbCount)
+		} else if task.Status == models.JobTaskStatusProcessingError {
+			// Task had a processing error, but we've exhausted retries - delete the outfile
+			dbCount, err := s.hashRepo.CountCrackedByTaskID(ctx, taskID)
+			if err != nil {
+				debug.Error("Failed to get cracked count for error task %s: %v", taskID, err)
+				dbCount = 0
+			}
+			debug.Info("Agent %d: task %s has processing_error status, sending delete approval (expected_line_count=%d)", agentID, taskID, dbCount)
+			s.sendOutfileDeleteApproval(ctx, agentID, taskID, dbCount)
+		} else {
+			// Task is not complete - request retransmit
+			// Get expected crack count from task's expected_crack_count field
+			expectedCount := task.ExpectedCrackCount
+
+			debug.Info("Agent %d: task %s status is %s, requesting retransmit (expected %d cracks)",
+				agentID, taskID, task.Status, expectedCount)
+			s.requestCrackRetransmit(ctx, agentID, taskID, expectedCount)
+		}
+	}
+
+	return nil
+}
+
+// ProcessOutfileDeleteRejected handles when an agent rejects outfile deletion due to line count mismatch
+// This happens when the outfile grew while retransmit was being processed (race condition)
+// We re-request retransmit to capture the additional cracks
+func (s *JobWebSocketIntegration) ProcessOutfileDeleteRejected(ctx context.Context, agentID int, payload json.RawMessage) error {
+	var rejection struct {
+		TaskID            string `json:"task_id"`
+		ExpectedLineCount int64  `json:"expected_line_count"`
+		ActualLineCount   int64  `json:"actual_line_count"`
+		Reason            string `json:"reason"`
+	}
+
+	if err := json.Unmarshal(payload, &rejection); err != nil {
+		return fmt.Errorf("failed to unmarshal outfile_delete_rejected payload: %w", err)
+	}
+
+	debug.Warning("Agent %d rejected outfile deletion for task %s: expected %d lines, actual %d lines (reason: %s)",
+		agentID, rejection.TaskID, rejection.ExpectedLineCount, rejection.ActualLineCount, rejection.Reason)
+
+	taskID, err := uuid.Parse(rejection.TaskID)
+	if err != nil {
+		return fmt.Errorf("invalid task ID: %w", err)
+	}
+
+	// Re-request retransmit to capture the additional cracks
+	additionalCracks := rejection.ActualLineCount - rejection.ExpectedLineCount
+	debug.Info("Re-requesting retransmit for task %s to sync %d additional cracks",
+		rejection.TaskID, additionalCracks)
+
+	// Use the actual count as the expected count for the new retransmit
+	s.requestCrackRetransmit(ctx, agentID, taskID, int(rejection.ActualLineCount))
 
 	return nil
 }

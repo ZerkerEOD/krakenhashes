@@ -37,9 +37,9 @@ export default function PotClient() {
     loadClientInfo();
   }, [id]);
 
-  const fetchData = async (limit: number, offset: number) => {
+  const fetchData = async (limit: number, offset: number, search?: string) => {
     if (!id) throw new Error('No client ID provided');
-    return await potService.getPotByClient(id, { limit, offset });
+    return await potService.getPotByClient(id, { limit, offset, search });
   };
 
   const handleBack = () => {

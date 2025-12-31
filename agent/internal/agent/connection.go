@@ -72,7 +72,13 @@ const (
 	WSTypeBufferAck        WSMessageType = "buffer_ack"
 
 	// Shutdown message type
-	WSTypeAgentShutdown    WSMessageType = "agent_shutdown"
+	WSTypeAgentShutdown WSMessageType = "agent_shutdown"
+
+	// Outfile acknowledgment protocol message types
+	WSTypePendingOutfiles        WSMessageType = "pending_outfiles"         // Agent -> Server: report tasks with pending outfiles
+	WSTypeRequestCrackRetransmit WSMessageType = "request_crack_retransmit" // Server -> Agent: request full outfile retransmission
+	WSTypeOutfileDeleteApproved  WSMessageType = "outfile_delete_approved"  // Server -> Agent: safe to delete outfile
+	WSTypeOutfileDeleteRejected  WSMessageType = "outfile_delete_rejected"  // Agent -> Server: reject deletion (line count mismatch)
 )
 
 // WSMessage represents a WebSocket message
@@ -103,13 +109,21 @@ type FileSyncCommandPayload struct {
 }
 
 // CurrentTaskStatusPayload represents the agent's current task status
+// Includes all progress fields needed for offline task completion handling
 type CurrentTaskStatusPayload struct {
-	AgentID           int    `json:"agent_id"`
-	HasRunningTask    bool   `json:"has_running_task"`
-	TaskID            string `json:"task_id,omitempty"`
-	JobID             string `json:"job_id,omitempty"`
-	KeyspaceProcessed int64  `json:"keyspace_processed,omitempty"`
-	Status            string `json:"status,omitempty"`
+	AgentID                int     `json:"agent_id"`
+	HasRunningTask         bool    `json:"has_running_task"`
+	TaskID                 string  `json:"task_id,omitempty"`
+	JobID                  string  `json:"job_id,omitempty"`
+	KeyspaceProcessed      int64   `json:"keyspace_processed,omitempty"`
+	EffectiveProgress      int64   `json:"effective_progress,omitempty"`
+	ProgressPercent        float64 `json:"progress_percent,omitempty"`
+	TotalEffectiveKeyspace *int64  `json:"total_effective_keyspace,omitempty"`
+	HashRate               int64   `json:"hash_rate,omitempty"`
+	CrackedCount           int     `json:"cracked_count,omitempty"`
+	AllHashesCracked       bool    `json:"all_hashes_cracked,omitempty"`
+	Status                 string  `json:"status,omitempty"`
+	ErrorMessage           string  `json:"error_message,omitempty"`
 }
 
 // BenchmarkRequest represents a request to test speed for a specific job configuration
@@ -1189,35 +1203,41 @@ func (c *Connection) readPump() {
 				jobMgr.SetFileSync(c.fileSync)
 			}
 
-			// Use context without timeout for job execution
-			// Jobs should run until completion, not be limited by arbitrary timeouts
-			ctx := context.Background()
+			// Process job assignment asynchronously to prevent blocking readPump
+			// This is critical: blocking readPump during long downloads (72+ seconds)
+			// prevents the agent from responding to server pings, causing WebSocket timeout
+			payload := msg.Payload // Capture payload for goroutine
+			go func() {
+				// Use context without timeout for job execution
+				// Jobs should run until completion, not be limited by arbitrary timeouts
+				ctx := context.Background()
 
-			if err := c.jobManager.ProcessJobAssignment(ctx, msg.Payload); err != nil {
-				debug.Error("Failed to process job assignment: %v", err)
+				if err := c.jobManager.ProcessJobAssignment(ctx, payload); err != nil {
+					debug.Error("Failed to process job assignment: %v", err)
 
-				// Extract task ID from the assignment payload to report failure to backend
-				var assignment struct {
-					TaskID string `json:"task_id"`
-				}
-				if unmarshalErr := json.Unmarshal(msg.Payload, &assignment); unmarshalErr == nil && assignment.TaskID != "" {
-					// Send failure status to backend so it can update task state
-					failureStatus := &jobs.JobStatus{
-						TaskID:       assignment.TaskID,
-						Status:       "failed",
-						ErrorMessage: fmt.Sprintf("Failed to prepare task: %v", err),
+					// Extract task ID from the assignment payload to report failure to backend
+					var assignment struct {
+						TaskID string `json:"task_id"`
 					}
-					if sendErr := c.SendJobStatus(failureStatus); sendErr != nil {
-						debug.Error("Failed to send task failure status to backend: %v", sendErr)
+					if unmarshalErr := json.Unmarshal(payload, &assignment); unmarshalErr == nil && assignment.TaskID != "" {
+						// Send failure status to backend so it can update task state
+						failureStatus := &jobs.JobStatus{
+							TaskID:       assignment.TaskID,
+							Status:       "failed",
+							ErrorMessage: fmt.Sprintf("Failed to prepare task: %v", err),
+						}
+						if sendErr := c.SendJobStatus(failureStatus); sendErr != nil {
+							debug.Error("Failed to send task failure status to backend: %v", sendErr)
+						} else {
+							debug.Info("Sent task failure status to backend for task %s", assignment.TaskID)
+						}
 					} else {
-						debug.Info("Sent task failure status to backend for task %s", assignment.TaskID)
+						debug.Error("Could not extract task ID from failed assignment to report failure")
 					}
 				} else {
-					debug.Error("Could not extract task ID from failed assignment to report failure")
+					debug.Info("Successfully processed job assignment")
 				}
-			} else {
-				debug.Info("Successfully processed job assignment")
-			}
+			}()
 
 		case WSTypeJobStop:
 			// Server requested to stop a job
@@ -1587,7 +1607,17 @@ func (c *Connection) readPump() {
 			// Server acknowledged buffered messages
 			debug.Info("Received buffer acknowledgment")
 			c.handleBufferAck(msg.Payload)
-			
+
+		case WSTypeRequestCrackRetransmit:
+			// Server requested retransmission of outfile cracks
+			debug.Info("Received request for crack retransmission")
+			c.handleCrackRetransmitRequest(msg.Payload)
+
+		case WSTypeOutfileDeleteApproved:
+			// Server approved deletion of outfile
+			debug.Info("Received outfile delete approval")
+			c.handleOutfileDeleteApproval(msg.Payload)
+
 		default:
 			debug.Warning("Received unknown message type: %s", msg.Type)
 		}
@@ -2357,14 +2387,30 @@ func (c *Connection) sendCurrentTaskStatus() {
 	
 	// Get task status from job manager if it's the concrete type
 	if jm, ok := c.jobManager.(*jobs.JobManager); ok {
-		hasTask, taskID, jobID, keyspaceProcessed := jm.GetCurrentTaskStatus()
-		statusPayload.HasRunningTask = hasTask
-		statusPayload.TaskID = taskID
-		statusPayload.JobID = jobID
-		statusPayload.KeyspaceProcessed = keyspaceProcessed
-		if hasTask {
-			statusPayload.Status = "running"
+		taskInfo := jm.GetCurrentTaskStatus()
+		if taskInfo != nil {
+			statusPayload.HasRunningTask = true
+			statusPayload.TaskID = taskInfo.TaskID
+			statusPayload.JobID = taskInfo.JobID
+			statusPayload.KeyspaceProcessed = taskInfo.KeyspaceProcessed
+			statusPayload.EffectiveProgress = taskInfo.EffectiveProgress
+			statusPayload.ProgressPercent = taskInfo.ProgressPercent
+			statusPayload.TotalEffectiveKeyspace = taskInfo.TotalEffectiveKeyspace
+			statusPayload.HashRate = taskInfo.HashRate
+			statusPayload.CrackedCount = taskInfo.CrackedCount
+			statusPayload.AllHashesCracked = taskInfo.AllHashesCracked
+			statusPayload.Status = taskInfo.Status
+			statusPayload.ErrorMessage = taskInfo.ErrorMessage
+
+			// If we reported a completed/failed task, clear the cache
+			// The backend will process this status and we don't need to report it again
+			if taskInfo.Status == "completed" || taskInfo.Status == "failed" {
+				debug.Info("Reporting cached completion for task %s with status %s, progress %.2f%%",
+					taskInfo.TaskID, taskInfo.Status, taskInfo.ProgressPercent)
+				jm.ClearLastCompletedTask()
+			}
 		} else {
+			statusPayload.HasRunningTask = false
 			statusPayload.Status = "idle"
 		}
 	}
@@ -2385,8 +2431,11 @@ func (c *Connection) sendCurrentTaskStatus() {
 	
 	// Send the message
 	if c.safeSendMessage(msg, 5000) {
-		debug.Info("Successfully sent current task status - HasTask: %v, TaskID: %s, JobID: %s", 
+		debug.Info("Successfully sent current task status - HasTask: %v, TaskID: %s, JobID: %s",
 			statusPayload.HasRunningTask, statusPayload.TaskID, statusPayload.JobID)
+
+		// After sending task status, also send pending outfiles for the acknowledgment protocol
+		c.sendPendingOutfiles()
 	} else {
 		debug.Error("Failed to send current task status")
 	}
@@ -2793,20 +2842,247 @@ func (c *Connection) handleBufferAck(payload json.RawMessage) {
 	var ack struct {
 		MessageIDs []string `json:"message_ids"`
 	}
-	
+
 	if err := json.Unmarshal(payload, &ack); err != nil {
 		debug.Error("Failed to unmarshal buffer ACK: %v", err)
 		return
 	}
-	
+
 	if c.messageBuffer == nil {
 		return
 	}
-	
+
 	// Remove acknowledged messages from buffer
 	if err := c.messageBuffer.RemoveMessages(ack.MessageIDs); err != nil {
 		debug.Error("Failed to remove acknowledged messages from buffer: %v", err)
 	} else {
 		debug.Info("Removed %d acknowledged messages from buffer", len(ack.MessageIDs))
+	}
+}
+
+// handleCrackRetransmitRequest processes a request from the backend to retransmit cracks from an outfile
+func (c *Connection) handleCrackRetransmitRequest(payload json.RawMessage) {
+	var request struct {
+		TaskID        string `json:"task_id"`
+		ExpectedCount int    `json:"expected_count"`
+	}
+
+	if err := json.Unmarshal(payload, &request); err != nil {
+		debug.Error("Failed to unmarshal crack retransmit request: %v", err)
+		return
+	}
+
+	debug.Info("Processing crack retransmit request for task %s (expected %d cracks)", request.TaskID, request.ExpectedCount)
+
+	// Get job manager
+	jm, ok := c.jobManager.(*jobs.JobManager)
+	if !ok || jm == nil {
+		debug.Error("Job manager not available for retransmit")
+		return
+	}
+
+	// Read all cracks from the outfile
+	cracks, err := jm.RetransmitOutfile(request.TaskID)
+	if err != nil {
+		debug.Error("Failed to retransmit outfile for task %s: %v", request.TaskID, err)
+		return
+	}
+
+	if len(cracks) == 0 {
+		debug.Warning("No cracks found in outfile for task %s", request.TaskID)
+		// Still send crack_batches_complete with 0 count to signal completion
+		c.SendCrackBatchesComplete(&jobs.CrackBatchesComplete{TaskID: request.TaskID, IsRetransmit: true})
+		return
+	}
+
+	// Send in batches of 10,000 (same as regular crack transmission)
+	const retransmitBatchSize = 10000
+	totalCracks := len(cracks)
+	batchesSent := 0
+
+	for start := 0; start < totalCracks; start += retransmitBatchSize {
+		end := start + retransmitBatchSize
+		if end > totalCracks {
+			end = totalCracks
+		}
+
+		batch := jobs.CrackBatch{
+			TaskID:        request.TaskID,
+			CrackedHashes: cracks[start:end],
+			IsRetransmit:  true,
+		}
+
+		batchBytes, err := json.Marshal(batch)
+		if err != nil {
+			debug.Error("Failed to marshal retransmit crack batch: %v", err)
+			return
+		}
+
+		msg := &WSMessage{
+			Type:      WSTypeCrackBatch,
+			Payload:   batchBytes,
+			Timestamp: time.Now(),
+		}
+
+		if !c.safeSendMessage(msg, 5000) {
+			debug.Error("Failed to send retransmit crack batch %d for task %s", batchesSent+1, request.TaskID)
+			return
+		}
+		batchesSent++
+
+		debug.Debug("Sent retransmit batch %d with %d cracks for task %s",
+			batchesSent, end-start, request.TaskID)
+	}
+
+	debug.Info("Completed retransmission: sent %d batches with %d total cracks for task %s",
+		batchesSent, totalCracks, request.TaskID)
+
+	// Send crack_batches_complete to signal all batches sent (marked as retransmit)
+	if err := c.SendCrackBatchesComplete(&jobs.CrackBatchesComplete{TaskID: request.TaskID, IsRetransmit: true}); err != nil {
+		debug.Error("Failed to send crack_batches_complete for retransmit task %s: %v", request.TaskID, err)
+	}
+}
+
+// handleOutfileDeleteApproval processes approval from the backend to delete an outfile
+func (c *Connection) handleOutfileDeleteApproval(payload json.RawMessage) {
+	var approval struct {
+		TaskID            string `json:"task_id"`
+		ExpectedLineCount int64  `json:"expected_line_count"`
+	}
+
+	if err := json.Unmarshal(payload, &approval); err != nil {
+		debug.Error("Failed to unmarshal outfile delete approval: %v", err)
+		return
+	}
+
+	debug.Info("Processing outfile delete approval for task %s (expected %d lines)", approval.TaskID, approval.ExpectedLineCount)
+
+	// Get job manager
+	jm, ok := c.jobManager.(*jobs.JobManager)
+	if !ok || jm == nil {
+		debug.Error("Job manager not available for outfile deletion")
+		return
+	}
+
+	// SAFETY CHECK 1: Don't delete if currently working on this task
+	// This prevents a race condition where:
+	// 1. Agent had task, went offline, reconnects
+	// 2. Backend requests retransmission of old outfile
+	// 3. Agent gets reassigned the same task again
+	// 4. Backend approves deletion of outfile (from retransmit)
+	// 5. If we delete now, we lose the NEW cracks from the reassigned task
+	taskInfo := jm.GetCurrentTaskStatus()
+	if taskInfo != nil && taskInfo.TaskID == approval.TaskID {
+		debug.Warning("Ignoring outfile delete approval for task %s - currently working on it (race condition prevented)", approval.TaskID)
+		return
+	}
+
+	// SAFETY CHECK 2: Verify line count matches expected
+	// This prevents data loss if outfile grew while retransmit was being processed
+	actualCount, err := jm.GetOutfileLineCount(approval.TaskID)
+	if err != nil {
+		if os.IsNotExist(err) {
+			debug.Info("Outfile already deleted for task %s", approval.TaskID)
+			return
+		}
+		debug.Error("Failed to count outfile lines for task %s: %v", approval.TaskID, err)
+		return
+	}
+
+	// Check 3: Verify line counts match
+	if actualCount != approval.ExpectedLineCount {
+		debug.Warning("Line count mismatch for task %s: expected %d, actual %d - rejecting delete",
+			approval.TaskID, approval.ExpectedLineCount, actualCount)
+		c.sendOutfileDeleteRejected(approval.TaskID, approval.ExpectedLineCount, actualCount)
+		return
+	}
+
+	// Safe to delete - line counts verified
+	debug.Info("Line count verified for task %s (%d lines), deleting outfile", approval.TaskID, actualCount)
+	if err := jm.DeleteOutfile(approval.TaskID); err != nil {
+		debug.Error("Failed to delete outfile for task %s: %v", approval.TaskID, err)
+	} else {
+		debug.Info("Successfully deleted outfile for task %s after backend approval", approval.TaskID)
+	}
+}
+
+// sendOutfileDeleteRejected sends a rejection message to the backend when line count doesn't match
+func (c *Connection) sendOutfileDeleteRejected(taskID string, expected, actual int64) {
+	payload := struct {
+		TaskID            string `json:"task_id"`
+		ExpectedLineCount int64  `json:"expected_line_count"`
+		ActualLineCount   int64  `json:"actual_line_count"`
+		Reason            string `json:"reason"`
+	}{
+		TaskID:            taskID,
+		ExpectedLineCount: expected,
+		ActualLineCount:   actual,
+		Reason:            "line_count_mismatch",
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		debug.Error("Failed to marshal outfile delete rejection payload: %v", err)
+		return
+	}
+
+	msg := &WSMessage{
+		Type:      WSTypeOutfileDeleteRejected,
+		Payload:   payloadBytes,
+		Timestamp: time.Now(),
+	}
+
+	if c.safeSendMessage(msg, 5000) {
+		debug.Info("Sent outfile delete rejection for task %s (expected %d, actual %d)", taskID, expected, actual)
+	} else {
+		debug.Error("Failed to send outfile delete rejection for task %s", taskID)
+	}
+}
+
+// sendPendingOutfiles sends a list of pending outfiles to the backend on reconnect
+func (c *Connection) sendPendingOutfiles() {
+	// Get job manager
+	jm, ok := c.jobManager.(*jobs.JobManager)
+	if !ok || jm == nil {
+		debug.Debug("Job manager not available, skipping pending outfiles check")
+		return
+	}
+
+	// Get list of pending outfiles
+	taskIDs, currentTaskID, err := jm.GetPendingOutfiles()
+	if err != nil {
+		debug.Error("Failed to get pending outfiles: %v", err)
+		return
+	}
+
+	if len(taskIDs) == 0 {
+		debug.Debug("No pending outfiles to report")
+		return
+	}
+
+	debug.Info("Reporting %d pending outfiles to backend (current task: %s)", len(taskIDs), currentTaskID)
+
+	// Create message payload
+	pendingPayload := map[string]interface{}{
+		"task_ids":        taskIDs,
+		"current_task_id": currentTaskID,
+	}
+
+	payloadBytes, err := json.Marshal(pendingPayload)
+	if err != nil {
+		debug.Error("Failed to marshal pending outfiles payload: %v", err)
+		return
+	}
+
+	msg := &WSMessage{
+		Type:      WSTypePendingOutfiles,
+		Payload:   payloadBytes,
+		Timestamp: time.Now(),
+	}
+
+	if c.safeSendMessage(msg, 5000) {
+		debug.Info("Sent pending outfiles notification to backend")
+	} else {
+		debug.Error("Failed to send pending outfiles notification")
 	}
 }

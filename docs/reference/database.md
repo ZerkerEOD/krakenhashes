@@ -474,9 +474,12 @@ Stores individual hash entries.
 | is_cracked | BOOLEAN | NOT NULL | FALSE | Crack status |
 | password | TEXT | | | Cracked password |
 | last_updated | TIMESTAMPTZ | NOT NULL | NOW() | Last update time |
+| cracked_by_task_id | UUID | FK → job_tasks(id) ON DELETE SET NULL | | Task that cracked this hash (added in migration 098) |
 
 **Indexes:**
 - idx_hashes_hash_value (hash_value)
+- idx_hashes_original_hash_unique (original_hash) UNIQUE - Fast deduplication during bulk import (added in migration 096)
+- idx_hashes_cracked_by_task_id (cracked_by_task_id) WHERE cracked_by_task_id IS NOT NULL - Crack attribution lookup (added in migration 098)
 
 **Triggers:**
 - update_hashes_last_updated: Updates last_updated on row modification
@@ -749,6 +752,7 @@ Tracks actual job runs.
 | completion_email_sent | BOOLEAN | | false | Whether completion email was sent (added in migration 085) |
 | completion_email_sent_at | TIMESTAMP WITH TIME ZONE | | | When completion email was sent (added in migration 085) |
 | completion_email_error | TEXT | | | Error message if email sending failed (added in migration 085) |
+| cracking_completed_at | TIMESTAMP WITH TIME ZONE | | | When all tasks finished hashcat processing - job enters processing state (added in migration 100) |
 
 **Indexes:**
 - idx_job_executions_status (status)
@@ -790,6 +794,9 @@ Individual chunks assigned to agents.
 | received_crack_count | INTEGER | | 0 | Number of cracks received via crack_batch messages (added in migration 085) |
 | batches_complete_signaled | BOOLEAN | | false | Whether agent has signaled all crack batches sent (added in migration 085) |
 | increment_layer_id | UUID | FK → job_increment_layers(id) | | References increment layer for increment mode jobs (added in migration 089) |
+| cracking_completed_at | TIMESTAMP WITH TIME ZONE | | | When hashcat finished for this task - task enters processing state (added in migration 100) |
+| retransmit_count | INTEGER | | 0 | Number of crack retransmission attempts (added in migration 099) |
+| last_retransmit_at | TIMESTAMP WITH TIME ZONE | | | Timestamp of last retransmission request (added in migration 099) |
 
 **Indexes:**
 - idx_job_tasks_agent_status (agent_id, status)
@@ -797,6 +804,7 @@ Individual chunks assigned to agents.
 - idx_job_tasks_consecutive_failures (consecutive_failures)
 - idx_job_tasks_chunk_number (job_execution_id, chunk_number)
 - idx_job_tasks_increment_layer (increment_layer_id) - added in migration 089
+- idx_job_tasks_cracking_completed_at (cracking_completed_at) WHERE cracking_completed_at IS NOT NULL - Efficient completion state queries (added in migration 100)
 
 **Triggers:**
 - update_job_tasks_updated_at: Updates updated_at on row modification
@@ -1158,6 +1166,10 @@ Stores global system-wide settings.
   - Controls how overflow agents are distributed among same-priority jobs
   - FIFO: Oldest job gets all overflow agents
   - Round-robin: Distribute evenly across all jobs
+- hashlist_bulk_batch_size: 100000 (integer) - added in migration 097
+  - Number of hashes to process per batch during hashlist uploads
+  - Higher values (500K-1M) may improve performance for large hashlists but use more memory
+  - Lower values reduce memory usage but increase processing time
 
 **Triggers:**
 - update_system_settings_updated_at: Updates updated_at on row modification
@@ -1756,6 +1768,29 @@ The database schema has evolved through 83 migrations:
    - Adds `backup_eligible` column to `user_passkeys`
    - Adds `backup_state` column to `user_passkeys`
    - Required for WebAuthn credential validation with synced passkeys
+95. **000095**: [Reserved/Internal]
+96. **000096**: Add original_hash unique index
+   - Creates `idx_hashes_original_hash_unique` unique index on `hashes.original_hash`
+   - Enables fast deduplication during bulk import using `ON CONFLICT DO NOTHING`
+   - Uses `CONCURRENTLY` to avoid locking during creation
+97. **000097**: Add hashlist bulk batch size setting
+   - Adds `hashlist_bulk_batch_size` system setting (default: 100000)
+   - Controls batch size during hashlist upload processing
+   - Higher values improve performance for large hashlists at cost of memory
+98. **000098**: Add cracked_by_task_id to hashes
+   - Adds `hashes.cracked_by_task_id` column referencing `job_tasks(id)`
+   - Enables granular tracking of which task cracked each hash
+   - Used for retransmit deduplication in the outfile acknowledgment protocol
+   - ON DELETE SET NULL to preserve hashes when tasks are deleted
+99. **000099**: Add task retransmit tracking
+   - Adds `job_tasks.retransmit_count` to track retransmission attempts
+   - Adds `job_tasks.last_retransmit_at` for timing information
+   - Supports the outfile acknowledgment protocol for crack recovery
+100. **000100**: Add cracking_completed_at timestamps
+   - Adds `job_tasks.cracking_completed_at` - when hashcat finished (enters processing state)
+   - Adds `job_executions.cracking_completed_at` - when all tasks finished hashcat
+   - Distinguishes between hashcat completion and full processing completion
+   - Enables tracking of hashcat work time vs data transmission time
 
 ---
 

@@ -1,8 +1,18 @@
 package jobs
 
 import (
+	"strings"
 	"testing"
 )
+
+// buildHashlistMap creates a lookup map from hashlist content for O(1) lookups
+func buildHashlistMap(hashlistContent []string) map[string]string {
+	hashMap := make(map[string]string)
+	for _, hash := range hashlistContent {
+		hashMap[strings.ToLower(hash)] = hash
+	}
+	return hashMap
+}
 
 func TestParseCrackedHash(t *testing.T) {
 	executor := NewHashcatExecutor("/test/data")
@@ -86,7 +96,8 @@ func TestParseCrackedHash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := executor.parseCrackedHash(tt.line, tt.hashlistContent, tt.hashType)
+			hashlistMap := buildHashlistMap(tt.hashlistContent)
+			result := executor.parseCrackedHash(tt.line, tt.hashlistContent, hashlistMap, tt.hashType)
 
 			if tt.shouldParse {
 				if result == nil {
