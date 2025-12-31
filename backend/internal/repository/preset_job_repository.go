@@ -8,6 +8,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 // PresetJobRepository defines the interface for interacting with preset_jobs.
@@ -19,6 +20,10 @@ type PresetJobRepository interface {
 	Update(ctx context.Context, id uuid.UUID, params models.PresetJob) (*models.PresetJob, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	ListFormData(ctx context.Context) (*PresetJobFormData, error)
+	// Deletion impact methods
+	GetByWordlistID(ctx context.Context, wordlistID string) ([]models.PresetJob, error)
+	GetByRuleID(ctx context.Context, ruleID string) ([]models.PresetJob, error)
+	DeleteByIDs(ctx context.Context, ids []uuid.UUID) error
 }
 
 // PresetJobFormData holds lists needed for preset job forms.
@@ -321,4 +326,109 @@ func (r *presetJobRepository) ListFormData(ctx context.Context) (*PresetJobFormD
 	rows.Close()
 
 	return formData, nil
+}
+
+// GetByWordlistID retrieves all preset jobs that use a specific wordlist ID.
+func (r *presetJobRepository) GetByWordlistID(ctx context.Context, wordlistID string) ([]models.PresetJob, error) {
+	query := `
+		SELECT
+			id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
+			status_updates_enabled, allow_high_priority_override,
+			binary_version_id, mask, keyspace, max_agents,
+			increment_mode, increment_min, increment_max, created_at, updated_at
+		FROM preset_jobs
+		WHERE wordlist_ids ? $1`
+
+	rows, err := r.db.QueryContext(ctx, query, wordlistID)
+	if err != nil {
+		debug.Error("Error getting preset jobs by wordlist ID %s: %v", wordlistID, err)
+		return nil, fmt.Errorf("error getting preset jobs by wordlist ID: %w", err)
+	}
+	defer rows.Close()
+
+	jobs := []models.PresetJob{}
+	for rows.Next() {
+		var job models.PresetJob
+		if err := rows.Scan(
+			&job.ID, &job.Name, &job.WordlistIDs, &job.RuleIDs, &job.AttackMode, &job.Priority,
+			&job.ChunkSizeSeconds, &job.StatusUpdatesEnabled,
+			&job.AllowHighPriorityOverride, &job.BinaryVersionID, &job.Mask, &job.Keyspace, &job.MaxAgents,
+			&job.IncrementMode, &job.IncrementMin, &job.IncrementMax, &job.CreatedAt, &job.UpdatedAt,
+		); err != nil {
+			debug.Error("Error scanning preset job row: %v", err)
+			return nil, fmt.Errorf("error scanning preset job row: %w", err)
+		}
+		jobs = append(jobs, job)
+	}
+
+	if err = rows.Err(); err != nil {
+		debug.Error("Error iterating preset job rows: %v", err)
+		return nil, fmt.Errorf("error iterating preset job rows: %w", err)
+	}
+
+	return jobs, nil
+}
+
+// GetByRuleID retrieves all preset jobs that use a specific rule ID.
+func (r *presetJobRepository) GetByRuleID(ctx context.Context, ruleID string) ([]models.PresetJob, error) {
+	query := `
+		SELECT
+			id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
+			status_updates_enabled, allow_high_priority_override,
+			binary_version_id, mask, keyspace, max_agents,
+			increment_mode, increment_min, increment_max, created_at, updated_at
+		FROM preset_jobs
+		WHERE rule_ids ? $1`
+
+	rows, err := r.db.QueryContext(ctx, query, ruleID)
+	if err != nil {
+		debug.Error("Error getting preset jobs by rule ID %s: %v", ruleID, err)
+		return nil, fmt.Errorf("error getting preset jobs by rule ID: %w", err)
+	}
+	defer rows.Close()
+
+	jobs := []models.PresetJob{}
+	for rows.Next() {
+		var job models.PresetJob
+		if err := rows.Scan(
+			&job.ID, &job.Name, &job.WordlistIDs, &job.RuleIDs, &job.AttackMode, &job.Priority,
+			&job.ChunkSizeSeconds, &job.StatusUpdatesEnabled,
+			&job.AllowHighPriorityOverride, &job.BinaryVersionID, &job.Mask, &job.Keyspace, &job.MaxAgents,
+			&job.IncrementMode, &job.IncrementMin, &job.IncrementMax, &job.CreatedAt, &job.UpdatedAt,
+		); err != nil {
+			debug.Error("Error scanning preset job row: %v", err)
+			return nil, fmt.Errorf("error scanning preset job row: %w", err)
+		}
+		jobs = append(jobs, job)
+	}
+
+	if err = rows.Err(); err != nil {
+		debug.Error("Error iterating preset job rows: %v", err)
+		return nil, fmt.Errorf("error iterating preset job rows: %w", err)
+	}
+
+	return jobs, nil
+}
+
+// DeleteByIDs deletes multiple preset jobs by their IDs.
+func (r *presetJobRepository) DeleteByIDs(ctx context.Context, ids []uuid.UUID) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	query := `DELETE FROM preset_jobs WHERE id = ANY($1::uuid[])`
+	result, err := r.db.ExecContext(ctx, query, pq.Array(ids))
+	if err != nil {
+		debug.Error("Error deleting preset jobs by IDs: %v", err)
+		return fmt.Errorf("error deleting preset jobs: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		debug.Warning("Could not get rows affected after deleting preset jobs: %v", err)
+	} else {
+		debug.Info("Deleted %d preset jobs", rowsAffected)
+	}
+
+	return nil
 }

@@ -75,10 +75,29 @@ export const formatPercentage = (value: number, decimals: number = 1): string =>
   return `${value.toFixed(decimals)}%`;
 };
 
+/**
+ * Format an attack mode number or string to a human-readable label
+ * @param mode Attack mode value (number or string)
+ * @returns Human-readable attack mode label
+ */
+export const formatAttackMode = (mode: number | string): string => {
+  const modeNum = typeof mode === 'string' ? parseInt(mode, 10) : mode;
+  switch (modeNum) {
+    case 0: return 'Straight';
+    case 1: return 'Combination';
+    case 3: return 'Brute-Force';
+    case 6: return 'Hybrid (Wordlist + Mask)';
+    case 7: return 'Hybrid (Mask + Wordlist)';
+    case 9: return 'Association';
+    default: return `Unknown (${mode})`;
+  }
+};
+
 // Export all formatters as a single object for easier importing
 export const formatters = {
   formatFileSize,
   formatHashRate,
   formatDuration,
   formatPercentage,
+  formatAttackMode,
 }; 

@@ -3,6 +3,7 @@
  */
 import { api } from './api';
 import { Rule, RuleFilters, RuleUploadResponse } from '../types/rules';
+import { DeletionImpact } from '../types/wordlists';
 
 // Get all rules with optional filtering
 export const getRules = (filters?: RuleFilters) => 
@@ -60,9 +61,16 @@ export const updateRule = (id: string, data: Partial<Rule>) =>
     withCredentials: true // Ensure cookies are sent with the request
   });
 
-// Delete a rule
-export const deleteRule = (id: string) => 
-  api.delete(`/api/rules/${id}`);
+// Get deletion impact for a rule
+export const getRuleDeletionImpact = (id: string) =>
+  api.get<DeletionImpact>(`/api/rules/${id}/deletion-impact`, { withCredentials: true });
+
+// Delete a rule (with optional confirmation for cascade delete)
+export const deleteRule = (id: string, confirmId?: number) =>
+  api.delete(`/api/rules/${id}`, {
+    withCredentials: true,
+    data: confirmId !== undefined ? { confirm_id: confirmId } : undefined
+  });
 
 // Enable/disable a rule
 export const toggleRuleStatus = (id: string, isEnabled: boolean) => 

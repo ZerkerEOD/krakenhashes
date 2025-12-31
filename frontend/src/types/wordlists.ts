@@ -51,4 +51,56 @@ export interface WordlistFilters {
   verification_status?: WordlistStatus;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+}
+
+// Deletion impact types (shared with rules)
+export interface DeletionImpactJob {
+  id: string;
+  name: string;
+  status: string;
+  hashlist_name: string;
+}
+
+export interface DeletionImpactPresetJob {
+  id: string;
+  name: string;
+  attack_mode: string;
+}
+
+export interface DeletionImpactWorkflowStep {
+  workflow_id: string;
+  workflow_name: string;
+  step_order: number;
+  preset_job_id: string;
+  preset_job_name: string;
+}
+
+export interface DeletionImpactWorkflow {
+  id: string;
+  name: string;
+  description: string;
+  step_count: number;
+}
+
+export interface DeletionImpactDetails {
+  jobs: DeletionImpactJob[];
+  preset_jobs: DeletionImpactPresetJob[];
+  workflow_steps: DeletionImpactWorkflowStep[];
+  workflows_to_delete: DeletionImpactWorkflow[];
+}
+
+export interface DeletionImpactSummary {
+  total_jobs: number;
+  total_preset_jobs: number;
+  total_workflow_steps: number;
+  total_workflows_to_delete: number;
+}
+
+export interface DeletionImpact {
+  resource_id: number;
+  resource_type: 'wordlist' | 'rule';
+  can_delete: boolean;
+  has_cascading_impact: boolean;
+  impact: DeletionImpactDetails;
+  summary: DeletionImpactSummary;
 } 

@@ -25,6 +25,13 @@ type JobWorkflowRepository interface {
 	DeleteWorkflowSteps(ctx context.Context, workflowID uuid.UUID) error
 	CheckPresetJobsExist(ctx context.Context, ids []uuid.UUID) ([]uuid.UUID, error)
 
+	// Deletion impact methods
+	GetStepsByPresetJobIDs(ctx context.Context, presetJobIDs []uuid.UUID) ([]models.DeletionImpactWorkflowStep, error)
+	DeleteStepsByPresetJobIDs(ctx context.Context, presetJobIDs []uuid.UUID) error
+	GetEmptyWorkflows(ctx context.Context) ([]models.JobWorkflow, error)
+	DeleteEmptyWorkflows(ctx context.Context) (int64, error)
+	GetWorkflowsAffectedByPresetJobDeletion(ctx context.Context, presetJobIDs []uuid.UUID) ([]models.DeletionImpactWorkflow, error)
+
 	// Transactional methods (optional, can be handled in service layer)
 	// ReplaceWorkflowStepsTx(ctx context.Context, tx *sql.Tx, workflowID uuid.UUID, steps []models.JobWorkflowStep) error
 }
@@ -288,4 +295,174 @@ func (r *jobWorkflowRepository) CheckPresetJobsExist(ctx context.Context, ids []
 	}
 
 	return existingIDs, nil
+}
+
+// GetStepsByPresetJobIDs retrieves all workflow steps that reference any of the given preset job IDs.
+func (r *jobWorkflowRepository) GetStepsByPresetJobIDs(ctx context.Context, presetJobIDs []uuid.UUID) ([]models.DeletionImpactWorkflowStep, error) {
+	if len(presetJobIDs) == 0 {
+		return []models.DeletionImpactWorkflowStep{}, nil
+	}
+
+	query := `
+		SELECT jws.job_workflow_id, jw.name, jws.step_order, jws.preset_job_id, pj.name
+		FROM job_workflow_steps jws
+		JOIN job_workflows jw ON jw.id = jws.job_workflow_id
+		JOIN preset_jobs pj ON pj.id = jws.preset_job_id
+		WHERE jws.preset_job_id = ANY($1::uuid[])`
+
+	rows, err := r.db.QueryContext(ctx, query, pq.Array(presetJobIDs))
+	if err != nil {
+		debug.Error("Error getting workflow steps by preset job IDs: %v", err)
+		return nil, fmt.Errorf("error getting workflow steps by preset job IDs: %w", err)
+	}
+	defer rows.Close()
+
+	steps := []models.DeletionImpactWorkflowStep{}
+	for rows.Next() {
+		var step models.DeletionImpactWorkflowStep
+		if err := rows.Scan(&step.WorkflowID, &step.WorkflowName, &step.StepOrder, &step.PresetJobID, &step.PresetJobName); err != nil {
+			debug.Error("Error scanning workflow step row: %v", err)
+			return nil, fmt.Errorf("error scanning workflow step row: %w", err)
+		}
+		steps = append(steps, step)
+	}
+
+	if err = rows.Err(); err != nil {
+		debug.Error("Error iterating workflow step rows: %v", err)
+		return nil, fmt.Errorf("error iterating workflow step rows: %w", err)
+	}
+
+	return steps, nil
+}
+
+// DeleteStepsByPresetJobIDs deletes all workflow steps that reference any of the given preset job IDs.
+func (r *jobWorkflowRepository) DeleteStepsByPresetJobIDs(ctx context.Context, presetJobIDs []uuid.UUID) error {
+	if len(presetJobIDs) == 0 {
+		return nil
+	}
+
+	query := `DELETE FROM job_workflow_steps WHERE preset_job_id = ANY($1::uuid[])`
+	result, err := r.db.ExecContext(ctx, query, pq.Array(presetJobIDs))
+	if err != nil {
+		debug.Error("Error deleting workflow steps by preset job IDs: %v", err)
+		return fmt.Errorf("error deleting workflow steps: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		debug.Warning("Could not get rows affected after deleting workflow steps: %v", err)
+	} else {
+		debug.Info("Deleted %d workflow steps", rowsAffected)
+	}
+
+	return nil
+}
+
+// GetEmptyWorkflows retrieves all workflows that have no steps.
+func (r *jobWorkflowRepository) GetEmptyWorkflows(ctx context.Context) ([]models.JobWorkflow, error) {
+	query := `
+		SELECT jw.id, jw.name, jw.created_at, jw.updated_at
+		FROM job_workflows jw
+		WHERE NOT EXISTS (
+			SELECT 1 FROM job_workflow_steps jws
+			WHERE jws.job_workflow_id = jw.id
+		)`
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		debug.Error("Error getting empty workflows: %v", err)
+		return nil, fmt.Errorf("error getting empty workflows: %w", err)
+	}
+	defer rows.Close()
+
+	workflows := []models.JobWorkflow{}
+	for rows.Next() {
+		var wf models.JobWorkflow
+		if err := rows.Scan(&wf.ID, &wf.Name, &wf.CreatedAt, &wf.UpdatedAt); err != nil {
+			debug.Error("Error scanning empty workflow row: %v", err)
+			return nil, fmt.Errorf("error scanning empty workflow row: %w", err)
+		}
+		workflows = append(workflows, wf)
+	}
+
+	if err = rows.Err(); err != nil {
+		debug.Error("Error iterating empty workflow rows: %v", err)
+		return nil, fmt.Errorf("error iterating empty workflow rows: %w", err)
+	}
+
+	return workflows, nil
+}
+
+// DeleteEmptyWorkflows deletes all workflows that have no steps.
+func (r *jobWorkflowRepository) DeleteEmptyWorkflows(ctx context.Context) (int64, error) {
+	query := `
+		DELETE FROM job_workflows jw
+		WHERE NOT EXISTS (
+			SELECT 1 FROM job_workflow_steps jws
+			WHERE jws.job_workflow_id = jw.id
+		)`
+
+	result, err := r.db.ExecContext(ctx, query)
+	if err != nil {
+		debug.Error("Error deleting empty workflows: %v", err)
+		return 0, fmt.Errorf("error deleting empty workflows: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		debug.Warning("Could not get rows affected after deleting empty workflows: %v", err)
+		return 0, nil
+	}
+
+	debug.Info("Deleted %d empty workflows", rowsAffected)
+	return rowsAffected, nil
+}
+
+// GetWorkflowsAffectedByPresetJobDeletion finds workflows that would become empty after deleting the given preset jobs.
+func (r *jobWorkflowRepository) GetWorkflowsAffectedByPresetJobDeletion(ctx context.Context, presetJobIDs []uuid.UUID) ([]models.DeletionImpactWorkflow, error) {
+	if len(presetJobIDs) == 0 {
+		return []models.DeletionImpactWorkflow{}, nil
+	}
+
+	// Find workflows where ALL steps reference preset jobs being deleted
+	// Also count the total steps in each workflow
+	query := `
+		SELECT jw.id, jw.name,
+			(SELECT COUNT(*) FROM job_workflow_steps jws2 WHERE jws2.job_workflow_id = jw.id) as step_count
+		FROM job_workflows jw
+		WHERE EXISTS (
+			SELECT 1 FROM job_workflow_steps jws
+			WHERE jws.job_workflow_id = jw.id
+			AND jws.preset_job_id = ANY($1::uuid[])
+		)
+		AND NOT EXISTS (
+			SELECT 1 FROM job_workflow_steps jws
+			WHERE jws.job_workflow_id = jw.id
+			AND jws.preset_job_id != ALL($1::uuid[])
+		)`
+
+	rows, err := r.db.QueryContext(ctx, query, pq.Array(presetJobIDs))
+	if err != nil {
+		debug.Error("Error getting workflows affected by preset job deletion: %v", err)
+		return nil, fmt.Errorf("error getting affected workflows: %w", err)
+	}
+	defer rows.Close()
+
+	workflows := []models.DeletionImpactWorkflow{}
+	for rows.Next() {
+		var wf models.DeletionImpactWorkflow
+		if err := rows.Scan(&wf.ID, &wf.Name, &wf.StepCount); err != nil {
+			debug.Error("Error scanning affected workflow row: %v", err)
+			return nil, fmt.Errorf("error scanning affected workflow row: %w", err)
+		}
+		wf.Description = "all steps will be removed"
+		workflows = append(workflows, wf)
+	}
+
+	if err = rows.Err(); err != nil {
+		debug.Error("Error iterating affected workflow rows: %v", err)
+		return nil, fmt.Errorf("error iterating affected workflow rows: %w", err)
+	}
+
+	return workflows, nil
 }

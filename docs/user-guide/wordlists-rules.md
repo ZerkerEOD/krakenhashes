@@ -62,13 +62,31 @@ To download a wordlist:
 
 ### Deleting a Wordlist
 
-To delete a wordlist:
+When deleting a wordlist, the system checks for dependencies and handles them appropriately:
 
+**Simple Deletion** (no dependencies):
 1. Find the wordlist in the list
 2. Click the "Delete" button
-3. Confirm the deletion
+3. Confirm the deletion in the dialog
 
-Note that this only removes the wordlist from the database, not from the filesystem.
+**Cascade Deletion** (has dependencies):
+
+If the wordlist is used by jobs, preset jobs, or workflows, the deletion dialog will show:
+- **Impact Preview**: A summary of all affected items
+- **Affected Items List**: Details of jobs, preset jobs, and workflow steps that will be deleted
+- **ID Confirmation**: You must type the wordlist ID to confirm cascade deletion
+
+**What Gets Deleted in a Cascade**:
+- Non-completed jobs (pending, running, failed) using this wordlist
+- Preset jobs that reference this wordlist
+- Workflow steps using those preset jobs
+- Workflows that become empty after step removal
+
+**What Is Preserved**:
+- Completed jobs (historical records)
+- The physical file on disk (must be manually removed)
+
+> **Note**: Deleting a wordlist removes it from the database but does not delete the file from the filesystem.
 
 ## Rules Management
 
@@ -117,13 +135,31 @@ To download a rule:
 
 ### Deleting a Rule
 
-To delete a rule:
+When deleting a rule, the system checks for dependencies and handles them appropriately:
 
+**Simple Deletion** (no dependencies):
 1. Find the rule in the list
 2. Click the "Delete" button
-3. Confirm the deletion
+3. Confirm the deletion in the dialog
 
-Note that this only removes the rule from the database, not from the filesystem.
+**Cascade Deletion** (has dependencies):
+
+If the rule is used by jobs, preset jobs, or workflows, the deletion dialog will show:
+- **Impact Preview**: A summary of all affected items
+- **Affected Items List**: Details of jobs, preset jobs, and workflow steps that will be deleted
+- **ID Confirmation**: You must type the rule ID to confirm cascade deletion
+
+**What Gets Deleted in a Cascade**:
+- Non-completed jobs (pending, running, failed) using this rule
+- Preset jobs that reference this rule
+- Workflow steps using those preset jobs
+- Workflows that become empty after step removal
+
+**What Is Preserved**:
+- Completed jobs (historical records)
+- The physical file on disk (must be manually removed)
+
+> **Note**: Deleting a rule removes it from the database but does not delete the file from the filesystem.
 
 ## Managing Tags
 

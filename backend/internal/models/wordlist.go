@@ -105,3 +105,66 @@ type WordlistAuditLog struct {
 	PerformedAt time.Time `json:"performed_at" db:"performed_at"`
 	Details     []byte    `json:"details" db:"details"`
 }
+
+// DeletionImpact represents the impact of deleting a resource (wordlist or rule)
+type DeletionImpact struct {
+	ResourceID          int                      `json:"resource_id"`
+	ResourceType        string                   `json:"resource_type"` // "wordlist" or "rule"
+	CanDelete           bool                     `json:"can_delete"`
+	HasCascadingImpact  bool                     `json:"has_cascading_impact"`
+	Impact              DeletionImpactDetails    `json:"impact"`
+	Summary             DeletionImpactSummary    `json:"summary"`
+}
+
+// DeletionImpactDetails contains the detailed lists of affected entities
+type DeletionImpactDetails struct {
+	Jobs              []DeletionImpactJob          `json:"jobs"`
+	PresetJobs        []DeletionImpactPresetJob    `json:"preset_jobs"`
+	WorkflowSteps     []DeletionImpactWorkflowStep `json:"workflow_steps"`
+	WorkflowsToDelete []DeletionImpactWorkflow     `json:"workflows_to_delete"`
+}
+
+// DeletionImpactSummary contains counts of affected entities
+type DeletionImpactSummary struct {
+	TotalJobs              int `json:"total_jobs"`
+	TotalPresetJobs        int `json:"total_preset_jobs"`
+	TotalWorkflowSteps     int `json:"total_workflow_steps"`
+	TotalWorkflowsToDelete int `json:"total_workflows_to_delete"`
+}
+
+// DeletionImpactJob represents a job that would be deleted
+type DeletionImpactJob struct {
+	ID           uuid.UUID `json:"id"`
+	Name         string    `json:"name"`
+	Status       string    `json:"status"`
+	HashlistName string    `json:"hashlist_name"`
+}
+
+// DeletionImpactPresetJob represents a preset job that would be deleted
+type DeletionImpactPresetJob struct {
+	ID         uuid.UUID `json:"id"`
+	Name       string    `json:"name"`
+	AttackMode string    `json:"attack_mode"`
+}
+
+// DeletionImpactWorkflowStep represents a workflow step that would be deleted
+type DeletionImpactWorkflowStep struct {
+	WorkflowID    uuid.UUID `json:"workflow_id"`
+	WorkflowName  string    `json:"workflow_name"`
+	StepOrder     int       `json:"step_order"`
+	PresetJobID   uuid.UUID `json:"preset_job_id"`
+	PresetJobName string    `json:"preset_job_name"`
+}
+
+// DeletionImpactWorkflow represents a workflow that would be deleted
+type DeletionImpactWorkflow struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	StepCount   int       `json:"step_count"`
+}
+
+// DeleteResourceRequest represents a request to delete a resource with optional confirmation
+type DeleteResourceRequest struct {
+	ConfirmID *int `json:"confirm_id,omitempty"`
+}

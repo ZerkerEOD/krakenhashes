@@ -179,6 +179,7 @@ func main() {
 	jobTaskRepo := repository.NewJobTaskRepository(dbWrapper)
 	jobIncrementLayerRepo := repository.NewJobIncrementLayerRepository(dbWrapper)
 	presetJobRepo := repository.NewPresetJobRepository(sqlDB)
+	workflowRepo := repository.NewJobWorkflowRepository(sqlDB)
 
 	// Initialize services with dependencies
 	agentService := services.NewAgentService(agentRepo, repository.NewClaimVoucherRepository(dbWrapper), repository.NewFileRepository(dbWrapper, appConfig.DataDir), deviceRepo, jobTaskRepo, jobExecutionRepo)
@@ -195,6 +196,8 @@ func main() {
 		[]string{"txt", "dict", "lst", "gz", "zip"},                   // Allowed formats
 		[]string{"text/plain", "application/gzip", "application/zip"}, // Allowed MIME types
 		jobExecutionRepo, // Pass job execution repository for dependency checking
+		presetJobRepo,    // Pass preset job repository for cascade deletion
+		workflowRepo,     // Pass workflow repository for cascade deletion
 	)
 
 	ruleStore := rule.NewStore(sqlDB)
@@ -205,6 +208,8 @@ func main() {
 		[]string{"rule", "rules", "txt", "lst"}, // Allowed formats
 		[]string{"text/plain"},                  // Allowed MIME types
 		jobExecutionRepo, // Pass job execution repository for dependency checking
+		presetJobRepo,    // Pass preset job repository for cascade deletion
+		workflowRepo,     // Pass workflow repository for cascade deletion
 	)
 
 	// Initialize binary manager

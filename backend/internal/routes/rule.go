@@ -27,8 +27,10 @@ func SetupRuleRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, agentServ
 	// Create DB wrapper
 	database := &db.DB{DB: sqlDB}
 
-	// Initialize job execution repository
+	// Initialize repositories
 	jobExecRepo := repository.NewJobExecutionRepository(database)
+	presetJobRepo := repository.NewPresetJobRepository(sqlDB)
+	workflowRepo := repository.NewJobWorkflowRepository(sqlDB)
 
 	// Initialize rule store and manager
 	store := rule.NewStore(sqlDB)
@@ -39,6 +41,8 @@ func SetupRuleRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, agentServ
 		[]string{"rule", "txt"}, // Allowed formats
 		[]string{"text/plain"},  // Allowed MIME types
 		jobExecRepo,
+		presetJobRepo,
+		workflowRepo,
 	)
 
 	// Create handler
@@ -52,6 +56,7 @@ func SetupRuleRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, agentServ
 	userRouter.HandleFunc("", handler.HandleListRules).Methods(http.MethodGet)
 	userRouter.HandleFunc("/{id:[0-9]+}", handler.HandleGetRule).Methods(http.MethodGet)
 	userRouter.HandleFunc("/{id:[0-9]+}/download", handler.HandleDownloadRule).Methods(http.MethodGet)
+	userRouter.HandleFunc("/{id:[0-9]+}/deletion-impact", handler.HandleGetDeletionImpact).Methods(http.MethodGet)
 
 	// Add upload endpoint with special handling
 	uploadHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
