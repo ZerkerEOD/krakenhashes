@@ -573,3 +573,124 @@ func (db *DB) GetTokenByValue(token string) (uuid.UUID, error) {
 	}
 	return tokenID, nil
 }
+
+// TokenDetails holds token information for swap operations
+type TokenDetails struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	CreatedAt time.Time
+	ExpiresAt time.Time
+}
+
+// IsTokenRefreshable checks if a token has passed the refresh threshold (1/3 of session time)
+// Returns true if token is eligible for refresh (past 1/3 of session duration and not superseded)
+func (db *DB) IsTokenRefreshable(token string) (bool, error) {
+	var refreshable bool
+	err := db.QueryRow(queries.IsTokenRefreshable, token).Scan(&refreshable)
+	if err != nil {
+		debug.Error("Failed to check if token is refreshable: %v", err)
+		return false, err
+	}
+	return refreshable, nil
+}
+
+// GetTokenDetails retrieves token details for swap operations
+func (db *DB) GetTokenDetails(token string) (*TokenDetails, error) {
+	details := &TokenDetails{}
+	err := db.QueryRow(queries.GetTokenDetails, token).Scan(
+		&details.ID,
+		&details.UserID,
+		&details.CreatedAt,
+		&details.ExpiresAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("token not found")
+		}
+		debug.Error("Failed to get token details: %v", err)
+		return nil, err
+	}
+	return details, nil
+}
+
+// SwapTokenWithGrace atomically swaps an old token with a new one, preserving session linkage
+// The old token is marked as superseded (not deleted) to allow a grace period for concurrent requests
+func (db *DB) SwapTokenWithGrace(oldToken, newToken string, userID uuid.UUID, expiryMinutes int) (uuid.UUID, error) {
+	tx, err := db.Begin()
+	if err != nil {
+		debug.Error("Failed to begin transaction for token swap: %v", err)
+		return uuid.Nil, err
+	}
+	defer tx.Rollback()
+
+	// Get old token details
+	var oldTokenID uuid.UUID
+	err = tx.QueryRow(`SELECT id FROM tokens WHERE token = $1 AND revoked = false`, oldToken).Scan(&oldTokenID)
+	if err != nil {
+		debug.Error("Failed to get old token ID: %v", err)
+		return uuid.Nil, err
+	}
+
+	// Get the session linked to the old token to preserve session_started_at
+	var sessionID uuid.UUID
+	var sessionStartedAt time.Time
+	var ipAddress, userAgent string
+	err = tx.QueryRow(`
+		SELECT id, session_started_at, ip_address, user_agent
+		FROM active_sessions
+		WHERE token_id = $1`, oldTokenID).Scan(&sessionID, &sessionStartedAt, &ipAddress, &userAgent)
+	if err != nil && err != sql.ErrNoRows {
+		debug.Error("Failed to get session for token: %v", err)
+		return uuid.Nil, err
+	}
+	sessionExists := err != sql.ErrNoRows
+
+	// Insert new token
+	expiresAt := time.Now().Add(time.Duration(expiryMinutes) * time.Minute)
+	var newTokenID uuid.UUID
+	err = tx.QueryRow(`
+		INSERT INTO tokens (user_id, token, expires_at)
+		VALUES ($1, $2, $3)
+		RETURNING id`, userID, newToken, expiresAt).Scan(&newTokenID)
+	if err != nil {
+		debug.Error("Failed to insert new token: %v", err)
+		return uuid.Nil, err
+	}
+
+	// Mark old token as superseded (not deleted - allows grace period)
+	_, err = tx.Exec(queries.SupersedeToken, oldToken, newTokenID)
+	if err != nil {
+		debug.Error("Failed to supersede old token: %v", err)
+		return uuid.Nil, err
+	}
+
+	// Update session to point to new token, preserving session_started_at
+	if sessionExists {
+		_, err = tx.Exec(`
+			UPDATE active_sessions
+			SET token_id = $1, last_active_at = CURRENT_TIMESTAMP
+			WHERE id = $2`, newTokenID, sessionID)
+		if err != nil {
+			debug.Error("Failed to update session token: %v", err)
+			return uuid.Nil, err
+		}
+	} else {
+		// Create session if it doesn't exist (shouldn't happen in normal flow)
+		_, err = tx.Exec(`
+			INSERT INTO active_sessions (user_id, ip_address, user_agent, token_id, session_started_at)
+			VALUES ($1, $2, $3, $4, $5)`,
+			userID, ipAddress, userAgent, newTokenID, time.Now())
+		if err != nil {
+			debug.Error("Failed to create session for new token: %v", err)
+			return uuid.Nil, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		debug.Error("Failed to commit token swap transaction: %v", err)
+		return uuid.Nil, err
+	}
+
+	debug.Info("Successfully swapped token for user %s, old token superseded with grace period", userID)
+	return newTokenID, nil
+}

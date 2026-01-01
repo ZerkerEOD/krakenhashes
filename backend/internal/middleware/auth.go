@@ -4,10 +4,13 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/auth"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/jwt"
+	"github.com/google/uuid"
 )
 
 // RequireAuth middleware ensures that only authenticated users can access the route
@@ -116,15 +119,78 @@ func RequireAuth(database *db.DB) func(http.Handler) http.Handler {
 			}
 
 			// Update last activity for non-auto-refresh requests
+			// Note: /api/jobs is NOT excluded here because the frontend sets X-Auto-Refresh header
+			// for polling requests. Initial page load should trigger token refresh.
 			isAutoRefresh := r.Header.Get("X-Auto-Refresh") == "true" ||
 				r.URL.Path == "/api/dashboard/stats" ||
-				r.URL.Path == "/api/jobs" ||
 				r.URL.Path == "/api/jobs/stream"
-			
+
 			if !isAutoRefresh {
 				if err := database.UpdateTokenActivity(cookie.Value); err != nil {
 					debug.Error("[AUTH] Failed to update token activity: %v", err)
 					// Don't block on error, let request continue
+				}
+
+				// Throttled token refresh: check if token is past 1/3 of session time
+				// This implements a sliding window session that refreshes on actual user activity
+				refreshable, err := database.IsTokenRefreshable(cookie.Value)
+				if err != nil {
+					debug.Error("[AUTH] Failed to check if token is refreshable: %v", err)
+					// Don't block on error, let request continue
+				} else if refreshable {
+					debug.Info("[AUTH] Token is past refresh threshold, initiating throttled refresh for user: %s", userID)
+
+					// Get auth settings for expiry time
+					authSettings, err := database.GetAuthSettings()
+					if err != nil {
+						debug.Error("[AUTH] Failed to get auth settings for token refresh: %v", err)
+					} else {
+						// Check absolute session timeout before refreshing
+						shouldRefresh := true
+						if authSettings.SessionAbsoluteTimeoutHours > 0 {
+							session, err := database.GetSessionByToken(cookie.Value)
+							if err == nil && session != nil {
+								sessionAge := time.Since(session.SessionStartedAt).Hours()
+								if sessionAge >= float64(authSettings.SessionAbsoluteTimeoutHours) {
+									debug.Info("[AUTH] Session exceeded absolute timeout, not refreshing for user: %s", userID)
+									shouldRefresh = false
+								}
+							}
+						}
+
+						if shouldRefresh {
+							// Get role for new token generation
+							role, roleErr := jwt.GetUserRole(cookie.Value)
+							if roleErr != nil {
+								debug.Error("[AUTH] Failed to get role for token refresh: %v", roleErr)
+							} else {
+								// Generate new token
+								newToken, tokenErr := jwt.GenerateToken(userID, role, authSettings.JWTExpiryMinutes)
+								if tokenErr != nil {
+									debug.Error("[AUTH] Failed to generate new token: %v", tokenErr)
+								} else {
+									// Parse userID to UUID
+									userUUID, parseErr := uuid.Parse(userID)
+									if parseErr != nil {
+										debug.Error("[AUTH] Failed to parse user ID for token swap: %v", parseErr)
+									} else {
+										// Swap tokens atomically with grace period
+										_, swapErr := database.SwapTokenWithGrace(cookie.Value, newToken, userUUID, authSettings.JWTExpiryMinutes)
+										if swapErr != nil {
+											debug.Error("[AUTH] Failed to swap token: %v", swapErr)
+											// Continue with old token - request still proceeds
+										} else {
+											// Set new cookie with fresh expiry
+											auth.SetAuthCookie(w, r, newToken, authSettings.JWTExpiryMinutes*60)
+											debug.Info("[AUTH] Token refreshed successfully via throttled refresh for user: %s", userID)
+											// Note: The old token remains valid for grace period (5 minutes)
+											// This handles concurrent requests from other tabs
+										}
+									}
+								}
+							}
+						}
+					}
 				}
 			}
 

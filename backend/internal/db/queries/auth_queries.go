@@ -22,7 +22,35 @@ const (
 		SELECT EXISTS(
 			SELECT 1 FROM tokens
 			WHERE token = $1
+			AND revoked = false
+			AND (superseded_at IS NULL OR superseded_at > CURRENT_TIMESTAMP - INTERVAL '5 minutes')
 		)`
+
+	// Check if token is eligible for refresh (past 1/3 of session time)
+	IsTokenRefreshable = `
+		SELECT EXISTS(
+			SELECT 1 FROM tokens t
+			JOIN auth_settings a ON true
+			WHERE t.token = $1
+			AND t.superseded_at IS NULL
+			AND t.revoked = false
+			AND t.created_at < CURRENT_TIMESTAMP - INTERVAL '1 minute' * (a.jwt_expiry_minutes / 3)
+		)`
+
+	// Mark old token as superseded (for grace period)
+	SupersedeToken = `
+		UPDATE tokens
+		SET superseded_at = CURRENT_TIMESTAMP,
+			superseded_by = $2
+		WHERE token = $1
+		AND superseded_at IS NULL`
+
+	// Get token details for swap operation
+	GetTokenDetails = `
+		SELECT id, user_id, created_at, expires_at
+		FROM tokens
+		WHERE token = $1
+		AND revoked = false`
 
 	// Update last activity for a token (for non-auto-refresh requests)
 	UpdateTokenActivity = `

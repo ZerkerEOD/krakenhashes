@@ -3,9 +3,9 @@ package auth
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 	"time"
 
+	sharedAuth "github.com/ZerkerEOD/krakenhashes/backend/internal/auth"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/jwt"
@@ -17,109 +17,6 @@ import (
 type LoginRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
-}
-
-// Helper function to extract client IP address and User-Agent from request
-func getClientInfo(r *http.Request) (ipAddress string, userAgent string) {
-	// Try to get real IP from X-Forwarded-For header (for proxied requests)
-	ipAddress = r.Header.Get("X-Forwarded-For")
-	if ipAddress != "" {
-		// X-Forwarded-For can contain multiple IPs, take the first one
-		if idx := strings.Index(ipAddress, ","); idx != -1 {
-			ipAddress = strings.TrimSpace(ipAddress[:idx])
-		}
-	}
-
-	// Fallback to X-Real-IP header
-	if ipAddress == "" {
-		ipAddress = r.Header.Get("X-Real-IP")
-	}
-
-	// Fallback to RemoteAddr
-	if ipAddress == "" {
-		ipAddress = r.RemoteAddr
-		// Remove port if present
-		if idx := strings.LastIndex(ipAddress, ":"); idx != -1 {
-			ipAddress = ipAddress[:idx]
-		}
-	}
-
-	// Get User-Agent
-	userAgent = r.Header.Get("User-Agent")
-	if userAgent == "" {
-		userAgent = "Unknown"
-	}
-
-	return ipAddress, userAgent
-}
-
-// Helper function to get cookie domain from request host
-func getCookieDomain(host string) string {
-	debug.Debug("Getting cookie domain from host: %s", host)
-
-	// Always strip port number since frontend and backend are on different ports
-	if colonIndex := strings.Index(host, ":"); colonIndex != -1 {
-		host = host[:colonIndex]
-	}
-
-	// For development environments (localhost/127.0.0.1), don't set domain
-	if host == "localhost" || host == "127.0.0.1" {
-		debug.Debug("Development environment detected, not setting cookie domain")
-		return ""
-	}
-
-	debug.Debug("Using cookie domain: %s", host)
-	return host
-}
-
-// Helper function to set auth cookie
-func setAuthCookie(w http.ResponseWriter, r *http.Request, token string, maxAge int) {
-	debug.Debug("[COOKIE] Setting auth cookie - MaxAge: %d", maxAge)
-
-	// Check if this is a development environment
-	isDevelopment := strings.Contains(r.Host, "localhost") || strings.Contains(r.Host, "127.0.0.1")
-
-	// For cross-port development (frontend:3000, backend:31337) we need special handling
-	var sameSite http.SameSite
-	var secure bool
-
-	if isDevelopment {
-		// For localhost development with HTTPS, use Lax for better compatibility
-		sameSite = http.SameSiteLaxMode
-		secure = true // We're using HTTPS even in development
-		debug.Info("[COOKIE] Development environment: using SameSite=Lax, Secure=true for HTTPS localhost")
-	} else {
-		// Production settings
-		sameSite = http.SameSiteLaxMode
-		secure = true
-		debug.Debug("[COOKIE] Production environment: using SameSite=Lax, Secure=true")
-	}
-
-	cookie := &http.Cookie{
-		Name:     "token",
-		Value:    token,
-		HttpOnly: true,
-		Secure:   secure,
-		SameSite: sameSite,
-		Path:     "/",
-		MaxAge:   maxAge,
-	}
-
-	// For development, don't set domain to allow cross-port cookie sharing
-	domain := getCookieDomain(r.Host)
-	if domain != "" {
-		cookie.Domain = domain
-		debug.Debug("[COOKIE] Setting cookie domain: %s", domain)
-	} else {
-		debug.Info("[COOKIE] No domain set for cookie (allows cross-port sharing in development)")
-	}
-
-	// Log the complete cookie configuration for debugging
-	debug.Info("[COOKIE] Cookie configuration: name=%s, secure=%v, sameSite=%v, httpOnly=%v, path=%s, domain=%s, maxAge=%d",
-		cookie.Name, cookie.Secure, cookie.SameSite, cookie.HttpOnly, cookie.Path, cookie.Domain, cookie.MaxAge)
-
-	http.SetCookie(w, cookie)
-	debug.Info("[COOKIE] Auth cookie set successfully")
 }
 
 // generateAuthToken creates a new JWT token for the user
@@ -174,7 +71,7 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		debug.Info("Failed login attempt for user '%s': %v", req.Username, err)
 
 		// Log failed login attempt (user not found)
-		ipAddress, userAgent := getClientInfo(r)
+		ipAddress, userAgent := sharedAuth.GetClientInfo(r)
 		loginAttempt := &models.LoginAttempt{
 			Username:      req.Username,
 			IPAddress:     ipAddress,
@@ -195,7 +92,7 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		debug.Warning("Attempted login with system user account")
 
 		// Log failed login attempt (system user)
-		ipAddress, userAgent := getClientInfo(r)
+		ipAddress, userAgent := sharedAuth.GetClientInfo(r)
 		loginAttempt := &models.LoginAttempt{
 			UserID:        &user.ID,
 			Username:      req.Username,
@@ -217,7 +114,7 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		debug.Warning("Login attempt for disabled account: %s", req.Username)
 
 		// Log failed login attempt (account disabled)
-		ipAddress, userAgent := getClientInfo(r)
+		ipAddress, userAgent := sharedAuth.GetClientInfo(r)
 		loginAttempt := &models.LoginAttempt{
 			UserID:        &user.ID,
 			Username:      req.Username,
@@ -250,7 +147,7 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 			debug.Warning("Login attempt for locked account: %s", req.Username)
 
 			// Log failed login attempt (account locked)
-			ipAddress, userAgent := getClientInfo(r)
+			ipAddress, userAgent := sharedAuth.GetClientInfo(r)
 			loginAttempt := &models.LoginAttempt{
 				UserID:        &user.ID,
 				Username:      req.Username,
@@ -287,7 +184,7 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Log failed login attempt (invalid password)
-		ipAddress, userAgent := getClientInfo(r)
+		ipAddress, userAgent := sharedAuth.GetClientInfo(r)
 		loginAttempt := &models.LoginAttempt{
 			UserID:        &user.ID,
 			Username:      req.Username,
@@ -430,7 +327,7 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get client info for session and login attempt logging
-	ipAddress, userAgent := getClientInfo(r)
+	ipAddress, userAgent := sharedAuth.GetClientInfo(r)
 
 	// Create active session linked to token
 	session := &models.ActiveSession{
@@ -457,7 +354,7 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		// Don't fail the login for this
 	}
 
-	setAuthCookie(w, r, token, authSettings.JWTExpiryMinutes*60) // Convert minutes to seconds
+	sharedAuth.SetAuthCookie(w, r, token, authSettings.JWTExpiryMinutes*60) // Convert minutes to seconds
 	debug.Info("User '%s' successfully logged in", req.Username)
 
 	json.NewEncoder(w).Encode(models.LoginResponse{
@@ -490,7 +387,7 @@ func (h *Handler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 		debug.Debug("No token cookie found during logout: %v", err)
 	}
 
-	setAuthCookie(w, r, "", -1) // Expire the cookie
+	sharedAuth.SetAuthCookie(w, r, "", -1) // Expire the cookie
 	debug.Info("User successfully logged out")
 
 	w.WriteHeader(http.StatusOK)
@@ -627,7 +524,7 @@ func (h *Handler) RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get client info for new session
-	ipAddress, userAgent := getClientInfo(r)
+	ipAddress, userAgent := sharedAuth.GetClientInfo(r)
 
 	// Create new session, preserving session_started_at from old session
 	sessionStartedAt := time.Now()
@@ -649,7 +546,7 @@ func (h *Handler) RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set new auth cookie
-	setAuthCookie(w, r, token, authSettings.JWTExpiryMinutes*60) // Convert minutes to seconds
+	sharedAuth.SetAuthCookie(w, r, token, authSettings.JWTExpiryMinutes*60) // Convert minutes to seconds
 	debug.Info("Token refreshed successfully for user: %s", userID)
 
 	json.NewEncoder(w).Encode(models.LoginResponse{

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	sharedAuth "github.com/ZerkerEOD/krakenhashes/backend/internal/auth"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db/queries"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
@@ -436,7 +437,7 @@ func (h *Handler) VerifyMFAHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Get client info for session and login attempt logging
-			ipAddress, userAgent := getClientInfo(r)
+			ipAddress, userAgent := sharedAuth.GetClientInfo(r)
 
 			// Create active session linked to token
 			session := &models.ActiveSession{
@@ -464,7 +465,7 @@ func (h *Handler) VerifyMFAHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Set auth cookie
-			setAuthCookie(w, r, token, authSettings.JWTExpiryMinutes*60) // Convert minutes to seconds
+			sharedAuth.SetAuthCookie(w, r, token, authSettings.JWTExpiryMinutes*60) // Convert minutes to seconds
 
 			// Return success with token
 			w.Header().Set("Content-Type", "application/json")
@@ -565,7 +566,7 @@ func (h *Handler) VerifyMFAHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Set auth cookie
-			setAuthCookie(w, r, token, authSettings.JWTExpiryMinutes*60) // Convert minutes to seconds
+			sharedAuth.SetAuthCookie(w, r, token, authSettings.JWTExpiryMinutes*60) // Convert minutes to seconds
 
 			// Return success with token
 			w.Header().Set("Content-Type", "application/json")
@@ -649,7 +650,7 @@ func (h *Handler) VerifyMFAHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Get client info for session and login attempt logging
-			ipAddress, userAgent := getClientInfo(r)
+			ipAddress, userAgent := sharedAuth.GetClientInfo(r)
 
 			// Create active session linked to token
 			session := &models.ActiveSession{
@@ -677,7 +678,7 @@ func (h *Handler) VerifyMFAHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Set auth cookie
-			setAuthCookie(w, r, token, authSettings.JWTExpiryMinutes*60) // Convert minutes to seconds
+			sharedAuth.SetAuthCookie(w, r, token, authSettings.JWTExpiryMinutes*60) // Convert minutes to seconds
 
 			// Return success with token
 			w.Header().Set("Content-Type", "application/json")
@@ -814,7 +815,7 @@ func (h *Handler) VerifyMFAHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Get client info for session and login attempt logging
-		ipAddress, userAgent := getClientInfo(r)
+		ipAddress, userAgent := sharedAuth.GetClientInfo(r)
 
 		// Create active session linked to token
 		session := &models.ActiveSession{
@@ -842,7 +843,7 @@ func (h *Handler) VerifyMFAHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Set auth cookie
-		setAuthCookie(w, r, token, authSettings.JWTExpiryMinutes*60) // Convert minutes to seconds
+		sharedAuth.SetAuthCookie(w, r, token, authSettings.JWTExpiryMinutes*60) // Convert minutes to seconds
 
 		// Return success with token
 		w.Header().Set("Content-Type", "application/json")

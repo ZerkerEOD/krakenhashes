@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	sharedAuth "github.com/ZerkerEOD/krakenhashes/backend/internal/auth"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
@@ -558,7 +559,7 @@ func (h *Handler) FinishPasskeyAuthentication(w http.ResponseWriter, r *http.Req
 	}
 
 	// Get client info for session and login attempt logging
-	ipAddress, userAgent := getClientInfo(r)
+	ipAddress, userAgent := sharedAuth.GetClientInfo(r)
 
 	// Create active session linked to token
 	activeSession := &models.ActiveSession{
@@ -586,7 +587,7 @@ func (h *Handler) FinishPasskeyAuthentication(w http.ResponseWriter, r *http.Req
 	}
 
 	// Set auth cookie
-	setAuthCookie(w, r, token, authSettings.JWTExpiryMinutes*60)
+	sharedAuth.SetAuthCookie(w, r, token, authSettings.JWTExpiryMinutes*60)
 
 	debug.Info("Passkey authentication successful for user %s", userID)
 	writeJSON(w, http.StatusOK, map[string]interface{}{
