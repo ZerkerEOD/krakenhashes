@@ -138,7 +138,10 @@ func (s *adminPresetJobService) validatePresetJob(ctx context.Context, params mo
 		if len(params.WordlistIDs) != 1 {
 			return errors.New("straight attack mode requires exactly one wordlist")
 		}
-		// Rules are optional for straight mode
+		// Rules are optional, but limited to at most 1 (backend scheduling only handles single rule file)
+		if len(params.RuleIDs) > 1 {
+			return errors.New("straight attack mode supports at most one rule file")
+		}
 
 	case models.AttackModeCombination:
 		if len(params.WordlistIDs) != 2 {

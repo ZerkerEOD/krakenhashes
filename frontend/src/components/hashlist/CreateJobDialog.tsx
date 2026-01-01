@@ -101,6 +101,8 @@ export default function CreateJobDialog({
   const [customJobName, setCustomJobName] = useState<string>('');
   
   // Custom job state
+  const [combWordlist1, setCombWordlist1] = useState<string>('');
+  const [combWordlist2, setCombWordlist2] = useState<string>('');
   const [customJob, setCustomJob] = useState({
     name: '',
     attack_mode: 0,
@@ -210,8 +212,15 @@ export default function CreateJobDialog({
         // Name is now optional - will use default format if not provided
         
         // Validate attack mode requirements
-        if ([0, 1, 6, 7].includes(customJob.attack_mode) && customJob.wordlist_ids.length === 0) {
+        if ([0, 6, 7].includes(customJob.attack_mode) && customJob.wordlist_ids.length === 0) {
           setError('Selected attack mode requires at least one wordlist');
+          setLoading(false);
+          return;
+        }
+
+        // Combination attack requires exactly 2 wordlists
+        if (customJob.attack_mode === 1 && customJob.wordlist_ids.length !== 2) {
+          setError('Combination attack requires both wordlists to be selected');
           setLoading(false);
           return;
         }
@@ -310,6 +319,9 @@ export default function CreateJobDialog({
       });
       setTabValue(0);
       setCustomJobName('');
+      // Reset combination wordlist state
+      setCombWordlist1('');
+      setCombWordlist2('');
       onClose();
     }
   };
@@ -547,7 +559,19 @@ export default function CreateJobDialog({
                       <InputLabel>Attack Mode</InputLabel>
                       <Select
                         value={customJob.attack_mode}
-                        onChange={(e) => setCustomJob(prev => ({ ...prev, attack_mode: e.target.value as number }))}
+                        onChange={(e) => {
+                          const newMode = e.target.value as number;
+                          setCustomJob(prev => ({
+                            ...prev,
+                            attack_mode: newMode,
+                            wordlist_ids: [],
+                            rule_ids: [],
+                            mask: ''
+                          }));
+                          // Reset combination wordlist state
+                          setCombWordlist1('');
+                          setCombWordlist2('');
+                        }}
                         label="Attack Mode"
                       >
                         <MenuItem value={0}>Dictionary Attack</MenuItem>
@@ -602,21 +626,20 @@ export default function CreateJobDialog({
                       </Grid>
                       <Grid item xs={12}>
                         <Autocomplete
-                          multiple
                           options={formData?.rules || []}
                           getOptionLabel={(option) => `${option.name} (${option.rule_count} rules)`}
-                          value={formData?.rules?.filter(r => customJob.rule_ids.includes(String(r.id))) || []}
+                          value={formData?.rules?.find(r => customJob.rule_ids.includes(String(r.id))) || null}
                           onChange={(e, newValue) => {
                             setCustomJob(prev => ({
                               ...prev,
-                              rule_ids: newValue.map(r => String(r.id))
+                              rule_ids: newValue ? [String(newValue.id)] : []
                             }));
                           }}
                           renderInput={(params) => (
                             <TextField
                               {...params}
-                              label="Rules (Optional)"
-                              placeholder="Select rules"
+                              label="Rule (Optional)"
+                              placeholder="Select a rule"
                             />
                           )}
                         />
@@ -624,29 +647,60 @@ export default function CreateJobDialog({
                     </>
                   )}
 
-                  {/* Attack mode 1 (Combination): Wordlists only */}
+                  {/* Attack mode 1 (Combination): Two separate wordlist selectors */}
                   {customJob.attack_mode === 1 && (
-                    <Grid item xs={12}>
-                      <Autocomplete
-                        multiple
-                        options={formData?.wordlists || []}
-                        getOptionLabel={(option) => `${option.name} (${(option.file_size / 1024 / 1024).toFixed(2)} MB)`}
-                        value={formData?.wordlists?.filter(w => customJob.wordlist_ids.includes(String(w.id))) || []}
-                        onChange={(e, newValue) => {
-                          setCustomJob(prev => ({
-                            ...prev,
-                            wordlist_ids: newValue.map(w => String(w.id))
-                          }));
-                        }}
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            label="Wordlists"
-                            placeholder="Select wordlists"
-                          />
-                        )}
-                      />
-                    </Grid>
+                    <>
+                      <Grid item xs={12} sm={6}>
+                        <FormControl fullWidth required>
+                          <InputLabel shrink>First Wordlist</InputLabel>
+                          <Select
+                            value={combWordlist1}
+                            onChange={(e) => {
+                              const value = e.target.value as string;
+                              setCombWordlist1(value);
+                              setCustomJob(prev => ({
+                                ...prev,
+                                wordlist_ids: [value, combWordlist2].filter(Boolean)
+                              }));
+                            }}
+                            label="First Wordlist"
+                            displayEmpty
+                          >
+                            <MenuItem value="" disabled><em>Select first wordlist</em></MenuItem>
+                            {formData?.wordlists?.map((w) => (
+                              <MenuItem key={`first-${w.id}`} value={String(w.id)}>
+                                {w.name} ({(w.file_size / 1024 / 1024).toFixed(2)} MB)
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <FormControl fullWidth required>
+                          <InputLabel shrink>Second Wordlist</InputLabel>
+                          <Select
+                            value={combWordlist2}
+                            onChange={(e) => {
+                              const value = e.target.value as string;
+                              setCombWordlist2(value);
+                              setCustomJob(prev => ({
+                                ...prev,
+                                wordlist_ids: [combWordlist1, value].filter(Boolean)
+                              }));
+                            }}
+                            label="Second Wordlist"
+                            displayEmpty
+                          >
+                            <MenuItem value="" disabled><em>Select second wordlist</em></MenuItem>
+                            {formData?.wordlists?.map((w) => (
+                              <MenuItem key={`second-${w.id}`} value={String(w.id)}>
+                                {w.name} ({(w.file_size / 1024 / 1024).toFixed(2)} MB)
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                    </>
                   )}
 
                   {/* Attack mode 3 (Brute Force): Mask only */}

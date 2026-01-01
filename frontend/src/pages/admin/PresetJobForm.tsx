@@ -72,9 +72,9 @@ const getInitialFormState = (defaultChunkDuration: number = 300): PresetJobFormD
 const attackModeInfo = {
   [AttackMode.Straight]: {
     name: 'Straight',
-    description: 'Uses words from a wordlist, optionally applying rules to transform them',
+    description: 'Uses words from a wordlist, optionally applying a rule to transform them',
     wordlistRequirement: 'Exactly 1 wordlist required',
-    rulesRequirement: 'Rules optional',
+    rulesRequirement: '0 or 1 rule file',
     maskRequirement: 'No mask needed'
   },
   [AttackMode.Combination]: {
@@ -810,15 +810,6 @@ const PresetJobFormPage: React.FC = () => {
                   <FormHelperText>Second wordlist in the combination</FormHelperText>
                 </FormControl>
               </Grid>
-              <Grid item xs={12}>
-                <Paper elevation={0} sx={{ p: 2, backgroundColor: 'rgba(0, 0, 0, 0.04)', borderRadius: 1 }}>
-                  <Typography variant="body2">
-                    The combination attack will try all possible combinations: each word from the first list with each word from the second list.
-                    {firstWordlist === secondWordlist && 
-                      " You've selected the same wordlist for both positions, which is valid and will combine each word with every other word in the same list."}
-                  </Typography>
-                </Paper>
-              </Grid>
             </Grid>
           </Grid>
         ) : (
@@ -873,32 +864,29 @@ const PresetJobFormPage: React.FC = () => {
           </Grid>
         )}
 
-        {/* Rules */}
+        {/* Rules - Single select (only one rule file supported) */}
         <Grid item xs={12}>
-          <FormControl 
-            fullWidth 
+          <FormControl
+            fullWidth
             margin="normal"
             disabled={isRulesDisabled}
           >
-            <InputLabel id="rules-label">Rules</InputLabel>
+            <InputLabel id="rules-label">Rule (Optional)</InputLabel>
             <Select
               labelId="rules-label"
-              multiple
-              value={isRulesDisabled ? [] : formData.rule_ids}
-              onChange={(e) => handleMultiSelectChange(e as SelectChangeEvent<number[]>, 'rule_ids')}
-              input={<OutlinedInput label="Rules" />}
-              renderValue={(selected) => (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {(selected as number[]).map((id) => {
-                    const rule = rules.find(r => r.id === id);
-                    return (
-                      <Chip key={id} label={rule?.name || id} />
-                    );
-                  })}
-                </Box>
-              )}
-              MenuProps={MenuProps}
+              value={isRulesDisabled || formData.rule_ids.length === 0 ? '' : formData.rule_ids[0]}
+              onChange={(e) => {
+                const value = e.target.value;
+                setFormData(prev => ({
+                  ...prev,
+                  rule_ids: value ? [value as number] : []
+                }));
+              }}
+              label="Rule (Optional)"
             >
+              <MenuItem value="">
+                <em>None</em>
+              </MenuItem>
               {rules.map((rule) => (
                 <MenuItem key={rule.id} value={rule.id}>
                   {rule.name}
@@ -906,9 +894,9 @@ const PresetJobFormPage: React.FC = () => {
               ))}
             </Select>
             <FormHelperText>
-              {isRulesDisabled ? 
-                'Rules not used in this attack mode' : 
-                'Select rules to apply (optional)'
+              {isRulesDisabled ?
+                'Rules not used in this attack mode' :
+                'Select a rule to apply (optional)'
               }
             </FormHelperText>
           </FormControl>
