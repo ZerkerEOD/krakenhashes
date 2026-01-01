@@ -538,7 +538,7 @@ export default function CreateJobDialog({
                       placeholder="Leave empty for auto-generated name"
                       value={customJob.name}
                       onChange={(e) => setCustomJob(prev => ({ ...prev, name: e.target.value }))}
-                      helperText="Leave empty to use format: ClientName-HashlistName-HashMode"
+                      helperText="Leave empty for auto-generated name based on attack configuration"
                     />
                   </Grid>
 

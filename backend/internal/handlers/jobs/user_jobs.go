@@ -341,31 +341,164 @@ func getJobName(job models.JobExecution, hashlist *models.HashList) string {
 	return hashlist.Name
 }
 
-// generateJobName creates a job name based on the provided parameters
-func generateJobName(client *models.Client, presetName string, hashlistName string, hashTypeID int, customName string) string {
-	if customName != "" && presetName != "" {
-		// User provided custom name with preset job
-		return fmt.Sprintf("%s - %s", customName, presetName)
+// JobNameConfig holds all data needed to generate a job name
+type JobNameConfig struct {
+	Client        *models.Client
+	AttackMode    models.AttackMode
+	WordlistNames []string
+	RuleNames     []string
+	Mask          string
+	IncrementMode string // "off", "increment", "increment_inverse"
+	HashTypeID    int
+	CustomName    string
+}
+
+// resolveWordlistNames converts wordlist IDs to their names
+func (h *UserJobsHandler) resolveWordlistNames(ctx context.Context, wordlistIDs []string) []string {
+	names := make([]string, 0, len(wordlistIDs))
+	for _, idStr := range wordlistIDs {
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			continue
+		}
+		wl, err := h.wordlistStore.GetWordlist(ctx, id)
+		if err != nil || wl == nil {
+			continue
+		}
+		names = append(names, wl.Name)
+	}
+	return names
+}
+
+// resolveRuleNames converts rule IDs to their names
+func (h *UserJobsHandler) resolveRuleNames(ctx context.Context, ruleIDs []string) []string {
+	names := make([]string, 0, len(ruleIDs))
+	for _, idStr := range ruleIDs {
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			continue
+		}
+		rl, err := h.ruleStore.GetRule(ctx, id)
+		if err != nil || rl == nil {
+			continue
+		}
+		names = append(names, rl.Name)
+	}
+	return names
+}
+
+// generateJobName creates a job name based on the attack configuration
+func generateJobName(config JobNameConfig) string {
+	// User-provided custom name takes priority
+	if config.CustomName != "" {
+		return config.CustomName
 	}
 
-	if customName != "" {
-		// Custom job with user-provided name
-		return customName
+	var parts []string
+
+	// Add client name (skip if empty - don't use "Unknown")
+	if config.Client != nil && config.Client.Name != "" {
+		parts = append(parts, config.Client.Name)
 	}
 
-	// Default naming format
-	clientName := "Unknown"
-	if client != nil && client.Name != "" {
-		clientName = client.Name
+	// Build attack-specific portion
+	attackPart := buildAttackPart(config)
+	if attackPart != "" {
+		parts = append(parts, attackPart)
 	}
 
-	if presetName != "" {
-		// Preset job: [client]-[presetname]-[hashmode]
-		return fmt.Sprintf("%s-%s-%d", clientName, presetName, hashTypeID)
+	// Add increment indicator for mask-based attacks
+	if config.IncrementMode == "increment" {
+		parts = append(parts, "inc-L-R")
+	} else if config.IncrementMode == "increment_inverse" {
+		parts = append(parts, "inc-R-L")
 	}
 
-	// Custom job without name: [client]-[hashlist]-[hashmode]
-	return fmt.Sprintf("%s-%s-%d", clientName, hashlistName, hashTypeID)
+	// Always add hash mode at the end
+	hashModeStr := strconv.Itoa(config.HashTypeID)
+	parts = append(parts, hashModeStr)
+
+	// Join with dashes
+	name := strings.Join(parts, "-")
+
+	// Truncate if exceeds 255 characters
+	if len(name) > 255 {
+		name = truncateJobName(name, hashModeStr, 255)
+	}
+
+	return name
+}
+
+// buildAttackPart generates the attack-specific portion of the job name
+func buildAttackPart(config JobNameConfig) string {
+	switch config.AttackMode {
+	case models.AttackModeStraight: // Mode 0: Dictionary
+		var attackParts []string
+		if len(config.WordlistNames) > 0 {
+			attackParts = append(attackParts, config.WordlistNames[0])
+		}
+		if len(config.RuleNames) > 0 {
+			attackParts = append(attackParts, strings.Join(config.RuleNames, ","))
+		}
+		return strings.Join(attackParts, "-")
+
+	case models.AttackModeCombination: // Mode 1: Combination (2 wordlists)
+		if len(config.WordlistNames) >= 2 {
+			if config.WordlistNames[0] == config.WordlistNames[1] {
+				return fmt.Sprintf("%s(x2)", config.WordlistNames[0])
+			}
+			return fmt.Sprintf("%s,%s", config.WordlistNames[0], config.WordlistNames[1])
+		}
+		return ""
+
+	case models.AttackModeBruteForce: // Mode 3: Mask
+		return config.Mask
+
+	case models.AttackModeHybridWordlistMask: // Mode 6: Wordlist + Mask
+		var attackParts []string
+		if len(config.WordlistNames) > 0 {
+			attackParts = append(attackParts, config.WordlistNames[0])
+		}
+		if config.Mask != "" {
+			attackParts = append(attackParts, config.Mask)
+		}
+		return strings.Join(attackParts, "-")
+
+	case models.AttackModeHybridMaskWordlist: // Mode 7: Mask + Wordlist
+		var attackParts []string
+		if config.Mask != "" {
+			attackParts = append(attackParts, config.Mask)
+		}
+		if len(config.WordlistNames) > 0 {
+			attackParts = append(attackParts, config.WordlistNames[0])
+		}
+		return strings.Join(attackParts, "-")
+
+	default:
+		return ""
+	}
+}
+
+// truncateJobName truncates the job name while preserving the hash mode
+func truncateJobName(name string, hashMode string, maxLen int) string {
+	suffix := "-" + hashMode
+	availableLen := maxLen - len(suffix)
+
+	if availableLen <= 0 {
+		return hashMode
+	}
+
+	prefixEnd := len(name) - len(suffix)
+	if prefixEnd <= 0 {
+		return name
+	}
+	prefix := name[:prefixEnd]
+
+	if len(prefix) > availableLen {
+		prefix = prefix[:availableLen-3] + "..."
+	}
+
+	return prefix + suffix
 }
 
 // CreateJobFromHashlist handles POST /api/hashlists/{id}/create-job
@@ -451,15 +584,28 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 				continue
 			}
 
-			// Get the preset job to verify it exists and get its name
+			// Get the preset job to verify it exists and get its configuration
 			presetJob, err := h.presetJobRepo.GetByID(ctx, presetJobID)
 			if err != nil {
 				debug.Error("Failed to get preset job %s: %v", presetJobID, err)
 				continue
 			}
-			
-			// Generate job name
-			jobName := generateJobName(client, presetJob.Name, hashlist.Name, hashlist.HashTypeID, req.CustomJobName)
+
+			// Resolve wordlist and rule names from preset
+			wordlistNames := h.resolveWordlistNames(ctx, presetJob.WordlistIDs)
+			ruleNames := h.resolveRuleNames(ctx, presetJob.RuleIDs)
+
+			// Generate job name based on attack configuration
+			jobName := generateJobName(JobNameConfig{
+				Client:        client,
+				AttackMode:    presetJob.AttackMode,
+				WordlistNames: wordlistNames,
+				RuleNames:     ruleNames,
+				Mask:          presetJob.Mask,
+				IncrementMode: presetJob.IncrementMode,
+				HashTypeID:    hashlist.HashTypeID,
+				CustomName:    req.CustomJobName,
+			})
 
 			// Use CreateJobExecution to create job with keyspace calculation
 			jobExecution, err := h.jobExecutionService.CreateJobExecution(ctx, presetJobID, hashlistID, &userID, jobName)
@@ -500,15 +646,28 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 
 			// Create a job for each step in order
 			for _, step := range steps {
-				// Verify the preset job exists and get its name
+				// Verify the preset job exists and get its configuration
 				presetJob, err := h.presetJobRepo.GetByID(ctx, step.PresetJobID)
 				if err != nil {
 					debug.Error("Failed to get preset job %s for workflow step: %v", step.PresetJobID, err)
 					continue
 				}
-				
-				// Generate job name for workflow step
-				jobName := generateJobName(client, presetJob.Name, hashlist.Name, hashlist.HashTypeID, req.CustomJobName)
+
+				// Resolve wordlist and rule names from preset
+				wordlistNames := h.resolveWordlistNames(ctx, presetJob.WordlistIDs)
+				ruleNames := h.resolveRuleNames(ctx, presetJob.RuleIDs)
+
+				// Generate job name for workflow step based on attack configuration
+				jobName := generateJobName(JobNameConfig{
+					Client:        client,
+					AttackMode:    presetJob.AttackMode,
+					WordlistNames: wordlistNames,
+					RuleNames:     ruleNames,
+					Mask:          presetJob.Mask,
+					IncrementMode: presetJob.IncrementMode,
+					HashTypeID:    hashlist.HashTypeID,
+					CustomName:    req.CustomJobName,
+				})
 
 				// Use CreateJobExecution to create job with keyspace calculation
 				jobExecution, err := h.jobExecutionService.CreateJobExecution(ctx, step.PresetJobID, hashlistID, &userID, jobName)
@@ -573,9 +732,21 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			IncrementMax:              req.CustomJob.IncrementMax,
 		}
 
-		// Generate job name for custom job
-		// For custom jobs, prefer the top-level custom_job_name, fall back to the job's own name
-		jobName := generateJobName(client, "", hashlist.Name, hashlist.HashTypeID, req.CustomJobName)
+		// Resolve wordlist and rule names for custom job
+		wordlistNames := h.resolveWordlistNames(ctx, req.CustomJob.WordlistIDs)
+		ruleNames := h.resolveRuleNames(ctx, req.CustomJob.RuleIDs)
+
+		// Generate job name for custom job based on attack configuration
+		jobName := generateJobName(JobNameConfig{
+			Client:        client,
+			AttackMode:    models.AttackMode(req.CustomJob.AttackMode),
+			WordlistNames: wordlistNames,
+			RuleNames:     ruleNames,
+			Mask:          req.CustomJob.Mask,
+			IncrementMode: req.CustomJob.IncrementMode,
+			HashTypeID:    hashlist.HashTypeID,
+			CustomName:    req.CustomJobName,
+		})
 		
 		// Create job execution directly without saving preset
 		jobExecution, err := h.jobExecutionService.CreateCustomJobExecution(ctx, config, hashlistID, &userID, jobName)
