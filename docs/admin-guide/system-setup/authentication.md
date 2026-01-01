@@ -45,10 +45,13 @@ Account security settings manage login attempts, session duration, and security 
    - Must be a positive integer
    - Affects accounts locked due to exceeded login attempts
 
-3. **JWT Token Expiry**
+3. **JWT Token Expiry (Sliding Window Sessions)**
    - Default: 60 minutes
-   - Duration in minutes before an authentication token expires
-   - Forces users to re-authenticate after expiration
+   - Base duration for authentication sessions
+   - **Sliding Window Behavior**: Sessions automatically extend when you're actively using the system. The session refreshes after 1/3 of the session time (e.g., 20 minutes for a 60-minute session) when you perform actions like navigating between pages.
+   - **Activity-Based Extension**: Only actual user actions trigger session extension. Background polling, auto-refresh, and SSE streams do not extend the session.
+   - **Grace Period**: When a session refreshes, the old token remains valid for 5 minutes to handle concurrent requests from multiple browser tabs.
+   - If you remain idle for the full session duration, you'll need to re-authenticate
    - Balances security with user convenience
 
 4. **Notification Aggregation Interval**

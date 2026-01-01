@@ -156,8 +156,9 @@ System roles with increasing privileges:
 
 ### JWT Token Security
 
-- **Short-Lived Access Tokens**: 15-minute default expiry
-- **Refresh Token Rotation**: New refresh token on each use
+- **Configurable Session Duration**: Default 60-minute session timeout (configurable by admin)
+- **Sliding Window Sessions**: Sessions automatically extend on user activity after 1/3 of session time, eliminating unexpected logouts during active use
+- **Grace Period**: 5-minute grace period when tokens refresh, allowing concurrent requests from multiple browser tabs to complete
 - **Secure Storage**: Tokens never logged or stored in plaintext
 - **Revocation Support**: Immediate token invalidation
 

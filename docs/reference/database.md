@@ -1421,7 +1421,7 @@ The users table has been extended with additional security columns added through
 
 ### tokens
 
-JWT token storage (added in migration 7).
+JWT token storage with sliding window session support (added in migration 7, updated in migration 101).
 
 | Column | Type | Constraints | Default | Description |
 |--------|------|-------------|---------|-------------|
@@ -1434,15 +1434,25 @@ JWT token storage (added in migration 7).
 | revoked | BOOLEAN | | FALSE | Revocation status |
 | revoked_at | TIMESTAMP WITH TIME ZONE | | | Revocation time |
 | revoked_reason | TEXT | | | Revocation reason |
+| superseded_at | TIMESTAMP WITH TIME ZONE | | | When token was replaced by a new token (migration 101) |
+| superseded_by | UUID | FK → tokens(id) | | Reference to the replacement token (migration 101) |
+
+**Sliding Window Session Behavior:**
+- Tokens are refreshed on user activity after 1/3 of the session time has passed
+- When refreshed, the old token is marked as superseded (not immediately invalidated)
+- Superseded tokens remain valid for a 5-minute grace period to handle concurrent requests
+- Token validity check: `superseded_at IS NULL OR superseded_at > NOW() - INTERVAL '5 minutes'`
 
 **Relationships:**
 - Referenced by `active_sessions(token_id)` with CASCADE delete (migration 65)
 - Deleting a token automatically removes all associated sessions
+- Self-referential via `superseded_by` to track token refresh chain
 
 **Indexes:**
 - idx_tokens_token (token)
 - idx_tokens_user_id (user_id)
 - idx_tokens_revoked (revoked)
+- idx_tokens_superseded_at (superseded_at) - For efficient grace period queries (migration 101)
 
 ### auth_settings
 
@@ -1661,7 +1671,7 @@ The potfile system initializes in stages during server startup:
 
 ## Migration History
 
-The database schema has evolved through 83 migrations:
+The database schema has evolved through 101 migrations:
 
 1. **000001**: Initial schema - users, teams, user_teams
 2. **000002**: Add auth_tokens table
@@ -1791,6 +1801,12 @@ The database schema has evolved through 83 migrations:
    - Adds `job_executions.cracking_completed_at` - when all tasks finished hashcat
    - Distinguishes between hashcat completion and full processing completion
    - Enables tracking of hashcat work time vs data transmission time
+101. **000101**: Add token sliding window session support
+   - Adds `tokens.superseded_at` column for tracking when a token was replaced
+   - Adds `tokens.superseded_by` column referencing the replacement token
+   - Creates `idx_tokens_superseded_at` index for efficient grace period queries
+   - Enables sliding window sessions that extend on user activity
+   - Old tokens remain valid for 5-minute grace period after refresh
 
 ---
 
