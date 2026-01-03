@@ -216,18 +216,23 @@ const PresetJobFormPage: React.FC = () => {
             setError('Failed to load preset job. Please try again.');
             // Set default form state even if job fetch fails
             if (formDataResponse.binary_versions?.length > 0) {
+              // Find the default binary, or fall back to first in list
+              const defaultBinary = formDataResponse.binary_versions.find(b => b.is_default)
+                || formDataResponse.binary_versions[0];
               setFormData(prev => ({
                 ...prev,
-                binary_version_id: formDataResponse.binary_versions[0].id
+                binary_version_id: defaultBinary.id
               }));
             }
           }
         } else if (formDataResponse.binary_versions?.length > 0) {
           // For new jobs, set default binary version and chunk duration
-          // Assuming the backend returns them in descending order of creation
+          // Find the default binary, or fall back to first in list
+          const defaultBinary = formDataResponse.binary_versions.find(b => b.is_default)
+            || formDataResponse.binary_versions[0];
           setFormData(prev => ({
             ...prev,
-            binary_version_id: formDataResponse.binary_versions[0].id,
+            binary_version_id: defaultBinary.id,
             chunk_size_seconds: systemDefaultChunkDuration
           }));
         }

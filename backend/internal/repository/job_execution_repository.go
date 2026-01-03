@@ -28,9 +28,11 @@ func (r *JobExecutionRepository) Create(ctx context.Context, exec *models.JobExe
 			preset_job_id, hashlist_id, status, priority, max_agents, attack_mode, total_keyspace, created_by,
 			name, wordlist_ids, rule_ids, mask, binary_version_id, hash_type,
 			chunk_size_seconds, status_updates_enabled, allow_high_priority_override, additional_args,
-			increment_mode, increment_min, increment_max
+			increment_mode, increment_min, increment_max,
+			base_keyspace, effective_keyspace, multiplication_factor, is_accurate_keyspace, uses_rule_splitting,
+			avg_rule_multiplier
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
 		RETURNING id, created_at`
 
 	err := r.db.QueryRowContext(ctx, query,
@@ -55,6 +57,12 @@ func (r *JobExecutionRepository) Create(ctx context.Context, exec *models.JobExe
 		exec.IncrementMode,
 		exec.IncrementMin,
 		exec.IncrementMax,
+		exec.BaseKeyspace,
+		exec.EffectiveKeyspace,
+		exec.MultiplicationFactor,
+		exec.IsAccurateKeyspace,
+		exec.UsesRuleSplitting,
+		exec.AvgRuleMultiplier,
 	).Scan(&exec.ID, &exec.CreatedAt)
 
 	if err != nil {

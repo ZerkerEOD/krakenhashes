@@ -66,7 +66,11 @@ type PresetJob struct {
 	BinaryVersionID           int        `json:"binary_version_id" db:"binary_version_id"`       // References binary_versions.id
 	Mask                      string     `json:"mask,omitempty" db:"mask"`                       // For mask-based attack modes
 	AdditionalArgs            *string    `json:"additional_args,omitempty" db:"additional_args"` // Additional hashcat arguments
-	Keyspace                  *int64     `json:"keyspace,omitempty" db:"keyspace"`               // Pre-calculated keyspace for this preset
+	Keyspace                  *int64     `json:"keyspace,omitempty" db:"keyspace"`               // Pre-calculated base keyspace from --keyspace
+	EffectiveKeyspace         *int64     `json:"effective_keyspace,omitempty" db:"effective_keyspace"` // Actual effective keyspace from --total-candidates
+	IsAccurateKeyspace        bool       `json:"is_accurate_keyspace" db:"is_accurate_keyspace"` // TRUE if effective_keyspace from --total-candidates
+	UseRuleSplitting          bool       `json:"use_rule_splitting" db:"use_rule_splitting"`    // TRUE if jobs should use rule splitting
+	MultiplicationFactor      int        `json:"multiplication_factor" db:"multiplication_factor"` // Rule multiplier (effective/base) for rule splitting
 	MaxAgents                 int        `json:"max_agents" db:"max_agents"`                     // Max agents allowed (0 = unlimited)
 	IncrementMode             string     `json:"increment_mode,omitempty" db:"increment_mode"`   // Mask increment mode: off, increment, increment_inverse
 	IncrementMin              *int       `json:"increment_min,omitempty" db:"increment_min"`     // Starting mask length for increment mode

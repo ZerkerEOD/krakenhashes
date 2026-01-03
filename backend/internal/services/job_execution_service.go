@@ -159,20 +159,50 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 
 	// Use pre-calculated keyspace from preset job if available
 	var totalKeyspace *int64
+	var effectiveKeyspace *int64
+	var isAccurateKeyspace bool
+	var useRuleSplitting bool
+	var multiplicationFactor int = 1
+
 	if presetJob.Keyspace != nil && *presetJob.Keyspace > 0 {
 		totalKeyspace = presetJob.Keyspace
+		effectiveKeyspace = presetJob.EffectiveKeyspace
+		isAccurateKeyspace = presetJob.IsAccurateKeyspace
+		useRuleSplitting = presetJob.UseRuleSplitting
+		multiplicationFactor = presetJob.MultiplicationFactor
 		debug.Log("Using pre-calculated keyspace from preset job", map[string]interface{}{
-			"preset_job_id": presetJobID,
-			"keyspace":      *totalKeyspace,
+			"preset_job_id":         presetJobID,
+			"keyspace":              *totalKeyspace,
+			"effective_keyspace":    effectiveKeyspace,
+			"is_accurate_keyspace":  isAccurateKeyspace,
+			"use_rule_splitting":    useRuleSplitting,
+			"multiplication_factor": multiplicationFactor,
 		})
 	} else {
 		// Fallback to calculating keyspace if not pre-calculated
 		debug.Warning("Preset job has no pre-calculated keyspace, calculating now")
-		totalKeyspace, err = s.calculateKeyspace(ctx, presetJob, hashlist)
+		totalKeyspace, effectiveKeyspace, isAccurateKeyspace, err = s.calculateKeyspace(ctx, presetJob, hashlist)
 		if err != nil {
 			debug.Error("Failed to calculate keyspace: %v", err)
 			return nil, fmt.Errorf("keyspace calculation is required for job execution: %w", err)
 		}
+		// Determine rule splitting for fallback case
+		useRuleSplitting = len(presetJob.RuleIDs) > 0 && isAccurateKeyspace
+		// Calculate multiplication factor from returned values
+		if isAccurateKeyspace && totalKeyspace != nil && *totalKeyspace > 0 && effectiveKeyspace != nil && *effectiveKeyspace > 0 {
+			multiplicationFactor = int(*effectiveKeyspace / *totalKeyspace)
+			if multiplicationFactor < 1 {
+				multiplicationFactor = 1
+			}
+		}
+	}
+
+	// Set avg_rule_multiplier for accurate keyspace jobs (used in progress calculations)
+	// For accurate keyspace jobs, this is the same as multiplication_factor but as float64
+	var avgRuleMultiplier *float64
+	if isAccurateKeyspace && multiplicationFactor > 0 {
+		v := float64(multiplicationFactor)
+		avgRuleMultiplier = &v
 	}
 
 	// Create job execution with all configuration copied from preset
@@ -186,7 +216,7 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		AttackMode:        presetJob.AttackMode,
 		MaxAgents:         presetJob.MaxAgents,
 		CreatedBy:         createdBy,
-		
+
 		// Copy all configuration from preset to make job self-contained
 		Name:                      customJobName, // Will be set after getting client info
 		WordlistIDs:               presetJob.WordlistIDs,
@@ -201,6 +231,14 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		IncrementMode:             presetJob.IncrementMode,
 		IncrementMin:              presetJob.IncrementMin,
 		IncrementMax:              presetJob.IncrementMax,
+
+		// Keyspace values from preset or calculated
+		BaseKeyspace:         totalKeyspace,
+		EffectiveKeyspace:    effectiveKeyspace,
+		MultiplicationFactor: multiplicationFactor,
+		IsAccurateKeyspace:   isAccurateKeyspace,
+		UsesRuleSplitting:    useRuleSplitting,
+		AvgRuleMultiplier:    avgRuleMultiplier, // For progress calculations
 	}
 
 	err = s.jobExecRepo.Create(ctx, jobExecution)
@@ -228,8 +266,9 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 
 	// Calculate effective keyspace after creating the job
 	// Skip for increment mode jobs - initializeIncrementLayers already sets both base_keyspace and effective_keyspace
+	// Skip if we already have accurate keyspace from preset (--total-candidates succeeded)
 	// calculateEffectiveKeyspace would incorrectly overwrite base_keyspace with effective_keyspace value
-	if jobExecution.IncrementMode == "" || jobExecution.IncrementMode == "off" {
+	if (jobExecution.IncrementMode == "" || jobExecution.IncrementMode == "off") && !jobExecution.IsAccurateKeyspace {
 		err = s.calculateEffectiveKeyspace(ctx, jobExecution, presetJob)
 		if err != nil {
 			debug.Error("Failed to calculate effective keyspace: job_execution_id=%s, error=%v",
@@ -302,10 +341,29 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 	}
 
 	// Use the same keyspace calculation as preset jobs
-	totalKeyspace, err := s.calculateKeyspace(ctx, tempPreset, hashlist)
+	totalKeyspace, effectiveKeyspace, isAccurateKeyspace, err := s.calculateKeyspace(ctx, tempPreset, hashlist)
 	if err != nil {
 		debug.Error("Failed to calculate keyspace for custom job: %v", err)
 		return nil, fmt.Errorf("keyspace calculation is required for job execution: %w", err)
+	}
+
+	// Determine rule splitting for custom jobs
+	useRuleSplitting := len(config.RuleIDs) > 0 && isAccurateKeyspace
+
+	// Calculate multiplication factor from keyspace values
+	multiplicationFactor := 1
+	if isAccurateKeyspace && totalKeyspace != nil && *totalKeyspace > 0 && effectiveKeyspace != nil && *effectiveKeyspace > 0 {
+		multiplicationFactor = int(*effectiveKeyspace / *totalKeyspace)
+		if multiplicationFactor < 1 {
+			multiplicationFactor = 1
+		}
+	}
+
+	// Set avg_rule_multiplier for accurate keyspace jobs (used in progress calculations)
+	var avgRuleMultiplier *float64
+	if isAccurateKeyspace && multiplicationFactor > 0 {
+		v := float64(multiplicationFactor)
+		avgRuleMultiplier = &v
 	}
 
 	// Create self-contained job execution
@@ -319,7 +377,7 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		AttackMode:        config.AttackMode,
 		MaxAgents:         config.MaxAgents,
 		CreatedBy:         createdBy,
-		
+
 		// Direct configuration (not from preset)
 		Name:                      customJobName, // Will be set with proper naming logic
 		WordlistIDs:               config.WordlistIDs,
@@ -334,6 +392,14 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		IncrementMode:             config.IncrementMode,
 		IncrementMin:              config.IncrementMin,
 		IncrementMax:              config.IncrementMax,
+
+		// Keyspace values from calculation
+		BaseKeyspace:         totalKeyspace,
+		EffectiveKeyspace:    effectiveKeyspace,
+		MultiplicationFactor: multiplicationFactor,
+		IsAccurateKeyspace:   isAccurateKeyspace,
+		UsesRuleSplitting:    useRuleSplitting,
+		AvgRuleMultiplier:    avgRuleMultiplier, // For progress calculations
 	}
 
 	err = s.jobExecRepo.Create(ctx, jobExecution)
@@ -352,8 +418,9 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 
 	// Use the same effective keyspace calculation
 	// Skip for increment mode jobs - initializeIncrementLayers already sets both base_keyspace and effective_keyspace
+	// Skip if we already have accurate keyspace (--total-candidates succeeded)
 	// calculateEffectiveKeyspace would incorrectly overwrite base_keyspace with effective_keyspace value
-	if jobExecution.IncrementMode == "" || jobExecution.IncrementMode == "off" {
+	if (jobExecution.IncrementMode == "" || jobExecution.IncrementMode == "off") && !jobExecution.IsAccurateKeyspace {
 		err = s.calculateEffectiveKeyspace(ctx, jobExecution, tempPreset)
 		if err != nil {
 			debug.Error("Failed to calculate effective keyspace: job_execution_id=%s, error=%v",
@@ -376,7 +443,10 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 }
 
 // calculateKeyspace calculates the total keyspace for a job using hashcat --keyspace
-func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *models.PresetJob, hashlist *models.HashList) (*int64, error) {
+// Returns: baseKeyspace, effectiveKeyspace, isAccurateKeyspace, error
+// If --total-candidates succeeds, effectiveKeyspace will be accurate and isAccurateKeyspace=true
+// Otherwise, effectiveKeyspace will be an estimate and isAccurateKeyspace=false
+func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *models.PresetJob, hashlist *models.HashList) (*int64, *int64, bool, error) {
 	debug.Log("Starting keyspace calculation for job execution", map[string]interface{}{
 		"preset_job_id":     presetJob.ID,
 		"binary_version_id": presetJob.BinaryVersionID,
@@ -390,14 +460,14 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 	if err != nil {
 		debug.Error("Failed to get hashcat binary path: binary_version_id=%d, error=%v",
 			presetJob.BinaryVersionID, err)
-		return nil, fmt.Errorf("failed to get hashcat binary path for version %d: %w", presetJob.BinaryVersionID, err)
+		return nil, nil, false, fmt.Errorf("failed to get hashcat binary path for version %d: %w", presetJob.BinaryVersionID, err)
 	}
-	
+
 	// Verify the binary exists and is executable
 	if fileInfo, err := os.Stat(hashcatPath); err != nil {
 		debug.Error("Hashcat binary not found: path=%s, error=%v",
 			hashcatPath, err)
-		return nil, fmt.Errorf("hashcat binary not found at %s: %w", hashcatPath, err)
+		return nil, nil, false, fmt.Errorf("hashcat binary not found at %s: %w", hashcatPath, err)
 	} else {
 		debug.Log("Found hashcat binary", map[string]interface{}{
 			"path": hashcatPath,
@@ -422,7 +492,7 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 		for _, wordlistIDStr := range presetJob.WordlistIDs {
 			wordlistPath, err := s.resolveWordlistPath(ctx, wordlistIDStr)
 			if err != nil {
-				return nil, fmt.Errorf("failed to resolve wordlist path: %w", err)
+				return nil, nil, false, fmt.Errorf("failed to resolve wordlist path: %w", err)
 			}
 			args = append(args, wordlistPath)
 		}
@@ -430,7 +500,7 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 		for _, ruleIDStr := range presetJob.RuleIDs {
 			rulePath, err := s.resolveRulePath(ctx, ruleIDStr)
 			if err != nil {
-				return nil, fmt.Errorf("failed to resolve rule path: %w", err)
+				return nil, nil, false, fmt.Errorf("failed to resolve rule path: %w", err)
 			}
 			args = append(args, "-r", rulePath)
 		}
@@ -439,11 +509,11 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 		if len(presetJob.WordlistIDs) >= 2 {
 			wordlist1Path, err := s.resolveWordlistPath(ctx, presetJob.WordlistIDs[0])
 			if err != nil {
-				return nil, fmt.Errorf("failed to resolve wordlist1 path: %w", err)
+				return nil, nil, false, fmt.Errorf("failed to resolve wordlist1 path: %w", err)
 			}
 			wordlist2Path, err := s.resolveWordlistPath(ctx, presetJob.WordlistIDs[1])
 			if err != nil {
-				return nil, fmt.Errorf("failed to resolve wordlist2 path: %w", err)
+				return nil, nil, false, fmt.Errorf("failed to resolve wordlist2 path: %w", err)
 			}
 			args = append(args, wordlist1Path, wordlist2Path)
 		}
@@ -457,7 +527,7 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 		if len(presetJob.WordlistIDs) > 0 && presetJob.Mask != "" {
 			wordlistPath, err := s.resolveWordlistPath(ctx, presetJob.WordlistIDs[0])
 			if err != nil {
-				return nil, fmt.Errorf("failed to resolve wordlist path: %w", err)
+				return nil, nil, false, fmt.Errorf("failed to resolve wordlist path: %w", err)
 			}
 			args = append(args, wordlistPath, presetJob.Mask)
 		}
@@ -466,36 +536,52 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 		if presetJob.Mask != "" && len(presetJob.WordlistIDs) > 0 {
 			wordlistPath, err := s.resolveWordlistPath(ctx, presetJob.WordlistIDs[0])
 			if err != nil {
-				return nil, fmt.Errorf("failed to resolve wordlist path: %w", err)
+				return nil, nil, false, fmt.Errorf("failed to resolve wordlist path: %w", err)
 			}
 			args = append(args, presetJob.Mask, wordlistPath)
 		}
 
 	default:
-		return nil, fmt.Errorf("unsupported attack mode for keyspace calculation: %d", presetJob.AttackMode)
+		return nil, nil, false, fmt.Errorf("unsupported attack mode for keyspace calculation: %d", presetJob.AttackMode)
 	}
+
+	// Save base args for reuse with --total-candidates
+	baseArgs := make([]string, len(args))
+	copy(baseArgs, args)
 
 	// Add keyspace flag
 	args = append(args, "--keyspace")
+
+	// Add session management to prevent conflicts (like preset version)
+	args = append(args, "--restore-disable")
+
+	// Add a unique session ID to allow concurrent executions
+	sessionID := fmt.Sprintf("job_keyspace_%s_%d", hashlist.ID, time.Now().UnixNano())
+	args = append(args, "--session", sessionID)
+
+	// Add --quiet flag to suppress unnecessary output
+	args = append(args, "--quiet")
 
 	debug.Log("Calculating keyspace", map[string]interface{}{
 		"command":     hashcatPath,
 		"args":        args,
 		"attack_mode": presetJob.AttackMode,
+		"session_id":  sessionID,
 	})
 
 	// Execute hashcat command with timeout
-	// Increase timeout to 2 minutes to allow for large wordlist processing
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	// Increase timeout to 4 minutes to allow for large wordlist processing and --total-candidates
+	ctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
 	defer cancel()
 
 	startTime := time.Now()
 	cmd := exec.CommandContext(ctx, hashcatPath, args...)
 
-	// Log current working directory for debugging
-	cwd, _ := os.Getwd()
+	// Set working directory to data directory to ensure session files are created there
+	cmd.Dir = s.dataDirectory
+
 	debug.Log("Executing hashcat command", map[string]interface{}{
-		"working_dir": cwd,
+		"working_dir": s.dataDirectory,
 		"command":     hashcatPath,
 		"args":        args,
 	})
@@ -506,18 +592,28 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 	cmd.Stderr = &stderr
 
 	err = cmd.Run()
+
+	// Clean up session files regardless of success/failure
+	sessionFiles := []string{
+		filepath.Join(s.dataDirectory, sessionID+".log"),
+		filepath.Join(s.dataDirectory, sessionID+".potfile"),
+	}
+	for _, file := range sessionFiles {
+		_ = os.Remove(file)
+	}
+
 	if err != nil {
 		// Log the full output for debugging
 		debug.Error("Hashcat keyspace calculation failed: error=%v, stdout=%s, stderr=%s, working_dir=%s, command=%s, args=%v",
-			err, stdout.String(), stderr.String(), cwd, hashcatPath, args)
-		return nil, fmt.Errorf("hashcat keyspace calculation failed: %w\nstdout: %s\nstderr: %s", err, stdout.String(), stderr.String())
+			err, stdout.String(), stderr.String(), s.dataDirectory, hashcatPath, args)
+		return nil, nil, false, fmt.Errorf("hashcat keyspace calculation failed: %w\nstdout: %s\nstderr: %s", err, stdout.String(), stderr.String())
 	}
 
 	// Parse keyspace from output
 	// The keyspace should be the last line of stdout (ignoring stderr warnings about invalid rules)
 	outputLines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
 	if len(outputLines) == 0 {
-		return nil, fmt.Errorf("no output from hashcat keyspace calculation")
+		return nil, nil, false, fmt.Errorf("no output from hashcat keyspace calculation")
 	}
 
 	// Get the last non-empty line
@@ -532,21 +628,163 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 
 	keyspace, err := strconv.ParseInt(keyspaceStr, 10, 64)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse keyspace '%s': %w", keyspaceStr, err)
+		return nil, nil, false, fmt.Errorf("failed to parse keyspace '%s': %w", keyspaceStr, err)
 	}
 
 	if keyspace <= 0 {
-		return nil, fmt.Errorf("invalid keyspace: %d", keyspace)
+		return nil, nil, false, fmt.Errorf("invalid keyspace: %d", keyspace)
 	}
 
 	duration := time.Since(startTime)
-	debug.Log("Keyspace calculated successfully", map[string]interface{}{
+	debug.Log("Base keyspace calculated successfully", map[string]interface{}{
 		"keyspace":        keyspace,
 		"duration":        duration.String(),
 		"stderr_warnings": stderr.String(),
 	})
 
-	return &keyspace, nil
+	// Step 2: Calculate effective keyspace using --total-candidates
+	// This accounts for rule effectiveness and gives the true candidate count
+	effectiveKeyspace, isAccurate, err := s.calculateTotalCandidates(ctx, hashcatPath, baseArgs, strconv.FormatInt(hashlist.ID, 10))
+	if err != nil {
+		// Error is unexpected - log and fall back to estimation
+		debug.Warning("Error calculating total candidates: %v, falling back to estimation", err)
+		isAccurate = false
+	}
+
+	var effectiveKeyspacePtr *int64
+	if isAccurate && effectiveKeyspace > 0 {
+		// Use accurate value from --total-candidates
+		effectiveKeyspacePtr = &effectiveKeyspace
+
+		debug.Log("Using accurate effective keyspace from --total-candidates", map[string]interface{}{
+			"hashlist_id":        hashlist.ID,
+			"base_keyspace":      keyspace,
+			"effective_keyspace": effectiveKeyspace,
+		})
+	} else {
+		// Fall back to estimation: base * rule_count
+		estimatedEffective := keyspace
+		if len(presetJob.RuleIDs) > 0 {
+			// For estimation, assume each rule file has approximately 1 rule on average
+			// This is conservative - actual count may vary significantly
+			ruleCount := int64(len(presetJob.RuleIDs))
+			if ruleCount > 0 {
+				estimatedEffective = keyspace * ruleCount
+			}
+		}
+		effectiveKeyspacePtr = &estimatedEffective
+
+		debug.Log("Using estimated effective keyspace (--total-candidates failed or unavailable)", map[string]interface{}{
+			"hashlist_id":       hashlist.ID,
+			"base_keyspace":     keyspace,
+			"estimated_effective": estimatedEffective,
+			"rule_count":        len(presetJob.RuleIDs),
+		})
+	}
+
+	debug.Log("Keyspace calculation complete", map[string]interface{}{
+		"hashlist_id":          hashlist.ID,
+		"base_keyspace":        keyspace,
+		"effective_keyspace":   effectiveKeyspacePtr,
+		"is_accurate_keyspace": isAccurate,
+	})
+
+	return &keyspace, effectiveKeyspacePtr, isAccurate, nil
+}
+
+// calculateTotalCandidates runs hashcat --total-candidates with retry logic to get actual effective keyspace.
+// This accounts for rule effectiveness and gives the true candidate count.
+// Returns (effectiveKeyspace, isAccurate, error)
+// On failure after retries, returns (0, false, nil) to allow fallback to estimation.
+func (s *JobExecutionService) calculateTotalCandidates(
+	ctx context.Context,
+	hashcatPath string,
+	baseArgs []string,
+	jobID string,
+) (int64, bool, error) {
+	const maxRetries = 3
+	const retryDelay = 5 * time.Second
+
+	// Build args for --total-candidates (same as --keyspace but different flag)
+	args := make([]string, len(baseArgs))
+	copy(args, baseArgs)
+	args = append(args, "--total-candidates")
+
+	// Add session management
+	args = append(args, "--restore-disable")
+	sessionID := fmt.Sprintf("job_total_candidates_%s_%d", jobID, time.Now().UnixNano())
+	args = append(args, "--session", sessionID)
+	args = append(args, "--quiet")
+
+	var lastErr error
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			debug.Warning("Retrying --total-candidates (attempt %d/%d) after %v delay: %v",
+				attempt, maxRetries, retryDelay, lastErr)
+			time.Sleep(retryDelay)
+		}
+
+		execCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+		cmd := exec.CommandContext(execCtx, hashcatPath, args...)
+		cmd.Dir = s.dataDirectory
+
+		var stdout, stderr bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+
+		err := cmd.Run()
+		cancel()
+
+		// Clean up session files
+		sessionFiles := []string{
+			filepath.Join(s.dataDirectory, sessionID+".log"),
+			filepath.Join(s.dataDirectory, sessionID+".potfile"),
+		}
+		for _, file := range sessionFiles {
+			_ = os.Remove(file)
+		}
+
+		if err != nil {
+			stderrStr := stderr.String()
+			// Check if hashcat is busy (already running)
+			if strings.Contains(stderrStr, "Already an instance") ||
+				strings.Contains(stderrStr, "already running") {
+				lastErr = fmt.Errorf("hashcat busy: %s", stderrStr)
+				continue // Retry
+			}
+			// Other error - log and allow fallback
+			debug.Warning("--total-candidates failed: %v, stderr: %s", err, stderrStr)
+			return 0, false, nil // Allow fallback to estimation
+		}
+
+		// Parse result - get last non-empty line
+		outputLines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+		var keyspaceStr string
+		for i := len(outputLines) - 1; i >= 0; i-- {
+			line := strings.TrimSpace(outputLines[i])
+			if line != "" {
+				keyspaceStr = line
+				break
+			}
+		}
+
+		effectiveKeyspace, parseErr := strconv.ParseInt(keyspaceStr, 10, 64)
+		if parseErr != nil {
+			debug.Warning("Failed to parse --total-candidates output '%s': %v", keyspaceStr, parseErr)
+			return 0, false, nil // Allow fallback
+		}
+
+		debug.Log("Calculated total candidates successfully", map[string]interface{}{
+			"job_id":             jobID,
+			"effective_keyspace": effectiveKeyspace,
+			"method":             "--total-candidates",
+		})
+
+		return effectiveKeyspace, true, nil
+	}
+
+	debug.Warning("--total-candidates exhausted retries for job %s: %v", jobID, lastErr)
+	return 0, false, nil // Allow fallback to estimation
 }
 
 // fileExists checks if a file exists
@@ -704,27 +942,17 @@ func (s *JobExecutionService) calculateEffectiveKeyspace(ctx context.Context, jo
 
 			job.BaseKeyspace = &baseKeyspace
 			job.MultiplicationFactor = int(totalRuleCount)
-			job.IsAccurateKeyspace = false // Will be set by first agent benchmark
+			job.IsAccurateKeyspace = false // Will be set by first agent benchmark or --total-candidates
 
-			// Get the hashlist to determine hash/salt count for salted hash types
-			// For salted types (NetNTLMv2, bcrypt, etc.), keyspace is multiplied by hash count
-			hashCount := 1
-			hashlist, err := s.hashlistRepo.GetByID(ctx, job.HashlistID)
-			if err != nil {
-				debug.Warning("Failed to get hashlist for salt count, using 1: %v", err)
-			} else if hashlist != nil && hashlist.TotalHashes > 0 {
-				hashCount = hashlist.TotalHashes
-			}
-
-			// Estimate effective keyspace using simple formula (no learned multipliers)
-			// Formula: base_keyspace × rule_count × hash_count
-			// NOTE: This is an estimate. The forced benchmark will provide accurate values.
-			estimatedEffective := baseKeyspace * totalRuleCount * int64(hashCount)
+			// Estimate effective keyspace using simple formula
+			// Formula: base_keyspace × rule_count
+			// NOTE: hash_count is NOT part of keyspace - keyspace is about candidates to try,
+			// not targets. This is an estimate; --total-candidates or benchmark provides accurate values.
+			estimatedEffective := baseKeyspace * totalRuleCount
 			job.EffectiveKeyspace = &estimatedEffective
 
 			debug.Log("Straight attack with rules - estimated effective keyspace", map[string]interface{}{
 				"rule_count":          totalRuleCount,
-				"hash_count":          hashCount,
 				"base_keyspace":       baseKeyspace,
 				"estimated_effective": estimatedEffective,
 			})

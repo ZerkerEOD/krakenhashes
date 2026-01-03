@@ -13,6 +13,7 @@ export interface RuleBasic {
 export interface BinaryVersionBasic {
   id: number; // Keep as int based on backend model
   name: string;
+  is_default: boolean; // Whether this is the default binary version
 }
 
 // Corresponds to models.AttackMode

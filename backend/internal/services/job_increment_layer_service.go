@@ -1,11 +1,15 @@
 package services
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/utils"
@@ -308,23 +312,55 @@ func (s *JobExecutionService) initializeIncrementLayers(ctx context.Context, job
 // calculateMaskKeyspace runs hashcat --keyspace to get the keyspace for a specific mask
 func (s *JobExecutionService) calculateMaskKeyspace(ctx context.Context, hashcatPath string, mask string) (int64, error) {
 	// Build command: hashcat -a 3 <mask> --keyspace
-	args := []string{"-a", "3", mask, "--keyspace"}
+	args := []string{"-a", "3", mask, "--keyspace", "--restore-disable", "--quiet"}
+
+	// Add a unique session ID to allow concurrent executions
+	sessionID := fmt.Sprintf("layer_keyspace_%d", time.Now().UnixNano())
+	args = append(args, "--session", sessionID)
 
 	debug.Log("Calculating keyspace for mask", map[string]interface{}{
 		"mask":         mask,
 		"hashcat_path": hashcatPath,
+		"session_id":   sessionID,
 	})
 
+	// Execute with timeout
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
 	cmd := exec.CommandContext(ctx, hashcatPath, args...)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		// CombinedOutput includes stderr in the output on error
-		stderr := strings.TrimSpace(string(output))
-		return 0, fmt.Errorf("hashcat --keyspace command failed: %w (stderr: %s)", err, stderr)
+	cmd.Dir = s.dataDirectory
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+
+	// Clean up session files
+	sessionFiles := []string{
+		filepath.Join(s.dataDirectory, sessionID+".log"),
+		filepath.Join(s.dataDirectory, sessionID+".potfile"),
+	}
+	for _, file := range sessionFiles {
+		_ = os.Remove(file)
 	}
 
-	// Parse output (should be a single number)
-	keyspaceStr := strings.TrimSpace(string(output))
+	if err != nil {
+		return 0, fmt.Errorf("hashcat --keyspace command failed: %w (stderr: %s)", err, stderr.String())
+	}
+
+	// Parse output - get the last non-empty line
+	keyspaceStr := strings.TrimSpace(stdout.String())
+	lines := strings.Split(keyspaceStr, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := strings.TrimSpace(lines[i])
+		if line != "" {
+			keyspaceStr = line
+			break
+		}
+	}
+
 	keyspace, err := strconv.ParseInt(keyspaceStr, 10, 64)
 	if err != nil {
 		return 0, fmt.Errorf("failed to parse keyspace output '%s': %w", keyspaceStr, err)

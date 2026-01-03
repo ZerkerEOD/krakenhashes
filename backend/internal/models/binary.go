@@ -42,6 +42,7 @@ type BinaryVersion struct {
 
 // BinaryVersionBasic is a subset used for form data lists.
 type BinaryVersionBasic struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"` // Using FileName as Name for display
+	ID        int    `json:"id"`
+	Name      string `json:"name"`       // Using FileName as Name for display
+	IsDefault bool   `json:"is_default"` // Whether this is the default binary version
 }

@@ -345,9 +345,22 @@ func (s *adminPresetJobService) UpdatePresetJob(ctx context.Context, id uuid.UUI
 	// Check if keyspace was explicitly provided (from recalculation endpoint)
 	if params.Keyspace != nil {
 		// Keyspace was explicitly set, use it
+		// But also keep other keyspace-related fields if not set
+		if params.EffectiveKeyspace == nil {
+			params.EffectiveKeyspace = existingJob.EffectiveKeyspace
+		}
+		if !params.IsAccurateKeyspace && existingJob.IsAccurateKeyspace {
+			params.IsAccurateKeyspace = existingJob.IsAccurateKeyspace
+		}
+		if !params.UseRuleSplitting && existingJob.UseRuleSplitting {
+			params.UseRuleSplitting = existingJob.UseRuleSplitting
+		}
+		if params.MultiplicationFactor == 0 {
+			params.MultiplicationFactor = existingJob.MultiplicationFactor
+		}
 		debug.Info("Using explicitly provided keyspace for preset job %s: %v", id, params.Keyspace)
 	} else if s.needsKeyspaceRecalculation(existingJob, &params) || incrementSettingsChanged {
-		// Recalculate keyspace
+		// Recalculate keyspace - CalculateKeyspaceForPresetJob sets all fields on params
 		keyspace, err := s.CalculateKeyspaceForPresetJob(ctx, &params)
 		if err != nil {
 			// Log the error but don't fail update - keyspace can be calculated later
@@ -355,8 +368,12 @@ func (s *adminPresetJobService) UpdatePresetJob(ctx context.Context, id uuid.UUI
 		}
 		params.Keyspace = keyspace
 	} else {
-		// Keep existing keyspace if no changes affecting it
+		// Keep ALL existing keyspace-related fields if no changes affecting them
 		params.Keyspace = existingJob.Keyspace
+		params.EffectiveKeyspace = existingJob.EffectiveKeyspace
+		params.IsAccurateKeyspace = existingJob.IsAccurateKeyspace
+		params.UseRuleSplitting = existingJob.UseRuleSplitting
+		params.MultiplicationFactor = existingJob.MultiplicationFactor
 	}
 
 	updatedJob, err := s.presetJobRepo.Update(ctx, id, params)
@@ -559,6 +576,10 @@ func (s *adminPresetJobService) CalculateKeyspaceForPresetJob(ctx context.Contex
 		return nil, fmt.Errorf("unsupported attack mode for keyspace calculation: %d", presetJob.AttackMode)
 	}
 
+	// Save base args for reuse with --total-candidates
+	baseArgs := make([]string, len(args))
+	copy(baseArgs, args)
+
 	// Add keyspace flag
 	args = append(args, "--keyspace")
 
@@ -657,12 +678,85 @@ func (s *adminPresetJobService) CalculateKeyspaceForPresetJob(ctx context.Contex
 		return nil, fmt.Errorf("invalid keyspace: %d", keyspace)
 	}
 
-	debug.Log("Keyspace calculated successfully", map[string]interface{}{
+	debug.Log("Base keyspace calculated successfully", map[string]interface{}{
 		"preset_job_id": presetJob.ID,
 		"keyspace":      keyspace,
 		"session_id":    sessionID,
 		"stdout_lines":  len(outputLines),
 		"keyspace_str":  keyspaceStr,
+	})
+
+	// Step 2: Calculate effective keyspace using --total-candidates
+	// This accounts for rule effectiveness and gives the true candidate count
+	effectiveKeyspace, isAccurate, err := s.calculateTotalCandidates(ctx, hashcatPath, baseArgs, presetJob.ID.String())
+	if err != nil {
+		// Error is unexpected - log and fall back to estimation
+		debug.Warning("Error calculating total candidates: %v, falling back to estimation", err)
+		isAccurate = false
+	}
+
+	if isAccurate && effectiveKeyspace > 0 {
+		// Use accurate value from --total-candidates
+		presetJob.EffectiveKeyspace = &effectiveKeyspace
+		presetJob.IsAccurateKeyspace = true
+
+		// Calculate multiplication factor from accurate keyspace
+		if keyspace > 0 {
+			presetJob.MultiplicationFactor = int(effectiveKeyspace / keyspace)
+			if presetJob.MultiplicationFactor < 1 {
+				presetJob.MultiplicationFactor = 1
+			}
+		} else {
+			presetJob.MultiplicationFactor = 1
+		}
+
+		debug.Log("Using accurate effective keyspace from --total-candidates", map[string]interface{}{
+			"preset_job_id":         presetJob.ID,
+			"base_keyspace":         keyspace,
+			"effective_keyspace":    effectiveKeyspace,
+			"multiplication_factor": presetJob.MultiplicationFactor,
+		})
+	} else {
+		// Fall back to estimation: base * rule_count
+		var estimatedEffective int64 = keyspace
+		if len(presetJob.RuleIDs) > 0 {
+			// For estimation, assume each rule file has approximately 1 rule on average
+			// This is conservative - actual count may vary significantly
+			// With accurate keyspace, this won't be used anyway
+			ruleCount := int64(len(presetJob.RuleIDs))
+			if ruleCount > 0 {
+				estimatedEffective = keyspace * ruleCount
+			}
+			presetJob.MultiplicationFactor = int(ruleCount)
+		} else {
+			presetJob.MultiplicationFactor = 1
+		}
+		presetJob.EffectiveKeyspace = &estimatedEffective
+		presetJob.IsAccurateKeyspace = false
+
+		debug.Log("Using estimated effective keyspace (--total-candidates failed or unavailable)", map[string]interface{}{
+			"preset_job_id":         presetJob.ID,
+			"base_keyspace":         keyspace,
+			"estimated_effective":   estimatedEffective,
+			"rule_count":            len(presetJob.RuleIDs),
+			"multiplication_factor": presetJob.MultiplicationFactor,
+		})
+	}
+
+	// Step 3: Determine if rule splitting should be used
+	// Rule splitting is beneficial when:
+	// 1. We have rules (attack mode 0 with rules)
+	// 2. The effective keyspace is large enough to benefit from splitting
+	// For now, set to true if we have rules and accurate keyspace
+	presetJob.UseRuleSplitting = len(presetJob.RuleIDs) > 0 && presetJob.IsAccurateKeyspace
+
+	debug.Log("Keyspace calculation complete", map[string]interface{}{
+		"preset_job_id":         presetJob.ID,
+		"base_keyspace":         keyspace,
+		"effective_keyspace":    presetJob.EffectiveKeyspace,
+		"is_accurate_keyspace":  presetJob.IsAccurateKeyspace,
+		"use_rule_splitting":    presetJob.UseRuleSplitting,
+		"multiplication_factor": presetJob.MultiplicationFactor,
 	})
 
 	return &keyspace, nil
@@ -1087,4 +1181,99 @@ func (s *adminPresetJobService) calculateMaskKeyspace(ctx context.Context, hashc
 	})
 
 	return keyspace, nil
+}
+
+// calculateTotalCandidates runs hashcat --total-candidates with retry logic to get actual effective keyspace.
+// This accounts for rule effectiveness and gives the true candidate count.
+// Returns (effectiveKeyspace, isAccurate, error)
+// On failure after retries, returns (0, false, nil) to allow fallback to estimation.
+func (s *adminPresetJobService) calculateTotalCandidates(
+	ctx context.Context,
+	hashcatPath string,
+	baseArgs []string,
+	presetJobID string,
+) (int64, bool, error) {
+	const maxRetries = 3
+	const retryDelay = 5 * time.Second
+
+	// Build args for --total-candidates (same as --keyspace but different flag)
+	args := make([]string, len(baseArgs))
+	copy(args, baseArgs)
+	args = append(args, "--total-candidates")
+
+	// Add session management
+	args = append(args, "--restore-disable")
+	sessionID := fmt.Sprintf("total_candidates_%s_%d", presetJobID, time.Now().UnixNano())
+	args = append(args, "--session", sessionID)
+	args = append(args, "--quiet")
+
+	var lastErr error
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			debug.Warning("Retrying --total-candidates (attempt %d/%d) after %v delay: %v",
+				attempt, maxRetries, retryDelay, lastErr)
+			time.Sleep(retryDelay)
+		}
+
+		execCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+		cmd := exec.CommandContext(execCtx, hashcatPath, args...)
+		cmd.Dir = s.dataDirectory
+
+		var stdout, stderr bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+
+		err := cmd.Run()
+		cancel()
+
+		// Clean up session files
+		sessionFiles := []string{
+			filepath.Join(s.dataDirectory, sessionID+".log"),
+			filepath.Join(s.dataDirectory, sessionID+".potfile"),
+		}
+		for _, file := range sessionFiles {
+			_ = os.Remove(file)
+		}
+
+		if err != nil {
+			stderrStr := stderr.String()
+			// Check if hashcat is busy (already running)
+			if strings.Contains(stderrStr, "Already an instance") ||
+				strings.Contains(stderrStr, "already running") {
+				lastErr = fmt.Errorf("hashcat busy: %s", stderrStr)
+				continue // Retry
+			}
+			// Other error - log and allow fallback
+			debug.Warning("--total-candidates failed: %v, stderr: %s", err, stderrStr)
+			return 0, false, nil // Allow fallback to estimation
+		}
+
+		// Parse result - get last non-empty line
+		outputLines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+		var keyspaceStr string
+		for i := len(outputLines) - 1; i >= 0; i-- {
+			line := strings.TrimSpace(outputLines[i])
+			if line != "" {
+				keyspaceStr = line
+				break
+			}
+		}
+
+		effectiveKeyspace, parseErr := strconv.ParseInt(keyspaceStr, 10, 64)
+		if parseErr != nil {
+			debug.Warning("Failed to parse --total-candidates output '%s': %v", keyspaceStr, parseErr)
+			return 0, false, nil // Allow fallback
+		}
+
+		debug.Log("Calculated total candidates successfully", map[string]interface{}{
+			"preset_job_id":      presetJobID,
+			"effective_keyspace": effectiveKeyspace,
+			"method":             "--total-candidates",
+		})
+
+		return effectiveKeyspace, true, nil
+	}
+
+	debug.Warning("--total-candidates exhausted retries for preset %s: %v", presetJobID, lastErr)
+	return 0, false, nil // Allow fallback to estimation
 }
