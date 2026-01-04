@@ -1,7 +1,9 @@
 package wordlist
 
 import (
+	"archive/zip"
 	"bufio"
+	"compress/gzip"
 	"context"
 	"crypto/md5"
 	"encoding/hex"
@@ -471,22 +473,15 @@ func (m *manager) CountWordsInFile(filepath string) (int64, error) {
 		return 0, err
 	}
 
-	// Check if the file is compressed
+	// Check if the file is compressed and use streaming decompression for accurate count
 	ext := strings.ToLower(path.Ext(filepath))
-	if ext == ".gz" || ext == ".zip" {
-		debug.Info("CountWordsInFile: Detected compressed file (%s), using estimation method", ext)
-
-		// For compressed files, we'll use an estimation based on file size
-		// This is much faster than decompressing and counting lines
-
-		// Estimate word count based on file size and compression ratio
-		// For text files, compression typically achieves 3:1 to 4:1 ratio
-		// Assuming average word length of 8 bytes plus newline character
-		// and a compression ratio of approximately 3.5:1
-		estimatedCount := int64(float64(fileInfo.Size()) * 3.5 / 9)
-		debug.Info("CountWordsInFile: Estimated %d words in compressed file (size: %d bytes)",
-			estimatedCount, fileInfo.Size())
-		return estimatedCount, nil
+	switch ext {
+	case ".gz":
+		debug.Info("CountWordsInFile: Detected gzip file, using streaming decompression")
+		return countLinesInGzip(filepath)
+	case ".zip":
+		debug.Info("CountWordsInFile: Detected zip file, using streaming decompression")
+		return countLinesInZip(filepath)
 	}
 
 	// For large text files (over 1GB), use a more efficient counting method
@@ -560,4 +555,107 @@ func (m *manager) CalculateFileMD5(filepath string) (string, error) {
 	}
 
 	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+// countLinesInGzip counts lines in a gzip-compressed file using streaming decompression.
+// Uses a 16MB buffer for performance consistency with large uncompressed file handling.
+func countLinesInGzip(filePath string) (int64, error) {
+	debug.Info("countLinesInGzip: Starting streaming line count for: %s", filePath)
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		debug.Error("countLinesInGzip: Failed to open file: %v", err)
+		return 0, err
+	}
+	defer file.Close()
+
+	gzReader, err := gzip.NewReader(file)
+	if err != nil {
+		debug.Error("countLinesInGzip: Failed to create gzip reader: %v", err)
+		return 0, err
+	}
+	defer gzReader.Close()
+
+	var count int64
+	const bufferSize = 16 * 1024 * 1024 // 16MB buffer for performance
+	buf := make([]byte, bufferSize)
+
+	for {
+		n, err := gzReader.Read(buf)
+		for i := 0; i < n; i++ {
+			if buf[i] == '\n' {
+				count++
+			}
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			debug.Error("countLinesInGzip: Error reading: %v", err)
+			return 0, err
+		}
+	}
+
+	debug.Info("countLinesInGzip: Counted %d lines", count)
+	return count, nil
+}
+
+// countLinesInZip counts lines in a zip archive containing a wordlist.
+// Expects a single text file inside the archive (standard for hashcat wordlists).
+// Uses a 16MB buffer for performance consistency with large uncompressed file handling.
+func countLinesInZip(filePath string) (int64, error) {
+	debug.Info("countLinesInZip: Starting streaming line count for: %s", filePath)
+
+	zipReader, err := zip.OpenReader(filePath)
+	if err != nil {
+		debug.Error("countLinesInZip: Failed to open zip: %v", err)
+		return 0, err
+	}
+	defer zipReader.Close()
+
+	// Find first non-directory file (the wordlist)
+	var targetFile *zip.File
+	for _, f := range zipReader.File {
+		if !f.FileInfo().IsDir() {
+			targetFile = f
+			break
+		}
+	}
+
+	if targetFile == nil {
+		debug.Error("countLinesInZip: No files found in zip archive")
+		return 0, fmt.Errorf("no files found in zip archive")
+	}
+
+	debug.Info("countLinesInZip: Reading file from archive: %s", targetFile.Name)
+
+	rc, err := targetFile.Open()
+	if err != nil {
+		debug.Error("countLinesInZip: Failed to open file in archive: %v", err)
+		return 0, err
+	}
+	defer rc.Close()
+
+	var count int64
+	const bufferSize = 16 * 1024 * 1024 // 16MB buffer for performance
+	buf := make([]byte, bufferSize)
+
+	for {
+		n, err := rc.Read(buf)
+		for i := 0; i < n; i++ {
+			if buf[i] == '\n' {
+				count++
+			}
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			debug.Error("countLinesInZip: Error reading: %v", err)
+			return 0, err
+		}
+	}
+
+	debug.Info("countLinesInZip: Counted %d lines", count)
+	return count, nil
 }
