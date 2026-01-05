@@ -31,6 +31,7 @@ import { api, deleteHashlist, getDeletionProgress, DeletionProgressResponse, get
 import CreateJobDialog from './CreateJobDialog';
 import HashlistHashesTable from './HashlistHashesTable';
 import ClientAutocomplete from './ClientAutocomplete';
+import AssociationWordlistManager from './AssociationWordlistManager';
 import { useSnackbar } from 'notistack';
 import { AxiosResponse, AxiosError } from 'axios';
 
@@ -496,6 +497,14 @@ export default function HashlistDetailView() {
         />
       )}
 
+      {hashlist && (
+        <AssociationWordlistManager
+          hashlistId={parseInt(id!)}
+          totalHashes={hashlist.total_hashes || 0}
+          hasMixedWorkFactors={hashlist.has_mixed_work_factors || false}
+        />
+      )}
+
       <Paper sx={{ p: 3 }}>
         <Typography variant="h6" gutterBottom>
           <HistoryIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
@@ -514,6 +523,8 @@ export default function HashlistDetailView() {
           hashlistId={parseInt(id!)}
           hashlistName={hashlist.name}
           hashTypeId={hashlist.hashTypeID || hashlist.hash_type_id}
+          hasMixedWorkFactors={hashlist.has_mixed_work_factors || false}
+          totalHashes={hashlist.total_hashes || 0}
         />
       )}
 

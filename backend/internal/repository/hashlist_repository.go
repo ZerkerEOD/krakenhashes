@@ -97,6 +97,28 @@ func (r *HashListRepository) UpdateStatsAndStatus(ctx context.Context, id int64,
 	return nil
 }
 
+// UpdateStatsStatusAndAssociationFields updates hash counts, status, error message, original file path, and work factor flag.
+// Used after hashlist processing to store all final state including association attack support fields.
+func (r *HashListRepository) UpdateStatsStatusAndAssociationFields(ctx context.Context, id int64, totalHashes, crackedHashes int, status, errorMessage, originalFilePath string, hasMixedWorkFactors bool) error {
+	query := `
+		UPDATE hashlists
+		SET total_hashes = $1, cracked_hashes = $2, status = $3, error_message = $4,
+		    original_file_path = $5, has_mixed_work_factors = $6, updated_at = $7
+		WHERE id = $8
+	`
+	result, err := r.db.ExecContext(ctx, query, totalHashes, crackedHashes, status, errorMessage, originalFilePath, hasMixedWorkFactors, time.Now(), id)
+	if err != nil {
+		return fmt.Errorf("failed to update hashlist stats, status and association fields for %d: %w", id, err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		debug.Warning("Could not get rows affected after updating hashlist %d: %v", id, err)
+	} else if rowsAffected == 0 {
+		return fmt.Errorf("hashlist %d not found for stats/status/association update: %w", id, ErrNotFound)
+	}
+	return nil
+}
+
 // UpdateClientID updates the client_id for a hashlist.
 func (r *HashListRepository) UpdateClientID(ctx context.Context, id int64, clientID uuid.UUID) error {
 	query := `
@@ -131,15 +153,17 @@ func (r *HashListRepository) GetByID(ctx context.Context, id int64) (*models.Has
 		SELECT
 			h.id, h.name, h.user_id, h.client_id, h.hash_type_id,
 			h.total_hashes, h.cracked_hashes, h.status, h.error_message,
-			h.exclude_from_potfile, h.created_at, h.updated_at,
+			h.exclude_from_potfile, h.original_file_path, h.has_mixed_work_factors,
+			h.created_at, h.updated_at,
 			c.name AS client_name
 		FROM hashlists h
 		LEFT JOIN clients c ON h.client_id = c.id
 		WHERE h.id = $1
 	`
 	var hashlist models.HashList
-	var clientID sql.Null[uuid.UUID] // Handle nullable client_id
-	var clientName sql.NullString     // Handle nullable client_name
+	var clientID sql.Null[uuid.UUID]    // Handle nullable client_id
+	var clientName sql.NullString       // Handle nullable client_name
+	var originalFilePath sql.NullString // Handle nullable original_file_path
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&hashlist.ID,
 		&hashlist.Name,
@@ -151,6 +175,8 @@ func (r *HashListRepository) GetByID(ctx context.Context, id int64) (*models.Has
 		&hashlist.Status,
 		&hashlist.ErrorMessage,
 		&hashlist.ExcludeFromPotfile,
+		&originalFilePath,
+		&hashlist.HasMixedWorkFactors,
 		&hashlist.CreatedAt,
 		&hashlist.UpdatedAt,
 		&clientName,
@@ -166,6 +192,9 @@ func (r *HashListRepository) GetByID(ctx context.Context, id int64) (*models.Has
 	}
 	if clientName.Valid {
 		hashlist.ClientName = &clientName.String
+	}
+	if originalFilePath.Valid {
+		hashlist.OriginalFilePath = &originalFilePath.String
 	}
 	return &hashlist, nil
 }
@@ -187,7 +216,8 @@ func (r *HashListRepository) List(ctx context.Context, params ListHashlistsParam
 		SELECT
 			h.id, h.name, h.user_id, h.client_id, h.hash_type_id,
 			h.total_hashes, h.cracked_hashes, h.status,
-			h.error_message, h.exclude_from_potfile, h.created_at, h.updated_at,
+			h.error_message, h.exclude_from_potfile, h.original_file_path, h.has_mixed_work_factors,
+			h.created_at, h.updated_at,
 			c.name AS client_name
 		FROM hashlists h
 		LEFT JOIN clients c ON h.client_id = c.id
@@ -277,8 +307,9 @@ func (r *HashListRepository) List(ctx context.Context, params ListHashlistsParam
 	var hashlists []models.HashList
 	for rows.Next() {
 		var hashlist models.HashList
-		var clientID sql.Null[uuid.UUID] // Use sql.Null for nullable UUID
-		var clientName sql.NullString    // Use sql.NullString for nullable client name from LEFT JOIN
+		var clientID sql.Null[uuid.UUID]    // Use sql.Null for nullable UUID
+		var clientName sql.NullString       // Use sql.NullString for nullable client name from LEFT JOIN
+		var originalFilePath sql.NullString // Handle nullable original_file_path
 
 		if err := rows.Scan(
 			&hashlist.ID,
@@ -291,6 +322,8 @@ func (r *HashListRepository) List(ctx context.Context, params ListHashlistsParam
 			&hashlist.Status,
 			&hashlist.ErrorMessage,
 			&hashlist.ExcludeFromPotfile,
+			&originalFilePath,
+			&hashlist.HasMixedWorkFactors,
 			&hashlist.CreatedAt,
 			&hashlist.UpdatedAt,
 			&clientName, // Scan into nullable string
@@ -307,6 +340,11 @@ func (r *HashListRepository) List(ctx context.Context, params ListHashlistsParam
 		// Assign ClientName only if it's valid (client existed and name is not NULL)
 		if clientName.Valid {
 			hashlist.ClientName = &clientName.String
+		}
+
+		// Assign OriginalFilePath only if it's valid
+		if originalFilePath.Valid {
+			hashlist.OriginalFilePath = &originalFilePath.String
 		}
 
 		hashlists = append(hashlists, hashlist)

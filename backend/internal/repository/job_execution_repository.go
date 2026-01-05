@@ -25,19 +25,20 @@ func NewJobExecutionRepository(db *db.DB) *JobExecutionRepository {
 func (r *JobExecutionRepository) Create(ctx context.Context, exec *models.JobExecution) error {
 	query := `
 		INSERT INTO job_executions (
-			preset_job_id, hashlist_id, status, priority, max_agents, attack_mode, total_keyspace, created_by,
+			preset_job_id, hashlist_id, association_wordlist_id, status, priority, max_agents, attack_mode, total_keyspace, created_by,
 			name, wordlist_ids, rule_ids, mask, binary_version_id, hash_type,
 			chunk_size_seconds, status_updates_enabled, allow_high_priority_override, additional_args,
 			increment_mode, increment_min, increment_max,
 			base_keyspace, effective_keyspace, multiplication_factor, is_accurate_keyspace, uses_rule_splitting,
 			avg_rule_multiplier
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
 		RETURNING id, created_at`
 
 	err := r.db.QueryRowContext(ctx, query,
 		exec.PresetJobID,
 		exec.HashlistID,
+		exec.AssociationWordlistID,
 		exec.Status,
 		exec.Priority,
 		exec.MaxAgents,
@@ -76,7 +77,7 @@ func (r *JobExecutionRepository) Create(ctx context.Context, exec *models.JobExe
 func (r *JobExecutionRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.JobExecution, error) {
 	query := `
 		SELECT
-			je.id, je.name, je.preset_job_id, je.hashlist_id, je.status, je.priority, COALESCE(je.max_agents, 0) as max_agents,
+			je.id, je.name, je.preset_job_id, je.hashlist_id, je.association_wordlist_id, je.status, je.priority, COALESCE(je.max_agents, 0) as max_agents,
 			je.total_keyspace, je.processed_keyspace, je.attack_mode, je.created_by,
 			je.created_at, je.started_at, je.completed_at, je.cracking_completed_at, je.error_message, je.interrupted_by,
 			je.consecutive_failures,
@@ -95,7 +96,7 @@ func (r *JobExecutionRepository) GetByID(ctx context.Context, id uuid.UUID) (*mo
 
 	var exec models.JobExecution
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&exec.ID, &exec.Name, &exec.PresetJobID, &exec.HashlistID, &exec.Status, &exec.Priority, &exec.MaxAgents,
+		&exec.ID, &exec.Name, &exec.PresetJobID, &exec.HashlistID, &exec.AssociationWordlistID, &exec.Status, &exec.Priority, &exec.MaxAgents,
 		&exec.TotalKeyspace, &exec.ProcessedKeyspace, &exec.AttackMode, &exec.CreatedBy,
 		&exec.CreatedAt, &exec.StartedAt, &exec.CompletedAt, &exec.CrackingCompletedAt, &exec.ErrorMessage, &exec.InterruptedBy,
 		&exec.ConsecutiveFailures,

@@ -136,6 +136,7 @@ type CustomJobConfig struct {
 	IncrementMode             string
 	IncrementMin              *int
 	IncrementMax              *int
+	AssociationWordlistID     *uuid.UUID // For association attacks (-a 9)
 }
 
 // CreateJobExecution creates a new job execution from a preset job and hashlist
@@ -368,15 +369,16 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 
 	// Create self-contained job execution
 	jobExecution := &models.JobExecution{
-		PresetJobID:       nil, // NULL for custom jobs
-		HashlistID:        hashlistID,
-		Status:            models.JobExecutionStatusPending,
-		Priority:          config.Priority,
-		TotalKeyspace:     totalKeyspace,
-		ProcessedKeyspace: 0,
-		AttackMode:        config.AttackMode,
-		MaxAgents:         config.MaxAgents,
-		CreatedBy:         createdBy,
+		PresetJobID:           nil, // NULL for custom jobs
+		HashlistID:            hashlistID,
+		AssociationWordlistID: config.AssociationWordlistID, // For association attacks (-a 9)
+		Status:                models.JobExecutionStatusPending,
+		Priority:              config.Priority,
+		TotalKeyspace:         totalKeyspace,
+		ProcessedKeyspace:     0,
+		AttackMode:            config.AttackMode,
+		MaxAgents:             config.MaxAgents,
+		CreatedBy:             createdBy,
 
 		// Direct configuration (not from preset)
 		Name:                      customJobName, // Will be set with proper naming logic

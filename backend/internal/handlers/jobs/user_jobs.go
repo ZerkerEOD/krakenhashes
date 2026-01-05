@@ -35,6 +35,7 @@ type UserJobsHandler struct {
 	binaryStore           binary.Store
 	jobExecutionService   *services.JobExecutionService
 	systemSettingsRepo    *repository.SystemSettingsRepository
+	assocWordlistRepo     *repository.AssociationWordlistRepository
 	wsHandler             WSHandler
 }
 
@@ -63,6 +64,7 @@ func NewUserJobsHandler(
 	binaryStore binary.Store,
 	jobExecutionService *services.JobExecutionService,
 	systemSettingsRepo *repository.SystemSettingsRepository,
+	assocWordlistRepo *repository.AssociationWordlistRepository,
 ) *UserJobsHandler {
 	return &UserJobsHandler{
 		jobExecRepo:           jobExecRepo,
@@ -78,6 +80,7 @@ func NewUserJobsHandler(
 		binaryStore:           binaryStore,
 		jobExecutionService:   jobExecutionService,
 		systemSettingsRepo:    systemSettingsRepo,
+		assocWordlistRepo:     assocWordlistRepo,
 		wsHandler:             nil, // Will be set later via SetWSHandler
 	}
 }
@@ -343,14 +346,15 @@ func getJobName(job models.JobExecution, hashlist *models.HashList) string {
 
 // JobNameConfig holds all data needed to generate a job name
 type JobNameConfig struct {
-	Client        *models.Client
-	AttackMode    models.AttackMode
-	WordlistNames []string
-	RuleNames     []string
-	Mask          string
-	IncrementMode string // "off", "increment", "increment_inverse"
-	HashTypeID    int
-	CustomName    string
+	Client                   *models.Client
+	AttackMode               models.AttackMode
+	WordlistNames            []string
+	RuleNames                []string
+	Mask                     string
+	IncrementMode            string // "off", "increment", "increment_inverse"
+	HashTypeID               int
+	CustomName               string
+	AssociationWordlistName  string // For association attack (mode 9)
 }
 
 // resolveWordlistNames converts wordlist IDs to their names
@@ -473,6 +477,12 @@ func buildAttackPart(config JobNameConfig) string {
 			attackParts = append(attackParts, config.WordlistNames[0])
 		}
 		return strings.Join(attackParts, "-")
+
+	case models.AttackModeAssociation: // Mode 9: Association
+		if config.AssociationWordlistName != "" {
+			return fmt.Sprintf("assoc-%s", config.AssociationWordlistName)
+		}
+		return "assoc"
 
 	default:
 		return ""
@@ -699,11 +709,54 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 				IncrementMode             string   `json:"increment_mode"`
 				IncrementMin              *int     `json:"increment_min"`
 				IncrementMax              *int     `json:"increment_max"`
+				AssociationWordlistID     *string  `json:"association_wordlist_id"`
 			} `json:"custom_job"`
 		}
 		if err := json.Unmarshal(rawReq, &req); err != nil {
 			http.Error(w, "Invalid custom job request", http.StatusBadRequest)
 			return
+		}
+
+		// Validate association attack mode (mode 9)
+		if models.AttackMode(req.CustomJob.AttackMode) == models.AttackModeAssociation {
+			// Block if hashlist has mixed work factors
+			if hashlist.HasMixedWorkFactors {
+				http.Error(w, "Association attacks cannot be run on hashlists with mixed work factors (e.g., bcrypt with varying costs). All hashes must have the same work factor.", http.StatusBadRequest)
+				return
+			}
+
+			// Require association wordlist ID for mode 9
+			if req.CustomJob.AssociationWordlistID == nil || *req.CustomJob.AssociationWordlistID == "" {
+				http.Error(w, "Association attacks require an association wordlist. Please upload one for this hashlist first.", http.StatusBadRequest)
+				return
+			}
+
+			// Parse and validate the association wordlist
+			assocWordlistUUID, err := uuid.Parse(*req.CustomJob.AssociationWordlistID)
+			if err != nil {
+				http.Error(w, "Invalid association wordlist ID format", http.StatusBadRequest)
+				return
+			}
+
+			// Get the association wordlist to validate it exists and belongs to this hashlist
+			assocWordlist, err := h.assocWordlistRepo.GetByID(ctx, assocWordlistUUID)
+			if err != nil {
+				debug.Error("Failed to get association wordlist %s: %v", assocWordlistUUID, err)
+				http.Error(w, "Association wordlist not found", http.StatusNotFound)
+				return
+			}
+
+			// Verify the wordlist belongs to this hashlist
+			if assocWordlist.HashlistID != hashlistID {
+				http.Error(w, "Association wordlist does not belong to this hashlist", http.StatusBadRequest)
+				return
+			}
+
+			// Validate line count matches
+			if assocWordlist.LineCount != int64(hashlist.TotalHashes) {
+				http.Error(w, fmt.Sprintf("Association wordlist line count (%d) does not match hashlist hash count (%d). Association attacks require exact 1:1 mapping.", assocWordlist.LineCount, hashlist.TotalHashes), http.StatusBadRequest)
+				return
+			}
 		}
 
 		// Debug logging for increment mode
@@ -732,20 +785,38 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			IncrementMax:              req.CustomJob.IncrementMax,
 		}
 
+		// Add association wordlist ID for mode 9
+		if req.CustomJob.AssociationWordlistID != nil && *req.CustomJob.AssociationWordlistID != "" {
+			assocUUID, _ := uuid.Parse(*req.CustomJob.AssociationWordlistID)
+			config.AssociationWordlistID = &assocUUID
+		}
+
 		// Resolve wordlist and rule names for custom job
 		wordlistNames := h.resolveWordlistNames(ctx, req.CustomJob.WordlistIDs)
 		ruleNames := h.resolveRuleNames(ctx, req.CustomJob.RuleIDs)
 
+		// Get association wordlist name if present
+		var assocWordlistName string
+		if req.CustomJob.AssociationWordlistID != nil && *req.CustomJob.AssociationWordlistID != "" {
+			assocUUID, err := uuid.Parse(*req.CustomJob.AssociationWordlistID)
+			if err == nil {
+				if assocWL, err := h.assocWordlistRepo.GetByID(ctx, assocUUID); err == nil {
+					assocWordlistName = assocWL.FileName
+				}
+			}
+		}
+
 		// Generate job name for custom job based on attack configuration
 		jobName := generateJobName(JobNameConfig{
-			Client:        client,
-			AttackMode:    models.AttackMode(req.CustomJob.AttackMode),
-			WordlistNames: wordlistNames,
-			RuleNames:     ruleNames,
-			Mask:          req.CustomJob.Mask,
-			IncrementMode: req.CustomJob.IncrementMode,
-			HashTypeID:    hashlist.HashTypeID,
-			CustomName:    req.CustomJobName,
+			Client:                  client,
+			AttackMode:              models.AttackMode(req.CustomJob.AttackMode),
+			WordlistNames:           wordlistNames,
+			RuleNames:               ruleNames,
+			Mask:                    req.CustomJob.Mask,
+			IncrementMode:           req.CustomJob.IncrementMode,
+			HashTypeID:              hashlist.HashTypeID,
+			CustomName:              req.CustomJobName,
+			AssociationWordlistName: assocWordlistName,
 		})
 		
 		// Create job execution directly without saving preset

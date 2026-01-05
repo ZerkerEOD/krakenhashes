@@ -57,6 +57,7 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 	binaryStore := binary.NewStore(database.DB)
 	jobIncrementLayerRepo := repository.NewJobIncrementLayerRepository(dbWrapper)
 	presetIncrementLayerRepo := repository.NewPresetIncrementLayerRepository(dbWrapper)
+	assocWordlistRepo := repository.NewAssociationWordlistRepository(dbWrapper)
 
 	// Create job execution service
 	jobExecutionService := services.NewJobExecutionService(
@@ -94,6 +95,7 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 		binaryStore,
 		jobExecutionService,
 		systemSettingsRepo,
+		assocWordlistRepo,
 	)
 }
 

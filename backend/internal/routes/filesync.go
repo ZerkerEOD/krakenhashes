@@ -407,6 +407,72 @@ func SetupFileDownloadRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, a
 		}
 	}).Methods(http.MethodGet)
 
+	// Handler for /api/agent/hashlists/{id}/original - download original hashlist file for association attacks
+	hashlistRouter.HandleFunc("/{id}/original", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		hashlistIDStr := vars["id"]
+
+		debug.Info("Original hashlist download request from agent: id=%s", hashlistIDStr)
+
+		// Parse hashlist ID
+		var hashlistID int64
+		if _, err := fmt.Sscanf(hashlistIDStr, "%d", &hashlistID); err != nil {
+			debug.Error("Invalid hashlist ID: %s", hashlistIDStr)
+			http.Error(w, "Invalid hashlist ID", http.StatusBadRequest)
+			return
+		}
+
+		ctx := r.Context()
+
+		// Get the hashlist to find the original file path
+		hashlist, err := hashlistRepo.GetByID(ctx, hashlistID)
+		if err != nil {
+			debug.Error("Failed to get hashlist %d: %v", hashlistID, err)
+			http.Error(w, "Hashlist not found", http.StatusNotFound)
+			return
+		}
+
+		// Check if original file exists
+		if hashlist.OriginalFilePath == nil || *hashlist.OriginalFilePath == "" {
+			debug.Error("Original file path not available for hashlist %d", hashlistID)
+			http.Error(w, "Original hashlist file not available", http.StatusNotFound)
+			return
+		}
+
+		originalPath := *hashlist.OriginalFilePath
+		debug.Info("Serving original hashlist file: %s", originalPath)
+
+		// Check if file exists
+		fileInfo, err := os.Stat(originalPath)
+		if err != nil {
+			debug.Error("Original hashlist file not found: %s", originalPath)
+			http.Error(w, "Original hashlist file not found", http.StatusNotFound)
+			return
+		}
+
+		// Open the file
+		file, err := os.Open(originalPath)
+		if err != nil {
+			debug.Error("Failed to open original hashlist file: %v", err)
+			http.Error(w, "Failed to open file", http.StatusInternalServerError)
+			return
+		}
+		defer file.Close()
+
+		// Set response headers
+		originalFileName := filepath.Base(originalPath)
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%d_%s\"", hashlistID, originalFileName))
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
+
+		// Stream the file
+		if _, err := io.Copy(w, file); err != nil {
+			debug.Error("Failed to stream original hashlist file: %v", err)
+		} else {
+			debug.Info("Successfully streamed original hashlist %d (%s) to agent", hashlistID, originalFileName)
+		}
+	}).Methods(http.MethodGet)
+
 	debug.Info("Registered file download routes for agents (including hashlists)")
 	return nil
 }

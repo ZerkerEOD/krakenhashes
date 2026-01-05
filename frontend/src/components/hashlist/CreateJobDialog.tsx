@@ -73,12 +73,21 @@ interface FormData {
   binary_versions: Array<{ id: number; version: string; type: string }>;
 }
 
+interface AssociationWordlist {
+  id: string;
+  file_name: string;
+  file_size: number;
+  line_count: number;
+}
+
 interface CreateJobDialogProps {
   open: boolean;
   onClose: () => void;
   hashlistId: number;
   hashlistName: string;
   hashTypeId: number;
+  hasMixedWorkFactors?: boolean;
+  totalHashes?: number;
 }
 
 export default function CreateJobDialog({
@@ -86,7 +95,9 @@ export default function CreateJobDialog({
   onClose,
   hashlistId,
   hashlistName,
-  hashTypeId
+  hashTypeId,
+  hasMixedWorkFactors = false,
+  totalHashes = 0
 }: CreateJobDialogProps) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -94,11 +105,15 @@ export default function CreateJobDialog({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [tabValue, setTabValue] = useState(0);
-  
+
   // Form state
   const [selectedPresetJobs, setSelectedPresetJobs] = useState<string[]>([]);
   const [selectedWorkflows, setSelectedWorkflows] = useState<string[]>([]);
   const [customJobName, setCustomJobName] = useState<string>('');
+
+  // Association attack state
+  const [associationWordlists, setAssociationWordlists] = useState<AssociationWordlist[]>([]);
+  const [selectedAssociationWordlist, setSelectedAssociationWordlist] = useState<string>('');
   
   // Custom job state
   const [combWordlist1, setCombWordlist1] = useState<string>('');
@@ -116,7 +131,8 @@ export default function CreateJobDialog({
     chunk_duration: 1200, // Default to 20 minutes (will be updated from system settings)
     increment_mode: 'off' as string,
     increment_min: undefined as number | undefined,
-    increment_max: undefined as number | undefined
+    increment_max: undefined as number | undefined,
+    association_wordlist_id: undefined as string | undefined
   });
   
   // Available data
@@ -135,15 +151,17 @@ export default function CreateJobDialog({
   const fetchAvailableJobs = async () => {
     setLoadingJobs(true);
     try {
-      // Fetch available jobs and job execution settings in parallel
-      const [response, jobExecutionSettings] = await Promise.all([
+      // Fetch available jobs, job execution settings, and association wordlists in parallel
+      const [response, jobExecutionSettings, assocWordlistsResponse] = await Promise.all([
         api.get(`/api/hashlists/${hashlistId}/available-jobs`),
-        getJobExecutionSettings().catch(() => null) // Gracefully handle if settings fetch fails
+        getJobExecutionSettings().catch(() => null), // Gracefully handle if settings fetch fails
+        api.get(`/api/hashlists/${hashlistId}/association-wordlists`).catch(() => ({ data: [] }))
       ]);
-      
+
       setPresetJobs(response.data.preset_jobs || []);
       setWorkflows(response.data.workflows || []);
       setFormData(response.data.form_data || null);
+      setAssociationWordlists(assocWordlistsResponse.data || []);
       
       // Set default chunk duration from system settings
       let systemDefaultChunkDuration = 1200; // fallback to 20 minutes
@@ -224,11 +242,25 @@ export default function CreateJobDialog({
           setLoading(false);
           return;
         }
-        
+
         if ([3, 6, 7].includes(customJob.attack_mode) && !customJob.mask) {
           setError('Selected attack mode requires a mask');
           setLoading(false);
           return;
+        }
+
+        // Association attack validation
+        if (customJob.attack_mode === 9) {
+          if (hasMixedWorkFactors) {
+            setError('Association attacks cannot be run on hashlists with mixed work factors');
+            setLoading(false);
+            return;
+          }
+          if (!customJob.association_wordlist_id) {
+            setError('Association attack requires an association wordlist');
+            setLoading(false);
+            return;
+          }
         }
 
         // Validate chunk duration
@@ -315,13 +347,16 @@ export default function CreateJobDialog({
         chunk_duration: 1200, // Default to 20 minutes
         increment_mode: 'off',
         increment_min: undefined,
-        increment_max: undefined
+        increment_max: undefined,
+        association_wordlist_id: undefined
       });
       setTabValue(0);
       setCustomJobName('');
       // Reset combination wordlist state
       setCombWordlist1('');
       setCombWordlist2('');
+      // Reset association wordlist state
+      setSelectedAssociationWordlist('');
       onClose();
     }
   };
@@ -566,11 +601,14 @@ export default function CreateJobDialog({
                             attack_mode: newMode,
                             wordlist_ids: [],
                             rule_ids: [],
-                            mask: ''
+                            mask: '',
+                            association_wordlist_id: undefined
                           }));
                           // Reset combination wordlist state
                           setCombWordlist1('');
                           setCombWordlist2('');
+                          // Reset association wordlist state
+                          setSelectedAssociationWordlist('');
                         }}
                         label="Attack Mode"
                       >
@@ -579,6 +617,14 @@ export default function CreateJobDialog({
                         <MenuItem value={3}>Brute-force Attack</MenuItem>
                         <MenuItem value={6}>Hybrid Wordlist + Mask</MenuItem>
                         <MenuItem value={7}>Hybrid Mask + Wordlist</MenuItem>
+                        <MenuItem
+                          value={9}
+                          disabled={hasMixedWorkFactors || associationWordlists.length === 0}
+                        >
+                          Association Attack
+                          {hasMixedWorkFactors && ' (Blocked: Mixed work factors)'}
+                          {!hasMixedWorkFactors && associationWordlists.length === 0 && ' (No wordlists uploaded)'}
+                        </MenuItem>
                       </Select>
                     </FormControl>
                   </Grid>
@@ -847,6 +893,68 @@ export default function CreateJobDialog({
                           </Grid>
                         </Grid>
                       )}
+                    </>
+                  )}
+
+                  {/* Attack mode 9 (Association): Association wordlist + optional rules */}
+                  {customJob.attack_mode === 9 && (
+                    <>
+                      <Grid item xs={12}>
+                        <Alert severity="info" sx={{ mb: 2 }}>
+                          <Typography variant="body2">
+                            Association attack maps each hash to a corresponding wordlist line 1:1.
+                            The wordlist line count must match the total hash count ({totalHashes.toLocaleString()}).
+                          </Typography>
+                        </Alert>
+                      </Grid>
+                      <Grid item xs={12}>
+                        <FormControl fullWidth required>
+                          <InputLabel shrink>Association Wordlist</InputLabel>
+                          <Select
+                            value={selectedAssociationWordlist}
+                            onChange={(e) => {
+                              const value = e.target.value as string;
+                              setSelectedAssociationWordlist(value);
+                              setCustomJob(prev => ({
+                                ...prev,
+                                association_wordlist_id: value || undefined
+                              }));
+                            }}
+                            label="Association Wordlist"
+                            displayEmpty
+                          >
+                            <MenuItem value="" disabled><em>Select association wordlist</em></MenuItem>
+                            {associationWordlists.map((w) => (
+                              <MenuItem key={w.id} value={w.id}>
+                                {w.file_name} ({w.line_count.toLocaleString()} lines, {(w.file_size / 1024).toFixed(1)} KB)
+                              </MenuItem>
+                            ))}
+                          </Select>
+                          <FormHelperText>
+                            Upload association wordlists via the Hashlist's Association Wordlists section
+                          </FormHelperText>
+                        </FormControl>
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Autocomplete
+                          options={formData?.rules || []}
+                          getOptionLabel={(option) => `${option.name} (${option.rule_count} rules)`}
+                          value={formData?.rules?.find(r => customJob.rule_ids.includes(String(r.id))) || null}
+                          onChange={(e, newValue) => {
+                            setCustomJob(prev => ({
+                              ...prev,
+                              rule_ids: newValue ? [String(newValue.id)] : []
+                            }));
+                          }}
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              label="Rule (Optional)"
+                              placeholder="Select a rule"
+                            />
+                          )}
+                        />
+                      </Grid>
                     </>
                   )}
 

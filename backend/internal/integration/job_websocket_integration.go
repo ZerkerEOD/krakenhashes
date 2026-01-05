@@ -59,6 +59,7 @@ type JobWebSocketIntegration struct {
 	deviceRepo            *repository.AgentDeviceRepository
 	clientRepo            *repository.ClientRepository
 	systemSettingsRepo    *repository.SystemSettingsRepository
+	assocWordlistRepo     *repository.AssociationWordlistRepository
 	potfileService          *services.PotfileService
 	hashlistCompletionService *services.HashlistCompletionService
 	db                      *sql.DB
@@ -90,6 +91,7 @@ func NewJobWebSocketIntegration(
 	deviceRepo *repository.AgentDeviceRepository,
 	clientRepo *repository.ClientRepository,
 	systemSettingsRepo *repository.SystemSettingsRepository,
+	assocWordlistRepo *repository.AssociationWordlistRepository,
 	potfileService *services.PotfileService,
 	hashlistCompletionService *services.HashlistCompletionService,
 	db *sql.DB,
@@ -113,6 +115,7 @@ func NewJobWebSocketIntegration(
 		deviceRepo:                deviceRepo,
 		clientRepo:                clientRepo,
 		systemSettingsRepo:        systemSettingsRepo,
+		assocWordlistRepo:         assocWordlistRepo,
 		potfileService:            potfileService,
 		hashlistCompletionService: hashlistCompletionService,
 		db:                        db,
@@ -386,6 +389,30 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 		ExtraParameters: agent.ExtraParameters, // Agent-specific hashcat parameters
 		EnabledDevices:  enabledDeviceIDs,      // Only populated if some devices are disabled
 		IsKeyspaceSplit: task.IsKeyspaceSplit,
+	}
+
+	// Add association attack fields if mode 9
+	if jobExecution.AttackMode == models.AttackModeAssociation {
+		// Get the original hashlist path for association attacks
+		if hashlist.OriginalFilePath != nil && *hashlist.OriginalFilePath != "" {
+			// Extract just the filename from the original path
+			originalFileName := filepath.Base(*hashlist.OriginalFilePath)
+			assignment.OriginalHashlistPath = fmt.Sprintf("hashlists/original/%d_%s", hashlist.ID, originalFileName)
+		}
+
+		// Get the association wordlist path
+		if jobExecution.AssociationWordlistID != nil {
+			assocWordlist, err := s.assocWordlistRepo.GetByID(ctx, *jobExecution.AssociationWordlistID)
+			if err == nil && assocWordlist != nil {
+				assignment.AssociationWordlistPath = fmt.Sprintf("wordlists/association/%d_%s", hashlist.ID, assocWordlist.FileName)
+			}
+		}
+
+		debug.Log("Association attack task assignment", map[string]interface{}{
+			"task_id":                     task.ID,
+			"original_hashlist_path":     assignment.OriginalHashlistPath,
+			"association_wordlist_path":  assignment.AssociationWordlistPath,
+		})
 	}
 
 	// Only add increment fields for regular jobs (NOT for layer tasks)

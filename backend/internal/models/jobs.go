@@ -135,24 +135,25 @@ const (
 
 // JobExecution represents an actual running instance of a preset job
 type JobExecution struct {
-	ID                  uuid.UUID          `json:"id" db:"id"`
-	PresetJobID         *uuid.UUID         `json:"preset_job_id" db:"preset_job_id"` // Nullable for custom jobs
-	HashlistID          int64              `json:"hashlist_id" db:"hashlist_id"`
-	Status              JobExecutionStatus `json:"status" db:"status"`
-	Priority            int                `json:"priority" db:"priority"`
-	MaxAgents           int                `json:"max_agents" db:"max_agents"`
-	TotalKeyspace       *int64             `json:"total_keyspace" db:"total_keyspace"`
-	ProcessedKeyspace   int64              `json:"processed_keyspace" db:"processed_keyspace"`
-	AttackMode          AttackMode         `json:"attack_mode" db:"attack_mode"`
-	CreatedBy           *uuid.UUID         `json:"created_by" db:"created_by"`
-	CreatedAt           time.Time          `json:"created_at" db:"created_at"`
-	StartedAt             *time.Time         `json:"started_at" db:"started_at"`
-	CrackingCompletedAt   *time.Time         `json:"cracking_completed_at" db:"cracking_completed_at"` // When all tasks finished hashcat work (job enters processing)
-	CompletedAt           *time.Time         `json:"completed_at" db:"completed_at"`
-	UpdatedAt             time.Time          `json:"updated_at" db:"updated_at"`
-	ErrorMessage          *string            `json:"error_message" db:"error_message"`
-	InterruptedBy         *uuid.UUID         `json:"interrupted_by" db:"interrupted_by"`
-	ConsecutiveFailures   int                `json:"consecutive_failures" db:"consecutive_failures"` // Track consecutive task failures
+	ID                     uuid.UUID          `json:"id" db:"id"`
+	PresetJobID            *uuid.UUID         `json:"preset_job_id" db:"preset_job_id"` // Nullable for custom jobs
+	HashlistID             int64              `json:"hashlist_id" db:"hashlist_id"`
+	AssociationWordlistID  *uuid.UUID         `json:"association_wordlist_id,omitempty" db:"association_wordlist_id"` // For association attacks (-a 9)
+	Status                 JobExecutionStatus `json:"status" db:"status"`
+	Priority               int                `json:"priority" db:"priority"`
+	MaxAgents              int                `json:"max_agents" db:"max_agents"`
+	TotalKeyspace          *int64             `json:"total_keyspace" db:"total_keyspace"`
+	ProcessedKeyspace      int64              `json:"processed_keyspace" db:"processed_keyspace"`
+	AttackMode             AttackMode         `json:"attack_mode" db:"attack_mode"`
+	CreatedBy              *uuid.UUID         `json:"created_by" db:"created_by"`
+	CreatedAt              time.Time          `json:"created_at" db:"created_at"`
+	StartedAt              *time.Time         `json:"started_at" db:"started_at"`
+	CrackingCompletedAt    *time.Time         `json:"cracking_completed_at" db:"cracking_completed_at"` // When all tasks finished hashcat work (job enters processing)
+	CompletedAt            *time.Time         `json:"completed_at" db:"completed_at"`
+	UpdatedAt              time.Time          `json:"updated_at" db:"updated_at"`
+	ErrorMessage           *string            `json:"error_message" db:"error_message"`
+	InterruptedBy          *uuid.UUID         `json:"interrupted_by" db:"interrupted_by"`
+	ConsecutiveFailures    int                `json:"consecutive_failures" db:"consecutive_failures"` // Track consecutive task failures
 
 	// Self-contained configuration fields (no need to look up preset)
 	Name                      string  `json:"name" db:"name"`
@@ -360,6 +361,11 @@ type JobTaskAssignment struct {
 	IncrementMode  string     `json:"increment_mode,omitempty"` // Mask increment mode: off, increment, increment_inverse
 	IncrementMin   *int       `json:"increment_min,omitempty"`  // Starting mask length for increment mode
 	IncrementMax   *int       `json:"increment_max,omitempty"`  // Maximum mask length for increment mode
+
+	// Association attack fields (-a 9)
+	AssociationWordlistID   *uuid.UUID `json:"association_wordlist_id,omitempty"`   // UUID of association wordlist
+	AssociationWordlistPath string     `json:"association_wordlist_path,omitempty"` // Path to association wordlist on agent
+	OriginalHashlistPath    string     `json:"original_hashlist_path,omitempty"`    // Path to original hashlist file (for -a 9)
 }
 
 // DeviceMetric represents metrics for a single device

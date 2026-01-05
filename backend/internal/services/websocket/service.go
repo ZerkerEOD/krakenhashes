@@ -228,6 +228,9 @@ type TaskAssignmentPayload struct {
 	ExtraParameters string   `json:"extra_parameters,omitempty"`
 	EnabledDevices  []int    `json:"enabled_devices,omitempty"`
 	IsKeyspaceSplit bool     `json:"is_keyspace_split"`
+	// Association attack fields (mode 9)
+	AssociationWordlistPath string `json:"association_wordlist_path,omitempty"` // Path to the association wordlist
+	OriginalHashlistPath    string `json:"original_hashlist_path,omitempty"`    // Path to the original hashlist file (preserves order)
 }
 
 // BenchmarkResultPayload represents benchmark results from an agent

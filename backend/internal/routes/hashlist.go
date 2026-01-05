@@ -39,20 +39,21 @@ func SetupHashlistRoutes(jwtRouter *mux.Router) {
 
 // hashlistHandler handles HTTP requests for hashlist-related operations
 type hashlistHandler struct {
-	db                         *db.DB
-	hashlistRepo               *repository.HashListRepository
-	hashTypeRepo               *repository.HashTypeRepository
-	clientRepo                 *repository.ClientRepository
-	hashRepo                   *repository.HashRepository
-	fileRepo                   *repository.FileRepository
-	clientSettingsRepo         *repository.ClientSettingsRepository
-	systemSettingsRepo         *repository.SystemSettingsRepository
-	deletionProgressService    *services.DeletionProgressService
-	processingProgressService  *services.ProcessingProgressService
-	dataDir                    string // Base directory for storing hashlist files
-	cfg                        *config.Config
-	agentService               *services.AgentService
-	processor                  *processor.HashlistDBProcessor
+	db                          *db.DB
+	hashlistRepo                *repository.HashListRepository
+	hashTypeRepo                *repository.HashTypeRepository
+	clientRepo                  *repository.ClientRepository
+	hashRepo                    *repository.HashRepository
+	fileRepo                    *repository.FileRepository
+	clientSettingsRepo          *repository.ClientSettingsRepository
+	systemSettingsRepo          *repository.SystemSettingsRepository
+	deletionProgressService     *services.DeletionProgressService
+	processingProgressService   *services.ProcessingProgressService
+	associationWordlistManager  *services.AssociationWordlistManager
+	dataDir                     string // Base directory for storing hashlist files
+	cfg                         *config.Config
+	agentService                *services.AgentService
+	processor                   *processor.HashlistDBProcessor
 	// Job-related dependencies
 	jobsHandler interface {
 		GetAvailablePresetJobs(w http.ResponseWriter, r *http.Request)
@@ -97,23 +98,32 @@ func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, ag
 	// Create processor with progress service
 	proc := processor.NewHashlistDBProcessor(hashlistRepo, hashTypeRepo, hashRepo, systemSettingsRepo, cfg, processingProgressSvc)
 
+	// Create association wordlist repository and manager
+	assocWordlistRepo := repository.NewAssociationWordlistRepository(database)
+	assocWordlistBasePath := filepath.Join(cfg.DataDir, "wordlists", "association")
+	if err := os.MkdirAll(assocWordlistBasePath, 0755); err != nil {
+		debug.Error("Failed to create association wordlist directory %s: %v", assocWordlistBasePath, err)
+	}
+	assocWordlistManager := services.NewAssociationWordlistManager(assocWordlistRepo, hashlistRepo, assocWordlistBasePath)
+
 	// Create handler
 	h := &hashlistHandler{
-		db:                        database,
-		hashlistRepo:              hashlistRepo,
-		hashTypeRepo:              hashTypeRepo,
-		clientRepo:                clientRepo,
-		clientSettingsRepo:        clientSettingsRepo,
-		systemSettingsRepo:        systemSettingsRepo,
-		hashRepo:                  hashRepo,
-		fileRepo:                  fileRepo,
-		deletionProgressService:   deletionProgressSvc,
-		processingProgressService: processingProgressSvc,
-		dataDir:                   hashlistDataDir,
-		cfg:                       cfg,
-		agentService:              agentService,
-		processor:                 proc,
-		jobsHandler:               jobsHandler,
+		db:                         database,
+		hashlistRepo:               hashlistRepo,
+		hashTypeRepo:               hashTypeRepo,
+		clientRepo:                 clientRepo,
+		clientSettingsRepo:         clientSettingsRepo,
+		systemSettingsRepo:         systemSettingsRepo,
+		hashRepo:                   hashRepo,
+		fileRepo:                   fileRepo,
+		deletionProgressService:    deletionProgressSvc,
+		processingProgressService:  processingProgressSvc,
+		associationWordlistManager: assocWordlistManager,
+		dataDir:                    hashlistDataDir,
+		cfg:                        cfg,
+		agentService:               agentService,
+		processor:                  proc,
+		jobsHandler:                jobsHandler,
 	}
 
 	// === User Routes (Authenticated via JWT) ===
@@ -136,6 +146,15 @@ func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, ag
 	hashlistRouter.HandleFunc("/{id}/available-jobs", h.handleGetAvailableJobs).Methods(http.MethodGet, http.MethodOptions)
 	hashlistRouter.HandleFunc("/{id}/create-job", h.handleCreateJob).Methods(http.MethodPost, http.MethodOptions)
 	hashlistRouter.HandleFunc("/{id}/client", h.handleUpdateHashlistClient).Methods(http.MethodPatch, http.MethodOptions)
+
+	// Association wordlist routes (for association attacks -a 9)
+	hashlistRouter.HandleFunc("/{id}/association-wordlists", h.handleListAssociationWordlists).Methods(http.MethodGet, http.MethodOptions)
+	hashlistRouter.HandleFunc("/{id}/association-wordlists", h.handleUploadAssociationWordlist).Methods(http.MethodPost, http.MethodOptions)
+
+	// Association wordlist by wordlist ID (not hashlist ID)
+	assocWordlistRouter := r.PathPrefix("/association-wordlists").Subrouter()
+	assocWordlistRouter.HandleFunc("/{wordlist_id}", h.handleGetAssociationWordlist).Methods(http.MethodGet, http.MethodOptions)
+	assocWordlistRouter.HandleFunc("/{wordlist_id}", h.handleDeleteAssociationWordlist).Methods(http.MethodDelete, http.MethodOptions)
 
 	// 2.2. Hash Types API
 	hashTypeRouter := r.PathPrefix("/hashtypes").Subrouter() // Use 'r' directly
@@ -1912,4 +1931,193 @@ func isHexString(s string) bool {
 		}
 	}
 	return true
+}
+
+// --- Association Wordlist Handlers (for association attacks -a 9) ---
+
+// handleListAssociationWordlists returns all association wordlists for a hashlist.
+func (h *hashlistHandler) handleListAssociationWordlists(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Get hashlist ID from URL
+	vars := mux.Vars(r)
+	hashlistIDStr := vars["id"]
+	hashlistID, err := strconv.ParseInt(hashlistIDStr, 10, 64)
+	if err != nil {
+		jsonError(w, "Invalid hashlist ID", http.StatusBadRequest)
+		return
+	}
+
+	// Verify hashlist exists
+	_, err = h.hashlistRepo.GetByID(ctx, hashlistID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			jsonError(w, "Hashlist not found", http.StatusNotFound)
+			return
+		}
+		debug.Error("Failed to get hashlist %d: %v", hashlistID, err)
+		jsonError(w, "Failed to get hashlist", http.StatusInternalServerError)
+		return
+	}
+
+	// Get association wordlists
+	wordlists, err := h.associationWordlistManager.List(ctx, hashlistID)
+	if err != nil {
+		debug.Error("Failed to list association wordlists for hashlist %d: %v", hashlistID, err)
+		jsonError(w, "Failed to list association wordlists", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(wordlists)
+}
+
+// handleUploadAssociationWordlist handles uploading a new association wordlist for a hashlist.
+func (h *hashlistHandler) handleUploadAssociationWordlist(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Get hashlist ID from URL
+	vars := mux.Vars(r)
+	hashlistIDStr := vars["id"]
+	hashlistID, err := strconv.ParseInt(hashlistIDStr, 10, 64)
+	if err != nil {
+		jsonError(w, "Invalid hashlist ID", http.StatusBadRequest)
+		return
+	}
+
+	// Verify hashlist exists and check for mixed work factors
+	hashlist, err := h.hashlistRepo.GetByID(ctx, hashlistID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			jsonError(w, "Hashlist not found", http.StatusNotFound)
+			return
+		}
+		debug.Error("Failed to get hashlist %d: %v", hashlistID, err)
+		jsonError(w, "Failed to get hashlist", http.StatusInternalServerError)
+		return
+	}
+
+	// Limit request body size (10GB for the whole request)
+	r.Body = http.MaxBytesReader(w, r.Body, 10<<30)
+
+	if err := r.ParseMultipartForm(32 << 20); err != nil { // 32MB max memory
+		debug.Error("Failed to parse multipart form for association wordlist upload: %v", err)
+		jsonError(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	// Get the uploaded file
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		debug.Error("Failed to get file from form: %v", err)
+		jsonError(w, "No file provided", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// Save to temp file
+	tempFile, err := os.CreateTemp("", "assoc_wordlist_*")
+	if err != nil {
+		debug.Error("Failed to create temp file: %v", err)
+		jsonError(w, "Failed to process upload", http.StatusInternalServerError)
+		return
+	}
+	tempPath := tempFile.Name()
+	defer func() {
+		tempFile.Close()
+		os.Remove(tempPath) // Clean up temp file if not moved
+	}()
+
+	if _, err := io.Copy(tempFile, file); err != nil {
+		debug.Error("Failed to save uploaded file: %v", err)
+		jsonError(w, "Failed to save file", http.StatusInternalServerError)
+		return
+	}
+	tempFile.Close()
+
+	// Upload and validate via the manager
+	result, err := h.associationWordlistManager.Upload(ctx, hashlistID, header.Filename, tempPath)
+	if err != nil {
+		debug.Error("Failed to upload association wordlist: %v", err)
+		jsonError(w, fmt.Sprintf("Failed to upload wordlist: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Build response
+	response := map[string]interface{}{
+		"wordlist":         result.Wordlist,
+		"line_count_match": result.LineCountMatch,
+		"hashlist_lines":   result.HashlistLines,
+		"wordlist_lines":   result.WordlistLines,
+	}
+
+	// Add warnings if applicable
+	var warnings []string
+	if result.Warning != "" {
+		warnings = append(warnings, result.Warning)
+	}
+	if hashlist.HasMixedWorkFactors {
+		warnings = append(warnings, "This hashlist has mixed work factors. Association attacks will be blocked for this hashlist.")
+	}
+	if len(warnings) > 0 {
+		response["warnings"] = warnings
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(response)
+}
+
+// handleGetAssociationWordlist retrieves a specific association wordlist.
+func (h *hashlistHandler) handleGetAssociationWordlist(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Get wordlist ID from URL
+	vars := mux.Vars(r)
+	wordlistIDStr := vars["wordlist_id"]
+	wordlistID, err := uuid.Parse(wordlistIDStr)
+	if err != nil {
+		jsonError(w, "Invalid wordlist ID", http.StatusBadRequest)
+		return
+	}
+
+	wordlist, err := h.associationWordlistManager.Get(ctx, wordlistID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			jsonError(w, "Association wordlist not found", http.StatusNotFound)
+			return
+		}
+		debug.Error("Failed to get association wordlist %s: %v", wordlistID, err)
+		jsonError(w, "Failed to get association wordlist", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(wordlist)
+}
+
+// handleDeleteAssociationWordlist deletes an association wordlist and its file.
+func (h *hashlistHandler) handleDeleteAssociationWordlist(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Get wordlist ID from URL
+	vars := mux.Vars(r)
+	wordlistIDStr := vars["wordlist_id"]
+	wordlistID, err := uuid.Parse(wordlistIDStr)
+	if err != nil {
+		jsonError(w, "Invalid wordlist ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.associationWordlistManager.Delete(ctx, wordlistID); err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			jsonError(w, "Association wordlist not found", http.StatusNotFound)
+			return
+		}
+		debug.Error("Failed to delete association wordlist %s: %v", wordlistID, err)
+		jsonError(w, "Failed to delete association wordlist", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

@@ -610,6 +610,9 @@ func (fs *FileSync) DownloadFileWithInfoRetry(ctx context.Context, fileInfo *Fil
 	if fileInfo.FileType == "hashlist" && fileInfo.ID > 0 {
 		// Hashlists use a different endpoint that requires the ID
 		url = fmt.Sprintf("%s/api/agent/hashlists/%d/download", fs.urlConfig.BaseURL, fileInfo.ID)
+	} else if fileInfo.FileType == "hashlist_original" && fileInfo.ID > 0 {
+		// Original hashlists (for association attacks) use a dedicated endpoint
+		url = fmt.Sprintf("%s/api/agent/hashlists/%d/original", fs.urlConfig.BaseURL, fileInfo.ID)
 	} else {
 		// For wordlists/rules, Name often contains the full path (e.g., "general/file.txt")
 		// The Category field represents the classification enum (wordlist_type/rule_type) which
@@ -860,6 +863,9 @@ func (fs *FileSync) GetFileTypeDir(fileType string) (string, error) {
 		return fs.dataDirs.Rules, nil
 	case "hashlist":
 		return fs.dataDirs.Hashlists, nil
+	case "hashlist_original":
+		// Original hashlists are stored in hashlists/original/ subdirectory
+		return filepath.Join(fs.dataDirs.Hashlists, "original"), nil
 	case "binary":
 		return fs.dataDirs.Binaries, nil
 	default:

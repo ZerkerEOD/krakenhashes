@@ -146,6 +146,10 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64, filePath string)
 	firstLineErrorMsg := ""     // Store the first line processing error
 	lineErrorsOccurred := false // Track if any line errors happened
 
+	// Work factor tracking for association attack validation
+	var detectedWorkFactors []string
+	hasMixedWorkFactors := false
+
 	// valueProcessor, processorFound := p.valueProcessors[hashType.ID] // Removed unused variables
 
 	// Get the needs_processing flag from the fetched hashType
@@ -164,6 +168,21 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64, filePath string)
 		originalHash := line // Store the raw line
 		usernameAndDomain := hashutils.ExtractUsernameAndDomain(originalHash, hashType.ID)
 		hashValue := hashutils.ProcessHashIfNeeded(originalHash, hashType.ID, needsProcessing)
+
+		// --- Work Factor Detection for Association Attack Validation ---
+		// Check for variable work factor hash types (bcrypt 3200, etc.)
+		if hashType.ID == 3200 { // bcrypt
+			workFactor := extractBcryptWorkFactor(hashValue)
+			if workFactor != "" {
+				if len(detectedWorkFactors) == 0 {
+					detectedWorkFactors = append(detectedWorkFactors, workFactor)
+				} else if detectedWorkFactors[0] != workFactor && !hasMixedWorkFactors {
+					hasMixedWorkFactors = true
+					debug.Warning("[Processor:%d] Mixed bcrypt work factors detected: first=%s, current=%s at line %d",
+						hashlistID, detectedWorkFactors[0], workFactor, lineNumber)
+				}
+			}
+		}
 
 		// Skip blank LM hashes for LM hash type (3000)
 		if hashType.ID == 3000 {
@@ -284,14 +303,10 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64, filePath string)
 	// Hashlists are now generated on-demand from database when agents request them
 	// No static files are created during processing
 
-	// --- Delete temporary upload file after processing ---
-	if filePath != "" {
-		if err := os.Remove(filePath); err != nil {
-			debug.Warning("Failed to delete temporary upload file %s for hashlist %d: %v", filePath, hashlistID, err)
-		} else {
-			debug.Info("Deleted temporary upload file %s for hashlist %d", filePath, hashlistID)
-		}
-	}
+	// --- Keep original upload file for association attacks ---
+	// NOTE: File is intentionally NOT deleted - it's preserved for association attack mode (-a 9)
+	// The file path is stored in the database and will be cleaned up when the hashlist is deleted
+	debug.Info("Preserving original upload file %s for hashlist %d (for association attacks)", filePath, hashlistID)
 
 	// Determine final status
 	finalStatus := models.HashListStatusReady
@@ -299,15 +314,21 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64, filePath string)
 		finalStatus = HashListStatusReadyWithErrors // Use the new status constant
 	}
 
-	// Update final hashlist status, counts, AND the file path
+	// Update final hashlist status, counts, file path (for association attacks), and work factor flag
 	hashlist.TotalHashes = int(totalHashes)
 	hashlist.CrackedHashes = int(crackedHashes) // Note: This counts cracks found *during* ingest heuristic, not pre-cracked ones
 	hashlist.Status = finalStatus
 	hashlist.ErrorMessage = sql.NullString{String: firstLineErrorMsg, Valid: firstLineErrorMsg != ""}
-	// FilePath no longer needed - hashlists generated on-demand from database
+	hashlist.OriginalFilePath = &filePath // Store for association attacks
+	hashlist.HasMixedWorkFactors = hasMixedWorkFactors
 	hashlist.UpdatedAt = time.Now()
 
-	err = p.hashlistRepo.UpdateStatsAndStatus(ctx, hashlist.ID, int(totalHashes), int(crackedHashes), hashlist.Status, hashlist.ErrorMessage.String)
+	// Log work factor warning if detected
+	if hasMixedWorkFactors {
+		debug.Warning("[Processor:%d] Hashlist has mixed work factors - association attacks will be blocked for this hashlist", hashlistID)
+	}
+
+	err = p.hashlistRepo.UpdateStatsStatusAndAssociationFields(ctx, hashlist.ID, int(totalHashes), int(crackedHashes), hashlist.Status, hashlist.ErrorMessage.String, filePath, hasMixedWorkFactors)
 	if err != nil {
 		debug.Error("Background task: Failed to update final stats/status/path for hashlist %d: %v", hashlistID, err)
 		// Status is likely 'processing' still, but processing technically finished.
@@ -462,4 +483,30 @@ func countFileLines(filePath string) (int64, error) {
 			return count, err
 		}
 	}
+}
+
+// extractBcryptWorkFactor extracts the cost parameter from a bcrypt hash.
+// Bcrypt format: $2a$XX$... or $2b$XX$... or $2y$XX$... where XX is the cost (04-31).
+// Returns the cost as a string (e.g., "10", "12") or empty string if not found.
+func extractBcryptWorkFactor(hashValue string) string {
+	// bcrypt hashes start with $2a$, $2b$, or $2y$ followed by cost
+	if len(hashValue) < 7 {
+		return ""
+	}
+
+	// Check for valid bcrypt prefix
+	if hashValue[0] != '$' || hashValue[1] != '2' {
+		return ""
+	}
+
+	// Find the second and third '$' to extract cost
+	// Format: $2X$CC$hash... where X is a/b/y and CC is cost
+	if len(hashValue) > 4 && hashValue[3] == '$' {
+		// Extract the two-digit cost between positions 4 and 6
+		if len(hashValue) > 6 && hashValue[6] == '$' {
+			return hashValue[4:6]
+		}
+	}
+
+	return ""
 }

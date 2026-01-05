@@ -268,6 +268,12 @@ func (jm *JobManager) ProcessJobAssignment(ctx context.Context, assignmentData [
 		return fmt.Errorf("failed to ensure rule chunks: %w", err)
 	}
 
+	// Ensure association files are available if this is an association attack (mode 9)
+	err = jm.ensureAssociationFiles(ctx, &assignment)
+	if err != nil {
+		return fmt.Errorf("failed to ensure association files: %w", err)
+	}
+
 	// Run benchmark if needed
 	err = jm.ensureBenchmark(ctx, &assignment)
 	if err != nil {
@@ -454,6 +460,127 @@ func (jm *JobManager) ensureRuleChunks(ctx context.Context, assignment *JobTaskA
 	return nil
 }
 
+// ensureAssociationFiles downloads files needed for association attacks (mode 9)
+func (jm *JobManager) ensureAssociationFiles(ctx context.Context, assignment *JobTaskAssignment) error {
+	// Only needed for association attacks (mode 9)
+	if assignment.AttackMode != 9 {
+		return nil
+	}
+
+	if jm.fileSync == nil {
+		debug.Error("File sync is not initialized in job manager")
+		return fmt.Errorf("file sync not initialized")
+	}
+
+	debug.Info("Ensuring association attack files are available for task %s", assignment.TaskID)
+
+	// Download original hashlist file (preserves hash order for association attack)
+	if assignment.OriginalHashlistPath != "" {
+		localPath := filepath.Join(jm.config.DataDirectory, assignment.OriginalHashlistPath)
+		debug.Info("Downloading original hashlist for association attack: %s", assignment.OriginalHashlistPath)
+
+		// Create directory if needed
+		if err := os.MkdirAll(filepath.Dir(localPath), 0755); err != nil {
+			return fmt.Errorf("failed to create directory for original hashlist: %w", err)
+		}
+
+		// Download original hashlist via dedicated endpoint
+		// Path format: hashlists/original/{id}_{filename}
+		fileInfo := &filesync.FileInfo{
+			Name:     filepath.Base(assignment.OriginalHashlistPath),
+			FileType: "hashlist_original",
+			ID:       int(assignment.HashlistID),
+		}
+
+		if err := jm.fileSync.DownloadFileFromInfo(ctx, fileInfo); err != nil {
+			debug.Error("Failed to download original hashlist: %v", err)
+			return fmt.Errorf("failed to download original hashlist: %w", err)
+		}
+
+		// Verify the file was created
+		if info, err := os.Stat(localPath); err == nil {
+			debug.Info("Successfully downloaded original hashlist: %s (size: %d bytes)", filepath.Base(localPath), info.Size())
+		} else {
+			debug.Error("Original hashlist file not found after download: %s", localPath)
+			return fmt.Errorf("original hashlist file not found after download")
+		}
+	}
+
+	// Download association wordlist
+	if assignment.AssociationWordlistPath != "" {
+		localPath := filepath.Join(jm.config.DataDirectory, assignment.AssociationWordlistPath)
+		debug.Info("Downloading association wordlist: %s", assignment.AssociationWordlistPath)
+
+		// Create directory if needed
+		if err := os.MkdirAll(filepath.Dir(localPath), 0755); err != nil {
+			return fmt.Errorf("failed to create directory for association wordlist: %w", err)
+		}
+
+		// Path format: wordlists/association/{hashlistID}_{filename}
+		// Extract category and filename from path
+		parts := strings.Split(assignment.AssociationWordlistPath, "/")
+		if len(parts) >= 3 {
+			category := parts[1] // "association"
+			filename := parts[2] // "{hashlistID}_{filename}"
+
+			fileInfo := &filesync.FileInfo{
+				Name:     filename,
+				FileType: "wordlist",
+				Category: category,
+			}
+
+			if err := jm.fileSync.DownloadFileFromInfo(ctx, fileInfo); err != nil {
+				debug.Error("Failed to download association wordlist: %v", err)
+				return fmt.Errorf("failed to download association wordlist: %w", err)
+			}
+
+			// Verify the file was created
+			if info, err := os.Stat(localPath); err == nil {
+				debug.Info("Successfully downloaded association wordlist: %s (size: %d bytes)", filename, info.Size())
+			} else {
+				debug.Error("Association wordlist file not found after download: %s", localPath)
+				return fmt.Errorf("association wordlist file not found after download")
+			}
+		} else {
+			debug.Error("Invalid association wordlist path format: %s", assignment.AssociationWordlistPath)
+			return fmt.Errorf("invalid association wordlist path format")
+		}
+	}
+
+	return nil
+}
+
+// cleanupAssociationFiles removes association attack files after task completion
+// These files are specific to a single task and should not persist
+func (jm *JobManager) cleanupAssociationFiles(assignment *JobTaskAssignment) {
+	// Only clean up for association attacks (mode 9)
+	if assignment.AttackMode != 9 {
+		return
+	}
+
+	debug.Info("Cleaning up association files for task %s", assignment.TaskID)
+
+	// Clean up original hashlist file
+	if assignment.OriginalHashlistPath != "" {
+		originalPath := filepath.Join(jm.config.DataDirectory, assignment.OriginalHashlistPath)
+		if err := os.Remove(originalPath); err != nil && !os.IsNotExist(err) {
+			debug.Warning("Failed to remove original hashlist file %s: %v", originalPath, err)
+		} else if err == nil {
+			debug.Info("Removed original hashlist file: %s", originalPath)
+		}
+	}
+
+	// Clean up association wordlist file
+	if assignment.AssociationWordlistPath != "" {
+		assocPath := filepath.Join(jm.config.DataDirectory, assignment.AssociationWordlistPath)
+		if err := os.Remove(assocPath); err != nil && !os.IsNotExist(err) {
+			debug.Warning("Failed to remove association wordlist file %s: %v", assocPath, err)
+		} else if err == nil {
+			debug.Info("Removed association wordlist file: %s", assocPath)
+		}
+	}
+}
+
 // ensureBenchmark runs a benchmark if needed for the job
 func (jm *JobManager) ensureBenchmark(ctx context.Context, assignment *JobTaskAssignment) error {
 	// We no longer run benchmarks here - the backend will request speed tests
@@ -493,6 +620,9 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 			jm.lastCompletedTask = info
 			debug.Info("Cached completion for task %s with status %s, progress %.2f%%, keyspace %d",
 				info.TaskID, info.Status, info.ProgressPercent, info.KeyspaceProcessed)
+
+			// Clean up association attack files after task completion
+			jm.cleanupAssociationFiles(exec.Assignment)
 		}
 		delete(jm.activeJobs, jobExecution.Assignment.TaskID)
 		jm.mutex.Unlock()
