@@ -708,18 +708,19 @@ func (s *PotfileService) getOrCreatePotfilePresetJob(ctx context.Context, wordli
 
 	// Create preset job
 	presetJob := models.PresetJob{
-		Name:                     "Potfile Run",
-		WordlistIDs:              []string{strconv.Itoa(wordlistID)},
-		RuleIDs:                  []string{},
-		AttackMode:               models.AttackModeStraight,
-		Priority:                 maxPriority,
-		ChunkSizeSeconds:         chunkDuration,
-		StatusUpdatesEnabled:     true,
+		Name:                      "Potfile Run",
+		WordlistIDs:               []string{strconv.Itoa(wordlistID)},
+		RuleIDs:                   []string{},
+		AttackMode:                models.AttackModeStraight,
+		Priority:                  maxPriority,
+		ChunkSizeSeconds:          chunkDuration,
+		StatusUpdatesEnabled:      true,
 		AllowHighPriorityOverride: true,
-		BinaryVersionID:          latestBinary,
-		Mask:                     "",
-		Keyspace:                 nil, // Will be set after calculation
-		MaxAgents:                0, // Unlimited
+		BinaryVersionID:           latestBinary,
+		Mask:                      "",
+		Keyspace:                  nil,   // Will be set after calculation
+		MaxAgents:                 0,     // Unlimited
+		IncrementMode:             "off", // Required to satisfy check constraint
 	}
 
 	createdJob, err := s.presetJobRepo.Create(ctx, presetJob)
