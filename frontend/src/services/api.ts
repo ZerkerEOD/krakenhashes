@@ -135,13 +135,26 @@ api.interceptors.request.use((config) => {
   // Log the request
   logApiCall(config.method?.toUpperCase() || 'UNKNOWN', config.url || '', config.data);
   
-  // Add X-Auto-Refresh header for polling endpoints
-  const isAutoRefreshEndpoint = 
+  // Add X-Auto-Refresh header for polling/automated endpoints
+  // This prevents these requests from triggering token refresh in the middleware
+  const isAutoRefreshEndpoint =
+    // Specific endpoints that are always auto-refresh
     config.url?.includes('/api/dashboard/stats') ||
-    (config.url?.includes('/api/jobs') && config.method?.toLowerCase() === 'get') ||
-    config.url?.includes('/api/agents') ||
-    config.url?.includes('/api/jobs/stream');
-  
+    config.url?.includes('/api/check-auth') ||
+    config.url?.includes('/api/jobs/stream') ||
+    config.url?.includes('/api/vouchers') ||
+    // Progress/status polling endpoints (partial match)
+    config.url?.includes('/processing-progress') ||
+    config.url?.includes('/deletion-progress') ||
+    config.url?.includes('/metrics') ||
+    // GET requests to list/polling endpoints
+    (config.method?.toLowerCase() === 'get' && (
+      config.url?.includes('/api/jobs') ||
+      config.url?.includes('/api/agents') ||
+      config.url?.includes('/api/hashlists') ||
+      config.url?.includes('/api/user/')
+    ));
+
   if (isAutoRefreshEndpoint && !config.headers?.['X-Manual-Request']) {
     config.headers = config.headers || {};
     config.headers['X-Auto-Refresh'] = 'true';

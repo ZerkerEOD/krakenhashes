@@ -397,19 +397,34 @@ func (h *Handler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
  * RefreshTokenHandler generates a new JWT token for the authenticated user.
  * This extends the session without requiring re-login.
  *
- * This handler now:
- * - Deletes the old token (CASCADE deletes linked session)
+ * This handler:
+ * - Returns immediately for auto-refresh requests (X-Auto-Refresh header)
+ * - Uses SwapTokenWithGrace for manual refresh (old token valid 5 more minutes)
  * - Checks concurrent session limits and revokes oldest if needed
  * - Checks absolute session timeout
- * - Creates new token and session while preserving session_started_at
+ * - Preserves session_started_at across token refresh
  *
  * Responses:
- *   - 200: New token generated and cookie set
+ *   - 200: New token generated and cookie set (or success for auto-refresh)
  *   - 401: Authentication required or session expired
  *   - 500: Internal server error
  */
 func (h *Handler) RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 	debug.Debug("Refreshing authentication token")
+
+	// Check if this is an automatic refresh request (from polling/background)
+	// Auto-refresh should NOT trigger token refresh - the middleware handles actual user activity
+	// This prevents race conditions where the old token is deleted before in-flight requests complete
+	isAutoRefresh := r.Header.Get("X-Auto-Refresh") == "true"
+	if isAutoRefresh {
+		debug.Debug("[AUTH] Auto-refresh request for /api/refresh-token, returning success without token swap")
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(models.LoginResponse{
+			Success: true,
+			Message: "Session active",
+		})
+		return
+	}
 
 	// Get user ID from middleware context
 	userID := r.Context().Value("user_id")
@@ -444,11 +459,11 @@ func (h *Handler) RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get old session to preserve session_started_at
+	// Get old session for absolute timeout check
 	oldSession, err := h.db.GetSessionByToken(oldToken)
 	if err != nil {
 		debug.Warning("Could not find session for token during refresh: %v", err)
-		// Continue anyway, will create new session with current time
+		// Continue anyway, SwapTokenWithGrace will create new session if needed
 		oldSession = nil
 	}
 
@@ -500,13 +515,6 @@ func (h *Handler) RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Delete old token (CASCADE deletes linked session)
-	debug.Debug("Removing old token during refresh")
-	if err := h.db.RemoveTokenByString(oldToken); err != nil {
-		debug.Error("Failed to remove old token: %v", err)
-		// Continue anyway, we'll create the new token
-	}
-
 	// Generate new token
 	token, err := jwt.GenerateToken(userID.(string), userRole.(string), authSettings.JWTExpiryMinutes)
 	if err != nil {
@@ -515,34 +523,13 @@ func (h *Handler) RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Store new token in database
-	tokenID, err := h.db.StoreToken(userID.(string), token)
+	// Swap tokens with grace period - old token remains valid for 5 minutes
+	// This prevents race conditions with concurrent in-flight requests
+	_, err = h.db.SwapTokenWithGrace(oldToken, token, userUUID, authSettings.JWTExpiryMinutes)
 	if err != nil {
-		debug.Error("Failed to store refresh token: %v", err)
+		debug.Error("Failed to swap token: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
-	}
-
-	// Get client info for new session
-	ipAddress, userAgent := sharedAuth.GetClientInfo(r)
-
-	// Create new session, preserving session_started_at from old session
-	sessionStartedAt := time.Now()
-	if oldSession != nil {
-		sessionStartedAt = oldSession.SessionStartedAt
-		debug.Debug("Preserving session_started_at: %s", sessionStartedAt)
-	}
-
-	session := &models.ActiveSession{
-		UserID:           userUUID,
-		IPAddress:        ipAddress,
-		UserAgent:        userAgent,
-		TokenID:          &tokenID,
-		SessionStartedAt: sessionStartedAt,
-	}
-	if err := h.db.CreateSession(session); err != nil {
-		debug.Error("Failed to create session during refresh: %v", err)
-		// Don't fail the refresh for this
 	}
 
 	// Set new auth cookie
