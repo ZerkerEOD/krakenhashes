@@ -906,6 +906,13 @@ export default function CreateJobDialog({
                             The wordlist line count must match the total hash count ({totalHashes.toLocaleString()}).
                           </Typography>
                         </Alert>
+                        <Alert severity="warning" sx={{ mb: 2 }}>
+                          <Typography variant="body2">
+                            <strong>Note:</strong> Association attacks can produce false positives.
+                            It is recommended to verify results by downloading cracked hashes,
+                            deleting the hashlist, re-uploading, and confirming with a dictionary attack.
+                          </Typography>
+                        </Alert>
                       </Grid>
                       <Grid item xs={12}>
                         <FormControl fullWidth required>

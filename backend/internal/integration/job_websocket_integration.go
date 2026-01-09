@@ -44,6 +44,8 @@ var retransmitCollectionMu sync.Mutex
 type JobWebSocketIntegration struct {
 	wsHandler interface {
 		SendMessage(agentID int, msg *wsservice.Message) error
+		RegisterInventoryCallback(agentID int) <-chan *wsservice.FileSyncResponsePayload
+		UnregisterInventoryCallback(agentID int)
 	}
 	jobSchedulingService *services.JobSchedulingService
 	jobExecutionService  *services.JobExecutionService
@@ -76,6 +78,8 @@ type JobWebSocketIntegration struct {
 func NewJobWebSocketIntegration(
 	wsHandler interface {
 		SendMessage(agentID int, msg *wsservice.Message) error
+		RegisterInventoryCallback(agentID int) <-chan *wsservice.FileSyncResponsePayload
+		UnregisterInventoryCallback(agentID int)
 	},
 	jobSchedulingService *services.JobSchedulingService,
 	jobExecutionService *services.JobExecutionService,
@@ -197,6 +201,225 @@ func (s *JobWebSocketIntegration) SyncAgentFiles(ctx context.Context, agentID in
 	return fmt.Errorf("sync timed out after %v", timeout)
 }
 
+// FileRequirement represents a file needed for a benchmark or job
+type FileRequirement struct {
+	Name     string // Filename
+	FileType string // "wordlist", "rule", "binary"
+	Category string // Category/subdirectory
+}
+
+// CheckAndSyncAgentFiles checks if agent has required files and triggers download if missing.
+// This is a non-blocking check used before benchmarks to ensure agents have necessary files.
+// Returns true if agent has all files (ready for benchmark), false if agent needs to download.
+// Unlike SyncAgentFiles, this doesn't wait for downloads to complete.
+func (s *JobWebSocketIntegration) CheckAndSyncAgentFiles(ctx context.Context, agentID int,
+	requiredFiles []FileRequirement, inventoryTimeout time.Duration) (bool, error) {
+
+	// Skip if agent is already syncing
+	agent, err := s.agentRepo.GetByID(ctx, agentID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get agent: %w", err)
+	}
+	if agent.SyncStatus == models.AgentSyncStatusPending ||
+		agent.SyncStatus == models.AgentSyncStatusInProgress {
+		debug.Info("Agent %d already syncing, skipping file check", agentID)
+		return false, nil // Not ready, but don't error
+	}
+
+	// If no required files, agent is ready
+	if len(requiredFiles) == 0 {
+		debug.Info("No required files specified for agent %d, marking as ready", agentID)
+		return true, nil
+	}
+
+	// Step 1: Register callback and send inventory request
+	// Callback is keyed by agentID - only one pending request per agent at a time
+	inventoryChan := s.wsHandler.RegisterInventoryCallback(agentID)
+	defer s.wsHandler.UnregisterInventoryCallback(agentID)
+
+	payload := wsservice.FileSyncRequestPayload{
+		FileTypes: []string{"wordlist", "rule", "binary"},
+	}
+	payloadBytes, _ := json.Marshal(payload)
+	msg := &wsservice.Message{
+		Type:    wsservice.TypeSyncRequest,
+		Payload: payloadBytes,
+	}
+
+	if err := s.wsHandler.SendMessage(agentID, msg); err != nil {
+		return false, fmt.Errorf("failed to send inventory request: %w", err)
+	}
+
+	debug.Info("Sent inventory request to agent %d, waiting for response (timeout: %v)", agentID, inventoryTimeout)
+
+	// Step 2: Wait for inventory response (brief timeout)
+	var inventory *wsservice.FileSyncResponsePayload
+	select {
+	case inventory = <-inventoryChan:
+		// Got response
+		debug.Info("Received inventory from agent %d: %d files", agentID, len(inventory.Files))
+	case <-time.After(inventoryTimeout):
+		debug.Warning("Agent %d inventory timeout after %v, treating as needs sync", agentID, inventoryTimeout)
+		return false, nil // Treat timeout as needs sync - don't error
+	case <-ctx.Done():
+		return false, ctx.Err()
+	}
+
+	// Step 3: Compare with required files
+	// Build map of agent's files: key = "fileType:category/name" or "fileType:name"
+	agentFiles := make(map[string]wsservice.FileInfo)
+	for _, f := range inventory.Files {
+		var key string
+		if f.Category != "" {
+			key = fmt.Sprintf("%s:%s/%s", f.FileType, f.Category, f.Name)
+		} else {
+			key = fmt.Sprintf("%s:%s", f.FileType, f.Name)
+		}
+		agentFiles[key] = f
+	}
+
+	var missingFiles []wsservice.FileInfo
+	for _, req := range requiredFiles {
+		var key string
+		if req.Category != "" {
+			key = fmt.Sprintf("%s:%s/%s", req.FileType, req.Category, req.Name)
+		} else {
+			key = fmt.Sprintf("%s:%s", req.FileType, req.Name)
+		}
+
+		if _, exists := agentFiles[key]; !exists {
+			debug.Info("Agent %d missing file: %s (%s/%s)", agentID, req.Name, req.FileType, req.Category)
+			missingFiles = append(missingFiles, wsservice.FileInfo{
+				Name:     req.Name,
+				FileType: req.FileType,
+				Category: req.Category,
+			})
+		}
+	}
+
+	// Step 4: If all files present, agent is ready
+	if len(missingFiles) == 0 {
+		debug.Info("Agent %d has all %d required files, ready for benchmark", agentID, len(requiredFiles))
+		return true, nil
+	}
+
+	// Step 5: Agent missing files - trigger async download
+	debug.Info("Agent %d missing %d/%d files, triggering download", agentID, len(missingFiles), len(requiredFiles))
+
+	// Update agent status to in_progress (makes agent unavailable for scheduling)
+	agent.SyncStatus = models.AgentSyncStatusInProgress
+	agent.SyncStartedAt = sql.NullTime{Time: time.Now(), Valid: true}
+	agent.FilesToSync = len(missingFiles)
+	agent.FilesSynced = 0
+	if err := s.agentRepo.Update(ctx, agent); err != nil {
+		return false, fmt.Errorf("failed to update agent sync status: %w", err)
+	}
+
+	// Send download command (don't wait for completion - it's async)
+	downloadPayload := wsservice.FileSyncCommandPayload{
+		RequestID: fmt.Sprintf("benchmark-sync-%d-%d", agentID, time.Now().UnixNano()),
+		Action:    "download",
+		Files:     missingFiles,
+	}
+	downloadBytes, _ := json.Marshal(downloadPayload)
+	downloadMsg := &wsservice.Message{
+		Type:    wsservice.TypeSyncCommand,
+		Payload: downloadBytes,
+	}
+
+	if err := s.wsHandler.SendMessage(agentID, downloadMsg); err != nil {
+		debug.Warning("Failed to send download command to agent %d: %v", agentID, err)
+		// Don't return error - agent is already marked as syncing
+	} else {
+		debug.Info("Sent download command to agent %d for %d files", agentID, len(missingFiles))
+	}
+
+	return false, nil // Not ready - needs download (will become available after sync completes)
+}
+
+// CheckAgentFilesForJob checks if an agent has all files required for a job execution.
+// This is a higher-level function that builds the required files list from job execution data
+// and calls CheckAndSyncAgentFiles. Returns true if agent is ready, false if files need download.
+func (s *JobWebSocketIntegration) CheckAgentFilesForJob(ctx context.Context, agentID int,
+	jobExecution *models.JobExecution, timeout time.Duration) (bool, error) {
+
+	// Build required files list from job execution
+	var requiredFiles []FileRequirement
+
+	// Add wordlists
+	for _, wlIDStr := range jobExecution.WordlistIDs {
+		wlID, err := strconv.Atoi(wlIDStr)
+		if err != nil {
+			debug.Warning("Invalid wordlist ID %s for file check: %v", wlIDStr, err)
+			continue
+		}
+		wl, err := s.wordlistManager.GetWordlist(ctx, wlID)
+		if err != nil {
+			debug.Warning("Failed to get wordlist %d for file check: %v", wlID, err)
+			continue
+		}
+		if wl != nil {
+			// Check if filename already includes category prefix (e.g., "custom/potfile.txt")
+			// If so, don't add Category to avoid double prefix in key comparison
+			req := FileRequirement{
+				Name:     wl.FileName,
+				FileType: "wordlist",
+			}
+			if !strings.Contains(wl.FileName, "/") {
+				req.Category = wl.WordlistType // Only add category if not already in filename
+			}
+			requiredFiles = append(requiredFiles, req)
+		}
+	}
+
+	// Add rules
+	for _, ruleIDStr := range jobExecution.RuleIDs {
+		ruleID, err := strconv.Atoi(ruleIDStr)
+		if err != nil {
+			debug.Warning("Invalid rule ID %s for file check: %v", ruleIDStr, err)
+			continue
+		}
+		rule, err := s.ruleManager.GetRule(ctx, ruleID)
+		if err != nil {
+			debug.Warning("Failed to get rule %d for file check: %v", ruleID, err)
+			continue
+		}
+		if rule != nil {
+			// Check if filename already includes category prefix (e.g., "hashcat/00-primary-merged.rule")
+			// If so, don't add Category to avoid double prefix in key comparison
+			req := FileRequirement{
+				Name:     rule.FileName,
+				FileType: "rule",
+			}
+			if !strings.Contains(rule.FileName, "/") {
+				req.Category = rule.RuleType // Only add category if not already in filename
+			}
+			requiredFiles = append(requiredFiles, req)
+		}
+	}
+
+	// Add association wordlist (for mode 9)
+	if jobExecution.AttackMode == 9 && jobExecution.AssociationWordlistID != nil {
+		assocWL, err := s.assocWordlistRepo.GetByID(ctx, *jobExecution.AssociationWordlistID)
+		if err != nil {
+			debug.Warning("Failed to get association wordlist %s for file check: %v",
+				jobExecution.AssociationWordlistID.String(), err)
+		} else if assocWL != nil {
+			requiredFiles = append(requiredFiles, FileRequirement{
+				Name:     filepath.Base(assocWL.FilePath),
+				FileType: "wordlist",
+				Category: "association", // Association wordlists are stored in "association" category
+			})
+		}
+	}
+
+	debug.Info("Checking %d required files for agent %d (job %s, mode %d)",
+		len(requiredFiles), agentID, jobExecution.ID.String(), jobExecution.AttackMode)
+
+	// Call the lower-level check function
+	return s.CheckAndSyncAgentFiles(ctx, agentID, requiredFiles, timeout)
+}
+
 // SendJobAssignment sends a job task assignment to an agent via WebSocket
 func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *models.JobTask, jobExecution *models.JobExecution) error {
 	debug.Log("Sending job assignment to agent", map[string]interface{}{
@@ -242,27 +465,49 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 		maskToUse = jobExecution.Mask
 	}
 
-	// Build wordlist and rule paths using job execution's self-contained configuration
+	// Hashlist path is always the same - agent's download function picks the right endpoint
+	// based on attack mode (DB streaming vs original file)
+	hashlistPath := fmt.Sprintf("hashlists/%d.hash", jobExecution.HashlistID)
+
+	// Build wordlist paths based on attack mode
 	var wordlistPaths []string
-	for _, wordlistIDStr := range jobExecution.WordlistIDs {
-		// Convert string ID to int
-		wordlistID, err := strconv.Atoi(wordlistIDStr)
-		if err != nil {
-			return fmt.Errorf("invalid wordlist ID %s: %w", wordlistIDStr, err)
+	if jobExecution.AttackMode == models.AttackModeAssociation {
+		// Mode 9: use association wordlist as the wordlist
+		if jobExecution.AssociationWordlistID != nil {
+			assocWordlist, err := s.assocWordlistRepo.GetByID(ctx, *jobExecution.AssociationWordlistID)
+			if err != nil {
+				return fmt.Errorf("failed to get association wordlist: %w", err)
+			}
+			if assocWordlist == nil {
+				return fmt.Errorf("association wordlist not found")
+			}
+			wordlistPath := fmt.Sprintf("wordlists/association/%d_%s", hashlist.ID, assocWordlist.FileName)
+			wordlistPaths = append(wordlistPaths, wordlistPath)
+		} else {
+			return fmt.Errorf("association attack requires association wordlist")
 		}
+	} else {
+		// Regular wordlist processing for other attack modes
+		for _, wordlistIDStr := range jobExecution.WordlistIDs {
+			// Convert string ID to int
+			wordlistID, err := strconv.Atoi(wordlistIDStr)
+			if err != nil {
+				return fmt.Errorf("invalid wordlist ID %s: %w", wordlistIDStr, err)
+			}
 
-		// Look up the actual wordlist file path
-		wordlist, err := s.wordlistManager.GetWordlist(ctx, wordlistID)
-		if err != nil {
-			return fmt.Errorf("failed to get wordlist %d: %w", wordlistID, err)
-		}
-		if wordlist == nil {
-			return fmt.Errorf("wordlist %d not found", wordlistID)
-		}
+			// Look up the actual wordlist file path
+			wordlist, err := s.wordlistManager.GetWordlist(ctx, wordlistID)
+			if err != nil {
+				return fmt.Errorf("failed to get wordlist %d: %w", wordlistID, err)
+			}
+			if wordlist == nil {
+				return fmt.Errorf("wordlist %d not found", wordlistID)
+			}
 
-		// Use the actual file path from the database
-		wordlistPath := fmt.Sprintf("wordlists/%s", wordlist.FileName)
-		wordlistPaths = append(wordlistPaths, wordlistPath)
+			// Use the actual file path from the database
+			wordlistPath := fmt.Sprintf("wordlists/%s", wordlist.FileName)
+			wordlistPaths = append(wordlistPaths, wordlistPath)
+		}
 	}
 
 	var rulePaths []string
@@ -374,7 +619,7 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 		TaskID:          task.ID.String(),
 		JobExecutionID:  jobExecution.ID.String(),
 		HashlistID:      jobExecution.HashlistID,
-		HashlistPath:    fmt.Sprintf("hashlists/%d.hash", jobExecution.HashlistID),
+		HashlistPath:    hashlistPath, // Original hashlist for mode 9, processed for others
 		AttackMode:      int(jobExecution.AttackMode),
 		HashType:        hashlist.HashTypeID,
 		KeyspaceStart:   task.KeyspaceStart,
@@ -391,27 +636,12 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 		IsKeyspaceSplit: task.IsKeyspaceSplit,
 	}
 
-	// Add association attack fields if mode 9
+	// Log mode 9 task assignment for debugging
 	if jobExecution.AttackMode == models.AttackModeAssociation {
-		// Get the original hashlist path for association attacks
-		if hashlist.OriginalFilePath != nil && *hashlist.OriginalFilePath != "" {
-			// Extract just the filename from the original path
-			originalFileName := filepath.Base(*hashlist.OriginalFilePath)
-			assignment.OriginalHashlistPath = fmt.Sprintf("hashlists/original/%d_%s", hashlist.ID, originalFileName)
-		}
-
-		// Get the association wordlist path
-		if jobExecution.AssociationWordlistID != nil {
-			assocWordlist, err := s.assocWordlistRepo.GetByID(ctx, *jobExecution.AssociationWordlistID)
-			if err == nil && assocWordlist != nil {
-				assignment.AssociationWordlistPath = fmt.Sprintf("wordlists/association/%d_%s", hashlist.ID, assocWordlist.FileName)
-			}
-		}
-
 		debug.Log("Association attack task assignment", map[string]interface{}{
-			"task_id":                     task.ID,
-			"original_hashlist_path":     assignment.OriginalHashlistPath,
-			"association_wordlist_path":  assignment.AssociationWordlistPath,
+			"task_id":       task.ID,
+			"hashlist_path": hashlistPath,
+			"wordlist_path": wordlistPaths,
 		})
 	}
 
@@ -627,24 +857,46 @@ func (s *JobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, age
 		return fmt.Errorf("failed to get agent: %w", err)
 	}
 
-	// Build wordlist and rule paths for a more accurate benchmark
+	// Hashlist path is always the same - agent's download function picks the right endpoint
+	// based on attack mode (DB streaming vs original file)
+	hashlistPath := fmt.Sprintf("hashlists/%d.hash", jobExecution.HashlistID)
+
+	// Build wordlist paths based on attack mode
 	var wordlistPaths []string
-	for _, wordlistIDStr := range jobExecution.WordlistIDs {
-		// Convert string ID to int
-		wordlistID, err := strconv.Atoi(wordlistIDStr)
-		if err != nil {
-			continue // Skip invalid IDs
+	if jobExecution.AttackMode == models.AttackModeAssociation {
+		// Mode 9: use association wordlist as the wordlist
+		if jobExecution.AssociationWordlistID != nil {
+			assocWordlist, err := s.assocWordlistRepo.GetByID(ctx, *jobExecution.AssociationWordlistID)
+			if err != nil {
+				return fmt.Errorf("failed to get association wordlist: %w", err)
+			}
+			if assocWordlist == nil {
+				return fmt.Errorf("association wordlist not found")
+			}
+			wordlistPath := fmt.Sprintf("wordlists/association/%d_%s", hashlist.ID, assocWordlist.FileName)
+			wordlistPaths = append(wordlistPaths, wordlistPath)
+		} else {
+			return fmt.Errorf("association attack requires association wordlist")
 		}
+	} else {
+		// Regular wordlist processing for other attack modes
+		for _, wordlistIDStr := range jobExecution.WordlistIDs {
+			// Convert string ID to int
+			wordlistID, err := strconv.Atoi(wordlistIDStr)
+			if err != nil {
+				continue // Skip invalid IDs
+			}
 
-		// Look up the actual wordlist file path
-		wordlist, err := s.wordlistManager.GetWordlist(ctx, wordlistID)
-		if err != nil || wordlist == nil {
-			continue // Skip missing wordlists
+			// Look up the actual wordlist file path
+			wordlist, err := s.wordlistManager.GetWordlist(ctx, wordlistID)
+			if err != nil || wordlist == nil {
+				continue // Skip missing wordlists
+			}
+
+			// Use the actual file path from the database
+			wordlistPath := fmt.Sprintf("wordlists/%s", wordlist.FileName)
+			wordlistPaths = append(wordlistPaths, wordlistPath)
 		}
-
-		// Use the actual file path from the database
-		wordlistPath := fmt.Sprintf("wordlists/%s", wordlist.FileName)
-		wordlistPaths = append(wordlistPaths, wordlistPath)
 	}
 
 	var rulePaths []string
@@ -751,20 +1003,20 @@ func (s *JobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, age
 	// Create enhanced benchmark request payload with job-specific configuration
 	benchmarkReq := wsservice.BenchmarkRequestPayload{
 		RequestID:       requestID,
-		JobExecutionID:  benchmarkEntityID,                                                  // LAYER ID for layer benchmarks, JOB ID for regular
+		JobExecutionID:  benchmarkEntityID,                                                    // LAYER ID for layer benchmarks, JOB ID for regular
 		TaskID:          fmt.Sprintf("benchmark-%s-%d", benchmarkEntityID, time.Now().Unix()), // Generate a task ID for the benchmark
 		HashType:        hashlist.HashTypeID,
 		AttackMode:      int(jobExecution.AttackMode),
 		BinaryPath:      binaryPath,
 		HashlistID:      jobExecution.HashlistID,
-		HashlistPath:    fmt.Sprintf("hashlists/%d.hash", jobExecution.HashlistID),
+		HashlistPath:    hashlistPath, // Original hashlist for mode 9, processed for others
 		WordlistPaths:   wordlistPaths,
 		RulePaths:       rulePaths,
-		Mask:            maskToUse,             // LAYER MASK for layer benchmarks, JOB MASK for regular
-		TestDuration:    30,                    // 30-second benchmark for accuracy
-		TimeoutDuration: speedtestTimeout,      // Configurable timeout for speedtest
-		ExtraParameters: agent.ExtraParameters, // Agent-specific hashcat parameters
-		EnabledDevices:  enabledDeviceIDs,      // Only populated if some devices are disabled
+		Mask:            maskToUse,        // LAYER MASK for layer benchmarks, JOB MASK for regular
+		TestDuration:    30,               // 30-second benchmark for accuracy
+		TimeoutDuration: speedtestTimeout, // Configurable timeout for speedtest
+		ExtraParameters: agent.ExtraParameters,
+		EnabledDevices:  enabledDeviceIDs,
 	}
 
 	// Marshal payload
@@ -1681,13 +1933,13 @@ func (s *JobWebSocketIntegration) HandleCrackBatchesComplete(ctx context.Context
 		// All cracks verified in database - send delete approval
 		debug.Info("All cracks verified in DB for task %s (expected=%d, actual=%d) - sending delete approval",
 			message.TaskID, task.ExpectedCrackCount, actualDBCount)
-		if err := s.sendOutfileDeleteApproval(ctx, agentID, message.TaskID, actualDBCount); err != nil {
+		if err := s.sendOutfileDeleteApproval(ctx, agentID, message.TaskID, actualDBCount, true); err != nil {
 			debug.Warning("Failed to send outfile delete approval: %v", err)
 			// Don't fail the whole operation - cracks are already processed
 		}
 	} else {
 		// No cracks expected - still send delete approval to clean up empty outfile
-		if err := s.sendOutfileDeleteApproval(ctx, agentID, message.TaskID, 0); err != nil {
+		if err := s.sendOutfileDeleteApproval(ctx, agentID, message.TaskID, 0, true); err != nil {
 			debug.Warning("Failed to send outfile delete approval for zero-crack task: %v", err)
 		}
 	}
@@ -1993,8 +2245,9 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 
 			// NOW that we have accurate keyspace, determine if rule splitting should be used
 			// This decision was DEFERRED from job creation time
-			if jobExec.AttackMode == models.AttackModeStraight && len(jobExec.RuleIDs) > 0 {
-				if err := s.determineRuleSplittingAfterBenchmark(ctx, jobExec); err != nil {
+			// Both straight (mode 0) and association (mode 9) attacks can use rule splitting
+			if (jobExec.AttackMode == models.AttackModeStraight || jobExec.AttackMode == models.AttackModeAssociation) && len(jobExec.RuleIDs) > 0 {
+				if err := s.determineRuleSplittingAfterBenchmark(ctx, jobExec, result.Speed); err != nil {
 					debug.Warning("Failed to determine rule splitting after benchmark: %v", err)
 					// Non-fatal - job will use keyspace splitting as fallback
 				}
@@ -2059,7 +2312,8 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 
 // determineRuleSplittingAfterBenchmark makes the rule split decision using accurate keyspace from benchmark
 // This is called AFTER the forced benchmark provides accurate effective keyspace from hashcat's progress[1]
-func (s *JobWebSocketIntegration) determineRuleSplittingAfterBenchmark(ctx context.Context, job *models.JobExecution) error {
+// benchmarkSpeed is the actual speed from the agent benchmark (H/s), NOT a hardcoded estimate
+func (s *JobWebSocketIntegration) determineRuleSplittingAfterBenchmark(ctx context.Context, job *models.JobExecution, benchmarkSpeed int64) error {
 	// Check if rule splitting is enabled
 	ruleSplitEnabled, err := s.systemSettingsRepo.GetSetting(ctx, "rule_split_enabled")
 	if err != nil || ruleSplitEnabled.Value == nil || *ruleSplitEnabled.Value != "true" {
@@ -2099,13 +2353,14 @@ func (s *JobWebSocketIntegration) determineRuleSplittingAfterBenchmark(ctx conte
 		}
 	}
 
-	// Estimate job duration using a conservative speed estimate
-	estimatedSpeed := int64(300_000_000) // 300 MH/s
-	estimatedDuration := float64(*job.EffectiveKeyspace) / float64(estimatedSpeed)
+	// Calculate job duration using actual benchmark speed from the agent
+	// This is the key fix - we use actual benchmark speed instead of a hardcoded estimate
+	estimatedDuration := float64(*job.EffectiveKeyspace) / float64(benchmarkSpeed)
 
 	debug.Log("Rule split decision after benchmark", map[string]interface{}{
 		"job_id":             job.ID,
 		"effective_keyspace": *job.EffectiveKeyspace,
+		"benchmark_speed":    benchmarkSpeed,
 		"estimated_duration": estimatedDuration,
 		"threshold":          threshold,
 		"chunk_duration":     chunkDuration,
@@ -3230,6 +3485,14 @@ func (s *JobWebSocketIntegration) recalculateSubsequentChunks(ctx context.Contex
 
 // requestCrackRetransmit sends a request to agent to retransmit all cracks from outfile
 func (s *JobWebSocketIntegration) requestCrackRetransmit(ctx context.Context, agentID int, taskID uuid.UUID, expectedCount int) error {
+	// Update expected crack count in database BEFORE sending retransmit request
+	// This ensures ProcessCrackBatchesComplete will see the correct count after retransmit
+	// Without this, the task would have ExpectedCrackCount=0 and skip verification, causing infinite loop
+	if err := s.jobTaskRepo.UpdateExpectedCrackCount(ctx, taskID, expectedCount); err != nil {
+		debug.Warning("Failed to update expected crack count for task %s: %v", taskID, err)
+		// Continue anyway - the retransmit is still important
+	}
+
 	payload := map[string]interface{}{
 		"task_id":        taskID.String(),
 		"expected_count": expectedCount,
@@ -3258,10 +3521,12 @@ func (s *JobWebSocketIntegration) requestCrackRetransmit(ctx context.Context, ag
 
 // sendOutfileDeleteApproval tells agent it's safe to delete the outfile for a task
 // expectedLineCount is the number of lines the backend expects in the outfile - agent will verify before deleting
-func (s *JobWebSocketIntegration) sendOutfileDeleteApproval(ctx context.Context, agentID int, taskID uuid.UUID, expectedLineCount int) error {
+// taskExists indicates if the task still exists in the database - if false, agent should delete unconditionally
+func (s *JobWebSocketIntegration) sendOutfileDeleteApproval(ctx context.Context, agentID int, taskID uuid.UUID, expectedLineCount int, taskExists bool) error {
 	payload := map[string]interface{}{
 		"task_id":             taskID.String(),
 		"expected_line_count": expectedLineCount,
+		"task_exists":         taskExists,
 	}
 
 	payloadBytes, err := json.Marshal(payload)
@@ -3274,7 +3539,7 @@ func (s *JobWebSocketIntegration) sendOutfileDeleteApproval(ctx context.Context,
 		Payload: payloadBytes,
 	}
 
-	debug.Info("Sending outfile delete approval to agent %d for task %s (expected_line_count=%d)", agentID, taskID, expectedLineCount)
+	debug.Info("Sending outfile delete approval to agent %d for task %s (expected_line_count=%d, task_exists=%v)", agentID, taskID, expectedLineCount, taskExists)
 	return s.wsHandler.SendMessage(agentID, msg)
 }
 
@@ -3309,7 +3574,7 @@ func (s *JobWebSocketIntegration) handleCrackCountMismatch(ctx context.Context, 
 		// Send delete approval to the agent that sent the message (they have the outfile)
 		// Use agentID (sender) instead of task.AgentID which may be NULL
 		// Use received count as expected - agent should have at least this many in outfile
-		s.sendOutfileDeleteApproval(ctx, agentID, taskID, received)
+		s.sendOutfileDeleteApproval(ctx, agentID, taskID, received, true)
 
 		return s.jobTaskRepo.SetTaskProcessingError(ctx, taskID, errorMsg)
 	}
@@ -3481,15 +3746,9 @@ func (s *JobWebSocketIntegration) processRetransmitCompletion(ctx context.Contex
 	debug.Info("Retransmit verification PASSED: %d duplicates + %d new = %d total (expected %d) [task=%s]",
 		duplicateCount, len(newCracks), totalVerified, task.ExpectedCrackCount, taskID)
 
-	// Query actual DB count for the expected_line_count verification
-	// This ensures we send the count of what's actually in the DB
-	dbCount, err := s.hashRepo.CountCrackedByTaskID(ctx, taskID)
-	if err != nil {
-		debug.Error("Failed to get cracked count for delete approval: %v", err)
-		dbCount = totalVerified // Fall back to totalVerified on error
-	}
-
-	if err := s.sendOutfileDeleteApproval(ctx, agentID, taskID, dbCount); err != nil {
+	// Use task.ExpectedCrackCount directly - we already verified totalVerified matches it
+	// Don't use CountCrackedByTaskID as it returns 0 when the crack was originally from a different task
+	if err := s.sendOutfileDeleteApproval(ctx, agentID, taskID, task.ExpectedCrackCount, true); err != nil {
 		debug.Warning("Failed to send outfile delete approval: %v", err)
 		// Don't fail - cracks are already processed
 	}
@@ -3561,31 +3820,25 @@ func (s *JobWebSocketIntegration) ProcessPendingOutfiles(ctx context.Context, ag
 		if err != nil {
 			debug.Error("Agent %d: failed to get task %s: %v", agentID, taskID, err)
 			// If we can't find the task, send delete approval to clean up orphaned outfiles
-			// Use 0 as expected count - agent should delete regardless of line count
-			s.sendOutfileDeleteApproval(ctx, agentID, taskID, 0)
+			// Use 0 as expected count and task_exists=false - agent should delete unconditionally
+			s.sendOutfileDeleteApproval(ctx, agentID, taskID, 0, false)
 			continue
 		}
 
 		// Check if task is completed (all cracks processed)
 		if task.Status == models.JobTaskStatusCompleted {
 			// Task is complete, safe to delete the outfile
-			// Query DB for actual cracked count to verify against agent's outfile
-			dbCount, err := s.hashRepo.CountCrackedByTaskID(ctx, taskID)
-			if err != nil {
-				debug.Error("Failed to get cracked count for completed task %s: %v", taskID, err)
-				dbCount = 0 // Fall back, agent will reject if mismatch
-			}
-			debug.Info("Agent %d: task %s is completed, sending delete approval (expected_line_count=%d)", agentID, taskID, dbCount)
-			s.sendOutfileDeleteApproval(ctx, agentID, taskID, dbCount)
+			// Use task.ExpectedCrackCount instead of CountCrackedByTaskID
+			// CountCrackedByTaskID returns 0 when cracks were originally from a different task
+			expectedCount := task.ExpectedCrackCount
+			debug.Info("Agent %d: task %s is completed, sending delete approval (expected_line_count=%d)", agentID, taskID, expectedCount)
+			s.sendOutfileDeleteApproval(ctx, agentID, taskID, expectedCount, true)
 		} else if task.Status == models.JobTaskStatusProcessingError {
 			// Task had a processing error, but we've exhausted retries - delete the outfile
-			dbCount, err := s.hashRepo.CountCrackedByTaskID(ctx, taskID)
-			if err != nil {
-				debug.Error("Failed to get cracked count for error task %s: %v", taskID, err)
-				dbCount = 0
-			}
-			debug.Info("Agent %d: task %s has processing_error status, sending delete approval (expected_line_count=%d)", agentID, taskID, dbCount)
-			s.sendOutfileDeleteApproval(ctx, agentID, taskID, dbCount)
+			// Use task.ExpectedCrackCount instead of CountCrackedByTaskID
+			expectedCount := task.ExpectedCrackCount
+			debug.Info("Agent %d: task %s has processing_error status, sending delete approval (expected_line_count=%d)", agentID, taskID, expectedCount)
+			s.sendOutfileDeleteApproval(ctx, agentID, taskID, expectedCount, true)
 		} else {
 			// Task is not complete - request retransmit
 			// Get expected crack count from task's expected_crack_count field
@@ -3621,6 +3874,14 @@ func (s *JobWebSocketIntegration) ProcessOutfileDeleteRejected(ctx context.Conte
 	taskID, err := uuid.Parse(rejection.TaskID)
 	if err != nil {
 		return fmt.Errorf("invalid task ID: %w", err)
+	}
+
+	// Check if the task still exists in the database
+	task, err := s.jobTaskRepo.GetByID(ctx, taskID)
+	if err != nil || task == nil {
+		// Task no longer exists - approve deletion unconditionally
+		debug.Info("Task %s no longer exists in database, approving unconditional deletion", rejection.TaskID)
+		return s.sendOutfileDeleteApproval(ctx, agentID, taskID, 0, false)
 	}
 
 	// Re-request retransmit to capture the additional cracks

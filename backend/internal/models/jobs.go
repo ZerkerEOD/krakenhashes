@@ -80,6 +80,9 @@ type PresetJob struct {
 
 	// Fields potentially populated by JOINs in specific queries
 	BinaryVersionName string `json:"binary_version_name,omitempty" db:"binary_version_name"` // Example: Populated when listing
+
+	// Transient field for custom job keyspace calculation (not persisted - association attacks are custom jobs only)
+	AssociationWordlistID *string `json:"association_wordlist_id,omitempty"` // UUID string of association wordlist
 }
 
 // JobWorkflow mirrors the job_workflows table structure.

@@ -141,8 +141,9 @@ type BenchmarkRequest struct {
 	BinaryPath      string             `json:"binary_path"`
 	TestDuration    int                `json:"test_duration"`    // How long to run test (seconds)
 	TimeoutDuration int                `json:"timeout_duration"` // Maximum time to wait for speedtest (seconds)
-	ExtraParameters string             `json:"extra_parameters,omitempty"` // Agent-specific hashcat parameters
-	EnabledDevices  []int              `json:"enabled_devices,omitempty"`  // List of enabled device IDs
+	ExtraParameters         string   `json:"extra_parameters,omitempty"`          // Agent-specific hashcat parameters
+	EnabledDevices          []int    `json:"enabled_devices,omitempty"`           // List of enabled device IDs
+	AssociationWordlistPath string   `json:"association_wordlist_path,omitempty"` // For mode 9 association attacks
 }
 
 // BenchmarkResult represents the result of a speed test
@@ -1143,6 +1144,17 @@ func (c *Connection) readPump() {
 
 			debug.Info("Queued %d files for download", len(commandPayload.Files))
 
+			// Check if all files were already available (no new downloads needed)
+			// This happens when download manager verified files exist on disk
+			if c.downloadManager != nil {
+				total, pending, downloading, _, _ := c.downloadManager.GetDownloadStats()
+				if pending == 0 && downloading == 0 && total > 0 {
+					// All files were already synced - immediately complete sync
+					debug.Info("All %d files already synced (verified on disk), sending sync_completed immediately", total)
+					c.sendSyncCompleted()
+				}
+			}
+
 			// If binaries were downloaded, trigger device detection after downloads complete
 			if hasBinaries && c.downloadManager != nil {
 				go func() {
@@ -1405,11 +1417,13 @@ func (c *Connection) readPump() {
 					debug.Info("Downloading hashlist %d for benchmark...", benchmarkPayload.HashlistID)
 
 					// Create FileInfo for download
+					// AttackMode is passed through - download function picks right endpoint (mode 9 = original file)
 					fileInfo := &filesync.FileInfo{
-						Name:     hashlistFileName,
-						FileType: "hashlist",
-						ID:       int(benchmarkPayload.HashlistID),
-						MD5Hash:  "", // Empty hash means skip verification
+						Name:       hashlistFileName,
+						FileType:   "hashlist",
+						ID:         int(benchmarkPayload.HashlistID),
+						MD5Hash:    "", // Empty hash means skip verification
+						AttackMode: benchmarkPayload.AttackMode,
 					}
 
 					// Download with timeout
@@ -1470,18 +1484,19 @@ func (c *Connection) readPump() {
 
 				// Create a JobTaskAssignment from benchmark request
 				assignment := &jobs.JobTaskAssignment{
-					TaskID:          benchmarkPayload.TaskID,
-					HashlistID:      benchmarkPayload.HashlistID,
-					HashlistPath:    benchmarkPayload.HashlistPath,
-					AttackMode:      benchmarkPayload.AttackMode,
-					HashType:        benchmarkPayload.HashType,
-					WordlistPaths:   benchmarkPayload.WordlistPaths,
-					RulePaths:       benchmarkPayload.RulePaths,
-					Mask:            benchmarkPayload.Mask,
-					BinaryPath:      benchmarkPayload.BinaryPath,
-					ReportInterval:  5, // Default status interval
-					ExtraParameters: benchmarkPayload.ExtraParameters, // Agent-specific parameters
-					EnabledDevices:  benchmarkPayload.EnabledDevices,   // Device list
+					TaskID:                  benchmarkPayload.TaskID,
+					HashlistID:              benchmarkPayload.HashlistID,
+					HashlistPath:            benchmarkPayload.HashlistPath,
+					AttackMode:              benchmarkPayload.AttackMode,
+					HashType:                benchmarkPayload.HashType,
+					WordlistPaths:           benchmarkPayload.WordlistPaths,
+					RulePaths:               benchmarkPayload.RulePaths,
+					Mask:                    benchmarkPayload.Mask,
+					BinaryPath:              benchmarkPayload.BinaryPath,
+					ReportInterval:          5, // Default status interval
+					ExtraParameters:         benchmarkPayload.ExtraParameters,         // Agent-specific parameters
+					EnabledDevices:          benchmarkPayload.EnabledDevices,           // Device list
+					AssociationWordlistPath: benchmarkPayload.AssociationWordlistPath, // For mode 9
 				}
 
 				// Default test duration to 16 seconds if not specified
@@ -1654,6 +1669,7 @@ func (c *Connection) handleFileSyncAsync(requestPayload FileSyncRequestPayload) 
 			debug.Error("Failed to initialize file sync: %v", err)
 			return
 		}
+		debug.Info("FileSync initialized with hash caching enabled")
 	}
 
 	// Send progress update
@@ -2948,6 +2964,7 @@ func (c *Connection) handleOutfileDeleteApproval(payload json.RawMessage) {
 	var approval struct {
 		TaskID            string `json:"task_id"`
 		ExpectedLineCount int64  `json:"expected_line_count"`
+		TaskExists        bool   `json:"task_exists"`
 	}
 
 	if err := json.Unmarshal(payload, &approval); err != nil {
@@ -2955,7 +2972,7 @@ func (c *Connection) handleOutfileDeleteApproval(payload json.RawMessage) {
 		return
 	}
 
-	debug.Info("Processing outfile delete approval for task %s (expected %d lines)", approval.TaskID, approval.ExpectedLineCount)
+	debug.Info("Processing outfile delete approval for task %s (expected %d lines, task_exists=%v)", approval.TaskID, approval.ExpectedLineCount, approval.TaskExists)
 
 	// Get job manager
 	jm, ok := c.jobManager.(*jobs.JobManager)
@@ -2974,6 +2991,20 @@ func (c *Connection) handleOutfileDeleteApproval(payload json.RawMessage) {
 	taskInfo := jm.GetCurrentTaskStatus()
 	if taskInfo != nil && taskInfo.TaskID == approval.TaskID {
 		debug.Warning("Ignoring outfile delete approval for task %s - currently working on it (race condition prevented)", approval.TaskID)
+		return
+	}
+
+	// If the backend says the task doesn't exist, delete unconditionally
+	// This handles orphaned outfiles from deleted jobs where the cracks have already been processed
+	if !approval.TaskExists {
+		debug.Info("Task %s no longer exists in backend, deleting outfile unconditionally", approval.TaskID)
+		if err := jm.DeleteOutfile(approval.TaskID); err != nil {
+			if !os.IsNotExist(err) {
+				debug.Error("Failed to delete orphaned outfile for task %s: %v", approval.TaskID, err)
+			}
+		} else {
+			debug.Info("Successfully deleted orphaned outfile for task %s", approval.TaskID)
+		}
 		return
 	}
 

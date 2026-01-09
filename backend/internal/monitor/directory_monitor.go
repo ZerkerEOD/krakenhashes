@@ -202,6 +202,12 @@ func (m *DirectoryMonitor) checkWordlistDirectory() {
 			return nil
 		}
 
+		// Skip association wordlists - they are managed separately in the association_wordlists table
+		if strings.HasPrefix(relPath, "association/") || strings.HasPrefix(relPath, "association"+string(filepath.Separator)) {
+			debug.Debug("Skipping association wordlist from directory monitoring: %s", relPath)
+			return nil
+		}
+
 		// Skip if already being processed
 		if _, isProcessing := m.processingFiles.Load(relPath); isProcessing {
 			debug.Debug("Skipping file that is already being processed: %s", relPath)

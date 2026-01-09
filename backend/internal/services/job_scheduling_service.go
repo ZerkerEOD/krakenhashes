@@ -20,6 +20,10 @@ type JobWebSocketIntegration interface {
 	RequestAgentBenchmark(ctx context.Context, agentID int, jobExecution *models.JobExecution, layerID *uuid.UUID, layerMask string) error
 	SendJobStop(ctx context.Context, taskID uuid.UUID, reason string) error
 	SyncAgentFiles(ctx context.Context, agentID int, timeout time.Duration) error
+	// CheckAgentFilesForJob checks if agent has required files for a job and triggers download if missing.
+	// Returns true if agent has all files (ready for benchmark), false if agent needs to download.
+	// This is non-blocking - if files are missing, it triggers async download and returns false.
+	CheckAgentFilesForJob(ctx context.Context, agentID int, jobExecution *models.JobExecution, timeout time.Duration) (bool, error)
 }
 
 // JobSchedulingService handles the assignment of jobs to agents
@@ -556,25 +560,37 @@ func (s *JobSchedulingService) ScheduleJobs(ctx context.Context) (*ScheduleJobsR
 			"total_benchmarks":  len(benchmarkPlan.ForcedBenchmarks) + len(benchmarkPlan.AgentBenchmarks),
 		})
 
-		// Insert benchmark request records for tracking
-		if err := s.InsertBenchmarkRequests(ctx, benchmarkPlan); err != nil {
-			debug.Error("Failed to insert benchmark requests: %v", err)
-		}
-
-		// Send all benchmark requests in parallel
-		if err := s.ExecuteBenchmarkPlan(ctx, benchmarkPlan); err != nil {
+		// Send all benchmark requests in parallel and get filtered plan (only benchmarks actually sent)
+		// ExecuteBenchmarkPlan filters out agents that are syncing or busy
+		filteredPlan, err := s.ExecuteBenchmarkPlan(ctx, benchmarkPlan)
+		if err != nil {
 			debug.Error("Failed to execute benchmark plan: %v", err)
 		}
 
-		// WAIT for all benchmarks to complete or timeout
-		allCompleted := s.WaitForBenchmarks(ctx)
-		if !allCompleted {
-			debug.Warning("Benchmark timeout reached, proceeding with completed benchmarks only")
-		}
+		// Only insert records and wait if benchmarks were actually sent
+		// This prevents waiting forever for phantom benchmark records
+		if filteredPlan != nil && (len(filteredPlan.ForcedBenchmarks) > 0 || len(filteredPlan.AgentBenchmarks) > 0) {
+			// Insert benchmark request records for tracking (only for benchmarks that were sent)
+			if err := s.InsertBenchmarkRequests(ctx, filteredPlan); err != nil {
+				debug.Error("Failed to insert benchmark requests: %v", err)
+			}
 
-		// Clear benchmark requests table for next cycle
-		if err := s.ClearBenchmarkRequests(ctx); err != nil {
-			debug.Error("Failed to clear benchmark requests: %v", err)
+			// WAIT for benchmarks that were actually sent to complete or timeout
+			allCompleted := s.WaitForBenchmarks(ctx)
+			if !allCompleted {
+				debug.Warning("Benchmark timeout reached, marking timed-out benchmarks as failed")
+				// Mark timed-out benchmarks as failed and update job error messages
+				if err := s.MarkTimedOutBenchmarksAsFailed(ctx); err != nil {
+					debug.Error("Failed to mark timed-out benchmarks: %v", err)
+				}
+			}
+
+			// Clear benchmark requests table for next cycle
+			if err := s.ClearBenchmarkRequests(ctx); err != nil {
+				debug.Error("Failed to clear benchmark requests: %v", err)
+			}
+		} else {
+			debug.Info("No benchmarks were sent this cycle (agents not ready), skipping wait")
 		}
 
 		// Refresh available agents (exclude timed out ones)
@@ -1191,8 +1207,9 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 	}
 
 	// Check if this is the first dispatch for a job with rules (dynamic rule splitting determination)
-	if nextJob.AttackMode == models.AttackModeStraight && 
-		nextJob.MultiplicationFactor > 1 && 
+	// Both straight (mode 0) and association (mode 9) attacks can use rule splitting
+	if (nextJob.AttackMode == models.AttackModeStraight || nextJob.AttackMode == models.AttackModeAssociation) &&
+		nextJob.MultiplicationFactor > 1 &&
 		!nextJob.UsesRuleSplitting &&
 		benchmark != nil && benchmark.Speed > 0 {
 		
@@ -1221,12 +1238,22 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 			
 			// Calculate max allowed duration (chunk duration + fluctuation)
 			maxDuration := float64(chunkDuration) * (1.0 + float64(fluctuationPercent)/100.0)
-			
+
 			// Estimate time to complete based on benchmark
 			estimatedTime := float64(effectiveKeyspace) / float64(benchmark.Speed)
-			
-			// If job would take longer than max duration, enable rule splitting
-			if estimatedTime > maxDuration {
+
+			// Get minimum rules setting for rule splitting
+			minRulesSetting, _ := s.systemSettingsRepo.GetSetting(ctx, "rule_split_min_rules")
+			minRules := 100 // Default
+			if minRulesSetting != nil && minRulesSetting.Value != nil {
+				if parsed, err := strconv.Atoi(*minRulesSetting.Value); err == nil {
+					minRules = parsed
+				}
+			}
+
+			// If job would take longer than max duration AND has enough rules, enable rule splitting
+			// Without enough rules, we fall back to keyspace splitting (--skip/--limit)
+			if estimatedTime > maxDuration && nextJob.MultiplicationFactor >= minRules {
 				nextJob.UsesRuleSplitting = true
 				nextJob.RuleSplitCount = 0  // Start at 0, will increment as chunks are created
 				// Update the job in database
@@ -1248,22 +1275,28 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 				}
 				
 				debug.Log("Dynamically enabled rule splitting", map[string]interface{}{
-					"job_id": nextJob.ID,
-					"effective_keyspace": effectiveKeyspace,
-					"benchmark_speed": benchmark.Speed,
-					"estimated_time": estimatedTime,
-					"max_duration": maxDuration,
-					"chunk_duration": chunkDuration,
+					"job_id":              nextJob.ID,
+					"effective_keyspace":  effectiveKeyspace,
+					"benchmark_speed":     benchmark.Speed,
+					"estimated_time":      estimatedTime,
+					"max_duration":        maxDuration,
+					"chunk_duration":      chunkDuration,
 					"fluctuation_percent": fluctuationPercent,
-					"rule_split_count": 0,
+					"rule_count":          nextJob.MultiplicationFactor,
+					"min_rules":           minRules,
+					"rule_split_count":    0,
 				})
 			} else {
-				debug.Log("Job can be completed in single chunk", map[string]interface{}{
-					"job_id": nextJob.ID,
+				debug.Log("Job using keyspace splitting (not rule splitting)", map[string]interface{}{
+					"job_id":             nextJob.ID,
 					"effective_keyspace": effectiveKeyspace,
-					"benchmark_speed": benchmark.Speed,
-					"estimated_time": estimatedTime,
-					"max_duration": maxDuration,
+					"benchmark_speed":    benchmark.Speed,
+					"estimated_time":     estimatedTime,
+					"max_duration":       maxDuration,
+					"rule_count":         nextJob.MultiplicationFactor,
+					"min_rules":          minRules,
+					"exceeds_duration":   estimatedTime > maxDuration,
+					"meets_min_rules":    nextJob.MultiplicationFactor >= minRules,
 				})
 			}
 		}

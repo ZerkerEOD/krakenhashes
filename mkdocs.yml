@@ -177,6 +177,7 @@ nav:
     - System Requirements: reference/system-requirements.md
     - PostgreSQL Tuning: reference/postgresql-tuning.md
     - Architecture:
+      - Association Attack: reference/architecture/association-attack.md
       - Chunking System: reference/architecture/chunking.md
       - Rule Splitting: reference/architecture/rule-splitting.md
       - Increment Mode: reference/architecture/increment-mode.md

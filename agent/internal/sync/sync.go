@@ -27,6 +27,15 @@ import (
 	"github.com/bodgit/sevenzip"
 )
 
+// CachedFileInfo stores file metadata and hash to avoid recalculation
+// Hash is only recalculated if mtime or size changes
+type CachedFileInfo struct {
+	Path    string
+	ModTime time.Time
+	Size    int64
+	MD5Hash string
+}
+
 // FileSync handles synchronization of files between the agent and backend
 type FileSync struct {
 	client     *http.Client
@@ -40,6 +49,11 @@ type FileSync struct {
 	// Progress tracking
 	progressCallback func(fileName string, bytesReceived, totalBytes int64)
 	multiProgress    *console.MultiProgress
+
+	// File hash cache: key = absolute path, value = cached info
+	// Avoids recalculating MD5 for unchanged files (major performance improvement for large wordlists)
+	hashCache     map[string]CachedFileInfo
+	hashCacheLock sync.RWMutex
 }
 
 // Config holds configuration for file synchronization
@@ -51,14 +65,15 @@ type Config struct {
 
 // FileInfo represents information about a file for synchronization
 type FileInfo struct {
-	Name     string `json:"name"`
-	MD5Hash  string `json:"md5_hash"` // MD5 hash used for synchronization
-	Size     int64  `json:"size"`
-	FileType string `json:"file_type"`          // "wordlist", "rule", "binary", "hashlist"
-	Category string `json:"category,omitempty"` // For wordlists: "general", "specialized", "targeted", "custom"
+	Name       string `json:"name"`
+	MD5Hash    string `json:"md5_hash"` // MD5 hash used for synchronization
+	Size       int64  `json:"size"`
+	FileType   string `json:"file_type"`          // "wordlist", "rule", "binary", "hashlist"
+	Category   string `json:"category,omitempty"` // For wordlists: "general", "specialized", "targeted", "custom"
 	// For rules: "hashcat", "john", "custom"
-	ID        int   `json:"id,omitempty"`        // ID in the backend database
-	Timestamp int64 `json:"timestamp,omitempty"` // Last modified time
+	ID         int   `json:"id,omitempty"`         // ID in the backend database
+	Timestamp  int64 `json:"timestamp,omitempty"`  // Last modified time
+	AttackMode int   `json:"attack_mode,omitempty"` // For hashlists: determines download endpoint (9=original file)
 }
 
 // progressReader wraps an io.Reader and reports progress
@@ -183,6 +198,7 @@ func NewFileSync(urlConfig *config.URLConfig, dataDirs *config.DataDirs, apiKey,
 		apiKey:        apiKey,
 		agentID:       agentID,
 		multiProgress: console.NewMultiProgress(),
+		hashCache:     make(map[string]CachedFileInfo),
 	}, nil
 }
 
@@ -420,8 +436,31 @@ func (fs *FileSync) FindExtractedExecutables(binaryDir string) ([]string, error)
 	return execFiles, err
 }
 
-// CalculateFileHash calculates the MD5 hash of a file (renamed from SHA-256)
+// CalculateFileHash calculates or retrieves cached MD5 hash of a file
+// Uses a cache keyed by file path to avoid recalculating hashes for unchanged files.
+// Cache hit is determined by matching both mtime and size - if either changed, hash is recalculated.
+// This is a major performance improvement for large wordlists (e.g., 15GB crackstation.txt)
 func (fs *FileSync) CalculateFileHash(filePath string) (string, error) {
+	// Get current file info to check if cached hash is still valid
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to stat file: %w", err)
+	}
+
+	// Check cache first (read lock for performance)
+	fs.hashCacheLock.RLock()
+	cached, exists := fs.hashCache[filePath]
+	fs.hashCacheLock.RUnlock()
+
+	// If cached and file hasn't changed (same mtime and size), use cached hash
+	if exists && cached.ModTime.Equal(fileInfo.ModTime()) && cached.Size == fileInfo.Size() {
+		debug.Debug("Using cached hash for %s", filePath)
+		return cached.MD5Hash, nil
+	}
+
+	// File is new or modified - calculate hash
+	debug.Info("Calculating hash for %s (%.2f MB)", filePath, float64(fileInfo.Size())/1024/1024)
+
 	file, err := os.Open(filePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to open file: %w", err)
@@ -433,7 +472,19 @@ func (fs *FileSync) CalculateFileHash(filePath string) (string, error) {
 		return "", fmt.Errorf("failed to read file: %w", err)
 	}
 
-	return hex.EncodeToString(hash.Sum(nil)), nil
+	hashStr := hex.EncodeToString(hash.Sum(nil))
+
+	// Update cache (write lock)
+	fs.hashCacheLock.Lock()
+	fs.hashCache[filePath] = CachedFileInfo{
+		Path:    filePath,
+		ModTime: fileInfo.ModTime(),
+		Size:    fileInfo.Size(),
+		MD5Hash: hashStr,
+	}
+	fs.hashCacheLock.Unlock()
+
+	return hashStr, nil
 }
 
 // ScanAllDirectories scans all data directories and returns information about all files
@@ -450,6 +501,41 @@ func (fs *FileSync) ScanAllDirectories(fileTypes []string) (map[string][]FileInf
 	}
 
 	return result, nil
+}
+
+// PopulateHashCache pre-populates the hash cache for all files in wordlist, rule, and binary directories.
+// This should be called on agent startup to avoid slow first scan when the backend requests file inventory.
+// The first scan will still take time to read and hash all files, but subsequent scans will be instant.
+func (fs *FileSync) PopulateHashCache() error {
+	debug.Info("Pre-populating file hash cache...")
+	start := time.Now()
+
+	fileTypes := []string{"wordlist", "rule", "binary"}
+	var totalFiles int
+
+	for _, fileType := range fileTypes {
+		files, err := fs.ScanDirectory(fileType)
+		if err != nil {
+			debug.Warning("Failed to cache %s files: %v", fileType, err)
+			continue
+		}
+		totalFiles += len(files)
+		debug.Info("Cached %d %s files", len(files), fileType)
+	}
+
+	fs.hashCacheLock.RLock()
+	cacheSize := len(fs.hashCache)
+	fs.hashCacheLock.RUnlock()
+
+	debug.Info("Hash cache populated with %d entries for %d files in %v", cacheSize, totalFiles, time.Since(start))
+	return nil
+}
+
+// GetHashCacheSize returns the number of entries in the hash cache (for debugging/logging)
+func (fs *FileSync) GetHashCacheSize() int {
+	fs.hashCacheLock.RLock()
+	defer fs.hashCacheLock.RUnlock()
+	return len(fs.hashCache)
 }
 
 // DownloadFileFromInfo downloads a file using information from the FileInfo struct
@@ -608,11 +694,13 @@ func (fs *FileSync) DownloadFileWithInfoRetry(ctx context.Context, fileInfo *Fil
 	// Create download URL
 	var url string
 	if fileInfo.FileType == "hashlist" && fileInfo.ID > 0 {
-		// Hashlists use a different endpoint that requires the ID
-		url = fmt.Sprintf("%s/api/agent/hashlists/%d/download", fs.urlConfig.BaseURL, fileInfo.ID)
-	} else if fileInfo.FileType == "hashlist_original" && fileInfo.ID > 0 {
-		// Original hashlists (for association attacks) use a dedicated endpoint
-		url = fmt.Sprintf("%s/api/agent/hashlists/%d/original", fs.urlConfig.BaseURL, fileInfo.ID)
+		// Mode 9 (association attack) needs original file to preserve line order for 1:1 mapping
+		// Other modes use DB streaming (deduped, removes cracked)
+		if fileInfo.AttackMode == 9 {
+			url = fmt.Sprintf("%s/api/agent/hashlists/%d/original", fs.urlConfig.BaseURL, fileInfo.ID)
+		} else {
+			url = fmt.Sprintf("%s/api/agent/hashlists/%d/download", fs.urlConfig.BaseURL, fileInfo.ID)
+		}
 	} else {
 		// For wordlists/rules, Name often contains the full path (e.g., "general/file.txt")
 		// The Category field represents the classification enum (wordlist_type/rule_type) which
@@ -870,6 +958,40 @@ func (fs *FileSync) GetFileTypeDir(fileType string) (string, error) {
 		return fs.dataDirs.Binaries, nil
 	default:
 		return "", fmt.Errorf("unsupported file type: %s", fileType)
+	}
+}
+
+// GetFilePath returns the full path where a file would be stored on disk.
+// This mirrors the path construction logic in DownloadFileWithInfoRetry.
+func (fs *FileSync) GetFilePath(fileType, category, name string) string {
+	switch fileType {
+	case "wordlist":
+		if strings.Contains(name, "/") {
+			// Name includes category path
+			return filepath.Join(fs.dataDirs.Wordlists, name)
+		} else if category != "" {
+			return filepath.Join(fs.dataDirs.Wordlists, category, name)
+		}
+		return filepath.Join(fs.dataDirs.Wordlists, name)
+	case "rule":
+		if category != "" {
+			if strings.HasPrefix(name, category+"/") {
+				return filepath.Join(fs.dataDirs.Rules, name)
+			}
+			return filepath.Join(fs.dataDirs.Rules, category, name)
+		} else if strings.Contains(name, "/") {
+			return filepath.Join(fs.dataDirs.Rules, name)
+		}
+		return filepath.Join(fs.dataDirs.Rules, name)
+	case "hashlist":
+		return filepath.Join(fs.dataDirs.Hashlists, name)
+	default:
+		// For other types, just use the base directory
+		baseDir, err := fs.GetFileTypeDir(fileType)
+		if err != nil {
+			return ""
+		}
+		return filepath.Join(baseDir, name)
 	}
 }
 

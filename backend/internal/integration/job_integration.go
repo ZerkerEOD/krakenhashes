@@ -25,6 +25,8 @@ type JobIntegrationManager struct {
 	wsHandler            interface {
 		SendMessage(agentID int, msg *wsservice.Message) error
 		GetConnectedAgents() []int
+		RegisterInventoryCallback(agentID int) <-chan *wsservice.FileSyncResponsePayload
+		UnregisterInventoryCallback(agentID int)
 	}
 }
 
@@ -33,6 +35,8 @@ func NewJobIntegrationManager(
 	wsHandler interface {
 		SendMessage(agentID int, msg *wsservice.Message) error
 		GetConnectedAgents() []int
+		RegisterInventoryCallback(agentID int) <-chan *wsservice.FileSyncResponsePayload
+		UnregisterInventoryCallback(agentID int)
 	},
 	jobSchedulingService *services.JobSchedulingService,
 	jobExecutionService *services.JobExecutionService,

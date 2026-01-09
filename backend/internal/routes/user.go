@@ -76,6 +76,7 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 		fileRepo,
 		scheduleRepo,
 		binaryManager,
+		assocWordlistRepo,
 		"", // hashcatBinaryPath - not needed for keyspace calculation
 		dataDir,
 	)

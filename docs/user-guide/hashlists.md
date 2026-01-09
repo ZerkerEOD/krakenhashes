@@ -238,6 +238,64 @@ The blank LM hash constant `aad3b435b51404eeaad3b435b51404ee` appears when:
 
 See [Hash Types Reference](../reference/hash-types.md#lm-hash-special-processing-v121) for more details on LM hash structure and security implications.
 
+## Association Wordlists (v1.4.0+)
+
+Association wordlists enable targeted password attacks where each candidate is tested against a specific hash in line-order correspondence.
+
+### What is an Association Wordlist?
+
+An association wordlist contains password candidates where:
+- Line 1 is tested against hash 1 in your hashlist
+- Line 2 is tested against hash 2 in your hashlist
+- And so on...
+
+This is useful when you have specific password intelligence for each user, such as:
+- Previously cracked passwords from other systems
+- Password hints or personal information
+- Known password patterns per user
+
+### Uploading Association Wordlists
+
+1. Navigate to the hashlist detail page
+2. Find the **Association Wordlists** section
+3. Click **Upload Association Wordlist**
+4. Select your file
+5. The system validates that line count matches hash count
+
+### Requirements and Validation
+
+**Line Count Matching:**
+- The association wordlist MUST have exactly the same number of lines as there are hashes in the hashlist
+- Upload will fail if counts don't match
+- Example: Hashlist with 5,000 hashes requires association wordlist with 5,000 lines
+
+**Mixed Work Factor Warning:**
+For hash types with variable computational cost (e.g., bcrypt with different cost parameters), association attacks are blocked because:
+- Hash order must match wordlist order
+- Mixed work factors mean hashes may be reordered during processing
+- The 1:1 correspondence would be broken
+
+!!! warning "Work Factor Compatibility"
+    Association attacks are not available for hashlists that contain hashes with mixed work factors. The hashlist detail page will show a warning if this applies to your hashlist.
+
+### Managing Association Wordlists
+
+- **View**: See all association wordlists for a hashlist on the detail page
+- **Delete**: Remove association wordlists you no longer need
+- **Reuse**: The same association wordlist can be used across multiple jobs on the same hashlist
+
+### Creating Association Attack Jobs
+
+1. Go to **Jobs** and click **Create Job**
+2. Select your hashlist
+3. Choose **Attack Mode 9 (Association)**
+4. Select your association wordlist from the dropdown
+5. Optionally add rules for password variations
+6. Set priority and other options
+7. Submit the job
+
+For more details on association attacks, see [Association Attacks](jobs-workflows.md#association-attacks-v140) in the Jobs & Workflows guide.
+
 ## Supported Input Formats
 
 The processor primarily expects:

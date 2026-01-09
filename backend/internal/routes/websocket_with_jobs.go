@@ -109,6 +109,7 @@ func SetupWebSocketWithJobRoutes(
 		fileRepo,
 		scheduleRepo,
 		binaryManager,
+		assocWordlistRepo,
 		"/usr/bin/hashcat", // hashcat binary path (deprecated, using binary manager now)
 		appConfig.DataDir,
 	)

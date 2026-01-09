@@ -546,14 +546,10 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 	}
 
 	// Add hashlist file
-	// For association attacks (mode 9), use the original hashlist file which preserves hash order
-	var hashlistPath string
-	if assignment.AttackMode == int(AttackModeAssociation) && assignment.OriginalHashlistPath != "" {
-		hashlistPath = filepath.Join(e.dataDirectory, assignment.OriginalHashlistPath)
-		debug.Info("Using original hashlist for association attack: %s", hashlistPath)
-	} else {
-		hashlistPath = filepath.Join(e.dataDirectory, assignment.HashlistPath)
-	}
+	// Backend sends the correct hashlist path for all modes:
+	// - Mode 9 (association): original hashlist with preserved order
+	// - Other modes: processed (deduplicated) hashlist
+	hashlistPath := filepath.Join(e.dataDirectory, assignment.HashlistPath)
 
 	// Debug: Check if hashlist file exists
 	if _, err := os.Stat(hashlistPath); os.IsNotExist(err) {
@@ -607,28 +603,29 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 
 	case int(AttackModeAssociation): // Association attack (mode 9)
 		// Association attack requires:
-		// - Original hashlist file (already added above)
-		// - Association wordlist (one candidate per hash, same line count)
+		// - Original hashlist file (backend sends correct path in HashlistPath)
+		// - Association wordlist (backend sends it in WordlistPaths[0])
 		// - Optional rules
-		if assignment.AssociationWordlistPath != "" {
-			assocWordlistPath := filepath.Join(e.dataDirectory, assignment.AssociationWordlistPath)
-			debug.Info("Adding association wordlist: %s", assocWordlistPath)
+		if len(assignment.WordlistPaths) == 0 {
+			return nil, "", "", "", fmt.Errorf("association attack requires wordlist")
+		}
 
-			// Verify association wordlist exists
-			if _, err := os.Stat(assocWordlistPath); os.IsNotExist(err) {
-				return nil, "", "", "", fmt.Errorf("association wordlist not found: %s", assocWordlistPath)
-			}
+		// Use first wordlist as the association wordlist
+		assocWordlistPath := filepath.Join(e.dataDirectory, assignment.WordlistPaths[0])
+		debug.Info("Adding association wordlist: %s", assocWordlistPath)
 
-			args = append(args, assocWordlistPath)
+		// Verify association wordlist exists
+		if _, err := os.Stat(assocWordlistPath); os.IsNotExist(err) {
+			return nil, "", "", "", fmt.Errorf("association wordlist not found: %s", assocWordlistPath)
+		}
 
-			// Add rules if specified
-			for _, rulePath := range assignment.RulePaths {
-				fullPath := filepath.Join(e.dataDirectory, rulePath)
-				debug.Info("Adding rule for association attack: %s", fullPath)
-				args = append(args, "-r", fullPath)
-			}
-		} else {
-			return nil, "", "", "", fmt.Errorf("association attack requires association wordlist path")
+		args = append(args, assocWordlistPath)
+
+		// Add rules if specified
+		for _, rulePath := range assignment.RulePaths {
+			fullPath := filepath.Join(e.dataDirectory, rulePath)
+			debug.Info("Adding rule for association attack: %s", fullPath)
+			args = append(args, "-r", fullPath)
 		}
 
 	default:

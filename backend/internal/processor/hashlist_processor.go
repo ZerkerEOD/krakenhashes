@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -303,10 +304,22 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64, filePath string)
 	// Hashlists are now generated on-demand from database when agents request them
 	// No static files are created during processing
 
-	// --- Keep original upload file for association attacks ---
-	// NOTE: File is intentionally NOT deleted - it's preserved for association attack mode (-a 9)
-	// The file path is stored in the database and will be cleaned up when the hashlist is deleted
-	debug.Info("Preserving original upload file %s for hashlist %d (for association attacks)", filePath, hashlistID)
+	// --- Copy original upload file to standardized location for association attacks ---
+	// Association attack mode (-a 9) requires the original hashlist with preserved line order
+	// Copy to hashlists/{id}_original.hash for predictable path resolution
+	originalHashlistPath := filepath.Join(p.config.DataDir, "hashlists", fmt.Sprintf("%d_original.hash", hashlistID))
+	if err := copyFile(filePath, originalHashlistPath); err != nil {
+		debug.Error("Failed to copy original hashlist file for association attacks: %v", err)
+		// Don't fail processing - association attacks just won't work for this hashlist
+	} else {
+		debug.Info("Copied original hashlist to %s for association attacks", originalHashlistPath)
+		// Clean up the temporary upload file since we've copied it
+		if err := os.Remove(filePath); err != nil {
+			debug.Warning("Failed to remove temporary upload file %s: %v", filePath, err)
+		}
+		// Update filePath to the new standardized location
+		filePath = originalHashlistPath
+	}
 
 	// Determine final status
 	finalStatus := models.HashListStatusReady
@@ -509,4 +522,33 @@ func extractBcryptWorkFactor(hashValue string) string {
 	}
 
 	return ""
+}
+
+// copyFile copies a file from src to dst.
+// If dst already exists, it will be overwritten.
+func copyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("failed to open source file: %w", err)
+	}
+	defer sourceFile.Close()
+
+	// Create destination file
+	destFile, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("failed to create destination file: %w", err)
+	}
+	defer destFile.Close()
+
+	// Copy contents
+	if _, err := io.Copy(destFile, sourceFile); err != nil {
+		return fmt.Errorf("failed to copy file contents: %w", err)
+	}
+
+	// Sync to ensure data is written to disk
+	if err := destFile.Sync(); err != nil {
+		return fmt.Errorf("failed to sync destination file: %w", err)
+	}
+
+	return nil
 }

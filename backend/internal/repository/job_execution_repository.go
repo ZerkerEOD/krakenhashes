@@ -681,7 +681,7 @@ func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]
 			GROUP BY je.id
 		)
 		SELECT
-			je.id, je.preset_job_id, je.hashlist_id, je.status, je.priority,
+			je.id, je.preset_job_id, je.hashlist_id, je.association_wordlist_id, je.status, je.priority,
 			je.total_keyspace, je.processed_keyspace, je.attack_mode, je.created_by,
 			je.created_at, je.started_at, je.completed_at, je.error_message, je.interrupted_by,
 			je.consecutive_failures,
@@ -740,7 +740,7 @@ func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]
 	for rows.Next() {
 		var exec models.JobExecutionWithWork
 		err := rows.Scan(
-			&exec.ID, &exec.PresetJobID, &exec.HashlistID, &exec.Status, &exec.Priority,
+			&exec.ID, &exec.PresetJobID, &exec.HashlistID, &exec.AssociationWordlistID, &exec.Status, &exec.Priority,
 			&exec.TotalKeyspace, &exec.ProcessedKeyspace, &exec.AttackMode, &exec.CreatedBy,
 			&exec.CreatedAt, &exec.StartedAt, &exec.CompletedAt, &exec.ErrorMessage, &exec.InterruptedBy,
 			&exec.ConsecutiveFailures,

@@ -504,6 +504,21 @@ createNewChunk:
 		}, nil
 	}
 
+	// Block dispatch if job lacks accurate keyspace - must wait for benchmark to complete
+	// This prevents dispatching tasks when the forced benchmark timed out
+	if !currentState.JobExecution.IsAccurateKeyspace {
+		debug.Log("Job lacks accurate keyspace, skipping task dispatch", map[string]interface{}{
+			"job_id":              currentState.JobExecution.ID,
+			"is_accurate_keyspace": currentState.JobExecution.IsAccurateKeyspace,
+			"agent_id":            agentID,
+		})
+		return &TaskAssignmentPlan{
+			AgentID:        agentID,
+			SkipAssignment: true,
+			SkipReason:     fmt.Sprintf("Job %s lacks accurate keyspace - waiting for benchmark to complete", currentState.JobExecution.ID),
+		}, nil
+	}
+
 	// Get chunk duration
 	chunkDuration := 1200 // Default 20 minutes
 	if duration, err := s.getChunkDuration(ctx, currentState.JobExecution); err == nil {
