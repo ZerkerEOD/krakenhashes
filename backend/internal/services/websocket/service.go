@@ -228,6 +228,9 @@ type TaskAssignmentPayload struct {
 	ExtraParameters string   `json:"extra_parameters,omitempty"`
 	EnabledDevices  []int    `json:"enabled_devices,omitempty"`
 	IsKeyspaceSplit bool     `json:"is_keyspace_split"`
+	// Association attack fields (mode 9)
+	AssociationWordlistPath string `json:"association_wordlist_path,omitempty"` // Path to the association wordlist
+	OriginalHashlistPath    string `json:"original_hashlist_path,omitempty"`    // Path to the original hashlist file (preserves order)
 }
 
 // BenchmarkResultPayload represents benchmark results from an agent
@@ -272,8 +275,9 @@ type BenchmarkRequestPayload struct {
 	Mask            string   `json:"mask,omitempty"`
 	TestDuration    int      `json:"test_duration,omitempty"`    // Duration in seconds for speed test
 	TimeoutDuration int      `json:"timeout_duration,omitempty"` // Maximum time to wait for speedtest (seconds)
-	ExtraParameters string   `json:"extra_parameters,omitempty"` // Agent-specific hashcat parameters
-	EnabledDevices  []int    `json:"enabled_devices,omitempty"`  // List of enabled device IDs
+	ExtraParameters         string   `json:"extra_parameters,omitempty"`          // Agent-specific hashcat parameters
+	EnabledDevices          []int    `json:"enabled_devices,omitempty"`           // List of enabled device IDs
+	AssociationWordlistPath string   `json:"association_wordlist_path,omitempty"` // For mode 9 association attacks
 }
 
 // Service handles WebSocket business logic
@@ -368,6 +372,10 @@ func (s *Service) HandleMessage(ctx context.Context, agent *models.Agent, msg *M
 		return s.handleSyncFailed(ctx, agent, msg)
 	case TypeSyncProgress:
 		return s.handleSyncProgress(ctx, agent, msg)
+	case TypeSyncStatus:
+		// File sync status (file_sync_status) is handled in the handler layer (handleSyncStatus)
+		// Just update heartbeat here - return nil to avoid "unknown message type" error
+		return nil
 	default:
 		return fmt.Errorf("unknown message type: %s", msg.Type)
 	}

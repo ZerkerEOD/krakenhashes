@@ -268,6 +268,12 @@ func (jm *JobManager) ProcessJobAssignment(ctx context.Context, assignmentData [
 		return fmt.Errorf("failed to ensure rule chunks: %w", err)
 	}
 
+	// Ensure association files are available if this is an association attack (mode 9)
+	err = jm.ensureAssociationFiles(ctx, &assignment)
+	if err != nil {
+		return fmt.Errorf("failed to ensure association files: %w", err)
+	}
+
 	// Run benchmark if needed
 	err = jm.ensureBenchmark(ctx, &assignment)
 	if err != nil {
@@ -307,13 +313,18 @@ func (jm *JobManager) ensureHashlist(ctx context.Context, assignment *JobTaskAss
 		return fmt.Errorf("file sync not initialized")
 	}
 
-	// Build the expected local path
-	hashlistFileName := fmt.Sprintf("%d.hash", assignment.HashlistID)
-	localPath := filepath.Join(jm.config.DataDirectory, "hashlists", hashlistFileName)
-	
-	debug.Info("Ensuring hashlist %d is available", assignment.HashlistID)
+	// Backend sends same path for all modes: hashlists/{id}.hash
+	// The download function picks the correct endpoint based on attack mode
+	localPath := filepath.Join(jm.config.DataDirectory, assignment.HashlistPath)
+	hashlistFileName := filepath.Base(assignment.HashlistPath)
+
+	debug.Info("Ensuring hashlist is available: %s (attack_mode: %d)", assignment.HashlistPath, assignment.AttackMode)
 	debug.Info("Expected local path: %s", localPath)
-	debug.Info("Data directory: %s", jm.config.DataDirectory)
+
+	// Create directory if needed
+	if err := os.MkdirAll(filepath.Dir(localPath), 0755); err != nil {
+		return fmt.Errorf("failed to create hashlist directory: %w", err)
+	}
 
 	// Always re-download hashlist for each task to ensure we have a fresh copy
 	// This prevents issues with stale/modified hashlists from previous tasks
@@ -324,34 +335,33 @@ func (jm *JobManager) ensureHashlist(ctx context.Context, assignment *JobTaskAss
 			// Continue anyway - download will overwrite
 		}
 	}
-	
-	debug.Info("Hashlist file not found locally, need to download from backend")
-	debug.Info("Creating FileInfo for download - Name: %s, Type: hashlist, ID: %d", hashlistFileName, assignment.HashlistID)
-	
+
+	debug.Info("Downloading hashlist: %s", hashlistFileName)
+
 	// Create FileInfo for download
-	// Note: For hashlists, we don't have the MD5 hash upfront, so we'll download without hash verification
+	// AttackMode is passed through - download function picks right endpoint (mode 9 = original file)
 	fileInfo := &filesync.FileInfo{
-		Name:     hashlistFileName,
-		FileType: "hashlist",
-		ID:       int(assignment.HashlistID),
-		MD5Hash:  "", // Empty hash means skip verification
+		Name:       hashlistFileName,
+		FileType:   "hashlist",
+		ID:         int(assignment.HashlistID),
+		MD5Hash:    "", // Empty hash means skip verification
+		AttackMode: assignment.AttackMode,
 	}
-	
+
 	// Download the hashlist file
-	debug.Info("Starting download of hashlist %d", assignment.HashlistID)
 	if err := jm.fileSync.DownloadFileFromInfo(ctx, fileInfo); err != nil {
-		debug.Error("Failed to download hashlist %d: %v", assignment.HashlistID, err)
-		return fmt.Errorf("failed to download hashlist %d: %w", assignment.HashlistID, err)
+		debug.Error("Failed to download hashlist: %v", err)
+		return fmt.Errorf("failed to download hashlist: %w", err)
 	}
-	
+
 	// Verify the file was created
-	if fileInfo, err := os.Stat(localPath); err == nil {
-		debug.Info("Successfully downloaded hashlist file: %s (size: %d bytes)", hashlistFileName, fileInfo.Size())
+	if info, err := os.Stat(localPath); err == nil {
+		debug.Info("Successfully downloaded hashlist: %s (size: %d bytes)", hashlistFileName, info.Size())
 	} else {
 		debug.Error("Hashlist file not found after download: %s", localPath)
 		return fmt.Errorf("hashlist file not found after download")
 	}
-	
+
 	return nil
 }
 
@@ -454,6 +464,96 @@ func (jm *JobManager) ensureRuleChunks(ctx context.Context, assignment *JobTaskA
 	return nil
 }
 
+// ensureAssociationFiles downloads the association wordlist for mode 9 attacks
+// Note: The original hashlist is handled by ensureHashlist - backend sends correct path
+func (jm *JobManager) ensureAssociationFiles(ctx context.Context, assignment *JobTaskAssignment) error {
+	// Only needed for association attacks (mode 9)
+	if assignment.AttackMode != 9 {
+		return nil
+	}
+
+	if jm.fileSync == nil {
+		debug.Error("File sync is not initialized in job manager")
+		return fmt.Errorf("file sync not initialized")
+	}
+
+	// For mode 9, the association wordlist is in WordlistPaths[0]
+	// Path format: wordlists/association/{hashlistID}_{filename}
+	if len(assignment.WordlistPaths) == 0 {
+		debug.Error("No wordlist path provided for association attack")
+		return fmt.Errorf("association attack requires wordlist in WordlistPaths[0]")
+	}
+
+	assocWordlistPath := assignment.WordlistPaths[0]
+	localPath := filepath.Join(jm.config.DataDirectory, assocWordlistPath)
+
+	debug.Info("Ensuring association wordlist is available: %s", assocWordlistPath)
+
+	// Create directory if needed
+	if err := os.MkdirAll(filepath.Dir(localPath), 0755); err != nil {
+		return fmt.Errorf("failed to create directory for association wordlist: %w", err)
+	}
+
+	// Check if already exists
+	if _, err := os.Stat(localPath); err == nil {
+		debug.Info("Association wordlist already exists: %s", localPath)
+		return nil
+	}
+
+	// Extract category and filename from path
+	// Path format: wordlists/association/{hashlistID}_{filename}
+	parts := strings.Split(assocWordlistPath, "/")
+	if len(parts) < 3 {
+		debug.Error("Invalid association wordlist path format: %s", assocWordlistPath)
+		return fmt.Errorf("invalid association wordlist path format")
+	}
+
+	category := parts[1] // "association"
+	filename := parts[2] // "{hashlistID}_{filename}"
+
+	debug.Info("Downloading association wordlist: %s (category: %s)", filename, category)
+
+	fileInfo := &filesync.FileInfo{
+		Name:     filename,
+		FileType: "wordlist",
+		Category: category,
+	}
+
+	if err := jm.fileSync.DownloadFileFromInfo(ctx, fileInfo); err != nil {
+		debug.Error("Failed to download association wordlist: %v", err)
+		return fmt.Errorf("failed to download association wordlist: %w", err)
+	}
+
+	// Verify the file was created
+	if info, err := os.Stat(localPath); err == nil {
+		debug.Info("Successfully downloaded association wordlist: %s (size: %d bytes)", filename, info.Size())
+	} else {
+		debug.Error("Association wordlist file not found after download: %s", localPath)
+		return fmt.Errorf("association wordlist file not found after download")
+	}
+
+	return nil
+}
+
+// cleanupAssociationFiles removes association wordlist after task completion
+// Note: Hashlist is NOT cleaned up - it may be reused by other tasks
+func (jm *JobManager) cleanupAssociationFiles(assignment *JobTaskAssignment) {
+	// Only clean up for association attacks (mode 9)
+	if assignment.AttackMode != 9 {
+		return
+	}
+
+	// Clean up association wordlist from WordlistPaths[0]
+	if len(assignment.WordlistPaths) > 0 {
+		assocPath := filepath.Join(jm.config.DataDirectory, assignment.WordlistPaths[0])
+		if err := os.Remove(assocPath); err != nil && !os.IsNotExist(err) {
+			debug.Warning("Failed to remove association wordlist file %s: %v", assocPath, err)
+		} else if err == nil {
+			debug.Info("Removed association wordlist file: %s", assocPath)
+		}
+	}
+}
+
 // ensureBenchmark runs a benchmark if needed for the job
 func (jm *JobManager) ensureBenchmark(ctx context.Context, assignment *JobTaskAssignment) error {
 	// We no longer run benchmarks here - the backend will request speed tests
@@ -493,6 +593,9 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 			jm.lastCompletedTask = info
 			debug.Info("Cached completion for task %s with status %s, progress %.2f%%, keyspace %d",
 				info.TaskID, info.Status, info.ProgressPercent, info.KeyspaceProcessed)
+
+			// Clean up association attack files after task completion
+			jm.cleanupAssociationFiles(exec.Assignment)
 		}
 		delete(jm.activeJobs, jobExecution.Assignment.TaskID)
 		jm.mutex.Unlock()

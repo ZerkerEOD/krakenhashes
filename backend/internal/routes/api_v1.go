@@ -122,7 +122,8 @@ func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager
 		fileRepo,
 		scheduleRepo,
 		binaryManager,
-		"", // hashcatBinaryPath - not needed for keyspace calculation
+		nil, // assocWordlistRepo - not needed, API v1 only supports preset jobs (not association attacks)
+		"",  // hashcatBinaryPath - not needed for keyspace calculation
 		dataDirectory,
 	)
 

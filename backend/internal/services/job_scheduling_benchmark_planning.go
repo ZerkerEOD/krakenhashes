@@ -471,20 +471,157 @@ func (s *JobSchedulingService) allocateAgentBenchmarks(
 	return agentTasks
 }
 
+// checkAndSyncAgentsForBenchmarks checks file availability for AVAILABLE agents only.
+// Busy agents (running tasks) are not checked - would slow down their current work.
+// Returns filtered lists of benchmark tasks that are ready (agent has all files).
+func (s *JobSchedulingService) checkAndSyncAgentsForBenchmarks(
+	ctx context.Context,
+	plan *BenchmarkPlan,
+) (*BenchmarkPlan, error) {
+	if plan == nil || (len(plan.ForcedBenchmarks) == 0 && len(plan.AgentBenchmarks) == 0) {
+		return plan, nil
+	}
+
+	// Step 1: Get currently available agents (not busy with tasks)
+	availableAgents, err := s.jobExecutionService.GetAvailableAgents(ctx)
+	if err != nil {
+		debug.Warning("Failed to get available agents for file check: %v", err)
+		return plan, nil // Proceed with original plan on error
+	}
+
+	// Build set of available agent IDs for O(1) lookup
+	availableAgentIDs := make(map[int]bool)
+	for _, agent := range availableAgents {
+		availableAgentIDs[agent.ID] = true
+	}
+
+	debug.Info("Pre-benchmark file check: %d available agents, %d forced benchmarks, %d agent benchmarks",
+		len(availableAgents), len(plan.ForcedBenchmarks), len(plan.AgentBenchmarks))
+
+	// Step 2: Filter and check forced benchmarks
+	// Timeout increased to 30s to allow agents with large wordlists (e.g., 15GB crackstation.txt)
+	// to complete file scanning. First scan hashes all files, subsequent scans use cache (<1s).
+	const inventoryTimeout = 30 * time.Second
+	var readyForcedBenchmarks []ForcedBenchmarkTask
+	var readyAgentBenchmarks []AgentBenchmarkTask
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	// Check forced benchmarks in parallel (only for available agents)
+	for _, task := range plan.ForcedBenchmarks {
+		if !availableAgentIDs[task.AgentID] {
+			debug.Info("Skipping file check for agent %d (busy with task)", task.AgentID)
+			continue
+		}
+
+		wg.Add(1)
+		go func(t ForcedBenchmarkTask) {
+			defer wg.Done()
+
+			// Get job execution for this task
+			job, err := s.jobExecutionService.GetJobExecutionByID(ctx, t.JobID)
+			if err != nil {
+				debug.Warning("Failed to get job %s for file check: %v", t.JobID, err)
+				return // Skip this benchmark
+			}
+
+			// Check if agent has all required files
+			ready, err := s.wsIntegration.CheckAgentFilesForJob(ctx, t.AgentID, job, inventoryTimeout)
+			if err != nil {
+				debug.Warning("File check failed for agent %d: %v", t.AgentID, err)
+				return // Skip this agent
+			}
+
+			if ready {
+				mu.Lock()
+				readyForcedBenchmarks = append(readyForcedBenchmarks, t)
+				mu.Unlock()
+			} else {
+				debug.Info("Agent %d not ready for forced benchmark (syncing), will retry next cycle", t.AgentID)
+			}
+		}(task)
+	}
+
+	// Check agent benchmarks in parallel (only for available agents)
+	for _, task := range plan.AgentBenchmarks {
+		if !availableAgentIDs[task.AgentID] {
+			debug.Info("Skipping file check for agent %d (busy with task)", task.AgentID)
+			continue
+		}
+
+		wg.Add(1)
+		go func(t AgentBenchmarkTask) {
+			defer wg.Done()
+
+			// Get job execution for this task
+			job, err := s.jobExecutionService.GetJobExecutionByID(ctx, t.JobID)
+			if err != nil {
+				debug.Warning("Failed to get job %s for file check: %v", t.JobID, err)
+				return // Skip this benchmark
+			}
+
+			// Check if agent has all required files
+			ready, err := s.wsIntegration.CheckAgentFilesForJob(ctx, t.AgentID, job, inventoryTimeout)
+			if err != nil {
+				debug.Warning("File check failed for agent %d: %v", t.AgentID, err)
+				return // Skip this agent
+			}
+
+			if ready {
+				mu.Lock()
+				readyAgentBenchmarks = append(readyAgentBenchmarks, t)
+				mu.Unlock()
+			} else {
+				debug.Info("Agent %d not ready for agent benchmark (syncing), will retry next cycle", t.AgentID)
+			}
+		}(task)
+	}
+
+	wg.Wait()
+
+	debug.Info("Pre-benchmark file check complete: %d/%d forced benchmarks ready, %d/%d agent benchmarks ready",
+		len(readyForcedBenchmarks), len(plan.ForcedBenchmarks),
+		len(readyAgentBenchmarks), len(plan.AgentBenchmarks))
+
+	// Return filtered plan with only ready benchmarks
+	return &BenchmarkPlan{
+		ForcedBenchmarks:         readyForcedBenchmarks,
+		AgentBenchmarks:          readyAgentBenchmarks,
+		ForcedBenchmarkAgentJobs: plan.ForcedBenchmarkAgentJobs,
+	}, nil
+}
+
 // ExecuteBenchmarkPlan sends all benchmark requests in parallel
+// Returns the filtered plan containing only benchmarks that were actually sent
 func (s *JobSchedulingService) ExecuteBenchmarkPlan(
 	ctx context.Context,
 	plan *BenchmarkPlan,
-) error {
-	if len(plan.ForcedBenchmarks) == 0 && len(plan.AgentBenchmarks) == 0 {
-		return nil // Nothing to do
+) (*BenchmarkPlan, error) {
+	if plan == nil || (len(plan.ForcedBenchmarks) == 0 && len(plan.AgentBenchmarks) == 0) {
+		return nil, nil // Nothing to do
+	}
+
+	// First, check file availability for available agents and filter to ready-only benchmarks
+	filteredPlan, err := s.checkAndSyncAgentsForBenchmarks(ctx, plan)
+	if err != nil {
+		debug.Warning("Pre-benchmark file check failed: %v", err)
+		// Continue with original plan on error
+		filteredPlan = plan
+	}
+
+	if len(filteredPlan.ForcedBenchmarks) == 0 && len(filteredPlan.AgentBenchmarks) == 0 {
+		debug.Info("No agents ready for benchmarks this cycle (all syncing or busy)")
+		return nil, nil // Return nil plan to indicate no benchmarks were sent
 	}
 
 	debug.Info("Executing benchmark plan", map[string]interface{}{
-		"forced_benchmarks": len(plan.ForcedBenchmarks),
-		"agent_benchmarks":  len(plan.AgentBenchmarks),
-		"total_benchmarks":  len(plan.ForcedBenchmarks) + len(plan.AgentBenchmarks),
+		"forced_benchmarks": len(filteredPlan.ForcedBenchmarks),
+		"agent_benchmarks":  len(filteredPlan.AgentBenchmarks),
+		"total_benchmarks":  len(filteredPlan.ForcedBenchmarks) + len(filteredPlan.AgentBenchmarks),
 	})
+
+	// Use filtered plan for execution
+	plan = filteredPlan
 
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(plan.ForcedBenchmarks)+len(plan.AgentBenchmarks))
@@ -521,7 +658,8 @@ func (s *JobSchedulingService) ExecuteBenchmarkPlan(
 		debug.Error("Benchmark execution error: %v", err)
 	}
 
-	return nil
+	// Return the filtered plan so caller knows which benchmarks were actually sent
+	return filteredPlan, nil
 }
 
 // executeForcedBenchmark sends a forced benchmark request for a specific job
@@ -732,6 +870,67 @@ func (s *JobSchedulingService) InsertBenchmarkRequests(ctx context.Context, plan
 		"agent_count":  len(plan.AgentBenchmarks),
 	})
 
+	return nil
+}
+
+// MarkTimedOutBenchmarksAsFailed marks any incomplete benchmarks as failed and updates job error messages
+// This is called when WaitForBenchmarks times out, before clearing the benchmark_requests table
+func (s *JobSchedulingService) MarkTimedOutBenchmarksAsFailed(ctx context.Context) error {
+	// First, get the list of timed-out benchmark requests (those without completed_at)
+	rows, err := s.jobExecutionService.db.QueryContext(ctx, `
+		SELECT agent_id, job_execution_id, attack_mode, hash_type
+		FROM benchmark_requests
+		WHERE completed_at IS NULL
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to query timed-out benchmarks: %w", err)
+	}
+	defer rows.Close()
+
+	var timedOutJobs []uuid.UUID
+	for rows.Next() {
+		var agentID int
+		var jobID uuid.UUID
+		var attackMode string
+		var hashType int
+		if err := rows.Scan(&agentID, &jobID, &attackMode, &hashType); err != nil {
+			debug.Warning("Failed to scan timed-out benchmark row: %v", err)
+			continue
+		}
+		debug.Warning("Benchmark timed out for agent %d, job %s, attack_mode %s, hash_type %d",
+			agentID, jobID, attackMode, hashType)
+		timedOutJobs = append(timedOutJobs, jobID)
+	}
+
+	if len(timedOutJobs) == 0 {
+		return nil
+	}
+
+	// Mark all incomplete benchmarks as failed
+	_, err = s.jobExecutionService.db.ExecContext(ctx, `
+		UPDATE benchmark_requests
+		SET completed_at = CURRENT_TIMESTAMP,
+			success = false,
+			error_message = 'Benchmark timed out waiting for agent response'
+		WHERE completed_at IS NULL
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to mark timed-out benchmarks as failed: %w", err)
+	}
+
+	// Update the affected jobs with error message
+	for _, jobID := range timedOutJobs {
+		_, err := s.jobExecutionService.db.ExecContext(ctx, `
+			UPDATE job_executions
+			SET error_message = 'Benchmark timed out waiting for agent response'
+			WHERE id = $1 AND error_message IS NULL
+		`, jobID)
+		if err != nil {
+			debug.Warning("Failed to update job %s error message: %v", jobID, err)
+		}
+	}
+
+	debug.Warning("Marked %d timed-out benchmarks as failed", len(timedOutJobs))
 	return nil
 }
 

@@ -87,6 +87,11 @@ type Handler struct {
 	tlsConfig           *tls.Config
 	clients             map[int]*Client
 	mu                  sync.RWMutex
+
+	// Inventory callback system for pre-benchmark file checks
+	// Key is agentID - only one pending file sync callback per agent at a time
+	inventoryCallbacks   map[int]chan *wsservice.FileSyncResponsePayload
+	inventoryCallbacksMu sync.RWMutex
 }
 
 // Client represents a connected agent
@@ -113,6 +118,7 @@ func NewHandler(wsService *wsservice.Service, agentService *services.AgentServic
 		jobExecRepo:         jobExecRepo,
 		tlsConfig:           tlsConfig,
 		clients:             make(map[int]*Client),
+		inventoryCallbacks:  make(map[int]chan *wsservice.FileSyncResponsePayload),
 	}
 }
 
@@ -656,6 +662,34 @@ func (h *Handler) initiateFileSync(client *Client) {
 	}
 }
 
+// RegisterInventoryCallback registers a callback channel for a specific agent.
+// When a file sync response from this agent arrives, the response will be sent
+// to the channel instead of being processed by the normal sync flow.
+// Only one callback per agent is supported - subsequent registrations overwrite previous ones.
+// Returns a receive-only channel that will receive the inventory response.
+func (h *Handler) RegisterInventoryCallback(agentID int) <-chan *wsservice.FileSyncResponsePayload {
+	h.inventoryCallbacksMu.Lock()
+	defer h.inventoryCallbacksMu.Unlock()
+
+	ch := make(chan *wsservice.FileSyncResponsePayload, 1)
+	h.inventoryCallbacks[agentID] = ch
+	debug.Info("Registered inventory callback for agent %d", agentID)
+	return ch
+}
+
+// UnregisterInventoryCallback removes a previously registered callback for an agent.
+// This should be called after receiving the response or on timeout.
+func (h *Handler) UnregisterInventoryCallback(agentID int) {
+	h.inventoryCallbacksMu.Lock()
+	defer h.inventoryCallbacksMu.Unlock()
+
+	if ch, exists := h.inventoryCallbacks[agentID]; exists {
+		close(ch)
+		delete(h.inventoryCallbacks, agentID)
+		debug.Info("Unregistered inventory callback for agent %d", agentID)
+	}
+}
+
 // handleSyncResponse processes a file sync response from an agent
 func (h *Handler) handleSyncResponse(client *Client, msg *wsservice.Message) {
 	// First check if this is a progress message
@@ -683,7 +717,26 @@ func (h *Handler) handleSyncResponse(client *Client, msg *wsservice.Message) {
 		return
 	}
 
-	debug.Info("Received file sync response from agent %d: %d files", client.agent.ID, len(payload.Files))
+	debug.Info("Received file sync response from agent %d: %d files",
+		client.agent.ID, len(payload.Files))
+
+	// Check if there's a registered callback for this agent (pre-benchmark file check)
+	h.inventoryCallbacksMu.RLock()
+	ch, hasCallback := h.inventoryCallbacks[client.agent.ID]
+	h.inventoryCallbacksMu.RUnlock()
+
+	if hasCallback {
+		debug.Info("Routing file sync response to registered callback for agent %d", client.agent.ID)
+		// Send to callback channel (non-blocking - channel is buffered)
+		select {
+		case ch <- &payload:
+			// Successfully sent to callback
+		default:
+			debug.Warning("Callback channel full for agent %d, dropping response", client.agent.ID)
+		}
+		// Don't process through normal sync flow - caller will handle comparison
+		return
+	}
 
 	// Determine which files need to be synced
 	filesToSync, err := h.determineFilesToSync(client.agent.ID, payload.Files)
@@ -703,6 +756,13 @@ func (h *Handler) handleSyncResponse(client *Client, msg *wsservice.Message) {
 				debug.Error("Failed to update sync status for agent %d: %v", client.agent.ID, err)
 			} else {
 				debug.Info("Agent %d sync status updated to completed", client.agent.ID)
+
+				// Now that sync is complete (no files needed), mark agent as active and available for work
+				if err := h.agentService.UpdateAgentStatus(client.ctx, client.agent.ID, models.AgentStatusActive, nil); err != nil {
+					debug.Error("Failed to update agent status to active: %v", err)
+				} else {
+					debug.Info("Agent %d marked as active and available for work (no sync needed)", client.agent.ID)
+				}
 			}
 		}
 
@@ -761,6 +821,13 @@ func (h *Handler) handleSyncStatus(client *Client, msg *wsservice.Message) {
 				debug.Error("Failed to update sync status for agent %d: %v", client.agent.ID, err)
 			} else {
 				debug.Info("Agent %d sync status updated to completed after file downloads", client.agent.ID)
+
+				// Now that sync is complete, mark agent as active and available for work
+				if err := h.agentService.UpdateAgentStatus(client.ctx, client.agent.ID, models.AgentStatusActive, nil); err != nil {
+					debug.Error("Failed to update agent status to active after sync: %v", err)
+				} else {
+					debug.Info("Agent %d marked as active and available for work (sync complete)", client.agent.ID)
+				}
 			}
 		}
 	}
@@ -1270,10 +1337,20 @@ func (h *Handler) handleCurrentTaskStatus(client *Client, msg *wsservice.Message
 			debug.Error("Failed to update agent metadata: %v", err)
 		}
 		
-		if err := h.agentService.UpdateAgentStatus(client.ctx, client.agent.ID, models.AgentStatusActive, nil); err != nil {
-			debug.Error("Failed to update agent status to active: %v", err)
+		// Check sync status before marking agent as active
+		// This prevents a race condition where the agent is marked active before file sync completes
+		agent, err := h.agentService.GetByID(client.ctx, client.agent.ID)
+		if err != nil {
+			debug.Error("Failed to get agent %d for sync status check: %v", client.agent.ID, err)
+		} else if agent.SyncStatus == models.AgentSyncStatusCompleted {
+			if err := h.agentService.UpdateAgentStatus(client.ctx, client.agent.ID, models.AgentStatusActive, nil); err != nil {
+				debug.Error("Failed to update agent status to active: %v", err)
+			} else {
+				debug.Info("Agent %d marked as active and available for work", client.agent.ID)
+			}
 		} else {
-			debug.Info("Agent %d marked as active and available for work", client.agent.ID)
+			debug.Info("Agent %d not yet available (sync_status=%s), waiting for sync to complete",
+				client.agent.ID, agent.SyncStatus)
 		}
 	}
 }

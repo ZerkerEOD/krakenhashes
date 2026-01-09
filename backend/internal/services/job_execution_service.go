@@ -38,6 +38,7 @@ type JobExecutionService struct {
 	scheduleRepo       *repository.AgentScheduleRepository
 	binaryManager      binary.Manager
 	ruleSplitManager   *RuleSplitManager
+	assocWordlistRepo  *repository.AssociationWordlistRepository
 
 	// Configuration paths
 	hashcatBinaryPath string
@@ -61,6 +62,7 @@ func NewJobExecutionService(
 	fileRepo *repository.FileRepository,
 	scheduleRepo *repository.AgentScheduleRepository,
 	binaryManager binary.Manager,
+	assocWordlistRepo *repository.AssociationWordlistRepository,
 	hashcatBinaryPath string,
 	dataDirectory string,
 ) *JobExecutionService {
@@ -90,6 +92,7 @@ func NewJobExecutionService(
 		scheduleRepo:             scheduleRepo,
 		binaryManager:            binaryManager,
 		ruleSplitManager:         ruleSplitManager,
+		assocWordlistRepo:        assocWordlistRepo,
 		hashcatBinaryPath:        hashcatBinaryPath,
 		dataDirectory:            dataDirectory,
 	}
@@ -136,6 +139,7 @@ type CustomJobConfig struct {
 	IncrementMode             string
 	IncrementMin              *int
 	IncrementMax              *int
+	AssociationWordlistID     *uuid.UUID // For association attacks (-a 9)
 }
 
 // CreateJobExecution creates a new job execution from a preset job and hashlist
@@ -168,14 +172,14 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		totalKeyspace = presetJob.Keyspace
 		effectiveKeyspace = presetJob.EffectiveKeyspace
 		isAccurateKeyspace = presetJob.IsAccurateKeyspace
-		useRuleSplitting = presetJob.UseRuleSplitting
+		// NOTE: useRuleSplitting is NOT copied from preset - it will be determined dynamically
+		// at first task dispatch based on benchmark speed and rule_split_min_rules threshold
 		multiplicationFactor = presetJob.MultiplicationFactor
 		debug.Log("Using pre-calculated keyspace from preset job", map[string]interface{}{
 			"preset_job_id":         presetJobID,
 			"keyspace":              *totalKeyspace,
 			"effective_keyspace":    effectiveKeyspace,
 			"is_accurate_keyspace":  isAccurateKeyspace,
-			"use_rule_splitting":    useRuleSplitting,
 			"multiplication_factor": multiplicationFactor,
 		})
 	} else {
@@ -186,8 +190,8 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 			debug.Error("Failed to calculate keyspace: %v", err)
 			return nil, fmt.Errorf("keyspace calculation is required for job execution: %w", err)
 		}
-		// Determine rule splitting for fallback case
-		useRuleSplitting = len(presetJob.RuleIDs) > 0 && isAccurateKeyspace
+		// NOTE: useRuleSplitting is NOT set here - it will be determined dynamically
+		// at first task dispatch based on benchmark speed and rule_split_min_rules threshold
 		// Calculate multiplication factor from returned values
 		if isAccurateKeyspace && totalKeyspace != nil && *totalKeyspace > 0 && effectiveKeyspace != nil && *effectiveKeyspace > 0 {
 			multiplicationFactor = int(*effectiveKeyspace / *totalKeyspace)
@@ -340,6 +344,12 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		IncrementMax:              config.IncrementMax,
 	}
 
+	// Set association wordlist ID for keyspace calculation (convert UUID to string)
+	if config.AssociationWordlistID != nil {
+		assocIDStr := config.AssociationWordlistID.String()
+		tempPreset.AssociationWordlistID = &assocIDStr
+	}
+
 	// Use the same keyspace calculation as preset jobs
 	totalKeyspace, effectiveKeyspace, isAccurateKeyspace, err := s.calculateKeyspace(ctx, tempPreset, hashlist)
 	if err != nil {
@@ -347,8 +357,9 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		return nil, fmt.Errorf("keyspace calculation is required for job execution: %w", err)
 	}
 
-	// Determine rule splitting for custom jobs
-	useRuleSplitting := len(config.RuleIDs) > 0 && isAccurateKeyspace
+	// NOTE: useRuleSplitting is NOT set here - it will be determined dynamically
+	// at first task dispatch based on benchmark speed and rule_split_min_rules threshold
+	useRuleSplitting := false
 
 	// Calculate multiplication factor from keyspace values
 	multiplicationFactor := 1
@@ -368,15 +379,16 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 
 	// Create self-contained job execution
 	jobExecution := &models.JobExecution{
-		PresetJobID:       nil, // NULL for custom jobs
-		HashlistID:        hashlistID,
-		Status:            models.JobExecutionStatusPending,
-		Priority:          config.Priority,
-		TotalKeyspace:     totalKeyspace,
-		ProcessedKeyspace: 0,
-		AttackMode:        config.AttackMode,
-		MaxAgents:         config.MaxAgents,
-		CreatedBy:         createdBy,
+		PresetJobID:           nil, // NULL for custom jobs
+		HashlistID:            hashlistID,
+		AssociationWordlistID: config.AssociationWordlistID, // For association attacks (-a 9)
+		Status:                models.JobExecutionStatusPending,
+		Priority:              config.Priority,
+		TotalKeyspace:         totalKeyspace,
+		ProcessedKeyspace:     0,
+		AttackMode:            config.AttackMode,
+		MaxAgents:             config.MaxAgents,
+		CreatedBy:             createdBy,
 
 		// Direct configuration (not from preset)
 		Name:                      customJobName, // Will be set with proper naming logic
@@ -540,6 +552,40 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 			}
 			args = append(args, presetJob.Mask, wordlistPath)
 		}
+
+	case models.AttackModeAssociation: // Association attack (-a 9)
+		// Mode 9 does NOT support --keyspace or --total-candidates flags
+		// Use estimation based on wordlist line count and rule count instead
+
+		if presetJob.AssociationWordlistID == nil || *presetJob.AssociationWordlistID == "" {
+			return nil, nil, false, fmt.Errorf("association wordlist ID is required for attack mode 9")
+		}
+
+		// Get wordlist line count from database
+		lineCount, err := s.getAssociationWordlistLineCount(ctx, *presetJob.AssociationWordlistID)
+		if err != nil {
+			return nil, nil, false, fmt.Errorf("failed to get association wordlist line count: %w", err)
+		}
+
+		// Get rule count for effective keyspace calculation
+		ruleCount, err := s.getTotalRuleCount(ctx, presetJob.RuleIDs)
+		if err != nil {
+			debug.Warning("Failed to get rule count for mode 9: %v", err)
+			ruleCount = 1
+		}
+
+		baseKeyspace := lineCount
+		effectiveKeyspace := lineCount * ruleCount
+
+		debug.Log("Mode 9 keyspace estimation", map[string]interface{}{
+			"wordlist_line_count": lineCount,
+			"rule_count":          ruleCount,
+			"base_keyspace":       baseKeyspace,
+			"effective_keyspace":  effectiveKeyspace,
+		})
+
+		// Return early - don't run hashcat --keyspace (not supported for mode 9)
+		return &baseKeyspace, &effectiveKeyspace, false, nil // false = not accurate (estimation)
 
 	default:
 		return nil, nil, false, fmt.Errorf("unsupported attack mode for keyspace calculation: %d", presetJob.AttackMode)
@@ -1009,41 +1055,40 @@ func (s *JobExecutionService) calculateEffectiveKeyspace(ctx context.Context, jo
 		}
 
 	case models.AttackModeAssociation: // Association attack
-		ruleFiles, err := s.extractRuleFiles(ctx, presetJob)
-		if err != nil {
-			return fmt.Errorf("failed to extract rule files: %w", err)
-		}
-
-		if len(ruleFiles) > 0 {
-			totalRules := 0
-			for _, ruleFile := range ruleFiles {
-				count, err := s.countRulesInFile(ctx, ruleFile)
+		// For association attack, use the wordlist line count from database
+		// The association wordlist ID is stored in presetJob.AssociationWordlistID
+		if presetJob.AssociationWordlistID != nil && *presetJob.AssociationWordlistID != "" {
+			lineCount, err := s.getAssociationWordlistLineCount(ctx, *presetJob.AssociationWordlistID)
+			if err != nil {
+				debug.Warning("Failed to get association wordlist line count: %v", err)
+				// Fall back to using existing total_keyspace
+				job.BaseKeyspace = &baseKeyspace
+				job.MultiplicationFactor = 1
+				job.EffectiveKeyspace = &baseKeyspace
+			} else {
+				ruleCount, err := s.getTotalRuleCount(ctx, presetJob.RuleIDs)
 				if err != nil {
-					debug.Log("Failed to count rules in file", map[string]interface{}{
-						"rule_file": ruleFile,
-						"error":     err.Error(),
-					})
-					continue
+					ruleCount = 1
 				}
-				totalRules += count
+
+				job.BaseKeyspace = &lineCount
+				job.MultiplicationFactor = int(ruleCount)
+				// Mode 9 keyspace is estimated from wordlist line count × rule count
+				// IsAccurateKeyspace = false triggers forced benchmark for speed measurement
+				job.IsAccurateKeyspace = false
+
+				effectiveKeyspace := lineCount * ruleCount
+				job.EffectiveKeyspace = &effectiveKeyspace
+
+				debug.Log("Association attack keyspace calculated", map[string]interface{}{
+					"wordlist_line_count": lineCount,
+					"rule_count":          ruleCount,
+					"effective_keyspace":  effectiveKeyspace,
+					"is_accurate":         false,
+				})
 			}
-
-			baseKeyspace := int64(1)
-			job.BaseKeyspace = &baseKeyspace
-			job.MultiplicationFactor = totalRules
-			job.IsAccurateKeyspace = false // Will be set by first agent benchmark
-
-			// Estimate effective keyspace (will be updated to actual from hashcat benchmark)
-			estimatedEffective := int64(totalRules)
-			job.EffectiveKeyspace = &estimatedEffective
-
-			debug.Log("Association attack - using estimated effective keyspace", map[string]interface{}{
-				"rule_files":          len(ruleFiles),
-				"total_rules":         totalRules,
-				"estimated_effective": estimatedEffective,
-			})
 		} else {
-			baseKeyspace := int64(1)
+			// No association wordlist - shouldn't happen but handle gracefully
 			job.BaseKeyspace = &baseKeyspace
 			job.MultiplicationFactor = 1
 			job.EffectiveKeyspace = &baseKeyspace
@@ -1062,99 +1107,6 @@ func (s *JobExecutionService) calculateEffectiveKeyspace(ctx context.Context, jo
 
 	// Update job in database
 	return s.jobExecRepo.UpdateKeyspaceInfo(ctx, job)
-}
-
-// determineRuleSplitting determines if a job should use rule splitting
-func (s *JobExecutionService) determineRuleSplitting(ctx context.Context, job *models.JobExecution, presetJob *models.PresetJob) error {
-	// Check if rule splitting is enabled
-	ruleSplitEnabled, err := s.systemSettingsRepo.GetSetting(ctx, "rule_split_enabled")
-	if err != nil || ruleSplitEnabled.Value == nil || *ruleSplitEnabled.Value != "true" {
-		return nil // Rule splitting not enabled
-	}
-
-	// Only for attack mode 0 with rules
-	if job.AttackMode != models.AttackModeStraight || len(presetJob.RuleIDs) == 0 {
-		return nil
-	}
-
-	// Get settings
-	thresholdSetting, err := s.systemSettingsRepo.GetSetting(ctx, "rule_split_threshold")
-	if err != nil {
-		return fmt.Errorf("failed to get rule split threshold: %w", err)
-	}
-	threshold := 2.0
-	if thresholdSetting.Value != nil {
-		if val, err := strconv.ParseFloat(*thresholdSetting.Value, 64); err == nil {
-			threshold = val
-		}
-	}
-
-	minRulesSetting, err := s.systemSettingsRepo.GetSetting(ctx, "rule_split_min_rules")
-	if err != nil {
-		return fmt.Errorf("failed to get min rules setting: %w", err)
-	}
-	minRules := 100
-	if minRulesSetting.Value != nil {
-		if val, err := strconv.Atoi(*minRulesSetting.Value); err == nil {
-			minRules = val
-		}
-	}
-
-	// Check if we have enough rules to split
-	if job.MultiplicationFactor < minRules {
-		return nil // Not enough rules to split
-	}
-
-	// Get chunk duration
-	chunkDurationSetting, err := s.systemSettingsRepo.GetSetting(ctx, "default_chunk_duration")
-	if err != nil {
-		return fmt.Errorf("failed to get chunk duration: %w", err)
-	}
-	chunkDuration := 1200 // 20 minutes default
-	if chunkDurationSetting.Value != nil {
-		if val, err := strconv.Atoi(*chunkDurationSetting.Value); err == nil {
-			chunkDuration = val
-		}
-	}
-
-	// Estimate job duration at a reasonable speed (300MH/s)
-	estimatedSpeed := int64(300_000_000) // 300 MH/s
-	estimatedDuration := float64(*job.EffectiveKeyspace) / float64(estimatedSpeed)
-
-	// Check if job duration exceeds threshold
-	if estimatedDuration > float64(chunkDuration)*threshold {
-		job.UsesRuleSplitting = true
-
-		// Calculate number of splits needed
-		numSplits := int(estimatedDuration / float64(chunkDuration))
-		if numSplits < 2 {
-			numSplits = 2
-		}
-
-		// Get max chunks setting
-		maxChunksSetting, err := s.systemSettingsRepo.GetSetting(ctx, "rule_split_max_chunks")
-		if err == nil && maxChunksSetting.Value != nil {
-			if maxChunks, err := strconv.Atoi(*maxChunksSetting.Value); err == nil && numSplits > maxChunks {
-				numSplits = maxChunks
-			}
-		}
-
-		job.RuleSplitCount = numSplits
-
-		debug.Log("Rule splitting enabled for job", map[string]interface{}{
-			"job_id":             job.ID,
-			"effective_keyspace": *job.EffectiveKeyspace,
-			"estimated_duration": estimatedDuration,
-			"chunk_duration":     chunkDuration,
-			"threshold":          threshold,
-			"num_splits":         numSplits,
-		})
-
-		// Update job in database
-		return s.jobExecRepo.UpdateKeyspaceInfo(ctx, job)
-	}
-
-	return nil
 }
 
 // GetNextPendingJob returns the next job to be executed based on priority and FIFO
@@ -2042,6 +1994,58 @@ func (s *JobExecutionService) resolveRulePath(ctx context.Context, ruleIDStr str
 	return path, nil
 }
 
+// resolveAssociationWordlistPath resolves an association wordlist ID string to its file path
+func (s *JobExecutionService) resolveAssociationWordlistPath(ctx context.Context, assocWordlistIDStr string) (string, error) {
+	assocWordlistID, err := uuid.Parse(assocWordlistIDStr)
+	if err != nil {
+		return "", fmt.Errorf("invalid association wordlist ID: %w", err)
+	}
+	filePath, err := s.assocWordlistRepo.GetFilePath(ctx, assocWordlistID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get association wordlist path: %w", err)
+	}
+	return filePath, nil
+}
+
+// getAssociationWordlistLineCount retrieves the line count for an association wordlist
+func (s *JobExecutionService) getAssociationWordlistLineCount(ctx context.Context, assocWordlistIDStr string) (int64, error) {
+	assocWordlistID, err := uuid.Parse(assocWordlistIDStr)
+	if err != nil {
+		return 0, fmt.Errorf("invalid association wordlist ID: %w", err)
+	}
+	wordlist, err := s.assocWordlistRepo.GetByID(ctx, assocWordlistID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get association wordlist: %w", err)
+	}
+	return wordlist.LineCount, nil
+}
+
+// getTotalRuleCount retrieves the sum of rule counts for a list of rule IDs
+func (s *JobExecutionService) getTotalRuleCount(ctx context.Context, ruleIDs []string) (int64, error) {
+	if len(ruleIDs) == 0 {
+		return 1, nil // No rules = multiplier of 1
+	}
+
+	var totalCount int64 = 0
+	for _, ruleIDStr := range ruleIDs {
+		ruleID, err := strconv.Atoi(ruleIDStr)
+		if err != nil {
+			continue
+		}
+		var ruleCount int64
+		err = s.db.QueryRowContext(ctx,
+			"SELECT rule_count FROM rules WHERE id = $1", ruleID).Scan(&ruleCount)
+		if err != nil {
+			continue
+		}
+		totalCount += ruleCount
+	}
+	if totalCount == 0 {
+		return 1, nil
+	}
+	return totalCount, nil
+}
+
 // RuleSplitDecision contains the decision information for rule splitting
 type RuleSplitDecision struct {
 	ShouldSplit     bool
@@ -2068,12 +2072,8 @@ func (s *JobExecutionService) analyzeForRuleSplitting(ctx context.Context, job *
 		return &RuleSplitDecision{ShouldSplit: false}, nil
 	}
 
-	// For attack mode 9 (association), always split if rules present
-	if job.AttackMode == models.AttackModeAssociation {
-		return s.createSplitDecision(ctx, job, presetJob, benchmarkSpeed)
-	}
-
-	// For attack mode 0, check thresholds
+	// For both attack modes 0 (straight) and 9 (association), check thresholds
+	// Association attacks use the same threshold-based logic to respect system settings
 	thresholdSetting, err := s.systemSettingsRepo.GetSetting(ctx, "rule_split_threshold")
 	if err != nil {
 		debug.Log("Failed to get rule split threshold, using default", map[string]interface{}{

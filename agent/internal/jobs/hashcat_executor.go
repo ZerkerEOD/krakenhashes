@@ -32,10 +32,11 @@ const (
 	AttackModeBruteForce         AttackMode = 3 // Brute-force attack
 	AttackModeHybridWordlistMask AttackMode = 6 // Hybrid Wordlist + Mask
 	AttackModeHybridMaskWordlist AttackMode = 7 // Hybrid Mask + Wordlist
-	
+	AttackModeAssociation        AttackMode = 9 // Association attack (1:1 hash:wordlist mapping)
+
 	// PID file for tracking hashcat processes
 	hashcatPIDFile = "/tmp/krakenhashes-hashcat.pid"
-	
+
 	// Retry configuration for "already running" errors
 	MaxHashcatRetries = 5
 	HashcatRetryDelay = 5 * time.Second
@@ -64,6 +65,9 @@ type JobTaskAssignment struct {
 	IncrementMin    *int        `json:"increment_min,omitempty"`    // Starting mask length for increment mode
 	IncrementMax    *int        `json:"increment_max,omitempty"`    // Maximum mask length for increment mode
 	IsKeyspaceSplit bool        `json:"is_keyspace_split"`          // Whether this task uses keyspace splitting (--skip/--limit)
+	// Association attack fields (mode 9)
+	AssociationWordlistPath string `json:"association_wordlist_path,omitempty"` // Path to the association wordlist
+	OriginalHashlistPath    string `json:"original_hashlist_path,omitempty"`    // Path to the original hashlist file (preserves order)
 }
 
 // DeviceMetric represents metrics for a single device
@@ -542,14 +546,17 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 	}
 
 	// Add hashlist file
+	// Backend sends the correct hashlist path for all modes:
+	// - Mode 9 (association): original hashlist with preserved order
+	// - Other modes: processed (deduplicated) hashlist
 	hashlistPath := filepath.Join(e.dataDirectory, assignment.HashlistPath)
-	
+
 	// Debug: Check if hashlist file exists
 	if _, err := os.Stat(hashlistPath); os.IsNotExist(err) {
 		debug.Error("Hashlist file does not exist: %s", hashlistPath)
 		return nil, "", "", "", fmt.Errorf("hashlist file not found: %s", hashlistPath)
 	}
-	
+
 	args = append(args, hashlistPath)
 
 	// Add attack-mode specific arguments
@@ -592,6 +599,33 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 		if assignment.Mask != "" && len(assignment.WordlistPaths) > 0 {
 			wordlistPath := filepath.Join(e.dataDirectory, assignment.WordlistPaths[0])
 			args = append(args, assignment.Mask, wordlistPath)
+		}
+
+	case int(AttackModeAssociation): // Association attack (mode 9)
+		// Association attack requires:
+		// - Original hashlist file (backend sends correct path in HashlistPath)
+		// - Association wordlist (backend sends it in WordlistPaths[0])
+		// - Optional rules
+		if len(assignment.WordlistPaths) == 0 {
+			return nil, "", "", "", fmt.Errorf("association attack requires wordlist")
+		}
+
+		// Use first wordlist as the association wordlist
+		assocWordlistPath := filepath.Join(e.dataDirectory, assignment.WordlistPaths[0])
+		debug.Info("Adding association wordlist: %s", assocWordlistPath)
+
+		// Verify association wordlist exists
+		if _, err := os.Stat(assocWordlistPath); os.IsNotExist(err) {
+			return nil, "", "", "", fmt.Errorf("association wordlist not found: %s", assocWordlistPath)
+		}
+
+		args = append(args, assocWordlistPath)
+
+		// Add rules if specified
+		for _, rulePath := range assignment.RulePaths {
+			fullPath := filepath.Join(e.dataDirectory, rulePath)
+			debug.Info("Adding rule for association attack: %s", fullPath)
+			args = append(args, "-r", fullPath)
 		}
 
 	default:

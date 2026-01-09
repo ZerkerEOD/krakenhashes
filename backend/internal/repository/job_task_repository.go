@@ -186,6 +186,7 @@ func (r *JobTaskRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.
 			jt.benchmark_speed, jt.average_speed, jt.chunk_duration, jt.assigned_at,
 			jt.started_at, jt.completed_at, jt.cracking_completed_at, jt.last_checkpoint, jt.error_message,
 			jt.crack_count, jt.detailed_status, jt.retry_count,
+			jt.expected_crack_count, jt.received_crack_count, jt.batches_complete_signaled,
 			jt.rule_start_index, jt.rule_end_index, jt.rule_chunk_path, jt.is_rule_split_task,
 			jt.chunk_number, jt.is_actual_keyspace, jt.chunk_actual_keyspace, jt.is_keyspace_split,
 			jt.progress_percent, jt.created_at, jt.updated_at,
@@ -203,6 +204,7 @@ func (r *JobTaskRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.
 		&task.BenchmarkSpeed, &task.AverageSpeed, &task.ChunkDuration, &task.AssignedAt,
 		&task.StartedAt, &task.CompletedAt, &task.CrackingCompletedAt, &task.LastCheckpoint, &task.ErrorMessage,
 		&task.CrackCount, &task.DetailedStatus, &task.RetryCount,
+		&task.ExpectedCrackCount, &task.ReceivedCrackCount, &task.BatchesCompleteSignaled,
 		&task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath, &task.IsRuleSplitTask,
 		&task.ChunkNumber, &task.IsActualKeyspace, &task.ChunkActualKeyspace, &task.IsKeyspaceSplit,
 		&task.ProgressPercent, &task.CreatedAt, &task.UpdatedAt,
@@ -1723,6 +1725,37 @@ func (r *JobTaskRepository) SetCrackingCompleted(ctx context.Context, taskID uui
 	if rowsAffected == 0 {
 		return ErrNotFound
 	}
+
+	return nil
+}
+
+// UpdateExpectedCrackCount updates the expected crack count for a task
+// This is used when requesting crack retransmit after outfile delete rejection
+func (r *JobTaskRepository) UpdateExpectedCrackCount(ctx context.Context, taskID uuid.UUID, expectedCount int) error {
+	query := `
+		UPDATE job_tasks
+		SET expected_crack_count = $2,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`
+
+	result, err := r.db.ExecContext(ctx, query, taskID, expectedCount)
+	if err != nil {
+		return fmt.Errorf("failed to update expected crack count: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	debug.Log("Updated expected crack count", map[string]interface{}{
+		"task_id":        taskID,
+		"expected_count": expectedCount,
+	})
 
 	return nil
 }

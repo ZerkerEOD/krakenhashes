@@ -16,12 +16,13 @@ import (
 
 // RetentionService handles the automatic purging of old hashlists and analytics reports based on retention policies.
 type RetentionService struct {
-	db                 *db.DB // Needed for transactions
-	hashlistRepo       *repository.HashListRepository
-	hashRepo           *repository.HashRepository
-	clientRepo         *repository.ClientRepository
-	clientSettingsRepo *repository.ClientSettingsRepository
-	analyticsRepo      *repository.AnalyticsRepository
+	db                    *db.DB // Needed for transactions
+	hashlistRepo          *repository.HashListRepository
+	hashRepo              *repository.HashRepository
+	clientRepo            *repository.ClientRepository
+	clientSettingsRepo    *repository.ClientSettingsRepository
+	analyticsRepo         *repository.AnalyticsRepository
+	assocWordlistRepo     *repository.AssociationWordlistRepository
 }
 
 // NewRetentionService creates a new RetentionService.
@@ -33,6 +34,7 @@ func NewRetentionService(database *db.DB, hr *repository.HashListRepository, hsh
 		clientRepo:         cr,
 		clientSettingsRepo: sr,
 		analyticsRepo:      ar,
+		assocWordlistRepo:  repository.NewAssociationWordlistRepository(database),
 	}
 }
 
@@ -265,8 +267,43 @@ func (s *RetentionService) PurgeOldAnalyticsReports(ctx context.Context) error {
 // - Checks orphaned hashes in batches of 50,000 using NOT EXISTS subquery
 // - Deletes orphaned hashes in batches of 10,000
 // This reduces O(n) individual queries to O(n/50000) batch operations.
+// Also securely deletes the original hashlist file if it exists (used for association attacks).
 func (s *RetentionService) DeleteHashlistAndOrphanedHashes(ctx context.Context, hashlistID int64) error {
 	debug.Info("Purge: Deleting hashlist %d using optimized batch delete...", hashlistID)
+
+	// Get the hashlist to retrieve the original file path before deletion
+	hashlist, err := s.hashlistRepo.GetByID(ctx, hashlistID)
+	if err != nil {
+		debug.Warning("Purge: Could not retrieve hashlist %d before deletion (may already be deleted): %v", hashlistID, err)
+		// Continue with deletion attempt anyway
+	}
+
+	// Securely delete the original hashlist file if it exists (used for association attacks)
+	if hashlist != nil && hashlist.OriginalFilePath != nil && *hashlist.OriginalFilePath != "" {
+		debug.Info("Purge: Securely deleting original hashlist file: %s", *hashlist.OriginalFilePath)
+		if err := s.secureDeleteFile(*hashlist.OriginalFilePath); err != nil {
+			debug.Error("Purge: Failed to securely delete original hashlist file %s: %v", *hashlist.OriginalFilePath, err)
+			// Continue with hashlist deletion even if file deletion fails
+		}
+	}
+
+	// Delete all association wordlists and their files for this hashlist
+	if s.assocWordlistRepo != nil {
+		assocWordlistPaths, err := s.assocWordlistRepo.DeleteByHashlistID(ctx, hashlistID)
+		if err != nil {
+			debug.Warning("Purge: Failed to delete association wordlist records for hashlist %d: %v", hashlistID, err)
+			// Continue with hashlist deletion even if this fails
+		} else {
+			for _, filePath := range assocWordlistPaths {
+				if err := s.secureDeleteFile(filePath); err != nil {
+					debug.Warning("Purge: Failed to securely delete association wordlist file %s: %v", filePath, err)
+				}
+			}
+			if len(assocWordlistPaths) > 0 {
+				debug.Info("Purge: Deleted %d association wordlists for hashlist %d", len(assocWordlistPaths), hashlistID)
+			}
+		}
+	}
 
 	// Use the optimized Delete method from hashlistRepo which handles:
 	// 1. Getting all associated hash IDs

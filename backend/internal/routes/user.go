@@ -57,6 +57,7 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 	binaryStore := binary.NewStore(database.DB)
 	jobIncrementLayerRepo := repository.NewJobIncrementLayerRepository(dbWrapper)
 	presetIncrementLayerRepo := repository.NewPresetIncrementLayerRepository(dbWrapper)
+	assocWordlistRepo := repository.NewAssociationWordlistRepository(dbWrapper)
 
 	// Create job execution service
 	jobExecutionService := services.NewJobExecutionService(
@@ -75,6 +76,7 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 		fileRepo,
 		scheduleRepo,
 		binaryManager,
+		assocWordlistRepo,
 		"", // hashcatBinaryPath - not needed for keyspace calculation
 		dataDir,
 	)
@@ -94,6 +96,7 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 		binaryStore,
 		jobExecutionService,
 		systemSettingsRepo,
+		assocWordlistRepo,
 	)
 }
 

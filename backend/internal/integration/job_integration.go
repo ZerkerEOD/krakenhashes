@@ -25,6 +25,8 @@ type JobIntegrationManager struct {
 	wsHandler            interface {
 		SendMessage(agentID int, msg *wsservice.Message) error
 		GetConnectedAgents() []int
+		RegisterInventoryCallback(agentID int) <-chan *wsservice.FileSyncResponsePayload
+		UnregisterInventoryCallback(agentID int)
 	}
 }
 
@@ -33,6 +35,8 @@ func NewJobIntegrationManager(
 	wsHandler interface {
 		SendMessage(agentID int, msg *wsservice.Message) error
 		GetConnectedAgents() []int
+		RegisterInventoryCallback(agentID int) <-chan *wsservice.FileSyncResponsePayload
+		UnregisterInventoryCallback(agentID int)
 	},
 	jobSchedulingService *services.JobSchedulingService,
 	jobExecutionService *services.JobExecutionService,
@@ -48,6 +52,7 @@ func NewJobIntegrationManager(
 	deviceRepo *repository.AgentDeviceRepository,
 	clientRepo *repository.ClientRepository,
 	systemSettingsRepo *repository.SystemSettingsRepository,
+	assocWordlistRepo *repository.AssociationWordlistRepository,
 	potfileService *services.PotfileService,
 	hashlistCompletionService *services.HashlistCompletionService,
 	db *sql.DB,
@@ -72,6 +77,7 @@ func NewJobIntegrationManager(
 		deviceRepo,
 		clientRepo,
 		systemSettingsRepo,
+		assocWordlistRepo,
 		potfileService,
 		hashlistCompletionService,
 		db,

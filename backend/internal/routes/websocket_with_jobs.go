@@ -90,6 +90,7 @@ func SetupWebSocketWithJobRoutes(
 	clientRepo := repository.NewClientRepository(database)
 	jobIncrementLayerRepo := repository.NewJobIncrementLayerRepository(database)
 	presetIncrementLayerRepo := repository.NewPresetIncrementLayerRepository(database)
+	assocWordlistRepo := repository.NewAssociationWordlistRepository(database)
 
 	// Create services
 	jobExecutionService := services.NewJobExecutionService(
@@ -108,6 +109,7 @@ func SetupWebSocketWithJobRoutes(
 		fileRepo,
 		scheduleRepo,
 		binaryManager,
+		assocWordlistRepo,
 		"/usr/bin/hashcat", // hashcat binary path (deprecated, using binary manager now)
 		appConfig.DataDir,
 	)
@@ -201,6 +203,7 @@ func SetupWebSocketWithJobRoutes(
 		deviceRepo,
 		clientRepo,
 		systemSettingsRepo,
+		assocWordlistRepo,
 		potfileService,
 		hashlistCompletionService,
 		sqlDB,

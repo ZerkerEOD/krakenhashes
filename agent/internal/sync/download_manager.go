@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -133,9 +134,28 @@ func (dm *DownloadManager) QueueDownload(ctx context.Context, fileInfo FileInfo)
 			existingTask.RetryCount++
 			existingTask.Error = nil
 		} else if existingTask.Status == DownloadStatusCompleted {
-			// Already downloaded successfully
+			// Verify the file actually exists on disk before claiming "already downloaded"
+			filePath := dm.fileSync.GetFilePath(fileInfo.FileType, fileInfo.Category, fileInfo.Name)
+			if _, err := os.Stat(filePath); os.IsNotExist(err) {
+				// File was deleted - reset task for fresh download
+				debug.Info("File %s was previously downloaded but no longer exists on disk, re-downloading", key)
+				existingTask.Status = DownloadStatusPending
+				existingTask.Error = nil
+				existingTask.StartTime = time.Now()
+
+				// Create new context for this download
+				downloadCtx, cancel := context.WithCancel(ctx)
+				existingTask.CancelFunc = cancel
+
+				dm.wg.Add(1)
+				go dm.downloadWorker(downloadCtx, key, existingTask)
+				dm.mu.Unlock()
+				return nil
+			}
+
+			// File exists - truly already downloaded
 			dm.mu.Unlock()
-			debug.Info("File %s already downloaded successfully", key)
+			debug.Info("File %s already downloaded successfully (verified on disk)", key)
 			return nil
 		}
 	} else {
