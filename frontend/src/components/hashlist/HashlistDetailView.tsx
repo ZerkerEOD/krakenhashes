@@ -489,19 +489,19 @@ export default function HashlistDetailView() {
       </Paper>
 
       {hashlist && (
+        <AssociationWordlistManager
+          hashlistId={parseInt(id!)}
+          totalHashes={hashlist.total_hashes || 0}
+          hasMixedWorkFactors={hashlist.has_mixed_work_factors || false}
+        />
+      )}
+
+      {hashlist && (
         <HashlistHashesTable
           hashlistId={id!}
           hashlistName={hashlist.name}
           totalHashes={hashlist.total_hashes || 0}
           crackedHashes={hashlist.cracked_hashes || 0}
-        />
-      )}
-
-      {hashlist && (
-        <AssociationWordlistManager
-          hashlistId={parseInt(id!)}
-          totalHashes={hashlist.total_hashes || 0}
-          hasMixedWorkFactors={hashlist.has_mixed_work_factors || false}
         />
       )}
 
