@@ -185,6 +185,7 @@ nav:
       - Job Completion System: reference/architecture/job-completion-system.md
       - Benchmark Workflow: reference/architecture/benchmark-workflow.md
       - Crack Batching System: reference/architecture/crack-batching-system.md
+      - File Hash Cache: reference/architecture/file-hash-cache.md
       - Cross-Hashlist Sync: reference/architecture/cross-hashlist-sync.md
       - Username Extraction: reference/architecture/username-extraction.md
       - LM/NTLM Linking: reference/architecture/lm-ntlm-linking.md

@@ -2,15 +2,13 @@ package monitor
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/hex"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/cache/filehash"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/rule"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/wordlist"
@@ -33,6 +31,7 @@ type DirectoryMonitor struct {
 	wordlistManager  wordlist.Manager
 	ruleManager      rule.Manager
 	jobUpdateHandler JobUpdateHandler
+	hashCache        *filehash.Cache
 	wordlistDir      string
 	ruleDir          string
 	interval         time.Duration
@@ -57,6 +56,7 @@ func NewDirectoryMonitor(
 	interval time.Duration,
 	systemUserID uuid.UUID,
 	jobUpdateHandler JobUpdateHandler,
+	hashCache *filehash.Cache,
 ) *DirectoryMonitor {
 	// Default to 4 concurrent workers
 	maxWorkers := 4
@@ -65,6 +65,7 @@ func NewDirectoryMonitor(
 		wordlistManager:  wordlistManager,
 		ruleManager:      ruleManager,
 		jobUpdateHandler: jobUpdateHandler,
+		hashCache:        hashCache,
 		wordlistDir:      wordlistDir,
 		ruleDir:          ruleDir,
 		interval:         interval,
@@ -246,8 +247,9 @@ func (m *DirectoryMonitor) checkWordlistDirectory() {
 			ctx := context.Background()
 
 			// Calculate MD5 hash first (faster than counting lines)
+			// Uses cache to avoid recalculating unchanged files
 			m.fileStatuses.Store(relPath, "calculating hash")
-			md5Hash, err := calculateFileMD5(fullPath)
+			md5Hash, err := m.hashCache.GetOrCalculate(fullPath)
 			if err != nil {
 				debug.Error("Failed to calculate MD5 hash for %s: %v", fullPath, err)
 				m.fileStatuses.Store(relPath, "error: "+err.Error())
@@ -578,8 +580,9 @@ func (m *DirectoryMonitor) checkRuleDirectory() {
 			ctx := context.Background()
 
 			// Calculate MD5 hash first (faster than counting lines)
+			// Uses cache to avoid recalculating unchanged files
 			m.fileStatuses.Store(relPath, "calculating hash")
-			md5Hash, err := calculateFileMD5(fullPath)
+			md5Hash, err := m.hashCache.GetOrCalculate(fullPath)
 			if err != nil {
 				debug.Error("Failed to calculate MD5 hash for %s: %v", fullPath, err)
 				m.fileStatuses.Store(relPath, "error: "+err.Error())
@@ -806,22 +809,6 @@ func (m *DirectoryMonitor) updateExistingRule(ctx context.Context, fullPath, rel
 		m.fileStatuses.Store(relPath, "completed")
 		debug.Info("Successfully updated rule: %s (ID: %d) with MD5: %s", relPath, ruleID, md5Hash)
 	}()
-}
-
-// calculateFileMD5 calculates the MD5 hash of a file
-func calculateFileMD5(filePath string) (string, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-
-	hash := md5.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return "", err
-	}
-
-	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 // GetProcessingStatus returns the status of all files currently being processed

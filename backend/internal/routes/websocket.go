@@ -45,8 +45,8 @@ func SetupWebSocketRoutes(r *mux.Router, database *db.DB, agentService *services
 		PreferServerCipherSuites: true,
 	}
 	// NOTE: This route setup appears to be legacy/unused. SetupWebSocketWithJobRoutes is used instead.
-	// Passing nil for JobExecutionService since this handler doesn't have access to it.
-	wsHandler := wshandler.NewHandler(wsService, agentService, nil, systemSettingsRepo, jobTaskRepo, jobExecutionRepo, agentTLSConfig)
+	// Passing nil for JobExecutionService and potfileHistory since this handler doesn't have access to them.
+	wsHandler := wshandler.NewHandler(wsService, agentService, nil, systemSettingsRepo, jobTaskRepo, jobExecutionRepo, agentTLSConfig, nil)
 	wsRouter.HandleFunc("/agent", wsHandler.ServeWS)
 	debug.Info("Configured WebSocket endpoint: /ws/agent with TLS: %v", tlsConfig != nil)
 

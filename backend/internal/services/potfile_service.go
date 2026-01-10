@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/cache/filehash"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
@@ -45,6 +46,7 @@ type PotfileService struct {
 	wordlistStore      *wordlist.Store
 	hashRepo           *repository.HashRepository
 	jobUpdateService   *JobUpdateService
+	potfileHistory     *filehash.PotfileHistory
 	processingMutex    sync.Mutex
 	stopChan           chan struct{}
 	wg                 sync.WaitGroup
@@ -66,6 +68,7 @@ func NewPotfileService(
 	wordlistStore *wordlist.Store,
 	hashRepo *repository.HashRepository,
 	jobUpdateService *JobUpdateService,
+	potfileHistory *filehash.PotfileHistory,
 ) *PotfileService {
 	potfilePath := filepath.Join(dataDir, "wordlists", "custom", "potfile.txt")
 
@@ -78,6 +81,7 @@ func NewPotfileService(
 		wordlistStore:      wordlistStore,
 		hashRepo:           hashRepo,
 		jobUpdateService:   jobUpdateService,
+		potfileHistory:     potfileHistory,
 		stopChan:           make(chan struct{}),
 		batchInterval:      60 * time.Second, // Default, will be updated from settings
 		maxBatchSize:       100000,            // Increased from 1000 - process large batches efficiently
@@ -256,6 +260,11 @@ func (s *PotfileService) InitializePotfile(ctx context.Context) error {
 // GetPotfilePath returns the path to the pot-file
 func (s *PotfileService) GetPotfilePath() string {
 	return s.potfilePath
+}
+
+// GetPotfileHistory returns the potfile hash history for agent sync race condition handling
+func (s *PotfileService) GetPotfileHistory() *filehash.PotfileHistory {
+	return s.potfileHistory
 }
 
 // backgroundWorker processes staged entries periodically
@@ -978,7 +987,13 @@ func (s *PotfileService) UpdatePotfileMetadata(ctx context.Context) error {
 	if err := s.wordlistStore.UpdateWordlistComplete(ctx, wordlistID, md5Hash, fileSize, lineCount); err != nil {
 		return fmt.Errorf("failed to update potfile wordlist info: %w", err)
 	}
-	
+
+	// Add to potfile history for agent sync race condition handling
+	// This allows agents with recent valid hashes to skip re-download during heavy ingestion
+	if s.potfileHistory != nil {
+		s.potfileHistory.Add(md5Hash, fileSize)
+	}
+
 	debug.Info("Updated potfile metadata - MD5: %s, Size: %d bytes, Words: %d", md5Hash, fileSize, lineCount)
 	
 	// Sync preset job if it exists

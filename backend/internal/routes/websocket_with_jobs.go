@@ -159,7 +159,8 @@ func SetupWebSocketWithJobRoutes(
 	}
 
 	// Create WebSocket handler
-	wsHandler := wshandler.NewHandler(wsService, agentService, jobExecutionService, systemSettingsRepo, jobTaskRepo, jobExecutionRepo, agentTLSConfig)
+	// Pass potfileHistory for handling potfile sync race conditions during heavy ingestion
+	wsHandler := wshandler.NewHandler(wsService, agentService, jobExecutionService, systemSettingsRepo, jobTaskRepo, jobExecutionRepo, agentTLSConfig, potfileService.GetPotfileHistory())
 
 	// Store WebSocket handler globally for access by other handlers
 	WSHandler = wsHandler

@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/cache/filehash"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
@@ -84,6 +86,7 @@ type Handler struct {
 	systemSettingsRepo  *repository.SystemSettingsRepository
 	jobTaskRepo         *repository.JobTaskRepository
 	jobExecRepo         *repository.JobExecutionRepository
+	potfileHistory      *filehash.PotfileHistory
 	tlsConfig           *tls.Config
 	clients             map[int]*Client
 	mu                  sync.RWMutex
@@ -105,7 +108,7 @@ type Client struct {
 }
 
 // NewHandler creates a new WebSocket handler
-func NewHandler(wsService *wsservice.Service, agentService *services.AgentService, jobExecutionService *services.JobExecutionService, systemSettingsRepo *repository.SystemSettingsRepository, jobTaskRepo *repository.JobTaskRepository, jobExecRepo *repository.JobExecutionRepository, tlsConfig *tls.Config) *Handler {
+func NewHandler(wsService *wsservice.Service, agentService *services.AgentService, jobExecutionService *services.JobExecutionService, systemSettingsRepo *repository.SystemSettingsRepository, jobTaskRepo *repository.JobTaskRepository, jobExecRepo *repository.JobExecutionRepository, tlsConfig *tls.Config, potfileHistory *filehash.PotfileHistory) *Handler {
 	// Initialize timing configuration
 	initTimingConfig()
 
@@ -116,6 +119,7 @@ func NewHandler(wsService *wsservice.Service, agentService *services.AgentServic
 		systemSettingsRepo:  systemSettingsRepo,
 		jobTaskRepo:         jobTaskRepo,
 		jobExecRepo:         jobExecRepo,
+		potfileHistory:      potfileHistory,
 		tlsConfig:           tlsConfig,
 		clients:             make(map[int]*Client),
 		inventoryCallbacks:  make(map[int]chan *wsservice.FileSyncResponsePayload),
@@ -868,6 +872,16 @@ func (h *Handler) determineFilesToSync(agentID int, agentFiles []wsservice.FileI
 			key = fmt.Sprintf("%s:%s", file.FileType, file.Name)
 		}
 		agentFile, exists := agentFileMap[key]
+
+		// Special handling for potfile during heavy crack ingestion
+		// If agent has a recent valid potfile hash (within 5-min window), skip re-download
+		// This prevents infinite re-download loops when potfile MD5 changes frequently
+		if file.FileType == "wordlist" && strings.HasSuffix(file.Name, "potfile.txt") {
+			if exists && h.potfileHistory != nil && h.potfileHistory.IsValid(agentFile.MD5Hash) {
+				debug.Debug("Agent has valid recent potfile hash %s, skipping sync", agentFile.MD5Hash)
+				continue
+			}
+		}
 
 		// If the file doesn't exist on agent or MD5 hash doesn't match, add to sync list
 		if !exists || agentFile.MD5Hash != file.MD5Hash {

@@ -385,6 +385,42 @@ The agent file sync system uses:
    - Smaller chunk sizes
    - More aggressive retry policies
 
+### File Hash Caching
+
+The directory monitor uses an in-memory file hash cache to dramatically reduce disk I/O when monitoring wordlist and rule directories.
+
+**How It Works:**
+
+1. **ModTime+Size Validation**: Before calculating MD5, the cache checks if file modification time and size have changed
+2. **Cache Hit**: If unchanged, returns cached hash (no disk read)
+3. **Cache Miss**: Calculates MD5, updates cache for future requests
+4. **Background Population**: Cache is populated asynchronously at startup
+
+**Performance Impact:**
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Disk I/O (steady state) | ~500MB/s constant | Near zero |
+| MD5 calculations | Every file, every 30s | Only changed files |
+| SSD wear | High | Negligible |
+
+**Key Benefits:**
+
+- **Automatic**: No configuration required
+- **Memory efficient**: ~100 bytes per cached file
+- **Thread-safe**: RWMutex pattern for concurrent access
+- **Self-healing**: Automatically recalculates when files change
+
+**Potfile Sync Optimization:**
+
+During heavy crack ingestion (thousands of passwords per minute), the potfile changes frequently. A 5-minute hash history window prevents agents from repeatedly re-downloading the potfile:
+
+- Agent's potfile hash is checked against recent valid hashes
+- If hash is within the 5-minute window, sync is skipped
+- After ingestion stops, agents sync to the latest version
+
+For technical details, see the [File Hash Cache Architecture](../../reference/architecture/file-hash-cache.md) documentation.
+
 ## Network and WebSocket Tuning
 
 ### WebSocket Configuration
