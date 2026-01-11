@@ -16,7 +16,9 @@ import (
 func (db *DB) GetUserByUsername(username string) (*models.User, error) {
 	user := &models.User{}
 	var accountLockedUntil, lastFailedAttempt sql.NullTime
-	
+	var localAuthOverride, ssoAuthOverride sql.NullBool
+	var authOverrideNotes sql.NullString
+
 	err := db.QueryRow(queries.GetUserByUsername, username).Scan(
 		&user.ID,
 		&user.Username,
@@ -30,6 +32,9 @@ func (db *DB) GetUserByUsername(username string) (*models.User, error) {
 		&accountLockedUntil,
 		&user.FailedLoginAttempts,
 		&lastFailedAttempt,
+		&localAuthOverride,
+		&ssoAuthOverride,
+		&authOverrideNotes,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -38,7 +43,7 @@ func (db *DB) GetUserByUsername(username string) (*models.User, error) {
 		debug.Error("Failed to get user by username: %v", err)
 		return nil, err
 	}
-	
+
 	// Handle nullable time fields
 	if accountLockedUntil.Valid {
 		user.AccountLockedUntil = &accountLockedUntil.Time
@@ -46,7 +51,18 @@ func (db *DB) GetUserByUsername(username string) (*models.User, error) {
 	if lastFailedAttempt.Valid {
 		user.LastFailedAttempt = &lastFailedAttempt.Time
 	}
-	
+
+	// Handle nullable SSO override fields
+	if localAuthOverride.Valid {
+		user.LocalAuthOverride = &localAuthOverride.Bool
+	}
+	if ssoAuthOverride.Valid {
+		user.SSOAuthOverride = &ssoAuthOverride.Bool
+	}
+	if authOverrideNotes.Valid {
+		user.AuthOverrideNotes = &authOverrideNotes.String
+	}
+
 	return user, nil
 }
 

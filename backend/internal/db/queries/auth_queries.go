@@ -6,7 +6,8 @@ const (
 		SELECT id, username, email, password_hash, role,
 			created_at, updated_at,
 			account_enabled, account_locked, account_locked_until,
-			failed_login_attempts, last_failed_attempt
+			failed_login_attempts, last_failed_attempt,
+			local_auth_override, sso_auth_override, auth_override_notes
 		FROM users
 		WHERE username = $1`
 

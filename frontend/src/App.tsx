@@ -82,6 +82,7 @@ const PresetJobFormPage = lazy(() => import('./pages/admin/PresetJobForm'));
 const JobWorkflowListPage = lazy(() => import('./pages/admin/JobWorkflowList'));
 const JobWorkflowFormPage = lazy(() => import('./pages/admin/JobWorkflowForm'));
 const AdminAuthSettingsPage = lazy(() => import('./pages/admin/AuthSettings'));
+const AdminSSOSettingsPage = lazy(() => import('./pages/admin/SSOSettings'));
 const AdminUserListPage = lazy(() => import('./pages/admin/UserList'));
 const AdminUserDetailPage = lazy(() => import('./pages/admin/UserDetail'));
 const AdminSettingsIndexPage = lazy(() => import('./pages/AdminSettings').then(module => ({ default: module.AdminSettings })));
@@ -161,6 +162,7 @@ const App: React.FC = () => {
                       <Route path="job-workflows/new" element={<JobWorkflowFormPage />} />
                       <Route path="job-workflows/:jobWorkflowId/edit" element={<JobWorkflowFormPage />} />
                       <Route path="auth-settings" element={<AdminAuthSettingsPage />} />
+                      <Route path="sso-settings" element={<AdminSSOSettingsPage />} />
                       <Route path="users" element={<AdminUserListPage />} />
                       <Route path="users/:id" element={<AdminUserDetailPage />} />
                       <Route path="settings" element={<AdminSettingsIndexPage />} />

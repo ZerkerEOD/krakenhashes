@@ -66,6 +66,14 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if local authentication is globally enabled
+	localAuthEnabled, err := h.db.IsLocalAuthEnabled()
+	if err != nil {
+		debug.Error("Failed to check local auth status: %v", err)
+		// Default to allowing login if check fails
+		localAuthEnabled = true
+	}
+
 	user, err := h.db.GetUserByUsername(req.Username)
 	if err != nil {
 		debug.Info("Failed login attempt for user '%s': %v", req.Username, err)
@@ -84,6 +92,51 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+		return
+	}
+
+	// Check if local auth is allowed for this user
+	// User's override takes precedence over global setting
+	if !user.CanUseLocalAuth(localAuthEnabled) {
+		debug.Warning("Local auth disabled for user: %s", req.Username)
+
+		// Log failed login attempt (local auth disabled)
+		ipAddress, userAgent := sharedAuth.GetClientInfo(r)
+		loginAttempt := &models.LoginAttempt{
+			UserID:        &user.ID,
+			Username:      req.Username,
+			IPAddress:     ipAddress,
+			UserAgent:     userAgent,
+			Success:       false,
+			FailureReason: "local_auth_disabled",
+		}
+		if err := h.db.CreateLoginAttempt(loginAttempt); err != nil {
+			debug.Error("Failed to log login attempt: %v", err)
+		}
+
+		http.Error(w, "Local authentication is disabled. Please use SSO to sign in.", http.StatusForbidden)
+		return
+	}
+
+	// Check if user has a password set (SSO-only users may not)
+	if !user.HasPasswordSet() {
+		debug.Warning("Login attempt for SSO-only user: %s", req.Username)
+
+		// Log failed login attempt (no password)
+		ipAddress, userAgent := sharedAuth.GetClientInfo(r)
+		loginAttempt := &models.LoginAttempt{
+			UserID:        &user.ID,
+			Username:      req.Username,
+			IPAddress:     ipAddress,
+			UserAgent:     userAgent,
+			Success:       false,
+			FailureReason: "no_password_set",
+		}
+		if err := h.db.CreateLoginAttempt(loginAttempt); err != nil {
+			debug.Error("Failed to log login attempt: %v", err)
+		}
+
+		http.Error(w, "This account uses SSO authentication only. Please use SSO to sign in.", http.StatusForbidden)
 		return
 	}
 

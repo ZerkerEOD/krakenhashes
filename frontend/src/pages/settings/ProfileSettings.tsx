@@ -29,6 +29,7 @@ import { PasswordPolicy } from '../../types/auth';
 import PasswordValidation from '../../components/common/PasswordValidation';
 import MFACard from '../../components/settings/MFACard';
 import NotificationCard from '../../components/settings/NotificationCard';
+import LinkedAccountsCard from '../../components/settings/LinkedAccountsCard';
 import { usePasswordConfirm } from '../../hooks/usePasswordConfirm';
 import { generateApiKey, getApiKeyInfo, revokeApiKey } from '../../services/api';
 import { ApiKeyInfo } from '../../types/user';
@@ -430,6 +431,8 @@ const ProfileSettings: React.FC = () => {
           setUser({ ...user });
         }
       }} />
+
+      <LinkedAccountsCard />
 
       <NotificationCard onNotificationChange={() => {
         // You can add any refresh logic here if needed

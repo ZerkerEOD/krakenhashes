@@ -128,6 +128,7 @@ nav:
       - SSL/TLS Setup: admin-guide/system-setup/ssl-tls.md
       - Email Configuration: admin-guide/system-setup/email.md
       - Authentication: admin-guide/system-setup/authentication.md
+      - SSO Authentication: admin-guide/system-setup/sso.md
     - Resource Management:
       - Managing Binaries: admin-guide/resource-management/binaries.md
       - Wordlist Management: admin-guide/resource-management/wordlists.md

@@ -202,8 +202,8 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	// Create auth handler (needed for both public and protected routes)
 	authHandler := auth.NewHandler(database, emailService)
 
-	// Setup public routes
-	SetupPublicRoutes(apiRouter, database, agentService, binaryService, appConfig, tlsProvider)
+	// Setup public routes (returns SSO manager for admin routes)
+	ssoManager := SetupPublicRoutes(apiRouter, database, agentService, binaryService, appConfig, tlsProvider)
 
 	// Setup public passkey routes (MFA authentication flow - no JWT required)
 	SetupPublicPasskeyRoutes(apiRouter, authHandler)
@@ -235,7 +235,7 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	jwtRouter.HandleFunc("/settings/max-priority", userSystemSettingsHandler.GetMaxPriorityForUsers).Methods(http.MethodGet, http.MethodOptions)
 	jwtRouter.HandleFunc("/settings/retention", userRetentionSettingsHandler.GetDefaultRetention).Methods(http.MethodGet, http.MethodOptions)
 
-	SetupAdminRoutes(jwtRouter, database, emailService, adminJobsHandler, binaryManager) // Pass adminJobsHandler and binaryManager
+	SetupAdminRoutes(jwtRouter, database, emailService, adminJobsHandler, binaryManager, ssoManager) // Pass adminJobsHandler, binaryManager, and ssoManager
 	SetupUserRoutes(jwtRouter, database, appConfig.DataDir, binaryManager, agentService)
 	SetupMFARoutes(jwtRouter, mfaHandler, database, emailService)
 	SetupPasskeyRoutes(jwtRouter, authHandler, database)

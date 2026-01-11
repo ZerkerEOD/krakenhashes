@@ -6,6 +6,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/email"
+	adminhandlers "github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/admin"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/admin/auth"
 	adminsettings "github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/admin/settings"
 	adminuser "github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/admin/user"
@@ -14,19 +15,21 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/middleware"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/sso"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/gorilla/mux"
 )
 
 // SetupAdminRoutes configures all admin-related routes
 // It now accepts an AdminJobsHandler to set up job and workflow routes.
-func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.Service, jobHandler *AdminJobsHandler, binaryManager binary.Manager) *mux.Router {
+func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.Service, jobHandler *AdminJobsHandler, binaryManager binary.Manager, ssoManager *sso.Manager) *mux.Router {
 	debug.Debug("Setting up admin routes")
 
 	// Create Repositories needed by handlers/services
 	clientSettingsRepo := repository.NewClientSettingsRepository(database)
 	systemSettingsRepo := repository.NewSystemSettingsRepository(database)
 	userRepo := repository.NewUserRepository(database)
+	ssoRepo := repository.NewSSORepository(database)
 
 	// Create Services (retention service no longer needed in admin routes)
 	// Client management moved to regular authenticated users
@@ -44,6 +47,7 @@ func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.S
 	monitoringSettingsHandler := adminsettings.NewMonitoringSettingsHandler(systemSettingsRepo)
 	// clientHandler removed - client management moved to regular authenticated users
 	userHandler := adminuser.NewUserHandler(userRepo, database)
+	ssoAdminHandler := adminhandlers.NewSSOAdminHandler(database, ssoManager, ssoRepo)
 
 	// Create admin router
 	adminRouter := router.PathPrefix("/admin").Subrouter()
@@ -58,6 +62,19 @@ func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.S
 	adminRouter.HandleFunc("/auth/settings/mfa", authSettingsHandler.UpdateMFASettings).Methods(http.MethodPut, http.MethodOptions)
 	adminRouter.HandleFunc("/auth/settings/password", authSettingsHandler.GetPasswordPolicy).Methods(http.MethodGet, http.MethodOptions)
 	adminRouter.HandleFunc("/auth/settings/security", authSettingsHandler.GetAccountSecurity).Methods(http.MethodGet, http.MethodOptions)
+
+	// SSO Admin routes
+	adminRouter.HandleFunc("/sso/settings", ssoAdminHandler.GetSSOSettings).Methods(http.MethodGet, http.MethodOptions)
+	adminRouter.HandleFunc("/sso/settings", ssoAdminHandler.UpdateSSOSettings).Methods(http.MethodPut, http.MethodOptions)
+	adminRouter.HandleFunc("/sso/providers", ssoAdminHandler.ListProviders).Methods(http.MethodGet, http.MethodOptions)
+	adminRouter.HandleFunc("/sso/providers", ssoAdminHandler.CreateProvider).Methods(http.MethodPost, http.MethodOptions)
+	adminRouter.HandleFunc("/sso/providers/{id:[0-9a-fA-F-]+}", ssoAdminHandler.GetProvider).Methods(http.MethodGet, http.MethodOptions)
+	adminRouter.HandleFunc("/sso/providers/{id:[0-9a-fA-F-]+}", ssoAdminHandler.UpdateProvider).Methods(http.MethodPut, http.MethodOptions)
+	adminRouter.HandleFunc("/sso/providers/{id:[0-9a-fA-F-]+}", ssoAdminHandler.DeleteProvider).Methods(http.MethodDelete, http.MethodOptions)
+	adminRouter.HandleFunc("/sso/providers/{id:[0-9a-fA-F-]+}/test", ssoAdminHandler.TestProvider).Methods(http.MethodPost, http.MethodOptions)
+	adminRouter.HandleFunc("/sso/users/{id:[0-9a-fA-F-]+}/identities", ssoAdminHandler.GetUserIdentities).Methods(http.MethodGet, http.MethodOptions)
+	adminRouter.HandleFunc("/sso/identities/{id:[0-9a-fA-F-]+}", ssoAdminHandler.UnlinkIdentity).Methods(http.MethodDelete, http.MethodOptions)
+	debug.Info("Configured SSO admin routes: /admin/sso/*")
 
 	// Data Retention settings routes (New)
 	adminRouter.HandleFunc("/settings/retention", retentionSettingsHandler.GetDefaultRetention).Methods(http.MethodGet, http.MethodOptions)

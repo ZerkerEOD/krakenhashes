@@ -110,3 +110,9 @@ func GetClientInfo(r *http.Request) (ipAddress string, userAgent string) {
 
 	return ipAddress, userAgent
 }
+
+// GetClientIP extracts only the client IP address from request
+func GetClientIP(r *http.Request) string {
+	ipAddress, _ := GetClientInfo(r)
+	return ipAddress
+}

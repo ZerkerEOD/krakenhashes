@@ -427,4 +427,11 @@ func SetupUserRoutes(router *mux.Router, database *db.DB, dataDir string, binary
 	router.HandleFunc("/user/api-key", apiKeyHandler.RevokeAPIKey).Methods("DELETE", "OPTIONS")
 	router.HandleFunc("/user/api-key/info", apiKeyHandler.GetAPIKeyInfo).Methods("GET", "OPTIONS")
 	debug.Info("Configured user API key management routes")
+
+	// User SSO identity management routes
+	ssoRepo := repository.NewSSORepository(dbWrapper)
+	userSSOHandler := user.NewUserSSOHandler(ssoRepo)
+	router.HandleFunc("/user/sso/identities", userSSOHandler.GetMyIdentities).Methods("GET", "OPTIONS")
+	router.HandleFunc("/user/sso/identities/{identityId}", userSSOHandler.UnlinkMyIdentity).Methods("DELETE", "OPTIONS")
+	debug.Info("Configured user SSO identity management routes")
 }

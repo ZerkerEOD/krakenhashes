@@ -40,6 +40,9 @@ type LoginAttempt struct {
 	FailureReason string     `json:"failure_reason" db:"failure_reason"`
 	AttemptedAt   time.Time  `json:"attempted_at" db:"attempted_at"`
 	Notified      bool       `json:"notified" db:"notified"`
+	// SSO-specific fields
+	ProviderID   *uuid.UUID `json:"provider_id,omitempty" db:"provider_id"`
+	ProviderType string     `json:"provider_type,omitempty" db:"provider_type"`
 }
 
 // ActiveSession represents an active user session
