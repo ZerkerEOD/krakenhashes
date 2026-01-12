@@ -110,7 +110,7 @@ func (p *Provider) Authenticate(ctx context.Context, req *sso.AuthRequest) (*mod
 	return &models.AuthResult{
 		Success:     true,
 		Identity:    identity,
-		RequiresMFA: true, // LDAP always requires local MFA
+		RequiresMFA: false, // MFA requirement determined by SSO handler based on settings
 	}, nil
 }
 

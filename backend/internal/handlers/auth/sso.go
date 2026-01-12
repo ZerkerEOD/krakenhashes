@@ -383,22 +383,29 @@ func (h *SSOHandler) handleSSOResult(w http.ResponseWriter, r *http.Request, res
 		return
 	}
 
-	// Check if LDAP requires MFA
-	if result.RequiresMFA {
+	// Check if MFA is required (user setting or global requirement)
+	// This follows the same pattern as local auth in handlers.go
+	mfaSettings, err := h.db.GetUserMFASettings(user.ID.String())
+	if err != nil {
+		debug.Error("Failed to get MFA settings: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	globalMFARequired, err := h.db.IsMFARequired()
+	if err != nil {
+		debug.Error("Failed to check global MFA requirement: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Only require MFA if user has it enabled OR it's globally required
+	if mfaSettings.MFAEnabled || globalMFARequired {
 		// Create MFA session and return MFA required response
-		// This follows the same pattern as the local auth handler
 		sessionToken := uuid.New().String()
 		_, err := h.db.CreateMFASession(user.ID.String(), sessionToken)
 		if err != nil {
 			debug.Error("Failed to create MFA session: %v", err)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			return
-		}
-
-		// Get MFA settings
-		mfaSettings, err := h.db.GetUserMFASettings(user.ID.String())
-		if err != nil {
-			debug.Error("Failed to get MFA settings: %v", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
