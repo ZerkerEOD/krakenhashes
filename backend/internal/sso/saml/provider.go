@@ -1,6 +1,8 @@
 package saml
 
 import (
+	"bytes"
+	"compress/flate"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -9,6 +11,7 @@ import (
 	"encoding/pem"
 	"encoding/xml"
 	"fmt"
+	"io"
 	"net/url"
 	"sync"
 	"time"
@@ -127,26 +130,28 @@ func (p *Provider) initializeServiceProvider() error {
 		AllowIDPInitiated: true, // Allow IdP-initiated SSO
 	}
 
-	// Set up SP signing key/cert if configured
-	if p.config.SignRequests && p.config.SPPrivateKeyEncrypted != "" {
-		privateKeyPEM, err := p.DecryptSecret(p.config.SPPrivateKeyEncrypted)
-		if err != nil {
-			return fmt.Errorf("failed to decrypt SP private key: %w", err)
-		}
+	// SP signing key is required for SAML (HTTP-Redirect binding requires signed requests)
+	if p.config.SPPrivateKeyEncrypted == "" {
+		return fmt.Errorf("SP key pair not configured. Please edit and save the provider to auto-generate keys")
+	}
 
-		privateKey, err := parsePrivateKey(privateKeyPEM)
-		if err != nil {
-			return fmt.Errorf("failed to parse SP private key: %w", err)
-		}
-		sp.Key = privateKey
+	privateKeyPEM, err := p.DecryptSecret(p.config.SPPrivateKeyEncrypted)
+	if err != nil {
+		return fmt.Errorf("failed to decrypt SP private key: %w", err)
+	}
 
-		if p.config.SPCertificate != "" {
-			spCert, err := parseCertificate(p.config.SPCertificate)
-			if err != nil {
-				return fmt.Errorf("failed to parse SP certificate: %w", err)
-			}
-			sp.Certificate = spCert
+	privateKey, err := parsePrivateKey(privateKeyPEM)
+	if err != nil {
+		return fmt.Errorf("failed to parse SP private key: %w", err)
+	}
+	sp.Key = privateKey
+
+	if p.config.SPCertificate != "" {
+		spCert, err := parseCertificate(p.config.SPCertificate)
+		if err != nil {
+			return fmt.Errorf("failed to parse SP certificate: %w", err)
 		}
+		sp.Certificate = spCert
 	}
 
 	p.serviceProvider = sp
@@ -208,6 +213,38 @@ func (p *Provider) GetStartURL(ctx context.Context, redirectURI string) (string,
 	return redirectURL.String(), nil
 }
 
+// decodeSAMLResponse decodes the SAML response based on binding type
+// HTTP-Redirect binding (GET): Base64 → DEFLATE decompress
+// HTTP-POST binding (POST): Base64 only
+func decodeSAMLResponse(samlResponse string, isRedirectBinding bool) ([]byte, error) {
+	// For HTTP-Redirect binding, the response is DEFLATE compressed
+	if isRedirectBinding {
+		// Base64 decode first (try standard, then URL-safe)
+		compressed, err := base64.StdEncoding.DecodeString(samlResponse)
+		if err != nil {
+			// Try URL-safe base64 (with padding stripped)
+			compressed, err = base64.RawURLEncoding.DecodeString(samlResponse)
+			if err != nil {
+				return nil, fmt.Errorf("base64 decode failed: %w", err)
+			}
+		}
+
+		// DEFLATE decompress
+		reader := flate.NewReader(bytes.NewReader(compressed))
+		defer reader.Close()
+
+		decompressed, err := io.ReadAll(reader)
+		if err != nil {
+			return nil, fmt.Errorf("deflate decompress failed: %w", err)
+		}
+
+		return decompressed, nil
+	}
+
+	// For HTTP-POST binding, just base64 decode
+	return base64.StdEncoding.DecodeString(samlResponse)
+}
+
 // HandleCallback processes the SAML response
 func (p *Provider) HandleCallback(ctx context.Context, req *sso.CallbackRequest) (*models.AuthResult, error) {
 	if req.SAMLResponse == "" {
@@ -218,9 +255,10 @@ func (p *Provider) HandleCallback(ctx context.Context, req *sso.CallbackRequest)
 		}, nil
 	}
 
-	// Decode SAML response
-	responseXML, err := base64.StdEncoding.DecodeString(req.SAMLResponse)
+	// Decode SAML response (handles both POST and Redirect bindings)
+	responseXML, err := decodeSAMLResponse(req.SAMLResponse, req.IsRedirectBinding)
 	if err != nil {
+		debug.Error("Failed to decode SAML response: %v", err)
 		return &models.AuthResult{
 			Success:      false,
 			ErrorMessage: "Invalid SAML response encoding",

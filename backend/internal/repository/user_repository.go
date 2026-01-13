@@ -365,6 +365,26 @@ func (r *UserRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+// SoftDelete marks a user as deleted by setting the deleted_at timestamp
+func (r *UserRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
+	query := `UPDATE users SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL`
+	result, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to soft delete user: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("user not found or already deleted: %s", id)
+	}
+
+	return nil
+}
+
 // AddToTeam adds a user to a team
 func (r *UserRepository) AddToTeam(ctx context.Context, userID, teamID uuid.UUID) error {
 	_, err := r.db.ExecContext(ctx, queries.AddUserToTeam, userID, teamID)
@@ -493,6 +513,7 @@ func (r *UserRepository) ListAll(ctx context.Context) ([]models.User, error) {
 		var lastLogin, disabledAt, lockedUntil sql.NullTime
 		var disabledReason sql.NullString
 		var disabledBy *uuid.UUID
+		var lastAuthProvider sql.NullString
 
 		err := rows.Scan(
 			&user.ID,
@@ -511,6 +532,7 @@ func (r *UserRepository) ListAll(ctx context.Context) ([]models.User, error) {
 			&disabledReason,
 			&disabledAt,
 			&disabledBy,
+			&lastAuthProvider,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan user: %w", err)
@@ -531,6 +553,9 @@ func (r *UserRepository) ListAll(ctx context.Context) ([]models.User, error) {
 		}
 		if preferredMFAMethod.Valid {
 			user.PreferredMFAMethod = preferredMFAMethod.String
+		}
+		if lastAuthProvider.Valid {
+			user.LastAuthProvider = &lastAuthProvider.String
 		}
 		user.DisabledBy = disabledBy
 

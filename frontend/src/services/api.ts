@@ -374,6 +374,10 @@ export const disableAdminUserMFA = (id: string) =>
 export const unlockAdminUser = (id: string) =>
   api.post<{data: {message: string}}>(`/api/admin/users/${id}/unlock`);
 
+// Delete user account (soft delete)
+export const deleteAdminUser = (id: string) =>
+  api.delete<{data: {message: string}}>(`/api/admin/users/${id}`);
+
 // Get user login attempts
 export const getUserLoginAttempts = async (userId: string, limit?: number) => {
   const params = limit ? `?limit=${limit}` : '';

@@ -167,19 +167,31 @@ func (db *DB) GetUserLoginAttempts(userID uuid.UUID, limit int) ([]*models.Login
 	var attempts []*models.LoginAttempt
 	for rows.Next() {
 		attempt := &models.LoginAttempt{}
+		var username, failureReason, providerType sql.NullString
 		err := rows.Scan(
 			&attempt.ID,
 			&attempt.UserID,
-			&attempt.Username,
+			&username,
 			&attempt.IPAddress,
 			&attempt.UserAgent,
 			&attempt.Success,
-			&attempt.FailureReason,
+			&failureReason,
 			&attempt.AttemptedAt,
 			&attempt.Notified,
+			&attempt.ProviderID,
+			&providerType,
 		)
 		if err != nil {
 			return nil, err
+		}
+		if username.Valid {
+			attempt.Username = username.String
+		}
+		if failureReason.Valid {
+			attempt.FailureReason = failureReason.String
+		}
+		if providerType.Valid {
+			attempt.ProviderType = providerType.String
 		}
 		attempts = append(attempts, attempt)
 	}
@@ -197,19 +209,31 @@ func (db *DB) GetUnnotifiedFailedAttempts(since string) ([]*models.LoginAttempt,
 	var attempts []*models.LoginAttempt
 	for rows.Next() {
 		attempt := &models.LoginAttempt{}
+		var username, failureReason, providerType sql.NullString
 		err := rows.Scan(
 			&attempt.ID,
 			&attempt.UserID,
-			&attempt.Username,
+			&username,
 			&attempt.IPAddress,
 			&attempt.UserAgent,
 			&attempt.Success,
-			&attempt.FailureReason,
+			&failureReason,
 			&attempt.AttemptedAt,
 			&attempt.Notified,
+			&attempt.ProviderID,
+			&providerType,
 		)
 		if err != nil {
 			return nil, err
+		}
+		if username.Valid {
+			attempt.Username = username.String
+		}
+		if failureReason.Valid {
+			attempt.FailureReason = failureReason.String
+		}
+		if providerType.Valid {
+			attempt.ProviderType = providerType.String
 		}
 		attempts = append(attempts, attempt)
 	}

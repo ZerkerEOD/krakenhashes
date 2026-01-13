@@ -78,8 +78,9 @@ type CallbackRequest struct {
 	Error string `json:"error,omitempty"`
 
 	// For SAML
-	SAMLResponse string `json:"saml_response,omitempty"`
-	RelayState   string `json:"relay_state,omitempty"`
+	SAMLResponse      string `json:"saml_response,omitempty"`
+	RelayState        string `json:"relay_state,omitempty"`
+	IsRedirectBinding bool   `json:"is_redirect_binding,omitempty"` // true for HTTP-Redirect (GET), false for HTTP-POST (POST)
 
 	// Request metadata
 	IPAddress string `json:"ip_address,omitempty"`

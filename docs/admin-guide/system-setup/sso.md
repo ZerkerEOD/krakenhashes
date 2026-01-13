@@ -165,10 +165,27 @@ Before configuring SAML, you'll need from your Identity Provider (IdP):
 
 #### Service Provider (SP) Keys
 
-SP private keys and certificates are required when:
+SP keys are **automatically generated** when you create or save a SAML provider. This simplifies configuration since manual key generation is no longer required.
 
-- **Sign Requests**: Enabled (signs AuthnRequests sent to IdP)
-- **Require Encrypted Assertions**: Enabled (decrypts assertions from IdP)
+**Automatic Key Generation:**
+
+| Property | Value |
+|----------|-------|
+| Key Size | 2048-bit RSA |
+| Certificate Validity | 10 years |
+| Algorithm | RSA with SHA-256 |
+| Common Name | SP Entity ID |
+
+When you create a new SAML provider or save an existing one without keys, KrakenHashes automatically:
+
+1. Generates a 2048-bit RSA private key
+2. Creates a self-signed certificate valid for 10 years
+3. Encrypts and stores the private key in the database
+4. Makes the certificate available via the SP metadata endpoint
+
+**Manual Key Generation (Optional):**
+
+If you prefer to use your own keys (e.g., CA-signed certificates), you can still provide them:
 
 **Key Format Requirements:**
 
@@ -180,7 +197,7 @@ SP private keys and certificates are required when:
 | CA-Signed | Fully supported |
 | Key-Cert Match | Certificate must correspond to private key |
 
-**Generating Self-Signed SP Certificates:**
+**Generating Custom Self-Signed SP Certificates:**
 
 ```bash
 # Generate a self-signed certificate valid for 1 year
@@ -229,9 +246,12 @@ https://your-domain.com/api/auth/saml/{provider_id}/acs
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| Sign Requests | Sign AuthnRequests with SP key | No |
+| Sign Requests | Sign AuthnRequests with SP key | Yes (always enabled) |
 | Require Signed Assertions | Verify IdP signature | Yes |
 | Require Encrypted Assertions | Decrypt assertions with SP key | No |
+
+!!! note "Request Signing"
+    Request signing is always enabled because SP keys are automatically generated. This improves security by ensuring all AuthnRequests are cryptographically signed.
 
 ### MFA Behavior
 
@@ -310,6 +330,28 @@ Additional scopes may be required depending on your IdP and attribute needs.
 
 !!! info "OAuth/OIDC MFA Trust"
     OAuth and OIDC authentication trusts the IdP's MFA. No additional local MFA is required.
+
+### Username Attribute Fallback
+
+KrakenHashes automatically detects usernames from common claim names. The configured **Username Attribute** is tried first, followed by these fallbacks:
+
+| Order | Claim Name | Description |
+|-------|------------|-------------|
+| 1 | (configured attribute) | Your custom username attribute |
+| 2 | `preferred_username` | OIDC standard claim |
+| 3 | `username` | Common claim name |
+| 4 | `user_name` | Some providers use this |
+| 5 | `login` | GitHub uses this |
+| 6 | `nickname` | Some providers |
+| 7 | `name` | Fallback to display name |
+
+If no username is found after trying all fallbacks, the email address is used as the username.
+
+!!! tip "Provider-Specific Notes"
+    - **GitHub**: Uses `login` claim for username
+    - **Google**: Uses `email` as username (no username claim)
+    - **Azure AD**: Uses `preferred_username` or `upn`
+    - **Authentik/Keycloak**: Uses `preferred_username` by default
 
 ## SSO User Accounts
 

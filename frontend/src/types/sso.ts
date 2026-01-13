@@ -64,7 +64,7 @@ export interface SAMLConfig {
   idp_certificate: string;
   sp_private_key?: string;
   sp_certificate?: string;
-  sign_requests: boolean;
+  sign_requests?: boolean; // Deprecated: always true, auto-generated keys
   require_signed_assertions: boolean;
   require_encrypted_assertions: boolean;
   name_id_format?: string;

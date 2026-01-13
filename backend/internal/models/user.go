@@ -46,6 +46,10 @@ type User struct {
 	LocalAuthOverride  *bool   `json:"local_auth_override,omitempty" db:"local_auth_override"`
 	SSOAuthOverride    *bool   `json:"sso_auth_override,omitempty" db:"sso_auth_override"`
 	AuthOverrideNotes  *string `json:"auth_override_notes,omitempty" db:"auth_override_notes"`
+	// Computed fields (from subqueries, not stored in users table)
+	LastAuthProvider *string `json:"last_auth_provider,omitempty" db:"last_auth_provider"`
+	// Soft delete
+	DeletedAt *time.Time `json:"deleted_at,omitempty" db:"deleted_at"`
 }
 
 // NotificationPreferences represents user notification settings

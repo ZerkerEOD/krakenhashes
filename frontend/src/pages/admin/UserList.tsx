@@ -11,12 +11,13 @@ import LockOpenIcon from '@mui/icons-material/LockOpen';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { useSnackbar } from 'notistack';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 
 import { User } from '../../types/user';
-import { listAdminUsers, enableAdminUser, disableAdminUser, createAdminUser } from '../../services/api';
+import { listAdminUsers, enableAdminUser, disableAdminUser, createAdminUser, deleteAdminUser } from '../../services/api';
 import { getPasswordPolicy } from '../../services/auth';
 import { PasswordPolicy } from '../../types/auth';
 import PasswordValidation from '../../components/common/PasswordValidation';
@@ -41,6 +42,9 @@ const UserList: React.FC = () => {
     const [disableDialogOpen, setDisableDialogOpen] = useState(false);
     const [disableUserId, setDisableUserId] = useState<string | null>(null);
     const [disableReason, setDisableReason] = useState('');
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
+    const [deleteUsername, setDeleteUsername] = useState<string>('');
 
     const { enqueueSnackbar } = useSnackbar();
     const { userRole } = useAuth();
@@ -116,6 +120,32 @@ const UserList: React.FC = () => {
     const openDisableDialog = (userId: string) => {
         setDisableUserId(userId);
         setDisableDialogOpen(true);
+    };
+
+    const openDeleteDialog = (userId: string, username: string) => {
+        setDeleteUserId(userId);
+        setDeleteUsername(username);
+        setDeleteDialogOpen(true);
+    };
+
+    const handleDeleteUser = async () => {
+        if (!deleteUserId) return;
+
+        setActionLoading(deleteUserId);
+        try {
+            await deleteAdminUser(deleteUserId);
+            enqueueSnackbar('User deleted successfully', { variant: 'success' });
+            fetchUsers(); // Refresh list
+            setDeleteDialogOpen(false);
+            setDeleteUserId(null);
+            setDeleteUsername('');
+        } catch (err: any) {
+            console.error('Failed to delete user:', err);
+            const message = err.response?.data?.error || 'Failed to delete user';
+            enqueueSnackbar(message, { variant: 'error' });
+        } finally {
+            setActionLoading(null);
+        }
     };
 
     const handleCreateUser = async () => {
@@ -227,24 +257,36 @@ const UserList: React.FC = () => {
             flex: 1.5, 
             minWidth: 200 
         },
-        { 
-            field: 'role', 
-            headerName: 'Role', 
+        {
+            field: 'role',
+            headerName: 'Role',
             width: 100,
             renderCell: (params: GridRenderCellParams) => (
-                <Chip 
-                    label={params.value} 
-                    size="small" 
+                <Chip
+                    label={params.value}
+                    size="small"
                     color={
-                        params.value === 'system' ? 'success' : 
-                        params.value === 'admin' ? 'error' : 
+                        params.value === 'system' ? 'success' :
+                        params.value === 'admin' ? 'error' :
                         'default'
                     }
                 />
             )
         },
-        { 
-            field: 'accountStatus', 
+        {
+            field: 'lastAuthProvider',
+            headerName: 'Provider',
+            width: 100,
+            renderCell: (params: GridRenderCellParams) => (
+                <Chip
+                    size="small"
+                    label={params.value || 'Local'}
+                    variant="outlined"
+                />
+            )
+        },
+        {
+            field: 'accountStatus',
             headerName: 'Status', 
             width: 120,
             renderCell: (params: GridRenderCellParams) => {
@@ -301,12 +343,13 @@ const UserList: React.FC = () => {
         {
             field: 'actions',
             headerName: 'Actions',
-            width: 150,
+            width: 180,
             sortable: false,
             renderCell: (params: GridRenderCellParams) => {
                 const user = params.row as User;
                 const isLoading = actionLoading === user.id;
-                
+                const isSystemUser = user.role === 'system';
+
                 return (
                     <Box>
                         <Tooltip title="Edit User">
@@ -318,13 +361,13 @@ const UserList: React.FC = () => {
                                 <EditIcon fontSize="small" />
                             </IconButton>
                         </Tooltip>
-                        
+
                         {user.accountEnabled ? (
                             <Tooltip title="Disable User">
                                 <IconButton
                                     size="small"
                                     onClick={() => openDisableDialog(user.id)}
-                                    disabled={isLoading}
+                                    disabled={isLoading || isSystemUser}
                                     color="error"
                                 >
                                     {isLoading ? <CircularProgress size={16} /> : <LockIcon fontSize="small" />}
@@ -342,6 +385,19 @@ const UserList: React.FC = () => {
                                 </IconButton>
                             </Tooltip>
                         )}
+
+                        <Tooltip title={isSystemUser ? "Cannot delete system users" : "Delete User"}>
+                            <span>
+                                <IconButton
+                                    size="small"
+                                    onClick={() => openDeleteDialog(user.id, user.username)}
+                                    disabled={isLoading || isSystemUser}
+                                    color="error"
+                                >
+                                    <DeleteIcon fontSize="small" />
+                                </IconButton>
+                            </span>
+                        </Tooltip>
                     </Box>
                 );
             }
@@ -511,8 +567,8 @@ const UserList: React.FC = () => {
             </Dialog>
 
             {/* Disable User Dialog */}
-            <Dialog 
-                open={disableDialogOpen} 
+            <Dialog
+                open={disableDialogOpen}
                 onClose={() => {
                     setDisableDialogOpen(false);
                     setDisableUserId(null);
@@ -540,7 +596,7 @@ const UserList: React.FC = () => {
                     </Box>
                 </DialogContent>
                 <DialogActions>
-                    <Button 
+                    <Button
                         onClick={() => {
                             setDisableDialogOpen(false);
                             setDisableUserId(null);
@@ -549,13 +605,59 @@ const UserList: React.FC = () => {
                     >
                         Cancel
                     </Button>
-                    <Button 
+                    <Button
                         onClick={handleDisableUser}
                         variant="contained"
                         color="error"
                         disabled={!disableReason.trim()}
                     >
                         Disable User
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Delete User Dialog */}
+            <Dialog
+                open={deleteDialogOpen}
+                onClose={() => {
+                    setDeleteDialogOpen(false);
+                    setDeleteUserId(null);
+                    setDeleteUsername('');
+                }}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle>Delete User Account</DialogTitle>
+                <DialogContent>
+                    <Box sx={{ mt: 2 }}>
+                        <Alert severity="warning" sx={{ mb: 2 }}>
+                            This action cannot be undone. The user will be permanently removed from the system.
+                        </Alert>
+                        <Typography variant="body1">
+                            Are you sure you want to delete the user <strong>{deleteUsername}</strong>?
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                            All associated data will be preserved, but the user will no longer be able to log in.
+                        </Typography>
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button
+                        onClick={() => {
+                            setDeleteDialogOpen(false);
+                            setDeleteUserId(null);
+                            setDeleteUsername('');
+                        }}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleDeleteUser}
+                        variant="contained"
+                        color="error"
+                        disabled={actionLoading === deleteUserId}
+                    >
+                        {actionLoading === deleteUserId ? <CircularProgress size={24} /> : 'Delete User'}
                     </Button>
                 </DialogActions>
             </Dialog>

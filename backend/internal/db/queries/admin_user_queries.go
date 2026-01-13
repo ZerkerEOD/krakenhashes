@@ -3,12 +3,16 @@ package queries
 const (
 	// ListAllUsers retrieves all users with their basic information
 	ListAllUsers = `
-		SELECT id, username, email, role, 
+		SELECT id, username, email, role,
 			account_enabled, account_locked, account_locked_until,
 			mfa_enabled, mfa_type, preferred_mfa_method,
 			created_at, updated_at, last_login,
-			disabled_reason, disabled_at, disabled_by
+			disabled_reason, disabled_at, disabled_by,
+			(SELECT provider_type FROM login_attempts la
+			 WHERE la.user_id = users.id AND la.success = true
+			 ORDER BY la.attempted_at DESC LIMIT 1) as last_auth_provider
 		FROM users
+		WHERE deleted_at IS NULL
 		ORDER BY created_at DESC`
 
 	// GetUserDetails retrieves detailed user information for admin view

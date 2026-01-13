@@ -19,6 +19,16 @@ import (
 	"golang.org/x/oauth2"
 )
 
+// Common username claim names across different IdPs
+var usernameClaimFallbacks = []string{
+	"preferred_username", // OIDC standard
+	"username",           // Common
+	"user_name",          // Some providers
+	"login",              // GitHub
+	"nickname",           // Some providers
+	"name",               // Fallback to full name
+}
+
 // Provider implements OAuth2/OIDC authentication
 type Provider struct {
 	*sso.BaseProvider
@@ -297,6 +307,28 @@ func (p *Provider) extractIDToken(ctx context.Context, token *oauth2.Token, expe
 	return idToken, nil
 }
 
+// extractUsername tries configured attribute first, then common fallbacks
+func (p *Provider) extractUsername(claims map[string]interface{}) string {
+	// 1. Try configured attribute first
+	if p.config.UsernameAttribute != "" {
+		if val, ok := getClaimString(claims, p.config.UsernameAttribute); ok && val != "" {
+			debug.Debug("OAuth: Username found via configured attribute '%s': %s", p.config.UsernameAttribute, val)
+			return val
+		}
+	}
+
+	// 2. Try common fallbacks
+	for _, attr := range usernameClaimFallbacks {
+		if val, ok := getClaimString(claims, attr); ok && val != "" {
+			debug.Debug("OAuth: Username found via fallback attribute '%s': %s", attr, val)
+			return val
+		}
+	}
+
+	debug.Debug("OAuth: No username found in claims, will use email as fallback")
+	return ""
+}
+
 // buildIdentityFromIDToken creates an ExternalIdentity from OIDC ID token
 func (p *Provider) buildIdentityFromIDToken(idToken *oidc.IDToken) (*models.ExternalIdentity, bool) {
 	var claims map[string]interface{}
@@ -304,6 +336,8 @@ func (p *Provider) buildIdentityFromIDToken(idToken *oidc.IDToken) (*models.Exte
 		debug.Warning("Failed to parse ID token claims: %v", err)
 		claims = make(map[string]interface{})
 	}
+
+	debug.Debug("OAuth OIDC: Received claims: %v", claims)
 
 	identity := &models.ExternalIdentity{
 		ExternalID: idToken.Subject,
@@ -314,12 +348,16 @@ func (p *Provider) buildIdentityFromIDToken(idToken *oidc.IDToken) (*models.Exte
 	if email, ok := getClaimString(claims, p.config.EmailAttribute); ok {
 		identity.Email = email
 	}
-	if username, ok := getClaimString(claims, p.config.UsernameAttribute); ok {
-		identity.Username = username
-	}
+
+	// Extract username with fallback logic
+	identity.Username = p.extractUsername(claims)
+
 	if displayName, ok := getClaimString(claims, p.config.DisplayNameAttribute); ok {
 		identity.DisplayName = displayName
 	}
+
+	debug.Debug("OAuth OIDC: Extracted identity - Email: %s, Username: %s, ExternalID: %s",
+		identity.Email, identity.Username, identity.ExternalID)
 
 	// Check for MFA indicators
 	mfaVerified := false
@@ -375,6 +413,8 @@ func (p *Provider) fetchUserInfo(ctx context.Context, token *oauth2.Token) (*mod
 		return nil, fmt.Errorf("failed to parse userinfo response: %w", err)
 	}
 
+	debug.Debug("OAuth2: Received userinfo claims: %v", claims)
+
 	identity := &models.ExternalIdentity{
 		Metadata: claims,
 	}
@@ -392,12 +432,16 @@ func (p *Provider) fetchUserInfo(ctx context.Context, token *oauth2.Token) (*mod
 	if email, ok := getClaimString(claims, p.config.EmailAttribute); ok {
 		identity.Email = email
 	}
-	if username, ok := getClaimString(claims, p.config.UsernameAttribute); ok {
-		identity.Username = username
-	}
+
+	// Extract username with fallback logic
+	identity.Username = p.extractUsername(claims)
+
 	if displayName, ok := getClaimString(claims, p.config.DisplayNameAttribute); ok {
 		identity.DisplayName = displayName
 	}
+
+	debug.Debug("OAuth2: Extracted identity - Email: %s, Username: %s, ExternalID: %s",
+		identity.Email, identity.Username, identity.ExternalID)
 
 	return identity, nil
 }

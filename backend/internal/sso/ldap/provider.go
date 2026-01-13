@@ -105,6 +105,10 @@ func (p *Provider) Authenticate(ctx context.Context, req *sso.AuthRequest) (*mod
 	// Build external identity from attributes
 	identity := p.buildIdentity(userDN, attributes)
 
+	// Use the username that was provided in the login form
+	// This is more reliable than extracting from LDAP attributes
+	identity.Username = req.Username
+
 	debug.Info("LDAP authentication successful for user %s via provider %s", req.Username, p.Name())
 
 	return &models.AuthResult{
@@ -257,6 +261,8 @@ func (p *Provider) searchUser(conn *ldap.Conn, username string) (string, map[str
 
 // buildIdentity creates an ExternalIdentity from LDAP attributes
 func (p *Provider) buildIdentity(userDN string, attributes map[string][]string) *models.ExternalIdentity {
+	debug.Debug("LDAP: Received attributes for user %s: %v", userDN, attributes)
+
 	identity := &models.ExternalIdentity{
 		ExternalID:   userDN,
 		ProviderID:   p.ProviderID(),
@@ -268,12 +274,16 @@ func (p *Provider) buildIdentity(userDN string, attributes map[string][]string) 
 	// Extract email
 	if emails, ok := attributes[p.config.EmailAttribute]; ok && len(emails) > 0 {
 		identity.Email = emails[0]
+		debug.Debug("LDAP: Found email via attribute '%s': %s", p.config.EmailAttribute, identity.Email)
 	}
 
 	// Extract username
 	if p.config.UsernameAttribute != "" {
 		if usernames, ok := attributes[p.config.UsernameAttribute]; ok && len(usernames) > 0 {
 			identity.Username = usernames[0]
+			debug.Debug("LDAP: Found username via attribute '%s': %s", p.config.UsernameAttribute, identity.Username)
+		} else {
+			debug.Debug("LDAP: Username attribute '%s' not found in response", p.config.UsernameAttribute)
 		}
 	}
 
@@ -292,6 +302,9 @@ func (p *Provider) buildIdentity(userDN string, attributes map[string][]string) 
 			identity.Metadata[key] = values
 		}
 	}
+
+	debug.Debug("LDAP: Extracted identity - Email: %s, Username: %s, ExternalID: %s",
+		identity.Email, identity.Username, identity.ExternalID)
 
 	return identity
 }

@@ -838,6 +838,7 @@ const UserDetail: React.FC = () => {
                                 <TableHead>
                                     <TableRow>
                                         <TableCell>Timestamp</TableCell>
+                                        <TableCell>Provider</TableCell>
                                         <TableCell>IP Address</TableCell>
                                         <TableCell>Status</TableCell>
                                         <TableCell>Failure Reason</TableCell>
@@ -846,8 +847,15 @@ const UserDetail: React.FC = () => {
                                 <TableBody>
                                     {filteredAttempts.map((attempt) => (
                                         <TableRow key={attempt.id}>
-                                            <TableCell>{formatDate(attempt.attemptedAt)}</TableCell>
-                                            <TableCell>{attempt.ipAddress}</TableCell>
+                                            <TableCell>{formatDate(attempt.attempted_at)}</TableCell>
+                                            <TableCell>
+                                                <Chip
+                                                    size="small"
+                                                    label={attempt.provider_type || 'Local'}
+                                                    variant="outlined"
+                                                />
+                                            </TableCell>
+                                            <TableCell>{attempt.ip_address}</TableCell>
                                             <TableCell>
                                                 <Chip
                                                     size="small"
@@ -857,13 +865,13 @@ const UserDetail: React.FC = () => {
                                                 />
                                             </TableCell>
                                             <TableCell>
-                                                {attempt.failureReason ? (
+                                                {attempt.failure_reason ? (
                                                     <Typography
                                                         variant="body2"
                                                         color="error"
                                                         sx={{ fontWeight: 'bold' }}
                                                     >
-                                                        {attempt.failureReason.replace(/_/g, ' ')}
+                                                        {attempt.failure_reason.replace(/_/g, ' ')}
                                                     </Typography>
                                                 ) : (
                                                     '-'

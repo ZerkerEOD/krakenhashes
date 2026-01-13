@@ -1418,6 +1418,10 @@ The users table has been extended with additional security columns added through
 | disabled_at | TIMESTAMP WITH TIME ZONE | | | Disable timestamp |
 | disabled_by | UUID | FK → users(id) | | Who disabled account |
 | preferred_mfa_method | VARCHAR(20) | | | Preferred MFA method |
+| deleted_at | TIMESTAMP WITH TIME ZONE | | | Soft delete timestamp (migration 106) |
+
+**Indexes (users table):**
+- idx_users_deleted_at (deleted_at) WHERE deleted_at IS NULL - Efficient filtering of active users
 
 ### tokens
 
@@ -1671,7 +1675,7 @@ The potfile system initializes in stages during server startup:
 
 ## Migration History
 
-The database schema has evolved through 101 migrations:
+The database schema has evolved through 106 migrations:
 
 1. **000001**: Initial schema - users, teams, user_teams
 2. **000002**: Add auth_tokens table
@@ -1807,6 +1811,36 @@ The database schema has evolved through 101 migrations:
    - Creates `idx_tokens_superseded_at` index for efficient grace period queries
    - Enables sliding window sessions that extend on user activity
    - Old tokens remain valid for 5-minute grace period after refresh
+102. **000102**: Add preset job effective keyspace
+   - Adds `preset_jobs.effective_keyspace` for actual keyspace from --total-candidates
+   - Adds `preset_jobs.is_accurate_keyspace` boolean to track keyspace accuracy
+   - Adds `preset_jobs.use_rule_splitting` boolean for pre-computed splitting decisions
+   - Enables accurate keyspace calculation accounting for rule multipliers
+103. **000103**: Add preset job multiplication factor
+   - Adds `preset_jobs.multiplication_factor` column (default: 1)
+   - Stores rule multiplier (effective_keyspace / keyspace) for rule splitting
+   - Enables job creation to be a pure copy when is_accurate_keyspace = true
+104. **000104**: Add association attack support
+   - Adds `hashlists.original_file_path` for association attack file reference
+   - Adds `hashlists.has_mixed_work_factors` warning flag for different work factors
+   - Creates `association_wordlists` table linked to hashlists
+   - Adds `job_executions.association_wordlist_id` reference
+   - Enables hashcat -a 9 association attack mode
+105. **000105**: Add SSO support (LDAP, SAML, OAuth/OIDC)
+   - Adds SSO toggles to `auth_settings` (local_auth_enabled, ldap/saml/oauth_auth_enabled, auto_create/enable_users)
+   - Adds per-user auth overrides to `users` (local_auth_override, sso_auth_override, auth_override_notes)
+   - Creates `sso_providers` base table for all SSO providers
+   - Creates `ldap_configs` table with server URL, bind DN, search filters, TLS settings
+   - Creates `saml_configs` table with SP/IdP entity IDs, certificates, signing options
+   - Creates `oauth_configs` table with client ID/secret, discovery URL, scopes
+   - Creates `user_identities` table linking external identities to local accounts
+   - Creates `pending_oauth_authentication` and `pending_saml_authentication` for redirect flow state
+   - Extends `login_attempts` with provider_id and provider_type columns
+106. **000106**: Add user soft delete support
+   - Adds `users.deleted_at` column for soft delete timestamps
+   - Creates partial index `idx_users_deleted_at` WHERE deleted_at IS NULL
+   - Enables soft delete of user accounts while preserving historical data
+   - User listings filter out soft-deleted users automatically
 
 ---
 
@@ -1918,7 +1952,7 @@ The database implements a comprehensive data retention system with automatic pur
 ## Important Notes
 
 1. **UUID Usage**: Most primary keys use UUID except for legacy/performance-critical tables (agents, hashlists use SERIAL/BIGSERIAL)
-2. **Soft Deletes**: Not implemented - uses CASCADE deletes for referential integrity
+2. **Soft Deletes**: Implemented for users table via `deleted_at` column (migration 106). Other tables use CASCADE deletes for referential integrity.
 3. **Audit Trails**: Separate audit tables for binary_versions, wordlists, and rules
 4. **Time Zones**: All timestamps stored as TIMESTAMP WITH TIME ZONE
 5. **JSON Storage**: Heavy use of JSONB for flexible metadata storage

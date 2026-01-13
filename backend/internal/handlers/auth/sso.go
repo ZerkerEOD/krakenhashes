@@ -265,10 +265,11 @@ func (h *SSOHandler) SAMLACS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	callbackReq := &sso.CallbackRequest{
-		SAMLResponse: r.FormValue("SAMLResponse"),
-		RelayState:   r.FormValue("RelayState"),
-		IPAddress:    sharedAuth.GetClientIP(r),
-		UserAgent:    r.UserAgent(),
+		SAMLResponse:      r.FormValue("SAMLResponse"),
+		RelayState:        r.FormValue("RelayState"),
+		IsRedirectBinding: r.Method == "GET", // HTTP-Redirect binding uses GET, HTTP-POST uses POST
+		IPAddress:         sharedAuth.GetClientIP(r),
+		UserAgent:         r.UserAgent(),
 	}
 
 	if callbackReq.SAMLResponse == "" {

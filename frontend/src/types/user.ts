@@ -36,6 +36,9 @@ export interface User {
   hasApiKey?: boolean;
   apiKeyCreatedAt?: string;
   apiKeyLastUsed?: string;
+
+  // SSO provider (from last successful login)
+  lastAuthProvider?: string;
 }
 
 export interface Team {
@@ -82,14 +85,17 @@ export interface NotificationPreferences {
 
 export interface LoginAttempt {
   id: string;
-  userId?: string;
+  user_id?: string;
   username: string;
-  ipAddress: string;
-  userAgent: string;
+  ip_address: string;
+  user_agent: string;
   success: boolean;
-  failureReason?: string;
-  attemptedAt: string;
+  failure_reason?: string;
+  attempted_at: string;
   notified: boolean;
+  // SSO provider info
+  provider_id?: string;
+  provider_type?: string;
 }
 
 export interface ActiveSession {

@@ -41,6 +41,7 @@ import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
+import DownloadIcon from '@mui/icons-material/Download';
 import { useSnackbar } from 'notistack';
 
 import {
@@ -168,6 +169,36 @@ const SSOSettingsPage: React.FC = () => {
       enqueueSnackbar(err.message || 'Connection test failed', { variant: 'error' });
     } finally {
       setTestingProvider(null);
+    }
+  };
+
+  const handleDownloadCertificate = async (providerId: string) => {
+    try {
+      const response = await fetch(`/api/auth/saml/${providerId}/metadata`);
+      const xml = await response.text();
+
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(xml, 'text/xml');
+      const certElement = doc.querySelector('KeyDescriptor[use="signing"] X509Certificate');
+
+      if (certElement) {
+        const certBase64 = certElement.textContent;
+        const pem = `-----BEGIN CERTIFICATE-----\n${certBase64}\n-----END CERTIFICATE-----`;
+
+        const blob = new Blob([pem], { type: 'application/x-pem-file' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `sp-certificate-${providerId}.pem`;
+        a.click();
+        URL.revokeObjectURL(url);
+        enqueueSnackbar('Certificate downloaded', { variant: 'success' });
+      } else {
+        enqueueSnackbar('Certificate not found in metadata', { variant: 'error' });
+      }
+    } catch (error) {
+      console.error('Failed to download certificate:', error);
+      enqueueSnackbar('Failed to download certificate', { variant: 'error' });
     }
   };
 
@@ -393,11 +424,16 @@ const SSOSettingsPage: React.FC = () => {
                         Callback URL: {window.location.origin}/api/auth/oauth/{provider.id}/callback
                       </Typography>
                     )}
-                    {/* Show ACS URL for SAML providers */}
+                    {/* Show ACS URL and Metadata for SAML providers */}
                     {provider.provider_type === 'saml' && (
-                      <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block', wordBreak: 'break-all' }}>
-                        ACS URL: {window.location.origin}/api/auth/saml/{provider.id}/acs
-                      </Typography>
+                      <>
+                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block', wordBreak: 'break-all' }}>
+                          ACS URL: {window.location.origin}/api/auth/saml/{provider.id}/acs
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-all' }}>
+                          Metadata: <a href={`${window.location.origin}/api/auth/saml/${provider.id}/metadata`} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>View XML</a>
+                        </Typography>
+                      </>
                     )}
                   </CardContent>
                   <CardActions>
@@ -419,6 +455,16 @@ const SSOSettingsPage: React.FC = () => {
                         )}
                       </IconButton>
                     </Tooltip>
+                    {provider.provider_type === 'saml' && (
+                      <Tooltip title="Download SP Certificate">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDownloadCertificate(provider.id)}
+                        >
+                          <DownloadIcon />
+                        </IconButton>
+                      </Tooltip>
+                    )}
                     <Tooltip title="Delete">
                       <IconButton
                         size="small"
@@ -491,13 +537,12 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({ open, provider, onClose
     connection_timeout_seconds: 10
   });
 
-  // SAML fields
+  // SAML fields (sign_requests is auto-enabled with auto-generated keys)
   const [samlConfig, setSamlConfig] = useState<SAMLConfig>({
     sp_entity_id: '',
     idp_entity_id: '',
     idp_sso_url: '',
     idp_certificate: '',
-    sign_requests: false,
     require_signed_assertions: true,
     require_encrypted_assertions: false,
     email_attribute: 'email'
@@ -550,7 +595,6 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({ open, provider, onClose
         idp_entity_id: '',
         idp_sso_url: '',
         idp_certificate: '',
-        sign_requests: false,
         require_signed_assertions: true,
         require_encrypted_assertions: false,
         email_attribute: 'email'
@@ -731,6 +775,16 @@ const LDAPConfigForm: React.FC<LDAPConfigFormProps> = ({ config, onChange }) => 
     <Grid item xs={12} sm={6}>
       <TextField
         fullWidth
+        label="Username Attribute"
+        value={config.username_attribute || ''}
+        onChange={(e) => onChange({ ...config, username_attribute: e.target.value })}
+        placeholder="sAMAccountName"
+        helperText="LDAP attribute containing username (e.g., sAMAccountName, uid)"
+      />
+    </Grid>
+    <Grid item xs={12} sm={6}>
+      <TextField
+        fullWidth
         label="Connection Timeout (seconds)"
         type="number"
         value={config.connection_timeout_seconds}
@@ -822,6 +876,16 @@ const SAMLConfigForm: React.FC<SAMLConfigFormProps> = ({ config, onChange }) => 
         label="Email Attribute"
         value={config.email_attribute}
         onChange={(e) => onChange({ ...config, email_attribute: e.target.value })}
+      />
+    </Grid>
+    <Grid item xs={12} sm={6}>
+      <TextField
+        fullWidth
+        label="Username Attribute"
+        value={config.username_attribute || ''}
+        onChange={(e) => onChange({ ...config, username_attribute: e.target.value })}
+        placeholder="uid"
+        helperText="SAML attribute containing username (e.g., uid, username)"
       />
     </Grid>
     <Grid item xs={12} sm={6}>
@@ -935,6 +999,16 @@ const OAuthConfigForm: React.FC<OAuthConfigFormProps> = ({ config, onChange }) =
         label="Email Attribute"
         value={config.email_attribute}
         onChange={(e) => onChange({ ...config, email_attribute: e.target.value })}
+      />
+    </Grid>
+    <Grid item xs={12} sm={6}>
+      <TextField
+        fullWidth
+        label="Username Attribute"
+        value={config.username_attribute || ''}
+        onChange={(e) => onChange({ ...config, username_attribute: e.target.value })}
+        placeholder="preferred_username"
+        helperText="Claim containing username (e.g., preferred_username, login, nickname)"
       />
     </Grid>
   </>

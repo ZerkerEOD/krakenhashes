@@ -58,7 +58,7 @@ func SetupSSORoutes(apiRouter *mux.Router, sqlDB *sql.DB) *sso.Manager {
 
 	// SAML flow
 	apiRouter.HandleFunc("/auth/saml/{id}/start", ssoHandler.SAMLStart).Methods("GET", "OPTIONS")
-	apiRouter.HandleFunc("/auth/saml/{id}/acs", ssoHandler.SAMLACS).Methods("POST", "OPTIONS")
+	apiRouter.HandleFunc("/auth/saml/{id}/acs", ssoHandler.SAMLACS).Methods("GET", "POST", "OPTIONS")
 	apiRouter.HandleFunc("/auth/saml/{id}/metadata", ssoHandler.SAMLMetadata).Methods("GET", "OPTIONS")
 	debug.Info("Configured SSO endpoints: GET /auth/saml/{id}/start, POST /auth/saml/{id}/acs, GET /auth/saml/{id}/metadata")
 

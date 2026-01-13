@@ -716,6 +716,84 @@ func (h *UserHandler) UnlockUser(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// DeleteUser godoc
+// @Summary Delete user account
+// @Description Soft deletes a user account (sets deleted_at timestamp)
+// @Tags Admin Users
+// @Produce json
+// @Param id path string true "User ID"
+// @Success 200 {object} httputil.SuccessResponse{data=object{message=string}}
+// @Failure 400 {object} httputil.ErrorResponse
+// @Failure 403 {object} httputil.ErrorResponse
+// @Failure 404 {object} httputil.ErrorResponse
+// @Failure 500 {object} httputil.ErrorResponse
+// @Router /admin/users/{id} [delete]
+// @Security ApiKeyAuth
+func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	userIDStr := vars["id"]
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		httputil.RespondWithError(w, http.StatusBadRequest, "Invalid user ID")
+		return
+	}
+
+	// Get admin ID from context
+	adminIDStr, ok := r.Context().Value("user_id").(string)
+	if !ok {
+		httputil.RespondWithError(w, http.StatusInternalServerError, "Failed to get admin ID")
+		return
+	}
+
+	adminID, err := uuid.Parse(adminIDStr)
+	if err != nil {
+		httputil.RespondWithError(w, http.StatusInternalServerError, "Invalid admin ID format")
+		return
+	}
+
+	// Prevent self-deletion
+	if userID == adminID {
+		httputil.RespondWithError(w, http.StatusForbidden, "Cannot delete your own account")
+		return
+	}
+
+	// Check if target user is system user
+	targetUser, err := h.userRepo.GetByID(r.Context(), userID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			httputil.RespondWithError(w, http.StatusNotFound, "User not found")
+			return
+		}
+		debug.Error("Failed to get user: %v", err)
+		httputil.RespondWithError(w, http.StatusInternalServerError, "Failed to get user")
+		return
+	}
+
+	// Prevent deleting system users
+	if targetUser.Role == "system" {
+		httputil.RespondWithError(w, http.StatusForbidden, "Cannot delete system users")
+		return
+	}
+
+	// Perform soft delete
+	err = h.userRepo.SoftDelete(r.Context(), userID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "already deleted") {
+			httputil.RespondWithError(w, http.StatusNotFound, "User not found or already deleted")
+			return
+		}
+		debug.Error("Failed to delete user: %v", err)
+		httputil.RespondWithError(w, http.StatusInternalServerError, "Failed to delete user")
+		return
+	}
+
+	debug.Info("Admin %s deleted user account: %s (username: %s)", adminID, userID, targetUser.Username)
+	httputil.RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+		"data": map[string]string{"message": "User deleted successfully"},
+	})
+}
+
 // GetUserLoginAttempts godoc
 // @Summary Get user login attempts
 // @Description Retrieves login attempt history for a specific user

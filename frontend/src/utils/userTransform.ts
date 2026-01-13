@@ -45,18 +45,21 @@ export const transformUserListResponse = (response: any): User[] => {
   return response.data.map(transformUserResponse);
 };
 
-// Transform login attempt from snake_case to camelCase
+// Transform login attempt - pass through snake_case fields to match API response
 export const transformLoginAttempt = (backendAttempt: any): LoginAttempt => {
   return {
     id: backendAttempt.id,
-    userId: backendAttempt.user_id,
+    user_id: backendAttempt.user_id,
     username: backendAttempt.username,
-    ipAddress: backendAttempt.ip_address,
-    userAgent: backendAttempt.user_agent,
+    ip_address: backendAttempt.ip_address,
+    user_agent: backendAttempt.user_agent,
     success: backendAttempt.success,
-    failureReason: backendAttempt.failure_reason,
-    attemptedAt: backendAttempt.attempted_at,
+    failure_reason: backendAttempt.failure_reason,
+    attempted_at: backendAttempt.attempted_at,
     notified: backendAttempt.notified,
+    // SSO provider info
+    provider_id: backendAttempt.provider_id,
+    provider_type: backendAttempt.provider_type,
   };
 };
 

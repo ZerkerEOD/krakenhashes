@@ -2,8 +2,16 @@ package admin
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
+	"fmt"
+	"math/big"
 	"net/http"
+	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
@@ -562,14 +570,29 @@ func (h *SSOAdminHandler) updateLDAPConfig(ctx context.Context, providerID uuid.
 }
 
 func (h *SSOAdminHandler) createSAMLConfig(ctx context.Context, providerID uuid.UUID, input *models.SAMLConfigInput) error {
-	// Encrypt SP private key
-	encryptedKey := ""
-	if input.SPPrivateKey != "" {
+	var encryptedKey, spCertificate string
+
+	// Auto-generate key pair if not provided (always required for SAML signing)
+	if input.SPPrivateKey == "" {
+		privateKeyPEM, certPEM, err := generateSAMLSPKeyPair(input.SPEntityID)
+		if err != nil {
+			return fmt.Errorf("failed to generate SP key pair: %w", err)
+		}
+		encrypted, err := sso.GetEncryptionService().Encrypt(privateKeyPEM)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt SP key: %w", err)
+		}
+		encryptedKey = encrypted
+		spCertificate = certPEM
+		debug.Info("Auto-generated SP key pair for SAML provider")
+	} else {
+		// Use provided key
 		encrypted, err := sso.GetEncryptionService().Encrypt(input.SPPrivateKey)
 		if err != nil {
 			return err
 		}
 		encryptedKey = encrypted
+		spCertificate = input.SPCertificate
 	}
 
 	config := &models.SAMLConfig{
@@ -581,8 +604,8 @@ func (h *SSOAdminHandler) createSAMLConfig(ctx context.Context, providerID uuid.
 		IDPSLOURL:                  input.IDPSLOURL,
 		IDPCertificate:             input.IDPCertificate,
 		SPPrivateKeyEncrypted:      encryptedKey,
-		SPCertificate:              input.SPCertificate,
-		SignRequests:               input.SignRequests,
+		SPCertificate:              spCertificate,
+		SignRequests:               true, // Always enable signing since we have keys
 		RequireSignedAssertions:    input.RequireSignedAssertions,
 		RequireEncryptedAssertions: input.RequireEncryptedAssertions,
 		NameIDFormat:               input.NameIDFormat,
@@ -606,8 +629,6 @@ func (h *SSOAdminHandler) updateSAMLConfig(ctx context.Context, providerID uuid.
 	config.IDPSSOURL = input.IDPSSOURL
 	config.IDPSLOURL = input.IDPSLOURL
 	config.IDPCertificate = input.IDPCertificate
-	config.SPCertificate = input.SPCertificate
-	config.SignRequests = input.SignRequests
 	config.RequireSignedAssertions = input.RequireSignedAssertions
 	config.RequireEncryptedAssertions = input.RequireEncryptedAssertions
 	config.NameIDFormat = input.NameIDFormat
@@ -615,13 +636,30 @@ func (h *SSOAdminHandler) updateSAMLConfig(ctx context.Context, providerID uuid.
 	config.UsernameAttribute = input.UsernameAttribute
 	config.DisplayNameAttribute = input.DisplayNameAttribute
 
-	// Only update key if provided
+	// Always enable signing
+	config.SignRequests = true
+
+	// Update key if provided, or generate if missing
 	if input.SPPrivateKey != "" {
 		encrypted, err := sso.GetEncryptionService().Encrypt(input.SPPrivateKey)
 		if err != nil {
 			return err
 		}
 		config.SPPrivateKeyEncrypted = encrypted
+		config.SPCertificate = input.SPCertificate
+	} else if config.SPPrivateKeyEncrypted == "" {
+		// Auto-generate key pair if existing config has no keys
+		privateKeyPEM, certPEM, err := generateSAMLSPKeyPair(input.SPEntityID)
+		if err != nil {
+			return fmt.Errorf("failed to generate SP key pair: %w", err)
+		}
+		encrypted, err := sso.GetEncryptionService().Encrypt(privateKeyPEM)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt SP key: %w", err)
+		}
+		config.SPPrivateKeyEncrypted = encrypted
+		config.SPCertificate = certPEM
+		debug.Info("Auto-generated SP key pair for existing SAML provider")
 	}
 
 	return h.ssoRepo.UpdateSAMLConfig(ctx, config)
@@ -689,4 +727,56 @@ func (h *SSOAdminHandler) updateOAuthConfig(ctx context.Context, providerID uuid
 	}
 
 	return h.ssoRepo.UpdateOAuthConfig(ctx, config)
+}
+
+// generateSAMLSPKeyPair generates an RSA key pair and self-signed certificate for SAML SP signing
+func generateSAMLSPKeyPair(commonName string) (privateKeyPEM, certificatePEM string, err error) {
+	// Generate 2048-bit RSA private key
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to generate RSA key: %w", err)
+	}
+
+	// Create certificate template
+	serialNumber, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	if err != nil {
+		return "", "", fmt.Errorf("failed to generate serial number: %w", err)
+	}
+
+	now := time.Now()
+	template := x509.Certificate{
+		SerialNumber: serialNumber,
+		Subject: pkix.Name{
+			CommonName:   commonName,
+			Organization: []string{"KrakenHashes SAML SP"},
+		},
+		NotBefore:             now,
+		NotAfter:              now.AddDate(10, 0, 0), // 10 years validity
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		BasicConstraintsValid: true,
+	}
+
+	// Create self-signed certificate
+	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &privateKey.PublicKey, privateKey)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to create certificate: %w", err)
+	}
+
+	// Encode private key to PEM
+	privateKeyBytes := x509.MarshalPKCS1PrivateKey(privateKey)
+	privateKeyBlock := &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: privateKeyBytes,
+	}
+	privateKeyPEM = string(pem.EncodeToMemory(privateKeyBlock))
+
+	// Encode certificate to PEM
+	certBlock := &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certDER,
+	}
+	certificatePEM = string(pem.EncodeToMemory(certBlock))
+
+	return privateKeyPEM, certificatePEM, nil
 }
