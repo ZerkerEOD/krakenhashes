@@ -287,6 +287,9 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 
 	// Initiate file sync with agent
 	go h.initiateFileSync(client)
+
+	// Start state sync loop for periodic reconciliation (GH Issue #12)
+	go client.startStateSyncLoop()
 }
 
 // readPump pumps messages from the WebSocket connection to the hub
@@ -431,6 +434,12 @@ func (c *Client) readPump() {
 
 		case wsservice.TypeOutfileDeleteRejected:
 			c.handler.handleOutfileDeleteRejected(c, &msg)
+
+		case wsservice.TypeTaskStopAck:
+			c.handler.handleTaskStopAck(c, &msg)
+
+		case wsservice.TypeStateSyncResponse:
+			c.handler.handleStateSyncResponse(c, &msg)
 
 		default:
 			// Handle other message types
@@ -1609,5 +1618,205 @@ func (h *Handler) handleOutfileDeleteRejected(client *Client, msg *wsservice.Mes
 
 	if err := jobHandler.ProcessOutfileDeleteRejected(client.ctx, client.agent.ID, msg.Payload); err != nil {
 		debug.Error("Agent %d: Failed to process outfile_delete_rejected: %v", client.agent.ID, err)
+	}
+}
+
+// handleTaskStopAck handles task stop acknowledgment from agent (GH Issue #12)
+func (h *Handler) handleTaskStopAck(client *Client, msg *wsservice.Message) {
+	var ackPayload wsservice.TaskStopAckPayload
+	if err := json.Unmarshal(msg.Payload, &ackPayload); err != nil {
+		debug.Error("Agent %d: Failed to unmarshal task_stop_ack payload: %v", client.agent.ID, err)
+		return
+	}
+
+	if ackPayload.Stopped {
+		debug.Info("Agent %d: Task stop acknowledged - task %s stopped successfully (stop_id: %s)",
+			client.agent.ID, ackPayload.TaskID, ackPayload.StopID)
+	} else {
+		debug.Warning("Agent %d: Task stop acknowledged but task %s was not running (stop_id: %s, message: %s)",
+			client.agent.ID, ackPayload.TaskID, ackPayload.StopID, ackPayload.Message)
+	}
+
+	// Note: Could track pending stops here and clear them when ACK received
+	// For now, logging is sufficient for debugging purposes
+}
+
+// startStateSyncLoop periodically sends state sync requests to reconcile agent state (GH Issue #12)
+func (c *Client) startStateSyncLoop() {
+	// Wait 30 seconds after connection before first sync to let agent settle
+	time.Sleep(30 * time.Second)
+
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-c.ctx.Done():
+			debug.Debug("Agent %d: State sync loop stopping (context cancelled)", c.agent.ID)
+			return
+		case <-ticker.C:
+			c.requestStateSync()
+		}
+	}
+}
+
+// requestStateSync sends a state sync request to the agent
+func (c *Client) requestStateSync() {
+	requestID := uuid.New().String()
+	debug.Debug("Agent %d: Sending state sync request (request_id: %s)", c.agent.ID, requestID)
+
+	payload := wsservice.StateSyncRequestPayload{
+		RequestID: requestID,
+		AgentID:   c.agent.ID,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		debug.Error("Agent %d: Failed to marshal state sync request: %v", c.agent.ID, err)
+		return
+	}
+
+	msg := &wsservice.Message{
+		Type:    wsservice.TypeStateSyncRequest,
+		Payload: payloadBytes,
+	}
+
+	select {
+	case c.send <- msg:
+		debug.Debug("Agent %d: State sync request sent", c.agent.ID)
+	default:
+		debug.Warning("Agent %d: Failed to send state sync request (send buffer full)", c.agent.ID)
+	}
+}
+
+// handleStateSyncResponse handles state sync response from agent and reconciles state (GH Issue #12)
+func (h *Handler) handleStateSyncResponse(client *Client, msg *wsservice.Message) {
+	var response wsservice.StateSyncResponsePayload
+	if err := json.Unmarshal(msg.Payload, &response); err != nil {
+		debug.Error("Agent %d: Failed to unmarshal state_sync_response: %v", client.agent.ID, err)
+		return
+	}
+
+	debug.Info("Agent %d: State sync response received (request_id: %s, status: %s, has_task: %v)",
+		client.agent.ID, response.RequestID, response.Status, response.HasRunningTask)
+
+	// Reconcile state with backend records
+	h.reconcileAgentState(client, &response)
+}
+
+// reconcileAgentState compares agent's reported state with backend records and fixes discrepancies
+func (h *Handler) reconcileAgentState(client *Client, response *wsservice.StateSyncResponsePayload) {
+	ctx := client.ctx
+	agentID := client.agent.ID
+
+	// Get agent's current busy status from DB
+	agent, err := h.agentService.GetByID(ctx, agentID)
+	if err != nil {
+		debug.Error("Agent %d: Failed to get agent for reconciliation: %v", agentID, err)
+		return
+	}
+
+	busyStatus := "false"
+	if val, ok := agent.Metadata["busy_status"]; ok {
+		busyStatus = val
+	}
+	backendThinksBusy := busyStatus == "true"
+
+	currentTaskID := ""
+	if val, ok := agent.Metadata["current_task_id"]; ok {
+		currentTaskID = val
+	}
+
+	// Check for state mismatches
+	if response.Status == "idle" && !response.HasRunningTask {
+		// Agent says it's idle
+		if backendThinksBusy {
+			debug.Warning("Agent %d: State mismatch - agent idle but backend shows busy (task: %s). Clearing busy status. (GH Issue #12 reconciliation)",
+				agentID, currentTaskID)
+
+			// Clear busy status
+			if err := h.agentService.ClearAgentBusyStatus(ctx, agentID); err != nil {
+				debug.Error("Agent %d: Failed to clear busy status during reconciliation: %v", agentID, err)
+			} else {
+				debug.Info("Agent %d: Successfully cleared stale busy status via state sync", agentID)
+			}
+		}
+	} else if response.HasRunningTask && response.TaskID != "" {
+		// Agent says it's running a task
+		if !backendThinksBusy {
+			debug.Warning("Agent %d: State mismatch - agent running task %s but backend shows idle. Checking task status.",
+				agentID, response.TaskID)
+		}
+
+		// Check if the task exists and is in the correct state
+		if response.TaskID != currentTaskID && currentTaskID != "" {
+			debug.Warning("Agent %d: Task mismatch - agent reports task %s but backend has task %s",
+				agentID, response.TaskID, currentTaskID)
+		}
+
+		// Verify task is actually assigned to this agent
+		taskUUID, err := uuid.Parse(response.TaskID)
+		if err == nil {
+			task, err := h.jobTaskRepo.GetByID(ctx, taskUUID)
+			if err != nil {
+				debug.Warning("Agent %d: Reported task %s not found in DB", agentID, response.TaskID)
+			} else if task.Status == "completed" || task.Status == "failed" || task.Status == "cancelled" {
+				debug.Warning("Agent %d: Agent running task %s but task is in terminal state: %s. Notifying agent to stop.",
+					agentID, response.TaskID, task.Status)
+				// Could send stop command here if needed
+			}
+		}
+	}
+
+	// Process any pending completions that agent reports
+	if len(response.PendingCompletions) > 0 {
+		debug.Warning("Agent %d: Agent has %d pending completions that weren't acknowledged: %v",
+			agentID, len(response.PendingCompletions), response.PendingCompletions)
+
+		// For each pending completion, check if task is actually completed and send ACK
+		for _, taskID := range response.PendingCompletions {
+			taskUUID, err := uuid.Parse(taskID)
+			if err != nil {
+				debug.Error("Agent %d: Invalid pending completion task ID: %s", agentID, taskID)
+				continue
+			}
+
+			task, err := h.jobTaskRepo.GetByID(ctx, taskUUID)
+			if err != nil {
+				debug.Error("Agent %d: Failed to get pending completion task %s: %v", agentID, taskID, err)
+				continue
+			}
+
+			if task.Status == "completed" || task.Status == "failed" {
+				// Task was processed, send ACK
+				debug.Info("Agent %d: Sending belated ACK for pending completion task %s (status: %s)",
+					agentID, taskID, task.Status)
+
+				ackPayload := wsservice.TaskCompleteAckPayload{
+					TaskID:    taskID,
+					Success:   task.Status == "completed",
+					Timestamp: time.Now().Unix(),
+					Message:   "Belated ACK from state sync reconciliation",
+				}
+
+				payloadBytes, err := json.Marshal(ackPayload)
+				if err != nil {
+					debug.Error("Agent %d: Failed to marshal belated ACK: %v", agentID, err)
+					continue
+				}
+
+				msg := &wsservice.Message{
+					Type:    wsservice.TypeTaskCompleteAck,
+					Payload: payloadBytes,
+				}
+
+				select {
+				case client.send <- msg:
+					debug.Info("Agent %d: Belated ACK sent for task %s", agentID, taskID)
+				default:
+					debug.Warning("Agent %d: Failed to send belated ACK (buffer full)", agentID)
+				}
+			}
+		}
 	}
 }

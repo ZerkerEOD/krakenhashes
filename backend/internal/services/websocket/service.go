@@ -52,6 +52,8 @@ const (
 	TypeAgentShutdown           MessageType = "agent_shutdown"
 	TypePendingOutfiles         MessageType = "pending_outfiles"          // Agent reports tasks with unacknowledged outfiles
 	TypeOutfileDeleteRejected   MessageType = "outfile_delete_rejected"   // Agent rejects outfile deletion (line count mismatch)
+	TypeTaskStopAck             MessageType = "task_stop_ack"             // Agent acknowledges stop command (GH Issue #12)
+	TypeStateSyncResponse       MessageType = "state_sync_response"       // Agent responds with state sync (GH Issue #12)
 
 	// Server -> Agent messages
 	TypeTaskAssignment         MessageType = "task_assignment"
@@ -65,6 +67,8 @@ const (
 	TypeBufferAck              MessageType = "buffer_ack"
 	TypeRequestCrackRetransmit MessageType = "request_crack_retransmit" // Backend requests full outfile retransmission
 	TypeOutfileDeleteApproved  MessageType = "outfile_delete_approved"  // Backend confirms safe to delete outfile
+	TypeTaskCompleteAck        MessageType = "task_complete_ack"        // Backend acknowledges task completion (GH Issue #12)
+	TypeStateSyncRequest       MessageType = "state_sync_request"       // Backend requests agent state sync (GH Issue #12)
 
 	// Download progress messages
 	TypeDownloadProgress MessageType = "download_progress"
@@ -257,6 +261,7 @@ type JobStopPayload struct {
 	TaskID         string `json:"task_id"`
 	JobExecutionID string `json:"job_execution_id"`
 	Reason         string `json:"reason"`
+	StopID         string `json:"stop_id,omitempty"` // Unique ID for tracking ACK (GH Issue #12)
 }
 
 // BenchmarkRequestPayload represents a benchmark request sent to an agent
@@ -278,6 +283,39 @@ type BenchmarkRequestPayload struct {
 	ExtraParameters         string   `json:"extra_parameters,omitempty"`          // Agent-specific hashcat parameters
 	EnabledDevices          []int    `json:"enabled_devices,omitempty"`           // List of enabled device IDs
 	AssociationWordlistPath string   `json:"association_wordlist_path,omitempty"` // For mode 9 association attacks
+}
+
+// TaskCompleteAckPayload is sent by the backend to acknowledge task completion (GH Issue #12)
+type TaskCompleteAckPayload struct {
+	TaskID    string `json:"task_id"`
+	Success   bool   `json:"success"`
+	Timestamp int64  `json:"timestamp"`
+	Message   string `json:"message,omitempty"` // Optional message (e.g., "task already completed")
+}
+
+// TaskStopAckPayload is sent by the agent to acknowledge a stop command (GH Issue #12)
+type TaskStopAckPayload struct {
+	TaskID    string `json:"task_id"`
+	StopID    string `json:"stop_id"`    // Unique ID from the stop command for tracking
+	Stopped   bool   `json:"stopped"`    // Whether the task was actually stopped
+	Timestamp int64  `json:"timestamp"`
+	Message   string `json:"message,omitempty"` // Optional reason (e.g., "task already completed")
+}
+
+// StateSyncRequestPayload is sent by the backend to request agent state (GH Issue #12)
+type StateSyncRequestPayload struct {
+	RequestID string `json:"request_id"`
+	AgentID   int    `json:"agent_id"`
+}
+
+// StateSyncResponsePayload is sent by the agent in response to state sync request (GH Issue #12)
+type StateSyncResponsePayload struct {
+	RequestID          string   `json:"request_id"`
+	HasRunningTask     bool     `json:"has_running_task"`
+	TaskID             string   `json:"task_id,omitempty"`
+	JobID              string   `json:"job_id,omitempty"`
+	Status             string   `json:"status"`                        // idle, running, completing
+	PendingCompletions []string `json:"pending_completions,omitempty"` // Task IDs with pending completion ACKs
 }
 
 // Service handles WebSocket business logic

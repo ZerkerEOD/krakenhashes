@@ -1238,14 +1238,51 @@ func (s *JobExecutionService) GetAvailableAgents(ctx context.Context) ([]models.
 				} else {
 					// Valid UUID, check if task exists and is actually assigned to this agent
 					task, err := s.jobTaskRepo.GetByID(ctx, taskUUID)
-					if err != nil || task == nil ||
-					   task.AgentID == nil || *task.AgentID != agent.ID ||
-					   (task.Status != models.JobTaskStatusRunning && task.Status != models.JobTaskStatusAssigned) {
-						// Task doesn't exist, not assigned to agent, or not in running state
-						debug.Log("Clearing stale busy status in GetAvailableAgents", map[string]interface{}{
+					if err != nil || task == nil {
+						// Task doesn't exist
+						debug.Log("Clearing stale busy status - task not found", map[string]interface{}{
 							"agent_id":      agent.ID,
 							"stale_task_id": taskIDStr,
-							"reason":        "task validation failed",
+						})
+						agent.Metadata["busy_status"] = "false"
+						delete(agent.Metadata, "current_task_id")
+						delete(agent.Metadata, "current_job_id")
+						s.agentRepo.UpdateMetadata(ctx, agent.ID, agent.Metadata)
+					} else if task.AgentID == nil || *task.AgentID != agent.ID {
+						// Task not assigned to this agent
+						debug.Log("Clearing stale busy status - task assigned to different agent", map[string]interface{}{
+							"agent_id":      agent.ID,
+							"stale_task_id": taskIDStr,
+							"task_agent_id": task.AgentID,
+						})
+						agent.Metadata["busy_status"] = "false"
+						delete(agent.Metadata, "current_task_id")
+						delete(agent.Metadata, "current_job_id")
+						s.agentRepo.UpdateMetadata(ctx, agent.ID, agent.Metadata)
+					} else if task.Status == models.JobTaskStatusCompleted ||
+						task.Status == models.JobTaskStatusFailed ||
+						task.Status == models.JobTaskStatusCancelled ||
+						task.Status == models.JobTaskStatusProcessing {
+						// Task is in terminal state (COMPLETED/FAILED/CANCELLED/PROCESSING)
+						// Agent should be free but busy_status wasn't cleared - this is the race condition fix
+						debug.Warning("Clearing stale busy status - task in terminal state %s (GH Issue #12 recovery)",
+							task.Status)
+						debug.Log("Agent busy status recovery", map[string]interface{}{
+							"agent_id":     agent.ID,
+							"task_id":      taskIDStr,
+							"task_status":  task.Status,
+							"reason":       "task_in_terminal_state",
+						})
+						agent.Metadata["busy_status"] = "false"
+						delete(agent.Metadata, "current_task_id")
+						delete(agent.Metadata, "current_job_id")
+						s.agentRepo.UpdateMetadata(ctx, agent.ID, agent.Metadata)
+					} else if task.Status != models.JobTaskStatusRunning && task.Status != models.JobTaskStatusAssigned {
+						// Task in unexpected state
+						debug.Log("Clearing stale busy status - task in unexpected state", map[string]interface{}{
+							"agent_id":     agent.ID,
+							"stale_task_id": taskIDStr,
+							"task_status":  task.Status,
 						})
 						agent.Metadata["busy_status"] = "false"
 						delete(agent.Metadata, "current_task_id")

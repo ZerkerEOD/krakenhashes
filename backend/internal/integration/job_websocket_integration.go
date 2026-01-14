@@ -72,6 +72,10 @@ type JobWebSocketIntegration struct {
 	// Progress tracking
 	progressMutex   sync.RWMutex
 	taskProgressMap map[string]*models.JobProgress // TaskID -> Progress
+
+	// Completion cache for idempotent ACK handling (GH Issue #12)
+	completionCacheMu sync.RWMutex
+	completionCache   map[string]time.Time // TaskID -> completion timestamp (1-hour TTL)
 }
 
 // NewJobWebSocketIntegration creates a new job WebSocket integration service
@@ -103,7 +107,7 @@ func NewJobWebSocketIntegration(
 	ruleManager rule.Manager,
 	binaryManager binary.Manager,
 ) *JobWebSocketIntegration {
-	return &JobWebSocketIntegration{
+	integration := &JobWebSocketIntegration{
 		wsHandler:                 wsHandler,
 		jobSchedulingService:      jobSchedulingService,
 		jobExecutionService:       jobExecutionService,
@@ -127,6 +131,76 @@ func NewJobWebSocketIntegration(
 		ruleManager:               ruleManager,
 		binaryManager:             binaryManager,
 		taskProgressMap:           make(map[string]*models.JobProgress),
+		completionCache:           make(map[string]time.Time),
+	}
+
+	// Start completion cache cleanup goroutine (GH Issue #12)
+	go integration.cleanupCompletionCache()
+
+	return integration
+}
+
+// cleanupCompletionCache periodically removes old entries from the completion cache (GH Issue #12)
+func (s *JobWebSocketIntegration) cleanupCompletionCache() {
+	ticker := time.NewTicker(10 * time.Minute)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		s.completionCacheMu.Lock()
+		now := time.Now()
+		for taskID, completedAt := range s.completionCache {
+			// Remove entries older than 1 hour
+			if now.Sub(completedAt) > time.Hour {
+				delete(s.completionCache, taskID)
+			}
+		}
+		s.completionCacheMu.Unlock()
+	}
+}
+
+// isCompletionCached checks if a task completion is already cached (GH Issue #12)
+func (s *JobWebSocketIntegration) isCompletionCached(taskID string) bool {
+	s.completionCacheMu.RLock()
+	defer s.completionCacheMu.RUnlock()
+	_, exists := s.completionCache[taskID]
+	return exists
+}
+
+// cacheCompletion adds a task completion to the cache (GH Issue #12)
+func (s *JobWebSocketIntegration) cacheCompletion(taskID string) {
+	s.completionCacheMu.Lock()
+	defer s.completionCacheMu.Unlock()
+	s.completionCache[taskID] = time.Now()
+}
+
+// sendTaskCompleteAck sends a completion ACK to the agent (GH Issue #12)
+func (s *JobWebSocketIntegration) sendTaskCompleteAck(agentID int, taskID string, success bool, message string) {
+	ackPayload := wsservice.TaskCompleteAckPayload{
+		TaskID:    taskID,
+		Success:   success,
+		Timestamp: time.Now().Unix(),
+		Message:   message,
+	}
+
+	payloadBytes, err := json.Marshal(ackPayload)
+	if err != nil {
+		debug.Error("Failed to marshal task complete ACK: %v", err)
+		return
+	}
+
+	msg := &wsservice.Message{
+		Type:    wsservice.TypeTaskCompleteAck,
+		Payload: payloadBytes,
+	}
+
+	if err := s.wsHandler.SendMessage(agentID, msg); err != nil {
+		debug.Warning("Failed to send task complete ACK to agent %d: %v", agentID, err)
+	} else {
+		debug.Log("Sent task complete ACK to agent", map[string]interface{}{
+			"agent_id": agentID,
+			"task_id":  taskID,
+			"success":  success,
+		})
 	}
 }
 
@@ -734,10 +808,12 @@ func (s *JobWebSocketIntegration) SendJobStop(ctx context.Context, taskID uuid.U
 		"reason":   reason,
 	})
 
-	// Create stop payload
+	// Create stop payload with unique StopID for tracking (GH Issue #12)
+	stopID := uuid.New().String()
 	stopPayload := wsservice.JobStopPayload{
 		TaskID: taskID.String(),
 		Reason: reason,
+		StopID: stopID,
 	}
 
 	// Marshal payload
@@ -1326,23 +1402,18 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			"error":   progress.ErrorMessage,
 		})
 
-		// Mark task as permanently failed and decrement dispatched keyspace
+		// Mark task as permanently failed, decrement dispatched keyspace, AND clear agent status atomically
 		// Agent-reported failures are considered permanent and the job will be marked as failed
-		err := s.jobTaskRepo.MarkTaskFailedPermanently(ctx, progress.TaskID, progress.ErrorMessage)
-		if err != nil {
-			debug.Error("Failed to mark task as permanently failed: %v", err)
-		}
-
-		// Clear agent busy status
 		if task.AgentID != nil {
-			agent, err := s.agentRepo.GetByID(ctx, *task.AgentID)
-			if err == nil && agent.Metadata != nil {
-				agent.Metadata["busy_status"] = "false"
-				delete(agent.Metadata, "current_task_id")
-				delete(agent.Metadata, "current_job_id")
-				if err := s.agentRepo.UpdateMetadata(ctx, agent.ID, agent.Metadata); err != nil {
-					debug.Error("Failed to clear agent busy status after task failure: %v", err)
-				}
+			err := s.jobTaskRepo.MarkTaskFailedPermanentlyAndClearAgentStatus(ctx, progress.TaskID, *task.AgentID, progress.ErrorMessage)
+			if err != nil {
+				debug.Error("Failed to atomically fail task and clear agent status: %v", err)
+			}
+		} else {
+			// No agent ID - just mark task as failed
+			err := s.jobTaskRepo.MarkTaskFailedPermanently(ctx, progress.TaskID, progress.ErrorMessage)
+			if err != nil {
+				debug.Error("Failed to mark task as permanently failed: %v", err)
 			}
 		}
 
@@ -1365,6 +1436,12 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 				"error":   err.Error(),
 			})
 		}
+
+		// Cache and send ACK for failure (GH Issue #12)
+		// Failures also need ACK so agent knows backend received the status
+		taskIDStr := progress.TaskID.String()
+		s.cacheCompletion(taskIDStr)
+		s.sendTaskCompleteAck(agentID, taskIDStr, true, "task failed: "+progress.ErrorMessage)
 
 		return nil
 	}
@@ -1503,6 +1580,19 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 
 	// Check if this is a completion update
 	if progress.Status == "completed" {
+		taskIDStr := progress.TaskID.String()
+
+		// Idempotent handling: check if this completion was already processed (GH Issue #12)
+		if s.isCompletionCached(taskIDStr) {
+			debug.Log("Completion already processed (idempotent), sending ACK", map[string]interface{}{
+				"task_id":  progress.TaskID,
+				"agent_id": agentID,
+			})
+			// Send ACK for duplicate completion without reprocessing
+			s.sendTaskCompleteAck(agentID, taskIDStr, true, "completion already processed")
+			return nil
+		}
+
 		debug.Log("Task completed", map[string]interface{}{
 			"task_id":          progress.TaskID,
 			"progress_percent": progress.ProgressPercent,
@@ -1548,25 +1638,17 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			"task_id": progress.TaskID,
 		})
 
-		// Mark task as complete
-		err = s.jobTaskRepo.CompleteTask(ctx, progress.TaskID)
-		if err != nil {
-			debug.Log("Failed to mark task as complete", map[string]interface{}{
-				"task_id": progress.TaskID,
-				"error":   err.Error(),
-			})
-		}
-
-		// Clear agent busy status
+		// Mark task as complete AND clear agent busy status atomically
 		if task.AgentID != nil {
-			agent, err := s.agentRepo.GetByID(ctx, *task.AgentID)
-			if err == nil && agent.Metadata != nil {
-				agent.Metadata["busy_status"] = "false"
-				delete(agent.Metadata, "current_task_id")
-				delete(agent.Metadata, "current_job_id")
-				if err := s.agentRepo.UpdateMetadata(ctx, agent.ID, agent.Metadata); err != nil {
-					debug.Error("Failed to clear agent busy status after task completion: %v", err)
-				}
+			err = s.jobTaskRepo.CompleteTaskAndClearAgentStatus(ctx, progress.TaskID, *task.AgentID)
+			if err != nil {
+				debug.Error("Failed to atomically complete task and clear agent status: %v", err)
+			}
+		} else {
+			// No agent ID - just complete the task
+			err = s.jobTaskRepo.CompleteTask(ctx, progress.TaskID)
+			if err != nil {
+				debug.Error("Failed to mark task as complete: %v", err)
 			}
 		}
 
@@ -1596,6 +1678,10 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 				"error":            err.Error(),
 			})
 		}
+
+		// Cache completion and send ACK to agent (GH Issue #12)
+		s.cacheCompletion(taskIDStr)
+		s.sendTaskCompleteAck(agentID, taskIDStr, true, "")
 
 		return nil
 	}
@@ -1643,24 +1729,18 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 
 		// No cracks - can complete immediately since there's nothing to verify
 		debug.Info("Task %s keyspace complete with 0 cracks - completing immediately", progress.TaskID)
-		err = s.jobTaskRepo.CompleteTask(ctx, progress.TaskID)
-		if err != nil {
-			debug.Log("Failed to mark task as complete", map[string]interface{}{
-				"task_id": progress.TaskID,
-				"error":   err.Error(),
-			})
-		}
 
-		// Clear agent busy status
+		// Mark task as complete AND clear agent busy status atomically
 		if task.AgentID != nil {
-			agent, err := s.agentRepo.GetByID(ctx, *task.AgentID)
-			if err == nil && agent.Metadata != nil {
-				agent.Metadata["busy_status"] = "false"
-				delete(agent.Metadata, "current_task_id")
-				delete(agent.Metadata, "current_job_id")
-				if err := s.agentRepo.UpdateMetadata(ctx, agent.ID, agent.Metadata); err != nil {
-					debug.Error("Failed to clear agent busy status after task completion (keyspace): %v", err)
-				}
+			err = s.jobTaskRepo.CompleteTaskAndClearAgentStatus(ctx, progress.TaskID, *task.AgentID)
+			if err != nil {
+				debug.Error("Failed to atomically complete task and clear agent status (keyspace): %v", err)
+			}
+		} else {
+			// No agent ID - just complete the task
+			err = s.jobTaskRepo.CompleteTask(ctx, progress.TaskID)
+			if err != nil {
+				debug.Error("Failed to mark task as complete: %v", err)
 			}
 		}
 
@@ -1681,6 +1761,11 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 				"error":            err.Error(),
 			})
 		}
+
+		// Cache completion and send ACK to agent (GH Issue #12)
+		taskIDStr := progress.TaskID.String()
+		s.cacheCompletion(taskIDStr)
+		s.sendTaskCompleteAck(agentID, taskIDStr, true, "")
 	}
 
 	return nil
@@ -2050,11 +2135,21 @@ func (s *JobWebSocketIntegration) checkTaskCompletion(ctx context.Context, taskI
 		return
 	}
 
-	// Mark task as complete
-	err = s.jobTaskRepo.CompleteTask(ctx, taskID)
-	if err != nil {
-		debug.Error("Failed to mark task as complete: %v", err)
-		return
+	// Mark task as complete AND ensure agent busy status is cleared atomically
+	// Note: Agent status may already be cleared by HandleCrackBatchesComplete, but this
+	// atomic operation is idempotent and ensures consistency
+	if task.AgentID != nil {
+		err = s.jobTaskRepo.CompleteTaskAndClearAgentStatus(ctx, taskID, *task.AgentID)
+		if err != nil {
+			debug.Error("Failed to atomically complete task and clear agent status: %v", err)
+			return
+		}
+	} else {
+		err = s.jobTaskRepo.CompleteTask(ctx, taskID)
+		if err != nil {
+			debug.Error("Failed to mark task as complete: %v", err)
+			return
+		}
 	}
 
 	debug.Log("Task completed after receiving all crack batches", map[string]interface{}{
@@ -2079,6 +2174,13 @@ func (s *JobWebSocketIntegration) checkTaskCompletion(ctx context.Context, taskI
 	err = s.jobSchedulingService.ProcessJobCompletion(ctx, task.JobExecutionID)
 	if err != nil {
 		debug.Error("Failed to process job completion: %v", err)
+	}
+
+	// Cache completion and send ACK to agent (GH Issue #12)
+	taskIDStr := taskID.String()
+	s.cacheCompletion(taskIDStr)
+	if task.AgentID != nil {
+		s.sendTaskCompleteAck(*task.AgentID, taskIDStr, true, "")
 	}
 }
 

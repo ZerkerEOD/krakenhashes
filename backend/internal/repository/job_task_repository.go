@@ -678,6 +678,255 @@ func (r *JobTaskRepository) FailTask(ctx context.Context, id uuid.UUID, errorMes
 	return nil
 }
 
+// CompleteTaskAndClearAgentStatus atomically marks a task as completed AND clears the agent's busy status.
+// This prevents the race condition where task completion and agent status update are separate operations.
+// If either operation fails, the entire transaction is rolled back ensuring consistency.
+func (r *JobTaskRepository) CompleteTaskAndClearAgentStatus(ctx context.Context, taskID uuid.UUID, agentID int) error {
+	// Begin transaction for atomicity
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	now := time.Now()
+
+	// Calculate and store average speed (same as CompleteTask)
+	// This is done outside the transaction since it's nice-to-have
+	if err := r.CalculateAndStoreAverageSpeed(ctx, taskID); err != nil {
+		// Log but don't fail - average speed is not critical
+		debug.Warning("Failed to calculate average speed for task %s: %v", taskID, err)
+	}
+
+	// Step 1: Mark task as complete
+	taskQuery := `
+		UPDATE job_tasks
+		SET status = $1,
+		    detailed_status = $2,
+		    completed_at = $3,
+		    progress_percent = 100,
+		    cracking_completed_at = COALESCE(cracking_completed_at, $3)
+		WHERE id = $4`
+
+	result, err := tx.ExecContext(ctx, taskQuery, models.JobTaskStatusCompleted, "completed_no_cracks", now, taskID)
+	if err != nil {
+		return fmt.Errorf("failed to complete task: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected for task: %w", err)
+	}
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	// Step 2: Clear agent busy status atomically with task completion
+	// Use JSONB operators to update metadata
+	agentQuery := `
+		UPDATE agents
+		SET metadata = COALESCE(metadata, '{}'::jsonb)
+		              || '{"busy_status": "false"}'::jsonb
+		              - 'current_task_id'
+		              - 'current_job_id',
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`
+
+	_, err = tx.ExecContext(ctx, agentQuery, agentID)
+	if err != nil {
+		return fmt.Errorf("failed to clear agent busy status: %w", err)
+	}
+
+	// Commit the transaction
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	debug.Log("Atomically completed task and cleared agent status", map[string]interface{}{
+		"task_id":  taskID,
+		"agent_id": agentID,
+	})
+
+	return nil
+}
+
+// FailTaskAndClearAgentStatus atomically marks a task as failed AND clears the agent's busy status.
+// This prevents the race condition where task failure and agent status update are separate operations.
+func (r *JobTaskRepository) FailTaskAndClearAgentStatus(ctx context.Context, taskID uuid.UUID, agentID int, errorMessage string) error {
+	// Begin transaction for atomicity
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	now := time.Now()
+
+	// Step 1: Mark task as failed
+	taskQuery := `
+		UPDATE job_tasks
+		SET status = $1,
+		    detailed_status = $2,
+		    completed_at = $3,
+		    error_message = $4
+		WHERE id = $5`
+
+	result, err := tx.ExecContext(ctx, taskQuery, models.JobTaskStatusFailed, "failed", now, errorMessage, taskID)
+	if err != nil {
+		return fmt.Errorf("failed to mark task as failed: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected for task: %w", err)
+	}
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	// Step 2: Clear agent busy status atomically
+	agentQuery := `
+		UPDATE agents
+		SET metadata = COALESCE(metadata, '{}'::jsonb)
+		              || '{"busy_status": "false"}'::jsonb
+		              - 'current_task_id'
+		              - 'current_job_id',
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`
+
+	_, err = tx.ExecContext(ctx, agentQuery, agentID)
+	if err != nil {
+		return fmt.Errorf("failed to clear agent busy status: %w", err)
+	}
+
+	// Commit the transaction
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	debug.Log("Atomically failed task and cleared agent status", map[string]interface{}{
+		"task_id":       taskID,
+		"agent_id":      agentID,
+		"error_message": errorMessage,
+	})
+
+	return nil
+}
+
+// ClearAgentBusyStatusOnly clears only the agent's busy status without affecting task status.
+// Used for recovery scenarios where task is already in a terminal state but agent is still marked busy.
+func (r *JobTaskRepository) ClearAgentBusyStatusOnly(ctx context.Context, agentID int) error {
+	query := `
+		UPDATE agents
+		SET metadata = COALESCE(metadata, '{}'::jsonb)
+		              || '{"busy_status": "false"}'::jsonb
+		              - 'current_task_id'
+		              - 'current_job_id',
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`
+
+	result, err := r.db.ExecContext(ctx, query, agentID)
+	if err != nil {
+		return fmt.Errorf("failed to clear agent busy status: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	debug.Log("Cleared agent busy status", map[string]interface{}{
+		"agent_id": agentID,
+	})
+
+	return nil
+}
+
+// MarkTaskFailedPermanentlyAndClearAgentStatus atomically marks a task as permanently failed,
+// decrements the job's dispatched keyspace, AND clears the agent's busy status.
+// This combines MarkTaskFailedPermanently with agent status clearing in a single atomic transaction.
+func (r *JobTaskRepository) MarkTaskFailedPermanentlyAndClearAgentStatus(ctx context.Context, taskID uuid.UUID, agentID int, errorMessage string) error {
+	// Get task details including keyspace ranges
+	var jobExecutionID uuid.UUID
+	var keyspaceProcessed int64
+	var keyspaceStart int64
+	var keyspaceEnd int64
+	var effectiveKeyspaceStart sql.NullInt64
+	var effectiveKeyspaceEnd sql.NullInt64
+	err := r.db.QueryRowContext(ctx,
+		"SELECT job_execution_id, keyspace_processed, keyspace_start, keyspace_end, "+
+			"effective_keyspace_start, effective_keyspace_end FROM job_tasks WHERE id = $1",
+		taskID).Scan(&jobExecutionID, &keyspaceProcessed, &keyspaceStart, &keyspaceEnd,
+		&effectiveKeyspaceStart, &effectiveKeyspaceEnd)
+	if err != nil {
+		return fmt.Errorf("failed to get task details: %w", err)
+	}
+
+	// Begin transaction to ensure atomicity of all operations
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Step 1: Mark task as failed
+	taskQuery := `
+		UPDATE job_tasks
+		SET status = $2,
+		    error_message = $3,
+		    completed_at = NOW(),
+		    updated_at = NOW()
+		WHERE id = $1`
+	_, err = tx.ExecContext(ctx, taskQuery, taskID, models.JobTaskStatusFailed, errorMessage)
+	if err != nil {
+		return fmt.Errorf("failed to mark task as failed: %w", err)
+	}
+
+	// Step 2: Subtract any processed keyspace from the job execution
+	if keyspaceProcessed > 0 {
+		updateJobQuery := `
+			UPDATE job_executions
+			SET processed_keyspace = processed_keyspace - $1,
+			    updated_at = CURRENT_TIMESTAMP
+			WHERE id = $2 AND processed_keyspace >= $1`
+		_, err = tx.ExecContext(ctx, updateJobQuery, keyspaceProcessed, jobExecutionID)
+		if err != nil {
+			return fmt.Errorf("failed to update job processed keyspace: %w", err)
+		}
+	}
+
+	// Step 3: Clear agent busy status atomically
+	agentQuery := `
+		UPDATE agents
+		SET metadata = COALESCE(metadata, '{}'::jsonb)
+		              || '{"busy_status": "false"}'::jsonb
+		              - 'current_task_id'
+		              - 'current_job_id',
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`
+	_, err = tx.ExecContext(ctx, agentQuery, agentID)
+	if err != nil {
+		return fmt.Errorf("failed to clear agent busy status: %w", err)
+	}
+
+	// Commit transaction
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	debug.Log("Atomically failed task permanently and cleared agent status", map[string]interface{}{
+		"task_id":       taskID,
+		"agent_id":      agentID,
+		"error_message": errorMessage,
+	})
+
+	return nil
+}
+
 // CancelTask marks a task as cancelled
 func (r *JobTaskRepository) CancelTask(ctx context.Context, id uuid.UUID) error {
 	now := time.Now()
