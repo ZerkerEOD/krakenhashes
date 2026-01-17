@@ -33,6 +33,7 @@ type JobExecutionService struct {
 	deviceRepo         *repository.AgentDeviceRepository
 	presetJobRepo      repository.PresetJobRepository
 	hashlistRepo       *repository.HashListRepository
+	hashTypeRepo       *repository.HashTypeRepository
 	systemSettingsRepo *repository.SystemSettingsRepository
 	fileRepo           *repository.FileRepository
 	scheduleRepo       *repository.AgentScheduleRepository
@@ -58,6 +59,7 @@ func NewJobExecutionService(
 	deviceRepo *repository.AgentDeviceRepository,
 	presetJobRepo repository.PresetJobRepository,
 	hashlistRepo *repository.HashListRepository,
+	hashTypeRepo *repository.HashTypeRepository,
 	systemSettingsRepo *repository.SystemSettingsRepository,
 	fileRepo *repository.FileRepository,
 	scheduleRepo *repository.AgentScheduleRepository,
@@ -87,6 +89,7 @@ func NewJobExecutionService(
 		deviceRepo:               deviceRepo,
 		presetJobRepo:            presetJobRepo,
 		hashlistRepo:             hashlistRepo,
+		hashTypeRepo:             hashTypeRepo,
 		systemSettingsRepo:       systemSettingsRepo,
 		fileRepo:                 fileRepo,
 		scheduleRepo:             scheduleRepo,
@@ -122,6 +125,15 @@ func (s *JobExecutionService) GetFreshEffectiveKeyspace(ctx context.Context, job
 		return *job.EffectiveKeyspace, nil
 	}
 	return 0, nil
+}
+
+// GetHashTypeByID retrieves a hash type by its ID.
+// Used for salt-aware chunk calculations.
+func (s *JobExecutionService) GetHashTypeByID(ctx context.Context, hashTypeID int) (*models.HashType, error) {
+	if s.hashTypeRepo == nil {
+		return nil, fmt.Errorf("hash type repository not initialized")
+	}
+	return s.hashTypeRepo.GetByID(ctx, hashTypeID)
 }
 
 // CustomJobConfig contains the configuration for a custom job
@@ -172,8 +184,8 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		totalKeyspace = presetJob.Keyspace
 		effectiveKeyspace = presetJob.EffectiveKeyspace
 		isAccurateKeyspace = presetJob.IsAccurateKeyspace
-		// NOTE: useRuleSplitting is NOT copied from preset - it will be determined dynamically
-		// at first task dispatch based on benchmark speed and rule_split_min_rules threshold
+		// NOTE: useRuleSplitting is determined at creation time for accurate keyspace jobs,
+		// or at first task dispatch (after benchmark) for estimate-based jobs as fallback
 		multiplicationFactor = presetJob.MultiplicationFactor
 		debug.Log("Using pre-calculated keyspace from preset job", map[string]interface{}{
 			"preset_job_id":         presetJobID,
@@ -190,13 +202,77 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 			debug.Error("Failed to calculate keyspace: %v", err)
 			return nil, fmt.Errorf("keyspace calculation is required for job execution: %w", err)
 		}
-		// NOTE: useRuleSplitting is NOT set here - it will be determined dynamically
-		// at first task dispatch based on benchmark speed and rule_split_min_rules threshold
+		// NOTE: useRuleSplitting is determined at creation time for accurate keyspace jobs,
+		// or at first task dispatch (after benchmark) for estimate-based jobs as fallback
 		// Calculate multiplication factor from returned values
 		if isAccurateKeyspace && totalKeyspace != nil && *totalKeyspace > 0 && effectiveKeyspace != nil && *effectiveKeyspace > 0 {
 			multiplicationFactor = int(*effectiveKeyspace / *totalKeyspace)
 			if multiplicationFactor < 1 {
 				multiplicationFactor = 1
+			}
+		}
+	}
+
+	// For salted hash types, adjust effective_keyspace by salt count
+	// Preset's --total-candidates = base × rules (no hashlist, no salts)
+	// Job's effective_keyspace = base × rules × salts (to match progress[1])
+	if effectiveKeyspace != nil && *effectiveKeyspace > 0 {
+		hashType, htErr := s.hashTypeRepo.GetByID(ctx, hashlist.HashTypeID)
+		if htErr == nil && hashType != nil && hashType.IsSalted {
+			saltCount := int64(hashlist.TotalHashes)
+			if saltCount > 0 {
+				originalEffective := *effectiveKeyspace
+				adjustedEffective := originalEffective * saltCount
+				effectiveKeyspace = &adjustedEffective
+				// Also adjust multiplication factor
+				if totalKeyspace != nil && *totalKeyspace > 0 {
+					multiplicationFactor = int(adjustedEffective / *totalKeyspace)
+				}
+				debug.Log("Applied salt adjustment to effective keyspace at job creation", map[string]interface{}{
+					"preset_job_id":      presetJobID,
+					"hash_type_id":       hashlist.HashTypeID,
+					"is_salted":          true,
+					"salt_count":         saltCount,
+					"original_effective": originalEffective,
+					"adjusted_effective": adjustedEffective,
+				})
+			}
+		}
+	}
+
+	// Determine rule splitting at creation time for accurate keyspace jobs
+	// This avoids race conditions and mid-job switching issues - can't change strategy after tasks are dispatched
+	if isAccurateKeyspace &&
+		(presetJob.AttackMode == models.AttackModeStraight || presetJob.AttackMode == models.AttackModeAssociation) &&
+		len(presetJob.RuleIDs) > 0 {
+
+		// Check if rule splitting is enabled
+		ruleSplitEnabled, err := s.systemSettingsRepo.GetSetting(ctx, "rule_split_enabled")
+		if err == nil && ruleSplitEnabled != nil && ruleSplitEnabled.Value != nil && *ruleSplitEnabled.Value == "true" {
+			// Get minimum rules threshold
+			minRulesSetting, _ := s.systemSettingsRepo.GetSetting(ctx, "rule_split_min_rules")
+			minRules := 100 // default
+			if minRulesSetting != nil && minRulesSetting.Value != nil {
+				if parsed, parseErr := strconv.Atoi(*minRulesSetting.Value); parseErr == nil {
+					minRules = parsed
+				}
+			}
+
+			// Enable rule splitting if we have enough rules
+			// Use actual rule count (not salt-adjusted multiplicationFactor) for minRules comparison
+			actualRuleCount, ruleErr := s.getTotalRuleCount(ctx, presetJob.RuleIDs)
+			if ruleErr != nil {
+				actualRuleCount = int64(multiplicationFactor) // Fallback to multiplicationFactor
+			}
+			if int(actualRuleCount) >= minRules {
+				useRuleSplitting = true
+				debug.Log("Rule splitting enabled at preset job creation", map[string]interface{}{
+					"preset_job_id":          presetJobID,
+					"actual_rule_count":      actualRuleCount,
+					"multiplication_factor":  multiplicationFactor,
+					"min_rules":              minRules,
+					"is_accurate_keyspace":   isAccurateKeyspace,
+				})
 			}
 		}
 	}
@@ -357,8 +433,8 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		return nil, fmt.Errorf("keyspace calculation is required for job execution: %w", err)
 	}
 
-	// NOTE: useRuleSplitting is NOT set here - it will be determined dynamically
-	// at first task dispatch based on benchmark speed and rule_split_min_rules threshold
+	// NOTE: useRuleSplitting is determined at creation time for accurate keyspace jobs,
+	// or at first task dispatch (after benchmark) for estimate-based jobs as fallback
 	useRuleSplitting := false
 
 	// Calculate multiplication factor from keyspace values
@@ -367,6 +443,70 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		multiplicationFactor = int(*effectiveKeyspace / *totalKeyspace)
 		if multiplicationFactor < 1 {
 			multiplicationFactor = 1
+		}
+	}
+
+	// For salted hash types, adjust effective_keyspace by salt count
+	// calculateKeyspace's --total-candidates = base × rules (no hashlist when run)
+	// Job's effective_keyspace = base × rules × salts (to match progress[1])
+	if effectiveKeyspace != nil && *effectiveKeyspace > 0 {
+		hashType, htErr := s.hashTypeRepo.GetByID(ctx, hashlist.HashTypeID)
+		if htErr == nil && hashType != nil && hashType.IsSalted {
+			saltCount := int64(hashlist.TotalHashes)
+			if saltCount > 0 {
+				originalEffective := *effectiveKeyspace
+				adjustedEffective := originalEffective * saltCount
+				effectiveKeyspace = &adjustedEffective
+				// Also adjust multiplication factor
+				if totalKeyspace != nil && *totalKeyspace > 0 {
+					multiplicationFactor = int(adjustedEffective / *totalKeyspace)
+				}
+				debug.Log("Applied salt adjustment to effective keyspace at custom job creation", map[string]interface{}{
+					"custom_job_name":    config.Name,
+					"hash_type_id":       hashlist.HashTypeID,
+					"is_salted":          true,
+					"salt_count":         saltCount,
+					"original_effective": originalEffective,
+					"adjusted_effective": adjustedEffective,
+				})
+			}
+		}
+	}
+
+	// Determine rule splitting at creation time for accurate keyspace jobs
+	// This avoids race conditions and mid-job switching issues - can't change strategy after tasks are dispatched
+	if isAccurateKeyspace &&
+		(config.AttackMode == models.AttackModeStraight || config.AttackMode == models.AttackModeAssociation) &&
+		len(config.RuleIDs) > 0 {
+
+		// Check if rule splitting is enabled
+		ruleSplitEnabled, err := s.systemSettingsRepo.GetSetting(ctx, "rule_split_enabled")
+		if err == nil && ruleSplitEnabled != nil && ruleSplitEnabled.Value != nil && *ruleSplitEnabled.Value == "true" {
+			// Get minimum rules threshold
+			minRulesSetting, _ := s.systemSettingsRepo.GetSetting(ctx, "rule_split_min_rules")
+			minRules := 100 // default
+			if minRulesSetting != nil && minRulesSetting.Value != nil {
+				if parsed, parseErr := strconv.Atoi(*minRulesSetting.Value); parseErr == nil {
+					minRules = parsed
+				}
+			}
+
+			// Enable rule splitting if we have enough rules
+			// Use actual rule count (not salt-adjusted multiplicationFactor) for minRules comparison
+			actualRuleCount, ruleErr := s.getTotalRuleCount(ctx, config.RuleIDs)
+			if ruleErr != nil {
+				actualRuleCount = int64(multiplicationFactor) // Fallback to multiplicationFactor
+			}
+			if int(actualRuleCount) >= minRules {
+				useRuleSplitting = true
+				debug.Log("Rule splitting enabled at custom job creation", map[string]interface{}{
+					"custom_job_name":       config.Name,
+					"actual_rule_count":     actualRuleCount,
+					"multiplication_factor": multiplicationFactor,
+					"min_rules":             minRules,
+					"is_accurate_keyspace":  isAccurateKeyspace,
+				})
+			}
 		}
 	}
 
@@ -1194,7 +1334,7 @@ func (s *JobExecutionService) GetAvailableAgents(ctx context.Context) ([]models.
 		return nil, fmt.Errorf("failed to get max concurrent jobs setting: %w", err)
 	}
 
-	maxConcurrent := 2 // Default value
+	maxConcurrent := 1 // Default: one task per agent
 	if maxConcurrentSetting.Value != nil {
 		if parsed, parseErr := strconv.Atoi(*maxConcurrentSetting.Value); parseErr == nil {
 			maxConcurrent = parsed
@@ -1238,14 +1378,52 @@ func (s *JobExecutionService) GetAvailableAgents(ctx context.Context) ([]models.
 				} else {
 					// Valid UUID, check if task exists and is actually assigned to this agent
 					task, err := s.jobTaskRepo.GetByID(ctx, taskUUID)
-					if err != nil || task == nil ||
-					   task.AgentID == nil || *task.AgentID != agent.ID ||
-					   (task.Status != models.JobTaskStatusRunning && task.Status != models.JobTaskStatusAssigned) {
-						// Task doesn't exist, not assigned to agent, or not in running state
-						debug.Log("Clearing stale busy status in GetAvailableAgents", map[string]interface{}{
+					if err != nil || task == nil {
+						// Task doesn't exist
+						debug.Log("Clearing stale busy status - task not found", map[string]interface{}{
 							"agent_id":      agent.ID,
 							"stale_task_id": taskIDStr,
-							"reason":        "task validation failed",
+						})
+						agent.Metadata["busy_status"] = "false"
+						delete(agent.Metadata, "current_task_id")
+						delete(agent.Metadata, "current_job_id")
+						s.agentRepo.UpdateMetadata(ctx, agent.ID, agent.Metadata)
+					} else if task.AgentID == nil || *task.AgentID != agent.ID {
+						// Task not assigned to this agent
+						debug.Log("Clearing stale busy status - task assigned to different agent", map[string]interface{}{
+							"agent_id":      agent.ID,
+							"stale_task_id": taskIDStr,
+							"task_agent_id": task.AgentID,
+						})
+						agent.Metadata["busy_status"] = "false"
+						delete(agent.Metadata, "current_task_id")
+						delete(agent.Metadata, "current_job_id")
+						s.agentRepo.UpdateMetadata(ctx, agent.ID, agent.Metadata)
+					} else if task.Status == models.JobTaskStatusCompleted ||
+						task.Status == models.JobTaskStatusFailed ||
+						task.Status == models.JobTaskStatusCancelled ||
+						task.Status == models.JobTaskStatusProcessing {
+						// Task is in terminal state for AGENT availability (agent is free to accept new work)
+						// Note: Processing = hashcat done, backend still ingesting cracks - agent should be free
+						// Agent should be free but busy_status wasn't cleared - this is the race condition fix
+						debug.Warning("Clearing stale busy status - task in terminal state %s (GH Issue #12 recovery)",
+							task.Status)
+						debug.Log("Agent busy status recovery", map[string]interface{}{
+							"agent_id":     agent.ID,
+							"task_id":      taskIDStr,
+							"task_status":  task.Status,
+							"reason":       "task_in_terminal_state",
+						})
+						agent.Metadata["busy_status"] = "false"
+						delete(agent.Metadata, "current_task_id")
+						delete(agent.Metadata, "current_job_id")
+						s.agentRepo.UpdateMetadata(ctx, agent.ID, agent.Metadata)
+					} else if task.Status != models.JobTaskStatusRunning && task.Status != models.JobTaskStatusAssigned {
+						// Task in unexpected state
+						debug.Log("Clearing stale busy status - task in unexpected state", map[string]interface{}{
+							"agent_id":     agent.ID,
+							"stale_task_id": taskIDStr,
+							"task_status":  task.Status,
 						})
 						agent.Metadata["busy_status"] = "false"
 						delete(agent.Metadata, "current_task_id")
@@ -1883,7 +2061,9 @@ func (s *JobExecutionService) GetDynamicChunkSize(ctx context.Context, agentID i
 	})
 
 	// Get agent benchmark for this specific attack mode and hash type
-	benchmark, err := s.benchmarkRepo.GetAgentBenchmark(ctx, agentID, models.AttackMode(attackMode), hashType)
+	// Note: saltCount is nil here as this function doesn't have job context
+	// For salt-aware lookups, use the chunk planning service which has full context
+	benchmark, err := s.benchmarkRepo.GetAgentBenchmark(ctx, agentID, models.AttackMode(attackMode), hashType, nil)
 	if err != nil {
 		debug.Log("No benchmark found, using default chunk size", map[string]interface{}{
 			"agent_id":    agentID,
@@ -2125,9 +2305,16 @@ func (s *JobExecutionService) analyzeForRuleSplitting(ctx context.Context, job *
 		}
 	}
 
+	// Get actual rule count (not salt-adjusted) for minRules comparison
+	actualRuleCount, ruleErr := s.getTotalRuleCount(ctx, presetJob.RuleIDs)
+	if ruleErr != nil {
+		actualRuleCount = int64(job.MultiplicationFactor) // Fallback to multiplicationFactor
+	}
+
 	debug.Log("Analyzing for rule splitting", map[string]interface{}{
 		"job_id":                job.ID,
 		"attack_mode":           job.AttackMode,
+		"actual_rule_count":     actualRuleCount,
 		"multiplication_factor": job.MultiplicationFactor,
 		"estimated_time":        estimatedTimeSeconds,
 		"chunk_duration":        chunkDuration,
@@ -2135,7 +2322,7 @@ func (s *JobExecutionService) analyzeForRuleSplitting(ctx context.Context, job *
 		"min_rules":             minRules,
 	})
 
-	if estimatedTimeSeconds > chunkDuration*threshold && job.MultiplicationFactor >= minRules {
+	if estimatedTimeSeconds > chunkDuration*threshold && int(actualRuleCount) >= minRules {
 		return s.createSplitDecision(ctx, job, presetJob, benchmarkSpeed)
 	}
 
@@ -2631,119 +2818,6 @@ func (s *JobExecutionService) HandleTaskCompletion(ctx context.Context, taskID u
 	}
 
 	return nil
-}
-
-// InitializeRuleSplitting initializes rule splitting for a job
-func (s *JobExecutionService) InitializeRuleSplitting(ctx context.Context, job *models.JobExecution) error {
-	debug.Log("InitializeRuleSplitting called", map[string]interface{}{
-		"job_id":              job.ID,
-		"uses_rule_splitting": job.UsesRuleSplitting,
-		"rule_split_count":    job.RuleSplitCount,
-	})
-
-	if !job.UsesRuleSplitting {
-		return fmt.Errorf("job does not use rule splitting")
-	}
-
-	// Get the preset job (if this job was created from a preset)
-	if job.PresetJobID == nil {
-		return fmt.Errorf("job was not created from a preset job")
-	}
-	presetJob, err := s.presetJobRepo.GetByID(ctx, *job.PresetJobID)
-	if err != nil {
-		return fmt.Errorf("failed to get preset job: %w", err)
-	}
-
-	debug.Log("Got preset job", map[string]interface{}{
-		"preset_job_id": presetJob.ID,
-		"rule_ids":      presetJob.RuleIDs,
-	})
-
-	// Get the rule files
-	ruleFiles, err := s.extractRuleFiles(ctx, presetJob)
-	if err != nil {
-		return fmt.Errorf("failed to extract rule files: %w", err)
-	}
-
-	debug.Log("Extracted rule files", map[string]interface{}{
-		"rule_count": len(ruleFiles),
-		"rule_files": ruleFiles,
-	})
-
-	if len(ruleFiles) == 0 {
-		return fmt.Errorf("no rule files found for rule splitting")
-	}
-
-	// For now, split the first rule file
-	// TODO: Handle multiple rule files
-	ruleFileToSplit := ruleFiles[0]
-
-	// Convert job ID to int64 for the split manager
-	jobIDInt := int64(job.ID[0])<<56 | int64(job.ID[1])<<48 | int64(job.ID[2])<<40 | int64(job.ID[3])<<32 |
-		int64(job.ID[4])<<24 | int64(job.ID[5])<<16 | int64(job.ID[6])<<8 | int64(job.ID[7])
-
-	// Split the rule file
-	debug.Log("Splitting rule file", map[string]interface{}{
-		"rule_file":  ruleFileToSplit,
-		"num_splits": job.RuleSplitCount,
-		"job_id_int": jobIDInt,
-	})
-
-	chunks, err := s.ruleSplitManager.SplitRuleFile(ctx, jobIDInt, ruleFileToSplit, job.RuleSplitCount)
-	if err != nil {
-		return fmt.Errorf("failed to split rule file: %w", err)
-	}
-
-	debug.Log("Rule file split successfully", map[string]interface{}{
-		"num_chunks": len(chunks),
-	})
-
-	// Create tasks for each chunk
-	for i, chunk := range chunks {
-		// Calculate keyspace for this chunk
-		baseKeyspace := *job.BaseKeyspace
-
-		task := &models.JobTask{
-			ID:                uuid.New(),
-			JobExecutionID:    job.ID,
-			Status:            models.JobTaskStatusPending,
-			Priority:          job.Priority,
-			KeyspaceStart:     int64(i) * baseKeyspace, // Use chunk index as multiplier
-			KeyspaceEnd:       int64(i+1) * baseKeyspace,
-			KeyspaceProcessed: 0,
-			ChunkDuration:     300, // 5 minutes per chunk
-			CreatedAt:         time.Now(),
-			UpdatedAt:         time.Now(),
-			// Rule splitting fields
-			RuleStartIndex:  &chunk.StartIndex,
-			RuleEndIndex:    &chunk.EndIndex,
-			RuleChunkPath:   &chunk.Path,
-			IsRuleSplitTask: true,
-		}
-
-		// Create the task
-		err = s.jobTaskRepo.Create(ctx, task)
-		if err != nil {
-			// Cleanup on error
-			s.ruleSplitManager.CleanupJobChunks(jobIDInt)
-			return fmt.Errorf("failed to create task for chunk %d: %w", i, err)
-		}
-	}
-
-	debug.Log("Created rule split tasks", map[string]interface{}{
-		"job_id":    job.ID,
-		"num_tasks": len(chunks),
-		"rule_file": ruleFileToSplit,
-	})
-
-	return nil
-}
-
-// GetNextRuleSplitTask gets the next available rule split task for an agent
-// DEPRECATED: This method is no longer used as rule chunks are created dynamically
-func (s *JobExecutionService) GetNextRuleSplitTask(ctx context.Context, job *models.JobExecution, agent *models.Agent) (*models.JobTask, error) {
-	// This method is deprecated - rule chunks are now created dynamically in the scheduler
-	return nil, fmt.Errorf("GetNextRuleSplitTask is deprecated - use dynamic chunking in job scheduler")
 }
 
 // buildRuleSplitAttackCommand builds the hashcat command for a rule split task

@@ -52,11 +52,23 @@ The rule splitting feature has been fully implemented but requires testing with 
 
 ## How Rule Splitting Works
 
+### Decision Timing (v1.3.1+)
+
+**Important Change:** Rule splitting is now determined at **job creation time**, not after the first benchmark completes. This prevents:
+- Race conditions when multiple agents connect simultaneously
+- Mid-job strategy changes after tasks are already dispatched
+- Inconsistent rule splitting decisions across agents
+
+### Decision Logic
+
 1. When a job is created with attack mode 0 (straight) and rules:
-   - Calculate effective keyspace (wordlist × rules)
-   - If effective keyspace > threshold × chunk_duration × benchmark_speed AND rules > min_rules:
+   - Retrieve **actual rule count** from rule files
+   - Compare against `rule_split_min_rules` threshold
+   - If rule count >= min_rules AND rule splitting is enabled:
      - Mark job with `uses_rule_splitting = true`
-     - Calculate optimal number of chunks
+     - Calculate optimal number of chunks based on estimated keyspace
+
+**Note:** The decision uses the **actual rule count**, not the salt-adjusted keyspace. This prevents false positives where salt multiplication incorrectly triggers rule splitting.
 
 2. When first agent picks up the job:
    - `InitializeRuleSplitting` is called

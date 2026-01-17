@@ -79,6 +79,12 @@ const (
 	WSTypeRequestCrackRetransmit WSMessageType = "request_crack_retransmit" // Server -> Agent: request full outfile retransmission
 	WSTypeOutfileDeleteApproved  WSMessageType = "outfile_delete_approved"  // Server -> Agent: safe to delete outfile
 	WSTypeOutfileDeleteRejected  WSMessageType = "outfile_delete_rejected"  // Agent -> Server: reject deletion (line count mismatch)
+
+	// Task state synchronization message types (GH Issue #12)
+	WSTypeTaskCompleteAck   WSMessageType = "task_complete_ack"   // Server -> Agent: acknowledge task completion
+	WSTypeTaskStopAck       WSMessageType = "task_stop_ack"       // Agent -> Server: acknowledge stop command
+	WSTypeStateSyncRequest  WSMessageType = "state_sync_request"  // Server -> Agent: request agent state
+	WSTypeStateSyncResponse WSMessageType = "state_sync_response" // Agent -> Server: report current state
 )
 
 // WSMessage represents a WebSocket message
@@ -155,6 +161,47 @@ type BenchmarkResult struct {
 	DeviceSpeeds   []jobs.DeviceSpeed  `json:"device_speeds"`
 	Success        bool                `json:"success"`
 	ErrorMessage   string              `json:"error_message,omitempty"`
+}
+
+// TaskCompleteAckPayload is received from backend acknowledging task completion (GH Issue #12)
+type TaskCompleteAckPayload struct {
+	TaskID    string `json:"task_id"`
+	Success   bool   `json:"success"`
+	Timestamp int64  `json:"timestamp"`
+	Message   string `json:"message,omitempty"`
+}
+
+// TaskStopAckPayload is sent to acknowledge a stop command (GH Issue #12)
+type TaskStopAckPayload struct {
+	TaskID    string `json:"task_id"`
+	StopID    string `json:"stop_id"`
+	Stopped   bool   `json:"stopped"`
+	Timestamp int64  `json:"timestamp"`
+	Message   string `json:"message,omitempty"`
+}
+
+// StateSyncRequestPayload is received from backend requesting state sync (GH Issue #12)
+type StateSyncRequestPayload struct {
+	RequestID string `json:"request_id"`
+	AgentID   int    `json:"agent_id"`
+}
+
+// StateSyncResponsePayload is sent in response to state sync request (GH Issue #12)
+type StateSyncResponsePayload struct {
+	RequestID          string   `json:"request_id"`
+	HasRunningTask     bool     `json:"has_running_task"`
+	TaskID             string   `json:"task_id,omitempty"`
+	JobID              string   `json:"job_id,omitempty"`
+	Status             string   `json:"status"` // idle, running, completing
+	PendingCompletions []string `json:"pending_completions,omitempty"`
+}
+
+// JobStopPayload represents a job stop command (updated for GH Issue #12)
+type JobStopPayload struct {
+	TaskID         string `json:"task_id"`
+	JobExecutionID string `json:"job_execution_id"`
+	Reason         string `json:"reason"`
+	StopID         string `json:"stop_id,omitempty"` // Unique ID for tracking ACK
 }
 
 // MetricsData represents the metrics data sent to the server
@@ -412,6 +459,11 @@ type Connection struct {
 	devicesDetected       bool
 	detectionInProgress   bool
 	deviceMutex           sync.Mutex
+
+	// Task completion ACK tracking (GH Issue #12)
+	completionAckChan   chan *TaskCompleteAckPayload
+	completionAckMu     sync.RWMutex
+	pendingCompletionID string
 }
 
 // JobManager interface defines the methods required for job management
@@ -420,6 +472,10 @@ type JobManager interface {
 	StopJob(taskID string) error
 	RunManualBenchmark(ctx context.Context, binaryPath string, hashType int, attackMode int) (*jobs.BenchmarkResult, error)
 	ForceCleanup() error
+	// GH Issue #12: State sync support
+	GetState() (jobs.TaskState, string)
+	GetJobStatus(taskID string) (*jobs.JobExecution, error)
+	GetCompletionPending() (bool, string)
 }
 
 // isCertificateError checks if an error is related to certificate verification
@@ -675,12 +731,13 @@ func NewConnection(urlConfig *config.URLConfig) (*Connection, error) {
 	}
 
 	conn := &Connection{
-		urlConfig:  urlConfig,
-		hwMonitor:  hwMonitor,
-		outbound:   make(chan *WSMessage, 4096),
-		done:       make(chan struct{}),
-		tlsConfig:  tlsConfig,
-		syncStatus: "pending",
+		urlConfig:         urlConfig,
+		hwMonitor:         hwMonitor,
+		outbound:          make(chan *WSMessage, 4096),
+		done:              make(chan struct{}),
+		tlsConfig:         tlsConfig,
+		syncStatus:        "pending",
+		completionAckChan: make(chan *TaskCompleteAckPayload, 1), // Buffer 1 ACK (GH Issue #12)
 	}
 
 	// Download manager will be initialized when file sync is set up
@@ -1260,10 +1317,7 @@ func (c *Connection) readPump() {
 				continue
 			}
 
-			var stopPayload struct {
-				TaskID string `json:"task_id"`
-				Reason string `json:"reason,omitempty"`
-			}
+			var stopPayload JobStopPayload
 			if err := json.Unmarshal(msg.Payload, &stopPayload); err != nil {
 				debug.Error("Failed to parse job stop payload: %v", err)
 				continue
@@ -1276,14 +1330,53 @@ func (c *Connection) readPump() {
 				console.Warning("Task stopped by server: %s", stopPayload.TaskID)
 			}
 
+			var stopped bool
+			var stopMessage string
 			if err := c.jobManager.StopJob(stopPayload.TaskID); err != nil {
 				debug.Error("Failed to stop job %s: %v", stopPayload.TaskID, err)
 				console.Error("Failed to stop task %s: %v", stopPayload.TaskID, err)
+				stopped = false
+				stopMessage = err.Error()
 			} else {
 				debug.Info("Successfully stopped job %s", stopPayload.TaskID)
 				console.Success("Task %s stopped successfully", stopPayload.TaskID)
+				stopped = true
 			}
-			
+
+			// Send stop ACK back to backend (GH Issue #12)
+			if stopPayload.StopID != "" {
+				c.sendTaskStopAck(stopPayload.TaskID, stopPayload.StopID, stopped, stopMessage)
+			}
+
+		case WSTypeTaskCompleteAck:
+			// Server acknowledged task completion (GH Issue #12)
+			debug.Info("Received task complete ACK")
+
+			var ackPayload TaskCompleteAckPayload
+			if err := json.Unmarshal(msg.Payload, &ackPayload); err != nil {
+				debug.Error("Failed to parse task complete ACK: %v", err)
+				continue
+			}
+
+			debug.Debug("Task completion acknowledged by backend: task=%s success=%v message=%s",
+				ackPayload.TaskID, ackPayload.Success, ackPayload.Message)
+
+			// Send to ACK channel if we're waiting for it
+			c.completionAckMu.RLock()
+			pendingID := c.pendingCompletionID
+			c.completionAckMu.RUnlock()
+
+			if pendingID == ackPayload.TaskID {
+				select {
+				case c.completionAckChan <- &ackPayload:
+					debug.Debug("Delivered ACK to waiting goroutine for task %s", ackPayload.TaskID)
+				default:
+					debug.Warning("ACK channel full or not waiting for task %s", ackPayload.TaskID)
+				}
+			} else {
+				debug.Debug("Received ACK for task %s but waiting for %s (or not waiting)", ackPayload.TaskID, pendingID)
+			}
+
 		case WSTypeForceCleanup:
 			// Server requested to force cleanup all hashcat processes
 			debug.Info("Received force cleanup command")
@@ -1633,6 +1726,11 @@ func (c *Connection) readPump() {
 			debug.Info("Received outfile delete approval")
 			c.handleOutfileDeleteApproval(msg.Payload)
 
+		case WSTypeStateSyncRequest:
+			// Server requesting state sync (GH Issue #12)
+			debug.Info("Received state sync request from backend")
+			c.handleStateSyncRequest(msg.Payload)
+
 		default:
 			debug.Warning("Received unknown message type: %s", msg.Type)
 		}
@@ -1924,6 +2022,181 @@ func (c *Connection) SendJobStatus(status *jobs.JobStatus) error {
 	debug.Debug("Sent job status for task %s: %.2f%% complete",
 		status.TaskID, status.ProgressPercent)
 	return nil
+}
+
+// WaitForCompletionAck waits for a completion ACK from the backend with retry logic (GH Issue #12)
+// Returns true if ACK received, false if all retries exhausted
+// The taskID should be set before calling this method
+func (c *Connection) WaitForCompletionAck(taskID string, timeout time.Duration, maxRetries int, resendFunc func() error) bool {
+	// Set pending completion ID so ACK handler knows what we're waiting for
+	c.completionAckMu.Lock()
+	c.pendingCompletionID = taskID
+	c.completionAckMu.Unlock()
+
+	// Ensure we clear pending ID when done
+	defer func() {
+		c.completionAckMu.Lock()
+		c.pendingCompletionID = ""
+		c.completionAckMu.Unlock()
+	}()
+
+	// Drain any stale ACKs from channel first
+	select {
+	case <-c.completionAckChan:
+		debug.Debug("Drained stale ACK from channel")
+	default:
+	}
+
+	for retry := 0; retry <= maxRetries; retry++ {
+		if retry > 0 {
+			debug.Info("Retrying completion for task %s (attempt %d/%d)", taskID, retry+1, maxRetries+1)
+			// Resend the completion message
+			if resendFunc != nil {
+				if err := resendFunc(); err != nil {
+					debug.Error("Failed to resend completion for task %s: %v", taskID, err)
+				}
+			}
+		}
+
+		// Wait for ACK with timeout
+		select {
+		case ack := <-c.completionAckChan:
+			if ack != nil && ack.TaskID == taskID {
+				debug.Info("Received completion ACK for task %s (success=%v)", taskID, ack.Success)
+				return true
+			}
+			debug.Warning("Received ACK for wrong task: expected %s, got %s", taskID, ack.TaskID)
+		case <-time.After(timeout):
+			debug.Warning("Timeout waiting for completion ACK for task %s (attempt %d/%d)",
+				taskID, retry+1, maxRetries+1)
+		}
+	}
+
+	debug.Warning("All retries exhausted for completion ACK of task %s, proceeding with completion_pending flag", taskID)
+	return false
+}
+
+// SetCompletionPending sets the completion pending flag on the job manager (GH Issue #12)
+func (c *Connection) SetCompletionPending(taskID string) {
+	if jobMgr, ok := c.jobManager.(*jobs.JobManager); ok {
+		jobMgr.SetCompletionPending(taskID)
+		debug.Info("Set completion_pending flag for task %s", taskID)
+	}
+}
+
+// sendTaskStopAck sends a stop acknowledgment back to the backend (GH Issue #12)
+func (c *Connection) sendTaskStopAck(taskID, stopID string, stopped bool, message string) {
+	if !c.isConnected.Load() {
+		debug.Warning("Cannot send stop ACK - not connected")
+		return
+	}
+
+	ackPayload := TaskStopAckPayload{
+		TaskID:    taskID,
+		StopID:    stopID,
+		Stopped:   stopped,
+		Timestamp: time.Now().Unix(),
+		Message:   message,
+	}
+
+	payloadBytes, err := json.Marshal(ackPayload)
+	if err != nil {
+		debug.Error("Failed to marshal stop ACK: %v", err)
+		return
+	}
+
+	msg := &WSMessage{
+		Type:      WSTypeTaskStopAck,
+		Payload:   payloadBytes,
+		Timestamp: time.Now(),
+	}
+
+	if c.safeSendMessage(msg, 5000) {
+		debug.Info("Sent stop ACK for task %s (stop_id=%s, stopped=%v)", taskID, stopID, stopped)
+	} else {
+		debug.Warning("Failed to send stop ACK for task %s", taskID)
+	}
+}
+
+// handleStateSyncRequest handles state sync requests from backend (GH Issue #12)
+func (c *Connection) handleStateSyncRequest(payload json.RawMessage) {
+	var request StateSyncRequestPayload
+	if err := json.Unmarshal(payload, &request); err != nil {
+		debug.Error("Failed to unmarshal state sync request: %v", err)
+		return
+	}
+
+	debug.Info("Processing state sync request (request_id: %s)", request.RequestID)
+
+	// Get current state from job manager
+	response := StateSyncResponsePayload{
+		RequestID:          request.RequestID,
+		HasRunningTask:     false,
+		TaskID:             "",
+		JobID:              "",
+		Status:             "idle",
+		PendingCompletions: []string{},
+	}
+
+	if c.jobManager != nil {
+		state, taskID := c.jobManager.GetState()
+		switch state {
+		case jobs.TaskStateRunning:
+			response.HasRunningTask = true
+			response.TaskID = taskID
+			response.Status = "running"
+			// Try to get job ID from the active job
+			if jobStatus, err := c.jobManager.GetJobStatus(taskID); err == nil && jobStatus != nil && jobStatus.Assignment != nil {
+				response.JobID = jobStatus.Assignment.JobExecutionID
+			}
+		case jobs.TaskStateCompleting:
+			response.HasRunningTask = false
+			response.TaskID = taskID
+			response.Status = "completing"
+		case jobs.TaskStateIdle:
+			response.HasRunningTask = false
+			response.Status = "idle"
+		default:
+			response.Status = "unknown"
+		}
+
+		// Get pending completions
+		if hasPending, pendingTaskID := c.jobManager.GetCompletionPending(); hasPending && pendingTaskID != "" {
+			response.PendingCompletions = []string{pendingTaskID}
+		}
+	}
+
+	debug.Info("Sending state sync response (request_id: %s, status: %s, has_task: %v, pending: %v)",
+		request.RequestID, response.Status, response.HasRunningTask, response.PendingCompletions)
+
+	// Send response
+	c.sendStateSyncResponse(&response)
+}
+
+// sendStateSyncResponse sends state sync response to backend
+func (c *Connection) sendStateSyncResponse(response *StateSyncResponsePayload) {
+	if !c.isConnected.Load() {
+		debug.Warning("Cannot send state sync response - not connected")
+		return
+	}
+
+	payloadBytes, err := json.Marshal(response)
+	if err != nil {
+		debug.Error("Failed to marshal state sync response: %v", err)
+		return
+	}
+
+	msg := &WSMessage{
+		Type:      WSTypeStateSyncResponse,
+		Payload:   payloadBytes,
+		Timestamp: time.Now(),
+	}
+
+	if c.safeSendMessage(msg, 5000) {
+		debug.Debug("Sent state sync response (request_id: %s)", response.RequestID)
+	} else {
+		debug.Warning("Failed to send state sync response")
+	}
 }
 
 // SendCrackBatchAsync sends crack batch asynchronously (non-blocking)

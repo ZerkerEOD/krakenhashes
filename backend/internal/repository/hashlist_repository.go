@@ -1281,7 +1281,7 @@ func (r *HashListRepository) GetUncrackedHashCount(ctx context.Context, hashlist
 		WHERE hh.hashlist_id = $1 AND h.is_cracked = false`
 
 	var count int
-	err := r.db.QueryRowContext(ctx, query).Scan(&count)
+	err := r.db.QueryRowContext(ctx, query, hashlistID).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get uncracked hash count: %w", err)
 	}

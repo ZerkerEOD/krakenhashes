@@ -91,6 +91,7 @@ func SetupWebSocketWithJobRoutes(
 	jobIncrementLayerRepo := repository.NewJobIncrementLayerRepository(database)
 	presetIncrementLayerRepo := repository.NewPresetIncrementLayerRepository(database)
 	assocWordlistRepo := repository.NewAssociationWordlistRepository(database)
+	hashTypeRepo := repository.NewHashTypeRepository(database)
 
 	// Create services
 	jobExecutionService := services.NewJobExecutionService(
@@ -105,6 +106,7 @@ func SetupWebSocketWithJobRoutes(
 		deviceRepo,
 		presetJobRepo,
 		hashlistRepo,
+		hashTypeRepo,
 		systemSettingsRepo,
 		fileRepo,
 		scheduleRepo,

@@ -422,6 +422,10 @@ Stores information about supported hash types, keyed by hashcat mode ID.
 | processing_logic | JSONB | | | Processing rules as JSON |
 | is_enabled | BOOLEAN | NOT NULL | TRUE | Hash type enabled |
 | slow | BOOLEAN | NOT NULL | FALSE | Slow hash algorithm |
+| is_salted | BOOLEAN | NOT NULL | FALSE | Uses per-hash salts (added in migration 107) |
+
+**Indexes:**
+- idx_hash_types_is_salted (is_salted) - For filtering salted hash types
 
 ### hashlists
 
@@ -1227,13 +1231,14 @@ Stores benchmark results for agents.
 | attack_mode | INT | NOT NULL | | Attack mode |
 | hash_type | INT | NOT NULL | | Hash type |
 | speed | BIGINT | NOT NULL | | Hashes per second |
+| salt_count | INT | | | Salt count for salted hash types (added in migration 109) |
 | created_at | TIMESTAMP WITH TIME ZONE | | CURRENT_TIMESTAMP | Creation time |
 | updated_at | TIMESTAMP WITH TIME ZONE | | CURRENT_TIMESTAMP | Last update time |
 
-**Unique Constraint:** (agent_id, attack_mode, hash_type)
+**Unique Constraint:** (agent_id, attack_mode, hash_type, salt_count) - Uses IS NOT DISTINCT FROM for NULL-safe comparison
 
 **Indexes:**
-- idx_agent_benchmarks_lookup (agent_id, attack_mode, hash_type)
+- idx_agent_benchmarks_lookup (agent_id, attack_mode, hash_type, salt_count)
 
 ### agent_performance_metrics
 
@@ -1675,7 +1680,7 @@ The potfile system initializes in stages during server startup:
 
 ## Migration History
 
-The database schema has evolved through 106 migrations:
+The database schema has evolved through 109 migrations:
 
 1. **000001**: Initial schema - users, teams, user_teams
 2. **000002**: Add auth_tokens table
@@ -1841,6 +1846,23 @@ The database schema has evolved through 106 migrations:
    - Creates partial index `idx_users_deleted_at` WHERE deleted_at IS NULL
    - Enables soft delete of user accounts while preserving historical data
    - User listings filter out soft-deleted users automatically
+107. **000107**: Add salted hash type classification
+   - Adds `hash_types.is_salted` BOOLEAN column (default: false)
+   - Auto-classifies 40+ known salted hash types via pattern matching
+   - Includes: md5crypt, bcrypt, scrypt, NetNTLM, Kerberos, WPA, Argon2, PBKDF2
+   - Creates index on `is_salted` for faster lookups
+   - Enables salt-aware chunk calculations and benchmark caching
+108. **000108**: Fix NULL completed_at values
+   - Backfills `completed_at` for terminal-status jobs with NULL values
+   - Sets `completed_at = COALESCE(updated_at, created_at)` for affected jobs
+   - Fixes job list ordering on dashboard and /jobs page
+   - Ensures proper sorting by completion time
+109. **000109**: Add benchmark salt count
+   - Adds `agent_benchmarks.salt_count` INT column for salt-aware caching
+   - Drops old unique constraint: `(agent_id, attack_mode, hash_type)`
+   - Creates new unique constraint: `(agent_id, attack_mode, hash_type, salt_count)`
+   - Uses `IS NOT DISTINCT FROM` for NULL-safe salt count comparison
+   - Enables per-salt-count benchmark caching for accurate speed estimation
 
 ---
 

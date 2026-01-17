@@ -1,0 +1,2 @@
+-- No rollback needed - setting completed_at is always correct
+-- The data was corrected to have proper timestamps

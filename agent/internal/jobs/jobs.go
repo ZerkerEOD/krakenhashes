@@ -19,21 +19,30 @@ import (
 
 // JobManager manages job execution on the agent
 type JobManager struct {
-	executor                ExecutorInterface
-	config                  *config.Config
-	statusCallback          func(*JobStatus)             // Callback for status updates (synchronous)
-	crackCallback           func(*CrackBatch)            // Callback for crack batches (asynchronous)
-	crackBatchesCompleteCallback func(*CrackBatchesComplete) // Callback to signal all crack batches sent
-	progressCallback        func(*JobProgress)           // Legacy callback (deprecated, use statusCallback/crackCallback)
-	outputCallback          func(taskID string, output string, isError bool) // Callback for sending output via websocket
-	fileSync                *filesync.FileSync
-	hwMonitor               HardwareMonitor // Interface for hardware monitor
+	executor                     ExecutorInterface
+	config                       *config.Config
+	statusCallback               func(*JobStatus)             // Callback for status updates (synchronous)
+	crackCallback                func(*CrackBatch)            // Callback for crack batches (asynchronous)
+	crackBatchesCompleteCallback func(*CrackBatchesComplete)  // Callback to signal all crack batches sent
+	progressCallback             func(*JobProgress)           // Legacy callback (deprecated, use statusCallback/crackCallback)
+	outputCallback               func(taskID string, output string, isError bool) // Callback for sending output via websocket
+	fileSync                     *filesync.FileSync
+	hwMonitor                    HardwareMonitor // Interface for hardware monitor
+
+	// ACK waiting callback for completion acknowledgment (GH Issue #12)
+	// Parameters: taskID, resend function
+	// Returns: true if ACK received, false if timeout/retries exhausted
+	ackWaitCallback func(taskID string, resendFunc func() error) bool
 
 	// Job state
 	mutex             sync.RWMutex
 	activeJobs        map[string]*JobExecution
 	benchmarkCache    map[string]*BenchmarkResult
 	lastCompletedTask *CompletedTaskInfo // Cache last completed task for reconnection
+
+	// Explicit state machine for reliable state tracking
+	// This prevents race conditions from deferred cleanup
+	stateManager *TaskStateManager
 }
 
 // HardwareMonitor interface for device management
@@ -136,6 +145,7 @@ func NewJobManagerWithExecutor(cfg *config.Config, progressCallback func(*JobPro
 		hwMonitor:        hwMonitor,
 		activeJobs:       make(map[string]*JobExecution),
 		benchmarkCache:   make(map[string]*BenchmarkResult),
+		stateManager:     NewTaskStateManager(),
 	}
 }
 
@@ -155,15 +165,43 @@ func (jm *JobManager) SetOutputCallback(callback func(taskID string, output stri
 
 // GetCurrentTaskStatus returns information about the currently running or completed task
 // Returns nil if there is no active task and no cached completion
+// Uses explicit state machine for reliable state tracking
 func (jm *JobManager) GetCurrentTaskStatus() *CompletedTaskInfo {
+	// Check state machine first - this is the source of truth
+	state, taskID := jm.stateManager.GetState()
+
+	// If state is idle, check for cached completion or pending completion
+	if state == TaskStateIdle {
+		// Check for pending completion that needs to be resolved
+		if pending, pendingID := jm.stateManager.GetCompletionPending(); pending {
+			debug.Info("GetCurrentTaskStatus: returning pending completion for task %s", pendingID)
+			jm.mutex.RLock()
+			defer jm.mutex.RUnlock()
+			if jm.lastCompletedTask != nil && jm.lastCompletedTask.TaskID == pendingID {
+				return jm.lastCompletedTask
+			}
+			// Return minimal pending completion info
+			return &CompletedTaskInfo{
+				TaskID: pendingID,
+				Status: "completed",
+			}
+		}
+
+		// Return cached completion if exists (no timeout - cache indefinitely until cleared)
+		jm.mutex.RLock()
+		defer jm.mutex.RUnlock()
+		return jm.lastCompletedTask // nil if no cached task
+	}
+
+	// State is not idle - we have an active task
 	jm.mutex.RLock()
 	defer jm.mutex.RUnlock()
 
-	// Check for active jobs first
-	for taskID, execution := range jm.activeJobs {
+	// Get execution from activeJobs using the task ID from state manager
+	if execution, exists := jm.activeJobs[taskID]; exists {
 		info := &CompletedTaskInfo{
 			TaskID: taskID,
-			Status: "running",
+			Status: state.String(),
 		}
 		if execution.Assignment != nil {
 			info.JobID = execution.Assignment.JobExecutionID
@@ -180,8 +218,10 @@ func (jm *JobManager) GetCurrentTaskStatus() *CompletedTaskInfo {
 		return info
 	}
 
-	// Return cached completion if exists (no timeout - cache indefinitely until cleared)
-	return jm.lastCompletedTask // nil if no cached task
+	// State says we have a task but it's not in activeJobs - inconsistent state
+	// This shouldn't happen with proper state management, log warning
+	debug.Warning("GetCurrentTaskStatus: state=%s taskID=%s but not in activeJobs", state, taskID)
+	return nil
 }
 
 // ClearLastCompletedTask clears the last completed task info
@@ -190,6 +230,33 @@ func (jm *JobManager) ClearLastCompletedTask() {
 	jm.mutex.Lock()
 	defer jm.mutex.Unlock()
 	jm.lastCompletedTask = nil
+	// Also clear any pending completion flag
+	jm.stateManager.ClearCompletionPending()
+}
+
+// GetState returns the current task state and task ID
+func (jm *JobManager) GetState() (TaskState, string) {
+	return jm.stateManager.GetState()
+}
+
+// GetStateInfo returns full state information including timing
+func (jm *JobManager) GetStateInfo() (TaskState, string, time.Time) {
+	return jm.stateManager.GetStateInfo()
+}
+
+// SetCompletionPending marks a task completion as pending ACK resolution
+func (jm *JobManager) SetCompletionPending(taskID string) {
+	jm.stateManager.SetCompletionPending(taskID)
+}
+
+// GetCompletionPending returns the pending completion status
+func (jm *JobManager) GetCompletionPending() (bool, string) {
+	return jm.stateManager.GetCompletionPending()
+}
+
+// TransitionToIdle forces transition to idle state (for recovery scenarios)
+func (jm *JobManager) TransitionToIdle() {
+	jm.stateManager.TransitionTo(TaskStateIdle, "")
 }
 
 // SetProgressCallback sets the progress callback function (deprecated)
@@ -218,6 +285,13 @@ func (jm *JobManager) SetCrackBatchesCompleteCallback(callback func(*CrackBatche
 	jm.mutex.Lock()
 	defer jm.mutex.Unlock()
 	jm.crackBatchesCompleteCallback = callback
+}
+
+// SetAckWaitCallback sets the callback for waiting for completion ACK (GH Issue #12)
+func (jm *JobManager) SetAckWaitCallback(callback func(taskID string, resendFunc func() error) bool) {
+	jm.mutex.Lock()
+	defer jm.mutex.Unlock()
+	jm.ackWaitCallback = callback
 }
 
 // ProcessJobAssignment processes a job assignment from the backend
@@ -298,6 +372,10 @@ func (jm *JobManager) ProcessJobAssignment(ctx context.Context, assignmentData [
 	jm.mutex.Lock()
 	jm.activeJobs[assignment.TaskID] = jobExecution
 	jm.mutex.Unlock()
+
+	// Transition state machine to running
+	jm.stateManager.TransitionTo(TaskStateRunning, assignment.TaskID)
+	debug.Info("State transition: idle -> running (task: %s)", assignment.TaskID)
 
 	// Start progress monitoring
 	go jm.monitorJobProgress(ctx, jobExecution)
@@ -562,44 +640,52 @@ func (jm *JobManager) ensureBenchmark(ctx context.Context, assignment *JobTaskAs
 	return nil
 }
 
+// cleanupCompletedTask performs synchronous cleanup of a completed task
+// This MUST be called BEFORE logging completion to prevent race conditions
+// where GetCurrentTaskStatus() sees stale data in activeJobs
+func (jm *JobManager) cleanupCompletedTask(jobExecution *JobExecution, finalStatus string) {
+	jm.mutex.Lock()
+	defer jm.mutex.Unlock()
+
+	taskID := jobExecution.Assignment.TaskID
+
+	// Cache completion info before deleting from activeJobs
+	if exec, exists := jm.activeJobs[taskID]; exists {
+		info := &CompletedTaskInfo{
+			TaskID:      taskID,
+			JobID:       jobExecution.Assignment.JobExecutionID,
+			Status:      finalStatus,
+			CompletedAt: time.Now(),
+		}
+
+		if exec.LastProgress != nil {
+			info.KeyspaceProcessed = exec.LastProgress.KeyspaceProcessed
+			info.EffectiveProgress = exec.LastProgress.EffectiveProgress
+			info.ProgressPercent = exec.LastProgress.ProgressPercent
+			info.TotalEffectiveKeyspace = exec.LastProgress.TotalEffectiveKeyspace
+			info.HashRate = exec.LastProgress.HashRate
+			info.CrackedCount = exec.LastProgress.CrackedCount
+			info.AllHashesCracked = exec.LastProgress.AllHashesCracked
+			info.ErrorMessage = exec.LastProgress.ErrorMessage
+		}
+
+		jm.lastCompletedTask = info
+		debug.Info("Cached completion for task %s with status %s, progress %.2f%%, keyspace %d",
+			info.TaskID, info.Status, info.ProgressPercent, info.KeyspaceProcessed)
+
+		// Clean up association attack files after task completion
+		jm.cleanupAssociationFiles(exec.Assignment)
+	}
+
+	// Remove from activeJobs - this MUST happen synchronously before logging
+	delete(jm.activeJobs, taskID)
+	debug.Info("Removed task %s from activeJobs (synchronous cleanup)", taskID)
+}
+
 // monitorJobProgress monitors job progress and sends updates
 func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobExecution) {
-	defer func() {
-		jm.mutex.Lock()
-		// Cache completion info before deleting from activeJobs
-		if exec, exists := jm.activeJobs[jobExecution.Assignment.TaskID]; exists {
-			status := "completed"
-			info := &CompletedTaskInfo{
-				TaskID:      jobExecution.Assignment.TaskID,
-				JobID:       jobExecution.Assignment.JobExecutionID,
-				Status:      status,
-				CompletedAt: time.Now(),
-			}
-
-			if exec.LastProgress != nil {
-				if exec.LastProgress.Status == "failed" {
-					info.Status = "failed"
-				}
-				info.KeyspaceProcessed = exec.LastProgress.KeyspaceProcessed
-				info.EffectiveProgress = exec.LastProgress.EffectiveProgress
-				info.ProgressPercent = exec.LastProgress.ProgressPercent
-				info.TotalEffectiveKeyspace = exec.LastProgress.TotalEffectiveKeyspace
-				info.HashRate = exec.LastProgress.HashRate
-				info.CrackedCount = exec.LastProgress.CrackedCount
-				info.AllHashesCracked = exec.LastProgress.AllHashesCracked
-				info.ErrorMessage = exec.LastProgress.ErrorMessage
-			}
-
-			jm.lastCompletedTask = info
-			debug.Info("Cached completion for task %s with status %s, progress %.2f%%, keyspace %d",
-				info.TaskID, info.Status, info.ProgressPercent, info.KeyspaceProcessed)
-
-			// Clean up association attack files after task completion
-			jm.cleanupAssociationFiles(exec.Assignment)
-		}
-		delete(jm.activeJobs, jobExecution.Assignment.TaskID)
-		jm.mutex.Unlock()
-	}()
+	// NOTE: We no longer use deferred cleanup - cleanup is done synchronously
+	// before logging completion to prevent race conditions
 
 	// Track retry attempts for "already running" errors
 	retryCount := 0
@@ -607,11 +693,27 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 	for {
 		select {
 		case <-ctx.Done():
+			// Context cancelled - cleanup and transition to stopped state
+			debug.Info("Context cancelled for task %s, performing cleanup", jobExecution.Assignment.TaskID)
+			jm.cleanupCompletedTask(jobExecution, "stopped")
+			jm.stateManager.TransitionTo(TaskStateStopped, "")
+			debug.Info("State transition: running -> stopped (task: %s, context cancelled)", jobExecution.Assignment.TaskID)
 			return
 		case progress, ok := <-jobExecution.Process.ProgressChannel:
 			if !ok {
-				// Channel closed, job finished
-				debug.Info("Job progress monitoring ended for task %s", jobExecution.Assignment.TaskID)
+				// Channel closed, job finished - cleanup with last known status
+				debug.Info("Job progress monitoring ended for task %s (channel closed)", jobExecution.Assignment.TaskID)
+				finalStatus := "completed"
+				if jobExecution.LastProgress != nil && jobExecution.LastProgress.Status == "failed" {
+					finalStatus = "failed"
+				}
+				jm.cleanupCompletedTask(jobExecution, finalStatus)
+				if finalStatus == "completed" {
+					jm.stateManager.TransitionTo(TaskStateIdle, "")
+				} else {
+					jm.stateManager.TransitionTo(TaskStateFailed, "")
+				}
+				debug.Info("State transition: running -> %s (task: %s, channel closed)", finalStatus, jobExecution.Assignment.TaskID)
 				return
 			}
 
@@ -620,8 +722,13 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 
 				// Show console progress for running tasks
 				if progress.Status == "" || progress.Status == "running" {
-					// Calculate total keyspace
-					totalKeyspace := jobExecution.Assignment.KeyspaceEnd - jobExecution.Assignment.KeyspaceStart
+					// Use EFFECTIVE progress values for consistent display
+					// EffectiveProgress and TotalEffectiveKeyspace account for rules and salts
+					effectiveProgress := progress.EffectiveProgress
+					totalEffective := jobExecution.Assignment.KeyspaceEnd - jobExecution.Assignment.KeyspaceStart // fallback to base keyspace
+					if progress.TotalEffectiveKeyspace != nil && *progress.TotalEffectiveKeyspace > 0 {
+						totalEffective = *progress.TotalEffectiveKeyspace
+					}
 
 					// Format and display task progress
 					taskProgress := console.TaskProgress{
@@ -630,18 +737,16 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 						HashRate:          progress.HashRate,
 						TimeRemaining:     0,
 						Status:            "running",
-						KeyspaceProcessed: progress.KeyspaceProcessed,
-						TotalKeyspace:     totalKeyspace,
+						KeyspaceProcessed: effectiveProgress,
+						TotalKeyspace:     totalEffective,
 					}
 					if progress.TimeRemaining != nil {
 						taskProgress.TimeRemaining = *progress.TimeRemaining
 					}
 					console.Progress(console.FormatTaskProgress(taskProgress))
 				} else if progress.Status == "completed" {
-					console.Success("Task %s completed successfully", progress.TaskID)
-					if progress.CrackedCount > 0 {
-						console.Success("Found %d cracked hashes", progress.CrackedCount)
-					}
+					// NOTE: Success message is now logged AFTER cleanup to prevent race condition
+					// See the cleanup section below where console.Success is called
 				} else if progress.Status == "failed" {
 					console.Error("Task %s failed: %s", progress.TaskID, progress.ErrorMessage)
 				}
@@ -660,11 +765,14 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 					// Wait before retry
 					select {
 					case <-ctx.Done():
+						// Context cancelled during retry wait - task already removed from activeJobs above
+						jm.stateManager.TransitionTo(TaskStateStopped, "")
+						debug.Info("State transition: running -> stopped (task: %s, context cancelled during retry)", jobExecution.Assignment.TaskID)
 						return
 					case <-time.After(HashcatRetryDelay):
 						// Continue with retry
 					}
-					
+
 					// Attempt to restart the job
 					newProcess, err := jm.executor.ExecuteTask(ctx, jobExecution.Assignment)
 					if err != nil {
@@ -679,6 +787,9 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 							}
 							jm.progressCallback(errorProgress)
 						}
+						// Task was already removed from activeJobs above, just transition state
+						jm.stateManager.TransitionTo(TaskStateFailed, "")
+						debug.Info("State transition: running -> failed (task: %s, retry failed)", jobExecution.Assignment.TaskID)
 						return
 					}
 					
@@ -801,6 +912,64 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 						debug.Warning("No crack_batches_complete callback set for task %s", progress.TaskID)
 					}
 
+					// CRITICAL: Synchronous cleanup BEFORE logging success
+					// This prevents race condition where GetCurrentTaskStatus() sees stale data
+					finalStatus := progress.Status
+					jm.cleanupCompletedTask(jobExecution, finalStatus)
+
+					// Transition to completing state while waiting for ACK (GH Issue #12)
+					jm.stateManager.TransitionTo(TaskStateCompleting, progress.TaskID)
+					debug.Info("State transition: running -> completing (task: %s)", progress.TaskID)
+
+					// Wait for completion ACK from backend (GH Issue #12)
+					// This ensures backend has processed the completion before agent moves on
+					jm.mutex.RLock()
+					hasAckWaitCallback := jm.ackWaitCallback != nil
+					hasStatusCallback := jm.statusCallback != nil
+					jm.mutex.RUnlock()
+
+					ackReceived := true // Default to true if no ACK waiting
+					if hasAckWaitCallback && finalStatus == "completed" {
+						// Create resend function for retries
+						resendFunc := func() error {
+							if hasStatusCallback {
+								status := &JobStatus{
+									TaskID:                 progress.TaskID,
+									KeyspaceProcessed:      progress.KeyspaceProcessed,
+									EffectiveProgress:      progress.EffectiveProgress,
+									ProgressPercent:        progress.ProgressPercent,
+									TotalEffectiveKeyspace: progress.TotalEffectiveKeyspace,
+									HashRate:               progress.HashRate,
+									CrackedCount:           progress.CrackedCount,
+									Status:                 progress.Status,
+									AllHashesCracked:       progress.AllHashesCracked,
+								}
+								jm.statusCallback(status)
+							}
+							return nil
+						}
+						ackReceived = jm.ackWaitCallback(progress.TaskID, resendFunc)
+					}
+
+					// Transition state machine to idle (or failed)
+					if finalStatus == "completed" {
+						if !ackReceived {
+							// ACK not received after retries - set completion_pending flag
+							jm.stateManager.SetCompletionPending(progress.TaskID)
+							debug.Warning("Completion ACK not received for task %s, setting completion_pending flag", progress.TaskID)
+						}
+						jm.stateManager.TransitionTo(TaskStateIdle, "")
+						debug.Info("State transition: completing -> idle (task: %s completed, ack_received=%v)", progress.TaskID, ackReceived)
+						// NOW log success - after cleanup is complete
+						console.Success("Task %s completed successfully", progress.TaskID)
+						if progress.CrackedCount > 0 {
+							console.Success("Found %d cracked hashes", progress.CrackedCount)
+						}
+					} else {
+						jm.stateManager.TransitionTo(TaskStateFailed, "")
+						debug.Info("State transition: completing -> failed (task: %s)", progress.TaskID)
+					}
+
 					return
 				}
 			}
@@ -815,11 +984,16 @@ func (jm *JobManager) StopJob(taskID string) error {
 	jm.mutex.RUnlock()
 
 	if !exists {
+		// Check if we're in a state where we think we should have this task
+		state, stateTaskID := jm.stateManager.GetState()
+		if stateTaskID == taskID {
+			debug.Warning("StopJob: task %s not in activeJobs but state says %s", taskID, state)
+		}
 		return fmt.Errorf("job %s not found", taskID)
 	}
 
 	// Stopping message is already shown by main.go shutdown
-	
+
 	err := jm.executor.StopTask(taskID)
 	if err != nil {
 		return fmt.Errorf("failed to stop task: %w", err)
@@ -827,7 +1001,14 @@ func (jm *JobManager) StopJob(taskID string) error {
 
 	// Update job status
 	jobExecution.Status = "stopped"
-	
+
+	// Perform synchronous cleanup
+	jm.cleanupCompletedTask(jobExecution, "stopped")
+
+	// Transition state to stopped
+	jm.stateManager.TransitionTo(TaskStateStopped, "")
+	debug.Info("State transition: running -> stopped (task: %s manually stopped)", taskID)
+
 	debug.Info("Job stopped: Task ID %s", taskID)
 	return nil
 }
@@ -972,4 +1153,61 @@ func (jm *JobManager) GetPendingOutfiles() (taskIDs []string, currentTaskID stri
 // GetOutfileLineCount returns the number of lines in the outfile for a task
 func (jm *JobManager) GetOutfileLineCount(taskID string) (int64, error) {
 	return jm.executor.GetOutfileLineCount(taskID)
+}
+
+// StuckDetectionTimeout is the maximum time to stay in Completing state before force recovery
+const StuckDetectionTimeout = 2 * time.Minute
+
+// StuckCheckInterval is how often to check for stuck states
+const StuckCheckInterval = 30 * time.Second
+
+// StartStuckDetection starts a background goroutine that monitors for stuck states (GH Issue #12)
+// This is a safety net - if agent gets stuck in Completing state for too long, force recovery
+func (jm *JobManager) StartStuckDetection(ctx context.Context) {
+	go func() {
+		ticker := time.NewTicker(StuckCheckInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				debug.Debug("Stuck detection loop stopping (context cancelled)")
+				return
+			case <-ticker.C:
+				jm.checkForStuckState()
+			}
+		}
+	}()
+	debug.Info("Started stuck state detection (check interval: %v, timeout: %v)", StuckCheckInterval, StuckDetectionTimeout)
+}
+
+// checkForStuckState checks if the agent is stuck in a non-terminal state
+func (jm *JobManager) checkForStuckState() {
+	state, taskID, stateChangedAt := jm.stateManager.GetStateInfo()
+	stuckDuration := time.Since(stateChangedAt)
+
+	// Only check Completing state for now - Running state is handled by hashcat timeout
+	if state == TaskStateCompleting && stuckDuration > StuckDetectionTimeout {
+		debug.Warning("Force recovering from stuck Completing state: task %s stuck for %v (GH Issue #12)",
+			taskID, stuckDuration)
+		jm.forceRecovery(taskID)
+	}
+}
+
+// forceRecovery forces the agent back to idle state when stuck
+func (jm *JobManager) forceRecovery(taskID string) {
+	jm.mutex.Lock()
+	// Remove from activeJobs if still present
+	if _, exists := jm.activeJobs[taskID]; exists {
+		delete(jm.activeJobs, taskID)
+		debug.Info("Force removed stuck task %s from activeJobs", taskID)
+	}
+	jm.mutex.Unlock()
+
+	// Set completion pending so it can be resolved on next state sync
+	jm.stateManager.SetCompletionPending(taskID)
+
+	// Transition to idle
+	jm.stateManager.TransitionTo(TaskStateIdle, "")
+	debug.Info("Force recovered from stuck state: task %s, now idle with completion_pending flag", taskID)
 }

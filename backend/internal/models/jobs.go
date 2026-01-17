@@ -270,7 +270,8 @@ type AgentBenchmark struct {
 	AgentID    int        `json:"agent_id" db:"agent_id"`
 	AttackMode AttackMode `json:"attack_mode" db:"attack_mode"`
 	HashType   int        `json:"hash_type" db:"hash_type"`
-	Speed      int64      `json:"speed" db:"speed"` // hashes per second
+	SaltCount  *int       `json:"salt_count" db:"salt_count"` // NULL for non-salted hash types
+	Speed      int64      `json:"speed" db:"speed"`           // hashes per second
 	CreatedAt  time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt  time.Time  `json:"updated_at" db:"updated_at"`
 }

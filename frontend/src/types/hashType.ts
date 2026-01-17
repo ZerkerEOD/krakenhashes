@@ -7,6 +7,7 @@ export interface HashType {
   processing_logic?: string | null;
   is_enabled: boolean;
   slow: boolean;
+  is_salted: boolean;
 }
 
 export interface HashTypeCreateRequest {
@@ -16,6 +17,7 @@ export interface HashTypeCreateRequest {
   example?: string | null;
   is_enabled: boolean;
   slow: boolean;
+  is_salted: boolean;
 }
 
 export interface HashTypeUpdateRequest {
@@ -24,4 +26,5 @@ export interface HashTypeUpdateRequest {
   example?: string | null;
   is_enabled: boolean;
   slow: boolean;
+  is_salted: boolean;
 }

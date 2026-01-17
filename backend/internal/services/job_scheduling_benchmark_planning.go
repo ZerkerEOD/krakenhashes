@@ -28,6 +28,7 @@ type ForcedBenchmarkTask struct {
 	HashType   int
 	AttackMode models.AttackMode
 	Priority   int
+	SaltCount  *int // For salted hash types, the number of remaining hashes
 }
 
 // AgentBenchmarkTask represents an agent speed benchmark
@@ -36,6 +37,7 @@ type AgentBenchmarkTask struct {
 	JobID      uuid.UUID // Representative job for parameters
 	HashType   int
 	AttackMode models.AttackMode
+	SaltCount  *int // For salted hash types, the number of remaining hashes
 }
 
 // JobHashTypeInfo contains hash type information for a job
@@ -49,6 +51,8 @@ type JobHashTypeInfo struct {
 	Priority             int
 	CreatedAt            time.Time
 	NeedsForcedBenchmark bool
+	SaltCount            *int // For salted hash types, the number of remaining hashes (each = 1 salt)
+	IsSalted             bool // Whether this hash type uses per-hash salts
 }
 
 // CreateBenchmarkPlan analyzes the system state and creates an intelligent benchmark execution plan
@@ -139,6 +143,19 @@ func (s *JobSchedulingService) collectJobHashTypeInfo(
 			continue
 		}
 
+		// Check if hash type is salted and get salt count (remaining hash count)
+		var saltCount *int
+		isSalted := false
+		hashType, htErr := s.jobExecutionService.hashTypeRepo.GetByID(ctx, hashlist.HashTypeID)
+		if htErr == nil && hashType != nil && hashType.IsSalted {
+			isSalted = true
+			// For salted hash types, salt count = remaining (uncracked) hash count
+			uncrackedCount, err := s.jobExecutionService.hashlistRepo.GetUncrackedHashCount(ctx, job.HashlistID)
+			if err == nil && uncrackedCount > 0 {
+				saltCount = &uncrackedCount
+			}
+		}
+
 		// Check if job has increment layers
 		if job.IncrementMode != "" && job.IncrementMode != "off" {
 			// Check if this is an expanded layer entry (job.ID is actually a layer ID)
@@ -156,6 +173,8 @@ func (s *JobSchedulingService) collectJobHashTypeInfo(
 						Priority:             job.Priority,
 						CreatedAt:            job.CreatedAt,
 						NeedsForcedBenchmark: true,
+						SaltCount:            saltCount,
+						IsSalted:             isSalted,
 					})
 
 					debug.Log("Added layer entry for benchmarking", map[string]interface{}{
@@ -163,6 +182,8 @@ func (s *JobSchedulingService) collectJobHashTypeInfo(
 						"layer_id":      layer.ID,
 						"layer_index":   layer.LayerIndex,
 						"layer_mask":    layer.Mask,
+						"is_salted":     isSalted,
+						"salt_count":    saltCount,
 					})
 				}
 			} else {
@@ -187,6 +208,8 @@ func (s *JobSchedulingService) collectJobHashTypeInfo(
 							Priority:             job.Priority,
 							CreatedAt:            job.CreatedAt,
 							NeedsForcedBenchmark: true,
+							SaltCount:            saltCount,
+							IsSalted:             isSalted,
 						})
 					}
 				}
@@ -194,6 +217,8 @@ func (s *JobSchedulingService) collectJobHashTypeInfo(
 				debug.Log("Found increment layers needing benchmarks", map[string]interface{}{
 					"job_id":      job.ID,
 					"layer_count": len(layers),
+					"is_salted":   isSalted,
+					"salt_count":  saltCount,
 				})
 			}
 		} else {
@@ -216,6 +241,8 @@ func (s *JobSchedulingService) collectJobHashTypeInfo(
 				Priority:             job.Priority,
 				CreatedAt:            job.CreatedAt,
 				NeedsForcedBenchmark: needsForcedBenchmark,
+				SaltCount:            saltCount,
+				IsSalted:             isSalted,
 			})
 		}
 	}
@@ -224,6 +251,7 @@ func (s *JobSchedulingService) collectJobHashTypeInfo(
 }
 
 // buildAgentBenchmarkStatus queries which benchmarks each agent has that are still valid
+// Cache key format: "attackMode_hashType_saltCount" where saltCount is nil for non-salted hash types
 func (s *JobSchedulingService) buildAgentBenchmarkStatus(
 	ctx context.Context,
 	availableAgents []models.Agent,
@@ -235,23 +263,25 @@ func (s *JobSchedulingService) buildAgentBenchmarkStatus(
 	for _, agent := range availableAgents {
 		agentBenchmarkStatus[agent.ID] = make(map[string]bool)
 
-		// Check each unique (attackMode, hashType) combination
+		// Check each unique (attackMode, hashType, saltCount) combination
 		checkedCombos := make(map[string]bool)
 
 		for _, jobInfo := range jobHashInfo {
-			key := fmt.Sprintf("%d_%d", jobInfo.AttackMode, jobInfo.HashType)
+			// Include salt count in cache key for salted hash types
+			key := buildBenchmarkCacheKey(jobInfo.AttackMode, jobInfo.HashType, jobInfo.SaltCount)
 
 			if checkedCombos[key] {
 				continue // Already checked this combo for this agent
 			}
 			checkedCombos[key] = true
 
-			// Check if agent has recent valid benchmark
+			// Check if agent has recent valid benchmark (including salt count)
 			isRecent, err := s.jobExecutionService.benchmarkRepo.IsRecentBenchmark(
 				ctx,
 				agent.ID,
 				jobInfo.AttackMode,
 				jobInfo.HashType,
+				jobInfo.SaltCount, // Pass salt count for salt-aware lookup
 				cacheDuration,
 			)
 
@@ -266,6 +296,15 @@ func (s *JobSchedulingService) buildAgentBenchmarkStatus(
 	}
 
 	return agentBenchmarkStatus, nil
+}
+
+// buildBenchmarkCacheKey creates a cache key for benchmark lookups
+// Format: "attackMode_hashType_saltCount" where saltCount is "nil" for non-salted hash types
+func buildBenchmarkCacheKey(attackMode models.AttackMode, hashType int, saltCount *int) string {
+	if saltCount == nil {
+		return fmt.Sprintf("%d_%d_nil", attackMode, hashType)
+	}
+	return fmt.Sprintf("%d_%d_%d", attackMode, hashType, *saltCount)
 }
 
 // allocateForcedBenchmarks assigns agents to jobs needing forced benchmarks
@@ -319,8 +358,8 @@ func (s *JobSchedulingService) allocateForcedBenchmarks(
 		}
 
 		// Find best agent for this job
-		// Prefer agents WITHOUT valid benchmark for this hash type
-		key := fmt.Sprintf("%d_%d", job.AttackMode, job.HashType)
+		// Prefer agents WITHOUT valid benchmark for this hash type (including salt count)
+		key := buildBenchmarkCacheKey(job.AttackMode, job.HashType, job.SaltCount)
 		var bestAgent *models.Agent
 
 		// First pass: look for agent without this benchmark
@@ -357,6 +396,7 @@ func (s *JobSchedulingService) allocateForcedBenchmarks(
 			HashType:   job.HashType,
 			AttackMode: job.AttackMode,
 			Priority:   job.Priority,
+			SaltCount:  job.SaltCount,
 		})
 
 		usedAgents[bestAgent.ID] = job.JobID
@@ -369,11 +409,11 @@ func (s *JobSchedulingService) allocateForcedBenchmarks(
 func (s *JobSchedulingService) buildUniqueHashTypeList(
 	jobHashInfo []JobHashTypeInfo,
 ) []JobHashTypeInfo {
-	// Map key: "attackMode_hashType" -> highest priority job with that combo
+	// Map key: "attackMode_hashType_saltCount" -> highest priority job with that combo
 	uniqueMap := make(map[string]JobHashTypeInfo)
 
 	for _, job := range jobHashInfo {
-		key := fmt.Sprintf("%d_%d", job.AttackMode, job.HashType)
+		key := buildBenchmarkCacheKey(job.AttackMode, job.HashType, job.SaltCount)
 
 		existing, exists := uniqueMap[key]
 		if !exists || job.Priority > existing.Priority {
@@ -410,7 +450,7 @@ func (s *JobSchedulingService) allocateAgentBenchmarks(
 		return []AgentBenchmarkTask{}
 	}
 
-	// Build map of which agents need which hash types
+	// Build map of which agents need which hash types (including salt count)
 	hashTypeToAgentsNeeding := make(map[string][]int)
 
 	for _, agent := range availableAgents {
@@ -419,7 +459,7 @@ func (s *JobSchedulingService) allocateAgentBenchmarks(
 		}
 
 		for _, htInfo := range uniqueHashTypes {
-			key := fmt.Sprintf("%d_%d", htInfo.AttackMode, htInfo.HashType)
+			key := buildBenchmarkCacheKey(htInfo.AttackMode, htInfo.HashType, htInfo.SaltCount)
 
 			// Check if agent has valid benchmark
 			if !agentBenchmarkStatus[agent.ID][key] {
@@ -440,7 +480,7 @@ func (s *JobSchedulingService) allocateAgentBenchmarks(
 		}
 
 		htInfo := uniqueHashTypes[hashTypeIndex%len(uniqueHashTypes)]
-		key := fmt.Sprintf("%d_%d", htInfo.AttackMode, htInfo.HashType)
+		key := buildBenchmarkCacheKey(htInfo.AttackMode, htInfo.HashType, htInfo.SaltCount)
 
 		agentsNeedingThis := hashTypeToAgentsNeeding[key]
 
@@ -453,6 +493,7 @@ func (s *JobSchedulingService) allocateAgentBenchmarks(
 					JobID:      htInfo.JobID,
 					HashType:   htInfo.HashType,
 					AttackMode: htInfo.AttackMode,
+					SaltCount:  htInfo.SaltCount,
 				})
 				assignedAgents[agentID] = true
 				foundAgent = true

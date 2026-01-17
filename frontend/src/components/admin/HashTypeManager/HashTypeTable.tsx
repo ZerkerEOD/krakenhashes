@@ -19,6 +19,7 @@ import {
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import WarningIcon from '@mui/icons-material/Warning';
+import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import BoltIcon from '@mui/icons-material/Bolt';
 import SearchIcon from '@mui/icons-material/Search';
 import { HashType } from '../../../types/hashType';
@@ -94,19 +95,20 @@ const HashTypeTable: React.FC<HashTypeTableProps> = ({
               <TableCell>Description</TableCell>
               <TableCell>Example</TableCell>
               <TableCell align="center" width="80">Slow</TableCell>
+              <TableCell align="center" width="80">Salted</TableCell>
               <TableCell align="center" width="120">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} align="center">
+                <TableCell colSpan={7} align="center">
                   Loading hash types...
                 </TableCell>
               </TableRow>
             ) : paginatedHashTypes.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center">
+                <TableCell colSpan={7} align="center">
                   No hash types found
                 </TableCell>
               </TableRow>
@@ -158,6 +160,13 @@ const HashTypeTable: React.FC<HashTypeTableProps> = ({
                     {hashType.slow && (
                       <Tooltip title="Slow hash algorithm (computationally expensive)">
                         <WarningIcon color="warning" fontSize="small" />
+                      </Tooltip>
+                    )}
+                  </TableCell>
+                  <TableCell align="center">
+                    {hashType.is_salted && (
+                      <Tooltip title="Uses per-hash salts (affects keyspace calculation)">
+                        <WaterDropIcon color="info" fontSize="small" />
                       </Tooltip>
                     )}
                   </TableCell>

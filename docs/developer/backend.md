@@ -861,6 +861,320 @@ func (s *JobWebSocketIntegration) HandleCrackBatchesComplete(
 
 See [Job Completion System](../reference/architecture/job-completion-system.md) and [Crack Batching System](../reference/architecture/crack-batching-system.md) for full details.
 
+### Atomic Task Completion Operations
+
+To prevent race conditions where agents get stuck after task completion, the backend uses atomic operations that update both the task status and agent busy status in a single transaction.
+
+**The Problem (GH Issue #12)**:
+Without atomic operations, the following race condition could occur:
+1. Agent completes task, sends `job_progress` with `status=completed`
+2. Backend marks task as completed
+3. Agent becomes available but backend still shows it as busy
+4. Agent stuck, unable to receive new tasks
+
+**Atomic Repository Methods**:
+
+```go
+// backend/internal/repository/job_task_repository.go
+
+// CompleteTaskAndClearAgentStatus atomically:
+// 1. Marks task as completed with 100% progress
+// 2. Clears agent's busy status and current task references
+func (r *JobTaskRepository) CompleteTaskAndClearAgentStatus(
+    ctx context.Context,
+    taskID uuid.UUID,
+    agentID int,
+) error {
+    tx, err := r.db.BeginTx(ctx, nil)
+    if err != nil {
+        return err
+    }
+    defer tx.Rollback()
+
+    // Update task status
+    taskQuery := `
+        UPDATE job_tasks
+        SET status = 'completed',
+            progress_percent = 100.0,
+            completed_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+    `
+    _, err = tx.ExecContext(ctx, taskQuery, taskID)
+    if err != nil {
+        return err
+    }
+
+    // Clear agent busy status in single transaction
+    agentQuery := `
+        UPDATE agents
+        SET metadata = jsonb_set(
+            jsonb_set(
+                jsonb_set(
+                    COALESCE(metadata, '{}')::jsonb,
+                    '{busy_status}', 'null'
+                ),
+                '{current_task_id}', 'null'
+            ),
+            '{current_job_id}', 'null'
+        ),
+        updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+    `
+    _, err = tx.ExecContext(ctx, agentQuery, agentID)
+    if err != nil {
+        return err
+    }
+
+    return tx.Commit()
+}
+
+// FailTaskAndClearAgentStatus atomically handles task failure
+func (r *JobTaskRepository) FailTaskAndClearAgentStatus(
+    ctx context.Context,
+    taskID uuid.UUID,
+    agentID int,
+    errorMessage string,
+) error {
+    // Similar atomic transaction for failures
+}
+```
+
+### Completion Cache System
+
+The backend maintains a completion cache to handle duplicate completion messages idempotently.
+
+**Why a Cache?**:
+- Network issues may cause agents to retry completion messages
+- Backend should not double-count cracks or keyspace
+- ACK messages may be lost, triggering retries
+
+**Implementation**:
+
+```go
+// backend/internal/integration/job_websocket_integration.go
+type JobWebSocketIntegration struct {
+    // ... other fields
+    completionCache     map[string]time.Time  // taskID -> completion timestamp
+    completionCacheMu   sync.RWMutex
+}
+
+// Cache TTL: 1 hour (tasks won't be retried after this)
+const completionCacheTTL = 1 * time.Hour
+
+// Check if completion was already processed
+func (s *JobWebSocketIntegration) isCompletionCached(taskID string) bool {
+    s.completionCacheMu.RLock()
+    defer s.completionCacheMu.RUnlock()
+    _, exists := s.completionCache[taskID]
+    return exists
+}
+
+// Cache a completion
+func (s *JobWebSocketIntegration) cacheCompletion(taskID string) {
+    s.completionCacheMu.Lock()
+    defer s.completionCacheMu.Unlock()
+    s.completionCache[taskID] = time.Now()
+}
+
+// Cleanup goroutine (runs every 10 minutes)
+func (s *JobWebSocketIntegration) cleanupCompletionCache() {
+    ticker := time.NewTicker(10 * time.Minute)
+    for range ticker.C {
+        s.completionCacheMu.Lock()
+        cutoff := time.Now().Add(-completionCacheTTL)
+        for taskID, timestamp := range s.completionCache {
+            if timestamp.Before(cutoff) {
+                delete(s.completionCache, taskID)
+            }
+        }
+        s.completionCacheMu.Unlock()
+    }
+}
+```
+
+**Usage in Progress Handler**:
+
+```go
+func (s *JobWebSocketIntegration) HandleJobProgress(
+    ctx context.Context,
+    agentID int,
+    progress *models.JobProgress,
+) error {
+    taskIDStr := progress.TaskID.String()
+
+    if progress.Status == "completed" {
+        // Check for duplicate completion
+        if s.isCompletionCached(taskIDStr) {
+            debug.Info("Duplicate completion for task %s, sending ACK only", taskIDStr)
+            s.sendTaskCompleteAck(agentID, taskIDStr, true, "Already processed")
+            return nil
+        }
+
+        // Process completion atomically
+        err := s.jobTaskRepo.CompleteTaskAndClearAgentStatus(ctx, progress.TaskID, agentID)
+        if err != nil {
+            return err
+        }
+
+        // Cache and send ACK
+        s.cacheCompletion(taskIDStr)
+        s.sendTaskCompleteAck(agentID, taskIDStr, true, "Success")
+    }
+
+    return nil
+}
+```
+
+### Task Completion ACK Messages
+
+The backend sends acknowledgment messages to agents after processing completions:
+
+```go
+// backend/internal/handlers/websocket/handler.go
+const TypeTaskCompleteAck = "task_complete_ack"
+
+type TaskCompleteAck struct {
+    TaskID    string    `json:"task_id"`
+    Timestamp time.Time `json:"timestamp"`  // For duplicate detection
+    Success   bool      `json:"success"`
+    Message   string    `json:"message,omitempty"`
+}
+
+func (s *JobWebSocketIntegration) sendTaskCompleteAck(
+    agentID int,
+    taskID string,
+    success bool,
+    message string,
+) {
+    ack := &TaskCompleteAck{
+        TaskID:    taskID,
+        Timestamp: time.Now(),
+        Success:   success,
+        Message:   message,
+    }
+
+    ackJSON, _ := json.Marshal(ack)
+    s.wsService.SendToAgent(agentID, TypeTaskCompleteAck, ackJSON)
+}
+```
+
+### Salt-Aware Services
+
+Services that handle benchmark lookups and chunk calculations now include salt count parameters for accurate performance estimation with salted hash types.
+
+**Hash Type Repository Integration**:
+
+```go
+// Services now receive hash type repository
+type JobExecutionService struct {
+    // ... other fields
+    hashTypeRepo *repository.HashTypeRepository
+}
+
+// Check if hash type is salted
+func (s *JobExecutionService) GetHashTypeByID(ctx context.Context, id int) (*models.HashType, error) {
+    return s.hashTypeRepo.GetByID(ctx, id)
+}
+```
+
+**Benchmark Lookups with Salt Count**:
+
+```go
+// backend/internal/services/job_scheduling_service.go
+func (s *JobSchedulingService) assignWorkToAgent(
+    ctx context.Context,
+    agent *models.Agent,
+    job *models.JobExecution,
+) error {
+    // Get hash type to check if salted
+    hashType, err := s.hashTypeRepo.GetByID(ctx, job.HashTypeID)
+    if err != nil {
+        return err
+    }
+
+    // Calculate salt count if salted
+    var saltCount *int
+    if hashType.IsSalted {
+        remaining := job.TotalHashes - job.CrackedHashes
+        saltCount = &remaining
+    }
+
+    // Get benchmark with salt count parameter
+    benchmark, err := s.benchmarkRepo.GetAgentBenchmark(
+        ctx,
+        agent.ID,
+        job.AttackMode,
+        job.HashTypeID,
+        saltCount,  // NEW: salt-aware lookup
+    )
+    // ...
+}
+```
+
+**Chunking Service Parameters**:
+
+```go
+// backend/internal/services/job_chunking_service.go
+type ChunkCalculationRequest struct {
+    // ... existing fields
+
+    // Salt-aware fields (NEW)
+    IsSalted      bool
+    TotalHashes   int
+    CrackedHashes int
+}
+```
+
+### Rule Splitting Timing
+
+Rule splitting is now determined at **job creation time** rather than after the first benchmark completes. This prevents mid-job strategy changes and race conditions.
+
+**Old Behavior (problematic)**:
+1. Job created with estimated keyspace
+2. First agent runs benchmark
+3. Backend decides whether to enable rule splitting based on benchmark results
+4. Problem: If multiple agents connect simultaneously, rule splitting decision may be inconsistent
+
+**New Behavior**:
+1. Job created with estimated keyspace
+2. Rule splitting decision made immediately at creation
+3. Decision based on **actual rule count** (not salt-adjusted keyspace)
+4. All agents see consistent rule splitting configuration
+
+**Implementation**:
+
+```go
+// backend/internal/services/job_execution_service.go
+func (s *JobExecutionService) CreateJobExecution(
+    ctx context.Context,
+    workflow *models.JobWorkflow,
+    hashlist *models.Hashlist,
+) (*models.JobExecution, error) {
+    // ... create job execution
+
+    // Determine rule splitting at creation time
+    if attackMode == 0 && len(rulePaths) > 0 {
+        actualRuleCount := s.getTotalRuleCount(ctx, rulePaths)
+        minRules, _ := s.systemSettingsRepo.GetInt(ctx, "rule_split_min_rules")
+
+        if actualRuleCount >= minRules {
+            jobExecution.RuleSplittingEnabled = true
+            debug.Info("Rule splitting enabled: %d rules >= %d minimum",
+                actualRuleCount, minRules)
+        }
+    }
+
+    return jobExecution, nil
+}
+```
+
+**Key Points**:
+- Uses **actual rule count**, not keyspace multiplied by salt count
+- Prevents false positives from salt-adjusted calculations
+- Consistent across all agents from job start
+- No deferred decision after benchmark
+
 ## Testing Strategies
 
 ### Unit Testing
