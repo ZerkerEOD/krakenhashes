@@ -69,7 +69,7 @@ Instructions for setting up and running each component can be found in their res
 ### Version 2.0 Considerations
 
 -   [x] Passkey support for MFA
--   [ ] Additional authentication methods
+-   [x] Additional authentication methods
 -   [ ] Advanced job dependencies
 -   [ ] Enhanced benchmarking with historical tracking
 -   [x] Job queuing and scheduling improvements
