@@ -934,6 +934,23 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 		return nil, nil, nil
 	}
 
+	// Get hash type for salt-aware chunk calculations
+	hashType, err := s.jobExecutionService.GetHashTypeByID(ctx, hashlist.HashTypeID)
+	if err != nil {
+		debug.Warning("Failed to get hash type for salt adjustment: %v (will use default behavior)", err)
+		// Continue without salt adjustment - not a fatal error
+	}
+	isSalted := hashType != nil && hashType.IsSalted
+
+	// Determine salt count for salted hash types (used for benchmark lookup)
+	var saltCount *int
+	if isSalted {
+		uncrackedCount, countErr := s.jobExecutionService.hashlistRepo.GetUncrackedHashCount(ctx, nextJob.HashlistID)
+		if countErr == nil && uncrackedCount > 0 {
+			saltCount = &uncrackedCount
+		}
+	}
+
 	// Note: Interruption logic has been moved to main ScheduleJobs method
 	// and only runs when no agents are available
 	var interruptedJobs []uuid.UUID
@@ -1078,8 +1095,8 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 		}
 	}
 
-	// Check if agent has a benchmark for this attack mode and hash type
-	benchmark, err := s.jobExecutionService.benchmarkRepo.GetAgentBenchmark(ctx, agent.ID, nextJob.AttackMode, hashlist.HashTypeID)
+	// Check if agent has a benchmark for this attack mode and hash type (salt-aware lookup)
+	benchmark, err := s.jobExecutionService.benchmarkRepo.GetAgentBenchmark(ctx, agent.ID, nextJob.AttackMode, hashlist.HashTypeID, saltCount)
 	needsBenchmark := err != nil || benchmark == nil
 
 	// If recent benchmark check is needed, check if it's still valid
@@ -1091,7 +1108,7 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 			}
 		}
 
-		isRecent, err := s.jobExecutionService.benchmarkRepo.IsRecentBenchmark(ctx, agent.ID, nextJob.AttackMode, hashlist.HashTypeID, cacheDuration)
+		isRecent, err := s.jobExecutionService.benchmarkRepo.IsRecentBenchmark(ctx, agent.ID, nextJob.AttackMode, hashlist.HashTypeID, saltCount, cacheDuration)
 		needsBenchmark = err != nil || !isRecent
 	}
 
@@ -1251,9 +1268,15 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 				}
 			}
 
+			// Get actual rule count (not salt-adjusted) for minRules comparison
+			actualRuleCount, ruleErr := s.jobExecutionService.getTotalRuleCount(ctx, nextJob.RuleIDs)
+			if ruleErr != nil {
+				actualRuleCount = int64(nextJob.MultiplicationFactor) // Fallback to multiplicationFactor
+			}
+
 			// If job would take longer than max duration AND has enough rules, enable rule splitting
 			// Without enough rules, we fall back to keyspace splitting (--skip/--limit)
-			if estimatedTime > maxDuration && nextJob.MultiplicationFactor >= minRules {
+			if estimatedTime > maxDuration && int(actualRuleCount) >= minRules {
 				nextJob.UsesRuleSplitting = true
 				nextJob.RuleSplitCount = 0  // Start at 0, will increment as chunks are created
 				// Update the job in database
@@ -1264,7 +1287,7 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 						"error": err.Error(),
 					})
 				}
-				
+
 				// Update rule split count to 0
 				err = s.jobExecutionService.jobExecRepo.UpdateKeyspaceInfo(ctx, nextJob)
 				if err != nil {
@@ -1273,7 +1296,7 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 						"error": err.Error(),
 					})
 				}
-				
+
 				debug.Log("Dynamically enabled rule splitting", map[string]interface{}{
 					"job_id":              nextJob.ID,
 					"effective_keyspace":  effectiveKeyspace,
@@ -1282,21 +1305,23 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 					"max_duration":        maxDuration,
 					"chunk_duration":      chunkDuration,
 					"fluctuation_percent": fluctuationPercent,
-					"rule_count":          nextJob.MultiplicationFactor,
+					"actual_rule_count":   actualRuleCount,
+					"multiplication_factor": nextJob.MultiplicationFactor,
 					"min_rules":           minRules,
 					"rule_split_count":    0,
 				})
 			} else {
 				debug.Log("Job using keyspace splitting (not rule splitting)", map[string]interface{}{
-					"job_id":             nextJob.ID,
-					"effective_keyspace": effectiveKeyspace,
-					"benchmark_speed":    benchmark.Speed,
-					"estimated_time":     estimatedTime,
-					"max_duration":       maxDuration,
-					"rule_count":         nextJob.MultiplicationFactor,
-					"min_rules":          minRules,
-					"exceeds_duration":   estimatedTime > maxDuration,
-					"meets_min_rules":    nextJob.MultiplicationFactor >= minRules,
+					"job_id":              nextJob.ID,
+					"effective_keyspace":  effectiveKeyspace,
+					"benchmark_speed":     benchmark.Speed,
+					"estimated_time":      estimatedTime,
+					"max_duration":        maxDuration,
+					"actual_rule_count":   actualRuleCount,
+					"multiplication_factor": nextJob.MultiplicationFactor,
+					"min_rules":           minRules,
+					"exceeds_duration":    estimatedTime > maxDuration,
+					"meets_min_rules":     int(actualRuleCount) >= minRules,
 				})
 			}
 		}
@@ -1309,6 +1334,11 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 		AttackMode:    nextJob.AttackMode,
 		HashType:      hashlist.HashTypeID,
 		ChunkDuration: 1200, // This should come from settings or preset job
+
+		// Salt-aware chunk calculation
+		IsSalted:      isSalted,
+		TotalHashes:   hashlist.TotalHashes,
+		CrackedHashes: hashlist.CrackedHashes,
 	}
 
 	// Get chunk duration from settings or preset job
@@ -1420,7 +1450,7 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 
 		// Calculate how many rules this agent can process in the chunk duration
 		// Get benchmark speed for this agent
-		benchmarkSpeed, err := s.jobChunkingService.GetOrEstimateBenchmark(ctx, agent.ID, nextJob.AttackMode, hashlist.HashTypeID)
+		benchmarkSpeed, err := s.jobChunkingService.GetOrEstimateBenchmark(ctx, agent.ID, nextJob.AttackMode, hashlist.HashTypeID, saltCount)
 		if err != nil {
 			debug.Log("Failed to get benchmark, using default", map[string]interface{}{
 				"error": err.Error(),
@@ -1430,9 +1460,19 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 
 		// rulesPerSecond = benchmarkSpeed / baseKeyspace (how many complete wordlist passes per second)
 		// rulesPerChunk = rulesPerSecond * chunkDuration
+		// For salted hash types, multiply baseKeyspace by salt count to match salt-aware benchmark
 		rulesPerChunk := 100 // Default if calculation fails
 		if baseKeyspace > 0 && benchmarkSpeed > 0 {
-			rulesPerSecond := float64(benchmarkSpeed) / float64(baseKeyspace)
+			effectiveBaseKeyspace := baseKeyspace
+			if isSalted && saltCount != nil && *saltCount > 0 {
+				effectiveBaseKeyspace = baseKeyspace * int64(*saltCount)
+				debug.Log("Adjusted base_keyspace for salted hash type", map[string]interface{}{
+					"original_base_keyspace":  baseKeyspace,
+					"salt_count":              *saltCount,
+					"effective_base_keyspace": effectiveBaseKeyspace,
+				})
+			}
+			rulesPerSecond := float64(benchmarkSpeed) / float64(effectiveBaseKeyspace)
 			rulesPerChunk = int(rulesPerSecond * float64(chunkReq.ChunkDuration))
 			if rulesPerChunk < 1 {
 				rulesPerChunk = 1 // At least one rule per chunk

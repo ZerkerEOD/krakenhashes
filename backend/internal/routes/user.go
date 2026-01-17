@@ -72,6 +72,7 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 		deviceRepo,
 		presetJobRepo,
 		hashlistRepo,
+		hashTypeRepo,
 		systemSettingsRepo,
 		fileRepo,
 		scheduleRepo,

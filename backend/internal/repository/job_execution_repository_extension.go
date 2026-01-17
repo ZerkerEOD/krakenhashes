@@ -32,10 +32,12 @@ func (r *JobExecutionRepository) ListWithPagination(ctx context.Context, limit, 
 				ELSE NULL
 			END ASC,
 			-- Within completed jobs: by completed_at DESC (most recent first)
-			CASE 
-				WHEN status NOT IN ('pending', 'running', 'paused') THEN completed_at
+			-- Use COALESCE to handle NULL completed_at (fallback to updated_at, then created_at)
+			CASE
+				WHEN status NOT IN ('pending', 'running', 'paused')
+				THEN COALESCE(completed_at, updated_at, created_at)
 				ELSE NULL
-			END DESC
+			END DESC NULLS LAST
 		LIMIT $1 OFFSET $2`
 
 	rows, err := r.db.QueryContext(ctx, query, limit, offset)
@@ -121,26 +123,28 @@ func (r *JobExecutionRepository) ListWithFilters(ctx context.Context, limit, off
 	}
 
 	// Add ordering
-	query += ` ORDER BY 
+	query += ` ORDER BY
 		-- Active jobs first (pending, running, paused)
-		CASE 
+		CASE
 			WHEN je.status IN ('pending', 'running', 'paused') THEN 0
 			ELSE 1
 		END,
 		-- Within active jobs: by priority DESC, created_at ASC
-		CASE 
+		CASE
 			WHEN je.status IN ('pending', 'running', 'paused') THEN je.priority
 			ELSE NULL
 		END DESC,
-		CASE 
+		CASE
 			WHEN je.status IN ('pending', 'running', 'paused') THEN je.created_at
 			ELSE NULL
 		END ASC,
 		-- Within completed jobs: by completed_at DESC (most recent first)
-		CASE 
-			WHEN je.status NOT IN ('pending', 'running', 'paused') THEN je.completed_at
+		-- Use COALESCE to handle NULL completed_at (fallback to updated_at, then created_at)
+		CASE
+			WHEN je.status NOT IN ('pending', 'running', 'paused')
+			THEN COALESCE(je.completed_at, je.updated_at, je.created_at)
 			ELSE NULL
-		END DESC`
+		END DESC NULLS LAST`
 
 	// Add pagination
 	argCount++
@@ -511,26 +515,28 @@ func (r *JobExecutionRepository) ListWithFiltersAndUser(ctx context.Context, lim
 	}
 
 	// Add ordering
-	query += ` ORDER BY 
+	query += ` ORDER BY
 		-- Active jobs first (pending, running, paused)
-		CASE 
+		CASE
 			WHEN je.status IN ('pending', 'running', 'paused') THEN 0
 			ELSE 1
 		END,
 		-- Within active jobs: by priority DESC, created_at ASC
-		CASE 
+		CASE
 			WHEN je.status IN ('pending', 'running', 'paused') THEN je.priority
 			ELSE NULL
 		END DESC,
-		CASE 
+		CASE
 			WHEN je.status IN ('pending', 'running', 'paused') THEN je.created_at
 			ELSE NULL
 		END ASC,
 		-- Within completed jobs: by completed_at DESC (most recent first)
-		CASE 
-			WHEN je.status NOT IN ('pending', 'running', 'paused') THEN je.completed_at
+		-- Use COALESCE to handle NULL completed_at (fallback to updated_at, then created_at)
+		CASE
+			WHEN je.status NOT IN ('pending', 'running', 'paused')
+			THEN COALESCE(je.completed_at, je.updated_at, je.created_at)
 			ELSE NULL
-		END DESC`
+		END DESC NULLS LAST`
 
 	// Add pagination
 	argCount++

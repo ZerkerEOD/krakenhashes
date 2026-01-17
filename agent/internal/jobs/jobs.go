@@ -722,8 +722,13 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 
 				// Show console progress for running tasks
 				if progress.Status == "" || progress.Status == "running" {
-					// Calculate total keyspace
-					totalKeyspace := jobExecution.Assignment.KeyspaceEnd - jobExecution.Assignment.KeyspaceStart
+					// Use EFFECTIVE progress values for consistent display
+					// EffectiveProgress and TotalEffectiveKeyspace account for rules and salts
+					effectiveProgress := progress.EffectiveProgress
+					totalEffective := jobExecution.Assignment.KeyspaceEnd - jobExecution.Assignment.KeyspaceStart // fallback to base keyspace
+					if progress.TotalEffectiveKeyspace != nil && *progress.TotalEffectiveKeyspace > 0 {
+						totalEffective = *progress.TotalEffectiveKeyspace
+					}
 
 					// Format and display task progress
 					taskProgress := console.TaskProgress{
@@ -732,8 +737,8 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 						HashRate:          progress.HashRate,
 						TimeRemaining:     0,
 						Status:            "running",
-						KeyspaceProcessed: progress.KeyspaceProcessed,
-						TotalKeyspace:     totalKeyspace,
+						KeyspaceProcessed: effectiveProgress,
+						TotalKeyspace:     totalEffective,
 					}
 					if progress.TimeRemaining != nil {
 						taskProgress.TimeRemaining = *progress.TimeRemaining

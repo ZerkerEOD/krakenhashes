@@ -42,6 +42,11 @@ type TaskAssignmentPlan struct {
 
 	AttackCmd string // Pre-built, will need rule path replacement for rule splits
 
+	// Salt-aware chunk calculation
+	IsSalted      bool // Whether the hash type uses per-hash salts
+	TotalHashes   int  // Total hashes in the hashlist
+	CrackedHashes int  // Number of cracked hashes
+
 	// Flags
 	SkipAssignment bool // If no valid benchmark or job exhausted
 	SkipReason     string
@@ -352,6 +357,23 @@ func (s *JobSchedulingService) createSingleTaskPlan(
 		return nil, fmt.Errorf("failed to get hashlist: %w", err)
 	}
 
+	// Get hash type for salt-aware chunk calculations
+	hashType, err := s.jobExecutionService.GetHashTypeByID(ctx, hashlist.HashTypeID)
+	if err != nil {
+		debug.Warning("Failed to get hash type for salt adjustment: %v (will use default behavior)", err)
+		// Continue without salt adjustment - not a fatal error
+	}
+	isSalted := hashType != nil && hashType.IsSalted
+
+	// Determine salt count for salted hash types (used for benchmark lookup)
+	var saltCount *int
+	if isSalted {
+		uncrackedCount, countErr := s.jobExecutionService.hashlistRepo.GetUncrackedHashCount(ctx, currentState.JobExecution.HashlistID)
+		if countErr == nil && uncrackedCount > 0 {
+			saltCount = &uncrackedCount
+		}
+	}
+
 	// PRIORITY 1: Check for existing pending tasks FIRST - prioritize reassignment over new chunks
 	pendingTasks, err := s.jobExecutionService.jobTaskRepo.GetPendingTasksByJobExecution(ctx, currentState.JobExecution.ID)
 	if err == nil && len(pendingTasks) > 0 {
@@ -364,9 +386,9 @@ func (s *JobSchedulingService) createSingleTaskPlan(
 			"chunk_number": pendingTask.ChunkNumber,
 		})
 
-		// Verify agent has benchmark for this job before reassigning
+		// Verify agent has benchmark for this job before reassigning (salt-aware lookup)
 		benchmark, err := s.jobExecutionService.benchmarkRepo.GetAgentBenchmark(
-			ctx, agentID, currentState.JobExecution.AttackMode, hashlist.HashTypeID)
+			ctx, agentID, currentState.JobExecution.AttackMode, hashlist.HashTypeID, saltCount)
 
 		if err != nil || benchmark == nil {
 			debug.Log("Agent missing benchmark for pending task job, skipping reassignment", map[string]interface{}{
@@ -442,6 +464,11 @@ func (s *JobSchedulingService) createSingleTaskPlan(
 				IsKeyspaceSplit:        recoveryIsKeyspaceSplit,
 				AttackCmd:              pendingTask.AttackCmd,
 				ChunkNumber:            pendingTask.ChunkNumber,
+
+				// Salt-aware chunk calculation
+				IsSalted:      isSalted,
+				TotalHashes:   hashlist.TotalHashes,
+				CrackedHashes: hashlist.CrackedHashes,
 			}
 
 			// For rule-split tasks, copy rule fields and get source rule path
@@ -484,9 +511,9 @@ func (s *JobSchedulingService) createSingleTaskPlan(
 
 createNewChunk:
 	// PRIORITY 2: No pending tasks OR agent lacks benchmark - create NEW chunk
-	// Check if agent has valid benchmark for this job
+	// Check if agent has valid benchmark for this job (salt-aware lookup)
 	benchmark, err := s.jobExecutionService.benchmarkRepo.GetAgentBenchmark(
-		ctx, agentID, currentState.JobExecution.AttackMode, hashlist.HashTypeID)
+		ctx, agentID, currentState.JobExecution.AttackMode, hashlist.HashTypeID, saltCount)
 
 	if err != nil || benchmark == nil {
 		// Agent lacks benchmark for reserved job - skip assignment to preserve FIFO order
@@ -532,6 +559,11 @@ createNewChunk:
 		JobExecution:   currentState.JobExecution,
 		ChunkDuration:  chunkDuration,
 		BenchmarkSpeed: benchmark.Speed,
+
+		// Salt-aware chunk calculation
+		IsSalted:      isSalted,
+		TotalHashes:   hashlist.TotalHashes,
+		CrackedHashes: hashlist.CrackedHashes,
 	}
 
 	// Add increment layer information if this is an increment mode job
@@ -862,8 +894,23 @@ func (s *JobSchedulingService) calculateRuleSplitChunk(
 			totalRules = 1
 		}
 
-		// Keyspace per rule (includes salt multiplication via effective_keyspace)
+		// Keyspace per rule (base calculation without salts)
 		keyspacePerRule := float64(*state.JobExecution.EffectiveKeyspace) / float64(totalRules)
+
+		// For salted hash types, multiply keyspace by remaining hashes (each hash = 1 salt)
+		// This aligns with the salt-aware benchmark speed which already accounts for salt count
+		if plan.IsSalted {
+			remainingHashes := plan.TotalHashes - plan.CrackedHashes
+			if remainingHashes > 0 {
+				originalKeyspacePerRule := keyspacePerRule
+				keyspacePerRule *= float64(remainingHashes)
+				debug.Log("Adjusted keyspace_per_rule for salted hash type", map[string]interface{}{
+					"original_keyspace_per_rule": originalKeyspacePerRule,
+					"salt_count":                 remainingHashes,
+					"adjusted_keyspace_per_rule": keyspacePerRule,
+				})
+			}
+		}
 
 		// Keyspace we can process in target duration
 		chunkKeyspace := float64(plan.BenchmarkSpeed) * float64(plan.ChunkDuration)
@@ -1070,6 +1117,8 @@ func (s *JobSchedulingService) calculateKeyspaceChunk(
 	if effectiveKeyspace > 0 && totalKeyspace > 0 {
 		// multiplier = effective_keyspace / base_keyspace
 		// For mask attacks with many hashes, multiplier ≈ hash_count
+		// For salted hashes, effective_keyspace already includes salt factor (applied at job creation)
+		// So multiplier = (base × rules × salts) / base = rules × salts
 		multiplier := float64(effectiveKeyspace) / float64(totalKeyspace)
 
 		// Convert benchmark speed (effective H/s) to base keyspace per second
@@ -1090,9 +1139,31 @@ func (s *JobSchedulingService) calculateKeyspaceChunk(
 			"desired_base_chunk":  desiredChunkSize,
 		})
 	} else {
-		// Fallback: assume 1:1 ratio if effective keyspace not available yet
-		desiredChunkSize = int64(plan.ChunkDuration) * plan.BenchmarkSpeed
-		debug.Warning("No effective keyspace available for job %s, using 1:1 ratio for chunk calculation", plan.JobExecution.ID)
+		// Fallback: no effective keyspace available
+		// For salted hashes, we MUST apply salt adjustment or chunks will be way too large
+		candidateSpeed := plan.BenchmarkSpeed
+		if plan.IsSalted {
+			remainingHashes := int64(plan.TotalHashes - plan.CrackedHashes)
+			if remainingHashes > 0 {
+				candidateSpeed = plan.BenchmarkSpeed / remainingHashes
+				debug.Log("Applied salt adjustment in fallback chunk calculation", map[string]interface{}{
+					"is_salted":         plan.IsSalted,
+					"total_hashes":      plan.TotalHashes,
+					"cracked_hashes":    plan.CrackedHashes,
+					"remaining_hashes":  remainingHashes,
+					"original_speed":    plan.BenchmarkSpeed,
+					"adjusted_speed":    candidateSpeed,
+				})
+			}
+		}
+		desiredChunkSize = int64(plan.ChunkDuration) * candidateSpeed
+		debug.Warning("No effective keyspace available for job %s, using %s for chunk calculation",
+			plan.JobExecution.ID, func() string {
+				if plan.IsSalted {
+					return "salt-adjusted speed"
+				}
+				return "1:1 ratio"
+			}())
 	}
 
 	// Ensure at least 1 keyspace unit per chunk

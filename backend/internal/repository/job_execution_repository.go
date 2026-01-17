@@ -250,9 +250,26 @@ func (r *JobExecutionRepository) GetJobsByStatus(ctx context.Context, status mod
 }
 
 // UpdateStatus updates the status of a job execution
+// For terminal states (completed, failed, cancelled), it also sets completed_at
+// For non-terminal states, it clears completed_at (supports retry functionality)
 func (r *JobExecutionRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status models.JobExecutionStatus) error {
-	query := `UPDATE job_executions SET status = $1 WHERE id = $2`
-	result, err := r.db.ExecContext(ctx, query, status, id)
+	var query string
+	var args []interface{}
+
+	// For terminal states, set completed_at
+	if status == models.JobExecutionStatusCompleted ||
+		status == models.JobExecutionStatusFailed ||
+		status == models.JobExecutionStatusCancelled {
+		query = `UPDATE job_executions SET status = $1, completed_at = $2 WHERE id = $3`
+		args = []interface{}{status, time.Now(), id}
+	} else {
+		// For non-terminal states (pending, running, paused), clear completed_at
+		// This supports retry functionality - retried jobs should not have completed_at set
+		query = `UPDATE job_executions SET status = $1, completed_at = NULL WHERE id = $2`
+		args = []interface{}{status, id}
+	}
+
+	result, err := r.db.ExecContext(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("failed to update job execution status: %w", err)
 	}
@@ -725,8 +742,8 @@ func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]
 				-- Regular keyspace chunking job with more keyspace to dispatch
 				(je.uses_rule_splitting = false
 				 AND (je.increment_mode IS NULL OR je.increment_mode = 'off')
-				 AND je.total_keyspace IS NOT NULL
-				 AND je.dispatched_keyspace < je.total_keyspace)
+				 AND je.effective_keyspace IS NOT NULL
+				 AND je.dispatched_keyspace < je.effective_keyspace)
 			)
 		ORDER BY je.priority DESC, je.created_at ASC`
 

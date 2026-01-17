@@ -285,6 +285,264 @@ type JobProgress struct {
 }
 ```
 
+### Task State Machine
+
+The agent implements an explicit state machine to prevent race conditions and ensure reliable task state tracking. This was introduced to fix GitHub Issue #12 where agents could get stuck in a busy state after task completion.
+
+#### Task States
+
+```go
+// From internal/jobs/state.go
+type TaskState int
+
+const (
+    TaskStateIdle       TaskState = iota  // No task running
+    TaskStateRunning                      // Task actively executing
+    TaskStateCompleting                   // Task done, waiting for backend ACK
+    TaskStateStopped                      // Task stopped by user
+    TaskStateFailed                       // Task failed
+)
+```
+
+#### State Manager
+
+```go
+// From internal/jobs/state.go
+type TaskStateManager struct {
+    mu                sync.RWMutex
+    currentState      TaskState
+    currentTaskID     string
+    stateChangedAt    time.Time
+    completionPending bool
+    pendingTaskID     string
+}
+
+// State transition methods
+func (m *TaskStateManager) TransitionTo(state TaskState, taskID string)
+func (m *TaskStateManager) GetState() (TaskState, string)
+func (m *TaskStateManager) GetStateInfo() (TaskState, string, time.Time)
+func (m *TaskStateManager) SetCompletionPending(taskID string)
+func (m *TaskStateManager) GetCompletionPending() (bool, string)
+func (m *TaskStateManager) TransitionToIdle()
+```
+
+#### State Transitions
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                         IDLE                                │
+│   (No task assigned, agent available for work)             │
+└─────────────────────────────────────────────────────────────┘
+         │                               ▲
+         │ TaskAssignment                │ ACK Received
+         │ received                      │ OR timeout
+         ▼                               │
+┌─────────────────────────────────────────────────────────────┐
+│                       RUNNING                               │
+│   (Hashcat executing, progress being reported)             │
+└─────────────────────────────────────────────────────────────┘
+         │                     │                    │
+         │ Completed          │ Stop              │ Error
+         │ (100%)             │ received          │
+         ▼                    ▼                   ▼
+┌─────────────┐      ┌─────────────┐      ┌─────────────┐
+│ COMPLETING  │      │  STOPPED    │      │  FAILED     │
+│ (Waiting    │      │             │      │             │
+│  for ACK)   │      │             │      │             │
+└─────────────┘      └─────────────┘      └─────────────┘
+         │                  │                    │
+         │ ACK/timeout      │ immediate          │ immediate
+         ▼                  ▼                    ▼
+┌─────────────────────────────────────────────────────────────┐
+│                         IDLE                                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Completion ACK Protocol
+
+When a task completes, the agent waits for the backend to acknowledge receipt. This prevents race conditions where the agent accepts new work before the backend has processed the completion.
+
+#### ACK Flow
+
+1. **Task completes** → Agent sends `job_progress` with `status=completed`
+2. **Agent enters COMPLETING state** → Waits for `task_complete_ack` message
+3. **Backend processes completion** → Sends `task_complete_ack` with timestamp
+4. **Agent receives ACK** → Transitions to IDLE state
+5. **Agent available** → Can accept new task assignments
+
+#### Implementation
+
+```go
+// From internal/jobs/jobs.go
+func (jm *JobManager) SetAckWaitCallback(callback func(taskID string, resendFunc func() error) bool) {
+    jm.ackWaitCallback = callback
+}
+
+// After task completion
+if jm.ackWaitCallback != nil {
+    jm.stateManager.TransitionTo(TaskStateCompleting, taskID)
+
+    // Create resend function for retries
+    resendFunc := func() error {
+        return jm.sendCompletionProgress(taskID, finalProgress)
+    }
+
+    // Wait for ACK (blocks until ACK received or timeout)
+    ackReceived := jm.ackWaitCallback(taskID, resendFunc)
+
+    if !ackReceived {
+        // Mark as pending for state sync recovery
+        jm.stateManager.SetCompletionPending(taskID)
+    }
+}
+
+jm.stateManager.TransitionToIdle()
+```
+
+#### ACK Message Structure
+
+```go
+// Sent by backend
+type TaskCompleteAck struct {
+    TaskID    string    `json:"task_id"`
+    Timestamp time.Time `json:"timestamp"`  // For duplicate detection
+    Success   bool      `json:"success"`
+    Message   string    `json:"message,omitempty"`
+}
+```
+
+#### Retry Configuration
+
+```go
+// From internal/agent/connection.go
+const (
+    AckWaitTimeout    = 30 * time.Second  // Timeout per ACK attempt
+    AckMaxRetries     = 3                  // Maximum retry attempts
+)
+```
+
+### Stuck Detection System
+
+As a safety net, the agent monitors for stuck states and automatically recovers.
+
+#### Stuck Detection Parameters
+
+```go
+const (
+    StuckDetectionTimeout = 2 * time.Minute  // Max time in COMPLETING state
+    StuckCheckInterval    = 30 * time.Second // Check frequency
+)
+```
+
+#### Implementation
+
+```go
+// From internal/agent/connection.go
+func (c *Connection) StartStuckDetection(ctx context.Context) {
+    ticker := time.NewTicker(StuckCheckInterval)
+    defer ticker.Stop()
+
+    for {
+        select {
+        case <-ctx.Done():
+            return
+        case <-ticker.C:
+            c.checkForStuckState()
+        }
+    }
+}
+
+func (c *Connection) checkForStuckState() {
+    state, taskID, changedAt := c.jobManager.GetStateInfo()
+
+    if state == TaskStateCompleting {
+        if time.Since(changedAt) > StuckDetectionTimeout {
+            debug.Warning("Stuck detection: Agent in COMPLETING state for %v, forcing recovery",
+                time.Since(changedAt))
+            c.forceRecovery(taskID)
+        }
+    }
+}
+
+func (c *Connection) forceRecovery(taskID string) {
+    // Mark completion as pending for state sync
+    c.jobManager.SetCompletionPending(taskID)
+
+    // Force transition to idle
+    c.jobManager.TransitionToIdle()
+
+    debug.Info("Force recovery complete, agent now idle")
+}
+```
+
+#### Recovery Flow
+
+1. **Detection**: Check every 30 seconds if state is COMPLETING
+2. **Trigger**: If in COMPLETING for > 2 minutes, trigger recovery
+3. **Mark pending**: Set `completion_pending = true` for the task
+4. **Force idle**: Transition state machine to IDLE
+5. **State sync**: Backend resolves pending completion on next state sync
+
+### Synchronous Task Cleanup
+
+To prevent race conditions, task cleanup happens synchronously BEFORE completion is logged.
+
+```go
+// From internal/jobs/jobs.go
+func (jm *JobManager) cleanupCompletedTask(taskID string) {
+    jm.mutex.Lock()
+    defer jm.mutex.Unlock()
+
+    // 1. Remove from active jobs map
+    if job, exists := jm.activeJobs[taskID]; exists {
+        // Cache completion info for later queries
+        jm.completedTaskCache[taskID] = &CompletedTaskInfo{
+            CompletedAt: time.Now(),
+            FinalProgress: job.FinalProgress,
+        }
+        delete(jm.activeJobs, taskID)
+    }
+
+    // 2. Clean up attack files
+    jm.cleanupAttackFiles(taskID)
+}
+
+// Called synchronously before logging completion
+func (jm *JobManager) handleTaskCompletion(taskID string, progress *JobProgress) {
+    // FIRST: Synchronous cleanup
+    jm.cleanupCompletedTask(taskID)
+
+    // THEN: Log completion (state is already clean)
+    debug.Info("Task %s completed successfully", taskID)
+
+    // THEN: Wait for ACK
+    if jm.ackWaitCallback != nil {
+        // ... ACK waiting logic
+    }
+}
+```
+
+### Effective Keyspace Progress
+
+Progress tracking now uses effective keyspace values (which account for rules and salts):
+
+```go
+// From internal/jobs/jobs.go
+func (jm *JobManager) calculateProgress(hashcatStatus map[string]interface{}) float64 {
+    // Prefer effective progress values
+    effectiveProgress := getInt64(hashcatStatus, "effective_progress")
+    totalEffectiveKeyspace := getInt64(hashcatStatus, "total_effective_keyspace")
+
+    if effectiveProgress > 0 && totalEffectiveKeyspace > 0 {
+        return float64(effectiveProgress) / float64(totalEffectiveKeyspace) * 100.0
+    }
+
+    // Fallback to base keyspace
+    progress := hashcatStatus["progress"].([]interface{})
+    return float64(progress[0].(int64)) / float64(progress[1].(int64)) * 100.0
+}
+```
+
 ## WebSocket Communication
 
 The agent maintains a persistent WebSocket connection with the backend for real-time communication.

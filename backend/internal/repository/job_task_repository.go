@@ -281,7 +281,7 @@ func (r *JobTaskRepository) GetActiveTasksByAgent(ctx context.Context, agentID i
 			benchmark_speed, chunk_duration, assigned_at,
 			started_at, completed_at, last_checkpoint, error_message
 		FROM job_tasks
-		WHERE agent_id = $1 AND status IN ('assigned', 'running', 'processing')
+		WHERE agent_id = $1 AND status IN ('assigned', 'running')
 		ORDER BY assigned_at ASC`
 
 	rows, err := r.db.QueryContext(ctx, query, agentID)

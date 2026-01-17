@@ -1397,6 +1397,26 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 
 	// Check if this is a failure update
 	if progress.Status == "failed" && progress.ErrorMessage != "" {
+		// Check if this is an agent-side rejection (not an execution failure)
+		// Agent rejections happen when the agent is already running a task
+		isAgentRejection := strings.Contains(progress.ErrorMessage, "cannot accept task") ||
+			strings.Contains(progress.ErrorMessage, "already running task")
+
+		if isAgentRejection {
+			// Agent rejected the task - return it to pending for reassignment
+			debug.Warning("Agent rejected task assignment (will be reassigned): task=%s, agent=%d, reason=%s",
+				progress.TaskID, agentID, progress.ErrorMessage)
+
+			// Revert task to pending (NOT failed) - SetTaskPending clears agent_id and assigned_at
+			err := s.jobTaskRepo.SetTaskPending(ctx, progress.TaskID)
+			if err != nil {
+				debug.Error("Failed to revert rejected task to pending: %v", err)
+			}
+
+			// Don't mark job as failed - the task will be reassigned
+			return nil
+		}
+
 		debug.Log("Task failed with error", map[string]interface{}{
 			"task_id": progress.TaskID,
 			"error":   progress.ErrorMessage,
@@ -2208,11 +2228,53 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 		return fmt.Errorf("failed to get agent: %w", err)
 	}
 
-	// Store benchmark result
+	// Determine salt count for salted hash types
+	// For salted hashes, salt count = remaining (uncracked) hash count at benchmark time
+	var saltCount *int
+	if result.JobExecutionID != "" {
+		entityID, parseErr := uuid.Parse(result.JobExecutionID)
+		if parseErr == nil {
+			// Try to get job execution (handles both direct job and layer->parent job)
+			var hashlistID int64
+			layer, layerErr := s.jobIncrementLayerRepo.GetByID(ctx, entityID)
+			if layerErr == nil && layer != nil {
+				// This is a layer - get parent job's hashlist
+				if job, jobErr := s.jobExecutionService.GetJobExecutionByID(ctx, layer.JobExecutionID); jobErr == nil && job != nil {
+					hashlistID = job.HashlistID
+				}
+			} else {
+				// This is a direct job
+				if job, jobErr := s.jobExecutionService.GetJobExecutionByID(ctx, entityID); jobErr == nil && job != nil {
+					hashlistID = job.HashlistID
+				}
+			}
+
+			if hashlistID > 0 {
+				// Get hashlist and check if hash type is salted
+				if hashlist, hlErr := s.hashlistRepo.GetByID(ctx, hashlistID); hlErr == nil && hashlist != nil {
+					hashType, htErr := s.jobExecutionService.GetHashTypeByID(ctx, hashlist.HashTypeID)
+					if htErr == nil && hashType != nil && hashType.IsSalted {
+						// For salted hash types, get remaining hash count as salt count
+						uncrackedCount, countErr := s.hashlistRepo.GetUncrackedHashCount(ctx, hashlistID)
+						if countErr == nil && uncrackedCount > 0 {
+							saltCount = &uncrackedCount
+							debug.Log("Benchmark for salted hash type", map[string]interface{}{
+								"hash_type":  result.HashType,
+								"salt_count": uncrackedCount,
+							})
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Store benchmark result (with salt count for salted hash types)
 	benchmark := &models.AgentBenchmark{
 		AgentID:    agent.ID,
 		AttackMode: models.AttackMode(result.AttackMode),
 		HashType:   result.HashType,
+		SaltCount:  saltCount,
 		Speed:      result.Speed,
 	}
 
@@ -2226,6 +2288,7 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 		"hash_type":   result.HashType,
 		"attack_mode": result.AttackMode,
 		"speed":       result.Speed,
+		"salt_count":  saltCount,
 	})
 
 	// Update benchmark_requests table to mark this benchmark as complete
@@ -2344,16 +2407,6 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 				debug.Error("Failed to update job keyspace info: %v", err)
 				return fmt.Errorf("failed to update job keyspace info: %w", err)
 			}
-
-			// NOW that we have accurate keyspace, determine if rule splitting should be used
-			// This decision was DEFERRED from job creation time
-			// Both straight (mode 0) and association (mode 9) attacks can use rule splitting
-			if (jobExec.AttackMode == models.AttackModeStraight || jobExec.AttackMode == models.AttackModeAssociation) && len(jobExec.RuleIDs) > 0 {
-				if err := s.determineRuleSplittingAfterBenchmark(ctx, jobExec, result.Speed); err != nil {
-					debug.Warning("Failed to determine rule splitting after benchmark: %v", err)
-					// Non-fatal - job will use keyspace splitting as fallback
-				}
-			}
 		} else {
 			// Subsequent benchmark - validate consistency (should match job total)
 			diff := result.TotalEffectiveKeyspace - *jobExec.EffectiveKeyspace
@@ -2407,102 +2460,6 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 				}
 			}
 		}
-	}
-
-	return nil
-}
-
-// determineRuleSplittingAfterBenchmark makes the rule split decision using accurate keyspace from benchmark
-// This is called AFTER the forced benchmark provides accurate effective keyspace from hashcat's progress[1]
-// benchmarkSpeed is the actual speed from the agent benchmark (H/s), NOT a hardcoded estimate
-func (s *JobWebSocketIntegration) determineRuleSplittingAfterBenchmark(ctx context.Context, job *models.JobExecution, benchmarkSpeed int64) error {
-	// Check if rule splitting is enabled
-	ruleSplitEnabled, err := s.systemSettingsRepo.GetSetting(ctx, "rule_split_enabled")
-	if err != nil || ruleSplitEnabled.Value == nil || *ruleSplitEnabled.Value != "true" {
-		debug.Log("Rule splitting is disabled, skipping determination", nil)
-		return nil // Rule splitting not enabled
-	}
-
-	if job.EffectiveKeyspace == nil || *job.EffectiveKeyspace == 0 {
-		debug.Log("No effective keyspace available for rule split decision", nil)
-		return nil
-	}
-
-	// Get threshold setting (default 0.5 = 50% of chunk duration)
-	threshold := 0.5
-	thresholdSetting, err := s.systemSettingsRepo.GetSetting(ctx, "rule_split_threshold")
-	if err == nil && thresholdSetting.Value != nil {
-		if parsed, parseErr := strconv.ParseFloat(*thresholdSetting.Value, 64); parseErr == nil {
-			threshold = parsed
-		}
-	}
-
-	// Get chunk duration setting (default 900 seconds = 15 min)
-	chunkDuration := 900
-	chunkDurationSetting, err := s.systemSettingsRepo.GetSetting(ctx, "default_chunk_duration")
-	if err == nil && chunkDurationSetting.Value != nil {
-		if parsed, parseErr := strconv.Atoi(*chunkDurationSetting.Value); parseErr == nil {
-			chunkDuration = parsed
-		}
-	}
-
-	// Get minimum rules setting (default 10)
-	minRules := 10
-	minRulesSetting, err := s.systemSettingsRepo.GetSetting(ctx, "rule_split_min_rules")
-	if err == nil && minRulesSetting.Value != nil {
-		if parsed, parseErr := strconv.Atoi(*minRulesSetting.Value); parseErr == nil {
-			minRules = parsed
-		}
-	}
-
-	// Calculate job duration using actual benchmark speed from the agent
-	// This is the key fix - we use actual benchmark speed instead of a hardcoded estimate
-	estimatedDuration := float64(*job.EffectiveKeyspace) / float64(benchmarkSpeed)
-
-	debug.Log("Rule split decision after benchmark", map[string]interface{}{
-		"job_id":             job.ID,
-		"effective_keyspace": *job.EffectiveKeyspace,
-		"benchmark_speed":    benchmarkSpeed,
-		"estimated_duration": estimatedDuration,
-		"threshold":          threshold,
-		"chunk_duration":     chunkDuration,
-		"required_duration":  float64(chunkDuration) * threshold,
-		"rule_count":         job.MultiplicationFactor,
-		"min_rules":          minRules,
-	})
-
-	// Check if job duration exceeds threshold AND we have enough rules
-	if estimatedDuration > float64(chunkDuration)*threshold && job.MultiplicationFactor >= minRules {
-		job.UsesRuleSplitting = true
-
-		// Calculate number of splits needed
-		numSplits := int(estimatedDuration / float64(chunkDuration))
-		if numSplits < 2 {
-			numSplits = 2
-		}
-		// Cap at the number of rules we have
-		if numSplits > job.MultiplicationFactor {
-			numSplits = job.MultiplicationFactor
-		}
-		job.RuleSplitCount = numSplits
-
-		// Update job in database
-		if err := s.jobExecutionService.UpdateKeyspaceInfo(ctx, job); err != nil {
-			return fmt.Errorf("failed to update rule splitting info: %w", err)
-		}
-
-		debug.Info("Job %s: Enabled rule splitting after benchmark (effective=%d, duration=%.1fs, splits=%d)",
-			job.ID, *job.EffectiveKeyspace, estimatedDuration, job.RuleSplitCount)
-	} else {
-		debug.Log("Job does not meet rule splitting criteria", map[string]interface{}{
-			"job_id":                job.ID,
-			"estimated_duration":   estimatedDuration,
-			"required_duration":    float64(chunkDuration) * threshold,
-			"rule_count":           job.MultiplicationFactor,
-			"min_rules":            minRules,
-			"duration_meets":       estimatedDuration > float64(chunkDuration)*threshold,
-			"rule_count_meets":     job.MultiplicationFactor >= minRules,
-		})
 	}
 
 	return nil

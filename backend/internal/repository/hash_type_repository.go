@@ -24,8 +24,8 @@ func NewHashTypeRepository(database *db.DB) *HashTypeRepository {
 // Note: Typically managed via migrations, but might be needed for admin UI.
 func (r *HashTypeRepository) Create(ctx context.Context, hashType *models.HashType) error {
 	query := `
-		INSERT INTO hash_types (id, name, description, example, needs_processing, processing_logic, is_enabled, slow)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO hash_types (id, name, description, example, needs_processing, processing_logic, is_enabled, slow, is_salted)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
 	_, err := r.db.ExecContext(ctx, query,
 		hashType.ID,
@@ -36,6 +36,7 @@ func (r *HashTypeRepository) Create(ctx context.Context, hashType *models.HashTy
 		hashType.ProcessingLogic,
 		hashType.IsEnabled,
 		hashType.Slow,
+		hashType.IsSalted,
 	)
 	if err != nil {
 		// Check for primary key violation
@@ -50,7 +51,7 @@ func (r *HashTypeRepository) Create(ctx context.Context, hashType *models.HashTy
 // GetByID retrieves a hash type by its ID (hashcat mode number).
 func (r *HashTypeRepository) GetByID(ctx context.Context, id int) (*models.HashType, error) {
 	query := `
-		SELECT id, name, description, example, needs_processing, processing_logic, is_enabled, slow
+		SELECT id, name, description, example, needs_processing, processing_logic, is_enabled, slow, is_salted
 		FROM hash_types
 		WHERE id = $1
 	`
@@ -64,6 +65,7 @@ func (r *HashTypeRepository) GetByID(ctx context.Context, id int) (*models.HashT
 		&hashType.ProcessingLogic,
 		&hashType.IsEnabled,
 		&hashType.Slow,
+		&hashType.IsSalted,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -78,7 +80,7 @@ func (r *HashTypeRepository) GetByID(ctx context.Context, id int) (*models.HashT
 // It can optionally filter by the `is_enabled` status.
 func (r *HashTypeRepository) List(ctx context.Context, enabledOnly bool) ([]models.HashType, error) {
 	baseQuery := `
-		SELECT id, name, description, example, needs_processing, processing_logic, is_enabled, slow
+		SELECT id, name, description, example, needs_processing, processing_logic, is_enabled, slow, is_salted
 		FROM hash_types
 	`
 	args := []interface{}{}
@@ -109,6 +111,7 @@ func (r *HashTypeRepository) List(ctx context.Context, enabledOnly bool) ([]mode
 			&hashType.ProcessingLogic,
 			&hashType.IsEnabled,
 			&hashType.Slow,
+			&hashType.IsSalted,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan hash type row: %w", err)
 		}
@@ -126,8 +129,8 @@ func (r *HashTypeRepository) List(ctx context.Context, enabledOnly bool) ([]mode
 func (r *HashTypeRepository) Update(ctx context.Context, hashType *models.HashType) error {
 	query := `
 		UPDATE hash_types
-		SET name = $1, description = $2, example = $3, needs_processing = $4, processing_logic = $5, is_enabled = $6, slow = $7
-		WHERE id = $8
+		SET name = $1, description = $2, example = $3, needs_processing = $4, processing_logic = $5, is_enabled = $6, slow = $7, is_salted = $8
+		WHERE id = $9
 	`
 	// Note: Not updating created_at, only updated_at if it existed.
 	// For simplicity, we assume migrations handle this or it's not critical for hash types.
@@ -139,6 +142,7 @@ func (r *HashTypeRepository) Update(ctx context.Context, hashType *models.HashTy
 		hashType.ProcessingLogic,
 		hashType.IsEnabled,
 		hashType.Slow,
+		hashType.IsSalted,
 		hashType.ID,
 	)
 	if err != nil {

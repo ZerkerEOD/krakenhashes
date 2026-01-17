@@ -601,6 +601,131 @@ Adjust based on your environment:
 3. Check agent system resources and logs
 4. Consider agent health checks
 
+## Agent State Synchronization
+
+### Overview (v1.3.1+)
+
+KrakenHashes implements a comprehensive state synchronization protocol to ensure agents and the backend remain in sync, preventing "stuck" agents that appear busy but have no running task.
+
+### Automatic State Recovery
+
+The system provides multiple layers of automatic recovery:
+
+#### 1. Completion Acknowledgment Protocol
+
+When an agent completes a task:
+1. Agent sends `job_progress` with `status=completed`
+2. Backend processes completion atomically (task + agent status in single transaction)
+3. Backend sends `task_complete_ack` message
+4. Agent waits for ACK before accepting new work
+
+If ACK is not received:
+- Agent retries completion message (up to 3 times, 30-second timeout each)
+- After retries exhausted, marks task as `completion_pending`
+- Agent transitions to idle to accept new work
+
+#### 2. Stuck Detection (Agent-Side)
+
+The agent monitors its own state:
+- Check interval: 30 seconds
+- Stuck timeout: 2 minutes in "completing" state
+- Recovery action: Force transition to idle, set `completion_pending` flag
+
+#### 3. State Sync Protocol (Backend-Initiated)
+
+Every 5 minutes, the backend can request state synchronization:
+1. Backend sends `state_sync_request` to agent
+2. Agent responds with current state, active task, and pending completion info
+3. Backend resolves any mismatches
+
+### Agent State Machine
+
+Agents now use an explicit state machine to track their status:
+
+| State | Description |
+|-------|-------------|
+| **Idle** | No task assigned, available for work |
+| **Running** | Task actively executing |
+| **Completing** | Task finished, waiting for backend ACK |
+| **Stopped** | Task stopped by user request |
+| **Failed** | Task failed due to error |
+
+### Monitoring Agent State
+
+#### Dashboard Indicators
+- Agent card shows current state
+- "Busy" indicator reflects actual task execution
+- State sync timestamps visible in agent details
+
+#### Key Log Messages
+
+**Normal operation:**
+```
+INFO: Task completed, waiting for ACK
+INFO: ACK received, transitioning to idle
+```
+
+**ACK timeout (recovery):**
+```
+WARNING: No ACK received, retrying (attempt 2/3)
+WARNING: ACK retries exhausted, marking completion_pending
+INFO: Transitioning to idle for recovery
+```
+
+**Stuck detection (automatic):**
+```
+WARNING: Stuck detection triggered - in COMPLETING for 2m30s
+INFO: Force recovery initiated
+INFO: Completion marked as pending, now idle
+```
+
+### Manual State Recovery
+
+If automatic recovery doesn't resolve the issue:
+
+#### Via Admin Panel
+1. Navigate to Agent Details page
+2. Check current state and task assignment
+3. Use "Reset Agent State" button if available
+
+#### Via API
+```bash
+# Reset agent's busy status
+curl -k -X POST -H "Authorization: Bearer $TOKEN" \
+     https://backend:31337/api/admin/agents/AGENT_ID/reset-state
+```
+
+#### Via Database (Last Resort)
+```sql
+-- Clear agent busy status and task references
+UPDATE agents
+SET metadata = jsonb_set(
+    jsonb_set(
+        jsonb_set(COALESCE(metadata, '{}')::jsonb, '{busy_status}', 'null'),
+        '{current_task_id}', 'null'
+    ),
+    '{current_job_id}', 'null'
+),
+updated_at = NOW()
+WHERE id = AGENT_ID;
+```
+
+### Configuring State Sync
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| State sync interval | 5 minutes | How often backend requests state sync |
+| ACK wait timeout | 30 seconds | Agent waits this long for each ACK attempt |
+| ACK max retries | 3 | Number of ACK retry attempts |
+| Stuck detection timeout | 2 minutes | Time before agent considers itself stuck |
+
+### Best Practices
+
+1. **Keep agents updated** - v1.3.1+ includes all state sync features
+2. **Monitor stuck warnings** - Frequent stuck detections indicate network issues
+3. **Check completion_pending** - Backend resolves these automatically via state sync
+4. **Review network stability** - ACK timeouts often indicate connectivity problems
+
 ## Troubleshooting Agent Issues
 
 ### Common Connection Issues

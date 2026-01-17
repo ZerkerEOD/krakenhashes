@@ -708,6 +708,135 @@ For environments with extremely high crack rates:
 
 **⚠️ Warning:** Custom tuning is rarely needed. The defaults handle >99% of scenarios including extremely high-volume cracking.
 
+### Agent Stuck State Recovery
+
+**Symptoms:**
+- Agent shows as "busy" in the admin panel but has no running task
+- Agent completed a task but can't accept new work
+- Backend shows agent with `current_task_id` set but task is completed
+- Agent logs show "stuck in completing state" warnings
+
+**Root Cause (GH Issue #12):**
+Prior to v1.3.1, a race condition could occur where:
+1. Agent completes task and sends completion message
+2. Message is lost or backend doesn't process it
+3. Agent remains in "completing" state indefinitely
+4. Backend still shows agent as busy
+
+**Automatic Recovery (v1.3.1+):**
+
+The system now includes multiple automatic recovery mechanisms:
+
+1. **Completion ACK Protocol**
+   - Backend acknowledges every task completion
+   - Agent waits up to 30 seconds for ACK (3 retries)
+   - If no ACK received, marks completion as pending
+
+2. **Stuck Detection**
+   - Agent monitors its own state every 30 seconds
+   - If stuck in "completing" state for > 2 minutes, forces recovery
+   - Automatically transitions to idle and accepts new work
+
+3. **State Sync Protocol**
+   - Backend requests state sync every 5 minutes
+   - Agent reports current state and any pending completions
+   - Backend resolves mismatches automatically
+
+**Manual Recovery (If Automatic Fails):**
+
+1. **Restart the Agent**
+   ```bash
+   # Simple restart clears agent state
+   systemctl restart krakenhashes-agent
+   ```
+
+2. **Check Agent State**
+   ```bash
+   # Look for stuck state warnings
+   journalctl -u krakenhashes-agent | grep -i "stuck\|completing\|recovery"
+
+   # Check for ACK timeout messages
+   journalctl -u krakenhashes-agent | grep -i "ack.*timeout\|no ack received"
+   ```
+
+3. **Force Backend State Reset**
+   ```bash
+   # Via admin API (requires admin credentials)
+   curl -k -X POST -H "Authorization: Bearer YOUR_TOKEN" \
+        https://your-backend:31337/api/admin/agents/AGENT_ID/reset-state
+   ```
+
+**Diagnostic Log Messages:**
+
+**Normal operation:**
+```
+[INFO] Task abc-123 completed, waiting for ACK
+[INFO] ACK received for task abc-123
+[INFO] Transitioning to idle state
+```
+
+**ACK timeout (triggers retry):**
+```
+[WARNING] No ACK received for task abc-123, retrying (attempt 2/3)
+[INFO] Resending completion for task abc-123
+```
+
+**Stuck detection triggered:**
+```
+[WARNING] Stuck detection: Agent in COMPLETING state for 2m30s
+[INFO] Force recovery initiated for task abc-123
+[INFO] Marking completion as pending, transitioning to idle
+```
+
+**State sync resolution:**
+```
+[INFO] State sync requested by backend
+[INFO] Reporting pending completion for task abc-123
+[INFO] Backend confirmed task completion resolved
+```
+
+### Task Completion ACK Troubleshooting
+
+**ACK Never Received:**
+
+Possible causes:
+- WebSocket connection dropped during completion
+- Backend crashed while processing
+- Network partition during ACK transmission
+
+**Diagnostic Steps:**
+```bash
+# Check for WebSocket connection issues
+journalctl -u krakenhashes-agent | grep -i "websocket\|connection.*closed\|disconnect"
+
+# Check backend logs for processing errors
+docker logs krakenhashes-backend | grep -i "task.*complete\|ack\|error"
+
+# Verify network stability
+ping -c 10 your-backend-host
+```
+
+**Solutions:**
+1. Agent will auto-recover via stuck detection (2 min timeout)
+2. Backend will resolve via state sync (5 min interval)
+3. Restart agent for immediate recovery: `systemctl restart krakenhashes-agent`
+
+**Duplicate Completion Messages:**
+
+The system handles duplicates gracefully:
+- Backend caches completions for 1 hour
+- Duplicate messages receive ACK without reprocessing
+- No double-counting of cracks or keyspace
+
+**Monitoring:**
+```bash
+# Check for duplicate completion handling
+journalctl -u krakenhashes-agent | grep -i "duplicate\|already processed"
+
+# Backend logs show cache hits
+docker logs krakenhashes-backend | grep -i "completion.*cached\|already completed"
+```
+
 ### Connection Stability Best Practices
 
 1. **Monitor Logs Proactively**

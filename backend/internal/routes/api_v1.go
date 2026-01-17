@@ -118,6 +118,7 @@ func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager
 		deviceRepo,
 		presetJobRepo,
 		hashlistRepo,
+		hashTypeRepo,
 		systemSettingsRepo,
 		fileRepo,
 		scheduleRepo,

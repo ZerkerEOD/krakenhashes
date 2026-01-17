@@ -49,6 +49,75 @@ Each hash type in KrakenHashes has the following properties:
 - **Needs Processing**: Flag indicating if special preprocessing is required
 - **Is Enabled**: Whether the hash type is currently supported
 - **Slow**: Flag indicating if this is a computationally expensive algorithm
+- **Is Salted**: Flag indicating if this hash type uses per-hash salts (affects keyspace calculations)
+
+## Salted Hash Type Classification
+
+KrakenHashes distinguishes between **salted** and **non-salted** hash types for accurate keyspace calculations and benchmark caching.
+
+### What is a Salted Hash Type?
+
+A salted hash type uses a unique salt value for each hash. When cracking salted hashes, hashcat reports speed as `hash_ops/sec`, which equals `candidate_rate × salt_count`. This means the reported benchmark speed must be divided by the remaining hash count to determine the true candidate throughput.
+
+**Impact on Keyspace Calculations:**
+- For salted hashes: `candidate_speed = benchmark_speed / remaining_hashes`
+- For non-salted hashes: `candidate_speed = benchmark_speed` (direct)
+
+This distinction is critical for accurate chunk sizing and progress estimation. Without salt-aware calculations, chunks for salted hash jobs would be oversized, causing tasks to take much longer than expected.
+
+### Benchmark Caching
+
+KrakenHashes maintains separate benchmark records for different salt counts:
+
+- **Non-salted hashes**: Single benchmark per (agent, attack_mode, hash_type)
+- **Salted hashes**: Benchmark per (agent, attack_mode, hash_type, salt_count)
+
+This ensures accurate speed estimation as salt count changes during cracking (remaining hashes decrease).
+
+### Auto-Classified Salted Hash Types
+
+The following categories are automatically classified as salted during database initialization:
+
+**Cryptographic Password Hashing:**
+- All crypt variants: md5crypt (500), descrypt (1500), sha512crypt (1800), sha256crypt (7400), bcrypt (3200), scrypt (8900), BSDi Crypt (12400)
+- PBKDF2 variants
+- Argon2 variants
+
+**Network Authentication:**
+- NetNTLMv1 (5500), NetNTLMv2 (5600)
+- Kerberos family (7500, 13100, 18200, 19600, 19700, 19800, 19900)
+- WPA/WPA2/WPA3
+
+**Full Disk Encryption:**
+- VeraCrypt, TrueCrypt
+- LUKS, FileVault, eCryptfs
+
+**Password Managers:**
+- KeePass, LastPass, 1Password, Bitwarden
+
+**Database Systems:**
+- MS SQL Server, PostgreSQL, MySQL, Oracle
+
+**Application-Specific:**
+- Django, JWT tokens
+- PDF, MS Office, OpenOffice documents
+- 7-Zip, WinZip, RAR, ZIP archives
+- GPG/PGP encrypted files
+- Bitcoin/Ethereum/Electrum wallets
+- iTunes backup, Ansible Vault
+- Cisco IOS passwords
+
+### Checking Salted Status
+
+In the admin Hash Type Manager, salted hash types display a water drop icon in the "Salted" column. You can also filter or sort by this property when planning attack strategies.
+
+### Manual Override
+
+Administrators can manually set the `is_salted` flag for any hash type via the Hash Type Manager. This may be necessary for:
+
+- Custom or rare hash types not auto-classified
+- Edge cases where the pattern matching doesn't apply
+- Testing or development purposes
 
 ## Common Hash Types by Use Case
 
