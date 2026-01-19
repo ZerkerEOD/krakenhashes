@@ -3,9 +3,12 @@ package debug
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
+	"regexp"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -20,10 +23,12 @@ const (
 )
 
 var (
-	// IsEnabled controls whether debug messages are output
-	IsEnabled bool
-	// CurrentLevel is the minimum level of messages to output
-	CurrentLevel LogLevel
+	// mu protects isEnabled and currentLevel from concurrent access
+	mu sync.RWMutex
+	// isEnabled controls whether debug messages are output (use IsDebugEnabled() to read)
+	isEnabled bool
+	// currentLevel is the minimum level of messages to output (use GetLogLevel() to read)
+	currentLevel LogLevel
 	logger       *log.Logger
 	levelNames   = map[LogLevel]string{
 		LevelDebug:   "DEBUG",
@@ -45,23 +50,68 @@ func init() {
 
 	// Check DEBUG environment variable
 	debugEnv := os.Getenv("DEBUG")
-	IsEnabled = debugEnv == "true" || debugEnv == "1"
+	enabled := debugEnv == "true" || debugEnv == "1"
 
 	// Set log level from environment variable
 	levelEnv := strings.ToUpper(os.Getenv("LOG_LEVEL"))
-	if level, exists := levelMap[levelEnv]; exists {
-		CurrentLevel = level
-	} else {
-		CurrentLevel = LevelInfo // Default to INFO if not specified
+	level := LevelInfo // Default to INFO if not specified
+	if l, exists := levelMap[levelEnv]; exists {
+		level = l
 	}
 
+	// Set initial values with mutex protection
+	mu.Lock()
+	isEnabled = enabled
+	currentLevel = level
+	mu.Unlock()
+
 	// Only log initialization if debugging is enabled
-	if IsEnabled {
-		Info("Debug logging initialized - Enabled: %v, Level: %s", IsEnabled, levelNames[CurrentLevel])
+	if enabled {
+		Info("Debug logging initialized - Enabled: %v, Level: %s", enabled, levelNames[level])
 	}
 }
 
-// Log prints a debug message with the specified level if debugging is enabled
+// IsDebugEnabled returns whether debug logging is enabled (thread-safe)
+func IsDebugEnabled() bool {
+	mu.RLock()
+	defer mu.RUnlock()
+	return isEnabled
+}
+
+// GetLogLevel returns the current log level (thread-safe)
+func GetLogLevel() LogLevel {
+	mu.RLock()
+	defer mu.RUnlock()
+	return currentLevel
+}
+
+// GetLogLevelName returns the name of the current log level (thread-safe)
+func GetLogLevelName() string {
+	mu.RLock()
+	defer mu.RUnlock()
+	return levelNames[currentLevel]
+}
+
+// SetEnabled enables or disables debug logging at runtime (thread-safe)
+func SetEnabled(enabled bool) {
+	mu.Lock()
+	defer mu.Unlock()
+	isEnabled = enabled
+}
+
+// SetLogLevel sets the minimum log level at runtime (thread-safe)
+func SetLogLevel(level LogLevel) {
+	mu.Lock()
+	defer mu.Unlock()
+	currentLevel = level
+}
+
+// ParseLevel converts a string to LogLevel
+func ParseLevel(levelStr string) (LogLevel, bool) {
+	level, exists := levelMap[strings.ToUpper(levelStr)]
+	return level, exists
+}
+
 // Log prints a structured log message if debugging is enabled
 func Log(message string, fields map[string]interface{}) {
 	if fields == nil {
@@ -77,7 +127,12 @@ func Log(message string, fields map[string]interface{}) {
 
 func LogWithLevel(level LogLevel, format string, v ...interface{}) {
 	// Check if debugging is enabled and if the message level is high enough
-	if !IsEnabled || level < CurrentLevel {
+	mu.RLock()
+	enabled := isEnabled
+	minLevel := currentLevel
+	mu.RUnlock()
+
+	if !enabled || level < minLevel {
 		return
 	}
 
@@ -123,18 +178,67 @@ func Error(format string, v ...interface{}) {
 func Reinitialize() {
 	// Check DEBUG environment variable
 	debugEnv := os.Getenv("DEBUG")
-	IsEnabled = debugEnv == "true" || debugEnv == "1"
+	enabled := debugEnv == "true" || debugEnv == "1"
 
 	// Set log level from environment variable
 	levelEnv := strings.ToUpper(os.Getenv("LOG_LEVEL"))
-	if level, exists := levelMap[levelEnv]; exists {
-		CurrentLevel = level
-	} else {
-		CurrentLevel = LevelInfo // Default to INFO if not specified
+	level := LevelInfo // Default to INFO if not specified
+	if l, exists := levelMap[levelEnv]; exists {
+		level = l
 	}
 
-	// Only log initialization if debugging is enabled
-	if IsEnabled {
-		Info("Debug logging reinitialized - Enabled: %v, Level: %s", IsEnabled, levelNames[CurrentLevel])
+	// Update values with mutex protection
+	mu.Lock()
+	isEnabled = enabled
+	currentLevel = level
+	mu.Unlock()
+
+	// Only log reinitialization if debugging is enabled
+	if enabled {
+		Info("Debug logging reinitialized - Enabled: %v, Level: %s", enabled, levelNames[level])
 	}
+}
+
+// sensitiveHeaders maps header names to their redaction field names
+var sensitiveHeaders = map[string]string{
+	"X-Api-Key":     "api_key",
+	"Authorization": "authorization",
+	"Cookie":        "cookie",
+}
+
+// SanitizeHeaders returns a string representation of headers with sensitive values redacted
+// Sensitive headers (X-Api-Key, Authorization, Cookie) are replaced with [REDACTED:field:len=N]
+func SanitizeHeaders(headers http.Header) string {
+	sanitized := make(http.Header)
+	for key, values := range headers {
+		if fieldName, isSensitive := sensitiveHeaders[key]; isSensitive {
+			totalLen := 0
+			for _, v := range values {
+				totalLen += len(v)
+			}
+			sanitized[key] = []string{fmt.Sprintf("[REDACTED:%s:len=%d]", fieldName, totalLen)}
+		} else {
+			sanitized[key] = values
+		}
+	}
+	return fmt.Sprintf("%v", sanitized)
+}
+
+// homePathPattern matches /home/username or /Users/username patterns
+var homePathPattern = regexp.MustCompile(`(/home/|/Users/)([^/\s"'\]]+)`)
+
+// jwtPattern matches JWT tokens (base64url header.payload.signature starting with eyJhbGci)
+var jwtPattern = regexp.MustCompile(`eyJhbGci[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*`)
+
+// SanitizeLogContent sanitizes sensitive content in log files
+// - Replaces /home/username/ or /Users/username/ with /home/[USER]/ or /Users/[USER]/
+// - Replaces JWT tokens with [REDACTED:jwt_token]
+func SanitizeLogContent(content string) string {
+	// Sanitize user home paths
+	content = homePathPattern.ReplaceAllString(content, "$1[USER]")
+
+	// Sanitize JWT tokens
+	content = jwtPattern.ReplaceAllString(content, "[REDACTED:jwt_token]")
+
+	return content
 }

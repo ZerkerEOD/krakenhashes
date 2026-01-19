@@ -93,6 +93,54 @@ LOG_LEVEL=WARNING
 LOG_LEVEL=ERROR
 ```
 
+## Remote Debug Management
+
+Starting with v1.4.0, administrators can remotely manage agent debug settings through the web interface without requiring direct access to the agent machine.
+
+### Admin-Controlled Debug Toggle
+
+Administrators can enable/disable debug mode on agents remotely:
+
+1. Navigate to **Admin Menu → Diagnostics**
+2. Find the agent in the **Agent Debug Management** table
+3. Click the toggle switch to enable/disable debug mode
+
+This sends a WebSocket message to the agent, which immediately:
+
+- Enables/disables debug logging
+- Starts/stops file logging if configured
+- Begins/stops buffering log entries for remote retrieval
+
+### Remote Log Viewing
+
+Administrators can view recent agent logs directly from the web interface:
+
+1. In the Diagnostics page, click **View** next to an agent
+2. Select the log level filter (ALL, DEBUG, INFO, WARNING, ERROR)
+3. Choose hours to retrieve (1-168 hours)
+4. Click **Refresh** to update
+
+!!! note "Log Availability"
+    Remote log viewing requires:
+
+    - Agent to be connected via WebSocket
+    - Debug mode to be enabled (for DEBUG level logs)
+    - Agent to have disk space for file logging (if configured)
+
+### Remote Log Purging
+
+Administrators can clear agent logs remotely:
+
+1. In the Diagnostics page, click **Purge** next to an agent
+2. Confirm the purge action
+3. Both buffered logs and file logs are cleared
+
+### Including Agent Logs in Diagnostics Package
+
+When downloading a diagnostic package, check **"Include Agent Logs"** to collect logs from all connected agents. This uses WebSocket to request logs, so agents must be online during download.
+
+For more details on the admin diagnostics interface, see the [System Diagnostics](../admin-guide/operations/diagnostics.md) documentation.
+
 ## Debug Output Interpretation
 
 ### Log Message Format

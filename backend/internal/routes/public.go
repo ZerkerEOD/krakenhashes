@@ -40,7 +40,7 @@ func SetupPublicRoutes(apiRouter *mux.Router, database *db.DB, agentService *ser
 	publicRouter.Use(CORSMiddleware)
 	publicRouter.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		debug.Info("Health check request from %s", r.RemoteAddr)
-		debug.Debug("Health check request headers: %v", r.Header)
+		debug.Debug("Health check request headers: %s", debug.SanitizeHeaders(r.Header))
 
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))

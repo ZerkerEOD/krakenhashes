@@ -743,9 +743,8 @@ func (s *JobSchedulingService) reserveAgentsForJobs(
 			agentIndex++
 
 			debug.Log("Reserved agent for job", map[string]interface{}{
-				"agent_id":   agent.ID,
-				"agent_name": agent.Name,
-				"job_id":     job.ID,
+				"agent_id": agent.ID,
+				"job_id":   job.ID,
 			})
 		}
 	}
@@ -777,8 +776,7 @@ func (s *JobSchedulingService) releaseUnusedReservations() {
 // This ensures accurate chunk calculations based on real-world performance.
 func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *models.Agent) (*models.JobTask, []uuid.UUID, error) {
 	debug.Log("Assigning work to agent", map[string]interface{}{
-		"agent_id":   agent.ID,
-		"agent_name": agent.Name,
+		"agent_id": agent.ID,
 	})
 
 	// Check if agent is marked as busy (has a running task)
@@ -840,9 +838,8 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 					} else {
 						// Valid busy status, agent is actually busy
 						debug.Log("Agent is busy with a running task", map[string]interface{}{
-							"agent_id":   agent.ID,
-							"agent_name": agent.Name,
-							"task_id":    taskIDStr,
+							"agent_id": agent.ID,
+							"task_id":  taskIDStr,
 						})
 						return nil, nil, nil // Agent is busy, skip assignment
 					}

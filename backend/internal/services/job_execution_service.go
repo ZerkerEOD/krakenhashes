@@ -1355,7 +1355,6 @@ func (s *JobExecutionService) GetAvailableAgents(ctx context.Context) ([]models.
 	for _, agent := range agents {
 		debug.Log("Checking agent availability", map[string]interface{}{
 			"agent_id":   agent.ID,
-			"agent_name": agent.Name,
 			"status":     agent.Status,
 			"is_enabled": agent.IsEnabled,
 		})

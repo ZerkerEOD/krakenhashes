@@ -171,7 +171,7 @@ func (h *ClientHandler) CreateClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	debug.Info("User %s created new client: %s (ID: %s)", userID.String(), client.Name, client.ID.String())
+	debug.Info("User %s created new client with ID: %s", userID.String(), client.ID.String())
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -320,7 +320,7 @@ func (h *ClientHandler) UpdateClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	debug.Info("Client updated: %s (ID: %s)", client.Name, client.ID.String())
+	debug.Info("Client updated with ID: %s", client.ID.String())
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

@@ -28,7 +28,7 @@ func RequireAuth(database *db.DB) func(http.Handler) http.Handler {
 
 			if isSSERequest {
 				debug.Info("[AUTH] SSE request authentication check for %s %s", r.Method, r.URL.Path)
-				debug.Debug("[AUTH] SSE Request headers: %+v", r.Header)
+				debug.Debug("[AUTH] SSE Request headers: %s", debug.SanitizeHeaders(r.Header))
 			} else {
 				debug.Debug("[AUTH] Checking authentication for %s %s", r.Method, r.URL.Path)
 			}

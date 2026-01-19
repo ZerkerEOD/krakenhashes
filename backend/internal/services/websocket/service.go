@@ -80,6 +80,17 @@ const (
 	TypeSyncCompleted MessageType = "sync_completed"
 	TypeSyncFailed    MessageType = "sync_failed"
 	TypeSyncProgress  MessageType = "sync_progress"
+
+	// Diagnostics message types (GH Issue #23)
+	TypeDebugStatusReport   MessageType = "debug_status_report"   // Agent reports debug status
+	TypeDebugToggle         MessageType = "debug_toggle"          // Server requests debug toggle
+	TypeDebugToggleAck      MessageType = "debug_toggle_ack"      // Agent acknowledges debug toggle
+	TypeLogRequest          MessageType = "log_request"           // Server requests agent logs
+	TypeLogData             MessageType = "log_data"              // Agent sends log data
+	TypeLogStatusRequest    MessageType = "log_status_request"    // Server requests log status
+	TypeLogStatusResponse   MessageType = "log_status_response"   // Agent responds with log status
+	TypeLogPurge            MessageType = "log_purge"             // Server requests log purge
+	TypeLogPurgeAck         MessageType = "log_purge_ack"         // Agent acknowledges log purge
 )
 
 // Client represents a connected agent
@@ -318,6 +329,92 @@ type StateSyncResponsePayload struct {
 	PendingCompletions []string `json:"pending_completions,omitempty"` // Task IDs with pending completion ACKs
 }
 
+// ============================================================================
+// Diagnostics Payload Types (GH Issue #23)
+// ============================================================================
+
+// DebugStatusReportPayload is sent by the agent to report debug status
+type DebugStatusReportPayload struct {
+	Enabled            bool   `json:"enabled"`
+	Level              string `json:"level"`
+	FileLoggingEnabled bool   `json:"file_logging_enabled"`
+	LogFilePath        string `json:"log_file_path,omitempty"`
+	LogFileExists      bool   `json:"log_file_exists"`
+	LogFileSize        int64  `json:"log_file_size"`
+	LogFileModified    int64  `json:"log_file_modified"`
+	BufferCount        int    `json:"buffer_count"`
+	BufferCapacity     int    `json:"buffer_capacity"`
+}
+
+// DebugTogglePayload is sent by the server to toggle debug mode
+type DebugTogglePayload struct {
+	Enable bool `json:"enable"`
+}
+
+// DebugToggleAckPayload is sent by the agent to acknowledge debug toggle
+type DebugToggleAckPayload struct {
+	Success         bool   `json:"success"`
+	Enabled         bool   `json:"enabled"`
+	RestartRequired bool   `json:"restart_required"`
+	Message         string `json:"message,omitempty"`
+}
+
+// LogRequestPayload is sent by the server to request logs
+type LogRequestPayload struct {
+	RequestID  string `json:"request_id"`
+	HoursBack  int    `json:"hours_back,omitempty"`
+	IncludeAll bool   `json:"include_all,omitempty"`
+}
+
+// LogEntryPayload represents a single log entry
+type LogEntryPayload struct {
+	Timestamp int64  `json:"timestamp"` // Unix milliseconds
+	Level     string `json:"level"`
+	Message   string `json:"message"`
+	File      string `json:"file,omitempty"`
+	Line      int    `json:"line,omitempty"`
+	Function  string `json:"function,omitempty"`
+}
+
+// LogDataPayload is sent by the agent with log data
+type LogDataPayload struct {
+	RequestID   string            `json:"request_id"`
+	AgentID     int               `json:"agent_id"`
+	Entries     []LogEntryPayload `json:"entries"`
+	FileContent string            `json:"file_content,omitempty"`
+	TotalCount  int               `json:"total_count"`
+	Truncated   bool              `json:"truncated"`
+	Error       string            `json:"error,omitempty"`
+}
+
+// LogStatusRequestPayload is sent by the server to request log status
+type LogStatusRequestPayload struct {
+	RequestID string `json:"request_id"`
+}
+
+// LogStatusResponsePayload is sent by the agent with log status
+type LogStatusResponsePayload struct {
+	RequestID       string `json:"request_id"`
+	LogFileExists   bool   `json:"log_file_exists"`
+	LogFilePath     string `json:"log_file_path,omitempty"`
+	LogFileSize     int64  `json:"log_file_size"`
+	LogFileModified int64  `json:"log_file_modified"`
+	DebugEnabled    bool   `json:"debug_enabled"`
+	BufferCount     int    `json:"buffer_count"`
+}
+
+// LogPurgePayload is sent by the server to request log purge
+type LogPurgePayload struct {
+	RequestID string `json:"request_id"`
+}
+
+// LogPurgeAckPayload is sent by the agent to acknowledge log purge
+type LogPurgeAckPayload struct {
+	RequestID string `json:"request_id"`
+	Success   bool   `json:"success"`
+	Message   string `json:"message,omitempty"`
+}
+
 // Service handles WebSocket business logic
 type Service struct {
 	agentService *services.AgentService
@@ -413,6 +510,26 @@ func (s *Service) HandleMessage(ctx context.Context, agent *models.Agent, msg *M
 	case TypeSyncStatus:
 		// File sync status (file_sync_status) is handled in the handler layer (handleSyncStatus)
 		// Just update heartbeat here - return nil to avoid "unknown message type" error
+		return nil
+	case TypeDebugStatusReport:
+		// Debug status report is handled in the handler layer
+		// Just update heartbeat here
+		return nil
+	case TypeDebugToggleAck:
+		// Debug toggle ack is handled in the handler layer
+		// Just update heartbeat here
+		return nil
+	case TypeLogData:
+		// Log data is handled in the handler layer
+		// Just update heartbeat here
+		return nil
+	case TypeLogStatusResponse:
+		// Log status response is handled in the handler layer
+		// Just update heartbeat here
+		return nil
+	case TypeLogPurgeAck:
+		// Log purge ack is handled in the handler layer
+		// Just update heartbeat here
 		return nil
 	default:
 		return fmt.Errorf("unknown message type: %s", msg.Type)
@@ -544,7 +661,7 @@ func (s *Service) handleSyncRequest(ctx context.Context, agent *models.Agent, ms
 	}
 
 	// Log the request
-	fmt.Printf("Received file sync request from agent %d: %+v\n", agent.ID, payload)
+	debug.Debug("Received file sync request from agent %d: %+v", agent.ID, payload)
 
 	// This function should just acknowledge receipt of the request
 	// The actual file comparison happens in the WebSocket handler

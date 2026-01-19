@@ -89,6 +89,7 @@ const AdminSettingsIndexPage = lazy(() => import('./pages/AdminSettings').then(m
 const AdminEmailSettingsIndexPage = lazy(() => import('./pages/AdminSettings/EmailSettings').then(module => ({ default: module.EmailSettings })));
 const AdminEmailProviderConfigPage = lazy(() => import('./pages/AdminSettings/EmailSettings/ProviderConfig').then(module => ({ default: module.ProviderConfig })));
 const AdminEmailTemplateEditorPage = lazy(() => import('./pages/AdminSettings/EmailSettings/TemplateEditor').then(module => ({ default: module.TemplateEditor })));
+const DiagnosticsPage = lazy(() => import('./pages/admin/Diagnostics'));
 
 const App: React.FC = () => {
   const [certVerified, setCertVerified] = useState(() => {
@@ -172,9 +173,10 @@ const App: React.FC = () => {
                         element={<AdminEmailProviderConfigPage onNotification={handleNotification} />} 
                       />
                 <Route
-                        path="settings/email/templates" 
-                        element={<AdminEmailTemplateEditorPage onNotification={handleNotification} />} 
+                        path="settings/email/templates"
+                        element={<AdminEmailTemplateEditorPage onNotification={handleNotification} />}
                       />
+                      <Route path="diagnostics" element={<DiagnosticsPage />} />
                     </Route>
 
                     {/* Catch-all for authenticated users */}

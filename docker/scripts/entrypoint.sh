@@ -71,18 +71,28 @@ for dir in backend nginx; do
     mkdir -p "/var/log/krakenhashes/$dir"
 done
 
+# Make nginx log directory owned by krakenhashes for purge capability
+# supervisord (root) writes the log files via stdout/stderr capture
+# krakenhashes can delete them for purge functionality
+chown krakenhashes:krakenhashes /var/log/krakenhashes/nginx
+chmod 755 /var/log/krakenhashes/nginx
+
 # Pre-create log files with correct ownership before supervisord starts
 # This ensures supervisord doesn't create them as root
 echo "Creating log files with correct ownership (PUID=$PUID, PGID=$PGID)..."
 touch /var/log/krakenhashes/backend/backend.log
 touch /var/log/krakenhashes/nginx/access.log
+touch /var/log/krakenhashes/nginx/error.log
 touch /var/log/krakenhashes/supervisord.log
 touch /var/log/krakenhashes/logrotate.log
 touch /var/log/krakenhashes/logrotate.err
 
 # Set ownership based on PUID/PGID
 chown "$PUID:$PGID" /var/log/krakenhashes/backend/backend.log
-chown www-data:www-data /var/log/krakenhashes/nginx/access.log
+# nginx logs owned by krakenhashes so purge can delete them
+# supervisord (root) can write regardless of ownership
+chown krakenhashes:krakenhashes /var/log/krakenhashes/nginx/access.log
+chown krakenhashes:krakenhashes /var/log/krakenhashes/nginx/error.log
 chown "$PUID:$PGID" /var/log/krakenhashes/supervisord.log
 chown "$PUID:$PGID" /var/log/krakenhashes/logrotate.log
 chown "$PUID:$PGID" /var/log/krakenhashes/logrotate.err
@@ -90,6 +100,7 @@ chown "$PUID:$PGID" /var/log/krakenhashes/logrotate.err
 # Set permissions
 chmod 644 /var/log/krakenhashes/backend/backend.log
 chmod 644 /var/log/krakenhashes/nginx/access.log
+chmod 644 /var/log/krakenhashes/nginx/error.log
 chmod 644 /var/log/krakenhashes/supervisord.log
 chmod 644 /var/log/krakenhashes/logrotate.log
 chmod 644 /var/log/krakenhashes/logrotate.err

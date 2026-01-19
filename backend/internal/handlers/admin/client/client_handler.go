@@ -93,7 +93,7 @@ func (h *ClientHandler) CreateClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	debug.Info("Admin created new client: %s (ID: %s)", newClient.Name, newClient.ID)
+	debug.Info("Admin created new client with ID: %s", newClient.ID)
 	httputil.RespondWithJSON(w, http.StatusCreated, map[string]interface{}{"data": newClient})
 }
 
@@ -209,7 +209,7 @@ func (h *ClientHandler) UpdateClient(w http.ResponseWriter, r *http.Request) {
 	// Fetch the updated client again to get the latest UpdatedAt timestamp
 	updatedClient, _ := h.clientRepo.GetByID(r.Context(), clientID)
 
-	debug.Info("Admin updated client: %s (ID: %s)", client.Name, client.ID)
+	debug.Info("Admin updated client with ID: %s", client.ID)
 	httputil.RespondWithJSON(w, http.StatusOK, map[string]interface{}{"data": updatedClient})
 }
 

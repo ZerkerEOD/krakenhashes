@@ -257,7 +257,7 @@ func (s *adminPresetJobService) CreatePresetJob(ctx context.Context, params mode
 		return nil, fmt.Errorf("validation failed: %w", err)
 	}
 
-	debug.Info("Creating preset job: %s", params.Name)
+	debug.Info("Creating preset job")
 
 	// Calculate keyspace for the preset job
 	// For increment mode jobs, this will be updated after layer initialization

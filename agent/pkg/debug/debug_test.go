@@ -5,10 +5,32 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+// saveAndRestoreState is a helper to save and restore debug state for testing
+func saveAndRestoreState(t *testing.T) func() {
+	t.Helper()
+	originalDebugEnv := os.Getenv("DEBUG")
+	originalLogLevelEnv := os.Getenv("LOG_LEVEL")
+
+	mu.Lock()
+	originalEnabled := isEnabled
+	originalLevel := currentLevel
+	mu.Unlock()
+
+	return func() {
+		os.Setenv("DEBUG", originalDebugEnv)
+		os.Setenv("LOG_LEVEL", originalLogLevelEnv)
+		mu.Lock()
+		isEnabled = originalEnabled
+		currentLevel = originalLevel
+		mu.Unlock()
+	}
+}
 
 func TestLogLevel(t *testing.T) {
 	// Test log level constants
@@ -16,7 +38,7 @@ func TestLogLevel(t *testing.T) {
 	assert.Equal(t, LogLevel(1), LevelInfo)
 	assert.Equal(t, LogLevel(2), LevelWarning)
 	assert.Equal(t, LogLevel(3), LevelError)
-	
+
 	// Test level names
 	assert.Equal(t, "DEBUG", levelNames[LevelDebug])
 	assert.Equal(t, "INFO", levelNames[LevelInfo])
@@ -25,13 +47,8 @@ func TestLogLevel(t *testing.T) {
 }
 
 func TestInit(t *testing.T) {
-	// Save original values
-	originalDebug := os.Getenv("DEBUG")
-	originalLogLevel := os.Getenv("LOG_LEVEL")
-	defer func() {
-		os.Setenv("DEBUG", originalDebug)
-		os.Setenv("LOG_LEVEL", originalLogLevel)
-	}()
+	restore := saveAndRestoreState(t)
+	defer restore()
 
 	tests := []struct {
 		name          string
@@ -95,39 +112,38 @@ func TestInit(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			os.Setenv("DEBUG", tt.debugEnv)
 			os.Setenv("LOG_LEVEL", tt.logLevelEnv)
-			
+
 			// Reinitialize to pick up new env vars
 			Reinitialize()
-			
-			assert.Equal(t, tt.expectEnabled, IsEnabled)
-			assert.Equal(t, tt.expectLevel, CurrentLevel)
+
+			assert.Equal(t, tt.expectEnabled, IsDebugEnabled())
+			assert.Equal(t, tt.expectLevel, GetLogLevel())
 		})
 	}
 }
 
 func TestLog(t *testing.T) {
-	// Save original values
-	originalDebug := IsEnabled
-	originalLevel := CurrentLevel
-	originalLogger := logger
+	restore := saveAndRestoreState(t)
+	defer restore()
+
+	// Save and replace the stdout logger to capture output
+	mu.Lock()
+	originalLogger := stdoutLogger
+	mu.Unlock()
 	defer func() {
-		IsEnabled = originalDebug
-		CurrentLevel = originalLevel
-		logger = originalLogger
+		mu.Lock()
+		stdoutLogger = originalLogger
+		mu.Unlock()
 	}()
 
-	// Create a buffer to capture log output
-	var buf bytes.Buffer
-	logger = log.New(&buf, "", 0)
-
 	tests := []struct {
-		name          string
-		enabled       bool
-		currentLevel  LogLevel
-		logLevel      LogLevel
-		format        string
-		args          []interface{}
-		expectOutput  bool
+		name           string
+		enabled        bool
+		currentLevel   LogLevel
+		logLevel       LogLevel
+		format         string
+		args           []interface{}
+		expectOutput   bool
 		expectContains []string
 	}{
 		{
@@ -176,12 +192,15 @@ func TestLog(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			buf.Reset()
-			IsEnabled = tt.enabled
-			CurrentLevel = tt.currentLevel
-			
+			var buf bytes.Buffer
+			mu.Lock()
+			stdoutLogger = log.New(&buf, "", 0)
+			isEnabled = tt.enabled
+			currentLevel = tt.currentLevel
+			mu.Unlock()
+
 			Log(tt.logLevel, tt.format, tt.args...)
-			
+
 			output := buf.String()
 			if tt.expectOutput {
 				assert.NotEmpty(t, output)
@@ -196,21 +215,22 @@ func TestLog(t *testing.T) {
 }
 
 func TestLogFunctions(t *testing.T) {
-	// Save original values
-	originalDebug := IsEnabled
-	originalLevel := CurrentLevel
-	originalLogger := logger
-	defer func() {
-		IsEnabled = originalDebug
-		CurrentLevel = originalLevel
-		logger = originalLogger
-	}()
+	restore := saveAndRestoreState(t)
+	defer restore()
 
 	// Create a buffer to capture log output
 	var buf bytes.Buffer
-	logger = log.New(&buf, "", 0)
-	IsEnabled = true
-	CurrentLevel = LevelDebug
+	mu.Lock()
+	originalLogger := stdoutLogger
+	stdoutLogger = log.New(&buf, "", 0)
+	isEnabled = true
+	currentLevel = LevelDebug
+	mu.Unlock()
+	defer func() {
+		mu.Lock()
+		stdoutLogger = originalLogger
+		mu.Unlock()
+	}()
 
 	// Test Debug
 	buf.Reset()
@@ -242,20 +262,21 @@ func TestLogFunctions(t *testing.T) {
 }
 
 func TestLogLevelFiltering(t *testing.T) {
-	// Save original values
-	originalDebug := IsEnabled
-	originalLevel := CurrentLevel
-	originalLogger := logger
-	defer func() {
-		IsEnabled = originalDebug
-		CurrentLevel = originalLevel
-		logger = originalLogger
-	}()
+	restore := saveAndRestoreState(t)
+	defer restore()
 
 	// Create a buffer to capture log output
 	var buf bytes.Buffer
-	logger = log.New(&buf, "", 0)
-	IsEnabled = true
+	mu.Lock()
+	originalLogger := stdoutLogger
+	stdoutLogger = log.New(&buf, "", 0)
+	isEnabled = true
+	mu.Unlock()
+	defer func() {
+		mu.Lock()
+		stdoutLogger = originalLogger
+		mu.Unlock()
+	}()
 
 	tests := []struct {
 		name         string
@@ -312,13 +333,13 @@ func TestLogLevelFiltering(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			CurrentLevel = tt.currentLevel
-			
+			SetLevel(tt.currentLevel)
+
 			for _, msg := range tt.messages {
 				buf.Reset()
 				msg.fn(msg.msg)
 				output := buf.String()
-				
+
 				if msg.expect {
 					assert.NotEmpty(t, output, "Expected output for: %s", msg.msg)
 					assert.Contains(t, output, msg.msg)
@@ -331,119 +352,171 @@ func TestLogLevelFiltering(t *testing.T) {
 }
 
 func TestReinitialize(t *testing.T) {
-	// Save original values
-	originalDebug := os.Getenv("DEBUG")
-	originalLogLevel := os.Getenv("LOG_LEVEL")
-	originalIsEnabled := IsEnabled
-	originalCurrentLevel := CurrentLevel
-	defer func() {
-		os.Setenv("DEBUG", originalDebug)
-		os.Setenv("LOG_LEVEL", originalLogLevel)
-		IsEnabled = originalIsEnabled
-		CurrentLevel = originalCurrentLevel
-	}()
+	restore := saveAndRestoreState(t)
+	defer restore()
 
 	// Set initial state
 	os.Setenv("DEBUG", "false")
 	os.Setenv("LOG_LEVEL", "INFO")
 	Reinitialize()
-	
-	assert.False(t, IsEnabled)
-	assert.Equal(t, LevelInfo, CurrentLevel)
-	
+
+	assert.False(t, IsDebugEnabled())
+	assert.Equal(t, LevelInfo, GetLogLevel())
+
 	// Change environment and reinitialize
 	os.Setenv("DEBUG", "true")
 	os.Setenv("LOG_LEVEL", "ERROR")
 	Reinitialize()
-	
-	assert.True(t, IsEnabled)
-	assert.Equal(t, LevelError, CurrentLevel)
+
+	assert.True(t, IsDebugEnabled())
+	assert.Equal(t, LevelError, GetLogLevel())
 }
 
 func TestLogOutput(t *testing.T) {
-	// Save original values
-	originalDebug := IsEnabled
-	originalLevel := CurrentLevel
-	originalLogger := logger
-	defer func() {
-		IsEnabled = originalDebug
-		CurrentLevel = originalLevel
-		logger = originalLogger
-	}()
+	restore := saveAndRestoreState(t)
+	defer restore()
 
 	// Create a buffer to capture log output
 	var buf bytes.Buffer
-	logger = log.New(&buf, "", 0)
-	IsEnabled = true
-	CurrentLevel = LevelDebug
+	mu.Lock()
+	originalLogger := stdoutLogger
+	stdoutLogger = log.New(&buf, "", 0)
+	isEnabled = true
+	currentLevel = LevelDebug
+	mu.Unlock()
+	defer func() {
+		mu.Lock()
+		stdoutLogger = originalLogger
+		mu.Unlock()
+	}()
 
 	// Test log output format
 	Info("test message")
 	output := buf.String()
-	
+
 	// Should contain all expected parts
 	assert.Contains(t, output, "[INFO]")
 	assert.Contains(t, output, "test message")
 	assert.Regexp(t, `\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\]`, output) // Timestamp
-	assert.Regexp(t, `\[\S+:\d+\]`, output) // File:line
+	assert.Regexp(t, `\[\S+:\d+\]`, output)                                     // File:line
 }
 
 func TestConcurrentLogging(t *testing.T) {
-	// Save original values
-	originalDebug := IsEnabled
-	originalLevel := CurrentLevel
-	originalLogger := logger
+	restore := saveAndRestoreState(t)
+	defer restore()
+
+	// Create a buffer to capture log output (with its own mutex for thread safety)
+	var buf bytes.Buffer
+	var bufMu sync.Mutex
+	safeLogger := log.New(&buf, "", 0)
+
+	mu.Lock()
+	originalLogger := stdoutLogger
+	stdoutLogger = safeLogger
+	isEnabled = true
+	currentLevel = LevelDebug
+	mu.Unlock()
 	defer func() {
-		IsEnabled = originalDebug
-		CurrentLevel = originalLevel
-		logger = originalLogger
+		mu.Lock()
+		stdoutLogger = originalLogger
+		mu.Unlock()
 	}()
 
-	// Create a buffer to capture log output
-	var buf bytes.Buffer
-	logger = log.New(&buf, "", 0)
-	IsEnabled = true
-	CurrentLevel = LevelDebug
-
 	// Test concurrent access
-	done := make(chan bool)
+	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
+		wg.Add(1)
 		go func(id int) {
+			defer wg.Done()
 			Debug("concurrent debug %d", id)
 			Info("concurrent info %d", id)
 			Warning("concurrent warning %d", id)
 			Error("concurrent error %d", id)
-			done <- true
 		}(i)
 	}
 
 	// Wait for all goroutines
-	for i := 0; i < 10; i++ {
-		<-done
-	}
+	wg.Wait()
 
+	bufMu.Lock()
 	output := buf.String()
+	bufMu.Unlock()
+
 	// Should have output from all goroutines
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	assert.Equal(t, 40, len(lines)) // 4 messages per goroutine * 10 goroutines
 }
 
+func TestSetEnabled(t *testing.T) {
+	restore := saveAndRestoreState(t)
+	defer restore()
+
+	SetEnabled(true)
+	assert.True(t, IsDebugEnabled())
+
+	SetEnabled(false)
+	assert.False(t, IsDebugEnabled())
+}
+
+func TestSetLevel(t *testing.T) {
+	restore := saveAndRestoreState(t)
+	defer restore()
+
+	SetLevel(LevelDebug)
+	assert.Equal(t, LevelDebug, GetLogLevel())
+
+	SetLevel(LevelError)
+	assert.Equal(t, LevelError, GetLogLevel())
+}
+
+func TestGetLogLevelName(t *testing.T) {
+	restore := saveAndRestoreState(t)
+	defer restore()
+
+	SetLevel(LevelDebug)
+	assert.Equal(t, "DEBUG", GetLogLevelName())
+
+	SetLevel(LevelInfo)
+	assert.Equal(t, "INFO", GetLogLevelName())
+
+	SetLevel(LevelWarning)
+	assert.Equal(t, "WARNING", GetLogLevelName())
+
+	SetLevel(LevelError)
+	assert.Equal(t, "ERROR", GetLogLevelName())
+}
+
+func TestGetStatus(t *testing.T) {
+	restore := saveAndRestoreState(t)
+	defer restore()
+
+	SetEnabled(true)
+	SetLevel(LevelWarning)
+
+	status := GetStatus()
+	assert.True(t, status.Enabled)
+	assert.Equal(t, "WARNING", status.Level)
+	assert.GreaterOrEqual(t, status.BufferCapacity, 0)
+}
+
 // Benchmark tests
 func BenchmarkLog(b *testing.B) {
 	// Save original values
-	originalDebug := IsEnabled
-	originalLevel := CurrentLevel
-	originalLogger := logger
+	mu.Lock()
+	originalEnabled := isEnabled
+	originalLevel := currentLevel
+	originalLogger := stdoutLogger
+	stdoutLogger = log.New(bytes.NewBuffer(nil), "", 0)
+	isEnabled = true
+	currentLevel = LevelInfo
+	mu.Unlock()
 	defer func() {
-		IsEnabled = originalDebug
-		CurrentLevel = originalLevel
-		logger = originalLogger
+		mu.Lock()
+		isEnabled = originalEnabled
+		currentLevel = originalLevel
+		stdoutLogger = originalLogger
+		mu.Unlock()
 	}()
-
-	// Disable actual output
-	logger = log.New(bytes.NewBuffer(nil), "", 0)
-	IsEnabled = true
-	CurrentLevel = LevelInfo
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -453,12 +526,15 @@ func BenchmarkLog(b *testing.B) {
 
 func BenchmarkLogDisabled(b *testing.B) {
 	// Save original values
-	originalDebug := IsEnabled
+	mu.Lock()
+	originalEnabled := isEnabled
+	isEnabled = false
+	mu.Unlock()
 	defer func() {
-		IsEnabled = originalDebug
+		mu.Lock()
+		isEnabled = originalEnabled
+		mu.Unlock()
 	}()
-
-	IsEnabled = false
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -468,15 +544,18 @@ func BenchmarkLogDisabled(b *testing.B) {
 
 func BenchmarkLogFiltered(b *testing.B) {
 	// Save original values
-	originalDebug := IsEnabled
-	originalLevel := CurrentLevel
+	mu.Lock()
+	originalEnabled := isEnabled
+	originalLevel := currentLevel
+	isEnabled = true
+	currentLevel = LevelError // Filter out INFO messages
+	mu.Unlock()
 	defer func() {
-		IsEnabled = originalDebug
-		CurrentLevel = originalLevel
+		mu.Lock()
+		isEnabled = originalEnabled
+		currentLevel = originalLevel
+		mu.Unlock()
 	}()
-
-	IsEnabled = true
-	CurrentLevel = LevelError // Filter out INFO messages
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

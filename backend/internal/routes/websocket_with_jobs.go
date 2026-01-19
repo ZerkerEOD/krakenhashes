@@ -226,6 +226,11 @@ func SetupWebSocketWithJobRoutes(
 	wsRouter.HandleFunc("/agent", wsHandler.ServeWS)
 	debug.Info("Configured WebSocket endpoint: /ws/agent with job integration and TLS: %v", tlsConfig != nil)
 
+	// Setup diagnostics routes (GH Issue #23) - requires WebSocket handler
+	// Hardcoded container path - LOG_DIR env var is for host volume mapping only
+	logsDir := "/var/log/krakenhashes"
+	SetupDiagnosticsRoutes(r, sqlDB, wsHandler, logsDir)
+
 	// Return the job integration manager so it can be started from main
 	// Store it globally for now until we refactor the main function
 	JobIntegrationManager = jobIntegration

@@ -103,7 +103,7 @@ func (m *Manager) LoadProviders(ctx context.Context) error {
 		}
 
 		if err := m.loadProviderLocked(ctx, provider); err != nil {
-			debug.Warning("Failed to load provider %s (%s): %v", provider.Name, provider.ID, err)
+			debug.Warning("Failed to load provider ID %s: %v", provider.ID, err)
 			continue
 		}
 	}
@@ -151,7 +151,7 @@ func (m *Manager) loadProviderLocked(ctx context.Context, provider *models.SSOPr
 	}
 
 	m.providers[provider.ID] = p
-	debug.Info("Loaded SSO provider: %s (%s)", provider.Name, provider.ProviderType)
+	debug.Info("Loaded SSO provider ID %s (type: %s)", provider.ID, provider.ProviderType)
 	return nil
 }
 

@@ -25,6 +25,17 @@ ls -la ~/.krakenhashes/agent/config/
 openssl x509 -in ~/.krakenhashes/agent/config/client.crt -text -noout
 ```
 
+### Admin Diagnostics Panel
+
+If you have admin access to the KrakenHashes web interface, the **Diagnostics** page (Admin Menu → Diagnostics) provides:
+
+- Remote debug mode toggle for agents
+- Remote log viewing without SSH access
+- One-click log purging
+- Downloadable diagnostic packages
+
+This is often the fastest way to diagnose agent issues without direct machine access. See [System Diagnostics](../admin-guide/operations/diagnostics.md) for details.
+
 ## Connection Issues
 
 ### Agent Cannot Connect to Backend

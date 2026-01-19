@@ -209,7 +209,7 @@ func (p *Provider) GetStartURL(ctx context.Context, redirectURI string) (string,
 		return "", fmt.Errorf("failed to generate redirect URL: %w", err)
 	}
 
-	debug.Info("Generated SAML AuthnRequest for provider %s with ID %s", p.Name(), requestID)
+	debug.Info("Generated SAML AuthnRequest for provider ID %s with request ID %s", p.ProviderID(), requestID)
 	return redirectURL.String(), nil
 }
 
@@ -307,7 +307,7 @@ func (p *Provider) HandleCallback(ctx context.Context, req *sso.CallbackRequest)
 	identity.ProviderType = p.Type()
 	identity.MFAVerified = true // SAML providers handle their own MFA
 
-	debug.Info("SAML authentication successful for user %s via provider %s", identity.Email, p.Name())
+	debug.Info("SAML authentication successful via provider ID %s", p.ProviderID())
 
 	return &models.AuthResult{
 		Success:     true,
@@ -630,7 +630,7 @@ func (p *Provider) TestConnection(ctx context.Context) error {
 		return fmt.Errorf("invalid IdP SSO URL: %w", err)
 	}
 
-	debug.Info("SAML connection test successful for provider %s", p.Name())
+	debug.Info("SAML connection test successful for provider ID %s", p.ProviderID())
 	return nil
 }
 

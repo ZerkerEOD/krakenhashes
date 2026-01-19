@@ -283,7 +283,7 @@ func loggingMiddleware(next http.Handler) http.Handler {
 		start := time.Now()
 
 		debug.Info("Request received: %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
-		debug.Debug("Request headers: %v", r.Header)
+		debug.Debug("Request headers: %s", debug.SanitizeHeaders(r.Header))
 
 		// Create a response wrapper to capture the status code
 		rw := &responseWriter{w, http.StatusOK}

@@ -358,7 +358,7 @@ func SetupFileDownloadRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, a
 			return
 		}
 
-		debug.Info("Streaming uncracked hashes for hashlist %d (%s) to agent", hashlist.ID, hashlist.Name)
+		debug.Info("Streaming uncracked hashes for hashlist %d to agent", hashlist.ID)
 
 		// Set response headers for streaming
 		filename := fmt.Sprintf("%d.hash", hashlist.ID)

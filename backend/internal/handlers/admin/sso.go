@@ -274,7 +274,7 @@ func (h *SSOAdminHandler) CreateProvider(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	debug.Info("Created SSO provider: %s (%s)", provider.Name, provider.ProviderType)
+	debug.Info("Created SSO provider ID %s (type: %s)", provider.ID, provider.ProviderType)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 
@@ -364,7 +364,7 @@ func (h *SSOAdminHandler) UpdateProvider(w http.ResponseWriter, r *http.Request)
 		debug.Warning("Failed to reload provider: %v", err)
 	}
 
-	debug.Info("Updated SSO provider: %s", provider.Name)
+	debug.Info("Updated SSO provider ID %s", provider.ID)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(provider)
 }
@@ -399,7 +399,7 @@ func (h *SSOAdminHandler) DeleteProvider(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	debug.Info("Deleted SSO provider: %s", provider.Name)
+	debug.Info("Deleted SSO provider ID %s", provider.ID)
 	w.WriteHeader(http.StatusNoContent)
 }
 

@@ -162,6 +162,9 @@ func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.S
 	SetupAdminJobRoutes(adminRouter, jobHandler)
 	debug.Info("Configured admin preset job and workflow routes: /admin/preset-jobs/*, /admin/job-workflows/*")
 
+	// Note: Diagnostics routes (GH Issue #23) are configured separately via SetupDiagnosticsRoutes
+	// after WebSocket handler is initialized
+
 	debug.Info("Configured admin routes: /admin/* (including user management at /admin/users/*)")
 
 	return adminRouter

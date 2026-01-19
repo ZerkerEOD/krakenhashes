@@ -24,6 +24,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/agent/internal/hardware"
 	"github.com/ZerkerEOD/krakenhashes/agent/internal/hardware/types"
 	"github.com/ZerkerEOD/krakenhashes/agent/internal/jobs"
+	"github.com/ZerkerEOD/krakenhashes/agent/internal/logbuffer"
 	filesync "github.com/ZerkerEOD/krakenhashes/agent/internal/sync"
 	"github.com/ZerkerEOD/krakenhashes/agent/internal/version"
 	"github.com/ZerkerEOD/krakenhashes/agent/pkg/console"
@@ -85,6 +86,17 @@ const (
 	WSTypeTaskStopAck       WSMessageType = "task_stop_ack"       // Agent -> Server: acknowledge stop command
 	WSTypeStateSyncRequest  WSMessageType = "state_sync_request"  // Server -> Agent: request agent state
 	WSTypeStateSyncResponse WSMessageType = "state_sync_response" // Agent -> Server: report current state
+
+	// Diagnostics message types (GH Issue #23)
+	WSTypeDebugStatusReport WSMessageType = "debug_status_report" // Agent -> Server: report debug state
+	WSTypeDebugToggle       WSMessageType = "debug_toggle"        // Server -> Agent: toggle debug mode
+	WSTypeDebugToggleAck    WSMessageType = "debug_toggle_ack"    // Agent -> Server: acknowledge toggle
+	WSTypeLogRequest        WSMessageType = "log_request"         // Server -> Agent: request logs
+	WSTypeLogData           WSMessageType = "log_data"            // Agent -> Server: send log data
+	WSTypeLogStatusRequest  WSMessageType = "log_status_request"  // Server -> Agent: request log file status
+	WSTypeLogStatusResponse WSMessageType = "log_status_response" // Agent -> Server: report log file info
+	WSTypeLogPurge          WSMessageType = "log_purge"           // Server -> Agent: delete log files
+	WSTypeLogPurgeAck       WSMessageType = "log_purge_ack"       // Agent -> Server: confirm purge
 )
 
 // WSMessage represents a WebSocket message
@@ -194,6 +206,88 @@ type StateSyncResponsePayload struct {
 	JobID              string   `json:"job_id,omitempty"`
 	Status             string   `json:"status"` // idle, running, completing
 	PendingCompletions []string `json:"pending_completions,omitempty"`
+}
+
+// DebugStatusReportPayload is sent to report debug state on connection (GH Issue #23)
+type DebugStatusReportPayload struct {
+	Enabled            bool   `json:"enabled"`
+	Level              string `json:"level"`
+	FileLoggingEnabled bool   `json:"file_logging_enabled"`
+	LogFilePath        string `json:"log_file_path,omitempty"`
+	LogFileExists      bool   `json:"log_file_exists"`
+	LogFileSize        int64  `json:"log_file_size"`
+	LogFileModified    int64  `json:"log_file_modified,omitempty"` // Unix timestamp
+	BufferCount        int    `json:"buffer_count"`
+	BufferCapacity     int    `json:"buffer_capacity"`
+}
+
+// DebugTogglePayload is received from backend to toggle debug mode (GH Issue #23)
+type DebugTogglePayload struct {
+	Enable bool `json:"enable"`
+}
+
+// DebugToggleAckPayload is sent to acknowledge debug toggle (GH Issue #23)
+type DebugToggleAckPayload struct {
+	Success         bool   `json:"success"`
+	Enabled         bool   `json:"enabled"`
+	RestartRequired bool   `json:"restart_required"`
+	Message         string `json:"message,omitempty"`
+}
+
+// LogRequestPayload is received from backend to request logs (GH Issue #23)
+type LogRequestPayload struct {
+	RequestID  string `json:"request_id"`
+	HoursBack  int    `json:"hours_back"`
+	IncludeAll bool   `json:"include_all"` // Include all logs regardless of time
+}
+
+// LogDataPayload is sent to deliver log data (GH Issue #23)
+type LogDataPayload struct {
+	RequestID   string                `json:"request_id"`
+	AgentID     int                   `json:"agent_id"`
+	Entries     []LogEntryPayload     `json:"entries,omitempty"`
+	FileContent string                `json:"file_content,omitempty"` // Raw log file content if available
+	TotalCount  int                   `json:"total_count"`
+	Truncated   bool                  `json:"truncated"`
+	Error       string                `json:"error,omitempty"`
+}
+
+// LogEntryPayload represents a single log entry for transmission (GH Issue #23)
+type LogEntryPayload struct {
+	Timestamp int64  `json:"timestamp"` // Unix timestamp with milliseconds
+	Level     string `json:"level"`
+	Message   string `json:"message"`
+	File      string `json:"file,omitempty"`
+	Line      int    `json:"line,omitempty"`
+	Function  string `json:"function,omitempty"`
+}
+
+// LogStatusRequestPayload is received from backend to check log file status (GH Issue #23)
+type LogStatusRequestPayload struct {
+	RequestID string `json:"request_id"`
+}
+
+// LogStatusResponsePayload is sent to report log file status (GH Issue #23)
+type LogStatusResponsePayload struct {
+	RequestID       string `json:"request_id"`
+	LogFileExists   bool   `json:"log_file_exists"`
+	LogFilePath     string `json:"log_file_path,omitempty"`
+	LogFileSize     int64  `json:"log_file_size"`
+	LogFileModified int64  `json:"log_file_modified,omitempty"` // Unix timestamp
+	DebugEnabled    bool   `json:"debug_enabled"`
+	BufferCount     int    `json:"buffer_count"`
+}
+
+// LogPurgePayload is received from backend to delete logs (GH Issue #23)
+type LogPurgePayload struct {
+	RequestID string `json:"request_id"`
+}
+
+// LogPurgeAckPayload is sent to confirm log purge (GH Issue #23)
+type LogPurgeAckPayload struct {
+	RequestID string `json:"request_id"`
+	Success   bool   `json:"success"`
+	Message   string `json:"message,omitempty"`
 }
 
 // JobStopPayload represents a job stop command (updated for GH Issue #12)
@@ -956,9 +1050,11 @@ func (c *Connection) maintainConnection() {
 					debug.Info("Starting read and write pumps")
 					go c.readPump()
 					go c.writePump()
-					
+
 					// Send current task status after reconnection
 					go c.sendCurrentTaskStatus()
+					// Also send debug status report (GH Issue #23)
+					go c.sendDebugStatusReport()
 				}
 			} else {
 				// debug.Debug("Connection state: connected") // Commented out to reduce log spam
@@ -1730,6 +1826,23 @@ func (c *Connection) readPump() {
 			// Server requesting state sync (GH Issue #12)
 			debug.Info("Received state sync request from backend")
 			c.handleStateSyncRequest(msg.Payload)
+
+		// Diagnostics message handlers (GH Issue #23)
+		case WSTypeDebugToggle:
+			debug.Info("Received debug toggle command")
+			c.handleDebugToggle(msg.Payload)
+
+		case WSTypeLogRequest:
+			debug.Info("Received log request")
+			c.handleLogRequest(msg.Payload)
+
+		case WSTypeLogStatusRequest:
+			debug.Info("Received log status request")
+			c.handleLogStatusRequest(msg.Payload)
+
+		case WSTypeLogPurge:
+			debug.Info("Received log purge command")
+			c.handleLogPurge(msg.Payload)
 
 		default:
 			debug.Warning("Received unknown message type: %s", msg.Type)
@@ -2540,6 +2653,8 @@ func (c *Connection) Start() error {
 		// Small delay to ensure connection is fully established
 		time.Sleep(2 * time.Second)
 		c.sendCurrentTaskStatus()
+		// Also send debug status report so backend knows current debug state (GH Issue #23)
+		c.sendDebugStatusReport()
 	}()
 
 	return nil
@@ -3388,5 +3503,452 @@ func (c *Connection) sendPendingOutfiles() {
 		debug.Info("Sent pending outfiles notification to backend")
 	} else {
 		debug.Error("Failed to send pending outfiles notification")
+	}
+}
+
+// ============================================================================
+// Diagnostics Handlers (GH Issue #23)
+// ============================================================================
+
+// sendDebugStatusReport sends the current debug status to the backend
+func (c *Connection) sendDebugStatusReport() {
+	if !c.isConnected.Load() {
+		debug.Warning("Cannot send debug status report - not connected")
+		return
+	}
+
+	status := debug.GetStatus()
+
+	// Check log file info
+	var logFileExists bool
+	var logFileSize int64
+	var logFileModified int64
+
+	if status.LogFilePath != "" {
+		if info, err := os.Stat(status.LogFilePath); err == nil {
+			logFileExists = true
+			logFileSize = info.Size()
+			logFileModified = info.ModTime().Unix()
+		}
+	}
+
+	payload := DebugStatusReportPayload{
+		Enabled:            status.Enabled,
+		Level:              status.Level,
+		FileLoggingEnabled: status.FileLoggingEnabled,
+		LogFilePath:        status.LogFilePath,
+		LogFileExists:      logFileExists,
+		LogFileSize:        logFileSize,
+		LogFileModified:    logFileModified,
+		BufferCount:        status.BufferCount,
+		BufferCapacity:     status.BufferCapacity,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		debug.Error("Failed to marshal debug status report: %v", err)
+		return
+	}
+
+	msg := &WSMessage{
+		Type:      WSTypeDebugStatusReport,
+		Payload:   payloadBytes,
+		Timestamp: time.Now(),
+	}
+
+	if c.safeSendMessage(msg, 5000) {
+		debug.Debug("Sent debug status report to backend")
+	} else {
+		debug.Warning("Failed to send debug status report")
+	}
+}
+
+// handleDebugToggle handles a request to toggle debug mode
+func (c *Connection) handleDebugToggle(payload json.RawMessage) {
+	var request DebugTogglePayload
+	if err := json.Unmarshal(payload, &request); err != nil {
+		debug.Error("Failed to unmarshal debug toggle request: %v", err)
+		c.sendDebugToggleAck(false, false, false, "Failed to parse request")
+		return
+	}
+
+	debug.Info("Processing debug toggle request: enable=%v", request.Enable)
+
+	// Update runtime state immediately
+	debug.SetEnabled(request.Enable)
+
+	// If enabling, also enable file logging to the logs directory
+	var logDir string
+	if request.Enable {
+		// Use config directory's parent + logs, or current directory + logs
+		configDir := config.GetConfigDir()
+		logDir = filepath.Join(filepath.Dir(configDir), "logs")
+		if err := debug.EnableFileLogging(logDir); err != nil {
+			debug.Error("Failed to enable file logging to %s: %v", logDir, err)
+			// Continue anyway - runtime logging will still work
+		}
+	} else {
+		// Disable file logging when debug is disabled
+		if err := debug.DisableFileLogging(); err != nil {
+			debug.Error("Failed to disable file logging: %v", err)
+		}
+	}
+
+	// Update the .env file for persistence across restarts
+	envUpdated := c.updateEnvFile(request.Enable, logDir)
+
+	// If env update failed, still report success for runtime change
+	// but indicate restart may be needed for full persistence
+	restartRequired := !envUpdated
+
+	c.sendDebugToggleAck(true, request.Enable, restartRequired, "")
+	debug.Info("Debug mode toggled: enabled=%v, restart_required=%v", request.Enable, restartRequired)
+
+	// Send updated debug status
+	c.sendDebugStatusReport()
+}
+
+// updateEnvFile updates the .env file with debug settings
+func (c *Connection) updateEnvFile(enable bool, logDir string) bool {
+	// Find the .env file - check config directory first, then working directory
+	envPaths := []string{
+		filepath.Join(config.GetConfigDir(), ".env"),
+		".env",
+	}
+
+	var envPath string
+	var existingContent []byte
+	var err error
+
+	for _, p := range envPaths {
+		if _, statErr := os.Stat(p); statErr == nil {
+			envPath = p
+			existingContent, err = os.ReadFile(p)
+			if err != nil {
+				debug.Warning("Failed to read existing .env file at %s: %v", p, err)
+				existingContent = nil
+			}
+			break
+		}
+	}
+
+	// If no .env file found, create one in config directory
+	if envPath == "" {
+		envPath = filepath.Join(config.GetConfigDir(), ".env")
+		existingContent = nil
+	}
+
+	// Parse existing content and update DEBUG and LOG_DIR lines
+	lines := strings.Split(string(existingContent), "\n")
+	newLines := make([]string, 0, len(lines)+2)
+	foundDebug := false
+	foundLogDir := false
+	foundLogLevel := false
+
+	debugValue := "false"
+	if enable {
+		debugValue = "true"
+	}
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "DEBUG=") {
+			newLines = append(newLines, fmt.Sprintf("DEBUG=%s", debugValue))
+			foundDebug = true
+		} else if strings.HasPrefix(trimmed, "LOG_DIR=") {
+			if enable && logDir != "" {
+				newLines = append(newLines, fmt.Sprintf("LOG_DIR=%s", logDir))
+			} else {
+				newLines = append(newLines, "LOG_DIR=")
+			}
+			foundLogDir = true
+		} else if strings.HasPrefix(trimmed, "LOG_LEVEL=") {
+			newLines = append(newLines, line)
+			foundLogLevel = true
+		} else if trimmed != "" || len(newLines) > 0 {
+			// Keep non-empty lines and preserve trailing empty lines only if we have content
+			newLines = append(newLines, line)
+		}
+	}
+
+	// Add missing entries
+	if !foundDebug {
+		newLines = append(newLines, fmt.Sprintf("DEBUG=%s", debugValue))
+	}
+	if !foundLogDir && enable && logDir != "" {
+		newLines = append(newLines, fmt.Sprintf("LOG_DIR=%s", logDir))
+	}
+	if !foundLogLevel {
+		newLines = append(newLines, "LOG_LEVEL=DEBUG")
+	}
+
+	// Write updated content
+	newContent := strings.Join(newLines, "\n")
+	if !strings.HasSuffix(newContent, "\n") {
+		newContent += "\n"
+	}
+
+	if err := os.WriteFile(envPath, []byte(newContent), 0644); err != nil {
+		debug.Error("Failed to write .env file at %s: %v", envPath, err)
+		return false
+	}
+
+	debug.Info("Updated .env file at %s with DEBUG=%s", envPath, debugValue)
+	return true
+}
+
+// sendDebugToggleAck sends acknowledgment for debug toggle
+func (c *Connection) sendDebugToggleAck(success, enabled, restartRequired bool, message string) {
+	if !c.isConnected.Load() {
+		return
+	}
+
+	payload := DebugToggleAckPayload{
+		Success:         success,
+		Enabled:         enabled,
+		RestartRequired: restartRequired,
+		Message:         message,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		debug.Error("Failed to marshal debug toggle ack: %v", err)
+		return
+	}
+
+	msg := &WSMessage{
+		Type:      WSTypeDebugToggleAck,
+		Payload:   payloadBytes,
+		Timestamp: time.Now(),
+	}
+
+	c.safeSendMessage(msg, 5000)
+}
+
+// handleLogRequest handles a request to retrieve logs
+func (c *Connection) handleLogRequest(payload json.RawMessage) {
+	var request LogRequestPayload
+	if err := json.Unmarshal(payload, &request); err != nil {
+		debug.Error("Failed to unmarshal log request: %v", err)
+		c.sendLogData(request.RequestID, nil, "", 0, false, "Failed to parse request")
+		return
+	}
+
+	debug.Info("Processing log request (request_id: %s, hours_back: %d, include_all: %v)",
+		request.RequestID, request.HoursBack, request.IncludeAll)
+
+	// Calculate the since time
+	var since time.Time
+	if !request.IncludeAll && request.HoursBack > 0 {
+		since = time.Now().Add(-time.Duration(request.HoursBack) * time.Hour)
+	}
+
+	// Get buffered logs
+	var entries []LogEntryPayload
+	var bufferedLogs []logbuffer.LogEntry
+
+	if request.IncludeAll {
+		bufferedLogs = debug.GetAllBufferedLogs()
+	} else {
+		bufferedLogs = debug.GetBufferedLogs(since)
+	}
+
+	// Convert to payload format
+	for _, entry := range bufferedLogs {
+		entries = append(entries, LogEntryPayload{
+			Timestamp: entry.Timestamp.UnixMilli(),
+			Level:     entry.Level,
+			Message:   entry.Message,
+			File:      entry.File,
+			Line:      entry.Line,
+			Function:  entry.Function,
+		})
+	}
+
+	// Also try to read log file if it exists
+	var fileContent string
+	status := debug.GetStatus()
+	if status.LogFilePath != "" {
+		if data, err := os.ReadFile(status.LogFilePath); err == nil {
+			// Limit file content to 1MB
+			const maxFileSize = 1024 * 1024
+			if len(data) > maxFileSize {
+				// Take the last 1MB
+				data = data[len(data)-maxFileSize:]
+				fileContent = "... [truncated] ...\n" + string(data)
+			} else {
+				fileContent = string(data)
+			}
+		}
+	}
+
+	totalCount := len(entries)
+	truncated := false
+
+	// Limit entries to prevent huge messages
+	const maxEntries = 500
+	if len(entries) > maxEntries {
+		entries = entries[len(entries)-maxEntries:]
+		truncated = true
+	}
+
+	c.sendLogData(request.RequestID, entries, fileContent, totalCount, truncated, "")
+}
+
+// sendLogData sends log data to the backend
+func (c *Connection) sendLogData(requestID string, entries []LogEntryPayload, fileContent string, totalCount int, truncated bool, errMsg string) {
+	if !c.isConnected.Load() {
+		return
+	}
+
+	payload := LogDataPayload{
+		RequestID:   requestID,
+		AgentID:     c.agentID,
+		Entries:     entries,
+		FileContent: fileContent,
+		TotalCount:  totalCount,
+		Truncated:   truncated,
+		Error:       errMsg,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		debug.Error("Failed to marshal log data: %v", err)
+		return
+	}
+
+	msg := &WSMessage{
+		Type:      WSTypeLogData,
+		Payload:   payloadBytes,
+		Timestamp: time.Now(),
+	}
+
+	if c.safeSendMessage(msg, 10000) { // Longer timeout for potentially large payload
+		debug.Debug("Sent log data (request_id: %s, entries: %d, truncated: %v)", requestID, len(entries), truncated)
+	} else {
+		debug.Warning("Failed to send log data")
+	}
+}
+
+// handleLogStatusRequest handles a request for log file status
+func (c *Connection) handleLogStatusRequest(payload json.RawMessage) {
+	var request LogStatusRequestPayload
+	if err := json.Unmarshal(payload, &request); err != nil {
+		debug.Error("Failed to unmarshal log status request: %v", err)
+		return
+	}
+
+	debug.Debug("Processing log status request (request_id: %s)", request.RequestID)
+
+	status := debug.GetStatus()
+
+	// Check log file info
+	var logFileExists bool
+	var logFileSize int64
+	var logFileModified int64
+
+	if status.LogFilePath != "" {
+		if info, err := os.Stat(status.LogFilePath); err == nil {
+			logFileExists = true
+			logFileSize = info.Size()
+			logFileModified = info.ModTime().Unix()
+		}
+	}
+
+	response := LogStatusResponsePayload{
+		RequestID:       request.RequestID,
+		LogFileExists:   logFileExists,
+		LogFilePath:     status.LogFilePath,
+		LogFileSize:     logFileSize,
+		LogFileModified: logFileModified,
+		DebugEnabled:    status.Enabled,
+		BufferCount:     status.BufferCount,
+	}
+
+	c.sendLogStatusResponse(&response)
+}
+
+// sendLogStatusResponse sends log status response to backend
+func (c *Connection) sendLogStatusResponse(response *LogStatusResponsePayload) {
+	if !c.isConnected.Load() {
+		return
+	}
+
+	payloadBytes, err := json.Marshal(response)
+	if err != nil {
+		debug.Error("Failed to marshal log status response: %v", err)
+		return
+	}
+
+	msg := &WSMessage{
+		Type:      WSTypeLogStatusResponse,
+		Payload:   payloadBytes,
+		Timestamp: time.Now(),
+	}
+
+	if c.safeSendMessage(msg, 5000) {
+		debug.Debug("Sent log status response (request_id: %s)", response.RequestID)
+	} else {
+		debug.Warning("Failed to send log status response")
+	}
+}
+
+// handleLogPurge handles a request to delete log files
+func (c *Connection) handleLogPurge(payload json.RawMessage) {
+	var request LogPurgePayload
+	if err := json.Unmarshal(payload, &request); err != nil {
+		debug.Error("Failed to unmarshal log purge request: %v", err)
+		c.sendLogPurgeAck(request.RequestID, false, "Failed to parse request")
+		return
+	}
+
+	debug.Info("Processing log purge request (request_id: %s)", request.RequestID)
+
+	// Clear the in-memory buffer
+	debug.ClearLogBuffer()
+
+	// Delete the log file if it exists
+	status := debug.GetStatus()
+	if status.LogFilePath != "" {
+		if err := os.Remove(status.LogFilePath); err != nil && !os.IsNotExist(err) {
+			debug.Warning("Failed to delete log file %s: %v", status.LogFilePath, err)
+			c.sendLogPurgeAck(request.RequestID, false, fmt.Sprintf("Failed to delete log file: %v", err))
+			return
+		}
+		debug.Info("Deleted log file: %s", status.LogFilePath)
+	}
+
+	c.sendLogPurgeAck(request.RequestID, true, "")
+	debug.Info("Log purge completed (request_id: %s)", request.RequestID)
+}
+
+// sendLogPurgeAck sends log purge acknowledgment to backend
+func (c *Connection) sendLogPurgeAck(requestID string, success bool, message string) {
+	if !c.isConnected.Load() {
+		return
+	}
+
+	payload := LogPurgeAckPayload{
+		RequestID: requestID,
+		Success:   success,
+		Message:   message,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		debug.Error("Failed to marshal log purge ack: %v", err)
+		return
+	}
+
+	msg := &WSMessage{
+		Type:      WSTypeLogPurgeAck,
+		Payload:   payloadBytes,
+		Timestamp: time.Now(),
+	}
+
+	if c.safeSendMessage(msg, 5000) {
+		debug.Debug("Sent log purge ack (request_id: %s, success: %v)", requestID, success)
+	} else {
+		debug.Warning("Failed to send log purge ack")
 	}
 }

@@ -76,6 +76,9 @@ func GetDataDirs() (*DataDirs, error) {
 		debug.Error("Failed to get current working directory: %v", err)
 		cwd = "."
 	} else {
+		// Set base path for log sanitization before logging anything else
+		// This converts absolute paths to relative paths in all subsequent log messages
+		debug.SetBasePath(cwd)
 		debug.Info("Current working directory in GetDataDirs: %s", cwd)
 	}
 

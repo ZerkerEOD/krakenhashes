@@ -50,7 +50,7 @@ func (p *Provider) Authenticate(ctx context.Context, req *sso.AuthRequest) (*mod
 
 	conn, err := p.connect()
 	if err != nil {
-		debug.Error("LDAP connection failed for provider %s: %v", p.Name(), err)
+		debug.Error("LDAP connection failed for provider ID %s: %v", p.ProviderID(), err)
 		return &models.AuthResult{
 			Success:      false,
 			ErrorMessage: "Failed to connect to directory server",
@@ -109,7 +109,7 @@ func (p *Provider) Authenticate(ctx context.Context, req *sso.AuthRequest) (*mod
 	// This is more reliable than extracting from LDAP attributes
 	identity.Username = req.Username
 
-	debug.Info("LDAP authentication successful for user %s via provider %s", req.Username, p.Name())
+	debug.Info("LDAP authentication successful via provider ID %s", p.ProviderID())
 
 	return &models.AuthResult{
 		Success:     true,
@@ -148,7 +148,7 @@ func (p *Provider) TestConnection(ctx context.Context) error {
 		}
 	}
 
-	debug.Info("LDAP connection test successful for provider %s", p.Name())
+	debug.Info("LDAP connection test successful for provider ID %s", p.ProviderID())
 	return nil
 }
 

@@ -142,6 +142,7 @@ nav:
       - Job Settings: admin-guide/operations/job-settings.md
       - Potfile Management: admin-guide/operations/potfile.md
       - System Monitoring: admin-guide/operations/monitoring.md
+      - System Diagnostics: admin-guide/operations/diagnostics.md
       - Backup Procedures: admin-guide/operations/backup.md
       - Data Retention: admin-guide/operations/data-retention.md
     - Security Guide: admin-guide/security.md

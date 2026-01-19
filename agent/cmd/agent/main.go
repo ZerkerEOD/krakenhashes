@@ -137,7 +137,10 @@ func loadConfig(cfg agentConfig) agentConfig {
 	
 	// Directory configuration
 	cwd, _ := os.Getwd()
-	
+
+	// Set base path for log sanitization EARLY, before any paths are logged
+	debug.SetBasePath(cwd)
+
 	// Config directory
 	if cfg.configDir == "" && envFileExists {
 		cfg.configDir = envMap["KH_CONFIG_DIR"]

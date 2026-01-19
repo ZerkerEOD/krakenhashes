@@ -179,7 +179,7 @@ func (p *Provider) GetStartURL(ctx context.Context, redirectURI string) (string,
 
 	authURL := oauth2Config.AuthCodeURL(state, opts...)
 
-	debug.Info("Generated OAuth authorization URL for provider %s", p.Name())
+	debug.Info("Generated OAuth authorization URL for provider ID %s", p.ProviderID())
 	return authURL, nil
 }
 
@@ -266,7 +266,7 @@ func (p *Provider) HandleCallback(ctx context.Context, req *sso.CallbackRequest)
 	identity.ProviderID = p.ProviderID()
 	identity.ProviderType = p.Type()
 
-	debug.Info("OAuth authentication successful for user %s via provider %s", identity.Email, p.Name())
+	debug.Info("OAuth authentication successful via provider ID %s", p.ProviderID())
 
 	return &models.AuthResult{
 		Success:     true,
@@ -467,7 +467,7 @@ func (p *Provider) TestConnection(ctx context.Context) error {
 		return fmt.Errorf("client secret decryption failed: %w", err)
 	}
 
-	debug.Info("OAuth connection test successful for provider %s", p.Name())
+	debug.Info("OAuth connection test successful for provider ID %s", p.ProviderID())
 	return nil
 }
 

@@ -405,27 +405,27 @@ func (h *hashlistHandler) handleUploadHashlist(w http.ResponseWriter, r *http.Re
 
 			// Log before calling Create
 			if defaultRetentionMonths == nil {
-				debug.Warning("[Pre-Create] Attempting to create client '%s' with NULL DataRetentionMonths.", newClient.Name)
+				debug.Warning("[Pre-Create] Attempting to create client with ID %s with NULL DataRetentionMonths.", newClient.ID)
 			} else {
-				debug.Info("[Pre-Create] Attempting to create client '%s' with DataRetentionMonths = %d.", newClient.Name, *defaultRetentionMonths)
+				debug.Info("[Pre-Create] Attempting to create client with ID %s with DataRetentionMonths = %d.", newClient.ID, *defaultRetentionMonths)
 			}
 
 			// Create the client
 			createErr := h.clientRepo.Create(ctx, newClient) // Use createErr
 			if createErr != nil {
 				if repoErr, ok := createErr.(*pq.Error); ok && repoErr.Code == "23505" { // Check createErr
-					debug.Warning("Race condition during client '%s' creation, re-fetching...", trimmedClientName)
+					debug.Warning("Race condition during client creation, re-fetching...")
 					// Re-fetch necessary if race condition possible
 					client, err = h.clientRepo.GetByName(ctx, trimmedClientName) // Re-assign client and err
 					if err != nil || client == nil {
-						debug.Error("Failed to re-fetch client '%s' after creation conflict: %v", trimmedClientName, err)
+						debug.Error("Failed to re-fetch client after creation conflict: %v", err)
 						jsonError(w, "Failed to create or find client after conflict", http.StatusInternalServerError)
 						return
 					}
 					clientID = client.ID
-					debug.Info("Successfully re-fetched client '%s' after conflict, ID: %s", trimmedClientName, clientID)
+					debug.Info("Successfully re-fetched client after conflict, ID: %s", clientID)
 				} else {
-					debug.Error("Error creating new client '%s': %v", trimmedClientName, createErr) // Use createErr
+					debug.Error("Error creating new client: %v", createErr) // Use createErr
 					jsonError(w, "Failed to create client", http.StatusInternalServerError)
 					return
 				}
@@ -1589,7 +1589,7 @@ func (h *hashlistHandler) handleCreateClient(w http.ResponseWriter, r *http.Requ
 
 	err := h.clientRepo.Create(ctx, &client)
 	if err != nil {
-		debug.Error("Error creating client '%s': %v", client.Name, err)
+		debug.Error("Error creating client: %v", err)
 		jsonError(w, "Failed to create client", http.StatusInternalServerError)
 		return
 	}

@@ -142,7 +142,7 @@ func (s *JobCleanupService) logProcessingTasksOnStartup(ctx context.Context) {
 	if len(processingJobs) > 0 {
 		debug.Info("Found %d jobs in processing state on startup - awaiting task completion", len(processingJobs))
 		for _, job := range processingJobs {
-			debug.Info("Processing job - ID: %s, Name: %s", job.ID, job.Name)
+			debug.Info("Processing job - ID: %s", job.ID)
 		}
 	}
 }

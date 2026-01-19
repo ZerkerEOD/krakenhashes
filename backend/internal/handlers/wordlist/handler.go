@@ -101,9 +101,9 @@ func (h *Handler) HandleGetWordlist(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) HandleAddWordlist(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	// Debug log cookies and headers
-	debug.Info("HandleAddWordlist: Processing request with cookies: %v", r.Cookies())
-	debug.Info("HandleAddWordlist: Request headers: %v", r.Header)
+	// Debug log cookies and headers (sanitized)
+	debug.Info("HandleAddWordlist: Processing request with cookies: [REDACTED:cookies:count=%d]", len(r.Cookies()))
+	debug.Info("HandleAddWordlist: Request headers: %s", debug.SanitizeHeaders(r.Header))
 
 	// Get user ID from context
 	userIDStr, ok := ctx.Value("user_id").(string)

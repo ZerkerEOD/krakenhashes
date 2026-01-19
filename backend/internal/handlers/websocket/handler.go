@@ -134,7 +134,7 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 	debug.Info("- Ping Period: %v", pingPeriod)
 
 	debug.Info("New WebSocket connection attempt received from %s", r.RemoteAddr)
-	debug.Debug("Request headers: %v", r.Header)
+	debug.Debug("Request headers: %s", debug.SanitizeHeaders(r.Header))
 
 	if h.tlsConfig != nil {
 		if r.TLS == nil {
@@ -440,6 +440,22 @@ func (c *Client) readPump() {
 
 		case wsservice.TypeStateSyncResponse:
 			c.handler.handleStateSyncResponse(c, &msg)
+
+		// Diagnostics message handlers (GH Issue #23)
+		case wsservice.TypeDebugStatusReport:
+			c.handler.handleDebugStatusReport(c, &msg)
+
+		case wsservice.TypeDebugToggleAck:
+			c.handler.handleDebugToggleAck(c, &msg)
+
+		case wsservice.TypeLogData:
+			c.handler.handleLogData(c, &msg)
+
+		case wsservice.TypeLogStatusResponse:
+			c.handler.handleLogStatusResponse(c, &msg)
+
+		case wsservice.TypeLogPurgeAck:
+			c.handler.handleLogPurgeAck(c, &msg)
 
 		default:
 			// Handle other message types
@@ -1702,6 +1718,322 @@ func (h *Handler) handleStateSyncResponse(client *Client, msg *wsservice.Message
 
 	// Reconcile state with backend records
 	h.reconcileAgentState(client, &response)
+}
+
+// ============================================================================
+// Diagnostics Handlers (GH Issue #23)
+// ============================================================================
+
+// AgentDebugStatus tracks the debug status of an agent (GH Issue #23)
+type AgentDebugStatus struct {
+	AgentID            int       `json:"agent_id"`
+	Enabled            bool      `json:"enabled"`
+	Level              string    `json:"level"`
+	FileLoggingEnabled bool      `json:"file_logging_enabled"`
+	LogFilePath        string    `json:"log_file_path,omitempty"`
+	LogFileExists      bool      `json:"log_file_exists"`
+	LogFileSize        int64     `json:"log_file_size"`
+	LogFileModified    int64     `json:"log_file_modified"`
+	BufferCount        int       `json:"buffer_count"`
+	BufferCapacity     int       `json:"buffer_capacity"`
+	LastUpdated        time.Time `json:"last_updated"`
+}
+
+// agentDebugStatuses stores debug status for each agent (in-memory cache)
+var (
+	agentDebugStatuses   = make(map[int]*AgentDebugStatus)
+	agentDebugStatusesMu sync.RWMutex
+)
+
+// GetAgentDebugStatus returns the debug status for a specific agent
+func GetAgentDebugStatus(agentID int) *AgentDebugStatus {
+	agentDebugStatusesMu.RLock()
+	defer agentDebugStatusesMu.RUnlock()
+	return agentDebugStatuses[agentID]
+}
+
+// GetAllAgentDebugStatuses returns debug status for all agents
+func GetAllAgentDebugStatuses() map[int]*AgentDebugStatus {
+	agentDebugStatusesMu.RLock()
+	defer agentDebugStatusesMu.RUnlock()
+	result := make(map[int]*AgentDebugStatus, len(agentDebugStatuses))
+	for k, v := range agentDebugStatuses {
+		result[k] = v
+	}
+	return result
+}
+
+// handleDebugStatusReport processes debug status reports from agents
+func (h *Handler) handleDebugStatusReport(client *Client, msg *wsservice.Message) {
+	var payload wsservice.DebugStatusReportPayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		debug.Error("Agent %d: Failed to unmarshal debug status report: %v", client.agent.ID, err)
+		return
+	}
+
+	debug.Info("Agent %d: Debug status report - enabled=%v, level=%s, file_logging=%v, buffer_count=%d",
+		client.agent.ID, payload.Enabled, payload.Level, payload.FileLoggingEnabled, payload.BufferCount)
+
+	// Store the debug status
+	agentDebugStatusesMu.Lock()
+	agentDebugStatuses[client.agent.ID] = &AgentDebugStatus{
+		AgentID:            client.agent.ID,
+		Enabled:            payload.Enabled,
+		Level:              payload.Level,
+		FileLoggingEnabled: payload.FileLoggingEnabled,
+		LogFilePath:        payload.LogFilePath,
+		LogFileExists:      payload.LogFileExists,
+		LogFileSize:        payload.LogFileSize,
+		LogFileModified:    payload.LogFileModified,
+		BufferCount:        payload.BufferCount,
+		BufferCapacity:     payload.BufferCapacity,
+		LastUpdated:        time.Now(),
+	}
+	agentDebugStatusesMu.Unlock()
+}
+
+// handleDebugToggleAck processes debug toggle acknowledgments from agents
+func (h *Handler) handleDebugToggleAck(client *Client, msg *wsservice.Message) {
+	var payload wsservice.DebugToggleAckPayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		debug.Error("Agent %d: Failed to unmarshal debug toggle ack: %v", client.agent.ID, err)
+		return
+	}
+
+	if payload.Success {
+		debug.Info("Agent %d: Debug toggle successful - enabled=%v, restart_required=%v",
+			client.agent.ID, payload.Enabled, payload.RestartRequired)
+	} else {
+		debug.Warning("Agent %d: Debug toggle failed: %s", client.agent.ID, payload.Message)
+	}
+}
+
+// Callbacks for diagnostic responses (GH Issue #23)
+var (
+	logDataCallbacks      = make(map[string]chan *wsservice.LogDataPayload)
+	logDataCallbacksMu    sync.RWMutex
+	logStatusCallbacks    = make(map[string]chan *wsservice.LogStatusResponsePayload)
+	logStatusCallbacksMu  sync.RWMutex
+	logPurgeCallbacks     = make(map[string]chan *wsservice.LogPurgeAckPayload)
+	logPurgeCallbacksMu   sync.RWMutex
+)
+
+// RegisterLogDataCallback registers a callback for log data response
+func RegisterLogDataCallback(requestID string) <-chan *wsservice.LogDataPayload {
+	logDataCallbacksMu.Lock()
+	defer logDataCallbacksMu.Unlock()
+	ch := make(chan *wsservice.LogDataPayload, 1)
+	logDataCallbacks[requestID] = ch
+	return ch
+}
+
+// UnregisterLogDataCallback removes a log data callback
+func UnregisterLogDataCallback(requestID string) {
+	logDataCallbacksMu.Lock()
+	defer logDataCallbacksMu.Unlock()
+	if ch, exists := logDataCallbacks[requestID]; exists {
+		close(ch)
+		delete(logDataCallbacks, requestID)
+	}
+}
+
+// handleLogData processes log data from agents
+func (h *Handler) handleLogData(client *Client, msg *wsservice.Message) {
+	var payload wsservice.LogDataPayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		debug.Error("Agent %d: Failed to unmarshal log data: %v", client.agent.ID, err)
+		return
+	}
+
+	debug.Info("Agent %d: Received log data (request_id: %s, entries: %d, truncated: %v)",
+		client.agent.ID, payload.RequestID, len(payload.Entries), payload.Truncated)
+
+	// Check for callback
+	logDataCallbacksMu.RLock()
+	ch, hasCallback := logDataCallbacks[payload.RequestID]
+	logDataCallbacksMu.RUnlock()
+
+	if hasCallback {
+		select {
+		case ch <- &payload:
+			debug.Debug("Agent %d: Sent log data to callback (request_id: %s)", client.agent.ID, payload.RequestID)
+		default:
+			debug.Warning("Agent %d: Log data callback channel full (request_id: %s)", client.agent.ID, payload.RequestID)
+		}
+	} else {
+		debug.Warning("Agent %d: No callback registered for log data (request_id: %s)", client.agent.ID, payload.RequestID)
+	}
+}
+
+// RegisterLogStatusCallback registers a callback for log status response
+func RegisterLogStatusCallback(requestID string) <-chan *wsservice.LogStatusResponsePayload {
+	logStatusCallbacksMu.Lock()
+	defer logStatusCallbacksMu.Unlock()
+	ch := make(chan *wsservice.LogStatusResponsePayload, 1)
+	logStatusCallbacks[requestID] = ch
+	return ch
+}
+
+// UnregisterLogStatusCallback removes a log status callback
+func UnregisterLogStatusCallback(requestID string) {
+	logStatusCallbacksMu.Lock()
+	defer logStatusCallbacksMu.Unlock()
+	if ch, exists := logStatusCallbacks[requestID]; exists {
+		close(ch)
+		delete(logStatusCallbacks, requestID)
+	}
+}
+
+// handleLogStatusResponse processes log status responses from agents
+func (h *Handler) handleLogStatusResponse(client *Client, msg *wsservice.Message) {
+	var payload wsservice.LogStatusResponsePayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		debug.Error("Agent %d: Failed to unmarshal log status response: %v", client.agent.ID, err)
+		return
+	}
+
+	debug.Debug("Agent %d: Received log status (request_id: %s, file_exists: %v, debug_enabled: %v)",
+		client.agent.ID, payload.RequestID, payload.LogFileExists, payload.DebugEnabled)
+
+	// Check for callback
+	logStatusCallbacksMu.RLock()
+	ch, hasCallback := logStatusCallbacks[payload.RequestID]
+	logStatusCallbacksMu.RUnlock()
+
+	if hasCallback {
+		select {
+		case ch <- &payload:
+			debug.Debug("Agent %d: Sent log status to callback (request_id: %s)", client.agent.ID, payload.RequestID)
+		default:
+			debug.Warning("Agent %d: Log status callback channel full (request_id: %s)", client.agent.ID, payload.RequestID)
+		}
+	}
+}
+
+// RegisterLogPurgeCallback registers a callback for log purge acknowledgment
+func RegisterLogPurgeCallback(requestID string) <-chan *wsservice.LogPurgeAckPayload {
+	logPurgeCallbacksMu.Lock()
+	defer logPurgeCallbacksMu.Unlock()
+	ch := make(chan *wsservice.LogPurgeAckPayload, 1)
+	logPurgeCallbacks[requestID] = ch
+	return ch
+}
+
+// UnregisterLogPurgeCallback removes a log purge callback
+func UnregisterLogPurgeCallback(requestID string) {
+	logPurgeCallbacksMu.Lock()
+	defer logPurgeCallbacksMu.Unlock()
+	if ch, exists := logPurgeCallbacks[requestID]; exists {
+		close(ch)
+		delete(logPurgeCallbacks, requestID)
+	}
+}
+
+// handleLogPurgeAck processes log purge acknowledgments from agents
+func (h *Handler) handleLogPurgeAck(client *Client, msg *wsservice.Message) {
+	var payload wsservice.LogPurgeAckPayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		debug.Error("Agent %d: Failed to unmarshal log purge ack: %v", client.agent.ID, err)
+		return
+	}
+
+	if payload.Success {
+		debug.Info("Agent %d: Log purge successful (request_id: %s)", client.agent.ID, payload.RequestID)
+	} else {
+		debug.Warning("Agent %d: Log purge failed (request_id: %s): %s", client.agent.ID, payload.RequestID, payload.Message)
+	}
+
+	// Check for callback
+	logPurgeCallbacksMu.RLock()
+	ch, hasCallback := logPurgeCallbacks[payload.RequestID]
+	logPurgeCallbacksMu.RUnlock()
+
+	if hasCallback {
+		select {
+		case ch <- &payload:
+			debug.Debug("Agent %d: Sent log purge ack to callback (request_id: %s)", client.agent.ID, payload.RequestID)
+		default:
+			debug.Warning("Agent %d: Log purge callback channel full (request_id: %s)", client.agent.ID, payload.RequestID)
+		}
+	}
+}
+
+// SendDebugToggle sends a debug toggle command to a specific agent
+func (h *Handler) SendDebugToggle(agentID int, enable bool) error {
+	payload := wsservice.DebugTogglePayload{
+		Enable: enable,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal debug toggle payload: %w", err)
+	}
+
+	msg := &wsservice.Message{
+		Type:    wsservice.TypeDebugToggle,
+		Payload: payloadBytes,
+	}
+
+	return h.SendMessage(agentID, msg)
+}
+
+// SendLogRequest sends a log request to a specific agent
+func (h *Handler) SendLogRequest(agentID int, requestID string, hoursBack int, includeAll bool) error {
+	payload := wsservice.LogRequestPayload{
+		RequestID:  requestID,
+		HoursBack:  hoursBack,
+		IncludeAll: includeAll,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal log request payload: %w", err)
+	}
+
+	msg := &wsservice.Message{
+		Type:    wsservice.TypeLogRequest,
+		Payload: payloadBytes,
+	}
+
+	return h.SendMessage(agentID, msg)
+}
+
+// SendLogStatusRequest sends a log status request to a specific agent
+func (h *Handler) SendLogStatusRequest(agentID int, requestID string) error {
+	payload := wsservice.LogStatusRequestPayload{
+		RequestID: requestID,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal log status request payload: %w", err)
+	}
+
+	msg := &wsservice.Message{
+		Type:    wsservice.TypeLogStatusRequest,
+		Payload: payloadBytes,
+	}
+
+	return h.SendMessage(agentID, msg)
+}
+
+// SendLogPurge sends a log purge command to a specific agent
+func (h *Handler) SendLogPurge(agentID int, requestID string) error {
+	payload := wsservice.LogPurgePayload{
+		RequestID: requestID,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal log purge payload: %w", err)
+	}
+
+	msg := &wsservice.Message{
+		Type:    wsservice.TypeLogPurge,
+		Payload: payloadBytes,
+	}
+
+	return h.SendMessage(agentID, msg)
 }
 
 // reconcileAgentState compares agent's reported state with backend records and fixes discrepancies
