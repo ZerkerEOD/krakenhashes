@@ -1645,16 +1645,42 @@ func (h *Handler) handleTaskStopAck(client *Client, msg *wsservice.Message) {
 		return
 	}
 
+	// Parse the task ID
+	taskID, err := uuid.Parse(ackPayload.TaskID)
+	if err != nil {
+		debug.Error("Agent %d: Invalid task ID in stop ack '%s': %v", client.agent.ID, ackPayload.TaskID, err)
+		return
+	}
+
 	if ackPayload.Stopped {
-		debug.Info("Agent %d: Task stop acknowledged - task %s stopped successfully (stop_id: %s)",
+		debug.Info("Agent %d: Task stop acknowledged - clearing agent assignment for task %s (stop_id: %s)",
 			client.agent.ID, ackPayload.TaskID, ackPayload.StopID)
+
+		// Now that agent has confirmed the stop, clear the agent_id and set task to pending
+		jobHandler := h.wsService.GetJobHandler()
+		if jobHandler != nil {
+			err = jobHandler.ClearStoppedTaskAgent(client.ctx, taskID, client.agent.ID)
+			if err != nil {
+				debug.Error("Agent %d: Failed to clear task agent after stop ack: %v", client.agent.ID, err)
+			} else {
+				debug.Log("Agent %d: Successfully cleared task agent after stop ack", map[string]interface{}{
+					"agent_id": client.agent.ID,
+					"task_id":  ackPayload.TaskID,
+				})
+			}
+		} else {
+			debug.Error("Agent %d: Job handler not available to clear task agent", client.agent.ID)
+		}
 	} else {
 		debug.Warning("Agent %d: Task stop acknowledged but task %s was not running (stop_id: %s, message: %s)",
 			client.agent.ID, ackPayload.TaskID, ackPayload.StopID, ackPayload.Message)
-	}
 
-	// Note: Could track pending stops here and clear them when ACK received
-	// For now, logging is sufficient for debugging purposes
+		// Even if task wasn't running, try to clear the assignment just in case
+		jobHandler := h.wsService.GetJobHandler()
+		if jobHandler != nil {
+			_ = jobHandler.ClearStoppedTaskAgent(client.ctx, taskID, client.agent.ID)
+		}
+	}
 }
 
 // startStateSyncLoop periodically sends state sync requests to reconcile agent state (GH Issue #12)

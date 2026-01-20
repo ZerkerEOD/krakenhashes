@@ -981,6 +981,69 @@ func (r *JobTaskRepository) SetTaskPending(ctx context.Context, id uuid.UUID) er
 	return nil
 }
 
+// SetTaskStopping marks a task as stopping but preserves agent_id
+// This is used when interrupting a task - we mark it stopping and wait for the agent to acknowledge
+func (r *JobTaskRepository) SetTaskStopping(ctx context.Context, id uuid.UUID) error {
+	query := `
+		UPDATE job_tasks
+		SET
+			detailed_status = 'stopping',
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1 AND status IN ('assigned', 'running')`
+
+	result, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to set task to stopping: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
+// ClearTaskAgentAndSetPending clears agent_id and sets task to pending after stop ack received
+// This should only be called after the agent has acknowledged stopping the task
+func (r *JobTaskRepository) ClearTaskAgentAndSetPending(ctx context.Context, id uuid.UUID, agentID int) error {
+	query := `
+		UPDATE job_tasks
+		SET
+			status = 'pending',
+			detailed_status = 'pending',
+			agent_id = NULL,
+			assigned_at = NULL,
+			started_at = NULL,
+			last_checkpoint = CURRENT_TIMESTAMP,
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1 AND agent_id = $2`
+
+	result, err := r.db.ExecContext(ctx, query, id, agentID)
+	if err != nil {
+		return fmt.Errorf("failed to clear task agent and set pending: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		// Task may have already been cleared or reassigned - not necessarily an error
+		debug.Log("ClearTaskAgentAndSetPending: no rows affected", map[string]interface{}{
+			"task_id":  id,
+			"agent_id": agentID,
+		})
+	}
+
+	return nil
+}
+
 // GetNextKeyspaceRange gets the next available keyspace range for a job
 func (r *JobTaskRepository) GetNextKeyspaceRange(ctx context.Context, jobExecutionID uuid.UUID) (start int64, end int64, err error) {
 	query := `

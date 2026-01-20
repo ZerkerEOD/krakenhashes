@@ -1869,52 +1869,64 @@ func (s *JobExecutionService) CanInterruptJob(ctx context.Context, newJobPriorit
 }
 
 // InterruptJob interrupts a running job for a higher priority job
-func (s *JobExecutionService) InterruptJob(ctx context.Context, jobExecutionID, interruptingJobID uuid.UUID) error {
+// If taskIDsToInterrupt is provided (non-empty), only those specific tasks will be interrupted.
+// If taskIDsToInterrupt is nil or empty, ALL running tasks for the job will be interrupted.
+// This uses SetTaskStopping to preserve agent_id until the agent acknowledges the stop.
+func (s *JobExecutionService) InterruptJob(ctx context.Context, jobExecutionID, interruptingJobID uuid.UUID, taskIDsToInterrupt []uuid.UUID) error {
 	err := s.jobExecRepo.InterruptExecution(ctx, jobExecutionID, interruptingJobID)
 	if err != nil {
 		return fmt.Errorf("failed to interrupt job: %w", err)
 	}
 
-	// Set all running tasks for this job to pending
+	// Get tasks for this job
 	tasks, err := s.jobTaskRepo.GetTasksByJobExecution(ctx, jobExecutionID)
 	if err != nil {
 		return fmt.Errorf("failed to get tasks for interrupted job: %w", err)
 	}
 
+	// Build a set of task IDs to interrupt for quick lookup
+	interruptSet := make(map[uuid.UUID]bool)
+	selectiveInterrupt := len(taskIDsToInterrupt) > 0
+	for _, tid := range taskIDsToInterrupt {
+		interruptSet[tid] = true
+	}
+
 	for _, task := range tasks {
 		if task.Status == models.JobTaskStatusRunning || task.Status == models.JobTaskStatusAssigned {
-			// Set task to pending so it can be reassigned
-			err = s.jobTaskRepo.SetTaskPending(ctx, task.ID)
+			// If selective interrupt, only interrupt tasks in the list
+			if selectiveInterrupt && !interruptSet[task.ID] {
+				debug.Log("Skipping task not in interrupt list", map[string]interface{}{
+					"task_id": task.ID,
+					"job_id":  jobExecutionID,
+				})
+				continue
+			}
+
+			// Set task to stopping (keeps agent_id until stop ack is received)
+			err = s.jobTaskRepo.SetTaskStopping(ctx, task.ID)
 			if err != nil {
-				debug.Log("Failed to set task to pending", map[string]interface{}{
+				debug.Log("Failed to set task to stopping", map[string]interface{}{
 					"task_id": task.ID,
 					"error":   err.Error(),
 				})
+			} else {
+				debug.Log("Set task to stopping", map[string]interface{}{
+					"task_id":  task.ID,
+					"agent_id": task.AgentID,
+				})
 			}
-			
-			// Clear agent busy status if task has an assigned agent
-			if task.AgentID != nil {
-				agent, err := s.agentRepo.GetByID(ctx, *task.AgentID)
-				if err == nil && agent.Metadata != nil {
-					agent.Metadata["busy_status"] = "false"
-					delete(agent.Metadata, "current_task_id")
-					delete(agent.Metadata, "current_job_id")
-					if err := s.agentRepo.Update(ctx, agent); err != nil {
-						debug.Error("Failed to clear agent busy status after interruption: %v", err)
-					} else {
-						debug.Log("Cleared agent busy status after interruption", map[string]interface{}{
-							"agent_id": *task.AgentID,
-							"task_id":  task.ID,
-						})
-					}
-				}
-			}
+
+			// Note: We do NOT clear agent busy status here anymore.
+			// Agent busy status will be cleared in ClearStoppedTaskAgent after the agent
+			// acknowledges the stop via task_stop_ack message.
 		}
 	}
 
 	debug.Log("Job interrupted", map[string]interface{}{
-		"job_execution_id":    jobExecutionID,
-		"interrupting_job_id": interruptingJobID,
+		"job_execution_id":      jobExecutionID,
+		"interrupting_job_id":   interruptingJobID,
+		"selective_interrupt":   selectiveInterrupt,
+		"tasks_to_interrupt":    len(taskIDsToInterrupt),
 	})
 
 	return nil

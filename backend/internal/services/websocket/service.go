@@ -11,6 +11,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
+	"github.com/google/uuid"
 )
 
 // JobHandler interface for handling job-related WebSocket messages
@@ -24,6 +25,7 @@ type JobHandler interface {
 	RecoverTask(ctx context.Context, taskID string, agentID int, keyspaceProcessed int64) error
 	HandleAgentReconnectionWithNoTask(ctx context.Context, agentID int) (int, error)
 	GetTask(ctx context.Context, taskID string) (*models.JobTask, error)
+	ClearStoppedTaskAgent(ctx context.Context, taskID uuid.UUID, agentID int) error
 }
 
 // MessageType represents the type of WebSocket message

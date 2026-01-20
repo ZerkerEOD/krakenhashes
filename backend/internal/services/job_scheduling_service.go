@@ -1990,7 +1990,8 @@ func (s *JobSchedulingService) checkAndInterruptForHighPriority(ctx context.Cont
 	// Smart interruption: interrupt only as many tasks as needed
 	// Priority: lowest priority first, then newest jobs within same priority
 	tasksToInterrupt := []models.JobTask{}
-	interruptedJobIDs := make(map[uuid.UUID]bool)
+	// Map from job ID to list of task IDs to interrupt for that job
+	interruptedJobTasks := make(map[uuid.UUID][]uuid.UUID)
 
 	// Sort interruptible jobs by priority ASC (lowest first), then created_at DESC (newest first)
 	// interruptibleJobs is already sorted by priority ASC from CanInterruptJob
@@ -2042,7 +2043,8 @@ func (s *JobSchedulingService) checkAndInterruptForHighPriority(ctx context.Cont
 				break
 			}
 			tasksToInterrupt = append(tasksToInterrupt, task)
-			interruptedJobIDs[job.ID] = true
+			// Track which task IDs belong to which job
+			interruptedJobTasks[job.ID] = append(interruptedJobTasks[job.ID], task.ID)
 		}
 	}
 
@@ -2053,7 +2055,7 @@ func (s *JobSchedulingService) checkAndInterruptForHighPriority(ctx context.Cont
 
 	debug.Log("Interrupting tasks for high-priority override", map[string]interface{}{
 		"tasks_to_interrupt": len(tasksToInterrupt),
-		"jobs_affected":      len(interruptedJobIDs),
+		"jobs_affected":      len(interruptedJobTasks),
 		"high_priority_job":  highPriorityJob.ID,
 	})
 
@@ -2075,16 +2077,17 @@ func (s *JobSchedulingService) checkAndInterruptForHighPriority(ctx context.Cont
 		}
 	}
 
-	// Interrupt all affected jobs in the database
-	for jobID := range interruptedJobIDs {
-		err = s.jobExecutionService.InterruptJob(ctx, jobID, highPriorityJob.ID)
+	// Interrupt specific tasks for each affected job in the database
+	// This only marks the specific tasks that were sent stop commands
+	for jobID, taskIDs := range interruptedJobTasks {
+		err = s.jobExecutionService.InterruptJob(ctx, jobID, highPriorityJob.ID, taskIDs)
 		if err != nil {
 			debug.Error("Failed to interrupt job %s: %v", jobID, err)
 		}
 	}
 
 	// Return the first interrupted job ID for backwards compatibility
-	for jobID := range interruptedJobIDs {
+	for jobID := range interruptedJobTasks {
 		return &jobID, nil
 	}
 

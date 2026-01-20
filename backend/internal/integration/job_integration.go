@@ -156,6 +156,11 @@ func (m *JobIntegrationManager) HandleAgentReconnectionWithNoTask(ctx context.Co
 	return m.wsIntegration.HandleAgentReconnectionWithNoTask(ctx, agentID)
 }
 
+// ClearStoppedTaskAgent clears agent_id after stop is acknowledged (implements JobHandler)
+func (m *JobIntegrationManager) ClearStoppedTaskAgent(ctx context.Context, taskID uuid.UUID, agentID int) error {
+	return m.wsIntegration.ClearStoppedTaskAgent(ctx, taskID, agentID)
+}
+
 // GetWebSocketIntegration returns the WebSocket integration instance
 func (m *JobIntegrationManager) GetWebSocketIntegration() *JobWebSocketIntegration {
 	return m.wsIntegration

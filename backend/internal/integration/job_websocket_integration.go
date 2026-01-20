@@ -842,6 +842,39 @@ func (s *JobWebSocketIntegration) SendJobStop(ctx context.Context, taskID uuid.U
 	return nil
 }
 
+// ClearStoppedTaskAgent clears agent_id and sets task to pending after stop ack received
+// This should be called when an agent acknowledges that it has stopped a task
+func (s *JobWebSocketIntegration) ClearStoppedTaskAgent(ctx context.Context, taskID uuid.UUID, agentID int) error {
+	debug.Log("Clearing task agent after stop ack", map[string]interface{}{
+		"task_id":  taskID,
+		"agent_id": agentID,
+	})
+
+	// Clear the agent assignment and set task back to pending
+	err := s.jobTaskRepo.ClearTaskAgentAndSetPending(ctx, taskID, agentID)
+	if err != nil {
+		return fmt.Errorf("failed to clear task agent: %w", err)
+	}
+
+	// Also clear the agent's busy status
+	agent, err := s.agentRepo.GetByID(ctx, agentID)
+	if err == nil && agent.Metadata != nil {
+		agent.Metadata["busy_status"] = "false"
+		delete(agent.Metadata, "current_task_id")
+		delete(agent.Metadata, "current_job_id")
+		if err := s.agentRepo.Update(ctx, agent); err != nil {
+			debug.Error("Failed to clear agent busy status after stop ack: %v", err)
+		} else {
+			debug.Log("Cleared agent busy status after stop ack", map[string]interface{}{
+				"agent_id": agentID,
+				"task_id":  taskID,
+			})
+		}
+	}
+
+	return nil
+}
+
 // SendBenchmarkRequest sends a benchmark request to an agent
 // SendForceCleanup sends a force cleanup command to an agent
 func (s *JobWebSocketIntegration) SendForceCleanup(ctx context.Context, agentID int) error {
@@ -1143,6 +1176,19 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 
 	// Verify the task is assigned to this agent
 	if task.AgentID == nil || *task.AgentID != agentID {
+		// Check if this task is stopping (agent was told to stop but hasn't ack'd yet)
+		// In this case, we should silently ignore the progress since the task is being stopped
+		// Note: With the proper fix, agent_id won't be cleared until stop ack, so this is mostly
+		// for backwards compatibility with any in-flight transitions
+		if task.DetailedStatus == "stopping" {
+			debug.Log("Ignoring progress from stopping task", map[string]interface{}{
+				"task_id":  progress.TaskID,
+				"agent_id": agentID,
+			})
+			// Silently ignore - don't return error
+			return nil
+		}
+
 		expectedAgent := 0
 		if task.AgentID != nil {
 			expectedAgent = *task.AgentID
