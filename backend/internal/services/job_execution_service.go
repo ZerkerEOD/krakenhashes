@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary/version"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
@@ -136,6 +137,98 @@ func (s *JobExecutionService) GetHashTypeByID(ctx context.Context, hashTypeID in
 	return s.hashTypeRepo.GetByID(ctx, hashTypeID)
 }
 
+// binaryStoreAdapter adapts binary.Manager to version.BinaryStore interface
+type binaryStoreAdapter struct {
+	manager binary.Manager
+}
+
+func (a *binaryStoreAdapter) ListActive(ctx context.Context) ([]version.BinaryInfo, error) {
+	versions, err := a.manager.ListVersions(ctx, map[string]interface{}{"is_active": true})
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]version.BinaryInfo, 0, len(versions))
+	for _, v := range versions {
+		if v.Version == nil {
+			continue // Skip binaries without version info
+		}
+		result = append(result, version.BinaryInfo{
+			ID:        v.ID,
+			Version:   *v.Version,
+			IsDefault: v.IsDefault,
+			IsActive:  v.IsActive,
+		})
+	}
+	return result, nil
+}
+
+func (a *binaryStoreAdapter) GetDefault(ctx context.Context) (*version.BinaryInfo, error) {
+	bv, err := a.manager.GetDefault(ctx, binary.BinaryTypeHashcat)
+	if err != nil {
+		return nil, err
+	}
+	if bv == nil || bv.Version == nil {
+		return nil, nil
+	}
+	return &version.BinaryInfo{
+		ID:        bv.ID,
+		Version:   *bv.Version,
+		IsDefault: bv.IsDefault,
+		IsActive:  bv.IsActive,
+	}, nil
+}
+
+// resolveBinaryVersionPattern resolves a version pattern string to an actual binary ID.
+// For keyspace calculation and other operations that need a specific binary.
+func (s *JobExecutionService) resolveBinaryVersionPattern(ctx context.Context, pattern string) (int64, error) {
+	if pattern == "" {
+		pattern = "default"
+	}
+
+	// If pattern is "default", just get the system default
+	if pattern == "default" {
+		defaultBinary, err := s.binaryManager.GetDefault(ctx, binary.BinaryTypeHashcat)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get default binary: %w", err)
+		}
+		if defaultBinary == nil {
+			return 0, fmt.Errorf("no default binary configured")
+		}
+		return defaultBinary.ID, nil
+	}
+
+	// For specific patterns, use the resolver
+	adapter := &binaryStoreAdapter{manager: s.binaryManager}
+	resolver := version.NewResolver(adapter)
+
+	// Parse the pattern
+	parsedPattern, err := version.Parse(pattern)
+	if err != nil {
+		return 0, fmt.Errorf("invalid version pattern %q: %w", pattern, err)
+	}
+
+	// Get matching binaries
+	matching, err := resolver.GetMatchingBinaries(ctx, parsedPattern)
+	if err != nil {
+		return 0, fmt.Errorf("failed to find matching binaries: %w", err)
+	}
+
+	if len(matching) == 0 {
+		return 0, fmt.Errorf("no binary matches pattern %q", pattern)
+	}
+
+	// Return the highest matching version (or default if in list)
+	for _, b := range matching {
+		if b.IsDefault {
+			return b.ID, nil
+		}
+	}
+
+	// Return highest version (matching is already sorted by version desc in GetMatchingBinaries)
+	return matching[0].ID, nil
+}
+
 // CustomJobConfig contains the configuration for a custom job
 type CustomJobConfig struct {
 	Name                      string
@@ -145,7 +238,7 @@ type CustomJobConfig struct {
 	Mask                      string
 	Priority                  int
 	MaxAgents                 int
-	BinaryVersionID           int
+	BinaryVersion             string // Version pattern (e.g., "default", "7.x", "7.1.2")
 	AllowHighPriorityOverride bool
 	ChunkSizeSeconds          int
 	IncrementMode             string
@@ -305,7 +398,7 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		ChunkSizeSeconds:          presetJob.ChunkSizeSeconds,
 		StatusUpdatesEnabled:      presetJob.StatusUpdatesEnabled,
 		AllowHighPriorityOverride: presetJob.AllowHighPriorityOverride,
-		BinaryVersionID:           presetJob.BinaryVersionID,
+		BinaryVersion:           presetJob.BinaryVersion,
 		Mask:                      presetJob.Mask,
 		AdditionalArgs:            presetJob.AdditionalArgs,
 		IncrementMode:             presetJob.IncrementMode,
@@ -408,7 +501,7 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		RuleIDs:                   config.RuleIDs,
 		AttackMode:                config.AttackMode,
 		HashType:                  hashlist.HashTypeID,
-		BinaryVersionID:           config.BinaryVersionID,
+		BinaryVersion:           config.BinaryVersion,
 		Mask:                      config.Mask,
 		Priority:                  config.Priority,
 		MaxAgents:                 config.MaxAgents,
@@ -538,7 +631,7 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		ChunkSizeSeconds:          chunkSize,
 		StatusUpdatesEnabled:      true,
 		AllowHighPriorityOverride: config.AllowHighPriorityOverride,
-		BinaryVersionID:           config.BinaryVersionID,
+		BinaryVersion:           config.BinaryVersion,
 		Mask:                      config.Mask,
 		AdditionalArgs:            nil,
 		IncrementMode:             config.IncrementMode,
@@ -601,18 +694,26 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *models.PresetJob, hashlist *models.HashList) (*int64, *int64, bool, error) {
 	debug.Log("Starting keyspace calculation for job execution", map[string]interface{}{
 		"preset_job_id":     presetJob.ID,
-		"binary_version_id": presetJob.BinaryVersionID,
+		"binary_version":    presetJob.BinaryVersion,
 		"attack_mode":       presetJob.AttackMode,
 		"hashlist_id":       hashlist.ID,
 		"data_directory":    s.dataDirectory,
 	})
-	
+
+	// Resolve binary version pattern to actual binary ID
+	binaryVersionID, err := s.resolveBinaryVersionPattern(ctx, presetJob.BinaryVersion)
+	if err != nil {
+		debug.Error("Failed to resolve binary version pattern: pattern=%s, error=%v",
+			presetJob.BinaryVersion, err)
+		return nil, nil, false, fmt.Errorf("failed to resolve binary version pattern %q: %w", presetJob.BinaryVersion, err)
+	}
+
 	// Get the hashcat binary path from binary manager
-	hashcatPath, err := s.binaryManager.GetLocalBinaryPath(ctx, int64(presetJob.BinaryVersionID))
+	hashcatPath, err := s.binaryManager.GetLocalBinaryPath(ctx, binaryVersionID)
 	if err != nil {
 		debug.Error("Failed to get hashcat binary path: binary_version_id=%d, error=%v",
-			presetJob.BinaryVersionID, err)
-		return nil, nil, false, fmt.Errorf("failed to get hashcat binary path for version %d: %w", presetJob.BinaryVersionID, err)
+			binaryVersionID, err)
+		return nil, nil, false, fmt.Errorf("failed to get hashcat binary path for version %d: %w", binaryVersionID, err)
 	}
 
 	// Verify the binary exists and is executable
@@ -2456,11 +2557,15 @@ func (s *JobExecutionService) createJobTasksWithRuleSplitting(ctx context.Contex
 // The presetJob parameter is deprecated and should always be nil
 // layerMask can be provided for increment layer tasks - if set, it overrides job.Mask and skips increment flags
 func (s *JobExecutionService) buildAttackCommand(ctx context.Context, presetJob *models.PresetJob, job *models.JobExecution, layerMask string) (string, error) {
-	// Use binary version ID from job (job_executions are self-contained)
-	if job.BinaryVersionID == 0 {
-		return "", fmt.Errorf("no binary version ID available in job execution")
+	// Resolve binary version pattern to actual binary ID
+	if job.BinaryVersion == "" {
+		return "", fmt.Errorf("no binary version pattern available in job execution")
 	}
-	binaryVersionID := int64(job.BinaryVersionID)
+
+	binaryVersionID, err := s.resolveBinaryVersionPattern(ctx, job.BinaryVersion)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve binary version pattern %q: %w", job.BinaryVersion, err)
+	}
 
 	// Get the hashcat binary path
 	hashcatPath, err := s.binaryManager.GetLocalBinaryPath(ctx, binaryVersionID)
@@ -2885,8 +2990,6 @@ func (s *JobExecutionService) GetPreviousChunksActualKeyspace(ctx context.Contex
 	return s.jobTaskRepo.GetPreviousChunksActualKeyspace(ctx, jobExecutionID, currentChunkNumber)
 }
 
-// DetermineBinaryForTask implements the binary selection hierarchy: Agent → Job → Default
-// Returns the binary version ID to use for a given agent and job execution
 // GetAgentPreferredBinary returns the preferred binary version for an agent
 // This is used for device detection and other agent-level operations that don't have a specific job context
 func (s *JobExecutionService) GetAgentPreferredBinary(ctx context.Context, agentID int) (int64, error) {
@@ -2896,70 +2999,64 @@ func (s *JobExecutionService) GetAgentPreferredBinary(ctx context.Context, agent
 		return 0, fmt.Errorf("failed to get agent: %w", err)
 	}
 
-	// If agent has binary override enabled and binary_version_id is set, use it
-	if agent.BinaryOverride && agent.BinaryVersionID.Valid && agent.BinaryVersionID.Int64 > 0 {
-		debug.Log("Using agent binary override for device detection", map[string]interface{}{
-			"agent_id":          agentID,
-			"binary_version_id": agent.BinaryVersionID.Int64,
-		})
-		return agent.BinaryVersionID.Int64, nil
-	}
-
-	// Fall back to system default
-	defaultBinary, err := s.binaryManager.GetDefault(ctx, binary.BinaryTypeHashcat)
+	// Resolve agent's binary version pattern to actual binary ID
+	binaryVersionID, err := s.resolveBinaryVersionPattern(ctx, agent.BinaryVersion)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get default binary: %w", err)
+		return 0, fmt.Errorf("failed to resolve agent binary version pattern %q: %w", agent.BinaryVersion, err)
 	}
 
-	debug.Log("Using system default binary for device detection", map[string]interface{}{
+	debug.Log("Resolved agent binary version for device detection", map[string]interface{}{
 		"agent_id":          agentID,
-		"binary_version_id": defaultBinary.ID,
+		"binary_pattern":    agent.BinaryVersion,
+		"binary_version_id": binaryVersionID,
 	})
-	return defaultBinary.ID, nil
+	return binaryVersionID, nil
 }
 
+// DetermineBinaryForTask implements the binary selection logic using version patterns.
+// It uses the version resolver to find a binary compatible with both agent and job patterns.
+// Returns the binary version ID to use for a given agent and job execution.
 func (s *JobExecutionService) DetermineBinaryForTask(ctx context.Context, agentID int, jobExecutionID uuid.UUID) (int64, error) {
-	// 1. Check agent-level override (highest priority)
+	// Get agent info
 	agent, err := s.agentRepo.GetByID(ctx, agentID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get agent: %w", err)
 	}
 
-	// If agent has binary override enabled and binary_version_id is set, use it
-	if agent.BinaryOverride && agent.BinaryVersionID.Valid && agent.BinaryVersionID.Int64 > 0 {
-		debug.Log("Using agent binary override", map[string]interface{}{
-			"agent_id":          agentID,
-			"binary_version_id": agent.BinaryVersionID.Int64,
-		})
-		return agent.BinaryVersionID.Int64, nil
-	}
-
-	// 2. Check job-level binary (medium priority)
+	// Get job execution info
 	jobExecution, err := s.jobExecRepo.GetByID(ctx, jobExecutionID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get job execution: %w", err)
 	}
 
-	if jobExecution.BinaryVersionID > 0 {
-		debug.Log("Using job binary", map[string]interface{}{
-			"job_execution_id":  jobExecutionID,
-			"binary_version_id": jobExecution.BinaryVersionID,
-		})
-		return int64(jobExecution.BinaryVersionID), nil
+	// Parse agent and job patterns
+	agentPattern := agent.BinaryVersion
+	if agentPattern == "" {
+		agentPattern = "default"
 	}
 
-	// 3. Fall back to system default (lowest priority)
-	defaultBinary, err := s.binaryManager.GetDefault(ctx, binary.BinaryTypeHashcat)
+	jobPattern := jobExecution.BinaryVersion
+	if jobPattern == "" {
+		jobPattern = "default"
+	}
+
+	// Create adapter and resolver
+	adapter := &binaryStoreAdapter{manager: s.binaryManager}
+	resolver := version.NewResolver(adapter)
+
+	// Use the resolver to find a compatible binary
+	binaryID, err := resolver.ResolveForTaskStr(ctx, agentPattern, jobPattern)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get default binary: %w", err)
+		return 0, fmt.Errorf("no compatible binary for agent pattern %q and job pattern %q: %w", agentPattern, jobPattern, err)
 	}
 
-	if defaultBinary == nil {
-		return 0, fmt.Errorf("no default hashcat binary configured")
-	}
-
-	debug.Log("Using system default binary", map[string]interface{}{
-		"binary_version_id": defaultBinary.ID,
+	debug.Log("Resolved binary for task", map[string]interface{}{
+		"agent_id":         agentID,
+		"job_execution_id": jobExecutionID,
+		"agent_pattern":    agentPattern,
+		"job_pattern":      jobPattern,
+		"binary_id":        binaryID,
 	})
-	return defaultBinary.ID, nil
+
+	return binaryID, nil
 }

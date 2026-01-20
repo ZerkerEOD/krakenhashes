@@ -705,17 +705,8 @@ func (s *PotfileService) getOrCreatePotfilePresetJob(ctx context.Context, wordli
 		}
 	}
 
-	// Get latest binary version
-	latestBinary, err := s.getLatestBinaryVersion(ctx)
-	if err != nil {
-		// Propagate ErrNoBinaryVersions without wrapping
-		if errors.Is(err, ErrNoBinaryVersions) {
-			return uuid.Nil, err
-		}
-		return uuid.Nil, fmt.Errorf("failed to get latest binary version: %w", err)
-	}
-
-	// Create preset job
+	// Create preset job with "default" binary pattern
+	// The actual binary will be resolved at task creation time
 	presetJob := models.PresetJob{
 		Name:                      "Potfile Run",
 		WordlistIDs:               []string{strconv.Itoa(wordlistID)},
@@ -725,7 +716,7 @@ func (s *PotfileService) getOrCreatePotfilePresetJob(ctx context.Context, wordli
 		ChunkSizeSeconds:          chunkDuration,
 		StatusUpdatesEnabled:      true,
 		AllowHighPriorityOverride: true,
-		BinaryVersionID:           latestBinary,
+		BinaryVersion:             "default",
 		Mask:                      "",
 		Keyspace:                  nil,   // Will be set after calculation
 		MaxAgents:                 0,     // Unlimited

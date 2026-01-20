@@ -40,6 +40,7 @@ import {
 import { api } from '../../services/api';
 import { getJobExecutionSettings } from '../../services/jobSettings';
 import { useNavigate } from 'react-router-dom';
+import BinaryVersionSelector from '../common/BinaryVersionSelector';
 
 interface PresetJob {
   id: string;
@@ -126,7 +127,7 @@ export default function CreateJobDialog({
     mask: '',
     priority: 5,
     max_agents: 0,
-    binary_version_id: 1,
+    binary_version: 'default',
     allow_high_priority_override: false,
     chunk_duration: 1200, // Default to 20 minutes (will be updated from system settings)
     increment_mode: 'off' as string,
@@ -168,23 +169,12 @@ export default function CreateJobDialog({
       if (jobExecutionSettings?.default_chunk_duration) {
         systemDefaultChunkDuration = jobExecutionSettings.default_chunk_duration;
       }
-      
-      // Set default binary version and chunk duration if available
-      if (response.data.form_data?.binary_versions?.length > 0) {
-        const firstBinaryId = response.data.form_data.binary_versions[0].id;
-        console.log('Setting default binary version to:', firstBinaryId);
-        setCustomJob(prev => ({ 
-          ...prev, 
-          binary_version_id: firstBinaryId,
-          chunk_duration: systemDefaultChunkDuration
-        }));
-      } else {
-        // Just update chunk duration
-        setCustomJob(prev => ({ 
-          ...prev, 
-          chunk_duration: systemDefaultChunkDuration
-        }));
-      }
+
+      // Update chunk duration (binary_version defaults to 'default')
+      setCustomJob(prev => ({
+        ...prev,
+        chunk_duration: systemDefaultChunkDuration
+      }));
     } catch (err: any) {
       console.error('Failed to fetch available jobs:', err);
       setError('Failed to load available jobs');
@@ -342,7 +332,7 @@ export default function CreateJobDialog({
         mask: '',
         priority: 5,
         max_agents: 0,
-        binary_version_id: 1,
+        binary_version: 'default',
         allow_high_priority_override: false,
         chunk_duration: 1200, // Default to 20 minutes
         increment_mode: 'off',
@@ -630,20 +620,12 @@ export default function CreateJobDialog({
                   </Grid>
 
                   <Grid item xs={12} sm={6}>
-                    <FormControl fullWidth>
-                      <InputLabel>Binary Version</InputLabel>
-                      <Select
-                        value={customJob.binary_version_id}
-                        onChange={(e) => setCustomJob(prev => ({ ...prev, binary_version_id: Number(e.target.value) }))}
-                        label="Binary Version"
-                      >
-                        {formData?.binary_versions?.map(version => (
-                          <MenuItem key={version.id} value={version.id}>
-                            {version.version} ({version.type})
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
+                    <BinaryVersionSelector
+                      value={customJob.binary_version}
+                      onChange={(value) => setCustomJob(prev => ({ ...prev, binary_version: value }))}
+                      margin="none"
+                      helperText="Select binary version pattern"
+                    />
                   </Grid>
 
                   {/* Attack mode 0 (Dictionary): Wordlists → Rules */}

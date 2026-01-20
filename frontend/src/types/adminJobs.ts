@@ -14,6 +14,17 @@ export interface BinaryVersionBasic {
   id: number; // Keep as int based on backend model
   name: string;
   is_default: boolean; // Whether this is the default binary version
+  version?: string; // Semantic version string (e.g., "7.1.2")
+}
+
+/**
+ * Binary version pattern for dropdown selection
+ */
+export interface BinaryVersionPattern {
+  pattern: string; // e.g., "default", "7.x", "7.1.x", "7.1.2"
+  display: string; // Human-readable display
+  type: 'default' | 'major_wildcard' | 'minor_wildcard' | 'exact';
+  isDefault: boolean;
 }
 
 // Corresponds to models.AttackMode
@@ -37,10 +48,11 @@ export interface PresetJob {
   chunk_size_seconds: number;
   status_updates_enabled: boolean;
   allow_high_priority_override: boolean;
-  binary_version_id: number;
+  /** Binary version pattern (e.g., "default", "7.x", "7.1.x", "7.1.2") */
+  binary_version: string;
   created_at: string; // ISO 8601 date string
   updated_at: string; // ISO 8601 date string
-  binary_version_name?: string; // Optional, from JOIN
+  binary_version_name?: string; // Optional, resolved display name from pattern
   mask?: string; // Mask pattern for mask-based attack modes
   keyspace?: number | null; // Pre-calculated keyspace
   max_agents: number; // Max agents allowed (0 = unlimited)
@@ -57,7 +69,8 @@ export interface PresetJobFormData {
   attack_mode: AttackMode;
   priority: number | string; // Allow string for empty placeholder state
   chunk_size_seconds: number;
-  binary_version_id: number;
+  /** Binary version pattern (e.g., "default", "7.x", "7.1.x", "7.1.2") */
+  binary_version: string;
   mask?: string; // Mask pattern for mask-based attack modes
   allow_high_priority_override: boolean;
   max_agents: number;
@@ -88,8 +101,8 @@ export interface JobWorkflowStep {
   preset_job_name: string; // Always populated when fetched
   preset_job_attack_mode?: AttackMode; // Attack mode of the preset job
   preset_job_priority?: number; // Priority of the preset job
-  preset_job_binary_id?: number; // Binary version ID
-  preset_job_binary_name?: string; // Binary version name
+  preset_job_binary_version?: string; // Binary version pattern (e.g., "default", "7.x")
+  preset_job_binary_name?: string; // Resolved binary version name for display
   preset_job_wordlist_ids?: string[]; // Wordlist IDs as strings
   preset_job_rule_ids?: string[]; // Rule IDs as strings
 }

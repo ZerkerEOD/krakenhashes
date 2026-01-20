@@ -29,16 +29,16 @@ import {
 } from '../../services/api';
 import { getMaxPriorityForUsers } from '../../services/systemSettings';
 import { getJobExecutionSettings } from '../../services/jobSettings';
-import { 
-  PresetJob, 
-  PresetJobInput, 
+import {
+  PresetJob,
+  PresetJobInput,
   PresetJobFormData,
   PresetJobApiData,
-  AttackMode, 
-  WordlistBasic, 
-  RuleBasic, 
-  BinaryVersionBasic 
+  AttackMode,
+  WordlistBasic,
+  RuleBasic
 } from '../../types/adminJobs';
+import BinaryVersionSelector from '../../components/common/BinaryVersionSelector';
 
 const ITEM_HEIGHT = 48;
 const ITEM_PADDING_TOP = 8;
@@ -59,7 +59,7 @@ const getInitialFormState = (defaultChunkDuration: number = 300): PresetJobFormD
   attack_mode: AttackMode.Straight,
   priority: '', // Empty string to show placeholder
   chunk_size_seconds: defaultChunkDuration,
-  binary_version_id: 0,
+  binary_version: 'default',
   allow_high_priority_override: false,
   mask: '',
   max_agents: 0,
@@ -126,7 +126,6 @@ const PresetJobFormPage: React.FC = () => {
   // Form options from API
   const [wordlists, setWordlists] = useState<WordlistBasic[]>([]);
   const [rules, setRules] = useState<RuleBasic[]>([]);
-  const [binaryVersions, setBinaryVersions] = useState<BinaryVersionBasic[]>([]);
   
   // Loading and error states
   const [loading, setLoading] = useState(true);
@@ -171,15 +170,8 @@ const PresetJobFormPage: React.FC = () => {
           return;
         }
 
-        if (!formDataResponse.binary_versions?.length) {
-          setError('No binary versions available. Please add binary versions before creating preset jobs.');
-          setLoading(false);
-          return;
-        }
-
         setWordlists(formDataResponse.wordlists);
         setRules(formDataResponse.rules || []);
-        setBinaryVersions(formDataResponse.binary_versions);
         
         // If editing, fetch the preset job data
         if (isEditing && presetJobId) {
@@ -193,7 +185,7 @@ const PresetJobFormPage: React.FC = () => {
               attack_mode: presetJob.attack_mode,
               priority: presetJob.priority,
               chunk_size_seconds: presetJob.chunk_size_seconds,
-              binary_version_id: presetJob.binary_version_id,
+              binary_version: presetJob.binary_version || 'default',
               allow_high_priority_override: presetJob.allow_high_priority_override,
               mask: presetJob.mask || '',
               max_agents: presetJob.max_agents || 0,
@@ -214,25 +206,11 @@ const PresetJobFormPage: React.FC = () => {
           } catch (err) {
             console.error('Error fetching preset job:', err);
             setError('Failed to load preset job. Please try again.');
-            // Set default form state even if job fetch fails
-            if (formDataResponse.binary_versions?.length > 0) {
-              // Find the default binary, or fall back to first in list
-              const defaultBinary = formDataResponse.binary_versions.find(b => b.is_default)
-                || formDataResponse.binary_versions[0];
-              setFormData(prev => ({
-                ...prev,
-                binary_version_id: defaultBinary.id
-              }));
-            }
           }
-        } else if (formDataResponse.binary_versions?.length > 0) {
-          // For new jobs, set default binary version and chunk duration
-          // Find the default binary, or fall back to first in list
-          const defaultBinary = formDataResponse.binary_versions.find(b => b.is_default)
-            || formDataResponse.binary_versions[0];
+        } else {
+          // For new jobs, set default chunk duration (binary_version already defaults to 'default')
           setFormData(prev => ({
             ...prev,
-            binary_version_id: defaultBinary.id,
             chunk_size_seconds: systemDefaultChunkDuration
           }));
         }
@@ -255,7 +233,7 @@ const PresetJobFormPage: React.FC = () => {
     let convertedValue: any = type === 'checkbox' ? checked : value;
     
     // Convert numeric fields to numbers, but allow empty values for better UX
-    if (name === 'priority' || name === 'chunk_size_seconds' || name === 'binary_version_id' || name === 'max_agents') {
+    if (name === 'priority' || name === 'chunk_size_seconds' || name === 'max_agents') {
       // Allow empty string during editing, convert to number otherwise
       convertedValue = value === '' ? '' : parseInt(value) || 0;
     }
@@ -423,7 +401,7 @@ const PresetJobFormPage: React.FC = () => {
       return false;
     }
     
-    if (formData.binary_version_id === 0) {
+    if (!formData.binary_version) {
       setError('A binary version must be selected');
       return false;
     }
@@ -641,23 +619,12 @@ const PresetJobFormPage: React.FC = () => {
 
         {/* Binary Version */}
         <Grid item xs={12} sm={6}>
-          <FormControl fullWidth margin="normal" required>
-            <InputLabel id="binary-version-label">Binary Version</InputLabel>
-            <Select
-              labelId="binary-version-label"
-              name="binary_version_id"
-              value={formData.binary_version_id}
-              onChange={(e) => handleSelectChange(e, 'binary_version_id')}
-              label="Binary Version"
-            >
-              {binaryVersions.map((version) => (
-                <MenuItem key={version.id} value={version.id}>
-                  {version.name}
-                </MenuItem>
-              ))}
-            </Select>
-            <FormHelperText>Select the binary version to use for this job</FormHelperText>
-          </FormControl>
+          <BinaryVersionSelector
+            value={formData.binary_version}
+            onChange={(value) => setFormData(prev => ({ ...prev, binary_version: value }))}
+            required
+            helperText="Select the binary version pattern for this job"
+          />
         </Grid>
 
         {/* Job Configuration */}

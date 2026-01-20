@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary/version"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/utils"
@@ -60,6 +61,93 @@ func NewAdminPresetJobService(
 		fileRepo:                 fileRepo,
 		dataDirectory:            dataDirectory,
 	}
+}
+
+// presetJobBinaryStoreAdapter adapts binary.Manager to version.BinaryStore interface
+type presetJobBinaryStoreAdapter struct {
+	manager binary.Manager
+}
+
+func (a *presetJobBinaryStoreAdapter) ListActive(ctx context.Context) ([]version.BinaryInfo, error) {
+	versions, err := a.manager.ListVersions(ctx, map[string]interface{}{"is_active": true})
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]version.BinaryInfo, 0, len(versions))
+	for _, v := range versions {
+		if v.Version == nil {
+			continue
+		}
+		result = append(result, version.BinaryInfo{
+			ID:        v.ID,
+			Version:   *v.Version,
+			IsDefault: v.IsDefault,
+			IsActive:  v.IsActive,
+		})
+	}
+	return result, nil
+}
+
+func (a *presetJobBinaryStoreAdapter) GetDefault(ctx context.Context) (*version.BinaryInfo, error) {
+	bv, err := a.manager.GetDefault(ctx, binary.BinaryTypeHashcat)
+	if err != nil {
+		return nil, err
+	}
+	if bv == nil || bv.Version == nil {
+		return nil, nil
+	}
+	return &version.BinaryInfo{
+		ID:        bv.ID,
+		Version:   *bv.Version,
+		IsDefault: bv.IsDefault,
+		IsActive:  bv.IsActive,
+	}, nil
+}
+
+// resolveBinaryVersionPattern resolves a version pattern string to an actual binary ID.
+func (s *adminPresetJobService) resolveBinaryVersionPattern(ctx context.Context, pattern string) (int64, error) {
+	if pattern == "" {
+		pattern = "default"
+	}
+
+	// If pattern is "default", just get the system default
+	if pattern == "default" {
+		defaultBinary, err := s.binaryManager.GetDefault(ctx, binary.BinaryTypeHashcat)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get default binary: %w", err)
+		}
+		if defaultBinary == nil {
+			return 0, fmt.Errorf("no default binary configured")
+		}
+		return defaultBinary.ID, nil
+	}
+
+	// For specific patterns, use the resolver
+	adapter := &presetJobBinaryStoreAdapter{manager: s.binaryManager}
+	resolver := version.NewResolver(adapter)
+
+	parsedPattern, err := version.Parse(pattern)
+	if err != nil {
+		return 0, fmt.Errorf("invalid version pattern %q: %w", pattern, err)
+	}
+
+	matching, err := resolver.GetMatchingBinaries(ctx, parsedPattern)
+	if err != nil {
+		return 0, fmt.Errorf("failed to find matching binaries: %w", err)
+	}
+
+	if len(matching) == 0 {
+		return 0, fmt.Errorf("no binary matches pattern %q", pattern)
+	}
+
+	for _, b := range matching {
+		if b.IsDefault {
+			return b.ID, nil
+		}
+	}
+
+	return matching[0].ID, nil
 }
 
 // isValidAttackMode checks if the provided integer corresponds to a defined AttackMode.
@@ -184,7 +272,7 @@ func (s *adminPresetJobService) validatePresetJob(ctx context.Context, params mo
 	}
 
 	// TODO: Add deeper validation if necessary:
-	// - Check if BinaryVersionID actually exists in binary_versions table.
+	// - Check if BinaryVersion actually exists in binary_versions table.
 	// - Check if all WordlistIDs/RuleIDs exist (might require fetching all valid IDs).
 	//   For now, we rely on the frontend using data from GetPresetJobFormData
 	//   and potentially database foreign key constraints where applicable.
@@ -475,7 +563,7 @@ func (s *adminPresetJobService) needsKeyspaceRecalculation(existing, updated *mo
 	}
 
 	// Check if binary version changed
-	if existing.BinaryVersionID != updated.BinaryVersionID {
+	if existing.BinaryVersion != updated.BinaryVersion {
 		return true
 	}
 
@@ -486,17 +574,25 @@ func (s *adminPresetJobService) needsKeyspaceRecalculation(existing, updated *mo
 func (s *adminPresetJobService) CalculateKeyspaceForPresetJob(ctx context.Context, presetJob *models.PresetJob) (*int64, error) {
 	debug.Log("Starting keyspace calculation for preset job", map[string]interface{}{
 		"preset_job_id":    presetJob.ID,
-		"binary_version_id": presetJob.BinaryVersionID,
+		"binary_version":   presetJob.BinaryVersion,
 		"attack_mode":      presetJob.AttackMode,
 		"data_directory":   s.dataDirectory,
 	})
-	
+
+	// Resolve binary version pattern to actual binary ID
+	binaryVersionID, err := s.resolveBinaryVersionPattern(ctx, presetJob.BinaryVersion)
+	if err != nil {
+		debug.Error("Failed to resolve binary version pattern: pattern=%s, error=%v",
+			presetJob.BinaryVersion, err)
+		return nil, fmt.Errorf("failed to resolve binary version pattern %q: %w", presetJob.BinaryVersion, err)
+	}
+
 	// Get the hashcat binary path from binary manager
-	hashcatPath, err := s.binaryManager.GetLocalBinaryPath(ctx, int64(presetJob.BinaryVersionID))
+	hashcatPath, err := s.binaryManager.GetLocalBinaryPath(ctx, binaryVersionID)
 	if err != nil {
 		debug.Error("Failed to get hashcat binary path: binary_version_id=%d, error=%v",
-			presetJob.BinaryVersionID, err)
-		return nil, fmt.Errorf("failed to get hashcat binary path for version %d: %w", presetJob.BinaryVersionID, err)
+			binaryVersionID, err)
+		return nil, fmt.Errorf("failed to get hashcat binary path for version %d: %w", binaryVersionID, err)
 	}
 	
 	// Verify the binary exists and is executable
@@ -1055,8 +1151,14 @@ func (s *adminPresetJobService) initializePresetIncrementLayers(ctx context.Cont
 		"masks":         layerMasks,
 	})
 
+	// Resolve binary version pattern to actual binary ID
+	binaryVersionID, err := s.resolveBinaryVersionPattern(ctx, presetJob.BinaryVersion)
+	if err != nil {
+		return 0, fmt.Errorf("failed to resolve binary version pattern %q: %w", presetJob.BinaryVersion, err)
+	}
+
 	// Get hashcat binary path
-	hashcatPath, err := s.binaryManager.GetLocalBinaryPath(ctx, int64(presetJob.BinaryVersionID))
+	hashcatPath, err := s.binaryManager.GetLocalBinaryPath(ctx, binaryVersionID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get hashcat binary path: %w", err)
 	}

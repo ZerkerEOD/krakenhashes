@@ -208,7 +208,8 @@ export interface JobDetailsResponse {
   rule_ids?: string[];
   rule_names?: string[];
   mask?: string;
-  binary_version_id?: number;
+  /** Binary version pattern (e.g., "default", "7.x", "7.1.x", "7.1.2") */
+  binary_version?: string;
   chunk_size_seconds?: number;
   status_updates_enabled?: boolean;
   allow_high_priority_override?: boolean;

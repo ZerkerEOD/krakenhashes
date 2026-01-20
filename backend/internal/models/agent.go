@@ -100,8 +100,7 @@ type Agent struct {
 	SyncError           sql.NullString    `json:"syncError"`
 	FilesToSync         int               `json:"filesToSync"`
 	FilesSynced         int               `json:"filesSynced"`
-	BinaryVersionID     sql.NullInt64     `json:"binaryVersionId,omitempty"` // Optional override binary version
-	BinaryOverride      bool              `json:"binaryOverride"`            // Whether binary_version_id is manually set
+	BinaryVersion       string            `json:"binaryVersion"` // Version pattern specifying compatible binaries (e.g., "default", "7.x", "7.1.2")
 }
 
 // Hardware represents the hardware configuration of an agent
@@ -202,8 +201,7 @@ func (a Agent) MarshalJSON() ([]byte, error) {
 		SyncError           sql.NullString    `json:"syncError"`
 		FilesToSync         int               `json:"filesToSync"`
 		FilesSynced         int               `json:"filesSynced"`
-		BinaryVersionID     *int64            `json:"binaryVersionId,omitempty"` // Custom handling for sql.NullInt64
-		BinaryOverride      bool              `json:"binaryOverride"`
+		BinaryVersion       string            `json:"binaryVersion"`
 	}
 
 	temp := AgentJSON{
@@ -234,14 +232,7 @@ func (a Agent) MarshalJSON() ([]byte, error) {
 		SyncError:           a.SyncError,
 		FilesToSync:         a.FilesToSync,
 		FilesSynced:         a.FilesSynced,
-		BinaryOverride:      a.BinaryOverride,
-	}
-
-	// Convert sql.NullInt64 to *int64 for proper JSON marshalling
-	if a.BinaryVersionID.Valid && a.BinaryVersionID.Int64 > 0 {
-		temp.BinaryVersionID = &a.BinaryVersionID.Int64
-	} else {
-		temp.BinaryVersionID = nil
+		BinaryVersion:       a.BinaryVersion,
 	}
 
 	return json.Marshal(temp)

@@ -1111,10 +1111,10 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 
 	if needsBenchmark {
 		debug.Log("Agent needs benchmark before assignment", map[string]interface{}{
-			"agent_id":         agent.ID,
-			"attack_mode":      nextJob.AttackMode,
-			"hash_type":        hashlist.HashTypeID,
-			"binary_version_id": nextJob.BinaryVersionID,
+			"agent_id":        agent.ID,
+			"attack_mode":     nextJob.AttackMode,
+			"hash_type":       hashlist.HashTypeID,
+			"binary_version":  nextJob.BinaryVersion,
 		})
 
 		// Request benchmark from agent if WebSocket integration is available
@@ -1536,12 +1536,12 @@ func (s *JobSchedulingService) assignWorkToAgent(ctx context.Context, agent *mod
 		// Build attack command
 		// For custom jobs, pass nil for presetJob since all data is in nextJob
 		debug.Log("Building attack command", map[string]interface{}{
-			"job_id":            nextJob.ID,
-			"binary_version_id": nextJob.BinaryVersionID,
-			"attack_mode":       nextJob.AttackMode,
-			"hash_type":         nextJob.HashType,
-			"wordlist_ids":      nextJob.WordlistIDs,
-			"rule_ids":          nextJob.RuleIDs,
+			"job_id":          nextJob.ID,
+			"binary_version":  nextJob.BinaryVersion,
+			"attack_mode":     nextJob.AttackMode,
+			"hash_type":       nextJob.HashType,
+			"wordlist_ids":    nextJob.WordlistIDs,
+			"rule_ids":        nextJob.RuleIDs,
 		})
 		attackCmd, err := s.jobExecutionService.buildAttackCommand(ctx, nil, nextJob, "") // Empty layerMask - not an increment layer task
 		if err != nil {

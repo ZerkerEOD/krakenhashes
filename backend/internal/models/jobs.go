@@ -63,7 +63,7 @@ type PresetJob struct {
 	ChunkSizeSeconds          int        `json:"chunk_size_seconds" db:"chunk_size_seconds"`
 	StatusUpdatesEnabled      bool       `json:"status_updates_enabled" db:"status_updates_enabled"`
 	AllowHighPriorityOverride bool       `json:"allow_high_priority_override" db:"allow_high_priority_override"`
-	BinaryVersionID           int        `json:"binary_version_id" db:"binary_version_id"`       // References binary_versions.id
+	BinaryVersion             string     `json:"binary_version" db:"binary_version"`             // Version pattern (e.g., "default", "7.x", "7.1.2")
 	Mask                      string     `json:"mask,omitempty" db:"mask"`                       // For mask-based attack modes
 	AdditionalArgs            *string    `json:"additional_args,omitempty" db:"additional_args"` // Additional hashcat arguments
 	Keyspace                  *int64     `json:"keyspace,omitempty" db:"keyspace"`               // Pre-calculated base keyspace from --keyspace
@@ -166,7 +166,7 @@ type JobExecution struct {
 	ChunkSizeSeconds          int     `json:"chunk_size_seconds" db:"chunk_size_seconds"`
 	StatusUpdatesEnabled      bool    `json:"status_updates_enabled" db:"status_updates_enabled"`
 	AllowHighPriorityOverride bool    `json:"allow_high_priority_override" db:"allow_high_priority_override"`
-	BinaryVersionID           int     `json:"binary_version_id" db:"binary_version_id"`
+	BinaryVersion             string  `json:"binary_version" db:"binary_version"` // Version pattern (e.g., "default", "7.x", "7.1.2")
 	Mask                      string  `json:"mask,omitempty" db:"mask"`
 	AdditionalArgs            *string `json:"additional_args,omitempty" db:"additional_args"`
 	IncrementMode             string  `json:"increment_mode,omitempty" db:"increment_mode"` // Mask increment mode: off, increment, increment_inverse
@@ -214,6 +214,7 @@ type JobTask struct {
 	JobExecutionID    uuid.UUID     `json:"job_execution_id" db:"job_execution_id"`
 	IncrementLayerID  *uuid.UUID    `json:"increment_layer_id" db:"increment_layer_id"` // References job_increment_layers if task belongs to a layer
 	AgentID           *int          `json:"agent_id" db:"agent_id"`
+	BinaryVersionID   *int64        `json:"binary_version_id,omitempty" db:"binary_version_id"` // Resolved binary version ID at task creation
 	Status            JobTaskStatus `json:"status" db:"status"`
 	Priority          int           `json:"priority" db:"priority"`     // Task priority (inherited from job)
 	AttackCmd         string        `json:"attack_cmd" db:"attack_cmd"` // Full hashcat command for this task

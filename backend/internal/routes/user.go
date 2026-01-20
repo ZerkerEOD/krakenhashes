@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary/version"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/agent"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/jobs"
@@ -435,4 +436,33 @@ func SetupUserRoutes(router *mux.Router, database *db.DB, dataDir string, binary
 	router.HandleFunc("/user/sso/identities", userSSOHandler.GetMyIdentities).Methods("GET", "OPTIONS")
 	router.HandleFunc("/user/sso/identities/{identityId}", userSSOHandler.UnlinkMyIdentity).Methods("DELETE", "OPTIONS")
 	debug.Info("Configured user SSO identity management routes")
+
+	// Binary patterns endpoint for job creation
+	router.HandleFunc("/binary/patterns", func(w http.ResponseWriter, r *http.Request) {
+		versions, err := binaryManager.ListVersions(r.Context(), map[string]interface{}{"is_active": true})
+		if err != nil {
+			debug.Error("Failed to list binary versions: %v", err)
+			http.Error(w, "Failed to list binary versions", http.StatusInternalServerError)
+			return
+		}
+
+		// Convert to BinaryInfo slice
+		binaries := make([]version.BinaryInfo, 0, len(versions))
+		for _, v := range versions {
+			if v.Version == nil {
+				continue
+			}
+			binaries = append(binaries, version.BinaryInfo{
+				ID:        v.ID,
+				Version:   *v.Version,
+				IsDefault: v.IsDefault,
+				IsActive:  v.IsActive,
+			})
+		}
+
+		response := version.GenerateAvailablePatterns(binaries)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}).Methods("GET", "OPTIONS")
+	debug.Info("Configured binary patterns route for job creation")
 }

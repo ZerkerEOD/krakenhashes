@@ -703,7 +703,7 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 				Mask                      string   `json:"mask"`
 				Priority                  int      `json:"priority"`
 				MaxAgents                 int      `json:"max_agents"`
-				BinaryVersionID           int      `json:"binary_version_id"`
+				BinaryVersion             string   `json:"binary_version"`
 				AllowHighPriorityOverride bool     `json:"allow_high_priority_override"`
 				ChunkSizeSeconds          int      `json:"chunk_size_seconds"`
 				IncrementMode             string   `json:"increment_mode"`
@@ -777,7 +777,7 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			Mask:                      req.CustomJob.Mask,
 			Priority:                  req.CustomJob.Priority,
 			MaxAgents:                 req.CustomJob.MaxAgents,
-			BinaryVersionID:           req.CustomJob.BinaryVersionID,
+			BinaryVersion:             req.CustomJob.BinaryVersion,
 			AllowHighPriorityOverride: req.CustomJob.AllowHighPriorityOverride,
 			ChunkSizeSeconds:          req.CustomJob.ChunkSizeSeconds,
 			IncrementMode:             req.CustomJob.IncrementMode,
