@@ -72,6 +72,24 @@ func TestParse(t *testing.T) {
 			wantSuffix: "custom-build-123",
 		},
 		{
+			name:       "exact version with + suffix (hashcat beta format)",
+			pattern:    "7.1.2+338.7",
+			wantType:   PatternTypeExactWithSuffix,
+			wantMajor:  intPtr(7),
+			wantMinor:  intPtr(1),
+			wantPatch:  intPtr(2),
+			wantSuffix: "338.7",
+		},
+		{
+			name:       "exact version with + suffix and additional suffix",
+			pattern:    "7.1.2+338.7-ARM",
+			wantType:   PatternTypeExactWithSuffix,
+			wantMajor:  intPtr(7),
+			wantMinor:  intPtr(1),
+			wantPatch:  intPtr(2),
+			wantSuffix: "338.7-ARM",
+		},
+		{
 			name:    "empty pattern",
 			pattern: "",
 			wantErr: true,
@@ -158,6 +176,17 @@ func TestMatches(t *testing.T) {
 		{"7.1.2-NTLMv3 matches 7.1.2-NTLMv3", "7.1.2-NTLMv3", "7.1.2-NTLMv3", true},
 		{"7.1.2-NTLMv3 does not match 7.1.2", "7.1.2-NTLMv3", "7.1.2", false},
 		{"7.1.2-NTLMv3 does not match 7.1.2-other", "7.1.2-NTLMv3", "7.1.2-other", false},
+
+		// + suffix (hashcat beta build format)
+		{"default matches + suffix version", "default", "7.1.2+338.7", true},
+		{"7.x matches + suffix version", "7.x", "7.1.2+338.7", true},
+		{"7.1.x matches + suffix version", "7.1.x", "7.1.2+338.7", true},
+		{"7.1.2 matches + suffix version", "7.1.2", "7.1.2+338.7", true},
+		{"7.1.2+338.7 matches exactly", "7.1.2+338.7", "7.1.2+338.7", true},
+		{"7.1.2+338.7 does not match 7.1.2", "7.1.2+338.7", "7.1.2", false},
+		{"7.1.2+338.7 does not match 7.1.2-NTLMv3", "7.1.2+338.7", "7.1.2-NTLMv3", false},
+		{"7.1.2+338.7-ARM matches exactly", "7.1.2+338.7-ARM", "7.1.2+338.7-ARM", true},
+		{"7.1.2 matches 7.1.2+338.7-ARM", "7.1.2", "7.1.2+338.7-ARM", true},
 	}
 
 	for _, tt := range tests {
@@ -267,23 +296,32 @@ func TestGenerateAvailablePatterns(t *testing.T) {
 
 	resp := GenerateAvailablePatterns(binaries)
 
-	// Check patterns
+	// Check patterns exist
 	if len(resp.Patterns) < 3 {
 		t.Errorf("Expected at least 3 patterns, got %d", len(resp.Patterns))
 	}
 
-	// First pattern should be default
-	if resp.Patterns[0].Value != "default" {
-		t.Errorf("First pattern should be 'default', got %q", resp.Patterns[0].Value)
+	// First pattern should be default with correct fields
+	if resp.Patterns[0].Pattern != "default" {
+		t.Errorf("First pattern should be 'default', got %q", resp.Patterns[0].Pattern)
+	}
+	if resp.Patterns[0].Type != "default" {
+		t.Errorf("First pattern type should be 'default', got %q", resp.Patterns[0].Type)
+	}
+	if resp.Patterns[0].Display != "System Default" {
+		t.Errorf("First pattern display should be 'System Default', got %q", resp.Patterns[0].Display)
 	}
 
-	// Check that 7.x pattern exists with count 4 (7.1.1, 7.1.2, 7.1.2-NTLMv3, 7.2.1)
+	// Check that 7.x pattern exists with correct type
 	found7x := false
 	for _, p := range resp.Patterns {
-		if p.Value == "7.x" {
+		if p.Pattern == "7.x" {
 			found7x = true
-			if p.Count != 4 {
-				t.Errorf("Pattern 7.x should have count 4, got %d", p.Count)
+			if p.Type != "major_wildcard" {
+				t.Errorf("Pattern 7.x should have type 'major_wildcard', got %q", p.Type)
+			}
+			if p.Display != "Hashcat 7.x (latest)" {
+				t.Errorf("Pattern 7.x should have display 'Hashcat 7.x (latest)', got %q", p.Display)
 			}
 		}
 	}
@@ -291,14 +329,33 @@ func TestGenerateAvailablePatterns(t *testing.T) {
 		t.Error("Pattern 7.x not found")
 	}
 
-	// Check versions are sorted descending
-	if len(resp.Versions) != 5 {
-		t.Errorf("Expected 5 versions, got %d", len(resp.Versions))
+	// Check ActiveBinaryIds contains all 5 binaries
+	if len(resp.ActiveBinaryIds) != 5 {
+		t.Errorf("Expected 5 active binary IDs, got %d", len(resp.ActiveBinaryIds))
 	}
 
-	// First version should be highest (7.2.1)
-	if resp.Versions[0].Value != "7.2.1" {
-		t.Errorf("First version should be 7.2.1, got %q", resp.Versions[0].Value)
+	// Check DefaultBinaryId points to binary 4 (the default one)
+	if resp.DefaultBinaryId == nil {
+		t.Error("DefaultBinaryId should not be nil")
+	} else if *resp.DefaultBinaryId != 4 {
+		t.Errorf("DefaultBinaryId should be 4, got %d", *resp.DefaultBinaryId)
+	}
+
+	// Check exact version patterns exist and have correct IsDefault
+	foundDefaultExact := false
+	for _, p := range resp.Patterns {
+		if p.Pattern == "7.1.2-NTLMv3" {
+			if !p.IsDefault {
+				t.Error("Pattern 7.1.2-NTLMv3 should have IsDefault=true")
+			}
+			if p.Type != "exact" {
+				t.Errorf("Pattern 7.1.2-NTLMv3 should have type 'exact', got %q", p.Type)
+			}
+			foundDefaultExact = true
+		}
+	}
+	if !foundDefaultExact {
+		t.Error("Exact pattern 7.1.2-NTLMv3 not found")
 	}
 }
 

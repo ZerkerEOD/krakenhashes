@@ -152,9 +152,8 @@ func (r *presetJobRepository) List(ctx context.Context) ([]models.PresetJob, err
 			pj.effective_keyspace, pj.is_accurate_keyspace, pj.use_rule_splitting, pj.multiplication_factor,
 			pj.max_agents, pj.increment_mode, pj.increment_min, pj.increment_max,
 			pj.created_at, pj.updated_at,
-			bv.file_name as binary_version_name
+			pj.binary_version as binary_version_name
 		FROM preset_jobs pj
-		LEFT JOIN binary_versions bv ON pj.binary_version = bv.id
 		ORDER BY pj.name` // TODO: Add pagination/sorting
 
 	rows, err := r.db.QueryContext(ctx, query)

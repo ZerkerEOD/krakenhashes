@@ -168,40 +168,56 @@ func selectHighestVersion(binaries []BinaryInfo) BinaryInfo {
 
 // PatternInfo represents a pattern option for the frontend dropdown
 type PatternInfo struct {
-	Value string `json:"value"`
-	Label string `json:"label"`
-	Count int    `json:"count"`
-}
-
-// VersionInfo represents a specific version for the frontend dropdown
-type VersionInfo struct {
-	ID    int64  `json:"id"`
-	Value string `json:"value"`
-	Label string `json:"label"`
+	Pattern   string `json:"pattern"`
+	Display   string `json:"display"`
+	Type      string `json:"type"`      // "default", "major_wildcard", "minor_wildcard", "exact"
+	IsDefault bool   `json:"isDefault"`
 }
 
 // PatternsResponse is the response for the patterns endpoint
 type PatternsResponse struct {
-	Patterns []PatternInfo `json:"patterns"`
-	Versions []VersionInfo `json:"versions"`
+	Patterns        []PatternInfo `json:"patterns"`
+	ActiveBinaryIds []int64       `json:"activeBinaryIds"`
+	DefaultBinaryId *int64        `json:"defaultBinaryId"`
 }
 
 // GenerateAvailablePatterns generates pattern options from available binaries.
-// Returns patterns in order: default, major wildcards (desc), minor wildcards (desc)
-// And specific versions sorted by version descending.
+// Returns patterns in order: default, major wildcards (desc), minor wildcards (desc), exact versions (desc)
 func GenerateAvailablePatterns(binaries []BinaryInfo) *PatternsResponse {
-	if len(binaries) == 0 {
-		return &PatternsResponse{
-			Patterns: []PatternInfo{{Value: "default", Label: "Default (any version)", Count: 0}},
-			Versions: []VersionInfo{},
+	// Build active binary IDs and find default
+	var activeBinaryIds []int64
+	var defaultBinaryId *int64
+
+	for _, b := range binaries {
+		activeBinaryIds = append(activeBinaryIds, b.ID)
+		if b.IsDefault {
+			id := b.ID
+			defaultBinaryId = &id
 		}
 	}
 
-	// Count binaries by major and major.minor
+	if len(binaries) == 0 {
+		return &PatternsResponse{
+			Patterns: []PatternInfo{{
+				Pattern:   "default",
+				Display:   "System Default",
+				Type:      "default",
+				IsDefault: true,
+			}},
+			ActiveBinaryIds: activeBinaryIds,
+			DefaultBinaryId: defaultBinaryId,
+		}
+	}
+
+	// Count binaries by major and major.minor, track exact versions
 	majorCounts := make(map[int]int)
 	minorCounts := make(map[string]int)
 
-	var versions []VersionInfo
+	type exactVersion struct {
+		binary  BinaryInfo
+		version *Version
+	}
+	var exactVersions []exactVersion
 
 	for _, b := range binaries {
 		ver, err := ParseVersion(b.Version)
@@ -213,10 +229,9 @@ func GenerateAvailablePatterns(binaries []BinaryInfo) *PatternsResponse {
 		minorKey := fmt.Sprintf("%d.%d", ver.Major, ver.Minor)
 		minorCounts[minorKey]++
 
-		versions = append(versions, VersionInfo{
-			ID:    b.ID,
-			Value: b.Version,
-			Label: b.Version,
+		exactVersions = append(exactVersions, exactVersion{
+			binary:  b,
+			version: ver,
 		})
 	}
 
@@ -225,9 +240,10 @@ func GenerateAvailablePatterns(binaries []BinaryInfo) *PatternsResponse {
 
 	// Always add default first
 	patterns = append(patterns, PatternInfo{
-		Value: "default",
-		Label: "Default (any version)",
-		Count: len(binaries),
+		Pattern:   "default",
+		Display:   "System Default",
+		Type:      "default",
+		IsDefault: true,
 	})
 
 	// Add major patterns (sorted descending)
@@ -238,11 +254,11 @@ func GenerateAvailablePatterns(binaries []BinaryInfo) *PatternsResponse {
 	sort.Sort(sort.Reverse(sort.IntSlice(majors)))
 
 	for _, major := range majors {
-		count := majorCounts[major]
 		patterns = append(patterns, PatternInfo{
-			Value: fmt.Sprintf("%d.x", major),
-			Label: fmt.Sprintf("All %d.x", major),
-			Count: count,
+			Pattern:   fmt.Sprintf("%d.x", major),
+			Display:   fmt.Sprintf("Hashcat %d.x (latest)", major),
+			Type:      "major_wildcard",
+			IsDefault: false,
 		})
 	}
 
@@ -270,30 +286,33 @@ func GenerateAvailablePatterns(binaries []BinaryInfo) *PatternsResponse {
 	})
 
 	for _, mk := range minors {
-		count := minorCounts[mk.key]
 		patterns = append(patterns, PatternInfo{
-			Value: fmt.Sprintf("%d.%d.x", mk.major, mk.minor),
-			Label: fmt.Sprintf("All %d.%d.x", mk.major, mk.minor),
-			Count: count,
+			Pattern:   fmt.Sprintf("%d.%d.x", mk.major, mk.minor),
+			Display:   fmt.Sprintf("Hashcat %d.%d.x (latest patch)", mk.major, mk.minor),
+			Type:      "minor_wildcard",
+			IsDefault: false,
 		})
 	}
 
-	// Sort versions by version descending
-	sort.Slice(versions, func(i, j int) bool {
-		vi, err := ParseVersion(versions[i].Value)
-		if err != nil {
-			return false
-		}
-		vj, err := ParseVersion(versions[j].Value)
-		if err != nil {
-			return true
-		}
-		return vi.Compare(vj) > 0
+	// Sort exact versions by version descending
+	sort.Slice(exactVersions, func(i, j int) bool {
+		return exactVersions[i].version.Compare(exactVersions[j].version) > 0
 	})
 
+	// Add exact version patterns
+	for _, ev := range exactVersions {
+		patterns = append(patterns, PatternInfo{
+			Pattern:   ev.binary.Version,
+			Display:   fmt.Sprintf("Hashcat %s", ev.binary.Version),
+			Type:      "exact",
+			IsDefault: ev.binary.IsDefault,
+		})
+	}
+
 	return &PatternsResponse{
-		Patterns: patterns,
-		Versions: versions,
+		Patterns:        patterns,
+		ActiveBinaryIds: activeBinaryIds,
+		DefaultBinaryId: defaultBinaryId,
 	}
 }
 

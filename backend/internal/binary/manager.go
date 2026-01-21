@@ -49,6 +49,11 @@ func NewManager(store Store, config Config) (Manager, error) {
 
 // AddVersion implements Manager.AddVersion
 func (m *manager) AddVersion(ctx context.Context, version *BinaryVersion) error {
+	// Validate version is provided
+	if version.Version == nil || *version.Version == "" {
+		return fmt.Errorf("binary version string is required")
+	}
+
 	// Set initial verification status
 	version.VerificationStatus = VerificationStatusPending
 
@@ -147,6 +152,11 @@ func (m *manager) AddVersion(ctx context.Context, version *BinaryVersion) error 
 // AddVersionFromUpload implements Manager.AddVersionFromUpload
 // It handles binary uploads by saving the file directly instead of downloading from URL
 func (m *manager) AddVersionFromUpload(ctx context.Context, version *BinaryVersion, file io.Reader, fileSize int64) error {
+	// Validate version is provided
+	if version.Version == nil || *version.Version == "" {
+		return fmt.Errorf("binary version string is required")
+	}
+
 	// Set upload-specific defaults
 	version.SourceType = SourceTypeUpload
 	version.VerificationStatus = VerificationStatusPending

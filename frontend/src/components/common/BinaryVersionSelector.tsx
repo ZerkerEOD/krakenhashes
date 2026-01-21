@@ -21,7 +21,7 @@ import {
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material';
 import { BinaryVersionPattern, BinaryPatternsResponse } from '../../types/agent';
-import api from '../../services/api';
+import { api } from '../../services/api';
 
 interface BinaryVersionSelectorProps {
   /** Currently selected pattern value */

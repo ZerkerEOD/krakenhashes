@@ -67,8 +67,8 @@ var (
 	wildcardMinorRegex = regexp.MustCompile(`^(\d+)\.(\d+)\.x$`)
 	// Matches "7.1.2" (exact version without suffix)
 	exactVersionRegex = regexp.MustCompile(`^(\d+)\.(\d+)\.(\d+)$`)
-	// Matches "7.1.2-suffix" (exact version with suffix)
-	exactWithSuffixRegex = regexp.MustCompile(`^(\d+)\.(\d+)\.(\d+)-(.+)$`)
+	// Matches "7.1.2-suffix" or "7.1.2+suffix" (exact version with suffix)
+	exactWithSuffixRegex = regexp.MustCompile(`^(\d+)\.(\d+)\.(\d+)[-+](.+)$`)
 )
 
 // Parse parses a version pattern string into a Pattern struct.

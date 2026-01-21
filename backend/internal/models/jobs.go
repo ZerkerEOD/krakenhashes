@@ -106,13 +106,13 @@ type JobWorkflowStep struct {
 	StepOrder     int       `json:"step_order" db:"step_order"`
 
 	// Fields potentially populated by JOINs with preset_jobs
-	PresetJobName        string     `json:"preset_job_name,omitempty" db:"preset_job_name"`
-	PresetJobAttackMode  AttackMode `json:"preset_job_attack_mode,omitempty" db:"preset_job_attack_mode"`
-	PresetJobPriority    int        `json:"preset_job_priority,omitempty" db:"preset_job_priority"`
-	PresetJobBinaryID    int        `json:"preset_job_binary_id,omitempty" db:"preset_job_binary_id"`
-	PresetJobBinaryName  string     `json:"preset_job_binary_name,omitempty" db:"preset_job_binary_name"`
-	PresetJobWordlistIDs IDArray    `json:"preset_job_wordlist_ids,omitempty" db:"preset_job_wordlist_ids"`
-	PresetJobRuleIDs     IDArray    `json:"preset_job_rule_ids,omitempty" db:"preset_job_rule_ids"`
+	PresetJobName          string     `json:"preset_job_name,omitempty" db:"preset_job_name"`
+	PresetJobAttackMode    AttackMode `json:"preset_job_attack_mode,omitempty" db:"preset_job_attack_mode"`
+	PresetJobPriority      int        `json:"preset_job_priority,omitempty" db:"preset_job_priority"`
+	PresetJobBinaryVersion string     `json:"preset_job_binary_version,omitempty" db:"preset_job_binary_version"`
+	PresetJobBinaryName    string     `json:"preset_job_binary_name,omitempty" db:"preset_job_binary_name"`
+	PresetJobWordlistIDs   IDArray    `json:"preset_job_wordlist_ids,omitempty" db:"preset_job_wordlist_ids"`
+	PresetJobRuleIDs       IDArray    `json:"preset_job_rule_ids,omitempty" db:"preset_job_rule_ids"`
 }
 
 // PresetJobBasic represents minimal information about a preset job
