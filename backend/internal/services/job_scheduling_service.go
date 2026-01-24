@@ -3,11 +3,13 @@ package services
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary/version"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
@@ -74,11 +76,138 @@ type ScheduleJobsResult struct {
 
 // JobAllocation represents the allocation decision for a job
 type JobAllocation struct {
-	JobID       uuid.UUID
-	AgentCount  int
+	JobID        uuid.UUID
+	AgentCount   int
 	ActiveAgents int
-	MaxAgents   int
-	Priority    int
+	MaxAgents    int
+	Priority     int
+}
+
+// JobCompatibilityInfo tracks which agents can run a specific job
+type JobCompatibilityInfo struct {
+	JobID            uuid.UUID
+	BinaryVersion    string
+	CompatibleAgents []int // Agent IDs that can run this job
+	ConstraintScore  int   // Lower = more constrained (fewer compatible agents)
+}
+
+// AgentCompatibilityInfo tracks which jobs an agent can run
+type AgentCompatibilityInfo struct {
+	AgentID          int
+	BinaryVersion    string
+	CompatibleJobs   []uuid.UUID // Job IDs this agent can run
+	FlexibilityScore int         // Higher = more flexible (more compatible jobs)
+}
+
+// CompatibilityMatrix holds the bidirectional compatibility mappings
+type CompatibilityMatrix struct {
+	JobInfo   map[uuid.UUID]*JobCompatibilityInfo
+	AgentInfo map[int]*AgentCompatibilityInfo
+}
+
+// buildCompatibilityMatrix creates the compatibility mappings between agents and jobs
+// Uses version.IsCompatibleStr(agentPattern, jobPattern) to determine compatibility
+func buildCompatibilityMatrix(
+	agents []models.Agent,
+	jobs []models.JobExecutionWithWork,
+) *CompatibilityMatrix {
+	matrix := &CompatibilityMatrix{
+		JobInfo:   make(map[uuid.UUID]*JobCompatibilityInfo),
+		AgentInfo: make(map[int]*AgentCompatibilityInfo),
+	}
+
+	// Initialize job info
+	for _, job := range jobs {
+		matrix.JobInfo[job.ID] = &JobCompatibilityInfo{
+			JobID:            job.ID,
+			BinaryVersion:    job.BinaryVersion,
+			CompatibleAgents: []int{},
+			ConstraintScore:  0,
+		}
+	}
+
+	// Initialize agent info
+	for _, agent := range agents {
+		matrix.AgentInfo[agent.ID] = &AgentCompatibilityInfo{
+			AgentID:          agent.ID,
+			BinaryVersion:    agent.BinaryVersion,
+			CompatibleJobs:   []uuid.UUID{},
+			FlexibilityScore: 0,
+		}
+	}
+
+	// Build compatibility mappings
+	for _, agent := range agents {
+		for _, job := range jobs {
+			if version.IsCompatibleStr(agent.BinaryVersion, job.BinaryVersion) {
+				// Add to job's compatible agents
+				matrix.JobInfo[job.ID].CompatibleAgents = append(
+					matrix.JobInfo[job.ID].CompatibleAgents,
+					agent.ID,
+				)
+				// Add to agent's compatible jobs
+				matrix.AgentInfo[agent.ID].CompatibleJobs = append(
+					matrix.AgentInfo[agent.ID].CompatibleJobs,
+					job.ID,
+				)
+			}
+		}
+	}
+
+	// Calculate scores
+	for jobID, info := range matrix.JobInfo {
+		info.ConstraintScore = len(info.CompatibleAgents)
+		matrix.JobInfo[jobID] = info
+	}
+	for agentID, info := range matrix.AgentInfo {
+		info.FlexibilityScore = len(info.CompatibleJobs)
+		matrix.AgentInfo[agentID] = info
+	}
+
+	debug.Log("Built compatibility matrix", map[string]interface{}{
+		"total_agents": len(agents),
+		"total_jobs":   len(jobs),
+	})
+
+	return matrix
+}
+
+// getCompatibleAgentCount returns the number of compatible agents for a job from the remaining pool
+func (m *CompatibilityMatrix) getCompatibleAgentCount(jobID uuid.UUID, remainingAgents map[int]bool) int {
+	jobInfo, exists := m.JobInfo[jobID]
+	if !exists {
+		return 0
+	}
+
+	count := 0
+	for _, agentID := range jobInfo.CompatibleAgents {
+		if remainingAgents[agentID] {
+			count++
+		}
+	}
+	return count
+}
+
+// getCompatibleAgents returns compatible agents for a job from the remaining pool, sorted by flexibility (specialists first)
+func (m *CompatibilityMatrix) getCompatibleAgents(jobID uuid.UUID, remainingAgents map[int]bool) []int {
+	jobInfo, exists := m.JobInfo[jobID]
+	if !exists {
+		return []int{}
+	}
+
+	compatible := []int{}
+	for _, agentID := range jobInfo.CompatibleAgents {
+		if remainingAgents[agentID] {
+			compatible = append(compatible, agentID)
+		}
+	}
+
+	// Sort by flexibility score ASC (specialists first - agents with fewer compatible jobs)
+	sort.Slice(compatible, func(i, j int) bool {
+		return m.AgentInfo[compatible[i]].FlexibilityScore < m.AgentInfo[compatible[j]].FlexibilityScore
+	})
+
+	return compatible
 }
 
 // expandIncrementJobsIntoLayers converts increment jobs into multiple entries (one per layer)
@@ -176,22 +305,30 @@ func (s *JobSchedulingService) expandIncrementJobsIntoLayers(
 }
 
 // CalculateAgentAllocation determines which jobs should receive which agents
-// based on priority-aware max_agents rules:
-// 1. Higher priority jobs get ALL available agents (max_agents ignored)
-// 2. Same priority jobs respect max_agents up to their limit
+// based on priority-aware max_agents rules with binary version compatibility:
+// 1. Higher priority jobs get ALL available COMPATIBLE agents (max_agents ignored)
+// 2. Same priority jobs respect max_agents up to their limit (compatible agents only)
 // 3. Overflow agents at same priority use configurable mode (FIFO or round-robin)
+// 4. Jobs with no compatible agents get 0 allocation and stay pending
 func (s *JobSchedulingService) CalculateAgentAllocation(
 	ctx context.Context,
-	availableAgentCount int,
+	availableAgents []models.Agent,
 	jobsWithWork []models.JobExecutionWithWork,
-) (map[uuid.UUID]int, error) {
+) (map[uuid.UUID]int, *CompatibilityMatrix, error) {
 
 	allocation := make(map[uuid.UUID]int)
-	if availableAgentCount == 0 || len(jobsWithWork) == 0 {
-		return allocation, nil
+	if len(availableAgents) == 0 || len(jobsWithWork) == 0 {
+		return allocation, nil, nil
 	}
 
-	remainingAgents := availableAgentCount
+	// Build compatibility matrix for filtering
+	matrix := buildCompatibilityMatrix(availableAgents, jobsWithWork)
+
+	// Track remaining agents as a map for efficient lookup and compatibility filtering
+	remainingAgentMap := make(map[int]bool)
+	for _, agent := range availableAgents {
+		remainingAgentMap[agent.ID] = true
+	}
 
 	// Jobs are already sorted by priority DESC, created_at ASC from the SQL query
 	// Group by priority level
@@ -215,26 +352,38 @@ func (s *JobSchedulingService) CalculateAgentAllocation(
 	}
 
 	debug.Log("Agent allocation: processing priority groups", map[string]interface{}{
-		"available_agents": availableAgentCount,
+		"available_agents": len(availableAgents),
 		"total_jobs":       len(jobsWithWork),
 		"priority_levels":  len(priorities),
 	})
+
+	// Helper to count remaining agents
+	countRemainingAgents := func() int {
+		count := 0
+		for _, available := range remainingAgentMap {
+			if available {
+				count++
+			}
+		}
+		return count
+	}
 
 	// Process each priority level from highest to lowest
 	for _, priority := range priorities {
 		jobs := priorityGroups[priority]
 
-		if remainingAgents == 0 {
+		remainingCount := countRemainingAgents()
+		if remainingCount == 0 {
 			break
 		}
 
 		debug.Log("Processing priority level", map[string]interface{}{
 			"priority":         priority,
 			"jobs_at_priority": len(jobs),
-			"remaining_agents": remainingAgents,
+			"remaining_agents": remainingCount,
 		})
 
-		// Phase 1: Allocate up to max_agents for each job
+		// Phase 1: Allocate up to max_agents for each job (only counting COMPATIBLE agents)
 		// Track active agents by parent job for increment layers (they share max_agents)
 		parentActiveAgents := make(map[uuid.UUID]int)
 
@@ -277,16 +426,23 @@ func (s *JobSchedulingService) CalculateAgentAllocation(
 			}
 
 			needed := maxAllowed - currentActive
-			// Allocate if job has undispatched keyspace (checks actual keyspace, not just pending task count)
-			// This ensures FIFO order is respected even when a job has all work dispatched but still has capacity
-			if needed > 0 && s.hasUndispatchedWork(ctx, &job) {
+
+			// Count COMPATIBLE agents only for this job
+			compatibleCount := matrix.getCompatibleAgentCount(job.ID, remainingAgentMap)
+
+			// Allocate if job has undispatched keyspace and compatible agents available
+			if needed > 0 && compatibleCount > 0 && s.hasUndispatchedWork(ctx, &job) {
 				toAllocate := needed
-				if toAllocate > remainingAgents {
-					toAllocate = remainingAgents
+				if toAllocate > compatibleCount {
+					toAllocate = compatibleCount
 				}
 
 				allocation[job.ID] = toAllocate
-				remainingAgents -= toAllocate
+
+				// Mark allocated agents as used (we'll do actual assignment in reserveAgentsForJobs)
+				// For now, we just decrement the count - actual agent selection happens in reservation
+				// Note: We DON'T remove agents from remainingAgentMap here because
+				// the actual assignment happens in reserveAgentsForJobs with smart selection
 
 				// Track allocation against parent for increment layers
 				if isIncrementLayer {
@@ -294,42 +450,56 @@ func (s *JobSchedulingService) CalculateAgentAllocation(
 				}
 
 				debug.Log("Allocated agents to job (phase 1)", map[string]interface{}{
-					"job_id":          job.ID,
-					"parent_job_id":   parentJobID,
-					"is_layer":        isIncrementLayer,
-					"job_name":        job.Name,
-					"priority":        job.Priority,
-					"active_agents":   currentActive,
-					"max_agents":      maxAllowed,
-					"allocated":       toAllocate,
-					"remaining":       remainingAgents,
+					"job_id":           job.ID,
+					"parent_job_id":    parentJobID,
+					"is_layer":         isIncrementLayer,
+					"job_name":         job.Name,
+					"priority":         job.Priority,
+					"active_agents":    currentActive,
+					"max_agents":       maxAllowed,
+					"compatible_count": compatibleCount,
+					"allocated":        toAllocate,
 				})
-
-				if remainingAgents == 0 {
-					break
-				}
+			} else if needed > 0 && compatibleCount == 0 && s.hasUndispatchedWork(ctx, &job) {
+				// Job has work but no compatible agents - log and skip
+				debug.Log("Job has no compatible agents - skipping", map[string]interface{}{
+					"job_id":         job.ID,
+					"job_name":       job.Name,
+					"binary_version": job.BinaryVersion,
+				})
 			}
 		}
 
 		// Phase 2: Distribute overflow agents based on configured mode
-		if remainingAgents > 0 {
-			remainingAgents = s.distributeOverflowAgents(ctx, jobs, allocation, remainingAgents)
+		// Calculate total allocated at this priority vs total compatible agents available
+		totalAllocatedThisPriority := 0
+		for _, job := range jobs {
+			totalAllocatedThisPriority += allocation[job.ID]
+		}
 
-			// Priority override: If any job at this priority still has undispatched work, don't process lower priorities
-			// Higher priority jobs monopolize all agents until they have no more work to dispatch
+		// Check if there are more agents than allocated (overflow situation)
+		remainingCount = countRemainingAgents()
+		if remainingCount > totalAllocatedThisPriority {
+			overflowCount := remainingCount - totalAllocatedThisPriority
+			s.distributeOverflowAgentsWithCompatibility(ctx, jobs, allocation, overflowCount, matrix, remainingAgentMap)
+
+			// Priority override: If any job at this priority still has undispatched work
+			// AND has compatible agents, don't process lower priorities
 			hasWorkRemaining := false
 			for _, job := range jobs {
 				if s.hasUndispatchedWork(ctx, &job) {
-					hasWorkRemaining = true
-					break
+					compatibleCount := matrix.getCompatibleAgentCount(job.ID, remainingAgentMap)
+					if compatibleCount > 0 {
+						hasWorkRemaining = true
+						break
+					}
 				}
 			}
 
-			if hasWorkRemaining && remainingAgents > 0 {
-				debug.Log("Higher priority jobs have work - stopping allocation to lower priorities", map[string]interface{}{
-					"priority":         priority,
-					"remaining_agents": remainingAgents,
-					"jobs_with_work":   len(jobs),
+			if hasWorkRemaining {
+				debug.Log("Higher priority jobs have work with compatible agents - stopping allocation to lower priorities", map[string]interface{}{
+					"priority":       priority,
+					"jobs_with_work": len(jobs),
 				})
 				break // Don't process lower priority levels
 			}
@@ -338,10 +508,10 @@ func (s *JobSchedulingService) CalculateAgentAllocation(
 
 	debug.Log("Agent allocation completed", map[string]interface{}{
 		"jobs_with_allocation": len(allocation),
-		"unallocated_agents":   remainingAgents,
+		"unallocated_agents":   countRemainingAgents(),
 	})
 
-	return allocation, nil
+	return allocation, matrix, nil
 }
 
 // hasUndispatchedWork checks if a job still has keyspace/rules that haven't been dispatched
@@ -462,6 +632,113 @@ func (s *JobSchedulingService) distributeOverflowAgents(
 	}
 
 	return remaining
+}
+
+// distributeOverflowAgentsWithCompatibility distributes extra agents beyond max_agents
+// with binary version compatibility filtering
+func (s *JobSchedulingService) distributeOverflowAgentsWithCompatibility(
+	ctx context.Context,
+	jobs []models.JobExecutionWithWork,
+	allocation map[uuid.UUID]int,
+	overflowCount int,
+	matrix *CompatibilityMatrix,
+	remainingAgentMap map[int]bool,
+) {
+	if overflowCount == 0 {
+		return
+	}
+
+	// Get overflow mode from settings
+	overflowMode := "fifo" // default
+	setting, err := s.systemSettingsRepo.GetSetting(ctx, "agent_overflow_allocation_mode")
+	if err == nil && setting.Value != nil {
+		overflowMode = *setting.Value
+	}
+
+	debug.Log("Distributing overflow agents with compatibility", map[string]interface{}{
+		"mode":           overflowMode,
+		"overflow_count": overflowCount,
+		"jobs_at_priority": len(jobs),
+	})
+
+	if overflowMode == "fifo" {
+		// FIFO mode: Give all overflow to the oldest job with undispatched work AND compatible agents
+		// Jobs are already sorted by created_at ASC
+		for _, job := range jobs {
+			if s.hasUndispatchedWork(ctx, &job) {
+				// Count compatible agents for this job
+				compatibleCount := matrix.getCompatibleAgentCount(job.ID, remainingAgentMap)
+				if compatibleCount > 0 {
+					// Give all overflow to this job (up to compatible agent count)
+					toAdd := overflowCount
+					if toAdd > compatibleCount {
+						toAdd = compatibleCount
+					}
+
+					currentAllocation := allocation[job.ID]
+					allocation[job.ID] = currentAllocation + toAdd
+
+					debug.Log("FIFO overflow with compatibility: allocated to oldest compatible job", map[string]interface{}{
+						"job_id":             job.ID,
+						"job_name":           job.Name,
+						"previous_allocated": currentAllocation,
+						"overflow_added":     toAdd,
+						"total_allocated":    allocation[job.ID],
+						"compatible_agents":  compatibleCount,
+					})
+
+					return // All overflow allocated
+				}
+				// Job has work but no compatible agents - skip to next job
+				debug.Log("FIFO overflow: skipping job with no compatible agents", map[string]interface{}{
+					"job_id":         job.ID,
+					"job_name":       job.Name,
+					"binary_version": job.BinaryVersion,
+				})
+			}
+		}
+	} else {
+		// Round-robin mode: Distribute one agent at a time across jobs with compatible agents
+		remaining := overflowCount
+		for remaining > 0 {
+			allocatedThisRound := false
+
+			for _, job := range jobs {
+				if s.hasUndispatchedWork(ctx, &job) && remaining > 0 {
+					// Check if job has compatible agents
+					compatibleCount := matrix.getCompatibleAgentCount(job.ID, remainingAgentMap)
+					currentAllocation := allocation[job.ID]
+
+					// Only allocate if there are enough compatible agents
+					if compatibleCount > currentAllocation {
+						allocation[job.ID]++
+						remaining--
+						allocatedThisRound = true
+
+						debug.Log("Round-robin overflow with compatibility: allocated agent", map[string]interface{}{
+							"job_id":            job.ID,
+							"job_name":          job.Name,
+							"total_allocated":   allocation[job.ID],
+							"compatible_agents": compatibleCount,
+							"remaining":         remaining,
+						})
+
+						if remaining == 0 {
+							break
+						}
+					}
+				}
+			}
+
+			if !allocatedThisRound {
+				// No job can take more agents (either no work or no compatible agents)
+				debug.Log("Round-robin overflow: no jobs can accept more compatible agents", map[string]interface{}{
+					"remaining": remaining,
+				})
+				break
+			}
+		}
+	}
 }
 
 // ScheduleJobs performs the main job scheduling logic
@@ -624,14 +901,14 @@ func (s *JobSchedulingService) ScheduleJobs(ctx context.Context) (*ScheduleJobsR
 	// NEW: Prioritize agents that completed forced benchmarks for their jobs
 	s.PrioritizeForcedBenchmarkAgents(ctx, availableAgents, jobsWithWork)
 
-	// Calculate priority-based agent allocation
-	allocation, err := s.CalculateAgentAllocation(ctx, len(availableAgents), jobsWithWork)
+	// Calculate priority-based agent allocation with binary version compatibility
+	allocation, compatMatrix, err := s.CalculateAgentAllocation(ctx, availableAgents, jobsWithWork)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate agent allocation: %w", err)
 	}
 
-	// Reserve agents for jobs based on allocation
-	s.reserveAgentsForJobs(availableAgents, allocation, jobsWithWork)
+	// Reserve agents for jobs based on allocation with compatibility-aware assignment
+	s.reserveAgentsForJobs(availableAgents, allocation, jobsWithWork, compatMatrix)
 
 	// NEW: Create all task assignment plans sequentially (prevents overlapping ranges)
 	debug.Info("Creating task assignment plans", map[string]interface{}{
@@ -712,6 +989,7 @@ func (s *JobSchedulingService) reserveAgentsForJobs(
 	availableAgents []models.Agent,
 	allocation map[uuid.UUID]int,
 	jobsWithWork []models.JobExecutionWithWork,
+	matrix *CompatibilityMatrix,
 ) {
 	s.reservationMutex.Lock()
 	defer s.reservationMutex.Unlock()
@@ -719,37 +997,125 @@ func (s *JobSchedulingService) reserveAgentsForJobs(
 	// Clear existing reservations
 	s.reservedAgents = make(map[int]uuid.UUID)
 
-	// Build priority-sorted job list to match allocation order
-	// Jobs are already sorted by priority DESC, created_at ASC
-	agentIndex := 0
+	// If no compatibility matrix, fall back to simple sequential assignment
+	if matrix == nil {
+		agentIndex := 0
+		for _, job := range jobsWithWork {
+			agentCount, exists := allocation[job.ID]
+			if !exists || agentCount == 0 {
+				continue
+			}
+			for i := 0; i < agentCount && agentIndex < len(availableAgents); i++ {
+				agent := availableAgents[agentIndex]
+				s.reservedAgents[agent.ID] = job.ID
+				agentIndex++
+			}
+		}
+		debug.Log("Agent reservation completed (no compatibility matrix)", map[string]interface{}{
+			"total_reserved": len(s.reservedAgents),
+		})
+		return
+	}
+
+	// Track which agents are still available for assignment
+	remainingAgents := make(map[int]bool)
+	for _, agent := range availableAgents {
+		remainingAgents[agent.ID] = true
+	}
+
+	// Group jobs by priority level (jobs are already sorted by priority DESC, created_at ASC)
+	priorityGroups := make(map[int][]models.JobExecutionWithWork)
+	priorities := []int{}
 
 	for _, job := range jobsWithWork {
 		agentCount, exists := allocation[job.ID]
 		if !exists || agentCount == 0 {
-			continue
+			continue // Skip jobs with no allocation
 		}
 
-		debug.Log("Reserving agents for job", map[string]interface{}{
-			"job_id":      job.ID,
-			"job_name":    job.Name,
-			"priority":    job.Priority,
-			"agent_count": agentCount,
+		if _, exists := priorityGroups[job.Priority]; !exists {
+			priorities = append(priorities, job.Priority)
+		}
+		priorityGroups[job.Priority] = append(priorityGroups[job.Priority], job)
+	}
+
+	// Sort priorities descending
+	sort.Sort(sort.Reverse(sort.IntSlice(priorities)))
+
+	// Process each priority level
+	for _, priority := range priorities {
+		jobs := priorityGroups[priority]
+
+		// Sort jobs within this priority by constraint score ASC (most constrained first)
+		sort.Slice(jobs, func(i, j int) bool {
+			iInfo := matrix.JobInfo[jobs[i].ID]
+			jInfo := matrix.JobInfo[jobs[j].ID]
+			iScore := 999999 // Default high score if not found
+			jScore := 999999
+			if iInfo != nil {
+				iScore = iInfo.ConstraintScore
+			}
+			if jInfo != nil {
+				jScore = jInfo.ConstraintScore
+			}
+			// Most constrained (lowest score) first
+			// If tied, preserve FIFO order (jobs are already in created_at ASC order)
+			return iScore < jScore
 		})
 
-		// Reserve the allocated number of agents for this job
-		for i := 0; i < agentCount && agentIndex < len(availableAgents); i++ {
-			agent := availableAgents[agentIndex]
-			s.reservedAgents[agent.ID] = job.ID
-			agentIndex++
+		debug.Log("Processing priority level for reservation", map[string]interface{}{
+			"priority":   priority,
+			"job_count":  len(jobs),
+		})
 
-			debug.Log("Reserved agent for job", map[string]interface{}{
-				"agent_id": agent.ID,
-				"job_id":   job.ID,
+		// Assign agents to jobs in constrained-first order
+		for _, job := range jobs {
+			agentCount := allocation[job.ID]
+			if agentCount == 0 {
+				continue
+			}
+
+			// Get compatible agents sorted by flexibility (specialists first)
+			compatibleAgents := matrix.getCompatibleAgents(job.ID, remainingAgents)
+
+			debug.Log("Reserving agents for job (constrained-first)", map[string]interface{}{
+				"job_id":            job.ID,
+				"job_name":          job.Name,
+				"priority":          job.Priority,
+				"requested_count":   agentCount,
+				"compatible_count":  len(compatibleAgents),
+				"constraint_score":  matrix.JobInfo[job.ID].ConstraintScore,
 			})
+
+			// Reserve up to agentCount compatible agents
+			reserved := 0
+			for _, agentID := range compatibleAgents {
+				if reserved >= agentCount {
+					break
+				}
+
+				s.reservedAgents[agentID] = job.ID
+				remainingAgents[agentID] = false // Mark as used
+				reserved++
+
+				debug.Log("Reserved agent for job", map[string]interface{}{
+					"agent_id":         agentID,
+					"job_id":           job.ID,
+					"flexibility_score": matrix.AgentInfo[agentID].FlexibilityScore,
+				})
+			}
+
+			if reserved < agentCount {
+				debug.Log("Could not reserve all requested agents", map[string]interface{}{
+					"job_id":    job.ID,
+					"requested": agentCount,
+					"reserved":  reserved,
+				})
+			}
 		}
 	}
 
-	debug.Log("Agent reservation completed", map[string]interface{}{
+	debug.Log("Agent reservation completed (compatibility-aware)", map[string]interface{}{
 		"total_reserved": len(s.reservedAgents),
 	})
 }

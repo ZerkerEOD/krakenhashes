@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary/version"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
@@ -349,6 +350,14 @@ func (s *JobSchedulingService) createSingleTaskPlan(
 	agent, err := s.agentRepo.GetByID(ctx, agentID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent: %w", err)
+	}
+
+	// DEFENSIVE CHECK: Verify agent is compatible with job's binary version
+	// This is a safety net - compatibility should have been checked during allocation
+	if !version.IsCompatibleStr(agent.BinaryVersion, currentState.JobExecution.BinaryVersion) {
+		debug.Warning("Agent %d not compatible with job %s binary version (agent: %s, job: %s) - skipping task assignment",
+			agentID, currentState.JobExecution.ID, agent.BinaryVersion, currentState.JobExecution.BinaryVersion)
+		return nil, fmt.Errorf("agent not compatible with job binary version")
 	}
 
 	// Get hashlist for job
