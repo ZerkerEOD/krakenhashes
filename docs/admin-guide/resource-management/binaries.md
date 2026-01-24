@@ -171,6 +171,74 @@ GET /api/binary/latest?type=hashcat
 X-API-Key: <agent_api_key>
 ```
 
+## Binary Version Patterns
+
+KrakenHashes uses a pattern-based system for specifying binary versions in jobs and agents. Instead of selecting specific binary IDs, you specify patterns that match version families.
+
+### Pattern Types
+
+| Pattern | Example | Description |
+|---------|---------|-------------|
+| `default` | `"default"` | Matches any binary version (wildcard) |
+| Major Wildcard | `"7.x"` | Matches any v7 binary (7.0.0, 7.1.2, 7.2.0, etc.) |
+| Minor Wildcard | `"7.1.x"` | Matches any v7.1 binary (7.1.0, 7.1.2, 7.1.5, etc.) |
+| Exact | `"7.1.2"` | Matches exactly v7.1.2 (any suffix like 7.1.2-custom) |
+| Exact with Suffix | `"7.1.2-NTLMv3"` | Matches only v7.1.2-NTLMv3 specifically |
+
+### Pattern Resolution
+
+When a pattern needs to resolve to an actual binary for download:
+
+1. **Exact patterns**: Find the binary with matching version string
+2. **Suffix patterns**: Find the binary with exact version and suffix match
+3. **Wildcards**: Find the newest binary matching the pattern
+   - `"7.x"` resolves to newest v7.x.x binary available
+   - `"7.1.x"` resolves to newest v7.1.x binary available
+
+### Available Patterns API
+
+To see which patterns are available and their resolved binaries:
+
+```http
+GET /api/binary/patterns
+Authorization: Bearer <token>
+```
+
+Response:
+```json
+{
+  "patterns": [
+    {"pattern": "default", "resolved_id": 5, "resolved_version": "7.1.2"},
+    {"pattern": "7.x", "resolved_id": 5, "resolved_version": "7.1.2"},
+    {"pattern": "6.x", "resolved_id": 3, "resolved_version": "6.2.6"},
+    {"pattern": "7.1.2-NTLMv3", "resolved_id": 7, "resolved_version": "7.1.2-NTLMv3"}
+  ]
+}
+```
+
+### Using Patterns
+
+**In Jobs**: When creating a job, specify `binary_version` as a pattern:
+```json
+{
+  "binary_version": "7.x",
+  "attack_mode": 0,
+  "wordlist_ids": ["4"]
+}
+```
+
+**In Agents**: Configure an agent's binary version pattern:
+```json
+// PUT /api/admin/agents/{id}/settings
+{
+  "binaryVersion": "6.x"
+}
+```
+
+**In Preset Jobs**: Select a pattern when creating preset jobs.
+
+For detailed compatibility rules and scheduling behavior, see [Binary Version Patterns Architecture](../../reference/architecture/binary-version-patterns.md).
+
 ## Platform-Specific Considerations
 
 ### Linux

@@ -127,35 +127,44 @@ KH_PING_PERIOD: "54s"     # Ping interval (must be < pong wait)
 ### Managing Agent Settings
 
 ```json
-// PUT /api/agents/{id}
+// PUT /api/admin/agents/{id}/settings
 {
   "isEnabled": true,
   "ownerId": "user-uuid",
   "extraParameters": "--custom-charset1=?l?u?d",
-  "binaryVersionId": 3,
-  "binaryOverride": true
+  "binaryVersion": "7.x"
 }
 ```
 
-### Agent Binary Version Override
+### Agent Binary Version Pattern
 
-Users can configure their agents to use a specific hashcat binary version instead of the job-level or system default binary.
+Agents can be configured with a binary version pattern that determines which jobs they can run and which binary they use. The pattern system uses flexible matching to support mixed-version environments.
 
-#### Configuring Binary Override
+#### Pattern Syntax
+
+| Pattern | Example | Description |
+|---------|---------|-------------|
+| `default` | `"default"` | Agent can run any job, uses whatever binary is needed |
+| Major Wildcard | `"7.x"` | Agent runs v7 jobs only (7.0.0, 7.1.2, 7.2.0, etc.) |
+| Minor Wildcard | `"7.1.x"` | Agent runs v7.1 jobs only (7.1.0, 7.1.2, 7.1.5, etc.) |
+| Exact | `"7.1.2"` | Agent runs jobs requiring exactly v7.1.2 (any suffix) |
+| Exact with Suffix | `"7.1.2-NTLMv3"` | Agent runs only jobs requiring this specific build |
+
+For detailed compatibility rules, see [Binary Version Patterns](../../reference/architecture/binary-version-patterns.md).
+
+#### Configuring Agent Binary Version
 
 1. **Via Agent Details Page**
    - Navigate to your agent's detail page
-   - Scroll to the "Binary Version Override" section
-   - Enable "Override Binary" toggle
-   - Select desired binary version from dropdown
+   - Find the "Binary Version" section
+   - Select a version pattern from the dropdown
    - Click "Save"
 
 2. **Via API**
    ```json
-   // PUT /api/agents/{id}
+   // PUT /api/admin/agents/{id}/settings
    {
-     "binaryVersionId": 3,
-     "binaryOverride": true
+     "binaryVersion": "7.x"
    }
    ```
 
@@ -163,26 +172,30 @@ Users can configure their agents to use a specific hashcat binary version instea
 
 When an agent needs to execute a job or benchmark, the system uses this priority order:
 
-1. **Agent Override** (highest priority) - Binary specified in agent settings
-2. **Job Binary** - Binary specified for the specific job execution
+1. **Agent Pattern** (highest priority) - Binary version pattern specified in agent settings
+2. **Job Pattern** - Binary version pattern specified for the specific job execution
 3. **System Default** (lowest priority) - Active default binary for the system
+
+The pattern is resolved to an actual binary ID when downloading. For wildcards like `"7.x"`, the system selects the newest matching binary.
 
 #### Use Cases
 
-- **Testing New Versions**: Test new hashcat releases on specific agents before wider deployment
-- **Compatibility Issues**: Work around driver or hardware compatibility problems
+- **Testing New Versions**: Set agent to `"7.x"` to test new hashcat releases
+- **Compatibility Issues**: Set agent to `"6.x"` for older driver compatibility
 - **Performance Optimization**: Use specific binary versions that perform better on certain hardware
-- **Gradual Rollouts**: Migrate agents to new versions incrementally
+- **Gradual Rollouts**: Migrate agents incrementally from `"6.x"` to `"7.x"`
+- **Custom Builds**: Use exact patterns like `"7.1.2-NTLMv3"` for specialized binaries
 
 #### Hashcat Version Compatibility Note
 
-⚠️ **Important**: Hashcat 7.x may detect devices but fail to recognize them as usable compute devices depending on GPU driver versions. If your agent shows devices in the hardware detection but they are not available for job execution, it is recommended to use Hashcat 6.x binaries (such as 6.2.6 or 6.2.5) as they have better compatibility with older driver versions.
+⚠️ **Important**: Hashcat 7.x may detect devices but fail to recognize them as usable compute devices depending on GPU driver versions. If your agent shows devices in the hardware detection but they are not available for job execution, set the agent's binary version to `"6.x"` to use Hashcat 6.x binaries (such as 6.2.6 or 6.2.5) which have better compatibility with older driver versions.
 
 #### Important Notes
 
-- Agent binary override affects device detection, benchmarks, and job execution
-- The preferred binary is automatically downloaded to the agent if not present
-- If the preferred binary becomes unavailable, the system falls back to the next priority level
+- Agent binary version pattern affects job compatibility, device detection, benchmarks, and job execution
+- The resolved binary is automatically downloaded to the agent if not present
+- Jobs with no compatible agents will stay pending until a compatible agent connects
+- Use `"default"` for maximum flexibility (agent can run any job)
 
 ### Disabling/Enabling Agents
 

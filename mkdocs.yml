@@ -180,13 +180,14 @@ nav:
     - PostgreSQL Tuning: reference/postgresql-tuning.md
     - Architecture:
       - Association Attack: reference/architecture/association-attack.md
-      - Chunking System: reference/architecture/chunking.md
-      - Rule Splitting: reference/architecture/rule-splitting.md
-      - Increment Mode: reference/architecture/increment-mode.md
-      - Job Update System: reference/architecture/job-update-system.md
-      - Job Completion System: reference/architecture/job-completion-system.md
       - Benchmark Workflow: reference/architecture/benchmark-workflow.md
+      - Binary Version Patterns: reference/architecture/binary-version-patterns.md
+      - Chunking System: reference/architecture/chunking.md
       - Crack Batching System: reference/architecture/crack-batching-system.md
+      - Increment Mode: reference/architecture/increment-mode.md
+      - Job Completion System: reference/architecture/job-completion-system.md
+      - Job Update System: reference/architecture/job-update-system.md
+      - Rule Splitting: reference/architecture/rule-splitting.md
       - File Hash Cache: reference/architecture/file-hash-cache.md
       - Cross-Hashlist Sync: reference/architecture/cross-hashlist-sync.md
       - Username Extraction: reference/architecture/username-extraction.md
