@@ -149,6 +149,7 @@ func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.S
 		adminRouter.HandleFunc("/binary", binaryHandler.HandleListVersions).Methods(http.MethodGet, http.MethodOptions)
 		adminRouter.HandleFunc("/binary", binaryHandler.HandleAddVersion).Methods(http.MethodPost, http.MethodOptions)
 		adminRouter.HandleFunc("/binary/upload", binaryHandler.HandleUploadVersion).Methods(http.MethodPost, http.MethodOptions)
+		adminRouter.HandleFunc("/binary/patterns", binaryHandler.HandleGetPatterns).Methods(http.MethodGet, http.MethodOptions)
 		adminRouter.HandleFunc("/binary/{id}", binaryHandler.HandleGetVersion).Methods(http.MethodGet, http.MethodOptions)
 		adminRouter.HandleFunc("/binary/{id}", binaryHandler.HandleDeleteVersion).Methods(http.MethodDelete, http.MethodOptions)
 		adminRouter.HandleFunc("/binary/{id}/verify", binaryHandler.HandleVerifyVersion).Methods(http.MethodPost, http.MethodOptions)

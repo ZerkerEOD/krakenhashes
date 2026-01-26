@@ -98,7 +98,6 @@ type JobStatusResponse struct {
 	StartedAt              *time.Time `json:"started_at,omitempty"`
 	CompletedAt            *time.Time `json:"completed_at,omitempty"`
 	ErrorMessage           *string    `json:"error_message,omitempty"`
-	TotalKeyspace          *int64     `json:"total_keyspace,omitempty"`
 	EffectiveKeyspace      *int64     `json:"effective_keyspace,omitempty"`
 	ProcessedKeyspace      int64      `json:"processed_keyspace"`
 	DispatchedKeyspace     int64      `json:"dispatched_keyspace"`
@@ -423,9 +422,6 @@ func (h *JobHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 		if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
 			dispatchedPercent = float64(job.DispatchedKeyspace) / float64(*job.EffectiveKeyspace) * 100
 			searchedPercent = job.OverallProgressPercent
-		} else if job.TotalKeyspace != nil && *job.TotalKeyspace > 0 {
-			dispatchedPercent = float64(job.DispatchedKeyspace) / float64(*job.TotalKeyspace) * 100
-			searchedPercent = float64(job.ProcessedKeyspace) / float64(*job.TotalKeyspace) * 100
 		}
 
 		summaries = append(summaries, JobSummary{
@@ -523,9 +519,6 @@ func (h *JobHandler) GetJob(w http.ResponseWriter, r *http.Request) {
 	if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
 		dispatchedPercent = float64(job.DispatchedKeyspace) / float64(*job.EffectiveKeyspace) * 100
 		searchedPercent = job.OverallProgressPercent
-	} else if job.TotalKeyspace != nil && *job.TotalKeyspace > 0 {
-		dispatchedPercent = float64(job.DispatchedKeyspace) / float64(*job.TotalKeyspace) * 100
-		searchedPercent = float64(job.ProcessedKeyspace) / float64(*job.TotalKeyspace) * 100
 	}
 
 	response := JobStatusResponse{
@@ -543,7 +536,6 @@ func (h *JobHandler) GetJob(w http.ResponseWriter, r *http.Request) {
 		StartedAt:              job.StartedAt,
 		CompletedAt:            job.CompletedAt,
 		ErrorMessage:           job.ErrorMessage,
-		TotalKeyspace:          job.TotalKeyspace,
 		EffectiveKeyspace:      job.EffectiveKeyspace,
 		ProcessedKeyspace:      job.ProcessedKeyspace,
 		DispatchedKeyspace:     job.DispatchedKeyspace,

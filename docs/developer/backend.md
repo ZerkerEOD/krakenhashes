@@ -1082,15 +1082,18 @@ func (s *JobExecutionService) GetHashTypeByID(ctx context.Context, id int) (*mod
 
 ```go
 // backend/internal/services/job_scheduling_service.go
-func (s *JobSchedulingService) assignWorkToAgent(
+// Salt-aware benchmark lookup pattern used during task planning
+func lookupBenchmarkWithSaltCount(
     ctx context.Context,
-    agent *models.Agent,
+    benchmarkRepo *repository.AgentBenchmarkRepository,
+    hashTypeRepo *repository.HashTypeRepository,
+    agentID int,
     job *models.JobExecution,
-) error {
+) (*models.AgentBenchmark, error) {
     // Get hash type to check if salted
-    hashType, err := s.hashTypeRepo.GetByID(ctx, job.HashTypeID)
+    hashType, err := hashTypeRepo.GetByID(ctx, job.HashTypeID)
     if err != nil {
-        return err
+        return nil, err
     }
 
     // Calculate salt count if salted
@@ -1101,14 +1104,13 @@ func (s *JobSchedulingService) assignWorkToAgent(
     }
 
     // Get benchmark with salt count parameter
-    benchmark, err := s.benchmarkRepo.GetAgentBenchmark(
+    return benchmarkRepo.GetAgentBenchmark(
         ctx,
-        agent.ID,
+        agentID,
         job.AttackMode,
         job.HashTypeID,
-        saltCount,  // NEW: salt-aware lookup
+        saltCount,  // Salt-aware lookup
     )
-    // ...
 }
 ```
 

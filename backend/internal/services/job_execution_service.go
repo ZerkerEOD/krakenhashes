@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary/version"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
@@ -136,6 +137,98 @@ func (s *JobExecutionService) GetHashTypeByID(ctx context.Context, hashTypeID in
 	return s.hashTypeRepo.GetByID(ctx, hashTypeID)
 }
 
+// binaryStoreAdapter adapts binary.Manager to version.BinaryStore interface
+type binaryStoreAdapter struct {
+	manager binary.Manager
+}
+
+func (a *binaryStoreAdapter) ListActive(ctx context.Context) ([]version.BinaryInfo, error) {
+	versions, err := a.manager.ListVersions(ctx, map[string]interface{}{"is_active": true})
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]version.BinaryInfo, 0, len(versions))
+	for _, v := range versions {
+		if v.Version == nil {
+			continue // Skip binaries without version info
+		}
+		result = append(result, version.BinaryInfo{
+			ID:        v.ID,
+			Version:   *v.Version,
+			IsDefault: v.IsDefault,
+			IsActive:  v.IsActive,
+		})
+	}
+	return result, nil
+}
+
+func (a *binaryStoreAdapter) GetDefault(ctx context.Context) (*version.BinaryInfo, error) {
+	bv, err := a.manager.GetDefault(ctx, binary.BinaryTypeHashcat)
+	if err != nil {
+		return nil, err
+	}
+	if bv == nil || bv.Version == nil {
+		return nil, nil
+	}
+	return &version.BinaryInfo{
+		ID:        bv.ID,
+		Version:   *bv.Version,
+		IsDefault: bv.IsDefault,
+		IsActive:  bv.IsActive,
+	}, nil
+}
+
+// resolveBinaryVersionPattern resolves a version pattern string to an actual binary ID.
+// For keyspace calculation and other operations that need a specific binary.
+func (s *JobExecutionService) resolveBinaryVersionPattern(ctx context.Context, pattern string) (int64, error) {
+	if pattern == "" {
+		pattern = "default"
+	}
+
+	// If pattern is "default", just get the system default
+	if pattern == "default" {
+		defaultBinary, err := s.binaryManager.GetDefault(ctx, binary.BinaryTypeHashcat)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get default binary: %w", err)
+		}
+		if defaultBinary == nil {
+			return 0, fmt.Errorf("no default binary configured")
+		}
+		return defaultBinary.ID, nil
+	}
+
+	// For specific patterns, use the resolver
+	adapter := &binaryStoreAdapter{manager: s.binaryManager}
+	resolver := version.NewResolver(adapter)
+
+	// Parse the pattern
+	parsedPattern, err := version.Parse(pattern)
+	if err != nil {
+		return 0, fmt.Errorf("invalid version pattern %q: %w", pattern, err)
+	}
+
+	// Get matching binaries
+	matching, err := resolver.GetMatchingBinaries(ctx, parsedPattern)
+	if err != nil {
+		return 0, fmt.Errorf("failed to find matching binaries: %w", err)
+	}
+
+	if len(matching) == 0 {
+		return 0, fmt.Errorf("no binary matches pattern %q", pattern)
+	}
+
+	// Return the highest matching version (or default if in list)
+	for _, b := range matching {
+		if b.IsDefault {
+			return b.ID, nil
+		}
+	}
+
+	// Return highest version (matching is already sorted by version desc in GetMatchingBinaries)
+	return matching[0].ID, nil
+}
+
 // CustomJobConfig contains the configuration for a custom job
 type CustomJobConfig struct {
 	Name                      string
@@ -145,7 +238,7 @@ type CustomJobConfig struct {
 	Mask                      string
 	Priority                  int
 	MaxAgents                 int
-	BinaryVersionID           int
+	BinaryVersion             string // Version pattern (e.g., "default", "7.x", "7.1.2")
 	AllowHighPriorityOverride bool
 	ChunkSizeSeconds          int
 	IncrementMode             string
@@ -260,7 +353,7 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 
 			// Enable rule splitting if we have enough rules
 			// Use actual rule count (not salt-adjusted multiplicationFactor) for minRules comparison
-			actualRuleCount, ruleErr := s.getTotalRuleCount(ctx, presetJob.RuleIDs)
+			actualRuleCount, ruleErr := s.GetTotalRuleCount(ctx, presetJob.RuleIDs)
 			if ruleErr != nil {
 				actualRuleCount = int64(multiplicationFactor) // Fallback to multiplicationFactor
 			}
@@ -291,7 +384,6 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		HashlistID:        hashlistID,
 		Status:            models.JobExecutionStatusPending,
 		Priority:          presetJob.Priority,
-		TotalKeyspace:     totalKeyspace,
 		ProcessedKeyspace: 0,
 		AttackMode:        presetJob.AttackMode,
 		MaxAgents:         presetJob.MaxAgents,
@@ -305,7 +397,7 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		ChunkSizeSeconds:          presetJob.ChunkSizeSeconds,
 		StatusUpdatesEnabled:      presetJob.StatusUpdatesEnabled,
 		AllowHighPriorityOverride: presetJob.AllowHighPriorityOverride,
-		BinaryVersionID:           presetJob.BinaryVersionID,
+		BinaryVersion:           presetJob.BinaryVersion,
 		Mask:                      presetJob.Mask,
 		AdditionalArgs:            presetJob.AdditionalArgs,
 		IncrementMode:             presetJob.IncrementMode,
@@ -362,7 +454,7 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 	// See HandleBenchmarkResult() in job_websocket_integration.go for the actual decision
 	debug.Log("Job execution created - rule split decision deferred to benchmark", map[string]interface{}{
 		"job_execution_id":      jobExecution.ID,
-		"total_keyspace":        totalKeyspace,
+		"base_keyspace":         totalKeyspace,
 		"effective_keyspace":    jobExecution.EffectiveKeyspace,
 		"multiplication_factor": jobExecution.MultiplicationFactor,
 	})
@@ -408,7 +500,7 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		RuleIDs:                   config.RuleIDs,
 		AttackMode:                config.AttackMode,
 		HashType:                  hashlist.HashTypeID,
-		BinaryVersionID:           config.BinaryVersionID,
+		BinaryVersion:           config.BinaryVersion,
 		Mask:                      config.Mask,
 		Priority:                  config.Priority,
 		MaxAgents:                 config.MaxAgents,
@@ -493,7 +585,7 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 
 			// Enable rule splitting if we have enough rules
 			// Use actual rule count (not salt-adjusted multiplicationFactor) for minRules comparison
-			actualRuleCount, ruleErr := s.getTotalRuleCount(ctx, config.RuleIDs)
+			actualRuleCount, ruleErr := s.GetTotalRuleCount(ctx, config.RuleIDs)
 			if ruleErr != nil {
 				actualRuleCount = int64(multiplicationFactor) // Fallback to multiplicationFactor
 			}
@@ -524,7 +616,6 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		AssociationWordlistID: config.AssociationWordlistID, // For association attacks (-a 9)
 		Status:                models.JobExecutionStatusPending,
 		Priority:              config.Priority,
-		TotalKeyspace:         totalKeyspace,
 		ProcessedKeyspace:     0,
 		AttackMode:            config.AttackMode,
 		MaxAgents:             config.MaxAgents,
@@ -538,7 +629,7 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		ChunkSizeSeconds:          chunkSize,
 		StatusUpdatesEnabled:      true,
 		AllowHighPriorityOverride: config.AllowHighPriorityOverride,
-		BinaryVersionID:           config.BinaryVersionID,
+		BinaryVersion:           config.BinaryVersion,
 		Mask:                      config.Mask,
 		AdditionalArgs:            nil,
 		IncrementMode:             config.IncrementMode,
@@ -586,7 +677,7 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 	// See HandleBenchmarkResult() in job_websocket_integration.go for the actual decision
 	debug.Log("Custom job execution created - rule split decision deferred to benchmark", map[string]interface{}{
 		"job_execution_id":      jobExecution.ID,
-		"total_keyspace":        totalKeyspace,
+		"base_keyspace":         totalKeyspace,
 		"effective_keyspace":    jobExecution.EffectiveKeyspace,
 		"multiplication_factor": jobExecution.MultiplicationFactor,
 	})
@@ -601,18 +692,26 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *models.PresetJob, hashlist *models.HashList) (*int64, *int64, bool, error) {
 	debug.Log("Starting keyspace calculation for job execution", map[string]interface{}{
 		"preset_job_id":     presetJob.ID,
-		"binary_version_id": presetJob.BinaryVersionID,
+		"binary_version":    presetJob.BinaryVersion,
 		"attack_mode":       presetJob.AttackMode,
 		"hashlist_id":       hashlist.ID,
 		"data_directory":    s.dataDirectory,
 	})
-	
+
+	// Resolve binary version pattern to actual binary ID
+	binaryVersionID, err := s.resolveBinaryVersionPattern(ctx, presetJob.BinaryVersion)
+	if err != nil {
+		debug.Error("Failed to resolve binary version pattern: pattern=%s, error=%v",
+			presetJob.BinaryVersion, err)
+		return nil, nil, false, fmt.Errorf("failed to resolve binary version pattern %q: %w", presetJob.BinaryVersion, err)
+	}
+
 	// Get the hashcat binary path from binary manager
-	hashcatPath, err := s.binaryManager.GetLocalBinaryPath(ctx, int64(presetJob.BinaryVersionID))
+	hashcatPath, err := s.binaryManager.GetLocalBinaryPath(ctx, binaryVersionID)
 	if err != nil {
 		debug.Error("Failed to get hashcat binary path: binary_version_id=%d, error=%v",
-			presetJob.BinaryVersionID, err)
-		return nil, nil, false, fmt.Errorf("failed to get hashcat binary path for version %d: %w", presetJob.BinaryVersionID, err)
+			binaryVersionID, err)
+		return nil, nil, false, fmt.Errorf("failed to get hashcat binary path for version %d: %w", binaryVersionID, err)
 	}
 
 	// Verify the binary exists and is executable
@@ -708,7 +807,7 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 		}
 
 		// Get rule count for effective keyspace calculation
-		ruleCount, err := s.getTotalRuleCount(ctx, presetJob.RuleIDs)
+		ruleCount, err := s.GetTotalRuleCount(ctx, presetJob.RuleIDs)
 		if err != nil {
 			debug.Warning("Failed to get rule count for mode 9: %v", err)
 			ruleCount = 1
@@ -1069,12 +1168,12 @@ func (s *JobExecutionService) calculateWordlistKeyspace(ctx context.Context, wor
 
 // calculateEffectiveKeyspace computes the true workload accounting for rules/combinations
 func (s *JobExecutionService) calculateEffectiveKeyspace(ctx context.Context, job *models.JobExecution, presetJob *models.PresetJob) error {
-	// Use existing total_keyspace as base
-	if job.TotalKeyspace == nil {
-		return fmt.Errorf("job has no total keyspace calculated")
+	// Use existing base_keyspace (from hashcat --keyspace) as starting point
+	if job.BaseKeyspace == nil {
+		return fmt.Errorf("job has no base keyspace calculated")
 	}
 
-	baseKeyspace := *job.TotalKeyspace
+	baseKeyspace := *job.BaseKeyspace
 	attackMode := s.parseAttackMode(presetJob)
 
 	debug.Log("Calculating effective keyspace", map[string]interface{}{
@@ -1201,12 +1300,12 @@ func (s *JobExecutionService) calculateEffectiveKeyspace(ctx context.Context, jo
 			lineCount, err := s.getAssociationWordlistLineCount(ctx, *presetJob.AssociationWordlistID)
 			if err != nil {
 				debug.Warning("Failed to get association wordlist line count: %v", err)
-				// Fall back to using existing total_keyspace
+				// Fall back to using baseKeyspace
 				job.BaseKeyspace = &baseKeyspace
 				job.MultiplicationFactor = 1
 				job.EffectiveKeyspace = &baseKeyspace
 			} else {
-				ruleCount, err := s.getTotalRuleCount(ctx, presetJob.RuleIDs)
+				ruleCount, err := s.GetTotalRuleCount(ctx, presetJob.RuleIDs)
 				if err != nil {
 					ruleCount = 1
 				}
@@ -1243,6 +1342,35 @@ func (s *JobExecutionService) calculateEffectiveKeyspace(ctx context.Context, jo
 			"attack_mode": attackMode,
 			"keyspace":    baseKeyspace,
 		})
+	}
+
+	// Apply salt adjustment for salted hash types (same pattern as CreateCustomJobExecution:542-567)
+	// calculateEffectiveKeyspace calculates base × rules, but for salted hashes we need base × rules × salts
+	if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
+		hashlist, hlErr := s.hashlistRepo.GetByID(ctx, job.HashlistID)
+		if hlErr == nil && hashlist != nil {
+			hashType, htErr := s.hashTypeRepo.GetByID(ctx, hashlist.HashTypeID)
+			if htErr == nil && hashType != nil && hashType.IsSalted {
+				saltCount := int64(hashlist.TotalHashes)
+				if saltCount > 0 {
+					originalEffective := *job.EffectiveKeyspace
+					adjustedEffective := originalEffective * saltCount
+					job.EffectiveKeyspace = &adjustedEffective
+					// Also adjust multiplication factor to reflect salts
+					if job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
+						job.MultiplicationFactor = int(adjustedEffective / *job.BaseKeyspace)
+					}
+					debug.Log("Applied salt adjustment in calculateEffectiveKeyspace", map[string]interface{}{
+						"job_id":             job.ID,
+						"hash_type_id":       hashlist.HashTypeID,
+						"is_salted":          true,
+						"salt_count":         saltCount,
+						"original_effective": originalEffective,
+						"adjusted_effective": adjustedEffective,
+					})
+				}
+			}
+		}
 	}
 
 	// Update job in database
@@ -2211,8 +2339,8 @@ func (s *JobExecutionService) getAssociationWordlistLineCount(ctx context.Contex
 	return wordlist.LineCount, nil
 }
 
-// getTotalRuleCount retrieves the sum of rule counts for a list of rule IDs
-func (s *JobExecutionService) getTotalRuleCount(ctx context.Context, ruleIDs []string) (int64, error) {
+// GetTotalRuleCount retrieves the sum of rule counts for a list of rule IDs
+func (s *JobExecutionService) GetTotalRuleCount(ctx context.Context, ruleIDs []string) (int64, error) {
 	if len(ruleIDs) == 0 {
 		return 1, nil // No rules = multiplier of 1
 	}
@@ -2294,11 +2422,8 @@ func (s *JobExecutionService) analyzeForRuleSplitting(ctx context.Context, job *
 	// Calculate estimated time
 	effectiveKeyspace := job.EffectiveKeyspace
 	if effectiveKeyspace == nil {
-		if job.TotalKeyspace != nil {
-			effectiveKeyspace = job.TotalKeyspace
-		} else {
-			return &RuleSplitDecision{ShouldSplit: false}, nil
-		}
+		// Can't make rule split decision without effective keyspace
+		return &RuleSplitDecision{ShouldSplit: false}, nil
 	}
 
 	estimatedTimeSeconds := float64(*effectiveKeyspace) / benchmarkSpeed
@@ -2317,7 +2442,7 @@ func (s *JobExecutionService) analyzeForRuleSplitting(ctx context.Context, job *
 	}
 
 	// Get actual rule count (not salt-adjusted) for minRules comparison
-	actualRuleCount, ruleErr := s.getTotalRuleCount(ctx, presetJob.RuleIDs)
+	actualRuleCount, ruleErr := s.GetTotalRuleCount(ctx, presetJob.RuleIDs)
 	if ruleErr != nil {
 		actualRuleCount = int64(job.MultiplicationFactor) // Fallback to multiplicationFactor
 	}
@@ -2394,8 +2519,8 @@ func (s *JobExecutionService) createSplitDecision(ctx context.Context, job *mode
 	var baseKeyspace int64
 	if job.BaseKeyspace != nil {
 		baseKeyspace = *job.BaseKeyspace
-	} else if job.TotalKeyspace != nil {
-		baseKeyspace = *job.TotalKeyspace
+	} else if job.EffectiveKeyspace != nil {
+		baseKeyspace = *job.EffectiveKeyspace
 	} else {
 		baseKeyspace = 1000000 // Default fallback
 	}
@@ -2468,11 +2593,15 @@ func (s *JobExecutionService) createJobTasksWithRuleSplitting(ctx context.Contex
 // The presetJob parameter is deprecated and should always be nil
 // layerMask can be provided for increment layer tasks - if set, it overrides job.Mask and skips increment flags
 func (s *JobExecutionService) buildAttackCommand(ctx context.Context, presetJob *models.PresetJob, job *models.JobExecution, layerMask string) (string, error) {
-	// Use binary version ID from job (job_executions are self-contained)
-	if job.BinaryVersionID == 0 {
-		return "", fmt.Errorf("no binary version ID available in job execution")
+	// Resolve binary version pattern to actual binary ID
+	if job.BinaryVersion == "" {
+		return "", fmt.Errorf("no binary version pattern available in job execution")
 	}
-	binaryVersionID := int64(job.BinaryVersionID)
+
+	binaryVersionID, err := s.resolveBinaryVersionPattern(ctx, job.BinaryVersion)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve binary version pattern %q: %w", job.BinaryVersion, err)
+	}
 
 	// Get the hashcat binary path
 	hashcatPath, err := s.binaryManager.GetLocalBinaryPath(ctx, binaryVersionID)
@@ -2897,8 +3026,6 @@ func (s *JobExecutionService) GetPreviousChunksActualKeyspace(ctx context.Contex
 	return s.jobTaskRepo.GetPreviousChunksActualKeyspace(ctx, jobExecutionID, currentChunkNumber)
 }
 
-// DetermineBinaryForTask implements the binary selection hierarchy: Agent → Job → Default
-// Returns the binary version ID to use for a given agent and job execution
 // GetAgentPreferredBinary returns the preferred binary version for an agent
 // This is used for device detection and other agent-level operations that don't have a specific job context
 func (s *JobExecutionService) GetAgentPreferredBinary(ctx context.Context, agentID int) (int64, error) {
@@ -2908,70 +3035,64 @@ func (s *JobExecutionService) GetAgentPreferredBinary(ctx context.Context, agent
 		return 0, fmt.Errorf("failed to get agent: %w", err)
 	}
 
-	// If agent has binary override enabled and binary_version_id is set, use it
-	if agent.BinaryOverride && agent.BinaryVersionID.Valid && agent.BinaryVersionID.Int64 > 0 {
-		debug.Log("Using agent binary override for device detection", map[string]interface{}{
-			"agent_id":          agentID,
-			"binary_version_id": agent.BinaryVersionID.Int64,
-		})
-		return agent.BinaryVersionID.Int64, nil
-	}
-
-	// Fall back to system default
-	defaultBinary, err := s.binaryManager.GetDefault(ctx, binary.BinaryTypeHashcat)
+	// Resolve agent's binary version pattern to actual binary ID
+	binaryVersionID, err := s.resolveBinaryVersionPattern(ctx, agent.BinaryVersion)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get default binary: %w", err)
+		return 0, fmt.Errorf("failed to resolve agent binary version pattern %q: %w", agent.BinaryVersion, err)
 	}
 
-	debug.Log("Using system default binary for device detection", map[string]interface{}{
+	debug.Log("Resolved agent binary version for device detection", map[string]interface{}{
 		"agent_id":          agentID,
-		"binary_version_id": defaultBinary.ID,
+		"binary_pattern":    agent.BinaryVersion,
+		"binary_version_id": binaryVersionID,
 	})
-	return defaultBinary.ID, nil
+	return binaryVersionID, nil
 }
 
+// DetermineBinaryForTask implements the binary selection logic using version patterns.
+// It uses the version resolver to find a binary compatible with both agent and job patterns.
+// Returns the binary version ID to use for a given agent and job execution.
 func (s *JobExecutionService) DetermineBinaryForTask(ctx context.Context, agentID int, jobExecutionID uuid.UUID) (int64, error) {
-	// 1. Check agent-level override (highest priority)
+	// Get agent info
 	agent, err := s.agentRepo.GetByID(ctx, agentID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get agent: %w", err)
 	}
 
-	// If agent has binary override enabled and binary_version_id is set, use it
-	if agent.BinaryOverride && agent.BinaryVersionID.Valid && agent.BinaryVersionID.Int64 > 0 {
-		debug.Log("Using agent binary override", map[string]interface{}{
-			"agent_id":          agentID,
-			"binary_version_id": agent.BinaryVersionID.Int64,
-		})
-		return agent.BinaryVersionID.Int64, nil
-	}
-
-	// 2. Check job-level binary (medium priority)
+	// Get job execution info
 	jobExecution, err := s.jobExecRepo.GetByID(ctx, jobExecutionID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get job execution: %w", err)
 	}
 
-	if jobExecution.BinaryVersionID > 0 {
-		debug.Log("Using job binary", map[string]interface{}{
-			"job_execution_id":  jobExecutionID,
-			"binary_version_id": jobExecution.BinaryVersionID,
-		})
-		return int64(jobExecution.BinaryVersionID), nil
+	// Parse agent and job patterns
+	agentPattern := agent.BinaryVersion
+	if agentPattern == "" {
+		agentPattern = "default"
 	}
 
-	// 3. Fall back to system default (lowest priority)
-	defaultBinary, err := s.binaryManager.GetDefault(ctx, binary.BinaryTypeHashcat)
+	jobPattern := jobExecution.BinaryVersion
+	if jobPattern == "" {
+		jobPattern = "default"
+	}
+
+	// Create adapter and resolver
+	adapter := &binaryStoreAdapter{manager: s.binaryManager}
+	resolver := version.NewResolver(adapter)
+
+	// Use the resolver to find a compatible binary
+	binaryID, err := resolver.ResolveForTaskStr(ctx, agentPattern, jobPattern)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get default binary: %w", err)
+		return 0, fmt.Errorf("no compatible binary for agent pattern %q and job pattern %q: %w", agentPattern, jobPattern, err)
 	}
 
-	if defaultBinary == nil {
-		return 0, fmt.Errorf("no default hashcat binary configured")
-	}
-
-	debug.Log("Using system default binary", map[string]interface{}{
-		"binary_version_id": defaultBinary.ID,
+	debug.Log("Resolved binary for task", map[string]interface{}{
+		"agent_id":         agentID,
+		"job_execution_id": jobExecutionID,
+		"agent_pattern":    agentPattern,
+		"job_pattern":      jobPattern,
+		"binary_id":        binaryID,
 	})
-	return defaultBinary.ID, nil
+
+	return binaryID, nil
 }

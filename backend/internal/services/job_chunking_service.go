@@ -72,20 +72,21 @@ func (s *JobChunkingService) CalculateNextChunk(ctx context.Context, req ChunkCa
 		"keyspace_start":   keyspaceStart,
 	})
 
-	// If job has no total keyspace, we can't calculate chunks properly
-	if req.JobExecution.TotalKeyspace == nil {
-		debug.Log("Job has no total keyspace, using alternative calculation", map[string]interface{}{
+	// If job has no base keyspace, we can't calculate chunks properly
+	// BaseKeyspace is used for --skip/--limit which operates on wordlist positions
+	if req.JobExecution.BaseKeyspace == nil {
+		debug.Log("Job has no base keyspace, using alternative calculation", map[string]interface{}{
 			"job_execution_id": req.JobExecution.ID,
 		})
 		return s.calculateChunkWithoutKeyspace(ctx, req, keyspaceStart)
 	}
 
-	totalKeyspace := *req.JobExecution.TotalKeyspace
-	remainingKeyspace := totalKeyspace - keyspaceStart
+	baseKeyspace := *req.JobExecution.BaseKeyspace
+	remainingKeyspace := baseKeyspace - keyspaceStart
 
 	debug.Log("Calculated remaining keyspace", map[string]interface{}{
 		"job_execution_id":   req.JobExecution.ID,
-		"total_keyspace":     totalKeyspace,
+		"base_keyspace":      baseKeyspace,
 		"keyspace_start":     keyspaceStart,
 		"remaining_keyspace": remainingKeyspace,
 	})
@@ -180,30 +181,30 @@ func (s *JobChunkingService) CalculateNextChunk(ctx context.Context, req ChunkCa
 		"keyspace_start":     keyspaceStart,
 		"desired_chunk_size": desiredChunkSize,
 		"keyspace_end":       keyspaceEnd,
-		"total_keyspace":     totalKeyspace,
+		"base_keyspace":      baseKeyspace,
 	})
 
-	if keyspaceEnd >= totalKeyspace {
+	if keyspaceEnd >= baseKeyspace {
 		// This is the last chunk
-		keyspaceEnd = totalKeyspace
+		keyspaceEnd = baseKeyspace
 		isLastChunk = true
-		actualDuration = int((totalKeyspace - keyspaceStart) / candidateSpeed)
+		actualDuration = int((baseKeyspace - keyspaceStart) / candidateSpeed)
 
 		debug.Log("Adjusted to last chunk", map[string]interface{}{
-			"reason":           "keyspace_end >= total_keyspace",
+			"reason":           "keyspace_end >= base_keyspace",
 			"keyspace_end":     keyspaceEnd,
 			"actual_duration":  actualDuration,
 		})
 	} else {
 		// Check if the remaining keyspace after this chunk would be too small
-		remainingAfterChunk := totalKeyspace - keyspaceEnd
+		remainingAfterChunk := baseKeyspace - keyspaceEnd
 		fluctuationThreshold := int64(float64(desiredChunkSize) * float64(fluctuationPercentage) / 100.0)
 
 		if remainingAfterChunk <= fluctuationThreshold {
 			// Merge the final small chunk into this one
-			keyspaceEnd = totalKeyspace
+			keyspaceEnd = baseKeyspace
 			isLastChunk = true
-			actualDuration = int((totalKeyspace - keyspaceStart) / candidateSpeed)
+			actualDuration = int((baseKeyspace - keyspaceStart) / candidateSpeed)
 
 			debug.Log("Merging final chunk to avoid small remainder", map[string]interface{}{
 				"remaining_after_chunk": remainingAfterChunk,
@@ -351,12 +352,13 @@ type JobCompletionEstimateRequest struct {
 
 // EstimateJobCompletion estimates when a job will complete based on current progress
 func (s *JobChunkingService) EstimateJobCompletion(ctx context.Context, req JobCompletionEstimateRequest) (*time.Time, error) {
-	if req.JobExecution.TotalKeyspace == nil || *req.JobExecution.TotalKeyspace == 0 {
-		return nil, fmt.Errorf("cannot estimate completion without total keyspace")
+	// Use EffectiveKeyspace for completion estimation (total candidates including rules and salts)
+	if req.JobExecution.EffectiveKeyspace == nil || *req.JobExecution.EffectiveKeyspace == 0 {
+		return nil, fmt.Errorf("cannot estimate completion without effective keyspace")
 	}
 
-	totalKeyspace := *req.JobExecution.TotalKeyspace
-	remainingKeyspace := totalKeyspace - req.JobExecution.ProcessedKeyspace
+	effectiveKeyspace := *req.JobExecution.EffectiveKeyspace
+	remainingKeyspace := effectiveKeyspace - req.JobExecution.ProcessedKeyspace
 
 	if remainingKeyspace <= 0 {
 		// Job is already complete

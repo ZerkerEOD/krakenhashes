@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary/version"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -158,7 +159,8 @@ func (h *Handler) HandleDeleteVersion(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.manager.DeleteVersion(r.Context(), id); err != nil {
 		// Check if it's a protection error
-		if strings.Contains(err.Error(), "cannot delete the only remaining binary") {
+		if strings.Contains(err.Error(), "cannot delete the only remaining binary") ||
+			strings.Contains(err.Error(), "cannot delete the default binary") {
 			http.Error(w, err.Error(), http.StatusConflict)
 			return
 		}
@@ -353,4 +355,36 @@ func (h *Handler) HandleUploadVersion(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(version)
+}
+
+// HandleGetPatterns returns available binary version patterns for dropdown selection
+// This generates pattern options based on currently active binaries
+func (h *Handler) HandleGetPatterns(w http.ResponseWriter, r *http.Request) {
+	// Get all active binary versions
+	versions, err := h.manager.ListVersions(r.Context(), map[string]interface{}{"is_active": true})
+	if err != nil {
+		debug.Error("Failed to list binary versions: %v", err)
+		http.Error(w, "Failed to list binary versions", http.StatusInternalServerError)
+		return
+	}
+
+	// Convert to BinaryInfo slice
+	binaries := make([]version.BinaryInfo, 0, len(versions))
+	for _, v := range versions {
+		if v.Version == nil {
+			continue
+		}
+		binaries = append(binaries, version.BinaryInfo{
+			ID:        v.ID,
+			Version:   *v.Version,
+			IsDefault: v.IsDefault,
+			IsActive:  v.IsActive,
+		})
+	}
+
+	// Generate patterns response
+	response := version.GenerateAvailablePatterns(binaries)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary/version"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
@@ -51,8 +52,9 @@ type JobHashTypeInfo struct {
 	Priority             int
 	CreatedAt            time.Time
 	NeedsForcedBenchmark bool
-	SaltCount            *int // For salted hash types, the number of remaining hashes (each = 1 salt)
-	IsSalted             bool // Whether this hash type uses per-hash salts
+	SaltCount            *int   // For salted hash types, the number of remaining hashes (each = 1 salt)
+	IsSalted             bool   // Whether this hash type uses per-hash salts
+	BinaryVersion        string // Binary version pattern for compatibility filtering
 }
 
 // CreateBenchmarkPlan analyzes the system state and creates an intelligent benchmark execution plan
@@ -175,6 +177,7 @@ func (s *JobSchedulingService) collectJobHashTypeInfo(
 						NeedsForcedBenchmark: true,
 						SaltCount:            saltCount,
 						IsSalted:             isSalted,
+						BinaryVersion:        job.BinaryVersion,
 					})
 
 					debug.Log("Added layer entry for benchmarking", map[string]interface{}{
@@ -210,6 +213,7 @@ func (s *JobSchedulingService) collectJobHashTypeInfo(
 							NeedsForcedBenchmark: true,
 							SaltCount:            saltCount,
 							IsSalted:             isSalted,
+							BinaryVersion:        job.BinaryVersion,
 						})
 					}
 				}
@@ -243,6 +247,7 @@ func (s *JobSchedulingService) collectJobHashTypeInfo(
 				NeedsForcedBenchmark: needsForcedBenchmark,
 				SaltCount:            saltCount,
 				IsSalted:             isSalted,
+				BinaryVersion:        job.BinaryVersion,
 			})
 		}
 	}
@@ -359,13 +364,19 @@ func (s *JobSchedulingService) allocateForcedBenchmarks(
 
 		// Find best agent for this job
 		// Prefer agents WITHOUT valid benchmark for this hash type (including salt count)
+		// MUST be compatible with job's binary version
 		key := buildBenchmarkCacheKey(job.AttackMode, job.HashType, job.SaltCount)
 		var bestAgent *models.Agent
 
-		// First pass: look for agent without this benchmark
+		// First pass: look for compatible agent without this benchmark
 		for i := range availableAgents {
 			if usedAgents[availableAgents[i].ID] != uuid.Nil {
 				continue // Already used
+			}
+
+			// Check binary version compatibility
+			if !version.IsCompatibleStr(availableAgents[i].BinaryVersion, job.BinaryVersion) {
+				continue // Not compatible with job's binary version
 			}
 
 			if !agentBenchmarkStatus[availableAgents[i].ID][key] {
@@ -374,10 +385,14 @@ func (s *JobSchedulingService) allocateForcedBenchmarks(
 			}
 		}
 
-		// Second pass: if all have it, just pick first available
+		// Second pass: if all compatible agents have it, just pick first available compatible agent
 		if bestAgent == nil {
 			for i := range availableAgents {
 				if usedAgents[availableAgents[i].ID] == uuid.Nil {
+					// Check binary version compatibility
+					if !version.IsCompatibleStr(availableAgents[i].BinaryVersion, job.BinaryVersion) {
+						continue // Not compatible with job's binary version
+					}
 					bestAgent = &availableAgents[i]
 					break
 				}
@@ -385,7 +400,12 @@ func (s *JobSchedulingService) allocateForcedBenchmarks(
 		}
 
 		if bestAgent == nil {
-			break // No agents available (shouldn't happen)
+			// No compatible agents available for this job - skip it
+			debug.Log("No compatible agents for forced benchmark job", map[string]interface{}{
+				"job_id":         job.JobID,
+				"binary_version": job.BinaryVersion,
+			})
+			continue
 		}
 
 		forcedTasks = append(forcedTasks, ForcedBenchmarkTask{
@@ -451,6 +471,7 @@ func (s *JobSchedulingService) allocateAgentBenchmarks(
 	}
 
 	// Build map of which agents need which hash types (including salt count)
+	// Only includes agents that are compatible with the job's binary version
 	hashTypeToAgentsNeeding := make(map[string][]int)
 
 	for _, agent := range availableAgents {
@@ -459,6 +480,11 @@ func (s *JobSchedulingService) allocateAgentBenchmarks(
 		}
 
 		for _, htInfo := range uniqueHashTypes {
+			// Check binary version compatibility first
+			if !version.IsCompatibleStr(agent.BinaryVersion, htInfo.BinaryVersion) {
+				continue // Agent not compatible with this job's binary version
+			}
+
 			key := buildBenchmarkCacheKey(htInfo.AttackMode, htInfo.HashType, htInfo.SaltCount)
 
 			// Check if agent has valid benchmark

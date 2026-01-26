@@ -40,8 +40,8 @@ export interface Agent {
     isEnabled?: boolean;
     ownerId?: string;
     extraParameters?: string;
-    binaryVersionId?: number;
-    binaryOverride?: boolean;
+    /** Binary version pattern (e.g., "default", "7.x", "7.1.x", "7.1.2") */
+    binaryVersion?: string;
     metadata?: {
         busy_status?: string;
         current_task_id?: string;
@@ -196,4 +196,32 @@ export interface BinaryVersion {
     is_default: boolean;
     verification_status: 'pending' | 'verified' | 'failed' | 'deleted';
     created_at: string;
+    version?: string;
+}
+
+/**
+ * Represents a binary version pattern option for dropdown selection.
+ * Patterns can be: "default", "7.x", "7.1.x", "7.1.2", etc.
+ */
+export interface BinaryVersionPattern {
+    /** The pattern string (e.g., "default", "7.x", "7.1.x", "7.1.2") */
+    pattern: string;
+    /** Human-readable display label */
+    display: string;
+    /** Type of pattern: default, major_wildcard, minor_wildcard, exact */
+    type: 'default' | 'major_wildcard' | 'minor_wildcard' | 'exact';
+    /** Whether this pattern represents the system default binary */
+    isDefault: boolean;
+}
+
+/**
+ * Response from the /binary/patterns endpoint
+ */
+export interface BinaryPatternsResponse {
+    /** Available version patterns for dropdown */
+    patterns: BinaryVersionPattern[];
+    /** IDs of binaries that are currently active */
+    activeBinaryIds: number[];
+    /** ID of the current default binary */
+    defaultBinaryId: number | null;
 } 

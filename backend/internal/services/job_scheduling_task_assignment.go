@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary/version"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
@@ -349,6 +350,14 @@ func (s *JobSchedulingService) createSingleTaskPlan(
 	agent, err := s.agentRepo.GetByID(ctx, agentID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent: %w", err)
+	}
+
+	// DEFENSIVE CHECK: Verify agent is compatible with job's binary version
+	// This is a safety net - compatibility should have been checked during allocation
+	if !version.IsCompatibleStr(agent.BinaryVersion, currentState.JobExecution.BinaryVersion) {
+		debug.Warning("Agent %d not compatible with job %s binary version (agent: %s, job: %s) - skipping task assignment",
+			agentID, currentState.JobExecution.ID, agent.BinaryVersion, currentState.JobExecution.BinaryVersion)
+		return nil, fmt.Errorf("agent not compatible with job binary version")
 	}
 
 	// Get hashlist for job
@@ -1054,12 +1063,12 @@ func (s *JobSchedulingService) calculateKeyspaceChunk(
 		})
 	} else {
 		// Regular job - use BASE keyspace for --skip/--limit
-		// BaseKeyspace represents actual password candidates that hashcat will test
+		// BaseKeyspace represents wordlist positions that hashcat uses for --skip/--limit
 		if plan.JobExecution.BaseKeyspace != nil {
 			totalKeyspace = *plan.JobExecution.BaseKeyspace
-		} else if plan.JobExecution.TotalKeyspace != nil {
-			// Fallback to TotalKeyspace if BaseKeyspace not set
-			totalKeyspace = *plan.JobExecution.TotalKeyspace
+		} else if plan.JobExecution.EffectiveKeyspace != nil {
+			// Fallback to EffectiveKeyspace if BaseKeyspace not set
+			totalKeyspace = *plan.JobExecution.EffectiveKeyspace
 		} else {
 			return fmt.Errorf("job has no keyspace information")
 		}
@@ -1286,7 +1295,7 @@ func (s *JobSchedulingService) calculateKeyspaceChunk(
 		"keyspace_start":             keyspaceStart,
 		"keyspace_end":               keyspaceEnd,
 		"chunk_size":                 dispatchedAmount,
-		"total_keyspace":             totalKeyspace,
+		"base_keyspace":              totalKeyspace,
 		"is_keyspace_split":          plan.IsKeyspaceSplit,
 		"benchmark_speed":            plan.BenchmarkSpeed,
 		"updated_base_keyspace_end":  keyspaceEnd,

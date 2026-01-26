@@ -95,15 +95,9 @@ func (s *JobExecutionService) copyPresetIncrementLayers(ctx context.Context, job
 
 	// Update job's keyspace values
 	jobExecution.BaseKeyspace = &totalBaseKeyspace
-	jobExecution.TotalKeyspace = &totalEffectiveKeyspace
 	jobExecution.EffectiveKeyspace = &totalEffectiveKeyspace
 
 	// Persist the keyspace values to the database
-	err = s.jobExecRepo.UpdateTotalKeyspace(ctx, jobExecution.ID, totalEffectiveKeyspace)
-	if err != nil {
-		debug.Warning("Failed to update job total_keyspace: %v", err)
-	}
-
 	err = s.jobExecRepo.UpdateEffectiveKeyspace(ctx, jobExecution.ID, totalEffectiveKeyspace)
 	if err != nil {
 		debug.Warning("Failed to update job effective_keyspace: %v", err)
@@ -208,8 +202,14 @@ func (s *JobExecutionService) initializeIncrementLayers(ctx context.Context, job
 		"masks":            layerMasks,
 	})
 
+	// Resolve binary version pattern to actual binary ID
+	binaryVersionID, err := s.resolveBinaryVersionPattern(ctx, jobExecution.BinaryVersion)
+	if err != nil {
+		return fmt.Errorf("failed to resolve binary version pattern %q: %w", jobExecution.BinaryVersion, err)
+	}
+
 	// Get hashcat binary path
-	hashcatPath, err := s.binaryManager.GetLocalBinaryPath(ctx, int64(jobExecution.BinaryVersionID))
+	hashcatPath, err := s.binaryManager.GetLocalBinaryPath(ctx, binaryVersionID)
 	if err != nil {
 		return fmt.Errorf("failed to get hashcat binary path: %w", err)
 	}
@@ -276,18 +276,11 @@ func (s *JobExecutionService) initializeIncrementLayers(ctx context.Context, job
 
 	// Update job's keyspace values - both base and effective
 	// base_keyspace = sum of layer base_keyspaces (from hashcat --keyspace)
-	// total_keyspace/effective_keyspace = sum of layer effective_keyspaces (calculated)
+	// effective_keyspace = sum of layer effective_keyspaces (calculated)
 	jobExecution.BaseKeyspace = &totalBaseKeyspace
-	jobExecution.TotalKeyspace = &totalEffectiveKeyspace
 	jobExecution.EffectiveKeyspace = &totalEffectiveKeyspace
 
-	// Update total_keyspace
-	err = s.jobExecRepo.UpdateTotalKeyspace(ctx, jobExecution.ID, totalEffectiveKeyspace)
-	if err != nil {
-		debug.Warning("Failed to update job total_keyspace: %v", err)
-	}
-
-	// Update effective_keyspace (same value as total_keyspace for increment mode)
+	// Update effective_keyspace
 	err = s.jobExecRepo.UpdateEffectiveKeyspace(ctx, jobExecution.ID, totalEffectiveKeyspace)
 	if err != nil {
 		debug.Warning("Failed to update job effective_keyspace: %v", err)

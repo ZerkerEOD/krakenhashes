@@ -49,6 +49,11 @@ func NewManager(store Store, config Config) (Manager, error) {
 
 // AddVersion implements Manager.AddVersion
 func (m *manager) AddVersion(ctx context.Context, version *BinaryVersion) error {
+	// Validate version is provided
+	if version.Version == nil || *version.Version == "" {
+		return fmt.Errorf("binary version string is required")
+	}
+
 	// Set initial verification status
 	version.VerificationStatus = VerificationStatusPending
 
@@ -147,6 +152,11 @@ func (m *manager) AddVersion(ctx context.Context, version *BinaryVersion) error 
 // AddVersionFromUpload implements Manager.AddVersionFromUpload
 // It handles binary uploads by saving the file directly instead of downloading from URL
 func (m *manager) AddVersionFromUpload(ctx context.Context, version *BinaryVersion, file io.Reader, fileSize int64) error {
+	// Validate version is provided
+	if version.Version == nil || *version.Version == "" {
+		return fmt.Errorf("binary version string is required")
+	}
+
 	// Set upload-specific defaults
 	version.SourceType = SourceTypeUpload
 	version.VerificationStatus = VerificationStatusPending
@@ -384,6 +394,11 @@ func (m *manager) DeleteVersion(ctx context.Context, id int64) error {
 		return fmt.Errorf("failed to get version: %w", err)
 	}
 
+	// Prevent deletion of the default binary
+	if version.IsDefault {
+		return fmt.Errorf("cannot delete the default binary; set another binary as default first")
+	}
+
 	// Check if this is the last active binary of its type
 	count, err := m.store.CountActiveBinaries(ctx, version.BinaryType)
 	if err != nil {
@@ -393,46 +408,6 @@ func (m *manager) DeleteVersion(ctx context.Context, id int64) error {
 	// Prevent deletion of the last binary
 	if count <= 1 {
 		return fmt.Errorf("cannot delete the only remaining binary of type %s", version.BinaryType)
-	}
-
-	// If this is the default binary, we need to set a new default
-	var newDefaultID int64
-	if version.IsDefault {
-		// Find the next best candidate (latest verified version that isn't this one)
-		filters := map[string]interface{}{
-			"binary_type":         version.BinaryType,
-			"is_active":           true,
-			"verification_status": VerificationStatusVerified,
-		}
-		
-		versions, err := m.store.ListVersions(ctx, filters)
-		if err != nil {
-			return fmt.Errorf("failed to list versions for fallback: %w", err)
-		}
-
-		// Find the best replacement (skip the one being deleted)
-		for _, v := range versions {
-			if v.ID != id {
-				newDefaultID = v.ID
-				break // versions are already sorted by created_at DESC
-			}
-		}
-
-		if newDefaultID == 0 {
-			return fmt.Errorf("no suitable replacement default found")
-		}
-
-		// Set the new default
-		if err := m.store.SetDefault(ctx, newDefaultID); err != nil {
-			return fmt.Errorf("failed to set new default: %w", err)
-		}
-
-		// Update all references from the deleted binary to the new default
-		if err := m.store.UpdateReferencesToDefault(ctx, id, newDefaultID); err != nil {
-			return fmt.Errorf("failed to update references to new default: %w", err)
-		}
-
-		debug.Info("Replaced default binary %d with %d", id, newDefaultID)
 	}
 
 	// Delete binary file
@@ -472,8 +447,8 @@ func (m *manager) DeleteVersion(ctx context.Context, id int64) error {
 		Action:          "deleted",
 		PerformedBy:     version.CreatedBy, // TODO: Get actual user from context
 		Details: map[string]any{
-			"was_default":    version.IsDefault,
-			"new_default_id": newDefaultID,
+			"binary_type": version.BinaryType,
+			"version":     version.Version,
 		},
 	}
 	if err := m.store.CreateAuditLog(ctx, auditLog); err != nil {

@@ -104,7 +104,6 @@ type JobSummary struct {
 	CompletedAt            *string `json:"completed_at,omitempty"`
 	CreatedByUsername      *string `json:"created_by_username,omitempty"`
 	ErrorMessage           *string `json:"error_message,omitempty"`
-	TotalKeyspace          *int64  `json:"total_keyspace,omitempty"`
 	EffectiveKeyspace      *int64  `json:"effective_keyspace,omitempty"`
 	MultiplicationFactor   int     `json:"multiplication_factor,omitempty"`
 	UsesRuleSplitting      bool    `json:"uses_rule_splitting"`
@@ -217,8 +216,6 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 		var keyspaceForProgress int64
 		if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
 			keyspaceForProgress = *job.EffectiveKeyspace
-		} else if job.TotalKeyspace != nil && *job.TotalKeyspace > 0 {
-			keyspaceForProgress = *job.TotalKeyspace
 		} else {
 			keyspaceForProgress = 0
 		}
@@ -292,7 +289,6 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 			CreatedAt:              job.CreatedAt.Format(time.RFC3339),
 			UpdatedAt:              job.UpdatedAt.Format(time.RFC3339),
 			CreatedByUsername:      jobWithUser.CreatedByUsername,
-			TotalKeyspace:          job.TotalKeyspace,
 			EffectiveKeyspace:      job.EffectiveKeyspace,
 			MultiplicationFactor:   job.MultiplicationFactor,
 			UsesRuleSplitting:      job.UsesRuleSplitting,
@@ -703,7 +699,7 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 				Mask                      string   `json:"mask"`
 				Priority                  int      `json:"priority"`
 				MaxAgents                 int      `json:"max_agents"`
-				BinaryVersionID           int      `json:"binary_version_id"`
+				BinaryVersion             string   `json:"binary_version"`
 				AllowHighPriorityOverride bool     `json:"allow_high_priority_override"`
 				ChunkSizeSeconds          int      `json:"chunk_size_seconds"`
 				IncrementMode             string   `json:"increment_mode"`
@@ -777,7 +773,7 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			Mask:                      req.CustomJob.Mask,
 			Priority:                  req.CustomJob.Priority,
 			MaxAgents:                 req.CustomJob.MaxAgents,
-			BinaryVersionID:           req.CustomJob.BinaryVersionID,
+			BinaryVersion:             req.CustomJob.BinaryVersion,
 			AllowHighPriorityOverride: req.CustomJob.AllowHighPriorityOverride,
 			ChunkSizeSeconds:          req.CustomJob.ChunkSizeSeconds,
 			IncrementMode:             req.CustomJob.IncrementMode,
@@ -969,18 +965,13 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 	// Calculate percentages
 	dispatchedPercent := 0.0
 	searchedPercent := 0.0
-	
-	// For jobs with rules, use effective keyspace as the denominator
-	totalKeyspace := job.TotalKeyspace
+
+	// Use effective keyspace as the denominator for progress calculations
 	if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
-		totalKeyspace = job.EffectiveKeyspace
-	}
-	
-	if totalKeyspace != nil && *totalKeyspace > 0 {
 		// Dispatched: Use the tracked dispatched_keyspace field
-		dispatchedPercent = float64(job.DispatchedKeyspace) / float64(*totalKeyspace) * 100
+		dispatchedPercent = float64(job.DispatchedKeyspace) / float64(*job.EffectiveKeyspace) * 100
 		// Searched: Use the processed_keyspace from the job execution
-		searchedPercent = float64(job.ProcessedKeyspace) / float64(*totalKeyspace) * 100
+		searchedPercent = float64(job.ProcessedKeyspace) / float64(*job.EffectiveKeyspace) * 100
 		
 		// Validation: Log if searched exceeds dispatched
 		if searchedPercent > dispatchedPercent {
@@ -1070,8 +1061,8 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 
 	// Calculate overall progress percentage
 	overallProgressPercent := 0.0
-	if totalKeyspace != nil && *totalKeyspace > 0 {
-		overallProgressPercent = float64(job.ProcessedKeyspace) / float64(*totalKeyspace) * 100
+	if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
+		overallProgressPercent = float64(job.ProcessedKeyspace) / float64(*job.EffectiveKeyspace) * 100
 		if overallProgressPercent > 100 {
 			overallProgressPercent = 100
 		}
@@ -1089,7 +1080,6 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 		"chunk_size_seconds":        job.ChunkSizeSeconds,
 		"attack_mode":               job.AttackMode,
 		"hash_type":                 formattedHashType,
-		"total_keyspace":            job.TotalKeyspace,
 		"effective_keyspace":        job.EffectiveKeyspace,
 		"base_keyspace":             job.BaseKeyspace,
 		"processed_keyspace":        job.ProcessedKeyspace,
@@ -1781,8 +1771,6 @@ func (h *UserJobsHandler) ListUserJobs(w http.ResponseWriter, r *http.Request) {
 		var keyspaceForProgress int64
 		if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
 			keyspaceForProgress = *job.EffectiveKeyspace
-		} else if job.TotalKeyspace != nil && *job.TotalKeyspace > 0 {
-			keyspaceForProgress = *job.TotalKeyspace
 		} else {
 			keyspaceForProgress = 0
 		}
@@ -1857,7 +1845,6 @@ func (h *UserJobsHandler) ListUserJobs(w http.ResponseWriter, r *http.Request) {
 			UpdatedAt:              job.UpdatedAt.Format(time.RFC3339),
 			ErrorMessage:           job.ErrorMessage,
 			CreatedByUsername:      jobWithUser.CreatedByUsername,
-			TotalKeyspace:          job.TotalKeyspace,
 			EffectiveKeyspace:      job.EffectiveKeyspace,
 			MultiplicationFactor:   job.MultiplicationFactor,
 			UsesRuleSplitting:      job.UsesRuleSplitting,

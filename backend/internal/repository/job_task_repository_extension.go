@@ -296,13 +296,13 @@ func (r *JobTaskRepository) AreAllTasksComplete(ctx context.Context, jobExecutio
 	// Get job details to check dispatch status
 	jobQuery := `
 		SELECT uses_rule_splitting, multiplication_factor, effective_keyspace,
-		       base_keyspace, dispatched_keyspace, total_keyspace
+		       base_keyspace, dispatched_keyspace
 		FROM job_executions
 		WHERE id = $1`
 
 	var usesRuleSplitting bool
 	var multiplicationFactor int
-	var effectiveKeyspace, baseKeyspace, totalKeyspace *int64
+	var effectiveKeyspace, baseKeyspace *int64
 	var dispatchedKeyspace int64
 
 	err = r.db.QueryRowContext(ctx, jobQuery, jobExecutionID).Scan(
@@ -311,7 +311,6 @@ func (r *JobTaskRepository) AreAllTasksComplete(ctx context.Context, jobExecutio
 		&effectiveKeyspace,
 		&baseKeyspace,
 		&dispatchedKeyspace,
-		&totalKeyspace,
 	)
 	if err != nil {
 		return false, fmt.Errorf("failed to get job details: %w", err)
@@ -319,8 +318,7 @@ func (r *JobTaskRepository) AreAllTasksComplete(ctx context.Context, jobExecutio
 
 	// DEFENSIVE CHECK 2: Valid keyspace must be defined
 	// Cannot determine completion without knowing total work to be done
-	hasValidKeyspace := (effectiveKeyspace != nil && *effectiveKeyspace > 0) ||
-		(totalKeyspace != nil && *totalKeyspace > 0)
+	hasValidKeyspace := effectiveKeyspace != nil && *effectiveKeyspace > 0
 	if !hasValidKeyspace && !usesRuleSplitting {
 		// For non-rule-splitting jobs without keyspace, we cannot verify completion
 		return false, nil
@@ -361,9 +359,6 @@ func (r *JobTaskRepository) AreAllTasksComplete(ctx context.Context, jobExecutio
 		// should NOT be used for completion comparison.
 		if effectiveKeyspace != nil && *effectiveKeyspace > 0 && dispatchedKeyspace < *effectiveKeyspace {
 			// More effective keyspace needs to be dispatched
-			return false, nil
-		} else if totalKeyspace != nil && *totalKeyspace > 0 && dispatchedKeyspace < *totalKeyspace {
-			// Fallback: check against total_keyspace
 			return false, nil
 		}
 	}

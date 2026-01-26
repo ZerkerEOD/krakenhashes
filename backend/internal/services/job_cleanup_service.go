@@ -494,9 +494,6 @@ func (s *JobCleanupService) checkJobForPendingTransition(ctx context.Context, jo
 			// be compared with dispatched_keyspace (which is in effective units)
 			if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
 				hasRemainingWork = job.DispatchedKeyspace < *job.EffectiveKeyspace
-			} else if job.TotalKeyspace != nil && *job.TotalKeyspace > 0 {
-				// Fallback for jobs without effective_keyspace
-				hasRemainingWork = job.ProcessedKeyspace < *job.TotalKeyspace
 			}
 
 			if hasRemainingWork {
