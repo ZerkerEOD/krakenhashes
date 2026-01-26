@@ -48,7 +48,7 @@ export const formatKeyspace = (keyspace: number): string => {
  */
 export const calculateJobProgress = (job: JobSummary | JobDetail): ProgressInfo => {
   // Get the effective keyspace for calculations
-  const total = job.effective_keyspace || job.total_keyspace || 0;
+  const total = job.effective_keyspace || 0;
   const processed = job.processed_keyspace || 0;
   const dispatched = job.dispatched_keyspace || 0;
   
@@ -99,7 +99,7 @@ export const calculateJobProgress = (job: JobSummary | JobDetail): ProgressInfo 
  * @returns Tooltip text or undefined if not applicable
  */
 export const getKeyspaceTooltip = (job: JobSummary | JobDetail): string | undefined => {
-  if (!job.effective_keyspace || job.effective_keyspace === job.total_keyspace) {
+  if (!job.effective_keyspace) {
     return undefined;
   }
   

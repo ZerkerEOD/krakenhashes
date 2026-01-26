@@ -90,6 +90,8 @@ func SetupWebSocketWithJobRoutes(
 	clientRepo := repository.NewClientRepository(database)
 	jobIncrementLayerRepo := repository.NewJobIncrementLayerRepository(database)
 	presetIncrementLayerRepo := repository.NewPresetIncrementLayerRepository(database)
+	assocWordlistRepo := repository.NewAssociationWordlistRepository(database)
+	hashTypeRepo := repository.NewHashTypeRepository(database)
 
 	// Create services
 	jobExecutionService := services.NewJobExecutionService(
@@ -104,10 +106,12 @@ func SetupWebSocketWithJobRoutes(
 		deviceRepo,
 		presetJobRepo,
 		hashlistRepo,
+		hashTypeRepo,
 		systemSettingsRepo,
 		fileRepo,
 		scheduleRepo,
 		binaryManager,
+		assocWordlistRepo,
 		"/usr/bin/hashcat", // hashcat binary path (deprecated, using binary manager now)
 		appConfig.DataDir,
 	)
@@ -157,7 +161,8 @@ func SetupWebSocketWithJobRoutes(
 	}
 
 	// Create WebSocket handler
-	wsHandler := wshandler.NewHandler(wsService, agentService, jobExecutionService, systemSettingsRepo, jobTaskRepo, jobExecutionRepo, agentTLSConfig)
+	// Pass potfileHistory for handling potfile sync race conditions during heavy ingestion
+	wsHandler := wshandler.NewHandler(wsService, agentService, jobExecutionService, systemSettingsRepo, jobTaskRepo, jobExecutionRepo, agentTLSConfig, potfileService.GetPotfileHistory())
 
 	// Store WebSocket handler globally for access by other handlers
 	WSHandler = wsHandler
@@ -201,6 +206,7 @@ func SetupWebSocketWithJobRoutes(
 		deviceRepo,
 		clientRepo,
 		systemSettingsRepo,
+		assocWordlistRepo,
 		potfileService,
 		hashlistCompletionService,
 		sqlDB,
@@ -219,6 +225,11 @@ func SetupWebSocketWithJobRoutes(
 
 	wsRouter.HandleFunc("/agent", wsHandler.ServeWS)
 	debug.Info("Configured WebSocket endpoint: /ws/agent with job integration and TLS: %v", tlsConfig != nil)
+
+	// Setup diagnostics routes (GH Issue #23) - requires WebSocket handler
+	// Hardcoded container path - LOG_DIR env var is for host volume mapping only
+	logsDir := "/var/log/krakenhashes"
+	SetupDiagnosticsRoutes(r, sqlDB, wsHandler, logsDir)
 
 	// Return the job integration manager so it can be started from main
 	// Store it globally for now until we refactor the main function

@@ -35,7 +35,7 @@ To create a new preset job:
 - **Name**: A unique, descriptive name (e.g., "Common Passwords with Rules")
 - **Attack Mode**: Select the hashcat attack mode (see Attack Modes section below)
 - **Priority**: Set execution priority (0-1000, higher = more important)
-- **Binary Version**: Select the hashcat binary version to use
+- **Binary Version**: Select a version pattern (e.g., `default`, `7.x`, `7.1.x`, `7.1.2`). Use `default` for maximum agent compatibility, or specific patterns to require certain hashcat versions. See [Binary Version Patterns](../../reference/architecture/binary-version-patterns.md) for pattern syntax and compatibility rules.
 
 <screenshot: Preset job form showing basic fields>
 

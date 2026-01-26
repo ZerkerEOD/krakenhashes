@@ -19,7 +19,7 @@ const (
 			a.api_key_last_used, a.metadata, a.owner_id, a.extra_parameters, a.is_enabled,
 			a.consecutive_failures, a.scheduling_enabled, a.schedule_timezone,
 			a.sync_status, a.sync_started_at, a.sync_completed_at, a.files_to_sync, a.files_synced, a.sync_error,
-			a.binary_version_id, a.binary_override,
+			a.binary_version,
 			u.id, u.username, u.email, u.role
 		FROM agents a
 		LEFT JOIN users u ON a.created_by_id = u.id
@@ -33,7 +33,7 @@ const (
 			a.api_key_last_used, a.metadata, a.owner_id, a.extra_parameters, a.is_enabled,
 			a.consecutive_failures, a.scheduling_enabled, a.schedule_timezone,
 			a.sync_status, a.sync_started_at, a.sync_completed_at, a.files_to_sync, a.files_synced, a.sync_error,
-			a.binary_version_id, a.binary_override,
+			a.binary_version,
 			u.id, u.username, u.email, u.role
 		FROM agents a
 		LEFT JOIN users u ON a.created_by_id = u.id
@@ -88,7 +88,7 @@ const (
 			a.updated_at, a.api_key, a.api_key_created_at,
 			a.api_key_last_used, a.metadata, a.owner_id, a.extra_parameters, a.is_enabled,
 			a.consecutive_failures, a.scheduling_enabled, a.schedule_timezone,
-			a.binary_version_id, a.binary_override,
+			a.binary_version,
 			u.id, u.username, u.email, u.role
 		FROM agents a
 		LEFT JOIN users u ON a.created_by_id = u.id
@@ -106,7 +106,7 @@ const (
 		) RETURNING id`
 
 	GetUserByID = `
-		SELECT 
+		SELECT
 			id, username, email, password_hash, role,
 			created_at, updated_at, mfa_enabled, mfa_type,
 			mfa_secret, backup_codes, preferred_mfa_method,
@@ -114,7 +114,8 @@ const (
 			last_failed_attempt, account_locked,
 			account_locked_until, account_enabled,
 			last_login, disabled_reason, disabled_at,
-			disabled_by, notify_on_job_completion
+			disabled_by, notify_on_job_completion,
+			api_key, api_key_created_at, api_key_last_used
 		FROM users
 		WHERE id = $1`
 

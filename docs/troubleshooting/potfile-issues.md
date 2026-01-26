@@ -8,7 +8,7 @@
 - Logs show "No binary versions found" messages
 
 ### Cause
-The potfile preset job requires a hashcat binary to be uploaded. On fresh installations, no binaries exist, so the preset job cannot be created due to database constraints (binary_version_id is NOT NULL).
+The potfile preset job requires a hashcat binary to be uploaded. On fresh installations, no binaries exist, so the preset job cannot be created (it needs a binary version pattern to resolve).
 
 ### Solution
 1. Upload a hashcat binary via Admin → Binary Management
@@ -41,7 +41,7 @@ The potfile system initializes in two stages:
 
 2. **Preset Job Creation** (requires binary):
    - Attempts to create "Potfile Run" preset job
-   - Requires `binary_version_id` (NOT NULL constraint)
+   - Requires at least one active binary for pattern resolution
    - If no binaries exist, starts background monitor
    - Monitor checks every 5 seconds for binary availability
    - Creates preset job once binary is uploaded
@@ -180,11 +180,11 @@ SELECT id FROM wordlists WHERE is_potfile = true;
 -- Get a binary version ID
 SELECT id FROM binary_versions WHERE is_active = true LIMIT 1;
 
--- Create the preset job (replace IDs)
+-- Create the preset job
 INSERT INTO preset_jobs (
-    id, name, wordlist_ids, rule_ids, attack_mode, 
+    id, name, wordlist_ids, rule_ids, attack_mode,
     priority, chunk_size_seconds, status_updates_enabled,
-    allow_high_priority_override, binary_version_id, keyspace
+    allow_high_priority_override, binary_version, keyspace
 ) VALUES (
     gen_random_uuid(),
     'Potfile Run',
@@ -195,7 +195,7 @@ INSERT INTO preset_jobs (
     1200,  -- 20 minute chunks
     true,
     true,
-    BINARY_ID,  -- Replace BINARY_ID
+    'default',  -- Uses default binary pattern
     1  -- Initial keyspace
 );
 

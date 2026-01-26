@@ -95,24 +95,32 @@ func SetupPotRoutes(jwtRouter *mux.Router, hashRepo *repository.HashRepository, 
 	jwtRouter.HandleFunc("/pot/download/user-pass", potHandler.HandleDownloadUserPass).Methods("GET", "OPTIONS")
 	jwtRouter.HandleFunc("/pot/download/user", potHandler.HandleDownloadUser).Methods("GET", "OPTIONS")
 	jwtRouter.HandleFunc("/pot/download/pass", potHandler.HandleDownloadPass).Methods("GET", "OPTIONS")
-	
+	jwtRouter.HandleFunc("/pot/download/domain-user", potHandler.HandleDownloadDomainUser).Methods("GET", "OPTIONS")
+	jwtRouter.HandleFunc("/pot/download/domain-user-pass", potHandler.HandleDownloadDomainUserPass).Methods("GET", "OPTIONS")
+
 	// Download routes for hashlist-specific cracked hashes
 	jwtRouter.HandleFunc("/pot/hashlist/{id}/download/hash-pass", potHandler.HandleDownloadHashPassByHashlist).Methods("GET", "OPTIONS")
 	jwtRouter.HandleFunc("/pot/hashlist/{id}/download/user-pass", potHandler.HandleDownloadUserPassByHashlist).Methods("GET", "OPTIONS")
 	jwtRouter.HandleFunc("/pot/hashlist/{id}/download/user", potHandler.HandleDownloadUserByHashlist).Methods("GET", "OPTIONS")
 	jwtRouter.HandleFunc("/pot/hashlist/{id}/download/pass", potHandler.HandleDownloadPassByHashlist).Methods("GET", "OPTIONS")
-	
+	jwtRouter.HandleFunc("/pot/hashlist/{id}/download/domain-user", potHandler.HandleDownloadDomainUserByHashlist).Methods("GET", "OPTIONS")
+	jwtRouter.HandleFunc("/pot/hashlist/{id}/download/domain-user-pass", potHandler.HandleDownloadDomainUserPassByHashlist).Methods("GET", "OPTIONS")
+
 	// Download routes for client-specific cracked hashes
 	jwtRouter.HandleFunc("/pot/client/{id}/download/hash-pass", potHandler.HandleDownloadHashPassByClient).Methods("GET", "OPTIONS")
 	jwtRouter.HandleFunc("/pot/client/{id}/download/user-pass", potHandler.HandleDownloadUserPassByClient).Methods("GET", "OPTIONS")
 	jwtRouter.HandleFunc("/pot/client/{id}/download/user", potHandler.HandleDownloadUserByClient).Methods("GET", "OPTIONS")
 	jwtRouter.HandleFunc("/pot/client/{id}/download/pass", potHandler.HandleDownloadPassByClient).Methods("GET", "OPTIONS")
+	jwtRouter.HandleFunc("/pot/client/{id}/download/domain-user", potHandler.HandleDownloadDomainUserByClient).Methods("GET", "OPTIONS")
+	jwtRouter.HandleFunc("/pot/client/{id}/download/domain-user-pass", potHandler.HandleDownloadDomainUserPassByClient).Methods("GET", "OPTIONS")
 
 	// Download routes for job-specific cracked hashes
 	jwtRouter.HandleFunc("/pot/job/{id}/download/hash-pass", potHandler.HandleDownloadHashPassByJob).Methods("GET", "OPTIONS")
 	jwtRouter.HandleFunc("/pot/job/{id}/download/user-pass", potHandler.HandleDownloadUserPassByJob).Methods("GET", "OPTIONS")
 	jwtRouter.HandleFunc("/pot/job/{id}/download/user", potHandler.HandleDownloadUserByJob).Methods("GET", "OPTIONS")
 	jwtRouter.HandleFunc("/pot/job/{id}/download/pass", potHandler.HandleDownloadPassByJob).Methods("GET", "OPTIONS")
+	jwtRouter.HandleFunc("/pot/job/{id}/download/domain-user", potHandler.HandleDownloadDomainUserByJob).Methods("GET", "OPTIONS")
+	jwtRouter.HandleFunc("/pot/job/{id}/download/domain-user-pass", potHandler.HandleDownloadDomainUserPassByJob).Methods("GET", "OPTIONS")
 
 	debug.Info("Configured pot endpoints: list and download routes for all/hashlist/client/job contexts")
 }

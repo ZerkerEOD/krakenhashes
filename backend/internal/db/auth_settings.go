@@ -121,3 +121,13 @@ func (db *DB) BulkEnableMFA() error {
 	debug.Info("Enabled MFA for %d users", affected)
 	return nil
 }
+
+// IsLocalAuthEnabled checks if local (password) authentication is globally enabled
+func (db *DB) IsLocalAuthEnabled() (bool, error) {
+	var enabled bool
+	err := db.QueryRow("SELECT local_auth_enabled FROM auth_settings LIMIT 1").Scan(&enabled)
+	if err != nil {
+		return true, fmt.Errorf("failed to check local auth status: %w", err)
+	}
+	return enabled, nil
+}

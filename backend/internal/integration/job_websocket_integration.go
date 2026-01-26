@@ -23,10 +23,29 @@ import (
 	"strings"
 )
 
+// retransmitCollectionState collects all retransmit batches before processing
+// This allows us to:
+// 1. Load existing hashes from DB ONCE (after all batches received)
+// 2. Dedupe all collected hashes in memory
+// 3. Save non-duplicates in batched transactions
+type retransmitCollectionState struct {
+	agentID           int
+	collectedHashes   []models.CrackedHash // All hashes from all batches
+	batchesReceived   int
+	lastBatchTime     time.Time
+	processingStarted bool
+	mu                sync.Mutex
+}
+
+var retransmitCollection = make(map[uuid.UUID]*retransmitCollectionState)
+var retransmitCollectionMu sync.Mutex
+
 // JobWebSocketIntegration handles the integration between job scheduling and WebSocket communication
 type JobWebSocketIntegration struct {
 	wsHandler interface {
 		SendMessage(agentID int, msg *wsservice.Message) error
+		RegisterInventoryCallback(agentID int) <-chan *wsservice.FileSyncResponsePayload
+		UnregisterInventoryCallback(agentID int)
 	}
 	jobSchedulingService *services.JobSchedulingService
 	jobExecutionService  *services.JobExecutionService
@@ -42,6 +61,7 @@ type JobWebSocketIntegration struct {
 	deviceRepo            *repository.AgentDeviceRepository
 	clientRepo            *repository.ClientRepository
 	systemSettingsRepo    *repository.SystemSettingsRepository
+	assocWordlistRepo     *repository.AssociationWordlistRepository
 	potfileService          *services.PotfileService
 	hashlistCompletionService *services.HashlistCompletionService
 	db                      *sql.DB
@@ -52,12 +72,18 @@ type JobWebSocketIntegration struct {
 	// Progress tracking
 	progressMutex   sync.RWMutex
 	taskProgressMap map[string]*models.JobProgress // TaskID -> Progress
+
+	// Completion cache for idempotent ACK handling (GH Issue #12)
+	completionCacheMu sync.RWMutex
+	completionCache   map[string]time.Time // TaskID -> completion timestamp (1-hour TTL)
 }
 
 // NewJobWebSocketIntegration creates a new job WebSocket integration service
 func NewJobWebSocketIntegration(
 	wsHandler interface {
 		SendMessage(agentID int, msg *wsservice.Message) error
+		RegisterInventoryCallback(agentID int) <-chan *wsservice.FileSyncResponsePayload
+		UnregisterInventoryCallback(agentID int)
 	},
 	jobSchedulingService *services.JobSchedulingService,
 	jobExecutionService *services.JobExecutionService,
@@ -73,6 +99,7 @@ func NewJobWebSocketIntegration(
 	deviceRepo *repository.AgentDeviceRepository,
 	clientRepo *repository.ClientRepository,
 	systemSettingsRepo *repository.SystemSettingsRepository,
+	assocWordlistRepo *repository.AssociationWordlistRepository,
 	potfileService *services.PotfileService,
 	hashlistCompletionService *services.HashlistCompletionService,
 	db *sql.DB,
@@ -80,7 +107,7 @@ func NewJobWebSocketIntegration(
 	ruleManager rule.Manager,
 	binaryManager binary.Manager,
 ) *JobWebSocketIntegration {
-	return &JobWebSocketIntegration{
+	integration := &JobWebSocketIntegration{
 		wsHandler:                 wsHandler,
 		jobSchedulingService:      jobSchedulingService,
 		jobExecutionService:       jobExecutionService,
@@ -96,6 +123,7 @@ func NewJobWebSocketIntegration(
 		deviceRepo:                deviceRepo,
 		clientRepo:                clientRepo,
 		systemSettingsRepo:        systemSettingsRepo,
+		assocWordlistRepo:         assocWordlistRepo,
 		potfileService:            potfileService,
 		hashlistCompletionService: hashlistCompletionService,
 		db:                        db,
@@ -103,6 +131,76 @@ func NewJobWebSocketIntegration(
 		ruleManager:               ruleManager,
 		binaryManager:             binaryManager,
 		taskProgressMap:           make(map[string]*models.JobProgress),
+		completionCache:           make(map[string]time.Time),
+	}
+
+	// Start completion cache cleanup goroutine (GH Issue #12)
+	go integration.cleanupCompletionCache()
+
+	return integration
+}
+
+// cleanupCompletionCache periodically removes old entries from the completion cache (GH Issue #12)
+func (s *JobWebSocketIntegration) cleanupCompletionCache() {
+	ticker := time.NewTicker(10 * time.Minute)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		s.completionCacheMu.Lock()
+		now := time.Now()
+		for taskID, completedAt := range s.completionCache {
+			// Remove entries older than 1 hour
+			if now.Sub(completedAt) > time.Hour {
+				delete(s.completionCache, taskID)
+			}
+		}
+		s.completionCacheMu.Unlock()
+	}
+}
+
+// isCompletionCached checks if a task completion is already cached (GH Issue #12)
+func (s *JobWebSocketIntegration) isCompletionCached(taskID string) bool {
+	s.completionCacheMu.RLock()
+	defer s.completionCacheMu.RUnlock()
+	_, exists := s.completionCache[taskID]
+	return exists
+}
+
+// cacheCompletion adds a task completion to the cache (GH Issue #12)
+func (s *JobWebSocketIntegration) cacheCompletion(taskID string) {
+	s.completionCacheMu.Lock()
+	defer s.completionCacheMu.Unlock()
+	s.completionCache[taskID] = time.Now()
+}
+
+// sendTaskCompleteAck sends a completion ACK to the agent (GH Issue #12)
+func (s *JobWebSocketIntegration) sendTaskCompleteAck(agentID int, taskID string, success bool, message string) {
+	ackPayload := wsservice.TaskCompleteAckPayload{
+		TaskID:    taskID,
+		Success:   success,
+		Timestamp: time.Now().Unix(),
+		Message:   message,
+	}
+
+	payloadBytes, err := json.Marshal(ackPayload)
+	if err != nil {
+		debug.Error("Failed to marshal task complete ACK: %v", err)
+		return
+	}
+
+	msg := &wsservice.Message{
+		Type:    wsservice.TypeTaskCompleteAck,
+		Payload: payloadBytes,
+	}
+
+	if err := s.wsHandler.SendMessage(agentID, msg); err != nil {
+		debug.Warning("Failed to send task complete ACK to agent %d: %v", agentID, err)
+	} else {
+		debug.Log("Sent task complete ACK to agent", map[string]interface{}{
+			"agent_id": agentID,
+			"task_id":  taskID,
+			"success":  success,
+		})
 	}
 }
 
@@ -177,6 +275,225 @@ func (s *JobWebSocketIntegration) SyncAgentFiles(ctx context.Context, agentID in
 	return fmt.Errorf("sync timed out after %v", timeout)
 }
 
+// FileRequirement represents a file needed for a benchmark or job
+type FileRequirement struct {
+	Name     string // Filename
+	FileType string // "wordlist", "rule", "binary"
+	Category string // Category/subdirectory
+}
+
+// CheckAndSyncAgentFiles checks if agent has required files and triggers download if missing.
+// This is a non-blocking check used before benchmarks to ensure agents have necessary files.
+// Returns true if agent has all files (ready for benchmark), false if agent needs to download.
+// Unlike SyncAgentFiles, this doesn't wait for downloads to complete.
+func (s *JobWebSocketIntegration) CheckAndSyncAgentFiles(ctx context.Context, agentID int,
+	requiredFiles []FileRequirement, inventoryTimeout time.Duration) (bool, error) {
+
+	// Skip if agent is already syncing
+	agent, err := s.agentRepo.GetByID(ctx, agentID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get agent: %w", err)
+	}
+	if agent.SyncStatus == models.AgentSyncStatusPending ||
+		agent.SyncStatus == models.AgentSyncStatusInProgress {
+		debug.Info("Agent %d already syncing, skipping file check", agentID)
+		return false, nil // Not ready, but don't error
+	}
+
+	// If no required files, agent is ready
+	if len(requiredFiles) == 0 {
+		debug.Info("No required files specified for agent %d, marking as ready", agentID)
+		return true, nil
+	}
+
+	// Step 1: Register callback and send inventory request
+	// Callback is keyed by agentID - only one pending request per agent at a time
+	inventoryChan := s.wsHandler.RegisterInventoryCallback(agentID)
+	defer s.wsHandler.UnregisterInventoryCallback(agentID)
+
+	payload := wsservice.FileSyncRequestPayload{
+		FileTypes: []string{"wordlist", "rule", "binary"},
+	}
+	payloadBytes, _ := json.Marshal(payload)
+	msg := &wsservice.Message{
+		Type:    wsservice.TypeSyncRequest,
+		Payload: payloadBytes,
+	}
+
+	if err := s.wsHandler.SendMessage(agentID, msg); err != nil {
+		return false, fmt.Errorf("failed to send inventory request: %w", err)
+	}
+
+	debug.Info("Sent inventory request to agent %d, waiting for response (timeout: %v)", agentID, inventoryTimeout)
+
+	// Step 2: Wait for inventory response (brief timeout)
+	var inventory *wsservice.FileSyncResponsePayload
+	select {
+	case inventory = <-inventoryChan:
+		// Got response
+		debug.Info("Received inventory from agent %d: %d files", agentID, len(inventory.Files))
+	case <-time.After(inventoryTimeout):
+		debug.Warning("Agent %d inventory timeout after %v, treating as needs sync", agentID, inventoryTimeout)
+		return false, nil // Treat timeout as needs sync - don't error
+	case <-ctx.Done():
+		return false, ctx.Err()
+	}
+
+	// Step 3: Compare with required files
+	// Build map of agent's files: key = "fileType:category/name" or "fileType:name"
+	agentFiles := make(map[string]wsservice.FileInfo)
+	for _, f := range inventory.Files {
+		var key string
+		if f.Category != "" {
+			key = fmt.Sprintf("%s:%s/%s", f.FileType, f.Category, f.Name)
+		} else {
+			key = fmt.Sprintf("%s:%s", f.FileType, f.Name)
+		}
+		agentFiles[key] = f
+	}
+
+	var missingFiles []wsservice.FileInfo
+	for _, req := range requiredFiles {
+		var key string
+		if req.Category != "" {
+			key = fmt.Sprintf("%s:%s/%s", req.FileType, req.Category, req.Name)
+		} else {
+			key = fmt.Sprintf("%s:%s", req.FileType, req.Name)
+		}
+
+		if _, exists := agentFiles[key]; !exists {
+			debug.Info("Agent %d missing file: %s (%s/%s)", agentID, req.Name, req.FileType, req.Category)
+			missingFiles = append(missingFiles, wsservice.FileInfo{
+				Name:     req.Name,
+				FileType: req.FileType,
+				Category: req.Category,
+			})
+		}
+	}
+
+	// Step 4: If all files present, agent is ready
+	if len(missingFiles) == 0 {
+		debug.Info("Agent %d has all %d required files, ready for benchmark", agentID, len(requiredFiles))
+		return true, nil
+	}
+
+	// Step 5: Agent missing files - trigger async download
+	debug.Info("Agent %d missing %d/%d files, triggering download", agentID, len(missingFiles), len(requiredFiles))
+
+	// Update agent status to in_progress (makes agent unavailable for scheduling)
+	agent.SyncStatus = models.AgentSyncStatusInProgress
+	agent.SyncStartedAt = sql.NullTime{Time: time.Now(), Valid: true}
+	agent.FilesToSync = len(missingFiles)
+	agent.FilesSynced = 0
+	if err := s.agentRepo.Update(ctx, agent); err != nil {
+		return false, fmt.Errorf("failed to update agent sync status: %w", err)
+	}
+
+	// Send download command (don't wait for completion - it's async)
+	downloadPayload := wsservice.FileSyncCommandPayload{
+		RequestID: fmt.Sprintf("benchmark-sync-%d-%d", agentID, time.Now().UnixNano()),
+		Action:    "download",
+		Files:     missingFiles,
+	}
+	downloadBytes, _ := json.Marshal(downloadPayload)
+	downloadMsg := &wsservice.Message{
+		Type:    wsservice.TypeSyncCommand,
+		Payload: downloadBytes,
+	}
+
+	if err := s.wsHandler.SendMessage(agentID, downloadMsg); err != nil {
+		debug.Warning("Failed to send download command to agent %d: %v", agentID, err)
+		// Don't return error - agent is already marked as syncing
+	} else {
+		debug.Info("Sent download command to agent %d for %d files", agentID, len(missingFiles))
+	}
+
+	return false, nil // Not ready - needs download (will become available after sync completes)
+}
+
+// CheckAgentFilesForJob checks if an agent has all files required for a job execution.
+// This is a higher-level function that builds the required files list from job execution data
+// and calls CheckAndSyncAgentFiles. Returns true if agent is ready, false if files need download.
+func (s *JobWebSocketIntegration) CheckAgentFilesForJob(ctx context.Context, agentID int,
+	jobExecution *models.JobExecution, timeout time.Duration) (bool, error) {
+
+	// Build required files list from job execution
+	var requiredFiles []FileRequirement
+
+	// Add wordlists
+	for _, wlIDStr := range jobExecution.WordlistIDs {
+		wlID, err := strconv.Atoi(wlIDStr)
+		if err != nil {
+			debug.Warning("Invalid wordlist ID %s for file check: %v", wlIDStr, err)
+			continue
+		}
+		wl, err := s.wordlistManager.GetWordlist(ctx, wlID)
+		if err != nil {
+			debug.Warning("Failed to get wordlist %d for file check: %v", wlID, err)
+			continue
+		}
+		if wl != nil {
+			// Check if filename already includes category prefix (e.g., "custom/potfile.txt")
+			// If so, don't add Category to avoid double prefix in key comparison
+			req := FileRequirement{
+				Name:     wl.FileName,
+				FileType: "wordlist",
+			}
+			if !strings.Contains(wl.FileName, "/") {
+				req.Category = wl.WordlistType // Only add category if not already in filename
+			}
+			requiredFiles = append(requiredFiles, req)
+		}
+	}
+
+	// Add rules
+	for _, ruleIDStr := range jobExecution.RuleIDs {
+		ruleID, err := strconv.Atoi(ruleIDStr)
+		if err != nil {
+			debug.Warning("Invalid rule ID %s for file check: %v", ruleIDStr, err)
+			continue
+		}
+		rule, err := s.ruleManager.GetRule(ctx, ruleID)
+		if err != nil {
+			debug.Warning("Failed to get rule %d for file check: %v", ruleID, err)
+			continue
+		}
+		if rule != nil {
+			// Check if filename already includes category prefix (e.g., "hashcat/00-primary-merged.rule")
+			// If so, don't add Category to avoid double prefix in key comparison
+			req := FileRequirement{
+				Name:     rule.FileName,
+				FileType: "rule",
+			}
+			if !strings.Contains(rule.FileName, "/") {
+				req.Category = rule.RuleType // Only add category if not already in filename
+			}
+			requiredFiles = append(requiredFiles, req)
+		}
+	}
+
+	// Add association wordlist (for mode 9)
+	if jobExecution.AttackMode == 9 && jobExecution.AssociationWordlistID != nil {
+		assocWL, err := s.assocWordlistRepo.GetByID(ctx, *jobExecution.AssociationWordlistID)
+		if err != nil {
+			debug.Warning("Failed to get association wordlist %s for file check: %v",
+				jobExecution.AssociationWordlistID.String(), err)
+		} else if assocWL != nil {
+			requiredFiles = append(requiredFiles, FileRequirement{
+				Name:     filepath.Base(assocWL.FilePath),
+				FileType: "wordlist",
+				Category: "association", // Association wordlists are stored in "association" category
+			})
+		}
+	}
+
+	debug.Info("Checking %d required files for agent %d (job %s, mode %d)",
+		len(requiredFiles), agentID, jobExecution.ID.String(), jobExecution.AttackMode)
+
+	// Call the lower-level check function
+	return s.CheckAndSyncAgentFiles(ctx, agentID, requiredFiles, timeout)
+}
+
 // SendJobAssignment sends a job task assignment to an agent via WebSocket
 func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *models.JobTask, jobExecution *models.JobExecution) error {
 	debug.Log("Sending job assignment to agent", map[string]interface{}{
@@ -222,27 +539,49 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 		maskToUse = jobExecution.Mask
 	}
 
-	// Build wordlist and rule paths using job execution's self-contained configuration
+	// Hashlist path is always the same - agent's download function picks the right endpoint
+	// based on attack mode (DB streaming vs original file)
+	hashlistPath := fmt.Sprintf("hashlists/%d.hash", jobExecution.HashlistID)
+
+	// Build wordlist paths based on attack mode
 	var wordlistPaths []string
-	for _, wordlistIDStr := range jobExecution.WordlistIDs {
-		// Convert string ID to int
-		wordlistID, err := strconv.Atoi(wordlistIDStr)
-		if err != nil {
-			return fmt.Errorf("invalid wordlist ID %s: %w", wordlistIDStr, err)
+	if jobExecution.AttackMode == models.AttackModeAssociation {
+		// Mode 9: use association wordlist as the wordlist
+		if jobExecution.AssociationWordlistID != nil {
+			assocWordlist, err := s.assocWordlistRepo.GetByID(ctx, *jobExecution.AssociationWordlistID)
+			if err != nil {
+				return fmt.Errorf("failed to get association wordlist: %w", err)
+			}
+			if assocWordlist == nil {
+				return fmt.Errorf("association wordlist not found")
+			}
+			wordlistPath := fmt.Sprintf("wordlists/association/%d_%s", hashlist.ID, assocWordlist.FileName)
+			wordlistPaths = append(wordlistPaths, wordlistPath)
+		} else {
+			return fmt.Errorf("association attack requires association wordlist")
 		}
+	} else {
+		// Regular wordlist processing for other attack modes
+		for _, wordlistIDStr := range jobExecution.WordlistIDs {
+			// Convert string ID to int
+			wordlistID, err := strconv.Atoi(wordlistIDStr)
+			if err != nil {
+				return fmt.Errorf("invalid wordlist ID %s: %w", wordlistIDStr, err)
+			}
 
-		// Look up the actual wordlist file path
-		wordlist, err := s.wordlistManager.GetWordlist(ctx, wordlistID)
-		if err != nil {
-			return fmt.Errorf("failed to get wordlist %d: %w", wordlistID, err)
-		}
-		if wordlist == nil {
-			return fmt.Errorf("wordlist %d not found", wordlistID)
-		}
+			// Look up the actual wordlist file path
+			wordlist, err := s.wordlistManager.GetWordlist(ctx, wordlistID)
+			if err != nil {
+				return fmt.Errorf("failed to get wordlist %d: %w", wordlistID, err)
+			}
+			if wordlist == nil {
+				return fmt.Errorf("wordlist %d not found", wordlistID)
+			}
 
-		// Use the actual file path from the database
-		wordlistPath := fmt.Sprintf("wordlists/%s", wordlist.FileName)
-		wordlistPaths = append(wordlistPaths, wordlistPath)
+			// Use the actual file path from the database
+			wordlistPath := fmt.Sprintf("wordlists/%s", wordlist.FileName)
+			wordlistPaths = append(wordlistPaths, wordlistPath)
+		}
 	}
 
 	var rulePaths []string
@@ -354,7 +693,7 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 		TaskID:          task.ID.String(),
 		JobExecutionID:  jobExecution.ID.String(),
 		HashlistID:      jobExecution.HashlistID,
-		HashlistPath:    fmt.Sprintf("hashlists/%d.hash", jobExecution.HashlistID),
+		HashlistPath:    hashlistPath, // Original hashlist for mode 9, processed for others
 		AttackMode:      int(jobExecution.AttackMode),
 		HashType:        hashlist.HashTypeID,
 		KeyspaceStart:   task.KeyspaceStart,
@@ -369,6 +708,15 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 		ExtraParameters: agent.ExtraParameters, // Agent-specific hashcat parameters
 		EnabledDevices:  enabledDeviceIDs,      // Only populated if some devices are disabled
 		IsKeyspaceSplit: task.IsKeyspaceSplit,
+	}
+
+	// Log mode 9 task assignment for debugging
+	if jobExecution.AttackMode == models.AttackModeAssociation {
+		debug.Log("Association attack task assignment", map[string]interface{}{
+			"task_id":       task.ID,
+			"hashlist_path": hashlistPath,
+			"wordlist_path": wordlistPaths,
+		})
 	}
 
 	// Only add increment fields for regular jobs (NOT for layer tasks)
@@ -460,10 +808,12 @@ func (s *JobWebSocketIntegration) SendJobStop(ctx context.Context, taskID uuid.U
 		"reason":   reason,
 	})
 
-	// Create stop payload
+	// Create stop payload with unique StopID for tracking (GH Issue #12)
+	stopID := uuid.New().String()
 	stopPayload := wsservice.JobStopPayload{
 		TaskID: taskID.String(),
 		Reason: reason,
+		StopID: stopID,
 	}
 
 	// Marshal payload
@@ -488,6 +838,39 @@ func (s *JobWebSocketIntegration) SendJobStop(ctx context.Context, taskID uuid.U
 		"task_id":  taskID,
 		"agent_id": agent.ID,
 	})
+
+	return nil
+}
+
+// ClearStoppedTaskAgent clears agent_id and sets task to pending after stop ack received
+// This should be called when an agent acknowledges that it has stopped a task
+func (s *JobWebSocketIntegration) ClearStoppedTaskAgent(ctx context.Context, taskID uuid.UUID, agentID int) error {
+	debug.Log("Clearing task agent after stop ack", map[string]interface{}{
+		"task_id":  taskID,
+		"agent_id": agentID,
+	})
+
+	// Clear the agent assignment and set task back to pending
+	err := s.jobTaskRepo.ClearTaskAgentAndSetPending(ctx, taskID, agentID)
+	if err != nil {
+		return fmt.Errorf("failed to clear task agent: %w", err)
+	}
+
+	// Also clear the agent's busy status
+	agent, err := s.agentRepo.GetByID(ctx, agentID)
+	if err == nil && agent.Metadata != nil {
+		agent.Metadata["busy_status"] = "false"
+		delete(agent.Metadata, "current_task_id")
+		delete(agent.Metadata, "current_job_id")
+		if err := s.agentRepo.Update(ctx, agent); err != nil {
+			debug.Error("Failed to clear agent busy status after stop ack: %v", err)
+		} else {
+			debug.Log("Cleared agent busy status after stop ack", map[string]interface{}{
+				"agent_id": agentID,
+				"task_id":  taskID,
+			})
+		}
+	}
 
 	return nil
 }
@@ -583,24 +966,46 @@ func (s *JobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, age
 		return fmt.Errorf("failed to get agent: %w", err)
 	}
 
-	// Build wordlist and rule paths for a more accurate benchmark
+	// Hashlist path is always the same - agent's download function picks the right endpoint
+	// based on attack mode (DB streaming vs original file)
+	hashlistPath := fmt.Sprintf("hashlists/%d.hash", jobExecution.HashlistID)
+
+	// Build wordlist paths based on attack mode
 	var wordlistPaths []string
-	for _, wordlistIDStr := range jobExecution.WordlistIDs {
-		// Convert string ID to int
-		wordlistID, err := strconv.Atoi(wordlistIDStr)
-		if err != nil {
-			continue // Skip invalid IDs
+	if jobExecution.AttackMode == models.AttackModeAssociation {
+		// Mode 9: use association wordlist as the wordlist
+		if jobExecution.AssociationWordlistID != nil {
+			assocWordlist, err := s.assocWordlistRepo.GetByID(ctx, *jobExecution.AssociationWordlistID)
+			if err != nil {
+				return fmt.Errorf("failed to get association wordlist: %w", err)
+			}
+			if assocWordlist == nil {
+				return fmt.Errorf("association wordlist not found")
+			}
+			wordlistPath := fmt.Sprintf("wordlists/association/%d_%s", hashlist.ID, assocWordlist.FileName)
+			wordlistPaths = append(wordlistPaths, wordlistPath)
+		} else {
+			return fmt.Errorf("association attack requires association wordlist")
 		}
+	} else {
+		// Regular wordlist processing for other attack modes
+		for _, wordlistIDStr := range jobExecution.WordlistIDs {
+			// Convert string ID to int
+			wordlistID, err := strconv.Atoi(wordlistIDStr)
+			if err != nil {
+				continue // Skip invalid IDs
+			}
 
-		// Look up the actual wordlist file path
-		wordlist, err := s.wordlistManager.GetWordlist(ctx, wordlistID)
-		if err != nil || wordlist == nil {
-			continue // Skip missing wordlists
+			// Look up the actual wordlist file path
+			wordlist, err := s.wordlistManager.GetWordlist(ctx, wordlistID)
+			if err != nil || wordlist == nil {
+				continue // Skip missing wordlists
+			}
+
+			// Use the actual file path from the database
+			wordlistPath := fmt.Sprintf("wordlists/%s", wordlist.FileName)
+			wordlistPaths = append(wordlistPaths, wordlistPath)
 		}
-
-		// Use the actual file path from the database
-		wordlistPath := fmt.Sprintf("wordlists/%s", wordlist.FileName)
-		wordlistPaths = append(wordlistPaths, wordlistPath)
 	}
 
 	var rulePaths []string
@@ -707,20 +1112,20 @@ func (s *JobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, age
 	// Create enhanced benchmark request payload with job-specific configuration
 	benchmarkReq := wsservice.BenchmarkRequestPayload{
 		RequestID:       requestID,
-		JobExecutionID:  benchmarkEntityID,                                                  // LAYER ID for layer benchmarks, JOB ID for regular
+		JobExecutionID:  benchmarkEntityID,                                                    // LAYER ID for layer benchmarks, JOB ID for regular
 		TaskID:          fmt.Sprintf("benchmark-%s-%d", benchmarkEntityID, time.Now().Unix()), // Generate a task ID for the benchmark
 		HashType:        hashlist.HashTypeID,
 		AttackMode:      int(jobExecution.AttackMode),
 		BinaryPath:      binaryPath,
 		HashlistID:      jobExecution.HashlistID,
-		HashlistPath:    fmt.Sprintf("hashlists/%d.hash", jobExecution.HashlistID),
+		HashlistPath:    hashlistPath, // Original hashlist for mode 9, processed for others
 		WordlistPaths:   wordlistPaths,
 		RulePaths:       rulePaths,
-		Mask:            maskToUse,             // LAYER MASK for layer benchmarks, JOB MASK for regular
-		TestDuration:    30,                    // 30-second benchmark for accuracy
-		TimeoutDuration: speedtestTimeout,      // Configurable timeout for speedtest
-		ExtraParameters: agent.ExtraParameters, // Agent-specific hashcat parameters
-		EnabledDevices:  enabledDeviceIDs,      // Only populated if some devices are disabled
+		Mask:            maskToUse,        // LAYER MASK for layer benchmarks, JOB MASK for regular
+		TestDuration:    30,               // 30-second benchmark for accuracy
+		TimeoutDuration: speedtestTimeout, // Configurable timeout for speedtest
+		ExtraParameters: agent.ExtraParameters,
+		EnabledDevices:  enabledDeviceIDs,
 	}
 
 	// Marshal payload
@@ -771,6 +1176,19 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 
 	// Verify the task is assigned to this agent
 	if task.AgentID == nil || *task.AgentID != agentID {
+		// Check if this task is stopping (agent was told to stop but hasn't ack'd yet)
+		// In this case, we should silently ignore the progress since the task is being stopped
+		// Note: With the proper fix, agent_id won't be cleared until stop ack, so this is mostly
+		// for backwards compatibility with any in-flight transitions
+		if task.DetailedStatus == "stopping" {
+			debug.Log("Ignoring progress from stopping task", map[string]interface{}{
+				"task_id":  progress.TaskID,
+				"agent_id": agentID,
+			})
+			// Silently ignore - don't return error
+			return nil
+		}
+
 		expectedAgent := 0
 		if task.AgentID != nil {
 			expectedAgent = *task.AgentID
@@ -1025,28 +1443,43 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 
 	// Check if this is a failure update
 	if progress.Status == "failed" && progress.ErrorMessage != "" {
+		// Check if this is an agent-side rejection (not an execution failure)
+		// Agent rejections happen when the agent is already running a task
+		isAgentRejection := strings.Contains(progress.ErrorMessage, "cannot accept task") ||
+			strings.Contains(progress.ErrorMessage, "already running task")
+
+		if isAgentRejection {
+			// Agent rejected the task - return it to pending for reassignment
+			debug.Warning("Agent rejected task assignment (will be reassigned): task=%s, agent=%d, reason=%s",
+				progress.TaskID, agentID, progress.ErrorMessage)
+
+			// Revert task to pending (NOT failed) - SetTaskPending clears agent_id and assigned_at
+			err := s.jobTaskRepo.SetTaskPending(ctx, progress.TaskID)
+			if err != nil {
+				debug.Error("Failed to revert rejected task to pending: %v", err)
+			}
+
+			// Don't mark job as failed - the task will be reassigned
+			return nil
+		}
+
 		debug.Log("Task failed with error", map[string]interface{}{
 			"task_id": progress.TaskID,
 			"error":   progress.ErrorMessage,
 		})
 
-		// Mark task as permanently failed and decrement dispatched keyspace
+		// Mark task as permanently failed, decrement dispatched keyspace, AND clear agent status atomically
 		// Agent-reported failures are considered permanent and the job will be marked as failed
-		err := s.jobTaskRepo.MarkTaskFailedPermanently(ctx, progress.TaskID, progress.ErrorMessage)
-		if err != nil {
-			debug.Error("Failed to mark task as permanently failed: %v", err)
-		}
-
-		// Clear agent busy status
 		if task.AgentID != nil {
-			agent, err := s.agentRepo.GetByID(ctx, *task.AgentID)
-			if err == nil && agent.Metadata != nil {
-				agent.Metadata["busy_status"] = "false"
-				delete(agent.Metadata, "current_task_id")
-				delete(agent.Metadata, "current_job_id")
-				if err := s.agentRepo.UpdateMetadata(ctx, agent.ID, agent.Metadata); err != nil {
-					debug.Error("Failed to clear agent busy status after task failure: %v", err)
-				}
+			err := s.jobTaskRepo.MarkTaskFailedPermanentlyAndClearAgentStatus(ctx, progress.TaskID, *task.AgentID, progress.ErrorMessage)
+			if err != nil {
+				debug.Error("Failed to atomically fail task and clear agent status: %v", err)
+			}
+		} else {
+			// No agent ID - just mark task as failed
+			err := s.jobTaskRepo.MarkTaskFailedPermanently(ctx, progress.TaskID, progress.ErrorMessage)
+			if err != nil {
+				debug.Error("Failed to mark task as permanently failed: %v", err)
 			}
 		}
 
@@ -1069,6 +1502,12 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 				"error":   err.Error(),
 			})
 		}
+
+		// Cache and send ACK for failure (GH Issue #12)
+		// Failures also need ACK so agent knows backend received the status
+		taskIDStr := progress.TaskID.String()
+		s.cacheCompletion(taskIDStr)
+		s.sendTaskCompleteAck(agentID, taskIDStr, true, "task failed: "+progress.ErrorMessage)
 
 		return nil
 	}
@@ -1133,6 +1572,23 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 				debug.Info("Set job %s progress to 100%% on AllHashesCracked (status code 6)", task.JobExecutionID)
 			}
 
+			// Part 18j: Sync effective_keyspace to match processed_keyspace for 100% display
+			// When all hashes are cracked early, the job didn't process the full keyspace.
+			// To ensure progress shows 100%, set effective_keyspace = processed_keyspace.
+			currentJob, jobErr := jobExecRepo.GetByID(ctx, task.JobExecutionID)
+			if jobErr == nil && currentJob.ProcessedKeyspace > 0 {
+				if err := jobExecRepo.UpdateEffectiveKeyspace(ctx, task.JobExecutionID, currentJob.ProcessedKeyspace); err != nil {
+					debug.Warning("Failed to sync effective_keyspace on AllHashesCracked: %v", err)
+				} else {
+					debug.Info("Synced effective_keyspace to processed_keyspace (%d) for 100%% display on AllHashesCracked",
+						currentJob.ProcessedKeyspace)
+				}
+				// Also sync dispatched_keyspace
+				if err := jobExecRepo.UpdateDispatchedKeyspace(ctx, task.JobExecutionID, currentJob.ProcessedKeyspace); err != nil {
+					debug.Warning("Failed to sync dispatched_keyspace on AllHashesCracked: %v", err)
+				}
+			}
+
 			// Part 18f: ALWAYS trigger HandleHashlistFullyCracked BEFORE the early return
 			// This ensures all jobs on the hashlist are handled even when we return early
 			// for processing mode (waiting for crack batches)
@@ -1190,6 +1646,19 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 
 	// Check if this is a completion update
 	if progress.Status == "completed" {
+		taskIDStr := progress.TaskID.String()
+
+		// Idempotent handling: check if this completion was already processed (GH Issue #12)
+		if s.isCompletionCached(taskIDStr) {
+			debug.Log("Completion already processed (idempotent), sending ACK", map[string]interface{}{
+				"task_id":  progress.TaskID,
+				"agent_id": agentID,
+			})
+			// Send ACK for duplicate completion without reprocessing
+			s.sendTaskCompleteAck(agentID, taskIDStr, true, "completion already processed")
+			return nil
+		}
+
 		debug.Log("Task completed", map[string]interface{}{
 			"task_id":          progress.TaskID,
 			"progress_percent": progress.ProgressPercent,
@@ -1235,25 +1704,17 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			"task_id": progress.TaskID,
 		})
 
-		// Mark task as complete
-		err = s.jobTaskRepo.CompleteTask(ctx, progress.TaskID)
-		if err != nil {
-			debug.Log("Failed to mark task as complete", map[string]interface{}{
-				"task_id": progress.TaskID,
-				"error":   err.Error(),
-			})
-		}
-
-		// Clear agent busy status
+		// Mark task as complete AND clear agent busy status atomically
 		if task.AgentID != nil {
-			agent, err := s.agentRepo.GetByID(ctx, *task.AgentID)
-			if err == nil && agent.Metadata != nil {
-				agent.Metadata["busy_status"] = "false"
-				delete(agent.Metadata, "current_task_id")
-				delete(agent.Metadata, "current_job_id")
-				if err := s.agentRepo.UpdateMetadata(ctx, agent.ID, agent.Metadata); err != nil {
-					debug.Error("Failed to clear agent busy status after task completion: %v", err)
-				}
+			err = s.jobTaskRepo.CompleteTaskAndClearAgentStatus(ctx, progress.TaskID, *task.AgentID)
+			if err != nil {
+				debug.Error("Failed to atomically complete task and clear agent status: %v", err)
+			}
+		} else {
+			// No agent ID - just complete the task
+			err = s.jobTaskRepo.CompleteTask(ctx, progress.TaskID)
+			if err != nil {
+				debug.Error("Failed to mark task as complete: %v", err)
 			}
 		}
 
@@ -1284,6 +1745,10 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			})
 		}
 
+		// Cache completion and send ACK to agent (GH Issue #12)
+		s.cacheCompletion(taskIDStr)
+		s.sendTaskCompleteAck(agentID, taskIDStr, true, "")
+
 		return nil
 	}
 
@@ -1311,25 +1776,37 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 	// KeyspaceProcessed is the restore_point from hashcat, which is ABSOLUTE (not relative to KeyspaceStart)
 	// Compare against KeyspaceEnd directly, not (KeyspaceEnd - KeyspaceStart)
 	if task.KeyspaceEnd > 0 && progress.KeyspaceProcessed >= task.KeyspaceEnd {
-		// Task is complete - restore_point has reached or exceeded the task's end position
-		err = s.jobTaskRepo.CompleteTask(ctx, progress.TaskID)
-		if err != nil {
-			debug.Log("Failed to mark task as complete", map[string]interface{}{
-				"task_id": progress.TaskID,
-				"error":   err.Error(),
-			})
+		// Keyspace complete - but if there are cracks, wait for crack_batches_complete
+		// to ensure all cracks are confirmed in the database before marking complete
+		if progress.CrackedCount > 0 {
+			// Set to processing status - will be completed when crack_batches_complete is received
+			// and all cracks are verified in the database
+			err = s.jobTaskRepo.SetTaskProcessing(ctx, progress.TaskID, progress.CrackedCount)
+			if err != nil {
+				debug.Error("Failed to set task to processing status: %v", err)
+			} else {
+				debug.Info("Task %s keyspace complete with %d cracks - set to processing, waiting for crack_batches_complete",
+					progress.TaskID, progress.CrackedCount)
+			}
+			// Don't complete yet - HandleCrackBatchesComplete will complete the task
+			// after verifying all cracks are in the database
+			return nil
 		}
 
-		// Clear agent busy status
+		// No cracks - can complete immediately since there's nothing to verify
+		debug.Info("Task %s keyspace complete with 0 cracks - completing immediately", progress.TaskID)
+
+		// Mark task as complete AND clear agent busy status atomically
 		if task.AgentID != nil {
-			agent, err := s.agentRepo.GetByID(ctx, *task.AgentID)
-			if err == nil && agent.Metadata != nil {
-				agent.Metadata["busy_status"] = "false"
-				delete(agent.Metadata, "current_task_id")
-				delete(agent.Metadata, "current_job_id")
-				if err := s.agentRepo.UpdateMetadata(ctx, agent.ID, agent.Metadata); err != nil {
-					debug.Error("Failed to clear agent busy status after task completion (keyspace): %v", err)
-				}
+			err = s.jobTaskRepo.CompleteTaskAndClearAgentStatus(ctx, progress.TaskID, *task.AgentID)
+			if err != nil {
+				debug.Error("Failed to atomically complete task and clear agent status (keyspace): %v", err)
+			}
+		} else {
+			// No agent ID - just complete the task
+			err = s.jobTaskRepo.CompleteTask(ctx, progress.TaskID)
+			if err != nil {
+				debug.Error("Failed to mark task as complete: %v", err)
 			}
 		}
 
@@ -1350,6 +1827,11 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 				"error":            err.Error(),
 			})
 		}
+
+		// Cache completion and send ACK to agent (GH Issue #12)
+		taskIDStr := progress.TaskID.String()
+		s.cacheCompletion(taskIDStr)
+		s.sendTaskCompleteAck(agentID, taskIDStr, true, "")
 	}
 
 	return nil
@@ -1369,6 +1851,7 @@ func (s *JobWebSocketIntegration) HandleCrackBatch(ctx context.Context, agentID 
 		"agent_id":      agentID,
 		"task_id":       crackBatch.TaskID,
 		"crack_count":   len(crackBatch.CrackedHashes),
+		"is_retransmit": crackBatch.IsRetransmit,
 	})
 
 	// Validate task exists
@@ -1379,7 +1862,17 @@ func (s *JobWebSocketIntegration) HandleCrackBatch(ctx context.Context, agentID 
 		return nil
 	}
 
-	// Verify the task is assigned to this agent
+	// Handle retransmit batches with deduplication
+	// NOTE: For retransmissions, skip the agent ownership check since the task's agent_id
+	// may have been reset to NULL when the agent went offline. The agent is retransmitting
+	// cracks from an outfile that it still has, regardless of current task assignment.
+	if crackBatch.IsRetransmit {
+		debug.Info("Processing retransmit batch for task %s with %d cracks",
+			crackBatch.TaskID, len(crackBatch.CrackedHashes))
+		return s.handleRetransmitBatch(ctx, agentID, crackBatch)
+	}
+
+	// Verify the task is assigned to this agent (only for non-retransmit batches)
 	if task.AgentID == nil || *task.AgentID != agentID {
 		expectedAgent := 0
 		if task.AgentID != nil {
@@ -1390,7 +1883,7 @@ func (s *JobWebSocketIntegration) HandleCrackBatch(ctx context.Context, agentID 
 		return fmt.Errorf("task not assigned to this agent")
 	}
 
-	// Process cracked hashes with retry logic
+	// Process cracked hashes with retry logic (normal flow)
 	if len(crackBatch.CrackedHashes) > 0 {
 		err = s.retryProcessCrackedHashes(ctx, agentID, crackBatch.TaskID, crackBatch.CrackedHashes)
 		if err != nil {
@@ -1529,7 +2022,15 @@ func (s *JobWebSocketIntegration) HandleCrackBatchesComplete(ctx context.Context
 		return nil
 	}
 
-	// Verify the task is assigned to this agent
+	// For retransmissions, process async - DON'T BLOCK the message loop
+	// This allows new task assignments to continue while processing large retransmits
+	if message.IsRetransmit {
+		debug.Info("Processing retransmission for task %s async (skipping agent ownership check)", message.TaskID)
+		go s.processRetransmitCompletionAsync(agentID, message.TaskID, task)
+		return nil // Return immediately, allow message loop to continue
+	}
+
+	// Verify the task is assigned to this agent (only for non-retransmit)
 	if task.AgentID == nil || *task.AgentID != agentID {
 		expectedAgent := 0
 		if task.AgentID != nil {
@@ -1545,6 +2046,53 @@ func (s *JobWebSocketIntegration) HandleCrackBatchesComplete(ctx context.Context
 	if err != nil {
 		debug.Error("Failed to mark batches complete: %v", err)
 		return err
+	}
+
+	// Re-fetch task to get updated received_crack_count after MarkBatchesComplete
+	task, err = s.jobTaskRepo.GetByID(ctx, message.TaskID)
+	if err != nil {
+		debug.Error("Failed to re-fetch task after marking batches complete: %v", err)
+		return err
+	}
+
+	// ============================================================================
+	// Outfile Acknowledgment Protocol - Check crack counts and send approval/retransmit
+	// ============================================================================
+	if task.ExpectedCrackCount > 0 { // Only check if we expect cracks
+		// Use actual database count for verification, NOT ReceivedCrackCount counter
+		// ReceivedCrackCount increments by batch size sent, but duplicates are skipped during save
+		// The actual DB count reflects what was truly persisted
+		actualDBCount, err := s.hashRepo.CountCrackedByTaskID(ctx, message.TaskID)
+		if err != nil {
+			debug.Error("Failed to count cracks in DB for task %s: %v", message.TaskID, err)
+			// Fall back to received count on error
+			actualDBCount = task.ReceivedCrackCount
+		}
+
+		debug.Info("Crack verification for task %s: expected=%d, received_counter=%d, actual_db_count=%d",
+			message.TaskID, task.ExpectedCrackCount, task.ReceivedCrackCount, actualDBCount)
+
+		if actualDBCount < task.ExpectedCrackCount {
+			// Mismatch detected - request retransmission
+			debug.Warning("Crack count mismatch for task %s: expected %d, actual in DB %d - requesting retransmit",
+				message.TaskID, task.ExpectedCrackCount, actualDBCount)
+
+			return s.handleCrackCountMismatch(ctx, agentID, message.TaskID,
+				task.ExpectedCrackCount, actualDBCount)
+		}
+
+		// All cracks verified in database - send delete approval
+		debug.Info("All cracks verified in DB for task %s (expected=%d, actual=%d) - sending delete approval",
+			message.TaskID, task.ExpectedCrackCount, actualDBCount)
+		if err := s.sendOutfileDeleteApproval(ctx, agentID, message.TaskID, actualDBCount, true); err != nil {
+			debug.Warning("Failed to send outfile delete approval: %v", err)
+			// Don't fail the whole operation - cracks are already processed
+		}
+	} else {
+		// No cracks expected - still send delete approval to clean up empty outfile
+		if err := s.sendOutfileDeleteApproval(ctx, agentID, message.TaskID, 0, true); err != nil {
+			debug.Warning("Failed to send outfile delete approval for zero-crack task: %v", err)
+		}
 	}
 
 	// Clear agent busy status - agent is now free for new work
@@ -1653,11 +2201,21 @@ func (s *JobWebSocketIntegration) checkTaskCompletion(ctx context.Context, taskI
 		return
 	}
 
-	// Mark task as complete
-	err = s.jobTaskRepo.CompleteTask(ctx, taskID)
-	if err != nil {
-		debug.Error("Failed to mark task as complete: %v", err)
-		return
+	// Mark task as complete AND ensure agent busy status is cleared atomically
+	// Note: Agent status may already be cleared by HandleCrackBatchesComplete, but this
+	// atomic operation is idempotent and ensures consistency
+	if task.AgentID != nil {
+		err = s.jobTaskRepo.CompleteTaskAndClearAgentStatus(ctx, taskID, *task.AgentID)
+		if err != nil {
+			debug.Error("Failed to atomically complete task and clear agent status: %v", err)
+			return
+		}
+	} else {
+		err = s.jobTaskRepo.CompleteTask(ctx, taskID)
+		if err != nil {
+			debug.Error("Failed to mark task as complete: %v", err)
+			return
+		}
 	}
 
 	debug.Log("Task completed after receiving all crack batches", map[string]interface{}{
@@ -1682,6 +2240,13 @@ func (s *JobWebSocketIntegration) checkTaskCompletion(ctx context.Context, taskI
 	err = s.jobSchedulingService.ProcessJobCompletion(ctx, task.JobExecutionID)
 	if err != nil {
 		debug.Error("Failed to process job completion: %v", err)
+	}
+
+	// Cache completion and send ACK to agent (GH Issue #12)
+	taskIDStr := taskID.String()
+	s.cacheCompletion(taskIDStr)
+	if task.AgentID != nil {
+		s.sendTaskCompleteAck(*task.AgentID, taskIDStr, true, "")
 	}
 }
 
@@ -1709,11 +2274,53 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 		return fmt.Errorf("failed to get agent: %w", err)
 	}
 
-	// Store benchmark result
+	// Determine salt count for salted hash types
+	// For salted hashes, salt count = remaining (uncracked) hash count at benchmark time
+	var saltCount *int
+	if result.JobExecutionID != "" {
+		entityID, parseErr := uuid.Parse(result.JobExecutionID)
+		if parseErr == nil {
+			// Try to get job execution (handles both direct job and layer->parent job)
+			var hashlistID int64
+			layer, layerErr := s.jobIncrementLayerRepo.GetByID(ctx, entityID)
+			if layerErr == nil && layer != nil {
+				// This is a layer - get parent job's hashlist
+				if job, jobErr := s.jobExecutionService.GetJobExecutionByID(ctx, layer.JobExecutionID); jobErr == nil && job != nil {
+					hashlistID = job.HashlistID
+				}
+			} else {
+				// This is a direct job
+				if job, jobErr := s.jobExecutionService.GetJobExecutionByID(ctx, entityID); jobErr == nil && job != nil {
+					hashlistID = job.HashlistID
+				}
+			}
+
+			if hashlistID > 0 {
+				// Get hashlist and check if hash type is salted
+				if hashlist, hlErr := s.hashlistRepo.GetByID(ctx, hashlistID); hlErr == nil && hashlist != nil {
+					hashType, htErr := s.jobExecutionService.GetHashTypeByID(ctx, hashlist.HashTypeID)
+					if htErr == nil && hashType != nil && hashType.IsSalted {
+						// For salted hash types, get remaining hash count as salt count
+						uncrackedCount, countErr := s.hashlistRepo.GetUncrackedHashCount(ctx, hashlistID)
+						if countErr == nil && uncrackedCount > 0 {
+							saltCount = &uncrackedCount
+							debug.Log("Benchmark for salted hash type", map[string]interface{}{
+								"hash_type":  result.HashType,
+								"salt_count": uncrackedCount,
+							})
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Store benchmark result (with salt count for salted hash types)
 	benchmark := &models.AgentBenchmark{
 		AgentID:    agent.ID,
 		AttackMode: models.AttackMode(result.AttackMode),
 		HashType:   result.HashType,
+		SaltCount:  saltCount,
 		Speed:      result.Speed,
 	}
 
@@ -1727,6 +2334,7 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 		"hash_type":   result.HashType,
 		"attack_mode": result.AttackMode,
 		"speed":       result.Speed,
+		"salt_count":  saltCount,
 	})
 
 	// Update benchmark_requests table to mark this benchmark as complete
@@ -1838,6 +2446,43 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 			} else {
 				debug.Info("Job %s: Set accurate effective keyspace from hashcat: %d",
 					jobExec.ID, result.TotalEffectiveKeyspace)
+			}
+
+			// Make rule splitting decision (same as creation time in job_execution_service.go:569-603)
+			// This is for jobs that relied on forced benchmark (isAccurateKeyspace was false at creation)
+			if !jobExec.UsesRuleSplitting &&
+				(jobExec.AttackMode == models.AttackModeStraight || jobExec.AttackMode == models.AttackModeAssociation) &&
+				len(jobExec.RuleIDs) > 0 {
+
+				// Check if rule splitting is enabled
+				ruleSplitEnabled, settingErr := s.systemSettingsRepo.GetSetting(ctx, "rule_split_enabled")
+				if settingErr == nil && ruleSplitEnabled != nil && ruleSplitEnabled.Value != nil && *ruleSplitEnabled.Value == "true" {
+					// Get minimum rules threshold
+					minRulesSetting, _ := s.systemSettingsRepo.GetSetting(ctx, "rule_split_min_rules")
+					minRules := 100 // default
+					if minRulesSetting != nil && minRulesSetting.Value != nil {
+						if parsed, parseErr := strconv.Atoi(*minRulesSetting.Value); parseErr == nil {
+							minRules = parsed
+						}
+					}
+
+					// Get actual rule count (not salt-adjusted multiplicationFactor)
+					actualRuleCount, ruleErr := s.jobExecutionService.GetTotalRuleCount(ctx, jobExec.RuleIDs)
+					if ruleErr != nil {
+						actualRuleCount = int64(jobExec.MultiplicationFactor)
+					}
+
+					if int(actualRuleCount) >= minRules {
+						jobExec.UsesRuleSplitting = true
+						jobExec.RuleSplitCount = 0
+
+						debug.Log("Rule splitting enabled after forced benchmark", map[string]interface{}{
+							"job_id":            jobExec.ID,
+							"actual_rule_count": actualRuleCount,
+							"min_rules":         minRules,
+						})
+					}
+				}
 			}
 
 			// Update job in database
@@ -2037,6 +2682,45 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 	// Key: hashlist ID, Value: count of newly cracked hashes
 	affectedHashlists := make(map[int64]int)
 
+	// Batch-level counters - only added to global counters AFTER successful batch update
+	// This prevents over-counting when UpdateCrackStatusBatch skips already-cracked hashes
+	var batchCrackedCount int
+	batchAffectedHashlists := make(map[int64]int)
+
+	// Helper to apply batch counters to global counters based on actual rows affected
+	applyBatchCounters := func(rowsAffected int64, batchSize int) {
+		if batchSize == 0 {
+			return
+		}
+
+		// If all updates succeeded, apply full batch counts
+		if rowsAffected == int64(batchSize) {
+			crackedCount += batchCrackedCount
+			for hlID, count := range batchAffectedHashlists {
+				affectedHashlists[hlID] += count
+			}
+		} else {
+			// Some updates were skipped (already-cracked hashes)
+			// Apply proportional counts based on success ratio
+			successRatio := float64(rowsAffected) / float64(batchSize)
+			adjustedCracked := int(float64(batchCrackedCount) * successRatio)
+			crackedCount += adjustedCracked
+
+			for hlID, count := range batchAffectedHashlists {
+				adjustedCount := int(float64(count) * successRatio)
+				affectedHashlists[hlID] += adjustedCount
+			}
+
+			skipped := batchSize - int(rowsAffected)
+			debug.Warning("Batch update: %d/%d succeeded (skipped %d already-cracked), adjusted counters by ratio %.2f",
+				rowsAffected, batchSize, skipped, successRatio)
+		}
+
+		// Reset batch counters
+		batchCrackedCount = 0
+		batchAffectedHashlists = make(map[int64]int)
+	}
+
 	// Process LM hashes differently (partial crack tracking)
 	if isLMHash {
 		// Pre-load LM metadata for all matched hashes
@@ -2153,20 +2837,22 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 						Password:  fullPassword,
 						Username:  nil,
 						CrackedAt: crackedAt,
+						TaskID:    &taskID,
 					})
 
-					crackedCount++
+					// Increment BATCH counters (not global) - will be applied after batch update
+					batchCrackedCount++
 					txHashCount++
 
 					debug.Info("LM FULLY CRACKED [hash_id=%s, full_password='%s']", hash.ID, fullPassword)
 
-					// Query which hashlists contain this hash and increment their counters
+					// Query which hashlists contain this hash and increment BATCH counters
 					hashlistIDs, err := s.hashRepo.GetHashlistIDsForHash(ctx, hash.ID)
 					if err != nil {
 						debug.Warning("Failed to get hashlist IDs for hash %s: %v", hash.ID, err)
 					} else {
 						for _, hashlistID := range hashlistIDs {
-							affectedHashlists[hashlistID]++
+							batchAffectedHashlists[hashlistID]++
 						}
 					}
 
@@ -2183,11 +2869,16 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 				if txHashCount >= batchSize {
 					// Execute the batched updates in one query
 					if len(hashUpdateBatch) > 0 {
+						batchLen := len(hashUpdateBatch)
 						rowsAffected, err := s.hashRepo.UpdateCrackStatusBatch(tx, hashUpdateBatch)
 						if err != nil {
 							return fmt.Errorf("failed to batch update hashes: %w", err)
 						}
-						debug.Info("Batch updated %d LM hashes out of %d queued", rowsAffected, len(hashUpdateBatch))
+						debug.Info("Batch updated %d LM hashes out of %d queued", rowsAffected, batchLen)
+
+						// Apply batch counters to global counters based on actual rows affected
+						applyBatchCounters(rowsAffected, batchLen)
+
 						hashUpdateBatch = nil
 					}
 
@@ -2240,18 +2931,20 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 				Password:  password,
 				Username:  nil,
 				CrackedAt: crackedAt,
+				TaskID:    &taskID,
 			})
 
-			crackedCount++
+			// Increment BATCH counters (not global) - will be applied after batch update
+			batchCrackedCount++
 			txHashCount++
 
-			// Query which hashlists contain this hash and increment their counters
+			// Query which hashlists contain this hash and increment BATCH counters
 			hashlistIDs, err := s.hashRepo.GetHashlistIDsForHash(ctx, hash.ID)
 			if err != nil {
 				debug.Warning("Failed to get hashlist IDs for hash %s: %v", hash.ID, err)
 			} else {
 				for _, hashlistID := range hashlistIDs {
-					affectedHashlists[hashlistID]++
+					batchAffectedHashlists[hashlistID]++
 				}
 			}
 
@@ -2284,16 +2977,17 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 							Password:  lmPassword,
 							Username:  nil,
 							CrackedAt: crackedAt,
+							TaskID:    &taskID,
 						})
 						txHashCount++
 
-						// Track affected hashlists for the linked LM hash
+						// Track affected hashlists for the linked LM hash (use BATCH counters)
 						lmHashlistIDs, err := s.hashRepo.GetHashlistIDsForHash(ctx, linkedLMHash.ID)
 						if err != nil {
 							debug.Warning("Failed to get hashlist IDs for linked LM hash %s: %v", linkedLMHash.ID, err)
 						} else {
 							for _, hashlistID := range lmHashlistIDs {
-								affectedHashlists[hashlistID]++
+								batchAffectedHashlists[hashlistID]++
 							}
 						}
 					} else {
@@ -2305,17 +2999,16 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 			// Execute batched updates and commit when batch is full
 			if txHashCount >= batchSize {
 				// Execute the batched updates in one query
+				batchLen := len(hashUpdateBatch)
 				rowsAffected, err := s.hashRepo.UpdateCrackStatusBatch(tx, hashUpdateBatch)
 				if err != nil {
 					return fmt.Errorf("failed to batch update hashes: %w", err)
 				}
-				debug.Info("Batch updated %d hashes out of %d queued", rowsAffected, len(hashUpdateBatch))
+				debug.Info("Batch updated %d hashes out of %d queued", rowsAffected, batchLen)
 
-				// Critical validation: detect if we lost updates
-				if rowsAffected != int64(len(hashUpdateBatch)) {
-					debug.Error("CRITICAL: Batch UPDATE mismatch! Queued %d but updated only %d (LOST %d updates)",
-						len(hashUpdateBatch), rowsAffected, len(hashUpdateBatch)-int(rowsAffected))
-				}
+				// Apply batch counters to global counters based on actual rows affected
+				// This prevents over-counting when some hashes were already cracked
+				applyBatchCounters(rowsAffected, batchLen)
 
 				hashUpdateBatch = nil // Reset batch
 
@@ -2348,17 +3041,16 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 
 	// Flush any remaining hash updates before committing
 	if len(hashUpdateBatch) > 0 && tx != nil {
+		batchLen := len(hashUpdateBatch)
 		rowsAffected, err := s.hashRepo.UpdateCrackStatusBatch(tx, hashUpdateBatch)
 		if err != nil {
 			return fmt.Errorf("failed to batch update final hashes: %w", err)
 		}
-		debug.Info("Final batch updated %d hashes out of %d queued", rowsAffected, len(hashUpdateBatch))
+		debug.Info("Final batch updated %d hashes out of %d queued", rowsAffected, batchLen)
 
-		// Critical validation: detect if we lost updates
-		if rowsAffected != int64(len(hashUpdateBatch)) {
-			debug.Error("CRITICAL: Final batch UPDATE mismatch! Queued %d but updated only %d (LOST %d updates)",
-				len(hashUpdateBatch), rowsAffected, len(hashUpdateBatch)-int(rowsAffected))
-		}
+		// Apply batch counters to global counters based on actual rows affected
+		// This prevents over-counting when some hashes were already cracked
+		applyBatchCounters(rowsAffected, batchLen)
 
 		hashUpdateBatch = nil
 	}
@@ -2472,8 +3164,9 @@ func (s *JobWebSocketIntegration) RecoverTask(ctx context.Context, taskID string
 		// Return an error to trigger job_stop on the agent
 		return fmt.Errorf("task %s is already completed", taskID)
 		
-	case models.JobTaskStatusReconnectPending, models.JobTaskStatusPending:
+	case models.JobTaskStatusAssigned, models.JobTaskStatusReconnectPending, models.JobTaskStatusPending:
 		// These states can be recovered
+		// "assigned" = task dispatched but agent may still be downloading files
 		debug.Log("Task can be recovered", map[string]interface{}{
 			"task_id": taskID,
 			"status":  task.Status,
@@ -2924,6 +3617,422 @@ func (s *JobWebSocketIntegration) recalculateSubsequentChunks(ctx context.Contex
 		debug.Info("Recalculated effective keyspace positions for job %s after chunk %d completed",
 			jobExecutionID, completedChunkNumber)
 	}
+
+	return nil
+}
+
+// ============================================================================
+// Outfile Acknowledgment Protocol - Crack Transmission Resilience
+// ============================================================================
+
+// requestCrackRetransmit sends a request to agent to retransmit all cracks from outfile
+func (s *JobWebSocketIntegration) requestCrackRetransmit(ctx context.Context, agentID int, taskID uuid.UUID, expectedCount int) error {
+	// Update expected crack count in database BEFORE sending retransmit request
+	// This ensures ProcessCrackBatchesComplete will see the correct count after retransmit
+	// Without this, the task would have ExpectedCrackCount=0 and skip verification, causing infinite loop
+	if err := s.jobTaskRepo.UpdateExpectedCrackCount(ctx, taskID, expectedCount); err != nil {
+		debug.Warning("Failed to update expected crack count for task %s: %v", taskID, err)
+		// Continue anyway - the retransmit is still important
+	}
+
+	payload := map[string]interface{}{
+		"task_id":        taskID.String(),
+		"expected_count": expectedCount,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal retransmit request: %w", err)
+	}
+
+	msg := &wsservice.Message{
+		Type:    wsservice.TypeRequestCrackRetransmit,
+		Payload: payloadBytes,
+	}
+
+	debug.Info("Requesting crack retransmit from agent %d for task %s (expected %d cracks)",
+		agentID, taskID, expectedCount)
+
+	// Increment retransmit count in database
+	if err := s.jobTaskRepo.IncrementRetransmitCount(ctx, taskID); err != nil {
+		debug.Warning("Failed to increment retransmit count for task %s: %v", taskID, err)
+	}
+
+	return s.wsHandler.SendMessage(agentID, msg)
+}
+
+// sendOutfileDeleteApproval tells agent it's safe to delete the outfile for a task
+// expectedLineCount is the number of lines the backend expects in the outfile - agent will verify before deleting
+// taskExists indicates if the task still exists in the database - if false, agent should delete unconditionally
+func (s *JobWebSocketIntegration) sendOutfileDeleteApproval(ctx context.Context, agentID int, taskID uuid.UUID, expectedLineCount int, taskExists bool) error {
+	payload := map[string]interface{}{
+		"task_id":             taskID.String(),
+		"expected_line_count": expectedLineCount,
+		"task_exists":         taskExists,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal delete approval: %w", err)
+	}
+
+	msg := &wsservice.Message{
+		Type:    wsservice.TypeOutfileDeleteApproved,
+		Payload: payloadBytes,
+	}
+
+	debug.Info("Sending outfile delete approval to agent %d for task %s (expected_line_count=%d, task_exists=%v)", agentID, taskID, expectedLineCount, taskExists)
+	return s.wsHandler.SendMessage(agentID, msg)
+}
+
+// Retransmit retry constants
+const (
+	retransmitMaxRetries = 6 // 6 retries total = ~3 minutes with 30 second intervals
+)
+
+// handleCrackCountMismatch handles when received crack count doesn't match expected
+// It implements retry logic with exponential backoff before marking task as processing_error
+func (s *JobWebSocketIntegration) handleCrackCountMismatch(ctx context.Context, agentID int, taskID uuid.UUID, expected, received int) error {
+	// Get current retransmit count from task
+	task, err := s.jobTaskRepo.GetByID(ctx, taskID)
+	if err != nil {
+		return fmt.Errorf("failed to get task for mismatch handling: %w", err)
+	}
+
+	// Check if we have a retransmit count field - use the one from the migration
+	retransmitCount := 0
+	if task.RetransmitCount != nil {
+		retransmitCount = *task.RetransmitCount
+	}
+
+	if retransmitCount >= retransmitMaxRetries {
+		// Exhausted retries - mark task as processing_error
+		errorMsg := fmt.Sprintf("crack count mismatch after %d retries: expected %d, received %d",
+			retransmitMaxRetries, expected, received)
+
+		debug.Error("Task %s: exhausted %d retries, %s - marking as processing_error",
+			taskID, retransmitMaxRetries, errorMsg)
+
+		// Send delete approval to the agent that sent the message (they have the outfile)
+		// Use agentID (sender) instead of task.AgentID which may be NULL
+		// Use received count as expected - agent should have at least this many in outfile
+		s.sendOutfileDeleteApproval(ctx, agentID, taskID, received, true)
+
+		return s.jobTaskRepo.SetTaskProcessingError(ctx, taskID, errorMsg)
+	}
+
+	debug.Warning("Task %s: retry %d/%d for crack retransmission (expected %d, received %d)",
+		taskID, retransmitCount+1, retransmitMaxRetries, expected, received)
+
+	return s.requestCrackRetransmit(ctx, agentID, taskID, expected)
+}
+
+// handleRetransmitBatch collects retransmitted crack batches in memory
+// Processing is deferred until crack_batches_complete is received
+// This allows us to:
+// 1. Collect all batches first (don't process each one immediately)
+// 2. Load existing hashes from DB ONCE (after all batches received)
+// 3. Dedupe all collected hashes in memory
+// 4. Save non-duplicates in batched transactions
+func (s *JobWebSocketIntegration) handleRetransmitBatch(ctx context.Context, agentID int, crackBatch *models.CrackBatch) error {
+	// Get or create collection state for this task
+	retransmitCollectionMu.Lock()
+	state, exists := retransmitCollection[crackBatch.TaskID]
+	if !exists {
+		state = &retransmitCollectionState{
+			agentID:         agentID,
+			collectedHashes: make([]models.CrackedHash, 0, 100000), // Pre-allocate for performance
+		}
+		retransmitCollection[crackBatch.TaskID] = state
+	}
+	retransmitCollectionMu.Unlock()
+
+	state.mu.Lock()
+	defer state.mu.Unlock()
+
+	// Collect hashes from this batch
+	state.collectedHashes = append(state.collectedHashes, crackBatch.CrackedHashes...)
+	state.batchesReceived++
+	state.lastBatchTime = time.Now()
+
+	debug.Info("Collected retransmit batch %d with %d hashes (total collected: %d) [task=%s]",
+		state.batchesReceived, len(crackBatch.CrackedHashes), len(state.collectedHashes), crackBatch.TaskID)
+
+	// Don't process yet - wait for crack_batches_complete signal
+	return nil
+}
+
+// processRetransmitCompletionAsync is the async wrapper for processRetransmitCompletion
+// It creates a new context since the original may be cancelled and handles any errors
+func (s *JobWebSocketIntegration) processRetransmitCompletionAsync(agentID int, taskID uuid.UUID, task *models.JobTask) {
+	// Create new context (original context may be cancelled when message loop continues)
+	ctx := context.Background()
+
+	if err := s.processRetransmitCompletion(ctx, agentID, taskID, task); err != nil {
+		debug.Error("Async retransmit processing failed for task %s: %v", taskID, err)
+	}
+}
+
+// processRetransmitCompletion processes all collected retransmit batches when crack_batches_complete arrives
+// This is the main processing logic for retransmissions:
+// 1. Load existing hashes from DB ONCE
+// 2. Dedupe all collected hashes in memory
+// 3. Save non-duplicates in 10K batches (PostgreSQL parameter limit)
+// 4. Verify total matches expected
+// 5. Send delete approval or request another retransmit
+func (s *JobWebSocketIntegration) processRetransmitCompletion(ctx context.Context, agentID int, taskID uuid.UUID, task *models.JobTask) error {
+	// Get collection state for this task
+	retransmitCollectionMu.Lock()
+	state := retransmitCollection[taskID]
+	retransmitCollectionMu.Unlock()
+
+	if state == nil {
+		debug.Error("No collection state for retransmit completion [task=%s]", taskID)
+		return fmt.Errorf("missing retransmit collection state")
+	}
+
+	state.mu.Lock()
+	if state.processingStarted {
+		state.mu.Unlock()
+		debug.Warning("Retransmit already being processed for task %s", taskID)
+		return nil
+	}
+	state.processingStarted = true
+	collectedHashes := state.collectedHashes
+	totalCollected := len(collectedHashes)
+	batchesReceived := state.batchesReceived
+	state.mu.Unlock()
+
+	debug.Info("Processing retransmit: %d batches, %d total hashes collected [task=%s]",
+		batchesReceived, totalCollected, taskID)
+
+	// Step 1: Load existing hashes from DB ONCE
+	existingHashes, err := s.hashRepo.GetCrackedHashesByTaskID(ctx, taskID)
+	if err != nil {
+		// Reset state for retry
+		state.mu.Lock()
+		state.processingStarted = false
+		state.mu.Unlock()
+		return fmt.Errorf("failed to load existing hashes: %w", err)
+	}
+
+	existingSet := make(map[string]bool, len(existingHashes))
+	for _, hash := range existingHashes {
+		existingSet[hash] = true
+	}
+	debug.Info("Loaded %d existing hashes for deduplication [task=%s]", len(existingHashes), taskID)
+
+	// Step 2: Dedupe all collected hashes
+	var newCracks []models.CrackedHash
+	duplicateCount := 0
+	for _, crack := range collectedHashes {
+		if existingSet[crack.Hash] {
+			duplicateCount++
+		} else {
+			newCracks = append(newCracks, crack)
+			existingSet[crack.Hash] = true // Avoid counting same hash twice
+		}
+	}
+
+	debug.Info("Deduplication complete: %d duplicates, %d new cracks [task=%s]",
+		duplicateCount, len(newCracks), taskID)
+
+	// Step 3: Save non-duplicates in 10K batches (PostgreSQL 65K parameter limit)
+	if len(newCracks) > 0 {
+		const batchSize = 10000
+		totalSaved := 0
+
+		for start := 0; start < len(newCracks); start += batchSize {
+			end := start + batchSize
+			if end > len(newCracks) {
+				end = len(newCracks)
+			}
+
+			batch := newCracks[start:end]
+			err = s.retryProcessCrackedHashes(ctx, agentID, taskID, batch)
+			if err != nil {
+				debug.Error("Failed to save batch %d-%d of %d new cracks: %v",
+					start, end, len(newCracks), err)
+				// Reset state for retry
+				state.mu.Lock()
+				state.processingStarted = false
+				state.mu.Unlock()
+				return fmt.Errorf("failed to save new cracks batch: %w", err)
+			}
+			totalSaved += len(batch)
+			debug.Info("Saved batch %d-%d of %d new cracks [task=%s]",
+				start, end, len(newCracks), taskID)
+		}
+
+		debug.Info("All %d new cracks saved successfully [task=%s]", totalSaved, taskID)
+	}
+
+	// Step 4: Verify total processed matches expected
+	totalVerified := duplicateCount + len(newCracks)
+	if totalVerified < task.ExpectedCrackCount {
+		debug.Warning("Retransmit verification FAILED: only verified %d of %d expected [task=%s]",
+			totalVerified, task.ExpectedCrackCount, taskID)
+		// Clean up collection state for retry
+		retransmitCollectionMu.Lock()
+		delete(retransmitCollection, taskID)
+		retransmitCollectionMu.Unlock()
+		return s.handleCrackCountMismatch(ctx, agentID, taskID,
+			task.ExpectedCrackCount, totalVerified)
+	}
+
+	// Step 5: All verified - clean up and send approval
+	retransmitCollectionMu.Lock()
+	delete(retransmitCollection, taskID)
+	retransmitCollectionMu.Unlock()
+
+	debug.Info("Retransmit verification PASSED: %d duplicates + %d new = %d total (expected %d) [task=%s]",
+		duplicateCount, len(newCracks), totalVerified, task.ExpectedCrackCount, taskID)
+
+	// Use task.ExpectedCrackCount directly - we already verified totalVerified matches it
+	// Don't use CountCrackedByTaskID as it returns 0 when the crack was originally from a different task
+	if err := s.sendOutfileDeleteApproval(ctx, agentID, taskID, task.ExpectedCrackCount, true); err != nil {
+		debug.Warning("Failed to send outfile delete approval: %v", err)
+		// Don't fail - cracks are already processed
+	}
+
+	return nil
+}
+
+// cleanupStaleRetransmitCollection removes stale collection states to prevent memory leaks
+func (s *JobWebSocketIntegration) cleanupStaleRetransmitCollection() {
+	retransmitCollectionMu.Lock()
+	defer retransmitCollectionMu.Unlock()
+
+	cutoff := time.Now().Add(-30 * time.Minute)
+	for taskID, state := range retransmitCollection {
+		state.mu.Lock()
+		if state.lastBatchTime.Before(cutoff) && !state.processingStarted {
+			delete(retransmitCollection, taskID)
+			debug.Info("Cleaned up stale retransmit collection for task %s", taskID)
+		}
+		state.mu.Unlock()
+	}
+}
+
+// ProcessPendingOutfiles handles the pending_outfiles message from agents on reconnect
+// This message informs the backend about tasks with unacknowledged outfiles
+func (s *JobWebSocketIntegration) ProcessPendingOutfiles(ctx context.Context, agentID int, payload json.RawMessage) error {
+	var msg struct {
+		TaskIDs       []string `json:"task_ids"`
+		CurrentTaskID string   `json:"current_task_id,omitempty"` // Currently running task (prioritized)
+	}
+
+	if err := json.Unmarshal(payload, &msg); err != nil {
+		return fmt.Errorf("failed to unmarshal pending_outfiles payload: %w", err)
+	}
+
+	debug.Info("Agent %d: received pending_outfiles with %d tasks (current: %s)",
+		agentID, len(msg.TaskIDs), msg.CurrentTaskID)
+
+	if len(msg.TaskIDs) == 0 {
+		debug.Info("Agent %d: no pending outfiles to process", agentID)
+		return nil
+	}
+
+	// Reorder to prioritize current task if specified
+	taskIDs := make([]string, 0, len(msg.TaskIDs))
+	if msg.CurrentTaskID != "" {
+		// Add current task first
+		taskIDs = append(taskIDs, msg.CurrentTaskID)
+		// Add remaining tasks
+		for _, id := range msg.TaskIDs {
+			if id != msg.CurrentTaskID {
+				taskIDs = append(taskIDs, id)
+			}
+		}
+	} else {
+		taskIDs = msg.TaskIDs
+	}
+
+	// Process each pending outfile
+	for _, taskIDStr := range taskIDs {
+		taskID, err := uuid.Parse(taskIDStr)
+		if err != nil {
+			debug.Error("Agent %d: invalid task ID %s: %v", agentID, taskIDStr, err)
+			continue
+		}
+
+		// Get the task to check its status
+		task, err := s.jobTaskRepo.GetByID(ctx, taskID)
+		if err != nil {
+			debug.Error("Agent %d: failed to get task %s: %v", agentID, taskID, err)
+			// If we can't find the task, send delete approval to clean up orphaned outfiles
+			// Use 0 as expected count and task_exists=false - agent should delete unconditionally
+			s.sendOutfileDeleteApproval(ctx, agentID, taskID, 0, false)
+			continue
+		}
+
+		// Check if task is completed (all cracks processed)
+		if task.Status == models.JobTaskStatusCompleted {
+			// Task is complete, safe to delete the outfile
+			// Use task.ExpectedCrackCount instead of CountCrackedByTaskID
+			// CountCrackedByTaskID returns 0 when cracks were originally from a different task
+			expectedCount := task.ExpectedCrackCount
+			debug.Info("Agent %d: task %s is completed, sending delete approval (expected_line_count=%d)", agentID, taskID, expectedCount)
+			s.sendOutfileDeleteApproval(ctx, agentID, taskID, expectedCount, true)
+		} else if task.Status == models.JobTaskStatusProcessingError {
+			// Task had a processing error, but we've exhausted retries - delete the outfile
+			// Use task.ExpectedCrackCount instead of CountCrackedByTaskID
+			expectedCount := task.ExpectedCrackCount
+			debug.Info("Agent %d: task %s has processing_error status, sending delete approval (expected_line_count=%d)", agentID, taskID, expectedCount)
+			s.sendOutfileDeleteApproval(ctx, agentID, taskID, expectedCount, true)
+		} else {
+			// Task is not complete - request retransmit
+			// Get expected crack count from task's expected_crack_count field
+			expectedCount := task.ExpectedCrackCount
+
+			debug.Info("Agent %d: task %s status is %s, requesting retransmit (expected %d cracks)",
+				agentID, taskID, task.Status, expectedCount)
+			s.requestCrackRetransmit(ctx, agentID, taskID, expectedCount)
+		}
+	}
+
+	return nil
+}
+
+// ProcessOutfileDeleteRejected handles when an agent rejects outfile deletion due to line count mismatch
+// This happens when the outfile grew while retransmit was being processed (race condition)
+// We re-request retransmit to capture the additional cracks
+func (s *JobWebSocketIntegration) ProcessOutfileDeleteRejected(ctx context.Context, agentID int, payload json.RawMessage) error {
+	var rejection struct {
+		TaskID            string `json:"task_id"`
+		ExpectedLineCount int64  `json:"expected_line_count"`
+		ActualLineCount   int64  `json:"actual_line_count"`
+		Reason            string `json:"reason"`
+	}
+
+	if err := json.Unmarshal(payload, &rejection); err != nil {
+		return fmt.Errorf("failed to unmarshal outfile_delete_rejected payload: %w", err)
+	}
+
+	debug.Warning("Agent %d rejected outfile deletion for task %s: expected %d lines, actual %d lines (reason: %s)",
+		agentID, rejection.TaskID, rejection.ExpectedLineCount, rejection.ActualLineCount, rejection.Reason)
+
+	taskID, err := uuid.Parse(rejection.TaskID)
+	if err != nil {
+		return fmt.Errorf("invalid task ID: %w", err)
+	}
+
+	// Check if the task still exists in the database
+	task, err := s.jobTaskRepo.GetByID(ctx, taskID)
+	if err != nil || task == nil {
+		// Task no longer exists - approve deletion unconditionally
+		debug.Info("Task %s no longer exists in database, approving unconditional deletion", rejection.TaskID)
+		return s.sendOutfileDeleteApproval(ctx, agentID, taskID, 0, false)
+	}
+
+	// Re-request retransmit to capture the additional cracks
+	additionalCracks := rejection.ActualLineCount - rejection.ExpectedLineCount
+	debug.Info("Re-requesting retransmit for task %s to sync %d additional cracks",
+		rejection.TaskID, additionalCracks)
+
+	// Use the actual count as the expected count for the new retransmit
+	s.requestCrackRetransmit(ctx, agentID, taskID, int(rejection.ActualLineCount))
 
 	return nil
 }

@@ -1,6 +1,5 @@
 /var/log/krakenhashes/backend/*.log {
     size 100M
-    daily
     missingok
     rotate 20
     compress
@@ -9,47 +8,20 @@
     create 0640 root root
     sharedscripts
     postrotate
-        supervisorctl signal HUP krakenhashes-backend
+        supervisorctl signal HUP krakenhashes-backend || true
     endscript
-}
-
-/var/log/krakenhashes/frontend/*.log {
-    size 100M
-    daily
-    missingok
-    rotate 20
-    compress
-    delaycompress
-    notifempty
-    create 0640 root root
 }
 
 /var/log/krakenhashes/nginx/*.log {
     size 100M
-    daily
     missingok
     rotate 20
     compress
     delaycompress
     notifempty
-    create 0640 nginx nginx
+    create 0640 www-data www-data
     sharedscripts
     postrotate
-        supervisorctl signal HUP krakenhashes-nginx
+        supervisorctl signal HUP nginx || true
     endscript
 }
-
-/var/log/krakenhashes/postgres/*.log {
-    size 100M
-    daily
-    missingok
-    rotate 20
-    compress
-    delaycompress
-    notifempty
-    create 0640 postgres postgres
-    sharedscripts
-    postrotate
-        supervisorctl signal HUP krakenhashes-postgres
-    endscript
-} 

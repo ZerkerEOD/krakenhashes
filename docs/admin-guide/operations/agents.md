@@ -127,35 +127,44 @@ KH_PING_PERIOD: "54s"     # Ping interval (must be < pong wait)
 ### Managing Agent Settings
 
 ```json
-// PUT /api/agents/{id}
+// PUT /api/admin/agents/{id}/settings
 {
   "isEnabled": true,
   "ownerId": "user-uuid",
   "extraParameters": "--custom-charset1=?l?u?d",
-  "binaryVersionId": 3,
-  "binaryOverride": true
+  "binaryVersion": "7.x"
 }
 ```
 
-### Agent Binary Version Override
+### Agent Binary Version Pattern
 
-Users can configure their agents to use a specific hashcat binary version instead of the job-level or system default binary.
+Agents can be configured with a binary version pattern that determines which jobs they can run and which binary they use. The pattern system uses flexible matching to support mixed-version environments.
 
-#### Configuring Binary Override
+#### Pattern Syntax
+
+| Pattern | Example | Description |
+|---------|---------|-------------|
+| `default` | `"default"` | Agent can run any job, uses whatever binary is needed |
+| Major Wildcard | `"7.x"` | Agent runs v7 jobs only (7.0.0, 7.1.2, 7.2.0, etc.) |
+| Minor Wildcard | `"7.1.x"` | Agent runs v7.1 jobs only (7.1.0, 7.1.2, 7.1.5, etc.) |
+| Exact | `"7.1.2"` | Agent runs jobs requiring exactly v7.1.2 (any suffix) |
+| Exact with Suffix | `"7.1.2-NTLMv3"` | Agent runs only jobs requiring this specific build |
+
+For detailed compatibility rules, see [Binary Version Patterns](../../reference/architecture/binary-version-patterns.md).
+
+#### Configuring Agent Binary Version
 
 1. **Via Agent Details Page**
    - Navigate to your agent's detail page
-   - Scroll to the "Binary Version Override" section
-   - Enable "Override Binary" toggle
-   - Select desired binary version from dropdown
+   - Find the "Binary Version" section
+   - Select a version pattern from the dropdown
    - Click "Save"
 
 2. **Via API**
    ```json
-   // PUT /api/agents/{id}
+   // PUT /api/admin/agents/{id}/settings
    {
-     "binaryVersionId": 3,
-     "binaryOverride": true
+     "binaryVersion": "7.x"
    }
    ```
 
@@ -163,26 +172,30 @@ Users can configure their agents to use a specific hashcat binary version instea
 
 When an agent needs to execute a job or benchmark, the system uses this priority order:
 
-1. **Agent Override** (highest priority) - Binary specified in agent settings
-2. **Job Binary** - Binary specified for the specific job execution
+1. **Agent Pattern** (highest priority) - Binary version pattern specified in agent settings
+2. **Job Pattern** - Binary version pattern specified for the specific job execution
 3. **System Default** (lowest priority) - Active default binary for the system
+
+The pattern is resolved to an actual binary ID when downloading. For wildcards like `"7.x"`, the system selects the newest matching binary.
 
 #### Use Cases
 
-- **Testing New Versions**: Test new hashcat releases on specific agents before wider deployment
-- **Compatibility Issues**: Work around driver or hardware compatibility problems
+- **Testing New Versions**: Set agent to `"7.x"` to test new hashcat releases
+- **Compatibility Issues**: Set agent to `"6.x"` for older driver compatibility
 - **Performance Optimization**: Use specific binary versions that perform better on certain hardware
-- **Gradual Rollouts**: Migrate agents to new versions incrementally
+- **Gradual Rollouts**: Migrate agents incrementally from `"6.x"` to `"7.x"`
+- **Custom Builds**: Use exact patterns like `"7.1.2-NTLMv3"` for specialized binaries
 
 #### Hashcat Version Compatibility Note
 
-⚠️ **Important**: Hashcat 7.x may detect devices but fail to recognize them as usable compute devices depending on GPU driver versions. If your agent shows devices in the hardware detection but they are not available for job execution, it is recommended to use Hashcat 6.x binaries (such as 6.2.6 or 6.2.5) as they have better compatibility with older driver versions.
+⚠️ **Important**: Hashcat 7.x may detect devices but fail to recognize them as usable compute devices depending on GPU driver versions. If your agent shows devices in the hardware detection but they are not available for job execution, set the agent's binary version to `"6.x"` to use Hashcat 6.x binaries (such as 6.2.6 or 6.2.5) which have better compatibility with older driver versions.
 
 #### Important Notes
 
-- Agent binary override affects device detection, benchmarks, and job execution
-- The preferred binary is automatically downloaded to the agent if not present
-- If the preferred binary becomes unavailable, the system falls back to the next priority level
+- Agent binary version pattern affects job compatibility, device detection, benchmarks, and job execution
+- The resolved binary is automatically downloaded to the agent if not present
+- Jobs with no compatible agents will stay pending until a compatible agent connects
+- Use `"default"` for maximum flexibility (agent can run any job)
 
 ### Disabling/Enabling Agents
 
@@ -600,6 +613,131 @@ Adjust based on your environment:
 2. Investigate network stability
 3. Check agent system resources and logs
 4. Consider agent health checks
+
+## Agent State Synchronization
+
+### Overview (v1.3.1+)
+
+KrakenHashes implements a comprehensive state synchronization protocol to ensure agents and the backend remain in sync, preventing "stuck" agents that appear busy but have no running task.
+
+### Automatic State Recovery
+
+The system provides multiple layers of automatic recovery:
+
+#### 1. Completion Acknowledgment Protocol
+
+When an agent completes a task:
+1. Agent sends `job_progress` with `status=completed`
+2. Backend processes completion atomically (task + agent status in single transaction)
+3. Backend sends `task_complete_ack` message
+4. Agent waits for ACK before accepting new work
+
+If ACK is not received:
+- Agent retries completion message (up to 3 times, 30-second timeout each)
+- After retries exhausted, marks task as `completion_pending`
+- Agent transitions to idle to accept new work
+
+#### 2. Stuck Detection (Agent-Side)
+
+The agent monitors its own state:
+- Check interval: 30 seconds
+- Stuck timeout: 2 minutes in "completing" state
+- Recovery action: Force transition to idle, set `completion_pending` flag
+
+#### 3. State Sync Protocol (Backend-Initiated)
+
+Every 5 minutes, the backend can request state synchronization:
+1. Backend sends `state_sync_request` to agent
+2. Agent responds with current state, active task, and pending completion info
+3. Backend resolves any mismatches
+
+### Agent State Machine
+
+Agents now use an explicit state machine to track their status:
+
+| State | Description |
+|-------|-------------|
+| **Idle** | No task assigned, available for work |
+| **Running** | Task actively executing |
+| **Completing** | Task finished, waiting for backend ACK |
+| **Stopped** | Task stopped by user request |
+| **Failed** | Task failed due to error |
+
+### Monitoring Agent State
+
+#### Dashboard Indicators
+- Agent card shows current state
+- "Busy" indicator reflects actual task execution
+- State sync timestamps visible in agent details
+
+#### Key Log Messages
+
+**Normal operation:**
+```
+INFO: Task completed, waiting for ACK
+INFO: ACK received, transitioning to idle
+```
+
+**ACK timeout (recovery):**
+```
+WARNING: No ACK received, retrying (attempt 2/3)
+WARNING: ACK retries exhausted, marking completion_pending
+INFO: Transitioning to idle for recovery
+```
+
+**Stuck detection (automatic):**
+```
+WARNING: Stuck detection triggered - in COMPLETING for 2m30s
+INFO: Force recovery initiated
+INFO: Completion marked as pending, now idle
+```
+
+### Manual State Recovery
+
+If automatic recovery doesn't resolve the issue:
+
+#### Via Admin Panel
+1. Navigate to Agent Details page
+2. Check current state and task assignment
+3. Use "Reset Agent State" button if available
+
+#### Via API
+```bash
+# Reset agent's busy status
+curl -k -X POST -H "Authorization: Bearer $TOKEN" \
+     https://backend:31337/api/admin/agents/AGENT_ID/reset-state
+```
+
+#### Via Database (Last Resort)
+```sql
+-- Clear agent busy status and task references
+UPDATE agents
+SET metadata = jsonb_set(
+    jsonb_set(
+        jsonb_set(COALESCE(metadata, '{}')::jsonb, '{busy_status}', 'null'),
+        '{current_task_id}', 'null'
+    ),
+    '{current_job_id}', 'null'
+),
+updated_at = NOW()
+WHERE id = AGENT_ID;
+```
+
+### Configuring State Sync
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| State sync interval | 5 minutes | How often backend requests state sync |
+| ACK wait timeout | 30 seconds | Agent waits this long for each ACK attempt |
+| ACK max retries | 3 | Number of ACK retry attempts |
+| Stuck detection timeout | 2 minutes | Time before agent considers itself stuck |
+
+### Best Practices
+
+1. **Keep agents updated** - v1.3.1+ includes all state sync features
+2. **Monitor stuck warnings** - Frequent stuck detections indicate network issues
+3. **Check completion_pending** - Backend resolves these automatically via state sync
+4. **Review network stability** - ACK timeouts often indicate connectivity problems
 
 ## Troubleshooting Agent Issues
 

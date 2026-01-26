@@ -199,8 +199,14 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	}
 	debug.Info("Initialized AgentBinaryService")
 
-	// Setup public routes
-	SetupPublicRoutes(apiRouter, database, agentService, binaryService, appConfig, tlsProvider)
+	// Create auth handler (needed for both public and protected routes)
+	authHandler := auth.NewHandler(database, emailService)
+
+	// Setup public routes (returns SSO manager for admin routes)
+	ssoManager := SetupPublicRoutes(apiRouter, database, agentService, binaryService, appConfig, tlsProvider)
+
+	// Setup public passkey routes (MFA authentication flow - no JWT required)
+	SetupPublicPasskeyRoutes(apiRouter, authHandler)
 
 	// Setup JWT protected routes
 	jwtRouter := apiRouter.PathPrefix("").Subrouter()
@@ -208,7 +214,6 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	jwtRouter.Use(loggingMiddleware)
 
 	// Add token refresh endpoint (requires authentication)
-	authHandler := auth.NewHandler(database, emailService)
 	jwtRouter.HandleFunc("/refresh-token", authHandler.RefreshTokenHandler).Methods("POST", "OPTIONS")
 	debug.Info("Configured token refresh endpoint: /refresh-token")
 
@@ -230,9 +235,11 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	jwtRouter.HandleFunc("/settings/max-priority", userSystemSettingsHandler.GetMaxPriorityForUsers).Methods(http.MethodGet, http.MethodOptions)
 	jwtRouter.HandleFunc("/settings/retention", userRetentionSettingsHandler.GetDefaultRetention).Methods(http.MethodGet, http.MethodOptions)
 
-	SetupAdminRoutes(jwtRouter, database, emailService, adminJobsHandler, binaryManager) // Pass adminJobsHandler and binaryManager
+	SetupAdminRoutes(jwtRouter, database, emailService, adminJobsHandler, binaryManager, ssoManager) // Pass adminJobsHandler, binaryManager, and ssoManager
 	SetupUserRoutes(jwtRouter, database, appConfig.DataDir, binaryManager, agentService)
 	SetupMFARoutes(jwtRouter, mfaHandler, database, emailService)
+	SetupPasskeyRoutes(jwtRouter, authHandler, database)
+	SetupAdminPasskeyRoutes(jwtRouter, authHandler, database)
 	// Use the enhanced WebSocket setup with job integration
 	SetupWebSocketWithJobRoutes(r, agentService, tlsProvider, sqlDB, appConfig, wordlistManager, ruleManager, binaryManager, potfileService)
 	SetupBinaryRoutes(jwtRouter, sqlDB, appConfig, agentService)
@@ -256,6 +263,9 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	// Setup WebSocket Routes
 	debug.Info("Setting up WebSocket routes...")
 
+	// Setup User API v1 routes
+	SetupV1Routes(r, database, appConfig.DataDir, binaryManager)
+
 	debug.Info("Route configuration completed successfully")
 	logRegisteredRoutes(r)
 }
@@ -273,7 +283,7 @@ func loggingMiddleware(next http.Handler) http.Handler {
 		start := time.Now()
 
 		debug.Info("Request received: %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
-		debug.Debug("Request headers: %v", r.Header)
+		debug.Debug("Request headers: %s", debug.SanitizeHeaders(r.Header))
 
 		// Create a response wrapper to capture the status code
 		rw := &responseWriter{w, http.StatusOK}

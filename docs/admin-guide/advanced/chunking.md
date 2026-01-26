@@ -177,9 +177,98 @@ When rule splitting is active:
 - Automatically cleaned up after job completion
 - Synced to agents like normal rule files
 
+## Salted Hash Considerations
+
+### Understanding Salt Impact
+
+For hash types that use per-hash salts (e.g., NetNTLMv2, bcrypt, scrypt), chunk calculations behave differently because hashcat reports speed as `hash_ops/sec` rather than `candidates/sec`.
+
+**Key Insight:**
+```
+For salted hashes: hash_ops/sec = candidate_rate × salt_count
+```
+
+The remaining uncracked hashes act as the effective salt count.
+
+### How the System Adjusts
+
+KrakenHashes automatically detects salted hash types and adjusts:
+
+1. **Benchmark Caching**: Stores benchmarks per salt count, not just per hash type
+2. **Speed Calculation**: Divides reported speed by remaining hash count
+3. **Chunk Sizing**: Uses adjusted candidate speed for accurate chunk duration
+
+**Example: NetNTLMv2 Job**
+
+| Metric | Without Adjustment | With Adjustment |
+|--------|-------------------|-----------------|
+| Reported speed | 500 MH/s | 500 MH/s |
+| Remaining hashes | 5,000 | 5,000 |
+| Actual candidate speed | 500 MH/s (wrong!) | 100 KH/s (correct) |
+| Chunk size (20 min) | 600 billion | 120 million |
+
+Without adjustment, chunks would be 5,000× too large!
+
+### Salted Hash Type Examples
+
+The following are automatically classified as salted:
+
+| Category | Examples |
+|----------|----------|
+| **Network Auth** | NetNTLMv1 (5500), NetNTLMv2 (5600), Kerberos |
+| **Password Hashing** | bcrypt, scrypt, PBKDF2, Argon2, md5crypt |
+| **Disk Encryption** | VeraCrypt, TrueCrypt, LUKS, BitLocker |
+| **Password Managers** | KeePass, 1Password, LastPass, Bitwarden |
+
+### Configuration Impact
+
+No special configuration is needed - the system automatically:
+- Detects salted hash types via the `is_salted` database flag
+- Calculates salt count from remaining uncracked hashes
+- Adjusts benchmark lookups and chunk calculations
+
+### Performance Implications
+
+**As hashes crack**, the salt count decreases:
+- Fewer salts = higher candidate throughput
+- Chunk sizes increase proportionally
+- Job ETA becomes more accurate over time
+
+**Initial chunks** may be conservative:
+- Full salt count at job start
+- System becomes more accurate as cracking progresses
+
+### Monitoring Salted Hash Jobs
+
+Watch for these patterns:
+
+**Healthy progress:**
+```
+INFO: Salt count: 5000, adjusted speed: 100 KH/s
+INFO: Chunk calculated: 120M candidates (~20 min)
+```
+
+**After cracking:**
+```
+INFO: Salt count: 1000 (4000 cracked), adjusted speed: 500 KH/s
+INFO: Chunk calculated: 600M candidates (~20 min)
+```
+
+### Troubleshooting
+
+**Chunks too large/slow:**
+- Verify hash type has `is_salted = true` in database
+- Check benchmark was captured with correct salt count
+- Force re-benchmark if hash count changed significantly
+
+**Chunks too small/fast:**
+- Normal for salted hashes with many remaining targets
+- Chunk duration will normalize as hashes crack
+
 ## Future Enhancements
 
 - Pre-calculation of optimal chunk distribution
 - Dynamic chunk resizing based on actual speed
 - Rule deduplication before splitting
 - Compression for rule chunk transfers
+- Salt-count-aware benchmark interpolation

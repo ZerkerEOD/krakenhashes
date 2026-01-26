@@ -34,7 +34,8 @@ Agents store synchronized files in a data directory structure:
 │   ├── general/
 │   ├── specialized/
 │   ├── targeted/
-│   └── custom/
+│   ├── custom/
+│   └── association/    # Association wordlists (v1.4.0+)
 ├── rules/
 │   ├── hashcat/
 │   ├── john/

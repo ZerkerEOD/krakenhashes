@@ -45,10 +45,13 @@ Account security settings manage login attempts, session duration, and security 
    - Must be a positive integer
    - Affects accounts locked due to exceeded login attempts
 
-3. **JWT Token Expiry**
+3. **JWT Token Expiry (Sliding Window Sessions)**
    - Default: 60 minutes
-   - Duration in minutes before an authentication token expires
-   - Forces users to re-authenticate after expiration
+   - Base duration for authentication sessions
+   - **Sliding Window Behavior**: Sessions automatically extend when you're actively using the system. The session refreshes after 1/3 of the session time (e.g., 20 minutes for a 60-minute session) when you perform actions like navigating between pages.
+   - **Activity-Based Extension**: Only actual user actions trigger session extension. Background polling, auto-refresh, and SSE streams do not extend the session.
+   - **Grace Period**: When a session refreshes, the old token remains valid for 5 minutes to handle concurrent requests from multiple browser tabs.
+   - If you remain idle for the full session duration, you'll need to re-authenticate
    - Balances security with user convenience
 
 4. **Notification Aggregation Interval**
@@ -89,11 +92,31 @@ The system supports multiple MFA methods:
    - Works offline once configured
    - Examples: Bitwarden, Google Authenticator, Authy, Microsoft Authenticator
 
-3. **Passkey (Future Feature)**
-   - Currently disabled
-   - Will support FIDO2/WebAuthn standard
+3. **Passkey (WebAuthn/FIDO2)**
+   - Supports FIDO2/WebAuthn standard
    - Provides highest security level
-   - Requires compatible hardware/devices
+   - Works with security keys (YubiKey), platform authenticators (Windows Hello, Face ID, Touch ID), and password managers (Bitwarden, 1Password)
+   - Requires WebAuthn-compatible browser and configured RP ID
+   - **Note**: WebAuthn does NOT support IP addresses as RP IDs - requires domain name
+
+### WebAuthn Configuration
+
+Before users can register passkeys, administrators must configure WebAuthn settings in the Authentication Settings page:
+
+1. **Relying Party ID (RP ID)**
+   - Domain name where KrakenHashes is hosted
+   - Examples: `localhost` (dev), `krakenhashes.example.com` (prod)
+   - Cannot be an IP address (WebAuthn specification limitation)
+   - **Warning**: Once set and credentials registered, changing this will invalidate all existing passkeys
+
+2. **Allowed Origins**
+   - Full URLs where the application is accessed
+   - Examples: `https://localhost:3000`, `https://krakenhashes.example.com`
+   - Include all URLs users might use to access the system
+
+3. **Display Name**
+   - Friendly name shown during passkey registration
+   - Default: "KrakenHashes"
 
 ### Code Settings
 

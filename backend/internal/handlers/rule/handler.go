@@ -587,6 +587,29 @@ func (h *Handler) HandleUpdateRule(w http.ResponseWriter, r *http.Request) {
 	httputil.RespondWithJSON(w, http.StatusOK, convertRuleToResponse(rule))
 }
 
+// HandleGetDeletionImpact handles requests to get the impact of deleting a rule
+func (h *Handler) HandleGetDeletionImpact(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Get rule ID from URL
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		httputil.RespondWithError(w, http.StatusBadRequest, "Invalid rule ID")
+		return
+	}
+
+	// Get deletion impact
+	impact, err := h.manager.GetDeletionImpact(ctx, id)
+	if err != nil {
+		debug.Error("Failed to get deletion impact for rule %d: %v", id, err)
+		httputil.RespondWithError(w, http.StatusInternalServerError, "Failed to get deletion impact")
+		return
+	}
+
+	httputil.RespondWithJSON(w, http.StatusOK, impact)
+}
+
 // HandleDeleteRule handles deleting a rule
 func (h *Handler) HandleDeleteRule(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -606,10 +629,32 @@ func (h *Handler) HandleDeleteRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Parse request body for confirm_id (optional)
+	var confirmID *int
+	if r.Body != nil && r.ContentLength > 0 {
+		var req models.DeleteResourceRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err == nil && req.ConfirmID != nil {
+			confirmID = req.ConfirmID
+		}
+	}
+
 	// Delete rule
-	if err := h.manager.DeleteRule(ctx, id); err != nil {
+	if err := h.manager.DeleteRule(ctx, id, confirmID); err != nil {
 		if err == models.ErrResourceInUse {
-			httputil.RespondWithError(w, http.StatusConflict, "Cannot delete rule: it is currently being used by active jobs")
+			// Get the deletion impact to return in the error response
+			impact, impactErr := h.manager.GetDeletionImpact(ctx, id)
+			if impactErr != nil {
+				debug.Error("Failed to get deletion impact: %v", impactErr)
+				httputil.RespondWithError(w, http.StatusConflict, "Cannot delete rule: it has references that require confirmation")
+				return
+			}
+			// Return 409 with the impact details
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error":  "Cannot delete rule: it has references that require confirmation",
+				"impact": impact,
+			})
 			return
 		}
 		debug.Error("Failed to delete rule %d: %v", id, err)

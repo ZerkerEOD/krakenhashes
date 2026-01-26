@@ -93,6 +93,54 @@ LOG_LEVEL=WARNING
 LOG_LEVEL=ERROR
 ```
 
+## Remote Debug Management
+
+Starting with v1.4.0, administrators can remotely manage agent debug settings through the web interface without requiring direct access to the agent machine.
+
+### Admin-Controlled Debug Toggle
+
+Administrators can enable/disable debug mode on agents remotely:
+
+1. Navigate to **Admin Menu → Diagnostics**
+2. Find the agent in the **Agent Debug Management** table
+3. Click the toggle switch to enable/disable debug mode
+
+This sends a WebSocket message to the agent, which immediately:
+
+- Enables/disables debug logging
+- Starts/stops file logging if configured
+- Begins/stops buffering log entries for remote retrieval
+
+### Remote Log Viewing
+
+Administrators can view recent agent logs directly from the web interface:
+
+1. In the Diagnostics page, click **View** next to an agent
+2. Select the log level filter (ALL, DEBUG, INFO, WARNING, ERROR)
+3. Choose hours to retrieve (1-168 hours)
+4. Click **Refresh** to update
+
+!!! note "Log Availability"
+    Remote log viewing requires:
+
+    - Agent to be connected via WebSocket
+    - Debug mode to be enabled (for DEBUG level logs)
+    - Agent to have disk space for file logging (if configured)
+
+### Remote Log Purging
+
+Administrators can clear agent logs remotely:
+
+1. In the Diagnostics page, click **Purge** next to an agent
+2. Confirm the purge action
+3. Both buffered logs and file logs are cleared
+
+### Including Agent Logs in Diagnostics Package
+
+When downloading a diagnostic package, check **"Include Agent Logs"** to collect logs from all connected agents. This uses WebSocket to request logs, so agents must be online during download.
+
+For more details on the admin diagnostics interface, see the [System Diagnostics](../admin-guide/operations/diagnostics.md) documentation.
+
 ## Debug Output Interpretation
 
 ### Log Message Format
@@ -148,6 +196,33 @@ Example:
 [DEBUG] Starting hashcat with command: hashcat -m 1000 -a 0 hashes.txt wordlist.txt
 [DEBUG] Hashcat process started with PID: 12345
 [INFO] Job progress: Task task_abc123, Keyspace 1000000, Hash rate 2500000 H/s
+```
+
+#### Task State Machine (v1.3.1+)
+```
+[DEBUG] State transition: Idle → Running (task: task_abc123)
+[DEBUG] State transition: Running → Completing (task: task_abc123)
+[INFO] Waiting for ACK from backend
+[DEBUG] ACK received, timestamp: 2024-01-15T10:30:00Z
+[DEBUG] State transition: Completing → Idle
+```
+
+#### Completion ACK Protocol
+```
+[INFO] Task task_abc123 completed, sending progress update
+[DEBUG] Entering Completing state, starting ACK wait
+[INFO] ACK wait attempt 1/3, timeout: 30s
+[DEBUG] ACK received successfully
+[INFO] Task completion acknowledged, transitioning to idle
+```
+
+#### Stuck Detection Recovery
+```
+[WARNING] Stuck detection check: state=Completing, duration=2m30s
+[WARNING] Stuck timeout exceeded (2m), initiating recovery
+[INFO] Force recovery: marking completion_pending for task_abc123
+[DEBUG] State transition: Completing → Idle (forced)
+[INFO] Agent recovered, now idle and available for work
 ```
 
 ## Component-Specific Debugging
@@ -218,6 +293,73 @@ Job debug messages:
 [DEBUG] Hashcat stdout: Status...........: Running
 [INFO] Job completed successfully, found 15 cracked hashes
 ```
+
+### Task State Machine Debugging (v1.3.1+)
+
+The agent uses an explicit state machine to track task status. Debug state transitions:
+
+```bash
+# Monitor state transitions
+tail -f agent.log | grep -E "(state|State|transition|Transition)"
+
+# Monitor ACK protocol
+tail -f agent.log | grep -E "(ACK|ack|waiting|acknowledge)"
+
+# Monitor stuck detection
+tail -f agent.log | grep -E "(stuck|Stuck|recovery|Recovery|pending)"
+```
+
+**State Machine Debug Messages:**
+
+Normal task lifecycle:
+```
+[DEBUG] TaskStateManager: TransitionTo(Running, task_abc123)
+[DEBUG] TaskStateManager: state=Running, taskID=task_abc123
+[DEBUG] TaskStateManager: TransitionTo(Completing, task_abc123)
+[DEBUG] ACK wait started for task_abc123
+[DEBUG] ACK received: task_abc123, success=true
+[DEBUG] TaskStateManager: TransitionToIdle()
+```
+
+ACK timeout and retry:
+```
+[WARNING] ACK wait timeout for task_abc123 (attempt 1/3)
+[INFO] Retrying completion message for task_abc123
+[DEBUG] Resending job_progress for task_abc123
+[WARNING] ACK wait timeout for task_abc123 (attempt 2/3)
+[WARNING] ACK wait timeout for task_abc123 (attempt 3/3)
+[WARNING] ACK retries exhausted, setting completion_pending
+[DEBUG] TaskStateManager: SetCompletionPending(task_abc123)
+[DEBUG] TaskStateManager: TransitionToIdle()
+```
+
+Stuck detection triggered:
+```
+[DEBUG] Stuck detection check: state=Completing, taskID=task_abc123, duration=2m15s
+[DEBUG] Stuck detection check: state=Completing, taskID=task_abc123, duration=2m45s
+[WARNING] Stuck detection: duration 2m45s exceeds timeout 2m
+[INFO] Initiating force recovery for task_abc123
+[DEBUG] TaskStateManager: SetCompletionPending(task_abc123)
+[DEBUG] TaskStateManager: TransitionToIdle() [forced]
+[INFO] Force recovery complete, agent now idle
+```
+
+**Querying Current State:**
+
+Add diagnostic logging by checking state:
+```bash
+# Look for state info in logs
+tail -f agent.log | grep -E "GetState|currentState|GetStateInfo"
+```
+
+**Common State Issues:**
+
+| Issue | Log Pattern | Solution |
+|-------|------------|----------|
+| Stuck in Completing | `state=Completing` for >2 min | Wait for auto-recovery or restart agent |
+| ACK never received | Multiple `ACK wait timeout` | Check network/backend connectivity |
+| Rapid state changes | Fast Idle→Running→Idle | Check for task assignment rejections |
+| Completion pending | `completion_pending=true` | Backend resolves on next state sync |
 
 ### Hardware Detection Debugging
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Box, Tabs, Tab, Typography, Paper, TextField, Button, Alert, CircularProgress } from '@mui/material';
 import { EmailSettings } from './EmailSettings';
 import { useAuth } from '../../contexts/AuthContext';
@@ -13,6 +13,9 @@ import AgentDownloadSettings from '../../components/admin/AgentDownloadSettings'
 import { useSnackbar } from 'notistack';
 import { updateAuthSettings } from '../../services/auth';
 import { getDefaultClientRetentionSetting, updateDefaultClientRetentionSetting } from '../../services/api';
+
+// Lazy load SSO Settings to avoid circular dependency
+const SSOSettingsPage = lazy(() => import('../admin/SSOSettings'));
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -158,7 +161,7 @@ export const AdminSettings = () => {
   const [currentTab, setCurrentTab] = useState(() => {
     const savedTab = localStorage.getItem('adminSettingsTab');
     const initialTab = savedTab ? parseInt(savedTab, 10) : 0;
-    return initialTab >= 0 && initialTab < 9 ? initialTab : 0;
+    return initialTab >= 0 && initialTab < 10 ? initialTab : 0;
   });
   
   const [loading, setLoading] = useState(false);
@@ -190,6 +193,7 @@ export const AdminSettings = () => {
           >
             <Tab label="Email Settings" />
             <Tab label="Authentication Settings" />
+            <Tab label="SSO Settings" />
             <Tab label="Binary Management" />
             <Tab label="System Settings" />
             <Tab label="Client Settings" />
@@ -204,7 +208,7 @@ export const AdminSettings = () => {
           <EmailSettings />
         </TabPanel>
         <TabPanel value={currentTab} index={1}>
-          <AuthSettings 
+          <AuthSettings
             onSave={async (settings) => {
               setLoading(true);
               try {
@@ -222,24 +226,29 @@ export const AdminSettings = () => {
           />
         </TabPanel>
         <TabPanel value={currentTab} index={2}>
-          <BinaryManagement />
+          <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>}>
+            <SSOSettingsPage />
+          </Suspense>
         </TabPanel>
         <TabPanel value={currentTab} index={3}>
-          <SystemSettings />
+          <BinaryManagement />
         </TabPanel>
         <TabPanel value={currentTab} index={4}>
-          <ClientSettingsTab />
+          <SystemSettings />
         </TabPanel>
         <TabPanel value={currentTab} index={5}>
-          <HashTypeManager />
+          <ClientSettingsTab />
         </TabPanel>
         <TabPanel value={currentTab} index={6}>
-          <JobExecutionSettings />
+          <HashTypeManager />
         </TabPanel>
         <TabPanel value={currentTab} index={7}>
-          <MonitoringSettings />
+          <JobExecutionSettings />
         </TabPanel>
         <TabPanel value={currentTab} index={8}>
+          <MonitoringSettings />
+        </TabPanel>
+        <TabPanel value={currentTab} index={9}>
           <AgentDownloadSettings />
         </TabPanel>
       </Paper>

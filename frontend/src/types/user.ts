@@ -31,6 +31,14 @@ export interface User {
   
   // Teams (if applicable)
   teams?: Team[];
+
+  // API Key status
+  hasApiKey?: boolean;
+  apiKeyCreatedAt?: string;
+  apiKeyLastUsed?: string;
+
+  // SSO provider (from last successful login)
+  lastAuthProvider?: string;
 }
 
 export interface Team {
@@ -77,14 +85,17 @@ export interface NotificationPreferences {
 
 export interface LoginAttempt {
   id: string;
-  userId?: string;
+  user_id?: string;
   username: string;
-  ipAddress: string;
-  userAgent: string;
+  ip_address: string;
+  user_agent: string;
   success: boolean;
-  failureReason?: string;
-  attemptedAt: string;
+  failure_reason?: string;
+  attempted_at: string;
   notified: boolean;
+  // SSO provider info
+  provider_id?: string;
+  provider_type?: string;
 }
 
 export interface ActiveSession {
@@ -115,4 +126,28 @@ export interface TerminateAllSessionsResponse {
     message: string;
     count: number;
   };
+}
+
+// API Key Management
+export interface ApiKeyInfo {
+  hasKey: boolean;
+  createdAt?: string;
+  lastUsed?: string;
+}
+
+export interface ApiKeyGenerateResponse {
+  apiKey: string;
+  createdAt: string;
+}
+
+export interface ApiKeyGenerateRequest {
+  // No fields needed - backend generates the key
+}
+
+export interface ApiKeyInfoResponse {
+  data: ApiKeyInfo;
+}
+
+export interface ApiKeyResponse {
+  data: ApiKeyGenerateResponse;
 }

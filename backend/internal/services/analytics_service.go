@@ -15,6 +15,23 @@ import (
 	"github.com/lib/pq"
 )
 
+// safePercentage calculates a percentage safely, returning 0.0 if denominator is 0
+// This prevents NaN values which cannot be serialized to JSON
+func safePercentage(numerator, denominator int) float64 {
+	if denominator == 0 {
+		return 0.0
+	}
+	return float64(numerator) / float64(denominator) * 100
+}
+
+// safeFloat64 returns 0.0 if the input is NaN or Inf, otherwise returns the input
+func safeFloat64(val float64) float64 {
+	if math.IsNaN(val) || math.IsInf(val, 0) {
+		return 0.0
+	}
+	return val
+}
+
 // AnalyticsService handles password analytics generation
 type AnalyticsService struct {
 	repo *repository.AnalyticsRepository
@@ -372,7 +389,7 @@ func (s *AnalyticsService) calculateLengthDistribution(passwords []*models.Hash)
 	// Calculate percentages
 	total := len(passwords)
 	for key, cat := range distribution {
-		cat.Percentage = float64(cat.Count) / float64(total) * 100
+		cat.Percentage = safePercentage(cat.Count, total)
 		distribution[key] = cat
 	}
 
@@ -394,7 +411,10 @@ func (s *AnalyticsService) calculateLengthDistribution(passwords []*models.Hash)
 		mostCommon = append(mostCommon, lengths[i].length)
 	}
 
-	avgLength := float64(totalLength) / float64(total)
+	avgLength := 0.0
+	if total > 0 {
+		avgLength = float64(totalLength) / float64(total)
+	}
 	avgLengthUnder15 := 0.0
 	if countUnder15 > 0 {
 		avgLengthUnder15 = float64(totalLengthUnder15) / float64(countUnder15)
@@ -484,9 +504,9 @@ func (s *AnalyticsService) calculateComplexity(passwords []*models.Hash) models.
 		SingleType:   s.mapToCategories(singleType, total),
 		TwoTypes:     s.mapToCategories(twoTypes, total),
 		ThreeTypes:   s.mapToCategories(threeTypes, total),
-		FourTypes:    models.CategoryCount{Count: fourTypesCount, Percentage: float64(fourTypesCount) / float64(total) * 100},
-		ComplexShort: models.CategoryCount{Count: complexShortCount, Percentage: float64(complexShortCount) / float64(total) * 100},
-		ComplexLong:  models.CategoryCount{Count: complexLongCount, Percentage: float64(complexLongCount) / float64(total) * 100},
+		FourTypes:    models.CategoryCount{Count: fourTypesCount, Percentage: safePercentage(fourTypesCount, total)},
+		ComplexShort: models.CategoryCount{Count: complexShortCount, Percentage: safePercentage(complexShortCount, total)},
+		ComplexLong:  models.CategoryCount{Count: complexLongCount, Percentage: safePercentage(complexLongCount, total)},
 	}
 }
 
@@ -536,7 +556,7 @@ func (s *AnalyticsService) mapToCategories(counts map[string]int, total int) map
 	for key, count := range counts {
 		result[key] = models.CategoryCount{
 			Count:      count,
-			Percentage: float64(count) / float64(total) * 100,
+			Percentage: safePercentage(count, total),
 		}
 	}
 	return result
@@ -572,9 +592,9 @@ func (s *AnalyticsService) calculatePositionalAnalysis(passwords []*models.Hash)
 	total := len(passwords)
 
 	return models.PositionalStats{
-		StartsUppercase: models.CategoryCount{Count: startsUpper, Percentage: float64(startsUpper) / float64(total) * 100},
-		EndsNumber:      models.CategoryCount{Count: endsNumber, Percentage: float64(endsNumber) / float64(total) * 100},
-		EndsSpecial:     models.CategoryCount{Count: endsSpecial, Percentage: float64(endsSpecial) / float64(total) * 100},
+		StartsUppercase: models.CategoryCount{Count: startsUpper, Percentage: safePercentage(startsUpper, total)},
+		EndsNumber:      models.CategoryCount{Count: endsNumber, Percentage: safePercentage(endsNumber, total)},
+		EndsSpecial:     models.CategoryCount{Count: endsSpecial, Percentage: safePercentage(endsSpecial, total)},
 	}
 }
 
@@ -645,9 +665,9 @@ func (s *AnalyticsService) detectPatterns(passwords []*models.Hash) models.Patte
 	total := len(passwords)
 
 	return models.PatternStats{
-		KeyboardWalks:   models.CategoryCount{Count: keyboardWalks, Percentage: float64(keyboardWalks) / float64(total) * 100},
-		Sequential:      models.CategoryCount{Count: sequential, Percentage: float64(sequential) / float64(total) * 100},
-		RepeatingChars:  models.CategoryCount{Count: repeating, Percentage: float64(repeating) / float64(total) * 100},
+		KeyboardWalks:   models.CategoryCount{Count: keyboardWalks, Percentage: safePercentage(keyboardWalks, total)},
+		Sequential:      models.CategoryCount{Count: sequential, Percentage: safePercentage(sequential, total)},
+		RepeatingChars:  models.CategoryCount{Count: repeating, Percentage: safePercentage(repeating, total)},
 		CommonBaseWords: s.mapToCategories(baseWords, total),
 	}
 }
@@ -695,10 +715,10 @@ func (s *AnalyticsService) analyzeUsernameCorrelation(passwords []*models.Hash) 
 	total := len(passwords)
 
 	return models.UsernameStats{
-		EqualsUsername:     models.CategoryCount{Count: equals, Percentage: float64(equals) / float64(total) * 100},
-		ContainsUsername:   models.CategoryCount{Count: contains, Percentage: float64(contains) / float64(total) * 100},
-		UsernamePlusSuffix: models.CategoryCount{Count: suffix, Percentage: float64(suffix) / float64(total) * 100},
-		ReversedUsername:   models.CategoryCount{Count: reversed, Percentage: float64(reversed) / float64(total) * 100},
+		EqualsUsername:     models.CategoryCount{Count: equals, Percentage: safePercentage(equals, total)},
+		ContainsUsername:   models.CategoryCount{Count: contains, Percentage: safePercentage(contains, total)},
+		UsernamePlusSuffix: models.CategoryCount{Count: suffix, Percentage: safePercentage(suffix, total)},
+		ReversedUsername:   models.CategoryCount{Count: reversed, Percentage: safePercentage(reversed, total)},
 	}
 }
 
@@ -846,9 +866,9 @@ func (s *AnalyticsService) detectTemporalPatterns(passwords []*models.Hash) mode
 	total := len(passwords)
 
 	return models.TemporalStats{
-		ContainsYear:   models.CategoryCount{Count: containsYear, Percentage: float64(containsYear) / float64(total) * 100},
-		ContainsMonth:  models.CategoryCount{Count: containsMonth, Percentage: float64(containsMonth) / float64(total) * 100},
-		ContainsSeason: models.CategoryCount{Count: containsSeason, Percentage: float64(containsSeason) / float64(total) * 100},
+		ContainsYear:   models.CategoryCount{Count: containsYear, Percentage: safePercentage(containsYear, total)},
+		ContainsMonth:  models.CategoryCount{Count: containsMonth, Percentage: safePercentage(containsMonth, total)},
+		ContainsSeason: models.CategoryCount{Count: containsSeason, Percentage: safePercentage(containsSeason, total)},
 		YearBreakdown:  s.mapToCategories(yearBreakdown, total),
 	}
 }
@@ -894,7 +914,7 @@ func (s *AnalyticsService) analyzeMasks(passwords []*models.Hash) models.MaskSta
 		topMasks = append(topMasks, models.MaskInfo{
 			Mask:       masks[i].mask,
 			Count:      masks[i].count,
-			Percentage: float64(masks[i].count) / float64(total) * 100,
+			Percentage: safePercentage(masks[i].count, total),
 			Example:    masks[i].example,
 		})
 	}
@@ -988,9 +1008,9 @@ func (s *AnalyticsService) calculateStrengthMetrics(passwords []*models.Hash, sp
 	total := len(passwords)
 
 	entropyDist := models.EntropyDistribution{
-		Low:      models.CategoryCount{Count: lowEntropy, Percentage: float64(lowEntropy) / float64(total) * 100},
-		Moderate: models.CategoryCount{Count: moderateEntropy, Percentage: float64(moderateEntropy) / float64(total) * 100},
-		High:     models.CategoryCount{Count: highEntropy, Percentage: float64(highEntropy) / float64(total) * 100},
+		Low:      models.CategoryCount{Count: lowEntropy, Percentage: safePercentage(lowEntropy, total)},
+		Moderate: models.CategoryCount{Count: moderateEntropy, Percentage: safePercentage(moderateEntropy, total)},
+		High:     models.CategoryCount{Count: highEntropy, Percentage: safePercentage(highEntropy, total)},
 	}
 
 	// Calculate crack time estimates if we have speed data
@@ -1069,13 +1089,13 @@ func (s *AnalyticsService) calculateSpeedLevelEstimate(passwords []*models.Hash,
 
 	return models.SpeedLevelEstimate{
 		SpeedHPS:            speedHPS,
-		PercentUnder1Hour:   float64(under1Hour) / float64(total) * 100,
-		PercentUnder1Day:    float64(under1Day) / float64(total) * 100,
-		PercentUnder1Week:   float64(under1Week) / float64(total) * 100,
-		PercentUnder1Month:  float64(under1Month) / float64(total) * 100,
-		PercentUnder6Months: float64(under6Months) / float64(total) * 100,
-		PercentUnder1Year:   float64(under1Year) / float64(total) * 100,
-		PercentOver1Year:    float64(over1Year) / float64(total) * 100,
+		PercentUnder1Hour:   safePercentage(under1Hour, total),
+		PercentUnder1Day:    safePercentage(under1Day, total),
+		PercentUnder1Week:   safePercentage(under1Week, total),
+		PercentUnder1Month:  safePercentage(under1Month, total),
+		PercentUnder6Months: safePercentage(under6Months, total),
+		PercentUnder1Year:   safePercentage(under1Year, total),
+		PercentOver1Year:    safePercentage(over1Year, total),
 	}
 }
 
@@ -1113,13 +1133,14 @@ func (s *AnalyticsService) getTopPasswords(passwords []*models.Hash, limit int) 
 	}
 
 	topList := []models.TopPassword{}
+	total := len(passwords)
 
 	for password, count := range passwordCounts {
 		if count >= 2 { // Only include passwords used 2+ times
 			topList = append(topList, models.TopPassword{
 				Password:   password,
 				Count:      count,
-				Percentage: float64(count) / float64(len(passwords)) * 100,
+				Percentage: safePercentage(count, total),
 			})
 		}
 	}
@@ -1144,7 +1165,7 @@ func (s *AnalyticsService) generateRecommendations(data *models.AnalyticsData) [
 	// Length-based recommendations (if ANY passwords meet criteria)
 	if data.LengthDistribution.CountUnder8 > 0 {
 		count := data.LengthDistribution.CountUnder8
-		percent := float64(count) / float64(total) * 100
+		percent := safePercentage(count, total)
 		recs = append(recs, models.Recommendation{
 			Severity:   "CRITICAL",
 			Count:      count,
@@ -1155,7 +1176,7 @@ func (s *AnalyticsService) generateRecommendations(data *models.AnalyticsData) [
 
 	if data.LengthDistribution.Count8to11 > 0 {
 		count := data.LengthDistribution.Count8to11
-		percent := float64(count) / float64(total) * 100
+		percent := safePercentage(count, total)
 		recs = append(recs, models.Recommendation{
 			Severity:   "HIGH",
 			Count:      count,
@@ -1166,7 +1187,7 @@ func (s *AnalyticsService) generateRecommendations(data *models.AnalyticsData) [
 
 	if data.LengthDistribution.CountUnder15 > 0 {
 		count := data.LengthDistribution.CountUnder15
-		percent := float64(count) / float64(total) * 100
+		percent := safePercentage(count, total)
 		recs = append(recs, models.Recommendation{
 			Severity:   "MEDIUM",
 			Count:      count,
@@ -1190,8 +1211,8 @@ func (s *AnalyticsService) generateRecommendations(data *models.AnalyticsData) [
 	for _, cat := range data.ComplexityAnalysis.SingleType {
 		singleTypeCount += cat.Count
 	}
-	if float64(singleTypeCount)/float64(total)*100 > 40 {
-		percent := float64(singleTypeCount) / float64(total) * 100
+	if safePercentage(singleTypeCount, total) > 40 {
+		percent := safePercentage(singleTypeCount, total)
 		recs = append(recs, models.Recommendation{
 			Severity:   "HIGH",
 			Count:      singleTypeCount,
@@ -1708,7 +1729,7 @@ func (s *AnalyticsService) generateLMToNTLMMasks(lmPasswords []*models.Hash) *mo
 
 		for _, mask := range masks {
 			keyspace := calculateMaskKeyspace(mask)
-			matchPercentage := float64(info.Count) / float64(totalLM) * 100
+			matchPercentage := safePercentage(info.Count, totalLM)
 			percentage := matchPercentage // For individual mask
 
 			example := ""

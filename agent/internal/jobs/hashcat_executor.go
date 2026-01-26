@@ -32,10 +32,11 @@ const (
 	AttackModeBruteForce         AttackMode = 3 // Brute-force attack
 	AttackModeHybridWordlistMask AttackMode = 6 // Hybrid Wordlist + Mask
 	AttackModeHybridMaskWordlist AttackMode = 7 // Hybrid Mask + Wordlist
-	
+	AttackModeAssociation        AttackMode = 9 // Association attack (1:1 hash:wordlist mapping)
+
 	// PID file for tracking hashcat processes
 	hashcatPIDFile = "/tmp/krakenhashes-hashcat.pid"
-	
+
 	// Retry configuration for "already running" errors
 	MaxHashcatRetries = 5
 	HashcatRetryDelay = 5 * time.Second
@@ -64,6 +65,9 @@ type JobTaskAssignment struct {
 	IncrementMin    *int        `json:"increment_min,omitempty"`    // Starting mask length for increment mode
 	IncrementMax    *int        `json:"increment_max,omitempty"`    // Maximum mask length for increment mode
 	IsKeyspaceSplit bool        `json:"is_keyspace_split"`          // Whether this task uses keyspace splitting (--skip/--limit)
+	// Association attack fields (mode 9)
+	AssociationWordlistPath string `json:"association_wordlist_path,omitempty"` // Path to the association wordlist
+	OriginalHashlistPath    string `json:"original_hashlist_path,omitempty"`    // Path to the original hashlist file (preserves order)
 }
 
 // DeviceMetric represents metrics for a single device
@@ -115,13 +119,15 @@ type JobStatus struct {
 
 // CrackBatch represents crack-only message (asynchronous)
 type CrackBatch struct {
-	TaskID        string         `json:"task_id"`
-	CrackedHashes []CrackedHash  `json:"cracked_hashes"`
+	TaskID        string        `json:"task_id"`
+	CrackedHashes []CrackedHash `json:"cracked_hashes"`
+	IsRetransmit  bool          `json:"is_retransmit,omitempty"` // Marks this as a retransmission for deduplication
 }
 
 // CrackBatchesComplete signals that all crack batches have been sent
 type CrackBatchesComplete struct {
-	TaskID string `json:"task_id"`
+	TaskID       string `json:"task_id"`
+	IsRetransmit bool   `json:"is_retransmit,omitempty"` // True if this is from a retransmission
 }
 
 // CrackedHash represents a cracked hash with all available information
@@ -184,7 +190,8 @@ type HashcatProcess struct {
 	LastCheckpoint  time.Time
 
 	// Hashlist tracking for crack parsing
-	HashlistContent []string  // Store the hashes we're cracking
+	HashlistContent []string           // Store the hashes we're cracking (kept for special hash types)
+	HashlistMap     map[string]string  // Key: lowercase hash, Value: original hash (for O(1) lookups)
 
 	// Outfile tracking for reliable crack capture
 	OutfilePath       string            // Path to hashcat --outfile
@@ -387,13 +394,14 @@ func (e *HashcatExecutor) executeTaskInternal(ctx context.Context, assignment *J
 		return nil, fmt.Errorf("failed to create stderr pipe: %w", err)
 	}
 
-	// Load the hashlist content for crack parsing
+	// Load the hashlist content and map for crack parsing
 	hashlistPath := filepath.Join(e.dataDirectory, assignment.HashlistPath)
-	hashlistContent, err := e.loadHashlist(hashlistPath)
+	hashlistContent, hashlistMap, err := e.loadHashlist(hashlistPath)
 	if err != nil {
 		debug.Warning("Failed to load hashlist for crack parsing: %v", err)
 		// Continue anyway - we'll fall back to old parsing if needed
 		hashlistContent = []string{}
+		hashlistMap = make(map[string]string)
 	}
 
 	// Create process structure
@@ -410,6 +418,7 @@ func (e *HashcatExecutor) executeTaskInternal(ctx context.Context, assignment *J
 		IsRunning:         false,
 		StartTime:         time.Now(),
 		HashlistContent:   hashlistContent,
+		HashlistMap:       hashlistMap, // O(1) lookup map for crack parsing
 		OutfilePath:       outputFile, // Set outfile path for monitoring
 		OutfileSentHashes: make(map[string]bool), // Initialize deduplication map
 		OutfileOffset:     0, // Start reading from beginning
@@ -537,14 +546,17 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 	}
 
 	// Add hashlist file
+	// Backend sends the correct hashlist path for all modes:
+	// - Mode 9 (association): original hashlist with preserved order
+	// - Other modes: processed (deduplicated) hashlist
 	hashlistPath := filepath.Join(e.dataDirectory, assignment.HashlistPath)
-	
+
 	// Debug: Check if hashlist file exists
 	if _, err := os.Stat(hashlistPath); os.IsNotExist(err) {
 		debug.Error("Hashlist file does not exist: %s", hashlistPath)
 		return nil, "", "", "", fmt.Errorf("hashlist file not found: %s", hashlistPath)
 	}
-	
+
 	args = append(args, hashlistPath)
 
 	// Add attack-mode specific arguments
@@ -589,6 +601,33 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 			args = append(args, assignment.Mask, wordlistPath)
 		}
 
+	case int(AttackModeAssociation): // Association attack (mode 9)
+		// Association attack requires:
+		// - Original hashlist file (backend sends correct path in HashlistPath)
+		// - Association wordlist (backend sends it in WordlistPaths[0])
+		// - Optional rules
+		if len(assignment.WordlistPaths) == 0 {
+			return nil, "", "", "", fmt.Errorf("association attack requires wordlist")
+		}
+
+		// Use first wordlist as the association wordlist
+		assocWordlistPath := filepath.Join(e.dataDirectory, assignment.WordlistPaths[0])
+		debug.Info("Adding association wordlist: %s", assocWordlistPath)
+
+		// Verify association wordlist exists
+		if _, err := os.Stat(assocWordlistPath); os.IsNotExist(err) {
+			return nil, "", "", "", fmt.Errorf("association wordlist not found: %s", assocWordlistPath)
+		}
+
+		args = append(args, assocWordlistPath)
+
+		// Add rules if specified
+		for _, rulePath := range assignment.RulePaths {
+			fullPath := filepath.Join(e.dataDirectory, rulePath)
+			debug.Info("Adding rule for association attack: %s", fullPath)
+			args = append(args, "-r", fullPath)
+		}
+
 	default:
 		return nil, "", "", "", fmt.Errorf("unsupported attack mode: %d", assignment.AttackMode)
 	}
@@ -615,12 +654,13 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 // runHashcatProcess executes and monitors a hashcat process
 func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *HashcatProcess, stdoutPipe, stderrPipe io.ReadCloser) {
 	defer func() {
-		// Final outfile read to catch any remaining cracks
+		// Cleanup only - outfile reading and batch flushing is now done explicitly
+		// BEFORE sending completion status (see the synchronization block after output goroutines)
 		if process.OutfilePath != "" {
-			// Set cleanup flag to prevent new timers during final read
+			// Set cleanup flag to prevent new timers during cleanup
 			process.CleanupInProgress.Store(true)
 
-			// Stop all existing timers before final read
+			// Stop all existing timers (should already be stopped, but defensive)
 			e.crackBatchMutex.Lock()
 			if timer := e.crackBatchTimers[process.TaskID]; timer != nil {
 				timer.Stop()
@@ -628,22 +668,7 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 			}
 			e.crackBatchMutex.Unlock()
 
-			debug.Info("Performing final outfile read for task %s", process.TaskID)
-			e.readNewOutfileLines(process)
-
-			// Flush any pending crack batches immediately (no new timers will be created)
-			debug.Info("Flushing pending crack batches for task %s", process.TaskID)
-			e.flushCrackBatch(process)
-
-			debug.Info("Batch flush completed for task %s", process.TaskID)
-
-			// Don't delete outfile here - let monitorOutfile handle it after confirming all batches sent
-			// This prevents premature deletion when processing large numbers of cracks (e.g., 1.75M)
-			// if err := os.Remove(process.OutfilePath); err != nil {
-			// 	debug.Warning("Failed to delete outfile %s: %v", process.OutfilePath, err)
-			// } else {
-			// 	debug.Info("Deleted outfile artifact: %s", process.OutfilePath)
-			// }
+			debug.Info("Defer cleanup completed for task %s (outfile read already done before completion)", process.TaskID)
 		}
 
 		e.mutex.Lock()
@@ -699,8 +724,8 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 			// Pre-check: Is this a standalone crack line (not JSON, contains colon, not "Skipping")?
 			// We need to detect this BEFORE calling outputCallback
 			if strings.Contains(line, ":") && !strings.HasPrefix(line, "{") && !strings.Contains(line, "Skipping") && !strings.Contains(line, "\"status\"") {
-				// Try to parse as crack
-				cracked := e.parseCrackedHash(line, process.HashlistContent, process.Assignment.HashType)
+				// Try to parse as crack (uses O(1) HashMap lookup)
+				cracked := e.parseCrackedHash(line, process.HashlistContent, process.HashlistMap, process.Assignment.HashType)
 				if cracked != nil {
 					// This is a crack line - skip outputCallback and add to batch
 					e.addCrackToBatch(process, cracked)
@@ -721,7 +746,7 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 
 				// Process crack part first
 				if len(crackPart) > 0 {
-					cracked := e.parseCrackedHash(crackPart, process.HashlistContent, process.Assignment.HashType)
+					cracked := e.parseCrackedHash(crackPart, process.HashlistContent, process.HashlistMap, process.Assignment.HashType)
 					if cracked != nil {
 						// Add crack to batch instead of sending immediately
 						e.addCrackToBatch(process, cracked)
@@ -795,15 +820,13 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 						// Determine if this is the first progress update
 						isFirstUpdate := process.LastProgress == nil || process.LastProgress.EffectiveProgress == 0
 
-						// Extract recovered hashes count when all hashes cracked
+						// Always extract recovered hashes count for backend tracking
 						var crackedCount int
-						if allHashesCracked {
-							if recoveredHashes, ok := status["recovered_hashes"].([]interface{}); ok && len(recoveredHashes) >= 2 {
-								if recovered, ok := recoveredHashes[0].(float64); ok {
-									crackedCount = int(recovered)
-									debug.Info("[Hashcat] Extracted recovered_hashes for AllHashesCracked: %d out of %d total",
-										int(recovered), int(recoveredHashes[1].(float64)))
-								}
+						if recoveredHashes, ok := status["recovered_hashes"].([]interface{}); ok && len(recoveredHashes) >= 2 {
+							if recovered, ok := recoveredHashes[0].(float64); ok {
+								crackedCount = int(recovered)
+								debug.Info("[Hashcat] Extracted recovered_hashes: %d out of %d total (allHashesCracked=%v)",
+									int(recovered), int(recoveredHashes[1].(float64)), allHashesCracked)
 							}
 						}
 
@@ -998,11 +1021,17 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 	
 	debug.Info("Hashcat process started successfully with PID: %d", process.Cmd.Process.Pid)
 
-	// Start outfile monitoring goroutine
+	// Start outfile monitoring goroutine with completion tracking
+	var outfileDone chan struct{}
+	var outfileCancel context.CancelFunc
 	if process.OutfilePath != "" {
-		outfileCtx, outfileCancel := context.WithCancel(ctx)
-		defer outfileCancel()
-		go e.monitorOutfile(outfileCtx, process)
+		var outfileCtx context.Context
+		outfileCtx, outfileCancel = context.WithCancel(ctx)
+		outfileDone = make(chan struct{})
+		go func() {
+			defer close(outfileDone)
+			e.monitorOutfile(outfileCtx, process)
+		}()
 		debug.Info("Started outfile monitor for task %s", process.TaskID)
 	}
 
@@ -1048,7 +1077,23 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 			}
 		}
 		debug.Info("All output goroutines finished for task %s", process.TaskID)
-		
+
+		// CRITICAL: Wait for outfile monitor to complete BEFORE sending any completion status
+		// This ensures all cracks are captured and flushed before task transitions
+		if outfileDone != nil {
+			debug.Info("Stopping outfile monitor for task %s", process.TaskID)
+			outfileCancel() // Signal the monitor to stop
+			select {
+			case <-outfileDone:
+				debug.Info("Outfile monitor completed for task %s", process.TaskID)
+			case <-time.After(30 * time.Second):
+				debug.Warning("Timeout waiting for outfile monitor to complete for task %s (waited 30s)", process.TaskID)
+			}
+			// Flush any remaining crack batches BEFORE sending completion status
+			debug.Info("Flushing remaining crack batches before completion for task %s", process.TaskID)
+			e.flushCrackBatch(process)
+		}
+
 		if err != nil {
 			// Check if it's just a non-zero exit code (hashcat uses different exit codes)
 			if exitErr, ok := err.(*exec.ExitError); ok {
@@ -1157,20 +1202,24 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 		} else {
 			// Process completed successfully with exit code 0
 			debug.Info("Hashcat completed successfully with exit code 0 (OK/cracked) for task %s", process.TaskID)
-			// Use the last progress percentage if available, otherwise 100%
+			// Use the last progress values if available
 			progressPercent := 100.0
 			var effectiveProgress int64
+			var crackedCount int
 			if process.LastProgress != nil {
 				if process.LastProgress.ProgressPercent > 0 {
 					progressPercent = process.LastProgress.ProgressPercent
 				}
 				effectiveProgress = process.LastProgress.EffectiveProgress
+				crackedCount = process.LastProgress.CrackedCount
 			}
+			debug.Info("Hashcat final progress for task %s: CrackedCount=%d", process.TaskID, crackedCount)
 			finalProgress := &JobProgress{
 				TaskID:            process.TaskID,
 				KeyspaceProcessed: process.Assignment.KeyspaceEnd - process.Assignment.KeyspaceStart,
 				EffectiveProgress: effectiveProgress,
 				ProgressPercent:   progressPercent,
+				CrackedCount:      crackedCount,
 			}
 			e.sendProgressUpdate(process, finalProgress, "completed")
 		}
@@ -1462,7 +1511,12 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 		}
 		filteredArgs = append(filteredArgs, arg)
 	}
-	
+
+	// Add outfile to redirect crack output away from stdout during benchmark
+	// This prevents log noise from thousands of benchmark cracks
+	benchmarkOutfile := filepath.Join(e.dataDirectory, "benchmark.out")
+	filteredArgs = append(filteredArgs, "--outfile", benchmarkOutfile)
+
 	debug.Info("Starting speed test with command: %s %s", cmd.Path, strings.Join(filteredArgs, " "))
 	
 	// Create new command with filtered args
@@ -1617,7 +1671,12 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 		cmd.Process.Kill()
 	}
 	cmd.Wait() // Clean up the process
-	
+
+	// Clean up benchmark outfile (best-effort, next benchmark will overwrite anyway)
+	if err := os.Remove(benchmarkOutfile); err != nil && !os.IsNotExist(err) {
+		debug.Debug("Failed to remove benchmark outfile (will be overwritten next run): %v", err)
+	}
+
 	// Check if we got any valid speed readings
 	if lastValidSpeed == 0 {
 		debug.Warning("[Speed test] No valid speed parsed during collection, checking stored updates")
@@ -1807,15 +1866,17 @@ func (e *HashcatExecutor) resolveHashcatBinary(binaryPath string) (string, error
 	return "", fmt.Errorf("hashcat binary not found: %s", binaryPath)
 }
 
-// loadHashlist loads the hashlist file and returns the hash values
-func (e *HashcatExecutor) loadHashlist(hashlistPath string) ([]string, error) {
+// loadHashlist loads the hashlist file and returns both the hash values slice and a lookup map
+// The map provides O(1) lookups for crack parsing (key: lowercase hash, value: original hash)
+func (e *HashcatExecutor) loadHashlist(hashlistPath string) ([]string, map[string]string, error) {
 	file, err := os.Open(hashlistPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open hashlist file: %w", err)
+		return nil, nil, fmt.Errorf("failed to open hashlist file: %w", err)
 	}
 	defer file.Close()
 
 	var hashes []string
+	hashMap := make(map[string]string)
 	scanner := bufio.NewScanner(file)
 	// Increase buffer size for large hashes like NTLMv2
 	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
@@ -1825,15 +1886,17 @@ func (e *HashcatExecutor) loadHashlist(hashlistPath string) ([]string, error) {
 		if line != "" && !strings.HasPrefix(line, "#") {
 			// Store the full hash line
 			hashes = append(hashes, line)
+			// Build lookup map: lowercase key -> original value for O(1) crack matching
+			hashMap[strings.ToLower(line)] = line
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("error reading hashlist file: %w", err)
+		return nil, nil, fmt.Errorf("error reading hashlist file: %w", err)
 	}
 
-	debug.Info("Loaded %d hashes from hashlist file", len(hashes))
-	return hashes, nil
+	debug.Info("Loaded %d hashes from hashlist file (map size: %d)", len(hashes), len(hashMap))
+	return hashes, hashMap, nil
 }
 
 // parseWPAHash parses WPA/WPA2/WPA3 hashes where output format differs from input
@@ -1913,9 +1976,10 @@ func (e *HashcatExecutor) parseNetNTLMv2Hash(line string, hashlistContent []stri
 }
 
 // parseCrackedHash parses a cracked hash output line using hashlist knowledge
-// Now with hash-type-aware parsing for formats that differ between input and output
-func (e *HashcatExecutor) parseCrackedHash(line string, hashlistContent []string, hashType int) *CrackedHash {
+// Now with hash-type-aware parsing and O(1) HashMap lookup for standard types
+func (e *HashcatExecutor) parseCrackedHash(line string, hashlistContent []string, hashlistMap map[string]string, hashType int) *CrackedHash {
 	// First, try hash-type-specific parsers for known problematic types
+	// These need special parsing because output format differs from input
 	switch hashType {
 	case 22000, 22001:  // WPA-PBKDF2-PMKID+EAPOL, WPA-PMK-PMKID+EAPOL
 		if cracked := e.parseWPAHash(line, hashlistContent); cracked != nil {
@@ -1931,55 +1995,35 @@ func (e *HashcatExecutor) parseCrackedHash(line string, hashlistContent []string
 		}
 	}
 
-	// Try standard prefix matching (works for most hash types)
-	// Use case-insensitive matching since hashcat may output different case than stored
-	lineLower := strings.ToLower(line)
+	// OPTIMIZED: O(1) HashMap lookup for standard hash types
+	// Format is always: hash:password (hash may contain colons for some types)
+	// We use LastIndex to handle hashes that contain colons (like SHA512CRYPT)
+	lastColonIdx := strings.LastIndex(line, ":")
+	if lastColonIdx == -1 {
+		return nil
+	}
 
-	for _, knownHash := range hashlistContent {
-		// Check if the line starts with this known hash (case-insensitive)
-		knownHashLower := strings.ToLower(knownHash)
-		if strings.HasPrefix(lineLower, knownHashLower) {
-			// The format should be: knownHash:password
-			// Everything after the known hash and colon is the password
-			expectedPrefixLower := knownHashLower + ":"
-			if strings.HasPrefix(lineLower, expectedPrefixLower) {
-				// Extract password from the original line (preserving case)
-				// Find where the password starts in the original line
-				passwordStart := len(knownHash) + 1  // +1 for the colon
-				if passwordStart <= len(line) {
-					password := line[passwordStart:]
+	hashPart := line[:lastColonIdx]
+	password := line[lastColonIdx+1:]
+	hashPartLower := strings.ToLower(hashPart)
 
-					// Create the cracked hash structure
-					cracked := &CrackedHash{
-						Hash:     knownHash,  // Use original hash from hashlist (lowercase as stored in DB)
-						Plain:    password,   // Password with original case
-						FullLine: line,       // Keep the full line for reference
-					}
-
-					debug.Debug("[Crack Parser] Matched hash: %s, Password: %s", knownHash, password)
-					return cracked
-				}
-			}
+	// O(1) lookup in the pre-built map
+	if originalHash, exists := hashlistMap[hashPartLower]; exists {
+		return &CrackedHash{
+			Hash:     originalHash,  // Use original hash from hashlist (preserving case as stored in DB)
+			Plain:    password,      // Password with original case
+			FullLine: line,          // Keep the full line for reference
 		}
 	}
 
-	// Fallback: If no exact match found (shouldn't happen with proper hashlist),
-	// use the old simple parsing as a safety net
-	if strings.Contains(line, ":") {
-		parts := strings.SplitN(line, ":", 2)  // Split only on first colon
-		if len(parts) == 2 {
-			// For unknown formats, send the whole first part as hash
-			cracked := &CrackedHash{
-				Hash:     parts[0],
-				Plain:    parts[1],
-				FullLine: line,
-			}
-
-			// Only return if it looks like a valid hash
-			if len(cracked.Hash) >= 16 && !strings.Contains(cracked.Hash, " ") {
-				debug.Warning("[Crack Parser] Using fallback parsing for: %s", line)
-				return cracked
-			}
+	// Fallback for edge cases (hash not in map but looks valid)
+	// This can happen if hash was modified by hashcat output formatting
+	if len(hashPart) >= 16 && !strings.Contains(hashPart, " ") {
+		debug.Warning("[Crack Parser] Using fallback for unmatched hash: %s", hashPart)
+		return &CrackedHash{
+			Hash:     hashPart,
+			Plain:    password,
+			FullLine: line,
 		}
 	}
 
@@ -2037,9 +2081,9 @@ func (e *HashcatExecutor) readNewOutfileLines(process *HashcatProcess) {
 			return
 		}
 
-		// Parse using hash-type-aware parser (same as stdout reader)
+		// Parse using hash-type-aware parser with O(1) lookup (same as stdout reader)
 		lineStr := strings.TrimSpace(line)
-		cracked := e.parseCrackedHash(lineStr, process.HashlistContent, process.Assignment.HashType)
+		cracked := e.parseCrackedHash(lineStr, process.HashlistContent, process.HashlistMap, process.Assignment.HashType)
 		if cracked == nil {
 			continue
 		}
@@ -2075,4 +2119,149 @@ func (e *HashcatExecutor) readNewOutfileLines(process *HashcatProcess) {
 			e.addCrackToBatch(process, &crack)
 		}
 	}
+}
+
+// RetransmitOutfile reads an entire outfile and returns all cracks for retransmission
+func (e *HashcatExecutor) RetransmitOutfile(taskID string) ([]CrackedHash, error) {
+	outfileDir := filepath.Join(e.dataDirectory, "outfile")
+	outfilePath := filepath.Join(outfileDir, fmt.Sprintf("%s.txt", taskID))
+
+	// Check if file exists
+	if _, err := os.Stat(outfilePath); os.IsNotExist(err) {
+		debug.Warning("Outfile does not exist for task %s: %s", taskID, outfilePath)
+		return nil, nil // No error, just no cracks to retransmit
+	}
+
+	// Open and read the file
+	file, err := os.Open(outfilePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open outfile for retransmit: %w", err)
+	}
+	defer file.Close()
+
+	var cracks []CrackedHash
+	scanner := bufio.NewScanner(file)
+	// Increase buffer size for long lines
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 10*1024*1024) // 10MB max line length
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+
+		// Parse the line - format is hash:plain (format 1,2)
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) < 2 {
+			debug.Warning("Invalid outfile line format: %s", line)
+			continue
+		}
+
+		crack := CrackedHash{
+			Hash:  parts[0],
+			Plain: parts[1],
+		}
+		cracks = append(cracks, crack)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error reading outfile: %w", err)
+	}
+
+	debug.Info("Read %d cracks from outfile for task %s retransmission", len(cracks), taskID)
+	return cracks, nil
+}
+
+// DeleteOutfile removes the outfile for a task after backend confirmation
+func (e *HashcatExecutor) DeleteOutfile(taskID string) error {
+	outfileDir := filepath.Join(e.dataDirectory, "outfile")
+	outfilePath := filepath.Join(outfileDir, fmt.Sprintf("%s.txt", taskID))
+
+	// Check if file exists
+	if _, err := os.Stat(outfilePath); os.IsNotExist(err) {
+		debug.Info("Outfile already deleted for task %s", taskID)
+		return nil // Not an error if already gone
+	}
+
+	if err := os.Remove(outfilePath); err != nil {
+		return fmt.Errorf("failed to delete outfile: %w", err)
+	}
+
+	debug.Info("Successfully deleted outfile for task %s", taskID)
+	return nil
+}
+
+// GetPendingOutfiles returns all task IDs with unacknowledged outfiles
+func (e *HashcatExecutor) GetPendingOutfiles() (taskIDs []string, currentTaskID string, err error) {
+	outfileDir := filepath.Join(e.dataDirectory, "outfile")
+
+	// Check if outfile directory exists
+	if _, err := os.Stat(outfileDir); os.IsNotExist(err) {
+		return nil, "", nil // No outfiles directory means no pending outfiles
+	}
+
+	// Read all files in the outfile directory
+	entries, err := os.ReadDir(outfileDir)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to read outfile directory: %w", err)
+	}
+
+	// Get currently running task ID
+	e.mutex.RLock()
+	for _, process := range e.activeProcesses {
+		if process.IsRunning {
+			currentTaskID = process.TaskID
+			break
+		}
+	}
+	e.mutex.RUnlock()
+
+	// Collect all task IDs from outfile names
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		name := entry.Name()
+		// Outfiles are named {task_id}.txt
+		if strings.HasSuffix(name, ".txt") {
+			taskID := strings.TrimSuffix(name, ".txt")
+			// Validate it looks like a UUID
+			if len(taskID) == 36 && strings.Count(taskID, "-") == 4 {
+				taskIDs = append(taskIDs, taskID)
+			}
+		}
+	}
+
+	debug.Info("Found %d pending outfiles (current task: %s)", len(taskIDs), currentTaskID)
+	return taskIDs, currentTaskID, nil
+}
+
+// GetOutfileLineCount returns the number of lines in the outfile for a task
+func (e *HashcatExecutor) GetOutfileLineCount(taskID string) (int64, error) {
+	outfileDir := filepath.Join(e.dataDirectory, "outfile")
+	outfilePath := filepath.Join(outfileDir, fmt.Sprintf("%s.txt", taskID))
+
+	file, err := os.Open(outfilePath)
+	if err != nil {
+		return 0, err
+	}
+	defer file.Close()
+
+	var count int64
+	scanner := bufio.NewScanner(file)
+	// Set larger buffer for files with long lines
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 1024*1024)
+
+	for scanner.Scan() {
+		count++
+	}
+
+	if err := scanner.Err(); err != nil {
+		return 0, fmt.Errorf("error scanning outfile: %w", err)
+	}
+
+	return count, nil
 }

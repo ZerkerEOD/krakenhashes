@@ -232,7 +232,7 @@ const PresetJobListPage: React.FC = () => {
                       </Tooltip>
                     )}
                   </TableCell>
-                  <TableCell>{job.binary_version_name || job.binary_version_id}</TableCell>
+                  <TableCell>{job.binary_version_name || job.binary_version}</TableCell>
                   <TableCell>{job.wordlist_ids?.length || 0}</TableCell>
                   <TableCell>{job.rule_ids?.length || 0}</TableCell>
                   <TableCell>{new Date(job.created_at).toLocaleString()}</TableCell>

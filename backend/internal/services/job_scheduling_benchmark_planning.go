@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary/version"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
@@ -28,6 +29,7 @@ type ForcedBenchmarkTask struct {
 	HashType   int
 	AttackMode models.AttackMode
 	Priority   int
+	SaltCount  *int // For salted hash types, the number of remaining hashes
 }
 
 // AgentBenchmarkTask represents an agent speed benchmark
@@ -36,6 +38,7 @@ type AgentBenchmarkTask struct {
 	JobID      uuid.UUID // Representative job for parameters
 	HashType   int
 	AttackMode models.AttackMode
+	SaltCount  *int // For salted hash types, the number of remaining hashes
 }
 
 // JobHashTypeInfo contains hash type information for a job
@@ -49,6 +52,9 @@ type JobHashTypeInfo struct {
 	Priority             int
 	CreatedAt            time.Time
 	NeedsForcedBenchmark bool
+	SaltCount            *int   // For salted hash types, the number of remaining hashes (each = 1 salt)
+	IsSalted             bool   // Whether this hash type uses per-hash salts
+	BinaryVersion        string // Binary version pattern for compatibility filtering
 }
 
 // CreateBenchmarkPlan analyzes the system state and creates an intelligent benchmark execution plan
@@ -139,6 +145,19 @@ func (s *JobSchedulingService) collectJobHashTypeInfo(
 			continue
 		}
 
+		// Check if hash type is salted and get salt count (remaining hash count)
+		var saltCount *int
+		isSalted := false
+		hashType, htErr := s.jobExecutionService.hashTypeRepo.GetByID(ctx, hashlist.HashTypeID)
+		if htErr == nil && hashType != nil && hashType.IsSalted {
+			isSalted = true
+			// For salted hash types, salt count = remaining (uncracked) hash count
+			uncrackedCount, err := s.jobExecutionService.hashlistRepo.GetUncrackedHashCount(ctx, job.HashlistID)
+			if err == nil && uncrackedCount > 0 {
+				saltCount = &uncrackedCount
+			}
+		}
+
 		// Check if job has increment layers
 		if job.IncrementMode != "" && job.IncrementMode != "off" {
 			// Check if this is an expanded layer entry (job.ID is actually a layer ID)
@@ -156,6 +175,9 @@ func (s *JobSchedulingService) collectJobHashTypeInfo(
 						Priority:             job.Priority,
 						CreatedAt:            job.CreatedAt,
 						NeedsForcedBenchmark: true,
+						SaltCount:            saltCount,
+						IsSalted:             isSalted,
+						BinaryVersion:        job.BinaryVersion,
 					})
 
 					debug.Log("Added layer entry for benchmarking", map[string]interface{}{
@@ -163,6 +185,8 @@ func (s *JobSchedulingService) collectJobHashTypeInfo(
 						"layer_id":      layer.ID,
 						"layer_index":   layer.LayerIndex,
 						"layer_mask":    layer.Mask,
+						"is_salted":     isSalted,
+						"salt_count":    saltCount,
 					})
 				}
 			} else {
@@ -187,6 +211,9 @@ func (s *JobSchedulingService) collectJobHashTypeInfo(
 							Priority:             job.Priority,
 							CreatedAt:            job.CreatedAt,
 							NeedsForcedBenchmark: true,
+							SaltCount:            saltCount,
+							IsSalted:             isSalted,
+							BinaryVersion:        job.BinaryVersion,
 						})
 					}
 				}
@@ -194,6 +221,8 @@ func (s *JobSchedulingService) collectJobHashTypeInfo(
 				debug.Log("Found increment layers needing benchmarks", map[string]interface{}{
 					"job_id":      job.ID,
 					"layer_count": len(layers),
+					"is_salted":   isSalted,
+					"salt_count":  saltCount,
 				})
 			}
 		} else {
@@ -216,6 +245,9 @@ func (s *JobSchedulingService) collectJobHashTypeInfo(
 				Priority:             job.Priority,
 				CreatedAt:            job.CreatedAt,
 				NeedsForcedBenchmark: needsForcedBenchmark,
+				SaltCount:            saltCount,
+				IsSalted:             isSalted,
+				BinaryVersion:        job.BinaryVersion,
 			})
 		}
 	}
@@ -224,6 +256,7 @@ func (s *JobSchedulingService) collectJobHashTypeInfo(
 }
 
 // buildAgentBenchmarkStatus queries which benchmarks each agent has that are still valid
+// Cache key format: "attackMode_hashType_saltCount" where saltCount is nil for non-salted hash types
 func (s *JobSchedulingService) buildAgentBenchmarkStatus(
 	ctx context.Context,
 	availableAgents []models.Agent,
@@ -235,23 +268,25 @@ func (s *JobSchedulingService) buildAgentBenchmarkStatus(
 	for _, agent := range availableAgents {
 		agentBenchmarkStatus[agent.ID] = make(map[string]bool)
 
-		// Check each unique (attackMode, hashType) combination
+		// Check each unique (attackMode, hashType, saltCount) combination
 		checkedCombos := make(map[string]bool)
 
 		for _, jobInfo := range jobHashInfo {
-			key := fmt.Sprintf("%d_%d", jobInfo.AttackMode, jobInfo.HashType)
+			// Include salt count in cache key for salted hash types
+			key := buildBenchmarkCacheKey(jobInfo.AttackMode, jobInfo.HashType, jobInfo.SaltCount)
 
 			if checkedCombos[key] {
 				continue // Already checked this combo for this agent
 			}
 			checkedCombos[key] = true
 
-			// Check if agent has recent valid benchmark
+			// Check if agent has recent valid benchmark (including salt count)
 			isRecent, err := s.jobExecutionService.benchmarkRepo.IsRecentBenchmark(
 				ctx,
 				agent.ID,
 				jobInfo.AttackMode,
 				jobInfo.HashType,
+				jobInfo.SaltCount, // Pass salt count for salt-aware lookup
 				cacheDuration,
 			)
 
@@ -266,6 +301,15 @@ func (s *JobSchedulingService) buildAgentBenchmarkStatus(
 	}
 
 	return agentBenchmarkStatus, nil
+}
+
+// buildBenchmarkCacheKey creates a cache key for benchmark lookups
+// Format: "attackMode_hashType_saltCount" where saltCount is "nil" for non-salted hash types
+func buildBenchmarkCacheKey(attackMode models.AttackMode, hashType int, saltCount *int) string {
+	if saltCount == nil {
+		return fmt.Sprintf("%d_%d_nil", attackMode, hashType)
+	}
+	return fmt.Sprintf("%d_%d_%d", attackMode, hashType, *saltCount)
 }
 
 // allocateForcedBenchmarks assigns agents to jobs needing forced benchmarks
@@ -319,14 +363,20 @@ func (s *JobSchedulingService) allocateForcedBenchmarks(
 		}
 
 		// Find best agent for this job
-		// Prefer agents WITHOUT valid benchmark for this hash type
-		key := fmt.Sprintf("%d_%d", job.AttackMode, job.HashType)
+		// Prefer agents WITHOUT valid benchmark for this hash type (including salt count)
+		// MUST be compatible with job's binary version
+		key := buildBenchmarkCacheKey(job.AttackMode, job.HashType, job.SaltCount)
 		var bestAgent *models.Agent
 
-		// First pass: look for agent without this benchmark
+		// First pass: look for compatible agent without this benchmark
 		for i := range availableAgents {
 			if usedAgents[availableAgents[i].ID] != uuid.Nil {
 				continue // Already used
+			}
+
+			// Check binary version compatibility
+			if !version.IsCompatibleStr(availableAgents[i].BinaryVersion, job.BinaryVersion) {
+				continue // Not compatible with job's binary version
 			}
 
 			if !agentBenchmarkStatus[availableAgents[i].ID][key] {
@@ -335,10 +385,14 @@ func (s *JobSchedulingService) allocateForcedBenchmarks(
 			}
 		}
 
-		// Second pass: if all have it, just pick first available
+		// Second pass: if all compatible agents have it, just pick first available compatible agent
 		if bestAgent == nil {
 			for i := range availableAgents {
 				if usedAgents[availableAgents[i].ID] == uuid.Nil {
+					// Check binary version compatibility
+					if !version.IsCompatibleStr(availableAgents[i].BinaryVersion, job.BinaryVersion) {
+						continue // Not compatible with job's binary version
+					}
 					bestAgent = &availableAgents[i]
 					break
 				}
@@ -346,7 +400,12 @@ func (s *JobSchedulingService) allocateForcedBenchmarks(
 		}
 
 		if bestAgent == nil {
-			break // No agents available (shouldn't happen)
+			// No compatible agents available for this job - skip it
+			debug.Log("No compatible agents for forced benchmark job", map[string]interface{}{
+				"job_id":         job.JobID,
+				"binary_version": job.BinaryVersion,
+			})
+			continue
 		}
 
 		forcedTasks = append(forcedTasks, ForcedBenchmarkTask{
@@ -357,6 +416,7 @@ func (s *JobSchedulingService) allocateForcedBenchmarks(
 			HashType:   job.HashType,
 			AttackMode: job.AttackMode,
 			Priority:   job.Priority,
+			SaltCount:  job.SaltCount,
 		})
 
 		usedAgents[bestAgent.ID] = job.JobID
@@ -369,11 +429,11 @@ func (s *JobSchedulingService) allocateForcedBenchmarks(
 func (s *JobSchedulingService) buildUniqueHashTypeList(
 	jobHashInfo []JobHashTypeInfo,
 ) []JobHashTypeInfo {
-	// Map key: "attackMode_hashType" -> highest priority job with that combo
+	// Map key: "attackMode_hashType_saltCount" -> highest priority job with that combo
 	uniqueMap := make(map[string]JobHashTypeInfo)
 
 	for _, job := range jobHashInfo {
-		key := fmt.Sprintf("%d_%d", job.AttackMode, job.HashType)
+		key := buildBenchmarkCacheKey(job.AttackMode, job.HashType, job.SaltCount)
 
 		existing, exists := uniqueMap[key]
 		if !exists || job.Priority > existing.Priority {
@@ -410,7 +470,8 @@ func (s *JobSchedulingService) allocateAgentBenchmarks(
 		return []AgentBenchmarkTask{}
 	}
 
-	// Build map of which agents need which hash types
+	// Build map of which agents need which hash types (including salt count)
+	// Only includes agents that are compatible with the job's binary version
 	hashTypeToAgentsNeeding := make(map[string][]int)
 
 	for _, agent := range availableAgents {
@@ -419,7 +480,12 @@ func (s *JobSchedulingService) allocateAgentBenchmarks(
 		}
 
 		for _, htInfo := range uniqueHashTypes {
-			key := fmt.Sprintf("%d_%d", htInfo.AttackMode, htInfo.HashType)
+			// Check binary version compatibility first
+			if !version.IsCompatibleStr(agent.BinaryVersion, htInfo.BinaryVersion) {
+				continue // Agent not compatible with this job's binary version
+			}
+
+			key := buildBenchmarkCacheKey(htInfo.AttackMode, htInfo.HashType, htInfo.SaltCount)
 
 			// Check if agent has valid benchmark
 			if !agentBenchmarkStatus[agent.ID][key] {
@@ -440,7 +506,7 @@ func (s *JobSchedulingService) allocateAgentBenchmarks(
 		}
 
 		htInfo := uniqueHashTypes[hashTypeIndex%len(uniqueHashTypes)]
-		key := fmt.Sprintf("%d_%d", htInfo.AttackMode, htInfo.HashType)
+		key := buildBenchmarkCacheKey(htInfo.AttackMode, htInfo.HashType, htInfo.SaltCount)
 
 		agentsNeedingThis := hashTypeToAgentsNeeding[key]
 
@@ -453,6 +519,7 @@ func (s *JobSchedulingService) allocateAgentBenchmarks(
 					JobID:      htInfo.JobID,
 					HashType:   htInfo.HashType,
 					AttackMode: htInfo.AttackMode,
+					SaltCount:  htInfo.SaltCount,
 				})
 				assignedAgents[agentID] = true
 				foundAgent = true
@@ -471,20 +538,157 @@ func (s *JobSchedulingService) allocateAgentBenchmarks(
 	return agentTasks
 }
 
+// checkAndSyncAgentsForBenchmarks checks file availability for AVAILABLE agents only.
+// Busy agents (running tasks) are not checked - would slow down their current work.
+// Returns filtered lists of benchmark tasks that are ready (agent has all files).
+func (s *JobSchedulingService) checkAndSyncAgentsForBenchmarks(
+	ctx context.Context,
+	plan *BenchmarkPlan,
+) (*BenchmarkPlan, error) {
+	if plan == nil || (len(plan.ForcedBenchmarks) == 0 && len(plan.AgentBenchmarks) == 0) {
+		return plan, nil
+	}
+
+	// Step 1: Get currently available agents (not busy with tasks)
+	availableAgents, err := s.jobExecutionService.GetAvailableAgents(ctx)
+	if err != nil {
+		debug.Warning("Failed to get available agents for file check: %v", err)
+		return plan, nil // Proceed with original plan on error
+	}
+
+	// Build set of available agent IDs for O(1) lookup
+	availableAgentIDs := make(map[int]bool)
+	for _, agent := range availableAgents {
+		availableAgentIDs[agent.ID] = true
+	}
+
+	debug.Info("Pre-benchmark file check: %d available agents, %d forced benchmarks, %d agent benchmarks",
+		len(availableAgents), len(plan.ForcedBenchmarks), len(plan.AgentBenchmarks))
+
+	// Step 2: Filter and check forced benchmarks
+	// Timeout increased to 30s to allow agents with large wordlists (e.g., 15GB crackstation.txt)
+	// to complete file scanning. First scan hashes all files, subsequent scans use cache (<1s).
+	const inventoryTimeout = 30 * time.Second
+	var readyForcedBenchmarks []ForcedBenchmarkTask
+	var readyAgentBenchmarks []AgentBenchmarkTask
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	// Check forced benchmarks in parallel (only for available agents)
+	for _, task := range plan.ForcedBenchmarks {
+		if !availableAgentIDs[task.AgentID] {
+			debug.Info("Skipping file check for agent %d (busy with task)", task.AgentID)
+			continue
+		}
+
+		wg.Add(1)
+		go func(t ForcedBenchmarkTask) {
+			defer wg.Done()
+
+			// Get job execution for this task
+			job, err := s.jobExecutionService.GetJobExecutionByID(ctx, t.JobID)
+			if err != nil {
+				debug.Warning("Failed to get job %s for file check: %v", t.JobID, err)
+				return // Skip this benchmark
+			}
+
+			// Check if agent has all required files
+			ready, err := s.wsIntegration.CheckAgentFilesForJob(ctx, t.AgentID, job, inventoryTimeout)
+			if err != nil {
+				debug.Warning("File check failed for agent %d: %v", t.AgentID, err)
+				return // Skip this agent
+			}
+
+			if ready {
+				mu.Lock()
+				readyForcedBenchmarks = append(readyForcedBenchmarks, t)
+				mu.Unlock()
+			} else {
+				debug.Info("Agent %d not ready for forced benchmark (syncing), will retry next cycle", t.AgentID)
+			}
+		}(task)
+	}
+
+	// Check agent benchmarks in parallel (only for available agents)
+	for _, task := range plan.AgentBenchmarks {
+		if !availableAgentIDs[task.AgentID] {
+			debug.Info("Skipping file check for agent %d (busy with task)", task.AgentID)
+			continue
+		}
+
+		wg.Add(1)
+		go func(t AgentBenchmarkTask) {
+			defer wg.Done()
+
+			// Get job execution for this task
+			job, err := s.jobExecutionService.GetJobExecutionByID(ctx, t.JobID)
+			if err != nil {
+				debug.Warning("Failed to get job %s for file check: %v", t.JobID, err)
+				return // Skip this benchmark
+			}
+
+			// Check if agent has all required files
+			ready, err := s.wsIntegration.CheckAgentFilesForJob(ctx, t.AgentID, job, inventoryTimeout)
+			if err != nil {
+				debug.Warning("File check failed for agent %d: %v", t.AgentID, err)
+				return // Skip this agent
+			}
+
+			if ready {
+				mu.Lock()
+				readyAgentBenchmarks = append(readyAgentBenchmarks, t)
+				mu.Unlock()
+			} else {
+				debug.Info("Agent %d not ready for agent benchmark (syncing), will retry next cycle", t.AgentID)
+			}
+		}(task)
+	}
+
+	wg.Wait()
+
+	debug.Info("Pre-benchmark file check complete: %d/%d forced benchmarks ready, %d/%d agent benchmarks ready",
+		len(readyForcedBenchmarks), len(plan.ForcedBenchmarks),
+		len(readyAgentBenchmarks), len(plan.AgentBenchmarks))
+
+	// Return filtered plan with only ready benchmarks
+	return &BenchmarkPlan{
+		ForcedBenchmarks:         readyForcedBenchmarks,
+		AgentBenchmarks:          readyAgentBenchmarks,
+		ForcedBenchmarkAgentJobs: plan.ForcedBenchmarkAgentJobs,
+	}, nil
+}
+
 // ExecuteBenchmarkPlan sends all benchmark requests in parallel
+// Returns the filtered plan containing only benchmarks that were actually sent
 func (s *JobSchedulingService) ExecuteBenchmarkPlan(
 	ctx context.Context,
 	plan *BenchmarkPlan,
-) error {
-	if len(plan.ForcedBenchmarks) == 0 && len(plan.AgentBenchmarks) == 0 {
-		return nil // Nothing to do
+) (*BenchmarkPlan, error) {
+	if plan == nil || (len(plan.ForcedBenchmarks) == 0 && len(plan.AgentBenchmarks) == 0) {
+		return nil, nil // Nothing to do
+	}
+
+	// First, check file availability for available agents and filter to ready-only benchmarks
+	filteredPlan, err := s.checkAndSyncAgentsForBenchmarks(ctx, plan)
+	if err != nil {
+		debug.Warning("Pre-benchmark file check failed: %v", err)
+		// Continue with original plan on error
+		filteredPlan = plan
+	}
+
+	if len(filteredPlan.ForcedBenchmarks) == 0 && len(filteredPlan.AgentBenchmarks) == 0 {
+		debug.Info("No agents ready for benchmarks this cycle (all syncing or busy)")
+		return nil, nil // Return nil plan to indicate no benchmarks were sent
 	}
 
 	debug.Info("Executing benchmark plan", map[string]interface{}{
-		"forced_benchmarks": len(plan.ForcedBenchmarks),
-		"agent_benchmarks":  len(plan.AgentBenchmarks),
-		"total_benchmarks":  len(plan.ForcedBenchmarks) + len(plan.AgentBenchmarks),
+		"forced_benchmarks": len(filteredPlan.ForcedBenchmarks),
+		"agent_benchmarks":  len(filteredPlan.AgentBenchmarks),
+		"total_benchmarks":  len(filteredPlan.ForcedBenchmarks) + len(filteredPlan.AgentBenchmarks),
 	})
+
+	// Use filtered plan for execution
+	plan = filteredPlan
 
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(plan.ForcedBenchmarks)+len(plan.AgentBenchmarks))
@@ -521,7 +725,8 @@ func (s *JobSchedulingService) ExecuteBenchmarkPlan(
 		debug.Error("Benchmark execution error: %v", err)
 	}
 
-	return nil
+	// Return the filtered plan so caller knows which benchmarks were actually sent
+	return filteredPlan, nil
 }
 
 // executeForcedBenchmark sends a forced benchmark request for a specific job
@@ -732,6 +937,67 @@ func (s *JobSchedulingService) InsertBenchmarkRequests(ctx context.Context, plan
 		"agent_count":  len(plan.AgentBenchmarks),
 	})
 
+	return nil
+}
+
+// MarkTimedOutBenchmarksAsFailed marks any incomplete benchmarks as failed and updates job error messages
+// This is called when WaitForBenchmarks times out, before clearing the benchmark_requests table
+func (s *JobSchedulingService) MarkTimedOutBenchmarksAsFailed(ctx context.Context) error {
+	// First, get the list of timed-out benchmark requests (those without completed_at)
+	rows, err := s.jobExecutionService.db.QueryContext(ctx, `
+		SELECT agent_id, job_execution_id, attack_mode, hash_type
+		FROM benchmark_requests
+		WHERE completed_at IS NULL
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to query timed-out benchmarks: %w", err)
+	}
+	defer rows.Close()
+
+	var timedOutJobs []uuid.UUID
+	for rows.Next() {
+		var agentID int
+		var jobID uuid.UUID
+		var attackMode string
+		var hashType int
+		if err := rows.Scan(&agentID, &jobID, &attackMode, &hashType); err != nil {
+			debug.Warning("Failed to scan timed-out benchmark row: %v", err)
+			continue
+		}
+		debug.Warning("Benchmark timed out for agent %d, job %s, attack_mode %s, hash_type %d",
+			agentID, jobID, attackMode, hashType)
+		timedOutJobs = append(timedOutJobs, jobID)
+	}
+
+	if len(timedOutJobs) == 0 {
+		return nil
+	}
+
+	// Mark all incomplete benchmarks as failed
+	_, err = s.jobExecutionService.db.ExecContext(ctx, `
+		UPDATE benchmark_requests
+		SET completed_at = CURRENT_TIMESTAMP,
+			success = false,
+			error_message = 'Benchmark timed out waiting for agent response'
+		WHERE completed_at IS NULL
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to mark timed-out benchmarks as failed: %w", err)
+	}
+
+	// Update the affected jobs with error message
+	for _, jobID := range timedOutJobs {
+		_, err := s.jobExecutionService.db.ExecContext(ctx, `
+			UPDATE job_executions
+			SET error_message = 'Benchmark timed out waiting for agent response'
+			WHERE id = $1 AND error_message IS NULL
+		`, jobID)
+		if err != nil {
+			debug.Warning("Failed to update job %s error message: %v", jobID, err)
+		}
+	}
+
+	debug.Warning("Marked %d timed-out benchmarks as failed", len(timedOutJobs))
 	return nil
 }
 

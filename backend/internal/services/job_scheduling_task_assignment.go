@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary/version"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
@@ -42,6 +43,11 @@ type TaskAssignmentPlan struct {
 
 	AttackCmd string // Pre-built, will need rule path replacement for rule splits
 
+	// Salt-aware chunk calculation
+	IsSalted      bool // Whether the hash type uses per-hash salts
+	TotalHashes   int  // Total hashes in the hashlist
+	CrackedHashes int  // Number of cracked hashes
+
 	// Flags
 	SkipAssignment bool // If no valid benchmark or job exhausted
 	SkipReason     string
@@ -69,9 +75,17 @@ type JobPlanningState struct {
 	ChunkNumber         int
 	BaseKeyspace        int64
 
+	// BASE keyspace tracking for --skip/--limit (in password candidate units, not EFFECTIVE hash operations)
+	// This is initialized once from DB at the start of planning and updated in-memory after each chunk.
+	// Using this prevents the race condition where all agents query DB before any tasks exist.
+	DispatchedBaseKeyspace int64
+
 	// Increment layer support
 	CurrentLayer        *models.JobIncrementLayer // The layer currently being worked on
 	AvailableLayers     []models.JobIncrementLayer // All layers needing work
+
+	// Per-layer BASE keyspace tracking (for increment mode)
+	LayerDispatchedBaseKeyspace map[uuid.UUID]int64
 }
 
 // CreateTaskAssignmentPlans calculates chunk assignments for all reserved agents sequentially
@@ -97,6 +111,10 @@ func (s *JobSchedulingService) CreateTaskAssignmentPlans(
 
 	// Track layer ID to parent job ID mapping for lookups
 	layerToJobMap := make(map[uuid.UUID]uuid.UUID)
+
+	// Track in-cycle agent assignments per job for max_agents enforcement
+	// Key: job entry ID (may be layer ID), Value: number of agents assigned in this planning cycle
+	planningAssignments := make(map[uuid.UUID]int)
 
 	// Track the original entry ID for each job (may be layer ID or job ID)
 	// This is needed because job.JobExecution.ID may change during layer processing
@@ -163,9 +181,10 @@ func (s *JobSchedulingService) CreateTaskAssignmentPlans(
 
 		// Initialize job state
 		state := &JobPlanningState{
-			JobExecution:       &job.JobExecution,
-			DispatchedKeyspace: job.DispatchedKeyspace,
-			IsExhausted:        false,
+			JobExecution:                &job.JobExecution,
+			DispatchedKeyspace:          job.DispatchedKeyspace,
+			IsExhausted:                 false,
+			LayerDispatchedBaseKeyspace: make(map[uuid.UUID]int64),
 		}
 
 		// Get base keyspace for rule splitting calculations
@@ -173,18 +192,43 @@ func (s *JobSchedulingService) CreateTaskAssignmentPlans(
 			state.BaseKeyspace = *job.BaseKeyspace
 		}
 
+		// Initialize BASE keyspace tracking from DB ONCE per job (not per agent)
+		// This prevents the race condition where all agents get the same starting value
+		// because they all query DB before any tasks are created.
+		if !job.UsesRuleSplitting {
+			maxBaseEnd, err := s.jobExecutionService.jobTaskRepo.GetMaxKeyspaceEnd(ctx, actualJobID)
+			if err != nil {
+				debug.Warning("Failed to get max keyspace end for job %s: %v, starting from 0", actualJobID, err)
+				maxBaseEnd = 0
+			}
+			state.DispatchedBaseKeyspace = maxBaseEnd
+			debug.Log("Initialized BASE keyspace tracking for job", map[string]interface{}{
+				"job_id":                   actualJobID,
+				"dispatched_base_keyspace": maxBaseEnd,
+			})
+		}
+
 		// If this is a specific layer entry, set it as the current layer
 		if specificLayer != nil {
 			state.CurrentLayer = specificLayer
 			state.AvailableLayers = []models.JobIncrementLayer{*specificLayer}
 
+			// Initialize per-layer BASE keyspace tracking
+			maxLayerBaseEnd, err := s.jobExecutionService.jobTaskRepo.GetMaxKeyspaceEndByLayer(ctx, specificLayer.ID)
+			if err != nil {
+				debug.Warning("Failed to get max keyspace end for layer %s: %v, starting from 0", specificLayer.ID, err)
+				maxLayerBaseEnd = 0
+			}
+			state.LayerDispatchedBaseKeyspace[specificLayer.ID] = maxLayerBaseEnd
+
 			debug.Log("Using specific layer for task assignment", map[string]interface{}{
-				"job_id":              actualJobID,
-				"layer_id":            specificLayer.ID,
-				"layer_index":         specificLayer.LayerIndex,
-				"layer_mask":          specificLayer.Mask,
-				"effective_keyspace":  specificLayer.EffectiveKeyspace,
-				"dispatched_keyspace": specificLayer.DispatchedKeyspace,
+				"job_id":                        actualJobID,
+				"layer_id":                      specificLayer.ID,
+				"layer_index":                   specificLayer.LayerIndex,
+				"layer_mask":                    specificLayer.Mask,
+				"effective_keyspace":            specificLayer.EffectiveKeyspace,
+				"dispatched_keyspace":           specificLayer.DispatchedKeyspace,
+				"layer_dispatched_base_keyspace": maxLayerBaseEnd,
 			})
 		}
 
@@ -269,7 +313,7 @@ func (s *JobSchedulingService) CreateTaskAssignmentPlans(
 				break
 			}
 
-			plan, err := s.createSingleTaskPlan(ctx, agentID, state, jobsWithWork, jobStates)
+			plan, err := s.createSingleTaskPlan(ctx, agentID, state, jobsWithWork, jobStates, planningAssignments)
 			if err != nil {
 				errors = append(errors, fmt.Errorf("failed to create plan for agent %d: %w", agentID, err))
 				continue
@@ -277,6 +321,10 @@ func (s *JobSchedulingService) CreateTaskAssignmentPlans(
 
 			if plan != nil {
 				plans = append(plans, *plan)
+				// Track assignment for max_agents enforcement
+				if plan.JobExecution != nil && !plan.SkipAssignment {
+					planningAssignments[plan.JobExecution.ID]++
+				}
 			}
 		}
 	}
@@ -296,6 +344,7 @@ func (s *JobSchedulingService) createSingleTaskPlan(
 	currentState *JobPlanningState,
 	allJobs []models.JobExecutionWithWork,
 	jobStates map[uuid.UUID]*JobPlanningState,
+	planningAssignments map[uuid.UUID]int,
 ) (*TaskAssignmentPlan, error) {
 	// Get agent details
 	agent, err := s.agentRepo.GetByID(ctx, agentID)
@@ -303,10 +352,35 @@ func (s *JobSchedulingService) createSingleTaskPlan(
 		return nil, fmt.Errorf("failed to get agent: %w", err)
 	}
 
+	// DEFENSIVE CHECK: Verify agent is compatible with job's binary version
+	// This is a safety net - compatibility should have been checked during allocation
+	if !version.IsCompatibleStr(agent.BinaryVersion, currentState.JobExecution.BinaryVersion) {
+		debug.Warning("Agent %d not compatible with job %s binary version (agent: %s, job: %s) - skipping task assignment",
+			agentID, currentState.JobExecution.ID, agent.BinaryVersion, currentState.JobExecution.BinaryVersion)
+		return nil, fmt.Errorf("agent not compatible with job binary version")
+	}
+
 	// Get hashlist for job
 	hashlist, err := s.jobExecutionService.hashlistRepo.GetByID(ctx, currentState.JobExecution.HashlistID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get hashlist: %w", err)
+	}
+
+	// Get hash type for salt-aware chunk calculations
+	hashType, err := s.jobExecutionService.GetHashTypeByID(ctx, hashlist.HashTypeID)
+	if err != nil {
+		debug.Warning("Failed to get hash type for salt adjustment: %v (will use default behavior)", err)
+		// Continue without salt adjustment - not a fatal error
+	}
+	isSalted := hashType != nil && hashType.IsSalted
+
+	// Determine salt count for salted hash types (used for benchmark lookup)
+	var saltCount *int
+	if isSalted {
+		uncrackedCount, countErr := s.jobExecutionService.hashlistRepo.GetUncrackedHashCount(ctx, currentState.JobExecution.HashlistID)
+		if countErr == nil && uncrackedCount > 0 {
+			saltCount = &uncrackedCount
+		}
 	}
 
 	// PRIORITY 1: Check for existing pending tasks FIRST - prioritize reassignment over new chunks
@@ -321,9 +395,9 @@ func (s *JobSchedulingService) createSingleTaskPlan(
 			"chunk_number": pendingTask.ChunkNumber,
 		})
 
-		// Verify agent has benchmark for this job before reassigning
+		// Verify agent has benchmark for this job before reassigning (salt-aware lookup)
 		benchmark, err := s.jobExecutionService.benchmarkRepo.GetAgentBenchmark(
-			ctx, agentID, currentState.JobExecution.AttackMode, hashlist.HashTypeID)
+			ctx, agentID, currentState.JobExecution.AttackMode, hashlist.HashTypeID, saltCount)
 
 		if err != nil || benchmark == nil {
 			debug.Log("Agent missing benchmark for pending task job, skipping reassignment", map[string]interface{}{
@@ -351,6 +425,38 @@ func (s *JobSchedulingService) createSingleTaskPlan(
 				effectiveEnd = *pendingTask.EffectiveKeyspaceEnd
 			}
 
+			// Recovery optimization - use checkpoint to skip already-processed keyspace
+			recoveryKeyspaceStart := pendingTask.KeyspaceStart
+			recoveryIsKeyspaceSplit := pendingTask.IsKeyspaceSplit
+			recoveryEffectiveStart := effectiveStart
+
+			if pendingTask.KeyspaceProcessed > pendingTask.KeyspaceStart {
+				// Partial progress was made - resume from checkpoint
+				recoveryKeyspaceStart = pendingTask.KeyspaceProcessed
+				recoveryIsKeyspaceSplit = true // Force --skip/--limit flags
+
+				// Calculate new effective keyspace start proportionally
+				if pendingTask.EffectiveKeyspaceStart != nil && pendingTask.EffectiveKeyspaceEnd != nil &&
+					pendingTask.KeyspaceEnd > pendingTask.KeyspaceStart {
+					// multiplier = effective range / base range
+					baseRange := pendingTask.KeyspaceEnd - pendingTask.KeyspaceStart
+					effectiveRange := *pendingTask.EffectiveKeyspaceEnd - *pendingTask.EffectiveKeyspaceStart
+					multiplier := float64(effectiveRange) / float64(baseRange)
+
+					// New effective start = original effective start + (processed base * multiplier)
+					processedBase := pendingTask.KeyspaceProcessed - pendingTask.KeyspaceStart
+					recoveryEffectiveStart = *pendingTask.EffectiveKeyspaceStart + int64(float64(processedBase)*multiplier)
+				}
+
+				debug.Info("Task recovery: resuming from checkpoint", map[string]interface{}{
+					"task_id":            pendingTask.ID,
+					"original_start":     pendingTask.KeyspaceStart,
+					"recovery_start":     recoveryKeyspaceStart,
+					"keyspace_processed": pendingTask.KeyspaceProcessed,
+					"remaining_work":     pendingTask.KeyspaceEnd - recoveryKeyspaceStart,
+				})
+			}
+
 			plan := &TaskAssignmentPlan{
 				AgentID:        agentID,
 				Agent:          agent,
@@ -359,13 +465,19 @@ func (s *JobSchedulingService) createSingleTaskPlan(
 				BenchmarkSpeed: benchmarkSpeed,
 				ExistingTask:   pendingTask, // Mark as pending task reassignment
 
-				// Copy keyspace fields from pending task
-				KeyspaceStart:          pendingTask.KeyspaceStart,
+				// Copy keyspace fields - may be updated for recovery
+				KeyspaceStart:          recoveryKeyspaceStart,
 				KeyspaceEnd:            pendingTask.KeyspaceEnd,
-				EffectiveKeyspaceStart: effectiveStart,
+				EffectiveKeyspaceStart: recoveryEffectiveStart,
 				EffectiveKeyspaceEnd:   effectiveEnd,
+				IsKeyspaceSplit:        recoveryIsKeyspaceSplit,
 				AttackCmd:              pendingTask.AttackCmd,
 				ChunkNumber:            pendingTask.ChunkNumber,
+
+				// Salt-aware chunk calculation
+				IsSalted:      isSalted,
+				TotalHashes:   hashlist.TotalHashes,
+				CrackedHashes: hashlist.CrackedHashes,
 			}
 
 			// For rule-split tasks, copy rule fields and get source rule path
@@ -408,74 +520,44 @@ func (s *JobSchedulingService) createSingleTaskPlan(
 
 createNewChunk:
 	// PRIORITY 2: No pending tasks OR agent lacks benchmark - create NEW chunk
-	// Check if agent has valid benchmark for this job
+	// Check if agent has valid benchmark for this job (salt-aware lookup)
 	benchmark, err := s.jobExecutionService.benchmarkRepo.GetAgentBenchmark(
-		ctx, agentID, currentState.JobExecution.AttackMode, hashlist.HashTypeID)
-
-	// If no benchmark, try to find another job this agent can work on
-	targetJob := currentState.JobExecution
-	targetState := currentState
+		ctx, agentID, currentState.JobExecution.AttackMode, hashlist.HashTypeID, saltCount)
 
 	if err != nil || benchmark == nil {
-		debug.Log("Agent missing benchmark for assigned job, checking alternatives", map[string]interface{}{
-			"agent_id":   agentID,
-			"job_id":     currentState.JobExecution.ID,
-			"hash_type":  hashlist.HashTypeID,
+		// Agent lacks benchmark for reserved job - skip assignment to preserve FIFO order
+		// Agent will get benchmark via round-robin in the next scheduling cycle
+		// DO NOT fall back to other jobs - this would break FIFO ordering
+		debug.Log("Agent lacks benchmark for reserved job, skipping assignment (FIFO preserved)", map[string]interface{}{
+			"agent_id":  agentID,
+			"job_id":    currentState.JobExecution.ID,
+			"hash_type": hashlist.HashTypeID,
 		})
+		return &TaskAssignmentPlan{
+			AgentID:        agentID,
+			SkipAssignment: true,
+			SkipReason:     fmt.Sprintf("Agent %d lacks benchmark for reserved job %s (hash_type=%d) - will get benchmark in next cycle", agentID, currentState.JobExecution.ID, hashlist.HashTypeID),
+		}, nil
+	}
 
-		// Try to find another job with valid benchmark
-		foundAlternative := false
-		for _, otherJob := range allJobs {
-			if otherJob.ID == currentState.JobExecution.ID {
-				continue // Skip current job
-			}
-
-			otherState := jobStates[otherJob.ID]
-			if otherState.IsExhausted {
-				continue // Skip exhausted jobs
-			}
-
-			// Get hashlist for other job
-			otherHashlist, err := s.jobExecutionService.hashlistRepo.GetByID(ctx, otherJob.HashlistID)
-			if err != nil {
-				continue
-			}
-
-			// Check if agent has benchmark for this job
-			otherBenchmark, err := s.jobExecutionService.benchmarkRepo.GetAgentBenchmark(
-				ctx, agentID, otherJob.AttackMode, otherHashlist.HashTypeID)
-
-			if err == nil && otherBenchmark != nil {
-				// Found a job this agent can work on
-				targetJob = &otherJob.JobExecution
-				targetState = otherState
-				benchmark = otherBenchmark
-				hashlist = otherHashlist
-				foundAlternative = true
-
-				debug.Info("Reassigned agent to alternative job", map[string]interface{}{
-					"agent_id":       agentID,
-					"original_job":   currentState.JobExecution.ID,
-					"alternative_job": otherJob.ID,
-					"hash_type":      otherHashlist.HashTypeID,
-				})
-				break
-			}
-		}
-
-		if !foundAlternative {
-			// No valid benchmark for any job
-			return &TaskAssignmentPlan{
-				AgentID:        agentID,
-				SkipAssignment: true,
-				SkipReason:     fmt.Sprintf("No valid benchmark for any available job (agent_id=%d)", agentID),
-			}, nil
-		}
+	// Block dispatch if job lacks accurate keyspace - must wait for benchmark to complete
+	// This prevents dispatching tasks when the forced benchmark timed out
+	if !currentState.JobExecution.IsAccurateKeyspace {
+		debug.Log("Job lacks accurate keyspace, skipping task dispatch", map[string]interface{}{
+			"job_id":              currentState.JobExecution.ID,
+			"is_accurate_keyspace": currentState.JobExecution.IsAccurateKeyspace,
+			"agent_id":            agentID,
+		})
+		return &TaskAssignmentPlan{
+			AgentID:        agentID,
+			SkipAssignment: true,
+			SkipReason:     fmt.Sprintf("Job %s lacks accurate keyspace - waiting for benchmark to complete", currentState.JobExecution.ID),
+		}, nil
 	}
 
 	// Get chunk duration
 	chunkDuration := 1200 // Default 20 minutes
-	if duration, err := s.getChunkDuration(ctx, targetJob); err == nil {
+	if duration, err := s.getChunkDuration(ctx, currentState.JobExecution); err == nil {
 		chunkDuration = duration
 	}
 
@@ -483,31 +565,36 @@ createNewChunk:
 	plan := &TaskAssignmentPlan{
 		AgentID:        agentID,
 		Agent:          agent,
-		JobExecution:   targetJob,
+		JobExecution:   currentState.JobExecution,
 		ChunkDuration:  chunkDuration,
 		BenchmarkSpeed: benchmark.Speed,
+
+		// Salt-aware chunk calculation
+		IsSalted:      isSalted,
+		TotalHashes:   hashlist.TotalHashes,
+		CrackedHashes: hashlist.CrackedHashes,
 	}
 
 	// Add increment layer information if this is an increment mode job
-	if targetState.CurrentLayer != nil {
-		plan.IncrementLayerID = &targetState.CurrentLayer.ID
-		plan.LayerMask = targetState.CurrentLayer.Mask
+	if currentState.CurrentLayer != nil {
+		plan.IncrementLayerID = &currentState.CurrentLayer.ID
+		plan.LayerMask = currentState.CurrentLayer.Mask
 		debug.Log("Added increment layer to task plan", map[string]interface{}{
 			"layer_id":    plan.IncrementLayerID,
 			"layer_mask":  plan.LayerMask,
-			"layer_index": targetState.CurrentLayer.LayerIndex,
+			"layer_index": currentState.CurrentLayer.LayerIndex,
 		})
 	}
 
-	if targetJob.UsesRuleSplitting {
+	if currentState.JobExecution.UsesRuleSplitting {
 		// Rule splitting chunk calculation
-		err = s.calculateRuleSplitChunk(ctx, plan, targetState, hashlist)
+		err = s.calculateRuleSplitChunk(ctx, plan, currentState, hashlist)
 		if err != nil {
 			return nil, fmt.Errorf("failed to calculate rule split chunk: %w", err)
 		}
 	} else {
 		// Regular keyspace chunking
-		err = s.calculateKeyspaceChunk(ctx, plan, targetState)
+		err = s.calculateKeyspaceChunk(ctx, plan, currentState)
 		if err != nil {
 			return nil, fmt.Errorf("failed to calculate keyspace chunk: %w", err)
 		}
@@ -661,6 +748,12 @@ func (s *JobSchedulingService) executeTaskAssignment(
 		now := time.Now()
 		task.AssignedAt = &now
 
+		// Apply recovery optimization - update keyspace fields from checkpoint
+		task.KeyspaceStart = plan.KeyspaceStart     // May be updated from keyspace_processed
+		task.IsKeyspaceSplit = plan.IsKeyspaceSplit // Ensure split flag is set
+		task.EffectiveKeyspaceStart = &plan.EffectiveKeyspaceStart
+		task.EffectiveKeyspaceEnd = &plan.EffectiveKeyspaceEnd
+
 		// Update rule chunk path if this is a rule-split task
 		if plan.IsRuleSplit && ruleChunkPath != "" {
 			task.RuleChunkPath = &ruleChunkPath
@@ -799,15 +892,52 @@ func (s *JobSchedulingService) calculateRuleSplitChunk(
 	}
 
 	// Calculate how many rules this agent can process in the chunk duration
-	// rulesPerSecond = benchmarkSpeed / baseKeyspace (how many complete wordlist passes per second)
-	// rulesPerChunk = rulesPerSecond * chunkDuration
+	// Using effective_keyspace (which includes salt multiplication from benchmark) for accurate timing
+	// keyspacePerRule = effective_keyspace / total_rules
+	// chunkKeyspace = benchmarkSpeed * chunkDuration
+	// rulesPerChunk = chunkKeyspace / keyspacePerRule
 	rulesPerChunk := 100 // Default if calculation fails
-	if state.BaseKeyspace > 0 && plan.BenchmarkSpeed > 0 {
-		rulesPerSecond := float64(plan.BenchmarkSpeed) / float64(state.BaseKeyspace)
-		rulesPerChunk = int(rulesPerSecond * float64(plan.ChunkDuration))
+	if state.JobExecution.EffectiveKeyspace != nil && *state.JobExecution.EffectiveKeyspace > 0 && plan.BenchmarkSpeed > 0 {
+		totalRules := state.JobExecution.MultiplicationFactor
+		if totalRules == 0 {
+			totalRules = 1
+		}
+
+		// Keyspace per rule (base calculation without salts)
+		keyspacePerRule := float64(*state.JobExecution.EffectiveKeyspace) / float64(totalRules)
+
+		// For salted hash types, multiply keyspace by remaining hashes (each hash = 1 salt)
+		// This aligns with the salt-aware benchmark speed which already accounts for salt count
+		if plan.IsSalted {
+			remainingHashes := plan.TotalHashes - plan.CrackedHashes
+			if remainingHashes > 0 {
+				originalKeyspacePerRule := keyspacePerRule
+				keyspacePerRule *= float64(remainingHashes)
+				debug.Log("Adjusted keyspace_per_rule for salted hash type", map[string]interface{}{
+					"original_keyspace_per_rule": originalKeyspacePerRule,
+					"salt_count":                 remainingHashes,
+					"adjusted_keyspace_per_rule": keyspacePerRule,
+				})
+			}
+		}
+
+		// Keyspace we can process in target duration
+		chunkKeyspace := float64(plan.BenchmarkSpeed) * float64(plan.ChunkDuration)
+
+		// Rules per chunk
+		rulesPerChunk = int(chunkKeyspace / keyspacePerRule)
 		if rulesPerChunk < 1 {
 			rulesPerChunk = 1 // At least one rule per chunk
 		}
+
+		debug.Log("Rule chunk calculation", map[string]interface{}{
+			"effective_keyspace": *state.JobExecution.EffectiveKeyspace,
+			"total_rules":        totalRules,
+			"keyspace_per_rule":  keyspacePerRule,
+			"benchmark_speed":    plan.BenchmarkSpeed,
+			"chunk_duration":     plan.ChunkDuration,
+			"rules_per_chunk":    rulesPerChunk,
+		})
 	}
 
 	// Get fluctuation settings
@@ -921,48 +1051,36 @@ func (s *JobSchedulingService) calculateKeyspaceChunk(
 			return fmt.Errorf("layer has no keyspace information")
 		}
 
-		// Query max BASE keyspace_end from existing tasks for this layer
-		// CRITICAL: state.CurrentLayer.DispatchedKeyspace is in EFFECTIVE units, but we need BASE units
-		// for --skip/--limit. We must query the actual task keyspace_end values.
-		maxBaseEnd, err := s.jobExecutionService.jobTaskRepo.GetMaxKeyspaceEndByLayer(ctx, state.CurrentLayer.ID)
-		if err != nil {
-			debug.Warning("Failed to get max keyspace end for layer %s: %v, starting from 0", state.CurrentLayer.ID, err)
-			maxBaseEnd = 0
-		}
-		dispatchedKeyspace = maxBaseEnd
+		// Use in-memory BASE keyspace tracking (initialized once from DB at the start of planning)
+		// This fixes the race condition where all agents query DB before any tasks exist.
+		dispatchedKeyspace = state.LayerDispatchedBaseKeyspace[state.CurrentLayer.ID]
 
-		debug.Log("Got max base keyspace_end for layer", map[string]interface{}{
+		debug.Log("Using in-memory base keyspace_end for layer", map[string]interface{}{
 			"layer_id":              state.CurrentLayer.ID,
 			"layer_index":           state.CurrentLayer.LayerIndex,
-			"max_base_keyspace_end": maxBaseEnd,
+			"base_keyspace_end":     dispatchedKeyspace,
 			"total_base_keyspace":   totalKeyspace,
 		})
 	} else {
 		// Regular job - use BASE keyspace for --skip/--limit
-		// BaseKeyspace represents actual password candidates that hashcat will test
+		// BaseKeyspace represents wordlist positions that hashcat uses for --skip/--limit
 		if plan.JobExecution.BaseKeyspace != nil {
 			totalKeyspace = *plan.JobExecution.BaseKeyspace
-		} else if plan.JobExecution.TotalKeyspace != nil {
-			// Fallback to TotalKeyspace if BaseKeyspace not set
-			totalKeyspace = *plan.JobExecution.TotalKeyspace
+		} else if plan.JobExecution.EffectiveKeyspace != nil {
+			// Fallback to EffectiveKeyspace if BaseKeyspace not set
+			totalKeyspace = *plan.JobExecution.EffectiveKeyspace
 		} else {
 			return fmt.Errorf("job has no keyspace information")
 		}
 
-		// Query max BASE keyspace_end from existing tasks for this job
-		// CRITICAL: state.DispatchedKeyspace is in EFFECTIVE units, but we need BASE units
-		// for --skip/--limit. We must query the actual task keyspace_end values.
-		maxBaseEnd, err := s.jobExecutionService.jobTaskRepo.GetMaxKeyspaceEnd(ctx, plan.JobExecution.ID)
-		if err != nil {
-			debug.Warning("Failed to get max keyspace end for job %s: %v, starting from 0", plan.JobExecution.ID, err)
-			maxBaseEnd = 0
-		}
-		dispatchedKeyspace = maxBaseEnd
+		// Use in-memory BASE keyspace tracking (initialized once from DB at the start of planning)
+		// This fixes the race condition where all agents query DB before any tasks exist.
+		dispatchedKeyspace = state.DispatchedBaseKeyspace
 
-		debug.Log("Got max base keyspace_end for job", map[string]interface{}{
-			"job_id":                plan.JobExecution.ID,
-			"max_base_keyspace_end": maxBaseEnd,
-			"total_base_keyspace":   totalKeyspace,
+		debug.Log("Using in-memory base keyspace_end for job", map[string]interface{}{
+			"job_id":            plan.JobExecution.ID,
+			"base_keyspace_end": dispatchedKeyspace,
+			"total_base_keyspace": totalKeyspace,
 		})
 	}
 
@@ -1008,6 +1126,8 @@ func (s *JobSchedulingService) calculateKeyspaceChunk(
 	if effectiveKeyspace > 0 && totalKeyspace > 0 {
 		// multiplier = effective_keyspace / base_keyspace
 		// For mask attacks with many hashes, multiplier ≈ hash_count
+		// For salted hashes, effective_keyspace already includes salt factor (applied at job creation)
+		// So multiplier = (base × rules × salts) / base = rules × salts
 		multiplier := float64(effectiveKeyspace) / float64(totalKeyspace)
 
 		// Convert benchmark speed (effective H/s) to base keyspace per second
@@ -1028,9 +1148,31 @@ func (s *JobSchedulingService) calculateKeyspaceChunk(
 			"desired_base_chunk":  desiredChunkSize,
 		})
 	} else {
-		// Fallback: assume 1:1 ratio if effective keyspace not available yet
-		desiredChunkSize = int64(plan.ChunkDuration) * plan.BenchmarkSpeed
-		debug.Warning("No effective keyspace available for job %s, using 1:1 ratio for chunk calculation", plan.JobExecution.ID)
+		// Fallback: no effective keyspace available
+		// For salted hashes, we MUST apply salt adjustment or chunks will be way too large
+		candidateSpeed := plan.BenchmarkSpeed
+		if plan.IsSalted {
+			remainingHashes := int64(plan.TotalHashes - plan.CrackedHashes)
+			if remainingHashes > 0 {
+				candidateSpeed = plan.BenchmarkSpeed / remainingHashes
+				debug.Log("Applied salt adjustment in fallback chunk calculation", map[string]interface{}{
+					"is_salted":         plan.IsSalted,
+					"total_hashes":      plan.TotalHashes,
+					"cracked_hashes":    plan.CrackedHashes,
+					"remaining_hashes":  remainingHashes,
+					"original_speed":    plan.BenchmarkSpeed,
+					"adjusted_speed":    candidateSpeed,
+				})
+			}
+		}
+		desiredChunkSize = int64(plan.ChunkDuration) * candidateSpeed
+		debug.Warning("No effective keyspace available for job %s, using %s for chunk calculation",
+			plan.JobExecution.ID, func() string {
+				if plan.IsSalted {
+					return "salt-adjusted speed"
+				}
+				return "1:1 ratio"
+			}())
 	}
 
 	// Ensure at least 1 keyspace unit per chunk
@@ -1132,24 +1274,31 @@ func (s *JobSchedulingService) calculateKeyspaceChunk(
 	// Update state for next agent (in-memory tracking during planning)
 	dispatchedAmount := keyspaceEnd - keyspaceStart
 	if state.CurrentLayer != nil {
-		// Update layer's in-memory dispatched keyspace
+		// Update layer's in-memory dispatched keyspace (EFFECTIVE units)
 		state.CurrentLayer.DispatchedKeyspace += dispatchedAmount
+		// Update layer's BASE keyspace tracking (for --skip/--limit)
+		// This is the KEY FIX: track the END position so next agent gets correct start
+		state.LayerDispatchedBaseKeyspace[state.CurrentLayer.ID] = keyspaceEnd
 	} else {
-		// Update job's in-memory dispatched keyspace
+		// Update job's in-memory dispatched keyspace (EFFECTIVE units)
 		state.DispatchedKeyspace += dispatchedAmount
+		// Update job's BASE keyspace tracking (for --skip/--limit)
+		// This is the KEY FIX: track the END position so next agent gets correct start
+		state.DispatchedBaseKeyspace = keyspaceEnd
 	}
 	state.ChunkNumber++
 
 	debug.Log("Calculated keyspace chunk (base keyspace for --skip/--limit)", map[string]interface{}{
-		"agent_id":         plan.AgentID,
-		"job_id":           plan.JobExecution.ID,
-		"chunk_number":     plan.ChunkNumber,
-		"keyspace_start":   keyspaceStart,
-		"keyspace_end":     keyspaceEnd,
-		"chunk_size":       dispatchedAmount,
-		"total_keyspace":   totalKeyspace,
-		"is_keyspace_split": plan.IsKeyspaceSplit,
-		"benchmark_speed":  plan.BenchmarkSpeed,
+		"agent_id":                   plan.AgentID,
+		"job_id":                     plan.JobExecution.ID,
+		"chunk_number":               plan.ChunkNumber,
+		"keyspace_start":             keyspaceStart,
+		"keyspace_end":               keyspaceEnd,
+		"chunk_size":                 dispatchedAmount,
+		"base_keyspace":              totalKeyspace,
+		"is_keyspace_split":          plan.IsKeyspaceSplit,
+		"benchmark_speed":            plan.BenchmarkSpeed,
+		"updated_base_keyspace_end":  keyspaceEnd,
 	})
 
 	return nil

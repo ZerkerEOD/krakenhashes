@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Paper,
@@ -14,7 +14,8 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  TextField
+  TextField,
+  CircularProgress
 } from '@mui/material';
 import {
   Download as DownloadIcon,
@@ -26,10 +27,11 @@ import {
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../services/api';
+import { api, deleteHashlist, getDeletionProgress, DeletionProgressResponse, getProcessingProgress, ProcessingProgressResponse } from '../../services/api';
 import CreateJobDialog from './CreateJobDialog';
 import HashlistHashesTable from './HashlistHashesTable';
 import ClientAutocomplete from './ClientAutocomplete';
+import AssociationWordlistManager from './AssociationWordlistManager';
 import { useSnackbar } from 'notistack';
 import { AxiosResponse, AxiosError } from 'axios';
 
@@ -49,32 +51,186 @@ interface HashDetail {
   crackedText?: string;
 }
 
+// Helper function to format ETA in human-readable format
+const formatETA = (seconds: number): string => {
+  if (!isFinite(seconds) || seconds < 0) return '--';
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.round((seconds % 3600) / 60);
+  return `${hours}h ${mins}m`;
+};
+
 export default function HashlistDetailView() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [createJobDialogOpen, setCreateJobDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletionProgressDialogOpen, setDeletionProgressDialogOpen] = useState(false);
+  const [deletionProgress, setDeletionProgress] = useState<DeletionProgressResponse | null>(null);
+  const [processingProgress, setProcessingProgress] = useState<ProcessingProgressResponse | null>(null);
   const [editClientDialogOpen, setEditClientDialogOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [downloadingHashlist, setDownloadingHashlist] = useState(false);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const processingPollingRef = useRef<NodeJS.Timeout | null>(null);
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
 
-  const { data: hashlist, isLoading } = useQuery({
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+      if (processingPollingRef.current) {
+        clearInterval(processingPollingRef.current);
+      }
+    };
+  }, []);
+
+  const { data: hashlist, isLoading, refetch } = useQuery({
     queryKey: ['hashlist', id],
     queryFn: () => api.get(`/api/hashlists/${id}`).then(res => res.data)
   });
 
-  // Delete Mutation
-  const deleteMutation = useMutation<AxiosResponse, AxiosError, string>({
-    mutationFn: (hashlistId: string) => api.delete(`/api/hashlists/${hashlistId}`),
-    onSuccess: () => {
-      enqueueSnackbar('Hashlist deleted successfully', { variant: 'success' });
-      queryClient.invalidateQueries({ queryKey: ['hashlists'] });
-      navigate('/hashlists'); // Redirect to list after deletion
+  // Poll for processing progress when status is "processing"
+  useEffect(() => {
+    if (!hashlist || hashlist.status !== 'processing' || !id) {
+      // Clear any existing processing polling
+      if (processingPollingRef.current) {
+        clearInterval(processingPollingRef.current);
+        processingPollingRef.current = null;
+      }
+      setProcessingProgress(null);
+      return;
+    }
+
+    const pollProgress = async () => {
+      try {
+        const progress = await getProcessingProgress(id);
+        setProcessingProgress(progress);
+
+        // If processing is complete, stop polling and refresh hashlist
+        if (progress.status === 'completed' || progress.status === 'failed') {
+          if (processingPollingRef.current) {
+            clearInterval(processingPollingRef.current);
+            processingPollingRef.current = null;
+          }
+          // Refetch hashlist to get updated status
+          refetch();
+        }
+      } catch (error: any) {
+        // 404 means processing already completed
+        if (error.response?.status === 404) {
+          if (processingPollingRef.current) {
+            clearInterval(processingPollingRef.current);
+            processingPollingRef.current = null;
+          }
+          setProcessingProgress(null);
+          refetch();
+        }
+      }
+    };
+
+    // Poll immediately then every 2 seconds
+    pollProgress();
+    processingPollingRef.current = setInterval(pollProgress, 2000);
+
+    return () => {
+      if (processingPollingRef.current) {
+        clearInterval(processingPollingRef.current);
+        processingPollingRef.current = null;
+      }
+    };
+  }, [hashlist?.status, id, refetch]);
+
+  // Start polling for deletion progress
+  const startDeletionPolling = (hashlistId: string) => {
+    // Clear any existing interval
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+
+    // Poll immediately, then every 2 seconds
+    const pollProgress = async () => {
+      try {
+        const progress = await getDeletionProgress(hashlistId);
+        setDeletionProgress(progress);
+
+        if (progress.status === 'completed') {
+          // Stop polling
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+          enqueueSnackbar('Hashlist deleted successfully', { variant: 'success' });
+          queryClient.invalidateQueries({ queryKey: ['hashlists'] });
+          // Wait a moment before redirecting so user can see completion
+          setTimeout(() => {
+            setDeletionProgressDialogOpen(false);
+            navigate('/hashlists');
+          }, 1500);
+        } else if (progress.status === 'failed') {
+          // Stop polling
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+          enqueueSnackbar(`Deletion failed: ${progress.error}`, { variant: 'error' });
+        }
+      } catch (error: any) {
+        // 404 means deletion already completed and was cleaned up
+        if (error.response?.status === 404) {
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+          enqueueSnackbar('Hashlist deleted successfully', { variant: 'success' });
+          queryClient.invalidateQueries({ queryKey: ['hashlists'] });
+          setDeletionProgressDialogOpen(false);
+          navigate('/hashlists');
+        }
+      }
+    };
+
+    pollProgress(); // Poll immediately
+    pollingIntervalRef.current = setInterval(pollProgress, 2000);
+  };
+
+  // Delete Mutation - handles both sync and async deletion
+  const deleteMutation = useMutation({
+    mutationFn: async (hashlistId: string) => {
+      return deleteHashlist(hashlistId);
     },
-    onError: (error) => {
-      const errorMsg = (error.response?.data as any)?.error || error.message || 'Failed to delete hashlist';
+    onSuccess: (result) => {
+      if (result.async) {
+        // Async deletion - show progress dialog and start polling
+        setDeleteDialogOpen(false);
+        setDeletionProgress({
+          hashlist_id: parseInt(id!),
+          status: 'pending',
+          phase: 'Preparing...',
+          checked: 0,
+          total: hashlist?.total_hashes || 0,
+          deleted: 0,
+          refs_cleared: 0,
+          refs_total: 0,
+          jobs_deleted: 0,
+          shared_preserved: 0,
+          started_at: new Date().toISOString()
+        });
+        setDeletionProgressDialogOpen(true);
+        startDeletionPolling(id!);
+      } else {
+        // Sync deletion completed
+        enqueueSnackbar('Hashlist deleted successfully', { variant: 'success' });
+        queryClient.invalidateQueries({ queryKey: ['hashlists'] });
+        navigate('/hashlists');
+      }
+    },
+    onError: (error: any) => {
+      const errorMsg = error.response?.data?.error || error.message || 'Failed to delete hashlist';
       enqueueSnackbar(errorMsg, { variant: 'error' });
       setDeleteDialogOpen(false);
     },
@@ -265,16 +421,33 @@ export default function HashlistDetailView() {
           {hashlist.description || 'No description'}
         </Typography>
 
-        <Box display="flex" gap={2} sx={{ mt: 3 }}>
-          <Typography>
-            Status: <Chip
+        <Box display="flex" gap={2} sx={{ mt: 3 }} flexWrap="wrap" alignItems="center">
+          <Box display="flex" alignItems="center" gap={1}>
+            <Typography component="span">Status:</Typography>
+            <Chip
               label={hashlist.status}
               color={
                 hashlist.status === 'ready' ? 'success' :
                 hashlist.status === 'error' ? 'error' : 'primary'
               }
+              size="small"
             />
-          </Typography>
+            {/* Inline processing progress */}
+            {hashlist.status === 'processing' && processingProgress && processingProgress.processed_lines !== undefined && (
+              <Box display="flex" alignItems="center" gap={1} sx={{ ml: 1 }}>
+                <CircularProgress size={16} />
+                <Typography variant="body2" color="text.secondary">
+                  {processingProgress.processed_lines.toLocaleString()} / {processingProgress.total_lines.toLocaleString()} lines
+                  {processingProgress.lines_per_second > 0 && (
+                    <> ({Math.round(processingProgress.lines_per_second).toLocaleString()}/sec)</>
+                  )}
+                  {processingProgress.lines_per_second > 0 && processingProgress.total_lines > processingProgress.processed_lines && (
+                    <> • ETA: {formatETA((processingProgress.total_lines - processingProgress.processed_lines) / processingProgress.lines_per_second)}</>
+                  )}
+                </Typography>
+              </Box>
+            )}
+          </Box>
           <Typography>
             Hash Type: {hashlist.hashTypeName}
           </Typography>
@@ -316,6 +489,14 @@ export default function HashlistDetailView() {
       </Paper>
 
       {hashlist && (
+        <AssociationWordlistManager
+          hashlistId={parseInt(id!)}
+          totalHashes={hashlist.total_hashes || 0}
+          hasMixedWorkFactors={hashlist.has_mixed_work_factors || false}
+        />
+      )}
+
+      {hashlist && (
         <HashlistHashesTable
           hashlistId={id!}
           hashlistName={hashlist.name}
@@ -342,6 +523,8 @@ export default function HashlistDetailView() {
           hashlistId={parseInt(id!)}
           hashlistName={hashlist.name}
           hashTypeId={hashlist.hashTypeID || hashlist.hash_type_id}
+          hasMixedWorkFactors={hashlist.has_mixed_work_factors || false}
+          totalHashes={hashlist.total_hashes || 0}
         />
       )}
 
@@ -401,6 +584,120 @@ export default function HashlistDetailView() {
             {updateClientMutation.isPending ? 'Saving...' : 'Save'}
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Deletion Progress Dialog */}
+      <Dialog
+        open={deletionProgressDialogOpen}
+        maxWidth="sm"
+        fullWidth
+        disableEscapeKeyDown
+      >
+        <DialogTitle>
+          {deletionProgress?.status === 'completed' ? 'Hashlist Deleted Successfully' : 'Deleting Hashlist'}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ textAlign: 'center', py: 2 }}>
+            {deletionProgress?.status === 'completed' ? (
+              <>
+                <Typography variant="h6" color="success.main" gutterBottom>
+                  Deletion Complete!
+                </Typography>
+                {/* Summary stats */}
+                <Box sx={{ mt: 2, textAlign: 'left', bgcolor: 'grey.50', p: 2, borderRadius: 1 }}>
+                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                    Summary:
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    Total hashes processed: {deletionProgress.total.toLocaleString()}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    Orphan hashes deleted: {deletionProgress.deleted.toLocaleString()}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    Shared hashes preserved: {(deletionProgress.shared_preserved || 0).toLocaleString()}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    Jobs deleted: {(deletionProgress.jobs_deleted || 0).toLocaleString()}
+                  </Typography>
+                  {deletionProgress.duration && (
+                    <Typography variant="body2">
+                      Duration: {deletionProgress.duration}
+                    </Typography>
+                  )}
+                </Box>
+              </>
+            ) : deletionProgress?.status === 'failed' ? (
+              <Typography variant="h6" color="error.main" gutterBottom>
+                Deletion Failed
+              </Typography>
+            ) : (
+              <>
+                <CircularProgress size={60} sx={{ mb: 2 }} />
+                {/* Phase-based progress display */}
+                {(() => {
+                  // Determine phase info based on status
+                  const getPhaseInfo = () => {
+                    switch (deletionProgress?.status) {
+                      case 'deleting_hashes':
+                        return { phase: 1, total: 3, label: 'Removing hashes', current: deletionProgress.checked, max: deletionProgress.total, unit: 'hashes' };
+                      case 'clearing_references':
+                        return { phase: 2, total: 3, label: 'Clearing task references', current: deletionProgress.refs_cleared || 0, max: deletionProgress.refs_total || 1, unit: 'references' };
+                      case 'cleaning_orphans':
+                        return { phase: 3, total: 3, label: 'Cleaning orphan hashes', current: deletionProgress.checked, max: deletionProgress.total, unit: 'hashes' };
+                      case 'finalizing':
+                        return { phase: 3, total: 3, label: 'Finalizing deletion', current: 100, max: 100, unit: '' };
+                      default:
+                        return { phase: 0, total: 3, label: 'Preparing...', current: 0, max: 100, unit: '' };
+                    }
+                  };
+                  const phaseInfo = getPhaseInfo();
+                  const percent = phaseInfo.max > 0 ? Math.round((phaseInfo.current / phaseInfo.max) * 100) : 0;
+
+                  return (
+                    <Box sx={{ mt: 2, width: '100%' }}>
+                      <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                        Phase {phaseInfo.phase}/{phaseInfo.total}: {phaseInfo.label}
+                      </Typography>
+                      <LinearProgress
+                        variant="determinate"
+                        value={percent}
+                        sx={{ height: 10, borderRadius: 5, my: 1 }}
+                      />
+                      <Typography variant="body2" color="text.secondary">
+                        {phaseInfo.current.toLocaleString()} / {phaseInfo.max.toLocaleString()} {phaseInfo.unit} ({percent}%)
+                      </Typography>
+                    </Box>
+                  );
+                })()}
+              </>
+            )}
+
+            {deletionProgress?.error && (
+              <Typography variant="body2" color="error" sx={{ mt: 2 }}>
+                Error: {deletionProgress.error}
+              </Typography>
+            )}
+          </Box>
+        </DialogContent>
+        {(deletionProgress?.status === 'failed' || deletionProgress?.status === 'completed') && (
+          <DialogActions>
+            <Button
+              onClick={() => {
+                setDeletionProgressDialogOpen(false);
+                setDeletionProgress(null);
+                if (deletionProgress?.status === 'completed') {
+                  queryClient.invalidateQueries({ queryKey: ['hashlists'] });
+                  navigate('/hashlists');
+                }
+              }}
+              color="primary"
+              variant={deletionProgress?.status === 'completed' ? 'contained' : 'text'}
+            >
+              {deletionProgress?.status === 'completed' ? 'Done' : 'Close'}
+            </Button>
+          </DialogActions>
+        )}
       </Dialog>
     </Box>
   );

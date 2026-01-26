@@ -131,13 +131,16 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.
 	var preferredMFAMethod sql.NullString
 	var lastFailedAttempt, accountLockedUntil, lastLogin, disabledAt sql.NullTime
 	var disabledReason sql.NullString
+	var apiKey sql.NullString
+	var apiKeyCreatedAt, apiKeyLastUsed sql.NullTime
 
 	query := `
 		SELECT id, username, email, password_hash, role, created_at, updated_at,
 		       mfa_enabled, mfa_type, mfa_secret, backup_codes, preferred_mfa_method,
 		       last_password_change, failed_login_attempts, last_failed_attempt,
 		       account_locked, account_locked_until, account_enabled, last_login,
-		       disabled_reason, disabled_at, disabled_by
+		       disabled_reason, disabled_at, disabled_by,
+		       api_key, api_key_created_at, api_key_last_used
 		FROM users
 		WHERE email = $1
 	`
@@ -165,6 +168,9 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.
 		&disabledReason,
 		&disabledAt,
 		&user.DisabledBy,
+		&apiKey,
+		&apiKeyCreatedAt,
+		&apiKeyLastUsed,
 	)
 
 	if err == sql.ErrNoRows {
@@ -195,6 +201,15 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.
 	if disabledAt.Valid {
 		user.DisabledAt = &disabledAt.Time
 	}
+	if apiKey.Valid {
+		user.APIKey = apiKey.String
+	}
+	if apiKeyCreatedAt.Valid {
+		user.APIKeyCreatedAt = &apiKeyCreatedAt.Time
+	}
+	if apiKeyLastUsed.Valid {
+		user.APIKeyLastUsed = &apiKeyLastUsed.Time
+	}
 
 	// Handle backup codes
 	if backupCodes != nil {
@@ -213,6 +228,8 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Use
 	var preferredMFAMethod sql.NullString
 	var lastFailedAttempt, accountLockedUntil, lastLogin, disabledAt sql.NullTime
 	var disabledReason sql.NullString
+	var apiKey sql.NullString
+	var apiKeyCreatedAt, apiKeyLastUsed sql.NullTime
 
 	err := r.db.QueryRowContext(ctx, queries.GetUserByID, id).Scan(
 		&user.ID,
@@ -238,6 +255,9 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Use
 		&disabledAt,
 		&user.DisabledBy,
 		&user.NotifyOnJobCompletion,
+		&apiKey,
+		&apiKeyCreatedAt,
+		&apiKeyLastUsed,
 	)
 
 	if err == sql.ErrNoRows {
@@ -267,6 +287,15 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Use
 	}
 	if disabledAt.Valid {
 		user.DisabledAt = &disabledAt.Time
+	}
+	if apiKey.Valid {
+		user.APIKey = apiKey.String
+	}
+	if apiKeyCreatedAt.Valid {
+		user.APIKeyCreatedAt = &apiKeyCreatedAt.Time
+	}
+	if apiKeyLastUsed.Valid {
+		user.APIKeyLastUsed = &apiKeyLastUsed.Time
 	}
 
 	// Handle MFA type array
@@ -331,6 +360,26 @@ func (r *UserRepository) Delete(ctx context.Context, id uuid.UUID) error {
 
 	if rows == 0 {
 		return fmt.Errorf("user not found: %s", id)
+	}
+
+	return nil
+}
+
+// SoftDelete marks a user as deleted by setting the deleted_at timestamp
+func (r *UserRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
+	query := `UPDATE users SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL`
+	result, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to soft delete user: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("user not found or already deleted: %s", id)
 	}
 
 	return nil
@@ -464,6 +513,7 @@ func (r *UserRepository) ListAll(ctx context.Context) ([]models.User, error) {
 		var lastLogin, disabledAt, lockedUntil sql.NullTime
 		var disabledReason sql.NullString
 		var disabledBy *uuid.UUID
+		var lastAuthProvider sql.NullString
 
 		err := rows.Scan(
 			&user.ID,
@@ -482,6 +532,7 @@ func (r *UserRepository) ListAll(ctx context.Context) ([]models.User, error) {
 			&disabledReason,
 			&disabledAt,
 			&disabledBy,
+			&lastAuthProvider,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan user: %w", err)
@@ -502,6 +553,9 @@ func (r *UserRepository) ListAll(ctx context.Context) ([]models.User, error) {
 		}
 		if preferredMFAMethod.Valid {
 			user.PreferredMFAMethod = preferredMFAMethod.String
+		}
+		if lastAuthProvider.Valid {
+			user.LastAuthProvider = &lastAuthProvider.String
 		}
 		user.DisabledBy = disabledBy
 
@@ -744,6 +798,81 @@ func (r *UserRepository) UnlockAccount(ctx context.Context, userID uuid.UUID) er
 	result, err := r.db.ExecContext(ctx, queries.UnlockUserAccount, userID)
 	if err != nil {
 		return fmt.Errorf("failed to unlock user account: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("user not found: %s", userID)
+	}
+
+	return nil
+}
+
+// UpdateAPIKey updates a user's API key (stores bcrypt hash)
+func (r *UserRepository) UpdateAPIKey(ctx context.Context, userID uuid.UUID, hashedAPIKey string) error {
+	query := `UPDATE users SET
+		api_key = $2,
+		api_key_created_at = NOW(),
+		api_key_last_used = NULL,
+		updated_at = NOW()
+		WHERE id = $1`
+
+	result, err := r.db.ExecContext(ctx, query, userID, hashedAPIKey)
+	if err != nil {
+		return fmt.Errorf("failed to update API key: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("user not found: %s", userID)
+	}
+
+	return nil
+}
+
+// RevokeAPIKey revokes (nullifies) a user's API key
+func (r *UserRepository) RevokeAPIKey(ctx context.Context, userID uuid.UUID) error {
+	query := `UPDATE users SET
+		api_key = NULL,
+		api_key_created_at = NULL,
+		api_key_last_used = NULL,
+		updated_at = NOW()
+		WHERE id = $1`
+
+	result, err := r.db.ExecContext(ctx, query, userID)
+	if err != nil {
+		return fmt.Errorf("failed to revoke API key: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("user not found: %s", userID)
+	}
+
+	return nil
+}
+
+// UpdateAPIKeyLastUsed updates the last used timestamp for a user's API key
+func (r *UserRepository) UpdateAPIKeyLastUsed(ctx context.Context, userID uuid.UUID) error {
+	query := `UPDATE users SET
+		api_key_last_used = NOW()
+		WHERE id = $1`
+
+	result, err := r.db.ExecContext(ctx, query, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update API key last used: %w", err)
 	}
 
 	rows, err := result.RowsAffected()

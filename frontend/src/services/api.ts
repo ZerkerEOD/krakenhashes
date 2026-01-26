@@ -4,7 +4,7 @@
 import axios from 'axios';
 import type { AxiosError } from 'axios';
 import { Client } from '../types/client'; // Moved import to top
-import { User, UserUpdateRequest, DisableUserRequest, ResetPasswordRequest, UserListResponse, UserDetailResponse, LoginAttemptsResponse, ActiveSessionsResponse, TerminateSessionResponse, TerminateAllSessionsResponse } from '../types/user';
+import { User, UserUpdateRequest, DisableUserRequest, ResetPasswordRequest, UserListResponse, UserDetailResponse, LoginAttemptsResponse, ActiveSessionsResponse, TerminateSessionResponse, TerminateAllSessionsResponse, ApiKeyInfoResponse, ApiKeyResponse } from '../types/user';
 import { transformUserResponse, transformUserListResponse, transformLoginAttempt, transformActiveSession } from '../utils/userTransform';
 import {
   PresetJob,
@@ -135,13 +135,26 @@ api.interceptors.request.use((config) => {
   // Log the request
   logApiCall(config.method?.toUpperCase() || 'UNKNOWN', config.url || '', config.data);
   
-  // Add X-Auto-Refresh header for polling endpoints
-  const isAutoRefreshEndpoint = 
+  // Add X-Auto-Refresh header for polling/automated endpoints
+  // This prevents these requests from triggering token refresh in the middleware
+  const isAutoRefreshEndpoint =
+    // Specific endpoints that are always auto-refresh
     config.url?.includes('/api/dashboard/stats') ||
-    (config.url?.includes('/api/jobs') && config.method?.toLowerCase() === 'get') ||
-    config.url?.includes('/api/agents') ||
-    config.url?.includes('/api/jobs/stream');
-  
+    config.url?.includes('/api/check-auth') ||
+    config.url?.includes('/api/jobs/stream') ||
+    config.url?.includes('/api/vouchers') ||
+    // Progress/status polling endpoints (partial match)
+    config.url?.includes('/processing-progress') ||
+    config.url?.includes('/deletion-progress') ||
+    config.url?.includes('/metrics') ||
+    // GET requests to list/polling endpoints
+    (config.method?.toLowerCase() === 'get' && (
+      config.url?.includes('/api/jobs') ||
+      config.url?.includes('/api/agents') ||
+      config.url?.includes('/api/hashlists') ||
+      config.url?.includes('/api/user/')
+    ));
+
   if (isAutoRefreshEndpoint && !config.headers?.['X-Manual-Request']) {
     config.headers = config.headers || {};
     config.headers['X-Auto-Refresh'] = 'true';
@@ -361,6 +374,10 @@ export const disableAdminUserMFA = (id: string) =>
 export const unlockAdminUser = (id: string) =>
   api.post<{data: {message: string}}>(`/api/admin/users/${id}/unlock`);
 
+// Delete user account (soft delete)
+export const deleteAdminUser = (id: string) =>
+  api.delete<{data: {message: string}}>(`/api/admin/users/${id}`);
+
 // Get user login attempts
 export const getUserLoginAttempts = async (userId: string, limit?: number) => {
   const params = limit ? `?limit=${limit}` : '';
@@ -392,6 +409,67 @@ export const terminateSession = async (userId: string, sessionId: string) => {
 // Terminate all user sessions
 export const terminateAllUserSessions = async (userId: string) => {
   return api.delete<TerminateAllSessionsResponse>(`/api/admin/users/${userId}/sessions`);
+};
+
+// --- API Key Management (User) ---
+
+// Generate a new API key
+export const generateApiKey = async () => {
+  const response = await api.post<any>('/api/user/api-key');
+  // Backend returns {api_key, created_at} in snake_case without wrapper
+  // Transform to match expected format: {data: {data: {apiKey, createdAt}}}
+  return {
+    data: {
+      data: {
+        apiKey: response.data.api_key,
+        createdAt: response.data.created_at
+      }
+    }
+  };
+};
+
+// Get API key info
+export const getApiKeyInfo = async () => {
+  const response = await api.get<any>('/api/user/api-key/info');
+  // Backend returns {has_key, created_at, last_used} in snake_case
+  // Transform to camelCase and wrap in data.data structure
+  return {
+    data: {
+      data: {
+        hasKey: response.data.has_key,
+        createdAt: response.data.created_at,
+        lastUsed: response.data.last_used
+      }
+    }
+  };
+};
+
+// Revoke API key
+export const revokeApiKey = async () => {
+  return api.delete('/api/user/api-key');
+};
+
+// --- API Key Management (Admin) ---
+
+// Get user API key info (admin)
+export const getAdminUserApiKeyInfo = async (userId: string) => {
+  const response = await api.get<any>(`/api/admin/users/${userId}/api-key/info`);
+  // Backend returns {has_key, created_at, last_used} in snake_case
+  // Transform to camelCase and wrap in data.data structure
+  return {
+    data: {
+      data: {
+        hasKey: response.data.has_key,
+        createdAt: response.data.created_at,
+        lastUsed: response.data.last_used
+      }
+    }
+  };
+};
+
+// Revoke user API key (admin)
+export const revokeAdminUserApiKey = async (userId: string) => {
+  return api.delete(`/api/admin/users/${userId}/api-key`);
 };
 
 // --- Admin: Preset Jobs ---
@@ -594,6 +672,79 @@ export const getBinaryVersions = async (binaryType?: 'hashcat' | 'john'): Promis
   const url = binaryType ? `/api/admin/binary?type=${binaryType}&active=true` : '/api/admin/binary?active=true';
   logApiCall('GET', url);
   const response = await api.get(url);
+  logApiResponse('GET', url, response.data);
+  return response.data;
+};
+
+// --- Hashlist Management ---
+
+// Deletion progress response type
+export interface DeletionProgressResponse {
+  hashlist_id: number;
+  status: 'pending' | 'deleting_hashes' | 'clearing_references' | 'cleaning_orphans' | 'finalizing' | 'completed' | 'failed';
+  phase: string;                // Human-readable phase description
+  checked: number;
+  total: number;
+  deleted: number;              // orphan hashes deleted
+  refs_cleared: number;         // cracked_by_task_id cleared count
+  refs_total: number;           // total refs to clear
+  jobs_deleted: number;         // job_executions deleted
+  shared_preserved: number;     // hashes preserved (in other lists)
+  started_at: string;
+  completed_at?: string;
+  duration?: string;            // human-readable duration
+  error?: string;
+}
+
+// Delete hashlist response (for async deletion)
+export interface DeleteHashlistResponse {
+  message: string;
+  hashlist_id: number;
+  progress_url: string;
+}
+
+// Delete a hashlist - returns 204 for sync delete, 202 for async with progress
+export const deleteHashlist = async (hashlistId: string): Promise<{ async: boolean; data?: DeleteHashlistResponse }> => {
+  const url = `/api/hashlists/${hashlistId}`;
+  logApiCall('DELETE', url);
+  const response = await api.delete(url);
+
+  // 202 means async deletion started
+  if (response.status === 202) {
+    return { async: true, data: response.data };
+  }
+
+  // 204 means sync deletion completed
+  return { async: false };
+};
+
+// Get deletion progress for a hashlist
+export const getDeletionProgress = async (hashlistId: string): Promise<DeletionProgressResponse> => {
+  const url = `/api/hashlists/${hashlistId}/deletion-progress`;
+  logApiCall('GET', url);
+  const response = await api.get<DeletionProgressResponse>(url);
+  logApiResponse('GET', url, response.data);
+  return response.data;
+};
+
+// Processing progress response type
+export interface ProcessingProgressResponse {
+  hashlist_id: number;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  processed_lines: number;
+  total_lines: number;  // Estimated from file size
+  inserted_hashes: number;
+  started_at: string;
+  last_update_at: string;
+  lines_per_second: number;  // For ETA calculation
+  error?: string;
+}
+
+// Get processing progress for a hashlist
+export const getProcessingProgress = async (hashlistId: string): Promise<ProcessingProgressResponse> => {
+  const url = `/api/hashlists/${hashlistId}/processing-progress`;
+  logApiCall('GET', url);
+  const response = await api.get<ProcessingProgressResponse>(url);
   logApiResponse('GET', url, response.data);
   return response.data;
 };

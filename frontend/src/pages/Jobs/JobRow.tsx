@@ -187,7 +187,7 @@ const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isC
               const overallProgress = job.overall_progress_percent || searchedPercent;
               
               // For keyspace/rule-based jobs with multiplication factor
-              if (job.total_keyspace || job.effective_keyspace) {
+              if (job.effective_keyspace) {
                 const progress = calculateJobProgress(job);
                 return (
                   <>
@@ -243,17 +243,17 @@ const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isC
 
         {/* Keyspace */}
         <TableCell align="center">
-          {job.effective_keyspace && job.effective_keyspace !== job.total_keyspace ? (
+          {job.effective_keyspace ? (
             <Tooltip title={getKeyspaceTooltip(job) || ''} arrow>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
                 <Typography variant="body2">
                   {formatKeyspace(job.effective_keyspace)}
                 </Typography>
                 {job.multiplication_factor && job.multiplication_factor > 1 && (
-                  <Chip 
-                    label={`×${job.multiplication_factor}${job.uses_rule_splitting ? ' (rules)' : ''}`} 
-                    size="small" 
-                    color="error" 
+                  <Chip
+                    label={`×${job.multiplication_factor}${job.uses_rule_splitting ? ' (rules)' : ''}`}
+                    size="small"
+                    color="error"
                     variant="filled"
                     icon={<InfoIcon fontSize="small" />}
                   />
@@ -261,9 +261,7 @@ const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isC
               </Box>
             </Tooltip>
           ) : (
-            <Typography variant="body2">
-              {job.total_keyspace ? formatKeyspace(job.total_keyspace) : '-'}
-            </Typography>
+            <Typography variant="body2">-</Typography>
           )}
         </TableCell>
 

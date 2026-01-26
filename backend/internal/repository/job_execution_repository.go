@@ -25,28 +25,30 @@ func NewJobExecutionRepository(db *db.DB) *JobExecutionRepository {
 func (r *JobExecutionRepository) Create(ctx context.Context, exec *models.JobExecution) error {
 	query := `
 		INSERT INTO job_executions (
-			preset_job_id, hashlist_id, status, priority, max_agents, attack_mode, total_keyspace, created_by,
-			name, wordlist_ids, rule_ids, mask, binary_version_id, hash_type,
+			preset_job_id, hashlist_id, association_wordlist_id, status, priority, max_agents, attack_mode, created_by,
+			name, wordlist_ids, rule_ids, mask, binary_version, hash_type,
 			chunk_size_seconds, status_updates_enabled, allow_high_priority_override, additional_args,
-			increment_mode, increment_min, increment_max
+			increment_mode, increment_min, increment_max,
+			base_keyspace, effective_keyspace, multiplication_factor, is_accurate_keyspace, uses_rule_splitting,
+			avg_rule_multiplier
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
 		RETURNING id, created_at`
 
 	err := r.db.QueryRowContext(ctx, query,
 		exec.PresetJobID,
 		exec.HashlistID,
+		exec.AssociationWordlistID,
 		exec.Status,
 		exec.Priority,
 		exec.MaxAgents,
 		exec.AttackMode,
-		exec.TotalKeyspace,
 		exec.CreatedBy,
 		exec.Name,
 		exec.WordlistIDs,
 		exec.RuleIDs,
 		exec.Mask,
-		exec.BinaryVersionID,
+		exec.BinaryVersion,
 		exec.HashType,
 		exec.ChunkSizeSeconds,
 		exec.StatusUpdatesEnabled,
@@ -55,6 +57,12 @@ func (r *JobExecutionRepository) Create(ctx context.Context, exec *models.JobExe
 		exec.IncrementMode,
 		exec.IncrementMin,
 		exec.IncrementMax,
+		exec.BaseKeyspace,
+		exec.EffectiveKeyspace,
+		exec.MultiplicationFactor,
+		exec.IsAccurateKeyspace,
+		exec.UsesRuleSplitting,
+		exec.AvgRuleMultiplier,
 	).Scan(&exec.ID, &exec.CreatedAt)
 
 	if err != nil {
@@ -68,16 +76,16 @@ func (r *JobExecutionRepository) Create(ctx context.Context, exec *models.JobExe
 func (r *JobExecutionRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.JobExecution, error) {
 	query := `
 		SELECT
-			je.id, je.name, je.preset_job_id, je.hashlist_id, je.status, je.priority, COALESCE(je.max_agents, 0) as max_agents,
-			je.total_keyspace, je.processed_keyspace, je.attack_mode, je.created_by,
-			je.created_at, je.started_at, je.completed_at, je.error_message, je.interrupted_by,
+			je.id, je.name, je.preset_job_id, je.hashlist_id, je.association_wordlist_id, je.status, je.priority, COALESCE(je.max_agents, 0) as max_agents,
+			je.processed_keyspace, je.attack_mode, je.created_by,
+			je.created_at, je.started_at, je.completed_at, je.cracking_completed_at, je.error_message, je.interrupted_by,
 			je.consecutive_failures,
 			je.base_keyspace, je.effective_keyspace, je.multiplication_factor,
 			je.uses_rule_splitting, je.rule_split_count,
 			je.overall_progress_percent, je.last_progress_update,
 			je.dispatched_keyspace,
 			je.completion_email_sent, je.completion_email_sent_at, je.completion_email_error,
-			je.wordlist_ids, je.rule_ids, je.mask, je.binary_version_id,
+			je.wordlist_ids, je.rule_ids, je.mask, je.binary_version,
 			je.chunk_size_seconds, je.status_updates_enabled, je.allow_high_priority_override,
 			je.additional_args, je.hash_type, je.updated_at,
 			je.avg_rule_multiplier, je.is_accurate_keyspace,
@@ -87,16 +95,16 @@ func (r *JobExecutionRepository) GetByID(ctx context.Context, id uuid.UUID) (*mo
 
 	var exec models.JobExecution
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&exec.ID, &exec.Name, &exec.PresetJobID, &exec.HashlistID, &exec.Status, &exec.Priority, &exec.MaxAgents,
-		&exec.TotalKeyspace, &exec.ProcessedKeyspace, &exec.AttackMode, &exec.CreatedBy,
-		&exec.CreatedAt, &exec.StartedAt, &exec.CompletedAt, &exec.ErrorMessage, &exec.InterruptedBy,
+		&exec.ID, &exec.Name, &exec.PresetJobID, &exec.HashlistID, &exec.AssociationWordlistID, &exec.Status, &exec.Priority, &exec.MaxAgents,
+		&exec.ProcessedKeyspace, &exec.AttackMode, &exec.CreatedBy,
+		&exec.CreatedAt, &exec.StartedAt, &exec.CompletedAt, &exec.CrackingCompletedAt, &exec.ErrorMessage, &exec.InterruptedBy,
 		&exec.ConsecutiveFailures,
 		&exec.BaseKeyspace, &exec.EffectiveKeyspace, &exec.MultiplicationFactor,
 		&exec.UsesRuleSplitting, &exec.RuleSplitCount,
 		&exec.OverallProgressPercent, &exec.LastProgressUpdate,
 		&exec.DispatchedKeyspace,
 		&exec.CompletionEmailSent, &exec.CompletionEmailSentAt, &exec.CompletionEmailError,
-		&exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.BinaryVersionID,
+		&exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.BinaryVersion,
 		&exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled, &exec.AllowHighPriorityOverride,
 		&exec.AdditionalArgs, &exec.HashType, &exec.UpdatedAt,
 		&exec.AvgRuleMultiplier, &exec.IsAccurateKeyspace,
@@ -118,7 +126,7 @@ func (r *JobExecutionRepository) GetPendingJobs(ctx context.Context) ([]models.J
 	query := `
 		SELECT
 			je.id, je.preset_job_id, je.hashlist_id, je.status, je.priority,
-			je.total_keyspace, je.processed_keyspace, je.attack_mode, je.created_by,
+			je.processed_keyspace, je.attack_mode, je.created_by,
 			je.created_at, je.started_at, je.completed_at, je.error_message, je.interrupted_by,
 			je.consecutive_failures,
 			je.max_agents, je.updated_at,
@@ -128,7 +136,7 @@ func (r *JobExecutionRepository) GetPendingJobs(ctx context.Context) ([]models.J
 			je.overall_progress_percent, je.last_progress_update,
 			je.dispatched_keyspace,
 			je.name, je.wordlist_ids, je.rule_ids, je.mask,
-			je.binary_version_id, je.chunk_size_seconds, je.status_updates_enabled,
+			je.binary_version, je.chunk_size_seconds, je.status_updates_enabled,
 			je.allow_high_priority_override, je.additional_args,
 			je.hash_type,
 			je.increment_mode, je.increment_min, je.increment_max
@@ -147,7 +155,7 @@ func (r *JobExecutionRepository) GetPendingJobs(ctx context.Context) ([]models.J
 		var exec models.JobExecution
 		err := rows.Scan(
 			&exec.ID, &exec.PresetJobID, &exec.HashlistID, &exec.Status, &exec.Priority,
-			&exec.TotalKeyspace, &exec.ProcessedKeyspace, &exec.AttackMode, &exec.CreatedBy,
+			&exec.ProcessedKeyspace, &exec.AttackMode, &exec.CreatedBy,
 			&exec.CreatedAt, &exec.StartedAt, &exec.CompletedAt, &exec.ErrorMessage, &exec.InterruptedBy,
 			&exec.ConsecutiveFailures,
 			&exec.MaxAgents, &exec.UpdatedAt,
@@ -157,7 +165,7 @@ func (r *JobExecutionRepository) GetPendingJobs(ctx context.Context) ([]models.J
 			&exec.OverallProgressPercent, &exec.LastProgressUpdate,
 			&exec.DispatchedKeyspace,
 			&exec.Name, &exec.WordlistIDs, &exec.RuleIDs, &exec.Mask,
-			&exec.BinaryVersionID, &exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled,
+			&exec.BinaryVersion, &exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled,
 			&exec.AllowHighPriorityOverride, &exec.AdditionalArgs,
 			&exec.HashType,
 			&exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
@@ -176,7 +184,7 @@ func (r *JobExecutionRepository) GetRunningJobs(ctx context.Context) ([]models.J
 	query := `
 		SELECT
 			je.id, je.preset_job_id, je.hashlist_id, je.status, je.priority,
-			je.total_keyspace, je.processed_keyspace, je.attack_mode,
+			je.processed_keyspace, je.attack_mode,
 			je.created_at, je.started_at, je.completed_at, je.error_message, je.interrupted_by,
 			je.increment_mode, je.increment_min, je.increment_max
 		FROM job_executions je
@@ -193,7 +201,7 @@ func (r *JobExecutionRepository) GetRunningJobs(ctx context.Context) ([]models.J
 		var exec models.JobExecution
 		err := rows.Scan(
 			&exec.ID, &exec.PresetJobID, &exec.HashlistID, &exec.Status, &exec.Priority,
-			&exec.TotalKeyspace, &exec.ProcessedKeyspace, &exec.AttackMode,
+			&exec.ProcessedKeyspace, &exec.AttackMode,
 			&exec.CreatedAt, &exec.StartedAt, &exec.CompletedAt, &exec.ErrorMessage, &exec.InterruptedBy,
 			&exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
 		)
@@ -209,10 +217,10 @@ func (r *JobExecutionRepository) GetRunningJobs(ctx context.Context) ([]models.J
 // GetJobsByStatus retrieves all job executions with the specified status
 func (r *JobExecutionRepository) GetJobsByStatus(ctx context.Context, status models.JobExecutionStatus) ([]models.JobExecution, error) {
 	query := `
-		SELECT 
-			id, hashlist_id, preset_job_id, priority, 
+		SELECT
+			id, hashlist_id, preset_job_id, priority,
 			status, started_at, completed_at, created_at, updated_at,
-			attack_mode, total_keyspace, processed_keyspace
+			attack_mode, processed_keyspace
 		FROM job_executions
 		WHERE status = $1
 		ORDER BY created_at DESC`
@@ -229,7 +237,7 @@ func (r *JobExecutionRepository) GetJobsByStatus(ctx context.Context, status mod
 		err := rows.Scan(
 			&job.ID, &job.HashlistID, &job.PresetJobID, &job.Priority,
 			&job.Status, &job.StartedAt, &job.CompletedAt, &job.CreatedAt, &job.UpdatedAt,
-			&job.AttackMode, &job.TotalKeyspace, &job.ProcessedKeyspace,
+			&job.AttackMode, &job.ProcessedKeyspace,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan job execution: %w", err)
@@ -241,9 +249,26 @@ func (r *JobExecutionRepository) GetJobsByStatus(ctx context.Context, status mod
 }
 
 // UpdateStatus updates the status of a job execution
+// For terminal states (completed, failed, cancelled), it also sets completed_at
+// For non-terminal states, it clears completed_at (supports retry functionality)
 func (r *JobExecutionRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status models.JobExecutionStatus) error {
-	query := `UPDATE job_executions SET status = $1 WHERE id = $2`
-	result, err := r.db.ExecContext(ctx, query, status, id)
+	var query string
+	var args []interface{}
+
+	// For terminal states, set completed_at
+	if status == models.JobExecutionStatusCompleted ||
+		status == models.JobExecutionStatusFailed ||
+		status == models.JobExecutionStatusCancelled {
+		query = `UPDATE job_executions SET status = $1, completed_at = $2 WHERE id = $3`
+		args = []interface{}{status, time.Now(), id}
+	} else {
+		// For non-terminal states (pending, running, paused), clear completed_at
+		// This supports retry functionality - retried jobs should not have completed_at set
+		query = `UPDATE job_executions SET status = $1, completed_at = NULL WHERE id = $2`
+		args = []interface{}{status, id}
+	}
+
+	result, err := r.db.ExecContext(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("failed to update job execution status: %w", err)
 	}
@@ -334,7 +359,8 @@ func (r *JobExecutionRepository) StartExecution(ctx context.Context, id uuid.UUI
 // CompleteExecution marks a job execution as completed
 func (r *JobExecutionRepository) CompleteExecution(ctx context.Context, id uuid.UUID) error {
 	now := time.Now()
-	query := `UPDATE job_executions SET status = $1, completed_at = $2 WHERE id = $3`
+	// Use COALESCE to preserve cracking_completed_at if already set, otherwise set it to completed_at
+	query := `UPDATE job_executions SET status = $1, completed_at = $2, cracking_completed_at = COALESCE(cracking_completed_at, $2) WHERE id = $3`
 	result, err := r.db.ExecContext(ctx, query, models.JobExecutionStatusCompleted, now, id)
 	if err != nil {
 		return fmt.Errorf("failed to complete job execution: %w", err)
@@ -399,7 +425,7 @@ func (r *JobExecutionRepository) GetPendingJobsWithHighPriorityOverride(ctx cont
 	query := `
 		SELECT
 			id, preset_job_id, hashlist_id, status, priority,
-			total_keyspace, processed_keyspace, attack_mode, created_by,
+			processed_keyspace, attack_mode, created_by,
 			created_at, started_at, completed_at, error_message, interrupted_by,
 			consecutive_failures,
 			max_agents, updated_at,
@@ -409,7 +435,7 @@ func (r *JobExecutionRepository) GetPendingJobsWithHighPriorityOverride(ctx cont
 			overall_progress_percent, last_progress_update,
 			dispatched_keyspace,
 			name, wordlist_ids, rule_ids, mask,
-			binary_version_id, chunk_size_seconds, status_updates_enabled,
+			binary_version, chunk_size_seconds, status_updates_enabled,
 			allow_high_priority_override, additional_args,
 			hash_type
 		FROM job_executions
@@ -428,7 +454,7 @@ func (r *JobExecutionRepository) GetPendingJobsWithHighPriorityOverride(ctx cont
 		var exec models.JobExecution
 		err := rows.Scan(
 			&exec.ID, &exec.PresetJobID, &exec.HashlistID, &exec.Status, &exec.Priority,
-			&exec.TotalKeyspace, &exec.ProcessedKeyspace, &exec.AttackMode, &exec.CreatedBy,
+			&exec.ProcessedKeyspace, &exec.AttackMode, &exec.CreatedBy,
 			&exec.CreatedAt, &exec.StartedAt, &exec.CompletedAt, &exec.ErrorMessage, &exec.InterruptedBy,
 			&exec.ConsecutiveFailures,
 			&exec.MaxAgents, &exec.UpdatedAt,
@@ -438,7 +464,7 @@ func (r *JobExecutionRepository) GetPendingJobsWithHighPriorityOverride(ctx cont
 			&exec.OverallProgressPercent, &exec.LastProgressUpdate,
 			&exec.DispatchedKeyspace,
 			&exec.Name, &exec.WordlistIDs, &exec.RuleIDs, &exec.Mask,
-			&exec.BinaryVersionID, &exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled,
+			&exec.BinaryVersion, &exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled,
 			&exec.AllowHighPriorityOverride, &exec.AdditionalArgs,
 			&exec.HashType,
 		)
@@ -458,13 +484,13 @@ func (r *JobExecutionRepository) GetInterruptibleJobs(ctx context.Context, prior
 	// The check for override permission is done by the caller
 	// Order by priority ASC to get the lowest priority job first
 	query := `
-		SELECT 
+		SELECT
 			je.id, je.preset_job_id, je.hashlist_id, je.status, je.priority,
-			je.total_keyspace, je.processed_keyspace, je.attack_mode,
+			je.processed_keyspace, je.attack_mode,
 			je.created_at, je.started_at, je.completed_at, je.error_message, je.interrupted_by,
 			je.allow_high_priority_override
 		FROM job_executions je
-		WHERE je.status = 'running' 
+		WHERE je.status = 'running'
 		AND je.priority < $1
 		ORDER BY je.priority ASC
 		LIMIT 1`
@@ -480,7 +506,7 @@ func (r *JobExecutionRepository) GetInterruptibleJobs(ctx context.Context, prior
 		var exec models.JobExecution
 		err := rows.Scan(
 			&exec.ID, &exec.PresetJobID, &exec.HashlistID, &exec.Status, &exec.Priority,
-			&exec.TotalKeyspace, &exec.ProcessedKeyspace, &exec.AttackMode,
+			&exec.ProcessedKeyspace, &exec.AttackMode,
 			&exec.CreatedAt, &exec.StartedAt, &exec.CompletedAt, &exec.ErrorMessage, &exec.InterruptedBy,
 			&exec.AllowHighPriorityOverride,
 		)
@@ -541,18 +567,6 @@ func (r *JobExecutionRepository) ClearError(ctx context.Context, id uuid.UUID) e
 
 // UpdateKeyspaceInfo updates the enhanced keyspace information for a job execution
 func (r *JobExecutionRepository) UpdateKeyspaceInfo(ctx context.Context, job *models.JobExecution) error {
-	// Calculate total keyspace value to avoid COALESCE issues
-	var totalKeyspace int64
-	if job.EffectiveKeyspace != nil {
-		totalKeyspace = *job.EffectiveKeyspace
-	} else if job.BaseKeyspace != nil {
-		totalKeyspace = *job.BaseKeyspace
-	} else if job.TotalKeyspace != nil {
-		totalKeyspace = *job.TotalKeyspace
-	} else {
-		totalKeyspace = 0
-	}
-
 	query := `
 		UPDATE job_executions
 		SET base_keyspace = $1,
@@ -560,11 +574,10 @@ func (r *JobExecutionRepository) UpdateKeyspaceInfo(ctx context.Context, job *mo
 		    multiplication_factor = $3,
 		    uses_rule_splitting = $4,
 		    rule_split_count = $5,
-		    total_keyspace = $6,
-		    avg_rule_multiplier = $7,
-		    is_accurate_keyspace = $8,
+		    avg_rule_multiplier = $6,
+		    is_accurate_keyspace = $7,
 		    updated_at = CURRENT_TIMESTAMP
-		WHERE id = $9`
+		WHERE id = $8`
 
 	result, err := r.db.ExecContext(ctx, query,
 		job.BaseKeyspace,
@@ -572,7 +585,6 @@ func (r *JobExecutionRepository) UpdateKeyspaceInfo(ctx context.Context, job *mo
 		job.MultiplicationFactor,
 		job.UsesRuleSplitting,
 		job.RuleSplitCount,
-		totalKeyspace,
 		job.AvgRuleMultiplier,
 		job.IsAccurateKeyspace,
 		job.ID,
@@ -671,8 +683,8 @@ func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]
 			GROUP BY je.id
 		)
 		SELECT
-			je.id, je.preset_job_id, je.hashlist_id, je.status, je.priority,
-			je.total_keyspace, je.processed_keyspace, je.attack_mode, je.created_by,
+			je.id, je.preset_job_id, je.hashlist_id, je.association_wordlist_id, je.status, je.priority,
+			je.processed_keyspace, je.attack_mode, je.created_by,
 			je.created_at, je.started_at, je.completed_at, je.error_message, je.interrupted_by,
 			je.consecutive_failures,
 			COALESCE(je.max_agents, 999) as max_agents, je.updated_at,
@@ -682,7 +694,7 @@ func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]
 			je.overall_progress_percent, je.last_progress_update,
 			je.dispatched_keyspace,
 			je.name, je.wordlist_ids, je.rule_ids, je.mask,
-			je.binary_version_id, je.chunk_size_seconds, je.status_updates_enabled,
+			je.binary_version, je.chunk_size_seconds, je.status_updates_enabled,
 			je.allow_high_priority_override, je.additional_args,
 			je.hash_type,
 			je.increment_mode, je.increment_min, je.increment_max,
@@ -715,8 +727,8 @@ func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]
 				-- Regular keyspace chunking job with more keyspace to dispatch
 				(je.uses_rule_splitting = false
 				 AND (je.increment_mode IS NULL OR je.increment_mode = 'off')
-				 AND je.total_keyspace IS NOT NULL
-				 AND je.dispatched_keyspace < je.total_keyspace)
+				 AND je.effective_keyspace IS NOT NULL
+				 AND je.dispatched_keyspace < je.effective_keyspace)
 			)
 		ORDER BY je.priority DESC, je.created_at ASC`
 
@@ -730,8 +742,8 @@ func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]
 	for rows.Next() {
 		var exec models.JobExecutionWithWork
 		err := rows.Scan(
-			&exec.ID, &exec.PresetJobID, &exec.HashlistID, &exec.Status, &exec.Priority,
-			&exec.TotalKeyspace, &exec.ProcessedKeyspace, &exec.AttackMode, &exec.CreatedBy,
+			&exec.ID, &exec.PresetJobID, &exec.HashlistID, &exec.AssociationWordlistID, &exec.Status, &exec.Priority,
+			&exec.ProcessedKeyspace, &exec.AttackMode, &exec.CreatedBy,
 			&exec.CreatedAt, &exec.StartedAt, &exec.CompletedAt, &exec.ErrorMessage, &exec.InterruptedBy,
 			&exec.ConsecutiveFailures,
 			&exec.MaxAgents, &exec.UpdatedAt,
@@ -741,7 +753,7 @@ func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]
 			&exec.OverallProgressPercent, &exec.LastProgressUpdate,
 			&exec.DispatchedKeyspace,
 			&exec.Name, &exec.WordlistIDs, &exec.RuleIDs, &exec.Mask,
-			&exec.BinaryVersionID, &exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled,
+			&exec.BinaryVersion, &exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled,
 			&exec.AllowHighPriorityOverride, &exec.AdditionalArgs,
 			&exec.HashType,
 			&exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
@@ -761,10 +773,10 @@ func (r *JobExecutionRepository) GetNonCompletedJobsByHashlistID(ctx context.Con
 	query := `
 		SELECT
 			id, name, preset_job_id, hashlist_id, status, priority, max_agents, attack_mode,
-			hash_type, total_keyspace, effective_keyspace, base_keyspace, processed_keyspace,
+			hash_type, effective_keyspace, base_keyspace, processed_keyspace,
 			dispatched_keyspace, multiplication_factor, uses_rule_splitting, overall_progress_percent,
 			chunk_size_seconds, allow_high_priority_override, wordlist_ids, rule_ids, mask,
-			additional_args, binary_version_id, started_at, completed_at, error_message, created_by,
+			additional_args, binary_version, started_at, completed_at, error_message, created_by,
 			created_at, updated_at, increment_mode, increment_min, increment_max
 		FROM job_executions
 		WHERE hashlist_id = $1 AND status != 'completed'
@@ -782,10 +794,10 @@ func (r *JobExecutionRepository) GetNonCompletedJobsByHashlistID(ctx context.Con
 		var exec models.JobExecution
 		err := rows.Scan(
 			&exec.ID, &exec.Name, &exec.PresetJobID, &exec.HashlistID, &exec.Status, &exec.Priority, &exec.MaxAgents,
-			&exec.AttackMode, &exec.HashType, &exec.TotalKeyspace, &exec.EffectiveKeyspace, &exec.BaseKeyspace,
+			&exec.AttackMode, &exec.HashType, &exec.EffectiveKeyspace, &exec.BaseKeyspace,
 			&exec.ProcessedKeyspace, &exec.DispatchedKeyspace, &exec.MultiplicationFactor, &exec.UsesRuleSplitting,
 			&exec.OverallProgressPercent, &exec.ChunkSizeSeconds, &exec.AllowHighPriorityOverride,
-			&exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.AdditionalArgs, &exec.BinaryVersionID,
+			&exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.AdditionalArgs, &exec.BinaryVersion,
 			&exec.StartedAt, &exec.CompletedAt, &exec.ErrorMessage, &exec.CreatedBy,
 			&exec.CreatedAt, &exec.UpdatedAt, &exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
 		)
@@ -803,10 +815,12 @@ func (r *JobExecutionRepository) GetNonCompletedJobsByHashlistID(ctx context.Con
 }
 
 // SetJobProcessing marks a job execution as processing (waiting for crack batch processing)
+// Also sets cracking_completed_at to mark when all hashcat work finished
 func (r *JobExecutionRepository) SetJobProcessing(ctx context.Context, id uuid.UUID) error {
 	query := `
 		UPDATE job_executions
 		SET status = $2,
+		    cracking_completed_at = CURRENT_TIMESTAMP,
 		    updated_at = CURRENT_TIMESTAMP
 		WHERE id = $1`
 
@@ -827,17 +841,18 @@ func (r *JobExecutionRepository) SetJobProcessing(ctx context.Context, id uuid.U
 	return nil
 }
 
-// UpdateTotalKeyspace updates the total_keyspace field for a job execution
-func (r *JobExecutionRepository) UpdateTotalKeyspace(ctx context.Context, id uuid.UUID, totalKeyspace int64) error {
+// SetCrackingCompleted sets the cracking_completed_at timestamp for a job execution
+// This marks when all hashcat work finished (job enters processing state)
+func (r *JobExecutionRepository) SetCrackingCompleted(ctx context.Context, id uuid.UUID) error {
 	query := `
 		UPDATE job_executions
-		SET total_keyspace = $2,
+		SET cracking_completed_at = CURRENT_TIMESTAMP,
 		    updated_at = CURRENT_TIMESTAMP
 		WHERE id = $1`
 
-	result, err := r.db.ExecContext(ctx, query, id, totalKeyspace)
+	result, err := r.db.ExecContext(ctx, query, id)
 	if err != nil {
-		return fmt.Errorf("failed to update total_keyspace: %w", err)
+		return fmt.Errorf("failed to set cracking completed: %w", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
@@ -850,6 +865,70 @@ func (r *JobExecutionRepository) UpdateTotalKeyspace(ctx context.Context, id uui
 	}
 
 	return nil
+}
+
+
+// GetPotentiallyStuckJobs finds jobs that may be stuck: in pending/running status with no active tasks
+// and haven't been updated in minMinutes. These are candidates for structural completion checks.
+func (r *JobExecutionRepository) GetPotentiallyStuckJobs(ctx context.Context, minMinutes int) ([]models.JobExecution, error) {
+	query := fmt.Sprintf(`
+		SELECT
+			je.id, je.name, je.preset_job_id, je.hashlist_id, je.status, je.priority, COALESCE(je.max_agents, 0) as max_agents,
+			je.processed_keyspace, je.attack_mode, je.created_by,
+			je.created_at, je.started_at, je.completed_at, je.error_message, je.interrupted_by,
+			je.consecutive_failures,
+			je.base_keyspace, je.effective_keyspace, je.multiplication_factor,
+			je.uses_rule_splitting, je.rule_split_count,
+			je.overall_progress_percent, je.last_progress_update,
+			je.dispatched_keyspace,
+			je.completion_email_sent, je.completion_email_sent_at, je.completion_email_error,
+			je.wordlist_ids, je.rule_ids, je.mask, je.binary_version,
+			je.chunk_size_seconds, je.status_updates_enabled, je.allow_high_priority_override,
+			je.additional_args, je.hash_type, je.updated_at,
+			je.avg_rule_multiplier, je.is_accurate_keyspace,
+			je.increment_mode, je.increment_min, je.increment_max
+		FROM job_executions je
+		WHERE je.status IN ('pending', 'running')
+		  AND je.updated_at < NOW() - INTERVAL '%d minutes'
+		  AND NOT EXISTS (
+			  SELECT 1 FROM job_tasks jt
+			  WHERE jt.job_execution_id = je.id
+			    AND jt.status NOT IN ('completed', 'cancelled', 'failed')
+		  )
+		ORDER BY je.created_at`, minMinutes)
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get potentially stuck jobs: %w", err)
+	}
+	defer rows.Close()
+
+	var executions []models.JobExecution
+	for rows.Next() {
+		var exec models.JobExecution
+		err := rows.Scan(
+			&exec.ID, &exec.Name, &exec.PresetJobID, &exec.HashlistID, &exec.Status, &exec.Priority, &exec.MaxAgents,
+			&exec.ProcessedKeyspace, &exec.AttackMode, &exec.CreatedBy,
+			&exec.CreatedAt, &exec.StartedAt, &exec.CompletedAt, &exec.ErrorMessage, &exec.InterruptedBy,
+			&exec.ConsecutiveFailures,
+			&exec.BaseKeyspace, &exec.EffectiveKeyspace, &exec.MultiplicationFactor,
+			&exec.UsesRuleSplitting, &exec.RuleSplitCount,
+			&exec.OverallProgressPercent, &exec.LastProgressUpdate,
+			&exec.DispatchedKeyspace,
+			&exec.CompletionEmailSent, &exec.CompletionEmailSentAt, &exec.CompletionEmailError,
+			&exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.BinaryVersion,
+			&exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled, &exec.AllowHighPriorityOverride,
+			&exec.AdditionalArgs, &exec.HashType, &exec.UpdatedAt,
+			&exec.AvgRuleMultiplier, &exec.IsAccurateKeyspace,
+			&exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan potentially stuck job: %w", err)
+		}
+		executions = append(executions, exec)
+	}
+
+	return executions, nil
 }
 
 // UpdateIncrementSettings updates the increment_min and increment_max fields for a job execution

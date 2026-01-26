@@ -11,31 +11,33 @@ import (
 // ListWithPagination retrieves job executions with pagination, ordered by priority and creation time
 func (r *JobExecutionRepository) ListWithPagination(ctx context.Context, limit, offset int) ([]models.JobExecution, error) {
 	query := `
-		SELECT 
+		SELECT
 			id, preset_job_id, hashlist_id, status, priority, COALESCE(max_agents, 0) as max_agents,
-			total_keyspace, processed_keyspace, attack_mode, created_by,
+			processed_keyspace, attack_mode, created_by,
 			created_at, started_at, completed_at, error_message, interrupted_by, updated_at
 		FROM job_executions
-		ORDER BY 
+		ORDER BY
 			-- Active jobs first (pending, running, paused)
-			CASE 
+			CASE
 				WHEN status IN ('pending', 'running', 'paused') THEN 0
 				ELSE 1
 			END,
 			-- Within active jobs: by priority DESC, created_at ASC
-			CASE 
+			CASE
 				WHEN status IN ('pending', 'running', 'paused') THEN priority
 				ELSE NULL
 			END DESC,
-			CASE 
+			CASE
 				WHEN status IN ('pending', 'running', 'paused') THEN created_at
 				ELSE NULL
 			END ASC,
 			-- Within completed jobs: by completed_at DESC (most recent first)
-			CASE 
-				WHEN status NOT IN ('pending', 'running', 'paused') THEN completed_at
+			-- Use COALESCE to handle NULL completed_at (fallback to updated_at, then created_at)
+			CASE
+				WHEN status NOT IN ('pending', 'running', 'paused')
+				THEN COALESCE(completed_at, updated_at, created_at)
 				ELSE NULL
-			END DESC
+			END DESC NULLS LAST
 		LIMIT $1 OFFSET $2`
 
 	rows, err := r.db.QueryContext(ctx, query, limit, offset)
@@ -49,7 +51,7 @@ func (r *JobExecutionRepository) ListWithPagination(ctx context.Context, limit, 
 		var exec models.JobExecution
 		err := rows.Scan(
 			&exec.ID, &exec.PresetJobID, &exec.HashlistID, &exec.Status, &exec.Priority, &exec.MaxAgents,
-			&exec.TotalKeyspace, &exec.ProcessedKeyspace, &exec.AttackMode, &exec.CreatedBy,
+			&exec.ProcessedKeyspace, &exec.AttackMode, &exec.CreatedBy,
 			&exec.CreatedAt, &exec.StartedAt, &exec.CompletedAt, &exec.ErrorMessage, &exec.InterruptedBy, &exec.UpdatedAt,
 		)
 		if err != nil {
@@ -78,9 +80,9 @@ type JobExecutionWithUser struct {
 // ListWithFilters retrieves job executions with pagination and filters
 func (r *JobExecutionRepository) ListWithFilters(ctx context.Context, limit, offset int, filter JobFilter) ([]models.JobExecution, error) {
 	query := `
-		SELECT 
+		SELECT
 			je.id, je.preset_job_id, je.hashlist_id, je.status, je.priority, COALESCE(je.max_agents, 0) as max_agents,
-			je.total_keyspace, je.processed_keyspace, je.attack_mode, je.created_by,
+			je.processed_keyspace, je.attack_mode, je.created_by,
 			je.created_at, je.started_at, je.completed_at, je.error_message, je.interrupted_by, je.updated_at
 		FROM job_executions je
 		LEFT JOIN preset_jobs pj ON je.preset_job_id = pj.id
@@ -121,26 +123,28 @@ func (r *JobExecutionRepository) ListWithFilters(ctx context.Context, limit, off
 	}
 
 	// Add ordering
-	query += ` ORDER BY 
+	query += ` ORDER BY
 		-- Active jobs first (pending, running, paused)
-		CASE 
+		CASE
 			WHEN je.status IN ('pending', 'running', 'paused') THEN 0
 			ELSE 1
 		END,
 		-- Within active jobs: by priority DESC, created_at ASC
-		CASE 
+		CASE
 			WHEN je.status IN ('pending', 'running', 'paused') THEN je.priority
 			ELSE NULL
 		END DESC,
-		CASE 
+		CASE
 			WHEN je.status IN ('pending', 'running', 'paused') THEN je.created_at
 			ELSE NULL
 		END ASC,
 		-- Within completed jobs: by completed_at DESC (most recent first)
-		CASE 
-			WHEN je.status NOT IN ('pending', 'running', 'paused') THEN je.completed_at
+		-- Use COALESCE to handle NULL completed_at (fallback to updated_at, then created_at)
+		CASE
+			WHEN je.status NOT IN ('pending', 'running', 'paused')
+			THEN COALESCE(je.completed_at, je.updated_at, je.created_at)
 			ELSE NULL
-		END DESC`
+		END DESC NULLS LAST`
 
 	// Add pagination
 	argCount++
@@ -162,7 +166,7 @@ func (r *JobExecutionRepository) ListWithFilters(ctx context.Context, limit, off
 		var exec models.JobExecution
 		err := rows.Scan(
 			&exec.ID, &exec.PresetJobID, &exec.HashlistID, &exec.Status, &exec.Priority, &exec.MaxAgents,
-			&exec.TotalKeyspace, &exec.ProcessedKeyspace, &exec.AttackMode, &exec.CreatedBy,
+			&exec.ProcessedKeyspace, &exec.AttackMode, &exec.CreatedBy,
 			&exec.CreatedAt, &exec.StartedAt, &exec.CompletedAt, &exec.ErrorMessage, &exec.InterruptedBy, &exec.UpdatedAt,
 		)
 		if err != nil {
@@ -464,9 +468,9 @@ func (r *JobExecutionRepository) DeleteFinished(ctx context.Context) (int, error
 // ListWithFiltersAndUser retrieves job executions with user information
 func (r *JobExecutionRepository) ListWithFiltersAndUser(ctx context.Context, limit, offset int, filter JobFilter) ([]JobExecutionWithUser, error) {
 	query := `
-		SELECT 
+		SELECT
 			je.id, je.preset_job_id, je.hashlist_id, je.status, je.priority, COALESCE(je.max_agents, 0) as max_agents,
-			je.total_keyspace, je.processed_keyspace, je.attack_mode, je.created_by,
+			je.processed_keyspace, je.attack_mode, je.created_by,
 			je.created_at, je.started_at, je.completed_at, je.error_message, je.interrupted_by, je.updated_at,
 			je.base_keyspace, je.effective_keyspace, je.multiplication_factor, je.uses_rule_splitting,
 			je.rule_split_count, je.overall_progress_percent, je.dispatched_keyspace,
@@ -511,26 +515,28 @@ func (r *JobExecutionRepository) ListWithFiltersAndUser(ctx context.Context, lim
 	}
 
 	// Add ordering
-	query += ` ORDER BY 
+	query += ` ORDER BY
 		-- Active jobs first (pending, running, paused)
-		CASE 
+		CASE
 			WHEN je.status IN ('pending', 'running', 'paused') THEN 0
 			ELSE 1
 		END,
 		-- Within active jobs: by priority DESC, created_at ASC
-		CASE 
+		CASE
 			WHEN je.status IN ('pending', 'running', 'paused') THEN je.priority
 			ELSE NULL
 		END DESC,
-		CASE 
+		CASE
 			WHEN je.status IN ('pending', 'running', 'paused') THEN je.created_at
 			ELSE NULL
 		END ASC,
 		-- Within completed jobs: by completed_at DESC (most recent first)
-		CASE 
-			WHEN je.status NOT IN ('pending', 'running', 'paused') THEN je.completed_at
+		-- Use COALESCE to handle NULL completed_at (fallback to updated_at, then created_at)
+		CASE
+			WHEN je.status NOT IN ('pending', 'running', 'paused')
+			THEN COALESCE(je.completed_at, je.updated_at, je.created_at)
 			ELSE NULL
-		END DESC`
+		END DESC NULLS LAST`
 
 	// Add pagination
 	argCount++
@@ -552,7 +558,7 @@ func (r *JobExecutionRepository) ListWithFiltersAndUser(ctx context.Context, lim
 		var exec JobExecutionWithUser
 		err := rows.Scan(
 			&exec.ID, &exec.PresetJobID, &exec.HashlistID, &exec.Status, &exec.Priority, &exec.MaxAgents,
-			&exec.TotalKeyspace, &exec.ProcessedKeyspace, &exec.AttackMode, &exec.CreatedBy,
+			&exec.ProcessedKeyspace, &exec.AttackMode, &exec.CreatedBy,
 			&exec.CreatedAt, &exec.StartedAt, &exec.CompletedAt, &exec.ErrorMessage, &exec.InterruptedBy, &exec.UpdatedAt,
 			&exec.BaseKeyspace, &exec.EffectiveKeyspace, &exec.MultiplicationFactor, &exec.UsesRuleSplitting,
 			&exec.RuleSplitCount, &exec.OverallProgressPercent, &exec.DispatchedKeyspace,

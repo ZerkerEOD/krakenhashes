@@ -37,9 +37,9 @@ export default function PotJob() {
     loadJobInfo();
   }, [id]);
 
-  const fetchData = async (limit: number, offset: number) => {
+  const fetchData = async (limit: number, offset: number, search?: string) => {
     if (!id) throw new Error('No job ID provided');
-    return await potService.getPotByJob(id, { limit, offset });
+    return await potService.getPotByJob(id, { limit, offset, search });
   };
 
   const handleBack = () => {

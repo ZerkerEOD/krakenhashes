@@ -35,8 +35,12 @@ const JobProgressBar: React.FC<JobProgressBarProps> = ({
     let color = '#e0e0e0'; // Default gray for pending
     if (task.status === 'running') {
       color = '#ffc107'; // Yellow for running
+    } else if (task.status === 'processing') {
+      color = '#2196f3'; // Blue for processing (hashcat done, saving to DB)
     } else if (task.status === 'completed') {
       color = '#4caf50'; // Green for completed
+    } else if (task.status === 'processing_error') {
+      color = '#ff9800'; // Orange for processing error
     } else if (task.status === 'failed') {
       color = '#f44336'; // Red for failed
     }
@@ -55,7 +59,9 @@ const JobProgressBar: React.FC<JobProgressBarProps> = ({
     const processed = task.effective_keyspace_processed ?? task.keyspace_processed;
     return sum + processed;
   }, 0);
-  const overallProgress = totalKeyspace > 0 ? (totalProcessed / totalKeyspace) * 100 : 0;
+  // Cap at 100% to prevent display issues when effective_keyspace from benchmark was lower than actual
+  const rawProgress = totalKeyspace > 0 ? (totalProcessed / totalKeyspace) * 100 : 0;
+  const overallProgress = Math.min(rawProgress, 100);
 
   const formatKeyspace = (value: number): string => {
     if (value >= 1e12) return `${(value / 1e12).toFixed(2)}T`;
@@ -214,8 +220,16 @@ const JobProgressBar: React.FC<JobProgressBarProps> = ({
           <Typography variant="caption">Running</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Box sx={{ width: 16, height: 16, backgroundColor: '#2196f3', borderRadius: 0.5 }} />
+          <Typography variant="caption">Processing</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <Box sx={{ width: 16, height: 16, backgroundColor: '#4caf50', borderRadius: 0.5 }} />
           <Typography variant="caption">Completed</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Box sx={{ width: 16, height: 16, backgroundColor: '#ff9800', borderRadius: 0.5 }} />
+          <Typography variant="caption">Processing Error</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <Box sx={{ width: 16, height: 16, backgroundColor: '#f44336', borderRadius: 0.5 }} />

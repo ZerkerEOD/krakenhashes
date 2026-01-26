@@ -27,8 +27,10 @@ func SetupWordlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, agent
 	// Create DB wrapper
 	database := &db.DB{DB: sqlDB}
 
-	// Initialize job execution repository
+	// Initialize repositories
 	jobExecRepo := repository.NewJobExecutionRepository(database)
+	presetJobRepo := repository.NewPresetJobRepository(sqlDB)
+	workflowRepo := repository.NewJobWorkflowRepository(sqlDB)
 
 	// Initialize wordlist store and manager
 	store := wordlist.NewStore(sqlDB)
@@ -39,6 +41,8 @@ func SetupWordlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, agent
 		[]string{"txt", "dict", "lst", "gz", "zip"},                   // Allowed formats
 		[]string{"text/plain", "application/gzip", "application/zip"}, // Allowed MIME types
 		jobExecRepo,
+		presetJobRepo,
+		workflowRepo,
 	)
 
 	// Create handler
@@ -52,6 +56,7 @@ func SetupWordlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, agent
 	userRouter.HandleFunc("", handler.HandleListWordlists).Methods(http.MethodGet)
 	userRouter.HandleFunc("/{id:[0-9]+}", handler.HandleGetWordlist).Methods(http.MethodGet)
 	userRouter.HandleFunc("/{id:[0-9]+}/download", handler.HandleDownloadWordlist).Methods(http.MethodGet)
+	userRouter.HandleFunc("/{id:[0-9]+}/deletion-impact", handler.HandleGetDeletionImpact).Methods(http.MethodGet)
 
 	// Add upload endpoint with special handling
 	uploadHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -34,6 +34,7 @@ const HashTypeDialog: React.FC<HashTypeDialogProps> = ({
     description: '',
     example: '',
     slow: false,
+    is_salted: false,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -48,6 +49,7 @@ const HashTypeDialog: React.FC<HashTypeDialogProps> = ({
         description: hashType.description || '',
         example: hashType.example || '',
         slow: hashType.slow,
+        is_salted: hashType.is_salted,
       });
     } else {
       setFormData({
@@ -56,6 +58,7 @@ const HashTypeDialog: React.FC<HashTypeDialogProps> = ({
         description: '',
         example: '',
         slow: false,
+        is_salted: false,
       });
     }
     setErrors({});
@@ -92,6 +95,7 @@ const HashTypeDialog: React.FC<HashTypeDialogProps> = ({
           example: formData.example || null,
           is_enabled: true,
           slow: formData.slow,
+          is_salted: formData.is_salted,
         };
         await onSave(updateData, hashType.id);
       } else {
@@ -102,6 +106,7 @@ const HashTypeDialog: React.FC<HashTypeDialogProps> = ({
           example: formData.example || null,
           is_enabled: true,
           slow: formData.slow,
+          is_salted: formData.is_salted,
         };
         await onSave(createData);
       }
@@ -169,6 +174,16 @@ const HashTypeDialog: React.FC<HashTypeDialogProps> = ({
               />
             }
             label="Slow Hash Algorithm"
+          />
+
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={formData.is_salted}
+                onChange={(e) => setFormData({ ...formData, is_salted: e.target.checked })}
+              />
+            }
+            label="Salted Hash Type (e.g., NTLMv2, bcrypt)"
           />
 
           {hashType?.needs_processing && (

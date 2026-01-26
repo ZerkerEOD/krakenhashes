@@ -23,18 +23,20 @@ func NewBenchmarkRepository(db *db.DB) *BenchmarkRepository {
 }
 
 // CreateOrUpdateAgentBenchmark creates or updates an agent benchmark
+// salt_count is used for salted hash types where benchmark speed varies with salt count
 func (r *BenchmarkRepository) CreateOrUpdateAgentBenchmark(ctx context.Context, benchmark *models.AgentBenchmark) error {
 	query := `
-		INSERT INTO agent_benchmarks (agent_id, attack_mode, hash_type, speed)
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (agent_id, attack_mode, hash_type)
-		DO UPDATE SET speed = $4, updated_at = CURRENT_TIMESTAMP
+		INSERT INTO agent_benchmarks (agent_id, attack_mode, hash_type, salt_count, speed)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (agent_id, attack_mode, hash_type, salt_count)
+		DO UPDATE SET speed = $5, updated_at = CURRENT_TIMESTAMP
 		RETURNING id, created_at, updated_at`
 
 	err := r.db.QueryRowContext(ctx, query,
 		benchmark.AgentID,
 		benchmark.AttackMode,
 		benchmark.HashType,
+		benchmark.SaltCount,
 		benchmark.Speed,
 	).Scan(&benchmark.ID, &benchmark.CreatedAt, &benchmark.UpdatedAt)
 
@@ -46,18 +48,21 @@ func (r *BenchmarkRepository) CreateOrUpdateAgentBenchmark(ctx context.Context, 
 }
 
 // GetAgentBenchmark retrieves a specific benchmark for an agent
-func (r *BenchmarkRepository) GetAgentBenchmark(ctx context.Context, agentID int, attackMode models.AttackMode, hashType int) (*models.AgentBenchmark, error) {
+// saltCount is used for salted hash types - use nil for non-salted hash types
+// Uses IS NOT DISTINCT FROM for NULL-safe comparison of salt_count
+func (r *BenchmarkRepository) GetAgentBenchmark(ctx context.Context, agentID int, attackMode models.AttackMode, hashType int, saltCount *int) (*models.AgentBenchmark, error) {
 	query := `
-		SELECT id, agent_id, attack_mode, hash_type, speed, created_at, updated_at
+		SELECT id, agent_id, attack_mode, hash_type, salt_count, speed, created_at, updated_at
 		FROM agent_benchmarks
-		WHERE agent_id = $1 AND attack_mode = $2 AND hash_type = $3`
+		WHERE agent_id = $1 AND attack_mode = $2 AND hash_type = $3 AND salt_count IS NOT DISTINCT FROM $4`
 
 	var benchmark models.AgentBenchmark
-	err := r.db.QueryRowContext(ctx, query, agentID, attackMode, hashType).Scan(
+	err := r.db.QueryRowContext(ctx, query, agentID, attackMode, hashType, saltCount).Scan(
 		&benchmark.ID,
 		&benchmark.AgentID,
 		&benchmark.AttackMode,
 		&benchmark.HashType,
+		&benchmark.SaltCount,
 		&benchmark.Speed,
 		&benchmark.CreatedAt,
 		&benchmark.UpdatedAt,
@@ -76,10 +81,10 @@ func (r *BenchmarkRepository) GetAgentBenchmark(ctx context.Context, agentID int
 // GetAgentBenchmarks retrieves all benchmarks for an agent
 func (r *BenchmarkRepository) GetAgentBenchmarks(ctx context.Context, agentID int) ([]models.AgentBenchmark, error) {
 	query := `
-		SELECT id, agent_id, attack_mode, hash_type, speed, created_at, updated_at
+		SELECT id, agent_id, attack_mode, hash_type, salt_count, speed, created_at, updated_at
 		FROM agent_benchmarks
 		WHERE agent_id = $1
-		ORDER BY attack_mode, hash_type`
+		ORDER BY attack_mode, hash_type, salt_count NULLS FIRST`
 
 	rows, err := r.db.QueryContext(ctx, query, agentID)
 	if err != nil {
@@ -95,6 +100,7 @@ func (r *BenchmarkRepository) GetAgentBenchmarks(ctx context.Context, agentID in
 			&benchmark.AgentID,
 			&benchmark.AttackMode,
 			&benchmark.HashType,
+			&benchmark.SaltCount,
 			&benchmark.Speed,
 			&benchmark.CreatedAt,
 			&benchmark.UpdatedAt,
@@ -109,14 +115,16 @@ func (r *BenchmarkRepository) GetAgentBenchmarks(ctx context.Context, agentID in
 }
 
 // IsRecentBenchmark checks if a benchmark is recent based on cache duration
-func (r *BenchmarkRepository) IsRecentBenchmark(ctx context.Context, agentID int, attackMode models.AttackMode, hashType int, cacheDuration time.Duration) (bool, error) {
+// saltCount is used for salted hash types - use nil for non-salted hash types
+// Uses IS NOT DISTINCT FROM for NULL-safe comparison of salt_count
+func (r *BenchmarkRepository) IsRecentBenchmark(ctx context.Context, agentID int, attackMode models.AttackMode, hashType int, saltCount *int, cacheDuration time.Duration) (bool, error) {
 	query := `
 		SELECT updated_at
 		FROM agent_benchmarks
-		WHERE agent_id = $1 AND attack_mode = $2 AND hash_type = $3`
+		WHERE agent_id = $1 AND attack_mode = $2 AND hash_type = $3 AND salt_count IS NOT DISTINCT FROM $4`
 
 	var updatedAt time.Time
-	err := r.db.QueryRowContext(ctx, query, agentID, attackMode, hashType).Scan(&updatedAt)
+	err := r.db.QueryRowContext(ctx, query, agentID, attackMode, hashType, saltCount).Scan(&updatedAt)
 
 	if err == sql.ErrNoRows {
 		return false, nil

@@ -56,6 +56,26 @@ func (r *JobTaskRepository) GetTotalCracksForJob(ctx context.Context, jobExecuti
 	return totalCracks, nil
 }
 
+// GetSumChunkActualKeyspace returns the sum of chunk_actual_keyspace for completed/processing tasks.
+// This represents the actual work performed by completed tasks, used for keyspace reconciliation
+// at job completion to ensure effective_keyspace matches actual work done.
+func (r *JobTaskRepository) GetSumChunkActualKeyspace(ctx context.Context, jobExecutionID uuid.UUID) (int64, error) {
+	query := `
+		SELECT COALESCE(SUM(chunk_actual_keyspace), 0)
+		FROM job_tasks
+		WHERE job_execution_id = $1
+		  AND chunk_actual_keyspace IS NOT NULL
+		  AND status IN ('completed', 'processing')`
+
+	var totalKeyspace int64
+	err := r.db.QueryRowContext(ctx, query, jobExecutionID).Scan(&totalKeyspace)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get sum of chunk actual keyspace: %w", err)
+	}
+
+	return totalKeyspace, nil
+}
+
 // Create creates a new job task
 func (r *JobTaskRepository) Create(ctx context.Context, task *models.JobTask) error {
 	query := `
@@ -164,14 +184,15 @@ func (r *JobTaskRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.
 			jt.keyspace_start, jt.keyspace_end, jt.keyspace_processed,
 			jt.effective_keyspace_start, jt.effective_keyspace_end, jt.effective_keyspace_processed,
 			jt.benchmark_speed, jt.average_speed, jt.chunk_duration, jt.assigned_at,
-			jt.started_at, jt.completed_at, jt.last_checkpoint, jt.error_message,
+			jt.started_at, jt.completed_at, jt.cracking_completed_at, jt.last_checkpoint, jt.error_message,
 			jt.crack_count, jt.detailed_status, jt.retry_count,
+			jt.expected_crack_count, jt.received_crack_count, jt.batches_complete_signaled,
 			jt.rule_start_index, jt.rule_end_index, jt.rule_chunk_path, jt.is_rule_split_task,
 			jt.chunk_number, jt.is_actual_keyspace, jt.chunk_actual_keyspace, jt.is_keyspace_split,
 			jt.progress_percent, jt.created_at, jt.updated_at,
 			a.name as agent_name
 		FROM job_tasks jt
-		JOIN agents a ON jt.agent_id = a.id
+		LEFT JOIN agents a ON jt.agent_id = a.id
 		WHERE jt.id = $1`
 
 	var task models.JobTask
@@ -181,8 +202,9 @@ func (r *JobTaskRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.
 		&task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
 		&task.EffectiveKeyspaceStart, &task.EffectiveKeyspaceEnd, &task.EffectiveKeyspaceProcessed,
 		&task.BenchmarkSpeed, &task.AverageSpeed, &task.ChunkDuration, &task.AssignedAt,
-		&task.StartedAt, &task.CompletedAt, &task.LastCheckpoint, &task.ErrorMessage,
+		&task.StartedAt, &task.CompletedAt, &task.CrackingCompletedAt, &task.LastCheckpoint, &task.ErrorMessage,
 		&task.CrackCount, &task.DetailedStatus, &task.RetryCount,
+		&task.ExpectedCrackCount, &task.ReceivedCrackCount, &task.BatchesCompleteSignaled,
 		&task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath, &task.IsRuleSplitTask,
 		&task.ChunkNumber, &task.IsActualKeyspace, &task.ChunkActualKeyspace, &task.IsKeyspaceSplit,
 		&task.ProgressPercent, &task.CreatedAt, &task.UpdatedAt,
@@ -207,7 +229,7 @@ func (r *JobTaskRepository) GetTasksByJobExecution(ctx context.Context, jobExecu
 			jt.keyspace_start, jt.keyspace_end, jt.keyspace_processed,
 			jt.effective_keyspace_start, jt.effective_keyspace_end, jt.effective_keyspace_processed,
 			jt.benchmark_speed, jt.average_speed, jt.chunk_duration, jt.assigned_at,
-			jt.started_at, jt.completed_at, jt.last_checkpoint, jt.error_message,
+			jt.started_at, jt.completed_at, jt.cracking_completed_at, jt.last_checkpoint, jt.error_message,
 			jt.crack_count,
 			jt.increment_layer_id,
 			jt.rule_start_index, jt.rule_end_index, jt.rule_chunk_path, jt.is_rule_split_task,
@@ -232,7 +254,7 @@ func (r *JobTaskRepository) GetTasksByJobExecution(ctx context.Context, jobExecu
 			&task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
 			&task.EffectiveKeyspaceStart, &task.EffectiveKeyspaceEnd, &task.EffectiveKeyspaceProcessed,
 			&task.BenchmarkSpeed, &task.AverageSpeed, &task.ChunkDuration, &task.AssignedAt,
-			&task.StartedAt, &task.CompletedAt, &task.LastCheckpoint, &task.ErrorMessage,
+			&task.StartedAt, &task.CompletedAt, &task.CrackingCompletedAt, &task.LastCheckpoint, &task.ErrorMessage,
 			&task.CrackCount,
 			&task.IncrementLayerID,
 			&task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath, &task.IsRuleSplitTask,
@@ -250,10 +272,12 @@ func (r *JobTaskRepository) GetTasksByJobExecution(ctx context.Context, jobExecu
 
 // GetActiveTasksByAgent retrieves active tasks for an agent
 func (r *JobTaskRepository) GetActiveTasksByAgent(ctx context.Context, agentID int) ([]models.JobTask, error) {
+	debug.Info("GetActiveTasksByAgent called for agent %d", agentID)
+
 	query := `
-		SELECT 
+		SELECT
 			id, job_execution_id, agent_id, status,
-			keyspace_start, keyspace_end, keyspace_processed,
+			keyspace_start, keyspace_end, COALESCE(keyspace_processed, 0),
 			benchmark_speed, chunk_duration, assigned_at,
 			started_at, completed_at, last_checkpoint, error_message
 		FROM job_tasks
@@ -262,6 +286,7 @@ func (r *JobTaskRepository) GetActiveTasksByAgent(ctx context.Context, agentID i
 
 	rows, err := r.db.QueryContext(ctx, query, agentID)
 	if err != nil {
+		debug.Error("GetActiveTasksByAgent query error for agent %d: %v", agentID, err)
 		return nil, fmt.Errorf("failed to get active tasks by agent: %w", err)
 	}
 	defer rows.Close()
@@ -276,11 +301,20 @@ func (r *JobTaskRepository) GetActiveTasksByAgent(ctx context.Context, agentID i
 			&task.StartedAt, &task.CompletedAt, &task.LastCheckpoint, &task.ErrorMessage,
 		)
 		if err != nil {
+			debug.Error("GetActiveTasksByAgent scan error for agent %d: %v", agentID, err)
 			return nil, fmt.Errorf("failed to scan job task: %w", err)
 		}
+		debug.Info("GetActiveTasksByAgent found task %s for agent %d", task.ID, agentID)
 		tasks = append(tasks, task)
 	}
 
+	// Check for iteration errors
+	if err := rows.Err(); err != nil {
+		debug.Error("GetActiveTasksByAgent iteration error for agent %d: %v", agentID, err)
+		return nil, fmt.Errorf("error iterating tasks: %w", err)
+	}
+
+	debug.Info("GetActiveTasksByAgent returning %d tasks for agent %d", len(tasks), agentID)
 	return tasks, nil
 }
 
@@ -601,7 +635,10 @@ func (r *JobTaskRepository) CompleteTask(ctx context.Context, id uuid.UUID) erro
 	}
 
 	// Update both status and detailed_status to maintain database constraint consistency
-	query := `UPDATE job_tasks SET status = $1, detailed_status = $2, completed_at = $3, progress_percent = 100 WHERE id = $4`
+	// Use COALESCE to preserve cracking_completed_at if already set (cracks > 0 path),
+	// otherwise set it to completed_at (0 cracks path - hashcat finished at same time as completion)
+	query := `UPDATE job_tasks SET status = $1, detailed_status = $2, completed_at = $3, progress_percent = 100,
+		cracking_completed_at = COALESCE(cracking_completed_at, $3) WHERE id = $4`
 	result, err := r.db.ExecContext(ctx, query, models.JobTaskStatusCompleted, "completed_no_cracks", now, id)
 	if err != nil {
 		return fmt.Errorf("failed to complete job task: %w", err)
@@ -637,6 +674,255 @@ func (r *JobTaskRepository) FailTask(ctx context.Context, id uuid.UUID, errorMes
 	if rowsAffected == 0 {
 		return ErrNotFound
 	}
+
+	return nil
+}
+
+// CompleteTaskAndClearAgentStatus atomically marks a task as completed AND clears the agent's busy status.
+// This prevents the race condition where task completion and agent status update are separate operations.
+// If either operation fails, the entire transaction is rolled back ensuring consistency.
+func (r *JobTaskRepository) CompleteTaskAndClearAgentStatus(ctx context.Context, taskID uuid.UUID, agentID int) error {
+	// Begin transaction for atomicity
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	now := time.Now()
+
+	// Calculate and store average speed (same as CompleteTask)
+	// This is done outside the transaction since it's nice-to-have
+	if err := r.CalculateAndStoreAverageSpeed(ctx, taskID); err != nil {
+		// Log but don't fail - average speed is not critical
+		debug.Warning("Failed to calculate average speed for task %s: %v", taskID, err)
+	}
+
+	// Step 1: Mark task as complete
+	taskQuery := `
+		UPDATE job_tasks
+		SET status = $1,
+		    detailed_status = $2,
+		    completed_at = $3,
+		    progress_percent = 100,
+		    cracking_completed_at = COALESCE(cracking_completed_at, $3)
+		WHERE id = $4`
+
+	result, err := tx.ExecContext(ctx, taskQuery, models.JobTaskStatusCompleted, "completed_no_cracks", now, taskID)
+	if err != nil {
+		return fmt.Errorf("failed to complete task: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected for task: %w", err)
+	}
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	// Step 2: Clear agent busy status atomically with task completion
+	// Use JSONB operators to update metadata
+	agentQuery := `
+		UPDATE agents
+		SET metadata = COALESCE(metadata, '{}'::jsonb)
+		              || '{"busy_status": "false"}'::jsonb
+		              - 'current_task_id'
+		              - 'current_job_id',
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`
+
+	_, err = tx.ExecContext(ctx, agentQuery, agentID)
+	if err != nil {
+		return fmt.Errorf("failed to clear agent busy status: %w", err)
+	}
+
+	// Commit the transaction
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	debug.Log("Atomically completed task and cleared agent status", map[string]interface{}{
+		"task_id":  taskID,
+		"agent_id": agentID,
+	})
+
+	return nil
+}
+
+// FailTaskAndClearAgentStatus atomically marks a task as failed AND clears the agent's busy status.
+// This prevents the race condition where task failure and agent status update are separate operations.
+func (r *JobTaskRepository) FailTaskAndClearAgentStatus(ctx context.Context, taskID uuid.UUID, agentID int, errorMessage string) error {
+	// Begin transaction for atomicity
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	now := time.Now()
+
+	// Step 1: Mark task as failed
+	taskQuery := `
+		UPDATE job_tasks
+		SET status = $1,
+		    detailed_status = $2,
+		    completed_at = $3,
+		    error_message = $4
+		WHERE id = $5`
+
+	result, err := tx.ExecContext(ctx, taskQuery, models.JobTaskStatusFailed, "failed", now, errorMessage, taskID)
+	if err != nil {
+		return fmt.Errorf("failed to mark task as failed: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected for task: %w", err)
+	}
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	// Step 2: Clear agent busy status atomically
+	agentQuery := `
+		UPDATE agents
+		SET metadata = COALESCE(metadata, '{}'::jsonb)
+		              || '{"busy_status": "false"}'::jsonb
+		              - 'current_task_id'
+		              - 'current_job_id',
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`
+
+	_, err = tx.ExecContext(ctx, agentQuery, agentID)
+	if err != nil {
+		return fmt.Errorf("failed to clear agent busy status: %w", err)
+	}
+
+	// Commit the transaction
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	debug.Log("Atomically failed task and cleared agent status", map[string]interface{}{
+		"task_id":       taskID,
+		"agent_id":      agentID,
+		"error_message": errorMessage,
+	})
+
+	return nil
+}
+
+// ClearAgentBusyStatusOnly clears only the agent's busy status without affecting task status.
+// Used for recovery scenarios where task is already in a terminal state but agent is still marked busy.
+func (r *JobTaskRepository) ClearAgentBusyStatusOnly(ctx context.Context, agentID int) error {
+	query := `
+		UPDATE agents
+		SET metadata = COALESCE(metadata, '{}'::jsonb)
+		              || '{"busy_status": "false"}'::jsonb
+		              - 'current_task_id'
+		              - 'current_job_id',
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`
+
+	result, err := r.db.ExecContext(ctx, query, agentID)
+	if err != nil {
+		return fmt.Errorf("failed to clear agent busy status: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	debug.Log("Cleared agent busy status", map[string]interface{}{
+		"agent_id": agentID,
+	})
+
+	return nil
+}
+
+// MarkTaskFailedPermanentlyAndClearAgentStatus atomically marks a task as permanently failed,
+// decrements the job's dispatched keyspace, AND clears the agent's busy status.
+// This combines MarkTaskFailedPermanently with agent status clearing in a single atomic transaction.
+func (r *JobTaskRepository) MarkTaskFailedPermanentlyAndClearAgentStatus(ctx context.Context, taskID uuid.UUID, agentID int, errorMessage string) error {
+	// Get task details including keyspace ranges
+	var jobExecutionID uuid.UUID
+	var keyspaceProcessed int64
+	var keyspaceStart int64
+	var keyspaceEnd int64
+	var effectiveKeyspaceStart sql.NullInt64
+	var effectiveKeyspaceEnd sql.NullInt64
+	err := r.db.QueryRowContext(ctx,
+		"SELECT job_execution_id, keyspace_processed, keyspace_start, keyspace_end, "+
+			"effective_keyspace_start, effective_keyspace_end FROM job_tasks WHERE id = $1",
+		taskID).Scan(&jobExecutionID, &keyspaceProcessed, &keyspaceStart, &keyspaceEnd,
+		&effectiveKeyspaceStart, &effectiveKeyspaceEnd)
+	if err != nil {
+		return fmt.Errorf("failed to get task details: %w", err)
+	}
+
+	// Begin transaction to ensure atomicity of all operations
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Step 1: Mark task as failed
+	taskQuery := `
+		UPDATE job_tasks
+		SET status = $2,
+		    error_message = $3,
+		    completed_at = NOW(),
+		    updated_at = NOW()
+		WHERE id = $1`
+	_, err = tx.ExecContext(ctx, taskQuery, taskID, models.JobTaskStatusFailed, errorMessage)
+	if err != nil {
+		return fmt.Errorf("failed to mark task as failed: %w", err)
+	}
+
+	// Step 2: Subtract any processed keyspace from the job execution
+	if keyspaceProcessed > 0 {
+		updateJobQuery := `
+			UPDATE job_executions
+			SET processed_keyspace = processed_keyspace - $1,
+			    updated_at = CURRENT_TIMESTAMP
+			WHERE id = $2 AND processed_keyspace >= $1`
+		_, err = tx.ExecContext(ctx, updateJobQuery, keyspaceProcessed, jobExecutionID)
+		if err != nil {
+			return fmt.Errorf("failed to update job processed keyspace: %w", err)
+		}
+	}
+
+	// Step 3: Clear agent busy status atomically
+	agentQuery := `
+		UPDATE agents
+		SET metadata = COALESCE(metadata, '{}'::jsonb)
+		              || '{"busy_status": "false"}'::jsonb
+		              - 'current_task_id'
+		              - 'current_job_id',
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`
+	_, err = tx.ExecContext(ctx, agentQuery, agentID)
+	if err != nil {
+		return fmt.Errorf("failed to clear agent busy status: %w", err)
+	}
+
+	// Commit transaction
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	debug.Log("Atomically failed task permanently and cleared agent status", map[string]interface{}{
+		"task_id":       taskID,
+		"agent_id":      agentID,
+		"error_message": errorMessage,
+	})
 
 	return nil
 }
@@ -690,6 +976,69 @@ func (r *JobTaskRepository) SetTaskPending(ctx context.Context, id uuid.UUID) er
 
 	if rowsAffected == 0 {
 		return ErrNotFound
+	}
+
+	return nil
+}
+
+// SetTaskStopping marks a task as stopping but preserves agent_id
+// This is used when interrupting a task - we mark it stopping and wait for the agent to acknowledge
+func (r *JobTaskRepository) SetTaskStopping(ctx context.Context, id uuid.UUID) error {
+	query := `
+		UPDATE job_tasks
+		SET
+			detailed_status = 'stopping',
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1 AND status IN ('assigned', 'running')`
+
+	result, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to set task to stopping: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
+// ClearTaskAgentAndSetPending clears agent_id and sets task to pending after stop ack received
+// This should only be called after the agent has acknowledged stopping the task
+func (r *JobTaskRepository) ClearTaskAgentAndSetPending(ctx context.Context, id uuid.UUID, agentID int) error {
+	query := `
+		UPDATE job_tasks
+		SET
+			status = 'pending',
+			detailed_status = 'pending',
+			agent_id = NULL,
+			assigned_at = NULL,
+			started_at = NULL,
+			last_checkpoint = CURRENT_TIMESTAMP,
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1 AND agent_id = $2`
+
+	result, err := r.db.ExecContext(ctx, query, id, agentID)
+	if err != nil {
+		return fmt.Errorf("failed to clear task agent and set pending: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		// Task may have already been cleared or reassigned - not necessarily an error
+		debug.Log("ClearTaskAgentAndSetPending: no rows affected", map[string]interface{}{
+			"task_id":  id,
+			"agent_id": agentID,
+		})
 	}
 
 	return nil
@@ -907,12 +1256,13 @@ func (r *JobTaskRepository) UpdateTaskWithCracks(ctx context.Context, id uuid.UU
 	}
 
 	query := `
-		UPDATE job_tasks 
-		SET 
+		UPDATE job_tasks
+		SET
 			status = $2,
 			detailed_status = $3,
 			crack_count = $4,
-			completed_at = CURRENT_TIMESTAMP
+			completed_at = CURRENT_TIMESTAMP,
+			cracking_completed_at = COALESCE(cracking_completed_at, CURRENT_TIMESTAMP)
 		WHERE id = $1`
 
 	_, err := r.db.ExecContext(ctx, query, id, status, detailedStatus, crackCount)
@@ -1107,15 +1457,32 @@ func (r *JobTaskRepository) GetTaskCountByJobExecution(ctx context.Context, jobE
 // GetActiveTasksCount returns the number of active tasks (running or assigned) for a job
 func (r *JobTaskRepository) GetActiveTasksCount(ctx context.Context, jobExecutionID uuid.UUID) (int, error) {
 	query := `
-		SELECT COUNT(*) 
-		FROM job_tasks 
-		WHERE job_execution_id = $1 
+		SELECT COUNT(*)
+		FROM job_tasks
+		WHERE job_execution_id = $1
 		  AND status IN ('running', 'assigned')`
 
 	var count int
 	err := r.db.QueryRowContext(ctx, query, jobExecutionID).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get active tasks count: %w", err)
+	}
+
+	return count, nil
+}
+
+// GetCompletedTaskCount returns the number of completed tasks for a job execution
+func (r *JobTaskRepository) GetCompletedTaskCount(ctx context.Context, jobExecutionID uuid.UUID) (int, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM job_tasks
+		WHERE job_execution_id = $1
+		  AND status = 'completed'`
+
+	var count int
+	err := r.db.QueryRowContext(ctx, query, jobExecutionID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get completed tasks count: %w", err)
 	}
 
 	return count, nil
@@ -1616,11 +1983,13 @@ func (r *JobTaskRepository) GetTaskCountForJob(ctx context.Context, jobExecution
 }
 
 // SetTaskProcessing marks a task as processing with expected crack count from final progress message
+// Also sets cracking_completed_at to mark when hashcat finished for this task
 func (r *JobTaskRepository) SetTaskProcessing(ctx context.Context, taskID uuid.UUID, expectedCracks int) error {
 	query := `
 		UPDATE job_tasks
 		SET status = $2,
 		    expected_crack_count = $3,
+		    cracking_completed_at = CURRENT_TIMESTAMP,
 		    updated_at = CURRENT_TIMESTAMP
 		WHERE id = $1`
 
@@ -1641,6 +2010,63 @@ func (r *JobTaskRepository) SetTaskProcessing(ctx context.Context, taskID uuid.U
 	debug.Log("Set task to processing status", map[string]interface{}{
 		"task_id":         taskID,
 		"expected_cracks": expectedCracks,
+	})
+
+	return nil
+}
+
+// SetCrackingCompleted sets the cracking_completed_at timestamp for a task
+// This marks when hashcat finished for this task (enters processing state)
+func (r *JobTaskRepository) SetCrackingCompleted(ctx context.Context, taskID uuid.UUID) error {
+	query := `
+		UPDATE job_tasks
+		SET cracking_completed_at = CURRENT_TIMESTAMP,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`
+
+	result, err := r.db.ExecContext(ctx, query, taskID)
+	if err != nil {
+		return fmt.Errorf("failed to set cracking completed: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
+// UpdateExpectedCrackCount updates the expected crack count for a task
+// This is used when requesting crack retransmit after outfile delete rejection
+func (r *JobTaskRepository) UpdateExpectedCrackCount(ctx context.Context, taskID uuid.UUID, expectedCount int) error {
+	query := `
+		UPDATE job_tasks
+		SET expected_crack_count = $2,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`
+
+	result, err := r.db.ExecContext(ctx, query, taskID, expectedCount)
+	if err != nil {
+		return fmt.Errorf("failed to update expected crack count: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	debug.Log("Updated expected crack count", map[string]interface{}{
+		"task_id":        taskID,
+		"expected_count": expectedCount,
 	})
 
 	return nil
@@ -1780,4 +2206,48 @@ func (r *JobTaskRepository) GetProcessingTasksForJob(ctx context.Context, jobExe
 	}
 
 	return tasks, nil
+}
+
+// SetTaskProcessingError marks a task with processing_error status after crack count mismatch retries exhausted.
+func (r *JobTaskRepository) SetTaskProcessingError(ctx context.Context, taskID uuid.UUID, errorMsg string) error {
+	query := `
+		UPDATE job_tasks
+		SET status = 'processing_error',
+		    error_message = $2,
+		    updated_at = NOW()
+		WHERE id = $1`
+
+	result, err := r.db.ExecContext(ctx, query, taskID, errorMsg)
+	if err != nil {
+		return fmt.Errorf("failed to set task processing error: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("task %s not found", taskID)
+	}
+
+	debug.Info("Task %s marked as processing_error: %s", taskID, errorMsg)
+	return nil
+}
+
+// IncrementRetransmitCount increments the retransmit counter for a task and updates the timestamp.
+func (r *JobTaskRepository) IncrementRetransmitCount(ctx context.Context, taskID uuid.UUID) error {
+	query := `
+		UPDATE job_tasks
+		SET retransmit_count = COALESCE(retransmit_count, 0) + 1,
+		    last_retransmit_at = NOW(),
+		    updated_at = NOW()
+		WHERE id = $1`
+
+	_, err := r.db.ExecContext(ctx, query, taskID)
+	if err != nil {
+		return fmt.Errorf("failed to increment retransmit count: %w", err)
+	}
+
+	return nil
 }

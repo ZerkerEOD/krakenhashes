@@ -236,17 +236,17 @@ func (h *AdminJobsHandler) RecalculateAllMissingKeyspaces(w http.ResponseWriter,
 		// Skip if keyspace is already calculated
 		if job.Keyspace != nil && *job.Keyspace > 0 {
 			skipped++
-			debug.Info("Skipping preset job %s (%s) - already has keyspace: %d", job.ID, job.Name, *job.Keyspace)
+			debug.Info("Skipping preset job %s - already has keyspace: %d", job.ID, *job.Keyspace)
 			continue
 		}
 
-		debug.Info("Processing preset job %s (%s) - calculating keyspace", job.ID, job.Name)
+		debug.Info("Processing preset job %s - calculating keyspace", job.ID)
 
 		// Calculate keyspace
 		keyspace, err := h.presetJobService.CalculateKeyspaceForPresetJob(ctx, &job)
 		if err != nil {
 			failed++
-			errors = append(errors, fmt.Sprintf("%s: %v", job.Name, err))
+			errors = append(errors, fmt.Sprintf("%s: %v", job.ID, err))
 			debug.Warning("Failed to calculate keyspace for preset job %s: %v", job.ID, err)
 			continue
 		}

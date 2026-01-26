@@ -43,20 +43,23 @@ import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   ArrowBack as ArrowBackIcon,
+  BugReport as BugReportIcon,
 } from '@mui/icons-material';
 import { api } from '../services/api';
 import { formatDistanceToNow } from 'date-fns';
 import DeviceMetricsChart from '../components/agent/DeviceMetricsChart';
+import BinaryVersionSelector from '../components/common/BinaryVersionSelector';
 import AgentScheduling from '../components/agent/AgentScheduling';
 import {
   getAgentSchedules,
   toggleAgentScheduling,
   bulkUpdateAgentSchedules,
-  deleteAgentSchedule,
-  getBinaryVersions
+  deleteAgentSchedule
 } from '../services/api';
 import { AgentSchedule, AgentScheduleDTO } from '../types/scheduling';
 import { AgentDevice } from '../types/agent';
+import { AgentDebugStatus } from '../types/diagnostics';
+import { getAgentDebugStatus, toggleAgentDebug } from '../services/diagnostics';
 
 interface Agent {
   id: number;
@@ -85,16 +88,8 @@ interface Agent {
   ownerId?: string;
   extraParameters?: string;
   isEnabled?: boolean;
-  binaryVersionId?: number;
-  binaryOverride?: boolean;
-}
-
-interface BinaryVersion {
-  id: number;
-  file_name: string;
-  binary_type: string;
-  is_active: boolean;
-  is_default: boolean;
+  /** Binary version pattern (e.g., "default", "7.x", "7.1.x", "7.1.2") */
+  binaryVersion?: string;
 }
 
 interface User {
@@ -147,14 +142,15 @@ const AgentDetails: React.FC = () => {
   const [schedules, setSchedules] = useState<AgentSchedule[]>([]);
 
   // Binary configuration state
-  const [binaryVersions, setBinaryVersions] = useState<BinaryVersion[]>([]);
-  const [selectedBinaryId, setSelectedBinaryId] = useState<number | ''>('');
-  const [binaryOverride, setBinaryOverride] = useState(false);
+  const [binaryVersion, setBinaryVersion] = useState<string>('default');
+
+  // Debug configuration state (admin only)
+  const [debugStatus, setDebugStatus] = useState<AgentDebugStatus | null>(null);
+  const [debugLoading, setDebugLoading] = useState(false);
 
   useEffect(() => {
     fetchAgentDetails();
     fetchUsers();
-    fetchBinaryVersions();
   }, [id]);
   
   // Fetch device metrics periodically
@@ -201,8 +197,7 @@ const AgentDetails: React.FC = () => {
       setIsEnabled(agentData.isEnabled !== undefined ? agentData.isEnabled : true);
       setOwnerId(agentData.ownerId || '');
       setExtraParameters(agentData.extraParameters || '');
-      setSelectedBinaryId(agentData.binaryVersionId || '');
-      setBinaryOverride(agentData.binaryOverride || false);
+      setBinaryVersion(agentData.binaryVersion || 'default');
       
       // Initialize device states using device_id as the key
       const initialDeviceStates: { [key: number]: boolean } = {};
@@ -221,7 +216,10 @@ const AgentDetails: React.FC = () => {
         console.error('Failed to fetch agent schedules:', err);
         // Don't fail the whole page load if scheduling fetch fails
       }
-      
+
+      // Fetch debug status (admin only, non-blocking)
+      fetchDebugStatus(agentData.id);
+
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to fetch agent details');
     } finally {
@@ -238,13 +236,30 @@ const AgentDetails: React.FC = () => {
     }
   };
 
-  const fetchBinaryVersions = async () => {
+  const fetchDebugStatus = async (agentId: number) => {
     try {
-      const binaries = await getBinaryVersions('hashcat');
-      // Filter to only active binaries
-      setBinaryVersions(binaries.filter((b: BinaryVersion) => b.is_active));
+      const status = await getAgentDebugStatus(agentId);
+      setDebugStatus(status);
     } catch (err) {
-      console.error('Failed to fetch binary versions:', err);
+      // Debug status not available - agent may not have reported yet
+      console.debug('Debug status not available for agent:', agentId);
+      setDebugStatus(null);
+    }
+  };
+
+  const handleToggleDebug = async () => {
+    if (!agent) return;
+    setDebugLoading(true);
+    try {
+      await toggleAgentDebug(agent.id, !debugStatus?.enabled);
+      // Refresh debug status after a short delay to allow agent to respond
+      setTimeout(() => fetchDebugStatus(agent.id), 1000);
+      setSuccess(`Debug mode ${debugStatus?.enabled ? 'disabled' : 'enabled'} for agent`);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to toggle debug mode');
+    } finally {
+      setDebugLoading(false);
     }
   };
   
@@ -479,27 +494,25 @@ const AgentDetails: React.FC = () => {
   };
 
   // Handle binary configuration change
-  const handleBinaryChange = async (binaryId: number | '', override: boolean) => {
-    setSelectedBinaryId(binaryId);
-    setBinaryOverride(override);
+  const handleBinaryChange = async (newBinaryVersion: string) => {
+    const oldVersion = binaryVersion;
+    setBinaryVersion(newBinaryVersion);
 
     try {
       await api.put(`/api/agents/${id}`, {
         isEnabled: isEnabled,
         ownerId: ownerId || null,
         extraParameters: extraParameters.trim(),
-        binaryVersionId: binaryId === '' ? null : binaryId,
-        binaryOverride: override
+        binaryVersion: newBinaryVersion
       });
-      setSuccess(override && binaryId ? 'Agent binary override set' : 'Agent binary reset to default');
+      setSuccess(newBinaryVersion !== 'default'
+        ? `Agent binary version set to ${newBinaryVersion}`
+        : 'Agent binary reset to default');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to update binary configuration');
       // Revert on error
-      if (agent) {
-        setSelectedBinaryId(agent.binaryVersionId || '');
-        setBinaryOverride(agent.binaryOverride || false);
-      }
+      setBinaryVersion(oldVersion);
     }
   };
 
@@ -561,33 +574,16 @@ const AgentDetails: React.FC = () => {
 
               <Grid item xs={12}>
                 <Typography variant="body2" color="text.secondary" gutterBottom>Agent Binary Configuration</Typography>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Hashcat Binary</InputLabel>
-                  <Select
-                    value={selectedBinaryId}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      handleBinaryChange(value === '' ? '' : Number(value), value !== '');
-                    }}
-                    label="Hashcat Binary"
-                  >
-                    <MenuItem value="">
-                      <em>Use System Default</em>
-                    </MenuItem>
-                    {binaryVersions.map((binary) => (
-                      <MenuItem key={binary.id} value={binary.id}>
-                        {binary.file_name} {binary.is_default && '(Default)'}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-                  {binaryOverride && selectedBinaryId ? (
-                    <span style={{ color: '#ff9800' }}>⚠ Agent Override Active</span>
-                  ) : (
-                    'Using job or system default binary'
-                  )}
-                </Typography>
+                <BinaryVersionSelector
+                  value={binaryVersion}
+                  onChange={handleBinaryChange}
+                  label="Hashcat Binary"
+                  size="small"
+                  margin="none"
+                  helperText={binaryVersion !== 'default'
+                    ? `Agent will use ${binaryVersion} pattern`
+                    : 'Using job or system default binary'}
+                />
               </Grid>
 
               <Grid item xs={12}>
@@ -634,20 +630,20 @@ const AgentDetails: React.FC = () => {
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>System Information</Typography>
-            
+
             <Grid container spacing={2}>
               <Grid item xs={12}>
                 <Typography variant="body2" color="text.secondary">Machine Name</Typography>
                 <Typography variant="body1">{agent.osInfo?.hostname || agent.name}</Typography>
               </Grid>
-              
+
               <Grid item xs={12}>
                 <Typography variant="body2" color="text.secondary">Operating System</Typography>
                 <Typography variant="body1">
                   {agent.osInfo?.platform || 'Not detected'}
                 </Typography>
               </Grid>
-              
+
               <Grid item xs={12}>
                 <Typography variant="body2" color="text.secondary">Agent Version</Typography>
                 <Typography variant="body1">
@@ -655,6 +651,77 @@ const AgentDetails: React.FC = () => {
                 </Typography>
               </Grid>
             </Grid>
+          </Paper>
+        </Grid>
+
+        {/* Debug Configuration (Admin Only) */}
+        <Grid item xs={12}>
+          <Paper sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <BugReportIcon color={debugStatus?.enabled ? 'success' : 'disabled'} />
+                <Typography variant="h6">Debug Configuration</Typography>
+              </Box>
+              <Button
+                variant={debugStatus?.enabled ? 'outlined' : 'contained'}
+                color={debugStatus?.enabled ? 'warning' : 'success'}
+                startIcon={debugLoading ? <CircularProgress size={16} /> : <BugReportIcon />}
+                onClick={handleToggleDebug}
+                disabled={debugLoading}
+                size="small"
+              >
+                {debugStatus?.enabled ? 'Disable Debug' : 'Enable Debug'}
+              </Button>
+            </Box>
+
+            {debugStatus ? (
+              <Grid container spacing={2}>
+                <Grid item xs={6} md={3}>
+                  <Typography variant="body2" color="text.secondary">Status</Typography>
+                  <Chip
+                    label={debugStatus.enabled ? 'Enabled' : 'Disabled'}
+                    color={debugStatus.enabled ? 'success' : 'default'}
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={6} md={3}>
+                  <Typography variant="body2" color="text.secondary">Log Level</Typography>
+                  <Typography variant="body1">{debugStatus.level}</Typography>
+                </Grid>
+                <Grid item xs={6} md={3}>
+                  <Typography variant="body2" color="text.secondary">File Logging</Typography>
+                  <Chip
+                    label={debugStatus.file_logging_enabled ? 'Active' : 'Inactive'}
+                    color={debugStatus.file_logging_enabled ? 'info' : 'default'}
+                    size="small"
+                    variant="outlined"
+                  />
+                </Grid>
+                <Grid item xs={6} md={3}>
+                  <Typography variant="body2" color="text.secondary">Buffer</Typography>
+                  <Typography variant="body1">
+                    {debugStatus.buffer_count} / {debugStatus.buffer_capacity}
+                  </Typography>
+                </Grid>
+                {debugStatus.log_file_exists && (
+                  <Grid item xs={12}>
+                    <Typography variant="body2" color="text.secondary">Log File Size</Typography>
+                    <Typography variant="body1">
+                      {(debugStatus.log_file_size / 1024).toFixed(2)} KB
+                    </Typography>
+                  </Grid>
+                )}
+                <Grid item xs={12}>
+                  <Typography variant="caption" color="text.secondary">
+                    Last updated: {new Date(debugStatus.last_updated).toLocaleString()}
+                  </Typography>
+                </Grid>
+              </Grid>
+            ) : (
+              <Typography color="text.secondary">
+                Debug status not yet reported by agent. The agent will report its debug status after connecting.
+              </Typography>
+            )}
           </Paper>
         </Grid>
 

@@ -1,22 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  Box, 
-  Typography, 
-  TextField, 
-  Button, 
-  Paper, 
-  List, 
-  ListItem, 
-  ListItemText, 
-  ListItemSecondaryAction, 
-  IconButton, 
-  Divider, 
-  FormControl, 
-  InputLabel, 
-  Select, 
-  MenuItem, 
-  Alert, 
+import {
+  Box,
+  Typography,
+  TextField,
+  Button,
+  Paper,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+  IconButton,
+  Divider,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Alert,
   CircularProgress,
   FormHelperText,
   SelectChangeEvent,
@@ -28,6 +28,8 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { 
   getJobWorkflowFormData, 
   getJobWorkflow, 
@@ -194,11 +196,33 @@ const JobWorkflowFormPage: React.FC = () => {
     setFormData(prev => {
       const newOrderedJobs = prev.orderedJobs.filter(job => job.id !== jobId);
       const newPresetJobIds = prev.preset_job_ids.filter(id => id !== jobId);
-      
+
       return {
         ...prev,
         preset_job_ids: newPresetJobIds,
         orderedJobs: newOrderedJobs
+      };
+    });
+  };
+
+  // Handle drag end for reordering workflow steps
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+
+    const sourceIndex = result.source.index;
+    const destIndex = result.destination.index;
+
+    if (sourceIndex === destIndex) return;
+
+    setFormData(prev => {
+      const newOrderedJobs = [...prev.orderedJobs];
+      const [removed] = newOrderedJobs.splice(sourceIndex, 1);
+      newOrderedJobs.splice(destIndex, 0, removed);
+
+      return {
+        ...prev,
+        orderedJobs: newOrderedJobs,
+        preset_job_ids: newOrderedJobs.map(job => job.id)
       };
     });
   };
@@ -332,94 +356,121 @@ const JobWorkflowFormPage: React.FC = () => {
             </Alert>
           ) : (
             <Paper variant="outlined" sx={{ mb: 3 }}>
-              {formData.orderedJobs.map((job, index) => {
-                // Find the corresponding workflow step for detailed info
-                const workflowStep = workflowSteps.find(step => step.preset_job_id === job.id);
-                
-                return (
-                  <React.Fragment key={job.id}>
-                    <ListItem 
-                      sx={{ 
-                        py: 2,
-                        ...(job.allow_high_priority_override && {
-                          border: '2px solid red',
-                          borderRadius: 1,
-                          '& .MuiListItemText-root': { pl: 1 }
-                        })
-                      }}
-                    >
-                      <ListItemText
-                        primary={
-                          <Box display="flex" alignItems="center" gap={1}>
-                            <Typography variant="h6" component="span">
-                              {index + 1}. {job.name}
-                            </Typography>
-                            {workflowStep?.preset_job_priority !== undefined && (
-                              <Chip 
-                                label={`Priority: ${workflowStep.preset_job_priority}`} 
-                                size="small" 
-                                color="primary"
-                              />
+              <DragDropContext onDragEnd={handleDragEnd}>
+                <Droppable droppableId="workflow-steps" isDropDisabled={submitting}>
+                  {(provided) => (
+                    <List ref={provided.innerRef} {...provided.droppableProps} disablePadding>
+                      {formData.orderedJobs.map((job, index) => {
+                        // Find the corresponding workflow step for detailed info
+                        const workflowStep = workflowSteps.find(step => step.preset_job_id === job.id);
+
+                        return (
+                          <Draggable key={job.id} draggableId={job.id} index={index} isDragDisabled={submitting}>
+                            {(provided, snapshot) => (
+                              <div ref={provided.innerRef} {...provided.draggableProps}>
+                                <ListItem
+                                  sx={{
+                                    py: 2,
+                                    bgcolor: snapshot.isDragging ? 'action.hover' : 'inherit',
+                                    ...(job.allow_high_priority_override && {
+                                      border: '2px solid red',
+                                      borderRadius: 1,
+                                      '& .MuiListItemText-root': { pl: 1 }
+                                    })
+                                  }}
+                                >
+                                  <Box
+                                    {...provided.dragHandleProps}
+                                    sx={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      mr: 2,
+                                      color: submitting ? 'text.disabled' : 'text.secondary',
+                                      cursor: submitting ? 'default' : 'grab',
+                                      '&:active': { cursor: submitting ? 'default' : 'grabbing' }
+                                    }}
+                                  >
+                                    <DragIndicatorIcon />
+                                  </Box>
+                                  <ListItemText
+                                    primary={
+                                      <Box display="flex" alignItems="center" gap={1}>
+                                        <Typography variant="h6" component="span">
+                                          {index + 1}. {job.name}
+                                        </Typography>
+                                        {workflowStep?.preset_job_priority !== undefined && (
+                                          <Chip
+                                            label={`Priority: ${workflowStep.preset_job_priority}`}
+                                            size="small"
+                                            color="primary"
+                                          />
+                                        )}
+                                        {job.allow_high_priority_override && (
+                                          <Chip
+                                            label="Can Interrupt"
+                                            color="error"
+                                            size="small"
+                                            variant="filled"
+                                          />
+                                        )}
+                                      </Box>
+                                    }
+                                    secondary={
+                                      <Stack spacing={1} sx={{ mt: 1 }}>
+                                        <Box display="flex" flexWrap="wrap" gap={1}>
+                                          {workflowStep?.preset_job_attack_mode !== undefined && (
+                                            <Chip
+                                              label={getAttackModeName(workflowStep.preset_job_attack_mode)}
+                                              size="small"
+                                              variant="outlined"
+                                            />
+                                          )}
+                                          {workflowStep?.preset_job_binary_name && (
+                                            <Chip
+                                              label={`Binary: ${workflowStep.preset_job_binary_name}`}
+                                              size="small"
+                                              variant="outlined"
+                                            />
+                                          )}
+                                          {workflowStep?.preset_job_wordlist_ids && (
+                                            <Chip
+                                              label={`${workflowStep.preset_job_wordlist_ids.length} Wordlist${workflowStep.preset_job_wordlist_ids.length !== 1 ? 's' : ''}`}
+                                              size="small"
+                                              variant="outlined"
+                                            />
+                                          )}
+                                          {workflowStep?.preset_job_rule_ids && (
+                                            <Chip
+                                              label={`${workflowStep.preset_job_rule_ids.length} Rule${workflowStep.preset_job_rule_ids.length !== 1 ? 's' : ''}`}
+                                              size="small"
+                                              variant="outlined"
+                                            />
+                                          )}
+                                        </Box>
+                                      </Stack>
+                                    }
+                                  />
+                                  <ListItemSecondaryAction>
+                                    <IconButton
+                                      edge="end"
+                                      onClick={() => handleRemovePresetJob(job.id)}
+                                      disabled={submitting}
+                                    >
+                                      <DeleteIcon />
+                                    </IconButton>
+                                  </ListItemSecondaryAction>
+                                </ListItem>
+                                {index < formData.orderedJobs.length - 1 && <Divider />}
+                              </div>
                             )}
-                            {job.allow_high_priority_override && (
-                              <Chip 
-                                label="Can Interrupt" 
-                                color="error" 
-                                size="small" 
-                                variant="filled"
-                              />
-                            )}
-                          </Box>
-                        }
-                        secondary={
-                          <Stack spacing={1} sx={{ mt: 1 }}>
-                            <Box display="flex" flexWrap="wrap" gap={1}>
-                              {workflowStep?.preset_job_attack_mode !== undefined && (
-                                <Chip 
-                                  label={getAttackModeName(workflowStep.preset_job_attack_mode)}
-                                  size="small"
-                                  variant="outlined"
-                                />
-                              )}
-                              {workflowStep?.preset_job_binary_name && (
-                                <Chip 
-                                  label={`Binary: ${workflowStep.preset_job_binary_name}`}
-                                  size="small"
-                                  variant="outlined"
-                                />
-                              )}
-                              {workflowStep?.preset_job_wordlist_ids && (
-                                <Chip 
-                                  label={`${workflowStep.preset_job_wordlist_ids.length} Wordlist${workflowStep.preset_job_wordlist_ids.length !== 1 ? 's' : ''}`}
-                                  size="small"
-                                  variant="outlined"
-                                />
-                              )}
-                              {workflowStep?.preset_job_rule_ids && (
-                                <Chip 
-                                  label={`${workflowStep.preset_job_rule_ids.length} Rule${workflowStep.preset_job_rule_ids.length !== 1 ? 's' : ''}`}
-                                  size="small"
-                                  variant="outlined"
-                                />
-                              )}
-                            </Box>
-                          </Stack>
-                        }
-                      />
-                      <ListItemSecondaryAction>
-                        <IconButton
-                          edge="end"
-                          onClick={() => handleRemovePresetJob(job.id)}
-                          disabled={submitting}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </ListItemSecondaryAction>
-                    </ListItem>
-                    {index < formData.orderedJobs.length - 1 && <Divider />}
-                  </React.Fragment>
-                );
-              })}
+                          </Draggable>
+                        );
+                      })}
+                      {provided.placeholder}
+                    </List>
+                  )}
+                </Droppable>
+              </DragDropContext>
             </Paper>
           )}
           

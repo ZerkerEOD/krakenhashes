@@ -125,6 +125,10 @@ const Dashboard: React.FC = () => {
   const [agents, setAgents] = useState<AgentWithTask[]>([]);
   const [agentsLoading, setAgentsLoading] = useState(true);
   const [agentsError, setAgentsError] = useState<Error | null>(null);
+
+  // Agent pagination state
+  const [agentPage, setAgentPage] = useState(1);
+  const agentsPerPage = 5;
   
   // UI state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -348,6 +352,14 @@ const Dashboard: React.FC = () => {
   // Calculate status statistics
   const totalJobs = Object.values(statusCounts).reduce((sum, count) => sum + count, 0);
 
+  // Agent pagination
+  const paginatedAgents = useMemo(() => {
+    const startIndex = (agentPage - 1) * agentsPerPage;
+    return agents.slice(startIndex, startIndex + agentsPerPage);
+  }, [agents, agentPage, agentsPerPage]);
+
+  const totalAgentPages = Math.ceil(agents.length / agentsPerPage);
+
   // Memoize grid items to prevent unnecessary re-renders
   const gridItems = useMemo(() => (
     <>
@@ -374,18 +386,18 @@ const Dashboard: React.FC = () => {
             </Typography>
           ) : (
             <Stack spacing={2}>
-              {agents.map(agent => (
-                <Box key={agent.id} sx={{ 
-                  p: 1.5, 
-                  border: '1px solid', 
+              {paginatedAgents.map(agent => (
+                <Box key={agent.id} sx={{
+                  p: 1.5,
+                  border: '1px solid',
                   borderColor: 'divider',
                   borderRadius: 1,
                   bgcolor: 'background.paper'
                 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography 
-                      variant="subtitle2" 
-                      sx={{ 
+                    <Typography
+                      variant="subtitle2"
+                      sx={{
                         cursor: 'pointer',
                         '&:hover': { textDecoration: 'underline' }
                       }}
@@ -393,13 +405,13 @@ const Dashboard: React.FC = () => {
                     >
                       {agent.name}
                     </Typography>
-                    <Chip 
-                      label={agent.status} 
+                    <Chip
+                      label={agent.status}
                       size="small"
                       color={agent.status === 'active' ? 'success' : 'default'}
                     />
                   </Box>
-                  
+
                   {agent.currentTask ? (
                     <>
                       <Typography variant="caption" color="text.secondary" display="block">
@@ -409,10 +421,10 @@ const Dashboard: React.FC = () => {
                         }
                       </Typography>
                       {agent.jobExecution && (
-                        <Typography 
-                          variant="caption" 
+                        <Typography
+                          variant="caption"
                           color="primary"
-                          sx={{ 
+                          sx={{
                             cursor: 'pointer',
                             display: 'block',
                             '&:hover': { textDecoration: 'underline' }
@@ -430,13 +442,34 @@ const Dashboard: React.FC = () => {
                   )}
                 </Box>
               ))}
+              {totalAgentPages > 1 && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 2, mt: 2 }}>
+                  <Button
+                    size="small"
+                    disabled={agentPage === 1}
+                    onClick={() => setAgentPage(p => p - 1)}
+                  >
+                    Previous
+                  </Button>
+                  <Typography variant="caption">
+                    Page {agentPage} of {totalAgentPages}
+                  </Typography>
+                  <Button
+                    size="small"
+                    disabled={agentPage >= totalAgentPages}
+                    onClick={() => setAgentPage(p => p + 1)}
+                  >
+                    Next
+                  </Button>
+                </Box>
+              )}
             </Stack>
           )}
         </Paper>
       </Grid>
 
     </>
-  ), [jobs, agents, agentsLoading, agentsError, navigate]);
+  ), [jobs, paginatedAgents, agentsLoading, agentsError, navigate, agentPage, totalAgentPages]);
 
   return (
     <Box sx={{ p: 3 }}>

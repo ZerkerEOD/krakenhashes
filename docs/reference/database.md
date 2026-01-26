@@ -10,6 +10,9 @@ This document provides a comprehensive reference for the KrakenHashes database s
    - [user_teams](#user_teams)
 2. [Authentication & Security](#authentication--security)
    - [auth_tokens](#auth_tokens)
+   - [user_passkeys](#user_passkeys)
+   - [pending_passkey_registration](#pending_passkey_registration)
+   - [pending_passkey_authentication](#pending_passkey_authentication)
    - [mfa_methods](#mfa_methods)
    - [mfa_backup_codes](#mfa_backup_codes)
    - [login_attempts](#login_attempts)
@@ -134,6 +137,75 @@ Stores refresh tokens for JWT authentication.
 **Indexes:**
 - idx_auth_tokens_token (token)
 - idx_auth_tokens_user_id (user_id)
+
+### user_passkeys
+
+Stores registered WebAuthn/FIDO2 passkey credentials for users.
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| id | UUID | PRIMARY KEY | gen_random_uuid() | Passkey identifier |
+| user_id | UUID | NOT NULL, FK → users(id) ON DELETE CASCADE | | User reference |
+| credential_id | BYTEA | NOT NULL, UNIQUE | | WebAuthn credential ID |
+| public_key | BYTEA | NOT NULL | | Public key for verification |
+| aaguid | BYTEA | | | Authenticator attestation GUID |
+| sign_count | BIGINT | NOT NULL | 0 | Sign counter for clone detection |
+| transports | TEXT[] | | '{}' | Supported transports (usb, nfc, ble, internal) |
+| name | VARCHAR(255) | NOT NULL | 'Passkey' | User-assigned passkey name |
+| backup_eligible | BOOLEAN | NOT NULL | FALSE | Passkey can be synced/backed up |
+| backup_state | BOOLEAN | NOT NULL | FALSE | Passkey is currently backed up |
+| created_at | TIMESTAMP WITH TIME ZONE | NOT NULL | CURRENT_TIMESTAMP | Registration time |
+| last_used_at | TIMESTAMP WITH TIME ZONE | | | Last authentication time |
+
+**Unique Constraint:** (user_id, credential_id)
+
+**Indexes:**
+- idx_user_passkeys_user_id (user_id)
+- idx_user_passkeys_credential_id (credential_id)
+
+**Security Features:**
+- **Clone Detection**: Sign count must increase with each authentication; non-increasing counts indicate cloned authenticators
+- **Backup Flags**: Track whether passkey is synced across devices (Bitwarden, iCloud Keychain, etc.)
+- **Phishing Resistant**: Credentials are bound to the configured RP ID (domain)
+
+### pending_passkey_registration
+
+Stores temporary challenges during passkey registration flow (5-minute expiry).
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| user_id | UUID | PRIMARY KEY, FK → users(id) ON DELETE CASCADE | | User registering passkey |
+| challenge | BYTEA | NOT NULL | | WebAuthn challenge bytes |
+| session_data | BYTEA | NOT NULL | | Serialized session state |
+| created_at | TIMESTAMP WITH TIME ZONE | NOT NULL | CURRENT_TIMESTAMP | Challenge creation time |
+
+**Notes:**
+- Only one pending registration per user at a time
+- Challenges expire after 5 minutes
+- Cleanup trigger removes expired entries
+
+### pending_passkey_authentication
+
+Stores temporary challenges during passkey MFA authentication flow (5-minute expiry).
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| session_token | TEXT | PRIMARY KEY | | MFA session token |
+| user_id | UUID | NOT NULL, FK → users(id) ON DELETE CASCADE | | User authenticating |
+| challenge | BYTEA | NOT NULL | | WebAuthn challenge bytes |
+| session_data | BYTEA | NOT NULL | | Serialized session state |
+| created_at | TIMESTAMP WITH TIME ZONE | NOT NULL | CURRENT_TIMESTAMP | Challenge creation time |
+
+**Indexes:**
+- idx_pending_passkey_auth_user_id (user_id)
+
+**Notes:**
+- Linked to MFA session token from login flow
+- Challenges expire after 5 minutes
+- Cleanup trigger removes expired entries
+
+**Triggers:**
+- trigger_cleanup_passkey_challenges: Cleans up expired registration and authentication challenges
 
 ---
 
@@ -350,6 +422,10 @@ Stores information about supported hash types, keyed by hashcat mode ID.
 | processing_logic | JSONB | | | Processing rules as JSON |
 | is_enabled | BOOLEAN | NOT NULL | TRUE | Hash type enabled |
 | slow | BOOLEAN | NOT NULL | FALSE | Slow hash algorithm |
+| is_salted | BOOLEAN | NOT NULL | FALSE | Uses per-hash salts (added in migration 107) |
+
+**Indexes:**
+- idx_hash_types_is_salted (is_salted) - For filtering salted hash types
 
 ### hashlists
 
@@ -402,9 +478,12 @@ Stores individual hash entries.
 | is_cracked | BOOLEAN | NOT NULL | FALSE | Crack status |
 | password | TEXT | | | Cracked password |
 | last_updated | TIMESTAMPTZ | NOT NULL | NOW() | Last update time |
+| cracked_by_task_id | UUID | FK → job_tasks(id) ON DELETE SET NULL | | Task that cracked this hash (added in migration 098) |
 
 **Indexes:**
 - idx_hashes_hash_value (hash_value)
+- idx_hashes_original_hash_unique (original_hash) UNIQUE - Fast deduplication during bulk import (added in migration 096)
+- idx_hashes_cracked_by_task_id (cracked_by_task_id) WHERE cracked_by_task_id IS NOT NULL - Crack attribution lookup (added in migration 098)
 
 **Triggers:**
 - update_hashes_last_updated: Updates last_updated on row modification
@@ -605,7 +684,7 @@ Stores predefined job configurations.
 | status_updates_enabled | BOOLEAN | NOT NULL | true | Enable status updates |
 | is_small_job | BOOLEAN | NOT NULL | false | Small job flag |
 | allow_high_priority_override | BOOLEAN | NOT NULL | false | Allows this job to interrupt lower priority running jobs when no agents available |
-| binary_version_id | INTEGER | NOT NULL, FK → binary_versions(id) | | Binary version |
+| binary_version | VARCHAR(255) | NOT NULL | 'default' | Binary version pattern (e.g., "default", "7.x", "7.1.2") |
 | mask | TEXT | | NULL | Mask pattern |
 | created_at | TIMESTAMPTZ | | NOW() | Creation time |
 | updated_at | TIMESTAMPTZ | | NOW() | Last update time |
@@ -677,6 +756,7 @@ Tracks actual job runs.
 | completion_email_sent | BOOLEAN | | false | Whether completion email was sent (added in migration 085) |
 | completion_email_sent_at | TIMESTAMP WITH TIME ZONE | | | When completion email was sent (added in migration 085) |
 | completion_email_error | TEXT | | | Error message if email sending failed (added in migration 085) |
+| cracking_completed_at | TIMESTAMP WITH TIME ZONE | | | When all tasks finished hashcat processing - job enters processing state (added in migration 100) |
 
 **Indexes:**
 - idx_job_executions_status (status)
@@ -718,6 +798,9 @@ Individual chunks assigned to agents.
 | received_crack_count | INTEGER | | 0 | Number of cracks received via crack_batch messages (added in migration 085) |
 | batches_complete_signaled | BOOLEAN | | false | Whether agent has signaled all crack batches sent (added in migration 085) |
 | increment_layer_id | UUID | FK → job_increment_layers(id) | | References increment layer for increment mode jobs (added in migration 089) |
+| cracking_completed_at | TIMESTAMP WITH TIME ZONE | | | When hashcat finished for this task - task enters processing state (added in migration 100) |
+| retransmit_count | INTEGER | | 0 | Number of crack retransmission attempts (added in migration 099) |
+| last_retransmit_at | TIMESTAMP WITH TIME ZONE | | | Timestamp of last retransmission request (added in migration 099) |
 
 **Indexes:**
 - idx_job_tasks_agent_status (agent_id, status)
@@ -725,6 +808,7 @@ Individual chunks assigned to agents.
 - idx_job_tasks_consecutive_failures (consecutive_failures)
 - idx_job_tasks_chunk_number (job_execution_id, chunk_number)
 - idx_job_tasks_increment_layer (increment_layer_id) - added in migration 089
+- idx_job_tasks_cracking_completed_at (cracking_completed_at) WHERE cracking_completed_at IS NOT NULL - Efficient completion state queries (added in migration 100)
 
 **Triggers:**
 - update_job_tasks_updated_at: Updates updated_at on row modification
@@ -846,22 +930,26 @@ Settings for job executions (added in migration 21).
 
 ### binary_versions
 
-Stores information about different versions of hash cracking binaries.
+Stores information about different versions of hash cracking binaries. Supports both URL downloads and direct uploads.
 
 | Column | Type | Constraints | Default | Description |
 |--------|------|-------------|---------|-------------|
 | id | SERIAL | PRIMARY KEY | | Version ID |
 | binary_type | binary_type | NOT NULL | | Type: hashcat, john |
 | compression_type | compression_type | NOT NULL | | Compression: 7z, zip, tar.gz, tar.xz |
-| source_url | TEXT | NOT NULL | | Download URL |
+| source_type | VARCHAR(50) | NOT NULL | 'url' | Source type: 'url' or 'upload' |
+| source_url | TEXT | | | Download URL (NULL for uploads) |
 | file_name | VARCHAR(255) | NOT NULL | | File name |
 | md5_hash | VARCHAR(32) | NOT NULL | | MD5 hash |
 | file_size | BIGINT | NOT NULL | | File size in bytes |
+| version | VARCHAR(100) | | | Version string (e.g., "6.2.6", "7.1.2+338") |
+| description | TEXT | | | Human-readable description |
 | created_at | TIMESTAMP WITH TIME ZONE | | CURRENT_TIMESTAMP | Creation time |
 | created_by | UUID | NOT NULL, FK → users(id) | | Creator user |
 | is_active | BOOLEAN | | true | Active status |
+| is_default | BOOLEAN | | false | Whether this is the default version |
 | last_verified_at | TIMESTAMP WITH TIME ZONE | | | Last verification time |
-| verification_status | VARCHAR(50) | | 'pending' | Status: pending, verified, failed |
+| verification_status | VARCHAR(50) | | 'pending' | Status: pending, verified, failed, deleted |
 
 **Indexes:**
 - idx_binary_versions_type_active (binary_type) WHERE is_active = true
@@ -1082,6 +1170,10 @@ Stores global system-wide settings.
   - Controls how overflow agents are distributed among same-priority jobs
   - FIFO: Oldest job gets all overflow agents
   - Round-robin: Distribute evenly across all jobs
+- hashlist_bulk_batch_size: 100000 (integer) - added in migration 097
+  - Number of hashes to process per batch during hashlist uploads
+  - Higher values (500K-1M) may improve performance for large hashlists but use more memory
+  - Lower values reduce memory usage but increase processing time
 
 **Triggers:**
 - update_system_settings_updated_at: Updates updated_at on row modification
@@ -1139,13 +1231,14 @@ Stores benchmark results for agents.
 | attack_mode | INT | NOT NULL | | Attack mode |
 | hash_type | INT | NOT NULL | | Hash type |
 | speed | BIGINT | NOT NULL | | Hashes per second |
+| salt_count | INT | | | Salt count for salted hash types (added in migration 109) |
 | created_at | TIMESTAMP WITH TIME ZONE | | CURRENT_TIMESTAMP | Creation time |
 | updated_at | TIMESTAMP WITH TIME ZONE | | CURRENT_TIMESTAMP | Last update time |
 
-**Unique Constraint:** (agent_id, attack_mode, hash_type)
+**Unique Constraint:** (agent_id, attack_mode, hash_type, salt_count) - Uses IS NOT DISTINCT FROM for NULL-safe comparison
 
 **Indexes:**
-- idx_agent_benchmarks_lookup (agent_id, attack_mode, hash_type)
+- idx_agent_benchmarks_lookup (agent_id, attack_mode, hash_type, salt_count)
 
 ### agent_performance_metrics
 
@@ -1316,7 +1409,7 @@ The users table has been extended with additional security columns added through
 | Column | Type | Constraints | Default | Description |
 |--------|------|-------------|---------|-------------|
 | mfa_enabled | BOOLEAN | | FALSE | MFA enabled status |
-| mfa_type | text[] | CHECK | ARRAY['email'] | MFA types enabled |
+| mfa_type | text[] | CHECK | ARRAY['email'] | MFA types enabled: email, authenticator, backup, passkey |
 | mfa_secret | TEXT | | | MFA secret |
 | backup_codes | TEXT[] | | | Hashed backup codes |
 | last_password_change | TIMESTAMP WITH TIME ZONE | | CURRENT_TIMESTAMP | Last password change |
@@ -1330,10 +1423,14 @@ The users table has been extended with additional security columns added through
 | disabled_at | TIMESTAMP WITH TIME ZONE | | | Disable timestamp |
 | disabled_by | UUID | FK → users(id) | | Who disabled account |
 | preferred_mfa_method | VARCHAR(20) | | | Preferred MFA method |
+| deleted_at | TIMESTAMP WITH TIME ZONE | | | Soft delete timestamp (migration 106) |
+
+**Indexes (users table):**
+- idx_users_deleted_at (deleted_at) WHERE deleted_at IS NULL - Efficient filtering of active users
 
 ### tokens
 
-JWT token storage (added in migration 7).
+JWT token storage with sliding window session support (added in migration 7, updated in migration 101).
 
 | Column | Type | Constraints | Default | Description |
 |--------|------|-------------|---------|-------------|
@@ -1346,15 +1443,25 @@ JWT token storage (added in migration 7).
 | revoked | BOOLEAN | | FALSE | Revocation status |
 | revoked_at | TIMESTAMP WITH TIME ZONE | | | Revocation time |
 | revoked_reason | TEXT | | | Revocation reason |
+| superseded_at | TIMESTAMP WITH TIME ZONE | | | When token was replaced by a new token (migration 101) |
+| superseded_by | UUID | FK → tokens(id) | | Reference to the replacement token (migration 101) |
+
+**Sliding Window Session Behavior:**
+- Tokens are refreshed on user activity after 1/3 of the session time has passed
+- When refreshed, the old token is marked as superseded (not immediately invalidated)
+- Superseded tokens remain valid for a 5-minute grace period to handle concurrent requests
+- Token validity check: `superseded_at IS NULL OR superseded_at > NOW() - INTERVAL '5 minutes'`
 
 **Relationships:**
 - Referenced by `active_sessions(token_id)` with CASCADE delete (migration 65)
 - Deleting a token automatically removes all associated sessions
+- Self-referential via `superseded_by` to track token refresh chain
 
 **Indexes:**
 - idx_tokens_token (token)
 - idx_tokens_user_id (user_id)
 - idx_tokens_revoked (revoked)
+- idx_tokens_superseded_at (superseded_at) - For efficient grace period queries (migration 101)
 
 ### auth_settings
 
@@ -1380,6 +1487,14 @@ Stores global authentication and security settings.
 | mfa_code_cooldown_minutes | INT | | 1 | MFA code cooldown |
 | mfa_code_expiry_minutes | INT | | 5 | MFA code expiry |
 | mfa_max_attempts | INT | | 3 | Max MFA attempts |
+| webauthn_rp_id | VARCHAR(255) | | | WebAuthn Relying Party ID (domain) |
+| webauthn_rp_origins | TEXT[] | | '{}' | Allowed WebAuthn origins |
+| webauthn_rp_display_name | VARCHAR(255) | | 'KrakenHashes' | Display name for passkey prompts |
+
+**WebAuthn Configuration Notes:**
+- `webauthn_rp_id` must be a domain name (not IP address per WebAuthn spec)
+- `webauthn_rp_origins` should include all URLs users access the system from
+- Changing `webauthn_rp_id` after passkeys are registered will invalidate all existing passkeys
 
 ### login_attempts
 
@@ -1545,7 +1660,8 @@ The potfile system initializes in stages during server startup:
 - Attempts to create "Potfile Run" preset job
 
 ### 2. Binary Dependency
-- Preset jobs require a `binary_version_id` (NOT NULL constraint in database)
+- Preset jobs use a `binary_version` pattern (e.g., "default", "7.x")
+- The pattern must resolve to at least one active binary
 - If no binaries exist, preset job creation is deferred
 - A background monitor runs every 5 seconds checking for binary availability
 - Monitor stops once preset job is successfully created
@@ -1565,7 +1681,7 @@ The potfile system initializes in stages during server startup:
 
 ## Migration History
 
-The database schema has evolved through 83 migrations:
+The database schema has evolved through 109 migrations:
 
 1. **000001**: Initial schema - users, teams, user_teams
 2. **000002**: Add auth_tokens table
@@ -1658,6 +1774,96 @@ The database schema has evolved through 83 migrations:
    - Pre-calculated increment layers for preset jobs
    - Layers are copied to job_increment_layers when job is created from preset
    - Ensures consistent keyspace calculations across jobs from same preset
+91. **000091**: [Reserved]
+92. **000092**: Add WebAuthn/Passkey support
+   - Creates `user_passkeys` table for storing passkey credentials
+   - Creates `pending_passkey_registration` table for registration challenges
+   - Creates `pending_passkey_authentication` table for MFA authentication challenges
+   - Adds WebAuthn settings to `auth_settings` (rp_id, rp_origins, rp_display_name)
+   - Adds cleanup trigger for expired challenges
+93. **000093**: Add passkey to MFA type constraints
+   - Updates `users.mfa_type` CHECK constraint to allow 'passkey'
+   - Updates `users.preferred_mfa_method` CHECK constraint to allow 'passkey'
+94. **000094**: Add passkey backup flags
+   - Adds `backup_eligible` column to `user_passkeys`
+   - Adds `backup_state` column to `user_passkeys`
+   - Required for WebAuthn credential validation with synced passkeys
+95. **000095**: [Reserved/Internal]
+96. **000096**: Add original_hash unique index
+   - Creates `idx_hashes_original_hash_unique` unique index on `hashes.original_hash`
+   - Enables fast deduplication during bulk import using `ON CONFLICT DO NOTHING`
+   - Uses `CONCURRENTLY` to avoid locking during creation
+97. **000097**: Add hashlist bulk batch size setting
+   - Adds `hashlist_bulk_batch_size` system setting (default: 100000)
+   - Controls batch size during hashlist upload processing
+   - Higher values improve performance for large hashlists at cost of memory
+98. **000098**: Add cracked_by_task_id to hashes
+   - Adds `hashes.cracked_by_task_id` column referencing `job_tasks(id)`
+   - Enables granular tracking of which task cracked each hash
+   - Used for retransmit deduplication in the outfile acknowledgment protocol
+   - ON DELETE SET NULL to preserve hashes when tasks are deleted
+99. **000099**: Add task retransmit tracking
+   - Adds `job_tasks.retransmit_count` to track retransmission attempts
+   - Adds `job_tasks.last_retransmit_at` for timing information
+   - Supports the outfile acknowledgment protocol for crack recovery
+100. **000100**: Add cracking_completed_at timestamps
+   - Adds `job_tasks.cracking_completed_at` - when hashcat finished (enters processing state)
+   - Adds `job_executions.cracking_completed_at` - when all tasks finished hashcat
+   - Distinguishes between hashcat completion and full processing completion
+   - Enables tracking of hashcat work time vs data transmission time
+101. **000101**: Add token sliding window session support
+   - Adds `tokens.superseded_at` column for tracking when a token was replaced
+   - Adds `tokens.superseded_by` column referencing the replacement token
+   - Creates `idx_tokens_superseded_at` index for efficient grace period queries
+   - Enables sliding window sessions that extend on user activity
+   - Old tokens remain valid for 5-minute grace period after refresh
+102. **000102**: Add preset job effective keyspace
+   - Adds `preset_jobs.effective_keyspace` for actual keyspace from --total-candidates
+   - Adds `preset_jobs.is_accurate_keyspace` boolean to track keyspace accuracy
+   - Adds `preset_jobs.use_rule_splitting` boolean for pre-computed splitting decisions
+   - Enables accurate keyspace calculation accounting for rule multipliers
+103. **000103**: Add preset job multiplication factor
+   - Adds `preset_jobs.multiplication_factor` column (default: 1)
+   - Stores rule multiplier (effective_keyspace / keyspace) for rule splitting
+   - Enables job creation to be a pure copy when is_accurate_keyspace = true
+104. **000104**: Add association attack support
+   - Adds `hashlists.original_file_path` for association attack file reference
+   - Adds `hashlists.has_mixed_work_factors` warning flag for different work factors
+   - Creates `association_wordlists` table linked to hashlists
+   - Adds `job_executions.association_wordlist_id` reference
+   - Enables hashcat -a 9 association attack mode
+105. **000105**: Add SSO support (LDAP, SAML, OAuth/OIDC)
+   - Adds SSO toggles to `auth_settings` (local_auth_enabled, ldap/saml/oauth_auth_enabled, auto_create/enable_users)
+   - Adds per-user auth overrides to `users` (local_auth_override, sso_auth_override, auth_override_notes)
+   - Creates `sso_providers` base table for all SSO providers
+   - Creates `ldap_configs` table with server URL, bind DN, search filters, TLS settings
+   - Creates `saml_configs` table with SP/IdP entity IDs, certificates, signing options
+   - Creates `oauth_configs` table with client ID/secret, discovery URL, scopes
+   - Creates `user_identities` table linking external identities to local accounts
+   - Creates `pending_oauth_authentication` and `pending_saml_authentication` for redirect flow state
+   - Extends `login_attempts` with provider_id and provider_type columns
+106. **000106**: Add user soft delete support
+   - Adds `users.deleted_at` column for soft delete timestamps
+   - Creates partial index `idx_users_deleted_at` WHERE deleted_at IS NULL
+   - Enables soft delete of user accounts while preserving historical data
+   - User listings filter out soft-deleted users automatically
+107. **000107**: Add salted hash type classification
+   - Adds `hash_types.is_salted` BOOLEAN column (default: false)
+   - Auto-classifies 40+ known salted hash types via pattern matching
+   - Includes: md5crypt, bcrypt, scrypt, NetNTLM, Kerberos, WPA, Argon2, PBKDF2
+   - Creates index on `is_salted` for faster lookups
+   - Enables salt-aware chunk calculations and benchmark caching
+108. **000108**: Fix NULL completed_at values
+   - Backfills `completed_at` for terminal-status jobs with NULL values
+   - Sets `completed_at = COALESCE(updated_at, created_at)` for affected jobs
+   - Fixes job list ordering on dashboard and /jobs page
+   - Ensures proper sorting by completion time
+109. **000109**: Add benchmark salt count
+   - Adds `agent_benchmarks.salt_count` INT column for salt-aware caching
+   - Drops old unique constraint: `(agent_id, attack_mode, hash_type)`
+   - Creates new unique constraint: `(agent_id, attack_mode, hash_type, salt_count)`
+   - Uses `IS NOT DISTINCT FROM` for NULL-safe salt count comparison
+   - Enables per-salt-count benchmark caching for accurate speed estimation
 
 ---
 
@@ -1769,7 +1975,7 @@ The database implements a comprehensive data retention system with automatic pur
 ## Important Notes
 
 1. **UUID Usage**: Most primary keys use UUID except for legacy/performance-critical tables (agents, hashlists use SERIAL/BIGSERIAL)
-2. **Soft Deletes**: Not implemented - uses CASCADE deletes for referential integrity
+2. **Soft Deletes**: Implemented for users table via `deleted_at` column (migration 106). Other tables use CASCADE deletes for referential integrity.
 3. **Audit Trails**: Separate audit tables for binary_versions, wordlists, and rules
 4. **Time Zones**: All timestamps stored as TIMESTAMP WITH TIME ZONE
 5. **JSON Storage**: Heavy use of JSONB for flexible metadata storage

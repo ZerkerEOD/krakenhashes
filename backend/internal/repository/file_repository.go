@@ -24,6 +24,7 @@ type FileInfo struct {
 	Category  string `json:"category,omitempty"`
 	ID        int    `json:"id,omitempty"`
 	Timestamp int64  `json:"timestamp,omitempty"`
+	RuleCount int64  `json:"rule_count,omitempty"` // For rules: number of rules in file
 }
 
 // FileRepository handles database operations for files (wordlists, rules, binaries)
@@ -117,16 +118,16 @@ func (r *FileRepository) GetRules(ctx context.Context, category string) ([]FileI
 	if category == "" {
 		// If category is empty, return all verified rules
 		query = `
-			SELECT id, name, file_name, md5_hash, file_size, rule_type, updated_at 
-			FROM rules 
+			SELECT id, name, file_name, md5_hash, file_size, rule_type, updated_at, rule_count
+			FROM rules
 			WHERE verification_status = 'verified'
 		`
 		rows, err = r.db.QueryContext(ctx, query)
 	} else if category == "hashcat" || category == "john" {
 		// Category is a valid enum value, use it for filtering
 		query = `
-			SELECT id, name, file_name, md5_hash, file_size, rule_type, updated_at 
-			FROM rules 
+			SELECT id, name, file_name, md5_hash, file_size, rule_type, updated_at, rule_count
+			FROM rules
 			WHERE rule_type = $1::rule_type
 			AND verification_status = 'verified'
 		`
@@ -149,8 +150,9 @@ func (r *FileRepository) GetRules(ctx context.Context, category string) ([]FileI
 		var name, fileName, md5Hash, ruleType string
 		var size int64
 		var updatedAt time.Time
+		var ruleCount int64
 
-		if err := rows.Scan(&id, &name, &fileName, &md5Hash, &size, &ruleType, &updatedAt); err != nil {
+		if err := rows.Scan(&id, &name, &fileName, &md5Hash, &size, &ruleType, &updatedAt, &ruleCount); err != nil {
 			debug.Error("Error scanning rule row: %v", err)
 			continue
 		}
@@ -165,6 +167,7 @@ func (r *FileRepository) GetRules(ctx context.Context, category string) ([]FileI
 			Category:  ruleType,
 			ID:        id,
 			Timestamp: updatedAt.Unix(),
+			RuleCount: ruleCount,
 		})
 	}
 

@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/cache/filehash"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
@@ -84,9 +86,15 @@ type Handler struct {
 	systemSettingsRepo  *repository.SystemSettingsRepository
 	jobTaskRepo         *repository.JobTaskRepository
 	jobExecRepo         *repository.JobExecutionRepository
+	potfileHistory      *filehash.PotfileHistory
 	tlsConfig           *tls.Config
 	clients             map[int]*Client
 	mu                  sync.RWMutex
+
+	// Inventory callback system for pre-benchmark file checks
+	// Key is agentID - only one pending file sync callback per agent at a time
+	inventoryCallbacks   map[int]chan *wsservice.FileSyncResponsePayload
+	inventoryCallbacksMu sync.RWMutex
 }
 
 // Client represents a connected agent
@@ -100,7 +108,7 @@ type Client struct {
 }
 
 // NewHandler creates a new WebSocket handler
-func NewHandler(wsService *wsservice.Service, agentService *services.AgentService, jobExecutionService *services.JobExecutionService, systemSettingsRepo *repository.SystemSettingsRepository, jobTaskRepo *repository.JobTaskRepository, jobExecRepo *repository.JobExecutionRepository, tlsConfig *tls.Config) *Handler {
+func NewHandler(wsService *wsservice.Service, agentService *services.AgentService, jobExecutionService *services.JobExecutionService, systemSettingsRepo *repository.SystemSettingsRepository, jobTaskRepo *repository.JobTaskRepository, jobExecRepo *repository.JobExecutionRepository, tlsConfig *tls.Config, potfileHistory *filehash.PotfileHistory) *Handler {
 	// Initialize timing configuration
 	initTimingConfig()
 
@@ -111,8 +119,10 @@ func NewHandler(wsService *wsservice.Service, agentService *services.AgentServic
 		systemSettingsRepo:  systemSettingsRepo,
 		jobTaskRepo:         jobTaskRepo,
 		jobExecRepo:         jobExecRepo,
+		potfileHistory:      potfileHistory,
 		tlsConfig:           tlsConfig,
 		clients:             make(map[int]*Client),
+		inventoryCallbacks:  make(map[int]chan *wsservice.FileSyncResponsePayload),
 	}
 }
 
@@ -124,7 +134,7 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 	debug.Info("- Ping Period: %v", pingPeriod)
 
 	debug.Info("New WebSocket connection attempt received from %s", r.RemoteAddr)
-	debug.Debug("Request headers: %v", r.Header)
+	debug.Debug("Request headers: %s", debug.SanitizeHeaders(r.Header))
 
 	if h.tlsConfig != nil {
 		if r.TLS == nil {
@@ -277,6 +287,9 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 
 	// Initiate file sync with agent
 	go h.initiateFileSync(client)
+
+	// Start state sync loop for periodic reconciliation (GH Issue #12)
+	go client.startStateSyncLoop()
 }
 
 // readPump pumps messages from the WebSocket connection to the hub
@@ -415,6 +428,34 @@ func (c *Client) readPump() {
 
 		case wsservice.TypeDownloadFailed:
 			c.handler.handleDownloadFailed(c, &msg)
+
+		case wsservice.TypePendingOutfiles:
+			c.handler.handlePendingOutfiles(c, &msg)
+
+		case wsservice.TypeOutfileDeleteRejected:
+			c.handler.handleOutfileDeleteRejected(c, &msg)
+
+		case wsservice.TypeTaskStopAck:
+			c.handler.handleTaskStopAck(c, &msg)
+
+		case wsservice.TypeStateSyncResponse:
+			c.handler.handleStateSyncResponse(c, &msg)
+
+		// Diagnostics message handlers (GH Issue #23)
+		case wsservice.TypeDebugStatusReport:
+			c.handler.handleDebugStatusReport(c, &msg)
+
+		case wsservice.TypeDebugToggleAck:
+			c.handler.handleDebugToggleAck(c, &msg)
+
+		case wsservice.TypeLogData:
+			c.handler.handleLogData(c, &msg)
+
+		case wsservice.TypeLogStatusResponse:
+			c.handler.handleLogStatusResponse(c, &msg)
+
+		case wsservice.TypeLogPurgeAck:
+			c.handler.handleLogPurgeAck(c, &msg)
 
 		default:
 			// Handle other message types
@@ -650,6 +691,34 @@ func (h *Handler) initiateFileSync(client *Client) {
 	}
 }
 
+// RegisterInventoryCallback registers a callback channel for a specific agent.
+// When a file sync response from this agent arrives, the response will be sent
+// to the channel instead of being processed by the normal sync flow.
+// Only one callback per agent is supported - subsequent registrations overwrite previous ones.
+// Returns a receive-only channel that will receive the inventory response.
+func (h *Handler) RegisterInventoryCallback(agentID int) <-chan *wsservice.FileSyncResponsePayload {
+	h.inventoryCallbacksMu.Lock()
+	defer h.inventoryCallbacksMu.Unlock()
+
+	ch := make(chan *wsservice.FileSyncResponsePayload, 1)
+	h.inventoryCallbacks[agentID] = ch
+	debug.Info("Registered inventory callback for agent %d", agentID)
+	return ch
+}
+
+// UnregisterInventoryCallback removes a previously registered callback for an agent.
+// This should be called after receiving the response or on timeout.
+func (h *Handler) UnregisterInventoryCallback(agentID int) {
+	h.inventoryCallbacksMu.Lock()
+	defer h.inventoryCallbacksMu.Unlock()
+
+	if ch, exists := h.inventoryCallbacks[agentID]; exists {
+		close(ch)
+		delete(h.inventoryCallbacks, agentID)
+		debug.Info("Unregistered inventory callback for agent %d", agentID)
+	}
+}
+
 // handleSyncResponse processes a file sync response from an agent
 func (h *Handler) handleSyncResponse(client *Client, msg *wsservice.Message) {
 	// First check if this is a progress message
@@ -677,7 +746,26 @@ func (h *Handler) handleSyncResponse(client *Client, msg *wsservice.Message) {
 		return
 	}
 
-	debug.Info("Received file sync response from agent %d: %d files", client.agent.ID, len(payload.Files))
+	debug.Info("Received file sync response from agent %d: %d files",
+		client.agent.ID, len(payload.Files))
+
+	// Check if there's a registered callback for this agent (pre-benchmark file check)
+	h.inventoryCallbacksMu.RLock()
+	ch, hasCallback := h.inventoryCallbacks[client.agent.ID]
+	h.inventoryCallbacksMu.RUnlock()
+
+	if hasCallback {
+		debug.Info("Routing file sync response to registered callback for agent %d", client.agent.ID)
+		// Send to callback channel (non-blocking - channel is buffered)
+		select {
+		case ch <- &payload:
+			// Successfully sent to callback
+		default:
+			debug.Warning("Callback channel full for agent %d, dropping response", client.agent.ID)
+		}
+		// Don't process through normal sync flow - caller will handle comparison
+		return
+	}
 
 	// Determine which files need to be synced
 	filesToSync, err := h.determineFilesToSync(client.agent.ID, payload.Files)
@@ -697,6 +785,13 @@ func (h *Handler) handleSyncResponse(client *Client, msg *wsservice.Message) {
 				debug.Error("Failed to update sync status for agent %d: %v", client.agent.ID, err)
 			} else {
 				debug.Info("Agent %d sync status updated to completed", client.agent.ID)
+
+				// Now that sync is complete (no files needed), mark agent as active and available for work
+				if err := h.agentService.UpdateAgentStatus(client.ctx, client.agent.ID, models.AgentStatusActive, nil); err != nil {
+					debug.Error("Failed to update agent status to active: %v", err)
+				} else {
+					debug.Info("Agent %d marked as active and available for work (no sync needed)", client.agent.ID)
+				}
 			}
 		}
 
@@ -755,6 +850,13 @@ func (h *Handler) handleSyncStatus(client *Client, msg *wsservice.Message) {
 				debug.Error("Failed to update sync status for agent %d: %v", client.agent.ID, err)
 			} else {
 				debug.Info("Agent %d sync status updated to completed after file downloads", client.agent.ID)
+
+				// Now that sync is complete, mark agent as active and available for work
+				if err := h.agentService.UpdateAgentStatus(client.ctx, client.agent.ID, models.AgentStatusActive, nil); err != nil {
+					debug.Error("Failed to update agent status to active after sync: %v", err)
+				} else {
+					debug.Info("Agent %d marked as active and available for work (sync complete)", client.agent.ID)
+				}
 			}
 		}
 	}
@@ -771,7 +873,14 @@ func (h *Handler) determineFilesToSync(agentID int, agentFiles []wsservice.FileI
 	// Create a map of agent files for quick lookup
 	agentFileMap := make(map[string]wsservice.FileInfo)
 	for _, file := range agentFiles {
-		key := fmt.Sprintf("%s:%s", file.FileType, file.Name)
+		var key string
+		if file.FileType == "binary" && file.ID > 0 {
+			// Binaries are stored by ID, so include ID in the key
+			key = fmt.Sprintf("%s:%d:%s", file.FileType, file.ID, file.Name)
+		} else {
+			// Wordlists and rules use path-based keys
+			key = fmt.Sprintf("%s:%s", file.FileType, file.Name)
+		}
 		agentFileMap[key] = file
 	}
 
@@ -779,8 +888,25 @@ func (h *Handler) determineFilesToSync(agentID int, agentFiles []wsservice.FileI
 	var filesToSync []wsservice.FileInfo
 
 	for _, file := range backendFiles {
-		key := fmt.Sprintf("%s:%s", file.FileType, file.Name)
+		var key string
+		if file.FileType == "binary" && file.ID > 0 {
+			// Binaries are stored by ID, so include ID in the key
+			key = fmt.Sprintf("%s:%d:%s", file.FileType, file.ID, file.Name)
+		} else {
+			// Wordlists and rules use path-based keys
+			key = fmt.Sprintf("%s:%s", file.FileType, file.Name)
+		}
 		agentFile, exists := agentFileMap[key]
+
+		// Special handling for potfile during heavy crack ingestion
+		// If agent has a recent valid potfile hash (within 5-min window), skip re-download
+		// This prevents infinite re-download loops when potfile MD5 changes frequently
+		if file.FileType == "wordlist" && strings.HasSuffix(file.Name, "potfile.txt") {
+			if exists && h.potfileHistory != nil && h.potfileHistory.IsValid(agentFile.MD5Hash) {
+				debug.Debug("Agent has valid recent potfile hash %s, skipping sync", agentFile.MD5Hash)
+				continue
+			}
+		}
 
 		// If the file doesn't exist on agent or MD5 hash doesn't match, add to sync list
 		if !exists || agentFile.MD5Hash != file.MD5Hash {
@@ -1105,14 +1231,21 @@ func containsCracks(payload json.RawMessage) bool {
 func (h *Handler) handleCurrentTaskStatus(client *Client, msg *wsservice.Message) {
 	debug.Info("Agent %d: Received current task status", client.agent.ID)
 	
-	// Parse the status payload
+	// Parse the status payload - includes all progress fields for offline completion handling
 	var status struct {
-		AgentID           int    `json:"agent_id"`
-		HasRunningTask    bool   `json:"has_running_task"`
-		TaskID            string `json:"task_id,omitempty"`
-		JobID             string `json:"job_id,omitempty"`
-		KeyspaceProcessed int64  `json:"keyspace_processed,omitempty"`
-		Status            string `json:"status,omitempty"`
+		AgentID                int     `json:"agent_id"`
+		HasRunningTask         bool    `json:"has_running_task"`
+		TaskID                 string  `json:"task_id,omitempty"`
+		JobID                  string  `json:"job_id,omitempty"`
+		KeyspaceProcessed      int64   `json:"keyspace_processed,omitempty"`
+		EffectiveProgress      int64   `json:"effective_progress,omitempty"`
+		ProgressPercent        float64 `json:"progress_percent,omitempty"`
+		TotalEffectiveKeyspace *int64  `json:"total_effective_keyspace,omitempty"`
+		HashRate               int64   `json:"hash_rate,omitempty"`
+		CrackedCount           int     `json:"cracked_count,omitempty"`
+		AllHashesCracked       bool    `json:"all_hashes_cracked,omitempty"`
+		Status                 string  `json:"status,omitempty"`
+		ErrorMessage           string  `json:"error_message,omitempty"`
 	}
 	
 	if err := json.Unmarshal(msg.Payload, &status); err != nil {
@@ -1159,7 +1292,18 @@ func (h *Handler) handleCurrentTaskStatus(client *Client, msg *wsservice.Message
 				}
 				// Don't set busy status for unassigned task
 			} else {
-				// Task is valid and assigned to this agent, set busy status
+				// Task is valid and assigned to this agent
+
+				// Check if agent reports completed/failed status - process as final completion
+				// This handles the case where agent completed task while disconnected
+				if status.Status == "completed" || status.Status == "failed" {
+					debug.Info("Agent %d: Processing offline task completion for task %s with status %s",
+						client.agent.ID, status.TaskID, status.Status)
+					h.handleOfflineTaskCompletion(client, &status, task)
+					return
+				}
+
+				// Task is still running, set busy status
 				if client.agent.Metadata == nil {
 					client.agent.Metadata = make(map[string]string)
 				}
@@ -1232,12 +1376,97 @@ func (h *Handler) handleCurrentTaskStatus(client *Client, msg *wsservice.Message
 			debug.Error("Failed to update agent metadata: %v", err)
 		}
 		
-		if err := h.agentService.UpdateAgentStatus(client.ctx, client.agent.ID, models.AgentStatusActive, nil); err != nil {
-			debug.Error("Failed to update agent status to active: %v", err)
+		// Check sync status before marking agent as active
+		// This prevents a race condition where the agent is marked active before file sync completes
+		agent, err := h.agentService.GetByID(client.ctx, client.agent.ID)
+		if err != nil {
+			debug.Error("Failed to get agent %d for sync status check: %v", client.agent.ID, err)
+		} else if agent.SyncStatus == models.AgentSyncStatusCompleted {
+			if err := h.agentService.UpdateAgentStatus(client.ctx, client.agent.ID, models.AgentStatusActive, nil); err != nil {
+				debug.Error("Failed to update agent status to active: %v", err)
+			} else {
+				debug.Info("Agent %d marked as active and available for work", client.agent.ID)
+			}
 		} else {
-			debug.Info("Agent %d marked as active and available for work", client.agent.ID)
+			debug.Info("Agent %d not yet available (sync_status=%s), waiting for sync to complete",
+				client.agent.ID, agent.SyncStatus)
 		}
 	}
+}
+
+// handleOfflineTaskCompletion processes task completion that happened while agent was offline
+// This is called when agent reconnects and reports a completed/failed task status
+func (h *Handler) handleOfflineTaskCompletion(client *Client, status *struct {
+	AgentID                int     `json:"agent_id"`
+	HasRunningTask         bool    `json:"has_running_task"`
+	TaskID                 string  `json:"task_id,omitempty"`
+	JobID                  string  `json:"job_id,omitempty"`
+	KeyspaceProcessed      int64   `json:"keyspace_processed,omitempty"`
+	EffectiveProgress      int64   `json:"effective_progress,omitempty"`
+	ProgressPercent        float64 `json:"progress_percent,omitempty"`
+	TotalEffectiveKeyspace *int64  `json:"total_effective_keyspace,omitempty"`
+	HashRate               int64   `json:"hash_rate,omitempty"`
+	CrackedCount           int     `json:"cracked_count,omitempty"`
+	AllHashesCracked       bool    `json:"all_hashes_cracked,omitempty"`
+	Status                 string  `json:"status,omitempty"`
+	ErrorMessage           string  `json:"error_message,omitempty"`
+}, task *models.JobTask) {
+	debug.Info("Agent %d: Processing offline task completion for task %s with status %s, progress %.2f%%",
+		client.agent.ID, status.TaskID, status.Status, status.ProgressPercent)
+
+	// Construct a job_status message with the cached progress data
+	// This mimics what the agent would have sent if it was connected
+	jobStatusPayload := map[string]interface{}{
+		"task_id":            status.TaskID,
+		"keyspace_processed": status.KeyspaceProcessed,
+		"effective_progress": status.EffectiveProgress,
+		"progress_percent":   status.ProgressPercent,
+		"hash_rate":          status.HashRate,
+		"cracked_count":      status.CrackedCount,
+		"all_hashes_cracked": status.AllHashesCracked,
+		"status":             status.Status,
+		"error_message":      status.ErrorMessage,
+	}
+	if status.TotalEffectiveKeyspace != nil {
+		jobStatusPayload["total_effective_keyspace"] = *status.TotalEffectiveKeyspace
+	}
+
+	payloadBytes, err := json.Marshal(jobStatusPayload)
+	if err != nil {
+		debug.Error("Agent %d: Failed to marshal job status for offline completion: %v", client.agent.ID, err)
+		return
+	}
+
+	// Process as a normal job_status message (same path as live progress)
+	jobHandler := h.wsService.GetJobHandler()
+	if jobHandler != nil {
+		if err := jobHandler.ProcessJobProgress(client.ctx, client.agent.ID, payloadBytes); err != nil {
+			debug.Error("Agent %d: Failed to process offline completion: %v", client.agent.ID, err)
+			return
+		}
+	} else {
+		debug.Error("Agent %d: No job handler available to process offline completion", client.agent.ID)
+		return
+	}
+
+	// Clear agent busy status metadata since task is now complete
+	if client.agent.Metadata == nil {
+		client.agent.Metadata = make(map[string]string)
+	}
+	client.agent.Metadata["busy_status"] = "false"
+	delete(client.agent.Metadata, "current_task_id")
+	delete(client.agent.Metadata, "current_job_id")
+	if err := h.agentService.UpdateAgentMetadata(client.ctx, client.agent.ID, client.agent.Metadata); err != nil {
+		debug.Error("Agent %d: Failed to update agent metadata after offline completion: %v", client.agent.ID, err)
+	}
+
+	// Mark agent as active/available
+	if err := h.agentService.UpdateAgentStatus(client.ctx, client.agent.ID, models.AgentStatusActive, nil); err != nil {
+		debug.Error("Agent %d: Failed to update agent status to active: %v", client.agent.ID, err)
+	}
+
+	debug.Info("Agent %d: Successfully processed offline completion for task %s with status %s",
+		client.agent.ID, status.TaskID, status.Status)
 }
 
 // handleAgentShutdown processes graceful shutdown notification from an agent
@@ -1373,5 +1602,579 @@ func (h *Handler) handleDownloadFailed(client *Client, msg *wsservice.Message) {
 		debug.Error("Agent %d: Download permanently failed for %s: %s",
 			client.agent.ID, payload.FileName, payload.Error)
 		// TODO: Notify administrators or take corrective action
+	}
+}
+
+// handlePendingOutfiles processes pending outfiles notification from agents on reconnect
+func (h *Handler) handlePendingOutfiles(client *Client, msg *wsservice.Message) {
+	debug.Info("Agent %d: Received pending_outfiles notification", client.agent.ID)
+
+	// Forward to job handler for processing
+	jobHandler := h.wsService.GetJobHandler()
+	if jobHandler == nil {
+		debug.Error("Agent %d: Job handler not available for pending_outfiles processing", client.agent.ID)
+		return
+	}
+
+	if err := jobHandler.ProcessPendingOutfiles(client.ctx, client.agent.ID, msg.Payload); err != nil {
+		debug.Error("Agent %d: Failed to process pending_outfiles: %v", client.agent.ID, err)
+	}
+}
+
+// handleOutfileDeleteRejected processes outfile deletion rejection from agents (line count mismatch)
+func (h *Handler) handleOutfileDeleteRejected(client *Client, msg *wsservice.Message) {
+	debug.Info("Agent %d: Received outfile_delete_rejected notification", client.agent.ID)
+
+	// Forward to job handler for processing
+	jobHandler := h.wsService.GetJobHandler()
+	if jobHandler == nil {
+		debug.Error("Agent %d: Job handler not available for outfile_delete_rejected processing", client.agent.ID)
+		return
+	}
+
+	if err := jobHandler.ProcessOutfileDeleteRejected(client.ctx, client.agent.ID, msg.Payload); err != nil {
+		debug.Error("Agent %d: Failed to process outfile_delete_rejected: %v", client.agent.ID, err)
+	}
+}
+
+// handleTaskStopAck handles task stop acknowledgment from agent (GH Issue #12)
+func (h *Handler) handleTaskStopAck(client *Client, msg *wsservice.Message) {
+	var ackPayload wsservice.TaskStopAckPayload
+	if err := json.Unmarshal(msg.Payload, &ackPayload); err != nil {
+		debug.Error("Agent %d: Failed to unmarshal task_stop_ack payload: %v", client.agent.ID, err)
+		return
+	}
+
+	// Parse the task ID
+	taskID, err := uuid.Parse(ackPayload.TaskID)
+	if err != nil {
+		debug.Error("Agent %d: Invalid task ID in stop ack '%s': %v", client.agent.ID, ackPayload.TaskID, err)
+		return
+	}
+
+	if ackPayload.Stopped {
+		debug.Info("Agent %d: Task stop acknowledged - clearing agent assignment for task %s (stop_id: %s)",
+			client.agent.ID, ackPayload.TaskID, ackPayload.StopID)
+
+		// Now that agent has confirmed the stop, clear the agent_id and set task to pending
+		jobHandler := h.wsService.GetJobHandler()
+		if jobHandler != nil {
+			err = jobHandler.ClearStoppedTaskAgent(client.ctx, taskID, client.agent.ID)
+			if err != nil {
+				debug.Error("Agent %d: Failed to clear task agent after stop ack: %v", client.agent.ID, err)
+			} else {
+				debug.Log("Agent %d: Successfully cleared task agent after stop ack", map[string]interface{}{
+					"agent_id": client.agent.ID,
+					"task_id":  ackPayload.TaskID,
+				})
+			}
+		} else {
+			debug.Error("Agent %d: Job handler not available to clear task agent", client.agent.ID)
+		}
+	} else {
+		debug.Warning("Agent %d: Task stop acknowledged but task %s was not running (stop_id: %s, message: %s)",
+			client.agent.ID, ackPayload.TaskID, ackPayload.StopID, ackPayload.Message)
+
+		// Even if task wasn't running, try to clear the assignment just in case
+		jobHandler := h.wsService.GetJobHandler()
+		if jobHandler != nil {
+			_ = jobHandler.ClearStoppedTaskAgent(client.ctx, taskID, client.agent.ID)
+		}
+	}
+}
+
+// startStateSyncLoop periodically sends state sync requests to reconcile agent state (GH Issue #12)
+func (c *Client) startStateSyncLoop() {
+	// Wait 30 seconds after connection before first sync to let agent settle
+	time.Sleep(30 * time.Second)
+
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-c.ctx.Done():
+			debug.Debug("Agent %d: State sync loop stopping (context cancelled)", c.agent.ID)
+			return
+		case <-ticker.C:
+			c.requestStateSync()
+		}
+	}
+}
+
+// requestStateSync sends a state sync request to the agent
+func (c *Client) requestStateSync() {
+	requestID := uuid.New().String()
+	debug.Debug("Agent %d: Sending state sync request (request_id: %s)", c.agent.ID, requestID)
+
+	payload := wsservice.StateSyncRequestPayload{
+		RequestID: requestID,
+		AgentID:   c.agent.ID,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		debug.Error("Agent %d: Failed to marshal state sync request: %v", c.agent.ID, err)
+		return
+	}
+
+	msg := &wsservice.Message{
+		Type:    wsservice.TypeStateSyncRequest,
+		Payload: payloadBytes,
+	}
+
+	select {
+	case c.send <- msg:
+		debug.Debug("Agent %d: State sync request sent", c.agent.ID)
+	default:
+		debug.Warning("Agent %d: Failed to send state sync request (send buffer full)", c.agent.ID)
+	}
+}
+
+// handleStateSyncResponse handles state sync response from agent and reconciles state (GH Issue #12)
+func (h *Handler) handleStateSyncResponse(client *Client, msg *wsservice.Message) {
+	var response wsservice.StateSyncResponsePayload
+	if err := json.Unmarshal(msg.Payload, &response); err != nil {
+		debug.Error("Agent %d: Failed to unmarshal state_sync_response: %v", client.agent.ID, err)
+		return
+	}
+
+	debug.Info("Agent %d: State sync response received (request_id: %s, status: %s, has_task: %v)",
+		client.agent.ID, response.RequestID, response.Status, response.HasRunningTask)
+
+	// Reconcile state with backend records
+	h.reconcileAgentState(client, &response)
+}
+
+// ============================================================================
+// Diagnostics Handlers (GH Issue #23)
+// ============================================================================
+
+// AgentDebugStatus tracks the debug status of an agent (GH Issue #23)
+type AgentDebugStatus struct {
+	AgentID            int       `json:"agent_id"`
+	Enabled            bool      `json:"enabled"`
+	Level              string    `json:"level"`
+	FileLoggingEnabled bool      `json:"file_logging_enabled"`
+	LogFilePath        string    `json:"log_file_path,omitempty"`
+	LogFileExists      bool      `json:"log_file_exists"`
+	LogFileSize        int64     `json:"log_file_size"`
+	LogFileModified    int64     `json:"log_file_modified"`
+	BufferCount        int       `json:"buffer_count"`
+	BufferCapacity     int       `json:"buffer_capacity"`
+	LastUpdated        time.Time `json:"last_updated"`
+}
+
+// agentDebugStatuses stores debug status for each agent (in-memory cache)
+var (
+	agentDebugStatuses   = make(map[int]*AgentDebugStatus)
+	agentDebugStatusesMu sync.RWMutex
+)
+
+// GetAgentDebugStatus returns the debug status for a specific agent
+func GetAgentDebugStatus(agentID int) *AgentDebugStatus {
+	agentDebugStatusesMu.RLock()
+	defer agentDebugStatusesMu.RUnlock()
+	return agentDebugStatuses[agentID]
+}
+
+// GetAllAgentDebugStatuses returns debug status for all agents
+func GetAllAgentDebugStatuses() map[int]*AgentDebugStatus {
+	agentDebugStatusesMu.RLock()
+	defer agentDebugStatusesMu.RUnlock()
+	result := make(map[int]*AgentDebugStatus, len(agentDebugStatuses))
+	for k, v := range agentDebugStatuses {
+		result[k] = v
+	}
+	return result
+}
+
+// handleDebugStatusReport processes debug status reports from agents
+func (h *Handler) handleDebugStatusReport(client *Client, msg *wsservice.Message) {
+	var payload wsservice.DebugStatusReportPayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		debug.Error("Agent %d: Failed to unmarshal debug status report: %v", client.agent.ID, err)
+		return
+	}
+
+	debug.Info("Agent %d: Debug status report - enabled=%v, level=%s, file_logging=%v, buffer_count=%d",
+		client.agent.ID, payload.Enabled, payload.Level, payload.FileLoggingEnabled, payload.BufferCount)
+
+	// Store the debug status
+	agentDebugStatusesMu.Lock()
+	agentDebugStatuses[client.agent.ID] = &AgentDebugStatus{
+		AgentID:            client.agent.ID,
+		Enabled:            payload.Enabled,
+		Level:              payload.Level,
+		FileLoggingEnabled: payload.FileLoggingEnabled,
+		LogFilePath:        payload.LogFilePath,
+		LogFileExists:      payload.LogFileExists,
+		LogFileSize:        payload.LogFileSize,
+		LogFileModified:    payload.LogFileModified,
+		BufferCount:        payload.BufferCount,
+		BufferCapacity:     payload.BufferCapacity,
+		LastUpdated:        time.Now(),
+	}
+	agentDebugStatusesMu.Unlock()
+}
+
+// handleDebugToggleAck processes debug toggle acknowledgments from agents
+func (h *Handler) handleDebugToggleAck(client *Client, msg *wsservice.Message) {
+	var payload wsservice.DebugToggleAckPayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		debug.Error("Agent %d: Failed to unmarshal debug toggle ack: %v", client.agent.ID, err)
+		return
+	}
+
+	if payload.Success {
+		debug.Info("Agent %d: Debug toggle successful - enabled=%v, restart_required=%v",
+			client.agent.ID, payload.Enabled, payload.RestartRequired)
+	} else {
+		debug.Warning("Agent %d: Debug toggle failed: %s", client.agent.ID, payload.Message)
+	}
+}
+
+// Callbacks for diagnostic responses (GH Issue #23)
+var (
+	logDataCallbacks      = make(map[string]chan *wsservice.LogDataPayload)
+	logDataCallbacksMu    sync.RWMutex
+	logStatusCallbacks    = make(map[string]chan *wsservice.LogStatusResponsePayload)
+	logStatusCallbacksMu  sync.RWMutex
+	logPurgeCallbacks     = make(map[string]chan *wsservice.LogPurgeAckPayload)
+	logPurgeCallbacksMu   sync.RWMutex
+)
+
+// RegisterLogDataCallback registers a callback for log data response
+func RegisterLogDataCallback(requestID string) <-chan *wsservice.LogDataPayload {
+	logDataCallbacksMu.Lock()
+	defer logDataCallbacksMu.Unlock()
+	ch := make(chan *wsservice.LogDataPayload, 1)
+	logDataCallbacks[requestID] = ch
+	return ch
+}
+
+// UnregisterLogDataCallback removes a log data callback
+func UnregisterLogDataCallback(requestID string) {
+	logDataCallbacksMu.Lock()
+	defer logDataCallbacksMu.Unlock()
+	if ch, exists := logDataCallbacks[requestID]; exists {
+		close(ch)
+		delete(logDataCallbacks, requestID)
+	}
+}
+
+// handleLogData processes log data from agents
+func (h *Handler) handleLogData(client *Client, msg *wsservice.Message) {
+	var payload wsservice.LogDataPayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		debug.Error("Agent %d: Failed to unmarshal log data: %v", client.agent.ID, err)
+		return
+	}
+
+	debug.Info("Agent %d: Received log data (request_id: %s, entries: %d, truncated: %v)",
+		client.agent.ID, payload.RequestID, len(payload.Entries), payload.Truncated)
+
+	// Check for callback
+	logDataCallbacksMu.RLock()
+	ch, hasCallback := logDataCallbacks[payload.RequestID]
+	logDataCallbacksMu.RUnlock()
+
+	if hasCallback {
+		select {
+		case ch <- &payload:
+			debug.Debug("Agent %d: Sent log data to callback (request_id: %s)", client.agent.ID, payload.RequestID)
+		default:
+			debug.Warning("Agent %d: Log data callback channel full (request_id: %s)", client.agent.ID, payload.RequestID)
+		}
+	} else {
+		debug.Warning("Agent %d: No callback registered for log data (request_id: %s)", client.agent.ID, payload.RequestID)
+	}
+}
+
+// RegisterLogStatusCallback registers a callback for log status response
+func RegisterLogStatusCallback(requestID string) <-chan *wsservice.LogStatusResponsePayload {
+	logStatusCallbacksMu.Lock()
+	defer logStatusCallbacksMu.Unlock()
+	ch := make(chan *wsservice.LogStatusResponsePayload, 1)
+	logStatusCallbacks[requestID] = ch
+	return ch
+}
+
+// UnregisterLogStatusCallback removes a log status callback
+func UnregisterLogStatusCallback(requestID string) {
+	logStatusCallbacksMu.Lock()
+	defer logStatusCallbacksMu.Unlock()
+	if ch, exists := logStatusCallbacks[requestID]; exists {
+		close(ch)
+		delete(logStatusCallbacks, requestID)
+	}
+}
+
+// handleLogStatusResponse processes log status responses from agents
+func (h *Handler) handleLogStatusResponse(client *Client, msg *wsservice.Message) {
+	var payload wsservice.LogStatusResponsePayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		debug.Error("Agent %d: Failed to unmarshal log status response: %v", client.agent.ID, err)
+		return
+	}
+
+	debug.Debug("Agent %d: Received log status (request_id: %s, file_exists: %v, debug_enabled: %v)",
+		client.agent.ID, payload.RequestID, payload.LogFileExists, payload.DebugEnabled)
+
+	// Check for callback
+	logStatusCallbacksMu.RLock()
+	ch, hasCallback := logStatusCallbacks[payload.RequestID]
+	logStatusCallbacksMu.RUnlock()
+
+	if hasCallback {
+		select {
+		case ch <- &payload:
+			debug.Debug("Agent %d: Sent log status to callback (request_id: %s)", client.agent.ID, payload.RequestID)
+		default:
+			debug.Warning("Agent %d: Log status callback channel full (request_id: %s)", client.agent.ID, payload.RequestID)
+		}
+	}
+}
+
+// RegisterLogPurgeCallback registers a callback for log purge acknowledgment
+func RegisterLogPurgeCallback(requestID string) <-chan *wsservice.LogPurgeAckPayload {
+	logPurgeCallbacksMu.Lock()
+	defer logPurgeCallbacksMu.Unlock()
+	ch := make(chan *wsservice.LogPurgeAckPayload, 1)
+	logPurgeCallbacks[requestID] = ch
+	return ch
+}
+
+// UnregisterLogPurgeCallback removes a log purge callback
+func UnregisterLogPurgeCallback(requestID string) {
+	logPurgeCallbacksMu.Lock()
+	defer logPurgeCallbacksMu.Unlock()
+	if ch, exists := logPurgeCallbacks[requestID]; exists {
+		close(ch)
+		delete(logPurgeCallbacks, requestID)
+	}
+}
+
+// handleLogPurgeAck processes log purge acknowledgments from agents
+func (h *Handler) handleLogPurgeAck(client *Client, msg *wsservice.Message) {
+	var payload wsservice.LogPurgeAckPayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		debug.Error("Agent %d: Failed to unmarshal log purge ack: %v", client.agent.ID, err)
+		return
+	}
+
+	if payload.Success {
+		debug.Info("Agent %d: Log purge successful (request_id: %s)", client.agent.ID, payload.RequestID)
+	} else {
+		debug.Warning("Agent %d: Log purge failed (request_id: %s): %s", client.agent.ID, payload.RequestID, payload.Message)
+	}
+
+	// Check for callback
+	logPurgeCallbacksMu.RLock()
+	ch, hasCallback := logPurgeCallbacks[payload.RequestID]
+	logPurgeCallbacksMu.RUnlock()
+
+	if hasCallback {
+		select {
+		case ch <- &payload:
+			debug.Debug("Agent %d: Sent log purge ack to callback (request_id: %s)", client.agent.ID, payload.RequestID)
+		default:
+			debug.Warning("Agent %d: Log purge callback channel full (request_id: %s)", client.agent.ID, payload.RequestID)
+		}
+	}
+}
+
+// SendDebugToggle sends a debug toggle command to a specific agent
+func (h *Handler) SendDebugToggle(agentID int, enable bool) error {
+	payload := wsservice.DebugTogglePayload{
+		Enable: enable,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal debug toggle payload: %w", err)
+	}
+
+	msg := &wsservice.Message{
+		Type:    wsservice.TypeDebugToggle,
+		Payload: payloadBytes,
+	}
+
+	return h.SendMessage(agentID, msg)
+}
+
+// SendLogRequest sends a log request to a specific agent
+func (h *Handler) SendLogRequest(agentID int, requestID string, hoursBack int, includeAll bool) error {
+	payload := wsservice.LogRequestPayload{
+		RequestID:  requestID,
+		HoursBack:  hoursBack,
+		IncludeAll: includeAll,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal log request payload: %w", err)
+	}
+
+	msg := &wsservice.Message{
+		Type:    wsservice.TypeLogRequest,
+		Payload: payloadBytes,
+	}
+
+	return h.SendMessage(agentID, msg)
+}
+
+// SendLogStatusRequest sends a log status request to a specific agent
+func (h *Handler) SendLogStatusRequest(agentID int, requestID string) error {
+	payload := wsservice.LogStatusRequestPayload{
+		RequestID: requestID,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal log status request payload: %w", err)
+	}
+
+	msg := &wsservice.Message{
+		Type:    wsservice.TypeLogStatusRequest,
+		Payload: payloadBytes,
+	}
+
+	return h.SendMessage(agentID, msg)
+}
+
+// SendLogPurge sends a log purge command to a specific agent
+func (h *Handler) SendLogPurge(agentID int, requestID string) error {
+	payload := wsservice.LogPurgePayload{
+		RequestID: requestID,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal log purge payload: %w", err)
+	}
+
+	msg := &wsservice.Message{
+		Type:    wsservice.TypeLogPurge,
+		Payload: payloadBytes,
+	}
+
+	return h.SendMessage(agentID, msg)
+}
+
+// reconcileAgentState compares agent's reported state with backend records and fixes discrepancies
+func (h *Handler) reconcileAgentState(client *Client, response *wsservice.StateSyncResponsePayload) {
+	ctx := client.ctx
+	agentID := client.agent.ID
+
+	// Get agent's current busy status from DB
+	agent, err := h.agentService.GetByID(ctx, agentID)
+	if err != nil {
+		debug.Error("Agent %d: Failed to get agent for reconciliation: %v", agentID, err)
+		return
+	}
+
+	busyStatus := "false"
+	if val, ok := agent.Metadata["busy_status"]; ok {
+		busyStatus = val
+	}
+	backendThinksBusy := busyStatus == "true"
+
+	currentTaskID := ""
+	if val, ok := agent.Metadata["current_task_id"]; ok {
+		currentTaskID = val
+	}
+
+	// Check for state mismatches
+	if response.Status == "idle" && !response.HasRunningTask {
+		// Agent says it's idle
+		if backendThinksBusy {
+			debug.Warning("Agent %d: State mismatch - agent idle but backend shows busy (task: %s). Clearing busy status. (GH Issue #12 reconciliation)",
+				agentID, currentTaskID)
+
+			// Clear busy status
+			if err := h.agentService.ClearAgentBusyStatus(ctx, agentID); err != nil {
+				debug.Error("Agent %d: Failed to clear busy status during reconciliation: %v", agentID, err)
+			} else {
+				debug.Info("Agent %d: Successfully cleared stale busy status via state sync", agentID)
+			}
+		}
+	} else if response.HasRunningTask && response.TaskID != "" {
+		// Agent says it's running a task
+		if !backendThinksBusy {
+			debug.Warning("Agent %d: State mismatch - agent running task %s but backend shows idle. Checking task status.",
+				agentID, response.TaskID)
+		}
+
+		// Check if the task exists and is in the correct state
+		if response.TaskID != currentTaskID && currentTaskID != "" {
+			debug.Warning("Agent %d: Task mismatch - agent reports task %s but backend has task %s",
+				agentID, response.TaskID, currentTaskID)
+		}
+
+		// Verify task is actually assigned to this agent
+		taskUUID, err := uuid.Parse(response.TaskID)
+		if err == nil {
+			task, err := h.jobTaskRepo.GetByID(ctx, taskUUID)
+			if err != nil {
+				debug.Warning("Agent %d: Reported task %s not found in DB", agentID, response.TaskID)
+			} else if task.Status == "completed" || task.Status == "failed" || task.Status == "cancelled" {
+				debug.Warning("Agent %d: Agent running task %s but task is in terminal state: %s. Notifying agent to stop.",
+					agentID, response.TaskID, task.Status)
+				// Could send stop command here if needed
+			}
+		}
+	}
+
+	// Process any pending completions that agent reports
+	if len(response.PendingCompletions) > 0 {
+		debug.Warning("Agent %d: Agent has %d pending completions that weren't acknowledged: %v",
+			agentID, len(response.PendingCompletions), response.PendingCompletions)
+
+		// For each pending completion, check if task is actually completed and send ACK
+		for _, taskID := range response.PendingCompletions {
+			taskUUID, err := uuid.Parse(taskID)
+			if err != nil {
+				debug.Error("Agent %d: Invalid pending completion task ID: %s", agentID, taskID)
+				continue
+			}
+
+			task, err := h.jobTaskRepo.GetByID(ctx, taskUUID)
+			if err != nil {
+				debug.Error("Agent %d: Failed to get pending completion task %s: %v", agentID, taskID, err)
+				continue
+			}
+
+			if task.Status == "completed" || task.Status == "failed" {
+				// Task was processed, send ACK
+				debug.Info("Agent %d: Sending belated ACK for pending completion task %s (status: %s)",
+					agentID, taskID, task.Status)
+
+				ackPayload := wsservice.TaskCompleteAckPayload{
+					TaskID:    taskID,
+					Success:   task.Status == "completed",
+					Timestamp: time.Now().Unix(),
+					Message:   "Belated ACK from state sync reconciliation",
+				}
+
+				payloadBytes, err := json.Marshal(ackPayload)
+				if err != nil {
+					debug.Error("Agent %d: Failed to marshal belated ACK: %v", agentID, err)
+					continue
+				}
+
+				msg := &wsservice.Message{
+					Type:    wsservice.TypeTaskCompleteAck,
+					Payload: payloadBytes,
+				}
+
+				select {
+				case client.send <- msg:
+					debug.Info("Agent %d: Belated ACK sent for task %s", agentID, taskID)
+				default:
+					debug.Warning("Agent %d: Failed to send belated ACK (buffer full)", agentID)
+				}
+			}
+		}
 	}
 }

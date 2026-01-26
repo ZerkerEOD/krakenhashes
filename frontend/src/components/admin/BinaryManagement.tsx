@@ -29,6 +29,8 @@ import {
   Refresh as RefreshIcon,
   Add as AddIcon,
   Verified as VerifiedIcon,
+  CloudDownload as CloudDownloadIcon,
+  CloudUpload as CloudUploadIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import AddBinaryForm from './AddBinaryForm';
@@ -221,6 +223,7 @@ const BinaryManagement: React.FC = () => {
               <TableCell>Binary ID</TableCell>
               <TableCell>Version</TableCell>
               <TableCell>Type</TableCell>
+              <TableCell>Source</TableCell>
               <TableCell>Size</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Default</TableCell>
@@ -231,15 +234,15 @@ const BinaryManagement: React.FC = () => {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
+                <TableCell colSpan={9} align="center" sx={{ py: 3 }}>
                   <CircularProgress />
                 </TableCell>
               </TableRow>
             ) : filteredBinaries.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
+                <TableCell colSpan={9} align="center" sx={{ py: 3 }}>
                   <Typography variant="body1" color="textSecondary">
-                    {showActiveOnly 
+                    {showActiveOnly
                       ? "No active binaries found. Click 'Add Binary' to add one or switch to 'Show All' to view deleted binaries."
                       : "No binaries found. Click 'Add Binary' to add one."}
                   </Typography>
@@ -247,12 +250,21 @@ const BinaryManagement: React.FC = () => {
               </TableRow>
             ) : (
               filteredBinaries.map((binary) => {
-                const { version } = extractNameAndVersion(binary.file_name);
+                // Use the API version field if available, otherwise extract from filename
+                const displayVersion = binary.version || extractNameAndVersion(binary.file_name).version;
                 return (
                   <TableRow key={binary.id}>
                     <TableCell>{binary.id}</TableCell>
-                    <TableCell>{version}</TableCell>
+                    <TableCell>{displayVersion}</TableCell>
                     <TableCell>{binary.binary_type}</TableCell>
+                    <TableCell>
+                      <Chip
+                        icon={binary.source_type === 'upload' ? <CloudUploadIcon /> : <CloudDownloadIcon />}
+                        label={binary.source_type === 'upload' ? 'Upload' : 'URL'}
+                        size="small"
+                        variant="outlined"
+                      />
+                    </TableCell>
                     <TableCell>{formatFileSize(binary.file_size)}</TableCell>
                     <TableCell>
                       <Chip

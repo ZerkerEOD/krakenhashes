@@ -35,6 +35,9 @@ func (s *store) CreateVersion(ctx context.Context, version *BinaryVersion) error
 		version.IsActive,
 		version.VerificationStatus,
 		version.IsDefault,
+		version.SourceType,
+		version.Description,
+		version.Version,
 	).Scan(&version.ID, &version.CreatedAt)
 
 	if err != nil {
@@ -61,6 +64,9 @@ func (s *store) GetVersion(ctx context.Context, id int64) (*BinaryVersion, error
 		&version.IsDefault,
 		&version.LastVerifiedAt,
 		&version.VerificationStatus,
+		&version.SourceType,
+		&version.Description,
+		&version.Version,
 	)
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("binary version not found: %d", id)
@@ -121,6 +127,9 @@ func (s *store) ListVersions(ctx context.Context, filters map[string]interface{}
 			&version.IsDefault,
 			&version.LastVerifiedAt,
 			&version.VerificationStatus,
+			&version.SourceType,
+			&version.Description,
+			&version.Version,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan binary version: %w", err)
@@ -149,6 +158,9 @@ func (s *store) UpdateVersion(ctx context.Context, version *BinaryVersion) error
 		version.IsDefault,
 		version.LastVerifiedAt,
 		version.VerificationStatus,
+		version.SourceType,
+		version.Description,
+		version.Version,
 		version.ID,
 	)
 	if err != nil {
@@ -201,6 +213,9 @@ func (s *store) GetLatestActive(ctx context.Context, binaryType BinaryType) (*Bi
 		&version.IsDefault,
 		&version.LastVerifiedAt,
 		&version.VerificationStatus,
+		&version.SourceType,
+		&version.Description,
+		&version.Version,
 	)
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("no active verified version found for type: %s", binaryType)
@@ -271,6 +286,9 @@ func (s *store) GetDefault(ctx context.Context, binaryType BinaryType) (*BinaryV
 		&version.IsDefault,
 		&version.LastVerifiedAt,
 		&version.VerificationStatus,
+		&version.SourceType,
+		&version.Description,
+		&version.Version,
 	)
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("no default binary version found for type: %s", binaryType)

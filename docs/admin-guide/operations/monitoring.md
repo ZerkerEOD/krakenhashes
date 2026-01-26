@@ -702,6 +702,23 @@ ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC
 LIMIT 10;"
 ```
 
+## Diagnostics and Support
+
+For detailed troubleshooting and creating support packages, see the [System Diagnostics](diagnostics.md) page which provides:
+
+- System information overview
+- Server debug mode toggle
+- Agent debug log management
+- Log purge capabilities
+- Downloadable diagnostic packages with sanitized data
+
+The diagnostics feature is particularly useful when:
+
+- Reporting bugs to developers
+- Investigating intermittent issues
+- Analyzing agent behavior
+- Reviewing database state
+
 ## Conclusion
 
 Effective monitoring is crucial for maintaining a healthy KrakenHashes deployment. Regular monitoring of system health, job performance, and agent metrics ensures optimal operation and early detection of issues. Implement automated alerting for critical metrics and maintain historical data for trend analysis and capacity planning.

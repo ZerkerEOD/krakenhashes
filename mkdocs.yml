@@ -115,6 +115,12 @@ nav:
     - Analyzing Results: user-guide/analyzing-results.md
     - Analytics Reports: user-guide/analytics-reports.md
     - Troubleshooting: user-guide/troubleshooting.md
+  - User API:
+    - user-api/README.md
+    - User Guide: user-api/USER_GUIDE.md
+    - Examples:
+      - Python Client: user-api/examples/python_client.py
+      - cURL Examples: user-api/examples/curl_examples.sh
   - Admin Guide:
     - admin-guide/index.md
     - System Setup:
@@ -122,6 +128,7 @@ nav:
       - SSL/TLS Setup: admin-guide/system-setup/ssl-tls.md
       - Email Configuration: admin-guide/system-setup/email.md
       - Authentication: admin-guide/system-setup/authentication.md
+      - SSO Authentication: admin-guide/system-setup/sso.md
     - Resource Management:
       - Managing Binaries: admin-guide/resource-management/binaries.md
       - Wordlist Management: admin-guide/resource-management/wordlists.md
@@ -135,6 +142,7 @@ nav:
       - Job Settings: admin-guide/operations/job-settings.md
       - Potfile Management: admin-guide/operations/potfile.md
       - System Monitoring: admin-guide/operations/monitoring.md
+      - System Diagnostics: admin-guide/operations/diagnostics.md
       - Backup Procedures: admin-guide/operations/backup.md
       - Data Retention: admin-guide/operations/data-retention.md
     - Security Guide: admin-guide/security.md
@@ -171,13 +179,16 @@ nav:
     - System Requirements: reference/system-requirements.md
     - PostgreSQL Tuning: reference/postgresql-tuning.md
     - Architecture:
-      - Chunking System: reference/architecture/chunking.md
-      - Rule Splitting: reference/architecture/rule-splitting.md
-      - Increment Mode: reference/architecture/increment-mode.md
-      - Job Update System: reference/architecture/job-update-system.md
-      - Job Completion System: reference/architecture/job-completion-system.md
+      - Association Attack: reference/architecture/association-attack.md
       - Benchmark Workflow: reference/architecture/benchmark-workflow.md
+      - Binary Version Patterns: reference/architecture/binary-version-patterns.md
+      - Chunking System: reference/architecture/chunking.md
       - Crack Batching System: reference/architecture/crack-batching-system.md
+      - Increment Mode: reference/architecture/increment-mode.md
+      - Job Completion System: reference/architecture/job-completion-system.md
+      - Job Update System: reference/architecture/job-update-system.md
+      - Rule Splitting: reference/architecture/rule-splitting.md
+      - File Hash Cache: reference/architecture/file-hash-cache.md
       - Cross-Hashlist Sync: reference/architecture/cross-hashlist-sync.md
       - Username Extraction: reference/architecture/username-extraction.md
       - LM/NTLM Linking: reference/architecture/lm-ntlm-linking.md

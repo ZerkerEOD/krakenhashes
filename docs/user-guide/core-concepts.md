@@ -36,7 +36,7 @@ A **hash** is an individual password hash within a hashlist. Each hash:
 A **preset job** is a pre-configured attack strategy that defines:
 - Which wordlists to use
 - Which rule files to apply
-- The hashcat attack mode (dictionary, brute-force, hybrid, etc.)
+- The hashcat attack mode (dictionary, brute-force, hybrid, association, etc.)
 - Priority level (0-1000, higher = more important)
 - Chunk duration (how long each task should run)
 - Maximum number of agents allowed to work on it

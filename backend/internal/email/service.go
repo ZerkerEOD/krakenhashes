@@ -25,12 +25,12 @@ var (
 
 // Service handles email configuration and template management
 type Service struct {
-	db *queries.DB
+	db *sql.DB
 }
 
 // NewService creates a new email service
 func NewService(db *sql.DB) *Service {
-	return &Service{db: &queries.DB{DB: db}}
+	return &Service{db: db}
 }
 
 // ConfigureProvider sets up or updates the email provider configuration

@@ -343,7 +343,6 @@ journalctl -u krakenhashes-agent -f
 
 1. **Check Documentation**
    - Review relevant guides in `/docs`
-   - Check CLAUDE.md for development info
    - Review API documentation
 
 2. **Search Known Issues**

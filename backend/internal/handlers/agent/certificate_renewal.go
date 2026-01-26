@@ -72,7 +72,7 @@ func (h *CertificateRenewalHandler) HandleCertificateRenewal(w http.ResponseWrit
 		return
 	}
 
-	debug.Info("Certificate renewal requested by agent %d (%s)", agent.ID, agent.Name)
+	debug.Info("Certificate renewal requested by agent %d", agent.ID)
 
 	// Get client certificate and key
 	certPEM, keyPEM, err := h.tlsProvider.GetClientCertificate()

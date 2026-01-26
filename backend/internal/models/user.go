@@ -39,6 +39,17 @@ type User struct {
 	DisabledAt             *time.Time `json:"disabled_at" db:"disabled_at"`
 	DisabledBy             *uuid.UUID `json:"disabled_by" db:"disabled_by"`
 	NotifyOnJobCompletion  bool       `json:"notify_on_job_completion" db:"notify_on_job_completion"`
+	APIKey                 string     `json:"-" db:"api_key"`
+	APIKeyCreatedAt        *time.Time `json:"api_key_created_at,omitempty" db:"api_key_created_at"`
+	APIKeyLastUsed         *time.Time `json:"api_key_last_used,omitempty" db:"api_key_last_used"`
+	// SSO auth overrides (NULL = use global setting, true/false = override)
+	LocalAuthOverride  *bool   `json:"local_auth_override,omitempty" db:"local_auth_override"`
+	SSOAuthOverride    *bool   `json:"sso_auth_override,omitempty" db:"sso_auth_override"`
+	AuthOverrideNotes  *string `json:"auth_override_notes,omitempty" db:"auth_override_notes"`
+	// Computed fields (from subqueries, not stored in users table)
+	LastAuthProvider *string `json:"last_auth_provider,omitempty" db:"last_auth_provider"`
+	// Soft delete
+	DeletedAt *time.Time `json:"deleted_at,omitempty" db:"deleted_at"`
 }
 
 // NotificationPreferences represents user notification settings
@@ -266,4 +277,28 @@ func (u *User) RemoveMFAMethod(method string) error {
 	}
 
 	return nil
+}
+
+// CanUseLocalAuth checks if user can use local (password) authentication
+// Takes the global setting and returns whether local auth is allowed for this user
+func (u *User) CanUseLocalAuth(globalEnabled bool) bool {
+	if u.LocalAuthOverride != nil {
+		return *u.LocalAuthOverride
+	}
+	return globalEnabled
+}
+
+// CanUseSSOAuth checks if user can use SSO authentication
+// Takes the global setting and returns whether SSO auth is allowed for this user
+func (u *User) CanUseSSOAuth(globalEnabled bool) bool {
+	if u.SSOAuthOverride != nil {
+		return *u.SSOAuthOverride
+	}
+	return globalEnabled
+}
+
+// HasPasswordSet returns true if the user has a password hash set
+// SSO-only users may not have a password
+func (u *User) HasPasswordSet() bool {
+	return u.PasswordHash != "" && u.PasswordHash != "SSO_USER_NO_PASSWORD"
 }

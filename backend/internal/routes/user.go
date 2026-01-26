@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary/version"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/agent"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/jobs"
@@ -57,6 +58,7 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 	binaryStore := binary.NewStore(database.DB)
 	jobIncrementLayerRepo := repository.NewJobIncrementLayerRepository(dbWrapper)
 	presetIncrementLayerRepo := repository.NewPresetIncrementLayerRepository(dbWrapper)
+	assocWordlistRepo := repository.NewAssociationWordlistRepository(dbWrapper)
 
 	// Create job execution service
 	jobExecutionService := services.NewJobExecutionService(
@@ -71,10 +73,12 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 		deviceRepo,
 		presetJobRepo,
 		hashlistRepo,
+		hashTypeRepo,
 		systemSettingsRepo,
 		fileRepo,
 		scheduleRepo,
 		binaryManager,
+		assocWordlistRepo,
 		"", // hashcatBinaryPath - not needed for keyspace calculation
 		dataDir,
 	)
@@ -94,6 +98,7 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 		binaryStore,
 		jobExecutionService,
 		systemSettingsRepo,
+		assocWordlistRepo,
 	)
 }
 
@@ -414,4 +419,50 @@ func SetupUserRoutes(router *mux.Router, database *db.DB, dataDir string, binary
 			"accessToken": accessToken,
 		})
 	}).Methods("POST")
+
+	// User API Key management routes
+	userRepo := repository.NewUserRepository(database)
+	userAPIService := services.NewUserAPIService(userRepo)
+	apiKeyHandler := user.NewAPIKeyHandler(userAPIService)
+
+	router.HandleFunc("/user/api-key", apiKeyHandler.GenerateAPIKey).Methods("POST", "OPTIONS")
+	router.HandleFunc("/user/api-key", apiKeyHandler.RevokeAPIKey).Methods("DELETE", "OPTIONS")
+	router.HandleFunc("/user/api-key/info", apiKeyHandler.GetAPIKeyInfo).Methods("GET", "OPTIONS")
+	debug.Info("Configured user API key management routes")
+
+	// User SSO identity management routes
+	ssoRepo := repository.NewSSORepository(dbWrapper)
+	userSSOHandler := user.NewUserSSOHandler(ssoRepo)
+	router.HandleFunc("/user/sso/identities", userSSOHandler.GetMyIdentities).Methods("GET", "OPTIONS")
+	router.HandleFunc("/user/sso/identities/{identityId}", userSSOHandler.UnlinkMyIdentity).Methods("DELETE", "OPTIONS")
+	debug.Info("Configured user SSO identity management routes")
+
+	// Binary patterns endpoint for job creation
+	router.HandleFunc("/binary/patterns", func(w http.ResponseWriter, r *http.Request) {
+		versions, err := binaryManager.ListVersions(r.Context(), map[string]interface{}{"is_active": true})
+		if err != nil {
+			debug.Error("Failed to list binary versions: %v", err)
+			http.Error(w, "Failed to list binary versions", http.StatusInternalServerError)
+			return
+		}
+
+		// Convert to BinaryInfo slice
+		binaries := make([]version.BinaryInfo, 0, len(versions))
+		for _, v := range versions {
+			if v.Version == nil {
+				continue
+			}
+			binaries = append(binaries, version.BinaryInfo{
+				ID:        v.ID,
+				Version:   *v.Version,
+				IsDefault: v.IsDefault,
+				IsActive:  v.IsActive,
+			})
+		}
+
+		response := version.GenerateAvailablePatterns(binaries)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}).Methods("GET", "OPTIONS")
+	debug.Info("Configured binary patterns route for job creation")
 }

@@ -5,7 +5,8 @@ import {
   Settings as SettingsIcon,
   PlaylistAddCheck as PlaylistAddCheckIcon,
   AccountTree as AccountTreeIcon,
-  SupervisorAccount as SupervisorAccountIcon
+  SupervisorAccount as SupervisorAccountIcon,
+  BugReport as BugReportIcon
 } from '@mui/icons-material';
 
 const AdminMenu: React.FC = () => {
@@ -92,6 +93,26 @@ const AdminMenu: React.FC = () => {
           <AccountTreeIcon />
         </ListItemIcon>
         <ListItemText primary="Job Workflows" />
+      </ListItemButton>
+
+      <ListItemButton
+        onClick={() => navigate('/admin/diagnostics')}
+        selected={location.pathname.startsWith('/admin/diagnostics')}
+        sx={{
+          minHeight: 48,
+          px: 2.5,
+        }}
+      >
+        <ListItemIcon
+          sx={{
+            minWidth: 0,
+            mr: 3,
+            justifyContent: 'center',
+          }}
+        >
+          <BugReportIcon />
+        </ListItemIcon>
+        <ListItemText primary="Diagnostics" />
       </ListItemButton>
     </List>
   );

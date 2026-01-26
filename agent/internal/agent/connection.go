@@ -24,6 +24,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/agent/internal/hardware"
 	"github.com/ZerkerEOD/krakenhashes/agent/internal/hardware/types"
 	"github.com/ZerkerEOD/krakenhashes/agent/internal/jobs"
+	"github.com/ZerkerEOD/krakenhashes/agent/internal/logbuffer"
 	filesync "github.com/ZerkerEOD/krakenhashes/agent/internal/sync"
 	"github.com/ZerkerEOD/krakenhashes/agent/internal/version"
 	"github.com/ZerkerEOD/krakenhashes/agent/pkg/console"
@@ -72,7 +73,30 @@ const (
 	WSTypeBufferAck        WSMessageType = "buffer_ack"
 
 	// Shutdown message type
-	WSTypeAgentShutdown    WSMessageType = "agent_shutdown"
+	WSTypeAgentShutdown WSMessageType = "agent_shutdown"
+
+	// Outfile acknowledgment protocol message types
+	WSTypePendingOutfiles        WSMessageType = "pending_outfiles"         // Agent -> Server: report tasks with pending outfiles
+	WSTypeRequestCrackRetransmit WSMessageType = "request_crack_retransmit" // Server -> Agent: request full outfile retransmission
+	WSTypeOutfileDeleteApproved  WSMessageType = "outfile_delete_approved"  // Server -> Agent: safe to delete outfile
+	WSTypeOutfileDeleteRejected  WSMessageType = "outfile_delete_rejected"  // Agent -> Server: reject deletion (line count mismatch)
+
+	// Task state synchronization message types (GH Issue #12)
+	WSTypeTaskCompleteAck   WSMessageType = "task_complete_ack"   // Server -> Agent: acknowledge task completion
+	WSTypeTaskStopAck       WSMessageType = "task_stop_ack"       // Agent -> Server: acknowledge stop command
+	WSTypeStateSyncRequest  WSMessageType = "state_sync_request"  // Server -> Agent: request agent state
+	WSTypeStateSyncResponse WSMessageType = "state_sync_response" // Agent -> Server: report current state
+
+	// Diagnostics message types (GH Issue #23)
+	WSTypeDebugStatusReport WSMessageType = "debug_status_report" // Agent -> Server: report debug state
+	WSTypeDebugToggle       WSMessageType = "debug_toggle"        // Server -> Agent: toggle debug mode
+	WSTypeDebugToggleAck    WSMessageType = "debug_toggle_ack"    // Agent -> Server: acknowledge toggle
+	WSTypeLogRequest        WSMessageType = "log_request"         // Server -> Agent: request logs
+	WSTypeLogData           WSMessageType = "log_data"            // Agent -> Server: send log data
+	WSTypeLogStatusRequest  WSMessageType = "log_status_request"  // Server -> Agent: request log file status
+	WSTypeLogStatusResponse WSMessageType = "log_status_response" // Agent -> Server: report log file info
+	WSTypeLogPurge          WSMessageType = "log_purge"           // Server -> Agent: delete log files
+	WSTypeLogPurgeAck       WSMessageType = "log_purge_ack"       // Agent -> Server: confirm purge
 )
 
 // WSMessage represents a WebSocket message
@@ -103,13 +127,21 @@ type FileSyncCommandPayload struct {
 }
 
 // CurrentTaskStatusPayload represents the agent's current task status
+// Includes all progress fields needed for offline task completion handling
 type CurrentTaskStatusPayload struct {
-	AgentID           int    `json:"agent_id"`
-	HasRunningTask    bool   `json:"has_running_task"`
-	TaskID            string `json:"task_id,omitempty"`
-	JobID             string `json:"job_id,omitempty"`
-	KeyspaceProcessed int64  `json:"keyspace_processed,omitempty"`
-	Status            string `json:"status,omitempty"`
+	AgentID                int     `json:"agent_id"`
+	HasRunningTask         bool    `json:"has_running_task"`
+	TaskID                 string  `json:"task_id,omitempty"`
+	JobID                  string  `json:"job_id,omitempty"`
+	KeyspaceProcessed      int64   `json:"keyspace_processed,omitempty"`
+	EffectiveProgress      int64   `json:"effective_progress,omitempty"`
+	ProgressPercent        float64 `json:"progress_percent,omitempty"`
+	TotalEffectiveKeyspace *int64  `json:"total_effective_keyspace,omitempty"`
+	HashRate               int64   `json:"hash_rate,omitempty"`
+	CrackedCount           int     `json:"cracked_count,omitempty"`
+	AllHashesCracked       bool    `json:"all_hashes_cracked,omitempty"`
+	Status                 string  `json:"status,omitempty"`
+	ErrorMessage           string  `json:"error_message,omitempty"`
 }
 
 // BenchmarkRequest represents a request to test speed for a specific job configuration
@@ -127,8 +159,9 @@ type BenchmarkRequest struct {
 	BinaryPath      string             `json:"binary_path"`
 	TestDuration    int                `json:"test_duration"`    // How long to run test (seconds)
 	TimeoutDuration int                `json:"timeout_duration"` // Maximum time to wait for speedtest (seconds)
-	ExtraParameters string             `json:"extra_parameters,omitempty"` // Agent-specific hashcat parameters
-	EnabledDevices  []int              `json:"enabled_devices,omitempty"`  // List of enabled device IDs
+	ExtraParameters         string   `json:"extra_parameters,omitempty"`          // Agent-specific hashcat parameters
+	EnabledDevices          []int    `json:"enabled_devices,omitempty"`           // List of enabled device IDs
+	AssociationWordlistPath string   `json:"association_wordlist_path,omitempty"` // For mode 9 association attacks
 }
 
 // BenchmarkResult represents the result of a speed test
@@ -140,6 +173,129 @@ type BenchmarkResult struct {
 	DeviceSpeeds   []jobs.DeviceSpeed  `json:"device_speeds"`
 	Success        bool                `json:"success"`
 	ErrorMessage   string              `json:"error_message,omitempty"`
+}
+
+// TaskCompleteAckPayload is received from backend acknowledging task completion (GH Issue #12)
+type TaskCompleteAckPayload struct {
+	TaskID    string `json:"task_id"`
+	Success   bool   `json:"success"`
+	Timestamp int64  `json:"timestamp"`
+	Message   string `json:"message,omitempty"`
+}
+
+// TaskStopAckPayload is sent to acknowledge a stop command (GH Issue #12)
+type TaskStopAckPayload struct {
+	TaskID    string `json:"task_id"`
+	StopID    string `json:"stop_id"`
+	Stopped   bool   `json:"stopped"`
+	Timestamp int64  `json:"timestamp"`
+	Message   string `json:"message,omitempty"`
+}
+
+// StateSyncRequestPayload is received from backend requesting state sync (GH Issue #12)
+type StateSyncRequestPayload struct {
+	RequestID string `json:"request_id"`
+	AgentID   int    `json:"agent_id"`
+}
+
+// StateSyncResponsePayload is sent in response to state sync request (GH Issue #12)
+type StateSyncResponsePayload struct {
+	RequestID          string   `json:"request_id"`
+	HasRunningTask     bool     `json:"has_running_task"`
+	TaskID             string   `json:"task_id,omitempty"`
+	JobID              string   `json:"job_id,omitempty"`
+	Status             string   `json:"status"` // idle, running, completing
+	PendingCompletions []string `json:"pending_completions,omitempty"`
+}
+
+// DebugStatusReportPayload is sent to report debug state on connection (GH Issue #23)
+type DebugStatusReportPayload struct {
+	Enabled            bool   `json:"enabled"`
+	Level              string `json:"level"`
+	FileLoggingEnabled bool   `json:"file_logging_enabled"`
+	LogFilePath        string `json:"log_file_path,omitempty"`
+	LogFileExists      bool   `json:"log_file_exists"`
+	LogFileSize        int64  `json:"log_file_size"`
+	LogFileModified    int64  `json:"log_file_modified,omitempty"` // Unix timestamp
+	BufferCount        int    `json:"buffer_count"`
+	BufferCapacity     int    `json:"buffer_capacity"`
+}
+
+// DebugTogglePayload is received from backend to toggle debug mode (GH Issue #23)
+type DebugTogglePayload struct {
+	Enable bool `json:"enable"`
+}
+
+// DebugToggleAckPayload is sent to acknowledge debug toggle (GH Issue #23)
+type DebugToggleAckPayload struct {
+	Success         bool   `json:"success"`
+	Enabled         bool   `json:"enabled"`
+	RestartRequired bool   `json:"restart_required"`
+	Message         string `json:"message,omitempty"`
+}
+
+// LogRequestPayload is received from backend to request logs (GH Issue #23)
+type LogRequestPayload struct {
+	RequestID  string `json:"request_id"`
+	HoursBack  int    `json:"hours_back"`
+	IncludeAll bool   `json:"include_all"` // Include all logs regardless of time
+}
+
+// LogDataPayload is sent to deliver log data (GH Issue #23)
+type LogDataPayload struct {
+	RequestID   string                `json:"request_id"`
+	AgentID     int                   `json:"agent_id"`
+	Entries     []LogEntryPayload     `json:"entries,omitempty"`
+	FileContent string                `json:"file_content,omitempty"` // Raw log file content if available
+	TotalCount  int                   `json:"total_count"`
+	Truncated   bool                  `json:"truncated"`
+	Error       string                `json:"error,omitempty"`
+}
+
+// LogEntryPayload represents a single log entry for transmission (GH Issue #23)
+type LogEntryPayload struct {
+	Timestamp int64  `json:"timestamp"` // Unix timestamp with milliseconds
+	Level     string `json:"level"`
+	Message   string `json:"message"`
+	File      string `json:"file,omitempty"`
+	Line      int    `json:"line,omitempty"`
+	Function  string `json:"function,omitempty"`
+}
+
+// LogStatusRequestPayload is received from backend to check log file status (GH Issue #23)
+type LogStatusRequestPayload struct {
+	RequestID string `json:"request_id"`
+}
+
+// LogStatusResponsePayload is sent to report log file status (GH Issue #23)
+type LogStatusResponsePayload struct {
+	RequestID       string `json:"request_id"`
+	LogFileExists   bool   `json:"log_file_exists"`
+	LogFilePath     string `json:"log_file_path,omitempty"`
+	LogFileSize     int64  `json:"log_file_size"`
+	LogFileModified int64  `json:"log_file_modified,omitempty"` // Unix timestamp
+	DebugEnabled    bool   `json:"debug_enabled"`
+	BufferCount     int    `json:"buffer_count"`
+}
+
+// LogPurgePayload is received from backend to delete logs (GH Issue #23)
+type LogPurgePayload struct {
+	RequestID string `json:"request_id"`
+}
+
+// LogPurgeAckPayload is sent to confirm log purge (GH Issue #23)
+type LogPurgeAckPayload struct {
+	RequestID string `json:"request_id"`
+	Success   bool   `json:"success"`
+	Message   string `json:"message,omitempty"`
+}
+
+// JobStopPayload represents a job stop command (updated for GH Issue #12)
+type JobStopPayload struct {
+	TaskID         string `json:"task_id"`
+	JobExecutionID string `json:"job_execution_id"`
+	Reason         string `json:"reason"`
+	StopID         string `json:"stop_id,omitempty"` // Unique ID for tracking ACK
 }
 
 // MetricsData represents the metrics data sent to the server
@@ -397,6 +553,11 @@ type Connection struct {
 	devicesDetected       bool
 	detectionInProgress   bool
 	deviceMutex           sync.Mutex
+
+	// Task completion ACK tracking (GH Issue #12)
+	completionAckChan   chan *TaskCompleteAckPayload
+	completionAckMu     sync.RWMutex
+	pendingCompletionID string
 }
 
 // JobManager interface defines the methods required for job management
@@ -405,6 +566,10 @@ type JobManager interface {
 	StopJob(taskID string) error
 	RunManualBenchmark(ctx context.Context, binaryPath string, hashType int, attackMode int) (*jobs.BenchmarkResult, error)
 	ForceCleanup() error
+	// GH Issue #12: State sync support
+	GetState() (jobs.TaskState, string)
+	GetJobStatus(taskID string) (*jobs.JobExecution, error)
+	GetCompletionPending() (bool, string)
 }
 
 // isCertificateError checks if an error is related to certificate verification
@@ -660,12 +825,13 @@ func NewConnection(urlConfig *config.URLConfig) (*Connection, error) {
 	}
 
 	conn := &Connection{
-		urlConfig:  urlConfig,
-		hwMonitor:  hwMonitor,
-		outbound:   make(chan *WSMessage, 4096),
-		done:       make(chan struct{}),
-		tlsConfig:  tlsConfig,
-		syncStatus: "pending",
+		urlConfig:         urlConfig,
+		hwMonitor:         hwMonitor,
+		outbound:          make(chan *WSMessage, 4096),
+		done:              make(chan struct{}),
+		tlsConfig:         tlsConfig,
+		syncStatus:        "pending",
+		completionAckChan: make(chan *TaskCompleteAckPayload, 1), // Buffer 1 ACK (GH Issue #12)
 	}
 
 	// Download manager will be initialized when file sync is set up
@@ -884,9 +1050,11 @@ func (c *Connection) maintainConnection() {
 					debug.Info("Starting read and write pumps")
 					go c.readPump()
 					go c.writePump()
-					
+
 					// Send current task status after reconnection
 					go c.sendCurrentTaskStatus()
+					// Also send debug status report (GH Issue #23)
+					go c.sendDebugStatusReport()
 				}
 			} else {
 				// debug.Debug("Connection state: connected") // Commented out to reduce log spam
@@ -1129,6 +1297,17 @@ func (c *Connection) readPump() {
 
 			debug.Info("Queued %d files for download", len(commandPayload.Files))
 
+			// Check if all files were already available (no new downloads needed)
+			// This happens when download manager verified files exist on disk
+			if c.downloadManager != nil {
+				total, pending, downloading, _, _ := c.downloadManager.GetDownloadStats()
+				if pending == 0 && downloading == 0 && total > 0 {
+					// All files were already synced - immediately complete sync
+					debug.Info("All %d files already synced (verified on disk), sending sync_completed immediately", total)
+					c.sendSyncCompleted()
+				}
+			}
+
 			// If binaries were downloaded, trigger device detection after downloads complete
 			if hasBinaries && c.downloadManager != nil {
 				go func() {
@@ -1189,35 +1368,41 @@ func (c *Connection) readPump() {
 				jobMgr.SetFileSync(c.fileSync)
 			}
 
-			// Use context without timeout for job execution
-			// Jobs should run until completion, not be limited by arbitrary timeouts
-			ctx := context.Background()
+			// Process job assignment asynchronously to prevent blocking readPump
+			// This is critical: blocking readPump during long downloads (72+ seconds)
+			// prevents the agent from responding to server pings, causing WebSocket timeout
+			payload := msg.Payload // Capture payload for goroutine
+			go func() {
+				// Use context without timeout for job execution
+				// Jobs should run until completion, not be limited by arbitrary timeouts
+				ctx := context.Background()
 
-			if err := c.jobManager.ProcessJobAssignment(ctx, msg.Payload); err != nil {
-				debug.Error("Failed to process job assignment: %v", err)
+				if err := c.jobManager.ProcessJobAssignment(ctx, payload); err != nil {
+					debug.Error("Failed to process job assignment: %v", err)
 
-				// Extract task ID from the assignment payload to report failure to backend
-				var assignment struct {
-					TaskID string `json:"task_id"`
-				}
-				if unmarshalErr := json.Unmarshal(msg.Payload, &assignment); unmarshalErr == nil && assignment.TaskID != "" {
-					// Send failure status to backend so it can update task state
-					failureStatus := &jobs.JobStatus{
-						TaskID:       assignment.TaskID,
-						Status:       "failed",
-						ErrorMessage: fmt.Sprintf("Failed to prepare task: %v", err),
+					// Extract task ID from the assignment payload to report failure to backend
+					var assignment struct {
+						TaskID string `json:"task_id"`
 					}
-					if sendErr := c.SendJobStatus(failureStatus); sendErr != nil {
-						debug.Error("Failed to send task failure status to backend: %v", sendErr)
+					if unmarshalErr := json.Unmarshal(payload, &assignment); unmarshalErr == nil && assignment.TaskID != "" {
+						// Send failure status to backend so it can update task state
+						failureStatus := &jobs.JobStatus{
+							TaskID:       assignment.TaskID,
+							Status:       "failed",
+							ErrorMessage: fmt.Sprintf("Failed to prepare task: %v", err),
+						}
+						if sendErr := c.SendJobStatus(failureStatus); sendErr != nil {
+							debug.Error("Failed to send task failure status to backend: %v", sendErr)
+						} else {
+							debug.Info("Sent task failure status to backend for task %s", assignment.TaskID)
+						}
 					} else {
-						debug.Info("Sent task failure status to backend for task %s", assignment.TaskID)
+						debug.Error("Could not extract task ID from failed assignment to report failure")
 					}
 				} else {
-					debug.Error("Could not extract task ID from failed assignment to report failure")
+					debug.Info("Successfully processed job assignment")
 				}
-			} else {
-				debug.Info("Successfully processed job assignment")
-			}
+			}()
 
 		case WSTypeJobStop:
 			// Server requested to stop a job
@@ -1228,10 +1413,7 @@ func (c *Connection) readPump() {
 				continue
 			}
 
-			var stopPayload struct {
-				TaskID string `json:"task_id"`
-				Reason string `json:"reason,omitempty"`
-			}
+			var stopPayload JobStopPayload
 			if err := json.Unmarshal(msg.Payload, &stopPayload); err != nil {
 				debug.Error("Failed to parse job stop payload: %v", err)
 				continue
@@ -1244,14 +1426,53 @@ func (c *Connection) readPump() {
 				console.Warning("Task stopped by server: %s", stopPayload.TaskID)
 			}
 
+			var stopped bool
+			var stopMessage string
 			if err := c.jobManager.StopJob(stopPayload.TaskID); err != nil {
 				debug.Error("Failed to stop job %s: %v", stopPayload.TaskID, err)
 				console.Error("Failed to stop task %s: %v", stopPayload.TaskID, err)
+				stopped = false
+				stopMessage = err.Error()
 			} else {
 				debug.Info("Successfully stopped job %s", stopPayload.TaskID)
 				console.Success("Task %s stopped successfully", stopPayload.TaskID)
+				stopped = true
 			}
-			
+
+			// Send stop ACK back to backend (GH Issue #12)
+			if stopPayload.StopID != "" {
+				c.sendTaskStopAck(stopPayload.TaskID, stopPayload.StopID, stopped, stopMessage)
+			}
+
+		case WSTypeTaskCompleteAck:
+			// Server acknowledged task completion (GH Issue #12)
+			debug.Info("Received task complete ACK")
+
+			var ackPayload TaskCompleteAckPayload
+			if err := json.Unmarshal(msg.Payload, &ackPayload); err != nil {
+				debug.Error("Failed to parse task complete ACK: %v", err)
+				continue
+			}
+
+			debug.Debug("Task completion acknowledged by backend: task=%s success=%v message=%s",
+				ackPayload.TaskID, ackPayload.Success, ackPayload.Message)
+
+			// Send to ACK channel if we're waiting for it
+			c.completionAckMu.RLock()
+			pendingID := c.pendingCompletionID
+			c.completionAckMu.RUnlock()
+
+			if pendingID == ackPayload.TaskID {
+				select {
+				case c.completionAckChan <- &ackPayload:
+					debug.Debug("Delivered ACK to waiting goroutine for task %s", ackPayload.TaskID)
+				default:
+					debug.Warning("ACK channel full or not waiting for task %s", ackPayload.TaskID)
+				}
+			} else {
+				debug.Debug("Received ACK for task %s but waiting for %s (or not waiting)", ackPayload.TaskID, pendingID)
+			}
+
 		case WSTypeForceCleanup:
 			// Server requested to force cleanup all hashcat processes
 			debug.Info("Received force cleanup command")
@@ -1385,11 +1606,13 @@ func (c *Connection) readPump() {
 					debug.Info("Downloading hashlist %d for benchmark...", benchmarkPayload.HashlistID)
 
 					// Create FileInfo for download
+					// AttackMode is passed through - download function picks right endpoint (mode 9 = original file)
 					fileInfo := &filesync.FileInfo{
-						Name:     hashlistFileName,
-						FileType: "hashlist",
-						ID:       int(benchmarkPayload.HashlistID),
-						MD5Hash:  "", // Empty hash means skip verification
+						Name:       hashlistFileName,
+						FileType:   "hashlist",
+						ID:         int(benchmarkPayload.HashlistID),
+						MD5Hash:    "", // Empty hash means skip verification
+						AttackMode: benchmarkPayload.AttackMode,
 					}
 
 					// Download with timeout
@@ -1450,18 +1673,19 @@ func (c *Connection) readPump() {
 
 				// Create a JobTaskAssignment from benchmark request
 				assignment := &jobs.JobTaskAssignment{
-					TaskID:          benchmarkPayload.TaskID,
-					HashlistID:      benchmarkPayload.HashlistID,
-					HashlistPath:    benchmarkPayload.HashlistPath,
-					AttackMode:      benchmarkPayload.AttackMode,
-					HashType:        benchmarkPayload.HashType,
-					WordlistPaths:   benchmarkPayload.WordlistPaths,
-					RulePaths:       benchmarkPayload.RulePaths,
-					Mask:            benchmarkPayload.Mask,
-					BinaryPath:      benchmarkPayload.BinaryPath,
-					ReportInterval:  5, // Default status interval
-					ExtraParameters: benchmarkPayload.ExtraParameters, // Agent-specific parameters
-					EnabledDevices:  benchmarkPayload.EnabledDevices,   // Device list
+					TaskID:                  benchmarkPayload.TaskID,
+					HashlistID:              benchmarkPayload.HashlistID,
+					HashlistPath:            benchmarkPayload.HashlistPath,
+					AttackMode:              benchmarkPayload.AttackMode,
+					HashType:                benchmarkPayload.HashType,
+					WordlistPaths:           benchmarkPayload.WordlistPaths,
+					RulePaths:               benchmarkPayload.RulePaths,
+					Mask:                    benchmarkPayload.Mask,
+					BinaryPath:              benchmarkPayload.BinaryPath,
+					ReportInterval:          5, // Default status interval
+					ExtraParameters:         benchmarkPayload.ExtraParameters,         // Agent-specific parameters
+					EnabledDevices:          benchmarkPayload.EnabledDevices,           // Device list
+					AssociationWordlistPath: benchmarkPayload.AssociationWordlistPath, // For mode 9
 				}
 
 				// Default test duration to 16 seconds if not specified
@@ -1587,7 +1811,39 @@ func (c *Connection) readPump() {
 			// Server acknowledged buffered messages
 			debug.Info("Received buffer acknowledgment")
 			c.handleBufferAck(msg.Payload)
-			
+
+		case WSTypeRequestCrackRetransmit:
+			// Server requested retransmission of outfile cracks
+			debug.Info("Received request for crack retransmission")
+			c.handleCrackRetransmitRequest(msg.Payload)
+
+		case WSTypeOutfileDeleteApproved:
+			// Server approved deletion of outfile
+			debug.Info("Received outfile delete approval")
+			c.handleOutfileDeleteApproval(msg.Payload)
+
+		case WSTypeStateSyncRequest:
+			// Server requesting state sync (GH Issue #12)
+			debug.Info("Received state sync request from backend")
+			c.handleStateSyncRequest(msg.Payload)
+
+		// Diagnostics message handlers (GH Issue #23)
+		case WSTypeDebugToggle:
+			debug.Info("Received debug toggle command")
+			c.handleDebugToggle(msg.Payload)
+
+		case WSTypeLogRequest:
+			debug.Info("Received log request")
+			c.handleLogRequest(msg.Payload)
+
+		case WSTypeLogStatusRequest:
+			debug.Info("Received log status request")
+			c.handleLogStatusRequest(msg.Payload)
+
+		case WSTypeLogPurge:
+			debug.Info("Received log purge command")
+			c.handleLogPurge(msg.Payload)
+
 		default:
 			debug.Warning("Received unknown message type: %s", msg.Type)
 		}
@@ -1624,6 +1880,7 @@ func (c *Connection) handleFileSyncAsync(requestPayload FileSyncRequestPayload) 
 			debug.Error("Failed to initialize file sync: %v", err)
 			return
 		}
+		debug.Info("FileSync initialized with hash caching enabled")
 	}
 
 	// Send progress update
@@ -1878,6 +2135,181 @@ func (c *Connection) SendJobStatus(status *jobs.JobStatus) error {
 	debug.Debug("Sent job status for task %s: %.2f%% complete",
 		status.TaskID, status.ProgressPercent)
 	return nil
+}
+
+// WaitForCompletionAck waits for a completion ACK from the backend with retry logic (GH Issue #12)
+// Returns true if ACK received, false if all retries exhausted
+// The taskID should be set before calling this method
+func (c *Connection) WaitForCompletionAck(taskID string, timeout time.Duration, maxRetries int, resendFunc func() error) bool {
+	// Set pending completion ID so ACK handler knows what we're waiting for
+	c.completionAckMu.Lock()
+	c.pendingCompletionID = taskID
+	c.completionAckMu.Unlock()
+
+	// Ensure we clear pending ID when done
+	defer func() {
+		c.completionAckMu.Lock()
+		c.pendingCompletionID = ""
+		c.completionAckMu.Unlock()
+	}()
+
+	// Drain any stale ACKs from channel first
+	select {
+	case <-c.completionAckChan:
+		debug.Debug("Drained stale ACK from channel")
+	default:
+	}
+
+	for retry := 0; retry <= maxRetries; retry++ {
+		if retry > 0 {
+			debug.Info("Retrying completion for task %s (attempt %d/%d)", taskID, retry+1, maxRetries+1)
+			// Resend the completion message
+			if resendFunc != nil {
+				if err := resendFunc(); err != nil {
+					debug.Error("Failed to resend completion for task %s: %v", taskID, err)
+				}
+			}
+		}
+
+		// Wait for ACK with timeout
+		select {
+		case ack := <-c.completionAckChan:
+			if ack != nil && ack.TaskID == taskID {
+				debug.Info("Received completion ACK for task %s (success=%v)", taskID, ack.Success)
+				return true
+			}
+			debug.Warning("Received ACK for wrong task: expected %s, got %s", taskID, ack.TaskID)
+		case <-time.After(timeout):
+			debug.Warning("Timeout waiting for completion ACK for task %s (attempt %d/%d)",
+				taskID, retry+1, maxRetries+1)
+		}
+	}
+
+	debug.Warning("All retries exhausted for completion ACK of task %s, proceeding with completion_pending flag", taskID)
+	return false
+}
+
+// SetCompletionPending sets the completion pending flag on the job manager (GH Issue #12)
+func (c *Connection) SetCompletionPending(taskID string) {
+	if jobMgr, ok := c.jobManager.(*jobs.JobManager); ok {
+		jobMgr.SetCompletionPending(taskID)
+		debug.Info("Set completion_pending flag for task %s", taskID)
+	}
+}
+
+// sendTaskStopAck sends a stop acknowledgment back to the backend (GH Issue #12)
+func (c *Connection) sendTaskStopAck(taskID, stopID string, stopped bool, message string) {
+	if !c.isConnected.Load() {
+		debug.Warning("Cannot send stop ACK - not connected")
+		return
+	}
+
+	ackPayload := TaskStopAckPayload{
+		TaskID:    taskID,
+		StopID:    stopID,
+		Stopped:   stopped,
+		Timestamp: time.Now().Unix(),
+		Message:   message,
+	}
+
+	payloadBytes, err := json.Marshal(ackPayload)
+	if err != nil {
+		debug.Error("Failed to marshal stop ACK: %v", err)
+		return
+	}
+
+	msg := &WSMessage{
+		Type:      WSTypeTaskStopAck,
+		Payload:   payloadBytes,
+		Timestamp: time.Now(),
+	}
+
+	if c.safeSendMessage(msg, 5000) {
+		debug.Info("Sent stop ACK for task %s (stop_id=%s, stopped=%v)", taskID, stopID, stopped)
+	} else {
+		debug.Warning("Failed to send stop ACK for task %s", taskID)
+	}
+}
+
+// handleStateSyncRequest handles state sync requests from backend (GH Issue #12)
+func (c *Connection) handleStateSyncRequest(payload json.RawMessage) {
+	var request StateSyncRequestPayload
+	if err := json.Unmarshal(payload, &request); err != nil {
+		debug.Error("Failed to unmarshal state sync request: %v", err)
+		return
+	}
+
+	debug.Info("Processing state sync request (request_id: %s)", request.RequestID)
+
+	// Get current state from job manager
+	response := StateSyncResponsePayload{
+		RequestID:          request.RequestID,
+		HasRunningTask:     false,
+		TaskID:             "",
+		JobID:              "",
+		Status:             "idle",
+		PendingCompletions: []string{},
+	}
+
+	if c.jobManager != nil {
+		state, taskID := c.jobManager.GetState()
+		switch state {
+		case jobs.TaskStateRunning:
+			response.HasRunningTask = true
+			response.TaskID = taskID
+			response.Status = "running"
+			// Try to get job ID from the active job
+			if jobStatus, err := c.jobManager.GetJobStatus(taskID); err == nil && jobStatus != nil && jobStatus.Assignment != nil {
+				response.JobID = jobStatus.Assignment.JobExecutionID
+			}
+		case jobs.TaskStateCompleting:
+			response.HasRunningTask = false
+			response.TaskID = taskID
+			response.Status = "completing"
+		case jobs.TaskStateIdle:
+			response.HasRunningTask = false
+			response.Status = "idle"
+		default:
+			response.Status = "unknown"
+		}
+
+		// Get pending completions
+		if hasPending, pendingTaskID := c.jobManager.GetCompletionPending(); hasPending && pendingTaskID != "" {
+			response.PendingCompletions = []string{pendingTaskID}
+		}
+	}
+
+	debug.Info("Sending state sync response (request_id: %s, status: %s, has_task: %v, pending: %v)",
+		request.RequestID, response.Status, response.HasRunningTask, response.PendingCompletions)
+
+	// Send response
+	c.sendStateSyncResponse(&response)
+}
+
+// sendStateSyncResponse sends state sync response to backend
+func (c *Connection) sendStateSyncResponse(response *StateSyncResponsePayload) {
+	if !c.isConnected.Load() {
+		debug.Warning("Cannot send state sync response - not connected")
+		return
+	}
+
+	payloadBytes, err := json.Marshal(response)
+	if err != nil {
+		debug.Error("Failed to marshal state sync response: %v", err)
+		return
+	}
+
+	msg := &WSMessage{
+		Type:      WSTypeStateSyncResponse,
+		Payload:   payloadBytes,
+		Timestamp: time.Now(),
+	}
+
+	if c.safeSendMessage(msg, 5000) {
+		debug.Debug("Sent state sync response (request_id: %s)", response.RequestID)
+	} else {
+		debug.Warning("Failed to send state sync response")
+	}
 }
 
 // SendCrackBatchAsync sends crack batch asynchronously (non-blocking)
@@ -2221,6 +2653,8 @@ func (c *Connection) Start() error {
 		// Small delay to ensure connection is fully established
 		time.Sleep(2 * time.Second)
 		c.sendCurrentTaskStatus()
+		// Also send debug status report so backend knows current debug state (GH Issue #23)
+		c.sendDebugStatusReport()
 	}()
 
 	return nil
@@ -2357,14 +2791,30 @@ func (c *Connection) sendCurrentTaskStatus() {
 	
 	// Get task status from job manager if it's the concrete type
 	if jm, ok := c.jobManager.(*jobs.JobManager); ok {
-		hasTask, taskID, jobID, keyspaceProcessed := jm.GetCurrentTaskStatus()
-		statusPayload.HasRunningTask = hasTask
-		statusPayload.TaskID = taskID
-		statusPayload.JobID = jobID
-		statusPayload.KeyspaceProcessed = keyspaceProcessed
-		if hasTask {
-			statusPayload.Status = "running"
+		taskInfo := jm.GetCurrentTaskStatus()
+		if taskInfo != nil {
+			statusPayload.HasRunningTask = true
+			statusPayload.TaskID = taskInfo.TaskID
+			statusPayload.JobID = taskInfo.JobID
+			statusPayload.KeyspaceProcessed = taskInfo.KeyspaceProcessed
+			statusPayload.EffectiveProgress = taskInfo.EffectiveProgress
+			statusPayload.ProgressPercent = taskInfo.ProgressPercent
+			statusPayload.TotalEffectiveKeyspace = taskInfo.TotalEffectiveKeyspace
+			statusPayload.HashRate = taskInfo.HashRate
+			statusPayload.CrackedCount = taskInfo.CrackedCount
+			statusPayload.AllHashesCracked = taskInfo.AllHashesCracked
+			statusPayload.Status = taskInfo.Status
+			statusPayload.ErrorMessage = taskInfo.ErrorMessage
+
+			// If we reported a completed/failed task, clear the cache
+			// The backend will process this status and we don't need to report it again
+			if taskInfo.Status == "completed" || taskInfo.Status == "failed" {
+				debug.Info("Reporting cached completion for task %s with status %s, progress %.2f%%",
+					taskInfo.TaskID, taskInfo.Status, taskInfo.ProgressPercent)
+				jm.ClearLastCompletedTask()
+			}
 		} else {
+			statusPayload.HasRunningTask = false
 			statusPayload.Status = "idle"
 		}
 	}
@@ -2385,8 +2835,11 @@ func (c *Connection) sendCurrentTaskStatus() {
 	
 	// Send the message
 	if c.safeSendMessage(msg, 5000) {
-		debug.Info("Successfully sent current task status - HasTask: %v, TaskID: %s, JobID: %s", 
+		debug.Info("Successfully sent current task status - HasTask: %v, TaskID: %s, JobID: %s",
 			statusPayload.HasRunningTask, statusPayload.TaskID, statusPayload.JobID)
+
+		// After sending task status, also send pending outfiles for the acknowledgment protocol
+		c.sendPendingOutfiles()
 	} else {
 		debug.Error("Failed to send current task status")
 	}
@@ -2793,20 +3246,709 @@ func (c *Connection) handleBufferAck(payload json.RawMessage) {
 	var ack struct {
 		MessageIDs []string `json:"message_ids"`
 	}
-	
+
 	if err := json.Unmarshal(payload, &ack); err != nil {
 		debug.Error("Failed to unmarshal buffer ACK: %v", err)
 		return
 	}
-	
+
 	if c.messageBuffer == nil {
 		return
 	}
-	
+
 	// Remove acknowledged messages from buffer
 	if err := c.messageBuffer.RemoveMessages(ack.MessageIDs); err != nil {
 		debug.Error("Failed to remove acknowledged messages from buffer: %v", err)
 	} else {
 		debug.Info("Removed %d acknowledged messages from buffer", len(ack.MessageIDs))
+	}
+}
+
+// handleCrackRetransmitRequest processes a request from the backend to retransmit cracks from an outfile
+func (c *Connection) handleCrackRetransmitRequest(payload json.RawMessage) {
+	var request struct {
+		TaskID        string `json:"task_id"`
+		ExpectedCount int    `json:"expected_count"`
+	}
+
+	if err := json.Unmarshal(payload, &request); err != nil {
+		debug.Error("Failed to unmarshal crack retransmit request: %v", err)
+		return
+	}
+
+	debug.Info("Processing crack retransmit request for task %s (expected %d cracks)", request.TaskID, request.ExpectedCount)
+
+	// Get job manager
+	jm, ok := c.jobManager.(*jobs.JobManager)
+	if !ok || jm == nil {
+		debug.Error("Job manager not available for retransmit")
+		return
+	}
+
+	// Read all cracks from the outfile
+	cracks, err := jm.RetransmitOutfile(request.TaskID)
+	if err != nil {
+		debug.Error("Failed to retransmit outfile for task %s: %v", request.TaskID, err)
+		return
+	}
+
+	if len(cracks) == 0 {
+		debug.Warning("No cracks found in outfile for task %s", request.TaskID)
+		// Still send crack_batches_complete with 0 count to signal completion
+		c.SendCrackBatchesComplete(&jobs.CrackBatchesComplete{TaskID: request.TaskID, IsRetransmit: true})
+		return
+	}
+
+	// Send in batches of 10,000 (same as regular crack transmission)
+	const retransmitBatchSize = 10000
+	totalCracks := len(cracks)
+	batchesSent := 0
+
+	for start := 0; start < totalCracks; start += retransmitBatchSize {
+		end := start + retransmitBatchSize
+		if end > totalCracks {
+			end = totalCracks
+		}
+
+		batch := jobs.CrackBatch{
+			TaskID:        request.TaskID,
+			CrackedHashes: cracks[start:end],
+			IsRetransmit:  true,
+		}
+
+		batchBytes, err := json.Marshal(batch)
+		if err != nil {
+			debug.Error("Failed to marshal retransmit crack batch: %v", err)
+			return
+		}
+
+		msg := &WSMessage{
+			Type:      WSTypeCrackBatch,
+			Payload:   batchBytes,
+			Timestamp: time.Now(),
+		}
+
+		if !c.safeSendMessage(msg, 5000) {
+			debug.Error("Failed to send retransmit crack batch %d for task %s", batchesSent+1, request.TaskID)
+			return
+		}
+		batchesSent++
+
+		debug.Debug("Sent retransmit batch %d with %d cracks for task %s",
+			batchesSent, end-start, request.TaskID)
+	}
+
+	debug.Info("Completed retransmission: sent %d batches with %d total cracks for task %s",
+		batchesSent, totalCracks, request.TaskID)
+
+	// Send crack_batches_complete to signal all batches sent (marked as retransmit)
+	if err := c.SendCrackBatchesComplete(&jobs.CrackBatchesComplete{TaskID: request.TaskID, IsRetransmit: true}); err != nil {
+		debug.Error("Failed to send crack_batches_complete for retransmit task %s: %v", request.TaskID, err)
+	}
+}
+
+// handleOutfileDeleteApproval processes approval from the backend to delete an outfile
+func (c *Connection) handleOutfileDeleteApproval(payload json.RawMessage) {
+	var approval struct {
+		TaskID            string `json:"task_id"`
+		ExpectedLineCount int64  `json:"expected_line_count"`
+		TaskExists        bool   `json:"task_exists"`
+	}
+
+	if err := json.Unmarshal(payload, &approval); err != nil {
+		debug.Error("Failed to unmarshal outfile delete approval: %v", err)
+		return
+	}
+
+	debug.Info("Processing outfile delete approval for task %s (expected %d lines, task_exists=%v)", approval.TaskID, approval.ExpectedLineCount, approval.TaskExists)
+
+	// Get job manager
+	jm, ok := c.jobManager.(*jobs.JobManager)
+	if !ok || jm == nil {
+		debug.Error("Job manager not available for outfile deletion")
+		return
+	}
+
+	// SAFETY CHECK 1: Don't delete if currently working on this task
+	// This prevents a race condition where:
+	// 1. Agent had task, went offline, reconnects
+	// 2. Backend requests retransmission of old outfile
+	// 3. Agent gets reassigned the same task again
+	// 4. Backend approves deletion of outfile (from retransmit)
+	// 5. If we delete now, we lose the NEW cracks from the reassigned task
+	taskInfo := jm.GetCurrentTaskStatus()
+	if taskInfo != nil && taskInfo.TaskID == approval.TaskID {
+		debug.Warning("Ignoring outfile delete approval for task %s - currently working on it (race condition prevented)", approval.TaskID)
+		return
+	}
+
+	// If the backend says the task doesn't exist, delete unconditionally
+	// This handles orphaned outfiles from deleted jobs where the cracks have already been processed
+	if !approval.TaskExists {
+		debug.Info("Task %s no longer exists in backend, deleting outfile unconditionally", approval.TaskID)
+		if err := jm.DeleteOutfile(approval.TaskID); err != nil {
+			if !os.IsNotExist(err) {
+				debug.Error("Failed to delete orphaned outfile for task %s: %v", approval.TaskID, err)
+			}
+		} else {
+			debug.Info("Successfully deleted orphaned outfile for task %s", approval.TaskID)
+		}
+		return
+	}
+
+	// SAFETY CHECK 2: Verify line count matches expected
+	// This prevents data loss if outfile grew while retransmit was being processed
+	actualCount, err := jm.GetOutfileLineCount(approval.TaskID)
+	if err != nil {
+		if os.IsNotExist(err) {
+			debug.Info("Outfile already deleted for task %s", approval.TaskID)
+			return
+		}
+		debug.Error("Failed to count outfile lines for task %s: %v", approval.TaskID, err)
+		return
+	}
+
+	// Check 3: Verify line counts match
+	if actualCount != approval.ExpectedLineCount {
+		debug.Warning("Line count mismatch for task %s: expected %d, actual %d - rejecting delete",
+			approval.TaskID, approval.ExpectedLineCount, actualCount)
+		c.sendOutfileDeleteRejected(approval.TaskID, approval.ExpectedLineCount, actualCount)
+		return
+	}
+
+	// Safe to delete - line counts verified
+	debug.Info("Line count verified for task %s (%d lines), deleting outfile", approval.TaskID, actualCount)
+	if err := jm.DeleteOutfile(approval.TaskID); err != nil {
+		debug.Error("Failed to delete outfile for task %s: %v", approval.TaskID, err)
+	} else {
+		debug.Info("Successfully deleted outfile for task %s after backend approval", approval.TaskID)
+	}
+}
+
+// sendOutfileDeleteRejected sends a rejection message to the backend when line count doesn't match
+func (c *Connection) sendOutfileDeleteRejected(taskID string, expected, actual int64) {
+	payload := struct {
+		TaskID            string `json:"task_id"`
+		ExpectedLineCount int64  `json:"expected_line_count"`
+		ActualLineCount   int64  `json:"actual_line_count"`
+		Reason            string `json:"reason"`
+	}{
+		TaskID:            taskID,
+		ExpectedLineCount: expected,
+		ActualLineCount:   actual,
+		Reason:            "line_count_mismatch",
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		debug.Error("Failed to marshal outfile delete rejection payload: %v", err)
+		return
+	}
+
+	msg := &WSMessage{
+		Type:      WSTypeOutfileDeleteRejected,
+		Payload:   payloadBytes,
+		Timestamp: time.Now(),
+	}
+
+	if c.safeSendMessage(msg, 5000) {
+		debug.Info("Sent outfile delete rejection for task %s (expected %d, actual %d)", taskID, expected, actual)
+	} else {
+		debug.Error("Failed to send outfile delete rejection for task %s", taskID)
+	}
+}
+
+// sendPendingOutfiles sends a list of pending outfiles to the backend on reconnect
+func (c *Connection) sendPendingOutfiles() {
+	// Get job manager
+	jm, ok := c.jobManager.(*jobs.JobManager)
+	if !ok || jm == nil {
+		debug.Debug("Job manager not available, skipping pending outfiles check")
+		return
+	}
+
+	// Get list of pending outfiles
+	taskIDs, currentTaskID, err := jm.GetPendingOutfiles()
+	if err != nil {
+		debug.Error("Failed to get pending outfiles: %v", err)
+		return
+	}
+
+	if len(taskIDs) == 0 {
+		debug.Debug("No pending outfiles to report")
+		return
+	}
+
+	debug.Info("Reporting %d pending outfiles to backend (current task: %s)", len(taskIDs), currentTaskID)
+
+	// Create message payload
+	pendingPayload := map[string]interface{}{
+		"task_ids":        taskIDs,
+		"current_task_id": currentTaskID,
+	}
+
+	payloadBytes, err := json.Marshal(pendingPayload)
+	if err != nil {
+		debug.Error("Failed to marshal pending outfiles payload: %v", err)
+		return
+	}
+
+	msg := &WSMessage{
+		Type:      WSTypePendingOutfiles,
+		Payload:   payloadBytes,
+		Timestamp: time.Now(),
+	}
+
+	if c.safeSendMessage(msg, 5000) {
+		debug.Info("Sent pending outfiles notification to backend")
+	} else {
+		debug.Error("Failed to send pending outfiles notification")
+	}
+}
+
+// ============================================================================
+// Diagnostics Handlers (GH Issue #23)
+// ============================================================================
+
+// sendDebugStatusReport sends the current debug status to the backend
+func (c *Connection) sendDebugStatusReport() {
+	if !c.isConnected.Load() {
+		debug.Warning("Cannot send debug status report - not connected")
+		return
+	}
+
+	status := debug.GetStatus()
+
+	// Check log file info
+	var logFileExists bool
+	var logFileSize int64
+	var logFileModified int64
+
+	if status.LogFilePath != "" {
+		if info, err := os.Stat(status.LogFilePath); err == nil {
+			logFileExists = true
+			logFileSize = info.Size()
+			logFileModified = info.ModTime().Unix()
+		}
+	}
+
+	payload := DebugStatusReportPayload{
+		Enabled:            status.Enabled,
+		Level:              status.Level,
+		FileLoggingEnabled: status.FileLoggingEnabled,
+		LogFilePath:        status.LogFilePath,
+		LogFileExists:      logFileExists,
+		LogFileSize:        logFileSize,
+		LogFileModified:    logFileModified,
+		BufferCount:        status.BufferCount,
+		BufferCapacity:     status.BufferCapacity,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		debug.Error("Failed to marshal debug status report: %v", err)
+		return
+	}
+
+	msg := &WSMessage{
+		Type:      WSTypeDebugStatusReport,
+		Payload:   payloadBytes,
+		Timestamp: time.Now(),
+	}
+
+	if c.safeSendMessage(msg, 5000) {
+		debug.Debug("Sent debug status report to backend")
+	} else {
+		debug.Warning("Failed to send debug status report")
+	}
+}
+
+// handleDebugToggle handles a request to toggle debug mode
+func (c *Connection) handleDebugToggle(payload json.RawMessage) {
+	var request DebugTogglePayload
+	if err := json.Unmarshal(payload, &request); err != nil {
+		debug.Error("Failed to unmarshal debug toggle request: %v", err)
+		c.sendDebugToggleAck(false, false, false, "Failed to parse request")
+		return
+	}
+
+	debug.Info("Processing debug toggle request: enable=%v", request.Enable)
+
+	// Update runtime state immediately
+	debug.SetEnabled(request.Enable)
+
+	// If enabling, also enable file logging to the logs directory
+	var logDir string
+	if request.Enable {
+		// Use config directory's parent + logs, or current directory + logs
+		configDir := config.GetConfigDir()
+		logDir = filepath.Join(filepath.Dir(configDir), "logs")
+		if err := debug.EnableFileLogging(logDir); err != nil {
+			debug.Error("Failed to enable file logging to %s: %v", logDir, err)
+			// Continue anyway - runtime logging will still work
+		}
+	} else {
+		// Disable file logging when debug is disabled
+		if err := debug.DisableFileLogging(); err != nil {
+			debug.Error("Failed to disable file logging: %v", err)
+		}
+	}
+
+	// Update the .env file for persistence across restarts
+	envUpdated := c.updateEnvFile(request.Enable, logDir)
+
+	// If env update failed, still report success for runtime change
+	// but indicate restart may be needed for full persistence
+	restartRequired := !envUpdated
+
+	c.sendDebugToggleAck(true, request.Enable, restartRequired, "")
+	debug.Info("Debug mode toggled: enabled=%v, restart_required=%v", request.Enable, restartRequired)
+
+	// Send updated debug status
+	c.sendDebugStatusReport()
+}
+
+// updateEnvFile updates the .env file with debug settings
+func (c *Connection) updateEnvFile(enable bool, logDir string) bool {
+	// Find the .env file - check config directory first, then working directory
+	envPaths := []string{
+		filepath.Join(config.GetConfigDir(), ".env"),
+		".env",
+	}
+
+	var envPath string
+	var existingContent []byte
+	var err error
+
+	for _, p := range envPaths {
+		if _, statErr := os.Stat(p); statErr == nil {
+			envPath = p
+			existingContent, err = os.ReadFile(p)
+			if err != nil {
+				debug.Warning("Failed to read existing .env file at %s: %v", p, err)
+				existingContent = nil
+			}
+			break
+		}
+	}
+
+	// If no .env file found, create one in config directory
+	if envPath == "" {
+		envPath = filepath.Join(config.GetConfigDir(), ".env")
+		existingContent = nil
+	}
+
+	// Parse existing content and update DEBUG and LOG_DIR lines
+	lines := strings.Split(string(existingContent), "\n")
+	newLines := make([]string, 0, len(lines)+2)
+	foundDebug := false
+	foundLogDir := false
+	foundLogLevel := false
+
+	debugValue := "false"
+	if enable {
+		debugValue = "true"
+	}
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "DEBUG=") {
+			newLines = append(newLines, fmt.Sprintf("DEBUG=%s", debugValue))
+			foundDebug = true
+		} else if strings.HasPrefix(trimmed, "LOG_DIR=") {
+			if enable && logDir != "" {
+				newLines = append(newLines, fmt.Sprintf("LOG_DIR=%s", logDir))
+			} else {
+				newLines = append(newLines, "LOG_DIR=")
+			}
+			foundLogDir = true
+		} else if strings.HasPrefix(trimmed, "LOG_LEVEL=") {
+			newLines = append(newLines, line)
+			foundLogLevel = true
+		} else if trimmed != "" || len(newLines) > 0 {
+			// Keep non-empty lines and preserve trailing empty lines only if we have content
+			newLines = append(newLines, line)
+		}
+	}
+
+	// Add missing entries
+	if !foundDebug {
+		newLines = append(newLines, fmt.Sprintf("DEBUG=%s", debugValue))
+	}
+	if !foundLogDir && enable && logDir != "" {
+		newLines = append(newLines, fmt.Sprintf("LOG_DIR=%s", logDir))
+	}
+	if !foundLogLevel {
+		newLines = append(newLines, "LOG_LEVEL=DEBUG")
+	}
+
+	// Write updated content
+	newContent := strings.Join(newLines, "\n")
+	if !strings.HasSuffix(newContent, "\n") {
+		newContent += "\n"
+	}
+
+	if err := os.WriteFile(envPath, []byte(newContent), 0644); err != nil {
+		debug.Error("Failed to write .env file at %s: %v", envPath, err)
+		return false
+	}
+
+	debug.Info("Updated .env file at %s with DEBUG=%s", envPath, debugValue)
+	return true
+}
+
+// sendDebugToggleAck sends acknowledgment for debug toggle
+func (c *Connection) sendDebugToggleAck(success, enabled, restartRequired bool, message string) {
+	if !c.isConnected.Load() {
+		return
+	}
+
+	payload := DebugToggleAckPayload{
+		Success:         success,
+		Enabled:         enabled,
+		RestartRequired: restartRequired,
+		Message:         message,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		debug.Error("Failed to marshal debug toggle ack: %v", err)
+		return
+	}
+
+	msg := &WSMessage{
+		Type:      WSTypeDebugToggleAck,
+		Payload:   payloadBytes,
+		Timestamp: time.Now(),
+	}
+
+	c.safeSendMessage(msg, 5000)
+}
+
+// handleLogRequest handles a request to retrieve logs
+func (c *Connection) handleLogRequest(payload json.RawMessage) {
+	var request LogRequestPayload
+	if err := json.Unmarshal(payload, &request); err != nil {
+		debug.Error("Failed to unmarshal log request: %v", err)
+		c.sendLogData(request.RequestID, nil, "", 0, false, "Failed to parse request")
+		return
+	}
+
+	debug.Info("Processing log request (request_id: %s, hours_back: %d, include_all: %v)",
+		request.RequestID, request.HoursBack, request.IncludeAll)
+
+	// Calculate the since time
+	var since time.Time
+	if !request.IncludeAll && request.HoursBack > 0 {
+		since = time.Now().Add(-time.Duration(request.HoursBack) * time.Hour)
+	}
+
+	// Get buffered logs
+	var entries []LogEntryPayload
+	var bufferedLogs []logbuffer.LogEntry
+
+	if request.IncludeAll {
+		bufferedLogs = debug.GetAllBufferedLogs()
+	} else {
+		bufferedLogs = debug.GetBufferedLogs(since)
+	}
+
+	// Convert to payload format
+	for _, entry := range bufferedLogs {
+		entries = append(entries, LogEntryPayload{
+			Timestamp: entry.Timestamp.UnixMilli(),
+			Level:     entry.Level,
+			Message:   entry.Message,
+			File:      entry.File,
+			Line:      entry.Line,
+			Function:  entry.Function,
+		})
+	}
+
+	// Also try to read log file if it exists
+	var fileContent string
+	status := debug.GetStatus()
+	if status.LogFilePath != "" {
+		if data, err := os.ReadFile(status.LogFilePath); err == nil {
+			// Limit file content to 1MB
+			const maxFileSize = 1024 * 1024
+			if len(data) > maxFileSize {
+				// Take the last 1MB
+				data = data[len(data)-maxFileSize:]
+				fileContent = "... [truncated] ...\n" + string(data)
+			} else {
+				fileContent = string(data)
+			}
+		}
+	}
+
+	totalCount := len(entries)
+	truncated := false
+
+	// Limit entries to prevent huge messages
+	const maxEntries = 500
+	if len(entries) > maxEntries {
+		entries = entries[len(entries)-maxEntries:]
+		truncated = true
+	}
+
+	c.sendLogData(request.RequestID, entries, fileContent, totalCount, truncated, "")
+}
+
+// sendLogData sends log data to the backend
+func (c *Connection) sendLogData(requestID string, entries []LogEntryPayload, fileContent string, totalCount int, truncated bool, errMsg string) {
+	if !c.isConnected.Load() {
+		return
+	}
+
+	payload := LogDataPayload{
+		RequestID:   requestID,
+		AgentID:     c.agentID,
+		Entries:     entries,
+		FileContent: fileContent,
+		TotalCount:  totalCount,
+		Truncated:   truncated,
+		Error:       errMsg,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		debug.Error("Failed to marshal log data: %v", err)
+		return
+	}
+
+	msg := &WSMessage{
+		Type:      WSTypeLogData,
+		Payload:   payloadBytes,
+		Timestamp: time.Now(),
+	}
+
+	if c.safeSendMessage(msg, 10000) { // Longer timeout for potentially large payload
+		debug.Debug("Sent log data (request_id: %s, entries: %d, truncated: %v)", requestID, len(entries), truncated)
+	} else {
+		debug.Warning("Failed to send log data")
+	}
+}
+
+// handleLogStatusRequest handles a request for log file status
+func (c *Connection) handleLogStatusRequest(payload json.RawMessage) {
+	var request LogStatusRequestPayload
+	if err := json.Unmarshal(payload, &request); err != nil {
+		debug.Error("Failed to unmarshal log status request: %v", err)
+		return
+	}
+
+	debug.Debug("Processing log status request (request_id: %s)", request.RequestID)
+
+	status := debug.GetStatus()
+
+	// Check log file info
+	var logFileExists bool
+	var logFileSize int64
+	var logFileModified int64
+
+	if status.LogFilePath != "" {
+		if info, err := os.Stat(status.LogFilePath); err == nil {
+			logFileExists = true
+			logFileSize = info.Size()
+			logFileModified = info.ModTime().Unix()
+		}
+	}
+
+	response := LogStatusResponsePayload{
+		RequestID:       request.RequestID,
+		LogFileExists:   logFileExists,
+		LogFilePath:     status.LogFilePath,
+		LogFileSize:     logFileSize,
+		LogFileModified: logFileModified,
+		DebugEnabled:    status.Enabled,
+		BufferCount:     status.BufferCount,
+	}
+
+	c.sendLogStatusResponse(&response)
+}
+
+// sendLogStatusResponse sends log status response to backend
+func (c *Connection) sendLogStatusResponse(response *LogStatusResponsePayload) {
+	if !c.isConnected.Load() {
+		return
+	}
+
+	payloadBytes, err := json.Marshal(response)
+	if err != nil {
+		debug.Error("Failed to marshal log status response: %v", err)
+		return
+	}
+
+	msg := &WSMessage{
+		Type:      WSTypeLogStatusResponse,
+		Payload:   payloadBytes,
+		Timestamp: time.Now(),
+	}
+
+	if c.safeSendMessage(msg, 5000) {
+		debug.Debug("Sent log status response (request_id: %s)", response.RequestID)
+	} else {
+		debug.Warning("Failed to send log status response")
+	}
+}
+
+// handleLogPurge handles a request to delete log files
+func (c *Connection) handleLogPurge(payload json.RawMessage) {
+	var request LogPurgePayload
+	if err := json.Unmarshal(payload, &request); err != nil {
+		debug.Error("Failed to unmarshal log purge request: %v", err)
+		c.sendLogPurgeAck(request.RequestID, false, "Failed to parse request")
+		return
+	}
+
+	debug.Info("Processing log purge request (request_id: %s)", request.RequestID)
+
+	// Clear the in-memory buffer
+	debug.ClearLogBuffer()
+
+	// Delete the log file if it exists
+	status := debug.GetStatus()
+	if status.LogFilePath != "" {
+		if err := os.Remove(status.LogFilePath); err != nil && !os.IsNotExist(err) {
+			debug.Warning("Failed to delete log file %s: %v", status.LogFilePath, err)
+			c.sendLogPurgeAck(request.RequestID, false, fmt.Sprintf("Failed to delete log file: %v", err))
+			return
+		}
+		debug.Info("Deleted log file: %s", status.LogFilePath)
+	}
+
+	c.sendLogPurgeAck(request.RequestID, true, "")
+	debug.Info("Log purge completed (request_id: %s)", request.RequestID)
+}
+
+// sendLogPurgeAck sends log purge acknowledgment to backend
+func (c *Connection) sendLogPurgeAck(requestID string, success bool, message string) {
+	if !c.isConnected.Load() {
+		return
+	}
+
+	payload := LogPurgeAckPayload{
+		RequestID: requestID,
+		Success:   success,
+		Message:   message,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		debug.Error("Failed to marshal log purge ack: %v", err)
+		return
+	}
+
+	msg := &WSMessage{
+		Type:      WSTypeLogPurgeAck,
+		Payload:   payloadBytes,
+		Timestamp: time.Now(),
+	}
+
+	if c.safeSendMessage(msg, 5000) {
+		debug.Debug("Sent log purge ack (request_id: %s, success: %v)", requestID, success)
+	} else {
+		debug.Warning("Failed to send log purge ack")
 	}
 }

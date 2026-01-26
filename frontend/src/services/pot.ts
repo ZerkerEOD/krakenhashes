@@ -6,6 +6,7 @@ export interface CrackedHash {
   password: string;
   hash_type_id: number;
   username?: string;
+  domain?: string;
 }
 
 export interface PotResponse {
@@ -18,6 +19,7 @@ export interface PotResponse {
 export interface PotParams {
   limit: number;
   offset: number;
+  search?: string;  // Optional server-side search term
 }
 
 export const potService = {

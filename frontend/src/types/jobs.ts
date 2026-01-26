@@ -3,7 +3,7 @@
  */
 
 // Job status enum
-export type JobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+export type JobStatus = 'pending' | 'running' | 'processing' | 'completed' | 'failed' | 'cancelled';
 
 // Job summary for list views
 export interface JobSummary {
@@ -29,7 +29,6 @@ export interface JobSummary {
   multiplication_factor?: number;
   uses_rule_splitting?: boolean;
   base_keyspace?: number;
-  total_keyspace?: number;
   processed_keyspace?: number;
   dispatched_keyspace?: number;
   overall_progress_percent: number;
@@ -66,7 +65,6 @@ export interface JobExecution {
   status: string;
   priority: number;
   max_agents: number;
-  total_keyspace?: number;
   processed_keyspace: number;
   attack_mode: number;
   created_by?: string;
@@ -87,7 +85,7 @@ export interface JobTask {
   job_execution_id?: string;
   agent_id?: number;
   increment_layer_id?: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'reconnect_pending';
+  status: 'pending' | 'assigned' | 'running' | 'processing' | 'processing_error' | 'completed' | 'failed' | 'cancelled' | 'reconnect_pending';
   priority?: number;
   chunk_start?: number;
   chunk_end?: number;
@@ -103,10 +101,13 @@ export interface JobTask {
   assigned_agent_id?: string;
   assigned_at?: string;
   started_at?: string;
+  cracking_completed_at?: string;
   completed_at?: string;
   last_checkpoint?: string;
   error_message?: string;
   crack_count: number;
+  expected_crack_count?: number;
+  received_crack_count?: number;
   progress_percent?: number;
   detailed_status?: string;
   created_at?: string;
@@ -175,7 +176,6 @@ export interface JobDetailsResponse {
   priority: number;
   max_agents: number;
   attack_mode: number;
-  total_keyspace?: number;
   effective_keyspace?: number;
   base_keyspace?: number;
   processed_keyspace?: number;
@@ -187,6 +187,7 @@ export interface JobDetailsResponse {
   total_speed: number;
   created_at: string;
   started_at?: string;
+  cracking_completed_at?: string;
   completed_at?: string;
   updated_at?: string;
   error_message?: string;
@@ -199,10 +200,13 @@ export interface JobDetailsResponse {
   rule_split_count?: number;
   overall_progress_percent?: number;
   consecutive_failures?: number;
-  wordlist_ids?: number[];
-  rule_ids?: number[];
+  wordlist_ids?: string[];
+  wordlist_names?: string[];
+  rule_ids?: string[];
+  rule_names?: string[];
   mask?: string;
-  binary_version_id?: number;
+  /** Binary version pattern (e.g., "default", "7.x", "7.1.x", "7.1.2") */
+  binary_version?: string;
   chunk_size_seconds?: number;
   status_updates_enabled?: boolean;
   allow_high_priority_override?: boolean;

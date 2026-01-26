@@ -56,6 +56,7 @@ The system separates status updates from crack data transmission:
 ```json
 {
   "task_id": "uuid",
+  "is_retransmit": false,
   "cracked_hashes": [
     {
       "hash": "5f4dcc3b5aa765d61d8327deb882cf99",
@@ -453,7 +454,8 @@ The crack batching system integrates with the processing status workflow to ensu
 ```json
 {
   "type": "crack_batches_complete",
-  "task_id": "uuid-here"
+  "task_id": "uuid-here",
+  "is_retransmit": false
 }
 ```
 
@@ -501,6 +503,169 @@ CheckTaskReadyToComplete(taskID)             // Verify completion conditions
 - ✅ Agent can accept new work immediately after signaling completion
 
 See [Job Completion System](./job-completion-system.md) for full processing status workflow.
+
+### Outfile Acknowledgment Protocol
+
+The Outfile Acknowledgment Protocol ensures reliable crack recovery when an agent reconnects after a disconnection. This prevents data loss from outfiles that weren't fully transmitted before the agent went offline.
+
+#### Problem Solved
+
+When an agent disconnects mid-job:
+- Outfiles may contain cracks that weren't transmitted
+- Agent restart could lose these cracks without proper recovery
+- Manual recovery is error-prone and time-consuming
+
+#### Protocol Flow
+
+```mermaid
+sequenceDiagram
+    participant Agent
+    participant Backend
+
+    Note over Agent: Agent connects/reconnects
+    Agent->>Backend: pending_outfiles (list of outfile paths)
+
+    loop For each outfile
+        Backend->>Agent: request_crack_retransmit (task_id, outfile_path)
+        Agent->>Backend: crack_batch (is_retransmit=true)
+        Agent->>Backend: crack_batches_complete (is_retransmit=true)
+
+        alt Retransmit successful
+            Backend->>Agent: outfile_delete_approved (task_id, outfile_path)
+            Note over Agent: Agent deletes outfile
+        else Retransmit failed
+            Backend->>Agent: outfile_delete_rejected (task_id, reason)
+            Note over Agent: Agent retains outfile for retry
+        end
+    end
+```
+
+#### WebSocket Messages
+
+**1. `pending_outfiles` (Agent → Backend)**
+
+Sent when agent connects with existing outfiles from previous sessions:
+
+```json
+{
+  "type": "pending_outfiles",
+  "outfiles": [
+    {
+      "task_id": "uuid-1",
+      "outfile_path": "/data/agent/outfiles/task-uuid-1.out",
+      "line_count": 1523
+    },
+    {
+      "task_id": "uuid-2",
+      "outfile_path": "/data/agent/outfiles/task-uuid-2.out",
+      "line_count": 847
+    }
+  ]
+}
+```
+
+**2. `request_crack_retransmit` (Backend → Agent)**
+
+Backend requests agent to retransmit cracks from a specific outfile:
+
+```json
+{
+  "type": "request_crack_retransmit",
+  "task_id": "uuid-1",
+  "outfile_path": "/data/agent/outfiles/task-uuid-1.out"
+}
+```
+
+**3. `outfile_delete_approved` (Backend → Agent)**
+
+Backend confirms all cracks received, agent can delete the outfile:
+
+```json
+{
+  "type": "outfile_delete_approved",
+  "task_id": "uuid-1",
+  "outfile_path": "/data/agent/outfiles/task-uuid-1.out"
+}
+```
+
+**4. `outfile_delete_rejected` (Backend → Agent)**
+
+Backend indicates retransmission incomplete, agent should retain outfile:
+
+```json
+{
+  "type": "outfile_delete_rejected",
+  "task_id": "uuid-1",
+  "outfile_path": "/data/agent/outfiles/task-uuid-1.out",
+  "reason": "Line count mismatch: expected 1523, received 1400"
+}
+```
+
+#### Retransmit Flag Behavior
+
+When `is_retransmit: true` is set on `crack_batch` and `crack_batches_complete` messages:
+
+1. **Duplicate Prevention**: Backend uses the flag to identify retransmitted cracks
+2. **Idempotent Processing**: Cracks are matched against existing records
+3. **Count Tracking**: `retransmit_count` incremented in `job_tasks` table
+4. **Timestamp Recording**: `last_retransmit_at` updated for monitoring
+
+```go
+// Backend handling of retransmit batches
+if crackBatch.IsRetransmit {
+    // Increment retransmit tracking
+    repo.IncrementRetransmitCount(ctx, taskID)
+
+    // Use idempotent upsert for crack processing
+    // Duplicate cracks are silently ignored
+}
+```
+
+#### Safety Checks
+
+**Line Count Verification**:
+- Agent reports `line_count` in `pending_outfiles`
+- Backend tracks received crack count
+- Mismatch triggers `outfile_delete_rejected`
+
+**Race Condition Prevention**:
+- Backend validates task ownership before processing
+- Retransmits only processed for tasks in `processing` or `completed` state
+- Concurrent retransmits from same outfile are serialized
+
+**O(1) Hashlist Lookup**:
+- Backend pre-loads hashlist into memory map for fast crack matching
+- Prevents O(n) scans during large retransmissions
+- Map keyed by hash value for instant lookup
+
+```go
+// Optimized hashlist lookup during crack processing
+hashlistMap := make(map[string]*models.Hash)
+for _, hash := range hashlist.Hashes {
+    hashlistMap[hash.HashValue] = hash
+}
+
+// O(1) lookup per crack
+if existingHash, ok := hashlistMap[crack.Hash]; ok {
+    // Process crack
+}
+```
+
+#### Database Fields for Retransmit Tracking
+
+Added to `job_tasks` table:
+- `retransmit_count` (INTEGER, default 0): Number of retransmission attempts
+- `last_retransmit_at` (TIMESTAMP): When last retransmission was requested
+
+These fields help identify problematic agents or network issues that cause frequent retransmissions.
+
+#### Benefits
+
+- ✅ Zero data loss during agent disconnections
+- ✅ Automatic recovery without manual intervention
+- ✅ Idempotent processing prevents duplicate cracks
+- ✅ Verification ensures complete retransmission
+- ✅ Agent cleanup only after backend confirmation
 
 ## Configuration and Tuning
 

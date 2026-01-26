@@ -19,19 +19,21 @@ const (
 
 // HashList represents a collection of hashes uploaded by a user.
 type HashList struct {
-	ID                 int64          `json:"id"`                            // Primary key (Changed from UUID)
-	Name               string         `json:"name"`                          // User-defined name for the list
-	UserID             uuid.UUID      `json:"user_id"`                       // FK to users table
-	ClientID           uuid.UUID      `json:"client_id"`                     // Optional FK to clients table (nullable in DB)
-	ClientName         *string        `json:"clientName,omitempty"`          // Optional Client Name (from JOIN)
-	HashTypeID         int            `json:"hash_type_id"`                  // FK to hash_types table
-	TotalHashes        int            `json:"total_hashes"`                  // Total number of hashes in the list
-	CrackedHashes      int            `json:"cracked_hashes"`                // Number of hashes found cracked
-	Status             string         `json:"status"`                        // Processing status (uploading, processing, ready, error)
-	ErrorMessage       sql.NullString `json:"error_message"`                 // Use sql.NullString to handle NULL
-	ExcludeFromPotfile bool           `json:"exclude_from_potfile"`          // Flag to exclude cracked passwords from potfile
-	CreatedAt          time.Time      `json:"createdAt"`                     // Timestamp of creation - Use camelCase
-	UpdatedAt          time.Time      `json:"updatedAt"`                     // Timestamp of last update - Use camelCase
+	ID                  int64          `json:"id"`                             // Primary key (Changed from UUID)
+	Name                string         `json:"name"`                           // User-defined name for the list
+	UserID              uuid.UUID      `json:"user_id"`                        // FK to users table
+	ClientID            uuid.UUID      `json:"client_id"`                      // Optional FK to clients table (nullable in DB)
+	ClientName          *string        `json:"clientName,omitempty"`           // Optional Client Name (from JOIN)
+	HashTypeID          int            `json:"hash_type_id"`                   // FK to hash_types table
+	TotalHashes         int            `json:"total_hashes"`                   // Total number of hashes in the list
+	CrackedHashes       int            `json:"cracked_hashes"`                 // Number of hashes found cracked
+	Status              string         `json:"status"`                         // Processing status (uploading, processing, ready, error)
+	ErrorMessage        sql.NullString `json:"error_message"`                  // Use sql.NullString to handle NULL
+	ExcludeFromPotfile  bool           `json:"exclude_from_potfile"`           // Flag to exclude cracked passwords from potfile
+	OriginalFilePath    *string        `json:"original_file_path,omitempty"`   // Path to original uploaded file for association attacks
+	HasMixedWorkFactors bool           `json:"has_mixed_work_factors"`         // Warning flag if hashes have different work factors
+	CreatedAt           time.Time      `json:"createdAt"`                      // Timestamp of creation - Use camelCase
+	UpdatedAt           time.Time      `json:"updatedAt"`                      // Timestamp of last update - Use camelCase
 }
 
 // Hash represents a single hash entry in the system.
@@ -62,6 +64,7 @@ type HashType struct {
 	ProcessingLogic *string `json:"processing_logic,omitempty"` // Description or identifier for the processing logic (pointer to handle NULL)
 	IsEnabled       bool    `json:"is_enabled"`                 // Whether this hash type is currently supported/enabled
 	Slow            bool    `json:"slow"`                       // Flag indicating if this is a slow hash algorithm (computationally expensive)
+	IsSalted        bool    `json:"is_salted"`                  // Whether this hash type uses per-hash salts (affects chunk calculation)
 }
 
 // Client represents a client or engagement associated with hashlists.
@@ -115,4 +118,18 @@ type LinkedHashlistCreationRequest struct {
 	CreateLinked       bool      `json:"create_linked"`       // Whether to create linked hashlists
 	LMHashlistName     string    `json:"lm_hashlist_name"`   // Optional custom name for LM hashlist
 	NTLMHashlistName   string    `json:"ntlm_hashlist_name"` // Optional custom name for NTLM hashlist
+}
+
+// AssociationWordlist represents a wordlist uploaded for association attacks.
+// Association wordlists are tied to a specific hashlist (not job) and can be reused
+// across multiple jobs with different rules.
+type AssociationWordlist struct {
+	ID         uuid.UUID `json:"id"`
+	HashlistID int64     `json:"hashlist_id"`
+	FilePath   string    `json:"-"`              // Internal path, not exposed to API
+	FileName   string    `json:"file_name"`
+	FileSize   int64     `json:"file_size"`
+	LineCount  int64     `json:"line_count"`
+	MD5Hash    string    `json:"md5_hash"`
+	CreatedAt  time.Time `json:"created_at"`
 }

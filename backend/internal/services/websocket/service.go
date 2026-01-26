@@ -11,6 +11,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
+	"github.com/google/uuid"
 )
 
 // JobHandler interface for handling job-related WebSocket messages
@@ -19,9 +20,12 @@ type JobHandler interface {
 	ProcessCrackBatch(ctx context.Context, agentID int, payload json.RawMessage) error
 	ProcessCrackBatchesComplete(ctx context.Context, agentID int, payload json.RawMessage) error
 	ProcessBenchmarkResult(ctx context.Context, agentID int, payload json.RawMessage) error
+	ProcessPendingOutfiles(ctx context.Context, agentID int, payload json.RawMessage) error
+	ProcessOutfileDeleteRejected(ctx context.Context, agentID int, payload json.RawMessage) error
 	RecoverTask(ctx context.Context, taskID string, agentID int, keyspaceProcessed int64) error
 	HandleAgentReconnectionWithNoTask(ctx context.Context, agentID int) (int, error)
 	GetTask(ctx context.Context, taskID string) (*models.JobTask, error)
+	ClearStoppedTaskAgent(ctx context.Context, taskID uuid.UUID, agentID int) error
 }
 
 // MessageType represents the type of WebSocket message
@@ -48,17 +52,25 @@ const (
 	TypeBufferedMessages        MessageType = "buffered_messages"
 	TypeCurrentTaskStatus       MessageType = "current_task_status"
 	TypeAgentShutdown           MessageType = "agent_shutdown"
+	TypePendingOutfiles         MessageType = "pending_outfiles"          // Agent reports tasks with unacknowledged outfiles
+	TypeOutfileDeleteRejected   MessageType = "outfile_delete_rejected"   // Agent rejects outfile deletion (line count mismatch)
+	TypeTaskStopAck             MessageType = "task_stop_ack"             // Agent acknowledges stop command (GH Issue #12)
+	TypeStateSyncResponse       MessageType = "state_sync_response"       // Agent responds with state sync (GH Issue #12)
 
 	// Server -> Agent messages
-	TypeTaskAssignment   MessageType = "task_assignment"
-	TypeJobStop          MessageType = "job_stop"
-	TypeBenchmarkRequest MessageType = "benchmark_request"
-	TypeAgentCommand     MessageType = "agent_command"
-	TypeConfigUpdate     MessageType = "config_update"
-	TypeSyncRequest      MessageType = "file_sync_request"
-	TypeSyncCommand      MessageType = "file_sync_command"
-	TypeForceCleanup     MessageType = "force_cleanup"
-	TypeBufferAck        MessageType = "buffer_ack"
+	TypeTaskAssignment         MessageType = "task_assignment"
+	TypeJobStop                MessageType = "job_stop"
+	TypeBenchmarkRequest       MessageType = "benchmark_request"
+	TypeAgentCommand           MessageType = "agent_command"
+	TypeConfigUpdate           MessageType = "config_update"
+	TypeSyncRequest            MessageType = "file_sync_request"
+	TypeSyncCommand            MessageType = "file_sync_command"
+	TypeForceCleanup           MessageType = "force_cleanup"
+	TypeBufferAck              MessageType = "buffer_ack"
+	TypeRequestCrackRetransmit MessageType = "request_crack_retransmit" // Backend requests full outfile retransmission
+	TypeOutfileDeleteApproved  MessageType = "outfile_delete_approved"  // Backend confirms safe to delete outfile
+	TypeTaskCompleteAck        MessageType = "task_complete_ack"        // Backend acknowledges task completion (GH Issue #12)
+	TypeStateSyncRequest       MessageType = "state_sync_request"       // Backend requests agent state sync (GH Issue #12)
 
 	// Download progress messages
 	TypeDownloadProgress MessageType = "download_progress"
@@ -70,6 +82,17 @@ const (
 	TypeSyncCompleted MessageType = "sync_completed"
 	TypeSyncFailed    MessageType = "sync_failed"
 	TypeSyncProgress  MessageType = "sync_progress"
+
+	// Diagnostics message types (GH Issue #23)
+	TypeDebugStatusReport   MessageType = "debug_status_report"   // Agent reports debug status
+	TypeDebugToggle         MessageType = "debug_toggle"          // Server requests debug toggle
+	TypeDebugToggleAck      MessageType = "debug_toggle_ack"      // Agent acknowledges debug toggle
+	TypeLogRequest          MessageType = "log_request"           // Server requests agent logs
+	TypeLogData             MessageType = "log_data"              // Agent sends log data
+	TypeLogStatusRequest    MessageType = "log_status_request"    // Server requests log status
+	TypeLogStatusResponse   MessageType = "log_status_response"   // Agent responds with log status
+	TypeLogPurge            MessageType = "log_purge"             // Server requests log purge
+	TypeLogPurgeAck         MessageType = "log_purge_ack"         // Agent acknowledges log purge
 )
 
 // Client represents a connected agent
@@ -222,6 +245,9 @@ type TaskAssignmentPayload struct {
 	ExtraParameters string   `json:"extra_parameters,omitempty"`
 	EnabledDevices  []int    `json:"enabled_devices,omitempty"`
 	IsKeyspaceSplit bool     `json:"is_keyspace_split"`
+	// Association attack fields (mode 9)
+	AssociationWordlistPath string `json:"association_wordlist_path,omitempty"` // Path to the association wordlist
+	OriginalHashlistPath    string `json:"original_hashlist_path,omitempty"`    // Path to the original hashlist file (preserves order)
 }
 
 // BenchmarkResultPayload represents benchmark results from an agent
@@ -248,6 +274,7 @@ type JobStopPayload struct {
 	TaskID         string `json:"task_id"`
 	JobExecutionID string `json:"job_execution_id"`
 	Reason         string `json:"reason"`
+	StopID         string `json:"stop_id,omitempty"` // Unique ID for tracking ACK (GH Issue #12)
 }
 
 // BenchmarkRequestPayload represents a benchmark request sent to an agent
@@ -266,8 +293,128 @@ type BenchmarkRequestPayload struct {
 	Mask            string   `json:"mask,omitempty"`
 	TestDuration    int      `json:"test_duration,omitempty"`    // Duration in seconds for speed test
 	TimeoutDuration int      `json:"timeout_duration,omitempty"` // Maximum time to wait for speedtest (seconds)
-	ExtraParameters string   `json:"extra_parameters,omitempty"` // Agent-specific hashcat parameters
-	EnabledDevices  []int    `json:"enabled_devices,omitempty"`  // List of enabled device IDs
+	ExtraParameters         string   `json:"extra_parameters,omitempty"`          // Agent-specific hashcat parameters
+	EnabledDevices          []int    `json:"enabled_devices,omitempty"`           // List of enabled device IDs
+	AssociationWordlistPath string   `json:"association_wordlist_path,omitempty"` // For mode 9 association attacks
+}
+
+// TaskCompleteAckPayload is sent by the backend to acknowledge task completion (GH Issue #12)
+type TaskCompleteAckPayload struct {
+	TaskID    string `json:"task_id"`
+	Success   bool   `json:"success"`
+	Timestamp int64  `json:"timestamp"`
+	Message   string `json:"message,omitempty"` // Optional message (e.g., "task already completed")
+}
+
+// TaskStopAckPayload is sent by the agent to acknowledge a stop command (GH Issue #12)
+type TaskStopAckPayload struct {
+	TaskID    string `json:"task_id"`
+	StopID    string `json:"stop_id"`    // Unique ID from the stop command for tracking
+	Stopped   bool   `json:"stopped"`    // Whether the task was actually stopped
+	Timestamp int64  `json:"timestamp"`
+	Message   string `json:"message,omitempty"` // Optional reason (e.g., "task already completed")
+}
+
+// StateSyncRequestPayload is sent by the backend to request agent state (GH Issue #12)
+type StateSyncRequestPayload struct {
+	RequestID string `json:"request_id"`
+	AgentID   int    `json:"agent_id"`
+}
+
+// StateSyncResponsePayload is sent by the agent in response to state sync request (GH Issue #12)
+type StateSyncResponsePayload struct {
+	RequestID          string   `json:"request_id"`
+	HasRunningTask     bool     `json:"has_running_task"`
+	TaskID             string   `json:"task_id,omitempty"`
+	JobID              string   `json:"job_id,omitempty"`
+	Status             string   `json:"status"`                        // idle, running, completing
+	PendingCompletions []string `json:"pending_completions,omitempty"` // Task IDs with pending completion ACKs
+}
+
+// ============================================================================
+// Diagnostics Payload Types (GH Issue #23)
+// ============================================================================
+
+// DebugStatusReportPayload is sent by the agent to report debug status
+type DebugStatusReportPayload struct {
+	Enabled            bool   `json:"enabled"`
+	Level              string `json:"level"`
+	FileLoggingEnabled bool   `json:"file_logging_enabled"`
+	LogFilePath        string `json:"log_file_path,omitempty"`
+	LogFileExists      bool   `json:"log_file_exists"`
+	LogFileSize        int64  `json:"log_file_size"`
+	LogFileModified    int64  `json:"log_file_modified"`
+	BufferCount        int    `json:"buffer_count"`
+	BufferCapacity     int    `json:"buffer_capacity"`
+}
+
+// DebugTogglePayload is sent by the server to toggle debug mode
+type DebugTogglePayload struct {
+	Enable bool `json:"enable"`
+}
+
+// DebugToggleAckPayload is sent by the agent to acknowledge debug toggle
+type DebugToggleAckPayload struct {
+	Success         bool   `json:"success"`
+	Enabled         bool   `json:"enabled"`
+	RestartRequired bool   `json:"restart_required"`
+	Message         string `json:"message,omitempty"`
+}
+
+// LogRequestPayload is sent by the server to request logs
+type LogRequestPayload struct {
+	RequestID  string `json:"request_id"`
+	HoursBack  int    `json:"hours_back,omitempty"`
+	IncludeAll bool   `json:"include_all,omitempty"`
+}
+
+// LogEntryPayload represents a single log entry
+type LogEntryPayload struct {
+	Timestamp int64  `json:"timestamp"` // Unix milliseconds
+	Level     string `json:"level"`
+	Message   string `json:"message"`
+	File      string `json:"file,omitempty"`
+	Line      int    `json:"line,omitempty"`
+	Function  string `json:"function,omitempty"`
+}
+
+// LogDataPayload is sent by the agent with log data
+type LogDataPayload struct {
+	RequestID   string            `json:"request_id"`
+	AgentID     int               `json:"agent_id"`
+	Entries     []LogEntryPayload `json:"entries"`
+	FileContent string            `json:"file_content,omitempty"`
+	TotalCount  int               `json:"total_count"`
+	Truncated   bool              `json:"truncated"`
+	Error       string            `json:"error,omitempty"`
+}
+
+// LogStatusRequestPayload is sent by the server to request log status
+type LogStatusRequestPayload struct {
+	RequestID string `json:"request_id"`
+}
+
+// LogStatusResponsePayload is sent by the agent with log status
+type LogStatusResponsePayload struct {
+	RequestID       string `json:"request_id"`
+	LogFileExists   bool   `json:"log_file_exists"`
+	LogFilePath     string `json:"log_file_path,omitempty"`
+	LogFileSize     int64  `json:"log_file_size"`
+	LogFileModified int64  `json:"log_file_modified"`
+	DebugEnabled    bool   `json:"debug_enabled"`
+	BufferCount     int    `json:"buffer_count"`
+}
+
+// LogPurgePayload is sent by the server to request log purge
+type LogPurgePayload struct {
+	RequestID string `json:"request_id"`
+}
+
+// LogPurgeAckPayload is sent by the agent to acknowledge log purge
+type LogPurgeAckPayload struct {
+	RequestID string `json:"request_id"`
+	Success   bool   `json:"success"`
+	Message   string `json:"message,omitempty"`
 }
 
 // Service handles WebSocket business logic
@@ -362,6 +509,30 @@ func (s *Service) HandleMessage(ctx context.Context, agent *models.Agent, msg *M
 		return s.handleSyncFailed(ctx, agent, msg)
 	case TypeSyncProgress:
 		return s.handleSyncProgress(ctx, agent, msg)
+	case TypeSyncStatus:
+		// File sync status (file_sync_status) is handled in the handler layer (handleSyncStatus)
+		// Just update heartbeat here - return nil to avoid "unknown message type" error
+		return nil
+	case TypeDebugStatusReport:
+		// Debug status report is handled in the handler layer
+		// Just update heartbeat here
+		return nil
+	case TypeDebugToggleAck:
+		// Debug toggle ack is handled in the handler layer
+		// Just update heartbeat here
+		return nil
+	case TypeLogData:
+		// Log data is handled in the handler layer
+		// Just update heartbeat here
+		return nil
+	case TypeLogStatusResponse:
+		// Log status response is handled in the handler layer
+		// Just update heartbeat here
+		return nil
+	case TypeLogPurgeAck:
+		// Log purge ack is handled in the handler layer
+		// Just update heartbeat here
+		return nil
 	default:
 		return fmt.Errorf("unknown message type: %s", msg.Type)
 	}
@@ -492,7 +663,7 @@ func (s *Service) handleSyncRequest(ctx context.Context, agent *models.Agent, ms
 	}
 
 	// Log the request
-	fmt.Printf("Received file sync request from agent %d: %+v\n", agent.ID, payload)
+	debug.Debug("Received file sync request from agent %d: %+v", agent.ID, payload)
 
 	// This function should just acknowledge receipt of the request
 	// The actual file comparison happens in the WebSocket handler

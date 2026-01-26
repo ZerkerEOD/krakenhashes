@@ -40,9 +40,11 @@ Supported compression formats:
 
 ## Uploading New Binaries
 
-### Via Admin API
+KrakenHashes supports two methods for adding binaries: downloading from a URL or direct file upload.
 
-To add a new binary version, use the admin API endpoint:
+### Via URL Download
+
+To add a new binary version by downloading from a URL, use the admin API endpoint:
 
 ```http
 POST /api/admin/binary
@@ -53,7 +55,9 @@ Content-Type: application/json
   "binary_type": "hashcat",
   "compression_type": "7z",
   "source_url": "https://github.com/hashcat/hashcat/releases/download/v6.2.6/hashcat-6.2.6.7z",
-  "file_name": "hashcat-6.2.6.7z"
+  "file_name": "hashcat-6.2.6.7z",
+  "version": "6.2.6",
+  "description": "Official hashcat 6.2.6 release"
 }
 ```
 
@@ -63,6 +67,43 @@ The system will:
 3. Verify the download integrity
 4. Extract the binary for server-side use
 5. Mark the version as active and verified
+
+### Via Direct Upload
+
+For custom-compiled binaries or when URL download isn't available, use the multipart upload endpoint:
+
+```http
+POST /api/admin/binary/upload
+Authorization: Bearer <admin_token>
+Content-Type: multipart/form-data
+
+binary_type: hashcat
+compression_type: 7z
+version: 7.1.2+338
+description: Custom build with additional patches
+file: <binary_archive_file>
+```
+
+**Form fields:**
+| Field | Required | Description |
+|-------|----------|-------------|
+| `file` | Yes | The binary archive file |
+| `binary_type` | Yes | Type of binary (hashcat, john) |
+| `compression_type` | Yes | Archive format (7z, zip, tar.gz, tar.xz) |
+| `version` | No | Version string for identification |
+| `description` | No | Human-readable description |
+
+The system will:
+1. Receive and store the uploaded file
+2. Calculate and store the MD5 hash
+3. Extract the binary for server-side use
+4. Mark the version as active and verified
+
+**Use cases for direct upload:**
+- Custom-compiled hashcat builds with specific optimizations
+- Pre-release or beta versions not yet on GitHub
+- Patched versions for specific hardware compatibility
+- Internal builds with custom modifications
 
 ### Upload Process
 
@@ -80,20 +121,24 @@ When a binary is uploaded:
 
 Binary versions are tracked in the `binary_versions` table with the following fields:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | SERIAL | Unique version identifier |
-| `binary_type` | ENUM | Type of binary (hashcat, john) |
-| `compression_type` | ENUM | Compression format |
-| `source_url` | TEXT | Original download URL |
-| `file_name` | VARCHAR(255) | Stored filename |
-| `md5_hash` | VARCHAR(32) | MD5 checksum |
-| `file_size` | BIGINT | File size in bytes |
-| `created_at` | TIMESTAMP | Creation timestamp |
-| `created_by` | UUID | User who added the version |
-| `is_active` | BOOLEAN | Whether version is active |
-| `last_verified_at` | TIMESTAMP | Last verification time |
-| `verification_status` | VARCHAR(50) | Status: pending, verified, failed, deleted |
+| Field | Type | Nullable | Default | Description |
+|-------|------|----------|---------|-------------|
+| `id` | SERIAL | No | auto | Unique version identifier |
+| `binary_type` | ENUM | No | - | Type of binary (hashcat, john) |
+| `compression_type` | ENUM | No | - | Compression format |
+| `source_type` | VARCHAR(50) | No | 'url' | Source type: 'url' or 'upload' |
+| `source_url` | TEXT | Yes | NULL | Original download URL (NULL for uploads) |
+| `file_name` | VARCHAR(255) | No | - | Stored filename |
+| `md5_hash` | VARCHAR(32) | No | - | MD5 checksum |
+| `file_size` | BIGINT | No | - | File size in bytes |
+| `version` | VARCHAR(100) | Yes | NULL | Version string (e.g., "6.2.6", "7.1.2+338") |
+| `description` | TEXT | Yes | NULL | Human-readable description |
+| `created_at` | TIMESTAMP | Yes | now() | Creation timestamp |
+| `created_by` | UUID | No | - | User who added the version |
+| `is_active` | BOOLEAN | Yes | true | Whether version is active |
+| `is_default` | BOOLEAN | Yes | false | Whether this is the default version |
+| `last_verified_at` | TIMESTAMP | Yes | NULL | Last verification time |
+| `verification_status` | VARCHAR(50) | Yes | 'pending' | Status: pending, verified, failed, deleted |
 
 ### Verification Status
 
@@ -125,6 +170,74 @@ Agents can retrieve the latest active version:
 GET /api/binary/latest?type=hashcat
 X-API-Key: <agent_api_key>
 ```
+
+## Binary Version Patterns
+
+KrakenHashes uses a pattern-based system for specifying binary versions in jobs and agents. Instead of selecting specific binary IDs, you specify patterns that match version families.
+
+### Pattern Types
+
+| Pattern | Example | Description |
+|---------|---------|-------------|
+| `default` | `"default"` | Matches any binary version (wildcard) |
+| Major Wildcard | `"7.x"` | Matches any v7 binary (7.0.0, 7.1.2, 7.2.0, etc.) |
+| Minor Wildcard | `"7.1.x"` | Matches any v7.1 binary (7.1.0, 7.1.2, 7.1.5, etc.) |
+| Exact | `"7.1.2"` | Matches exactly v7.1.2 (any suffix like 7.1.2-custom) |
+| Exact with Suffix | `"7.1.2-NTLMv3"` | Matches only v7.1.2-NTLMv3 specifically |
+
+### Pattern Resolution
+
+When a pattern needs to resolve to an actual binary for download:
+
+1. **Exact patterns**: Find the binary with matching version string
+2. **Suffix patterns**: Find the binary with exact version and suffix match
+3. **Wildcards**: Find the newest binary matching the pattern
+   - `"7.x"` resolves to newest v7.x.x binary available
+   - `"7.1.x"` resolves to newest v7.1.x binary available
+
+### Available Patterns API
+
+To see which patterns are available and their resolved binaries:
+
+```http
+GET /api/binary/patterns
+Authorization: Bearer <token>
+```
+
+Response:
+```json
+{
+  "patterns": [
+    {"pattern": "default", "resolved_id": 5, "resolved_version": "7.1.2"},
+    {"pattern": "7.x", "resolved_id": 5, "resolved_version": "7.1.2"},
+    {"pattern": "6.x", "resolved_id": 3, "resolved_version": "6.2.6"},
+    {"pattern": "7.1.2-NTLMv3", "resolved_id": 7, "resolved_version": "7.1.2-NTLMv3"}
+  ]
+}
+```
+
+### Using Patterns
+
+**In Jobs**: When creating a job, specify `binary_version` as a pattern:
+```json
+{
+  "binary_version": "7.x",
+  "attack_mode": 0,
+  "wordlist_ids": ["4"]
+}
+```
+
+**In Agents**: Configure an agent's binary version pattern:
+```json
+// PUT /api/admin/agents/{id}/settings
+{
+  "binaryVersion": "6.x"
+}
+```
+
+**In Preset Jobs**: Select a pattern when creating preset jobs.
+
+For detailed compatibility rules and scheduling behavior, see [Binary Version Patterns Architecture](../../reference/architecture/binary-version-patterns.md).
 
 ## Platform-Specific Considerations
 
@@ -180,52 +293,63 @@ The agent file sync system (`agent/internal/sync/sync.go`) handles:
 - Local caching to avoid re-downloads
 - Integrity verification with MD5 hashes
 
-### Per-Agent Binary Overrides
+### Per-Agent Binary Version Patterns
 
-Users can configure individual agents to use specific binary versions, overriding system defaults.
+Users can configure individual agents to use specific binary version patterns. This determines which jobs the agent can run and which binary it downloads.
 
 #### Configuration
 
-Agent binary overrides are set via the Agent Details page or API:
+Agent binary version patterns are set via the Agent Details page or API:
 
 ```json
-// PUT /api/agents/{id}
+// PUT /api/admin/agents/{id}/settings
 {
-  "binaryVersionId": 3,
-  "binaryOverride": true
+  "binaryVersion": "7.x"
 }
 ```
 
-#### Selection Priority
+Pattern examples:
+- `"default"` - Agent can run any job, uses whatever binary is needed
+- `"7.x"` - Agent runs v7 jobs only, downloads newest v7 binary
+- `"6.x"` - Agent runs v6 jobs only, for driver compatibility
+- `"7.1.2-NTLMv3"` - Agent runs only jobs requiring this specific build
+
+For complete pattern syntax and compatibility rules, see [Binary Version Patterns](../../reference/architecture/binary-version-patterns.md).
+
+#### Pattern Resolution Priority
 
 When determining which binary to use for an agent:
 
-1. **Agent Override**: If enabled, the agent uses its configured binary version
-2. **Job Binary**: For specific job executions, use the job's binary version
-3. **System Default**: Use the active default binary
+1. **Agent Pattern**: Agent uses its configured binary version pattern
+2. **Job Pattern**: Job execution's binary version pattern
+3. **System Default**: Active default binary
+
+Wildcard patterns (e.g., `"7.x"`) resolve to the newest matching binary available.
 
 #### Impact on Agent Operations
 
-Agent binary overrides affect:
-- **Device Detection**: The agent uses the preferred binary to detect GPU/CPU capabilities
-- **Benchmarks**: Performance benchmarks run with the preferred binary for accurate metrics
-- **Job Execution**: Tasks execute using the agent's preferred binary (unless job specifies otherwise)
+Agent binary version patterns affect:
+- **Job Compatibility**: Agents only receive jobs with compatible binary patterns
+- **Device Detection**: The agent uses the resolved binary to detect GPU/CPU capabilities
+- **Benchmarks**: Performance benchmarks run with the resolved binary for accurate metrics
+- **Job Execution**: Tasks execute using the resolved binary
 
 #### Version Compatibility
 
 ⚠️ **Hashcat 7.x Compatibility Note**: Hashcat version 7.x may detect GPU devices but fail to recognize them as usable for job execution, particularly with older GPU driver versions. If you experience device detection issues where devices appear in hardware detection but are not available for jobs:
 
 - Use Hashcat 6.x binaries (e.g., 6.2.6, 6.2.5) which have better driver compatibility
-- Configure affected agents to use 6.x binaries via the binary override feature
+- Configure affected agents to use `"6.x"` binary version pattern
 - Update GPU drivers to the latest version before trying 7.x binaries
 
 #### Automatic Synchronization
 
-When an agent binary override is set or changed:
-1. Backend sends a `config_update` WebSocket message with the preferred binary version
-2. Agent receives the preference and updates its configuration
-3. If the binary isn't already downloaded, the file sync system downloads it
-4. Device detection runs with the preferred binary after download completes
+When an agent's binary version pattern is set or changed:
+1. Backend sends a `config_update` WebSocket message with the new pattern
+2. Agent receives the pattern and updates its configuration
+3. Pattern is resolved to an actual binary (newest matching version)
+4. If the binary isn't already downloaded, the file sync system downloads it
+5. Device detection runs with the resolved binary after download completes
 
 ## Updating and Replacing Binaries
 
@@ -387,7 +511,8 @@ Note: This tracks KrakenHashes component versions, not binary tool versions.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/admin/binary` | Add new binary version |
+| POST | `/api/admin/binary` | Add new binary version via URL download |
+| POST | `/api/admin/binary/upload` | Add new binary version via direct upload |
 | GET | `/api/admin/binary` | List all versions |
 | GET | `/api/admin/binary/{id}` | Get specific version |
 | DELETE | `/api/admin/binary/{id}` | Delete/deactivate version |

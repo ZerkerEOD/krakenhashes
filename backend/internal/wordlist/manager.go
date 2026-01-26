@@ -1,7 +1,9 @@
 package wordlist
 
 import (
+	"archive/zip"
 	"bufio"
+	"compress/gzip"
 	"context"
 	"crypto/md5"
 	"encoding/hex"
@@ -28,7 +30,8 @@ type Manager interface {
 	GetWordlistByMD5Hash(ctx context.Context, md5Hash string) (*models.Wordlist, error)
 	AddWordlist(ctx context.Context, req *models.WordlistAddRequest, userID uuid.UUID) (*models.Wordlist, error)
 	UpdateWordlist(ctx context.Context, id int, req *models.WordlistUpdateRequest, userID uuid.UUID) (*models.Wordlist, error)
-	DeleteWordlist(ctx context.Context, id int) error
+	DeleteWordlist(ctx context.Context, id int, confirmID *int) error
+	GetDeletionImpact(ctx context.Context, id int) (*models.DeletionImpact, error)
 	VerifyWordlist(ctx context.Context, id int, req *models.WordlistVerifyRequest) error
 	UpdateWordlistFileInfo(ctx context.Context, id int, md5Hash string, fileSize int64) error
 	UpdateWordlistComplete(ctx context.Context, id int, md5Hash string, fileSize int64, wordCount int64) error
@@ -66,10 +69,12 @@ type manager struct {
 	allowedFormats   []string
 	allowedMimeTypes []string
 	jobExecRepo      *repository.JobExecutionRepository
+	presetJobRepo    repository.PresetJobRepository
+	workflowRepo     repository.JobWorkflowRepository
 }
 
 // NewManager creates a new wordlist manager
-func NewManager(store WordlistStore, wordlistsDir string, maxUploadSize int64, allowedFormats, allowedMimeTypes []string, jobExecRepo *repository.JobExecutionRepository) Manager {
+func NewManager(store WordlistStore, wordlistsDir string, maxUploadSize int64, allowedFormats, allowedMimeTypes []string, jobExecRepo *repository.JobExecutionRepository, presetJobRepo repository.PresetJobRepository, workflowRepo repository.JobWorkflowRepository) Manager {
 	// Ensure wordlists directory exists
 	if err := os.MkdirAll(wordlistsDir, 0755); err != nil {
 		debug.Error("Failed to create wordlists directory: %v", err)
@@ -83,6 +88,8 @@ func NewManager(store WordlistStore, wordlistsDir string, maxUploadSize int64, a
 		allowedFormats:   allowedFormats,
 		allowedMimeTypes: allowedMimeTypes,
 		jobExecRepo:      jobExecRepo,
+		presetJobRepo:    presetJobRepo,
+		workflowRepo:     workflowRepo,
 	}
 }
 
@@ -206,16 +213,154 @@ func (m *manager) UpdateWordlist(ctx context.Context, id int, req *models.Wordli
 	return wordlist, nil
 }
 
-// DeleteWordlist deletes a wordlist
-func (m *manager) DeleteWordlist(ctx context.Context, id int) error {
-	// Check if wordlist is being used by active jobs
+// GetDeletionImpact returns the impact of deleting a wordlist
+func (m *manager) GetDeletionImpact(ctx context.Context, id int) (*models.DeletionImpact, error) {
+	// Check if wordlist exists
+	wordlist, err := m.store.GetWordlist(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if wordlist == nil {
+		return nil, fmt.Errorf("wordlist not found")
+	}
+
+	impact := &models.DeletionImpact{
+		ResourceID:   id,
+		ResourceType: "wordlist",
+		CanDelete:    true,
+		Impact: models.DeletionImpactDetails{
+			Jobs:              []models.DeletionImpactJob{},
+			PresetJobs:        []models.DeletionImpactPresetJob{},
+			WorkflowSteps:     []models.DeletionImpactWorkflowStep{},
+			WorkflowsToDelete: []models.DeletionImpactWorkflow{},
+		},
+	}
+
+	wordlistIDStr := strconv.Itoa(id)
+
+	// Get non-completed jobs using this wordlist
 	if m.jobExecRepo != nil {
-		hasActiveJobs, err := m.jobExecRepo.HasActiveJobsUsingWordlist(ctx, strconv.Itoa(id))
+		jobs, err := m.jobExecRepo.GetNonCompletedJobsUsingWordlist(ctx, wordlistIDStr)
 		if err != nil {
-			return fmt.Errorf("failed to check for active jobs: %w", err)
+			debug.Error("Failed to get jobs using wordlist %d: %v", id, err)
+			return nil, fmt.Errorf("failed to get jobs using wordlist: %w", err)
 		}
-		if hasActiveJobs {
+		impact.Impact.Jobs = jobs
+	}
+
+	// Get preset jobs using this wordlist
+	if m.presetJobRepo != nil {
+		presetJobs, err := m.presetJobRepo.GetByWordlistID(ctx, wordlistIDStr)
+		if err != nil {
+			debug.Error("Failed to get preset jobs using wordlist %d: %v", id, err)
+			return nil, fmt.Errorf("failed to get preset jobs using wordlist: %w", err)
+		}
+		for _, pj := range presetJobs {
+			impact.Impact.PresetJobs = append(impact.Impact.PresetJobs, models.DeletionImpactPresetJob{
+				ID:         pj.ID,
+				Name:       pj.Name,
+				AttackMode: strconv.Itoa(int(pj.AttackMode)),
+			})
+		}
+
+		// Get workflow steps that use these preset jobs
+		if m.workflowRepo != nil && len(presetJobs) > 0 {
+			presetJobIDs := make([]uuid.UUID, len(presetJobs))
+			for i, pj := range presetJobs {
+				presetJobIDs[i] = pj.ID
+			}
+
+			steps, err := m.workflowRepo.GetStepsByPresetJobIDs(ctx, presetJobIDs)
+			if err != nil {
+				debug.Error("Failed to get workflow steps: %v", err)
+				return nil, fmt.Errorf("failed to get workflow steps: %w", err)
+			}
+			impact.Impact.WorkflowSteps = steps
+
+			// Get workflows that would become empty
+			workflowsToDelete, err := m.workflowRepo.GetWorkflowsAffectedByPresetJobDeletion(ctx, presetJobIDs)
+			if err != nil {
+				debug.Error("Failed to get affected workflows: %v", err)
+				return nil, fmt.Errorf("failed to get affected workflows: %w", err)
+			}
+			impact.Impact.WorkflowsToDelete = workflowsToDelete
+		}
+	}
+
+	// Calculate summary
+	impact.Summary = models.DeletionImpactSummary{
+		TotalJobs:              len(impact.Impact.Jobs),
+		TotalPresetJobs:        len(impact.Impact.PresetJobs),
+		TotalWorkflowSteps:     len(impact.Impact.WorkflowSteps),
+		TotalWorkflowsToDelete: len(impact.Impact.WorkflowsToDelete),
+	}
+
+	// Has cascading impact if any references exist
+	impact.HasCascadingImpact = impact.Summary.TotalJobs > 0 ||
+		impact.Summary.TotalPresetJobs > 0 ||
+		impact.Summary.TotalWorkflowSteps > 0
+
+	return impact, nil
+}
+
+// DeleteWordlist deletes a wordlist with optional cascade deletion
+func (m *manager) DeleteWordlist(ctx context.Context, id int, confirmID *int) error {
+	// Get deletion impact first
+	impact, err := m.GetDeletionImpact(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	// If there's cascading impact, require confirmation
+	if impact.HasCascadingImpact {
+		if confirmID == nil || *confirmID != id {
 			return models.ErrResourceInUse
+		}
+
+		// Perform cascade deletion
+		debug.Info("Starting cascade deletion for wordlist %d", id)
+
+		// 1. Delete non-completed jobs using this wordlist
+		if len(impact.Impact.Jobs) > 0 && m.jobExecRepo != nil {
+			jobIDs := make([]uuid.UUID, len(impact.Impact.Jobs))
+			for i, job := range impact.Impact.Jobs {
+				jobIDs[i] = job.ID
+			}
+			if err := m.jobExecRepo.DeleteJobsByIDs(ctx, jobIDs); err != nil {
+				debug.Error("Failed to delete jobs: %v", err)
+				return fmt.Errorf("failed to delete jobs: %w", err)
+			}
+			debug.Info("Deleted %d jobs using wordlist %d", len(jobIDs), id)
+		}
+
+		// 2. Delete workflow steps referencing affected preset jobs
+		if len(impact.Impact.PresetJobs) > 0 && m.workflowRepo != nil {
+			presetJobIDs := make([]uuid.UUID, len(impact.Impact.PresetJobs))
+			for i, pj := range impact.Impact.PresetJobs {
+				presetJobIDs[i] = pj.ID
+			}
+			if err := m.workflowRepo.DeleteStepsByPresetJobIDs(ctx, presetJobIDs); err != nil {
+				debug.Error("Failed to delete workflow steps: %v", err)
+				return fmt.Errorf("failed to delete workflow steps: %w", err)
+			}
+			debug.Info("Deleted workflow steps for %d preset jobs", len(presetJobIDs))
+
+			// 3. Delete preset jobs
+			if m.presetJobRepo != nil {
+				if err := m.presetJobRepo.DeleteByIDs(ctx, presetJobIDs); err != nil {
+					debug.Error("Failed to delete preset jobs: %v", err)
+					return fmt.Errorf("failed to delete preset jobs: %w", err)
+				}
+				debug.Info("Deleted %d preset jobs using wordlist %d", len(presetJobIDs), id)
+			}
+
+			// 4. Delete empty workflows
+			if deletedCount, err := m.workflowRepo.DeleteEmptyWorkflows(ctx); err != nil {
+				debug.Error("Failed to delete empty workflows: %v", err)
+				return fmt.Errorf("failed to delete empty workflows: %w", err)
+			} else if deletedCount > 0 {
+				debug.Info("Deleted %d empty workflows", deletedCount)
+			}
 		}
 	}
 
@@ -240,6 +385,7 @@ func (m *manager) DeleteWordlist(ctx context.Context, id int) error {
 		// Don't return error, as the database entry is already deleted
 	}
 
+	debug.Info("Successfully deleted wordlist %d", id)
 	return nil
 }
 
@@ -327,22 +473,15 @@ func (m *manager) CountWordsInFile(filepath string) (int64, error) {
 		return 0, err
 	}
 
-	// Check if the file is compressed
+	// Check if the file is compressed and use streaming decompression for accurate count
 	ext := strings.ToLower(path.Ext(filepath))
-	if ext == ".gz" || ext == ".zip" {
-		debug.Info("CountWordsInFile: Detected compressed file (%s), using estimation method", ext)
-
-		// For compressed files, we'll use an estimation based on file size
-		// This is much faster than decompressing and counting lines
-
-		// Estimate word count based on file size and compression ratio
-		// For text files, compression typically achieves 3:1 to 4:1 ratio
-		// Assuming average word length of 8 bytes plus newline character
-		// and a compression ratio of approximately 3.5:1
-		estimatedCount := int64(float64(fileInfo.Size()) * 3.5 / 9)
-		debug.Info("CountWordsInFile: Estimated %d words in compressed file (size: %d bytes)",
-			estimatedCount, fileInfo.Size())
-		return estimatedCount, nil
+	switch ext {
+	case ".gz":
+		debug.Info("CountWordsInFile: Detected gzip file, using streaming decompression")
+		return countLinesInGzip(filepath)
+	case ".zip":
+		debug.Info("CountWordsInFile: Detected zip file, using streaming decompression")
+		return countLinesInZip(filepath)
 	}
 
 	// For large text files (over 1GB), use a more efficient counting method
@@ -416,4 +555,107 @@ func (m *manager) CalculateFileMD5(filepath string) (string, error) {
 	}
 
 	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+// countLinesInGzip counts lines in a gzip-compressed file using streaming decompression.
+// Uses a 16MB buffer for performance consistency with large uncompressed file handling.
+func countLinesInGzip(filePath string) (int64, error) {
+	debug.Info("countLinesInGzip: Starting streaming line count for: %s", filePath)
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		debug.Error("countLinesInGzip: Failed to open file: %v", err)
+		return 0, err
+	}
+	defer file.Close()
+
+	gzReader, err := gzip.NewReader(file)
+	if err != nil {
+		debug.Error("countLinesInGzip: Failed to create gzip reader: %v", err)
+		return 0, err
+	}
+	defer gzReader.Close()
+
+	var count int64
+	const bufferSize = 16 * 1024 * 1024 // 16MB buffer for performance
+	buf := make([]byte, bufferSize)
+
+	for {
+		n, err := gzReader.Read(buf)
+		for i := 0; i < n; i++ {
+			if buf[i] == '\n' {
+				count++
+			}
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			debug.Error("countLinesInGzip: Error reading: %v", err)
+			return 0, err
+		}
+	}
+
+	debug.Info("countLinesInGzip: Counted %d lines", count)
+	return count, nil
+}
+
+// countLinesInZip counts lines in a zip archive containing a wordlist.
+// Expects a single text file inside the archive (standard for hashcat wordlists).
+// Uses a 16MB buffer for performance consistency with large uncompressed file handling.
+func countLinesInZip(filePath string) (int64, error) {
+	debug.Info("countLinesInZip: Starting streaming line count for: %s", filePath)
+
+	zipReader, err := zip.OpenReader(filePath)
+	if err != nil {
+		debug.Error("countLinesInZip: Failed to open zip: %v", err)
+		return 0, err
+	}
+	defer zipReader.Close()
+
+	// Find first non-directory file (the wordlist)
+	var targetFile *zip.File
+	for _, f := range zipReader.File {
+		if !f.FileInfo().IsDir() {
+			targetFile = f
+			break
+		}
+	}
+
+	if targetFile == nil {
+		debug.Error("countLinesInZip: No files found in zip archive")
+		return 0, fmt.Errorf("no files found in zip archive")
+	}
+
+	debug.Info("countLinesInZip: Reading file from archive: %s", targetFile.Name)
+
+	rc, err := targetFile.Open()
+	if err != nil {
+		debug.Error("countLinesInZip: Failed to open file in archive: %v", err)
+		return 0, err
+	}
+	defer rc.Close()
+
+	var count int64
+	const bufferSize = 16 * 1024 * 1024 // 16MB buffer for performance
+	buf := make([]byte, bufferSize)
+
+	for {
+		n, err := rc.Read(buf)
+		for i := 0; i < n; i++ {
+			if buf[i] == '\n' {
+				count++
+			}
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			debug.Error("countLinesInZip: Error reading: %v", err)
+			return 0, err
+		}
+	}
+
+	debug.Info("countLinesInZip: Counted %d lines", count)
+	return count, nil
 }

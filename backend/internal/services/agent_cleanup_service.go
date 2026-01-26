@@ -36,7 +36,6 @@ func (s *AgentCleanupService) MarkAllAgentsInactive(ctx context.Context) error {
 		if agent.Status == models.AgentStatusActive {
 			debug.Log("Marking agent as inactive on startup", map[string]interface{}{
 				"agent_id":        agent.ID,
-				"agent_name":      agent.Name,
 				"previous_status": agent.Status,
 			})
 

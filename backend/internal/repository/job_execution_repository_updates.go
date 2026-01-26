@@ -14,7 +14,7 @@ func (r *JobExecutionRepository) GetJobsByRuleID(ctx context.Context, ruleID int
 		SELECT
 			id, preset_job_id, hashlist_id, status, priority,
 			COALESCE(max_agents, 0) as max_agents,
-			total_keyspace, processed_keyspace, attack_mode, created_by,
+			processed_keyspace, attack_mode, created_by,
 			created_at, started_at, completed_at, error_message,
 			interrupted_by, updated_at, name,
 			base_keyspace, effective_keyspace, multiplication_factor,
@@ -35,7 +35,7 @@ func (r *JobExecutionRepository) GetJobsByRuleID(ctx context.Context, ruleID int
 		var job models.JobExecution
 		err := rows.Scan(
 			&job.ID, &job.PresetJobID, &job.HashlistID, &job.Status, &job.Priority,
-			&job.MaxAgents, &job.TotalKeyspace, &job.ProcessedKeyspace, &job.AttackMode,
+			&job.MaxAgents, &job.ProcessedKeyspace, &job.AttackMode,
 			&job.CreatedBy, &job.CreatedAt, &job.StartedAt, &job.CompletedAt,
 			&job.ErrorMessage, &job.InterruptedBy, &job.UpdatedAt, &job.Name,
 			&job.BaseKeyspace, &job.EffectiveKeyspace,
@@ -58,7 +58,7 @@ func (r *JobExecutionRepository) GetJobsByWordlistID(ctx context.Context, wordli
 		SELECT
 			id, preset_job_id, hashlist_id, status, priority,
 			COALESCE(max_agents, 0) as max_agents,
-			total_keyspace, processed_keyspace, attack_mode, created_by,
+			processed_keyspace, attack_mode, created_by,
 			created_at, started_at, completed_at, error_message,
 			interrupted_by, updated_at, name,
 			base_keyspace, effective_keyspace, multiplication_factor,
@@ -79,7 +79,7 @@ func (r *JobExecutionRepository) GetJobsByWordlistID(ctx context.Context, wordli
 		var job models.JobExecution
 		err := rows.Scan(
 			&job.ID, &job.PresetJobID, &job.HashlistID, &job.Status, &job.Priority,
-			&job.MaxAgents, &job.TotalKeyspace, &job.ProcessedKeyspace, &job.AttackMode,
+			&job.MaxAgents, &job.ProcessedKeyspace, &job.AttackMode,
 			&job.CreatedBy, &job.CreatedAt, &job.StartedAt, &job.CompletedAt,
 			&job.ErrorMessage, &job.InterruptedBy, &job.UpdatedAt, &job.Name,
 			&job.BaseKeyspace, &job.EffectiveKeyspace,

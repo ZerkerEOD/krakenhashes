@@ -155,6 +155,144 @@ When a chunk completes and provides its actual keyspace:
 
 See [Benchmark Workflow](./benchmark-workflow.md) for more details on keyspace capture during benchmarking.
 
+## Salt-Aware Chunk Calculations
+
+For hash types that use per-hash salts, chunk calculations require special handling to account for how hashcat reports speed.
+
+### The Salt Factor
+
+Hashcat reports speed differently for salted vs. non-salted hashes:
+
+| Hash Type | Speed Metric | Example |
+|-----------|--------------|---------|
+| Non-salted (NTLM) | Candidates/sec | 1 GH/s = 1B candidates/sec |
+| Salted (NetNTLMv2) | Hash-ops/sec | 1 GH/s = candidate_rate × salt_count |
+
+For salted hashes, the remaining uncracked hashes act as the salt count. The actual candidate throughput is:
+
+```
+candidate_speed = benchmark_speed / remaining_hashes
+```
+
+### Why This Matters for Chunking
+
+Without salt-aware calculations, chunks for salted hash jobs would be dramatically oversized:
+
+**Example: NetNTLMv2 (mode 5600) with 5000 remaining hashes**
+
+| Calculation Type | Benchmark Speed | Candidate Speed | Chunk Size (20 min) |
+|-----------------|-----------------|-----------------|---------------------|
+| **Incorrect** (ignoring salts) | 500 MH/s | 500 MH/s | 600B candidates |
+| **Correct** (salt-aware) | 500 MH/s | 100 KH/s | 120M candidates |
+
+The incorrect calculation produces chunks 5000× too large!
+
+### Chunk Calculation Request
+
+The chunking service now accepts salt-related parameters:
+
+```go
+type ChunkCalculationRequest struct {
+    // ... existing fields ...
+
+    // Salt-aware fields
+    IsSalted      bool   // Whether hash type uses per-hash salts
+    TotalHashes   int    // Total hashes in hashlist
+    CrackedHashes int    // Number of cracked hashes
+}
+```
+
+**Salt count is calculated as:**
+```go
+saltCount := request.TotalHashes - request.CrackedHashes
+```
+
+### Speed Adjustment Algorithm
+
+When calculating chunks for salted hashes:
+
+```go
+func (s *ChunkingService) CalculateNextChunk(request ChunkCalculationRequest) *ChunkResult {
+    benchmarkSpeed := s.GetBenchmarkSpeed(agentID, attackMode, hashType, saltCount)
+
+    // Adjust for salt count
+    var candidateSpeed int64
+    if request.IsSalted && remainingHashes > 0 {
+        // Hashcat reports hash_ops/sec for salted hashes
+        // Convert to actual candidate throughput
+        candidateSpeed = benchmarkSpeed / remainingHashes
+    } else {
+        candidateSpeed = benchmarkSpeed
+    }
+
+    // Calculate chunk size using adjusted speed
+    chunkSize := candidateSpeed * targetChunkDuration
+
+    return &ChunkResult{Size: chunkSize}
+}
+```
+
+### Impact on Rule Splitting Decisions
+
+Rule splitting decisions are also affected by salt-aware calculations:
+
+1. **At job creation**: System checks if rule splitting should be enabled
+2. **Comparison uses actual rule count**: Not salt-adjusted keyspace
+3. **Prevents false positives**: Without this, salt multiplication could incorrectly trigger rule splitting
+
+**Example:**
+```
+Wordlist: 1M words
+Rules: 50 rules (below rule_split_min_rules of 100)
+Hashes: 10,000 (salt count)
+
+Salt-adjusted keyspace: 1M × 50 × 10,000 = 500T
+Actual rule count: 50 (no rule splitting needed)
+```
+
+### Job Completion Estimation
+
+The ETA calculation for jobs with salted hashes also uses adjusted speeds:
+
+```go
+func (s *ChunkingService) EstimateJobCompletion(request JobCompletionEstimateRequest) {
+    avgSpeed := s.GetAverageAgentSpeed(hashType, attackMode, saltCount)
+
+    if request.IsSalted && remainingHashes > 0 {
+        avgSpeed = avgSpeed / remainingHashes
+    }
+
+    remainingKeyspace := totalKeyspace - completedKeyspace
+    estimatedSeconds := remainingKeyspace / avgSpeed
+}
+```
+
+### Salt Count Changes During Cracking
+
+As hashes get cracked, the salt count decreases:
+
+```
+Job start:   5000 hashes → salt_count = 5000 → candidate_speed = X
+After 1000:  4000 hashes → salt_count = 4000 → candidate_speed = X × 1.25
+After 4000:  1000 hashes → salt_count = 1000 → candidate_speed = X × 5
+```
+
+The system handles this by:
+1. Recalculating salt count for each new chunk
+2. Using updated benchmarks when available
+3. Progressively more accurate ETA as job progresses
+
+### Salted Hash Types
+
+The following hash types are automatically classified as salted:
+
+- **Network Authentication**: NetNTLMv1 (5500), NetNTLMv2 (5600), Kerberos family
+- **Password Hashing**: bcrypt, scrypt, PBKDF2, Argon2, all crypt variants
+- **Encryption**: VeraCrypt, TrueCrypt, LUKS, BitLocker
+- **Applications**: KeePass, 1Password, LastPass, Bitwarden
+
+See [Hash Types Reference](../hash-types.md#salted-hash-type-classification) for the complete list.
+
 ## Dynamic Updates During Execution
 
 When wordlists, rules, or potfiles are modified while jobs are running, the chunking system adapts:

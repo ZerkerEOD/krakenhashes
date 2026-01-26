@@ -266,12 +266,35 @@ Admins can disable user accounts:
    - Clears disable reason
    - User can log in again
 
+### Account Deletion (Soft Delete)
+
+Admins can delete user accounts using soft delete:
+
+1. **Soft Delete Process**
+   - Navigate to Admin → Users
+   - Select user to delete
+   - Click "Delete" button
+   - Confirm deletion
+   - User's `deleted_at` timestamp is set
+   - User is filtered from all listings
+
+2. **Deletion Restrictions**
+   - Cannot delete your own account
+   - Cannot delete system users
+   - Deleted users' data is preserved (soft delete)
+
+3. **What Happens When Deleted**
+   - User cannot log in
+   - User is hidden from user listings
+   - Historical data (jobs, results) remains linked
+   - Data preserved for audit and compliance
+
 ### Important Considerations
 
-- System users cannot be disabled
+- System users cannot be disabled or deleted
 - Disabled users' data remains intact
+- Deleted users' data remains intact (soft delete)
 - Active sessions are not immediately terminated
-- User deletion is not implemented (data retention)
 
 ### Deactivation Process
 
@@ -285,6 +308,14 @@ To re-enable:
 1. Find disabled user
 2. Click "Enable Account"
 3. User can now log in
+
+### Deletion Process
+
+1. Navigate to Admin → Users
+2. Select user to delete
+3. Click "Delete" button
+4. Confirm deletion in dialog
+5. User is soft-deleted and hidden from listings
 
 ## Audit Logging and User Activity
 
@@ -389,6 +420,7 @@ For programmatic access, the following admin endpoints are available:
 - `GET /api/admin/users` - List all users
 - `GET /api/admin/users/{id}` - Get user details
 - `PUT /api/admin/users/{id}` - Update user
+- `DELETE /api/admin/users/{id}` - Soft delete user account
 - `POST /api/admin/users/{id}/disable` - Disable account
 - `POST /api/admin/users/{id}/enable` - Enable account
 - `POST /api/admin/users/{id}/reset-password` - Reset password

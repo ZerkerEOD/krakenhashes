@@ -257,6 +257,16 @@ func (r *JobTaskRepository) GetTaskCountByJobExecution(ctx context.Context, jobE
 // AreAllTasksComplete checks if all tasks for a job execution are complete
 // AND all work has been dispatched (for rule-splitting and keyspace-chunking jobs)
 func (r *JobTaskRepository) AreAllTasksComplete(ctx context.Context, jobExecutionID uuid.UUID) (bool, error) {
+	// DEFENSIVE CHECK 1: At least one completed task must exist
+	// This prevents marking jobs as complete when no actual work has been done
+	completedCount, err := r.GetCompletedTaskCount(ctx, jobExecutionID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get completed task count: %w", err)
+	}
+	if completedCount == 0 {
+		return false, nil
+	}
+
 	// First check if all existing tasks are complete
 	query := `
 		SELECT COUNT(*) = 0
@@ -265,7 +275,7 @@ func (r *JobTaskRepository) AreAllTasksComplete(ctx context.Context, jobExecutio
 		AND status NOT IN ($2, $3, $4, $5)`
 
 	var allTasksComplete bool
-	err := r.db.QueryRowContext(ctx, query,
+	err = r.db.QueryRowContext(ctx, query,
 		jobExecutionID,
 		models.JobTaskStatusCompleted,
 		models.JobTaskStatusFailed,
@@ -286,13 +296,13 @@ func (r *JobTaskRepository) AreAllTasksComplete(ctx context.Context, jobExecutio
 	// Get job details to check dispatch status
 	jobQuery := `
 		SELECT uses_rule_splitting, multiplication_factor, effective_keyspace,
-		       base_keyspace, dispatched_keyspace, total_keyspace
+		       base_keyspace, dispatched_keyspace
 		FROM job_executions
 		WHERE id = $1`
 
 	var usesRuleSplitting bool
 	var multiplicationFactor int
-	var effectiveKeyspace, baseKeyspace, totalKeyspace *int64
+	var effectiveKeyspace, baseKeyspace *int64
 	var dispatchedKeyspace int64
 
 	err = r.db.QueryRowContext(ctx, jobQuery, jobExecutionID).Scan(
@@ -301,10 +311,23 @@ func (r *JobTaskRepository) AreAllTasksComplete(ctx context.Context, jobExecutio
 		&effectiveKeyspace,
 		&baseKeyspace,
 		&dispatchedKeyspace,
-		&totalKeyspace,
 	)
 	if err != nil {
 		return false, fmt.Errorf("failed to get job details: %w", err)
+	}
+
+	// DEFENSIVE CHECK 2: Valid keyspace must be defined
+	// Cannot determine completion without knowing total work to be done
+	hasValidKeyspace := effectiveKeyspace != nil && *effectiveKeyspace > 0
+	if !hasValidKeyspace && !usesRuleSplitting {
+		// For non-rule-splitting jobs without keyspace, we cannot verify completion
+		return false, nil
+	}
+
+	// DEFENSIVE CHECK 3: Work must have been dispatched (for keyspace jobs)
+	// Prevents premature completion when dispatched_keyspace hasn't been updated yet
+	if !usesRuleSplitting && hasValidKeyspace && dispatchedKeyspace == 0 {
+		return false, nil
 	}
 
 	// For rule-splitting jobs, check if all rules have been dispatched
@@ -329,14 +352,13 @@ func (r *JobTaskRepository) AreAllTasksComplete(ctx context.Context, jobExecutio
 			}
 		}
 	} else {
-		// For non-rule-splitting jobs, check if all keyspace has been dispatched
-		targetKeyspace := effectiveKeyspace
-		if targetKeyspace == nil {
-			targetKeyspace = totalKeyspace
-		}
-
-		if targetKeyspace != nil && dispatchedKeyspace < *targetKeyspace {
-			// More keyspace needs to be dispatched
+		// For non-rule-splitting jobs, check if all work has been dispatched
+		// using counter comparison. We use effective_keyspace as the target
+		// since that represents the actual total candidates to process.
+		// Note: base_keyspace is the wordlist size (different dimension) and
+		// should NOT be used for completion comparison.
+		if effectiveKeyspace != nil && *effectiveKeyspace > 0 && dispatchedKeyspace < *effectiveKeyspace {
+			// More effective keyspace needs to be dispatched
 			return false, nil
 		}
 	}
@@ -345,13 +367,36 @@ func (r *JobTaskRepository) AreAllTasksComplete(ctx context.Context, jobExecutio
 	return true, nil
 }
 
-// AreAllLayerTasksComplete checks if all tasks for a specific layer are complete
+// HasFailedTasks checks if a job has any failed or processing_error tasks
+func (r *JobTaskRepository) HasFailedTasks(ctx context.Context, jobExecutionID uuid.UUID) (bool, error) {
+	query := `
+		SELECT COUNT(*) > 0
+		FROM job_tasks
+		WHERE job_execution_id = $1
+		AND status IN ($2, $3)`
+
+	var hasFailed bool
+	err := r.db.QueryRowContext(ctx, query,
+		jobExecutionID,
+		models.JobTaskStatusFailed,
+		models.JobTaskStatusProcessingError,
+	).Scan(&hasFailed)
+
+	if err != nil {
+		return false, fmt.Errorf("failed to check for failed tasks: %w", err)
+	}
+
+	return hasFailed, nil
+}
+
+// AreAllLayerTasksComplete checks if all tasks for a specific layer are in a terminal state
+// Note: This returns true if all tasks are completed, failed, cancelled, or processing_error
 func (r *JobTaskRepository) AreAllLayerTasksComplete(ctx context.Context, layerID uuid.UUID) (bool, error) {
 	query := `
 		SELECT COUNT(*) = 0
 		FROM job_tasks
 		WHERE increment_layer_id = $1
-		  AND status NOT IN ('completed', 'cancelled')`
+		  AND status NOT IN ('completed', 'cancelled', 'failed', 'processing_error')`
 
 	var allComplete bool
 	err := r.db.QueryRowContext(ctx, query, layerID).Scan(&allComplete)
@@ -362,6 +407,23 @@ func (r *JobTaskRepository) AreAllLayerTasksComplete(ctx context.Context, layerI
 	return allComplete, nil
 }
 
+// HasFailedLayerTasks checks if a layer has any failed or processing_error tasks
+func (r *JobTaskRepository) HasFailedLayerTasks(ctx context.Context, layerID uuid.UUID) (bool, error) {
+	query := `
+		SELECT COUNT(*) > 0
+		FROM job_tasks
+		WHERE increment_layer_id = $1
+		AND status IN ('failed', 'processing_error')`
+
+	var hasFailed bool
+	err := r.db.QueryRowContext(ctx, query, layerID).Scan(&hasFailed)
+	if err != nil {
+		return false, fmt.Errorf("failed to check for failed layer tasks: %w", err)
+	}
+
+	return hasFailed, nil
+}
+
 // GetPendingTasksByJobExecution retrieves all pending tasks for a specific job execution
 func (r *JobTaskRepository) GetPendingTasksByJobExecution(ctx context.Context, jobExecutionID uuid.UUID) ([]models.JobTask, error) {
 	query := `
@@ -370,7 +432,9 @@ func (r *JobTaskRepository) GetPendingTasksByJobExecution(ctx context.Context, j
 			chunk_duration, created_at, assigned_at, started_at, completed_at,
 			updated_at, last_checkpoint, error_message, crack_count,
 			detailed_status, retry_count, rule_start_index, rule_end_index,
-			rule_chunk_path, is_rule_split_task
+			rule_chunk_path, is_rule_split_task, is_keyspace_split,
+			effective_keyspace_start, effective_keyspace_end, chunk_number,
+			increment_layer_id
 		FROM job_tasks
 		WHERE job_execution_id = $1 AND status = $2
 		ORDER BY created_at ASC`
@@ -391,6 +455,8 @@ func (r *JobTaskRepository) GetPendingTasksByJobExecution(ctx context.Context, j
 			&task.StartedAt, &task.CompletedAt, &task.UpdatedAt, &task.LastCheckpoint,
 			&task.ErrorMessage, &task.CrackCount, &task.DetailedStatus, &task.RetryCount,
 			&task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath, &task.IsRuleSplitTask,
+			&task.IsKeyspaceSplit, &task.EffectiveKeyspaceStart, &task.EffectiveKeyspaceEnd,
+			&task.ChunkNumber, &task.IncrementLayerID,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan task: %w", err)
@@ -410,8 +476,9 @@ func (r *JobTaskRepository) Update(ctx context.Context, task *models.JobTask) er
 			benchmark_speed = $8, chunk_duration = $9, assigned_at = $10,
 			started_at = $11, completed_at = $12, updated_at = $13,
 			last_checkpoint = $14, error_message = $15, crack_count = $16,
-			detailed_status = $17, retry_count = $18
-		WHERE id = $19`
+			detailed_status = $17, retry_count = $18, is_keyspace_split = $19,
+			effective_keyspace_start = $20, effective_keyspace_end = $21
+		WHERE id = $22`
 
 	_, err := r.db.ExecContext(ctx, query,
 		task.AgentID, task.Status, task.Priority, task.AttackCmd,
@@ -419,7 +486,8 @@ func (r *JobTaskRepository) Update(ctx context.Context, task *models.JobTask) er
 		task.BenchmarkSpeed, task.ChunkDuration, task.AssignedAt,
 		task.StartedAt, task.CompletedAt, task.UpdatedAt,
 		task.LastCheckpoint, task.ErrorMessage, task.CrackCount,
-		task.DetailedStatus, task.RetryCount, task.ID,
+		task.DetailedStatus, task.RetryCount, task.IsKeyspaceSplit,
+		task.EffectiveKeyspaceStart, task.EffectiveKeyspaceEnd, task.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to update task: %w", err)

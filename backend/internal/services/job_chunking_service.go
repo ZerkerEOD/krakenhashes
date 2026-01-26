@@ -36,7 +36,10 @@ type ChunkCalculationRequest struct {
 	Agent         *models.Agent
 	AttackMode    models.AttackMode
 	HashType      int
-	ChunkDuration int // Desired chunk duration in seconds
+	ChunkDuration int  // Desired chunk duration in seconds
+	IsSalted      bool // Whether the hash type uses per-hash salts
+	TotalHashes   int  // Total hashes in the hashlist
+	CrackedHashes int  // Number of cracked hashes
 }
 
 // ChunkCalculationResult contains the calculated chunk parameters
@@ -69,20 +72,21 @@ func (s *JobChunkingService) CalculateNextChunk(ctx context.Context, req ChunkCa
 		"keyspace_start":   keyspaceStart,
 	})
 
-	// If job has no total keyspace, we can't calculate chunks properly
-	if req.JobExecution.TotalKeyspace == nil {
-		debug.Log("Job has no total keyspace, using alternative calculation", map[string]interface{}{
+	// If job has no base keyspace, we can't calculate chunks properly
+	// BaseKeyspace is used for --skip/--limit which operates on wordlist positions
+	if req.JobExecution.BaseKeyspace == nil {
+		debug.Log("Job has no base keyspace, using alternative calculation", map[string]interface{}{
 			"job_execution_id": req.JobExecution.ID,
 		})
 		return s.calculateChunkWithoutKeyspace(ctx, req, keyspaceStart)
 	}
 
-	totalKeyspace := *req.JobExecution.TotalKeyspace
-	remainingKeyspace := totalKeyspace - keyspaceStart
+	baseKeyspace := *req.JobExecution.BaseKeyspace
+	remainingKeyspace := baseKeyspace - keyspaceStart
 
 	debug.Log("Calculated remaining keyspace", map[string]interface{}{
 		"job_execution_id":   req.JobExecution.ID,
-		"total_keyspace":     totalKeyspace,
+		"base_keyspace":      baseKeyspace,
 		"keyspace_start":     keyspaceStart,
 		"remaining_keyspace": remainingKeyspace,
 	})
@@ -91,8 +95,17 @@ func (s *JobChunkingService) CalculateNextChunk(ctx context.Context, req ChunkCa
 		return nil, fmt.Errorf("no remaining keyspace for job")
 	}
 
-	// Get agent benchmark for this attack mode and hash type
-	benchmarkSpeed, err := s.GetOrEstimateBenchmark(ctx, req.Agent.ID, req.AttackMode, req.HashType)
+	// Calculate salt count for salted hash types (used for benchmark lookup)
+	var saltCount *int
+	if req.IsSalted {
+		remaining := req.TotalHashes - req.CrackedHashes
+		if remaining > 0 {
+			saltCount = &remaining
+		}
+	}
+
+	// Get agent benchmark for this attack mode and hash type (salt-aware lookup)
+	benchmarkSpeed, err := s.GetOrEstimateBenchmark(ctx, req.Agent.ID, req.AttackMode, req.HashType, saltCount)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get benchmark: %w", err)
 	}
@@ -114,12 +127,33 @@ func (s *JobChunkingService) CalculateNextChunk(ctx context.Context, req ChunkCa
 		benchmarkSpeed = s.getDefaultBenchmarkEstimate(req.AttackMode, req.HashType)
 	}
 
-	// Calculate chunk size based on benchmark and desired duration
-	desiredChunkSize := int64(req.ChunkDuration) * benchmarkSpeed
+	// For salted hash types, adjust the benchmark speed to get true candidate rate
+	// Hashcat reports speed as hash_ops/sec (candidate_rate × salt_count) for salted hashes
+	// We need to divide by remaining hash count (≈ salt count) to get candidate rate
+	candidateSpeed := benchmarkSpeed
+	if req.IsSalted {
+		remainingHashes := int64(req.TotalHashes - req.CrackedHashes)
+		if remainingHashes > 0 {
+			candidateSpeed = benchmarkSpeed / remainingHashes
+			debug.Log("Applied salt adjustment to benchmark speed", map[string]interface{}{
+				"is_salted":         req.IsSalted,
+				"total_hashes":      req.TotalHashes,
+				"cracked_hashes":    req.CrackedHashes,
+				"remaining_hashes":  remainingHashes,
+				"original_speed":    benchmarkSpeed,
+				"adjusted_speed":    candidateSpeed,
+			})
+		}
+	}
+
+	// Calculate chunk size based on adjusted speed and desired duration
+	desiredChunkSize := int64(req.ChunkDuration) * candidateSpeed
 
 	debug.Log("Calculated desired chunk size", map[string]interface{}{
-		"chunk_duration":    req.ChunkDuration,
-		"benchmark_speed":   benchmarkSpeed,
+		"chunk_duration":     req.ChunkDuration,
+		"benchmark_speed":    benchmarkSpeed,
+		"candidate_speed":    candidateSpeed,
+		"is_salted":          req.IsSalted,
 		"desired_chunk_size": desiredChunkSize,
 	})
 
@@ -147,30 +181,30 @@ func (s *JobChunkingService) CalculateNextChunk(ctx context.Context, req ChunkCa
 		"keyspace_start":     keyspaceStart,
 		"desired_chunk_size": desiredChunkSize,
 		"keyspace_end":       keyspaceEnd,
-		"total_keyspace":     totalKeyspace,
+		"base_keyspace":      baseKeyspace,
 	})
 
-	if keyspaceEnd >= totalKeyspace {
+	if keyspaceEnd >= baseKeyspace {
 		// This is the last chunk
-		keyspaceEnd = totalKeyspace
+		keyspaceEnd = baseKeyspace
 		isLastChunk = true
-		actualDuration = int((totalKeyspace - keyspaceStart) / benchmarkSpeed)
+		actualDuration = int((baseKeyspace - keyspaceStart) / candidateSpeed)
 
 		debug.Log("Adjusted to last chunk", map[string]interface{}{
-			"reason":           "keyspace_end >= total_keyspace",
+			"reason":           "keyspace_end >= base_keyspace",
 			"keyspace_end":     keyspaceEnd,
 			"actual_duration":  actualDuration,
 		})
 	} else {
 		// Check if the remaining keyspace after this chunk would be too small
-		remainingAfterChunk := totalKeyspace - keyspaceEnd
+		remainingAfterChunk := baseKeyspace - keyspaceEnd
 		fluctuationThreshold := int64(float64(desiredChunkSize) * float64(fluctuationPercentage) / 100.0)
 
 		if remainingAfterChunk <= fluctuationThreshold {
 			// Merge the final small chunk into this one
-			keyspaceEnd = totalKeyspace
+			keyspaceEnd = baseKeyspace
 			isLastChunk = true
-			actualDuration = int((totalKeyspace - keyspaceStart) / benchmarkSpeed)
+			actualDuration = int((baseKeyspace - keyspaceStart) / candidateSpeed)
 
 			debug.Log("Merging final chunk to avoid small remainder", map[string]interface{}{
 				"remaining_after_chunk": remainingAfterChunk,
@@ -211,9 +245,10 @@ func (s *JobChunkingService) calculateChunkWithoutKeyspace(ctx context.Context, 
 }
 
 // GetOrEstimateBenchmark gets the benchmark for an agent or estimates one if not available
-func (s *JobChunkingService) GetOrEstimateBenchmark(ctx context.Context, agentID int, attackMode models.AttackMode, hashType int) (int64, error) {
-	// Try to get existing benchmark
-	benchmark, err := s.benchmarkRepo.GetAgentBenchmark(ctx, agentID, attackMode, hashType)
+// saltCount is used for salt-aware benchmark lookup (nil for non-salted hash types)
+func (s *JobChunkingService) GetOrEstimateBenchmark(ctx context.Context, agentID int, attackMode models.AttackMode, hashType int, saltCount *int) (int64, error) {
+	// Try to get existing benchmark (salt-aware lookup)
+	benchmark, err := s.benchmarkRepo.GetAgentBenchmark(ctx, agentID, attackMode, hashType, saltCount)
 	if err == nil {
 		// Check if benchmark is recent enough
 		cacheDurationSetting, err := s.systemSettingsRepo.GetSetting(ctx, "benchmark_cache_duration_hours")
@@ -229,7 +264,7 @@ func (s *JobChunkingService) GetOrEstimateBenchmark(ctx context.Context, agentID
 		}
 
 		cacheDuration := time.Duration(cacheDurationHours) * time.Hour
-		isRecent, err := s.benchmarkRepo.IsRecentBenchmark(ctx, agentID, attackMode, hashType, cacheDuration)
+		isRecent, err := s.benchmarkRepo.IsRecentBenchmark(ctx, agentID, attackMode, hashType, saltCount, cacheDuration)
 		if err == nil && isRecent {
 			return benchmark.Speed, nil
 		}
@@ -307,14 +342,23 @@ func (s *JobChunkingService) getAttackModeSpeedModifier(attackMode models.Attack
 	}
 }
 
+// JobCompletionEstimateRequest contains parameters for job completion estimation
+type JobCompletionEstimateRequest struct {
+	JobExecution  *models.JobExecution
+	IsSalted      bool // Whether the hash type uses per-hash salts
+	TotalHashes   int  // Total hashes in the hashlist
+	CrackedHashes int  // Number of cracked hashes
+}
+
 // EstimateJobCompletion estimates when a job will complete based on current progress
-func (s *JobChunkingService) EstimateJobCompletion(ctx context.Context, jobExecution *models.JobExecution) (*time.Time, error) {
-	if jobExecution.TotalKeyspace == nil || *jobExecution.TotalKeyspace == 0 {
-		return nil, fmt.Errorf("cannot estimate completion without total keyspace")
+func (s *JobChunkingService) EstimateJobCompletion(ctx context.Context, req JobCompletionEstimateRequest) (*time.Time, error) {
+	// Use EffectiveKeyspace for completion estimation (total candidates including rules and salts)
+	if req.JobExecution.EffectiveKeyspace == nil || *req.JobExecution.EffectiveKeyspace == 0 {
+		return nil, fmt.Errorf("cannot estimate completion without effective keyspace")
 	}
 
-	totalKeyspace := *jobExecution.TotalKeyspace
-	remainingKeyspace := totalKeyspace - jobExecution.ProcessedKeyspace
+	effectiveKeyspace := *req.JobExecution.EffectiveKeyspace
+	remainingKeyspace := effectiveKeyspace - req.JobExecution.ProcessedKeyspace
 
 	if remainingKeyspace <= 0 {
 		// Job is already complete
@@ -323,7 +367,7 @@ func (s *JobChunkingService) EstimateJobCompletion(ctx context.Context, jobExecu
 	}
 
 	// Get active tasks for this job
-	tasks, err := s.jobTaskRepo.GetTasksByJobExecution(ctx, jobExecution.ID)
+	tasks, err := s.jobTaskRepo.GetTasksByJobExecution(ctx, req.JobExecution.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get job tasks: %w", err)
 	}
@@ -342,15 +386,34 @@ func (s *JobChunkingService) EstimateJobCompletion(ctx context.Context, jobExecu
 		return nil, fmt.Errorf("no running tasks to estimate completion")
 	}
 
-	// Calculate estimated completion time
+	// Calculate average speed and adjust for salted hashes
 	avgSpeed := totalSpeed / int64(runningTasks)
-	estimatedSeconds := remainingKeyspace / avgSpeed
+
+	// For salted hash types, adjust the speed to get true candidate rate
+	candidateSpeed := avgSpeed
+	if req.IsSalted {
+		remainingHashes := int64(req.TotalHashes - req.CrackedHashes)
+		if remainingHashes > 0 {
+			candidateSpeed = avgSpeed / remainingHashes
+			debug.Log("Applied salt adjustment to completion estimate", map[string]interface{}{
+				"is_salted":        req.IsSalted,
+				"remaining_hashes": remainingHashes,
+				"original_speed":   avgSpeed,
+				"adjusted_speed":   candidateSpeed,
+			})
+		}
+	}
+
+	// Calculate estimated completion time
+	estimatedSeconds := remainingKeyspace / candidateSpeed
 	estimatedCompletion := time.Now().Add(time.Duration(estimatedSeconds) * time.Second)
 
 	debug.Log("Job completion estimated", map[string]interface{}{
-		"job_execution_id":     jobExecution.ID,
+		"job_execution_id":     req.JobExecution.ID,
 		"remaining_keyspace":   remainingKeyspace,
 		"average_speed":        avgSpeed,
+		"candidate_speed":      candidateSpeed,
+		"is_salted":            req.IsSalted,
 		"estimated_seconds":    estimatedSeconds,
 		"estimated_completion": estimatedCompletion,
 	})
@@ -403,7 +466,29 @@ func (s *JobChunkingService) CreateInitialChunks(ctx context.Context, job *model
 		hashType = presetJob.HashType
 	}
 
-	benchmarkSpeed, err := s.GetOrEstimateBenchmark(ctx, agent.ID, job.AttackMode, hashType)
+	// Determine salt count for salted hash types (used for benchmark lookup)
+	// For salted hashes, we need the correct benchmark speed for the current salt count
+	var saltCount *int
+	if job.HashlistID > 0 {
+		hashlist, hlErr := jobExecService.hashlistRepo.GetByID(ctx, job.HashlistID)
+		if hlErr == nil && hashlist != nil {
+			hashTypeInfo, htErr := jobExecService.hashTypeRepo.GetByID(ctx, hashlist.HashTypeID)
+			if htErr == nil && hashTypeInfo != nil && hashTypeInfo.IsSalted {
+				uncrackedCount, countErr := jobExecService.hashlistRepo.GetUncrackedHashCount(ctx, job.HashlistID)
+				if countErr == nil && uncrackedCount > 0 {
+					saltCount = &uncrackedCount
+					debug.Log("Using salt-aware benchmark for rule splitting", map[string]interface{}{
+						"job_execution_id": job.ID,
+						"salt_count":       uncrackedCount,
+						"hash_type":        hashlist.HashTypeID,
+					})
+				}
+			}
+		}
+	}
+
+	// Get benchmark with salt count for accurate rule splitting calculation
+	benchmarkSpeed, err := s.GetOrEstimateBenchmark(ctx, agent.ID, job.AttackMode, hashType, saltCount)
 	if err != nil {
 		debug.Log("Failed to get benchmark, using default", map[string]interface{}{
 			"error": err.Error(),

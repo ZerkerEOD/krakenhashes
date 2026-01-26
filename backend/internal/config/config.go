@@ -13,14 +13,13 @@ import (
 
 // Config holds the application configuration
 type Config struct {
-	Host              string
-	HTTPPort          int    // Port for HTTP (CA certificate)
-	HTTPSPort         int    // Port for HTTPS (API)
-	ConfigDir         string // Base directory for config files (certs, etc.)
-	DataDir           string // Base directory for mutable data (uploads, db?)
-	HashlistBatchSize int    // Max number of hashes to process in one DB batch
-	MaxUploadSize     int64  // Max size for file uploads in bytes
-	HashUploadDir     string // Directory within DataDir to store hashlist uploads
+	Host          string
+	HTTPPort      int    // Port for HTTP (CA certificate)
+	HTTPSPort     int    // Port for HTTPS (API)
+	ConfigDir     string // Base directory for config files (certs, etc.)
+	DataDir       string // Base directory for mutable data (uploads, db?)
+	MaxUploadSize int64  // Max size for file uploads in bytes
+	HashUploadDir string // Directory within DataDir to store hashlist uploads
 }
 
 // NewConfig creates a new Config instance with values from environment variables
@@ -149,19 +148,6 @@ func NewConfig() *Config {
 
 	debug.Info("Using data directory: %s", dataDir)
 
-	// Get hashlist batch size from environment or use default
-	hashlistBatchSize := 3000 // Default batch size (optimized for multi-row INSERT performance)
-	if batchSizeStr := os.Getenv("KH_HASHLIST_BATCH_SIZE"); batchSizeStr != "" {
-		if bs, err := strconv.Atoi(batchSizeStr); err == nil && bs > 0 {
-			hashlistBatchSize = bs
-			debug.Info("Using hashlist batch size from environment: %d", hashlistBatchSize)
-		} else {
-			debug.Warning("Invalid KH_HASHLIST_BATCH_SIZE value '%s', using default: %d", batchSizeStr, hashlistBatchSize)
-		}
-	} else {
-		debug.Info("Using default hashlist batch size: %d", hashlistBatchSize)
-	}
-
 	// Get Max Upload Size
 	maxUploadSize := int64(32 << 20) // Default 32 MiB
 	if sizeStr := env.GetOrDefault("KH_MAX_UPLOAD_SIZE_MB", "32"); sizeStr != "" {
@@ -193,14 +179,13 @@ func NewConfig() *Config {
 	debug.Info("Using Hash Upload directory: %s", hashUploadDir)
 
 	return &Config{
-		Host:              host,
-		HTTPPort:          httpPort,
-		HTTPSPort:         httpsPort,
-		ConfigDir:         configDir,
-		DataDir:           dataDir,
-		HashlistBatchSize: hashlistBatchSize,
-		MaxUploadSize:     maxUploadSize,
-		HashUploadDir:     hashUploadDir,
+		Host:          host,
+		HTTPPort:      httpPort,
+		HTTPSPort:     httpsPort,
+		ConfigDir:     configDir,
+		DataDir:       dataDir,
+		MaxUploadSize: maxUploadSize,
+		HashUploadDir: hashUploadDir,
 	}
 }
 

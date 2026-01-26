@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Paper,
@@ -25,11 +25,14 @@ import {
   InputAdornment,
   IconButton,
   Tooltip,
+  Chip,
 } from '@mui/material';
 import {
   Search as SearchIcon,
   ContentCopy as CopyIcon,
   Download as DownloadIcon,
+  FilterList as FilterListIcon,
+  Clear as ClearIcon,
 } from '@mui/icons-material';
 import { api } from '../../services/api';
 import { useSnackbar } from 'notistack';
@@ -37,7 +40,7 @@ import { CrackedHash, PotResponse } from '../../services/pot';
 
 interface PotTableProps {
   title: string;
-  fetchData: (limit: number, offset: number) => Promise<PotResponse>;
+  fetchData: (limit: number, offset: number, search?: string) => Promise<PotResponse>;
   filterParam?: string;
   filterValue?: string;
   contextType: 'master' | 'hashlist' | 'client' | 'job';
@@ -52,38 +55,96 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(500);
   const [totalCount, setTotalCount] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
+
+  // Server-side search state
+  const [searchInput, setSearchInput] = useState('');      // What user types in search bar
+  const [activeSearch, setActiveSearch] = useState('');    // Search term sent to server
+  const [isSearching, setIsSearching] = useState(false);   // Loading state for search
+
+  // Client-side filter state (filters current page)
+  const [filterTerm, setFilterTerm] = useState('');
+
   const [openAllConfirm, setOpenAllConfirm] = useState(false);
   const [hasUsernameData, setHasUsernameData] = useState(false);
+  const [hasDomainData, setHasDomainData] = useState(false);
   const [checkedForUsernames, setCheckedForUsernames] = useState(false);
   const [downloadingFormat, setDownloadingFormat] = useState<string | null>(null);
   const { enqueueSnackbar } = useSnackbar();
 
+  // Request ID to prevent stale responses from overwriting newer data
+  const requestIdRef = useRef(0);
+
   const pageSizeOptions = [500, 1000, 1500, 2000, -1];
 
   const loadData = useCallback(async () => {
+    // Increment request ID to track this specific request
+    const currentRequestId = ++requestIdRef.current;
+
     try {
       setLoading(true);
+      setIsSearching(activeSearch !== '');
       setError(null);
-      
+
       const limit = rowsPerPage === -1 ? 999999 : rowsPerPage;
       const offset = page * (rowsPerPage === -1 ? 0 : rowsPerPage);
-      
-      const response = await fetchData(limit, offset);
+
+      // Pass search parameter if active
+      const response = await fetchData(limit, offset, activeSearch || undefined);
+
+      // Only update state if this is still the most recent request
+      if (currentRequestId !== requestIdRef.current) {
+        console.log('Ignoring stale response', { currentRequestId, latestId: requestIdRef.current });
+        return;
+      }
+
       setData(response.hashes);
       setTotalCount(response.total_count);
-      
-      // Check if any hash has username data
+
+      // Check if any hash has username or domain data
       const hasUsername = response.hashes.some(hash => hash.username && hash.username.trim() !== '');
+      const hasDomain = response.hashes.some(hash => hash.domain && hash.domain.trim() !== '');
       setHasUsernameData(hasUsername);
+      setHasDomainData(hasDomain);
     } catch (err) {
+      // Only show error if this is still the most recent request
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
       console.error('Error loading pot data:', err);
       setError('Failed to load cracked hashes');
       enqueueSnackbar('Failed to load cracked hashes', { variant: 'error' });
     } finally {
-      setLoading(false);
+      // Only update loading state if this is still the most recent request
+      if (currentRequestId === requestIdRef.current) {
+        setLoading(false);
+        setIsSearching(false);
+      }
     }
-  }, [page, rowsPerPage, fetchData, enqueueSnackbar]);
+  }, [page, rowsPerPage, fetchData, activeSearch, enqueueSnackbar]);
+
+  // Handle search submission (button click or Enter key)
+  const handleSearch = useCallback(() => {
+    const trimmedSearch = searchInput.trim();
+    if (trimmedSearch !== activeSearch) {
+      setActiveSearch(trimmedSearch);
+      setPage(0);  // Reset to first page on new search
+      setFilterTerm('');  // Clear local filter when doing server search
+    }
+  }, [searchInput, activeSearch]);
+
+  // Handle Enter key in search input
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
+  // Clear search and reset to normal view
+  const handleClearSearch = useCallback(() => {
+    setSearchInput('');
+    setActiveSearch('');
+    setPage(0);
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -130,10 +191,10 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
     enqueueSnackbar('Copied to clipboard', { variant: 'success' });
   };
 
-  const downloadFormat = async (format: 'hash-pass' | 'user-pass' | 'user' | 'pass') => {
+  const downloadFormat = async (format: 'hash-pass' | 'user-pass' | 'user' | 'pass' | 'domain-user' | 'domain-user-pass') => {
     try {
       setDownloadingFormat(format);
-      
+
       // Build the download URL based on context
       let url = '';
       if (contextType === 'master') {
@@ -142,32 +203,41 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
         url = `/api/pot/hashlist/${contextId}/download/${format}`;
       } else if (contextType === 'client' && contextId) {
         url = `/api/pot/client/${contextId}/download/${format}`;
+      } else if (contextType === 'job' && contextId) {
+        url = `/api/pot/job/${contextId}/download/${format}`;
       }
-      
+
       const response = await api.get(url, { responseType: 'blob' });
-      
+
       // Create blob and download
       const blob = new Blob([response.data], { type: 'text/plain' });
       const downloadUrl = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = downloadUrl;
-      
+
       // Get filename from Content-Disposition header or use default
       const contentDisposition = response.headers['content-disposition'];
-      let filename = `${contextName}-${format.replace('-', '-')}.lst`;
+      let filename = `${contextName}-${format}.lst`;
       if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/i);
-        if (filenameMatch) {
-          filename = filenameMatch[1];
+        // RFC-compliant regex for filename extraction
+        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"])(.*?)\2|[^;\n]*)/i);
+        if (filenameMatch && filenameMatch[3]) {
+          filename = filenameMatch[3];
+        } else {
+          // Fallback for unquoted filenames
+          const fallbackMatch = contentDisposition.match(/filename=([^;\n]*)/i);
+          if (fallbackMatch && fallbackMatch[1]) {
+            filename = fallbackMatch[1].trim();
+          }
         }
       }
-      
+
       a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(downloadUrl);
-      
+
       enqueueSnackbar(`Downloaded ${filename}`, { variant: 'success' });
     } catch (err) {
       console.error('Error downloading format:', err);
@@ -195,13 +265,15 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
     enqueueSnackbar('Exported cracked hashes', { variant: 'success' });
   };
 
+  // Client-side filtering (on current page data)
   const filteredData = data.filter(hash => {
-    if (!searchTerm) return true;
-    const searchLower = searchTerm.toLowerCase();
+    if (!filterTerm) return true;
+    const filterLower = filterTerm.toLowerCase();
     return (
-      hash.original_hash.toLowerCase().includes(searchLower) ||
-      hash.password.toLowerCase().includes(searchLower) ||
-      (hash.username && hash.username.toLowerCase().includes(searchLower))
+      hash.original_hash.toLowerCase().includes(filterLower) ||
+      hash.password.toLowerCase().includes(filterLower) ||
+      (hash.username && hash.username.toLowerCase().includes(filterLower)) ||
+      (hash.domain && hash.domain.toLowerCase().includes(filterLower))
     );
   });
 
@@ -234,15 +306,56 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
             )}
           </Typography>
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Server-side search bar with button inside */}
             <TextField
               size="small"
-              placeholder="Search hashes..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search database..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              disabled={isSearching}
+              sx={{ minWidth: 250 }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <SearchIcon />
+                    <SearchIcon color={activeSearch ? 'primary' : 'inherit'} />
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    {activeSearch && (
+                      <IconButton
+                        size="small"
+                        onClick={handleClearSearch}
+                        sx={{ mr: 0.5 }}
+                      >
+                        <ClearIcon fontSize="small" />
+                      </IconButton>
+                    )}
+                    <Button
+                      size="small"
+                      variant="contained"
+                      onClick={handleSearch}
+                      disabled={isSearching || searchInput === activeSearch}
+                      sx={{ minWidth: 'auto', px: 1.5 }}
+                    >
+                      {isSearching ? <CircularProgress size={16} color="inherit" /> : 'Search'}
+                    </Button>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            {/* Client-side filter for current page */}
+            <TextField
+              size="small"
+              placeholder="Filter this page..."
+              value={filterTerm}
+              onChange={(e) => setFilterTerm(e.target.value)}
+              sx={{ minWidth: 180 }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <FilterListIcon />
                   </InputAdornment>
                 ),
               }}
@@ -254,6 +367,22 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
             </Tooltip>
           </Box>
         </Box>
+
+        {/* Active search indicator */}
+        {activeSearch && (
+          <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Chip
+              label={`Search: "${activeSearch}"`}
+              onDelete={handleClearSearch}
+              color="primary"
+              variant="outlined"
+              size="small"
+            />
+            <Typography variant="body2" color="text.secondary">
+              Found {totalCount.toLocaleString()} result{totalCount !== 1 ? 's' : ''}
+            </Typography>
+          </Box>
+        )}
         
         <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
           <Button
@@ -292,17 +421,36 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
           >
             Password
           </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={() => downloadFormat('domain-user')}
+            disabled={downloadingFormat !== null || !hasUsernameData}
+          >
+            Domain\User
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={() => downloadFormat('domain-user-pass')}
+            disabled={downloadingFormat !== null || !hasUsernameData}
+          >
+            Domain\User:Pass
+          </Button>
         </Box>
         
         <TableContainer>
           <Table size="small" aria-label="cracked hashes table" sx={{ tableLayout: 'fixed' }}>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ width: '60%' }}>Original Hash</TableCell>
-                <TableCell sx={{ width: '15%' }}>Password</TableCell>
-                <TableCell sx={{ width: '15%' }}>Username</TableCell>
-                <TableCell sx={{ width: '5%' }}>Hash Type</TableCell>
-                <TableCell sx={{ width: '5%' }} align="center">Actions</TableCell>
+                <TableCell sx={{ width: '45%' }}>Original Hash</TableCell>
+                <TableCell sx={{ width: '12%' }}>Domain</TableCell>
+                <TableCell sx={{ width: '12%' }}>Username</TableCell>
+                <TableCell sx={{ width: '12%' }}>Password</TableCell>
+                <TableCell sx={{ width: '9%' }}>Hash Type</TableCell>
+                <TableCell sx={{ width: '10%' }} align="center">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -317,10 +465,58 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
                   }}>
                     {hash.original_hash}
                   </TableCell>
-                  <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
-                    {hash.password}
-                  </TableCell>
-                  <TableCell>{hash.username || '-'}</TableCell>
+                  {hash.domain ? (
+                    <Tooltip title="Click to copy domain">
+                      <TableCell
+                        onClick={() => copyToClipboard(hash.domain!)}
+                        sx={{
+                          cursor: 'pointer',
+                          '&:hover': {
+                            backgroundColor: 'action.hover',
+                            textDecoration: 'underline',
+                          },
+                        }}
+                      >
+                        {hash.domain}
+                      </TableCell>
+                    </Tooltip>
+                  ) : (
+                    <TableCell>-</TableCell>
+                  )}
+                  {hash.username ? (
+                    <Tooltip title="Click to copy username">
+                      <TableCell
+                        onClick={() => copyToClipboard(hash.username!)}
+                        sx={{
+                          cursor: 'pointer',
+                          '&:hover': {
+                            backgroundColor: 'action.hover',
+                            textDecoration: 'underline',
+                          },
+                        }}
+                      >
+                        {hash.username}
+                      </TableCell>
+                    </Tooltip>
+                  ) : (
+                    <TableCell>-</TableCell>
+                  )}
+                  <Tooltip title="Click to copy password">
+                    <TableCell
+                      onClick={() => copyToClipboard(hash.password)}
+                      sx={{
+                        fontFamily: 'monospace',
+                        fontSize: '0.875rem',
+                        cursor: 'pointer',
+                        '&:hover': {
+                          backgroundColor: 'action.hover',
+                          textDecoration: 'underline',
+                        },
+                      }}
+                    >
+                      {hash.password}
+                    </TableCell>
+                  </Tooltip>
                   <TableCell>{hash.hash_type_id}</TableCell>
                   <TableCell align="center">
                     <Tooltip title="Copy hash:password">

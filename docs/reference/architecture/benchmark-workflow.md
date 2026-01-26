@@ -18,14 +18,14 @@ The job scheduling service now implements a benchmark-first approach for job ass
 3. **Benchmark Request (if needed)**
    - If no valid benchmark exists, system sends enhanced benchmark request
    - Request includes actual job configuration:
-     - Binary version (determined by Agent Override → Job Binary → Default hierarchy)
+     - Binary version pattern (resolved via Agent Pattern → Job Pattern → Default hierarchy)
      - Wordlists and rules (if applicable)
      - Mask (for brute force attacks)
      - Hash type and attack mode
      - Test duration (30 seconds)
-   - Binary version is determined using the hierarchy:
-     1. Agent-specific binary override (if configured)
-     2. Job execution's binary version
+   - Binary version pattern is resolved using this hierarchy:
+     1. Agent's binary version pattern (from agent settings)
+     2. Job execution's binary version pattern
      3. System default binary
    - Job assignment is deferred until benchmark completes
 
@@ -55,22 +55,12 @@ The job scheduling service now implements a benchmark-first approach for job ass
 
 ## Implementation Details
 
-### Modified Components
+### Key Components
 
-1. **JobSchedulingService** (`assignWorkToAgent`)
-   - Added benchmark validation before chunk calculation
-   - Defers assignment if benchmark is needed
-   - Retrieves hashlist to get hash type
-
-2. **JobWebSocketIntegration** (`RequestAgentBenchmark`)
-   - New method implementing the interface
-   - Sends enhanced benchmark request with full job configuration
-   - Includes wordlists, rules, mask, and binary information
-   - Uses `DetermineBinaryForTask()` to select appropriate binary (Agent → Job → Default)
-
-3. **WebSocket Types**
-   - `BenchmarkRequestPayload` enhanced with job-specific fields
-   - Supports real-world speed testing with actual attack parameters
+1. **JobSchedulingService** - Creates benchmark plans and coordinates parallel execution
+2. **JobWebSocketIntegration** (`RequestAgentBenchmark`) - Sends benchmark requests with full job configuration
+3. **BenchmarkRequestPayload** - Enhanced WebSocket type with job-specific fields
+4. **Binary Version Resolution** - Uses `DetermineBinaryForTask()` to resolve patterns (Agent Pattern → Job Pattern → Default)
 
 ### Error Handling
 
@@ -296,6 +286,103 @@ The system supports two types of benchmarks:
 - **Behavior**: Standard hashcat speed test
 - **Result**: Updates `agent_benchmarks` table
 - **Duration**: Uses `speedtest_timeout_seconds` system setting
+
+### Salt-Aware Benchmark Caching
+
+For hash types that use per-hash salts (e.g., NetNTLMv2, bcrypt, scrypt), benchmark caching includes the **salt count** as an additional cache key dimension.
+
+#### Why Salt Count Matters
+
+Hashcat reports speed differently for salted vs non-salted hashes:
+
+- **Non-salted hashes**: Speed = candidate throughput (e.g., 1 GH/s means 1 billion candidates/sec)
+- **Salted hashes**: Speed = hash operations (e.g., 1 GH/s means candidate_rate × salt_count)
+
+For a job with 1000 remaining hashes (salts) and a reported speed of 1 GH/s:
+- **Actual candidate throughput**: 1 GH/s ÷ 1000 = 1 MH/s
+
+As hashes get cracked, the salt count decreases, changing the effective candidate speed. A benchmark captured with 1000 salts is not accurate when only 100 salts remain.
+
+#### Benchmark Cache Key Structure
+
+**Non-salted hash types:**
+```
+(agent_id, attack_mode, hash_type)
+```
+
+**Salted hash types:**
+```
+(agent_id, attack_mode, hash_type, salt_count)
+```
+
+The unique constraint uses `IS NOT DISTINCT FROM` for NULL-safe salt_count comparison:
+```sql
+CREATE UNIQUE INDEX idx_agent_benchmarks_unique
+ON agent_benchmarks(agent_id, attack_mode, hash_type, salt_count)
+WHERE salt_count IS NOT NULL;
+```
+
+#### Benchmark Lookup Flow
+
+1. **Retrieve hash type** from hashlist to check `is_salted` flag
+2. **Calculate salt count** for salted hashes: `remaining_hashes = total - cracked`
+3. **Query benchmark** with salt count parameter:
+   ```go
+   benchmark, err := benchmarkRepo.GetAgentBenchmark(
+       ctx, agentID, attackMode, hashType, &saltCount,
+   )
+   ```
+4. **Adjust speed for chunk calculations**:
+   ```go
+   if isSalted && remainingHashes > 0 {
+       candidateSpeed = benchmarkSpeed / remainingHashes
+   }
+   ```
+
+#### Cache Duration for Salted Benchmarks
+
+Salted benchmarks follow the same `benchmark_cache_duration_hours` setting. However, since salt count changes as hashes crack:
+
+- **Re-benchmarking triggers**: When salt count differs significantly from cached benchmark
+- **Practical impact**: Jobs with high crack rates may trigger multiple benchmarks
+- **Optimization**: System uses closest available salt_count benchmark when exact match unavailable
+
+#### Database Schema
+
+**Migration 000109** adds salt count support to `agent_benchmarks`:
+
+```sql
+ALTER TABLE agent_benchmarks ADD COLUMN salt_count INT;
+
+-- Drop old unique constraint
+ALTER TABLE agent_benchmarks DROP CONSTRAINT IF EXISTS ...;
+
+-- New constraint includes salt_count (with NULL handling)
+CREATE UNIQUE INDEX idx_agent_benchmarks_unique_with_salt
+ON agent_benchmarks(agent_id, attack_mode, hash_type, COALESCE(salt_count, -1));
+```
+
+#### Example: NetNTLMv2 Job
+
+```
+Initial state:
+- Hash type: 5600 (NetNTLMv2, is_salted=true)
+- Total hashes: 5000
+- Cracked: 0
+- Salt count: 5000
+
+Benchmark with salt_count=5000:
+- Reported speed: 500 MH/s
+- Candidate speed: 500 MH/s ÷ 5000 = 100 KH/s
+
+After cracking 4000 hashes:
+- Salt count: 1000
+- New benchmark needed (or estimate)
+- Reported speed: 500 MH/s
+- Candidate speed: 500 MH/s ÷ 1000 = 500 KH/s
+```
+
+The 5x speed improvement is automatically reflected in chunk calculations.
 
 ### Execution Flow
 

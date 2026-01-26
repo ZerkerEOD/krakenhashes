@@ -92,7 +92,7 @@ func (s *HashlistCompletionService) HandleHashlistFullyCracked(ctx context.Conte
 
 		if taskCount > 0 {
 			// Job has tasks - it has started
-			debug.Info("Job %s (%s) has %d tasks - marking as completed", job.ID, job.Name, taskCount)
+			debug.Info("Job %s has %d tasks - marking as completed", job.ID, taskCount)
 
 			// Stop any active tasks
 			stoppedCount, err := s.stopJobTasks(ctx, job.ID, triggeringTaskID)
@@ -112,11 +112,11 @@ func (s *HashlistCompletionService) HandleHashlistFullyCracked(ctx context.Conte
 			}
 
 			jobsCompleted++
-			debug.Info("Job %s (%s) marked as completed (all hashes cracked)", job.ID, job.Name)
+			debug.Info("Job %s marked as completed (all hashes cracked)", job.ID)
 
 		} else {
 			// Job has no tasks - it never started
-			debug.Info("Job %s (%s) has no tasks - deleting (never started)", job.ID, job.Name)
+			debug.Info("Job %s has no tasks - deleting (never started)", job.ID)
 
 			err = s.jobExecRepo.Delete(ctx, job.ID)
 			if err != nil {
@@ -126,7 +126,7 @@ func (s *HashlistCompletionService) HandleHashlistFullyCracked(ctx context.Conte
 			}
 
 			jobsDeleted++
-			debug.Info("Job %s (%s) deleted (never started, hashlist fully cracked)", job.ID, job.Name)
+			debug.Info("Job %s deleted (never started, hashlist fully cracked)", job.ID)
 		}
 	}
 

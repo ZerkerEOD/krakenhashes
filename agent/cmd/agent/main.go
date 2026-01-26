@@ -137,7 +137,10 @@ func loadConfig(cfg agentConfig) agentConfig {
 	
 	// Directory configuration
 	cwd, _ := os.Getwd()
-	
+
+	// Set base path for log sanitization EARLY, before any paths are logged
+	debug.SetBasePath(cwd)
+
 	// Config directory
 	if cfg.configDir == "" && envFileExists {
 		cfg.configDir = envMap["KH_CONFIG_DIR"]
@@ -799,6 +802,14 @@ func main() {
 		jobManager.SetCrackBatchesCompleteCallback(crackBatchesCompleteCallback)
 		debug.Info("Crack batches complete callback configured")
 
+		// Set up ACK wait callback for completion acknowledgment (GH Issue #12)
+		ackWaitCallback := func(taskID string, resendFunc func() error) bool {
+			// Wait for completion ACK with 30 second timeout and 3 retries
+			return conn.WaitForCompletionAck(taskID, 30*time.Second, 3, resendFunc)
+		}
+		jobManager.SetAckWaitCallback(ackWaitCallback)
+		debug.Info("ACK wait callback configured for task completion acknowledgment")
+
 		// Set up output callback to send hashcat output via websocket
 		outputCallback := func(taskID string, output string, isError bool) {
 			// Send output to backend via WebSocket
@@ -808,7 +819,7 @@ func main() {
 		}
 		jobManager.SetOutputCallback(outputCallback)
 		debug.Info("Output callback configured to send hashcat output to backend")
-		
+
 		lastError = nil
 		break
 	}
@@ -825,6 +836,12 @@ func main() {
 	cleanupService.Start(cleanupCtx)
 	debug.Info("File cleanup service started with 3-day retention policy")
 
+	// Start stuck state detection (GH Issue #12)
+	stuckDetectionCtx, stuckDetectionCancel := context.WithCancel(context.Background())
+	if jobManager != nil {
+		jobManager.StartStuckDetection(stuckDetectionCtx)
+	}
+
 	console.Success("Heartbeat active (interval: %ds)", cfg.heartbeatInterval)
 	console.Info("Agent running, press Ctrl+C to exit")
 	debug.Info("Agent running, press Ctrl+C to exit")
@@ -837,6 +854,10 @@ func main() {
 	console.Info("Shutting down agent...")
 	debug.Info("Shutting down agent...")
 
+	// Stop stuck detection (GH Issue #12)
+	debug.Info("Stopping stuck detection...")
+	stuckDetectionCancel()
+
 	// Stop the cleanup service
 	debug.Info("Stopping cleanup service...")
 	cleanupCancel()
@@ -846,8 +867,11 @@ func main() {
 	var hasTask bool
 	var taskID, jobID string
 	if jobManager != nil {
-		hasTask, taskID, jobID, _ = jobManager.GetCurrentTaskStatus()
-		if hasTask {
+		taskInfo := jobManager.GetCurrentTaskStatus()
+		if taskInfo != nil {
+			hasTask = true
+			taskID = taskInfo.TaskID
+			jobID = taskInfo.JobID
 			debug.Info("Capturing task status before shutdown - TaskID: %s, JobID: %s", taskID, jobID)
 			console.Status("Stopping active task: %s", taskID)
 		}

@@ -68,6 +68,7 @@ Control job execution behavior and user interface settings.
 | **Job Refresh Interval** | How often the UI refreshes job status | 5 seconds | 1-60 seconds | Lower values increase server load |
 | **Max Chunk Retry Attempts** | Number of times to retry failed chunks | 3 | 0-10 | Set to 0 to disable retries |
 | **Jobs Per Page** | Default pagination size for job lists | 25 | 5-100 | Adjust based on UI preferences |
+| **Hashlist Bulk Batch Size** | Number of hashes processed per batch during import | 100,000 | 1,000-1,000,000 | Affects memory usage and import speed |
 
 #### Job Interruption Behavior
 When enabled, the system will:
@@ -196,6 +197,49 @@ WHERE key = 'agent_overflow_allocation_mode';
 | Single large job | Either | No difference (only one job) |
 | Time-critical job | FIFO | Ensures oldest/most important finishes first |
 | Parallel research | Round-robin | Compare multiple approaches simultaneously |
+
+#### Hashlist Bulk Batch Size
+
+This setting controls how many hashes are processed in each database batch during hashlist imports and bulk operations. It directly affects memory usage and import performance.
+
+**How It Works:**
+1. When importing a large hashlist (e.g., 10 million hashes), the system divides the work into batches
+2. Each batch processes up to `hashlist_bulk_batch_size` hashes at once
+3. Larger batches = faster imports but higher memory usage
+4. Smaller batches = lower memory usage but slower imports
+
+**Recommended Values:**
+
+| Environment | Batch Size | Rationale |
+|-------------|------------|-----------|
+| Low memory (< 4GB RAM) | 10,000-25,000 | Minimizes memory pressure |
+| Standard (4-16GB RAM) | 50,000-100,000 | Balanced performance |
+| High memory (16GB+ RAM) | 100,000-500,000 | Maximizes import speed |
+| Very large hashlists (50M+) | 100,000 | Prevents memory exhaustion |
+
+**Configuration via SQL:**
+
+```sql
+-- View current setting
+SELECT key, value, description
+FROM system_settings
+WHERE key = 'hashlist_bulk_batch_size';
+
+-- Set batch size (example: 50,000 for memory-constrained systems)
+UPDATE system_settings
+SET value = '50000'
+WHERE key = 'hashlist_bulk_batch_size';
+
+-- Set batch size (example: 200,000 for high-memory systems)
+UPDATE system_settings
+SET value = '200000'
+WHERE key = 'hashlist_bulk_batch_size';
+```
+
+**Performance Impact:**
+- **Import Time**: Doubling batch size typically reduces import time by 20-30%
+- **Memory Usage**: Roughly linear with batch size (~10MB per 100,000 hashes)
+- **Database Load**: Larger batches create fewer but larger transactions
 
 ### Rule Splitting
 

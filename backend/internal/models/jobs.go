@@ -63,10 +63,14 @@ type PresetJob struct {
 	ChunkSizeSeconds          int        `json:"chunk_size_seconds" db:"chunk_size_seconds"`
 	StatusUpdatesEnabled      bool       `json:"status_updates_enabled" db:"status_updates_enabled"`
 	AllowHighPriorityOverride bool       `json:"allow_high_priority_override" db:"allow_high_priority_override"`
-	BinaryVersionID           int        `json:"binary_version_id" db:"binary_version_id"`       // References binary_versions.id
+	BinaryVersion             string     `json:"binary_version" db:"binary_version"`             // Version pattern (e.g., "default", "7.x", "7.1.2")
 	Mask                      string     `json:"mask,omitempty" db:"mask"`                       // For mask-based attack modes
 	AdditionalArgs            *string    `json:"additional_args,omitempty" db:"additional_args"` // Additional hashcat arguments
-	Keyspace                  *int64     `json:"keyspace,omitempty" db:"keyspace"`               // Pre-calculated keyspace for this preset
+	Keyspace                  *int64     `json:"keyspace,omitempty" db:"keyspace"`               // Pre-calculated base keyspace from --keyspace
+	EffectiveKeyspace         *int64     `json:"effective_keyspace,omitempty" db:"effective_keyspace"` // Actual effective keyspace from --total-candidates
+	IsAccurateKeyspace        bool       `json:"is_accurate_keyspace" db:"is_accurate_keyspace"` // TRUE if effective_keyspace from --total-candidates
+	UseRuleSplitting          bool       `json:"use_rule_splitting" db:"use_rule_splitting"`    // TRUE if jobs should use rule splitting
+	MultiplicationFactor      int        `json:"multiplication_factor" db:"multiplication_factor"` // Rule multiplier (effective/base) for rule splitting
 	MaxAgents                 int        `json:"max_agents" db:"max_agents"`                     // Max agents allowed (0 = unlimited)
 	IncrementMode             string     `json:"increment_mode,omitempty" db:"increment_mode"`   // Mask increment mode: off, increment, increment_inverse
 	IncrementMin              *int       `json:"increment_min,omitempty" db:"increment_min"`     // Starting mask length for increment mode
@@ -76,6 +80,9 @@ type PresetJob struct {
 
 	// Fields potentially populated by JOINs in specific queries
 	BinaryVersionName string `json:"binary_version_name,omitempty" db:"binary_version_name"` // Example: Populated when listing
+
+	// Transient field for custom job keyspace calculation (not persisted - association attacks are custom jobs only)
+	AssociationWordlistID *string `json:"association_wordlist_id,omitempty"` // UUID string of association wordlist
 }
 
 // JobWorkflow mirrors the job_workflows table structure.
@@ -99,13 +106,13 @@ type JobWorkflowStep struct {
 	StepOrder     int       `json:"step_order" db:"step_order"`
 
 	// Fields potentially populated by JOINs with preset_jobs
-	PresetJobName        string     `json:"preset_job_name,omitempty" db:"preset_job_name"`
-	PresetJobAttackMode  AttackMode `json:"preset_job_attack_mode,omitempty" db:"preset_job_attack_mode"`
-	PresetJobPriority    int        `json:"preset_job_priority,omitempty" db:"preset_job_priority"`
-	PresetJobBinaryID    int        `json:"preset_job_binary_id,omitempty" db:"preset_job_binary_id"`
-	PresetJobBinaryName  string     `json:"preset_job_binary_name,omitempty" db:"preset_job_binary_name"`
-	PresetJobWordlistIDs IDArray    `json:"preset_job_wordlist_ids,omitempty" db:"preset_job_wordlist_ids"`
-	PresetJobRuleIDs     IDArray    `json:"preset_job_rule_ids,omitempty" db:"preset_job_rule_ids"`
+	PresetJobName          string     `json:"preset_job_name,omitempty" db:"preset_job_name"`
+	PresetJobAttackMode    AttackMode `json:"preset_job_attack_mode,omitempty" db:"preset_job_attack_mode"`
+	PresetJobPriority      int        `json:"preset_job_priority,omitempty" db:"preset_job_priority"`
+	PresetJobBinaryVersion string     `json:"preset_job_binary_version,omitempty" db:"preset_job_binary_version"`
+	PresetJobBinaryName    string     `json:"preset_job_binary_name,omitempty" db:"preset_job_binary_name"`
+	PresetJobWordlistIDs   IDArray    `json:"preset_job_wordlist_ids,omitempty" db:"preset_job_wordlist_ids"`
+	PresetJobRuleIDs       IDArray    `json:"preset_job_rule_ids,omitempty" db:"preset_job_rule_ids"`
 }
 
 // PresetJobBasic represents minimal information about a preset job
@@ -131,23 +138,24 @@ const (
 
 // JobExecution represents an actual running instance of a preset job
 type JobExecution struct {
-	ID                  uuid.UUID          `json:"id" db:"id"`
-	PresetJobID         *uuid.UUID         `json:"preset_job_id" db:"preset_job_id"` // Nullable for custom jobs
-	HashlistID          int64              `json:"hashlist_id" db:"hashlist_id"`
-	Status              JobExecutionStatus `json:"status" db:"status"`
-	Priority            int                `json:"priority" db:"priority"`
-	MaxAgents           int                `json:"max_agents" db:"max_agents"`
-	TotalKeyspace       *int64             `json:"total_keyspace" db:"total_keyspace"`
-	ProcessedKeyspace   int64              `json:"processed_keyspace" db:"processed_keyspace"`
-	AttackMode          AttackMode         `json:"attack_mode" db:"attack_mode"`
-	CreatedBy           *uuid.UUID         `json:"created_by" db:"created_by"`
-	CreatedAt           time.Time          `json:"created_at" db:"created_at"`
-	StartedAt           *time.Time         `json:"started_at" db:"started_at"`
-	CompletedAt         *time.Time         `json:"completed_at" db:"completed_at"`
-	UpdatedAt           time.Time          `json:"updated_at" db:"updated_at"`
-	ErrorMessage        *string            `json:"error_message" db:"error_message"`
-	InterruptedBy       *uuid.UUID         `json:"interrupted_by" db:"interrupted_by"`
-	ConsecutiveFailures int                `json:"consecutive_failures" db:"consecutive_failures"` // Track consecutive task failures
+	ID                     uuid.UUID          `json:"id" db:"id"`
+	PresetJobID            *uuid.UUID         `json:"preset_job_id" db:"preset_job_id"` // Nullable for custom jobs
+	HashlistID             int64              `json:"hashlist_id" db:"hashlist_id"`
+	AssociationWordlistID  *uuid.UUID         `json:"association_wordlist_id,omitempty" db:"association_wordlist_id"` // For association attacks (-a 9)
+	Status                 JobExecutionStatus `json:"status" db:"status"`
+	Priority               int                `json:"priority" db:"priority"`
+	MaxAgents              int                `json:"max_agents" db:"max_agents"`
+	ProcessedKeyspace      int64              `json:"processed_keyspace" db:"processed_keyspace"`
+	AttackMode             AttackMode         `json:"attack_mode" db:"attack_mode"`
+	CreatedBy              *uuid.UUID         `json:"created_by" db:"created_by"`
+	CreatedAt              time.Time          `json:"created_at" db:"created_at"`
+	StartedAt              *time.Time         `json:"started_at" db:"started_at"`
+	CrackingCompletedAt    *time.Time         `json:"cracking_completed_at" db:"cracking_completed_at"` // When all tasks finished hashcat work (job enters processing)
+	CompletedAt            *time.Time         `json:"completed_at" db:"completed_at"`
+	UpdatedAt              time.Time          `json:"updated_at" db:"updated_at"`
+	ErrorMessage           *string            `json:"error_message" db:"error_message"`
+	InterruptedBy          *uuid.UUID         `json:"interrupted_by" db:"interrupted_by"`
+	ConsecutiveFailures    int                `json:"consecutive_failures" db:"consecutive_failures"` // Track consecutive task failures
 
 	// Self-contained configuration fields (no need to look up preset)
 	Name                      string  `json:"name" db:"name"`
@@ -157,7 +165,7 @@ type JobExecution struct {
 	ChunkSizeSeconds          int     `json:"chunk_size_seconds" db:"chunk_size_seconds"`
 	StatusUpdatesEnabled      bool    `json:"status_updates_enabled" db:"status_updates_enabled"`
 	AllowHighPriorityOverride bool    `json:"allow_high_priority_override" db:"allow_high_priority_override"`
-	BinaryVersionID           int     `json:"binary_version_id" db:"binary_version_id"`
+	BinaryVersion             string  `json:"binary_version" db:"binary_version"` // Version pattern (e.g., "default", "7.x", "7.1.2")
 	Mask                      string  `json:"mask,omitempty" db:"mask"`
 	AdditionalArgs            *string `json:"additional_args,omitempty" db:"additional_args"`
 	IncrementMode             string  `json:"increment_mode,omitempty" db:"increment_mode"` // Mask increment mode: off, increment, increment_inverse
@@ -192,7 +200,8 @@ const (
 	JobTaskStatusAssigned         JobTaskStatus = "assigned"
 	JobTaskStatusReconnectPending JobTaskStatus = "reconnect_pending"
 	JobTaskStatusRunning          JobTaskStatus = "running"
-	JobTaskStatusProcessing       JobTaskStatus = "processing" // Waiting for crack batches to be processed
+	JobTaskStatusProcessing       JobTaskStatus = "processing"       // Waiting for crack batches to be processed
+	JobTaskStatusProcessingError  JobTaskStatus = "processing_error" // Crack count mismatch after retries exhausted
 	JobTaskStatusCompleted        JobTaskStatus = "completed"
 	JobTaskStatusFailed           JobTaskStatus = "failed"
 	JobTaskStatusCancelled        JobTaskStatus = "cancelled"
@@ -204,6 +213,7 @@ type JobTask struct {
 	JobExecutionID    uuid.UUID     `json:"job_execution_id" db:"job_execution_id"`
 	IncrementLayerID  *uuid.UUID    `json:"increment_layer_id" db:"increment_layer_id"` // References job_increment_layers if task belongs to a layer
 	AgentID           *int          `json:"agent_id" db:"agent_id"`
+	BinaryVersionID   *int64        `json:"binary_version_id,omitempty" db:"binary_version_id"` // Resolved binary version ID at task creation
 	Status            JobTaskStatus `json:"status" db:"status"`
 	Priority          int           `json:"priority" db:"priority"`     // Task priority (inherited from job)
 	AttackCmd         string        `json:"attack_cmd" db:"attack_cmd"` // Full hashcat command for this task
@@ -219,13 +229,14 @@ type JobTask struct {
 	BenchmarkSpeed    *int64        `json:"benchmark_speed" db:"benchmark_speed"`   // hashes per second (current/last reported)
 	AverageSpeed      *int64        `json:"average_speed" db:"average_speed"`       // time-weighted average hashes per second
 	ChunkDuration     int           `json:"chunk_duration" db:"chunk_duration"`     // seconds
-	CreatedAt         time.Time     `json:"created_at" db:"created_at"`
-	AssignedAt        *time.Time    `json:"assigned_at" db:"assigned_at"`
-	StartedAt         *time.Time    `json:"started_at" db:"started_at"`
-	CompletedAt       *time.Time    `json:"completed_at" db:"completed_at"`
-	UpdatedAt         time.Time     `json:"updated_at" db:"updated_at"`
-	LastCheckpoint    *time.Time    `json:"last_checkpoint" db:"last_checkpoint"`
-	ErrorMessage      *string       `json:"error_message" db:"error_message"`
+	CreatedAt           time.Time     `json:"created_at" db:"created_at"`
+	AssignedAt          *time.Time    `json:"assigned_at" db:"assigned_at"`
+	StartedAt           *time.Time    `json:"started_at" db:"started_at"`
+	CrackingCompletedAt *time.Time    `json:"cracking_completed_at" db:"cracking_completed_at"` // When hashcat finished for this task (enters processing)
+	CompletedAt         *time.Time    `json:"completed_at" db:"completed_at"`
+	UpdatedAt           time.Time     `json:"updated_at" db:"updated_at"`
+	LastCheckpoint      *time.Time    `json:"last_checkpoint" db:"last_checkpoint"`
+	ErrorMessage        *string       `json:"error_message" db:"error_message"`
 
 	// Enhanced fields for detailed chunk tracking
 	CrackCount              int  `json:"crack_count" db:"crack_count"`
@@ -234,6 +245,10 @@ type JobTask struct {
 	BatchesCompleteSignaled bool `json:"batches_complete_signaled" db:"batches_complete_signaled"` // Agent signaled batches done
 	DetailedStatus          string `json:"detailed_status" db:"detailed_status"`
 	RetryCount              int    `json:"retry_count" db:"retry_count"`
+
+	// Retransmit tracking for crack transmission resilience
+	RetransmitCount    *int       `json:"retransmit_count" db:"retransmit_count"`
+	LastRetransmitAt   *time.Time `json:"last_retransmit_at" db:"last_retransmit_at"`
 
 	// Rule splitting fields
 	RuleStartIndex  *int    `json:"rule_start_index" db:"rule_start_index"`     // Starting rule index for this chunk
@@ -255,7 +270,8 @@ type AgentBenchmark struct {
 	AgentID    int        `json:"agent_id" db:"agent_id"`
 	AttackMode AttackMode `json:"attack_mode" db:"attack_mode"`
 	HashType   int        `json:"hash_type" db:"hash_type"`
-	Speed      int64      `json:"speed" db:"speed"` // hashes per second
+	SaltCount  *int       `json:"salt_count" db:"salt_count"` // NULL for non-salted hash types
+	Speed      int64      `json:"speed" db:"speed"`           // hashes per second
 	CreatedAt  time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt  time.Time  `json:"updated_at" db:"updated_at"`
 }
@@ -349,6 +365,11 @@ type JobTaskAssignment struct {
 	IncrementMode  string     `json:"increment_mode,omitempty"` // Mask increment mode: off, increment, increment_inverse
 	IncrementMin   *int       `json:"increment_min,omitempty"`  // Starting mask length for increment mode
 	IncrementMax   *int       `json:"increment_max,omitempty"`  // Maximum mask length for increment mode
+
+	// Association attack fields (-a 9)
+	AssociationWordlistID   *uuid.UUID `json:"association_wordlist_id,omitempty"`   // UUID of association wordlist
+	AssociationWordlistPath string     `json:"association_wordlist_path,omitempty"` // Path to association wordlist on agent
+	OriginalHashlistPath    string     `json:"original_hashlist_path,omitempty"`    // Path to original hashlist file (for -a 9)
 }
 
 // DeviceMetric represents metrics for a single device
@@ -385,11 +406,13 @@ type JobProgress struct {
 type CrackBatch struct {
 	TaskID        uuid.UUID     `json:"task_id"`
 	CrackedHashes []CrackedHash `json:"cracked_hashes"`
+	IsRetransmit  bool          `json:"is_retransmit,omitempty"` // Marks this as a retransmission for deduplication
 }
 
 // CrackBatchesComplete signals that agent has finished sending all crack batches for a task
 type CrackBatchesComplete struct {
-	TaskID uuid.UUID `json:"task_id"`
+	TaskID       uuid.UUID `json:"task_id"`
+	IsRetransmit bool      `json:"is_retransmit,omitempty"` // True if this is from a retransmission
 }
 
 // CrackedHash represents a cracked hash with all available information

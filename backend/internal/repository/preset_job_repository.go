@@ -8,6 +8,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 // PresetJobRepository defines the interface for interacting with preset_jobs.
@@ -19,6 +20,10 @@ type PresetJobRepository interface {
 	Update(ctx context.Context, id uuid.UUID, params models.PresetJob) (*models.PresetJob, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	ListFormData(ctx context.Context) (*PresetJobFormData, error)
+	// Deletion impact methods
+	GetByWordlistID(ctx context.Context, wordlistID string) ([]models.PresetJob, error)
+	GetByRuleID(ctx context.Context, ruleID string) ([]models.PresetJob, error)
+	DeleteByIDs(ctx context.Context, ids []uuid.UUID) error
 }
 
 // PresetJobFormData holds lists needed for preset job forms.
@@ -44,27 +49,31 @@ func (r *presetJobRepository) Create(ctx context.Context, params models.PresetJo
 		INSERT INTO preset_jobs (
 			name, wordlist_ids, rule_ids, attack_mode, priority,
 			chunk_size_seconds, status_updates_enabled,
-			allow_high_priority_override, binary_version_id, mask, keyspace, max_agents,
-			increment_mode, increment_min, increment_max
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+			allow_high_priority_override, binary_version, mask, keyspace,
+			effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
+			max_agents, increment_mode, increment_min, increment_max
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 		RETURNING id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
 				  status_updates_enabled, allow_high_priority_override,
-				  binary_version_id, mask, keyspace, max_agents,
-				  increment_mode, increment_min, increment_max, created_at, updated_at`
+				  binary_version, mask, keyspace, effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
+				  max_agents, increment_mode, increment_min, increment_max, created_at, updated_at`
 
 	row := r.db.QueryRowContext(ctx, query,
 		params.Name, params.WordlistIDs, params.RuleIDs, params.AttackMode, params.Priority,
 		params.ChunkSizeSeconds, params.StatusUpdatesEnabled,
-		params.AllowHighPriorityOverride, params.BinaryVersionID, params.Mask, params.Keyspace, params.MaxAgents,
-		params.IncrementMode, params.IncrementMin, params.IncrementMax,
+		params.AllowHighPriorityOverride, params.BinaryVersion, params.Mask, params.Keyspace,
+		params.EffectiveKeyspace, params.IsAccurateKeyspace, params.UseRuleSplitting, params.MultiplicationFactor,
+		params.MaxAgents, params.IncrementMode, params.IncrementMin, params.IncrementMax,
 	)
 
 	var created models.PresetJob
 	err := row.Scan(
 		&created.ID, &created.Name, &created.WordlistIDs, &created.RuleIDs, &created.AttackMode, &created.Priority,
 		&created.ChunkSizeSeconds, &created.StatusUpdatesEnabled,
-		&created.AllowHighPriorityOverride, &created.BinaryVersionID, &created.Mask, &created.Keyspace, &created.MaxAgents,
-		&created.IncrementMode, &created.IncrementMin, &created.IncrementMax, &created.CreatedAt, &created.UpdatedAt,
+		&created.AllowHighPriorityOverride, &created.BinaryVersion, &created.Mask, &created.Keyspace,
+		&created.EffectiveKeyspace, &created.IsAccurateKeyspace, &created.UseRuleSplitting, &created.MultiplicationFactor,
+		&created.MaxAgents, &created.IncrementMode, &created.IncrementMin, &created.IncrementMax,
+		&created.CreatedAt, &created.UpdatedAt,
 	)
 	if err != nil {
 		debug.Error("Error creating preset job: %v", err)
@@ -79,8 +88,8 @@ func (r *presetJobRepository) GetByID(ctx context.Context, id uuid.UUID) (*model
 		SELECT
 			id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
 			status_updates_enabled, allow_high_priority_override,
-			binary_version_id, mask, keyspace, max_agents,
-			increment_mode, increment_min, increment_max, created_at, updated_at
+			binary_version, mask, keyspace, effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
+			max_agents, increment_mode, increment_min, increment_max, created_at, updated_at
 		FROM preset_jobs WHERE id = $1 LIMIT 1`
 
 	row := r.db.QueryRowContext(ctx, query, id)
@@ -88,8 +97,10 @@ func (r *presetJobRepository) GetByID(ctx context.Context, id uuid.UUID) (*model
 	err := row.Scan(
 		&job.ID, &job.Name, &job.WordlistIDs, &job.RuleIDs, &job.AttackMode, &job.Priority,
 		&job.ChunkSizeSeconds, &job.StatusUpdatesEnabled,
-		&job.AllowHighPriorityOverride, &job.BinaryVersionID, &job.Mask, &job.Keyspace, &job.MaxAgents,
-		&job.IncrementMode, &job.IncrementMin, &job.IncrementMax, &job.CreatedAt, &job.UpdatedAt,
+		&job.AllowHighPriorityOverride, &job.BinaryVersion, &job.Mask, &job.Keyspace,
+		&job.EffectiveKeyspace, &job.IsAccurateKeyspace, &job.UseRuleSplitting, &job.MultiplicationFactor,
+		&job.MaxAgents, &job.IncrementMode, &job.IncrementMin, &job.IncrementMax,
+		&job.CreatedAt, &job.UpdatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -107,8 +118,8 @@ func (r *presetJobRepository) GetByName(ctx context.Context, name string) (*mode
 		SELECT
 			id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
 			status_updates_enabled, allow_high_priority_override,
-			binary_version_id, mask, keyspace, max_agents,
-			increment_mode, increment_min, increment_max, created_at, updated_at
+			binary_version, mask, keyspace, effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
+			max_agents, increment_mode, increment_min, increment_max, created_at, updated_at
 		FROM preset_jobs WHERE name = $1 LIMIT 1`
 
 	row := r.db.QueryRowContext(ctx, query, name)
@@ -116,8 +127,10 @@ func (r *presetJobRepository) GetByName(ctx context.Context, name string) (*mode
 	err := row.Scan(
 		&job.ID, &job.Name, &job.WordlistIDs, &job.RuleIDs, &job.AttackMode, &job.Priority,
 		&job.ChunkSizeSeconds, &job.StatusUpdatesEnabled,
-		&job.AllowHighPriorityOverride, &job.BinaryVersionID, &job.Mask, &job.Keyspace, &job.MaxAgents,
-		&job.IncrementMode, &job.IncrementMin, &job.IncrementMax, &job.CreatedAt, &job.UpdatedAt,
+		&job.AllowHighPriorityOverride, &job.BinaryVersion, &job.Mask, &job.Keyspace,
+		&job.EffectiveKeyspace, &job.IsAccurateKeyspace, &job.UseRuleSplitting, &job.MultiplicationFactor,
+		&job.MaxAgents, &job.IncrementMode, &job.IncrementMin, &job.IncrementMax,
+		&job.CreatedAt, &job.UpdatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -135,11 +148,12 @@ func (r *presetJobRepository) List(ctx context.Context) ([]models.PresetJob, err
 		SELECT
 			pj.id, pj.name, pj.wordlist_ids, pj.rule_ids, pj.attack_mode, pj.priority,
 			pj.chunk_size_seconds, pj.status_updates_enabled,
-			pj.allow_high_priority_override, pj.binary_version_id, pj.mask, pj.keyspace, pj.max_agents,
-			pj.increment_mode, pj.increment_min, pj.increment_max, pj.created_at, pj.updated_at,
-			bv.file_name as binary_version_name
+			pj.allow_high_priority_override, pj.binary_version, pj.mask, pj.keyspace,
+			pj.effective_keyspace, pj.is_accurate_keyspace, pj.use_rule_splitting, pj.multiplication_factor,
+			pj.max_agents, pj.increment_mode, pj.increment_min, pj.increment_max,
+			pj.created_at, pj.updated_at,
+			pj.binary_version as binary_version_name
 		FROM preset_jobs pj
-		LEFT JOIN binary_versions bv ON pj.binary_version_id = bv.id
 		ORDER BY pj.name` // TODO: Add pagination/sorting
 
 	rows, err := r.db.QueryContext(ctx, query)
@@ -156,8 +170,10 @@ func (r *presetJobRepository) List(ctx context.Context) ([]models.PresetJob, err
 		if err := rows.Scan(
 			&job.ID, &job.Name, &job.WordlistIDs, &job.RuleIDs, &job.AttackMode, &job.Priority,
 			&job.ChunkSizeSeconds, &job.StatusUpdatesEnabled,
-			&job.AllowHighPriorityOverride, &job.BinaryVersionID, &job.Mask, &job.Keyspace, &job.MaxAgents,
-			&job.IncrementMode, &job.IncrementMin, &job.IncrementMax, &job.CreatedAt, &job.UpdatedAt,
+			&job.AllowHighPriorityOverride, &job.BinaryVersion, &job.Mask, &job.Keyspace,
+			&job.EffectiveKeyspace, &job.IsAccurateKeyspace, &job.UseRuleSplitting, &job.MultiplicationFactor,
+			&job.MaxAgents, &job.IncrementMode, &job.IncrementMin, &job.IncrementMax,
+			&job.CreatedAt, &job.UpdatedAt,
 			&binaryVersionName,
 		); err != nil {
 			debug.Error("Error scanning preset job row: %v", err)
@@ -190,33 +206,40 @@ func (r *presetJobRepository) Update(ctx context.Context, id uuid.UUID, params m
 			chunk_size_seconds = $7,
 			status_updates_enabled = $8,
 			allow_high_priority_override = $9,
-			binary_version_id = $10,
+			binary_version = $10,
 			mask = $11,
 			keyspace = $12,
-			max_agents = $13,
-			increment_mode = $14,
-			increment_min = $15,
-			increment_max = $16,
+			effective_keyspace = $13,
+			is_accurate_keyspace = $14,
+			use_rule_splitting = $15,
+			multiplication_factor = $16,
+			max_agents = $17,
+			increment_mode = $18,
+			increment_min = $19,
+			increment_max = $20,
 			updated_at = NOW()
 		WHERE id = $1
 		RETURNING id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
 				  status_updates_enabled, allow_high_priority_override,
-				  binary_version_id, mask, keyspace, max_agents,
-				  increment_mode, increment_min, increment_max, created_at, updated_at`
+				  binary_version, mask, keyspace, effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
+				  max_agents, increment_mode, increment_min, increment_max, created_at, updated_at`
 
 	row := r.db.QueryRowContext(ctx, query,
 		id, params.Name, params.WordlistIDs, params.RuleIDs, params.AttackMode, params.Priority,
 		params.ChunkSizeSeconds, params.StatusUpdatesEnabled,
-		params.AllowHighPriorityOverride, params.BinaryVersionID, params.Mask, params.Keyspace, params.MaxAgents,
-		params.IncrementMode, params.IncrementMin, params.IncrementMax,
+		params.AllowHighPriorityOverride, params.BinaryVersion, params.Mask, params.Keyspace,
+		params.EffectiveKeyspace, params.IsAccurateKeyspace, params.UseRuleSplitting, params.MultiplicationFactor,
+		params.MaxAgents, params.IncrementMode, params.IncrementMin, params.IncrementMax,
 	)
 
 	var updated models.PresetJob
 	err := row.Scan(
 		&updated.ID, &updated.Name, &updated.WordlistIDs, &updated.RuleIDs, &updated.AttackMode, &updated.Priority,
 		&updated.ChunkSizeSeconds, &updated.StatusUpdatesEnabled,
-		&updated.AllowHighPriorityOverride, &updated.BinaryVersionID, &updated.Mask, &updated.Keyspace, &updated.MaxAgents,
-		&updated.IncrementMode, &updated.IncrementMin, &updated.IncrementMax, &updated.CreatedAt, &updated.UpdatedAt,
+		&updated.AllowHighPriorityOverride, &updated.BinaryVersion, &updated.Mask, &updated.Keyspace,
+		&updated.EffectiveKeyspace, &updated.IsAccurateKeyspace, &updated.UseRuleSplitting, &updated.MultiplicationFactor,
+		&updated.MaxAgents, &updated.IncrementMode, &updated.IncrementMin, &updated.IncrementMax,
+		&updated.CreatedAt, &updated.UpdatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -297,8 +320,8 @@ func (r *presetJobRepository) ListFormData(ctx context.Context) (*PresetJobFormD
 	}
 	rows.Close()
 
-	// Fetch Binary Versions
-	binaryQuery := `SELECT id, file_name as name FROM binary_versions WHERE is_active = true AND verification_status = 'verified' ORDER BY file_name`
+	// Fetch Binary Versions (ordered by is_default DESC to put default first)
+	binaryQuery := `SELECT id, file_name as name, is_default FROM binary_versions WHERE is_active = true AND verification_status = 'verified' ORDER BY is_default DESC, file_name`
 	rows, err = r.db.QueryContext(ctx, binaryQuery)
 	if err != nil {
 		debug.Error("Error fetching binary versions for form data: %v", err)
@@ -306,7 +329,7 @@ func (r *presetJobRepository) ListFormData(ctx context.Context) (*PresetJobFormD
 	}
 	for rows.Next() {
 		var bv models.BinaryVersionBasic
-		if scanErr := rows.Scan(&bv.ID, &bv.Name); scanErr != nil {
+		if scanErr := rows.Scan(&bv.ID, &bv.Name, &bv.IsDefault); scanErr != nil {
 			rows.Close()
 			debug.Error("Error scanning binary version row: %v", scanErr)
 			return nil, fmt.Errorf("error scanning binary version: %w", scanErr)
@@ -321,4 +344,113 @@ func (r *presetJobRepository) ListFormData(ctx context.Context) (*PresetJobFormD
 	rows.Close()
 
 	return formData, nil
+}
+
+// GetByWordlistID retrieves all preset jobs that use a specific wordlist ID.
+func (r *presetJobRepository) GetByWordlistID(ctx context.Context, wordlistID string) ([]models.PresetJob, error) {
+	query := `
+		SELECT
+			id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
+			status_updates_enabled, allow_high_priority_override,
+			binary_version, mask, keyspace, effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
+			max_agents, increment_mode, increment_min, increment_max, created_at, updated_at
+		FROM preset_jobs
+		WHERE wordlist_ids ? $1`
+
+	rows, err := r.db.QueryContext(ctx, query, wordlistID)
+	if err != nil {
+		debug.Error("Error getting preset jobs by wordlist ID %s: %v", wordlistID, err)
+		return nil, fmt.Errorf("error getting preset jobs by wordlist ID: %w", err)
+	}
+	defer rows.Close()
+
+	jobs := []models.PresetJob{}
+	for rows.Next() {
+		var job models.PresetJob
+		if err := rows.Scan(
+			&job.ID, &job.Name, &job.WordlistIDs, &job.RuleIDs, &job.AttackMode, &job.Priority,
+			&job.ChunkSizeSeconds, &job.StatusUpdatesEnabled,
+			&job.AllowHighPriorityOverride, &job.BinaryVersion, &job.Mask, &job.Keyspace,
+			&job.EffectiveKeyspace, &job.IsAccurateKeyspace, &job.UseRuleSplitting, &job.MultiplicationFactor,
+			&job.MaxAgents, &job.IncrementMode, &job.IncrementMin, &job.IncrementMax,
+			&job.CreatedAt, &job.UpdatedAt,
+		); err != nil {
+			debug.Error("Error scanning preset job row: %v", err)
+			return nil, fmt.Errorf("error scanning preset job row: %w", err)
+		}
+		jobs = append(jobs, job)
+	}
+
+	if err = rows.Err(); err != nil {
+		debug.Error("Error iterating preset job rows: %v", err)
+		return nil, fmt.Errorf("error iterating preset job rows: %w", err)
+	}
+
+	return jobs, nil
+}
+
+// GetByRuleID retrieves all preset jobs that use a specific rule ID.
+func (r *presetJobRepository) GetByRuleID(ctx context.Context, ruleID string) ([]models.PresetJob, error) {
+	query := `
+		SELECT
+			id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
+			status_updates_enabled, allow_high_priority_override,
+			binary_version, mask, keyspace, effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
+			max_agents, increment_mode, increment_min, increment_max, created_at, updated_at
+		FROM preset_jobs
+		WHERE rule_ids ? $1`
+
+	rows, err := r.db.QueryContext(ctx, query, ruleID)
+	if err != nil {
+		debug.Error("Error getting preset jobs by rule ID %s: %v", ruleID, err)
+		return nil, fmt.Errorf("error getting preset jobs by rule ID: %w", err)
+	}
+	defer rows.Close()
+
+	jobs := []models.PresetJob{}
+	for rows.Next() {
+		var job models.PresetJob
+		if err := rows.Scan(
+			&job.ID, &job.Name, &job.WordlistIDs, &job.RuleIDs, &job.AttackMode, &job.Priority,
+			&job.ChunkSizeSeconds, &job.StatusUpdatesEnabled,
+			&job.AllowHighPriorityOverride, &job.BinaryVersion, &job.Mask, &job.Keyspace,
+			&job.EffectiveKeyspace, &job.IsAccurateKeyspace, &job.UseRuleSplitting, &job.MultiplicationFactor,
+			&job.MaxAgents, &job.IncrementMode, &job.IncrementMin, &job.IncrementMax,
+			&job.CreatedAt, &job.UpdatedAt,
+		); err != nil {
+			debug.Error("Error scanning preset job row: %v", err)
+			return nil, fmt.Errorf("error scanning preset job row: %w", err)
+		}
+		jobs = append(jobs, job)
+	}
+
+	if err = rows.Err(); err != nil {
+		debug.Error("Error iterating preset job rows: %v", err)
+		return nil, fmt.Errorf("error iterating preset job rows: %w", err)
+	}
+
+	return jobs, nil
+}
+
+// DeleteByIDs deletes multiple preset jobs by their IDs.
+func (r *presetJobRepository) DeleteByIDs(ctx context.Context, ids []uuid.UUID) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	query := `DELETE FROM preset_jobs WHERE id = ANY($1::uuid[])`
+	result, err := r.db.ExecContext(ctx, query, pq.Array(ids))
+	if err != nil {
+		debug.Error("Error deleting preset jobs by IDs: %v", err)
+		return fmt.Errorf("error deleting preset jobs: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		debug.Warning("Could not get rows affected after deleting preset jobs: %v", err)
+	} else {
+		debug.Info("Deleted %d preset jobs", rowsAffected)
+	}
+
+	return nil
 }

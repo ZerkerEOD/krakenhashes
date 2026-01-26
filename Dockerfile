@@ -14,7 +14,7 @@ RUN VERSION=$(jq -r .frontend versions.json) && \
     CI=false npm run build
 
 # Build stage for agents (all platforms)
-FROM golang:1.23.1-alpine AS agent-builder
+FROM golang:1.24-alpine AS agent-builder
 RUN apk add --no-cache make jq
 
 # Set up parent directory and copy versions.json first
@@ -29,7 +29,7 @@ COPY agent/ ./
 RUN make clean && make build-all
 
 # Build stage for backend
-FROM golang:1.23.1-alpine AS backend-builder
+FROM golang:1.24-alpine AS backend-builder
 WORKDIR /app/backend
 # Install jq for version extraction
 RUN apk add --no-cache jq

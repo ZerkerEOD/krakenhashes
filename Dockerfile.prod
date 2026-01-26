@@ -28,7 +28,7 @@ RUN BASE_VERSION=$(jq -r .frontend versions.json) && \
     CI=false npm run build
 
 # Build stage for backend
-FROM golang:1.23.1-alpine AS backend-builder
+FROM golang:1.24-alpine AS backend-builder
 ARG COMMIT_SHA
 ARG BUILD_TYPE
 WORKDIR /app/backend

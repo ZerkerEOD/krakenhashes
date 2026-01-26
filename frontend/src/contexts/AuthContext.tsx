@@ -109,21 +109,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => clearInterval(interval);
   }, [isAuth]); // Remove checkAuthStatus dependency
 
-  // Periodic token refresh to prevent expiration
+  // Fallback token refresh for idle tabs
+  // Note: The backend now handles primary session extension via throttled refresh on user activity.
+  // This timer is a safety net for users who leave a tab open but idle - it ensures the session
+  // stays alive even without direct API calls. The backend will only refresh if the token is
+  // past its refresh threshold (1/3 of session time), so frequent calls here are efficient.
   useEffect(() => {
     if (!isAuth) return;
 
     const refreshInterval = setInterval(async () => {
       try {
-        console.debug('[Auth] Performing periodic token refresh...');
+        console.debug('[Auth] Performing fallback token refresh for idle tab...');
         await refreshToken(true); // Pass true to indicate automatic refresh (won't update last_activity)
-        console.debug('[Auth] Periodic token refresh successful');
+        console.debug('[Auth] Fallback token refresh successful');
       } catch (error) {
-        console.error('[Auth] Periodic token refresh failed:', error);
+        console.error('[Auth] Fallback token refresh failed:', error);
         // Force auth check which may trigger login redirect
         checkAuthStatus();
       }
-    }, 50 * 60 * 1000); // Refresh every 50 minutes (conservative for 60+ minute expiry)
+    }, 15 * 60 * 1000); // Refresh every 15 minutes as safety net
 
     return () => clearInterval(refreshInterval);
   }, [isAuth]); // Remove checkAuthStatus dependency

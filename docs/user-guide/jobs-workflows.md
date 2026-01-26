@@ -87,6 +87,43 @@ Systematically tests patterns of increasing (or decreasing) length:
 
 This is more efficient than creating three separate preset jobs!
 
+### Association Attacks (v1.4.0+)
+
+Association attacks (hashcat mode `-a 9`) test password candidates against specific hashes in a 1:1 mapping:
+- Hash on line N is tested against candidate password on line N
+- Requires an association wordlist with exactly the same line count as your hashlist
+- Useful for targeted attacks with user-specific password hints
+
+**Common Use Cases:**
+- Testing known passwords from previous breaches against current accounts
+- Password reuse detection across systems
+- Targeted attacks using personal information (birthdays, pet names, etc.)
+- Testing variations of previously cracked passwords
+
+**Requirements:**
+- Association wordlist line count must **exactly match** hashlist hash count
+- Original hash order is preserved during the attack
+- Rules can be combined with association attacks for password variations
+
+**Example**: You have 1,000 user hashes and corresponding password hints:
+
+```
+Hashlist (1,000 lines):
+$ntlm$abc123...  (user1)
+$ntlm$def456...  (user2)
+
+Association Wordlist (1,000 lines):
+user1birthday2020
+user2petname!
+```
+
+Hash 1 is tested against "user1birthday2020", hash 2 against "user2petname!", etc.
+
+!!! tip "Combining with Rules"
+    Association attacks support rules. If you use a rule file with 100 rules, each hash-candidate pair will be tested with 100 rule transformations applied to the candidate password.
+
+See [Association Wordlists](hashlists.md#association-wordlists-v140) for how to upload and manage association wordlists.
+
 ## Understanding Priorities
 
 Jobs within workflows run in priority order:

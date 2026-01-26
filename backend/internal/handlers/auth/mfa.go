@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	sharedAuth "github.com/ZerkerEOD/krakenhashes/backend/internal/auth"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db/queries"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
@@ -436,7 +437,7 @@ func (h *Handler) VerifyMFAHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Get client info for session and login attempt logging
-			ipAddress, userAgent := getClientInfo(r)
+			ipAddress, userAgent := sharedAuth.GetClientInfo(r)
 
 			// Create active session linked to token
 			session := &models.ActiveSession{
@@ -464,7 +465,7 @@ func (h *Handler) VerifyMFAHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Set auth cookie
-			setAuthCookie(w, r, token, authSettings.JWTExpiryMinutes*60) // Convert minutes to seconds
+			sharedAuth.SetAuthCookie(w, r, token, authSettings.JWTExpiryMinutes*60) // Convert minutes to seconds
 
 			// Return success with token
 			w.Header().Set("Content-Type", "application/json")
@@ -565,7 +566,7 @@ func (h *Handler) VerifyMFAHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Set auth cookie
-			setAuthCookie(w, r, token, authSettings.JWTExpiryMinutes*60) // Convert minutes to seconds
+			sharedAuth.SetAuthCookie(w, r, token, authSettings.JWTExpiryMinutes*60) // Convert minutes to seconds
 
 			// Return success with token
 			w.Header().Set("Content-Type", "application/json")
@@ -649,7 +650,7 @@ func (h *Handler) VerifyMFAHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Get client info for session and login attempt logging
-			ipAddress, userAgent := getClientInfo(r)
+			ipAddress, userAgent := sharedAuth.GetClientInfo(r)
 
 			// Create active session linked to token
 			session := &models.ActiveSession{
@@ -677,7 +678,7 @@ func (h *Handler) VerifyMFAHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Set auth cookie
-			setAuthCookie(w, r, token, authSettings.JWTExpiryMinutes*60) // Convert minutes to seconds
+			sharedAuth.SetAuthCookie(w, r, token, authSettings.JWTExpiryMinutes*60) // Convert minutes to seconds
 
 			// Return success with token
 			w.Header().Set("Content-Type", "application/json")
@@ -814,7 +815,7 @@ func (h *Handler) VerifyMFAHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Get client info for session and login attempt logging
-		ipAddress, userAgent := getClientInfo(r)
+		ipAddress, userAgent := sharedAuth.GetClientInfo(r)
 
 		// Create active session linked to token
 		session := &models.ActiveSession{
@@ -842,7 +843,7 @@ func (h *Handler) VerifyMFAHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Set auth cookie
-		setAuthCookie(w, r, token, authSettings.JWTExpiryMinutes*60) // Convert minutes to seconds
+		sharedAuth.SetAuthCookie(w, r, token, authSettings.JWTExpiryMinutes*60) // Convert minutes to seconds
 
 		// Return success with token
 		w.Header().Set("Content-Type", "application/json")
@@ -1000,6 +1001,43 @@ func (h *MFAHandler) EnableMFA(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
+
+	case "passkey":
+		// Verify user has at least one passkey registered
+		userIDUUID, err := uuid.Parse(userID)
+		if err != nil {
+			debug.Error("Failed to parse user ID: %v", err)
+			http.Error(w, "Invalid user ID", http.StatusBadRequest)
+			return
+		}
+
+		passkeys, err := h.db.GetUserPasskeys(userIDUUID)
+		if err != nil {
+			debug.Error("Failed to get user passkeys: %v", err)
+			http.Error(w, "Failed to verify passkey setup", http.StatusInternalServerError)
+			return
+		}
+
+		if len(passkeys) == 0 {
+			debug.Error("User %s has no registered passkeys", userID)
+			http.Error(w, "Please register a passkey first", http.StatusBadRequest)
+			return
+		}
+
+		// Enable MFA with passkey method (empty secret - passkeys use credential IDs)
+		if err := h.db.EnableMFA(userID, "passkey", ""); err != nil {
+			debug.Error("Failed to enable passkey MFA: %v", err)
+			http.Error(w, "Failed to enable MFA", http.StatusInternalServerError)
+			return
+		}
+
+		// Set passkey as preferred method
+		if err := h.db.SetPreferredMFAMethod(userID, "passkey"); err != nil {
+			debug.Error("Failed to set preferred MFA method: %v", err)
+			// Don't fail - MFA is still enabled
+		}
+
+		w.WriteHeader(http.StatusOK)
 
 	default:
 		http.Error(w, "Invalid MFA method", http.StatusBadRequest)
@@ -1598,7 +1636,7 @@ func (h *MFAHandler) UpdatePreferredMFAMethod(w http.ResponseWriter, r *http.Req
 	}
 
 	// Validate method
-	if req.Method != "email" && req.Method != "authenticator" {
+	if !models.IsValidPreferredMFAType(req.Method) {
 		debug.Error("Invalid MFA method requested: %s", req.Method)
 		http.Error(w, "Invalid MFA method", http.StatusBadRequest)
 		return

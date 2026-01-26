@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"sort"
 	"sync"
 	"time"
 
@@ -265,6 +266,28 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 		return nil, fmt.Errorf("failed to get tasks for job %s: %w", job.ID, err)
 	}
 
+	// OVERLAP DETECTION: Sort tasks by KeyspaceStart and detect overlapping ranges
+	// This is a safety net to catch keyspace assignment bugs
+	if len(tasks) > 1 && !job.UsesRuleSplitting {
+		// Make a copy for sorting to avoid modifying original slice
+		sortedTasks := make([]models.JobTask, len(tasks))
+		copy(sortedTasks, tasks)
+		sort.Slice(sortedTasks, func(i, j int) bool {
+			return sortedTasks[i].KeyspaceStart < sortedTasks[j].KeyspaceStart
+		})
+
+		var lastEnd int64 = 0
+		for _, task := range sortedTasks {
+			if task.KeyspaceStart < lastEnd && task.KeyspaceEnd > 0 {
+				debug.Error("OVERLAP DETECTED in job %s: task %s starts at %d but previous task ended at %d (overlap: %d)",
+					job.ID, task.ID, task.KeyspaceStart, lastEnd, lastEnd-task.KeyspaceStart)
+			}
+			if task.KeyspaceEnd > lastEnd {
+				lastEnd = task.KeyspaceEnd
+			}
+		}
+	}
+
 	var processedKeyspace int64
 	var dispatchedKeyspace int64
 
@@ -282,11 +305,17 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 
 	for _, task := range tasks {
 		// Calculate processed keyspace
-		// For keyspace-split tasks, KeyspaceProcessed storage is INCONSISTENT:
-		// - COMPLETED tasks: relative (chunk size)
-		// - RUNNING tasks: absolute (restore_point from hashcat)
-		// We detect absolute values by checking if KeyspaceProcessed >= KeyspaceStart
-		if isKeyspaceSplitJob {
+		// PRIORITY: Use effective_keyspace_processed when available (most accurate from hashcat)
+		// FALLBACK: For keyspace-split jobs without effective values, estimate using multiplier
+		if task.EffectiveKeyspaceProcessed != nil && *task.EffectiveKeyspaceProcessed > 0 {
+			// Use effective keyspace directly - this is the actual value reported by hashcat
+			processedKeyspace += *task.EffectiveKeyspaceProcessed
+		} else if isKeyspaceSplitJob {
+			// Fallback for keyspace-split tasks without effective values
+			// For keyspace-split tasks, KeyspaceProcessed storage is INCONSISTENT:
+			// - COMPLETED tasks: relative (chunk size)
+			// - RUNNING tasks: absolute (restore_point from hashcat)
+			// We detect absolute values by checking if KeyspaceProcessed >= KeyspaceStart
 			var relativeProcessed int64
 			// Check if keyspace_processed is absolute (for running tasks with keyspace splits)
 			// Absolute values are >= keyspace_start when keyspace_start > 0
@@ -298,9 +327,6 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 				relativeProcessed = task.KeyspaceProcessed
 			}
 			processedKeyspace += int64(float64(relativeProcessed) * multiplier)
-		} else if task.EffectiveKeyspaceProcessed != nil && *task.EffectiveKeyspaceProcessed > 0 {
-			// Non-keyspace-split task: use effective keyspace directly
-			processedKeyspace += *task.EffectiveKeyspaceProcessed
 		} else {
 			// Fallback to regular keyspace processed
 			processedKeyspace += task.KeyspaceProcessed
@@ -309,15 +335,18 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 		// Calculate dispatched keyspace for ALL tasks with defined ranges
 		// This includes pending, failed, and cancelled tasks because "dispatched"
 		// means work was allocated, showing total coverage (including gaps)
-		if isKeyspaceSplitJob {
-			// Keyspace-split task: calculate base chunk × multiplier for consistency
+		// PRIORITY: Use effective keyspace range when available
+		// FALLBACK: For keyspace-split jobs, estimate using multiplier
+		if task.EffectiveKeyspaceStart != nil && task.EffectiveKeyspaceEnd != nil {
+			// Use effective keyspace range if available (from hashcat or estimates)
+			dispatchedKeyspace += (*task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart)
+		} else if isKeyspaceSplitJob {
+			// Fallback: Keyspace-split task without effective values
+			// Calculate base chunk × multiplier for consistency
 			chunkSize := task.KeyspaceEnd - task.KeyspaceStart
 			if chunkSize > 0 {
 				dispatchedKeyspace += int64(float64(chunkSize) * multiplier)
 			}
-		} else if task.EffectiveKeyspaceStart != nil && task.EffectiveKeyspaceEnd != nil {
-			// Use effective keyspace range if available (from hashcat or estimates)
-			dispatchedKeyspace += (*task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart)
 		} else if task.KeyspaceEnd > task.KeyspaceStart {
 			// Fallback to regular keyspace range for tasks without effective keyspace
 			dispatchedKeyspace += (task.KeyspaceEnd - task.KeyspaceStart)
@@ -357,6 +386,24 @@ func (s *JobProgressCalculationService) calculateAndUpdateLayerProgress(ctx cont
 	for _, task := range tasks {
 		if task.IncrementLayerID != nil && *task.IncrementLayerID == layer.ID {
 			layerTasks = append(layerTasks, task)
+		}
+	}
+
+	// OVERLAP DETECTION: Sort layer tasks by KeyspaceStart and detect overlapping ranges
+	if len(layerTasks) > 1 {
+		sort.Slice(layerTasks, func(i, j int) bool {
+			return layerTasks[i].KeyspaceStart < layerTasks[j].KeyspaceStart
+		})
+
+		var lastEnd int64 = 0
+		for _, task := range layerTasks {
+			if task.KeyspaceStart < lastEnd && task.KeyspaceEnd > 0 {
+				debug.Error("OVERLAP DETECTED in layer %s (job %s): task %s starts at %d but previous task ended at %d (overlap: %d)",
+					layer.ID, layer.JobExecutionID, task.ID, task.KeyspaceStart, lastEnd, lastEnd-task.KeyspaceStart)
+			}
+			if task.KeyspaceEnd > lastEnd {
+				lastEnd = task.KeyspaceEnd
+			}
 		}
 	}
 
@@ -501,5 +548,122 @@ func (s *JobProgressCalculationService) batchUpdateProgress(ctx context.Context,
 	}
 
 	debug.Debug("Successfully updated %d/%d jobs", successCount, len(updates))
+
+	// FEEDBACK LOOP: Check if any updated jobs should complete.
+	// This addresses the issue where task completion triggers ProcessJobCompletion() with
+	// stale dispatched_keyspace values. Now that we've updated progress, re-check completion.
+	s.checkJobsForCompletion(ctx, updates)
+
 	return nil
+}
+
+// checkJobsForCompletion checks if any updated jobs should be marked complete.
+// This provides the feedback loop that was missing - after progress is updated,
+// we re-verify if jobs with all tasks complete should now be completed.
+func (s *JobProgressCalculationService) checkJobsForCompletion(ctx context.Context, updates map[uuid.UUID]*JobProgressUpdate) {
+	for jobID := range updates {
+		// Get fresh job data
+		job, err := s.jobExecRepo.GetByID(ctx, jobID)
+		if err != nil {
+			continue
+		}
+
+		// Skip if already completed
+		if job.Status == "completed" {
+			continue
+		}
+
+		// Check if all tasks are complete (including no remaining work)
+		allComplete, err := s.jobTaskRepo.AreAllTasksComplete(ctx, jobID)
+		if err != nil {
+			debug.Warning("Progress service: failed to check if all tasks complete for job %s: %v", jobID, err)
+			continue
+		}
+
+		if !allComplete {
+			continue
+		}
+
+		// Use structural check to verify job should complete
+		if s.shouldJobComplete(ctx, job) {
+			// CRITICAL: Check for failed tasks before completing
+			hasFailed, failErr := s.jobTaskRepo.HasFailedTasks(ctx, jobID)
+			if failErr != nil {
+				debug.Warning("Progress service: failed to check for failed tasks for job %s: %v", jobID, failErr)
+				continue
+			}
+			if hasFailed {
+				debug.Log("Progress service: Job has failed tasks - marking as failed", map[string]interface{}{
+					"job_id": jobID,
+				})
+				if failExecErr := s.jobExecRepo.FailExecution(ctx, jobID, "One or more tasks failed"); failExecErr != nil {
+					debug.Error("Progress service failed to mark job %s as failed: %v", jobID, failExecErr)
+				} else {
+					debug.Info("Progress service marked job %s as failed due to failed tasks", jobID)
+				}
+				continue
+			}
+
+			debug.Log("Progress service triggering job completion (feedback loop)", map[string]interface{}{
+				"job_id":              jobID,
+				"dispatched_keyspace": job.DispatchedKeyspace,
+				"effective_keyspace":  job.EffectiveKeyspace,
+			})
+
+			// Complete the job
+			err = s.jobExecRepo.CompleteExecution(ctx, jobID)
+			if err != nil {
+				debug.Error("Progress service failed to complete job %s: %v", jobID, err)
+			} else {
+				debug.Info("Progress service completed stuck job %s via feedback loop", jobID)
+
+				// Sync effective_keyspace to processed_keyspace to ensure 100% display
+				// This prevents >100% progress when effective_keyspace from benchmark was lower
+				// (similar to the AllHashesCracked handler in job_websocket_integration.go)
+				if job.ProcessedKeyspace > 0 {
+					if job.EffectiveKeyspace == nil || *job.EffectiveKeyspace < job.ProcessedKeyspace {
+						syncErr := s.jobExecRepo.UpdateEffectiveKeyspace(ctx, jobID, job.ProcessedKeyspace)
+						if syncErr != nil {
+							debug.Warning("Failed to sync effective_keyspace on completion for job %s: %v", jobID, syncErr)
+						} else {
+							debug.Info("Synced effective_keyspace to %d on job %s completion", job.ProcessedKeyspace, jobID)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// shouldJobComplete performs structural checks to determine if a job should be marked complete.
+// This is called after AreAllTasksComplete() returns true, so dispatch validation is already done.
+func (s *JobProgressCalculationService) shouldJobComplete(ctx context.Context, job *models.JobExecution) bool {
+	// For increment mode, check layer status
+	if job.IncrementMode != "" && job.IncrementMode != "off" {
+		layers, err := s.jobIncrementLayerRepo.GetByJobExecutionID(ctx, job.ID)
+		if err != nil {
+			return false
+		}
+		for _, layer := range layers {
+			if layer.Status != models.JobIncrementLayerStatusCompleted {
+				return false
+			}
+		}
+		return true
+	}
+
+	// For rule-split jobs, check max rule index
+	if job.UsesRuleSplitting {
+		maxRuleEnd, err := s.jobTaskRepo.GetMaxRuleEndIndex(ctx, job.ID)
+		if err != nil {
+			return false
+		}
+		return maxRuleEnd != nil && *maxRuleEnd >= job.MultiplicationFactor
+	}
+
+	// For non-rule-split jobs, AreAllTasksComplete() already validates dispatch
+	// using effective_keyspace comparison. No additional structural check needed.
+	// Note: We intentionally do NOT compare base_keyspace here because base_keyspace
+	// (wordlist size) and effective_keyspace (total candidates) are different dimensions.
+	return true
 }

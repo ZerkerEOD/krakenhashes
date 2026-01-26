@@ -27,7 +27,8 @@ type Manager interface {
 	GetRuleByName(ctx context.Context, name string) (*models.Rule, error)
 	AddRule(ctx context.Context, req *models.RuleAddRequest, userID uuid.UUID) (*models.Rule, error)
 	UpdateRule(ctx context.Context, id int, req *models.RuleUpdateRequest, userID uuid.UUID) (*models.Rule, error)
-	DeleteRule(ctx context.Context, id int) error
+	DeleteRule(ctx context.Context, id int, confirmID *int) error
+	GetDeletionImpact(ctx context.Context, id int) (*models.DeletionImpact, error)
 	VerifyRule(ctx context.Context, id int, req *models.RuleVerifyRequest) error
 	UpdateRuleFileInfo(ctx context.Context, id int, md5Hash string, fileSize int64) error
 	AddRuleTag(ctx context.Context, id int, tag string, userID uuid.UUID) error
@@ -64,10 +65,12 @@ type manager struct {
 	allowedFormats   []string
 	allowedMimeTypes []string
 	jobExecRepo      *repository.JobExecutionRepository
+	presetJobRepo    repository.PresetJobRepository
+	workflowRepo     repository.JobWorkflowRepository
 }
 
 // NewManager creates a new rule manager
-func NewManager(store RuleStore, rulesDir string, maxUploadSize int64, allowedFormats, allowedMimeTypes []string, jobExecRepo *repository.JobExecutionRepository) Manager {
+func NewManager(store RuleStore, rulesDir string, maxUploadSize int64, allowedFormats, allowedMimeTypes []string, jobExecRepo *repository.JobExecutionRepository, presetJobRepo repository.PresetJobRepository, workflowRepo repository.JobWorkflowRepository) Manager {
 	// Ensure rules directory exists
 	if err := os.MkdirAll(rulesDir, 0755); err != nil {
 		debug.Error("Failed to create rules directory: %v", err)
@@ -93,6 +96,8 @@ func NewManager(store RuleStore, rulesDir string, maxUploadSize int64, allowedFo
 		allowedFormats:   allowedFormats,
 		allowedMimeTypes: allowedMimeTypes,
 		jobExecRepo:      jobExecRepo,
+		presetJobRepo:    presetJobRepo,
+		workflowRepo:     workflowRepo,
 	}
 }
 
@@ -235,16 +240,154 @@ func (m *manager) UpdateRule(ctx context.Context, id int, req *models.RuleUpdate
 	return rule, nil
 }
 
-// DeleteRule deletes a rule
-func (m *manager) DeleteRule(ctx context.Context, id int) error {
-	// Check if rule is being used by active jobs
+// GetDeletionImpact returns the impact of deleting a rule
+func (m *manager) GetDeletionImpact(ctx context.Context, id int) (*models.DeletionImpact, error) {
+	// Check if rule exists
+	rule, err := m.store.GetRule(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if rule == nil {
+		return nil, fmt.Errorf("rule not found")
+	}
+
+	impact := &models.DeletionImpact{
+		ResourceID:   id,
+		ResourceType: "rule",
+		CanDelete:    true,
+		Impact: models.DeletionImpactDetails{
+			Jobs:              []models.DeletionImpactJob{},
+			PresetJobs:        []models.DeletionImpactPresetJob{},
+			WorkflowSteps:     []models.DeletionImpactWorkflowStep{},
+			WorkflowsToDelete: []models.DeletionImpactWorkflow{},
+		},
+	}
+
+	ruleIDStr := strconv.Itoa(id)
+
+	// Get non-completed jobs using this rule
 	if m.jobExecRepo != nil {
-		hasActiveJobs, err := m.jobExecRepo.HasActiveJobsUsingRule(ctx, strconv.Itoa(id))
+		jobs, err := m.jobExecRepo.GetNonCompletedJobsUsingRule(ctx, ruleIDStr)
 		if err != nil {
-			return fmt.Errorf("failed to check for active jobs: %w", err)
+			debug.Error("Failed to get jobs using rule %d: %v", id, err)
+			return nil, fmt.Errorf("failed to get jobs using rule: %w", err)
 		}
-		if hasActiveJobs {
+		impact.Impact.Jobs = jobs
+	}
+
+	// Get preset jobs using this rule
+	if m.presetJobRepo != nil {
+		presetJobs, err := m.presetJobRepo.GetByRuleID(ctx, ruleIDStr)
+		if err != nil {
+			debug.Error("Failed to get preset jobs using rule %d: %v", id, err)
+			return nil, fmt.Errorf("failed to get preset jobs using rule: %w", err)
+		}
+		for _, pj := range presetJobs {
+			impact.Impact.PresetJobs = append(impact.Impact.PresetJobs, models.DeletionImpactPresetJob{
+				ID:         pj.ID,
+				Name:       pj.Name,
+				AttackMode: strconv.Itoa(int(pj.AttackMode)),
+			})
+		}
+
+		// Get workflow steps that use these preset jobs
+		if m.workflowRepo != nil && len(presetJobs) > 0 {
+			presetJobIDs := make([]uuid.UUID, len(presetJobs))
+			for i, pj := range presetJobs {
+				presetJobIDs[i] = pj.ID
+			}
+
+			steps, err := m.workflowRepo.GetStepsByPresetJobIDs(ctx, presetJobIDs)
+			if err != nil {
+				debug.Error("Failed to get workflow steps: %v", err)
+				return nil, fmt.Errorf("failed to get workflow steps: %w", err)
+			}
+			impact.Impact.WorkflowSteps = steps
+
+			// Get workflows that would become empty
+			workflowsToDelete, err := m.workflowRepo.GetWorkflowsAffectedByPresetJobDeletion(ctx, presetJobIDs)
+			if err != nil {
+				debug.Error("Failed to get affected workflows: %v", err)
+				return nil, fmt.Errorf("failed to get affected workflows: %w", err)
+			}
+			impact.Impact.WorkflowsToDelete = workflowsToDelete
+		}
+	}
+
+	// Calculate summary
+	impact.Summary = models.DeletionImpactSummary{
+		TotalJobs:              len(impact.Impact.Jobs),
+		TotalPresetJobs:        len(impact.Impact.PresetJobs),
+		TotalWorkflowSteps:     len(impact.Impact.WorkflowSteps),
+		TotalWorkflowsToDelete: len(impact.Impact.WorkflowsToDelete),
+	}
+
+	// Has cascading impact if any references exist
+	impact.HasCascadingImpact = impact.Summary.TotalJobs > 0 ||
+		impact.Summary.TotalPresetJobs > 0 ||
+		impact.Summary.TotalWorkflowSteps > 0
+
+	return impact, nil
+}
+
+// DeleteRule deletes a rule with optional cascade deletion
+func (m *manager) DeleteRule(ctx context.Context, id int, confirmID *int) error {
+	// Get deletion impact first
+	impact, err := m.GetDeletionImpact(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	// If there's cascading impact, require confirmation
+	if impact.HasCascadingImpact {
+		if confirmID == nil || *confirmID != id {
 			return models.ErrResourceInUse
+		}
+
+		// Perform cascade deletion
+		debug.Info("Starting cascade deletion for rule %d", id)
+
+		// 1. Delete non-completed jobs using this rule
+		if len(impact.Impact.Jobs) > 0 && m.jobExecRepo != nil {
+			jobIDs := make([]uuid.UUID, len(impact.Impact.Jobs))
+			for i, job := range impact.Impact.Jobs {
+				jobIDs[i] = job.ID
+			}
+			if err := m.jobExecRepo.DeleteJobsByIDs(ctx, jobIDs); err != nil {
+				debug.Error("Failed to delete jobs: %v", err)
+				return fmt.Errorf("failed to delete jobs: %w", err)
+			}
+			debug.Info("Deleted %d jobs using rule %d", len(jobIDs), id)
+		}
+
+		// 2. Delete workflow steps referencing affected preset jobs
+		if len(impact.Impact.PresetJobs) > 0 && m.workflowRepo != nil {
+			presetJobIDs := make([]uuid.UUID, len(impact.Impact.PresetJobs))
+			for i, pj := range impact.Impact.PresetJobs {
+				presetJobIDs[i] = pj.ID
+			}
+			if err := m.workflowRepo.DeleteStepsByPresetJobIDs(ctx, presetJobIDs); err != nil {
+				debug.Error("Failed to delete workflow steps: %v", err)
+				return fmt.Errorf("failed to delete workflow steps: %w", err)
+			}
+			debug.Info("Deleted workflow steps for %d preset jobs", len(presetJobIDs))
+
+			// 3. Delete preset jobs
+			if m.presetJobRepo != nil {
+				if err := m.presetJobRepo.DeleteByIDs(ctx, presetJobIDs); err != nil {
+					debug.Error("Failed to delete preset jobs: %v", err)
+					return fmt.Errorf("failed to delete preset jobs: %w", err)
+				}
+				debug.Info("Deleted %d preset jobs using rule %d", len(presetJobIDs), id)
+			}
+
+			// 4. Delete empty workflows
+			if deletedCount, err := m.workflowRepo.DeleteEmptyWorkflows(ctx); err != nil {
+				debug.Error("Failed to delete empty workflows: %v", err)
+				return fmt.Errorf("failed to delete empty workflows: %w", err)
+			} else if deletedCount > 0 {
+				debug.Info("Deleted %d empty workflows", deletedCount)
+			}
 		}
 	}
 
@@ -269,6 +412,7 @@ func (m *manager) DeleteRule(ctx context.Context, id int) error {
 		// Don't return error, as the database entry is already deleted
 	}
 
+	debug.Info("Successfully deleted rule %d", id)
 	return nil
 }
 

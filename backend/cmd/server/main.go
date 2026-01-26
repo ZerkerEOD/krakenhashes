@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/cache/filehash"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/config"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/database"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
@@ -185,6 +186,7 @@ func main() {
 	jobTaskRepo := repository.NewJobTaskRepository(dbWrapper)
 	jobIncrementLayerRepo := repository.NewJobIncrementLayerRepository(dbWrapper)
 	presetJobRepo := repository.NewPresetJobRepository(sqlDB)
+	workflowRepo := repository.NewJobWorkflowRepository(sqlDB)
 
 	// Initialize services with dependencies
 	agentService := services.NewAgentService(agentRepo, repository.NewClaimVoucherRepository(dbWrapper), repository.NewFileRepository(dbWrapper, appConfig.DataDir), deviceRepo, jobTaskRepo, jobExecutionRepo)
@@ -201,6 +203,8 @@ func main() {
 		[]string{"txt", "dict", "lst", "gz", "zip"},                   // Allowed formats
 		[]string{"text/plain", "application/gzip", "application/zip"}, // Allowed MIME types
 		jobExecutionRepo, // Pass job execution repository for dependency checking
+		presetJobRepo,    // Pass preset job repository for cascade deletion
+		workflowRepo,     // Pass workflow repository for cascade deletion
 	)
 
 	ruleStore := rule.NewStore(sqlDB)
@@ -211,6 +215,8 @@ func main() {
 		[]string{"rule", "rules", "txt", "lst"}, // Allowed formats
 		[]string{"text/plain"},                  // Allowed MIME types
 		jobExecutionRepo, // Pass job execution repository for dependency checking
+		presetJobRepo,    // Pass preset job repository for cascade deletion
+		workflowRepo,     // Pass workflow repository for cascade deletion
 	)
 
 	// Initialize binary manager
@@ -235,6 +241,25 @@ func main() {
 		os.Exit(1)
 	}
 	debug.Info("Database migrations completed successfully")
+
+	// Initialize file hash cache for directory monitoring
+	// This cache reduces disk I/O by only recalculating MD5 hashes when files change
+	debug.Info("Initializing file hash cache...")
+	fileHashCache := filehash.New()
+
+	// Start background cache population (non-blocking)
+	fileHashCache.PopulateAsync(
+		[]string{
+			filepath.Join(appConfig.DataDir, "wordlists"),
+			filepath.Join(appConfig.DataDir, "rules"),
+		},
+		[]string{"potfile.txt", "association/"}, // Skip patterns
+	)
+	debug.Info("File hash cache initialized, background population started")
+
+	// Initialize potfile hash history for handling race conditions during heavy ingestion
+	potfileHistory := filehash.NewPotfileHistory(5 * time.Minute)
+	debug.Info("Potfile hash history initialized (5-minute window)")
 
 	// Add a small delay to ensure migrations are fully applied
 	debug.Info("Waiting for migrations to be fully applied...")
@@ -305,6 +330,7 @@ func main() {
 		appConfig,
 		systemUserID,
 		jobUpdateService,
+		fileHashCache,
 	)
 
 	// Initialize and start the Retention Purge Scheduler
@@ -358,6 +384,7 @@ func main() {
 		wordlistStore,
 		hashRepo,
 		jobUpdateService,
+		potfileHistory,
 	)
 	
 	// Start pot-file service

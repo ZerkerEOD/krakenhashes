@@ -5,6 +5,11 @@ services:
         # PostgreSQL memory configuration (defaults optimized for 8GB RAM systems)
         # Override in .env file for different system configurations
         # See docs/reference/system-requirements.md for detailed guidance
+        #
+        # WARNING: PostgreSQL file logging is DISABLED by default for security.
+        # Enabling it may log sensitive data (queries containing passwords, hashes, etc.)
+        # Only enable for debugging, and remember to purge logs afterward via Admin > Diagnostics.
+        # To enable file logging, uncomment the logging_collector lines below and restart postgres.
         command: >
             postgres
             -c shared_buffers=${POSTGRES_SHARED_BUFFERS:-1GB}
@@ -14,6 +19,12 @@ services:
             -c max_connections=${POSTGRES_MAX_CONNECTIONS:-100}
             -c enable_parallel_hash=${POSTGRES_ENABLE_PARALLEL_HASH:-off}
             -c hash_mem_multiplier=${POSTGRES_HASH_MEM_MULTIPLIER:-1}
+        # Uncomment below to enable PostgreSQL file logging (SECURITY WARNING - see above):
+        #   -c logging_collector=on
+        #   -c log_directory='/var/log/postgresql'
+        #   -c log_filename='postgresql.log'
+        #   -c log_statement='all'
+        #   -c log_min_duration_statement=0
         volumes:
             - postgres_data:/var/lib/postgresql/data
             - ${LOG_DIR:-./logs}/postgres:/var/log/postgresql

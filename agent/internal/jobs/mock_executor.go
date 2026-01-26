@@ -567,3 +567,27 @@ func getEnvString(key string, defaultValue string) string {
 	}
 	return defaultValue
 }
+
+// RetransmitOutfile returns empty cracks for mock executor (no real outfiles)
+func (m *MockHashcatExecutor) RetransmitOutfile(taskID string) ([]CrackedHash, error) {
+	debug.Info("Mock executor: RetransmitOutfile called for task %s (no-op)", taskID)
+	return nil, nil
+}
+
+// DeleteOutfile is a no-op for mock executor
+func (m *MockHashcatExecutor) DeleteOutfile(taskID string) error {
+	debug.Info("Mock executor: DeleteOutfile called for task %s (no-op)", taskID)
+	return nil
+}
+
+// GetPendingOutfiles returns empty list for mock executor (no real outfiles)
+func (m *MockHashcatExecutor) GetPendingOutfiles() (taskIDs []string, currentTaskID string, err error) {
+	debug.Info("Mock executor: GetPendingOutfiles called (no-op)")
+	return nil, "", nil
+}
+
+// GetOutfileLineCount returns 0 for mock executor (no real outfiles)
+func (m *MockHashcatExecutor) GetOutfileLineCount(taskID string) (int64, error) {
+	debug.Info("Mock executor: GetOutfileLineCount called for task %s (no-op)", taskID)
+	return 0, nil
+}

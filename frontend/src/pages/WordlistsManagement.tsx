@@ -58,10 +58,10 @@ import {
   Verified as VerifiedIcon
 } from '@mui/icons-material';
 import FileUpload from '../components/common/FileUpload';
-import { Wordlist, WordlistStatus, WordlistType } from '../types/wordlists';
+import { Wordlist, WordlistStatus, WordlistType, DeletionImpact } from '../types/wordlists';
 import * as wordlistService from '../services/wordlists';
 import { useSnackbar } from 'notistack';
-import { formatFileSize } from '../utils/formatters';
+import { formatFileSize, formatAttackMode } from '../utils/formatters';
 
 export default function WordlistsManagement() {
   const [wordlists, setWordlists] = useState<Wordlist[]>([]);
@@ -84,6 +84,9 @@ export default function WordlistsManagement() {
   const [isLoading, setIsLoading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [wordlistToDelete, setWordlistToDelete] = useState<{id: string, name: string} | null>(null);
+  const [deletionImpact, setDeletionImpact] = useState<DeletionImpact | null>(null);
+  const [confirmationId, setConfirmationId] = useState('');
+  const [isCheckingImpact, setIsCheckingImpact] = useState(false);
 
   // Fetch wordlists
   const fetchWordlists = useCallback(async () => {
@@ -178,9 +181,9 @@ export default function WordlistsManagement() {
   };
 
   // Handle wordlist deletion
-  const handleDelete = async (id: string, name: string) => {
+  const handleDelete = async (id: string, name: string, confirmId?: number) => {
     try {
-      await wordlistService.deleteWordlist(id);
+      await wordlistService.deleteWordlist(id, confirmId);
       enqueueSnackbar(`Wordlist "${name}" deleted successfully`, { variant: 'success' });
       fetchWordlists();
     } catch (err: any) {
@@ -189,21 +192,42 @@ export default function WordlistsManagement() {
       const errorMessage = err.response?.data?.error || 'Failed to delete wordlist';
       enqueueSnackbar(errorMessage, { variant: 'error' });
     } finally {
-      setDeleteDialogOpen(false);
-      setWordlistToDelete(null);
+      closeDeleteDialog();
     }
   };
 
-  // Open delete confirmation dialog
-  const openDeleteDialog = (id: string, name: string) => {
+  // Open delete confirmation dialog - first check for deletion impact
+  const openDeleteDialog = async (id: string, name: string) => {
     setWordlistToDelete({ id, name });
     setDeleteDialogOpen(true);
+    setIsCheckingImpact(true);
+    setDeletionImpact(null);
+    setConfirmationId('');
+
+    try {
+      const response = await wordlistService.getWordlistDeletionImpact(id);
+      setDeletionImpact(response.data);
+    } catch (err: any) {
+      console.error('Error getting deletion impact:', err);
+      // If we can't get the impact, still allow deletion with simple confirmation
+      setDeletionImpact(null);
+    } finally {
+      setIsCheckingImpact(false);
+    }
   };
 
   // Close delete confirmation dialog
   const closeDeleteDialog = () => {
     setDeleteDialogOpen(false);
     setWordlistToDelete(null);
+    setDeletionImpact(null);
+    setConfirmationId('');
+  };
+
+  // Check if confirmation ID matches for cascade delete
+  const isConfirmationValid = () => {
+    if (!deletionImpact?.has_cascading_impact) return true;
+    return confirmationId === String(deletionImpact.resource_id);
   };
 
   // Handle wordlist download
@@ -581,8 +605,8 @@ export default function WordlistsManagement() {
         <DialogContent>
           <FileUpload
             title="Upload a wordlist file"
-            description="Select a wordlist file to upload. Supported formats: .txt, .dict, .dic, .lst, .wordlist, .wl, .gz, .zip, .7z, .bz2"
-            acceptedFileTypes=".txt,.dict,.dic,.lst,.wordlist,.wl,.gz,.zip,.7z,.bz2,text/plain,application/*"
+            description="Select a wordlist file to upload. Supported formats: .txt, .dict, .dic, .lst, .wordlist, .wl, .gz, .zip"
+            acceptedFileTypes=".txt,.dict,.dic,.lst,.wordlist,.wl,.gz,.zip,text/plain,application/gzip,application/zip"
             onUpload={handleUploadWordlist}
             uploadButtonText="Upload Wordlist"
             additionalFields={
@@ -672,22 +696,148 @@ export default function WordlistsManagement() {
         onClose={closeDeleteDialog}
         aria-labelledby="delete-dialog-title"
         aria-describedby="delete-dialog-description"
+        maxWidth="sm"
+        fullWidth
       >
-        <DialogTitle id="delete-dialog-title">Confirm Deletion</DialogTitle>
+        <DialogTitle id="delete-dialog-title">
+          {deletionImpact?.has_cascading_impact ? 'Confirm Cascade Deletion' : 'Confirm Deletion'}
+        </DialogTitle>
         <DialogContent>
-          <Typography variant="body1" id="delete-dialog-description">
-            Are you sure you want to delete wordlist "{wordlistToDelete?.name}"? This action cannot be undone.
-          </Typography>
+          {isCheckingImpact ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 3 }}>
+              <CircularProgress size={24} sx={{ mr: 2 }} />
+              <Typography>Checking for dependencies...</Typography>
+            </Box>
+          ) : deletionImpact?.has_cascading_impact ? (
+            <Box>
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                Deleting wordlist "{wordlistToDelete?.name}" will also delete the following:
+              </Alert>
+
+              {deletionImpact.summary.total_jobs > 0 && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" color="error">
+                    {deletionImpact.summary.total_jobs} Job(s) (pending/running/failed):
+                  </Typography>
+                  <Box component="ul" sx={{ mt: 0.5, pl: 2, mb: 0 }}>
+                    {deletionImpact.impact.jobs.slice(0, 5).map((job) => (
+                      <li key={job.id}>
+                        <Typography variant="body2" color="text.secondary">
+                          {job.name} ({job.status}) - {job.hashlist_name || 'No hashlist'}
+                        </Typography>
+                      </li>
+                    ))}
+                    {deletionImpact.summary.total_jobs > 5 && (
+                      <li>
+                        <Typography variant="body2" color="text.secondary">
+                          ...and {deletionImpact.summary.total_jobs - 5} more
+                        </Typography>
+                      </li>
+                    )}
+                  </Box>
+                </Box>
+              )}
+
+              {deletionImpact.summary.total_preset_jobs > 0 && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" color="error">
+                    {deletionImpact.summary.total_preset_jobs} Preset Job(s):
+                  </Typography>
+                  <Box component="ul" sx={{ mt: 0.5, pl: 2, mb: 0 }}>
+                    {deletionImpact.impact.preset_jobs.slice(0, 5).map((pj) => (
+                      <li key={pj.id}>
+                        <Typography variant="body2" color="text.secondary">
+                          {pj.name} ({formatAttackMode(pj.attack_mode)})
+                        </Typography>
+                      </li>
+                    ))}
+                    {deletionImpact.summary.total_preset_jobs > 5 && (
+                      <li>
+                        <Typography variant="body2" color="text.secondary">
+                          ...and {deletionImpact.summary.total_preset_jobs - 5} more
+                        </Typography>
+                      </li>
+                    )}
+                  </Box>
+                </Box>
+              )}
+
+              {deletionImpact.summary.total_workflow_steps > 0 && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" color="error">
+                    {deletionImpact.summary.total_workflow_steps} Workflow Step(s):
+                  </Typography>
+                  <Box component="ul" sx={{ mt: 0.5, pl: 2, mb: 0 }}>
+                    {deletionImpact.impact.workflow_steps.slice(0, 5).map((step, idx) => (
+                      <li key={`${step.workflow_id}-${step.step_order}-${idx}`}>
+                        <Typography variant="body2" color="text.secondary">
+                          {step.workflow_name} → Step {step.step_order} ({step.preset_job_name})
+                        </Typography>
+                      </li>
+                    ))}
+                    {deletionImpact.summary.total_workflow_steps > 5 && (
+                      <li>
+                        <Typography variant="body2" color="text.secondary">
+                          ...and {deletionImpact.summary.total_workflow_steps - 5} more
+                        </Typography>
+                      </li>
+                    )}
+                  </Box>
+                </Box>
+              )}
+
+              {deletionImpact.summary.total_workflows_to_delete > 0 && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" color="error">
+                    {deletionImpact.summary.total_workflows_to_delete} Empty Workflow(s) will be deleted:
+                  </Typography>
+                  <Box component="ul" sx={{ mt: 0.5, pl: 2, mb: 0 }}>
+                    {deletionImpact.impact.workflows_to_delete.map((wf) => (
+                      <li key={wf.id}>
+                        <Typography variant="body2" color="text.secondary">
+                          {wf.name}
+                        </Typography>
+                      </li>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
+              <Divider sx={{ my: 2 }} />
+
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                To confirm this cascade deletion, type the wordlist ID: <strong>{deletionImpact.resource_id}</strong>
+              </Typography>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder={`Type ${deletionImpact.resource_id} to confirm`}
+                value={confirmationId}
+                onChange={(e) => setConfirmationId(e.target.value)}
+                error={confirmationId !== '' && !isConfirmationValid()}
+                helperText={confirmationId !== '' && !isConfirmationValid() ? 'ID does not match' : ''}
+              />
+            </Box>
+          ) : (
+            <Typography variant="body1" id="delete-dialog-description">
+              Are you sure you want to delete wordlist "{wordlistToDelete?.name}"? This action cannot be undone.
+            </Typography>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={closeDeleteDialog}>Cancel</Button>
-          <Button 
-            onClick={() => wordlistToDelete && handleDelete(wordlistToDelete.id, wordlistToDelete.name)} 
-            color="error" 
+          <Button
+            onClick={() => {
+              if (wordlistToDelete) {
+                const confirmId = deletionImpact?.has_cascading_impact ? Number(confirmationId) : undefined;
+                handleDelete(wordlistToDelete.id, wordlistToDelete.name, confirmId);
+              }
+            }}
+            color="error"
             variant="contained"
-            autoFocus
+            disabled={isCheckingImpact || (deletionImpact?.has_cascading_impact && !isConfirmationValid())}
           >
-            Delete
+            {deletionImpact?.has_cascading_impact ? 'Delete All' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary/version"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -34,6 +35,8 @@ type AddVersionRequest struct {
 	FileName        string                 `json:"file_name"`
 	MD5Hash         string                 `json:"md5_hash,omitempty"`
 	SetAsDefault    bool                   `json:"set_as_default,omitempty"`
+	Description     string                 `json:"description,omitempty"`
+	Version         string                 `json:"version,omitempty"`
 }
 
 // HandleAddVersion handles adding a new binary version
@@ -59,6 +62,16 @@ func (h *Handler) HandleAddVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Handle optional description and version
+	var description *string
+	if req.Description != "" {
+		description = &req.Description
+	}
+	var versionStr *string
+	if req.Version != "" {
+		versionStr = &req.Version
+	}
+
 	version := &binary.BinaryVersion{
 		BinaryType:      req.BinaryType,
 		CompressionType: req.CompressionType,
@@ -68,6 +81,9 @@ func (h *Handler) HandleAddVersion(w http.ResponseWriter, r *http.Request) {
 		CreatedBy:       userUUID,
 		IsActive:        true,
 		IsDefault:       req.SetAsDefault,
+		SourceType:      binary.SourceTypeURL,
+		Description:     description,
+		Version:         versionStr,
 	}
 
 	if err := h.manager.AddVersion(r.Context(), version); err != nil {
@@ -143,7 +159,8 @@ func (h *Handler) HandleDeleteVersion(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.manager.DeleteVersion(r.Context(), id); err != nil {
 		// Check if it's a protection error
-		if strings.Contains(err.Error(), "cannot delete the only remaining binary") {
+		if strings.Contains(err.Error(), "cannot delete the only remaining binary") ||
+			strings.Contains(err.Error(), "cannot delete the default binary") {
 			http.Error(w, err.Error(), http.StatusConflict)
 			return
 		}
@@ -246,4 +263,128 @@ func (h *Handler) HandleDownloadBinary(w http.ResponseWriter, r *http.Request) {
 		debug.Error("Failed to stream binary file: %v", err)
 		return
 	}
+}
+
+// HandleUploadVersion handles uploading a new binary version directly
+func (h *Handler) HandleUploadVersion(w http.ResponseWriter, r *http.Request) {
+	// 200MB limit for binary uploads
+	r.Body = http.MaxBytesReader(w, r.Body, 200<<20)
+
+	// Parse multipart form (32MB memory limit, rest goes to temp files)
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		debug.Error("Failed to parse multipart form: %v", err)
+		http.Error(w, "File too large or invalid form", http.StatusBadRequest)
+		return
+	}
+
+	// Get user ID from context
+	userID, ok := r.Context().Value("user_id").(string)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse user ID to UUID
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		debug.Error("Invalid user ID format: %v", err)
+		http.Error(w, "Invalid user ID", http.StatusInternalServerError)
+		return
+	}
+
+	// Get form fields
+	binaryType := r.FormValue("binary_type")
+	compressionType := r.FormValue("compression_type")
+	fileName := r.FormValue("file_name")
+	versionStr := r.FormValue("version")
+	description := r.FormValue("description")
+	setAsDefault := r.FormValue("set_as_default") == "true"
+
+	// Validate required fields
+	if binaryType == "" || compressionType == "" || fileName == "" {
+		http.Error(w, "binary_type, compression_type, and file_name are required", http.StatusBadRequest)
+		return
+	}
+
+	// Get uploaded file
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		debug.Error("Failed to get uploaded file: %v", err)
+		http.Error(w, "No file provided", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// Handle optional fields
+	var descriptionPtr *string
+	if description != "" {
+		descriptionPtr = &description
+	}
+	var versionPtr *string
+	if versionStr != "" {
+		versionPtr = &versionStr
+	}
+
+	// Create version struct
+	version := &binary.BinaryVersion{
+		BinaryType:      binary.BinaryType(binaryType),
+		CompressionType: binary.CompressionType(compressionType),
+		FileName:        fileName,
+		CreatedBy:       userUUID,
+		IsActive:        true,
+		IsDefault:       setAsDefault,
+		SourceType:      binary.SourceTypeUpload,
+		Description:     descriptionPtr,
+		Version:         versionPtr,
+	}
+
+	// Call manager to handle the upload
+	if err := h.manager.AddVersionFromUpload(r.Context(), version, file, header.Size); err != nil {
+		debug.Error("Failed to upload binary version: %v", err)
+		http.Error(w, "Failed to upload binary", http.StatusInternalServerError)
+		return
+	}
+
+	// If requested to set as default, do it after successful creation
+	if setAsDefault && version.ID > 0 {
+		if err := h.manager.SetDefaultVersion(r.Context(), version.ID); err != nil {
+			debug.Warning("Failed to set new binary as default: %v", err)
+			// Don't fail the whole operation, just log the warning
+		}
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(version)
+}
+
+// HandleGetPatterns returns available binary version patterns for dropdown selection
+// This generates pattern options based on currently active binaries
+func (h *Handler) HandleGetPatterns(w http.ResponseWriter, r *http.Request) {
+	// Get all active binary versions
+	versions, err := h.manager.ListVersions(r.Context(), map[string]interface{}{"is_active": true})
+	if err != nil {
+		debug.Error("Failed to list binary versions: %v", err)
+		http.Error(w, "Failed to list binary versions", http.StatusInternalServerError)
+		return
+	}
+
+	// Convert to BinaryInfo slice
+	binaries := make([]version.BinaryInfo, 0, len(versions))
+	for _, v := range versions {
+		if v.Version == nil {
+			continue
+		}
+		binaries = append(binaries, version.BinaryInfo{
+			ID:        v.ID,
+			Version:   *v.Version,
+			IsDefault: v.IsDefault,
+			IsActive:  v.IsActive,
+		})
+	}
+
+	// Generate patterns response
+	response := version.GenerateAvailablePatterns(binaries)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }

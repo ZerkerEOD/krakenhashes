@@ -58,9 +58,10 @@ import {
 } from '@mui/icons-material';
 import FileUpload from '../components/common/FileUpload';
 import { Rule, RuleStatus, RuleType } from '../types/rules';
+import { DeletionImpact } from '../types/wordlists';
 import * as ruleService from '../services/rules';
 import { useSnackbar } from 'notistack';
-import { formatFileSize } from '../utils/formatters';
+import { formatFileSize, formatAttackMode } from '../utils/formatters';
 
 export default function RulesManagement() {
   const [rules, setRules] = useState<Rule[]>([]);
@@ -82,6 +83,9 @@ export default function RulesManagement() {
   const [isLoading, setIsLoading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [ruleToDelete, setRuleToDelete] = useState<{id: string, name: string} | null>(null);
+  const [deletionImpact, setDeletionImpact] = useState<DeletionImpact | null>(null);
+  const [confirmationId, setConfirmationId] = useState('');
+  const [isCheckingImpact, setIsCheckingImpact] = useState(false);
 
   // Fetch rules
   const fetchRules = useCallback(async () => {
@@ -161,9 +165,9 @@ export default function RulesManagement() {
   };
 
   // Handle rule deletion
-  const handleDelete = async (id: string, name: string) => {
+  const handleDelete = async (id: string, name: string, confirmId?: number) => {
     try {
-      await ruleService.deleteRule(id);
+      await ruleService.deleteRule(id, confirmId);
       enqueueSnackbar(`Rule "${name}" deleted successfully`, { variant: 'success' });
       fetchRules();
     } catch (err: any) {
@@ -172,21 +176,42 @@ export default function RulesManagement() {
       const errorMessage = err.response?.data?.error || 'Failed to delete rule';
       enqueueSnackbar(errorMessage, { variant: 'error' });
     } finally {
-      setDeleteDialogOpen(false);
-      setRuleToDelete(null);
+      closeDeleteDialog();
     }
   };
 
-  // Open delete confirmation dialog
-  const openDeleteDialog = (id: string, name: string) => {
+  // Open delete confirmation dialog - first check for deletion impact
+  const openDeleteDialog = async (id: string, name: string) => {
     setRuleToDelete({ id, name });
     setDeleteDialogOpen(true);
+    setIsCheckingImpact(true);
+    setDeletionImpact(null);
+    setConfirmationId('');
+
+    try {
+      const response = await ruleService.getRuleDeletionImpact(id);
+      setDeletionImpact(response.data);
+    } catch (err: any) {
+      console.error('Error getting deletion impact:', err);
+      // If we can't get the impact, still allow deletion with simple confirmation
+      setDeletionImpact(null);
+    } finally {
+      setIsCheckingImpact(false);
+    }
   };
 
   // Close delete confirmation dialog
   const closeDeleteDialog = () => {
     setDeleteDialogOpen(false);
     setRuleToDelete(null);
+    setDeletionImpact(null);
+    setConfirmationId('');
+  };
+
+  // Check if confirmation ID matches for cascade delete
+  const isConfirmationValid = () => {
+    if (!deletionImpact?.has_cascading_impact) return true;
+    return confirmationId === String(deletionImpact.resource_id);
   };
 
   // Handle rule download
@@ -626,30 +651,154 @@ export default function RulesManagement() {
         </DialogActions>
       </Dialog>
 
-      {/* Delete Dialog */}
+      {/* Delete Confirmation Dialog */}
       <Dialog
         open={deleteDialogOpen}
         onClose={closeDeleteDialog}
         aria-labelledby="delete-dialog-title"
+        aria-describedby="delete-dialog-description"
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle id="delete-dialog-title">Delete Rule</DialogTitle>
+        <DialogTitle id="delete-dialog-title">
+          {deletionImpact?.has_cascading_impact ? 'Confirm Cascade Deletion' : 'Confirm Deletion'}
+        </DialogTitle>
         <DialogContent>
-          <Typography variant="body1">
-            Are you sure you want to delete rule "{ruleToDelete?.name}"?
-          </Typography>
+          {isCheckingImpact ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 3 }}>
+              <CircularProgress size={24} sx={{ mr: 2 }} />
+              <Typography>Checking for dependencies...</Typography>
+            </Box>
+          ) : deletionImpact?.has_cascading_impact ? (
+            <Box>
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                Deleting rule "{ruleToDelete?.name}" will also delete the following:
+              </Alert>
+
+              {deletionImpact.summary.total_jobs > 0 && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" color="error">
+                    {deletionImpact.summary.total_jobs} Job(s) (pending/running/failed):
+                  </Typography>
+                  <Box component="ul" sx={{ mt: 0.5, pl: 2, mb: 0 }}>
+                    {deletionImpact.impact.jobs.slice(0, 5).map((job) => (
+                      <li key={job.id}>
+                        <Typography variant="body2" color="text.secondary">
+                          {job.name} ({job.status}) - {job.hashlist_name || 'No hashlist'}
+                        </Typography>
+                      </li>
+                    ))}
+                    {deletionImpact.summary.total_jobs > 5 && (
+                      <li>
+                        <Typography variant="body2" color="text.secondary">
+                          ...and {deletionImpact.summary.total_jobs - 5} more
+                        </Typography>
+                      </li>
+                    )}
+                  </Box>
+                </Box>
+              )}
+
+              {deletionImpact.summary.total_preset_jobs > 0 && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" color="error">
+                    {deletionImpact.summary.total_preset_jobs} Preset Job(s):
+                  </Typography>
+                  <Box component="ul" sx={{ mt: 0.5, pl: 2, mb: 0 }}>
+                    {deletionImpact.impact.preset_jobs.slice(0, 5).map((pj) => (
+                      <li key={pj.id}>
+                        <Typography variant="body2" color="text.secondary">
+                          {pj.name} ({formatAttackMode(pj.attack_mode)})
+                        </Typography>
+                      </li>
+                    ))}
+                    {deletionImpact.summary.total_preset_jobs > 5 && (
+                      <li>
+                        <Typography variant="body2" color="text.secondary">
+                          ...and {deletionImpact.summary.total_preset_jobs - 5} more
+                        </Typography>
+                      </li>
+                    )}
+                  </Box>
+                </Box>
+              )}
+
+              {deletionImpact.summary.total_workflow_steps > 0 && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" color="error">
+                    {deletionImpact.summary.total_workflow_steps} Workflow Step(s):
+                  </Typography>
+                  <Box component="ul" sx={{ mt: 0.5, pl: 2, mb: 0 }}>
+                    {deletionImpact.impact.workflow_steps.slice(0, 5).map((step, idx) => (
+                      <li key={`${step.workflow_id}-${step.step_order}-${idx}`}>
+                        <Typography variant="body2" color="text.secondary">
+                          {step.workflow_name} → Step {step.step_order} ({step.preset_job_name})
+                        </Typography>
+                      </li>
+                    ))}
+                    {deletionImpact.summary.total_workflow_steps > 5 && (
+                      <li>
+                        <Typography variant="body2" color="text.secondary">
+                          ...and {deletionImpact.summary.total_workflow_steps - 5} more
+                        </Typography>
+                      </li>
+                    )}
+                  </Box>
+                </Box>
+              )}
+
+              {deletionImpact.summary.total_workflows_to_delete > 0 && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" color="error">
+                    {deletionImpact.summary.total_workflows_to_delete} Empty Workflow(s) will be deleted:
+                  </Typography>
+                  <Box component="ul" sx={{ mt: 0.5, pl: 2, mb: 0 }}>
+                    {deletionImpact.impact.workflows_to_delete.map((wf) => (
+                      <li key={wf.id}>
+                        <Typography variant="body2" color="text.secondary">
+                          {wf.name}
+                        </Typography>
+                      </li>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
+              <Divider sx={{ my: 2 }} />
+
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                To confirm this cascade deletion, type the rule ID: <strong>{deletionImpact.resource_id}</strong>
+              </Typography>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder={`Type ${deletionImpact.resource_id} to confirm`}
+                value={confirmationId}
+                onChange={(e) => setConfirmationId(e.target.value)}
+                error={confirmationId !== '' && !isConfirmationValid()}
+                helperText={confirmationId !== '' && !isConfirmationValid() ? 'ID does not match' : ''}
+              />
+            </Box>
+          ) : (
+            <Typography variant="body1" id="delete-dialog-description">
+              Are you sure you want to delete rule "{ruleToDelete?.name}"? This action cannot be undone.
+            </Typography>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={closeDeleteDialog}>
-            Cancel
-          </Button>
-          <Button 
-            onClick={() => ruleToDelete && handleDelete(ruleToDelete.id, ruleToDelete.name)} 
-            variant="contained" 
+          <Button onClick={closeDeleteDialog}>Cancel</Button>
+          <Button
+            onClick={() => {
+              if (ruleToDelete) {
+                const confirmId = deletionImpact?.has_cascading_impact ? Number(confirmationId) : undefined;
+                handleDelete(ruleToDelete.id, ruleToDelete.name, confirmId);
+              }
+            }}
             color="error"
+            variant="contained"
+            disabled={isCheckingImpact || (deletionImpact?.has_cascading_impact && !isConfirmationValid())}
           >
-            Delete
+            {deletionImpact?.has_cascading_impact ? 'Delete All' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>

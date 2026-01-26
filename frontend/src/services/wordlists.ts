@@ -2,7 +2,7 @@
  * API services for wordlist management
  */
 import { api } from './api';
-import { Wordlist, WordlistFilters, WordlistUploadResponse } from '../types/wordlists';
+import { Wordlist, WordlistFilters, WordlistUploadResponse, DeletionImpact } from '../types/wordlists';
 
 // Get all wordlists with optional filtering
 export const getWordlists = (filters?: WordlistFilters) => 
@@ -60,9 +60,16 @@ export const updateWordlist = (id: string, data: Partial<Wordlist>) =>
     withCredentials: true // Ensure cookies are sent with the request
   });
 
-// Delete a wordlist
-export const deleteWordlist = (id: string) => 
-  api.delete(`/api/wordlists/${id}`, { withCredentials: true });
+// Get deletion impact for a wordlist
+export const getWordlistDeletionImpact = (id: string) =>
+  api.get<DeletionImpact>(`/api/wordlists/${id}/deletion-impact`, { withCredentials: true });
+
+// Delete a wordlist (with optional confirmation for cascade delete)
+export const deleteWordlist = (id: string, confirmId?: number) =>
+  api.delete(`/api/wordlists/${id}`, {
+    withCredentials: true,
+    data: confirmId !== undefined ? { confirm_id: confirmId } : undefined
+  });
 
 // Verify a wordlist
 export const verifyWordlist = (id: string, status: 'verified' | 'failed' | 'pending', wordCount?: number) => 

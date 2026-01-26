@@ -10,7 +10,18 @@ import {
   Alert,
   CircularProgress,
   Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
+  Chip,
+  Link,
 } from '@mui/material';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import VpnKeyIcon from '@mui/icons-material/VpnKey';
+import WarningIcon from '@mui/icons-material/Warning';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useAuth } from '../../contexts/AuthContext';
 import { updateUserProfile, ProfileUpdate } from '../../services/user';
 import { getPasswordPolicy } from '../../services/auth';
@@ -18,7 +29,10 @@ import { PasswordPolicy } from '../../types/auth';
 import PasswordValidation from '../../components/common/PasswordValidation';
 import MFACard from '../../components/settings/MFACard';
 import NotificationCard from '../../components/settings/NotificationCard';
+import LinkedAccountsCard from '../../components/settings/LinkedAccountsCard';
 import { usePasswordConfirm } from '../../hooks/usePasswordConfirm';
+import { generateApiKey, getApiKeyInfo, revokeApiKey } from '../../services/api';
+import { ApiKeyInfo } from '../../types/user';
 
 interface PasswordChangeForm {
   currentPassword: string;
@@ -48,6 +62,16 @@ const ProfileSettings: React.FC = () => {
 
   const [policy, setPolicy] = useState<PasswordPolicy | null>(null);
 
+  // API Key state
+  const [apiKeyInfo, setApiKeyInfo] = useState<ApiKeyInfo | null>(null);
+  const [apiKeyLoading, setApiKeyLoading] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
+  const [apiKeySuccess, setApiKeySuccess] = useState<string | null>(null);
+  const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
+  const [generatedApiKey, setGeneratedApiKey] = useState<string>('');
+  const [showConfirmRevoke, setShowConfirmRevoke] = useState(false);
+  const [showConfirmRegenerate, setShowConfirmRegenerate] = useState(false);
+
   useEffect(() => {
     const loadPolicy = async () => {
       try {
@@ -58,6 +82,16 @@ const ProfileSettings: React.FC = () => {
       }
     };
     loadPolicy();
+
+    const loadApiKeyInfo = async () => {
+      try {
+        const response = await getApiKeyInfo();
+        setApiKeyInfo(response.data.data);
+      } catch (error) {
+        console.error('Failed to load API key info:', error);
+      }
+    };
+    loadApiKeyInfo();
   }, []);
 
   const validatePassword = (password: string): boolean => {
@@ -171,6 +205,63 @@ const ProfileSettings: React.FC = () => {
       setPasswordError(errorMessage);
     } finally {
       setPasswordLoading(false);
+    }
+  };
+
+  const handleGenerateApiKey = async () => {
+    setApiKeyLoading(true);
+    setApiKeyError(null);
+    setApiKeySuccess(null);
+
+    try {
+      const response = await generateApiKey();
+      setGeneratedApiKey(response.data.data.apiKey);
+      setShowApiKeyDialog(true);
+      setShowConfirmRegenerate(false);
+
+      // Refresh API key info
+      const infoResponse = await getApiKeyInfo();
+      setApiKeyInfo(infoResponse.data.data);
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.error || error?.message || 'Failed to generate API key';
+      setApiKeyError(errorMessage);
+    } finally {
+      setApiKeyLoading(false);
+    }
+  };
+
+  const handleRevokeApiKey = async () => {
+    setApiKeyLoading(true);
+    setApiKeyError(null);
+    setApiKeySuccess(null);
+
+    try {
+      await revokeApiKey();
+      setApiKeySuccess('API key revoked successfully');
+      setShowConfirmRevoke(false);
+
+      // Refresh API key info
+      const infoResponse = await getApiKeyInfo();
+      setApiKeyInfo(infoResponse.data.data);
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.error || error?.message || 'Failed to revoke API key';
+      setApiKeyError(errorMessage);
+    } finally {
+      setApiKeyLoading(false);
+    }
+  };
+
+  const handleCopyApiKey = () => {
+    navigator.clipboard.writeText(generatedApiKey);
+    setApiKeySuccess('API key copied to clipboard');
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'Never';
+    try {
+      return new Date(dateString).toLocaleString();
+    } catch {
+      return 'Invalid date';
     }
   };
 
@@ -341,10 +432,214 @@ const ProfileSettings: React.FC = () => {
         }
       }} />
 
+      <LinkedAccountsCard />
+
       <NotificationCard onNotificationChange={() => {
         // You can add any refresh logic here if needed
         console.log('Notification preferences updated');
       }} />
+
+      {/* API Keys Card */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            API Keys
+          </Typography>
+
+          {apiKeyError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {apiKeyError}
+            </Alert>
+          )}
+
+          {apiKeySuccess && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {apiKeySuccess}
+            </Alert>
+          )}
+
+          <Box sx={{ mb: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <VpnKeyIcon color={apiKeyInfo?.hasKey ? 'success' : 'disabled'} />
+              <Typography variant="body1">
+                API Key Status:{' '}
+                {apiKeyInfo?.hasKey ? (
+                  <Chip label="Active" color="success" size="small" icon={<CheckCircleIcon />} />
+                ) : (
+                  <Chip label="No API Key Generated" size="small" />
+                )}
+              </Typography>
+            </Box>
+
+            {apiKeyInfo?.hasKey && (
+              <Box sx={{ ml: 4 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Created: {formatDate(apiKeyInfo.createdAt)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Last Used: {formatDate(apiKeyInfo.lastUsed)}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <Button
+              variant="contained"
+              startIcon={<VpnKeyIcon />}
+              onClick={() => {
+                if (apiKeyInfo?.hasKey) {
+                  setShowConfirmRegenerate(true);
+                } else {
+                  handleGenerateApiKey();
+                }
+              }}
+              disabled={apiKeyLoading}
+            >
+              {apiKeyInfo?.hasKey ? 'Regenerate API Key' : 'Generate API Key'}
+            </Button>
+
+            {apiKeyInfo?.hasKey && (
+              <Button
+                variant="outlined"
+                color="error"
+                onClick={() => setShowConfirmRevoke(true)}
+                disabled={apiKeyLoading}
+              >
+                Revoke API Key
+              </Button>
+            )}
+
+            <Button
+              variant="text"
+              component={Link}
+              href="https://zerkereod.github.io/krakenhashes/user-api/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              View API Documentation
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
+
+      {/* API Key Display Dialog */}
+      <Dialog
+        open={showApiKeyDialog}
+        onClose={() => {
+          setShowApiKeyDialog(false);
+          setGeneratedApiKey('');
+        }}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <VpnKeyIcon color="primary" />
+            Your API Key
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <WarningIcon />
+              <Typography variant="body2">
+                <strong>Save this key now!</strong> You won't be able to see it again.
+              </Typography>
+            </Box>
+          </Alert>
+
+          <Box sx={{ position: 'relative' }}>
+            <TextField
+              fullWidth
+              multiline
+              rows={3}
+              value={generatedApiKey}
+              InputProps={{
+                readOnly: true,
+                sx: {
+                  fontFamily: 'monospace',
+                  fontSize: '0.9rem',
+                },
+                endAdornment: (
+                  <IconButton onClick={handleCopyApiKey} sx={{ position: 'absolute', right: 8, top: 8 }}>
+                    <ContentCopyIcon />
+                  </IconButton>
+                ),
+              }}
+            />
+          </Box>
+
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            Use this API key in your HTTP requests by including it in the <code>X-API-Key</code> header.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            variant="contained"
+            onClick={() => {
+              setShowApiKeyDialog(false);
+              setGeneratedApiKey('');
+            }}
+          >
+            I've Saved It
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Confirm Regenerate Dialog */}
+      <Dialog
+        open={showConfirmRegenerate}
+        onClose={() => setShowConfirmRegenerate(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Regenerate API Key?</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            This will invalidate your existing API key. Any applications using the current key will stop working.
+          </Alert>
+          <Typography>Are you sure you want to continue?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowConfirmRegenerate(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={handleGenerateApiKey}
+            disabled={apiKeyLoading}
+          >
+            Regenerate
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Confirm Revoke Dialog */}
+      <Dialog
+        open={showConfirmRevoke}
+        onClose={() => setShowConfirmRevoke(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Revoke API Key?</DialogTitle>
+        <DialogContent>
+          <Alert severity="error" sx={{ mb: 2 }}>
+            This will immediately disable API access. Any applications using this key will stop working.
+          </Alert>
+          <Typography>Are you sure you want to revoke your API key?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowConfirmRevoke(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleRevokeApiKey}
+            disabled={apiKeyLoading}
+          >
+            Revoke
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

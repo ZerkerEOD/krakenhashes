@@ -131,6 +131,7 @@ When hashcat finishes processing a task:
 
 ```
 Task Running → Final Progress Received → Task Processing → All Batches Received → Task Completed
+                                         (cracking_completed_at set)                (completed_at set)
 ```
 
 1. **Agent Sends Final Progress**:
@@ -140,6 +141,7 @@ Task Running → Final Progress Received → Task Processing → All Batches Rec
 
 2. **Backend Transitions to Processing**:
    - Task status changes from `running` to `processing`
+   - **`cracking_completed_at` timestamp set to current time** (hashcat finished)
    - `expected_crack_count` field set from progress message
    - `received_crack_count` initialized to 0
    - `batches_complete_signaled` set to false
@@ -157,6 +159,7 @@ Task Running → Final Progress Received → Task Processing → All Batches Rec
 5. **Backend Completes Task**:
    - Backend checks: `received_crack_count >= expected_crack_count AND batches_complete_signaled == true`
    - If true: Task transitions from `processing` to `completed`
+   - **`completed_at` timestamp set to current time** (all batches received)
    - Agent busy status cleared
    - Job completion check triggered
 
@@ -164,16 +167,19 @@ Task Running → Final Progress Received → Task Processing → All Batches Rec
 
 ```
 Job Running → All Tasks Processing → Job Processing → All Tasks Completed → Job Completed (Email Sent)
+                                     (cracking_completed_at set)           (completed_at set)
 ```
 
 1. **Job Enters Processing**:
    - When all tasks transition to `processing` status
    - Job status changes from `running` to `processing`
+   - **`cracking_completed_at` timestamp set** (all tasks finished hashcat execution)
    - Progress shows 100% but job not yet complete
 
 2. **Job Completes**:
    - When all tasks reach `completed` status
    - Job status changes from `processing` to `completed`
+   - **`completed_at` timestamp set** (job fully finished)
    - Completion email notification sent with accurate crack count
 
 ### Email Notification Integration
@@ -192,15 +198,35 @@ Job Running → All Tasks Processing → Job Processing → All Tasks Completed 
 
 **job_executions:**
 - `status` includes `'processing'` value
+- `cracking_completed_at` (TIMESTAMP WITH TIME ZONE) - When all tasks finished hashcat execution
 - `completion_email_sent` (BOOLEAN)
 - `completion_email_sent_at` (TIMESTAMP)
 - `completion_email_error` (TEXT)
 
 **job_tasks:**
 - `status` includes `'processing'` value
+- `cracking_completed_at` (TIMESTAMP WITH TIME ZONE) - When hashcat finished for this task (enters processing state)
 - `expected_crack_count` (INTEGER)
 - `received_crack_count` (INTEGER)
 - `batches_complete_signaled` (BOOLEAN)
+
+### Timestamp Distinction
+
+The system uses two distinct completion timestamps:
+
+| Timestamp | Scope | Meaning |
+|-----------|-------|---------|
+| `cracking_completed_at` | Task | When hashcat exited - task enters `processing` state |
+| `completed_at` | Task | When all crack batches received and processed |
+| `cracking_completed_at` | Job | When all tasks finished hashcat execution |
+| `completed_at` | Job | When job is fully complete and email sent |
+
+**Why Two Timestamps?**
+
+1. **Accurate Duration Tracking**: `cracking_completed_at - started_at` gives the actual GPU cracking time
+2. **Processing Overhead Visibility**: `completed_at - cracking_completed_at` shows batch processing time
+3. **Debugging**: Helps identify where delays occur (cracking vs. data transmission)
+4. **Analytics**: Enables reporting on actual GPU utilization vs. total job duration
 
 ### Repository Methods
 
@@ -228,6 +254,171 @@ Job Running → All Tasks Processing → Job Processing → All Tasks Completed 
 ```
 
 Signals that agent has finished sending all crack batches for the task.
+
+## Task Completion Acknowledgment Protocol
+
+### Overview
+
+To prevent agents from getting stuck in a busy state after task completion, KrakenHashes implements a completion acknowledgment (ACK) protocol. This ensures the backend has processed the completion before the agent accepts new work.
+
+### The Problem (GH Issue #12)
+
+Without acknowledgments, the following race condition could occur:
+
+1. Agent completes task, sends `job_progress` with `status=completed`
+2. Message may be lost or delayed in network
+3. Agent thinks it's done, but backend never receives completion
+4. Agent remains in "busy" state indefinitely
+5. Manual intervention required to recover
+
+### ACK Protocol Flow
+
+```
+Agent                                    Backend
+  │                                         │
+  │  job_progress (status=completed)        │
+  │────────────────────────────────────────>│
+  │                                         │
+  │         [Agent enters COMPLETING state] │
+  │         [Starts ACK wait timer]         │
+  │                                         │
+  │                     [Process completion]│
+  │                     [Atomic task update]│
+  │                     [Cache completion]  │
+  │                                         │
+  │           task_complete_ack             │
+  │<────────────────────────────────────────│
+  │                                         │
+  │  [ACK received, transition to IDLE]     │
+  │                                         │
+```
+
+### Message Types
+
+**Agent → Backend:**
+
+`job_progress` with completion status:
+```json
+{
+  "type": "job_progress",
+  "payload": {
+    "task_id": "uuid-here",
+    "status": "completed",
+    "progress_percent": 100.0,
+    "cracked_count": 42
+  }
+}
+```
+
+**Backend → Agent:**
+
+`task_complete_ack`:
+```json
+{
+  "type": "task_complete_ack",
+  "payload": {
+    "task_id": "uuid-here",
+    "timestamp": "2024-01-15T10:30:00Z",
+    "success": true,
+    "message": "Task completed successfully"
+  }
+}
+```
+
+### Retry Logic
+
+If the agent doesn't receive an ACK within the timeout:
+
+1. **Retry 1**: Resend completion message after 30 seconds
+2. **Retry 2**: Resend again after 30 seconds
+3. **Retry 3**: Final attempt after 30 seconds
+4. **Timeout**: Mark task as `completion_pending` and transition to IDLE
+
+```go
+// Agent ACK wait configuration
+const (
+    AckWaitTimeout = 30 * time.Second
+    AckMaxRetries  = 3
+)
+```
+
+### Completion Pending Flag
+
+When ACK retries are exhausted, the agent sets a `completion_pending` flag:
+
+- Allows agent to accept new work (prevents indefinite blocking)
+- Backend resolves pending completion on next state sync
+- Task is eventually confirmed completed or failed
+
+### Completion Cache (Idempotency)
+
+The backend maintains a completion cache to handle duplicate messages:
+
+- **Cache key**: Task ID
+- **Cache TTL**: 1 hour
+- **Behavior**: If completion already cached, just send ACK without reprocessing
+
+This prevents:
+- Double-counting cracks
+- Duplicate keyspace updates
+- Multiple completion emails
+
+### Atomic Operations
+
+Task completion uses atomic database operations:
+
+```go
+// backend/internal/repository/job_task_repository.go
+func (r *JobTaskRepository) CompleteTaskAndClearAgentStatus(
+    ctx context.Context,
+    taskID uuid.UUID,
+    agentID int,
+) error {
+    // Single transaction updates both task AND agent status
+    // Prevents race condition where task completes but agent remains busy
+}
+```
+
+### Stuck Detection (Safety Net)
+
+As a last resort, agents implement stuck detection:
+
+| Parameter | Value |
+|-----------|-------|
+| Check interval | 30 seconds |
+| Stuck timeout | 2 minutes |
+| Recovery action | Force transition to IDLE, set completion_pending |
+
+If an agent remains in COMPLETING state for over 2 minutes, it automatically recovers.
+
+### State Sync Protocol
+
+The backend periodically requests state synchronization:
+
+1. **Backend sends**: `state_sync_request` every 5 minutes
+2. **Agent responds**: Current state, active task, completion_pending flag
+3. **Backend resolves**: Any mismatches between agent and database state
+
+This catches edge cases where ACK was lost but agent already moved on.
+
+### Integration with Processing Status
+
+The ACK protocol works alongside the processing status system:
+
+1. Agent sends `job_progress` with `status=completed` → Backend transitions task to `processing`
+2. Agent sends crack batches → Backend receives and counts them
+3. Agent sends `crack_batches_complete` → Backend checks if ready to complete
+4. Backend sends `task_complete_ack` → Agent transitions to IDLE
+5. Backend completes task atomically when all batches received
+
+### Error Handling
+
+| Scenario | Agent Behavior | Backend Behavior |
+|----------|---------------|------------------|
+| ACK lost | Retry up to 3 times | Idempotent - just resend ACK |
+| Backend down | Mark completion_pending, accept new work | Resolve on reconnection via state sync |
+| Duplicate completion | N/A (agent already IDLE) | Return cached ACK |
+| Task not found | Mark completion_pending | Log error, don't crash |
 
 ## Configuration
 

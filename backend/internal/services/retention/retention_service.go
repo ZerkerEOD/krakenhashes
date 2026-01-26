@@ -16,12 +16,13 @@ import (
 
 // RetentionService handles the automatic purging of old hashlists and analytics reports based on retention policies.
 type RetentionService struct {
-	db                 *db.DB // Needed for transactions
-	hashlistRepo       *repository.HashListRepository
-	hashRepo           *repository.HashRepository
-	clientRepo         *repository.ClientRepository
-	clientSettingsRepo *repository.ClientSettingsRepository
-	analyticsRepo      *repository.AnalyticsRepository
+	db                    *db.DB // Needed for transactions
+	hashlistRepo          *repository.HashListRepository
+	hashRepo              *repository.HashRepository
+	clientRepo            *repository.ClientRepository
+	clientSettingsRepo    *repository.ClientSettingsRepository
+	analyticsRepo         *repository.AnalyticsRepository
+	assocWordlistRepo     *repository.AssociationWordlistRepository
 }
 
 // NewRetentionService creates a new RetentionService.
@@ -33,6 +34,7 @@ func NewRetentionService(database *db.DB, hr *repository.HashListRepository, hsh
 		clientRepo:         cr,
 		clientSettingsRepo: sr,
 		analyticsRepo:      ar,
+		assocWordlistRepo:  repository.NewAssociationWordlistRepository(database),
 	}
 }
 
@@ -261,61 +263,59 @@ func (s *RetentionService) PurgeOldAnalyticsReports(ctx context.Context) error {
 }
 
 // DeleteHashlistAndOrphanedHashes deletes a hashlist and any hashes that become orphaned as a result.
+// Uses the optimized batch delete method in hashlistRepo.Delete() which:
+// - Checks orphaned hashes in batches of 50,000 using NOT EXISTS subquery
+// - Deletes orphaned hashes in batches of 10,000
+// This reduces O(n) individual queries to O(n/50000) batch operations.
+// Also securely deletes the original hashlist file if it exists (used for association attacks).
 func (s *RetentionService) DeleteHashlistAndOrphanedHashes(ctx context.Context, hashlistID int64) error {
-	debug.Info("Purge: Will delete hashlist %d (no file deletion needed - hashlists generated on-demand)", hashlistID)
+	debug.Info("Purge: Deleting hashlist %d using optimized batch delete...", hashlistID)
 
-	tx, err := s.db.BeginTx(ctx, nil)
+	// Get the hashlist to retrieve the original file path before deletion
+	hashlist, err := s.hashlistRepo.GetByID(ctx, hashlistID)
 	if err != nil {
-		return fmt.Errorf("failed to begin transaction for deleting hashlist %d: %w", hashlistID, err)
+		debug.Warning("Purge: Could not retrieve hashlist %d before deletion (may already be deleted): %v", hashlistID, err)
+		// Continue with deletion attempt anyway
 	}
-	defer tx.Rollback() // Rollback if commit fails or not reached
 
-	// 1. Get all hash IDs associated with this hashlist BEFORE deleting the list/links
-	hashIDs, err := s.hashRepo.GetHashIDsByHashlistIDTx(tx, hashlistID) // Need this method in HashRepository
-	if err != nil {
-		return fmt.Errorf("failed to get hash IDs for hashlist %d: %w", hashlistID, err)
+	// Securely delete the original hashlist file if it exists (used for association attacks)
+	if hashlist != nil && hashlist.OriginalFilePath != nil && *hashlist.OriginalFilePath != "" {
+		debug.Info("Purge: Securely deleting original hashlist file: %s", *hashlist.OriginalFilePath)
+		if err := s.secureDeleteFile(*hashlist.OriginalFilePath); err != nil {
+			debug.Error("Purge: Failed to securely delete original hashlist file %s: %v", *hashlist.OriginalFilePath, err)
+			// Continue with hashlist deletion even if file deletion fails
+		}
 	}
-	debug.Debug("Purge: Found %d hash IDs potentially affected by deleting hashlist %d", len(hashIDs), hashlistID)
 
-	// 2. Delete entries from the junction table (hashlist_hashes)
-	// This can be done via HashlistRepository or HashRepository
-	err = s.hashRepo.DeleteHashlistAssociationsTx(tx, hashlistID) // Need this method in HashRepository
-	if err != nil {
-		return fmt.Errorf("failed to delete hashlist_hashes entries for hashlist %d: %w", hashlistID, err)
+	// Delete all association wordlists and their files for this hashlist
+	if s.assocWordlistRepo != nil {
+		assocWordlistPaths, err := s.assocWordlistRepo.DeleteByHashlistID(ctx, hashlistID)
+		if err != nil {
+			debug.Warning("Purge: Failed to delete association wordlist records for hashlist %d: %v", hashlistID, err)
+			// Continue with hashlist deletion even if this fails
+		} else {
+			for _, filePath := range assocWordlistPaths {
+				if err := s.secureDeleteFile(filePath); err != nil {
+					debug.Warning("Purge: Failed to securely delete association wordlist file %s: %v", filePath, err)
+				}
+			}
+			if len(assocWordlistPaths) > 0 {
+				debug.Info("Purge: Deleted %d association wordlists for hashlist %d", len(assocWordlistPaths), hashlistID)
+			}
+		}
 	}
-	debug.Debug("Purge: Deleted hashlist_hashes entries for hashlist %d", hashlistID)
 
-	// 3. Delete the hashlist itself
-	err = s.hashlistRepo.DeleteTx(tx, hashlistID) // Need DeleteTx method in HashListRepository
-	if err != nil {
+	// Use the optimized Delete method from hashlistRepo which handles:
+	// 1. Getting all associated hash IDs
+	// 2. Deleting the hashlist (cascades to hashlist_hashes)
+	// 3. Finding orphaned hashes using NOT EXISTS subquery in batches
+	// 4. Deleting orphaned hashes in batches
+	// All within a single transaction
+	if err := s.hashlistRepo.Delete(ctx, hashlistID); err != nil {
 		return fmt.Errorf("failed to delete hashlist %d: %w", hashlistID, err)
 	}
-	debug.Debug("Purge: Deleted hashlist record %d", hashlistID)
 
-	// 4. Check each potentially orphaned hash and delete if necessary
-	deletedHashesCount := 0
-	for _, hashID := range hashIDs {
-		isOrphaned, err := s.hashRepo.IsHashOrphanedTx(tx, hashID) // Need this method in HashRepository
-		if err != nil {
-			return fmt.Errorf("failed to check if hash %s is orphaned: %w", hashID, err)
-		}
-		if isOrphaned {
-			err = s.hashRepo.DeleteHashByIDTx(tx, hashID) // Need this method in HashRepository
-			if err != nil {
-				return fmt.Errorf("failed to delete orphaned hash %s: %w", hashID, err)
-			}
-			deletedHashesCount++
-			debug.Debug("Purge: Deleted orphaned hash %s", hashID)
-		}
-	}
-	debug.Debug("Purge: Deleted %d orphaned hashes for hashlist %d", deletedHashesCount, hashlistID)
-
-	// 5. Commit the transaction
-	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction for deleting hashlist %d: %w", hashlistID, err)
-	}
-
-	debug.Info("Purge: Successfully deleted hashlist %d from database", hashlistID)
+	debug.Info("Purge: Successfully deleted hashlist %d using optimized batch delete", hashlistID)
 	return nil
 }
 

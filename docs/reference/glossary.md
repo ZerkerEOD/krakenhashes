@@ -6,7 +6,11 @@ This glossary provides definitions for terms used throughout the KrakenHashes sy
 
 ### A-Z
 
-**Attack Mode**: The method used by hashcat to attempt password recovery. Common modes include dictionary attack (-a 0), combinator attack (-a 1), brute-force/mask attack (-a 3), and hybrid attacks (-a 6, -a 7).
+**Association Attack**: Hashcat attack mode (-a 9) that tests password candidates against hashes in a 1:1 line-by-line mapping. Hash on line N is tested only against candidate on line N. Useful for targeted attacks with user-specific password intelligence. (v1.4.0+)
+
+**Association Wordlist**: A wordlist specifically designed for association attacks where each line corresponds to a specific hash in the target hashlist, maintaining line-order correspondence. Line count must exactly match the hashlist hash count. (v1.4.0+)
+
+**Attack Mode**: The method used by hashcat to attempt password recovery. Common modes include dictionary attack (-a 0), combinator attack (-a 1), brute-force/mask attack (-a 3), hybrid attacks (-a 6, -a 7), and association attack (-a 9).
 
 **Benchmark**: A test run to measure the cracking speed (hashes per second) of specific hardware against various hash algorithms.
 
@@ -100,6 +104,8 @@ This glossary provides definitions for terms used throughout the KrakenHashes sy
 
 **Max Agents Override**: Behavior where higher priority jobs receive ALL available agents regardless of their max_agents setting, ensuring critical work completes as fast as possible.
 
+**Mixed Work Factors**: A condition where hashes in a hashlist have different computational cost parameters (e.g., bcrypt hashes with varying cost values like $2a$10$ vs $2a$12$). This prevents association attacks since hash order may not be preserved during processing. (v1.4.0+)
+
 **Overflow Agents**: Agents available beyond the max_agents limits of jobs at the same priority. Distributed according to the agent overflow allocation mode (FIFO or round-robin).
 
 **Overflow Allocation Mode**: System setting that controls how overflow agents are distributed among jobs at the same priority. Options: FIFO (oldest job gets all) or round-robin (distributed evenly).
@@ -115,6 +121,8 @@ This glossary provides definitions for terms used throughout the KrakenHashes sy
 **WebSocket**: Protocol used for real-time bidirectional communication between agents and the backend.
 
 **Work Directory**: Temporary directory where agents store files and data during job execution.
+
+**Work Factor**: The computational cost parameter in certain hash algorithms (e.g., bcrypt cost, scrypt N/r/p parameters, Argon2 memory/iterations). Higher work factors increase the time required to compute each hash, making password cracking slower. (v1.4.0+)
 
 ## Security and Authentication Terms
 

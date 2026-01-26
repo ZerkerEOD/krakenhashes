@@ -25,6 +25,8 @@ type JobIntegrationManager struct {
 	wsHandler            interface {
 		SendMessage(agentID int, msg *wsservice.Message) error
 		GetConnectedAgents() []int
+		RegisterInventoryCallback(agentID int) <-chan *wsservice.FileSyncResponsePayload
+		UnregisterInventoryCallback(agentID int)
 	}
 }
 
@@ -33,6 +35,8 @@ func NewJobIntegrationManager(
 	wsHandler interface {
 		SendMessage(agentID int, msg *wsservice.Message) error
 		GetConnectedAgents() []int
+		RegisterInventoryCallback(agentID int) <-chan *wsservice.FileSyncResponsePayload
+		UnregisterInventoryCallback(agentID int)
 	},
 	jobSchedulingService *services.JobSchedulingService,
 	jobExecutionService *services.JobExecutionService,
@@ -48,6 +52,7 @@ func NewJobIntegrationManager(
 	deviceRepo *repository.AgentDeviceRepository,
 	clientRepo *repository.ClientRepository,
 	systemSettingsRepo *repository.SystemSettingsRepository,
+	assocWordlistRepo *repository.AssociationWordlistRepository,
 	potfileService *services.PotfileService,
 	hashlistCompletionService *services.HashlistCompletionService,
 	db *sql.DB,
@@ -72,6 +77,7 @@ func NewJobIntegrationManager(
 		deviceRepo,
 		clientRepo,
 		systemSettingsRepo,
+		assocWordlistRepo,
 		potfileService,
 		hashlistCompletionService,
 		db,
@@ -130,6 +136,16 @@ func (m *JobIntegrationManager) ProcessBenchmarkResult(ctx context.Context, agen
 	return m.wsIntegration.HandleBenchmarkResult(ctx, agentID, &result)
 }
 
+// ProcessPendingOutfiles handles pending_outfiles messages from agents on reconnect (implements interfaces.JobHandler)
+func (m *JobIntegrationManager) ProcessPendingOutfiles(ctx context.Context, agentID int, payload json.RawMessage) error {
+	return m.wsIntegration.ProcessPendingOutfiles(ctx, agentID, payload)
+}
+
+// ProcessOutfileDeleteRejected handles outfile_delete_rejected messages when agent rejects deletion due to line count mismatch
+func (m *JobIntegrationManager) ProcessOutfileDeleteRejected(ctx context.Context, agentID int, payload json.RawMessage) error {
+	return m.wsIntegration.ProcessOutfileDeleteRejected(ctx, agentID, payload)
+}
+
 // RecoverTask attempts to recover a task that was in reconnect_pending state (implements interfaces.JobHandler)
 func (m *JobIntegrationManager) RecoverTask(ctx context.Context, taskID string, agentID int, keyspaceProcessed int64) error {
 	return m.wsIntegration.RecoverTask(ctx, taskID, agentID, keyspaceProcessed)
@@ -138,6 +154,11 @@ func (m *JobIntegrationManager) RecoverTask(ctx context.Context, taskID string, 
 // HandleAgentReconnectionWithNoTask handles when an agent reconnects without a running task (implements interfaces.JobHandler)
 func (m *JobIntegrationManager) HandleAgentReconnectionWithNoTask(ctx context.Context, agentID int) (int, error) {
 	return m.wsIntegration.HandleAgentReconnectionWithNoTask(ctx, agentID)
+}
+
+// ClearStoppedTaskAgent clears agent_id after stop is acknowledged (implements JobHandler)
+func (m *JobIntegrationManager) ClearStoppedTaskAgent(ctx context.Context, taskID uuid.UUID, agentID int) error {
+	return m.wsIntegration.ClearStoppedTaskAgent(ctx, taskID, agentID)
 }
 
 // GetWebSocketIntegration returns the WebSocket integration instance

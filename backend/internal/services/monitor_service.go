@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/cache/filehash"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/config"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/monitor"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/rule"
@@ -24,6 +25,7 @@ func NewMonitorService(
 	cfg *config.Config,
 	systemUserID uuid.UUID,
 	jobUpdateHandler monitor.JobUpdateHandler,
+	hashCache *filehash.Cache,
 ) *MonitorService {
 	// Create directory monitor
 	directoryMonitor := monitor.NewDirectoryMonitor(
@@ -32,8 +34,9 @@ func NewMonitorService(
 		filepath.Join(cfg.DataDir, "wordlists"),
 		filepath.Join(cfg.DataDir, "rules"),
 		time.Second*30, // Check every 30 seconds
-		systemUserID,  // This will be the system user (uuid.Nil)
+		systemUserID,   // This will be the system user (uuid.Nil)
 		jobUpdateHandler,
+		hashCache,
 	)
 
 	return &MonitorService{

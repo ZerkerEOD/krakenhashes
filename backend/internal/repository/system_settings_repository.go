@@ -195,6 +195,30 @@ func (r *SystemSettingsRepository) GetAgentDownloadSettings(ctx context.Context)
 	return &settings, nil
 }
 
+// GetHashlistBulkBatchSize retrieves the bulk batch size setting for hashlist uploads.
+func (r *SystemSettingsRepository) GetHashlistBulkBatchSize(ctx context.Context) (int, error) {
+	setting, err := r.GetSetting(ctx, "hashlist_bulk_batch_size")
+	if err != nil {
+		// Return default value if setting not found
+		if err == ErrNotFound {
+			return 100000, nil
+		}
+		return 0, err
+	}
+
+	if setting.Value == nil {
+		return 100000, nil // Default if value is null
+	}
+
+	batchSize, err := strconv.Atoi(*setting.Value)
+	if err != nil {
+		debug.Error("Invalid hashlist_bulk_batch_size value in database: %s", *setting.Value)
+		return 100000, nil // Return default on invalid value
+	}
+
+	return batchSize, nil
+}
+
 // UpdateAgentDownloadSettings updates all agent download settings
 func (r *SystemSettingsRepository) UpdateAgentDownloadSettings(ctx context.Context, settings *models.AgentDownloadSettings) error {
 	tx, err := r.db.BeginTx(ctx, nil)

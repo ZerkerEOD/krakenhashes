@@ -437,8 +437,14 @@ const JobDetails: React.FC = () => {
       };
     }
 
+    // MODE 2: Job is in 'processing' state - use crack-count-based calculation
+    if (jobData?.status === 'processing') {
+      return calculateProcessingTimeRemaining();
+    }
+
+    // MODE 1: Job is running - use keyspace-based calculation
     // Calculate remaining keyspace
-    const effectiveKeyspace = jobData?.effective_keyspace || jobData?.total_keyspace || 0;
+    const effectiveKeyspace = jobData?.effective_keyspace || 0;
     const processedKeyspace = jobData?.processed_keyspace || 0;
     const remainingKeyspace = effectiveKeyspace - processedKeyspace;
 
@@ -486,11 +492,77 @@ const JobDetails: React.FC = () => {
     };
   };
 
+  // Calculate time remaining for processing phase (crack-count-based)
+  const calculateProcessingTimeRemaining = (): { timeRemaining: string; estimatedDate: string } => {
+    // Sum expected and received cracks from all processing tasks
+    const processingTasks = (jobData?.tasks || []).filter(task =>
+      task.status === 'processing'
+    );
+
+    if (processingTasks.length === 0) {
+      return {
+        timeRemaining: 'Finishing up...',
+        estimatedDate: 'Completing shortly'
+      };
+    }
+
+    const totalExpected = processingTasks.reduce(
+      (sum, task) => sum + (task.expected_crack_count || 0), 0
+    );
+    const totalReceived = processingTasks.reduce(
+      (sum, task) => sum + (task.received_crack_count || 0), 0
+    );
+
+    const remaining = totalExpected - totalReceived;
+
+    if (remaining <= 0) {
+      return {
+        timeRemaining: 'Finishing up...',
+        estimatedDate: 'Completing shortly'
+      };
+    }
+
+    // Calculate actual processing rate from elapsed time since cracking finished
+    let processingRate = 500; // Default fallback (500 cracks/sec)
+
+    // Find the earliest cracking_completed_at among processing tasks
+    const crackingCompletedTimes = processingTasks
+      .filter(task => task.cracking_completed_at)
+      .map(task => new Date(task.cracking_completed_at!).getTime());
+
+    if (crackingCompletedTimes.length > 0 && totalReceived > 0) {
+      const earliestCrackingComplete = Math.min(...crackingCompletedTimes);
+      const elapsedMs = Date.now() - earliestCrackingComplete;
+      const elapsedSec = elapsedMs / 1000;
+
+      // Only use dynamic rate if we have enough elapsed time to calculate
+      if (elapsedSec > 1) {
+        processingRate = totalReceived / elapsedSec;
+      }
+    }
+
+    const secondsRemaining = remaining / processingRate;
+
+    // Format duration
+    const timeRemaining = formatDuration(secondsRemaining);
+
+    // Calculate estimated completion date
+    const now = new Date();
+    const estimatedDate = new Date(now.getTime() + secondsRemaining * 1000);
+
+    return {
+      timeRemaining: `Processing: ${timeRemaining}`,
+      estimatedDate: estimatedDate.toLocaleString()
+    };
+  };
+
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'running': return 'success';
       case 'pending': return 'warning';
       case 'reconnect_pending': return 'warning';
+      case 'processing': return 'info';  // Blue - hashcat done, saving to DB
+      case 'processing_error': return 'warning';  // Orange - processing issue
       case 'completed': return 'info';
       case 'failed': return 'error';
       case 'cancelled': return 'default';
@@ -502,11 +574,187 @@ const JobDetails: React.FC = () => {
   const getAttackModeName = (mode?: number): string => {
     const modes: Record<number, string> = {
       0: 'Dictionary',
+      1: 'Combination',
       3: 'Brute-force',
       6: 'Hybrid Wordlist + Mask',
       7: 'Hybrid Mask + Wordlist',
+      9: 'Association',
     };
     return mode !== undefined ? modes[mode] || `Mode ${mode}` : 'N/A';
+  };
+
+  // Render attack configuration rows based on attack mode
+  const renderAttackConfigRows = () => {
+    if (!jobData) return null;
+
+    const rows: JSX.Element[] = [];
+    const attackMode = jobData.attack_mode;
+
+    switch (attackMode) {
+      case 0: // Dictionary/Straight
+        if (jobData.wordlist_names && jobData.wordlist_names.length > 0) {
+          rows.push(
+            <TableRow key="wordlists">
+              <TableCell sx={{ fontWeight: 'bold' }}>Wordlist(s)</TableCell>
+              <TableCell>{jobData.wordlist_names.join(', ')}</TableCell>
+            </TableRow>
+          );
+        }
+        if (jobData.rule_names && jobData.rule_names.length > 0) {
+          rows.push(
+            <TableRow key="rules">
+              <TableCell sx={{ fontWeight: 'bold' }}>Rules</TableCell>
+              <TableCell>{jobData.rule_names.join(', ')}</TableCell>
+            </TableRow>
+          );
+        }
+        // Splitting mode for dictionary attacks
+        rows.push(
+          <TableRow key="splitting-mode">
+            <TableCell sx={{ fontWeight: 'bold' }}>Splitting Mode</TableCell>
+            <TableCell>
+              <Chip
+                label={jobData.uses_rule_splitting ? "Rule Splitting" : "Keyspace"}
+                size="small"
+                color={jobData.uses_rule_splitting ? "primary" : "default"}
+                variant="outlined"
+              />
+            </TableCell>
+          </TableRow>
+        );
+        break;
+
+      case 1: // Combination
+        if (jobData.wordlist_names && jobData.wordlist_names.length >= 2) {
+          rows.push(
+            <TableRow key="first-wordlist">
+              <TableCell sx={{ fontWeight: 'bold' }}>First Wordlist</TableCell>
+              <TableCell>{jobData.wordlist_names[0]}</TableCell>
+            </TableRow>
+          );
+          rows.push(
+            <TableRow key="second-wordlist">
+              <TableCell sx={{ fontWeight: 'bold' }}>Second Wordlist</TableCell>
+              <TableCell>{jobData.wordlist_names[1]}</TableCell>
+            </TableRow>
+          );
+        } else if (jobData.wordlist_names && jobData.wordlist_names.length === 1) {
+          rows.push(
+            <TableRow key="wordlist">
+              <TableCell sx={{ fontWeight: 'bold' }}>Wordlist</TableCell>
+              <TableCell>{jobData.wordlist_names[0]}</TableCell>
+            </TableRow>
+          );
+        }
+        // Splitting mode for combination attacks
+        rows.push(
+          <TableRow key="splitting-mode">
+            <TableCell sx={{ fontWeight: 'bold' }}>Splitting Mode</TableCell>
+            <TableCell>
+              <Chip
+                label={jobData.uses_rule_splitting ? "Rule Splitting" : "Keyspace"}
+                size="small"
+                color={jobData.uses_rule_splitting ? "primary" : "default"}
+                variant="outlined"
+              />
+            </TableCell>
+          </TableRow>
+        );
+        break;
+
+      case 3: // Brute-force/Mask
+        if (jobData.mask) {
+          rows.push(
+            <TableRow key="mask">
+              <TableCell sx={{ fontWeight: 'bold' }}>Mask</TableCell>
+              <TableCell sx={{ fontFamily: 'monospace' }}>{jobData.mask}</TableCell>
+            </TableRow>
+          );
+        }
+        if (jobData.increment_mode && jobData.increment_mode !== 'off') {
+          rows.push(
+            <TableRow key="increment-mode">
+              <TableCell sx={{ fontWeight: 'bold' }}>Increment Mode</TableCell>
+              <TableCell>
+                <Chip
+                  label={jobData.increment_mode === 'increment' ? 'Increment' : 'Increment Inverse'}
+                  size="small"
+                  color="info"
+                  variant="outlined"
+                />
+              </TableCell>
+            </TableRow>
+          );
+          rows.push(
+            <TableRow key="increment-range">
+              <TableCell sx={{ fontWeight: 'bold' }}>Increment Range</TableCell>
+              <TableCell>
+                {jobData.increment_min ?? 1} - {jobData.increment_max ?? (jobData.mask?.length || 'N/A')}
+              </TableCell>
+            </TableRow>
+          );
+        }
+        break;
+
+      case 6: // Hybrid Wordlist + Mask
+        if (jobData.wordlist_names && jobData.wordlist_names.length > 0) {
+          rows.push(
+            <TableRow key="wordlists">
+              <TableCell sx={{ fontWeight: 'bold' }}>Wordlist(s)</TableCell>
+              <TableCell>{jobData.wordlist_names.join(', ')}</TableCell>
+            </TableRow>
+          );
+        }
+        if (jobData.mask) {
+          rows.push(
+            <TableRow key="mask">
+              <TableCell sx={{ fontWeight: 'bold' }}>Mask (suffix)</TableCell>
+              <TableCell sx={{ fontFamily: 'monospace' }}>{jobData.mask}</TableCell>
+            </TableRow>
+          );
+        }
+        break;
+
+      case 7: // Hybrid Mask + Wordlist
+        if (jobData.mask) {
+          rows.push(
+            <TableRow key="mask">
+              <TableCell sx={{ fontWeight: 'bold' }}>Mask (prefix)</TableCell>
+              <TableCell sx={{ fontFamily: 'monospace' }}>{jobData.mask}</TableCell>
+            </TableRow>
+          );
+        }
+        if (jobData.wordlist_names && jobData.wordlist_names.length > 0) {
+          rows.push(
+            <TableRow key="wordlists">
+              <TableCell sx={{ fontWeight: 'bold' }}>Wordlist(s)</TableCell>
+              <TableCell>{jobData.wordlist_names.join(', ')}</TableCell>
+            </TableRow>
+          );
+        }
+        break;
+
+      case 9: // Association
+        if (jobData.wordlist_names && jobData.wordlist_names.length > 0) {
+          rows.push(
+            <TableRow key="association-wordlist">
+              <TableCell sx={{ fontWeight: 'bold' }}>Association Hints</TableCell>
+              <TableCell>{jobData.wordlist_names.join(', ')}</TableCell>
+            </TableRow>
+          );
+        }
+        if (jobData.rule_names && jobData.rule_names.length > 0) {
+          rows.push(
+            <TableRow key="rules">
+              <TableCell sx={{ fontWeight: 'bold' }}>Rules</TableCell>
+              <TableCell>{jobData.rule_names.join(', ')}</TableCell>
+            </TableRow>
+          );
+        }
+        break;
+    }
+
+    return rows;
   };
 
   if (loading) {
@@ -551,11 +799,15 @@ const JobDetails: React.FC = () => {
     ['running', 'assigned', 'pending', 'reconnect_pending'].includes(task.status)
   );
 
-  // Get failed tasks
-  const failedTasks = allTasks.filter(task => task.status === 'failed');
+  // Get failed tasks (including processing_error)
+  const failedTasks = allTasks.filter(task =>
+    task.status === 'failed' || task.status === 'processing_error'
+  );
 
-  // Get completed tasks - they're already sorted by completion time from backend
-  const completedTasks = allTasks.filter(task => task.status === 'completed');
+  // Get completed tasks - includes 'processing' since hashcat work is done, just waiting for DB persistence
+  const completedTasks = allTasks.filter(task =>
+    task.status === 'completed' || task.status === 'processing'
+  );
 
   // Paginate completed tasks
   const paginatedCompletedTasks = completedTasks.slice(
@@ -563,7 +815,7 @@ const JobDetails: React.FC = () => {
     (completedTasksPage + 1) * completedTasksPageSize
   );
 
-  const totalKeyspace = jobData.effective_keyspace || jobData.total_keyspace || 0;
+  const totalKeyspace = jobData.effective_keyspace || 0;
 
   // Calculate estimated completion once for efficiency
   const estimatedCompletion = jobData ? calculateEstimatedCompletion() : { timeRemaining: '', estimatedDate: '' };
@@ -761,6 +1013,8 @@ const JobDetails: React.FC = () => {
                 <TableCell sx={{ fontWeight: 'bold' }}>Attack Mode</TableCell>
                 <TableCell>{getAttackModeName(jobData.attack_mode)}</TableCell>
               </TableRow>
+              {/* Attack configuration rows based on attack mode */}
+              {renderAttackConfigRows()}
               <TableRow>
                 <TableCell sx={{ fontWeight: 'bold' }}>Keyspace</TableCell>
                 <TableCell>{formatKeyspace(jobData.base_keyspace)}</TableCell>
@@ -824,6 +1078,10 @@ const JobDetails: React.FC = () => {
               <TableRow>
                 <TableCell sx={{ fontWeight: 'bold' }}>Estimated Completion</TableCell>
                 <TableCell>{estimatedCompletion.estimatedDate}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 'bold' }}>Cracking Completed At</TableCell>
+                <TableCell>{formatDate(jobData.cracking_completed_at)}</TableCell>
               </TableRow>
               <TableRow>
                 <TableCell sx={{ fontWeight: 'bold' }}>Completed At</TableCell>

@@ -234,6 +234,34 @@ The scheduling system follows this priority order:
 2. **Global Setting ON + Agent Scheduling OFF**: Agent always available
 3. **Global Setting ON + Agent Scheduling ON**: Agent follows configured schedule
 
+## Binary Version Compatibility
+
+In addition to time-based scheduling, agent availability for jobs also depends on binary version compatibility. Agents with specific binary version patterns may only be eligible for jobs with compatible patterns.
+
+### How It Affects Scheduling
+
+When the scheduler assigns work to agents, it considers both:
+1. **Time availability**: Is the agent within its scheduled hours?
+2. **Binary compatibility**: Does the agent's binary version pattern match the job's requirement?
+
+### Examples
+
+| Agent Pattern | Job Pattern | Compatible? |
+|---------------|-------------|-------------|
+| `default` | Any | ✓ Yes |
+| `7.x` | `7.1.2` | ✓ Yes |
+| `7.x` | `6.2.6` | ✗ No |
+| `6.x` | `default` | ✓ Yes |
+
+### Practical Implications
+
+- An agent with `"7.x"` pattern will only receive jobs requiring v7 binaries
+- An agent with `"default"` pattern can run any job
+- Jobs with no compatible agents will remain pending until a compatible agent connects
+- Use `"default"` for maximum flexibility, or specific patterns for version control
+
+For complete pattern syntax and compatibility rules, see [Binary Version Patterns](../../reference/architecture/binary-version-patterns.md).
+
 ## Technical Details
 
 ### Database Schema
