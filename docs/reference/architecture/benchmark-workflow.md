@@ -18,14 +18,14 @@ The job scheduling service now implements a benchmark-first approach for job ass
 3. **Benchmark Request (if needed)**
    - If no valid benchmark exists, system sends enhanced benchmark request
    - Request includes actual job configuration:
-     - Binary version (determined by Agent Override → Job Binary → Default hierarchy)
+     - Binary version pattern (resolved via Agent Pattern → Job Pattern → Default hierarchy)
      - Wordlists and rules (if applicable)
      - Mask (for brute force attacks)
      - Hash type and attack mode
      - Test duration (30 seconds)
-   - Binary version is determined using the hierarchy:
-     1. Agent-specific binary override (if configured)
-     2. Job execution's binary version
+   - Binary version pattern is resolved using this hierarchy:
+     1. Agent's binary version pattern (from agent settings)
+     2. Job execution's binary version pattern
      3. System default binary
    - Job assignment is deferred until benchmark completes
 
@@ -55,22 +55,12 @@ The job scheduling service now implements a benchmark-first approach for job ass
 
 ## Implementation Details
 
-### Modified Components
+### Key Components
 
-1. **JobSchedulingService** (`assignWorkToAgent`)
-   - Added benchmark validation before chunk calculation
-   - Defers assignment if benchmark is needed
-   - Retrieves hashlist to get hash type
-
-2. **JobWebSocketIntegration** (`RequestAgentBenchmark`)
-   - New method implementing the interface
-   - Sends enhanced benchmark request with full job configuration
-   - Includes wordlists, rules, mask, and binary information
-   - Uses `DetermineBinaryForTask()` to select appropriate binary (Agent → Job → Default)
-
-3. **WebSocket Types**
-   - `BenchmarkRequestPayload` enhanced with job-specific fields
-   - Supports real-world speed testing with actual attack parameters
+1. **JobSchedulingService** - Creates benchmark plans and coordinates parallel execution
+2. **JobWebSocketIntegration** (`RequestAgentBenchmark`) - Sends benchmark requests with full job configuration
+3. **BenchmarkRequestPayload** - Enhanced WebSocket type with job-specific fields
+4. **Binary Version Resolution** - Uses `DetermineBinaryForTask()` to resolve patterns (Agent Pattern → Job Pattern → Default)
 
 ### Error Handling
 

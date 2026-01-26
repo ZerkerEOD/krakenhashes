@@ -293,52 +293,63 @@ The agent file sync system (`agent/internal/sync/sync.go`) handles:
 - Local caching to avoid re-downloads
 - Integrity verification with MD5 hashes
 
-### Per-Agent Binary Overrides
+### Per-Agent Binary Version Patterns
 
-Users can configure individual agents to use specific binary versions, overriding system defaults.
+Users can configure individual agents to use specific binary version patterns. This determines which jobs the agent can run and which binary it downloads.
 
 #### Configuration
 
-Agent binary overrides are set via the Agent Details page or API:
+Agent binary version patterns are set via the Agent Details page or API:
 
 ```json
-// PUT /api/agents/{id}
+// PUT /api/admin/agents/{id}/settings
 {
-  "binaryVersionId": 3,
-  "binaryOverride": true
+  "binaryVersion": "7.x"
 }
 ```
 
-#### Selection Priority
+Pattern examples:
+- `"default"` - Agent can run any job, uses whatever binary is needed
+- `"7.x"` - Agent runs v7 jobs only, downloads newest v7 binary
+- `"6.x"` - Agent runs v6 jobs only, for driver compatibility
+- `"7.1.2-NTLMv3"` - Agent runs only jobs requiring this specific build
+
+For complete pattern syntax and compatibility rules, see [Binary Version Patterns](../../reference/architecture/binary-version-patterns.md).
+
+#### Pattern Resolution Priority
 
 When determining which binary to use for an agent:
 
-1. **Agent Override**: If enabled, the agent uses its configured binary version
-2. **Job Binary**: For specific job executions, use the job's binary version
-3. **System Default**: Use the active default binary
+1. **Agent Pattern**: Agent uses its configured binary version pattern
+2. **Job Pattern**: Job execution's binary version pattern
+3. **System Default**: Active default binary
+
+Wildcard patterns (e.g., `"7.x"`) resolve to the newest matching binary available.
 
 #### Impact on Agent Operations
 
-Agent binary overrides affect:
-- **Device Detection**: The agent uses the preferred binary to detect GPU/CPU capabilities
-- **Benchmarks**: Performance benchmarks run with the preferred binary for accurate metrics
-- **Job Execution**: Tasks execute using the agent's preferred binary (unless job specifies otherwise)
+Agent binary version patterns affect:
+- **Job Compatibility**: Agents only receive jobs with compatible binary patterns
+- **Device Detection**: The agent uses the resolved binary to detect GPU/CPU capabilities
+- **Benchmarks**: Performance benchmarks run with the resolved binary for accurate metrics
+- **Job Execution**: Tasks execute using the resolved binary
 
 #### Version Compatibility
 
 ⚠️ **Hashcat 7.x Compatibility Note**: Hashcat version 7.x may detect GPU devices but fail to recognize them as usable for job execution, particularly with older GPU driver versions. If you experience device detection issues where devices appear in hardware detection but are not available for jobs:
 
 - Use Hashcat 6.x binaries (e.g., 6.2.6, 6.2.5) which have better driver compatibility
-- Configure affected agents to use 6.x binaries via the binary override feature
+- Configure affected agents to use `"6.x"` binary version pattern
 - Update GPU drivers to the latest version before trying 7.x binaries
 
 #### Automatic Synchronization
 
-When an agent binary override is set or changed:
-1. Backend sends a `config_update` WebSocket message with the preferred binary version
-2. Agent receives the preference and updates its configuration
-3. If the binary isn't already downloaded, the file sync system downloads it
-4. Device detection runs with the preferred binary after download completes
+When an agent's binary version pattern is set or changed:
+1. Backend sends a `config_update` WebSocket message with the new pattern
+2. Agent receives the pattern and updates its configuration
+3. Pattern is resolved to an actual binary (newest matching version)
+4. If the binary isn't already downloaded, the file sync system downloads it
+5. Device detection runs with the resolved binary after download completes
 
 ## Updating and Replacing Binaries
 

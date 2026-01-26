@@ -684,7 +684,7 @@ Stores predefined job configurations.
 | status_updates_enabled | BOOLEAN | NOT NULL | true | Enable status updates |
 | is_small_job | BOOLEAN | NOT NULL | false | Small job flag |
 | allow_high_priority_override | BOOLEAN | NOT NULL | false | Allows this job to interrupt lower priority running jobs when no agents available |
-| binary_version_id | INTEGER | NOT NULL, FK → binary_versions(id) | | Binary version |
+| binary_version | VARCHAR(255) | NOT NULL | 'default' | Binary version pattern (e.g., "default", "7.x", "7.1.2") |
 | mask | TEXT | | NULL | Mask pattern |
 | created_at | TIMESTAMPTZ | | NOW() | Creation time |
 | updated_at | TIMESTAMPTZ | | NOW() | Last update time |
@@ -1660,7 +1660,8 @@ The potfile system initializes in stages during server startup:
 - Attempts to create "Potfile Run" preset job
 
 ### 2. Binary Dependency
-- Preset jobs require a `binary_version_id` (NOT NULL constraint in database)
+- Preset jobs use a `binary_version` pattern (e.g., "default", "7.x")
+- The pattern must resolve to at least one active binary
 - If no binaries exist, preset job creation is deferred
 - A background monitor runs every 5 seconds checking for binary availability
 - Monitor stops once preset job is successfully created
