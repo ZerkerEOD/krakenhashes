@@ -35,11 +35,12 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
-import { 
-  getEmailTemplates, 
-  createEmailTemplate, 
-  updateEmailTemplate, 
-  deleteEmailTemplate 
+import { useTranslation } from 'react-i18next';
+import {
+  getEmailTemplates,
+  createEmailTemplate,
+  updateEmailTemplate,
+  deleteEmailTemplate
 } from '../../../services/api';
 
 interface TemplateEditorProps {
@@ -86,6 +87,7 @@ const sampleData = {
 };
 
 export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onNotification }) => {
+  const { t } = useTranslation('admin');
   const [loading, setLoading] = useState(false);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
@@ -111,7 +113,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onNotification }
       setTemplates(transformedTemplates);
     } catch (error) {
       console.error('[TemplateEditor] Failed to load templates:', error);
-      onNotification('Failed to load templates', 'error');
+      onNotification(t('emailSettings.templates.messages.loadFailed') as string, 'error');
     } finally {
       setLoading(false);
     }
@@ -157,11 +159,11 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onNotification }
     try {
       setLoading(true);
       await deleteEmailTemplate(id);
-      onNotification('Template deleted successfully', 'success');
+      onNotification(t('emailSettings.templates.messages.deleteSuccess') as string, 'success');
       await loadData();
     } catch (error) {
       console.error('[TemplateEditor] Failed to delete template:', error);
-      onNotification('Failed to delete template', 'error');
+      onNotification(t('emailSettings.templates.messages.deleteFailed') as string, 'error');
     } finally {
       setLoading(false);
     }
@@ -182,10 +184,10 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onNotification }
 
       if (selectedTemplate.id) {
         await updateEmailTemplate(selectedTemplate.id, payload);
-        onNotification('Template updated successfully', 'success');
+        onNotification(t('emailSettings.templates.messages.updateSuccess') as string, 'success');
       } else {
         await createEmailTemplate(payload);
-        onNotification('Template created successfully', 'success');
+        onNotification(t('emailSettings.templates.messages.createSuccess') as string, 'success');
       }
 
       await loadData();
@@ -193,7 +195,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onNotification }
       setSelectedTemplate(null);
     } catch (error) {
       console.error('[TemplateEditor] Failed to save template:', error);
-      onNotification('Failed to save template', 'error');
+      onNotification(t('emailSettings.templates.messages.saveFailed') as string, 'error');
     } finally {
       setLoading(false);
     }
@@ -206,10 +208,10 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onNotification }
       setLoading(true);
       // TODO: Implement test email sending
       await new Promise(resolve => setTimeout(resolve, 1000));
-      onNotification('Test email sent successfully', 'success');
+      onNotification(t('emailSettings.templates.messages.testSuccess') as string, 'success');
     } catch (error) {
       console.error('[TemplateEditor] Failed to send test email:', error);
-      onNotification('Failed to send test email', 'error');
+      onNotification(t('emailSettings.templates.messages.testFailed') as string, 'error');
     } finally {
       setLoading(false);
     }
@@ -251,7 +253,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onNotification }
       <Box>
         <Box mb={3} display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h6">
-            {selectedTemplate.id ? 'Edit Template' : 'Create Template'}
+            {selectedTemplate.id ? t('emailSettings.templates.editTemplate') as string : t('emailSettings.templates.createTemplate') as string}
           </Typography>
           <Box>
             <Button
@@ -259,21 +261,21 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onNotification }
               onClick={handleCancel}
               sx={{ mr: 1 }}
             >
-              Cancel
+              {t('emailSettings.templates.buttons.cancel') as string}
             </Button>
             <Button
               variant="outlined"
               onClick={handleTest}
               sx={{ mr: 1 }}
             >
-              Test
+              {t('emailSettings.templates.buttons.test') as string}
             </Button>
             <LoadingButton
               variant="contained"
               onClick={handleSave}
               loading={loading}
             >
-              Save
+              {t('emailSettings.templates.buttons.save') as string}
             </LoadingButton>
           </Box>
         </Box>
@@ -281,19 +283,19 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onNotification }
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
             <FormControl fullWidth>
-              <InputLabel>Template Type</InputLabel>
+              <InputLabel>{t('emailSettings.templates.labels.templateType')}</InputLabel>
               <Select
                 value={selectedTemplate.templateType}
-                label="Template Type"
+                label={t('emailSettings.templates.labels.templateType')}
                 onChange={(e) => setSelectedTemplate(prev => prev ? {
                   ...prev,
                   templateType: e.target.value as Template['templateType']
                 } : null)}
               >
-                <MenuItem value="security_event">Security Event</MenuItem>
-                <MenuItem value="job_completion">Job Completion</MenuItem>
-                <MenuItem value="admin_error">Admin Error</MenuItem>
-                <MenuItem value="mfa_code">MFA Code</MenuItem>
+                <MenuItem value="security_event">{t('emailSettings.templates.menuItems.securityEvent')}</MenuItem>
+                <MenuItem value="job_completion">{t('emailSettings.templates.menuItems.jobCompletion')}</MenuItem>
+                <MenuItem value="admin_error">{t('emailSettings.templates.menuItems.adminError')}</MenuItem>
+                <MenuItem value="mfa_code">{t('emailSettings.templates.menuItems.mfaCode')}</MenuItem>
               </Select>
             </FormControl>
           </Grid>
@@ -301,7 +303,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onNotification }
           <Grid item xs={12} md={6}>
             <TextField
               fullWidth
-              label="Name"
+              label={t('emailSettings.templates.labels.name')}
               value={selectedTemplate.name}
               onChange={(e) => setSelectedTemplate(prev => prev ? {
                 ...prev,
@@ -313,7 +315,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onNotification }
           <Grid item xs={12}>
             <TextField
               fullWidth
-              label="Subject"
+              label={t('emailSettings.templates.labels.subject')}
               value={selectedTemplate.subject}
               onChange={(e) => setSelectedTemplate(prev => prev ? {
                 ...prev,
@@ -325,7 +327,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onNotification }
           <Grid item xs={12} md={6}>
             <TextField
               fullWidth
-              label="HTML Content"
+              label={t('emailSettings.templates.labels.htmlContent')}
               value={selectedTemplate.htmlContent}
               onChange={(e) => setSelectedTemplate(prev => prev ? {
                 ...prev,
@@ -350,7 +352,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onNotification }
               }}
             >
               <Typography variant="subtitle2" gutterBottom sx={{ color: '#ffffff' }}>
-                Live Preview (with sample data):
+                {t('emailSettings.templates.preview')}
               </Typography>
               <Box 
                 sx={{ 
@@ -364,7 +366,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onNotification }
           <Grid item xs={12}>
             <TextField
               fullWidth
-              label="Text Content"
+              label={t('emailSettings.templates.labels.textContent')}
               value={selectedTemplate.textContent}
               onChange={(e) => setSelectedTemplate(prev => prev ? {
                 ...prev,
@@ -382,7 +384,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onNotification }
   return (
     <Box>
       <Box mb={3} display="flex" justifyContent="space-between" alignItems="center">
-        <Typography variant="h6">Email Templates</Typography>
+        <Typography variant="h6">{t('emailSettings.templates.title')}</Typography>
         <Button
           variant="contained"
           onClick={() => handleEditTemplate({
@@ -393,7 +395,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onNotification }
             textContent: '',
           })}
         >
-          Create Template
+          {t('emailSettings.templates.buttons.create')}
         </Button>
       </Box>
 
@@ -401,10 +403,10 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onNotification }
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Subject</TableCell>
-              <TableCell align="right">Actions</TableCell>
+              <TableCell>{t('emailSettings.templates.table.name')}</TableCell>
+              <TableCell>{t('emailSettings.templates.table.type')}</TableCell>
+              <TableCell>{t('emailSettings.templates.table.subject')}</TableCell>
+              <TableCell align="right">{t('emailSettings.templates.table.actions')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

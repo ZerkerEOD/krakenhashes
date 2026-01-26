@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Box, Typography, Button } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 import HashlistsDashboard from '../components/hashlist/HashlistsDashboard';
 
 const Hashlists: React.FC = () => {
+  const { t } = useTranslation('hashlists');
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
 
   return (
@@ -11,10 +13,10 @@ const Hashlists: React.FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
         <Box>
           <Typography variant="h4" component="h1" gutterBottom>
-            Hashlist Management
+            {t('page.title') as string}
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Upload and manage password hash lists for cracking operations
+            {t('page.description') as string}
           </Typography>
         </Box>
         <Button
@@ -22,10 +24,10 @@ const Hashlists: React.FC = () => {
           startIcon={<AddIcon />}
           onClick={() => setUploadDialogOpen(true)}
         >
-          Upload Hashlist
+          {t('uploadButton') as string}
         </Button>
       </Box>
-      <HashlistsDashboard 
+      <HashlistsDashboard
         uploadDialogOpen={uploadDialogOpen}
         setUploadDialogOpen={setUploadDialogOpen}
       />

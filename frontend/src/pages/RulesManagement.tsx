@@ -1,6 +1,6 @@
 /**
  * Rules Management page for KrakenHashes frontend.
- * 
+ *
  * Features:
  *   - View rules
  *   - Add new rules
@@ -9,6 +9,7 @@
  *   - Enable/disable rules
  */
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Button,
@@ -45,10 +46,10 @@ import {
   InputLabel,
   Select
 } from '@mui/material';
-import { 
-  Delete as DeleteIcon, 
-  Edit as EditIcon, 
-  Refresh as RefreshIcon, 
+import {
+  Delete as DeleteIcon,
+  Edit as EditIcon,
+  Refresh as RefreshIcon,
   CloudDownload as DownloadIcon,
   Search as SearchIcon,
   Add as AddIcon,
@@ -64,6 +65,7 @@ import { useSnackbar } from 'notistack';
 import { formatFileSize, formatAttackMode } from '../utils/formatters';
 
 export default function RulesManagement() {
+  const { t } = useTranslation('admin');
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -92,17 +94,17 @@ export default function RulesManagement() {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await ruleService.getRules();
       setRules(response.data);
     } catch (err) {
       console.error('Error fetching rules:', err);
-      setError('Failed to load rules');
-      enqueueSnackbar('Failed to load rules', { variant: 'error' });
+      setError(t('rules.errors.loadFailed') as string);
+      enqueueSnackbar(t('rules.errors.loadFailed') as string, { variant: 'error' });
     } finally {
       setLoading(false);
     }
-  }, [enqueueSnackbar]);
+  }, [enqueueSnackbar, t]);
 
   useEffect(() => {
     fetchRules();
@@ -112,10 +114,10 @@ export default function RulesManagement() {
   const handleUploadRule = async (formData: FormData) => {
     try {
       setIsLoading(true);
-      
+
       // Add the rule type to the form data
       formData.append('rule_type', selectedRuleType);
-      
+
       // Add required fields if not present
       if (!formData.has('name')) {
         const file = formData.get('file') as File;
@@ -126,39 +128,39 @@ export default function RulesManagement() {
           formData.append('name', nameWithoutExt);
         }
       }
-      
+
       // Remove format field as it's not needed for rules
       if (formData.has('format')) {
         formData.delete('format');
       }
-      
+
       console.debug('[Rule Upload] Sending form data with rule_type:', selectedRuleType);
-      console.debug('[Rule Upload] Form data contents:', 
+      console.debug('[Rule Upload] Form data contents:',
         Array.from(formData.entries()).reduce((obj, [key, val]) => {
           obj[key] = key === 'file' ? '(file content)' : val;
           return obj;
         }, {} as Record<string, any>)
       );
-      
+
       const response = await ruleService.uploadRule(formData, (progress, eta, speed) => {
         // Update progress in the FileUpload component
         const progressEvent = new CustomEvent('upload-progress', { detail: { progress, eta, speed } });
         document.dispatchEvent(progressEvent);
       });
       console.debug('[Rule Upload] Upload successful:', response);
-      
+
       // Check if the response indicates a duplicate rule
       if (response.data.duplicate) {
-        enqueueSnackbar(`Rule "${response.data.name}" already exists`, { variant: 'info' });
+        enqueueSnackbar(t('rules.messages.duplicateRule', { name: response.data.name }) as string, { variant: 'info' });
       } else {
-        enqueueSnackbar('Rule uploaded successfully', { variant: 'success' });
+        enqueueSnackbar(t('rules.messages.uploadSuccess') as string, { variant: 'success' });
       }
-      
+
       setUploadDialogOpen(false);
       fetchRules();
     } catch (error) {
       console.error('Error uploading rule:', error);
-      enqueueSnackbar('Failed to upload rule', { variant: 'error' });
+      enqueueSnackbar(t('rules.errors.uploadFailed') as string, { variant: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -168,12 +170,12 @@ export default function RulesManagement() {
   const handleDelete = async (id: string, name: string, confirmId?: number) => {
     try {
       await ruleService.deleteRule(id, confirmId);
-      enqueueSnackbar(`Rule "${name}" deleted successfully`, { variant: 'success' });
+      enqueueSnackbar(t('rules.messages.deleteSuccess', { name }) as string, { variant: 'success' });
       fetchRules();
     } catch (err: any) {
       console.error('Error deleting rule:', err);
       // Extract error message from axios response
-      const errorMessage = err.response?.data?.error || 'Failed to delete rule';
+      const errorMessage = err.response?.data?.error || t('rules.errors.deleteFailed') as string;
       enqueueSnackbar(errorMessage, { variant: 'error' });
     } finally {
       closeDeleteDialog();
@@ -218,7 +220,7 @@ export default function RulesManagement() {
   const handleDownload = async (id: string, name: string) => {
     try {
       const response = await ruleService.downloadRule(id);
-      
+
       // Create and trigger download
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
@@ -229,7 +231,7 @@ export default function RulesManagement() {
       document.body.removeChild(link);
     } catch (err) {
       console.error('Error downloading rule:', err);
-      enqueueSnackbar('Failed to download rule', { variant: 'error' });
+      enqueueSnackbar(t('rules.errors.downloadFailed') as string, { variant: 'error' });
     }
   };
 
@@ -245,31 +247,31 @@ export default function RulesManagement() {
   // Handle save edit
   const handleSaveEdit = async () => {
     if (!currentRule) return;
-    
+
     try {
       console.debug('[Rule Edit] Updating rule:', currentRule.id, {
         name: nameEdit,
         description: descriptionEdit,
         rule_type: ruleTypeEdit
       });
-      
+
       const response = await ruleService.updateRule(currentRule.id, {
         name: nameEdit,
         description: descriptionEdit,
         rule_type: ruleTypeEdit
       });
-      
+
       console.debug('[Rule Edit] Update successful:', response);
-      enqueueSnackbar('Rule updated successfully', { variant: 'success' });
+      enqueueSnackbar(t('rules.messages.updateSuccess') as string, { variant: 'success' });
       setOpenEditDialog(false);
       fetchRules();
     } catch (err: any) {
       console.error('[Rule Edit] Error updating rule:', err);
-      
+
       if (err.response?.status === 401) {
-        enqueueSnackbar('Your session has expired. Please log in again.', { variant: 'error' });
+        enqueueSnackbar(t('rules.errors.sessionExpired') as string, { variant: 'error' });
       } else {
-        enqueueSnackbar('Failed to update rule: ' + (err.response?.data?.message || err.message), { variant: 'error' });
+        enqueueSnackbar(t('rules.errors.updateFailed', { error: err.response?.data?.message || err.message }) as string, { variant: 'error' });
       }
     }
   };
@@ -279,11 +281,11 @@ export default function RulesManagement() {
     try {
       setIsLoading(true);
       await ruleService.verifyRule(id, 'verified');
-      enqueueSnackbar(`Rule "${name}" verified successfully`, { variant: 'success' });
+      enqueueSnackbar(t('rules.messages.verifySuccess', { name }) as string, { variant: 'success' });
       fetchRules();
     } catch (err) {
       console.error('Error verifying rule:', err);
-      enqueueSnackbar('Failed to verify rule', { variant: 'error' });
+      enqueueSnackbar(t('rules.errors.verifyFailed') as string, { variant: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -320,34 +322,34 @@ export default function RulesManagement() {
       // Filter by search term
       const matchesSearch = rule.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            rule.description.toLowerCase().includes(searchTerm.toLowerCase());
-      
+
       // Filter by tab
       if (tabValue === 0) return matchesSearch; // All
       if (tabValue === 1) return matchesSearch && rule.rule_type === RuleType.HASHCAT;
       if (tabValue === 2) return matchesSearch && rule.rule_type === RuleType.JOHN;
-      
+
       return matchesSearch;
     })
     .sort((a, b) => {
       // Handle special cases for non-string fields
       if (sortBy === 'file_size' || sortBy === 'rule_count') {
-        return sortOrder === 'asc' 
-          ? a[sortBy] - b[sortBy] 
+        return sortOrder === 'asc'
+          ? a[sortBy] - b[sortBy]
           : b[sortBy] - a[sortBy];
       }
-      
+
       // Handle date fields
       if (sortBy === 'created_at' || sortBy === 'updated_at' || sortBy === 'last_verified_at') {
         const dateA = new Date(a[sortBy] || 0).getTime();
         const dateB = new Date(b[sortBy] || 0).getTime();
         return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
       }
-      
+
       // Default string comparison
       const valueA = String(a[sortBy] || '').toLowerCase();
       const valueB = String(b[sortBy] || '').toLowerCase();
-      return sortOrder === 'asc' 
-        ? valueA.localeCompare(valueB) 
+      return sortOrder === 'asc'
+        ? valueA.localeCompare(valueB)
         : valueB.localeCompare(valueA);
     });
 
@@ -356,10 +358,10 @@ export default function RulesManagement() {
       <Grid container spacing={2} alignItems="center" sx={{ mb: 3 }}>
           <Grid item xs={12} sm={6}>
             <Typography variant="h4" component="h1" gutterBottom>
-              Rule Management
+              {t('rules.title') as string}
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              Manage Hashcat rules for password cracking
+              {t('rules.description') as string}
             </Typography>
           </Grid>
           <Grid item xs={12} sm={6} sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
@@ -370,14 +372,14 @@ export default function RulesManagement() {
               sx={{ mr: 1 }}
               disabled={isLoading}
             >
-              Upload Rule
+              {t('rules.uploadRule') as string}
             </Button>
             <Button
               variant="outlined"
               startIcon={<RefreshIcon />}
               onClick={() => fetchRules()}
             >
-              Refresh
+              {t('rules.refresh') as string}
             </Button>
           </Grid>
         </Grid>
@@ -390,17 +392,17 @@ export default function RulesManagement() {
 
         <Paper sx={{ mb: 3, overflow: 'hidden' }}>
           <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <Tabs 
-              value={tabValue} 
+            <Tabs
+              value={tabValue}
               onChange={(_, newValue) => setTabValue(newValue)}
               aria-label="rule tabs"
             >
-              <Tab label="All Rules" id="tab-0" />
-              <Tab label="Hashcat" id="tab-1" />
-              <Tab label="John" id="tab-2" />
+              <Tab label={t('rules.tabs.all') as string} id="tab-0" />
+              <Tab label={t('rules.tabs.hashcat') as string} id="tab-1" />
+              <Tab label={t('rules.tabs.john') as string} id="tab-2" />
             </Tabs>
           </Box>
-          
+
           <Toolbar
             sx={{
               pl: { sm: 2 },
@@ -411,7 +413,7 @@ export default function RulesManagement() {
           >
             <TextField
               margin="dense"
-              placeholder="Search rules..."
+              placeholder={t('rules.searchPlaceholder') as string}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -432,32 +434,32 @@ export default function RulesManagement() {
               sx={{ width: { xs: '100%', sm: '60%', md: '40%' } }}
             />
           </Toolbar>
-          
+
           <Divider />
-          
+
           <TableContainer>
             <Table sx={{ minWidth: 650 }} aria-label="rules table">
               <TableHead>
                 <TableRow>
                   <TableCell>
-                    {renderSortLabel('name', 'Name')}
+                    {renderSortLabel('name', t('rules.columns.name') as string)}
                   </TableCell>
                   <TableCell>
-                    {renderSortLabel('verification_status', 'Status')}
+                    {renderSortLabel('verification_status', t('rules.columns.status') as string)}
                   </TableCell>
                   <TableCell>
-                    {renderSortLabel('rule_type', 'Type')}
+                    {renderSortLabel('rule_type', t('rules.columns.type') as string)}
                   </TableCell>
                   <TableCell>
-                    {renderSortLabel('file_size', 'Size')}
+                    {renderSortLabel('file_size', t('rules.columns.size') as string)}
                   </TableCell>
                   <TableCell>
-                    {renderSortLabel('rule_count', 'Rule Count')}
+                    {renderSortLabel('rule_count', t('rules.columns.ruleCount') as string)}
                   </TableCell>
                   <TableCell>
-                    {renderSortLabel('updated_at', 'Updated')}
+                    {renderSortLabel('updated_at', t('rules.columns.updated') as string)}
                   </TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell align="right">{t('rules.columns.actions') as string}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -466,7 +468,7 @@ export default function RulesManagement() {
                     <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
                       <CircularProgress size={40} />
                       <Typography variant="body2" sx={{ mt: 1 }}>
-                        Loading rules...
+                        {t('rules.loading') as string}
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -474,10 +476,10 @@ export default function RulesManagement() {
                   <TableRow>
                     <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
                       <Typography variant="body1">
-                        No rules found
+                        {t('rules.noRulesFound') as string}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                        {searchTerm ? 'Try a different search term' : 'Upload a rule to get started'}
+                        {searchTerm ? t('rules.tryDifferentSearch') as string : t('rules.uploadToGetStarted') as string}
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -490,13 +492,13 @@ export default function RulesManagement() {
                             {rule.name}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            {rule.description || 'No description provided'}
+                            {rule.description || t('rules.noDescription') as string}
                           </Typography>
                         </Box>
                       </TableCell>
                       <TableCell>
                         <Chip
-                          label={rule.verification_status}
+                          label={t(`rules.status.${rule.verification_status}`) as string}
                           size="small"
                           color={
                             rule.verification_status === RuleStatus.READY
@@ -505,7 +507,6 @@ export default function RulesManagement() {
                               ? 'warning'
                               : 'error'
                           }
-                          sx={{ textTransform: 'capitalize' }}
                         />
                       </TableCell>
                       <TableCell>
@@ -527,7 +528,7 @@ export default function RulesManagement() {
                         {new Date(rule.updated_at).toLocaleDateString()}
                       </TableCell>
                       <TableCell align="right">
-                        <Tooltip title="Download">
+                        <Tooltip title={t('rules.tooltips.download') as string}>
                           <IconButton
                             onClick={() => handleDownload(rule.id, rule.name)}
                             disabled={rule.verification_status !== 'verified'}
@@ -535,14 +536,14 @@ export default function RulesManagement() {
                             <DownloadIcon />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Edit">
+                        <Tooltip title={t('rules.tooltips.edit') as string}>
                           <IconButton
                             onClick={() => handleEditClick(rule)}
                           >
                             <EditIcon />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Delete">
+                        <Tooltip title={t('rules.tooltips.delete') as string}>
                           <IconButton
                             color="error"
                             onClick={() => openDeleteDialog(rule.id, rule.name)}
@@ -566,27 +567,27 @@ export default function RulesManagement() {
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>Upload Rule</DialogTitle>
+        <DialogTitle>{t('rules.dialogs.upload.title') as string}</DialogTitle>
         <DialogContent>
           <FileUpload
-            title="Upload a rule file"
-            description="Select a rule file to upload. Supported formats: .rule, .rules, .txt"
+            title={t('rules.dialogs.upload.fileUploadTitle') as string}
+            description={t('rules.dialogs.upload.fileUploadDescription') as string}
             acceptedFileTypes=".rule,.rules,.txt,text/plain"
             onUpload={handleUploadRule}
-            uploadButtonText="Upload Rule"
+            uploadButtonText={t('rules.uploadRule') as string}
             additionalFields={
               <FormControl fullWidth margin="normal">
-                <InputLabel id="rule-type-label">Rule Type</InputLabel>
+                <InputLabel id="rule-type-label">{t('rules.fields.ruleType') as string}</InputLabel>
                 <Select
                   labelId="rule-type-label"
                   id="rule-type"
                   name="rule_type"
                   value={selectedRuleType}
                   onChange={(e) => setSelectedRuleType(e.target.value as RuleType)}
-                  label="Rule Type"
+                  label={t('rules.fields.ruleType') as string}
                 >
-                  <MenuItem value={RuleType.HASHCAT}>Hashcat</MenuItem>
-                  <MenuItem value={RuleType.JOHN}>John the Ripper</MenuItem>
+                  <MenuItem value={RuleType.HASHCAT}>{t('rules.types.hashcat') as string}</MenuItem>
+                  <MenuItem value={RuleType.JOHN}>{t('rules.types.john') as string}</MenuItem>
                 </Select>
               </FormControl>
             }
@@ -594,7 +595,7 @@ export default function RulesManagement() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setUploadDialogOpen(false)} color="primary">
-            Cancel
+            {t('common.cancel') as string}
           </Button>
         </DialogActions>
       </Dialog>
@@ -607,11 +608,11 @@ export default function RulesManagement() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle id="edit-dialog-title">Edit Rule</DialogTitle>
+        <DialogTitle id="edit-dialog-title">{t('rules.dialogs.edit.title') as string}</DialogTitle>
         <DialogContent>
           <TextField
             margin="dense"
-            label="Name"
+            label={t('rules.fields.name') as string}
             fullWidth
             value={nameEdit}
             onChange={(e) => setNameEdit(e.target.value)}
@@ -619,7 +620,7 @@ export default function RulesManagement() {
           />
           <TextField
             margin="dense"
-            label="Description"
+            label={t('rules.fields.description') as string}
             fullWidth
             multiline
             rows={3}
@@ -628,25 +629,25 @@ export default function RulesManagement() {
             sx={{ mb: 2 }}
           />
           <FormControl fullWidth margin="dense" sx={{ mb: 2 }}>
-            <InputLabel id="edit-rule-type-label">Rule Type</InputLabel>
+            <InputLabel id="edit-rule-type-label">{t('rules.fields.ruleType') as string}</InputLabel>
             <Select
               labelId="edit-rule-type-label"
               id="edit-rule-type"
               value={ruleTypeEdit}
               onChange={(e) => setRuleTypeEdit(e.target.value as RuleType)}
-              label="Rule Type"
+              label={t('rules.fields.ruleType') as string}
             >
-              <MenuItem value={RuleType.HASHCAT}>Hashcat</MenuItem>
-              <MenuItem value={RuleType.JOHN}>John the Ripper</MenuItem>
+              <MenuItem value={RuleType.HASHCAT}>{t('rules.types.hashcat') as string}</MenuItem>
+              <MenuItem value={RuleType.JOHN}>{t('rules.types.john') as string}</MenuItem>
             </Select>
           </FormControl>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenEditDialog(false)}>
-            Cancel
+            {t('common.cancel') as string}
           </Button>
           <Button onClick={handleSaveEdit} variant="contained" color="primary">
-            Save Changes
+            {t('common.saveChanges') as string}
           </Button>
         </DialogActions>
       </Dialog>
@@ -661,37 +662,37 @@ export default function RulesManagement() {
         fullWidth
       >
         <DialogTitle id="delete-dialog-title">
-          {deletionImpact?.has_cascading_impact ? 'Confirm Cascade Deletion' : 'Confirm Deletion'}
+          {deletionImpact?.has_cascading_impact ? t('rules.dialogs.delete.cascadeTitle') as string : t('rules.dialogs.delete.title') as string}
         </DialogTitle>
         <DialogContent>
           {isCheckingImpact ? (
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 3 }}>
               <CircularProgress size={24} sx={{ mr: 2 }} />
-              <Typography>Checking for dependencies...</Typography>
+              <Typography>{t('rules.dialogs.delete.checkingDependencies') as string}</Typography>
             </Box>
           ) : deletionImpact?.has_cascading_impact ? (
             <Box>
               <Alert severity="warning" sx={{ mb: 2 }}>
-                Deleting rule "{ruleToDelete?.name}" will also delete the following:
+                {t('rules.dialogs.delete.cascadeWarning', { name: ruleToDelete?.name }) as string}
               </Alert>
 
               {deletionImpact.summary.total_jobs > 0 && (
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" color="error">
-                    {deletionImpact.summary.total_jobs} Job(s) (pending/running/failed):
+                    {t('rules.dialogs.delete.jobsCount', { count: deletionImpact.summary.total_jobs }) as string}
                   </Typography>
                   <Box component="ul" sx={{ mt: 0.5, pl: 2, mb: 0 }}>
                     {deletionImpact.impact.jobs.slice(0, 5).map((job) => (
                       <li key={job.id}>
                         <Typography variant="body2" color="text.secondary">
-                          {job.name} ({job.status}) - {job.hashlist_name || 'No hashlist'}
+                          {job.name} ({job.status}) - {job.hashlist_name || t('rules.dialogs.delete.noHashlist') as string}
                         </Typography>
                       </li>
                     ))}
                     {deletionImpact.summary.total_jobs > 5 && (
                       <li>
                         <Typography variant="body2" color="text.secondary">
-                          ...and {deletionImpact.summary.total_jobs - 5} more
+                          {t('rules.dialogs.delete.andMore', { count: deletionImpact.summary.total_jobs - 5 }) as string}
                         </Typography>
                       </li>
                     )}
@@ -702,7 +703,7 @@ export default function RulesManagement() {
               {deletionImpact.summary.total_preset_jobs > 0 && (
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" color="error">
-                    {deletionImpact.summary.total_preset_jobs} Preset Job(s):
+                    {t('rules.dialogs.delete.presetJobsCount', { count: deletionImpact.summary.total_preset_jobs }) as string}
                   </Typography>
                   <Box component="ul" sx={{ mt: 0.5, pl: 2, mb: 0 }}>
                     {deletionImpact.impact.preset_jobs.slice(0, 5).map((pj) => (
@@ -715,7 +716,7 @@ export default function RulesManagement() {
                     {deletionImpact.summary.total_preset_jobs > 5 && (
                       <li>
                         <Typography variant="body2" color="text.secondary">
-                          ...and {deletionImpact.summary.total_preset_jobs - 5} more
+                          {t('rules.dialogs.delete.andMore', { count: deletionImpact.summary.total_preset_jobs - 5 }) as string}
                         </Typography>
                       </li>
                     )}
@@ -726,20 +727,20 @@ export default function RulesManagement() {
               {deletionImpact.summary.total_workflow_steps > 0 && (
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" color="error">
-                    {deletionImpact.summary.total_workflow_steps} Workflow Step(s):
+                    {t('rules.dialogs.delete.workflowStepsCount', { count: deletionImpact.summary.total_workflow_steps }) as string}
                   </Typography>
                   <Box component="ul" sx={{ mt: 0.5, pl: 2, mb: 0 }}>
                     {deletionImpact.impact.workflow_steps.slice(0, 5).map((step, idx) => (
                       <li key={`${step.workflow_id}-${step.step_order}-${idx}`}>
                         <Typography variant="body2" color="text.secondary">
-                          {step.workflow_name} → Step {step.step_order} ({step.preset_job_name})
+                          {step.workflow_name} → {t('rules.dialogs.delete.step', { order: step.step_order }) as string} ({step.preset_job_name})
                         </Typography>
                       </li>
                     ))}
                     {deletionImpact.summary.total_workflow_steps > 5 && (
                       <li>
                         <Typography variant="body2" color="text.secondary">
-                          ...and {deletionImpact.summary.total_workflow_steps - 5} more
+                          {t('rules.dialogs.delete.andMore', { count: deletionImpact.summary.total_workflow_steps - 5 }) as string}
                         </Typography>
                       </li>
                     )}
@@ -750,7 +751,7 @@ export default function RulesManagement() {
               {deletionImpact.summary.total_workflows_to_delete > 0 && (
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" color="error">
-                    {deletionImpact.summary.total_workflows_to_delete} Empty Workflow(s) will be deleted:
+                    {t('rules.dialogs.delete.emptyWorkflowsCount', { count: deletionImpact.summary.total_workflows_to_delete }) as string}
                   </Typography>
                   <Box component="ul" sx={{ mt: 0.5, pl: 2, mb: 0 }}>
                     {deletionImpact.impact.workflows_to_delete.map((wf) => (
@@ -767,26 +768,26 @@ export default function RulesManagement() {
               <Divider sx={{ my: 2 }} />
 
               <Typography variant="body2" sx={{ mb: 1 }}>
-                To confirm this cascade deletion, type the rule ID: <strong>{deletionImpact.resource_id}</strong>
+                {t('rules.dialogs.delete.confirmationPrompt', { id: deletionImpact.resource_id }) as string}
               </Typography>
               <TextField
                 fullWidth
                 size="small"
-                placeholder={`Type ${deletionImpact.resource_id} to confirm`}
+                placeholder={t('rules.dialogs.delete.confirmationPlaceholder', { id: deletionImpact.resource_id }) as string}
                 value={confirmationId}
                 onChange={(e) => setConfirmationId(e.target.value)}
                 error={confirmationId !== '' && !isConfirmationValid()}
-                helperText={confirmationId !== '' && !isConfirmationValid() ? 'ID does not match' : ''}
+                helperText={confirmationId !== '' && !isConfirmationValid() ? t('rules.dialogs.delete.idMismatch') as string : ''}
               />
             </Box>
           ) : (
             <Typography variant="body1" id="delete-dialog-description">
-              Are you sure you want to delete rule "{ruleToDelete?.name}"? This action cannot be undone.
+              {t('rules.dialogs.delete.confirmation', { name: ruleToDelete?.name }) as string}
             </Typography>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={closeDeleteDialog}>Cancel</Button>
+          <Button onClick={closeDeleteDialog}>{t('common.cancel') as string}</Button>
           <Button
             onClick={() => {
               if (ruleToDelete) {
@@ -798,10 +799,10 @@ export default function RulesManagement() {
             variant="contained"
             disabled={isCheckingImpact || (deletionImpact?.has_cascading_impact && !isConfirmationValid())}
           >
-            {deletionImpact?.has_cascading_impact ? 'Delete All' : 'Delete'}
+            {deletionImpact?.has_cascading_impact ? t('rules.dialogs.delete.deleteAll') as string : t('common.delete') as string}
           </Button>
         </DialogActions>
       </Dialog>
     </Box>
   );
-} 
+}

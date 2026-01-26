@@ -43,6 +43,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import DownloadIcon from '@mui/icons-material/Download';
 import { useSnackbar } from 'notistack';
+import { useTranslation } from 'react-i18next';
 
 import {
   SSOSettings,
@@ -69,6 +70,7 @@ import {
 } from '../../services/sso';
 
 const SSOSettingsPage: React.FC = () => {
+  const { t } = useTranslation('admin');
   const [settings, setSettings] = useState<SSOSettings | null>(null);
   const [providers, setProviders] = useState<SSOProvider[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,12 +96,12 @@ const SSOSettingsPage: React.FC = () => {
       setProviders(providersData);
     } catch (err: any) {
       console.error('Failed to fetch SSO data:', err);
-      setError(err.message || 'Failed to load SSO settings');
-      enqueueSnackbar('Failed to load SSO settings', { variant: 'error' });
+      setError(err.message || t('ssoSettings.messages.loadFailed') as string);
+      enqueueSnackbar(t('ssoSettings.messages.loadFailed') as string, { variant: 'error' });
     } finally {
       setLoading(false);
     }
-  }, [enqueueSnackbar]);
+  }, [enqueueSnackbar, t]);
 
   useEffect(() => {
     fetchData();
@@ -113,9 +115,9 @@ const SSOSettingsPage: React.FC = () => {
       const update: SSOSettingsUpdate = { [field]: value };
       await updateSSOSettings(update);
       setSettings({ ...settings, [field]: value });
-      enqueueSnackbar('Settings updated successfully', { variant: 'success' });
+      enqueueSnackbar(t('ssoSettings.messages.settingsUpdated') as string, { variant: 'success' });
     } catch (err: any) {
-      enqueueSnackbar(err.message || 'Failed to update settings', { variant: 'error' });
+      enqueueSnackbar(err.message || t('ssoSettings.messages.updateFailed') as string, { variant: 'error' });
     } finally {
       setSaving(false);
     }
@@ -132,7 +134,7 @@ const SSOSettingsPage: React.FC = () => {
       setEditingProvider(fullProvider);
       setProviderDialogOpen(true);
     } catch (err: any) {
-      enqueueSnackbar(err.message || 'Failed to load provider details', { variant: 'error' });
+      enqueueSnackbar(err.message || t('ssoSettings.messages.loadProviderFailed') as string, { variant: 'error' });
     }
   };
 
@@ -147,9 +149,9 @@ const SSOSettingsPage: React.FC = () => {
     try {
       await deleteSSOProvider(providerToDelete.id);
       setProviders(providers.filter(p => p.id !== providerToDelete.id));
-      enqueueSnackbar('Provider deleted successfully', { variant: 'success' });
+      enqueueSnackbar(t('ssoSettings.messages.providerDeleted') as string, { variant: 'success' });
     } catch (err: any) {
-      enqueueSnackbar(err.message || 'Failed to delete provider', { variant: 'error' });
+      enqueueSnackbar(err.message || t('ssoSettings.messages.deleteFailed') as string, { variant: 'error' });
     } finally {
       setDeleteDialogOpen(false);
       setProviderToDelete(null);
@@ -161,12 +163,12 @@ const SSOSettingsPage: React.FC = () => {
     try {
       const result = await testSSOProvider(providerId);
       if (result.success) {
-        enqueueSnackbar('Connection test successful', { variant: 'success' });
+        enqueueSnackbar(t('ssoSettings.messages.testSuccess') as string, { variant: 'success' });
       } else {
-        enqueueSnackbar(result.message || 'Connection test failed', { variant: 'error' });
+        enqueueSnackbar(result.message || t('ssoSettings.messages.testFailed') as string, { variant: 'error' });
       }
     } catch (err: any) {
-      enqueueSnackbar(err.message || 'Connection test failed', { variant: 'error' });
+      enqueueSnackbar(err.message || t('ssoSettings.messages.testFailed') as string, { variant: 'error' });
     } finally {
       setTestingProvider(null);
     }
@@ -192,13 +194,13 @@ const SSOSettingsPage: React.FC = () => {
         a.download = `sp-certificate-${providerId}.pem`;
         a.click();
         URL.revokeObjectURL(url);
-        enqueueSnackbar('Certificate downloaded', { variant: 'success' });
+        enqueueSnackbar(t('ssoSettings.messages.certificateDownloaded') as string, { variant: 'success' });
       } else {
-        enqueueSnackbar('Certificate not found in metadata', { variant: 'error' });
+        enqueueSnackbar(t('ssoSettings.messages.certificateNotFound') as string, { variant: 'error' });
       }
     } catch (error) {
       console.error('Failed to download certificate:', error);
-      enqueueSnackbar('Failed to download certificate', { variant: 'error' });
+      enqueueSnackbar(t('ssoSettings.messages.certificateDownloadFailed') as string, { variant: 'error' });
     }
   };
 
@@ -206,15 +208,15 @@ const SSOSettingsPage: React.FC = () => {
     try {
       if (editingProvider) {
         await updateSSOProvider(editingProvider.id, data as UpdateSSOProviderRequest);
-        enqueueSnackbar('Provider updated successfully', { variant: 'success' });
+        enqueueSnackbar(t('ssoSettings.messages.providerUpdated') as string, { variant: 'success' });
       } else {
         await createSSOProvider(data as CreateSSOProviderRequest);
-        enqueueSnackbar('Provider created successfully', { variant: 'success' });
+        enqueueSnackbar(t('ssoSettings.messages.providerCreated') as string, { variant: 'success' });
       }
       setProviderDialogOpen(false);
       fetchData();
     } catch (err: any) {
-      enqueueSnackbar(err.message || 'Failed to save provider', { variant: 'error' });
+      enqueueSnackbar(err.message || t('ssoSettings.messages.saveProviderFailed') as string, { variant: 'error' });
     }
   };
 
@@ -253,10 +255,10 @@ const SSOSettingsPage: React.FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
         <Box>
           <Typography variant="h4" component="h1" gutterBottom>
-            SSO Settings
+            {t('ssoSettings.pageTitle') as string}
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Configure Single Sign-On providers and authentication options
+            {t('ssoSettings.pageDescription') as string}
           </Typography>
         </Box>
       </Box>
@@ -264,10 +266,10 @@ const SSOSettingsPage: React.FC = () => {
       {/* Global Settings */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" gutterBottom>
-          Authentication Methods
+          {t('ssoSettings.authMethods.title') as string}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Enable or disable authentication methods globally
+          {t('ssoSettings.authMethods.description') as string}
         </Typography>
 
         <Grid container spacing={3}>
@@ -280,10 +282,10 @@ const SSOSettingsPage: React.FC = () => {
                   disabled={saving}
                 />
               }
-              label="Local Authentication"
+              label={t('ssoSettings.authMethods.localAuth') as string}
             />
             <Typography variant="caption" display="block" color="text.secondary">
-              Username/password login
+              {t('ssoSettings.authMethods.localAuthDescription') as string}
             </Typography>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
@@ -295,10 +297,10 @@ const SSOSettingsPage: React.FC = () => {
                   disabled={saving}
                 />
               }
-              label="LDAP Authentication"
+              label={t('ssoSettings.authMethods.ldapAuth') as string}
             />
             <Typography variant="caption" display="block" color="text.secondary">
-              Active Directory / LDAP
+              {t('ssoSettings.authMethods.ldapAuthDescription') as string}
             </Typography>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
@@ -310,10 +312,10 @@ const SSOSettingsPage: React.FC = () => {
                   disabled={saving}
                 />
               }
-              label="SAML Authentication"
+              label={t('ssoSettings.authMethods.samlAuth') as string}
             />
             <Typography variant="caption" display="block" color="text.secondary">
-              SAML 2.0 SSO
+              {t('ssoSettings.authMethods.samlAuthDescription') as string}
             </Typography>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
@@ -325,10 +327,10 @@ const SSOSettingsPage: React.FC = () => {
                   disabled={saving}
                 />
               }
-              label="OAuth/OIDC Authentication"
+              label={t('ssoSettings.authMethods.oauthAuth') as string}
             />
             <Typography variant="caption" display="block" color="text.secondary">
-              OpenID Connect / OAuth 2.0
+              {t('ssoSettings.authMethods.oauthAuthDescription') as string}
             </Typography>
           </Grid>
         </Grid>
@@ -336,10 +338,10 @@ const SSOSettingsPage: React.FC = () => {
         <Divider sx={{ my: 3 }} />
 
         <Typography variant="h6" gutterBottom>
-          User Provisioning
+          {t('ssoSettings.provisioning.title') as string}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Configure automatic user creation from SSO logins
+          {t('ssoSettings.provisioning.description') as string}
         </Typography>
 
         <Grid container spacing={3}>
@@ -352,10 +354,10 @@ const SSOSettingsPage: React.FC = () => {
                   disabled={saving}
                 />
               }
-              label="Auto-create Users"
+              label={t('ssoSettings.provisioning.autoCreateUsers') as string}
             />
             <Typography variant="caption" display="block" color="text.secondary">
-              Automatically create user accounts for new SSO logins
+              {t('ssoSettings.provisioning.autoCreateUsersDescription') as string}
             </Typography>
           </Grid>
           <Grid item xs={12} sm={6}>
@@ -367,10 +369,10 @@ const SSOSettingsPage: React.FC = () => {
                   disabled={saving}
                 />
               }
-              label="Auto-enable Users"
+              label={t('ssoSettings.provisioning.autoEnableUsers') as string}
             />
             <Typography variant="caption" display="block" color="text.secondary">
-              Automatically enable newly created SSO users (otherwise admin approval required)
+              {t('ssoSettings.provisioning.autoEnableUsersDescription') as string}
             </Typography>
           </Grid>
         </Grid>
@@ -380,20 +382,20 @@ const SSOSettingsPage: React.FC = () => {
       <Paper sx={{ p: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h6">
-            SSO Providers
+            {t('ssoSettings.providers.title') as string}
           </Typography>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={handleAddProvider}
           >
-            Add Provider
+            {t('ssoSettings.providers.addProvider') as string}
           </Button>
         </Box>
 
         {providers.length === 0 ? (
           <Alert severity="info">
-            No SSO providers configured. Click "Add Provider" to create one.
+            {t('ssoSettings.providers.noProviders') as string}
           </Alert>
         ) : (
           <Grid container spacing={2}>
@@ -414,35 +416,35 @@ const SSOSettingsPage: React.FC = () => {
                       <Chip
                         size="small"
                         icon={provider.enabled ? <CheckCircleIcon /> : <CancelIcon />}
-                        label={provider.enabled ? 'Enabled' : 'Disabled'}
+                        label={provider.enabled ? t('ssoSettings.providers.enabled') as string : t('ssoSettings.providers.disabled') as string}
                         color={provider.enabled ? 'success' : 'default'}
                       />
                     </Box>
                     {/* Show callback URL for OAuth/OIDC providers */}
                     {(provider.provider_type === 'oidc' || provider.provider_type === 'oauth2') && (
                       <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block', wordBreak: 'break-all' }}>
-                        Callback URL: {window.location.origin}/api/auth/oauth/{provider.id}/callback
+                        {t('ssoSettings.providers.callbackUrl') as string}: {window.location.origin}/api/auth/oauth/{provider.id}/callback
                       </Typography>
                     )}
                     {/* Show ACS URL and Metadata for SAML providers */}
                     {provider.provider_type === 'saml' && (
                       <>
                         <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block', wordBreak: 'break-all' }}>
-                          ACS URL: {window.location.origin}/api/auth/saml/{provider.id}/acs
+                          {t('ssoSettings.providers.acsUrl') as string}: {window.location.origin}/api/auth/saml/{provider.id}/acs
                         </Typography>
                         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-all' }}>
-                          Metadata: <a href={`${window.location.origin}/api/auth/saml/${provider.id}/metadata`} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>View XML</a>
+                          {t('ssoSettings.providers.metadata') as string}: <a href={`${window.location.origin}/api/auth/saml/${provider.id}/metadata`} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>{t('ssoSettings.providers.viewXml') as string}</a>
                         </Typography>
                       </>
                     )}
                   </CardContent>
                   <CardActions>
-                    <Tooltip title="Edit">
+                    <Tooltip title={t('common.edit') as string}>
                       <IconButton size="small" onClick={() => handleEditProvider(provider)}>
                         <EditIcon />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title="Test Connection">
+                    <Tooltip title={t('ssoSettings.providers.testConnection') as string}>
                       <IconButton
                         size="small"
                         onClick={() => handleTestProvider(provider.id)}
@@ -456,7 +458,7 @@ const SSOSettingsPage: React.FC = () => {
                       </IconButton>
                     </Tooltip>
                     {provider.provider_type === 'saml' && (
-                      <Tooltip title="Download SP Certificate">
+                      <Tooltip title={t('ssoSettings.providers.downloadCertificate') as string}>
                         <IconButton
                           size="small"
                           onClick={() => handleDownloadCertificate(provider.id)}
@@ -465,7 +467,7 @@ const SSOSettingsPage: React.FC = () => {
                         </IconButton>
                       </Tooltip>
                     )}
-                    <Tooltip title="Delete">
+                    <Tooltip title={t('common.delete') as string}>
                       <IconButton
                         size="small"
                         color="error"
@@ -492,17 +494,16 @@ const SSOSettingsPage: React.FC = () => {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle>Delete Provider</DialogTitle>
+        <DialogTitle>{t('ssoSettings.dialogs.deleteProvider.title') as string}</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to delete the provider "{providerToDelete?.name}"?
-            This action cannot be undone and will unlink all associated user identities.
+            {t('ssoSettings.dialogs.deleteProvider.confirmation', { name: providerToDelete?.name }) as string}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setDeleteDialogOpen(false)}>{t('common.cancel') as string}</Button>
           <Button onClick={handleDeleteConfirm} color="error" variant="contained">
-            Delete
+            {t('common.delete') as string}
           </Button>
         </DialogActions>
       </Dialog>
@@ -519,6 +520,7 @@ interface ProviderDialogProps {
 }
 
 const ProviderDialog: React.FC<ProviderDialogProps> = ({ open, provider, onClose, onSave }) => {
+  const { t } = useTranslation('admin');
   const [saving, setSaving] = useState(false);
   const [providerType, setProviderType] = useState<SSOProviderType>('ldap');
   const [name, setName] = useState('');
@@ -637,14 +639,14 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({ open, provider, onClose
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
-        {provider ? 'Edit Provider' : 'Add Provider'}
+        {provider ? t('ssoSettings.dialogs.providerForm.editTitle') as string : t('ssoSettings.dialogs.providerForm.addTitle') as string}
       </DialogTitle>
       <DialogContent>
         <Grid container spacing={2} sx={{ mt: 1 }}>
           <Grid item xs={12} sm={6}>
             <TextField
               fullWidth
-              label="Provider Name"
+              label={t('ssoSettings.dialogs.providerForm.providerName') as string}
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
@@ -652,16 +654,16 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({ open, provider, onClose
           </Grid>
           <Grid item xs={12} sm={6}>
             <FormControl fullWidth disabled={!!provider}>
-              <InputLabel>Provider Type</InputLabel>
+              <InputLabel>{t('ssoSettings.dialogs.providerForm.providerType') as string}</InputLabel>
               <Select
                 value={providerType}
-                label="Provider Type"
+                label={t('ssoSettings.dialogs.providerForm.providerType') as string}
                 onChange={(e) => setProviderType(e.target.value as SSOProviderType)}
               >
-                <MenuItem value="ldap">LDAP / Active Directory</MenuItem>
-                <MenuItem value="saml">SAML 2.0</MenuItem>
-                <MenuItem value="oidc">OpenID Connect</MenuItem>
-                <MenuItem value="oauth2">OAuth 2.0</MenuItem>
+                <MenuItem value="ldap">{t('ssoSettings.providerTypes.ldap') as string}</MenuItem>
+                <MenuItem value="saml">{t('ssoSettings.providerTypes.saml') as string}</MenuItem>
+                <MenuItem value="oidc">{t('ssoSettings.providerTypes.oidc') as string}</MenuItem>
+                <MenuItem value="oauth2">{t('ssoSettings.providerTypes.oauth2') as string}</MenuItem>
               </Select>
             </FormControl>
           </Grid>
@@ -673,7 +675,7 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({ open, provider, onClose
                   onChange={(e) => setEnabled(e.target.checked)}
                 />
               }
-              label="Enabled"
+              label={t('ssoSettings.dialogs.providerForm.enabled') as string}
             />
           </Grid>
 
@@ -690,13 +692,13 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({ open, provider, onClose
         </Grid>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t('common.cancel') as string}</Button>
         <Button
           onClick={handleSave}
           variant="contained"
           disabled={saving || !name}
         >
-          {saving ? <CircularProgress size={24} /> : 'Save'}
+          {saving ? <CircularProgress size={24} /> : t('common.save') as string}
         </Button>
       </DialogActions>
     </Dialog>
@@ -709,112 +711,115 @@ interface LDAPConfigFormProps {
   onChange: (config: LDAPConfig) => void;
 }
 
-const LDAPConfigForm: React.FC<LDAPConfigFormProps> = ({ config, onChange }) => (
-  <>
-    <Grid item xs={12}>
-      <Typography variant="subtitle2" gutterBottom>
-        LDAP Configuration
-      </Typography>
-    </Grid>
-    <Grid item xs={12}>
-      <TextField
-        fullWidth
-        label="Server URL"
-        value={config.server_url}
-        onChange={(e) => onChange({ ...config, server_url: e.target.value })}
-        placeholder="ldaps://ldap.example.com:636"
-        required
-        helperText="Use ldaps:// for secure connections"
-      />
-    </Grid>
-    <Grid item xs={12} sm={6}>
-      <TextField
-        fullWidth
-        label="Base DN"
-        value={config.base_dn}
-        onChange={(e) => onChange({ ...config, base_dn: e.target.value })}
-        placeholder="dc=example,dc=com"
-        required
-      />
-    </Grid>
-    <Grid item xs={12} sm={6}>
-      <TextField
-        fullWidth
-        label="User Search Filter"
-        value={config.user_search_filter}
-        onChange={(e) => onChange({ ...config, user_search_filter: e.target.value })}
-        helperText="Use {{username}} as placeholder"
-      />
-    </Grid>
-    <Grid item xs={12} sm={6}>
-      <TextField
-        fullWidth
-        label="Bind DN (optional)"
-        value={config.bind_dn || ''}
-        onChange={(e) => onChange({ ...config, bind_dn: e.target.value })}
-        placeholder="cn=admin,dc=example,dc=com"
-      />
-    </Grid>
-    <Grid item xs={12} sm={6}>
-      <TextField
-        fullWidth
-        label="Bind Password"
-        type="password"
-        value={config.bind_password || ''}
-        onChange={(e) => onChange({ ...config, bind_password: e.target.value })}
-      />
-    </Grid>
-    <Grid item xs={12} sm={6}>
-      <TextField
-        fullWidth
-        label="Email Attribute"
-        value={config.email_attribute}
-        onChange={(e) => onChange({ ...config, email_attribute: e.target.value })}
-      />
-    </Grid>
-    <Grid item xs={12} sm={6}>
-      <TextField
-        fullWidth
-        label="Username Attribute"
-        value={config.username_attribute || ''}
-        onChange={(e) => onChange({ ...config, username_attribute: e.target.value })}
-        placeholder="sAMAccountName"
-        helperText="LDAP attribute containing username (e.g., sAMAccountName, uid)"
-      />
-    </Grid>
-    <Grid item xs={12} sm={6}>
-      <TextField
-        fullWidth
-        label="Connection Timeout (seconds)"
-        type="number"
-        value={config.connection_timeout_seconds}
-        onChange={(e) => onChange({ ...config, connection_timeout_seconds: parseInt(e.target.value) || 10 })}
-      />
-    </Grid>
-    <Grid item xs={12} sm={6}>
-      <FormControlLabel
-        control={
-          <Switch
-            checked={config.use_start_tls}
-            onChange={(e) => onChange({ ...config, use_start_tls: e.target.checked })}
-          />
-        }
-        label="Use StartTLS"
-      />
-    </Grid>
-    <Grid item xs={12} sm={6}>
-      <FormControlLabel
-        control={
-          <Switch
-            checked={config.skip_cert_verify}
-            onChange={(e) => onChange({ ...config, skip_cert_verify: e.target.checked })}
-          />
-        }
-        label="Skip Certificate Verification (testing only)"
-      />
-    </Grid>
-  </>
-);
+const LDAPConfigForm: React.FC<LDAPConfigFormProps> = ({ config, onChange }) => {
+  const { t } = useTranslation('admin');
+  return (
+    <>
+      <Grid item xs={12}>
+        <Typography variant="subtitle2" gutterBottom>
+          {t('ssoSettings.ldapConfig.title') as string}
+        </Typography>
+      </Grid>
+      <Grid item xs={12}>
+        <TextField
+          fullWidth
+          label={t('ssoSettings.ldapConfig.serverUrl') as string}
+          value={config.server_url}
+          onChange={(e) => onChange({ ...config, server_url: e.target.value })}
+          placeholder="ldaps://ldap.example.com:636"
+          required
+          helperText={t('ssoSettings.ldapConfig.serverUrlHelper') as string}
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          label={t('ssoSettings.ldapConfig.baseDn') as string}
+          value={config.base_dn}
+          onChange={(e) => onChange({ ...config, base_dn: e.target.value })}
+          placeholder="dc=example,dc=com"
+          required
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          label={t('ssoSettings.ldapConfig.userSearchFilter') as string}
+          value={config.user_search_filter}
+          onChange={(e) => onChange({ ...config, user_search_filter: e.target.value })}
+          helperText={t('ssoSettings.ldapConfig.userSearchFilterHelper') as string}
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          label={t('ssoSettings.ldapConfig.bindDn') as string}
+          value={config.bind_dn || ''}
+          onChange={(e) => onChange({ ...config, bind_dn: e.target.value })}
+          placeholder="cn=admin,dc=example,dc=com"
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          label={t('ssoSettings.ldapConfig.bindPassword') as string}
+          type="password"
+          value={config.bind_password || ''}
+          onChange={(e) => onChange({ ...config, bind_password: e.target.value })}
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          label={t('ssoSettings.ldapConfig.emailAttribute') as string}
+          value={config.email_attribute}
+          onChange={(e) => onChange({ ...config, email_attribute: e.target.value })}
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          label={t('ssoSettings.ldapConfig.usernameAttribute') as string}
+          value={config.username_attribute || ''}
+          onChange={(e) => onChange({ ...config, username_attribute: e.target.value })}
+          placeholder="sAMAccountName"
+          helperText={t('ssoSettings.ldapConfig.usernameAttributeHelper') as string}
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          label={t('ssoSettings.ldapConfig.connectionTimeout') as string}
+          type="number"
+          value={config.connection_timeout_seconds}
+          onChange={(e) => onChange({ ...config, connection_timeout_seconds: parseInt(e.target.value) || 10 })}
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={config.use_start_tls}
+              onChange={(e) => onChange({ ...config, use_start_tls: e.target.checked })}
+            />
+          }
+          label={t('ssoSettings.ldapConfig.useStartTls') as string}
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={config.skip_cert_verify}
+              onChange={(e) => onChange({ ...config, skip_cert_verify: e.target.checked })}
+            />
+          }
+          label={t('ssoSettings.ldapConfig.skipCertVerify') as string}
+        />
+      </Grid>
+    </>
+  );
+};
 
 // SAML Config Form
 interface SAMLConfigFormProps {
@@ -822,85 +827,88 @@ interface SAMLConfigFormProps {
   onChange: (config: SAMLConfig) => void;
 }
 
-const SAMLConfigForm: React.FC<SAMLConfigFormProps> = ({ config, onChange }) => (
-  <>
-    <Grid item xs={12}>
-      <Typography variant="subtitle2" gutterBottom>
-        SAML Configuration
-      </Typography>
-    </Grid>
-    <Grid item xs={12} sm={6}>
-      <TextField
-        fullWidth
-        label="SP Entity ID"
-        value={config.sp_entity_id}
-        onChange={(e) => onChange({ ...config, sp_entity_id: e.target.value })}
-        required
-        helperText="Your application's SAML identifier"
-      />
-    </Grid>
-    <Grid item xs={12} sm={6}>
-      <TextField
-        fullWidth
-        label="IdP Entity ID"
-        value={config.idp_entity_id}
-        onChange={(e) => onChange({ ...config, idp_entity_id: e.target.value })}
-        required
-      />
-    </Grid>
-    <Grid item xs={12}>
-      <TextField
-        fullWidth
-        label="IdP SSO URL"
-        value={config.idp_sso_url}
-        onChange={(e) => onChange({ ...config, idp_sso_url: e.target.value })}
-        required
-        placeholder="https://idp.example.com/sso"
-      />
-    </Grid>
-    <Grid item xs={12}>
-      <TextField
-        fullWidth
-        multiline
-        rows={4}
-        label="IdP Certificate"
-        value={config.idp_certificate}
-        onChange={(e) => onChange({ ...config, idp_certificate: e.target.value })}
-        required
-        placeholder="-----BEGIN CERTIFICATE-----..."
-      />
-    </Grid>
-    <Grid item xs={12} sm={6}>
-      <TextField
-        fullWidth
-        label="Email Attribute"
-        value={config.email_attribute}
-        onChange={(e) => onChange({ ...config, email_attribute: e.target.value })}
-      />
-    </Grid>
-    <Grid item xs={12} sm={6}>
-      <TextField
-        fullWidth
-        label="Username Attribute"
-        value={config.username_attribute || ''}
-        onChange={(e) => onChange({ ...config, username_attribute: e.target.value })}
-        placeholder="uid"
-        helperText="SAML attribute containing username (e.g., uid, username)"
-      />
-    </Grid>
-    <Grid item xs={12} sm={6}>
-      <FormControlLabel
-        control={
-          <Switch
-            checked={config.require_signed_assertions}
-            onChange={(e) => onChange({ ...config, require_signed_assertions: e.target.checked })}
-          />
-        }
-        label="Require Signed Assertions"
-      />
-    </Grid>
-  </>
-);
+const SAMLConfigForm: React.FC<SAMLConfigFormProps> = ({ config, onChange }) => {
+  const { t } = useTranslation('admin');
+  return (
+    <>
+      <Grid item xs={12}>
+        <Typography variant="subtitle2" gutterBottom>
+          {t('ssoSettings.samlConfig.title') as string}
+        </Typography>
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          label={t('ssoSettings.samlConfig.spEntityId') as string}
+          value={config.sp_entity_id}
+          onChange={(e) => onChange({ ...config, sp_entity_id: e.target.value })}
+          required
+          helperText={t('ssoSettings.samlConfig.spEntityIdHelper') as string}
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          label={t('ssoSettings.samlConfig.idpEntityId') as string}
+          value={config.idp_entity_id}
+          onChange={(e) => onChange({ ...config, idp_entity_id: e.target.value })}
+          required
+        />
+      </Grid>
+      <Grid item xs={12}>
+        <TextField
+          fullWidth
+          label={t('ssoSettings.samlConfig.idpSsoUrl') as string}
+          value={config.idp_sso_url}
+          onChange={(e) => onChange({ ...config, idp_sso_url: e.target.value })}
+          required
+          placeholder="https://idp.example.com/sso"
+        />
+      </Grid>
+      <Grid item xs={12}>
+        <TextField
+          fullWidth
+          multiline
+          rows={4}
+          label={t('ssoSettings.samlConfig.idpCertificate') as string}
+          value={config.idp_certificate}
+          onChange={(e) => onChange({ ...config, idp_certificate: e.target.value })}
+          required
+          placeholder="-----BEGIN CERTIFICATE-----..."
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          label={t('ssoSettings.samlConfig.emailAttribute') as string}
+          value={config.email_attribute}
+          onChange={(e) => onChange({ ...config, email_attribute: e.target.value })}
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          label={t('ssoSettings.samlConfig.usernameAttribute') as string}
+          value={config.username_attribute || ''}
+          onChange={(e) => onChange({ ...config, username_attribute: e.target.value })}
+          placeholder="uid"
+          helperText={t('ssoSettings.samlConfig.usernameAttributeHelper') as string}
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={config.require_signed_assertions}
+              onChange={(e) => onChange({ ...config, require_signed_assertions: e.target.checked })}
+            />
+          }
+          label={t('ssoSettings.samlConfig.requireSignedAssertions') as string}
+        />
+      </Grid>
+    </>
+  );
+};
 
 // OAuth Config Form
 interface OAuthConfigFormProps {
@@ -908,110 +916,113 @@ interface OAuthConfigFormProps {
   onChange: (config: OAuthConfig) => void;
 }
 
-const OAuthConfigForm: React.FC<OAuthConfigFormProps> = ({ config, onChange }) => (
-  <>
-    <Grid item xs={12}>
-      <Typography variant="subtitle2" gutterBottom>
-        OAuth/OIDC Configuration
-      </Typography>
-    </Grid>
-    <Grid item xs={12}>
-      <FormControlLabel
-        control={
-          <Switch
-            checked={config.is_oidc}
-            onChange={(e) => onChange({ ...config, is_oidc: e.target.checked })}
-          />
-        }
-        label="OpenID Connect (OIDC)"
-      />
-    </Grid>
-    <Grid item xs={12} sm={6}>
-      <TextField
-        fullWidth
-        label="Client ID"
-        value={config.client_id}
-        onChange={(e) => onChange({ ...config, client_id: e.target.value })}
-        required
-      />
-    </Grid>
-    <Grid item xs={12} sm={6}>
-      <TextField
-        fullWidth
-        label="Client Secret"
-        type="password"
-        value={config.client_secret || ''}
-        onChange={(e) => onChange({ ...config, client_secret: e.target.value })}
-      />
-    </Grid>
-    {config.is_oidc && (
+const OAuthConfigForm: React.FC<OAuthConfigFormProps> = ({ config, onChange }) => {
+  const { t } = useTranslation('admin');
+  return (
+    <>
       <Grid item xs={12}>
-        <TextField
-          fullWidth
-          label="Discovery URL"
-          value={config.discovery_url || ''}
-          onChange={(e) => onChange({ ...config, discovery_url: e.target.value })}
-          placeholder="https://idp.example.com/.well-known/openid-configuration"
-          helperText="OIDC discovery endpoint (auto-configures other URLs)"
+        <Typography variant="subtitle2" gutterBottom>
+          {t('ssoSettings.oauthConfig.title') as string}
+        </Typography>
+      </Grid>
+      <Grid item xs={12}>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={config.is_oidc}
+              onChange={(e) => onChange({ ...config, is_oidc: e.target.checked })}
+            />
+          }
+          label={t('ssoSettings.oauthConfig.isOidc') as string}
         />
       </Grid>
-    )}
-    {!config.is_oidc && (
-      <>
-        <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
-            label="Authorization URL"
-            value={config.authorization_url || ''}
-            onChange={(e) => onChange({ ...config, authorization_url: e.target.value })}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
-            label="Token URL"
-            value={config.token_url || ''}
-            onChange={(e) => onChange({ ...config, token_url: e.target.value })}
-          />
-        </Grid>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          label={t('ssoSettings.oauthConfig.clientId') as string}
+          value={config.client_id}
+          onChange={(e) => onChange({ ...config, client_id: e.target.value })}
+          required
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          label={t('ssoSettings.oauthConfig.clientSecret') as string}
+          type="password"
+          value={config.client_secret || ''}
+          onChange={(e) => onChange({ ...config, client_secret: e.target.value })}
+        />
+      </Grid>
+      {config.is_oidc && (
         <Grid item xs={12}>
           <TextField
             fullWidth
-            label="User Info URL"
-            value={config.userinfo_url || ''}
-            onChange={(e) => onChange({ ...config, userinfo_url: e.target.value })}
+            label={t('ssoSettings.oauthConfig.discoveryUrl') as string}
+            value={config.discovery_url || ''}
+            onChange={(e) => onChange({ ...config, discovery_url: e.target.value })}
+            placeholder="https://idp.example.com/.well-known/openid-configuration"
+            helperText={t('ssoSettings.oauthConfig.discoveryUrlHelper') as string}
           />
         </Grid>
-      </>
-    )}
-    <Grid item xs={12} sm={6}>
-      <TextField
-        fullWidth
-        label="Scopes"
-        value={config.scopes.join(' ')}
-        onChange={(e) => onChange({ ...config, scopes: e.target.value.split(' ').filter(s => s) })}
-        helperText="Space-separated list"
-      />
-    </Grid>
-    <Grid item xs={12} sm={6}>
-      <TextField
-        fullWidth
-        label="Email Attribute"
-        value={config.email_attribute}
-        onChange={(e) => onChange({ ...config, email_attribute: e.target.value })}
-      />
-    </Grid>
-    <Grid item xs={12} sm={6}>
-      <TextField
-        fullWidth
-        label="Username Attribute"
-        value={config.username_attribute || ''}
-        onChange={(e) => onChange({ ...config, username_attribute: e.target.value })}
-        placeholder="preferred_username"
-        helperText="Claim containing username (e.g., preferred_username, login, nickname)"
-      />
-    </Grid>
-  </>
-);
+      )}
+      {!config.is_oidc && (
+        <>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label={t('ssoSettings.oauthConfig.authorizationUrl') as string}
+              value={config.authorization_url || ''}
+              onChange={(e) => onChange({ ...config, authorization_url: e.target.value })}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label={t('ssoSettings.oauthConfig.tokenUrl') as string}
+              value={config.token_url || ''}
+              onChange={(e) => onChange({ ...config, token_url: e.target.value })}
+            />
+          </Grid>
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label={t('ssoSettings.oauthConfig.userInfoUrl') as string}
+              value={config.userinfo_url || ''}
+              onChange={(e) => onChange({ ...config, userinfo_url: e.target.value })}
+            />
+          </Grid>
+        </>
+      )}
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          label={t('ssoSettings.oauthConfig.scopes') as string}
+          value={config.scopes.join(' ')}
+          onChange={(e) => onChange({ ...config, scopes: e.target.value.split(' ').filter(s => s) })}
+          helperText={t('ssoSettings.oauthConfig.scopesHelper') as string}
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          label={t('ssoSettings.oauthConfig.emailAttribute') as string}
+          value={config.email_attribute}
+          onChange={(e) => onChange({ ...config, email_attribute: e.target.value })}
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          label={t('ssoSettings.oauthConfig.usernameAttribute') as string}
+          value={config.username_attribute || ''}
+          onChange={(e) => onChange({ ...config, username_attribute: e.target.value })}
+          placeholder="preferred_username"
+          helperText={t('ssoSettings.oauthConfig.usernameAttributeHelper') as string}
+        />
+      </Grid>
+    </>
+  );
+};
 
 export default SSOSettingsPage;

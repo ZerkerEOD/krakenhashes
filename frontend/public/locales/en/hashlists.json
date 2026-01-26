@@ -1,0 +1,107 @@
+{
+  "title": "Hashlists",
+  "uploadButton": "Upload Hashlist",
+  "page": {
+    "title": "Hashlist Management",
+    "description": "Upload and manage password hash lists for cracking operations"
+  },
+  "columns": {
+    "name": "Name",
+    "hashType": "Hash Type",
+    "totalHashes": "Total Hashes",
+    "crackedHashes": "Cracked",
+    "progress": "Cracked (%)",
+    "client": "Client",
+    "status": "Status",
+    "createdAt": "Created",
+    "actions": "Actions"
+  },
+  "filters": {
+    "filterByName": "Filter by Name",
+    "status": "Status",
+    "all": "All"
+  },
+  "status": {
+    "uploading": "Uploading",
+    "processing": "Processing",
+    "ready": "Ready",
+    "error": "Error"
+  },
+  "table": {
+    "noHashlists": "No hashlists found."
+  },
+  "details": {
+    "title": "Hashlist Details",
+    "overview": "Overview",
+    "hashes": "Hashes",
+    "jobs": "Jobs",
+    "stats": "Statistics"
+  },
+  "upload": {
+    "title": "Upload New Hashlist",
+    "name": "Hashlist Name",
+    "hashType": "Hash Type",
+    "client": "Client (Optional)",
+    "file": "Hash File",
+    "selectFile": "Select File",
+    "uploading": "Uploading...",
+    "cancel": "Cancel"
+  },
+  "actions": {
+    "viewDetails": "View Details",
+    "createJob": "Create Job",
+    "download": "Download",
+    "delete": "Delete"
+  },
+  "confirmDelete": {
+    "title": "Confirm Deletion",
+    "message": "Are you sure you want to delete the hashlist \"{{name}}\"? This action cannot be undone.",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "deleting": "Deleting..."
+  },
+  "deletionProgress": {
+    "title": "Deleting Hashlist",
+    "successTitle": "Hashlist Deleted Successfully",
+    "complete": "Deletion Complete!",
+    "failed": "Deletion Failed",
+    "summary": "Summary:",
+    "totalProcessed": "Total hashes processed: {{value}}",
+    "orphansDeleted": "Orphan hashes deleted: {{value}}",
+    "sharedPreserved": "Shared hashes preserved: {{value}}",
+    "jobsDeleted": "Jobs deleted: {{value}}",
+    "duration": "Duration: {{duration}}",
+    "phase": "Phase {{current}}/{{total}}: {{label}}",
+    "phases": {
+      "preparing": "Preparing...",
+      "removingHashes": "Removing hashes",
+      "clearingReferences": "Clearing task references",
+      "cleaningOrphans": "Cleaning orphan hashes",
+      "finalizing": "Finalizing deletion"
+    },
+    "units": {
+      "hashes": "hashes",
+      "references": "references"
+    },
+    "error": "Error: {{error}}",
+    "done": "Done",
+    "close": "Close"
+  },
+  "notifications": {
+    "deleteSuccess": "Hashlist deleted successfully",
+    "uploadSuccess": "Hashlist uploaded successfully",
+    "downloaded": "Downloaded {{filename}}"
+  },
+  "errors": {
+    "loadFailed": "Error fetching hashlists.",
+    "uploadFailed": "Failed to upload hashlist",
+    "deleteFailed": "Deletion failed: {{error}}"
+  },
+  "hashDetails": {
+    "title": "Hash Details",
+    "originalHash": "Original Hash",
+    "password": "Password",
+    "cracked": "Cracked",
+    "crackedAt": "Cracked At"
+  }
+}

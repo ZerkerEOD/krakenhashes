@@ -22,6 +22,7 @@ import WarningIcon from '@mui/icons-material/Warning';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import BoltIcon from '@mui/icons-material/Bolt';
 import SearchIcon from '@mui/icons-material/Search';
+import { useTranslation } from 'react-i18next';
 import { HashType } from '../../../types/hashType';
 
 interface HashTypeTableProps {
@@ -37,6 +38,7 @@ const HashTypeTable: React.FC<HashTypeTableProps> = ({
   onDelete,
   loading = false,
 }) => {
+  const { t } = useTranslation('admin');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [searchTerm, setSearchTerm] = useState('');
@@ -74,7 +76,7 @@ const HashTypeTable: React.FC<HashTypeTableProps> = ({
       <Box sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
         <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />
         <TextField
-          placeholder="Search hash types..."
+          placeholder={t('hashTypes.searchPlaceholder') as string}
           variant="outlined"
           size="small"
           value={searchTerm}
@@ -82,7 +84,7 @@ const HashTypeTable: React.FC<HashTypeTableProps> = ({
           sx={{ flexGrow: 1, maxWidth: 400 }}
         />
         <Typography variant="body2" sx={{ ml: 2, color: 'text.secondary' }}>
-          {filteredHashTypes.length} hash types found
+          {t('hashTypes.hashTypesFound', { count: filteredHashTypes.length })}
         </Typography>
       </Box>
 
@@ -90,26 +92,26 @@ const HashTypeTable: React.FC<HashTypeTableProps> = ({
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell width="100">ID</TableCell>
-              <TableCell>Name</TableCell>
-              <TableCell>Description</TableCell>
-              <TableCell>Example</TableCell>
-              <TableCell align="center" width="80">Slow</TableCell>
-              <TableCell align="center" width="80">Salted</TableCell>
-              <TableCell align="center" width="120">Actions</TableCell>
+              <TableCell width="100">{t('hashTypes.table.id')}</TableCell>
+              <TableCell>{t('hashTypes.table.name')}</TableCell>
+              <TableCell>{t('hashTypes.table.description')}</TableCell>
+              <TableCell>{t('hashTypes.table.example')}</TableCell>
+              <TableCell align="center" width="80">{t('hashTypes.table.slow')}</TableCell>
+              <TableCell align="center" width="80">{t('hashTypes.table.salted')}</TableCell>
+              <TableCell align="center" width="120">{t('hashTypes.table.actions')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
                 <TableCell colSpan={7} align="center">
-                  Loading hash types...
+                  {t('hashTypes.table.loading')}
                 </TableCell>
               </TableRow>
             ) : paginatedHashTypes.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} align="center">
-                  No hash types found
+                  {t('hashTypes.table.noResults')}
                 </TableCell>
               </TableRow>
             ) : (
@@ -124,9 +126,9 @@ const HashTypeTable: React.FC<HashTypeTableProps> = ({
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Typography variant="body2">{hashType.name}</Typography>
                       {hashType.id === 1000 && (
-                        <Tooltip title="Requires special processing">
+                        <Tooltip title={t('hashTypes.tooltips.requiresProcessing') as string}>
                           <Chip
-                            label="Processing"
+                            label={t('hashTypes.tooltips.processing') as string}
                             size="small"
                             color="info"
                             icon={<BoltIcon />}
@@ -158,14 +160,14 @@ const HashTypeTable: React.FC<HashTypeTableProps> = ({
                   </TableCell>
                   <TableCell align="center">
                     {hashType.slow && (
-                      <Tooltip title="Slow hash algorithm (computationally expensive)">
+                      <Tooltip title={t('hashTypes.tooltips.slowAlgorithm') as string}>
                         <WarningIcon color="warning" fontSize="small" />
                       </Tooltip>
                     )}
                   </TableCell>
                   <TableCell align="center">
                     {hashType.is_salted && (
-                      <Tooltip title="Uses per-hash salts (affects keyspace calculation)">
+                      <Tooltip title={t('hashTypes.tooltips.salted') as string}>
                         <WaterDropIcon color="info" fontSize="small" />
                       </Tooltip>
                     )}
@@ -201,6 +203,7 @@ const HashTypeTable: React.FC<HashTypeTableProps> = ({
         page={page}
         onPageChange={handleChangePage}
         onRowsPerPageChange={handleChangeRowsPerPage}
+        labelRowsPerPage={t('pagination.rowsPerPage', { ns: 'common' }) as string}
       />
     </Box>
   );

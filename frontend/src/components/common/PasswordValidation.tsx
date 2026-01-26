@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Box, Typography } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -18,6 +19,7 @@ interface ValidationState {
 }
 
 const PasswordValidation: React.FC<PasswordValidationProps> = ({ password }) => {
+  const { t } = useTranslation('common');
   const [policy, setPolicy] = useState<PasswordPolicy | null>(null);
   const [validation, setValidation] = useState<ValidationState>({
     length: false,
@@ -56,35 +58,35 @@ const PasswordValidation: React.FC<PasswordValidationProps> = ({ password }) => 
   return (
     <Box sx={{ mt: 1 }}>
       <Typography variant="subtitle2" color="textSecondary" gutterBottom>
-        Password Requirements:
+        {t('passwordValidation.requirements')}
       </Typography>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
         <ValidationItem
           valid={validation.length}
-          text={`At least ${policy.minPasswordLength} characters`}
+          text={t('passwordValidation.minLength', { length: policy.minPasswordLength })}
         />
         {policy.requireUppercase && (
           <ValidationItem
             valid={validation.uppercase}
-            text="At least one uppercase letter"
+            text={t('passwordValidation.uppercase')}
           />
         )}
         {policy.requireLowercase && (
           <ValidationItem
             valid={validation.lowercase}
-            text="At least one lowercase letter"
+            text={t('passwordValidation.lowercase')}
           />
         )}
         {policy.requireNumbers && (
           <ValidationItem
             valid={validation.numbers}
-            text="At least one number"
+            text={t('passwordValidation.number')}
           />
         )}
         {policy.requireSpecialChars && (
           <ValidationItem
             valid={validation.specialChars}
-            text="At least one special character"
+            text={t('passwordValidation.specialChar')}
           />
         )}
       </Box>

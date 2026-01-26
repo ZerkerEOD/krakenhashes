@@ -1,0 +1,34 @@
+{
+  "appName": "KrakenHashes",
+  "menu": {
+    "dashboard": "Панель управления",
+    "jobs": "Задания",
+    "agents": "Агенты",
+    "hashlists": "Списки хешей",
+    "crackedHashes": "Взломанные хеши",
+    "wordlists": "Словари",
+    "rules": "Правила",
+    "clientManagement": "Управление клиентами",
+    "analytics": "Аналитика",
+    "about": "О программе",
+    "logout": "Выход"
+  },
+  "admin": {
+    "title": "Администрирование",
+    "settings": "Настройки администратора",
+    "userManagement": "Управление пользователями",
+    "presetJobs": "Шаблоны заданий",
+    "jobWorkflows": "Рабочие процессы",
+    "diagnostics": "Диагностика"
+  },
+  "userMenu": {
+    "userSettings": "Настройки пользователя",
+    "logout": "Выход",
+    "user": "Пользователь"
+  },
+  "aria": {
+    "toggleDrawer": "Переключить панель",
+    "mainNavigation": "Основная навигация",
+    "adminNavigation": "Навигация администратора"
+  }
+}

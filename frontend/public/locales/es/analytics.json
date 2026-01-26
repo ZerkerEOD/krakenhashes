@@ -1,0 +1,346 @@
+{
+  "title": "Analiticas de contrasenas",
+  "description": "Genera informes completos de analisis de contrasenas para evaluaciones de seguridad",
+  "selectHashlist": "Seleccionar lista de hashes",
+  "generateReport": "Generar informe",
+  "downloadReport": "Descargar informe",
+  "clientSelection": {
+    "title": "Seleccionar cliente",
+    "label": "Cliente",
+    "placeholder": "Selecciona un cliente"
+  },
+  "tabs": {
+    "generateNew": "Generar nuevo informe",
+    "viewPrevious": "Ver informes anteriores",
+    "all": "Todos"
+  },
+  "form": {
+    "startDate": "Fecha de inicio",
+    "endDate": "Fecha de fin",
+    "customPatterns": "Patrones personalizados (separados por comas)",
+    "customPatternsPlaceholder": "ej., goog, ggl, micro, soft",
+    "customPatternsHelper": "Agrega variaciones personalizadas del nombre de la organizacion para verificar"
+  },
+  "table": {
+    "dateRange": "Rango de fechas",
+    "generatedOn": "Generado el",
+    "status": "Estado",
+    "hashes": "Hashes",
+    "cracked": "Descifrados",
+    "actions": "Acciones",
+    "noReports": "No se encontraron informes para este cliente"
+  },
+  "status": {
+    "queued": "En cola",
+    "processing": "Procesando",
+    "completed": "Completado",
+    "failed": "Fallido",
+    "pendingGeneration": "Pendiente de generacion del informe",
+    "generating": "El informe aun se esta generando"
+  },
+  "actions": {
+    "viewReport": "Ver informe",
+    "retryReport": "Reintentar informe",
+    "deleteReport": "Eliminar informe",
+    "retry": "Reintentar",
+    "delete": "Eliminar",
+    "exportHcmask": "Exportar .hcmask",
+    "exportTxt": "Exportar .txt"
+  },
+  "messages": {
+    "selectClient": "Por favor selecciona un cliente",
+    "reportQueued": "Informe en cola (Posicion: {{position}})",
+    "reportQueuedRetry": "Informe en cola para reintento (Posicion: {{position}})",
+    "reportDeleted": "Informe eliminado exitosamente",
+    "failedLoadClients": "Error al cargar clientes",
+    "failedLoadReports": "Error al cargar informes",
+    "failedLoadReport": "Error al cargar informe",
+    "failedGenerateReport": "Error al generar informe",
+    "failedDeleteReport": "Error al eliminar informe",
+    "failedRetryReport": "Error al reintentar informe",
+    "queuedPosition": "Tu informe esta en cola para procesamiento. Posicion:",
+    "processingDescription": "Tu informe esta siendo procesado actualmente. Esto puede tomar varios minutos dependiendo del tamano del conjunto de datos.",
+    "generationError": "Ocurrio un error al generar el informe.",
+    "noHashReuse": "No se detecto reutilizacion de hashes. Todos los valores de hash NTLM/LM son unicos.",
+    "andMoreUsers": "...y {{count}} mas",
+    "copiedSuccess": "Nombres de usuario copiados al portapapeles!",
+    "noRecommendations": "Sin recomendaciones especificas en este momento. Las politicas de contrasenas parecen adecuadas.",
+    "top50Hashes": "Mostrando los 50 hashes mas reutilizados",
+    "top50PartialCracks": "Mostrando los 50 principales descifrados parciales"
+  },
+  "sections": {
+    "lengthDistribution": "Distribucion de longitud",
+    "characterComposition": "Composicion de caracteres",
+    "commonPatterns": "Patrones comunes",
+    "topPasswords": "Contrasenas mas frecuentes",
+    "maskAnalysis": "Analisis de mascaras",
+    "complexityAnalysis": "Analisis de complejidad de caracteres",
+    "sequentialPatterns": "Patrones secuenciales",
+    "keyboardPatterns": "Patrones de teclado",
+    "datePatterns": "Patrones de fecha",
+    "leetSpeak": "Analisis de Leet Speak",
+    "baseWords": "Palabras base",
+    "characterSets": "Conjuntos de caracteres",
+    "entropyDistribution": "Distribucion de entropia",
+    "overview": "Resumen",
+    "domainBreakdown": "Desglose por dominio",
+    "hashModeBreakdown": "Desglose por modo de hash",
+    "windowsHashAnalytics": "Analiticas de hash de Windows",
+    "positionalAnalysis": "Analisis posicional",
+    "patternDetection": "Deteccion de patrones",
+    "usernameCorrelation": "Correlacion con nombre de usuario",
+    "passwordReuse": "Reutilizacion de contrasenas",
+    "hashReuse": "Reutilizacion de contrasenas basada en hash",
+    "temporalPatterns": "Patrones temporales",
+    "yearBreakdown": "Desglose por ano",
+    "strengthMetrics": "Metricas de fortaleza",
+    "crackTimeEstimates": "Estimaciones de tiempo de descifrado por velocidad",
+    "customPatterns": "Patrones de nombre de organizacion",
+    "recommendations": "Recomendaciones",
+    "lmPartialCracks": "Descifrados parciales de LM",
+    "lmToNtlmMasks": "Generacion de mascaras LM a NTLM",
+    "hashTypes": "Tipos de hash",
+    "kerberos": "Kerberos",
+    "encryptionTypes": "Tipos de cifrado",
+    "linkedHashCorrelation": "Correlacion de hashes vinculados LM/NTLM",
+    "reusedPasswords": "Contrasenas reutilizadas por ocurrencia"
+  },
+  "charts": {
+    "count": "Cantidad",
+    "percentage": "Porcentaje",
+    "length": "Longitud",
+    "password": "Contrasena",
+    "pattern": "Patron",
+    "mask": "Mascara"
+  },
+  "columns": {
+    "domain": "Dominio",
+    "totalHashes": "Total de hashes",
+    "cracked": "Descifrados",
+    "percentage": "Porcentaje",
+    "hashType": "Tipo de hash",
+    "length": "Longitud",
+    "count": "Cantidad",
+    "category": "Categoria",
+    "pattern": "Patron",
+    "patternType": "Tipo de patron",
+    "correlationType": "Tipo de correlacion",
+    "metric": "Metrica",
+    "password": "Contrasena",
+    "users": "Usuarios",
+    "occurrences": "Ocurrencias",
+    "username": "Nombre de usuario",
+    "hashlistCount": "Cantidad de listas de hashes",
+    "hashValue": "Valor de hash",
+    "type": "Tipo",
+    "total": "Total",
+    "year": "Ano",
+    "maskPattern": "Patron de mascara",
+    "entropyLevel": "Nivel de entropia",
+    "range": "Rango",
+    "speedLevel": "Nivel de velocidad",
+    "speed": "Velocidad (H/s)",
+    "rank": "Rango",
+    "actions": "Acciones",
+    "firstHalf": "Primera mitad (1-7)",
+    "secondHalf": "Segunda mitad (8-14)",
+    "hashlist": "Lista de hashes",
+    "mask": "Mascara",
+    "lmPattern": "Patron LM",
+    "matchPercentage": "% de coincidencia",
+    "estimatedKeyspace": "Espacio de claves est.",
+    "exampleLm": "Ejemplo LM",
+    "usersHashlistCount": "Usuarios (Cantidad de listas)",
+    "totalOccurrences": "Ocurrencias totales",
+    "userCount": "Cantidad de usuarios"
+  },
+  "labels": {
+    "reportId": "ID del informe:",
+    "total": "Total",
+    "cracked": "Descifrados:",
+    "percentage": "Porcentaje:",
+    "totalHashRecords": "Total de registros de hash",
+    "uniqueUsers": "Usuarios unicos",
+    "successRate": "Tasa de exito",
+    "linkedPairsFound": "Pares vinculados LM/NTLM encontrados",
+    "totalLinkedPairs": "Total de pares vinculados:",
+    "bothCracked": "Ambos descifrados",
+    "ntlmOnly": "Solo NTLM",
+    "lmOnly": "Solo LM",
+    "neitherCracked": "Ninguno descifrado",
+    "passwordsReused": "Contrasenas reutilizadas",
+    "uniquePasswords": "Contrasenas unicas",
+    "totalReused": "Total reutilizadas",
+    "totalUnique": "Total unicas",
+    "reusePercentage": "Porcentaje de reutilizacion",
+    "usersWithHash": "Usuarios con este hash:",
+    "totalPartial": "Total parciales",
+    "firstHalfOnly": "Solo primera mitad",
+    "secondHalfOnly": "Solo segunda mitad",
+    "unknown": "Desconocido",
+    "lmPasswordsAnalyzed": "Contrasenas LM analizadas",
+    "masksGenerated": "Mascaras generadas",
+    "totalEstimatedKeyspace": "Espacio de claves estimado total",
+    "underOrEqual7Chars": "<=7 caracteres:",
+    "8To14Chars": "8-14 caracteres:",
+    "partiallyCracked": "Parcialmente descifrados:"
+  },
+  "cards": {
+    "totalHashes": "Total de hashes",
+    "cracked": "Descifrados",
+    "crackRate": "Tasa de descifrado",
+    "hashlistsAnalyzed": "Listas de hashes analizadas"
+  },
+  "descriptions": {
+    "lengthDistribution": "Distribucion de longitud (basada en hash):",
+    "includesAllTypes": "Incluye todos los tipos de hash",
+    "distinctUsernames": "Nombres de usuario distintos",
+    "successfullyCracked": "Descifrados exitosamente",
+    "overallPercentage": "Porcentaje general",
+    "complexityDistribution": "Distribucion de contrasenas por combinaciones de tipos de caracteres",
+    "positionalPatterns": "Patrones posicionales comunes en contrasenas",
+    "weakPatterns": "Patrones debiles comunes detectados en contrasenas",
+    "usernameCorrelation": "Contrasenas que correlacionan con nombres de usuario",
+    "hashReuseAnalysis": "Valores de hash NTLM/LM identicos indican reutilizacion de contrasenas entre cuentas, incluso cuando el texto plano es desconocido.",
+    "datePatterns": "Patrones relacionados con fechas encontrados en contrasenas",
+    "maskFormat": "Principales patrones de contrasenas en formato de mascara de hashcat (?u=mayuscula, ?l=minuscula, ?d=digito, ?s=especial)",
+    "shannonEntropy": "Categorizacion de fortaleza de contrasenas basada en entropia de Shannon",
+    "crackTimeEstimates": "Porcentaje de contrasenas descifrables dentro de periodos de tiempo a diferentes niveles de velocidad",
+    "topPasswords": "Contrasenas mas comunmente usadas (minimo 2 usos)",
+    "customPatterns": "Contrasenas que contienen variaciones del nombre de la organizacion",
+    "recommendations": "Mejoras sugeridas a la politica de contrasenas basadas en el analisis",
+    "lmDerivable": "(derivable de LM)",
+    "ntlmUnknown": "(NTLM desconocido)",
+    "ofLmHashes": "de hashes LM",
+    "chars1To7": "Caracteres 1-7 descifrados",
+    "chars8To14": "Caracteres 8-14 descifrados",
+    "maskGeneration": "Genera mascaras de hashcat a partir de contrasenas LM descifradas para recuperar variaciones de mayusculas/minusculas NTLM correspondientes.",
+    "maskSorting": "Mascaras ordenadas por frecuencia, luego por espacio de claves",
+    "averageLength": "Longitud promedio (contrasenas <15 caracteres):"
+  },
+  "patterns": {
+    "startsUppercase": "Comienza con mayuscula",
+    "endsNumber": "Termina con numero",
+    "endsSpecial": "Termina con caracter especial",
+    "keyboardWalks": "Recorridos de teclado (ej., qwerty, asdfgh)",
+    "sequences": "Secuencias (ej., 123, abc)",
+    "repeatingChars": "Caracteres repetidos (ej., aaa, 111)",
+    "containsYear": "Contiene ano",
+    "containsMonth": "Contiene mes",
+    "containsSeason": "Contiene estacion"
+  },
+  "correlations": {
+    "sameAsUsername": "Contrasena igual al nombre de usuario",
+    "containsUsername": "Contrasena contiene nombre de usuario",
+    "usernamePart": "Nombre de usuario parte de la contrasena"
+  },
+  "categories": {
+    "singleCharType": "Un solo tipo de caracter",
+    "twoCharTypes": "Dos tipos de caracteres",
+    "threeCharTypes": "Tres tipos de caracteres",
+    "fourCharTypes": "Cuatro tipos de caracteres",
+    "allCharTypes": "Todos los tipos de caracteres",
+    "complexPasswords": "Contrasenas complejas (3-4 tipos)",
+    "complexShort": "Compleja (<=14 caracteres)",
+    "complexLong": "Compleja (15+ caracteres)"
+  },
+  "hashTypes": {
+    "ntlm": "NTLM",
+    "lm": "LM",
+    "netntlmv1": "NetNTLMv1",
+    "netntlmv2": "NetNTLMv2",
+    "dcc": "DCC (MS Cache)",
+    "dcc2": "DCC2 (MS Cache 2)"
+  },
+  "kerberosTypes": {
+    "rc4": "RC4",
+    "aes128": "AES-128",
+    "aes256": "AES-256"
+  },
+  "entropyLevels": {
+    "low": "Baja",
+    "moderate": "Moderada",
+    "high": "Alta"
+  },
+  "entropyRanges": {
+    "low": "<78 bits",
+    "moderate": "78-127 bits",
+    "high": "128+ bits"
+  },
+  "speedLevels": {
+    "speed50": "50% de velocidad",
+    "speed75": "75% de velocidad",
+    "speed100": "100% de velocidad (Promedio)",
+    "speed150": "150% de velocidad",
+    "speed200": "200% de velocidad"
+  },
+  "timeframes": {
+    "lessThan1Hour": "<1 hora",
+    "lessThan1Day": "<1 dia",
+    "lessThan1Week": "<1 semana",
+    "lessThan1Month": "<1 mes",
+    "lessThan6Months": "<6 meses",
+    "lessThan1Year": "<1 ano",
+    "greaterThan1Year": ">1 ano"
+  },
+  "severities": {
+    "critical": "CRITICO",
+    "high": "ALTO",
+    "medium": "MEDIO",
+    "info": "INFO"
+  },
+  "tooltips": {
+    "copyUsernames": "Copiar nombres de usuario al portapapeles",
+    "processing": "Procesando",
+    "requiresProcessing": "Requiere procesamiento especial"
+  },
+  "warnings": {
+    "internalUseOnly": "Solo para uso interno: Esta seccion contiene contrasenas en texto plano. No compartir externamente.",
+    "partialCracks": "Los usuarios con descifrados parciales de LM deben ser requeridos a restablecer sus contrasenas inmediatamente.",
+    "linkedHashlistAnalysis": "Analisis de lista de hashes vinculada"
+  },
+  "alerts": {
+    "linkedHashlistInfo": "Esta lista de hashes es parte de un par vinculado LM/NTLM. El analisis incluye correlacion entre hashes LM y NTLM para los mismos usuarios."
+  },
+  "filters": {
+    "domain": "Filtrar por dominio",
+    "allDomains": "Todos los dominios",
+    "minOccurrences": "Ocurrencias minimas",
+    "topN": "Top N resultados"
+  },
+  "errors": {
+    "loadFailed": "Error al cargar las analiticas",
+    "noData": "No hay datos disponibles para el analisis"
+  },
+  "noReport": {
+    "title": "No hay informe disponible",
+    "message": "Selecciona una lista de hashes y genera un informe para ver las analiticas."
+  },
+  "units": {
+    "chars": "caracteres"
+  },
+  "pagination": {
+    "masks": "{{from}}-{{to}} de {{count}} mascaras"
+  },
+  "export": {
+    "header": "# Mascaras de Hashcat LM a NTLM",
+    "generatedFrom": "# Generado de {{count}} contrasenas LM descifradas",
+    "totalMasks": "# Total de mascaras: {{count}}",
+    "totalKeyspace": "# Espacio de claves estimado total: {{keyspace}}",
+    "format": "# Formato: mascara | patron | cantidad | % coincidencia | espacio de claves | ejemplo"
+  },
+  "monthNames": {
+    "jan": "Ene",
+    "feb": "Feb",
+    "mar": "Mar",
+    "apr": "Abr",
+    "may": "May",
+    "jun": "Jun",
+    "jul": "Jul",
+    "aug": "Ago",
+    "sep": "Sep",
+    "oct": "Oct",
+    "nov": "Nov",
+    "dec": "Dic"
+  }
+}

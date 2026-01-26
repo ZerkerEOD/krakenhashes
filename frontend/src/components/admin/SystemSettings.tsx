@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import { Info as InfoIcon } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
+import { useTranslation } from 'react-i18next';
 import { getMaxPriority, updateMaxPriority, getSystemSettings, updateSystemSetting } from '../../services/systemSettings';
 import { MaxPriorityConfig, SystemSettingsFormData } from '../../types/systemSettings';
 
@@ -25,6 +26,7 @@ interface SystemSettingsProps {
 }
 
 const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false }) => {
+  const { t } = useTranslation('admin');
   const [formData, setFormData] = useState<SystemSettingsFormData>({
     max_priority: 1000,
   });
@@ -85,7 +87,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
       setError(null);
     } catch (error) {
       console.error('Failed to load system settings:', error);
-      setError('Failed to load system settings');
+      setError(t('systemSettings.errors.loadFailed') as string);
     } finally {
       setLoadingData(false);
     }
@@ -93,21 +95,21 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
 
   const handleSave = async () => {
     if (typeof formData.max_priority === 'string' && formData.max_priority.trim() === '') {
-      setError('Maximum priority is required');
+      setError(t('systemSettings.errors.maxPriorityRequired') as string);
       return;
     }
 
-    const maxPriority = typeof formData.max_priority === 'string' 
-      ? parseInt(formData.max_priority) 
+    const maxPriority = typeof formData.max_priority === 'string'
+      ? parseInt(formData.max_priority)
       : formData.max_priority;
 
     if (isNaN(maxPriority) || maxPriority < 1) {
-      setError('Maximum priority must be a positive number');
+      setError(t('systemSettings.errors.maxPriorityPositive') as string);
       return;
     }
 
     if (maxPriority > 1000000) {
-      setError('Maximum priority cannot exceed 1,000,000');
+      setError(t('systemSettings.errors.maxPriorityMax') as string);
       return;
     }
 
@@ -121,7 +123,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
         await updateMaxPriority(maxPriority);
       }
       
-      enqueueSnackbar('System settings updated successfully', { variant: 'success' });
+      enqueueSnackbar(t('systemSettings.messages.updateSuccess') as string, { variant: 'success' });
       
       // Reload settings to get the updated values
       await loadSettings();
@@ -137,7 +139,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
           setError(errorData.message || 'Cannot update maximum priority due to conflicts');
         }
       } else {
-        setError(error.response?.data?.message || error.message || 'Failed to save system settings');
+        setError(error.response?.data?.message || error.message || t('systemSettings.errors.saveFailed') as string);
       }
     } finally {
       setSaving(false);
@@ -174,18 +176,18 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
             <CardContent>
               <Box display="flex" alignItems="center" mb={2}>
                 <Typography variant="h6" component="h3">
-                  Priority Settings
+                  {t('systemSettings.priority.title')}
                 </Typography>
-                <Tooltip title="Configure the maximum priority value that can be assigned to jobs and preset jobs. This helps maintain consistent priority ranges across your organization.">
+                <Tooltip title={t('systemSettings.priority.tooltip') as string}>
                   <IconButton size="small" sx={{ ml: 1 }}>
                     <InfoIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
               </Box>
-              
+
               <TextField
                 fullWidth
-                label="Maximum Job Priority"
+                label={t('systemSettings.priority.maxPriority')}
                 type="number"
                 value={formData.max_priority}
                 onChange={handleMaxPriorityChange}
@@ -194,7 +196,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
                   min: 1,
                   max: 1000000,
                 }}
-                helperText="Set the maximum priority value (1-1,000,000). Jobs and preset jobs cannot exceed this priority."
+                helperText={t('systemSettings.priority.helperText')}
                 sx={{ mb: 3 }}
               />
 
@@ -205,15 +207,15 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
                   disabled={loading || saving || loadingData}
                   startIcon={saving ? <CircularProgress size={20} /> : null}
                 >
-                  {saving ? 'Saving...' : 'Save Settings'}
+                  {saving ? t('systemSettings.priority.saving') : t('systemSettings.priority.saveButton')}
                 </Button>
-                
+
                 <Button
                   variant="outlined"
                   onClick={loadSettings}
                   disabled={loading || saving || loadingData}
                 >
-                  Reset
+                  {t('systemSettings.priority.reset')}
                 </Button>
               </Box>
             </CardContent>
@@ -224,28 +226,26 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
           <Card sx={{ height: '100%' }}>
             <CardContent>
               <Typography variant="h6" component="h3" gutterBottom>
-                Priority System Information
+                {t('systemSettings.priorityInfo.title')}
               </Typography>
-              
+
               <Typography variant="body2" color="text.secondary" paragraph>
-                The priority system uses a range from 0 to your configured maximum priority. 
-                Higher numbers indicate higher priority.
+                {t('systemSettings.priorityInfo.description')}
               </Typography>
-              
+
               <Typography variant="body2" color="text.secondary" paragraph>
-                <strong>Current Maximum:</strong> {typeof formData.max_priority === 'string' ? formData.max_priority : formData.max_priority.toLocaleString()}
+                <strong>{t('systemSettings.priorityInfo.currentMax')}:</strong> {typeof formData.max_priority === 'string' ? formData.max_priority : formData.max_priority.toLocaleString()}
               </Typography>
-              
+
               <Typography variant="body2" color="text.secondary" paragraph>
-                <strong>Note:</strong> You cannot set a maximum priority lower than any existing 
-                preset job priorities. Update or remove high-priority preset jobs first if needed.
+                <strong>{t('common.note')}:</strong> {t('systemSettings.priorityInfo.note')}
               </Typography>
-              
+
               <Typography variant="body2" color="text.secondary">
-                <strong>Recommended ranges by organization size:</strong>
-                <br />• Small organization: 0-100
-                <br />• Medium/large organization: 0-1,000
-                <br />• Ridiculous workload organization: 0-10,000
+                <strong>{t('systemSettings.priorityInfo.recommended')}</strong>
+                <br />• {t('systemSettings.priorityInfo.small')}
+                <br />• {t('systemSettings.priorityInfo.medium')}
+                <br />• {t('systemSettings.priorityInfo.large')}
               </Typography>
             </CardContent>
           </Card>
@@ -256,15 +256,15 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
             <CardContent>
               <Box display="flex" alignItems="center" mb={2}>
                 <Typography variant="h6" component="h3">
-                  Agent Scheduling
+                  {t('systemSettings.agentScheduling.title')}
                 </Typography>
-                <Tooltip title="Enable or disable the agent scheduling system globally. When enabled, agents can have daily schedules configured.">
+                <Tooltip title={t('systemSettings.agentScheduling.tooltip') as string}>
                   <IconButton size="small" sx={{ ml: 1 }}>
                     <InfoIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
               </Box>
-              
+
               <FormControlLabel
                 control={
                   <Switch
@@ -274,27 +274,25 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
                       setAgentSchedulingEnabled(newValue);
                       try {
                         await updateSystemSetting('agent_scheduling_enabled', newValue.toString());
-                        enqueueSnackbar('Agent scheduling setting updated', { variant: 'success' });
+                        enqueueSnackbar(t('systemSettings.messages.schedulingUpdated') as string, { variant: 'success' });
                       } catch (error) {
                         console.error('Failed to update scheduling setting:', error);
                         setAgentSchedulingEnabled(!newValue); // Revert on error
-                        enqueueSnackbar('Failed to update scheduling setting', { variant: 'error' });
+                        enqueueSnackbar(t('systemSettings.messages.schedulingFailed') as string, { variant: 'error' });
                       }
                     }}
                     disabled={loading || saving || loadingData}
                   />
                 }
-                label="Enable Agent Scheduling System"
+                label={t('systemSettings.agentScheduling.enable')}
               />
-              
+
               <Typography variant="body2" color="text.secondary" paragraph sx={{ mt: 2 }}>
-                When enabled, agents can be configured with daily schedules. Only agents that are scheduled 
-                for the current time will be assigned jobs.
+                {t('systemSettings.agentScheduling.description')}
               </Typography>
-              
+
               <Typography variant="body2" color="text.secondary">
-                <strong>Note:</strong> Individual agents must also have scheduling enabled and schedules 
-                configured for this to take effect.
+                <strong>{t('common.note')}:</strong> {t('systemSettings.agentScheduling.note')}
               </Typography>
             </CardContent>
           </Card>
@@ -305,9 +303,9 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
             <CardContent>
               <Box display="flex" alignItems="center" mb={2}>
                 <Typography variant="h6" component="h3">
-                  Agent Overflow Allocation
+                  {t('systemSettings.agentOverflow.title')}
                 </Typography>
-                <Tooltip title="Configure how agents beyond max_agents limits are allocated when jobs have the same priority">
+                <Tooltip title={t('systemSettings.agentOverflow.tooltip') as string}>
                   <IconButton size="small" sx={{ ml: 1 }}>
                     <InfoIcon fontSize="small" />
                   </IconButton>
@@ -323,27 +321,25 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
                       setAgentOverflowMode(newValue);
                       try {
                         await updateSystemSetting('agent_overflow_allocation_mode', newValue);
-                        enqueueSnackbar('Agent overflow allocation mode updated', { variant: 'success' });
+                        enqueueSnackbar(t('systemSettings.messages.overflowUpdated') as string, { variant: 'success' });
                       } catch (error) {
                         console.error('Failed to update overflow allocation mode:', error);
                         setAgentOverflowMode(agentOverflowMode === 'round_robin' ? 'fifo' : 'round_robin'); // Revert on error
-                        enqueueSnackbar('Failed to update overflow allocation mode', { variant: 'error' });
+                        enqueueSnackbar(t('systemSettings.messages.overflowFailed') as string, { variant: 'error' });
                       }
                     }}
                     disabled={loading || saving || loadingData}
                   />
                 }
-                label={agentOverflowMode === 'round_robin' ? 'Round-Robin Mode' : 'FIFO Mode'}
+                label={agentOverflowMode === 'round_robin' ? t('systemSettings.agentOverflow.roundRobinMode') : t('systemSettings.agentOverflow.fifoMode')}
               />
 
               <Typography variant="body2" color="text.secondary" paragraph sx={{ mt: 2 }}>
-                <strong>FIFO Mode (Default):</strong> When multiple jobs at the same priority exceed their
-                max_agents limits, the oldest job (created first) receives all extra agents.
+                <strong>{t('systemSettings.agentOverflow.fifoMode')} ({t('common.default')}):</strong> {t('systemSettings.agentOverflow.fifoDescription')}
               </Typography>
 
               <Typography variant="body2" color="text.secondary">
-                <strong>Round-Robin Mode:</strong> Extra agents are distributed evenly across all jobs at
-                the same priority, one agent at a time, ensuring fair allocation.
+                <strong>{t('systemSettings.agentOverflow.roundRobinMode')}:</strong> {t('systemSettings.agentOverflow.roundRobinDescription')}
               </Typography>
             </CardContent>
           </Card>
@@ -354,9 +350,9 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
             <CardContent>
               <Box display="flex" alignItems="center" mb={2}>
                 <Typography variant="h6" component="h3">
-                  Hashlist Settings
+                  {t('systemSettings.hashlist.title')}
                 </Typography>
-                <Tooltip title="Configure settings related to hashlist uploads and management">
+                <Tooltip title={t('systemSettings.hashlist.tooltip') as string}>
                   <IconButton size="small" sx={{ ml: 1 }}>
                     <InfoIcon fontSize="small" />
                   </IconButton>
@@ -372,27 +368,26 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
                       setRequireClientForHashlist(newValue);
                       try {
                         await updateSystemSetting('require_client_for_hashlist', newValue.toString());
-                        enqueueSnackbar('Hashlist client requirement updated', { variant: 'success' });
+                        enqueueSnackbar(t('systemSettings.messages.hashlistClientUpdated') as string, { variant: 'success' });
                       } catch (error) {
                         console.error('Failed to update client requirement setting:', error);
                         setRequireClientForHashlist(!newValue); // Revert on error
-                        enqueueSnackbar('Failed to update setting', { variant: 'error' });
+                        enqueueSnackbar(t('systemSettings.messages.updateFailed') as string, { variant: 'error' });
                       }
                     }}
                     disabled={loading || saving || loadingData}
                   />
                 }
-                label="Require Client for Hashlists"
+                label={t('systemSettings.hashlist.requireClient')}
               />
 
               <Typography variant="body2" color="text.secondary" paragraph sx={{ mt: 2 }}>
-                When enabled, users must assign a client when uploading new hashlists. This helps maintain
-                better organization and tracking of hashlists by client.
+                {t('systemSettings.hashlist.requireClientDescription')}
               </Typography>
 
               <TextField
                 fullWidth
-                label="Bulk Import Batch Size"
+                label={t('systemSettings.hashlist.batchSize')}
                 type="number"
                 value={hashlistBatchSize}
                 onChange={(e) => {
@@ -402,16 +397,16 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
                 onBlur={async (e) => {
                   const newValue = parseInt(e.target.value) || 100000;
                   if (newValue < 10000 || newValue > 2000000) {
-                    enqueueSnackbar('Batch size must be between 10,000 and 2,000,000', { variant: 'warning' });
+                    enqueueSnackbar(t('systemSettings.errors.batchSizeRange', { min: '10,000', max: '2,000,000' }) as string, { variant: 'warning' });
                     setHashlistBatchSize(100000);
                     return;
                   }
                   try {
                     await updateSystemSetting('hashlist_bulk_batch_size', newValue.toString());
-                    enqueueSnackbar('Hashlist batch size updated', { variant: 'success' });
+                    enqueueSnackbar(t('systemSettings.messages.hashlistBatchUpdated') as string, { variant: 'success' });
                   } catch (error) {
                     console.error('Failed to update batch size:', error);
-                    enqueueSnackbar('Failed to update batch size', { variant: 'error' });
+                    enqueueSnackbar(t('systemSettings.messages.updateFailed') as string, { variant: 'error' });
                     await loadSettings();
                   }
                 }}
@@ -421,15 +416,15 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
                   max: 2000000,
                   step: 50000,
                 }}
-                helperText="Number of hashes processed per batch during uploads. Default: 100,000. Recommended: 500,000-1,000,000 for large hashlists (47M+)"
+                helperText={t('systemSettings.hashlist.batchSizeHelper')}
                 sx={{ mt: 2, mb: 2 }}
               />
 
               <Typography variant="body2" color="text.secondary" paragraph>
-                <strong>Performance Guide:</strong>
-                <br />• 100K (default): Good for most use cases
-                <br />• 500K: Better for large hashlists, may improve throughput
-                <br />• 1M: Best for very large hashlists (50M+), requires more RAM
+                <strong>{t('systemSettings.hashlist.performanceGuide')}</strong>
+                <br />• {t('systemSettings.hashlist.performance100k')}
+                <br />• {t('systemSettings.hashlist.performance500k')}
+                <br />• {t('systemSettings.hashlist.performance1m')}
               </Typography>
             </CardContent>
           </Card>
@@ -440,9 +435,9 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
             <CardContent>
               <Box display="flex" alignItems="center" mb={2}>
                 <Typography variant="h6" component="h3">
-                  Potfile Settings
+                  {t('systemSettings.potfile.title')}
                 </Typography>
-                <Tooltip title="Configure how the potfile processes cracked passwords for reuse across jobs">
+                <Tooltip title={t('systemSettings.potfile.tooltip') as string}>
                   <IconButton size="small" sx={{ ml: 1 }}>
                     <InfoIcon fontSize="small" />
                   </IconButton>
@@ -451,7 +446,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
 
               <TextField
                 fullWidth
-                label="Maximum Batch Size"
+                label={t('systemSettings.potfile.maxBatchSize')}
                 type="number"
                 value={potfileBatchSize}
                 onChange={async (e) => {
@@ -461,16 +456,16 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
                 onBlur={async (e) => {
                   const newValue = parseInt(e.target.value) || 100000;
                   if (newValue < 1000 || newValue > 500000) {
-                    enqueueSnackbar('Batch size must be between 1,000 and 500,000', { variant: 'warning' });
+                    enqueueSnackbar(t('systemSettings.errors.batchSizeRange', { min: '1,000', max: '500,000' }) as string, { variant: 'warning' });
                     setPotfileBatchSize(100000);
                     return;
                   }
                   try {
                     await updateSystemSetting('potfile_max_batch_size', newValue.toString());
-                    enqueueSnackbar('Potfile batch size updated', { variant: 'success' });
+                    enqueueSnackbar(t('systemSettings.messages.potfileBatchUpdated') as string, { variant: 'success' });
                   } catch (error) {
                     console.error('Failed to update batch size:', error);
-                    enqueueSnackbar('Failed to update batch size', { variant: 'error' });
+                    enqueueSnackbar(t('systemSettings.messages.updateFailed') as string, { variant: 'error' });
                     await loadSettings(); // Reload to revert
                   }
                 }}
@@ -479,13 +474,13 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
                   min: 1000,
                   max: 500000,
                 }}
-                helperText="Number of staged passwords to process in each batch cycle (1,000 - 500,000)"
+                helperText={t('systemSettings.potfile.maxBatchSizeHelper')}
                 sx={{ mb: 2 }}
               />
 
               <TextField
                 fullWidth
-                label="Batch Interval (seconds)"
+                label={t('systemSettings.potfile.batchInterval')}
                 type="number"
                 value={potfileBatchInterval}
                 onChange={async (e) => {
@@ -495,16 +490,16 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
                 onBlur={async (e) => {
                   const newValue = parseInt(e.target.value) || 60;
                   if (newValue < 5 || newValue > 600) {
-                    enqueueSnackbar('Interval must be between 5 and 600 seconds', { variant: 'warning' });
+                    enqueueSnackbar(t('systemSettings.errors.intervalRange', { min: 5, max: 600 }) as string, { variant: 'warning' });
                     setPotfileBatchInterval(60);
                     return;
                   }
                   try {
                     await updateSystemSetting('potfile_batch_interval', newValue.toString());
-                    enqueueSnackbar('Potfile batch interval updated', { variant: 'success' });
+                    enqueueSnackbar(t('systemSettings.messages.potfileIntervalUpdated') as string, { variant: 'success' });
                   } catch (error) {
                     console.error('Failed to update batch interval:', error);
-                    enqueueSnackbar('Failed to update batch interval', { variant: 'error' });
+                    enqueueSnackbar(t('systemSettings.messages.updateFailed') as string, { variant: 'error' });
                     await loadSettings(); // Reload to revert
                   }
                 }}
@@ -513,19 +508,18 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
                   min: 10,
                   max: 600,
                 }}
-                helperText="Seconds between pot-file batch processing cycles (10 - 600)"
+                helperText={t('systemSettings.potfile.batchIntervalHelper')}
                 sx={{ mb: 2 }}
               />
 
               <Typography variant="body2" color="text.secondary" paragraph>
-                The potfile collects cracked passwords from all jobs and reuses them in subsequent attacks.
-                Higher batch sizes process more passwords at once but take longer per cycle.
+                {t('systemSettings.potfile.description')}
               </Typography>
 
               <Typography variant="body2" color="text.secondary">
-                <strong>Processing Rate:</strong> {(potfileBatchSize / potfileBatchInterval).toLocaleString()} passwords/second
+                <strong>{t('systemSettings.potfile.processingRate')}:</strong> {(potfileBatchSize / potfileBatchInterval).toLocaleString()} {t('systemSettings.potfile.passwordsPerSecond')}
                 <br />
-                <strong>Current Settings:</strong> {potfileBatchSize.toLocaleString()} passwords every {potfileBatchInterval} seconds
+                <strong>{t('systemSettings.potfile.currentSettings')}:</strong> {potfileBatchSize.toLocaleString()} {t('systemSettings.potfile.passwordsEvery')} {potfileBatchInterval} {t('systemSettings.potfile.seconds')}
               </Typography>
             </CardContent>
           </Card>

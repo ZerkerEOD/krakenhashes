@@ -9,6 +9,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   FormControl,
   InputLabel,
@@ -68,9 +69,9 @@ function groupPatterns(patterns: BinaryVersionPattern[]): {
 export const BinaryVersionSelector: React.FC<BinaryVersionSelectorProps> = ({
   value,
   onChange,
-  label = 'Binary Version',
+  label,
   required = false,
-  helperText = 'Select binary version pattern for this job',
+  helperText,
   disabled = false,
   error = false,
   fullWidth = true,
@@ -78,9 +79,14 @@ export const BinaryVersionSelector: React.FC<BinaryVersionSelectorProps> = ({
   margin = 'normal',
   name = 'binary_version',
 }) => {
+  const { t } = useTranslation('common');
   const [patterns, setPatterns] = useState<BinaryVersionPattern[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+
+  // Use translation defaults if no props provided
+  const resolvedLabel = label ?? t('binaryVersionSelector.label');
+  const resolvedHelperText = helperText ?? t('binaryVersionSelector.helperText');
 
   useEffect(() => {
     const fetchPatterns = async () => {
@@ -93,7 +99,7 @@ export const BinaryVersionSelector: React.FC<BinaryVersionSelectorProps> = ({
         setPatterns(response.data.patterns || []);
       } catch (err) {
         console.error('Failed to fetch binary patterns:', err);
-        setFetchError('Failed to load binary versions');
+        setFetchError(t('binaryVersionSelector.loadError'));
         // Set a default pattern so the form can still work
         setPatterns([{
           pattern: 'default',
@@ -122,7 +128,7 @@ export const BinaryVersionSelector: React.FC<BinaryVersionSelectorProps> = ({
   // Default section
   if (grouped.default.length > 0) {
     menuItems.push(
-      <ListSubheader key="header-default">Default</ListSubheader>
+      <ListSubheader key="header-default">{t('binaryVersionSelector.default')}</ListSubheader>
     );
     grouped.default.forEach(p => {
       menuItems.push(
@@ -136,7 +142,7 @@ export const BinaryVersionSelector: React.FC<BinaryVersionSelectorProps> = ({
   // Major wildcards section
   if (grouped.majorWildcard.length > 0) {
     menuItems.push(
-      <ListSubheader key="header-major">Major Version (Latest Minor)</ListSubheader>
+      <ListSubheader key="header-major">{t('binaryVersionSelector.majorVersion')}</ListSubheader>
     );
     grouped.majorWildcard.forEach(p => {
       menuItems.push(
@@ -150,7 +156,7 @@ export const BinaryVersionSelector: React.FC<BinaryVersionSelectorProps> = ({
   // Minor wildcards section
   if (grouped.minorWildcard.length > 0) {
     menuItems.push(
-      <ListSubheader key="header-minor">Minor Version (Latest Patch)</ListSubheader>
+      <ListSubheader key="header-minor">{t('binaryVersionSelector.minorVersion')}</ListSubheader>
     );
     grouped.minorWildcard.forEach(p => {
       menuItems.push(
@@ -164,7 +170,7 @@ export const BinaryVersionSelector: React.FC<BinaryVersionSelectorProps> = ({
   // Exact versions section
   if (grouped.exact.length > 0) {
     menuItems.push(
-      <ListSubheader key="header-exact">Exact Version</ListSubheader>
+      <ListSubheader key="header-exact">{t('binaryVersionSelector.exactVersion')}</ListSubheader>
     );
     grouped.exact.forEach(p => {
       menuItems.push(
@@ -178,21 +184,21 @@ export const BinaryVersionSelector: React.FC<BinaryVersionSelectorProps> = ({
   if (loading) {
     return (
       <FormControl fullWidth={fullWidth} margin={margin} disabled>
-        <InputLabel id={labelId}>{label}</InputLabel>
+        <InputLabel id={labelId}>{resolvedLabel}</InputLabel>
         <Select
           labelId={labelId}
           value=""
-          label={label}
+          label={resolvedLabel}
           size={size}
         >
           <MenuItem value="">
             <Box display="flex" alignItems="center" gap={1}>
               <CircularProgress size={16} />
-              Loading...
+              {t('binaryVersionSelector.loading')}
             </Box>
           </MenuItem>
         </Select>
-        <FormHelperText>Loading binary versions...</FormHelperText>
+        <FormHelperText>{t('binaryVersionSelector.loadingVersions')}</FormHelperText>
       </FormControl>
     );
   }
@@ -205,19 +211,19 @@ export const BinaryVersionSelector: React.FC<BinaryVersionSelectorProps> = ({
       disabled={disabled}
       error={error || !!fetchError}
     >
-      <InputLabel id={labelId}>{label}</InputLabel>
+      <InputLabel id={labelId}>{resolvedLabel}</InputLabel>
       <Select
         labelId={labelId}
         name={name}
         value={value || 'default'}
         onChange={handleChange}
-        label={label}
+        label={resolvedLabel}
         size={size}
       >
         {menuItems}
       </Select>
       <FormHelperText>
-        {fetchError || helperText}
+        {fetchError || resolvedHelperText}
       </FormHelperText>
     </FormControl>
   );

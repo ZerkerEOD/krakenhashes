@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
+import {
     Box, Typography, Paper, CircularProgress, Alert, Chip, IconButton, Tooltip,
     Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField,
     FormControl, InputLabel, Select, MenuItem, FormHelperText
@@ -15,6 +15,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import { useSnackbar } from 'notistack';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 
 import { User } from '../../types/user';
 import { listAdminUsers, enableAdminUser, disableAdminUser, createAdminUser, deleteAdminUser } from '../../services/api';
@@ -24,6 +25,7 @@ import PasswordValidation from '../../components/common/PasswordValidation';
 import { useAuth } from '../../contexts/AuthContext';
 
 const UserList: React.FC = () => {
+    const { t } = useTranslation('admin');
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
@@ -58,8 +60,8 @@ const UserList: React.FC = () => {
             setUsers(response.data.data || []); 
         } catch (err) {
             console.error("Failed to fetch users:", err);
-            setError('Failed to load users. Please try refreshing.');
-            enqueueSnackbar('Failed to load users', { variant: 'error' });
+            setError(t('users.errors.loadFailed') as string);
+            enqueueSnackbar(t('users.errors.loadFailed') as string, { variant: 'error' });
         } finally {
             setLoading(false);
         }
@@ -85,11 +87,11 @@ const UserList: React.FC = () => {
         setActionLoading(userId);
         try {
             await enableAdminUser(userId);
-            enqueueSnackbar('User enabled successfully', { variant: 'success' });
+            enqueueSnackbar(t('users.messages.enableSuccess') as string, { variant: 'success' });
             fetchUsers(); // Refresh list
         } catch (err) {
             console.error('Failed to enable user:', err);
-            enqueueSnackbar('Failed to enable user', { variant: 'error' });
+            enqueueSnackbar(t('users.errors.enableFailed') as string, { variant: 'error' });
         } finally {
             setActionLoading(null);
         }
@@ -97,21 +99,21 @@ const UserList: React.FC = () => {
 
     const handleDisableUser = async () => {
         if (!disableUserId || !disableReason.trim()) {
-            enqueueSnackbar('Please provide a reason for disabling this user', { variant: 'warning' });
+            enqueueSnackbar(t('users.errors.reasonRequired') as string, { variant: 'warning' });
             return;
         }
 
         setActionLoading(disableUserId);
         try {
             await disableAdminUser(disableUserId, { reason: disableReason });
-            enqueueSnackbar('User disabled successfully', { variant: 'success' });
+            enqueueSnackbar(t('users.messages.disableSuccess') as string, { variant: 'success' });
             fetchUsers(); // Refresh list
             setDisableDialogOpen(false);
             setDisableUserId(null);
             setDisableReason('');
         } catch (err) {
             console.error('Failed to disable user:', err);
-            enqueueSnackbar('Failed to disable user', { variant: 'error' });
+            enqueueSnackbar(t('users.errors.disableFailed') as string, { variant: 'error' });
         } finally {
             setActionLoading(null);
         }
@@ -134,14 +136,14 @@ const UserList: React.FC = () => {
         setActionLoading(deleteUserId);
         try {
             await deleteAdminUser(deleteUserId);
-            enqueueSnackbar('User deleted successfully', { variant: 'success' });
+            enqueueSnackbar(t('users.messages.deleteSuccess') as string, { variant: 'success' });
             fetchUsers(); // Refresh list
             setDeleteDialogOpen(false);
             setDeleteUserId(null);
             setDeleteUsername('');
         } catch (err: any) {
             console.error('Failed to delete user:', err);
-            const message = err.response?.data?.error || 'Failed to delete user';
+            const message = err.response?.data?.error || t('users.errors.deleteFailed') as string;
             enqueueSnackbar(message, { variant: 'error' });
         } finally {
             setActionLoading(null);
@@ -154,52 +156,52 @@ const UserList: React.FC = () => {
         
         // Validate form
         const errors: Record<string, string> = {};
-        
+
         if (!formData.username) {
-            errors.username = 'Username is required';
+            errors.username = t('users.validation.usernameRequired') as string;
         }
-        
+
         if (!formData.email) {
-            errors.email = 'Email is required';
+            errors.email = t('users.validation.emailRequired') as string;
         } else if (!formData.email.includes('@')) {
-            errors.email = 'Invalid email format';
+            errors.email = t('users.validation.emailInvalid') as string;
         }
-        
+
         if (!formData.password) {
-            errors.password = 'Password is required';
+            errors.password = t('users.validation.passwordRequired') as string;
         } else if (policy) {
             // Validate against actual policy
             const passwordErrors: string[] = [];
-            
+
             if (formData.password.length < policy.minPasswordLength) {
-                passwordErrors.push(`at least ${policy.minPasswordLength} characters`);
+                passwordErrors.push(t('users.validation.passwordMinLength', { value: policy.minPasswordLength }) as string);
             }
-            
+
             if (policy.requireUppercase && !/[A-Z]/.test(formData.password)) {
-                passwordErrors.push('one uppercase letter');
+                passwordErrors.push(t('users.validation.passwordUppercase') as string);
             }
-            
+
             if (policy.requireLowercase && !/[a-z]/.test(formData.password)) {
-                passwordErrors.push('one lowercase letter');
+                passwordErrors.push(t('users.validation.passwordLowercase') as string);
             }
-            
+
             if (policy.requireNumbers && !/[0-9]/.test(formData.password)) {
-                passwordErrors.push('one number');
+                passwordErrors.push(t('users.validation.passwordNumber') as string);
             }
-            
+
             if (policy.requireSpecialChars && !/[!@#$%^&*(),.?":{}|<>]/.test(formData.password)) {
-                passwordErrors.push('one special character');
+                passwordErrors.push(t('users.validation.passwordSpecial') as string);
             }
-            
+
             if (passwordErrors.length > 0) {
-                errors.password = `Password must contain ${passwordErrors.join(', ')}`;
+                errors.password = t('users.validation.passwordMustContain', { requirements: passwordErrors.join(', ') }) as string;
             }
         }
-        
+
         if (!formData.confirmPassword) {
-            errors.confirmPassword = 'Please confirm password';
+            errors.confirmPassword = t('users.validation.confirmPasswordRequired') as string;
         } else if (formData.password !== formData.confirmPassword) {
-            errors.confirmPassword = 'Passwords do not match';
+            errors.confirmPassword = t('users.validation.passwordsMismatch') as string;
         }
         
         if (Object.keys(errors).length > 0) {
@@ -216,7 +218,7 @@ const UserList: React.FC = () => {
                 role: formData.role
             });
             
-            enqueueSnackbar('User created successfully', { variant: 'success' });
+            enqueueSnackbar(t('users.messages.createSuccess') as string, { variant: 'success' });
             setCreateDialogOpen(false);
             setFormData({
                 username: '',
@@ -228,7 +230,7 @@ const UserList: React.FC = () => {
             fetchUsers(); // Refresh list
         } catch (err: any) {
             console.error('Failed to create user:', err);
-            const message = err.response?.data?.error || 'Failed to create user';
+            const message = err.response?.data?.error || t('users.errors.createFailed') as string;
             enqueueSnackbar(message, { variant: 'error' });
         } finally {
             setCreateLoading(false);
@@ -245,21 +247,21 @@ const UserList: React.FC = () => {
     };
 
     const columns: GridColDef[] = [
-        { 
-            field: 'username', 
-            headerName: 'Username', 
-            flex: 1, 
-            minWidth: 150 
+        {
+            field: 'username',
+            headerName: t('users.columns.username') as string,
+            flex: 1,
+            minWidth: 150
         },
-        { 
-            field: 'email', 
-            headerName: 'Email', 
-            flex: 1.5, 
-            minWidth: 200 
+        {
+            field: 'email',
+            headerName: t('users.columns.email') as string,
+            flex: 1.5,
+            minWidth: 200
         },
         {
             field: 'role',
-            headerName: 'Role',
+            headerName: t('users.columns.role') as string,
             width: 100,
             renderCell: (params: GridRenderCellParams) => (
                 <Chip
@@ -275,74 +277,74 @@ const UserList: React.FC = () => {
         },
         {
             field: 'lastAuthProvider',
-            headerName: 'Provider',
+            headerName: t('users.columns.provider') as string,
             width: 100,
             renderCell: (params: GridRenderCellParams) => (
                 <Chip
                     size="small"
-                    label={params.value || 'Local'}
+                    label={params.value || t('users.columns.providerLocal') as string}
                     variant="outlined"
                 />
             )
         },
         {
             field: 'accountStatus',
-            headerName: 'Status', 
+            headerName: t('users.columns.status') as string,
             width: 120,
             renderCell: (params: GridRenderCellParams) => {
                 const user = params.row as User;
                 if (!user.accountEnabled) {
-                    return <Chip label="Disabled" size="small" color="error" />;
+                    return <Chip label={t('users.status.disabled') as string} size="small" color="error" />;
                 }
                 if (user.accountLocked) {
-                    return <Chip label="Locked" size="small" color="warning" />;
+                    return <Chip label={t('users.status.locked') as string} size="small" color="warning" />;
                 }
-                return <Chip label="Active" size="small" color="success" />;
+                return <Chip label={t('users.status.active') as string} size="small" color="success" />;
             }
         },
-        { 
-            field: 'mfaEnabled', 
-            headerName: 'MFA', 
+        {
+            field: 'mfaEnabled',
+            headerName: t('users.columns.mfa') as string,
             width: 80,
             renderCell: (params: GridRenderCellParams) => (
-                params.value ? 
-                    <CheckCircleIcon color="success" fontSize="small" /> : 
+                params.value ?
+                    <CheckCircleIcon color="success" fontSize="small" /> :
                     <CancelIcon color="disabled" fontSize="small" />
             )
         },
-        { 
-            field: 'lastLogin', 
-            headerName: 'Last Login', 
+        {
+            field: 'lastLogin',
+            headerName: t('users.columns.lastLogin') as string,
             width: 180,
             renderCell: (params: GridRenderCellParams) => formatDate(params.value as string)
         },
         {
             field: 'createdAt',
-            headerName: 'Created',
+            headerName: t('users.columns.createdAt') as string,
             width: 180,
             renderCell: (params: GridRenderCellParams) => formatDate(params.value as string)
         },
         {
             field: 'hasApiKey',
-            headerName: 'API Key',
+            headerName: t('users.columns.apiKey') as string,
             width: 100,
             renderCell: (params: GridRenderCellParams) => {
                 const user = params.row as User;
                 if (user.hasApiKey) {
-                    return <Chip label="Active" size="small" color="success" />;
+                    return <Chip label={t('users.status.active') as string} size="small" color="success" />;
                 }
-                return <Chip label="None" size="small" color="default" />;
+                return <Chip label={t('users.apiKey.none') as string} size="small" color="default" />;
             }
         },
         {
             field: 'apiKeyLastUsed',
-            headerName: 'Last API Use',
+            headerName: t('users.columns.lastApiUse') as string,
             width: 180,
             renderCell: (params: GridRenderCellParams) => formatDate(params.value as string)
         },
         {
             field: 'actions',
-            headerName: 'Actions',
+            headerName: t('users.columns.actions') as string,
             width: 180,
             sortable: false,
             renderCell: (params: GridRenderCellParams) => {
@@ -352,7 +354,7 @@ const UserList: React.FC = () => {
 
                 return (
                     <Box>
-                        <Tooltip title="Edit User">
+                        <Tooltip title={t('users.actions.edit') as string}>
                             <IconButton
                                 size="small"
                                 onClick={() => navigate(`/admin/users/${user.id}`)}
@@ -363,7 +365,7 @@ const UserList: React.FC = () => {
                         </Tooltip>
 
                         {user.accountEnabled ? (
-                            <Tooltip title="Disable User">
+                            <Tooltip title={t('users.actions.disable') as string}>
                                 <IconButton
                                     size="small"
                                     onClick={() => openDisableDialog(user.id)}
@@ -374,7 +376,7 @@ const UserList: React.FC = () => {
                                 </IconButton>
                             </Tooltip>
                         ) : (
-                            <Tooltip title="Enable User">
+                            <Tooltip title={t('users.actions.enable') as string}>
                                 <IconButton
                                     size="small"
                                     onClick={() => handleEnableUser(user.id)}
@@ -386,7 +388,7 @@ const UserList: React.FC = () => {
                             </Tooltip>
                         )}
 
-                        <Tooltip title={isSystemUser ? "Cannot delete system users" : "Delete User"}>
+                        <Tooltip title={isSystemUser ? t('users.actions.cannotDeleteSystem') as string : t('users.actions.delete') as string}>
                             <span>
                                 <IconButton
                                     size="small"
@@ -417,10 +419,10 @@ const UserList: React.FC = () => {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
                 <Box>
                     <Typography variant="h4" component="h1" gutterBottom>
-                        User Management
+                        {t('users.title')}
                     </Typography>
                     <Typography variant="body1" color="text.secondary">
-                        Manage user accounts and permissions
+                        {t('users.description')}
                     </Typography>
                 </Box>
                 <Button
@@ -428,7 +430,7 @@ const UserList: React.FC = () => {
                     startIcon={<AddIcon />}
                     onClick={() => setCreateDialogOpen(true)}
                 >
-                    Add User
+                    {t('users.addUser')}
                 </Button>
             </Box>
             
@@ -460,8 +462,8 @@ const UserList: React.FC = () => {
             </Paper>
 
             {/* Create User Dialog */}
-            <Dialog 
-                open={createDialogOpen} 
+            <Dialog
+                open={createDialogOpen}
                 onClose={() => {
                     setCreateDialogOpen(false);
                     setFormData({
@@ -476,12 +478,12 @@ const UserList: React.FC = () => {
                 maxWidth="sm"
                 fullWidth
             >
-                <DialogTitle>Create New User</DialogTitle>
+                <DialogTitle>{t('users.dialogs.createUser.title')}</DialogTitle>
                 <DialogContent>
                     <Box sx={{ mt: 2 }}>
                         <TextField
                             fullWidth
-                            label="Username"
+                            label={t('users.columns.username')}
                             value={formData.username}
                             onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                             error={!!formErrors.username}
@@ -491,7 +493,7 @@ const UserList: React.FC = () => {
                         />
                         <TextField
                             fullWidth
-                            label="Email"
+                            label={t('users.columns.email')}
                             type="email"
                             value={formData.email}
                             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -502,7 +504,7 @@ const UserList: React.FC = () => {
                         />
                         <TextField
                             fullWidth
-                            label="Password"
+                            label={t('users.dialogs.createUser.password')}
                             type="password"
                             value={formData.password}
                             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
@@ -516,7 +518,7 @@ const UserList: React.FC = () => {
                         )}
                         <TextField
                             fullWidth
-                            label="Confirm Password"
+                            label={t('users.dialogs.createUser.confirmPassword')}
                             type="password"
                             value={formData.confirmPassword}
                             onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
@@ -526,21 +528,21 @@ const UserList: React.FC = () => {
                             required
                         />
                         <FormControl fullWidth margin="normal" required>
-                            <InputLabel>Role</InputLabel>
+                            <InputLabel>{t('users.columns.role')}</InputLabel>
                             <Select
                                 value={formData.role}
                                 onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                                label="Role"
+                                label={t('users.columns.role')}
                             >
-                                <MenuItem value="user">User</MenuItem>
-                                <MenuItem value="admin">Admin</MenuItem>
+                                <MenuItem value="user">{t('users.roles.user')}</MenuItem>
+                                <MenuItem value="admin">{t('users.roles.admin')}</MenuItem>
                             </Select>
-                            <FormHelperText>Select user's role in the system</FormHelperText>
+                            <FormHelperText>{t('users.dialogs.createUser.roleHelperText')}</FormHelperText>
                         </FormControl>
                     </Box>
                 </DialogContent>
                 <DialogActions>
-                    <Button 
+                    <Button
                         onClick={() => {
                             setCreateDialogOpen(false);
                             setFormData({
@@ -554,14 +556,14 @@ const UserList: React.FC = () => {
                         }}
                         disabled={createLoading}
                     >
-                        Cancel
+                        {t('common.cancel')}
                     </Button>
-                    <Button 
+                    <Button
                         onClick={handleCreateUser}
                         variant="contained"
                         disabled={createLoading}
                     >
-                        {createLoading ? <CircularProgress size={24} /> : 'Create'}
+                        {createLoading ? <CircularProgress size={24} /> : t('common.create')}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -577,21 +579,21 @@ const UserList: React.FC = () => {
                 maxWidth="sm"
                 fullWidth
             >
-                <DialogTitle>Disable User Account</DialogTitle>
+                <DialogTitle>{t('users.dialogs.disableUser.title')}</DialogTitle>
                 <DialogContent>
                     <Box sx={{ mt: 2 }}>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                            Please provide a reason for disabling this user account. This will be logged for audit purposes.
+                            {t('users.dialogs.disableUser.description')}
                         </Typography>
                         <TextField
                             fullWidth
-                            label="Reason for Disabling"
+                            label={t('users.dialogs.disableUser.reasonLabel')}
                             value={disableReason}
                             onChange={(e) => setDisableReason(e.target.value)}
                             multiline
                             rows={3}
                             required
-                            placeholder="e.g., Account compromise, Terms violation, User request, etc."
+                            placeholder={t('users.dialogs.disableUser.reasonPlaceholder') as string}
                         />
                     </Box>
                 </DialogContent>
@@ -603,7 +605,7 @@ const UserList: React.FC = () => {
                             setDisableReason('');
                         }}
                     >
-                        Cancel
+                        {t('common.cancel')}
                     </Button>
                     <Button
                         onClick={handleDisableUser}
@@ -611,7 +613,7 @@ const UserList: React.FC = () => {
                         color="error"
                         disabled={!disableReason.trim()}
                     >
-                        Disable User
+                        {t('users.actions.disable')}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -627,17 +629,17 @@ const UserList: React.FC = () => {
                 maxWidth="sm"
                 fullWidth
             >
-                <DialogTitle>Delete User Account</DialogTitle>
+                <DialogTitle>{t('users.dialogs.deleteUser.title')}</DialogTitle>
                 <DialogContent>
                     <Box sx={{ mt: 2 }}>
                         <Alert severity="warning" sx={{ mb: 2 }}>
-                            This action cannot be undone. The user will be permanently removed from the system.
+                            {t('users.dialogs.deleteUser.warning')}
                         </Alert>
                         <Typography variant="body1">
-                            Are you sure you want to delete the user <strong>{deleteUsername}</strong>?
+                            {t('users.dialogs.deleteUser.confirmation', { username: deleteUsername })}
                         </Typography>
                         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                            All associated data will be preserved, but the user will no longer be able to log in.
+                            {t('users.dialogs.deleteUser.dataNote')}
                         </Typography>
                     </Box>
                 </DialogContent>
@@ -649,7 +651,7 @@ const UserList: React.FC = () => {
                             setDeleteUsername('');
                         }}
                     >
-                        Cancel
+                        {t('common.cancel')}
                     </Button>
                     <Button
                         onClick={handleDeleteUser}
@@ -657,7 +659,7 @@ const UserList: React.FC = () => {
                         color="error"
                         disabled={actionLoading === deleteUserId}
                     >
-                        {actionLoading === deleteUserId ? <CircularProgress size={24} /> : 'Delete User'}
+                        {actionLoading === deleteUserId ? <CircularProgress size={24} /> : t('users.actions.delete')}
                     </Button>
                 </DialogActions>
             </Dialog>

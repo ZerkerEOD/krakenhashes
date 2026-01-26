@@ -3,6 +3,7 @@
  * Displays hash-based password reuse analysis for NTLM/LM hashes
  */
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Paper,
@@ -45,7 +46,12 @@ interface HashReuseSectionProps {
   data: HashReuseData;
 }
 
-function HashReuseRow({ item }: { item: any }) {
+interface HashReuseRowProps {
+  item: any;
+  t: (key: string) => string;
+}
+
+function HashReuseRow({ item, t }: HashReuseRowProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -83,13 +89,13 @@ function HashReuseRow({ item }: { item: any }) {
           <Collapse in={open} timeout="auto" unmountOnExit>
             <Box sx={{ margin: 2 }}>
               <Typography variant="subtitle2" gutterBottom>
-                Users with this hash:
+                {t('labels.usersWithHash')}
               </Typography>
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Username</TableCell>
-                    <TableCell align="right">Hashlist Count</TableCell>
+                    <TableCell>{t('columns.username')}</TableCell>
+                    <TableCell align="right">{t('columns.hashlistCount')}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -110,17 +116,19 @@ function HashReuseRow({ item }: { item: any }) {
 }
 
 export default function HashReuseSection({ data }: HashReuseSectionProps) {
+  const { t } = useTranslation('analytics');
+
   if (!data || data.hash_reuse_info.length === 0) {
     return (
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <FingerprintIcon sx={{ fontSize: 32, color: 'primary.main', mr: 1 }} />
           <Typography variant="h5" component="h2">
-            Hash-Based Password Reuse
+            {t('sections.hashReuse')}
           </Typography>
         </Box>
         <Alert severity="info">
-          No hash reuse detected. All NTLM/LM hash values are unique.
+          {t('messages.noHashReuse')}
         </Alert>
       </Paper>
     );
@@ -133,32 +141,31 @@ export default function HashReuseSection({ data }: HashReuseSectionProps) {
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
         <FingerprintIcon sx={{ fontSize: 32, color: 'primary.main', mr: 1 }} />
         <Typography variant="h5" component="h2">
-          Hash-Based Password Reuse
+          {t('sections.hashReuse')}
         </Typography>
       </Box>
 
       <Typography variant="body2" color="text.secondary" paragraph>
-        Analysis of identical hash values across different users (NTLM/LM only). This detects cases where
-        multiple users have the exact same password, even if the plaintext is unknown.
+        {t('descriptions.hashReuseAnalysis')}
       </Typography>
 
       {/* Summary Statistics */}
       <Box sx={{ display: 'flex', gap: 3, mb: 3 }}>
         <Box>
           <Typography variant="body2" color="text.secondary">
-            Total Reused
+            {t('labels.totalReused')}
           </Typography>
           <Typography variant="h6">{data.total_reused.toLocaleString()}</Typography>
         </Box>
         <Box>
           <Typography variant="body2" color="text.secondary">
-            Total Unique
+            {t('labels.totalUnique')}
           </Typography>
           <Typography variant="h6">{data.total_unique.toLocaleString()}</Typography>
         </Box>
         <Box>
           <Typography variant="body2" color="text.secondary">
-            Reuse Percentage
+            {t('labels.reusePercentage')}
           </Typography>
           <Typography variant="h6" color={data.percentage_reused > 20 ? 'error.main' : 'text.primary'}>
             {formatPercentage(data.percentage_reused)}
@@ -172,16 +179,16 @@ export default function HashReuseSection({ data }: HashReuseSectionProps) {
           <TableHead>
             <TableRow>
               <TableCell width="50px" />
-              <TableCell>Hash Value</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Password</TableCell>
-              <TableCell align="right">Users</TableCell>
-              <TableCell align="right">Occurrences</TableCell>
+              <TableCell>{t('columns.hashValue')}</TableCell>
+              <TableCell>{t('columns.type')}</TableCell>
+              <TableCell>{t('columns.password')}</TableCell>
+              <TableCell align="right">{t('columns.users')}</TableCell>
+              <TableCell align="right">{t('columns.occurrences')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {data.hash_reuse_info.map((item, idx) => (
-              <HashReuseRow key={idx} item={item} />
+              <HashReuseRow key={idx} item={item} t={t} />
             ))}
           </TableBody>
         </Table>
@@ -189,7 +196,7 @@ export default function HashReuseSection({ data }: HashReuseSectionProps) {
 
       {data.hash_reuse_info.length >= 50 && (
         <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
-          Showing top 50 most reused hashes
+          {t('messages.top50Hashes')}
         </Typography>
       )}
     </Paper>

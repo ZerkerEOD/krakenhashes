@@ -1,0 +1,38 @@
+{
+  "network": {
+    "connectionFailed": "Verbinding mislukt. Controleer uw netwerk.",
+    "timeout": "Verzoek verlopen. Probeer het opnieuw.",
+    "serverUnavailable": "Server niet beschikbaar. Probeer het later opnieuw."
+  },
+  "authentication": {
+    "unauthorized": "U bent niet gemachtigd om deze actie uit te voeren.",
+    "sessionExpired": "Uw sessie is verlopen. Log opnieuw in.",
+    "invalidToken": "Ongeldig authenticatietoken.",
+    "loginRequired": "Log in om door te gaan."
+  },
+  "validation": {
+    "required": "Dit veld is verplicht.",
+    "invalidEmail": "Voer een geldig e-mailadres in.",
+    "invalidFormat": "Ongeldig formaat.",
+    "tooShort": "Moet minimaal {{min}} tekens bevatten.",
+    "tooLong": "Mag niet meer dan {{max}} tekens bevatten.",
+    "passwordRequirements": "Wachtwoord moet minimaal 8 tekens bevatten, waaronder hoofdletters, kleine letters, een cijfer en een speciaal teken."
+  },
+  "api": {
+    "badRequest": "Ongeldig verzoek. Controleer uw invoer.",
+    "notFound": "De gevraagde bron is niet gevonden.",
+    "conflict": "Er is een conflict opgetreden. De bron bestaat mogelijk al.",
+    "serverError": "Er is een interne serverfout opgetreden.",
+    "rateLimited": "Te veel verzoeken. Wacht even en probeer het opnieuw."
+  },
+  "file": {
+    "tooLarge": "Bestand is te groot. Maximale grootte is {{maxSize}}.",
+    "invalidType": "Ongeldig bestandstype. Toegestane types: {{allowedTypes}}.",
+    "uploadFailed": "Uploaden van bestand mislukt. Probeer het opnieuw."
+  },
+  "generic": {
+    "unknownError": "Er is een onbekende fout opgetreden.",
+    "tryAgain": "Probeer het opnieuw.",
+    "contactSupport": "Als het probleem aanhoudt, neem dan contact op met de ondersteuning."
+  }
+}

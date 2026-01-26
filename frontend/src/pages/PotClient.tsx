@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Typography, Box, Button, Alert, CircularProgress } from '@mui/material';
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 import PotTable from '../components/pot/PotTable';
 import { potService } from '../services/pot';
 import { api } from '../services/api';
@@ -12,6 +13,7 @@ interface Client {
 }
 
 export default function PotClient() {
+  const { t } = useTranslation('pot');
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [clientName, setClientName] = useState<string>('');
@@ -28,14 +30,14 @@ export default function PotClient() {
         setClientName(response.data.data.name);
       } catch (err) {
         console.error('Error loading client info:', err);
-        setError('Failed to load client information');
+        setError(t('errors.loadClientFailed') as string);
       } finally {
         setLoading(false);
       }
     };
 
     loadClientInfo();
-  }, [id]);
+  }, [id, t]);
 
   const fetchData = async (limit: number, offset: number, search?: string) => {
     if (!id) throw new Error('No client ID provided');
@@ -62,7 +64,7 @@ export default function PotClient() {
         <Alert severity="error">{error}</Alert>
         <Box sx={{ mt: 2 }}>
           <Button startIcon={<ArrowBackIcon />} onClick={handleBack}>
-            Back to All Cracked Hashes
+            {t('navigation.backToAll') as string}
           </Button>
         </Box>
       </Box>
@@ -77,19 +79,19 @@ export default function PotClient() {
           onClick={handleBack}
           sx={{ mb: 2 }}
         >
-          Back to All Cracked Hashes
+          {t('navigation.backToAll') as string}
         </Button>
-        
+
         <Typography variant="h4" component="h1" gutterBottom>
-          Cracked Hashes - Client View
+          {t('client.title') as string}
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Viewing cracked hashes for client: <strong>{clientName}</strong>
+          {t('client.description', { clientName }) as string}
         </Typography>
       </Box>
-      
+
       <PotTable
-        title={`Cracked Hashes for "${clientName}"`}
+        title={t('client.tableTitle', { clientName }) as string}
         fetchData={fetchData}
         filterParam="client"
         filterValue={clientName}

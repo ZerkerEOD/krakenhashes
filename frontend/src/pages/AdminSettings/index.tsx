@@ -1,5 +1,6 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Box, Tabs, Tab, Typography, Paper, TextField, Button, Alert, CircularProgress } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import { EmailSettings } from './EmailSettings';
 import { useAuth } from '../../contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
@@ -46,8 +47,9 @@ const TabPanel = (props: TabPanelProps) => {
 // --- Client Settings Component ---
 const ClientSettingsTab: React.FC = () => {
   // Add a log to confirm component rendering
-  console.log("[ClientSettingsTab] Rendering..."); 
+  console.log("[ClientSettingsTab] Rendering...");
 
+  const { t } = useTranslation('admin');
   const [retentionMonths, setRetentionMonths] = useState<string>('');
   const [initialLoading, setInitialLoading] = useState<boolean>(true);
   const [saveLoading, setSaveLoading] = useState<boolean>(false);
@@ -99,17 +101,17 @@ const ClientSettingsTab: React.FC = () => {
     const numericValue = parseInt(valueToSave, 10);
 
     if (isNaN(numericValue) || numericValue < 0) {
-      setError('Retention period must be a non-negative number.');
+      setError(t('clientSettings.errors.invalidRetention') as string);
       setSaveLoading(false);
       return;
     }
 
     try {
       await updateDefaultClientRetentionSetting({ value: numericValue.toString() });
-      enqueueSnackbar('Default client retention updated successfully', { variant: 'success' });
+      enqueueSnackbar(t('clientSettings.messages.updateSuccess') as string, { variant: 'success' });
     } catch (err: any) {
       console.error("Failed to update client retention settings:", err);
-      const message = err.response?.data?.error || 'Failed to save settings. Please try again.';
+      const message = err.response?.data?.error || t('clientSettings.errors.saveFailed') as string;
       setError(message);
       enqueueSnackbar(message, { variant: 'error' });
     } finally {
@@ -120,7 +122,7 @@ const ClientSettingsTab: React.FC = () => {
   return (
     <Box>
       <Typography variant="h6" gutterBottom>
-        Default Client Data Retention
+        {t('clientSettings.title') as string}
       </Typography>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {initialLoading ? (
@@ -130,25 +132,25 @@ const ClientSettingsTab: React.FC = () => {
           <TextField
             fullWidth
             type="number"
-            label="Retention Period (Months)"
+            label={t('clientSettings.retentionPeriod') as string}
             value={retentionMonths}
             onChange={(e) => setRetentionMonths(e.target.value)}
-            helperText="Enter 0 to keep data forever."
+            helperText={t('clientSettings.retentionHelperText') as string}
             margin="normal"
             InputProps={{
-              inputProps: { 
-                  min: 0 
+              inputProps: {
+                  min: 0
               }
           }}
           />
-          <Button 
-            variant="contained" 
-            color="primary" 
+          <Button
+            variant="contained"
+            color="primary"
             onClick={handleSave}
             disabled={saveLoading || initialLoading}
             sx={{ mt: 2 }}
           >
-            {saveLoading ? <CircularProgress size={24} /> : 'Save Default Retention'}
+            {saveLoading ? <CircularProgress size={24} /> : t('clientSettings.saveButton') as string}
           </Button>
         </Box>
       )}
@@ -158,12 +160,13 @@ const ClientSettingsTab: React.FC = () => {
 // --- End Client Settings Component ---
 
 export const AdminSettings = () => {
+  const { t } = useTranslation('admin');
   const [currentTab, setCurrentTab] = useState(() => {
     const savedTab = localStorage.getItem('adminSettingsTab');
     const initialTab = savedTab ? parseInt(savedTab, 10) : 0;
     return initialTab >= 0 && initialTab < 10 ? initialTab : 0;
   });
-  
+
   const [loading, setLoading] = useState(false);
   const { userRole } = useAuth();
   const { enqueueSnackbar } = useSnackbar();
@@ -181,9 +184,9 @@ export const AdminSettings = () => {
   return (
     <Box sx={{ width: '100%', p: 3 }}>
       <Typography variant="h4" gutterBottom>
-        Admin Settings
+        {t('title') as string}
       </Typography>
-      
+
       <Paper sx={{ width: '100%', mt: 3 }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs
@@ -191,16 +194,16 @@ export const AdminSettings = () => {
             onChange={handleTabChange}
             aria-label="admin settings tabs"
           >
-            <Tab label="Email Settings" />
-            <Tab label="Authentication Settings" />
-            <Tab label="SSO Settings" />
-            <Tab label="Binary Management" />
-            <Tab label="System Settings" />
-            <Tab label="Client Settings" />
-            <Tab label="Hash Types" />
-            <Tab label="Job Execution" />
-            <Tab label="Monitoring" />
-            <Tab label="Agent Downloads" />
+            <Tab label={t('tabs.emailSettings') as string} />
+            <Tab label={t('tabs.authenticationSettings') as string} />
+            <Tab label={t('tabs.ssoSettings') as string} />
+            <Tab label={t('tabs.binaryManagement') as string} />
+            <Tab label={t('tabs.systemSettings') as string} />
+            <Tab label={t('tabs.clientSettings') as string} />
+            <Tab label={t('tabs.hashTypes') as string} />
+            <Tab label={t('tabs.jobExecution') as string} />
+            <Tab label={t('tabs.monitoring') as string} />
+            <Tab label={t('tabs.agentDownloads') as string} />
           </Tabs>
         </Box>
 
@@ -213,10 +216,10 @@ export const AdminSettings = () => {
               setLoading(true);
               try {
                 await updateAuthSettings(settings);
-                enqueueSnackbar('Settings updated successfully', { variant: 'success' });
+                enqueueSnackbar(t('settings.saved') as string, { variant: 'success' });
               } catch (error) {
                 console.error('Failed to update settings:', error);
-                enqueueSnackbar(error instanceof Error ? error.message : 'Failed to update settings', { variant: 'error' });
+                enqueueSnackbar(error instanceof Error ? error.message : t('settings.saveFailed') as string, { variant: 'error' });
                 throw error; // Propagate error to trigger form error state
               } finally {
                 setLoading(false);

@@ -3,6 +3,7 @@
  * Includes single type, two types, three types, four types, and complex short/long.
  */
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Paper,
   Typography,
@@ -23,6 +24,8 @@ interface ComplexityAnalysisSectionProps {
 }
 
 export default function ComplexityAnalysisSection({ data }: ComplexityAnalysisSectionProps) {
+  const { t } = useTranslation('analytics');
+
   // Helper to filter out zero counts
   const filterNonZero = (obj: Record<string, { count: number; percentage: number }>) => {
     return Object.entries(obj).filter(([_, value]) => value.count > 0);
@@ -54,19 +57,19 @@ export default function ComplexityAnalysisSection({ data }: ComplexityAnalysisSe
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
       <Typography variant="h5" gutterBottom>
-        Character Complexity Analysis
+        {t('sections.complexityAnalysis')}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Distribution of passwords by character type combinations
+        {t('descriptions.complexityDistribution')}
       </Typography>
 
       <TableContainer>
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell sx={threeColumnTableStyles.labelCell}>Category</TableCell>
-              <TableCell sx={threeColumnTableStyles.countCell}>Count</TableCell>
-              <TableCell sx={threeColumnTableStyles.percentageCell}>Percentage</TableCell>
+              <TableCell sx={threeColumnTableStyles.labelCell}>{t('columns.category')}</TableCell>
+              <TableCell sx={threeColumnTableStyles.countCell}>{t('columns.count')}</TableCell>
+              <TableCell sx={threeColumnTableStyles.percentageCell}>{t('columns.percentage')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -75,7 +78,7 @@ export default function ComplexityAnalysisSection({ data }: ComplexityAnalysisSe
               <>
                 <TableRow sx={{ backgroundColor: 'action.hover' }}>
                   <TableCell colSpan={3}>
-                    <strong>Single Character Type</strong>
+                    <strong>{t('categories.singleCharType')}</strong>
                   </TableCell>
                 </TableRow>
                 {singleType.map(([name, stats]) => renderCategory(name, stats))}
@@ -87,7 +90,7 @@ export default function ComplexityAnalysisSection({ data }: ComplexityAnalysisSe
               <>
                 <TableRow sx={{ backgroundColor: 'action.hover' }}>
                   <TableCell colSpan={3}>
-                    <strong>Two Character Types</strong>
+                    <strong>{t('categories.twoCharTypes')}</strong>
                   </TableCell>
                 </TableRow>
                 {twoTypes.map(([name, stats]) => renderCategory(name, stats))}
@@ -99,7 +102,7 @@ export default function ComplexityAnalysisSection({ data }: ComplexityAnalysisSe
               <>
                 <TableRow sx={{ backgroundColor: 'action.hover' }}>
                   <TableCell colSpan={3}>
-                    <strong>Three Character Types</strong>
+                    <strong>{t('categories.threeCharTypes')}</strong>
                   </TableCell>
                 </TableRow>
                 {threeTypes.map(([name, stats]) => renderCategory(name, stats))}
@@ -111,10 +114,10 @@ export default function ComplexityAnalysisSection({ data }: ComplexityAnalysisSe
               <>
                 <TableRow sx={{ backgroundColor: 'action.hover' }}>
                   <TableCell colSpan={3}>
-                    <strong>Four Character Types</strong>
+                    <strong>{t('categories.fourCharTypes')}</strong>
                   </TableCell>
                 </TableRow>
-                {renderCategory('All Character Types', fourTypes)}
+                {renderCategory(t('categories.allCharTypes'), fourTypes)}
               </>
             )}
 
@@ -123,11 +126,11 @@ export default function ComplexityAnalysisSection({ data }: ComplexityAnalysisSe
               <>
                 <TableRow sx={{ backgroundColor: 'action.hover' }}>
                   <TableCell colSpan={3}>
-                    <strong>Complex Passwords (3-4 types)</strong>
+                    <strong>{t('categories.complexPasswords')}</strong>
                   </TableCell>
                 </TableRow>
-                {complexShort && renderCategory('Complex (≤14 characters)', complexShort)}
-                {complexLong && renderCategory('Complex (15+ characters)', complexLong)}
+                {complexShort && renderCategory(t('categories.complexShort'), complexShort)}
+                {complexLong && renderCategory(t('categories.complexLong'), complexLong)}
               </>
             )}
           </TableBody>

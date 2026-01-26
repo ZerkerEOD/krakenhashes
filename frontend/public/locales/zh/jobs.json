@@ -1,0 +1,305 @@
+{
+  "title": "任务",
+  "createJob": "创建任务",
+  "page": {
+    "title": "任务"
+  },
+  "columns": {
+    "name": "任务名称",
+    "hashlist": "哈希列表",
+    "createdBy": "创建者",
+    "progress": "进度",
+    "keyspace": "密钥空间",
+    "cracked": "已破解",
+    "agents": "代理",
+    "priority": "优先级",
+    "maxAgents": "最大代理数",
+    "actions": "操作",
+    "status": "状态",
+    "createdAt": "创建时间"
+  },
+  "status": {
+    "pending": "待处理",
+    "running": "运行中",
+    "completed": "已完成",
+    "failed": "失败",
+    "stopped": "已停止",
+    "paused": "已暂停",
+    "active": "活跃",
+    "cancelled": "已取消"
+  },
+  "actions": {
+    "delete": "删除任务",
+    "retry": "重试任务",
+    "stop": "停止任务",
+    "pause": "暂停任务",
+    "resume": "恢复任务",
+    "viewDetails": "查看详情"
+  },
+  "sections": {
+    "activeJobs": "活跃任务",
+    "completedJobs": "已完成任务"
+  },
+  "confirmDelete": {
+    "title": "删除任务",
+    "message": "确定要删除此任务吗？此操作无法撤销。",
+    "messageNamed": "确定要删除任务\"{{name}}\"吗？此操作无法撤销。"
+  },
+  "row": {
+    "completed": "已完成：",
+    "unknown": "未知",
+    "error": "错误：",
+    "rulesLabel": "（规则）"
+  },
+  "tooltips": {
+    "combinedHashRate": "综合哈希速率",
+    "retry": "重试任务",
+    "delete": "删除任务",
+    "save": "保存",
+    "cancel": "取消"
+  },
+  "validation": {
+    "priorityRange": "优先级必须在 0 到 {{max}} 之间",
+    "maxAgentsRange": "最大代理数必须在 1 到 100 之间",
+    "maxAgentsPositive": "最大代理数必须为 0（无限制）或正数",
+    "chunkSizeMin": "分块大小必须至少为 5 秒",
+    "chunkSizeMax": "分块大小不能超过 24 小时（86400 秒）",
+    "invalidNumber": "请输入有效的数字",
+    "minValue": "值必须至少为 {{min}}",
+    "maxValue": "值必须最多为 {{max}}"
+  },
+  "errors": {
+    "loadFailed": "加载任务失败",
+    "loadDetailsFailed": "加载任务详情失败",
+    "deleteFailed": "删除任务失败",
+    "updateFailed": "更新任务失败",
+    "fetchFailed": "获取任务失败：{{message}}",
+    "willRetry": "将自动重试。",
+    "notFound": "未找到任务",
+    "saveFailed": "保存更改失败",
+    "updatePriorityFailed": "更新优先级失败",
+    "updateMaxAgentsFailed": "更新最大代理数失败",
+    "updateChunkSizeFailed": "更新分块大小失败",
+    "retryTaskFailed": "重试任务失败",
+    "forceCompleteFailed": "强制完成任务失败"
+  },
+  "details": {
+    "title": "任务详情",
+    "pageTitle": "任务详情",
+    "overview": "概览",
+    "tasks": "子任务",
+    "results": "结果",
+    "logs": "日志",
+    "jobInformation": "任务信息",
+    "timeRemaining": "剩余时间",
+    "estimatedCompletion": "预计完成时间",
+    "crackingCompletedAt": "破解完成时间",
+    "chunkSizeDefault": "未设置（使用默认值）",
+    "noActiveTasksEstimate": "无法估计 - 当前没有运行中的任务",
+    "lessThanOneMinute": "不到 1 分钟",
+    "jobCompleted": "任务已完成",
+    "finishingUp": "即将完成...",
+    "completingShortly": "即将完成",
+    "processingDuration": "处理中：{{duration}}",
+    "wordlists": "字典",
+    "rules": "规则",
+    "splittingMode": "拆分模式",
+    "ruleSplitting": "规则拆分",
+    "firstWordlist": "第一个字典",
+    "secondWordlist": "第二个字典",
+    "wordlist": "字典",
+    "mask": "掩码",
+    "incrementMode": "递增模式",
+    "incrementRange": "递增范围",
+    "maskSuffix": "掩码（后缀）",
+    "maskPrefix": "掩码（前缀）",
+    "associationHints": "关联提示",
+    "autoRefreshOn": "自动刷新：开启",
+    "autoRefreshPaused": "自动刷新：暂停",
+    "forceComplete": "强制完成",
+    "refreshNow": "立即刷新",
+    "priorityRange": "0-{{max}}",
+    "maxAgentsHint": "0=无限制",
+    "chunkSizeHint": "秒（5-86400）",
+    "incrementLayers": "递增层级（共 {{count}} 层）",
+    "estimatedKeyspace": "预估",
+    "taskProgressVisualization": "任务进度可视化",
+    "activeTasks": "活跃任务（{{count}} 个运行中）",
+    "noActiveTasks": "无活跃任务",
+    "failedTasks": "失败任务（共 {{count}} 个）",
+    "completedTasks": "已完成任务（共 {{count}} 个）",
+    "noCompletedTasks": "无已完成任务",
+    "increment": "递增",
+    "incrementInverse": "递减",
+    "jobNotFound": "未找到任务",
+    "priority": "优先级",
+    "timeUnits": {
+      "year": "年",
+      "years": "年",
+      "month": "月",
+      "months": "月",
+      "day": "天",
+      "days": "天",
+      "hour": "小时",
+      "hours": "小时",
+      "minute": "分钟",
+      "minutes": "分钟",
+      "second": "秒",
+      "seconds": "秒"
+    },
+    "layerTable": {
+      "layer": "层",
+      "mask": "掩码",
+      "minLength": "最小长度",
+      "maxLength": "最大长度",
+      "keyspace": "密钥空间",
+      "effectiveKeyspace": "有效密钥空间",
+      "progress": "进度",
+      "tasks": "任务",
+      "cracks": "破解",
+      "status": "状态",
+      "running": "运行中",
+      "total": "总计",
+      "failed": "{{count}} 个失败"
+    },
+    "activeTasksTable": {
+      "agentId": "代理 ID",
+      "taskId": "任务 ID",
+      "agent": "代理",
+      "skip": "跳过",
+      "limit": "限制",
+      "keyspaceRange": "密钥空间范围",
+      "progress": "进度",
+      "speed": "速度",
+      "currentSpeed": "当前速度",
+      "cracks": "破解",
+      "startedAt": "开始时间"
+    },
+    "failedTasksTable": {
+      "agentId": "代理 ID",
+      "taskId": "任务 ID",
+      "agent": "代理",
+      "status": "状态",
+      "retryCount": "重试次数",
+      "error": "错误",
+      "errorMessage": "错误信息",
+      "lastUpdated": "最后更新",
+      "failedAt": "失败时间",
+      "actions": "操作"
+    },
+    "completedTasksTable": {
+      "agentId": "代理 ID",
+      "taskId": "任务 ID",
+      "agent": "代理",
+      "completedAt": "完成时间",
+      "keyspaceRange": "密钥空间范围",
+      "finalProgress": "最终进度",
+      "averageSpeed": "平均速度",
+      "cracks": "破解",
+      "cracksFound": "发现破解"
+    },
+    "attackModes": {
+      "dictionary": "字典",
+      "combination": "组合",
+      "bruteforce": "暴力破解",
+      "hybridWordlistMask": "混合 字典 + 掩码",
+      "hybridMaskWordlist": "混合 掩码 + 字典",
+      "association": "关联",
+      "modeNumber": "模式 {{mode}}"
+    }
+  },
+  "common": {
+    "id": "ID",
+    "name": "名称",
+    "status": "状态",
+    "hashlist": "哈希列表",
+    "hashType": "哈希类型",
+    "attackMode": "攻击模式",
+    "keyspace": "密钥空间",
+    "effectiveKeyspace": "有效密钥空间",
+    "processedKeyspace": "已处理密钥空间",
+    "dispatchedKeyspace": "已分派密钥空间",
+    "progress": "进度",
+    "cracksFound": "发现破解",
+    "createdAt": "创建时间",
+    "startedAt": "开始时间",
+    "completedAt": "完成时间",
+    "error": "错误",
+    "warning": "警告",
+    "maxAgents": "最大代理数",
+    "chunkSize": "分块大小",
+    "unassigned": "未分配",
+    "noErrorMessage": "无错误信息",
+    "notAvailable": "不可用",
+    "back": "返回",
+    "rulesMultiplier": "（规则）"
+  },
+  "editableCell": {
+    "clickToEdit": "点击编辑"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "删除已完成任务",
+      "message": "确定要删除所有已完成的任务吗？此操作无法撤销。"
+    },
+    "forceComplete": {
+      "title": "强制完成任务",
+      "warning": "这将把所有未完成的子任务标记为已完成，并将任务状态设置为已完成。",
+      "onlyUseIf": "仅在以下情况下使用：",
+      "reason1": "任务实际上已完成所有工作的处理",
+      "reason2": "任务卡在运行中/待处理状态",
+      "reason3": "您已验证密钥空间已被完全搜索",
+      "note": "注意：我们正在开发更好的方法来处理各种情况下的密钥空间计算和任务完成检测。",
+      "confirmation": "确定要强制完成此任务吗？",
+      "completing": "正在完成...",
+      "button": "强制完成"
+    },
+    "deleteConfirm": {
+      "deleting": "正在删除..."
+    }
+  },
+  "buttons": {
+    "refresh": "刷新",
+    "deleteFinished": "删除已完成",
+    "cancel": "取消",
+    "delete": "删除",
+    "save": "保存",
+    "retry": "重试"
+  },
+  "success": {
+    "chunkSizeUpdated": "分块大小更新成功。更改将在下次创建任务时生效。",
+    "forceCompleted": "任务强制完成成功"
+  },
+  "form": {
+    "name": "任务名称",
+    "hashlist": "选择哈希列表",
+    "attackMode": "攻击模式",
+    "wordlist": "字典",
+    "rules": "规则",
+    "priority": "优先级",
+    "maxAgents": "最大代理数"
+  },
+  "autoRefresh": {
+    "on": "自动刷新已开启",
+    "off": "自动刷新已关闭"
+  },
+  "pagination": {
+    "jobsPerPage": "每页任务数"
+  },
+  "filters": {
+    "searchPlaceholder": "搜索任务...",
+    "priority": "优先级",
+    "status": "状态",
+    "all": "全部"
+  },
+  "priority": {
+    "low": "低",
+    "medium": "中",
+    "high": "高",
+    "critical": "紧急",
+    "maximum": "最高"
+  },
+  "lastUpdated": "最后更新：{{time}}",
+  "filtered": "（已筛选）",
+  "loading": "正在加载任务..."
+}

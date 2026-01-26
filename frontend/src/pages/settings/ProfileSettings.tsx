@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Card,
@@ -41,6 +42,7 @@ interface PasswordChangeForm {
 }
 
 const ProfileSettings: React.FC = () => {
+  const { t } = useTranslation('settings');
   const { user, setUser } = useAuth();
   const { showPasswordConfirm, PasswordConfirmDialog } = usePasswordConfirm();
 
@@ -114,13 +116,13 @@ const ProfileSettings: React.FC = () => {
 
   const handleEmailUpdate = async () => {
     if (!email || email === user?.email) {
-      setEmailError('No changes to save');
+      setEmailError(t('account.errors.noChanges') as string);
       return;
     }
 
     // Basic email validation
     if (!email.includes('@')) {
-      setEmailError('Invalid email address');
+      setEmailError(t('account.errors.invalidEmail') as string);
       return;
     }
 
@@ -129,8 +131,8 @@ const ProfileSettings: React.FC = () => {
 
     // Show password confirmation dialog
     const password = await showPasswordConfirm(
-      'Confirm Email Update',
-      'Please enter your current password to update your email address.'
+      t('account.confirmEmailUpdate.title') as string,
+      t('account.confirmEmailUpdate.message') as string
     );
 
     if (!password) {
@@ -146,15 +148,15 @@ const ProfileSettings: React.FC = () => {
       };
 
       await updateUserProfile(updates);
-      setEmailSuccess('Email updated successfully');
+      setEmailSuccess(t('account.success.emailUpdated') as string);
 
       if (setUser && user) {
         setUser({ ...user, email: email });
       }
     } catch (error: any) {
-      const errorMessage = error?.response || error?.message || 'Failed to update email';
+      const errorMessage = error?.response || error?.message || t('account.errors.updateFailed') as string;
       if (errorMessage.includes('password')) {
-        setEmailError('Incorrect password');
+        setEmailError(t('account.errors.incorrectPassword') as string);
       } else {
         setEmailError(errorMessage);
       }
@@ -171,19 +173,19 @@ const ProfileSettings: React.FC = () => {
 
     try {
       if (!passwordForm.currentPassword) {
-        throw new Error('Current password is required');
+        throw new Error(t('password.errors.currentRequired') as string);
       }
 
       if (!passwordForm.newPassword) {
-        throw new Error('New password is required');
+        throw new Error(t('password.errors.newRequired') as string);
       }
 
       if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-        throw new Error('New passwords do not match');
+        throw new Error(t('password.errors.mismatch') as string);
       }
 
       if (!validatePassword(passwordForm.newPassword)) {
-        throw new Error('New password does not meet requirements');
+        throw new Error(t('password.errors.requirements') as string);
       }
 
       const updates: ProfileUpdate = {
@@ -192,7 +194,7 @@ const ProfileSettings: React.FC = () => {
       };
 
       await updateUserProfile(updates);
-      setPasswordSuccess('Password changed successfully');
+      setPasswordSuccess(t('password.success.changed') as string);
 
       // Clear password fields after successful update
       setPasswordForm({
@@ -201,7 +203,7 @@ const ProfileSettings: React.FC = () => {
         confirmPassword: '',
       });
     } catch (error: any) {
-      const errorMessage = error?.response || error?.message || 'Failed to update password';
+      const errorMessage = error?.response || error?.message || t('password.errors.updateFailed') as string;
       setPasswordError(errorMessage);
     } finally {
       setPasswordLoading(false);
@@ -223,7 +225,7 @@ const ProfileSettings: React.FC = () => {
       const infoResponse = await getApiKeyInfo();
       setApiKeyInfo(infoResponse.data.data);
     } catch (error: any) {
-      const errorMessage = error?.response?.data?.error || error?.message || 'Failed to generate API key';
+      const errorMessage = error?.response?.data?.error || error?.message || t('apiKey.errors.generateFailed') as string;
       setApiKeyError(errorMessage);
     } finally {
       setApiKeyLoading(false);
@@ -237,14 +239,14 @@ const ProfileSettings: React.FC = () => {
 
     try {
       await revokeApiKey();
-      setApiKeySuccess('API key revoked successfully');
+      setApiKeySuccess(t('apiKey.success.revoked') as string);
       setShowConfirmRevoke(false);
 
       // Refresh API key info
       const infoResponse = await getApiKeyInfo();
       setApiKeyInfo(infoResponse.data.data);
     } catch (error: any) {
-      const errorMessage = error?.response?.data?.error || error?.message || 'Failed to revoke API key';
+      const errorMessage = error?.response?.data?.error || error?.message || t('apiKey.errors.revokeFailed') as string;
       setApiKeyError(errorMessage);
     } finally {
       setApiKeyLoading(false);
@@ -253,22 +255,22 @@ const ProfileSettings: React.FC = () => {
 
   const handleCopyApiKey = () => {
     navigator.clipboard.writeText(generatedApiKey);
-    setApiKeySuccess('API key copied to clipboard');
+    setApiKeySuccess(t('apiKey.success.copied') as string);
   };
 
   const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Never';
+    if (!dateString) return t('common.never') as string;
     try {
       return new Date(dateString).toLocaleString();
     } catch {
-      return 'Invalid date';
+      return t('common.invalidDate') as string;
     }
   };
 
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>
-        Profile Settings
+        {t('profileSettings.title') as string}
       </Typography>
 
       <PasswordConfirmDialog />
@@ -277,7 +279,7 @@ const ProfileSettings: React.FC = () => {
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Typography variant="h6" gutterBottom>
-            Account Information
+            {t('account.title') as string}
           </Typography>
 
           {emailError && (
@@ -296,17 +298,17 @@ const ProfileSettings: React.FC = () => {
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Username"
+                label={t('account.username') as string}
                 value={user?.username || ''}
                 disabled
                 margin="normal"
-                helperText="Username cannot be changed"
+                helperText={t('account.usernameCannotChange') as string}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Email"
+                label={t('account.email') as string}
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
@@ -327,7 +329,7 @@ const ProfileSettings: React.FC = () => {
               disabled={emailLoading || email === user?.email}
               startIcon={emailLoading && <CircularProgress size={20} color="inherit" />}
             >
-              {emailLoading ? 'Saving...' : 'Save Email'}
+              {emailLoading ? t('account.saving') as string : t('account.saveEmail') as string}
             </Button>
           </Box>
         </CardContent>
@@ -337,7 +339,7 @@ const ProfileSettings: React.FC = () => {
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Typography variant="h6" gutterBottom>
-            Change Password
+            {t('password.title') as string}
           </Typography>
 
           {passwordError && (
@@ -357,7 +359,7 @@ const ProfileSettings: React.FC = () => {
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label="Current Password"
+                  label={t('password.currentPassword') as string}
                   value={passwordForm.currentPassword}
                   onChange={handlePasswordChange('currentPassword')}
                   type="password"
@@ -367,13 +369,13 @@ const ProfileSettings: React.FC = () => {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="New Password"
+                  label={t('password.newPassword') as string}
                   value={passwordForm.newPassword}
                   onChange={handlePasswordChange('newPassword')}
                   type="password"
                   margin="normal"
                   disabled={!passwordForm.currentPassword}
-                  helperText={!passwordForm.currentPassword ? "Enter current password first" : ""}
+                  helperText={!passwordForm.currentPassword ? t('password.enterCurrentFirst') as string : ""}
                 />
                 {passwordForm.newPassword && (
                   <PasswordValidation password={passwordForm.newPassword} />
@@ -382,7 +384,7 @@ const ProfileSettings: React.FC = () => {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="Confirm New Password"
+                  label={t('password.confirmNewPassword') as string}
                   value={passwordForm.confirmPassword}
                   onChange={handlePasswordChange('confirmPassword')}
                   type="password"
@@ -390,12 +392,12 @@ const ProfileSettings: React.FC = () => {
                   disabled={!passwordForm.currentPassword}
                   error={passwordForm.newPassword !== passwordForm.confirmPassword && passwordForm.confirmPassword !== ''}
                   helperText={
-                    !passwordForm.currentPassword ? "Enter current password first" :
+                    !passwordForm.currentPassword ? t('password.enterCurrentFirst') as string :
                     passwordForm.confirmPassword !== '' && (
                       passwordForm.newPassword !== passwordForm.confirmPassword
-                        ? 'Passwords do not match'
+                        ? t('password.errors.mismatch') as string
                         : passwordForm.newPassword === passwordForm.confirmPassword
-                          ? 'Passwords match'
+                          ? t('password.passwordsMatch') as string
                           : ''
                     )
                   }
@@ -418,7 +420,7 @@ const ProfileSettings: React.FC = () => {
                 disabled={passwordLoading}
                 startIcon={passwordLoading && <CircularProgress size={20} color="inherit" />}
               >
-                {passwordLoading ? 'Changing Password...' : 'Change Password'}
+                {passwordLoading ? t('password.changing') as string : t('password.changePassword') as string}
               </Button>
             </Box>
           </form>
@@ -443,7 +445,7 @@ const ProfileSettings: React.FC = () => {
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Typography variant="h6" gutterBottom>
-            API Keys
+            {t('apiKey.title') as string}
           </Typography>
 
           {apiKeyError && (
@@ -462,11 +464,11 @@ const ProfileSettings: React.FC = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <VpnKeyIcon color={apiKeyInfo?.hasKey ? 'success' : 'disabled'} />
               <Typography variant="body1">
-                API Key Status:{' '}
+                {t('apiKey.status') as string}:{' '}
                 {apiKeyInfo?.hasKey ? (
-                  <Chip label="Active" color="success" size="small" icon={<CheckCircleIcon />} />
+                  <Chip label={t('apiKey.active') as string} color="success" size="small" icon={<CheckCircleIcon />} />
                 ) : (
-                  <Chip label="No API Key Generated" size="small" />
+                  <Chip label={t('apiKey.noKeyGenerated') as string} size="small" />
                 )}
               </Typography>
             </Box>
@@ -474,10 +476,10 @@ const ProfileSettings: React.FC = () => {
             {apiKeyInfo?.hasKey && (
               <Box sx={{ ml: 4 }}>
                 <Typography variant="body2" color="text.secondary">
-                  Created: {formatDate(apiKeyInfo.createdAt)}
+                  {t('apiKey.created') as string}: {formatDate(apiKeyInfo.createdAt)}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Last Used: {formatDate(apiKeyInfo.lastUsed)}
+                  {t('apiKey.lastUsed') as string}: {formatDate(apiKeyInfo.lastUsed)}
                 </Typography>
               </Box>
             )}
@@ -496,7 +498,7 @@ const ProfileSettings: React.FC = () => {
               }}
               disabled={apiKeyLoading}
             >
-              {apiKeyInfo?.hasKey ? 'Regenerate API Key' : 'Generate API Key'}
+              {apiKeyInfo?.hasKey ? t('apiKey.regenerate') as string : t('apiKey.generate') as string}
             </Button>
 
             {apiKeyInfo?.hasKey && (
@@ -506,7 +508,7 @@ const ProfileSettings: React.FC = () => {
                 onClick={() => setShowConfirmRevoke(true)}
                 disabled={apiKeyLoading}
               >
-                Revoke API Key
+                {t('apiKey.revoke') as string}
               </Button>
             )}
 
@@ -517,7 +519,7 @@ const ProfileSettings: React.FC = () => {
               target="_blank"
               rel="noopener noreferrer"
             >
-              View API Documentation
+              {t('apiKey.viewDocs') as string}
             </Button>
           </Box>
         </CardContent>
@@ -536,7 +538,7 @@ const ProfileSettings: React.FC = () => {
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <VpnKeyIcon color="primary" />
-            Your API Key
+            {t('apiKey.dialog.title') as string}
           </Box>
         </DialogTitle>
         <DialogContent>
@@ -544,7 +546,7 @@ const ProfileSettings: React.FC = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <WarningIcon />
               <Typography variant="body2">
-                <strong>Save this key now!</strong> You won't be able to see it again.
+                <strong>{t('apiKey.dialog.saveNow') as string}</strong> {t('apiKey.dialog.cantSeeAgain') as string}
               </Typography>
             </Box>
           </Alert>
@@ -571,7 +573,7 @@ const ProfileSettings: React.FC = () => {
           </Box>
 
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-            Use this API key in your HTTP requests by including it in the <code>X-API-Key</code> header.
+            {t('apiKey.dialog.instructions') as string}
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -582,7 +584,7 @@ const ProfileSettings: React.FC = () => {
               setGeneratedApiKey('');
             }}
           >
-            I've Saved It
+            {t('apiKey.dialog.saved') as string}
           </Button>
         </DialogActions>
       </Dialog>
@@ -594,22 +596,22 @@ const ProfileSettings: React.FC = () => {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Regenerate API Key?</DialogTitle>
+        <DialogTitle>{t('apiKey.confirmRegenerate.title') as string}</DialogTitle>
         <DialogContent>
           <Alert severity="warning" sx={{ mb: 2 }}>
-            This will invalidate your existing API key. Any applications using the current key will stop working.
+            {t('apiKey.confirmRegenerate.warning') as string}
           </Alert>
-          <Typography>Are you sure you want to continue?</Typography>
+          <Typography>{t('apiKey.confirmRegenerate.confirm') as string}</Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowConfirmRegenerate(false)}>Cancel</Button>
+          <Button onClick={() => setShowConfirmRegenerate(false)}>{t('common.cancel') as string}</Button>
           <Button
             variant="contained"
             color="warning"
             onClick={handleGenerateApiKey}
             disabled={apiKeyLoading}
           >
-            Regenerate
+            {t('apiKey.regenerate') as string}
           </Button>
         </DialogActions>
       </Dialog>
@@ -621,22 +623,22 @@ const ProfileSettings: React.FC = () => {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Revoke API Key?</DialogTitle>
+        <DialogTitle>{t('apiKey.confirmRevoke.title') as string}</DialogTitle>
         <DialogContent>
           <Alert severity="error" sx={{ mb: 2 }}>
-            This will immediately disable API access. Any applications using this key will stop working.
+            {t('apiKey.confirmRevoke.warning') as string}
           </Alert>
-          <Typography>Are you sure you want to revoke your API key?</Typography>
+          <Typography>{t('apiKey.confirmRevoke.confirm') as string}</Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowConfirmRevoke(false)}>Cancel</Button>
+          <Button onClick={() => setShowConfirmRevoke(false)}>{t('common.cancel') as string}</Button>
           <Button
             variant="contained"
             color="error"
             onClick={handleRevokeApiKey}
             disabled={apiKeyLoading}
           >
-            Revoke
+            {t('apiKey.revoke') as string}
           </Button>
         </DialogActions>
       </Dialog>

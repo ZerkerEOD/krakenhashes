@@ -1,0 +1,107 @@
+{
+  "title": "Hashlisten",
+  "uploadButton": "Hashliste hochladen",
+  "page": {
+    "title": "Hashlistenverwaltung",
+    "description": "Passwort-Hashlisten für Cracking-Operationen hochladen und verwalten"
+  },
+  "columns": {
+    "name": "Name",
+    "hashType": "Hash-Typ",
+    "totalHashes": "Hashes gesamt",
+    "crackedHashes": "Geknackt",
+    "progress": "Geknackt (%)",
+    "client": "Kunde",
+    "status": "Status",
+    "createdAt": "Erstellt",
+    "actions": "Aktionen"
+  },
+  "filters": {
+    "filterByName": "Nach Name filtern",
+    "status": "Status",
+    "all": "Alle"
+  },
+  "status": {
+    "uploading": "Wird hochgeladen",
+    "processing": "Wird verarbeitet",
+    "ready": "Bereit",
+    "error": "Fehler"
+  },
+  "table": {
+    "noHashlists": "Keine Hashlisten gefunden."
+  },
+  "details": {
+    "title": "Hashlistendetails",
+    "overview": "Übersicht",
+    "hashes": "Hashes",
+    "jobs": "Aufträge",
+    "stats": "Statistiken"
+  },
+  "upload": {
+    "title": "Neue Hashliste hochladen",
+    "name": "Hashlistenname",
+    "hashType": "Hash-Typ",
+    "client": "Kunde (Optional)",
+    "file": "Hash-Datei",
+    "selectFile": "Datei auswählen",
+    "uploading": "Wird hochgeladen...",
+    "cancel": "Abbrechen"
+  },
+  "actions": {
+    "viewDetails": "Details anzeigen",
+    "createJob": "Auftrag erstellen",
+    "download": "Herunterladen",
+    "delete": "Löschen"
+  },
+  "confirmDelete": {
+    "title": "Löschen bestätigen",
+    "message": "Sind Sie sicher, dass Sie die Hashliste \"{{name}}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "deleting": "Wird gelöscht..."
+  },
+  "deletionProgress": {
+    "title": "Hashliste wird gelöscht",
+    "successTitle": "Hashliste erfolgreich gelöscht",
+    "complete": "Löschung abgeschlossen!",
+    "failed": "Löschung fehlgeschlagen",
+    "summary": "Zusammenfassung:",
+    "totalProcessed": "Verarbeitete Hashes gesamt: {{value}}",
+    "orphansDeleted": "Verwaiste Hashes gelöscht: {{value}}",
+    "sharedPreserved": "Geteilte Hashes beibehalten: {{value}}",
+    "jobsDeleted": "Aufträge gelöscht: {{value}}",
+    "duration": "Dauer: {{duration}}",
+    "phase": "Phase {{current}}/{{total}}: {{label}}",
+    "phases": {
+      "preparing": "Vorbereitung...",
+      "removingHashes": "Hashes werden entfernt",
+      "clearingReferences": "Aufgabenreferenzen werden gelöscht",
+      "cleaningOrphans": "Verwaiste Hashes werden bereinigt",
+      "finalizing": "Löschung wird abgeschlossen"
+    },
+    "units": {
+      "hashes": "Hashes",
+      "references": "Referenzen"
+    },
+    "error": "Fehler: {{error}}",
+    "done": "Fertig",
+    "close": "Schließen"
+  },
+  "notifications": {
+    "deleteSuccess": "Hashliste erfolgreich gelöscht",
+    "uploadSuccess": "Hashliste erfolgreich hochgeladen",
+    "downloaded": "{{filename}} heruntergeladen"
+  },
+  "errors": {
+    "loadFailed": "Fehler beim Abrufen der Hashlisten.",
+    "uploadFailed": "Fehler beim Hochladen der Hashliste",
+    "deleteFailed": "Löschung fehlgeschlagen: {{error}}"
+  },
+  "hashDetails": {
+    "title": "Hash-Details",
+    "originalHash": "Original-Hash",
+    "password": "Passwort",
+    "cracked": "Geknackt",
+    "crackedAt": "Geknackt am"
+  }
+}

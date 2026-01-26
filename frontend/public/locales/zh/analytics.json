@@ -1,0 +1,346 @@
+{
+  "title": "密码分析",
+  "description": "为安全评估生成全面的密码分析报告",
+  "selectHashlist": "选择哈希列表",
+  "generateReport": "生成报告",
+  "downloadReport": "下载报告",
+  "clientSelection": {
+    "title": "选择客户",
+    "label": "客户",
+    "placeholder": "选择一个客户"
+  },
+  "tabs": {
+    "generateNew": "生成新报告",
+    "viewPrevious": "查看历史报告",
+    "all": "全部"
+  },
+  "form": {
+    "startDate": "开始日期",
+    "endDate": "结束日期",
+    "customPatterns": "自定义模式（逗号分隔）",
+    "customPatternsPlaceholder": "例如：goog, ggl, micro, soft",
+    "customPatternsHelper": "添加要检查的自定义组织名称变体"
+  },
+  "table": {
+    "dateRange": "日期范围",
+    "generatedOn": "生成时间",
+    "status": "状态",
+    "hashes": "哈希数",
+    "cracked": "已破解",
+    "actions": "操作",
+    "noReports": "未找到此客户的报告"
+  },
+  "status": {
+    "queued": "排队中",
+    "processing": "处理中",
+    "completed": "已完成",
+    "failed": "失败",
+    "pendingGeneration": "待生成报告",
+    "generating": "报告仍在生成中"
+  },
+  "actions": {
+    "viewReport": "查看报告",
+    "retryReport": "重试报告",
+    "deleteReport": "删除报告",
+    "retry": "重试",
+    "delete": "删除",
+    "exportHcmask": "导出 .hcmask",
+    "exportTxt": "导出 .txt"
+  },
+  "messages": {
+    "selectClient": "请选择客户",
+    "reportQueued": "报告已排队（位置：{{position}}）",
+    "reportQueuedRetry": "报告已排队重试（位置：{{position}}）",
+    "reportDeleted": "报告删除成功",
+    "failedLoadClients": "加载客户失败",
+    "failedLoadReports": "加载报告失败",
+    "failedLoadReport": "加载报告失败",
+    "failedGenerateReport": "生成报告失败",
+    "failedDeleteReport": "删除报告失败",
+    "failedRetryReport": "重试报告失败",
+    "queuedPosition": "您的报告已排队等待处理。位置：",
+    "processingDescription": "您的报告正在处理中。根据数据集大小，这可能需要几分钟时间。",
+    "generationError": "生成报告时发生错误。",
+    "noHashReuse": "未检测到哈希重用。所有 NTLM/LM 哈希值都是唯一的。",
+    "andMoreUsers": "...还有 {{count}} 个用户",
+    "copiedSuccess": "用户名已复制到剪贴板！",
+    "noRecommendations": "目前没有具体建议。密码策略看起来已经足够。",
+    "top50Hashes": "显示前 50 个最常重用的哈希",
+    "top50PartialCracks": "显示前 50 个部分破解"
+  },
+  "sections": {
+    "lengthDistribution": "密码长度分布",
+    "characterComposition": "字符组成",
+    "commonPatterns": "常见模式",
+    "topPasswords": "常用密码",
+    "maskAnalysis": "掩码分析",
+    "complexityAnalysis": "字符复杂度分析",
+    "sequentialPatterns": "连续模式",
+    "keyboardPatterns": "键盘模式",
+    "datePatterns": "日期模式",
+    "leetSpeak": "Leet 语言分析",
+    "baseWords": "基础词汇",
+    "characterSets": "字符集",
+    "entropyDistribution": "熵值分布",
+    "overview": "概览",
+    "domainBreakdown": "域名分布",
+    "hashModeBreakdown": "哈希模式分布",
+    "windowsHashAnalytics": "Windows 哈希分析",
+    "positionalAnalysis": "位置分析",
+    "patternDetection": "模式检测",
+    "usernameCorrelation": "用户名关联",
+    "passwordReuse": "密码重用",
+    "hashReuse": "基于哈希的密码重用",
+    "temporalPatterns": "时间模式",
+    "yearBreakdown": "年份分布",
+    "strengthMetrics": "强度指标",
+    "crackTimeEstimates": "按速度估算破解时间",
+    "customPatterns": "组织名称模式",
+    "recommendations": "建议",
+    "lmPartialCracks": "LM 部分破解",
+    "lmToNtlmMasks": "LM 到 NTLM 掩码生成",
+    "hashTypes": "哈希类型",
+    "kerberos": "Kerberos",
+    "encryptionTypes": "加密类型",
+    "linkedHashCorrelation": "LM/NTLM 链接哈希关联",
+    "reusedPasswords": "按出现次数排列的重用密码"
+  },
+  "charts": {
+    "count": "数量",
+    "percentage": "百分比",
+    "length": "长度",
+    "password": "密码",
+    "pattern": "模式",
+    "mask": "掩码"
+  },
+  "columns": {
+    "domain": "域名",
+    "totalHashes": "总哈希数",
+    "cracked": "已破解",
+    "percentage": "百分比",
+    "hashType": "哈希类型",
+    "length": "长度",
+    "count": "数量",
+    "category": "类别",
+    "pattern": "模式",
+    "patternType": "模式类型",
+    "correlationType": "关联类型",
+    "metric": "指标",
+    "password": "密码",
+    "users": "用户",
+    "occurrences": "出现次数",
+    "username": "用户名",
+    "hashlistCount": "哈希列表数",
+    "hashValue": "哈希值",
+    "type": "类型",
+    "total": "总计",
+    "year": "年份",
+    "maskPattern": "掩码模式",
+    "entropyLevel": "熵值级别",
+    "range": "范围",
+    "speedLevel": "速度级别",
+    "speed": "速度 (H/s)",
+    "rank": "排名",
+    "actions": "操作",
+    "firstHalf": "前半部分 (1-7)",
+    "secondHalf": "后半部分 (8-14)",
+    "hashlist": "哈希列表",
+    "mask": "掩码",
+    "lmPattern": "LM 模式",
+    "matchPercentage": "匹配率",
+    "estimatedKeyspace": "预估密钥空间",
+    "exampleLm": "LM 示例",
+    "usersHashlistCount": "用户数（哈希列表数）",
+    "totalOccurrences": "总出现次数",
+    "userCount": "用户数"
+  },
+  "labels": {
+    "reportId": "报告 ID：",
+    "total": "总计",
+    "cracked": "已破解：",
+    "percentage": "百分比：",
+    "totalHashRecords": "总哈希记录",
+    "uniqueUsers": "唯一用户",
+    "successRate": "成功率",
+    "linkedPairsFound": "找到 LM/NTLM 链接对",
+    "totalLinkedPairs": "总链接对数：",
+    "bothCracked": "都已破解",
+    "ntlmOnly": "仅 NTLM",
+    "lmOnly": "仅 LM",
+    "neitherCracked": "都未破解",
+    "passwordsReused": "重用的密码",
+    "uniquePasswords": "唯一密码",
+    "totalReused": "总重用数",
+    "totalUnique": "总唯一数",
+    "reusePercentage": "重用百分比",
+    "usersWithHash": "使用此哈希的用户：",
+    "totalPartial": "总部分破解",
+    "firstHalfOnly": "仅前半部分",
+    "secondHalfOnly": "仅后半部分",
+    "unknown": "未知",
+    "lmPasswordsAnalyzed": "已分析的 LM 密码",
+    "masksGenerated": "已生成的掩码",
+    "totalEstimatedKeyspace": "总预估密钥空间",
+    "underOrEqual7Chars": "<=7 字符：",
+    "8To14Chars": "8-14 字符：",
+    "partiallyCracked": "部分破解："
+  },
+  "cards": {
+    "totalHashes": "总哈希数",
+    "cracked": "已破解",
+    "crackRate": "破解率",
+    "hashlistsAnalyzed": "已分析的哈希列表"
+  },
+  "descriptions": {
+    "lengthDistribution": "长度分布（基于哈希）：",
+    "includesAllTypes": "包含所有哈希类型",
+    "distinctUsernames": "不同的用户名",
+    "successfullyCracked": "成功破解",
+    "overallPercentage": "总体百分比",
+    "complexityDistribution": "按字符类型组合分布的密码",
+    "positionalPatterns": "密码中的常见位置模式",
+    "weakPatterns": "在密码中检测到的常见弱模式",
+    "usernameCorrelation": "与用户名相关的密码",
+    "hashReuseAnalysis": "相同的 NTLM/LM 哈希值表明跨账户的密码重用，即使明文未知。",
+    "datePatterns": "在密码中发现的与日期相关的模式",
+    "maskFormat": "hashcat 掩码格式的顶级密码模式（?u=大写, ?l=小写, ?d=数字, ?s=特殊字符）",
+    "shannonEntropy": "基于香农熵的密码强度分类",
+    "crackTimeEstimates": "在不同速度级别下，各时间段内可破解的密码百分比",
+    "topPasswords": "最常用的密码（最少使用 2 次）",
+    "customPatterns": "包含组织名称变体的密码",
+    "recommendations": "基于分析的密码策略改进建议",
+    "lmDerivable": "（可从 LM 推导）",
+    "ntlmUnknown": "（NTLM 未知）",
+    "ofLmHashes": "的 LM 哈希",
+    "chars1To7": "字符 1-7 已破解",
+    "chars8To14": "字符 8-14 已破解",
+    "maskGeneration": "从已破解的 LM 密码生成 hashcat 掩码，以恢复相应的 NTLM 大小写变体。",
+    "maskSorting": "掩码按频率排序，然后按密钥空间排序",
+    "averageLength": "平均长度（密码 <15 字符）："
+  },
+  "patterns": {
+    "startsUppercase": "以大写字母开头",
+    "endsNumber": "以数字结尾",
+    "endsSpecial": "以特殊字符结尾",
+    "keyboardWalks": "键盘漫步（例如 qwerty, asdfgh）",
+    "sequences": "连续序列（例如 123, abc）",
+    "repeatingChars": "重复字符（例如 aaa, 111）",
+    "containsYear": "包含年份",
+    "containsMonth": "包含月份",
+    "containsSeason": "包含季节"
+  },
+  "correlations": {
+    "sameAsUsername": "密码与用户名相同",
+    "containsUsername": "密码包含用户名",
+    "usernamePart": "用户名是密码的一部分"
+  },
+  "categories": {
+    "singleCharType": "单一字符类型",
+    "twoCharTypes": "两种字符类型",
+    "threeCharTypes": "三种字符类型",
+    "fourCharTypes": "四种字符类型",
+    "allCharTypes": "所有字符类型",
+    "complexPasswords": "复杂密码（3-4 种类型）",
+    "complexShort": "复杂（<=14 字符）",
+    "complexLong": "复杂（15+ 字符）"
+  },
+  "hashTypes": {
+    "ntlm": "NTLM",
+    "lm": "LM",
+    "netntlmv1": "NetNTLMv1",
+    "netntlmv2": "NetNTLMv2",
+    "dcc": "DCC (MS Cache)",
+    "dcc2": "DCC2 (MS Cache 2)"
+  },
+  "kerberosTypes": {
+    "rc4": "RC4",
+    "aes128": "AES-128",
+    "aes256": "AES-256"
+  },
+  "entropyLevels": {
+    "low": "低",
+    "moderate": "中等",
+    "high": "高"
+  },
+  "entropyRanges": {
+    "low": "<78 位",
+    "moderate": "78-127 位",
+    "high": "128+ 位"
+  },
+  "speedLevels": {
+    "speed50": "50% 速度",
+    "speed75": "75% 速度",
+    "speed100": "100% 速度（平均）",
+    "speed150": "150% 速度",
+    "speed200": "200% 速度"
+  },
+  "timeframes": {
+    "lessThan1Hour": "<1 小时",
+    "lessThan1Day": "<1 天",
+    "lessThan1Week": "<1 周",
+    "lessThan1Month": "<1 月",
+    "lessThan6Months": "<6 个月",
+    "lessThan1Year": "<1 年",
+    "greaterThan1Year": ">1 年"
+  },
+  "severities": {
+    "critical": "严重",
+    "high": "高",
+    "medium": "中",
+    "info": "信息"
+  },
+  "tooltips": {
+    "copyUsernames": "复制用户名到剪贴板",
+    "processing": "处理中",
+    "requiresProcessing": "需要特殊处理"
+  },
+  "warnings": {
+    "internalUseOnly": "仅供内部使用：此部分包含明文密码。请勿对外分享。",
+    "partialCracks": "具有部分 LM 破解的用户应立即要求重置密码。",
+    "linkedHashlistAnalysis": "链接哈希列表分析"
+  },
+  "alerts": {
+    "linkedHashlistInfo": "此哈希列表是 LM/NTLM 链接对的一部分。分析包括同一用户的 LM 和 NTLM 哈希之间的关联。"
+  },
+  "filters": {
+    "domain": "按域筛选",
+    "allDomains": "所有域",
+    "minOccurrences": "最小出现次数",
+    "topN": "前 N 个结果"
+  },
+  "errors": {
+    "loadFailed": "加载分析数据失败",
+    "noData": "暂无可分析的数据"
+  },
+  "noReport": {
+    "title": "暂无报告",
+    "message": "选择一个哈希列表并生成报告以查看分析。"
+  },
+  "units": {
+    "chars": "字符"
+  },
+  "pagination": {
+    "masks": "{{from}}-{{to}}，共 {{count}} 个掩码"
+  },
+  "export": {
+    "header": "# LM 到 NTLM Hashcat 掩码",
+    "generatedFrom": "# 从 {{count}} 个已破解的 LM 密码生成",
+    "totalMasks": "# 总掩码数：{{count}}",
+    "totalKeyspace": "# 总预估密钥空间：{{keyspace}}",
+    "format": "# 格式：掩码 | 模式 | 数量 | 匹配率 | 密钥空间 | 示例"
+  },
+  "monthNames": {
+    "jan": "一月",
+    "feb": "二月",
+    "mar": "三月",
+    "apr": "四月",
+    "may": "五月",
+    "jun": "六月",
+    "jul": "七月",
+    "aug": "八月",
+    "sep": "九月",
+    "oct": "十月",
+    "nov": "十一月",
+    "dec": "十二月"
+  }
+}

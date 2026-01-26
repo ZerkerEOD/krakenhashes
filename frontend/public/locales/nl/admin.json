@@ -1,0 +1,1416 @@
+{
+  "title": "Beheerinstellingen",
+  "sections": {
+    "general": "Algemene instellingen",
+    "authentication": "Authenticatie",
+    "email": "E-mailinstellingen",
+    "security": "Beveiliging",
+    "sso": "Single Sign-On",
+    "monitoring": "Monitoring"
+  },
+  "tabs": {
+    "emailSettings": "E-mailinstellingen",
+    "authenticationSettings": "Authenticatie-instellingen",
+    "ssoSettings": "SSO-instellingen",
+    "binaryManagement": "Beheer van binaries",
+    "systemSettings": "Systeeminstellingen",
+    "clientSettings": "Klantinstellingen",
+    "hashTypes": "Hashtypen",
+    "jobExecution": "Taakuitvoering",
+    "monitoring": "Monitoring",
+    "agentDownloads": "Agent-downloads"
+  },
+  "common": {
+    "cancel": "Annuleren",
+    "create": "Aanmaken",
+    "edit": "Bewerken",
+    "delete": "Verwijderen",
+    "save": "Opslaan",
+    "saveChanges": "Wijzigingen opslaan",
+    "copyToClipboard": "Naar klembord kopiëren",
+    "never": "Nooit",
+    "invalidDate": "Ongeldige datum",
+    "all": "Alle",
+    "yes": "Ja",
+    "no": "Nee",
+    "note": "Opmerking",
+    "default": "Standaard",
+    "on": "Aan",
+    "off": "Uit",
+    "none": "Geen",
+    "unlimited": "Onbeperkt",
+    "close": "Sluiten",
+    "unknownError": "Onbekende fout",
+    "dialogs": {
+      "confirmDeleteNamed": "Weet u zeker dat u \"{{name}}\" wilt verwijderen?"
+    }
+  },
+  "users": {
+    "title": "Gebruikersbeheer",
+    "description": "Beheer gebruikersaccounts en machtigingen",
+    "addUser": "Gebruiker toevoegen",
+    "createUser": "Gebruiker aanmaken",
+    "columns": {
+      "username": "Gebruikersnaam",
+      "email": "E-mail",
+      "role": "Rol",
+      "status": "Status",
+      "createdAt": "Aangemaakt op",
+      "lastLogin": "Laatste aanmelding",
+      "actions": "Acties",
+      "provider": "Provider",
+      "providerLocal": "Lokaal",
+      "mfa": "MFA",
+      "apiKey": "API-sleutel",
+      "lastApiUse": "Laatste API-gebruik"
+    },
+    "roles": {
+      "admin": "Beheerder",
+      "user": "Gebruiker",
+      "system": "Systeem"
+    },
+    "status": {
+      "active": "Actief",
+      "pending": "Wacht op goedkeuring",
+      "disabled": "Uitgeschakeld",
+      "locked": "Vergrendeld"
+    },
+    "actions": {
+      "edit": "Gebruiker bewerken",
+      "delete": "Gebruiker verwijderen",
+      "approve": "Goedkeuren",
+      "disable": "Uitschakelen",
+      "enable": "Inschakelen",
+      "unlock": "Ontgrendelen",
+      "resetPassword": "Wachtwoord resetten",
+      "disableMfa": "MFA uitschakelen",
+      "revokeApiKey": "API-sleutel intrekken",
+      "cannotDeleteSystem": "Systeemgebruikers kunnen niet worden verwijderd",
+      "terminateSession": "Sessie beëindigen",
+      "terminateAllSessions": "Alle sessies beëindigen"
+    },
+    "apiKey": {
+      "none": "Geen"
+    },
+    "validation": {
+      "usernameRequired": "Gebruikersnaam is verplicht",
+      "emailRequired": "E-mail is verplicht",
+      "emailInvalid": "Ongeldig e-mailformaat",
+      "passwordRequired": "Wachtwoord is verplicht",
+      "passwordMinLength": "minimaal {{value}} tekens",
+      "passwordUppercase": "één hoofdletter",
+      "passwordLowercase": "één kleine letter",
+      "passwordNumber": "één cijfer",
+      "passwordSpecial": "één speciaal teken",
+      "passwordMustContain": "Wachtwoord moet {{requirements}} bevatten",
+      "confirmPasswordRequired": "Bevestig uw wachtwoord",
+      "passwordsMismatch": "Wachtwoorden komen niet overeen"
+    },
+    "errors": {
+      "loadFailed": "Laden van gebruikers mislukt. Probeer te vernieuwen.",
+      "loadDetailsFailed": "Laden van gebruikersdetails mislukt",
+      "loadSessionsFailed": "Laden van sessies mislukt",
+      "loadLoginAttemptsFailed": "Laden van inlogpogingen mislukt",
+      "loadApiKeyFailed": "Laden van API-sleutelinformatie mislukt",
+      "createFailed": "Aanmaken van gebruiker mislukt",
+      "updateFailed": "Bijwerken van gebruiker mislukt",
+      "deleteFailed": "Verwijderen van gebruiker mislukt",
+      "enableFailed": "Inschakelen van gebruiker mislukt",
+      "disableFailed": "Uitschakelen van gebruiker mislukt",
+      "unlockFailed": "Ontgrendelen van account mislukt",
+      "reasonRequired": "Geef een reden op voor het uitschakelen van deze gebruiker",
+      "passwordResetFailed": "Resetten van wachtwoord mislukt",
+      "mfaDisableFailed": "Uitschakelen van MFA mislukt",
+      "accountStatusFailed": "Bijwerken van accountstatus mislukt",
+      "terminateSessionFailed": "Beëindigen van sessie mislukt",
+      "terminateAllSessionsFailed": "Beëindigen van alle sessies mislukt",
+      "revokeApiKeyFailed": "Intrekken van API-sleutel mislukt",
+      "userNotFound": "Gebruiker niet gevonden"
+    },
+    "messages": {
+      "createSuccess": "Gebruiker succesvol aangemaakt",
+      "updateSuccess": "Gebruikersdetails succesvol bijgewerkt",
+      "deleteSuccess": "Gebruiker succesvol verwijderd",
+      "enableSuccess": "Gebruiker succesvol ingeschakeld",
+      "disableSuccess": "Gebruiker succesvol uitgeschakeld",
+      "passwordResetSuccess": "Wachtwoord succesvol gereset!",
+      "passwordCopied": "Wachtwoord gekopieerd naar klembord",
+      "mfaDisableSuccess": "MFA succesvol uitgeschakeld",
+      "accountDisabled": "Gebruikersaccount uitgeschakeld",
+      "accountEnabled": "Gebruikersaccount ingeschakeld",
+      "accountUnlocked": "Gebruikersaccount ontgrendeld",
+      "sessionTerminated": "Sessie succesvol beëindigd",
+      "allSessionsTerminated": "{{count}} sessie(s) succesvol beëindigd",
+      "apiKeyRevoked": "API-sleutel succesvol ingetrokken"
+    },
+    "dialogs": {
+      "createUser": {
+        "title": "Nieuwe gebruiker aanmaken",
+        "password": "Wachtwoord",
+        "confirmPassword": "Wachtwoord bevestigen",
+        "roleHelperText": "Selecteer de rol van de gebruiker in het systeem"
+      },
+      "disableUser": {
+        "title": "Gebruikersaccount uitschakelen",
+        "description": "Geef een reden op voor het uitschakelen van dit gebruikersaccount. Dit wordt gelogd voor auditdoeleinden.",
+        "reasonLabel": "Reden voor uitschakelen",
+        "reasonPlaceholder": "bijv. Accountcompromittering, Schending voorwaarden, Gebruikersverzoek, etc.",
+        "disableAccount": "Account uitschakelen"
+      },
+      "deleteUser": {
+        "title": "Gebruikersaccount verwijderen",
+        "warning": "Deze actie kan niet ongedaan worden gemaakt. De gebruiker wordt permanent uit het systeem verwijderd.",
+        "confirmation": "Weet u zeker dat u de gebruiker <strong>{{username}}</strong> wilt verwijderen?",
+        "dataNote": "Alle bijbehorende gegevens worden bewaard, maar de gebruiker kan niet meer inloggen."
+      },
+      "resetPassword": {
+        "title": "Gebruikerswachtwoord resetten",
+        "generateTemporary": "Tijdelijk wachtwoord genereren",
+        "newPassword": "Nieuw wachtwoord",
+        "passwordHelperText": "Moet minimaal 8 tekens bevatten"
+      },
+      "disableMfa": {
+        "title": "MFA uitschakelen",
+        "confirmation": "Weet u zeker dat u MFA wilt uitschakelen voor deze gebruiker? Ze zullen het opnieuw moeten instellen indien vereist."
+      },
+      "terminateSession": {
+        "title": "Sessie beëindigen?",
+        "description": "Dit logt de gebruiker uit op dit apparaat. De gebruiker moet opnieuw inloggen om de applicatie te blijven gebruiken.",
+        "terminate": "Beëindigen"
+      },
+      "terminateAllSessions": {
+        "title": "Alle sessies beëindigen?",
+        "description": "Dit logt de gebruiker uit op ALLE apparaten, inclusief hun huidige sessie. De gebruiker moet opnieuw inloggen. Deze actie kan niet ongedaan worden gemaakt.",
+        "warning": "Dit omvat alle actieve werksessies!",
+        "terminateAll": "Alle beëindigen"
+      },
+      "revokeApiKey": {
+        "title": "API-sleutel van gebruiker intrekken?",
+        "warning": "Dit schakelt onmiddellijk API-toegang uit voor deze gebruiker. Alle applicaties die deze sleutel gebruiken zullen stoppen met werken.",
+        "confirmation": "Weet u zeker dat u de API-sleutel van deze gebruiker wilt intrekken?"
+      }
+    },
+    "detail": {
+      "title": "Gebruikersdetails",
+      "backToUsers": "Terug naar gebruikers",
+      "userInformation": "Gebruikersinformatie",
+      "userId": "Gebruikers-ID",
+      "systemUserReadOnly": "Systeemgebruikers kunnen niet worden gewijzigd",
+      "accountStatus": "Accountstatus",
+      "accountStatusLabel": "Accountstatus",
+      "enabled": "Ingeschakeld",
+      "disabled": "Uitgeschakeld",
+      "noReasonProvided": "Geen reden opgegeven",
+      "lockStatus": "Vergrendelingsstatus",
+      "lockedUntil": "Vergrendeld tot {{date}}",
+      "notLocked": "Niet vergrendeld",
+      "mfaStatus": "MFA-status",
+      "mfaEnabled": "Ingeschakeld ({{types}})",
+      "mfaDisabled": "Uitgeschakeld",
+      "apiKeyManagement": "API-sleutelbeheer",
+      "apiKeyStatus": "API-sleutelstatus",
+      "noApiKeyGenerated": "Geen API-sleutel gegenereerd",
+      "created": "Aangemaakt",
+      "lastUsed": "Laatst gebruikt",
+      "apiKeySecurityNote": "Beheerders kunnen API-sleutels intrekken maar kunnen de platte tekst-sleutel niet bekijken om veiligheidsredenen.",
+      "activityInformation": "Activiteitsinformatie",
+      "passwordChanged": "Wachtwoord gewijzigd",
+      "failedLoginAttempts": "Mislukte inlogpogingen",
+      "attemptsCount": "{{count}} pogingen",
+      "disabledAt": "Uitgeschakeld op",
+      "activeSessions": "Actieve sessies",
+      "noActiveSessions": "Geen actieve sessies",
+      "loginHistory": "Inloggeschiedenis",
+      "noLoginAttempts": "Geen inlogpogingen gevonden",
+      "temporaryPassword": "Tijdelijk wachtwoord",
+      "sharePasswordSecurely": "Deel dit wachtwoord veilig met de gebruiker.",
+      "sessions": {
+        "ipAddress": "IP-adres",
+        "deviceBrowser": "Apparaat / Browser",
+        "lastActive": "Laatst actief"
+      },
+      "loginAttempts": {
+        "timestamp": "Tijdstempel",
+        "success": "Geslaagd",
+        "failed": "Mislukt",
+        "failureReason": "Reden van mislukking"
+      }
+    }
+  },
+  "clients": {
+    "title": "Klantbeheer",
+    "addClient": "Klant toevoegen",
+    "columns": {
+      "name": "Naam",
+      "description": "Beschrijving",
+      "contact": "Contact",
+      "cracked": "Gekraakt",
+      "retention": "Retentie (maanden)",
+      "createdAt": "Aangemaakt op",
+      "actions": "Acties"
+    },
+    "form": {
+      "clientName": "Klantnaam",
+      "description": "Beschrijving",
+      "contactInfo": "Contactinformatie",
+      "dataRetention": "Gegevensretentie (maanden)",
+      "dataRetentionHelperText": "Laat leeg om systeemstandaard te gebruiken. Voer 0 in om voor altijd te bewaren.",
+      "excludeFromPotfile": "Uitsluiten van potfile (gekraakte wachtwoorden niet opslaan)",
+      "excludeFromPotfileHelperText": "Schakel dit in voor klanten met strikte gegevensretentievereisten"
+    },
+    "validation": {
+      "nameRequired": "Klantnaam is verplicht.",
+      "retentionInvalid": "Retentieperiode moet een niet-negatief getal zijn of leeg (voor standaard)."
+    },
+    "errors": {
+      "loadFailed": "Laden van klanten mislukt. Probeer te vernieuwen.",
+      "loadDefaultSettingsFailed": "Laden van standaard klantinstellingen mislukt.",
+      "saveFailed": "Opslaan van klant mislukt.",
+      "deleteFailed": "Verwijderen van klant mislukt."
+    },
+    "messages": {
+      "createSuccess": "Klant succesvol aangemaakt",
+      "updateSuccess": "Klant succesvol bijgewerkt",
+      "deleteSuccess": "Klant succesvol verwijderd"
+    },
+    "dialogs": {
+      "addClient": {
+        "title": "Nieuwe klant toevoegen",
+        "createButton": "Klant aanmaken"
+      },
+      "editClient": {
+        "title": "Klant bewerken"
+      },
+      "deleteClient": {
+        "title": "Verwijdering bevestigen",
+        "confirmation": "Weet u zeker dat u de klant \"{{name}}\" wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt. Bijbehorende hashlijsten kunnen onmiddellijk worden verwijderd of verweesd op basis van retentiebeleid."
+      }
+    }
+  },
+  "wordlists": {
+    "title": "Woordenlijstbeheer",
+    "description": "Beheer woordenlijsten voor wachtwoordkraken",
+    "uploadWordlist": "Woordenlijst uploaden",
+    "refresh": "Vernieuwen",
+    "loading": "Woordenlijsten laden...",
+    "noWordlistsFound": "Geen woordenlijsten gevonden",
+    "tryDifferentSearch": "Probeer een andere zoekterm",
+    "uploadToGetStarted": "Upload een woordenlijst om te beginnen",
+    "noDescription": "Geen beschrijving opgegeven",
+    "searchPlaceholder": "Woordenlijsten zoeken...",
+    "tabs": {
+      "all": "Alle woordenlijsten",
+      "general": "Algemeen",
+      "specialized": "Gespecialiseerd",
+      "targeted": "Gericht",
+      "custom": "Aangepast"
+    },
+    "columns": {
+      "name": "Naam",
+      "status": "Status",
+      "type": "Type",
+      "size": "Grootte",
+      "wordCount": "Aantal woorden",
+      "updated": "Bijgewerkt",
+      "actions": "Acties"
+    },
+    "status": {
+      "verified": "Geverifieerd",
+      "pending": "In behandeling",
+      "failed": "Mislukt"
+    },
+    "types": {
+      "general": "Algemeen",
+      "specialized": "Gespecialiseerd",
+      "targeted": "Gericht",
+      "custom": "Aangepast"
+    },
+    "fields": {
+      "name": "Naam",
+      "description": "Beschrijving",
+      "wordlistType": "Woordenlijsttype"
+    },
+    "tooltips": {
+      "refreshMetadata": "Metadata vernieuwen",
+      "download": "Downloaden",
+      "edit": "Bewerken",
+      "delete": "Verwijderen"
+    },
+    "errors": {
+      "loadFailed": "Laden van woordenlijsten mislukt",
+      "uploadFailed": "Uploaden van woordenlijst mislukt",
+      "deleteFailed": "Verwijderen van woordenlijst mislukt",
+      "downloadFailed": "Downloaden van woordenlijst mislukt",
+      "refreshFailed": "Vernieuwen van woordenlijst-metadata mislukt",
+      "updateFailed": "Bijwerken van woordenlijst mislukt: {{error}}",
+      "sessionExpired": "Uw sessie is verlopen. Log opnieuw in."
+    },
+    "messages": {
+      "uploadSuccess": "Woordenlijst succesvol geüpload",
+      "duplicateWordlist": "Woordenlijst \"{{name}}\" bestaat al",
+      "deleteSuccess": "Woordenlijst \"{{name}}\" succesvol verwijderd",
+      "updateSuccess": "Woordenlijst succesvol bijgewerkt",
+      "refreshSuccess": "Woordenlijst-metadata succesvol vernieuwd"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "Woordenlijst uploaden",
+        "fileUploadTitle": "Upload een woordenlijstbestand",
+        "fileUploadDescription": "Selecteer een woordenlijstbestand om te uploaden. Ondersteunde formaten: .txt, .dict, .dic, .lst, .wordlist, .wl, .gz, .zip"
+      },
+      "edit": {
+        "title": "Woordenlijst bewerken"
+      },
+      "delete": {
+        "title": "Verwijdering bevestigen",
+        "cascadeTitle": "Cascade-verwijdering bevestigen",
+        "confirmation": "Weet u zeker dat u woordenlijst \"{{name}}\" wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.",
+        "cascadeWarning": "Het verwijderen van woordenlijst \"{{name}}\" zal ook het volgende verwijderen:",
+        "checkingDependencies": "Afhankelijkheden controleren...",
+        "jobsCount": "{{count}} taak/taken (in behandeling/actief/mislukt):",
+        "presetJobsCount": "{{count}} vooringestelde taak/taken:",
+        "workflowStepsCount": "{{count}} workflowstap(pen):",
+        "emptyWorkflowsCount": "{{count}} lege workflow(s) worden verwijderd:",
+        "noHashlist": "Geen hashlijst",
+        "step": "Stap {{order}}",
+        "andMore": "...en {{count}} meer",
+        "confirmationPrompt": "Om deze cascade-verwijdering te bevestigen, typ het woordenlijst-ID: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "Typ {{id}} om te bevestigen",
+        "idMismatch": "ID komt niet overeen",
+        "deleteAll": "Alles verwijderen"
+      }
+    }
+  },
+  "rules": {
+    "title": "Regelbeheer",
+    "description": "Beheer Hashcat-regels voor wachtwoordkraken",
+    "uploadRule": "Regel uploaden",
+    "refresh": "Vernieuwen",
+    "loading": "Regels laden...",
+    "noRulesFound": "Geen regels gevonden",
+    "tryDifferentSearch": "Probeer een andere zoekterm",
+    "uploadToGetStarted": "Upload een regel om te beginnen",
+    "noDescription": "Geen beschrijving opgegeven",
+    "searchPlaceholder": "Regels zoeken...",
+    "tabs": {
+      "all": "Alle regels",
+      "hashcat": "Hashcat",
+      "john": "John"
+    },
+    "columns": {
+      "name": "Naam",
+      "status": "Status",
+      "type": "Type",
+      "size": "Grootte",
+      "ruleCount": "Aantal regels",
+      "updated": "Bijgewerkt",
+      "actions": "Acties"
+    },
+    "status": {
+      "verified": "Geverifieerd",
+      "pending": "In behandeling",
+      "failed": "Mislukt",
+      "ready": "Gereed",
+      "processing": "Verwerken"
+    },
+    "types": {
+      "hashcat": "Hashcat",
+      "john": "John the Ripper"
+    },
+    "fields": {
+      "name": "Naam",
+      "description": "Beschrijving",
+      "ruleType": "Regeltype"
+    },
+    "tooltips": {
+      "download": "Downloaden",
+      "edit": "Bewerken",
+      "delete": "Verwijderen"
+    },
+    "errors": {
+      "loadFailed": "Laden van regels mislukt",
+      "uploadFailed": "Uploaden van regel mislukt",
+      "deleteFailed": "Verwijderen van regel mislukt",
+      "downloadFailed": "Downloaden van regel mislukt",
+      "updateFailed": "Bijwerken van regel mislukt: {{error}}",
+      "verifyFailed": "Verifiëren van regel mislukt",
+      "sessionExpired": "Uw sessie is verlopen. Log opnieuw in."
+    },
+    "messages": {
+      "uploadSuccess": "Regel succesvol geüpload",
+      "duplicateRule": "Regel \"{{name}}\" bestaat al",
+      "deleteSuccess": "Regel \"{{name}}\" succesvol verwijderd",
+      "updateSuccess": "Regel succesvol bijgewerkt",
+      "verifySuccess": "Regel \"{{name}}\" succesvol geverifieerd"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "Regel uploaden",
+        "fileUploadTitle": "Upload een regelbestand",
+        "fileUploadDescription": "Selecteer een regelbestand om te uploaden. Ondersteunde formaten: .rule, .rules, .txt"
+      },
+      "edit": {
+        "title": "Regel bewerken"
+      },
+      "delete": {
+        "title": "Verwijdering bevestigen",
+        "cascadeTitle": "Cascade-verwijdering bevestigen",
+        "confirmation": "Weet u zeker dat u regel \"{{name}}\" wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.",
+        "cascadeWarning": "Het verwijderen van regel \"{{name}}\" zal ook het volgende verwijderen:",
+        "checkingDependencies": "Afhankelijkheden controleren...",
+        "jobsCount": "{{count}} taak/taken (in behandeling/actief/mislukt):",
+        "presetJobsCount": "{{count}} vooringestelde taak/taken:",
+        "workflowStepsCount": "{{count}} workflowstap(pen):",
+        "emptyWorkflowsCount": "{{count}} lege workflow(s) worden verwijderd:",
+        "noHashlist": "Geen hashlijst",
+        "step": "Stap {{order}}",
+        "andMore": "...en {{count}} meer",
+        "confirmationPrompt": "Om deze cascade-verwijdering te bevestigen, typ het regel-ID: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "Typ {{id}} om te bevestigen",
+        "idMismatch": "ID komt niet overeen",
+        "deleteAll": "Alles verwijderen"
+      }
+    }
+  },
+  "presetJobs": {
+    "title": "Beheer van vooringestelde taken",
+    "createNew": "Vooringestelde taak aanmaken",
+    "confirmDelete": "Weet u zeker dat u deze vooringestelde taak wilt verwijderen?",
+    "noJobsFound": "Geen vooringestelde taken gevonden. Maak er een aan om te beginnen.",
+    "keyspaceNotCalculated": "Niet berekend",
+    "calculating": "Berekenen...",
+    "calculateKeyspace": "Keyspace berekenen",
+    "calculateAllMissingKeyspaces": "Alle ontbrekende keyspaces berekenen",
+    "calculatingKeyspaces": "Berekenen...",
+    "calculatingAllKeyspacesMessage": "Keyspaces berekenen voor alle vooringestelde taken. Dit kan even duren...",
+    "canInterruptRunningJobs": "Kan actieve taken onderbreken",
+    "columns": {
+      "name": "Naam",
+      "description": "Beschrijving",
+      "attackMode": "Aanvalsmodus",
+      "priority": "Prioriteit",
+      "highPriorityOverride": "Hoge prioriteit overschrijving",
+      "maxAgents": "Max. agents",
+      "keyspace": "Keyspace",
+      "binaryVersion": "Binaire versie",
+      "wordlists": "Woordenlijsten",
+      "rules": "Regels",
+      "createdAt": "Aangemaakt op",
+      "actions": "Acties"
+    },
+    "messages": {
+      "deleteSuccess": "Vooringestelde taak succesvol verwijderd",
+      "deleteFailed": "Verwijderen van vooringestelde taak mislukt: {{error}}",
+      "fetchError": "Fout bij laden van vooringestelde taken: {{error}}",
+      "deleteError": "Fout bij verwijderen van vooringestelde taak: {{error}}",
+      "keyspaceRecalculateSuccess": "Keyspace succesvol herberekend",
+      "keyspaceRecalculateFailed": "Herberekenen van keyspace mislukt: {{error}}",
+      "keyspaceAllComplete": "Bijgewerkt {{updated}}, overgeslagen {{skipped}}, mislukt {{failed}}",
+      "keyspaceAllFailed": "Herberekenen van keyspaces mislukt: {{error}}"
+    },
+    "form": {
+      "createTitle": "Vooringestelde taak aanmaken",
+      "editTitle": "Vooringestelde taak bewerken",
+      "createJob": "Vooringestelde taak aanmaken",
+      "updateJob": "Vooringestelde taak bijwerken",
+      "attackModeRequirements": "Vereisten aanvalsmodus",
+      "wordlistSelectionCombination": "Woordenlijstselectie (combinatiemodus)",
+      "selectFirstWordlist": "Selecteer eerste woordenlijst",
+      "selectSecondWordlist": "Selecteer tweede woordenlijst",
+      "fields": {
+        "jobName": "Taaknaam",
+        "attackMode": "Aanvalsmodus",
+        "priority": "Prioriteit",
+        "chunkSize": "Chunkduur (seconden)",
+        "maxAgents": "Max. agents",
+        "maskPattern": "Maskerpatroon",
+        "incrementMode": "Incrementmodus",
+        "incrementMin": "Increment minimale lengte",
+        "incrementMax": "Increment maximale lengte",
+        "wordlists": "Woordenlijsten",
+        "rules": "Regels",
+        "mask": "Masker",
+        "ruleOptional": "Regel (optioneel)",
+        "firstWordlist": "Eerste woordenlijst",
+        "secondWordlist": "Tweede woordenlijst",
+        "allowHighPriorityOverride": "Hoge prioriteit overschrijving toestaan (kan actieve taken onderbreken)"
+      },
+      "incrementModes": {
+        "off": "Uit (volledig masker gebruiken)",
+        "increment": "Increment (1 tot max)",
+        "incrementInverse": "Increment omgekeerd (max tot 1)"
+      },
+      "helperText": {
+        "binaryVersion": "Selecteer de te gebruiken Hashcat binaire versie",
+        "priority": "Taken met hogere prioriteit worden eerst uitgevoerd (0-{{maxPriority}})",
+        "maskPattern": "Hashcat-maskerpatroon (bijv. ?u?l?l?l?d?d?d?d)",
+        "maskPatternExamples": "?l=kleine letter, ?u=hoofdletter, ?d=cijfer, ?s=speciaal, ?a=alle",
+        "incrementMode": "Gebruik incrementmodus om maskers van verschillende lengtes te proberen",
+        "incrementMin": "Minimale maskerlengte om te proberen",
+        "incrementMax": "Maximale maskerlengte om te proberen",
+        "chunkSize": "Duur voor elke werkchunk in seconden",
+        "maxAgents": "Maximaal aantal agents (0 = onbeperkt)",
+        "allowHighPriorityOverride": "Wanneer ingeschakeld, kan deze taak taken met lagere prioriteit onderbreken om hun agents over te nemen",
+        "wordlistsNotUsed": "Woordenlijsten worden niet gebruikt voor deze aanvalsmodus",
+        "selectWordlists": "Selecteer precies {{count}} woordenlijst(en)",
+        "rulesNotUsed": "Regels worden niet gebruikt voor deze aanvalsmodus",
+        "selectRule": "Selecteer optioneel een regelbestand om transformaties toe te passen",
+        "firstWordlist": "Woorden uit deze lijst worden als eerste deel gebruikt",
+        "secondWordlist": "Woorden uit deze lijst worden toegevoegd aan het eerste"
+      },
+      "errors": {
+        "nameRequired": "Taaknaam is verplicht",
+        "binaryVersionRequired": "Binaire versie is verplicht",
+        "straightModeWordlist": "Straight-aanvalsmodus vereist precies 1 woordenlijst",
+        "combinationModeWordlists": "Combinatie-aanvalsmodus vereist precies 2 woordenlijsten",
+        "selectBothWordlists": "Selecteer beide woordenlijsten voor combinatiemodus",
+        "bruteForceModeMask": "Brute force-aanvalsmodus vereist een masker",
+        "hybridModeWordlist": "Hybride aanvalsmodus vereist precies 1 woordenlijst",
+        "hybridModeMask": "Hybride aanvalsmodus vereist een masker",
+        "associationModeNotImplemented": "Associatie-aanvalsmodus is niet geïmplementeerd",
+        "noWordlistsAvailable": "Geen woordenlijsten beschikbaar. Upload eerst woordenlijsten.",
+        "loadFailed": "Laden van vooringestelde taak mislukt",
+        "loadFormDataFailed": "Laden van formuliergegevens mislukt",
+        "saveFailed": "Opslaan van vooringestelde taak mislukt"
+      },
+      "messages": {
+        "createSuccess": "Vooringestelde taak succesvol aangemaakt",
+        "updateSuccess": "Vooringestelde taak succesvol bijgewerkt"
+      }
+    }
+  },
+  "workflows": {
+    "title": "Beheer van taakworkflows",
+    "create": "Workflow aanmaken",
+    "deleteTitle": "Workflow verwijderen",
+    "confirmDelete": "Weet u zeker dat u de workflow \"{{name}}\" wilt verwijderen?",
+    "noWorkflowsFound": "Geen workflows gevonden. Maak er een aan om te beginnen.",
+    "canInterrupt": "Kan onderbreken",
+    "normal": "Normaal",
+    "columns": {
+      "name": "Naam",
+      "description": "Beschrijving",
+      "steps": "Stappen",
+      "jobCount": "Taken",
+      "highPriority": "Prioriteitsmodus",
+      "created": "Aangemaakt",
+      "lastUpdated": "Laatst bijgewerkt",
+      "actions": "Acties"
+    },
+    "messages": {
+      "loadFailed": "Laden van workflows mislukt",
+      "deleteFailed": "Verwijderen van workflow mislukt"
+    },
+    "form": {
+      "createTitle": "Workflow aanmaken",
+      "editTitle": "Workflow bewerken",
+      "createWorkflow": "Workflow aanmaken",
+      "saveChanges": "Wijzigingen opslaan",
+      "workflowSteps": "Workflowstappen",
+      "noJobsAdded": "Nog geen taken toegevoegd aan deze workflow. Zoek en voeg hierboven vooringestelde taken toe.",
+      "priority": "Prioriteit: {{priority}}",
+      "binary": "Binair: {{name}}",
+      "wordlistCount": "{{count}} woordenlijst(en)",
+      "ruleCount": "{{count}} regel(s)",
+      "fields": {
+        "workflowName": "Workflownaam",
+        "searchPresetJobs": "Vooringestelde taken zoeken"
+      },
+      "helperText": {
+        "searchPresetJobs": "Zoek naar vooringestelde taken om aan deze workflow toe te voegen"
+      },
+      "errors": {
+        "nameRequired": "Workflownaam is verplicht",
+        "presetJobRequired": "Minimaal één vooringestelde taak is verplicht",
+        "noPresetJobsAvailable": "Geen vooringestelde taken beschikbaar. Maak eerst vooringestelde taken aan.",
+        "loadFailed": "Laden van workflow mislukt",
+        "loadFormDataFailed": "Laden van formuliergegevens mislukt",
+        "saveFailed": "Opslaan van workflow mislukt"
+      },
+      "messages": {
+        "createSuccess": "Workflow succesvol aangemaakt",
+        "updateSuccess": "Workflow succesvol bijgewerkt"
+      }
+    }
+  },
+  "binaryManagement": {
+    "pageTitle": "Beheer van binaries",
+    "title": "Hashcat binaries",
+    "addBinary": "Binary toevoegen",
+    "showingActiveOnly": "Alleen actieve binaries weergeven",
+    "showingAll": "Alle binaries weergeven",
+    "noBinaries": "Geen binaries gevonden",
+    "noActiveBinaries": "Geen actieve binaries gevonden",
+    "default": "Standaard",
+    "verifyBinary": "Binary verifiëren",
+    "deleteBinary": "Binary verwijderen",
+    "sourceUpload": "Upload",
+    "sourceUrl": "URL",
+    "columns": {
+      "binaryId": "ID",
+      "version": "Versie",
+      "type": "Type",
+      "source": "Bron",
+      "size": "Grootte",
+      "status": "Status",
+      "default": "Standaard",
+      "lastVerified": "Laatst geverifieerd",
+      "actions": "Acties"
+    },
+    "messages": {
+      "fetchFailed": "Ophalen van binaries mislukt",
+      "verifySuccess": "Binary succesvol geverifieerd",
+      "verifyFailed": "Verifiëren van binary mislukt",
+      "deleteSuccess": "Binary succesvol verwijderd",
+      "deleteFailed": "Verwijderen van binary mislukt",
+      "cannotDeleteLast": "Kan de laatste actieve {{type}} binary niet verwijderen",
+      "cannotDeleteOnly": "Kan de enige binary van dit type niet verwijderen",
+      "setDefaultSuccess": "Standaard binary succesvol bijgewerkt",
+      "setDefaultFailed": "Instellen van standaard binary mislukt"
+    },
+    "deleteDialog": {
+      "title": "Verwijdering bevestigen",
+      "message": "Weet u zeker dat u de binary \"{{fileName}}\" wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt."
+    }
+  },
+  "diagnostics": {
+    "pageTitle": "Systeemdiagnostiek",
+    "diagnosticPackage": "Diagnostisch pakket",
+    "diagnosticPackageDescription": "Download een diagnostisch pakket met systeeminformatie, logboeken en configuratiedetails voor probleemoplossing.",
+    "refreshData": "Gegevens vernieuwen",
+    "hours": "Uren",
+    "hoursTooltip": "Aantal uren logboeken om op te nemen",
+    "includeAgentLogs": "Agent-logboeken opnemen",
+    "includeNginxLogs": "Nginx-logboeken opnemen",
+    "includePostgresLogs": "PostgreSQL-logboeken opnemen",
+    "preparing": "Voorbereiden...",
+    "downloadDiagnostics": "Diagnostiek downloaden",
+    "systemInfo": "Systeeminformatie",
+    "runtime": "Runtime",
+    "cpus": "CPUs",
+    "goroutines": "Goroutines",
+    "memory": "Geheugen",
+    "heap": "Heap",
+    "system": "Systeem",
+    "gcRuns": "GC-runs",
+    "database": "Database",
+    "size": "Grootte",
+    "connections": "Verbindingen",
+    "agents": "Agents",
+    "connected": "Verbonden",
+    "withDebugStatus": "Met debugstatus",
+    "serverDebugStatus": "Server debugstatus",
+    "serverDebugDescription": "Schakel uitgebreide logging in voor de server. Dit vergroot logbestandsgroottes en kan de prestaties beïnvloeden.",
+    "debugEnabled": "Debug ingeschakeld",
+    "debugDisabled": "Debug uitgeschakeld",
+    "level": "Niveau",
+    "enableDebug": "Debug inschakelen",
+    "disableDebug": "Debug uitschakelen",
+    "loadingServerDebugStatus": "Server debugstatus laden...",
+    "serverLogs": "Server-logboeken",
+    "serverLogsDescription": "Beheer server-logboeken. Het verwijderen van logboeken is permanent en kan niet ongedaan worden gemaakt.",
+    "refreshLogStats": "Logstatistieken vernieuwen",
+    "directory": "Map",
+    "files": "Bestanden",
+    "actions": "Acties",
+    "backend": "Backend",
+    "nginx": "Nginx",
+    "postgresql": "PostgreSQL",
+    "total": "Totaal",
+    "purge": "Verwijderen",
+    "purgeAll": "Alles verwijderen",
+    "loadingLogStatistics": "Logstatistieken laden...",
+    "agentDebugStatus": "Agent debugstatus",
+    "enableAll": "Alle inschakelen",
+    "disableAll": "Alle uitschakelen",
+    "noAgentsWithDebugStatus": "Geen agents met debugstatus beschikbaar",
+    "agentId": "Agent-ID",
+    "logLevel": "Logniveau",
+    "fileLogging": "Bestandslogging",
+    "logFileSize": "Logbestandsgrootte",
+    "buffer": "Buffer",
+    "lastUpdated": "Laatst bijgewerkt",
+    "viewLogs": "Logboeken bekijken",
+    "purgeLogs": "Logboeken verwijderen",
+    "agentLogs": "Agent-logboeken",
+    "agent": "Agent",
+    "allLevels": "Alle niveaus",
+    "refresh": "Vernieuwen",
+    "showingEntries": "Toont {{shown}} van {{total}} items",
+    "filtered": "gefilterd",
+    "truncated": "ingekort",
+    "time": "Tijd",
+    "message": "Bericht",
+    "location": "Locatie",
+    "noEntriesForLevel": "Geen items gevonden voor niveau {{level}}",
+    "noLogEntriesAvailable": "Geen logitems beschikbaar",
+    "logFileContent": "Logbestandsinhoud",
+    "noLogsAvailable": "Geen logboeken beschikbaar",
+    "securityWarning": "Beveiligingswaarschuwing",
+    "postgresLogsWarning": "PostgreSQL-logboeken kunnen gevoelige gegevens bevatten. Overweeg deze te verwijderen na probleemoplossing.",
+    "nginxLogsWarning": "Nginx access-logboeken kunnen gevoelige verzoekgegevens bevatten. Overweeg deze te verwijderen na probleemoplossing.",
+    "sensitiveNginxLogsWarning": "Nginx access-logboeken kunnen gevoelige informatie bevatten, waaronder authenticatietokens in verzoekheaders en queryparameters.",
+    "sensitivePostgresLogsWarning": "PostgreSQL-logboeken kunnen gevoelige informatie bevatten, waaronder queries met gebruikersgegevens, wachtwoorden en verbindingsdetails.",
+    "sensitiveLogsTestEnvironmentWarning": "Neem deze logboeken alleen op voor test-/ontwikkelomgevingen of wanneer absoluut noodzakelijk voor debugging.",
+    "sensitiveLogsProductionWarning": "Neem geen gevoelige logboeken op in diagnostische pakketten die extern worden gedeeld.",
+    "iUnderstandIncludeLogs": "Ik begrijp het, logboeken opnemen",
+    "allServerLogs": "alle server-logboeken",
+    "directoryLogs": "{{directory}}-logboeken",
+    "purgeServerLogs": "Server-logboeken verwijderen",
+    "confirmPurgeLogs": "Weet u zeker dat u {{dirLabel}} wilt verwijderen?",
+    "cannotBeUndone": "Deze actie kan niet ongedaan worden gemaakt.",
+    "purgeAgentLogs": "Agent-logboeken verwijderen",
+    "confirmPurgeAgentLogs": "Weet u zeker dat u logboeken voor agent {{agentId}} wilt verwijderen?",
+    "enable": "Inschakelen",
+    "disable": "Uitschakelen",
+    "serverDebugModeTitle": "Server debugmodus {{action}}",
+    "serverDebugModeMessage": "Dit wijzigt het logniveau van de server. De nginx-server wordt opnieuw geladen om wijzigingen toe te passen.",
+    "serverDebugModeWarning": "De pagina zal kort opnieuw verbinden na het toepassen van wijzigingen.",
+    "reconnectingToServer": "Opnieuw verbinden met server",
+    "pleaseWaitReconnecting": "Even geduld terwijl de server herstart...",
+    "nginxLogsTooltip": "Waarschuwing: Kan gevoelige verzoekgegevens bevatten",
+    "postgresLogsTooltip": "Waarschuwing: Kan gevoelige databasequeries bevatten",
+    "messages": {
+      "loadFailed": "Laden van diagnostische gegevens mislukt:",
+      "logStatsFailed": "Laden van logstatistieken mislukt:",
+      "purgeFailed": "Verwijderen van logboeken mislukt:",
+      "reconnectionTimedOut": "Herverbinding verlopen. Vernieuw de pagina.",
+      "toggleDebugFailed": "Wijzigen van debugmodus mislukt:",
+      "downloadFailed": "Downloaden van diagnostiek mislukt:",
+      "toggleAgentDebugFailed": "Wijzigen van agent-debug mislukt:",
+      "toggleAllAgentsDebugFailed": "Wijzigen van debug voor alle agents mislukt:",
+      "fetchAgentLogsFailed": "Ophalen van agent-logboeken mislukt:",
+      "purgeAgentLogsFailed": "Verwijderen van agent-logboeken mislukt:"
+    }
+  },
+  "authSettings": {
+    "pageTitle": "Authenticatie-instellingen",
+    "unsavedChanges": "U heeft niet-opgeslagen wijzigingen. Klik op 'Instellingen opslaan' om deze toe te passen.",
+    "saving": "Opslaan...",
+    "saveSettings": "Instellingen opslaan",
+    "resetToSaved": "Herstellen naar opgeslagen",
+    "passwordPolicy": {
+      "title": "Wachtwoordbeleid",
+      "minLength": "Minimale wachtwoordlengte",
+      "requireUppercase": "Hoofdletters verplicht",
+      "requireLowercase": "Kleine letters verplicht",
+      "requireNumbers": "Cijfers verplicht",
+      "requireSpecialChars": "Speciale tekens verplicht"
+    },
+    "accountSecurity": {
+      "title": "Accountbeveiliging",
+      "maxFailedAttempts": "Max. mislukte inlogpogingen",
+      "lockoutDuration": "Vergrendelingsduur (minuten)",
+      "jwtExpiry": "JWT-verloop (minuten)",
+      "notificationAggregation": "Meldingsaggregatie (minuten)",
+      "notificationAggregationHelper": "Hoe lang vergelijkbare meldingen worden samengevoegd voordat ze worden verzonden"
+    },
+    "mfa": {
+      "title": "Meerfactorauthenticatie",
+      "requireMfa": "MFA verplicht voor alle gebruikers",
+      "requireMfaEmailRequired": "MFA verplicht (e-mailgateway vereist)",
+      "allowedMethods": "Toegestane MFA-methoden",
+      "methodEmail": "E-mailcode",
+      "methodAuthenticator": "Authenticator-app (TOTP)",
+      "methodPasskey": "Passkey (WebAuthn)",
+      "methodPasskeyNotSupported": "Passkey (niet ondersteund in deze browser)",
+      "codeSettings": "Code-instellingen",
+      "emailCodeValidity": "E-mailcode geldigheid (minuten)",
+      "emailCodeValidityHelper": "Hoe lang e-mailverificatiecodes geldig zijn",
+      "codeCooldown": "Code-aanvraag cooldown (minuten)",
+      "codeCooldownHelper": "Minimale tijd tussen code-aanvragen",
+      "codeExpiry": "Code-verloop (minuten)",
+      "codeExpiryHelper": "Hoe lang MFA-codes geldig zijn",
+      "maxCodeAttempts": "Max. code-pogingen",
+      "maxCodeAttemptsHelper": "Maximum aantal mislukte code-pogingen voordat vergrendeling",
+      "backupCodesCount": "Aantal backupcodes",
+      "backupCodesCountHelper": "Aantal backupcodes om te genereren"
+    },
+    "webauthn": {
+      "title": "WebAuthn / Passkey-configuratie",
+      "notSupported": "WebAuthn wordt niet ondersteund in deze browser.",
+      "requiresDomain": "Passkeys vereisen een juist domein en HTTPS. Configureer hieronder uw domeininstellingen.",
+      "rpId": "Relying Party ID",
+      "rpIdHelper": "Uw domeinnaam (bijv. krakenhashes.example.com)",
+      "rpDisplayName": "Weergavenaam",
+      "rpDisplayNameHelper": "Naam getoond aan gebruikers tijdens passkey-registratie",
+      "allowedOrigins": "Toegestane origins",
+      "allowedOriginsHelper": "Eén origin per regel (bijv. https://krakenhashes.example.com)",
+      "configured": "WebAuthn is geconfigureerd en klaar voor gebruik.",
+      "save": "WebAuthn-instellingen opslaan"
+    },
+    "session": {
+      "title": "Sessiebeheer",
+      "tokenCleanupInterval": "Token-opruiminterval (seconden)",
+      "tokenCleanupIntervalHelper": "Hoe vaak verlopen tokens worden opgeruimd",
+      "maxConcurrentSessions": "Max. gelijktijdige sessies",
+      "maxConcurrentSessionsHelper": "Maximaal aantal sessies per gebruiker (0 = onbeperkt)",
+      "absoluteTimeout": "Absolute sessietime-out (uren)",
+      "absoluteTimeoutHelper": "Forceer herauthenticatie na deze tijd (0 = uitgeschakeld)"
+    },
+    "errors": {
+      "loadFailed": "Laden van authenticatie-instellingen mislukt",
+      "noSettingsToSave": "Geen instellingen om op te slaan",
+      "saveFailed": "Opslaan van instellingen mislukt",
+      "emailProviderRequired": "E-mailprovider is vereist voor e-mail-gebaseerde MFA",
+      "webauthnSaveFailed": "Opslaan van WebAuthn-instellingen mislukt",
+      "resetFailed": "Herstellen van instellingen mislukt"
+    },
+    "messages": {
+      "updateSuccess": "Authenticatie-instellingen succesvol bijgewerkt",
+      "updateFailed": "Bijwerken van authenticatie-instellingen mislukt"
+    }
+  },
+  "ssoSettings": {
+    "pageTitle": "SSO-instellingen",
+    "pageDescription": "Configureer Single Sign-On providers en authenticatie-opties",
+    "authMethods": {
+      "title": "Authenticatiemethoden",
+      "description": "Schakel authenticatiemethoden globaal in of uit",
+      "localAuth": "Lokale authenticatie",
+      "localAuthDescription": "Gebruikersnaam/wachtwoord login",
+      "ldapAuth": "LDAP-authenticatie",
+      "ldapAuthDescription": "Active Directory / LDAP",
+      "samlAuth": "SAML-authenticatie",
+      "samlAuthDescription": "SAML 2.0 SSO",
+      "oauthAuth": "OAuth/OIDC-authenticatie",
+      "oauthAuthDescription": "OpenID Connect / OAuth 2.0"
+    },
+    "provisioning": {
+      "title": "Gebruikersprovisioning",
+      "description": "Configureer automatische gebruikersaanmaak vanuit SSO-logins",
+      "autoCreateUsers": "Gebruikers automatisch aanmaken",
+      "autoCreateUsersDescription": "Maak automatisch gebruikersaccounts aan voor nieuwe SSO-logins",
+      "autoEnableUsers": "Gebruikers automatisch inschakelen",
+      "autoEnableUsersDescription": "Schakel nieuw aangemaakte SSO-gebruikers automatisch in (anders is beheerdergoedkeuring vereist)"
+    },
+    "providers": {
+      "title": "SSO-providers",
+      "addProvider": "Provider toevoegen",
+      "noProviders": "Geen SSO-providers geconfigureerd. Klik op \"Provider toevoegen\" om er een aan te maken.",
+      "enabled": "Ingeschakeld",
+      "disabled": "Uitgeschakeld",
+      "callbackUrl": "Callback URL",
+      "acsUrl": "ACS URL",
+      "metadata": "Metadata",
+      "viewXml": "XML bekijken",
+      "testConnection": "Verbinding testen",
+      "downloadCertificate": "SP-certificaat downloaden"
+    },
+    "providerTypes": {
+      "ldap": "LDAP / Active Directory",
+      "saml": "SAML 2.0",
+      "oidc": "OpenID Connect",
+      "oauth2": "OAuth 2.0"
+    },
+    "dialogs": {
+      "deleteProvider": {
+        "title": "Provider verwijderen",
+        "confirmation": "Weet u zeker dat u de provider \"{{name}}\" wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt en zal alle gekoppelde gebruikersidentiteiten ontkoppelen."
+      },
+      "providerForm": {
+        "addTitle": "Provider toevoegen",
+        "editTitle": "Provider bewerken",
+        "providerName": "Providernaam",
+        "providerType": "Providertype",
+        "enabled": "Ingeschakeld"
+      }
+    },
+    "ldapConfig": {
+      "title": "LDAP-configuratie",
+      "serverUrl": "Server URL",
+      "serverUrlHelper": "Gebruik ldaps:// voor beveiligde verbindingen",
+      "baseDn": "Basis-DN",
+      "userSearchFilter": "Gebruikerszoekfilter",
+      "userSearchFilterHelper": "Gebruik {{username}} als placeholder",
+      "bindDn": "Bind DN (optioneel)",
+      "bindPassword": "Bind-wachtwoord",
+      "emailAttribute": "E-mailattribuut",
+      "usernameAttribute": "Gebruikersnaamattribuut",
+      "usernameAttributeHelper": "LDAP-attribuut dat gebruikersnaam bevat (bijv. sAMAccountName, uid)",
+      "connectionTimeout": "Verbindingstime-out (seconden)",
+      "useStartTls": "StartTLS gebruiken",
+      "skipCertVerify": "Certificaatverificatie overslaan (alleen voor testen)"
+    },
+    "samlConfig": {
+      "title": "SAML-configuratie",
+      "spEntityId": "SP Entity ID",
+      "spEntityIdHelper": "SAML-identificatie van uw applicatie",
+      "idpEntityId": "IdP Entity ID",
+      "idpSsoUrl": "IdP SSO URL",
+      "idpCertificate": "IdP-certificaat",
+      "emailAttribute": "E-mailattribuut",
+      "usernameAttribute": "Gebruikersnaamattribuut",
+      "usernameAttributeHelper": "SAML-attribuut dat gebruikersnaam bevat (bijv. uid, username)",
+      "requireSignedAssertions": "Ondertekende assertions verplicht"
+    },
+    "oauthConfig": {
+      "title": "OAuth/OIDC-configuratie",
+      "isOidc": "OpenID Connect (OIDC)",
+      "clientId": "Client ID",
+      "clientSecret": "Client Secret",
+      "discoveryUrl": "Discovery URL",
+      "discoveryUrlHelper": "OIDC-discovery-eindpunt (configureert andere URLs automatisch)",
+      "authorizationUrl": "Autorisatie URL",
+      "tokenUrl": "Token URL",
+      "userInfoUrl": "User Info URL",
+      "scopes": "Scopes",
+      "scopesHelper": "Door spaties gescheiden lijst",
+      "emailAttribute": "E-mailattribuut",
+      "usernameAttribute": "Gebruikersnaamattribuut",
+      "usernameAttributeHelper": "Claim dat gebruikersnaam bevat (bijv. preferred_username, login, nickname)"
+    },
+    "messages": {
+      "loadFailed": "Laden van SSO-instellingen mislukt",
+      "settingsUpdated": "SSO-instellingen succesvol bijgewerkt",
+      "updateFailed": "Bijwerken van SSO-instellingen mislukt",
+      "loadProviderFailed": "Laden van providerdetails mislukt",
+      "providerDeleted": "Provider succesvol verwijderd",
+      "deleteFailed": "Verwijderen van provider mislukt",
+      "testSuccess": "Verbindingstest geslaagd",
+      "testFailed": "Verbindingstest mislukt",
+      "certificateDownloaded": "Certificaat succesvol gedownload",
+      "certificateNotFound": "Certificaat niet gevonden in metadata",
+      "certificateDownloadFailed": "Downloaden van certificaat mislukt",
+      "providerUpdated": "Provider succesvol bijgewerkt",
+      "providerCreated": "Provider succesvol aangemaakt",
+      "saveProviderFailed": "Opslaan van provider mislukt"
+    }
+  },
+  "emailSettings": {
+    "tabs": {
+      "providerConfiguration": "Providerconfiguratie",
+      "emailTemplates": "E-mailsjablonen"
+    },
+    "provider": {
+      "titles": {
+        "current": "Huidige e-mailconfiguratie",
+        "create": "E-mailconfiguratie aanmaken",
+        "edit": "E-mailconfiguratie bewerken"
+      },
+      "labels": {
+        "provider": "Provider",
+        "apiKey": "API-sleutel",
+        "password": "Wachtwoord",
+        "smtpHost": "SMTP-host",
+        "port": "Poort",
+        "username": "Gebruikersnaam",
+        "encryption": "Versleuteling",
+        "fromEmail": "Afzender e-mail",
+        "fromName": "Afzendernaam",
+        "domain": "Domein",
+        "monthlyLimit": "Maandlimiet",
+        "skipTlsVerify": "TLS-certificaatverificatie overslaan (onveilig, niet aanbevolen)"
+      },
+      "placeholders": {
+        "smtpHost": "smtp.voorbeeld.nl",
+        "testEmailAddress": "Test e-mailadres"
+      },
+      "helpers": {
+        "keepCurrentPassword": "Laat leeg om huidige te behouden",
+        "monthlyLimit": "Laat leeg voor onbeperkt",
+        "mailgunFromEmail": "Meestal noreply@uwdomein",
+        "fromName": "Weergavenaam voor e-mails"
+      },
+      "menuItems": {
+        "sendgrid": "SendGrid",
+        "mailgun": "Mailgun",
+        "smtp": "SMTP",
+        "encryptionNone": "Geen (Poort 25)",
+        "encryptionStarttls": "STARTTLS (Poort 587)",
+        "encryptionTls": "TLS/SSL (Poort 465)"
+      },
+      "buttons": {
+        "edit": "Configuratie bewerken",
+        "cancel": "Annuleren",
+        "testConnection": "Verbinding testen",
+        "save": "Configuratie opslaan",
+        "saveOnly": "Alleen opslaan",
+        "saveAndTest": "Opslaan en testen",
+        "sendTestEmail": "Test-e-mail verzenden"
+      },
+      "dialogs": {
+        "test": {
+          "title": "E-mailconfiguratie testen",
+          "content": "Voer een e-mailadres in om een test-e-mail naar te verzenden:"
+        },
+        "save": {
+          "title": "Configuratie opslaan",
+          "content": "Wilt u de configuratie testen na het opslaan?"
+        }
+      },
+      "warnings": {
+        "tlsVerifyDisabled": "TLS-certificaatverificatie is uitgeschakeld",
+        "tlsVerifyWarning": "Het uitschakelen van TLS-verificatie maakt uw verbinding kwetsbaar voor man-in-the-middle-aanvallen. Gebruik dit alleen voor testen met zelfondertekende certificaten."
+      },
+      "messages": {
+        "testSuccess": "Test-e-mail succesvol verzonden",
+        "testFailed": "Verzenden van test-e-mail mislukt",
+        "saveSuccess": "Configuratie succesvol opgeslagen",
+        "saveFailed": "Opslaan van configuratie mislukt",
+        "loadFailed": "Laden van configuratie mislukt"
+      }
+    },
+    "templates": {
+      "title": "E-mailsjablonen",
+      "createTemplate": "E-mailsjabloon aanmaken",
+      "editTemplate": "E-mailsjabloon bewerken",
+      "labels": {
+        "templateType": "Sjabloontype",
+        "name": "Naam",
+        "subject": "Onderwerp",
+        "htmlContent": "HTML-inhoud",
+        "textContent": "Tekstinhoud"
+      },
+      "menuItems": {
+        "securityEvent": "Beveiligingsgebeurtenis",
+        "jobCompletion": "Taakvoltooiing",
+        "adminError": "Beheerderfout",
+        "mfaCode": "MFA-code"
+      },
+      "buttons": {
+        "create": "Sjabloon aanmaken",
+        "cancel": "Annuleren",
+        "test": "Testen",
+        "save": "Opslaan"
+      },
+      "table": {
+        "name": "Naam",
+        "type": "Type",
+        "subject": "Onderwerp",
+        "actions": "Acties"
+      },
+      "preview": "Live voorbeeld (met voorbeeldgegevens):",
+      "messages": {
+        "loadSuccess": "Sjablonen succesvol geladen",
+        "loadFailed": "Laden van sjablonen mislukt",
+        "createSuccess": "Sjabloon succesvol aangemaakt",
+        "createFailed": "Aanmaken van sjabloon mislukt",
+        "updateSuccess": "Sjabloon succesvol bijgewerkt",
+        "updateFailed": "Bijwerken van sjabloon mislukt",
+        "deleteSuccess": "Sjabloon succesvol verwijderd",
+        "deleteFailed": "Verwijderen van sjabloon mislukt",
+        "testSuccess": "Test-e-mail succesvol verzonden",
+        "testFailed": "Verzenden van test-e-mail mislukt"
+      }
+    }
+  },
+  "settings": {
+    "saved": "Instellingen succesvol opgeslagen",
+    "saveFailed": "Opslaan van instellingen mislukt"
+  },
+  "clientSettings": {
+    "title": "Klantinstellingen",
+    "retentionPeriod": "Standaard gegevensretentie (maanden)",
+    "retentionHelperText": "Standaard retentieperiode voor nieuwe klanten (0 = voor altijd bewaren)",
+    "saveButton": "Instellingen opslaan",
+    "errors": {
+      "invalidRetention": "Retentieperiode moet een niet-negatief getal zijn",
+      "saveFailed": "Opslaan van klantinstellingen mislukt"
+    },
+    "messages": {
+      "updateSuccess": "Klantinstellingen succesvol bijgewerkt"
+    }
+  },
+  "systemSettings": {
+    "title": "Systeeminstellingen",
+    "priority": {
+      "title": "Prioriteitsinstellingen",
+      "tooltip": "Configureer de maximale prioriteitswaarde die kan worden toegewezen aan taken en vooringestelde taken. Dit helpt consistente prioriteitsbereiken binnen uw organisatie te behouden.",
+      "maxPriority": "Maximale taakprioriteit",
+      "helperText": "Stel de maximale prioriteitswaarde in (1-1.000.000). Taken en vooringestelde taken kunnen deze prioriteit niet overschrijden.",
+      "saveButton": "Instellingen opslaan",
+      "saving": "Opslaan...",
+      "reset": "Herstellen"
+    },
+    "priorityInfo": {
+      "title": "Prioriteitssysteeminformatie",
+      "description": "Het prioriteitssysteem gebruikt een bereik van 0 tot uw geconfigureerde maximale prioriteit. Hogere getallen geven hogere prioriteit aan.",
+      "currentMax": "Huidige maximum",
+      "note": "U kunt geen maximale prioriteit instellen die lager is dan bestaande prioriteiten van vooringestelde taken. Werk eerst vooringestelde taken met hoge prioriteit bij of verwijder deze indien nodig.",
+      "recommended": "Aanbevolen bereiken per organisatiegrootte:",
+      "small": "Kleine organisatie: 0-100",
+      "medium": "Middelgrote/grote organisatie: 0-1.000",
+      "large": "Organisatie met extreme werklast: 0-10.000"
+    },
+    "agentScheduling": {
+      "title": "Agent-planning",
+      "tooltip": "Schakel het agent-planningssysteem globaal in of uit. Wanneer ingeschakeld, kunnen agents dagelijkse planningen hebben.",
+      "enable": "Agent-planningssysteem inschakelen",
+      "description": "Wanneer ingeschakeld, kunnen agents worden geconfigureerd met dagelijkse planningen. Alleen agents die gepland staan voor de huidige tijd krijgen taken toegewezen.",
+      "note": "Individuele agents moeten ook planning ingeschakeld hebben en planningen geconfigureerd hebben om dit effect te hebben."
+    },
+    "agentOverflow": {
+      "title": "Agent-overflowtoewijzing",
+      "tooltip": "Configureer hoe agents boven max_agents-limieten worden toegewezen wanneer taken dezelfde prioriteit hebben",
+      "roundRobinMode": "Round-Robin-modus",
+      "fifoMode": "FIFO-modus",
+      "fifoDescription": "Wanneer meerdere taken met dezelfde prioriteit hun max_agents-limieten overschrijden, ontvangt de oudste taak (eerst aangemaakt) alle extra agents.",
+      "roundRobinDescription": "Extra agents worden gelijkmatig verdeeld over alle taken met dezelfde prioriteit, één agent per keer, voor eerlijke toewijzing."
+    },
+    "hashlist": {
+      "title": "Hashlijstinstellingen",
+      "tooltip": "Configureer instellingen gerelateerd aan hashlijstuploads en -beheer",
+      "requireClient": "Klant verplicht voor hashlijsten",
+      "requireClientDescription": "Wanneer ingeschakeld, moeten gebruikers een klant toewijzen bij het uploaden van nieuwe hashlijsten. Dit helpt bij betere organisatie en tracking van hashlijsten per klant.",
+      "batchSize": "Batchgrootte bulkimport",
+      "batchSizeHelper": "Aantal hashes verwerkt per batch tijdens uploads. Standaard: 100.000. Aanbevolen: 500.000-1.000.000 voor grote hashlijsten (47M+)",
+      "performanceGuide": "Prestatiegids:",
+      "performance100k": "100K (standaard): Goed voor de meeste toepassingen",
+      "performance500k": "500K: Beter voor grote hashlijsten, kan doorvoer verbeteren",
+      "performance1m": "1M: Best voor zeer grote hashlijsten (50M+), vereist meer RAM"
+    },
+    "potfile": {
+      "title": "Potfile-instellingen",
+      "tooltip": "Configureer hoe de potfile gekraakte wachtwoorden verwerkt voor hergebruik in taken",
+      "maxBatchSize": "Maximale batchgrootte",
+      "maxBatchSizeHelper": "Aantal gestage wachtwoorden te verwerken in elke batchcyclus (1.000 - 500.000)",
+      "batchInterval": "Batchinterval (seconden)",
+      "batchIntervalHelper": "Seconden tussen potfile-batchverwerkingscycli (10 - 600)",
+      "description": "De potfile verzamelt gekraakte wachtwoorden van alle taken en hergebruikt ze in volgende aanvallen. Grotere batches verwerken meer wachtwoorden tegelijk maar duren langer per cyclus.",
+      "processingRate": "Verwerkingssnelheid",
+      "passwordsPerSecond": "wachtwoorden/seconde",
+      "currentSettings": "Huidige instellingen",
+      "passwordsEvery": "wachtwoorden elke",
+      "seconds": "seconden"
+    },
+    "errors": {
+      "loadFailed": "Laden van systeeminstellingen mislukt",
+      "maxPriorityRequired": "Maximale prioriteit is verplicht",
+      "maxPriorityPositive": "Maximale prioriteit moet een positief getal zijn",
+      "maxPriorityMax": "Maximale prioriteit kan niet hoger zijn dan 1.000.000",
+      "saveFailed": "Opslaan van systeeminstellingen mislukt",
+      "batchSizeRange": "Batchgrootte moet tussen {{min}} en {{max}} zijn",
+      "intervalRange": "Interval moet tussen {{min}} en {{max}} seconden zijn"
+    },
+    "messages": {
+      "updateSuccess": "Systeeminstellingen succesvol bijgewerkt",
+      "schedulingUpdated": "Agent-planningsinstelling bijgewerkt",
+      "schedulingFailed": "Bijwerken van planningsinstelling mislukt",
+      "overflowUpdated": "Agent-overflowtoewijzingsmodus bijgewerkt",
+      "overflowFailed": "Bijwerken van overflowtoewijzingsmodus mislukt",
+      "hashlistClientUpdated": "Hashlijst klantvereiste bijgewerkt",
+      "hashlistBatchUpdated": "Hashlijst batchgrootte bijgewerkt",
+      "potfileBatchUpdated": "Potfile batchgrootte bijgewerkt",
+      "potfileIntervalUpdated": "Potfile batchinterval bijgewerkt",
+      "updateFailed": "Bijwerken van instelling mislukt"
+    }
+  },
+  "jobExecution": {
+    "title": "Taakuitvoeringsinstellingen",
+    "description": "Configureer hoe taken worden uitgevoerd en verdeeld over agents",
+    "chunking": {
+      "title": "Taakchunking",
+      "defaultChunkDuration": "Standaard chunkduur",
+      "defaultChunkDurationHelper": "Duur voor elke taakchunk",
+      "chunkFluctuation": "Chunkfluctuatiepercentage",
+      "chunkFluctuationHelper": "Toegestane fluctuatie voor laatste chunks",
+      "minutes": "minuten"
+    },
+    "agentConfig": {
+      "title": "Agentconfiguratie",
+      "hashlistRetention": "Hashlijstretentie",
+      "hashlistRetentionHelper": "Hoe lang agents hashlijsten bewaren",
+      "maxConcurrentJobs": "Max. gelijktijdige taken per agent",
+      "maxConcurrentJobsHelper": "Maximaal aantal taken dat een agent tegelijkertijd kan uitvoeren",
+      "progressReporting": "Voortgangsrapportage-interval",
+      "progressReportingHelper": "Hoe vaak agents voortgang rapporteren",
+      "benchmarkCache": "Benchmark cacheduur",
+      "benchmarkCacheHelper": "Hoe lang agent-benchmarks worden gecached",
+      "speedtestTimeout": "Speedtest-timeout",
+      "speedtestTimeoutHelper": "Maximale wachttijd voor voltooiing van speedtest",
+      "reconnectGrace": "Herverbindingsrespijtperiode",
+      "reconnectGraceHelper": "Wachttijd voor agents om te herverbinden na serverherstart",
+      "days": "dagen",
+      "seconds": "seconden",
+      "minutes": "minuten"
+    },
+    "jobControl": {
+      "title": "Taakbeheer",
+      "allowInterruption": "Taakonderbreking toestaan",
+      "allowInterruptionHelper": "Taken met hogere prioriteit kunnen actieve taken onderbreken",
+      "realtimeNotifications": "Realtime kraakmeldingen",
+      "realtimeNotificationsHelper": "Meldingen verzenden wanneer hashes worden gekraakt",
+      "refreshInterval": "Taakverversingsinterval",
+      "refreshIntervalHelper": "Hoe vaak taakstatus in UI wordt vernieuwd",
+      "maxRetryAttempts": "Max. chunk-herpogingen",
+      "maxRetryAttemptsHelper": "Aantal keren dat mislukte chunks opnieuw worden geprobeerd",
+      "jobsPerPage": "Taken per pagina",
+      "jobsPerPageHelper": "Standaard paginagrootte voor takenlijsten"
+    },
+    "potfile": {
+      "title": "Potfile-instellingen",
+      "enablePotfile": "Potfile inschakelen",
+      "enablePotfileHelper": "Automatisch gekraakte wachtwoorden opslaan voor gebruik in toekomstige taken. Individuele hashlijsten kunnen nog steeds worden uitgesloten."
+    },
+    "ruleSplitting": {
+      "title": "Regelsplitsing",
+      "enableRuleSplitting": "Regelsplitsing inschakelen",
+      "enableRuleSplittingHelper": "Automatisch grote regelbestanden splitsen voor gedistribueerde verwerking",
+      "threshold": "Regelsplitsingsdrempel",
+      "thresholdHelper": "Splitsen wanneer taaktijd de chunktijd met deze factor overschrijdt",
+      "minRules": "Minimum regels om te splitsen",
+      "minRulesHelper": "Bestanden met minder regels niet splitsen",
+      "maxChunks": "Maximum regelchunks",
+      "maxChunksHelper": "Maximum aantal chunks per bestand",
+      "chunkDirectory": "Regelchunk-map",
+      "chunkDirectoryHelper": "Map voor tijdelijke regelchunks"
+    },
+    "buttons": {
+      "save": "Instellingen opslaan"
+    },
+    "errors": {
+      "loadFailed": "Laden van instellingen mislukt"
+    },
+    "messages": {
+      "updateSuccess": "Taakuitvoeringsinstellingen succesvol bijgewerkt",
+      "loadFailed": "Laden van taakuitvoeringsinstellingen mislukt",
+      "saveFailed": "Opslaan van instellingen mislukt"
+    }
+  },
+  "monitoring": {
+    "title": "Monitoringinstellingen",
+    "metricsRetention": {
+      "title": "Metriekenretentieperiodes",
+      "description": "Configureer hoe lang metrieken op verschillende detailniveaus worden bewaard. Gegevens cascaderen van fijnkorrelig naar geaggregeerd over tijd.",
+      "realtimeData": "Realtime gegevensretentie",
+      "realtimeDataHelper": "Dagen om fijnkorrelige metrieken voor recente activiteit te bewaren (bijv. 7 dagen)",
+      "dailyAggregates": "Dagelijkse aggregatenretentie",
+      "dailyAggregatesHelper": "Dagen om dagelijkse samenvattingen na de realtime periode op te slaan (bijv. 30 dagen)",
+      "weeklyAggregates": "Wekelijkse aggregatenretentie",
+      "weeklyAggregatesHelper": "Dagen om langetermijntrends als wekelijkse samenvattingen te bewaren (bijv. 365 dagen)"
+    },
+    "aggregation": {
+      "title": "Aggregatie-instellingen",
+      "enableAggregation": "Automatische aggregatie inschakelen",
+      "enableAggregationDescription": "Automatisch oudere metrieken consolideren om opslagruimte te besparen terwijl trends behouden blijven",
+      "interval": "Aggregatie-interval",
+      "intervalHelper": "Hoe vaak het aggregatieproces wordt uitgevoerd",
+      "hourly": "Per uur",
+      "daily": "Dagelijks",
+      "weekly": "Wekelijks"
+    },
+    "cascading": {
+      "title": "Hoe cascaderende aggregatie werkt:",
+      "realtime": "Realtime gegevens bieden gedetailleerde metrieken voor recente activiteit",
+      "daily": "Na de realtime periode worden gegevens geaggregeerd tot dagelijkse samenvattingen",
+      "weekly": "Na de dagelijkse periode worden gegevens verder geaggregeerd tot wekelijkse samenvattingen",
+      "benefit": "Deze aanpak houdt grafieken leesbaar terwijl historische trends behouden blijven"
+    },
+    "buttons": {
+      "save": "Instellingen opslaan",
+      "saving": "Opslaan..."
+    },
+    "errors": {
+      "loadFailed": "Laden van instellingen mislukt. Probeer het opnieuw.",
+      "saveFailed": "Opslaan van instellingen mislukt. Probeer het opnieuw."
+    },
+    "messages": {
+      "updateSuccess": "Monitoringinstellingen succesvol opgeslagen"
+    }
+  },
+  "agentDownloads": {
+    "title": "Agent-bestandsoverdrachtsinstellingen",
+    "description": "Configureer hoe agents bestanden downloaden van de backend. Deze instellingen gelden voor alle verbonden agents.",
+    "concurrentDownloads": {
+      "title": "Gelijktijdige downloads",
+      "description": "Maximaal aantal bestanden dat tegelijkertijd kan worden gedownload"
+    },
+    "downloadTimeout": {
+      "title": "Download-timeout",
+      "description": "Maximale tijd toegestaan voor een enkele bestandsdownload",
+      "helper": "Tussen 1 minuut en 24 uur (1440 minuten)",
+      "unit": "minuten"
+    },
+    "retryAttempts": {
+      "title": "Herpogingen",
+      "description": "Aantal keren dat mislukte downloads opnieuw worden geprobeerd"
+    },
+    "progressInterval": {
+      "title": "Voortgangsrapportage-interval",
+      "description": "Hoe vaak agents downloadvoortgang rapporteren",
+      "helper": "Tussen 1 seconde en 5 minuten (300 seconden)",
+      "unit": "seconden"
+    },
+    "chunkSize": {
+      "title": "Chunkgrootte",
+      "description": "Download-chunkgrootte voor toekomstige hervattingsmogelijkheid",
+      "helper": "Tussen 1 MB en 100 MB",
+      "unit": "MB"
+    },
+    "applyNote": "Wijzigingen worden toegepast op agents bij hun volgende verbinding. Momenteel verbonden agents ontvangen updates automatisch.",
+    "buttons": {
+      "save": "Instellingen opslaan",
+      "saving": "Opslaan..."
+    },
+    "errors": {
+      "loadFailed": "Laden van agent-downloadinstellingen mislukt",
+      "saveFailed": "Bijwerken van agent-downloadinstellingen mislukt"
+    },
+    "messages": {
+      "updateSuccess": "Agent-downloadinstellingen succesvol bijgewerkt"
+    }
+  },
+  "hashTypes": {
+    "title": "Hashtype-beheer",
+    "description": "Beheer ondersteunde hashtypen voor wachtwoordkraakoperaties",
+    "addHashType": "Hashtype toevoegen",
+    "searchPlaceholder": "Hashtypen zoeken...",
+    "hashTypesFound": "{{count}} hashtypen gevonden",
+    "table": {
+      "id": "ID",
+      "name": "Naam",
+      "description": "Beschrijving",
+      "example": "Voorbeeld",
+      "slow": "Traag",
+      "salted": "Gezouten",
+      "actions": "Acties",
+      "loading": "Hashtypen laden...",
+      "noResults": "Geen hashtypen gevonden"
+    },
+    "dialog": {
+      "addTitle": "Nieuw hashtype toevoegen",
+      "editTitle": "Hashtype bewerken",
+      "hashIdLabel": "Hash-ID (Hashcat-modusnummer)",
+      "hashIdHelper": "bijv. 1000 voor NTLM",
+      "nameLabel": "Naam",
+      "descriptionLabel": "Beschrijving",
+      "exampleLabel": "Voorbeeldhash",
+      "exampleHelper": "Voorbeeld van dit hashformaat",
+      "slowLabel": "Traag hash-algoritme",
+      "saltedLabel": "Gezouten hashtype (bijv. NTLMv2, bcrypt)",
+      "processingInfo": "Dit hashtype vereist speciale verwerking. Verwerkingslogica wordt programmatisch beheerd.",
+      "cancel": "Annuleren",
+      "save": "Opslaan",
+      "saving": "Opslaan..."
+    },
+    "validation": {
+      "hashIdRequired": "Hash-ID is verplicht en moet positief zijn",
+      "hashIdExists": "Dit Hash-ID bestaat al",
+      "nameRequired": "Naam is verplicht"
+    },
+    "tooltips": {
+      "requiresProcessing": "Vereist speciale verwerking",
+      "processing": "Verwerking",
+      "slowAlgorithm": "Traag hash-algoritme (rekenkundig intensief)",
+      "salted": "Gebruikt per-hash salts (beïnvloedt keyspace-berekening)"
+    },
+    "confirmDelete": {
+      "title": "Verwijdering bevestigen",
+      "warning": "Dit hashtype is momenteel ingeschakeld. Verwijderen kan bestaande functionaliteit beïnvloeden.",
+      "cancel": "Annuleren",
+      "delete": "Verwijderen",
+      "deleting": "Verwijderen..."
+    },
+    "messages": {
+      "createSuccess": "Hashtype succesvol aangemaakt",
+      "createFailed": "Aanmaken van hashtype mislukt",
+      "updateSuccess": "Hashtype succesvol bijgewerkt",
+      "updateFailed": "Bijwerken van hashtype mislukt",
+      "deleteSuccess": "Hashtype succesvol verwijderd",
+      "deleteFailed": "Verwijderen van hashtype mislukt",
+      "deleteInUse": "Kan niet verwijderen: Dit hashtype wordt gebruikt door bestaande hashlijsten",
+      "loadFailed": "Laden van hashtypen mislukt. Probeer de pagina te vernieuwen."
+    }
+  }
+}

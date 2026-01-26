@@ -1,0 +1,116 @@
+{
+  "title": "Dashboard",
+  "welcome": "Welkom bij KrakenHashes",
+  "stats": {
+    "title": "Overzicht",
+    "totalJobs": "Totaal aantal taken",
+    "activeJobs": "Actieve taken",
+    "completedJobs": "Voltooide taken",
+    "totalHashes": "Totaal aantal hashes",
+    "crackedHashes": "Gekraakte hashes",
+    "crackRate": "Kraakpercentage",
+    "activeAgents": "Actieve agents",
+    "totalAgents": "Totaal aantal agents"
+  },
+  "recentActivity": {
+    "title": "Recente activiteit",
+    "noActivity": "Geen recente activiteit"
+  },
+  "quickActions": {
+    "title": "Snelle acties",
+    "createJob": "Taak aanmaken",
+    "uploadHashlist": "Hashlijst uploaden",
+    "viewAgents": "Agents bekijken"
+  },
+  "agents": {
+    "title": "Uw agents",
+    "loadError": "Laden van agents mislukt: {{message}}",
+    "noAgents": "Geen agents geregistreerd",
+    "hashRate": "Hashsnelheid",
+    "notAvailable": "N.v.t.",
+    "job": "Taak",
+    "unnamedJob": "Naamloze taak",
+    "noActiveTask": "Geen actieve taak"
+  },
+  "pagination": {
+    "previous": "Vorige",
+    "next": "Volgende",
+    "pageOf": "Pagina {{current}} van {{total}}"
+  },
+  "jobs": {
+    "title": "Uw taken",
+    "total": "Totaal",
+    "autoRefreshOn": "Auto",
+    "autoRefreshOff": "Uit",
+    "lastUpdated": "Laatst bijgewerkt: {{time}}",
+    "loadError": "Laden van taken mislukt: {{message}}",
+    "noJobs": "Geen taken gevonden. Maak een nieuwe taak aan om te beginnen."
+  },
+  "buttons": {
+    "refresh": "Vernieuwen",
+    "deleteFinished": "Voltooide verwijderen"
+  },
+  "filters": {
+    "status": "Status",
+    "priority": "Prioriteit",
+    "all": "Alle",
+    "searchPlaceholder": "Taken zoeken...",
+    "clear": "Filters wissen"
+  },
+  "status": {
+    "pending": "In wachtrij",
+    "running": "Actief",
+    "paused": "Gepauzeerd",
+    "completed": "Voltooid",
+    "failed": "Mislukt",
+    "cancelled": "Geannuleerd"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Voltooide taken verwijderen",
+      "message": "Weet u zeker dat u alle voltooide taken wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt."
+    }
+  },
+  "errors": {
+    "deleteFinishedFailed": "Verwijderen van voltooide taken mislukt",
+    "deleteJobFailed": "Verwijderen van taak mislukt",
+    "retryJobFailed": "Opnieuw uitvoeren van taak mislukt",
+    "updateJobFailed": "Bijwerken van taak mislukt"
+  },
+  "hashlistOverview": {
+    "title": "Hashlijst overzicht",
+    "loadError": "Laden van hashlijsten mislukt",
+    "noHashlists": "Geen hashlijsten gevonden",
+    "columns": {
+      "name": "Naam",
+      "client": "Klant",
+      "status": "Status",
+      "total": "Totaal",
+      "cracked": "Gekraakt",
+      "progress": "Voortgang"
+    },
+    "status": {
+      "ready": "Gereed",
+      "error": "Fout",
+      "uploading": "Uploaden",
+      "processing": "Verwerken"
+    }
+  },
+  "jobsTable": {
+    "noJobs": "Geen taken gevonden",
+    "noJobsHint": "Maak een nieuwe taak aan via de Hashlijsten-pagina om te beginnen.",
+    "completedJobs": "Voltooide taken",
+    "columns": {
+      "jobName": "Taaknaam",
+      "hashlist": "Hashlijst",
+      "createdBy": "Aangemaakt door",
+      "progress": "Voortgang",
+      "keyspace": "Sleutelruimte",
+      "cracked": "Gekraakt",
+      "agents": "Agents",
+      "priority": "Prioriteit",
+      "maxAgents": "Max. agents",
+      "actions": "Acties"
+    }
+  }
+}

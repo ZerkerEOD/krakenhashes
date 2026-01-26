@@ -1,0 +1,346 @@
+{
+  "title": "Wachtwoordanalyse",
+  "description": "Genereer uitgebreide wachtwoordanalyserapporten voor beveiligingsbeoordelingen",
+  "selectHashlist": "Selecteer hashlijst",
+  "generateReport": "Rapport genereren",
+  "downloadReport": "Rapport downloaden",
+  "clientSelection": {
+    "title": "Selecteer klant",
+    "label": "Klant",
+    "placeholder": "Selecteer een klant"
+  },
+  "tabs": {
+    "generateNew": "Nieuw rapport genereren",
+    "viewPrevious": "Vorige rapporten bekijken",
+    "all": "Alle"
+  },
+  "form": {
+    "startDate": "Startdatum",
+    "endDate": "Einddatum",
+    "customPatterns": "Aangepaste patronen (kommagescheiden)",
+    "customPatternsPlaceholder": "bijv. goog, ggl, micro, soft",
+    "customPatternsHelper": "Voeg aangepaste organisatienaamvariaties toe om te controleren"
+  },
+  "table": {
+    "dateRange": "Datumbereik",
+    "generatedOn": "Gegenereerd op",
+    "status": "Status",
+    "hashes": "Hashes",
+    "cracked": "Gekraakt",
+    "actions": "Acties",
+    "noReports": "Geen rapporten gevonden voor deze klant"
+  },
+  "status": {
+    "queued": "In wachtrij",
+    "processing": "Verwerken",
+    "completed": "Voltooid",
+    "failed": "Mislukt",
+    "pendingGeneration": "Rapport genereren in behandeling",
+    "generating": "Rapport wordt nog gegenereerd"
+  },
+  "actions": {
+    "viewReport": "Rapport bekijken",
+    "retryReport": "Rapport opnieuw proberen",
+    "deleteReport": "Rapport verwijderen",
+    "retry": "Opnieuw proberen",
+    "delete": "Verwijderen",
+    "exportHcmask": "Exporteer .hcmask",
+    "exportTxt": "Exporteer .txt"
+  },
+  "messages": {
+    "selectClient": "Selecteer een klant",
+    "reportQueued": "Rapport in wachtrij (Positie: {{position}})",
+    "reportQueuedRetry": "Rapport in wachtrij voor nieuwe poging (Positie: {{position}})",
+    "reportDeleted": "Rapport succesvol verwijderd",
+    "failedLoadClients": "Laden van klanten mislukt",
+    "failedLoadReports": "Laden van rapporten mislukt",
+    "failedLoadReport": "Laden van rapport mislukt",
+    "failedGenerateReport": "Genereren van rapport mislukt",
+    "failedDeleteReport": "Verwijderen van rapport mislukt",
+    "failedRetryReport": "Opnieuw proberen van rapport mislukt",
+    "queuedPosition": "Uw rapport staat in de wachtrij voor verwerking. Positie:",
+    "processingDescription": "Uw rapport wordt momenteel verwerkt. Dit kan enkele minuten duren afhankelijk van de grootte van de dataset.",
+    "generationError": "Er is een fout opgetreden bij het genereren van het rapport.",
+    "noHashReuse": "Geen hash-hergebruik gedetecteerd. Alle NTLM/LM hash-waarden zijn uniek.",
+    "andMoreUsers": "...en {{count}} meer",
+    "copiedSuccess": "Gebruikersnamen gekopieerd naar klembord!",
+    "noRecommendations": "Geen specifieke aanbevelingen op dit moment. Wachtwoordbeleid lijkt adequaat.",
+    "top50Hashes": "Toont top 50 meest hergebruikte hashes",
+    "top50PartialCracks": "Toont top 50 gedeeltelijke kraken"
+  },
+  "sections": {
+    "lengthDistribution": "Wachtwoordlengteverdeling",
+    "characterComposition": "Tekensamenstelling",
+    "commonPatterns": "Veelvoorkomende patronen",
+    "topPasswords": "Meest voorkomende wachtwoorden",
+    "maskAnalysis": "Maskeranalyse",
+    "complexityAnalysis": "Tekencomplexiteitsanalyse",
+    "sequentialPatterns": "Opeenvolgende patronen",
+    "keyboardPatterns": "Toetsenbordpatronen",
+    "datePatterns": "Datumpatronen",
+    "leetSpeak": "Leet speak-analyse",
+    "baseWords": "Basiswoorden",
+    "characterSets": "Tekensets",
+    "entropyDistribution": "Entropieverdeling",
+    "overview": "Overzicht",
+    "domainBreakdown": "Domeinuitsplitsing",
+    "hashModeBreakdown": "Hashmode-uitsplitsing",
+    "windowsHashAnalytics": "Windows hash-analyse",
+    "positionalAnalysis": "Positionele analyse",
+    "patternDetection": "Patroondetectie",
+    "usernameCorrelation": "Gebruikersnaamcorrelatie",
+    "passwordReuse": "Wachtwoordhergebruik",
+    "hashReuse": "Hash-gebaseerd wachtwoordhergebruik",
+    "temporalPatterns": "Temporele patronen",
+    "yearBreakdown": "Jaaruitsplitsing",
+    "strengthMetrics": "Sterktestatistieken",
+    "crackTimeEstimates": "Kraaktijdschattingen per snelheid",
+    "customPatterns": "Organisatienaampatronen",
+    "recommendations": "Aanbevelingen",
+    "lmPartialCracks": "LM gedeeltelijke kraken",
+    "lmToNtlmMasks": "LM-naar-NTLM maskergeneratie",
+    "hashTypes": "Hashtypen",
+    "kerberos": "Kerberos",
+    "encryptionTypes": "Versleutelingstypen",
+    "linkedHashCorrelation": "LM/NTLM gekoppelde hashcorrelatie",
+    "reusedPasswords": "Hergebruikte wachtwoorden per voorkomst"
+  },
+  "charts": {
+    "count": "Aantal",
+    "percentage": "Percentage",
+    "length": "Lengte",
+    "password": "Wachtwoord",
+    "pattern": "Patroon",
+    "mask": "Masker"
+  },
+  "columns": {
+    "domain": "Domein",
+    "totalHashes": "Totaal hashes",
+    "cracked": "Gekraakt",
+    "percentage": "Percentage",
+    "hashType": "Hashtype",
+    "length": "Lengte",
+    "count": "Aantal",
+    "category": "Categorie",
+    "pattern": "Patroon",
+    "patternType": "Patroontype",
+    "correlationType": "Correlatietype",
+    "metric": "Metriek",
+    "password": "Wachtwoord",
+    "users": "Gebruikers",
+    "occurrences": "Voorkomsten",
+    "username": "Gebruikersnaam",
+    "hashlistCount": "Hashlijst aantal",
+    "hashValue": "Hashwaarde",
+    "type": "Type",
+    "total": "Totaal",
+    "year": "Jaar",
+    "maskPattern": "Maskerpatroon",
+    "entropyLevel": "Entropieniveau",
+    "range": "Bereik",
+    "speedLevel": "Snelheidsniveau",
+    "speed": "Snelheid (H/s)",
+    "rank": "Rang",
+    "actions": "Acties",
+    "firstHalf": "Eerste helft (1-7)",
+    "secondHalf": "Tweede helft (8-14)",
+    "hashlist": "Hashlijst",
+    "mask": "Masker",
+    "lmPattern": "LM-patroon",
+    "matchPercentage": "Match %",
+    "estimatedKeyspace": "Gesch. keyspace",
+    "exampleLm": "Voorbeeld LM",
+    "usersHashlistCount": "Gebruikers (hashlijst aantal)",
+    "totalOccurrences": "Totaal voorkomsten",
+    "userCount": "Aantal gebruikers"
+  },
+  "labels": {
+    "reportId": "Rapport-ID:",
+    "total": "Totaal",
+    "cracked": "Gekraakt:",
+    "percentage": "Percentage:",
+    "totalHashRecords": "Totaal hash-records",
+    "uniqueUsers": "Unieke gebruikers",
+    "successRate": "Slagingspercentage",
+    "linkedPairsFound": "LM/NTLM gekoppelde paren gevonden",
+    "totalLinkedPairs": "Totaal gekoppelde paren:",
+    "bothCracked": "Beide gekraakt",
+    "ntlmOnly": "Alleen NTLM",
+    "lmOnly": "Alleen LM",
+    "neitherCracked": "Geen van beide gekraakt",
+    "passwordsReused": "Wachtwoorden hergebruikt",
+    "uniquePasswords": "Unieke wachtwoorden",
+    "totalReused": "Totaal hergebruikt",
+    "totalUnique": "Totaal uniek",
+    "reusePercentage": "Hergebruikpercentage",
+    "usersWithHash": "Gebruikers met deze hash:",
+    "totalPartial": "Totaal gedeeltelijk",
+    "firstHalfOnly": "Alleen eerste helft",
+    "secondHalfOnly": "Alleen tweede helft",
+    "unknown": "Onbekend",
+    "lmPasswordsAnalyzed": "LM-wachtwoorden geanalyseerd",
+    "masksGenerated": "Maskers gegenereerd",
+    "totalEstimatedKeyspace": "Totaal geschatte keyspace",
+    "underOrEqual7Chars": "<=7 tekens:",
+    "8To14Chars": "8-14 tekens:",
+    "partiallyCracked": "Gedeeltelijk gekraakt:"
+  },
+  "cards": {
+    "totalHashes": "Totaal hashes",
+    "cracked": "Gekraakt",
+    "crackRate": "Kraakpercentage",
+    "hashlistsAnalyzed": "Hashlijsten geanalyseerd"
+  },
+  "descriptions": {
+    "lengthDistribution": "Lengteverdeling (gebaseerd op hash):",
+    "includesAllTypes": "Inclusief alle hashtypen",
+    "distinctUsernames": "Unieke gebruikersnamen",
+    "successfullyCracked": "Succesvol gekraakt",
+    "overallPercentage": "Totaalpercentage",
+    "complexityDistribution": "Verdeling van wachtwoorden per tekentypecombinaties",
+    "positionalPatterns": "Veelvoorkomende positionele patronen in wachtwoorden",
+    "weakPatterns": "Veelvoorkomende zwakke patronen gedetecteerd in wachtwoorden",
+    "usernameCorrelation": "Wachtwoorden die correleren met gebruikersnamen",
+    "hashReuseAnalysis": "Identieke NTLM/LM hashwaarden duiden op wachtwoordhergebruik over accounts, zelfs wanneer platte tekst onbekend is.",
+    "datePatterns": "Datumgerelateerde patronen gevonden in wachtwoorden",
+    "maskFormat": "Top wachtwoordpatronen in hashcat maskerformaat (?u=hoofdletter, ?l=kleine letter, ?d=cijfer, ?s=speciaal)",
+    "shannonEntropy": "Wachtwoordsterkte categorisatie gebaseerd op Shannon-entropie",
+    "crackTimeEstimates": "Percentage wachtwoorden kraakbaar binnen tijdsperioden bij verschillende snelheidsniveaus",
+    "topPasswords": "Meest gebruikte wachtwoorden (minimaal 2 keer gebruikt)",
+    "customPatterns": "Wachtwoorden die organisatienaamvariaties bevatten",
+    "recommendations": "Voorgestelde wachtwoordbeleidsverbeteringen gebaseerd op analyse",
+    "lmDerivable": "(LM afleidbaar)",
+    "ntlmUnknown": "(NTLM onbekend)",
+    "ofLmHashes": "van LM-hashes",
+    "chars1To7": "Tekens 1-7 gekraakt",
+    "chars8To14": "Tekens 8-14 gekraakt",
+    "maskGeneration": "Genereer hashcat-maskers van gekraakte LM-wachtwoorden om overeenkomstige NTLM-hoofdlettervariaties te herstellen.",
+    "maskSorting": "Maskers gesorteerd op frequentie, dan op keyspace",
+    "averageLength": "Gemiddelde lengte (wachtwoorden <15 tekens):"
+  },
+  "patterns": {
+    "startsUppercase": "Begint met hoofdletter",
+    "endsNumber": "Eindigt met cijfer",
+    "endsSpecial": "Eindigt met speciaal teken",
+    "keyboardWalks": "Toetsenbordpatronen (bijv. qwerty, asdfgh)",
+    "sequences": "Reeksen (bijv. 123, abc)",
+    "repeatingChars": "Herhalende tekens (bijv. aaa, 111)",
+    "containsYear": "Bevat jaar",
+    "containsMonth": "Bevat maand",
+    "containsSeason": "Bevat seizoen"
+  },
+  "correlations": {
+    "sameAsUsername": "Wachtwoord gelijk aan gebruikersnaam",
+    "containsUsername": "Wachtwoord bevat gebruikersnaam",
+    "usernamePart": "Gebruikersnaam deel van wachtwoord"
+  },
+  "categories": {
+    "singleCharType": "Enkel tekentype",
+    "twoCharTypes": "Twee tekentypen",
+    "threeCharTypes": "Drie tekentypen",
+    "fourCharTypes": "Vier tekentypen",
+    "allCharTypes": "Alle tekentypen",
+    "complexPasswords": "Complexe wachtwoorden (3-4 typen)",
+    "complexShort": "Complex (<=14 tekens)",
+    "complexLong": "Complex (15+ tekens)"
+  },
+  "hashTypes": {
+    "ntlm": "NTLM",
+    "lm": "LM",
+    "netntlmv1": "NetNTLMv1",
+    "netntlmv2": "NetNTLMv2",
+    "dcc": "DCC (MS Cache)",
+    "dcc2": "DCC2 (MS Cache 2)"
+  },
+  "kerberosTypes": {
+    "rc4": "RC4",
+    "aes128": "AES-128",
+    "aes256": "AES-256"
+  },
+  "entropyLevels": {
+    "low": "Laag",
+    "moderate": "Gemiddeld",
+    "high": "Hoog"
+  },
+  "entropyRanges": {
+    "low": "<78 bits",
+    "moderate": "78-127 bits",
+    "high": "128+ bits"
+  },
+  "speedLevels": {
+    "speed50": "50% snelheid",
+    "speed75": "75% snelheid",
+    "speed100": "100% snelheid (gemiddeld)",
+    "speed150": "150% snelheid",
+    "speed200": "200% snelheid"
+  },
+  "timeframes": {
+    "lessThan1Hour": "<1 uur",
+    "lessThan1Day": "<1 dag",
+    "lessThan1Week": "<1 week",
+    "lessThan1Month": "<1 maand",
+    "lessThan6Months": "<6 maanden",
+    "lessThan1Year": "<1 jaar",
+    "greaterThan1Year": ">1 jaar"
+  },
+  "severities": {
+    "critical": "KRITIEK",
+    "high": "HOOG",
+    "medium": "GEMIDDELD",
+    "info": "INFO"
+  },
+  "tooltips": {
+    "copyUsernames": "Kopieer gebruikersnamen naar klembord",
+    "processing": "Verwerken",
+    "requiresProcessing": "Vereist speciale verwerking"
+  },
+  "warnings": {
+    "internalUseOnly": "Alleen voor intern gebruik: Deze sectie bevat platte tekst wachtwoorden. Deel dit niet extern.",
+    "partialCracks": "Gebruikers met gedeeltelijke LM-kraken moeten onmiddellijk hun wachtwoord resetten.",
+    "linkedHashlistAnalysis": "Gekoppelde hashlijstanalyse"
+  },
+  "alerts": {
+    "linkedHashlistInfo": "Deze hashlijst maakt deel uit van een gekoppeld LM/NTLM-paar. Analyse bevat correlatie tussen LM- en NTLM-hashes voor dezelfde gebruikers."
+  },
+  "filters": {
+    "domain": "Filteren op domein",
+    "allDomains": "Alle domeinen",
+    "minOccurrences": "Minimum aantal",
+    "topN": "Top N resultaten"
+  },
+  "errors": {
+    "loadFailed": "Laden van analyse mislukt",
+    "noData": "Geen gegevens beschikbaar voor analyse"
+  },
+  "noReport": {
+    "title": "Geen rapport beschikbaar",
+    "message": "Selecteer een hashlijst en genereer een rapport om de analyse te bekijken."
+  },
+  "units": {
+    "chars": "tekens"
+  },
+  "pagination": {
+    "masks": "{{from}}-{{to}} van {{count}} maskers"
+  },
+  "export": {
+    "header": "# LM-naar-NTLM Hashcat-maskers",
+    "generatedFrom": "# Gegenereerd van {{count}} gekraakte LM-wachtwoorden",
+    "totalMasks": "# Totaal maskers: {{count}}",
+    "totalKeyspace": "# Totaal geschatte keyspace: {{keyspace}}",
+    "format": "# Formaat: masker | patroon | aantal | match% | keyspace | voorbeeld"
+  },
+  "monthNames": {
+    "jan": "Jan",
+    "feb": "Feb",
+    "mar": "Mrt",
+    "apr": "Apr",
+    "may": "Mei",
+    "jun": "Jun",
+    "jul": "Jul",
+    "aug": "Aug",
+    "sep": "Sep",
+    "oct": "Okt",
+    "nov": "Nov",
+    "dec": "Dec"
+  }
+}

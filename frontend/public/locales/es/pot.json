@@ -1,0 +1,86 @@
+{
+  "title": "Hashes descifrados",
+  "page": {
+    "title": "Hashes descifrados (Pot)",
+    "description": "Ver todos los hashes de contraseñas descifrados exitosamente de todas las listas de hashes y clientes."
+  },
+  "table": {
+    "allCrackedHashes": "Todos los hashes descifrados"
+  },
+  "navigation": {
+    "backToAll": "Volver a todos los hashes descifrados"
+  },
+  "client": {
+    "title": "Hashes descifrados - Vista de cliente",
+    "description": "Viendo hashes descifrados para el cliente: <1>{{clientName}}</1>",
+    "tableTitle": "Hashes descifrados para \"{{clientName}}\""
+  },
+  "hashlist": {
+    "title": "Hashes descifrados - Vista de lista de hashes",
+    "description": "Viendo hashes descifrados para la lista de hashes: <1>{{hashlistName}}</1>",
+    "tableTitle": "Hashes descifrados para \"{{hashlistName}}\""
+  },
+  "job": {
+    "title": "Hashes descifrados para el trabajo: {{jobName}}",
+    "description": "Ver todos los hashes de contraseñas descifrados exitosamente de esta ejecución de trabajo.",
+    "tableTitle": "Hashes descifrados - {{jobName}}",
+    "defaultName": "Trabajo {{id}}"
+  },
+  "columns": {
+    "originalHash": "Hash original",
+    "domain": "Dominio",
+    "username": "Nombre de usuario",
+    "password": "Contraseña",
+    "hashType": "Tipo de hash",
+    "actions": "Acciones"
+  },
+  "search": {
+    "placeholder": "Buscar en la base de datos...",
+    "filterPlaceholder": "Filtrar esta página...",
+    "button": "Buscar",
+    "resultsFound": "Se encontró {{count}} resultado",
+    "resultsFound_plural": "Se encontraron {{count}} resultados",
+    "noResults": "No se encontraron resultados",
+    "searching": "Buscando..."
+  },
+  "export": {
+    "hashPass": "Hash:Contraseña",
+    "userPass": "Usuario:Contraseña",
+    "username": "Nombre de usuario",
+    "password": "Contraseña",
+    "domainUser": "Dominio\\Usuario",
+    "domainUserPass": "Dominio\\Usuario:Contraseña",
+    "exportVisible": "Exportar resultados visibles",
+    "downloaded": "Descargado {{filename}}",
+    "downloadFailed": "Error al descargar el archivo"
+  },
+  "tooltips": {
+    "copyHash": "Copiar hash:contraseña",
+    "copyDomain": "Clic para copiar dominio",
+    "copyUsername": "Clic para copiar nombre de usuario",
+    "copyPassword": "Clic para copiar contraseña"
+  },
+  "dialogs": {
+    "loadAllTitle": "¿Cargar todos los resultados?",
+    "loadAllMessage": "Cargar todos los {{value}} resultados puede tomar un tiempo significativo y podría afectar el rendimiento. ¿Estás seguro de que deseas continuar?",
+    "loadingAll": "Cargando todos los resultados. Esto puede tomar un tiempo...",
+    "cancel": "Cancelar",
+    "loadAll": "Cargar todo"
+  },
+  "pagination": {
+    "all": "Todos"
+  },
+  "notifications": {
+    "copiedToClipboard": "Copiado al portapapeles",
+    "exported": "Hashes descifrados exportados"
+  },
+  "errors": {
+    "loadFailed": "Error al cargar los hashes descifrados",
+    "loadClientFailed": "Error al cargar la información del cliente",
+    "loadHashlistFailed": "Error al cargar la información de la lista de hashes",
+    "loadJobFailed": "Error al cargar la información del trabajo"
+  },
+  "filter": {
+    "filteredBy": "Filtrado por {{param}}: {{value}}"
+  }
+}

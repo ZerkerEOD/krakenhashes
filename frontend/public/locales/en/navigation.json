@@ -1,0 +1,34 @@
+{
+  "appName": "KrakenHashes",
+  "menu": {
+    "dashboard": "Dashboard",
+    "jobs": "Jobs",
+    "agents": "Agents",
+    "hashlists": "Hashlists",
+    "crackedHashes": "Cracked Hashes",
+    "wordlists": "Wordlists",
+    "rules": "Rules",
+    "clientManagement": "Client Management",
+    "analytics": "Analytics",
+    "about": "About",
+    "logout": "Logout"
+  },
+  "admin": {
+    "title": "Admin",
+    "settings": "Admin Settings",
+    "userManagement": "User Management",
+    "presetJobs": "Preset Jobs",
+    "jobWorkflows": "Job Workflows",
+    "diagnostics": "Diagnostics"
+  },
+  "userMenu": {
+    "userSettings": "User Settings",
+    "logout": "Logout",
+    "user": "User"
+  },
+  "aria": {
+    "toggleDrawer": "Toggle drawer",
+    "mainNavigation": "Main navigation",
+    "adminNavigation": "Admin navigation"
+  }
+}

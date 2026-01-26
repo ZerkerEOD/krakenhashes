@@ -1,0 +1,1416 @@
+{
+  "title": "管理设置",
+  "sections": {
+    "general": "常规设置",
+    "authentication": "身份验证",
+    "email": "邮件设置",
+    "security": "安全",
+    "sso": "单点登录",
+    "monitoring": "监控"
+  },
+  "tabs": {
+    "emailSettings": "邮件设置",
+    "authenticationSettings": "身份验证设置",
+    "ssoSettings": "SSO 设置",
+    "binaryManagement": "二进制管理",
+    "systemSettings": "系统设置",
+    "clientSettings": "客户设置",
+    "hashTypes": "哈希类型",
+    "jobExecution": "任务执行",
+    "monitoring": "监控",
+    "agentDownloads": "代理下载"
+  },
+  "common": {
+    "cancel": "取消",
+    "create": "创建",
+    "edit": "编辑",
+    "delete": "删除",
+    "save": "保存",
+    "saveChanges": "保存更改",
+    "copyToClipboard": "复制到剪贴板",
+    "never": "从未",
+    "invalidDate": "无效日期",
+    "all": "全部",
+    "yes": "是",
+    "no": "否",
+    "note": "注意",
+    "default": "默认",
+    "on": "开",
+    "off": "关",
+    "none": "无",
+    "unlimited": "无限制",
+    "close": "关闭",
+    "unknownError": "未知错误",
+    "dialogs": {
+      "confirmDeleteNamed": "确定要删除 \"{{name}}\" 吗？"
+    }
+  },
+  "users": {
+    "title": "用户管理",
+    "description": "管理用户账户和权限",
+    "addUser": "添加用户",
+    "createUser": "创建用户",
+    "columns": {
+      "username": "用户名",
+      "email": "电子邮件",
+      "role": "角色",
+      "status": "状态",
+      "createdAt": "创建时间",
+      "lastLogin": "最后登录",
+      "actions": "操作",
+      "provider": "提供者",
+      "providerLocal": "本地",
+      "mfa": "MFA",
+      "apiKey": "API 密钥",
+      "lastApiUse": "最后 API 使用"
+    },
+    "roles": {
+      "admin": "管理员",
+      "user": "用户",
+      "system": "系统"
+    },
+    "status": {
+      "active": "活跃",
+      "pending": "待批准",
+      "disabled": "已禁用",
+      "locked": "已锁定"
+    },
+    "actions": {
+      "edit": "编辑用户",
+      "delete": "删除用户",
+      "approve": "批准",
+      "disable": "禁用",
+      "enable": "启用",
+      "unlock": "解锁",
+      "resetPassword": "重置密码",
+      "disableMfa": "禁用 MFA",
+      "revokeApiKey": "撤销 API 密钥",
+      "cannotDeleteSystem": "无法删除系统用户",
+      "terminateSession": "终止会话",
+      "terminateAllSessions": "终止所有会话"
+    },
+    "apiKey": {
+      "none": "无"
+    },
+    "validation": {
+      "usernameRequired": "用户名为必填项",
+      "emailRequired": "电子邮件为必填项",
+      "emailInvalid": "电子邮件格式无效",
+      "passwordRequired": "密码为必填项",
+      "passwordMinLength": "至少 {{value}} 个字符",
+      "passwordUppercase": "一个大写字母",
+      "passwordLowercase": "一个小写字母",
+      "passwordNumber": "一个数字",
+      "passwordSpecial": "一个特殊字符",
+      "passwordMustContain": "密码必须包含 {{requirements}}",
+      "confirmPasswordRequired": "请确认密码",
+      "passwordsMismatch": "密码不匹配"
+    },
+    "errors": {
+      "loadFailed": "加载用户失败。请尝试刷新。",
+      "loadDetailsFailed": "加载用户详情失败",
+      "loadSessionsFailed": "加载会话失败",
+      "loadLoginAttemptsFailed": "加载登录尝试失败",
+      "loadApiKeyFailed": "加载 API 密钥信息失败",
+      "createFailed": "创建用户失败",
+      "updateFailed": "更新用户失败",
+      "deleteFailed": "删除用户失败",
+      "enableFailed": "启用用户失败",
+      "disableFailed": "禁用用户失败",
+      "unlockFailed": "解锁账户失败",
+      "reasonRequired": "请提供禁用此用户的原因",
+      "passwordResetFailed": "重置密码失败",
+      "mfaDisableFailed": "禁用 MFA 失败",
+      "accountStatusFailed": "更新账户状态失败",
+      "terminateSessionFailed": "终止会话失败",
+      "terminateAllSessionsFailed": "终止所有会话失败",
+      "revokeApiKeyFailed": "撤销 API 密钥失败",
+      "userNotFound": "未找到用户"
+    },
+    "messages": {
+      "createSuccess": "用户创建成功",
+      "updateSuccess": "用户详情更新成功",
+      "deleteSuccess": "用户删除成功",
+      "enableSuccess": "用户启用成功",
+      "disableSuccess": "用户禁用成功",
+      "passwordResetSuccess": "密码重置成功！",
+      "passwordCopied": "密码已复制到剪贴板",
+      "mfaDisableSuccess": "MFA 禁用成功",
+      "accountDisabled": "用户账户已禁用",
+      "accountEnabled": "用户账户已启用",
+      "accountUnlocked": "用户账户已解锁",
+      "sessionTerminated": "会话终止成功",
+      "allSessionsTerminated": "成功终止 {{count}} 个会话",
+      "apiKeyRevoked": "API 密钥撤销成功"
+    },
+    "dialogs": {
+      "createUser": {
+        "title": "创建新用户",
+        "password": "密码",
+        "confirmPassword": "确认密码",
+        "roleHelperText": "选择用户在系统中的角色"
+      },
+      "disableUser": {
+        "title": "禁用用户账户",
+        "description": "请提供禁用此用户账户的原因。这将被记录以供审计。",
+        "reasonLabel": "禁用原因",
+        "reasonPlaceholder": "例如：账户被盗、违反条款、用户请求等。",
+        "disableAccount": "禁用账户"
+      },
+      "deleteUser": {
+        "title": "删除用户账户",
+        "warning": "此操作无法撤销。用户将被永久从系统中移除。",
+        "confirmation": "确定要删除用户 <strong>{{username}}</strong> 吗？",
+        "dataNote": "所有关联数据将被保留，但用户将无法再登录。"
+      },
+      "resetPassword": {
+        "title": "重置用户密码",
+        "generateTemporary": "生成临时密码",
+        "newPassword": "新密码",
+        "passwordHelperText": "至少 8 个字符"
+      },
+      "disableMfa": {
+        "title": "禁用 MFA",
+        "confirmation": "确定要为此用户禁用 MFA 吗？如果需要，他们需要重新设置。"
+      },
+      "terminateSession": {
+        "title": "终止会话？",
+        "description": "这将使用户从此设备退出登录。用户需要重新登录才能继续使用应用程序。",
+        "terminate": "终止"
+      },
+      "terminateAllSessions": {
+        "title": "终止所有会话？",
+        "description": "这将使用户从所有设备退出登录，包括当前会话。用户需要重新登录。此操作无法撤销。",
+        "warning": "这包括任何活跃的工作会话！",
+        "terminateAll": "全部终止"
+      },
+      "revokeApiKey": {
+        "title": "撤销用户 API 密钥？",
+        "warning": "这将立即禁用此用户的 API 访问。使用此密钥的任何应用程序都将停止工作。",
+        "confirmation": "确定要撤销此用户的 API 密钥吗？"
+      }
+    },
+    "detail": {
+      "title": "用户详情",
+      "backToUsers": "返回用户列表",
+      "userInformation": "用户信息",
+      "userId": "用户 ID",
+      "systemUserReadOnly": "系统用户无法修改",
+      "accountStatus": "账户状态",
+      "accountStatusLabel": "账户状态",
+      "enabled": "已启用",
+      "disabled": "已禁用",
+      "noReasonProvided": "未提供原因",
+      "lockStatus": "锁定状态",
+      "lockedUntil": "锁定至 {{date}}",
+      "notLocked": "未锁定",
+      "mfaStatus": "MFA 状态",
+      "mfaEnabled": "已启用 ({{types}})",
+      "mfaDisabled": "已禁用",
+      "apiKeyManagement": "API 密钥管理",
+      "apiKeyStatus": "API 密钥状态",
+      "noApiKeyGenerated": "未生成 API 密钥",
+      "created": "创建时间",
+      "lastUsed": "最后使用",
+      "apiKeySecurityNote": "出于安全原因，管理员可以撤销 API 密钥但无法查看明文密钥。",
+      "activityInformation": "活动信息",
+      "passwordChanged": "密码修改时间",
+      "failedLoginAttempts": "失败登录尝试",
+      "attemptsCount": "{{count}} 次尝试",
+      "disabledAt": "禁用时间",
+      "activeSessions": "活跃会话",
+      "noActiveSessions": "无活跃会话",
+      "loginHistory": "登录历史",
+      "noLoginAttempts": "未找到登录尝试",
+      "temporaryPassword": "临时密码",
+      "sharePasswordSecurely": "请安全地将此密码分享给用户。",
+      "sessions": {
+        "ipAddress": "IP 地址",
+        "deviceBrowser": "设备 / 浏览器",
+        "lastActive": "最后活跃"
+      },
+      "loginAttempts": {
+        "timestamp": "时间戳",
+        "success": "成功",
+        "failed": "失败",
+        "failureReason": "失败原因"
+      }
+    }
+  },
+  "clients": {
+    "title": "客户管理",
+    "addClient": "添加客户",
+    "columns": {
+      "name": "名称",
+      "description": "描述",
+      "contact": "联系方式",
+      "cracked": "已破解",
+      "retention": "保留期（月）",
+      "createdAt": "创建时间",
+      "actions": "操作"
+    },
+    "form": {
+      "clientName": "客户名称",
+      "description": "描述",
+      "contactInfo": "联系信息",
+      "dataRetention": "数据保留期（月）",
+      "dataRetentionHelperText": "留空使用系统默认值。输入 0 表示永久保留。",
+      "excludeFromPotfile": "从 potfile 中排除（不保存破解的密码）",
+      "excludeFromPotfileHelperText": "为有严格数据保留要求的客户启用此选项"
+    },
+    "validation": {
+      "nameRequired": "客户名称为必填项。",
+      "retentionInvalid": "保留期必须是非负数或留空（使用默认值）。"
+    },
+    "errors": {
+      "loadFailed": "加载客户失败。请尝试刷新。",
+      "loadDefaultSettingsFailed": "加载默认客户设置失败。",
+      "saveFailed": "保存客户失败。",
+      "deleteFailed": "删除客户失败。"
+    },
+    "messages": {
+      "createSuccess": "客户创建成功",
+      "updateSuccess": "客户更新成功",
+      "deleteSuccess": "客户删除成功"
+    },
+    "dialogs": {
+      "addClient": {
+        "title": "添加新客户",
+        "createButton": "创建客户"
+      },
+      "editClient": {
+        "title": "编辑客户"
+      },
+      "deleteClient": {
+        "title": "确认删除",
+        "confirmation": "确定要删除客户 \"{{name}}\" 吗？此操作无法撤销。关联的哈希列表可能会根据保留策略立即删除或成为孤立数据。"
+      }
+    }
+  },
+  "wordlists": {
+    "title": "字典管理",
+    "description": "管理用于密码破解的字典",
+    "uploadWordlist": "上传字典",
+    "refresh": "刷新",
+    "loading": "正在加载字典...",
+    "noWordlistsFound": "未找到字典",
+    "tryDifferentSearch": "尝试不同的搜索词",
+    "uploadToGetStarted": "上传字典以开始使用",
+    "noDescription": "无描述",
+    "searchPlaceholder": "搜索字典...",
+    "tabs": {
+      "all": "所有字典",
+      "general": "通用",
+      "specialized": "专用",
+      "targeted": "定向",
+      "custom": "自定义"
+    },
+    "columns": {
+      "name": "名称",
+      "status": "状态",
+      "type": "类型",
+      "size": "大小",
+      "wordCount": "词数",
+      "updated": "更新时间",
+      "actions": "操作"
+    },
+    "status": {
+      "verified": "已验证",
+      "pending": "待处理",
+      "failed": "失败"
+    },
+    "types": {
+      "general": "通用",
+      "specialized": "专用",
+      "targeted": "定向",
+      "custom": "自定义"
+    },
+    "fields": {
+      "name": "名称",
+      "description": "描述",
+      "wordlistType": "字典类型"
+    },
+    "tooltips": {
+      "refreshMetadata": "刷新元数据",
+      "download": "下载",
+      "edit": "编辑",
+      "delete": "删除"
+    },
+    "errors": {
+      "loadFailed": "加载字典失败",
+      "uploadFailed": "上传字典失败",
+      "deleteFailed": "删除字典失败",
+      "downloadFailed": "下载字典失败",
+      "refreshFailed": "刷新字典元数据失败",
+      "updateFailed": "更新字典失败：{{error}}",
+      "sessionExpired": "您的会话已过期。请重新登录。"
+    },
+    "messages": {
+      "uploadSuccess": "字典上传成功",
+      "duplicateWordlist": "字典 \"{{name}}\" 已存在",
+      "deleteSuccess": "字典 \"{{name}}\" 删除成功",
+      "updateSuccess": "字典更新成功",
+      "refreshSuccess": "字典元数据刷新成功"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "上传字典",
+        "fileUploadTitle": "上传字典文件",
+        "fileUploadDescription": "选择要上传的字典文件。支持的格式：.txt, .dict, .dic, .lst, .wordlist, .wl, .gz, .zip"
+      },
+      "edit": {
+        "title": "编辑字典"
+      },
+      "delete": {
+        "title": "确认删除",
+        "cascadeTitle": "确认级联删除",
+        "confirmation": "确定要删除字典 \"{{name}}\" 吗？此操作无法撤销。",
+        "cascadeWarning": "删除字典 \"{{name}}\" 还将删除以下内容：",
+        "checkingDependencies": "正在检查依赖项...",
+        "jobsCount": "{{count}} 个任务（待处理/运行中/失败）：",
+        "presetJobsCount": "{{count}} 个预设任务：",
+        "workflowStepsCount": "{{count}} 个工作流步骤：",
+        "emptyWorkflowsCount": "{{count}} 个空工作流将被删除：",
+        "noHashlist": "无哈希列表",
+        "step": "步骤 {{order}}",
+        "andMore": "...还有 {{count}} 个",
+        "confirmationPrompt": "要确认此级联删除，请输入字典 ID：<strong>{{id}}</strong>",
+        "confirmationPlaceholder": "输入 {{id}} 以确认",
+        "idMismatch": "ID 不匹配",
+        "deleteAll": "全部删除"
+      }
+    }
+  },
+  "rules": {
+    "title": "规则管理",
+    "description": "管理用于密码破解的 Hashcat 规则",
+    "uploadRule": "上传规则",
+    "refresh": "刷新",
+    "loading": "正在加载规则...",
+    "noRulesFound": "未找到规则",
+    "tryDifferentSearch": "尝试不同的搜索词",
+    "uploadToGetStarted": "上传规则以开始使用",
+    "noDescription": "无描述",
+    "searchPlaceholder": "搜索规则...",
+    "tabs": {
+      "all": "所有规则",
+      "hashcat": "Hashcat",
+      "john": "John"
+    },
+    "columns": {
+      "name": "名称",
+      "status": "状态",
+      "type": "类型",
+      "size": "大小",
+      "ruleCount": "规则数",
+      "updated": "更新时间",
+      "actions": "操作"
+    },
+    "status": {
+      "verified": "已验证",
+      "pending": "待处理",
+      "failed": "失败",
+      "ready": "就绪",
+      "processing": "处理中"
+    },
+    "types": {
+      "hashcat": "Hashcat",
+      "john": "John the Ripper"
+    },
+    "fields": {
+      "name": "名称",
+      "description": "描述",
+      "ruleType": "规则类型"
+    },
+    "tooltips": {
+      "download": "下载",
+      "edit": "编辑",
+      "delete": "删除"
+    },
+    "errors": {
+      "loadFailed": "加载规则失败",
+      "uploadFailed": "上传规则失败",
+      "deleteFailed": "删除规则失败",
+      "downloadFailed": "下载规则失败",
+      "updateFailed": "更新规则失败：{{error}}",
+      "verifyFailed": "验证规则失败",
+      "sessionExpired": "您的会话已过期。请重新登录。"
+    },
+    "messages": {
+      "uploadSuccess": "规则上传成功",
+      "duplicateRule": "规则 \"{{name}}\" 已存在",
+      "deleteSuccess": "规则 \"{{name}}\" 删除成功",
+      "updateSuccess": "规则更新成功",
+      "verifySuccess": "规则 \"{{name}}\" 验证成功"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "上传规则",
+        "fileUploadTitle": "上传规则文件",
+        "fileUploadDescription": "选择要上传的规则文件。支持的格式：.rule, .rules, .txt"
+      },
+      "edit": {
+        "title": "编辑规则"
+      },
+      "delete": {
+        "title": "确认删除",
+        "cascadeTitle": "确认级联删除",
+        "confirmation": "确定要删除规则 \"{{name}}\" 吗？此操作无法撤销。",
+        "cascadeWarning": "删除规则 \"{{name}}\" 还将删除以下内容：",
+        "checkingDependencies": "正在检查依赖项...",
+        "jobsCount": "{{count}} 个任务（待处理/运行中/失败）：",
+        "presetJobsCount": "{{count}} 个预设任务：",
+        "workflowStepsCount": "{{count}} 个工作流步骤：",
+        "emptyWorkflowsCount": "{{count}} 个空工作流将被删除：",
+        "noHashlist": "无哈希列表",
+        "step": "步骤 {{order}}",
+        "andMore": "...还有 {{count}} 个",
+        "confirmationPrompt": "要确认此级联删除，请输入规则 ID：<strong>{{id}}</strong>",
+        "confirmationPlaceholder": "输入 {{id}} 以确认",
+        "idMismatch": "ID 不匹配",
+        "deleteAll": "全部删除"
+      }
+    }
+  },
+  "presetJobs": {
+    "title": "预设任务管理",
+    "createNew": "创建预设任务",
+    "confirmDelete": "确定要删除此预设任务吗？",
+    "noJobsFound": "未找到预设任务。创建一个以开始使用。",
+    "keyspaceNotCalculated": "未计算",
+    "calculating": "计算中...",
+    "calculateKeyspace": "计算密钥空间",
+    "calculateAllMissingKeyspaces": "计算所有缺失的密钥空间",
+    "calculatingKeyspaces": "计算中...",
+    "calculatingAllKeyspacesMessage": "正在计算所有预设任务的密钥空间。这可能需要一些时间...",
+    "canInterruptRunningJobs": "可以中断运行中的任务",
+    "columns": {
+      "name": "名称",
+      "description": "描述",
+      "attackMode": "攻击模式",
+      "priority": "优先级",
+      "highPriorityOverride": "高优先级覆盖",
+      "maxAgents": "最大代理数",
+      "keyspace": "密钥空间",
+      "binaryVersion": "二进制版本",
+      "wordlists": "字典",
+      "rules": "规则",
+      "createdAt": "创建时间",
+      "actions": "操作"
+    },
+    "messages": {
+      "deleteSuccess": "预设任务删除成功",
+      "deleteFailed": "删除预设任务失败：{{error}}",
+      "fetchError": "加载预设任务出错：{{error}}",
+      "deleteError": "删除预设任务出错：{{error}}",
+      "keyspaceRecalculateSuccess": "密钥空间重新计算成功",
+      "keyspaceRecalculateFailed": "重新计算密钥空间失败：{{error}}",
+      "keyspaceAllComplete": "已更新 {{updated}} 个，跳过 {{skipped}} 个，失败 {{failed}} 个",
+      "keyspaceAllFailed": "重新计算密钥空间失败：{{error}}"
+    },
+    "form": {
+      "createTitle": "创建预设任务",
+      "editTitle": "编辑预设任务",
+      "createJob": "创建预设任务",
+      "updateJob": "更新预设任务",
+      "attackModeRequirements": "攻击模式要求",
+      "wordlistSelectionCombination": "字典选择（组合模式）",
+      "selectFirstWordlist": "选择第一个字典",
+      "selectSecondWordlist": "选择第二个字典",
+      "fields": {
+        "jobName": "任务名称",
+        "attackMode": "攻击模式",
+        "priority": "优先级",
+        "chunkSize": "分块持续时间（秒）",
+        "maxAgents": "最大代理数",
+        "maskPattern": "掩码模式",
+        "incrementMode": "递增模式",
+        "incrementMin": "递增最小长度",
+        "incrementMax": "递增最大长度",
+        "wordlists": "字典",
+        "rules": "规则",
+        "mask": "掩码",
+        "ruleOptional": "规则（可选）",
+        "firstWordlist": "第一个字典",
+        "secondWordlist": "第二个字典",
+        "allowHighPriorityOverride": "允许高优先级覆盖（可以中断运行中的任务）"
+      },
+      "incrementModes": {
+        "off": "关闭（使用完整掩码）",
+        "increment": "递增（1 到最大）",
+        "incrementInverse": "递减（最大到 1）"
+      },
+      "helperText": {
+        "binaryVersion": "选择要使用的 Hashcat 二进制版本",
+        "priority": "优先级更高的任务先运行（0-{{maxPriority}}）",
+        "maskPattern": "Hashcat 掩码模式（例如 ?u?l?l?l?d?d?d?d）",
+        "maskPatternExamples": "?l=小写，?u=大写，?d=数字，?s=特殊字符，?a=全部",
+        "incrementMode": "使用递增模式尝试不同长度的掩码",
+        "incrementMin": "尝试的最小掩码长度",
+        "incrementMax": "尝试的最大掩码长度",
+        "chunkSize": "每个工作块的持续时间（秒）",
+        "maxAgents": "最大代理数（0 = 无限制）",
+        "allowHighPriorityOverride": "启用后，此任务可以中断低优先级的运行中任务以获取其代理",
+        "wordlistsNotUsed": "此攻击模式不使用字典",
+        "selectWordlists": "选择正好 {{count}} 个字典",
+        "rulesNotUsed": "此攻击模式不使用规则",
+        "selectRule": "可选择一个规则文件来应用变换",
+        "firstWordlist": "此列表中的词将用作第一部分",
+        "secondWordlist": "此列表中的词将附加到第一部分"
+      },
+      "errors": {
+        "nameRequired": "任务名称为必填项",
+        "binaryVersionRequired": "二进制版本为必填项",
+        "straightModeWordlist": "直接攻击模式需要正好 1 个字典",
+        "combinationModeWordlists": "组合攻击模式需要正好 2 个字典",
+        "selectBothWordlists": "请为组合模式选择两个字典",
+        "bruteForceModeMask": "暴力攻击模式需要掩码",
+        "hybridModeWordlist": "混合攻击模式需要正好 1 个字典",
+        "hybridModeMask": "混合攻击模式需要掩码",
+        "associationModeNotImplemented": "关联攻击模式尚未实现",
+        "noWordlistsAvailable": "没有可用的字典。请先上传字典。",
+        "loadFailed": "加载预设任务失败",
+        "loadFormDataFailed": "加载表单数据失败",
+        "saveFailed": "保存预设任务失败"
+      },
+      "messages": {
+        "createSuccess": "预设任务创建成功",
+        "updateSuccess": "预设任务更新成功"
+      }
+    }
+  },
+  "workflows": {
+    "title": "任务工作流管理",
+    "create": "创建工作流",
+    "deleteTitle": "删除工作流",
+    "confirmDelete": "确定要删除工作流 \"{{name}}\" 吗？",
+    "noWorkflowsFound": "未找到工作流。创建一个以开始使用。",
+    "canInterrupt": "可中断",
+    "normal": "普通",
+    "columns": {
+      "name": "名称",
+      "description": "描述",
+      "steps": "步骤",
+      "jobCount": "任务数",
+      "highPriority": "优先级模式",
+      "created": "创建时间",
+      "lastUpdated": "最后更新",
+      "actions": "操作"
+    },
+    "messages": {
+      "loadFailed": "加载工作流失败",
+      "deleteFailed": "删除工作流失败"
+    },
+    "form": {
+      "createTitle": "创建工作流",
+      "editTitle": "编辑工作流",
+      "createWorkflow": "创建工作流",
+      "saveChanges": "保存更改",
+      "workflowSteps": "工作流步骤",
+      "noJobsAdded": "此工作流尚未添加任务。在上方搜索并添加预设任务。",
+      "priority": "优先级：{{priority}}",
+      "binary": "二进制：{{name}}",
+      "wordlistCount": "{{count}} 个字典",
+      "ruleCount": "{{count}} 个规则",
+      "fields": {
+        "workflowName": "工作流名称",
+        "searchPresetJobs": "搜索预设任务"
+      },
+      "helperText": {
+        "searchPresetJobs": "搜索要添加到此工作流的预设任务"
+      },
+      "errors": {
+        "nameRequired": "工作流名称为必填项",
+        "presetJobRequired": "至少需要一个预设任务",
+        "noPresetJobsAvailable": "没有可用的预设任务。请先创建预设任务。",
+        "loadFailed": "加载工作流失败",
+        "loadFormDataFailed": "加载表单数据失败",
+        "saveFailed": "保存工作流失败"
+      },
+      "messages": {
+        "createSuccess": "工作流创建成功",
+        "updateSuccess": "工作流更新成功"
+      }
+    }
+  },
+  "binaryManagement": {
+    "pageTitle": "二进制管理",
+    "title": "Hashcat 二进制文件",
+    "addBinary": "添加二进制",
+    "showingActiveOnly": "仅显示活跃二进制",
+    "showingAll": "显示所有二进制",
+    "noBinaries": "未找到二进制文件",
+    "noActiveBinaries": "未找到活跃二进制文件",
+    "default": "默认",
+    "verifyBinary": "验证二进制",
+    "deleteBinary": "删除二进制",
+    "sourceUpload": "上传",
+    "sourceUrl": "URL",
+    "columns": {
+      "binaryId": "ID",
+      "version": "版本",
+      "type": "类型",
+      "source": "来源",
+      "size": "大小",
+      "status": "状态",
+      "default": "默认",
+      "lastVerified": "最后验证",
+      "actions": "操作"
+    },
+    "messages": {
+      "fetchFailed": "获取二进制文件失败",
+      "verifySuccess": "二进制验证成功",
+      "verifyFailed": "验证二进制失败",
+      "deleteSuccess": "二进制删除成功",
+      "deleteFailed": "删除二进制失败",
+      "cannotDeleteLast": "无法删除最后一个活跃的 {{type}} 二进制",
+      "cannotDeleteOnly": "无法删除此类型唯一的二进制",
+      "setDefaultSuccess": "默认二进制更新成功",
+      "setDefaultFailed": "设置默认二进制失败"
+    },
+    "deleteDialog": {
+      "title": "确认删除",
+      "message": "确定要删除二进制 \"{{fileName}}\" 吗？此操作无法撤销。"
+    }
+  },
+  "diagnostics": {
+    "pageTitle": "系统诊断",
+    "diagnosticPackage": "诊断包",
+    "diagnosticPackageDescription": "下载包含系统信息、日志和配置详情的诊断包以进行故障排除。",
+    "refreshData": "刷新数据",
+    "hours": "小时",
+    "hoursTooltip": "要包含的日志小时数",
+    "includeAgentLogs": "包含代理日志",
+    "includeNginxLogs": "包含 Nginx 日志",
+    "includePostgresLogs": "包含 PostgreSQL 日志",
+    "preparing": "准备中...",
+    "downloadDiagnostics": "下载诊断包",
+    "systemInfo": "系统信息",
+    "runtime": "运行时",
+    "cpus": "CPU 数",
+    "goroutines": "协程数",
+    "memory": "内存",
+    "heap": "堆",
+    "system": "系统",
+    "gcRuns": "GC 运行次数",
+    "database": "数据库",
+    "size": "大小",
+    "connections": "连接数",
+    "agents": "代理",
+    "connected": "已连接",
+    "withDebugStatus": "带调试状态",
+    "serverDebugStatus": "服务器调试状态",
+    "serverDebugDescription": "为服务器启用详细日志记录。这将增加日志文件大小并可能影响性能。",
+    "debugEnabled": "调试已启用",
+    "debugDisabled": "调试已禁用",
+    "level": "级别",
+    "enableDebug": "启用调试",
+    "disableDebug": "禁用调试",
+    "loadingServerDebugStatus": "正在加载服务器调试状态...",
+    "serverLogs": "服务器日志",
+    "serverLogsDescription": "管理服务器日志文件。清除日志是永久性的，无法撤销。",
+    "refreshLogStats": "刷新日志统计",
+    "directory": "目录",
+    "files": "文件",
+    "actions": "操作",
+    "backend": "后端",
+    "nginx": "Nginx",
+    "postgresql": "PostgreSQL",
+    "total": "总计",
+    "purge": "清除",
+    "purgeAll": "全部清除",
+    "loadingLogStatistics": "正在加载日志统计...",
+    "agentDebugStatus": "代理调试状态",
+    "enableAll": "全部启用",
+    "disableAll": "全部禁用",
+    "noAgentsWithDebugStatus": "没有带调试状态的代理",
+    "agentId": "代理 ID",
+    "logLevel": "日志级别",
+    "fileLogging": "文件日志",
+    "logFileSize": "日志文件大小",
+    "buffer": "缓冲区",
+    "lastUpdated": "最后更新",
+    "viewLogs": "查看日志",
+    "purgeLogs": "清除日志",
+    "agentLogs": "代理日志",
+    "agent": "代理",
+    "allLevels": "所有级别",
+    "refresh": "刷新",
+    "showingEntries": "显示 {{shown}} / {{total}} 条",
+    "filtered": "已筛选",
+    "truncated": "已截断",
+    "time": "时间",
+    "message": "消息",
+    "location": "位置",
+    "noEntriesForLevel": "未找到级别 {{level}} 的条目",
+    "noLogEntriesAvailable": "无可用日志条目",
+    "logFileContent": "日志文件内容",
+    "noLogsAvailable": "无可用日志",
+    "securityWarning": "安全警告",
+    "postgresLogsWarning": "PostgreSQL 日志可能包含敏感数据。请在故障排除后考虑清除它们。",
+    "nginxLogsWarning": "Nginx 访问日志可能包含敏感请求数据。请在故障排除后考虑清除它们。",
+    "sensitiveNginxLogsWarning": "Nginx 访问日志可能包含敏感信息，包括请求头和查询参数中的身份验证令牌。",
+    "sensitivePostgresLogsWarning": "PostgreSQL 日志可能包含敏感信息，包括带有用户数据、密码和连接详情的查询。",
+    "sensitiveLogsTestEnvironmentWarning": "仅在测试/开发环境中或绝对必要进行调试时包含这些日志。",
+    "sensitiveLogsProductionWarning": "不要在对外共享的生产诊断包中包含敏感日志。",
+    "iUnderstandIncludeLogs": "我了解，包含日志",
+    "allServerLogs": "所有服务器日志",
+    "directoryLogs": "{{directory}} 日志",
+    "purgeServerLogs": "清除服务器日志",
+    "confirmPurgeLogs": "确定要清除 {{dirLabel}} 吗？",
+    "cannotBeUndone": "此操作无法撤销。",
+    "purgeAgentLogs": "清除代理日志",
+    "confirmPurgeAgentLogs": "确定要清除代理 {{agentId}} 的日志吗？",
+    "enable": "启用",
+    "disable": "禁用",
+    "serverDebugModeTitle": "{{action}}服务器调试模式",
+    "serverDebugModeMessage": "这将更改服务器的日志级别。Nginx 服务器将重新加载以应用更改。",
+    "serverDebugModeWarning": "应用更改后页面将短暂重新连接。",
+    "reconnectingToServer": "正在重新连接服务器",
+    "pleaseWaitReconnecting": "请稍候，服务器正在重启...",
+    "nginxLogsTooltip": "警告：可能包含敏感请求数据",
+    "postgresLogsTooltip": "警告：可能包含敏感数据库查询",
+    "messages": {
+      "loadFailed": "加载诊断数据失败：",
+      "logStatsFailed": "加载日志统计失败：",
+      "purgeFailed": "清除日志失败：",
+      "reconnectionTimedOut": "重新连接超时。请刷新页面。",
+      "toggleDebugFailed": "切换调试模式失败：",
+      "downloadFailed": "下载诊断包失败：",
+      "toggleAgentDebugFailed": "切换代理调试失败：",
+      "toggleAllAgentsDebugFailed": "切换所有代理调试失败：",
+      "fetchAgentLogsFailed": "获取代理日志失败：",
+      "purgeAgentLogsFailed": "清除代理日志失败："
+    }
+  },
+  "authSettings": {
+    "pageTitle": "身份验证设置",
+    "unsavedChanges": "您有未保存的更改。点击「保存设置」以应用。",
+    "saving": "保存中...",
+    "saveSettings": "保存设置",
+    "resetToSaved": "重置为已保存",
+    "passwordPolicy": {
+      "title": "密码策略",
+      "minLength": "最小密码长度",
+      "requireUppercase": "要求大写字母",
+      "requireLowercase": "要求小写字母",
+      "requireNumbers": "要求数字",
+      "requireSpecialChars": "要求特殊字符"
+    },
+    "accountSecurity": {
+      "title": "账户安全",
+      "maxFailedAttempts": "最大失败登录次数",
+      "lockoutDuration": "锁定时长（分钟）",
+      "jwtExpiry": "JWT 过期时间（分钟）",
+      "notificationAggregation": "通知聚合（分钟）",
+      "notificationAggregationHelper": "发送前聚合类似通知的时间"
+    },
+    "mfa": {
+      "title": "多因素身份验证",
+      "requireMfa": "要求所有用户使用 MFA",
+      "requireMfaEmailRequired": "要求 MFA（需要邮件网关）",
+      "allowedMethods": "允许的 MFA 方式",
+      "methodEmail": "邮件验证码",
+      "methodAuthenticator": "身份验证器应用 (TOTP)",
+      "methodPasskey": "通行密钥 (WebAuthn)",
+      "methodPasskeyNotSupported": "通行密钥（此浏览器不支持）",
+      "codeSettings": "验证码设置",
+      "emailCodeValidity": "邮件验证码有效期（分钟）",
+      "emailCodeValidityHelper": "邮件验证码的有效时长",
+      "codeCooldown": "验证码请求冷却时间（分钟）",
+      "codeCooldownHelper": "两次验证码请求之间的最小间隔",
+      "codeExpiry": "验证码过期时间（分钟）",
+      "codeExpiryHelper": "MFA 验证码的有效时长",
+      "maxCodeAttempts": "最大验证码尝试次数",
+      "maxCodeAttemptsHelper": "锁定前的最大失败验证码尝试次数",
+      "backupCodesCount": "备份代码数量",
+      "backupCodesCountHelper": "要生成的备份代码数量"
+    },
+    "webauthn": {
+      "title": "WebAuthn / 通行密钥配置",
+      "notSupported": "此浏览器不支持 WebAuthn。",
+      "requiresDomain": "通行密钥需要正确的域名和 HTTPS。请在下方配置您的域名设置。",
+      "rpId": "依赖方 ID",
+      "rpIdHelper": "您的域名（例如 krakenhashes.example.com）",
+      "rpDisplayName": "显示名称",
+      "rpDisplayNameHelper": "通行密钥注册时向用户显示的名称",
+      "allowedOrigins": "允许的来源",
+      "allowedOriginsHelper": "每行一个来源（例如 https://krakenhashes.example.com）",
+      "configured": "WebAuthn 已配置并可使用。",
+      "save": "保存 WebAuthn 设置"
+    },
+    "session": {
+      "title": "会话管理",
+      "tokenCleanupInterval": "令牌清理间隔（秒）",
+      "tokenCleanupIntervalHelper": "清理过期令牌的频率",
+      "maxConcurrentSessions": "最大并发会话数",
+      "maxConcurrentSessionsHelper": "每个用户的最大会话数（0 = 无限制）",
+      "absoluteTimeout": "绝对会话超时（小时）",
+      "absoluteTimeoutHelper": "此时间后强制重新认证（0 = 禁用）"
+    },
+    "errors": {
+      "loadFailed": "加载身份验证设置失败",
+      "noSettingsToSave": "没有要保存的设置",
+      "saveFailed": "保存设置失败",
+      "emailProviderRequired": "基于邮件的 MFA 需要邮件提供者",
+      "webauthnSaveFailed": "保存 WebAuthn 设置失败",
+      "resetFailed": "重置设置失败"
+    },
+    "messages": {
+      "updateSuccess": "身份验证设置更新成功",
+      "updateFailed": "更新身份验证设置失败"
+    }
+  },
+  "ssoSettings": {
+    "pageTitle": "SSO 设置",
+    "pageDescription": "配置单点登录提供者和身份验证选项",
+    "authMethods": {
+      "title": "身份验证方式",
+      "description": "全局启用或禁用身份验证方式",
+      "localAuth": "本地身份验证",
+      "localAuthDescription": "用户名/密码登录",
+      "ldapAuth": "LDAP 身份验证",
+      "ldapAuthDescription": "Active Directory / LDAP",
+      "samlAuth": "SAML 身份验证",
+      "samlAuthDescription": "SAML 2.0 SSO",
+      "oauthAuth": "OAuth/OIDC 身份验证",
+      "oauthAuthDescription": "OpenID Connect / OAuth 2.0"
+    },
+    "provisioning": {
+      "title": "用户配置",
+      "description": "配置从 SSO 登录自动创建用户",
+      "autoCreateUsers": "自动创建用户",
+      "autoCreateUsersDescription": "为新的 SSO 登录自动创建用户账户",
+      "autoEnableUsers": "自动启用用户",
+      "autoEnableUsersDescription": "自动启用新创建的 SSO 用户（否则需要管理员批准）"
+    },
+    "providers": {
+      "title": "SSO 提供者",
+      "addProvider": "添加提供者",
+      "noProviders": "未配置 SSO 提供者。点击「添加提供者」创建一个。",
+      "enabled": "已启用",
+      "disabled": "已禁用",
+      "callbackUrl": "回调 URL",
+      "acsUrl": "ACS URL",
+      "metadata": "元数据",
+      "viewXml": "查看 XML",
+      "testConnection": "测试连接",
+      "downloadCertificate": "下载 SP 证书"
+    },
+    "providerTypes": {
+      "ldap": "LDAP / Active Directory",
+      "saml": "SAML 2.0",
+      "oidc": "OpenID Connect",
+      "oauth2": "OAuth 2.0"
+    },
+    "dialogs": {
+      "deleteProvider": {
+        "title": "删除提供者",
+        "confirmation": "确定要删除提供者 \"{{name}}\" 吗？此操作无法撤销，将解除所有关联用户身份的链接。"
+      },
+      "providerForm": {
+        "addTitle": "添加提供者",
+        "editTitle": "编辑提供者",
+        "providerName": "提供者名称",
+        "providerType": "提供者类型",
+        "enabled": "已启用"
+      }
+    },
+    "ldapConfig": {
+      "title": "LDAP 配置",
+      "serverUrl": "服务器 URL",
+      "serverUrlHelper": "使用 ldaps:// 进行安全连接",
+      "baseDn": "基础 DN",
+      "userSearchFilter": "用户搜索过滤器",
+      "userSearchFilterHelper": "使用 {{username}} 作为占位符",
+      "bindDn": "绑定 DN（可选）",
+      "bindPassword": "绑定密码",
+      "emailAttribute": "邮件属性",
+      "usernameAttribute": "用户名属性",
+      "usernameAttributeHelper": "包含用户名的 LDAP 属性（例如 sAMAccountName、uid）",
+      "connectionTimeout": "连接超时（秒）",
+      "useStartTls": "使用 StartTLS",
+      "skipCertVerify": "跳过证书验证（仅测试）"
+    },
+    "samlConfig": {
+      "title": "SAML 配置",
+      "spEntityId": "SP 实体 ID",
+      "spEntityIdHelper": "您的应用程序的 SAML 标识符",
+      "idpEntityId": "IdP 实体 ID",
+      "idpSsoUrl": "IdP SSO URL",
+      "idpCertificate": "IdP 证书",
+      "emailAttribute": "邮件属性",
+      "usernameAttribute": "用户名属性",
+      "usernameAttributeHelper": "包含用户名的 SAML 属性（例如 uid、username）",
+      "requireSignedAssertions": "要求签名断言"
+    },
+    "oauthConfig": {
+      "title": "OAuth/OIDC 配置",
+      "isOidc": "OpenID Connect (OIDC)",
+      "clientId": "客户端 ID",
+      "clientSecret": "客户端密钥",
+      "discoveryUrl": "发现 URL",
+      "discoveryUrlHelper": "OIDC 发现端点（自动配置其他 URL）",
+      "authorizationUrl": "授权 URL",
+      "tokenUrl": "令牌 URL",
+      "userInfoUrl": "用户信息 URL",
+      "scopes": "范围",
+      "scopesHelper": "空格分隔的列表",
+      "emailAttribute": "邮件属性",
+      "usernameAttribute": "用户名属性",
+      "usernameAttributeHelper": "包含用户名的声明（例如 preferred_username、login、nickname）"
+    },
+    "messages": {
+      "loadFailed": "加载 SSO 设置失败",
+      "settingsUpdated": "SSO 设置更新成功",
+      "updateFailed": "更新 SSO 设置失败",
+      "loadProviderFailed": "加载提供者详情失败",
+      "providerDeleted": "提供者删除成功",
+      "deleteFailed": "删除提供者失败",
+      "testSuccess": "连接测试成功",
+      "testFailed": "连接测试失败",
+      "certificateDownloaded": "证书下载成功",
+      "certificateNotFound": "元数据中未找到证书",
+      "certificateDownloadFailed": "下载证书失败",
+      "providerUpdated": "提供者更新成功",
+      "providerCreated": "提供者创建成功",
+      "saveProviderFailed": "保存提供者失败"
+    }
+  },
+  "settings": {
+    "saved": "设置保存成功",
+    "saveFailed": "保存设置失败"
+  },
+  "clientSettings": {
+    "title": "客户设置",
+    "retentionPeriod": "默认数据保留期（月）",
+    "retentionHelperText": "新客户的默认保留期（0 = 永久保留）",
+    "saveButton": "保存设置",
+    "errors": {
+      "invalidRetention": "保留期必须是非负数",
+      "saveFailed": "保存客户设置失败"
+    },
+    "messages": {
+      "updateSuccess": "客户设置更新成功"
+    }
+  },
+  "systemSettings": {
+    "title": "系统设置",
+    "priority": {
+      "title": "优先级设置",
+      "tooltip": "配置可分配给任务和预设任务的最大优先级值。这有助于在整个组织中保持一致的优先级范围。",
+      "maxPriority": "最大任务优先级",
+      "helperText": "设置最大优先级值（1-1,000,000）。任务和预设任务不能超过此优先级。",
+      "saveButton": "保存设置",
+      "saving": "保存中...",
+      "reset": "重置"
+    },
+    "priorityInfo": {
+      "title": "优先级系统信息",
+      "description": "优先级系统使用从 0 到配置的最大优先级的范围。数值越大表示优先级越高。",
+      "currentMax": "当前最大值",
+      "note": "您不能将最大优先级设置为低于任何现有预设任务的优先级。如需调整，请先更新或删除高优先级的预设任务。",
+      "recommended": "按组织规模推荐的范围：",
+      "small": "小型组织：0-100",
+      "medium": "中大型组织：0-1,000",
+      "large": "超大工作量组织：0-10,000"
+    },
+    "agentScheduling": {
+      "title": "代理调度",
+      "tooltip": "全局启用或禁用代理调度系统。启用后，可以为代理配置每日调度。",
+      "enable": "启用代理调度系统",
+      "description": "启用后，可以为代理配置每日调度。只有在当前时间安排中的代理才会被分配任务。",
+      "note": "各个代理还必须启用调度并配置了调度计划才能生效。"
+    },
+    "agentOverflow": {
+      "title": "代理溢出分配",
+      "tooltip": "配置当具有相同优先级的任务超出 max_agents 限制时，如何分配额外的代理",
+      "roundRobinMode": "轮询模式",
+      "fifoMode": "先进先出模式",
+      "fifoDescription": "当多个相同优先级的任务超出其 max_agents 限制时，最早创建的任务将获得所有额外的代理。",
+      "roundRobinDescription": "额外的代理将均匀分配给所有相同优先级的任务，每次一个代理，确保公平分配。"
+    },
+    "hashlist": {
+      "title": "哈希列表设置",
+      "tooltip": "配置与哈希列表上传和管理相关的设置",
+      "requireClient": "哈希列表需要客户",
+      "requireClientDescription": "启用后，用户上传新哈希列表时必须分配客户。这有助于更好地按客户组织和跟踪哈希列表。",
+      "batchSize": "批量导入批次大小",
+      "batchSizeHelper": "上传期间每批处理的哈希数。默认：100,000。大型哈希列表（47M+）建议：500,000-1,000,000",
+      "performanceGuide": "性能指南：",
+      "performance100k": "100K（默认）：适合大多数用例",
+      "performance500k": "500K：适合大型哈希列表，可能提高吞吐量",
+      "performance1m": "1M：最适合超大型哈希列表（50M+），需要更多内存"
+    },
+    "potfile": {
+      "title": "Potfile 设置",
+      "tooltip": "配置 potfile 如何处理已破解的密码以供后续任务重用",
+      "maxBatchSize": "最大批次大小",
+      "maxBatchSizeHelper": "每个批处理周期处理的暂存密码数量（1,000 - 500,000）",
+      "batchInterval": "批处理间隔（秒）",
+      "batchIntervalHelper": "pot 文件批处理周期之间的秒数（10 - 600）",
+      "description": "potfile 收集所有任务中破解的密码，并在后续攻击中重用。更大的批次大小每次处理更多密码，但每个周期需要更长时间。",
+      "processingRate": "处理速率",
+      "passwordsPerSecond": "密码/秒",
+      "currentSettings": "当前设置",
+      "passwordsEvery": "个密码，每",
+      "seconds": "秒"
+    },
+    "errors": {
+      "loadFailed": "加载系统设置失败",
+      "maxPriorityRequired": "最大优先级为必填项",
+      "maxPriorityPositive": "最大优先级必须是正数",
+      "maxPriorityMax": "最大优先级不能超过 1,000,000",
+      "saveFailed": "保存系统设置失败",
+      "batchSizeRange": "批次大小必须在 {{min}} 和 {{max}} 之间",
+      "intervalRange": "间隔必须在 {{min}} 和 {{max}} 秒之间"
+    },
+    "messages": {
+      "updateSuccess": "系统设置更新成功",
+      "schedulingUpdated": "代理调度设置已更新",
+      "schedulingFailed": "更新调度设置失败",
+      "overflowUpdated": "代理溢出分配模式已更新",
+      "overflowFailed": "更新溢出分配模式失败",
+      "hashlistClientUpdated": "哈希列表客户要求已更新",
+      "hashlistBatchUpdated": "哈希列表批次大小已更新",
+      "potfileBatchUpdated": "Potfile 批次大小已更新",
+      "potfileIntervalUpdated": "Potfile 批处理间隔已更新",
+      "updateFailed": "更新设置失败"
+    }
+  },
+  "jobExecution": {
+    "title": "任务执行设置",
+    "description": "配置任务如何在代理之间执行和分配",
+    "chunking": {
+      "title": "任务分块",
+      "defaultChunkDuration": "默认分块时长",
+      "defaultChunkDurationHelper": "每个任务块的持续时间",
+      "chunkFluctuation": "分块波动百分比",
+      "chunkFluctuationHelper": "最终块的允许波动",
+      "minutes": "分钟"
+    },
+    "agentConfig": {
+      "title": "代理配置",
+      "hashlistRetention": "哈希列表保留期",
+      "hashlistRetentionHelper": "代理保留哈希列表的时长",
+      "maxConcurrentJobs": "每个代理最大并发任务数",
+      "maxConcurrentJobsHelper": "代理可以同时运行的最大任务数",
+      "progressReporting": "进度报告间隔",
+      "progressReportingHelper": "代理报告进度的频率",
+      "benchmarkCache": "基准缓存时长",
+      "benchmarkCacheHelper": "缓存代理基准测试的时长",
+      "speedtestTimeout": "速度测试超时",
+      "speedtestTimeoutHelper": "等待速度测试完成的最大时间",
+      "reconnectGrace": "重连宽限期",
+      "reconnectGraceHelper": "服务器重启后等待代理重新连接的时间",
+      "days": "天",
+      "seconds": "秒",
+      "minutes": "分钟"
+    },
+    "jobControl": {
+      "title": "任务控制",
+      "allowInterruption": "允许任务中断",
+      "allowInterruptionHelper": "高优先级任务可以中断正在运行的任务",
+      "realtimeNotifications": "实时破解通知",
+      "realtimeNotificationsHelper": "当哈希被破解时发送通知",
+      "refreshInterval": "任务刷新间隔",
+      "refreshIntervalHelper": "在 UI 中刷新任务状态的频率",
+      "maxRetryAttempts": "最大分块重试次数",
+      "maxRetryAttemptsHelper": "失败分块的重试次数",
+      "jobsPerPage": "每页任务数",
+      "jobsPerPageHelper": "任务列表的默认分页大小"
+    },
+    "potfile": {
+      "title": "Potfile 设置",
+      "enablePotfile": "启用 Potfile",
+      "enablePotfileHelper": "自动存储已破解的密码以供将来的任务使用。单个哈希列表仍可被排除。"
+    },
+    "ruleSplitting": {
+      "title": "规则拆分",
+      "enableRuleSplitting": "启用规则拆分",
+      "enableRuleSplittingHelper": "自动拆分大型规则文件以进行分布式处理",
+      "threshold": "规则拆分阈值",
+      "thresholdHelper": "当任务时间超过分块时间此倍数时进行拆分",
+      "minRules": "最小拆分规则数",
+      "minRulesHelper": "不拆分规则数少于此值的文件",
+      "maxChunks": "最大规则块数",
+      "maxChunksHelper": "每个文件创建的最大块数",
+      "chunkDirectory": "规则块目录",
+      "chunkDirectoryHelper": "临时规则块的存储目录"
+    },
+    "buttons": {
+      "save": "保存设置"
+    },
+    "errors": {
+      "loadFailed": "加载设置失败"
+    },
+    "messages": {
+      "updateSuccess": "任务执行设置更新成功",
+      "loadFailed": "加载任务执行设置失败",
+      "saveFailed": "保存设置失败"
+    }
+  },
+  "monitoring": {
+    "title": "监控设置",
+    "metricsRetention": {
+      "title": "📊 指标保留期",
+      "description": "配置在不同详细级别保留指标的时长。数据会随时间从细粒度级联到聚合。",
+      "realtimeData": "实时数据保留期",
+      "realtimeDataHelper": "保留近期活动的细粒度指标的天数（例如 7 天）",
+      "dailyAggregates": "每日聚合保留期",
+      "dailyAggregatesHelper": "实时期后存储每日汇总的天数（例如 30 天）",
+      "weeklyAggregates": "每周聚合保留期",
+      "weeklyAggregatesHelper": "保留长期趋势作为每周汇总的天数（例如 365 天）"
+    },
+    "aggregation": {
+      "title": "⚙️ 聚合设置",
+      "enableAggregation": "启用自动聚合",
+      "enableAggregationDescription": "自动合并旧指标以节省存储空间，同时保留趋势",
+      "interval": "聚合间隔",
+      "intervalHelper": "运行聚合过程的频率",
+      "hourly": "每小时",
+      "daily": "每天",
+      "weekly": "每周"
+    },
+    "cascading": {
+      "title": "级联聚合的工作原理：",
+      "realtime": "实时数据为近期活动提供详细指标",
+      "daily": "实时期后，数据聚合为每日汇总",
+      "weekly": "每日期后，数据进一步聚合为每周汇总",
+      "benefit": "这种方法在保留历史趋势的同时保持图表可读性"
+    },
+    "buttons": {
+      "save": "保存设置",
+      "saving": "保存中..."
+    },
+    "errors": {
+      "loadFailed": "加载设置失败。请重试。",
+      "saveFailed": "保存设置失败。请重试。"
+    },
+    "messages": {
+      "updateSuccess": "监控设置保存成功"
+    }
+  },
+  "agentDownloads": {
+    "title": "代理文件传输设置",
+    "description": "配置代理如何从后端下载文件。这些设置适用于所有已连接的代理。",
+    "concurrentDownloads": {
+      "title": "并发下载数",
+      "description": "可以同时下载的最大文件数"
+    },
+    "downloadTimeout": {
+      "title": "下载超时",
+      "description": "单个文件下载允许的最长时间",
+      "helper": "1 分钟到 24 小时（1440 分钟）之间",
+      "unit": "分钟"
+    },
+    "retryAttempts": {
+      "title": "重试次数",
+      "description": "下载失败时的重试次数"
+    },
+    "progressInterval": {
+      "title": "进度报告间隔",
+      "description": "代理报告下载进度的频率",
+      "helper": "1 秒到 5 分钟（300 秒）之间",
+      "unit": "秒"
+    },
+    "chunkSize": {
+      "title": "分块大小",
+      "description": "用于将来恢复功能的下载分块大小",
+      "helper": "1 MB 到 100 MB 之间",
+      "unit": "MB"
+    },
+    "applyNote": "更改将在代理下次连接时生效。当前已连接的代理将自动接收更新。",
+    "buttons": {
+      "save": "保存设置",
+      "saving": "保存中..."
+    },
+    "errors": {
+      "loadFailed": "加载代理下载设置失败",
+      "saveFailed": "更新代理下载设置失败"
+    },
+    "messages": {
+      "updateSuccess": "代理下载设置更新成功"
+    }
+  },
+  "emailSettings": {
+    "tabs": {
+      "providerConfiguration": "提供者配置",
+      "emailTemplates": "邮件模板"
+    },
+    "provider": {
+      "titles": {
+        "current": "当前邮件配置",
+        "create": "创建邮件配置",
+        "edit": "编辑邮件配置"
+      },
+      "labels": {
+        "provider": "提供者",
+        "apiKey": "API 密钥",
+        "password": "密码",
+        "smtpHost": "SMTP 主机",
+        "port": "端口",
+        "username": "用户名",
+        "encryption": "加密方式",
+        "fromEmail": "发件人邮箱",
+        "fromName": "发件人名称",
+        "domain": "域名",
+        "monthlyLimit": "月度限额",
+        "skipTlsVerify": "跳过 TLS 证书验证（不安全，不建议）"
+      },
+      "placeholders": {
+        "smtpHost": "smtp.example.com",
+        "testEmailAddress": "测试邮箱地址"
+      },
+      "helpers": {
+        "keepCurrentPassword": "留空以保持当前密码",
+        "monthlyLimit": "留空表示无限制",
+        "mailgunFromEmail": "通常为 noreply@yourdomain",
+        "fromName": "邮件显示名称"
+      },
+      "menuItems": {
+        "sendgrid": "SendGrid",
+        "mailgun": "Mailgun",
+        "smtp": "SMTP",
+        "encryptionNone": "无 (端口 25)",
+        "encryptionStarttls": "STARTTLS (端口 587)",
+        "encryptionTls": "TLS/SSL (端口 465)"
+      },
+      "buttons": {
+        "edit": "编辑配置",
+        "cancel": "取消",
+        "testConnection": "测试连接",
+        "save": "保存配置",
+        "saveOnly": "仅保存",
+        "saveAndTest": "保存并测试",
+        "sendTestEmail": "发送测试邮件"
+      },
+      "dialogs": {
+        "test": {
+          "title": "测试邮件配置",
+          "content": "输入要发送测试邮件的邮箱地址："
+        },
+        "save": {
+          "title": "保存配置",
+          "content": "是否在保存后测试配置？"
+        }
+      },
+      "warnings": {
+        "tlsVerifyDisabled": "TLS 证书验证已禁用",
+        "tlsVerifyWarning": "禁用 TLS 验证会使您的连接容易受到中间人攻击。仅在使用自签名证书进行测试时使用此选项。"
+      },
+      "messages": {
+        "testSuccess": "测试邮件发送成功",
+        "testFailed": "发送测试邮件失败",
+        "saveSuccess": "配置保存成功",
+        "saveFailed": "保存配置失败",
+        "loadFailed": "加载配置失败"
+      }
+    },
+    "templates": {
+      "title": "邮件模板",
+      "createTemplate": "创建邮件模板",
+      "editTemplate": "编辑邮件模板",
+      "labels": {
+        "templateType": "模板类型",
+        "name": "名称",
+        "subject": "主题",
+        "htmlContent": "HTML 内容",
+        "textContent": "纯文本内容"
+      },
+      "menuItems": {
+        "securityEvent": "安全事件",
+        "jobCompletion": "任务完成",
+        "adminError": "管理员错误",
+        "mfaCode": "MFA 验证码"
+      },
+      "buttons": {
+        "create": "创建模板",
+        "cancel": "取消",
+        "test": "测试",
+        "save": "保存"
+      },
+      "table": {
+        "name": "名称",
+        "type": "类型",
+        "subject": "主题",
+        "actions": "操作"
+      },
+      "preview": "实时预览（使用示例数据）：",
+      "messages": {
+        "loadSuccess": "模板加载成功",
+        "loadFailed": "加载模板失败",
+        "createSuccess": "模板创建成功",
+        "createFailed": "创建模板失败",
+        "updateSuccess": "模板更新成功",
+        "updateFailed": "更新模板失败",
+        "deleteSuccess": "模板删除成功",
+        "deleteFailed": "删除模板失败",
+        "testSuccess": "测试邮件发送成功",
+        "testFailed": "发送测试邮件失败"
+      }
+    }
+  },
+  "hashTypes": {
+    "title": "哈希类型管理",
+    "description": "管理密码破解操作支持的哈希类型",
+    "addHashType": "添加哈希类型",
+    "searchPlaceholder": "搜索哈希类型...",
+    "hashTypesFound": "找到 {{count}} 种哈希类型",
+    "table": {
+      "id": "ID",
+      "name": "名称",
+      "description": "描述",
+      "example": "示例",
+      "slow": "慢速",
+      "salted": "加盐",
+      "actions": "操作",
+      "loading": "正在加载哈希类型...",
+      "noResults": "未找到哈希类型"
+    },
+    "dialog": {
+      "addTitle": "添加新哈希类型",
+      "editTitle": "编辑哈希类型",
+      "hashIdLabel": "哈希 ID (Hashcat 模式编号)",
+      "hashIdHelper": "例如，1000 代表 NTLM",
+      "nameLabel": "名称",
+      "descriptionLabel": "描述",
+      "exampleLabel": "示例哈希",
+      "exampleHelper": "此哈希格式的示例",
+      "slowLabel": "慢速哈希算法",
+      "saltedLabel": "加盐哈希类型（例如 NTLMv2、bcrypt）",
+      "processingInfo": "此哈希类型需要特殊处理。处理逻辑由程序管理。",
+      "cancel": "取消",
+      "save": "保存",
+      "saving": "保存中..."
+    },
+    "validation": {
+      "hashIdRequired": "哈希 ID 为必填项且必须为正数",
+      "hashIdExists": "此哈希 ID 已存在",
+      "nameRequired": "名称为必填项"
+    },
+    "tooltips": {
+      "requiresProcessing": "需要特殊处理",
+      "processing": "处理中",
+      "slowAlgorithm": "慢速哈希算法（计算开销大）",
+      "salted": "使用逐哈希盐值（影响密钥空间计算）"
+    },
+    "confirmDelete": {
+      "title": "确认删除",
+      "warning": "此哈希类型当前已启用。删除它可能会影响现有功能。",
+      "cancel": "取消",
+      "delete": "删除",
+      "deleting": "删除中..."
+    },
+    "messages": {
+      "createSuccess": "哈希类型创建成功",
+      "createFailed": "创建哈希类型失败",
+      "updateSuccess": "哈希类型更新成功",
+      "updateFailed": "更新哈希类型失败",
+      "deleteSuccess": "哈希类型删除成功",
+      "deleteFailed": "删除哈希类型失败",
+      "deleteInUse": "无法删除：此哈希类型正被现有哈希列表使用",
+      "loadFailed": "加载哈希类型失败。请尝试刷新页面。"
+    }
+  }
+}

@@ -1,0 +1,149 @@
+{
+  "title": "Benutzereinstellungen",
+  "profileSettings": {
+    "title": "Profileinstellungen"
+  },
+  "profile": {
+    "title": "Profil",
+    "username": "Benutzername",
+    "email": "E-Mail",
+    "changePassword": "Passwort ändern",
+    "currentPassword": "Aktuelles Passwort",
+    "newPassword": "Neues Passwort",
+    "confirmPassword": "Neues Passwort bestätigen",
+    "updateProfile": "Profil aktualisieren",
+    "profileUpdated": "Profil erfolgreich aktualisiert"
+  },
+  "account": {
+    "title": "Kontoinformationen",
+    "username": "Benutzername",
+    "email": "E-Mail",
+    "usernameCannotChange": "Benutzername kann nicht geändert werden",
+    "saving": "Wird gespeichert...",
+    "saveEmail": "E-Mail speichern",
+    "confirmEmailUpdate": {
+      "title": "E-Mail-Aktualisierung bestätigen",
+      "message": "Bitte geben Sie Ihr aktuelles Passwort ein, um Ihre E-Mail-Adresse zu aktualisieren."
+    },
+    "errors": {
+      "noChanges": "Keine Änderungen zu speichern",
+      "invalidEmail": "Ungültige E-Mail-Adresse",
+      "updateFailed": "Fehler beim Aktualisieren der E-Mail",
+      "incorrectPassword": "Falsches Passwort"
+    },
+    "success": {
+      "emailUpdated": "E-Mail erfolgreich aktualisiert"
+    }
+  },
+  "password": {
+    "title": "Passwort ändern",
+    "currentPassword": "Aktuelles Passwort",
+    "newPassword": "Neues Passwort",
+    "confirmNewPassword": "Neues Passwort bestätigen",
+    "enterCurrentFirst": "Zuerst aktuelles Passwort eingeben",
+    "passwordsMatch": "Passwörter stimmen überein",
+    "changePassword": "Passwort ändern",
+    "changing": "Passwort wird geändert...",
+    "errors": {
+      "currentRequired": "Aktuelles Passwort ist erforderlich",
+      "newRequired": "Neues Passwort ist erforderlich",
+      "mismatch": "Passwörter stimmen nicht überein",
+      "requirements": "Neues Passwort erfüllt die Anforderungen nicht",
+      "updateFailed": "Fehler beim Aktualisieren des Passworts"
+    },
+    "success": {
+      "changed": "Passwort erfolgreich geändert"
+    }
+  },
+  "apiKey": {
+    "title": "API-Schlüssel",
+    "status": "API-Schlüssel-Status",
+    "active": "Aktiv",
+    "noKeyGenerated": "Kein API-Schlüssel generiert",
+    "created": "Erstellt",
+    "lastUsed": "Zuletzt verwendet",
+    "generate": "API-Schlüssel generieren",
+    "regenerate": "API-Schlüssel neu generieren",
+    "revoke": "API-Schlüssel widerrufen",
+    "viewDocs": "API-Dokumentation anzeigen",
+    "dialog": {
+      "title": "Ihr API-Schlüssel",
+      "saveNow": "Speichern Sie diesen Schlüssel jetzt!",
+      "cantSeeAgain": "Sie werden ihn nicht erneut sehen können.",
+      "instructions": "Verwenden Sie diesen API-Schlüssel in Ihren HTTP-Anfragen, indem Sie ihn im X-API-Key-Header einschließen.",
+      "saved": "Ich habe ihn gespeichert"
+    },
+    "confirmRegenerate": {
+      "title": "API-Schlüssel neu generieren?",
+      "warning": "Dies wird Ihren bestehenden API-Schlüssel ungültig machen. Alle Anwendungen, die den aktuellen Schlüssel verwenden, werden nicht mehr funktionieren.",
+      "confirm": "Sind Sie sicher, dass Sie fortfahren möchten?"
+    },
+    "confirmRevoke": {
+      "title": "API-Schlüssel widerrufen?",
+      "warning": "Dies wird den API-Zugriff sofort deaktivieren. Alle Anwendungen, die diesen Schlüssel verwenden, werden nicht mehr funktionieren.",
+      "confirm": "Sind Sie sicher, dass Sie Ihren API-Schlüssel widerrufen möchten?"
+    },
+    "errors": {
+      "generateFailed": "Fehler beim Generieren des API-Schlüssels",
+      "revokeFailed": "Fehler beim Widerrufen des API-Schlüssels"
+    },
+    "success": {
+      "revoked": "API-Schlüssel erfolgreich widerrufen",
+      "copied": "API-Schlüssel in die Zwischenablage kopiert"
+    }
+  },
+  "common": {
+    "cancel": "Abbrechen",
+    "never": "Nie",
+    "invalidDate": "Ungültiges Datum"
+  },
+  "mfa": {
+    "title": "Zwei-Faktor-Authentifizierung",
+    "status": "2FA-Status",
+    "enabled": "Aktiviert",
+    "disabled": "Deaktiviert",
+    "enable": "2FA aktivieren",
+    "disable": "2FA deaktivieren",
+    "methods": {
+      "title": "Authentifizierungsmethoden",
+      "totp": "Authentifizierungs-App",
+      "email": "E-Mail",
+      "backupCodes": "Backup-Codes"
+    },
+    "setup": {
+      "scanQR": "Scannen Sie diesen QR-Code mit Ihrer Authentifizierungs-App",
+      "enterCode": "Geben Sie den Code aus Ihrer App zur Bestätigung ein",
+      "backupCodesGenerated": "Speichern Sie diese Backup-Codes an einem sicheren Ort"
+    }
+  },
+  "linkedAccounts": {
+    "title": "Verknüpfte Konten",
+    "noAccounts": "Keine verknüpften Konten",
+    "link": "Konto verknüpfen",
+    "unlink": "Verknüpfung aufheben"
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "emailNotifications": "E-Mail-Benachrichtigungen",
+    "jobCompleted": "Auftrag abgeschlossen",
+    "agentOffline": "Agent offline",
+    "securityAlerts": "Sicherheitswarnungen"
+  },
+  "preferences": {
+    "title": "Einstellungen",
+    "language": "Sprache",
+    "timezone": "Zeitzone",
+    "dateFormat": "Datumsformat",
+    "theme": "Design",
+    "themes": {
+      "light": "Hell",
+      "dark": "Dunkel",
+      "system": "System"
+    }
+  },
+  "errors": {
+    "updateFailed": "Fehler beim Aktualisieren der Einstellungen",
+    "passwordMismatch": "Passwörter stimmen nicht überein",
+    "invalidPassword": "Ungültiges aktuelles Passwort"
+  }
+}

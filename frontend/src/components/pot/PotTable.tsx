@@ -34,6 +34,7 @@ import {
   FilterList as FilterListIcon,
   Clear as ClearIcon,
 } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../services/api';
 import { useSnackbar } from 'notistack';
 import { CrackedHash, PotResponse } from '../../services/pot';
@@ -49,6 +50,7 @@ interface PotTableProps {
 }
 
 export default function PotTable({ title, fetchData, filterParam, filterValue, contextType, contextName, contextId }: PotTableProps) {
+  const { t } = useTranslation('pot');
   const [data, setData] = useState<CrackedHash[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -111,8 +113,8 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
         return;
       }
       console.error('Error loading pot data:', err);
-      setError('Failed to load cracked hashes');
-      enqueueSnackbar('Failed to load cracked hashes', { variant: 'error' });
+      setError(t('errors.loadFailed') as string);
+      enqueueSnackbar(t('errors.loadFailed') as string, { variant: 'error' });
     } finally {
       // Only update loading state if this is still the most recent request
       if (currentRequestId === requestIdRef.current) {
@@ -179,7 +181,7 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
     setRowsPerPage(-1);
     setPage(0);
     setOpenAllConfirm(false);
-    enqueueSnackbar('Loading all results. This may take some time...', { variant: 'info' });
+    enqueueSnackbar(t('dialogs.loadingAll') as string, { variant: 'info' });
   };
 
   const handleCancelAll = () => {
@@ -188,7 +190,7 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    enqueueSnackbar('Copied to clipboard', { variant: 'success' });
+    enqueueSnackbar(t('notifications.copiedToClipboard') as string, { variant: 'success' });
   };
 
   const downloadFormat = async (format: 'hash-pass' | 'user-pass' | 'user' | 'pass' | 'domain-user' | 'domain-user-pass') => {
@@ -238,10 +240,10 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
       document.body.removeChild(a);
       window.URL.revokeObjectURL(downloadUrl);
 
-      enqueueSnackbar(`Downloaded ${filename}`, { variant: 'success' });
+      enqueueSnackbar(t('export.downloaded', { filename }) as string, { variant: 'success' });
     } catch (err) {
       console.error('Error downloading format:', err);
-      enqueueSnackbar('Failed to download file', { variant: 'error' });
+      enqueueSnackbar(t('export.downloadFailed') as string, { variant: 'error' });
     } finally {
       setDownloadingFormat(null);
     }
@@ -262,7 +264,7 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
     
-    enqueueSnackbar('Exported cracked hashes', { variant: 'success' });
+    enqueueSnackbar(t('notifications.exported') as string, { variant: 'success' });
   };
 
   // Client-side filtering (on current page data)
@@ -301,7 +303,7 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
             {title}
             {filterParam && filterValue && (
               <Typography variant="body2" color="text.secondary">
-                Filtered by {filterParam}: {filterValue}
+                {t('filter.filteredBy', { param: filterParam, value: filterValue }) as string}
               </Typography>
             )}
           </Typography>
@@ -309,7 +311,7 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
             {/* Server-side search bar with button inside */}
             <TextField
               size="small"
-              placeholder="Search database..."
+              placeholder={t('search.placeholder') as string}
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               onKeyDown={handleSearchKeyDown}
@@ -339,7 +341,7 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
                       disabled={isSearching || searchInput === activeSearch}
                       sx={{ minWidth: 'auto', px: 1.5 }}
                     >
-                      {isSearching ? <CircularProgress size={16} color="inherit" /> : 'Search'}
+                      {isSearching ? <CircularProgress size={16} color="inherit" /> : t('search.button') as string}
                     </Button>
                   </InputAdornment>
                 ),
@@ -348,7 +350,7 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
             {/* Client-side filter for current page */}
             <TextField
               size="small"
-              placeholder="Filter this page..."
+              placeholder={t('search.filterPlaceholder') as string}
               value={filterTerm}
               onChange={(e) => setFilterTerm(e.target.value)}
               sx={{ minWidth: 180 }}
@@ -360,7 +362,7 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
                 ),
               }}
             />
-            <Tooltip title="Export visible results">
+            <Tooltip title={t('export.exportVisible') as string}>
               <IconButton onClick={exportData} disabled={filteredData.length === 0}>
                 <DownloadIcon />
               </IconButton>
@@ -379,7 +381,7 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
               size="small"
             />
             <Typography variant="body2" color="text.secondary">
-              Found {totalCount.toLocaleString()} result{totalCount !== 1 ? 's' : ''}
+              {t('search.resultsFound', { count: totalCount }) as string}
             </Typography>
           </Box>
         )}
@@ -392,7 +394,7 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
             onClick={() => downloadFormat('hash-pass')}
             disabled={downloadingFormat !== null}
           >
-            Hash:Pass
+            {t('export.hashPass') as string}
           </Button>
           <Button
             size="small"
@@ -401,7 +403,7 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
             onClick={() => downloadFormat('user-pass')}
             disabled={downloadingFormat !== null || !hasUsernameData}
           >
-            User:Pass
+            {t('export.userPass') as string}
           </Button>
           <Button
             size="small"
@@ -410,7 +412,7 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
             onClick={() => downloadFormat('user')}
             disabled={downloadingFormat !== null || !hasUsernameData}
           >
-            Username
+            {t('export.username') as string}
           </Button>
           <Button
             size="small"
@@ -419,7 +421,7 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
             onClick={() => downloadFormat('pass')}
             disabled={downloadingFormat !== null}
           >
-            Password
+            {t('export.password') as string}
           </Button>
           <Button
             size="small"
@@ -428,7 +430,7 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
             onClick={() => downloadFormat('domain-user')}
             disabled={downloadingFormat !== null || !hasUsernameData}
           >
-            Domain\User
+            {t('export.domainUser') as string}
           </Button>
           <Button
             size="small"
@@ -437,7 +439,7 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
             onClick={() => downloadFormat('domain-user-pass')}
             disabled={downloadingFormat !== null || !hasUsernameData}
           >
-            Domain\User:Pass
+            {t('export.domainUserPass') as string}
           </Button>
         </Box>
         
@@ -445,15 +447,16 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
           <Table size="small" aria-label="cracked hashes table" sx={{ tableLayout: 'fixed' }}>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ width: '45%' }}>Original Hash</TableCell>
-                <TableCell sx={{ width: '12%' }}>Domain</TableCell>
-                <TableCell sx={{ width: '12%' }}>Username</TableCell>
-                <TableCell sx={{ width: '12%' }}>Password</TableCell>
-                <TableCell sx={{ width: '9%' }}>Hash Type</TableCell>
-                <TableCell sx={{ width: '10%' }} align="center">Actions</TableCell>
+                <TableCell sx={{ width: '45%' }}>{t('columns.originalHash') as string}</TableCell>
+                <TableCell sx={{ width: '12%' }}>{t('columns.domain') as string}</TableCell>
+                <TableCell sx={{ width: '12%' }}>{t('columns.username') as string}</TableCell>
+                <TableCell sx={{ width: '12%' }}>{t('columns.password') as string}</TableCell>
+                <TableCell sx={{ width: '9%' }}>{t('columns.hashType') as string}</TableCell>
+                <TableCell sx={{ width: '10%' }} align="center">{t('columns.actions') as string}</TableCell>
               </TableRow>
             </TableHead>
-            <TableBody>
+            {/* translate="no" prevents browser translation services from translating sensitive data */}
+            <TableBody translate="no" className="notranslate">
               {filteredData.map((hash) => (
                 <TableRow key={hash.id} hover>
                   <TableCell sx={{
@@ -466,7 +469,7 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
                     {hash.original_hash}
                   </TableCell>
                   {hash.domain ? (
-                    <Tooltip title="Click to copy domain">
+                    <Tooltip title={t('tooltips.copyDomain') as string}>
                       <TableCell
                         onClick={() => copyToClipboard(hash.domain!)}
                         sx={{
@@ -484,7 +487,7 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
                     <TableCell>-</TableCell>
                   )}
                   {hash.username ? (
-                    <Tooltip title="Click to copy username">
+                    <Tooltip title={t('tooltips.copyUsername') as string}>
                       <TableCell
                         onClick={() => copyToClipboard(hash.username!)}
                         sx={{
@@ -501,7 +504,7 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
                   ) : (
                     <TableCell>-</TableCell>
                   )}
-                  <Tooltip title="Click to copy password">
+                  <Tooltip title={t('tooltips.copyPassword') as string}>
                     <TableCell
                       onClick={() => copyToClipboard(hash.password)}
                       sx={{
@@ -519,7 +522,7 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
                   </Tooltip>
                   <TableCell>{hash.hash_type_id}</TableCell>
                   <TableCell align="center">
-                    <Tooltip title="Copy hash:password">
+                    <Tooltip title={t('tooltips.copyHash') as string}>
                       <IconButton
                         size="small"
                         onClick={() => copyToClipboard(`${hash.original_hash}:${hash.password}`)}
@@ -536,7 +539,7 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
         
         <TablePagination
           rowsPerPageOptions={pageSizeOptions.map(size => ({
-            label: size === -1 ? 'All' : size.toString(),
+            label: size === -1 ? t('pagination.all') as string : size.toString(),
             value: size,
           }))}
           component="div"
@@ -545,21 +548,21 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
           page={page}
           onPageChange={handleChangePage}
           onRowsPerPageChange={handleChangeRowsPerPage}
+          labelRowsPerPage={t('pagination.rowsPerPage', { ns: 'common' }) as string}
         />
       </Box>
 
       <Dialog open={openAllConfirm} onClose={handleCancelAll}>
-        <DialogTitle>Load All Results?</DialogTitle>
+        <DialogTitle>{t('dialogs.loadAllTitle') as string}</DialogTitle>
         <DialogContent>
           <Typography>
-            Loading all {totalCount.toLocaleString()} results may take a significant amount of time 
-            and could impact performance. Are you sure you want to continue?
+            {t('dialogs.loadAllMessage', { value: totalCount.toLocaleString() }) as string}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCancelAll}>Cancel</Button>
+          <Button onClick={handleCancelAll}>{t('dialogs.cancel') as string}</Button>
           <Button onClick={handleConfirmAll} variant="contained" color="primary">
-            Load All
+            {t('dialogs.loadAll') as string}
           </Button>
         </DialogActions>
       </Dialog>

@@ -1,0 +1,116 @@
+{
+  "title": "仪表盘",
+  "welcome": "欢迎使用 KrakenHashes",
+  "stats": {
+    "title": "概览",
+    "totalJobs": "总任务数",
+    "activeJobs": "活跃任务",
+    "completedJobs": "已完成任务",
+    "totalHashes": "总哈希数",
+    "crackedHashes": "已破解哈希",
+    "crackRate": "破解率",
+    "activeAgents": "活跃代理",
+    "totalAgents": "总代理数"
+  },
+  "recentActivity": {
+    "title": "最近活动",
+    "noActivity": "暂无最近活动"
+  },
+  "quickActions": {
+    "title": "快捷操作",
+    "createJob": "创建任务",
+    "uploadHashlist": "上传哈希列表",
+    "viewAgents": "查看代理"
+  },
+  "agents": {
+    "title": "您的代理",
+    "loadError": "加载代理失败：{{message}}",
+    "noAgents": "暂无已注册代理",
+    "hashRate": "哈希速率",
+    "notAvailable": "不可用",
+    "job": "任务",
+    "unnamedJob": "未命名任务",
+    "noActiveTask": "无活跃任务"
+  },
+  "pagination": {
+    "previous": "上一页",
+    "next": "下一页",
+    "pageOf": "第 {{current}} 页，共 {{total}} 页"
+  },
+  "jobs": {
+    "title": "您的任务",
+    "total": "总计",
+    "autoRefreshOn": "自动",
+    "autoRefreshOff": "关闭",
+    "lastUpdated": "最后更新：{{time}}",
+    "loadError": "加载任务失败：{{message}}",
+    "noJobs": "未找到任务。创建新任务以开始使用。"
+  },
+  "buttons": {
+    "refresh": "刷新",
+    "deleteFinished": "删除已完成"
+  },
+  "filters": {
+    "status": "状态",
+    "priority": "优先级",
+    "all": "全部",
+    "searchPlaceholder": "搜索任务...",
+    "clear": "清除筛选"
+  },
+  "status": {
+    "pending": "待处理",
+    "running": "运行中",
+    "paused": "已暂停",
+    "completed": "已完成",
+    "failed": "失败",
+    "cancelled": "已取消"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "删除已完成任务",
+      "message": "确定要删除所有已完成的任务吗？此操作无法撤销。"
+    }
+  },
+  "errors": {
+    "deleteFinishedFailed": "删除已完成任务失败",
+    "deleteJobFailed": "删除任务失败",
+    "retryJobFailed": "重试任务失败",
+    "updateJobFailed": "更新任务失败"
+  },
+  "hashlistOverview": {
+    "title": "哈希列表概览",
+    "loadError": "加载哈希列表失败",
+    "noHashlists": "未找到哈希列表",
+    "columns": {
+      "name": "名称",
+      "client": "客户",
+      "status": "状态",
+      "total": "总计",
+      "cracked": "已破解",
+      "progress": "进度"
+    },
+    "status": {
+      "ready": "就绪",
+      "error": "错误",
+      "uploading": "上传中",
+      "processing": "处理中"
+    }
+  },
+  "jobsTable": {
+    "noJobs": "未找到任务",
+    "noJobsHint": "从哈希列表页面创建新任务以开始使用。",
+    "completedJobs": "已完成任务",
+    "columns": {
+      "jobName": "任务名称",
+      "hashlist": "哈希列表",
+      "createdBy": "创建者",
+      "progress": "进度",
+      "keyspace": "密钥空间",
+      "cracked": "已破解",
+      "agents": "代理",
+      "priority": "优先级",
+      "maxAgents": "最大代理数",
+      "actions": "操作"
+    }
+  }
+}

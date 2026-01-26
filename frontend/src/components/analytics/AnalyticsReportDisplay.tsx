@@ -3,6 +3,7 @@
  * Handles status-aware rendering and coordinates all section components.
  */
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Paper,
@@ -45,6 +46,7 @@ export default function AnalyticsReportDisplay({
   onRetry,
   onDelete,
 }: AnalyticsReportDisplayProps) {
+  const { t } = useTranslation('analytics');
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   // Render status-specific UI
   const renderStatusUI = () => {
@@ -52,8 +54,8 @@ export default function AnalyticsReportDisplay({
       case 'queued':
         return (
           <Alert severity="info" sx={{ mb: 3 }}>
-            <AlertTitle>Pending Report Generation</AlertTitle>
-            Your report is queued for processing. Position: {report.queue_position || 'N/A'}
+            <AlertTitle>{t('status.pendingGeneration')}</AlertTitle>
+            {t('messages.queuedPosition')} {report.queue_position || 'N/A'}
             <LinearProgress sx={{ mt: 2 }} />
           </Alert>
         );
@@ -61,8 +63,8 @@ export default function AnalyticsReportDisplay({
       case 'processing':
         return (
           <Alert severity="info" sx={{ mb: 3 }}>
-            <AlertTitle>Report is Still Generating</AlertTitle>
-            Your report is currently being processed. This may take several minutes depending on the dataset size.
+            <AlertTitle>{t('status.generating')}</AlertTitle>
+            {t('messages.processingDescription')}
             <LinearProgress sx={{ mt: 2 }} />
           </Alert>
         );
@@ -76,19 +78,19 @@ export default function AnalyticsReportDisplay({
               <Box>
                 {onRetry && (
                   <Button color="inherit" size="small" startIcon={<RetryIcon />} onClick={onRetry}>
-                    Retry
+                    {t('actions.retry')}
                   </Button>
                 )}
                 {onDelete && (
                   <Button color="inherit" size="small" startIcon={<DeleteIcon />} onClick={onDelete}>
-                    Delete
+                    {t('actions.delete')}
                   </Button>
                 )}
               </Box>
             }
           >
-            <AlertTitle>Report Generation Failed</AlertTitle>
-            {report.error_message || 'An error occurred while generating the report.'}
+            <AlertTitle>{t('status.failed')}</AlertTitle>
+            {report.error_message || t('messages.generationError')}
           </Alert>
         );
 
@@ -103,7 +105,7 @@ export default function AnalyticsReportDisplay({
       <Paper sx={{ p: 3 }}>
         {renderStatusUI()}
         <Typography variant="body2" color="text.secondary">
-          Report ID: {report.id}
+          {t('labels.reportId')} {report.id}
         </Typography>
       </Paper>
     );
@@ -155,7 +157,7 @@ export default function AnalyticsReportDisplay({
 
       {/* Report ID for debugging */}
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Report ID: {report.id}
+        {t('labels.reportId')} {report.id}
       </Typography>
 
       {/* Overview Section - Full Width */}

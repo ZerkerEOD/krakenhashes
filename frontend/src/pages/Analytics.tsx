@@ -9,6 +9,7 @@
  *   - Queue management and status tracking
  */
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Button,
@@ -58,6 +59,7 @@ interface Client {
 }
 
 export default function Analytics() {
+  const { t } = useTranslation('analytics');
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClient, setSelectedClient] = useState<string>('');
   const [reportType, setReportType] = useState<'new' | 'previous'>('new');
@@ -122,7 +124,7 @@ export default function Analytics() {
       setClients(response.data);
     } catch (error) {
       console.error('Error fetching clients:', error);
-      enqueueSnackbar('Failed to load clients', { variant: 'error' });
+      enqueueSnackbar(t('messages.failedLoadClients') as string, { variant: 'error' });
     }
   };
 
@@ -133,7 +135,7 @@ export default function Analytics() {
       setClientReports(reports);
     } catch (error) {
       console.error('Error fetching client reports:', error);
-      enqueueSnackbar('Failed to load reports', { variant: 'error' });
+      enqueueSnackbar(t('messages.failedLoadReports') as string, { variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -179,7 +181,7 @@ export default function Analytics() {
 
   const handleGenerateReport = async () => {
     if (!selectedClient) {
-      enqueueSnackbar('Please select a client', { variant: 'warning' });
+      enqueueSnackbar(t('messages.selectClient') as string, { variant: 'warning' });
       return;
     }
 
@@ -204,10 +206,10 @@ export default function Analytics() {
       const report = await analyticsService.createReport(request);
       setCurrentReport(report);
       setReportStatus('queued');
-      enqueueSnackbar(`Report queued (Position: ${report.queue_position})`, { variant: 'success' });
+      enqueueSnackbar(t('messages.reportQueued', { position: report.queue_position }) as string, { variant: 'success' });
     } catch (error: any) {
       console.error('Error generating report:', error);
-      enqueueSnackbar(error.response?.data?.error || 'Failed to generate report', { variant: 'error' });
+      enqueueSnackbar(error.response?.data?.error || t('messages.failedGenerateReport') as string, { variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -221,7 +223,7 @@ export default function Analytics() {
       setReportStatus(response.status);
     } catch (error) {
       console.error('Error viewing report:', error);
-      enqueueSnackbar('Failed to load report', { variant: 'error' });
+      enqueueSnackbar(t('messages.failedLoadReport') as string, { variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -230,7 +232,7 @@ export default function Analytics() {
   const handleDeleteReport = async (reportId: string) => {
     try {
       await analyticsService.deleteReport(reportId);
-      enqueueSnackbar('Report deleted successfully', { variant: 'success' });
+      enqueueSnackbar(t('messages.reportDeleted') as string, { variant: 'success' });
       if (selectedClient) {
         fetchClientReports(selectedClient);
       }
@@ -240,7 +242,7 @@ export default function Analytics() {
       }
     } catch (error) {
       console.error('Error deleting report:', error);
-      enqueueSnackbar('Failed to delete report', { variant: 'error' });
+      enqueueSnackbar(t('messages.failedDeleteReport') as string, { variant: 'error' });
     }
   };
 
@@ -249,23 +251,23 @@ export default function Analytics() {
       const report = await analyticsService.retryReport(reportId);
       setCurrentReport(report);
       setReportStatus('queued');
-      enqueueSnackbar(`Report queued for retry (Position: ${report.queue_position})`, { variant: 'success' });
+      enqueueSnackbar(t('messages.reportQueuedRetry', { position: report.queue_position }) as string, { variant: 'success' });
     } catch (error) {
       console.error('Error retrying report:', error);
-      enqueueSnackbar('Failed to retry report', { variant: 'error' });
+      enqueueSnackbar(t('messages.failedRetryReport') as string, { variant: 'error' });
     }
   };
 
   const getStatusChip = (status: string) => {
     const statusColors: Record<string, any> = {
-      queued: { color: 'info', label: 'Queued' },
-      processing: { color: 'warning', label: 'Processing' },
-      completed: { color: 'success', label: 'Completed' },
-      failed: { color: 'error', label: 'Failed' },
+      queued: { color: 'info', label: t('status.queued') },
+      processing: { color: 'warning', label: t('status.processing') },
+      completed: { color: 'success', label: t('status.completed') },
+      failed: { color: 'error', label: t('status.failed') },
     };
 
     const config = statusColors[status] || { color: 'default', label: status };
-    return <Chip label={config.label} color={config.color} size="small" />;
+    return <Chip label={config.label as string} color={config.color} size="small" />;
   };
 
   return (
@@ -274,10 +276,10 @@ export default function Analytics() {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
           <Box>
             <Typography variant="h4" component="h1" gutterBottom>
-              Password Analytics
+              {t('title') as string}
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              Generate comprehensive password analytics reports for security assessments
+              {t('description') as string}
             </Typography>
           </Box>
         </Box>
@@ -285,18 +287,18 @@ export default function Analytics() {
         {/* Client Selection */}
         <Paper sx={{ p: 3, mb: 3 }}>
           <Typography variant="h6" gutterBottom>
-            Select Client
+            {t('clientSelection.title') as string}
           </Typography>
           <TextField
             select
             fullWidth
-            label="Client"
+            label={t('clientSelection.label') as string}
             value={selectedClient}
             onChange={(e) => handleClientChange(e.target.value)}
             sx={{ mb: 2 }}
           >
             <MenuItem value="">
-              <em>Select a client</em>
+              <em>{t('clientSelection.placeholder') as string}</em>
             </MenuItem>
             {clients.map((client) => (
               <MenuItem key={client.id} value={client.id}>
@@ -310,8 +312,8 @@ export default function Analytics() {
         {selectedClient && (
           <Paper sx={{ mb: 3 }}>
             <Tabs value={reportType === 'new' ? 0 : 1} onChange={handleReportTypeChange}>
-              <Tab label="Generate New Report" />
-              <Tab label="View Previous Reports" />
+              <Tab label={t('tabs.generateNew') as string} />
+              <Tab label={t('tabs.viewPrevious') as string} />
             </Tabs>
 
             <Divider />
@@ -323,7 +325,7 @@ export default function Analytics() {
                   <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth
-                      label="Start Date"
+                      label={t('form.startDate') as string}
                       type="date"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
@@ -345,7 +347,7 @@ export default function Analytics() {
                   <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth
-                      label="End Date"
+                      label={t('form.endDate') as string}
                       type="date"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
@@ -367,11 +369,11 @@ export default function Analytics() {
                   <Grid item xs={12}>
                     <TextField
                       fullWidth
-                      label="Custom Patterns (comma-separated)"
-                      placeholder="e.g., goog, ggl, micro, soft"
+                      label={t('form.customPatterns') as string}
+                      placeholder={t('form.customPatternsPlaceholder') as string}
                       value={customPatterns}
                       onChange={(e) => setCustomPatterns(e.target.value)}
-                      helperText="Add custom organization name variations to check"
+                      helperText={t('form.customPatternsHelper') as string}
                     />
                   </Grid>
                   <Grid item xs={12}>
@@ -382,7 +384,7 @@ export default function Analytics() {
                       disabled={loading || !selectedClient}
                       fullWidth
                     >
-                      Generate Report
+                      {t('generateReport') as string}
                     </Button>
                   </Grid>
                 </Grid>
@@ -397,18 +399,18 @@ export default function Analytics() {
                     <CircularProgress />
                   </Box>
                 ) : clientReports.length === 0 ? (
-                  <Alert severity="info">No reports found for this client</Alert>
+                  <Alert severity="info">{t('table.noReports') as string}</Alert>
                 ) : (
                   <TableContainer>
                     <Table>
                       <TableHead>
                         <TableRow>
-                          <TableCell>Date Range</TableCell>
-                          <TableCell>Generated On</TableCell>
-                          <TableCell>Status</TableCell>
-                          <TableCell align="right">Hashes</TableCell>
-                          <TableCell align="right">Cracked</TableCell>
-                          <TableCell align="right">Actions</TableCell>
+                          <TableCell>{t('table.dateRange') as string}</TableCell>
+                          <TableCell>{t('table.generatedOn') as string}</TableCell>
+                          <TableCell>{t('table.status') as string}</TableCell>
+                          <TableCell align="right">{t('table.hashes') as string}</TableCell>
+                          <TableCell align="right">{t('table.cracked') as string}</TableCell>
+                          <TableCell align="right">{t('table.actions') as string}</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -422,7 +424,7 @@ export default function Analytics() {
                             <TableCell align="right">{report.total_hashes.toLocaleString()}</TableCell>
                             <TableCell align="right">{report.total_cracked.toLocaleString()}</TableCell>
                             <TableCell align="right">
-                              <Tooltip title="View Report">
+                              <Tooltip title={t('actions.viewReport') as string}>
                                 <IconButton
                                   size="small"
                                   onClick={() => handleViewReport(report.id)}
@@ -432,7 +434,7 @@ export default function Analytics() {
                                 </IconButton>
                               </Tooltip>
                               {report.status === 'failed' && (
-                                <Tooltip title="Retry Report">
+                                <Tooltip title={t('actions.retryReport') as string}>
                                   <IconButton
                                     size="small"
                                     onClick={() => handleRetryReport(report.id)}
@@ -442,7 +444,7 @@ export default function Analytics() {
                                   </IconButton>
                                 </Tooltip>
                               )}
-                              <Tooltip title="Delete Report">
+                              <Tooltip title={t('actions.deleteReport') as string}>
                                 <IconButton
                                   size="small"
                                   onClick={() => handleDeleteReport(report.id)}

@@ -25,6 +25,7 @@ import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import { useSnackbar, closeSnackbar } from 'notistack';
 import { format, formatDistanceToNow } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 
 import { User, LoginAttempt, ActiveSession } from '../../types/user';
 import {
@@ -45,6 +46,7 @@ import {
 import { ApiKeyInfo } from '../../types/user';
 
 const UserDetail: React.FC = () => {
+    const { t } = useTranslation('admin');
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { enqueueSnackbar } = useSnackbar();
@@ -96,8 +98,8 @@ const UserDetail: React.FC = () => {
             setRole(response.data.data.role);
         } catch (err) {
             console.error("Failed to fetch user:", err);
-            setError('Failed to load user details');
-            enqueueSnackbar('Failed to load user details', { variant: 'error' });
+            setError(t('users.errors.loadDetailsFailed') as string);
+            enqueueSnackbar(t('users.errors.loadDetailsFailed') as string, { variant: 'error' });
         } finally {
             setLoading(false);
         }
@@ -112,7 +114,7 @@ const UserDetail: React.FC = () => {
             setSessions(response.data.data || []);
         } catch (err) {
             console.error("Failed to fetch sessions:", err);
-            enqueueSnackbar('Failed to load sessions', { variant: 'error' });
+            enqueueSnackbar(t('users.errors.loadSessionsFailed') as string, { variant: 'error' });
         } finally {
             setSessionsLoading(false);
         }
@@ -127,7 +129,7 @@ const UserDetail: React.FC = () => {
             setLoginAttempts(response.data.data || []);
         } catch (err) {
             console.error("Failed to fetch login attempts:", err);
-            enqueueSnackbar('Failed to load login attempts', { variant: 'error' });
+            enqueueSnackbar(t('users.errors.loadLoginAttemptsFailed') as string, { variant: 'error' });
         } finally {
             setAttemptsLoading(false);
         }
@@ -142,7 +144,7 @@ const UserDetail: React.FC = () => {
             setApiKeyInfo(response.data.data);
         } catch (err) {
             console.error("Failed to fetch API key info:", err);
-            enqueueSnackbar('Failed to load API key info', { variant: 'error' });
+            enqueueSnackbar(t('users.errors.loadApiKeyFailed') as string, { variant: 'error' });
         } finally {
             setApiKeyLoading(false);
         }
@@ -176,11 +178,11 @@ const UserDetail: React.FC = () => {
                 updateData.role = role;
             }
             await updateAdminUser(user.id, updateData);
-            enqueueSnackbar('User details updated successfully', { variant: 'success' });
+            enqueueSnackbar(t('users.messages.updateSuccess') as string, { variant: 'success' });
             fetchUser(); // Refresh data
         } catch (err: any) {
             console.error('Failed to update user:', err);
-            const message = err.response?.data?.error || 'Failed to update user';
+            const message = err.response?.data?.error || t('users.errors.updateFailed') as string;
             enqueueSnackbar(message, { variant: 'error' });
         } finally {
             setSaving(false);
@@ -196,39 +198,39 @@ const UserDetail: React.FC = () => {
                 password: newPassword || undefined,
                 temporary: temporaryPassword
             });
-            
+
             if (response.data.data.temporary_password) {
                 // Show temporary password in a dialog
                 const tempPassword = response.data.data.temporary_password;
-                
+
                 // Create a custom notification with copy functionality
                 const message = (
                     <Box>
                         <Typography variant="body2" gutterBottom>
-                            Password reset successfully!
+                            {t('users.messages.passwordResetSuccess')}
                         </Typography>
                         <Typography variant="body2" sx={{ fontWeight: 'bold', my: 1 }}>
-                            Temporary password: {tempPassword}
+                            {t('users.detail.temporaryPassword')}: {tempPassword}
                         </Typography>
                         <Button
                             size="small"
                             variant="outlined"
                             onClick={() => {
                                 navigator.clipboard.writeText(tempPassword);
-                                enqueueSnackbar('Password copied to clipboard', { variant: 'info' });
+                                enqueueSnackbar(t('users.messages.passwordCopied') as string, { variant: 'info' });
                             }}
                             sx={{ mt: 1 }}
                         >
-                            Copy to Clipboard
+                            {t('common.copyToClipboard')}
                         </Button>
                         <Typography variant="caption" display="block" sx={{ mt: 2 }}>
-                            Please share this password securely with the user.
+                            {t('users.detail.sharePasswordSecurely')}
                         </Typography>
                     </Box>
                 );
-                
-                enqueueSnackbar(message, { 
-                    variant: 'success', 
+
+                enqueueSnackbar(message, {
+                    variant: 'success',
                     persist: true,
                     action: (key) => (
                         <IconButton
@@ -241,15 +243,15 @@ const UserDetail: React.FC = () => {
                     )
                 });
             } else {
-                enqueueSnackbar('Password reset successfully', { variant: 'success' });
+                enqueueSnackbar(t('users.messages.passwordResetSuccess') as string, { variant: 'success' });
             }
-            
+
             setResetPasswordOpen(false);
             setNewPassword('');
             setTemporaryPassword(true);
         } catch (err) {
             console.error('Failed to reset password:', err);
-            enqueueSnackbar('Failed to reset password', { variant: 'error' });
+            enqueueSnackbar(t('users.errors.passwordResetFailed') as string, { variant: 'error' });
         } finally {
             setSaving(false);
         }
@@ -261,12 +263,12 @@ const UserDetail: React.FC = () => {
         setSaving(true);
         try {
             await disableAdminUserMFA(user.id);
-            enqueueSnackbar('MFA disabled successfully', { variant: 'success' });
+            enqueueSnackbar(t('users.messages.mfaDisableSuccess') as string, { variant: 'success' });
             setDisableMFAOpen(false);
             fetchUser(); // Refresh data
         } catch (err) {
             console.error('Failed to disable MFA:', err);
-            enqueueSnackbar('Failed to disable MFA', { variant: 'error' });
+            enqueueSnackbar(t('users.errors.mfaDisableFailed') as string, { variant: 'error' });
         } finally {
             setSaving(false);
         }
@@ -279,16 +281,16 @@ const UserDetail: React.FC = () => {
         try {
             if (user.accountEnabled) {
                 await disableAdminUser(user.id, { reason: reason! });
-                enqueueSnackbar('User account disabled', { variant: 'success' });
+                enqueueSnackbar(t('users.messages.accountDisabled') as string, { variant: 'success' });
             } else {
                 await enableAdminUser(user.id);
-                enqueueSnackbar('User account enabled', { variant: 'success' });
+                enqueueSnackbar(t('users.messages.accountEnabled') as string, { variant: 'success' });
             }
             setDisableAccountOpen(false);
             fetchUser(); // Refresh data
         } catch (err) {
             console.error('Failed to toggle account:', err);
-            enqueueSnackbar('Failed to update account status', { variant: 'error' });
+            enqueueSnackbar(t('users.errors.accountStatusFailed') as string, { variant: 'error' });
         } finally {
             setSaving(false);
         }
@@ -300,11 +302,11 @@ const UserDetail: React.FC = () => {
         setSaving(true);
         try {
             await unlockAdminUser(user.id);
-            enqueueSnackbar('User account unlocked', { variant: 'success' });
+            enqueueSnackbar(t('users.messages.accountUnlocked') as string, { variant: 'success' });
             fetchUser(); // Refresh data
         } catch (err) {
             console.error('Failed to unlock account:', err);
-            enqueueSnackbar('Failed to unlock account', { variant: 'error' });
+            enqueueSnackbar(t('users.errors.unlockFailed') as string, { variant: 'error' });
         } finally {
             setSaving(false);
         }
@@ -316,12 +318,12 @@ const UserDetail: React.FC = () => {
         setSaving(true);
         try {
             await terminateSession(user.id, sessionId);
-            enqueueSnackbar('Session terminated successfully', { variant: 'success' });
+            enqueueSnackbar(t('users.messages.sessionTerminated') as string, { variant: 'success' });
             setTerminateSessionId(null);
             fetchSessions(); // Refresh sessions
         } catch (err) {
             console.error('Failed to terminate session:', err);
-            enqueueSnackbar('Failed to terminate session', { variant: 'error' });
+            enqueueSnackbar(t('users.errors.terminateSessionFailed') as string, { variant: 'error' });
         } finally {
             setSaving(false);
         }
@@ -333,12 +335,12 @@ const UserDetail: React.FC = () => {
         setSaving(true);
         try {
             const response = await terminateAllUserSessions(user.id);
-            enqueueSnackbar(`Terminated ${response.data.data.count} session(s) successfully`, { variant: 'success' });
+            enqueueSnackbar(t('users.messages.allSessionsTerminated', { count: response.data.data.count }) as string, { variant: 'success' });
             setTerminateAllDialogOpen(false);
             fetchSessions(); // Refresh sessions
         } catch (err) {
             console.error('Failed to terminate all sessions:', err);
-            enqueueSnackbar('Failed to terminate all sessions', { variant: 'error' });
+            enqueueSnackbar(t('users.errors.terminateAllSessionsFailed') as string, { variant: 'error' });
         } finally {
             setSaving(false);
         }
@@ -350,32 +352,32 @@ const UserDetail: React.FC = () => {
         setSaving(true);
         try {
             await revokeAdminUserApiKey(user.id);
-            enqueueSnackbar('API key revoked successfully', { variant: 'success' });
+            enqueueSnackbar(t('users.messages.apiKeyRevoked') as string, { variant: 'success' });
             setShowRevokeApiKeyDialog(false);
             fetchApiKeyInfo(); // Refresh API key info
         } catch (err) {
             console.error('Failed to revoke API key:', err);
-            enqueueSnackbar('Failed to revoke API key', { variant: 'error' });
+            enqueueSnackbar(t('users.errors.revokeApiKeyFailed') as string, { variant: 'error' });
         } finally {
             setSaving(false);
         }
     };
 
     const formatDate = (dateString?: string) => {
-        if (!dateString) return 'Never';
+        if (!dateString) return t('common.never') as string;
         try {
             return format(new Date(dateString), 'MMM dd, yyyy HH:mm:ss');
         } catch {
-            return 'Invalid date';
+            return t('common.invalidDate') as string;
         }
     };
 
     const formatRelativeTime = (dateString?: string) => {
-        if (!dateString) return 'Never';
+        if (!dateString) return t('common.never') as string;
         try {
             return formatDistanceToNow(new Date(dateString), { addSuffix: true });
         } catch {
-            return 'Invalid date';
+            return t('common.invalidDate') as string;
         }
     };
 
@@ -397,9 +399,9 @@ const UserDetail: React.FC = () => {
     if (error || !user) {
         return (
             <Box sx={{ p: 3 }}>
-                <Alert severity="error">{error || 'User not found'}</Alert>
+                <Alert severity="error">{error || t('users.errors.userNotFound')}</Alert>
                 <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/admin/users')} sx={{ mt: 2 }}>
-                    Back to Users
+                    {t('users.detail.backToUsers')}
                 </Button>
             </Box>
         );
@@ -411,7 +413,7 @@ const UserDetail: React.FC = () => {
                 <IconButton onClick={() => navigate('/admin/users')} sx={{ mr: 2 }}>
                     <ArrowBackIcon />
                 </IconButton>
-                <Typography variant="h4">User Details</Typography>
+                <Typography variant="h4">{t('users.detail.title')}</Typography>
             </Box>
 
             <Grid container spacing={3}>
@@ -419,14 +421,14 @@ const UserDetail: React.FC = () => {
                 <Grid item xs={12} md={8}>
                     <Card>
                         <CardContent>
-                            <Typography variant="h6" gutterBottom>User Information</Typography>
+                            <Typography variant="h6" gutterBottom>{t('users.detail.userInformation')}</Typography>
                             <Divider sx={{ mb: 2 }} />
-                            
+
                             <Grid container spacing={2}>
                                 <Grid item xs={12} sm={6}>
                                     <TextField
                                         fullWidth
-                                        label="Username"
+                                        label={t('users.columns.username')}
                                         value={username}
                                         onChange={(e) => setUsername(e.target.value)}
                                         disabled={user.role === 'system'}
@@ -438,7 +440,7 @@ const UserDetail: React.FC = () => {
                                 <Grid item xs={12} sm={6}>
                                     <TextField
                                         fullWidth
-                                        label="Email"
+                                        label={t('users.columns.email')}
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         disabled={user.role === 'system'}
@@ -451,14 +453,14 @@ const UserDetail: React.FC = () => {
                                     {user.role === 'system' ? (
                                         <TextField
                                             fullWidth
-                                            label="Role"
+                                            label={t('users.columns.role')}
                                             value={user.role}
                                             disabled
                                             InputProps={{
                                                 endAdornment: (
-                                                    <Chip 
-                                                        label={user.role} 
-                                                        size="small" 
+                                                    <Chip
+                                                        label={user.role}
+                                                        size="small"
                                                         color="success"
                                                     />
                                                 )
@@ -466,14 +468,14 @@ const UserDetail: React.FC = () => {
                                         />
                                     ) : (
                                         <FormControl fullWidth>
-                                            <InputLabel>Role</InputLabel>
+                                            <InputLabel>{t('users.columns.role')}</InputLabel>
                                             <Select
                                                 value={role}
-                                                label="Role"
+                                                label={t('users.columns.role')}
                                                 onChange={(e) => setRole(e.target.value)}
                                             >
-                                                <MenuItem value="user">User</MenuItem>
-                                                <MenuItem value="admin">Admin</MenuItem>
+                                                <MenuItem value="user">{t('users.roles.user')}</MenuItem>
+                                                <MenuItem value="admin">{t('users.roles.admin')}</MenuItem>
                                             </Select>
                                         </FormControl>
                                     )}
@@ -481,7 +483,7 @@ const UserDetail: React.FC = () => {
                                 <Grid item xs={12} sm={6}>
                                     <TextField
                                         fullWidth
-                                        label="User ID"
+                                        label={t('users.detail.userId')}
                                         value={user.id}
                                         disabled
                                     />
@@ -495,11 +497,11 @@ const UserDetail: React.FC = () => {
                                     onClick={handleSave}
                                     disabled={!hasChanges || saving || user.role === 'system'}
                                 >
-                                    Save Changes
+                                    {t('common.saveChanges')}
                                 </Button>
                                 {user.role === 'system' && (
                                     <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center' }}>
-                                        System users cannot be modified
+                                        {t('users.detail.systemUserReadOnly')}
                                     </Typography>
                                 )}
                             </Box>
@@ -509,17 +511,17 @@ const UserDetail: React.FC = () => {
                     {/* Account Status Card */}
                     <Card sx={{ mt: 3 }}>
                         <CardContent>
-                            <Typography variant="h6" gutterBottom>Account Status</Typography>
+                            <Typography variant="h6" gutterBottom>{t('users.detail.accountStatus')}</Typography>
                             <Divider sx={{ mb: 2 }} />
-                            
+
                             <List>
                                 <ListItem>
                                     <ListItemIcon>
                                         {user.accountEnabled ? <CheckCircleIcon color="success" /> : <CancelIcon color="error" />}
                                     </ListItemIcon>
                                     <ListItemText
-                                        primary="Account Status"
-                                        secondary={user.accountEnabled ? 'Enabled' : `Disabled - ${user.disabledReason || 'No reason provided'}`}
+                                        primary={t('users.detail.accountStatusLabel')}
+                                        secondary={user.accountEnabled ? t('users.detail.enabled') : `${t('users.detail.disabled')} - ${user.disabledReason || t('users.detail.noReasonProvided')}`}
                                     />
                                     <Button
                                         variant="outlined"
@@ -527,7 +529,7 @@ const UserDetail: React.FC = () => {
                                         onClick={() => user.accountEnabled ? setDisableAccountOpen(true) : handleToggleAccount()}
                                         disabled={user.role === 'system'}
                                     >
-                                        {user.accountEnabled ? 'Disable' : 'Enable'}
+                                        {user.accountEnabled ? t('users.actions.disable') : t('users.actions.enable')}
                                     </Button>
                                 </ListItem>
 
@@ -536,10 +538,10 @@ const UserDetail: React.FC = () => {
                                         {user.accountLocked ? <CancelIcon color="warning" /> : <CheckCircleIcon color="success" />}
                                     </ListItemIcon>
                                     <ListItemText
-                                        primary="Lock Status"
-                                        secondary={user.accountLocked ? 
-                                            `Locked until ${formatDate(user.accountLockedUntil)}` : 
-                                            'Not locked'}
+                                        primary={t('users.detail.lockStatus')}
+                                        secondary={user.accountLocked ?
+                                            t('users.detail.lockedUntil', { date: formatDate(user.accountLockedUntil) }) :
+                                            t('users.detail.notLocked')}
                                     />
                                     {user.accountLocked && (
                                         <Button
@@ -547,7 +549,7 @@ const UserDetail: React.FC = () => {
                                             color="warning"
                                             onClick={handleUnlockAccount}
                                         >
-                                            Unlock
+                                            {t('users.actions.unlock')}
                                         </Button>
                                     )}
                                 </ListItem>
@@ -557,10 +559,10 @@ const UserDetail: React.FC = () => {
                                         <SecurityIcon color={user.mfaEnabled ? 'success' : 'disabled'} />
                                     </ListItemIcon>
                                     <ListItemText
-                                        primary="MFA Status"
-                                        secondary={user.mfaEnabled ? 
-                                            `Enabled (${user.mfaType.join(', ')})` : 
-                                            'Disabled'}
+                                        primary={t('users.detail.mfaStatus')}
+                                        secondary={user.mfaEnabled ?
+                                            t('users.detail.mfaEnabled', { types: user.mfaType.join(', ') }) :
+                                            t('users.detail.mfaDisabled')}
                                     />
                                     {user.mfaEnabled && (
                                         <Button
@@ -568,7 +570,7 @@ const UserDetail: React.FC = () => {
                                             color="warning"
                                             onClick={() => setDisableMFAOpen(true)}
                                         >
-                                            Disable MFA
+                                            {t('users.actions.disableMfa')}
                                         </Button>
                                     )}
                                 </ListItem>
@@ -581,7 +583,7 @@ const UserDetail: React.FC = () => {
                                     onClick={() => setResetPasswordOpen(true)}
                                     disabled={user.role === 'system'}
                                 >
-                                    Reset Password
+                                    {t('users.actions.resetPassword')}
                                 </Button>
                             </Box>
                         </CardContent>
@@ -590,7 +592,7 @@ const UserDetail: React.FC = () => {
                     {/* API Key Management Card */}
                     <Card sx={{ mt: 3 }}>
                         <CardContent>
-                            <Typography variant="h6" gutterBottom>API Key Management</Typography>
+                            <Typography variant="h6" gutterBottom>{t('users.detail.apiKeyManagement')}</Typography>
                             <Divider sx={{ mb: 2 }} />
 
                             {apiKeyLoading ? (
@@ -604,8 +606,8 @@ const UserDetail: React.FC = () => {
                                             <VpnKeyIcon color={apiKeyInfo?.hasKey ? 'success' : 'disabled'} />
                                         </ListItemIcon>
                                         <ListItemText
-                                            primary="API Key Status"
-                                            secondary={apiKeyInfo?.hasKey ? 'Active' : 'No API Key Generated'}
+                                            primary={t('users.detail.apiKeyStatus')}
+                                            secondary={apiKeyInfo?.hasKey ? t('users.status.active') : t('users.detail.noApiKeyGenerated')}
                                         />
                                     </ListItem>
 
@@ -613,14 +615,14 @@ const UserDetail: React.FC = () => {
                                         <>
                                             <ListItem>
                                                 <ListItemText
-                                                    primary="Created"
+                                                    primary={t('users.detail.created')}
                                                     secondary={formatDate(apiKeyInfo.createdAt)}
                                                     sx={{ pl: 7 }}
                                                 />
                                             </ListItem>
                                             <ListItem>
                                                 <ListItemText
-                                                    primary="Last Used"
+                                                    primary={t('users.detail.lastUsed')}
                                                     secondary={formatDate(apiKeyInfo.lastUsed)}
                                                     sx={{ pl: 7 }}
                                                 />
@@ -638,14 +640,14 @@ const UserDetail: React.FC = () => {
                                         onClick={() => setShowRevokeApiKeyDialog(true)}
                                         disabled={apiKeyLoading}
                                     >
-                                        Revoke API Key
+                                        {t('users.actions.revokeApiKey')}
                                     </Button>
                                 </Box>
                             )}
 
                             <Alert severity="info" sx={{ mt: 2 }}>
                                 <Typography variant="caption">
-                                    Admins can revoke API keys but cannot view the plaintext key for security reasons.
+                                    {t('users.detail.apiKeySecurityNote')}
                                 </Typography>
                             </Alert>
                         </CardContent>
@@ -656,16 +658,16 @@ const UserDetail: React.FC = () => {
                 <Grid item xs={12} md={4}>
                     <Card>
                         <CardContent>
-                            <Typography variant="h6" gutterBottom>Activity Information</Typography>
+                            <Typography variant="h6" gutterBottom>{t('users.detail.activityInformation')}</Typography>
                             <Divider sx={{ mb: 2 }} />
-                            
+
                             <List dense>
                                 <ListItem>
                                     <ListItemIcon>
                                         <CalendarTodayIcon fontSize="small" />
                                     </ListItemIcon>
                                     <ListItemText
-                                        primary="Created"
+                                        primary={t('users.detail.created')}
                                         secondary={formatDate(user.createdAt)}
                                     />
                                 </ListItem>
@@ -674,7 +676,7 @@ const UserDetail: React.FC = () => {
                                         <CalendarTodayIcon fontSize="small" />
                                     </ListItemIcon>
                                     <ListItemText
-                                        primary="Last Login"
+                                        primary={t('users.columns.lastLogin')}
                                         secondary={formatDate(user.lastLogin)}
                                     />
                                 </ListItem>
@@ -683,22 +685,22 @@ const UserDetail: React.FC = () => {
                                         <CalendarTodayIcon fontSize="small" />
                                     </ListItemIcon>
                                     <ListItemText
-                                        primary="Password Changed"
+                                        primary={t('users.detail.passwordChanged')}
                                         secondary={formatDate(user.lastPasswordChange)}
                                     />
                                 </ListItem>
                                 {user.failedLoginAttempts > 0 && (
                                     <ListItem>
                                         <ListItemText
-                                            primary="Failed Login Attempts"
-                                            secondary={`${user.failedLoginAttempts} attempts`}
+                                            primary={t('users.detail.failedLoginAttempts')}
+                                            secondary={t('users.detail.attemptsCount', { count: user.failedLoginAttempts })}
                                         />
                                     </ListItem>
                                 )}
                                 {user.disabledAt && (
                                     <ListItem>
                                         <ListItemText
-                                            primary="Disabled At"
+                                            primary={t('users.detail.disabledAt')}
                                             secondary={formatDate(user.disabledAt)}
                                         />
                                     </ListItem>
@@ -716,7 +718,7 @@ const UserDetail: React.FC = () => {
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <DevicesIcon />
                             <Typography variant="h6">
-                                Active Sessions
+                                {t('users.detail.activeSessions')}
                                 {sessions.length > 0 && (
                                     <Badge badgeContent={sessions.length} color="primary" sx={{ ml: 2 }} />
                                 )}
@@ -730,7 +732,7 @@ const UserDetail: React.FC = () => {
                                 startIcon={<DeleteSweepIcon />}
                                 onClick={() => setTerminateAllDialogOpen(true)}
                             >
-                                Terminate All Sessions
+                                {t('users.actions.terminateAllSessions')}
                             </Button>
                         )}
                     </Box>
@@ -742,18 +744,18 @@ const UserDetail: React.FC = () => {
                         </Box>
                     ) : sessions.length === 0 ? (
                         <Typography color="text.secondary" align="center" sx={{ py: 3 }}>
-                            No active sessions
+                            {t('users.detail.noActiveSessions')}
                         </Typography>
                     ) : (
                         <TableContainer>
                             <Table size="small">
                                 <TableHead>
                                     <TableRow>
-                                        <TableCell>IP Address</TableCell>
-                                        <TableCell>Device / Browser</TableCell>
-                                        <TableCell>Last Active</TableCell>
-                                        <TableCell>Created</TableCell>
-                                        <TableCell align="right">Actions</TableCell>
+                                        <TableCell>{t('users.detail.sessions.ipAddress')}</TableCell>
+                                        <TableCell>{t('users.detail.sessions.deviceBrowser')}</TableCell>
+                                        <TableCell>{t('users.detail.sessions.lastActive')}</TableCell>
+                                        <TableCell>{t('users.detail.created')}</TableCell>
+                                        <TableCell align="right">{t('users.columns.actions')}</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
@@ -774,7 +776,7 @@ const UserDetail: React.FC = () => {
                                                     size="small"
                                                     color="error"
                                                     onClick={() => setTerminateSessionId(session.id)}
-                                                    title="Terminate session"
+                                                    title={t('users.actions.terminateSession') as string}
                                                 >
                                                     <DeleteIcon fontSize="small" />
                                                 </IconButton>
@@ -794,7 +796,7 @@ const UserDetail: React.FC = () => {
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <HistoryIcon />
-                            <Typography variant="h6">Login History</Typography>
+                            <Typography variant="h6">{t('users.detail.loginHistory')}</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', gap: 1 }}>
                             <Button
@@ -802,7 +804,7 @@ const UserDetail: React.FC = () => {
                                 variant={attemptFilter === 'all' ? 'contained' : 'outlined'}
                                 onClick={() => setAttemptFilter('all')}
                             >
-                                All
+                                {t('common.all')}
                             </Button>
                             <Button
                                 size="small"
@@ -810,7 +812,7 @@ const UserDetail: React.FC = () => {
                                 color="success"
                                 onClick={() => setAttemptFilter('success')}
                             >
-                                Success
+                                {t('users.detail.loginAttempts.success')}
                             </Button>
                             <Button
                                 size="small"
@@ -818,7 +820,7 @@ const UserDetail: React.FC = () => {
                                 color="error"
                                 onClick={() => setAttemptFilter('failed')}
                             >
-                                Failed
+                                {t('users.detail.loginAttempts.failed')}
                             </Button>
                         </Box>
                     </Box>
@@ -830,18 +832,18 @@ const UserDetail: React.FC = () => {
                         </Box>
                     ) : filteredAttempts.length === 0 ? (
                         <Typography color="text.secondary" align="center" sx={{ py: 3 }}>
-                            No login attempts found
+                            {t('users.detail.noLoginAttempts')}
                         </Typography>
                     ) : (
                         <TableContainer>
                             <Table size="small">
                                 <TableHead>
                                     <TableRow>
-                                        <TableCell>Timestamp</TableCell>
-                                        <TableCell>Provider</TableCell>
-                                        <TableCell>IP Address</TableCell>
-                                        <TableCell>Status</TableCell>
-                                        <TableCell>Failure Reason</TableCell>
+                                        <TableCell>{t('users.detail.loginAttempts.timestamp')}</TableCell>
+                                        <TableCell>{t('users.columns.provider')}</TableCell>
+                                        <TableCell>{t('users.detail.sessions.ipAddress')}</TableCell>
+                                        <TableCell>{t('users.columns.status')}</TableCell>
+                                        <TableCell>{t('users.detail.loginAttempts.failureReason')}</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
@@ -851,7 +853,7 @@ const UserDetail: React.FC = () => {
                                             <TableCell>
                                                 <Chip
                                                     size="small"
-                                                    label={attempt.provider_type || 'Local'}
+                                                    label={attempt.provider_type || t('users.columns.providerLocal')}
                                                     variant="outlined"
                                                 />
                                             </TableCell>
@@ -860,7 +862,7 @@ const UserDetail: React.FC = () => {
                                                 <Chip
                                                     size="small"
                                                     icon={attempt.success ? <CheckCircleIcon /> : <CancelIcon />}
-                                                    label={attempt.success ? 'Success' : 'Failed'}
+                                                    label={attempt.success ? t('users.detail.loginAttempts.success') : t('users.detail.loginAttempts.failed')}
                                                     color={attempt.success ? 'success' : 'error'}
                                                 />
                                             </TableCell>
@@ -888,7 +890,7 @@ const UserDetail: React.FC = () => {
 
             {/* Reset Password Dialog */}
             <Dialog open={resetPasswordOpen} onClose={() => setResetPasswordOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle>Reset User Password</DialogTitle>
+                <DialogTitle>{t('users.dialogs.resetPassword.title')}</DialogTitle>
                 <DialogContent>
                     <FormControlLabel
                         control={
@@ -897,72 +899,71 @@ const UserDetail: React.FC = () => {
                                 onChange={(e) => setTemporaryPassword(e.target.checked)}
                             />
                         }
-                        label="Generate temporary password"
+                        label={t('users.dialogs.resetPassword.generateTemporary')}
                         sx={{ mb: 2 }}
                     />
                     {!temporaryPassword && (
                         <TextField
                             fullWidth
                             type="password"
-                            label="New Password"
+                            label={t('users.dialogs.resetPassword.newPassword')}
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
-                            helperText="Must be at least 8 characters"
+                            helperText={t('users.dialogs.resetPassword.passwordHelperText')}
                         />
                     )}
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setResetPasswordOpen(false)}>Cancel</Button>
-                    <Button 
-                        onClick={handleResetPassword} 
-                        variant="contained" 
+                    <Button onClick={() => setResetPasswordOpen(false)}>{t('common.cancel')}</Button>
+                    <Button
+                        onClick={handleResetPassword}
+                        variant="contained"
                         disabled={saving || (!temporaryPassword && newPassword.length < 8)}
                     >
-                        Reset Password
+                        {t('users.actions.resetPassword')}
                     </Button>
                 </DialogActions>
             </Dialog>
 
             {/* Disable MFA Dialog */}
             <Dialog open={disableMFAOpen} onClose={() => setDisableMFAOpen(false)}>
-                <DialogTitle>Disable MFA</DialogTitle>
+                <DialogTitle>{t('users.dialogs.disableMfa.title')}</DialogTitle>
                 <DialogContent>
                     <Typography>
-                        Are you sure you want to disable MFA for this user? 
-                        They will need to set it up again if required.
+                        {t('users.dialogs.disableMfa.confirmation')}
                     </Typography>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setDisableMFAOpen(false)}>Cancel</Button>
+                    <Button onClick={() => setDisableMFAOpen(false)}>{t('common.cancel')}</Button>
                     <Button onClick={handleDisableMFA} variant="contained" color="warning" disabled={saving}>
-                        Disable MFA
+                        {t('users.actions.disableMfa')}
                     </Button>
                 </DialogActions>
             </Dialog>
 
             {/* Disable Account Dialog */}
             <Dialog open={disableAccountOpen} onClose={() => setDisableAccountOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle>Disable User Account</DialogTitle>
+                <DialogTitle>{t('users.dialogs.disableUser.title')}</DialogTitle>
                 <DialogContent>
                     <TextField
                         fullWidth
                         multiline
                         rows={3}
-                        label="Reason for disabling"
-                        placeholder="Please provide a reason..."
+                        label={t('users.dialogs.disableUser.reasonLabel')}
+                        placeholder={t('users.dialogs.disableUser.reasonPlaceholder') as string}
                         sx={{ mt: 2 }}
                         onChange={(e) => setUser({ ...user, disabledReason: e.target.value })}
                     />
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setDisableAccountOpen(false)}>Cancel</Button>
-                    <Button 
-                        onClick={() => handleToggleAccount(user.disabledReason)} 
-                        variant="contained" 
+                    <Button onClick={() => setDisableAccountOpen(false)}>{t('common.cancel')}</Button>
+                    <Button
+                        onClick={() => handleToggleAccount(user.disabledReason)}
+                        variant="contained"
                         color="error"
                         disabled={saving || !user.disabledReason}
                     >
-                        Disable Account
+                        {t('users.dialogs.disableUser.disableAccount')}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -974,21 +975,21 @@ const UserDetail: React.FC = () => {
                 maxWidth="sm"
                 fullWidth
             >
-                <DialogTitle>Terminate Session?</DialogTitle>
+                <DialogTitle>{t('users.dialogs.terminateSession.title')}</DialogTitle>
                 <DialogContent>
                     <Typography>
-                        This will log the user out from this device. The user will need to log in again to continue using the application.
+                        {t('users.dialogs.terminateSession.description')}
                     </Typography>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setTerminateSessionId(null)}>Cancel</Button>
+                    <Button onClick={() => setTerminateSessionId(null)}>{t('common.cancel')}</Button>
                     <Button
                         onClick={() => terminateSessionId && handleTerminateSession(terminateSessionId)}
                         variant="contained"
                         color="error"
                         disabled={saving}
                     >
-                        Terminate
+                        {t('users.dialogs.terminateSession.terminate')}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -1000,25 +1001,24 @@ const UserDetail: React.FC = () => {
                 maxWidth="sm"
                 fullWidth
             >
-                <DialogTitle>Terminate All Sessions?</DialogTitle>
+                <DialogTitle>{t('users.dialogs.terminateAllSessions.title')}</DialogTitle>
                 <DialogContent>
                     <Typography gutterBottom>
-                        This will log the user out from <strong>ALL</strong> devices, including their current session.
-                        The user will need to log in again. This action cannot be undone.
+                        {t('users.dialogs.terminateAllSessions.description')}
                     </Typography>
                     <Alert severity="warning" sx={{ mt: 2 }}>
-                        ⚠️ This includes any active work sessions!
+                        {t('users.dialogs.terminateAllSessions.warning')}
                     </Alert>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setTerminateAllDialogOpen(false)}>Cancel</Button>
+                    <Button onClick={() => setTerminateAllDialogOpen(false)}>{t('common.cancel')}</Button>
                     <Button
                         onClick={handleTerminateAllSessions}
                         variant="contained"
                         color="error"
                         disabled={saving}
                     >
-                        Terminate All
+                        {t('users.dialogs.terminateAllSessions.terminateAll')}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -1030,24 +1030,24 @@ const UserDetail: React.FC = () => {
                 maxWidth="sm"
                 fullWidth
             >
-                <DialogTitle>Revoke User API Key?</DialogTitle>
+                <DialogTitle>{t('users.dialogs.revokeApiKey.title')}</DialogTitle>
                 <DialogContent>
                     <Alert severity="error" sx={{ mb: 2 }}>
-                        This will immediately disable API access for this user. Any applications using this key will stop working.
+                        {t('users.dialogs.revokeApiKey.warning')}
                     </Alert>
                     <Typography>
-                        Are you sure you want to revoke this user's API key?
+                        {t('users.dialogs.revokeApiKey.confirmation')}
                     </Typography>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setShowRevokeApiKeyDialog(false)}>Cancel</Button>
+                    <Button onClick={() => setShowRevokeApiKeyDialog(false)}>{t('common.cancel')}</Button>
                     <Button
                         onClick={handleRevokeApiKey}
                         variant="contained"
                         color="error"
                         disabled={saving}
                     >
-                        Revoke API Key
+                        {t('users.actions.revokeApiKey')}
                     </Button>
                 </DialogActions>
             </Dialog>

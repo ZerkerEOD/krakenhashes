@@ -1,0 +1,153 @@
+{
+  "buttons": {
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "delete": "Удалить",
+    "edit": "Редактировать",
+    "create": "Создать",
+    "submit": "Отправить",
+    "close": "Закрыть",
+    "confirm": "Подтвердить",
+    "retry": "Повторить",
+    "refresh": "Обновить",
+    "download": "Скачать",
+    "upload": "Загрузить",
+    "copy": "Копировать",
+    "search": "Поиск",
+    "filter": "Фильтр",
+    "clearFilters": "Сбросить фильтры",
+    "loadAll": "Загрузить все",
+    "signIn": "Войти",
+    "logIn": "Вход",
+    "logout": "Выход"
+  },
+  "labels": {
+    "loading": "Загрузка...",
+    "noData": "Нет данных",
+    "error": "Произошла ошибка",
+    "success": "Успешно",
+    "warning": "Предупреждение",
+    "info": "Информация",
+    "required": "Обязательно",
+    "optional": "Необязательно",
+    "all": "Все",
+    "none": "Нет",
+    "yes": "Да",
+    "no": "Нет",
+    "enabled": "Включено",
+    "disabled": "Отключено",
+    "active": "Активно",
+    "inactive": "Неактивно",
+    "pending": "В ожидании",
+    "completed": "Завершено",
+    "failed": "Ошибка",
+    "unknown": "Неизвестно"
+  },
+  "pagination": {
+    "rowsPerPage": "Строк на странице",
+    "page": "Страница {{current}} из {{total}}",
+    "showing": "Показано {{from}}-{{to}} из {{total}}",
+    "first": "Первая страница",
+    "last": "Последняя страница",
+    "next": "Следующая страница",
+    "previous": "Предыдущая страница"
+  },
+  "language": {
+    "selectLanguage": "Выбрать язык",
+    "currentLanguage": "Текущий язык"
+  },
+  "clipboard": {
+    "copied": "Скопировано в буфер обмена",
+    "copyFailed": "Не удалось скопировать в буфер обмена"
+  },
+  "errors": {
+    "networkError": "Ошибка сети. Проверьте подключение.",
+    "serverError": "Ошибка сервера. Попробуйте позже.",
+    "unknownError": "Произошла неизвестная ошибка",
+    "validationError": "Проверьте введённые данные и попробуйте снова",
+    "permissionDenied": "Доступ запрещён",
+    "notFound": "Не найдено",
+    "sessionExpired": "Сессия истекла. Пожалуйста, войдите снова."
+  },
+  "confirmations": {
+    "areYouSure": "Вы уверены?",
+    "cannotBeUndone": "Это действие нельзя отменить.",
+    "confirmDelete": "Подтвердить удаление",
+    "confirmAction": "Подтвердить действие"
+  },
+  "time": {
+    "justNow": "Только что",
+    "minutesAgo": "{{count}} минуту назад",
+    "minutesAgo_plural": "{{count}} минут назад",
+    "hoursAgo": "{{count}} час назад",
+    "hoursAgo_plural": "{{count}} часов назад",
+    "daysAgo": "{{count}} день назад",
+    "daysAgo_plural": "{{count}} дней назад",
+    "never": "Никогда"
+  },
+  "fileUpload": {
+    "dragAndDrop": "Перетащите файл сюда или нажмите для выбора",
+    "selectFile": "Выбрать файл",
+    "uploading": "Загрузка...",
+    "uploadSuccess": "Файл успешно загружен",
+    "uploadFailed": "Ошибка загрузки файла",
+    "chooseFile": "Выбрать файл",
+    "description": "Описание",
+    "loading": "Загрузка..."
+  },
+  "binaryVersionSelector": {
+    "label": "Версия бинарного файла",
+    "helperText": "Выберите шаблон версии бинарного файла для этого задания",
+    "default": "По умолчанию",
+    "majorVersion": "Мажорная версия (последняя минорная)",
+    "minorVersion": "Минорная версия (последний патч)",
+    "exactVersion": "Точная версия",
+    "loading": "Загрузка...",
+    "loadingVersions": "Загрузка версий бинарных файлов...",
+    "loadError": "Не удалось загрузить версии бинарных файлов"
+  },
+  "passwordValidation": {
+    "requirements": "Требования к паролю:",
+    "minLength": "Минимум {{length}} символов",
+    "uppercase": "Минимум одна заглавная буква",
+    "lowercase": "Минимум одна строчная буква",
+    "number": "Минимум одна цифра",
+    "specialChar": "Минимум один специальный символ"
+  },
+  "footer": {
+    "documentation": "Документация",
+    "issues": "Проблемы",
+    "loading": "Загрузка...",
+    "release": "Релиз v{{version}}",
+    "versionUnavailable": "Версия недоступна"
+  },
+  "layout": {
+    "logoAlt": "Логотип KrakenHashes"
+  },
+  "table": {
+    "noResults": "Результаты не найдены",
+    "loading": "Загрузка данных...",
+    "emptyState": "Нет данных для отображения"
+  },
+  "about": {
+    "title": "О KrakenHashes",
+    "versionInfo": {
+      "title": "Информация о версии",
+      "release": "Релиз",
+      "backend": "Сервер",
+      "frontend": "Интерфейс",
+      "agent": "Версия агента",
+      "api": "Версия API",
+      "database": "База данных"
+    },
+    "projectInfo": {
+      "title": "Информация о проекте",
+      "description": "KrakenHashes — это распределённая система управления взломом паролей, предназначенная для координации и управления задачами взлома паролей на нескольких агентах.",
+      "license": "Это проект с открытым исходным кодом, лицензированный по лицензии GNU Affero General Public License v3.0 (AGPL-3.0).",
+      "githubLink": "Репозиторий GitHub"
+    },
+    "errors": {
+      "fetchFailed": "Не удалось получить информацию о версии"
+    }
+  }
+}

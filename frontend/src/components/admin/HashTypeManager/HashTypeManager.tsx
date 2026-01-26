@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { useSnackbar } from 'notistack';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import HashTypeTable from './HashTypeTable';
 import HashTypeDialog from './HashTypeDialog';
@@ -25,6 +26,7 @@ import {
 } from '../../../services/hashType';
 
 const HashTypeManager: React.FC = () => {
+  const { t } = useTranslation('admin');
   const { enqueueSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -43,12 +45,12 @@ const HashTypeManager: React.FC = () => {
     mutationFn: createHashType,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['hashTypes'] });
-      enqueueSnackbar('Hash type created successfully', { variant: 'success' });
+      enqueueSnackbar(t('hashTypes.messages.createSuccess') as string, { variant: 'success' });
       setDialogOpen(false);
       setSelectedHashType(null);
     },
     onError: (error: any) => {
-      const message = error.response?.data?.error || 'Failed to create hash type';
+      const message = error.response?.data?.error || t('hashTypes.messages.createFailed') as string;
       enqueueSnackbar(message, { variant: 'error' });
     },
   });
@@ -58,12 +60,12 @@ const HashTypeManager: React.FC = () => {
     mutationFn: ({ id, data }) => updateHashType(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['hashTypes'] });
-      enqueueSnackbar('Hash type updated successfully', { variant: 'success' });
+      enqueueSnackbar(t('hashTypes.messages.updateSuccess') as string, { variant: 'success' });
       setDialogOpen(false);
       setSelectedHashType(null);
     },
     onError: (error: any) => {
-      const message = error.response?.data?.error || 'Failed to update hash type';
+      const message = error.response?.data?.error || t('hashTypes.messages.updateFailed') as string;
       enqueueSnackbar(message, { variant: 'error' });
     },
   });
@@ -73,14 +75,14 @@ const HashTypeManager: React.FC = () => {
     mutationFn: deleteHashType,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['hashTypes'] });
-      enqueueSnackbar('Hash type deleted successfully', { variant: 'success' });
+      enqueueSnackbar(t('hashTypes.messages.deleteSuccess') as string, { variant: 'success' });
       setDeleteDialogOpen(false);
       setHashTypeToDelete(null);
     },
     onError: (error: any) => {
-      const message = error.response?.data?.error || 'Failed to delete hash type';
+      const message = error.response?.data?.error || t('hashTypes.messages.deleteFailed') as string;
       if (message.includes('still referenced')) {
-        enqueueSnackbar('Cannot delete: This hash type is in use by existing hashlists', { variant: 'error' });
+        enqueueSnackbar(t('hashTypes.messages.deleteInUse') as string, { variant: 'error' });
       } else {
         enqueueSnackbar(message, { variant: 'error' });
       }
@@ -120,7 +122,7 @@ const HashTypeManager: React.FC = () => {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error">
-          Failed to load hash types. Please try refreshing the page.
+          {t('hashTypes.messages.loadFailed')}
         </Alert>
       </Box>
     );
@@ -131,10 +133,10 @@ const HashTypeManager: React.FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
         <Box>
           <Typography variant="h4" component="h1" gutterBottom>
-            Hash Type Management
+            {t('hashTypes.title')}
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Manage supported hash types for password cracking operations
+            {t('hashTypes.description')}
           </Typography>
         </Box>
         <Button
@@ -142,7 +144,7 @@ const HashTypeManager: React.FC = () => {
           startIcon={<AddIcon />}
           onClick={handleAdd}
         >
-          Add Hash Type
+          {t('hashTypes.addHashType')}
         </Button>
       </Box>
 
@@ -177,13 +179,13 @@ const HashTypeManager: React.FC = () => {
           setHashTypeToDelete(null);
         }}
       >
-        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogTitle>{t('hashTypes.confirmDelete.title')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to delete the hash type "{hashTypeToDelete?.name}" (ID: {hashTypeToDelete?.id})?
+            {t('common.dialogs.confirmDeleteNamed', { name: `${hashTypeToDelete?.name} (ID: ${hashTypeToDelete?.id})` })}
             {hashTypeToDelete?.is_enabled && (
               <Alert severity="warning" sx={{ mt: 2 }}>
-                This hash type is currently enabled. Deleting it may affect existing functionality.
+                {t('hashTypes.confirmDelete.warning')}
               </Alert>
             )}
           </DialogContentText>
@@ -195,7 +197,7 @@ const HashTypeManager: React.FC = () => {
               setHashTypeToDelete(null);
             }}
           >
-            Cancel
+            {t('hashTypes.confirmDelete.cancel')}
           </Button>
           <Button
             onClick={confirmDelete}
@@ -203,7 +205,7 @@ const HashTypeManager: React.FC = () => {
             variant="contained"
             disabled={deleteMutation.isPending}
           >
-            {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+            {deleteMutation.isPending ? t('hashTypes.confirmDelete.deleting') : t('hashTypes.confirmDelete.delete')}
           </Button>
         </DialogActions>
       </Dialog>

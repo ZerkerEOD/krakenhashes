@@ -43,6 +43,7 @@
  */
 
 import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Typography,
@@ -103,6 +104,7 @@ interface Filters {
 }
 
 const Dashboard: React.FC = () => {
+  const { t } = useTranslation('dashboard');
   const navigate = useNavigate();
   
   // Pagination state
@@ -305,7 +307,7 @@ const Dashboard: React.FC = () => {
       setDeleteDialogOpen(false);
     } catch (err) {
       console.error('Failed to delete finished jobs:', err);
-      alert('Failed to delete finished jobs');
+      alert(t('errors.deleteFinishedFailed'));
     } finally {
       setIsDeleting(false);
     }
@@ -318,7 +320,7 @@ const Dashboard: React.FC = () => {
       await fetchJobs(false);
     } catch (err) {
       console.error('Failed to delete job:', err);
-      alert('Failed to delete job');
+      alert(t('errors.deleteJobFailed'));
     }
   };
 
@@ -328,7 +330,7 @@ const Dashboard: React.FC = () => {
       await fetchJobs(false);
     } catch (err) {
       console.error('Failed to retry job:', err);
-      alert('Failed to retry job');
+      alert(t('errors.retryJobFailed'));
     }
   };
 
@@ -338,7 +340,7 @@ const Dashboard: React.FC = () => {
       await fetchJobs(false);
     } catch (err) {
       console.error('Failed to update job:', err);
-      alert('Failed to update job');
+      alert(t('errors.updateJobFailed'));
     }
   };
 
@@ -370,7 +372,7 @@ const Dashboard: React.FC = () => {
       <Grid item xs={12} md={4}>
         <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
           <Typography variant="h6" gutterBottom>
-            Agent Status
+            {t('agents.title') as string}
           </Typography>
           {agentsLoading && agents.length === 0 ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -378,11 +380,11 @@ const Dashboard: React.FC = () => {
             </Box>
           ) : agentsError ? (
             <Alert severity="error" sx={{ mb: 2 }}>
-              Failed to load agents: {agentsError.message}
+              {t('agents.loadError', { message: agentsError.message }) as string}
             </Alert>
           ) : agents.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
-              No agents found
+              {t('agents.noAgents') as string}
             </Typography>
           ) : (
             <Stack spacing={2}>
@@ -406,7 +408,7 @@ const Dashboard: React.FC = () => {
                       {agent.name}
                     </Typography>
                     <Chip
-                      label={agent.status}
+                      label={t(`labels.${agent.status}`, { ns: 'common' }) as string}
                       size="small"
                       color={agent.status === 'active' ? 'success' : 'default'}
                     />
@@ -415,9 +417,9 @@ const Dashboard: React.FC = () => {
                   {agent.currentTask ? (
                     <>
                       <Typography variant="caption" color="text.secondary" display="block">
-                        Hash Rate: {agent.currentTask.benchmark_speed ?
+                        {t('agents.hashRate') as string}: {agent.currentTask.benchmark_speed ?
                           formatHashRate(agent.currentTask.benchmark_speed, 2) :
-                          'N/A'
+                          t('agents.notAvailable') as string
                         }
                       </Typography>
                       {agent.jobExecution && (
@@ -431,13 +433,13 @@ const Dashboard: React.FC = () => {
                           }}
                           onClick={() => navigate(`/jobs/${agent.jobExecution!.id}`)}
                         >
-                          Job: {agent.jobExecution.name || 'Unnamed Job'}
+                          {t('agents.job') as string}: {agent.jobExecution.name || t('agents.unnamedJob') as string}
                         </Typography>
                       )}
                     </>
                   ) : (
                     <Typography variant="caption" color="text.secondary" display="block">
-                      No active task
+                      {t('agents.noActiveTask') as string}
                     </Typography>
                   )}
                 </Box>
@@ -449,17 +451,17 @@ const Dashboard: React.FC = () => {
                     disabled={agentPage === 1}
                     onClick={() => setAgentPage(p => p - 1)}
                   >
-                    Previous
+                    {t('pagination.previous') as string}
                   </Button>
                   <Typography variant="caption">
-                    Page {agentPage} of {totalAgentPages}
+                    {t('pagination.pageOf', { current: agentPage, total: totalAgentPages }) as string}
                   </Typography>
                   <Button
                     size="small"
                     disabled={agentPage >= totalAgentPages}
                     onClick={() => setAgentPage(p => p + 1)}
                   >
-                    Next
+                    {t('pagination.next') as string}
                   </Button>
                 </Box>
               )}
@@ -476,7 +478,7 @@ const Dashboard: React.FC = () => {
       <Grid container spacing={3}>
           <Grid item xs={12}>
             <Typography variant="h4" component="h1" gutterBottom>
-              Dashboard
+              {t('title') as string}
             </Typography>
           </Grid>
           {gridItems}
@@ -484,18 +486,18 @@ const Dashboard: React.FC = () => {
           <Grid item xs={12}>
             <Divider sx={{ my: 2 }} />
             <Typography variant="h5" component="h2" gutterBottom>
-              Your Jobs
+              {t('jobs.title') as string}
             </Typography>
             <Paper sx={{ p: 3 }}>
               {/* Status badges */}
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
                 <Badge badgeContent={totalJobs} color="primary">
-                  <Chip label="Total" size="small" />
+                  <Chip label={t('jobs.total') as string} size="small" />
                 </Badge>
                 {Object.entries(statusCounts).map(([status, count]) => (
                   <Badge key={status} badgeContent={count} color="default">
-                    <Chip 
-                      label={status} 
+                    <Chip
+                      label={t(`status.${status}`) as string}
                       size="small"
                       color={
                         status === 'running' ? 'primary' :
@@ -518,10 +520,10 @@ const Dashboard: React.FC = () => {
                 >
                   <ToggleButton value={true}>
                     <RefreshIcon sx={{ mr: 0.5 }} />
-                    Auto-refresh ON
+                    {t('jobs.autoRefreshOn') as string}
                   </ToggleButton>
                   <ToggleButton value={false}>
-                    Auto-refresh OFF
+                    {t('jobs.autoRefreshOff') as string}
                   </ToggleButton>
                 </ToggleButtonGroup>
                 
@@ -532,9 +534,9 @@ const Dashboard: React.FC = () => {
                   disabled={loading}
                   startIcon={<RefreshIcon />}
                 >
-                  Refresh
+                  {t('buttons.refresh') as string}
                 </Button>
-                
+
                 <Button
                   variant="outlined"
                   size="small"
@@ -543,46 +545,46 @@ const Dashboard: React.FC = () => {
                   disabled={statusCounts.completed === 0 && statusCounts.failed === 0}
                   startIcon={<DeleteIcon />}
                 >
-                  Delete Finished
+                  {t('buttons.deleteFinished') as string}
                 </Button>
               </Stack>
               
               {/* Filters */}
               <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
                 <FormControl size="small" sx={{ minWidth: 120 }}>
-                  <InputLabel>Status</InputLabel>
+                  <InputLabel>{t('filters.status') as string}</InputLabel>
                   <Select
                     value={filters.status || ''}
                     onChange={handleStatusChange}
-                    label="Status"
+                    label={t('filters.status') as string}
                   >
-                    <MenuItem value="">All</MenuItem>
-                    <MenuItem value="pending">Pending</MenuItem>
-                    <MenuItem value="running">Running</MenuItem>
-                    <MenuItem value="paused">Paused</MenuItem>
-                    <MenuItem value="completed">Completed</MenuItem>
-                    <MenuItem value="failed">Failed</MenuItem>
-                    <MenuItem value="cancelled">Cancelled</MenuItem>
+                    <MenuItem value="">{t('filters.all') as string}</MenuItem>
+                    <MenuItem value="pending">{t('status.pending') as string}</MenuItem>
+                    <MenuItem value="running">{t('status.running') as string}</MenuItem>
+                    <MenuItem value="paused">{t('status.paused') as string}</MenuItem>
+                    <MenuItem value="completed">{t('status.completed') as string}</MenuItem>
+                    <MenuItem value="failed">{t('status.failed') as string}</MenuItem>
+                    <MenuItem value="cancelled">{t('status.cancelled') as string}</MenuItem>
                   </Select>
                 </FormControl>
-                
+
                 <FormControl size="small" sx={{ minWidth: 120 }}>
-                  <InputLabel>Priority</InputLabel>
+                  <InputLabel>{t('filters.priority') as string}</InputLabel>
                   <Select
                     value={filters.priority?.toString() || ''}
                     onChange={handlePriorityChange}
-                    label="Priority"
+                    label={t('filters.priority') as string}
                   >
-                    <MenuItem value="">All</MenuItem>
+                    <MenuItem value="">{t('filters.all') as string}</MenuItem>
                     {[10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map(p => (
                       <MenuItem key={p} value={p.toString()}>{p}</MenuItem>
                     ))}
                   </Select>
                 </FormControl>
-                
+
                 <TextField
                   size="small"
-                  placeholder="Search jobs..."
+                  placeholder={t('filters.searchPlaceholder') as string}
                   value={filters.search}
                   onChange={handleSearchChange}
                   InputProps={{
@@ -590,7 +592,7 @@ const Dashboard: React.FC = () => {
                   }}
                   sx={{ flexGrow: 1, maxWidth: 400 }}
                 />
-                
+
                 {(filters.status || filters.priority !== null || filters.search) && (
                   <Button
                     size="small"
@@ -600,14 +602,14 @@ const Dashboard: React.FC = () => {
                     }}
                     startIcon={<FilterListIcon />}
                   >
-                    Clear Filters
+                    {t('filters.clear') as string}
                   </Button>
                 )}
               </Stack>
               
               {/* Last update time */}
               <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
-                Last updated: {lastUpdateTime.toLocaleTimeString()}
+                {t('jobs.lastUpdated', { time: lastUpdateTime.toLocaleTimeString() }) as string}
               </Typography>
               
               {/* Content */}
@@ -617,11 +619,11 @@ const Dashboard: React.FC = () => {
                 </Box>
               ) : error ? (
                 <Alert severity="error" sx={{ mb: 2 }}>
-                  Failed to load jobs: {error.message}
+                  {t('jobs.loadError', { message: error.message }) as string}
                 </Alert>
               ) : jobs.length === 0 ? (
                 <Alert severity="info">
-                  No jobs found. Create a new job from the Hashlists page.
+                  {t('jobs.noJobs') as string}
                 </Alert>
               ) : (
                 <JobsTable
@@ -644,8 +646,8 @@ const Dashboard: React.FC = () => {
         onClose={() => setDeleteDialogOpen(false)}
         onConfirm={handleDeleteFinished}
         isLoading={isDeleting}
-        title="Delete All Finished Jobs"
-        message="This will permanently delete all completed and failed jobs. This action cannot be undone."
+        title={t('dialogs.deleteFinished.title') as string}
+        message={t('dialogs.deleteFinished.message') as string}
       />
     </Box>
   );

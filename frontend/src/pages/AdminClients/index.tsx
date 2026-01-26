@@ -9,11 +9,13 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useSnackbar } from 'notistack';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 import { Client } from '../../types/client';
 import { listClients, createClient, updateClient, deleteClient, getDefaultClientRetentionSetting } from '../../services/api';
 
 export const AdminClients: React.FC = () => {
+    const { t } = useTranslation('admin');
     const [clients, setClients] = useState<Client[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
@@ -35,11 +37,11 @@ export const AdminClients: React.FC = () => {
         try {
             const response = await listClients();
             console.log("[AdminClients] Fetched clients data:", response.data);
-            setClients(response.data.data || []); 
+            setClients(response.data.data || []);
         } catch (err) {
             console.error("Failed to fetch clients:", err);
-            setError('Failed to load clients. Please try refreshing.');
-            enqueueSnackbar('Failed to load clients', { variant: 'error' });
+            setError(t('clients.errors.loadFailed') as string);
+            enqueueSnackbar(t('clients.errors.loadFailed') as string, { variant: 'error' });
         } finally {
             setLoading(false);
         }
@@ -66,7 +68,7 @@ export const AdminClients: React.FC = () => {
             }
         } catch (err) {
             console.error("[AdminClients] Failed to fetch default retention setting:", err);
-            setError('Failed to load default client settings.');
+            setError(t('clients.errors.loadDefaultSettingsFailed') as string);
             setDefaultRetention(null);
         } finally {
             setIsDefaultRetentionLoading(false);
@@ -81,12 +83,12 @@ export const AdminClients: React.FC = () => {
 
 
     const columns: GridColDef[] = [
-        { field: 'name', headerName: 'Name', flex: 1, minWidth: 150 },
-        { field: 'description', headerName: 'Description', flex: 2, minWidth: 200 },
-        { field: 'contactInfo', headerName: 'Contact', flex: 1, minWidth: 150 },
+        { field: 'name', headerName: t('clients.columns.name') as string, flex: 1, minWidth: 150 },
+        { field: 'description', headerName: t('clients.columns.description') as string, flex: 2, minWidth: 200 },
+        { field: 'contactInfo', headerName: t('clients.columns.contact') as string, flex: 1, minWidth: 150 },
         {
             field: 'cracked_count',
-            headerName: 'Cracked',
+            headerName: t('clients.columns.cracked') as string,
             width: 100,
             align: 'center',
             headerAlign: 'center',
@@ -116,33 +118,33 @@ export const AdminClients: React.FC = () => {
         },
         {
             field: 'dataRetentionMonths',
-            headerName: 'Retention (Raw)',
+            headerName: t('clients.columns.retention') as string,
             flex: 1,
             minWidth: 150,
         },
         {
             field: 'createdAt',
-            headerName: 'Created (Raw)',
+            headerName: t('clients.columns.createdAt') as string,
             flex: 1,
             minWidth: 180,
         },
         {
             field: 'actions',
             type: 'actions',
-            headerName: 'Actions',
+            headerName: t('clients.columns.actions') as string,
             width: 100,
             cellClassName: 'actions',
-            getActions: (params: GridRowParams<Client>) => [ 
+            getActions: (params: GridRowParams<Client>) => [
                 <GridActionsCellItem
                     icon={<EditIcon />}
-                    label="Edit"
-                    onClick={() => handleEditClick(params.row)} 
+                    label={t('common.edit') as string}
+                    onClick={() => handleEditClick(params.row)}
                     color="inherit"
                 />,
                 <GridActionsCellItem
                     icon={<DeleteIcon />}
-                    label="Delete"
-                    onClick={() => handleDeleteClick(params.row)} 
+                    label={t('common.delete') as string}
+                    onClick={() => handleDeleteClick(params.row)}
                     color="inherit"
                 />,
             ],
@@ -200,13 +202,13 @@ export const AdminClients: React.FC = () => {
         setIsSaving(true);
 
         if (!clientFormData.name?.trim()) {
-            setFormError('Client Name is required.');
+            setFormError(t('clients.validation.nameRequired') as string);
             setIsSaving(false);
             return;
         }
         const retention = clientFormData.dataRetentionMonths;
         if (retention != null && (isNaN(retention) || retention < 0)) {
-            setFormError('Retention Period must be a non-negative number or empty (for default).');
+            setFormError(t('clients.validation.retentionInvalid') as string);
             setIsSaving(false);
             return;
         }
@@ -220,18 +222,18 @@ export const AdminClients: React.FC = () => {
         };
 
         try {
-            if (selectedClient) { 
+            if (selectedClient) {
                 await updateClient(selectedClient.id, payload);
-                enqueueSnackbar('Client updated successfully', { variant: 'success' });
-            } else { 
+                enqueueSnackbar(t('clients.messages.updateSuccess') as string, { variant: 'success' });
+            } else {
                 await createClient(payload as Omit<Client, 'id' | 'createdAt' | 'updatedAt'>);
-                enqueueSnackbar('Client created successfully', { variant: 'success' });
+                enqueueSnackbar(t('clients.messages.createSuccess') as string, { variant: 'success' });
             }
-            fetchClients(); 
+            fetchClients();
             handleCloseDialog();
         } catch (err: any) {
             console.error("Failed to save client:", err);
-            const message = err.response?.data?.error || 'Failed to save client.';
+            const message = err.response?.data?.error || t('clients.errors.saveFailed') as string;
             setFormError(message);
             enqueueSnackbar(message, { variant: 'error' });
         } finally {
@@ -241,15 +243,15 @@ export const AdminClients: React.FC = () => {
 
     const handleDeleteConfirm = async () => {
         if (!selectedClient) return;
-        setIsSaving(true); 
+        setIsSaving(true);
         try {
             await deleteClient(selectedClient.id);
-            enqueueSnackbar('Client deleted successfully', { variant: 'success' });
-            fetchClients(); 
+            enqueueSnackbar(t('clients.messages.deleteSuccess') as string, { variant: 'success' });
+            fetchClients();
             handleCloseDialog();
         } catch (err: any) {
             console.error("Failed to delete client:", err);
-            const message = err.response?.data?.error || 'Failed to delete client.';
+            const message = err.response?.data?.error || t('clients.errors.deleteFailed') as string;
             enqueueSnackbar(message, { variant: 'error' });
         } finally {
             setIsSaving(false);
@@ -261,14 +263,14 @@ export const AdminClients: React.FC = () => {
         <Box sx={{ width: '100%', p: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography variant="h4" gutterBottom>
-                    Client Management
+                    {t('clients.title')}
                 </Typography>
                 <Button
                     variant="contained"
                     startIcon={<AddIcon />}
                     onClick={handleAddClick}
                 >
-                    Add Client
+                    {t('clients.addClient')}
                 </Button>
             </Box>
 
@@ -296,14 +298,14 @@ export const AdminClients: React.FC = () => {
             </Paper>
 
             <Dialog open={isAddEditDialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-                <DialogTitle>{selectedClient ? 'Edit Client' : 'Add New Client'}</DialogTitle>
+                <DialogTitle>{selectedClient ? t('clients.dialogs.editClient.title') : t('clients.dialogs.addClient.title')}</DialogTitle>
                 <DialogContent>
                     {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
                     <TextField
                         autoFocus
                         margin="dense"
                         name="name"
-                        label="Client Name"
+                        label={t('clients.form.clientName')}
                         type="text"
                         fullWidth
                         variant="outlined"
@@ -314,7 +316,7 @@ export const AdminClients: React.FC = () => {
                     <TextField
                         margin="dense"
                         name="description"
-                        label="Description"
+                        label={t('clients.form.description')}
                         type="text"
                         fullWidth
                         multiline
@@ -326,7 +328,7 @@ export const AdminClients: React.FC = () => {
                     <TextField
                         margin="dense"
                         name="contactInfo"
-                        label="Contact Info"
+                        label={t('clients.form.contactInfo')}
                         type="text"
                         fullWidth
                         variant="outlined"
@@ -336,13 +338,13 @@ export const AdminClients: React.FC = () => {
                     <TextField
                         margin="dense"
                         name="dataRetentionMonths"
-                        label="Data Retention (Months)"
+                        label={t('clients.form.dataRetention')}
                         type="number"
                         fullWidth
                         variant="outlined"
                         value={clientFormData.dataRetentionMonths === null ? '' : clientFormData.dataRetentionMonths}
                         onChange={handleFormChange}
-                        helperText="Leave empty to use system default. Enter 0 to keep forever."
+                        helperText={t('clients.form.dataRetentionHelperText')}
                         InputProps={{
                             inputProps: {
                                 min: 0
@@ -357,17 +359,17 @@ export const AdminClients: React.FC = () => {
                                 name="exclude_from_potfile"
                             />
                         }
-                        label="Exclude from potfile (don't save cracked passwords)"
+                        label={t('clients.form.excludeFromPotfile')}
                         sx={{ mt: 2 }}
                     />
                     <Typography variant="caption" color="textSecondary" display="block" sx={{ ml: 4, mt: -1, mb: 2 }}>
-                        Enable this for clients with strict data retention requirements
+                        {t('clients.form.excludeFromPotfileHelperText')}
                     </Typography>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleCloseDialog} disabled={isSaving}>Cancel</Button>
+                    <Button onClick={handleCloseDialog} disabled={isSaving}>{t('common.cancel')}</Button>
                     <Button onClick={handleSaveClient} disabled={isSaving} variant="contained">
-                        {isSaving ? <CircularProgress size={24} /> : (selectedClient ? 'Save Changes' : 'Create Client')}
+                        {isSaving ? <CircularProgress size={24} /> : (selectedClient ? t('common.saveChanges') : t('clients.dialogs.addClient.createButton'))}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -379,19 +381,17 @@ export const AdminClients: React.FC = () => {
                 aria-describedby="alert-dialog-description"
             >
                 <DialogTitle id="alert-dialog-title">
-                    {"Confirm Deletion"}
+                    {t('clients.dialogs.deleteClient.title')}
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-description">
-                        Are you sure you want to delete the client "{selectedClient?.name}"? 
-                        This action cannot be undone. Associated hashlists may be deleted immediately 
-                        or orphaned based on retention policies.
+                        {t('clients.dialogs.deleteClient.confirmation', { name: selectedClient?.name })}
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleCloseDialog} disabled={isSaving}>Cancel</Button>
+                    <Button onClick={handleCloseDialog} disabled={isSaving}>{t('common.cancel')}</Button>
                     <Button onClick={handleDeleteConfirm} color="error" autoFocus disabled={isSaving}>
-                        {isSaving ? <CircularProgress size={24} /> : 'Delete'}
+                        {isSaving ? <CircularProgress size={24} /> : t('common.delete')}
                     </Button>
                 </DialogActions>
             </Dialog>

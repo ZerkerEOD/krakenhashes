@@ -3,6 +3,7 @@
  * Dynamically hides columns with zero values.
  */
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Paper,
   Typography,
@@ -21,6 +22,8 @@ interface LengthDistributionSectionProps {
 }
 
 export default function LengthDistributionSection({ data }: LengthDistributionSectionProps) {
+  const { t } = useTranslation('analytics');
+
   // Filter out lengths with zero count
   const activeDistributions = useMemo(() => {
     const entries = Object.entries(data.distribution)
@@ -41,25 +44,25 @@ export default function LengthDistributionSection({ data }: LengthDistributionSe
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
       <Typography variant="h5" gutterBottom>
-        Length Distribution
+        {t('sections.lengthDistribution')}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Average length (passwords &lt;15 chars): {data.average_length.toFixed(2)} characters
+        {t('descriptions.averageLength')} {data.average_length.toFixed(2)} {t('units.chars')}
       </Typography>
 
       <TableContainer>
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell sx={threeColumnTableStyles.labelCell}>Length</TableCell>
-              <TableCell sx={threeColumnTableStyles.countCell}>Count</TableCell>
-              <TableCell sx={threeColumnTableStyles.percentageCell}>Percentage</TableCell>
+              <TableCell sx={threeColumnTableStyles.labelCell}>{t('columns.length')}</TableCell>
+              <TableCell sx={threeColumnTableStyles.countCell}>{t('columns.count')}</TableCell>
+              <TableCell sx={threeColumnTableStyles.percentageCell}>{t('columns.percentage')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {activeDistributions.map(([length, stats]) => (
               <TableRow key={length}>
-                <TableCell sx={threeColumnTableStyles.labelCell}>{length} chars</TableCell>
+                <TableCell sx={threeColumnTableStyles.labelCell}>{length} {t('units.chars')}</TableCell>
                 <TableCell sx={threeColumnTableStyles.countCell}>{stats.count.toLocaleString()}</TableCell>
                 <TableCell sx={threeColumnTableStyles.percentageCell}>{stats.percentage.toFixed(2)}%</TableCell>
               </TableRow>

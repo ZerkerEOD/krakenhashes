@@ -29,6 +29,7 @@ import {
 } from '@mui/icons-material';
 import { api } from '../../services/api';
 import { useSnackbar } from 'notistack';
+import { useTranslation } from 'react-i18next';
 
 interface HashDetail {
   id: string;
@@ -68,6 +69,7 @@ export default function HashlistHashesTable({
   const [searchTerm, setSearchTerm] = useState('');
   const [openAllConfirm, setOpenAllConfirm] = useState(false);
   const { enqueueSnackbar } = useSnackbar();
+  const { t } = useTranslation('common');
 
   const pageSizeOptions = [500, 1000, 1500, 2000, -1];
 
@@ -322,7 +324,7 @@ export default function HashlistHashesTable({
 
         <TablePagination
           rowsPerPageOptions={pageSizeOptions.map((size) => ({
-            label: size === -1 ? 'All' : size.toString(),
+            label: size === -1 ? t('pagination.all') as string : size.toString(),
             value: size,
           }))}
           component="div"
@@ -331,6 +333,7 @@ export default function HashlistHashesTable({
           page={page}
           onPageChange={handleChangePage}
           onRowsPerPageChange={handleChangeRowsPerPage}
+          labelRowsPerPage={t('pagination.rowsPerPage') as string}
         />
       </Box>
 

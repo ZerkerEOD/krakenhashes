@@ -1,6 +1,6 @@
 /**
  * Wordlists Management page for KrakenHashes frontend.
- * 
+ *
  * Features:
  *   - View wordlists
  *   - Add new wordlists
@@ -9,6 +9,7 @@
  *   - Enable/disable wordlists
  */
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Button,
@@ -46,10 +47,10 @@ import {
   InputLabel,
   Select
 } from '@mui/material';
-import { 
-  Delete as DeleteIcon, 
-  Edit as EditIcon, 
-  Refresh as RefreshIcon, 
+import {
+  Delete as DeleteIcon,
+  Edit as EditIcon,
+  Refresh as RefreshIcon,
   CloudDownload as DownloadIcon,
   Search as SearchIcon,
   Add as AddIcon,
@@ -64,6 +65,7 @@ import { useSnackbar } from 'notistack';
 import { formatFileSize, formatAttackMode } from '../utils/formatters';
 
 export default function WordlistsManagement() {
+  const { t } = useTranslation('admin');
   const [wordlists, setWordlists] = useState<Wordlist[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -93,17 +95,17 @@ export default function WordlistsManagement() {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await wordlistService.getWordlists();
       setWordlists(response.data);
     } catch (err) {
       console.error('Error fetching wordlists:', err);
-      setError('Failed to load wordlists');
-      enqueueSnackbar('Failed to load wordlists', { variant: 'error' });
+      setError(t('wordlists.errors.loadFailed') as string);
+      enqueueSnackbar(t('wordlists.errors.loadFailed') as string, { variant: 'error' });
     } finally {
       setLoading(false);
     }
-  }, [enqueueSnackbar]);
+  }, [enqueueSnackbar, t]);
 
   useEffect(() => {
     fetchWordlists();
@@ -113,10 +115,10 @@ export default function WordlistsManagement() {
   const handleUploadWordlist = async (formData: FormData) => {
     try {
       setIsLoading(true);
-      
+
       // Add the wordlist type to the form data
       formData.append('wordlist_type', selectedWordlistType);
-      
+
       // Add required fields if not present
       if (!formData.has('name')) {
         const file = formData.get('file') as File;
@@ -124,7 +126,7 @@ export default function WordlistsManagement() {
           formData.append('name', file.name.split('.')[0]);
         }
       }
-      
+
       if (!formData.has('format')) {
         const file = formData.get('file') as File;
         if (file) {
@@ -137,17 +139,17 @@ export default function WordlistsManagement() {
           formData.append('format', 'plaintext');
         }
       }
-      
-      console.debug('[Wordlist Upload] Sending form data:', 
+
+      console.debug('[Wordlist Upload] Sending form data:',
         Array.from(formData.entries()).reduce((obj, [key, val]) => {
           obj[key] = key === 'file' ? '(file content)' : val;
           return obj;
         }, {} as Record<string, any>)
       );
-      
+
       console.debug('[Wordlist Upload] Authentication cookies before upload:', document.cookie);
       console.debug('[Wordlist Upload] Upload URL:', '/api/wordlists/upload');
-      
+
       try {
         const response = await wordlistService.uploadWordlist(formData, (progress, eta, speed) => {
           // Update progress in the FileUpload component
@@ -155,14 +157,14 @@ export default function WordlistsManagement() {
           document.dispatchEvent(progressEvent);
         });
         console.debug('[Wordlist Upload] Upload successful:', response);
-        
+
         // Check if the response indicates a duplicate wordlist
         if (response.data.duplicate) {
-          enqueueSnackbar(`Wordlist "${response.data.name}" already exists`, { variant: 'info' });
+          enqueueSnackbar(t('wordlists.messages.duplicateWordlist', { name: response.data.name }) as string, { variant: 'info' });
         } else {
-          enqueueSnackbar('Wordlist uploaded successfully', { variant: 'success' });
+          enqueueSnackbar(t('wordlists.messages.uploadSuccess') as string, { variant: 'success' });
         }
-        
+
         setUploadDialogOpen(false);
         fetchWordlists();
       } catch (uploadError) {
@@ -170,11 +172,11 @@ export default function WordlistsManagement() {
         console.debug('[Wordlist Upload] Authentication cookies after error:', document.cookie);
         throw uploadError;
       }
-      
+
       console.debug('[Wordlist Upload] Authentication cookies after upload:', document.cookie);
     } catch (error) {
       console.error('Error uploading wordlist:', error);
-      enqueueSnackbar('Failed to upload wordlist', { variant: 'error' });
+      enqueueSnackbar(t('wordlists.errors.uploadFailed') as string, { variant: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -184,12 +186,12 @@ export default function WordlistsManagement() {
   const handleDelete = async (id: string, name: string, confirmId?: number) => {
     try {
       await wordlistService.deleteWordlist(id, confirmId);
-      enqueueSnackbar(`Wordlist "${name}" deleted successfully`, { variant: 'success' });
+      enqueueSnackbar(t('wordlists.messages.deleteSuccess', { name }) as string, { variant: 'success' });
       fetchWordlists();
     } catch (err: any) {
       console.error('Error deleting wordlist:', err);
       // Extract error message from axios response
-      const errorMessage = err.response?.data?.error || 'Failed to delete wordlist';
+      const errorMessage = err.response?.data?.error || t('wordlists.errors.deleteFailed') as string;
       enqueueSnackbar(errorMessage, { variant: 'error' });
     } finally {
       closeDeleteDialog();
@@ -244,7 +246,7 @@ export default function WordlistsManagement() {
       document.body.removeChild(link);
     } catch (err) {
       console.error('Error downloading wordlist:', err);
-      enqueueSnackbar('Failed to download wordlist', { variant: 'error' });
+      enqueueSnackbar(t('wordlists.errors.downloadFailed') as string, { variant: 'error' });
     }
   };
 
@@ -263,12 +265,12 @@ export default function WordlistsManagement() {
     try {
       setLoading(true);
       const response = await wordlistService.refreshWordlist(id);
-      enqueueSnackbar('Wordlist metadata refreshed successfully', { variant: 'success' });
+      enqueueSnackbar(t('wordlists.messages.refreshSuccess') as string, { variant: 'success' });
       // Refresh the wordlist data
       fetchWordlists();
     } catch (err: any) {
       console.error('Error refreshing wordlist:', err);
-      const errorMessage = err.response?.data?.error || 'Failed to refresh wordlist metadata';
+      const errorMessage = err.response?.data?.error || t('wordlists.errors.refreshFailed') as string;
       enqueueSnackbar(errorMessage, { variant: 'error' });
     } finally {
       setLoading(false);
@@ -278,31 +280,31 @@ export default function WordlistsManagement() {
   // Handle save edit
   const handleSaveEdit = async () => {
     if (!currentWordlist) return;
-    
+
     try {
       console.debug('[Wordlist Edit] Updating wordlist:', currentWordlist.id, {
         name: nameEdit,
         description: descriptionEdit,
         wordlist_type: wordlistTypeEdit
       });
-      
+
       const response = await wordlistService.updateWordlist(currentWordlist.id, {
         name: nameEdit,
         description: descriptionEdit,
         wordlist_type: wordlistTypeEdit
       });
-      
+
       console.debug('[Wordlist Edit] Update successful:', response);
-      enqueueSnackbar('Wordlist updated successfully', { variant: 'success' });
+      enqueueSnackbar(t('wordlists.messages.updateSuccess') as string, { variant: 'success' });
       setOpenEditDialog(false);
       fetchWordlists();
     } catch (err: any) {
       console.error('[Wordlist Edit] Error updating wordlist:', err);
-      
+
       if (err.response?.status === 401) {
-        enqueueSnackbar('Your session has expired. Please log in again.', { variant: 'error' });
+        enqueueSnackbar(t('wordlists.errors.sessionExpired') as string, { variant: 'error' });
       } else {
-        enqueueSnackbar('Failed to update wordlist: ' + (err.response?.data?.message || err.message), { variant: 'error' });
+        enqueueSnackbar(t('wordlists.errors.updateFailed', { error: err.response?.data?.message || err.message }) as string, { variant: 'error' });
       }
     }
   };
@@ -338,36 +340,36 @@ export default function WordlistsManagement() {
       // Filter by search term
       const matchesSearch = wordlist.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            wordlist.description.toLowerCase().includes(searchTerm.toLowerCase());
-      
+
       // Filter by tab
       if (tabValue === 0) return matchesSearch; // All
       if (tabValue === 1) return matchesSearch && wordlist.wordlist_type === WordlistType.GENERAL;
       if (tabValue === 2) return matchesSearch && wordlist.wordlist_type === WordlistType.SPECIALIZED;
       if (tabValue === 3) return matchesSearch && wordlist.wordlist_type === WordlistType.TARGETED;
       if (tabValue === 4) return matchesSearch && wordlist.wordlist_type === WordlistType.CUSTOM;
-      
+
       return matchesSearch;
     })
     .sort((a, b) => {
       // Handle special cases for non-string fields
       if (sortBy === 'file_size' || sortBy === 'word_count') {
-        return sortOrder === 'asc' 
-          ? a[sortBy] - b[sortBy] 
+        return sortOrder === 'asc'
+          ? a[sortBy] - b[sortBy]
           : b[sortBy] - a[sortBy];
       }
-      
+
       // Handle date fields
       if (sortBy === 'created_at' || sortBy === 'updated_at' || sortBy === 'last_verified_at') {
         const dateA = new Date(a[sortBy] || 0).getTime();
         const dateB = new Date(b[sortBy] || 0).getTime();
         return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
       }
-      
+
       // Default string comparison
       const valueA = String(a[sortBy] || '').toLowerCase();
       const valueB = String(b[sortBy] || '').toLowerCase();
-      return sortOrder === 'asc' 
-        ? valueA.localeCompare(valueB) 
+      return sortOrder === 'asc'
+        ? valueA.localeCompare(valueB)
         : valueB.localeCompare(valueA);
     });
 
@@ -375,11 +377,11 @@ export default function WordlistsManagement() {
   const renderStatusChip = (status: string) => {
     switch (status) {
       case 'verified':
-        return <Chip label="Verified" color="success" size="small" />;
+        return <Chip label={t('wordlists.status.verified') as string} color="success" size="small" />;
       case 'pending':
-        return <Chip label="Pending" color="warning" size="small" />;
+        return <Chip label={t('wordlists.status.pending') as string} color="warning" size="small" />;
       case 'failed':
-        return <Chip label="Failed" color="error" size="small" />;
+        return <Chip label={t('wordlists.status.failed') as string} color="error" size="small" />;
       default:
         return <Chip label={status} color="default" size="small" />;
     }
@@ -390,10 +392,10 @@ export default function WordlistsManagement() {
       <Grid container spacing={2} alignItems="center" sx={{ mb: 3 }}>
           <Grid item xs={12} sm={6}>
             <Typography variant="h4" component="h1" gutterBottom>
-              Wordlist Management
+              {t('wordlists.title') as string}
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              Manage wordlists for password cracking
+              {t('wordlists.description') as string}
             </Typography>
           </Grid>
           <Grid item xs={12} sm={6} sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
@@ -404,14 +406,14 @@ export default function WordlistsManagement() {
               sx={{ mr: 1 }}
               disabled={isLoading}
             >
-              Upload Wordlist
+              {t('wordlists.uploadWordlist') as string}
             </Button>
             <Button
               variant="outlined"
               startIcon={<RefreshIcon />}
               onClick={() => fetchWordlists()}
             >
-              Refresh
+              {t('wordlists.refresh') as string}
             </Button>
           </Grid>
         </Grid>
@@ -424,19 +426,19 @@ export default function WordlistsManagement() {
 
         <Paper sx={{ mb: 3, overflow: 'hidden' }}>
           <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <Tabs 
-              value={tabValue} 
+            <Tabs
+              value={tabValue}
               onChange={(_, newValue) => setTabValue(newValue)}
               aria-label="wordlist tabs"
             >
-              <Tab label="All Wordlists" id="tab-0" />
-              <Tab label="General" id="tab-1" />
-              <Tab label="Specialized" id="tab-2" />
-              <Tab label="Targeted" id="tab-3" />
-              <Tab label="Custom" id="tab-4" />
+              <Tab label={t('wordlists.tabs.all') as string} id="tab-0" />
+              <Tab label={t('wordlists.tabs.general') as string} id="tab-1" />
+              <Tab label={t('wordlists.tabs.specialized') as string} id="tab-2" />
+              <Tab label={t('wordlists.tabs.targeted') as string} id="tab-3" />
+              <Tab label={t('wordlists.tabs.custom') as string} id="tab-4" />
             </Tabs>
           </Box>
-          
+
           <Toolbar
             sx={{
               pl: { sm: 2 },
@@ -447,7 +449,7 @@ export default function WordlistsManagement() {
           >
             <TextField
               margin="dense"
-              placeholder="Search wordlists..."
+              placeholder={t('wordlists.searchPlaceholder') as string}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -468,32 +470,32 @@ export default function WordlistsManagement() {
               sx={{ width: { xs: '100%', sm: '60%', md: '40%' } }}
             />
           </Toolbar>
-          
+
           <Divider />
-          
+
           <TableContainer>
             <Table sx={{ minWidth: 650 }} aria-label="wordlists table">
               <TableHead>
                 <TableRow>
                   <TableCell>
-                    {renderSortLabel('name', 'Name')}
+                    {renderSortLabel('name', t('wordlists.columns.name') as string)}
                   </TableCell>
                   <TableCell>
-                    {renderSortLabel('verification_status', 'Status')}
+                    {renderSortLabel('verification_status', t('wordlists.columns.status') as string)}
                   </TableCell>
                   <TableCell>
-                    {renderSortLabel('wordlist_type', 'Type')}
+                    {renderSortLabel('wordlist_type', t('wordlists.columns.type') as string)}
                   </TableCell>
                   <TableCell>
-                    {renderSortLabel('file_size', 'Size')}
+                    {renderSortLabel('file_size', t('wordlists.columns.size') as string)}
                   </TableCell>
                   <TableCell>
-                    {renderSortLabel('word_count', 'Word Count')}
+                    {renderSortLabel('word_count', t('wordlists.columns.wordCount') as string)}
                   </TableCell>
                   <TableCell>
-                    {renderSortLabel('updated_at', 'Updated')}
+                    {renderSortLabel('updated_at', t('wordlists.columns.updated') as string)}
                   </TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell align="right">{t('wordlists.columns.actions') as string}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -502,7 +504,7 @@ export default function WordlistsManagement() {
                     <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
                       <CircularProgress size={40} />
                       <Typography variant="body2" sx={{ mt: 1 }}>
-                        Loading wordlists...
+                        {t('wordlists.loading') as string}
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -510,10 +512,10 @@ export default function WordlistsManagement() {
                   <TableRow>
                     <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
                       <Typography variant="body1">
-                        No wordlists found
+                        {t('wordlists.noWordlistsFound') as string}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                        {searchTerm ? 'Try a different search term' : 'Upload a wordlist to get started'}
+                        {searchTerm ? t('wordlists.tryDifferentSearch') as string : t('wordlists.uploadToGetStarted') as string}
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -526,7 +528,7 @@ export default function WordlistsManagement() {
                             {wordlist.name}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            {wordlist.description || 'No description provided'}
+                            {wordlist.description || t('wordlists.noDescription') as string}
                           </Typography>
                         </Box>
                       </TableCell>
@@ -553,7 +555,7 @@ export default function WordlistsManagement() {
                       </TableCell>
                       <TableCell align="right">
                         {wordlist.is_potfile && (
-                          <Tooltip title="Refresh Metadata">
+                          <Tooltip title={t('wordlists.tooltips.refreshMetadata') as string}>
                             <IconButton
                               onClick={() => handleRefreshWordlist(wordlist.id)}
                               color="primary"
@@ -562,7 +564,7 @@ export default function WordlistsManagement() {
                             </IconButton>
                           </Tooltip>
                         )}
-                        <Tooltip title="Download">
+                        <Tooltip title={t('wordlists.tooltips.download') as string}>
                           <IconButton
                             onClick={() => handleDownload(wordlist.id, wordlist.name)}
                             disabled={wordlist.verification_status !== 'verified'}
@@ -570,14 +572,14 @@ export default function WordlistsManagement() {
                             <DownloadIcon />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Edit">
+                        <Tooltip title={t('wordlists.tooltips.edit') as string}>
                           <IconButton
                             onClick={() => handleEditClick(wordlist)}
                           >
                             <EditIcon />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Delete">
+                        <Tooltip title={t('wordlists.tooltips.delete') as string}>
                           <IconButton
                             color="error"
                             onClick={() => openDeleteDialog(wordlist.id, wordlist.name)}
@@ -601,29 +603,29 @@ export default function WordlistsManagement() {
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>Upload Wordlist</DialogTitle>
+        <DialogTitle>{t('wordlists.dialogs.upload.title') as string}</DialogTitle>
         <DialogContent>
           <FileUpload
-            title="Upload a wordlist file"
-            description="Select a wordlist file to upload. Supported formats: .txt, .dict, .dic, .lst, .wordlist, .wl, .gz, .zip"
+            title={t('wordlists.dialogs.upload.fileUploadTitle') as string}
+            description={t('wordlists.dialogs.upload.fileUploadDescription') as string}
             acceptedFileTypes=".txt,.dict,.dic,.lst,.wordlist,.wl,.gz,.zip,text/plain,application/gzip,application/zip"
             onUpload={handleUploadWordlist}
-            uploadButtonText="Upload Wordlist"
+            uploadButtonText={t('wordlists.uploadWordlist') as string}
             additionalFields={
               <FormControl fullWidth margin="normal">
-                <InputLabel id="wordlist-type-label">Wordlist Type</InputLabel>
+                <InputLabel id="wordlist-type-label">{t('wordlists.fields.wordlistType') as string}</InputLabel>
                 <Select
                   labelId="wordlist-type-label"
                   id="wordlist-type"
                   name="wordlist_type"
                   value={selectedWordlistType}
                   onChange={(e) => setSelectedWordlistType(e.target.value as WordlistType)}
-                  label="Wordlist Type"
+                  label={t('wordlists.fields.wordlistType') as string}
                 >
-                  <MenuItem value={WordlistType.GENERAL}>General</MenuItem>
-                  <MenuItem value={WordlistType.SPECIALIZED}>Specialized</MenuItem>
-                  <MenuItem value={WordlistType.TARGETED}>Targeted</MenuItem>
-                  <MenuItem value={WordlistType.CUSTOM}>Custom</MenuItem>
+                  <MenuItem value={WordlistType.GENERAL}>{t('wordlists.types.general') as string}</MenuItem>
+                  <MenuItem value={WordlistType.SPECIALIZED}>{t('wordlists.types.specialized') as string}</MenuItem>
+                  <MenuItem value={WordlistType.TARGETED}>{t('wordlists.types.targeted') as string}</MenuItem>
+                  <MenuItem value={WordlistType.CUSTOM}>{t('wordlists.types.custom') as string}</MenuItem>
                 </Select>
               </FormControl>
             }
@@ -631,7 +633,7 @@ export default function WordlistsManagement() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setUploadDialogOpen(false)} color="primary" disabled={isLoading}>
-            Cancel
+            {t('common.cancel') as string}
           </Button>
         </DialogActions>
       </Dialog>
@@ -644,11 +646,11 @@ export default function WordlistsManagement() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle id="edit-dialog-title">Edit Wordlist</DialogTitle>
+        <DialogTitle id="edit-dialog-title">{t('wordlists.dialogs.edit.title') as string}</DialogTitle>
         <DialogContent>
           <TextField
             margin="dense"
-            label="Name"
+            label={t('wordlists.fields.name') as string}
             fullWidth
             value={nameEdit}
             onChange={(e) => setNameEdit(e.target.value)}
@@ -656,7 +658,7 @@ export default function WordlistsManagement() {
           />
           <TextField
             margin="dense"
-            label="Description"
+            label={t('wordlists.fields.description') as string}
             fullWidth
             multiline
             rows={3}
@@ -665,27 +667,27 @@ export default function WordlistsManagement() {
             sx={{ mb: 2 }}
           />
           <FormControl fullWidth margin="dense" sx={{ mb: 2 }}>
-            <InputLabel id="edit-wordlist-type-label">Wordlist Type</InputLabel>
+            <InputLabel id="edit-wordlist-type-label">{t('wordlists.fields.wordlistType') as string}</InputLabel>
             <Select
               labelId="edit-wordlist-type-label"
               id="edit-wordlist-type"
               value={wordlistTypeEdit}
               onChange={(e) => setWordlistTypeEdit(e.target.value as WordlistType)}
-              label="Wordlist Type"
+              label={t('wordlists.fields.wordlistType') as string}
             >
-              <MenuItem value={WordlistType.GENERAL}>General</MenuItem>
-              <MenuItem value={WordlistType.SPECIALIZED}>Specialized</MenuItem>
-              <MenuItem value={WordlistType.TARGETED}>Targeted</MenuItem>
-              <MenuItem value={WordlistType.CUSTOM}>Custom</MenuItem>
+              <MenuItem value={WordlistType.GENERAL}>{t('wordlists.types.general') as string}</MenuItem>
+              <MenuItem value={WordlistType.SPECIALIZED}>{t('wordlists.types.specialized') as string}</MenuItem>
+              <MenuItem value={WordlistType.TARGETED}>{t('wordlists.types.targeted') as string}</MenuItem>
+              <MenuItem value={WordlistType.CUSTOM}>{t('wordlists.types.custom') as string}</MenuItem>
             </Select>
           </FormControl>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenEditDialog(false)}>
-            Cancel
+            {t('common.cancel') as string}
           </Button>
           <Button onClick={handleSaveEdit} variant="contained" color="primary">
-            Save Changes
+            {t('common.saveChanges') as string}
           </Button>
         </DialogActions>
       </Dialog>
@@ -700,37 +702,37 @@ export default function WordlistsManagement() {
         fullWidth
       >
         <DialogTitle id="delete-dialog-title">
-          {deletionImpact?.has_cascading_impact ? 'Confirm Cascade Deletion' : 'Confirm Deletion'}
+          {deletionImpact?.has_cascading_impact ? t('wordlists.dialogs.delete.cascadeTitle') as string : t('wordlists.dialogs.delete.title') as string}
         </DialogTitle>
         <DialogContent>
           {isCheckingImpact ? (
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 3 }}>
               <CircularProgress size={24} sx={{ mr: 2 }} />
-              <Typography>Checking for dependencies...</Typography>
+              <Typography>{t('wordlists.dialogs.delete.checkingDependencies') as string}</Typography>
             </Box>
           ) : deletionImpact?.has_cascading_impact ? (
             <Box>
               <Alert severity="warning" sx={{ mb: 2 }}>
-                Deleting wordlist "{wordlistToDelete?.name}" will also delete the following:
+                {t('wordlists.dialogs.delete.cascadeWarning', { name: wordlistToDelete?.name }) as string}
               </Alert>
 
               {deletionImpact.summary.total_jobs > 0 && (
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" color="error">
-                    {deletionImpact.summary.total_jobs} Job(s) (pending/running/failed):
+                    {t('wordlists.dialogs.delete.jobsCount', { count: deletionImpact.summary.total_jobs }) as string}
                   </Typography>
                   <Box component="ul" sx={{ mt: 0.5, pl: 2, mb: 0 }}>
                     {deletionImpact.impact.jobs.slice(0, 5).map((job) => (
                       <li key={job.id}>
                         <Typography variant="body2" color="text.secondary">
-                          {job.name} ({job.status}) - {job.hashlist_name || 'No hashlist'}
+                          {job.name} ({job.status}) - {job.hashlist_name || t('wordlists.dialogs.delete.noHashlist') as string}
                         </Typography>
                       </li>
                     ))}
                     {deletionImpact.summary.total_jobs > 5 && (
                       <li>
                         <Typography variant="body2" color="text.secondary">
-                          ...and {deletionImpact.summary.total_jobs - 5} more
+                          {t('wordlists.dialogs.delete.andMore', { count: deletionImpact.summary.total_jobs - 5 }) as string}
                         </Typography>
                       </li>
                     )}
@@ -741,7 +743,7 @@ export default function WordlistsManagement() {
               {deletionImpact.summary.total_preset_jobs > 0 && (
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" color="error">
-                    {deletionImpact.summary.total_preset_jobs} Preset Job(s):
+                    {t('wordlists.dialogs.delete.presetJobsCount', { count: deletionImpact.summary.total_preset_jobs }) as string}
                   </Typography>
                   <Box component="ul" sx={{ mt: 0.5, pl: 2, mb: 0 }}>
                     {deletionImpact.impact.preset_jobs.slice(0, 5).map((pj) => (
@@ -754,7 +756,7 @@ export default function WordlistsManagement() {
                     {deletionImpact.summary.total_preset_jobs > 5 && (
                       <li>
                         <Typography variant="body2" color="text.secondary">
-                          ...and {deletionImpact.summary.total_preset_jobs - 5} more
+                          {t('wordlists.dialogs.delete.andMore', { count: deletionImpact.summary.total_preset_jobs - 5 }) as string}
                         </Typography>
                       </li>
                     )}
@@ -765,20 +767,20 @@ export default function WordlistsManagement() {
               {deletionImpact.summary.total_workflow_steps > 0 && (
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" color="error">
-                    {deletionImpact.summary.total_workflow_steps} Workflow Step(s):
+                    {t('wordlists.dialogs.delete.workflowStepsCount', { count: deletionImpact.summary.total_workflow_steps }) as string}
                   </Typography>
                   <Box component="ul" sx={{ mt: 0.5, pl: 2, mb: 0 }}>
                     {deletionImpact.impact.workflow_steps.slice(0, 5).map((step, idx) => (
                       <li key={`${step.workflow_id}-${step.step_order}-${idx}`}>
                         <Typography variant="body2" color="text.secondary">
-                          {step.workflow_name} → Step {step.step_order} ({step.preset_job_name})
+                          {step.workflow_name} → {t('wordlists.dialogs.delete.step', { order: step.step_order }) as string} ({step.preset_job_name})
                         </Typography>
                       </li>
                     ))}
                     {deletionImpact.summary.total_workflow_steps > 5 && (
                       <li>
                         <Typography variant="body2" color="text.secondary">
-                          ...and {deletionImpact.summary.total_workflow_steps - 5} more
+                          {t('wordlists.dialogs.delete.andMore', { count: deletionImpact.summary.total_workflow_steps - 5 }) as string}
                         </Typography>
                       </li>
                     )}
@@ -789,7 +791,7 @@ export default function WordlistsManagement() {
               {deletionImpact.summary.total_workflows_to_delete > 0 && (
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" color="error">
-                    {deletionImpact.summary.total_workflows_to_delete} Empty Workflow(s) will be deleted:
+                    {t('wordlists.dialogs.delete.emptyWorkflowsCount', { count: deletionImpact.summary.total_workflows_to_delete }) as string}
                   </Typography>
                   <Box component="ul" sx={{ mt: 0.5, pl: 2, mb: 0 }}>
                     {deletionImpact.impact.workflows_to_delete.map((wf) => (
@@ -806,26 +808,26 @@ export default function WordlistsManagement() {
               <Divider sx={{ my: 2 }} />
 
               <Typography variant="body2" sx={{ mb: 1 }}>
-                To confirm this cascade deletion, type the wordlist ID: <strong>{deletionImpact.resource_id}</strong>
+                {t('wordlists.dialogs.delete.confirmationPrompt', { id: deletionImpact.resource_id }) as string}
               </Typography>
               <TextField
                 fullWidth
                 size="small"
-                placeholder={`Type ${deletionImpact.resource_id} to confirm`}
+                placeholder={t('wordlists.dialogs.delete.confirmationPlaceholder', { id: deletionImpact.resource_id }) as string}
                 value={confirmationId}
                 onChange={(e) => setConfirmationId(e.target.value)}
                 error={confirmationId !== '' && !isConfirmationValid()}
-                helperText={confirmationId !== '' && !isConfirmationValid() ? 'ID does not match' : ''}
+                helperText={confirmationId !== '' && !isConfirmationValid() ? t('wordlists.dialogs.delete.idMismatch') as string : ''}
               />
             </Box>
           ) : (
             <Typography variant="body1" id="delete-dialog-description">
-              Are you sure you want to delete wordlist "{wordlistToDelete?.name}"? This action cannot be undone.
+              {t('wordlists.dialogs.delete.confirmation', { name: wordlistToDelete?.name }) as string}
             </Typography>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={closeDeleteDialog}>Cancel</Button>
+          <Button onClick={closeDeleteDialog}>{t('common.cancel') as string}</Button>
           <Button
             onClick={() => {
               if (wordlistToDelete) {
@@ -837,10 +839,10 @@ export default function WordlistsManagement() {
             variant="contained"
             disabled={isCheckingImpact || (deletionImpact?.has_cascading_impact && !isConfirmationValid())}
           >
-            {deletionImpact?.has_cascading_impact ? 'Delete All' : 'Delete'}
+            {deletionImpact?.has_cascading_impact ? t('wordlists.dialogs.delete.deleteAll') as string : t('common.delete') as string}
           </Button>
         </DialogActions>
       </Dialog>
     </Box>
   );
-} 
+}

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link as RouterLink } from 'react-router-dom';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Calculate as CalculateIcon } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
+import { useTranslation } from 'react-i18next';
 
 // Import types and API functions from existing services
 // Ensure AttackMode enum is imported if needed for display formatting
@@ -24,6 +25,7 @@ const formatAttackMode = (mode: AttackMode): string => {
 };
 
 const PresetJobListPage: React.FC = () => {
+  const { t } = useTranslation('admin');
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
   const [calculatingJobs, setCalculatingJobs] = useState<Set<string>>(new Set());
@@ -38,11 +40,11 @@ const PresetJobListPage: React.FC = () => {
   const deleteMutation = useMutation<void, Error, string>({
     mutationFn: deletePresetJob, // Specify mutation function here
     onSuccess: () => {
-      enqueueSnackbar('Preset job deleted successfully', { variant: 'success' });
+      enqueueSnackbar(t('presetJobs.messages.deleteSuccess') as string, { variant: 'success' });
       queryClient.invalidateQueries({ queryKey: ['presetJobs'] });
     },
     onError: (err: Error) => {
-      enqueueSnackbar(`Failed to delete preset job: ${err.message}`, { variant: 'error' });
+      enqueueSnackbar(t('presetJobs.messages.deleteFailed', { error: err.message }) as string, { variant: 'error' });
     },
   });
 
@@ -62,12 +64,12 @@ const PresetJobListPage: React.FC = () => {
       }
     },
     onSuccess: () => {
-      enqueueSnackbar('Keyspace recalculated successfully', { variant: 'success' });
+      enqueueSnackbar(t('presetJobs.messages.keyspaceRecalculateSuccess') as string, { variant: 'success' });
       queryClient.invalidateQueries({ queryKey: ['presetJobs'] });
     },
     onError: (err: any) => {
-      const errorMessage = err.response?.data?.error || err.message || 'Unknown error';
-      enqueueSnackbar(`Failed to recalculate keyspace: ${errorMessage}`, { variant: 'error' });
+      const errorMessage = err.response?.data?.error || err.message || t('common.unknownError');
+      enqueueSnackbar(t('presetJobs.messages.keyspaceRecalculateFailed', { error: errorMessage }) as string, { variant: 'error' });
     },
   });
 
@@ -77,18 +79,18 @@ const PresetJobListPage: React.FC = () => {
       return response.data;
     },
     onSuccess: (data) => {
-      const message = `Keyspace calculation complete: ${data.updated} updated, ${data.skipped} skipped, ${data.failed} failed`;
+      const message = t('presetJobs.messages.keyspaceAllComplete', { updated: data.updated, skipped: data.skipped, failed: data.failed }) as string;
       enqueueSnackbar(message, { variant: data.failed > 0 ? 'warning' : 'success' });
       queryClient.invalidateQueries({ queryKey: ['presetJobs'] });
     },
     onError: (err: any) => {
-      const errorMessage = err.response?.data?.error || err.message || 'Unknown error';
-      enqueueSnackbar(`Failed to recalculate keyspaces: ${errorMessage}`, { variant: 'error' });
+      const errorMessage = err.response?.data?.error || err.message || t('common.unknownError');
+      enqueueSnackbar(t('presetJobs.messages.keyspaceAllFailed', { error: errorMessage }) as string, { variant: 'error' });
     },
   });
 
   const handleDelete = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this preset job?')) {
+    if (window.confirm(t('presetJobs.confirmDelete') as string)) {
       deleteMutation.mutate(id);
     }
   };
@@ -100,7 +102,7 @@ const PresetJobListPage: React.FC = () => {
   // Helper function to format keyspace
   const formatKeyspace = (keyspace: number | null | undefined): string => {
     if (keyspace === null || keyspace === undefined) {
-      return 'Not calculated';
+      return t('presetJobs.keyspaceNotCalculated') as string;
     }
     // Format large numbers with commas
     return keyspace.toLocaleString();
@@ -113,7 +115,7 @@ const PresetJobListPage: React.FC = () => {
     <Box sx={{ p: 3 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4">
-          Preset Job Management
+          {t('presetJobs.title') as string}
         </Typography>
         <Box display="flex" gap={2}>
           {hasJobsWithoutKeyspace && (
@@ -123,7 +125,7 @@ const PresetJobListPage: React.FC = () => {
               startIcon={<CalculateIcon />}
               disabled={deleteMutation.isPending || recalculateAllKeyspacesMutation.isPending || recalculateKeyspaceMutation.isPending}
             >
-              {recalculateAllKeyspacesMutation.isPending ? 'Calculating...' : 'Calculate All Missing Keyspaces'}
+              {recalculateAllKeyspacesMutation.isPending ? t('presetJobs.calculatingKeyspaces') as string : t('presetJobs.calculateAllMissingKeyspaces') as string}
             </Button>
           )}
           <Button
@@ -131,22 +133,22 @@ const PresetJobListPage: React.FC = () => {
             component={RouterLink}
             to="/admin/preset-jobs/new"
             startIcon={<AddIcon />}
-            disabled={deleteMutation.isPending} 
+            disabled={deleteMutation.isPending}
           >
-            Create New Preset Job
+            {t('presetJobs.createNew') as string}
           </Button>
         </Box>
       </Box>
 
-      {(isLoading || deleteMutation.isPending) && <CircularProgress />} 
-      {error && <Alert severity="error">Error fetching preset jobs: {error.message}</Alert>}
-      {deleteMutation.error && <Alert severity="error">Error deleting preset job: {deleteMutation.error.message}</Alert>}
-      
+      {(isLoading || deleteMutation.isPending) && <CircularProgress />}
+      {error && <Alert severity="error">{t('presetJobs.messages.fetchError', { error: error.message }) as string}</Alert>}
+      {deleteMutation.error && <Alert severity="error">{t('presetJobs.messages.deleteError', { error: deleteMutation.error.message }) as string}</Alert>}
+
       {recalculateAllKeyspacesMutation.isPending && (
         <Alert severity="info" sx={{ mb: 2 }}>
           <Box display="flex" alignItems="center" gap={2}>
             <CircularProgress size={20} />
-            <Typography>Calculating keyspaces for all preset jobs. This may take a few moments...</Typography>
+            <Typography>{t('presetJobs.calculatingAllKeyspacesMessage') as string}</Typography>
           </Box>
         </Alert>
       )} 
@@ -156,24 +158,24 @@ const PresetJobListPage: React.FC = () => {
           <Table sx={{ minWidth: 650 }} aria-label="preset jobs table">
             <TableHead>
               <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Attack Mode</TableCell>
-                <TableCell>Priority</TableCell>
-                <TableCell>High Priority Override</TableCell>
-                <TableCell>Max Agents</TableCell>
-                <TableCell>Keyspace</TableCell>
-                <TableCell>Binary Version</TableCell>
-                <TableCell>Wordlists</TableCell>
-                <TableCell>Rules</TableCell>
-                <TableCell>Created At</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell>{t('presetJobs.columns.name') as string}</TableCell>
+                <TableCell>{t('presetJobs.columns.attackMode') as string}</TableCell>
+                <TableCell>{t('presetJobs.columns.priority') as string}</TableCell>
+                <TableCell>{t('presetJobs.columns.highPriorityOverride') as string}</TableCell>
+                <TableCell>{t('presetJobs.columns.maxAgents') as string}</TableCell>
+                <TableCell>{t('presetJobs.columns.keyspace') as string}</TableCell>
+                <TableCell>{t('presetJobs.columns.binaryVersion') as string}</TableCell>
+                <TableCell>{t('presetJobs.columns.wordlists') as string}</TableCell>
+                <TableCell>{t('presetJobs.columns.rules') as string}</TableCell>
+                <TableCell>{t('presetJobs.columns.createdAt') as string}</TableCell>
+                <TableCell align="right">{t('presetJobs.columns.actions') as string}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {Array.isArray(presetJobs) && presetJobs.length === 0 && ( 
+              {Array.isArray(presetJobs) && presetJobs.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={11} align="center">
-                    No preset jobs found.
+                    {t('presetJobs.noJobsFound') as string}
                   </TableCell>
                 </TableRow>
               )}
@@ -195,35 +197,35 @@ const PresetJobListPage: React.FC = () => {
                   <TableCell>{job.priority}</TableCell>
                   <TableCell>
                     {job.allow_high_priority_override ? (
-                      <Tooltip title="This job can interrupt running jobs">
-                        <Chip 
-                          label="Yes" 
-                          size="small" 
+                      <Tooltip title={t('presetJobs.canInterruptRunningJobs') as string}>
+                        <Chip
+                          label={t('common.yes') as string}
+                          size="small"
                           color="error"
                           variant="filled"
                         />
                       </Tooltip>
                     ) : (
-                      <Chip 
-                        label="No" 
-                        size="small" 
+                      <Chip
+                        label={t('common.no') as string}
+                        size="small"
                         variant="outlined"
                       />
                     )}
                   </TableCell>
-                  <TableCell>{job.max_agents === 0 ? 'Unlimited' : job.max_agents}</TableCell>
+                  <TableCell>{job.max_agents === 0 ? t('common.unlimited') as string : job.max_agents}</TableCell>
                   <TableCell>
                     {calculatingJobs.has(job.id) ? (
                       <Box display="flex" alignItems="center" gap={1}>
                         <CircularProgress size={20} />
                         <Typography variant="body2" color="text.secondary">
-                          Calculating...
+                          {t('presetJobs.calculating') as string}
                         </Typography>
                       </Box>
                     ) : job.keyspace === null || job.keyspace === undefined ? (
-                      <Chip 
-                        label="Not calculated" 
-                        size="small" 
+                      <Chip
+                        label={t('presetJobs.keyspaceNotCalculated') as string}
+                        size="small"
                         color="warning"
                       />
                     ) : (
@@ -238,10 +240,10 @@ const PresetJobListPage: React.FC = () => {
                   <TableCell>{new Date(job.created_at).toLocaleString()}</TableCell>
                   <TableCell align="right">
                     {(job.keyspace === null || job.keyspace === undefined) && !calculatingJobs.has(job.id) && (
-                      <Tooltip title="Calculate keyspace">
-                        <IconButton 
-                          onClick={() => handleRecalculateKeyspace(job.id)} 
-                          aria-label="calculate keyspace"
+                      <Tooltip title={t('presetJobs.calculateKeyspace') as string}>
+                        <IconButton
+                          onClick={() => handleRecalculateKeyspace(job.id)}
+                          aria-label={t('presetJobs.calculateKeyspace') as string}
                           disabled={deleteMutation.isPending || recalculateKeyspaceMutation.isPending || calculatingJobs.size > 0}
                           color="warning"
                         >
@@ -249,17 +251,17 @@ const PresetJobListPage: React.FC = () => {
                         </IconButton>
                       </Tooltip>
                     )}
-                    <IconButton 
-                      component={RouterLink} 
-                      to={`/admin/preset-jobs/${job.id}/edit`} 
-                      aria-label="edit"
+                    <IconButton
+                      component={RouterLink}
+                      to={`/admin/preset-jobs/${job.id}/edit`}
+                      aria-label={t('common.edit') as string}
                       disabled={deleteMutation.isPending || recalculateKeyspaceMutation.isPending}
                     >
                       <EditIcon />
                     </IconButton>
-                    <IconButton 
-                      onClick={() => handleDelete(job.id)} 
-                      aria-label="delete"
+                    <IconButton
+                      onClick={() => handleDelete(job.id)}
+                      aria-label={t('common.delete') as string}
                       disabled={deleteMutation.isPending || recalculateKeyspaceMutation.isPending}
                     >
                       <DeleteIcon />

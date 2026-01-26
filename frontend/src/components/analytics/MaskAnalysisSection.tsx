@@ -2,6 +2,7 @@
  * Mask analysis section showing hashcat-style mask patterns.
  */
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Paper,
   Typography,
@@ -20,6 +21,8 @@ interface MaskAnalysisSectionProps {
 }
 
 export default function MaskAnalysisSection({ data }: MaskAnalysisSectionProps) {
+  const { t } = useTranslation('analytics');
+
   // Filter and sort masks by count
   const topMasks = useMemo(() => {
     return data.top_masks
@@ -35,19 +38,19 @@ export default function MaskAnalysisSection({ data }: MaskAnalysisSectionProps) 
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
       <Typography variant="h5" gutterBottom>
-        Mask Analysis
+        {t('sections.maskAnalysis')}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Top password patterns in hashcat mask format (?u=upper, ?l=lower, ?d=digit, ?s=special)
+        {t('descriptions.maskFormat')}
       </Typography>
 
       <TableContainer>
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell sx={threeColumnTableStyles.labelCell}>Mask Pattern</TableCell>
-              <TableCell sx={threeColumnTableStyles.countCell}>Count</TableCell>
-              <TableCell sx={threeColumnTableStyles.percentageCell}>Percentage</TableCell>
+              <TableCell sx={threeColumnTableStyles.labelCell}>{t('columns.maskPattern')}</TableCell>
+              <TableCell sx={threeColumnTableStyles.countCell}>{t('columns.count')}</TableCell>
+              <TableCell sx={threeColumnTableStyles.percentageCell}>{t('columns.percentage')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

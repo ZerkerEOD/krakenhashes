@@ -1,0 +1,116 @@
+{
+  "title": "Dashboard",
+  "welcome": "Welcome to KrakenHashes",
+  "stats": {
+    "title": "Overview",
+    "totalJobs": "Total Jobs",
+    "activeJobs": "Active Jobs",
+    "completedJobs": "Completed Jobs",
+    "totalHashes": "Total Hashes",
+    "crackedHashes": "Cracked Hashes",
+    "crackRate": "Crack Rate",
+    "activeAgents": "Active Agents",
+    "totalAgents": "Total Agents"
+  },
+  "recentActivity": {
+    "title": "Recent Activity",
+    "noActivity": "No recent activity"
+  },
+  "quickActions": {
+    "title": "Quick Actions",
+    "createJob": "Create Job",
+    "uploadHashlist": "Upload Hashlist",
+    "viewAgents": "View Agents"
+  },
+  "agents": {
+    "title": "Your Agents",
+    "loadError": "Failed to load agents: {{message}}",
+    "noAgents": "No agents registered",
+    "hashRate": "Hash Rate",
+    "notAvailable": "N/A",
+    "job": "Job",
+    "unnamedJob": "Unnamed Job",
+    "noActiveTask": "No active task"
+  },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next",
+    "pageOf": "Page {{current}} of {{total}}"
+  },
+  "jobs": {
+    "title": "Your Jobs",
+    "total": "Total",
+    "autoRefreshOn": "Auto",
+    "autoRefreshOff": "Off",
+    "lastUpdated": "Last updated: {{time}}",
+    "loadError": "Failed to load jobs: {{message}}",
+    "noJobs": "No jobs found. Create a new job to get started."
+  },
+  "buttons": {
+    "refresh": "Refresh",
+    "deleteFinished": "Delete Finished"
+  },
+  "filters": {
+    "status": "Status",
+    "priority": "Priority",
+    "all": "All",
+    "searchPlaceholder": "Search jobs...",
+    "clear": "Clear Filters"
+  },
+  "status": {
+    "pending": "Pending",
+    "running": "Running",
+    "paused": "Paused",
+    "completed": "Completed",
+    "failed": "Failed",
+    "cancelled": "Cancelled"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Delete Finished Jobs",
+      "message": "Are you sure you want to delete all finished jobs? This action cannot be undone."
+    }
+  },
+  "errors": {
+    "deleteFinishedFailed": "Failed to delete finished jobs",
+    "deleteJobFailed": "Failed to delete job",
+    "retryJobFailed": "Failed to retry job",
+    "updateJobFailed": "Failed to update job"
+  },
+  "hashlistOverview": {
+    "title": "Hashlist Overview",
+    "loadError": "Failed to load hashlists",
+    "noHashlists": "No hashlists found",
+    "columns": {
+      "name": "Name",
+      "client": "Client",
+      "status": "Status",
+      "total": "Total",
+      "cracked": "Cracked",
+      "progress": "Progress"
+    },
+    "status": {
+      "ready": "Ready",
+      "error": "Error",
+      "uploading": "Uploading",
+      "processing": "Processing"
+    }
+  },
+  "jobsTable": {
+    "noJobs": "No jobs found",
+    "noJobsHint": "Create a new job from the Hashlists page to get started.",
+    "completedJobs": "Completed Jobs",
+    "columns": {
+      "jobName": "Job Name",
+      "hashlist": "Hashlist",
+      "createdBy": "Created By",
+      "progress": "Progress",
+      "keyspace": "Keyspace",
+      "cracked": "Cracked",
+      "agents": "Agents",
+      "priority": "Priority",
+      "maxAgents": "Max Agents",
+      "actions": "Actions"
+    }
+  }
+}

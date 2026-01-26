@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import { Save as SaveIcon } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../services/api';
 
 interface AgentDownloadSettings {
@@ -26,6 +27,7 @@ interface AgentDownloadSettings {
 }
 
 const AgentDownloadSettings: React.FC = () => {
+  const { t } = useTranslation('admin');
   const { enqueueSnackbar } = useSnackbar();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -47,7 +49,7 @@ const AgentDownloadSettings: React.FC = () => {
       setSettings(response.data);
     } catch (error) {
       console.error('Failed to fetch agent download settings:', error);
-      enqueueSnackbar('Failed to load agent download settings', { variant: 'error' });
+      enqueueSnackbar(t('agentDownloads.errors.loadFailed') as string, { variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -57,10 +59,10 @@ const AgentDownloadSettings: React.FC = () => {
     setSaving(true);
     try {
       await api.put('/api/admin/settings/agent-download', settings);
-      enqueueSnackbar('Agent download settings updated successfully', { variant: 'success' });
+      enqueueSnackbar(t('agentDownloads.messages.updateSuccess') as string, { variant: 'success' });
     } catch (error) {
       console.error('Failed to update agent download settings:', error);
-      enqueueSnackbar('Failed to update agent download settings', { variant: 'error' });
+      enqueueSnackbar(t('agentDownloads.errors.saveFailed') as string, { variant: 'error' });
     } finally {
       setSaving(false);
     }
@@ -93,10 +95,10 @@ const AgentDownloadSettings: React.FC = () => {
   return (
     <Box>
       <Typography variant="h6" gutterBottom>
-        Agent File Transfer Settings
+        {t('agentDownloads.title')}
       </Typography>
       <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 3 }}>
-        Configure how agents download files from the backend. These settings apply to all connected agents.
+        {t('agentDownloads.description')}
       </Typography>
 
       <Grid container spacing={3}>
@@ -104,10 +106,10 @@ const AgentDownloadSettings: React.FC = () => {
           <Card>
             <CardContent>
               <Typography variant="subtitle1" gutterBottom fontWeight="bold">
-                Concurrent Downloads
+                {t('agentDownloads.concurrentDownloads.title')}
               </Typography>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                Maximum number of files that can be downloaded simultaneously
+                {t('agentDownloads.concurrentDownloads.description')}
               </Typography>
               <Box sx={{ px: 2, pt: 2 }}>
                 <Slider
@@ -137,10 +139,10 @@ const AgentDownloadSettings: React.FC = () => {
           <Card>
             <CardContent>
               <Typography variant="subtitle1" gutterBottom fontWeight="bold">
-                Download Timeout
+                {t('agentDownloads.downloadTimeout.title')}
               </Typography>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                Maximum time allowed for a single file download
+                {t('agentDownloads.downloadTimeout.description')}
               </Typography>
               <TextField
                 type="number"
@@ -149,10 +151,10 @@ const AgentDownloadSettings: React.FC = () => {
                 fullWidth
                 size="small"
                 InputProps={{
-                  endAdornment: <InputAdornment position="end">minutes</InputAdornment>,
+                  endAdornment: <InputAdornment position="end">{t('agentDownloads.downloadTimeout.unit')}</InputAdornment>,
                 }}
                 inputProps={{ min: 1, max: 1440 }}
-                helperText="Between 1 minute and 24 hours (1440 minutes)"
+                helperText={t('agentDownloads.downloadTimeout.helper')}
                 sx={{ mt: 2 }}
               />
             </CardContent>
@@ -163,10 +165,10 @@ const AgentDownloadSettings: React.FC = () => {
           <Card>
             <CardContent>
               <Typography variant="subtitle1" gutterBottom fontWeight="bold">
-                Retry Attempts
+                {t('agentDownloads.retryAttempts.title')}
               </Typography>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                Number of times to retry failed downloads
+                {t('agentDownloads.retryAttempts.description')}
               </Typography>
               <Box sx={{ px: 2, pt: 2 }}>
                 <Slider
@@ -196,10 +198,10 @@ const AgentDownloadSettings: React.FC = () => {
           <Card>
             <CardContent>
               <Typography variant="subtitle1" gutterBottom fontWeight="bold">
-                Progress Report Interval
+                {t('agentDownloads.progressInterval.title')}
               </Typography>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                How often agents report download progress
+                {t('agentDownloads.progressInterval.description')}
               </Typography>
               <TextField
                 type="number"
@@ -208,10 +210,10 @@ const AgentDownloadSettings: React.FC = () => {
                 fullWidth
                 size="small"
                 InputProps={{
-                  endAdornment: <InputAdornment position="end">seconds</InputAdornment>,
+                  endAdornment: <InputAdornment position="end">{t('agentDownloads.progressInterval.unit')}</InputAdornment>,
                 }}
                 inputProps={{ min: 1, max: 300 }}
-                helperText="Between 1 second and 5 minutes (300 seconds)"
+                helperText={t('agentDownloads.progressInterval.helper')}
                 sx={{ mt: 2 }}
               />
             </CardContent>
@@ -222,11 +224,11 @@ const AgentDownloadSettings: React.FC = () => {
           <Card>
             <CardContent>
               <Typography variant="subtitle1" gutterBottom fontWeight="bold">
-                Chunk Size
+                {t('agentDownloads.chunkSize.title')}
               </Typography>
-              <Tooltip title="Size of download chunks for resume capability (future feature)">
+              <Tooltip title={t('agentDownloads.chunkSize.description') as string}>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Download chunk size for future resume capability
+                  {t('agentDownloads.chunkSize.description')}
                 </Typography>
               </Tooltip>
               <TextField
@@ -236,10 +238,10 @@ const AgentDownloadSettings: React.FC = () => {
                 fullWidth
                 size="small"
                 InputProps={{
-                  endAdornment: <InputAdornment position="end">MB</InputAdornment>,
+                  endAdornment: <InputAdornment position="end">{t('agentDownloads.chunkSize.unit')}</InputAdornment>,
                 }}
                 inputProps={{ min: 1, max: 100 }}
-                helperText="Between 1 MB and 100 MB"
+                helperText={t('agentDownloads.chunkSize.helper')}
                 sx={{ mt: 2 }}
               />
             </CardContent>
@@ -248,7 +250,7 @@ const AgentDownloadSettings: React.FC = () => {
 
         <Grid item xs={12}>
           <Alert severity="info" sx={{ mb: 2 }}>
-            Changes will apply to agents on their next connection. Currently connected agents will receive updates automatically.
+            {t('agentDownloads.applyNote')}
           </Alert>
 
           <Box display="flex" justifyContent="flex-end">
@@ -259,7 +261,7 @@ const AgentDownloadSettings: React.FC = () => {
               disabled={saving}
               startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
             >
-              {saving ? 'Saving...' : 'Save Settings'}
+              {saving ? t('agentDownloads.buttons.saving') : t('agentDownloads.buttons.save')}
             </Button>
           </Box>
         </Grid>

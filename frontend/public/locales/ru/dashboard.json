@@ -1,0 +1,116 @@
+{
+  "title": "Панель управления",
+  "welcome": "Добро пожаловать в KrakenHashes",
+  "stats": {
+    "title": "Обзор",
+    "totalJobs": "Всего заданий",
+    "activeJobs": "Активных заданий",
+    "completedJobs": "Завершённых заданий",
+    "totalHashes": "Всего хешей",
+    "crackedHashes": "Взломанных хешей",
+    "crackRate": "Процент взлома",
+    "activeAgents": "Активных агентов",
+    "totalAgents": "Всего агентов"
+  },
+  "recentActivity": {
+    "title": "Последняя активность",
+    "noActivity": "Нет недавней активности"
+  },
+  "quickActions": {
+    "title": "Быстрые действия",
+    "createJob": "Создать задание",
+    "uploadHashlist": "Загрузить список хешей",
+    "viewAgents": "Просмотр агентов"
+  },
+  "agents": {
+    "title": "Ваши агенты",
+    "loadError": "Не удалось загрузить агентов: {{message}}",
+    "noAgents": "Нет зарегистрированных агентов",
+    "hashRate": "Скорость хеширования",
+    "notAvailable": "Н/Д",
+    "job": "Задание",
+    "unnamedJob": "Безымянное задание",
+    "noActiveTask": "Нет активной задачи"
+  },
+  "pagination": {
+    "previous": "Назад",
+    "next": "Вперёд",
+    "pageOf": "Страница {{current}} из {{total}}"
+  },
+  "jobs": {
+    "title": "Ваши задания",
+    "total": "Всего",
+    "autoRefreshOn": "Авто",
+    "autoRefreshOff": "Выкл",
+    "lastUpdated": "Последнее обновление: {{time}}",
+    "loadError": "Не удалось загрузить задания: {{message}}",
+    "noJobs": "Задания не найдены. Создайте новое задание для начала."
+  },
+  "buttons": {
+    "refresh": "Обновить",
+    "deleteFinished": "Удалить завершённые"
+  },
+  "filters": {
+    "status": "Статус",
+    "priority": "Приоритет",
+    "all": "Все",
+    "searchPlaceholder": "Поиск заданий...",
+    "clear": "Сбросить фильтры"
+  },
+  "status": {
+    "pending": "В очереди",
+    "running": "Выполняется",
+    "paused": "Приостановлено",
+    "completed": "Завершено",
+    "failed": "Ошибка",
+    "cancelled": "Отменено"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Удалить завершённые задания",
+      "message": "Вы уверены, что хотите удалить все завершённые задания? Это действие нельзя отменить."
+    }
+  },
+  "errors": {
+    "deleteFinishedFailed": "Не удалось удалить завершённые задания",
+    "deleteJobFailed": "Не удалось удалить задание",
+    "retryJobFailed": "Не удалось повторить задание",
+    "updateJobFailed": "Не удалось обновить задание"
+  },
+  "hashlistOverview": {
+    "title": "Обзор списков хешей",
+    "loadError": "Не удалось загрузить списки хешей",
+    "noHashlists": "Списки хешей не найдены",
+    "columns": {
+      "name": "Название",
+      "client": "Клиент",
+      "status": "Статус",
+      "total": "Всего",
+      "cracked": "Взломано",
+      "progress": "Прогресс"
+    },
+    "status": {
+      "ready": "Готов",
+      "error": "Ошибка",
+      "uploading": "Загрузка",
+      "processing": "Обработка"
+    }
+  },
+  "jobsTable": {
+    "noJobs": "Задания не найдены",
+    "noJobsHint": "Создайте новое задание на странице Списков хешей, чтобы начать.",
+    "completedJobs": "Завершённые задания",
+    "columns": {
+      "jobName": "Название задания",
+      "hashlist": "Список хешей",
+      "createdBy": "Создано",
+      "progress": "Прогресс",
+      "keyspace": "Пространство ключей",
+      "cracked": "Взломано",
+      "agents": "Агенты",
+      "priority": "Приоритет",
+      "maxAgents": "Макс. агентов",
+      "actions": "Действия"
+    }
+  }
+}

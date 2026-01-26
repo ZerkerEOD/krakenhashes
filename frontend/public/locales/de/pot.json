@@ -1,0 +1,86 @@
+{
+  "title": "Geknackte Hashes",
+  "page": {
+    "title": "Geknackte Hashes (Pot)",
+    "description": "Alle erfolgreich geknackten Passwort-Hashes über alle Hashlisten und Kunden anzeigen."
+  },
+  "table": {
+    "allCrackedHashes": "Alle geknackten Hashes"
+  },
+  "navigation": {
+    "backToAll": "Zurück zu allen geknackten Hashes"
+  },
+  "client": {
+    "title": "Geknackte Hashes - Kundenansicht",
+    "description": "Geknackte Hashes für Kunde anzeigen: <1>{{clientName}}</1>",
+    "tableTitle": "Geknackte Hashes für \"{{clientName}}\""
+  },
+  "hashlist": {
+    "title": "Geknackte Hashes - Hashlistenansicht",
+    "description": "Geknackte Hashes für Hashliste anzeigen: <1>{{hashlistName}}</1>",
+    "tableTitle": "Geknackte Hashes für \"{{hashlistName}}\""
+  },
+  "job": {
+    "title": "Geknackte Hashes für Auftrag: {{jobName}}",
+    "description": "Alle erfolgreich geknackten Passwort-Hashes aus dieser Auftragsausführung anzeigen.",
+    "tableTitle": "Geknackte Hashes - {{jobName}}",
+    "defaultName": "Auftrag {{id}}"
+  },
+  "columns": {
+    "originalHash": "Original-Hash",
+    "domain": "Domäne",
+    "username": "Benutzername",
+    "password": "Passwort",
+    "hashType": "Hash-Typ",
+    "actions": "Aktionen"
+  },
+  "search": {
+    "placeholder": "Datenbank durchsuchen...",
+    "filterPlaceholder": "Diese Seite filtern...",
+    "button": "Suchen",
+    "resultsFound": "{{count}} Ergebnis gefunden",
+    "resultsFound_plural": "{{count}} Ergebnisse gefunden",
+    "noResults": "Keine Ergebnisse gefunden",
+    "searching": "Suche läuft..."
+  },
+  "export": {
+    "hashPass": "Hash:Pass",
+    "userPass": "User:Pass",
+    "username": "Benutzername",
+    "password": "Passwort",
+    "domainUser": "Domäne\\\\Benutzer",
+    "domainUserPass": "Domäne\\\\Benutzer:Pass",
+    "exportVisible": "Sichtbare Ergebnisse exportieren",
+    "downloaded": "{{filename}} heruntergeladen",
+    "downloadFailed": "Datei-Download fehlgeschlagen"
+  },
+  "tooltips": {
+    "copyHash": "Hash:Passwort kopieren",
+    "copyDomain": "Klicken zum Kopieren der Domäne",
+    "copyUsername": "Klicken zum Kopieren des Benutzernamens",
+    "copyPassword": "Klicken zum Kopieren des Passworts"
+  },
+  "dialogs": {
+    "loadAllTitle": "Alle Ergebnisse laden?",
+    "loadAllMessage": "Das Laden aller {{value}} Ergebnisse kann erhebliche Zeit in Anspruch nehmen und die Leistung beeinträchtigen. Möchten Sie wirklich fortfahren?",
+    "loadingAll": "Alle Ergebnisse werden geladen. Dies kann einige Zeit dauern...",
+    "cancel": "Abbrechen",
+    "loadAll": "Alle laden"
+  },
+  "pagination": {
+    "all": "Alle"
+  },
+  "notifications": {
+    "copiedToClipboard": "In die Zwischenablage kopiert",
+    "exported": "Geknackte Hashes exportiert"
+  },
+  "errors": {
+    "loadFailed": "Fehler beim Laden der geknackten Hashes",
+    "loadClientFailed": "Fehler beim Laden der Kundeninformationen",
+    "loadHashlistFailed": "Fehler beim Laden der Hashlisteninformationen",
+    "loadJobFailed": "Fehler beim Laden der Auftragsinformationen"
+  },
+  "filter": {
+    "filteredBy": "Gefiltert nach {{param}}: {{value}}"
+  }
+}

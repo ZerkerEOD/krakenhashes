@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   TableRow,
   TableCell,
@@ -39,6 +40,7 @@ interface JobRowProps {
 }
 
 const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isCompletedSection, maxPriority = 10 }) => {
+  const { t } = useTranslation('jobs');
   const navigate = useNavigate();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -149,7 +151,7 @@ const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isC
               {job.name}
             </Link>
             <Chip
-              label={job.status}
+              label={t(`status.${job.status}`) as string}
               color={getStatusColor(job.status)}
               size="small"
               variant="outlined"
@@ -164,7 +166,7 @@ const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isC
             <Typography variant="body2">{job.hashlist_name}</Typography>
             {completionTime && (
               <Typography variant="caption" color="text.secondary">
-                Completed: {completionTime}
+                {t('row.completed')} {completionTime}
               </Typography>
             )}
           </Box>
@@ -173,7 +175,7 @@ const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isC
         {/* Created By */}
         <TableCell>
           <Typography variant="body2" color="text.secondary">
-            {job.created_by_username || 'Unknown'}
+            {job.created_by_username || t('row.unknown')}
           </Typography>
         </TableCell>
 
@@ -300,7 +302,7 @@ const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isC
               {job.agent_count}
             </Typography>
             {job.total_speed > 0 && (
-              <Tooltip title="Combined hash rate">
+              <Tooltip title={t('tooltips.combinedHashRate')}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 1 }}>
                   <SpeedIcon fontSize="small" color="action" />
                   <Typography variant="body2" color="text.secondary">
@@ -326,7 +328,7 @@ const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isC
               validation={(value) => {
                 const num = Number(value);
                 if (isNaN(num) || num < 1 || num > maxPriority) {
-                  return `Priority must be between 1 and ${maxPriority}`;
+                  return t('validation.priorityRange', { max: maxPriority }) as string;
                 }
                 return null;
               }}
@@ -348,7 +350,7 @@ const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isC
               validation={(value) => {
                 const num = Number(value);
                 if (isNaN(num) || num < 1 || num > 100) {
-                  return 'Max agents must be between 1 and 100';
+                  return t('validation.maxAgentsRange') as string;
                 }
                 return null;
               }}
@@ -360,7 +362,7 @@ const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isC
         <TableCell align="center">
           <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
             {canRetry && (
-              <Tooltip title="Retry job">
+              <Tooltip title={t('tooltips.retry')}>
                 <IconButton
                   size="small"
                   color="primary"
@@ -371,7 +373,7 @@ const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isC
                 </IconButton>
               </Tooltip>
             )}
-            <Tooltip title="Delete job">
+            <Tooltip title={t('tooltips.delete')}>
               <IconButton
                 size="small"
                 color="error"
@@ -391,7 +393,7 @@ const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isC
             <Collapse in={showError} timeout="auto" unmountOnExit>
               <Alert severity="error" sx={{ m: 2 }}>
                 <Typography variant="body2">
-                  <strong>Error:</strong> {job.error_message}
+                  <strong>{t('row.error')}</strong> {job.error_message}
                 </Typography>
               </Alert>
             </Collapse>
@@ -405,8 +407,8 @@ const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isC
         onClose={() => setDeleteDialogOpen(false)}
         onConfirm={handleDeleteJob}
         isLoading={isDeleting}
-        title="Delete Job"
-        message={`Are you sure you want to delete the job "${job.name}"? This action cannot be undone.`}
+        title={t('confirmDelete.title') as string}
+        message={t('confirmDelete.messageNamed', { name: job.name }) as string}
       />
     </>
   );

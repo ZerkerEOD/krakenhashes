@@ -1,0 +1,38 @@
+{
+  "network": {
+    "connectionFailed": "Error de conexión. Por favor, verifica tu red.",
+    "timeout": "La solicitud ha expirado. Por favor, inténtalo de nuevo.",
+    "serverUnavailable": "El servidor no está disponible. Por favor, inténtalo más tarde."
+  },
+  "authentication": {
+    "unauthorized": "No estás autorizado para realizar esta acción.",
+    "sessionExpired": "Tu sesión ha expirado. Por favor, inicia sesión de nuevo.",
+    "invalidToken": "Token de autenticación inválido.",
+    "loginRequired": "Por favor, inicia sesión para continuar."
+  },
+  "validation": {
+    "required": "Este campo es requerido.",
+    "invalidEmail": "Por favor, ingresa una dirección de correo válida.",
+    "invalidFormat": "Formato inválido.",
+    "tooShort": "Debe tener al menos {{min}} caracteres.",
+    "tooLong": "No debe exceder {{max}} caracteres.",
+    "passwordRequirements": "La contraseña debe contener al menos 8 caracteres, incluyendo mayúsculas, minúsculas, números y caracteres especiales."
+  },
+  "api": {
+    "badRequest": "Solicitud inválida. Por favor, verifica tus datos.",
+    "notFound": "El recurso solicitado no fue encontrado.",
+    "conflict": "Ocurrió un conflicto. El recurso puede ya existir.",
+    "serverError": "Ocurrió un error interno del servidor.",
+    "rateLimited": "Demasiadas solicitudes. Por favor, espera e inténtalo de nuevo."
+  },
+  "file": {
+    "tooLarge": "El archivo es demasiado grande. El tamaño máximo es {{maxSize}}.",
+    "invalidType": "Tipo de archivo inválido. Tipos permitidos: {{allowedTypes}}.",
+    "uploadFailed": "Error al subir el archivo. Por favor, inténtalo de nuevo."
+  },
+  "generic": {
+    "unknownError": "Ocurrió un error desconocido.",
+    "tryAgain": "Por favor, inténtalo de nuevo.",
+    "contactSupport": "Si el problema persiste, por favor contacta a soporte."
+  }
+}

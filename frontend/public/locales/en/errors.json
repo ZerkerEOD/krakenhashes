@@ -1,0 +1,38 @@
+{
+  "network": {
+    "connectionFailed": "Connection failed. Please check your network.",
+    "timeout": "Request timed out. Please try again.",
+    "serverUnavailable": "Server is unavailable. Please try again later."
+  },
+  "authentication": {
+    "unauthorized": "You are not authorized to perform this action.",
+    "sessionExpired": "Your session has expired. Please log in again.",
+    "invalidToken": "Invalid authentication token.",
+    "loginRequired": "Please log in to continue."
+  },
+  "validation": {
+    "required": "This field is required.",
+    "invalidEmail": "Please enter a valid email address.",
+    "invalidFormat": "Invalid format.",
+    "tooShort": "Must be at least {{min}} characters.",
+    "tooLong": "Must be no more than {{max}} characters.",
+    "passwordRequirements": "Password must contain at least 8 characters, including uppercase, lowercase, number, and special character."
+  },
+  "api": {
+    "badRequest": "Invalid request. Please check your input.",
+    "notFound": "The requested resource was not found.",
+    "conflict": "A conflict occurred. The resource may already exist.",
+    "serverError": "An internal server error occurred.",
+    "rateLimited": "Too many requests. Please wait and try again."
+  },
+  "file": {
+    "tooLarge": "File is too large. Maximum size is {{maxSize}}.",
+    "invalidType": "Invalid file type. Allowed types: {{allowedTypes}}.",
+    "uploadFailed": "File upload failed. Please try again."
+  },
+  "generic": {
+    "unknownError": "An unknown error occurred.",
+    "tryAgain": "Please try again.",
+    "contactSupport": "If the problem persists, please contact support."
+  }
+}

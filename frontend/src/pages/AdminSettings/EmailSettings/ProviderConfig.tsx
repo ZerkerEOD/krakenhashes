@@ -23,6 +23,7 @@ import {
 import { LoadingButton } from '@mui/lab';
 import { SelectChangeEvent } from '@mui/material/Select';
 import EditIcon from '@mui/icons-material/Edit';
+import { useTranslation } from 'react-i18next';
 import { getEmailConfig, updateEmailConfig, testEmailConfig } from '../../../services/api';
 
 interface ProviderConfigProps {
@@ -58,6 +59,7 @@ const defaultConfig: EmailProviderConfig = {
 type ViewMode = 'view' | 'edit' | 'create';
 
 export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }) => {
+  const { t } = useTranslation('admin');
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<ViewMode>('create');
   const [savedConfig, setSavedConfig] = useState<EmailProviderConfig | null>(null);
@@ -131,7 +133,7 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
       console.error('[ProviderConfig] Failed to load configuration:', error);
       // 404 is expected for new setup
       if ((error as any).response?.status !== 404) {
-        onNotification('Failed to load configuration', 'error');
+        onNotification(t('emailSettings.provider.messages.loadFailed'), 'error');
       }
       // No config exists, stay in create mode
       setSavedConfig(null);
@@ -140,7 +142,7 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
     } finally {
       setLoading(false);
     }
-  }, [onNotification]);
+  }, [onNotification, t]);
 
   // Load config on mount
   useEffect(() => {
@@ -264,12 +266,12 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
         };
         await testEmailConfig(payload);
       }
-      onNotification('Test email sent successfully', 'success');
+      onNotification(t('emailSettings.provider.messages.testSuccess'), 'success');
       setTestEmailOpen(false);
       setTestEmail('');
     } catch (error) {
       console.error('[ProviderConfig] Failed to send test email:', error);
-      onNotification(`Error: ${error instanceof Error ? error.message : 'Failed to send test email'}`, 'error');
+      onNotification(`Error: ${error instanceof Error ? error.message : t('emailSettings.provider.messages.testFailed')}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -309,22 +311,22 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
   const handleSave = async (withTest: boolean = false) => {
     // Validation
     if (!config.fromEmail) {
-      onNotification('From Email is required', 'error');
+      onNotification(t('emailSettings.provider.labels.fromEmail') + ' is required', 'error');
       return;
     }
 
     if (mode === 'create' && !config.apiKey) {
-      onNotification('API Key/Password is required for new configuration', 'error');
+      onNotification(t('emailSettings.provider.labels.apiKey') + '/' + t('emailSettings.provider.labels.password') + ' is required for new configuration', 'error');
       return;
     }
 
     if (config.provider === 'smtp') {
       if (!config.host) {
-        onNotification('SMTP Host is required', 'error');
+        onNotification(t('emailSettings.provider.labels.smtpHost') + ' is required', 'error');
         return;
       }
       if (!config.username) {
-        onNotification('SMTP Username is required', 'error');
+        onNotification(t('emailSettings.provider.labels.username') + ' is required', 'error');
         return;
       }
     }
@@ -338,7 +340,7 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
       console.debug('[ProviderConfig] Saving configuration with payload:', payload);
 
       await updateEmailConfig(payload);
-      onNotification('Configuration saved successfully', 'success');
+      onNotification(t('emailSettings.provider.messages.saveSuccess'), 'success');
 
       // Clear sessionStorage and reload config to switch to view mode
       sessionStorage.removeItem('email-config-editing');
@@ -349,7 +351,7 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
       }
     } catch (error) {
       console.error('[ProviderConfig] Failed to save configuration:', error);
-      onNotification(`Error: ${error instanceof Error ? error.message : 'Failed to save configuration'}`, 'error');
+      onNotification(`Error: ${error instanceof Error ? error.message : t('emailSettings.provider.messages.saveFailed')}`, 'error');
     } finally {
       setLoading(false);
       setSaveWithTestOpen(false);
@@ -359,69 +361,69 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
   const renderViewMode = () => (
     <Paper elevation={2} sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6">Current Email Configuration</Typography>
+        <Typography variant="h6">{t('emailSettings.provider.titles.current')}</Typography>
         <Button
           variant="outlined"
           startIcon={<EditIcon />}
           onClick={handleEdit}
         >
-          Edit Configuration
+          {t('emailSettings.provider.buttons.edit')}
         </Button>
       </Box>
       <Divider sx={{ mb: 2 }} />
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}>
-          <Typography variant="body2" color="text.secondary">Provider</Typography>
+          <Typography variant="body2" color="text.secondary">{t('emailSettings.provider.labels.provider')}</Typography>
           <Typography variant="body1" sx={{ textTransform: 'capitalize' }}>
-            {config.provider === 'smtp' ? 'SMTP' : config.provider}
+            {config.provider === 'smtp' ? t('emailSettings.provider.menuItems.smtp') : config.provider === 'sendgrid' ? t('emailSettings.provider.menuItems.sendgrid') : t('emailSettings.provider.menuItems.mailgun')}
           </Typography>
         </Grid>
         <Grid item xs={12} md={6}>
-          <Typography variant="body2" color="text.secondary">API Key / Password</Typography>
+          <Typography variant="body2" color="text.secondary">{t('emailSettings.provider.labels.apiKey')} / {t('emailSettings.provider.labels.password')}</Typography>
           <Typography variant="body1">••••••••••••</Typography>
         </Grid>
         {config.provider === 'mailgun' && config.domain && (
           <Grid item xs={12} md={6}>
-            <Typography variant="body2" color="text.secondary">Domain</Typography>
+            <Typography variant="body2" color="text.secondary">{t('emailSettings.provider.labels.domain')}</Typography>
             <Typography variant="body1">{config.domain}</Typography>
           </Grid>
         )}
         {config.provider === 'smtp' && (
           <>
             <Grid item xs={12} md={6}>
-              <Typography variant="body2" color="text.secondary">Host</Typography>
+              <Typography variant="body2" color="text.secondary">{t('emailSettings.provider.labels.smtpHost')}</Typography>
               <Typography variant="body1">{config.host}</Typography>
             </Grid>
             <Grid item xs={12} md={6}>
-              <Typography variant="body2" color="text.secondary">Port</Typography>
+              <Typography variant="body2" color="text.secondary">{t('emailSettings.provider.labels.port')}</Typography>
               <Typography variant="body1">{config.port}</Typography>
             </Grid>
             <Grid item xs={12} md={6}>
-              <Typography variant="body2" color="text.secondary">Username</Typography>
+              <Typography variant="body2" color="text.secondary">{t('emailSettings.provider.labels.username')}</Typography>
               <Typography variant="body1">{config.username}</Typography>
             </Grid>
             <Grid item xs={12} md={6}>
-              <Typography variant="body2" color="text.secondary">Encryption</Typography>
+              <Typography variant="body2" color="text.secondary">{t('emailSettings.provider.labels.encryption')}</Typography>
               <Typography variant="body1" sx={{ textTransform: 'uppercase' }}>{config.encryption}</Typography>
             </Grid>
             {config.skipTLSVerify && (
               <Grid item xs={12}>
-                <Alert severity="warning">TLS certificate verification is disabled</Alert>
+                <Alert severity="warning">{t('emailSettings.provider.warnings.tlsVerifyDisabled')}</Alert>
               </Grid>
             )}
           </>
         )}
         <Grid item xs={12} md={6}>
-          <Typography variant="body2" color="text.secondary">From Email</Typography>
+          <Typography variant="body2" color="text.secondary">{t('emailSettings.provider.labels.fromEmail')}</Typography>
           <Typography variant="body1">{config.fromEmail}</Typography>
         </Grid>
         <Grid item xs={12} md={6}>
-          <Typography variant="body2" color="text.secondary">From Name</Typography>
+          <Typography variant="body2" color="text.secondary">{t('emailSettings.provider.labels.fromName')}</Typography>
           <Typography variant="body1">{config.fromName}</Typography>
         </Grid>
         {config.monthlyLimit && (
           <Grid item xs={12} md={6}>
-            <Typography variant="body2" color="text.secondary">Monthly Limit</Typography>
+            <Typography variant="body2" color="text.secondary">{t('emailSettings.provider.labels.monthlyLimit')}</Typography>
             <Typography variant="body1">{config.monthlyLimit} emails</Typography>
           </Grid>
         )}
@@ -432,7 +434,7 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
           onClick={() => setTestEmailOpen(true)}
           disabled={loading}
         >
-          Test Connection
+          {t('emailSettings.provider.buttons.testConnection')}
         </Button>
       </Box>
     </Paper>
@@ -441,21 +443,21 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
   const renderFormMode = () => (
     <Box>
       <Typography variant="h6" gutterBottom>
-        {mode === 'create' ? 'Create Email Configuration' : 'Edit Email Configuration'}
+        {mode === 'create' ? t('emailSettings.provider.titles.create') : t('emailSettings.provider.titles.edit')}
       </Typography>
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
           <FormControl fullWidth>
-            <InputLabel>Provider</InputLabel>
+            <InputLabel>{t('emailSettings.provider.labels.provider')}</InputLabel>
             <Select
               value={config.provider}
-              label="Provider"
+              label={t('emailSettings.provider.labels.provider')}
               onChange={handleChange('provider')}
             >
-              <MenuItem value="sendgrid">SendGrid</MenuItem>
-              <MenuItem value="mailgun">Mailgun</MenuItem>
-              <MenuItem value="smtp">SMTP</MenuItem>
+              <MenuItem value="sendgrid">{t('emailSettings.provider.menuItems.sendgrid')}</MenuItem>
+              <MenuItem value="mailgun">{t('emailSettings.provider.menuItems.mailgun')}</MenuItem>
+              <MenuItem value="smtp">{t('emailSettings.provider.menuItems.smtp')}</MenuItem>
             </Select>
           </FormControl>
         </Grid>
@@ -463,12 +465,12 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            label={config.provider === 'smtp' ? 'Password' : 'API Key'}
+            label={config.provider === 'smtp' ? t('emailSettings.provider.labels.password') : t('emailSettings.provider.labels.apiKey')}
             type="password"
             value={config.apiKey}
             onChange={handleChange('apiKey')}
-            placeholder={mode === 'edit' ? 'Leave empty to keep current' : ''}
-            helperText={mode === 'edit' ? 'Leave empty to keep current password/key' : ''}
+            placeholder={mode === 'edit' ? t('emailSettings.provider.helpers.keepCurrentPassword') : ''}
+            helperText={mode === 'edit' ? t('emailSettings.provider.helpers.keepCurrentPassword') : ''}
           />
         </Grid>
 
@@ -478,17 +480,17 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
               <TextField
                 required
                 fullWidth
-                label="SMTP Host"
+                label={t('emailSettings.provider.labels.smtpHost')}
                 value={config.host || ''}
                 onChange={handleChange('host')}
-                placeholder="smtp.example.com"
+                placeholder={t('emailSettings.provider.placeholders.smtpHost')}
               />
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
                 required
                 fullWidth
-                label="Port"
+                label={t('emailSettings.provider.labels.port')}
                 type="number"
                 value={config.port || ''}
                 onChange={handleChange('port')}
@@ -498,22 +500,22 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
               <TextField
                 required
                 fullWidth
-                label="Username"
+                label={t('emailSettings.provider.labels.username')}
                 value={config.username || ''}
                 onChange={handleChange('username')}
               />
             </Grid>
             <Grid item xs={12} md={6}>
               <FormControl fullWidth required>
-                <InputLabel>Encryption</InputLabel>
+                <InputLabel>{t('emailSettings.provider.labels.encryption')}</InputLabel>
                 <Select
                   value={config.encryption || 'starttls'}
-                  label="Encryption"
+                  label={t('emailSettings.provider.labels.encryption')}
                   onChange={handleChange('encryption')}
                 >
-                  <MenuItem value="none">None (Port 25)</MenuItem>
-                  <MenuItem value="starttls">STARTTLS (Port 587)</MenuItem>
-                  <MenuItem value="tls">TLS/SSL (Port 465)</MenuItem>
+                  <MenuItem value="none">{t('emailSettings.provider.menuItems.encryptionNone')}</MenuItem>
+                  <MenuItem value="starttls">{t('emailSettings.provider.menuItems.encryptionStarttls')}</MenuItem>
+                  <MenuItem value="tls">{t('emailSettings.provider.menuItems.encryptionTls')}</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -525,12 +527,11 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
                     onChange={handleCheckboxChange('skipTLSVerify')}
                   />
                 }
-                label="Skip TLS Certificate Verification (insecure, not recommended)"
+                label={t('emailSettings.provider.labels.skipTlsVerify')}
               />
               {config.skipTLSVerify && (
                 <Alert severity="warning" sx={{ mt: 1 }}>
-                  Disabling TLS verification makes your connection vulnerable to man-in-the-middle attacks.
-                  Only use this for testing with self-signed certificates.
+                  {t('emailSettings.provider.warnings.tlsVerifyWarning')}
                 </Alert>
               )}
             </Grid>
@@ -543,7 +544,7 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
               <TextField
                 required
                 fullWidth
-                label="From Email"
+                label={t('emailSettings.provider.labels.fromEmail')}
                 type="email"
                 value={config.fromEmail || ''}
                 onChange={handleChange('fromEmail')}
@@ -552,7 +553,7 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="From Name"
+                label={t('emailSettings.provider.labels.fromName')}
                 value={config.fromName || ''}
                 onChange={handleChange('fromName')}
               />
@@ -565,7 +566,7 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Domain"
+                label={t('emailSettings.provider.labels.domain')}
                 value={config.domain || ''}
                 onChange={handleChange('domain')}
               />
@@ -574,20 +575,20 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
               <TextField
                 required
                 fullWidth
-                label="From Email"
+                label={t('emailSettings.provider.labels.fromEmail')}
                 type="email"
                 value={config.fromEmail || ''}
                 onChange={handleChange('fromEmail')}
-                helperText="Usually noreply@yourdomain"
+                helperText={t('emailSettings.provider.helpers.mailgunFromEmail')}
               />
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="From Name"
+                label={t('emailSettings.provider.labels.fromName')}
                 value={config.fromName || ''}
                 onChange={handleChange('fromName')}
-                helperText="Display name for emails"
+                helperText={t('emailSettings.provider.helpers.fromName')}
               />
             </Grid>
           </>
@@ -599,7 +600,7 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
               <TextField
                 required
                 fullWidth
-                label="From Email"
+                label={t('emailSettings.provider.labels.fromEmail')}
                 type="email"
                 value={config.fromEmail || ''}
                 onChange={handleChange('fromEmail')}
@@ -608,7 +609,7 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="From Name"
+                label={t('emailSettings.provider.labels.fromName')}
                 value={config.fromName || ''}
                 onChange={handleChange('fromName')}
               />
@@ -619,11 +620,11 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            label="Monthly Limit"
+            label={t('emailSettings.provider.labels.monthlyLimit')}
             type="number"
             value={config.monthlyLimit || ''}
             onChange={handleChange('monthlyLimit')}
-            helperText="Leave empty for unlimited"
+            helperText={t('emailSettings.provider.helpers.monthlyLimit')}
           />
         </Grid>
 
@@ -634,21 +635,21 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
               onClick={handleCancel}
               disabled={loading}
             >
-              Cancel
+              {t('emailSettings.provider.buttons.cancel')}
             </Button>
             <Button
               variant="outlined"
               onClick={() => setTestEmailOpen(true)}
               disabled={loading}
             >
-              Test Connection
+              {t('emailSettings.provider.buttons.testConnection')}
             </Button>
             <LoadingButton
               variant="contained"
               onClick={() => setSaveWithTestOpen(true)}
               loading={loading}
             >
-              Save Configuration
+              {t('emailSettings.provider.buttons.save')}
             </LoadingButton>
           </Box>
         </Grid>
@@ -662,15 +663,15 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
 
       {/* Test Email Dialog */}
       <Dialog open={testEmailOpen} onClose={() => setTestEmailOpen(false)}>
-        <DialogTitle>Test Email Configuration</DialogTitle>
+        <DialogTitle>{t('emailSettings.provider.dialogs.test.title')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Enter an email address to send a test email to:
+            {t('emailSettings.provider.dialogs.test.content')}
           </DialogContentText>
           <TextField
             autoFocus
             margin="dense"
-            label="Test Email Address"
+            label={t('emailSettings.provider.placeholders.testEmailAddress')}
             type="email"
             fullWidth
             variant="outlined"
@@ -679,28 +680,28 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setTestEmailOpen(false)}>Cancel</Button>
+          <Button onClick={() => setTestEmailOpen(false)}>{t('emailSettings.provider.buttons.cancel')}</Button>
           <Button
             onClick={() => handleTest(testEmail)}
             disabled={!testEmail || loading}
           >
-            Send Test Email
+            {t('emailSettings.provider.buttons.sendTestEmail')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Save with Test Dialog */}
       <Dialog open={saveWithTestOpen} onClose={() => setSaveWithTestOpen(false)}>
-        <DialogTitle>Save Configuration</DialogTitle>
+        <DialogTitle>{t('emailSettings.provider.dialogs.save.title')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Would you like to test the configuration after saving?
+            {t('emailSettings.provider.dialogs.save.content')}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setSaveWithTestOpen(false)}>Cancel</Button>
-          <Button onClick={() => handleSave(false)}>Save Only</Button>
-          <Button onClick={() => handleSave(true)}>Save and Test</Button>
+          <Button onClick={() => setSaveWithTestOpen(false)}>{t('emailSettings.provider.buttons.cancel')}</Button>
+          <Button onClick={() => handleSave(false)}>{t('emailSettings.provider.buttons.saveOnly')}</Button>
+          <Button onClick={() => handleSave(true)}>{t('emailSettings.provider.buttons.saveAndTest')}</Button>
         </DialogActions>
       </Dialog>
     </Box>

@@ -1,0 +1,38 @@
+{
+  "network": {
+    "connectionFailed": "连接失败。请检查您的网络。",
+    "timeout": "请求超时。请重试。",
+    "serverUnavailable": "服务器不可用。请稍后重试。"
+  },
+  "authentication": {
+    "unauthorized": "您无权执行此操作。",
+    "sessionExpired": "您的会话已过期。请重新登录。",
+    "invalidToken": "身份验证令牌无效。",
+    "loginRequired": "请登录后继续。"
+  },
+  "validation": {
+    "required": "此字段为必填项。",
+    "invalidEmail": "请输入有效的电子邮件地址。",
+    "invalidFormat": "格式无效。",
+    "tooShort": "至少需要 {{min}} 个字符。",
+    "tooLong": "不能超过 {{max}} 个字符。",
+    "passwordRequirements": "密码必须包含至少 8 个字符，包括大写字母、小写字母、数字和特殊字符。"
+  },
+  "api": {
+    "badRequest": "请求无效。请检查您的输入。",
+    "notFound": "请求的资源未找到。",
+    "conflict": "发生冲突。该资源可能已存在。",
+    "serverError": "发生内部服务器错误。",
+    "rateLimited": "请求过于频繁。请稍后重试。"
+  },
+  "file": {
+    "tooLarge": "文件过大。最大大小为 {{maxSize}}。",
+    "invalidType": "文件类型无效。允许的类型：{{allowedTypes}}。",
+    "uploadFailed": "文件上传失败。请重试。"
+  },
+  "generic": {
+    "unknownError": "发生未知错误。",
+    "tryAgain": "请重试。",
+    "contactSupport": "如果问题持续存在，请联系支持。"
+  }
+}

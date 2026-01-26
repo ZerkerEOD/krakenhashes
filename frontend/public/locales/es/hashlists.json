@@ -1,0 +1,107 @@
+{
+  "title": "Listas de hashes",
+  "uploadButton": "Subir lista de hashes",
+  "page": {
+    "title": "Gestión de listas de hashes",
+    "description": "Sube y gestiona listas de hashes de contraseñas para operaciones de descifrado"
+  },
+  "columns": {
+    "name": "Nombre",
+    "hashType": "Tipo de hash",
+    "totalHashes": "Total de hashes",
+    "crackedHashes": "Descifrados",
+    "progress": "Descifrado (%)",
+    "client": "Cliente",
+    "status": "Estado",
+    "createdAt": "Creado",
+    "actions": "Acciones"
+  },
+  "filters": {
+    "filterByName": "Filtrar por nombre",
+    "status": "Estado",
+    "all": "Todos"
+  },
+  "status": {
+    "uploading": "Subiendo",
+    "processing": "Procesando",
+    "ready": "Listo",
+    "error": "Error"
+  },
+  "table": {
+    "noHashlists": "No se encontraron listas de hashes."
+  },
+  "details": {
+    "title": "Detalles de la lista de hashes",
+    "overview": "Resumen",
+    "hashes": "Hashes",
+    "jobs": "Trabajos",
+    "stats": "Estadísticas"
+  },
+  "upload": {
+    "title": "Subir nueva lista de hashes",
+    "name": "Nombre de la lista",
+    "hashType": "Tipo de hash",
+    "client": "Cliente (Opcional)",
+    "file": "Archivo de hashes",
+    "selectFile": "Seleccionar archivo",
+    "uploading": "Subiendo...",
+    "cancel": "Cancelar"
+  },
+  "actions": {
+    "viewDetails": "Ver detalles",
+    "createJob": "Crear trabajo",
+    "download": "Descargar",
+    "delete": "Eliminar"
+  },
+  "confirmDelete": {
+    "title": "Confirmar eliminación",
+    "message": "¿Estás seguro de que deseas eliminar la lista de hashes \"{{name}}\"? Esta acción no se puede deshacer.",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "deleting": "Eliminando..."
+  },
+  "deletionProgress": {
+    "title": "Eliminando lista de hashes",
+    "successTitle": "Lista de hashes eliminada exitosamente",
+    "complete": "¡Eliminación completa!",
+    "failed": "Eliminación fallida",
+    "summary": "Resumen:",
+    "totalProcessed": "Total de hashes procesados: {{value}}",
+    "orphansDeleted": "Hashes huérfanos eliminados: {{value}}",
+    "sharedPreserved": "Hashes compartidos preservados: {{value}}",
+    "jobsDeleted": "Trabajos eliminados: {{value}}",
+    "duration": "Duración: {{duration}}",
+    "phase": "Fase {{current}}/{{total}}: {{label}}",
+    "phases": {
+      "preparing": "Preparando...",
+      "removingHashes": "Eliminando hashes",
+      "clearingReferences": "Limpiando referencias de tareas",
+      "cleaningOrphans": "Limpiando hashes huérfanos",
+      "finalizing": "Finalizando eliminación"
+    },
+    "units": {
+      "hashes": "hashes",
+      "references": "referencias"
+    },
+    "error": "Error: {{error}}",
+    "done": "Hecho",
+    "close": "Cerrar"
+  },
+  "notifications": {
+    "deleteSuccess": "Lista de hashes eliminada exitosamente",
+    "uploadSuccess": "Lista de hashes subida exitosamente",
+    "downloaded": "Descargado {{filename}}"
+  },
+  "errors": {
+    "loadFailed": "Error al obtener listas de hashes.",
+    "uploadFailed": "Error al subir lista de hashes",
+    "deleteFailed": "Eliminación fallida: {{error}}"
+  },
+  "hashDetails": {
+    "title": "Detalles del hash",
+    "originalHash": "Hash original",
+    "password": "Contraseña",
+    "cracked": "Descifrado",
+    "crackedAt": "Descifrado el"
+  }
+}

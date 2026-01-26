@@ -1,0 +1,86 @@
+{
+  "title": "已破解哈希",
+  "page": {
+    "title": "已破解哈希 (Pot)",
+    "description": "查看所有哈希列表和客户中成功破解的密码哈希。"
+  },
+  "table": {
+    "allCrackedHashes": "所有已破解哈希"
+  },
+  "navigation": {
+    "backToAll": "返回所有已破解哈希"
+  },
+  "client": {
+    "title": "已破解哈希 - 客户视图",
+    "description": "查看客户的已破解哈希：<1>{{clientName}}</1>",
+    "tableTitle": "\"{{clientName}}\" 的已破解哈希"
+  },
+  "hashlist": {
+    "title": "已破解哈希 - 哈希列表视图",
+    "description": "查看哈希列表的已破解哈希：<1>{{hashlistName}}</1>",
+    "tableTitle": "\"{{hashlistName}}\" 的已破解哈希"
+  },
+  "job": {
+    "title": "任务 {{jobName}} 的已破解哈希",
+    "description": "查看此任务执行中成功破解的所有密码哈希。",
+    "tableTitle": "已破解哈希 - {{jobName}}",
+    "defaultName": "任务 {{id}}"
+  },
+  "columns": {
+    "originalHash": "原始哈希",
+    "domain": "域",
+    "username": "用户名",
+    "password": "密码",
+    "hashType": "哈希类型",
+    "actions": "操作"
+  },
+  "search": {
+    "placeholder": "搜索数据库...",
+    "filterPlaceholder": "筛选当前页...",
+    "button": "搜索",
+    "resultsFound": "找到 {{count}} 条结果",
+    "resultsFound_plural": "找到 {{count}} 条结果",
+    "noResults": "未找到结果",
+    "searching": "搜索中..."
+  },
+  "export": {
+    "hashPass": "哈希:密码",
+    "userPass": "用户:密码",
+    "username": "用户名",
+    "password": "密码",
+    "domainUser": "域\\\\用户",
+    "domainUserPass": "域\\\\用户:密码",
+    "exportVisible": "导出可见结果",
+    "downloaded": "已下载 {{filename}}",
+    "downloadFailed": "下载文件失败"
+  },
+  "tooltips": {
+    "copyHash": "复制哈希:密码",
+    "copyDomain": "点击复制域",
+    "copyUsername": "点击复制用户名",
+    "copyPassword": "点击复制密码"
+  },
+  "dialogs": {
+    "loadAllTitle": "加载全部结果？",
+    "loadAllMessage": "加载全部 {{value}} 条结果可能需要较长时间，并可能影响性能。确定要继续吗？",
+    "loadingAll": "正在加载全部结果。这可能需要一些时间...",
+    "cancel": "取消",
+    "loadAll": "加载全部"
+  },
+  "pagination": {
+    "all": "全部"
+  },
+  "notifications": {
+    "copiedToClipboard": "已复制到剪贴板",
+    "exported": "已导出已破解哈希"
+  },
+  "errors": {
+    "loadFailed": "加载已破解哈希失败",
+    "loadClientFailed": "加载客户信息失败",
+    "loadHashlistFailed": "加载哈希列表信息失败",
+    "loadJobFailed": "加载任务信息失败"
+  },
+  "filter": {
+    "filteredBy": "按 {{param}} 筛选：{{value}}"
+  }
+}

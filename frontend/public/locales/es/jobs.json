@@ -1,0 +1,305 @@
+{
+  "title": "Trabajos",
+  "createJob": "Crear trabajo",
+  "page": {
+    "title": "Trabajos"
+  },
+  "columns": {
+    "name": "Nombre del trabajo",
+    "hashlist": "Lista de hashes",
+    "createdBy": "Creado por",
+    "progress": "Progreso",
+    "keyspace": "Espacio de claves",
+    "cracked": "Descifrados",
+    "agents": "Agentes",
+    "priority": "Prioridad",
+    "maxAgents": "Max. agentes",
+    "actions": "Acciones",
+    "status": "Estado",
+    "createdAt": "Creado el"
+  },
+  "status": {
+    "pending": "Pendiente",
+    "running": "En ejecucion",
+    "completed": "Completado",
+    "failed": "Fallido",
+    "stopped": "Detenido",
+    "paused": "Pausado",
+    "active": "Activo",
+    "cancelled": "Cancelado"
+  },
+  "actions": {
+    "delete": "Eliminar trabajo",
+    "retry": "Reintentar trabajo",
+    "stop": "Detener trabajo",
+    "pause": "Pausar trabajo",
+    "resume": "Reanudar trabajo",
+    "viewDetails": "Ver detalles"
+  },
+  "sections": {
+    "activeJobs": "Trabajos activos",
+    "completedJobs": "Trabajos completados"
+  },
+  "confirmDelete": {
+    "title": "Eliminar trabajo",
+    "message": "Estas seguro de que deseas eliminar este trabajo? Esta accion no se puede deshacer.",
+    "messageNamed": "Estas seguro de que deseas eliminar el trabajo \"{{name}}\"? Esta accion no se puede deshacer."
+  },
+  "row": {
+    "completed": "Completado:",
+    "unknown": "Desconocido",
+    "error": "Error:",
+    "rulesLabel": "(reglas)"
+  },
+  "tooltips": {
+    "combinedHashRate": "Tasa de hash combinada",
+    "retry": "Reintentar trabajo",
+    "delete": "Eliminar trabajo",
+    "save": "Guardar",
+    "cancel": "Cancelar"
+  },
+  "validation": {
+    "priorityRange": "La prioridad debe estar entre 0 y {{max}}",
+    "maxAgentsRange": "El maximo de agentes debe estar entre 1 y 100",
+    "maxAgentsPositive": "El maximo de agentes debe ser 0 (ilimitado) o positivo",
+    "chunkSizeMin": "El tamano de fragmento debe ser al menos 5 segundos",
+    "chunkSizeMax": "El tamano de fragmento no puede exceder 24 horas (86400 segundos)",
+    "invalidNumber": "Por favor ingresa un numero valido",
+    "minValue": "El valor debe ser al menos {{min}}",
+    "maxValue": "El valor debe ser como maximo {{max}}"
+  },
+  "errors": {
+    "loadFailed": "Error al cargar los trabajos",
+    "loadDetailsFailed": "Error al cargar detalles del trabajo",
+    "deleteFailed": "Error al eliminar el trabajo",
+    "updateFailed": "Error al actualizar el trabajo",
+    "fetchFailed": "Error al obtener trabajos: {{message}}",
+    "willRetry": "Se reintentara automaticamente.",
+    "notFound": "Trabajo no encontrado",
+    "saveFailed": "Error al guardar cambios",
+    "updatePriorityFailed": "Error al actualizar prioridad",
+    "updateMaxAgentsFailed": "Error al actualizar maximo de agentes",
+    "updateChunkSizeFailed": "Error al actualizar tamano de fragmento",
+    "retryTaskFailed": "Error al reintentar tarea",
+    "forceCompleteFailed": "Error al forzar completado del trabajo"
+  },
+  "details": {
+    "title": "Detalles del trabajo",
+    "pageTitle": "Detalles del trabajo",
+    "overview": "Resumen",
+    "tasks": "Tareas",
+    "results": "Resultados",
+    "logs": "Registros",
+    "jobInformation": "Informacion del trabajo",
+    "timeRemaining": "Tiempo restante",
+    "estimatedCompletion": "Finalizacion estimada",
+    "crackingCompletedAt": "Descifrado completado el",
+    "chunkSizeDefault": "No establecido (usando predeterminado)",
+    "noActiveTasksEstimate": "No se puede estimar - no hay tareas en ejecucion actualmente",
+    "lessThanOneMinute": "Menos de 1 minuto",
+    "jobCompleted": "Trabajo completado",
+    "finishingUp": "Finalizando...",
+    "completingShortly": "Completando en breve",
+    "processingDuration": "Procesando: {{duration}}",
+    "wordlists": "Diccionario(s)",
+    "rules": "Reglas",
+    "splittingMode": "Modo de division",
+    "ruleSplitting": "Division de reglas",
+    "firstWordlist": "Primer diccionario",
+    "secondWordlist": "Segundo diccionario",
+    "wordlist": "Diccionario",
+    "mask": "Mascara",
+    "incrementMode": "Modo incremental",
+    "incrementRange": "Rango incremental",
+    "maskSuffix": "Mascara (sufijo)",
+    "maskPrefix": "Mascara (prefijo)",
+    "associationHints": "Pistas de asociacion",
+    "autoRefreshOn": "Auto-actualizacion: ACTIVADA",
+    "autoRefreshPaused": "Auto-actualizacion: PAUSADA",
+    "forceComplete": "Forzar completado",
+    "refreshNow": "Actualizar ahora",
+    "priorityRange": "0-{{max}}",
+    "maxAgentsHint": "0=ilimitado",
+    "chunkSizeHint": "Segundos (5-86400)",
+    "incrementLayers": "Capas incrementales ({{count}} en total)",
+    "estimatedKeyspace": "Estimado",
+    "taskProgressVisualization": "Visualizacion del progreso de tareas",
+    "activeTasks": "Tareas activas ({{count}} en ejecucion)",
+    "noActiveTasks": "Sin tareas activas",
+    "failedTasks": "Tareas fallidas ({{count}} en total)",
+    "completedTasks": "Tareas completadas ({{count}} en total)",
+    "noCompletedTasks": "Sin tareas completadas",
+    "increment": "Incremental",
+    "incrementInverse": "Incremental inverso",
+    "jobNotFound": "Trabajo no encontrado",
+    "priority": "Prioridad",
+    "timeUnits": {
+      "year": "ano",
+      "years": "anos",
+      "month": "mes",
+      "months": "meses",
+      "day": "dia",
+      "days": "dias",
+      "hour": "hora",
+      "hours": "horas",
+      "minute": "minuto",
+      "minutes": "minutos",
+      "second": "segundo",
+      "seconds": "segundos"
+    },
+    "layerTable": {
+      "layer": "Capa",
+      "mask": "Mascara",
+      "minLength": "Longitud min.",
+      "maxLength": "Longitud max.",
+      "keyspace": "Espacio de claves",
+      "effectiveKeyspace": "Espacio de claves efectivo",
+      "progress": "Progreso",
+      "tasks": "Tareas",
+      "cracks": "Descifrados",
+      "status": "Estado",
+      "running": "en ejecucion",
+      "total": "total",
+      "failed": "{{count}} fallidas"
+    },
+    "activeTasksTable": {
+      "agentId": "ID del agente",
+      "taskId": "ID de tarea",
+      "agent": "Agente",
+      "skip": "Saltar",
+      "limit": "Limite",
+      "keyspaceRange": "Rango de espacio de claves",
+      "progress": "Progreso",
+      "speed": "Velocidad",
+      "currentSpeed": "Velocidad actual",
+      "cracks": "Descifrados",
+      "startedAt": "Iniciado el"
+    },
+    "failedTasksTable": {
+      "agentId": "ID del agente",
+      "taskId": "ID de tarea",
+      "agent": "Agente",
+      "status": "Estado",
+      "retryCount": "Reintentos",
+      "error": "Error",
+      "errorMessage": "Mensaje de error",
+      "lastUpdated": "Ultima actualizacion",
+      "failedAt": "Fallido el",
+      "actions": "Acciones"
+    },
+    "completedTasksTable": {
+      "agentId": "ID del agente",
+      "taskId": "ID de tarea",
+      "agent": "Agente",
+      "completedAt": "Completado el",
+      "keyspaceRange": "Rango de espacio de claves",
+      "finalProgress": "Progreso final",
+      "averageSpeed": "Velocidad promedio",
+      "cracks": "Descifrados",
+      "cracksFound": "Descifrados encontrados"
+    },
+    "attackModes": {
+      "dictionary": "Diccionario",
+      "combination": "Combinacion",
+      "bruteforce": "Fuerza bruta",
+      "hybridWordlistMask": "Hibrido diccionario + mascara",
+      "hybridMaskWordlist": "Hibrido mascara + diccionario",
+      "association": "Asociacion",
+      "modeNumber": "Modo {{mode}}"
+    }
+  },
+  "common": {
+    "id": "ID",
+    "name": "Nombre",
+    "status": "Estado",
+    "hashlist": "Lista de hashes",
+    "hashType": "Tipo de hash",
+    "attackMode": "Modo de ataque",
+    "keyspace": "Espacio de claves",
+    "effectiveKeyspace": "Espacio de claves efectivo",
+    "processedKeyspace": "Espacio de claves procesado",
+    "dispatchedKeyspace": "Espacio de claves despachado",
+    "progress": "Progreso",
+    "cracksFound": "Descifrados encontrados",
+    "createdAt": "Creado el",
+    "startedAt": "Iniciado el",
+    "completedAt": "Completado el",
+    "error": "Error",
+    "warning": "Advertencia",
+    "maxAgents": "Max. agentes",
+    "chunkSize": "Tamano de fragmento",
+    "unassigned": "Sin asignar",
+    "noErrorMessage": "Sin mensaje de error",
+    "notAvailable": "N/D",
+    "back": "Volver",
+    "rulesMultiplier": "(reglas)"
+  },
+  "editableCell": {
+    "clickToEdit": "Clic para editar"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Eliminar trabajos finalizados",
+      "message": "Estas seguro de que deseas eliminar todos los trabajos finalizados? Esta accion no se puede deshacer."
+    },
+    "forceComplete": {
+      "title": "Forzar completado del trabajo",
+      "warning": "Esto marcara todas las tareas incompletas como completadas y establecera el estado del trabajo como completado.",
+      "onlyUseIf": "Solo usa esto si:",
+      "reason1": "El trabajo realmente ha terminado de procesar todo el trabajo",
+      "reason2": "El trabajo esta atascado en estado en ejecucion/pendiente",
+      "reason3": "Has verificado que el espacio de claves ha sido completamente buscado",
+      "note": "Nota: Estamos trabajando en mejores formas de manejar los calculos de espacio de claves y la deteccion de finalizacion de trabajos en diversas circunstancias.",
+      "confirmation": "Estas seguro de que deseas forzar el completado de este trabajo?",
+      "completing": "Completando...",
+      "button": "Forzar completado"
+    },
+    "deleteConfirm": {
+      "deleting": "Eliminando..."
+    }
+  },
+  "buttons": {
+    "refresh": "Actualizar",
+    "deleteFinished": "Eliminar finalizados",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "save": "Guardar",
+    "retry": "Reintentar"
+  },
+  "success": {
+    "chunkSizeUpdated": "Tamano de fragmento actualizado exitosamente. Los cambios se aplicaran en la proxima creacion de tarea.",
+    "forceCompleted": "Trabajo forzado a completarse exitosamente"
+  },
+  "form": {
+    "name": "Nombre del trabajo",
+    "hashlist": "Seleccionar lista de hashes",
+    "attackMode": "Modo de ataque",
+    "wordlist": "Diccionario",
+    "rules": "Reglas",
+    "priority": "Prioridad",
+    "maxAgents": "Maximo de agentes"
+  },
+  "autoRefresh": {
+    "on": "Auto-actualizacion activada",
+    "off": "Auto-actualizacion desactivada"
+  },
+  "pagination": {
+    "jobsPerPage": "Trabajos por pagina"
+  },
+  "filters": {
+    "searchPlaceholder": "Buscar trabajos...",
+    "priority": "Prioridad",
+    "status": "Estado",
+    "all": "Todos"
+  },
+  "priority": {
+    "low": "Baja",
+    "medium": "Media",
+    "high": "Alta",
+    "critical": "Critica",
+    "maximum": "Maxima"
+  },
+  "lastUpdated": "Ultima actualizacion: {{time}}",
+  "filtered": "(filtrado)",
+  "loading": "Cargando trabajos..."
+}

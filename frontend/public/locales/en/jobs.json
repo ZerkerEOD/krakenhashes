@@ -1,0 +1,305 @@
+{
+  "title": "Jobs",
+  "createJob": "Create Job",
+  "page": {
+    "title": "Jobs"
+  },
+  "columns": {
+    "name": "Job Name",
+    "hashlist": "Hashlist",
+    "createdBy": "Created By",
+    "progress": "Progress",
+    "keyspace": "Keyspace",
+    "cracked": "Cracked",
+    "agents": "Agents",
+    "priority": "Priority",
+    "maxAgents": "Max Agents",
+    "actions": "Actions",
+    "status": "Status",
+    "createdAt": "Created At"
+  },
+  "status": {
+    "pending": "Pending",
+    "running": "Running",
+    "completed": "Completed",
+    "failed": "Failed",
+    "stopped": "Stopped",
+    "paused": "Paused",
+    "active": "Active",
+    "cancelled": "Cancelled"
+  },
+  "actions": {
+    "delete": "Delete Job",
+    "retry": "Retry Job",
+    "stop": "Stop Job",
+    "pause": "Pause Job",
+    "resume": "Resume Job",
+    "viewDetails": "View Details"
+  },
+  "sections": {
+    "activeJobs": "Active Jobs",
+    "completedJobs": "Completed Jobs"
+  },
+  "confirmDelete": {
+    "title": "Delete Job",
+    "message": "Are you sure you want to delete this job? This action cannot be undone.",
+    "messageNamed": "Are you sure you want to delete the job \"{{name}}\"? This action cannot be undone."
+  },
+  "row": {
+    "completed": "Completed:",
+    "unknown": "Unknown",
+    "error": "Error:",
+    "rulesLabel": "(rules)"
+  },
+  "tooltips": {
+    "combinedHashRate": "Combined hash rate",
+    "retry": "Retry job",
+    "delete": "Delete job",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "validation": {
+    "priorityRange": "Priority must be between 0 and {{max}}",
+    "maxAgentsRange": "Max agents must be between 1 and 100",
+    "maxAgentsPositive": "Max agents must be 0 (unlimited) or positive",
+    "chunkSizeMin": "Chunk size must be at least 5 seconds",
+    "chunkSizeMax": "Chunk size cannot exceed 24 hours (86400 seconds)",
+    "invalidNumber": "Please enter a valid number",
+    "minValue": "Value must be at least {{min}}",
+    "maxValue": "Value must be at most {{max}}"
+  },
+  "errors": {
+    "loadFailed": "Failed to load jobs",
+    "loadDetailsFailed": "Failed to load job details",
+    "deleteFailed": "Failed to delete job",
+    "updateFailed": "Failed to update job",
+    "fetchFailed": "Failed to fetch jobs: {{message}}",
+    "willRetry": "Will retry automatically.",
+    "notFound": "Job not found",
+    "saveFailed": "Failed to save changes",
+    "updatePriorityFailed": "Failed to update priority",
+    "updateMaxAgentsFailed": "Failed to update max agents",
+    "updateChunkSizeFailed": "Failed to update chunk size",
+    "retryTaskFailed": "Failed to retry task",
+    "forceCompleteFailed": "Failed to force complete job"
+  },
+  "details": {
+    "title": "Job Details",
+    "pageTitle": "Job Details",
+    "overview": "Overview",
+    "tasks": "Tasks",
+    "results": "Results",
+    "logs": "Logs",
+    "jobInformation": "Job Information",
+    "timeRemaining": "Time Remaining",
+    "estimatedCompletion": "Estimated Completion",
+    "crackingCompletedAt": "Cracking Completed At",
+    "chunkSizeDefault": "Not set (using default)",
+    "noActiveTasksEstimate": "Cannot estimate - no tasks currently running",
+    "lessThanOneMinute": "Less than 1 minute",
+    "jobCompleted": "Job completed",
+    "finishingUp": "Finishing up...",
+    "completingShortly": "Completing shortly",
+    "processingDuration": "Processing: {{duration}}",
+    "wordlists": "Wordlist(s)",
+    "rules": "Rules",
+    "splittingMode": "Splitting Mode",
+    "ruleSplitting": "Rule Splitting",
+    "firstWordlist": "First Wordlist",
+    "secondWordlist": "Second Wordlist",
+    "wordlist": "Wordlist",
+    "mask": "Mask",
+    "incrementMode": "Increment Mode",
+    "incrementRange": "Increment Range",
+    "maskSuffix": "Mask (suffix)",
+    "maskPrefix": "Mask (prefix)",
+    "associationHints": "Association Hints",
+    "autoRefreshOn": "Auto-refresh: ON",
+    "autoRefreshPaused": "Auto-refresh: PAUSED",
+    "forceComplete": "Force Complete",
+    "refreshNow": "Refresh now",
+    "priorityRange": "0-{{max}}",
+    "maxAgentsHint": "0=unlimited",
+    "chunkSizeHint": "Seconds (5-86400)",
+    "incrementLayers": "Increment Layers ({{count}} total)",
+    "estimatedKeyspace": "Estimated",
+    "taskProgressVisualization": "Task Progress Visualization",
+    "activeTasks": "Active Tasks ({{count}} running)",
+    "noActiveTasks": "No active tasks",
+    "failedTasks": "Failed Tasks ({{count}} total)",
+    "completedTasks": "Completed Tasks ({{count}} total)",
+    "noCompletedTasks": "No completed tasks",
+    "increment": "Increment",
+    "incrementInverse": "Increment Inverse",
+    "jobNotFound": "Job not found",
+    "priority": "Priority",
+    "timeUnits": {
+      "year": "year",
+      "years": "years",
+      "month": "month",
+      "months": "months",
+      "day": "day",
+      "days": "days",
+      "hour": "hour",
+      "hours": "hours",
+      "minute": "minute",
+      "minutes": "minutes",
+      "second": "second",
+      "seconds": "seconds"
+    },
+    "layerTable": {
+      "layer": "Layer",
+      "mask": "Mask",
+      "minLength": "Min Length",
+      "maxLength": "Max Length",
+      "keyspace": "Keyspace",
+      "effectiveKeyspace": "Effective Keyspace",
+      "progress": "Progress",
+      "tasks": "Tasks",
+      "cracks": "Cracks",
+      "status": "Status",
+      "running": "running",
+      "total": "total",
+      "failed": "{{count}} failed"
+    },
+    "activeTasksTable": {
+      "agentId": "Agent ID",
+      "taskId": "Task ID",
+      "agent": "Agent",
+      "skip": "Skip",
+      "limit": "Limit",
+      "keyspaceRange": "Keyspace Range",
+      "progress": "Progress",
+      "speed": "Speed",
+      "currentSpeed": "Current Speed",
+      "cracks": "Cracks",
+      "startedAt": "Started At"
+    },
+    "failedTasksTable": {
+      "agentId": "Agent ID",
+      "taskId": "Task ID",
+      "agent": "Agent",
+      "status": "Status",
+      "retryCount": "Retry Count",
+      "error": "Error",
+      "errorMessage": "Error Message",
+      "lastUpdated": "Last Updated",
+      "failedAt": "Failed At",
+      "actions": "Actions"
+    },
+    "completedTasksTable": {
+      "agentId": "Agent ID",
+      "taskId": "Task ID",
+      "agent": "Agent",
+      "completedAt": "Completed At",
+      "keyspaceRange": "Keyspace Range",
+      "finalProgress": "Final Progress",
+      "averageSpeed": "Average Speed",
+      "cracks": "Cracks",
+      "cracksFound": "Cracks Found"
+    },
+    "attackModes": {
+      "dictionary": "Dictionary",
+      "combination": "Combination",
+      "bruteforce": "Brute-force",
+      "hybridWordlistMask": "Hybrid Wordlist + Mask",
+      "hybridMaskWordlist": "Hybrid Mask + Wordlist",
+      "association": "Association",
+      "modeNumber": "Mode {{mode}}"
+    }
+  },
+  "common": {
+    "id": "ID",
+    "name": "Name",
+    "status": "Status",
+    "hashlist": "Hashlist",
+    "hashType": "Hash Type",
+    "attackMode": "Attack Mode",
+    "keyspace": "Keyspace",
+    "effectiveKeyspace": "Effective Keyspace",
+    "processedKeyspace": "Processed Keyspace",
+    "dispatchedKeyspace": "Dispatched Keyspace",
+    "progress": "Progress",
+    "cracksFound": "Cracks Found",
+    "createdAt": "Created At",
+    "startedAt": "Started At",
+    "completedAt": "Completed At",
+    "error": "Error",
+    "warning": "Warning",
+    "maxAgents": "Max Agents",
+    "chunkSize": "Chunk Size",
+    "unassigned": "Unassigned",
+    "noErrorMessage": "No error message",
+    "notAvailable": "N/A",
+    "back": "Back",
+    "rulesMultiplier": "(rules)"
+  },
+  "editableCell": {
+    "clickToEdit": "Click to edit"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Delete Finished Jobs",
+      "message": "Are you sure you want to delete all finished jobs? This action cannot be undone."
+    },
+    "forceComplete": {
+      "title": "Force Complete Job",
+      "warning": "This will mark all incomplete tasks as completed and set the job status to completed.",
+      "onlyUseIf": "Only use this if:",
+      "reason1": "The job has actually finished processing all work",
+      "reason2": "The job is stuck in running/pending status",
+      "reason3": "You have verified the keyspace has been fully searched",
+      "note": "Note: We are working on better ways to handle keyspace calculations and job completion detection under various circumstances.",
+      "confirmation": "Are you sure you want to force complete this job?",
+      "completing": "Completing...",
+      "button": "Force Complete"
+    },
+    "deleteConfirm": {
+      "deleting": "Deleting..."
+    }
+  },
+  "buttons": {
+    "refresh": "Refresh",
+    "deleteFinished": "Delete Finished",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "save": "Save",
+    "retry": "Retry"
+  },
+  "success": {
+    "chunkSizeUpdated": "Chunk size updated successfully. Changes will take effect on next task creation.",
+    "forceCompleted": "Job force completed successfully"
+  },
+  "form": {
+    "name": "Job Name",
+    "hashlist": "Select Hashlist",
+    "attackMode": "Attack Mode",
+    "wordlist": "Wordlist",
+    "rules": "Rules",
+    "priority": "Priority",
+    "maxAgents": "Maximum Agents"
+  },
+  "autoRefresh": {
+    "on": "Auto-refresh On",
+    "off": "Auto-refresh Off"
+  },
+  "pagination": {
+    "jobsPerPage": "Jobs per page"
+  },
+  "filters": {
+    "searchPlaceholder": "Search jobs...",
+    "priority": "Priority",
+    "status": "Status",
+    "all": "All"
+  },
+  "priority": {
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High",
+    "critical": "Critical",
+    "maximum": "Maximum"
+  },
+  "lastUpdated": "Last updated: {{time}}",
+  "filtered": "(filtered)",
+  "loading": "Loading jobs..."
+}

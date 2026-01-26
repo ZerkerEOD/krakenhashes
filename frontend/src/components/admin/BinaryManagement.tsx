@@ -33,11 +33,13 @@ import {
   CloudUpload as CloudUploadIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 import AddBinaryForm from './AddBinaryForm';
 import { useSnackbar } from 'notistack';
 import { BinaryVersion, listBinaries, verifyBinary, deleteBinary, setDefaultBinary } from '../../services/binary';
 
 const BinaryManagement: React.FC = () => {
+  const { t } = useTranslation('admin');
   const [binaries, setBinaries] = useState<BinaryVersion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [openAddDialog, setOpenAddDialog] = useState(false);
@@ -54,7 +56,7 @@ const BinaryManagement: React.FC = () => {
       setBinaries(response.data || []);
     } catch (error) {
       console.error('Error fetching binaries:', error);
-      enqueueSnackbar('Failed to fetch binaries', { variant: 'error' });
+      enqueueSnackbar(t('binaryManagement.messages.fetchFailed') as string, { variant: 'error' });
       setBinaries([]); // Ensure we set an empty array on error
     } finally {
       setIsLoading(false);
@@ -69,11 +71,11 @@ const BinaryManagement: React.FC = () => {
     try {
       setIsLoading(true);
       await verifyBinary(id);
-      enqueueSnackbar('Binary verification completed successfully', { variant: 'success' });
+      enqueueSnackbar(t('binaryManagement.messages.verifySuccess') as string, { variant: 'success' });
       fetchBinaries();
     } catch (error: any) {
       console.error('Error verifying binary:', error);
-      enqueueSnackbar(error.response?.data || 'Failed to verify binary', { variant: 'error' });
+      enqueueSnackbar(error.response?.data || t('binaryManagement.messages.verifyFailed') as string, { variant: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -82,15 +84,15 @@ const BinaryManagement: React.FC = () => {
   const handleDeleteClick = (binary: BinaryVersion) => {
     // Count active binaries of the same type
     const activeBinariesOfType = binaries.filter(
-      b => b.binary_type === binary.binary_type && 
-      b.is_active && 
+      b => b.binary_type === binary.binary_type &&
+      b.is_active &&
       b.verification_status === 'verified'
     ).length;
 
     // Check if this is the last binary
     if (activeBinariesOfType <= 1) {
       enqueueSnackbar(
-        `Cannot delete the only remaining ${binary.binary_type} binary. Add another binary version before deleting this one.`, 
+        t('binaryManagement.messages.cannotDeleteLast', { type: binary.binary_type }) as string,
         { variant: 'warning' }
       );
       return;
@@ -106,15 +108,15 @@ const BinaryManagement: React.FC = () => {
     try {
       setIsLoading(true);
       await deleteBinary(selectedBinary.id);
-      enqueueSnackbar('Binary deleted successfully', { variant: 'success' });
+      enqueueSnackbar(t('binaryManagement.messages.deleteSuccess') as string, { variant: 'success' });
       fetchBinaries();
     } catch (error: any) {
       console.error('Error deleting binary:', error);
       // Check for protection error (409 Conflict)
       if (error.response?.status === 409) {
-        enqueueSnackbar(error.response?.data || 'Cannot delete the only remaining binary', { variant: 'warning' });
+        enqueueSnackbar(error.response?.data || t('binaryManagement.messages.cannotDeleteOnly') as string, { variant: 'warning' });
       } else {
-        enqueueSnackbar(error.response?.data || 'Failed to delete binary', { variant: 'error' });
+        enqueueSnackbar(error.response?.data || t('binaryManagement.messages.deleteFailed') as string, { variant: 'error' });
       }
     } finally {
       setIsLoading(false);
@@ -127,11 +129,11 @@ const BinaryManagement: React.FC = () => {
     try {
       setIsLoading(true);
       await setDefaultBinary(id);
-      enqueueSnackbar('Binary set as default successfully', { variant: 'success' });
+      enqueueSnackbar(t('binaryManagement.messages.setDefaultSuccess') as string, { variant: 'success' });
       fetchBinaries();
     } catch (error: any) {
       console.error('Error setting default binary:', error);
-      enqueueSnackbar(error.response?.data || 'Failed to set default binary', { variant: 'error' });
+      enqueueSnackbar(error.response?.data || t('binaryManagement.messages.setDefaultFailed') as string, { variant: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -188,14 +190,14 @@ const BinaryManagement: React.FC = () => {
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h5" component="h2">
-          Binary Management
+          {t('binaryManagement.title') as string}
         </Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => setOpenAddDialog(true)}
         >
-          Add Binary
+          {t('binaryManagement.addBinary') as string}
         </Button>
       </Box>
 
@@ -210,7 +212,7 @@ const BinaryManagement: React.FC = () => {
           }
           label={
             <Typography variant="body2" color="textSecondary">
-              {showActiveOnly ? "Showing Active Binaries Only" : "Showing All Binaries"}
+              {showActiveOnly ? t('binaryManagement.showingActiveOnly') as string : t('binaryManagement.showingAll') as string}
             </Typography>
           }
         />
@@ -220,15 +222,15 @@ const BinaryManagement: React.FC = () => {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Binary ID</TableCell>
-              <TableCell>Version</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Source</TableCell>
-              <TableCell>Size</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Default</TableCell>
-              <TableCell>Last Verified</TableCell>
-              <TableCell>Actions</TableCell>
+              <TableCell>{t('binaryManagement.columns.binaryId') as string}</TableCell>
+              <TableCell>{t('binaryManagement.columns.version') as string}</TableCell>
+              <TableCell>{t('binaryManagement.columns.type') as string}</TableCell>
+              <TableCell>{t('binaryManagement.columns.source') as string}</TableCell>
+              <TableCell>{t('binaryManagement.columns.size') as string}</TableCell>
+              <TableCell>{t('binaryManagement.columns.status') as string}</TableCell>
+              <TableCell>{t('binaryManagement.columns.default') as string}</TableCell>
+              <TableCell>{t('binaryManagement.columns.lastVerified') as string}</TableCell>
+              <TableCell>{t('binaryManagement.columns.actions') as string}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -243,8 +245,8 @@ const BinaryManagement: React.FC = () => {
                 <TableCell colSpan={9} align="center" sx={{ py: 3 }}>
                   <Typography variant="body1" color="textSecondary">
                     {showActiveOnly
-                      ? "No active binaries found. Click 'Add Binary' to add one or switch to 'Show All' to view deleted binaries."
-                      : "No binaries found. Click 'Add Binary' to add one."}
+                      ? t('binaryManagement.noActiveBinaries') as string
+                      : t('binaryManagement.noBinaries') as string}
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -260,7 +262,7 @@ const BinaryManagement: React.FC = () => {
                     <TableCell>
                       <Chip
                         icon={binary.source_type === 'upload' ? <CloudUploadIcon /> : <CloudDownloadIcon />}
-                        label={binary.source_type === 'upload' ? 'Upload' : 'URL'}
+                        label={binary.source_type === 'upload' ? t('binaryManagement.sourceUpload') as string : t('binaryManagement.sourceUrl') as string}
                         size="small"
                         variant="outlined"
                       />
@@ -282,7 +284,7 @@ const BinaryManagement: React.FC = () => {
                       />
                       {binary.is_default && (
                         <Chip
-                          label="Default"
+                          label={t('binaryManagement.default') as string}
                           color="primary"
                           size="small"
                           sx={{ ml: 1 }}
@@ -290,11 +292,11 @@ const BinaryManagement: React.FC = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      {binary.last_verified_at ? format(new Date(binary.last_verified_at), 'yyyy-MM-dd HH:mm:ss') : 'Never'}
+                      {binary.last_verified_at ? format(new Date(binary.last_verified_at), 'yyyy-MM-dd HH:mm:ss') : t('common.never') as string}
                     </TableCell>
                     <TableCell>
                       <Stack direction="row" spacing={1}>
-                        <Tooltip title="Verify binary">
+                        <Tooltip title={t('binaryManagement.verifyBinary') as string}>
                           <span>
                             <IconButton
                               onClick={() => handleVerify(binary.id)}
@@ -306,7 +308,7 @@ const BinaryManagement: React.FC = () => {
                             </IconButton>
                           </span>
                         </Tooltip>
-                        <Tooltip title="Delete binary">
+                        <Tooltip title={t('binaryManagement.deleteBinary') as string}>
                           <span>
                             <IconButton
                               onClick={() => handleDeleteClick(binary)}
@@ -336,16 +338,16 @@ const BinaryManagement: React.FC = () => {
         aria-describedby="delete-dialog-description"
       >
         <DialogTitle id="delete-dialog-title">
-          Delete Binary
+          {t('binaryManagement.deleteDialog.title') as string}
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="delete-dialog-description">
-            Are you sure you want to delete {selectedBinary?.file_name}? This action cannot be undone.
+            {t('binaryManagement.deleteDialog.message', { fileName: selectedBinary?.file_name }) as string}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleDeleteCancel} disabled={isLoading}>
-            Cancel
+            {t('common.cancel') as string}
           </Button>
           <Button
             onClick={handleDeleteConfirm}
@@ -354,7 +356,7 @@ const BinaryManagement: React.FC = () => {
             disabled={isLoading}
             startIcon={isLoading ? <CircularProgress size={20} /> : null}
           >
-            Delete
+            {t('common.delete') as string}
           </Button>
         </DialogActions>
       </Dialog>

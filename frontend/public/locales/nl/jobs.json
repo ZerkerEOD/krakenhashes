@@ -1,0 +1,305 @@
+{
+  "title": "Taken",
+  "createJob": "Taak aanmaken",
+  "page": {
+    "title": "Taken"
+  },
+  "columns": {
+    "name": "Taaknaam",
+    "hashlist": "Hashlijst",
+    "createdBy": "Aangemaakt door",
+    "progress": "Voortgang",
+    "keyspace": "Keyspace",
+    "cracked": "Gekraakt",
+    "agents": "Agents",
+    "priority": "Prioriteit",
+    "maxAgents": "Max. agents",
+    "actions": "Acties",
+    "status": "Status",
+    "createdAt": "Aangemaakt op"
+  },
+  "status": {
+    "pending": "In wachtrij",
+    "running": "Actief",
+    "completed": "Voltooid",
+    "failed": "Mislukt",
+    "stopped": "Gestopt",
+    "paused": "Gepauzeerd",
+    "active": "Actief",
+    "cancelled": "Geannuleerd"
+  },
+  "actions": {
+    "delete": "Taak verwijderen",
+    "retry": "Taak opnieuw uitvoeren",
+    "stop": "Taak stoppen",
+    "pause": "Taak pauzeren",
+    "resume": "Taak hervatten",
+    "viewDetails": "Details bekijken"
+  },
+  "sections": {
+    "activeJobs": "Actieve taken",
+    "completedJobs": "Voltooide taken"
+  },
+  "confirmDelete": {
+    "title": "Taak verwijderen",
+    "message": "Weet u zeker dat u deze taak wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.",
+    "messageNamed": "Weet u zeker dat u de taak \"{{name}}\" wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt."
+  },
+  "row": {
+    "completed": "Voltooid:",
+    "unknown": "Onbekend",
+    "error": "Fout:",
+    "rulesLabel": "(regels)"
+  },
+  "tooltips": {
+    "combinedHashRate": "Gecombineerde hashsnelheid",
+    "retry": "Taak opnieuw uitvoeren",
+    "delete": "Taak verwijderen",
+    "save": "Opslaan",
+    "cancel": "Annuleren"
+  },
+  "validation": {
+    "priorityRange": "Prioriteit moet tussen 0 en {{max}} liggen",
+    "maxAgentsRange": "Maximum aantal agents moet tussen 1 en 100 liggen",
+    "maxAgentsPositive": "Maximum aantal agents moet 0 (onbeperkt) of positief zijn",
+    "chunkSizeMin": "Chunkgrootte moet minimaal 5 seconden zijn",
+    "chunkSizeMax": "Chunkgrootte mag niet meer dan 24 uur (86400 seconden) zijn",
+    "invalidNumber": "Voer een geldig getal in",
+    "minValue": "Waarde moet minimaal {{min}} zijn",
+    "maxValue": "Waarde mag maximaal {{max}} zijn"
+  },
+  "errors": {
+    "loadFailed": "Laden van taken mislukt",
+    "loadDetailsFailed": "Laden van taakdetails mislukt",
+    "deleteFailed": "Verwijderen van taak mislukt",
+    "updateFailed": "Bijwerken van taak mislukt",
+    "fetchFailed": "Ophalen van taken mislukt: {{message}}",
+    "willRetry": "Er wordt automatisch opnieuw geprobeerd.",
+    "notFound": "Taak niet gevonden",
+    "saveFailed": "Opslaan van wijzigingen mislukt",
+    "updatePriorityFailed": "Bijwerken van prioriteit mislukt",
+    "updateMaxAgentsFailed": "Bijwerken van max. agents mislukt",
+    "updateChunkSizeFailed": "Bijwerken van chunkgrootte mislukt",
+    "retryTaskFailed": "Opnieuw uitvoeren van subtaak mislukt",
+    "forceCompleteFailed": "Geforceerd voltooien van taak mislukt"
+  },
+  "details": {
+    "title": "Taakdetails",
+    "pageTitle": "Taakdetails",
+    "overview": "Overzicht",
+    "tasks": "Subtaken",
+    "results": "Resultaten",
+    "logs": "Logboeken",
+    "jobInformation": "Taakinformatie",
+    "timeRemaining": "Resterende tijd",
+    "estimatedCompletion": "Geschatte voltooiing",
+    "crackingCompletedAt": "Kraken voltooid op",
+    "chunkSizeDefault": "Niet ingesteld (standaard gebruiken)",
+    "noActiveTasksEstimate": "Kan niet schatten - geen taken momenteel actief",
+    "lessThanOneMinute": "Minder dan 1 minuut",
+    "jobCompleted": "Taak voltooid",
+    "finishingUp": "Afronden...",
+    "completingShortly": "Spoedig voltooid",
+    "processingDuration": "Verwerking: {{duration}}",
+    "wordlists": "Woordenlijst(en)",
+    "rules": "Regels",
+    "splittingMode": "Splitsingsmodus",
+    "ruleSplitting": "Regelsplitsing",
+    "firstWordlist": "Eerste woordenlijst",
+    "secondWordlist": "Tweede woordenlijst",
+    "wordlist": "Woordenlijst",
+    "mask": "Masker",
+    "incrementMode": "Incrementmodus",
+    "incrementRange": "Incrementbereik",
+    "maskSuffix": "Masker (achtervoegsel)",
+    "maskPrefix": "Masker (voorvoegsel)",
+    "associationHints": "Associatie-hints",
+    "autoRefreshOn": "Auto-vernieuwen: AAN",
+    "autoRefreshPaused": "Auto-vernieuwen: GEPAUZEERD",
+    "forceComplete": "Geforceerd voltooien",
+    "refreshNow": "Nu vernieuwen",
+    "priorityRange": "0-{{max}}",
+    "maxAgentsHint": "0=onbeperkt",
+    "chunkSizeHint": "Seconden (5-86400)",
+    "incrementLayers": "Incrementlagen ({{count}} totaal)",
+    "estimatedKeyspace": "Geschat",
+    "taskProgressVisualization": "Voortgangsvisualisatie subtaken",
+    "activeTasks": "Actieve subtaken ({{count}} actief)",
+    "noActiveTasks": "Geen actieve subtaken",
+    "failedTasks": "Mislukte subtaken ({{count}} totaal)",
+    "completedTasks": "Voltooide subtaken ({{count}} totaal)",
+    "noCompletedTasks": "Geen voltooide subtaken",
+    "increment": "Increment",
+    "incrementInverse": "Increment omgekeerd",
+    "jobNotFound": "Taak niet gevonden",
+    "priority": "Prioriteit",
+    "timeUnits": {
+      "year": "jaar",
+      "years": "jaar",
+      "month": "maand",
+      "months": "maanden",
+      "day": "dag",
+      "days": "dagen",
+      "hour": "uur",
+      "hours": "uur",
+      "minute": "minuut",
+      "minutes": "minuten",
+      "second": "seconde",
+      "seconds": "seconden"
+    },
+    "layerTable": {
+      "layer": "Laag",
+      "mask": "Masker",
+      "minLength": "Min. lengte",
+      "maxLength": "Max. lengte",
+      "keyspace": "Keyspace",
+      "effectiveKeyspace": "Effectieve keyspace",
+      "progress": "Voortgang",
+      "tasks": "Subtaken",
+      "cracks": "Kraken",
+      "status": "Status",
+      "running": "actief",
+      "total": "totaal",
+      "failed": "{{count}} mislukt"
+    },
+    "activeTasksTable": {
+      "agentId": "Agent-ID",
+      "taskId": "Subtaak-ID",
+      "agent": "Agent",
+      "skip": "Overslaan",
+      "limit": "Limiet",
+      "keyspaceRange": "Keyspace-bereik",
+      "progress": "Voortgang",
+      "speed": "Snelheid",
+      "currentSpeed": "Huidige snelheid",
+      "cracks": "Kraken",
+      "startedAt": "Gestart op"
+    },
+    "failedTasksTable": {
+      "agentId": "Agent-ID",
+      "taskId": "Subtaak-ID",
+      "agent": "Agent",
+      "status": "Status",
+      "retryCount": "Aantal herpogingen",
+      "error": "Fout",
+      "errorMessage": "Foutmelding",
+      "lastUpdated": "Laatst bijgewerkt",
+      "failedAt": "Mislukt op",
+      "actions": "Acties"
+    },
+    "completedTasksTable": {
+      "agentId": "Agent-ID",
+      "taskId": "Subtaak-ID",
+      "agent": "Agent",
+      "completedAt": "Voltooid op",
+      "keyspaceRange": "Keyspace-bereik",
+      "finalProgress": "Eindvoortgang",
+      "averageSpeed": "Gemiddelde snelheid",
+      "cracks": "Kraken",
+      "cracksFound": "Kraken gevonden"
+    },
+    "attackModes": {
+      "dictionary": "Woordenboek",
+      "combination": "Combinatie",
+      "bruteforce": "Brute-force",
+      "hybridWordlistMask": "Hybride woordenlijst + masker",
+      "hybridMaskWordlist": "Hybride masker + woordenlijst",
+      "association": "Associatie",
+      "modeNumber": "Modus {{mode}}"
+    }
+  },
+  "common": {
+    "id": "ID",
+    "name": "Naam",
+    "status": "Status",
+    "hashlist": "Hashlijst",
+    "hashType": "Hashtype",
+    "attackMode": "Aanvalsmodus",
+    "keyspace": "Keyspace",
+    "effectiveKeyspace": "Effectieve keyspace",
+    "processedKeyspace": "Verwerkte keyspace",
+    "dispatchedKeyspace": "Verzonden keyspace",
+    "progress": "Voortgang",
+    "cracksFound": "Kraken gevonden",
+    "createdAt": "Aangemaakt op",
+    "startedAt": "Gestart op",
+    "completedAt": "Voltooid op",
+    "error": "Fout",
+    "warning": "Waarschuwing",
+    "maxAgents": "Max. agents",
+    "chunkSize": "Chunkgrootte",
+    "unassigned": "Niet toegewezen",
+    "noErrorMessage": "Geen foutmelding",
+    "notAvailable": "N.v.t.",
+    "back": "Terug",
+    "rulesMultiplier": "(regels)"
+  },
+  "editableCell": {
+    "clickToEdit": "Klik om te bewerken"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Voltooide taken verwijderen",
+      "message": "Weet u zeker dat u alle voltooide taken wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt."
+    },
+    "forceComplete": {
+      "title": "Taak geforceerd voltooien",
+      "warning": "Dit markeert alle onvoltooide subtaken als voltooid en stelt de taakstatus in op voltooid.",
+      "onlyUseIf": "Gebruik dit alleen als:",
+      "reason1": "De taak daadwerkelijk al het werk heeft verwerkt",
+      "reason2": "De taak vastzit in actieve/wachtende status",
+      "reason3": "U heeft geverifieerd dat de keyspace volledig is doorzocht",
+      "note": "Opmerking: We werken aan betere manieren om keyspace-berekeningen en taakvoltooing-detectie te verwerken onder verschillende omstandigheden.",
+      "confirmation": "Weet u zeker dat u deze taak geforceerd wilt voltooien?",
+      "completing": "Voltooien...",
+      "button": "Geforceerd voltooien"
+    },
+    "deleteConfirm": {
+      "deleting": "Verwijderen..."
+    }
+  },
+  "buttons": {
+    "refresh": "Vernieuwen",
+    "deleteFinished": "Voltooide verwijderen",
+    "cancel": "Annuleren",
+    "delete": "Verwijderen",
+    "save": "Opslaan",
+    "retry": "Opnieuw proberen"
+  },
+  "success": {
+    "chunkSizeUpdated": "Chunkgrootte succesvol bijgewerkt. Wijzigingen worden toegepast bij de volgende subtaakaanmaak.",
+    "forceCompleted": "Taak succesvol geforceerd voltooid"
+  },
+  "form": {
+    "name": "Taaknaam",
+    "hashlist": "Selecteer hashlijst",
+    "attackMode": "Aanvalsmodus",
+    "wordlist": "Woordenlijst",
+    "rules": "Regels",
+    "priority": "Prioriteit",
+    "maxAgents": "Maximum aantal agents"
+  },
+  "autoRefresh": {
+    "on": "Auto-vernieuwen aan",
+    "off": "Auto-vernieuwen uit"
+  },
+  "pagination": {
+    "jobsPerPage": "Taken per pagina"
+  },
+  "filters": {
+    "searchPlaceholder": "Taken zoeken...",
+    "priority": "Prioriteit",
+    "status": "Status",
+    "all": "Alle"
+  },
+  "priority": {
+    "low": "Laag",
+    "medium": "Gemiddeld",
+    "high": "Hoog",
+    "critical": "Kritiek",
+    "maximum": "Maximum"
+  },
+  "lastUpdated": "Laatst bijgewerkt: {{time}}",
+  "filtered": "(gefilterd)",
+  "loading": "Taken laden..."
+}

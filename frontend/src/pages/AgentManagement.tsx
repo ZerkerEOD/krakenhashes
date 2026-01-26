@@ -12,6 +12,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Button,
@@ -60,6 +61,7 @@ import AgentDownloads from '../components/agent/AgentDownloads';
  * <AgentManagement />
  */
 export default function AgentManagement() {
+  const { t } = useTranslation('agents');
   const [agents, setAgents] = useState<Agent[]>([]);
   const [agentDevices, setAgentDevices] = useState<{ [key: string]: AgentDevice[] }>({});
   const [claimVouchers, setClaimVouchers] = useState<ClaimVoucher[]>([]);
@@ -106,7 +108,7 @@ export default function AgentManagement() {
       
     } catch (error) {
       console.error('Failed to fetch data:', error);
-      setError('Failed to load data. Please try again.');
+      setError(t('errors.loadFailed') as string);
       setAgents([]);
       setClaimVouchers([]);
     } finally {
@@ -134,7 +136,7 @@ export default function AgentManagement() {
       await fetchData(); // Refresh the vouchers list
     } catch (error) {
       console.error('Failed to create claim code:', error);
-      setError('Failed to generate claim code. Please try again.');
+      setError(t('errors.generateFailed') as string);
     }
   };
 
@@ -146,7 +148,7 @@ export default function AgentManagement() {
       await fetchData();
     } catch (error) {
       console.error('Failed to deactivate voucher:', error);
-      setError('Failed to deactivate voucher. Please try again.');
+      setError(t('errors.deactivateFailed') as string);
     }
   };
 
@@ -158,7 +160,7 @@ export default function AgentManagement() {
       await fetchData();
     } catch (error) {
       console.error('Failed to remove agent:', error);
-      setError('Failed to remove agent. Please try again.');
+      setError(t('errors.removeFailed') as string);
     }
   };
 
@@ -170,13 +172,13 @@ export default function AgentManagement() {
       setError(null);
       setSuccessMessage(null);
       await api.post(`/api/agents/${selectedAgentId}/clear-busy-status`);
-      setSuccessMessage('Agent busy status cleared successfully');
+      setSuccessMessage(t('messages.busyStatusCleared') as string);
       setClearBusyDialogOpen(false);
       setSelectedAgentId(null);
       await fetchData();
     } catch (error) {
       console.error('Failed to clear busy status:', error);
-      setError('Failed to clear busy status. Please try again.');
+      setError(t('errors.clearBusyFailed') as string);
       setClearBusyDialogOpen(false);
     }
   };
@@ -201,10 +203,10 @@ export default function AgentManagement() {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Box>
             <Typography variant="h4" component="h1" gutterBottom>
-              Agent Management
+              {t('page.title') as string}
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              Manage and monitor KrakenHashes agents
+              {t('page.description') as string}
             </Typography>
           </Box>
           <Button
@@ -212,7 +214,7 @@ export default function AgentManagement() {
             color="primary"
             onClick={() => setOpenDialog(true)}
           >
-            Register New Agent
+            {t('buttons.registerAgent') as string}
           </Button>
         </Box>
 
@@ -233,35 +235,35 @@ export default function AgentManagement() {
 
         {/* Active Claim Vouchers Table */}
         <Typography variant="h5" sx={{ mt: 4, mb: 2 }}>
-          Active Claim Vouchers
+          {t('sections.activeVouchers') as string}
         </Typography>
         <TableContainer component={Paper} sx={{ mb: 4 }}>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Claim Code</TableCell>
-                <TableCell>Created By</TableCell>
-                <TableCell>Created At</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Actions</TableCell>
+                <TableCell>{t('table.columns.claimCode') as string}</TableCell>
+                <TableCell>{t('table.columns.createdBy') as string}</TableCell>
+                <TableCell>{t('table.columns.createdAt') as string}</TableCell>
+                <TableCell>{t('table.columns.type') as string}</TableCell>
+                <TableCell>{t('table.columns.actions') as string}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {claimVouchers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} align="center">
-                    No active claim vouchers
+                    {t('messages.noVouchers') as string}
                   </TableCell>
                 </TableRow>
               ) : (
                 claimVouchers.map((voucher) => (
                   <TableRow key={voucher.code}>
                     <TableCell>{voucher.code}</TableCell>
-                    <TableCell>{voucher.created_by?.username || 'Unknown'}</TableCell>
+                    <TableCell>{voucher.created_by?.username || (t('common.unknown') as string)}</TableCell>
                     <TableCell>{new Date(voucher.created_at).toLocaleString()}</TableCell>
                     <TableCell>
-                      <Chip 
-                        label={voucher.is_continuous ? "Continuous" : "Single Use"}
+                      <Chip
+                        label={voucher.is_continuous ? (t('vouchers.continuous') as string) : (t('vouchers.singleUse') as string)}
                         color={voucher.is_continuous ? "primary" : "default"}
                       />
                     </TableCell>
@@ -269,7 +271,7 @@ export default function AgentManagement() {
                       <IconButton
                         onClick={() => handleDeactivateVoucher(voucher.code)}
                         color="error"
-                        title="Deactivate voucher"
+                        title={t('actions.deactivateVoucher') as string}
                       >
                         <DeleteIcon />
                       </IconButton>
@@ -283,27 +285,27 @@ export default function AgentManagement() {
 
         {/* Active Agents Table */}
         <Typography variant="h5" sx={{ mt: 4, mb: 2 }}>
-          Active Agents
+          {t('sections.activeAgents') as string}
         </Typography>
         <TableContainer component={Paper}>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Agent ID</TableCell>
-                <TableCell>Name</TableCell>
-                <TableCell>Enabled</TableCell>
-                <TableCell>Owner</TableCell>
-                <TableCell>Version</TableCell>
-                <TableCell>Hardware</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Actions</TableCell>
+                <TableCell>{t('table.columns.agentId') as string}</TableCell>
+                <TableCell>{t('table.columns.name') as string}</TableCell>
+                <TableCell>{t('table.columns.enabled') as string}</TableCell>
+                <TableCell>{t('table.columns.owner') as string}</TableCell>
+                <TableCell>{t('table.columns.version') as string}</TableCell>
+                <TableCell>{t('table.columns.hardware') as string}</TableCell>
+                <TableCell>{t('table.columns.status') as string}</TableCell>
+                <TableCell>{t('table.columns.actions') as string}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {agents.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} align="center">
-                    No active agents
+                    {t('messages.noAgents') as string}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -323,12 +325,12 @@ export default function AgentManagement() {
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={agent.isEnabled !== false ? 'Enabled' : 'Disabled'}
+                        label={agent.isEnabled !== false ? (t('status.enabled') as string) : (t('status.disabled') as string)}
                         color={agent.isEnabled !== false ? 'success' : 'default'}
                         size="small"
                       />
                     </TableCell>
-                    <TableCell>{agent.createdBy?.username || 'Unknown'}</TableCell>
+                    <TableCell>{agent.createdBy?.username || (t('common.unknown') as string)}</TableCell>
                     <TableCell>{agent.version}</TableCell>
                     <TableCell>
                       {agentDevices[agent.id]?.length > 0 ? (
@@ -346,13 +348,13 @@ export default function AgentManagement() {
                         ))
                       ) : (
                         <Typography variant="body2" color="text.secondary">
-                          No devices detected
+                          {t('messages.noDevices') as string}
                         </Typography>
                       )}
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={agent.status}
+                        label={t(`labels.${agent.status}`, { ns: 'common' }) as string}
                         color={agent.status === 'active' ? 'success' : agent.status === 'error' ? 'error' : 'default'}
                         size="small"
                       />
@@ -365,7 +367,7 @@ export default function AgentManagement() {
                             setClearBusyDialogOpen(true);
                           }}
                           color="warning"
-                          title="Clear stuck busy status"
+                          title={t('actions.clearBusyStatus') as string}
                           sx={{ mr: 1 }}
                         >
                           <ClearIcon />
@@ -374,7 +376,7 @@ export default function AgentManagement() {
                       <IconButton
                         onClick={() => handleRemoveAgent(agent.id)}
                         color="error"
-                        title="Remove agent"
+                        title={t('actions.removeAgent') as string}
                       >
                         <DeleteIcon />
                       </IconButton>
@@ -394,14 +396,13 @@ export default function AgentManagement() {
             setSelectedAgentId(null);
           }}
         >
-          <DialogTitle>Clear Agent Busy Status</DialogTitle>
+          <DialogTitle>{t('dialogs.clearStatus.title') as string}</DialogTitle>
           <DialogContent>
             <Typography>
-              This will clear the stuck busy status for this agent, allowing it to receive new tasks.
-              Only use this if the agent is truly idle and not running any jobs.
+              {t('dialogs.clearStatus.description') as string}
             </Typography>
             <Typography sx={{ mt: 2, fontWeight: 'bold', color: 'warning.main' }}>
-              Are you sure you want to proceed?
+              {t('dialogs.clearStatus.confirmation') as string}
             </Typography>
           </DialogContent>
           <DialogActions>
@@ -411,14 +412,14 @@ export default function AgentManagement() {
                 setSelectedAgentId(null);
               }}
             >
-              Cancel
+              {t('buttons.cancel') as string}
             </Button>
             <Button
               onClick={handleClearBusyStatus}
               variant="contained"
               color="warning"
             >
-              Clear Status
+              {t('buttons.clearStatus') as string}
             </Button>
           </DialogActions>
         </Dialog>
@@ -433,7 +434,7 @@ export default function AgentManagement() {
             setError(null);
           }}
         >
-          <DialogTitle>{claimCode ? 'Generated Code' : 'Register New Agent'}</DialogTitle>
+          <DialogTitle>{claimCode ? (t('dialogs.register.generatedTitle') as string) : (t('dialogs.register.title') as string)}</DialogTitle>
           <DialogContent>
             <Box sx={{ pt: 2 }}>
               {!claimCode && (
@@ -444,19 +445,19 @@ export default function AgentManagement() {
                       onChange={(e) => setIsContinuous(e.target.checked)}
                     />
                   }
-                  label="Allow Continuous Registration"
+                  label={t('dialogs.register.continuousLabel') as string}
                 />
               )}
               {claimCode && (
                 <Box sx={{ mt: 2, textAlign: 'center' }}>
-                  <Typography variant="subtitle1">Claim Code:</Typography>
+                  <Typography variant="subtitle1">{t('dialogs.register.claimCodeLabel') as string}</Typography>
                   <Typography variant="h5" sx={{ mt: 1, mb: 2 }}>
                     {claimCode}
                   </Typography>
                   <Typography color="text.secondary">
-                    {isContinuous 
-                      ? "This code can be used multiple times until disabled."
-                      : "This code can only be used once."}
+                    {isContinuous
+                      ? (t('dialogs.register.continuousDescription') as string)
+                      : (t('dialogs.register.singleUseDescription') as string)}
                   </Typography>
                 </Box>
               )}
@@ -469,11 +470,11 @@ export default function AgentManagement() {
               setIsContinuous(false);
               setError(null);
             }}>
-              Close
+              {t('buttons.close') as string}
             </Button>
             {!claimCode && (
               <Button onClick={handleCreateClaimCode} variant="contained">
-                Generate Code
+                {t('buttons.generateCode') as string}
               </Button>
             )}
           </DialogActions>

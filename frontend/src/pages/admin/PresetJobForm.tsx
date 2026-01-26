@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Box, 
-  Typography, 
-  TextField, 
-  Button, 
-  FormControl, 
-  InputLabel, 
-  Select, 
-  MenuItem, 
-  Checkbox, 
-  FormControlLabel, 
+import {
+  Box,
+  Typography,
+  TextField,
+  Button,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Checkbox,
+  FormControlLabel,
   SelectChangeEvent,
   Chip,
   OutlinedInput,
@@ -21,6 +21,7 @@ import {
   Tooltip
 } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { 
   getPresetJobFormData, 
   getPresetJob, 
@@ -115,6 +116,7 @@ const attackModeInfo = {
 };
 
 const PresetJobFormPage: React.FC = () => {
+  const { t } = useTranslation('admin');
   const { presetJobId } = useParams<{ presetJobId?: string }>();
   const navigate = useNavigate();
   const isEditing = Boolean(presetJobId);
@@ -165,7 +167,7 @@ const PresetJobFormPage: React.FC = () => {
         setDefaultChunkDuration(systemDefaultChunkDuration);
 
         if (!formDataResponse.wordlists?.length) {
-          setError('No wordlists available. Please add wordlists before creating preset jobs.');
+          setError(t('presetJobs.form.errors.noWordlistsAvailable') as string);
           setLoading(false);
           return;
         }
@@ -205,7 +207,7 @@ const PresetJobFormPage: React.FC = () => {
             }
           } catch (err) {
             console.error('Error fetching preset job:', err);
-            setError('Failed to load preset job. Please try again.');
+            setError(t('presetJobs.form.errors.loadFailed') as string);
           }
         } else {
           // For new jobs, set default chunk duration (binary_version already defaults to 'default')
@@ -218,7 +220,7 @@ const PresetJobFormPage: React.FC = () => {
         setLoading(false);
       } catch (err) {
         console.error('Error fetching form data:', err);
-        setError('Failed to load form data. Please try again.');
+        setError(t('presetJobs.form.errors.loadFormDataFailed') as string);
         setLoading(false);
       }
     };
@@ -397,12 +399,12 @@ const PresetJobFormPage: React.FC = () => {
   // Validate form based on attack mode
   const validateForm = (): boolean => {
     if (!formData.name.trim()) {
-      setError('Job name is required');
+      setError(t('presetJobs.form.errors.nameRequired') as string);
       return false;
     }
-    
+
     if (!formData.binary_version) {
-      setError('A binary version must be selected');
+      setError(t('presetJobs.form.errors.binaryVersionRequired') as string);
       return false;
     }
 
@@ -410,47 +412,47 @@ const PresetJobFormPage: React.FC = () => {
     switch (formData.attack_mode) {
       case AttackMode.Straight:
         if (formData.wordlist_ids.length !== 1) {
-          setError('Straight mode requires exactly one wordlist');
+          setError(t('presetJobs.form.errors.straightModeWordlist') as string);
           return false;
         }
         break;
-        
+
       case AttackMode.Combination:
         if (formData.wordlist_ids.length !== 2) {
-          setError('Combination mode requires exactly two wordlists to be selected');
+          setError(t('presetJobs.form.errors.combinationModeWordlists') as string);
           return false;
         }
         // Also check that both dropdown selections are made
         if (firstWordlist === '' || secondWordlist === '') {
-          setError('Please select both wordlists for combination mode');
+          setError(t('presetJobs.form.errors.selectBothWordlists') as string);
           return false;
         }
         break;
-        
+
       case AttackMode.BruteForce:
         if (!formData.mask) {
-          setError('Brute Force mode requires a mask');
+          setError(t('presetJobs.form.errors.bruteForceModeMask') as string);
           return false;
         }
         break;
-        
+
       case AttackMode.HybridWordlistMask:
       case AttackMode.HybridMaskWordlist:
         if (formData.wordlist_ids.length !== 1) {
-          setError('This hybrid mode requires exactly one wordlist');
+          setError(t('presetJobs.form.errors.hybridModeWordlist') as string);
           return false;
         }
         if (!formData.mask) {
-          setError('This hybrid mode requires a mask');
+          setError(t('presetJobs.form.errors.hybridModeMask') as string);
           return false;
         }
         break;
-        
+
       case AttackMode.Association:
-        setError('Association mode is not currently implemented');
+        setError(t('presetJobs.form.errors.associationModeNotImplemented') as string);
         return false;
     }
-    
+
     return true;
   };
 
@@ -489,12 +491,12 @@ const PresetJobFormPage: React.FC = () => {
         console.log('Updating preset job:', presetJobId);
         // Type casting to handle the mismatch in types
         await updatePresetJob(presetJobId, submissionData as any);
-        setSuccessMessage('Preset job updated successfully');
+        setSuccessMessage(t('presetJobs.form.messages.updateSuccess') as string);
       } else {
         console.log('Creating new preset job');
         // Type casting to handle the mismatch in types
         await createPresetJob(submissionData as any);
-        setSuccessMessage('Preset job created successfully');
+        setSuccessMessage(t('presetJobs.form.messages.createSuccess') as string);
         // Reset form after successful creation
         setFormData(getInitialFormState(defaultChunkDuration));
         // Navigate back to the preset jobs list
@@ -504,7 +506,7 @@ const PresetJobFormPage: React.FC = () => {
       }
     } catch (err) {
       console.error('Error submitting form:', err);
-      setError('Failed to save preset job. Please check your input and try again.');
+      setError(t('presetJobs.form.errors.saveFailed') as string);
     } finally {
       setSubmitting(false);
     }
@@ -547,7 +549,7 @@ const PresetJobFormPage: React.FC = () => {
     <Box sx={{ p: 3 }}>
       <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: 800, mx: 'auto' }}>
         <Typography variant="h4" gutterBottom>
-          {isEditing ? 'Edit Preset Job' : 'Create New Preset Job'}
+          {isEditing ? t('presetJobs.form.editTitle') as string : t('presetJobs.form.createTitle') as string}
         </Typography>
 
       {error && (
@@ -567,7 +569,7 @@ const PresetJobFormPage: React.FC = () => {
         <Grid item xs={12}>
           <TextField
             name="name"
-            label="Job Name"
+            label={t('presetJobs.form.fields.jobName') as string}
             value={formData.name}
             onChange={handleChange}
             fullWidth
@@ -579,13 +581,13 @@ const PresetJobFormPage: React.FC = () => {
         {/* Attack Mode */}
         <Grid item xs={12}>
           <FormControl fullWidth margin="normal" required>
-            <InputLabel id="attack-mode-label">Attack Mode</InputLabel>
+            <InputLabel id="attack-mode-label">{t('presetJobs.form.fields.attackMode') as string}</InputLabel>
             <Select
               labelId="attack-mode-label"
               name="attack_mode"
               value={formData.attack_mode}
               onChange={(e) => handleSelectChange(e, 'attack_mode')}
-              label="Attack Mode"
+              label={t('presetJobs.form.fields.attackMode') as string}
             >
               <MenuItem value={AttackMode.Straight}>{attackModeInfo[AttackMode.Straight].name}</MenuItem>
               <MenuItem value={AttackMode.Combination}>{attackModeInfo[AttackMode.Combination].name}</MenuItem>
@@ -600,20 +602,20 @@ const PresetJobFormPage: React.FC = () => {
 
         {/* Attack Mode Info Card */}
         <Grid item xs={12}>
-          <Paper 
-            elevation={0} 
-            sx={{ 
-              p: 2, 
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2,
               backgroundColor: 'rgba(0, 0, 0, 0.04)',
               borderRadius: 1
             }}
           >
             <Typography variant="subtitle2" gutterBottom>
-              Attack Mode Requirements:
+              {t('presetJobs.form.attackModeRequirements') as string}
             </Typography>
-            <Typography variant="body2">• Wordlists: {currentModeInfo.wordlistRequirement}</Typography>
-            <Typography variant="body2">• Rules: {currentModeInfo.rulesRequirement}</Typography>
-            <Typography variant="body2">• Mask: {currentModeInfo.maskRequirement}</Typography>
+            <Typography variant="body2">• {t('presetJobs.form.fields.wordlists') as string}: {currentModeInfo.wordlistRequirement}</Typography>
+            <Typography variant="body2">• {t('presetJobs.form.fields.rules') as string}: {currentModeInfo.rulesRequirement}</Typography>
+            <Typography variant="body2">• {t('presetJobs.form.fields.mask') as string}: {currentModeInfo.maskRequirement}</Typography>
           </Paper>
         </Grid>
 
@@ -623,7 +625,7 @@ const PresetJobFormPage: React.FC = () => {
             value={formData.binary_version}
             onChange={(value) => setFormData(prev => ({ ...prev, binary_version: value }))}
             required
-            helperText="Select the binary version pattern for this job"
+            helperText={t('presetJobs.form.helperText.binaryVersion') as string}
           />
         </Grid>
 
@@ -631,7 +633,7 @@ const PresetJobFormPage: React.FC = () => {
         <Grid item xs={12} sm={6}>
           <TextField
             name="priority"
-            label="Priority"
+            label={t('presetJobs.form.fields.priority') as string}
             type="number"
             value={formData.priority}
             onChange={handleChange}
@@ -639,7 +641,7 @@ const PresetJobFormPage: React.FC = () => {
             margin="normal"
             inputProps={{ min: 0, max: maxPriority }}
             placeholder="10"
-            helperText={`Priority level (0-${maxPriority.toLocaleString()}, defaults to 10 if empty)`}
+            helperText={t('presetJobs.form.helperText.priority', { maxPriority: maxPriority.toLocaleString() }) as string}
           />
         </Grid>
 
@@ -648,7 +650,7 @@ const PresetJobFormPage: React.FC = () => {
           <Grid item xs={12}>
             <TextField
               name="mask"
-              label="Mask Pattern"
+              label={t('presetJobs.form.fields.maskPattern') as string}
               value={formData.mask || ''}
               onChange={handleChange}
               fullWidth
@@ -657,9 +659,9 @@ const PresetJobFormPage: React.FC = () => {
               placeholder="?u?l?l?l?d?d?d?d"
               helperText={
                 <span>
-                  Define the pattern using: ?u (uppercase), ?l (lowercase), ?d (digit), ?s (special)
-                  <Tooltip title="Examples: ?u?l?l?l?l = Words starting with uppercase followed by 4 lowercase. ?d?d?d?d = 4 digits.">
-                    <span style={{ marginLeft: 8, cursor: 'help' }}>ℹ️</span>
+                  {t('presetJobs.form.helperText.maskPattern') as string}
+                  <Tooltip title={t('presetJobs.form.helperText.maskPatternExamples') as string}>
+                    <span style={{ marginLeft: 8, cursor: 'help' }}>i</span>
                   </Tooltip>
                 </span>
               }
@@ -672,20 +674,20 @@ const PresetJobFormPage: React.FC = () => {
           <>
             <Grid item xs={12}>
               <FormControl fullWidth margin="normal">
-                <InputLabel id="increment-mode-label">Increment Mode</InputLabel>
+                <InputLabel id="increment-mode-label">{t('presetJobs.form.fields.incrementMode') as string}</InputLabel>
                 <Select
                   labelId="increment-mode-label"
                   name="increment_mode"
                   value={formData.increment_mode}
                   onChange={(e) => setFormData({...formData, increment_mode: e.target.value as string})}
-                  label="Increment Mode"
+                  label={t('presetJobs.form.fields.incrementMode') as string}
                 >
-                  <MenuItem value="off">Off (Default)</MenuItem>
-                  <MenuItem value="increment">Increment (Left-to-Right: ?l → ?l?l → ?l?l?l)</MenuItem>
-                  <MenuItem value="increment_inverse">Increment Inverse (Right-to-Left)</MenuItem>
+                  <MenuItem value="off">{t('presetJobs.form.incrementModes.off') as string}</MenuItem>
+                  <MenuItem value="increment">{t('presetJobs.form.incrementModes.increment') as string}</MenuItem>
+                  <MenuItem value="increment_inverse">{t('presetJobs.form.incrementModes.incrementInverse') as string}</MenuItem>
                 </Select>
                 <FormHelperText>
-                  Increment mode tries shorter masks first, growing progressively longer. Use inverse to grow from right instead of left.
+                  {t('presetJobs.form.helperText.incrementMode') as string}
                 </FormHelperText>
               </FormControl>
             </Grid>
@@ -696,7 +698,7 @@ const PresetJobFormPage: React.FC = () => {
                   <Grid item xs={6}>
                     <TextField
                       name="increment_min"
-                      label="Increment Min"
+                      label={t('presetJobs.form.fields.incrementMin') as string}
                       type="number"
                       value={formData.increment_min ?? ''}
                       onChange={(e) => setFormData(prev => ({
@@ -706,13 +708,13 @@ const PresetJobFormPage: React.FC = () => {
                       fullWidth
                       margin="normal"
                       inputProps={{ min: 1 }}
-                      helperText="Starting mask length (default: 1)"
+                      helperText={t('presetJobs.form.helperText.incrementMin') as string}
                     />
                   </Grid>
                   <Grid item xs={6}>
                     <TextField
                       name="increment_max"
-                      label="Increment Max"
+                      label={t('presetJobs.form.fields.incrementMax') as string}
                       type="number"
                       value={formData.increment_max ?? ''}
                       onChange={(e) => setFormData(prev => ({
@@ -722,7 +724,7 @@ const PresetJobFormPage: React.FC = () => {
                       fullWidth
                       margin="normal"
                       inputProps={{ min: 1 }}
-                      helperText="Maximum mask length (default: mask length)"
+                      helperText={t('presetJobs.form.helperText.incrementMax') as string}
                     />
                   </Grid>
                 </Grid>
@@ -735,21 +737,21 @@ const PresetJobFormPage: React.FC = () => {
         {formData.attack_mode === AttackMode.Combination ? (
           <Grid item xs={12}>
             <Typography variant="subtitle2" gutterBottom>
-              Wordlist Selection for Combination Attack
+              {t('presetJobs.form.wordlistSelectionCombination') as string}
             </Typography>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth margin="normal" required>
-                  <InputLabel id="first-wordlist-label" shrink>First Wordlist</InputLabel>
+                  <InputLabel id="first-wordlist-label" shrink>{t('presetJobs.form.fields.firstWordlist') as string}</InputLabel>
                   <Select
                     labelId="first-wordlist-label"
                     value={firstWordlist}
                     onChange={(e) => handleSelectChange(e, 'firstWordlist')}
-                    label="First Wordlist"
+                    label={t('presetJobs.form.fields.firstWordlist') as string}
                     displayEmpty
                   >
                     <MenuItem value="" disabled>
-                      <em>Select first wordlist</em>
+                      <em>{t('presetJobs.form.selectFirstWordlist') as string}</em>
                     </MenuItem>
                     {wordlists.map((wordlist) => (
                       <MenuItem key={`first-${wordlist.id}`} value={wordlist.id}>
@@ -757,21 +759,21 @@ const PresetJobFormPage: React.FC = () => {
                       </MenuItem>
                     ))}
                   </Select>
-                  <FormHelperText>First wordlist in the combination</FormHelperText>
+                  <FormHelperText>{t('presetJobs.form.helperText.firstWordlist') as string}</FormHelperText>
                 </FormControl>
               </Grid>
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth margin="normal" required>
-                  <InputLabel id="second-wordlist-label" shrink>Second Wordlist</InputLabel>
+                  <InputLabel id="second-wordlist-label" shrink>{t('presetJobs.form.fields.secondWordlist') as string}</InputLabel>
                   <Select
                     labelId="second-wordlist-label"
                     value={secondWordlist}
                     onChange={(e) => handleSelectChange(e, 'secondWordlist')}
-                    label="Second Wordlist"
+                    label={t('presetJobs.form.fields.secondWordlist') as string}
                     displayEmpty
                   >
                     <MenuItem value="" disabled>
-                      <em>Select second wordlist</em>
+                      <em>{t('presetJobs.form.selectSecondWordlist') as string}</em>
                     </MenuItem>
                     {wordlists.map((wordlist) => (
                       <MenuItem key={`second-${wordlist.id}`} value={wordlist.id}>
@@ -779,7 +781,7 @@ const PresetJobFormPage: React.FC = () => {
                       </MenuItem>
                     ))}
                   </Select>
-                  <FormHelperText>Second wordlist in the combination</FormHelperText>
+                  <FormHelperText>{t('presetJobs.form.helperText.secondWordlist') as string}</FormHelperText>
                 </FormControl>
               </Grid>
             </Grid>
@@ -787,20 +789,20 @@ const PresetJobFormPage: React.FC = () => {
         ) : (
           /* Regular wordlist selection for other attack modes */
           <Grid item xs={12}>
-            <FormControl 
-              fullWidth 
-              margin="normal" 
-              required={!isWordlistsDisabled} 
+            <FormControl
+              fullWidth
+              margin="normal"
+              required={!isWordlistsDisabled}
               error={!isWordlistsDisabled && formData.wordlist_ids.length !== getMaxWordlists()}
               disabled={isWordlistsDisabled}
             >
-              <InputLabel id="wordlist-label">Wordlists</InputLabel>
+              <InputLabel id="wordlist-label">{t('presetJobs.form.fields.wordlists') as string}</InputLabel>
               <Select
                 labelId="wordlist-label"
                 multiple
                 value={formData.wordlist_ids}
                 onChange={(e) => handleMultiSelectChange(e as SelectChangeEvent<number[]>, 'wordlist_ids')}
-                input={<OutlinedInput label="Wordlists" />}
+                input={<OutlinedInput label={t('presetJobs.form.fields.wordlists') as string} />}
                 renderValue={(selected) => (
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                     {(selected as number[]).map((id) => {
@@ -814,11 +816,11 @@ const PresetJobFormPage: React.FC = () => {
                 MenuProps={MenuProps}
               >
                 {wordlists.map((wordlist) => (
-                  <MenuItem 
-                    key={wordlist.id} 
+                  <MenuItem
+                    key={wordlist.id}
                     value={wordlist.id}
                     disabled={
-                      formData.wordlist_ids.length >= getMaxWordlists() && 
+                      formData.wordlist_ids.length >= getMaxWordlists() &&
                       !formData.wordlist_ids.includes(wordlist.id)
                     }
                   >
@@ -827,9 +829,9 @@ const PresetJobFormPage: React.FC = () => {
                 ))}
               </Select>
               <FormHelperText>
-                {isWordlistsDisabled ? 
-                  'Wordlists not used in this attack mode' : 
-                  `Select ${getMaxWordlists()} wordlist${getMaxWordlists() !== 1 ? 's' : ''}`
+                {isWordlistsDisabled ?
+                  t('presetJobs.form.helperText.wordlistsNotUsed') as string :
+                  t('presetJobs.form.helperText.selectWordlists', { count: getMaxWordlists() }) as string
                 }
               </FormHelperText>
             </FormControl>
@@ -843,7 +845,7 @@ const PresetJobFormPage: React.FC = () => {
             margin="normal"
             disabled={isRulesDisabled}
           >
-            <InputLabel id="rules-label">Rule (Optional)</InputLabel>
+            <InputLabel id="rules-label">{t('presetJobs.form.fields.ruleOptional') as string}</InputLabel>
             <Select
               labelId="rules-label"
               value={isRulesDisabled || formData.rule_ids.length === 0 ? '' : formData.rule_ids[0]}
@@ -854,10 +856,10 @@ const PresetJobFormPage: React.FC = () => {
                   rule_ids: value ? [value as number] : []
                 }));
               }}
-              label="Rule (Optional)"
+              label={t('presetJobs.form.fields.ruleOptional') as string}
             >
               <MenuItem value="">
-                <em>None</em>
+                <em>{t('common.none') as string}</em>
               </MenuItem>
               {rules.map((rule) => (
                 <MenuItem key={rule.id} value={rule.id}>
@@ -867,8 +869,8 @@ const PresetJobFormPage: React.FC = () => {
             </Select>
             <FormHelperText>
               {isRulesDisabled ?
-                'Rules not used in this attack mode' :
-                'Select a rule to apply (optional)'
+                t('presetJobs.form.helperText.rulesNotUsed') as string :
+                t('presetJobs.form.helperText.selectRule') as string
               }
             </FormHelperText>
           </FormControl>
@@ -877,7 +879,7 @@ const PresetJobFormPage: React.FC = () => {
         <Grid item xs={12} sm={6}>
           <TextField
             name="chunk_size_seconds"
-            label="Chunk Size (seconds)"
+            label={t('presetJobs.form.fields.chunkSize') as string}
             type="number"
             value={formData.chunk_size_seconds}
             onChange={handleChange}
@@ -885,21 +887,21 @@ const PresetJobFormPage: React.FC = () => {
             fullWidth
             margin="normal"
             inputProps={{ min: 60 }}
-            helperText="Time in seconds for each chunk (min: 60)"
+            helperText={t('presetJobs.form.helperText.chunkSize') as string}
           />
         </Grid>
 
         <Grid item xs={12} sm={6}>
           <TextField
             name="max_agents"
-            label="Max Agents"
+            label={t('presetJobs.form.fields.maxAgents') as string}
             type="number"
             value={formData.max_agents || 0}
             onChange={handleChange}
             fullWidth
             margin="normal"
             inputProps={{ min: 0 }}
-            helperText="Maximum number of agents (0 = unlimited)"
+            helperText={t('presetJobs.form.helperText.maxAgents') as string}
           />
         </Grid>
 
@@ -913,32 +915,32 @@ const PresetJobFormPage: React.FC = () => {
                 onChange={handleChange}
               />
             }
-            label="Allow High Priority Override"
+            label={t('presetJobs.form.fields.allowHighPriorityOverride') as string}
           />
           <FormHelperText>
-            Allow this job to start immediately, stopping another job if necessary.
+            {t('presetJobs.form.helperText.allowHighPriorityOverride') as string}
           </FormHelperText>
         </Grid>
 
         {/* Submit Button */}
         <Grid item xs={12}>
-          <Button 
-            type="submit" 
-            variant="contained" 
-            color="primary" 
+          <Button
+            type="submit"
+            variant="contained"
+            color="primary"
             disabled={submitting}
             sx={{ mt: 2 }}
           >
-            {submitting ? <CircularProgress size={24} /> : (isEditing ? 'Update Job' : 'Create Job')}
+            {submitting ? <CircularProgress size={24} /> : (isEditing ? t('presetJobs.form.updateJob') as string : t('presetJobs.form.createJob') as string)}
           </Button>
-          
+
           <Button
             variant="outlined"
             onClick={() => navigate('/admin/preset-jobs')}
             sx={{ mt: 2, ml: 2 }}
             disabled={submitting}
           >
-            Cancel
+            {t('common.cancel') as string}
           </Button>
         </Grid>
       </Grid>

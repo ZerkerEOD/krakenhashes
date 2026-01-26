@@ -4,6 +4,7 @@
  * NTLM, LM, NetNTLMv1/v2, DCC/DCC2, and Kerberos
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Paper,
@@ -34,6 +35,8 @@ interface WindowsHashSectionProps {
 }
 
 export default function WindowsHashSection({ data }: WindowsHashSectionProps) {
+  const { t } = useTranslation('analytics');
+
   if (!data) {
     return null;
   }
@@ -61,26 +64,26 @@ export default function WindowsHashSection({ data }: WindowsHashSectionProps) {
             </Box>
             <Box sx={{ mb: 1 }}>
               <Typography variant="body2" color="text.secondary">
-                Total: <strong>{stats.total.toLocaleString()}</strong>
+                {t('labels.total')}: <strong>{stats.total.toLocaleString()}</strong>
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Cracked: <strong>{stats.cracked.toLocaleString()}</strong>
+                {t('labels.cracked')} <strong>{stats.cracked.toLocaleString()}</strong>
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Percentage: <strong>{formatPercentage(stats.percentage)}</strong>
+                {t('labels.percentage')} <strong>{formatPercentage(stats.percentage)}</strong>
               </Typography>
             </Box>
             {showDetails && stats.under_8 !== undefined && (
               <>
                 <Divider sx={{ my: 1 }} />
                 <Typography variant="caption" color="text.secondary">
-                  Length Distribution (based on hash):
+                  {t('descriptions.lengthDistribution')}
                 </Typography>
                 <Typography variant="body2">
-                  ≤7 chars: {stats.under_8.toLocaleString()}
+                  {t('labels.underOrEqual7Chars')} {stats.under_8.toLocaleString()}
                 </Typography>
                 <Typography variant="body2">
-                  8-14 chars: {stats['8_to_14'].toLocaleString()}
+                  {t('labels.8To14Chars')} {stats['8_to_14'].toLocaleString()}
                 </Typography>
                 {stats.partially_cracked > 0 && (
                   <>
@@ -88,7 +91,7 @@ export default function WindowsHashSection({ data }: WindowsHashSectionProps) {
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <WarningIcon sx={{ fontSize: 16, color: 'warning.main', mr: 0.5 }} />
                       <Typography variant="body2" color="warning.main">
-                        Partially Cracked: {stats.partially_cracked.toLocaleString()}
+                        {t('labels.partiallyCracked')} {stats.partially_cracked.toLocaleString()}
                       </Typography>
                     </Box>
                   </>
@@ -106,22 +109,15 @@ export default function WindowsHashSection({ data }: WindowsHashSectionProps) {
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
         <SecurityIcon sx={{ fontSize: 32, color: 'primary.main', mr: 1 }} />
         <Typography variant="h5" component="h2">
-          Windows Hash Analytics
+          {t('sections.windowsHashAnalytics')}
         </Typography>
       </Box>
 
       {/* Linked Hashlist Disclaimer */}
       {overview.linked_pairs > 0 && (
         <Alert severity="info" sx={{ mb: 3 }}>
-          <AlertTitle>Linked Hashlist Analysis</AlertTitle>
-          This analysis includes <strong>{overview.linked_pairs.toLocaleString()}</strong> LM/NTLM hash pairs that
-          were linked during upload (typically from pwdump-format files). Linked pairs are counted as a single entry
-          throughout all analytics. If either the LM or NTLM hash from a linked pair is cracked, it counts as one
-          cracked entry.
-          <Box component="span" sx={{ display: 'block', mt: 1, fontSize: '0.9em', fontStyle: 'italic' }}>
-            Note: Hashes with the same username from separate uploads are counted as separate entries unless
-            explicitly linked during the upload process.
-          </Box>
+          <AlertTitle>{t('warnings.linkedHashlistAnalysis')}</AlertTitle>
+          {t('alerts.linkedHashlistInfo')}
         </Alert>
       )}
 
@@ -129,43 +125,43 @@ export default function WindowsHashSection({ data }: WindowsHashSectionProps) {
       <Card sx={{ mb: 3, bgcolor: 'primary.50' }}>
         <CardContent>
           <Typography variant="h6" gutterBottom>
-            Overview
+            {t('sections.overview')}
           </Typography>
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6} md={3}>
               <Typography variant="body2" color="text.secondary">
-                Total Hash Records
+                {t('labels.totalHashRecords')}
               </Typography>
               <Typography variant="h4">{overview.total_windows.toLocaleString()}</Typography>
               <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                Includes all hash types
+                {t('descriptions.includesAllTypes')}
               </Typography>
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
               <Typography variant="body2" color="text.secondary">
-                Unique Users
+                {t('labels.uniqueUsers')}
               </Typography>
               <Typography variant="h4">{overview.unique_users.toLocaleString()}</Typography>
               <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                Distinct usernames
+                {t('descriptions.distinctUsernames')}
               </Typography>
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
               <Typography variant="body2" color="text.secondary">
-                Cracked
+                {t('cards.cracked')}
               </Typography>
               <Typography variant="h4">{overview.cracked_windows.toLocaleString()}</Typography>
               <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                Successfully cracked
+                {t('descriptions.successfullyCracked')}
               </Typography>
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
               <Typography variant="body2" color="text.secondary">
-                Success Rate
+                {t('labels.successRate')}
               </Typography>
               <Typography variant="h4">{formatPercentage(overview.percentage_windows)}</Typography>
               <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                Overall percentage
+                {t('descriptions.overallPercentage')}
               </Typography>
             </Grid>
           </Grid>
@@ -173,7 +169,7 @@ export default function WindowsHashSection({ data }: WindowsHashSectionProps) {
             <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
               <Typography variant="body2" color="text.secondary">
                 <LinkIcon sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'text-bottom' }} />
-                <strong>{overview.linked_pairs.toLocaleString()}</strong> LM/NTLM linked pairs found
+                <strong>{overview.linked_pairs.toLocaleString()}</strong> {t('labels.linkedPairsFound')}
               </Typography>
             </Box>
           )}
@@ -182,29 +178,29 @@ export default function WindowsHashSection({ data }: WindowsHashSectionProps) {
 
       {/* Hash Type Cards */}
       <Typography variant="h6" gutterBottom sx={{ mt: 3, mb: 2 }}>
-        Hash Types
+        {t('sections.hashTypes')}
       </Typography>
       <Grid container spacing={2}>
-        {renderHashTypeCard('NTLM', ntlm, 'primary.main')}
-        {renderHashTypeCard('LM', lm, 'error.main', true)}
-        {renderHashTypeCard('NetNTLMv1', netntlmv1, 'warning.main')}
-        {renderHashTypeCard('NetNTLMv2', netntlmv2, 'info.main')}
-        {renderHashTypeCard('DCC (MS Cache)', dcc, 'secondary.main')}
-        {renderHashTypeCard('DCC2 (MS Cache 2)', dcc2, 'secondary.main')}
+        {renderHashTypeCard(t('hashTypes.ntlm'), ntlm, 'primary.main')}
+        {renderHashTypeCard(t('hashTypes.lm'), lm, 'error.main', true)}
+        {renderHashTypeCard(t('hashTypes.netntlmv1'), netntlmv1, 'warning.main')}
+        {renderHashTypeCard(t('hashTypes.netntlmv2'), netntlmv2, 'info.main')}
+        {renderHashTypeCard(t('hashTypes.dcc'), dcc, 'secondary.main')}
+        {renderHashTypeCard(t('hashTypes.dcc2'), dcc2, 'secondary.main')}
       </Grid>
 
       {/* Kerberos Section */}
       {kerberos && kerberos.total > 0 && (
         <Box sx={{ mt: 3 }}>
           <Typography variant="h6" gutterBottom>
-            Kerberos
+            {t('sections.kerberos')}
           </Typography>
           <Card>
             <CardContent>
               <Box sx={{ mb: 2 }}>
                 <Typography variant="body2" color="text.secondary">
-                  Total: <strong>{kerberos.total.toLocaleString()}</strong> | Cracked:{' '}
-                  <strong>{kerberos.cracked.toLocaleString()}</strong> | Success Rate:{' '}
+                  {t('labels.total')}: <strong>{kerberos.total.toLocaleString()}</strong> | {t('labels.cracked')}{' '}
+                  <strong>{kerberos.cracked.toLocaleString()}</strong> | {t('labels.successRate')}:{' '}
                   <strong>{formatPercentage(kerberos.percentage)}</strong>
                 </Typography>
               </Box>
@@ -212,16 +208,16 @@ export default function WindowsHashSection({ data }: WindowsHashSectionProps) {
                 <>
                   <Divider sx={{ my: 2 }} />
                   <Typography variant="subtitle2" gutterBottom>
-                    Encryption Types
+                    {t('sections.encryptionTypes')}
                   </Typography>
                   <TableContainer>
                     <Table size="small">
                       <TableHead>
                         <TableRow>
-                          <TableCell>Type</TableCell>
-                          <TableCell align="right">Total</TableCell>
-                          <TableCell align="right">Cracked</TableCell>
-                          <TableCell align="right">Percentage</TableCell>
+                          <TableCell>{t('columns.type')}</TableCell>
+                          <TableCell align="right">{t('columns.total')}</TableCell>
+                          <TableCell align="right">{t('columns.cracked')}</TableCell>
+                          <TableCell align="right">{t('columns.percentage')}</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -229,13 +225,13 @@ export default function WindowsHashSection({ data }: WindowsHashSectionProps) {
                           <TableRow key={type}>
                             <TableCell>
                               {type === 'etype_23' && (
-                                <Chip label="RC4 (etype 23)" size="small" color="warning" />
+                                <Chip label={`${t('kerberosTypes.rc4')} (etype 23)`} size="small" color="warning" />
                               )}
                               {type === 'etype_17' && (
-                                <Chip label="AES128 (etype 17)" size="small" color="success" />
+                                <Chip label={`${t('kerberosTypes.aes128')} (etype 17)`} size="small" color="success" />
                               )}
                               {type === 'etype_18' && (
-                                <Chip label="AES256 (etype 18)" size="small" color="success" />
+                                <Chip label={`${t('kerberosTypes.aes256')} (etype 18)`} size="small" color="success" />
                               )}
                             </TableCell>
                             <TableCell align="right">{stats.total.toLocaleString()}</TableCell>
@@ -258,19 +254,19 @@ export default function WindowsHashSection({ data }: WindowsHashSectionProps) {
         <Box sx={{ mt: 3 }}>
           <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
             <LinkIcon sx={{ mr: 1 }} />
-            LM/NTLM Linked Hash Correlation
+            {t('sections.linkedHashCorrelation')}
           </Typography>
           <Card>
             <CardContent>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                Total Linked Pairs: <strong>{linkedCorrelation.total_linked_pairs.toLocaleString()}</strong>
+                {t('labels.totalLinkedPairs')} <strong>{linkedCorrelation.total_linked_pairs.toLocaleString()}</strong>
               </Typography>
               <Grid container spacing={2} sx={{ mt: 1 }}>
                 <Grid item xs={12} sm={6} md={3}>
                   <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'success.50', borderRadius: 1 }}>
                     <CheckCircleIcon sx={{ color: 'success.main', fontSize: 32 }} />
                     <Typography variant="h6">{linkedCorrelation.both_cracked.toLocaleString()}</Typography>
-                    <Typography variant="caption">Both Cracked</Typography>
+                    <Typography variant="caption">{t('labels.bothCracked')}</Typography>
                     <Typography variant="body2" color="text.secondary">
                       ({formatPercentage(linkedCorrelation.percentage_both)})
                     </Typography>
@@ -279,25 +275,25 @@ export default function WindowsHashSection({ data }: WindowsHashSectionProps) {
                 <Grid item xs={12} sm={6} md={3}>
                   <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'info.50', borderRadius: 1 }}>
                     <Typography variant="h6">{linkedCorrelation.only_ntlm_cracked.toLocaleString()}</Typography>
-                    <Typography variant="caption">NTLM Only</Typography>
+                    <Typography variant="caption">{t('labels.ntlmOnly')}</Typography>
                     <Typography variant="body2" color="text.secondary">
-                      (LM derivable)
+                      {t('descriptions.lmDerivable')}
                     </Typography>
                   </Box>
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
                   <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'warning.50', borderRadius: 1 }}>
                     <Typography variant="h6">{linkedCorrelation.only_lm_cracked.toLocaleString()}</Typography>
-                    <Typography variant="caption">LM Only</Typography>
+                    <Typography variant="caption">{t('labels.lmOnly')}</Typography>
                     <Typography variant="body2" color="text.secondary">
-                      (NTLM unknown)
+                      {t('descriptions.ntlmUnknown')}
                     </Typography>
                   </Box>
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
                   <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
                     <Typography variant="h6">{linkedCorrelation.neither_cracked.toLocaleString()}</Typography>
-                    <Typography variant="caption">Neither Cracked</Typography>
+                    <Typography variant="caption">{t('labels.neitherCracked')}</Typography>
                   </Box>
                 </Grid>
               </Grid>

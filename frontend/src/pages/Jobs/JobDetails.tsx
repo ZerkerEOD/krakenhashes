@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -41,6 +42,7 @@ import { useSnackbar } from 'notistack';
 import { getMaxPriorityForUsers } from '../../services/systemSettings';
 
 const JobDetails: React.FC = () => {
+  const { t } = useTranslation('jobs');
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
@@ -125,11 +127,11 @@ const JobDetails: React.FC = () => {
       setError(null);
     } catch (err) {
       console.error('Failed to fetch job details:', err);
-      setError('Failed to load job details');
+      setError(t('errors.loadDetailsFailed'));
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, t]);
 
   // Initial fetch
   useEffect(() => {
@@ -196,7 +198,7 @@ const JobDetails: React.FC = () => {
     // Validate priority before saving
     const priorityValue = parseInt(tempPriority) || 0;
     if (priorityValue < 0 || priorityValue > maxPriority) {
-      enqueueSnackbar(`Priority must be between 0 and ${maxPriority}`, { variant: 'error' });
+      enqueueSnackbar(t('validation.priorityRange', { max: maxPriority }), { variant: 'error' });
       return;
     }
 
@@ -208,12 +210,12 @@ const JobDetails: React.FC = () => {
       setAutoRefreshEnabled(true); // Resume auto-refresh after save
     } catch (err) {
       console.error('Failed to update priority:', err);
-      setError('Failed to update priority');
+      setError(t('errors.updatePriorityFailed'));
     } finally {
       setSaving(false);
     }
   };
-  
+
   const handleCancelPriority = () => {
     setEditingPriority(false);
     setAutoRefreshEnabled(true); // Resume auto-refresh after cancel
@@ -232,7 +234,7 @@ const JobDetails: React.FC = () => {
     // Validate max agents before saving (0 = unlimited)
     const maxAgentsValue = parseInt(tempMaxAgents) || 0;
     if (maxAgentsValue < 0) {
-      enqueueSnackbar('Max agents must be 0 (unlimited) or positive', { variant: 'error' });
+      enqueueSnackbar(t('validation.maxAgentsPositive'), { variant: 'error' });
       return;
     }
 
@@ -244,12 +246,12 @@ const JobDetails: React.FC = () => {
       setAutoRefreshEnabled(true); // Resume auto-refresh after save
     } catch (err) {
       console.error('Failed to update max agents:', err);
-      setError('Failed to update max agents');
+      setError(t('errors.updateMaxAgentsFailed'));
     } finally {
       setSaving(false);
     }
   };
-  
+
   const handleCancelMaxAgents = () => {
     setEditingMaxAgents(false);
     setAutoRefreshEnabled(true); // Resume auto-refresh after cancel
@@ -268,11 +270,11 @@ const JobDetails: React.FC = () => {
     // Validate chunk size before saving
     const chunkSizeValue = parseInt(tempChunkSize) || 0;
     if (chunkSizeValue < 5) {
-      enqueueSnackbar('Chunk size must be at least 5 seconds', { variant: 'error' });
+      enqueueSnackbar(t('validation.chunkSizeMin'), { variant: 'error' });
       return;
     }
     if (chunkSizeValue > 86400) {
-      enqueueSnackbar('Chunk size cannot exceed 24 hours (86400 seconds)', { variant: 'error' });
+      enqueueSnackbar(t('validation.chunkSizeMax'), { variant: 'error' });
       return;
     }
 
@@ -281,7 +283,7 @@ const JobDetails: React.FC = () => {
       const response = await api.patch(`/api/jobs/${id}`, { chunk_size_seconds: chunkSizeValue });
 
       // Show success notification with specific message
-      enqueueSnackbar(response.data?.message || 'Chunk size updated successfully. Changes will take effect on next task creation.', {
+      enqueueSnackbar(response.data?.message || t('success.chunkSizeUpdated'), {
         variant: 'success',
         autoHideDuration: 5000,
       });
@@ -293,7 +295,7 @@ const JobDetails: React.FC = () => {
       console.error('Failed to update chunk size:', err);
 
       // Parse error message from response if available
-      let errorMessage = 'Failed to update chunk size';
+      let errorMessage: string = t('errors.updateChunkSizeFailed') as string;
       if (err.response?.data) {
         errorMessage = typeof err.response.data === 'string' ? err.response.data : err.response.data.message || errorMessage;
       } else if (err.message) {
@@ -323,7 +325,7 @@ const JobDetails: React.FC = () => {
       await fetchJobDetails();
     } catch (err) {
       console.error('Failed to retry task:', err);
-      setError('Failed to retry task');
+      setError(t('errors.retryTaskFailed'));
     }
   };
 
@@ -336,10 +338,10 @@ const JobDetails: React.FC = () => {
       await api.post(`/api/jobs/${id}/force-complete`);
       await fetchJobDetails();
       setForceCompleteDialogOpen(false);
-      enqueueSnackbar('Job force completed successfully', { variant: 'success' });
+      enqueueSnackbar(t('success.forceCompleted'), { variant: 'success' });
     } catch (err: any) {
       console.error('Failed to force complete job:', err);
-      const errorMessage = err.response?.data?.message || 'Failed to force complete job';
+      const errorMessage = err.response?.data?.message || t('errors.forceCompleteFailed');
       enqueueSnackbar(errorMessage, { variant: 'error' });
     } finally {
       setForceCompleting(false);
@@ -348,12 +350,12 @@ const JobDetails: React.FC = () => {
 
   // Format helpers
   const formatDate = (dateString?: string) => {
-    if (!dateString) return 'N/A';
+    if (!dateString) return t('common.notAvailable');
     return new Date(dateString).toLocaleString();
   };
 
   const formatKeyspace = (value?: number): string => {
-    if (!value) return 'N/A';
+    if (!value) return t('common.notAvailable');
     if (value >= 1e12) return `${(value / 1e12).toFixed(2)}T`;
     if (value >= 1e9) return `${(value / 1e9).toFixed(2)}B`;
     if (value >= 1e6) return `${(value / 1e6).toFixed(2)}M`;
@@ -362,7 +364,7 @@ const JobDetails: React.FC = () => {
   };
 
   const formatSpeed = (speed?: number): string => {
-    if (!speed) return 'N/A';
+    if (!speed) return t('common.notAvailable');
     if (speed >= 1e12) return `${(speed / 1e12).toFixed(2)} TH/s`;
     if (speed >= 1e9) return `${(speed / 1e9).toFixed(2)} GH/s`;
     if (speed >= 1e6) return `${(speed / 1e6).toFixed(2)} MH/s`;
@@ -371,27 +373,32 @@ const JobDetails: React.FC = () => {
   };
 
   const formatChunkSize = (seconds?: number): string => {
-    if (seconds === undefined || seconds === null) return 'N/A';
-    if (seconds === 0) return 'Not set (using default)';
+    if (seconds === undefined || seconds === null) return t('common.notAvailable');
+    if (seconds === 0) return t('details.chunkSizeDefault');
 
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
 
     if (hours > 0 && minutes > 0) {
-      return `${hours} hour${hours > 1 ? 's' : ''} ${minutes} minute${minutes !== 1 ? 's' : ''}`;
+      const hourLabel = hours > 1 ? t('details.timeUnits.hours') : t('details.timeUnits.hour');
+      const minuteLabel = minutes !== 1 ? t('details.timeUnits.minutes') : t('details.timeUnits.minute');
+      return `${hours} ${hourLabel} ${minutes} ${minuteLabel}`;
     } else if (hours > 0) {
-      return `${hours} hour${hours > 1 ? 's' : ''}`;
+      const hourLabel = hours > 1 ? t('details.timeUnits.hours') : t('details.timeUnits.hour');
+      return `${hours} ${hourLabel}`;
     } else if (minutes > 0) {
-      return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+      const minuteLabel = minutes !== 1 ? t('details.timeUnits.minutes') : t('details.timeUnits.minute');
+      return `${minutes} ${minuteLabel}`;
     } else {
-      return `${secs} second${secs !== 1 ? 's' : ''}`;
+      const secondLabel = secs !== 1 ? t('details.timeUnits.seconds') : t('details.timeUnits.second');
+      return `${secs} ${secondLabel}`;
     }
   };
 
   const formatDuration = (seconds: number): string => {
     if (!isFinite(seconds) || seconds <= 0) {
-      return 'Cannot estimate - no tasks currently running';
+      return t('details.noActiveTasksEstimate');
     }
 
     const years = Math.floor(seconds / (365 * 24 * 3600));
@@ -403,26 +410,31 @@ const JobDetails: React.FC = () => {
     const parts = [];
 
     if (years > 0) {
-      parts.push(`${years} year${years !== 1 ? 's' : ''}`);
+      const label = years !== 1 ? t('details.timeUnits.years') : t('details.timeUnits.year');
+      parts.push(`${years} ${label}`);
     }
     if (months > 0) {
-      parts.push(`${months} month${months !== 1 ? 's' : ''}`);
+      const label = months !== 1 ? t('details.timeUnits.months') : t('details.timeUnits.month');
+      parts.push(`${months} ${label}`);
     }
     if (days > 0 && years === 0) { // Only show days if less than a year
-      parts.push(`${days} day${days !== 1 ? 's' : ''}`);
+      const label = days !== 1 ? t('details.timeUnits.days') : t('details.timeUnits.day');
+      parts.push(`${days} ${label}`);
     }
     if (hours > 0 && years === 0 && months === 0) { // Only show hours if less than a month
-      parts.push(`${hours} hour${hours !== 1 ? 's' : ''}`);
+      const label = hours !== 1 ? t('details.timeUnits.hours') : t('details.timeUnits.hour');
+      parts.push(`${hours} ${label}`);
     }
     if (minutes > 0 && years === 0 && months === 0 && days === 0) { // Only show minutes if less than a day
-      parts.push(`${minutes} minute${minutes !== 1 ? 's' : ''}`);
+      const label = minutes !== 1 ? t('details.timeUnits.minutes') : t('details.timeUnits.minute');
+      parts.push(`${minutes} ${label}`);
     }
 
     // Show at most 2 units for readability
     const displayParts = parts.slice(0, 2);
 
     if (displayParts.length === 0) {
-      return 'Less than 1 minute';
+      return t('details.lessThanOneMinute');
     }
 
     return `~${displayParts.join(' ')}`;
@@ -432,8 +444,8 @@ const JobDetails: React.FC = () => {
     // Check if job is completed
     if (jobData?.status === 'completed') {
       return {
-        timeRemaining: 'Job completed',
-        estimatedDate: 'Job completed'
+        timeRemaining: t('details.jobCompleted'),
+        estimatedDate: t('details.jobCompleted')
       };
     }
 
@@ -451,8 +463,8 @@ const JobDetails: React.FC = () => {
     // If nothing left to process
     if (remainingKeyspace <= 0) {
       return {
-        timeRemaining: 'Job completed',
-        estimatedDate: 'Job completed'
+        timeRemaining: t('details.jobCompleted'),
+        estimatedDate: t('details.jobCompleted')
       };
     }
 
@@ -471,8 +483,8 @@ const JobDetails: React.FC = () => {
     // If no active tasks or zero speed
     if (totalSpeed === 0) {
       return {
-        timeRemaining: 'Cannot estimate - no tasks currently running',
-        estimatedDate: 'Cannot estimate - no tasks currently running'
+        timeRemaining: t('details.noActiveTasksEstimate'),
+        estimatedDate: t('details.noActiveTasksEstimate')
       };
     }
 
@@ -501,8 +513,8 @@ const JobDetails: React.FC = () => {
 
     if (processingTasks.length === 0) {
       return {
-        timeRemaining: 'Finishing up...',
-        estimatedDate: 'Completing shortly'
+        timeRemaining: t('details.finishingUp'),
+        estimatedDate: t('details.completingShortly')
       };
     }
 
@@ -517,8 +529,8 @@ const JobDetails: React.FC = () => {
 
     if (remaining <= 0) {
       return {
-        timeRemaining: 'Finishing up...',
-        estimatedDate: 'Completing shortly'
+        timeRemaining: t('details.finishingUp'),
+        estimatedDate: t('details.completingShortly')
       };
     }
 
@@ -551,7 +563,7 @@ const JobDetails: React.FC = () => {
     const estimatedDate = new Date(now.getTime() + secondsRemaining * 1000);
 
     return {
-      timeRemaining: `Processing: ${timeRemaining}`,
+      timeRemaining: t('details.processingDuration', { duration: timeRemaining }),
       estimatedDate: estimatedDate.toLocaleString()
     };
   };
@@ -572,15 +584,16 @@ const JobDetails: React.FC = () => {
   };
 
   const getAttackModeName = (mode?: number): string => {
+    if (mode === undefined) return t('common.notAvailable');
     const modes: Record<number, string> = {
-      0: 'Dictionary',
-      1: 'Combination',
-      3: 'Brute-force',
-      6: 'Hybrid Wordlist + Mask',
-      7: 'Hybrid Mask + Wordlist',
-      9: 'Association',
+      0: t('details.attackModes.dictionary'),
+      1: t('details.attackModes.combination'),
+      3: t('details.attackModes.bruteforce'),
+      6: t('details.attackModes.hybridWordlistMask'),
+      7: t('details.attackModes.hybridMaskWordlist'),
+      9: t('details.attackModes.association'),
     };
-    return mode !== undefined ? modes[mode] || `Mode ${mode}` : 'N/A';
+    return modes[mode] || t('details.attackModes.modeNumber', { mode });
   };
 
   // Render attack configuration rows based on attack mode
@@ -595,7 +608,7 @@ const JobDetails: React.FC = () => {
         if (jobData.wordlist_names && jobData.wordlist_names.length > 0) {
           rows.push(
             <TableRow key="wordlists">
-              <TableCell sx={{ fontWeight: 'bold' }}>Wordlist(s)</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.wordlists')}</TableCell>
               <TableCell>{jobData.wordlist_names.join(', ')}</TableCell>
             </TableRow>
           );
@@ -603,7 +616,7 @@ const JobDetails: React.FC = () => {
         if (jobData.rule_names && jobData.rule_names.length > 0) {
           rows.push(
             <TableRow key="rules">
-              <TableCell sx={{ fontWeight: 'bold' }}>Rules</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.rules')}</TableCell>
               <TableCell>{jobData.rule_names.join(', ')}</TableCell>
             </TableRow>
           );
@@ -611,10 +624,10 @@ const JobDetails: React.FC = () => {
         // Splitting mode for dictionary attacks
         rows.push(
           <TableRow key="splitting-mode">
-            <TableCell sx={{ fontWeight: 'bold' }}>Splitting Mode</TableCell>
+            <TableCell sx={{ fontWeight: 'bold' }}>{t('details.splittingMode')}</TableCell>
             <TableCell>
               <Chip
-                label={jobData.uses_rule_splitting ? "Rule Splitting" : "Keyspace"}
+                label={jobData.uses_rule_splitting ? t('details.ruleSplitting') : t('common.keyspace')}
                 size="small"
                 color={jobData.uses_rule_splitting ? "primary" : "default"}
                 variant="outlined"
@@ -628,20 +641,20 @@ const JobDetails: React.FC = () => {
         if (jobData.wordlist_names && jobData.wordlist_names.length >= 2) {
           rows.push(
             <TableRow key="first-wordlist">
-              <TableCell sx={{ fontWeight: 'bold' }}>First Wordlist</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.firstWordlist')}</TableCell>
               <TableCell>{jobData.wordlist_names[0]}</TableCell>
             </TableRow>
           );
           rows.push(
             <TableRow key="second-wordlist">
-              <TableCell sx={{ fontWeight: 'bold' }}>Second Wordlist</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.secondWordlist')}</TableCell>
               <TableCell>{jobData.wordlist_names[1]}</TableCell>
             </TableRow>
           );
         } else if (jobData.wordlist_names && jobData.wordlist_names.length === 1) {
           rows.push(
             <TableRow key="wordlist">
-              <TableCell sx={{ fontWeight: 'bold' }}>Wordlist</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.wordlist')}</TableCell>
               <TableCell>{jobData.wordlist_names[0]}</TableCell>
             </TableRow>
           );
@@ -649,10 +662,10 @@ const JobDetails: React.FC = () => {
         // Splitting mode for combination attacks
         rows.push(
           <TableRow key="splitting-mode">
-            <TableCell sx={{ fontWeight: 'bold' }}>Splitting Mode</TableCell>
+            <TableCell sx={{ fontWeight: 'bold' }}>{t('details.splittingMode')}</TableCell>
             <TableCell>
               <Chip
-                label={jobData.uses_rule_splitting ? "Rule Splitting" : "Keyspace"}
+                label={jobData.uses_rule_splitting ? t('details.ruleSplitting') : t('common.keyspace')}
                 size="small"
                 color={jobData.uses_rule_splitting ? "primary" : "default"}
                 variant="outlined"
@@ -666,7 +679,7 @@ const JobDetails: React.FC = () => {
         if (jobData.mask) {
           rows.push(
             <TableRow key="mask">
-              <TableCell sx={{ fontWeight: 'bold' }}>Mask</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.mask')}</TableCell>
               <TableCell sx={{ fontFamily: 'monospace' }}>{jobData.mask}</TableCell>
             </TableRow>
           );
@@ -674,10 +687,10 @@ const JobDetails: React.FC = () => {
         if (jobData.increment_mode && jobData.increment_mode !== 'off') {
           rows.push(
             <TableRow key="increment-mode">
-              <TableCell sx={{ fontWeight: 'bold' }}>Increment Mode</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.incrementMode')}</TableCell>
               <TableCell>
                 <Chip
-                  label={jobData.increment_mode === 'increment' ? 'Increment' : 'Increment Inverse'}
+                  label={jobData.increment_mode === 'increment' ? t('details.increment') : t('details.incrementInverse')}
                   size="small"
                   color="info"
                   variant="outlined"
@@ -687,9 +700,9 @@ const JobDetails: React.FC = () => {
           );
           rows.push(
             <TableRow key="increment-range">
-              <TableCell sx={{ fontWeight: 'bold' }}>Increment Range</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.incrementRange')}</TableCell>
               <TableCell>
-                {jobData.increment_min ?? 1} - {jobData.increment_max ?? (jobData.mask?.length || 'N/A')}
+                {jobData.increment_min ?? 1} - {jobData.increment_max ?? (jobData.mask?.length || t('common.notAvailable'))}
               </TableCell>
             </TableRow>
           );
@@ -700,7 +713,7 @@ const JobDetails: React.FC = () => {
         if (jobData.wordlist_names && jobData.wordlist_names.length > 0) {
           rows.push(
             <TableRow key="wordlists">
-              <TableCell sx={{ fontWeight: 'bold' }}>Wordlist(s)</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.wordlists')}</TableCell>
               <TableCell>{jobData.wordlist_names.join(', ')}</TableCell>
             </TableRow>
           );
@@ -708,7 +721,7 @@ const JobDetails: React.FC = () => {
         if (jobData.mask) {
           rows.push(
             <TableRow key="mask">
-              <TableCell sx={{ fontWeight: 'bold' }}>Mask (suffix)</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.maskSuffix')}</TableCell>
               <TableCell sx={{ fontFamily: 'monospace' }}>{jobData.mask}</TableCell>
             </TableRow>
           );
@@ -719,7 +732,7 @@ const JobDetails: React.FC = () => {
         if (jobData.mask) {
           rows.push(
             <TableRow key="mask">
-              <TableCell sx={{ fontWeight: 'bold' }}>Mask (prefix)</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.maskPrefix')}</TableCell>
               <TableCell sx={{ fontFamily: 'monospace' }}>{jobData.mask}</TableCell>
             </TableRow>
           );
@@ -727,7 +740,7 @@ const JobDetails: React.FC = () => {
         if (jobData.wordlist_names && jobData.wordlist_names.length > 0) {
           rows.push(
             <TableRow key="wordlists">
-              <TableCell sx={{ fontWeight: 'bold' }}>Wordlist(s)</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.wordlists')}</TableCell>
               <TableCell>{jobData.wordlist_names.join(', ')}</TableCell>
             </TableRow>
           );
@@ -738,7 +751,7 @@ const JobDetails: React.FC = () => {
         if (jobData.wordlist_names && jobData.wordlist_names.length > 0) {
           rows.push(
             <TableRow key="association-wordlist">
-              <TableCell sx={{ fontWeight: 'bold' }}>Association Hints</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.associationHints')}</TableCell>
               <TableCell>{jobData.wordlist_names.join(', ')}</TableCell>
             </TableRow>
           );
@@ -746,7 +759,7 @@ const JobDetails: React.FC = () => {
         if (jobData.rule_names && jobData.rule_names.length > 0) {
           rows.push(
             <TableRow key="rules">
-              <TableCell sx={{ fontWeight: 'bold' }}>Rules</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('details.rules')}</TableCell>
               <TableCell>{jobData.rule_names.join(', ')}</TableCell>
             </TableRow>
           );
@@ -774,7 +787,7 @@ const JobDetails: React.FC = () => {
           {error}
         </Alert>
         <Button startIcon={<ArrowBack />} onClick={() => navigate(-1)}>
-          Back
+          {t('common.back')}
         </Button>
       </Box>
     );
@@ -783,9 +796,9 @@ const JobDetails: React.FC = () => {
   if (!jobData) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity="error">Job not found</Alert>
+        <Alert severity="error">{t('details.jobNotFound')}</Alert>
         <Button startIcon={<ArrowBack />} onClick={() => navigate(-1)} sx={{ mt: 2 }}>
-          Back
+          {t('common.back')}
         </Button>
       </Box>
     );
@@ -829,19 +842,19 @@ const JobDetails: React.FC = () => {
             startIcon={<ArrowBack />}
             onClick={() => navigate(-1)}
           >
-            Back
+            {t('common.back')}
           </Button>
           <Typography variant="h4" component="h1">
-            Job Details
+            {t('details.pageTitle')}
           </Typography>
-          <Chip 
-            label={jobData.status} 
+          <Chip
+            label={jobData.status}
             color={getStatusColor(jobData.status) as any}
             size="small"
           />
           {['pending', 'running', 'paused'].includes(jobData.status) && (
             <Chip
-              label={autoRefreshEnabled && !isEditingRef.current ? 'Auto-refresh: ON' : 'Auto-refresh: PAUSED'}
+              label={autoRefreshEnabled && !isEditingRef.current ? t('details.autoRefreshOn') : t('details.autoRefreshPaused')}
               color={autoRefreshEnabled && !isEditingRef.current ? 'success' : 'warning'}
               size="small"
               variant="outlined"
@@ -857,10 +870,10 @@ const JobDetails: React.FC = () => {
               onClick={() => setForceCompleteDialogOpen(true)}
               size="small"
             >
-              Force Complete
+              {t('details.forceComplete')}
             </Button>
           )}
-          <IconButton onClick={fetchJobDetails} disabled={loading} title="Refresh now">
+          <IconButton onClick={fetchJobDetails} disabled={loading} title={t('details.refreshNow')}>
             <RefreshIcon />
           </IconButton>
         </Box>
@@ -876,31 +889,31 @@ const JobDetails: React.FC = () => {
       {/* Job Information Table */}
       <Paper sx={{ mb: 3 }}>
         <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-          <Typography variant="h6">Job Information</Typography>
+          <Typography variant="h6">{t('details.jobInformation')}</Typography>
         </Box>
         <TableContainer>
           <Table>
             <TableBody>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold', width: '30%' }}>ID</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', width: '30%' }}>{t('common.id')}</TableCell>
                 <TableCell>{jobData.id}</TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.name')}</TableCell>
                 <TableCell>{jobData.name}</TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.status')}</TableCell>
                 <TableCell>
-                  <Chip 
-                    label={jobData.status} 
+                  <Chip
+                    label={jobData.status}
                     color={getStatusColor(jobData.status) as any}
                     size="small"
                   />
                 </TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Priority</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('details.priority')}</TableCell>
                 <TableCell>
                   {editingPriority ? (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -911,12 +924,12 @@ const JobDetails: React.FC = () => {
                         size="small"
                         sx={{ width: 100 }}
                         disabled={saving}
-                        helperText={`0-${maxPriority}`}
+                        helperText={t('details.priorityRange', { max: maxPriority })}
                       />
-                      <IconButton onClick={handleSavePriority} disabled={saving} size="small" title="Save">
+                      <IconButton onClick={handleSavePriority} disabled={saving} size="small" title={t('tooltips.save')}>
                         <SaveIcon />
                       </IconButton>
-                      <IconButton onClick={handleCancelPriority} disabled={saving} size="small" title="Cancel">
+                      <IconButton onClick={handleCancelPriority} disabled={saving} size="small" title={t('tooltips.cancel')}>
                         <CancelIcon />
                       </IconButton>
                     </Box>
@@ -931,7 +944,7 @@ const JobDetails: React.FC = () => {
                 </TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Max Agents</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.maxAgents')}</TableCell>
                 <TableCell>
                   {editingMaxAgents ? (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -942,12 +955,12 @@ const JobDetails: React.FC = () => {
                         size="small"
                         sx={{ width: 100 }}
                         disabled={saving}
-                        helperText="0=unlimited"
+                        helperText={t('details.maxAgentsHint')}
                       />
-                      <IconButton onClick={handleSaveMaxAgents} disabled={saving} size="small" title="Save">
+                      <IconButton onClick={handleSaveMaxAgents} disabled={saving} size="small" title={t('tooltips.save')}>
                         <SaveIcon />
                       </IconButton>
-                      <IconButton onClick={handleCancelMaxAgents} disabled={saving} size="small" title="Cancel">
+                      <IconButton onClick={handleCancelMaxAgents} disabled={saving} size="small" title={t('tooltips.cancel')}>
                         <CancelIcon />
                       </IconButton>
                     </Box>
@@ -962,7 +975,7 @@ const JobDetails: React.FC = () => {
                 </TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Chunk Size</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.chunkSize')}</TableCell>
                 <TableCell>
                   {editingChunkSize ? (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -973,12 +986,12 @@ const JobDetails: React.FC = () => {
                         size="small"
                         sx={{ width: 120 }}
                         disabled={saving}
-                        helperText="Seconds (5-86400)"
+                        helperText={t('details.chunkSizeHint')}
                       />
-                      <IconButton onClick={handleSaveChunkSize} disabled={saving} size="small" title="Save">
+                      <IconButton onClick={handleSaveChunkSize} disabled={saving} size="small" title={t('tooltips.save')}>
                         <SaveIcon />
                       </IconButton>
-                      <IconButton onClick={handleCancelChunkSize} disabled={saving} size="small" title="Cancel">
+                      <IconButton onClick={handleCancelChunkSize} disabled={saving} size="small" title={t('tooltips.cancel')}>
                         <CancelIcon />
                       </IconButton>
                     </Box>
@@ -993,7 +1006,7 @@ const JobDetails: React.FC = () => {
                 </TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Hashlist</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.hashlist')}</TableCell>
                 <TableCell>
                   <Link
                     component="button"
@@ -1002,32 +1015,32 @@ const JobDetails: React.FC = () => {
                   >
                     {jobData.hashlist_name}
                   </Link>
-                  {' '}(ID: {jobData.hashlist_id})
+                  {' '}({t('common.id')}: {jobData.hashlist_id})
                 </TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Hash Type</TableCell>
-                <TableCell>{jobData.hash_type || 'N/A'}</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.hashType')}</TableCell>
+                <TableCell>{jobData.hash_type || t('common.notAvailable')}</TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Attack Mode</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.attackMode')}</TableCell>
                 <TableCell>{getAttackModeName(jobData.attack_mode)}</TableCell>
               </TableRow>
               {/* Attack configuration rows based on attack mode */}
               {renderAttackConfigRows()}
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Keyspace</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.keyspace')}</TableCell>
                 <TableCell>{formatKeyspace(jobData.base_keyspace)}</TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Effective Keyspace</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.effectiveKeyspace')}</TableCell>
                 <TableCell>
                   {formatKeyspace(jobData.effective_keyspace)}
                   {jobData.multiplication_factor && jobData.multiplication_factor > 1 && (
-                    <Chip 
-                      label={`×${jobData.multiplication_factor}${jobData.uses_rule_splitting ? ' (rules)' : ''}`} 
-                      size="small" 
-                      color="error" 
+                    <Chip
+                      label={`×${jobData.multiplication_factor}${jobData.uses_rule_splitting ? ` ${t('common.rulesMultiplier')}` : ''}`}
+                      size="small"
+                      color="error"
                       variant="filled"
                       sx={{ ml: 1 }}
                     />
@@ -1035,19 +1048,19 @@ const JobDetails: React.FC = () => {
                 </TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Processed Keyspace</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.processedKeyspace')}</TableCell>
                 <TableCell>{formatKeyspace(jobData.processed_keyspace)}</TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Dispatched Keyspace</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.dispatchedKeyspace')}</TableCell>
                 <TableCell>{formatKeyspace(jobData.dispatched_keyspace)}</TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Progress</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.progress')}</TableCell>
                 <TableCell>{jobData.overall_progress_percent?.toFixed(2) || 0}%</TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Cracks Found</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.cracksFound')}</TableCell>
                 <TableCell>
                   {jobData.cracked_count > 0 ? (
                     <Link
@@ -1064,32 +1077,32 @@ const JobDetails: React.FC = () => {
                 </TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Created At</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.createdAt')}</TableCell>
                 <TableCell>{formatDate(jobData.created_at)}</TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Started At</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.startedAt')}</TableCell>
                 <TableCell>{formatDate(jobData.started_at)}</TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Time Remaining</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('details.timeRemaining')}</TableCell>
                 <TableCell>{estimatedCompletion.timeRemaining}</TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Estimated Completion</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('details.estimatedCompletion')}</TableCell>
                 <TableCell>{estimatedCompletion.estimatedDate}</TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Cracking Completed At</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('details.crackingCompletedAt')}</TableCell>
                 <TableCell>{formatDate(jobData.cracking_completed_at)}</TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Completed At</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('common.completedAt')}</TableCell>
                 <TableCell>{formatDate(jobData.completed_at)}</TableCell>
               </TableRow>
               {jobData.error_message && (
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Error</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>{t('common.error')}</TableCell>
                   <TableCell>
                     <Alert severity="error" sx={{ py: 0.5 }}>
                       {jobData.error_message}
@@ -1107,21 +1120,21 @@ const JobDetails: React.FC = () => {
         <Paper sx={{ mb: 3 }}>
           <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
             <Typography variant="h6">
-              Increment Layers ({layers.length} total)
+              {t('details.incrementLayers', { count: layers.length })}
             </Typography>
           </Box>
           <TableContainer>
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>Layer</TableCell>
-                  <TableCell>Mask</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Keyspace</TableCell>
-                  <TableCell>Effective Keyspace</TableCell>
-                  <TableCell>Progress</TableCell>
-                  <TableCell>Tasks</TableCell>
-                  <TableCell>Cracks</TableCell>
+                  <TableCell>{t('details.layerTable.layer')}</TableCell>
+                  <TableCell>{t('details.layerTable.mask')}</TableCell>
+                  <TableCell>{t('details.layerTable.status')}</TableCell>
+                  <TableCell>{t('details.layerTable.keyspace')}</TableCell>
+                  <TableCell>{t('details.layerTable.effectiveKeyspace')}</TableCell>
+                  <TableCell>{t('details.layerTable.progress')}</TableCell>
+                  <TableCell>{t('details.layerTable.tasks')}</TableCell>
+                  <TableCell>{t('details.layerTable.cracks')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -1141,7 +1154,7 @@ const JobDetails: React.FC = () => {
                       {formatKeyspace(layer.effective_keyspace)}
                       {!layer.is_accurate_keyspace && (
                         <Chip
-                          label="Estimated"
+                          label={t('details.estimatedKeyspace')}
                           size="small"
                           color="warning"
                           variant="outlined"
@@ -1151,10 +1164,10 @@ const JobDetails: React.FC = () => {
                     </TableCell>
                     <TableCell>{layer.overall_progress_percent?.toFixed(2) || 0}%</TableCell>
                     <TableCell>
-                      {layer.running_tasks || 0} running / {layer.total_tasks || 0} total
+                      {layer.running_tasks || 0} {t('details.layerTable.running')} / {layer.total_tasks || 0} {t('details.layerTable.total')}
                       {layer.failed_tasks != null && layer.failed_tasks > 0 && (
                         <Chip
-                          label={`${layer.failed_tasks} failed`}
+                          label={t('details.layerTable.failed', { count: layer.failed_tasks })}
                           size="small"
                           color="error"
                           sx={{ ml: 1 }}
@@ -1186,7 +1199,7 @@ const JobDetails: React.FC = () => {
       {/* Visual Progress Tracking */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>
-          Task Progress Visualization
+          {t('details.taskProgressVisualization')}
         </Typography>
         <JobProgressBar
           tasks={allTasks}
@@ -1199,20 +1212,20 @@ const JobDetails: React.FC = () => {
       <Paper>
         <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
           <Typography variant="h6">
-            Active Tasks ({activeTasks.length} running)
+            {t('details.activeTasks', { count: activeTasks.length })}
           </Typography>
         </Box>
         <TableContainer>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Agent ID</TableCell>
-                <TableCell>Task ID</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Keyspace Range</TableCell>
-                <TableCell>Progress</TableCell>
-                <TableCell>Current Speed</TableCell>
-                <TableCell>Cracks</TableCell>
+                <TableCell>{t('details.activeTasksTable.agentId')}</TableCell>
+                <TableCell>{t('details.activeTasksTable.taskId')}</TableCell>
+                <TableCell>{t('common.status')}</TableCell>
+                <TableCell>{t('details.activeTasksTable.keyspaceRange')}</TableCell>
+                <TableCell>{t('details.activeTasksTable.progress')}</TableCell>
+                <TableCell>{t('details.activeTasksTable.currentSpeed')}</TableCell>
+                <TableCell>{t('details.activeTasksTable.cracks')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -1220,14 +1233,14 @@ const JobDetails: React.FC = () => {
                 <TableRow>
                   <TableCell colSpan={7} align="center">
                     <Typography color="text.secondary" sx={{ py: 2 }}>
-                      No active tasks
+                      {t('details.noActiveTasks')}
                     </Typography>
                   </TableCell>
                 </TableRow>
               ) : (
                 activeTasks.map((task) => (
                   <TableRow key={task.id}>
-                    <TableCell>{task.agent_id || 'Unassigned'}</TableCell>
+                    <TableCell>{task.agent_id || t('common.unassigned')}</TableCell>
                     <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem', padding: '6px 8px' }}>{task.id}</TableCell>
                     <TableCell>
                       <Chip 
@@ -1268,26 +1281,26 @@ const JobDetails: React.FC = () => {
         <Paper sx={{ mt: 3 }}>
           <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
             <Typography variant="h6" color="error">
-              Failed Tasks ({failedTasks.length} total)
+              {t('details.failedTasks', { count: failedTasks.length })}
             </Typography>
           </Box>
           <TableContainer>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Agent ID</TableCell>
-                  <TableCell>Task ID</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Retry Count</TableCell>
-                  <TableCell>Error Message</TableCell>
-                  <TableCell>Last Updated</TableCell>
-                  <TableCell align="center">Actions</TableCell>
+                  <TableCell>{t('details.failedTasksTable.agentId')}</TableCell>
+                  <TableCell>{t('details.failedTasksTable.taskId')}</TableCell>
+                  <TableCell>{t('details.failedTasksTable.status')}</TableCell>
+                  <TableCell>{t('details.failedTasksTable.retryCount')}</TableCell>
+                  <TableCell>{t('details.failedTasksTable.errorMessage')}</TableCell>
+                  <TableCell>{t('details.failedTasksTable.lastUpdated')}</TableCell>
+                  <TableCell align="center">{t('details.failedTasksTable.actions')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {failedTasks.map((task) => (
                   <TableRow key={task.id}>
-                    <TableCell>{task.agent_id || 'Unassigned'}</TableCell>
+                    <TableCell>{task.agent_id || t('common.unassigned')}</TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
                         {task.id}
@@ -1303,7 +1316,7 @@ const JobDetails: React.FC = () => {
                     <TableCell>{task.retry_count || 0}</TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ maxWidth: 300 }}>
-                        {task.error_message || 'No error message'}
+                        {task.error_message || t('common.noErrorMessage')}
                       </Typography>
                     </TableCell>
                     <TableCell>{formatDate(task.updated_at)}</TableCell>
@@ -1315,7 +1328,7 @@ const JobDetails: React.FC = () => {
                         onClick={() => handleRetryTask(task.id)}
                         sx={{ textTransform: 'none' }}
                       >
-                        Retry
+                        {t('buttons.retry')}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -1331,20 +1344,20 @@ const JobDetails: React.FC = () => {
         <Paper sx={{ mt: 3 }}>
           <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
             <Typography variant="h6">
-              Completed Tasks ({completedTasks.length} total)
+              {t('details.completedTasks', { count: completedTasks.length })}
             </Typography>
           </Box>
           <TableContainer>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Agent ID</TableCell>
-                  <TableCell>Task ID</TableCell>
-                  <TableCell>Completed At</TableCell>
-                  <TableCell>Keyspace Range</TableCell>
-                  <TableCell>Final Progress</TableCell>
-                  <TableCell>Average Speed</TableCell>
-                  <TableCell>Cracks Found</TableCell>
+                  <TableCell>{t('details.completedTasksTable.agentId')}</TableCell>
+                  <TableCell>{t('details.completedTasksTable.taskId')}</TableCell>
+                  <TableCell>{t('details.completedTasksTable.completedAt')}</TableCell>
+                  <TableCell>{t('details.activeTasksTable.keyspaceRange')}</TableCell>
+                  <TableCell>{t('details.completedTasksTable.finalProgress')}</TableCell>
+                  <TableCell>{t('details.completedTasksTable.averageSpeed')}</TableCell>
+                  <TableCell>{t('details.completedTasksTable.cracksFound')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -1352,14 +1365,14 @@ const JobDetails: React.FC = () => {
                   <TableRow>
                     <TableCell colSpan={7} align="center">
                       <Typography color="text.secondary" sx={{ py: 2 }}>
-                        No completed tasks
+                        {t('details.noCompletedTasks')}
                       </Typography>
                     </TableCell>
                   </TableRow>
                 ) : (
                   paginatedCompletedTasks.map((task) => (
                     <TableRow key={task.id}>
-                      <TableCell>{task.agent_id || 'Unassigned'}</TableCell>
+                      <TableCell>{task.agent_id || t('common.unassigned')}</TableCell>
                       <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem', padding: '6px 8px' }}>{task.id}</TableCell>
                       <TableCell>{formatDate(task.completed_at)}</TableCell>
                       <TableCell>
@@ -1401,6 +1414,7 @@ const JobDetails: React.FC = () => {
               }}
               showFirstButton
               showLastButton
+              labelRowsPerPage={t('pagination.rowsPerPage', { ns: 'common' }) as string}
             />
           )}
         </Paper>
@@ -1413,26 +1427,26 @@ const JobDetails: React.FC = () => {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Force Complete Job</DialogTitle>
+        <DialogTitle>{t('dialogs.forceComplete.title')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            <strong>Warning:</strong> This will mark all incomplete tasks as completed and set the job status to completed.
+            <strong>{t('common.warning')}:</strong> {t('dialogs.forceComplete.warning')}
           </DialogContentText>
           <DialogContentText sx={{ mt: 2 }}>
-            <strong>Only use this if:</strong>
+            <strong>{t('dialogs.forceComplete.onlyUseIf')}</strong>
           </DialogContentText>
           <DialogContentText component="ul" sx={{ mt: 1, pl: 2 }}>
-            <li>The job has actually finished processing all work</li>
-            <li>The job is stuck in running/pending status</li>
-            <li>You have verified the keyspace has been fully searched</li>
+            <li>{t('dialogs.forceComplete.reason1')}</li>
+            <li>{t('dialogs.forceComplete.reason2')}</li>
+            <li>{t('dialogs.forceComplete.reason3')}</li>
           </DialogContentText>
           <DialogContentText sx={{ mt: 2, fontStyle: 'italic', fontSize: '0.9em' }}>
-            Note: We are working on better ways to handle keyspace calculations and job completion detection under various circumstances.
+            {t('dialogs.forceComplete.note')}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setForceCompleteDialogOpen(false)} disabled={forceCompleting}>
-            Cancel
+            {t('buttons.cancel')}
           </Button>
           <Button
             onClick={handleForceComplete}
@@ -1441,7 +1455,7 @@ const JobDetails: React.FC = () => {
             disabled={forceCompleting}
             startIcon={forceCompleting ? <CircularProgress size={20} /> : <CheckCircleIcon />}
           >
-            {forceCompleting ? 'Completing...' : 'Force Complete'}
+            {forceCompleting ? t('dialogs.forceComplete.completing') : t('dialogs.forceComplete.button')}
           </Button>
         </DialogActions>
       </Dialog>

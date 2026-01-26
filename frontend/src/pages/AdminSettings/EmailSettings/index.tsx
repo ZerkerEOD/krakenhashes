@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Box, Tabs, Tab, Paper } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import { ProviderConfig } from './ProviderConfig';
 import { TemplateEditor } from './TemplateEditor';
 import { Notification } from '../../../components/Notification';
@@ -28,6 +29,7 @@ const TabPanel = (props: TabPanelProps) => {
 };
 
 export const EmailSettings = () => {
+  const { t } = useTranslation('admin');
   const [currentTab, setCurrentTab] = useState(() => {
     // Restore tab state from localStorage
     const savedTab = localStorage.getItem('emailSettingsTab');
@@ -70,8 +72,8 @@ export const EmailSettings = () => {
             onChange={handleTabChange}
             aria-label="email settings tabs"
           >
-            <Tab label="Provider Configuration" />
-            <Tab label="Email Templates" />
+            <Tab label={t('emailSettings.tabs.providerConfiguration') as string} />
+            <Tab label={t('emailSettings.tabs.emailTemplates') as string} />
           </Tabs>
         </Box>
 

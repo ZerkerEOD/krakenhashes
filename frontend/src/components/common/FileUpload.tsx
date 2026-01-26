@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Button,
@@ -54,6 +55,7 @@ export default function FileUpload({
   uploadButtonText = 'Upload',
   additionalFields
 }: FileUploadProps) {
+  const { t } = useTranslation('common');
   const [file, setFile] = useState<File | null>(null);
   const [fileDescription, setFileDescription] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -227,7 +229,7 @@ export default function FileUpload({
             disabled={uploading}
             sx={{ mb: 2 }}
           >
-            Choose File
+            {t('fileUpload.chooseFile')}
             <VisuallyHiddenInput
               ref={fileInputRef}
               type="file"
@@ -259,7 +261,7 @@ export default function FileUpload({
         <Grid item xs={12}>
           <TextField
             fullWidth
-            label="Description"
+            label={t('fileUpload.description')}
             variant="outlined"
             value={fileDescription}
             onChange={handleDescriptionChange}
@@ -282,7 +284,7 @@ export default function FileUpload({
             disabled={uploading || !file}
             startIcon={uploading ? <CircularProgress size={20} /> : null}
           >
-            {uploading ? 'Uploading...' : uploadButtonText}
+            {uploading ? t('fileUpload.uploading') : uploadButtonText}
           </Button>
         </Grid>
 

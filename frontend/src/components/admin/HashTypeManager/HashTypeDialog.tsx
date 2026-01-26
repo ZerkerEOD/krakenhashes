@@ -11,6 +11,7 @@ import {
   Box,
   Alert,
 } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import { HashType, HashTypeCreateRequest, HashTypeUpdateRequest } from '../../../types/hashType';
 
 interface HashTypeDialogProps {
@@ -28,6 +29,7 @@ const HashTypeDialog: React.FC<HashTypeDialogProps> = ({
   hashType,
   existingIds = [],
 }) => {
+  const { t } = useTranslation('admin');
   const [formData, setFormData] = useState({
     id: 0,
     name: '',
@@ -69,14 +71,14 @@ const HashTypeDialog: React.FC<HashTypeDialogProps> = ({
 
     if (!isEditMode) {
       if (!formData.id || formData.id <= 0) {
-        newErrors.id = 'Hash ID is required and must be positive';
+        newErrors.id = t('hashTypes.validation.hashIdRequired') as string;
       } else if (existingIds.includes(formData.id)) {
-        newErrors.id = 'This Hash ID already exists';
+        newErrors.id = t('hashTypes.validation.hashIdExists') as string;
       }
     }
 
     if (!formData.name.trim()) {
-      newErrors.name = 'Name is required';
+      newErrors.name = t('hashTypes.validation.nameRequired') as string;
     }
 
     setErrors(newErrors);
@@ -120,24 +122,24 @@ const HashTypeDialog: React.FC<HashTypeDialogProps> = ({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>{isEditMode ? 'Edit Hash Type' : 'Add New Hash Type'}</DialogTitle>
+      <DialogTitle>{isEditMode ? t('hashTypes.dialog.editTitle') : t('hashTypes.dialog.addTitle')}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
           {!isEditMode && (
             <TextField
-              label="Hash ID (Hashcat Mode Number)"
+              label={t('hashTypes.dialog.hashIdLabel') as string}
               type="number"
               value={formData.id}
               onChange={(e) => setFormData({ ...formData, id: parseInt(e.target.value) || 0 })}
               error={!!errors.id}
-              helperText={errors.id || 'e.g., 1000 for NTLM'}
+              helperText={errors.id || t('hashTypes.dialog.hashIdHelper')}
               required
               fullWidth
             />
           )}
-          
+
           <TextField
-            label="Name"
+            label={t('hashTypes.dialog.nameLabel') as string}
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             error={!!errors.name}
@@ -145,27 +147,27 @@ const HashTypeDialog: React.FC<HashTypeDialogProps> = ({
             required
             fullWidth
           />
-          
+
           <TextField
-            label="Description"
+            label={t('hashTypes.dialog.descriptionLabel') as string}
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             multiline
             rows={3}
             fullWidth
           />
-          
+
           <TextField
-            label="Example Hash"
+            label={t('hashTypes.dialog.exampleLabel') as string}
             value={formData.example}
             onChange={(e) => setFormData({ ...formData, example: e.target.value })}
             multiline
             rows={2}
             fullWidth
             sx={{ '& .MuiInputBase-input': { fontFamily: 'monospace' } }}
-            helperText="Example of this hash format"
+            helperText={t('hashTypes.dialog.exampleHelper')}
           />
-          
+
           <FormControlLabel
             control={
               <Checkbox
@@ -173,7 +175,7 @@ const HashTypeDialog: React.FC<HashTypeDialogProps> = ({
                 onChange={(e) => setFormData({ ...formData, slow: e.target.checked })}
               />
             }
-            label="Slow Hash Algorithm"
+            label={t('hashTypes.dialog.slowLabel') as string}
           />
 
           <FormControlLabel
@@ -183,22 +185,22 @@ const HashTypeDialog: React.FC<HashTypeDialogProps> = ({
                 onChange={(e) => setFormData({ ...formData, is_salted: e.target.checked })}
               />
             }
-            label="Salted Hash Type (e.g., NTLMv2, bcrypt)"
+            label={t('hashTypes.dialog.saltedLabel') as string}
           />
 
           {hashType?.needs_processing && (
             <Alert severity="info">
-              This hash type requires special processing. Processing logic is managed programmatically.
+              {t('hashTypes.dialog.processingInfo')}
             </Alert>
           )}
         </Box>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={loading}>
-          Cancel
+          {t('hashTypes.dialog.cancel')}
         </Button>
         <Button onClick={handleSubmit} variant="contained" disabled={loading}>
-          {loading ? 'Saving...' : 'Save'}
+          {loading ? t('hashTypes.dialog.saving') : t('hashTypes.dialog.save')}
         </Button>
       </DialogActions>
     </Dialog>

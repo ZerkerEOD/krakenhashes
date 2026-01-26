@@ -17,9 +17,11 @@ import {
   Switch,
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
+import { useTranslation } from 'react-i18next';
 import { getMonitoringSettings, updateMonitoringSettings, MonitoringSettings as MonitoringSettingsData } from '../../services/monitoringSettings';
 
 const MonitoringSettings: React.FC = () => {
+  const { t } = useTranslation('admin');
   const [settings, setSettings] = useState<MonitoringSettingsData>({
     metrics_retention_realtime_days: 7,
     metrics_retention_daily_days: 30,
@@ -44,7 +46,7 @@ const MonitoringSettings: React.FC = () => {
       setSettings(monitoringSettings);
     } catch (err) {
       console.error('Failed to fetch monitoring settings:', err);
-      setError('Failed to load settings. Please try again.');
+      setError(t('monitoring.errors.loadFailed') as string);
     } finally {
       setLoading(false);
     }
@@ -56,11 +58,11 @@ const MonitoringSettings: React.FC = () => {
 
     try {
       await updateMonitoringSettings(settings);
-      enqueueSnackbar('Monitoring settings saved successfully', { variant: 'success' });
+      enqueueSnackbar(t('monitoring.messages.updateSuccess') as string, { variant: 'success' });
     } catch (err: any) {
       console.error('Failed to save monitoring settings:', err);
-      setError(err.response?.data?.error || 'Failed to save settings. Please try again.');
-      enqueueSnackbar('Failed to save monitoring settings', { variant: 'error' });
+      setError(err.response?.data?.error || t('monitoring.errors.saveFailed') as string);
+      enqueueSnackbar(t('monitoring.errors.saveFailed') as string, { variant: 'error' });
     } finally {
       setSaving(false);
     }
@@ -84,9 +86,9 @@ const MonitoringSettings: React.FC = () => {
   return (
     <Box>
       <Typography variant="h6" gutterBottom>
-        Monitoring Settings
+        {t('monitoring.title')}
       </Typography>
-      
+
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
@@ -95,42 +97,42 @@ const MonitoringSettings: React.FC = () => {
 
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
-          📊 Metrics Retention Periods
+          {t('monitoring.metricsRetention.title')}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Configure how long to retain metrics at different levels of detail. Data cascades from fine-grained to aggregated over time.
+          {t('monitoring.metricsRetention.description')}
         </Typography>
-        
+
         <Box sx={{ mb: 3 }}>
           <TextField
             fullWidth
-            label="Real-time Data Retention"
+            label={t('monitoring.metricsRetention.realtimeData')}
             type="number"
             value={settings.metrics_retention_realtime_days}
             onChange={handleRetentionChange('metrics_retention_realtime_days')}
-            helperText="Days to keep fine-grained metrics for recent activity (e.g., 7 days)"
+            helperText={t('monitoring.metricsRetention.realtimeDataHelper')}
             inputProps={{ min: 0, step: 1 }}
             sx={{ mb: 2 }}
           />
-          
+
           <TextField
             fullWidth
-            label="Daily Aggregates Retention"
+            label={t('monitoring.metricsRetention.dailyAggregates')}
             type="number"
             value={settings.metrics_retention_daily_days}
             onChange={handleRetentionChange('metrics_retention_daily_days')}
-            helperText="Days to store daily summaries after real-time period (e.g., 30 days)"
+            helperText={t('monitoring.metricsRetention.dailyAggregatesHelper')}
             inputProps={{ min: 0, step: 1 }}
             sx={{ mb: 2 }}
           />
-          
+
           <TextField
             fullWidth
-            label="Weekly Aggregates Retention"
+            label={t('monitoring.metricsRetention.weeklyAggregates')}
             type="number"
             value={settings.metrics_retention_weekly_days}
             onChange={handleRetentionChange('metrics_retention_weekly_days')}
-            helperText="Days to preserve long-term trends as weekly summaries (e.g., 365 days)"
+            helperText={t('monitoring.metricsRetention.weeklyAggregatesHelper')}
             inputProps={{ min: 0, step: 1 }}
           />
         </Box>
@@ -138,7 +140,7 @@ const MonitoringSettings: React.FC = () => {
         <Divider sx={{ my: 3 }} />
 
         <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
-          ⚙️ Aggregation Settings
+          {t('monitoring.aggregation.title')}
         </Typography>
 
         <FormControlLabel
@@ -148,41 +150,41 @@ const MonitoringSettings: React.FC = () => {
               onChange={(e) => setSettings({ ...settings, enable_aggregation: e.target.checked })}
             />
           }
-          label="Enable Automatic Aggregation"
+          label={t('monitoring.aggregation.enableAggregation')}
           sx={{ mb: 2 }}
         />
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Automatically consolidate older metrics to save storage space while preserving trends
+          {t('monitoring.aggregation.enableAggregationDescription')}
         </Typography>
 
         <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel>Aggregation Interval</InputLabel>
+          <InputLabel>{t('monitoring.aggregation.interval')}</InputLabel>
           <Select
             value={settings.aggregation_interval}
             onChange={(e) => setSettings({ ...settings, aggregation_interval: e.target.value })}
-            label="Aggregation Interval"
+            label={t('monitoring.aggregation.interval')}
             disabled={!settings.enable_aggregation}
           >
-            <MenuItem value="hourly">Hourly</MenuItem>
-            <MenuItem value="daily">Daily</MenuItem>
-            <MenuItem value="weekly">Weekly</MenuItem>
+            <MenuItem value="hourly">{t('monitoring.aggregation.hourly')}</MenuItem>
+            <MenuItem value="daily">{t('monitoring.aggregation.daily')}</MenuItem>
+            <MenuItem value="weekly">{t('monitoring.aggregation.weekly')}</MenuItem>
           </Select>
           <FormHelperText>
-            How often to run the aggregation process
+            {t('monitoring.aggregation.intervalHelper')}
           </FormHelperText>
         </FormControl>
 
         <Alert severity="info" sx={{ mt: 2 }}>
           <Typography variant="body2">
-            <strong>How cascading aggregation works:</strong>
+            <strong>{t('monitoring.cascading.title')}</strong>
             <br />
-            • Real-time data provides detailed metrics for recent activity
+            • {t('monitoring.cascading.realtime')}
             <br />
-            • After the real-time period, data is aggregated to daily summaries
+            • {t('monitoring.cascading.daily')}
             <br />
-            • After the daily period, data is further aggregated to weekly summaries
+            • {t('monitoring.cascading.weekly')}
             <br />
-            • This approach keeps charts readable while preserving historical trends
+            • {t('monitoring.cascading.benefit')}
           </Typography>
         </Alert>
       </Paper>
@@ -195,7 +197,7 @@ const MonitoringSettings: React.FC = () => {
           disabled={saving}
           startIcon={saving && <CircularProgress size={20} />}
         >
-          {saving ? 'Saving...' : 'Save Settings'}
+          {saving ? t('monitoring.buttons.saving') : t('monitoring.buttons.save')}
         </Button>
       </Box>
     </Box>

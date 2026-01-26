@@ -1,0 +1,149 @@
+{
+  "title": "Configuración de usuario",
+  "profileSettings": {
+    "title": "Configuración de perfil"
+  },
+  "profile": {
+    "title": "Perfil",
+    "username": "Nombre de usuario",
+    "email": "Correo electrónico",
+    "changePassword": "Cambiar contraseña",
+    "currentPassword": "Contraseña actual",
+    "newPassword": "Nueva contraseña",
+    "confirmPassword": "Confirmar nueva contraseña",
+    "updateProfile": "Actualizar perfil",
+    "profileUpdated": "Perfil actualizado exitosamente"
+  },
+  "account": {
+    "title": "Información de cuenta",
+    "username": "Nombre de usuario",
+    "email": "Correo electrónico",
+    "usernameCannotChange": "El nombre de usuario no se puede cambiar",
+    "saving": "Guardando...",
+    "saveEmail": "Guardar correo",
+    "confirmEmailUpdate": {
+      "title": "Confirmar actualización de correo",
+      "message": "Por favor ingresa tu contraseña actual para actualizar tu dirección de correo electrónico."
+    },
+    "errors": {
+      "noChanges": "No hay cambios para guardar",
+      "invalidEmail": "Dirección de correo inválida",
+      "updateFailed": "Error al actualizar correo",
+      "incorrectPassword": "Contraseña incorrecta"
+    },
+    "success": {
+      "emailUpdated": "Correo actualizado exitosamente"
+    }
+  },
+  "password": {
+    "title": "Cambiar contraseña",
+    "currentPassword": "Contraseña actual",
+    "newPassword": "Nueva contraseña",
+    "confirmNewPassword": "Confirmar nueva contraseña",
+    "enterCurrentFirst": "Ingresa primero la contraseña actual",
+    "passwordsMatch": "Las contraseñas coinciden",
+    "changePassword": "Cambiar contraseña",
+    "changing": "Cambiando contraseña...",
+    "errors": {
+      "currentRequired": "Se requiere la contraseña actual",
+      "newRequired": "Se requiere la nueva contraseña",
+      "mismatch": "Las contraseñas no coinciden",
+      "requirements": "La nueva contraseña no cumple los requisitos",
+      "updateFailed": "Error al actualizar contraseña"
+    },
+    "success": {
+      "changed": "Contraseña cambiada exitosamente"
+    }
+  },
+  "apiKey": {
+    "title": "Claves de API",
+    "status": "Estado de clave API",
+    "active": "Activa",
+    "noKeyGenerated": "Sin clave API generada",
+    "created": "Creada",
+    "lastUsed": "Último uso",
+    "generate": "Generar clave API",
+    "regenerate": "Regenerar clave API",
+    "revoke": "Revocar clave API",
+    "viewDocs": "Ver documentación de API",
+    "dialog": {
+      "title": "Tu clave API",
+      "saveNow": "¡Guarda esta clave ahora!",
+      "cantSeeAgain": "No podrás verla de nuevo.",
+      "instructions": "Usa esta clave API en tus solicitudes HTTP incluyéndola en el encabezado X-API-Key.",
+      "saved": "La guardé"
+    },
+    "confirmRegenerate": {
+      "title": "¿Regenerar clave API?",
+      "warning": "Esto invalidará tu clave API existente. Cualquier aplicación que use la clave actual dejará de funcionar.",
+      "confirm": "¿Estás seguro de que deseas continuar?"
+    },
+    "confirmRevoke": {
+      "title": "¿Revocar clave API?",
+      "warning": "Esto deshabilitará inmediatamente el acceso a la API. Cualquier aplicación que use esta clave dejará de funcionar.",
+      "confirm": "¿Estás seguro de que deseas revocar tu clave API?"
+    },
+    "errors": {
+      "generateFailed": "Error al generar clave API",
+      "revokeFailed": "Error al revocar clave API"
+    },
+    "success": {
+      "revoked": "Clave API revocada exitosamente",
+      "copied": "Clave API copiada al portapapeles"
+    }
+  },
+  "common": {
+    "cancel": "Cancelar",
+    "never": "Nunca",
+    "invalidDate": "Fecha inválida"
+  },
+  "mfa": {
+    "title": "Autenticación de dos factores",
+    "status": "Estado de 2FA",
+    "enabled": "Habilitado",
+    "disabled": "Deshabilitado",
+    "enable": "Habilitar 2FA",
+    "disable": "Deshabilitar 2FA",
+    "methods": {
+      "title": "Métodos de autenticación",
+      "totp": "Aplicación de autenticación",
+      "email": "Correo electrónico",
+      "backupCodes": "Códigos de respaldo"
+    },
+    "setup": {
+      "scanQR": "Escanea este código QR con tu aplicación de autenticación",
+      "enterCode": "Ingresa el código de tu aplicación para verificar",
+      "backupCodesGenerated": "Guarda estos códigos de respaldo en un lugar seguro"
+    }
+  },
+  "linkedAccounts": {
+    "title": "Cuentas vinculadas",
+    "noAccounts": "No hay cuentas vinculadas",
+    "link": "Vincular cuenta",
+    "unlink": "Desvincular"
+  },
+  "notifications": {
+    "title": "Notificaciones",
+    "emailNotifications": "Notificaciones por correo",
+    "jobCompleted": "Trabajo completado",
+    "agentOffline": "Agente desconectado",
+    "securityAlerts": "Alertas de seguridad"
+  },
+  "preferences": {
+    "title": "Preferencias",
+    "language": "Idioma",
+    "timezone": "Zona horaria",
+    "dateFormat": "Formato de fecha",
+    "theme": "Tema",
+    "themes": {
+      "light": "Claro",
+      "dark": "Oscuro",
+      "system": "Sistema"
+    }
+  },
+  "errors": {
+    "updateFailed": "Error al actualizar la configuración",
+    "passwordMismatch": "Las contraseñas no coinciden",
+    "invalidPassword": "Contraseña actual inválida"
+  }
+}

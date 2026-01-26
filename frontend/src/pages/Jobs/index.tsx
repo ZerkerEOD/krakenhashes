@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Typography,
@@ -41,6 +42,7 @@ interface Filters {
 }
 
 const Jobs: React.FC = () => {
+  const { t } = useTranslation('jobs');
   // Pagination state
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -230,21 +232,21 @@ const Jobs: React.FC = () => {
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1">
-          Password Cracking Jobs
+          {t('page.title') as string}
         </Typography>
         
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           {/* Polling Status */}
           <Chip
             icon={<RefreshIcon />}
-            label={isPolling ? 'Auto-refresh (5s)' : 'Auto-refresh OFF'}
+            label={isPolling ? t('autoRefresh.on') as string : t('autoRefresh.off') as string}
             color={isPolling ? 'success' : 'default'}
             variant="outlined"
             size="small"
             onClick={togglePolling}
             sx={{ cursor: 'pointer' }}
           />
-          
+
           {/* Manual Refresh */}
           <Button
             variant="outlined"
@@ -253,15 +255,15 @@ const Jobs: React.FC = () => {
             onClick={handleRefresh}
             disabled={loading}
           >
-            Refresh
+            {t('buttons.refresh') as string}
           </Button>
-          
+
           {/* Page Size Selector */}
           <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel>Jobs per page</InputLabel>
+            <InputLabel>{t('pagination.jobsPerPage') as string}</InputLabel>
             <Select
               value={pageSize}
-              label="Jobs per page"
+              label={t('pagination.jobsPerPage') as string}
               onChange={(e) => handlePageSizeChange(Number(e.target.value))}
             >
               <MenuItem value={25}>25</MenuItem>
@@ -279,7 +281,7 @@ const Jobs: React.FC = () => {
             onClick={() => setDeleteDialogOpen(true)}
             disabled={!jobs || jobs.length === 0}
           >
-            Delete Finished
+            {t('buttons.deleteFinished') as string}
           </Button>
         </Box>
       </Box>
@@ -291,7 +293,7 @@ const Jobs: React.FC = () => {
             {/* Search Field */}
             <TextField
               size="small"
-              placeholder="Search jobs..."
+              placeholder={t('filters.searchPlaceholder') as string}
               value={filters.search}
               onChange={handleSearchChange}
               InputProps={{
@@ -302,18 +304,18 @@ const Jobs: React.FC = () => {
 
             {/* Priority Filter */}
             <FormControl size="small" sx={{ minWidth: 120 }}>
-              <InputLabel>Priority</InputLabel>
+              <InputLabel>{t('filters.priority') as string}</InputLabel>
               <Select
                 value={filters.priority ?? ''}
-                label="Priority"
+                label={t('filters.priority') as string}
                 onChange={(e) => handlePriorityFilter(e.target.value === '' ? null : Number(e.target.value))}
               >
-                <MenuItem value="">All</MenuItem>
-                <MenuItem value={1}>Low (1)</MenuItem>
-                <MenuItem value={2}>Medium (2)</MenuItem>
-                <MenuItem value={3}>High (3)</MenuItem>
-                <MenuItem value={4}>Critical (4)</MenuItem>
-                <MenuItem value={5}>Maximum (5)</MenuItem>
+                <MenuItem value="">{t('filters.all') as string}</MenuItem>
+                <MenuItem value={1}>{t('priority.low') as string}</MenuItem>
+                <MenuItem value={2}>{t('priority.medium') as string}</MenuItem>
+                <MenuItem value={3}>{t('priority.high') as string}</MenuItem>
+                <MenuItem value={4}>{t('priority.critical') as string}</MenuItem>
+                <MenuItem value={5}>{t('priority.maximum') as string}</MenuItem>
               </Select>
             </FormControl>
           </Box>
@@ -321,7 +323,7 @@ const Jobs: React.FC = () => {
           {/* Status Filter Buttons */}
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             <Typography variant="body2" sx={{ mr: 1 }}>
-              Status:
+              {t('filters.status') as string}:
             </Typography>
             <ToggleButtonGroup
               value={filters.status}
@@ -331,27 +333,27 @@ const Jobs: React.FC = () => {
             >
               <ToggleButton value="">
                 <Badge badgeContent={Object.values(statusCounts).reduce((a, b) => a + b, 0)} color="default">
-                  All
+                  {t('filters.all') as string}
                 </Badge>
               </ToggleButton>
               <ToggleButton value="pending">
                 <Badge badgeContent={statusCounts.pending || 0} color="default">
-                  Pending
+                  {t('status.pending') as string}
                 </Badge>
               </ToggleButton>
               <ToggleButton value="running">
                 <Badge badgeContent={statusCounts.running || 0} color="primary">
-                  Running
+                  {t('status.running') as string}
                 </Badge>
               </ToggleButton>
               <ToggleButton value="completed">
                 <Badge badgeContent={statusCounts.completed || 0} color="success">
-                  Completed
+                  {t('status.completed') as string}
                 </Badge>
               </ToggleButton>
               <ToggleButton value="failed">
                 <Badge badgeContent={statusCounts.failed || 0} color="error">
-                  Failed
+                  {t('status.failed') as string}
                 </Badge>
               </ToggleButton>
             </ToggleButtonGroup>
@@ -362,15 +364,16 @@ const Jobs: React.FC = () => {
       {/* Error Alert */}
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          Failed to fetch jobs: {error.message}. {isPolling && 'Will retry automatically.'}
+          {t('errors.fetchFailed', { message: error.message }) as string}
+          {isPolling && ` ${t('errors.willRetry') as string}`}
         </Alert>
       )}
 
       {/* Last Update Timestamp */}
       {!loading && jobs.length > 0 && (
         <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
-          Last updated: {lastUpdateTime.toLocaleTimeString()}
-          {filters.status || filters.priority !== null || filters.search ? ' (filtered)' : ''}
+          {t('lastUpdated', { time: lastUpdateTime.toLocaleTimeString() }) as string}
+          {filters.status || filters.priority !== null || filters.search ? ` ${t('filtered') as string}` : ''}
         </Typography>
       )}
 
@@ -380,7 +383,7 @@ const Jobs: React.FC = () => {
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
             <CircularProgress />
             <Typography variant="body1" sx={{ ml: 2 }}>
-              Loading jobs...
+              {t('loading') as string}
             </Typography>
           </Box>
         ) : (
@@ -402,8 +405,8 @@ const Jobs: React.FC = () => {
         onClose={() => setDeleteDialogOpen(false)}
         onConfirm={handleDeleteFinished}
         isLoading={isDeleting}
-        title="Delete Finished Jobs"
-        message="Are you sure you want to delete all finished jobs? This action cannot be undone."
+        title={t('dialogs.deleteFinished.title') as string}
+        message={t('dialogs.deleteFinished.message') as string}
       />
     </Box>
   );

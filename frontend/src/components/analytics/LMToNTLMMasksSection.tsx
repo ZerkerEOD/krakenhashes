@@ -4,6 +4,7 @@
  * to assist in cracking the case-sensitive NTLM versions
  */
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Paper,
@@ -48,6 +49,7 @@ interface LMToNTLMMasksSectionProps {
 }
 
 export default function LMToNTLMMasksSection({ data }: LMToNTLMMasksSectionProps) {
+  const { t } = useTranslation('analytics');
   const [page, setPage] = useState(0);
   const [rowsPerPage] = useState(50);
 
@@ -74,12 +76,12 @@ export default function LMToNTLMMasksSection({ data }: LMToNTLMMasksSectionProps
   const handleExportTxt = () => {
     // Generate detailed .txt format with statistics
     const txtContent = [
-      '# LM-to-NTLM Hashcat Masks',
-      `# Generated from ${data.total_lm_cracked} cracked LM passwords`,
-      `# Total masks: ${data.total_masks_generated}`,
-      `# Total estimated keyspace: ${data.total_estimated_keyspace.toLocaleString()}`,
+      t('export.header'),
+      t('export.generatedFrom', { count: data.total_lm_cracked }),
+      t('export.totalMasks', { count: data.total_masks_generated }),
+      t('export.totalKeyspace', { keyspace: data.total_estimated_keyspace.toLocaleString() }),
       '#',
-      '# Format: mask | pattern | count | match% | keyspace | example',
+      t('export.format'),
       '',
       ...data.masks.map(
         (m) =>
@@ -114,23 +116,21 @@ export default function LMToNTLMMasksSection({ data }: LMToNTLMMasksSectionProps
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <MaskIcon sx={{ fontSize: 32, color: 'primary.main', mr: 1 }} />
           <Typography variant="h5" component="h2">
-            LM-to-NTLM Mask Generation
+            {t('sections.lmToNtlmMasks')}
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" size="small" startIcon={<DownloadIcon />} onClick={handleExportHCMask}>
-            Export .hcmask
+            {t('actions.exportHcmask')}
           </Button>
           <Button variant="outlined" size="small" startIcon={<DownloadIcon />} onClick={handleExportTxt}>
-            Export .txt
+            {t('actions.exportTxt')}
           </Button>
         </Box>
       </Box>
 
       <Alert severity="info" sx={{ mb: 3 }}>
-        These hashcat masks are generated from cracked LM passwords to help crack the case-sensitive NTLM versions.
-        Masks are sorted by <strong>match percentage</strong> (effectiveness) to prioritize the most likely patterns.
-        Use with hashcat's <code>-a 3</code> (mask attack) mode.
+        {t('descriptions.maskGeneration')}
       </Alert>
 
       {/* Summary Statistics */}
@@ -139,7 +139,7 @@ export default function LMToNTLMMasksSection({ data }: LMToNTLMMasksSectionProps
           <Card>
             <CardContent>
               <Typography variant="body2" color="text.secondary">
-                LM Passwords Analyzed
+                {t('labels.lmPasswordsAnalyzed')}
               </Typography>
               <Typography variant="h5">{data.total_lm_cracked.toLocaleString()}</Typography>
             </CardContent>
@@ -149,7 +149,7 @@ export default function LMToNTLMMasksSection({ data }: LMToNTLMMasksSectionProps
           <Card>
             <CardContent>
               <Typography variant="body2" color="text.secondary">
-                Masks Generated
+                {t('labels.masksGenerated')}
               </Typography>
               <Typography variant="h5">{data.total_masks_generated.toLocaleString()}</Typography>
             </CardContent>
@@ -159,7 +159,7 @@ export default function LMToNTLMMasksSection({ data }: LMToNTLMMasksSectionProps
           <Card>
             <CardContent>
               <Typography variant="body2" color="text.secondary">
-                Total Estimated Keyspace
+                {t('labels.totalEstimatedKeyspace')}
               </Typography>
               <Typography variant="h5">{formatKeyspace(data.total_estimated_keyspace)}</Typography>
             </CardContent>
@@ -172,17 +172,17 @@ export default function LMToNTLMMasksSection({ data }: LMToNTLMMasksSectionProps
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Mask</TableCell>
-              <TableCell>LM Pattern</TableCell>
-              <TableCell align="right">Count</TableCell>
+              <TableCell>{t('columns.mask')}</TableCell>
+              <TableCell>{t('columns.lmPattern')}</TableCell>
+              <TableCell align="right">{t('columns.count')}</TableCell>
               <TableCell align="right">
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
                   <TrendingUpIcon sx={{ fontSize: 16, color: 'success.main' }} />
-                  Match %
+                  {t('columns.matchPercentage')}
                 </Box>
               </TableCell>
-              <TableCell align="right">Est. Keyspace</TableCell>
-              <TableCell>Example LM</TableCell>
+              <TableCell align="right">{t('columns.estimatedKeyspace')}</TableCell>
+              <TableCell>{t('columns.exampleLm')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -231,13 +231,13 @@ export default function LMToNTLMMasksSection({ data }: LMToNTLMMasksSectionProps
         onPageChange={handleChangePage}
         rowsPerPage={rowsPerPage}
         rowsPerPageOptions={[50]}
-        labelDisplayedRows={({ from, to, count }) => `${from}-${to} of ${count} masks`}
+        labelDisplayedRows={({ from, to, count }) => t('pagination.masks', { from, to, count })}
+        labelRowsPerPage={t('pagination.rowsPerPage', { ns: 'common' }) as string}
       />
 
       {data.masks.length > 50 && (
         <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
-          Masks sorted by match percentage (most effective first). Higher match percentage indicates the mask matches
-          more LM passwords.
+          {t('descriptions.maskSorting')}
         </Typography>
       )}
     </Paper>

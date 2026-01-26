@@ -2,6 +2,7 @@
  * Custom patterns section showing organization name pattern matches.
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Paper,
   Typography,
@@ -20,6 +21,8 @@ interface CustomPatternsSectionProps {
 }
 
 export default function CustomPatternsSection({ data }: CustomPatternsSectionProps) {
+  const { t } = useTranslation('analytics');
+
   const patterns = Object.entries(data.patterns_detected).filter(([_, value]) => value.count > 0);
 
   if (patterns.length === 0) {
@@ -29,19 +32,19 @@ export default function CustomPatternsSection({ data }: CustomPatternsSectionPro
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
       <Typography variant="h5" gutterBottom>
-        Organization Name Patterns
+        {t('sections.customPatterns')}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Passwords containing organization name variations
+        {t('descriptions.customPatterns')}
       </Typography>
 
       <TableContainer>
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell sx={threeColumnTableStyles.labelCell}>Pattern</TableCell>
-              <TableCell sx={threeColumnTableStyles.countCell}>Count</TableCell>
-              <TableCell sx={threeColumnTableStyles.percentageCell}>Percentage</TableCell>
+              <TableCell sx={threeColumnTableStyles.labelCell}>{t('columns.pattern')}</TableCell>
+              <TableCell sx={threeColumnTableStyles.countCell}>{t('columns.count')}</TableCell>
+              <TableCell sx={threeColumnTableStyles.percentageCell}>{t('columns.percentage')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

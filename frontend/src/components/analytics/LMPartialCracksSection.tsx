@@ -3,6 +3,7 @@
  * Displays partially cracked LM hashes (one half cracked, other half unknown)
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Paper,
@@ -46,6 +47,8 @@ interface LMPartialCracksSectionProps {
 }
 
 export default function LMPartialCracksSection({ data }: LMPartialCracksSectionProps) {
+  const { t } = useTranslation('analytics');
+
   if (!data || data.total_partial === 0) {
     return null;
   }
@@ -57,13 +60,12 @@ export default function LMPartialCracksSection({ data }: LMPartialCracksSectionP
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
         <WarningIcon sx={{ fontSize: 32, color: 'warning.main', mr: 1 }} />
         <Typography variant="h5" component="h2">
-          LM Partial Cracks
+          {t('sections.lmPartialCracks')}
         </Typography>
       </Box>
 
       <Alert severity="warning" sx={{ mb: 3 }}>
-        These LM hashes are partially cracked, making full compromise significantly easier. Immediate password
-        reset and LM hash storage disablement required.
+        {t('warnings.partialCracks')}
       </Alert>
 
       {/* Summary Statistics */}
@@ -72,11 +74,11 @@ export default function LMPartialCracksSection({ data }: LMPartialCracksSectionP
           <Card>
             <CardContent>
               <Typography variant="body2" color="text.secondary">
-                Total Partial
+                {t('labels.totalPartial')}
               </Typography>
               <Typography variant="h5">{data.total_partial.toLocaleString()}</Typography>
               <Typography variant="caption" color="text.secondary">
-                {formatPercentage(data.percentage_partial)} of LM hashes
+                {formatPercentage(data.percentage_partial)} {t('descriptions.ofLmHashes')}
               </Typography>
             </CardContent>
           </Card>
@@ -85,11 +87,11 @@ export default function LMPartialCracksSection({ data }: LMPartialCracksSectionP
           <Card>
             <CardContent>
               <Typography variant="body2" color="text.secondary">
-                First Half Only
+                {t('labels.firstHalfOnly')}
               </Typography>
               <Typography variant="h5">{data.first_half_only.toLocaleString()}</Typography>
               <Typography variant="caption" color="text.secondary">
-                Chars 1-7 cracked
+                {t('descriptions.chars1To7')}
               </Typography>
             </CardContent>
           </Card>
@@ -98,11 +100,11 @@ export default function LMPartialCracksSection({ data }: LMPartialCracksSectionP
           <Card>
             <CardContent>
               <Typography variant="body2" color="text.secondary">
-                Second Half Only
+                {t('labels.secondHalfOnly')}
               </Typography>
               <Typography variant="h5">{data.second_half_only.toLocaleString()}</Typography>
               <Typography variant="caption" color="text.secondary">
-                Chars 8-14 cracked
+                {t('descriptions.chars8To14')}
               </Typography>
             </CardContent>
           </Card>
@@ -114,11 +116,11 @@ export default function LMPartialCracksSection({ data }: LMPartialCracksSectionP
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Username</TableCell>
-              <TableCell>Domain</TableCell>
-              <TableCell>First Half (1-7)</TableCell>
-              <TableCell>Second Half (8-14)</TableCell>
-              <TableCell>Hashlist</TableCell>
+              <TableCell>{t('columns.username')}</TableCell>
+              <TableCell>{t('columns.domain')}</TableCell>
+              <TableCell>{t('columns.firstHalf')}</TableCell>
+              <TableCell>{t('columns.secondHalf')}</TableCell>
+              <TableCell>{t('columns.hashlist')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -142,7 +144,7 @@ export default function LMPartialCracksSection({ data }: LMPartialCracksSectionP
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <LockIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
                       <Typography variant="body2" color="text.disabled">
-                        Unknown
+                        {t('labels.unknown')}
                       </Typography>
                     </Box>
                   )}
@@ -159,7 +161,7 @@ export default function LMPartialCracksSection({ data }: LMPartialCracksSectionP
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <LockIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
                       <Typography variant="body2" color="text.disabled">
-                        Unknown
+                        {t('labels.unknown')}
                       </Typography>
                     </Box>
                   )}
@@ -175,7 +177,7 @@ export default function LMPartialCracksSection({ data }: LMPartialCracksSectionP
 
       {data.partial_crack_details.length >= 50 && (
         <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
-          Showing top 50 partial cracks
+          {t('messages.top50PartialCracks')}
         </Typography>
       )}
     </Paper>

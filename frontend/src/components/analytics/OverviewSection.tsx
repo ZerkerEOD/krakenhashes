@@ -2,6 +2,7 @@
  * Overview section showing high-level statistics and hash mode breakdown.
  */
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Paper,
   Typography,
@@ -29,6 +30,7 @@ interface OverviewSectionProps {
 }
 
 export default function OverviewSection({ report, data, filteredData, selectedDomain, onDomainChange }: OverviewSectionProps) {
+  const { t } = useTranslation('analytics');
   const domains = data.overview.domain_breakdown || [];
 
   // Use filtered data's overview directly (already filtered by parent)
@@ -63,7 +65,7 @@ export default function OverviewSection({ report, data, filteredData, selectedDo
       {domains.length > 0 && (
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
           <Tabs value={getCurrentTabValue()} onChange={handleTabChange} aria-label="Domain filter tabs">
-            <Tab label="All" />
+            <Tab label={t('tabs.all')} />
             {domains.map((domainStat) => (
               <Tab key={domainStat.domain} label={domainStat.domain} />
             ))}
@@ -72,7 +74,7 @@ export default function OverviewSection({ report, data, filteredData, selectedDo
       )}
 
       <Typography variant="h5" gutterBottom>
-        Overview{selectedDomain ? ` - ${selectedDomain}` : ''}
+        {t('sections.overview')}{selectedDomain ? ` - ${selectedDomain}` : ''}
       </Typography>
 
       {/* Summary Cards */}
@@ -81,7 +83,7 @@ export default function OverviewSection({ report, data, filteredData, selectedDo
           <Card>
             <CardContent>
               <Typography color="text.secondary" gutterBottom>
-                Total Hashes
+                {t('cards.totalHashes')}
               </Typography>
               <Typography variant="h4">
                 {filteredStats.total_hashes.toLocaleString()}
@@ -93,7 +95,7 @@ export default function OverviewSection({ report, data, filteredData, selectedDo
           <Card>
             <CardContent>
               <Typography color="text.secondary" gutterBottom>
-                Cracked
+                {t('cards.cracked')}
               </Typography>
               <Typography variant="h4" color="success.main">
                 {filteredStats.total_cracked.toLocaleString()}
@@ -105,7 +107,7 @@ export default function OverviewSection({ report, data, filteredData, selectedDo
           <Card>
             <CardContent>
               <Typography color="text.secondary" gutterBottom>
-                Crack Rate
+                {t('cards.crackRate')}
               </Typography>
               <Typography variant="h4" color="primary">
                 {crackPercentage}%
@@ -117,7 +119,7 @@ export default function OverviewSection({ report, data, filteredData, selectedDo
           <Card>
             <CardContent>
               <Typography color="text.secondary" gutterBottom>
-                Hashlists Analyzed
+                {t('cards.hashlistsAnalyzed')}
               </Typography>
               <Typography variant="h4">
                 {report.total_hashlists}
@@ -131,16 +133,16 @@ export default function OverviewSection({ report, data, filteredData, selectedDo
       {!selectedDomain && domains.length > 0 && (
         <Box sx={{ mb: 3 }}>
           <Typography variant="h6" gutterBottom>
-            Domain Breakdown
+            {t('sections.domainBreakdown')}
           </Typography>
           <TableContainer>
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>Domain</TableCell>
-                  <TableCell align="right">Total Hashes</TableCell>
-                  <TableCell align="right">Cracked</TableCell>
-                  <TableCell align="right">Percentage</TableCell>
+                  <TableCell>{t('columns.domain')}</TableCell>
+                  <TableCell align="right">{t('columns.totalHashes')}</TableCell>
+                  <TableCell align="right">{t('columns.cracked')}</TableCell>
+                  <TableCell align="right">{t('columns.percentage')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -161,16 +163,16 @@ export default function OverviewSection({ report, data, filteredData, selectedDo
       {/* Hash Mode Breakdown */}
       <Box>
         <Typography variant="h6" gutterBottom>
-          Hash Mode Breakdown
+          {t('sections.hashModeBreakdown')}
         </Typography>
         <TableContainer>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Hash Type</TableCell>
-                <TableCell align="right">Total Hashes</TableCell>
-                <TableCell align="right">Cracked</TableCell>
-                <TableCell align="right">Percentage</TableCell>
+                <TableCell>{t('columns.hashType')}</TableCell>
+                <TableCell align="right">{t('columns.totalHashes')}</TableCell>
+                <TableCell align="right">{t('columns.cracked')}</TableCell>
+                <TableCell align="right">{t('columns.percentage')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -185,7 +187,7 @@ export default function OverviewSection({ report, data, filteredData, selectedDo
               {/* Totals Row */}
               <TableRow sx={{ fontWeight: 'bold', backgroundColor: 'action.hover' }}>
                 <TableCell>
-                  <strong>Total</strong>
+                  <strong>{t('labels.total')}</strong>
                 </TableCell>
                 <TableCell align="right">
                   <strong>{filteredStats.total_hashes.toLocaleString()}</strong>

@@ -1,0 +1,107 @@
+{
+  "title": "Hashlijsten",
+  "uploadButton": "Hashlijst uploaden",
+  "page": {
+    "title": "Hashlijstbeheer",
+    "description": "Upload en beheer wachtwoordhashlijsten voor kraakoperaties"
+  },
+  "columns": {
+    "name": "Naam",
+    "hashType": "Hashtype",
+    "totalHashes": "Totaal aantal hashes",
+    "crackedHashes": "Gekraakt",
+    "progress": "Gekraakt (%)",
+    "client": "Klant",
+    "status": "Status",
+    "createdAt": "Aangemaakt op",
+    "actions": "Acties"
+  },
+  "filters": {
+    "filterByName": "Filter op naam",
+    "status": "Status",
+    "all": "Alle"
+  },
+  "status": {
+    "uploading": "Uploaden",
+    "processing": "Verwerken",
+    "ready": "Gereed",
+    "error": "Fout"
+  },
+  "table": {
+    "noHashlists": "Geen hashlijsten gevonden."
+  },
+  "details": {
+    "title": "Hashlijst-details",
+    "overview": "Overzicht",
+    "hashes": "Hashes",
+    "jobs": "Taken",
+    "stats": "Statistieken"
+  },
+  "upload": {
+    "title": "Nieuwe hashlijst uploaden",
+    "name": "Naam hashlijst",
+    "hashType": "Hashtype",
+    "client": "Klant (optioneel)",
+    "file": "Hashbestand",
+    "selectFile": "Bestand selecteren",
+    "uploading": "Uploaden...",
+    "cancel": "Annuleren"
+  },
+  "actions": {
+    "viewDetails": "Details bekijken",
+    "createJob": "Taak aanmaken",
+    "download": "Downloaden",
+    "delete": "Verwijderen"
+  },
+  "confirmDelete": {
+    "title": "Verwijdering bevestigen",
+    "message": "Weet u zeker dat u de hashlijst \"{{name}}\" wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.",
+    "cancel": "Annuleren",
+    "delete": "Verwijderen",
+    "deleting": "Verwijderen..."
+  },
+  "deletionProgress": {
+    "title": "Hashlijst verwijderen",
+    "successTitle": "Hashlijst succesvol verwijderd",
+    "complete": "Verwijdering voltooid!",
+    "failed": "Verwijdering mislukt",
+    "summary": "Samenvatting:",
+    "totalProcessed": "Totaal verwerkte hashes: {{value}}",
+    "orphansDeleted": "Weesgehashte verwijderd: {{value}}",
+    "sharedPreserved": "Gedeelde hashes bewaard: {{value}}",
+    "jobsDeleted": "Taken verwijderd: {{value}}",
+    "duration": "Duur: {{duration}}",
+    "phase": "Fase {{current}}/{{total}}: {{label}}",
+    "phases": {
+      "preparing": "Voorbereiden...",
+      "removingHashes": "Hashes verwijderen",
+      "clearingReferences": "Taakreferenties wissen",
+      "cleaningOrphans": "Weeshashes opschonen",
+      "finalizing": "Verwijdering afronden"
+    },
+    "units": {
+      "hashes": "hashes",
+      "references": "referenties"
+    },
+    "error": "Fout: {{error}}",
+    "done": "Gereed",
+    "close": "Sluiten"
+  },
+  "notifications": {
+    "deleteSuccess": "Hashlijst succesvol verwijderd",
+    "uploadSuccess": "Hashlijst succesvol geüpload",
+    "downloaded": "{{filename}} gedownload"
+  },
+  "errors": {
+    "loadFailed": "Fout bij ophalen van hashlijsten.",
+    "uploadFailed": "Uploaden van hashlijst mislukt",
+    "deleteFailed": "Verwijdering mislukt: {{error}}"
+  },
+  "hashDetails": {
+    "title": "Hash-details",
+    "originalHash": "Originele hash",
+    "password": "Wachtwoord",
+    "cracked": "Gekraakt",
+    "crackedAt": "Gekraakt op"
+  }
+}

@@ -14,6 +14,7 @@ import {
   Grid,
   Checkbox,
 } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import { getPasswordPolicy, getAccountSecurity, getAdminMFASettings, updateMFASettings, getWebAuthnSettings, updateWebAuthnSettings } from '../../services/auth';
 import { getEmailConfig } from '../../services/api';
 import { PasswordPolicy, AccountSecurity, AuthSettingsUpdate, MFASettings as MFASettingsType, WebAuthnSettings } from '../../types/auth';
@@ -28,6 +29,7 @@ const STORAGE_KEY = 'auth_settings_draft';
 const LAST_FETCH_KEY = 'auth_settings_last_fetch';
 
 const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = false }) => {
+  const { t } = useTranslation('admin');
   const [passwordPolicy, setPasswordPolicy] = useState<PasswordPolicy | null>(null);
   const [accountSecurity, setAccountSecurity] = useState<AccountSecurity | null>(null);
   const [mfaSettings, setMFASettings] = useState<MFASettingsType | null>(null);
@@ -145,7 +147,7 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
       setError(null);
     } catch (error) {
       console.error('Failed to load settings:', error);
-      setError('Failed to load authentication settings');
+      setError(t('authSettings.errors.loadFailed') as string);
     } finally {
       setLoadingData(false);
     }
@@ -153,7 +155,7 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
 
   const handleSave = async () => {
     if (!passwordPolicy || !accountSecurity || !mfaSettings) {
-      setError('No settings to save');
+      setError(t('authSettings.errors.noSettingsToSave') as string);
       return;
     }
 
@@ -210,10 +212,10 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
       setError(null);
     } catch (error) {
       console.error('Failed to save settings:', error);
-      let errorMessage = 'Failed to save settings';
+      let errorMessage = t('authSettings.errors.saveFailed') as string;
       if (error instanceof Error) {
         if (error.message.includes('email provider')) {
-          errorMessage = 'Cannot enable global MFA without configuring an email provider first. Please configure an email provider in the Email Settings section.';
+          errorMessage = t('authSettings.errors.emailProviderRequired') as string;
         } else {
           errorMessage = error.message;
         }
@@ -233,7 +235,7 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
       setError(null);
     } catch (err) {
       console.error('Failed to save WebAuthn settings:', err);
-      setError('Failed to save WebAuthn settings');
+      setError(t('authSettings.errors.webauthnSaveFailed') as string);
     }
   };
 
@@ -268,7 +270,7 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
       setHasLocalChanges(false);
     } catch (error) {
       console.error('Failed to reset settings:', error);
-      setError('Failed to reset to database values');
+      setError(t('authSettings.errors.resetFailed') as string);
     }
   };
 
@@ -290,7 +292,7 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
 
       {hasLocalChanges && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          You have unsaved changes
+          {t('authSettings.unsavedChanges') as string}
         </Alert>
       )}
 
@@ -308,19 +310,19 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
             }
           }}>
             <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ 
+              <Typography variant="h6" gutterBottom sx={{
                 pb: 2,
                 borderBottom: (theme) => `1px solid ${theme.palette.divider}`
               }}>
-                Password Policy
+                {t('authSettings.passwordPolicy.title') as string}
               </Typography>
               <FormGroup sx={{ flex: 1 }}>
                 <TextField
-                  label="Minimum Password Length"
+                  label={t('authSettings.passwordPolicy.minLength') as string}
                   type="number"
                   value={passwordPolicy?.minPasswordLength ?? ''}
-                  onChange={e => setPasswordPolicy(prev => ({ 
-                    ...prev!, 
+                  onChange={e => setPasswordPolicy(prev => ({
+                    ...prev!,
                     minPasswordLength: e.target.value === '' ? '' as any : parseInt(e.target.value)
                   }))}
                   fullWidth
@@ -336,7 +338,7 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
                         onChange={e => setPasswordPolicy(prev => ({ ...prev!, requireUppercase: e.target.checked }))}
                       />
                     }
-                    label="Require Uppercase Letters"
+                    label={t('authSettings.passwordPolicy.requireUppercase') as string}
                   />
                   <FormControlLabel
                     control={
@@ -345,7 +347,7 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
                         onChange={e => setPasswordPolicy(prev => ({ ...prev!, requireLowercase: e.target.checked }))}
                       />
                     }
-                    label="Require Lowercase Letters"
+                    label={t('authSettings.passwordPolicy.requireLowercase') as string}
                   />
                   <FormControlLabel
                     control={
@@ -354,7 +356,7 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
                         onChange={e => setPasswordPolicy(prev => ({ ...prev!, requireNumbers: e.target.checked }))}
                       />
                     }
-                    label="Require Numbers"
+                    label={t('authSettings.passwordPolicy.requireNumbers') as string}
                   />
                   <FormControlLabel
                     control={
@@ -363,7 +365,7 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
                         onChange={e => setPasswordPolicy(prev => ({ ...prev!, requireSpecialChars: e.target.checked }))}
                       />
                     }
-                    label="Require Special Characters"
+                    label={t('authSettings.passwordPolicy.requireSpecialChars') as string}
                   />
                 </Box>
               </FormGroup>
@@ -384,19 +386,19 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
             }
           }}>
             <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ 
+              <Typography variant="h6" gutterBottom sx={{
                 pb: 2,
                 borderBottom: (theme) => `1px solid ${theme.palette.divider}`
               }}>
-                Account Security
+                {t('authSettings.accountSecurity.title') as string}
               </Typography>
               <FormGroup sx={{ flex: 1 }}>
                 <TextField
-                  label="Maximum Failed Login Attempts"
+                  label={t('authSettings.accountSecurity.maxFailedAttempts') as string}
                   type="number"
                   value={accountSecurity?.maxFailedAttempts ?? ''}
-                  onChange={e => setAccountSecurity(prev => ({ 
-                    ...prev!, 
+                  onChange={e => setAccountSecurity(prev => ({
+                    ...prev!,
                     maxFailedAttempts: e.target.value === '' ? '' as any : parseInt(e.target.value)
                   }))}
                   fullWidth
@@ -405,11 +407,11 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
                   inputProps={{ min: 1 }}
                 />
                 <TextField
-                  label="Account Lockout Duration (minutes)"
+                  label={t('authSettings.accountSecurity.lockoutDuration') as string}
                   type="number"
                   value={accountSecurity?.lockoutDuration ?? ''}
-                  onChange={e => setAccountSecurity(prev => ({ 
-                    ...prev!, 
+                  onChange={e => setAccountSecurity(prev => ({
+                    ...prev!,
                     lockoutDuration: e.target.value === '' ? '' as any : parseInt(e.target.value)
                   }))}
                   fullWidth
@@ -418,11 +420,11 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
                   inputProps={{ min: 1 }}
                 />
                 <TextField
-                  label="JWT Token Expiry (minutes)"
+                  label={t('authSettings.accountSecurity.jwtExpiry') as string}
                   type="number"
                   value={accountSecurity?.jwtExpiryMinutes ?? ''}
-                  onChange={e => setAccountSecurity(prev => ({ 
-                    ...prev!, 
+                  onChange={e => setAccountSecurity(prev => ({
+                    ...prev!,
                     jwtExpiryMinutes: e.target.value === '' ? '' as any : parseInt(e.target.value)
                   }))}
                   fullWidth
@@ -431,18 +433,18 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
                   inputProps={{ min: 1 }}
                 />
                 <TextField
-                  label="Notification Aggregation Interval (minutes)"
+                  label={t('authSettings.accountSecurity.notificationAggregation') as string}
                   type="number"
                   value={accountSecurity?.notificationAggregationMinutes ?? ''}
-                  onChange={e => setAccountSecurity(prev => ({ 
-                    ...prev!, 
+                  onChange={e => setAccountSecurity(prev => ({
+                    ...prev!,
                     notificationAggregationMinutes: e.target.value === '' ? '' as any : parseInt(e.target.value)
                   }))}
                   fullWidth
                   margin="normal"
                   autoComplete="off"
                   inputProps={{ min: 1 }}
-                  helperText="How often to aggregate and send security notifications"
+                  helperText={t('authSettings.accountSecurity.notificationAggregationHelper') as string}
                 />
               </FormGroup>
             </CardContent>
@@ -457,11 +459,11 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
             mt: 2
           }}>
             <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ 
+              <Typography variant="h6" gutterBottom sx={{
                 pb: 2,
                 borderBottom: (theme) => `1px solid ${theme.palette.divider}`
               }}>
-                Multi-Factor Authentication Settings
+                {t('authSettings.mfa.title') as string}
               </Typography>
               <FormGroup>
                 <FormControlLabel
@@ -472,10 +474,10 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
                       disabled={!hasEmailGateway}
                     />
                   }
-                  label={hasEmailGateway ? "Require MFA for all users" : "Require MFA for all users (Email config required)"}
+                  label={hasEmailGateway ? t('authSettings.mfa.requireMfa') as string : t('authSettings.mfa.requireMfaEmailRequired') as string}
                 />
                 <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }}>
-                  Allowed MFA Methods
+                  {t('authSettings.mfa.allowedMethods') as string}
                 </Typography>
                 <FormControlLabel
                   control={
@@ -492,7 +494,7 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
                       }}
                     />
                   }
-                  label="Email"
+                  label={t('authSettings.mfa.methodEmail') as string}
                 />
                 <FormControlLabel
                   control={
@@ -509,7 +511,7 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
                       }}
                     />
                   }
-                  label="Authenticator"
+                  label={t('authSettings.mfa.methodAuthenticator') as string}
                 />
                 <FormControlLabel
                   control={
@@ -527,80 +529,80 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
                       disabled={!webAuthnSupported}
                     />
                   }
-                  label={!webAuthnSupported ? "Passkey (Not supported in this browser)" : "Passkey"}
+                  label={!webAuthnSupported ? t('authSettings.mfa.methodPasskeyNotSupported') as string : t('authSettings.mfa.methodPasskey') as string}
                 />
                 <Typography variant="subtitle1" sx={{ mt: 3, mb: 1 }}>
-                  Code Settings
+                  {t('authSettings.mfa.codeSettings') as string}
                 </Typography>
                 <TextField
-                  label="Email Code Validity (minutes)"
+                  label={t('authSettings.mfa.emailCodeValidity') as string}
                   type="number"
                   value={mfaSettings?.emailCodeValidity ?? ''}
-                  onChange={e => setMFASettings(prev => ({ 
-                    ...prev!, 
+                  onChange={e => setMFASettings(prev => ({
+                    ...prev!,
                     emailCodeValidity: e.target.value === '' ? '' as any : parseInt(e.target.value)
                   }))}
                   fullWidth
                   margin="normal"
                   autoComplete="off"
                   inputProps={{ min: 1 }}
-                  helperText="Must be at least 1 minute"
+                  helperText={t('authSettings.mfa.emailCodeValidityHelper') as string}
                 />
                 <TextField
-                  label="Code Cooldown Period (minutes)"
+                  label={t('authSettings.mfa.codeCooldown') as string}
                   type="number"
                   value={mfaSettings?.mfaCodeCooldownMinutes ?? ''}
-                  onChange={e => setMFASettings(prev => ({ 
-                    ...prev!, 
+                  onChange={e => setMFASettings(prev => ({
+                    ...prev!,
                     mfaCodeCooldownMinutes: e.target.value === '' ? '' as any : parseInt(e.target.value)
                   }))}
                   fullWidth
                   margin="normal"
                   autoComplete="off"
                   inputProps={{ min: 1 }}
-                  helperText="Time required between code requests"
+                  helperText={t('authSettings.mfa.codeCooldownHelper') as string}
                 />
                 <TextField
-                  label="Code Expiry Time (minutes)"
+                  label={t('authSettings.mfa.codeExpiry') as string}
                   type="number"
                   value={mfaSettings?.mfaCodeExpiryMinutes ?? ''}
-                  onChange={e => setMFASettings(prev => ({ 
-                    ...prev!, 
+                  onChange={e => setMFASettings(prev => ({
+                    ...prev!,
                     mfaCodeExpiryMinutes: e.target.value === '' ? '' as any : parseInt(e.target.value)
                   }))}
                   fullWidth
                   margin="normal"
                   autoComplete="off"
                   inputProps={{ min: 1 }}
-                  helperText="Time before a code expires"
+                  helperText={t('authSettings.mfa.codeExpiryHelper') as string}
                 />
                 <TextField
-                  label="Maximum Code Attempts"
+                  label={t('authSettings.mfa.maxCodeAttempts') as string}
                   type="number"
                   value={mfaSettings?.mfaMaxAttempts ?? ''}
-                  onChange={e => setMFASettings(prev => ({ 
-                    ...prev!, 
+                  onChange={e => setMFASettings(prev => ({
+                    ...prev!,
                     mfaMaxAttempts: e.target.value === '' ? '' as any : parseInt(e.target.value)
                   }))}
                   fullWidth
                   margin="normal"
                   autoComplete="off"
                   inputProps={{ min: 1 }}
-                  helperText="Maximum attempts before code invalidation"
+                  helperText={t('authSettings.mfa.maxCodeAttemptsHelper') as string}
                 />
                 <TextField
-                  label="Number of Backup Codes"
+                  label={t('authSettings.mfa.backupCodesCount') as string}
                   type="number"
                   value={mfaSettings?.backupCodesCount ?? ''}
-                  onChange={e => setMFASettings(prev => ({ 
-                    ...prev!, 
+                  onChange={e => setMFASettings(prev => ({
+                    ...prev!,
                     backupCodesCount: e.target.value === '' ? '' as any : parseInt(e.target.value)
                   }))}
                   fullWidth
                   margin="normal"
                   autoComplete="off"
                   inputProps={{ min: 1 }}
-                  helperText="Must be at least 1 code"
+                  helperText={t('authSettings.mfa.backupCodesCountHelper') as string}
                 />
               </FormGroup>
             </CardContent>
@@ -619,43 +621,42 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
                 pb: 2,
                 borderBottom: (theme) => `1px solid ${theme.palette.divider}`
               }}>
-                WebAuthn / Passkey Configuration
+                {t('authSettings.webauthn.title') as string}
               </Typography>
 
               {!webAuthnSupported && (
                 <Alert severity="warning" sx={{ mb: 2 }}>
-                  WebAuthn is not supported in this browser.
+                  {t('authSettings.webauthn.notSupported') as string}
                 </Alert>
               )}
 
               <Alert severity="info" sx={{ mb: 2 }}>
-                WebAuthn requires a domain name (not IP address) for the Relying Party ID.
-                Origins should be full URLs where the application is accessed.
+                {t('authSettings.webauthn.requiresDomain') as string}
               </Alert>
 
               <FormGroup>
                 <TextField
-                  label="Relying Party ID (Domain)"
+                  label={t('authSettings.webauthn.rpId') as string}
                   value={webauthnSettings?.rpId ?? ''}
                   onChange={e => setWebauthnSettings(prev => ({ ...prev!, rpId: e.target.value }))}
                   fullWidth
                   margin="normal"
                   placeholder="krakenhashes.example.com"
-                  helperText="Domain name without protocol or port (e.g., localhost for development)"
+                  helperText={t('authSettings.webauthn.rpIdHelper') as string}
                 />
 
                 <TextField
-                  label="Relying Party Display Name"
+                  label={t('authSettings.webauthn.rpDisplayName') as string}
                   value={webauthnSettings?.rpDisplayName ?? ''}
                   onChange={e => setWebauthnSettings(prev => ({ ...prev!, rpDisplayName: e.target.value }))}
                   fullWidth
                   margin="normal"
                   placeholder="KrakenHashes"
-                  helperText="Name shown to users during passkey registration"
+                  helperText={t('authSettings.webauthn.rpDisplayNameHelper') as string}
                 />
 
                 <TextField
-                  label="Allowed Origins"
+                  label={t('authSettings.webauthn.allowedOrigins') as string}
                   value={webauthnSettings?.rpOrigins?.join('\n') ?? ''}
                   onChange={e => {
                     const origins = e.target.value
@@ -669,12 +670,12 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
                   multiline
                   rows={3}
                   placeholder="https://localhost:3000"
-                  helperText="Full URLs with protocol, one per line (e.g., https://localhost:3000)"
+                  helperText={t('authSettings.webauthn.allowedOriginsHelper') as string}
                 />
 
                 {webauthnSettings?.rpId && webauthnSettings?.rpOrigins?.length > 0 && (
                   <Alert severity="success" sx={{ mt: 2 }}>
-                    WebAuthn is configured. Users can register and use passkeys.
+                    {t('authSettings.webauthn.configured') as string}
                   </Alert>
                 )}
 
@@ -684,7 +685,7 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
                     onClick={handleSaveWebAuthn}
                     disabled={loading || !webauthnSettings?.rpId || !webauthnSettings?.rpOrigins?.length}
                   >
-                    Save WebAuthn Settings
+                    {t('authSettings.webauthn.save') as string}
                   </Button>
                 </Box>
               </FormGroup>
@@ -704,11 +705,11 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
                 pb: 2,
                 borderBottom: (theme) => `1px solid ${theme.palette.divider}`
               }}>
-                Session Management
+                {t('authSettings.session.title') as string}
               </Typography>
               <FormGroup>
                 <TextField
-                  label="Token Cleanup Interval (seconds)"
+                  label={t('authSettings.session.tokenCleanupInterval') as string}
                   type="number"
                   value={accountSecurity?.tokenCleanupIntervalSeconds ?? 60}
                   onChange={e => setAccountSecurity(prev => ({
@@ -719,10 +720,10 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
                   margin="normal"
                   autoComplete="off"
                   inputProps={{ min: 10 }}
-                  helperText="How often expired tokens are removed from the database (default: 60 seconds)"
+                  helperText={t('authSettings.session.tokenCleanupIntervalHelper') as string}
                 />
                 <TextField
-                  label="Max Concurrent Sessions per User"
+                  label={t('authSettings.session.maxConcurrentSessions') as string}
                   type="number"
                   value={accountSecurity?.maxConcurrentSessions ?? 0}
                   onChange={e => setAccountSecurity(prev => ({
@@ -733,10 +734,10 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
                   margin="normal"
                   autoComplete="off"
                   inputProps={{ min: 0 }}
-                  helperText="Maximum concurrent sessions allowed per user (0 = unlimited, oldest session revoked when limit exceeded)"
+                  helperText={t('authSettings.session.maxConcurrentSessionsHelper') as string}
                 />
                 <TextField
-                  label="Session Absolute Timeout (hours)"
+                  label={t('authSettings.session.absoluteTimeout') as string}
                   type="number"
                   value={accountSecurity?.sessionAbsoluteTimeoutHours ?? 0}
                   onChange={e => setAccountSecurity(prev => ({
@@ -747,7 +748,7 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
                   margin="normal"
                   autoComplete="off"
                   inputProps={{ min: 0 }}
-                  helperText="Maximum session lifetime regardless of activity (0 = disabled, users must re-login after this time)"
+                  helperText={t('authSettings.session.absoluteTimeoutHelper') as string}
                 />
               </FormGroup>
             </CardContent>
@@ -763,7 +764,7 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
           disabled={loading}
           startIcon={loading && <CircularProgress size={20} color="inherit" />}
         >
-          {loading ? 'Saving...' : 'Save Settings'}
+          {loading ? t('authSettings.saving') as string : t('authSettings.saveSettings') as string}
         </Button>
 
         {hasLocalChanges && (
@@ -773,7 +774,7 @@ const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({ onSave, loading = f
             onClick={handleResetToDatabase}
             disabled={loading}
           >
-            Reset to Saved Values
+            {t('authSettings.resetToSaved') as string}
           </Button>
         )}
       </Box>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogTitle,
@@ -27,6 +28,7 @@ const DeleteConfirm: React.FC<DeleteConfirmProps> = ({
   title,
   message,
 }) => {
+  const { t } = useTranslation('jobs');
   return (
     <Dialog
       open={open}
@@ -40,7 +42,7 @@ const DeleteConfirm: React.FC<DeleteConfirmProps> = ({
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={isLoading}>
-          Cancel
+          {t('buttons.cancel')}
         </Button>
         <Button
           onClick={onConfirm}
@@ -49,7 +51,7 @@ const DeleteConfirm: React.FC<DeleteConfirmProps> = ({
           disabled={isLoading}
           startIcon={isLoading ? <CircularProgress size={20} /> : <DeleteIcon />}
         >
-          {isLoading ? 'Deleting...' : 'Delete'}
+          {isLoading ? t('dialogs.deleteConfirm.deleting') : t('buttons.delete')}
         </Button>
       </DialogActions>
     </Dialog>

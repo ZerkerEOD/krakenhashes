@@ -1,0 +1,149 @@
+{
+  "title": "User Settings",
+  "profileSettings": {
+    "title": "Profile Settings"
+  },
+  "profile": {
+    "title": "Profile",
+    "username": "Username",
+    "email": "Email",
+    "changePassword": "Change Password",
+    "currentPassword": "Current Password",
+    "newPassword": "New Password",
+    "confirmPassword": "Confirm New Password",
+    "updateProfile": "Update Profile",
+    "profileUpdated": "Profile updated successfully"
+  },
+  "account": {
+    "title": "Account Information",
+    "username": "Username",
+    "email": "Email",
+    "usernameCannotChange": "Username cannot be changed",
+    "saving": "Saving...",
+    "saveEmail": "Save Email",
+    "confirmEmailUpdate": {
+      "title": "Confirm Email Update",
+      "message": "Please enter your current password to update your email address."
+    },
+    "errors": {
+      "noChanges": "No changes to save",
+      "invalidEmail": "Invalid email address",
+      "updateFailed": "Failed to update email",
+      "incorrectPassword": "Incorrect password"
+    },
+    "success": {
+      "emailUpdated": "Email updated successfully"
+    }
+  },
+  "password": {
+    "title": "Change Password",
+    "currentPassword": "Current Password",
+    "newPassword": "New Password",
+    "confirmNewPassword": "Confirm New Password",
+    "enterCurrentFirst": "Enter current password first",
+    "passwordsMatch": "Passwords match",
+    "changePassword": "Change Password",
+    "changing": "Changing Password...",
+    "errors": {
+      "currentRequired": "Current password is required",
+      "newRequired": "New password is required",
+      "mismatch": "Passwords do not match",
+      "requirements": "New password does not meet requirements",
+      "updateFailed": "Failed to update password"
+    },
+    "success": {
+      "changed": "Password changed successfully"
+    }
+  },
+  "apiKey": {
+    "title": "API Keys",
+    "status": "API Key Status",
+    "active": "Active",
+    "noKeyGenerated": "No API Key Generated",
+    "created": "Created",
+    "lastUsed": "Last Used",
+    "generate": "Generate API Key",
+    "regenerate": "Regenerate API Key",
+    "revoke": "Revoke API Key",
+    "viewDocs": "View API Documentation",
+    "dialog": {
+      "title": "Your API Key",
+      "saveNow": "Save this key now!",
+      "cantSeeAgain": "You won't be able to see it again.",
+      "instructions": "Use this API key in your HTTP requests by including it in the X-API-Key header.",
+      "saved": "I've Saved It"
+    },
+    "confirmRegenerate": {
+      "title": "Regenerate API Key?",
+      "warning": "This will invalidate your existing API key. Any applications using the current key will stop working.",
+      "confirm": "Are you sure you want to continue?"
+    },
+    "confirmRevoke": {
+      "title": "Revoke API Key?",
+      "warning": "This will immediately disable API access. Any applications using this key will stop working.",
+      "confirm": "Are you sure you want to revoke your API key?"
+    },
+    "errors": {
+      "generateFailed": "Failed to generate API key",
+      "revokeFailed": "Failed to revoke API key"
+    },
+    "success": {
+      "revoked": "API key revoked successfully",
+      "copied": "API key copied to clipboard"
+    }
+  },
+  "common": {
+    "cancel": "Cancel",
+    "never": "Never",
+    "invalidDate": "Invalid date"
+  },
+  "mfa": {
+    "title": "Two-Factor Authentication",
+    "status": "2FA Status",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "enable": "Enable 2FA",
+    "disable": "Disable 2FA",
+    "methods": {
+      "title": "Authentication Methods",
+      "totp": "Authenticator App",
+      "email": "Email",
+      "backupCodes": "Backup Codes"
+    },
+    "setup": {
+      "scanQR": "Scan this QR code with your authenticator app",
+      "enterCode": "Enter the code from your app to verify",
+      "backupCodesGenerated": "Save these backup codes in a safe place"
+    }
+  },
+  "linkedAccounts": {
+    "title": "Linked Accounts",
+    "noAccounts": "No linked accounts",
+    "link": "Link Account",
+    "unlink": "Unlink"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "emailNotifications": "Email Notifications",
+    "jobCompleted": "Job Completed",
+    "agentOffline": "Agent Offline",
+    "securityAlerts": "Security Alerts"
+  },
+  "preferences": {
+    "title": "Preferences",
+    "language": "Language",
+    "timezone": "Timezone",
+    "dateFormat": "Date Format",
+    "theme": "Theme",
+    "themes": {
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    }
+  },
+  "errors": {
+    "updateFailed": "Failed to update settings",
+    "passwordMismatch": "Passwords do not match",
+    "invalidPassword": "Invalid current password"
+  }
+}

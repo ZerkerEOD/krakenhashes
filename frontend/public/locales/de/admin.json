@@ -1,0 +1,1416 @@
+{
+  "title": "Admin-Einstellungen",
+  "sections": {
+    "general": "Allgemeine Einstellungen",
+    "authentication": "Authentifizierung",
+    "email": "E-Mail-Einstellungen",
+    "security": "Sicherheit",
+    "sso": "Single Sign-On",
+    "monitoring": "Überwachung"
+  },
+  "tabs": {
+    "emailSettings": "E-Mail-Einstellungen",
+    "authenticationSettings": "Authentifizierungseinstellungen",
+    "ssoSettings": "SSO-Einstellungen",
+    "binaryManagement": "Binärverwaltung",
+    "systemSettings": "Systemeinstellungen",
+    "clientSettings": "Kundeneinstellungen",
+    "hashTypes": "Hash-Typen",
+    "jobExecution": "Auftragsausführung",
+    "monitoring": "Überwachung",
+    "agentDownloads": "Agent-Downloads"
+  },
+  "common": {
+    "cancel": "Abbrechen",
+    "create": "Erstellen",
+    "edit": "Bearbeiten",
+    "delete": "Löschen",
+    "save": "Speichern",
+    "saveChanges": "Änderungen speichern",
+    "copyToClipboard": "In Zwischenablage kopieren",
+    "never": "Nie",
+    "invalidDate": "Ungültiges Datum",
+    "all": "Alle",
+    "yes": "Ja",
+    "no": "Nein",
+    "note": "Hinweis",
+    "default": "Standard",
+    "on": "Ein",
+    "off": "Aus",
+    "none": "Keine",
+    "unlimited": "Unbegrenzt",
+    "close": "Schließen",
+    "unknownError": "Unbekannter Fehler",
+    "dialogs": {
+      "confirmDeleteNamed": "Sind Sie sicher, dass Sie \"{{name}}\" löschen möchten?"
+    }
+  },
+  "users": {
+    "title": "Benutzerverwaltung",
+    "description": "Benutzerkonten und Berechtigungen verwalten",
+    "addUser": "Benutzer hinzufügen",
+    "createUser": "Benutzer erstellen",
+    "columns": {
+      "username": "Benutzername",
+      "email": "E-Mail",
+      "role": "Rolle",
+      "status": "Status",
+      "createdAt": "Erstellt",
+      "lastLogin": "Letzte Anmeldung",
+      "actions": "Aktionen",
+      "provider": "Anbieter",
+      "providerLocal": "Lokal",
+      "mfa": "MFA",
+      "apiKey": "API-Schlüssel",
+      "lastApiUse": "Letzte API-Nutzung"
+    },
+    "roles": {
+      "admin": "Administrator",
+      "user": "Benutzer",
+      "system": "System"
+    },
+    "status": {
+      "active": "Aktiv",
+      "pending": "Genehmigung ausstehend",
+      "disabled": "Deaktiviert",
+      "locked": "Gesperrt"
+    },
+    "actions": {
+      "edit": "Benutzer bearbeiten",
+      "delete": "Benutzer löschen",
+      "approve": "Genehmigen",
+      "disable": "Deaktivieren",
+      "enable": "Aktivieren",
+      "unlock": "Entsperren",
+      "resetPassword": "Passwort zurücksetzen",
+      "disableMfa": "MFA deaktivieren",
+      "revokeApiKey": "API-Schlüssel widerrufen",
+      "cannotDeleteSystem": "Systembenutzer können nicht gelöscht werden",
+      "terminateSession": "Sitzung beenden",
+      "terminateAllSessions": "Alle Sitzungen beenden"
+    },
+    "apiKey": {
+      "none": "Keiner"
+    },
+    "validation": {
+      "usernameRequired": "Benutzername ist erforderlich",
+      "emailRequired": "E-Mail ist erforderlich",
+      "emailInvalid": "Ungültiges E-Mail-Format",
+      "passwordRequired": "Passwort ist erforderlich",
+      "passwordMinLength": "mindestens {{value}} Zeichen",
+      "passwordUppercase": "ein Großbuchstabe",
+      "passwordLowercase": "ein Kleinbuchstabe",
+      "passwordNumber": "eine Zahl",
+      "passwordSpecial": "ein Sonderzeichen",
+      "passwordMustContain": "Passwort muss enthalten: {{requirements}}",
+      "confirmPasswordRequired": "Bitte Passwort bestätigen",
+      "passwordsMismatch": "Passwörter stimmen nicht überein"
+    },
+    "errors": {
+      "loadFailed": "Fehler beim Laden der Benutzer. Bitte aktualisieren Sie die Seite.",
+      "loadDetailsFailed": "Fehler beim Laden der Benutzerdetails",
+      "loadSessionsFailed": "Fehler beim Laden der Sitzungen",
+      "loadLoginAttemptsFailed": "Fehler beim Laden der Anmeldeversuche",
+      "loadApiKeyFailed": "Fehler beim Laden der API-Schlüssel-Informationen",
+      "createFailed": "Fehler beim Erstellen des Benutzers",
+      "updateFailed": "Fehler beim Aktualisieren des Benutzers",
+      "deleteFailed": "Fehler beim Löschen des Benutzers",
+      "enableFailed": "Fehler beim Aktivieren des Benutzers",
+      "disableFailed": "Fehler beim Deaktivieren des Benutzers",
+      "unlockFailed": "Fehler beim Entsperren des Kontos",
+      "reasonRequired": "Bitte geben Sie einen Grund für die Deaktivierung dieses Benutzers an",
+      "passwordResetFailed": "Fehler beim Zurücksetzen des Passworts",
+      "mfaDisableFailed": "Fehler beim Deaktivieren von MFA",
+      "accountStatusFailed": "Fehler beim Aktualisieren des Kontostatus",
+      "terminateSessionFailed": "Fehler beim Beenden der Sitzung",
+      "terminateAllSessionsFailed": "Fehler beim Beenden aller Sitzungen",
+      "revokeApiKeyFailed": "Fehler beim Widerrufen des API-Schlüssels",
+      "userNotFound": "Benutzer nicht gefunden"
+    },
+    "messages": {
+      "createSuccess": "Benutzer erfolgreich erstellt",
+      "updateSuccess": "Benutzerdetails erfolgreich aktualisiert",
+      "deleteSuccess": "Benutzer erfolgreich gelöscht",
+      "enableSuccess": "Benutzer erfolgreich aktiviert",
+      "disableSuccess": "Benutzer erfolgreich deaktiviert",
+      "passwordResetSuccess": "Passwort erfolgreich zurückgesetzt!",
+      "passwordCopied": "Passwort in die Zwischenablage kopiert",
+      "mfaDisableSuccess": "MFA erfolgreich deaktiviert",
+      "accountDisabled": "Benutzerkonto deaktiviert",
+      "accountEnabled": "Benutzerkonto aktiviert",
+      "accountUnlocked": "Benutzerkonto entsperrt",
+      "sessionTerminated": "Sitzung erfolgreich beendet",
+      "allSessionsTerminated": "{{count}} Sitzung(en) erfolgreich beendet",
+      "apiKeyRevoked": "API-Schlüssel erfolgreich widerrufen"
+    },
+    "dialogs": {
+      "createUser": {
+        "title": "Neuen Benutzer erstellen",
+        "password": "Passwort",
+        "confirmPassword": "Passwort bestätigen",
+        "roleHelperText": "Wählen Sie die Rolle des Benutzers im System"
+      },
+      "disableUser": {
+        "title": "Benutzerkonto deaktivieren",
+        "description": "Bitte geben Sie einen Grund für die Deaktivierung dieses Benutzerkontos an. Dies wird für Audit-Zwecke protokolliert.",
+        "reasonLabel": "Grund für die Deaktivierung",
+        "reasonPlaceholder": "z.B. Kontokompromittierung, Richtlinienverstoß, Benutzeranfrage, etc.",
+        "disableAccount": "Konto deaktivieren"
+      },
+      "deleteUser": {
+        "title": "Benutzerkonto löschen",
+        "warning": "Diese Aktion kann nicht rückgängig gemacht werden. Der Benutzer wird dauerhaft aus dem System entfernt.",
+        "confirmation": "Sind Sie sicher, dass Sie den Benutzer <strong>{{username}}</strong> löschen möchten?",
+        "dataNote": "Alle zugehörigen Daten werden beibehalten, aber der Benutzer kann sich nicht mehr anmelden."
+      },
+      "resetPassword": {
+        "title": "Benutzerpasswort zurücksetzen",
+        "generateTemporary": "Temporäres Passwort generieren",
+        "newPassword": "Neues Passwort",
+        "passwordHelperText": "Muss mindestens 8 Zeichen lang sein"
+      },
+      "disableMfa": {
+        "title": "MFA deaktivieren",
+        "confirmation": "Sind Sie sicher, dass Sie MFA für diesen Benutzer deaktivieren möchten? Er muss es bei Bedarf erneut einrichten."
+      },
+      "terminateSession": {
+        "title": "Sitzung beenden?",
+        "description": "Dies wird den Benutzer von diesem Gerät abmelden. Der Benutzer muss sich erneut anmelden, um die Anwendung weiter zu nutzen.",
+        "terminate": "Beenden"
+      },
+      "terminateAllSessions": {
+        "title": "Alle Sitzungen beenden?",
+        "description": "Dies wird den Benutzer von ALLEN Geräten abmelden, einschließlich seiner aktuellen Sitzung. Der Benutzer muss sich erneut anmelden. Diese Aktion kann nicht rückgängig gemacht werden.",
+        "warning": "Dies schließt alle aktiven Arbeitssitzungen ein!",
+        "terminateAll": "Alle beenden"
+      },
+      "revokeApiKey": {
+        "title": "API-Schlüssel des Benutzers widerrufen?",
+        "warning": "Dies wird den API-Zugriff für diesen Benutzer sofort deaktivieren. Alle Anwendungen, die diesen Schlüssel verwenden, werden nicht mehr funktionieren.",
+        "confirmation": "Sind Sie sicher, dass Sie den API-Schlüssel dieses Benutzers widerrufen möchten?"
+      }
+    },
+    "detail": {
+      "title": "Benutzerdetails",
+      "backToUsers": "Zurück zu Benutzer",
+      "userInformation": "Benutzerinformationen",
+      "userId": "Benutzer-ID",
+      "systemUserReadOnly": "Systembenutzer können nicht geändert werden",
+      "accountStatus": "Kontostatus",
+      "accountStatusLabel": "Kontostatus",
+      "enabled": "Aktiviert",
+      "disabled": "Deaktiviert",
+      "noReasonProvided": "Kein Grund angegeben",
+      "lockStatus": "Sperrstatus",
+      "lockedUntil": "Gesperrt bis {{date}}",
+      "notLocked": "Nicht gesperrt",
+      "mfaStatus": "MFA-Status",
+      "mfaEnabled": "Aktiviert ({{types}})",
+      "mfaDisabled": "Deaktiviert",
+      "apiKeyManagement": "API-Schlüssel-Verwaltung",
+      "apiKeyStatus": "API-Schlüssel-Status",
+      "noApiKeyGenerated": "Kein API-Schlüssel generiert",
+      "created": "Erstellt",
+      "lastUsed": "Zuletzt verwendet",
+      "apiKeySecurityNote": "Administratoren können API-Schlüssel widerrufen, aber aus Sicherheitsgründen den Klartext-Schlüssel nicht einsehen.",
+      "activityInformation": "Aktivitätsinformationen",
+      "passwordChanged": "Passwort geändert",
+      "failedLoginAttempts": "Fehlgeschlagene Anmeldeversuche",
+      "attemptsCount": "{{count}} Versuche",
+      "disabledAt": "Deaktiviert am",
+      "activeSessions": "Aktive Sitzungen",
+      "noActiveSessions": "Keine aktiven Sitzungen",
+      "loginHistory": "Anmeldeverlauf",
+      "noLoginAttempts": "Keine Anmeldeversuche gefunden",
+      "temporaryPassword": "Temporäres Passwort",
+      "sharePasswordSecurely": "Bitte teilen Sie dieses Passwort sicher mit dem Benutzer.",
+      "sessions": {
+        "ipAddress": "IP-Adresse",
+        "deviceBrowser": "Gerät / Browser",
+        "lastActive": "Zuletzt aktiv"
+      },
+      "loginAttempts": {
+        "timestamp": "Zeitstempel",
+        "success": "Erfolgreich",
+        "failed": "Fehlgeschlagen",
+        "failureReason": "Fehlergrund"
+      }
+    }
+  },
+  "clients": {
+    "title": "Kundenverwaltung",
+    "addClient": "Kunde hinzufügen",
+    "columns": {
+      "name": "Name",
+      "description": "Beschreibung",
+      "contact": "Kontakt",
+      "cracked": "Geknackt",
+      "retention": "Aufbewahrung (Monate)",
+      "createdAt": "Erstellt",
+      "actions": "Aktionen"
+    },
+    "form": {
+      "clientName": "Kundenname",
+      "description": "Beschreibung",
+      "contactInfo": "Kontaktinformationen",
+      "dataRetention": "Datenaufbewahrung (Monate)",
+      "dataRetentionHelperText": "Leer lassen für Systemstandard. 0 eingeben für dauerhafte Aufbewahrung.",
+      "excludeFromPotfile": "Vom Potfile ausschließen (geknackte Passwörter nicht speichern)",
+      "excludeFromPotfileHelperText": "Aktivieren Sie dies für Kunden mit strengen Datenaufbewahrungsanforderungen"
+    },
+    "validation": {
+      "nameRequired": "Kundenname ist erforderlich.",
+      "retentionInvalid": "Aufbewahrungszeitraum muss eine nicht-negative Zahl oder leer (für Standard) sein."
+    },
+    "errors": {
+      "loadFailed": "Fehler beim Laden der Kunden. Bitte aktualisieren Sie die Seite.",
+      "loadDefaultSettingsFailed": "Fehler beim Laden der Standard-Kundeneinstellungen.",
+      "saveFailed": "Fehler beim Speichern des Kunden.",
+      "deleteFailed": "Fehler beim Löschen des Kunden."
+    },
+    "messages": {
+      "createSuccess": "Kunde erfolgreich erstellt",
+      "updateSuccess": "Kunde erfolgreich aktualisiert",
+      "deleteSuccess": "Kunde erfolgreich gelöscht"
+    },
+    "dialogs": {
+      "addClient": {
+        "title": "Neuen Kunden hinzufügen",
+        "createButton": "Kunde erstellen"
+      },
+      "editClient": {
+        "title": "Kunde bearbeiten"
+      },
+      "deleteClient": {
+        "title": "Löschen bestätigen",
+        "confirmation": "Sind Sie sicher, dass Sie den Kunden \"{{name}}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden. Zugehörige Hashlisten können je nach Aufbewahrungsrichtlinien sofort gelöscht oder verwaist werden."
+      }
+    }
+  },
+  "wordlists": {
+    "title": "Wortlistenverwaltung",
+    "description": "Wortlisten für Password-Cracking verwalten",
+    "uploadWordlist": "Wortliste hochladen",
+    "refresh": "Aktualisieren",
+    "loading": "Wortlisten werden geladen...",
+    "noWordlistsFound": "Keine Wortlisten gefunden",
+    "tryDifferentSearch": "Versuchen Sie einen anderen Suchbegriff",
+    "uploadToGetStarted": "Laden Sie eine Wortliste hoch, um zu beginnen",
+    "noDescription": "Keine Beschreibung vorhanden",
+    "searchPlaceholder": "Wortlisten suchen...",
+    "tabs": {
+      "all": "Alle Wortlisten",
+      "general": "Allgemein",
+      "specialized": "Spezialisiert",
+      "targeted": "Gezielt",
+      "custom": "Benutzerdefiniert"
+    },
+    "columns": {
+      "name": "Name",
+      "status": "Status",
+      "type": "Typ",
+      "size": "Größe",
+      "wordCount": "Wortanzahl",
+      "updated": "Aktualisiert",
+      "actions": "Aktionen"
+    },
+    "status": {
+      "verified": "Verifiziert",
+      "pending": "Ausstehend",
+      "failed": "Fehlgeschlagen"
+    },
+    "types": {
+      "general": "Allgemein",
+      "specialized": "Spezialisiert",
+      "targeted": "Gezielt",
+      "custom": "Benutzerdefiniert"
+    },
+    "fields": {
+      "name": "Name",
+      "description": "Beschreibung",
+      "wordlistType": "Wortlistentyp"
+    },
+    "tooltips": {
+      "refreshMetadata": "Metadaten aktualisieren",
+      "download": "Herunterladen",
+      "edit": "Bearbeiten",
+      "delete": "Löschen"
+    },
+    "errors": {
+      "loadFailed": "Fehler beim Laden der Wortlisten",
+      "uploadFailed": "Fehler beim Hochladen der Wortliste",
+      "deleteFailed": "Fehler beim Löschen der Wortliste",
+      "downloadFailed": "Fehler beim Herunterladen der Wortliste",
+      "refreshFailed": "Fehler beim Aktualisieren der Wortlisten-Metadaten",
+      "updateFailed": "Fehler beim Aktualisieren der Wortliste: {{error}}",
+      "sessionExpired": "Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an."
+    },
+    "messages": {
+      "uploadSuccess": "Wortliste erfolgreich hochgeladen",
+      "duplicateWordlist": "Wortliste \"{{name}}\" existiert bereits",
+      "deleteSuccess": "Wortliste \"{{name}}\" erfolgreich gelöscht",
+      "updateSuccess": "Wortliste erfolgreich aktualisiert",
+      "refreshSuccess": "Wortlisten-Metadaten erfolgreich aktualisiert"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "Wortliste hochladen",
+        "fileUploadTitle": "Wortlistendatei hochladen",
+        "fileUploadDescription": "Wählen Sie eine Wortlistendatei zum Hochladen. Unterstützte Formate: .txt, .dict, .dic, .lst, .wordlist, .wl, .gz, .zip"
+      },
+      "edit": {
+        "title": "Wortliste bearbeiten"
+      },
+      "delete": {
+        "title": "Löschen bestätigen",
+        "cascadeTitle": "Kaskadenlöschung bestätigen",
+        "confirmation": "Sind Sie sicher, dass Sie die Wortliste \"{{name}}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+        "cascadeWarning": "Das Löschen der Wortliste \"{{name}}\" wird auch Folgendes löschen:",
+        "checkingDependencies": "Abhängigkeiten werden überprüft...",
+        "jobsCount": "{{count}} Auftrag(e) (ausstehend/laufend/fehlgeschlagen):",
+        "presetJobsCount": "{{count}} Vorlagen-Auftrag(e):",
+        "workflowStepsCount": "{{count}} Workflow-Schritt(e):",
+        "emptyWorkflowsCount": "{{count}} leere Workflow(s) werden gelöscht:",
+        "noHashlist": "Keine Hashliste",
+        "step": "Schritt {{order}}",
+        "andMore": "...und {{count}} weitere",
+        "confirmationPrompt": "Um diese Kaskadenlöschung zu bestätigen, geben Sie die Wortlisten-ID ein: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "{{id}} eingeben zur Bestätigung",
+        "idMismatch": "ID stimmt nicht überein",
+        "deleteAll": "Alles löschen"
+      }
+    }
+  },
+  "rules": {
+    "title": "Regelverwaltung",
+    "description": "Hashcat-Regeln für Password-Cracking verwalten",
+    "uploadRule": "Regel hochladen",
+    "refresh": "Aktualisieren",
+    "loading": "Regeln werden geladen...",
+    "noRulesFound": "Keine Regeln gefunden",
+    "tryDifferentSearch": "Versuchen Sie einen anderen Suchbegriff",
+    "uploadToGetStarted": "Laden Sie eine Regel hoch, um zu beginnen",
+    "noDescription": "Keine Beschreibung vorhanden",
+    "searchPlaceholder": "Regeln suchen...",
+    "tabs": {
+      "all": "Alle Regeln",
+      "hashcat": "Hashcat",
+      "john": "John"
+    },
+    "columns": {
+      "name": "Name",
+      "status": "Status",
+      "type": "Typ",
+      "size": "Größe",
+      "ruleCount": "Regelanzahl",
+      "updated": "Aktualisiert",
+      "actions": "Aktionen"
+    },
+    "status": {
+      "verified": "Verifiziert",
+      "pending": "Ausstehend",
+      "failed": "Fehlgeschlagen",
+      "ready": "Bereit",
+      "processing": "Wird verarbeitet"
+    },
+    "types": {
+      "hashcat": "Hashcat",
+      "john": "John the Ripper"
+    },
+    "fields": {
+      "name": "Name",
+      "description": "Beschreibung",
+      "ruleType": "Regeltyp"
+    },
+    "tooltips": {
+      "download": "Herunterladen",
+      "edit": "Bearbeiten",
+      "delete": "Löschen"
+    },
+    "errors": {
+      "loadFailed": "Fehler beim Laden der Regeln",
+      "uploadFailed": "Fehler beim Hochladen der Regel",
+      "deleteFailed": "Fehler beim Löschen der Regel",
+      "downloadFailed": "Fehler beim Herunterladen der Regel",
+      "updateFailed": "Fehler beim Aktualisieren der Regel: {{error}}",
+      "verifyFailed": "Fehler beim Verifizieren der Regel",
+      "sessionExpired": "Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an."
+    },
+    "messages": {
+      "uploadSuccess": "Regel erfolgreich hochgeladen",
+      "duplicateRule": "Regel \"{{name}}\" existiert bereits",
+      "deleteSuccess": "Regel \"{{name}}\" erfolgreich gelöscht",
+      "updateSuccess": "Regel erfolgreich aktualisiert",
+      "verifySuccess": "Regel \"{{name}}\" erfolgreich verifiziert"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "Regel hochladen",
+        "fileUploadTitle": "Regeldatei hochladen",
+        "fileUploadDescription": "Wählen Sie eine Regeldatei zum Hochladen. Unterstützte Formate: .rule, .rules, .txt"
+      },
+      "edit": {
+        "title": "Regel bearbeiten"
+      },
+      "delete": {
+        "title": "Löschen bestätigen",
+        "cascadeTitle": "Kaskadenlöschung bestätigen",
+        "confirmation": "Sind Sie sicher, dass Sie die Regel \"{{name}}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+        "cascadeWarning": "Das Löschen der Regel \"{{name}}\" wird auch Folgendes löschen:",
+        "checkingDependencies": "Abhängigkeiten werden überprüft...",
+        "jobsCount": "{{count}} Auftrag(e) (ausstehend/laufend/fehlgeschlagen):",
+        "presetJobsCount": "{{count}} Vorlagen-Auftrag(e):",
+        "workflowStepsCount": "{{count}} Workflow-Schritt(e):",
+        "emptyWorkflowsCount": "{{count}} leere Workflow(s) werden gelöscht:",
+        "noHashlist": "Keine Hashliste",
+        "step": "Schritt {{order}}",
+        "andMore": "...und {{count}} weitere",
+        "confirmationPrompt": "Um diese Kaskadenlöschung zu bestätigen, geben Sie die Regel-ID ein: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "{{id}} eingeben zur Bestätigung",
+        "idMismatch": "ID stimmt nicht überein",
+        "deleteAll": "Alles löschen"
+      }
+    }
+  },
+  "presetJobs": {
+    "title": "Vorlagen-Auftragsverwaltung",
+    "createNew": "Vorlagen-Auftrag erstellen",
+    "confirmDelete": "Sind Sie sicher, dass Sie diesen Vorlagen-Auftrag löschen möchten?",
+    "noJobsFound": "Keine Vorlagen-Aufträge gefunden. Erstellen Sie einen, um zu beginnen.",
+    "keyspaceNotCalculated": "Nicht berechnet",
+    "calculating": "Wird berechnet...",
+    "calculateKeyspace": "Keyspace berechnen",
+    "calculateAllMissingKeyspaces": "Alle fehlenden Keyspaces berechnen",
+    "calculatingKeyspaces": "Wird berechnet...",
+    "calculatingAllKeyspacesMessage": "Keyspaces für alle Vorlagen-Aufträge werden berechnet. Dies kann einen Moment dauern...",
+    "canInterruptRunningJobs": "Kann laufende Aufträge unterbrechen",
+    "columns": {
+      "name": "Name",
+      "description": "Beschreibung",
+      "attackMode": "Angriffsmodus",
+      "priority": "Priorität",
+      "highPriorityOverride": "Hohe Priorität Override",
+      "maxAgents": "Max. Agenten",
+      "keyspace": "Keyspace",
+      "binaryVersion": "Binär-Version",
+      "wordlists": "Wortlisten",
+      "rules": "Regeln",
+      "createdAt": "Erstellt am",
+      "actions": "Aktionen"
+    },
+    "messages": {
+      "deleteSuccess": "Vorlagen-Auftrag erfolgreich gelöscht",
+      "deleteFailed": "Fehler beim Löschen des Vorlagen-Auftrags: {{error}}",
+      "fetchError": "Fehler beim Laden der Vorlagen-Aufträge: {{error}}",
+      "deleteError": "Fehler beim Löschen des Vorlagen-Auftrags: {{error}}",
+      "keyspaceRecalculateSuccess": "Keyspace erfolgreich neu berechnet",
+      "keyspaceRecalculateFailed": "Fehler beim Neuberechnen des Keyspace: {{error}}",
+      "keyspaceAllComplete": "{{updated}} aktualisiert, {{skipped}} übersprungen, {{failed}} fehlgeschlagen",
+      "keyspaceAllFailed": "Fehler beim Neuberechnen der Keyspaces: {{error}}"
+    },
+    "form": {
+      "createTitle": "Vorlagen-Auftrag erstellen",
+      "editTitle": "Vorlagen-Auftrag bearbeiten",
+      "createJob": "Vorlagen-Auftrag erstellen",
+      "updateJob": "Vorlagen-Auftrag aktualisieren",
+      "attackModeRequirements": "Angriffsmodus-Anforderungen",
+      "wordlistSelectionCombination": "Wortlistenauswahl (Kombinationsmodus)",
+      "selectFirstWordlist": "Erste Wortliste auswählen",
+      "selectSecondWordlist": "Zweite Wortliste auswählen",
+      "fields": {
+        "jobName": "Auftragsname",
+        "attackMode": "Angriffsmodus",
+        "priority": "Priorität",
+        "chunkSize": "Chunk-Dauer (Sekunden)",
+        "maxAgents": "Max. Agenten",
+        "maskPattern": "Maskenmuster",
+        "incrementMode": "Inkrement-Modus",
+        "incrementMin": "Inkrement Min. Länge",
+        "incrementMax": "Inkrement Max. Länge",
+        "wordlists": "Wortlisten",
+        "rules": "Regeln",
+        "mask": "Maske",
+        "ruleOptional": "Regel (Optional)",
+        "firstWordlist": "Erste Wortliste",
+        "secondWordlist": "Zweite Wortliste",
+        "allowHighPriorityOverride": "Hohe Priorität Override erlauben (kann laufende Aufträge unterbrechen)"
+      },
+      "incrementModes": {
+        "off": "Aus (vollständige Maske verwenden)",
+        "increment": "Inkrement (1 bis max)",
+        "incrementInverse": "Inkrement Invers (max bis 1)"
+      },
+      "helperText": {
+        "binaryVersion": "Wählen Sie die zu verwendende Hashcat-Binär-Version",
+        "priority": "Aufträge mit höherer Priorität werden zuerst ausgeführt (0-{{maxPriority}})",
+        "maskPattern": "Hashcat-Maskenmuster (z.B. ?u?l?l?l?d?d?d?d)",
+        "maskPatternExamples": "?l=Kleinbuchstabe, ?u=Großbuchstabe, ?d=Ziffer, ?s=Sonderzeichen, ?a=alle",
+        "incrementMode": "Inkrement-Modus verwenden, um Masken unterschiedlicher Länge auszuprobieren",
+        "incrementMin": "Minimale Maskenlänge zum Ausprobieren",
+        "incrementMax": "Maximale Maskenlänge zum Ausprobieren",
+        "chunkSize": "Dauer für jeden Arbeits-Chunk in Sekunden",
+        "maxAgents": "Maximale Anzahl der Agenten (0 = unbegrenzt)",
+        "allowHighPriorityOverride": "Wenn aktiviert, kann dieser Auftrag Aufträge mit niedrigerer Priorität unterbrechen, um deren Agenten zu übernehmen",
+        "wordlistsNotUsed": "Wortlisten werden für diesen Angriffsmodus nicht verwendet",
+        "selectWordlists": "Wählen Sie genau {{count}} Wortliste(n)",
+        "rulesNotUsed": "Regeln werden für diesen Angriffsmodus nicht verwendet",
+        "selectRule": "Optional eine Regeldatei auswählen, um Transformationen anzuwenden",
+        "firstWordlist": "Wörter aus dieser Liste werden als erster Teil verwendet",
+        "secondWordlist": "Wörter aus dieser Liste werden an den ersten Teil angehängt"
+      },
+      "errors": {
+        "nameRequired": "Auftragsname ist erforderlich",
+        "binaryVersionRequired": "Binär-Version ist erforderlich",
+        "straightModeWordlist": "Straight-Angriffsmodus benötigt genau 1 Wortliste",
+        "combinationModeWordlists": "Kombinations-Angriffsmodus benötigt genau 2 Wortlisten",
+        "selectBothWordlists": "Bitte wählen Sie beide Wortlisten für den Kombinationsmodus",
+        "bruteForceModeMask": "Brute-Force-Angriffsmodus benötigt eine Maske",
+        "hybridModeWordlist": "Hybrid-Angriffsmodus benötigt genau 1 Wortliste",
+        "hybridModeMask": "Hybrid-Angriffsmodus benötigt eine Maske",
+        "associationModeNotImplemented": "Assoziations-Angriffsmodus ist nicht implementiert",
+        "noWordlistsAvailable": "Keine Wortlisten verfügbar. Bitte laden Sie zuerst Wortlisten hoch.",
+        "loadFailed": "Fehler beim Laden des Vorlagen-Auftrags",
+        "loadFormDataFailed": "Fehler beim Laden der Formulardaten",
+        "saveFailed": "Fehler beim Speichern des Vorlagen-Auftrags"
+      },
+      "messages": {
+        "createSuccess": "Vorlagen-Auftrag erfolgreich erstellt",
+        "updateSuccess": "Vorlagen-Auftrag erfolgreich aktualisiert"
+      }
+    }
+  },
+  "workflows": {
+    "title": "Auftrags-Workflow-Verwaltung",
+    "create": "Workflow erstellen",
+    "deleteTitle": "Workflow löschen",
+    "confirmDelete": "Sind Sie sicher, dass Sie den Workflow \"{{name}}\" löschen möchten?",
+    "noWorkflowsFound": "Keine Workflows gefunden. Erstellen Sie einen, um zu beginnen.",
+    "canInterrupt": "Kann unterbrechen",
+    "normal": "Normal",
+    "columns": {
+      "name": "Name",
+      "description": "Beschreibung",
+      "steps": "Schritte",
+      "jobCount": "Aufträge",
+      "highPriority": "Prioritätsmodus",
+      "created": "Erstellt",
+      "lastUpdated": "Zuletzt aktualisiert",
+      "actions": "Aktionen"
+    },
+    "messages": {
+      "loadFailed": "Fehler beim Laden der Workflows",
+      "deleteFailed": "Fehler beim Löschen des Workflows"
+    },
+    "form": {
+      "createTitle": "Workflow erstellen",
+      "editTitle": "Workflow bearbeiten",
+      "createWorkflow": "Workflow erstellen",
+      "saveChanges": "Änderungen speichern",
+      "workflowSteps": "Workflow-Schritte",
+      "noJobsAdded": "Noch keine Aufträge zu diesem Workflow hinzugefügt. Suchen Sie oben nach Vorlagen-Aufträgen und fügen Sie sie hinzu.",
+      "priority": "Priorität: {{priority}}",
+      "binary": "Binär: {{name}}",
+      "wordlistCount": "{{count}} Wortliste(n)",
+      "ruleCount": "{{count}} Regel(n)",
+      "fields": {
+        "workflowName": "Workflow-Name",
+        "searchPresetJobs": "Vorlagen-Aufträge suchen"
+      },
+      "helperText": {
+        "searchPresetJobs": "Suchen Sie nach Vorlagen-Aufträgen, um sie diesem Workflow hinzuzufügen"
+      },
+      "errors": {
+        "nameRequired": "Workflow-Name ist erforderlich",
+        "presetJobRequired": "Mindestens ein Vorlagen-Auftrag ist erforderlich",
+        "noPresetJobsAvailable": "Keine Vorlagen-Aufträge verfügbar. Erstellen Sie zuerst Vorlagen-Aufträge.",
+        "loadFailed": "Fehler beim Laden des Workflows",
+        "loadFormDataFailed": "Fehler beim Laden der Formulardaten",
+        "saveFailed": "Fehler beim Speichern des Workflows"
+      },
+      "messages": {
+        "createSuccess": "Workflow erfolgreich erstellt",
+        "updateSuccess": "Workflow erfolgreich aktualisiert"
+      }
+    }
+  },
+  "binaryManagement": {
+    "pageTitle": "Binärverwaltung",
+    "title": "Hashcat-Binärdateien",
+    "addBinary": "Binär hinzufügen",
+    "showingActiveOnly": "Nur aktive Binärdateien anzeigen",
+    "showingAll": "Alle Binärdateien anzeigen",
+    "noBinaries": "Keine Binärdateien gefunden",
+    "noActiveBinaries": "Keine aktiven Binärdateien gefunden",
+    "default": "Standard",
+    "verifyBinary": "Binär verifizieren",
+    "deleteBinary": "Binär löschen",
+    "sourceUpload": "Hochladen",
+    "sourceUrl": "URL",
+    "columns": {
+      "binaryId": "ID",
+      "version": "Version",
+      "type": "Typ",
+      "source": "Quelle",
+      "size": "Größe",
+      "status": "Status",
+      "default": "Standard",
+      "lastVerified": "Zuletzt verifiziert",
+      "actions": "Aktionen"
+    },
+    "messages": {
+      "fetchFailed": "Fehler beim Abrufen der Binärdateien",
+      "verifySuccess": "Binärdatei erfolgreich verifiziert",
+      "verifyFailed": "Fehler beim Verifizieren der Binärdatei",
+      "deleteSuccess": "Binärdatei erfolgreich gelöscht",
+      "deleteFailed": "Fehler beim Löschen der Binärdatei",
+      "cannotDeleteLast": "Die letzte aktive {{type}}-Binärdatei kann nicht gelöscht werden",
+      "cannotDeleteOnly": "Die einzige Binärdatei dieses Typs kann nicht gelöscht werden",
+      "setDefaultSuccess": "Standard-Binärdatei erfolgreich aktualisiert",
+      "setDefaultFailed": "Fehler beim Setzen der Standard-Binärdatei"
+    },
+    "deleteDialog": {
+      "title": "Löschen bestätigen",
+      "message": "Sind Sie sicher, dass Sie die Binärdatei \"{{fileName}}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden."
+    }
+  },
+  "diagnostics": {
+    "pageTitle": "Systemdiagnose",
+    "diagnosticPackage": "Diagnosepaket",
+    "diagnosticPackageDescription": "Laden Sie ein Diagnosepaket mit Systeminformationen, Protokollen und Konfigurationsdetails für die Fehlerbehebung herunter.",
+    "refreshData": "Daten aktualisieren",
+    "hours": "Stunden",
+    "hoursTooltip": "Anzahl der Stunden von Protokollen, die eingeschlossen werden sollen",
+    "includeAgentLogs": "Agent-Protokolle einschließen",
+    "includeNginxLogs": "Nginx-Protokolle einschließen",
+    "includePostgresLogs": "PostgreSQL-Protokolle einschließen",
+    "preparing": "Vorbereitung...",
+    "downloadDiagnostics": "Diagnose herunterladen",
+    "systemInfo": "Systeminformationen",
+    "runtime": "Laufzeit",
+    "cpus": "CPUs",
+    "goroutines": "Goroutines",
+    "memory": "Speicher",
+    "heap": "Heap",
+    "system": "System",
+    "gcRuns": "GC-Läufe",
+    "database": "Datenbank",
+    "size": "Größe",
+    "connections": "Verbindungen",
+    "agents": "Agenten",
+    "connected": "Verbunden",
+    "withDebugStatus": "Mit Debug-Status",
+    "serverDebugStatus": "Server-Debug-Status",
+    "serverDebugDescription": "Ausführliche Protokollierung für den Server aktivieren. Dies erhöht die Protokolldateigrößen und kann die Leistung beeinträchtigen.",
+    "debugEnabled": "Debug aktiviert",
+    "debugDisabled": "Debug deaktiviert",
+    "level": "Level",
+    "enableDebug": "Debug aktivieren",
+    "disableDebug": "Debug deaktivieren",
+    "loadingServerDebugStatus": "Server-Debug-Status wird geladen...",
+    "serverLogs": "Server-Protokolle",
+    "serverLogsDescription": "Server-Protokolldateien verwalten. Das Löschen von Protokollen ist dauerhaft und kann nicht rückgängig gemacht werden.",
+    "refreshLogStats": "Protokollstatistiken aktualisieren",
+    "directory": "Verzeichnis",
+    "files": "Dateien",
+    "actions": "Aktionen",
+    "backend": "Backend",
+    "nginx": "Nginx",
+    "postgresql": "PostgreSQL",
+    "total": "Gesamt",
+    "purge": "Löschen",
+    "purgeAll": "Alle löschen",
+    "loadingLogStatistics": "Protokollstatistiken werden geladen...",
+    "agentDebugStatus": "Agent-Debug-Status",
+    "enableAll": "Alle aktivieren",
+    "disableAll": "Alle deaktivieren",
+    "noAgentsWithDebugStatus": "Keine Agenten mit Debug-Status verfügbar",
+    "agentId": "Agent-ID",
+    "logLevel": "Log-Level",
+    "fileLogging": "Dateiprotokollierung",
+    "logFileSize": "Protokolldateigröße",
+    "buffer": "Puffer",
+    "lastUpdated": "Zuletzt aktualisiert",
+    "viewLogs": "Protokolle anzeigen",
+    "purgeLogs": "Protokolle löschen",
+    "agentLogs": "Agent-Protokolle",
+    "agent": "Agent",
+    "allLevels": "Alle Level",
+    "refresh": "Aktualisieren",
+    "showingEntries": "{{shown}} von {{total}} Einträgen anzeigen",
+    "filtered": "gefiltert",
+    "truncated": "gekürzt",
+    "time": "Zeit",
+    "message": "Nachricht",
+    "location": "Ort",
+    "noEntriesForLevel": "Keine Einträge für Level {{level}} gefunden",
+    "noLogEntriesAvailable": "Keine Protokolleinträge verfügbar",
+    "logFileContent": "Protokolldateiinhalt",
+    "noLogsAvailable": "Keine Protokolle verfügbar",
+    "securityWarning": "Sicherheitswarnung",
+    "postgresLogsWarning": "PostgreSQL-Protokolle können sensible Daten enthalten. Erwägen Sie, sie nach der Fehlerbehebung zu löschen.",
+    "nginxLogsWarning": "Nginx-Zugriffsprotokolle können sensible Anfragedaten enthalten. Erwägen Sie, sie nach der Fehlerbehebung zu löschen.",
+    "sensitiveNginxLogsWarning": "Nginx-Zugriffsprotokolle können sensible Informationen einschließlich Authentifizierungstoken in Anfrage-Headern und Query-Parametern enthalten.",
+    "sensitivePostgresLogsWarning": "PostgreSQL-Protokolle können sensible Informationen einschließlich Abfragen mit Benutzerdaten, Passwörtern und Verbindungsdetails enthalten.",
+    "sensitiveLogsTestEnvironmentWarning": "Schließen Sie diese Protokolle nur für Test-/Entwicklungsumgebungen oder wenn sie für das Debugging absolut notwendig sind ein.",
+    "sensitiveLogsProductionWarning": "Fügen Sie keine sensiblen Protokolle in Diagnosepakete ein, die extern geteilt werden.",
+    "iUnderstandIncludeLogs": "Ich verstehe, Protokolle einschließen",
+    "allServerLogs": "alle Server-Protokolle",
+    "directoryLogs": "{{directory}}-Protokolle",
+    "purgeServerLogs": "Server-Protokolle löschen",
+    "confirmPurgeLogs": "Sind Sie sicher, dass Sie {{dirLabel}} löschen möchten?",
+    "cannotBeUndone": "Diese Aktion kann nicht rückgängig gemacht werden.",
+    "purgeAgentLogs": "Agent-Protokolle löschen",
+    "confirmPurgeAgentLogs": "Sind Sie sicher, dass Sie die Protokolle für Agent {{agentId}} löschen möchten?",
+    "enable": "Aktivieren",
+    "disable": "Deaktivieren",
+    "serverDebugModeTitle": "Server-Debug-Modus {{action}}",
+    "serverDebugModeMessage": "Dies ändert das Protokollierungslevel des Servers. Der Nginx-Server wird neu geladen, um die Änderungen anzuwenden.",
+    "serverDebugModeWarning": "Die Seite wird nach dem Anwenden der Änderungen kurz neu verbunden.",
+    "reconnectingToServer": "Verbindung zum Server wird wiederhergestellt",
+    "pleaseWaitReconnecting": "Bitte warten, während der Server neu startet...",
+    "nginxLogsTooltip": "Warnung: Kann sensible Anfragedaten enthalten",
+    "postgresLogsTooltip": "Warnung: Kann sensible Datenbankabfragen enthalten",
+    "messages": {
+      "loadFailed": "Fehler beim Laden der Diagnosedaten:",
+      "logStatsFailed": "Fehler beim Laden der Protokollstatistiken:",
+      "purgeFailed": "Fehler beim Löschen der Protokolle:",
+      "reconnectionTimedOut": "Verbindungswiederherstellung fehlgeschlagen. Bitte aktualisieren Sie die Seite.",
+      "toggleDebugFailed": "Fehler beim Umschalten des Debug-Modus:",
+      "downloadFailed": "Fehler beim Herunterladen der Diagnose:",
+      "toggleAgentDebugFailed": "Fehler beim Umschalten des Agent-Debug:",
+      "toggleAllAgentsDebugFailed": "Fehler beim Umschalten des Debug für alle Agenten:",
+      "fetchAgentLogsFailed": "Fehler beim Abrufen der Agent-Protokolle:",
+      "purgeAgentLogsFailed": "Fehler beim Löschen der Agent-Protokolle:"
+    }
+  },
+  "authSettings": {
+    "pageTitle": "Authentifizierungseinstellungen",
+    "unsavedChanges": "Sie haben ungespeicherte Änderungen. Klicken Sie auf 'Einstellungen speichern', um sie anzuwenden.",
+    "saving": "Wird gespeichert...",
+    "saveSettings": "Einstellungen speichern",
+    "resetToSaved": "Auf gespeichert zurücksetzen",
+    "passwordPolicy": {
+      "title": "Passwortrichtlinie",
+      "minLength": "Minimale Passwortlänge",
+      "requireUppercase": "Großbuchstaben erforderlich",
+      "requireLowercase": "Kleinbuchstaben erforderlich",
+      "requireNumbers": "Zahlen erforderlich",
+      "requireSpecialChars": "Sonderzeichen erforderlich"
+    },
+    "accountSecurity": {
+      "title": "Kontosicherheit",
+      "maxFailedAttempts": "Max. fehlgeschlagene Anmeldeversuche",
+      "lockoutDuration": "Sperrdauer (Minuten)",
+      "jwtExpiry": "JWT-Ablauf (Minuten)",
+      "notificationAggregation": "Benachrichtigungsaggregation (Minuten)",
+      "notificationAggregationHelper": "Wie lange ähnliche Benachrichtigungen vor dem Senden aggregiert werden"
+    },
+    "mfa": {
+      "title": "Multi-Faktor-Authentifizierung",
+      "requireMfa": "MFA für alle Benutzer erforderlich",
+      "requireMfaEmailRequired": "MFA erforderlich (erfordert E-Mail-Gateway)",
+      "allowedMethods": "Erlaubte MFA-Methoden",
+      "methodEmail": "E-Mail-Code",
+      "methodAuthenticator": "Authentifizierungs-App (TOTP)",
+      "methodPasskey": "Passkey (WebAuthn)",
+      "methodPasskeyNotSupported": "Passkey (in diesem Browser nicht unterstützt)",
+      "codeSettings": "Code-Einstellungen",
+      "emailCodeValidity": "E-Mail-Code-Gültigkeit (Minuten)",
+      "emailCodeValidityHelper": "Wie lange E-Mail-Verifizierungscodes gültig sind",
+      "codeCooldown": "Code-Anfrage-Abklingzeit (Minuten)",
+      "codeCooldownHelper": "Mindestzeit zwischen Code-Anfragen",
+      "codeExpiry": "Code-Ablauf (Minuten)",
+      "codeExpiryHelper": "Wie lange MFA-Codes gültig sind",
+      "maxCodeAttempts": "Max. Code-Versuche",
+      "maxCodeAttemptsHelper": "Maximale fehlgeschlagene Code-Versuche vor Sperre",
+      "backupCodesCount": "Anzahl Backup-Codes",
+      "backupCodesCountHelper": "Anzahl der zu generierenden Backup-Codes"
+    },
+    "webauthn": {
+      "title": "WebAuthn / Passkey-Konfiguration",
+      "notSupported": "WebAuthn wird in diesem Browser nicht unterstützt.",
+      "requiresDomain": "Passkeys erfordern eine richtige Domain und HTTPS. Konfigurieren Sie Ihre Domain-Einstellungen unten.",
+      "rpId": "Relying Party ID",
+      "rpIdHelper": "Ihr Domainname (z.B. krakenhashes.example.com)",
+      "rpDisplayName": "Anzeigename",
+      "rpDisplayNameHelper": "Name, der Benutzern während der Passkey-Registrierung angezeigt wird",
+      "allowedOrigins": "Erlaubte Origins",
+      "allowedOriginsHelper": "Ein Origin pro Zeile (z.B. https://krakenhashes.example.com)",
+      "configured": "WebAuthn ist konfiguriert und einsatzbereit.",
+      "save": "WebAuthn-Einstellungen speichern"
+    },
+    "session": {
+      "title": "Sitzungsverwaltung",
+      "tokenCleanupInterval": "Token-Bereinigungsintervall (Sekunden)",
+      "tokenCleanupIntervalHelper": "Wie oft abgelaufene Token bereinigt werden",
+      "maxConcurrentSessions": "Max. gleichzeitige Sitzungen",
+      "maxConcurrentSessionsHelper": "Maximale Sitzungen pro Benutzer (0 = unbegrenzt)",
+      "absoluteTimeout": "Absoluter Sitzungs-Timeout (Stunden)",
+      "absoluteTimeoutHelper": "Erneute Authentifizierung nach dieser Zeit erzwingen (0 = deaktiviert)"
+    },
+    "errors": {
+      "loadFailed": "Fehler beim Laden der Authentifizierungseinstellungen",
+      "noSettingsToSave": "Keine Einstellungen zum Speichern",
+      "saveFailed": "Fehler beim Speichern der Einstellungen",
+      "emailProviderRequired": "E-Mail-Anbieter ist für E-Mail-basierte MFA erforderlich",
+      "webauthnSaveFailed": "Fehler beim Speichern der WebAuthn-Einstellungen",
+      "resetFailed": "Fehler beim Zurücksetzen der Einstellungen"
+    },
+    "messages": {
+      "updateSuccess": "Authentifizierungseinstellungen erfolgreich aktualisiert",
+      "updateFailed": "Fehler beim Aktualisieren der Authentifizierungseinstellungen"
+    }
+  },
+  "ssoSettings": {
+    "pageTitle": "SSO-Einstellungen",
+    "pageDescription": "Single Sign-On-Anbieter und Authentifizierungsoptionen konfigurieren",
+    "authMethods": {
+      "title": "Authentifizierungsmethoden",
+      "description": "Authentifizierungsmethoden global aktivieren oder deaktivieren",
+      "localAuth": "Lokale Authentifizierung",
+      "localAuthDescription": "Benutzername/Passwort-Anmeldung",
+      "ldapAuth": "LDAP-Authentifizierung",
+      "ldapAuthDescription": "Active Directory / LDAP",
+      "samlAuth": "SAML-Authentifizierung",
+      "samlAuthDescription": "SAML 2.0 SSO",
+      "oauthAuth": "OAuth/OIDC-Authentifizierung",
+      "oauthAuthDescription": "OpenID Connect / OAuth 2.0"
+    },
+    "provisioning": {
+      "title": "Benutzerbereitstellung",
+      "description": "Automatische Benutzererstellung aus SSO-Anmeldungen konfigurieren",
+      "autoCreateUsers": "Benutzer automatisch erstellen",
+      "autoCreateUsersDescription": "Benutzerkonten für neue SSO-Anmeldungen automatisch erstellen",
+      "autoEnableUsers": "Benutzer automatisch aktivieren",
+      "autoEnableUsersDescription": "Neu erstellte SSO-Benutzer automatisch aktivieren (sonst Admin-Genehmigung erforderlich)"
+    },
+    "providers": {
+      "title": "SSO-Anbieter",
+      "addProvider": "Anbieter hinzufügen",
+      "noProviders": "Keine SSO-Anbieter konfiguriert. Klicken Sie auf \"Anbieter hinzufügen\", um einen zu erstellen.",
+      "enabled": "Aktiviert",
+      "disabled": "Deaktiviert",
+      "callbackUrl": "Callback-URL",
+      "acsUrl": "ACS-URL",
+      "metadata": "Metadaten",
+      "viewXml": "XML anzeigen",
+      "testConnection": "Verbindung testen",
+      "downloadCertificate": "SP-Zertifikat herunterladen"
+    },
+    "providerTypes": {
+      "ldap": "LDAP / Active Directory",
+      "saml": "SAML 2.0",
+      "oidc": "OpenID Connect",
+      "oauth2": "OAuth 2.0"
+    },
+    "dialogs": {
+      "deleteProvider": {
+        "title": "Anbieter löschen",
+        "confirmation": "Sind Sie sicher, dass Sie den Anbieter \"{{name}}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden und wird alle zugehörigen Benutzeridentitäten trennen."
+      },
+      "providerForm": {
+        "addTitle": "Anbieter hinzufügen",
+        "editTitle": "Anbieter bearbeiten",
+        "providerName": "Anbietername",
+        "providerType": "Anbietertyp",
+        "enabled": "Aktiviert"
+      }
+    },
+    "ldapConfig": {
+      "title": "LDAP-Konfiguration",
+      "serverUrl": "Server-URL",
+      "serverUrlHelper": "Verwenden Sie ldaps:// für sichere Verbindungen",
+      "baseDn": "Basis-DN",
+      "userSearchFilter": "Benutzersuchfilter",
+      "userSearchFilterHelper": "Verwenden Sie {{username}} als Platzhalter",
+      "bindDn": "Bind-DN (optional)",
+      "bindPassword": "Bind-Passwort",
+      "emailAttribute": "E-Mail-Attribut",
+      "usernameAttribute": "Benutzername-Attribut",
+      "usernameAttributeHelper": "LDAP-Attribut mit Benutzername (z.B. sAMAccountName, uid)",
+      "connectionTimeout": "Verbindungs-Timeout (Sekunden)",
+      "useStartTls": "StartTLS verwenden",
+      "skipCertVerify": "Zertifikatüberprüfung überspringen (nur für Tests)"
+    },
+    "samlConfig": {
+      "title": "SAML-Konfiguration",
+      "spEntityId": "SP Entity ID",
+      "spEntityIdHelper": "SAML-Identifikator Ihrer Anwendung",
+      "idpEntityId": "IdP Entity ID",
+      "idpSsoUrl": "IdP SSO-URL",
+      "idpCertificate": "IdP-Zertifikat",
+      "emailAttribute": "E-Mail-Attribut",
+      "usernameAttribute": "Benutzername-Attribut",
+      "usernameAttributeHelper": "SAML-Attribut mit Benutzername (z.B. uid, username)",
+      "requireSignedAssertions": "Signierte Assertions erforderlich"
+    },
+    "oauthConfig": {
+      "title": "OAuth/OIDC-Konfiguration",
+      "isOidc": "OpenID Connect (OIDC)",
+      "clientId": "Client ID",
+      "clientSecret": "Client Secret",
+      "discoveryUrl": "Discovery-URL",
+      "discoveryUrlHelper": "OIDC-Discovery-Endpunkt (konfiguriert andere URLs automatisch)",
+      "authorizationUrl": "Autorisierungs-URL",
+      "tokenUrl": "Token-URL",
+      "userInfoUrl": "UserInfo-URL",
+      "scopes": "Scopes",
+      "scopesHelper": "Durch Leerzeichen getrennte Liste",
+      "emailAttribute": "E-Mail-Attribut",
+      "usernameAttribute": "Benutzername-Attribut",
+      "usernameAttributeHelper": "Claim mit Benutzername (z.B. preferred_username, login, nickname)"
+    },
+    "messages": {
+      "loadFailed": "Fehler beim Laden der SSO-Einstellungen",
+      "settingsUpdated": "SSO-Einstellungen erfolgreich aktualisiert",
+      "updateFailed": "Fehler beim Aktualisieren der SSO-Einstellungen",
+      "loadProviderFailed": "Fehler beim Laden der Anbieterdetails",
+      "providerDeleted": "Anbieter erfolgreich gelöscht",
+      "deleteFailed": "Fehler beim Löschen des Anbieters",
+      "testSuccess": "Verbindungstest erfolgreich",
+      "testFailed": "Verbindungstest fehlgeschlagen",
+      "certificateDownloaded": "Zertifikat erfolgreich heruntergeladen",
+      "certificateNotFound": "Zertifikat nicht in Metadaten gefunden",
+      "certificateDownloadFailed": "Fehler beim Herunterladen des Zertifikats",
+      "providerUpdated": "Anbieter erfolgreich aktualisiert",
+      "providerCreated": "Anbieter erfolgreich erstellt",
+      "saveProviderFailed": "Fehler beim Speichern des Anbieters"
+    }
+  },
+  "emailSettings": {
+    "tabs": {
+      "providerConfiguration": "Anbieterkonfiguration",
+      "emailTemplates": "E-Mail-Vorlagen"
+    },
+    "provider": {
+      "titles": {
+        "current": "Aktuelle E-Mail-Konfiguration",
+        "create": "E-Mail-Konfiguration erstellen",
+        "edit": "E-Mail-Konfiguration bearbeiten"
+      },
+      "labels": {
+        "provider": "Anbieter",
+        "apiKey": "API-Schlüssel",
+        "password": "Passwort",
+        "smtpHost": "SMTP-Host",
+        "port": "Port",
+        "username": "Benutzername",
+        "encryption": "Verschlüsselung",
+        "fromEmail": "Absender-E-Mail",
+        "fromName": "Absendername",
+        "domain": "Domain",
+        "monthlyLimit": "Monatliches Limit",
+        "skipTlsVerify": "TLS-Zertifikatprüfung überspringen (unsicher, nicht empfohlen)"
+      },
+      "placeholders": {
+        "smtpHost": "smtp.beispiel.de",
+        "testEmailAddress": "Test-E-Mail-Adresse"
+      },
+      "helpers": {
+        "keepCurrentPassword": "Leer lassen, um aktuelles beizubehalten",
+        "monthlyLimit": "Leer lassen für unbegrenzt",
+        "mailgunFromEmail": "Normalerweise noreply@ihredomain",
+        "fromName": "Anzeigename für E-Mails"
+      },
+      "menuItems": {
+        "sendgrid": "SendGrid",
+        "mailgun": "Mailgun",
+        "smtp": "SMTP",
+        "encryptionNone": "Keine (Port 25)",
+        "encryptionStarttls": "STARTTLS (Port 587)",
+        "encryptionTls": "TLS/SSL (Port 465)"
+      },
+      "buttons": {
+        "edit": "Konfiguration bearbeiten",
+        "cancel": "Abbrechen",
+        "testConnection": "Verbindung testen",
+        "save": "Konfiguration speichern",
+        "saveOnly": "Nur speichern",
+        "saveAndTest": "Speichern und testen",
+        "sendTestEmail": "Test-E-Mail senden"
+      },
+      "dialogs": {
+        "test": {
+          "title": "E-Mail-Konfiguration testen",
+          "content": "Geben Sie eine E-Mail-Adresse ein, an die eine Test-E-Mail gesendet werden soll:"
+        },
+        "save": {
+          "title": "Konfiguration speichern",
+          "content": "Möchten Sie die Konfiguration nach dem Speichern testen?"
+        }
+      },
+      "warnings": {
+        "tlsVerifyDisabled": "TLS-Zertifikatprüfung ist deaktiviert",
+        "tlsVerifyWarning": "Das Deaktivieren der TLS-Überprüfung macht Ihre Verbindung anfällig für Man-in-the-Middle-Angriffe. Verwenden Sie dies nur zum Testen mit selbstsignierten Zertifikaten."
+      },
+      "messages": {
+        "testSuccess": "Test-E-Mail erfolgreich gesendet",
+        "testFailed": "Fehler beim Senden der Test-E-Mail",
+        "saveSuccess": "Konfiguration erfolgreich gespeichert",
+        "saveFailed": "Fehler beim Speichern der Konfiguration",
+        "loadFailed": "Fehler beim Laden der Konfiguration"
+      }
+    },
+    "templates": {
+      "title": "E-Mail-Vorlagen",
+      "createTemplate": "E-Mail-Vorlage erstellen",
+      "editTemplate": "E-Mail-Vorlage bearbeiten",
+      "labels": {
+        "templateType": "Vorlagentyp",
+        "name": "Name",
+        "subject": "Betreff",
+        "htmlContent": "HTML-Inhalt",
+        "textContent": "Textinhalt"
+      },
+      "menuItems": {
+        "securityEvent": "Sicherheitsereignis",
+        "jobCompletion": "Auftragsabschluss",
+        "adminError": "Admin-Fehler",
+        "mfaCode": "MFA-Code"
+      },
+      "buttons": {
+        "create": "Vorlage erstellen",
+        "cancel": "Abbrechen",
+        "test": "Testen",
+        "save": "Speichern"
+      },
+      "table": {
+        "name": "Name",
+        "type": "Typ",
+        "subject": "Betreff",
+        "actions": "Aktionen"
+      },
+      "preview": "Live-Vorschau (mit Beispieldaten):",
+      "messages": {
+        "loadSuccess": "Vorlagen erfolgreich geladen",
+        "loadFailed": "Fehler beim Laden der Vorlagen",
+        "createSuccess": "Vorlage erfolgreich erstellt",
+        "createFailed": "Fehler beim Erstellen der Vorlage",
+        "updateSuccess": "Vorlage erfolgreich aktualisiert",
+        "updateFailed": "Fehler beim Aktualisieren der Vorlage",
+        "deleteSuccess": "Vorlage erfolgreich gelöscht",
+        "deleteFailed": "Fehler beim Löschen der Vorlage",
+        "testSuccess": "Test-E-Mail erfolgreich gesendet",
+        "testFailed": "Fehler beim Senden der Test-E-Mail"
+      }
+    }
+  },
+  "settings": {
+    "saved": "Einstellungen erfolgreich gespeichert",
+    "saveFailed": "Fehler beim Speichern der Einstellungen"
+  },
+  "clientSettings": {
+    "title": "Kundeneinstellungen",
+    "retentionPeriod": "Standard-Datenaufbewahrung (Monate)",
+    "retentionHelperText": "Standard-Aufbewahrungszeitraum für neue Kunden (0 = für immer aufbewahren)",
+    "saveButton": "Einstellungen speichern",
+    "errors": {
+      "invalidRetention": "Aufbewahrungszeitraum muss eine nicht-negative Zahl sein",
+      "saveFailed": "Fehler beim Speichern der Kundeneinstellungen"
+    },
+    "messages": {
+      "updateSuccess": "Kundeneinstellungen erfolgreich aktualisiert"
+    }
+  },
+  "systemSettings": {
+    "title": "Systemeinstellungen",
+    "priority": {
+      "title": "Prioritätseinstellungen",
+      "tooltip": "Konfigurieren Sie den maximalen Prioritätswert, der Aufträgen und Vorlagen-Aufträgen zugewiesen werden kann. Dies hilft, konsistente Prioritätsbereiche in Ihrer Organisation aufrechtzuerhalten.",
+      "maxPriority": "Maximale Auftragspriorität",
+      "helperText": "Legen Sie den maximalen Prioritätswert fest (1-1.000.000). Aufträge und Vorlagen-Aufträge können diese Priorität nicht überschreiten.",
+      "saveButton": "Einstellungen speichern",
+      "saving": "Wird gespeichert...",
+      "reset": "Zurücksetzen"
+    },
+    "priorityInfo": {
+      "title": "Informationen zum Prioritätssystem",
+      "description": "Das Prioritätssystem verwendet einen Bereich von 0 bis zu Ihrer konfigurierten maximalen Priorität. Höhere Zahlen bedeuten höhere Priorität.",
+      "currentMax": "Aktuelles Maximum",
+      "note": "Sie können keine maximale Priorität festlegen, die niedriger ist als bestehende Vorlagen-Auftragsrioritäten. Aktualisieren oder entfernen Sie zuerst Vorlagen-Aufträge mit hoher Priorität, falls erforderlich.",
+      "recommended": "Empfohlene Bereiche nach Organisationsgröße:",
+      "small": "Kleine Organisation: 0-100",
+      "medium": "Mittlere/große Organisation: 0-1.000",
+      "large": "Organisation mit enormem Arbeitsaufkommen: 0-10.000"
+    },
+    "agentScheduling": {
+      "title": "Agenten-Planung",
+      "tooltip": "Aktivieren oder deaktivieren Sie das Agenten-Planungssystem global. Wenn aktiviert, können Agenten mit Tagesplänen konfiguriert werden.",
+      "enable": "Agenten-Planungssystem aktivieren",
+      "description": "Wenn aktiviert, können Agenten mit Tagesplänen konfiguriert werden. Nur Agenten, die für die aktuelle Zeit geplant sind, werden Aufträgen zugewiesen.",
+      "note": "Einzelne Agenten müssen ebenfalls die Planung aktiviert und Zeitpläne konfiguriert haben, damit dies wirksam wird."
+    },
+    "agentOverflow": {
+      "title": "Agenten-Überlauf-Zuweisung",
+      "tooltip": "Konfigurieren Sie, wie Agenten über die max_agents-Grenzen hinaus zugewiesen werden, wenn Aufträge die gleiche Priorität haben",
+      "roundRobinMode": "Round-Robin-Modus",
+      "fifoMode": "FIFO-Modus",
+      "fifoDescription": "Wenn mehrere Aufträge mit gleicher Priorität ihre max_agents-Grenzen überschreiten, erhält der älteste Auftrag (zuerst erstellt) alle zusätzlichen Agenten.",
+      "roundRobinDescription": "Zusätzliche Agenten werden gleichmäßig auf alle Aufträge mit gleicher Priorität verteilt, einen Agenten nach dem anderen, um eine faire Zuweisung zu gewährleisten."
+    },
+    "hashlist": {
+      "title": "Hashlisten-Einstellungen",
+      "tooltip": "Konfigurieren Sie Einstellungen für Hashlisten-Uploads und -Verwaltung",
+      "requireClient": "Kunde für Hashlisten erforderlich",
+      "requireClientDescription": "Wenn aktiviert, müssen Benutzer beim Hochladen neuer Hashlisten einen Kunden zuweisen. Dies hilft bei der besseren Organisation und Nachverfolgung von Hashlisten nach Kunden.",
+      "batchSize": "Massenimport-Stapelgröße",
+      "batchSizeHelper": "Anzahl der pro Stapel verarbeiteten Hashes während Uploads. Standard: 100.000. Empfohlen: 500.000-1.000.000 für große Hashlisten (47M+)",
+      "performanceGuide": "Leistungsleitfaden:",
+      "performance100k": "100K (Standard): Gut für die meisten Anwendungsfälle",
+      "performance500k": "500K: Besser für große Hashlisten, kann den Durchsatz verbessern",
+      "performance1m": "1M: Am besten für sehr große Hashlisten (50M+), benötigt mehr RAM"
+    },
+    "potfile": {
+      "title": "Potfile-Einstellungen",
+      "tooltip": "Konfigurieren Sie, wie die Potfile geknackte Passwörter für die Wiederverwendung in Aufträgen verarbeitet",
+      "maxBatchSize": "Maximale Stapelgröße",
+      "maxBatchSizeHelper": "Anzahl der bereitgestellten Passwörter, die in jedem Stapelzyklus verarbeitet werden (1.000 - 500.000)",
+      "batchInterval": "Stapelintervall (Sekunden)",
+      "batchIntervalHelper": "Sekunden zwischen Pot-Datei-Stapelverarbeitungszyklen (10 - 600)",
+      "description": "Die Potfile sammelt geknackte Passwörter aus allen Aufträgen und verwendet sie in nachfolgenden Angriffen wieder. Größere Stapelgrößen verarbeiten mehr Passwörter auf einmal, dauern aber länger pro Zyklus.",
+      "processingRate": "Verarbeitungsrate",
+      "passwordsPerSecond": "Passwörter/Sekunde",
+      "currentSettings": "Aktuelle Einstellungen",
+      "passwordsEvery": "Passwörter alle",
+      "seconds": "Sekunden"
+    },
+    "errors": {
+      "loadFailed": "Fehler beim Laden der Systemeinstellungen",
+      "maxPriorityRequired": "Maximale Priorität ist erforderlich",
+      "maxPriorityPositive": "Maximale Priorität muss eine positive Zahl sein",
+      "maxPriorityMax": "Maximale Priorität darf 1.000.000 nicht überschreiten",
+      "saveFailed": "Fehler beim Speichern der Systemeinstellungen",
+      "batchSizeRange": "Stapelgröße muss zwischen {{min}} und {{max}} liegen",
+      "intervalRange": "Intervall muss zwischen {{min}} und {{max}} Sekunden liegen"
+    },
+    "messages": {
+      "updateSuccess": "Systemeinstellungen erfolgreich aktualisiert",
+      "schedulingUpdated": "Agenten-Planungseinstellung aktualisiert",
+      "schedulingFailed": "Fehler beim Aktualisieren der Planungseinstellung",
+      "overflowUpdated": "Agenten-Überlauf-Zuweisungsmodus aktualisiert",
+      "overflowFailed": "Fehler beim Aktualisieren des Überlauf-Zuweisungsmodus",
+      "hashlistClientUpdated": "Hashlisten-Kundenanforderung aktualisiert",
+      "hashlistBatchUpdated": "Hashlisten-Stapelgröße aktualisiert",
+      "potfileBatchUpdated": "Potfile-Stapelgröße aktualisiert",
+      "potfileIntervalUpdated": "Potfile-Stapelintervall aktualisiert",
+      "updateFailed": "Fehler beim Aktualisieren der Einstellung"
+    }
+  },
+  "jobExecution": {
+    "title": "Auftragsausführungs-Einstellungen",
+    "description": "Konfigurieren Sie, wie Aufträge ausgeführt und auf Agenten verteilt werden",
+    "chunking": {
+      "title": "Auftrags-Chunking",
+      "defaultChunkDuration": "Standard-Chunk-Dauer",
+      "defaultChunkDurationHelper": "Dauer für jeden Auftrags-Chunk",
+      "chunkFluctuation": "Chunk-Schwankungsprozentsatz",
+      "chunkFluctuationHelper": "Erlaubte Schwankung für finale Chunks",
+      "minutes": "Minuten"
+    },
+    "agentConfig": {
+      "title": "Agenten-Konfiguration",
+      "hashlistRetention": "Hashlisten-Aufbewahrung",
+      "hashlistRetentionHelper": "Wie lange Agenten Hashlisten aufbewahren",
+      "maxConcurrentJobs": "Max. gleichzeitige Aufträge pro Agent",
+      "maxConcurrentJobsHelper": "Maximale Aufträge, die ein Agent gleichzeitig ausführen kann",
+      "progressReporting": "Fortschrittsberichtsintervall",
+      "progressReportingHelper": "Wie oft Agenten Fortschritt melden",
+      "benchmarkCache": "Benchmark-Cache-Dauer",
+      "benchmarkCacheHelper": "Wie lange Agenten-Benchmarks gecacht werden",
+      "speedtestTimeout": "Speedtest-Timeout",
+      "speedtestTimeoutHelper": "Maximale Wartezeit für Speedtest-Abschluss",
+      "reconnectGrace": "Wiederverbindungs-Karenzzeit",
+      "reconnectGraceHelper": "Wartezeit für Agenten zur Wiederverbindung nach Server-Neustart",
+      "days": "Tage",
+      "seconds": "Sekunden",
+      "minutes": "Minuten"
+    },
+    "jobControl": {
+      "title": "Auftragssteuerung",
+      "allowInterruption": "Auftragsunterbrechung erlauben",
+      "allowInterruptionHelper": "Aufträge mit höherer Priorität können laufende Aufträge unterbrechen",
+      "realtimeNotifications": "Echtzeit-Crack-Benachrichtigungen",
+      "realtimeNotificationsHelper": "Benachrichtigungen senden, wenn Hashes geknackt werden",
+      "refreshInterval": "Auftrags-Aktualisierungsintervall",
+      "refreshIntervalHelper": "Wie oft der Auftragsstatus in der UI aktualisiert wird",
+      "maxRetryAttempts": "Max. Chunk-Wiederholungsversuche",
+      "maxRetryAttemptsHelper": "Anzahl der Wiederholungsversuche für fehlgeschlagene Chunks",
+      "jobsPerPage": "Aufträge pro Seite",
+      "jobsPerPageHelper": "Standard-Paginierungsgröße für Auftragslisten"
+    },
+    "potfile": {
+      "title": "Potfile-Einstellungen",
+      "enablePotfile": "Potfile aktivieren",
+      "enablePotfileHelper": "Geknackte Passwörter automatisch für zukünftige Aufträge speichern. Einzelne Hashlisten können weiterhin ausgeschlossen werden."
+    },
+    "ruleSplitting": {
+      "title": "Regel-Aufteilung",
+      "enableRuleSplitting": "Regel-Aufteilung aktivieren",
+      "enableRuleSplittingHelper": "Große Regeldateien automatisch für verteilte Verarbeitung aufteilen",
+      "threshold": "Regel-Aufteilungsschwelle",
+      "thresholdHelper": "Aufteilen, wenn die Auftragszeit die Chunk-Zeit um diesen Faktor überschreitet",
+      "minRules": "Mindestregeln zum Aufteilen",
+      "minRulesHelper": "Dateien mit weniger Regeln nicht aufteilen",
+      "maxChunks": "Maximale Regel-Chunks",
+      "maxChunksHelper": "Maximale Chunks, die pro Datei erstellt werden",
+      "chunkDirectory": "Regel-Chunk-Verzeichnis",
+      "chunkDirectoryHelper": "Verzeichnis für temporäre Regel-Chunks"
+    },
+    "buttons": {
+      "save": "Einstellungen speichern"
+    },
+    "errors": {
+      "loadFailed": "Fehler beim Laden der Einstellungen"
+    },
+    "messages": {
+      "updateSuccess": "Auftragsausführungs-Einstellungen erfolgreich aktualisiert",
+      "loadFailed": "Fehler beim Laden der Auftragsausführungs-Einstellungen",
+      "saveFailed": "Fehler beim Speichern der Einstellungen"
+    }
+  },
+  "monitoring": {
+    "title": "Überwachungseinstellungen",
+    "metricsRetention": {
+      "title": "📊 Metriken-Aufbewahrungszeiträume",
+      "description": "Konfigurieren Sie, wie lange Metriken auf verschiedenen Detailstufen aufbewahrt werden. Daten werden von feinkörnig zu aggregiert über die Zeit kaskadiert.",
+      "realtimeData": "Echtzeit-Datenaufbewahrung",
+      "realtimeDataHelper": "Tage, um feinkörnige Metriken für aktuelle Aktivitäten aufzubewahren (z.B. 7 Tage)",
+      "dailyAggregates": "Tägliche Aggregate-Aufbewahrung",
+      "dailyAggregatesHelper": "Tage, um tägliche Zusammenfassungen nach dem Echtzeit-Zeitraum zu speichern (z.B. 30 Tage)",
+      "weeklyAggregates": "Wöchentliche Aggregate-Aufbewahrung",
+      "weeklyAggregatesHelper": "Tage, um langfristige Trends als wöchentliche Zusammenfassungen aufzubewahren (z.B. 365 Tage)"
+    },
+    "aggregation": {
+      "title": "⚙️ Aggregationseinstellungen",
+      "enableAggregation": "Automatische Aggregation aktivieren",
+      "enableAggregationDescription": "Ältere Metriken automatisch konsolidieren, um Speicherplatz zu sparen und gleichzeitig Trends beizubehalten",
+      "interval": "Aggregationsintervall",
+      "intervalHelper": "Wie oft der Aggregationsprozess ausgeführt wird",
+      "hourly": "Stündlich",
+      "daily": "Täglich",
+      "weekly": "Wöchentlich"
+    },
+    "cascading": {
+      "title": "Wie kaskadierende Aggregation funktioniert:",
+      "realtime": "Echtzeit-Daten bieten detaillierte Metriken für aktuelle Aktivitäten",
+      "daily": "Nach dem Echtzeit-Zeitraum werden Daten zu täglichen Zusammenfassungen aggregiert",
+      "weekly": "Nach dem täglichen Zeitraum werden Daten weiter zu wöchentlichen Zusammenfassungen aggregiert",
+      "benefit": "Dieser Ansatz hält Diagramme lesbar und bewahrt gleichzeitig historische Trends"
+    },
+    "buttons": {
+      "save": "Einstellungen speichern",
+      "saving": "Wird gespeichert..."
+    },
+    "errors": {
+      "loadFailed": "Fehler beim Laden der Einstellungen. Bitte versuchen Sie es erneut.",
+      "saveFailed": "Fehler beim Speichern der Einstellungen. Bitte versuchen Sie es erneut."
+    },
+    "messages": {
+      "updateSuccess": "Überwachungseinstellungen erfolgreich gespeichert"
+    }
+  },
+  "agentDownloads": {
+    "title": "Agent-Dateitransfer-Einstellungen",
+    "description": "Konfigurieren Sie, wie Agenten Dateien vom Backend herunterladen. Diese Einstellungen gelten für alle verbundenen Agenten.",
+    "concurrentDownloads": {
+      "title": "Gleichzeitige Downloads",
+      "description": "Maximale Anzahl von Dateien, die gleichzeitig heruntergeladen werden können"
+    },
+    "downloadTimeout": {
+      "title": "Download-Timeout",
+      "description": "Maximale Zeit für einen einzelnen Datei-Download",
+      "helper": "Zwischen 1 Minute und 24 Stunden (1440 Minuten)",
+      "unit": "Minuten"
+    },
+    "retryAttempts": {
+      "title": "Wiederholungsversuche",
+      "description": "Anzahl der Wiederholungsversuche für fehlgeschlagene Downloads"
+    },
+    "progressInterval": {
+      "title": "Fortschrittsberichtsintervall",
+      "description": "Wie oft Agenten den Download-Fortschritt melden",
+      "helper": "Zwischen 1 Sekunde und 5 Minuten (300 Sekunden)",
+      "unit": "Sekunden"
+    },
+    "chunkSize": {
+      "title": "Chunk-Größe",
+      "description": "Download-Chunk-Größe für zukünftige Wiederaufnahme-Fähigkeit",
+      "helper": "Zwischen 1 MB und 100 MB",
+      "unit": "MB"
+    },
+    "applyNote": "Änderungen werden bei der nächsten Verbindung auf Agenten angewendet. Derzeit verbundene Agenten erhalten Updates automatisch.",
+    "buttons": {
+      "save": "Einstellungen speichern",
+      "saving": "Wird gespeichert..."
+    },
+    "errors": {
+      "loadFailed": "Fehler beim Laden der Agent-Download-Einstellungen",
+      "saveFailed": "Fehler beim Aktualisieren der Agent-Download-Einstellungen"
+    },
+    "messages": {
+      "updateSuccess": "Agent-Download-Einstellungen erfolgreich aktualisiert"
+    }
+  },
+  "hashTypes": {
+    "title": "Hash-Typ-Verwaltung",
+    "description": "Unterstützte Hash-Typen für Passwort-Cracking-Operationen verwalten",
+    "addHashType": "Hash-Typ hinzufügen",
+    "searchPlaceholder": "Hash-Typen suchen...",
+    "hashTypesFound": "{{count}} Hash-Typen gefunden",
+    "table": {
+      "id": "ID",
+      "name": "Name",
+      "description": "Beschreibung",
+      "example": "Beispiel",
+      "slow": "Langsam",
+      "salted": "Gesalzen",
+      "actions": "Aktionen",
+      "loading": "Hash-Typen werden geladen...",
+      "noResults": "Keine Hash-Typen gefunden"
+    },
+    "dialog": {
+      "addTitle": "Neuen Hash-Typ hinzufügen",
+      "editTitle": "Hash-Typ bearbeiten",
+      "hashIdLabel": "Hash-ID (Hashcat-Modus-Nummer)",
+      "hashIdHelper": "z.B. 1000 für NTLM",
+      "nameLabel": "Name",
+      "descriptionLabel": "Beschreibung",
+      "exampleLabel": "Beispiel-Hash",
+      "exampleHelper": "Beispiel dieses Hash-Formats",
+      "slowLabel": "Langsamer Hash-Algorithmus",
+      "saltedLabel": "Gesalzener Hash-Typ (z.B. NTLMv2, bcrypt)",
+      "processingInfo": "Dieser Hash-Typ erfordert spezielle Verarbeitung. Die Verarbeitungslogik wird programmatisch verwaltet.",
+      "cancel": "Abbrechen",
+      "save": "Speichern",
+      "saving": "Wird gespeichert..."
+    },
+    "validation": {
+      "hashIdRequired": "Hash-ID ist erforderlich und muss positiv sein",
+      "hashIdExists": "Diese Hash-ID existiert bereits",
+      "nameRequired": "Name ist erforderlich"
+    },
+    "tooltips": {
+      "requiresProcessing": "Erfordert spezielle Verarbeitung",
+      "processing": "Verarbeitung",
+      "slowAlgorithm": "Langsamer Hash-Algorithmus (rechenintensiv)",
+      "salted": "Verwendet individuelle Salts pro Hash (beeinflusst Keyspace-Berechnung)"
+    },
+    "confirmDelete": {
+      "title": "Löschen bestätigen",
+      "warning": "Dieser Hash-Typ ist derzeit aktiviert. Das Löschen kann bestehende Funktionalität beeinträchtigen.",
+      "cancel": "Abbrechen",
+      "delete": "Löschen",
+      "deleting": "Wird gelöscht..."
+    },
+    "messages": {
+      "createSuccess": "Hash-Typ erfolgreich erstellt",
+      "createFailed": "Fehler beim Erstellen des Hash-Typs",
+      "updateSuccess": "Hash-Typ erfolgreich aktualisiert",
+      "updateFailed": "Fehler beim Aktualisieren des Hash-Typs",
+      "deleteSuccess": "Hash-Typ erfolgreich gelöscht",
+      "deleteFailed": "Fehler beim Löschen des Hash-Typs",
+      "deleteInUse": "Kann nicht gelöscht werden: Dieser Hash-Typ wird von bestehenden Hashlisten verwendet",
+      "loadFailed": "Fehler beim Laden der Hash-Typen. Bitte aktualisieren Sie die Seite."
+    }
+  }
+}

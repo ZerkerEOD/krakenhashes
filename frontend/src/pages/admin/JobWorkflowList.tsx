@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { 
-  Box, 
-  Typography, 
-  Button, 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
-  TableRow, 
-  Paper, 
-  IconButton, 
-  CircularProgress, 
+import {
+  Box,
+  Typography,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  IconButton,
+  CircularProgress,
   Alert,
   Tooltip,
   Chip
@@ -20,17 +20,20 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { useTranslation } from 'react-i18next';
 import { listJobWorkflows, deleteJobWorkflow } from '../../services/api';
 import { JobWorkflow } from '../../types/adminJobs';
 import { useConfirm } from '../../hooks';
 
 const JobWorkflowListPage: React.FC = () => {
+  const { t } = useTranslation('admin');
+
   // State
   const [workflows, setWorkflows] = useState<JobWorkflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleteInProgress, setDeleteInProgress] = useState(false);
-  
+
   // Dialog hooks
   const { ConfirmDialog, showConfirm } = useConfirm();
 
@@ -40,37 +43,37 @@ const JobWorkflowListPage: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         const data = await listJobWorkflows();
         setWorkflows(data);
       } catch (err) {
         console.error('Error fetching job workflows:', err);
-        setError('Failed to load workflows. Please try again.');
+        setError(t('workflows.messages.loadFailed') as string);
       } finally {
         setLoading(false);
       }
     };
 
     fetchWorkflows();
-  }, []);
+  }, [t]);
 
   // Handle workflow deletion
   const handleDelete = async (id: string, name: string) => {
     const confirmed = await showConfirm(
-      'Delete Job Workflow',
-      `Are you sure you want to delete the workflow "${name}"? This action cannot be undone.`
+      t('workflows.deleteTitle') as string,
+      t('workflows.confirmDelete', { name }) as string
     );
-    
+
     if (confirmed) {
       try {
         setDeleteInProgress(true);
         await deleteJobWorkflow(id);
-        
+
         // Remove the deleted workflow from state
         setWorkflows(prev => prev.filter(wf => wf.id !== id));
       } catch (err) {
         console.error('Error deleting workflow:', err);
-        setError('Failed to delete workflow. Please try again.');
+        setError(t('workflows.messages.deleteFailed') as string);
       } finally {
         setDeleteInProgress(false);
       }
@@ -80,21 +83,21 @@ const JobWorkflowListPage: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       <ConfirmDialog />
-      
+
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4" gutterBottom>
-          Job Workflows
+          {t('workflows.title') as string}
         </Typography>
-        
-        <Button 
-          component={RouterLink} 
-          to="/admin/job-workflows/new" 
-          variant="contained" 
-          color="primary" 
+
+        <Button
+          component={RouterLink}
+          to="/admin/job-workflows/new"
+          variant="contained"
+          color="primary"
           startIcon={<AddIcon />}
           disabled={loading || deleteInProgress}
         >
-          Create Workflow
+          {t('workflows.create') as string}
         </Button>
       </Box>
       
@@ -113,12 +116,12 @@ const JobWorkflowListPage: React.FC = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Job Count</TableCell>
-                <TableCell>High Priority</TableCell>
-                <TableCell>Created</TableCell>
-                <TableCell>Last Updated</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell>{t('workflows.columns.name') as string}</TableCell>
+                <TableCell>{t('workflows.columns.jobCount') as string}</TableCell>
+                <TableCell>{t('workflows.columns.highPriority') as string}</TableCell>
+                <TableCell>{t('workflows.columns.created') as string}</TableCell>
+                <TableCell>{t('workflows.columns.lastUpdated') as string}</TableCell>
+                <TableCell align="right">{t('workflows.columns.actions') as string}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -126,7 +129,7 @@ const JobWorkflowListPage: React.FC = () => {
                 <TableRow>
                   <TableCell colSpan={6} align="center">
                     <Typography variant="body1" py={2}>
-                      No job workflows found. Create your first workflow to get started.
+                      {t('workflows.noWorkflowsFound') as string}
                     </Typography>
                   </TableCell>
                 </TableRow>
@@ -149,16 +152,16 @@ const JobWorkflowListPage: React.FC = () => {
                     <TableCell>{workflow.steps?.length || 0}</TableCell>
                     <TableCell>
                       {workflow.has_high_priority_override ? (
-                        <Chip 
-                          label="Can Interrupt" 
-                          color="error" 
-                          size="small" 
+                        <Chip
+                          label={t('workflows.canInterrupt') as string}
+                          color="error"
+                          size="small"
                           variant="filled"
                         />
                       ) : (
-                        <Chip 
-                          label="Normal" 
-                          size="small" 
+                        <Chip
+                          label={t('workflows.normal') as string}
+                          size="small"
                           variant="outlined"
                         />
                       )}
@@ -166,7 +169,7 @@ const JobWorkflowListPage: React.FC = () => {
                     <TableCell>{new Date(workflow.created_at).toLocaleString()}</TableCell>
                     <TableCell>{new Date(workflow.updated_at).toLocaleString()}</TableCell>
                     <TableCell align="right">
-                      <Tooltip title="Edit">
+                      <Tooltip title={t('common.edit') as string}>
                         <IconButton
                           component={RouterLink}
                           to={`/admin/job-workflows/${workflow.id}/edit`}
@@ -175,7 +178,7 @@ const JobWorkflowListPage: React.FC = () => {
                           <EditIcon />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Delete">
+                      <Tooltip title={t('common.delete') as string}>
                         <IconButton
                           onClick={() => handleDelete(workflow.id, workflow.name)}
                           disabled={deleteInProgress}

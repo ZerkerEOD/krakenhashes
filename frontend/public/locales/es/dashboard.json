@@ -1,0 +1,116 @@
+{
+  "title": "Panel de control",
+  "welcome": "Bienvenido a KrakenHashes",
+  "stats": {
+    "title": "Resumen",
+    "totalJobs": "Total de trabajos",
+    "activeJobs": "Trabajos activos",
+    "completedJobs": "Trabajos completados",
+    "totalHashes": "Total de hashes",
+    "crackedHashes": "Hashes descifrados",
+    "crackRate": "Tasa de descifrado",
+    "activeAgents": "Agentes activos",
+    "totalAgents": "Total de agentes"
+  },
+  "recentActivity": {
+    "title": "Actividad reciente",
+    "noActivity": "Sin actividad reciente"
+  },
+  "quickActions": {
+    "title": "Acciones rápidas",
+    "createJob": "Crear trabajo",
+    "uploadHashlist": "Subir lista de hashes",
+    "viewAgents": "Ver agentes"
+  },
+  "agents": {
+    "title": "Tus agentes",
+    "loadError": "Error al cargar agentes: {{message}}",
+    "noAgents": "No hay agentes registrados",
+    "hashRate": "Tasa de hash",
+    "notAvailable": "N/D",
+    "job": "Trabajo",
+    "unnamedJob": "Trabajo sin nombre",
+    "noActiveTask": "Sin tarea activa"
+  },
+  "pagination": {
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "pageOf": "Página {{current}} de {{total}}"
+  },
+  "jobs": {
+    "title": "Tus trabajos",
+    "total": "Total",
+    "autoRefreshOn": "Auto",
+    "autoRefreshOff": "Off",
+    "lastUpdated": "Última actualización: {{time}}",
+    "loadError": "Error al cargar trabajos: {{message}}",
+    "noJobs": "No se encontraron trabajos. Crea un nuevo trabajo para comenzar."
+  },
+  "buttons": {
+    "refresh": "Actualizar",
+    "deleteFinished": "Eliminar finalizados"
+  },
+  "filters": {
+    "status": "Estado",
+    "priority": "Prioridad",
+    "all": "Todos",
+    "searchPlaceholder": "Buscar trabajos...",
+    "clear": "Limpiar filtros"
+  },
+  "status": {
+    "pending": "Pendiente",
+    "running": "En ejecución",
+    "paused": "Pausado",
+    "completed": "Completado",
+    "failed": "Fallido",
+    "cancelled": "Cancelado"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Eliminar trabajos finalizados",
+      "message": "¿Estás seguro de que deseas eliminar todos los trabajos finalizados? Esta acción no se puede deshacer."
+    }
+  },
+  "errors": {
+    "deleteFinishedFailed": "Error al eliminar trabajos finalizados",
+    "deleteJobFailed": "Error al eliminar trabajo",
+    "retryJobFailed": "Error al reintentar trabajo",
+    "updateJobFailed": "Error al actualizar trabajo"
+  },
+  "hashlistOverview": {
+    "title": "Resumen de listas de hashes",
+    "loadError": "Error al cargar listas de hashes",
+    "noHashlists": "No se encontraron listas de hashes",
+    "columns": {
+      "name": "Nombre",
+      "client": "Cliente",
+      "status": "Estado",
+      "total": "Total",
+      "cracked": "Descifrados",
+      "progress": "Progreso"
+    },
+    "status": {
+      "ready": "Listo",
+      "error": "Error",
+      "uploading": "Subiendo",
+      "processing": "Procesando"
+    }
+  },
+  "jobsTable": {
+    "noJobs": "No se encontraron trabajos",
+    "noJobsHint": "Crea un nuevo trabajo desde la página de Listas de hashes para comenzar.",
+    "completedJobs": "Trabajos completados",
+    "columns": {
+      "jobName": "Nombre del trabajo",
+      "hashlist": "Lista de hashes",
+      "createdBy": "Creado por",
+      "progress": "Progreso",
+      "keyspace": "Espacio de claves",
+      "cracked": "Descifrados",
+      "agents": "Agentes",
+      "priority": "Prioridad",
+      "maxAgents": "Agentes máx.",
+      "actions": "Acciones"
+    }
+  }
+}

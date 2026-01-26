@@ -1,0 +1,305 @@
+{
+  "title": "Задания",
+  "createJob": "Создать задание",
+  "page": {
+    "title": "Задания"
+  },
+  "columns": {
+    "name": "Название задания",
+    "hashlist": "Список хешей",
+    "createdBy": "Создано",
+    "progress": "Прогресс",
+    "keyspace": "Пространство ключей",
+    "cracked": "Взломано",
+    "agents": "Агенты",
+    "priority": "Приоритет",
+    "maxAgents": "Макс. агентов",
+    "actions": "Действия",
+    "status": "Статус",
+    "createdAt": "Дата создания"
+  },
+  "status": {
+    "pending": "В очереди",
+    "running": "Выполняется",
+    "completed": "Завершено",
+    "failed": "Ошибка",
+    "stopped": "Остановлено",
+    "paused": "Приостановлено",
+    "active": "Активно",
+    "cancelled": "Отменено"
+  },
+  "actions": {
+    "delete": "Удалить задание",
+    "retry": "Повторить задание",
+    "stop": "Остановить задание",
+    "pause": "Приостановить задание",
+    "resume": "Возобновить задание",
+    "viewDetails": "Подробности"
+  },
+  "sections": {
+    "activeJobs": "Активные задания",
+    "completedJobs": "Завершённые задания"
+  },
+  "confirmDelete": {
+    "title": "Удалить задание",
+    "message": "Вы уверены, что хотите удалить это задание? Это действие нельзя отменить.",
+    "messageNamed": "Вы уверены, что хотите удалить задание \"{{name}}\"? Это действие нельзя отменить."
+  },
+  "row": {
+    "completed": "Завершено:",
+    "unknown": "Неизвестно",
+    "error": "Ошибка:",
+    "rulesLabel": "(правила)"
+  },
+  "tooltips": {
+    "combinedHashRate": "Общая скорость хеширования",
+    "retry": "Повторить задание",
+    "delete": "Удалить задание",
+    "save": "Сохранить",
+    "cancel": "Отмена"
+  },
+  "validation": {
+    "priorityRange": "Приоритет должен быть от 0 до {{max}}",
+    "maxAgentsRange": "Максимум агентов должен быть от 1 до 100",
+    "maxAgentsPositive": "Максимум агентов должен быть 0 (без ограничений) или положительным",
+    "chunkSizeMin": "Размер блока должен быть не менее 5 секунд",
+    "chunkSizeMax": "Размер блока не может превышать 24 часа (86400 секунд)",
+    "invalidNumber": "Пожалуйста, введите корректное число",
+    "minValue": "Значение должно быть не менее {{min}}",
+    "maxValue": "Значение должно быть не более {{max}}"
+  },
+  "errors": {
+    "loadFailed": "Не удалось загрузить задания",
+    "loadDetailsFailed": "Не удалось загрузить детали задания",
+    "deleteFailed": "Не удалось удалить задание",
+    "updateFailed": "Не удалось обновить задание",
+    "fetchFailed": "Не удалось получить задания: {{message}}",
+    "willRetry": "Автоматическая повторная попытка.",
+    "notFound": "Задание не найдено",
+    "saveFailed": "Не удалось сохранить изменения",
+    "updatePriorityFailed": "Не удалось обновить приоритет",
+    "updateMaxAgentsFailed": "Не удалось обновить макс. агентов",
+    "updateChunkSizeFailed": "Не удалось обновить размер блока",
+    "retryTaskFailed": "Не удалось повторить задачу",
+    "forceCompleteFailed": "Не удалось принудительно завершить задание"
+  },
+  "details": {
+    "title": "Детали задания",
+    "pageTitle": "Детали задания",
+    "overview": "Обзор",
+    "tasks": "Задачи",
+    "results": "Результаты",
+    "logs": "Логи",
+    "jobInformation": "Информация о задании",
+    "timeRemaining": "Оставшееся время",
+    "estimatedCompletion": "Расчётное завершение",
+    "crackingCompletedAt": "Взлом завершён",
+    "chunkSizeDefault": "Не задано (используется по умолчанию)",
+    "noActiveTasksEstimate": "Невозможно оценить — нет выполняемых задач",
+    "lessThanOneMinute": "Менее 1 минуты",
+    "jobCompleted": "Задание завершено",
+    "finishingUp": "Завершение...",
+    "completingShortly": "Скоро завершится",
+    "processingDuration": "Обработка: {{duration}}",
+    "wordlists": "Словарь(и)",
+    "rules": "Правила",
+    "splittingMode": "Режим разделения",
+    "ruleSplitting": "Разделение правил",
+    "firstWordlist": "Первый словарь",
+    "secondWordlist": "Второй словарь",
+    "wordlist": "Словарь",
+    "mask": "Маска",
+    "incrementMode": "Режим инкремента",
+    "incrementRange": "Диапазон инкремента",
+    "maskSuffix": "Маска (суффикс)",
+    "maskPrefix": "Маска (префикс)",
+    "associationHints": "Ассоциативные подсказки",
+    "autoRefreshOn": "Автообновление: ВКЛ",
+    "autoRefreshPaused": "Автообновление: ПАУЗА",
+    "forceComplete": "Принудительное завершение",
+    "refreshNow": "Обновить сейчас",
+    "priorityRange": "0-{{max}}",
+    "maxAgentsHint": "0=без ограничений",
+    "chunkSizeHint": "Секунды (5-86400)",
+    "incrementLayers": "Слои инкремента (всего {{count}})",
+    "estimatedKeyspace": "Оценочное",
+    "taskProgressVisualization": "Визуализация прогресса задач",
+    "activeTasks": "Активные задачи ({{count}} выполняется)",
+    "noActiveTasks": "Нет активных задач",
+    "failedTasks": "Неудачные задачи (всего {{count}})",
+    "completedTasks": "Завершённые задачи (всего {{count}})",
+    "noCompletedTasks": "Нет завершённых задач",
+    "increment": "Инкремент",
+    "incrementInverse": "Обратный инкремент",
+    "jobNotFound": "Задание не найдено",
+    "priority": "Приоритет",
+    "timeUnits": {
+      "year": "год",
+      "years": "лет",
+      "month": "месяц",
+      "months": "месяцев",
+      "day": "день",
+      "days": "дней",
+      "hour": "час",
+      "hours": "часов",
+      "minute": "минута",
+      "minutes": "минут",
+      "second": "секунда",
+      "seconds": "секунд"
+    },
+    "layerTable": {
+      "layer": "Слой",
+      "mask": "Маска",
+      "minLength": "Мин. длина",
+      "maxLength": "Макс. длина",
+      "keyspace": "Пространство ключей",
+      "effectiveKeyspace": "Эффективное простр. ключей",
+      "progress": "Прогресс",
+      "tasks": "Задачи",
+      "cracks": "Взломы",
+      "status": "Статус",
+      "running": "выполняется",
+      "total": "всего",
+      "failed": "{{count}} неудачных"
+    },
+    "activeTasksTable": {
+      "agentId": "ID агента",
+      "taskId": "ID задачи",
+      "agent": "Агент",
+      "skip": "Пропуск",
+      "limit": "Лимит",
+      "keyspaceRange": "Диапазон простр. ключей",
+      "progress": "Прогресс",
+      "speed": "Скорость",
+      "currentSpeed": "Текущая скорость",
+      "cracks": "Взломы",
+      "startedAt": "Начато"
+    },
+    "failedTasksTable": {
+      "agentId": "ID агента",
+      "taskId": "ID задачи",
+      "agent": "Агент",
+      "status": "Статус",
+      "retryCount": "Попытки повтора",
+      "error": "Ошибка",
+      "errorMessage": "Сообщение об ошибке",
+      "lastUpdated": "Последнее обновление",
+      "failedAt": "Время ошибки",
+      "actions": "Действия"
+    },
+    "completedTasksTable": {
+      "agentId": "ID агента",
+      "taskId": "ID задачи",
+      "agent": "Агент",
+      "completedAt": "Завершено",
+      "keyspaceRange": "Диапазон простр. ключей",
+      "finalProgress": "Итоговый прогресс",
+      "averageSpeed": "Средняя скорость",
+      "cracks": "Взломы",
+      "cracksFound": "Найдено взломов"
+    },
+    "attackModes": {
+      "dictionary": "Словарная атака",
+      "combination": "Комбинированная атака",
+      "bruteforce": "Полный перебор",
+      "hybridWordlistMask": "Гибрид: словарь + маска",
+      "hybridMaskWordlist": "Гибрид: маска + словарь",
+      "association": "Ассоциативная атака",
+      "modeNumber": "Режим {{mode}}"
+    }
+  },
+  "common": {
+    "id": "ID",
+    "name": "Название",
+    "status": "Статус",
+    "hashlist": "Список хешей",
+    "hashType": "Тип хеша",
+    "attackMode": "Режим атаки",
+    "keyspace": "Пространство ключей",
+    "effectiveKeyspace": "Эффективное простр. ключей",
+    "processedKeyspace": "Обработанное простр. ключей",
+    "dispatchedKeyspace": "Распределённое простр. ключей",
+    "progress": "Прогресс",
+    "cracksFound": "Найдено взломов",
+    "createdAt": "Дата создания",
+    "startedAt": "Начато",
+    "completedAt": "Завершено",
+    "error": "Ошибка",
+    "warning": "Предупреждение",
+    "maxAgents": "Макс. агентов",
+    "chunkSize": "Размер блока",
+    "unassigned": "Не назначено",
+    "noErrorMessage": "Нет сообщения об ошибке",
+    "notAvailable": "Н/Д",
+    "back": "Назад",
+    "rulesMultiplier": "(правила)"
+  },
+  "editableCell": {
+    "clickToEdit": "Нажмите для редактирования"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Удалить завершённые задания",
+      "message": "Вы уверены, что хотите удалить все завершённые задания? Это действие нельзя отменить."
+    },
+    "forceComplete": {
+      "title": "Принудительное завершение задания",
+      "warning": "Это пометит все незавершённые задачи как выполненные и установит статус задания как завершённое.",
+      "onlyUseIf": "Используйте только если:",
+      "reason1": "Задание действительно завершило обработку всей работы",
+      "reason2": "Задание застряло в статусе выполнения/ожидания",
+      "reason3": "Вы проверили, что всё пространство ключей было просканировано",
+      "note": "Примечание: мы работаем над улучшением способов обработки расчётов пространства ключей и определения завершения заданий в различных ситуациях.",
+      "confirmation": "Вы уверены, что хотите принудительно завершить это задание?",
+      "completing": "Завершение...",
+      "button": "Принудительно завершить"
+    },
+    "deleteConfirm": {
+      "deleting": "Удаление..."
+    }
+  },
+  "buttons": {
+    "refresh": "Обновить",
+    "deleteFinished": "Удалить завершённые",
+    "cancel": "Отмена",
+    "delete": "Удалить",
+    "save": "Сохранить",
+    "retry": "Повторить"
+  },
+  "success": {
+    "chunkSizeUpdated": "Размер блока успешно обновлён. Изменения вступят в силу при создании следующей задачи.",
+    "forceCompleted": "Задание успешно принудительно завершено"
+  },
+  "form": {
+    "name": "Название задания",
+    "hashlist": "Выберите список хешей",
+    "attackMode": "Режим атаки",
+    "wordlist": "Словарь",
+    "rules": "Правила",
+    "priority": "Приоритет",
+    "maxAgents": "Максимум агентов"
+  },
+  "autoRefresh": {
+    "on": "Автообновление вкл.",
+    "off": "Автообновление выкл."
+  },
+  "pagination": {
+    "jobsPerPage": "Заданий на странице"
+  },
+  "filters": {
+    "searchPlaceholder": "Поиск заданий...",
+    "priority": "Приоритет",
+    "status": "Статус",
+    "all": "Все"
+  },
+  "priority": {
+    "low": "Низкий",
+    "medium": "Средний",
+    "high": "Высокий",
+    "critical": "Критический",
+    "maximum": "Максимальный"
+  },
+  "lastUpdated": "Последнее обновление: {{time}}",
+  "filtered": "(отфильтровано)",
+  "loading": "Загрузка заданий..."
+}

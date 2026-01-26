@@ -1,0 +1,346 @@
+{
+  "title": "Passwort-Analyse",
+  "description": "Umfassende Passwort-Analyseberichte für Sicherheitsbewertungen erstellen",
+  "selectHashlist": "Hashliste auswählen",
+  "generateReport": "Bericht erstellen",
+  "downloadReport": "Bericht herunterladen",
+  "clientSelection": {
+    "title": "Kunde auswählen",
+    "label": "Kunde",
+    "placeholder": "Einen Kunden auswählen"
+  },
+  "tabs": {
+    "generateNew": "Neuen Bericht erstellen",
+    "viewPrevious": "Vorherige Berichte anzeigen",
+    "all": "Alle"
+  },
+  "form": {
+    "startDate": "Startdatum",
+    "endDate": "Enddatum",
+    "customPatterns": "Benutzerdefinierte Muster (kommagetrennt)",
+    "customPatternsPlaceholder": "z.B. goog, ggl, micro, soft",
+    "customPatternsHelper": "Benutzerdefinierte Organisationsnamens-Variationen zur Überprüfung hinzufügen"
+  },
+  "table": {
+    "dateRange": "Datumsbereich",
+    "generatedOn": "Erstellt am",
+    "status": "Status",
+    "hashes": "Hashes",
+    "cracked": "Geknackt",
+    "actions": "Aktionen",
+    "noReports": "Keine Berichte für diesen Kunden gefunden"
+  },
+  "status": {
+    "queued": "In Warteschlange",
+    "processing": "Wird verarbeitet",
+    "completed": "Abgeschlossen",
+    "failed": "Fehlgeschlagen",
+    "pendingGeneration": "Berichterstellung ausstehend",
+    "generating": "Bericht wird noch erstellt"
+  },
+  "actions": {
+    "viewReport": "Bericht anzeigen",
+    "retryReport": "Bericht wiederholen",
+    "deleteReport": "Bericht löschen",
+    "retry": "Wiederholen",
+    "delete": "Löschen",
+    "exportHcmask": ".hcmask exportieren",
+    "exportTxt": ".txt exportieren"
+  },
+  "messages": {
+    "selectClient": "Bitte wählen Sie einen Kunden",
+    "reportQueued": "Bericht in Warteschlange (Position: {{position}})",
+    "reportQueuedRetry": "Bericht zur Wiederholung in Warteschlange (Position: {{position}})",
+    "reportDeleted": "Bericht erfolgreich gelöscht",
+    "failedLoadClients": "Fehler beim Laden der Kunden",
+    "failedLoadReports": "Fehler beim Laden der Berichte",
+    "failedLoadReport": "Fehler beim Laden des Berichts",
+    "failedGenerateReport": "Fehler beim Erstellen des Berichts",
+    "failedDeleteReport": "Fehler beim Löschen des Berichts",
+    "failedRetryReport": "Fehler beim Wiederholen des Berichts",
+    "queuedPosition": "Ihr Bericht befindet sich in der Warteschlange. Position:",
+    "processingDescription": "Ihr Bericht wird derzeit verarbeitet. Dies kann je nach Datensatzgröße mehrere Minuten dauern.",
+    "generationError": "Beim Erstellen des Berichts ist ein Fehler aufgetreten.",
+    "noHashReuse": "Keine Hash-Wiederverwendung erkannt. Alle NTLM/LM-Hash-Werte sind eindeutig.",
+    "andMoreUsers": "...und {{count}} weitere",
+    "copiedSuccess": "Benutzernamen in die Zwischenablage kopiert!",
+    "noRecommendations": "Derzeit keine spezifischen Empfehlungen. Die Passwortrichtlinien erscheinen angemessen.",
+    "top50Hashes": "Zeige die 50 am häufigsten wiederverwendeten Hashes",
+    "top50PartialCracks": "Zeige die 50 häufigsten Teilknackungen"
+  },
+  "sections": {
+    "lengthDistribution": "Passwortlängen-Verteilung",
+    "characterComposition": "Zeichenzusammensetzung",
+    "commonPatterns": "Häufige Muster",
+    "topPasswords": "Häufigste Passwörter",
+    "maskAnalysis": "Maskenanalyse",
+    "complexityAnalysis": "Zeichenkomplexitätsanalyse",
+    "sequentialPatterns": "Sequenzielle Muster",
+    "keyboardPatterns": "Tastaturmuster",
+    "datePatterns": "Datumsmuster",
+    "leetSpeak": "Leet-Speak-Analyse",
+    "baseWords": "Basiswörter",
+    "characterSets": "Zeichensätze",
+    "entropyDistribution": "Entropie-Verteilung",
+    "overview": "Übersicht",
+    "domainBreakdown": "Domänen-Aufschlüsselung",
+    "hashModeBreakdown": "Hash-Modus-Aufschlüsselung",
+    "windowsHashAnalytics": "Windows-Hash-Analyse",
+    "positionalAnalysis": "Positionsanalyse",
+    "patternDetection": "Mustererkennung",
+    "usernameCorrelation": "Benutzernamen-Korrelation",
+    "passwordReuse": "Passwort-Wiederverwendung",
+    "hashReuse": "Hash-basierte Passwort-Wiederverwendung",
+    "temporalPatterns": "Zeitliche Muster",
+    "yearBreakdown": "Jahres-Aufschlüsselung",
+    "strengthMetrics": "Stärkemetriken",
+    "crackTimeEstimates": "Knackzeit-Schätzungen nach Geschwindigkeit",
+    "customPatterns": "Organisationsnamens-Muster",
+    "recommendations": "Empfehlungen",
+    "lmPartialCracks": "LM-Teilknackungen",
+    "lmToNtlmMasks": "LM-zu-NTLM-Maskengenerierung",
+    "hashTypes": "Hash-Typen",
+    "kerberos": "Kerberos",
+    "encryptionTypes": "Verschlüsselungstypen",
+    "linkedHashCorrelation": "LM/NTLM-Verknüpfte-Hash-Korrelation",
+    "reusedPasswords": "Wiederverwendete Passwörter nach Vorkommen"
+  },
+  "charts": {
+    "count": "Anzahl",
+    "percentage": "Prozent",
+    "length": "Länge",
+    "password": "Passwort",
+    "pattern": "Muster",
+    "mask": "Maske"
+  },
+  "columns": {
+    "domain": "Domäne",
+    "totalHashes": "Hashes gesamt",
+    "cracked": "Geknackt",
+    "percentage": "Prozent",
+    "hashType": "Hash-Typ",
+    "length": "Länge",
+    "count": "Anzahl",
+    "category": "Kategorie",
+    "pattern": "Muster",
+    "patternType": "Mustertyp",
+    "correlationType": "Korrelationstyp",
+    "metric": "Metrik",
+    "password": "Passwort",
+    "users": "Benutzer",
+    "occurrences": "Vorkommen",
+    "username": "Benutzername",
+    "hashlistCount": "Hashlisten-Anzahl",
+    "hashValue": "Hash-Wert",
+    "type": "Typ",
+    "total": "Gesamt",
+    "year": "Jahr",
+    "maskPattern": "Maskenmuster",
+    "entropyLevel": "Entropie-Level",
+    "range": "Bereich",
+    "speedLevel": "Geschwindigkeitsstufe",
+    "speed": "Geschwindigkeit (H/s)",
+    "rank": "Rang",
+    "actions": "Aktionen",
+    "firstHalf": "Erste Hälfte (1-7)",
+    "secondHalf": "Zweite Hälfte (8-14)",
+    "hashlist": "Hashliste",
+    "mask": "Maske",
+    "lmPattern": "LM-Muster",
+    "matchPercentage": "Übereinstimmung %",
+    "estimatedKeyspace": "Gesch. Keyspace",
+    "exampleLm": "Beispiel LM",
+    "usersHashlistCount": "Benutzer (Hashlisten-Anzahl)",
+    "totalOccurrences": "Vorkommen gesamt",
+    "userCount": "Benutzeranzahl"
+  },
+  "labels": {
+    "reportId": "Bericht-ID:",
+    "total": "Gesamt",
+    "cracked": "Geknackt:",
+    "percentage": "Prozent:",
+    "totalHashRecords": "Hash-Datensätze gesamt",
+    "uniqueUsers": "Eindeutige Benutzer",
+    "successRate": "Erfolgsrate",
+    "linkedPairsFound": "LM/NTLM-verknüpfte Paare gefunden",
+    "totalLinkedPairs": "Verknüpfte Paare gesamt:",
+    "bothCracked": "Beide geknackt",
+    "ntlmOnly": "Nur NTLM",
+    "lmOnly": "Nur LM",
+    "neitherCracked": "Keines geknackt",
+    "passwordsReused": "Wiederverwendete Passwörter",
+    "uniquePasswords": "Eindeutige Passwörter",
+    "totalReused": "Wiederverwendet gesamt",
+    "totalUnique": "Eindeutig gesamt",
+    "reusePercentage": "Wiederverwendungsprozent",
+    "usersWithHash": "Benutzer mit diesem Hash:",
+    "totalPartial": "Teilweise gesamt",
+    "firstHalfOnly": "Nur erste Hälfte",
+    "secondHalfOnly": "Nur zweite Hälfte",
+    "unknown": "Unbekannt",
+    "lmPasswordsAnalyzed": "LM-Passwörter analysiert",
+    "masksGenerated": "Masken generiert",
+    "totalEstimatedKeyspace": "Geschätzter Keyspace gesamt",
+    "underOrEqual7Chars": "<=7 Zeichen:",
+    "8To14Chars": "8-14 Zeichen:",
+    "partiallyCracked": "Teilweise geknackt:"
+  },
+  "cards": {
+    "totalHashes": "Hashes gesamt",
+    "cracked": "Geknackt",
+    "crackRate": "Knackrate",
+    "hashlistsAnalyzed": "Analysierte Hashlisten"
+  },
+  "descriptions": {
+    "lengthDistribution": "Längenverteilung (basierend auf Hash):",
+    "includesAllTypes": "Enthält alle Hash-Typen",
+    "distinctUsernames": "Eindeutige Benutzernamen",
+    "successfullyCracked": "Erfolgreich geknackt",
+    "overallPercentage": "Gesamtprozentsatz",
+    "complexityDistribution": "Verteilung der Passwörter nach Zeichentypkombinationen",
+    "positionalPatterns": "Häufige Positionsmuster in Passwörtern",
+    "weakPatterns": "Häufig erkannte schwache Muster in Passwörtern",
+    "usernameCorrelation": "Passwörter, die mit Benutzernamen korrelieren",
+    "hashReuseAnalysis": "Identische NTLM/LM-Hash-Werte weisen auf Passwort-Wiederverwendung über Konten hinweg hin, auch wenn der Klartext unbekannt ist.",
+    "datePatterns": "Datumsbezogene Muster in Passwörtern gefunden",
+    "maskFormat": "Top-Passwortmuster im hashcat-Maskenformat (?u=Groß, ?l=Klein, ?d=Ziffer, ?s=Sonderzeichen)",
+    "shannonEntropy": "Passwortstärke-Kategorisierung basierend auf Shannon-Entropie",
+    "crackTimeEstimates": "Prozentsatz der Passwörter, die innerhalb von Zeiträumen bei verschiedenen Geschwindigkeitsstufen knackbar sind",
+    "topPasswords": "Am häufigsten verwendete Passwörter (mindestens 2 Verwendungen)",
+    "customPatterns": "Passwörter, die Organisationsnamens-Variationen enthalten",
+    "recommendations": "Vorgeschlagene Verbesserungen der Passwortrichtlinie basierend auf der Analyse",
+    "lmDerivable": "(LM-ableitbar)",
+    "ntlmUnknown": "(NTLM unbekannt)",
+    "ofLmHashes": "der LM-Hashes",
+    "chars1To7": "Zeichen 1-7 geknackt",
+    "chars8To14": "Zeichen 8-14 geknackt",
+    "maskGeneration": "Hashcat-Masken aus geknackten LM-Passwörtern generieren, um entsprechende NTLM-Groß-/Kleinschreibvarianten wiederherzustellen.",
+    "maskSorting": "Masken sortiert nach Häufigkeit, dann nach Keyspace",
+    "averageLength": "Durchschnittliche Länge (Passwörter <15 Zeichen):"
+  },
+  "patterns": {
+    "startsUppercase": "Beginnt mit Großbuchstabe",
+    "endsNumber": "Endet mit Zahl",
+    "endsSpecial": "Endet mit Sonderzeichen",
+    "keyboardWalks": "Tastaturwege (z.B. qwerty, asdfgh)",
+    "sequences": "Sequenzen (z.B. 123, abc)",
+    "repeatingChars": "Wiederholende Zeichen (z.B. aaa, 111)",
+    "containsYear": "Enthält Jahr",
+    "containsMonth": "Enthält Monat",
+    "containsSeason": "Enthält Jahreszeit"
+  },
+  "correlations": {
+    "sameAsUsername": "Passwort gleich Benutzername",
+    "containsUsername": "Passwort enthält Benutzername",
+    "usernamePart": "Benutzername Teil des Passworts"
+  },
+  "categories": {
+    "singleCharType": "Ein Zeichentyp",
+    "twoCharTypes": "Zwei Zeichentypen",
+    "threeCharTypes": "Drei Zeichentypen",
+    "fourCharTypes": "Vier Zeichentypen",
+    "allCharTypes": "Alle Zeichentypen",
+    "complexPasswords": "Komplexe Passwörter (3-4 Typen)",
+    "complexShort": "Komplex (<=14 Zeichen)",
+    "complexLong": "Komplex (15+ Zeichen)"
+  },
+  "hashTypes": {
+    "ntlm": "NTLM",
+    "lm": "LM",
+    "netntlmv1": "NetNTLMv1",
+    "netntlmv2": "NetNTLMv2",
+    "dcc": "DCC (MS Cache)",
+    "dcc2": "DCC2 (MS Cache 2)"
+  },
+  "kerberosTypes": {
+    "rc4": "RC4",
+    "aes128": "AES-128",
+    "aes256": "AES-256"
+  },
+  "entropyLevels": {
+    "low": "Niedrig",
+    "moderate": "Mittel",
+    "high": "Hoch"
+  },
+  "entropyRanges": {
+    "low": "<78 Bit",
+    "moderate": "78-127 Bit",
+    "high": "128+ Bit"
+  },
+  "speedLevels": {
+    "speed50": "50% Geschwindigkeit",
+    "speed75": "75% Geschwindigkeit",
+    "speed100": "100% Geschwindigkeit (Durchschnitt)",
+    "speed150": "150% Geschwindigkeit",
+    "speed200": "200% Geschwindigkeit"
+  },
+  "timeframes": {
+    "lessThan1Hour": "<1 Stunde",
+    "lessThan1Day": "<1 Tag",
+    "lessThan1Week": "<1 Woche",
+    "lessThan1Month": "<1 Monat",
+    "lessThan6Months": "<6 Monate",
+    "lessThan1Year": "<1 Jahr",
+    "greaterThan1Year": ">1 Jahr"
+  },
+  "severities": {
+    "critical": "KRITISCH",
+    "high": "HOCH",
+    "medium": "MITTEL",
+    "info": "INFO"
+  },
+  "tooltips": {
+    "copyUsernames": "Benutzernamen in die Zwischenablage kopieren",
+    "processing": "Wird verarbeitet",
+    "requiresProcessing": "Erfordert spezielle Verarbeitung"
+  },
+  "warnings": {
+    "internalUseOnly": "Nur für internen Gebrauch: Dieser Abschnitt enthält Klartext-Passwörter. Nicht extern teilen.",
+    "partialCracks": "Benutzer mit teilweisen LM-Knackungen sollten aufgefordert werden, ihre Passwörter sofort zurückzusetzen.",
+    "linkedHashlistAnalysis": "Verknüpfte Hashlisten-Analyse"
+  },
+  "alerts": {
+    "linkedHashlistInfo": "Diese Hashliste ist Teil eines verknüpften LM/NTLM-Paares. Die Analyse umfasst die Korrelation zwischen LM- und NTLM-Hashes für dieselben Benutzer."
+  },
+  "filters": {
+    "domain": "Nach Domäne filtern",
+    "allDomains": "Alle Domänen",
+    "minOccurrences": "Minimale Vorkommen",
+    "topN": "Top N Ergebnisse"
+  },
+  "errors": {
+    "loadFailed": "Fehler beim Laden der Analysen",
+    "noData": "Keine Daten für die Analyse verfügbar"
+  },
+  "noReport": {
+    "title": "Kein Bericht verfügbar",
+    "message": "Wählen Sie eine Hashliste aus und erstellen Sie einen Bericht, um Analysen anzuzeigen."
+  },
+  "units": {
+    "chars": "Zeichen"
+  },
+  "pagination": {
+    "masks": "{{from}}-{{to}} von {{count}} Masken"
+  },
+  "export": {
+    "header": "# LM-zu-NTLM Hashcat-Masken",
+    "generatedFrom": "# Generiert aus {{count}} geknackten LM-Passwörtern",
+    "totalMasks": "# Masken gesamt: {{count}}",
+    "totalKeyspace": "# Geschätzter Keyspace gesamt: {{keyspace}}",
+    "format": "# Format: Maske | Muster | Anzahl | Übereinstimmung% | Keyspace | Beispiel"
+  },
+  "monthNames": {
+    "jan": "Jan",
+    "feb": "Feb",
+    "mar": "Mär",
+    "apr": "Apr",
+    "may": "Mai",
+    "jun": "Jun",
+    "jul": "Jul",
+    "aug": "Aug",
+    "sep": "Sep",
+    "oct": "Okt",
+    "nov": "Nov",
+    "dec": "Dez"
+  }
+}

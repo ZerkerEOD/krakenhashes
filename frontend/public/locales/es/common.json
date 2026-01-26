@@ -1,0 +1,153 @@
+{
+  "buttons": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "create": "Crear",
+    "submit": "Enviar",
+    "close": "Cerrar",
+    "confirm": "Confirmar",
+    "retry": "Reintentar",
+    "refresh": "Actualizar",
+    "download": "Descargar",
+    "upload": "Subir",
+    "copy": "Copiar",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "clearFilters": "Limpiar filtros",
+    "loadAll": "Cargar todo",
+    "signIn": "Iniciar sesion",
+    "logIn": "Iniciar sesion",
+    "logout": "Cerrar sesion"
+  },
+  "labels": {
+    "loading": "Cargando...",
+    "noData": "No hay datos disponibles",
+    "error": "Ocurrio un error",
+    "success": "Exito",
+    "warning": "Advertencia",
+    "info": "Informacion",
+    "required": "Requerido",
+    "optional": "Opcional",
+    "all": "Todos",
+    "none": "Ninguno",
+    "yes": "Si",
+    "no": "No",
+    "enabled": "Habilitado",
+    "disabled": "Deshabilitado",
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "pending": "Pendiente",
+    "completed": "Completado",
+    "failed": "Fallido",
+    "unknown": "Desconocido"
+  },
+  "pagination": {
+    "rowsPerPage": "Filas por pagina",
+    "page": "Pagina {{current}} de {{total}}",
+    "showing": "Mostrando {{from}}-{{to}} de {{total}}",
+    "first": "Primera pagina",
+    "last": "Ultima pagina",
+    "next": "Pagina siguiente",
+    "previous": "Pagina anterior"
+  },
+  "language": {
+    "selectLanguage": "Seleccionar idioma",
+    "currentLanguage": "Idioma actual"
+  },
+  "clipboard": {
+    "copied": "Copiado al portapapeles",
+    "copyFailed": "Error al copiar al portapapeles"
+  },
+  "errors": {
+    "networkError": "Error de red. Por favor, verifica tu conexion.",
+    "serverError": "Error del servidor. Por favor, intentalo mas tarde.",
+    "unknownError": "Ocurrio un error desconocido",
+    "validationError": "Por favor, verifica tus datos e intentalo de nuevo",
+    "permissionDenied": "Permiso denegado",
+    "notFound": "No encontrado",
+    "sessionExpired": "Tu sesion ha expirado. Por favor, inicia sesion de nuevo."
+  },
+  "confirmations": {
+    "areYouSure": "Estas seguro?",
+    "cannotBeUndone": "Esta accion no se puede deshacer.",
+    "confirmDelete": "Confirmar eliminacion",
+    "confirmAction": "Confirmar accion"
+  },
+  "time": {
+    "justNow": "Ahora mismo",
+    "minutesAgo": "Hace {{count}} minuto",
+    "minutesAgo_plural": "Hace {{count}} minutos",
+    "hoursAgo": "Hace {{count}} hora",
+    "hoursAgo_plural": "Hace {{count}} horas",
+    "daysAgo": "Hace {{count}} dia",
+    "daysAgo_plural": "Hace {{count}} dias",
+    "never": "Nunca"
+  },
+  "fileUpload": {
+    "dragAndDrop": "Arrastra y suelta un archivo aqui, o haz clic para seleccionar",
+    "selectFile": "Seleccionar archivo",
+    "uploading": "Subiendo...",
+    "uploadSuccess": "Archivo subido exitosamente",
+    "uploadFailed": "Error al subir el archivo",
+    "chooseFile": "Elegir archivo",
+    "description": "Descripcion",
+    "loading": "Cargando..."
+  },
+  "binaryVersionSelector": {
+    "label": "Version del binario",
+    "helperText": "Selecciona el patron de version del binario para este trabajo",
+    "default": "Predeterminado",
+    "majorVersion": "Version mayor (ultimo menor)",
+    "minorVersion": "Version menor (ultimo parche)",
+    "exactVersion": "Version exacta",
+    "loading": "Cargando...",
+    "loadingVersions": "Cargando versiones de binarios...",
+    "loadError": "Error al cargar versiones de binarios"
+  },
+  "passwordValidation": {
+    "requirements": "Requisitos de contrasena:",
+    "minLength": "Al menos {{length}} caracteres",
+    "uppercase": "Al menos una letra mayuscula",
+    "lowercase": "Al menos una letra minuscula",
+    "number": "Al menos un numero",
+    "specialChar": "Al menos un caracter especial"
+  },
+  "footer": {
+    "documentation": "Documentacion",
+    "issues": "Problemas",
+    "loading": "Cargando...",
+    "release": "Version v{{version}}",
+    "versionUnavailable": "Version no disponible"
+  },
+  "layout": {
+    "logoAlt": "Logo de KrakenHashes"
+  },
+  "table": {
+    "noResults": "No se encontraron resultados",
+    "loading": "Cargando datos...",
+    "emptyState": "No hay datos para mostrar"
+  },
+  "about": {
+    "title": "Acerca de KrakenHashes",
+    "versionInfo": {
+      "title": "Informacion de version",
+      "release": "Version",
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "agent": "Version del agente",
+      "api": "Version de API",
+      "database": "Base de datos"
+    },
+    "projectInfo": {
+      "title": "Informacion del proyecto",
+      "description": "KrakenHashes es un sistema de gestion de descifrado de contrasenas distribuido disenado para coordinar y gestionar tareas de descifrado de contrasenas a traves de multiples agentes.",
+      "license": "Este es un proyecto de codigo abierto bajo la licencia GNU Affero General Public License v3.0 (AGPL-3.0).",
+      "githubLink": "Repositorio en GitHub"
+    },
+    "errors": {
+      "fetchFailed": "Error al obtener la informacion de version"
+    }
+  }
+}

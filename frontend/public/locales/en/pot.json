@@ -1,0 +1,86 @@
+{
+  "title": "Cracked Hashes",
+  "page": {
+    "title": "Cracked Hashes (Pot)",
+    "description": "View all successfully cracked password hashes across all hashlists and clients."
+  },
+  "table": {
+    "allCrackedHashes": "All Cracked Hashes"
+  },
+  "navigation": {
+    "backToAll": "Back to All Cracked Hashes"
+  },
+  "client": {
+    "title": "Cracked Hashes - Client View",
+    "description": "Viewing cracked hashes for client: <1>{{clientName}}</1>",
+    "tableTitle": "Cracked Hashes for \"{{clientName}}\""
+  },
+  "hashlist": {
+    "title": "Cracked Hashes - Hashlist View",
+    "description": "Viewing cracked hashes for hashlist: <1>{{hashlistName}}</1>",
+    "tableTitle": "Cracked Hashes for \"{{hashlistName}}\""
+  },
+  "job": {
+    "title": "Cracked Hashes for Job: {{jobName}}",
+    "description": "View all successfully cracked password hashes from this job execution.",
+    "tableTitle": "Cracked Hashes - {{jobName}}",
+    "defaultName": "Job {{id}}"
+  },
+  "columns": {
+    "originalHash": "Original Hash",
+    "domain": "Domain",
+    "username": "Username",
+    "password": "Password",
+    "hashType": "Hash Type",
+    "actions": "Actions"
+  },
+  "search": {
+    "placeholder": "Search database...",
+    "filterPlaceholder": "Filter this page...",
+    "button": "Search",
+    "resultsFound": "Found {{count}} result",
+    "resultsFound_plural": "Found {{count}} results",
+    "noResults": "No results found",
+    "searching": "Searching..."
+  },
+  "export": {
+    "hashPass": "Hash:Pass",
+    "userPass": "User:Pass",
+    "username": "Username",
+    "password": "Password",
+    "domainUser": "Domain\\User",
+    "domainUserPass": "Domain\\User:Pass",
+    "exportVisible": "Export visible results",
+    "downloaded": "Downloaded {{filename}}",
+    "downloadFailed": "Failed to download file"
+  },
+  "tooltips": {
+    "copyHash": "Copy hash:password",
+    "copyDomain": "Click to copy domain",
+    "copyUsername": "Click to copy username",
+    "copyPassword": "Click to copy password"
+  },
+  "dialogs": {
+    "loadAllTitle": "Load All Results?",
+    "loadAllMessage": "Loading all {{value}} results may take a significant amount of time and could impact performance. Are you sure you want to continue?",
+    "loadingAll": "Loading all results. This may take some time...",
+    "cancel": "Cancel",
+    "loadAll": "Load All"
+  },
+  "pagination": {
+    "all": "All"
+  },
+  "notifications": {
+    "copiedToClipboard": "Copied to clipboard",
+    "exported": "Exported cracked hashes"
+  },
+  "errors": {
+    "loadFailed": "Failed to load cracked hashes",
+    "loadClientFailed": "Failed to load client information",
+    "loadHashlistFailed": "Failed to load hashlist information",
+    "loadJobFailed": "Failed to load job information"
+  },
+  "filter": {
+    "filteredBy": "Filtered by {{param}}: {{value}}"
+  }
+}

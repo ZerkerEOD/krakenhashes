@@ -1,0 +1,1416 @@
+{
+  "title": "Admin Settings",
+  "sections": {
+    "general": "General Settings",
+    "authentication": "Authentication",
+    "email": "Email Settings",
+    "security": "Security",
+    "sso": "Single Sign-On",
+    "monitoring": "Monitoring"
+  },
+  "tabs": {
+    "emailSettings": "Email Settings",
+    "authenticationSettings": "Authentication Settings",
+    "ssoSettings": "SSO Settings",
+    "binaryManagement": "Binary Management",
+    "systemSettings": "System Settings",
+    "clientSettings": "Client Settings",
+    "hashTypes": "Hash Types",
+    "jobExecution": "Job Execution",
+    "monitoring": "Monitoring",
+    "agentDownloads": "Agent Downloads"
+  },
+  "common": {
+    "cancel": "Cancel",
+    "create": "Create",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "saveChanges": "Save Changes",
+    "copyToClipboard": "Copy to Clipboard",
+    "never": "Never",
+    "invalidDate": "Invalid date",
+    "all": "All",
+    "yes": "Yes",
+    "no": "No",
+    "note": "Note",
+    "default": "Default",
+    "on": "On",
+    "off": "Off",
+    "none": "None",
+    "unlimited": "Unlimited",
+    "close": "Close",
+    "unknownError": "Unknown error",
+    "dialogs": {
+      "confirmDeleteNamed": "Are you sure you want to delete \"{{name}}\"?"
+    }
+  },
+  "users": {
+    "title": "User Management",
+    "description": "Manage user accounts and permissions",
+    "addUser": "Add User",
+    "createUser": "Create User",
+    "columns": {
+      "username": "Username",
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "createdAt": "Created",
+      "lastLogin": "Last Login",
+      "actions": "Actions",
+      "provider": "Provider",
+      "providerLocal": "Local",
+      "mfa": "MFA",
+      "apiKey": "API Key",
+      "lastApiUse": "Last API Use"
+    },
+    "roles": {
+      "admin": "Admin",
+      "user": "User",
+      "system": "System"
+    },
+    "status": {
+      "active": "Active",
+      "pending": "Pending Approval",
+      "disabled": "Disabled",
+      "locked": "Locked"
+    },
+    "actions": {
+      "edit": "Edit User",
+      "delete": "Delete User",
+      "approve": "Approve",
+      "disable": "Disable",
+      "enable": "Enable",
+      "unlock": "Unlock",
+      "resetPassword": "Reset Password",
+      "disableMfa": "Disable MFA",
+      "revokeApiKey": "Revoke API Key",
+      "cannotDeleteSystem": "Cannot delete system users",
+      "terminateSession": "Terminate session",
+      "terminateAllSessions": "Terminate All Sessions"
+    },
+    "apiKey": {
+      "none": "None"
+    },
+    "validation": {
+      "usernameRequired": "Username is required",
+      "emailRequired": "Email is required",
+      "emailInvalid": "Invalid email format",
+      "passwordRequired": "Password is required",
+      "passwordMinLength": "at least {{value}} characters",
+      "passwordUppercase": "one uppercase letter",
+      "passwordLowercase": "one lowercase letter",
+      "passwordNumber": "one number",
+      "passwordSpecial": "one special character",
+      "passwordMustContain": "Password must contain {{requirements}}",
+      "confirmPasswordRequired": "Please confirm password",
+      "passwordsMismatch": "Passwords do not match"
+    },
+    "errors": {
+      "loadFailed": "Failed to load users. Please try refreshing.",
+      "loadDetailsFailed": "Failed to load user details",
+      "loadSessionsFailed": "Failed to load sessions",
+      "loadLoginAttemptsFailed": "Failed to load login attempts",
+      "loadApiKeyFailed": "Failed to load API key info",
+      "createFailed": "Failed to create user",
+      "updateFailed": "Failed to update user",
+      "deleteFailed": "Failed to delete user",
+      "enableFailed": "Failed to enable user",
+      "disableFailed": "Failed to disable user",
+      "unlockFailed": "Failed to unlock account",
+      "reasonRequired": "Please provide a reason for disabling this user",
+      "passwordResetFailed": "Failed to reset password",
+      "mfaDisableFailed": "Failed to disable MFA",
+      "accountStatusFailed": "Failed to update account status",
+      "terminateSessionFailed": "Failed to terminate session",
+      "terminateAllSessionsFailed": "Failed to terminate all sessions",
+      "revokeApiKeyFailed": "Failed to revoke API key",
+      "userNotFound": "User not found"
+    },
+    "messages": {
+      "createSuccess": "User created successfully",
+      "updateSuccess": "User details updated successfully",
+      "deleteSuccess": "User deleted successfully",
+      "enableSuccess": "User enabled successfully",
+      "disableSuccess": "User disabled successfully",
+      "passwordResetSuccess": "Password reset successfully!",
+      "passwordCopied": "Password copied to clipboard",
+      "mfaDisableSuccess": "MFA disabled successfully",
+      "accountDisabled": "User account disabled",
+      "accountEnabled": "User account enabled",
+      "accountUnlocked": "User account unlocked",
+      "sessionTerminated": "Session terminated successfully",
+      "allSessionsTerminated": "Terminated {{count}} session(s) successfully",
+      "apiKeyRevoked": "API key revoked successfully"
+    },
+    "dialogs": {
+      "createUser": {
+        "title": "Create New User",
+        "password": "Password",
+        "confirmPassword": "Confirm Password",
+        "roleHelperText": "Select user's role in the system"
+      },
+      "disableUser": {
+        "title": "Disable User Account",
+        "description": "Please provide a reason for disabling this user account. This will be logged for audit purposes.",
+        "reasonLabel": "Reason for Disabling",
+        "reasonPlaceholder": "e.g., Account compromise, Terms violation, User request, etc.",
+        "disableAccount": "Disable Account"
+      },
+      "deleteUser": {
+        "title": "Delete User Account",
+        "warning": "This action cannot be undone. The user will be permanently removed from the system.",
+        "confirmation": "Are you sure you want to delete the user <strong>{{username}}</strong>?",
+        "dataNote": "All associated data will be preserved, but the user will no longer be able to log in."
+      },
+      "resetPassword": {
+        "title": "Reset User Password",
+        "generateTemporary": "Generate temporary password",
+        "newPassword": "New Password",
+        "passwordHelperText": "Must be at least 8 characters"
+      },
+      "disableMfa": {
+        "title": "Disable MFA",
+        "confirmation": "Are you sure you want to disable MFA for this user? They will need to set it up again if required."
+      },
+      "terminateSession": {
+        "title": "Terminate Session?",
+        "description": "This will log the user out from this device. The user will need to log in again to continue using the application.",
+        "terminate": "Terminate"
+      },
+      "terminateAllSessions": {
+        "title": "Terminate All Sessions?",
+        "description": "This will log the user out from ALL devices, including their current session. The user will need to log in again. This action cannot be undone.",
+        "warning": "This includes any active work sessions!",
+        "terminateAll": "Terminate All"
+      },
+      "revokeApiKey": {
+        "title": "Revoke User API Key?",
+        "warning": "This will immediately disable API access for this user. Any applications using this key will stop working.",
+        "confirmation": "Are you sure you want to revoke this user's API key?"
+      }
+    },
+    "detail": {
+      "title": "User Details",
+      "backToUsers": "Back to Users",
+      "userInformation": "User Information",
+      "userId": "User ID",
+      "systemUserReadOnly": "System users cannot be modified",
+      "accountStatus": "Account Status",
+      "accountStatusLabel": "Account Status",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "noReasonProvided": "No reason provided",
+      "lockStatus": "Lock Status",
+      "lockedUntil": "Locked until {{date}}",
+      "notLocked": "Not locked",
+      "mfaStatus": "MFA Status",
+      "mfaEnabled": "Enabled ({{types}})",
+      "mfaDisabled": "Disabled",
+      "apiKeyManagement": "API Key Management",
+      "apiKeyStatus": "API Key Status",
+      "noApiKeyGenerated": "No API Key Generated",
+      "created": "Created",
+      "lastUsed": "Last Used",
+      "apiKeySecurityNote": "Admins can revoke API keys but cannot view the plaintext key for security reasons.",
+      "activityInformation": "Activity Information",
+      "passwordChanged": "Password Changed",
+      "failedLoginAttempts": "Failed Login Attempts",
+      "attemptsCount": "{{count}} attempts",
+      "disabledAt": "Disabled At",
+      "activeSessions": "Active Sessions",
+      "noActiveSessions": "No active sessions",
+      "loginHistory": "Login History",
+      "noLoginAttempts": "No login attempts found",
+      "temporaryPassword": "Temporary password",
+      "sharePasswordSecurely": "Please share this password securely with the user.",
+      "sessions": {
+        "ipAddress": "IP Address",
+        "deviceBrowser": "Device / Browser",
+        "lastActive": "Last Active"
+      },
+      "loginAttempts": {
+        "timestamp": "Timestamp",
+        "success": "Success",
+        "failed": "Failed",
+        "failureReason": "Failure Reason"
+      }
+    }
+  },
+  "clients": {
+    "title": "Client Management",
+    "addClient": "Add Client",
+    "columns": {
+      "name": "Name",
+      "description": "Description",
+      "contact": "Contact",
+      "cracked": "Cracked",
+      "retention": "Retention (Months)",
+      "createdAt": "Created",
+      "actions": "Actions"
+    },
+    "form": {
+      "clientName": "Client Name",
+      "description": "Description",
+      "contactInfo": "Contact Info",
+      "dataRetention": "Data Retention (Months)",
+      "dataRetentionHelperText": "Leave empty to use system default. Enter 0 to keep forever.",
+      "excludeFromPotfile": "Exclude from potfile (don't save cracked passwords)",
+      "excludeFromPotfileHelperText": "Enable this for clients with strict data retention requirements"
+    },
+    "validation": {
+      "nameRequired": "Client Name is required.",
+      "retentionInvalid": "Retention Period must be a non-negative number or empty (for default)."
+    },
+    "errors": {
+      "loadFailed": "Failed to load clients. Please try refreshing.",
+      "loadDefaultSettingsFailed": "Failed to load default client settings.",
+      "saveFailed": "Failed to save client.",
+      "deleteFailed": "Failed to delete client."
+    },
+    "messages": {
+      "createSuccess": "Client created successfully",
+      "updateSuccess": "Client updated successfully",
+      "deleteSuccess": "Client deleted successfully"
+    },
+    "dialogs": {
+      "addClient": {
+        "title": "Add New Client",
+        "createButton": "Create Client"
+      },
+      "editClient": {
+        "title": "Edit Client"
+      },
+      "deleteClient": {
+        "title": "Confirm Deletion",
+        "confirmation": "Are you sure you want to delete the client \"{{name}}\"? This action cannot be undone. Associated hashlists may be deleted immediately or orphaned based on retention policies."
+      }
+    }
+  },
+  "wordlists": {
+    "title": "Wordlist Management",
+    "description": "Manage wordlists for password cracking",
+    "uploadWordlist": "Upload Wordlist",
+    "refresh": "Refresh",
+    "loading": "Loading wordlists...",
+    "noWordlistsFound": "No wordlists found",
+    "tryDifferentSearch": "Try a different search term",
+    "uploadToGetStarted": "Upload a wordlist to get started",
+    "noDescription": "No description provided",
+    "searchPlaceholder": "Search wordlists...",
+    "tabs": {
+      "all": "All Wordlists",
+      "general": "General",
+      "specialized": "Specialized",
+      "targeted": "Targeted",
+      "custom": "Custom"
+    },
+    "columns": {
+      "name": "Name",
+      "status": "Status",
+      "type": "Type",
+      "size": "Size",
+      "wordCount": "Word Count",
+      "updated": "Updated",
+      "actions": "Actions"
+    },
+    "status": {
+      "verified": "Verified",
+      "pending": "Pending",
+      "failed": "Failed"
+    },
+    "types": {
+      "general": "General",
+      "specialized": "Specialized",
+      "targeted": "Targeted",
+      "custom": "Custom"
+    },
+    "fields": {
+      "name": "Name",
+      "description": "Description",
+      "wordlistType": "Wordlist Type"
+    },
+    "tooltips": {
+      "refreshMetadata": "Refresh Metadata",
+      "download": "Download",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "errors": {
+      "loadFailed": "Failed to load wordlists",
+      "uploadFailed": "Failed to upload wordlist",
+      "deleteFailed": "Failed to delete wordlist",
+      "downloadFailed": "Failed to download wordlist",
+      "refreshFailed": "Failed to refresh wordlist metadata",
+      "updateFailed": "Failed to update wordlist: {{error}}",
+      "sessionExpired": "Your session has expired. Please log in again."
+    },
+    "messages": {
+      "uploadSuccess": "Wordlist uploaded successfully",
+      "duplicateWordlist": "Wordlist \"{{name}}\" already exists",
+      "deleteSuccess": "Wordlist \"{{name}}\" deleted successfully",
+      "updateSuccess": "Wordlist updated successfully",
+      "refreshSuccess": "Wordlist metadata refreshed successfully"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "Upload Wordlist",
+        "fileUploadTitle": "Upload a wordlist file",
+        "fileUploadDescription": "Select a wordlist file to upload. Supported formats: .txt, .dict, .dic, .lst, .wordlist, .wl, .gz, .zip"
+      },
+      "edit": {
+        "title": "Edit Wordlist"
+      },
+      "delete": {
+        "title": "Confirm Deletion",
+        "cascadeTitle": "Confirm Cascade Deletion",
+        "confirmation": "Are you sure you want to delete wordlist \"{{name}}\"? This action cannot be undone.",
+        "cascadeWarning": "Deleting wordlist \"{{name}}\" will also delete the following:",
+        "checkingDependencies": "Checking for dependencies...",
+        "jobsCount": "{{count}} Job(s) (pending/running/failed):",
+        "presetJobsCount": "{{count}} Preset Job(s):",
+        "workflowStepsCount": "{{count}} Workflow Step(s):",
+        "emptyWorkflowsCount": "{{count}} Empty Workflow(s) will be deleted:",
+        "noHashlist": "No hashlist",
+        "step": "Step {{order}}",
+        "andMore": "...and {{count}} more",
+        "confirmationPrompt": "To confirm this cascade deletion, type the wordlist ID: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "Type {{id}} to confirm",
+        "idMismatch": "ID does not match",
+        "deleteAll": "Delete All"
+      }
+    }
+  },
+  "rules": {
+    "title": "Rule Management",
+    "description": "Manage Hashcat rules for password cracking",
+    "uploadRule": "Upload Rule",
+    "refresh": "Refresh",
+    "loading": "Loading rules...",
+    "noRulesFound": "No rules found",
+    "tryDifferentSearch": "Try a different search term",
+    "uploadToGetStarted": "Upload a rule to get started",
+    "noDescription": "No description provided",
+    "searchPlaceholder": "Search rules...",
+    "tabs": {
+      "all": "All Rules",
+      "hashcat": "Hashcat",
+      "john": "John"
+    },
+    "columns": {
+      "name": "Name",
+      "status": "Status",
+      "type": "Type",
+      "size": "Size",
+      "ruleCount": "Rule Count",
+      "updated": "Updated",
+      "actions": "Actions"
+    },
+    "status": {
+      "verified": "Verified",
+      "pending": "Pending",
+      "failed": "Failed",
+      "ready": "Ready",
+      "processing": "Processing"
+    },
+    "types": {
+      "hashcat": "Hashcat",
+      "john": "John the Ripper"
+    },
+    "fields": {
+      "name": "Name",
+      "description": "Description",
+      "ruleType": "Rule Type"
+    },
+    "tooltips": {
+      "download": "Download",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "errors": {
+      "loadFailed": "Failed to load rules",
+      "uploadFailed": "Failed to upload rule",
+      "deleteFailed": "Failed to delete rule",
+      "downloadFailed": "Failed to download rule",
+      "updateFailed": "Failed to update rule: {{error}}",
+      "verifyFailed": "Failed to verify rule",
+      "sessionExpired": "Your session has expired. Please log in again."
+    },
+    "messages": {
+      "uploadSuccess": "Rule uploaded successfully",
+      "duplicateRule": "Rule \"{{name}}\" already exists",
+      "deleteSuccess": "Rule \"{{name}}\" deleted successfully",
+      "updateSuccess": "Rule updated successfully",
+      "verifySuccess": "Rule \"{{name}}\" verified successfully"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "Upload Rule",
+        "fileUploadTitle": "Upload a rule file",
+        "fileUploadDescription": "Select a rule file to upload. Supported formats: .rule, .rules, .txt"
+      },
+      "edit": {
+        "title": "Edit Rule"
+      },
+      "delete": {
+        "title": "Confirm Deletion",
+        "cascadeTitle": "Confirm Cascade Deletion",
+        "confirmation": "Are you sure you want to delete rule \"{{name}}\"? This action cannot be undone.",
+        "cascadeWarning": "Deleting rule \"{{name}}\" will also delete the following:",
+        "checkingDependencies": "Checking for dependencies...",
+        "jobsCount": "{{count}} Job(s) (pending/running/failed):",
+        "presetJobsCount": "{{count}} Preset Job(s):",
+        "workflowStepsCount": "{{count}} Workflow Step(s):",
+        "emptyWorkflowsCount": "{{count}} Empty Workflow(s) will be deleted:",
+        "noHashlist": "No hashlist",
+        "step": "Step {{order}}",
+        "andMore": "...and {{count}} more",
+        "confirmationPrompt": "To confirm this cascade deletion, type the rule ID: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "Type {{id}} to confirm",
+        "idMismatch": "ID does not match",
+        "deleteAll": "Delete All"
+      }
+    }
+  },
+  "presetJobs": {
+    "title": "Preset Job Management",
+    "createNew": "Create Preset Job",
+    "confirmDelete": "Are you sure you want to delete this preset job?",
+    "noJobsFound": "No preset jobs found. Create one to get started.",
+    "keyspaceNotCalculated": "Not calculated",
+    "calculating": "Calculating...",
+    "calculateKeyspace": "Calculate Keyspace",
+    "calculateAllMissingKeyspaces": "Calculate All Missing Keyspaces",
+    "calculatingKeyspaces": "Calculating...",
+    "calculatingAllKeyspacesMessage": "Calculating keyspaces for all preset jobs. This may take a moment...",
+    "canInterruptRunningJobs": "Can interrupt running jobs",
+    "columns": {
+      "name": "Name",
+      "description": "Description",
+      "attackMode": "Attack Mode",
+      "priority": "Priority",
+      "highPriorityOverride": "High Priority Override",
+      "maxAgents": "Max Agents",
+      "keyspace": "Keyspace",
+      "binaryVersion": "Binary Version",
+      "wordlists": "Wordlists",
+      "rules": "Rules",
+      "createdAt": "Created At",
+      "actions": "Actions"
+    },
+    "messages": {
+      "deleteSuccess": "Preset job deleted successfully",
+      "deleteFailed": "Failed to delete preset job: {{error}}",
+      "fetchError": "Error loading preset jobs: {{error}}",
+      "deleteError": "Error deleting preset job: {{error}}",
+      "keyspaceRecalculateSuccess": "Keyspace recalculated successfully",
+      "keyspaceRecalculateFailed": "Failed to recalculate keyspace: {{error}}",
+      "keyspaceAllComplete": "Updated {{updated}}, skipped {{skipped}}, failed {{failed}}",
+      "keyspaceAllFailed": "Failed to recalculate keyspaces: {{error}}"
+    },
+    "form": {
+      "createTitle": "Create Preset Job",
+      "editTitle": "Edit Preset Job",
+      "createJob": "Create Preset Job",
+      "updateJob": "Update Preset Job",
+      "attackModeRequirements": "Attack Mode Requirements",
+      "wordlistSelectionCombination": "Wordlist Selection (Combination Mode)",
+      "selectFirstWordlist": "Select first wordlist",
+      "selectSecondWordlist": "Select second wordlist",
+      "fields": {
+        "jobName": "Job Name",
+        "attackMode": "Attack Mode",
+        "priority": "Priority",
+        "chunkSize": "Chunk Duration (seconds)",
+        "maxAgents": "Max Agents",
+        "maskPattern": "Mask Pattern",
+        "incrementMode": "Increment Mode",
+        "incrementMin": "Increment Min Length",
+        "incrementMax": "Increment Max Length",
+        "wordlists": "Wordlists",
+        "rules": "Rules",
+        "mask": "Mask",
+        "ruleOptional": "Rule (Optional)",
+        "firstWordlist": "First Wordlist",
+        "secondWordlist": "Second Wordlist",
+        "allowHighPriorityOverride": "Allow High Priority Override (can interrupt running jobs)"
+      },
+      "incrementModes": {
+        "off": "Off (use full mask)",
+        "increment": "Increment (1 to max)",
+        "incrementInverse": "Increment Inverse (max to 1)"
+      },
+      "helperText": {
+        "binaryVersion": "Select the hashcat binary version to use",
+        "priority": "Higher priority jobs run first (0-{{maxPriority}})",
+        "maskPattern": "Hashcat mask pattern (e.g., ?u?l?l?l?d?d?d?d)",
+        "maskPatternExamples": "?l=lowercase, ?u=uppercase, ?d=digit, ?s=special, ?a=all",
+        "incrementMode": "Use increment mode to try masks of varying lengths",
+        "incrementMin": "Minimum mask length to try",
+        "incrementMax": "Maximum mask length to try",
+        "chunkSize": "Duration for each work chunk in seconds",
+        "maxAgents": "Maximum number of agents (0 = unlimited)",
+        "allowHighPriorityOverride": "When enabled, this job can interrupt lower priority running jobs to take their agents",
+        "wordlistsNotUsed": "Wordlists not used for this attack mode",
+        "selectWordlists": "Select exactly {{count}} wordlist(s)",
+        "rulesNotUsed": "Rules not used for this attack mode",
+        "selectRule": "Optionally select a rule file to apply transformations",
+        "firstWordlist": "Words from this list will be used as the first part",
+        "secondWordlist": "Words from this list will be appended to the first"
+      },
+      "errors": {
+        "nameRequired": "Job name is required",
+        "binaryVersionRequired": "Binary version is required",
+        "straightModeWordlist": "Straight attack mode requires exactly 1 wordlist",
+        "combinationModeWordlists": "Combination attack mode requires exactly 2 wordlists",
+        "selectBothWordlists": "Please select both wordlists for combination mode",
+        "bruteForceModeMask": "Brute force attack mode requires a mask",
+        "hybridModeWordlist": "Hybrid attack mode requires exactly 1 wordlist",
+        "hybridModeMask": "Hybrid attack mode requires a mask",
+        "associationModeNotImplemented": "Association attack mode is not implemented",
+        "noWordlistsAvailable": "No wordlists available. Please upload wordlists first.",
+        "loadFailed": "Failed to load preset job",
+        "loadFormDataFailed": "Failed to load form data",
+        "saveFailed": "Failed to save preset job"
+      },
+      "messages": {
+        "createSuccess": "Preset job created successfully",
+        "updateSuccess": "Preset job updated successfully"
+      }
+    }
+  },
+  "workflows": {
+    "title": "Job Workflow Management",
+    "create": "Create Workflow",
+    "deleteTitle": "Delete Workflow",
+    "confirmDelete": "Are you sure you want to delete the workflow \"{{name}}\"?",
+    "noWorkflowsFound": "No workflows found. Create one to get started.",
+    "canInterrupt": "Can Interrupt",
+    "normal": "Normal",
+    "columns": {
+      "name": "Name",
+      "description": "Description",
+      "steps": "Steps",
+      "jobCount": "Jobs",
+      "highPriority": "Priority Mode",
+      "created": "Created",
+      "lastUpdated": "Last Updated",
+      "actions": "Actions"
+    },
+    "messages": {
+      "loadFailed": "Failed to load workflows",
+      "deleteFailed": "Failed to delete workflow"
+    },
+    "form": {
+      "createTitle": "Create Workflow",
+      "editTitle": "Edit Workflow",
+      "createWorkflow": "Create Workflow",
+      "saveChanges": "Save Changes",
+      "workflowSteps": "Workflow Steps",
+      "noJobsAdded": "No jobs added to this workflow yet. Search and add preset jobs above.",
+      "priority": "Priority: {{priority}}",
+      "binary": "Binary: {{name}}",
+      "wordlistCount": "{{count}} wordlist(s)",
+      "ruleCount": "{{count}} rule(s)",
+      "fields": {
+        "workflowName": "Workflow Name",
+        "searchPresetJobs": "Search Preset Jobs"
+      },
+      "helperText": {
+        "searchPresetJobs": "Search for preset jobs to add to this workflow"
+      },
+      "errors": {
+        "nameRequired": "Workflow name is required",
+        "presetJobRequired": "At least one preset job is required",
+        "noPresetJobsAvailable": "No preset jobs available. Create preset jobs first.",
+        "loadFailed": "Failed to load workflow",
+        "loadFormDataFailed": "Failed to load form data",
+        "saveFailed": "Failed to save workflow"
+      },
+      "messages": {
+        "createSuccess": "Workflow created successfully",
+        "updateSuccess": "Workflow updated successfully"
+      }
+    }
+  },
+  "binaryManagement": {
+    "pageTitle": "Binary Management",
+    "title": "Hashcat Binaries",
+    "addBinary": "Add Binary",
+    "showingActiveOnly": "Showing active binaries only",
+    "showingAll": "Showing all binaries",
+    "noBinaries": "No binaries found",
+    "noActiveBinaries": "No active binaries found",
+    "default": "Default",
+    "verifyBinary": "Verify Binary",
+    "deleteBinary": "Delete Binary",
+    "sourceUpload": "Upload",
+    "sourceUrl": "URL",
+    "columns": {
+      "binaryId": "ID",
+      "version": "Version",
+      "type": "Type",
+      "source": "Source",
+      "size": "Size",
+      "status": "Status",
+      "default": "Default",
+      "lastVerified": "Last Verified",
+      "actions": "Actions"
+    },
+    "messages": {
+      "fetchFailed": "Failed to fetch binaries",
+      "verifySuccess": "Binary verified successfully",
+      "verifyFailed": "Failed to verify binary",
+      "deleteSuccess": "Binary deleted successfully",
+      "deleteFailed": "Failed to delete binary",
+      "cannotDeleteLast": "Cannot delete the last active {{type}} binary",
+      "cannotDeleteOnly": "Cannot delete the only binary of this type",
+      "setDefaultSuccess": "Default binary updated successfully",
+      "setDefaultFailed": "Failed to set default binary"
+    },
+    "deleteDialog": {
+      "title": "Confirm Delete",
+      "message": "Are you sure you want to delete the binary \"{{fileName}}\"? This action cannot be undone."
+    }
+  },
+  "diagnostics": {
+    "pageTitle": "System Diagnostics",
+    "diagnosticPackage": "Diagnostic Package",
+    "diagnosticPackageDescription": "Download a diagnostic package containing system information, logs, and configuration details for troubleshooting.",
+    "refreshData": "Refresh Data",
+    "hours": "Hours",
+    "hoursTooltip": "Number of hours of logs to include",
+    "includeAgentLogs": "Include Agent Logs",
+    "includeNginxLogs": "Include Nginx Logs",
+    "includePostgresLogs": "Include PostgreSQL Logs",
+    "preparing": "Preparing...",
+    "downloadDiagnostics": "Download Diagnostics",
+    "systemInfo": "System Information",
+    "runtime": "Runtime",
+    "cpus": "CPUs",
+    "goroutines": "Goroutines",
+    "memory": "Memory",
+    "heap": "Heap",
+    "system": "System",
+    "gcRuns": "GC Runs",
+    "database": "Database",
+    "size": "Size",
+    "connections": "Connections",
+    "agents": "Agents",
+    "connected": "Connected",
+    "withDebugStatus": "With Debug Status",
+    "serverDebugStatus": "Server Debug Status",
+    "serverDebugDescription": "Enable verbose logging for the server. This will increase log file sizes and may impact performance.",
+    "debugEnabled": "Debug Enabled",
+    "debugDisabled": "Debug Disabled",
+    "level": "Level",
+    "enableDebug": "Enable Debug",
+    "disableDebug": "Disable Debug",
+    "loadingServerDebugStatus": "Loading server debug status...",
+    "serverLogs": "Server Logs",
+    "serverLogsDescription": "Manage server log files. Purging logs is permanent and cannot be undone.",
+    "refreshLogStats": "Refresh Log Stats",
+    "directory": "Directory",
+    "files": "Files",
+    "actions": "Actions",
+    "backend": "Backend",
+    "nginx": "Nginx",
+    "postgresql": "PostgreSQL",
+    "total": "Total",
+    "purge": "Purge",
+    "purgeAll": "Purge All",
+    "loadingLogStatistics": "Loading log statistics...",
+    "agentDebugStatus": "Agent Debug Status",
+    "enableAll": "Enable All",
+    "disableAll": "Disable All",
+    "noAgentsWithDebugStatus": "No agents with debug status available",
+    "agentId": "Agent ID",
+    "logLevel": "Log Level",
+    "fileLogging": "File Logging",
+    "logFileSize": "Log File Size",
+    "buffer": "Buffer",
+    "lastUpdated": "Last Updated",
+    "viewLogs": "View Logs",
+    "purgeLogs": "Purge Logs",
+    "agentLogs": "Agent Logs",
+    "agent": "Agent",
+    "allLevels": "All Levels",
+    "refresh": "Refresh",
+    "showingEntries": "Showing {{shown}} of {{total}} entries",
+    "filtered": "filtered",
+    "truncated": "truncated",
+    "time": "Time",
+    "message": "Message",
+    "location": "Location",
+    "noEntriesForLevel": "No entries found for level {{level}}",
+    "noLogEntriesAvailable": "No log entries available",
+    "logFileContent": "Log File Content",
+    "noLogsAvailable": "No logs available",
+    "securityWarning": "Security Warning",
+    "postgresLogsWarning": "PostgreSQL logs may contain sensitive data. Consider purging them after troubleshooting.",
+    "nginxLogsWarning": "Nginx access logs may contain sensitive request data. Consider purging them after troubleshooting.",
+    "sensitiveNginxLogsWarning": "Nginx access logs may contain sensitive information including authentication tokens in request headers and query parameters.",
+    "sensitivePostgresLogsWarning": "PostgreSQL logs may contain sensitive information including queries with user data, passwords, and connection details.",
+    "sensitiveLogsTestEnvironmentWarning": "Only include these logs for test/development environments or when absolutely necessary for debugging.",
+    "sensitiveLogsProductionWarning": "Do not include sensitive logs in production diagnostics packages shared externally.",
+    "iUnderstandIncludeLogs": "I Understand, Include Logs",
+    "allServerLogs": "all server logs",
+    "directoryLogs": "{{directory}} logs",
+    "purgeServerLogs": "Purge Server Logs",
+    "confirmPurgeLogs": "Are you sure you want to purge {{dirLabel}}?",
+    "cannotBeUndone": "This action cannot be undone.",
+    "purgeAgentLogs": "Purge Agent Logs",
+    "confirmPurgeAgentLogs": "Are you sure you want to purge logs for agent {{agentId}}?",
+    "enable": "Enable",
+    "disable": "Disable",
+    "serverDebugModeTitle": "{{action}} Server Debug Mode",
+    "serverDebugModeMessage": "This will change the server's logging level. The nginx server will be reloaded to apply changes.",
+    "serverDebugModeWarning": "The page will briefly reconnect after applying changes.",
+    "reconnectingToServer": "Reconnecting to Server",
+    "pleaseWaitReconnecting": "Please wait while the server restarts...",
+    "nginxLogsTooltip": "Warning: May contain sensitive request data",
+    "postgresLogsTooltip": "Warning: May contain sensitive database queries",
+    "messages": {
+      "loadFailed": "Failed to load diagnostics data:",
+      "logStatsFailed": "Failed to load log statistics:",
+      "purgeFailed": "Failed to purge logs:",
+      "reconnectionTimedOut": "Reconnection timed out. Please refresh the page.",
+      "toggleDebugFailed": "Failed to toggle debug mode:",
+      "downloadFailed": "Failed to download diagnostics:",
+      "toggleAgentDebugFailed": "Failed to toggle agent debug:",
+      "toggleAllAgentsDebugFailed": "Failed to toggle debug for all agents:",
+      "fetchAgentLogsFailed": "Failed to fetch agent logs:",
+      "purgeAgentLogsFailed": "Failed to purge agent logs:"
+    }
+  },
+  "authSettings": {
+    "pageTitle": "Authentication Settings",
+    "unsavedChanges": "You have unsaved changes. Click 'Save Settings' to apply them.",
+    "saving": "Saving...",
+    "saveSettings": "Save Settings",
+    "resetToSaved": "Reset to Saved",
+    "passwordPolicy": {
+      "title": "Password Policy",
+      "minLength": "Minimum Password Length",
+      "requireUppercase": "Require Uppercase",
+      "requireLowercase": "Require Lowercase",
+      "requireNumbers": "Require Numbers",
+      "requireSpecialChars": "Require Special Characters"
+    },
+    "accountSecurity": {
+      "title": "Account Security",
+      "maxFailedAttempts": "Max Failed Login Attempts",
+      "lockoutDuration": "Lockout Duration (minutes)",
+      "jwtExpiry": "JWT Expiry (minutes)",
+      "notificationAggregation": "Notification Aggregation (minutes)",
+      "notificationAggregationHelper": "How long to aggregate similar notifications before sending"
+    },
+    "mfa": {
+      "title": "Multi-Factor Authentication",
+      "requireMfa": "Require MFA for All Users",
+      "requireMfaEmailRequired": "Require MFA (requires email gateway)",
+      "allowedMethods": "Allowed MFA Methods",
+      "methodEmail": "Email Code",
+      "methodAuthenticator": "Authenticator App (TOTP)",
+      "methodPasskey": "Passkey (WebAuthn)",
+      "methodPasskeyNotSupported": "Passkey (not supported in this browser)",
+      "codeSettings": "Code Settings",
+      "emailCodeValidity": "Email Code Validity (minutes)",
+      "emailCodeValidityHelper": "How long email verification codes are valid",
+      "codeCooldown": "Code Request Cooldown (minutes)",
+      "codeCooldownHelper": "Minimum time between code requests",
+      "codeExpiry": "Code Expiry (minutes)",
+      "codeExpiryHelper": "How long MFA codes are valid",
+      "maxCodeAttempts": "Max Code Attempts",
+      "maxCodeAttemptsHelper": "Maximum failed code attempts before lockout",
+      "backupCodesCount": "Backup Codes Count",
+      "backupCodesCountHelper": "Number of backup codes to generate"
+    },
+    "webauthn": {
+      "title": "WebAuthn / Passkey Configuration",
+      "notSupported": "WebAuthn is not supported in this browser.",
+      "requiresDomain": "Passkeys require a proper domain and HTTPS. Configure your domain settings below.",
+      "rpId": "Relying Party ID",
+      "rpIdHelper": "Your domain name (e.g., krakenhashes.example.com)",
+      "rpDisplayName": "Display Name",
+      "rpDisplayNameHelper": "Name shown to users during passkey registration",
+      "allowedOrigins": "Allowed Origins",
+      "allowedOriginsHelper": "One origin per line (e.g., https://krakenhashes.example.com)",
+      "configured": "WebAuthn is configured and ready for use.",
+      "save": "Save WebAuthn Settings"
+    },
+    "session": {
+      "title": "Session Management",
+      "tokenCleanupInterval": "Token Cleanup Interval (seconds)",
+      "tokenCleanupIntervalHelper": "How often to clean up expired tokens",
+      "maxConcurrentSessions": "Max Concurrent Sessions",
+      "maxConcurrentSessionsHelper": "Maximum sessions per user (0 = unlimited)",
+      "absoluteTimeout": "Absolute Session Timeout (hours)",
+      "absoluteTimeoutHelper": "Force re-authentication after this time (0 = disabled)"
+    },
+    "errors": {
+      "loadFailed": "Failed to load authentication settings",
+      "noSettingsToSave": "No settings to save",
+      "saveFailed": "Failed to save settings",
+      "emailProviderRequired": "Email provider is required for email-based MFA",
+      "webauthnSaveFailed": "Failed to save WebAuthn settings",
+      "resetFailed": "Failed to reset settings"
+    },
+    "messages": {
+      "updateSuccess": "Authentication settings updated successfully",
+      "updateFailed": "Failed to update authentication settings"
+    }
+  },
+  "ssoSettings": {
+    "pageTitle": "SSO Settings",
+    "pageDescription": "Configure Single Sign-On providers and authentication options",
+    "authMethods": {
+      "title": "Authentication Methods",
+      "description": "Enable or disable authentication methods globally",
+      "localAuth": "Local Authentication",
+      "localAuthDescription": "Username/password login",
+      "ldapAuth": "LDAP Authentication",
+      "ldapAuthDescription": "Active Directory / LDAP",
+      "samlAuth": "SAML Authentication",
+      "samlAuthDescription": "SAML 2.0 SSO",
+      "oauthAuth": "OAuth/OIDC Authentication",
+      "oauthAuthDescription": "OpenID Connect / OAuth 2.0"
+    },
+    "provisioning": {
+      "title": "User Provisioning",
+      "description": "Configure automatic user creation from SSO logins",
+      "autoCreateUsers": "Auto-create Users",
+      "autoCreateUsersDescription": "Automatically create user accounts for new SSO logins",
+      "autoEnableUsers": "Auto-enable Users",
+      "autoEnableUsersDescription": "Automatically enable newly created SSO users (otherwise admin approval required)"
+    },
+    "providers": {
+      "title": "SSO Providers",
+      "addProvider": "Add Provider",
+      "noProviders": "No SSO providers configured. Click \"Add Provider\" to create one.",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "callbackUrl": "Callback URL",
+      "acsUrl": "ACS URL",
+      "metadata": "Metadata",
+      "viewXml": "View XML",
+      "testConnection": "Test Connection",
+      "downloadCertificate": "Download SP Certificate"
+    },
+    "providerTypes": {
+      "ldap": "LDAP / Active Directory",
+      "saml": "SAML 2.0",
+      "oidc": "OpenID Connect",
+      "oauth2": "OAuth 2.0"
+    },
+    "dialogs": {
+      "deleteProvider": {
+        "title": "Delete Provider",
+        "confirmation": "Are you sure you want to delete the provider \"{{name}}\"? This action cannot be undone and will unlink all associated user identities."
+      },
+      "providerForm": {
+        "addTitle": "Add Provider",
+        "editTitle": "Edit Provider",
+        "providerName": "Provider Name",
+        "providerType": "Provider Type",
+        "enabled": "Enabled"
+      }
+    },
+    "ldapConfig": {
+      "title": "LDAP Configuration",
+      "serverUrl": "Server URL",
+      "serverUrlHelper": "Use ldaps:// for secure connections",
+      "baseDn": "Base DN",
+      "userSearchFilter": "User Search Filter",
+      "userSearchFilterHelper": "Use {{username}} as placeholder",
+      "bindDn": "Bind DN (optional)",
+      "bindPassword": "Bind Password",
+      "emailAttribute": "Email Attribute",
+      "usernameAttribute": "Username Attribute",
+      "usernameAttributeHelper": "LDAP attribute containing username (e.g., sAMAccountName, uid)",
+      "connectionTimeout": "Connection Timeout (seconds)",
+      "useStartTls": "Use StartTLS",
+      "skipCertVerify": "Skip Certificate Verification (testing only)"
+    },
+    "samlConfig": {
+      "title": "SAML Configuration",
+      "spEntityId": "SP Entity ID",
+      "spEntityIdHelper": "Your application's SAML identifier",
+      "idpEntityId": "IdP Entity ID",
+      "idpSsoUrl": "IdP SSO URL",
+      "idpCertificate": "IdP Certificate",
+      "emailAttribute": "Email Attribute",
+      "usernameAttribute": "Username Attribute",
+      "usernameAttributeHelper": "SAML attribute containing username (e.g., uid, username)",
+      "requireSignedAssertions": "Require Signed Assertions"
+    },
+    "oauthConfig": {
+      "title": "OAuth/OIDC Configuration",
+      "isOidc": "OpenID Connect (OIDC)",
+      "clientId": "Client ID",
+      "clientSecret": "Client Secret",
+      "discoveryUrl": "Discovery URL",
+      "discoveryUrlHelper": "OIDC discovery endpoint (auto-configures other URLs)",
+      "authorizationUrl": "Authorization URL",
+      "tokenUrl": "Token URL",
+      "userInfoUrl": "User Info URL",
+      "scopes": "Scopes",
+      "scopesHelper": "Space-separated list",
+      "emailAttribute": "Email Attribute",
+      "usernameAttribute": "Username Attribute",
+      "usernameAttributeHelper": "Claim containing username (e.g., preferred_username, login, nickname)"
+    },
+    "messages": {
+      "loadFailed": "Failed to load SSO settings",
+      "settingsUpdated": "SSO settings updated successfully",
+      "updateFailed": "Failed to update SSO settings",
+      "loadProviderFailed": "Failed to load provider details",
+      "providerDeleted": "Provider deleted successfully",
+      "deleteFailed": "Failed to delete provider",
+      "testSuccess": "Connection test successful",
+      "testFailed": "Connection test failed",
+      "certificateDownloaded": "Certificate downloaded successfully",
+      "certificateNotFound": "Certificate not found in metadata",
+      "certificateDownloadFailed": "Failed to download certificate",
+      "providerUpdated": "Provider updated successfully",
+      "providerCreated": "Provider created successfully",
+      "saveProviderFailed": "Failed to save provider"
+    }
+  },
+  "emailSettings": {
+    "tabs": {
+      "providerConfiguration": "Provider Configuration",
+      "emailTemplates": "Email Templates"
+    },
+    "provider": {
+      "titles": {
+        "current": "Current Email Configuration",
+        "create": "Create Email Configuration",
+        "edit": "Edit Email Configuration"
+      },
+      "labels": {
+        "provider": "Provider",
+        "apiKey": "API Key",
+        "password": "Password",
+        "smtpHost": "SMTP Host",
+        "port": "Port",
+        "username": "Username",
+        "encryption": "Encryption",
+        "fromEmail": "From Email",
+        "fromName": "From Name",
+        "domain": "Domain",
+        "monthlyLimit": "Monthly Limit",
+        "skipTlsVerify": "Skip TLS Certificate Verification (insecure, not recommended)"
+      },
+      "placeholders": {
+        "smtpHost": "smtp.example.com",
+        "testEmailAddress": "Test Email Address"
+      },
+      "helpers": {
+        "keepCurrentPassword": "Leave empty to keep current",
+        "monthlyLimit": "Leave empty for unlimited",
+        "mailgunFromEmail": "Usually noreply@yourdomain",
+        "fromName": "Display name for emails"
+      },
+      "menuItems": {
+        "sendgrid": "SendGrid",
+        "mailgun": "Mailgun",
+        "smtp": "SMTP",
+        "encryptionNone": "None (Port 25)",
+        "encryptionStarttls": "STARTTLS (Port 587)",
+        "encryptionTls": "TLS/SSL (Port 465)"
+      },
+      "buttons": {
+        "edit": "Edit Configuration",
+        "cancel": "Cancel",
+        "testConnection": "Test Connection",
+        "save": "Save Configuration",
+        "saveOnly": "Save Only",
+        "saveAndTest": "Save and Test",
+        "sendTestEmail": "Send Test Email"
+      },
+      "dialogs": {
+        "test": {
+          "title": "Test Email Configuration",
+          "content": "Enter an email address to send a test email to:"
+        },
+        "save": {
+          "title": "Save Configuration",
+          "content": "Would you like to test the configuration after saving?"
+        }
+      },
+      "warnings": {
+        "tlsVerifyDisabled": "TLS certificate verification is disabled",
+        "tlsVerifyWarning": "Disabling TLS verification makes your connection vulnerable to man-in-the-middle attacks. Only use this for testing with self-signed certificates."
+      },
+      "messages": {
+        "testSuccess": "Test email sent successfully",
+        "testFailed": "Failed to send test email",
+        "saveSuccess": "Configuration saved successfully",
+        "saveFailed": "Failed to save configuration",
+        "loadFailed": "Failed to load configuration"
+      }
+    },
+    "templates": {
+      "title": "Email Templates",
+      "createTemplate": "Create Email Template",
+      "editTemplate": "Edit Email Template",
+      "labels": {
+        "templateType": "Template Type",
+        "name": "Name",
+        "subject": "Subject",
+        "htmlContent": "HTML Content",
+        "textContent": "Text Content"
+      },
+      "menuItems": {
+        "securityEvent": "Security Event",
+        "jobCompletion": "Job Completion",
+        "adminError": "Admin Error",
+        "mfaCode": "MFA Code"
+      },
+      "buttons": {
+        "create": "Create Template",
+        "cancel": "Cancel",
+        "test": "Test",
+        "save": "Save"
+      },
+      "table": {
+        "name": "Name",
+        "type": "Type",
+        "subject": "Subject",
+        "actions": "Actions"
+      },
+      "preview": "Live Preview (with sample data):",
+      "messages": {
+        "loadSuccess": "Templates loaded successfully",
+        "loadFailed": "Failed to load templates",
+        "createSuccess": "Template created successfully",
+        "createFailed": "Failed to create template",
+        "updateSuccess": "Template updated successfully",
+        "updateFailed": "Failed to update template",
+        "deleteSuccess": "Template deleted successfully",
+        "deleteFailed": "Failed to delete template",
+        "testSuccess": "Test email sent successfully",
+        "testFailed": "Failed to send test email"
+      }
+    }
+  },
+  "settings": {
+    "saved": "Settings saved successfully",
+    "saveFailed": "Failed to save settings"
+  },
+  "clientSettings": {
+    "title": "Client Settings",
+    "retentionPeriod": "Default Data Retention (Months)",
+    "retentionHelperText": "Default retention period for new clients (0 = keep forever)",
+    "saveButton": "Save Settings",
+    "errors": {
+      "invalidRetention": "Retention period must be a non-negative number",
+      "saveFailed": "Failed to save client settings"
+    },
+    "messages": {
+      "updateSuccess": "Client settings updated successfully"
+    }
+  },
+  "systemSettings": {
+    "title": "System Settings",
+    "priority": {
+      "title": "Priority Settings",
+      "tooltip": "Configure the maximum priority value that can be assigned to jobs and preset jobs. This helps maintain consistent priority ranges across your organization.",
+      "maxPriority": "Maximum Job Priority",
+      "helperText": "Set the maximum priority value (1-1,000,000). Jobs and preset jobs cannot exceed this priority.",
+      "saveButton": "Save Settings",
+      "saving": "Saving...",
+      "reset": "Reset"
+    },
+    "priorityInfo": {
+      "title": "Priority System Information",
+      "description": "The priority system uses a range from 0 to your configured maximum priority. Higher numbers indicate higher priority.",
+      "currentMax": "Current Maximum",
+      "note": "You cannot set a maximum priority lower than any existing preset job priorities. Update or remove high-priority preset jobs first if needed.",
+      "recommended": "Recommended ranges by organization size:",
+      "small": "Small organization: 0-100",
+      "medium": "Medium/large organization: 0-1,000",
+      "large": "Ridiculous workload organization: 0-10,000"
+    },
+    "agentScheduling": {
+      "title": "Agent Scheduling",
+      "tooltip": "Enable or disable the agent scheduling system globally. When enabled, agents can have daily schedules configured.",
+      "enable": "Enable Agent Scheduling System",
+      "description": "When enabled, agents can be configured with daily schedules. Only agents that are scheduled for the current time will be assigned jobs.",
+      "note": "Individual agents must also have scheduling enabled and schedules configured for this to take effect."
+    },
+    "agentOverflow": {
+      "title": "Agent Overflow Allocation",
+      "tooltip": "Configure how agents beyond max_agents limits are allocated when jobs have the same priority",
+      "roundRobinMode": "Round-Robin Mode",
+      "fifoMode": "FIFO Mode",
+      "fifoDescription": "When multiple jobs at the same priority exceed their max_agents limits, the oldest job (created first) receives all extra agents.",
+      "roundRobinDescription": "Extra agents are distributed evenly across all jobs at the same priority, one agent at a time, ensuring fair allocation."
+    },
+    "hashlist": {
+      "title": "Hashlist Settings",
+      "tooltip": "Configure settings related to hashlist uploads and management",
+      "requireClient": "Require Client for Hashlists",
+      "requireClientDescription": "When enabled, users must assign a client when uploading new hashlists. This helps maintain better organization and tracking of hashlists by client.",
+      "batchSize": "Bulk Import Batch Size",
+      "batchSizeHelper": "Number of hashes processed per batch during uploads. Default: 100,000. Recommended: 500,000-1,000,000 for large hashlists (47M+)",
+      "performanceGuide": "Performance Guide:",
+      "performance100k": "100K (default): Good for most use cases",
+      "performance500k": "500K: Better for large hashlists, may improve throughput",
+      "performance1m": "1M: Best for very large hashlists (50M+), requires more RAM"
+    },
+    "potfile": {
+      "title": "Potfile Settings",
+      "tooltip": "Configure how the potfile processes cracked passwords for reuse across jobs",
+      "maxBatchSize": "Maximum Batch Size",
+      "maxBatchSizeHelper": "Number of staged passwords to process in each batch cycle (1,000 - 500,000)",
+      "batchInterval": "Batch Interval (seconds)",
+      "batchIntervalHelper": "Seconds between pot-file batch processing cycles (10 - 600)",
+      "description": "The potfile collects cracked passwords from all jobs and reuses them in subsequent attacks. Higher batch sizes process more passwords at once but take longer per cycle.",
+      "processingRate": "Processing Rate",
+      "passwordsPerSecond": "passwords/second",
+      "currentSettings": "Current Settings",
+      "passwordsEvery": "passwords every",
+      "seconds": "seconds"
+    },
+    "errors": {
+      "loadFailed": "Failed to load system settings",
+      "maxPriorityRequired": "Maximum priority is required",
+      "maxPriorityPositive": "Maximum priority must be a positive number",
+      "maxPriorityMax": "Maximum priority cannot exceed 1,000,000",
+      "saveFailed": "Failed to save system settings",
+      "batchSizeRange": "Batch size must be between {{min}} and {{max}}",
+      "intervalRange": "Interval must be between {{min}} and {{max}} seconds"
+    },
+    "messages": {
+      "updateSuccess": "System settings updated successfully",
+      "schedulingUpdated": "Agent scheduling setting updated",
+      "schedulingFailed": "Failed to update scheduling setting",
+      "overflowUpdated": "Agent overflow allocation mode updated",
+      "overflowFailed": "Failed to update overflow allocation mode",
+      "hashlistClientUpdated": "Hashlist client requirement updated",
+      "hashlistBatchUpdated": "Hashlist batch size updated",
+      "potfileBatchUpdated": "Potfile batch size updated",
+      "potfileIntervalUpdated": "Potfile batch interval updated",
+      "updateFailed": "Failed to update setting"
+    }
+  },
+  "jobExecution": {
+    "title": "Job Execution Settings",
+    "description": "Configure how jobs are executed and distributed across agents",
+    "chunking": {
+      "title": "Job Chunking",
+      "defaultChunkDuration": "Default Chunk Duration",
+      "defaultChunkDurationHelper": "Duration for each job chunk",
+      "chunkFluctuation": "Chunk Fluctuation Percentage",
+      "chunkFluctuationHelper": "Allowed fluctuation for final chunks",
+      "minutes": "minutes"
+    },
+    "agentConfig": {
+      "title": "Agent Configuration",
+      "hashlistRetention": "Hashlist Retention",
+      "hashlistRetentionHelper": "How long agents retain hashlists",
+      "maxConcurrentJobs": "Max Concurrent Jobs per Agent",
+      "maxConcurrentJobsHelper": "Maximum jobs an agent can run simultaneously",
+      "progressReporting": "Progress Reporting Interval",
+      "progressReportingHelper": "How often agents report progress",
+      "benchmarkCache": "Benchmark Cache Duration",
+      "benchmarkCacheHelper": "How long to cache agent benchmarks",
+      "speedtestTimeout": "Speedtest Timeout",
+      "speedtestTimeoutHelper": "Maximum time to wait for speedtest completion",
+      "reconnectGrace": "Reconnect Grace Period",
+      "reconnectGraceHelper": "Time to wait for agents to reconnect after server restart",
+      "days": "days",
+      "seconds": "seconds",
+      "minutes": "minutes"
+    },
+    "jobControl": {
+      "title": "Job Control",
+      "allowInterruption": "Allow Job Interruption",
+      "allowInterruptionHelper": "Higher priority jobs can interrupt running jobs",
+      "realtimeNotifications": "Real-time Crack Notifications",
+      "realtimeNotificationsHelper": "Send notifications when hashes are cracked",
+      "refreshInterval": "Job Refresh Interval",
+      "refreshIntervalHelper": "How often to refresh job status in UI",
+      "maxRetryAttempts": "Max Chunk Retry Attempts",
+      "maxRetryAttemptsHelper": "Number of times to retry failed chunks",
+      "jobsPerPage": "Jobs Per Page",
+      "jobsPerPageHelper": "Default pagination size for job lists"
+    },
+    "potfile": {
+      "title": "Potfile Settings",
+      "enablePotfile": "Enable Potfile",
+      "enablePotfileHelper": "Automatically store cracked passwords for use in future jobs. Individual hashlists can still be excluded."
+    },
+    "ruleSplitting": {
+      "title": "Rule Splitting",
+      "enableRuleSplitting": "Enable Rule Splitting",
+      "enableRuleSplittingHelper": "Automatically split large rule files for distributed processing",
+      "threshold": "Rule Split Threshold",
+      "thresholdHelper": "Split when job time exceeds chunk time by this factor",
+      "minRules": "Minimum Rules to Split",
+      "minRulesHelper": "Don't split files with fewer rules",
+      "maxChunks": "Maximum Rule Chunks",
+      "maxChunksHelper": "Maximum chunks to create per file",
+      "chunkDirectory": "Rule Chunk Directory",
+      "chunkDirectoryHelper": "Directory for temporary rule chunks"
+    },
+    "buttons": {
+      "save": "Save Settings"
+    },
+    "errors": {
+      "loadFailed": "Failed to load settings"
+    },
+    "messages": {
+      "updateSuccess": "Job execution settings updated successfully",
+      "loadFailed": "Failed to load job execution settings",
+      "saveFailed": "Failed to save settings"
+    }
+  },
+  "monitoring": {
+    "title": "Monitoring Settings",
+    "metricsRetention": {
+      "title": "📊 Metrics Retention Periods",
+      "description": "Configure how long to retain metrics at different levels of detail. Data cascades from fine-grained to aggregated over time.",
+      "realtimeData": "Real-time Data Retention",
+      "realtimeDataHelper": "Days to keep fine-grained metrics for recent activity (e.g., 7 days)",
+      "dailyAggregates": "Daily Aggregates Retention",
+      "dailyAggregatesHelper": "Days to store daily summaries after real-time period (e.g., 30 days)",
+      "weeklyAggregates": "Weekly Aggregates Retention",
+      "weeklyAggregatesHelper": "Days to preserve long-term trends as weekly summaries (e.g., 365 days)"
+    },
+    "aggregation": {
+      "title": "⚙️ Aggregation Settings",
+      "enableAggregation": "Enable Automatic Aggregation",
+      "enableAggregationDescription": "Automatically consolidate older metrics to save storage space while preserving trends",
+      "interval": "Aggregation Interval",
+      "intervalHelper": "How often to run the aggregation process",
+      "hourly": "Hourly",
+      "daily": "Daily",
+      "weekly": "Weekly"
+    },
+    "cascading": {
+      "title": "How cascading aggregation works:",
+      "realtime": "Real-time data provides detailed metrics for recent activity",
+      "daily": "After the real-time period, data is aggregated to daily summaries",
+      "weekly": "After the daily period, data is further aggregated to weekly summaries",
+      "benefit": "This approach keeps charts readable while preserving historical trends"
+    },
+    "buttons": {
+      "save": "Save Settings",
+      "saving": "Saving..."
+    },
+    "errors": {
+      "loadFailed": "Failed to load settings. Please try again.",
+      "saveFailed": "Failed to save settings. Please try again."
+    },
+    "messages": {
+      "updateSuccess": "Monitoring settings saved successfully"
+    }
+  },
+  "agentDownloads": {
+    "title": "Agent File Transfer Settings",
+    "description": "Configure how agents download files from the backend. These settings apply to all connected agents.",
+    "concurrentDownloads": {
+      "title": "Concurrent Downloads",
+      "description": "Maximum number of files that can be downloaded simultaneously"
+    },
+    "downloadTimeout": {
+      "title": "Download Timeout",
+      "description": "Maximum time allowed for a single file download",
+      "helper": "Between 1 minute and 24 hours (1440 minutes)",
+      "unit": "minutes"
+    },
+    "retryAttempts": {
+      "title": "Retry Attempts",
+      "description": "Number of times to retry failed downloads"
+    },
+    "progressInterval": {
+      "title": "Progress Report Interval",
+      "description": "How often agents report download progress",
+      "helper": "Between 1 second and 5 minutes (300 seconds)",
+      "unit": "seconds"
+    },
+    "chunkSize": {
+      "title": "Chunk Size",
+      "description": "Download chunk size for future resume capability",
+      "helper": "Between 1 MB and 100 MB",
+      "unit": "MB"
+    },
+    "applyNote": "Changes will apply to agents on their next connection. Currently connected agents will receive updates automatically.",
+    "buttons": {
+      "save": "Save Settings",
+      "saving": "Saving..."
+    },
+    "errors": {
+      "loadFailed": "Failed to load agent download settings",
+      "saveFailed": "Failed to update agent download settings"
+    },
+    "messages": {
+      "updateSuccess": "Agent download settings updated successfully"
+    }
+  },
+  "hashTypes": {
+    "title": "Hash Type Management",
+    "description": "Manage supported hash types for password cracking operations",
+    "addHashType": "Add Hash Type",
+    "searchPlaceholder": "Search hash types...",
+    "hashTypesFound": "{{count}} hash types found",
+    "table": {
+      "id": "ID",
+      "name": "Name",
+      "description": "Description",
+      "example": "Example",
+      "slow": "Slow",
+      "salted": "Salted",
+      "actions": "Actions",
+      "loading": "Loading hash types...",
+      "noResults": "No hash types found"
+    },
+    "dialog": {
+      "addTitle": "Add New Hash Type",
+      "editTitle": "Edit Hash Type",
+      "hashIdLabel": "Hash ID (Hashcat Mode Number)",
+      "hashIdHelper": "e.g., 1000 for NTLM",
+      "nameLabel": "Name",
+      "descriptionLabel": "Description",
+      "exampleLabel": "Example Hash",
+      "exampleHelper": "Example of this hash format",
+      "slowLabel": "Slow Hash Algorithm",
+      "saltedLabel": "Salted Hash Type (e.g., NTLMv2, bcrypt)",
+      "processingInfo": "This hash type requires special processing. Processing logic is managed programmatically.",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving..."
+    },
+    "validation": {
+      "hashIdRequired": "Hash ID is required and must be positive",
+      "hashIdExists": "This Hash ID already exists",
+      "nameRequired": "Name is required"
+    },
+    "tooltips": {
+      "requiresProcessing": "Requires special processing",
+      "processing": "Processing",
+      "slowAlgorithm": "Slow hash algorithm (computationally expensive)",
+      "salted": "Uses per-hash salts (affects keyspace calculation)"
+    },
+    "confirmDelete": {
+      "title": "Confirm Delete",
+      "warning": "This hash type is currently enabled. Deleting it may affect existing functionality.",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "deleting": "Deleting..."
+    },
+    "messages": {
+      "createSuccess": "Hash type created successfully",
+      "createFailed": "Failed to create hash type",
+      "updateSuccess": "Hash type updated successfully",
+      "updateFailed": "Failed to update hash type",
+      "deleteSuccess": "Hash type deleted successfully",
+      "deleteFailed": "Failed to delete hash type",
+      "deleteInUse": "Cannot delete: This hash type is in use by existing hashlists",
+      "loadFailed": "Failed to load hash types. Please try refreshing the page."
+    }
+  }
+}

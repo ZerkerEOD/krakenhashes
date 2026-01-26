@@ -1,0 +1,86 @@
+{
+  "title": "Gekraakte hashes",
+  "page": {
+    "title": "Gekraakte hashes (Pot)",
+    "description": "Bekijk alle succesvol gekraakte wachtwoordhashes van alle hashlijsten en klanten."
+  },
+  "table": {
+    "allCrackedHashes": "Alle gekraakte hashes"
+  },
+  "navigation": {
+    "backToAll": "Terug naar alle gekraakte hashes"
+  },
+  "client": {
+    "title": "Gekraakte hashes - Klantweergave",
+    "description": "Bekijk gekraakte hashes voor klant: <1>{{clientName}}</1>",
+    "tableTitle": "Gekraakte hashes voor \"{{clientName}}\""
+  },
+  "hashlist": {
+    "title": "Gekraakte hashes - Hashlijstweergave",
+    "description": "Bekijk gekraakte hashes voor hashlijst: <1>{{hashlistName}}</1>",
+    "tableTitle": "Gekraakte hashes voor \"{{hashlistName}}\""
+  },
+  "job": {
+    "title": "Gekraakte hashes voor taak: {{jobName}}",
+    "description": "Bekijk alle succesvol gekraakte wachtwoordhashes van deze taakuitvoering.",
+    "tableTitle": "Gekraakte hashes - {{jobName}}",
+    "defaultName": "Taak {{id}}"
+  },
+  "columns": {
+    "originalHash": "Originele hash",
+    "domain": "Domein",
+    "username": "Gebruikersnaam",
+    "password": "Wachtwoord",
+    "hashType": "Hashtype",
+    "actions": "Acties"
+  },
+  "search": {
+    "placeholder": "Database doorzoeken...",
+    "filterPlaceholder": "Deze pagina filteren...",
+    "button": "Zoeken",
+    "resultsFound": "{{count}} resultaat gevonden",
+    "resultsFound_plural": "{{count}} resultaten gevonden",
+    "noResults": "Geen resultaten gevonden",
+    "searching": "Zoeken..."
+  },
+  "export": {
+    "hashPass": "Hash:Wachtwoord",
+    "userPass": "Gebruiker:Wachtwoord",
+    "username": "Gebruikersnaam",
+    "password": "Wachtwoord",
+    "domainUser": "Domein\\Gebruiker",
+    "domainUserPass": "Domein\\Gebruiker:Wachtwoord",
+    "exportVisible": "Zichtbare resultaten exporteren",
+    "downloaded": "{{filename}} gedownload",
+    "downloadFailed": "Bestand downloaden mislukt"
+  },
+  "tooltips": {
+    "copyHash": "Hash:wachtwoord kopiëren",
+    "copyDomain": "Klik om domein te kopiëren",
+    "copyUsername": "Klik om gebruikersnaam te kopiëren",
+    "copyPassword": "Klik om wachtwoord te kopiëren"
+  },
+  "dialogs": {
+    "loadAllTitle": "Alle resultaten laden?",
+    "loadAllMessage": "Het laden van alle {{value}} resultaten kan lang duren en kan de prestaties beïnvloeden. Weet u zeker dat u wilt doorgaan?",
+    "loadingAll": "Alle resultaten laden. Dit kan even duren...",
+    "cancel": "Annuleren",
+    "loadAll": "Alles laden"
+  },
+  "pagination": {
+    "all": "Alle"
+  },
+  "notifications": {
+    "copiedToClipboard": "Gekopieerd naar klembord",
+    "exported": "Gekraakte hashes geëxporteerd"
+  },
+  "errors": {
+    "loadFailed": "Laden van gekraakte hashes mislukt",
+    "loadClientFailed": "Laden van klantinformatie mislukt",
+    "loadHashlistFailed": "Laden van hashlijstinformatie mislukt",
+    "loadJobFailed": "Laden van taakinformatie mislukt"
+  },
+  "filter": {
+    "filteredBy": "Gefilterd op {{param}}: {{value}}"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "appName": "KrakenHashes",
+  "menu": {
+    "dashboard": "仪表盘",
+    "jobs": "任务",
+    "agents": "代理",
+    "hashlists": "哈希列表",
+    "crackedHashes": "已破解哈希",
+    "wordlists": "字典",
+    "rules": "规则",
+    "clientManagement": "客户管理",
+    "analytics": "分析",
+    "about": "关于",
+    "logout": "退出登录"
+  },
+  "admin": {
+    "title": "管理",
+    "settings": "管理设置",
+    "userManagement": "用户管理",
+    "presetJobs": "预设任务",
+    "jobWorkflows": "任务工作流",
+    "diagnostics": "诊断"
+  },
+  "userMenu": {
+    "userSettings": "用户设置",
+    "logout": "退出登录",
+    "user": "用户"
+  },
+  "aria": {
+    "toggleDrawer": "切换侧边栏",
+    "mainNavigation": "主导航",
+    "adminNavigation": "管理导航"
+  }
+}

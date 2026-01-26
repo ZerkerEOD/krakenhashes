@@ -16,6 +16,7 @@ import {
   Alert,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 
@@ -38,6 +39,7 @@ interface UserHashlistsResponse {
 }
 
 export default function HashlistOverview() {
+  const { t } = useTranslation('dashboard');
   const navigate = useNavigate();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -74,7 +76,7 @@ export default function HashlistOverview() {
     return (
       <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '100%' }}>
         <Typography variant="h6" gutterBottom>
-          Hashlist Overview
+          {t('hashlistOverview.title')}
         </Typography>
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexGrow: 1 }}>
           <CircularProgress />
@@ -87,10 +89,10 @@ export default function HashlistOverview() {
     return (
       <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
         <Typography variant="h6" gutterBottom>
-          Hashlist Overview
+          {t('hashlistOverview.title')}
         </Typography>
         <Alert severity="error">
-          Failed to load hashlists
+          {t('hashlistOverview.loadError')}
         </Alert>
       </Paper>
     );
@@ -102,12 +104,12 @@ export default function HashlistOverview() {
   return (
     <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
       <Typography variant="h6" gutterBottom>
-        Hashlist Overview
+        {t('hashlistOverview.title')}
       </Typography>
       
       {hashlists.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
-          No hashlists found
+          {t('hashlistOverview.noHashlists')}
         </Typography>
       ) : (
         <>
@@ -115,12 +117,12 @@ export default function HashlistOverview() {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Client</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell align="right">Total</TableCell>
-                  <TableCell align="right">Cracked</TableCell>
-                  <TableCell>Progress</TableCell>
+                  <TableCell>{t('hashlistOverview.columns.name')}</TableCell>
+                  <TableCell>{t('hashlistOverview.columns.client')}</TableCell>
+                  <TableCell>{t('hashlistOverview.columns.status')}</TableCell>
+                  <TableCell align="right">{t('hashlistOverview.columns.total')}</TableCell>
+                  <TableCell align="right">{t('hashlistOverview.columns.cracked')}</TableCell>
+                  <TableCell>{t('hashlistOverview.columns.progress')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -161,13 +163,13 @@ export default function HashlistOverview() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Chip 
-                        label={hashlist.status}
+                      <Chip
+                        label={t(`hashlistOverview.status.${hashlist.status}`)}
                         size="small"
                         color={
                           hashlist.status === 'ready' ? 'success' :
                           hashlist.status === 'error' ? 'error' :
-                          'primary'  
+                          'primary'
                         }
                       />
                     </TableCell>
@@ -213,6 +215,7 @@ export default function HashlistOverview() {
             rowsPerPage={rowsPerPage}
             onRowsPerPageChange={handleChangeRowsPerPage}
             rowsPerPageOptions={[5, 10, 25]}
+            labelRowsPerPage={t('pagination.rowsPerPage', { ns: 'common' }) as string}
           />
         </>
       )}

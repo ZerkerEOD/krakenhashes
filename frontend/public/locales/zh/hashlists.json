@@ -1,0 +1,107 @@
+{
+  "title": "哈希列表",
+  "uploadButton": "上传哈希列表",
+  "page": {
+    "title": "哈希列表管理",
+    "description": "上传和管理用于破解操作的密码哈希列表"
+  },
+  "columns": {
+    "name": "名称",
+    "hashType": "哈希类型",
+    "totalHashes": "总哈希数",
+    "crackedHashes": "已破解",
+    "progress": "已破解 (%)",
+    "client": "客户",
+    "status": "状态",
+    "createdAt": "创建时间",
+    "actions": "操作"
+  },
+  "filters": {
+    "filterByName": "按名称筛选",
+    "status": "状态",
+    "all": "全部"
+  },
+  "status": {
+    "uploading": "上传中",
+    "processing": "处理中",
+    "ready": "就绪",
+    "error": "错误"
+  },
+  "table": {
+    "noHashlists": "未找到哈希列表。"
+  },
+  "details": {
+    "title": "哈希列表详情",
+    "overview": "概览",
+    "hashes": "哈希",
+    "jobs": "任务",
+    "stats": "统计"
+  },
+  "upload": {
+    "title": "上传新哈希列表",
+    "name": "哈希列表名称",
+    "hashType": "哈希类型",
+    "client": "客户（可选）",
+    "file": "哈希文件",
+    "selectFile": "选择文件",
+    "uploading": "上传中...",
+    "cancel": "取消"
+  },
+  "actions": {
+    "viewDetails": "查看详情",
+    "createJob": "创建任务",
+    "download": "下载",
+    "delete": "删除"
+  },
+  "confirmDelete": {
+    "title": "确认删除",
+    "message": "确定要删除哈希列表 \"{{name}}\" 吗？此操作无法撤销。",
+    "cancel": "取消",
+    "delete": "删除",
+    "deleting": "删除中..."
+  },
+  "deletionProgress": {
+    "title": "删除哈希列表",
+    "successTitle": "哈希列表删除成功",
+    "complete": "删除完成！",
+    "failed": "删除失败",
+    "summary": "摘要：",
+    "totalProcessed": "处理的总哈希数：{{value}}",
+    "orphansDeleted": "删除的孤立哈希数：{{value}}",
+    "sharedPreserved": "保留的共享哈希数：{{value}}",
+    "jobsDeleted": "删除的任务数：{{value}}",
+    "duration": "耗时：{{duration}}",
+    "phase": "阶段 {{current}}/{{total}}：{{label}}",
+    "phases": {
+      "preparing": "准备中...",
+      "removingHashes": "移除哈希",
+      "clearingReferences": "清除任务引用",
+      "cleaningOrphans": "清理孤立哈希",
+      "finalizing": "完成删除"
+    },
+    "units": {
+      "hashes": "个哈希",
+      "references": "个引用"
+    },
+    "error": "错误：{{error}}",
+    "done": "完成",
+    "close": "关闭"
+  },
+  "notifications": {
+    "deleteSuccess": "哈希列表删除成功",
+    "uploadSuccess": "哈希列表上传成功",
+    "downloaded": "已下载 {{filename}}"
+  },
+  "errors": {
+    "loadFailed": "获取哈希列表时出错。",
+    "uploadFailed": "上传哈希列表失败",
+    "deleteFailed": "删除失败：{{error}}"
+  },
+  "hashDetails": {
+    "title": "哈希详情",
+    "originalHash": "原始哈希",
+    "password": "密码",
+    "cracked": "已破解",
+    "crackedAt": "破解时间"
+  }
+}

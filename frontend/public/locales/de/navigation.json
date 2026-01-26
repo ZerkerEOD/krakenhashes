@@ -1,0 +1,34 @@
+{
+  "appName": "KrakenHashes",
+  "menu": {
+    "dashboard": "Dashboard",
+    "jobs": "Aufträge",
+    "agents": "Agenten",
+    "hashlists": "Hashlisten",
+    "crackedHashes": "Geknackte Hashes",
+    "wordlists": "Wortlisten",
+    "rules": "Regeln",
+    "clientManagement": "Kundenverwaltung",
+    "analytics": "Analysen",
+    "about": "Über",
+    "logout": "Abmelden"
+  },
+  "admin": {
+    "title": "Administration",
+    "settings": "Admin-Einstellungen",
+    "userManagement": "Benutzerverwaltung",
+    "presetJobs": "Vorlagen-Aufträge",
+    "jobWorkflows": "Auftrags-Workflows",
+    "diagnostics": "Diagnose"
+  },
+  "userMenu": {
+    "userSettings": "Benutzereinstellungen",
+    "logout": "Abmelden",
+    "user": "Benutzer"
+  },
+  "aria": {
+    "toggleDrawer": "Menü ein-/ausblenden",
+    "mainNavigation": "Hauptnavigation",
+    "adminNavigation": "Admin-Navigation"
+  }
+}

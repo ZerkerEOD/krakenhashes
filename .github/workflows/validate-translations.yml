@@ -1,0 +1,153 @@
+name: Validate Translations
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/public/locales/**/*.json'
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - 'frontend/public/locales/**/*.json'
+
+jobs:
+  validate-translations:
+    name: Validate Translation Files
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Validate JSON syntax
+        run: |
+          echo "Validating JSON syntax..."
+          ERRORS=0
+          for file in frontend/public/locales/**/*.json; do
+            if [ -f "$file" ]; then
+              if ! jq empty "$file" 2>/dev/null; then
+                echo "::error file=$file::Invalid JSON syntax"
+                ERRORS=$((ERRORS + 1))
+              else
+                echo "✅ Valid: $file"
+              fi
+            fi
+          done
+          if [ $ERRORS -gt 0 ]; then
+            echo "::error::Found $ERRORS invalid JSON files"
+            exit 1
+          fi
+          echo "All JSON files are valid"
+
+      - name: Check for missing keys (compared to English)
+        run: |
+          echo "Checking for missing translation keys..."
+
+          # Get list of all namespaces from English locale
+          if [ ! -d "frontend/public/locales/en" ]; then
+            echo "::error::English locale directory not found"
+            exit 1
+          fi
+
+          WARNINGS=0
+
+          for lang_dir in frontend/public/locales/*/; do
+            lang=$(basename "$lang_dir")
+
+            # Skip English (reference)
+            if [ "$lang" = "en" ]; then
+              continue
+            fi
+
+            echo "Checking language: $lang"
+
+            for en_file in frontend/public/locales/en/*.json; do
+              ns=$(basename "$en_file" .json)
+              lang_file="frontend/public/locales/${lang}/${ns}.json"
+
+              if [ ! -f "$lang_file" ]; then
+                echo "::warning file=$lang_file::Missing namespace file: $lang/${ns}.json"
+                WARNINGS=$((WARNINGS + 1))
+                continue
+              fi
+
+              # Compare keys (flatten nested JSON and compare)
+              EN_KEYS=$(jq -r 'paths(scalars) | join(".")' "$en_file" | sort)
+              LANG_KEYS=$(jq -r 'paths(scalars) | join(".")' "$lang_file" | sort)
+
+              # Find missing keys in translation
+              MISSING=$(comm -23 <(echo "$EN_KEYS") <(echo "$LANG_KEYS"))
+
+              if [ -n "$MISSING" ]; then
+                echo "::warning file=$lang_file::Missing keys in $lang/${ns}.json"
+                echo "$MISSING" | while read key; do
+                  echo "  - $key"
+                done
+                WARNINGS=$((WARNINGS + 1))
+              fi
+            done
+          done
+
+          echo ""
+          echo "Summary: $WARNINGS warnings found"
+          # Warnings don't fail the build - they're informational
+
+      - name: Generate translation coverage report
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "## Translation Coverage Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Count keys in English
+          TOTAL_KEYS=0
+          for file in frontend/public/locales/en/*.json; do
+            if [ -f "$file" ]; then
+              KEYS=$(jq -r 'paths(scalars)' "$file" | wc -l)
+              TOTAL_KEYS=$((TOTAL_KEYS + KEYS))
+            fi
+          done
+
+          echo "| Language | Coverage | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|----------|--------|" >> $GITHUB_STEP_SUMMARY
+
+          for lang_dir in frontend/public/locales/*/; do
+            lang=$(basename "$lang_dir")
+
+            if [ "$lang" = "en" ]; then
+              echo "| English | 100% | Reference |" >> $GITHUB_STEP_SUMMARY
+              continue
+            fi
+
+            LANG_KEYS=0
+            for file in "$lang_dir"*.json; do
+              if [ -f "$file" ]; then
+                KEYS=$(jq -r 'paths(scalars)' "$file" 2>/dev/null | wc -l)
+                LANG_KEYS=$((LANG_KEYS + KEYS))
+              fi
+            done
+
+            if [ $TOTAL_KEYS -gt 0 ]; then
+              COVERAGE=$((LANG_KEYS * 100 / TOTAL_KEYS))
+              if [ $COVERAGE -ge 90 ]; then
+                STATUS="✅ Good"
+              elif [ $COVERAGE -ge 50 ]; then
+                STATUS="⚠️ Partial"
+              else
+                STATUS="❌ Needs work"
+              fi
+              echo "| $lang | ${COVERAGE}% | $STATUS |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Total translatable keys: $TOTAL_KEYS" >> $GITHUB_STEP_SUMMARY

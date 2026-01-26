@@ -3,6 +3,7 @@
  * Displays one row per password with user lists and hashlist occurrence tracking.
  */
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Paper,
   Typography,
@@ -32,6 +33,7 @@ interface PasswordReuseSectionProps {
 }
 
 export default function PasswordReuseSection({ data }: PasswordReuseSectionProps) {
+  const { t } = useTranslation('analytics');
   const [page, setPage] = useState(0);
   const [rowsPerPage] = useState(50);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
@@ -77,7 +79,7 @@ export default function PasswordReuseSection({ data }: PasswordReuseSectionProps
             endIcon={expandedRows.has(rowIndex) ? <ExpandLessIcon /> : <ExpandMoreIcon />}
             sx={{ ml: 1 }}
           >
-            ...and {remainingCount} more
+            {t('messages.andMoreUsers', { count: remainingCount })}
           </Button>
           <Collapse in={expandedRows.has(rowIndex)}>
             <Box sx={{ mt: 1, pl: 2 }}>
@@ -114,7 +116,7 @@ export default function PasswordReuseSection({ data }: PasswordReuseSectionProps
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
       <Typography variant="h5" gutterBottom>
-        Password Reuse
+        {t('sections.passwordReuse')}
       </Typography>
 
       {/* Summary */}
@@ -122,19 +124,19 @@ export default function PasswordReuseSection({ data }: PasswordReuseSectionProps
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell sx={threeColumnTableStyles.labelCell}>Metric</TableCell>
-              <TableCell sx={threeColumnTableStyles.countCell}>Count</TableCell>
-              <TableCell sx={threeColumnTableStyles.percentageCell}>Percentage</TableCell>
+              <TableCell sx={threeColumnTableStyles.labelCell}>{t('columns.metric')}</TableCell>
+              <TableCell sx={threeColumnTableStyles.countCell}>{t('columns.count')}</TableCell>
+              <TableCell sx={threeColumnTableStyles.percentageCell}>{t('columns.percentage')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             <TableRow>
-              <TableCell sx={threeColumnTableStyles.labelCell}>Passwords Reused</TableCell>
+              <TableCell sx={threeColumnTableStyles.labelCell}>{t('labels.passwordsReused')}</TableCell>
               <TableCell sx={threeColumnTableStyles.countCell}>{data.total_reused.toLocaleString()}</TableCell>
               <TableCell sx={threeColumnTableStyles.percentageCell}>{data.percentage_reused.toFixed(2)}%</TableCell>
             </TableRow>
             <TableRow>
-              <TableCell sx={threeColumnTableStyles.labelCell}>Unique Passwords</TableCell>
+              <TableCell sx={threeColumnTableStyles.labelCell}>{t('labels.uniquePasswords')}</TableCell>
               <TableCell sx={threeColumnTableStyles.countCell}>{data.total_unique.toLocaleString()}</TableCell>
               <TableCell sx={threeColumnTableStyles.percentageCell}>{(100 - data.percentage_reused).toFixed(2)}%</TableCell>
             </TableRow>
@@ -145,17 +147,17 @@ export default function PasswordReuseSection({ data }: PasswordReuseSectionProps
       {/* Password Reuse Table */}
       <Box>
         <Typography variant="h6" gutterBottom>
-          Reused Passwords by Occurrence
+          {t('sections.reusedPasswords')}
         </Typography>
         <TableContainer>
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell sx={passwordReuseTableStyles.passwordCell}>Password</TableCell>
-                <TableCell sx={passwordReuseTableStyles.usersCell}>Users (Hashlist Count)</TableCell>
-                <TableCell sx={passwordReuseTableStyles.occurrencesCell}>Total Occurrences</TableCell>
-                <TableCell sx={passwordReuseTableStyles.userCountCell}>User Count</TableCell>
-                <TableCell sx={passwordReuseTableStyles.actionsCell}>Actions</TableCell>
+                <TableCell sx={passwordReuseTableStyles.passwordCell}>{t('columns.password')}</TableCell>
+                <TableCell sx={passwordReuseTableStyles.usersCell}>{t('columns.usersHashlistCount')}</TableCell>
+                <TableCell sx={passwordReuseTableStyles.occurrencesCell}>{t('columns.totalOccurrences')}</TableCell>
+                <TableCell sx={passwordReuseTableStyles.userCountCell}>{t('columns.userCount')}</TableCell>
+                <TableCell sx={passwordReuseTableStyles.actionsCell}>{t('columns.actions')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -173,7 +175,7 @@ export default function PasswordReuseSection({ data }: PasswordReuseSectionProps
                       <IconButton
                         size="small"
                         onClick={() => copyUsernames(passwordInfo.users)}
-                        title="Copy usernames to clipboard"
+                        title={t('tooltips.copyUsernames')}
                       >
                         <ContentCopyIcon fontSize="small" />
                       </IconButton>
@@ -191,6 +193,7 @@ export default function PasswordReuseSection({ data }: PasswordReuseSectionProps
           rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={handleChangePage}
+          labelRowsPerPage={t('pagination.rowsPerPage', { ns: 'common' }) as string}
         />
       </Box>
 
@@ -202,7 +205,7 @@ export default function PasswordReuseSection({ data }: PasswordReuseSectionProps
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
         <Alert onClose={handleCloseSnackbar} severity="success" sx={{ width: '100%' }}>
-          Usernames copied to clipboard!
+          {t('messages.copiedSuccess')}
         </Alert>
       </Snackbar>
     </Paper>

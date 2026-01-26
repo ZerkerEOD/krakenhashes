@@ -1,0 +1,153 @@
+{
+  "buttons": {
+    "save": "Opslaan",
+    "cancel": "Annuleren",
+    "delete": "Verwijderen",
+    "edit": "Bewerken",
+    "create": "Aanmaken",
+    "submit": "Verzenden",
+    "close": "Sluiten",
+    "confirm": "Bevestigen",
+    "retry": "Opnieuw proberen",
+    "refresh": "Vernieuwen",
+    "download": "Downloaden",
+    "upload": "Uploaden",
+    "copy": "Kopiëren",
+    "search": "Zoeken",
+    "filter": "Filteren",
+    "clearFilters": "Filters wissen",
+    "loadAll": "Alles laden",
+    "signIn": "Inloggen",
+    "logIn": "Inloggen",
+    "logout": "Uitloggen"
+  },
+  "labels": {
+    "loading": "Laden...",
+    "noData": "Geen gegevens beschikbaar",
+    "error": "Er is een fout opgetreden",
+    "success": "Geslaagd",
+    "warning": "Waarschuwing",
+    "info": "Informatie",
+    "required": "Verplicht",
+    "optional": "Optioneel",
+    "all": "Alle",
+    "none": "Geen",
+    "yes": "Ja",
+    "no": "Nee",
+    "enabled": "Ingeschakeld",
+    "disabled": "Uitgeschakeld",
+    "active": "Actief",
+    "inactive": "Inactief",
+    "pending": "In behandeling",
+    "completed": "Voltooid",
+    "failed": "Mislukt",
+    "unknown": "Onbekend"
+  },
+  "pagination": {
+    "rowsPerPage": "Rijen per pagina",
+    "page": "Pagina {{current}} van {{total}}",
+    "showing": "{{from}}-{{to}} van {{total}} weergegeven",
+    "first": "Eerste pagina",
+    "last": "Laatste pagina",
+    "next": "Volgende pagina",
+    "previous": "Vorige pagina"
+  },
+  "language": {
+    "selectLanguage": "Selecteer taal",
+    "currentLanguage": "Huidige taal"
+  },
+  "clipboard": {
+    "copied": "Gekopieerd naar klembord",
+    "copyFailed": "Kopiëren naar klembord mislukt"
+  },
+  "errors": {
+    "networkError": "Netwerkfout. Controleer uw verbinding.",
+    "serverError": "Serverfout. Probeer het later opnieuw.",
+    "unknownError": "Er is een onbekende fout opgetreden",
+    "validationError": "Controleer uw invoer en probeer het opnieuw",
+    "permissionDenied": "Toegang geweigerd",
+    "notFound": "Niet gevonden",
+    "sessionExpired": "Uw sessie is verlopen. Log opnieuw in."
+  },
+  "confirmations": {
+    "areYouSure": "Weet u het zeker?",
+    "cannotBeUndone": "Deze actie kan niet ongedaan worden gemaakt.",
+    "confirmDelete": "Verwijderen bevestigen",
+    "confirmAction": "Actie bevestigen"
+  },
+  "time": {
+    "justNow": "Zojuist",
+    "minutesAgo": "{{count}} minuut geleden",
+    "minutesAgo_plural": "{{count}} minuten geleden",
+    "hoursAgo": "{{count}} uur geleden",
+    "hoursAgo_plural": "{{count}} uur geleden",
+    "daysAgo": "{{count}} dag geleden",
+    "daysAgo_plural": "{{count}} dagen geleden",
+    "never": "Nooit"
+  },
+  "fileUpload": {
+    "dragAndDrop": "Sleep een bestand hierheen of klik om te selecteren",
+    "selectFile": "Bestand selecteren",
+    "uploading": "Uploaden...",
+    "uploadSuccess": "Bestand succesvol geüpload",
+    "uploadFailed": "Uploaden van bestand mislukt",
+    "chooseFile": "Bestand kiezen",
+    "description": "Beschrijving",
+    "loading": "Laden..."
+  },
+  "binaryVersionSelector": {
+    "label": "Binaire versie",
+    "helperText": "Selecteer het binaire versiepatroon voor deze taak",
+    "default": "Standaard",
+    "majorVersion": "Hoofdversie (laatste minor)",
+    "minorVersion": "Minorversie (laatste patch)",
+    "exactVersion": "Exacte versie",
+    "loading": "Laden...",
+    "loadingVersions": "Binaire versies laden...",
+    "loadError": "Laden van binaire versies mislukt"
+  },
+  "passwordValidation": {
+    "requirements": "Wachtwoordvereisten:",
+    "minLength": "Minimaal {{length}} tekens",
+    "uppercase": "Minimaal één hoofdletter",
+    "lowercase": "Minimaal één kleine letter",
+    "number": "Minimaal één cijfer",
+    "specialChar": "Minimaal één speciaal teken"
+  },
+  "footer": {
+    "documentation": "Documentatie",
+    "issues": "Problemen",
+    "loading": "Laden...",
+    "release": "Release v{{version}}",
+    "versionUnavailable": "Versie niet beschikbaar"
+  },
+  "layout": {
+    "logoAlt": "KrakenHashes Logo"
+  },
+  "table": {
+    "noResults": "Geen resultaten gevonden",
+    "loading": "Gegevens laden...",
+    "emptyState": "Geen gegevens om weer te geven"
+  },
+  "about": {
+    "title": "Over KrakenHashes",
+    "versionInfo": {
+      "title": "Versie-informatie",
+      "release": "Release",
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "agent": "Agent-versie",
+      "api": "API-versie",
+      "database": "Database"
+    },
+    "projectInfo": {
+      "title": "Projectinformatie",
+      "description": "KrakenHashes is een gedistribueerd wachtwoordkraakbeheersysteem ontworpen om wachtwoordkraaktaken te coördineren en beheren over meerdere agents.",
+      "license": "Dit is een open-source project gelicenseerd onder de GNU Affero General Public License v3.0 (AGPL-3.0).",
+      "githubLink": "GitHub Repository"
+    },
+    "errors": {
+      "fetchFailed": "Ophalen van versie-informatie mislukt"
+    }
+  }
+}

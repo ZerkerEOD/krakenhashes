@@ -1,0 +1,346 @@
+{
+  "title": "Аналитика паролей",
+  "description": "Создание комплексных аналитических отчётов по паролям для оценки безопасности",
+  "selectHashlist": "Выберите список хешей",
+  "generateReport": "Сформировать отчёт",
+  "downloadReport": "Скачать отчёт",
+  "clientSelection": {
+    "title": "Выбор клиента",
+    "label": "Клиент",
+    "placeholder": "Выберите клиента"
+  },
+  "tabs": {
+    "generateNew": "Создать новый отчёт",
+    "viewPrevious": "Просмотр предыдущих отчётов",
+    "all": "Все"
+  },
+  "form": {
+    "startDate": "Дата начала",
+    "endDate": "Дата окончания",
+    "customPatterns": "Пользовательские шаблоны (через запятую)",
+    "customPatternsPlaceholder": "например, goog, ggl, micro, soft",
+    "customPatternsHelper": "Добавьте пользовательские варианты названий организаций для проверки"
+  },
+  "table": {
+    "dateRange": "Диапазон дат",
+    "generatedOn": "Дата создания",
+    "status": "Статус",
+    "hashes": "Хешей",
+    "cracked": "Взломано",
+    "actions": "Действия",
+    "noReports": "Отчёты для этого клиента не найдены"
+  },
+  "status": {
+    "queued": "В очереди",
+    "processing": "Обработка",
+    "completed": "Завершён",
+    "failed": "Ошибка",
+    "pendingGeneration": "Ожидает формирования отчёта",
+    "generating": "Отчёт ещё формируется"
+  },
+  "actions": {
+    "viewReport": "Просмотреть отчёт",
+    "retryReport": "Повторить отчёт",
+    "deleteReport": "Удалить отчёт",
+    "retry": "Повторить",
+    "delete": "Удалить",
+    "exportHcmask": "Экспорт .hcmask",
+    "exportTxt": "Экспорт .txt"
+  },
+  "messages": {
+    "selectClient": "Пожалуйста, выберите клиента",
+    "reportQueued": "Отчёт добавлен в очередь (Позиция: {{position}})",
+    "reportQueuedRetry": "Отчёт добавлен в очередь для повтора (Позиция: {{position}})",
+    "reportDeleted": "Отчёт успешно удалён",
+    "failedLoadClients": "Не удалось загрузить клиентов",
+    "failedLoadReports": "Не удалось загрузить отчёты",
+    "failedLoadReport": "Не удалось загрузить отчёт",
+    "failedGenerateReport": "Не удалось сформировать отчёт",
+    "failedDeleteReport": "Не удалось удалить отчёт",
+    "failedRetryReport": "Не удалось повторить отчёт",
+    "queuedPosition": "Ваш отчёт добавлен в очередь на обработку. Позиция:",
+    "processingDescription": "Ваш отчёт обрабатывается. Это может занять несколько минут в зависимости от объёма данных.",
+    "generationError": "При формировании отчёта произошла ошибка.",
+    "noHashReuse": "Повторное использование хешей не обнаружено. Все значения NTLM/LM хешей уникальны.",
+    "andMoreUsers": "...и ещё {{count}}",
+    "copiedSuccess": "Имена пользователей скопированы в буфер обмена!",
+    "noRecommendations": "Конкретных рекомендаций на данный момент нет. Политики паролей выглядят достаточными.",
+    "top50Hashes": "Показаны 50 наиболее часто используемых хешей",
+    "top50PartialCracks": "Показаны 50 частичных взломов"
+  },
+  "sections": {
+    "lengthDistribution": "Распределение по длине паролей",
+    "characterComposition": "Состав символов",
+    "commonPatterns": "Распространённые шаблоны",
+    "topPasswords": "Популярные пароли",
+    "maskAnalysis": "Анализ масок",
+    "complexityAnalysis": "Анализ сложности символов",
+    "sequentialPatterns": "Последовательные шаблоны",
+    "keyboardPatterns": "Клавиатурные шаблоны",
+    "datePatterns": "Шаблоны дат",
+    "leetSpeak": "Анализ Leet Speak",
+    "baseWords": "Базовые слова",
+    "characterSets": "Наборы символов",
+    "entropyDistribution": "Распределение энтропии",
+    "overview": "Обзор",
+    "domainBreakdown": "Разбивка по доменам",
+    "hashModeBreakdown": "Разбивка по типам хешей",
+    "windowsHashAnalytics": "Аналитика хешей Windows",
+    "positionalAnalysis": "Позиционный анализ",
+    "patternDetection": "Обнаружение шаблонов",
+    "usernameCorrelation": "Корреляция с именами пользователей",
+    "passwordReuse": "Повторное использование паролей",
+    "hashReuse": "Повторное использование паролей на основе хешей",
+    "temporalPatterns": "Временные шаблоны",
+    "yearBreakdown": "Разбивка по годам",
+    "strengthMetrics": "Метрики надёжности",
+    "crackTimeEstimates": "Оценки времени взлома по скорости",
+    "customPatterns": "Шаблоны названий организаций",
+    "recommendations": "Рекомендации",
+    "lmPartialCracks": "Частичные взломы LM",
+    "lmToNtlmMasks": "Генерация масок LM-to-NTLM",
+    "hashTypes": "Типы хешей",
+    "kerberos": "Kerberos",
+    "encryptionTypes": "Типы шифрования",
+    "linkedHashCorrelation": "Корреляция связанных хешей LM/NTLM",
+    "reusedPasswords": "Повторно используемые пароли по частоте"
+  },
+  "charts": {
+    "count": "Количество",
+    "percentage": "Процент",
+    "length": "Длина",
+    "password": "Пароль",
+    "pattern": "Шаблон",
+    "mask": "Маска"
+  },
+  "columns": {
+    "domain": "Домен",
+    "totalHashes": "Всего хешей",
+    "cracked": "Взломано",
+    "percentage": "Процент",
+    "hashType": "Тип хеша",
+    "length": "Длина",
+    "count": "Количество",
+    "category": "Категория",
+    "pattern": "Шаблон",
+    "patternType": "Тип шаблона",
+    "correlationType": "Тип корреляции",
+    "metric": "Метрика",
+    "password": "Пароль",
+    "users": "Пользователи",
+    "occurrences": "Вхождения",
+    "username": "Имя пользователя",
+    "hashlistCount": "Количество списков",
+    "hashValue": "Значение хеша",
+    "type": "Тип",
+    "total": "Всего",
+    "year": "Год",
+    "maskPattern": "Шаблон маски",
+    "entropyLevel": "Уровень энтропии",
+    "range": "Диапазон",
+    "speedLevel": "Уровень скорости",
+    "speed": "Скорость (H/s)",
+    "rank": "Ранг",
+    "actions": "Действия",
+    "firstHalf": "Первая половина (1-7)",
+    "secondHalf": "Вторая половина (8-14)",
+    "hashlist": "Список хешей",
+    "mask": "Маска",
+    "lmPattern": "Шаблон LM",
+    "matchPercentage": "Совпадение %",
+    "estimatedKeyspace": "Оценочное простр. ключей",
+    "exampleLm": "Пример LM",
+    "usersHashlistCount": "Пользователи (кол-во списков)",
+    "totalOccurrences": "Всего вхождений",
+    "userCount": "Кол-во пользователей"
+  },
+  "labels": {
+    "reportId": "ID отчёта:",
+    "total": "Всего",
+    "cracked": "Взломано:",
+    "percentage": "Процент:",
+    "totalHashRecords": "Всего записей хешей",
+    "uniqueUsers": "Уникальных пользователей",
+    "successRate": "Процент успеха",
+    "linkedPairsFound": "Найдено связанных пар LM/NTLM",
+    "totalLinkedPairs": "Всего связанных пар:",
+    "bothCracked": "Оба взломаны",
+    "ntlmOnly": "Только NTLM",
+    "lmOnly": "Только LM",
+    "neitherCracked": "Ни один не взломан",
+    "passwordsReused": "Повторно использованные пароли",
+    "uniquePasswords": "Уникальных паролей",
+    "totalReused": "Всего повторных",
+    "totalUnique": "Всего уникальных",
+    "reusePercentage": "Процент повторного использования",
+    "usersWithHash": "Пользователи с этим хешем:",
+    "totalPartial": "Всего частичных",
+    "firstHalfOnly": "Только первая половина",
+    "secondHalfOnly": "Только вторая половина",
+    "unknown": "Неизвестно",
+    "lmPasswordsAnalyzed": "Проанализировано LM паролей",
+    "masksGenerated": "Сгенерировано масок",
+    "totalEstimatedKeyspace": "Общее оценочное простр. ключей",
+    "underOrEqual7Chars": "<=7 символов:",
+    "8To14Chars": "8-14 символов:",
+    "partiallyCracked": "Частично взломано:"
+  },
+  "cards": {
+    "totalHashes": "Всего хешей",
+    "cracked": "Взломано",
+    "crackRate": "Процент взлома",
+    "hashlistsAnalyzed": "Проанализировано списков"
+  },
+  "descriptions": {
+    "lengthDistribution": "Распределение по длине (на основе хеша):",
+    "includesAllTypes": "Включает все типы хешей",
+    "distinctUsernames": "Уникальных имён пользователей",
+    "successfullyCracked": "Успешно взломано",
+    "overallPercentage": "Общий процент",
+    "complexityDistribution": "Распределение паролей по комбинациям типов символов",
+    "positionalPatterns": "Распространённые позиционные шаблоны в паролях",
+    "weakPatterns": "Обнаруженные распространённые слабые шаблоны в паролях",
+    "usernameCorrelation": "Пароли, коррелирующие с именами пользователей",
+    "hashReuseAnalysis": "Идентичные значения NTLM/LM хешей указывают на повторное использование пароля между учётными записями, даже если открытый текст неизвестен.",
+    "datePatterns": "Шаблоны, связанные с датами, найденные в паролях",
+    "maskFormat": "Топ шаблонов паролей в формате маски hashcat (?u=заглавные, ?l=строчные, ?d=цифра, ?s=специальный)",
+    "shannonEntropy": "Категоризация надёжности паролей на основе энтропии Шеннона",
+    "crackTimeEstimates": "Процент паролей, которые можно взломать за определённое время при различных уровнях скорости",
+    "topPasswords": "Наиболее часто используемые пароли (минимум 2 использования)",
+    "customPatterns": "Пароли, содержащие варианты названий организаций",
+    "recommendations": "Рекомендации по улучшению политики паролей на основе анализа",
+    "lmDerivable": "(выводимо из LM)",
+    "ntlmUnknown": "(NTLM неизвестен)",
+    "ofLmHashes": "от LM хешей",
+    "chars1To7": "Взломаны символы 1-7",
+    "chars8To14": "Взломаны символы 8-14",
+    "maskGeneration": "Генерация масок hashcat из взломанных LM паролей для восстановления соответствующих вариантов регистра NTLM.",
+    "maskSorting": "Маски отсортированы по частоте, затем по пространству ключей",
+    "averageLength": "Средняя длина (пароли <15 символов):"
+  },
+  "patterns": {
+    "startsUppercase": "Начинается с заглавной буквы",
+    "endsNumber": "Заканчивается цифрой",
+    "endsSpecial": "Заканчивается специальным символом",
+    "keyboardWalks": "Клавиатурные последовательности (напр., qwerty, asdfgh)",
+    "sequences": "Последовательности (напр., 123, abc)",
+    "repeatingChars": "Повторяющиеся символы (напр., aaa, 111)",
+    "containsYear": "Содержит год",
+    "containsMonth": "Содержит месяц",
+    "containsSeason": "Содержит сезон"
+  },
+  "correlations": {
+    "sameAsUsername": "Пароль совпадает с именем пользователя",
+    "containsUsername": "Пароль содержит имя пользователя",
+    "usernamePart": "Имя пользователя является частью пароля"
+  },
+  "categories": {
+    "singleCharType": "Один тип символов",
+    "twoCharTypes": "Два типа символов",
+    "threeCharTypes": "Три типа символов",
+    "fourCharTypes": "Четыре типа символов",
+    "allCharTypes": "Все типы символов",
+    "complexPasswords": "Сложные пароли (3-4 типа)",
+    "complexShort": "Сложные (<=14 символов)",
+    "complexLong": "Сложные (15+ символов)"
+  },
+  "hashTypes": {
+    "ntlm": "NTLM",
+    "lm": "LM",
+    "netntlmv1": "NetNTLMv1",
+    "netntlmv2": "NetNTLMv2",
+    "dcc": "DCC (MS Cache)",
+    "dcc2": "DCC2 (MS Cache 2)"
+  },
+  "kerberosTypes": {
+    "rc4": "RC4",
+    "aes128": "AES-128",
+    "aes256": "AES-256"
+  },
+  "entropyLevels": {
+    "low": "Низкий",
+    "moderate": "Средний",
+    "high": "Высокий"
+  },
+  "entropyRanges": {
+    "low": "<78 бит",
+    "moderate": "78-127 бит",
+    "high": "128+ бит"
+  },
+  "speedLevels": {
+    "speed50": "50% скорости",
+    "speed75": "75% скорости",
+    "speed100": "100% скорости (средняя)",
+    "speed150": "150% скорости",
+    "speed200": "200% скорости"
+  },
+  "timeframes": {
+    "lessThan1Hour": "<1 часа",
+    "lessThan1Day": "<1 дня",
+    "lessThan1Week": "<1 недели",
+    "lessThan1Month": "<1 месяца",
+    "lessThan6Months": "<6 месяцев",
+    "lessThan1Year": "<1 года",
+    "greaterThan1Year": ">1 года"
+  },
+  "severities": {
+    "critical": "КРИТИЧЕСКИЙ",
+    "high": "ВЫСОКИЙ",
+    "medium": "СРЕДНИЙ",
+    "info": "ИНФОРМАЦИЯ"
+  },
+  "tooltips": {
+    "copyUsernames": "Скопировать имена пользователей в буфер обмена",
+    "processing": "Обработка",
+    "requiresProcessing": "Требуется специальная обработка"
+  },
+  "warnings": {
+    "internalUseOnly": "Только для внутреннего использования: эта секция содержит пароли в открытом виде. Не передавайте внешним лицам.",
+    "partialCracks": "Пользователи с частичными взломами LM должны немедленно сменить пароли.",
+    "linkedHashlistAnalysis": "Анализ связанных списков хешей"
+  },
+  "alerts": {
+    "linkedHashlistInfo": "Этот список хешей является частью связанной пары LM/NTLM. Анализ включает корреляцию между LM и NTLM хешами для одних и тех же пользователей."
+  },
+  "filters": {
+    "domain": "Фильтр по домену",
+    "allDomains": "Все домены",
+    "minOccurrences": "Минимум вхождений",
+    "topN": "Топ N результатов"
+  },
+  "errors": {
+    "loadFailed": "Не удалось загрузить аналитику",
+    "noData": "Нет данных для анализа"
+  },
+  "noReport": {
+    "title": "Отчёт недоступен",
+    "message": "Выберите список хешей и сформируйте отчёт для просмотра аналитики."
+  },
+  "units": {
+    "chars": "символов"
+  },
+  "pagination": {
+    "masks": "{{from}}-{{to}} из {{count}} масок"
+  },
+  "export": {
+    "header": "# Маски LM-to-NTLM для Hashcat",
+    "generatedFrom": "# Сгенерировано из {{count}} взломанных LM паролей",
+    "totalMasks": "# Всего масок: {{count}}",
+    "totalKeyspace": "# Общее оценочное пространство ключей: {{keyspace}}",
+    "format": "# Формат: маска | шаблон | количество | совпадение% | простр. ключей | пример"
+  },
+  "monthNames": {
+    "jan": "Янв",
+    "feb": "Фев",
+    "mar": "Мар",
+    "apr": "Апр",
+    "may": "Май",
+    "jun": "Июн",
+    "jul": "Июл",
+    "aug": "Авг",
+    "sep": "Сен",
+    "oct": "Окт",
+    "nov": "Ноя",
+    "dec": "Дек"
+  }
+}

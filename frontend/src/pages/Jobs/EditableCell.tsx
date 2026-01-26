@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   TextField,
@@ -30,6 +31,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
   max,
   validation,
 }) => {
+  const { t } = useTranslation('jobs');
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value.toString());
   const [isLoading, setIsLoading] = useState(false);
@@ -59,17 +61,17 @@ const EditableCell: React.FC<EditableCellProps> = ({
 
     const numValue = Number(editValue);
     if (type === 'number' && isNaN(numValue)) {
-      setError('Please enter a valid number');
+      setError(t('validation.invalidNumber'));
       return;
     }
 
     if (type === 'number' && min !== undefined && numValue < min) {
-      setError(`Value must be at least ${min}`);
+      setError(t('validation.minValue', { min }));
       return;
     }
 
     if (type === 'number' && max !== undefined && numValue > max) {
-      setError(`Value must be at most ${max}`);
+      setError(t('validation.maxValue', { max }));
       return;
     }
 
@@ -80,7 +82,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
       await onSave(numValue);
       setIsEditing(false);
     } catch (error) {
-      setError('Failed to save changes');
+      setError(t('errors.saveFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -98,7 +100,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
         <Typography variant="body2">{value}</Typography>
-        <Tooltip title="Click to edit">
+        <Tooltip title={t('editableCell.clickToEdit')}>
           <IconButton size="small" onClick={handleEdit}>
             <EditIcon fontSize="small" />
           </IconButton>
@@ -128,7 +130,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
       />
       
       <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-        <Tooltip title="Save">
+        <Tooltip title={t('tooltips.save')}>
           <span>
             <IconButton
               size="small"
@@ -140,8 +142,8 @@ const EditableCell: React.FC<EditableCellProps> = ({
             </IconButton>
           </span>
         </Tooltip>
-        
-        <Tooltip title="Cancel">
+
+        <Tooltip title={t('tooltips.cancel')}>
           <span>
             <IconButton
               size="small"

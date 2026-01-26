@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Typography,
@@ -51,6 +52,7 @@ const formatFileSize = (bytes: number): string => {
 };
 
 export default function AgentDownloads() {
+  const { t } = useTranslation('agents');
   const [platforms, setPlatforms] = useState<PlatformGroup[]>([]);
   const [version, setVersion] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -75,7 +77,7 @@ export default function AgentDownloads() {
 
       // Guard against null/undefined platforms array
       if (!response.data.platforms || !Array.isArray(response.data.platforms)) {
-        setError('No agent binaries available');
+        setError(t('errors.noAgentBinaries') as string);
         return;
       }
 
@@ -142,7 +144,7 @@ export default function AgentDownloads() {
       setPlatforms(groups);
     } catch (err) {
       console.error('Failed to fetch platforms:', err);
-      setError('Failed to load download information');
+      setError(t('errors.loadDownloadsFailed') as string);
     } finally {
       setLoading(false);
     }
@@ -231,10 +233,10 @@ export default function AgentDownloads() {
     <Box sx={{ mb: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5">
-          Agent Downloads
+          {t('downloads.title') as string}
         </Typography>
         <Chip
-          label={`Version ${version}`}
+          label={t('downloads.version', { version }) as string}
           color="primary"
           size="small"
         />
@@ -277,12 +279,12 @@ export default function AgentDownloads() {
                           startIcon={<DownloadIcon />}
                           onClick={() => handleDownload(platform)}
                         >
-                          Download
+                          {t('downloads.download') as string}
                         </Button>
                         <Tooltip title={
                           copiedItem?.platformId === `${platform.os}-${platform.arch}` && copiedItem?.type === 'url'
-                            ? 'Copied!'
-                            : 'Copy URL'
+                            ? t('downloads.copied') as string
+                            : t('downloads.copyUrl') as string
                         }>
                           <IconButton
                             size="small"

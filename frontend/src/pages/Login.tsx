@@ -35,6 +35,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Button,
@@ -68,6 +69,7 @@ const RATE_LIMIT = {
 };
 
 const Login: React.FC = () => {
+  const { t } = useTranslation('auth');
   const { setAuth, setUserRole, checkAuthStatus } = useAuth();
   const [credentials, setCredentials] = useState<LoginCredentials>({
     username: '',
@@ -127,10 +129,10 @@ const Login: React.FC = () => {
       let errorMessage: string;
       switch (ssoError) {
         case 'pending_approval':
-          errorMessage = 'Your account has been created but requires administrator approval. Please contact your administrator.';
+          errorMessage = t('errors.pendingApproval') as string;
           break;
         case 'account_disabled':
-          errorMessage = 'Your account has been disabled. Please contact your administrator.';
+          errorMessage = t('errors.accountDisabled') as string;
           break;
         default:
           errorMessage = decodeURIComponent(ssoError);
@@ -139,11 +141,11 @@ const Login: React.FC = () => {
       // Clear the error from URL
       navigate('/login', { replace: true });
     }
-  }, [location, navigate]);
+  }, [location, navigate, t]);
 
   /**
    * Handles rate limiting for login attempts
-   * 
+   *
    * @returns {boolean} Whether request should be allowed
    * @throws {Error} When rate limit is exceeded
    */
@@ -153,14 +155,14 @@ const Login: React.FC = () => {
       requestCount.current = 0;
       lastRequestTime.current = now;
     }
-    
+
     if (requestCount.current >= RATE_LIMIT.maxRequests) {
-      throw new Error('Too many login attempts. Please try again later.');
+      throw new Error(t('errors.rateLimited') as string);
     }
-    
+
     requestCount.current++;
     return true;
-  }, []);
+  }, [t]);
 
   /**
    * Handles form submission and authentication
@@ -182,7 +184,7 @@ const Login: React.FC = () => {
       if (response.mfa_required) {
         // Verify required MFA fields are present
         if (!response.session_token || !response.mfa_type || !response.preferred_method) {
-          throw new Error('Invalid MFA response from server');
+          throw new Error(t('errors.invalidMfaResponse') as string);
         }
         
         setMfaRequired(true);
@@ -256,12 +258,12 @@ const Login: React.FC = () => {
         handleLoginSuccess(response.token);
       } else if (response.pending_approval) {
         setLdapDialogOpen(false);
-        setError('Account created but pending admin approval. Please contact your administrator.');
+        setError(t('errors.accountPendingApproval') as string);
       } else {
-        setError(response.message || 'LDAP authentication failed');
+        setError(response.message || t('errors.ldapFailed') as string);
       }
     } catch (err: any) {
-      setError(err.message || 'LDAP authentication failed');
+      setError(err.message || t('errors.ldapFailed') as string);
     } finally {
       setLdapLoading(false);
     }
@@ -282,7 +284,7 @@ const Login: React.FC = () => {
   };
 
   const getProviderLabel = (provider: SSOProviderDisplay): string => {
-    return `Sign in with ${provider.name}`;
+    return t('login.signInWith', { provider: provider.name }) as string;
   };
 
   if (mfaRequired && mfaSession) {
@@ -320,13 +322,13 @@ const Login: React.FC = () => {
         }}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
-          <img 
-            src="/logo.png" 
-            alt="KrakenHashes Logo" 
+          <img
+            src="/logo.png"
+            alt="KrakenHashes Logo"
             style={{ height: 80, marginBottom: 16 }}
           />
           <Typography component="h1" variant="h5">
-            Log in to KrakenHashes
+            {t('login.title') as string}
           </Typography>
         </Box>
         {/* Error Display */}
@@ -344,7 +346,7 @@ const Login: React.FC = () => {
             required
             fullWidth
             id="username"
-            label="Username"
+            label={t('login.username') as string}
             name="username"
             autoComplete="username"
             autoFocus
@@ -360,7 +362,7 @@ const Login: React.FC = () => {
             required
             fullWidth
             name="password"
-            label="Password"
+            label={t('login.password') as string}
             type="password"
             id="password"
             autoComplete="current-password"
@@ -383,7 +385,7 @@ const Login: React.FC = () => {
                 disabled={loading}
               />
             }
-            label="Remember me"
+            label={t('login.rememberMe') as string}
           />
             <Button
               type="submit"
@@ -392,7 +394,7 @@ const Login: React.FC = () => {
               sx={{ mt: 3, mb: 2 }}
               disabled={loading || !credentials.username || !credentials.password}
             >
-              {loading ? <CircularProgress size={24} /> : 'Log In'}
+              {loading ? <CircularProgress size={24} /> : t('login.loginButton') as string}
             </Button>
           </Box>
         )}
@@ -403,7 +405,7 @@ const Login: React.FC = () => {
             {localAuthEnabled && (
               <Divider sx={{ my: 2 }}>
                 <Typography variant="body2" color="text.secondary">
-                  or continue with
+                  {t('login.orContinueWith') as string}
                 </Typography>
               </Divider>
             )}
@@ -427,7 +429,7 @@ const Login: React.FC = () => {
         {/* Show message if no auth methods available */}
         {!ssoLoading && !localAuthEnabled && ssoProviders.length === 0 && (
           <Alert severity="warning" sx={{ mt: 2 }}>
-            No authentication methods are currently available. Please contact your administrator.
+            {t('login.noAuthMethods') as string}
           </Alert>
         )}
       </Box>
@@ -435,13 +437,13 @@ const Login: React.FC = () => {
       {/* LDAP Login Dialog */}
       <Dialog open={ldapDialogOpen} onClose={() => setLdapDialogOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>
-          Sign in with {selectedLdapProvider?.name}
+          {t('ldap.dialogTitle', { provider: selectedLdapProvider?.name }) as string}
         </DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
             margin="dense"
-            label="Username"
+            label={t('ldap.username') as string}
             fullWidth
             variant="outlined"
             value={ldapCredentials.username}
@@ -450,7 +452,7 @@ const Login: React.FC = () => {
           />
           <TextField
             margin="dense"
-            label="Password"
+            label={t('ldap.password') as string}
             type="password"
             fullWidth
             variant="outlined"
@@ -466,14 +468,14 @@ const Login: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setLdapDialogOpen(false)} disabled={ldapLoading}>
-            Cancel
+            {t('ldap.cancel') as string}
           </Button>
           <Button
             onClick={handleLdapSubmit}
             variant="contained"
             disabled={ldapLoading || !ldapCredentials.username || !ldapCredentials.password}
           >
-            {ldapLoading ? <CircularProgress size={24} /> : 'Sign In'}
+            {ldapLoading ? <CircularProgress size={24} /> : t('ldap.signIn') as string}
           </Button>
         </DialogActions>
       </Dialog>

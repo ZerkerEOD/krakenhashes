@@ -1,0 +1,1416 @@
+{
+  "title": "Настройки администратора",
+  "sections": {
+    "general": "Общие настройки",
+    "authentication": "Аутентификация",
+    "email": "Настройки почты",
+    "security": "Безопасность",
+    "sso": "Единый вход (SSO)",
+    "monitoring": "Мониторинг"
+  },
+  "tabs": {
+    "emailSettings": "Настройки почты",
+    "authenticationSettings": "Настройки аутентификации",
+    "ssoSettings": "Настройки SSO",
+    "binaryManagement": "Управление бинарными файлами",
+    "systemSettings": "Системные настройки",
+    "clientSettings": "Настройки клиентов",
+    "hashTypes": "Типы хешей",
+    "jobExecution": "Выполнение заданий",
+    "monitoring": "Мониторинг",
+    "agentDownloads": "Загрузки агентов"
+  },
+  "common": {
+    "cancel": "Отмена",
+    "create": "Создать",
+    "edit": "Редактировать",
+    "delete": "Удалить",
+    "save": "Сохранить",
+    "saveChanges": "Сохранить изменения",
+    "copyToClipboard": "Копировать в буфер обмена",
+    "never": "Никогда",
+    "invalidDate": "Неверная дата",
+    "all": "Все",
+    "yes": "Да",
+    "no": "Нет",
+    "note": "Примечание",
+    "default": "По умолчанию",
+    "on": "Вкл",
+    "off": "Выкл",
+    "none": "Нет",
+    "unlimited": "Без ограничений",
+    "close": "Закрыть",
+    "unknownError": "Неизвестная ошибка",
+    "dialogs": {
+      "confirmDeleteNamed": "Вы уверены, что хотите удалить \"{{name}}\"?"
+    }
+  },
+  "users": {
+    "title": "Управление пользователями",
+    "description": "Управление учётными записями и правами пользователей",
+    "addUser": "Добавить пользователя",
+    "createUser": "Создать пользователя",
+    "columns": {
+      "username": "Имя пользователя",
+      "email": "Электронная почта",
+      "role": "Роль",
+      "status": "Статус",
+      "createdAt": "Дата создания",
+      "lastLogin": "Последний вход",
+      "actions": "Действия",
+      "provider": "Провайдер",
+      "providerLocal": "Локальный",
+      "mfa": "MFA",
+      "apiKey": "API-ключ",
+      "lastApiUse": "Последнее использование API"
+    },
+    "roles": {
+      "admin": "Администратор",
+      "user": "Пользователь",
+      "system": "Системный"
+    },
+    "status": {
+      "active": "Активен",
+      "pending": "Ожидает одобрения",
+      "disabled": "Отключён",
+      "locked": "Заблокирован"
+    },
+    "actions": {
+      "edit": "Редактировать пользователя",
+      "delete": "Удалить пользователя",
+      "approve": "Одобрить",
+      "disable": "Отключить",
+      "enable": "Включить",
+      "unlock": "Разблокировать",
+      "resetPassword": "Сбросить пароль",
+      "disableMfa": "Отключить MFA",
+      "revokeApiKey": "Отозвать API-ключ",
+      "cannotDeleteSystem": "Нельзя удалить системных пользователей",
+      "terminateSession": "Завершить сессию",
+      "terminateAllSessions": "Завершить все сессии"
+    },
+    "apiKey": {
+      "none": "Нет"
+    },
+    "validation": {
+      "usernameRequired": "Имя пользователя обязательно",
+      "emailRequired": "Электронная почта обязательна",
+      "emailInvalid": "Неверный формат электронной почты",
+      "passwordRequired": "Пароль обязателен",
+      "passwordMinLength": "минимум {{value}} символов",
+      "passwordUppercase": "одна заглавная буква",
+      "passwordLowercase": "одна строчная буква",
+      "passwordNumber": "одна цифра",
+      "passwordSpecial": "один специальный символ",
+      "passwordMustContain": "Пароль должен содержать {{requirements}}",
+      "confirmPasswordRequired": "Подтвердите пароль",
+      "passwordsMismatch": "Пароли не совпадают"
+    },
+    "errors": {
+      "loadFailed": "Не удалось загрузить пользователей. Попробуйте обновить страницу.",
+      "loadDetailsFailed": "Не удалось загрузить данные пользователя",
+      "loadSessionsFailed": "Не удалось загрузить сессии",
+      "loadLoginAttemptsFailed": "Не удалось загрузить попытки входа",
+      "loadApiKeyFailed": "Не удалось загрузить информацию об API-ключе",
+      "createFailed": "Не удалось создать пользователя",
+      "updateFailed": "Не удалось обновить пользователя",
+      "deleteFailed": "Не удалось удалить пользователя",
+      "enableFailed": "Не удалось включить пользователя",
+      "disableFailed": "Не удалось отключить пользователя",
+      "unlockFailed": "Не удалось разблокировать аккаунт",
+      "reasonRequired": "Укажите причину отключения этого пользователя",
+      "passwordResetFailed": "Не удалось сбросить пароль",
+      "mfaDisableFailed": "Не удалось отключить MFA",
+      "accountStatusFailed": "Не удалось обновить статус аккаунта",
+      "terminateSessionFailed": "Не удалось завершить сессию",
+      "terminateAllSessionsFailed": "Не удалось завершить все сессии",
+      "revokeApiKeyFailed": "Не удалось отозвать API-ключ",
+      "userNotFound": "Пользователь не найден"
+    },
+    "messages": {
+      "createSuccess": "Пользователь успешно создан",
+      "updateSuccess": "Данные пользователя успешно обновлены",
+      "deleteSuccess": "Пользователь успешно удалён",
+      "enableSuccess": "Пользователь успешно включён",
+      "disableSuccess": "Пользователь успешно отключён",
+      "passwordResetSuccess": "Пароль успешно сброшен!",
+      "passwordCopied": "Пароль скопирован в буфер обмена",
+      "mfaDisableSuccess": "MFA успешно отключён",
+      "accountDisabled": "Учётная запись пользователя отключена",
+      "accountEnabled": "Учётная запись пользователя включена",
+      "accountUnlocked": "Учётная запись пользователя разблокирована",
+      "sessionTerminated": "Сессия успешно завершена",
+      "allSessionsTerminated": "Успешно завершено сессий: {{count}}",
+      "apiKeyRevoked": "API-ключ успешно отозван"
+    },
+    "dialogs": {
+      "createUser": {
+        "title": "Создание нового пользователя",
+        "password": "Пароль",
+        "confirmPassword": "Подтвердите пароль",
+        "roleHelperText": "Выберите роль пользователя в системе"
+      },
+      "disableUser": {
+        "title": "Отключение учётной записи",
+        "description": "Укажите причину отключения этой учётной записи. Это будет записано для аудита.",
+        "reasonLabel": "Причина отключения",
+        "reasonPlaceholder": "например, Компрометация аккаунта, Нарушение условий, Запрос пользователя и т.д.",
+        "disableAccount": "Отключить аккаунт"
+      },
+      "deleteUser": {
+        "title": "Удаление учётной записи",
+        "warning": "Это действие нельзя отменить. Пользователь будет навсегда удалён из системы.",
+        "confirmation": "Вы уверены, что хотите удалить пользователя <strong>{{username}}</strong>?",
+        "dataNote": "Все связанные данные будут сохранены, но пользователь больше не сможет войти в систему."
+      },
+      "resetPassword": {
+        "title": "Сброс пароля пользователя",
+        "generateTemporary": "Сгенерировать временный пароль",
+        "newPassword": "Новый пароль",
+        "passwordHelperText": "Минимум 8 символов"
+      },
+      "disableMfa": {
+        "title": "Отключение MFA",
+        "confirmation": "Вы уверены, что хотите отключить MFA для этого пользователя? Ему нужно будет настроить её снова, если потребуется."
+      },
+      "terminateSession": {
+        "title": "Завершить сессию?",
+        "description": "Это завершит сессию пользователя на этом устройстве. Пользователю нужно будет войти снова для продолжения работы.",
+        "terminate": "Завершить"
+      },
+      "terminateAllSessions": {
+        "title": "Завершить все сессии?",
+        "description": "Это завершит сессии пользователя на ВСЕХ устройствах, включая текущую сессию. Пользователю нужно будет войти снова. Это действие нельзя отменить.",
+        "warning": "Это включает все активные рабочие сессии!",
+        "terminateAll": "Завершить все"
+      },
+      "revokeApiKey": {
+        "title": "Отозвать API-ключ пользователя?",
+        "warning": "Это немедленно отключит доступ к API для этого пользователя. Все приложения, использующие этот ключ, перестанут работать.",
+        "confirmation": "Вы уверены, что хотите отозвать API-ключ этого пользователя?"
+      }
+    },
+    "detail": {
+      "title": "Детали пользователя",
+      "backToUsers": "Назад к пользователям",
+      "userInformation": "Информация о пользователе",
+      "userId": "ID пользователя",
+      "systemUserReadOnly": "Системных пользователей нельзя изменять",
+      "accountStatus": "Статус аккаунта",
+      "accountStatusLabel": "Статус аккаунта",
+      "enabled": "Включён",
+      "disabled": "Отключён",
+      "noReasonProvided": "Причина не указана",
+      "lockStatus": "Статус блокировки",
+      "lockedUntil": "Заблокирован до {{date}}",
+      "notLocked": "Не заблокирован",
+      "mfaStatus": "Статус MFA",
+      "mfaEnabled": "Включено ({{types}})",
+      "mfaDisabled": "Отключено",
+      "apiKeyManagement": "Управление API-ключом",
+      "apiKeyStatus": "Статус API-ключа",
+      "noApiKeyGenerated": "API-ключ не сгенерирован",
+      "created": "Создан",
+      "lastUsed": "Последнее использование",
+      "apiKeySecurityNote": "Администраторы могут отзывать API-ключи, но не могут просматривать ключ в открытом виде из соображений безопасности.",
+      "activityInformation": "Информация об активности",
+      "passwordChanged": "Пароль изменён",
+      "failedLoginAttempts": "Неудачные попытки входа",
+      "attemptsCount": "{{count}} попыток",
+      "disabledAt": "Отключён",
+      "activeSessions": "Активные сессии",
+      "noActiveSessions": "Нет активных сессий",
+      "loginHistory": "История входов",
+      "noLoginAttempts": "Попытки входа не найдены",
+      "temporaryPassword": "Временный пароль",
+      "sharePasswordSecurely": "Пожалуйста, передайте этот пароль пользователю безопасным способом.",
+      "sessions": {
+        "ipAddress": "IP-адрес",
+        "deviceBrowser": "Устройство / Браузер",
+        "lastActive": "Последняя активность"
+      },
+      "loginAttempts": {
+        "timestamp": "Время",
+        "success": "Успешно",
+        "failed": "Неудачно",
+        "failureReason": "Причина ошибки"
+      }
+    }
+  },
+  "clients": {
+    "title": "Управление клиентами",
+    "addClient": "Добавить клиента",
+    "columns": {
+      "name": "Название",
+      "description": "Описание",
+      "contact": "Контакт",
+      "cracked": "Взломано",
+      "retention": "Хранение (месяцы)",
+      "createdAt": "Дата создания",
+      "actions": "Действия"
+    },
+    "form": {
+      "clientName": "Название клиента",
+      "description": "Описание",
+      "contactInfo": "Контактная информация",
+      "dataRetention": "Срок хранения данных (месяцы)",
+      "dataRetentionHelperText": "Оставьте пустым для использования системного значения по умолчанию. Введите 0 для бессрочного хранения.",
+      "excludeFromPotfile": "Исключить из potfile (не сохранять взломанные пароли)",
+      "excludeFromPotfileHelperText": "Включите это для клиентов с строгими требованиями к хранению данных"
+    },
+    "validation": {
+      "nameRequired": "Название клиента обязательно.",
+      "retentionInvalid": "Срок хранения должен быть неотрицательным числом или пустым (для значения по умолчанию)."
+    },
+    "errors": {
+      "loadFailed": "Не удалось загрузить клиентов. Попробуйте обновить страницу.",
+      "loadDefaultSettingsFailed": "Не удалось загрузить настройки клиента по умолчанию.",
+      "saveFailed": "Не удалось сохранить клиента.",
+      "deleteFailed": "Не удалось удалить клиента."
+    },
+    "messages": {
+      "createSuccess": "Клиент успешно создан",
+      "updateSuccess": "Клиент успешно обновлён",
+      "deleteSuccess": "Клиент успешно удалён"
+    },
+    "dialogs": {
+      "addClient": {
+        "title": "Добавление нового клиента",
+        "createButton": "Создать клиента"
+      },
+      "editClient": {
+        "title": "Редактирование клиента"
+      },
+      "deleteClient": {
+        "title": "Подтверждение удаления",
+        "confirmation": "Вы уверены, что хотите удалить клиента \"{{name}}\"? Это действие нельзя отменить. Связанные списки хешей могут быть удалены немедленно или осиротеют в зависимости от политик хранения."
+      }
+    }
+  },
+  "wordlists": {
+    "title": "Управление словарями",
+    "description": "Управление словарями для взлома паролей",
+    "uploadWordlist": "Загрузить словарь",
+    "refresh": "Обновить",
+    "loading": "Загрузка словарей...",
+    "noWordlistsFound": "Словари не найдены",
+    "tryDifferentSearch": "Попробуйте другой поисковый запрос",
+    "uploadToGetStarted": "Загрузите словарь для начала",
+    "noDescription": "Описание отсутствует",
+    "searchPlaceholder": "Поиск словарей...",
+    "tabs": {
+      "all": "Все словари",
+      "general": "Общие",
+      "specialized": "Специализированные",
+      "targeted": "Целевые",
+      "custom": "Пользовательские"
+    },
+    "columns": {
+      "name": "Название",
+      "status": "Статус",
+      "type": "Тип",
+      "size": "Размер",
+      "wordCount": "Количество слов",
+      "updated": "Обновлён",
+      "actions": "Действия"
+    },
+    "status": {
+      "verified": "Проверен",
+      "pending": "В ожидании",
+      "failed": "Ошибка"
+    },
+    "types": {
+      "general": "Общий",
+      "specialized": "Специализированный",
+      "targeted": "Целевой",
+      "custom": "Пользовательский"
+    },
+    "fields": {
+      "name": "Название",
+      "description": "Описание",
+      "wordlistType": "Тип словаря"
+    },
+    "tooltips": {
+      "refreshMetadata": "Обновить метаданные",
+      "download": "Скачать",
+      "edit": "Редактировать",
+      "delete": "Удалить"
+    },
+    "errors": {
+      "loadFailed": "Не удалось загрузить словари",
+      "uploadFailed": "Не удалось загрузить словарь",
+      "deleteFailed": "Не удалось удалить словарь",
+      "downloadFailed": "Не удалось скачать словарь",
+      "refreshFailed": "Не удалось обновить метаданные словаря",
+      "updateFailed": "Не удалось обновить словарь: {{error}}",
+      "sessionExpired": "Ваша сессия истекла. Пожалуйста, войдите снова."
+    },
+    "messages": {
+      "uploadSuccess": "Словарь успешно загружен",
+      "duplicateWordlist": "Словарь \"{{name}}\" уже существует",
+      "deleteSuccess": "Словарь \"{{name}}\" успешно удалён",
+      "updateSuccess": "Словарь успешно обновлён",
+      "refreshSuccess": "Метаданные словаря успешно обновлены"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "Загрузка словаря",
+        "fileUploadTitle": "Загрузите файл словаря",
+        "fileUploadDescription": "Выберите файл словаря для загрузки. Поддерживаемые форматы: .txt, .dict, .dic, .lst, .wordlist, .wl, .gz, .zip"
+      },
+      "edit": {
+        "title": "Редактирование словаря"
+      },
+      "delete": {
+        "title": "Подтверждение удаления",
+        "cascadeTitle": "Подтверждение каскадного удаления",
+        "confirmation": "Вы уверены, что хотите удалить словарь \"{{name}}\"? Это действие нельзя отменить.",
+        "cascadeWarning": "Удаление словаря \"{{name}}\" также удалит следующее:",
+        "checkingDependencies": "Проверка зависимостей...",
+        "jobsCount": "{{count}} задание(й) (ожидающих/выполняющихся/неудачных):",
+        "presetJobsCount": "{{count}} шаблон(ов) заданий:",
+        "workflowStepsCount": "{{count}} шаг(ов) рабочих процессов:",
+        "emptyWorkflowsCount": "{{count}} пустых рабочих процессов будет удалено:",
+        "noHashlist": "Нет списка хешей",
+        "step": "Шаг {{order}}",
+        "andMore": "...и ещё {{count}}",
+        "confirmationPrompt": "Для подтверждения каскадного удаления введите ID словаря: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "Введите {{id}} для подтверждения",
+        "idMismatch": "ID не совпадает",
+        "deleteAll": "Удалить всё"
+      }
+    }
+  },
+  "rules": {
+    "title": "Управление правилами",
+    "description": "Управление правилами Hashcat для взлома паролей",
+    "uploadRule": "Загрузить правило",
+    "refresh": "Обновить",
+    "loading": "Загрузка правил...",
+    "noRulesFound": "Правила не найдены",
+    "tryDifferentSearch": "Попробуйте другой поисковый запрос",
+    "uploadToGetStarted": "Загрузите правило для начала",
+    "noDescription": "Описание отсутствует",
+    "searchPlaceholder": "Поиск правил...",
+    "tabs": {
+      "all": "Все правила",
+      "hashcat": "Hashcat",
+      "john": "John"
+    },
+    "columns": {
+      "name": "Название",
+      "status": "Статус",
+      "type": "Тип",
+      "size": "Размер",
+      "ruleCount": "Количество правил",
+      "updated": "Обновлён",
+      "actions": "Действия"
+    },
+    "status": {
+      "verified": "Проверен",
+      "pending": "В ожидании",
+      "failed": "Ошибка",
+      "ready": "Готов",
+      "processing": "Обработка"
+    },
+    "types": {
+      "hashcat": "Hashcat",
+      "john": "John the Ripper"
+    },
+    "fields": {
+      "name": "Название",
+      "description": "Описание",
+      "ruleType": "Тип правила"
+    },
+    "tooltips": {
+      "download": "Скачать",
+      "edit": "Редактировать",
+      "delete": "Удалить"
+    },
+    "errors": {
+      "loadFailed": "Не удалось загрузить правила",
+      "uploadFailed": "Не удалось загрузить правило",
+      "deleteFailed": "Не удалось удалить правило",
+      "downloadFailed": "Не удалось скачать правило",
+      "updateFailed": "Не удалось обновить правило: {{error}}",
+      "verifyFailed": "Не удалось проверить правило",
+      "sessionExpired": "Ваша сессия истекла. Пожалуйста, войдите снова."
+    },
+    "messages": {
+      "uploadSuccess": "Правило успешно загружено",
+      "duplicateRule": "Правило \"{{name}}\" уже существует",
+      "deleteSuccess": "Правило \"{{name}}\" успешно удалено",
+      "updateSuccess": "Правило успешно обновлено",
+      "verifySuccess": "Правило \"{{name}}\" успешно проверено"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "Загрузка правила",
+        "fileUploadTitle": "Загрузите файл правила",
+        "fileUploadDescription": "Выберите файл правила для загрузки. Поддерживаемые форматы: .rule, .rules, .txt"
+      },
+      "edit": {
+        "title": "Редактирование правила"
+      },
+      "delete": {
+        "title": "Подтверждение удаления",
+        "cascadeTitle": "Подтверждение каскадного удаления",
+        "confirmation": "Вы уверены, что хотите удалить правило \"{{name}}\"? Это действие нельзя отменить.",
+        "cascadeWarning": "Удаление правила \"{{name}}\" также удалит следующее:",
+        "checkingDependencies": "Проверка зависимостей...",
+        "jobsCount": "{{count}} задание(й) (ожидающих/выполняющихся/неудачных):",
+        "presetJobsCount": "{{count}} шаблон(ов) заданий:",
+        "workflowStepsCount": "{{count}} шаг(ов) рабочих процессов:",
+        "emptyWorkflowsCount": "{{count}} пустых рабочих процессов будет удалено:",
+        "noHashlist": "Нет списка хешей",
+        "step": "Шаг {{order}}",
+        "andMore": "...и ещё {{count}}",
+        "confirmationPrompt": "Для подтверждения каскадного удаления введите ID правила: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "Введите {{id}} для подтверждения",
+        "idMismatch": "ID не совпадает",
+        "deleteAll": "Удалить всё"
+      }
+    }
+  },
+  "presetJobs": {
+    "title": "Управление шаблонами заданий",
+    "createNew": "Создать шаблон",
+    "confirmDelete": "Вы уверены, что хотите удалить этот шаблон задания?",
+    "noJobsFound": "Шаблоны заданий не найдены. Создайте один для начала.",
+    "keyspaceNotCalculated": "Не рассчитано",
+    "calculating": "Расчёт...",
+    "calculateKeyspace": "Рассчитать пространство ключей",
+    "calculateAllMissingKeyspaces": "Рассчитать все отсутствующие пространства ключей",
+    "calculatingKeyspaces": "Расчёт...",
+    "calculatingAllKeyspacesMessage": "Расчёт пространств ключей для всех шаблонов заданий. Это может занять некоторое время...",
+    "canInterruptRunningJobs": "Может прерывать выполняющиеся задания",
+    "columns": {
+      "name": "Название",
+      "description": "Описание",
+      "attackMode": "Режим атаки",
+      "priority": "Приоритет",
+      "highPriorityOverride": "Переопределение высокого приоритета",
+      "maxAgents": "Макс. агентов",
+      "keyspace": "Пространство ключей",
+      "binaryVersion": "Версия бинарного файла",
+      "wordlists": "Словари",
+      "rules": "Правила",
+      "createdAt": "Дата создания",
+      "actions": "Действия"
+    },
+    "messages": {
+      "deleteSuccess": "Шаблон задания успешно удалён",
+      "deleteFailed": "Не удалось удалить шаблон задания: {{error}}",
+      "fetchError": "Ошибка загрузки шаблонов заданий: {{error}}",
+      "deleteError": "Ошибка удаления шаблона задания: {{error}}",
+      "keyspaceRecalculateSuccess": "Пространство ключей успешно пересчитано",
+      "keyspaceRecalculateFailed": "Не удалось пересчитать пространство ключей: {{error}}",
+      "keyspaceAllComplete": "Обновлено {{updated}}, пропущено {{skipped}}, ошибок {{failed}}",
+      "keyspaceAllFailed": "Не удалось пересчитать пространства ключей: {{error}}"
+    },
+    "form": {
+      "createTitle": "Создание шаблона задания",
+      "editTitle": "Редактирование шаблона задания",
+      "createJob": "Создать шаблон",
+      "updateJob": "Обновить шаблон",
+      "attackModeRequirements": "Требования режима атаки",
+      "wordlistSelectionCombination": "Выбор словарей (комбинированный режим)",
+      "selectFirstWordlist": "Выберите первый словарь",
+      "selectSecondWordlist": "Выберите второй словарь",
+      "fields": {
+        "jobName": "Название задания",
+        "attackMode": "Режим атаки",
+        "priority": "Приоритет",
+        "chunkSize": "Длительность чанка (секунды)",
+        "maxAgents": "Макс. агентов",
+        "maskPattern": "Шаблон маски",
+        "incrementMode": "Режим инкремента",
+        "incrementMin": "Мин. длина инкремента",
+        "incrementMax": "Макс. длина инкремента",
+        "wordlists": "Словари",
+        "rules": "Правила",
+        "mask": "Маска",
+        "ruleOptional": "Правило (необязательно)",
+        "firstWordlist": "Первый словарь",
+        "secondWordlist": "Второй словарь",
+        "allowHighPriorityOverride": "Разрешить переопределение высокого приоритета (может прерывать выполняющиеся задания)"
+      },
+      "incrementModes": {
+        "off": "Выкл (использовать полную маску)",
+        "increment": "Инкремент (от 1 до макс.)",
+        "incrementInverse": "Обратный инкремент (от макс. до 1)"
+      },
+      "helperText": {
+        "binaryVersion": "Выберите версию бинарного файла Hashcat",
+        "priority": "Задания с более высоким приоритетом выполняются первыми (0-{{maxPriority}})",
+        "maskPattern": "Шаблон маски Hashcat (например, ?u?l?l?l?d?d?d?d)",
+        "maskPatternExamples": "?l=строчные, ?u=заглавные, ?d=цифра, ?s=специальные, ?a=все",
+        "incrementMode": "Используйте режим инкремента для проверки масок различной длины",
+        "incrementMin": "Минимальная длина маски для проверки",
+        "incrementMax": "Максимальная длина маски для проверки",
+        "chunkSize": "Длительность каждого рабочего чанка в секундах",
+        "maxAgents": "Максимальное количество агентов (0 = без ограничений)",
+        "allowHighPriorityOverride": "При включении это задание может прерывать задания с более низким приоритетом для получения их агентов",
+        "wordlistsNotUsed": "Словари не используются для этого режима атаки",
+        "selectWordlists": "Выберите ровно {{count}} словарь(ей)",
+        "rulesNotUsed": "Правила не используются для этого режима атаки",
+        "selectRule": "Опционально выберите файл правил для применения трансформаций",
+        "firstWordlist": "Слова из этого списка будут использоваться как первая часть",
+        "secondWordlist": "Слова из этого списка будут добавлены к первому"
+      },
+      "errors": {
+        "nameRequired": "Название задания обязательно",
+        "binaryVersionRequired": "Версия бинарного файла обязательна",
+        "straightModeWordlist": "Режим прямой атаки требует ровно 1 словарь",
+        "combinationModeWordlists": "Комбинированный режим атаки требует ровно 2 словаря",
+        "selectBothWordlists": "Выберите оба словаря для комбинированного режима",
+        "bruteForceModeMask": "Режим перебора требует маску",
+        "hybridModeWordlist": "Гибридный режим атаки требует ровно 1 словарь",
+        "hybridModeMask": "Гибридный режим атаки требует маску",
+        "associationModeNotImplemented": "Режим ассоциативной атаки не реализован",
+        "noWordlistsAvailable": "Словари недоступны. Сначала загрузите словари.",
+        "loadFailed": "Не удалось загрузить шаблон задания",
+        "loadFormDataFailed": "Не удалось загрузить данные формы",
+        "saveFailed": "Не удалось сохранить шаблон задания"
+      },
+      "messages": {
+        "createSuccess": "Шаблон задания успешно создан",
+        "updateSuccess": "Шаблон задания успешно обновлён"
+      }
+    }
+  },
+  "workflows": {
+    "title": "Управление рабочими процессами",
+    "create": "Создать процесс",
+    "deleteTitle": "Удалить процесс",
+    "confirmDelete": "Вы уверены, что хотите удалить рабочий процесс \"{{name}}\"?",
+    "noWorkflowsFound": "Рабочие процессы не найдены. Создайте один для начала.",
+    "canInterrupt": "Может прерывать",
+    "normal": "Обычный",
+    "columns": {
+      "name": "Название",
+      "description": "Описание",
+      "steps": "Шаги",
+      "jobCount": "Заданий",
+      "highPriority": "Режим приоритета",
+      "created": "Создан",
+      "lastUpdated": "Последнее обновление",
+      "actions": "Действия"
+    },
+    "messages": {
+      "loadFailed": "Не удалось загрузить рабочие процессы",
+      "deleteFailed": "Не удалось удалить рабочий процесс"
+    },
+    "form": {
+      "createTitle": "Создание рабочего процесса",
+      "editTitle": "Редактирование рабочего процесса",
+      "createWorkflow": "Создать процесс",
+      "saveChanges": "Сохранить изменения",
+      "workflowSteps": "Шаги рабочего процесса",
+      "noJobsAdded": "В этот рабочий процесс ещё не добавлены задания. Найдите и добавьте шаблоны заданий выше.",
+      "priority": "Приоритет: {{priority}}",
+      "binary": "Бинарный файл: {{name}}",
+      "wordlistCount": "{{count}} словарь(ей)",
+      "ruleCount": "{{count}} правил(о)",
+      "fields": {
+        "workflowName": "Название процесса",
+        "searchPresetJobs": "Поиск шаблонов заданий"
+      },
+      "helperText": {
+        "searchPresetJobs": "Найдите шаблоны заданий для добавления в этот рабочий процесс"
+      },
+      "errors": {
+        "nameRequired": "Название процесса обязательно",
+        "presetJobRequired": "Требуется хотя бы один шаблон задания",
+        "noPresetJobsAvailable": "Шаблоны заданий недоступны. Сначала создайте шаблоны заданий.",
+        "loadFailed": "Не удалось загрузить рабочий процесс",
+        "loadFormDataFailed": "Не удалось загрузить данные формы",
+        "saveFailed": "Не удалось сохранить рабочий процесс"
+      },
+      "messages": {
+        "createSuccess": "Рабочий процесс успешно создан",
+        "updateSuccess": "Рабочий процесс успешно обновлён"
+      }
+    }
+  },
+  "binaryManagement": {
+    "pageTitle": "Управление бинарными файлами",
+    "title": "Бинарные файлы Hashcat",
+    "addBinary": "Добавить бинарный файл",
+    "showingActiveOnly": "Показаны только активные бинарные файлы",
+    "showingAll": "Показаны все бинарные файлы",
+    "noBinaries": "Бинарные файлы не найдены",
+    "noActiveBinaries": "Активные бинарные файлы не найдены",
+    "default": "По умолчанию",
+    "verifyBinary": "Проверить бинарный файл",
+    "deleteBinary": "Удалить бинарный файл",
+    "sourceUpload": "Загрузка",
+    "sourceUrl": "URL",
+    "columns": {
+      "binaryId": "ID",
+      "version": "Версия",
+      "type": "Тип",
+      "source": "Источник",
+      "size": "Размер",
+      "status": "Статус",
+      "default": "По умолчанию",
+      "lastVerified": "Последняя проверка",
+      "actions": "Действия"
+    },
+    "messages": {
+      "fetchFailed": "Не удалось получить бинарные файлы",
+      "verifySuccess": "Бинарный файл успешно проверен",
+      "verifyFailed": "Не удалось проверить бинарный файл",
+      "deleteSuccess": "Бинарный файл успешно удалён",
+      "deleteFailed": "Не удалось удалить бинарный файл",
+      "cannotDeleteLast": "Нельзя удалить последний активный бинарный файл типа {{type}}",
+      "cannotDeleteOnly": "Нельзя удалить единственный бинарный файл этого типа",
+      "setDefaultSuccess": "Бинарный файл по умолчанию успешно обновлён",
+      "setDefaultFailed": "Не удалось установить бинарный файл по умолчанию"
+    },
+    "deleteDialog": {
+      "title": "Подтверждение удаления",
+      "message": "Вы уверены, что хотите удалить бинарный файл \"{{fileName}}\"? Это действие нельзя отменить."
+    }
+  },
+  "diagnostics": {
+    "pageTitle": "Диагностика системы",
+    "diagnosticPackage": "Диагностический пакет",
+    "diagnosticPackageDescription": "Скачайте диагностический пакет, содержащий информацию о системе, логи и конфигурацию для устранения неполадок.",
+    "refreshData": "Обновить данные",
+    "hours": "Часы",
+    "hoursTooltip": "Количество часов логов для включения",
+    "includeAgentLogs": "Включить логи агентов",
+    "includeNginxLogs": "Включить логи Nginx",
+    "includePostgresLogs": "Включить логи PostgreSQL",
+    "preparing": "Подготовка...",
+    "downloadDiagnostics": "Скачать диагностику",
+    "systemInfo": "Информация о системе",
+    "runtime": "Среда выполнения",
+    "cpus": "Процессоры",
+    "goroutines": "Горутины",
+    "memory": "Память",
+    "heap": "Куча",
+    "system": "Система",
+    "gcRuns": "Запуски GC",
+    "database": "База данных",
+    "size": "Размер",
+    "connections": "Подключения",
+    "agents": "Агенты",
+    "connected": "Подключено",
+    "withDebugStatus": "С отладочным статусом",
+    "serverDebugStatus": "Статус отладки сервера",
+    "serverDebugDescription": "Включите подробное логирование для сервера. Это увеличит размер файлов логов и может повлиять на производительность.",
+    "debugEnabled": "Отладка включена",
+    "debugDisabled": "Отладка отключена",
+    "level": "Уровень",
+    "enableDebug": "Включить отладку",
+    "disableDebug": "Отключить отладку",
+    "loadingServerDebugStatus": "Загрузка статуса отладки сервера...",
+    "serverLogs": "Логи сервера",
+    "serverLogsDescription": "Управление файлами логов сервера. Очистка логов необратима.",
+    "refreshLogStats": "Обновить статистику логов",
+    "directory": "Директория",
+    "files": "Файлы",
+    "actions": "Действия",
+    "backend": "Бэкенд",
+    "nginx": "Nginx",
+    "postgresql": "PostgreSQL",
+    "total": "Всего",
+    "purge": "Очистить",
+    "purgeAll": "Очистить всё",
+    "loadingLogStatistics": "Загрузка статистики логов...",
+    "agentDebugStatus": "Статус отладки агентов",
+    "enableAll": "Включить всё",
+    "disableAll": "Отключить всё",
+    "noAgentsWithDebugStatus": "Нет агентов с доступным статусом отладки",
+    "agentId": "ID агента",
+    "logLevel": "Уровень логирования",
+    "fileLogging": "Логирование в файл",
+    "logFileSize": "Размер файла логов",
+    "buffer": "Буфер",
+    "lastUpdated": "Последнее обновление",
+    "viewLogs": "Просмотреть логи",
+    "purgeLogs": "Очистить логи",
+    "agentLogs": "Логи агента",
+    "agent": "Агент",
+    "allLevels": "Все уровни",
+    "refresh": "Обновить",
+    "showingEntries": "Показано {{shown}} из {{total}} записей",
+    "filtered": "отфильтровано",
+    "truncated": "усечено",
+    "time": "Время",
+    "message": "Сообщение",
+    "location": "Местоположение",
+    "noEntriesForLevel": "Записи для уровня {{level}} не найдены",
+    "noLogEntriesAvailable": "Записи логов недоступны",
+    "logFileContent": "Содержимое файла логов",
+    "noLogsAvailable": "Логи недоступны",
+    "securityWarning": "Предупреждение безопасности",
+    "postgresLogsWarning": "Логи PostgreSQL могут содержать конфиденциальные данные. Рекомендуется очистить их после устранения неполадок.",
+    "nginxLogsWarning": "Логи доступа Nginx могут содержать конфиденциальные данные запросов. Рекомендуется очистить их после устранения неполадок.",
+    "sensitiveNginxLogsWarning": "Логи доступа Nginx могут содержать конфиденциальную информацию, включая токены аутентификации в заголовках и параметрах запросов.",
+    "sensitivePostgresLogsWarning": "Логи PostgreSQL могут содержать конфиденциальную информацию, включая запросы с данными пользователей, паролями и деталями подключения.",
+    "sensitiveLogsTestEnvironmentWarning": "Включайте эти логи только для тестовых/разработческих сред или когда это абсолютно необходимо для отладки.",
+    "sensitiveLogsProductionWarning": "Не включайте конфиденциальные логи в диагностические пакеты для внешнего использования.",
+    "iUnderstandIncludeLogs": "Понимаю, включить логи",
+    "allServerLogs": "все логи сервера",
+    "directoryLogs": "логи {{directory}}",
+    "purgeServerLogs": "Очистить логи сервера",
+    "confirmPurgeLogs": "Вы уверены, что хотите очистить {{dirLabel}}?",
+    "cannotBeUndone": "Это действие нельзя отменить.",
+    "purgeAgentLogs": "Очистить логи агента",
+    "confirmPurgeAgentLogs": "Вы уверены, что хотите очистить логи для агента {{agentId}}?",
+    "enable": "Включить",
+    "disable": "Отключить",
+    "serverDebugModeTitle": "{{action}} режим отладки сервера",
+    "serverDebugModeMessage": "Это изменит уровень логирования сервера. Сервер nginx будет перезагружен для применения изменений.",
+    "serverDebugModeWarning": "Страница кратковременно переподключится после применения изменений.",
+    "reconnectingToServer": "Переподключение к серверу",
+    "pleaseWaitReconnecting": "Пожалуйста, подождите, пока сервер перезапускается...",
+    "nginxLogsTooltip": "Предупреждение: могут содержать конфиденциальные данные запросов",
+    "postgresLogsTooltip": "Предупреждение: могут содержать конфиденциальные запросы к базе данных",
+    "messages": {
+      "loadFailed": "Не удалось загрузить данные диагностики:",
+      "logStatsFailed": "Не удалось загрузить статистику логов:",
+      "purgeFailed": "Не удалось очистить логи:",
+      "reconnectionTimedOut": "Превышено время переподключения. Пожалуйста, обновите страницу.",
+      "toggleDebugFailed": "Не удалось переключить режим отладки:",
+      "downloadFailed": "Не удалось скачать диагностику:",
+      "toggleAgentDebugFailed": "Не удалось переключить отладку агента:",
+      "toggleAllAgentsDebugFailed": "Не удалось переключить отладку для всех агентов:",
+      "fetchAgentLogsFailed": "Не удалось получить логи агента:",
+      "purgeAgentLogsFailed": "Не удалось очистить логи агента:"
+    }
+  },
+  "authSettings": {
+    "pageTitle": "Настройки аутентификации",
+    "unsavedChanges": "У вас есть несохранённые изменения. Нажмите «Сохранить настройки» для их применения.",
+    "saving": "Сохранение...",
+    "saveSettings": "Сохранить настройки",
+    "resetToSaved": "Сбросить к сохранённым",
+    "passwordPolicy": {
+      "title": "Политика паролей",
+      "minLength": "Минимальная длина пароля",
+      "requireUppercase": "Требовать заглавные буквы",
+      "requireLowercase": "Требовать строчные буквы",
+      "requireNumbers": "Требовать цифры",
+      "requireSpecialChars": "Требовать специальные символы"
+    },
+    "accountSecurity": {
+      "title": "Безопасность аккаунта",
+      "maxFailedAttempts": "Макс. неудачных попыток входа",
+      "lockoutDuration": "Длительность блокировки (минуты)",
+      "jwtExpiry": "Срок действия JWT (минуты)",
+      "notificationAggregation": "Агрегация уведомлений (минуты)",
+      "notificationAggregationHelper": "Как долго агрегировать похожие уведомления перед отправкой"
+    },
+    "mfa": {
+      "title": "Многофакторная аутентификация",
+      "requireMfa": "Требовать MFA для всех пользователей",
+      "requireMfaEmailRequired": "Требовать MFA (необходим почтовый шлюз)",
+      "allowedMethods": "Разрешённые методы MFA",
+      "methodEmail": "Код по почте",
+      "methodAuthenticator": "Приложение-аутентификатор (TOTP)",
+      "methodPasskey": "Passkey (WebAuthn)",
+      "methodPasskeyNotSupported": "Passkey (не поддерживается в этом браузере)",
+      "codeSettings": "Настройки кодов",
+      "emailCodeValidity": "Срок действия кода по почте (минуты)",
+      "emailCodeValidityHelper": "Как долго действительны коды верификации по почте",
+      "codeCooldown": "Интервал между запросами кода (минуты)",
+      "codeCooldownHelper": "Минимальное время между запросами кода",
+      "codeExpiry": "Срок действия кода (минуты)",
+      "codeExpiryHelper": "Как долго действительны коды MFA",
+      "maxCodeAttempts": "Макс. попыток ввода кода",
+      "maxCodeAttemptsHelper": "Максимум неудачных попыток ввода кода до блокировки",
+      "backupCodesCount": "Количество резервных кодов",
+      "backupCodesCountHelper": "Количество генерируемых резервных кодов"
+    },
+    "webauthn": {
+      "title": "Конфигурация WebAuthn / Passkey",
+      "notSupported": "WebAuthn не поддерживается в этом браузере.",
+      "requiresDomain": "Passkey требуют правильный домен и HTTPS. Настройте параметры домена ниже.",
+      "rpId": "ID доверяющей стороны",
+      "rpIdHelper": "Ваше доменное имя (например, krakenhashes.example.com)",
+      "rpDisplayName": "Отображаемое имя",
+      "rpDisplayNameHelper": "Имя, отображаемое пользователям при регистрации passkey",
+      "allowedOrigins": "Разрешённые источники",
+      "allowedOriginsHelper": "По одному источнику на строку (например, https://krakenhashes.example.com)",
+      "configured": "WebAuthn настроен и готов к использованию.",
+      "save": "Сохранить настройки WebAuthn"
+    },
+    "session": {
+      "title": "Управление сессиями",
+      "tokenCleanupInterval": "Интервал очистки токенов (секунды)",
+      "tokenCleanupIntervalHelper": "Как часто очищать истекшие токены",
+      "maxConcurrentSessions": "Макс. параллельных сессий",
+      "maxConcurrentSessionsHelper": "Максимум сессий на пользователя (0 = без ограничений)",
+      "absoluteTimeout": "Абсолютный тайм-аут сессии (часы)",
+      "absoluteTimeoutHelper": "Принудительная повторная аутентификация после этого времени (0 = отключено)"
+    },
+    "errors": {
+      "loadFailed": "Не удалось загрузить настройки аутентификации",
+      "noSettingsToSave": "Нет настроек для сохранения",
+      "saveFailed": "Не удалось сохранить настройки",
+      "emailProviderRequired": "Для MFA по почте требуется почтовый провайдер",
+      "webauthnSaveFailed": "Не удалось сохранить настройки WebAuthn",
+      "resetFailed": "Не удалось сбросить настройки"
+    },
+    "messages": {
+      "updateSuccess": "Настройки аутентификации успешно обновлены",
+      "updateFailed": "Не удалось обновить настройки аутентификации"
+    }
+  },
+  "ssoSettings": {
+    "pageTitle": "Настройки SSO",
+    "pageDescription": "Настройка провайдеров единого входа и параметров аутентификации",
+    "authMethods": {
+      "title": "Методы аутентификации",
+      "description": "Включение или отключение методов аутентификации глобально",
+      "localAuth": "Локальная аутентификация",
+      "localAuthDescription": "Вход по логину/паролю",
+      "ldapAuth": "Аутентификация LDAP",
+      "ldapAuthDescription": "Active Directory / LDAP",
+      "samlAuth": "Аутентификация SAML",
+      "samlAuthDescription": "SAML 2.0 SSO",
+      "oauthAuth": "Аутентификация OAuth/OIDC",
+      "oauthAuthDescription": "OpenID Connect / OAuth 2.0"
+    },
+    "provisioning": {
+      "title": "Создание пользователей",
+      "description": "Настройка автоматического создания пользователей при входе через SSO",
+      "autoCreateUsers": "Автосоздание пользователей",
+      "autoCreateUsersDescription": "Автоматически создавать учётные записи для новых SSO-входов",
+      "autoEnableUsers": "Автовключение пользователей",
+      "autoEnableUsersDescription": "Автоматически включать новых SSO-пользователей (иначе требуется одобрение администратора)"
+    },
+    "providers": {
+      "title": "Провайдеры SSO",
+      "addProvider": "Добавить провайдера",
+      "noProviders": "SSO-провайдеры не настроены. Нажмите \"Добавить провайдера\" для создания.",
+      "enabled": "Включён",
+      "disabled": "Отключён",
+      "callbackUrl": "URL обратного вызова",
+      "acsUrl": "ACS URL",
+      "metadata": "Метаданные",
+      "viewXml": "Просмотреть XML",
+      "testConnection": "Проверить подключение",
+      "downloadCertificate": "Скачать сертификат SP"
+    },
+    "providerTypes": {
+      "ldap": "LDAP / Active Directory",
+      "saml": "SAML 2.0",
+      "oidc": "OpenID Connect",
+      "oauth2": "OAuth 2.0"
+    },
+    "dialogs": {
+      "deleteProvider": {
+        "title": "Удаление провайдера",
+        "confirmation": "Вы уверены, что хотите удалить провайдера \"{{name}}\"? Это действие нельзя отменить, и все связанные идентификаторы пользователей будут отвязаны."
+      },
+      "providerForm": {
+        "addTitle": "Добавить провайдера",
+        "editTitle": "Редактировать провайдера",
+        "providerName": "Название провайдера",
+        "providerType": "Тип провайдера",
+        "enabled": "Включён"
+      }
+    },
+    "ldapConfig": {
+      "title": "Конфигурация LDAP",
+      "serverUrl": "URL сервера",
+      "serverUrlHelper": "Используйте ldaps:// для безопасных подключений",
+      "baseDn": "Базовый DN",
+      "userSearchFilter": "Фильтр поиска пользователей",
+      "userSearchFilterHelper": "Используйте {{username}} как заполнитель",
+      "bindDn": "Bind DN (необязательно)",
+      "bindPassword": "Пароль Bind",
+      "emailAttribute": "Атрибут email",
+      "usernameAttribute": "Атрибут имени пользователя",
+      "usernameAttributeHelper": "LDAP-атрибут, содержащий имя пользователя (например, sAMAccountName, uid)",
+      "connectionTimeout": "Тайм-аут подключения (секунды)",
+      "useStartTls": "Использовать StartTLS",
+      "skipCertVerify": "Пропустить проверку сертификата (только для тестирования)"
+    },
+    "samlConfig": {
+      "title": "Конфигурация SAML",
+      "spEntityId": "Entity ID SP",
+      "spEntityIdHelper": "SAML-идентификатор вашего приложения",
+      "idpEntityId": "Entity ID IdP",
+      "idpSsoUrl": "SSO URL IdP",
+      "idpCertificate": "Сертификат IdP",
+      "emailAttribute": "Атрибут email",
+      "usernameAttribute": "Атрибут имени пользователя",
+      "usernameAttributeHelper": "SAML-атрибут, содержащий имя пользователя (например, uid, username)",
+      "requireSignedAssertions": "Требовать подписанные утверждения"
+    },
+    "oauthConfig": {
+      "title": "Конфигурация OAuth/OIDC",
+      "isOidc": "OpenID Connect (OIDC)",
+      "clientId": "Client ID",
+      "clientSecret": "Client Secret",
+      "discoveryUrl": "Discovery URL",
+      "discoveryUrlHelper": "Конечная точка OIDC discovery (автонастраивает другие URL)",
+      "authorizationUrl": "URL авторизации",
+      "tokenUrl": "URL токена",
+      "userInfoUrl": "URL информации о пользователе",
+      "scopes": "Области (Scopes)",
+      "scopesHelper": "Список через пробел",
+      "emailAttribute": "Атрибут email",
+      "usernameAttribute": "Атрибут имени пользователя",
+      "usernameAttributeHelper": "Claim, содержащий имя пользователя (например, preferred_username, login, nickname)"
+    },
+    "messages": {
+      "loadFailed": "Не удалось загрузить настройки SSO",
+      "settingsUpdated": "Настройки SSO успешно обновлены",
+      "updateFailed": "Не удалось обновить настройки SSO",
+      "loadProviderFailed": "Не удалось загрузить данные провайдера",
+      "providerDeleted": "Провайдер успешно удалён",
+      "deleteFailed": "Не удалось удалить провайдера",
+      "testSuccess": "Проверка подключения успешна",
+      "testFailed": "Проверка подключения не удалась",
+      "certificateDownloaded": "Сертификат успешно скачан",
+      "certificateNotFound": "Сертификат не найден в метаданных",
+      "certificateDownloadFailed": "Не удалось скачать сертификат",
+      "providerUpdated": "Провайдер успешно обновлён",
+      "providerCreated": "Провайдер успешно создан",
+      "saveProviderFailed": "Не удалось сохранить провайдера"
+    }
+  },
+  "emailSettings": {
+    "tabs": {
+      "providerConfiguration": "Конфигурация провайдера",
+      "emailTemplates": "Шаблоны писем"
+    },
+    "provider": {
+      "titles": {
+        "current": "Текущая конфигурация почты",
+        "create": "Создание конфигурации почты",
+        "edit": "Редактирование конфигурации почты"
+      },
+      "labels": {
+        "provider": "Провайдер",
+        "apiKey": "API-ключ",
+        "password": "Пароль",
+        "smtpHost": "SMTP-сервер",
+        "port": "Порт",
+        "username": "Имя пользователя",
+        "encryption": "Шифрование",
+        "fromEmail": "Email отправителя",
+        "fromName": "Имя отправителя",
+        "domain": "Домен",
+        "monthlyLimit": "Месячный лимит",
+        "skipTlsVerify": "Пропустить проверку TLS-сертификата (небезопасно, не рекомендуется)"
+      },
+      "placeholders": {
+        "smtpHost": "smtp.example.com",
+        "testEmailAddress": "Адрес для тестового письма"
+      },
+      "helpers": {
+        "keepCurrentPassword": "Оставьте пустым, чтобы сохранить текущий",
+        "monthlyLimit": "Оставьте пустым для неограниченного",
+        "mailgunFromEmail": "Обычно noreply@вашдомен",
+        "fromName": "Отображаемое имя для писем"
+      },
+      "menuItems": {
+        "sendgrid": "SendGrid",
+        "mailgun": "Mailgun",
+        "smtp": "SMTP",
+        "encryptionNone": "Без шифрования (Порт 25)",
+        "encryptionStarttls": "STARTTLS (Порт 587)",
+        "encryptionTls": "TLS/SSL (Порт 465)"
+      },
+      "buttons": {
+        "edit": "Редактировать конфигурацию",
+        "cancel": "Отмена",
+        "testConnection": "Проверить подключение",
+        "save": "Сохранить конфигурацию",
+        "saveOnly": "Только сохранить",
+        "saveAndTest": "Сохранить и проверить",
+        "sendTestEmail": "Отправить тестовое письмо"
+      },
+      "dialogs": {
+        "test": {
+          "title": "Проверка конфигурации почты",
+          "content": "Введите адрес электронной почты для отправки тестового письма:"
+        },
+        "save": {
+          "title": "Сохранение конфигурации",
+          "content": "Хотите проверить конфигурацию после сохранения?"
+        }
+      },
+      "warnings": {
+        "tlsVerifyDisabled": "Проверка TLS-сертификата отключена",
+        "tlsVerifyWarning": "Отключение проверки TLS делает ваше соединение уязвимым для атак типа \"человек посередине\". Используйте только для тестирования с самоподписанными сертификатами."
+      },
+      "messages": {
+        "testSuccess": "Тестовое письмо успешно отправлено",
+        "testFailed": "Не удалось отправить тестовое письмо",
+        "saveSuccess": "Конфигурация успешно сохранена",
+        "saveFailed": "Не удалось сохранить конфигурацию",
+        "loadFailed": "Не удалось загрузить конфигурацию"
+      }
+    },
+    "templates": {
+      "title": "Шаблоны писем",
+      "createTemplate": "Создать шаблон письма",
+      "editTemplate": "Редактировать шаблон письма",
+      "labels": {
+        "templateType": "Тип шаблона",
+        "name": "Название",
+        "subject": "Тема",
+        "htmlContent": "HTML-содержимое",
+        "textContent": "Текстовое содержимое"
+      },
+      "menuItems": {
+        "securityEvent": "Событие безопасности",
+        "jobCompletion": "Завершение задания",
+        "adminError": "Ошибка администратора",
+        "mfaCode": "Код MFA"
+      },
+      "buttons": {
+        "create": "Создать шаблон",
+        "cancel": "Отмена",
+        "test": "Проверить",
+        "save": "Сохранить"
+      },
+      "table": {
+        "name": "Название",
+        "type": "Тип",
+        "subject": "Тема",
+        "actions": "Действия"
+      },
+      "preview": "Предпросмотр (с примером данных):",
+      "messages": {
+        "loadSuccess": "Шаблоны успешно загружены",
+        "loadFailed": "Не удалось загрузить шаблоны",
+        "createSuccess": "Шаблон успешно создан",
+        "createFailed": "Не удалось создать шаблон",
+        "updateSuccess": "Шаблон успешно обновлён",
+        "updateFailed": "Не удалось обновить шаблон",
+        "deleteSuccess": "Шаблон успешно удалён",
+        "deleteFailed": "Не удалось удалить шаблон",
+        "testSuccess": "Тестовое письмо успешно отправлено",
+        "testFailed": "Не удалось отправить тестовое письмо"
+      }
+    }
+  },
+  "settings": {
+    "saved": "Настройки успешно сохранены",
+    "saveFailed": "Не удалось сохранить настройки"
+  },
+  "clientSettings": {
+    "title": "Настройки клиентов",
+    "retentionPeriod": "Срок хранения данных по умолчанию (месяцы)",
+    "retentionHelperText": "Срок хранения по умолчанию для новых клиентов (0 = хранить бессрочно)",
+    "saveButton": "Сохранить настройки",
+    "errors": {
+      "invalidRetention": "Срок хранения должен быть неотрицательным числом",
+      "saveFailed": "Не удалось сохранить настройки клиентов"
+    },
+    "messages": {
+      "updateSuccess": "Настройки клиентов успешно обновлены"
+    }
+  },
+  "systemSettings": {
+    "title": "Системные настройки",
+    "priority": {
+      "title": "Настройки приоритета",
+      "tooltip": "Настройте максимальное значение приоритета, которое может быть назначено заданиям и шаблонам заданий. Это помогает поддерживать единообразие диапазонов приоритетов в вашей организации.",
+      "maxPriority": "Максимальный приоритет задания",
+      "helperText": "Установите максимальное значение приоритета (1-1 000 000). Задания и шаблоны заданий не могут превышать этот приоритет.",
+      "saveButton": "Сохранить настройки",
+      "saving": "Сохранение...",
+      "reset": "Сбросить"
+    },
+    "priorityInfo": {
+      "title": "Информация о системе приоритетов",
+      "description": "Система приоритетов использует диапазон от 0 до настроенного максимального приоритета. Большие числа означают более высокий приоритет.",
+      "currentMax": "Текущий максимум",
+      "note": "Вы не можете установить максимальный приоритет ниже, чем приоритет любого существующего шаблона задания. При необходимости сначала обновите или удалите шаблоны с высоким приоритетом.",
+      "recommended": "Рекомендуемые диапазоны в зависимости от размера организации:",
+      "small": "Небольшая организация: 0-100",
+      "medium": "Средняя/крупная организация: 0-1 000",
+      "large": "Организация с огромной нагрузкой: 0-10 000"
+    },
+    "agentScheduling": {
+      "title": "Планирование агентов",
+      "tooltip": "Включите или отключите систему планирования агентов глобально. При включении агенты могут иметь настроенные ежедневные расписания.",
+      "enable": "Включить систему планирования агентов",
+      "description": "При включении агенты могут иметь настроенные ежедневные расписания. Только агенты, запланированные на текущее время, будут получать задания.",
+      "note": "Для работы этой функции у отдельных агентов также должно быть включено планирование и настроены расписания."
+    },
+    "agentOverflow": {
+      "title": "Распределение избыточных агентов",
+      "tooltip": "Настройте, как агенты сверх лимита max_agents распределяются между заданиями с одинаковым приоритетом",
+      "roundRobinMode": "Режим Round-Robin",
+      "fifoMode": "Режим FIFO",
+      "fifoDescription": "Когда несколько заданий с одинаковым приоритетом превышают лимиты max_agents, самое старое задание (созданное первым) получает всех дополнительных агентов.",
+      "roundRobinDescription": "Дополнительные агенты распределяются равномерно между всеми заданиями с одинаковым приоритетом, по одному агенту за раз, обеспечивая справедливое распределение."
+    },
+    "hashlist": {
+      "title": "Настройки списков хешей",
+      "tooltip": "Настройте параметры, связанные с загрузкой и управлением списками хешей",
+      "requireClient": "Требовать клиента для списков хешей",
+      "requireClientDescription": "При включении пользователи должны назначать клиента при загрузке новых списков хешей. Это помогает лучше организовывать и отслеживать списки хешей по клиентам.",
+      "batchSize": "Размер пакета массового импорта",
+      "batchSizeHelper": "Количество хешей, обрабатываемых за один пакет при загрузке. По умолчанию: 100 000. Рекомендуется: 500 000-1 000 000 для больших списков хешей (47M+)",
+      "performanceGuide": "Руководство по производительности:",
+      "performance100k": "100K (по умолчанию): Подходит для большинства случаев",
+      "performance500k": "500K: Лучше для больших списков хешей, может улучшить пропускную способность",
+      "performance1m": "1M: Лучше всего для очень больших списков хешей (50M+), требует больше RAM"
+    },
+    "potfile": {
+      "title": "Настройки Potfile",
+      "tooltip": "Настройте, как potfile обрабатывает взломанные пароли для повторного использования в заданиях",
+      "maxBatchSize": "Максимальный размер пакета",
+      "maxBatchSizeHelper": "Количество подготовленных паролей для обработки в каждом цикле пакетной обработки (1 000 - 500 000)",
+      "batchInterval": "Интервал пакетной обработки (секунды)",
+      "batchIntervalHelper": "Секунды между циклами пакетной обработки pot-файла (10 - 600)",
+      "description": "Potfile собирает взломанные пароли из всех заданий и повторно использует их в последующих атаках. Большие размеры пакетов обрабатывают больше паролей за раз, но каждый цикл занимает больше времени.",
+      "processingRate": "Скорость обработки",
+      "passwordsPerSecond": "паролей/секунда",
+      "currentSettings": "Текущие настройки",
+      "passwordsEvery": "паролей каждые",
+      "seconds": "секунд"
+    },
+    "errors": {
+      "loadFailed": "Не удалось загрузить системные настройки",
+      "maxPriorityRequired": "Максимальный приоритет обязателен",
+      "maxPriorityPositive": "Максимальный приоритет должен быть положительным числом",
+      "maxPriorityMax": "Максимальный приоритет не может превышать 1 000 000",
+      "saveFailed": "Не удалось сохранить системные настройки",
+      "batchSizeRange": "Размер пакета должен быть между {{min}} и {{max}}",
+      "intervalRange": "Интервал должен быть между {{min}} и {{max}} секунд"
+    },
+    "messages": {
+      "updateSuccess": "Системные настройки успешно обновлены",
+      "schedulingUpdated": "Настройка планирования агентов обновлена",
+      "schedulingFailed": "Не удалось обновить настройку планирования",
+      "overflowUpdated": "Режим распределения избыточных агентов обновлён",
+      "overflowFailed": "Не удалось обновить режим распределения избыточных агентов",
+      "hashlistClientUpdated": "Требование клиента для списков хешей обновлено",
+      "hashlistBatchUpdated": "Размер пакета списков хешей обновлён",
+      "potfileBatchUpdated": "Размер пакета potfile обновлён",
+      "potfileIntervalUpdated": "Интервал пакетной обработки potfile обновлён",
+      "updateFailed": "Не удалось обновить настройку"
+    }
+  },
+  "jobExecution": {
+    "title": "Настройки выполнения заданий",
+    "description": "Настройте, как задания выполняются и распределяются между агентами",
+    "chunking": {
+      "title": "Разбиение заданий на части",
+      "defaultChunkDuration": "Длительность части по умолчанию",
+      "defaultChunkDurationHelper": "Длительность каждой части задания",
+      "chunkFluctuation": "Процент отклонения части",
+      "chunkFluctuationHelper": "Допустимое отклонение для финальных частей",
+      "minutes": "минут"
+    },
+    "agentConfig": {
+      "title": "Конфигурация агентов",
+      "hashlistRetention": "Хранение списков хешей",
+      "hashlistRetentionHelper": "Как долго агенты хранят списки хешей",
+      "maxConcurrentJobs": "Макс. параллельных заданий на агента",
+      "maxConcurrentJobsHelper": "Максимальное количество заданий, которые агент может выполнять одновременно",
+      "progressReporting": "Интервал отчётов о прогрессе",
+      "progressReportingHelper": "Как часто агенты отправляют отчёты о прогрессе",
+      "benchmarkCache": "Срок хранения бенчмарков",
+      "benchmarkCacheHelper": "Как долго кэшировать бенчмарки агентов",
+      "speedtestTimeout": "Тайм-аут теста скорости",
+      "speedtestTimeoutHelper": "Максимальное время ожидания завершения теста скорости",
+      "reconnectGrace": "Льготный период переподключения",
+      "reconnectGraceHelper": "Время ожидания переподключения агентов после перезапуска сервера",
+      "days": "дней",
+      "seconds": "секунд",
+      "minutes": "минут"
+    },
+    "jobControl": {
+      "title": "Управление заданиями",
+      "allowInterruption": "Разрешить прерывание заданий",
+      "allowInterruptionHelper": "Задания с более высоким приоритетом могут прерывать выполняющиеся задания",
+      "realtimeNotifications": "Уведомления о взломе в реальном времени",
+      "realtimeNotificationsHelper": "Отправлять уведомления при взломе хешей",
+      "refreshInterval": "Интервал обновления заданий",
+      "refreshIntervalHelper": "Как часто обновлять статус заданий в интерфейсе",
+      "maxRetryAttempts": "Макс. попыток повтора части",
+      "maxRetryAttemptsHelper": "Количество попыток повтора неудачных частей",
+      "jobsPerPage": "Заданий на странице",
+      "jobsPerPageHelper": "Размер пагинации по умолчанию для списков заданий"
+    },
+    "potfile": {
+      "title": "Настройки Potfile",
+      "enablePotfile": "Включить Potfile",
+      "enablePotfileHelper": "Автоматически сохранять взломанные пароли для использования в будущих заданиях. Отдельные списки хешей всё ещё могут быть исключены."
+    },
+    "ruleSplitting": {
+      "title": "Разделение правил",
+      "enableRuleSplitting": "Включить разделение правил",
+      "enableRuleSplittingHelper": "Автоматически разделять большие файлы правил для распределённой обработки",
+      "threshold": "Порог разделения правил",
+      "thresholdHelper": "Разделять, когда время задания превышает время части в указанное количество раз",
+      "minRules": "Минимальное количество правил для разделения",
+      "minRulesHelper": "Не разделять файлы с меньшим количеством правил",
+      "maxChunks": "Максимальное количество частей правил",
+      "maxChunksHelper": "Максимальное количество частей для создания на файл",
+      "chunkDirectory": "Директория для частей правил",
+      "chunkDirectoryHelper": "Директория для временных частей правил"
+    },
+    "buttons": {
+      "save": "Сохранить настройки"
+    },
+    "errors": {
+      "loadFailed": "Не удалось загрузить настройки"
+    },
+    "messages": {
+      "updateSuccess": "Настройки выполнения заданий успешно обновлены",
+      "loadFailed": "Не удалось загрузить настройки выполнения заданий",
+      "saveFailed": "Не удалось сохранить настройки"
+    }
+  },
+  "monitoring": {
+    "title": "Настройки мониторинга",
+    "metricsRetention": {
+      "title": "Сроки хранения метрик",
+      "description": "Настройте, как долго хранить метрики на разных уровнях детализации. Данные каскадируются от детальных к агрегированным с течением времени.",
+      "realtimeData": "Хранение данных реального времени",
+      "realtimeDataHelper": "Дней хранения детальных метрик для недавней активности (например, 7 дней)",
+      "dailyAggregates": "Хранение дневных агрегатов",
+      "dailyAggregatesHelper": "Дней хранения дневных сводок после периода реального времени (например, 30 дней)",
+      "weeklyAggregates": "Хранение недельных агрегатов",
+      "weeklyAggregatesHelper": "Дней сохранения долгосрочных трендов в виде недельных сводок (например, 365 дней)"
+    },
+    "aggregation": {
+      "title": "Настройки агрегации",
+      "enableAggregation": "Включить автоматическую агрегацию",
+      "enableAggregationDescription": "Автоматически консолидировать старые метрики для экономии места при сохранении трендов",
+      "interval": "Интервал агрегации",
+      "intervalHelper": "Как часто запускать процесс агрегации",
+      "hourly": "Каждый час",
+      "daily": "Ежедневно",
+      "weekly": "Еженедельно"
+    },
+    "cascading": {
+      "title": "Как работает каскадная агрегация:",
+      "realtime": "Данные реального времени предоставляют детальные метрики для недавней активности",
+      "daily": "После периода реального времени данные агрегируются в дневные сводки",
+      "weekly": "После дневного периода данные дополнительно агрегируются в недельные сводки",
+      "benefit": "Этот подход сохраняет читаемость графиков при сохранении исторических трендов"
+    },
+    "buttons": {
+      "save": "Сохранить настройки",
+      "saving": "Сохранение..."
+    },
+    "errors": {
+      "loadFailed": "Не удалось загрузить настройки. Пожалуйста, попробуйте снова.",
+      "saveFailed": "Не удалось сохранить настройки. Пожалуйста, попробуйте снова."
+    },
+    "messages": {
+      "updateSuccess": "Настройки мониторинга успешно сохранены"
+    }
+  },
+  "agentDownloads": {
+    "title": "Настройки передачи файлов агентов",
+    "description": "Настройте, как агенты скачивают файлы с сервера. Эти настройки применяются ко всем подключённым агентам.",
+    "concurrentDownloads": {
+      "title": "Параллельные загрузки",
+      "description": "Максимальное количество файлов, которые могут скачиваться одновременно"
+    },
+    "downloadTimeout": {
+      "title": "Тайм-аут загрузки",
+      "description": "Максимальное время для загрузки одного файла",
+      "helper": "От 1 минуты до 24 часов (1440 минут)",
+      "unit": "минут"
+    },
+    "retryAttempts": {
+      "title": "Попытки повтора",
+      "description": "Количество попыток повтора неудачных загрузок"
+    },
+    "progressInterval": {
+      "title": "Интервал отчётов о прогрессе",
+      "description": "Как часто агенты сообщают о прогрессе загрузки",
+      "helper": "От 1 секунды до 5 минут (300 секунд)",
+      "unit": "секунд"
+    },
+    "chunkSize": {
+      "title": "Размер блока",
+      "description": "Размер блока загрузки для возможности возобновления в будущем",
+      "helper": "От 1 МБ до 100 МБ",
+      "unit": "МБ"
+    },
+    "applyNote": "Изменения применятся к агентам при следующем подключении. Уже подключённые агенты получат обновления автоматически.",
+    "buttons": {
+      "save": "Сохранить настройки",
+      "saving": "Сохранение..."
+    },
+    "errors": {
+      "loadFailed": "Не удалось загрузить настройки загрузки агентов",
+      "saveFailed": "Не удалось обновить настройки загрузки агентов"
+    },
+    "messages": {
+      "updateSuccess": "Настройки загрузки агентов успешно обновлены"
+    }
+  },
+  "hashTypes": {
+    "title": "Управление типами хешей",
+    "description": "Управление поддерживаемыми типами хешей для операций по взлому паролей",
+    "addHashType": "Добавить тип хеша",
+    "searchPlaceholder": "Поиск типов хешей...",
+    "hashTypesFound": "Найдено типов хешей: {{count}}",
+    "table": {
+      "id": "ID",
+      "name": "Название",
+      "description": "Описание",
+      "example": "Пример",
+      "slow": "Медленный",
+      "salted": "С солью",
+      "actions": "Действия",
+      "loading": "Загрузка типов хешей...",
+      "noResults": "Типы хешей не найдены"
+    },
+    "dialog": {
+      "addTitle": "Добавление нового типа хеша",
+      "editTitle": "Редактирование типа хеша",
+      "hashIdLabel": "ID хеша (номер режима Hashcat)",
+      "hashIdHelper": "например, 1000 для NTLM",
+      "nameLabel": "Название",
+      "descriptionLabel": "Описание",
+      "exampleLabel": "Пример хеша",
+      "exampleHelper": "Пример данного формата хеша",
+      "slowLabel": "Медленный алгоритм хеширования",
+      "saltedLabel": "Тип хеша с солью (например, NTLMv2, bcrypt)",
+      "processingInfo": "Этот тип хеша требует специальной обработки. Логика обработки управляется программно.",
+      "cancel": "Отмена",
+      "save": "Сохранить",
+      "saving": "Сохранение..."
+    },
+    "validation": {
+      "hashIdRequired": "ID хеша обязателен и должен быть положительным",
+      "hashIdExists": "Этот ID хеша уже существует",
+      "nameRequired": "Название обязательно"
+    },
+    "tooltips": {
+      "requiresProcessing": "Требует специальной обработки",
+      "processing": "Обработка",
+      "slowAlgorithm": "Медленный алгоритм хеширования (высокая вычислительная сложность)",
+      "salted": "Использует соль для каждого хеша (влияет на расчёт пространства ключей)"
+    },
+    "confirmDelete": {
+      "title": "Подтверждение удаления",
+      "warning": "Этот тип хеша в настоящее время активен. Его удаление может повлиять на существующую функциональность.",
+      "cancel": "Отмена",
+      "delete": "Удалить",
+      "deleting": "Удаление..."
+    },
+    "messages": {
+      "createSuccess": "Тип хеша успешно создан",
+      "createFailed": "Не удалось создать тип хеша",
+      "updateSuccess": "Тип хеша успешно обновлён",
+      "updateFailed": "Не удалось обновить тип хеша",
+      "deleteSuccess": "Тип хеша успешно удалён",
+      "deleteFailed": "Не удалось удалить тип хеша",
+      "deleteInUse": "Невозможно удалить: этот тип хеша используется существующими списками хешей",
+      "loadFailed": "Не удалось загрузить типы хешей. Пожалуйста, обновите страницу."
+    }
+  }
+}

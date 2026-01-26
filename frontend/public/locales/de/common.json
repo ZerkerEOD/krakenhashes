@@ -1,0 +1,153 @@
+{
+  "buttons": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "create": "Erstellen",
+    "submit": "Absenden",
+    "close": "Schließen",
+    "confirm": "Bestätigen",
+    "retry": "Erneut versuchen",
+    "refresh": "Aktualisieren",
+    "download": "Herunterladen",
+    "upload": "Hochladen",
+    "copy": "Kopieren",
+    "search": "Suchen",
+    "filter": "Filtern",
+    "clearFilters": "Filter zurücksetzen",
+    "loadAll": "Alle laden",
+    "signIn": "Anmelden",
+    "logIn": "Einloggen",
+    "logout": "Abmelden"
+  },
+  "labels": {
+    "loading": "Wird geladen...",
+    "noData": "Keine Daten verfügbar",
+    "error": "Ein Fehler ist aufgetreten",
+    "success": "Erfolgreich",
+    "warning": "Warnung",
+    "info": "Information",
+    "required": "Erforderlich",
+    "optional": "Optional",
+    "all": "Alle",
+    "none": "Keine",
+    "yes": "Ja",
+    "no": "Nein",
+    "enabled": "Aktiviert",
+    "disabled": "Deaktiviert",
+    "active": "Aktiv",
+    "inactive": "Inaktiv",
+    "pending": "Ausstehend",
+    "completed": "Abgeschlossen",
+    "failed": "Fehlgeschlagen",
+    "unknown": "Unbekannt"
+  },
+  "pagination": {
+    "rowsPerPage": "Zeilen pro Seite",
+    "page": "Seite {{current}} von {{total}}",
+    "showing": "Zeige {{from}}-{{to}} von {{total}}",
+    "first": "Erste Seite",
+    "last": "Letzte Seite",
+    "next": "Nächste Seite",
+    "previous": "Vorherige Seite"
+  },
+  "language": {
+    "selectLanguage": "Sprache auswählen",
+    "currentLanguage": "Aktuelle Sprache"
+  },
+  "clipboard": {
+    "copied": "In die Zwischenablage kopiert",
+    "copyFailed": "Kopieren in die Zwischenablage fehlgeschlagen"
+  },
+  "errors": {
+    "networkError": "Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung.",
+    "serverError": "Serverfehler. Bitte versuchen Sie es später erneut.",
+    "unknownError": "Ein unbekannter Fehler ist aufgetreten",
+    "validationError": "Bitte überprüfen Sie Ihre Eingabe und versuchen Sie es erneut",
+    "permissionDenied": "Zugriff verweigert",
+    "notFound": "Nicht gefunden",
+    "sessionExpired": "Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an."
+  },
+  "confirmations": {
+    "areYouSure": "Sind Sie sicher?",
+    "cannotBeUndone": "Diese Aktion kann nicht rückgängig gemacht werden.",
+    "confirmDelete": "Löschen bestätigen",
+    "confirmAction": "Aktion bestätigen"
+  },
+  "time": {
+    "justNow": "Gerade eben",
+    "minutesAgo": "vor {{count}} Minute",
+    "minutesAgo_plural": "vor {{count}} Minuten",
+    "hoursAgo": "vor {{count}} Stunde",
+    "hoursAgo_plural": "vor {{count}} Stunden",
+    "daysAgo": "vor {{count}} Tag",
+    "daysAgo_plural": "vor {{count}} Tagen",
+    "never": "Nie"
+  },
+  "fileUpload": {
+    "dragAndDrop": "Datei hierher ziehen oder klicken zum Auswählen",
+    "selectFile": "Datei auswählen",
+    "uploading": "Wird hochgeladen...",
+    "uploadSuccess": "Datei erfolgreich hochgeladen",
+    "uploadFailed": "Datei-Upload fehlgeschlagen",
+    "chooseFile": "Datei wählen",
+    "description": "Beschreibung",
+    "loading": "Wird geladen..."
+  },
+  "binaryVersionSelector": {
+    "label": "Binär-Version",
+    "helperText": "Binär-Versionsmuster für diesen Auftrag auswählen",
+    "default": "Standard",
+    "majorVersion": "Hauptversion (Neueste Minor)",
+    "minorVersion": "Nebenversion (Neuester Patch)",
+    "exactVersion": "Exakte Version",
+    "loading": "Wird geladen...",
+    "loadingVersions": "Binär-Versionen werden geladen...",
+    "loadError": "Fehler beim Laden der Binär-Versionen"
+  },
+  "passwordValidation": {
+    "requirements": "Passwortanforderungen:",
+    "minLength": "Mindestens {{length}} Zeichen",
+    "uppercase": "Mindestens ein Großbuchstabe",
+    "lowercase": "Mindestens ein Kleinbuchstabe",
+    "number": "Mindestens eine Zahl",
+    "specialChar": "Mindestens ein Sonderzeichen"
+  },
+  "footer": {
+    "documentation": "Dokumentation",
+    "issues": "Probleme",
+    "loading": "Wird geladen...",
+    "release": "Release v{{version}}",
+    "versionUnavailable": "Version nicht verfügbar"
+  },
+  "layout": {
+    "logoAlt": "KrakenHashes Logo"
+  },
+  "table": {
+    "noResults": "Keine Ergebnisse gefunden",
+    "loading": "Daten werden geladen...",
+    "emptyState": "Keine Daten zum Anzeigen"
+  },
+  "about": {
+    "title": "Über KrakenHashes",
+    "versionInfo": {
+      "title": "Versionsinformationen",
+      "release": "Release",
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "agent": "Agent-Version",
+      "api": "API-Version",
+      "database": "Datenbank"
+    },
+    "projectInfo": {
+      "title": "Projektinformationen",
+      "description": "KrakenHashes ist ein verteiltes Passwortverwaltungssystem, das entwickelt wurde, um Passwort-Cracking-Aufgaben über mehrere Agenten hinweg zu koordinieren und zu verwalten.",
+      "license": "Dies ist ein Open-Source-Projekt unter der GNU Affero General Public License v3.0 (AGPL-3.0).",
+      "githubLink": "GitHub-Repository"
+    },
+    "errors": {
+      "fetchFailed": "Versionsinformationen konnten nicht abgerufen werden"
+    }
+  }
+}

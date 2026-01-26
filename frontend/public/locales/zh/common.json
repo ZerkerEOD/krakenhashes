@@ -1,0 +1,153 @@
+{
+  "buttons": {
+    "save": "保存",
+    "cancel": "取消",
+    "delete": "删除",
+    "edit": "编辑",
+    "create": "创建",
+    "submit": "提交",
+    "close": "关闭",
+    "confirm": "确认",
+    "retry": "重试",
+    "refresh": "刷新",
+    "download": "下载",
+    "upload": "上传",
+    "copy": "复制",
+    "search": "搜索",
+    "filter": "筛选",
+    "clearFilters": "清除筛选",
+    "loadAll": "加载全部",
+    "signIn": "登录",
+    "logIn": "登录",
+    "logout": "退出登录"
+  },
+  "labels": {
+    "loading": "加载中...",
+    "noData": "暂无数据",
+    "error": "发生错误",
+    "success": "成功",
+    "warning": "警告",
+    "info": "信息",
+    "required": "必填",
+    "optional": "可选",
+    "all": "全部",
+    "none": "无",
+    "yes": "是",
+    "no": "否",
+    "enabled": "已启用",
+    "disabled": "已禁用",
+    "active": "活跃",
+    "inactive": "不活跃",
+    "pending": "待处理",
+    "completed": "已完成",
+    "failed": "失败",
+    "unknown": "未知"
+  },
+  "pagination": {
+    "rowsPerPage": "每页行数",
+    "page": "第 {{current}} 页，共 {{total}} 页",
+    "showing": "显示 {{from}}-{{to}}，共 {{total}} 条",
+    "first": "第一页",
+    "last": "最后一页",
+    "next": "下一页",
+    "previous": "上一页"
+  },
+  "language": {
+    "selectLanguage": "选择语言",
+    "currentLanguage": "当前语言"
+  },
+  "clipboard": {
+    "copied": "已复制到剪贴板",
+    "copyFailed": "复制到剪贴板失败"
+  },
+  "errors": {
+    "networkError": "网络错误，请检查您的网络连接。",
+    "serverError": "服务器错误，请稍后重试。",
+    "unknownError": "发生未知错误",
+    "validationError": "请检查您的输入后重试",
+    "permissionDenied": "权限被拒绝",
+    "notFound": "未找到",
+    "sessionExpired": "您的会话已过期，请重新登录。"
+  },
+  "confirmations": {
+    "areYouSure": "确定吗？",
+    "cannotBeUndone": "此操作无法撤销。",
+    "confirmDelete": "确认删除",
+    "confirmAction": "确认操作"
+  },
+  "time": {
+    "justNow": "刚刚",
+    "minutesAgo": "{{count}} 分钟前",
+    "minutesAgo_plural": "{{count}} 分钟前",
+    "hoursAgo": "{{count}} 小时前",
+    "hoursAgo_plural": "{{count}} 小时前",
+    "daysAgo": "{{count}} 天前",
+    "daysAgo_plural": "{{count}} 天前",
+    "never": "从未"
+  },
+  "fileUpload": {
+    "dragAndDrop": "将文件拖放到此处，或点击选择",
+    "selectFile": "选择文件",
+    "uploading": "上传中...",
+    "uploadSuccess": "文件上传成功",
+    "uploadFailed": "文件上传失败",
+    "chooseFile": "选择文件",
+    "description": "描述",
+    "loading": "加载中..."
+  },
+  "binaryVersionSelector": {
+    "label": "二进制版本",
+    "helperText": "为此任务选择二进制版本模式",
+    "default": "默认",
+    "majorVersion": "主版本（最新次版本）",
+    "minorVersion": "次版本（最新补丁）",
+    "exactVersion": "精确版本",
+    "loading": "加载中...",
+    "loadingVersions": "正在加载二进制版本...",
+    "loadError": "加载二进制版本失败"
+  },
+  "passwordValidation": {
+    "requirements": "密码要求：",
+    "minLength": "至少 {{length}} 个字符",
+    "uppercase": "至少一个大写字母",
+    "lowercase": "至少一个小写字母",
+    "number": "至少一个数字",
+    "specialChar": "至少一个特殊字符"
+  },
+  "footer": {
+    "documentation": "文档",
+    "issues": "问题",
+    "loading": "加载中...",
+    "release": "发布版本 v{{version}}",
+    "versionUnavailable": "版本不可用"
+  },
+  "layout": {
+    "logoAlt": "KrakenHashes 徽标"
+  },
+  "table": {
+    "noResults": "未找到结果",
+    "loading": "正在加载数据...",
+    "emptyState": "暂无数据显示"
+  },
+  "about": {
+    "title": "关于 KrakenHashes",
+    "versionInfo": {
+      "title": "版本信息",
+      "release": "发布版本",
+      "backend": "后端",
+      "frontend": "前端",
+      "agent": "代理版本",
+      "api": "API 版本",
+      "database": "数据库"
+    },
+    "projectInfo": {
+      "title": "项目信息",
+      "description": "KrakenHashes 是一个分布式密码破解管理系统，旨在协调和管理多个代理之间的密码破解任务。",
+      "license": "这是一个开源项目，采用 GNU Affero 通用公共许可证 v3.0 (AGPL-3.0) 授权。",
+      "githubLink": "GitHub 仓库"
+    },
+    "errors": {
+      "fetchFailed": "获取版本信息失败"
+    }
+  }
+}

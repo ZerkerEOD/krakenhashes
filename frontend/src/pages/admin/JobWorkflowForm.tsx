@@ -30,6 +30,7 @@ import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import { useTranslation } from 'react-i18next';
 import { 
   getJobWorkflowFormData, 
   getJobWorkflow, 
@@ -58,6 +59,7 @@ const getAttackModeName = (mode?: AttackMode): string => {
 };
 
 const JobWorkflowFormPage: React.FC = () => {
+  const { t } = useTranslation('admin');
   const { jobWorkflowId } = useParams<{ jobWorkflowId?: string }>();
   const navigate = useNavigate();
   const isEditing = Boolean(jobWorkflowId);
@@ -94,7 +96,7 @@ const JobWorkflowFormPage: React.FC = () => {
         // Fetch available preset jobs
         const formDataResponse = await getJobWorkflowFormData();
         if (!formDataResponse.preset_jobs?.length) {
-          setError('No preset jobs available. Please add preset jobs before creating workflows.');
+          setError(t('workflows.form.errors.noPresetJobsAvailable') as string);
           setLoading(false);
           return;
         }
@@ -141,14 +143,14 @@ const JobWorkflowFormPage: React.FC = () => {
             }
           } catch (err) {
             console.error('Error fetching job workflow:', err);
-            setError('Failed to load workflow. Please try again.');
+            setError(t('workflows.form.errors.loadFailed') as string);
           }
         }
-        
+
         setLoading(false);
       } catch (err) {
         console.error('Error fetching form data:', err);
-        setError('Failed to load form data. Please try again.');
+        setError(t('workflows.form.errors.loadFormDataFailed') as string);
         setLoading(false);
       }
     };
@@ -230,15 +232,15 @@ const JobWorkflowFormPage: React.FC = () => {
   // Form validation
   const validateForm = (): boolean => {
     if (!formData.name.trim()) {
-      setError('Workflow name is required');
+      setError(t('workflows.form.errors.nameRequired') as string);
       return false;
     }
-    
+
     if (formData.preset_job_ids.length === 0) {
-      setError('At least one preset job is required');
+      setError(t('workflows.form.errors.presetJobRequired') as string);
       return false;
     }
-    
+
     return true;
   };
 
@@ -263,10 +265,10 @@ const JobWorkflowFormPage: React.FC = () => {
     try {
       if (isEditing && jobWorkflowId) {
         await updateJobWorkflow(jobWorkflowId, payload);
-        setSuccessMessage('Workflow updated successfully');
+        setSuccessMessage(t('workflows.form.messages.updateSuccess') as string);
       } else {
         await createJobWorkflow(payload);
-        setSuccessMessage('Workflow created successfully');
+        setSuccessMessage(t('workflows.form.messages.createSuccess') as string);
         // Navigate back to list after a short delay
         setTimeout(() => {
           navigate('/admin/job-workflows');
@@ -274,7 +276,7 @@ const JobWorkflowFormPage: React.FC = () => {
       }
     } catch (err) {
       console.error('Error saving workflow:', err);
-      setError('Failed to save workflow. Please try again.');
+      setError(t('workflows.form.errors.saveFailed') as string);
     } finally {
       setSubmitting(false);
     }
@@ -291,15 +293,15 @@ const JobWorkflowFormPage: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Box mb={3} display="flex" alignItems="center">
-        <IconButton 
-          onClick={() => navigate('/admin/job-workflows')} 
+        <IconButton
+          onClick={() => navigate('/admin/job-workflows')}
           sx={{ mr: 1 }}
           disabled={submitting}
         >
           <ArrowBackIcon />
         </IconButton>
         <Typography variant="h4">
-          {isEditing ? 'Edit Job Workflow' : 'Create New Job Workflow'}
+          {isEditing ? t('workflows.form.editTitle') as string : t('workflows.form.createTitle') as string}
         </Typography>
       </Box>
       
@@ -318,7 +320,7 @@ const JobWorkflowFormPage: React.FC = () => {
       <Paper sx={{ p: 3, mb: 3 }}>
         <form onSubmit={handleSubmit}>
           <TextField
-            label="Workflow Name"
+            label={t('workflows.form.fields.workflowName') as string}
             value={formData.name}
             onChange={handleNameChange}
             fullWidth
@@ -327,7 +329,7 @@ const JobWorkflowFormPage: React.FC = () => {
             required
             disabled={submitting}
           />
-          
+
           <Box mt={3}>
             <Autocomplete
               options={availablePresetJobs.filter(job => !formData.preset_job_ids.includes(job.id))}
@@ -337,22 +339,22 @@ const JobWorkflowFormPage: React.FC = () => {
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  label="Search and add preset jobs"
+                  label={t('workflows.form.fields.searchPresetJobs') as string}
                   variant="outlined"
-                  helperText="Search and select a preset job to add to the workflow"
+                  helperText={t('workflows.form.helperText.searchPresetJobs') as string}
                   fullWidth
                 />
               )}
             />
           </Box>
-          
+
           <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>
-            Workflow Steps {formData.orderedJobs.length > 0 && `(${formData.orderedJobs.length})`}
+            {t('workflows.form.workflowSteps') as string} {formData.orderedJobs.length > 0 && `(${formData.orderedJobs.length})`}
           </Typography>
-          
+
           {formData.orderedJobs.length === 0 ? (
             <Alert severity="info" sx={{ mb: 2 }}>
-              No preset jobs added to this workflow yet. Add jobs from the dropdown above.
+              {t('workflows.form.noJobsAdded') as string}
             </Alert>
           ) : (
             <Paper variant="outlined" sx={{ mb: 3 }}>
@@ -400,14 +402,14 @@ const JobWorkflowFormPage: React.FC = () => {
                                         </Typography>
                                         {workflowStep?.preset_job_priority !== undefined && (
                                           <Chip
-                                            label={`Priority: ${workflowStep.preset_job_priority}`}
+                                            label={t('workflows.form.priority', { priority: workflowStep.preset_job_priority }) as string}
                                             size="small"
                                             color="primary"
                                           />
                                         )}
                                         {job.allow_high_priority_override && (
                                           <Chip
-                                            label="Can Interrupt"
+                                            label={t('workflows.canInterrupt') as string}
                                             color="error"
                                             size="small"
                                             variant="filled"
@@ -427,21 +429,21 @@ const JobWorkflowFormPage: React.FC = () => {
                                           )}
                                           {workflowStep?.preset_job_binary_name && (
                                             <Chip
-                                              label={`Binary: ${workflowStep.preset_job_binary_name}`}
+                                              label={t('workflows.form.binary', { name: workflowStep.preset_job_binary_name }) as string}
                                               size="small"
                                               variant="outlined"
                                             />
                                           )}
                                           {workflowStep?.preset_job_wordlist_ids && (
                                             <Chip
-                                              label={`${workflowStep.preset_job_wordlist_ids.length} Wordlist${workflowStep.preset_job_wordlist_ids.length !== 1 ? 's' : ''}`}
+                                              label={t('workflows.form.wordlistCount', { count: workflowStep.preset_job_wordlist_ids.length }) as string}
                                               size="small"
                                               variant="outlined"
                                             />
                                           )}
                                           {workflowStep?.preset_job_rule_ids && (
                                             <Chip
-                                              label={`${workflowStep.preset_job_rule_ids.length} Rule${workflowStep.preset_job_rule_ids.length !== 1 ? 's' : ''}`}
+                                              label={t('workflows.form.ruleCount', { count: workflowStep.preset_job_rule_ids.length }) as string}
                                               size="small"
                                               variant="outlined"
                                             />
@@ -482,7 +484,7 @@ const JobWorkflowFormPage: React.FC = () => {
               sx={{ mr: 2 }}
               disabled={submitting}
             >
-              Cancel
+              {t('common.cancel') as string}
             </Button>
             <Button
               type="submit"
@@ -490,7 +492,7 @@ const JobWorkflowFormPage: React.FC = () => {
               color="primary"
               disabled={submitting || formData.orderedJobs.length === 0}
             >
-              {submitting ? <CircularProgress size={24} /> : isEditing ? 'Save Changes' : 'Create Workflow'}
+              {submitting ? <CircularProgress size={24} /> : isEditing ? t('workflows.form.saveChanges') as string : t('workflows.form.createWorkflow') as string}
             </Button>
           </Box>
         </form>

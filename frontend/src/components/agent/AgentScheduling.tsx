@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Paper,
@@ -56,6 +57,7 @@ const AgentScheduling: React.FC<AgentSchedulingProps> = ({
   onUpdateSchedules,
   onDeleteSchedule,
 }) => {
+  const { t } = useTranslation('agents');
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingSchedules, setEditingSchedules] = useState<Map<number, AgentSchedule>>(new Map());
   const [saving, setSaving] = useState(false);
@@ -104,10 +106,10 @@ const AgentScheduling: React.FC<AgentSchedulingProps> = ({
 
   const handleToggleScheduling = async () => {
     if (!globalSchedulingEnabled) {
-      setError('Global scheduling is disabled by administrator');
+      setError(t('scheduling.globalDisabledError') as string);
       return;
     }
-    
+
     try {
       await onToggleScheduling(!schedulingEnabled, userTimezone);
     } catch (err) {
@@ -160,7 +162,7 @@ const AgentScheduling: React.FC<AgentSchedulingProps> = ({
       await onUpdateSchedules(scheduleDTOs);
       setIsEditDialogOpen(false);
     } catch (err) {
-      setError('Failed to save schedules');
+      setError(t('errors.saveSchedulesFailed') as string);
       console.error('Failed to save schedules:', err);
     } finally {
       setSaving(false);
@@ -300,13 +302,13 @@ const AgentScheduling: React.FC<AgentSchedulingProps> = ({
         <Box display="flex" alignItems="center" gap={1}>
           <Chip
             size="small"
-            label="Unavailable"
+            label={t('scheduling.unavailable') as string}
             color="error"
             variant="filled"
             sx={{ fontWeight: 'medium' }}
           />
           <Typography variant="body2" color="error">
-            No schedule set
+            {t('scheduling.noScheduleSet') as string}
           </Typography>
         </Box>
       );
@@ -322,7 +324,7 @@ const AgentScheduling: React.FC<AgentSchedulingProps> = ({
         <Box display="flex" alignItems="center" gap={1}>
           <Chip
             size="small"
-            label="Disabled"
+            label={t('scheduling.disabled') as string}
             color="default"
             variant="filled"
           />
@@ -337,14 +339,14 @@ const AgentScheduling: React.FC<AgentSchedulingProps> = ({
       <Box display="flex" alignItems="center" gap={1}>
         <Chip
           size="small"
-          label="Active"
+          label={t('scheduling.active') as string}
           color="success"
           variant="outlined"
         />
         <Typography variant="body2" color="text.primary">
           {localStart} - {localEnd}
         </Typography>
-        {overnight && <Chip size="small" label="Overnight" color="info" variant="outlined" />}
+        {overnight && <Chip size="small" label={t('scheduling.overnight') as string} color="info" variant="outlined" />}
       </Box>
     );
   };
@@ -352,7 +354,7 @@ const AgentScheduling: React.FC<AgentSchedulingProps> = ({
   return (
     <Paper sx={{ p: 3 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h6">Scheduling</Typography>
+        <Typography variant="h6">{t('scheduling.title') as string}</Typography>
         <FormControlLabel
           control={
             <Switch
@@ -362,13 +364,13 @@ const AgentScheduling: React.FC<AgentSchedulingProps> = ({
               disabled={!globalSchedulingEnabled || loadingGlobalSetting}
             />
           }
-          label="Enable Scheduling"
+          label={t('scheduling.enableScheduling') as string}
         />
       </Box>
 
       {!globalSchedulingEnabled && !loadingGlobalSetting && (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          Agent scheduling is disabled by the administrator. Schedules are preserved but will not be enforced until the global setting is enabled.
+          {t('scheduling.globalDisabledWarning') as string}
         </Alert>
       )}
 
@@ -377,17 +379,17 @@ const AgentScheduling: React.FC<AgentSchedulingProps> = ({
       {schedulingEnabled ? (
         <>
           <Alert severity="warning" sx={{ mb: 2 }}>
-            <strong>Important:</strong> When scheduling is enabled, the agent will ONLY work during scheduled times. Days without schedules mean the agent is completely offline for those days.
+            <strong>{t('common.important') as string}:</strong> {t('scheduling.schedulingImportantNote') as string}
           </Alert>
 
           {!globalSchedulingEnabled && (
             <Alert severity="info" sx={{ mb: 2 }}>
-              Schedules are configured but not active because global scheduling is disabled.
+              {t('scheduling.schedulesNotActiveInfo') as string}
             </Alert>
           )}
-          
+
           <Typography variant="body2" color="text.secondary" mb={2}>
-            Times shown in {timezoneDisplay}
+            {t('scheduling.timesShownIn', { timezone: timezoneDisplay }) as string}
           </Typography>
 
           <Grid container spacing={2}>
@@ -417,13 +419,13 @@ const AgentScheduling: React.FC<AgentSchedulingProps> = ({
               startIcon={<EditIcon />}
               onClick={() => setIsEditDialogOpen(true)}
             >
-              Edit All Schedules
+              {t('scheduling.editAllSchedules') as string}
             </Button>
           </Box>
         </>
       ) : (
         <Alert severity="info">
-          Agent is always available when scheduling is disabled
+          {t('scheduling.alwaysAvailable') as string}
         </Alert>
       )}
 
@@ -434,29 +436,29 @@ const AgentScheduling: React.FC<AgentSchedulingProps> = ({
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>Edit Agent Schedule</DialogTitle>
+        <DialogTitle>{t('scheduling.editDialogTitle') as string}</DialogTitle>
         <DialogContent>
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
           <Typography variant="body2" color="text.secondary" mb={1}>
-            Set daily schedules in your local time ({timezoneDisplay})
+            {t('scheduling.setDailySchedules', { timezone: timezoneDisplay }) as string}
           </Typography>
 
           <Alert severity="info" sx={{ mb: 2 }}>
-            <strong>Tip:</strong> For overnight shifts, set end time before start time (e.g., 20:00-08:00 runs from evening through next morning)
+            <strong>{t('common.tip') as string}:</strong> {t('scheduling.overnightTip') as string}
           </Alert>
 
           <Box sx={{ mb: 3 }}>
             <Typography variant="subtitle2" gutterBottom>
-              Quick Presets:
+              {t('scheduling.quickPresets') as string}:
             </Typography>
             <Stack direction="row" spacing={1}>
               <Tooltip
                 title={
                   <Box>
-                    <Typography variant="body2" fontWeight="bold">Business Hours</Typography>
-                    <Typography variant="caption" display="block">Monday - Friday: 08:00 - 17:00</Typography>
-                    <Typography variant="caption">Weekends: Unavailable</Typography>
+                    <Typography variant="body2" fontWeight="bold">{t('scheduling.presets.businessHours') as string}</Typography>
+                    <Typography variant="caption" display="block">{t('scheduling.presets.businessHoursDesc1') as string}</Typography>
+                    <Typography variant="caption">{t('scheduling.presets.businessHoursDesc2') as string}</Typography>
                   </Box>
                 }
                 placement="top"
@@ -466,15 +468,15 @@ const AgentScheduling: React.FC<AgentSchedulingProps> = ({
                   variant="outlined"
                   onClick={() => applyPreset('business')}
                 >
-                  Business Hours
+                  {t('scheduling.presets.businessHours') as string}
                 </Button>
               </Tooltip>
               <Tooltip
                 title={
                   <Box>
-                    <Typography variant="body2" fontWeight="bold">Overnight</Typography>
-                    <Typography variant="caption" display="block">All Days: 20:00 - 08:00</Typography>
-                    <Typography variant="caption">Runs from evening through next morning</Typography>
+                    <Typography variant="body2" fontWeight="bold">{t('scheduling.presets.overnight') as string}</Typography>
+                    <Typography variant="caption" display="block">{t('scheduling.presets.overnightDesc1') as string}</Typography>
+                    <Typography variant="caption">{t('scheduling.presets.overnightDesc2') as string}</Typography>
                   </Box>
                 }
                 placement="top"
@@ -484,15 +486,15 @@ const AgentScheduling: React.FC<AgentSchedulingProps> = ({
                   variant="outlined"
                   onClick={() => applyPreset('overnight')}
                 >
-                  Overnight
+                  {t('scheduling.presets.overnight') as string}
                 </Button>
               </Tooltip>
               <Tooltip
                 title={
                   <Box>
-                    <Typography variant="body2" fontWeight="bold">After Hours</Typography>
-                    <Typography variant="caption" display="block">Monday - Friday: 17:01 - 07:59</Typography>
-                    <Typography variant="caption">Saturday - Sunday: 24 hours</Typography>
+                    <Typography variant="body2" fontWeight="bold">{t('scheduling.presets.afterHours') as string}</Typography>
+                    <Typography variant="caption" display="block">{t('scheduling.presets.afterHoursDesc1') as string}</Typography>
+                    <Typography variant="caption">{t('scheduling.presets.afterHoursDesc2') as string}</Typography>
                   </Box>
                 }
                 placement="top"
@@ -502,15 +504,15 @@ const AgentScheduling: React.FC<AgentSchedulingProps> = ({
                   variant="outlined"
                   onClick={() => applyPreset('afterhours')}
                 >
-                  After Hours
+                  {t('scheduling.presets.afterHours') as string}
                 </Button>
               </Tooltip>
               <Tooltip
                 title={
                   <Box>
-                    <Typography variant="body2" fontWeight="bold">24 Hours</Typography>
-                    <Typography variant="caption" display="block">All Days: 00:00 - 23:59</Typography>
-                    <Typography variant="caption">Agent runs continuously</Typography>
+                    <Typography variant="body2" fontWeight="bold">{t('scheduling.presets.24Hours') as string}</Typography>
+                    <Typography variant="caption" display="block">{t('scheduling.presets.24HoursDesc1') as string}</Typography>
+                    <Typography variant="caption">{t('scheduling.presets.24HoursDesc2') as string}</Typography>
                   </Box>
                 }
                 placement="top"
@@ -520,7 +522,7 @@ const AgentScheduling: React.FC<AgentSchedulingProps> = ({
                   variant="outlined"
                   onClick={() => applyPreset('24hours')}
                 >
-                  24 Hours
+                  {t('scheduling.presets.24Hours') as string}
                 </Button>
               </Tooltip>
             </Stack>
@@ -542,7 +544,7 @@ const AgentScheduling: React.FC<AgentSchedulingProps> = ({
                       {hasSchedule ? (
                         <>
                           <TextField
-                            label="Start Time"
+                            label={t('scheduling.startTime') as string}
                             value={schedule.startTime}
                             onChange={(e) => handleTimeChange(day.value, 'startTime', e.target.value)}
                             placeholder="HH:MM"
@@ -551,7 +553,7 @@ const AgentScheduling: React.FC<AgentSchedulingProps> = ({
                           />
                           <Typography>-</Typography>
                           <TextField
-                            label="End Time"
+                            label={t('scheduling.endTime') as string}
                             value={schedule.endTime}
                             onChange={(e) => handleTimeChange(day.value, 'endTime', e.target.value)}
                             placeholder="HH:MM"
@@ -559,7 +561,7 @@ const AgentScheduling: React.FC<AgentSchedulingProps> = ({
                             sx={{ width: 120 }}
                           />
                           <Tooltip
-                            title="Active: Agent works during scheduled hours | Inactive: Agent is completely offline this day"
+                            title={t('scheduling.activeTooltip') as string}
                             placement="top"
                           >
                             <FormControlLabel
@@ -573,13 +575,13 @@ const AgentScheduling: React.FC<AgentSchedulingProps> = ({
                                   size="small"
                                 />
                               }
-                              label="Active"
+                              label={t('scheduling.active') as string}
                             />
                           </Tooltip>
                           <IconButton
                             size="small"
                             onClick={() => handleCopySchedule(day.value)}
-                            title="Copy to other days"
+                            title={t('scheduling.copyToOtherDays') as string}
                           >
                             <CopyIcon />
                           </IconButton>
@@ -606,14 +608,14 @@ const AgentScheduling: React.FC<AgentSchedulingProps> = ({
                             handleTimeChange(day.value, 'endTime', defaultHours.end);
                           }}
                         >
-                          Add Schedule
+                          {t('scheduling.addSchedule') as string}
                         </Button>
                       )}
                     </Box>
                     
                     {hasSchedule && isOvernightSchedule(schedule.startTime, schedule.endTime) && (
                       <Alert severity="info" sx={{ mt: 1 }}>
-                        This schedule spans midnight
+                        {t('scheduling.spansMidnight') as string}
                       </Alert>
                     )}
                   </Paper>
@@ -623,13 +625,13 @@ const AgentScheduling: React.FC<AgentSchedulingProps> = ({
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setIsEditDialogOpen(false)}>{t('buttons.cancel') as string}</Button>
           <Button
             onClick={handleSaveSchedules}
             variant="contained"
             disabled={saving}
           >
-            {saving ? 'Saving...' : 'Save Changes'}
+            {saving ? (t('buttons.saving') as string) : (t('buttons.saveChanges') as string)}
           </Button>
         </DialogActions>
       </Dialog>
@@ -641,32 +643,32 @@ const AgentScheduling: React.FC<AgentSchedulingProps> = ({
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Warning: Unscheduled Days</DialogTitle>
+        <DialogTitle>{t('scheduling.warningUnscheduledDays') as string}</DialogTitle>
         <DialogContent>
           <Alert severity="warning" sx={{ mb: 2 }}>
-            The following days have no schedule and the agent will be <strong>completely unavailable</strong> on these days:
+            {t('scheduling.unscheduledDaysWarning') as string}
           </Alert>
           <Box sx={{ pl: 2 }}>
             {unscheduledDays.map((day, index) => (
               <Typography key={index} variant="body2" color="error" sx={{ mb: 0.5 }}>
-                • {day}
+                * {day}
               </Typography>
             ))}
           </Box>
           <Typography variant="body2" sx={{ mt: 2 }}>
-            Do you want to continue? You can use the preset buttons to quickly set up common schedules.
+            {t('scheduling.continueQuestion') as string}
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmDialogOpen(false)}>
-            Go Back
+            {t('buttons.goBack') as string}
           </Button>
           <Button
             onClick={performSave}
             variant="contained"
             color="warning"
           >
-            Continue Anyway
+            {t('buttons.continueAnyway') as string}
           </Button>
         </DialogActions>
       </Dialog>

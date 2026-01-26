@@ -10,6 +10,7 @@ import {
   Typography,
   Box,
 } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import JobRow from './JobRow';
 import { JobSummary, PaginationInfo } from '../../types/jobs';
 import { getMaxPriorityForUsers } from '../../services/systemSettings';
@@ -33,6 +34,7 @@ const JobsTable: React.FC<JobsTableProps> = ({
   pageSize,
   onJobUpdated,
 }) => {
+  const { t } = useTranslation('dashboard');
   const [maxPriority, setMaxPriority] = useState<number>(10); // Default to 10 as fallback
 
   useEffect(() => {
@@ -60,10 +62,10 @@ const JobsTable: React.FC<JobsTableProps> = ({
     return (
       <Box sx={{ p: 4, textAlign: 'center' }}>
         <Typography variant="h6" color="text.secondary">
-          No jobs found
+          {t('jobsTable.noJobs')}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Create a new job from the Hashlists page to get started.
+          {t('jobsTable.noJobsHint')}
         </Typography>
       </Box>
     );
@@ -83,16 +85,16 @@ const JobsTable: React.FC<JobsTableProps> = ({
         <Table stickyHeader>
           <TableHead>
             <TableRow>
-              <TableCell>Job Name</TableCell>
-              <TableCell>Hashlist</TableCell>
-              <TableCell>Created By</TableCell>
-              <TableCell align="center">Progress</TableCell>
-              <TableCell align="center">Keyspace</TableCell>
-              <TableCell align="center">Cracked</TableCell>
-              <TableCell align="center">Agents</TableCell>
-              <TableCell align="center">Priority</TableCell>
-              <TableCell align="center">Max Agents</TableCell>
-              <TableCell align="center">Actions</TableCell>
+              <TableCell>{t('jobsTable.columns.jobName')}</TableCell>
+              <TableCell>{t('jobsTable.columns.hashlist')}</TableCell>
+              <TableCell>{t('jobsTable.columns.createdBy')}</TableCell>
+              <TableCell align="center">{t('jobsTable.columns.progress')}</TableCell>
+              <TableCell align="center">{t('jobsTable.columns.keyspace')}</TableCell>
+              <TableCell align="center">{t('jobsTable.columns.cracked')}</TableCell>
+              <TableCell align="center">{t('jobsTable.columns.agents')}</TableCell>
+              <TableCell align="center">{t('jobsTable.columns.priority')}</TableCell>
+              <TableCell align="center">{t('jobsTable.columns.maxAgents')}</TableCell>
+              <TableCell align="center">{t('jobsTable.columns.actions')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -112,7 +114,7 @@ const JobsTable: React.FC<JobsTableProps> = ({
               <TableRow>
                 <TableCell colSpan={10} sx={{ py: 1, bgcolor: 'action.hover' }}>
                   <Typography variant="body2" sx={{ fontWeight: 'medium', color: 'text.secondary', textAlign: 'center' }}>
-                    Completed Jobs
+                    {t('jobsTable.completedJobs')}
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -143,6 +145,7 @@ const JobsTable: React.FC<JobsTableProps> = ({
           onRowsPerPageChange={handleChangeRowsPerPage}
           showFirstButton
           showLastButton
+          labelRowsPerPage={t('pagination.rowsPerPage', { ns: 'common' }) as string}
         />
       )}
     </>

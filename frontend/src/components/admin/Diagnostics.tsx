@@ -36,6 +36,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import WarningIcon from '@mui/icons-material/Warning';
+import { useTranslation } from 'react-i18next';
 import {
   AgentDebugStatus,
   SystemInfoResponse,
@@ -62,6 +63,7 @@ import {
 } from '../../services/diagnostics';
 
 const Diagnostics: React.FC = () => {
+  const { t } = useTranslation('admin');
   const [systemInfo, setSystemInfo] = useState<SystemInfoResponse | null>(null);
   const [agents, setAgents] = useState<AgentDebugStatus[]>([]);
   const [loading, setLoading] = useState(false);
@@ -130,11 +132,11 @@ const Diagnostics: React.FC = () => {
       setPostgresLogsExist(pgLogsCheck.exists);
       setNginxLogsExist(nginxLogsCheck.exists);
     } catch (err) {
-      setError('Failed to load diagnostic data. ' + (err instanceof Error ? err.message : String(err)));
+      setError(t('diagnostics.messages.loadFailed') + ' ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const fetchLogStats = useCallback(async () => {
     setLogStatsLoading(true);
@@ -146,20 +148,20 @@ const Diagnostics: React.FC = () => {
       setLogStats(stats);
       setPostgresLogsExist(pgLogsCheck.exists);
     } catch (err) {
-      setError('Failed to load log stats. ' + (err instanceof Error ? err.message : String(err)));
+      setError(t('diagnostics.messages.logStatsFailed') + ' ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setLogStatsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const handlePurgeServerLogs = async (directory: 'backend' | 'nginx' | 'postgres' | 'all') => {
-    const dirLabel = directory === 'all' ? 'ALL server logs' : `${directory} logs`;
+    const dirLabel = directory === 'all' ? t('diagnostics.allServerLogs') as string : t('diagnostics.directoryLogs', { directory }) as string;
     setConfirmDialog({
       open: true,
-      title: 'Purge Server Logs',
-      message: `Are you sure you want to purge ${dirLabel}?`,
-      warningMessage: 'This action cannot be undone.',
-      confirmText: 'Purge',
+      title: t('diagnostics.purgeServerLogs') as string,
+      message: t('diagnostics.confirmPurgeLogs', { dirLabel }) as string,
+      warningMessage: t('diagnostics.cannotBeUndone') as string,
+      confirmText: t('diagnostics.purge') as string,
       onConfirm: async () => {
         setConfirmDialog(prev => ({ ...prev, open: false }));
         setPurging(directory);
@@ -167,7 +169,7 @@ const Diagnostics: React.FC = () => {
           await purgeServerLogs(directory);
           await fetchLogStats();
         } catch (err) {
-          setError('Failed to purge logs. ' + (err instanceof Error ? err.message : String(err)));
+          setError(t('diagnostics.messages.purgeFailed') + ' ' + (err instanceof Error ? err.message : String(err)));
         } finally {
           setPurging(null);
         }
@@ -183,13 +185,13 @@ const Diagnostics: React.FC = () => {
     if (!serverDebugStatus) return;
 
     const newState = !serverDebugStatus.enabled;
-    const action = newState ? 'Enable' : 'Disable';
+    const action = newState ? t('diagnostics.enable') as string : t('diagnostics.disable') as string;
 
     setConfirmDialog({
       open: true,
-      title: `${action} Server Debug Mode`,
-      message: `This will reload nginx to apply the logging changes.`,
-      warningMessage: 'Active connections will be briefly interrupted.',
+      title: t('diagnostics.serverDebugModeTitle', { action }) as string,
+      message: t('diagnostics.serverDebugModeMessage') as string,
+      warningMessage: t('diagnostics.serverDebugModeWarning') as string,
       confirmText: action,
       onConfirm: async () => {
         setConfirmDialog(prev => ({ ...prev, open: false }));
@@ -227,9 +229,9 @@ const Diagnostics: React.FC = () => {
 
           // If we get here, reconnection failed
           setReconnecting(false);
-          setError('Server reconnection timed out. Please refresh the page.');
+          setError(t('diagnostics.messages.reconnectionTimedOut') as string);
         } catch (err) {
-          setError('Failed to toggle server debug mode. ' + (err instanceof Error ? err.message : String(err)));
+          setError(t('diagnostics.messages.toggleDebugFailed') + ' ' + (err instanceof Error ? err.message : String(err)));
         } finally {
           setServerDebugLoading(false);
         }
@@ -242,7 +244,7 @@ const Diagnostics: React.FC = () => {
     try {
       await downloadDiagnosticsFile(includeAgentLogs, downloadHoursBack, includeNginxLogs, includePostgresLogs);
     } catch (err) {
-      setError('Failed to download diagnostics. ' + (err instanceof Error ? err.message : String(err)));
+      setError(t('diagnostics.messages.downloadFailed') + ' ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setDownloading(false);
     }
@@ -280,7 +282,7 @@ const Diagnostics: React.FC = () => {
       const response = await getAgentDebugStatuses();
       setAgents(response.agents || []);
     } catch (err) {
-      setError('Failed to toggle debug mode. ' + (err instanceof Error ? err.message : String(err)));
+      setError(t('diagnostics.messages.toggleAgentDebugFailed') + ' ' + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -291,7 +293,7 @@ const Diagnostics: React.FC = () => {
       const response = await getAgentDebugStatuses();
       setAgents(response.agents || []);
     } catch (err) {
-      setError('Failed to toggle debug mode for all agents. ' + (err instanceof Error ? err.message : String(err)));
+      setError(t('diagnostics.messages.toggleAllAgentsDebugFailed') + ' ' + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -305,7 +307,7 @@ const Diagnostics: React.FC = () => {
       const logs = await requestAgentLogs(agentId, 168, false); // 168 hours = 7 days to get all buffer
       setSelectedAgentLogs(logs);
     } catch (err) {
-      setError('Failed to fetch agent logs. ' + (err instanceof Error ? err.message : String(err)));
+      setError(t('diagnostics.messages.fetchAgentLogsFailed') + ' ' + (err instanceof Error ? err.message : String(err)));
       setLogDialogOpen(false);
     } finally {
       setLogsLoading(false);
@@ -321,10 +323,10 @@ const Diagnostics: React.FC = () => {
   const handlePurgeLogs = async (agentId: number) => {
     setConfirmDialog({
       open: true,
-      title: 'Purge Agent Logs',
-      message: `Are you sure you want to purge logs for Agent ${agentId}?`,
-      warningMessage: 'This action cannot be undone.',
-      confirmText: 'Purge',
+      title: t('diagnostics.purgeAgentLogs') as string,
+      message: t('diagnostics.confirmPurgeAgentLogs', { agentId }) as string,
+      warningMessage: t('diagnostics.cannotBeUndone') as string,
+      confirmText: t('diagnostics.purge') as string,
       onConfirm: async () => {
         setConfirmDialog(prev => ({ ...prev, open: false }));
         try {
@@ -333,7 +335,7 @@ const Diagnostics: React.FC = () => {
           const response = await getAgentDebugStatuses();
           setAgents(response.agents || []);
         } catch (err) {
-          setError('Failed to purge logs. ' + (err instanceof Error ? err.message : String(err)));
+          setError(t('diagnostics.messages.purgeAgentLogsFailed') + ' ' + (err instanceof Error ? err.message : String(err)));
         }
       }
     });
@@ -361,39 +363,34 @@ const Diagnostics: React.FC = () => {
 
       {postgresLogsExist && (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          <strong>Security Warning:</strong> PostgreSQL file logging is enabled and logs exist.
-          These logs may contain sensitive data (queries with passwords, hashes, etc.).
-          Consider purging PostgreSQL logs below after debugging is complete.
+          <strong>{t('diagnostics.securityWarning') as string}:</strong> {t('diagnostics.postgresLogsWarning') as string}
         </Alert>
       )}
 
       {nginxLogsExist && (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          <strong>Security Warning:</strong> Nginx logs exist and may contain sensitive data
-          (IP addresses, URLs, authentication tokens, etc.).
-          Consider purging Nginx logs below after debugging is complete.
+          <strong>{t('diagnostics.securityWarning') as string}:</strong> {t('diagnostics.nginxLogsWarning') as string}
         </Alert>
       )}
 
       {/* Download Section */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6">Diagnostic Package</Typography>
-          <Tooltip title="Refresh data">
+          <Typography variant="h6">{t('diagnostics.diagnosticPackage') as string}</Typography>
+          <Tooltip title={t('diagnostics.refreshData') as string}>
             <IconButton onClick={fetchData} disabled={loading}>
               <RefreshIcon />
             </IconButton>
           </Tooltip>
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Download a comprehensive diagnostic package containing system info, database exports, logs, and agent status.
-          All sensitive data (names, paths, etc.) is automatically redacted.
+          {t('diagnostics.diagnosticPackageDescription') as string}
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <TextField
               type="number"
-              label="Hours"
+              label={t('diagnostics.hours') as string}
               value={downloadHoursBack || ''}
               onChange={(e) => {
                 const val = parseInt(e.target.value, 10);
@@ -415,7 +412,7 @@ const Diagnostics: React.FC = () => {
               sx={{ width: 80 }}
               inputProps={{ min: 1, step: 1 }}
             />
-            <Tooltip title="Number of hours of logs to include in the diagnostic package">
+            <Tooltip title={t('diagnostics.hoursTooltip') as string}>
               <HelpOutlineIcon sx={{ fontSize: 18, color: 'text.secondary', cursor: 'help' }} />
             </Tooltip>
           </Box>
@@ -426,7 +423,7 @@ const Diagnostics: React.FC = () => {
                 onChange={(e) => setIncludeAgentLogs(e.target.checked)}
               />
             }
-            label="Include agent logs (may take longer)"
+            label={t('diagnostics.includeAgentLogs') as string}
           />
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <FormControlLabel
@@ -436,10 +433,10 @@ const Diagnostics: React.FC = () => {
                   onChange={(e) => handleSensitiveLogToggle('nginx', e.target.checked)}
                 />
               }
-              label="Include Nginx logs"
+              label={t('diagnostics.includeNginxLogs') as string}
             />
             {includeNginxLogs && (
-              <Tooltip title="Nginx logs may contain sensitive data (IP addresses, URLs, auth tokens). Only include for test environments.">
+              <Tooltip title={t('diagnostics.nginxLogsTooltip') as string}>
                 <WarningIcon color="warning" sx={{ ml: -1 }} />
               </Tooltip>
             )}
@@ -452,10 +449,10 @@ const Diagnostics: React.FC = () => {
                   onChange={(e) => handleSensitiveLogToggle('postgres', e.target.checked)}
                 />
               }
-              label="Include PostgreSQL logs"
+              label={t('diagnostics.includePostgresLogs') as string}
             />
             {includePostgresLogs && (
-              <Tooltip title="PostgreSQL logs may contain sensitive data (queries, passwords, hashes). Only include for test environments.">
+              <Tooltip title={t('diagnostics.postgresLogsTooltip') as string}>
                 <WarningIcon color="warning" sx={{ ml: -1 }} />
               </Tooltip>
             )}
@@ -466,7 +463,7 @@ const Diagnostics: React.FC = () => {
             onClick={handleDownload}
             disabled={downloading}
           >
-            {downloading ? 'Preparing...' : 'Download Diagnostics'}
+            {downloading ? t('diagnostics.preparing') as string : t('diagnostics.downloadDiagnostics') as string}
           </Button>
         </Box>
       </Paper>
@@ -474,17 +471,17 @@ const Diagnostics: React.FC = () => {
       {/* System Info */}
       {systemInfo && (
         <Paper sx={{ p: 3, mb: 3 }}>
-          <Typography variant="h6" gutterBottom>System Information</Typography>
+          <Typography variant="h6" gutterBottom>{t('diagnostics.systemInfo') as string}</Typography>
           <Grid container spacing={2}>
             <Grid item xs={12} md={6}>
               <Card variant="outlined">
                 <CardContent>
-                  <Typography variant="subtitle2" color="text.secondary">Runtime</Typography>
+                  <Typography variant="subtitle2" color="text.secondary">{t('diagnostics.runtime') as string}</Typography>
                   <Typography variant="body2">
                     Go {systemInfo.system_info.go_version} ({systemInfo.system_info.go_os}/{systemInfo.system_info.go_arch})
                   </Typography>
                   <Typography variant="body2">
-                    CPUs: {systemInfo.system_info.num_cpu} | Goroutines: {systemInfo.system_info.num_goroutine}
+                    {t('diagnostics.cpus') as string}: {systemInfo.system_info.num_cpu} | {t('diagnostics.goroutines') as string}: {systemInfo.system_info.num_goroutine}
                   </Typography>
                 </CardContent>
               </Card>
@@ -492,13 +489,13 @@ const Diagnostics: React.FC = () => {
             <Grid item xs={12} md={6}>
               <Card variant="outlined">
                 <CardContent>
-                  <Typography variant="subtitle2" color="text.secondary">Memory</Typography>
+                  <Typography variant="subtitle2" color="text.secondary">{t('diagnostics.memory') as string}</Typography>
                   <Typography variant="body2">
-                    Heap: {systemInfo.system_info.memory?.heap_alloc_mb} MB |
-                    System: {systemInfo.system_info.memory?.sys_mb} MB
+                    {t('diagnostics.heap') as string}: {systemInfo.system_info.memory?.heap_alloc_mb} MB |
+                    {t('diagnostics.system') as string}: {systemInfo.system_info.memory?.sys_mb} MB
                   </Typography>
                   <Typography variant="body2">
-                    GC Runs: {systemInfo.system_info.memory?.num_gc}
+                    {t('diagnostics.gcRuns') as string}: {systemInfo.system_info.memory?.num_gc}
                   </Typography>
                 </CardContent>
               </Card>
@@ -508,12 +505,12 @@ const Diagnostics: React.FC = () => {
                 <Grid item xs={12} md={6}>
                   <Card variant="outlined">
                     <CardContent>
-                      <Typography variant="subtitle2" color="text.secondary">Database</Typography>
+                      <Typography variant="subtitle2" color="text.secondary">{t('diagnostics.database') as string}</Typography>
                       <Typography variant="body2">
-                        Size: {systemInfo.system_info.database.database_size}
+                        {t('diagnostics.size') as string}: {systemInfo.system_info.database.database_size}
                       </Typography>
                       <Typography variant="body2">
-                        Connections: {systemInfo.system_info.database.connection_stats?.open_connections} /
+                        {t('diagnostics.connections') as string}: {systemInfo.system_info.database.connection_stats?.open_connections} /
                         {systemInfo.system_info.database.connection_stats?.max_open}
                       </Typography>
                     </CardContent>
@@ -522,12 +519,12 @@ const Diagnostics: React.FC = () => {
                 <Grid item xs={12} md={6}>
                   <Card variant="outlined">
                     <CardContent>
-                      <Typography variant="subtitle2" color="text.secondary">Agents</Typography>
+                      <Typography variant="subtitle2" color="text.secondary">{t('diagnostics.agents') as string}</Typography>
                       <Typography variant="body2">
-                        Connected: {systemInfo.system_info.connected_agents || 0}
+                        {t('diagnostics.connected') as string}: {systemInfo.system_info.connected_agents || 0}
                       </Typography>
                       <Typography variant="body2">
-                        With Debug Status: {systemInfo.agent_statuses}
+                        {t('diagnostics.withDebugStatus') as string}: {systemInfo.agent_statuses}
                       </Typography>
                     </CardContent>
                   </Card>
@@ -541,20 +538,20 @@ const Diagnostics: React.FC = () => {
       {/* Server Debug Status */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6">Server Debug Status</Typography>
+          <Typography variant="h6">{t('diagnostics.serverDebugStatus') as string}</Typography>
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Enable debug logging on the backend server. Changes take effect immediately without restart.
+          {t('diagnostics.serverDebugDescription') as string}
         </Typography>
         {serverDebugStatus ? (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Chip
-              label={serverDebugStatus.enabled ? 'DEBUG ENABLED' : 'DEBUG DISABLED'}
+              label={serverDebugStatus.enabled ? t('diagnostics.debugEnabled') as string : t('diagnostics.debugDisabled') as string}
               color={serverDebugStatus.enabled ? 'success' : 'default'}
               size="small"
             />
             <Typography variant="body2" color="text.secondary">
-              Level: {serverDebugStatus.level}
+              {t('diagnostics.level') as string}: {serverDebugStatus.level}
             </Typography>
             <Button
               variant={serverDebugStatus.enabled ? 'outlined' : 'contained'}
@@ -564,41 +561,41 @@ const Diagnostics: React.FC = () => {
               onClick={handleToggleServerDebug}
               disabled={serverDebugLoading}
             >
-              {serverDebugStatus.enabled ? 'Disable Debug' : 'Enable Debug'}
+              {serverDebugStatus.enabled ? t('diagnostics.disableDebug') as string : t('diagnostics.enableDebug') as string}
             </Button>
           </Box>
         ) : (
-          <Typography color="text.secondary">Loading server debug status...</Typography>
+          <Typography color="text.secondary">{t('diagnostics.loadingServerDebugStatus') as string}</Typography>
         )}
       </Paper>
 
       {/* Server Logs Stats */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6">Server Logs</Typography>
-          <Tooltip title="Refresh log stats">
+          <Typography variant="h6">{t('diagnostics.serverLogs') as string}</Typography>
+          <Tooltip title={t('diagnostics.refreshLogStats') as string}>
             <IconButton onClick={fetchLogStats} disabled={logStatsLoading}>
               {logStatsLoading ? <CircularProgress size={20} /> : <RefreshIcon />}
             </IconButton>
           </Tooltip>
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          View and manage server log files. Purging logs will delete all .log and rotated .log.N files.
+          {t('diagnostics.serverLogsDescription') as string}
         </Typography>
         {logStats ? (
           <TableContainer>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Directory</TableCell>
-                  <TableCell align="right">Files</TableCell>
-                  <TableCell align="right">Size</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell>{t('diagnostics.directory') as string}</TableCell>
+                  <TableCell align="right">{t('diagnostics.files') as string}</TableCell>
+                  <TableCell align="right">{t('diagnostics.size') as string}</TableCell>
+                  <TableCell align="right">{t('diagnostics.actions') as string}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 <TableRow>
-                  <TableCell>Backend</TableCell>
+                  <TableCell>{t('diagnostics.backend') as string}</TableCell>
                   <TableCell align="right">{logStats.backend.files}</TableCell>
                   <TableCell align="right">{formatBytes(logStats.backend.size)}</TableCell>
                   <TableCell align="right">
@@ -609,12 +606,12 @@ const Diagnostics: React.FC = () => {
                       onClick={() => handlePurgeServerLogs('backend')}
                       disabled={purging !== null || logStats.backend.files === 0}
                     >
-                      Purge
+                      {t('diagnostics.purge') as string}
                     </Button>
                   </TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell>Nginx</TableCell>
+                  <TableCell>{t('diagnostics.nginx') as string}</TableCell>
                   <TableCell align="right">{logStats.nginx.files}</TableCell>
                   <TableCell align="right">{formatBytes(logStats.nginx.size)}</TableCell>
                   <TableCell align="right">
@@ -625,12 +622,12 @@ const Diagnostics: React.FC = () => {
                       onClick={() => handlePurgeServerLogs('nginx')}
                       disabled={purging !== null || logStats.nginx.files === 0}
                     >
-                      Purge
+                      {t('diagnostics.purge') as string}
                     </Button>
                   </TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell>PostgreSQL</TableCell>
+                  <TableCell>{t('diagnostics.postgresql') as string}</TableCell>
                   <TableCell align="right">{logStats.postgres.files}</TableCell>
                   <TableCell align="right">{formatBytes(logStats.postgres.size)}</TableCell>
                   <TableCell align="right">
@@ -641,12 +638,12 @@ const Diagnostics: React.FC = () => {
                       onClick={() => handlePurgeServerLogs('postgres')}
                       disabled={purging !== null || logStats.postgres.files === 0}
                     >
-                      Purge
+                      {t('diagnostics.purge') as string}
                     </Button>
                   </TableCell>
                 </TableRow>
                 <TableRow sx={{ '& td': { fontWeight: 'bold', borderTop: '2px solid', borderColor: 'divider' } }}>
-                  <TableCell>Total</TableCell>
+                  <TableCell>{t('diagnostics.total') as string}</TableCell>
                   <TableCell align="right">
                     {logStats.backend.files + logStats.nginx.files + logStats.postgres.files}
                   </TableCell>
@@ -662,7 +659,7 @@ const Diagnostics: React.FC = () => {
                       onClick={() => handlePurgeServerLogs('all')}
                       disabled={purging !== null || (logStats.backend.files + logStats.nginx.files + logStats.postgres.files) === 0}
                     >
-                      Purge All
+                      {t('diagnostics.purgeAll') as string}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -670,14 +667,14 @@ const Diagnostics: React.FC = () => {
             </Table>
           </TableContainer>
         ) : (
-          <Typography color="text.secondary">Loading log statistics...</Typography>
+          <Typography color="text.secondary">{t('diagnostics.loadingLogStatistics') as string}</Typography>
         )}
       </Paper>
 
       {/* Agent Debug Status */}
       <Paper sx={{ p: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6">Agent Debug Status</Typography>
+          <Typography variant="h6">{t('diagnostics.agentDebugStatus') as string}</Typography>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button
               size="small"
@@ -685,7 +682,7 @@ const Diagnostics: React.FC = () => {
               startIcon={<BugReportIcon />}
               onClick={() => handleToggleAllDebug(true)}
             >
-              Enable All
+              {t('diagnostics.enableAll') as string}
             </Button>
             <Button
               size="small"
@@ -693,7 +690,7 @@ const Diagnostics: React.FC = () => {
               color="warning"
               onClick={() => handleToggleAllDebug(false)}
             >
-              Disable All
+              {t('diagnostics.disableAll') as string}
             </Button>
           </Box>
         </Box>
@@ -704,21 +701,21 @@ const Diagnostics: React.FC = () => {
           </Box>
         ) : agents.length === 0 ? (
           <Typography color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-            No agents with debug status reported yet.
+            {t('diagnostics.noAgentsWithDebugStatus') as string}
           </Typography>
         ) : (
           <TableContainer>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Agent ID</TableCell>
-                  <TableCell>Debug Enabled</TableCell>
-                  <TableCell>Log Level</TableCell>
-                  <TableCell>File Logging</TableCell>
-                  <TableCell>Log File Size</TableCell>
-                  <TableCell>Buffer</TableCell>
-                  <TableCell>Last Updated</TableCell>
-                  <TableCell>Actions</TableCell>
+                  <TableCell>{t('diagnostics.agentId') as string}</TableCell>
+                  <TableCell>{t('diagnostics.debugEnabled') as string}</TableCell>
+                  <TableCell>{t('diagnostics.logLevel') as string}</TableCell>
+                  <TableCell>{t('diagnostics.fileLogging') as string}</TableCell>
+                  <TableCell>{t('diagnostics.logFileSize') as string}</TableCell>
+                  <TableCell>{t('diagnostics.buffer') as string}</TableCell>
+                  <TableCell>{t('diagnostics.lastUpdated') as string}</TableCell>
+                  <TableCell>{t('diagnostics.actions') as string}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -727,7 +724,7 @@ const Diagnostics: React.FC = () => {
                     <TableCell>{agent.agent_id}</TableCell>
                     <TableCell>
                       <Chip
-                        label={agent.enabled ? 'ON' : 'OFF'}
+                        label={agent.enabled ? t('common.on') as string : t('common.off') as string}
                         color={agent.enabled ? 'success' : 'default'}
                         size="small"
                       />
@@ -735,7 +732,7 @@ const Diagnostics: React.FC = () => {
                     <TableCell>{agent.level}</TableCell>
                     <TableCell>
                       <Chip
-                        label={agent.file_logging_enabled ? 'Yes' : 'No'}
+                        label={agent.file_logging_enabled ? t('common.yes') as string : t('common.no') as string}
                         color={agent.file_logging_enabled ? 'info' : 'default'}
                         size="small"
                         variant="outlined"
@@ -753,7 +750,7 @@ const Diagnostics: React.FC = () => {
                       {new Date(agent.last_updated).toLocaleString()}
                     </TableCell>
                     <TableCell>
-                      <Tooltip title={agent.enabled ? 'Disable debug' : 'Enable debug'}>
+                      <Tooltip title={agent.enabled ? t('diagnostics.disableDebug') as string : t('diagnostics.enableDebug') as string}>
                         <IconButton
                           size="small"
                           color={agent.enabled ? 'warning' : 'success'}
@@ -762,7 +759,7 @@ const Diagnostics: React.FC = () => {
                           <BugReportIcon />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="View logs">
+                      <Tooltip title={t('diagnostics.viewLogs') as string}>
                         <IconButton
                           size="small"
                           onClick={() => handleViewLogs(agent.agent_id)}
@@ -770,7 +767,7 @@ const Diagnostics: React.FC = () => {
                           <VisibilityIcon />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Purge logs">
+                      <Tooltip title={t('diagnostics.purgeLogs') as string}>
                         <IconButton
                           size="small"
                           color="error"
@@ -796,20 +793,20 @@ const Diagnostics: React.FC = () => {
         fullWidth
       >
         <DialogTitle>
-          Agent Logs {selectedAgentLogs && `(Agent ${selectedAgentLogs.agent_id})`}
+          {t('diagnostics.agentLogs') as string} {selectedAgentLogs && `(${t('diagnostics.agent') as string} ${selectedAgentLogs.agent_id})`}
         </DialogTitle>
         <DialogContent>
           {/* Log Level Filter */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, mt: 1 }}>
             <TextField
               select
-              label="Level"
+              label={t('diagnostics.level') as string}
               value={logLevelFilter}
               onChange={(e) => setLogLevelFilter(e.target.value)}
               size="small"
               sx={{ minWidth: 130 }}
             >
-              <MenuItem value="ALL">All Levels</MenuItem>
+              <MenuItem value="ALL">{t('diagnostics.allLevels') as string}</MenuItem>
               <MenuItem value="DEBUG">DEBUG</MenuItem>
               <MenuItem value="INFO">INFO</MenuItem>
               <MenuItem value="WARNING">WARNING</MenuItem>
@@ -822,7 +819,7 @@ const Diagnostics: React.FC = () => {
               onClick={handleRefreshLogs}
               disabled={logsLoading}
             >
-              Refresh
+              {t('diagnostics.refresh') as string}
             </Button>
           </Box>
 
@@ -839,19 +836,19 @@ const Diagnostics: React.FC = () => {
                 return (
                   <>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      Showing {filteredEntries.length} of {selectedAgentLogs.total_count} entries
-                      {logLevelFilter !== 'ALL' && ` (filtered: ${logLevelFilter})`}
-                      {selectedAgentLogs.truncated && ' (truncated)'}
+                      {t('diagnostics.showingEntries', { shown: filteredEntries.length, total: selectedAgentLogs.total_count }) as string}
+                      {logLevelFilter !== 'ALL' && ` (${t('diagnostics.filtered') as string}: ${logLevelFilter})`}
+                      {selectedAgentLogs.truncated && ` (${t('diagnostics.truncated') as string})`}
                     </Typography>
                     {filteredEntries.length > 0 ? (
                       <TableContainer component={Paper} sx={{ maxHeight: 400 }}>
                         <Table size="small" stickyHeader>
                           <TableHead>
                             <TableRow>
-                              <TableCell>Time</TableCell>
-                              <TableCell>Level</TableCell>
-                              <TableCell>Message</TableCell>
-                              <TableCell>Location</TableCell>
+                              <TableCell>{t('diagnostics.time') as string}</TableCell>
+                              <TableCell>{t('diagnostics.level') as string}</TableCell>
+                              <TableCell>{t('diagnostics.message') as string}</TableCell>
+                              <TableCell>{t('diagnostics.location') as string}</TableCell>
                             </TableRow>
                           </TableHead>
                           <TableBody>
@@ -885,8 +882,8 @@ const Diagnostics: React.FC = () => {
                     ) : (
                       <Typography color="text.secondary">
                         {logLevelFilter !== 'ALL'
-                          ? `No ${logLevelFilter} entries found`
-                          : 'No log entries available'}
+                          ? t('diagnostics.noEntriesForLevel', { level: logLevelFilter }) as string
+                          : t('diagnostics.noLogEntriesAvailable') as string}
                       </Typography>
                     )}
                   </>
@@ -895,7 +892,7 @@ const Diagnostics: React.FC = () => {
               {selectedAgentLogs.file_content && (
                 <>
                   <Divider sx={{ my: 2 }} />
-                  <Typography variant="subtitle2" gutterBottom>Log File Content</Typography>
+                  <Typography variant="subtitle2" gutterBottom>{t('diagnostics.logFileContent') as string}</Typography>
                   <Paper
                     sx={{
                       p: 1,
@@ -914,11 +911,11 @@ const Diagnostics: React.FC = () => {
               )}
             </Box>
           ) : (
-            <Typography color="text.secondary">No logs available</Typography>
+            <Typography color="text.secondary">{t('diagnostics.noLogsAvailable') as string}</Typography>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setLogDialogOpen(false)}>Close</Button>
+          <Button onClick={() => setLogDialogOpen(false)}>{t('common.close') as string}</Button>
         </DialogActions>
       </Dialog>
 
@@ -927,26 +924,26 @@ const Diagnostics: React.FC = () => {
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <WarningIcon color="warning" />
-            Security Warning
+            {t('diagnostics.securityWarning') as string}
           </Box>
         </DialogTitle>
         <DialogContent>
           <Typography>
             {sensitiveLogDialog.type === 'nginx'
-              ? 'Nginx logs may contain sensitive data including IP addresses, URLs, and authentication tokens.'
-              : 'PostgreSQL logs may contain sensitive data including queries with passwords, hashes, and user data.'}
+              ? t('diagnostics.sensitiveNginxLogsWarning') as string
+              : t('diagnostics.sensitivePostgresLogsWarning') as string}
           </Typography>
           <Typography sx={{ mt: 2 }}>
-            This data cannot be automatically censored. Only include these logs if you are on a <strong>test environment</strong> and willing to share this information.
+            {t('diagnostics.sensitiveLogsTestEnvironmentWarning') as string}
           </Typography>
           <Typography sx={{ mt: 2, fontWeight: 'bold', color: 'warning.main' }}>
-            Do NOT include for normal diagnostics on a production system.
+            {t('diagnostics.sensitiveLogsProductionWarning') as string}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCancelSensitiveLogs}>Cancel</Button>
+          <Button onClick={handleCancelSensitiveLogs}>{t('common.cancel') as string}</Button>
           <Button onClick={handleConfirmSensitiveLogs} color="warning" variant="contained">
-            I Understand, Include Logs
+            {t('diagnostics.iUnderstandIncludeLogs') as string}
           </Button>
         </DialogActions>
       </Dialog>
@@ -968,7 +965,7 @@ const Diagnostics: React.FC = () => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmDialog(prev => ({ ...prev, open: false }))}>Cancel</Button>
+          <Button onClick={() => setConfirmDialog(prev => ({ ...prev, open: false }))}>{t('common.cancel') as string}</Button>
           <Button onClick={confirmDialog.onConfirm} color="error" variant="contained">
             {confirmDialog.confirmText}
           </Button>
@@ -986,8 +983,8 @@ const Diagnostics: React.FC = () => {
         open={reconnecting}
       >
         <CircularProgress color="inherit" />
-        <Typography variant="h6">Reconnecting to server...</Typography>
-        <Typography variant="body2">Please wait while the connection is restored.</Typography>
+        <Typography variant="h6">{t('diagnostics.reconnectingToServer') as string}</Typography>
+        <Typography variant="body2">{t('diagnostics.pleaseWaitReconnecting') as string}</Typography>
       </Backdrop>
     </Box>
   );

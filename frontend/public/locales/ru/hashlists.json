@@ -1,0 +1,107 @@
+{
+  "title": "Списки хешей",
+  "uploadButton": "Загрузить список хешей",
+  "page": {
+    "title": "Управление списками хешей",
+    "description": "Загружайте и управляйте списками хешей паролей для операций взлома"
+  },
+  "columns": {
+    "name": "Название",
+    "hashType": "Тип хеша",
+    "totalHashes": "Всего хешей",
+    "crackedHashes": "Взломано",
+    "progress": "Взломано (%)",
+    "client": "Клиент",
+    "status": "Статус",
+    "createdAt": "Дата создания",
+    "actions": "Действия"
+  },
+  "filters": {
+    "filterByName": "Фильтр по названию",
+    "status": "Статус",
+    "all": "Все"
+  },
+  "status": {
+    "uploading": "Загрузка",
+    "processing": "Обработка",
+    "ready": "Готов",
+    "error": "Ошибка"
+  },
+  "table": {
+    "noHashlists": "Списки хешей не найдены."
+  },
+  "details": {
+    "title": "Детали списка хешей",
+    "overview": "Обзор",
+    "hashes": "Хеши",
+    "jobs": "Задания",
+    "stats": "Статистика"
+  },
+  "upload": {
+    "title": "Загрузить новый список хешей",
+    "name": "Название списка хешей",
+    "hashType": "Тип хеша",
+    "client": "Клиент (необязательно)",
+    "file": "Файл с хешами",
+    "selectFile": "Выбрать файл",
+    "uploading": "Загрузка...",
+    "cancel": "Отмена"
+  },
+  "actions": {
+    "viewDetails": "Подробности",
+    "createJob": "Создать задание",
+    "download": "Скачать",
+    "delete": "Удалить"
+  },
+  "confirmDelete": {
+    "title": "Подтверждение удаления",
+    "message": "Вы уверены, что хотите удалить список хешей \"{{name}}\"? Это действие нельзя отменить.",
+    "cancel": "Отмена",
+    "delete": "Удалить",
+    "deleting": "Удаление..."
+  },
+  "deletionProgress": {
+    "title": "Удаление списка хешей",
+    "successTitle": "Список хешей успешно удалён",
+    "complete": "Удаление завершено!",
+    "failed": "Удаление не удалось",
+    "summary": "Итог:",
+    "totalProcessed": "Всего обработано хешей: {{value}}",
+    "orphansDeleted": "Удалено осиротевших хешей: {{value}}",
+    "sharedPreserved": "Сохранено общих хешей: {{value}}",
+    "jobsDeleted": "Удалено заданий: {{value}}",
+    "duration": "Длительность: {{duration}}",
+    "phase": "Этап {{current}}/{{total}}: {{label}}",
+    "phases": {
+      "preparing": "Подготовка...",
+      "removingHashes": "Удаление хешей",
+      "clearingReferences": "Очистка ссылок задач",
+      "cleaningOrphans": "Очистка осиротевших хешей",
+      "finalizing": "Завершение удаления"
+    },
+    "units": {
+      "hashes": "хешей",
+      "references": "ссылок"
+    },
+    "error": "Ошибка: {{error}}",
+    "done": "Готово",
+    "close": "Закрыть"
+  },
+  "notifications": {
+    "deleteSuccess": "Список хешей успешно удалён",
+    "uploadSuccess": "Список хешей успешно загружен",
+    "downloaded": "Скачан {{filename}}"
+  },
+  "errors": {
+    "loadFailed": "Ошибка при загрузке списков хешей.",
+    "uploadFailed": "Не удалось загрузить список хешей",
+    "deleteFailed": "Удаление не удалось: {{error}}"
+  },
+  "hashDetails": {
+    "title": "Детали хеша",
+    "originalHash": "Исходный хеш",
+    "password": "Пароль",
+    "cracked": "Взломан",
+    "crackedAt": "Дата взлома"
+  }
+}

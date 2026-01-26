@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Typography,
@@ -20,6 +21,7 @@ interface FooterProps {
 }
 
 const Footer: React.FC<FooterProps> = ({ drawerOpen }) => {
+  const { t } = useTranslation('common');
   const [version, setVersion] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const theme = useTheme();
@@ -108,7 +110,7 @@ const Footer: React.FC<FooterProps> = ({ drawerOpen }) => {
           }}
         >
           <DocsIcon sx={{ fontSize: 16 }} />
-          Documentation
+          {t('footer.documentation')}
         </Link>
 
         <Link
@@ -168,7 +170,7 @@ const Footer: React.FC<FooterProps> = ({ drawerOpen }) => {
           }}
         >
           <BugIcon sx={{ fontSize: 16 }} />
-          Issues
+          {t('footer.issues')}
         </Link>
       </Box>
 
@@ -181,7 +183,7 @@ const Footer: React.FC<FooterProps> = ({ drawerOpen }) => {
           textAlign: isMobile ? 'center' : 'right',
         }}
       >
-        {loading ? 'Loading...' : version ? `Release v${version}` : 'Version unavailable'}
+        {loading ? t('footer.loading') : version ? t('footer.release', { version }) : t('footer.versionUnavailable')}
       </Typography>
     </Box>
   );

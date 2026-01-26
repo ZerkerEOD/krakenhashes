@@ -13,6 +13,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Typography,
@@ -111,6 +112,7 @@ interface DeviceData {
 }
 
 const AgentDetails: React.FC = () => {
+  const { t } = useTranslation('agents');
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [agent, setAgent] = useState<Agent | null>(null);
@@ -221,7 +223,7 @@ const AgentDetails: React.FC = () => {
       fetchDebugStatus(agentData.id);
 
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to fetch agent details');
+      setError(err.response?.data?.error || (t('errors.fetchDetailsFailed') as string));
     } finally {
       setLoading(false);
     }
@@ -254,10 +256,12 @@ const AgentDetails: React.FC = () => {
       await toggleAgentDebug(agent.id, !debugStatus?.enabled);
       // Refresh debug status after a short delay to allow agent to respond
       setTimeout(() => fetchDebugStatus(agent.id), 1000);
-      setSuccess(`Debug mode ${debugStatus?.enabled ? 'disabled' : 'enabled'} for agent`);
+      setSuccess(debugStatus?.enabled
+        ? t('messages.debugModeDisabled') as string
+        : t('messages.debugModeEnabled') as string);
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to toggle debug mode');
+      setError(err.response?.data?.error || (t('errors.toggleDebugFailed') as string));
     } finally {
       setDebugLoading(false);
     }
@@ -357,10 +361,10 @@ const AgentDetails: React.FC = () => {
         [deviceId]: newState
       }));
 
-      setSuccess('Device status updated successfully');
+      setSuccess(t('messages.deviceStatusUpdated') as string);
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to update device status');
+      setError(err.response?.data?.error || (t('errors.updateDeviceFailed') as string));
     }
   };
 
@@ -379,10 +383,10 @@ const AgentDetails: React.FC = () => {
         )
       );
 
-      setSuccess(`Runtime updated to ${runtime} successfully`);
+      setSuccess(t('messages.runtimeUpdated', { runtime }) as string);
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to update device runtime');
+      setError(err.response?.data?.error || (t('errors.updateRuntimeFailed') as string));
       setTimeout(() => setError(''), 5000);
     }
   };
@@ -393,10 +397,10 @@ const AgentDetails: React.FC = () => {
       await toggleAgentScheduling(agent!.id, enabled, timezone);
       setSchedulingEnabled(enabled);
       setScheduleTimezone(timezone);
-      setSuccess('Scheduling settings updated');
+      setSuccess(t('messages.schedulingSettingsUpdated') as string);
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to toggle scheduling');
+      setError(err.response?.data?.error || (t('errors.toggleSchedulingFailed') as string));
     }
   };
 
@@ -404,10 +408,10 @@ const AgentDetails: React.FC = () => {
     try {
       const result = await bulkUpdateAgentSchedules(agent!.id, scheduleDTOs);
       setSchedules(result.schedules);
-      setSuccess('Schedules updated successfully');
+      setSuccess(t('messages.schedulesUpdated') as string);
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to update schedules');
+      setError(err.response?.data?.error || (t('errors.updateSchedulesFailed') as string));
       throw err; // Re-throw to let the component handle it
     }
   };
@@ -416,10 +420,10 @@ const AgentDetails: React.FC = () => {
     try {
       await deleteAgentSchedule(agent!.id, dayOfWeek);
       setSchedules(schedules.filter(s => s.dayOfWeek !== dayOfWeek));
-      setSuccess('Schedule removed');
+      setSuccess(t('messages.scheduleRemoved') as string);
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to delete schedule');
+      setError(err.response?.data?.error || (t('errors.deleteScheduleFailed') as string));
     }
   };
 
@@ -433,11 +437,11 @@ const AgentDetails: React.FC = () => {
         ownerId: ownerId || null,
         extraParameters: extraParameters.trim()
       });
-      setSuccess('Agent status updated');
+      setSuccess(t('messages.agentStatusUpdated') as string);
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       console.error('Failed to update agent status:', err);
-      setError(err.response?.data?.error || 'Failed to update agent status');
+      setError(err.response?.data?.error || (t('errors.updateAgentStatusFailed') as string));
       // Revert on error
       setIsEnabled(!newValue);
     }
@@ -453,10 +457,10 @@ const AgentDetails: React.FC = () => {
         ownerId: newOwnerId || null,
         extraParameters: extraParameters.trim()
       });
-      setSuccess('Agent owner updated');
+      setSuccess(t('messages.agentOwnerUpdated') as string);
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to update agent owner');
+      setError(err.response?.data?.error || (t('errors.updateAgentOwnerFailed') as string));
       // Revert on error
       setOwnerId(previousOwnerId);
     }
@@ -483,10 +487,10 @@ const AgentDetails: React.FC = () => {
           ownerId: ownerId || null,
           extraParameters: value.trim()
         });
-        setSuccess('Extra parameters updated');
+        setSuccess(t('messages.extraParametersUpdated') as string);
         setTimeout(() => setSuccess(''), 3000);
       } catch (err: any) {
-        setError(err.response?.data?.error || 'Failed to update extra parameters');
+        setError(err.response?.data?.error || (t('errors.updateExtraParametersFailed') as string));
       } finally {
         setParametersSaving(false);
       }
@@ -506,11 +510,11 @@ const AgentDetails: React.FC = () => {
         binaryVersion: newBinaryVersion
       });
       setSuccess(newBinaryVersion !== 'default'
-        ? `Agent binary version set to ${newBinaryVersion}`
-        : 'Agent binary reset to default');
+        ? t('messages.binaryVersionSet', { version: newBinaryVersion }) as string
+        : t('messages.binaryResetToDefault') as string);
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to update binary configuration');
+      setError(err.response?.data?.error || (t('errors.updateBinaryFailed') as string));
       // Revert on error
       setBinaryVersion(oldVersion);
     }
@@ -527,7 +531,7 @@ const AgentDetails: React.FC = () => {
   if (!agent) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity="error">Agent not found</Alert>
+        <Alert severity="error">{t('errors.agentNotFound') as string}</Alert>
       </Box>
     );
   }
@@ -540,7 +544,7 @@ const AgentDetails: React.FC = () => {
           <ArrowBackIcon />
         </IconButton>
         <Typography variant="h4" component="span">
-          Agent Details
+          {t('details.title') as string}
         </Typography>
       </Box>
 
@@ -551,14 +555,14 @@ const AgentDetails: React.FC = () => {
         {/* Basic Information */}
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>Basic Information</Typography>
-            
+            <Typography variant="h6" gutterBottom>{t('sections.basicInfo') as string}</Typography>
+
             <Grid container spacing={2}>
               <Grid item xs={12}>
-                <Typography variant="body2" color="text.secondary">Agent ID</Typography>
+                <Typography variant="body2" color="text.secondary">{t('fields.agentId') as string}</Typography>
                 <Typography variant="body1">{agent.id}</Typography>
               </Grid>
-              
+
               <Grid item xs={12}>
                 <FormControlLabel
                   control={
@@ -568,51 +572,51 @@ const AgentDetails: React.FC = () => {
                       color="primary"
                     />
                   }
-                  label="Enabled"
+                  label={t('fields.enabled') as string}
                 />
               </Grid>
 
               <Grid item xs={12}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>Agent Binary Configuration</Typography>
+                <Typography variant="body2" color="text.secondary" gutterBottom>{t('fields.binaryConfiguration') as string}</Typography>
                 <BinaryVersionSelector
                   value={binaryVersion}
                   onChange={handleBinaryChange}
-                  label="Hashcat Binary"
+                  label={t('fields.hashcatBinary') as string}
                   size="small"
                   margin="none"
                   helperText={binaryVersion !== 'default'
-                    ? `Agent will use ${binaryVersion} pattern`
-                    : 'Using job or system default binary'}
+                    ? t('messages.binaryVersionPattern', { version: binaryVersion }) as string
+                    : t('messages.binaryDefault') as string}
                 />
               </Grid>
 
               <Grid item xs={12}>
-                <Typography variant="body2" color="text.secondary">Last Activity</Typography>
+                <Typography variant="body2" color="text.secondary">{t('fields.lastActivity') as string}</Typography>
                 <Typography variant="body1">
                   {agent.metadata?.lastAction && agent.metadata?.lastActionTime ? (
                     <>
-                      Action: {agent.metadata.lastAction}<br />
-                      Time: {new Date(agent.metadata.lastActionTime).toLocaleString()}<br />
-                      {agent.metadata.ipAddress && `IP: ${agent.metadata.ipAddress}`}
+                      {t('fields.action') as string}: {agent.metadata.lastAction}<br />
+                      {t('fields.time') as string}: {new Date(agent.metadata.lastActionTime).toLocaleString()}<br />
+                      {agent.metadata.ipAddress && `${t('fields.ip') as string}: ${agent.metadata.ipAddress}`}
                     </>
                   ) : (
-                    agent.lastHeartbeat ? 
+                    agent.lastHeartbeat ?
                       formatDistanceToNow(new Date(agent.lastHeartbeat), { addSuffix: true }) :
-                      'Never'
+                      t('common.never') as string
                   )}
                 </Typography>
               </Grid>
-              
+
               <Grid item xs={12}>
                 <FormControl fullWidth>
-                  <InputLabel>Owner</InputLabel>
+                  <InputLabel>{t('fields.owner') as string}</InputLabel>
                   <Select
                     value={ownerId}
                     onChange={(e) => handleOwnerChange(e.target.value)}
-                    label="Owner"
+                    label={t('fields.owner') as string}
                   >
                     <MenuItem value="">
-                      <em>None</em>
+                      <em>{t('common.none') as string}</em>
                     </MenuItem>
                     {users.map((user) => (
                       <MenuItem key={user.id} value={user.id}>
@@ -629,25 +633,25 @@ const AgentDetails: React.FC = () => {
         {/* System Information */}
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>System Information</Typography>
+            <Typography variant="h6" gutterBottom>{t('sections.systemInfo') as string}</Typography>
 
             <Grid container spacing={2}>
               <Grid item xs={12}>
-                <Typography variant="body2" color="text.secondary">Machine Name</Typography>
+                <Typography variant="body2" color="text.secondary">{t('fields.machineName') as string}</Typography>
                 <Typography variant="body1">{agent.osInfo?.hostname || agent.name}</Typography>
               </Grid>
 
               <Grid item xs={12}>
-                <Typography variant="body2" color="text.secondary">Operating System</Typography>
+                <Typography variant="body2" color="text.secondary">{t('fields.operatingSystem') as string}</Typography>
                 <Typography variant="body1">
-                  {agent.osInfo?.platform || 'Not detected'}
+                  {agent.osInfo?.platform || (t('common.notDetected') as string)}
                 </Typography>
               </Grid>
 
               <Grid item xs={12}>
-                <Typography variant="body2" color="text.secondary">Agent Version</Typography>
+                <Typography variant="body2" color="text.secondary">{t('fields.agentVersion') as string}</Typography>
                 <Typography variant="body1">
-                  {agent.version || 'Unknown'}
+                  {agent.version || (t('common.unknown') as string)}
                 </Typography>
               </Grid>
             </Grid>
@@ -660,7 +664,7 @@ const AgentDetails: React.FC = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <BugReportIcon color={debugStatus?.enabled ? 'success' : 'disabled'} />
-                <Typography variant="h6">Debug Configuration</Typography>
+                <Typography variant="h6">{t('sections.debugConfiguration') as string}</Typography>
               </Box>
               <Button
                 variant={debugStatus?.enabled ? 'outlined' : 'contained'}
@@ -670,42 +674,42 @@ const AgentDetails: React.FC = () => {
                 disabled={debugLoading}
                 size="small"
               >
-                {debugStatus?.enabled ? 'Disable Debug' : 'Enable Debug'}
+                {debugStatus?.enabled ? (t('buttons.disableDebug') as string) : (t('buttons.enableDebug') as string)}
               </Button>
             </Box>
 
             {debugStatus ? (
               <Grid container spacing={2}>
                 <Grid item xs={6} md={3}>
-                  <Typography variant="body2" color="text.secondary">Status</Typography>
+                  <Typography variant="body2" color="text.secondary">{t('debug.status') as string}</Typography>
                   <Chip
-                    label={debugStatus.enabled ? 'Enabled' : 'Disabled'}
+                    label={debugStatus.enabled ? (t('debug.enabled') as string) : (t('debug.disabled') as string)}
                     color={debugStatus.enabled ? 'success' : 'default'}
                     size="small"
                   />
                 </Grid>
                 <Grid item xs={6} md={3}>
-                  <Typography variant="body2" color="text.secondary">Log Level</Typography>
+                  <Typography variant="body2" color="text.secondary">{t('debug.logLevel') as string}</Typography>
                   <Typography variant="body1">{debugStatus.level}</Typography>
                 </Grid>
                 <Grid item xs={6} md={3}>
-                  <Typography variant="body2" color="text.secondary">File Logging</Typography>
+                  <Typography variant="body2" color="text.secondary">{t('debug.fileLogging') as string}</Typography>
                   <Chip
-                    label={debugStatus.file_logging_enabled ? 'Active' : 'Inactive'}
+                    label={debugStatus.file_logging_enabled ? (t('debug.active') as string) : (t('debug.inactive') as string)}
                     color={debugStatus.file_logging_enabled ? 'info' : 'default'}
                     size="small"
                     variant="outlined"
                   />
                 </Grid>
                 <Grid item xs={6} md={3}>
-                  <Typography variant="body2" color="text.secondary">Buffer</Typography>
+                  <Typography variant="body2" color="text.secondary">{t('debug.buffer') as string}</Typography>
                   <Typography variant="body1">
                     {debugStatus.buffer_count} / {debugStatus.buffer_capacity}
                   </Typography>
                 </Grid>
                 {debugStatus.log_file_exists && (
                   <Grid item xs={12}>
-                    <Typography variant="body2" color="text.secondary">Log File Size</Typography>
+                    <Typography variant="body2" color="text.secondary">{t('debug.logFileSize') as string}</Typography>
                     <Typography variant="body1">
                       {(debugStatus.log_file_size / 1024).toFixed(2)} KB
                     </Typography>
@@ -713,13 +717,13 @@ const AgentDetails: React.FC = () => {
                 )}
                 <Grid item xs={12}>
                   <Typography variant="caption" color="text.secondary">
-                    Last updated: {new Date(debugStatus.last_updated).toLocaleString()}
+                    {t('debug.lastUpdated') as string}: {new Date(debugStatus.last_updated).toLocaleString()}
                   </Typography>
                 </Grid>
               </Grid>
             ) : (
               <Typography color="text.secondary">
-                Debug status not yet reported by agent. The agent will report its debug status after connecting.
+                {t('messages.debugStatusNotReported') as string}
               </Typography>
             )}
           </Paper>
@@ -728,21 +732,21 @@ const AgentDetails: React.FC = () => {
         {/* Hardware Configuration */}
         <Grid item xs={12}>
           <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>Hardware Configuration</Typography>
-            
+            <Typography variant="h6" gutterBottom>{t('sections.hardwareConfiguration') as string}</Typography>
+
             {devices.length === 0 ? (
-              <Typography color="text.secondary">No devices detected</Typography>
+              <Typography color="text.secondary">{t('messages.noDevicesDetected') as string}</Typography>
             ) : (
               <TableContainer>
                 <Table>
                   <TableHead>
                     <TableRow>
-                      <TableCell>Device ID</TableCell>
-                      <TableCell>Type</TableCell>
-                      <TableCell>Name</TableCell>
-                      <TableCell>Runtime</TableCell>
-                      <TableCell>Specs</TableCell>
-                      <TableCell>Enabled</TableCell>
+                      <TableCell>{t('hardware.deviceId') as string}</TableCell>
+                      <TableCell>{t('hardware.type') as string}</TableCell>
+                      <TableCell>{t('hardware.name') as string}</TableCell>
+                      <TableCell>{t('hardware.runtime') as string}</TableCell>
+                      <TableCell>{t('hardware.specs') as string}</TableCell>
+                      <TableCell>{t('fields.enabled') as string}</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -794,16 +798,16 @@ const AgentDetails: React.FC = () => {
         {/* Extra Parameters */}
         <Grid item xs={12}>
           <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>Extra Parameters</Typography>
+            <Typography variant="h6" gutterBottom>{t('sections.extraParameters') as string}</Typography>
             <Typography variant="body2" color="text.secondary" gutterBottom>
-              Agent-specific hashcat parameters (e.g., -d 1 -w 4 -O)
+              {t('messages.extraParametersDescription') as string}
             </Typography>
-            
+
             <TextField
               fullWidth
               value={extraParameters}
               onChange={(e) => handleExtraParametersChange(e.target.value)}
-              placeholder="Enter hashcat parameters..."
+              placeholder={t('placeholders.enterHashcatParameters') as string}
               variant="outlined"
               sx={{ mt: 2 }}
               InputProps={{
@@ -832,21 +836,21 @@ const AgentDetails: React.FC = () => {
           <>
             <Grid item xs={12}>
               <Typography variant="h5" sx={{ mt: 3, mb: 2 }}>
-                Device Monitoring
+                {t('sections.deviceMonitoring') as string}
               </Typography>
               <Box sx={{ mb: 2 }}>
                 <FormControl size="small">
-                  <InputLabel>Time Range</InputLabel>
+                  <InputLabel>{t('monitoring.timeRange') as string}</InputLabel>
                   <Select
                     value={timeRange}
                     onChange={(e) => setTimeRange(e.target.value)}
-                    label="Time Range"
+                    label={t('monitoring.timeRange') as string}
                   >
-                    <MenuItem value="10m">10 minutes</MenuItem>
-                    <MenuItem value="20m">20 minutes</MenuItem>
-                    <MenuItem value="1h">1 hour</MenuItem>
-                    <MenuItem value="5h">5 hours</MenuItem>
-                    <MenuItem value="24h">24 hours</MenuItem>
+                    <MenuItem value="10m">{t('monitoring.10minutes') as string}</MenuItem>
+                    <MenuItem value="20m">{t('monitoring.20minutes') as string}</MenuItem>
+                    <MenuItem value="1h">{t('monitoring.1hour') as string}</MenuItem>
+                    <MenuItem value="5h">{t('monitoring.5hours') as string}</MenuItem>
+                    <MenuItem value="24h">{t('monitoring.24hours') as string}</MenuItem>
                   </Select>
                 </FormControl>
               </Box>
@@ -857,7 +861,7 @@ const AgentDetails: React.FC = () => {
               <Card>
                 <CardContent>
                   <DeviceMetricsChart
-                    title="Temperature"
+                    title={t('monitoring.temperature') as string}
                     metricType="temperature"
                     devices={deviceMetrics}
                     deviceStatuses={devices}
@@ -868,13 +872,13 @@ const AgentDetails: React.FC = () => {
                 </CardContent>
               </Card>
             </Grid>
-            
+
             {/* Utilization Chart */}
             <Grid item xs={12} md={6}>
               <Card>
                 <CardContent>
                   <DeviceMetricsChart
-                    title="Utilization"
+                    title={t('monitoring.utilization') as string}
                     metricType="utilization"
                     devices={deviceMetrics}
                     deviceStatuses={devices}
@@ -885,13 +889,13 @@ const AgentDetails: React.FC = () => {
                 </CardContent>
               </Card>
             </Grid>
-            
+
             {/* Fan Speed Chart */}
             <Grid item xs={12} md={6}>
               <Card>
                 <CardContent>
                   <DeviceMetricsChart
-                    title="Fan Speed"
+                    title={t('monitoring.fanSpeed') as string}
                     metricType="fanspeed"
                     devices={deviceMetrics}
                     deviceStatuses={devices}
@@ -902,13 +906,13 @@ const AgentDetails: React.FC = () => {
                 </CardContent>
               </Card>
             </Grid>
-            
+
             {/* Hash Rate Chart */}
             <Grid item xs={12} md={6}>
               <Card>
                 <CardContent>
                   <DeviceMetricsChart
-                    title="Hash Rate"
+                    title={t('monitoring.hashRate') as string}
                     metricType="hashrate"
                     devices={deviceMetrics}
                     deviceStatuses={devices}

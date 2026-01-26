@@ -1,0 +1,116 @@
+{
+  "title": "Dashboard",
+  "welcome": "Willkommen bei KrakenHashes",
+  "stats": {
+    "title": "Übersicht",
+    "totalJobs": "Aufträge gesamt",
+    "activeJobs": "Aktive Aufträge",
+    "completedJobs": "Abgeschlossene Aufträge",
+    "totalHashes": "Hashes gesamt",
+    "crackedHashes": "Geknackte Hashes",
+    "crackRate": "Erfolgsquote",
+    "activeAgents": "Aktive Agenten",
+    "totalAgents": "Agenten gesamt"
+  },
+  "recentActivity": {
+    "title": "Letzte Aktivitäten",
+    "noActivity": "Keine aktuellen Aktivitäten"
+  },
+  "quickActions": {
+    "title": "Schnellzugriff",
+    "createJob": "Auftrag erstellen",
+    "uploadHashlist": "Hashliste hochladen",
+    "viewAgents": "Agenten anzeigen"
+  },
+  "agents": {
+    "title": "Ihre Agenten",
+    "loadError": "Fehler beim Laden der Agenten: {{message}}",
+    "noAgents": "Keine Agenten registriert",
+    "hashRate": "Hash-Rate",
+    "notAvailable": "N/V",
+    "job": "Auftrag",
+    "unnamedJob": "Unbenannter Auftrag",
+    "noActiveTask": "Keine aktive Aufgabe"
+  },
+  "pagination": {
+    "previous": "Zurück",
+    "next": "Weiter",
+    "pageOf": "Seite {{current}} von {{total}}"
+  },
+  "jobs": {
+    "title": "Ihre Aufträge",
+    "total": "Gesamt",
+    "autoRefreshOn": "Auto",
+    "autoRefreshOff": "Aus",
+    "lastUpdated": "Zuletzt aktualisiert: {{time}}",
+    "loadError": "Fehler beim Laden der Aufträge: {{message}}",
+    "noJobs": "Keine Aufträge gefunden. Erstellen Sie einen neuen Auftrag, um zu beginnen."
+  },
+  "buttons": {
+    "refresh": "Aktualisieren",
+    "deleteFinished": "Abgeschlossene löschen"
+  },
+  "filters": {
+    "status": "Status",
+    "priority": "Priorität",
+    "all": "Alle",
+    "searchPlaceholder": "Aufträge suchen...",
+    "clear": "Filter zurücksetzen"
+  },
+  "status": {
+    "pending": "Ausstehend",
+    "running": "Läuft",
+    "paused": "Pausiert",
+    "completed": "Abgeschlossen",
+    "failed": "Fehlgeschlagen",
+    "cancelled": "Abgebrochen"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Abgeschlossene Aufträge löschen",
+      "message": "Sind Sie sicher, dass Sie alle abgeschlossenen Aufträge löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden."
+    }
+  },
+  "errors": {
+    "deleteFinishedFailed": "Fehler beim Löschen der abgeschlossenen Aufträge",
+    "deleteJobFailed": "Fehler beim Löschen des Auftrags",
+    "retryJobFailed": "Fehler beim Wiederholen des Auftrags",
+    "updateJobFailed": "Fehler beim Aktualisieren des Auftrags"
+  },
+  "hashlistOverview": {
+    "title": "Hashlisten-Übersicht",
+    "loadError": "Fehler beim Laden der Hashlisten",
+    "noHashlists": "Keine Hashlisten gefunden",
+    "columns": {
+      "name": "Name",
+      "client": "Kunde",
+      "status": "Status",
+      "total": "Gesamt",
+      "cracked": "Geknackt",
+      "progress": "Fortschritt"
+    },
+    "status": {
+      "ready": "Bereit",
+      "error": "Fehler",
+      "uploading": "Hochladen",
+      "processing": "Verarbeitung"
+    }
+  },
+  "jobsTable": {
+    "noJobs": "Keine Aufträge gefunden",
+    "noJobsHint": "Erstellen Sie einen neuen Auftrag über die Hashlisten-Seite, um zu beginnen.",
+    "completedJobs": "Abgeschlossene Aufträge",
+    "columns": {
+      "jobName": "Auftragsname",
+      "hashlist": "Hashliste",
+      "createdBy": "Erstellt von",
+      "progress": "Fortschritt",
+      "keyspace": "Schlüsselraum",
+      "cracked": "Geknackt",
+      "agents": "Agenten",
+      "priority": "Priorität",
+      "maxAgents": "Max. Agenten",
+      "actions": "Aktionen"
+    }
+  }
+}

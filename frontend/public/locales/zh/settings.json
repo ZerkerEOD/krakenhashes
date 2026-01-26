@@ -1,0 +1,149 @@
+{
+  "title": "用户设置",
+  "profileSettings": {
+    "title": "个人资料设置"
+  },
+  "profile": {
+    "title": "个人资料",
+    "username": "用户名",
+    "email": "电子邮件",
+    "changePassword": "修改密码",
+    "currentPassword": "当前密码",
+    "newPassword": "新密码",
+    "confirmPassword": "确认新密码",
+    "updateProfile": "更新资料",
+    "profileUpdated": "个人资料更新成功"
+  },
+  "account": {
+    "title": "账户信息",
+    "username": "用户名",
+    "email": "电子邮件",
+    "usernameCannotChange": "用户名无法更改",
+    "saving": "保存中...",
+    "saveEmail": "保存邮箱",
+    "confirmEmailUpdate": {
+      "title": "确认更新邮箱",
+      "message": "请输入当前密码以更新您的电子邮件地址。"
+    },
+    "errors": {
+      "noChanges": "没有要保存的更改",
+      "invalidEmail": "电子邮件地址无效",
+      "updateFailed": "更新邮箱失败",
+      "incorrectPassword": "密码错误"
+    },
+    "success": {
+      "emailUpdated": "邮箱更新成功"
+    }
+  },
+  "password": {
+    "title": "修改密码",
+    "currentPassword": "当前密码",
+    "newPassword": "新密码",
+    "confirmNewPassword": "确认新密码",
+    "enterCurrentFirst": "请先输入当前密码",
+    "passwordsMatch": "密码匹配",
+    "changePassword": "修改密码",
+    "changing": "正在修改密码...",
+    "errors": {
+      "currentRequired": "当前密码为必填项",
+      "newRequired": "新密码为必填项",
+      "mismatch": "密码不匹配",
+      "requirements": "新密码不符合要求",
+      "updateFailed": "更新密码失败"
+    },
+    "success": {
+      "changed": "密码修改成功"
+    }
+  },
+  "apiKey": {
+    "title": "API 密钥",
+    "status": "API 密钥状态",
+    "active": "活跃",
+    "noKeyGenerated": "未生成 API 密钥",
+    "created": "创建时间",
+    "lastUsed": "最后使用",
+    "generate": "生成 API 密钥",
+    "regenerate": "重新生成 API 密钥",
+    "revoke": "撤销 API 密钥",
+    "viewDocs": "查看 API 文档",
+    "dialog": {
+      "title": "您的 API 密钥",
+      "saveNow": "请立即保存此密钥！",
+      "cantSeeAgain": "您将无法再次查看它。",
+      "instructions": "通过在 X-API-Key 请求头中包含此 API 密钥来使用它。",
+      "saved": "我已保存"
+    },
+    "confirmRegenerate": {
+      "title": "重新生成 API 密钥？",
+      "warning": "这将使您现有的 API 密钥失效。使用当前密钥的任何应用程序都将停止工作。",
+      "confirm": "确定要继续吗？"
+    },
+    "confirmRevoke": {
+      "title": "撤销 API 密钥？",
+      "warning": "这将立即禁用 API 访问。使用此密钥的任何应用程序都将停止工作。",
+      "confirm": "确定要撤销您的 API 密钥吗？"
+    },
+    "errors": {
+      "generateFailed": "生成 API 密钥失败",
+      "revokeFailed": "撤销 API 密钥失败"
+    },
+    "success": {
+      "revoked": "API 密钥撤销成功",
+      "copied": "API 密钥已复制到剪贴板"
+    }
+  },
+  "common": {
+    "cancel": "取消",
+    "never": "从未",
+    "invalidDate": "无效日期"
+  },
+  "mfa": {
+    "title": "双因素身份验证",
+    "status": "2FA 状态",
+    "enabled": "已启用",
+    "disabled": "已禁用",
+    "enable": "启用 2FA",
+    "disable": "禁用 2FA",
+    "methods": {
+      "title": "验证方式",
+      "totp": "身份验证器应用",
+      "email": "电子邮件",
+      "backupCodes": "备份代码"
+    },
+    "setup": {
+      "scanQR": "使用身份验证器应用扫描此二维码",
+      "enterCode": "输入应用中的验证码以完成验证",
+      "backupCodesGenerated": "请将这些备份代码保存在安全的地方"
+    }
+  },
+  "linkedAccounts": {
+    "title": "关联账户",
+    "noAccounts": "暂无关联账户",
+    "link": "关联账户",
+    "unlink": "取消关联"
+  },
+  "notifications": {
+    "title": "通知",
+    "emailNotifications": "邮件通知",
+    "jobCompleted": "任务完成",
+    "agentOffline": "代理离线",
+    "securityAlerts": "安全警报"
+  },
+  "preferences": {
+    "title": "偏好设置",
+    "language": "语言",
+    "timezone": "时区",
+    "dateFormat": "日期格式",
+    "theme": "主题",
+    "themes": {
+      "light": "浅色",
+      "dark": "深色",
+      "system": "跟随系统"
+    }
+  },
+  "errors": {
+    "updateFailed": "更新设置失败",
+    "passwordMismatch": "密码不匹配",
+    "invalidPassword": "当前密码无效"
+  }
+}

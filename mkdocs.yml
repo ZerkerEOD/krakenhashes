@@ -199,6 +199,9 @@ nav:
     - Glossary: reference/glossary.md
   - Troubleshooting:
     - Potfile Issues: troubleshooting/potfile-issues.md
+  - Contributing:
+    - contributing/index.md
+    - Translations: contributing/translations.md
 
 extra:
   social:

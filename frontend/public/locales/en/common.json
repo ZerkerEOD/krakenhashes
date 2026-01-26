@@ -1,0 +1,153 @@
+{
+  "buttons": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "submit": "Submit",
+    "close": "Close",
+    "confirm": "Confirm",
+    "retry": "Retry",
+    "refresh": "Refresh",
+    "download": "Download",
+    "upload": "Upload",
+    "copy": "Copy",
+    "search": "Search",
+    "filter": "Filter",
+    "clearFilters": "Clear Filters",
+    "loadAll": "Load All",
+    "signIn": "Sign In",
+    "logIn": "Log In",
+    "logout": "Logout"
+  },
+  "labels": {
+    "loading": "Loading...",
+    "noData": "No data available",
+    "error": "An error occurred",
+    "success": "Success",
+    "warning": "Warning",
+    "info": "Information",
+    "required": "Required",
+    "optional": "Optional",
+    "all": "All",
+    "none": "None",
+    "yes": "Yes",
+    "no": "No",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "active": "Active",
+    "inactive": "Inactive",
+    "pending": "Pending",
+    "completed": "Completed",
+    "failed": "Failed",
+    "unknown": "Unknown"
+  },
+  "pagination": {
+    "rowsPerPage": "Rows per page",
+    "page": "Page {{current}} of {{total}}",
+    "showing": "Showing {{from}}-{{to}} of {{total}}",
+    "first": "First page",
+    "last": "Last page",
+    "next": "Next page",
+    "previous": "Previous page"
+  },
+  "language": {
+    "selectLanguage": "Select Language",
+    "currentLanguage": "Current language"
+  },
+  "clipboard": {
+    "copied": "Copied to clipboard",
+    "copyFailed": "Failed to copy to clipboard"
+  },
+  "errors": {
+    "networkError": "Network error. Please check your connection.",
+    "serverError": "Server error. Please try again later.",
+    "unknownError": "An unknown error occurred",
+    "validationError": "Please check your input and try again",
+    "permissionDenied": "Permission denied",
+    "notFound": "Not found",
+    "sessionExpired": "Your session has expired. Please log in again."
+  },
+  "confirmations": {
+    "areYouSure": "Are you sure?",
+    "cannotBeUndone": "This action cannot be undone.",
+    "confirmDelete": "Confirm Delete",
+    "confirmAction": "Confirm Action"
+  },
+  "time": {
+    "justNow": "Just now",
+    "minutesAgo": "{{count}} minute ago",
+    "minutesAgo_plural": "{{count}} minutes ago",
+    "hoursAgo": "{{count}} hour ago",
+    "hoursAgo_plural": "{{count}} hours ago",
+    "daysAgo": "{{count}} day ago",
+    "daysAgo_plural": "{{count}} days ago",
+    "never": "Never"
+  },
+  "fileUpload": {
+    "dragAndDrop": "Drag and drop a file here, or click to select",
+    "selectFile": "Select File",
+    "uploading": "Uploading...",
+    "uploadSuccess": "File uploaded successfully",
+    "uploadFailed": "File upload failed",
+    "chooseFile": "Choose File",
+    "description": "Description",
+    "loading": "Loading..."
+  },
+  "binaryVersionSelector": {
+    "label": "Binary Version",
+    "helperText": "Select binary version pattern for this job",
+    "default": "Default",
+    "majorVersion": "Major Version (Latest Minor)",
+    "minorVersion": "Minor Version (Latest Patch)",
+    "exactVersion": "Exact Version",
+    "loading": "Loading...",
+    "loadingVersions": "Loading binary versions...",
+    "loadError": "Failed to load binary versions"
+  },
+  "passwordValidation": {
+    "requirements": "Password Requirements:",
+    "minLength": "At least {{length}} characters",
+    "uppercase": "At least one uppercase letter",
+    "lowercase": "At least one lowercase letter",
+    "number": "At least one number",
+    "specialChar": "At least one special character"
+  },
+  "footer": {
+    "documentation": "Documentation",
+    "issues": "Issues",
+    "loading": "Loading...",
+    "release": "Release v{{version}}",
+    "versionUnavailable": "Version unavailable"
+  },
+  "layout": {
+    "logoAlt": "KrakenHashes Logo"
+  },
+  "table": {
+    "noResults": "No results found",
+    "loading": "Loading data...",
+    "emptyState": "No data to display"
+  },
+  "about": {
+    "title": "About KrakenHashes",
+    "versionInfo": {
+      "title": "Version Information",
+      "release": "Release",
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "agent": "Agent Version",
+      "api": "API Version",
+      "database": "Database"
+    },
+    "projectInfo": {
+      "title": "Project Information",
+      "description": "KrakenHashes is a distributed password cracking management system designed to coordinate and manage password cracking tasks across multiple agents.",
+      "license": "This is an open-source project licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).",
+      "githubLink": "GitHub Repository"
+    },
+    "errors": {
+      "fetchFailed": "Failed to fetch version information"
+    }
+  }
+}

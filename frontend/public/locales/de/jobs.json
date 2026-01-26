@@ -1,0 +1,305 @@
+{
+  "title": "Aufträge",
+  "createJob": "Auftrag erstellen",
+  "page": {
+    "title": "Aufträge"
+  },
+  "columns": {
+    "name": "Auftragsname",
+    "hashlist": "Hashliste",
+    "createdBy": "Erstellt von",
+    "progress": "Fortschritt",
+    "keyspace": "Keyspace",
+    "cracked": "Geknackt",
+    "agents": "Agenten",
+    "priority": "Priorität",
+    "maxAgents": "Max. Agenten",
+    "actions": "Aktionen",
+    "status": "Status",
+    "createdAt": "Erstellt am"
+  },
+  "status": {
+    "pending": "Ausstehend",
+    "running": "Läuft",
+    "completed": "Abgeschlossen",
+    "failed": "Fehlgeschlagen",
+    "stopped": "Gestoppt",
+    "paused": "Pausiert",
+    "active": "Aktiv",
+    "cancelled": "Abgebrochen"
+  },
+  "actions": {
+    "delete": "Auftrag löschen",
+    "retry": "Auftrag wiederholen",
+    "stop": "Auftrag stoppen",
+    "pause": "Auftrag pausieren",
+    "resume": "Auftrag fortsetzen",
+    "viewDetails": "Details anzeigen"
+  },
+  "sections": {
+    "activeJobs": "Aktive Aufträge",
+    "completedJobs": "Abgeschlossene Aufträge"
+  },
+  "confirmDelete": {
+    "title": "Auftrag löschen",
+    "message": "Sind Sie sicher, dass Sie diesen Auftrag löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "messageNamed": "Sind Sie sicher, dass Sie den Auftrag \"{{name}}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden."
+  },
+  "row": {
+    "completed": "Abgeschlossen:",
+    "unknown": "Unbekannt",
+    "error": "Fehler:",
+    "rulesLabel": "(Regeln)"
+  },
+  "tooltips": {
+    "combinedHashRate": "Kombinierte Hashrate",
+    "retry": "Auftrag wiederholen",
+    "delete": "Auftrag löschen",
+    "save": "Speichern",
+    "cancel": "Abbrechen"
+  },
+  "validation": {
+    "priorityRange": "Priorität muss zwischen 0 und {{max}} liegen",
+    "maxAgentsRange": "Max. Agenten muss zwischen 1 und 100 liegen",
+    "maxAgentsPositive": "Max. Agenten muss 0 (unbegrenzt) oder positiv sein",
+    "chunkSizeMin": "Chunk-Größe muss mindestens 5 Sekunden betragen",
+    "chunkSizeMax": "Chunk-Größe darf 24 Stunden (86400 Sekunden) nicht überschreiten",
+    "invalidNumber": "Bitte geben Sie eine gültige Zahl ein",
+    "minValue": "Wert muss mindestens {{min}} sein",
+    "maxValue": "Wert darf höchstens {{max}} sein"
+  },
+  "errors": {
+    "loadFailed": "Fehler beim Laden der Aufträge",
+    "loadDetailsFailed": "Fehler beim Laden der Auftragsdetails",
+    "deleteFailed": "Fehler beim Löschen des Auftrags",
+    "updateFailed": "Fehler beim Aktualisieren des Auftrags",
+    "fetchFailed": "Fehler beim Abrufen der Aufträge: {{message}}",
+    "willRetry": "Automatischer Wiederholungsversuch.",
+    "notFound": "Auftrag nicht gefunden",
+    "saveFailed": "Fehler beim Speichern der Änderungen",
+    "updatePriorityFailed": "Fehler beim Aktualisieren der Priorität",
+    "updateMaxAgentsFailed": "Fehler beim Aktualisieren der max. Agenten",
+    "updateChunkSizeFailed": "Fehler beim Aktualisieren der Chunk-Größe",
+    "retryTaskFailed": "Fehler beim Wiederholen der Aufgabe",
+    "forceCompleteFailed": "Fehler beim erzwungenen Abschluss des Auftrags"
+  },
+  "details": {
+    "title": "Auftragsdetails",
+    "pageTitle": "Auftragsdetails",
+    "overview": "Übersicht",
+    "tasks": "Aufgaben",
+    "results": "Ergebnisse",
+    "logs": "Protokolle",
+    "jobInformation": "Auftragsinformationen",
+    "timeRemaining": "Verbleibende Zeit",
+    "estimatedCompletion": "Geschätzte Fertigstellung",
+    "crackingCompletedAt": "Knacken abgeschlossen am",
+    "chunkSizeDefault": "Nicht gesetzt (Standard wird verwendet)",
+    "noActiveTasksEstimate": "Kann nicht schätzen - keine Aufgaben laufen derzeit",
+    "lessThanOneMinute": "Weniger als 1 Minute",
+    "jobCompleted": "Auftrag abgeschlossen",
+    "finishingUp": "Wird abgeschlossen...",
+    "completingShortly": "Wird in Kürze abgeschlossen",
+    "processingDuration": "Verarbeitung: {{duration}}",
+    "wordlists": "Wortliste(n)",
+    "rules": "Regeln",
+    "splittingMode": "Aufteilungsmodus",
+    "ruleSplitting": "Regel-Aufteilung",
+    "firstWordlist": "Erste Wortliste",
+    "secondWordlist": "Zweite Wortliste",
+    "wordlist": "Wortliste",
+    "mask": "Maske",
+    "incrementMode": "Inkrement-Modus",
+    "incrementRange": "Inkrement-Bereich",
+    "maskSuffix": "Maske (Suffix)",
+    "maskPrefix": "Maske (Präfix)",
+    "associationHints": "Assoziationshinweise",
+    "autoRefreshOn": "Auto-Aktualisierung: EIN",
+    "autoRefreshPaused": "Auto-Aktualisierung: PAUSIERT",
+    "forceComplete": "Abschluss erzwingen",
+    "refreshNow": "Jetzt aktualisieren",
+    "priorityRange": "0-{{max}}",
+    "maxAgentsHint": "0=unbegrenzt",
+    "chunkSizeHint": "Sekunden (5-86400)",
+    "incrementLayers": "Inkrement-Schichten ({{count}} gesamt)",
+    "estimatedKeyspace": "Geschätzt",
+    "taskProgressVisualization": "Aufgabenfortschritt-Visualisierung",
+    "activeTasks": "Aktive Aufgaben ({{count}} laufend)",
+    "noActiveTasks": "Keine aktiven Aufgaben",
+    "failedTasks": "Fehlgeschlagene Aufgaben ({{count}} gesamt)",
+    "completedTasks": "Abgeschlossene Aufgaben ({{count}} gesamt)",
+    "noCompletedTasks": "Keine abgeschlossenen Aufgaben",
+    "increment": "Inkrement",
+    "incrementInverse": "Inkrement Invers",
+    "jobNotFound": "Auftrag nicht gefunden",
+    "priority": "Priorität",
+    "timeUnits": {
+      "year": "Jahr",
+      "years": "Jahre",
+      "month": "Monat",
+      "months": "Monate",
+      "day": "Tag",
+      "days": "Tage",
+      "hour": "Stunde",
+      "hours": "Stunden",
+      "minute": "Minute",
+      "minutes": "Minuten",
+      "second": "Sekunde",
+      "seconds": "Sekunden"
+    },
+    "layerTable": {
+      "layer": "Schicht",
+      "mask": "Maske",
+      "minLength": "Min. Länge",
+      "maxLength": "Max. Länge",
+      "keyspace": "Keyspace",
+      "effectiveKeyspace": "Effektiver Keyspace",
+      "progress": "Fortschritt",
+      "tasks": "Aufgaben",
+      "cracks": "Knackungen",
+      "status": "Status",
+      "running": "laufend",
+      "total": "gesamt",
+      "failed": "{{count}} fehlgeschlagen"
+    },
+    "activeTasksTable": {
+      "agentId": "Agent-ID",
+      "taskId": "Aufgaben-ID",
+      "agent": "Agent",
+      "skip": "Überspringen",
+      "limit": "Limit",
+      "keyspaceRange": "Keyspace-Bereich",
+      "progress": "Fortschritt",
+      "speed": "Geschwindigkeit",
+      "currentSpeed": "Aktuelle Geschwindigkeit",
+      "cracks": "Knackungen",
+      "startedAt": "Gestartet am"
+    },
+    "failedTasksTable": {
+      "agentId": "Agent-ID",
+      "taskId": "Aufgaben-ID",
+      "agent": "Agent",
+      "status": "Status",
+      "retryCount": "Wiederholungen",
+      "error": "Fehler",
+      "errorMessage": "Fehlermeldung",
+      "lastUpdated": "Zuletzt aktualisiert",
+      "failedAt": "Fehlgeschlagen am",
+      "actions": "Aktionen"
+    },
+    "completedTasksTable": {
+      "agentId": "Agent-ID",
+      "taskId": "Aufgaben-ID",
+      "agent": "Agent",
+      "completedAt": "Abgeschlossen am",
+      "keyspaceRange": "Keyspace-Bereich",
+      "finalProgress": "Endfortschritt",
+      "averageSpeed": "Durchschnittsgeschwindigkeit",
+      "cracks": "Knackungen",
+      "cracksFound": "Gefundene Knackungen"
+    },
+    "attackModes": {
+      "dictionary": "Wörterbuch",
+      "combination": "Kombination",
+      "bruteforce": "Brute-Force",
+      "hybridWordlistMask": "Hybrid Wortliste + Maske",
+      "hybridMaskWordlist": "Hybrid Maske + Wortliste",
+      "association": "Assoziation",
+      "modeNumber": "Modus {{mode}}"
+    }
+  },
+  "common": {
+    "id": "ID",
+    "name": "Name",
+    "status": "Status",
+    "hashlist": "Hashliste",
+    "hashType": "Hash-Typ",
+    "attackMode": "Angriffsmodus",
+    "keyspace": "Keyspace",
+    "effectiveKeyspace": "Effektiver Keyspace",
+    "processedKeyspace": "Verarbeiteter Keyspace",
+    "dispatchedKeyspace": "Verteilter Keyspace",
+    "progress": "Fortschritt",
+    "cracksFound": "Gefundene Knackungen",
+    "createdAt": "Erstellt am",
+    "startedAt": "Gestartet am",
+    "completedAt": "Abgeschlossen am",
+    "error": "Fehler",
+    "warning": "Warnung",
+    "maxAgents": "Max. Agenten",
+    "chunkSize": "Chunk-Größe",
+    "unassigned": "Nicht zugewiesen",
+    "noErrorMessage": "Keine Fehlermeldung",
+    "notAvailable": "N/V",
+    "back": "Zurück",
+    "rulesMultiplier": "(Regeln)"
+  },
+  "editableCell": {
+    "clickToEdit": "Klicken zum Bearbeiten"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Abgeschlossene Aufträge löschen",
+      "message": "Sind Sie sicher, dass Sie alle abgeschlossenen Aufträge löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden."
+    },
+    "forceComplete": {
+      "title": "Abschluss des Auftrags erzwingen",
+      "warning": "Dies wird alle unvollständigen Aufgaben als abgeschlossen markieren und den Auftragsstatus auf abgeschlossen setzen.",
+      "onlyUseIf": "Verwenden Sie dies nur, wenn:",
+      "reason1": "Der Auftrag die gesamte Arbeit tatsächlich abgeschlossen hat",
+      "reason2": "Der Auftrag im Status läuft/ausstehend hängt",
+      "reason3": "Sie überprüft haben, dass der Keyspace vollständig durchsucht wurde",
+      "note": "Hinweis: Wir arbeiten an besseren Methoden zur Handhabung von Keyspace-Berechnungen und Auftragsabschlusserkennung unter verschiedenen Umständen.",
+      "confirmation": "Sind Sie sicher, dass Sie den Abschluss dieses Auftrags erzwingen möchten?",
+      "completing": "Wird abgeschlossen...",
+      "button": "Abschluss erzwingen"
+    },
+    "deleteConfirm": {
+      "deleting": "Wird gelöscht..."
+    }
+  },
+  "buttons": {
+    "refresh": "Aktualisieren",
+    "deleteFinished": "Abgeschlossene löschen",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "save": "Speichern",
+    "retry": "Wiederholen"
+  },
+  "success": {
+    "chunkSizeUpdated": "Chunk-Größe erfolgreich aktualisiert. Änderungen werden bei der nächsten Aufgabenerstellung wirksam.",
+    "forceCompleted": "Auftrag erfolgreich erzwungen abgeschlossen"
+  },
+  "form": {
+    "name": "Auftragsname",
+    "hashlist": "Hashliste auswählen",
+    "attackMode": "Angriffsmodus",
+    "wordlist": "Wortliste",
+    "rules": "Regeln",
+    "priority": "Priorität",
+    "maxAgents": "Maximale Agenten"
+  },
+  "autoRefresh": {
+    "on": "Auto-Aktualisierung Ein",
+    "off": "Auto-Aktualisierung Aus"
+  },
+  "pagination": {
+    "jobsPerPage": "Aufträge pro Seite"
+  },
+  "filters": {
+    "searchPlaceholder": "Aufträge suchen...",
+    "priority": "Priorität",
+    "status": "Status",
+    "all": "Alle"
+  },
+  "priority": {
+    "low": "Niedrig",
+    "medium": "Mittel",
+    "high": "Hoch",
+    "critical": "Kritisch",
+    "maximum": "Maximum"
+  },
+  "lastUpdated": "Zuletzt aktualisiert: {{time}}",
+  "filtered": "(gefiltert)",
+  "loading": "Aufträge werden geladen..."
+}

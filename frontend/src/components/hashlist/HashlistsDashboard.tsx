@@ -35,6 +35,7 @@ import {
   PlayArrow as StartJobIcon,
   Add as AddIcon
 } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, deleteHashlist, getDeletionProgress, DeletionProgressResponse } from '../../services/api';
 import { AxiosResponse, AxiosError } from 'axios';
@@ -91,6 +92,7 @@ interface HashlistsDashboardProps {
 }
 
 export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOpen }: HashlistsDashboardProps) {
+  const { t } = useTranslation('hashlists');
   const [order, setOrder] = useState<'asc' | 'desc'>('desc');
   const [orderBy, setOrderBy] = useState<OrderBy>('createdAt');
   const [nameFilter, setNameFilter] = useState('');
@@ -158,7 +160,7 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
             clearInterval(pollingIntervalRef.current);
             pollingIntervalRef.current = null;
           }
-          enqueueSnackbar('Hashlist deleted successfully', { variant: 'success' });
+          enqueueSnackbar(t('notifications.deleteSuccess') as string, { variant: 'success' });
           queryClient.invalidateQueries({ queryKey: ['hashlists'] });
           // Wait a moment before closing so user can see completion
           setTimeout(() => {
@@ -172,7 +174,7 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
             clearInterval(pollingIntervalRef.current);
             pollingIntervalRef.current = null;
           }
-          enqueueSnackbar(`Deletion failed: ${progress.error}`, { variant: 'error' });
+          enqueueSnackbar(t('errors.deleteFailed', { error: progress.error }) as string, { variant: 'error' });
         }
       } catch (error: any) {
         // 404 means deletion already completed and was cleaned up
@@ -181,7 +183,7 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
             clearInterval(pollingIntervalRef.current);
             pollingIntervalRef.current = null;
           }
-          enqueueSnackbar('Hashlist deleted successfully', { variant: 'success' });
+          enqueueSnackbar(t('notifications.deleteSuccess') as string, { variant: 'success' });
           queryClient.invalidateQueries({ queryKey: ['hashlists'] });
           setDeletionProgressDialogOpen(false);
           setDeletionProgress(null);
@@ -220,7 +222,7 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
         startDeletionPolling(hashlistToDelete.id);
       } else {
         // Sync deletion completed
-        enqueueSnackbar('Hashlist deleted successfully', { variant: 'success' });
+        enqueueSnackbar(t('notifications.deleteSuccess') as string, { variant: 'success' });
         queryClient.invalidateQueries({ queryKey: ['hashlists'] });
         setDeleteDialogOpen(false);
         setHashlistToDelete(null);
@@ -277,7 +279,7 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
     handleUploadClose();
     // Invalidate query to refresh list
     queryClient.invalidateQueries({ queryKey: ['hashlists'] }); 
-    enqueueSnackbar('Hashlist uploaded successfully', { variant: 'success' });
+    enqueueSnackbar(t('notifications.uploadSuccess') as string, { variant: 'success' });
   };
 
   // --- Download Handler ---
@@ -324,7 +326,7 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
       // Clean up
       link.parentNode?.removeChild(link);
       window.URL.revokeObjectURL(url);
-      enqueueSnackbar(`Downloaded ${filename}`, { variant: 'success' });
+      enqueueSnackbar(t('notifications.downloaded', { filename }) as string, { variant: 'success' });
 
     } catch (error) {
       console.error("Error downloading hashlist:", error);
@@ -359,7 +361,7 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
           <Grid item xs={12} sm={4}>
             <TextField
               fullWidth
-              label="Filter by Name"
+              label={t('filters.filterByName') as string}
               variant="outlined"
               size="small"
               value={nameFilter}
@@ -368,15 +370,15 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
           </Grid>
           <Grid item xs={12} sm={3}>
             <FormControl fullWidth size="small" variant="outlined">
-              <InputLabel>Status</InputLabel>
+              <InputLabel>{t('filters.status') as string}</InputLabel>
               <Select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as HashlistStatus | '')}
-                label="Status"
+                label={t('filters.status') as string}
               >
-                <MenuItem value=""><em>All</em></MenuItem>
+                <MenuItem value=""><em>{t('filters.all') as string}</em></MenuItem>
                 {allStatuses.map(status => (
-                  <MenuItem key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</MenuItem>
+                  <MenuItem key={status} value={status}>{t(`status.${status}`) as string}</MenuItem>
                 ))}
               </Select>
             </FormControl>
@@ -385,7 +387,7 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
       </Box>
 
       {isFetchError && (
-          <Alert severity="error" sx={{ mb: 2 }}>Error fetching hashlists.</Alert>
+          <Alert severity="error" sx={{ mb: 2 }}>{t('errors.loadFailed') as string}</Alert>
       )}
 
       <TableContainer>
@@ -398,7 +400,7 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
                   direction={orderBy === 'name' ? order : 'asc'}
                   onClick={() => handleRequestSort('name')}
                 >
-                  Name
+                  {t('columns.name') as string}
                 </TableSortLabel>
               </TableCell>
               <TableCell sortDirection={orderBy === 'clientName' ? order : false}>
@@ -407,7 +409,7 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
                   direction={orderBy === 'clientName' ? order : 'asc'}
                   onClick={() => handleRequestSort('clientName')}
                 >
-                  Client
+                  {t('columns.client') as string}
                 </TableSortLabel>
               </TableCell>
               <TableCell sortDirection={orderBy === 'status' ? order : false}>
@@ -416,22 +418,22 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
                   direction={orderBy === 'status' ? order : 'asc'}
                   onClick={() => handleRequestSort('status')}
                 >
-                  Status
+                  {t('columns.status') as string}
                 </TableSortLabel>
               </TableCell>
-              <TableCell>Total Hashes</TableCell>
-              <TableCell>Cracked</TableCell>
-              <TableCell>Cracked (%)</TableCell>
+              <TableCell>{t('columns.totalHashes') as string}</TableCell>
+              <TableCell>{t('columns.crackedHashes') as string}</TableCell>
+              <TableCell>{t('columns.progress') as string}</TableCell>
               <TableCell sortDirection={orderBy === 'createdAt' ? order : false}>
                  <TableSortLabel
                   active={orderBy === 'createdAt'}
                   direction={orderBy === 'createdAt' ? order : 'asc'}
                   onClick={() => handleRequestSort('createdAt')}
                 >
-                  Created
+                  {t('columns.createdAt') as string}
                 </TableSortLabel>
               </TableCell>
-              <TableCell>Actions</TableCell>
+              <TableCell>{t('columns.actions') as string}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -444,7 +446,7 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
             )}
             {!isLoading && !deleteMutation.isPending && hashlists.length === 0 && (
               <TableRow>
-                 <TableCell colSpan={6} align="center">No hashlists found.</TableCell>
+                 <TableCell colSpan={6} align="center">{t('table.noHashlists') as string}</TableCell>
               </TableRow>
             )}
             {!isLoading && !deleteMutation.isPending && hashlists.map((hashlist) => (
@@ -536,10 +538,10 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
                   })()}
                 </TableCell>
                 <TableCell>
-                  <Tooltip title="Download">
-                    <span> {/* Tooltip needs a DOM element if child is disabled */} 
-                      <IconButton 
-                        aria-label="download" 
+                  <Tooltip title={t('actions.download') as string}>
+                    <span> {/* Tooltip needs a DOM element if child is disabled */}
+                      <IconButton
+                        aria-label={t('actions.download') as string}
                         onClick={() => handleDownloadClick(hashlist)}
                         disabled={downloadingId === hashlist.id} // Disable while downloading this specific list
                       >
@@ -547,11 +549,11 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
                       </IconButton>
                     </span>
                   </Tooltip>
-                  <Tooltip title="Delete">
-                     <span> {/* Tooltip needs a DOM element if child is disabled */} 
-                      <IconButton 
-                        aria-label="delete" 
-                        onClick={() => handleDeleteClick(hashlist)} 
+                  <Tooltip title={t('actions.delete') as string}>
+                     <span> {/* Tooltip needs a DOM element if child is disabled */}
+                      <IconButton
+                        aria-label={t('actions.delete') as string}
+                        onClick={() => handleDeleteClick(hashlist)}
                         disabled={deleteMutation.isPending || !!downloadingId} // Also disable if any download is in progress
                         color="error"
                       >
@@ -573,20 +575,19 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
         aria-describedby="alert-dialog-description"
       >
         <DialogTitle id="alert-dialog-title">
-          {"Confirm Deletion"}
+          {t('confirmDelete.title') as string}
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="alert-dialog-description">
-            Are you sure you want to delete the hashlist "{hashlistToDelete?.name || ''}"?
-            This action cannot be undone.
+            {t('confirmDelete.message', { name: hashlistToDelete?.name || '' }) as string}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleDeleteCancel} color="primary">
-            Cancel
+            {t('confirmDelete.cancel') as string}
           </Button>
           <Button onClick={handleDeleteConfirm} color="error" autoFocus disabled={deleteMutation.isPending}>
-            {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+            {deleteMutation.isPending ? t('confirmDelete.deleting') as string : t('confirmDelete.delete') as string}
           </Button>
         </DialogActions>
       </Dialog>
@@ -599,42 +600,42 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
         disableEscapeKeyDown
       >
         <DialogTitle>
-          {deletionProgress?.status === 'completed' ? 'Hashlist Deleted Successfully' : 'Deleting Hashlist'}
+          {deletionProgress?.status === 'completed' ? t('deletionProgress.successTitle') as string : t('deletionProgress.title') as string}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ textAlign: 'center', py: 2 }}>
             {deletionProgress?.status === 'completed' ? (
               <>
                 <Typography variant="h6" color="success.main" gutterBottom>
-                  Deletion Complete!
+                  {t('deletionProgress.complete') as string}
                 </Typography>
                 {/* Summary stats */}
                 <Box sx={{ mt: 2, textAlign: 'left', bgcolor: 'grey.50', p: 2, borderRadius: 1 }}>
                   <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
-                    Summary:
+                    {t('deletionProgress.summary') as string}
                   </Typography>
                   <Typography variant="body2" sx={{ mb: 0.5 }}>
-                    Total hashes processed: {deletionProgress.total.toLocaleString()}
+                    {t('deletionProgress.totalProcessed', { value: deletionProgress.total.toLocaleString() }) as string}
                   </Typography>
                   <Typography variant="body2" sx={{ mb: 0.5 }}>
-                    Orphan hashes deleted: {deletionProgress.deleted.toLocaleString()}
+                    {t('deletionProgress.orphansDeleted', { value: deletionProgress.deleted.toLocaleString() }) as string}
                   </Typography>
                   <Typography variant="body2" sx={{ mb: 0.5 }}>
-                    Shared hashes preserved: {(deletionProgress.shared_preserved || 0).toLocaleString()}
+                    {t('deletionProgress.sharedPreserved', { value: (deletionProgress.shared_preserved || 0).toLocaleString() }) as string}
                   </Typography>
                   <Typography variant="body2" sx={{ mb: 0.5 }}>
-                    Jobs deleted: {(deletionProgress.jobs_deleted || 0).toLocaleString()}
+                    {t('deletionProgress.jobsDeleted', { value: (deletionProgress.jobs_deleted || 0).toLocaleString() }) as string}
                   </Typography>
                   {deletionProgress.duration && (
                     <Typography variant="body2">
-                      Duration: {deletionProgress.duration}
+                      {t('deletionProgress.duration', { duration: deletionProgress.duration }) as string}
                     </Typography>
                   )}
                 </Box>
               </>
             ) : deletionProgress?.status === 'failed' ? (
               <Typography variant="h6" color="error.main" gutterBottom>
-                Deletion Failed
+                {t('deletionProgress.failed') as string}
               </Typography>
             ) : (
               <>
@@ -645,15 +646,15 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
                   const getPhaseInfo = () => {
                     switch (deletionProgress?.status) {
                       case 'deleting_hashes':
-                        return { phase: 1, total: 3, label: 'Removing hashes', current: deletionProgress.checked, max: deletionProgress.total, unit: 'hashes' };
+                        return { phase: 1, total: 3, label: t('deletionProgress.phases.removingHashes') as string, current: deletionProgress.checked, max: deletionProgress.total, unit: t('deletionProgress.units.hashes') as string };
                       case 'clearing_references':
-                        return { phase: 2, total: 3, label: 'Clearing task references', current: deletionProgress.refs_cleared || 0, max: deletionProgress.refs_total || 1, unit: 'references' };
+                        return { phase: 2, total: 3, label: t('deletionProgress.phases.clearingReferences') as string, current: deletionProgress.refs_cleared || 0, max: deletionProgress.refs_total || 1, unit: t('deletionProgress.units.references') as string };
                       case 'cleaning_orphans':
-                        return { phase: 3, total: 3, label: 'Cleaning orphan hashes', current: deletionProgress.checked, max: deletionProgress.total, unit: 'hashes' };
+                        return { phase: 3, total: 3, label: t('deletionProgress.phases.cleaningOrphans') as string, current: deletionProgress.checked, max: deletionProgress.total, unit: t('deletionProgress.units.hashes') as string };
                       case 'finalizing':
-                        return { phase: 3, total: 3, label: 'Finalizing deletion', current: 100, max: 100, unit: '' };
+                        return { phase: 3, total: 3, label: t('deletionProgress.phases.finalizing') as string, current: 100, max: 100, unit: '' };
                       default:
-                        return { phase: 0, total: 3, label: 'Preparing...', current: 0, max: 100, unit: '' };
+                        return { phase: 0, total: 3, label: t('deletionProgress.phases.preparing') as string, current: 0, max: 100, unit: '' };
                     }
                   };
                   const phaseInfo = getPhaseInfo();
@@ -662,7 +663,7 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
                   return (
                     <Box sx={{ mt: 2, width: '100%' }}>
                       <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                        Phase {phaseInfo.phase}/{phaseInfo.total}: {phaseInfo.label}
+                        {t('deletionProgress.phase', { current: phaseInfo.phase, total: phaseInfo.total, label: phaseInfo.label }) as string}
                       </Typography>
                       <LinearProgress
                         variant="determinate"
@@ -680,7 +681,7 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
 
             {deletionProgress?.error && (
               <Typography variant="body2" color="error" sx={{ mt: 2 }}>
-                Error: {deletionProgress.error}
+                {t('deletionProgress.error', { error: deletionProgress.error }) as string}
               </Typography>
             )}
           </Box>
@@ -699,24 +700,24 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
               color="primary"
               variant={deletionProgress?.status === 'completed' ? 'contained' : 'text'}
             >
-              {deletionProgress?.status === 'completed' ? 'Done' : 'Close'}
+              {deletionProgress?.status === 'completed' ? t('deletionProgress.done') as string : t('deletionProgress.close') as string}
             </Button>
           </DialogActions>
         )}
       </Dialog>
 
       <Dialog
-        open={uploadDialogOpen} 
-        onClose={handleUploadClose} 
+        open={uploadDialogOpen}
+        onClose={handleUploadClose}
         maxWidth="md"
-        fullWidth 
+        fullWidth
       >
-        <DialogTitle>Upload New Hashlist</DialogTitle>
+        <DialogTitle>{t('upload.title') as string}</DialogTitle>
         <DialogContent>
           <HashlistUploadForm onSuccess={handleUploadSuccess} />
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleUploadClose}>Cancel</Button>
+          <Button onClick={handleUploadClose}>{t('upload.cancel') as string}</Button>
         </DialogActions>
       </Dialog>
 

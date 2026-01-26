@@ -1,0 +1,149 @@
+{
+  "title": "Gebruikersinstellingen",
+  "profileSettings": {
+    "title": "Profielinstellingen"
+  },
+  "profile": {
+    "title": "Profiel",
+    "username": "Gebruikersnaam",
+    "email": "E-mail",
+    "changePassword": "Wachtwoord wijzigen",
+    "currentPassword": "Huidig wachtwoord",
+    "newPassword": "Nieuw wachtwoord",
+    "confirmPassword": "Nieuw wachtwoord bevestigen",
+    "updateProfile": "Profiel bijwerken",
+    "profileUpdated": "Profiel succesvol bijgewerkt"
+  },
+  "account": {
+    "title": "Accountinformatie",
+    "username": "Gebruikersnaam",
+    "email": "E-mail",
+    "usernameCannotChange": "Gebruikersnaam kan niet worden gewijzigd",
+    "saving": "Opslaan...",
+    "saveEmail": "E-mail opslaan",
+    "confirmEmailUpdate": {
+      "title": "E-mailupdate bevestigen",
+      "message": "Voer uw huidige wachtwoord in om uw e-mailadres bij te werken."
+    },
+    "errors": {
+      "noChanges": "Geen wijzigingen om op te slaan",
+      "invalidEmail": "Ongeldig e-mailadres",
+      "updateFailed": "Bijwerken van e-mail mislukt",
+      "incorrectPassword": "Onjuist wachtwoord"
+    },
+    "success": {
+      "emailUpdated": "E-mail succesvol bijgewerkt"
+    }
+  },
+  "password": {
+    "title": "Wachtwoord wijzigen",
+    "currentPassword": "Huidig wachtwoord",
+    "newPassword": "Nieuw wachtwoord",
+    "confirmNewPassword": "Nieuw wachtwoord bevestigen",
+    "enterCurrentFirst": "Voer eerst huidig wachtwoord in",
+    "passwordsMatch": "Wachtwoorden komen overeen",
+    "changePassword": "Wachtwoord wijzigen",
+    "changing": "Wachtwoord wijzigen...",
+    "errors": {
+      "currentRequired": "Huidig wachtwoord is verplicht",
+      "newRequired": "Nieuw wachtwoord is verplicht",
+      "mismatch": "Wachtwoorden komen niet overeen",
+      "requirements": "Nieuw wachtwoord voldoet niet aan de vereisten",
+      "updateFailed": "Bijwerken van wachtwoord mislukt"
+    },
+    "success": {
+      "changed": "Wachtwoord succesvol gewijzigd"
+    }
+  },
+  "apiKey": {
+    "title": "API-sleutels",
+    "status": "API-sleutelstatus",
+    "active": "Actief",
+    "noKeyGenerated": "Geen API-sleutel gegenereerd",
+    "created": "Aangemaakt",
+    "lastUsed": "Laatst gebruikt",
+    "generate": "API-sleutel genereren",
+    "regenerate": "API-sleutel opnieuw genereren",
+    "revoke": "API-sleutel intrekken",
+    "viewDocs": "API-documentatie bekijken",
+    "dialog": {
+      "title": "Uw API-sleutel",
+      "saveNow": "Sla deze sleutel nu op!",
+      "cantSeeAgain": "U kunt deze niet opnieuw zien.",
+      "instructions": "Gebruik deze API-sleutel in uw HTTP-verzoeken door deze op te nemen in de X-API-Key header.",
+      "saved": "Ik heb het opgeslagen"
+    },
+    "confirmRegenerate": {
+      "title": "API-sleutel opnieuw genereren?",
+      "warning": "Dit maakt uw bestaande API-sleutel ongeldig. Alle applicaties die de huidige sleutel gebruiken zullen stoppen met werken.",
+      "confirm": "Weet u zeker dat u wilt doorgaan?"
+    },
+    "confirmRevoke": {
+      "title": "API-sleutel intrekken?",
+      "warning": "Dit schakelt onmiddellijk API-toegang uit. Alle applicaties die deze sleutel gebruiken zullen stoppen met werken.",
+      "confirm": "Weet u zeker dat u uw API-sleutel wilt intrekken?"
+    },
+    "errors": {
+      "generateFailed": "Genereren van API-sleutel mislukt",
+      "revokeFailed": "Intrekken van API-sleutel mislukt"
+    },
+    "success": {
+      "revoked": "API-sleutel succesvol ingetrokken",
+      "copied": "API-sleutel gekopieerd naar klembord"
+    }
+  },
+  "common": {
+    "cancel": "Annuleren",
+    "never": "Nooit",
+    "invalidDate": "Ongeldige datum"
+  },
+  "mfa": {
+    "title": "Tweefactorauthenticatie",
+    "status": "2FA-status",
+    "enabled": "Ingeschakeld",
+    "disabled": "Uitgeschakeld",
+    "enable": "2FA inschakelen",
+    "disable": "2FA uitschakelen",
+    "methods": {
+      "title": "Authenticatiemethoden",
+      "totp": "Authenticator-app",
+      "email": "E-mail",
+      "backupCodes": "Backupcodes"
+    },
+    "setup": {
+      "scanQR": "Scan deze QR-code met uw authenticator-app",
+      "enterCode": "Voer de code van uw app in om te verifiëren",
+      "backupCodesGenerated": "Bewaar deze backupcodes op een veilige plaats"
+    }
+  },
+  "linkedAccounts": {
+    "title": "Gekoppelde accounts",
+    "noAccounts": "Geen gekoppelde accounts",
+    "link": "Account koppelen",
+    "unlink": "Ontkoppelen"
+  },
+  "notifications": {
+    "title": "Meldingen",
+    "emailNotifications": "E-mailmeldingen",
+    "jobCompleted": "Taak voltooid",
+    "agentOffline": "Agent offline",
+    "securityAlerts": "Beveiligingswaarschuwingen"
+  },
+  "preferences": {
+    "title": "Voorkeuren",
+    "language": "Taal",
+    "timezone": "Tijdzone",
+    "dateFormat": "Datumnotatie",
+    "theme": "Thema",
+    "themes": {
+      "light": "Licht",
+      "dark": "Donker",
+      "system": "Systeem"
+    }
+  },
+  "errors": {
+    "updateFailed": "Bijwerken van instellingen mislukt",
+    "passwordMismatch": "Wachtwoorden komen niet overeen",
+    "invalidPassword": "Ongeldig huidig wachtwoord"
+  }
+}

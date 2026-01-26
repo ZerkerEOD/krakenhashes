@@ -1,0 +1,1416 @@
+{
+  "title": "Configuracion de administrador",
+  "sections": {
+    "general": "Configuracion general",
+    "authentication": "Autenticacion",
+    "email": "Configuracion de correo",
+    "security": "Seguridad",
+    "sso": "Single Sign-On",
+    "monitoring": "Monitoreo"
+  },
+  "tabs": {
+    "emailSettings": "Configuracion de correo",
+    "authenticationSettings": "Configuracion de autenticacion",
+    "ssoSettings": "Configuracion de SSO",
+    "binaryManagement": "Gestion de binarios",
+    "systemSettings": "Configuracion del sistema",
+    "clientSettings": "Configuracion de clientes",
+    "hashTypes": "Tipos de hash",
+    "jobExecution": "Ejecucion de trabajos",
+    "monitoring": "Monitoreo",
+    "agentDownloads": "Descargas de agentes"
+  },
+  "common": {
+    "cancel": "Cancelar",
+    "create": "Crear",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "save": "Guardar",
+    "saveChanges": "Guardar cambios",
+    "copyToClipboard": "Copiar al portapapeles",
+    "never": "Nunca",
+    "invalidDate": "Fecha invalida",
+    "all": "Todos",
+    "yes": "Si",
+    "no": "No",
+    "note": "Nota",
+    "default": "Predeterminado",
+    "on": "Activado",
+    "off": "Desactivado",
+    "none": "Ninguno",
+    "unlimited": "Ilimitado",
+    "close": "Cerrar",
+    "unknownError": "Error desconocido",
+    "dialogs": {
+      "confirmDeleteNamed": "Estas seguro de que deseas eliminar \"{{name}}\"?"
+    }
+  },
+  "users": {
+    "title": "Gestion de usuarios",
+    "description": "Gestiona cuentas de usuario y permisos",
+    "addUser": "Agregar usuario",
+    "createUser": "Crear usuario",
+    "columns": {
+      "username": "Nombre de usuario",
+      "email": "Correo electronico",
+      "role": "Rol",
+      "status": "Estado",
+      "createdAt": "Creado",
+      "lastLogin": "Ultimo acceso",
+      "actions": "Acciones",
+      "provider": "Proveedor",
+      "providerLocal": "Local",
+      "mfa": "MFA",
+      "apiKey": "Clave API",
+      "lastApiUse": "Ultimo uso de API"
+    },
+    "roles": {
+      "admin": "Administrador",
+      "user": "Usuario",
+      "system": "Sistema"
+    },
+    "status": {
+      "active": "Activo",
+      "pending": "Pendiente de aprobacion",
+      "disabled": "Deshabilitado",
+      "locked": "Bloqueado"
+    },
+    "actions": {
+      "edit": "Editar usuario",
+      "delete": "Eliminar usuario",
+      "approve": "Aprobar",
+      "disable": "Deshabilitar",
+      "enable": "Habilitar",
+      "unlock": "Desbloquear",
+      "resetPassword": "Restablecer contrasena",
+      "disableMfa": "Deshabilitar MFA",
+      "revokeApiKey": "Revocar clave API",
+      "cannotDeleteSystem": "No se pueden eliminar usuarios del sistema",
+      "terminateSession": "Terminar sesion",
+      "terminateAllSessions": "Terminar todas las sesiones"
+    },
+    "apiKey": {
+      "none": "Ninguna"
+    },
+    "validation": {
+      "usernameRequired": "El nombre de usuario es requerido",
+      "emailRequired": "El correo electronico es requerido",
+      "emailInvalid": "Formato de correo invalido",
+      "passwordRequired": "La contrasena es requerida",
+      "passwordMinLength": "al menos {{value}} caracteres",
+      "passwordUppercase": "una letra mayuscula",
+      "passwordLowercase": "una letra minuscula",
+      "passwordNumber": "un numero",
+      "passwordSpecial": "un caracter especial",
+      "passwordMustContain": "La contrasena debe contener {{requirements}}",
+      "confirmPasswordRequired": "Por favor confirma la contrasena",
+      "passwordsMismatch": "Las contrasenas no coinciden"
+    },
+    "errors": {
+      "loadFailed": "Error al cargar usuarios. Por favor intenta actualizar.",
+      "loadDetailsFailed": "Error al cargar detalles del usuario",
+      "loadSessionsFailed": "Error al cargar sesiones",
+      "loadLoginAttemptsFailed": "Error al cargar intentos de inicio de sesion",
+      "loadApiKeyFailed": "Error al cargar informacion de clave API",
+      "createFailed": "Error al crear usuario",
+      "updateFailed": "Error al actualizar usuario",
+      "deleteFailed": "Error al eliminar usuario",
+      "enableFailed": "Error al habilitar usuario",
+      "disableFailed": "Error al deshabilitar usuario",
+      "unlockFailed": "Error al desbloquear cuenta",
+      "reasonRequired": "Por favor proporciona una razon para deshabilitar este usuario",
+      "passwordResetFailed": "Error al restablecer contrasena",
+      "mfaDisableFailed": "Error al deshabilitar MFA",
+      "accountStatusFailed": "Error al actualizar estado de cuenta",
+      "terminateSessionFailed": "Error al terminar sesion",
+      "terminateAllSessionsFailed": "Error al terminar todas las sesiones",
+      "revokeApiKeyFailed": "Error al revocar clave API",
+      "userNotFound": "Usuario no encontrado"
+    },
+    "messages": {
+      "createSuccess": "Usuario creado exitosamente",
+      "updateSuccess": "Detalles del usuario actualizados exitosamente",
+      "deleteSuccess": "Usuario eliminado exitosamente",
+      "enableSuccess": "Usuario habilitado exitosamente",
+      "disableSuccess": "Usuario deshabilitado exitosamente",
+      "passwordResetSuccess": "Contrasena restablecida exitosamente!",
+      "passwordCopied": "Contrasena copiada al portapapeles",
+      "mfaDisableSuccess": "MFA deshabilitado exitosamente",
+      "accountDisabled": "Cuenta de usuario deshabilitada",
+      "accountEnabled": "Cuenta de usuario habilitada",
+      "accountUnlocked": "Cuenta de usuario desbloqueada",
+      "sessionTerminated": "Sesion terminada exitosamente",
+      "allSessionsTerminated": "{{count}} sesion(es) terminada(s) exitosamente",
+      "apiKeyRevoked": "Clave API revocada exitosamente"
+    },
+    "dialogs": {
+      "createUser": {
+        "title": "Crear nuevo usuario",
+        "password": "Contrasena",
+        "confirmPassword": "Confirmar contrasena",
+        "roleHelperText": "Selecciona el rol del usuario en el sistema"
+      },
+      "disableUser": {
+        "title": "Deshabilitar cuenta de usuario",
+        "description": "Por favor proporciona una razon para deshabilitar esta cuenta de usuario. Esto sera registrado para propositos de auditoria.",
+        "reasonLabel": "Razon para deshabilitar",
+        "reasonPlaceholder": "ej., Compromiso de cuenta, Violacion de terminos, Solicitud del usuario, etc.",
+        "disableAccount": "Deshabilitar cuenta"
+      },
+      "deleteUser": {
+        "title": "Eliminar cuenta de usuario",
+        "warning": "Esta accion no se puede deshacer. El usuario sera eliminado permanentemente del sistema.",
+        "confirmation": "Estas seguro de que deseas eliminar el usuario <strong>{{username}}</strong>?",
+        "dataNote": "Todos los datos asociados seran preservados, pero el usuario ya no podra iniciar sesion."
+      },
+      "resetPassword": {
+        "title": "Restablecer contrasena de usuario",
+        "generateTemporary": "Generar contrasena temporal",
+        "newPassword": "Nueva contrasena",
+        "passwordHelperText": "Debe tener al menos 8 caracteres"
+      },
+      "disableMfa": {
+        "title": "Deshabilitar MFA",
+        "confirmation": "Estas seguro de que deseas deshabilitar MFA para este usuario? Necesitara configurarlo de nuevo si es requerido."
+      },
+      "terminateSession": {
+        "title": "Terminar sesion?",
+        "description": "Esto cerrara la sesion del usuario en este dispositivo. El usuario necesitara iniciar sesion de nuevo para continuar usando la aplicacion.",
+        "terminate": "Terminar"
+      },
+      "terminateAllSessions": {
+        "title": "Terminar todas las sesiones?",
+        "description": "Esto cerrara la sesion del usuario en TODOS los dispositivos, incluyendo su sesion actual. El usuario necesitara iniciar sesion de nuevo. Esta accion no se puede deshacer.",
+        "warning": "Esto incluye cualquier sesion de trabajo activa!",
+        "terminateAll": "Terminar todas"
+      },
+      "revokeApiKey": {
+        "title": "Revocar clave API del usuario?",
+        "warning": "Esto deshabilitara inmediatamente el acceso a la API para este usuario. Cualquier aplicacion que use esta clave dejara de funcionar.",
+        "confirmation": "Estas seguro de que deseas revocar la clave API de este usuario?"
+      }
+    },
+    "detail": {
+      "title": "Detalles del usuario",
+      "backToUsers": "Volver a usuarios",
+      "userInformation": "Informacion del usuario",
+      "userId": "ID de usuario",
+      "systemUserReadOnly": "Los usuarios del sistema no pueden ser modificados",
+      "accountStatus": "Estado de cuenta",
+      "accountStatusLabel": "Estado de cuenta",
+      "enabled": "Habilitado",
+      "disabled": "Deshabilitado",
+      "noReasonProvided": "Sin razon proporcionada",
+      "lockStatus": "Estado de bloqueo",
+      "lockedUntil": "Bloqueado hasta {{date}}",
+      "notLocked": "No bloqueado",
+      "mfaStatus": "Estado de MFA",
+      "mfaEnabled": "Habilitado ({{types}})",
+      "mfaDisabled": "Deshabilitado",
+      "apiKeyManagement": "Gestion de clave API",
+      "apiKeyStatus": "Estado de clave API",
+      "noApiKeyGenerated": "Sin clave API generada",
+      "created": "Creada",
+      "lastUsed": "Ultimo uso",
+      "apiKeySecurityNote": "Los administradores pueden revocar claves API pero no pueden ver la clave en texto plano por razones de seguridad.",
+      "activityInformation": "Informacion de actividad",
+      "passwordChanged": "Contrasena cambiada",
+      "failedLoginAttempts": "Intentos de inicio de sesion fallidos",
+      "attemptsCount": "{{count}} intentos",
+      "disabledAt": "Deshabilitado el",
+      "activeSessions": "Sesiones activas",
+      "noActiveSessions": "Sin sesiones activas",
+      "loginHistory": "Historial de inicio de sesion",
+      "noLoginAttempts": "No se encontraron intentos de inicio de sesion",
+      "temporaryPassword": "Contrasena temporal",
+      "sharePasswordSecurely": "Por favor comparte esta contrasena de forma segura con el usuario.",
+      "sessions": {
+        "ipAddress": "Direccion IP",
+        "deviceBrowser": "Dispositivo / Navegador",
+        "lastActive": "Ultima actividad"
+      },
+      "loginAttempts": {
+        "timestamp": "Fecha y hora",
+        "success": "Exito",
+        "failed": "Fallido",
+        "failureReason": "Razon del fallo"
+      }
+    }
+  },
+  "clients": {
+    "title": "Gestion de clientes",
+    "addClient": "Agregar cliente",
+    "columns": {
+      "name": "Nombre",
+      "description": "Descripcion",
+      "contact": "Contacto",
+      "cracked": "Descifrados",
+      "retention": "Retencion (Meses)",
+      "createdAt": "Creado",
+      "actions": "Acciones"
+    },
+    "form": {
+      "clientName": "Nombre del cliente",
+      "description": "Descripcion",
+      "contactInfo": "Informacion de contacto",
+      "dataRetention": "Retencion de datos (Meses)",
+      "dataRetentionHelperText": "Deja vacio para usar el valor predeterminado del sistema. Ingresa 0 para mantener para siempre.",
+      "excludeFromPotfile": "Excluir del potfile (no guardar contrasenas descifradas)",
+      "excludeFromPotfileHelperText": "Habilita esto para clientes con requisitos estrictos de retencion de datos"
+    },
+    "validation": {
+      "nameRequired": "El nombre del cliente es requerido.",
+      "retentionInvalid": "El periodo de retencion debe ser un numero no negativo o vacio (para predeterminado)."
+    },
+    "errors": {
+      "loadFailed": "Error al cargar clientes. Por favor intenta actualizar.",
+      "loadDefaultSettingsFailed": "Error al cargar configuracion predeterminada de clientes.",
+      "saveFailed": "Error al guardar cliente.",
+      "deleteFailed": "Error al eliminar cliente."
+    },
+    "messages": {
+      "createSuccess": "Cliente creado exitosamente",
+      "updateSuccess": "Cliente actualizado exitosamente",
+      "deleteSuccess": "Cliente eliminado exitosamente"
+    },
+    "dialogs": {
+      "addClient": {
+        "title": "Agregar nuevo cliente",
+        "createButton": "Crear cliente"
+      },
+      "editClient": {
+        "title": "Editar cliente"
+      },
+      "deleteClient": {
+        "title": "Confirmar eliminacion",
+        "confirmation": "Estas seguro de que deseas eliminar el cliente \"{{name}}\"? Esta accion no se puede deshacer. Las listas de hashes asociadas pueden ser eliminadas inmediatamente u orfanadas segun las politicas de retencion."
+      }
+    }
+  },
+  "wordlists": {
+    "title": "Gestion de diccionarios",
+    "description": "Gestiona diccionarios para descifrado de contrasenas",
+    "uploadWordlist": "Subir diccionario",
+    "refresh": "Actualizar",
+    "loading": "Cargando diccionarios...",
+    "noWordlistsFound": "No se encontraron diccionarios",
+    "tryDifferentSearch": "Intenta con un termino de busqueda diferente",
+    "uploadToGetStarted": "Sube un diccionario para comenzar",
+    "noDescription": "Sin descripcion proporcionada",
+    "searchPlaceholder": "Buscar diccionarios...",
+    "tabs": {
+      "all": "Todos los diccionarios",
+      "general": "General",
+      "specialized": "Especializado",
+      "targeted": "Dirigido",
+      "custom": "Personalizado"
+    },
+    "columns": {
+      "name": "Nombre",
+      "status": "Estado",
+      "type": "Tipo",
+      "size": "Tamano",
+      "wordCount": "Cantidad de palabras",
+      "updated": "Actualizado",
+      "actions": "Acciones"
+    },
+    "status": {
+      "verified": "Verificado",
+      "pending": "Pendiente",
+      "failed": "Fallido"
+    },
+    "types": {
+      "general": "General",
+      "specialized": "Especializado",
+      "targeted": "Dirigido",
+      "custom": "Personalizado"
+    },
+    "fields": {
+      "name": "Nombre",
+      "description": "Descripcion",
+      "wordlistType": "Tipo de diccionario"
+    },
+    "tooltips": {
+      "refreshMetadata": "Actualizar metadatos",
+      "download": "Descargar",
+      "edit": "Editar",
+      "delete": "Eliminar"
+    },
+    "errors": {
+      "loadFailed": "Error al cargar diccionarios",
+      "uploadFailed": "Error al subir diccionario",
+      "deleteFailed": "Error al eliminar diccionario",
+      "downloadFailed": "Error al descargar diccionario",
+      "refreshFailed": "Error al actualizar metadatos del diccionario",
+      "updateFailed": "Error al actualizar diccionario: {{error}}",
+      "sessionExpired": "Tu sesion ha expirado. Por favor inicia sesion de nuevo."
+    },
+    "messages": {
+      "uploadSuccess": "Diccionario subido exitosamente",
+      "duplicateWordlist": "El diccionario \"{{name}}\" ya existe",
+      "deleteSuccess": "Diccionario \"{{name}}\" eliminado exitosamente",
+      "updateSuccess": "Diccionario actualizado exitosamente",
+      "refreshSuccess": "Metadatos del diccionario actualizados exitosamente"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "Subir diccionario",
+        "fileUploadTitle": "Subir un archivo de diccionario",
+        "fileUploadDescription": "Selecciona un archivo de diccionario para subir. Formatos soportados: .txt, .dict, .dic, .lst, .wordlist, .wl, .gz, .zip"
+      },
+      "edit": {
+        "title": "Editar diccionario"
+      },
+      "delete": {
+        "title": "Confirmar eliminacion",
+        "cascadeTitle": "Confirmar eliminacion en cascada",
+        "confirmation": "Estas seguro de que deseas eliminar el diccionario \"{{name}}\"? Esta accion no se puede deshacer.",
+        "cascadeWarning": "Eliminar el diccionario \"{{name}}\" tambien eliminara lo siguiente:",
+        "checkingDependencies": "Verificando dependencias...",
+        "jobsCount": "{{count}} Trabajo(s) (pendientes/en ejecucion/fallidos):",
+        "presetJobsCount": "{{count}} Trabajo(s) predefinido(s):",
+        "workflowStepsCount": "{{count}} Paso(s) de flujo de trabajo:",
+        "emptyWorkflowsCount": "{{count}} Flujo(s) de trabajo vacio(s) seran eliminados:",
+        "noHashlist": "Sin lista de hashes",
+        "step": "Paso {{order}}",
+        "andMore": "...y {{count}} mas",
+        "confirmationPrompt": "Para confirmar esta eliminacion en cascada, escribe el ID del diccionario: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "Escribe {{id}} para confirmar",
+        "idMismatch": "El ID no coincide",
+        "deleteAll": "Eliminar todo"
+      }
+    }
+  },
+  "rules": {
+    "title": "Gestion de reglas",
+    "description": "Gestiona reglas de Hashcat para descifrado de contrasenas",
+    "uploadRule": "Subir regla",
+    "refresh": "Actualizar",
+    "loading": "Cargando reglas...",
+    "noRulesFound": "No se encontraron reglas",
+    "tryDifferentSearch": "Intenta con un termino de busqueda diferente",
+    "uploadToGetStarted": "Sube una regla para comenzar",
+    "noDescription": "Sin descripcion proporcionada",
+    "searchPlaceholder": "Buscar reglas...",
+    "tabs": {
+      "all": "Todas las reglas",
+      "hashcat": "Hashcat",
+      "john": "John"
+    },
+    "columns": {
+      "name": "Nombre",
+      "status": "Estado",
+      "type": "Tipo",
+      "size": "Tamano",
+      "ruleCount": "Cantidad de reglas",
+      "updated": "Actualizado",
+      "actions": "Acciones"
+    },
+    "status": {
+      "verified": "Verificado",
+      "pending": "Pendiente",
+      "failed": "Fallido",
+      "ready": "Listo",
+      "processing": "Procesando"
+    },
+    "types": {
+      "hashcat": "Hashcat",
+      "john": "John the Ripper"
+    },
+    "fields": {
+      "name": "Nombre",
+      "description": "Descripcion",
+      "ruleType": "Tipo de regla"
+    },
+    "tooltips": {
+      "download": "Descargar",
+      "edit": "Editar",
+      "delete": "Eliminar"
+    },
+    "errors": {
+      "loadFailed": "Error al cargar reglas",
+      "uploadFailed": "Error al subir regla",
+      "deleteFailed": "Error al eliminar regla",
+      "downloadFailed": "Error al descargar regla",
+      "updateFailed": "Error al actualizar regla: {{error}}",
+      "verifyFailed": "Error al verificar regla",
+      "sessionExpired": "Tu sesion ha expirado. Por favor inicia sesion de nuevo."
+    },
+    "messages": {
+      "uploadSuccess": "Regla subida exitosamente",
+      "duplicateRule": "La regla \"{{name}}\" ya existe",
+      "deleteSuccess": "Regla \"{{name}}\" eliminada exitosamente",
+      "updateSuccess": "Regla actualizada exitosamente",
+      "verifySuccess": "Regla \"{{name}}\" verificada exitosamente"
+    },
+    "dialogs": {
+      "upload": {
+        "title": "Subir regla",
+        "fileUploadTitle": "Subir un archivo de regla",
+        "fileUploadDescription": "Selecciona un archivo de regla para subir. Formatos soportados: .rule, .rules, .txt"
+      },
+      "edit": {
+        "title": "Editar regla"
+      },
+      "delete": {
+        "title": "Confirmar eliminacion",
+        "cascadeTitle": "Confirmar eliminacion en cascada",
+        "confirmation": "Estas seguro de que deseas eliminar la regla \"{{name}}\"? Esta accion no se puede deshacer.",
+        "cascadeWarning": "Eliminar la regla \"{{name}}\" tambien eliminara lo siguiente:",
+        "checkingDependencies": "Verificando dependencias...",
+        "jobsCount": "{{count}} Trabajo(s) (pendientes/en ejecucion/fallidos):",
+        "presetJobsCount": "{{count}} Trabajo(s) predefinido(s):",
+        "workflowStepsCount": "{{count}} Paso(s) de flujo de trabajo:",
+        "emptyWorkflowsCount": "{{count}} Flujo(s) de trabajo vacio(s) seran eliminados:",
+        "noHashlist": "Sin lista de hashes",
+        "step": "Paso {{order}}",
+        "andMore": "...y {{count}} mas",
+        "confirmationPrompt": "Para confirmar esta eliminacion en cascada, escribe el ID de la regla: <strong>{{id}}</strong>",
+        "confirmationPlaceholder": "Escribe {{id}} para confirmar",
+        "idMismatch": "El ID no coincide",
+        "deleteAll": "Eliminar todo"
+      }
+    }
+  },
+  "presetJobs": {
+    "title": "Gestion de trabajos predefinidos",
+    "createNew": "Crear trabajo predefinido",
+    "confirmDelete": "Estas seguro de que deseas eliminar este trabajo predefinido?",
+    "noJobsFound": "No se encontraron trabajos predefinidos. Crea uno para comenzar.",
+    "keyspaceNotCalculated": "No calculado",
+    "calculating": "Calculando...",
+    "calculateKeyspace": "Calcular espacio de claves",
+    "calculateAllMissingKeyspaces": "Calcular todos los espacios de claves faltantes",
+    "calculatingKeyspaces": "Calculando...",
+    "calculatingAllKeyspacesMessage": "Calculando espacios de claves para todos los trabajos predefinidos. Esto puede tomar un momento...",
+    "canInterruptRunningJobs": "Puede interrumpir trabajos en ejecucion",
+    "columns": {
+      "name": "Nombre",
+      "description": "Descripcion",
+      "attackMode": "Modo de ataque",
+      "priority": "Prioridad",
+      "highPriorityOverride": "Anulacion de alta prioridad",
+      "maxAgents": "Max. agentes",
+      "keyspace": "Espacio de claves",
+      "binaryVersion": "Version de binario",
+      "wordlists": "Diccionarios",
+      "rules": "Reglas",
+      "createdAt": "Creado el",
+      "actions": "Acciones"
+    },
+    "messages": {
+      "deleteSuccess": "Trabajo predefinido eliminado exitosamente",
+      "deleteFailed": "Error al eliminar trabajo predefinido: {{error}}",
+      "fetchError": "Error al cargar trabajos predefinidos: {{error}}",
+      "deleteError": "Error al eliminar trabajo predefinido: {{error}}",
+      "keyspaceRecalculateSuccess": "Espacio de claves recalculado exitosamente",
+      "keyspaceRecalculateFailed": "Error al recalcular espacio de claves: {{error}}",
+      "keyspaceAllComplete": "Actualizados {{updated}}, omitidos {{skipped}}, fallidos {{failed}}",
+      "keyspaceAllFailed": "Error al recalcular espacios de claves: {{error}}"
+    },
+    "form": {
+      "createTitle": "Crear trabajo predefinido",
+      "editTitle": "Editar trabajo predefinido",
+      "createJob": "Crear trabajo predefinido",
+      "updateJob": "Actualizar trabajo predefinido",
+      "attackModeRequirements": "Requisitos del modo de ataque",
+      "wordlistSelectionCombination": "Seleccion de diccionario (Modo combinacion)",
+      "selectFirstWordlist": "Seleccionar primer diccionario",
+      "selectSecondWordlist": "Seleccionar segundo diccionario",
+      "fields": {
+        "jobName": "Nombre del trabajo",
+        "attackMode": "Modo de ataque",
+        "priority": "Prioridad",
+        "chunkSize": "Duracion del fragmento (segundos)",
+        "maxAgents": "Max. agentes",
+        "maskPattern": "Patron de mascara",
+        "incrementMode": "Modo incremental",
+        "incrementMin": "Longitud minima incremental",
+        "incrementMax": "Longitud maxima incremental",
+        "wordlists": "Diccionarios",
+        "rules": "Reglas",
+        "mask": "Mascara",
+        "ruleOptional": "Regla (Opcional)",
+        "firstWordlist": "Primer diccionario",
+        "secondWordlist": "Segundo diccionario",
+        "allowHighPriorityOverride": "Permitir anulacion de alta prioridad (puede interrumpir trabajos en ejecucion)"
+      },
+      "incrementModes": {
+        "off": "Desactivado (usar mascara completa)",
+        "increment": "Incrementar (1 al max.)",
+        "incrementInverse": "Incrementar inverso (max. a 1)"
+      },
+      "helperText": {
+        "binaryVersion": "Selecciona la version del binario de Hashcat a usar",
+        "priority": "Los trabajos de mayor prioridad se ejecutan primero (0-{{maxPriority}})",
+        "maskPattern": "Patron de mascara de Hashcat (ej., ?u?l?l?l?d?d?d?d)",
+        "maskPatternExamples": "?l=minuscula, ?u=mayuscula, ?d=digito, ?s=especial, ?a=todos",
+        "incrementMode": "Usa modo incremental para probar mascaras de diferentes longitudes",
+        "incrementMin": "Longitud minima de mascara a probar",
+        "incrementMax": "Longitud maxima de mascara a probar",
+        "chunkSize": "Duracion de cada fragmento de trabajo en segundos",
+        "maxAgents": "Numero maximo de agentes (0 = ilimitado)",
+        "allowHighPriorityOverride": "Cuando esta habilitado, este trabajo puede interrumpir trabajos de menor prioridad en ejecucion para tomar sus agentes",
+        "wordlistsNotUsed": "Los diccionarios no se usan para este modo de ataque",
+        "selectWordlists": "Selecciona exactamente {{count}} diccionario(s)",
+        "rulesNotUsed": "Las reglas no se usan para este modo de ataque",
+        "selectRule": "Opcionalmente selecciona un archivo de regla para aplicar transformaciones",
+        "firstWordlist": "Las palabras de esta lista se usaran como la primera parte",
+        "secondWordlist": "Las palabras de esta lista se agregaran a la primera"
+      },
+      "errors": {
+        "nameRequired": "El nombre del trabajo es requerido",
+        "binaryVersionRequired": "La version del binario es requerida",
+        "straightModeWordlist": "El modo de ataque directo requiere exactamente 1 diccionario",
+        "combinationModeWordlists": "El modo de ataque de combinacion requiere exactamente 2 diccionarios",
+        "selectBothWordlists": "Por favor selecciona ambos diccionarios para el modo de combinacion",
+        "bruteForceModeMask": "El modo de ataque de fuerza bruta requiere una mascara",
+        "hybridModeWordlist": "El modo de ataque hibrido requiere exactamente 1 diccionario",
+        "hybridModeMask": "El modo de ataque hibrido requiere una mascara",
+        "associationModeNotImplemented": "El modo de ataque de asociacion no esta implementado",
+        "noWordlistsAvailable": "No hay diccionarios disponibles. Por favor sube diccionarios primero.",
+        "loadFailed": "Error al cargar trabajo predefinido",
+        "loadFormDataFailed": "Error al cargar datos del formulario",
+        "saveFailed": "Error al guardar trabajo predefinido"
+      },
+      "messages": {
+        "createSuccess": "Trabajo predefinido creado exitosamente",
+        "updateSuccess": "Trabajo predefinido actualizado exitosamente"
+      }
+    }
+  },
+  "workflows": {
+    "title": "Gestion de flujos de trabajo",
+    "create": "Crear flujo de trabajo",
+    "deleteTitle": "Eliminar flujo de trabajo",
+    "confirmDelete": "Estas seguro de que deseas eliminar el flujo de trabajo \"{{name}}\"?",
+    "noWorkflowsFound": "No se encontraron flujos de trabajo. Crea uno para comenzar.",
+    "canInterrupt": "Puede interrumpir",
+    "normal": "Normal",
+    "columns": {
+      "name": "Nombre",
+      "description": "Descripcion",
+      "steps": "Pasos",
+      "jobCount": "Trabajos",
+      "highPriority": "Modo de prioridad",
+      "created": "Creado",
+      "lastUpdated": "Ultima actualizacion",
+      "actions": "Acciones"
+    },
+    "messages": {
+      "loadFailed": "Error al cargar flujos de trabajo",
+      "deleteFailed": "Error al eliminar flujo de trabajo"
+    },
+    "form": {
+      "createTitle": "Crear flujo de trabajo",
+      "editTitle": "Editar flujo de trabajo",
+      "createWorkflow": "Crear flujo de trabajo",
+      "saveChanges": "Guardar cambios",
+      "workflowSteps": "Pasos del flujo de trabajo",
+      "noJobsAdded": "Aun no se han agregado trabajos a este flujo de trabajo. Busca y agrega trabajos predefinidos arriba.",
+      "priority": "Prioridad: {{priority}}",
+      "binary": "Binario: {{name}}",
+      "wordlistCount": "{{count}} diccionario(s)",
+      "ruleCount": "{{count}} regla(s)",
+      "fields": {
+        "workflowName": "Nombre del flujo de trabajo",
+        "searchPresetJobs": "Buscar trabajos predefinidos"
+      },
+      "helperText": {
+        "searchPresetJobs": "Busca trabajos predefinidos para agregar a este flujo de trabajo"
+      },
+      "errors": {
+        "nameRequired": "El nombre del flujo de trabajo es requerido",
+        "presetJobRequired": "Se requiere al menos un trabajo predefinido",
+        "noPresetJobsAvailable": "No hay trabajos predefinidos disponibles. Crea trabajos predefinidos primero.",
+        "loadFailed": "Error al cargar flujo de trabajo",
+        "loadFormDataFailed": "Error al cargar datos del formulario",
+        "saveFailed": "Error al guardar flujo de trabajo"
+      },
+      "messages": {
+        "createSuccess": "Flujo de trabajo creado exitosamente",
+        "updateSuccess": "Flujo de trabajo actualizado exitosamente"
+      }
+    }
+  },
+  "binaryManagement": {
+    "pageTitle": "Gestion de binarios",
+    "title": "Binarios de Hashcat",
+    "addBinary": "Agregar binario",
+    "showingActiveOnly": "Mostrando solo binarios activos",
+    "showingAll": "Mostrando todos los binarios",
+    "noBinaries": "No se encontraron binarios",
+    "noActiveBinaries": "No se encontraron binarios activos",
+    "default": "Predeterminado",
+    "verifyBinary": "Verificar binario",
+    "deleteBinary": "Eliminar binario",
+    "sourceUpload": "Subir",
+    "sourceUrl": "URL",
+    "columns": {
+      "binaryId": "ID",
+      "version": "Version",
+      "type": "Tipo",
+      "source": "Fuente",
+      "size": "Tamano",
+      "status": "Estado",
+      "default": "Predeterminado",
+      "lastVerified": "Ultima verificacion",
+      "actions": "Acciones"
+    },
+    "messages": {
+      "fetchFailed": "Error al obtener binarios",
+      "verifySuccess": "Binario verificado exitosamente",
+      "verifyFailed": "Error al verificar binario",
+      "deleteSuccess": "Binario eliminado exitosamente",
+      "deleteFailed": "Error al eliminar binario",
+      "cannotDeleteLast": "No se puede eliminar el ultimo binario activo de tipo {{type}}",
+      "cannotDeleteOnly": "No se puede eliminar el unico binario de este tipo",
+      "setDefaultSuccess": "Binario predeterminado actualizado exitosamente",
+      "setDefaultFailed": "Error al establecer binario predeterminado"
+    },
+    "deleteDialog": {
+      "title": "Confirmar eliminacion",
+      "message": "Estas seguro de que deseas eliminar el binario \"{{fileName}}\"? Esta accion no se puede deshacer."
+    }
+  },
+  "diagnostics": {
+    "pageTitle": "Diagnosticos del sistema",
+    "diagnosticPackage": "Paquete de diagnostico",
+    "diagnosticPackageDescription": "Descarga un paquete de diagnostico que contiene informacion del sistema, registros y detalles de configuracion para solucion de problemas.",
+    "refreshData": "Actualizar datos",
+    "hours": "Horas",
+    "hoursTooltip": "Numero de horas de registros a incluir",
+    "includeAgentLogs": "Incluir registros de agentes",
+    "includeNginxLogs": "Incluir registros de Nginx",
+    "includePostgresLogs": "Incluir registros de PostgreSQL",
+    "preparing": "Preparando...",
+    "downloadDiagnostics": "Descargar diagnosticos",
+    "systemInfo": "Informacion del sistema",
+    "runtime": "Tiempo de ejecucion",
+    "cpus": "CPUs",
+    "goroutines": "Goroutines",
+    "memory": "Memoria",
+    "heap": "Heap",
+    "system": "Sistema",
+    "gcRuns": "Ejecuciones de GC",
+    "database": "Base de datos",
+    "size": "Tamano",
+    "connections": "Conexiones",
+    "agents": "Agentes",
+    "connected": "Conectados",
+    "withDebugStatus": "Con estado de depuracion",
+    "serverDebugStatus": "Estado de depuracion del servidor",
+    "serverDebugDescription": "Habilita el registro detallado para el servidor. Esto aumentara el tamano de los archivos de registro y puede afectar el rendimiento.",
+    "debugEnabled": "Depuracion habilitada",
+    "debugDisabled": "Depuracion deshabilitada",
+    "level": "Nivel",
+    "enableDebug": "Habilitar depuracion",
+    "disableDebug": "Deshabilitar depuracion",
+    "loadingServerDebugStatus": "Cargando estado de depuracion del servidor...",
+    "serverLogs": "Registros del servidor",
+    "serverLogsDescription": "Gestiona archivos de registro del servidor. La purga de registros es permanente y no se puede deshacer.",
+    "refreshLogStats": "Actualizar estadisticas de registros",
+    "directory": "Directorio",
+    "files": "Archivos",
+    "actions": "Acciones",
+    "backend": "Backend",
+    "nginx": "Nginx",
+    "postgresql": "PostgreSQL",
+    "total": "Total",
+    "purge": "Purgar",
+    "purgeAll": "Purgar todo",
+    "loadingLogStatistics": "Cargando estadisticas de registros...",
+    "agentDebugStatus": "Estado de depuracion de agentes",
+    "enableAll": "Habilitar todo",
+    "disableAll": "Deshabilitar todo",
+    "noAgentsWithDebugStatus": "No hay agentes con estado de depuracion disponible",
+    "agentId": "ID del agente",
+    "logLevel": "Nivel de registro",
+    "fileLogging": "Registro en archivo",
+    "logFileSize": "Tamano del archivo de registro",
+    "buffer": "Buffer",
+    "lastUpdated": "Ultima actualizacion",
+    "viewLogs": "Ver registros",
+    "purgeLogs": "Purgar registros",
+    "agentLogs": "Registros del agente",
+    "agent": "Agente",
+    "allLevels": "Todos los niveles",
+    "refresh": "Actualizar",
+    "showingEntries": "Mostrando {{shown}} de {{total}} entradas",
+    "filtered": "filtrado",
+    "truncated": "truncado",
+    "time": "Hora",
+    "message": "Mensaje",
+    "location": "Ubicacion",
+    "noEntriesForLevel": "No se encontraron entradas para el nivel {{level}}",
+    "noLogEntriesAvailable": "No hay entradas de registro disponibles",
+    "logFileContent": "Contenido del archivo de registro",
+    "noLogsAvailable": "No hay registros disponibles",
+    "securityWarning": "Advertencia de seguridad",
+    "postgresLogsWarning": "Los registros de PostgreSQL pueden contener datos sensibles. Considera purgarlos despues de solucionar problemas.",
+    "nginxLogsWarning": "Los registros de acceso de Nginx pueden contener datos de solicitudes sensibles. Considera purgarlos despues de solucionar problemas.",
+    "sensitiveNginxLogsWarning": "Los registros de acceso de Nginx pueden contener informacion sensible incluyendo tokens de autenticacion en encabezados de solicitud y parametros de consulta.",
+    "sensitivePostgresLogsWarning": "Los registros de PostgreSQL pueden contener informacion sensible incluyendo consultas con datos de usuario, contrasenas y detalles de conexion.",
+    "sensitiveLogsTestEnvironmentWarning": "Solo incluye estos registros para entornos de prueba/desarrollo o cuando sea absolutamente necesario para depuracion.",
+    "sensitiveLogsProductionWarning": "No incluyas registros sensibles en paquetes de diagnostico de produccion compartidos externamente.",
+    "iUnderstandIncludeLogs": "Entiendo, incluir registros",
+    "allServerLogs": "todos los registros del servidor",
+    "directoryLogs": "registros de {{directory}}",
+    "purgeServerLogs": "Purgar registros del servidor",
+    "confirmPurgeLogs": "Estas seguro de que deseas purgar {{dirLabel}}?",
+    "cannotBeUndone": "Esta accion no se puede deshacer.",
+    "purgeAgentLogs": "Purgar registros del agente",
+    "confirmPurgeAgentLogs": "Estas seguro de que deseas purgar los registros del agente {{agentId}}?",
+    "enable": "Habilitar",
+    "disable": "Deshabilitar",
+    "serverDebugModeTitle": "{{action}} modo de depuracion del servidor",
+    "serverDebugModeMessage": "Esto cambiara el nivel de registro del servidor. El servidor nginx se recargara para aplicar los cambios.",
+    "serverDebugModeWarning": "La pagina se reconectara brevemente despues de aplicar los cambios.",
+    "reconnectingToServer": "Reconectando al servidor",
+    "pleaseWaitReconnecting": "Por favor espera mientras el servidor se reinicia...",
+    "nginxLogsTooltip": "Advertencia: Puede contener datos de solicitudes sensibles",
+    "postgresLogsTooltip": "Advertencia: Puede contener consultas de base de datos sensibles",
+    "messages": {
+      "loadFailed": "Error al cargar datos de diagnostico:",
+      "logStatsFailed": "Error al cargar estadisticas de registros:",
+      "purgeFailed": "Error al purgar registros:",
+      "reconnectionTimedOut": "La reconexion expiro. Por favor actualiza la pagina.",
+      "toggleDebugFailed": "Error al alternar modo de depuracion:",
+      "downloadFailed": "Error al descargar diagnosticos:",
+      "toggleAgentDebugFailed": "Error al alternar depuracion del agente:",
+      "toggleAllAgentsDebugFailed": "Error al alternar depuracion para todos los agentes:",
+      "fetchAgentLogsFailed": "Error al obtener registros del agente:",
+      "purgeAgentLogsFailed": "Error al purgar registros del agente:"
+    }
+  },
+  "authSettings": {
+    "pageTitle": "Configuracion de autenticacion",
+    "unsavedChanges": "Tienes cambios sin guardar. Haz clic en 'Guardar configuracion' para aplicarlos.",
+    "saving": "Guardando...",
+    "saveSettings": "Guardar configuracion",
+    "resetToSaved": "Restablecer a guardado",
+    "passwordPolicy": {
+      "title": "Politica de contrasenas",
+      "minLength": "Longitud minima de contrasena",
+      "requireUppercase": "Requerir mayusculas",
+      "requireLowercase": "Requerir minusculas",
+      "requireNumbers": "Requerir numeros",
+      "requireSpecialChars": "Requerir caracteres especiales"
+    },
+    "accountSecurity": {
+      "title": "Seguridad de cuenta",
+      "maxFailedAttempts": "Maximo de intentos de inicio de sesion fallidos",
+      "lockoutDuration": "Duracion del bloqueo (minutos)",
+      "jwtExpiry": "Expiracion de JWT (minutos)",
+      "notificationAggregation": "Agregacion de notificaciones (minutos)",
+      "notificationAggregationHelper": "Cuanto tiempo agregar notificaciones similares antes de enviar"
+    },
+    "mfa": {
+      "title": "Autenticacion multifactor",
+      "requireMfa": "Requerir MFA para todos los usuarios",
+      "requireMfaEmailRequired": "Requerir MFA (requiere pasarela de correo)",
+      "allowedMethods": "Metodos de MFA permitidos",
+      "methodEmail": "Codigo por correo",
+      "methodAuthenticator": "Aplicacion de autenticacion (TOTP)",
+      "methodPasskey": "Passkey (WebAuthn)",
+      "methodPasskeyNotSupported": "Passkey (no soportado en este navegador)",
+      "codeSettings": "Configuracion de codigos",
+      "emailCodeValidity": "Validez del codigo por correo (minutos)",
+      "emailCodeValidityHelper": "Cuanto tiempo son validos los codigos de verificacion por correo",
+      "codeCooldown": "Tiempo de espera entre codigos (minutos)",
+      "codeCooldownHelper": "Tiempo minimo entre solicitudes de codigo",
+      "codeExpiry": "Expiracion del codigo (minutos)",
+      "codeExpiryHelper": "Cuanto tiempo son validos los codigos MFA",
+      "maxCodeAttempts": "Maximo de intentos de codigo",
+      "maxCodeAttemptsHelper": "Maximo de intentos fallidos de codigo antes de bloqueo",
+      "backupCodesCount": "Cantidad de codigos de respaldo",
+      "backupCodesCountHelper": "Numero de codigos de respaldo a generar"
+    },
+    "webauthn": {
+      "title": "Configuracion de WebAuthn / Passkey",
+      "notSupported": "WebAuthn no es soportado en este navegador.",
+      "requiresDomain": "Los passkeys requieren un dominio apropiado y HTTPS. Configura tu dominio a continuacion.",
+      "rpId": "ID del componente de confianza",
+      "rpIdHelper": "Tu nombre de dominio (ej., krakenhashes.example.com)",
+      "rpDisplayName": "Nombre de visualizacion",
+      "rpDisplayNameHelper": "Nombre mostrado a los usuarios durante el registro de passkey",
+      "allowedOrigins": "Origenes permitidos",
+      "allowedOriginsHelper": "Un origen por linea (ej., https://krakenhashes.example.com)",
+      "configured": "WebAuthn esta configurado y listo para usar.",
+      "save": "Guardar configuracion de WebAuthn"
+    },
+    "session": {
+      "title": "Gestion de sesiones",
+      "tokenCleanupInterval": "Intervalo de limpieza de tokens (segundos)",
+      "tokenCleanupIntervalHelper": "Con que frecuencia limpiar tokens expirados",
+      "maxConcurrentSessions": "Maximo de sesiones concurrentes",
+      "maxConcurrentSessionsHelper": "Maximo de sesiones por usuario (0 = ilimitado)",
+      "absoluteTimeout": "Tiempo de espera absoluto de sesion (horas)",
+      "absoluteTimeoutHelper": "Forzar re-autenticacion despues de este tiempo (0 = deshabilitado)"
+    },
+    "errors": {
+      "loadFailed": "Error al cargar configuracion de autenticacion",
+      "noSettingsToSave": "No hay configuracion para guardar",
+      "saveFailed": "Error al guardar configuracion",
+      "emailProviderRequired": "Se requiere proveedor de correo para MFA basado en correo",
+      "webauthnSaveFailed": "Error al guardar configuracion de WebAuthn",
+      "resetFailed": "Error al restablecer configuracion"
+    },
+    "messages": {
+      "updateSuccess": "Configuracion de autenticacion actualizada exitosamente",
+      "updateFailed": "Error al actualizar configuracion de autenticacion"
+    }
+  },
+  "ssoSettings": {
+    "pageTitle": "Configuracion de SSO",
+    "pageDescription": "Configura proveedores de Single Sign-On y opciones de autenticacion",
+    "authMethods": {
+      "title": "Metodos de autenticacion",
+      "description": "Habilita o deshabilita metodos de autenticacion globalmente",
+      "localAuth": "Autenticacion local",
+      "localAuthDescription": "Inicio de sesion con usuario/contrasena",
+      "ldapAuth": "Autenticacion LDAP",
+      "ldapAuthDescription": "Active Directory / LDAP",
+      "samlAuth": "Autenticacion SAML",
+      "samlAuthDescription": "SSO SAML 2.0",
+      "oauthAuth": "Autenticacion OAuth/OIDC",
+      "oauthAuthDescription": "OpenID Connect / OAuth 2.0"
+    },
+    "provisioning": {
+      "title": "Aprovisionamiento de usuarios",
+      "description": "Configura la creacion automatica de usuarios desde inicios de sesion SSO",
+      "autoCreateUsers": "Crear usuarios automaticamente",
+      "autoCreateUsersDescription": "Crear cuentas de usuario automaticamente para nuevos inicios de sesion SSO",
+      "autoEnableUsers": "Habilitar usuarios automaticamente",
+      "autoEnableUsersDescription": "Habilitar automaticamente usuarios SSO recien creados (de lo contrario requiere aprobacion del administrador)"
+    },
+    "providers": {
+      "title": "Proveedores de SSO",
+      "addProvider": "Agregar proveedor",
+      "noProviders": "No hay proveedores de SSO configurados. Haz clic en \"Agregar proveedor\" para crear uno.",
+      "enabled": "Habilitado",
+      "disabled": "Deshabilitado",
+      "callbackUrl": "URL de callback",
+      "acsUrl": "URL de ACS",
+      "metadata": "Metadatos",
+      "viewXml": "Ver XML",
+      "testConnection": "Probar conexion",
+      "downloadCertificate": "Descargar certificado SP"
+    },
+    "providerTypes": {
+      "ldap": "LDAP / Active Directory",
+      "saml": "SAML 2.0",
+      "oidc": "OpenID Connect",
+      "oauth2": "OAuth 2.0"
+    },
+    "dialogs": {
+      "deleteProvider": {
+        "title": "Eliminar proveedor",
+        "confirmation": "Estas seguro de que deseas eliminar el proveedor \"{{name}}\"? Esta accion no se puede deshacer y desvinculara todas las identidades de usuario asociadas."
+      },
+      "providerForm": {
+        "addTitle": "Agregar proveedor",
+        "editTitle": "Editar proveedor",
+        "providerName": "Nombre del proveedor",
+        "providerType": "Tipo de proveedor",
+        "enabled": "Habilitado"
+      }
+    },
+    "ldapConfig": {
+      "title": "Configuracion de LDAP",
+      "serverUrl": "URL del servidor",
+      "serverUrlHelper": "Usa ldaps:// para conexiones seguras",
+      "baseDn": "DN base",
+      "userSearchFilter": "Filtro de busqueda de usuario",
+      "userSearchFilterHelper": "Usa {{username}} como marcador de posicion",
+      "bindDn": "DN de enlace (opcional)",
+      "bindPassword": "Contrasena de enlace",
+      "emailAttribute": "Atributo de correo",
+      "usernameAttribute": "Atributo de nombre de usuario",
+      "usernameAttributeHelper": "Atributo LDAP que contiene el nombre de usuario (ej., sAMAccountName, uid)",
+      "connectionTimeout": "Tiempo de espera de conexion (segundos)",
+      "useStartTls": "Usar StartTLS",
+      "skipCertVerify": "Omitir verificacion de certificado (solo para pruebas)"
+    },
+    "samlConfig": {
+      "title": "Configuracion de SAML",
+      "spEntityId": "ID de entidad SP",
+      "spEntityIdHelper": "Identificador SAML de tu aplicacion",
+      "idpEntityId": "ID de entidad IdP",
+      "idpSsoUrl": "URL de SSO del IdP",
+      "idpCertificate": "Certificado del IdP",
+      "emailAttribute": "Atributo de correo",
+      "usernameAttribute": "Atributo de nombre de usuario",
+      "usernameAttributeHelper": "Atributo SAML que contiene el nombre de usuario (ej., uid, username)",
+      "requireSignedAssertions": "Requerir aserciones firmadas"
+    },
+    "oauthConfig": {
+      "title": "Configuracion de OAuth/OIDC",
+      "isOidc": "OpenID Connect (OIDC)",
+      "clientId": "ID de cliente",
+      "clientSecret": "Secreto de cliente",
+      "discoveryUrl": "URL de descubrimiento",
+      "discoveryUrlHelper": "Endpoint de descubrimiento OIDC (auto-configura otras URLs)",
+      "authorizationUrl": "URL de autorizacion",
+      "tokenUrl": "URL de token",
+      "userInfoUrl": "URL de informacion de usuario",
+      "scopes": "Scopes",
+      "scopesHelper": "Lista separada por espacios",
+      "emailAttribute": "Atributo de correo",
+      "usernameAttribute": "Atributo de nombre de usuario",
+      "usernameAttributeHelper": "Claim que contiene el nombre de usuario (ej., preferred_username, login, nickname)"
+    },
+    "messages": {
+      "loadFailed": "Error al cargar configuracion de SSO",
+      "settingsUpdated": "Configuracion de SSO actualizada exitosamente",
+      "updateFailed": "Error al actualizar configuracion de SSO",
+      "loadProviderFailed": "Error al cargar detalles del proveedor",
+      "providerDeleted": "Proveedor eliminado exitosamente",
+      "deleteFailed": "Error al eliminar proveedor",
+      "testSuccess": "Prueba de conexion exitosa",
+      "testFailed": "Prueba de conexion fallida",
+      "certificateDownloaded": "Certificado descargado exitosamente",
+      "certificateNotFound": "Certificado no encontrado en metadatos",
+      "certificateDownloadFailed": "Error al descargar certificado",
+      "providerUpdated": "Proveedor actualizado exitosamente",
+      "providerCreated": "Proveedor creado exitosamente",
+      "saveProviderFailed": "Error al guardar proveedor"
+    }
+  },
+  "emailSettings": {
+    "tabs": {
+      "providerConfiguration": "Configuracion del proveedor",
+      "emailTemplates": "Plantillas de correo"
+    },
+    "provider": {
+      "titles": {
+        "current": "Configuracion de correo actual",
+        "create": "Crear configuracion de correo",
+        "edit": "Editar configuracion de correo"
+      },
+      "labels": {
+        "provider": "Proveedor",
+        "apiKey": "Clave API",
+        "password": "Contrasena",
+        "smtpHost": "Servidor SMTP",
+        "port": "Puerto",
+        "username": "Usuario",
+        "encryption": "Cifrado",
+        "fromEmail": "Correo remitente",
+        "fromName": "Nombre remitente",
+        "domain": "Dominio",
+        "monthlyLimit": "Limite mensual",
+        "skipTlsVerify": "Omitir verificacion de certificado TLS (inseguro, no recomendado)"
+      },
+      "placeholders": {
+        "smtpHost": "smtp.ejemplo.com",
+        "testEmailAddress": "Direccion de correo de prueba"
+      },
+      "helpers": {
+        "keepCurrentPassword": "Dejar vacio para mantener la actual",
+        "monthlyLimit": "Dejar vacio para ilimitado",
+        "mailgunFromEmail": "Usualmente noreply@tudominio",
+        "fromName": "Nombre de visualizacion para correos"
+      },
+      "menuItems": {
+        "sendgrid": "SendGrid",
+        "mailgun": "Mailgun",
+        "smtp": "SMTP",
+        "encryptionNone": "Ninguno (Puerto 25)",
+        "encryptionStarttls": "STARTTLS (Puerto 587)",
+        "encryptionTls": "TLS/SSL (Puerto 465)"
+      },
+      "buttons": {
+        "edit": "Editar configuracion",
+        "cancel": "Cancelar",
+        "testConnection": "Probar conexion",
+        "save": "Guardar configuracion",
+        "saveOnly": "Solo guardar",
+        "saveAndTest": "Guardar y probar",
+        "sendTestEmail": "Enviar correo de prueba"
+      },
+      "dialogs": {
+        "test": {
+          "title": "Probar configuracion de correo",
+          "content": "Ingresa una direccion de correo para enviar un correo de prueba:"
+        },
+        "save": {
+          "title": "Guardar configuracion",
+          "content": "Deseas probar la configuracion despues de guardar?"
+        }
+      },
+      "warnings": {
+        "tlsVerifyDisabled": "La verificacion de certificado TLS esta deshabilitada",
+        "tlsVerifyWarning": "Deshabilitar la verificacion TLS hace tu conexion vulnerable a ataques de intermediario. Solo usa esto para pruebas con certificados autofirmados."
+      },
+      "messages": {
+        "testSuccess": "Correo de prueba enviado exitosamente",
+        "testFailed": "Error al enviar correo de prueba",
+        "saveSuccess": "Configuracion guardada exitosamente",
+        "saveFailed": "Error al guardar configuracion",
+        "loadFailed": "Error al cargar configuracion"
+      }
+    },
+    "templates": {
+      "title": "Plantillas de correo",
+      "createTemplate": "Crear plantilla de correo",
+      "editTemplate": "Editar plantilla de correo",
+      "labels": {
+        "templateType": "Tipo de plantilla",
+        "name": "Nombre",
+        "subject": "Asunto",
+        "htmlContent": "Contenido HTML",
+        "textContent": "Contenido de texto"
+      },
+      "menuItems": {
+        "securityEvent": "Evento de seguridad",
+        "jobCompletion": "Finalizacion de trabajo",
+        "adminError": "Error de administrador",
+        "mfaCode": "Codigo MFA"
+      },
+      "buttons": {
+        "create": "Crear plantilla",
+        "cancel": "Cancelar",
+        "test": "Probar",
+        "save": "Guardar"
+      },
+      "table": {
+        "name": "Nombre",
+        "type": "Tipo",
+        "subject": "Asunto",
+        "actions": "Acciones"
+      },
+      "preview": "Vista previa en vivo (con datos de ejemplo):",
+      "messages": {
+        "loadSuccess": "Plantillas cargadas exitosamente",
+        "loadFailed": "Error al cargar plantillas",
+        "createSuccess": "Plantilla creada exitosamente",
+        "createFailed": "Error al crear plantilla",
+        "updateSuccess": "Plantilla actualizada exitosamente",
+        "updateFailed": "Error al actualizar plantilla",
+        "deleteSuccess": "Plantilla eliminada exitosamente",
+        "deleteFailed": "Error al eliminar plantilla",
+        "testSuccess": "Correo de prueba enviado exitosamente",
+        "testFailed": "Error al enviar correo de prueba"
+      }
+    }
+  },
+  "settings": {
+    "saved": "Configuracion guardada exitosamente",
+    "saveFailed": "Error al guardar la configuracion"
+  },
+  "clientSettings": {
+    "title": "Configuracion de clientes",
+    "retentionPeriod": "Retencion de datos predeterminada (Meses)",
+    "retentionHelperText": "Periodo de retencion predeterminado para nuevos clientes (0 = mantener para siempre)",
+    "saveButton": "Guardar configuracion",
+    "errors": {
+      "invalidRetention": "El periodo de retencion debe ser un numero no negativo",
+      "saveFailed": "Error al guardar configuracion de clientes"
+    },
+    "messages": {
+      "updateSuccess": "Configuracion de clientes actualizada exitosamente"
+    }
+  },
+  "systemSettings": {
+    "title": "Configuracion del sistema",
+    "priority": {
+      "title": "Configuracion de prioridad",
+      "tooltip": "Configura el valor maximo de prioridad que se puede asignar a trabajos y trabajos predefinidos. Esto ayuda a mantener rangos de prioridad consistentes en tu organizacion.",
+      "maxPriority": "Prioridad maxima de trabajo",
+      "helperText": "Establece el valor maximo de prioridad (1-1,000,000). Los trabajos y trabajos predefinidos no pueden exceder esta prioridad.",
+      "saveButton": "Guardar configuracion",
+      "saving": "Guardando...",
+      "reset": "Restablecer"
+    },
+    "priorityInfo": {
+      "title": "Informacion del sistema de prioridad",
+      "description": "El sistema de prioridad usa un rango de 0 a tu prioridad maxima configurada. Los numeros mas altos indican mayor prioridad.",
+      "currentMax": "Maximo actual",
+      "note": "No puedes establecer una prioridad maxima menor que cualquier prioridad de trabajo predefinido existente. Actualiza o elimina los trabajos predefinidos de alta prioridad primero si es necesario.",
+      "recommended": "Rangos recomendados por tamano de organizacion:",
+      "small": "Organizacion pequena: 0-100",
+      "medium": "Organizacion mediana/grande: 0-1,000",
+      "large": "Organizacion con carga de trabajo ridicula: 0-10,000"
+    },
+    "agentScheduling": {
+      "title": "Programacion de agentes",
+      "tooltip": "Habilita o deshabilita el sistema de programacion de agentes globalmente. Cuando esta habilitado, los agentes pueden tener horarios diarios configurados.",
+      "enable": "Habilitar sistema de programacion de agentes",
+      "description": "Cuando esta habilitado, los agentes pueden configurarse con horarios diarios. Solo los agentes programados para la hora actual seran asignados a trabajos.",
+      "note": "Los agentes individuales tambien deben tener la programacion habilitada y horarios configurados para que esto tenga efecto."
+    },
+    "agentOverflow": {
+      "title": "Asignacion de desbordamiento de agentes",
+      "tooltip": "Configura como se asignan los agentes mas alla de los limites de max_agents cuando los trabajos tienen la misma prioridad",
+      "roundRobinMode": "Modo Round-Robin",
+      "fifoMode": "Modo FIFO",
+      "fifoDescription": "Cuando multiples trabajos con la misma prioridad exceden sus limites de max_agents, el trabajo mas antiguo (creado primero) recibe todos los agentes adicionales.",
+      "roundRobinDescription": "Los agentes adicionales se distribuyen equitativamente entre todos los trabajos con la misma prioridad, un agente a la vez, asegurando una asignacion justa."
+    },
+    "hashlist": {
+      "title": "Configuracion de listas de hashes",
+      "tooltip": "Configura opciones relacionadas con la carga y gestion de listas de hashes",
+      "requireClient": "Requerir cliente para listas de hashes",
+      "requireClientDescription": "Cuando esta habilitado, los usuarios deben asignar un cliente al subir nuevas listas de hashes. Esto ayuda a mantener una mejor organizacion y seguimiento de listas de hashes por cliente.",
+      "batchSize": "Tamano de lote de importacion masiva",
+      "batchSizeHelper": "Numero de hashes procesados por lote durante las cargas. Predeterminado: 100,000. Recomendado: 500,000-1,000,000 para listas de hashes grandes (47M+)",
+      "performanceGuide": "Guia de rendimiento:",
+      "performance100k": "100K (predeterminado): Bueno para la mayoria de casos de uso",
+      "performance500k": "500K: Mejor para listas de hashes grandes, puede mejorar el rendimiento",
+      "performance1m": "1M: Mejor para listas de hashes muy grandes (50M+), requiere mas RAM"
+    },
+    "potfile": {
+      "title": "Configuracion de potfile",
+      "tooltip": "Configura como el potfile procesa contrasenas descifradas para reutilizacion en trabajos",
+      "maxBatchSize": "Tamano maximo de lote",
+      "maxBatchSizeHelper": "Numero de contrasenas preparadas a procesar en cada ciclo de lote (1,000 - 500,000)",
+      "batchInterval": "Intervalo de lote (segundos)",
+      "batchIntervalHelper": "Segundos entre ciclos de procesamiento de lotes del potfile (10 - 600)",
+      "description": "El potfile recopila contrasenas descifradas de todos los trabajos y las reutiliza en ataques posteriores. Tamanos de lote mas grandes procesan mas contrasenas a la vez pero toman mas tiempo por ciclo.",
+      "processingRate": "Tasa de procesamiento",
+      "passwordsPerSecond": "contrasenas/segundo",
+      "currentSettings": "Configuracion actual",
+      "passwordsEvery": "contrasenas cada",
+      "seconds": "segundos"
+    },
+    "errors": {
+      "loadFailed": "Error al cargar configuracion del sistema",
+      "maxPriorityRequired": "La prioridad maxima es requerida",
+      "maxPriorityPositive": "La prioridad maxima debe ser un numero positivo",
+      "maxPriorityMax": "La prioridad maxima no puede exceder 1,000,000",
+      "saveFailed": "Error al guardar configuracion del sistema",
+      "batchSizeRange": "El tamano de lote debe estar entre {{min}} y {{max}}",
+      "intervalRange": "El intervalo debe estar entre {{min}} y {{max}} segundos"
+    },
+    "messages": {
+      "updateSuccess": "Configuracion del sistema actualizada exitosamente",
+      "schedulingUpdated": "Configuracion de programacion de agentes actualizada",
+      "schedulingFailed": "Error al actualizar configuracion de programacion",
+      "overflowUpdated": "Modo de asignacion de desbordamiento de agentes actualizado",
+      "overflowFailed": "Error al actualizar modo de asignacion de desbordamiento",
+      "hashlistClientUpdated": "Requisito de cliente para listas de hashes actualizado",
+      "hashlistBatchUpdated": "Tamano de lote de listas de hashes actualizado",
+      "potfileBatchUpdated": "Tamano de lote del potfile actualizado",
+      "potfileIntervalUpdated": "Intervalo de lote del potfile actualizado",
+      "updateFailed": "Error al actualizar configuracion"
+    }
+  },
+  "jobExecution": {
+    "title": "Configuracion de ejecucion de trabajos",
+    "description": "Configura como se ejecutan y distribuyen los trabajos entre agentes",
+    "chunking": {
+      "title": "Fragmentacion de trabajos",
+      "defaultChunkDuration": "Duracion de fragmento predeterminada",
+      "defaultChunkDurationHelper": "Duracion de cada fragmento de trabajo",
+      "chunkFluctuation": "Porcentaje de fluctuacion de fragmento",
+      "chunkFluctuationHelper": "Fluctuacion permitida para fragmentos finales",
+      "minutes": "minutos"
+    },
+    "agentConfig": {
+      "title": "Configuracion de agentes",
+      "hashlistRetention": "Retencion de listas de hashes",
+      "hashlistRetentionHelper": "Cuanto tiempo los agentes retienen las listas de hashes",
+      "maxConcurrentJobs": "Maximo de trabajos concurrentes por agente",
+      "maxConcurrentJobsHelper": "Maximo de trabajos que un agente puede ejecutar simultaneamente",
+      "progressReporting": "Intervalo de reporte de progreso",
+      "progressReportingHelper": "Con que frecuencia los agentes reportan el progreso",
+      "benchmarkCache": "Duracion de cache de benchmark",
+      "benchmarkCacheHelper": "Cuanto tiempo almacenar en cache los benchmarks de agentes",
+      "speedtestTimeout": "Tiempo de espera de prueba de velocidad",
+      "speedtestTimeoutHelper": "Tiempo maximo de espera para completar la prueba de velocidad",
+      "reconnectGrace": "Periodo de gracia de reconexion",
+      "reconnectGraceHelper": "Tiempo de espera para que los agentes se reconecten despues de reiniciar el servidor",
+      "days": "dias",
+      "seconds": "segundos",
+      "minutes": "minutos"
+    },
+    "jobControl": {
+      "title": "Control de trabajos",
+      "allowInterruption": "Permitir interrupcion de trabajos",
+      "allowInterruptionHelper": "Los trabajos de mayor prioridad pueden interrumpir trabajos en ejecucion",
+      "realtimeNotifications": "Notificaciones de descifrado en tiempo real",
+      "realtimeNotificationsHelper": "Enviar notificaciones cuando se descifran hashes",
+      "refreshInterval": "Intervalo de actualizacion de trabajos",
+      "refreshIntervalHelper": "Con que frecuencia actualizar el estado de trabajos en la interfaz",
+      "maxRetryAttempts": "Maximo de intentos de reintento de fragmento",
+      "maxRetryAttemptsHelper": "Numero de veces a reintentar fragmentos fallidos",
+      "jobsPerPage": "Trabajos por pagina",
+      "jobsPerPageHelper": "Tamano de paginacion predeterminado para listas de trabajos"
+    },
+    "potfile": {
+      "title": "Configuracion de potfile",
+      "enablePotfile": "Habilitar potfile",
+      "enablePotfileHelper": "Almacenar automaticamente contrasenas descifradas para uso en trabajos futuros. Las listas de hashes individuales aun pueden ser excluidas."
+    },
+    "ruleSplitting": {
+      "title": "Division de reglas",
+      "enableRuleSplitting": "Habilitar division de reglas",
+      "enableRuleSplittingHelper": "Dividir automaticamente archivos de reglas grandes para procesamiento distribuido",
+      "threshold": "Umbral de division de reglas",
+      "thresholdHelper": "Dividir cuando el tiempo de trabajo excede el tiempo de fragmento por este factor",
+      "minRules": "Minimo de reglas para dividir",
+      "minRulesHelper": "No dividir archivos con menos reglas",
+      "maxChunks": "Maximo de fragmentos de reglas",
+      "maxChunksHelper": "Maximo de fragmentos a crear por archivo",
+      "chunkDirectory": "Directorio de fragmentos de reglas",
+      "chunkDirectoryHelper": "Directorio para fragmentos de reglas temporales"
+    },
+    "buttons": {
+      "save": "Guardar configuracion"
+    },
+    "errors": {
+      "loadFailed": "Error al cargar configuracion"
+    },
+    "messages": {
+      "updateSuccess": "Configuracion de ejecucion de trabajos actualizada exitosamente",
+      "loadFailed": "Error al cargar configuracion de ejecucion de trabajos",
+      "saveFailed": "Error al guardar configuracion"
+    }
+  },
+  "monitoring": {
+    "title": "Configuracion de monitoreo",
+    "metricsRetention": {
+      "title": "Periodos de retencion de metricas",
+      "description": "Configura cuanto tiempo retener metricas en diferentes niveles de detalle. Los datos se agregan de detallados a resumidos con el tiempo.",
+      "realtimeData": "Retencion de datos en tiempo real",
+      "realtimeDataHelper": "Dias para mantener metricas detalladas de actividad reciente (ej., 7 dias)",
+      "dailyAggregates": "Retencion de agregados diarios",
+      "dailyAggregatesHelper": "Dias para almacenar resumenes diarios despues del periodo en tiempo real (ej., 30 dias)",
+      "weeklyAggregates": "Retencion de agregados semanales",
+      "weeklyAggregatesHelper": "Dias para preservar tendencias a largo plazo como resumenes semanales (ej., 365 dias)"
+    },
+    "aggregation": {
+      "title": "Configuracion de agregacion",
+      "enableAggregation": "Habilitar agregacion automatica",
+      "enableAggregationDescription": "Consolidar automaticamente metricas antiguas para ahorrar espacio de almacenamiento mientras se preservan las tendencias",
+      "interval": "Intervalo de agregacion",
+      "intervalHelper": "Con que frecuencia ejecutar el proceso de agregacion",
+      "hourly": "Cada hora",
+      "daily": "Diario",
+      "weekly": "Semanal"
+    },
+    "cascading": {
+      "title": "Como funciona la agregacion en cascada:",
+      "realtime": "Los datos en tiempo real proporcionan metricas detalladas para actividad reciente",
+      "daily": "Despues del periodo en tiempo real, los datos se agregan a resumenes diarios",
+      "weekly": "Despues del periodo diario, los datos se agregan aun mas a resumenes semanales",
+      "benefit": "Este enfoque mantiene los graficos legibles mientras preserva las tendencias historicas"
+    },
+    "buttons": {
+      "save": "Guardar configuracion",
+      "saving": "Guardando..."
+    },
+    "errors": {
+      "loadFailed": "Error al cargar configuracion. Por favor intenta de nuevo.",
+      "saveFailed": "Error al guardar configuracion. Por favor intenta de nuevo."
+    },
+    "messages": {
+      "updateSuccess": "Configuracion de monitoreo guardada exitosamente"
+    }
+  },
+  "agentDownloads": {
+    "title": "Configuracion de transferencia de archivos de agentes",
+    "description": "Configura como los agentes descargan archivos del backend. Estas configuraciones aplican a todos los agentes conectados.",
+    "concurrentDownloads": {
+      "title": "Descargas concurrentes",
+      "description": "Numero maximo de archivos que pueden descargarse simultaneamente"
+    },
+    "downloadTimeout": {
+      "title": "Tiempo de espera de descarga",
+      "description": "Tiempo maximo permitido para una descarga de archivo individual",
+      "helper": "Entre 1 minuto y 24 horas (1440 minutos)",
+      "unit": "minutos"
+    },
+    "retryAttempts": {
+      "title": "Intentos de reintento",
+      "description": "Numero de veces a reintentar descargas fallidas"
+    },
+    "progressInterval": {
+      "title": "Intervalo de reporte de progreso",
+      "description": "Con que frecuencia los agentes reportan el progreso de descarga",
+      "helper": "Entre 1 segundo y 5 minutos (300 segundos)",
+      "unit": "segundos"
+    },
+    "chunkSize": {
+      "title": "Tamano de fragmento",
+      "description": "Tamano de fragmento de descarga para futura capacidad de reanudacion",
+      "helper": "Entre 1 MB y 100 MB",
+      "unit": "MB"
+    },
+    "applyNote": "Los cambios se aplicaran a los agentes en su proxima conexion. Los agentes actualmente conectados recibiran actualizaciones automaticamente.",
+    "buttons": {
+      "save": "Guardar configuracion",
+      "saving": "Guardando..."
+    },
+    "errors": {
+      "loadFailed": "Error al cargar configuracion de descarga de agentes",
+      "saveFailed": "Error al actualizar configuracion de descarga de agentes"
+    },
+    "messages": {
+      "updateSuccess": "Configuracion de descarga de agentes actualizada exitosamente"
+    }
+  },
+  "hashTypes": {
+    "title": "Gestion de tipos de hash",
+    "description": "Gestiona los tipos de hash soportados para operaciones de descifrado de contrasenas",
+    "addHashType": "Agregar tipo de hash",
+    "searchPlaceholder": "Buscar tipos de hash...",
+    "hashTypesFound": "{{count}} tipos de hash encontrados",
+    "table": {
+      "id": "ID",
+      "name": "Nombre",
+      "description": "Descripcion",
+      "example": "Ejemplo",
+      "slow": "Lento",
+      "salted": "Con sal",
+      "actions": "Acciones",
+      "loading": "Cargando tipos de hash...",
+      "noResults": "No se encontraron tipos de hash"
+    },
+    "dialog": {
+      "addTitle": "Agregar nuevo tipo de hash",
+      "editTitle": "Editar tipo de hash",
+      "hashIdLabel": "ID de hash (Numero de modo de Hashcat)",
+      "hashIdHelper": "ej., 1000 para NTLM",
+      "nameLabel": "Nombre",
+      "descriptionLabel": "Descripcion",
+      "exampleLabel": "Hash de ejemplo",
+      "exampleHelper": "Ejemplo de este formato de hash",
+      "slowLabel": "Algoritmo de hash lento",
+      "saltedLabel": "Tipo de hash con sal (ej., NTLMv2, bcrypt)",
+      "processingInfo": "Este tipo de hash requiere procesamiento especial. La logica de procesamiento se gestiona programaticamente.",
+      "cancel": "Cancelar",
+      "save": "Guardar",
+      "saving": "Guardando..."
+    },
+    "validation": {
+      "hashIdRequired": "El ID de hash es requerido y debe ser positivo",
+      "hashIdExists": "Este ID de hash ya existe",
+      "nameRequired": "El nombre es requerido"
+    },
+    "tooltips": {
+      "requiresProcessing": "Requiere procesamiento especial",
+      "processing": "Procesamiento",
+      "slowAlgorithm": "Algoritmo de hash lento (computacionalmente costoso)",
+      "salted": "Usa sales por hash (afecta el calculo del espacio de claves)"
+    },
+    "confirmDelete": {
+      "title": "Confirmar eliminacion",
+      "warning": "Este tipo de hash esta actualmente habilitado. Eliminarlo puede afectar la funcionalidad existente.",
+      "cancel": "Cancelar",
+      "delete": "Eliminar",
+      "deleting": "Eliminando..."
+    },
+    "messages": {
+      "createSuccess": "Tipo de hash creado exitosamente",
+      "createFailed": "Error al crear tipo de hash",
+      "updateSuccess": "Tipo de hash actualizado exitosamente",
+      "updateFailed": "Error al actualizar tipo de hash",
+      "deleteSuccess": "Tipo de hash eliminado exitosamente",
+      "deleteFailed": "Error al eliminar tipo de hash",
+      "deleteInUse": "No se puede eliminar: Este tipo de hash esta en uso por listas de hashes existentes",
+      "loadFailed": "Error al cargar tipos de hash. Por favor intenta actualizar la pagina."
+    }
+  }
+}

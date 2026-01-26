@@ -2,6 +2,7 @@
  * Top passwords section showing most common passwords (2+ uses, with plaintext).
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Paper,
   Typography,
@@ -22,6 +23,8 @@ interface TopPasswordsSectionProps {
 }
 
 export default function TopPasswordsSection({ data }: TopPasswordsSectionProps) {
+  const { t } = useTranslation('analytics');
+
   if (data.length === 0) {
     return null;
   }
@@ -29,23 +32,23 @@ export default function TopPasswordsSection({ data }: TopPasswordsSectionProps) 
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
       <Typography variant="h5" gutterBottom>
-        Top Passwords
+        {t('sections.topPasswords')}
       </Typography>
       <Alert severity="warning" icon={<WarningIcon />} sx={{ mb: 2 }}>
-        <strong>Internal Use Only:</strong> This section contains plaintext passwords. Do not share externally.
+        {t('warnings.internalUseOnly')}
       </Alert>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Most commonly used passwords (minimum 2 uses)
+        {t('descriptions.topPasswords')}
       </Typography>
 
       <TableContainer>
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Rank</TableCell>
-              <TableCell>Password</TableCell>
-              <TableCell align="right">Count</TableCell>
-              <TableCell align="right">Percentage</TableCell>
+              <TableCell>{t('columns.rank')}</TableCell>
+              <TableCell>{t('columns.password')}</TableCell>
+              <TableCell align="right">{t('columns.count')}</TableCell>
+              <TableCell align="right">{t('columns.percentage')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

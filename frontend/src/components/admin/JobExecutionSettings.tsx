@@ -14,9 +14,11 @@ import {
   InputAdornment,
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
+import { useTranslation } from 'react-i18next';
 import { getJobExecutionSettings, updateJobExecutionSettings, JobExecutionSettings } from '../../services/jobSettings';
 
 const JobExecutionSettingsComponent: React.FC = () => {
+  const { t } = useTranslation('admin');
   const [settings, setSettings] = useState<JobExecutionSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -35,8 +37,8 @@ const JobExecutionSettingsComponent: React.FC = () => {
       setSettings(data);
     } catch (err: any) {
       console.error('Failed to fetch job execution settings:', err);
-      setError(err.response?.data?.error || 'Failed to load settings');
-      enqueueSnackbar('Failed to load job execution settings', { variant: 'error' });
+      setError(err.response?.data?.error || t('jobExecution.errors.loadFailed') as string);
+      enqueueSnackbar(t('jobExecution.messages.loadFailed') as string, { variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -50,10 +52,10 @@ const JobExecutionSettingsComponent: React.FC = () => {
     
     try {
       await updateJobExecutionSettings(settings);
-      enqueueSnackbar('Job execution settings updated successfully', { variant: 'success' });
+      enqueueSnackbar(t('jobExecution.messages.updateSuccess') as string, { variant: 'success' });
     } catch (err: any) {
       console.error('Failed to update job execution settings:', err);
-      const message = err.response?.data?.error || 'Failed to save settings';
+      const message = err.response?.data?.error || t('jobExecution.messages.saveFailed') as string;
       setError(message);
       enqueueSnackbar(message, { variant: 'error' });
     } finally {
@@ -86,7 +88,7 @@ const JobExecutionSettingsComponent: React.FC = () => {
 
   if (!settings) {
     return (
-      <Alert severity="error">Failed to load job execution settings</Alert>
+      <Alert severity="error">{t('jobExecution.messages.loadFailed')}</Alert>
     );
   }
 
@@ -98,10 +100,10 @@ const JobExecutionSettingsComponent: React.FC = () => {
   return (
     <Box>
       <Typography variant="h6" gutterBottom>
-        Job Execution Settings
+        {t('jobExecution.title')}
       </Typography>
       <Typography variant="body2" color="textSecondary" gutterBottom>
-        Configure how jobs are executed and distributed across agents
+        {t('jobExecution.description')}
       </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -111,7 +113,7 @@ const JobExecutionSettingsComponent: React.FC = () => {
         <Grid item xs={12}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="subtitle1" gutterBottom fontWeight="bold">
-              Job Chunking
+              {t('jobExecution.chunking.title')}
             </Typography>
             <Divider sx={{ mb: 2 }} />
             <Grid container spacing={2}>
@@ -119,7 +121,7 @@ const JobExecutionSettingsComponent: React.FC = () => {
                 <TextField
                   fullWidth
                   type="number"
-                  label="Default Chunk Duration"
+                  label={t('jobExecution.chunking.defaultChunkDuration') as string}
                   value={convertSecondsToMinutes(settings.default_chunk_duration)}
                   onChange={(e) => {
                     const minutes = parseInt(e.target.value, 10);
@@ -128,10 +130,10 @@ const JobExecutionSettingsComponent: React.FC = () => {
                       default_chunk_duration: convertMinutesToSeconds(minutes),
                     });
                   }}
-                  helperText="Duration for each job chunk"
+                  helperText={t('jobExecution.chunking.defaultChunkDurationHelper')}
                   InputProps={{
                     inputProps: { min: 1 },
-                    endAdornment: <InputAdornment position="end">minutes</InputAdornment>,
+                    endAdornment: <InputAdornment position="end">{t('jobExecution.chunking.minutes')}</InputAdornment>,
                   }}
                 />
               </Grid>
@@ -139,10 +141,10 @@ const JobExecutionSettingsComponent: React.FC = () => {
                 <TextField
                   fullWidth
                   type="number"
-                  label="Chunk Fluctuation Percentage"
+                  label={t('jobExecution.chunking.chunkFluctuation') as string}
                   value={settings.chunk_fluctuation_percentage}
                   onChange={handleChange('chunk_fluctuation_percentage')}
-                  helperText="Allowed fluctuation for final chunks"
+                  helperText={t('jobExecution.chunking.chunkFluctuationHelper')}
                   InputProps={{
                     inputProps: { min: 0, max: 100 },
                     endAdornment: <InputAdornment position="end">%</InputAdornment>,
@@ -157,7 +159,7 @@ const JobExecutionSettingsComponent: React.FC = () => {
         <Grid item xs={12}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="subtitle1" gutterBottom fontWeight="bold">
-              Agent Configuration
+              {t('jobExecution.agentConfig.title')}
             </Typography>
             <Divider sx={{ mb: 2 }} />
             <Grid container spacing={2}>
@@ -165,7 +167,7 @@ const JobExecutionSettingsComponent: React.FC = () => {
                 <TextField
                   fullWidth
                   type="number"
-                  label="Hashlist Retention"
+                  label={t('jobExecution.agentConfig.hashlistRetention') as string}
                   value={convertHoursToDays(settings.agent_hashlist_retention_hours)}
                   onChange={(e) => {
                     const days = parseInt(e.target.value, 10);
@@ -174,10 +176,10 @@ const JobExecutionSettingsComponent: React.FC = () => {
                       agent_hashlist_retention_hours: convertDaysToHours(days),
                     });
                   }}
-                  helperText="How long agents retain hashlists"
+                  helperText={t('jobExecution.agentConfig.hashlistRetentionHelper')}
                   InputProps={{
                     inputProps: { min: 1 },
-                    endAdornment: <InputAdornment position="end">days</InputAdornment>,
+                    endAdornment: <InputAdornment position="end">{t('jobExecution.agentConfig.days')}</InputAdornment>,
                   }}
                 />
               </Grid>
@@ -185,10 +187,10 @@ const JobExecutionSettingsComponent: React.FC = () => {
                 <TextField
                   fullWidth
                   type="number"
-                  label="Max Concurrent Jobs per Agent"
+                  label={t('jobExecution.agentConfig.maxConcurrentJobs') as string}
                   value={settings.max_concurrent_jobs_per_agent}
                   onChange={handleChange('max_concurrent_jobs_per_agent')}
-                  helperText="Maximum jobs an agent can run simultaneously"
+                  helperText={t('jobExecution.agentConfig.maxConcurrentJobsHelper')}
                   InputProps={{
                     inputProps: { min: 1 },
                   }}
@@ -198,13 +200,13 @@ const JobExecutionSettingsComponent: React.FC = () => {
                 <TextField
                   fullWidth
                   type="number"
-                  label="Progress Reporting Interval"
+                  label={t('jobExecution.agentConfig.progressReporting') as string}
                   value={settings.progress_reporting_interval}
                   onChange={handleChange('progress_reporting_interval')}
-                  helperText="How often agents report progress"
+                  helperText={t('jobExecution.agentConfig.progressReportingHelper')}
                   InputProps={{
                     inputProps: { min: 1 },
-                    endAdornment: <InputAdornment position="end">seconds</InputAdornment>,
+                    endAdornment: <InputAdornment position="end">{t('jobExecution.agentConfig.seconds')}</InputAdornment>,
                   }}
                 />
               </Grid>
@@ -212,7 +214,7 @@ const JobExecutionSettingsComponent: React.FC = () => {
                 <TextField
                   fullWidth
                   type="number"
-                  label="Benchmark Cache Duration"
+                  label={t('jobExecution.agentConfig.benchmarkCache') as string}
                   value={convertHoursToDays(settings.benchmark_cache_duration_hours)}
                   onChange={(e) => {
                     const days = parseInt(e.target.value, 10);
@@ -221,10 +223,10 @@ const JobExecutionSettingsComponent: React.FC = () => {
                       benchmark_cache_duration_hours: convertDaysToHours(days),
                     });
                   }}
-                  helperText="How long to cache agent benchmarks"
+                  helperText={t('jobExecution.agentConfig.benchmarkCacheHelper')}
                   InputProps={{
                     inputProps: { min: 1 },
-                    endAdornment: <InputAdornment position="end">days</InputAdornment>,
+                    endAdornment: <InputAdornment position="end">{t('jobExecution.agentConfig.days')}</InputAdornment>,
                   }}
                 />
               </Grid>
@@ -232,13 +234,13 @@ const JobExecutionSettingsComponent: React.FC = () => {
                 <TextField
                   fullWidth
                   type="number"
-                  label="Speedtest Timeout"
+                  label={t('jobExecution.agentConfig.speedtestTimeout') as string}
                   value={settings.speedtest_timeout_seconds}
                   onChange={handleChange('speedtest_timeout_seconds')}
-                  helperText="Maximum time to wait for speedtest completion"
+                  helperText={t('jobExecution.agentConfig.speedtestTimeoutHelper')}
                   InputProps={{
                     inputProps: { min: 60, max: 600 },
-                    endAdornment: <InputAdornment position="end">seconds</InputAdornment>,
+                    endAdornment: <InputAdornment position="end">{t('jobExecution.agentConfig.seconds')}</InputAdornment>,
                   }}
                 />
               </Grid>
@@ -246,13 +248,13 @@ const JobExecutionSettingsComponent: React.FC = () => {
                 <TextField
                   fullWidth
                   type="number"
-                  label="Reconnect Grace Period"
+                  label={t('jobExecution.agentConfig.reconnectGrace') as string}
                   value={settings.reconnect_grace_period_minutes}
                   onChange={handleChange('reconnect_grace_period_minutes')}
-                  helperText="Time to wait for agents to reconnect after server restart"
+                  helperText={t('jobExecution.agentConfig.reconnectGraceHelper')}
                   InputProps={{
                     inputProps: { min: 1, max: 60 },
-                    endAdornment: <InputAdornment position="end">minutes</InputAdornment>,
+                    endAdornment: <InputAdornment position="end">{t('jobExecution.agentConfig.minutes')}</InputAdornment>,
                   }}
                 />
               </Grid>
@@ -264,7 +266,7 @@ const JobExecutionSettingsComponent: React.FC = () => {
         <Grid item xs={12}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="subtitle1" gutterBottom fontWeight="bold">
-              Job Control
+              {t('jobExecution.jobControl.title')}
             </Typography>
             <Divider sx={{ mb: 2 }} />
             <Grid container spacing={2}>
@@ -276,10 +278,10 @@ const JobExecutionSettingsComponent: React.FC = () => {
                       onChange={handleChange('job_interruption_enabled')}
                     />
                   }
-                  label="Allow Job Interruption"
+                  label={t('jobExecution.jobControl.allowInterruption') as string}
                 />
                 <Typography variant="caption" color="textSecondary" display="block">
-                  Higher priority jobs can interrupt running jobs
+                  {t('jobExecution.jobControl.allowInterruptionHelper')}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
@@ -290,23 +292,23 @@ const JobExecutionSettingsComponent: React.FC = () => {
                       onChange={handleChange('enable_realtime_crack_notifications')}
                     />
                   }
-                  label="Real-time Crack Notifications"
+                  label={t('jobExecution.jobControl.realtimeNotifications') as string}
                 />
                 <Typography variant="caption" color="textSecondary" display="block">
-                  Send notifications when hashes are cracked
+                  {t('jobExecution.jobControl.realtimeNotificationsHelper')}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
                   type="number"
-                  label="Job Refresh Interval"
+                  label={t('jobExecution.jobControl.refreshInterval') as string}
                   value={settings.job_refresh_interval_seconds}
                   onChange={handleChange('job_refresh_interval_seconds')}
-                  helperText="How often to refresh job status in UI"
+                  helperText={t('jobExecution.jobControl.refreshIntervalHelper')}
                   InputProps={{
                     inputProps: { min: 1, max: 60 },
-                    endAdornment: <InputAdornment position="end">seconds</InputAdornment>,
+                    endAdornment: <InputAdornment position="end">{t('jobExecution.agentConfig.seconds')}</InputAdornment>,
                   }}
                 />
               </Grid>
@@ -314,10 +316,10 @@ const JobExecutionSettingsComponent: React.FC = () => {
                 <TextField
                   fullWidth
                   type="number"
-                  label="Max Chunk Retry Attempts"
+                  label={t('jobExecution.jobControl.maxRetryAttempts') as string}
                   value={settings.max_chunk_retry_attempts}
                   onChange={handleChange('max_chunk_retry_attempts')}
-                  helperText="Number of times to retry failed chunks"
+                  helperText={t('jobExecution.jobControl.maxRetryAttemptsHelper')}
                   InputProps={{
                     inputProps: { min: 0, max: 10 },
                   }}
@@ -327,10 +329,10 @@ const JobExecutionSettingsComponent: React.FC = () => {
                 <TextField
                   fullWidth
                   type="number"
-                  label="Jobs Per Page"
+                  label={t('jobExecution.jobControl.jobsPerPage') as string}
                   value={settings.jobs_per_page_default}
                   onChange={handleChange('jobs_per_page_default')}
-                  helperText="Default pagination size for job lists"
+                  helperText={t('jobExecution.jobControl.jobsPerPageHelper')}
                   InputProps={{
                     inputProps: { min: 5, max: 100 },
                   }}
@@ -344,7 +346,7 @@ const JobExecutionSettingsComponent: React.FC = () => {
         <Grid item xs={12}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="subtitle1" gutterBottom fontWeight="bold">
-              Potfile Settings
+              {t('jobExecution.potfile.title')}
             </Typography>
             <Divider sx={{ mb: 2 }} />
             <Grid container spacing={2}>
@@ -356,10 +358,10 @@ const JobExecutionSettingsComponent: React.FC = () => {
                       onChange={handleChange('potfile_enabled')}
                     />
                   }
-                  label="Enable Potfile"
+                  label={t('jobExecution.potfile.enablePotfile') as string}
                 />
                 <Typography variant="caption" color="textSecondary" display="block">
-                  Automatically store cracked passwords for use in future jobs. Individual hashlists can still be excluded.
+                  {t('jobExecution.potfile.enablePotfileHelper')}
                 </Typography>
               </Grid>
             </Grid>
@@ -370,7 +372,7 @@ const JobExecutionSettingsComponent: React.FC = () => {
         <Grid item xs={12}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="subtitle1" gutterBottom fontWeight="bold">
-              Rule Splitting
+              {t('jobExecution.ruleSplitting.title')}
             </Typography>
             <Divider sx={{ mb: 2 }} />
             <Grid container spacing={2}>
@@ -382,17 +384,17 @@ const JobExecutionSettingsComponent: React.FC = () => {
                       onChange={handleChange('rule_split_enabled')}
                     />
                   }
-                  label="Enable Rule Splitting"
+                  label={t('jobExecution.ruleSplitting.enableRuleSplitting') as string}
                 />
                 <Typography variant="caption" color="textSecondary" display="block">
-                  Automatically split large rule files for distributed processing
+                  {t('jobExecution.ruleSplitting.enableRuleSplittingHelper')}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
                   type="number"
-                  label="Rule Split Threshold"
+                  label={t('jobExecution.ruleSplitting.threshold') as string}
                   value={settings.rule_split_threshold}
                   onChange={(e) => {
                     const value = parseFloat(e.target.value);
@@ -402,7 +404,7 @@ const JobExecutionSettingsComponent: React.FC = () => {
                     });
                   }}
                   disabled={!settings.rule_split_enabled}
-                  helperText="Split when job time exceeds chunk time by this factor"
+                  helperText={t('jobExecution.ruleSplitting.thresholdHelper')}
                   InputProps={{
                     inputProps: { min: 1.1, max: 10, step: 0.1 },
                     endAdornment: <InputAdornment position="end">×</InputAdornment>,
@@ -413,11 +415,11 @@ const JobExecutionSettingsComponent: React.FC = () => {
                 <TextField
                   fullWidth
                   type="number"
-                  label="Minimum Rules to Split"
+                  label={t('jobExecution.ruleSplitting.minRules') as string}
                   value={settings.rule_split_min_rules}
                   onChange={handleChange('rule_split_min_rules')}
                   disabled={!settings.rule_split_enabled}
-                  helperText="Don't split files with fewer rules"
+                  helperText={t('jobExecution.ruleSplitting.minRulesHelper')}
                   InputProps={{
                     inputProps: { min: 10 },
                   }}
@@ -427,11 +429,11 @@ const JobExecutionSettingsComponent: React.FC = () => {
                 <TextField
                   fullWidth
                   type="number"
-                  label="Maximum Rule Chunks"
+                  label={t('jobExecution.ruleSplitting.maxChunks') as string}
                   value={settings.rule_split_max_chunks}
                   onChange={handleChange('rule_split_max_chunks')}
                   disabled={!settings.rule_split_enabled}
-                  helperText="Maximum chunks to create per file"
+                  helperText={t('jobExecution.ruleSplitting.maxChunksHelper')}
                   InputProps={{
                     inputProps: { min: 2, max: 10000 },
                   }}
@@ -440,7 +442,7 @@ const JobExecutionSettingsComponent: React.FC = () => {
               <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
-                  label="Rule Chunk Directory"
+                  label={t('jobExecution.ruleSplitting.chunkDirectory') as string}
                   value={settings.rule_chunk_temp_dir}
                   onChange={(e) => {
                     setSettings({
@@ -449,7 +451,7 @@ const JobExecutionSettingsComponent: React.FC = () => {
                     });
                   }}
                   disabled={!settings.rule_split_enabled}
-                  helperText="Directory for temporary rule chunks"
+                  helperText={t('jobExecution.ruleSplitting.chunkDirectoryHelper')}
                 />
               </Grid>
             </Grid>
@@ -468,7 +470,7 @@ const JobExecutionSettingsComponent: React.FC = () => {
               disabled={saving || loading}
               size="large"
             >
-              {saving ? <CircularProgress size={24} /> : 'Save Settings'}
+              {saving ? <CircularProgress size={24} /> : t('jobExecution.buttons.save')}
             </Button>
           </Box>
         </Grid>

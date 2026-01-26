@@ -2,6 +2,7 @@
  * Username correlation section showing password-username relationships.
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Paper,
   Typography,
@@ -20,6 +21,7 @@ interface UsernameCorrelationSectionProps {
 }
 
 export default function UsernameCorrelationSection({ data }: UsernameCorrelationSectionProps) {
+  const { t } = useTranslation('analytics');
   const hasData = data.equals_username.count > 0 || data.contains_username.count > 0 || data.username_plus_suffix.count > 0;
 
   if (!hasData) {
@@ -29,39 +31,39 @@ export default function UsernameCorrelationSection({ data }: UsernameCorrelation
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
       <Typography variant="h5" gutterBottom>
-        Username Correlation
+        {t('sections.usernameCorrelation')}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Passwords that correlate with usernames
+        {t('descriptions.usernameCorrelation')}
       </Typography>
 
       <TableContainer>
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell sx={threeColumnTableStyles.labelCell}>Correlation Type</TableCell>
-              <TableCell sx={threeColumnTableStyles.countCell}>Count</TableCell>
-              <TableCell sx={threeColumnTableStyles.percentageCell}>Percentage</TableCell>
+              <TableCell sx={threeColumnTableStyles.labelCell}>{t('columns.correlationType')}</TableCell>
+              <TableCell sx={threeColumnTableStyles.countCell}>{t('columns.count')}</TableCell>
+              <TableCell sx={threeColumnTableStyles.percentageCell}>{t('columns.percentage')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {data.equals_username.count > 0 && (
               <TableRow>
-                <TableCell sx={threeColumnTableStyles.labelCell}>Password Same as Username</TableCell>
+                <TableCell sx={threeColumnTableStyles.labelCell}>{t('correlations.sameAsUsername')}</TableCell>
                 <TableCell sx={threeColumnTableStyles.countCell}>{data.equals_username.count.toLocaleString()}</TableCell>
                 <TableCell sx={threeColumnTableStyles.percentageCell}>{data.equals_username.percentage.toFixed(2)}%</TableCell>
               </TableRow>
             )}
             {data.contains_username.count > 0 && (
               <TableRow>
-                <TableCell sx={threeColumnTableStyles.labelCell}>Password Contains Username</TableCell>
+                <TableCell sx={threeColumnTableStyles.labelCell}>{t('correlations.containsUsername')}</TableCell>
                 <TableCell sx={threeColumnTableStyles.countCell}>{data.contains_username.count.toLocaleString()}</TableCell>
                 <TableCell sx={threeColumnTableStyles.percentageCell}>{data.contains_username.percentage.toFixed(2)}%</TableCell>
               </TableRow>
             )}
             {data.username_plus_suffix.count > 0 && (
               <TableRow>
-                <TableCell sx={threeColumnTableStyles.labelCell}>Username Part of Password</TableCell>
+                <TableCell sx={threeColumnTableStyles.labelCell}>{t('correlations.usernamePart')}</TableCell>
                 <TableCell sx={threeColumnTableStyles.countCell}>{data.username_plus_suffix.count.toLocaleString()}</TableCell>
                 <TableCell sx={threeColumnTableStyles.percentageCell}>{data.username_plus_suffix.percentage.toFixed(2)}%</TableCell>
               </TableRow>
