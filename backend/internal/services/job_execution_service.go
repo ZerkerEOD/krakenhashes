@@ -353,7 +353,7 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 
 			// Enable rule splitting if we have enough rules
 			// Use actual rule count (not salt-adjusted multiplicationFactor) for minRules comparison
-			actualRuleCount, ruleErr := s.getTotalRuleCount(ctx, presetJob.RuleIDs)
+			actualRuleCount, ruleErr := s.GetTotalRuleCount(ctx, presetJob.RuleIDs)
 			if ruleErr != nil {
 				actualRuleCount = int64(multiplicationFactor) // Fallback to multiplicationFactor
 			}
@@ -384,7 +384,6 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		HashlistID:        hashlistID,
 		Status:            models.JobExecutionStatusPending,
 		Priority:          presetJob.Priority,
-		TotalKeyspace:     totalKeyspace,
 		ProcessedKeyspace: 0,
 		AttackMode:        presetJob.AttackMode,
 		MaxAgents:         presetJob.MaxAgents,
@@ -455,7 +454,7 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 	// See HandleBenchmarkResult() in job_websocket_integration.go for the actual decision
 	debug.Log("Job execution created - rule split decision deferred to benchmark", map[string]interface{}{
 		"job_execution_id":      jobExecution.ID,
-		"total_keyspace":        totalKeyspace,
+		"base_keyspace":         totalKeyspace,
 		"effective_keyspace":    jobExecution.EffectiveKeyspace,
 		"multiplication_factor": jobExecution.MultiplicationFactor,
 	})
@@ -586,7 +585,7 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 
 			// Enable rule splitting if we have enough rules
 			// Use actual rule count (not salt-adjusted multiplicationFactor) for minRules comparison
-			actualRuleCount, ruleErr := s.getTotalRuleCount(ctx, config.RuleIDs)
+			actualRuleCount, ruleErr := s.GetTotalRuleCount(ctx, config.RuleIDs)
 			if ruleErr != nil {
 				actualRuleCount = int64(multiplicationFactor) // Fallback to multiplicationFactor
 			}
@@ -617,7 +616,6 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		AssociationWordlistID: config.AssociationWordlistID, // For association attacks (-a 9)
 		Status:                models.JobExecutionStatusPending,
 		Priority:              config.Priority,
-		TotalKeyspace:         totalKeyspace,
 		ProcessedKeyspace:     0,
 		AttackMode:            config.AttackMode,
 		MaxAgents:             config.MaxAgents,
@@ -679,7 +677,7 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 	// See HandleBenchmarkResult() in job_websocket_integration.go for the actual decision
 	debug.Log("Custom job execution created - rule split decision deferred to benchmark", map[string]interface{}{
 		"job_execution_id":      jobExecution.ID,
-		"total_keyspace":        totalKeyspace,
+		"base_keyspace":         totalKeyspace,
 		"effective_keyspace":    jobExecution.EffectiveKeyspace,
 		"multiplication_factor": jobExecution.MultiplicationFactor,
 	})
@@ -809,7 +807,7 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 		}
 
 		// Get rule count for effective keyspace calculation
-		ruleCount, err := s.getTotalRuleCount(ctx, presetJob.RuleIDs)
+		ruleCount, err := s.GetTotalRuleCount(ctx, presetJob.RuleIDs)
 		if err != nil {
 			debug.Warning("Failed to get rule count for mode 9: %v", err)
 			ruleCount = 1
@@ -1170,12 +1168,12 @@ func (s *JobExecutionService) calculateWordlistKeyspace(ctx context.Context, wor
 
 // calculateEffectiveKeyspace computes the true workload accounting for rules/combinations
 func (s *JobExecutionService) calculateEffectiveKeyspace(ctx context.Context, job *models.JobExecution, presetJob *models.PresetJob) error {
-	// Use existing total_keyspace as base
-	if job.TotalKeyspace == nil {
-		return fmt.Errorf("job has no total keyspace calculated")
+	// Use existing base_keyspace (from hashcat --keyspace) as starting point
+	if job.BaseKeyspace == nil {
+		return fmt.Errorf("job has no base keyspace calculated")
 	}
 
-	baseKeyspace := *job.TotalKeyspace
+	baseKeyspace := *job.BaseKeyspace
 	attackMode := s.parseAttackMode(presetJob)
 
 	debug.Log("Calculating effective keyspace", map[string]interface{}{
@@ -1302,12 +1300,12 @@ func (s *JobExecutionService) calculateEffectiveKeyspace(ctx context.Context, jo
 			lineCount, err := s.getAssociationWordlistLineCount(ctx, *presetJob.AssociationWordlistID)
 			if err != nil {
 				debug.Warning("Failed to get association wordlist line count: %v", err)
-				// Fall back to using existing total_keyspace
+				// Fall back to using baseKeyspace
 				job.BaseKeyspace = &baseKeyspace
 				job.MultiplicationFactor = 1
 				job.EffectiveKeyspace = &baseKeyspace
 			} else {
-				ruleCount, err := s.getTotalRuleCount(ctx, presetJob.RuleIDs)
+				ruleCount, err := s.GetTotalRuleCount(ctx, presetJob.RuleIDs)
 				if err != nil {
 					ruleCount = 1
 				}
@@ -1344,6 +1342,35 @@ func (s *JobExecutionService) calculateEffectiveKeyspace(ctx context.Context, jo
 			"attack_mode": attackMode,
 			"keyspace":    baseKeyspace,
 		})
+	}
+
+	// Apply salt adjustment for salted hash types (same pattern as CreateCustomJobExecution:542-567)
+	// calculateEffectiveKeyspace calculates base × rules, but for salted hashes we need base × rules × salts
+	if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
+		hashlist, hlErr := s.hashlistRepo.GetByID(ctx, job.HashlistID)
+		if hlErr == nil && hashlist != nil {
+			hashType, htErr := s.hashTypeRepo.GetByID(ctx, hashlist.HashTypeID)
+			if htErr == nil && hashType != nil && hashType.IsSalted {
+				saltCount := int64(hashlist.TotalHashes)
+				if saltCount > 0 {
+					originalEffective := *job.EffectiveKeyspace
+					adjustedEffective := originalEffective * saltCount
+					job.EffectiveKeyspace = &adjustedEffective
+					// Also adjust multiplication factor to reflect salts
+					if job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
+						job.MultiplicationFactor = int(adjustedEffective / *job.BaseKeyspace)
+					}
+					debug.Log("Applied salt adjustment in calculateEffectiveKeyspace", map[string]interface{}{
+						"job_id":             job.ID,
+						"hash_type_id":       hashlist.HashTypeID,
+						"is_salted":          true,
+						"salt_count":         saltCount,
+						"original_effective": originalEffective,
+						"adjusted_effective": adjustedEffective,
+					})
+				}
+			}
+		}
 	}
 
 	// Update job in database
@@ -2300,8 +2327,8 @@ func (s *JobExecutionService) getAssociationWordlistLineCount(ctx context.Contex
 	return wordlist.LineCount, nil
 }
 
-// getTotalRuleCount retrieves the sum of rule counts for a list of rule IDs
-func (s *JobExecutionService) getTotalRuleCount(ctx context.Context, ruleIDs []string) (int64, error) {
+// GetTotalRuleCount retrieves the sum of rule counts for a list of rule IDs
+func (s *JobExecutionService) GetTotalRuleCount(ctx context.Context, ruleIDs []string) (int64, error) {
 	if len(ruleIDs) == 0 {
 		return 1, nil // No rules = multiplier of 1
 	}
@@ -2383,11 +2410,8 @@ func (s *JobExecutionService) analyzeForRuleSplitting(ctx context.Context, job *
 	// Calculate estimated time
 	effectiveKeyspace := job.EffectiveKeyspace
 	if effectiveKeyspace == nil {
-		if job.TotalKeyspace != nil {
-			effectiveKeyspace = job.TotalKeyspace
-		} else {
-			return &RuleSplitDecision{ShouldSplit: false}, nil
-		}
+		// Can't make rule split decision without effective keyspace
+		return &RuleSplitDecision{ShouldSplit: false}, nil
 	}
 
 	estimatedTimeSeconds := float64(*effectiveKeyspace) / benchmarkSpeed
@@ -2406,7 +2430,7 @@ func (s *JobExecutionService) analyzeForRuleSplitting(ctx context.Context, job *
 	}
 
 	// Get actual rule count (not salt-adjusted) for minRules comparison
-	actualRuleCount, ruleErr := s.getTotalRuleCount(ctx, presetJob.RuleIDs)
+	actualRuleCount, ruleErr := s.GetTotalRuleCount(ctx, presetJob.RuleIDs)
 	if ruleErr != nil {
 		actualRuleCount = int64(job.MultiplicationFactor) // Fallback to multiplicationFactor
 	}
@@ -2483,8 +2507,8 @@ func (s *JobExecutionService) createSplitDecision(ctx context.Context, job *mode
 	var baseKeyspace int64
 	if job.BaseKeyspace != nil {
 		baseKeyspace = *job.BaseKeyspace
-	} else if job.TotalKeyspace != nil {
-		baseKeyspace = *job.TotalKeyspace
+	} else if job.EffectiveKeyspace != nil {
+		baseKeyspace = *job.EffectiveKeyspace
 	} else {
 		baseKeyspace = 1000000 // Default fallback
 	}

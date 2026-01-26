@@ -2402,6 +2402,43 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 					jobExec.ID, result.TotalEffectiveKeyspace)
 			}
 
+			// Make rule splitting decision (same as creation time in job_execution_service.go:569-603)
+			// This is for jobs that relied on forced benchmark (isAccurateKeyspace was false at creation)
+			if !jobExec.UsesRuleSplitting &&
+				(jobExec.AttackMode == models.AttackModeStraight || jobExec.AttackMode == models.AttackModeAssociation) &&
+				len(jobExec.RuleIDs) > 0 {
+
+				// Check if rule splitting is enabled
+				ruleSplitEnabled, settingErr := s.systemSettingsRepo.GetSetting(ctx, "rule_split_enabled")
+				if settingErr == nil && ruleSplitEnabled != nil && ruleSplitEnabled.Value != nil && *ruleSplitEnabled.Value == "true" {
+					// Get minimum rules threshold
+					minRulesSetting, _ := s.systemSettingsRepo.GetSetting(ctx, "rule_split_min_rules")
+					minRules := 100 // default
+					if minRulesSetting != nil && minRulesSetting.Value != nil {
+						if parsed, parseErr := strconv.Atoi(*minRulesSetting.Value); parseErr == nil {
+							minRules = parsed
+						}
+					}
+
+					// Get actual rule count (not salt-adjusted multiplicationFactor)
+					actualRuleCount, ruleErr := s.jobExecutionService.GetTotalRuleCount(ctx, jobExec.RuleIDs)
+					if ruleErr != nil {
+						actualRuleCount = int64(jobExec.MultiplicationFactor)
+					}
+
+					if int(actualRuleCount) >= minRules {
+						jobExec.UsesRuleSplitting = true
+						jobExec.RuleSplitCount = 0
+
+						debug.Log("Rule splitting enabled after forced benchmark", map[string]interface{}{
+							"job_id":            jobExec.ID,
+							"actual_rule_count": actualRuleCount,
+							"min_rules":         minRules,
+						})
+					}
+				}
+			}
+
 			// Update job in database
 			if err := s.jobExecutionService.UpdateKeyspaceInfo(ctx, jobExec); err != nil {
 				debug.Error("Failed to update job keyspace info: %v", err)

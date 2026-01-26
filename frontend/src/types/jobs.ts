@@ -29,7 +29,6 @@ export interface JobSummary {
   multiplication_factor?: number;
   uses_rule_splitting?: boolean;
   base_keyspace?: number;
-  total_keyspace?: number;
   processed_keyspace?: number;
   dispatched_keyspace?: number;
   overall_progress_percent: number;
@@ -66,7 +65,6 @@ export interface JobExecution {
   status: string;
   priority: number;
   max_agents: number;
-  total_keyspace?: number;
   processed_keyspace: number;
   attack_mode: number;
   created_by?: string;
@@ -178,7 +176,6 @@ export interface JobDetailsResponse {
   priority: number;
   max_agents: number;
   attack_mode: number;
-  total_keyspace?: number;
   effective_keyspace?: number;
   base_keyspace?: number;
   processed_keyspace?: number;

@@ -1063,12 +1063,12 @@ func (s *JobSchedulingService) calculateKeyspaceChunk(
 		})
 	} else {
 		// Regular job - use BASE keyspace for --skip/--limit
-		// BaseKeyspace represents actual password candidates that hashcat will test
+		// BaseKeyspace represents wordlist positions that hashcat uses for --skip/--limit
 		if plan.JobExecution.BaseKeyspace != nil {
 			totalKeyspace = *plan.JobExecution.BaseKeyspace
-		} else if plan.JobExecution.TotalKeyspace != nil {
-			// Fallback to TotalKeyspace if BaseKeyspace not set
-			totalKeyspace = *plan.JobExecution.TotalKeyspace
+		} else if plan.JobExecution.EffectiveKeyspace != nil {
+			// Fallback to EffectiveKeyspace if BaseKeyspace not set
+			totalKeyspace = *plan.JobExecution.EffectiveKeyspace
 		} else {
 			return fmt.Errorf("job has no keyspace information")
 		}
@@ -1295,7 +1295,7 @@ func (s *JobSchedulingService) calculateKeyspaceChunk(
 		"keyspace_start":             keyspaceStart,
 		"keyspace_end":               keyspaceEnd,
 		"chunk_size":                 dispatchedAmount,
-		"total_keyspace":             totalKeyspace,
+		"base_keyspace":              totalKeyspace,
 		"is_keyspace_split":          plan.IsKeyspaceSplit,
 		"benchmark_speed":            plan.BenchmarkSpeed,
 		"updated_base_keyspace_end":  keyspaceEnd,

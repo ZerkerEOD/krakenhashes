@@ -145,7 +145,6 @@ type JobExecution struct {
 	Status                 JobExecutionStatus `json:"status" db:"status"`
 	Priority               int                `json:"priority" db:"priority"`
 	MaxAgents              int                `json:"max_agents" db:"max_agents"`
-	TotalKeyspace          *int64             `json:"total_keyspace" db:"total_keyspace"`
 	ProcessedKeyspace      int64              `json:"processed_keyspace" db:"processed_keyspace"`
 	AttackMode             AttackMode         `json:"attack_mode" db:"attack_mode"`
 	CreatedBy              *uuid.UUID         `json:"created_by" db:"created_by"`

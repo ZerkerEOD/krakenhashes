@@ -444,7 +444,7 @@ const JobDetails: React.FC = () => {
 
     // MODE 1: Job is running - use keyspace-based calculation
     // Calculate remaining keyspace
-    const effectiveKeyspace = jobData?.effective_keyspace || jobData?.total_keyspace || 0;
+    const effectiveKeyspace = jobData?.effective_keyspace || 0;
     const processedKeyspace = jobData?.processed_keyspace || 0;
     const remainingKeyspace = effectiveKeyspace - processedKeyspace;
 
@@ -815,7 +815,7 @@ const JobDetails: React.FC = () => {
     (completedTasksPage + 1) * completedTasksPageSize
   );
 
-  const totalKeyspace = jobData.effective_keyspace || jobData.total_keyspace || 0;
+  const totalKeyspace = jobData.effective_keyspace || 0;
 
   // Calculate estimated completion once for efficiency
   const estimatedCompletion = jobData ? calculateEstimatedCompletion() : { timeRemaining: '', estimatedDate: '' };
