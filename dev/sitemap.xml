@@ -5,6 +5,10 @@
          <lastmod>2026-01-26</lastmod>
     </url>
     <url>
+         <loc>https://zerkereod.github.io/krakenhashes/dev/SSL_TLS_CERTBOT_CONFIGURATION/</loc>
+         <lastmod>2026-01-26</lastmod>
+    </url>
+    <url>
          <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/</loc>
          <lastmod>2026-01-26</lastmod>
     </url>
@@ -94,6 +98,14 @@
     </url>
     <url>
          <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/system-setup/email/</loc>
+         <lastmod>2026-01-26</lastmod>
+    </url>
+    <url>
+         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/system-setup/ssl-tls-custom-acme/</loc>
+         <lastmod>2026-01-26</lastmod>
+    </url>
+    <url>
+         <loc>https://zerkereod.github.io/krakenhashes/dev/admin-guide/system-setup/ssl-tls-provided-mode/</loc>
          <lastmod>2026-01-26</lastmod>
     </url>
     <url>
