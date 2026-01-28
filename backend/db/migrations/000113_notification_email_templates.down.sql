@@ -1,0 +1,7 @@
+-- Migration 113 Down: Cannot remove ENUM values in PostgreSQL
+-- The following ENUM values were added in the up migration:
+--   security_password_changed, security_mfa_disabled, security_suspicious_login,
+--   job_started, job_failed, first_crack, task_completed,
+--   agent_offline, agent_error, webhook_failure
+-- These values will remain in the ENUM but won't be used if rolled back
+-- Template data removal is handled in migration 114 down

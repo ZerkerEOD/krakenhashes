@@ -42,6 +42,12 @@ Learn how to effectively use KrakenHashes for your password auditing needs.
 
     Generate comprehensive analytics reports with domain-based filtering
 
+-   :material-bell:{ .lg .middle } **[Notifications](notifications.md)**
+
+    ---
+
+    Configure notification preferences and set up webhooks
+
 -   :material-help-circle:{ .lg .middle } **[Troubleshooting](troubleshooting.md)**
 
     ---
@@ -67,6 +73,8 @@ Learn how to effectively use KrakenHashes for your password auditing needs.
 - [Export results](analyzing-results.md#exporting-results)
 - [Generate analytics report](analytics-reports.md#generating-analytics-reports)
 - [Filter analytics by domain](analytics-reports.md#domain-based-filtering)
+- [Configure notifications](notifications.md#notification-preferences)
+- [Set up webhooks](notifications.md#personal-webhooks)
 
 ### :material-puzzle: **Advanced Topics**
 - [Custom attack workflows](jobs-workflows.md#custom-workflows)

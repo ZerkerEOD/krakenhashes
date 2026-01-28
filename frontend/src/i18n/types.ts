@@ -27,6 +27,7 @@ export type TranslationNamespace =
     | 'analytics'
     | 'admin'
     | 'settings'
+    | 'notifications'
     | 'errors';
 
 // Declare custom type options for i18next

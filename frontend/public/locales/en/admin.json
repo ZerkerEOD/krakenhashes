@@ -18,7 +18,8 @@
     "hashTypes": "Hash Types",
     "jobExecution": "Job Execution",
     "monitoring": "Monitoring",
-    "agentDownloads": "Agent Downloads"
+    "agentDownloads": "Agent Downloads",
+    "notifications": "Notifications"
   },
   "common": {
     "cancel": "Cancel",
@@ -999,6 +1000,7 @@
         "fromEmail": "From Email",
         "fromName": "From Name",
         "domain": "Domain",
+        "region": "Region",
         "monthlyLimit": "Monthly Limit",
         "skipTlsVerify": "Skip TLS Certificate Verification (insecure, not recommended)"
       },
@@ -1018,7 +1020,9 @@
         "smtp": "SMTP",
         "encryptionNone": "None (Port 25)",
         "encryptionStarttls": "STARTTLS (Port 587)",
-        "encryptionTls": "TLS/SSL (Port 465)"
+        "encryptionTls": "TLS/SSL (Port 465)",
+        "regionUS": "US (api.mailgun.net)",
+        "regionEU": "EU (api.eu.mailgun.net)"
       },
       "buttons": {
         "edit": "Edit Configuration",

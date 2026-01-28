@@ -1755,6 +1755,14 @@ func (s *JobExecutionService) StartJobExecution(ctx context.Context, jobExecutio
 		"job_execution_id": jobExecutionID,
 	})
 
+	// Dispatch job started notification
+	jobExec, err := s.jobExecRepo.GetByID(ctx, jobExecutionID)
+	if err != nil {
+		debug.Error("Failed to get job execution for notification: %v", err)
+	} else if jobExec.CreatedBy != nil {
+		s.dispatchJobStartedNotification(ctx, jobExec)
+	}
+
 	return nil
 }
 
@@ -1769,6 +1777,11 @@ func (s *JobExecutionService) CompleteJobExecution(ctx context.Context, jobExecu
 		debug.Warning("Job %s has failed tasks - marking as failed, not completed", jobExecutionID)
 		if failErr := s.jobExecRepo.FailExecution(ctx, jobExecutionID, "One or more tasks failed"); failErr != nil {
 			return fmt.Errorf("failed to mark job as failed: %w", failErr)
+		}
+		// Dispatch job failed notification
+		jobExec, getErr := s.jobExecRepo.GetByID(ctx, jobExecutionID)
+		if getErr == nil && jobExec.CreatedBy != nil {
+			s.dispatchJobFailedNotification(ctx, jobExec, "One or more tasks failed")
 		}
 		return nil
 	}
@@ -1888,12 +1901,8 @@ func (s *JobExecutionService) CompleteJobExecution(ctx context.Context, jobExecu
 		debug.Error("Failed to get job execution for notification: %v", err)
 		// Don't fail the completion due to notification errors
 	} else if jobExec.CreatedBy != nil {
-		// Send completion email notification
-		notificationService := NewNotificationService(s.db.DB)
-		if notifErr := notificationService.SendJobCompletionEmail(ctx, jobExecutionID, *jobExec.CreatedBy); notifErr != nil {
-			debug.Error("Failed to send job completion email: %v", notifErr)
-			// Don't fail the completion due to email errors
-		}
+		// Dispatch job completion notification via new dispatcher
+		s.dispatchJobCompletedNotification(ctx, jobExec)
 	}
 
 	// Clean up resources for completed job
@@ -1907,6 +1916,160 @@ func (s *JobExecutionService) CompleteJobExecution(ctx context.Context, jobExecu
 	})
 
 	return nil
+}
+
+// dispatchJobCompletedNotification sends a job completion notification via the dispatcher
+func (s *JobExecutionService) dispatchJobCompletedNotification(ctx context.Context, jobExec *models.JobExecution) {
+	dispatcher := GetGlobalDispatcher()
+	if dispatcher == nil {
+		debug.Warning("Notification dispatcher not available, skipping job completion notification")
+		return
+	}
+
+	// Get hashlist info for the notification
+	var hashlistName string
+	var crackedCount, totalHashes int
+	if jobExec.HashlistID > 0 {
+		hashlist, err := s.hashlistRepo.GetByID(ctx, jobExec.HashlistID)
+		if err == nil && hashlist != nil {
+			hashlistName = hashlist.Name
+			crackedCount = hashlist.CrackedHashes
+			totalHashes = hashlist.TotalHashes
+		}
+	}
+
+	// Calculate success rate
+	var successRate float64
+	if totalHashes > 0 {
+		successRate = float64(crackedCount) / float64(totalHashes) * 100
+	}
+
+	// Calculate duration
+	var duration string
+	if jobExec.StartedAt != nil && jobExec.CompletedAt != nil {
+		d := jobExec.CompletedAt.Sub(*jobExec.StartedAt)
+		duration = d.Round(time.Second).String()
+	}
+
+	params := models.NotificationDispatchParams{
+		UserID:  *jobExec.CreatedBy,
+		Type:    models.NotificationTypeJobCompleted,
+		Title:   "Job Completed",
+		Message: fmt.Sprintf("Job '%s' completed with %d hashes cracked (%.1f%%)", jobExec.Name, crackedCount, successRate),
+		Data: map[string]interface{}{
+			"job_id":           jobExec.ID.String(),
+			"job_name":         jobExec.Name,
+			"hashlist_name":    hashlistName,
+			"duration":         duration,
+			"cracked_count":    crackedCount,
+			"total_hashes":     totalHashes,
+			"hashes_processed": totalHashes, // Template uses {{ .HashesProcessed }}
+			"success_rate":     fmt.Sprintf("%.1f", successRate), // No % - template adds it
+		},
+		SourceType: "job",
+		SourceID:   jobExec.ID.String(),
+	}
+
+	if err := dispatcher.Dispatch(ctx, params); err != nil {
+		debug.Error("Failed to dispatch job completion notification: %v", err)
+	} else {
+		debug.Log("Job completion notification dispatched", map[string]interface{}{
+			"job_id":   jobExec.ID,
+			"user_id":  jobExec.CreatedBy,
+			"job_name": jobExec.Name,
+		})
+	}
+}
+
+// dispatchJobStartedNotification sends a job started notification via the dispatcher
+func (s *JobExecutionService) dispatchJobStartedNotification(ctx context.Context, jobExec *models.JobExecution) {
+	dispatcher := GetGlobalDispatcher()
+	if dispatcher == nil {
+		debug.Warning("Notification dispatcher not available, skipping job started notification")
+		return
+	}
+
+	// Get hashlist info for the notification
+	var hashlistName string
+	var totalHashes int
+	if jobExec.HashlistID > 0 {
+		hashlist, err := s.hashlistRepo.GetByID(ctx, jobExec.HashlistID)
+		if err == nil && hashlist != nil {
+			hashlistName = hashlist.Name
+			totalHashes = hashlist.TotalHashes
+		}
+	}
+
+	params := models.NotificationDispatchParams{
+		UserID:  *jobExec.CreatedBy,
+		Type:    models.NotificationTypeJobStarted,
+		Title:   "Job Started",
+		Message: fmt.Sprintf("Job '%s' has started processing", jobExec.Name),
+		Data: map[string]interface{}{
+			"job_id":        jobExec.ID.String(),
+			"job_name":      jobExec.Name,
+			"hashlist_name": hashlistName,
+			"total_hashes":  totalHashes,
+			"priority":      jobExec.Priority,
+		},
+		SourceType: "job",
+		SourceID:   jobExec.ID.String(),
+	}
+
+	if err := dispatcher.Dispatch(ctx, params); err != nil {
+		debug.Error("Failed to dispatch job started notification: %v", err)
+	} else {
+		debug.Log("Job started notification dispatched", map[string]interface{}{
+			"job_id":   jobExec.ID,
+			"user_id":  jobExec.CreatedBy,
+			"job_name": jobExec.Name,
+		})
+	}
+}
+
+// dispatchJobFailedNotification sends a job failed notification via the dispatcher
+func (s *JobExecutionService) dispatchJobFailedNotification(ctx context.Context, jobExec *models.JobExecution, errorMessage string) {
+	dispatcher := GetGlobalDispatcher()
+	if dispatcher == nil {
+		debug.Warning("Notification dispatcher not available, skipping job failed notification")
+		return
+	}
+
+	// Get hashlist info for the notification
+	var hashlistName string
+	if jobExec.HashlistID > 0 {
+		hashlist, err := s.hashlistRepo.GetByID(ctx, jobExec.HashlistID)
+		if err == nil && hashlist != nil {
+			hashlistName = hashlist.Name
+		}
+	}
+
+	params := models.NotificationDispatchParams{
+		UserID:  *jobExec.CreatedBy,
+		Type:    models.NotificationTypeJobFailed,
+		Title:   "Job Failed",
+		Message: fmt.Sprintf("Job '%s' failed: %s", jobExec.Name, errorMessage),
+		Data: map[string]interface{}{
+			"job_id":        jobExec.ID.String(),
+			"job_name":      jobExec.Name,
+			"hashlist_name": hashlistName,
+			"error_message": errorMessage,
+			"failed_at":     time.Now().Format(time.RFC3339),
+		},
+		SourceType: "job",
+		SourceID:   jobExec.ID.String(),
+	}
+
+	if err := dispatcher.Dispatch(ctx, params); err != nil {
+		debug.Error("Failed to dispatch job failed notification: %v", err)
+	} else {
+		debug.Log("Job failed notification dispatched", map[string]interface{}{
+			"job_id":        jobExec.ID,
+			"user_id":       jobExec.CreatedBy,
+			"job_name":      jobExec.Name,
+			"error_message": errorMessage,
+		})
+	}
 }
 
 // UpdateTaskProgress updates the progress of a task accounting for rule splitting and keysplit tasks

@@ -1,12 +1,14 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
 
 	sharedAuth "github.com/ZerkerEOD/krakenhashes/backend/internal/auth"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/jwt"
 	"github.com/google/uuid"
@@ -248,6 +250,11 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := h.db.CreateLoginAttempt(loginAttempt); err != nil {
 			debug.Error("Failed to log login attempt: %v", err)
+		}
+
+		// Dispatch suspicious login notification if multiple failed attempts (3+)
+		if attempts >= 3 {
+			go dispatchSuspiciousLoginNotification(user.ID, ipAddress, userAgent, attempts, "multiple_failed_attempts")
 		}
 
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
@@ -675,4 +682,51 @@ func contains(slice []string, str string) bool {
 		}
 	}
 	return false
+}
+
+// dispatchSuspiciousLoginNotification sends a security notification for suspicious login activity
+func dispatchSuspiciousLoginNotification(userID uuid.UUID, ipAddress, userAgent string, failedAttempts int, reason string) {
+	dispatcher := services.GetGlobalDispatcher()
+	if dispatcher == nil {
+		debug.Warning("Notification dispatcher not available, skipping suspicious login notification")
+		return
+	}
+
+	var title, message string
+	switch reason {
+	case "multiple_failed_attempts":
+		title = "Suspicious Login Activity"
+		message = "Multiple failed login attempts detected on your account. If this wasn't you, please review your account security."
+	case "new_ip":
+		title = "Login from New Location"
+		message = "A successful login was detected from a new IP address. If this wasn't you, please change your password immediately."
+	default:
+		title = "Security Alert"
+		message = "Unusual login activity detected on your account."
+	}
+
+	params := models.NotificationDispatchParams{
+		UserID:  userID,
+		Type:    models.NotificationTypeSecuritySuspiciousLogin,
+		Title:   title,
+		Message: message,
+		Data: map[string]interface{}{
+			"ip_address":      ipAddress,
+			"user_agent":      userAgent,
+			"failed_attempts": failedAttempts,
+			"reason":          reason,
+			"timestamp":       time.Now().Format(time.RFC3339),
+		},
+		SourceType: "security",
+		SourceID:   uuid.New().String(), // Unique per event - security events should not deduplicate
+	}
+
+	if err := dispatcher.Dispatch(context.Background(), params); err != nil {
+		debug.Error("Failed to dispatch suspicious login notification: %v", err)
+	} else {
+		debug.Log("Suspicious login notification dispatched", map[string]interface{}{
+			"user_id": userID,
+			"reason":  reason,
+		})
+	}
 }

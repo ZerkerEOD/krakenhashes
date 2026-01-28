@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"net/http"
@@ -13,12 +14,14 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/agent"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/jobs"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/user"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/rule"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/wordlist"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/jwt"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -273,6 +276,9 @@ func SetupUserRoutes(router *mux.Router, database *db.DB, dataDir string, binary
 				http.Error(w, "Failed to update password", http.StatusInternalServerError)
 				return
 			}
+
+			// Dispatch password changed notification (mandatory security notification)
+			go dispatchPasswordChangedNotification(r.Context(), userID, r)
 		}
 
 		w.WriteHeader(http.StatusOK)
@@ -344,6 +350,9 @@ func SetupUserRoutes(router *mux.Router, database *db.DB, dataDir string, binary
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
+
+		// Dispatch password changed notification (mandatory security notification)
+		go dispatchPasswordChangedNotification(r.Context(), userID, r)
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"message": "Password updated successfully"})
@@ -465,4 +474,82 @@ func SetupUserRoutes(router *mux.Router, database *db.DB, dataDir string, binary
 		json.NewEncoder(w).Encode(response)
 	}).Methods("GET", "OPTIONS")
 	debug.Info("Configured binary patterns route for job creation")
+}
+
+// dispatchPasswordChangedNotification sends a security notification when a user changes their password
+// This is a mandatory notification that cannot be disabled by user preferences
+func dispatchPasswordChangedNotification(ctx context.Context, userID string, r *http.Request) {
+	dispatcher := GetDispatcher()
+	if dispatcher == nil {
+		debug.Warning("Notification dispatcher not available, skipping password change notification")
+		return
+	}
+
+	// Parse user ID
+	uid, err := uuid.Parse(userID)
+	if err != nil {
+		debug.Error("Failed to parse user ID for notification: %v", err)
+		return
+	}
+
+	// Get client info
+	ipAddress := getClientIP(r)
+	userAgent := r.UserAgent()
+
+	params := models.NotificationDispatchParams{
+		UserID:  uid,
+		Type:    models.NotificationTypeSecurityPasswordChanged,
+		Title:   "Password Changed",
+		Message: "Your password has been successfully changed. If you did not make this change, please contact support immediately.",
+		Data: map[string]interface{}{
+			"ip_address": ipAddress,
+			"user_agent": userAgent,
+			"timestamp":  time.Now().Format(time.RFC3339),
+		},
+		SourceType: "security",
+		SourceID:   uuid.New().String(), // Unique per event - security events should not deduplicate
+	}
+
+	if err := dispatcher.Dispatch(context.Background(), params); err != nil {
+		debug.Error("Failed to dispatch password changed notification: %v", err)
+	} else {
+		debug.Log("Password changed notification dispatched", map[string]interface{}{
+			"user_id": userID,
+		})
+	}
+}
+
+// getClientIP extracts the client IP address from the request
+func getClientIP(r *http.Request) string {
+	// Check X-Forwarded-For header first (for proxied requests)
+	xff := r.Header.Get("X-Forwarded-For")
+	if xff != "" {
+		// Take the first IP in the list
+		parts := strings.Split(xff, ",")
+		return strings.TrimSpace(parts[0])
+	}
+
+	// Check X-Real-IP header
+	xri := r.Header.Get("X-Real-IP")
+	if xri != "" {
+		return xri
+	}
+
+	// Fall back to RemoteAddr
+	// Remove port if present
+	addr := r.RemoteAddr
+	if colonIdx := strings.LastIndex(addr, ":"); colonIdx != -1 {
+		// Check if it's an IPv6 address
+		if strings.Count(addr, ":") > 1 {
+			// IPv6 - look for ] to find port separator
+			if bracketIdx := strings.LastIndex(addr, "]"); bracketIdx != -1 {
+				if colonIdx > bracketIdx {
+					return addr[:colonIdx]
+				}
+			}
+			return addr
+		}
+		return addr[:colonIdx]
+	}
+	return addr
 }

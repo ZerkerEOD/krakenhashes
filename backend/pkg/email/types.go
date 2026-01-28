@@ -25,6 +25,18 @@ const (
 	TemplateJobCompletion TemplateType = "job_completion"
 	TemplateAdminError    TemplateType = "admin_error"
 	TemplateMFACode       TemplateType = "mfa_code"
+
+	// Notification email templates
+	TemplateSecurityPasswordChanged TemplateType = "security_password_changed"
+	TemplateSecurityMFADisabled     TemplateType = "security_mfa_disabled"
+	TemplateSecuritySuspiciousLogin TemplateType = "security_suspicious_login"
+	TemplateJobStarted              TemplateType = "job_started"
+	TemplateJobFailed               TemplateType = "job_failed"
+	TemplateFirstCrack              TemplateType = "first_crack"
+	TemplateTaskCompleted           TemplateType = "task_completed"
+	TemplateAgentOffline            TemplateType = "agent_offline"
+	TemplateAgentError              TemplateType = "agent_error"
+	TemplateWebhookFailure          TemplateType = "webhook_failure"
 )
 
 // Config represents email provider configuration

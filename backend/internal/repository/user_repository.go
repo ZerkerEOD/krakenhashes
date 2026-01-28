@@ -886,3 +886,43 @@ func (r *UserRepository) UpdateAPIKeyLastUsed(ctx context.Context, userID uuid.U
 
 	return nil
 }
+
+// GetByRole retrieves all users with a specific role
+func (r *UserRepository) GetByRole(ctx context.Context, role string) ([]*models.User, error) {
+	query := `
+		SELECT id, username, email, role, account_enabled, created_at, updated_at
+		FROM users
+		WHERE role = $1 AND account_enabled = true AND deleted_at IS NULL
+		ORDER BY username ASC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, role)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get users by role: %w", err)
+	}
+	defer rows.Close()
+
+	var users []*models.User
+	for rows.Next() {
+		user := &models.User{}
+		err := rows.Scan(
+			&user.ID,
+			&user.Username,
+			&user.Email,
+			&user.Role,
+			&user.AccountEnabled,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan user: %w", err)
+		}
+		users = append(users, user)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating users: %w", err)
+	}
+
+	return users, nil
+}

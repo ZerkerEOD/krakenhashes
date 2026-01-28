@@ -24,7 +24,6 @@ type HashlistCompletionService struct {
 	jobTaskRepo           *repository.JobTaskRepository
 	jobIncrementLayerRepo *repository.JobIncrementLayerRepository
 	hashlistRepo          *repository.HashListRepository
-	notificationService   *NotificationService
 	wsHandler             WSHandler
 }
 
@@ -35,7 +34,6 @@ func NewHashlistCompletionService(
 	jobTaskRepo *repository.JobTaskRepository,
 	jobIncrementLayerRepo *repository.JobIncrementLayerRepository,
 	hashlistRepo *repository.HashListRepository,
-	notificationService *NotificationService,
 	wsHandler WSHandler,
 ) *HashlistCompletionService {
 	return &HashlistCompletionService{
@@ -44,7 +42,6 @@ func NewHashlistCompletionService(
 		jobTaskRepo:           jobTaskRepo,
 		jobIncrementLayerRepo: jobIncrementLayerRepo,
 		hashlistRepo:          hashlistRepo,
-		notificationService:   notificationService,
 		wsHandler:             wsHandler,
 	}
 }
@@ -289,20 +286,7 @@ func (s *HashlistCompletionService) completeJob(ctx context.Context, job *models
 
 	// Note: Job-level progress is now calculated by the polling service (JobProgressCalculationService)
 	// which runs every 2 seconds and recalculates from task data
-
-	// TODO: Re-enable with special "hashlist fully cracked" email template
-	// Temporarily disabled to prevent duplicate emails (job_execution_service also sends completion email)
-	// When re-enabled, use a special template for "all hashes in hashlist cracked" scenario
-	// if s.notificationService != nil && job.CreatedBy != nil {
-	// 	// Send job completion email notification
-	// 	err = s.notificationService.SendJobCompletionEmail(ctx, job.ID, *job.CreatedBy)
-	// 	if err != nil {
-	// 		debug.Warning("Failed to send job completion notification for job %s: %v", job.ID, err)
-	// 		// Not critical, just log - user preferences might not be set or email disabled
-	// 	} else {
-	// 		debug.Info("Sent job completion notification for job %s", job.ID)
-	// 	}
-	// }
+	// Note: Job completion notifications are handled by JobExecutionService via NotificationDispatcher
 
 	return nil
 }

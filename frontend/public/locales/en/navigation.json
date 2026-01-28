@@ -19,7 +19,8 @@
     "userManagement": "User Management",
     "presetJobs": "Preset Jobs",
     "jobWorkflows": "Job Workflows",
-    "diagnostics": "Diagnostics"
+    "diagnostics": "Diagnostics",
+    "auditLog": "Audit Log"
   },
   "userMenu": {
     "userSettings": "User Settings",

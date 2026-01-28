@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base32"
 	"encoding/base64"
@@ -13,6 +14,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db/queries"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -1199,11 +1201,21 @@ func (h *MFAHandler) DisableMFA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get user's current MFA method before disabling (for notification)
+	mfaSettings, _ := h.db.GetUserMFASettings(userID)
+	disabledMethod := "Unknown"
+	if mfaSettings != nil && len(mfaSettings.MFAType) > 0 {
+		disabledMethod = strings.Join(mfaSettings.MFAType, ", ")
+	}
+
 	if err := h.db.DisableMFA(userID); err != nil {
 		debug.Error("Failed to disable MFA: %v", err)
 		http.Error(w, "Failed to disable MFA", http.StatusInternalServerError)
 		return
 	}
+
+	// Dispatch MFA disabled notification (mandatory security notification)
+	go dispatchMFADisabledNotification(r, userID, disabledMethod)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -1699,4 +1711,76 @@ func (h *MFAHandler) DisableAuthenticator(w http.ResponseWriter, r *http.Request
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+// dispatchMFADisabledNotification sends a security notification when MFA is disabled
+// This is a mandatory notification that cannot be disabled by user preferences
+func dispatchMFADisabledNotification(r *http.Request, userID string, disabledMethod string) {
+	dispatcher := services.GetGlobalDispatcher()
+	if dispatcher == nil {
+		debug.Warning("Notification dispatcher not available, skipping MFA disabled notification")
+		return
+	}
+
+	// Parse user ID
+	uid, err := uuid.Parse(userID)
+	if err != nil {
+		debug.Error("Failed to parse user ID for notification: %v", err)
+		return
+	}
+
+	// Get client info
+	ipAddress := getClientIPFromRequest(r)
+	userAgent := r.UserAgent()
+
+	params := models.NotificationDispatchParams{
+		UserID:  uid,
+		Type:    models.NotificationTypeSecurityMFADisabled,
+		Title:   "Two-Factor Authentication Disabled",
+		Message: "Two-factor authentication has been disabled on your account. If you did not make this change, please re-enable MFA immediately and contact support.",
+		Data: map[string]interface{}{
+			"disabled_method": disabledMethod,
+			"ip_address":      ipAddress,
+			"user_agent":      userAgent,
+			"timestamp":       time.Now().Format(time.RFC3339),
+		},
+		SourceType: "security",
+		SourceID:   uuid.New().String(), // Unique per event - security events should not deduplicate
+	}
+
+	if err := dispatcher.Dispatch(context.Background(), params); err != nil {
+		debug.Error("Failed to dispatch MFA disabled notification: %v", err)
+	} else {
+		debug.Log("MFA disabled notification dispatched", map[string]interface{}{
+			"user_id":         userID,
+			"disabled_method": disabledMethod,
+		})
+	}
+}
+
+// getClientIPFromRequest extracts the client IP address from the request
+func getClientIPFromRequest(r *http.Request) string {
+	// Check X-Forwarded-For header first (for proxied requests)
+	xff := r.Header.Get("X-Forwarded-For")
+	if xff != "" {
+		// Take the first IP in the list
+		parts := strings.Split(xff, ",")
+		if len(parts) > 0 {
+			return strings.TrimSpace(parts[0])
+		}
+	}
+
+	// Check X-Real-IP header
+	xri := r.Header.Get("X-Real-IP")
+	if xri != "" {
+		return xri
+	}
+
+	// Fall back to RemoteAddr
+	// RemoteAddr is in the format "IP:port", so we need to extract just the IP
+	addr := r.RemoteAddr
+	if idx := strings.LastIndex(addr, ":"); idx != -1 {
+		return addr[:idx]
+	}
+	return addr
 }

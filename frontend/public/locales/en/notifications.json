@@ -1,0 +1,217 @@
+{
+  "title": "Notifications",
+  "connected": "Notifications",
+  "disconnected": "Reconnecting...",
+  "empty": "No notifications",
+  "markAllRead": "Mark all read",
+  "markRead": "Mark as read",
+  "viewAll": "View all notifications",
+  "deleteSelected": "Delete {{count}} selected",
+  "selectAll": "Select all",
+
+  "aria": {
+    "bellButton": "Show notifications"
+  },
+
+  "center": {
+    "title": "Notification Center",
+    "description": "View and manage your notifications"
+  },
+
+  "filters": {
+    "category": "Category",
+    "status": "Status",
+    "allCategories": "All categories",
+    "all": "All",
+    "unread": "Unread",
+    "read": "Read"
+  },
+
+  "categories": {
+    "job": "Job",
+    "agent": "Agent",
+    "security": "Security",
+    "system": "System"
+  },
+
+  "types": {
+    "header": "Notification Type",
+    "job_started": "Job Started",
+    "job_completed": "Job Completed",
+    "job_failed": "Job Failed",
+    "first_crack": "First Crack",
+    "task_completed_with_cracks": "Task Completion Report",
+    "agent_offline": "Agent Offline",
+    "agent_error": "Agent Error",
+    "security_suspicious_login": "Suspicious Login",
+    "security_mfa_disabled": "MFA Disabled",
+    "security_password_changed": "Password Changed",
+    "webhook_failure": "Webhook Failure"
+  },
+
+  "typeDescriptions": {
+    "job_started": "When a job begins execution",
+    "job_completed": "When a job finishes successfully",
+    "job_failed": "When a job fails",
+    "first_crack": "When the first hash is cracked (immediate notification)",
+    "task_completed_with_cracks": "When a task completes",
+    "agent_offline": "When an agent goes offline (after buffer period)",
+    "agent_error": "When an agent reports a critical error",
+    "security_suspicious_login": "Login from new location or device",
+    "security_mfa_disabled": "When MFA is turned off (mandatory)",
+    "security_password_changed": "When password is changed (mandatory)",
+    "webhook_failure": "When a webhook delivery fails"
+  },
+
+  "channels": {
+    "inApp": "In-App",
+    "email": "Email",
+    "webhook": "Webhook"
+  },
+
+  "settings": {
+    "title": "Notification Settings",
+    "description": "Configure how and when you receive notifications",
+    "enabledChannels": "Enabled Channels",
+    "taskReportMode": "When to notify",
+    "taskReportModeOnlyIfCracks": "Only if cracks found",
+    "taskReportModeAlways": "Always notify",
+    "modeUpdated": "Task report mode updated",
+    "onlyIfCracks": "Only if cracks found",
+    "always": "Always notify",
+    "mandatory": "Mandatory",
+    "mandatoryDescription": "This notification cannot be disabled",
+    "emailNotConfigured": "Email gateway is not configured",
+    "emailNotConfiguredWarning": "Email gateway is not configured. Email notifications are currently unavailable.",
+    "noWebhooksConfigured": "No active webhooks configured",
+    "toggleAll": "Toggle all"
+  },
+
+  "webhooks": {
+    "title": "Webhook Configuration",
+    "description": "Manage your webhook integrations",
+    "name": "Name",
+    "url": "URL",
+    "secret": "Secret",
+    "secretPlaceholder": "Optional webhook secret",
+    "isActive": "Active",
+    "notificationTypes": "Notification Types",
+    "allTypes": "All types",
+    "retryCount": "Retry Count",
+    "timeout": "Timeout (seconds)",
+    "lastTriggered": "Last Triggered",
+    "lastSuccess": "Last Success",
+    "lastError": "Last Error",
+    "totalSent": "Total Sent",
+    "totalFailed": "Total Failed",
+    "create": "Create Webhook",
+    "edit": "Edit Webhook",
+    "delete": "Delete Webhook",
+    "deleteConfirm": "Are you sure you want to delete this webhook?",
+    "test": "Test Webhook",
+    "testUrl": "Test URL",
+    "testSuccess": "Webhook test successful",
+    "testFailed": "Webhook test failed",
+    "secretExists": "Secret is set. Leave empty to keep current, or enter new value to replace.",
+    "invalidJson": "Invalid JSON format",
+    "noWebhooks": "No webhooks configured. Create one to receive notifications via webhook.",
+    "updated": "Webhook updated",
+    "created": "Webhook created",
+    "deleted": "Webhook deleted",
+    "secretEditHelp": "Leave empty to keep existing secret",
+    "validation": {
+      "nameAndUrl": "Name and URL are required"
+    }
+  },
+
+  "admin": {
+    "title": "Notification Settings",
+    "globalWebhook": {
+      "title": "Global Webhook",
+      "description": "Configure a system-wide webhook for all notifications",
+      "enabled": "Enable global webhook",
+      "url": "Webhook URL",
+      "secret": "Webhook Secret",
+      "customHeaders": "Custom Headers (JSON)",
+      "test": "Test Global Webhook",
+      "saved": "Global webhook settings saved"
+    },
+    "agentOffline": {
+      "title": "Agent Offline Buffer",
+      "description": "Configure how long to wait before sending agent offline notifications",
+      "bufferMinutes": "Buffer Minutes",
+      "bufferHelp": "Wait this many minutes before notifying about offline agents",
+      "saved": "Agent offline settings saved"
+    },
+    "userWebhooks": {
+      "title": "User Webhooks",
+      "description": "View all user-configured webhooks",
+      "username": "Username",
+      "email": "Email",
+      "empty": "No user webhooks configured"
+    }
+  },
+
+  "auditLog": {
+    "title": "Audit Log",
+    "description": "Security and critical events across all users",
+    "noData": "No audit log entries found",
+    "columns": {
+      "time": "Time",
+      "severity": "Severity",
+      "eventType": "Event Type",
+      "user": "User",
+      "title": "Title",
+      "ip": "IP Address"
+    },
+    "filters": {
+      "eventType": "Event Type",
+      "severity": "Severity",
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "all": "All",
+      "clear": "Clear filters"
+    },
+    "severity": {
+      "critical": "Critical",
+      "warning": "Warning",
+      "info": "Info"
+    },
+    "details": {
+      "message": "Message",
+      "ipAddress": "IP Address",
+      "userAgent": "User Agent",
+      "source": "Source",
+      "data": "Additional Data"
+    },
+    "errors": {
+      "loadFailed": "Failed to load audit logs"
+    }
+  },
+
+  "systemAlert": {
+    "title": "System Alert",
+    "dismiss": "Dismiss",
+    "dismissAll": "Dismiss All"
+  },
+
+  "errors": {
+    "fetchFailed": "Failed to load notifications",
+    "markReadFailed": "Failed to mark notification as read",
+    "deleteFailed": "Failed to delete notifications",
+    "saveFailed": "Failed to save settings",
+    "webhookCreateFailed": "Failed to create webhook",
+    "webhookUpdateFailed": "Failed to update webhook",
+    "webhookDeleteFailed": "Failed to delete webhook",
+    "webhookSaveFailed": "Failed to save webhook"
+  },
+
+  "common": {
+    "actions": "Actions",
+    "active": "Active",
+    "inactive": "Inactive",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete"
+  }
+}

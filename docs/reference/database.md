@@ -51,9 +51,15 @@ This document provides a comprehensive reference for the KrakenHashes database s
    - [client_settings](#client_settings)
    - [system_settings](#system_settings)
 10. [Performance & Scheduling](#performance--scheduling)
-   - [performance_metrics](#performance_metrics)
-   - [agent_scheduling](#agent_scheduling)
-11. [Migration History](#migration-history)
+    - [performance_metrics](#performance_metrics)
+    - [agent_scheduling](#agent_scheduling)
+11. [Notifications & Audit](#notifications--audit)
+    - [notifications](#notifications)
+    - [user_notification_preferences](#user_notification_preferences)
+    - [user_webhooks](#user_webhooks)
+    - [agent_offline_buffer](#agent_offline_buffer)
+    - [audit_log](#audit_log)
+12. [Migration History](#migration-history)
 
 ---
 
@@ -1679,9 +1685,171 @@ The potfile system initializes in stages during server startup:
 
 ---
 
+## Notifications & Audit
+
+### notifications
+
+Stores all notification history for user display and audit trail. Tracks delivery status across multiple channels (in-app, email, webhook).
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| id | UUID | PRIMARY KEY | gen_random_uuid() | Unique notification identifier |
+| user_id | UUID | NOT NULL, FK | | User receiving the notification |
+| notification_type | notification_type | NOT NULL | | Type of notification (enum) |
+| title | VARCHAR(255) | NOT NULL | | Notification title |
+| message | TEXT | NOT NULL | | Full notification message |
+| data | JSONB | | '{}' | Additional structured data |
+| in_app_read | BOOLEAN | NOT NULL | FALSE | Whether read in app |
+| in_app_read_at | TIMESTAMPTZ | | | When marked as read |
+| email_sent | BOOLEAN | NOT NULL | FALSE | Whether email was sent |
+| email_sent_at | TIMESTAMPTZ | | | When email was sent |
+| email_error | TEXT | | | Email delivery error if any |
+| webhook_sent | BOOLEAN | NOT NULL | FALSE | Whether webhook was sent |
+| webhook_sent_at | TIMESTAMPTZ | | | When webhook was sent |
+| webhook_error | TEXT | | | Webhook delivery error if any |
+| source_type | VARCHAR(50) | | | Source entity type (job, agent, etc.) |
+| source_id | VARCHAR(255) | | | Source entity identifier |
+| created_at | TIMESTAMPTZ | NOT NULL | NOW() | Creation timestamp |
+
+**Indexes:**
+- idx_notifications_user_id (user_id)
+- idx_notifications_user_unread (user_id, in_app_read) WHERE in_app_read = FALSE
+- idx_notifications_created_at (created_at DESC)
+- idx_notifications_type (notification_type)
+- idx_notifications_source (source_type, source_id) WHERE source_type IS NOT NULL
+
+**Foreign Keys:**
+- user_id → users(id) ON DELETE CASCADE
+
+### user_notification_preferences
+
+Per-user, per-notification-type channel preferences. Each user can enable/disable each delivery channel for each notification type independently.
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| id | UUID | PRIMARY KEY | gen_random_uuid() | Unique preference identifier |
+| user_id | UUID | NOT NULL, FK | | User owning the preference |
+| notification_type | notification_type | NOT NULL | | Type of notification |
+| in_app_enabled | BOOLEAN | NOT NULL | TRUE | Enable in-app notifications |
+| email_enabled | BOOLEAN | NOT NULL | FALSE | Enable email notifications |
+| webhook_enabled | BOOLEAN | NOT NULL | FALSE | Enable webhook notifications |
+| settings | JSONB | | '{}' | Type-specific settings (e.g., task report mode) |
+| created_at | TIMESTAMPTZ | NOT NULL | NOW() | Creation timestamp |
+| updated_at | TIMESTAMPTZ | NOT NULL | NOW() | Last update timestamp |
+
+**Indexes:**
+- idx_user_notification_prefs_user (user_id)
+
+**Constraints:**
+- user_notification_prefs_unique: UNIQUE (user_id, notification_type)
+
+**Triggers:**
+- update_user_notification_preferences_updated_at: Updates updated_at on modification
+
+### user_webhooks
+
+User-configured webhook endpoints for receiving notifications. Supports filtering by notification type, custom headers, retry configuration, and delivery statistics.
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| id | UUID | PRIMARY KEY | gen_random_uuid() | Unique webhook identifier |
+| user_id | UUID | NOT NULL, FK | | User owning the webhook |
+| name | VARCHAR(100) | NOT NULL | | User-friendly webhook name |
+| url | TEXT | NOT NULL | | Webhook endpoint URL |
+| secret | VARCHAR(255) | | | HMAC-SHA256 signing secret |
+| is_active | BOOLEAN | NOT NULL | TRUE | Whether webhook is enabled |
+| notification_types | notification_type[] | | | Filter to specific types (NULL = all) |
+| custom_headers | JSONB | | '{}' | Additional HTTP headers |
+| retry_count | INT | NOT NULL | 3 | Max retry attempts (0-10) |
+| timeout_seconds | INT | NOT NULL | 30 | Request timeout (1-60) |
+| last_triggered_at | TIMESTAMPTZ | | | Last trigger timestamp |
+| last_success_at | TIMESTAMPTZ | | | Last successful delivery |
+| last_error | TEXT | | | Most recent error message |
+| total_sent | INT | NOT NULL | 0 | Successful delivery count |
+| total_failed | INT | NOT NULL | 0 | Failed delivery count |
+| created_at | TIMESTAMPTZ | NOT NULL | NOW() | Creation timestamp |
+| updated_at | TIMESTAMPTZ | NOT NULL | NOW() | Last update timestamp |
+
+**Indexes:**
+- idx_user_webhooks_user_active (user_id) WHERE is_active = TRUE
+
+**Constraints:**
+- user_webhooks_unique_name: UNIQUE (user_id, name)
+
+**Triggers:**
+- update_user_webhooks_updated_at: Updates updated_at on modification
+
+### agent_offline_buffer
+
+Tracks agents pending offline notifications with a configurable buffer period. Prevents notification spam during brief network interruptions.
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| id | UUID | PRIMARY KEY | gen_random_uuid() | Unique buffer entry identifier |
+| agent_id | INT | NOT NULL, FK | | Agent that disconnected |
+| disconnected_at | TIMESTAMPTZ | NOT NULL | NOW() | When agent disconnected |
+| notification_due_at | TIMESTAMPTZ | NOT NULL | | When notification should be sent |
+| notification_sent | BOOLEAN | NOT NULL | FALSE | Whether notification was sent |
+| notification_sent_at | TIMESTAMPTZ | | | When notification was sent |
+| reconnected | BOOLEAN | NOT NULL | FALSE | Whether agent reconnected |
+| reconnected_at | TIMESTAMPTZ | | | When agent reconnected |
+| created_at | TIMESTAMPTZ | NOT NULL | NOW() | Creation timestamp |
+
+**Indexes:**
+- idx_agent_offline_buffer_pending (notification_due_at) WHERE notification_sent = FALSE AND reconnected = FALSE
+- idx_agent_offline_buffer_agent (agent_id)
+
+**Foreign Keys:**
+- agent_id → agents(id) ON DELETE CASCADE
+
+### audit_log
+
+Admin-visible audit log for security and critical events across all users. Stores user context separately to preserve visibility when users are deleted.
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| id | UUID | PRIMARY KEY | gen_random_uuid() | Unique audit entry identifier |
+| event_type | notification_type | NOT NULL | | Type of event (enum) |
+| severity | VARCHAR(20) | NOT NULL | 'info' | Severity: info, warning, critical |
+| user_id | UUID | FK | | User the event happened to |
+| username | VARCHAR(255) | | | Cached username (preserved on delete) |
+| user_email | VARCHAR(255) | | | Cached email (preserved on delete) |
+| title | VARCHAR(255) | NOT NULL | | Event title |
+| message | TEXT | NOT NULL | | Event description |
+| data | JSONB | | '{}' | Additional structured data |
+| source_type | VARCHAR(50) | | | Source entity type |
+| source_id | VARCHAR(255) | | | Source entity identifier |
+| ip_address | INET | | | Request source IP |
+| user_agent | TEXT | | | Request user agent |
+| created_at | TIMESTAMPTZ | NOT NULL | NOW() | Event timestamp |
+
+**Indexes:**
+- idx_audit_log_created_at (created_at DESC)
+- idx_audit_log_event_type (event_type)
+- idx_audit_log_user_id (user_id) WHERE user_id IS NOT NULL
+- idx_audit_log_severity (severity)
+- idx_audit_log_type_date (event_type, created_at DESC)
+
+**Foreign Keys:**
+- user_id → users(id) ON DELETE SET NULL
+
+### System Settings for Notifications
+
+The following system settings control notification behavior:
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| global_webhook_url | string | NULL | System-wide webhook URL |
+| global_webhook_secret | string | NULL | Signing secret for system webhook |
+| global_webhook_enabled | boolean | false | Enable system-wide webhook |
+| global_webhook_custom_headers | string | '{}' | Custom headers as JSON |
+| agent_offline_buffer_minutes | integer | 10 | Minutes before offline notification |
+
+---
+
 ## Migration History
 
-The database schema has evolved through 109 migrations:
+The database schema has evolved through 115 migrations:
 
 1. **000001**: Initial schema - users, teams, user_teams
 2. **000002**: Add auth_tokens table
@@ -1864,6 +2032,34 @@ The database schema has evolved through 109 migrations:
    - Creates new unique constraint: `(agent_id, attack_mode, hash_type, salt_count)`
    - Uses `IS NOT DISTINCT FROM` for NULL-safe salt count comparison
    - Enables per-salt-count benchmark caching for accurate speed estimation
+110. **000110**: Convert binary versions to patterns
+   - Converts binary version management to pattern-based system
+   - Enables flexible version matching for hashcat binaries
+111. **000111**: Drop total_keyspace column
+   - Removes deprecated `total_keyspace` column from job_executions
+   - Replaced by `base_keyspace` and `effective_keyspace` for accurate tracking
+112. **000112**: Enhanced notification system
+   - Creates `notification_type` enum with 11 notification types
+   - Creates `notifications` table for notification history and delivery tracking
+   - Creates `user_notification_preferences` for per-user, per-type channel settings
+   - Creates `user_webhooks` for user-configurable webhook endpoints
+   - Creates `agent_offline_buffer` for buffered offline detection
+   - Adds system settings for global webhook and agent offline buffer
+113. **000113**: Notification email templates enum
+   - Extends `email_template_type` enum with 10 notification template types
+   - Adds: security_password_changed, security_mfa_disabled, security_suspicious_login
+   - Adds: job_started, job_failed, first_crack, task_completed
+   - Adds: agent_offline, agent_error, webhook_failure
+114. **000114**: Notification email template data
+   - Inserts 10 default HTML/text email templates for notification types
+   - Templates include KrakenHashes branding and template variable support
+   - Color-coded templates (success: green, error: red, warning: yellow)
+115. **000115**: Admin audit log
+   - Creates `audit_log` table for admin-visible security events
+   - Stores user context (username, email) separately for deleted user visibility
+   - Tracks severity levels (info, warning, critical)
+   - Includes request context (IP address, user agent)
+   - Indexed for efficient admin queries by date, type, severity
 
 ---
 
@@ -1880,6 +2076,29 @@ The database schema has evolved through 109 migrations:
 - job_completion
 - admin_error
 - mfa_code
+- security_password_changed *(added in migration 113)*
+- security_mfa_disabled *(added in migration 113)*
+- security_suspicious_login *(added in migration 113)*
+- job_started *(added in migration 113)*
+- job_failed *(added in migration 113)*
+- first_crack *(added in migration 113)*
+- task_completed *(added in migration 113)*
+- agent_offline *(added in migration 113)*
+- agent_error *(added in migration 113)*
+- webhook_failure *(added in migration 113)*
+
+### notification_type *(added in migration 112)*
+- job_started
+- job_completed
+- job_failed
+- first_crack
+- task_completed_with_cracks
+- agent_offline
+- agent_error
+- security_suspicious_login
+- security_mfa_disabled
+- security_password_changed
+- webhook_failure
 
 ### binary_type
 - hashcat
@@ -1916,6 +2135,9 @@ The database schema has evolved through 109 migrations:
 5. **Resource Management**: wordlists/rules → users (created_by), rules ↔ wordlists (compatibility)
 6. **Authentication**: Various MFA and security tables → users
 7. **Session Security**: tokens (parent) → active_sessions (child) with CASCADE delete - ensures session termination revokes authentication
+8. **Notification System**: notifications → users (CASCADE), user_notification_preferences → users (CASCADE), user_webhooks → users (CASCADE)
+9. **Audit System**: audit_log → users (SET NULL) - preserves logs when users are deleted
+10. **Agent Monitoring**: agent_offline_buffer → agents (CASCADE) - tracks disconnect buffer periods
 
 ---
 

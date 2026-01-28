@@ -52,10 +52,11 @@ type User struct {
 	DeletedAt *time.Time `json:"deleted_at,omitempty" db:"deleted_at"`
 }
 
-// NotificationPreferences represents user notification settings
+// NotificationPreferences represents user notification settings (for API requests)
 type NotificationPreferences struct {
-	NotifyOnJobCompletion bool    `json:"notifyOnJobCompletion"`
-	EmailConfigured       bool    `json:"emailConfigured"`
+	NotifyOnJobCompletion bool                                       `json:"notifyOnJobCompletion"`
+	EmailConfigured       bool                                       `json:"emailConfigured"`
+	TypePreferences       map[NotificationType]TypeChannelPreference `json:"typePreferences,omitempty"`
 }
 
 // UserMFAData represents sensitive MFA data for a user

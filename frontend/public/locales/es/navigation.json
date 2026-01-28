@@ -19,7 +19,8 @@
     "userManagement": "Gestión de usuarios",
     "presetJobs": "Trabajos predefinidos",
     "jobWorkflows": "Flujos de trabajo",
-    "diagnostics": "Diagnósticos"
+    "diagnostics": "Diagnósticos",
+    "auditLog": "Registro de auditoría"
   },
   "userMenu": {
     "userSettings": "Configuración de usuario",

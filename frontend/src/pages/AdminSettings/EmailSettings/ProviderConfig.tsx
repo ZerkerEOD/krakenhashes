@@ -38,6 +38,8 @@ interface EmailProviderConfig {
   fromEmail?: string;
   fromName?: string;
   domain?: string;
+  // Mailgun-specific fields
+  region?: 'us' | 'eu';
   // SMTP-specific fields
   host?: string;
   port?: number;
@@ -119,6 +121,7 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
           transformedConfig.domain = ac.domain;
           transformedConfig.fromEmail = ac.from_email;
           transformedConfig.fromName = ac.from_name;
+          transformedConfig.region = ac.region || 'us';
         } else if (backendConfig.provider_type === 'sendgrid') {
           transformedConfig.fromEmail = ac.from_email;
           transformedConfig.fromName = ac.from_name;
@@ -287,6 +290,7 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
       additionalConfig.domain = config.domain;
       additionalConfig.from_email = config.fromEmail;
       additionalConfig.from_name = config.fromName;
+      additionalConfig.region = config.region || 'us';
     } else if (config.provider === 'smtp') {
       additionalConfig.host = config.host;
       additionalConfig.port = config.port;
@@ -383,10 +387,16 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
           <Typography variant="body1">••••••••••••</Typography>
         </Grid>
         {config.provider === 'mailgun' && config.domain && (
-          <Grid item xs={12} md={6}>
-            <Typography variant="body2" color="text.secondary">{t('emailSettings.provider.labels.domain')}</Typography>
-            <Typography variant="body1">{config.domain}</Typography>
-          </Grid>
+          <>
+            <Grid item xs={12} md={6}>
+              <Typography variant="body2" color="text.secondary">{t('emailSettings.provider.labels.domain')}</Typography>
+              <Typography variant="body1">{config.domain}</Typography>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Typography variant="body2" color="text.secondary">{t('emailSettings.provider.labels.region')}</Typography>
+              <Typography variant="body1" sx={{ textTransform: 'uppercase' }}>{config.region || 'us'}</Typography>
+            </Grid>
+          </>
         )}
         {config.provider === 'smtp' && (
           <>
@@ -570,6 +580,19 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ onNotification }
                 value={config.domain || ''}
                 onChange={handleChange('domain')}
               />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>{t('emailSettings.provider.labels.region')}</InputLabel>
+                <Select
+                  value={config.region || 'us'}
+                  label={t('emailSettings.provider.labels.region')}
+                  onChange={handleChange('region')}
+                >
+                  <MenuItem value="us">{t('emailSettings.provider.menuItems.regionUS')}</MenuItem>
+                  <MenuItem value="eu">{t('emailSettings.provider.menuItems.regionEU')}</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField

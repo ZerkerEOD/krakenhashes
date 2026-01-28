@@ -19,7 +19,8 @@
     "userManagement": "Benutzerverwaltung",
     "presetJobs": "Vorlagen-Aufträge",
     "jobWorkflows": "Auftrags-Workflows",
-    "diagnostics": "Diagnose"
+    "diagnostics": "Diagnose",
+    "auditLog": "Audit-Protokoll"
   },
   "userMenu": {
     "userSettings": "Benutzereinstellungen",

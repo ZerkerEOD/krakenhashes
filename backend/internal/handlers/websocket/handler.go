@@ -22,6 +22,15 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// agentOfflineMonitorGetter allows access to the AgentOfflineMonitor
+// This is set by the routes package after initialization
+var agentOfflineMonitorGetter func() *services.AgentOfflineMonitor
+
+// SetAgentOfflineMonitorGetter sets the function to get the AgentOfflineMonitor
+func SetAgentOfflineMonitorGetter(getter func() *services.AgentOfflineMonitor) {
+	agentOfflineMonitorGetter = getter
+}
+
 // Default connection timing values
 const (
 	defaultWriteWait  = 10 * time.Second
@@ -270,6 +279,17 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		debug.Error("Failed to update agent heartbeat: %v", err)
 	} else {
 		debug.Info("Successfully updated heartbeat for agent %d", agent.ID)
+	}
+
+	// Cancel any pending offline notification since agent reconnected
+	if agentOfflineMonitorGetter != nil {
+		if monitor := agentOfflineMonitorGetter(); monitor != nil {
+			if err := monitor.OnAgentReconnect(ctx, agent.ID); err != nil {
+				debug.Warning("Failed to cancel offline notification for agent %d: %v", agent.ID, err)
+			} else {
+				debug.Info("Cancelled pending offline notification for agent %d", agent.ID)
+			}
+		}
 	}
 
 	// Register client
@@ -571,12 +591,22 @@ func (h *Handler) unregisterClient(c *Client) {
 		}
 	}
 	h.mu.Unlock()
-	
+
 	// Mark agent's tasks as reconnect_pending
 	if h.wsService != nil && h.wsService.GetJobHandler() != nil {
 		debug.Info("Agent %d: Marking tasks as reconnect_pending due to disconnection", c.agent.ID)
 		if err := h.wsService.HandleAgentDisconnection(c.ctx, c.agent.ID); err != nil {
 			debug.Error("Agent %d: Failed to handle disconnection: %v", c.agent.ID, err)
+		}
+	}
+
+	// Create agent offline buffer entry for delayed notification
+	if agentOfflineMonitorGetter != nil {
+		if monitor := agentOfflineMonitorGetter(); monitor != nil {
+			debug.Info("Agent %d: Creating offline buffer entry", c.agent.ID)
+			if err := monitor.OnAgentDisconnect(context.Background(), c.agent.ID); err != nil {
+				debug.Error("Agent %d: Failed to create offline buffer: %v", c.agent.ID, err)
+			}
 		}
 	}
 }

@@ -49,7 +49,21 @@ interface TemplateEditorProps {
 
 interface Template {
   id?: number;
-  templateType: 'security_event' | 'job_completion' | 'admin_error' | 'mfa_code';
+  templateType:
+    | 'security_event'
+    | 'job_completion'
+    | 'admin_error'
+    | 'mfa_code'
+    | 'security_password_changed'
+    | 'security_mfa_disabled'
+    | 'security_suspicious_login'
+    | 'job_started'
+    | 'job_failed'
+    | 'first_crack'
+    | 'task_completed'
+    | 'agent_offline'
+    | 'agent_error'
+    | 'webhook_failure';
   name: string;
   subject: string;
   htmlContent: string;
@@ -59,7 +73,7 @@ interface Template {
 const STORAGE_KEY = 'templateEditorState';
 
 // Keep sampleData for both testing and live preview
-const sampleData = {
+const sampleData: Record<string, Record<string, string>> = {
   security_event: {
     EventType: 'Login Attempt',
     Timestamp: new Date().toISOString(),
@@ -83,6 +97,65 @@ const sampleData = {
   mfa_code: {
     Code: '123456',
     ExpiryMinutes: '5',
+  },
+  // Notification email template sample data
+  security_password_changed: {
+    Username: 'john.doe',
+    Email: 'john.doe@example.com',
+    Timestamp: new Date().toISOString(),
+    IPAddress: '192.168.1.100',
+    UserAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0',
+  },
+  security_mfa_disabled: {
+    Username: 'john.doe',
+    DisabledMethod: 'Authenticator App',
+    Timestamp: new Date().toISOString(),
+    IPAddress: '192.168.1.100',
+  },
+  security_suspicious_login: {
+    Username: 'john.doe',
+    Message: 'Multiple failed login attempts detected from your account.',
+    Timestamp: new Date().toISOString(),
+    IPAddress: '192.168.1.100',
+    UserAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0',
+    FailedAttempts: '5',
+  },
+  job_started: {
+    JobName: 'Corporate Password Audit',
+    HashlistName: 'Q4 2024 Hashes',
+    Priority: '5',
+    TotalHashes: '50,000',
+  },
+  job_failed: {
+    JobName: 'Corporate Password Audit',
+    ErrorMessage: 'Agent disconnected during processing',
+    FailedAt: new Date().toISOString(),
+  },
+  first_crack: {
+    HashlistName: 'Q4 2024 Hashes',
+    JobName: 'Corporate Password Audit',
+    CrackedHash: '5d41402abc4b2a76b9719d911017c592',
+  },
+  task_completed: {
+    JobName: 'Corporate Password Audit',
+    AgentName: 'GPU-Server-01',
+    CrackCount: '1,234',
+  },
+  agent_offline: {
+    AgentName: 'GPU-Server-01',
+    DisconnectedAt: new Date().toISOString(),
+    OfflineDuration: '15 minutes',
+  },
+  agent_error: {
+    AgentName: 'GPU-Server-01',
+    Error: 'GPU memory allocation failed',
+    Context: 'During hashcat execution',
+    ReportedAt: new Date().toISOString(),
+  },
+  webhook_failure: {
+    WebhookName: 'Slack Notifications',
+    WebhookURL: 'https://hooks.slack.com/services/xxx',
+    Error: 'Connection refused',
   },
 };
 
@@ -292,10 +365,22 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onNotification }
                   templateType: e.target.value as Template['templateType']
                 } : null)}
               >
+                {/* Original template types */}
                 <MenuItem value="security_event">{t('emailSettings.templates.menuItems.securityEvent')}</MenuItem>
                 <MenuItem value="job_completion">{t('emailSettings.templates.menuItems.jobCompletion')}</MenuItem>
                 <MenuItem value="admin_error">{t('emailSettings.templates.menuItems.adminError')}</MenuItem>
                 <MenuItem value="mfa_code">{t('emailSettings.templates.menuItems.mfaCode')}</MenuItem>
+                {/* Notification template types */}
+                <MenuItem value="security_password_changed">{t('emailSettings.templates.menuItems.securityPasswordChanged', 'Password Changed')}</MenuItem>
+                <MenuItem value="security_mfa_disabled">{t('emailSettings.templates.menuItems.securityMfaDisabled', 'MFA Disabled')}</MenuItem>
+                <MenuItem value="security_suspicious_login">{t('emailSettings.templates.menuItems.securitySuspiciousLogin', 'Suspicious Login')}</MenuItem>
+                <MenuItem value="job_started">{t('emailSettings.templates.menuItems.jobStarted', 'Job Started')}</MenuItem>
+                <MenuItem value="job_failed">{t('emailSettings.templates.menuItems.jobFailed', 'Job Failed')}</MenuItem>
+                <MenuItem value="first_crack">{t('emailSettings.templates.menuItems.firstCrack', 'First Crack')}</MenuItem>
+                <MenuItem value="task_completed">{t('emailSettings.templates.menuItems.taskCompleted', 'Task Completed')}</MenuItem>
+                <MenuItem value="agent_offline">{t('emailSettings.templates.menuItems.agentOffline', 'Agent Offline')}</MenuItem>
+                <MenuItem value="agent_error">{t('emailSettings.templates.menuItems.agentError', 'Agent Error')}</MenuItem>
+                <MenuItem value="webhook_failure">{t('emailSettings.templates.menuItems.webhookFailure', 'Webhook Failure')}</MenuItem>
               </Select>
             </FormControl>
           </Grid>

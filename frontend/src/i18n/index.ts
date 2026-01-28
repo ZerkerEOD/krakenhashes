@@ -36,6 +36,7 @@ export const namespaces = [
     'analytics', // Analytics reports
     'admin', // Admin settings
     'settings', // User settings
+    'notifications', // Notification system
     'errors', // Error messages
 ] as const;
 

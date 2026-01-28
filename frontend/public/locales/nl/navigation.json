@@ -19,7 +19,8 @@
     "userManagement": "Gebruikersbeheer",
     "presetJobs": "Vooringestelde taken",
     "jobWorkflows": "Taakworkflows",
-    "diagnostics": "Diagnostiek"
+    "diagnostics": "Diagnostiek",
+    "auditLog": "Auditlogboek"
   },
   "userMenu": {
     "userSettings": "Gebruikersinstellingen",

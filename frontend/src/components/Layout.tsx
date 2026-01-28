@@ -81,6 +81,7 @@ import { useAuth } from '../contexts/AuthContext';
 import AdminMenu from './AdminMenu';
 import UserMenu from './common/UserMenu';
 import Footer from './Footer';
+import { NotificationBell } from './Notifications';
 
 interface MenuItem {
     textKey: string;
@@ -188,6 +189,7 @@ const Layout: React.FC<LayoutProps> = () => {
                             {t('appName') as string}
                         </Typography>
                     </Box>
+                    <NotificationBell />
                     <UserMenu />
                 </Toolbar>
             </AppBar>

@@ -47,6 +47,7 @@ import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 import CertificateCheck from './components/CertificateCheck';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import { SnackbarProvider, useSnackbar } from 'notistack';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { getCookie } from './utils/cookies';
@@ -72,6 +73,7 @@ const PotHashlistPage = lazy(() => import('./pages/PotHashlist'));
 const PotClientPage = lazy(() => import('./pages/PotClient'));
 const PotJobPage = lazy(() => import('./pages/PotJob'));
 const AnalyticsPage = lazy(() => import('./pages/Analytics'));
+const NotificationCenterPage = lazy(() => import('./pages/Notifications/NotificationCenter'));
 
 // Lazy load pages - Clients page moved to regular auth section
 const ClientsPage = lazy(() => import('./pages/AdminClients').then(module => ({ default: module.AdminClients })));
@@ -90,6 +92,7 @@ const AdminEmailSettingsIndexPage = lazy(() => import('./pages/AdminSettings/Ema
 const AdminEmailProviderConfigPage = lazy(() => import('./pages/AdminSettings/EmailSettings/ProviderConfig').then(module => ({ default: module.ProviderConfig })));
 const AdminEmailTemplateEditorPage = lazy(() => import('./pages/AdminSettings/EmailSettings/TemplateEditor').then(module => ({ default: module.TemplateEditor })));
 const DiagnosticsPage = lazy(() => import('./pages/admin/Diagnostics'));
+const AdminAuditLogPage = lazy(() => import('./pages/AdminAuditLog'));
 
 const App: React.FC = () => {
   const [certVerified, setCertVerified] = useState(() => {
@@ -124,6 +127,7 @@ const App: React.FC = () => {
           <ThemeProvider theme={theme}>
             <CssBaseline />
             <SnackbarProvider maxSnack={3}>
+              <NotificationProvider>
               <Router>
                 <Suspense fallback={
                   <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
@@ -152,6 +156,7 @@ const App: React.FC = () => {
                     <Route path="/pot/job/:id" element={<PotJobPage />} />
                     <Route path="/about" element={<AboutPage />} />
                     <Route path="/settings/profile" element={<ProfileSettingsPage />} />
+                    <Route path="/notifications" element={<NotificationCenterPage />} />
 
                     {/* Admin Section Routes */}
                     <Route path="/admin" element={<RequireAdmin><Outlet /></RequireAdmin>}>
@@ -177,6 +182,7 @@ const App: React.FC = () => {
                         element={<AdminEmailTemplateEditorPage onNotification={handleNotification} />}
                       />
                       <Route path="diagnostics" element={<DiagnosticsPage />} />
+                      <Route path="audit-log" element={<AdminAuditLogPage />} />
                     </Route>
 
                     {/* Catch-all for authenticated users */}
@@ -188,6 +194,7 @@ const App: React.FC = () => {
                 </Routes>
                 </Suspense>
               </Router>
+              </NotificationProvider>
             </SnackbarProvider>
           </ThemeProvider>
         </QueryClientProvider>

@@ -200,7 +200,7 @@ const Login: React.FC = () => {
         setError(response.message || 'Login failed');
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'An error occurred');
+      setError(error instanceof Error ? error.message : t('errors.genericError') as string);
     } finally {
       setLoading(false);
     }

@@ -114,6 +114,7 @@ nav:
     - Wordlists & Rules: user-guide/wordlists-rules.md
     - Analyzing Results: user-guide/analyzing-results.md
     - Analytics Reports: user-guide/analytics-reports.md
+    - Notifications: user-guide/notifications.md
     - Troubleshooting: user-guide/troubleshooting.md
   - User API:
     - user-api/README.md
@@ -141,6 +142,8 @@ nav:
       - Agent Scheduling: admin-guide/operations/scheduling.md
       - Job Settings: admin-guide/operations/job-settings.md
       - Potfile Management: admin-guide/operations/potfile.md
+      - Notifications: admin-guide/operations/notifications.md
+      - Audit Log: admin-guide/operations/audit-log.md
       - System Monitoring: admin-guide/operations/monitoring.md
       - System Diagnostics: admin-guide/operations/diagnostics.md
       - Backup Procedures: admin-guide/operations/backup.md
@@ -187,6 +190,7 @@ nav:
       - Increment Mode: reference/architecture/increment-mode.md
       - Job Completion System: reference/architecture/job-completion-system.md
       - Job Update System: reference/architecture/job-update-system.md
+      - Notification System: reference/architecture/notification-system.md
       - Rule Splitting: reference/architecture/rule-splitting.md
       - File Hash Cache: reference/architecture/file-hash-cache.md
       - Cross-Hashlist Sync: reference/architecture/cross-hashlist-sync.md

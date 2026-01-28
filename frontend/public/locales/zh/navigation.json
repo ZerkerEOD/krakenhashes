@@ -19,7 +19,8 @@
     "userManagement": "用户管理",
     "presetJobs": "预设任务",
     "jobWorkflows": "任务工作流",
-    "diagnostics": "诊断"
+    "diagnostics": "诊断",
+    "auditLog": "审计日志"
   },
   "userMenu": {
     "userSettings": "用户设置",

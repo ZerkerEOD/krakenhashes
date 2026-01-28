@@ -1,0 +1,195 @@
+{
+  "title": "Benachrichtigungen",
+  "connected": "Benachrichtigungen",
+  "disconnected": "Verbindung wird wiederhergestellt...",
+  "empty": "Keine Benachrichtigungen",
+  "markAllRead": "Alle als gelesen markieren",
+  "markRead": "Als gelesen markieren",
+  "viewAll": "Alle Benachrichtigungen anzeigen",
+  "deleteSelected": "{{count}} ausgewählte löschen",
+  "selectAll": "Alle auswählen",
+
+  "aria": {
+    "bellButton": "Benachrichtigungen anzeigen"
+  },
+
+  "center": {
+    "title": "Benachrichtigungszentrum",
+    "description": "Ihre Benachrichtigungen anzeigen und verwalten"
+  },
+
+  "filters": {
+    "category": "Kategorie",
+    "status": "Status",
+    "allCategories": "Alle Kategorien",
+    "all": "Alle",
+    "unread": "Ungelesen",
+    "read": "Gelesen"
+  },
+
+  "categories": {
+    "job": "Auftrag",
+    "agent": "Agent",
+    "security": "Sicherheit",
+    "system": "System"
+  },
+
+  "types": {
+    "job_started": "Auftrag gestartet",
+    "job_completed": "Auftrag abgeschlossen",
+    "job_failed": "Auftrag fehlgeschlagen",
+    "first_crack": "Erster Crack",
+    "task_completed_with_cracks": "Aufgabenbericht",
+    "agent_offline": "Agent offline",
+    "agent_error": "Agent-Fehler",
+    "security_suspicious_login": "Verdächtige Anmeldung",
+    "security_mfa_disabled": "MFA deaktiviert",
+    "security_password_changed": "Passwort geändert",
+    "webhook_failure": "Webhook-Fehler"
+  },
+
+  "typeDescriptions": {
+    "job_started": "Wenn ein Auftrag startet",
+    "job_completed": "Wenn ein Auftrag erfolgreich abgeschlossen wird",
+    "job_failed": "Wenn ein Auftrag fehlschlägt",
+    "first_crack": "Wenn der erste Hash geknackt wird (sofortige Benachrichtigung)",
+    "task_completed_with_cracks": "Wenn eine Aufgabe abgeschlossen wird",
+    "agent_offline": "Wenn ein Agent offline geht (nach Pufferzeit)",
+    "agent_error": "Wenn ein Agent einen kritischen Fehler meldet",
+    "security_suspicious_login": "Anmeldung von neuem Standort oder Gerät",
+    "security_mfa_disabled": "Wenn MFA deaktiviert wird (obligatorisch)",
+    "security_password_changed": "Wenn Passwort geändert wird (obligatorisch)",
+    "webhook_failure": "Wenn Webhook-Zustellung fehlschlägt"
+  },
+
+  "channels": {
+    "inApp": "In-App",
+    "email": "E-Mail",
+    "webhook": "Webhook"
+  },
+
+  "settings": {
+    "title": "Benachrichtigungseinstellungen",
+    "description": "Konfigurieren Sie, wie und wann Sie Benachrichtigungen erhalten",
+    "enabledChannels": "Aktivierte Kanäle",
+    "taskReportMode": "Wann benachrichtigen",
+    "taskReportModeOnlyIfCracks": "Nur bei gefundenen Cracks",
+    "taskReportModeAlways": "Immer benachrichtigen",
+    "modeUpdated": "Aufgabenbericht-Modus aktualisiert",
+    "onlyIfCracks": "Nur bei gefundenen Cracks",
+    "always": "Immer benachrichtigen",
+    "mandatory": "Obligatorisch",
+    "mandatoryDescription": "Diese Benachrichtigung kann nicht deaktiviert werden",
+    "emailNotConfigured": "E-Mail-Gateway ist nicht konfiguriert",
+    "emailNotConfiguredWarning": "E-Mail-Gateway ist nicht konfiguriert. E-Mail-Benachrichtigungen sind derzeit nicht verfügbar.",
+    "noWebhooksConfigured": "Keine aktiven Webhooks konfiguriert",
+    "toggleAll": "Alle umschalten"
+  },
+
+  "webhooks": {
+    "title": "Webhook-Konfiguration",
+    "description": "Verwalten Sie Ihre Webhook-Integrationen",
+    "name": "Name",
+    "url": "URL",
+    "secret": "Geheimnis",
+    "secretPlaceholder": "Optionales Webhook-Geheimnis",
+    "isActive": "Aktiv",
+    "notificationTypes": "Benachrichtigungstypen",
+    "allTypes": "Alle Typen",
+    "retryCount": "Wiederholungsversuche",
+    "timeout": "Zeitüberschreitung (Sekunden)",
+    "lastTriggered": "Zuletzt ausgelöst",
+    "lastSuccess": "Letzter Erfolg",
+    "lastError": "Letzter Fehler",
+    "totalSent": "Gesamt gesendet",
+    "totalFailed": "Gesamt fehlgeschlagen",
+    "create": "Webhook erstellen",
+    "edit": "Webhook bearbeiten",
+    "delete": "Webhook löschen",
+    "deleteConfirm": "Möchten Sie diesen Webhook wirklich löschen?",
+    "test": "Webhook testen",
+    "testUrl": "URL testen",
+    "testSuccess": "Webhook-Test erfolgreich",
+    "testFailed": "Webhook-Test fehlgeschlagen"
+  },
+
+  "admin": {
+    "title": "Benachrichtigungseinstellungen",
+    "globalWebhook": {
+      "title": "Globaler Webhook",
+      "description": "Konfigurieren Sie einen systemweiten Webhook für alle Benachrichtigungen",
+      "enabled": "Globalen Webhook aktivieren",
+      "url": "Webhook-URL",
+      "secret": "Webhook-Geheimnis",
+      "customHeaders": "Benutzerdefinierte Header (JSON)",
+      "test": "Globalen Webhook testen",
+      "saved": "Globale Webhook-Einstellungen gespeichert"
+    },
+    "agentOffline": {
+      "title": "Agent-Offline-Puffer",
+      "description": "Konfigurieren Sie die Wartezeit vor dem Senden von Agent-Offline-Benachrichtigungen",
+      "bufferMinutes": "Puffer-Minuten",
+      "bufferHelp": "Diese Minuten warten, bevor über Offline-Agents benachrichtigt wird",
+      "saved": "Agent-Offline-Einstellungen gespeichert"
+    },
+    "userWebhooks": {
+      "title": "Benutzer-Webhooks",
+      "description": "Alle benutzerkonfigurierten Webhooks anzeigen",
+      "username": "Benutzername",
+      "email": "E-Mail",
+      "empty": "Keine Benutzer-Webhooks konfiguriert"
+    }
+  },
+
+  "auditLog": {
+    "title": "Audit-Protokoll",
+    "description": "Sicherheits- und kritische Ereignisse aller Benutzer",
+    "noData": "Keine Audit-Protokolleinträge gefunden",
+    "columns": {
+      "time": "Zeit",
+      "severity": "Schweregrad",
+      "eventType": "Ereignistyp",
+      "user": "Benutzer",
+      "title": "Titel",
+      "ip": "IP-Adresse"
+    },
+    "filters": {
+      "eventType": "Ereignistyp",
+      "severity": "Schweregrad",
+      "startDate": "Startdatum",
+      "endDate": "Enddatum",
+      "all": "Alle",
+      "clear": "Filter löschen"
+    },
+    "severity": {
+      "critical": "Kritisch",
+      "warning": "Warnung",
+      "info": "Info"
+    },
+    "details": {
+      "message": "Nachricht",
+      "ipAddress": "IP-Adresse",
+      "userAgent": "User-Agent",
+      "source": "Quelle",
+      "data": "Zusätzliche Daten"
+    },
+    "errors": {
+      "loadFailed": "Audit-Protokoll konnte nicht geladen werden"
+    }
+  },
+
+  "systemAlert": {
+    "title": "Systemwarnung",
+    "dismiss": "Verwerfen",
+    "dismissAll": "Alle verwerfen"
+  },
+
+  "errors": {
+    "fetchFailed": "Benachrichtigungen konnten nicht geladen werden",
+    "markReadFailed": "Benachrichtigung konnte nicht als gelesen markiert werden",
+    "deleteFailed": "Benachrichtigungen konnten nicht gelöscht werden",
+    "webhookCreateFailed": "Webhook konnte nicht erstellt werden",
+    "webhookUpdateFailed": "Webhook konnte nicht aktualisiert werden",
+    "webhookDeleteFailed": "Webhook konnte nicht gelöscht werden"
+  }
+}

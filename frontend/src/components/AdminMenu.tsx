@@ -8,6 +8,7 @@ import {
     AccountTree as AccountTreeIcon,
     SupervisorAccount as SupervisorAccountIcon,
     BugReport as BugReportIcon,
+    History as HistoryIcon,
 } from '@mui/icons-material';
 
 const AdminMenu: React.FC = () => {
@@ -115,6 +116,26 @@ const AdminMenu: React.FC = () => {
                     <BugReportIcon />
                 </ListItemIcon>
                 <ListItemText primary={t('admin.diagnostics') as string} />
+            </ListItemButton>
+
+            <ListItemButton
+                onClick={() => navigate('/admin/audit-log')}
+                selected={location.pathname.startsWith('/admin/audit-log')}
+                sx={{
+                    minHeight: 48,
+                    px: 2.5,
+                }}
+            >
+                <ListItemIcon
+                    sx={{
+                        minWidth: 0,
+                        mr: 3,
+                        justifyContent: 'center',
+                    }}
+                >
+                    <HistoryIcon />
+                </ListItemIcon>
+                <ListItemText primary={t('admin.auditLog') as string} />
             </ListItemButton>
         </List>
     );

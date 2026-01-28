@@ -1255,6 +1255,7 @@
         "fromEmail": "发件人邮箱",
         "fromName": "发件人名称",
         "domain": "域名",
+        "region": "区域",
         "monthlyLimit": "月度限额",
         "skipTlsVerify": "跳过 TLS 证书验证（不安全，不建议）"
       },
@@ -1274,7 +1275,9 @@
         "smtp": "SMTP",
         "encryptionNone": "无 (端口 25)",
         "encryptionStarttls": "STARTTLS (端口 587)",
-        "encryptionTls": "TLS/SSL (端口 465)"
+        "encryptionTls": "TLS/SSL (端口 465)",
+        "regionUS": "美国 (api.mailgun.net)",
+        "regionEU": "欧盟 (api.eu.mailgun.net)"
       },
       "buttons": {
         "edit": "编辑配置",

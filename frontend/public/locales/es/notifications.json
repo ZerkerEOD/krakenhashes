@@ -1,0 +1,195 @@
+{
+  "title": "Notificaciones",
+  "connected": "Notificaciones",
+  "disconnected": "Reconectando...",
+  "empty": "Sin notificaciones",
+  "markAllRead": "Marcar todo como leído",
+  "markRead": "Marcar como leído",
+  "viewAll": "Ver todas las notificaciones",
+  "deleteSelected": "Eliminar {{count}} seleccionados",
+  "selectAll": "Seleccionar todo",
+
+  "aria": {
+    "bellButton": "Mostrar notificaciones"
+  },
+
+  "center": {
+    "title": "Centro de Notificaciones",
+    "description": "Ver y gestionar tus notificaciones"
+  },
+
+  "filters": {
+    "category": "Categoría",
+    "status": "Estado",
+    "allCategories": "Todas las categorías",
+    "all": "Todas",
+    "unread": "No leídas",
+    "read": "Leídas"
+  },
+
+  "categories": {
+    "job": "Trabajo",
+    "agent": "Agente",
+    "security": "Seguridad",
+    "system": "Sistema"
+  },
+
+  "types": {
+    "job_started": "Trabajo iniciado",
+    "job_completed": "Trabajo completado",
+    "job_failed": "Trabajo fallido",
+    "first_crack": "Primer crack",
+    "task_completed_with_cracks": "Informe de tarea",
+    "agent_offline": "Agente desconectado",
+    "agent_error": "Error de agente",
+    "security_suspicious_login": "Inicio de sesión sospechoso",
+    "security_mfa_disabled": "MFA desactivado",
+    "security_password_changed": "Contraseña cambiada",
+    "webhook_failure": "Fallo de webhook"
+  },
+
+  "typeDescriptions": {
+    "job_started": "Cuando un trabajo comienza",
+    "job_completed": "Cuando un trabajo se completa con éxito",
+    "job_failed": "Cuando un trabajo falla",
+    "first_crack": "Cuando se descifra el primer hash (notificación inmediata)",
+    "task_completed_with_cracks": "Cuando una tarea se completa",
+    "agent_offline": "Cuando un agente se desconecta (después del período de espera)",
+    "agent_error": "Cuando un agente reporta un error crítico",
+    "security_suspicious_login": "Inicio de sesión desde nueva ubicación o dispositivo",
+    "security_mfa_disabled": "Cuando se desactiva MFA (obligatorio)",
+    "security_password_changed": "Cuando se cambia la contraseña (obligatorio)",
+    "webhook_failure": "Cuando falla la entrega del webhook"
+  },
+
+  "channels": {
+    "inApp": "En la App",
+    "email": "Correo electrónico",
+    "webhook": "Webhook"
+  },
+
+  "settings": {
+    "title": "Configuración de Notificaciones",
+    "description": "Configura cómo y cuándo recibes notificaciones",
+    "enabledChannels": "Canales habilitados",
+    "taskReportMode": "Cuándo notificar",
+    "taskReportModeOnlyIfCracks": "Solo si se encuentran cracks",
+    "taskReportModeAlways": "Notificar siempre",
+    "modeUpdated": "Modo de informe de tareas actualizado",
+    "onlyIfCracks": "Solo si se encuentran cracks",
+    "always": "Notificar siempre",
+    "mandatory": "Obligatorio",
+    "mandatoryDescription": "Esta notificación no se puede desactivar",
+    "emailNotConfigured": "La puerta de enlace de correo no está configurada",
+    "emailNotConfiguredWarning": "La puerta de enlace de correo no está configurada. Las notificaciones por correo no están disponibles.",
+    "noWebhooksConfigured": "No hay webhooks activos configurados",
+    "toggleAll": "Alternar todo"
+  },
+
+  "webhooks": {
+    "title": "Configuración de Webhook",
+    "description": "Gestiona tus integraciones de webhook",
+    "name": "Nombre",
+    "url": "URL",
+    "secret": "Secreto",
+    "secretPlaceholder": "Secreto de webhook opcional",
+    "isActive": "Activo",
+    "notificationTypes": "Tipos de notificación",
+    "allTypes": "Todos los tipos",
+    "retryCount": "Intentos de reintento",
+    "timeout": "Tiempo de espera (segundos)",
+    "lastTriggered": "Última activación",
+    "lastSuccess": "Último éxito",
+    "lastError": "Último error",
+    "totalSent": "Total enviados",
+    "totalFailed": "Total fallidos",
+    "create": "Crear Webhook",
+    "edit": "Editar Webhook",
+    "delete": "Eliminar Webhook",
+    "deleteConfirm": "¿Estás seguro de que quieres eliminar este webhook?",
+    "test": "Probar Webhook",
+    "testUrl": "Probar URL",
+    "testSuccess": "Prueba de webhook exitosa",
+    "testFailed": "Prueba de webhook fallida"
+  },
+
+  "admin": {
+    "title": "Configuración de Notificaciones",
+    "globalWebhook": {
+      "title": "Webhook Global",
+      "description": "Configura un webhook a nivel de sistema para todas las notificaciones",
+      "enabled": "Habilitar webhook global",
+      "url": "URL del Webhook",
+      "secret": "Secreto del Webhook",
+      "customHeaders": "Cabeceras personalizadas (JSON)",
+      "test": "Probar webhook global",
+      "saved": "Configuración de webhook global guardada"
+    },
+    "agentOffline": {
+      "title": "Buffer de Agente Desconectado",
+      "description": "Configura el tiempo de espera para enviar notificaciones de agente desconectado",
+      "bufferMinutes": "Minutos de buffer",
+      "bufferHelp": "Esperar este número de minutos antes de notificar sobre agentes desconectados",
+      "saved": "Configuración de agente desconectado guardada"
+    },
+    "userWebhooks": {
+      "title": "Webhooks de Usuario",
+      "description": "Ver todos los webhooks configurados por usuarios",
+      "username": "Nombre de usuario",
+      "email": "Correo electrónico",
+      "empty": "No hay webhooks de usuario configurados"
+    }
+  },
+
+  "auditLog": {
+    "title": "Registro de Auditoría",
+    "description": "Eventos de seguridad y críticos de todos los usuarios",
+    "noData": "No se encontraron entradas en el registro de auditoría",
+    "columns": {
+      "time": "Hora",
+      "severity": "Severidad",
+      "eventType": "Tipo de Evento",
+      "user": "Usuario",
+      "title": "Título",
+      "ip": "Dirección IP"
+    },
+    "filters": {
+      "eventType": "Tipo de Evento",
+      "severity": "Severidad",
+      "startDate": "Fecha Inicio",
+      "endDate": "Fecha Fin",
+      "all": "Todos",
+      "clear": "Limpiar filtros"
+    },
+    "severity": {
+      "critical": "Crítico",
+      "warning": "Advertencia",
+      "info": "Info"
+    },
+    "details": {
+      "message": "Mensaje",
+      "ipAddress": "Dirección IP",
+      "userAgent": "Agente de Usuario",
+      "source": "Origen",
+      "data": "Datos Adicionales"
+    },
+    "errors": {
+      "loadFailed": "Error al cargar el registro de auditoría"
+    }
+  },
+
+  "systemAlert": {
+    "title": "Alerta del Sistema",
+    "dismiss": "Descartar",
+    "dismissAll": "Descartar Todo"
+  },
+
+  "errors": {
+    "fetchFailed": "Error al cargar las notificaciones",
+    "markReadFailed": "Error al marcar la notificación como leída",
+    "deleteFailed": "Error al eliminar las notificaciones",
+    "webhookCreateFailed": "Error al crear el webhook",
+    "webhookUpdateFailed": "Error al actualizar el webhook",
+    "webhookDeleteFailed": "Error al eliminar el webhook"
+  }
+}

@@ -1,0 +1,195 @@
+{
+  "title": "Уведомления",
+  "connected": "Уведомления",
+  "disconnected": "Переподключение...",
+  "empty": "Нет уведомлений",
+  "markAllRead": "Отметить все как прочитанное",
+  "markRead": "Отметить как прочитанное",
+  "viewAll": "Посмотреть все уведомления",
+  "deleteSelected": "Удалить {{count}} выбранных",
+  "selectAll": "Выбрать все",
+
+  "aria": {
+    "bellButton": "Показать уведомления"
+  },
+
+  "center": {
+    "title": "Центр уведомлений",
+    "description": "Просмотр и управление уведомлениями"
+  },
+
+  "filters": {
+    "category": "Категория",
+    "status": "Статус",
+    "allCategories": "Все категории",
+    "all": "Все",
+    "unread": "Непрочитанные",
+    "read": "Прочитанные"
+  },
+
+  "categories": {
+    "job": "Задание",
+    "agent": "Агент",
+    "security": "Безопасность",
+    "system": "Система"
+  },
+
+  "types": {
+    "job_started": "Задание запущено",
+    "job_completed": "Задание завершено",
+    "job_failed": "Задание не выполнено",
+    "first_crack": "Первый взлом",
+    "task_completed_with_cracks": "Отчёт о задаче",
+    "agent_offline": "Агент отключён",
+    "agent_error": "Ошибка агента",
+    "security_suspicious_login": "Подозрительный вход",
+    "security_mfa_disabled": "MFA отключён",
+    "security_password_changed": "Пароль изменён",
+    "webhook_failure": "Ошибка webhook"
+  },
+
+  "typeDescriptions": {
+    "job_started": "Когда задание начинается",
+    "job_completed": "Когда задание успешно завершается",
+    "job_failed": "Когда задание не выполняется",
+    "first_crack": "Когда взломан первый хеш (мгновенное уведомление)",
+    "task_completed_with_cracks": "Когда задача завершена",
+    "agent_offline": "Когда агент отключается (после буферного периода)",
+    "agent_error": "Когда агент сообщает о критической ошибке",
+    "security_suspicious_login": "Вход с нового местоположения или устройства",
+    "security_mfa_disabled": "Когда MFA отключён (обязательно)",
+    "security_password_changed": "Когда пароль изменён (обязательно)",
+    "webhook_failure": "Когда доставка webhook не удалась"
+  },
+
+  "channels": {
+    "inApp": "В приложении",
+    "email": "Электронная почта",
+    "webhook": "Webhook"
+  },
+
+  "settings": {
+    "title": "Настройки уведомлений",
+    "description": "Настройте, как и когда вы получаете уведомления",
+    "enabledChannels": "Включённые каналы",
+    "taskReportMode": "Когда уведомлять",
+    "taskReportModeOnlyIfCracks": "Только при найденных взломах",
+    "taskReportModeAlways": "Всегда уведомлять",
+    "modeUpdated": "Режим отчёта о задачах обновлён",
+    "onlyIfCracks": "Только при найденных взломах",
+    "always": "Всегда уведомлять",
+    "mandatory": "Обязательно",
+    "mandatoryDescription": "Это уведомление нельзя отключить",
+    "emailNotConfigured": "Почтовый шлюз не настроен",
+    "emailNotConfiguredWarning": "Почтовый шлюз не настроен. Уведомления по электронной почте недоступны.",
+    "noWebhooksConfigured": "Активные вебхуки не настроены",
+    "toggleAll": "Переключить все"
+  },
+
+  "webhooks": {
+    "title": "Настройка Webhook",
+    "description": "Управление интеграциями webhook",
+    "name": "Название",
+    "url": "URL",
+    "secret": "Секрет",
+    "secretPlaceholder": "Необязательный секрет webhook",
+    "isActive": "Активен",
+    "notificationTypes": "Типы уведомлений",
+    "allTypes": "Все типы",
+    "retryCount": "Количество повторов",
+    "timeout": "Таймаут (секунды)",
+    "lastTriggered": "Последний запуск",
+    "lastSuccess": "Последний успех",
+    "lastError": "Последняя ошибка",
+    "totalSent": "Всего отправлено",
+    "totalFailed": "Всего неудачных",
+    "create": "Создать Webhook",
+    "edit": "Редактировать Webhook",
+    "delete": "Удалить Webhook",
+    "deleteConfirm": "Вы уверены, что хотите удалить этот webhook?",
+    "test": "Тестировать Webhook",
+    "testUrl": "Тестировать URL",
+    "testSuccess": "Тест webhook успешен",
+    "testFailed": "Тест webhook не удался"
+  },
+
+  "admin": {
+    "title": "Настройки уведомлений",
+    "globalWebhook": {
+      "title": "Глобальный Webhook",
+      "description": "Настройка системного webhook для всех уведомлений",
+      "enabled": "Включить глобальный webhook",
+      "url": "URL Webhook",
+      "secret": "Секрет Webhook",
+      "customHeaders": "Пользовательские заголовки (JSON)",
+      "test": "Тестировать глобальный webhook",
+      "saved": "Глобальные настройки webhook сохранены"
+    },
+    "agentOffline": {
+      "title": "Буфер отключения агента",
+      "description": "Настройка времени ожидания перед отправкой уведомлений об отключении агента",
+      "bufferMinutes": "Минуты буфера",
+      "bufferHelp": "Ждать указанное количество минут перед уведомлением об отключённых агентах",
+      "saved": "Настройки отключения агента сохранены"
+    },
+    "userWebhooks": {
+      "title": "Пользовательские Webhooks",
+      "description": "Просмотр всех настроенных пользователями webhooks",
+      "username": "Имя пользователя",
+      "email": "Электронная почта",
+      "empty": "Пользовательские webhooks не настроены"
+    }
+  },
+
+  "auditLog": {
+    "title": "Журнал аудита",
+    "description": "Безопасность и критические события всех пользователей",
+    "noData": "Записи журнала аудита не найдены",
+    "columns": {
+      "time": "Время",
+      "severity": "Серьёзность",
+      "eventType": "Тип события",
+      "user": "Пользователь",
+      "title": "Заголовок",
+      "ip": "IP-адрес"
+    },
+    "filters": {
+      "eventType": "Тип события",
+      "severity": "Серьёзность",
+      "startDate": "Дата начала",
+      "endDate": "Дата окончания",
+      "all": "Все",
+      "clear": "Очистить фильтры"
+    },
+    "severity": {
+      "critical": "Критический",
+      "warning": "Предупреждение",
+      "info": "Инфо"
+    },
+    "details": {
+      "message": "Сообщение",
+      "ipAddress": "IP-адрес",
+      "userAgent": "User-Agent",
+      "source": "Источник",
+      "data": "Дополнительные данные"
+    },
+    "errors": {
+      "loadFailed": "Не удалось загрузить журнал аудита"
+    }
+  },
+
+  "systemAlert": {
+    "title": "Системное оповещение",
+    "dismiss": "Отклонить",
+    "dismissAll": "Отклонить все"
+  },
+
+  "errors": {
+    "fetchFailed": "Не удалось загрузить уведомления",
+    "markReadFailed": "Не удалось отметить уведомление как прочитанное",
+    "deleteFailed": "Не удалось удалить уведомления",
+    "webhookCreateFailed": "Не удалось создать webhook",
+    "webhookUpdateFailed": "Не удалось обновить webhook",
+    "webhookDeleteFailed": "Не удалось удалить webhook"
+  }
+}

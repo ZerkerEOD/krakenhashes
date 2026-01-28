@@ -1659,6 +1659,39 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			return nil
 		}
 
+		// CRITICAL: Check database task status to prevent race condition
+		// A task that was set to "processing" (waiting for crack_batches_complete) should not
+		// be completed by a duplicate completion message with cracked_count=0
+		dbTask, err := s.jobTaskRepo.GetByID(ctx, progress.TaskID)
+		if err != nil {
+			debug.Error("Failed to get task status for completion check: %v", err)
+			return fmt.Errorf("failed to get task: %w", err)
+		}
+
+		// If task is already in "processing" state, it's waiting for crack_batches_complete
+		// Ignore this completion message to prevent premature completion with wrong crack count
+		if dbTask.Status == models.JobTaskStatusProcessing {
+			debug.Log("Task is in processing state, ignoring duplicate completion message", map[string]interface{}{
+				"task_id":           progress.TaskID,
+				"expected_cracks":   dbTask.ExpectedCrackCount,
+				"received_cracks":   dbTask.ReceivedCrackCount,
+				"progress_cracks":   progress.CrackedCount,
+			})
+			// Send ACK so agent doesn't retry, but don't complete the task
+			s.sendTaskCompleteAck(agentID, taskIDStr, true, "task processing, awaiting crack batches")
+			return nil
+		}
+
+		// If task is already completed, skip reprocessing
+		if dbTask.Status == models.JobTaskStatusCompleted {
+			debug.Log("Task already completed in database, caching and sending ACK", map[string]interface{}{
+				"task_id": progress.TaskID,
+			})
+			s.cacheCompletion(taskIDStr)
+			s.sendTaskCompleteAck(agentID, taskIDStr, true, "already completed")
+			return nil
+		}
+
 		debug.Log("Task completed", map[string]interface{}{
 			"task_id":          progress.TaskID,
 			"progress_percent": progress.ProgressPercent,
@@ -1666,7 +1699,7 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 		})
 
 		// Update the final progress first
-		err := s.jobSchedulingService.ProcessTaskProgress(ctx, progress.TaskID, progress)
+		err = s.jobSchedulingService.ProcessTaskProgress(ctx, progress.TaskID, progress)
 		if err != nil {
 			debug.Error("Failed to process final task progress: %v", err)
 		}
@@ -2059,31 +2092,38 @@ func (s *JobWebSocketIntegration) HandleCrackBatchesComplete(ctx context.Context
 	// Outfile Acknowledgment Protocol - Check crack counts and send approval/retransmit
 	// ============================================================================
 	if task.ExpectedCrackCount > 0 { // Only check if we expect cracks
-		// Use actual database count for verification, NOT ReceivedCrackCount counter
-		// ReceivedCrackCount increments by batch size sent, but duplicates are skipped during save
-		// The actual DB count reflects what was truly persisted
+		// Get actual database count for notification decisions (only counts NEW cracks from this task)
 		actualDBCount, err := s.hashRepo.CountCrackedByTaskID(ctx, message.TaskID)
 		if err != nil {
 			debug.Error("Failed to count cracks in DB for task %s: %v", message.TaskID, err)
-			// Fall back to received count on error
-			actualDBCount = task.ReceivedCrackCount
+			actualDBCount = 0
 		}
 
-		debug.Info("Crack verification for task %s: expected=%d, received_counter=%d, actual_db_count=%d",
+		// For VERIFICATION, use received_crack_count - this is how many the backend processed
+		// (includes duplicates that were skipped during save because already cracked by prior tasks)
+		// If received >= expected, the agent sent everything and backend processed it all
+		debug.Info("Crack verification for task %s: expected=%d, received=%d, new_cracks_in_db=%d",
 			message.TaskID, task.ExpectedCrackCount, task.ReceivedCrackCount, actualDBCount)
 
-		if actualDBCount < task.ExpectedCrackCount {
-			// Mismatch detected - request retransmission
-			debug.Warning("Crack count mismatch for task %s: expected %d, actual in DB %d - requesting retransmit",
-				message.TaskID, task.ExpectedCrackCount, actualDBCount)
+		if task.ReceivedCrackCount < task.ExpectedCrackCount {
+			// Backend didn't receive all expected cracks - request retransmission
+			debug.Warning("Crack count mismatch for task %s: expected %d, received %d - requesting retransmit",
+				message.TaskID, task.ExpectedCrackCount, task.ReceivedCrackCount)
 
 			return s.handleCrackCountMismatch(ctx, agentID, message.TaskID,
-				task.ExpectedCrackCount, actualDBCount)
+				task.ExpectedCrackCount, task.ReceivedCrackCount)
 		}
 
-		// All cracks verified in database - send delete approval
-		debug.Info("All cracks verified in DB for task %s (expected=%d, actual=%d) - sending delete approval",
-			message.TaskID, task.ExpectedCrackCount, actualDBCount)
+		// All cracks received (some may be duplicates from prior tasks - that's OK)
+		duplicateCount := task.ReceivedCrackCount - actualDBCount
+		if duplicateCount > 0 {
+			debug.Info("Task %s: %d of %d cracks were duplicates from prior tasks",
+				message.TaskID, duplicateCount, task.ReceivedCrackCount)
+		}
+
+		// Send delete approval - cracks verified
+		debug.Info("All cracks received for task %s (expected=%d, received=%d, new=%d, duplicates=%d) - sending delete approval",
+			message.TaskID, task.ExpectedCrackCount, task.ReceivedCrackCount, actualDBCount, duplicateCount)
 		if err := s.sendOutfileDeleteApproval(ctx, agentID, message.TaskID, actualDBCount, true); err != nil {
 			debug.Warning("Failed to send outfile delete approval: %v", err)
 			// Don't fail the whole operation - cracks are already processed
@@ -2242,11 +2282,106 @@ func (s *JobWebSocketIntegration) checkTaskCompletion(ctx context.Context, taskI
 		debug.Error("Failed to process job completion: %v", err)
 	}
 
+	// Re-fetch task to get updated ReceivedCrackCount after all batches processed
+	// The original task was fetched at the start of this function, but crack batches
+	// may have updated ReceivedCrackCount since then
+	freshTask, err := s.jobTaskRepo.GetByID(ctx, taskID)
+	if err != nil {
+		debug.Error("Failed to re-fetch task for notification: %v", err)
+		// Fall back to original task
+		freshTask = task
+	}
+
+	// Dispatch task completed notification (if cracks were found or user wants all reports)
+	go s.dispatchTaskCompletedNotification(ctx, freshTask)
+
 	// Cache completion and send ACK to agent (GH Issue #12)
 	taskIDStr := taskID.String()
 	s.cacheCompletion(taskIDStr)
 	if task.AgentID != nil {
 		s.sendTaskCompleteAck(*task.AgentID, taskIDStr, true, "")
+	}
+}
+
+// dispatchTaskCompletedNotification sends a task completion notification if applicable
+func (s *JobWebSocketIntegration) dispatchTaskCompletedNotification(ctx context.Context, task *models.JobTask) {
+	dispatcher := services.GetGlobalDispatcher()
+	if dispatcher == nil {
+		debug.Warning("Notification dispatcher not available, skipping task completed notification")
+		return
+	}
+
+	// Get job execution to find the user
+	jobExec, err := s.jobExecutionService.GetJobExecutionByID(ctx, task.JobExecutionID)
+	if err != nil {
+		debug.Error("Failed to get job execution for task notification: %v", err)
+		return
+	}
+
+	if jobExec.CreatedBy == nil {
+		debug.Warning("Job has no creator, skipping task notification")
+		return
+	}
+
+	// Get actual NEW cracks from database (only counts hashes cracked by THIS task)
+	// This differs from ReceivedCrackCount which includes duplicates already cracked by prior tasks
+	actualNewCracks, err := s.hashRepo.CountCrackedByTaskID(ctx, task.ID)
+	if err != nil {
+		debug.Error("Failed to count actual new cracks for task notification: %v", err)
+		actualNewCracks = 0
+	}
+
+	// For "only_if_cracks" mode, use actual NEW cracks, not received count
+	// This ensures we don't send notifications for tasks that only found duplicates
+	crackCount := int64(actualNewCracks)
+
+	debug.Log("Task notification crack counts", map[string]interface{}{
+		"task_id":          task.ID,
+		"received_cracks":  task.ReceivedCrackCount,
+		"actual_new_cracks": actualNewCracks,
+	})
+
+	// Check user preference for task report mode ("only_if_cracks" or "always")
+	// This allows users to either get notifications only when cracks are found,
+	// or always get notified on task completion regardless of cracks
+	if !dispatcher.ShouldSendTaskReport(ctx, *jobExec.CreatedBy, crackCount) {
+		debug.Debug("Task %s completed, skipping notification per user preference (newCracks=%d, received=%d)",
+			task.ID, actualNewCracks, task.ReceivedCrackCount)
+		return
+	}
+
+	// Get agent name if available
+	agentName := "Unknown"
+	if task.AgentID != nil {
+		agent, err := s.agentRepo.GetByID(ctx, *task.AgentID)
+		if err == nil && agent != nil {
+			agentName = agent.Name
+		}
+	}
+
+	params := models.NotificationDispatchParams{
+		UserID:  *jobExec.CreatedBy,
+		Type:    models.NotificationTypeTaskCompletedWithCracks,
+		Title:   "Task Completed",
+		Message: fmt.Sprintf("Task completed with %d crack(s) found", crackCount),
+		Data: map[string]interface{}{
+			"TaskID":     task.ID.String(),
+			"JobID":      task.JobExecutionID.String(),
+			"JobName":    jobExec.Name,
+			"CrackCount": crackCount,
+			"AgentName":  agentName,
+		},
+		SourceType: "task",
+		SourceID:   task.ID.String(),
+	}
+
+	if err := dispatcher.Dispatch(ctx, params); err != nil {
+		debug.Error("Failed to dispatch task completed notification: %v", err)
+	} else {
+		debug.Log("Task completed notification dispatched", map[string]interface{}{
+			"task_id":     task.ID,
+			"crack_count": crackCount,
+		})
 	}
 }
 
@@ -3078,12 +3213,19 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 	if len(affectedHashlists) > 0 {
 		debug.Info("Updating cracked counts for %d affected hashlists", len(affectedHashlists))
 		for hashlistID, count := range affectedHashlists {
+			// Check if this is the first crack for this hashlist (for notification)
+			hashlist, hlErr := s.hashlistRepo.GetByID(ctx, hashlistID)
+			isFirstCrack := hlErr == nil && hashlist != nil && hashlist.CrackedHashes == 0
+
 			debug.Info("Incrementing hashlist %d cracked count by %d", hashlistID, count)
 			err = s.hashlistRepo.IncrementCrackedCount(ctx, hashlistID, count)
 			if err != nil {
 				debug.Error("Failed to update hashlist cracked count for hashlist %d: %v",
 					hashlistID, err)
 				// Don't fail the entire batch if counter update fails
+			} else if isFirstCrack {
+				// Dispatch first crack notification
+				s.dispatchFirstCrackNotification(ctx, hashlist, jobExecution)
 			}
 		}
 	} else if crackedCount > 0 {
@@ -3104,6 +3246,46 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 	}
 
 	return nil
+}
+
+// dispatchFirstCrackNotification sends a notification when the first hash is cracked in a hashlist
+func (s *JobWebSocketIntegration) dispatchFirstCrackNotification(ctx context.Context, hashlist *models.HashList, jobExec *models.JobExecution) {
+	dispatcher := services.GetGlobalDispatcher()
+	if dispatcher == nil {
+		debug.Warning("Notification dispatcher not available, skipping first crack notification")
+		return
+	}
+
+	if jobExec.CreatedBy == nil {
+		debug.Warning("Job execution has no creator, skipping first crack notification")
+		return
+	}
+
+	params := models.NotificationDispatchParams{
+		UserID:  *jobExec.CreatedBy,
+		Type:    models.NotificationTypeFirstCrack,
+		Title:   "First Crack!",
+		Message: fmt.Sprintf("First hash cracked in '%s'!", hashlist.Name),
+		Data: map[string]interface{}{
+			"hashlist_id":   hashlist.ID,
+			"hashlist_name": hashlist.Name,
+			"job_id":        jobExec.ID.String(),
+			"job_name":      jobExec.Name,
+		},
+		SourceType: "hashlist",
+		SourceID:   strconv.FormatInt(hashlist.ID, 10),
+	}
+
+	if err := dispatcher.Dispatch(ctx, params); err != nil {
+		debug.Error("Failed to dispatch first crack notification: %v", err)
+	} else {
+		debug.Log("First crack notification dispatched", map[string]interface{}{
+			"hashlist_id":   hashlist.ID,
+			"hashlist_name": hashlist.Name,
+			"job_id":        jobExec.ID,
+			"user_id":       jobExec.CreatedBy,
+		})
+	}
 }
 
 // GetTaskProgress returns the current progress for a task

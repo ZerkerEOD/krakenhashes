@@ -1,0 +1,195 @@
+{
+  "title": "通知",
+  "connected": "通知",
+  "disconnected": "重新连接中...",
+  "empty": "暂无通知",
+  "markAllRead": "全部标为已读",
+  "markRead": "标为已读",
+  "viewAll": "查看所有通知",
+  "deleteSelected": "删除 {{count}} 个已选",
+  "selectAll": "全选",
+
+  "aria": {
+    "bellButton": "显示通知"
+  },
+
+  "center": {
+    "title": "通知中心",
+    "description": "查看和管理您的通知"
+  },
+
+  "filters": {
+    "category": "类别",
+    "status": "状态",
+    "allCategories": "所有类别",
+    "all": "全部",
+    "unread": "未读",
+    "read": "已读"
+  },
+
+  "categories": {
+    "job": "作业",
+    "agent": "代理",
+    "security": "安全",
+    "system": "系统"
+  },
+
+  "types": {
+    "job_started": "作业已开始",
+    "job_completed": "作业已完成",
+    "job_failed": "作业失败",
+    "first_crack": "首次破解",
+    "task_completed_with_cracks": "任务完成报告",
+    "agent_offline": "代理离线",
+    "agent_error": "代理错误",
+    "security_suspicious_login": "可疑登录",
+    "security_mfa_disabled": "MFA已禁用",
+    "security_password_changed": "密码已更改",
+    "webhook_failure": "Webhook失败"
+  },
+
+  "typeDescriptions": {
+    "job_started": "作业开始执行时",
+    "job_completed": "作业成功完成时",
+    "job_failed": "作业失败时",
+    "first_crack": "首个哈希被破解时（即时通知）",
+    "task_completed_with_cracks": "任务完成时",
+    "agent_offline": "代理离线时（缓冲期后）",
+    "agent_error": "代理报告严重错误时",
+    "security_suspicious_login": "从新位置或设备登录",
+    "security_mfa_disabled": "MFA关闭时（强制）",
+    "security_password_changed": "密码更改时（强制）",
+    "webhook_failure": "Webhook投递失败时"
+  },
+
+  "channels": {
+    "inApp": "应用内",
+    "email": "邮件",
+    "webhook": "Webhook"
+  },
+
+  "settings": {
+    "title": "通知设置",
+    "description": "配置接收通知的方式和时机",
+    "enabledChannels": "启用的渠道",
+    "taskReportMode": "何时通知",
+    "taskReportModeOnlyIfCracks": "仅在发现破解时",
+    "taskReportModeAlways": "始终通知",
+    "modeUpdated": "任务报告模式已更新",
+    "onlyIfCracks": "仅在发现破解时",
+    "always": "始终通知",
+    "mandatory": "强制",
+    "mandatoryDescription": "此通知无法禁用",
+    "emailNotConfigured": "邮件网关未配置",
+    "emailNotConfiguredWarning": "邮件网关未配置。电子邮件通知目前不可用。",
+    "noWebhooksConfigured": "未配置活动的webhook",
+    "toggleAll": "全部切换"
+  },
+
+  "webhooks": {
+    "title": "Webhook配置",
+    "description": "管理您的Webhook集成",
+    "name": "名称",
+    "url": "URL",
+    "secret": "密钥",
+    "secretPlaceholder": "可选的webhook密钥",
+    "isActive": "启用",
+    "notificationTypes": "通知类型",
+    "allTypes": "所有类型",
+    "retryCount": "重试次数",
+    "timeout": "超时（秒）",
+    "lastTriggered": "上次触发",
+    "lastSuccess": "上次成功",
+    "lastError": "上次错误",
+    "totalSent": "发送总数",
+    "totalFailed": "失败总数",
+    "create": "创建Webhook",
+    "edit": "编辑Webhook",
+    "delete": "删除Webhook",
+    "deleteConfirm": "确定要删除此Webhook吗？",
+    "test": "测试Webhook",
+    "testUrl": "测试URL",
+    "testSuccess": "Webhook测试成功",
+    "testFailed": "Webhook测试失败"
+  },
+
+  "admin": {
+    "title": "通知设置",
+    "globalWebhook": {
+      "title": "全局Webhook",
+      "description": "为所有通知配置系统级Webhook",
+      "enabled": "启用全局webhook",
+      "url": "Webhook URL",
+      "secret": "Webhook密钥",
+      "customHeaders": "自定义头部（JSON）",
+      "test": "测试全局Webhook",
+      "saved": "全局Webhook设置已保存"
+    },
+    "agentOffline": {
+      "title": "代理离线缓冲",
+      "description": "配置发送代理离线通知前的等待时间",
+      "bufferMinutes": "缓冲分钟数",
+      "bufferHelp": "在通知代理离线前等待此分钟数",
+      "saved": "代理离线设置已保存"
+    },
+    "userWebhooks": {
+      "title": "用户Webhook",
+      "description": "查看所有用户配置的Webhook",
+      "username": "用户名",
+      "email": "邮箱",
+      "empty": "未配置用户Webhook"
+    }
+  },
+
+  "auditLog": {
+    "title": "审计日志",
+    "description": "所有用户的安全和关键事件",
+    "noData": "未找到审计日志条目",
+    "columns": {
+      "time": "时间",
+      "severity": "严重程度",
+      "eventType": "事件类型",
+      "user": "用户",
+      "title": "标题",
+      "ip": "IP地址"
+    },
+    "filters": {
+      "eventType": "事件类型",
+      "severity": "严重程度",
+      "startDate": "开始日期",
+      "endDate": "结束日期",
+      "all": "全部",
+      "clear": "清除筛选"
+    },
+    "severity": {
+      "critical": "严重",
+      "warning": "警告",
+      "info": "信息"
+    },
+    "details": {
+      "message": "消息",
+      "ipAddress": "IP地址",
+      "userAgent": "用户代理",
+      "source": "来源",
+      "data": "附加数据"
+    },
+    "errors": {
+      "loadFailed": "加载审计日志失败"
+    }
+  },
+
+  "systemAlert": {
+    "title": "系统警报",
+    "dismiss": "忽略",
+    "dismissAll": "忽略全部"
+  },
+
+  "errors": {
+    "fetchFailed": "加载通知失败",
+    "markReadFailed": "标记通知为已读失败",
+    "deleteFailed": "删除通知失败",
+    "webhookCreateFailed": "创建webhook失败",
+    "webhookUpdateFailed": "更新webhook失败",
+    "webhookDeleteFailed": "删除webhook失败"
+  }
+}

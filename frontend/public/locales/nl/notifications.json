@@ -1,0 +1,195 @@
+{
+  "title": "Meldingen",
+  "connected": "Meldingen",
+  "disconnected": "Opnieuw verbinden...",
+  "empty": "Geen meldingen",
+  "markAllRead": "Alles als gelezen markeren",
+  "markRead": "Als gelezen markeren",
+  "viewAll": "Alle meldingen bekijken",
+  "deleteSelected": "{{count}} geselecteerd verwijderen",
+  "selectAll": "Alles selecteren",
+
+  "aria": {
+    "bellButton": "Meldingen weergeven"
+  },
+
+  "center": {
+    "title": "Meldingscentrum",
+    "description": "Bekijk en beheer uw meldingen"
+  },
+
+  "filters": {
+    "category": "Categorie",
+    "status": "Status",
+    "allCategories": "Alle categorieën",
+    "all": "Alle",
+    "unread": "Ongelezen",
+    "read": "Gelezen"
+  },
+
+  "categories": {
+    "job": "Taak",
+    "agent": "Agent",
+    "security": "Beveiliging",
+    "system": "Systeem"
+  },
+
+  "types": {
+    "job_started": "Taak gestart",
+    "job_completed": "Taak voltooid",
+    "job_failed": "Taak mislukt",
+    "first_crack": "Eerste crack",
+    "task_completed_with_cracks": "Taakrapport",
+    "agent_offline": "Agent offline",
+    "agent_error": "Agent fout",
+    "security_suspicious_login": "Verdachte aanmelding",
+    "security_mfa_disabled": "MFA uitgeschakeld",
+    "security_password_changed": "Wachtwoord gewijzigd",
+    "webhook_failure": "Webhook mislukt"
+  },
+
+  "typeDescriptions": {
+    "job_started": "Wanneer een taak begint",
+    "job_completed": "Wanneer een taak succesvol is voltooid",
+    "job_failed": "Wanneer een taak mislukt",
+    "first_crack": "Wanneer de eerste hash is gekraakt (directe melding)",
+    "task_completed_with_cracks": "Wanneer een taak is voltooid",
+    "agent_offline": "Wanneer een agent offline gaat (na bufferperiode)",
+    "agent_error": "Wanneer een agent een kritieke fout meldt",
+    "security_suspicious_login": "Aanmelding vanaf nieuwe locatie of apparaat",
+    "security_mfa_disabled": "Wanneer MFA wordt uitgeschakeld (verplicht)",
+    "security_password_changed": "Wanneer wachtwoord wordt gewijzigd (verplicht)",
+    "webhook_failure": "Wanneer webhook-levering mislukt"
+  },
+
+  "channels": {
+    "inApp": "In-App",
+    "email": "E-mail",
+    "webhook": "Webhook"
+  },
+
+  "settings": {
+    "title": "Meldingsinstellingen",
+    "description": "Configureer hoe en wanneer u meldingen ontvangt",
+    "enabledChannels": "Ingeschakelde kanalen",
+    "taskReportMode": "Wanneer melden",
+    "taskReportModeOnlyIfCracks": "Alleen bij gevonden cracks",
+    "taskReportModeAlways": "Altijd melden",
+    "modeUpdated": "Taakrapportmodus bijgewerkt",
+    "onlyIfCracks": "Alleen bij gevonden cracks",
+    "always": "Altijd melden",
+    "mandatory": "Verplicht",
+    "mandatoryDescription": "Deze melding kan niet worden uitgeschakeld",
+    "emailNotConfigured": "E-mail gateway is niet geconfigureerd",
+    "emailNotConfiguredWarning": "E-mail gateway is niet geconfigureerd. E-mailmeldingen zijn momenteel niet beschikbaar.",
+    "noWebhooksConfigured": "Geen actieve webhooks geconfigureerd",
+    "toggleAll": "Alles omschakelen"
+  },
+
+  "webhooks": {
+    "title": "Webhook-configuratie",
+    "description": "Beheer uw webhook-integraties",
+    "name": "Naam",
+    "url": "URL",
+    "secret": "Geheim",
+    "secretPlaceholder": "Optioneel webhook-geheim",
+    "isActive": "Actief",
+    "notificationTypes": "Meldingstypen",
+    "allTypes": "Alle typen",
+    "retryCount": "Aantal pogingen",
+    "timeout": "Time-out (seconden)",
+    "lastTriggered": "Laatst geactiveerd",
+    "lastSuccess": "Laatste succes",
+    "lastError": "Laatste fout",
+    "totalSent": "Totaal verzonden",
+    "totalFailed": "Totaal mislukt",
+    "create": "Webhook aanmaken",
+    "edit": "Webhook bewerken",
+    "delete": "Webhook verwijderen",
+    "deleteConfirm": "Weet u zeker dat u deze webhook wilt verwijderen?",
+    "test": "Webhook testen",
+    "testUrl": "URL testen",
+    "testSuccess": "Webhook-test geslaagd",
+    "testFailed": "Webhook-test mislukt"
+  },
+
+  "admin": {
+    "title": "Meldingsinstellingen",
+    "globalWebhook": {
+      "title": "Globale Webhook",
+      "description": "Configureer een systeembrede webhook voor alle meldingen",
+      "enabled": "Globale webhook inschakelen",
+      "url": "Webhook-URL",
+      "secret": "Webhook-geheim",
+      "customHeaders": "Aangepaste headers (JSON)",
+      "test": "Globale webhook testen",
+      "saved": "Globale webhook-instellingen opgeslagen"
+    },
+    "agentOffline": {
+      "title": "Agent Offline Buffer",
+      "description": "Configureer de wachttijd voor het verzenden van agent-offline meldingen",
+      "bufferMinutes": "Bufferminuten",
+      "bufferHelp": "Dit aantal minuten wachten voordat over offline agents wordt gemeld",
+      "saved": "Agent offline-instellingen opgeslagen"
+    },
+    "userWebhooks": {
+      "title": "Gebruikers-webhooks",
+      "description": "Bekijk alle door gebruikers geconfigureerde webhooks",
+      "username": "Gebruikersnaam",
+      "email": "E-mail",
+      "empty": "Geen gebruikers-webhooks geconfigureerd"
+    }
+  },
+
+  "auditLog": {
+    "title": "Auditlogboek",
+    "description": "Beveiligings- en kritieke gebeurtenissen van alle gebruikers",
+    "noData": "Geen auditlogboek-items gevonden",
+    "columns": {
+      "time": "Tijd",
+      "severity": "Ernst",
+      "eventType": "Gebeurtenistype",
+      "user": "Gebruiker",
+      "title": "Titel",
+      "ip": "IP-adres"
+    },
+    "filters": {
+      "eventType": "Gebeurtenistype",
+      "severity": "Ernst",
+      "startDate": "Startdatum",
+      "endDate": "Einddatum",
+      "all": "Alle",
+      "clear": "Filters wissen"
+    },
+    "severity": {
+      "critical": "Kritiek",
+      "warning": "Waarschuwing",
+      "info": "Info"
+    },
+    "details": {
+      "message": "Bericht",
+      "ipAddress": "IP-adres",
+      "userAgent": "User-Agent",
+      "source": "Bron",
+      "data": "Aanvullende gegevens"
+    },
+    "errors": {
+      "loadFailed": "Auditlogboek kon niet worden geladen"
+    }
+  },
+
+  "systemAlert": {
+    "title": "Systeemwaarschuwing",
+    "dismiss": "Negeren",
+    "dismissAll": "Alles negeren"
+  },
+
+  "errors": {
+    "fetchFailed": "Meldingen konden niet worden geladen",
+    "markReadFailed": "Melding kon niet als gelezen worden gemarkeerd",
+    "deleteFailed": "Meldingen konden niet worden verwijderd",
+    "webhookCreateFailed": "Webhook kon niet worden aangemaakt",
+    "webhookUpdateFailed": "Webhook kon niet worden bijgewerkt",
+    "webhookDeleteFailed": "Webhook kon niet worden verwijderd"
+  }
+}

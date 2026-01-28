@@ -635,7 +635,51 @@ func (s *Service) handleErrorReport(ctx context.Context, agent *models.Agent, ms
 		return fmt.Errorf("failed to update agent status: %w", err)
 	}
 
+	// Dispatch agent error notification to agent owner
+	go s.dispatchAgentErrorNotification(ctx, agent, &payload)
+
 	return nil
+}
+
+// dispatchAgentErrorNotification sends an agent error notification to the agent owner
+func (s *Service) dispatchAgentErrorNotification(ctx context.Context, agent *models.Agent, payload *ErrorReportPayload) {
+	dispatcher := services.GetGlobalDispatcher()
+	if dispatcher == nil {
+		debug.Warning("Notification dispatcher not available, skipping agent error notification")
+		return
+	}
+
+	// Check if agent has an owner
+	if agent.OwnerID == nil {
+		debug.Warning("Agent %d has no owner, skipping error notification", agent.ID)
+		return
+	}
+
+	params := models.NotificationDispatchParams{
+		UserID:  *agent.OwnerID,
+		Type:    models.NotificationTypeAgentError,
+		Title:   fmt.Sprintf("Agent '%s' Error", agent.Name),
+		Message: fmt.Sprintf("Agent reported an error: %s", payload.Error),
+		Data: map[string]interface{}{
+			"AgentID":    agent.ID,
+			"AgentName":  agent.Name,
+			"Error":      payload.Error,
+			"StackTrace": payload.Stack,
+			"Context":    payload.Context,
+			"ReportedAt": payload.ReportedAt.Format(time.RFC3339),
+		},
+		SourceType: "agent",
+		SourceID:   uuid.New().String(), // Unique per error event - each error is distinct
+	}
+
+	if err := dispatcher.Dispatch(ctx, params); err != nil {
+		debug.Error("Failed to dispatch agent error notification: %v", err)
+	} else {
+		debug.Log("Agent error notification dispatched", map[string]interface{}{
+			"agent_id":   agent.ID,
+			"agent_name": agent.Name,
+		})
+	}
 }
 
 // handleHardwareInfo processes hardware information messages

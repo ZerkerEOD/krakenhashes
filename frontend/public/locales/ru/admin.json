@@ -999,6 +999,7 @@
         "fromEmail": "Email отправителя",
         "fromName": "Имя отправителя",
         "domain": "Домен",
+        "region": "Регион",
         "monthlyLimit": "Месячный лимит",
         "skipTlsVerify": "Пропустить проверку TLS-сертификата (небезопасно, не рекомендуется)"
       },
@@ -1018,7 +1019,9 @@
         "smtp": "SMTP",
         "encryptionNone": "Без шифрования (Порт 25)",
         "encryptionStarttls": "STARTTLS (Порт 587)",
-        "encryptionTls": "TLS/SSL (Порт 465)"
+        "encryptionTls": "TLS/SSL (Порт 465)",
+        "regionUS": "США (api.mailgun.net)",
+        "regionEU": "ЕС (api.eu.mailgun.net)"
       },
       "buttons": {
         "edit": "Редактировать конфигурацию",

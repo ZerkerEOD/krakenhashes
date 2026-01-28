@@ -1,5 +1,7 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { Box, Tabs, Tab, Typography, Paper, TextField, Button, Alert, CircularProgress } from '@mui/material';
+import { Box, Tabs, Tab, Typography, Paper, TextField, Button, Alert, CircularProgress, IconButton } from '@mui/material';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { useTranslation } from 'react-i18next';
 import { EmailSettings } from './EmailSettings';
 import { useAuth } from '../../contexts/AuthContext';
@@ -11,6 +13,7 @@ import { HashTypeManager } from '../../components/admin/HashTypeManager';
 import JobExecutionSettings from '../../components/admin/JobExecutionSettings';
 import MonitoringSettings from '../../components/admin/MonitoringSettings';
 import AgentDownloadSettings from '../../components/admin/AgentDownloadSettings';
+import NotificationSettings from '../../components/admin/NotificationSettings';
 import { useSnackbar } from 'notistack';
 import { updateAuthSettings } from '../../services/auth';
 import { getDefaultClientRetentionSetting, updateDefaultClientRetentionSetting } from '../../services/api';
@@ -164,7 +167,7 @@ export const AdminSettings = () => {
   const [currentTab, setCurrentTab] = useState(() => {
     const savedTab = localStorage.getItem('adminSettingsTab');
     const initialTab = savedTab ? parseInt(savedTab, 10) : 0;
-    return initialTab >= 0 && initialTab < 10 ? initialTab : 0;
+    return initialTab >= 0 && initialTab < 11 ? initialTab : 0;
   });
 
   const [loading, setLoading] = useState(false);
@@ -193,6 +196,16 @@ export const AdminSettings = () => {
             value={currentTab}
             onChange={handleTabChange}
             aria-label="admin settings tabs"
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
+            sx={{
+              '& .MuiTabs-scrollButtons': {
+                '&.Mui-disabled': {
+                  opacity: 0.3,
+                },
+              },
+            }}
           >
             <Tab label={t('tabs.emailSettings') as string} />
             <Tab label={t('tabs.authenticationSettings') as string} />
@@ -204,6 +217,7 @@ export const AdminSettings = () => {
             <Tab label={t('tabs.jobExecution') as string} />
             <Tab label={t('tabs.monitoring') as string} />
             <Tab label={t('tabs.agentDownloads') as string} />
+            <Tab label={t('tabs.notifications') as string} />
           </Tabs>
         </Box>
 
@@ -253,6 +267,9 @@ export const AdminSettings = () => {
         </TabPanel>
         <TabPanel value={currentTab} index={9}>
           <AgentDownloadSettings />
+        </TabPanel>
+        <TabPanel value={currentTab} index={10}>
+          <NotificationSettings />
         </TabPanel>
       </Paper>
     </Box>

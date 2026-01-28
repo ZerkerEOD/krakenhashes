@@ -18,6 +18,7 @@ type MailgunConfig struct {
 	Domain    string `json:"domain"`
 	FromEmail string `json:"from_email"`
 	FromName  string `json:"from_name"`
+	Region    string `json:"region"` // "us" (default) or "eu"
 }
 
 // mailgunProvider implements the Provider interface for Mailgun
@@ -64,6 +65,13 @@ func (p *mailgunProvider) Initialize(cfg *emailtypes.Config) error {
 	}
 
 	p.mg = mailgun.NewMailgun(mgConfig.Domain, cfg.APIKey)
+
+	// Set API base URL based on region (EU accounts use different endpoint)
+	if strings.ToLower(mgConfig.Region) == "eu" {
+		p.mg.SetAPIBase(mailgun.APIBaseEU)
+		debug.Info("using Mailgun EU region endpoint")
+	}
+
 	p.domain = mgConfig.Domain
 	p.fromName = mgConfig.FromName
 	p.fromEmail = mgConfig.FromEmail

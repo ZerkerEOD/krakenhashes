@@ -999,6 +999,7 @@
         "fromEmail": "Correo remitente",
         "fromName": "Nombre remitente",
         "domain": "Dominio",
+        "region": "Región",
         "monthlyLimit": "Limite mensual",
         "skipTlsVerify": "Omitir verificacion de certificado TLS (inseguro, no recomendado)"
       },
@@ -1018,7 +1019,9 @@
         "smtp": "SMTP",
         "encryptionNone": "Ninguno (Puerto 25)",
         "encryptionStarttls": "STARTTLS (Puerto 587)",
-        "encryptionTls": "TLS/SSL (Puerto 465)"
+        "encryptionTls": "TLS/SSL (Puerto 465)",
+        "regionUS": "EE.UU. (api.mailgun.net)",
+        "regionEU": "UE (api.eu.mailgun.net)"
       },
       "buttons": {
         "edit": "Editar configuracion",

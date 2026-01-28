@@ -19,7 +19,8 @@
     "userManagement": "Управление пользователями",
     "presetJobs": "Шаблоны заданий",
     "jobWorkflows": "Рабочие процессы",
-    "diagnostics": "Диагностика"
+    "diagnostics": "Диагностика",
+    "auditLog": "Журнал аудита"
   },
   "userMenu": {
     "userSettings": "Настройки пользователя",

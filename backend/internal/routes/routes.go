@@ -237,6 +237,7 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 
 	SetupAdminRoutes(jwtRouter, database, emailService, adminJobsHandler, binaryManager, ssoManager) // Pass adminJobsHandler, binaryManager, and ssoManager
 	SetupUserRoutes(jwtRouter, database, appConfig.DataDir, binaryManager, agentService)
+	SetupNotificationRoutes(jwtRouter, database, emailService) // Enhanced notification system
 	SetupMFARoutes(jwtRouter, mfaHandler, database, emailService)
 	SetupPasskeyRoutes(jwtRouter, authHandler, database)
 	SetupAdminPasskeyRoutes(jwtRouter, authHandler, database)
