@@ -1,0 +1,85 @@
+# =============================================================================
+# KrakenHashes Agent - Docker Compose (NVIDIA GPU)
+# =============================================================================
+#
+# This compose file runs the KrakenHashes agent with NVIDIA GPU support.
+#
+# Prerequisites:
+#   1. NVIDIA drivers installed on host
+#   2. NVIDIA Container Toolkit installed:
+#      https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
+#   3. .env file configured (copy from .env.example)
+#
+# Quick Start:
+#   cp .env.example .env
+#   # Edit .env with your KH_HOST and KH_CLAIM_CODE
+#   docker-compose up -d
+#
+# View Logs:
+#   docker-compose logs -f
+#
+# Stop:
+#   docker-compose down
+#
+# =============================================================================
+
+services:
+  krakenhashes-agent:
+    image: zerkereod/krakenhashes-agent-nvidia:latest
+    container_name: krakenhashes-agent
+    restart: unless-stopped
+
+    # GPU configuration - requires NVIDIA Container Toolkit on host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all  # Use all available GPUs
+              capabilities: [gpu, compute, utility]
+
+    # Environment variables for agent configuration
+    environment:
+      # Required: Backend server connection
+      - KH_HOST=${KH_HOST}
+      - KH_PORT=${KH_PORT:-31337}
+      - USE_TLS=${USE_TLS:-true}
+
+      # Required for first run: Claim code for registration
+      # Can be removed after successful registration
+      - KH_CLAIM_CODE=${KH_CLAIM_CODE:-}
+
+      # Optional: Logging configuration
+      - DEBUG=${DEBUG:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+      # Optional: Hashcat parameters
+      - HASHCAT_EXTRA_PARAMS=${HASHCAT_EXTRA_PARAMS:-}
+
+      # NVIDIA GPU settings (automatic with Container Toolkit)
+      - NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+    # Persistent storage
+    volumes:
+      # Agent configuration (certificates, API keys, credentials)
+      # This persists across container restarts/updates
+      - agent_config:/app/config
+
+      # Agent data (hashcat binaries, wordlists, rules, hashlists)
+      # Downloaded from backend during normal operation
+      - agent_data:/app/data
+
+    # Logging configuration
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# Named volumes for data persistence
+volumes:
+  agent_config:
+    name: krakenhashes_agent_config
+  agent_data:
+    name: krakenhashes_agent_data

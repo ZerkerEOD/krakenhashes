@@ -1,0 +1,88 @@
+# =============================================================================
+# KrakenHashes Agent - AMD ROCm Support
+# =============================================================================
+# This Dockerfile builds a containerized KrakenHashes agent with AMD GPU
+# support via ROCm runtime. Hashcat is NOT bundled - it syncs from the backend
+# server during normal operation, identical to bare-metal agent installations.
+#
+# Prerequisites:
+#   - AMD GPU with ROCm support (see: https://rocm.docs.amd.com/en/latest/compatibility/compatibility-matrix.html)
+#   - ROCm drivers installed on host
+#   - /dev/kfd and /dev/dri devices accessible
+#
+# Build:
+#   GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o krakenhashes-agent ./cmd/agent
+#   docker build -f Dockerfile.rocm -t krakenhashes-agent:rocm .
+#
+# Run:
+#   docker run --device=/dev/kfd --device=/dev/dri --group-add video --group-add render \
+#     -e KH_HOST=your-server -e KH_CLAIM_CODE=xxx krakenhashes-agent:rocm
+# =============================================================================
+
+ARG ROCM_VERSION=6.0
+ARG UBUNTU_VERSION=22.04
+
+# ROCm base image with OpenCL and HIP runtime
+FROM rocm/dev-ubuntu-${UBUNTU_VERSION}:${ROCM_VERSION}
+
+ARG AGENT_VERSION=dev
+
+# Labels for container metadata
+LABEL org.opencontainers.image.title="KrakenHashes Agent (ROCm)" \
+      org.opencontainers.image.description="GPU-enabled agent for distributed password cracking with AMD ROCm support" \
+      org.opencontainers.image.version="${AGENT_VERSION}" \
+      org.opencontainers.image.source="https://github.com/ZerkerEOD/krakenhashes" \
+      org.opencontainers.image.vendor="ZerkerEOD" \
+      org.opencontainers.image.licenses="MIT"
+
+# Install runtime dependencies required by hashcat
+# These packages are needed when hashcat is downloaded from the backend:
+#   - ca-certificates: TLS certificate validation for backend connection
+#   - pciutils: GPU device detection (lspci)
+#   - p7zip-full: Extract hashcat archives (7z format)
+# Note: ROCm base image already includes OpenCL runtime
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    pciutils \
+    p7zip-full \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user for security
+# Using UID/GID 1000 to match common host user IDs
+# Add user to video and render groups for GPU access
+RUN groupadd -g 1000 krakenhashes && \
+    useradd -u 1000 -g krakenhashes -d /home/krakenhashes -m -s /bin/bash krakenhashes && \
+    usermod -aG video,render krakenhashes
+
+# Create directory structure
+# /app/config - Agent configuration, certificates, credentials
+# /app/data   - Hashcat binaries, wordlists, rules, hashlists (synced from backend)
+RUN mkdir -p /app/config /app/data && \
+    chown -R krakenhashes:krakenhashes /app
+
+# Copy pre-built agent binary
+# Binary must be built for linux/amd64 before docker build:
+#   GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o krakenhashes-agent ./cmd/agent
+COPY --chown=krakenhashes:krakenhashes krakenhashes-agent /app/krakenhashes-agent
+RUN chmod +x /app/krakenhashes-agent
+
+# Set working directory and switch to non-root user
+WORKDIR /app
+USER krakenhashes
+
+# Environment defaults
+# These can be overridden via docker run -e or docker-compose environment
+ENV KH_CONFIG_DIR=/app/config \
+    KH_DATA_DIR=/app/data \
+    USE_TLS=true \
+    DEBUG=false \
+    LOG_LEVEL=INFO
+
+# Health check - verify agent process is running
+# start-period allows time for registration and hashcat sync on first run
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD pgrep -f krakenhashes-agent || exit 1
+
+# Entry point - run the agent
+# All configuration via environment variables
+ENTRYPOINT ["/app/krakenhashes-agent"]

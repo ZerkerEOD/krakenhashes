@@ -1,0 +1,274 @@
+name: Build Agent Docker Images
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'agent/**'
+      - 'versions.json'
+      - '.github/workflows/build-agent-image.yml'
+  push:
+    tags:
+      - 'v*'
+
+env:
+  REGISTRY: docker.io
+  NVIDIA_IMAGE: zerkereod/krakenhashes-agent-nvidia
+  AMD_IMAGE: zerkereod/krakenhashes-agent-amd
+
+jobs:
+  # Check if agent files actually changed (for releases)
+  check-changes:
+    name: Check Agent Changes
+    runs-on: ubuntu-latest
+    outputs:
+      agent_changed: ${{ steps.check.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history for tag comparison
+
+      - name: Check for agent changes
+        id: check
+        run: |
+          if [ "${{ github.event_name }}" = "push" ] && [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            # For tags, check if agent version changed from previous tag
+            PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+            if [ -z "$PREV_TAG" ]; then
+              echo "No previous tag found, building"
+              echo "changed=true" >> $GITHUB_OUTPUT
+            else
+              CURRENT_AGENT=$(jq -r .agent versions.json)
+              git show $PREV_TAG:versions.json > /tmp/prev_versions.json 2>/dev/null || echo '{"agent":"0.0.0"}' > /tmp/prev_versions.json
+              PREV_AGENT=$(jq -r .agent /tmp/prev_versions.json 2>/dev/null || echo "0.0.0")
+              if [ "$CURRENT_AGENT" != "$PREV_AGENT" ]; then
+                echo "Agent version changed: $PREV_AGENT -> $CURRENT_AGENT"
+                echo "changed=true" >> $GITHUB_OUTPUT
+              else
+                echo "Agent version unchanged: $CURRENT_AGENT"
+                echo "changed=false" >> $GITHUB_OUTPUT
+              fi
+            fi
+          else
+            # For branch pushes, path filter already handles this
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+  # Build agent binary (linux/amd64 only for Docker)
+  build-binary:
+    name: Build Agent Binary
+    needs: check-changes
+    if: needs.check-changes.outputs.agent_changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: agent/go.sum
+
+      - name: Get agent version
+        id: version
+        run: |
+          echo "VERSION=$(jq -r .agent versions.json)" >> $GITHUB_OUTPUT
+          echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Build agent binary
+        working-directory: ./agent
+        env:
+          GOOS: linux
+          GOARCH: amd64
+          CGO_ENABLED: 0
+        run: |
+          VERSION=${{ steps.version.outputs.VERSION }}
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            # Release build - clean version
+            LDFLAGS="-s -w -X github.com/ZerkerEOD/krakenhashes/agent/internal/version.Version=${VERSION}"
+          else
+            # Dev build - version with commit
+            LDFLAGS="-s -w -X github.com/ZerkerEOD/krakenhashes/agent/internal/version.Version=${VERSION}-${{ steps.version.outputs.SHORT_SHA }}-dev"
+          fi
+          go build -v -ldflags="${LDFLAGS}" -o krakenhashes-agent ./cmd/agent
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-binary-linux-amd64
+          path: ./agent/krakenhashes-agent
+          retention-days: 1
+
+  # Build and push NVIDIA image
+  build-nvidia:
+    name: Build NVIDIA Image
+    needs: build-binary
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download agent binary
+        uses: actions/download-artifact@v4
+        with:
+          name: agent-binary-linux-amd64
+          path: ./agent
+
+      - name: Make binary executable
+        run: chmod +x ./agent/krakenhashes-agent
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Get version info
+        id: version
+        run: |
+          echo "AGENT_VERSION=$(jq -r .agent versions.json)" >> $GITHUB_OUTPUT
+          echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "IS_RELEASE=true" >> $GITHUB_OUTPUT
+            echo "TAG_VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          else
+            echo "IS_RELEASE=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and push (dev)
+        if: steps.version.outputs.IS_RELEASE == 'false'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./agent
+          file: ./agent/Dockerfile
+          push: true
+          tags: ${{ env.NVIDIA_IMAGE }}:dev
+          build-args: |
+            AGENT_VERSION=${{ steps.version.outputs.AGENT_VERSION }}-${{ steps.version.outputs.SHORT_SHA }}-dev
+          cache-from: type=gha,scope=nvidia
+          cache-to: type=gha,mode=max,scope=nvidia
+
+      - name: Build and push (release)
+        if: steps.version.outputs.IS_RELEASE == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./agent
+          file: ./agent/Dockerfile
+          push: true
+          tags: |
+            ${{ env.NVIDIA_IMAGE }}:latest
+            ${{ env.NVIDIA_IMAGE }}:${{ steps.version.outputs.AGENT_VERSION }}
+          build-args: |
+            AGENT_VERSION=${{ steps.version.outputs.AGENT_VERSION }}
+          cache-from: type=gha,scope=nvidia
+          cache-to: type=gha,mode=max,scope=nvidia
+
+  # Build and push AMD ROCm image
+  build-amd:
+    name: Build AMD ROCm Image
+    needs: build-binary
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download agent binary
+        uses: actions/download-artifact@v4
+        with:
+          name: agent-binary-linux-amd64
+          path: ./agent
+
+      - name: Make binary executable
+        run: chmod +x ./agent/krakenhashes-agent
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Get version info
+        id: version
+        run: |
+          echo "AGENT_VERSION=$(jq -r .agent versions.json)" >> $GITHUB_OUTPUT
+          echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "IS_RELEASE=true" >> $GITHUB_OUTPUT
+          else
+            echo "IS_RELEASE=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and push (dev)
+        if: steps.version.outputs.IS_RELEASE == 'false'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./agent
+          file: ./agent/Dockerfile.rocm
+          push: true
+          tags: ${{ env.AMD_IMAGE }}:dev
+          build-args: |
+            AGENT_VERSION=${{ steps.version.outputs.AGENT_VERSION }}-${{ steps.version.outputs.SHORT_SHA }}-dev
+          cache-from: type=gha,scope=amd
+          cache-to: type=gha,mode=max,scope=amd
+
+      - name: Build and push (release)
+        if: steps.version.outputs.IS_RELEASE == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./agent
+          file: ./agent/Dockerfile.rocm
+          push: true
+          tags: |
+            ${{ env.AMD_IMAGE }}:latest
+            ${{ env.AMD_IMAGE }}:${{ steps.version.outputs.AGENT_VERSION }}
+          build-args: |
+            AGENT_VERSION=${{ steps.version.outputs.AGENT_VERSION }}
+          cache-from: type=gha,scope=amd
+          cache-to: type=gha,mode=max,scope=amd
+
+  # Summary
+  summary:
+    name: Build Summary
+    needs: [build-nvidia, build-amd]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Summary
+        run: |
+          echo "## Agent Docker Images Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            echo "### Release Build: v${VERSION}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**NVIDIA Image:**" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "docker pull ${{ env.NVIDIA_IMAGE }}:latest" >> $GITHUB_STEP_SUMMARY
+            echo "docker pull ${{ env.NVIDIA_IMAGE }}:${VERSION}" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**AMD ROCm Image:**" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "docker pull ${{ env.AMD_IMAGE }}:latest" >> $GITHUB_STEP_SUMMARY
+            echo "docker pull ${{ env.AMD_IMAGE }}:${VERSION}" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### Development Build" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**NVIDIA Image:**" >> $GITHUB_STEP_SUMMARY
+            echo "\`docker pull ${{ env.NVIDIA_IMAGE }}:dev\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**AMD ROCm Image:**" >> $GITHUB_STEP_SUMMARY
+            echo "\`docker pull ${{ env.AMD_IMAGE }}:dev\`" >> $GITHUB_STEP_SUMMARY
+          fi

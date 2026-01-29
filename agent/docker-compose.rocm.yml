@@ -1,0 +1,89 @@
+# =============================================================================
+# KrakenHashes Agent - Docker Compose (AMD ROCm)
+# =============================================================================
+#
+# This compose file runs the KrakenHashes agent with AMD GPU support via ROCm.
+#
+# Prerequisites:
+#   1. AMD GPU with ROCm support
+#      See: https://rocm.docs.amd.com/en/latest/compatibility/compatibility-matrix.html
+#   2. ROCm drivers installed on host
+#      See: https://rocm.docs.amd.com/en/latest/deploy/linux/quick_start.html
+#   3. .env file configured (copy from .env.example)
+#
+# Quick Start:
+#   cp .env.example .env
+#   # Edit .env with your KH_HOST and KH_CLAIM_CODE
+#   docker-compose -f docker-compose.rocm.yml up -d
+#
+# View Logs:
+#   docker-compose -f docker-compose.rocm.yml logs -f
+#
+# Stop:
+#   docker-compose -f docker-compose.rocm.yml down
+#
+# Verify GPU Access:
+#   docker-compose -f docker-compose.rocm.yml exec krakenhashes-agent rocm-smi
+#
+# =============================================================================
+
+services:
+  krakenhashes-agent:
+    image: zerkereod/krakenhashes-agent-amd:latest
+    container_name: krakenhashes-agent-rocm
+    restart: unless-stopped
+
+    # AMD GPU access requires device passthrough
+    # /dev/kfd - Kernel Fusion Driver (GPU compute)
+    # /dev/dri - Direct Rendering Infrastructure (GPU access)
+    devices:
+      - /dev/kfd:/dev/kfd
+      - /dev/dri:/dev/dri
+
+    # Required groups for GPU access
+    # These map to host system's video and render groups
+    group_add:
+      - video
+      - render
+
+    # Environment variables for agent configuration
+    environment:
+      # Required: Backend server connection
+      - KH_HOST=${KH_HOST}
+      - KH_PORT=${KH_PORT:-31337}
+      - USE_TLS=${USE_TLS:-true}
+
+      # Required for first run: Claim code for registration
+      # Can be removed after successful registration
+      - KH_CLAIM_CODE=${KH_CLAIM_CODE:-}
+
+      # Optional: Logging configuration
+      - DEBUG=${DEBUG:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+      # Optional: Hashcat parameters
+      - HASHCAT_EXTRA_PARAMS=${HASHCAT_EXTRA_PARAMS:-}
+
+    # Persistent storage
+    volumes:
+      # Agent configuration (certificates, API keys, credentials)
+      # This persists across container restarts/updates
+      - agent_config:/app/config
+
+      # Agent data (hashcat binaries, wordlists, rules, hashlists)
+      # Downloaded from backend during normal operation
+      - agent_data:/app/data
+
+    # Logging configuration
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# Named volumes for data persistence
+volumes:
+  agent_config:
+    name: krakenhashes_agent_config
+  agent_data:
+    name: krakenhashes_agent_data

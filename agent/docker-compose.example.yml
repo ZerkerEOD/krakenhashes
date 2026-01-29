@@ -1,0 +1,212 @@
+# =============================================================================
+# KrakenHashes Agent - Example Docker Compose Configuration
+# =============================================================================
+#
+# This is a comprehensive example showing all available configuration options.
+# Copy the appropriate sections to your docker-compose.yml file.
+#
+# Quick Start:
+#   1. Copy docker-compose.yml (NVIDIA) or docker-compose.rocm.yml (AMD)
+#   2. Copy .env.example to .env
+#   3. Edit .env with your settings
+#   4. Run: docker-compose up -d
+#
+# =============================================================================
+
+services:
+  # ===========================================================================
+  # NVIDIA GPU Configuration Examples
+  # ===========================================================================
+
+  # Example 1: Use ALL NVIDIA GPUs (default)
+  # Recommended for dedicated cracking machines
+  nvidia-all-gpus:
+    image: zerkereod/krakenhashes-agent-nvidia:latest
+    container_name: krakenhashes-agent
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu, compute, utility]
+    environment:
+      - KH_HOST=${KH_HOST}
+      - KH_PORT=${KH_PORT:-31337}
+      - KH_CLAIM_CODE=${KH_CLAIM_CODE:-}
+      - USE_TLS=${USE_TLS:-true}
+    volumes:
+      - agent_config:/app/config
+      - agent_data:/app/data
+
+  # Example 2: Use specific NUMBER of GPUs
+  # Useful when sharing machine with other workloads
+  nvidia-limited-gpus:
+    image: zerkereod/krakenhashes-agent-nvidia:latest
+    container_name: krakenhashes-agent
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 2  # Use exactly 2 GPUs
+              capabilities: [gpu, compute, utility]
+    environment:
+      - KH_HOST=${KH_HOST}
+      - KH_PORT=${KH_PORT:-31337}
+      - KH_CLAIM_CODE=${KH_CLAIM_CODE:-}
+    volumes:
+      - agent_config:/app/config
+      - agent_data:/app/data
+
+  # Example 3: Use SPECIFIC GPUs by ID
+  # Run 'nvidia-smi -L' to list GPU IDs
+  nvidia-specific-gpus:
+    image: zerkereod/krakenhashes-agent-nvidia:latest
+    container_name: krakenhashes-agent
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['0', '2']  # Use GPU 0 and GPU 2 only
+              capabilities: [gpu, compute, utility]
+    environment:
+      - KH_HOST=${KH_HOST}
+      - KH_PORT=${KH_PORT:-31337}
+      - KH_CLAIM_CODE=${KH_CLAIM_CODE:-}
+    volumes:
+      - agent_config:/app/config
+      - agent_data:/app/data
+
+  # Example 4: Use GPU by UUID (stable across reboots)
+  # Run 'nvidia-smi -L' to get GPU UUIDs
+  nvidia-by-uuid:
+    image: zerkereod/krakenhashes-agent-nvidia:latest
+    container_name: krakenhashes-agent
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['GPU-abc12345-1234-5678-90ab-cdef12345678']
+              capabilities: [gpu, compute, utility]
+    environment:
+      - KH_HOST=${KH_HOST}
+      - KH_PORT=${KH_PORT:-31337}
+      - KH_CLAIM_CODE=${KH_CLAIM_CODE:-}
+    volumes:
+      - agent_config:/app/config
+      - agent_data:/app/data
+
+  # ===========================================================================
+  # AMD ROCm GPU Configuration Example
+  # ===========================================================================
+
+  # AMD GPU with ROCm support
+  # Prerequisites: ROCm drivers on host, /dev/kfd and /dev/dri accessible
+  amd-rocm:
+    image: zerkereod/krakenhashes-agent-amd:latest
+    container_name: krakenhashes-agent-rocm
+    restart: unless-stopped
+    devices:
+      - /dev/kfd:/dev/kfd
+      - /dev/dri:/dev/dri
+    group_add:
+      - video
+      - render
+    environment:
+      - KH_HOST=${KH_HOST}
+      - KH_PORT=${KH_PORT:-31337}
+      - KH_CLAIM_CODE=${KH_CLAIM_CODE:-}
+      - USE_TLS=${USE_TLS:-true}
+    volumes:
+      - agent_config:/app/config
+      - agent_data:/app/data
+
+  # ===========================================================================
+  # Advanced Configuration Example
+  # ===========================================================================
+
+  # Full configuration with all options
+  full-config:
+    image: zerkereod/krakenhashes-agent-nvidia:latest
+    container_name: krakenhashes-agent
+    restart: unless-stopped
+
+    # GPU configuration (NVIDIA)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu, compute, utility]
+
+    environment:
+      # === Required: Backend Connection ===
+      - KH_HOST=${KH_HOST}
+      - KH_PORT=${KH_PORT:-31337}
+      - USE_TLS=${USE_TLS:-true}
+
+      # === Required for First Run ===
+      # Get from Admin UI -> Agents -> Manage Vouchers
+      # Remove after successful registration
+      - KH_CLAIM_CODE=${KH_CLAIM_CODE:-}
+
+      # === Optional: Logging ===
+      - DEBUG=${DEBUG:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+      # === Optional: Hashcat Configuration ===
+      # Extra parameters passed to all hashcat runs
+      # Example: "-O -w 3" for optimized kernels + high workload
+      - HASHCAT_EXTRA_PARAMS=${HASHCAT_EXTRA_PARAMS:-}
+
+      # === Optional: WebSocket Tuning ===
+      # Adjust if experiencing connection issues
+      - KH_WRITE_WAIT=${KH_WRITE_WAIT:-10s}
+      - KH_PONG_WAIT=${KH_PONG_WAIT:-60s}
+      - KH_PING_PERIOD=${KH_PING_PERIOD:-54s}
+
+      # === Optional: File Transfer ===
+      - KH_MAX_CONCURRENT_DOWNLOADS=${KH_MAX_CONCURRENT_DOWNLOADS:-3}
+      - KH_DOWNLOAD_TIMEOUT=${KH_DOWNLOAD_TIMEOUT:-1h}
+
+      # === NVIDIA GPU Settings ===
+      - NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+    volumes:
+      # Persistent configuration
+      - agent_config:/app/config
+
+      # Persistent data (hashcat, wordlists, rules, hashlists)
+      - agent_data:/app/data
+
+      # Optional: Mount local wordlists (read-only)
+      # - /path/to/your/wordlists:/app/data/wordlists/custom:ro
+
+    # Logging configuration
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+
+# ===========================================================================
+# Volumes
+# ===========================================================================
+volumes:
+  agent_config:
+    name: krakenhashes_agent_config
+  agent_data:
+    name: krakenhashes_agent_data

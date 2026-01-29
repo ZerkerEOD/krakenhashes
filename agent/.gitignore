@@ -34,8 +34,9 @@ Thumbs.db
 .env.test.local
 .env.production.local
 
-# Docker
-docker-compose.yml
+# Docker - ignore local overrides, not default compose files
+docker-compose.local.yml
+docker-compose.override.yml
 
 # Cursor
 .cursorignore
