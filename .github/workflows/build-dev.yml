@@ -5,6 +5,14 @@ on:
     branches:
       - master
       - main
+    paths-ignore:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - 'requirements-docs.txt'
+      - '**.md'
+      - '.github/workflows/deploy-docs*.yml'
+      - '.github/workflows/fix-gh-pages.yml'
+      - '.github/workflows/validate-translations.yml'
 
 env:
   REGISTRY: docker.io
