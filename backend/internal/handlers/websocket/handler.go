@@ -292,8 +292,17 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Register client
+	// Register client - close any existing connection for this agent first
+	// This prevents "ghost" connections where an old readPump continues running
+	// but the client is not in the map (race condition with rapid reconnects)
 	h.mu.Lock()
+	if existingClient, ok := h.clients[agent.ID]; ok {
+		debug.Warning("Agent %d: New connection replacing existing connection, closing old one", agent.ID)
+		// Close the old client's send channel to signal writePump to stop
+		close(existingClient.send)
+		// Cancel the old client's context to stop all goroutines
+		existingClient.cancel()
+	}
 	h.clients[agent.ID] = client
 	h.mu.Unlock()
 	debug.Info("Added agent %d to active clients", agent.ID)
