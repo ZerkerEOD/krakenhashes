@@ -157,6 +157,7 @@ nav:
   - Agent Guide:
     - agent-guide/index.md
     - Installation: agent-guide/installation.md
+    - Docker Deployment: agent-guide/docker-deployment.md
     - Configuration: agent-guide/configuration.md
     - Systemd Setup: agent-guide/systemd-setup.md
     - Device Management: agent-guide/device-management.md
