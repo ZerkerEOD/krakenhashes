@@ -4,13 +4,12 @@ on:
   push:
     branches:
       - master
+    tags:
+      - 'v*'
     paths:
       - 'agent/**'
       - 'versions.json'
       - '.github/workflows/build-agent-image.yml'
-  push:
-    tags:
-      - 'v*'
 
 env:
   REGISTRY: docker.io
