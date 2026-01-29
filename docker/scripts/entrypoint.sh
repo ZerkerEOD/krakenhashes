@@ -94,10 +94,13 @@ case "${KH_TLS_MODE:-self-signed}" in
     "certbot")
         if [ -n "${KH_CERTBOT_DOMAIN}" ]; then
             # Create webroot directory for ACME challenges
-            mkdir -p /var/www/certbot
-            chown -R www-data:www-data /var/www/certbot
-            chmod 755 /var/www/certbot
-            echo "Created webroot directory: /var/www/certbot"
+            # Pre-create the full path that certbot needs
+            mkdir -p /var/www/certbot/.well-known/acme-challenge
+            # krakenhashes user needs write access (certbot runs as this user)
+            # www-data (nginx) only needs read access to serve challenge files
+            chown -R krakenhashes:www-data /var/www/certbot
+            chmod -R 775 /var/www/certbot
+            echo "Created webroot directory: /var/www/certbot (owned by krakenhashes:www-data)"
 
             # Check if certificates already exist
             CERT_PATH="/etc/krakenhashes/certs/live/${KH_CERTBOT_DOMAIN}/fullchain.pem"

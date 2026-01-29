@@ -92,6 +92,15 @@
       "copied": "API 密钥已复制到剪贴板"
     }
   },
+  "security": {
+    "title": "安全",
+    "caCertificate": {
+      "title": "CA 证书",
+      "description": "如果使用自签名证书，请下载并安装 CA 证书以信任此服务器。",
+      "download": "下载 CA 证书",
+      "docsLink": "查看 SSL/TLS 文档"
+    }
+  },
   "common": {
     "cancel": "取消",
     "never": "从未",

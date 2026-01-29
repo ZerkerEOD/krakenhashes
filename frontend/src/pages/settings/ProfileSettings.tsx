@@ -23,6 +23,8 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import WarningIcon from '@mui/icons-material/Warning';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import SecurityIcon from '@mui/icons-material/Security';
+import DownloadIcon from '@mui/icons-material/Download';
 import { useAuth } from '../../contexts/AuthContext';
 import { updateUserProfile, ProfileUpdate } from '../../services/user';
 import { getPasswordPolicy } from '../../services/auth';
@@ -520,6 +522,50 @@ const ProfileSettings: React.FC = () => {
               rel="noopener noreferrer"
             >
               {t('apiKey.viewDocs') as string}
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
+
+      {/* Security Settings Card */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            {t('security.title') as string}
+          </Typography>
+
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, mb: 2 }}>
+            <SecurityIcon color="primary" sx={{ mt: 0.5 }} />
+            <Box>
+              <Typography variant="subtitle1" gutterBottom>
+                {t('security.caCertificate.title') as string}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('security.caCertificate.description') as string}
+              </Typography>
+            </Box>
+          </Box>
+
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <Button
+              variant="contained"
+              startIcon={<DownloadIcon />}
+              onClick={() => {
+                const httpPort = 1337;
+                const downloadUrl = `http://${window.location.hostname}:${httpPort}/ca.crt`;
+                window.open(downloadUrl, '_blank');
+              }}
+            >
+              {t('security.caCertificate.download') as string}
+            </Button>
+            <Button
+              variant="text"
+              component={Link}
+              href="https://zerkereod.github.io/krakenhashes/admin-guide/system-setup/ssl-tls/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {t('security.caCertificate.docsLink') as string}
             </Button>
           </Box>
         </CardContent>

@@ -92,6 +92,15 @@
       "copied": "API-Schlüssel in die Zwischenablage kopiert"
     }
   },
+  "security": {
+    "title": "Sicherheit",
+    "caCertificate": {
+      "title": "CA-Zertifikat",
+      "description": "Bei Verwendung von selbstsignierten Zertifikaten laden Sie das CA-Zertifikat herunter und installieren Sie es, um diesem Server zu vertrauen.",
+      "download": "CA-Zertifikat herunterladen",
+      "docsLink": "SSL/TLS-Dokumentation anzeigen"
+    }
+  },
   "common": {
     "cancel": "Abbrechen",
     "never": "Nie",

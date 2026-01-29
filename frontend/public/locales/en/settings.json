@@ -92,6 +92,15 @@
       "copied": "API key copied to clipboard"
     }
   },
+  "security": {
+    "title": "Security",
+    "caCertificate": {
+      "title": "CA Certificate",
+      "description": "If using self-signed certificates, download and install the CA certificate to trust this server.",
+      "download": "Download CA Certificate",
+      "docsLink": "View SSL/TLS Documentation"
+    }
+  },
   "common": {
     "cancel": "Cancel",
     "never": "Never",

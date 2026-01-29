@@ -38,21 +38,19 @@
  * @returns {JSX.Element} Root application component
  */
 
-import React, { useState, Suspense, lazy } from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline, CircularProgress, Box } from '@mui/material';
 import theme from './styles/theme';
 import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
-import CertificateCheck from './components/CertificateCheck';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { TeamFilterProvider } from './contexts/TeamFilterContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { DeletionProgressProvider } from './contexts/DeletionProgressContext';
 import { SnackbarProvider, useSnackbar } from 'notistack';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { getCookie } from './utils/cookies';
 
 // Create a client instance
 const queryClient = new QueryClient();
@@ -104,31 +102,12 @@ const JobAnalyticsPage = lazy(() => import('./pages/admin/JobAnalytics'));
 const SavedCharsetsPage = lazy(() => import('./pages/settings/SavedCharsets'));
 
 const App: React.FC = () => {
-  const [certVerified, setCertVerified] = useState(() => {
-    // Check if we have the ignore cookie
-    const ignoreSSL = getCookie('ignoreSSL');
-    if (ignoreSSL === 'true') {
-      return true;
-    }
-    // Otherwise check if we've already verified the cert
-    return localStorage.getItem('cert_valid') === 'true';
-  });
-
   // Use snackbar for notifications
   const { enqueueSnackbar } = useSnackbar();
 
   const handleNotification = (message: string, variant: 'success' | 'error' | 'warning' | 'info') => {
     enqueueSnackbar(message, { variant });
   };
-
-  if (!certVerified) {
-    return (
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <CertificateCheck onCertVerified={() => setCertVerified(true)} />
-      </ThemeProvider>
-    );
-  }
 
   return (
     <AuthProvider>
