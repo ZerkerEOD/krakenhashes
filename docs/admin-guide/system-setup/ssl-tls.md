@@ -11,10 +11,16 @@ To avoid these warnings, you need to install the KrakenHashes Certificate Author
 ## Downloading the CA Certificate
 
 The CA certificate can be downloaded from:
-- **HTTP endpoint**: `http://your-server:1337/ca.crt`
-- **Via the web interface**: When you see the certificate warning, there's usually an option to download the CA certificate
+- **HTTP endpoint**: `http://your-server:1337/ca.crt` (direct download)
+- **Via the web interface**: Navigate to **User Settings** > **Profile Settings** and click **Download CA Certificate** in the Security section
 
 Save the file as `krakenhashes-ca.crt` for the following instructions.
+
+!!! note "Browser Certificate Warnings"
+    When accessing KrakenHashes with self-signed certificates before installing the CA, your browser will display a security warning. This is expected behavior. You can proceed past the warning (using "Advanced" > "Proceed anyway" or similar) to access the application and download the CA certificate from your profile settings.
+
+!!! warning "WebSocket Features Require CA Installation"
+    Real-time features like notifications use WebSocket connections (WSS). Unlike regular HTTPS requests, browsers **silently reject** WebSocket connections to servers with untrusted certificates - there is no option to proceed past the warning. If you're not receiving real-time notifications, ensure the CA certificate is properly installed and your browser has been restarted.
 
 ## Installation Instructions by Platform
 

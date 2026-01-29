@@ -92,6 +92,15 @@
       "copied": "API-sleutel gekopieerd naar klembord"
     }
   },
+  "security": {
+    "title": "Beveiliging",
+    "caCertificate": {
+      "title": "CA-certificaat",
+      "description": "Bij gebruik van zelfondertekende certificaten, download en installeer het CA-certificaat om deze server te vertrouwen.",
+      "download": "CA-certificaat downloaden",
+      "docsLink": "SSL/TLS-documentatie bekijken"
+    }
+  },
   "common": {
     "cancel": "Annuleren",
     "never": "Nooit",

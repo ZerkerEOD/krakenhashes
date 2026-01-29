@@ -23,73 +23,6 @@ import { AgentWithTask } from '../types/agent';
 // This allows the application to work regardless of hostname/IP
 const API_URL = '';
 
-// Function to fetch and store CA certificate
-const fetchCACertificate = async (): Promise<void> => {
-  try {
-    console.debug('[API] Fetching CA certificate...');
-    // Use HTTP API URL specifically for CA certificate
-    const response = await fetch(`http://${window.location.hostname}:1337/ca.crt`, {
-      method: 'GET',
-      credentials: 'include',
-      mode: 'cors',
-      headers: {
-        'Accept': 'application/x-x509-ca-cert'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch CA certificate: ${response.statusText}`);
-    }
-
-    const certBlob = await response.blob();
-    console.debug('[API] Successfully fetched CA certificate');
-
-    // Create a download link for the user
-    const downloadUrl = window.URL.createObjectURL(certBlob);
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = 'krakenhashes-ca.crt';
-    
-    // Add instructions for the user
-    const instructions = document.createElement('div');
-    instructions.style.position = 'fixed';
-    instructions.style.top = '20px';
-    instructions.style.left = '50%';
-    instructions.style.transform = 'translateX(-50%)';
-    instructions.style.backgroundColor = '#f8d7da';
-    instructions.style.color = '#721c24';
-    instructions.style.padding = '20px';
-    instructions.style.borderRadius = '5px';
-    instructions.style.zIndex = '9999';
-    instructions.innerHTML = `
-      <h3>Security Certificate Required</h3>
-      <p>To use KrakenHashes securely, you need to install our CA certificate:</p>
-      <ol>
-        <li>Click "Download Certificate" below</li>
-        <li>Open the downloaded certificate (krakenhashes-ca.crt)</li>
-        <li>When prompted, select "Trust this CA to identify websites"</li>
-        <li>Complete the installation</li>
-        <li>Restart your browser</li>
-        <li>Refresh this page after installation</li>
-      </ol>
-      <button onclick="this.parentElement.remove()" style="margin-top: 10px; padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
-        Download Certificate
-      </button>
-    `;
-
-    // Add click handler to the button
-    instructions.querySelector('button')?.addEventListener('click', () => {
-      link.click();
-      window.URL.revokeObjectURL(downloadUrl);
-    });
-
-    document.body.appendChild(instructions);
-  } catch (error) {
-    console.error('[API] Error fetching CA certificate:', error);
-    throw error;
-  }
-};
-
 // Debug logging for API calls
 const logApiCall = (method: string, url: string, data?: any) => {
   console.debug(`[API] ${method} ${url}`, data || '');
@@ -193,14 +126,6 @@ api.interceptors.response.use(
       error.config?.url || '',
       error
     );
-
-    // If we get a certificate error, try to fetch and prompt for CA certificate installation
-    if (error.message?.includes('certificate') || error.code === 'CERT_NOT_TRUSTED') {
-      await fetchCACertificate();
-      // Redirect to root to trigger certificate check
-      window.location.href = '/';
-      return Promise.reject(error);
-    }
 
     // Skip logout for network errors (which could be CORS issues)
     if (error.code === 'ERR_NETWORK') {

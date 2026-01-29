@@ -92,6 +92,15 @@
       "copied": "Clave API copiada al portapapeles"
     }
   },
+  "security": {
+    "title": "Seguridad",
+    "caCertificate": {
+      "title": "Certificado CA",
+      "description": "Si usa certificados autofirmados, descargue e instale el certificado CA para confiar en este servidor.",
+      "download": "Descargar certificado CA",
+      "docsLink": "Ver documentación SSL/TLS"
+    }
+  },
   "common": {
     "cancel": "Cancelar",
     "never": "Nunca",
