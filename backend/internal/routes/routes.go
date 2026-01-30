@@ -141,7 +141,7 @@ func CORSMiddleware(next http.Handler) http.Handler {
  *   - JWT authentication (protected routes)
  *   - API Key authentication (agent routes)
  */
-func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentService *services.AgentService, wordlistManager wordlist.Manager, ruleManager rule.Manager, binaryManager binary.Manager, potfileService *services.PotfileService, analyticsQueueService *services.AnalyticsQueueService) {
+func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentService *services.AgentService, wordlistManager wordlist.Manager, ruleManager rule.Manager, binaryManager binary.Manager, potfileService *services.PotfileService, clientPotfileService *services.ClientPotfileService, analyticsQueueService *services.AnalyticsQueueService) {
 	debug.Info("Initializing route configuration")
 
 	// Create our custom DB wrapper
@@ -242,7 +242,7 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	SetupPasskeyRoutes(jwtRouter, authHandler, database)
 	SetupAdminPasskeyRoutes(jwtRouter, authHandler, database)
 	// Use the enhanced WebSocket setup with job integration
-	SetupWebSocketWithJobRoutes(r, agentService, tlsProvider, sqlDB, appConfig, wordlistManager, ruleManager, binaryManager, potfileService)
+	SetupWebSocketWithJobRoutes(r, agentService, tlsProvider, sqlDB, appConfig, wordlistManager, ruleManager, binaryManager, potfileService, clientPotfileService)
 	SetupBinaryRoutes(jwtRouter, sqlDB, appConfig, agentService)
 
 	// Setup wordlist and rule routes
@@ -259,7 +259,7 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	jobsHandler := CreateJobsHandler(database, appConfig.DataDir, binaryManager)
 
 	// Register Hashlist Management Routes (includes user/agent hashlist, clients, hash types, hash search)
-	registerHashlistRoutes(jwtRouter, sqlDB, appConfig, agentService, jobsHandler)
+	registerHashlistRoutes(jwtRouter, sqlDB, appConfig, agentService, clientPotfileService, jobsHandler)
 
 	// Setup WebSocket Routes
 	debug.Info("Setting up WebSocket routes...")

@@ -372,7 +372,10 @@ func main() {
 	defer tokenCleanupService.Stop()
 	debug.Info("Token cleanup service started")
 
-	// Initialize pot-file service
+	// Initialize client potfile repository (needed by both services)
+	clientPotfileRepo := repository.NewClientPotfileRepository(dbWrapper)
+
+	// Initialize pot-file service (unified: handles both global and client potfiles)
 	debug.Info("=== POT-FILE SERVICE INITIALIZATION STARTING ===")
 	debug.Info("About to initialize pot-file service")
 	debug.Info("Initializing pot-file service...")
@@ -385,8 +388,10 @@ func main() {
 		hashRepo,
 		jobUpdateService,
 		potfileHistory,
+		clientRepo,        // For client potfile settings lookup
+		clientPotfileRepo, // For client potfile metadata
 	)
-	
+
 	// Start pot-file service
 	if err := potfileService.Start(context.Background()); err != nil {
 		debug.Error("Failed to start pot-file service: %v", err)
@@ -394,6 +399,23 @@ func main() {
 	} else {
 		debug.Info("Pot-file service started successfully")
 		defer potfileService.Stop()
+	}
+
+	// Initialize client-specific potfile service (thin wrapper, delegates to PotfileService)
+	debug.Info("Initializing client potfile service...")
+	clientPotfileService := services.NewClientPotfileService(
+		appConfig.DataDir,
+		clientPotfileRepo,
+		potfileService, // Delegate to unified PotfileService
+	)
+
+	// Start client potfile service
+	if err := clientPotfileService.Start(context.Background()); err != nil {
+		debug.Error("Failed to start client potfile service: %v", err)
+		// Continue without client potfile service - not fatal
+	} else {
+		debug.Info("Client potfile service started successfully")
+		defer clientPotfileService.Stop()
 	}
 
 	// Initialize analytics queue service
@@ -421,7 +443,7 @@ func main() {
 
 	// Setup routes
 	debug.Info("Setting up routes")
-	routes.SetupRoutes(httpsRouter, sqlDB, tlsProvider, agentService, wordlistManager, ruleManager, binaryManager, potfileService, analyticsQueueService)
+	routes.SetupRoutes(httpsRouter, sqlDB, tlsProvider, agentService, wordlistManager, ruleManager, binaryManager, potfileService, clientPotfileService, analyticsQueueService)
 
 	// Setup CA certificate route on HTTP router
 	debug.Info("Setting up CA certificate route")

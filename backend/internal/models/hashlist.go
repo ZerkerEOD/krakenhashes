@@ -69,15 +69,42 @@ type HashType struct {
 
 // Client represents a client or engagement associated with hashlists.
 type Client struct {
-	ID                  uuid.UUID `json:"id"`                            // Primary key
-	Name                string    `json:"name"`                          // Client name (unique)
-	Description         *string   `json:"description,omitempty"`         // Optional description (Use pointer for optional field)
-	ContactInfo         *string   `json:"contactInfo,omitempty"`         // Optional contact information (Use pointer for optional field)
-	DataRetentionMonths *int      `json:"dataRetentionMonths,omitempty"` // Use pointer for nullable INT (Keep forever=0, Use Default=NULL)
-	ExcludeFromPotfile  bool      `json:"exclude_from_potfile"`          // Flag to exclude cracked passwords from potfile
-	CreatedAt           time.Time `json:"createdAt"`                     // Timestamp of creation
-	UpdatedAt           time.Time `json:"updatedAt"`                     // Timestamp of last update
-	CrackedCount        *int      `json:"cracked_count,omitempty"`       // Count of cracked hashes for this client (computed field)
+	ID                              uuid.UUID `json:"id"`                                          // Primary key
+	Name                            string    `json:"name"`                                        // Client name (unique)
+	Description                     *string   `json:"description,omitempty"`                       // Optional description (Use pointer for optional field)
+	ContactInfo                     *string   `json:"contactInfo,omitempty"`                       // Optional contact information (Use pointer for optional field)
+	DataRetentionMonths             *int      `json:"dataRetentionMonths,omitempty"`               // Use pointer for nullable INT (Keep forever=0, Use Default=NULL)
+	ExcludeFromPotfile              bool      `json:"exclude_from_potfile"`                        // Flag to exclude cracked passwords from global potfile
+	EnableClientPotfile             bool      `json:"enable_client_potfile"`                       // When true, cracked passwords are added to client-specific potfile
+	ContributeToGlobalPotfile       bool      `json:"contribute_to_global_potfile"`                // When true, cracked passwords also go to global potfile (cascading mode)
+	RemovePasswordsOnHashlistDelete *bool     `json:"remove_passwords_on_hashlist_delete"`         // NULL=use system default, true=always remove, false=never remove
+	CreatedAt                       time.Time `json:"createdAt"`                                   // Timestamp of creation
+	UpdatedAt                       time.Time `json:"updatedAt"`                                   // Timestamp of last update
+	CrackedCount                    *int      `json:"cracked_count,omitempty"`                     // Count of cracked hashes for this client (computed field)
+}
+
+// ClientPotfile represents a client-specific potfile containing cracked passwords.
+type ClientPotfile struct {
+	ID        int       `json:"id"`
+	ClientID  uuid.UUID `json:"client_id"`
+	FilePath  string    `json:"file_path"`
+	FileSize  int64     `json:"file_size"`
+	LineCount int64     `json:"line_count"`
+	MD5Hash   string    `json:"md5_hash,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// ClientWordlist represents a client-specific wordlist available for any attack mode.
+type ClientWordlist struct {
+	ID        uuid.UUID `json:"id"`
+	ClientID  uuid.UUID `json:"client_id"`
+	FilePath  string    `json:"file_path"`
+	FileName  string    `json:"file_name"`
+	FileSize  int64     `json:"file_size"`
+	LineCount int64     `json:"line_count"`
+	MD5Hash   string    `json:"md5_hash,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // HashListHash represents the many-to-many relationship between hashlists and hashes.

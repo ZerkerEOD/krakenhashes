@@ -115,7 +115,7 @@ export default function CreateJobDialog({
   // Association attack state
   const [associationWordlists, setAssociationWordlists] = useState<AssociationWordlist[]>([]);
   const [selectedAssociationWordlist, setSelectedAssociationWordlist] = useState<string>('');
-  
+
   // Custom job state
   const [combWordlist1, setCombWordlist1] = useState<string>('');
   const [combWordlist2, setCombWordlist2] = useState<string>('');

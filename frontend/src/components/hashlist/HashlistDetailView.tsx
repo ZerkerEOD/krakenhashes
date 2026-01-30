@@ -493,6 +493,7 @@ export default function HashlistDetailView() {
           hashlistId={parseInt(id!)}
           totalHashes={hashlist.total_hashes || 0}
           hasMixedWorkFactors={hashlist.has_mixed_work_factors || false}
+          clientId={hashlist.client_id}
         />
       )}
 

@@ -348,6 +348,18 @@ func (jm *JobManager) ProcessJobAssignment(ctx context.Context, assignmentData [
 		return fmt.Errorf("failed to ensure association files: %w", err)
 	}
 
+	// Ensure client potfile is available if specified
+	err = jm.ensureClientPotfile(ctx, &assignment)
+	if err != nil {
+		return fmt.Errorf("failed to ensure client potfile: %w", err)
+	}
+
+	// Ensure client wordlists are available if specified
+	err = jm.ensureClientWordlists(ctx, &assignment)
+	if err != nil {
+		return fmt.Errorf("failed to ensure client wordlists: %w", err)
+	}
+
 	// Run benchmark if needed
 	err = jm.ensureBenchmark(ctx, &assignment)
 	if err != nil {
@@ -630,6 +642,129 @@ func (jm *JobManager) cleanupAssociationFiles(assignment *JobTaskAssignment) {
 			debug.Info("Removed association wordlist file: %s", assocPath)
 		}
 	}
+}
+
+// ensureClientPotfile downloads the client potfile if specified
+// Client potfiles are wordlists of previously cracked passwords for dictionary attacks
+func (jm *JobManager) ensureClientPotfile(ctx context.Context, assignment *JobTaskAssignment) error {
+	// Skip if no client potfile path specified
+	if assignment.ClientPotfilePath == "" {
+		return nil
+	}
+
+	if jm.fileSync == nil {
+		debug.Error("File sync is not initialized in job manager")
+		return fmt.Errorf("file sync not initialized")
+	}
+
+	// Client potfile path format: wordlists/clients/{clientID}/potfile.txt
+	localPath := filepath.Join(jm.config.DataDirectory, assignment.ClientPotfilePath)
+
+	debug.Info("Ensuring client potfile is available: %s (client: %s)", assignment.ClientPotfilePath, assignment.ClientID)
+
+	// Create directory if needed
+	if err := os.MkdirAll(filepath.Dir(localPath), 0755); err != nil {
+		return fmt.Errorf("failed to create directory for client potfile: %w", err)
+	}
+
+	// Always re-download client potfile to ensure fresh copy
+	// Client potfiles can be updated between tasks
+	if _, err := os.Stat(localPath); err == nil {
+		debug.Info("Removing existing client potfile to download fresh copy: %s", localPath)
+		if err := os.Remove(localPath); err != nil {
+			debug.Warning("Failed to remove existing client potfile (will overwrite): %v", err)
+		}
+	}
+
+	debug.Info("Downloading client potfile for client: %s", assignment.ClientID)
+
+	// Create FileInfo for download
+	// Category contains the client UUID for URL routing
+	fileInfo := &filesync.FileInfo{
+		Name:     "potfile.txt",
+		FileType: "client_potfile",
+		Category: assignment.ClientID,
+	}
+
+	if err := jm.fileSync.DownloadFileFromInfo(ctx, fileInfo); err != nil {
+		debug.Error("Failed to download client potfile: %v", err)
+		return fmt.Errorf("failed to download client potfile: %w", err)
+	}
+
+	// Verify the file was created
+	if info, err := os.Stat(localPath); err == nil {
+		debug.Info("Successfully downloaded client potfile: %s (size: %d bytes)", localPath, info.Size())
+	} else {
+		debug.Error("Client potfile not found after download: %s", localPath)
+		return fmt.Errorf("client potfile not found after download")
+	}
+
+	return nil
+}
+
+// ensureClientWordlists downloads client-specific wordlists if specified
+// These are general-purpose wordlists uploaded for a specific client
+func (jm *JobManager) ensureClientWordlists(ctx context.Context, assignment *JobTaskAssignment) error {
+	// Skip if no client wordlists specified
+	if len(assignment.ClientWordlistPaths) == 0 {
+		return nil
+	}
+
+	if jm.fileSync == nil {
+		debug.Error("File sync is not initialized in job manager")
+		return fmt.Errorf("file sync not initialized")
+	}
+
+	debug.Info("Ensuring %d client wordlists are available", len(assignment.ClientWordlistPaths))
+
+	for i, wordlistPath := range assignment.ClientWordlistPaths {
+		localPath := filepath.Join(jm.config.DataDirectory, wordlistPath)
+
+		// Create directory if needed
+		if err := os.MkdirAll(filepath.Dir(localPath), 0755); err != nil {
+			return fmt.Errorf("failed to create directory for client wordlist: %w", err)
+		}
+
+		// Check if already exists
+		if _, err := os.Stat(localPath); err == nil {
+			debug.Info("Client wordlist already exists: %s", localPath)
+			continue
+		}
+
+		// Get the wordlist ID for this path
+		var wordlistID string
+		if i < len(assignment.ClientWordlistIDs) {
+			wordlistID = assignment.ClientWordlistIDs[i]
+		} else {
+			debug.Error("Missing wordlist ID for client wordlist path: %s", wordlistPath)
+			return fmt.Errorf("missing wordlist ID for client wordlist")
+		}
+
+		debug.Info("Downloading client wordlist: %s (ID: %s)", wordlistPath, wordlistID)
+
+		// Create FileInfo for download
+		// Category contains the wordlist UUID for URL routing
+		fileInfo := &filesync.FileInfo{
+			Name:     filepath.Base(wordlistPath),
+			FileType: "client_wordlist",
+			Category: wordlistID,
+		}
+
+		if err := jm.fileSync.DownloadFileFromInfo(ctx, fileInfo); err != nil {
+			debug.Error("Failed to download client wordlist: %v", err)
+			return fmt.Errorf("failed to download client wordlist: %w", err)
+		}
+
+		// Verify the file was created
+		if info, err := os.Stat(localPath); err == nil {
+			debug.Info("Successfully downloaded client wordlist: %s (size: %d bytes)", wordlistPath, info.Size())
+		} else {
+			debug.Error("Client wordlist not found after download: %s", localPath)
+			return fmt.Errorf("client wordlist not found after download")
+		}
+	}
+
+	return nil
 }
 
 // ensureBenchmark runs a benchmark if needed for the job

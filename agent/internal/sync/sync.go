@@ -655,6 +655,18 @@ func (fs *FileSync) DownloadFileWithInfoRetry(ctx context.Context, fileInfo *Fil
 		targetDir = fs.dataDirs.Hashlists
 		finalPath = filepath.Join(targetDir, fileInfo.Name)
 		debug.Info("Hashlist download - Target dir: %s, Final path: %s", targetDir, finalPath)
+	case "client_potfile":
+		// Client potfile: stored in wordlists/clients/{client_id}/potfile.txt
+		// Category contains the client UUID
+		targetDir = fs.dataDirs.Wordlists
+		finalPath = filepath.Join(targetDir, "clients", fileInfo.Category, "potfile.txt")
+		debug.Info("Client potfile download - Client: %s, Final path: %s", fileInfo.Category, finalPath)
+	case "client_wordlist":
+		// Client wordlist: stored in wordlists/clients/{client_id}/{filename}
+		// Category contains the client UUID, Name contains the filename
+		targetDir = fs.dataDirs.Wordlists
+		finalPath = filepath.Join(targetDir, "clients", fileInfo.Category, fileInfo.Name)
+		debug.Info("Client wordlist download - Client: %s, Name: %s, Final path: %s", fileInfo.Category, fileInfo.Name, finalPath)
 	default:
 		debug.Error("Unsupported file type: %s", fileInfo.FileType)
 		return fmt.Errorf("unsupported file type: %s", fileInfo.FileType)
@@ -701,6 +713,12 @@ func (fs *FileSync) DownloadFileWithInfoRetry(ctx context.Context, fileInfo *Fil
 		} else {
 			url = fmt.Sprintf("%s/api/agent/hashlists/%d/download", fs.urlConfig.BaseURL, fileInfo.ID)
 		}
+	} else if fileInfo.FileType == "client_potfile" && fileInfo.Category != "" {
+		// Client potfile: Category contains the client UUID
+		url = fmt.Sprintf("%s/api/agent/client-potfiles/%s", fs.urlConfig.BaseURL, fileInfo.Category)
+	} else if fileInfo.FileType == "client_wordlist" && fileInfo.Category != "" {
+		// Client wordlist: Category contains the wordlist UUID
+		url = fmt.Sprintf("%s/api/agent/client-wordlists/%s", fs.urlConfig.BaseURL, fileInfo.Category)
 	} else {
 		// For wordlists/rules, Name often contains the full path (e.g., "general/file.txt")
 		// The Category field represents the classification enum (wordlist_type/rule_type) which

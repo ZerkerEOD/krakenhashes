@@ -28,8 +28,12 @@ func NewClientRepository(database *db.DB) *ClientRepository {
 
 // Create inserts a new client record into the database.
 func (r *ClientRepository) Create(ctx context.Context, client *models.Client) error {
-	client.CreatedAt = time.Now()                              // Ensure CreatedAt is set
-	client.UpdatedAt = time.Now()                              // Ensure UpdatedAt is set
+	client.CreatedAt = time.Now() // Ensure CreatedAt is set
+	client.UpdatedAt = time.Now() // Ensure UpdatedAt is set
+	// Set defaults for new potfile fields
+	if !client.ContributeToGlobalPotfile {
+		client.ContributeToGlobalPotfile = true // Default to true for cascading mode
+	}
 	_, err := r.db.ExecContext(ctx, queries.CreateClientQuery, // Use constant
 		client.ID,
 		client.Name,
@@ -37,6 +41,9 @@ func (r *ClientRepository) Create(ctx context.Context, client *models.Client) er
 		client.ContactInfo,
 		client.DataRetentionMonths,
 		client.ExcludeFromPotfile,
+		client.EnableClientPotfile,
+		client.ContributeToGlobalPotfile,
+		client.RemovePasswordsOnHashlistDelete,
 		client.CreatedAt,
 		client.UpdatedAt,
 	)
@@ -60,6 +67,9 @@ func (r *ClientRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.C
 		&client.ContactInfo,
 		&client.DataRetentionMonths,
 		&client.ExcludeFromPotfile,
+		&client.EnableClientPotfile,
+		&client.ContributeToGlobalPotfile,
+		&client.RemovePasswordsOnHashlistDelete,
 		&client.CreatedAt,
 		&client.UpdatedAt,
 	)
@@ -73,13 +83,6 @@ func (r *ClientRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.C
 }
 
 // GetByName retrieves a single client by its name.
-// Note: This query is not in client_queries.go yet. Needs to be added.
-// const getClientByNameQuery = `
-// SELECT id, name, description, contact_info, data_retention_months, created_at, updated_at
-// FROM clients
-// WHERE name = $1
-// `
-
 func (r *ClientRepository) GetByName(ctx context.Context, name string) (*models.Client, error) {
 	row := r.db.QueryRowContext(ctx, queries.GetClientByNameQuery, name) // Use constant
 	var client models.Client
@@ -90,6 +93,9 @@ func (r *ClientRepository) GetByName(ctx context.Context, name string) (*models.
 		&client.ContactInfo,
 		&client.DataRetentionMonths,
 		&client.ExcludeFromPotfile,
+		&client.EnableClientPotfile,
+		&client.ContributeToGlobalPotfile,
+		&client.RemovePasswordsOnHashlistDelete,
 		&client.CreatedAt,
 		&client.UpdatedAt,
 	)
@@ -120,6 +126,9 @@ func (r *ClientRepository) List(ctx context.Context) ([]models.Client, error) {
 			&client.ContactInfo,
 			&client.DataRetentionMonths,
 			&client.ExcludeFromPotfile,
+			&client.EnableClientPotfile,
+			&client.ContributeToGlobalPotfile,
+			&client.RemovePasswordsOnHashlistDelete,
 			&client.CreatedAt,
 			&client.UpdatedAt,
 		); err != nil {
@@ -153,6 +162,9 @@ func (r *ClientRepository) ListWithCrackedCounts(ctx context.Context) ([]models.
 			&client.ContactInfo,
 			&client.DataRetentionMonths,
 			&client.ExcludeFromPotfile,
+			&client.EnableClientPotfile,
+			&client.ContributeToGlobalPotfile,
+			&client.RemovePasswordsOnHashlistDelete,
 			&client.CreatedAt,
 			&client.UpdatedAt,
 			&crackedCount,
@@ -170,15 +182,6 @@ func (r *ClientRepository) ListWithCrackedCounts(ctx context.Context) ([]models.
 }
 
 // Search retrieves clients matching a search query (name, description).
-// Note: This query is not in client_queries.go yet. Needs to be added.
-// const searchClientsQuery = `
-// SELECT id, name, description, contact_info, data_retention_months, created_at, updated_at
-// FROM clients
-// WHERE name ILIKE $1 OR description ILIKE $1
-// ORDER BY name ASC
-// LIMIT 50
-// `
-
 func (r *ClientRepository) Search(ctx context.Context, query string) ([]models.Client, error) {
 	searchTerm := "%" + strings.ToLower(query) + "%"                            // Case-insensitive search
 	rows, err := r.db.QueryContext(ctx, queries.SearchClientsQuery, searchTerm) // Use constant
@@ -197,6 +200,9 @@ func (r *ClientRepository) Search(ctx context.Context, query string) ([]models.C
 			&client.ContactInfo,
 			&client.DataRetentionMonths,
 			&client.ExcludeFromPotfile,
+			&client.EnableClientPotfile,
+			&client.ContributeToGlobalPotfile,
+			&client.RemovePasswordsOnHashlistDelete,
 			&client.CreatedAt,
 			&client.UpdatedAt,
 		); err != nil {
@@ -220,6 +226,9 @@ func (r *ClientRepository) Update(ctx context.Context, client *models.Client) er
 		client.ContactInfo,
 		client.DataRetentionMonths,
 		client.ExcludeFromPotfile,
+		client.EnableClientPotfile,
+		client.ContributeToGlobalPotfile,
+		client.RemovePasswordsOnHashlistDelete,
 		client.UpdatedAt,
 		client.ID,
 	)
@@ -269,4 +278,17 @@ func (r *ClientRepository) IsExcludedFromPotfile(ctx context.Context, clientID u
 		return false, fmt.Errorf("failed to check potfile exclusion for client %s: %w", clientID, err)
 	}
 	return excluded, nil
+}
+
+// GetClientPotfileSettings retrieves the potfile-related settings for a client
+func (r *ClientRepository) GetClientPotfileSettings(ctx context.Context, clientID uuid.UUID) (enableClientPotfile bool, contributeToGlobal bool, err error) {
+	query := `SELECT enable_client_potfile, contribute_to_global_potfile FROM clients WHERE id = $1`
+	err = r.db.QueryRowContext(ctx, query, clientID).Scan(&enableClientPotfile, &contributeToGlobal)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return false, true, fmt.Errorf("client with ID %s not found: %w", clientID, ErrNotFound)
+		}
+		return false, true, fmt.Errorf("failed to get potfile settings for client %s: %w", clientID, err)
+	}
+	return enableClientPotfile, contributeToGlobal, nil
 }

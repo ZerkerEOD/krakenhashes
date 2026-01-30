@@ -191,6 +191,10 @@ func (h *ClientHandler) UpdateClient(w http.ResponseWriter, r *http.Request) {
 	client.ContactInfo = updates.ContactInfo
 	client.DataRetentionMonths = updates.DataRetentionMonths // Will be handled correctly by repo (sets NULL if pointer is nil)
 	client.ExcludeFromPotfile = updates.ExcludeFromPotfile
+	// Client potfile settings
+	client.EnableClientPotfile = updates.EnableClientPotfile
+	client.ContributeToGlobalPotfile = updates.ContributeToGlobalPotfile
+	client.RemovePasswordsOnHashlistDelete = updates.RemovePasswordsOnHashlistDelete
 	// UpdatedAt will be set by repository
 
 	err = h.clientRepo.Update(r.Context(), client)

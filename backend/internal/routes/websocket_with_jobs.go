@@ -67,6 +67,7 @@ func SetupWebSocketWithJobRoutes(
 	ruleManager rule.Manager,
 	binaryManager binary.Manager,
 	potfileService *services.PotfileService,
+	clientPotfileService *services.ClientPotfileService,
 ) {
 	debug.Debug("Setting up WebSocket routes with job integration")
 
@@ -204,6 +205,7 @@ func SetupWebSocketWithJobRoutes(
 		systemSettingsRepo,
 		assocWordlistRepo,
 		potfileService,
+		clientPotfileService,
 		hashlistCompletionService,
 		sqlDB,
 		wordlistManager,

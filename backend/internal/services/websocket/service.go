@@ -248,6 +248,12 @@ type TaskAssignmentPayload struct {
 	// Association attack fields (mode 9)
 	AssociationWordlistPath string `json:"association_wordlist_path,omitempty"` // Path to the association wordlist
 	OriginalHashlistPath    string `json:"original_hashlist_path,omitempty"`    // Path to the original hashlist file (preserves order)
+
+	// Client-specific wordlists (potfile and uploaded wordlists)
+	ClientID              string   `json:"client_id,omitempty"`               // Client UUID for this hashlist
+	ClientPotfilePath     string   `json:"client_potfile_path,omitempty"`     // Path to client potfile (treated as wordlist)
+	ClientWordlistPaths   []string `json:"client_wordlist_paths,omitempty"`   // Paths to client-specific wordlists
+	ClientWordlistIDs     []string `json:"client_wordlist_ids,omitempty"`     // IDs for downloading client wordlists
 }
 
 // BenchmarkResultPayload represents benchmark results from an agent
