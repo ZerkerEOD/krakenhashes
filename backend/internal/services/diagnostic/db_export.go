@@ -37,7 +37,7 @@ var DiagnosticTables = []string{
 	"agent_physical_devices",
 	"agent_schedules",
 	"agent_settings",
-	"binaries",
+	"binary_versions",
 	"hashlists",
 	"job_executions",
 	"job_tasks",
@@ -50,17 +50,17 @@ var DiagnosticTables = []string{
 
 // SensitiveColumns maps table names to columns that should be censored
 var SensitiveColumns = map[string][]string{
-	"agents":         {"name", "hostname", "api_key"},
-	"hashlists":      {"name", "file_path", "original_filename"},
-	"job_workflows":  {"name", "description"},
-	"job_executions": {"error_message"},
-	"preset_jobs":    {"name", "description"},
-	"wordlists":      {"name", "file_path", "description"},
-	"rules":          {"name", "file_path", "description"},
-	"binaries":       {"name", "file_path", "version"},
-	"users":          {"username", "email", "first_name", "last_name"},
-	"clients":        {"name", "description"},
-	"teams":          {"name", "description"},
+	"agents":          {"name", "hostname", "api_key"},
+	"hashlists":       {"name", "file_path", "original_filename"},
+	"job_workflows":   {"name", "description"},
+	"job_executions":  {"error_message"},
+	"preset_jobs":     {"name", "description"},
+	"wordlists":       {"name", "file_path", "description"},
+	"rules":           {"name", "file_path", "description"},
+	"binary_versions": {"file_path"},
+	"users":           {"username", "email", "first_name", "last_name"},
+	"clients":         {"name", "description"},
+	"teams":           {"name", "description"},
 }
 
 // ExportAllTables exports all diagnostic tables with sanitization

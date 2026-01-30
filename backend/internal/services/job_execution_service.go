@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -150,17 +151,37 @@ func (a *binaryStoreAdapter) ListActive(ctx context.Context) ([]version.BinaryIn
 
 	result := make([]version.BinaryInfo, 0, len(versions))
 	for _, v := range versions {
-		if v.Version == nil {
-			continue // Skip binaries without version info
+		versionStr := ""
+		if v.Version != nil {
+			versionStr = *v.Version
+		} else {
+			// Fallback: extract version from filename (e.g., "hashcat-7.1.2.7z" -> "7.1.2")
+			versionStr = extractVersionFromFilename(v.FileName)
+			if versionStr == "" {
+				debug.Warning("Binary ID %d has no version info and version cannot be extracted from filename %q, skipping", v.ID, v.FileName)
+				continue
+			}
+			debug.Warning("Binary ID %d has NULL version, extracted %q from filename", v.ID, versionStr)
 		}
 		result = append(result, version.BinaryInfo{
 			ID:        v.ID,
-			Version:   *v.Version,
+			Version:   versionStr,
 			IsDefault: v.IsDefault,
 			IsActive:  v.IsActive,
 		})
 	}
 	return result, nil
+}
+
+// extractVersionFromFilename extracts hashcat version from filename
+// Examples: "hashcat-7.1.2.7z" -> "7.1.2", "hashcat-7.1.2+154-clang.7z" -> "7.1.2"
+func extractVersionFromFilename(filename string) string {
+	re := regexp.MustCompile(`hashcat-(\d+\.\d+\.\d+)`)
+	matches := re.FindStringSubmatch(filename)
+	if len(matches) >= 2 {
+		return matches[1]
+	}
+	return ""
 }
 
 func (a *binaryStoreAdapter) GetDefault(ctx context.Context) (*version.BinaryInfo, error) {
