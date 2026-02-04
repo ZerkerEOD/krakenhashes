@@ -21,9 +21,9 @@ KrakenHashes implements a role-based access control (RBAC) system with the follo
 1. **User** (default role)
    - View and manage their own profile
    - Submit password cracking jobs
-   - View their own job results
+   - View all jobs, hashlists, clients, agents, and analytics
    - Manage their own MFA settings
-   - Access general system features
+   - Manage wordlists, rules, and hash types
 
 2. **Admin**
    - All user permissions plus:
@@ -31,9 +31,9 @@ KrakenHashes implements a role-based access control (RBAC) system with the follo
    - Reset user passwords
    - Enable/disable user accounts
    - Modify system settings
-   - View all jobs and results
-   - Manage agents and vouchers
-   - Access admin dashboard
+   - Manage preset jobs and job workflows
+   - Configure email, SSO, and binary management
+   - Access diagnostics and admin dashboard
 
 3. **System** (special role)
    - Reserved for system operations
@@ -46,10 +46,14 @@ KrakenHashes implements a role-based access control (RBAC) system with the follo
 |--------|------|-------|---------|
 | View own profile | ✓ | ✓ | ✓ |
 | Edit own profile | ✓ | ✓ | ✓ |
+| View all jobs | ✓ | ✓ | ✓ |
+| View all hashlists, clients, agents | ✓ | ✓ | ✓ |
 | View all users | ✗ | ✓ | ✓ |
 | Manage users | ✗ | ✓ | ✗ |
 | System settings | ✗ | ✓ | ✗ |
-| View all jobs | ✗ | ✓ | ✓ |
+| Manage preset jobs and workflows | ✗ | ✓ | ✗ |
+
+> **Note:** Currently, all authenticated users share visibility of jobs, hashlists, clients, and agents. When the teams feature is implemented, resource visibility will be scoped to team membership — users will only see resources belonging to teams they are part of.
 
 ## Creating and Managing Users
 
