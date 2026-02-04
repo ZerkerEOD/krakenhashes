@@ -45,6 +45,10 @@ type JobExecutionSettings struct {
 	RuleChunkTempDir   string  `json:"rule_chunk_temp_dir"`
 	// Potfile settings
 	PotfileEnabled bool `json:"potfile_enabled"`
+	// Client potfile settings
+	ClientPotfilesEnabled                          bool `json:"client_potfiles_enabled"`
+	RemoveFromGlobalPotfileOnHashlistDeleteDefault bool `json:"remove_from_global_potfile_on_hashlist_delete_default"`
+	RemoveFromClientPotfileOnHashlistDeleteDefault bool `json:"remove_from_client_potfile_on_hashlist_delete_default"`
 }
 
 // GetJobExecutionSettings returns all job execution settings
@@ -75,6 +79,10 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 		"rule_chunk_temp_dir",
 		// Potfile settings
 		"potfile_enabled",
+		// Client potfile settings
+		"client_potfiles_enabled",
+		"remove_from_global_potfile_on_hashlist_delete_default",
+		"remove_from_client_potfile_on_hashlist_delete_default",
 	}
 
 	settings := JobExecutionSettings{
@@ -100,6 +108,10 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 		RuleChunkTempDir:   "/data/krakenhashes/temp/rule_chunks",
 		// Potfile defaults
 		PotfileEnabled: true,
+		// Client potfile defaults
+		ClientPotfilesEnabled:                          true,
+		RemoveFromGlobalPotfileOnHashlistDeleteDefault: false,
+		RemoveFromClientPotfileOnHashlistDeleteDefault: false,
 	}
 
 	// Retrieve each setting
@@ -182,6 +194,12 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 				settings.RuleChunkTempDir = *setting.Value
 			case "potfile_enabled":
 				settings.PotfileEnabled = *setting.Value == "true"
+			case "client_potfiles_enabled":
+				settings.ClientPotfilesEnabled = *setting.Value == "true"
+			case "remove_from_global_potfile_on_hashlist_delete_default":
+				settings.RemoveFromGlobalPotfileOnHashlistDeleteDefault = *setting.Value == "true"
+			case "remove_from_client_potfile_on_hashlist_delete_default":
+				settings.RemoveFromClientPotfileOnHashlistDeleteDefault = *setting.Value == "true"
 			}
 		}
 	}
@@ -223,6 +241,10 @@ func (h *JobSettingsHandler) UpdateJobExecutionSettings(w http.ResponseWriter, r
 		"rule_chunk_temp_dir":   settings.RuleChunkTempDir,
 		// Potfile settings
 		"potfile_enabled": strconv.FormatBool(settings.PotfileEnabled),
+		// Client potfile settings
+		"client_potfiles_enabled":                              strconv.FormatBool(settings.ClientPotfilesEnabled),
+		"remove_from_global_potfile_on_hashlist_delete_default": strconv.FormatBool(settings.RemoveFromGlobalPotfileOnHashlistDeleteDefault),
+		"remove_from_client_potfile_on_hashlist_delete_default": strconv.FormatBool(settings.RemoveFromClientPotfileOnHashlistDeleteDefault),
 	}
 
 	for key, value := range updates {

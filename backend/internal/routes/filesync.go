@@ -473,7 +473,137 @@ func SetupFileDownloadRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, a
 		}
 	}).Methods(http.MethodGet)
 
-	debug.Info("Registered file download routes for agents (including hashlists)")
+	// Add client potfile download route for agents
+	clientPotfileRepo := repository.NewClientPotfileRepository(dbWrapper)
+	clientPotfileRouter := r.PathPrefix("/api/agent/client-potfiles").Subrouter()
+	clientPotfileRouter.Use(api.APIKeyMiddleware(agentService))
+
+	// Handler for /api/agent/client-potfiles/{client_id}
+	clientPotfileRouter.HandleFunc("/{client_id}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		clientIDStr := vars["client_id"]
+
+		debug.Info("Client potfile download request from agent: client_id=%s", clientIDStr)
+
+		// Parse client ID
+		clientID, err := uuid.Parse(clientIDStr)
+		if err != nil {
+			debug.Error("Invalid client ID: %s", clientIDStr)
+			http.Error(w, "Invalid client ID", http.StatusBadRequest)
+			return
+		}
+
+		ctx := r.Context()
+
+		// Get client potfile record
+		potfile, err := clientPotfileRepo.GetByClientID(ctx, clientID)
+		if err != nil {
+			debug.Error("Failed to get client potfile for client %s: %v", clientID, err)
+			http.Error(w, "Client potfile not found", http.StatusNotFound)
+			return
+		}
+
+		if potfile == nil {
+			debug.Info("No potfile exists for client %s", clientID)
+			http.Error(w, "Client potfile not found", http.StatusNotFound)
+			return
+		}
+
+		debug.Info("Serving client potfile: %s (size=%d, lines=%d)", potfile.FilePath, potfile.FileSize, potfile.LineCount)
+
+		// Check if file exists
+		fileInfo, err := os.Stat(potfile.FilePath)
+		if err != nil {
+			debug.Error("Client potfile file not found: %s", potfile.FilePath)
+			http.Error(w, "Client potfile file not found", http.StatusNotFound)
+			return
+		}
+
+		// Open the file
+		file, err := os.Open(potfile.FilePath)
+		if err != nil {
+			debug.Error("Failed to open client potfile file: %v", err)
+			http.Error(w, "Failed to open file", http.StatusInternalServerError)
+			return
+		}
+		defer file.Close()
+
+		// Set response headers
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s_potfile.txt\"", clientID))
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
+
+		// Stream the file
+		if _, err := io.Copy(w, file); err != nil {
+			debug.Error("Failed to stream client potfile file: %v", err)
+		} else {
+			debug.Info("Successfully streamed client potfile for client %s to agent", clientID)
+		}
+	}).Methods(http.MethodGet)
+
+	// Add client wordlist download route for agents
+	clientWordlistRepo := repository.NewClientWordlistRepository(dbWrapper)
+	clientWordlistRouter := r.PathPrefix("/api/agent/client-wordlists").Subrouter()
+	clientWordlistRouter.Use(api.APIKeyMiddleware(agentService))
+
+	// Handler for /api/agent/client-wordlists/{wordlist_id}
+	clientWordlistRouter.HandleFunc("/{wordlist_id}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		wordlistIDStr := vars["wordlist_id"]
+
+		debug.Info("Client wordlist download request from agent: wordlist_id=%s", wordlistIDStr)
+
+		// Parse wordlist ID
+		wordlistID, err := uuid.Parse(wordlistIDStr)
+		if err != nil {
+			debug.Error("Invalid wordlist ID: %s", wordlistIDStr)
+			http.Error(w, "Invalid wordlist ID", http.StatusBadRequest)
+			return
+		}
+
+		ctx := r.Context()
+
+		// Get wordlist file path
+		filePath, err := clientWordlistRepo.GetFilePath(ctx, wordlistID)
+		if err != nil {
+			debug.Error("Failed to get client wordlist path for %s: %v", wordlistID, err)
+			http.Error(w, "Client wordlist not found", http.StatusNotFound)
+			return
+		}
+
+		debug.Info("Serving client wordlist: %s", filePath)
+
+		// Check if file exists
+		fileInfo, err := os.Stat(filePath)
+		if err != nil {
+			debug.Error("Client wordlist file not found: %s", filePath)
+			http.Error(w, "Client wordlist file not found", http.StatusNotFound)
+			return
+		}
+
+		// Open the file
+		file, err := os.Open(filePath)
+		if err != nil {
+			debug.Error("Failed to open client wordlist file: %v", err)
+			http.Error(w, "Failed to open file", http.StatusInternalServerError)
+			return
+		}
+		defer file.Close()
+
+		// Set response headers
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filepath.Base(filePath)))
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
+
+		// Stream the file
+		if _, err := io.Copy(w, file); err != nil {
+			debug.Error("Failed to stream client wordlist file: %v", err)
+		} else {
+			debug.Info("Successfully streamed client wordlist %s to agent", wordlistID)
+		}
+	}).Methods(http.MethodGet)
+
+	debug.Info("Registered file download routes for agents (including hashlists, client potfiles, client wordlists)")
 	return nil
 }
 

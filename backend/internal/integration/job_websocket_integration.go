@@ -62,7 +62,10 @@ type JobWebSocketIntegration struct {
 	clientRepo            *repository.ClientRepository
 	systemSettingsRepo    *repository.SystemSettingsRepository
 	assocWordlistRepo     *repository.AssociationWordlistRepository
-	potfileService          *services.PotfileService
+	potfileService            *services.PotfileService
+	clientPotfileService      *services.ClientPotfileService
+	clientWordlistRepo        *repository.ClientWordlistRepository
+	clientPotfileRepo         *repository.ClientPotfileRepository
 	hashlistCompletionService *services.HashlistCompletionService
 	db                      *sql.DB
 	wordlistManager         wordlist.Manager
@@ -101,6 +104,9 @@ func NewJobWebSocketIntegration(
 	systemSettingsRepo *repository.SystemSettingsRepository,
 	assocWordlistRepo *repository.AssociationWordlistRepository,
 	potfileService *services.PotfileService,
+	clientPotfileService *services.ClientPotfileService,
+	clientWordlistRepo *repository.ClientWordlistRepository,
+	clientPotfileRepo *repository.ClientPotfileRepository,
 	hashlistCompletionService *services.HashlistCompletionService,
 	db *sql.DB,
 	wordlistManager wordlist.Manager,
@@ -125,6 +131,9 @@ func NewJobWebSocketIntegration(
 		systemSettingsRepo:        systemSettingsRepo,
 		assocWordlistRepo:         assocWordlistRepo,
 		potfileService:            potfileService,
+		clientPotfileService:      clientPotfileService,
+		clientWordlistRepo:        clientWordlistRepo,
+		clientPotfileRepo:         clientPotfileRepo,
 		hashlistCompletionService: hashlistCompletionService,
 		db:                        db,
 		wordlistManager:           wordlistManager,
@@ -422,6 +431,21 @@ func (s *JobWebSocketIntegration) CheckAgentFilesForJob(ctx context.Context, age
 
 	// Add wordlists
 	for _, wlIDStr := range jobExecution.WordlistIDs {
+		// Skip client-specific wordlists - they're downloaded by agent during task execution
+		// via ensureClientWordlists(), not during pre-benchmark sync
+		if strings.HasPrefix(wlIDStr, "client:") {
+			debug.Debug("Skipping client wordlist %s from file check - handled by agent during task execution", wlIDStr)
+			continue
+		}
+
+		// Skip client potfiles - they're downloaded by agent during task execution
+		// via ensureClientPotfile(), not during pre-benchmark sync
+		if strings.HasPrefix(wlIDStr, "potfile:") {
+			debug.Debug("Skipping client potfile %s from file check - handled by agent during task execution", wlIDStr)
+			continue
+		}
+
+		// Global wordlist - numeric ID
 		wlID, err := strconv.Atoi(wlIDStr)
 		if err != nil {
 			debug.Warning("Invalid wordlist ID %s for file check: %v", wlIDStr, err)
@@ -545,6 +569,10 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 
 	// Build wordlist paths based on attack mode
 	var wordlistPaths []string
+	var clientWordlistPaths []string
+	var clientWordlistIDs []string
+	var clientPotfilePath string
+
 	if jobExecution.AttackMode == models.AttackModeAssociation {
 		// Mode 9: use association wordlist as the wordlist
 		if jobExecution.AssociationWordlistID != nil {
@@ -563,7 +591,67 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 	} else {
 		// Regular wordlist processing for other attack modes
 		for _, wordlistIDStr := range jobExecution.WordlistIDs {
-			// Convert string ID to int
+			// Check for client-specific wordlist prefix "client:UUID"
+			if strings.HasPrefix(wordlistIDStr, "client:") {
+				uuidStr := strings.TrimPrefix(wordlistIDStr, "client:")
+				clientWordlistUUID, err := uuid.Parse(uuidStr)
+				if err != nil {
+					return fmt.Errorf("invalid client wordlist ID %s: %w", wordlistIDStr, err)
+				}
+
+				if s.clientWordlistRepo == nil {
+					return fmt.Errorf("client wordlist repository not configured")
+				}
+
+				clientWordlist, err := s.clientWordlistRepo.GetByID(ctx, clientWordlistUUID)
+				if err != nil {
+					return fmt.Errorf("client wordlist %s not found: %w", uuidStr, err)
+				}
+
+				// Build path relative to agent's data directory
+				clientPath := fmt.Sprintf("wordlists/clients/%s/%s",
+					clientWordlist.ClientID.String(), clientWordlist.FileName)
+				clientWordlistPaths = append(clientWordlistPaths, clientPath)
+				clientWordlistIDs = append(clientWordlistIDs, clientWordlistUUID.String())
+
+				debug.Log("Added client wordlist to task assignment", map[string]interface{}{
+					"wordlist_id": clientWordlistUUID,
+					"client_id":   clientWordlist.ClientID,
+					"path":        clientPath,
+				})
+				continue
+			}
+
+			// Check for client potfile prefix "potfile:ID"
+			if strings.HasPrefix(wordlistIDStr, "potfile:") {
+				potfileIDStr := strings.TrimPrefix(wordlistIDStr, "potfile:")
+				potfileID, err := strconv.Atoi(potfileIDStr)
+				if err != nil {
+					return fmt.Errorf("invalid potfile ID %s: %w", wordlistIDStr, err)
+				}
+
+				if s.clientPotfileRepo == nil {
+					return fmt.Errorf("client potfile repository not configured")
+				}
+
+				potfile, err := s.clientPotfileRepo.GetByID(ctx, potfileID)
+				if err != nil {
+					return fmt.Errorf("client potfile %d not found: %w", potfileID, err)
+				}
+
+				// Set the client potfile path
+				clientPotfilePath = fmt.Sprintf("wordlists/clients/%s/potfile.txt",
+					potfile.ClientID.String())
+
+				debug.Log("Added client potfile to task assignment", map[string]interface{}{
+					"potfile_id": potfileID,
+					"client_id":  potfile.ClientID,
+					"path":       clientPotfilePath,
+				})
+				continue
+			}
+
+			// Global wordlist - convert string ID to int
 			wordlistID, err := strconv.Atoi(wordlistIDStr)
 			if err != nil {
 				return fmt.Errorf("invalid wordlist ID %s: %w", wordlistIDStr, err)
@@ -705,9 +793,12 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 		ChunkDuration:   task.ChunkDuration,
 		ReportInterval:  reportInterval,
 		OutputFormat:    "3",                   // hash:plain format
-		ExtraParameters: agent.ExtraParameters, // Agent-specific hashcat parameters
-		EnabledDevices:  enabledDeviceIDs,      // Only populated if some devices are disabled
-		IsKeyspaceSplit: task.IsKeyspaceSplit,
+		ExtraParameters:       agent.ExtraParameters, // Agent-specific hashcat parameters
+		EnabledDevices:        enabledDeviceIDs,      // Only populated if some devices are disabled
+		IsKeyspaceSplit:       task.IsKeyspaceSplit,
+		ClientWordlistPaths:   clientWordlistPaths,
+		ClientWordlistIDs:     clientWordlistIDs,
+		ClientPotfilePath:     clientPotfilePath,
 	}
 
 	// Log mode 9 task assignment for debugging
@@ -717,6 +808,11 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 			"hashlist_path": hashlistPath,
 			"wordlist_path": wordlistPaths,
 		})
+	}
+
+	// Set ClientID for tracking purposes (client wordlists/potfiles are set above from explicit selection)
+	if hashlist.ClientID != uuid.Nil {
+		assignment.ClientID = hashlist.ClientID.String()
 	}
 
 	// Only add increment fields for regular jobs (NOT for layer tasks)
@@ -2752,42 +2848,52 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 
 	// Pre-load potfile settings ONCE instead of querying for every crack
 	// This eliminates millions of redundant database queries (N+1 problem)
+	// UNIFIED APPROACH: Stage to potfile_staging with exclusion flags, let PotfileService handle cascade
 	var shouldStagePotfile bool
+	var clientIDForPotfile *uuid.UUID      // nil = no client, non-nil = include client_id in staging
+	var excludeFromGlobalPotfile bool      // Hashlist-level exclusion from global potfile
+	var excludeFromClientPotfile bool      // Hashlist-level exclusion from client potfile
 
-	if s.potfileService != nil && s.systemSettingsRepo != nil && s.hashlistRepo != nil && s.clientRepo != nil {
+	if s.potfileService != nil && s.systemSettingsRepo != nil && s.hashlistRepo != nil {
 		// Check if potfile is globally enabled
 		potfileSetting, err := s.systemSettingsRepo.GetSetting(ctx, "potfile_enabled")
-		if err == nil && potfileSetting != nil && potfileSetting.Value != nil && *potfileSetting.Value == "true" {
+		globalPotfileEnabled := err == nil && potfileSetting != nil && potfileSetting.Value != nil && *potfileSetting.Value == "true"
+
+		// Check if client potfiles are enabled system-wide
+		clientPotfileSetting, err := s.systemSettingsRepo.GetSetting(ctx, "client_potfiles_enabled")
+		clientPotfilesEnabled := err == nil && clientPotfileSetting != nil && clientPotfileSetting.Value != nil && *clientPotfileSetting.Value == "true"
+
+		if globalPotfileEnabled || clientPotfilesEnabled {
 			// Get hashlist ONCE to check exclusions
 			hashlist, err := s.hashlistRepo.GetByID(ctx, jobExecution.HashlistID)
 			if err != nil {
 				debug.Warning("Failed to get hashlist for potfile check: %v", err)
 				shouldStagePotfile = false
 			} else {
-				// Check if client has potfile excluded
-				clientExcluded := false
-				if hashlist.ClientID != uuid.Nil {
-					clientExcluded, err = s.clientRepo.IsExcludedFromPotfile(ctx, hashlist.ClientID)
-					if err != nil {
-						debug.Warning("Failed to check client potfile exclusion: %v", err)
-					}
-				}
+				// Get hashlist-level exclusion flags
+				excludeFromGlobalPotfile = hashlist.ExcludeFromPotfile
+				excludeFromClientPotfile = hashlist.ExcludeFromClientPotfile
 
-				if clientExcluded {
-					debug.Info("Client %s is excluded from potfile", hashlist.ClientID)
-					shouldStagePotfile = false
-				} else {
-					// Check if hashlist is excluded
-					hashlistExcluded, err := s.hashlistRepo.IsExcludedFromPotfile(ctx, jobExecution.HashlistID)
-					if err != nil {
-						debug.Warning("Failed to check hashlist potfile exclusion: %v", err)
-						shouldStagePotfile = false
-					} else {
-						shouldStagePotfile = !hashlistExcluded
-						if shouldStagePotfile {
-							debug.Info("Potfile staging enabled for hashlist %d", jobExecution.HashlistID)
-						}
+				// Stage if EITHER potfile could receive entries
+				// PotfileService will handle the cascade logic (System → Client → Hashlist)
+				canWriteGlobal := globalPotfileEnabled && !excludeFromGlobalPotfile
+				canWriteClient := clientPotfilesEnabled && hashlist.ClientID != uuid.Nil && !excludeFromClientPotfile
+
+				shouldStagePotfile = canWriteGlobal || canWriteClient
+
+				if shouldStagePotfile {
+					debug.Info("Potfile staging enabled for hashlist %d (global=%v, client=%v)",
+						jobExecution.HashlistID, canWriteGlobal, canWriteClient)
+
+					// Include client_id if hashlist has a client
+					// The PotfileService will look up client settings during processing
+					// and decide whether to write to global, client, or both potfiles
+					if hashlist.ClientID != uuid.Nil {
+						clientIDForPotfile = &hashlist.ClientID
+						debug.Info("Staging with client_id %s for routing decisions", hashlist.ClientID)
 					}
+				} else {
+					debug.Info("Potfile staging disabled for hashlist %d (excluded from both global and client)", jobExecution.HashlistID)
 				}
 			}
 		}
@@ -2994,8 +3100,11 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 					// Stage for potfile if enabled
 					if shouldStagePotfile {
 						potfileBatch = append(potfileBatch, services.PotfileStagingEntry{
-							Password:  fullPassword,
-							HashValue: hash.HashValue,
+							Password:          fullPassword,
+							HashValue:         hash.HashValue,
+							ClientID:          clientIDForPotfile,
+							ExcludeFromGlobal: excludeFromGlobalPotfile,
+							ExcludeFromClient: excludeFromClientPotfile,
 						})
 					}
 				}
@@ -3154,11 +3263,15 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 		}
 
 			// Stage password for pot-file (batched, done once per unique hash value)
+			// UNIFIED APPROACH: Stage with client_id and exclusion flags, PotfileService handles cascade
 			// All checks pre-loaded before loop to avoid millions of redundant queries
 			if shouldStagePotfile {
 				potfileBatch = append(potfileBatch, services.PotfileStagingEntry{
-					Password:  password,
-					HashValue: hashValue,
+					Password:          password,
+					HashValue:         hashValue,
+					ClientID:          clientIDForPotfile,       // nil or pointer to client UUID
+					ExcludeFromGlobal: excludeFromGlobalPotfile, // Hashlist-level exclusion from global
+					ExcludeFromClient: excludeFromClientPotfile, // Hashlist-level exclusion from client
 				})
 
 				// Flush batch when it reaches size limit
@@ -3191,6 +3304,7 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 	}
 
 	// Flush any remaining potfile staging entries
+	// UNIFIED APPROACH: Single batch with client_id, PotfileService handles routing
 	if len(potfileBatch) > 0 {
 		if err := s.potfileService.StageBatch(ctx, potfileBatch); err != nil {
 			debug.Warning("Failed to stage final password batch for pot-file: %v", err)

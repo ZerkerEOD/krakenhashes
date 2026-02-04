@@ -36,6 +36,7 @@ const createSchema = (requireClient: boolean) => {
     hashTypeId: z.number().min(0, 'Hash type is required'),
     clientName: z.string().nullish(),
     excludeFromPotfile: z.boolean().optional(),
+    excludeFromClientPotfile: z.boolean().optional(),
   });
 
   if (requireClient) {
@@ -57,6 +58,7 @@ type FormData = {
   hashTypeId: number;
   clientName?: string | null;
   excludeFromPotfile?: boolean;
+  excludeFromClientPotfile?: boolean;
 };
 
 interface HashlistUploadFormProps {
@@ -69,7 +71,7 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
   const [uploadMode, setUploadMode] = useState<'file' | 'paste'>('file');
   const [pastedHashes, setPastedHashes] = useState('');
   const [potfileGloballyEnabled, setPotfileGloballyEnabled] = useState(true);
-  const [clientPotfileEnabled, setClientPotfileEnabled] = useState(true);
+  const [clientPotfilesSystemEnabled, setClientPotfilesSystemEnabled] = useState(true);
   const [requireClient, setRequireClient] = useState(false);
   const [detectionResult, setDetectionResult] = useState<any>(null);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
@@ -86,6 +88,7 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
       hashTypeId: undefined,
       clientName: null,
       excludeFromPotfile: false,
+      excludeFromClientPotfile: false,
     }
   });
 
@@ -153,38 +156,20 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
         // Default to false if fetch fails
         setRequireClient(false);
       }
+
+      // Fetch client potfiles system setting
+      try {
+        const response = await api.get('/api/admin/settings/client_potfiles_enabled');
+        const clientPotfilesEnabled = response.data?.value === 'true';
+        setClientPotfilesSystemEnabled(clientPotfilesEnabled);
+      } catch (error) {
+        console.error('Failed to fetch client potfiles setting:', error);
+        // Default to true if fetch fails
+        setClientPotfilesSystemEnabled(true);
+      }
     };
     fetchSettings();
   }, []);
-
-  // Fetch client potfile setting when client changes
-  useEffect(() => {
-    const fetchClientPotfileSetting = async () => {
-      const clientName = control._formValues.clientName;
-      if (!clientName) {
-        setClientPotfileEnabled(true); // Default when no client
-        return;
-      }
-
-      try {
-        // Search for the client to get the full client object
-        const response = await api.get(`/api/clients/search?q=${clientName}`);
-        const clients = Array.isArray(response.data) ? response.data : [];
-        const matchingClient = clients.find((c: any) => c.name === clientName);
-
-        if (matchingClient) {
-          setClientPotfileEnabled(!matchingClient.exclude_from_potfile);
-        } else {
-          setClientPotfileEnabled(true); // Default if client not found
-        }
-      } catch (error) {
-        console.error('Failed to fetch client potfile setting:', error);
-        setClientPotfileEnabled(true); // Default on error
-      }
-    };
-
-    fetchClientPotfileSetting();
-  }, [control._formValues.clientName]);
 
   // Clear the other input when mode changes
   useEffect(() => {
@@ -217,6 +202,9 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
       if (data.clientName) formData.append('client_name', data.clientName);
       if (data.excludeFromPotfile !== undefined) {
         formData.append('exclude_from_potfile', data.excludeFromPotfile.toString());
+      }
+      if (data.excludeFromClientPotfile !== undefined) {
+        formData.append('exclude_from_client_potfile', data.excludeFromClientPotfile.toString());
       }
       if (createLinked) {
         formData.append('create_linked', 'true');
@@ -420,7 +408,8 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
         </Box>
       )}
 
-      {potfileGloballyEnabled && clientPotfileEnabled && (
+      {/* Global Potfile Exclusion Checkbox - shown when global potfile enabled by admin */}
+      {potfileGloballyEnabled && (
         <>
           <Controller
             name="excludeFromPotfile"
@@ -433,26 +422,51 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
                     onChange={(e) => field.onChange(e.target.checked)}
                   />
                 }
-                label="Exclude from potfile (don't save cracked passwords)"
+                label="Exclude from global potfile"
                 sx={{ mt: 2 }}
               />
             )}
           />
-          <Typography variant="caption" color="textSecondary" display="block" sx={{ ml: 4, mt: -1, mb: 2 }}>
-            Enable this for clients with strict data retention requirements
+          <Typography variant="caption" color="textSecondary" display="block" sx={{ ml: 4, mt: -1 }}>
+            Cracked passwords from this hashlist won't be saved to the global potfile
           </Typography>
         </>
       )}
 
-      {potfileGloballyEnabled && !clientPotfileEnabled && (
-        <Typography variant="caption" color="textSecondary" display="block" sx={{ mt: 2, mb: 2 }}>
-          Note: Potfile is disabled for this client. No cracked passwords will be saved.
+      {!potfileGloballyEnabled && (
+        <Typography variant="caption" color="textSecondary" display="block" sx={{ mt: 2 }}>
+          Note: Global potfile is currently disabled by admin settings.
         </Typography>
       )}
 
-      {!potfileGloballyEnabled && (
-        <Typography variant="caption" color="textSecondary" display="block" sx={{ mt: 2, mb: 2 }}>
-          Note: Potfile is currently disabled by admin settings. No cracked passwords will be saved.
+      {/* Client Potfile Exclusion Checkbox - shown when client potfiles enabled by admin */}
+      {clientPotfilesSystemEnabled && (
+        <>
+          <Controller
+            name="excludeFromClientPotfile"
+            control={control}
+            render={({ field }) => (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={field.value || false}
+                    onChange={(e) => field.onChange(e.target.checked)}
+                  />
+                }
+                label="Exclude from client potfile"
+                sx={{ mt: 1 }}
+              />
+            )}
+          />
+          <Typography variant="caption" color="textSecondary" display="block" sx={{ ml: 4, mt: -1, mb: 2 }}>
+            Cracked passwords from this hashlist won't be saved to the client-specific potfile
+          </Typography>
+        </>
+      )}
+
+      {!clientPotfilesSystemEnabled && (
+        <Typography variant="caption" color="textSecondary" display="block" sx={{ mt: 1, mb: 2 }}>
+          Note: Client potfiles are disabled by admin settings.
         </Typography>
       )}
 

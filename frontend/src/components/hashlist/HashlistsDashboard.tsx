@@ -27,7 +27,9 @@ import {
   Button,
   Alert,
   Tooltip,
-  CircularProgress
+  CircularProgress,
+  FormControlLabel,
+  Checkbox
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
@@ -62,6 +64,15 @@ interface Hashlist {
   clientName?: string;
   client_id?: string;
   exclude_from_potfile?: boolean;
+  // Client potfile settings (populated from backend JOIN)
+  client_enable_potfile?: boolean;
+  client_exclude_from_potfile?: boolean;
+  client_exclude_from_client_potfile?: boolean;
+  client_remove_from_global_on_delete?: boolean | null;
+  client_remove_from_client_on_delete?: boolean | null;
+  // Eligibility flags computed by backend
+  can_remove_from_global_potfile?: boolean;
+  can_remove_from_client_potfile?: boolean;
 }
 
 interface ApiHashlistResponse {
@@ -101,6 +112,8 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
   const [deletionProgressDialogOpen, setDeletionProgressDialogOpen] = useState(false);
   const [deletionProgress, setDeletionProgress] = useState<DeletionProgressResponse | null>(null);
   const [hashlistToDelete, setHashlistToDelete] = useState<Hashlist | null>(null);
+  const [removeFromGlobalPotfile, setRemoveFromGlobalPotfile] = useState(false);
+  const [removeFromClientPotfile, setRemoveFromClientPotfile] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null); // Track download state
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -198,8 +211,8 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
 
   // Delete Mutation - handles both sync and async deletion
   const deleteMutation = useMutation({
-    mutationFn: async (hashlistId: string) => {
-      return deleteHashlist(hashlistId);
+    mutationFn: async ({ hashlistId, removeFromGlobalPotfile, removeFromClientPotfile }: { hashlistId: string; removeFromGlobalPotfile?: boolean; removeFromClientPotfile?: boolean }) => {
+      return deleteHashlist(hashlistId, removeFromGlobalPotfile, removeFromClientPotfile);
     },
     onSuccess: (result) => {
       if (result.async && hashlistToDelete) {
@@ -255,18 +268,27 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
   // Handlers for delete dialog
   const handleDeleteClick = (hashlist: Hashlist) => {
     setHashlistToDelete(hashlist);
+    // Reset checkbox states - they will be shown only when conditions allow
+    setRemoveFromGlobalPotfile(false);
+    setRemoveFromClientPotfile(false);
     setDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = () => {
     if (hashlistToDelete) {
-      deleteMutation.mutate(hashlistToDelete.id);
+      deleteMutation.mutate({
+        hashlistId: hashlistToDelete.id,
+        removeFromGlobalPotfile,
+        removeFromClientPotfile
+      });
     }
   };
 
   const handleDeleteCancel = () => {
     setDeleteDialogOpen(false);
     setHashlistToDelete(null);
+    setRemoveFromGlobalPotfile(false);
+    setRemoveFromClientPotfile(false);
   };
 
   // Handler for closing upload dialog
@@ -581,6 +603,36 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
           <DialogContentText id="alert-dialog-description">
             {t('confirmDelete.message', { name: hashlistToDelete?.name || '' }) as string}
           </DialogContentText>
+
+          {/* Show global potfile removal option - only if eligible AND client allows override */}
+          {hashlistToDelete?.can_remove_from_global_potfile &&
+           hashlistToDelete?.client_remove_from_global_on_delete === null && (
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={removeFromGlobalPotfile}
+                  onChange={(e) => setRemoveFromGlobalPotfile(e.target.checked)}
+                />
+              }
+              label="Remove cracked passwords from global potfile"
+              sx={{ mt: 2, display: 'block' }}
+            />
+          )}
+
+          {/* Show client potfile removal option - only if eligible AND client allows override */}
+          {hashlistToDelete?.can_remove_from_client_potfile &&
+           hashlistToDelete?.client_remove_from_client_on_delete === null && (
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={removeFromClientPotfile}
+                  onChange={(e) => setRemoveFromClientPotfile(e.target.checked)}
+                />
+              }
+              label="Remove cracked passwords from client potfile"
+              sx={{ mt: 1, display: 'block' }}
+            />
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleDeleteCancel} color="primary">

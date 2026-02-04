@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -63,6 +64,12 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 	presetIncrementLayerRepo := repository.NewPresetIncrementLayerRepository(dbWrapper)
 	assocWordlistRepo := repository.NewAssociationWordlistRepository(dbWrapper)
 
+	// Create client potfile and wordlist dependencies
+	clientPotfileRepo := repository.NewClientPotfileRepository(dbWrapper)
+	clientWordlistRepo := repository.NewClientWordlistRepository(dbWrapper)
+	clientWordlistBasePath := filepath.Join(dataDir, "wordlists", "clients")
+	clientWordlistManager := services.NewClientWordlistManager(clientWordlistRepo, clientRepo, clientWordlistBasePath)
+
 	// Create job execution service
 	jobExecutionService := services.NewJobExecutionService(
 		database,
@@ -82,6 +89,8 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 		scheduleRepo,
 		binaryManager,
 		assocWordlistRepo,
+		clientWordlistRepo,
+		clientPotfileRepo,
 		"", // hashcatBinaryPath - not needed for keyspace calculation
 		dataDir,
 	)
@@ -102,6 +111,8 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 		jobExecutionService,
 		systemSettingsRepo,
 		assocWordlistRepo,
+		clientPotfileRepo,
+		clientWordlistManager,
 	)
 }
 

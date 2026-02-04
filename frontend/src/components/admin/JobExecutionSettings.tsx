@@ -350,7 +350,8 @@ const JobExecutionSettingsComponent: React.FC = () => {
             </Typography>
             <Divider sx={{ mb: 2 }} />
             <Grid container spacing={2}>
-              <Grid item xs={12}>
+              {/* Global Potfile Settings */}
+              <Grid item xs={12} md={6}>
                 <FormControlLabel
                   control={
                     <Switch
@@ -358,10 +359,64 @@ const JobExecutionSettingsComponent: React.FC = () => {
                       onChange={handleChange('potfile_enabled')}
                     />
                   }
-                  label={t('jobExecution.potfile.enablePotfile') as string}
+                  label="Enable global pot-file"
                 />
                 <Typography variant="caption" color="textSecondary" display="block">
                   {t('jobExecution.potfile.enablePotfileHelper')}
+                </Typography>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.remove_from_global_potfile_on_hashlist_delete_default ?? false}
+                      onChange={handleChange('remove_from_global_potfile_on_hashlist_delete_default')}
+                    />
+                  }
+                  label="Remove from global potfile when hashlist deleted"
+                />
+                <Typography variant="caption" color="textSecondary" display="block">
+                  System default. Can be overridden per-client or at deletion time.
+                </Typography>
+              </Grid>
+
+              {/* Client Potfiles Section */}
+              <Grid item xs={12}>
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'medium' }}>
+                  Client Potfiles
+                </Typography>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.client_potfiles_enabled ?? true}
+                      onChange={handleChange('client_potfiles_enabled')}
+                    />
+                  }
+                  label="Enable client-specific potfiles"
+                />
+                <Typography variant="caption" color="textSecondary" display="block">
+                  When enabled, cracked passwords can be stored in client-specific potfiles
+                  in addition to the global potfile. This enables data isolation between clients.
+                </Typography>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.remove_from_client_potfile_on_hashlist_delete_default ?? false}
+                      onChange={handleChange('remove_from_client_potfile_on_hashlist_delete_default')}
+                    />
+                  }
+                  label="Remove from client potfile when hashlist deleted"
+                />
+                <Typography variant="caption" color="textSecondary" display="block">
+                  System default. Can be overridden per-client or at deletion time.
                 </Typography>
               </Grid>
             </Grid>

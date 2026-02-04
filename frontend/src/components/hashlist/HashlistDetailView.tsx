@@ -15,7 +15,9 @@ import {
   DialogContentText,
   DialogTitle,
   TextField,
-  CircularProgress
+  CircularProgress,
+  FormControlLabel,
+  Checkbox
 } from '@mui/material';
 import {
   Download as DownloadIcon,
@@ -66,6 +68,8 @@ export default function HashlistDetailView() {
   const navigate = useNavigate();
   const [createJobDialogOpen, setCreateJobDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [removeFromGlobalPotfile, setRemoveFromGlobalPotfile] = useState(false);
+  const [removeFromClientPotfile, setRemoveFromClientPotfile] = useState(false);
   const [deletionProgressDialogOpen, setDeletionProgressDialogOpen] = useState(false);
   const [deletionProgress, setDeletionProgress] = useState<DeletionProgressResponse | null>(null);
   const [processingProgress, setProcessingProgress] = useState<ProcessingProgressResponse | null>(null);
@@ -200,8 +204,8 @@ export default function HashlistDetailView() {
 
   // Delete Mutation - handles both sync and async deletion
   const deleteMutation = useMutation({
-    mutationFn: async (hashlistId: string) => {
-      return deleteHashlist(hashlistId);
+    mutationFn: async ({ hashlistId, removeFromGlobalPotfile, removeFromClientPotfile }: { hashlistId: string; removeFromGlobalPotfile?: boolean; removeFromClientPotfile?: boolean }) => {
+      return deleteHashlist(hashlistId, removeFromGlobalPotfile, removeFromClientPotfile);
     },
     onSuccess: (result) => {
       if (result.async) {
@@ -237,17 +241,26 @@ export default function HashlistDetailView() {
   });
 
   const handleDeleteClick = () => {
+    // Reset checkbox states - they will be shown only when conditions allow
+    setRemoveFromGlobalPotfile(false);
+    setRemoveFromClientPotfile(false);
     setDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = () => {
     if (id) {
-      deleteMutation.mutate(id);
+      deleteMutation.mutate({
+        hashlistId: id,
+        removeFromGlobalPotfile,
+        removeFromClientPotfile
+      });
     }
   };
 
   const handleDeleteCancel = () => {
     setDeleteDialogOpen(false);
+    setRemoveFromGlobalPotfile(false);
+    setRemoveFromClientPotfile(false);
   };
 
   // Update Client Mutation
@@ -493,6 +506,7 @@ export default function HashlistDetailView() {
           hashlistId={parseInt(id!)}
           totalHashes={hashlist.total_hashes || 0}
           hasMixedWorkFactors={hashlist.has_mixed_work_factors || false}
+          clientId={hashlist.client_id}
         />
       )}
 
@@ -542,6 +556,36 @@ export default function HashlistDetailView() {
             Are you sure you want to delete the hashlist "{hashlist?.name || ''}"?
             This action cannot be undone.
           </DialogContentText>
+
+          {/* Show global potfile removal option - only if eligible AND client allows override */}
+          {hashlist?.can_remove_from_global_potfile &&
+           hashlist?.client_remove_from_global_on_delete === null && (
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={removeFromGlobalPotfile}
+                  onChange={(e) => setRemoveFromGlobalPotfile(e.target.checked)}
+                />
+              }
+              label="Remove cracked passwords from global potfile"
+              sx={{ mt: 2, display: 'block' }}
+            />
+          )}
+
+          {/* Show client potfile removal option - only if eligible AND client allows override */}
+          {hashlist?.can_remove_from_client_potfile &&
+           hashlist?.client_remove_from_client_on_delete === null && (
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={removeFromClientPotfile}
+                  onChange={(e) => setRemoveFromClientPotfile(e.target.checked)}
+                />
+              }
+              label="Remove cracked passwords from client potfile"
+              sx={{ mt: 1, display: 'block' }}
+            />
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleDeleteCancel} color="primary">

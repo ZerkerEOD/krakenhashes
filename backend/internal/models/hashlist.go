@@ -28,12 +28,21 @@ type HashList struct {
 	TotalHashes         int            `json:"total_hashes"`                   // Total number of hashes in the list
 	CrackedHashes       int            `json:"cracked_hashes"`                 // Number of hashes found cracked
 	Status              string         `json:"status"`                         // Processing status (uploading, processing, ready, error)
-	ErrorMessage        sql.NullString `json:"error_message"`                  // Use sql.NullString to handle NULL
-	ExcludeFromPotfile  bool           `json:"exclude_from_potfile"`           // Flag to exclude cracked passwords from potfile
-	OriginalFilePath    *string        `json:"original_file_path,omitempty"`   // Path to original uploaded file for association attacks
+	ErrorMessage              sql.NullString `json:"error_message"`                    // Use sql.NullString to handle NULL
+	ExcludeFromPotfile        bool           `json:"exclude_from_potfile"`             // Flag to exclude cracked passwords from global potfile
+	ExcludeFromClientPotfile  bool           `json:"exclude_from_client_potfile"`      // Flag to exclude cracked passwords from client potfile
+	OriginalFilePath          *string        `json:"original_file_path,omitempty"`     // Path to original uploaded file for association attacks
 	HasMixedWorkFactors bool           `json:"has_mixed_work_factors"`         // Warning flag if hashes have different work factors
 	CreatedAt           time.Time      `json:"createdAt"`                      // Timestamp of creation - Use camelCase
 	UpdatedAt           time.Time      `json:"updatedAt"`                      // Timestamp of last update - Use camelCase
+
+	// Client potfile settings (populated from JOIN when available)
+	ClientExcludeFromClientPotfile    *bool `json:"client_exclude_from_client_potfile,omitempty"`            // Client's exclude_from_client_potfile setting
+	ClientExcludeFromGlobalPotfile    *bool `json:"client_exclude_from_potfile,omitempty"`                   // Client's exclude_from_potfile setting (for global)
+	ClientRemoveFromGlobalOnDelete    *bool `json:"client_remove_from_global_on_delete"`                     // Client's remove_from_global_potfile_on_hashlist_delete setting (null = use system default)
+	ClientRemoveFromClientOnDelete    *bool `json:"client_remove_from_client_on_delete"`                     // Client's remove_from_client_potfile_on_hashlist_delete setting (null = use system default)
+	CanRemoveFromGlobalPotfile        bool  `json:"can_remove_from_global_potfile,omitempty"`                // Computed: can this hashlist's cracks be removed from global potfile
+	CanRemoveFromClientPotfile        bool  `json:"can_remove_from_client_potfile,omitempty"`                // Computed: can this hashlist's cracks be removed from client potfile
 }
 
 // Hash represents a single hash entry in the system.
@@ -69,15 +78,43 @@ type HashType struct {
 
 // Client represents a client or engagement associated with hashlists.
 type Client struct {
-	ID                  uuid.UUID `json:"id"`                            // Primary key
-	Name                string    `json:"name"`                          // Client name (unique)
-	Description         *string   `json:"description,omitempty"`         // Optional description (Use pointer for optional field)
-	ContactInfo         *string   `json:"contactInfo,omitempty"`         // Optional contact information (Use pointer for optional field)
-	DataRetentionMonths *int      `json:"dataRetentionMonths,omitempty"` // Use pointer for nullable INT (Keep forever=0, Use Default=NULL)
-	ExcludeFromPotfile  bool      `json:"exclude_from_potfile"`          // Flag to exclude cracked passwords from potfile
-	CreatedAt           time.Time `json:"createdAt"`                     // Timestamp of creation
-	UpdatedAt           time.Time `json:"updatedAt"`                     // Timestamp of last update
-	CrackedCount        *int      `json:"cracked_count,omitempty"`       // Count of cracked hashes for this client (computed field)
+	ID                                      uuid.UUID `json:"id"`                                              // Primary key
+	Name                                    string    `json:"name"`                                            // Client name (unique)
+	Description                             *string   `json:"description,omitempty"`                           // Optional description (Use pointer for optional field)
+	ContactInfo                             *string   `json:"contactInfo,omitempty"`                           // Optional contact information (Use pointer for optional field)
+	DataRetentionMonths                     *int      `json:"dataRetentionMonths,omitempty"`                   // Use pointer for nullable INT (Keep forever=0, Use Default=NULL)
+	ExcludeFromPotfile                      bool      `json:"exclude_from_potfile"`                            // When true, cracks for this client are NOT added to global potfile
+	ExcludeFromClientPotfile                bool      `json:"exclude_from_client_potfile"`                     // When true, cracks for this client are NOT added to client potfile
+	RemoveFromGlobalPotfileOnHashlistDelete *bool     `json:"remove_from_global_potfile_on_hashlist_delete"`   // NULL=use system default, true=always remove from global potfile, false=never remove
+	RemoveFromClientPotfileOnHashlistDelete *bool     `json:"remove_from_client_potfile_on_hashlist_delete"`   // NULL=use system default, true=always remove from client potfile, false=never remove
+	CreatedAt                               time.Time `json:"createdAt"`                                       // Timestamp of creation
+	UpdatedAt                               time.Time `json:"updatedAt"`                                       // Timestamp of last update
+	CrackedCount                            *int      `json:"cracked_count,omitempty"`                         // Count of cracked hashes for this client (computed field)
+	WordlistCount                           *int      `json:"wordlist_count,omitempty"`                        // Total client wordlists + potfile + association wordlists (computed field)
+}
+
+// ClientPotfile represents a client-specific potfile containing cracked passwords.
+type ClientPotfile struct {
+	ID        int       `json:"id"`
+	ClientID  uuid.UUID `json:"client_id"`
+	FilePath  string    `json:"file_path"`
+	FileSize  int64     `json:"file_size"`
+	LineCount int64     `json:"line_count"`
+	MD5Hash   string    `json:"md5_hash,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// ClientWordlist represents a client-specific wordlist available for any attack mode.
+type ClientWordlist struct {
+	ID        uuid.UUID `json:"id"`
+	ClientID  uuid.UUID `json:"client_id"`
+	FilePath  string    `json:"file_path"`
+	FileName  string    `json:"file_name"`
+	FileSize  int64     `json:"file_size"`
+	LineCount int64     `json:"line_count"`
+	MD5Hash   string    `json:"md5_hash,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // HashListHash represents the many-to-many relationship between hashlists and hashes.
@@ -124,12 +161,13 @@ type LinkedHashlistCreationRequest struct {
 // Association wordlists are tied to a specific hashlist (not job) and can be reused
 // across multiple jobs with different rules.
 type AssociationWordlist struct {
-	ID         uuid.UUID `json:"id"`
-	HashlistID int64     `json:"hashlist_id"`
-	FilePath   string    `json:"-"`              // Internal path, not exposed to API
-	FileName   string    `json:"file_name"`
-	FileSize   int64     `json:"file_size"`
-	LineCount  int64     `json:"line_count"`
-	MD5Hash    string    `json:"md5_hash"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID           uuid.UUID `json:"id"`
+	HashlistID   int64     `json:"hashlist_id"`
+	FilePath     string    `json:"-"`                          // Internal path, not exposed to API
+	FileName     string    `json:"file_name"`
+	FileSize     int64     `json:"file_size"`
+	LineCount    int64     `json:"line_count"`
+	MD5Hash      string    `json:"md5_hash"`
+	CreatedAt    time.Time `json:"created_at"`
+	HashlistName *string   `json:"hashlist_name,omitempty"`    // Parent hashlist name (populated in by-client queries)
 }

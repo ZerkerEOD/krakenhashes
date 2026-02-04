@@ -50,6 +50,9 @@ type hashlistHandler struct {
 	deletionProgressService     *services.DeletionProgressService
 	processingProgressService   *services.ProcessingProgressService
 	associationWordlistManager  *services.AssociationWordlistManager
+	clientWordlistManager       *services.ClientWordlistManager
+	clientPotfileService        *services.ClientPotfileService
+	potfileService              *services.PotfileService
 	dataDir                     string // Base directory for storing hashlist files
 	cfg                         *config.Config
 	agentService                *services.AgentService
@@ -62,7 +65,7 @@ type hashlistHandler struct {
 }
 
 // registerHashlistRoutes configures all hashlist, hash type, client, and hash search routes
-func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, agentService *services.AgentService, jobsHandler interface {
+func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, agentService *services.AgentService, clientPotfileService *services.ClientPotfileService, potfileService *services.PotfileService, jobsHandler interface {
 	GetAvailablePresetJobs(w http.ResponseWriter, r *http.Request)
 	CreateJobFromHashlist(w http.ResponseWriter, r *http.Request)
 }) {
@@ -106,6 +109,15 @@ func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, ag
 	}
 	assocWordlistManager := services.NewAssociationWordlistManager(assocWordlistRepo, hashlistRepo, assocWordlistBasePath)
 
+	// Create client wordlist repository and manager
+	// Uses same base directory as client potfiles: wordlists/clients/{clientID}/
+	clientWordlistRepo := repository.NewClientWordlistRepository(database)
+	clientWordlistBasePath := filepath.Join(cfg.DataDir, "wordlists", "clients")
+	if err := os.MkdirAll(clientWordlistBasePath, 0755); err != nil {
+		debug.Error("Failed to create client wordlist directory %s: %v", clientWordlistBasePath, err)
+	}
+	clientWordlistManager := services.NewClientWordlistManager(clientWordlistRepo, clientRepo, clientWordlistBasePath)
+
 	// Create handler
 	h := &hashlistHandler{
 		db:                         database,
@@ -119,6 +131,9 @@ func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, ag
 		deletionProgressService:    deletionProgressSvc,
 		processingProgressService:  processingProgressSvc,
 		associationWordlistManager: assocWordlistManager,
+		clientWordlistManager:      clientWordlistManager,
+		clientPotfileService:       clientPotfileService,
+		potfileService:             potfileService,
 		dataDir:                    hashlistDataDir,
 		cfg:                        cfg,
 		agentService:               agentService,
@@ -153,8 +168,24 @@ func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, ag
 
 	// Association wordlist by wordlist ID (not hashlist ID)
 	assocWordlistRouter := r.PathPrefix("/association-wordlists").Subrouter()
+	assocWordlistRouter.HandleFunc("/{wordlist_id}/download", h.handleDownloadAssociationWordlist).Methods(http.MethodGet, http.MethodOptions)
 	assocWordlistRouter.HandleFunc("/{wordlist_id}", h.handleGetAssociationWordlist).Methods(http.MethodGet, http.MethodOptions)
 	assocWordlistRouter.HandleFunc("/{wordlist_id}", h.handleDeleteAssociationWordlist).Methods(http.MethodDelete, http.MethodOptions)
+
+	// Client wordlist routes (visible across all hashlists for the same client)
+	clientWordlistRouter := r.PathPrefix("/clients").Subrouter()
+	clientWordlistRouter.HandleFunc("/{client_id}/wordlists/{wordlist_id}/download", h.handleDownloadClientWordlist).Methods(http.MethodGet, http.MethodOptions)
+	clientWordlistRouter.HandleFunc("/{client_id}/wordlists", h.handleListClientWordlists).Methods(http.MethodGet, http.MethodOptions)
+	clientWordlistRouter.HandleFunc("/{client_id}/wordlists", h.handleUploadClientWordlist).Methods(http.MethodPost, http.MethodOptions)
+	clientWordlistRouter.HandleFunc("/{client_id}/wordlists/{wordlist_id}", h.handleGetClientWordlist).Methods(http.MethodGet, http.MethodOptions)
+	clientWordlistRouter.HandleFunc("/{client_id}/wordlists/{wordlist_id}", h.handleDeleteClientWordlist).Methods(http.MethodDelete, http.MethodOptions)
+
+	// Client potfile routes (auto-generated potfile containing cracked passwords)
+	clientWordlistRouter.HandleFunc("/{client_id}/potfile/download", h.handleDownloadClientPotfile).Methods(http.MethodGet, http.MethodOptions)
+	clientWordlistRouter.HandleFunc("/{client_id}/potfile", h.handleGetClientPotfile).Methods(http.MethodGet, http.MethodOptions)
+
+	// Association wordlists aggregated by client (across all client's hashlists)
+	clientWordlistRouter.HandleFunc("/{client_id}/association-wordlists", h.handleListAssociationWordlistsByClient).Methods(http.MethodGet, http.MethodOptions)
 
 	// 2.2. Hash Types API
 	hashTypeRouter := r.PathPrefix("/hashtypes").Subrouter() // Use 'r' directly
@@ -321,8 +352,9 @@ func (h *hashlistHandler) handleUploadHashlist(w http.ResponseWriter, r *http.Re
 	hashTypeIDStr := r.FormValue("hash_type_id")
 	clientName := r.FormValue("client_name") // Expect client_name
 	excludeStr := r.FormValue("exclude_from_potfile")
+	excludeClientStr := r.FormValue("exclude_from_client_potfile")
 	createLinkedStr := r.FormValue("create_linked") // Support linked LM/NTLM hashlists
-	debug.Info("Received hashlist upload: name='%s', hashTypeID='%s', clientName='%s', excludeFromPotfile='%s', createLinked='%s'", name, hashTypeIDStr, clientName, excludeStr, createLinkedStr)
+	debug.Info("Received hashlist upload: name='%s', hashTypeID='%s', clientName='%s', excludeFromPotfile='%s', excludeFromClientPotfile='%s', createLinked='%s'", name, hashTypeIDStr, clientName, excludeStr, excludeClientStr, createLinkedStr)
 
 	// --- Parse and validate hash type ID ---
 	hashTypeID, err := strconv.Atoi(hashTypeIDStr)
@@ -465,6 +497,17 @@ func (h *hashlistHandler) handleUploadHashlist(w http.ResponseWriter, r *http.Re
 	}
 	debug.Info("Parsed exclude_from_potfile as: %v", excludeFromPotfile)
 
+	// --- Parse exclude_from_client_potfile boolean ---
+	excludeFromClientPotfile := false
+	if excludeClientStr != "" {
+		excludeFromClientPotfile, err = strconv.ParseBool(excludeClientStr)
+		if err != nil {
+			debug.Error("Failed to parse exclude_from_client_potfile '%s': %v, defaulting to false", excludeClientStr, err)
+			excludeFromClientPotfile = false
+		}
+	}
+	debug.Info("Parsed exclude_from_client_potfile as: %v", excludeFromClientPotfile)
+
 	// --- Parse create_linked boolean ---
 	createLinked := false
 	if createLinkedStr != "" {
@@ -478,21 +521,22 @@ func (h *hashlistHandler) handleUploadHashlist(w http.ResponseWriter, r *http.Re
 	// --- Check if linked hashlist creation is requested and valid ---
 	if createLinked && (hashTypeID == 1000 || hashTypeID == 3000) {
 		debug.Info("Linked hashlist creation requested for hash type %d", hashTypeID)
-		h.handleLinkedHashlistUpload(w, r, ctx, userID, clientID, name, excludeFromPotfile, file, header)
+		h.handleLinkedHashlistUpload(w, r, ctx, userID, clientID, name, excludeFromPotfile, excludeFromClientPotfile, file, header)
 		return
 	}
 
 	// --- Create database entry ---
 	now := time.Now()
 	hashlist := &models.HashList{
-		Name:               name,
-		UserID:             userID,
-		ClientID:           clientID, // Will be zero UUID if not provided
-		HashTypeID:         hashTypeID,
-		Status:             models.HashListStatusUploading,
-		ExcludeFromPotfile: excludeFromPotfile,
-		CreatedAt:          now,
-		UpdatedAt:          now,
+		Name:                     name,
+		UserID:                   userID,
+		ClientID:                 clientID, // Will be zero UUID if not provided
+		HashTypeID:               hashTypeID,
+		Status:                   models.HashListStatusUploading,
+		ExcludeFromPotfile:       excludeFromPotfile,
+		ExcludeFromClientPotfile: excludeFromClientPotfile,
+		CreatedAt:                now,
+		UpdatedAt:                now,
 	}
 
 	err = h.hashlistRepo.Create(ctx, hashlist)
@@ -560,7 +604,7 @@ func (h *hashlistHandler) handleUploadHashlist(w http.ResponseWriter, r *http.Re
 
 // handleLinkedHashlistUpload creates two linked hashlists (LM and NTLM) from a single pwdump file
 func (h *hashlistHandler) handleLinkedHashlistUpload(w http.ResponseWriter, r *http.Request, ctx context.Context,
-	userID, clientID uuid.UUID, baseName string, excludeFromPotfile bool, file multipart.File, header *multipart.FileHeader) {
+	userID, clientID uuid.UUID, baseName string, excludeFromPotfile, excludeFromClientPotfile bool, file multipart.File, header *multipart.FileHeader) {
 
 	debug.Info("Creating linked LM/NTLM hashlists for base name: %s", baseName)
 
@@ -568,25 +612,27 @@ func (h *hashlistHandler) handleLinkedHashlistUpload(w http.ResponseWriter, r *h
 	now := time.Now()
 
 	lmHashlist := &models.HashList{
-		Name:               baseName + "-LM",
-		UserID:             userID,
-		ClientID:           clientID,
-		HashTypeID:         3000, // LM
-		Status:             models.HashListStatusUploading,
-		ExcludeFromPotfile: excludeFromPotfile,
-		CreatedAt:          now,
-		UpdatedAt:          now,
+		Name:                     baseName + "-LM",
+		UserID:                   userID,
+		ClientID:                 clientID,
+		HashTypeID:               3000, // LM
+		Status:                   models.HashListStatusUploading,
+		ExcludeFromPotfile:       excludeFromPotfile,
+		ExcludeFromClientPotfile: excludeFromClientPotfile,
+		CreatedAt:                now,
+		UpdatedAt:                now,
 	}
 
 	ntlmHashlist := &models.HashList{
-		Name:               baseName + "-NTLM",
-		UserID:             userID,
-		ClientID:           clientID,
-		HashTypeID:         1000, // NTLM
-		Status:             models.HashListStatusUploading,
-		ExcludeFromPotfile: excludeFromPotfile,
-		CreatedAt:          now,
-		UpdatedAt:          now,
+		Name:                     baseName + "-NTLM",
+		UserID:                   userID,
+		ClientID:                 clientID,
+		HashTypeID:               1000, // NTLM
+		Status:                   models.HashListStatusUploading,
+		ExcludeFromPotfile:       excludeFromPotfile,
+		ExcludeFromClientPotfile: excludeFromClientPotfile,
+		CreatedAt:                now,
+		UpdatedAt:                now,
 	}
 
 	// Create both hashlists in database
@@ -727,6 +773,30 @@ func (h *hashlistHandler) handleListHashlists(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// Compute potfile removal eligibility for each hashlist
+	// Eligibility requires: system potfile enabled AND client NOT opted out
+	potfileEnabled := true // default
+	clientPotfilesEnabled := true // default
+
+	if setting, err := h.systemSettingsRepo.GetSetting(ctx, "potfile_enabled"); err == nil && setting != nil && setting.Value != nil {
+		potfileEnabled = *setting.Value == "true"
+	}
+	if setting, err := h.systemSettingsRepo.GetSetting(ctx, "client_potfiles_enabled"); err == nil && setting != nil && setting.Value != nil {
+		clientPotfilesEnabled = *setting.Value == "true"
+	}
+
+	for i := range hashlists {
+		hl := &hashlists[i]
+		// Global potfile eligibility: system enabled AND client not opted out (exclude=false)
+		if potfileEnabled && hl.ClientExcludeFromGlobalPotfile != nil && !*hl.ClientExcludeFromGlobalPotfile {
+			hl.CanRemoveFromGlobalPotfile = true
+		}
+		// Client potfile eligibility: system enabled AND client not opted out (exclude=false)
+		if clientPotfilesEnabled && hl.ClientExcludeFromClientPotfile != nil && !*hl.ClientExcludeFromClientPotfile {
+			hl.CanRemoveFromClientPotfile = true
+		}
+	}
+
 	// Log the data before sending the response
 	debug.Info("[handleListHashlists] Retrieved %d hashlists (TotalCount: %d)", len(hashlists), totalCount)
 	if len(hashlists) > 0 {
@@ -847,6 +917,27 @@ func (h *hashlistHandler) handleGetHashlist(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Compute potfile removal eligibility
+	// Eligibility requires: system potfile enabled AND client NOT opted out
+	potfileEnabled := true // default
+	clientPotfilesEnabled := true // default
+
+	if setting, err := h.systemSettingsRepo.GetSetting(ctx, "potfile_enabled"); err == nil && setting != nil && setting.Value != nil {
+		potfileEnabled = *setting.Value == "true"
+	}
+	if setting, err := h.systemSettingsRepo.GetSetting(ctx, "client_potfiles_enabled"); err == nil && setting != nil && setting.Value != nil {
+		clientPotfilesEnabled = *setting.Value == "true"
+	}
+
+	// Global potfile eligibility: system enabled AND client not opted out (exclude=false)
+	if potfileEnabled && hashlist.ClientExcludeFromGlobalPotfile != nil && !*hashlist.ClientExcludeFromGlobalPotfile {
+		hashlist.CanRemoveFromGlobalPotfile = true
+	}
+	// Client potfile eligibility: system enabled AND client not opted out (exclude=false)
+	if clientPotfilesEnabled && hashlist.ClientExcludeFromClientPotfile != nil && !*hashlist.ClientExcludeFromClientPotfile {
+		hashlist.CanRemoveFromClientPotfile = true
+	}
+
 	// Fetch hash type to enrich response
 	hashType, err := h.hashTypeRepo.GetByID(ctx, hashlist.HashTypeID)
 	if err != nil {
@@ -856,19 +947,26 @@ func (h *hashlistHandler) handleGetHashlist(w http.ResponseWriter, r *http.Reque
 
 	// Create enriched response
 	response := map[string]interface{}{
-		"id":                   hashlist.ID,
-		"name":                 hashlist.Name,
-		"user_id":              hashlist.UserID,
-		"client_id":            hashlist.ClientID,
-		"client_name":          hashlist.ClientName,
-		"hash_type_id":         hashlist.HashTypeID,
-		"total_hashes":         hashlist.TotalHashes,
-		"cracked_hashes":       hashlist.CrackedHashes,
-		"status":               hashlist.Status,
-		"error_message":        hashlist.ErrorMessage,
-		"exclude_from_potfile": hashlist.ExcludeFromPotfile,
-		"createdAt":            hashlist.CreatedAt,
-		"updatedAt":            hashlist.UpdatedAt,
+		"id":                            hashlist.ID,
+		"name":                          hashlist.Name,
+		"user_id":                       hashlist.UserID,
+		"client_id":                     hashlist.ClientID,
+		"client_name":                   hashlist.ClientName,
+		"hash_type_id":                  hashlist.HashTypeID,
+		"total_hashes":                  hashlist.TotalHashes,
+		"cracked_hashes":                hashlist.CrackedHashes,
+		"status":                        hashlist.Status,
+		"error_message":                 hashlist.ErrorMessage,
+		"exclude_from_potfile":          hashlist.ExcludeFromPotfile,
+		"exclude_from_client_potfile":   hashlist.ExcludeFromClientPotfile,
+		"client_exclude_from_client_potfile":            hashlist.ClientExcludeFromClientPotfile,
+		"client_exclude_from_potfile":                   hashlist.ClientExcludeFromGlobalPotfile,
+		"client_remove_from_global_on_delete":           hashlist.ClientRemoveFromGlobalOnDelete,
+		"client_remove_from_client_on_delete":           hashlist.ClientRemoveFromClientOnDelete,
+		"can_remove_from_global_potfile":                hashlist.CanRemoveFromGlobalPotfile,
+		"can_remove_from_client_potfile":                hashlist.CanRemoveFromClientPotfile,
+		"createdAt":                     hashlist.CreatedAt,
+		"updatedAt":                     hashlist.UpdatedAt,
 	}
 
 	// Add enriched hash type field if available
@@ -896,6 +994,18 @@ func (h *hashlistHandler) handleDeleteHashlist(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	// Parse optional request body for potfile removal options (TWO separate options)
+	var deleteRequest struct {
+		RemoveFromGlobalPotfile *bool `json:"remove_from_global_potfile,omitempty"`
+		RemoveFromClientPotfile *bool `json:"remove_from_client_potfile,omitempty"`
+	}
+	// Try to parse body, but don't fail if empty (DELETE requests often have no body)
+	if r.Body != nil && r.ContentLength > 0 {
+		if err := json.NewDecoder(r.Body).Decode(&deleteRequest); err != nil {
+			debug.Debug("Could not parse delete request body: %v (continuing with defaults)", err)
+		}
+	}
+
 	// Check if hashlist exists first
 	hashlist, err := h.hashlistRepo.GetByID(ctx, id)
 	if err != nil {
@@ -906,6 +1016,109 @@ func (h *hashlistHandler) handleDeleteHashlist(w http.ResponseWriter, r *http.Re
 		debug.Error("Error fetching hashlist %d: %v", id, err)
 		jsonError(w, "Failed to fetch hashlist", http.StatusInternalServerError)
 		return
+	}
+
+	// Determine removal eligibility and whether to remove from each potfile type
+	var client *models.Client
+	removeFromGlobalPotfile := false
+	removeFromClientPotfile := false
+	canRemoveFromGlobal := false
+	canRemoveFromClient := false
+
+	// Get system settings
+	potfileEnabled := true
+	clientPotfilesEnabled := true
+
+	potfileEnabledSetting, _ := h.systemSettingsRepo.GetSetting(ctx, "potfile_enabled")
+	if potfileEnabledSetting != nil && potfileEnabledSetting.Value != nil {
+		potfileEnabled = *potfileEnabledSetting.Value == "true"
+	}
+	clientPotfilesEnabledSetting, _ := h.systemSettingsRepo.GetSetting(ctx, "client_potfiles_enabled")
+	if clientPotfilesEnabledSetting != nil && clientPotfilesEnabledSetting.Value != nil {
+		clientPotfilesEnabled = *clientPotfilesEnabledSetting.Value == "true"
+	}
+
+	if hashlist.ClientID != uuid.Nil {
+		// Get client for potfile settings
+		client, err = h.clientRepo.GetByID(ctx, hashlist.ClientID)
+		if err != nil {
+			debug.Warning("Could not fetch client %s for potfile settings: %v", hashlist.ClientID, err)
+		}
+
+		if client != nil {
+			// === ELIGIBILITY CHECK ===
+			// Can only remove if cracks WERE written (potfile enabled AND client not opted out)
+			canRemoveFromGlobal = potfileEnabled && !client.ExcludeFromPotfile
+			canRemoveFromClient = clientPotfilesEnabled && !client.ExcludeFromClientPotfile
+
+			// === GLOBAL POTFILE REMOVAL LOGIC ===
+			if canRemoveFromGlobal {
+				// 1. Start with system default
+				globalDefaultSetting, _ := h.systemSettingsRepo.GetSetting(ctx, "remove_from_global_potfile_on_hashlist_delete_default")
+				if globalDefaultSetting != nil && globalDefaultSetting.Value != nil && *globalDefaultSetting.Value == "true" {
+					removeFromGlobalPotfile = true
+				}
+
+				// 2. Client override (NULL = use system, non-NULL = force)
+				if client.RemoveFromGlobalPotfileOnHashlistDelete != nil {
+					removeFromGlobalPotfile = *client.RemoveFromGlobalPotfileOnHashlistDelete
+					// Client forces - do NOT allow user override
+				} else {
+					// 3. User ad-hoc override (only when client doesn't force)
+					if deleteRequest.RemoveFromGlobalPotfile != nil {
+						removeFromGlobalPotfile = *deleteRequest.RemoveFromGlobalPotfile
+					}
+				}
+			}
+
+			// === CLIENT POTFILE REMOVAL LOGIC ===
+			if canRemoveFromClient {
+				// 1. Start with system default
+				clientDefaultSetting, _ := h.systemSettingsRepo.GetSetting(ctx, "remove_from_client_potfile_on_hashlist_delete_default")
+				if clientDefaultSetting != nil && clientDefaultSetting.Value != nil && *clientDefaultSetting.Value == "true" {
+					removeFromClientPotfile = true
+				}
+
+				// 2. Client override (NULL = use system, non-NULL = force)
+				if client.RemoveFromClientPotfileOnHashlistDelete != nil {
+					removeFromClientPotfile = *client.RemoveFromClientPotfileOnHashlistDelete
+					// Client forces - do NOT allow user override
+				} else {
+					// 3. User ad-hoc override (only when client doesn't force)
+					if deleteRequest.RemoveFromClientPotfile != nil {
+						removeFromClientPotfile = *deleteRequest.RemoveFromClientPotfile
+					}
+				}
+			}
+
+			debug.Info("[Delete] Hashlist %d: canRemoveFromGlobal=%v, canRemoveFromClient=%v, "+
+				"removeFromGlobal=%v, removeFromClient=%v (client=%s)",
+				id, canRemoveFromGlobal, canRemoveFromClient,
+				removeFromGlobalPotfile, removeFromClientPotfile, client.ID)
+		}
+	}
+
+	// === QUERY UNIQUE PLAINTEXTS BEFORE DELETION ===
+	// This MUST happen before the hashlist is deleted, otherwise we lose reference information
+	var globalRemovalSet map[string]struct{}
+	var clientRemovalSet map[string]struct{}
+
+	if removeFromGlobalPotfile && canRemoveFromGlobal && h.potfileService != nil {
+		globalRemovalSet, err = h.potfileService.GetUniquePlaintextsForGlobalRemoval(ctx, id)
+		if err != nil {
+			debug.Error("Failed to get unique plaintexts for global removal: %v", err)
+			// Don't fail the deletion, just skip potfile removal
+			globalRemovalSet = nil
+		}
+	}
+
+	if removeFromClientPotfile && canRemoveFromClient && client != nil && h.potfileService != nil {
+		clientRemovalSet, err = h.potfileService.GetUniquePlaintextsForClientRemoval(ctx, id, client.ID)
+		if err != nil {
+			debug.Error("Failed to get unique plaintexts for client removal: %v", err)
+			// Don't fail the deletion, just skip potfile removal
+			clientRemovalSet = nil
+		}
 	}
 
 	// Query actual hash count from hashlist_hashes table (not cached total_hashes which may be stale)
@@ -927,6 +1140,10 @@ func (h *hashlistHandler) handleDeleteHashlist(w http.ResponseWriter, r *http.Re
 			jsonError(w, "Failed to delete hashlist record", http.StatusInternalServerError)
 			return
 		}
+
+		// === SURGICAL REMOVAL FROM POTFILES (async) ===
+		h.performPotfileRemoval(client, globalRemovalSet, clientRemovalSet, id)
+
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -939,6 +1156,23 @@ func (h *hashlistHandler) handleDeleteHashlist(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	// Perform potfile removal after async deletion completes
+	if (len(globalRemovalSet) > 0 || len(clientRemovalSet) > 0) && client != nil {
+		clientCopy := *client
+		go func() {
+			// Wait for deletion to complete
+			for {
+				progress := h.deletionProgressService.GetProgress(id)
+				if progress == nil || progress.Status == "completed" || progress.Status == "error" {
+					break
+				}
+				time.Sleep(1 * time.Second)
+			}
+			// Perform surgical removal
+			h.performPotfileRemoval(&clientCopy, globalRemovalSet, clientRemovalSet, id)
+		}()
+	}
+
 	// Return 202 Accepted with progress URL
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
@@ -947,6 +1181,48 @@ func (h *hashlistHandler) handleDeleteHashlist(w http.ResponseWriter, r *http.Re
 		"hashlist_id":  id,
 		"progress_url": fmt.Sprintf("/api/hashlists/%d/deletion-progress", id),
 	})
+}
+
+// performPotfileRemoval performs surgical removal of plaintexts from potfiles
+func (h *hashlistHandler) performPotfileRemoval(client *models.Client, globalRemovalSet, clientRemovalSet map[string]struct{}, hashlistID int64) {
+	if h.potfileService == nil {
+		return
+	}
+
+	// Remove from global potfile
+	if len(globalRemovalSet) > 0 {
+		go func() {
+			globalPotfilePath := h.potfileService.GetPotfilePath()
+			removed, err := h.potfileService.RemovePlaintextsFromPotfile(globalPotfilePath, globalRemovalSet)
+			if err != nil {
+				debug.Error("Failed to remove plaintexts from global potfile after hashlist %d deletion: %v",
+					hashlistID, err)
+			} else {
+				debug.Info("Removed %d plaintexts from global potfile after hashlist %d deletion",
+					removed, hashlistID)
+			}
+		}()
+	}
+
+	// Remove from client potfile
+	if len(clientRemovalSet) > 0 && client != nil {
+		clientID := client.ID
+		go func() {
+			clientPotfilePath := h.potfileService.GetClientPotfilePath(clientID)
+			removed, err := h.potfileService.RemovePlaintextsFromPotfile(clientPotfilePath, clientRemovalSet)
+			if err != nil {
+				debug.Error("Failed to remove plaintexts from client potfile for client %s after hashlist %d deletion: %v",
+					clientID, hashlistID, err)
+			} else {
+				debug.Info("Removed %d plaintexts from client potfile for client %s after hashlist %d deletion",
+					removed, clientID, hashlistID)
+				// Update client potfile metadata in database
+				if err := h.potfileService.UpdateClientPotfileMetadata(context.Background(), clientID); err != nil {
+					debug.Error("Failed to update client potfile metadata for client %s: %v", clientID, err)
+				}
+			}
+		}()
+	}
 }
 
 // handleGetDeletionProgress returns the current progress of an async hashlist deletion.
@@ -2120,4 +2396,408 @@ func (h *hashlistHandler) handleDeleteAssociationWordlist(w http.ResponseWriter,
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// --- Client Wordlist Handlers (visible across all hashlists for the same client) ---
+
+// handleListClientWordlists returns all wordlists for a client.
+func (h *hashlistHandler) handleListClientWordlists(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Get client ID from URL
+	vars := mux.Vars(r)
+	clientIDStr := vars["client_id"]
+	clientID, err := uuid.Parse(clientIDStr)
+	if err != nil {
+		jsonError(w, "Invalid client ID", http.StatusBadRequest)
+		return
+	}
+
+	// Verify client exists
+	_, err = h.clientRepo.GetByID(ctx, clientID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			jsonError(w, "Client not found", http.StatusNotFound)
+			return
+		}
+		debug.Error("Failed to get client %s: %v", clientID, err)
+		jsonError(w, "Failed to get client", http.StatusInternalServerError)
+		return
+	}
+
+	// Get client wordlists
+	wordlists, err := h.clientWordlistManager.List(ctx, clientID)
+	if err != nil {
+		debug.Error("Failed to list client wordlists for client %s: %v", clientID, err)
+		jsonError(w, "Failed to list client wordlists", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(wordlists)
+}
+
+// handleUploadClientWordlist handles uploading a new wordlist for a client.
+func (h *hashlistHandler) handleUploadClientWordlist(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Get client ID from URL
+	vars := mux.Vars(r)
+	clientIDStr := vars["client_id"]
+	clientID, err := uuid.Parse(clientIDStr)
+	if err != nil {
+		jsonError(w, "Invalid client ID", http.StatusBadRequest)
+		return
+	}
+
+	// Verify client exists
+	_, err = h.clientRepo.GetByID(ctx, clientID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			jsonError(w, "Client not found", http.StatusNotFound)
+			return
+		}
+		debug.Error("Failed to get client %s: %v", clientID, err)
+		jsonError(w, "Failed to get client", http.StatusInternalServerError)
+		return
+	}
+
+	// Limit request body size (10GB for the whole request)
+	r.Body = http.MaxBytesReader(w, r.Body, 10<<30)
+
+	if err := r.ParseMultipartForm(32 << 20); err != nil { // 32MB max memory
+		debug.Error("Failed to parse multipart form for client wordlist upload: %v", err)
+		jsonError(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	// Get the uploaded file
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		debug.Error("Failed to get file from form: %v", err)
+		jsonError(w, "No file provided", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// Save to temp file
+	tempFile, err := os.CreateTemp("", "client_wordlist_*")
+	if err != nil {
+		debug.Error("Failed to create temp file: %v", err)
+		jsonError(w, "Failed to process upload", http.StatusInternalServerError)
+		return
+	}
+	tempPath := tempFile.Name()
+	defer func() {
+		tempFile.Close()
+		os.Remove(tempPath) // Clean up temp file if not moved
+	}()
+
+	if _, err := io.Copy(tempFile, file); err != nil {
+		debug.Error("Failed to save uploaded file: %v", err)
+		jsonError(w, "Failed to save file", http.StatusInternalServerError)
+		return
+	}
+	tempFile.Close()
+
+	// Upload via the manager
+	result, err := h.clientWordlistManager.Upload(ctx, clientID, header.Filename, tempPath)
+	if err != nil {
+		debug.Error("Failed to upload client wordlist: %v", err)
+		jsonError(w, fmt.Sprintf("Failed to upload wordlist: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Build response
+	response := map[string]interface{}{
+		"wordlist":   result.Wordlist,
+		"line_count": result.LineCount,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(response)
+}
+
+// handleGetClientWordlist retrieves a specific client wordlist.
+func (h *hashlistHandler) handleGetClientWordlist(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Get client ID and wordlist ID from URL
+	vars := mux.Vars(r)
+	clientIDStr := vars["client_id"]
+	clientID, err := uuid.Parse(clientIDStr)
+	if err != nil {
+		jsonError(w, "Invalid client ID", http.StatusBadRequest)
+		return
+	}
+
+	wordlistIDStr := vars["wordlist_id"]
+	wordlistID, err := uuid.Parse(wordlistIDStr)
+	if err != nil {
+		jsonError(w, "Invalid wordlist ID", http.StatusBadRequest)
+		return
+	}
+
+	wordlist, err := h.clientWordlistManager.Get(ctx, wordlistID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			jsonError(w, "Client wordlist not found", http.StatusNotFound)
+			return
+		}
+		debug.Error("Failed to get client wordlist %s: %v", wordlistID, err)
+		jsonError(w, "Failed to get client wordlist", http.StatusInternalServerError)
+		return
+	}
+
+	// Verify the wordlist belongs to the specified client
+	if wordlist.ClientID != clientID {
+		jsonError(w, "Wordlist does not belong to this client", http.StatusForbidden)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(wordlist)
+}
+
+// handleDeleteClientWordlist deletes a client wordlist and its file.
+func (h *hashlistHandler) handleDeleteClientWordlist(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Get client ID and wordlist ID from URL
+	vars := mux.Vars(r)
+	clientIDStr := vars["client_id"]
+	clientID, err := uuid.Parse(clientIDStr)
+	if err != nil {
+		jsonError(w, "Invalid client ID", http.StatusBadRequest)
+		return
+	}
+
+	wordlistIDStr := vars["wordlist_id"]
+	wordlistID, err := uuid.Parse(wordlistIDStr)
+	if err != nil {
+		jsonError(w, "Invalid wordlist ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get the wordlist to verify ownership
+	wordlist, err := h.clientWordlistManager.Get(ctx, wordlistID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			jsonError(w, "Client wordlist not found", http.StatusNotFound)
+			return
+		}
+		debug.Error("Failed to get client wordlist %s: %v", wordlistID, err)
+		jsonError(w, "Failed to get client wordlist", http.StatusInternalServerError)
+		return
+	}
+
+	// Verify the wordlist belongs to the specified client
+	if wordlist.ClientID != clientID {
+		jsonError(w, "Wordlist does not belong to this client", http.StatusForbidden)
+		return
+	}
+
+	if err := h.clientWordlistManager.Delete(ctx, wordlistID); err != nil {
+		debug.Error("Failed to delete client wordlist %s: %v", wordlistID, err)
+		jsonError(w, "Failed to delete client wordlist", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// --- Client Potfile Handler ---
+
+// handleGetClientPotfile returns the potfile metadata for a client.
+// This is the auto-generated potfile containing cracked passwords for the client.
+func (h *hashlistHandler) handleGetClientPotfile(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Get client ID from URL
+	vars := mux.Vars(r)
+	clientIDStr := vars["client_id"]
+	clientID, err := uuid.Parse(clientIDStr)
+	if err != nil {
+		jsonError(w, "Invalid client ID", http.StatusBadRequest)
+		return
+	}
+
+	// Verify client exists
+	_, err = h.clientRepo.GetByID(ctx, clientID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			jsonError(w, "Client not found", http.StatusNotFound)
+			return
+		}
+		debug.Error("Failed to get client %s: %v", clientID, err)
+		jsonError(w, "Failed to get client", http.StatusInternalServerError)
+		return
+	}
+
+	// Get client potfile info
+	potfile, err := h.clientPotfileService.GetClientPotfileInfo(ctx, clientID)
+	if err != nil {
+		// No potfile exists yet - return null response (not an error)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte("null"))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(potfile)
+}
+
+// --- Download Handlers ---
+
+// handleDownloadClientWordlist serves a client wordlist file for download.
+func (h *hashlistHandler) handleDownloadClientWordlist(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	clientID, err := uuid.Parse(vars["client_id"])
+	if err != nil {
+		jsonError(w, "Invalid client ID", http.StatusBadRequest)
+		return
+	}
+
+	wordlistID, err := uuid.Parse(vars["wordlist_id"])
+	if err != nil {
+		jsonError(w, "Invalid wordlist ID", http.StatusBadRequest)
+		return
+	}
+
+	wordlist, err := h.clientWordlistManager.Get(ctx, wordlistID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			jsonError(w, "Client wordlist not found", http.StatusNotFound)
+			return
+		}
+		debug.Error("Failed to get client wordlist %s: %v", wordlistID, err)
+		jsonError(w, "Failed to get client wordlist", http.StatusInternalServerError)
+		return
+	}
+
+	if wordlist.ClientID != clientID {
+		jsonError(w, "Wordlist does not belong to this client", http.StatusForbidden)
+		return
+	}
+
+	if _, err := os.Stat(wordlist.FilePath); os.IsNotExist(err) {
+		jsonError(w, "Wordlist file not found on disk", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", wordlist.FileName))
+	w.Header().Set("Content-Type", "application/octet-stream")
+	http.ServeFile(w, r, wordlist.FilePath)
+}
+
+// handleDownloadClientPotfile serves the client's auto-generated potfile for download.
+func (h *hashlistHandler) handleDownloadClientPotfile(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	clientID, err := uuid.Parse(vars["client_id"])
+	if err != nil {
+		jsonError(w, "Invalid client ID", http.StatusBadRequest)
+		return
+	}
+
+	// Verify client exists
+	client, err := h.clientRepo.GetByID(ctx, clientID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			jsonError(w, "Client not found", http.StatusNotFound)
+			return
+		}
+		debug.Error("Failed to get client %s: %v", clientID, err)
+		jsonError(w, "Failed to get client", http.StatusInternalServerError)
+		return
+	}
+
+	potfilePath := h.clientPotfileService.GetClientPotfilePath(clientID)
+
+	if _, err := os.Stat(potfilePath); os.IsNotExist(err) {
+		jsonError(w, "Client potfile not found", http.StatusNotFound)
+		return
+	}
+
+	filename := fmt.Sprintf("potfile_%s.txt", client.Name)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	http.ServeFile(w, r, potfilePath)
+}
+
+// handleDownloadAssociationWordlist serves an association wordlist file for download.
+func (h *hashlistHandler) handleDownloadAssociationWordlist(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	wordlistID, err := uuid.Parse(vars["wordlist_id"])
+	if err != nil {
+		jsonError(w, "Invalid wordlist ID", http.StatusBadRequest)
+		return
+	}
+
+	wordlist, err := h.associationWordlistManager.Get(ctx, wordlistID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			jsonError(w, "Association wordlist not found", http.StatusNotFound)
+			return
+		}
+		debug.Error("Failed to get association wordlist %s: %v", wordlistID, err)
+		jsonError(w, "Failed to get association wordlist", http.StatusInternalServerError)
+		return
+	}
+
+	filePath, err := h.associationWordlistManager.GetFilePath(ctx, wordlistID)
+	if err != nil {
+		debug.Error("Failed to get file path for association wordlist %s: %v", wordlistID, err)
+		jsonError(w, "Failed to get wordlist file path", http.StatusInternalServerError)
+		return
+	}
+
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		jsonError(w, "Association wordlist file not found on disk", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", wordlist.FileName))
+	w.Header().Set("Content-Type", "application/octet-stream")
+	http.ServeFile(w, r, filePath)
+}
+
+// handleListAssociationWordlistsByClient returns all association wordlists for a client (across all hashlists).
+func (h *hashlistHandler) handleListAssociationWordlistsByClient(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	clientID, err := uuid.Parse(vars["client_id"])
+	if err != nil {
+		jsonError(w, "Invalid client ID", http.StatusBadRequest)
+		return
+	}
+
+	// Verify client exists
+	_, err = h.clientRepo.GetByID(ctx, clientID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			jsonError(w, "Client not found", http.StatusNotFound)
+			return
+		}
+		debug.Error("Failed to get client %s: %v", clientID, err)
+		jsonError(w, "Failed to get client", http.StatusInternalServerError)
+		return
+	}
+
+	wordlists, err := h.associationWordlistManager.ListByClientID(ctx, clientID)
+	if err != nil {
+		debug.Error("Failed to list association wordlists for client %s: %v", clientID, err)
+		jsonError(w, "Failed to list association wordlists", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(wordlists)
 }

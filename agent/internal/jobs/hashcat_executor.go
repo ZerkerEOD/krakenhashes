@@ -68,6 +68,12 @@ type JobTaskAssignment struct {
 	// Association attack fields (mode 9)
 	AssociationWordlistPath string `json:"association_wordlist_path,omitempty"` // Path to the association wordlist
 	OriginalHashlistPath    string `json:"original_hashlist_path,omitempty"`    // Path to the original hashlist file (preserves order)
+
+	// Client-specific wordlists (potfile and uploaded wordlists)
+	ClientID            string   `json:"client_id,omitempty"`             // Client UUID for this hashlist
+	ClientPotfilePath   string   `json:"client_potfile_path,omitempty"`   // Path to client potfile (treated as wordlist)
+	ClientWordlistPaths []string `json:"client_wordlist_paths,omitempty"` // Paths to client-specific wordlists
+	ClientWordlistIDs   []string `json:"client_wordlist_ids,omitempty"`   // IDs for downloading client wordlists
 }
 
 // DeviceMetric represents metrics for a single device
@@ -569,6 +575,33 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 			debug.Info("Adding wordlist: %s (full path: %s)", wordlistPath, fullPath)
 			args = append(args, fullPath)
 		}
+
+		// Add client potfile as a wordlist if specified
+		// Client potfile is a wordlist of previously cracked passwords for this client
+		if assignment.ClientPotfilePath != "" {
+			fullPath := filepath.Join(e.dataDirectory, assignment.ClientPotfilePath)
+			if _, err := os.Stat(fullPath); err == nil {
+				debug.Info("Adding client potfile as wordlist: %s", fullPath)
+				args = append(args, fullPath)
+			} else {
+				debug.Warning("Client potfile not found, skipping: %s", fullPath)
+			}
+		}
+
+		// Add client-specific wordlists if specified
+		if len(assignment.ClientWordlistPaths) > 0 {
+			debug.Info("Adding client wordlists to hashcat command: %v", assignment.ClientWordlistPaths)
+			for _, wordlistPath := range assignment.ClientWordlistPaths {
+				fullPath := filepath.Join(e.dataDirectory, wordlistPath)
+				if _, err := os.Stat(fullPath); err == nil {
+					debug.Info("Adding client wordlist: %s", fullPath)
+					args = append(args, fullPath)
+				} else {
+					debug.Warning("Client wordlist not found, skipping: %s", fullPath)
+				}
+			}
+		}
+
 		// Add rules
 		debug.Info("Adding rules to hashcat command: %v", assignment.RulePaths)
 		for _, rulePath := range assignment.RulePaths {
