@@ -10,12 +10,12 @@ import HttpBackend from 'i18next-http-backend';
  * 2. Creating translation files in public/locales/{code}/
  */
 export const supportedLanguages = {
-    en: { nativeName: 'English', flag: '🇺🇸' },
-    zh: { nativeName: '中文', flag: '🇨🇳' },
-    de: { nativeName: 'Deutsch', flag: '🇩🇪' },
-    nl: { nativeName: 'Nederlands', flag: '🇳🇱' },
-    es: { nativeName: 'Español', flag: '🇪🇸' },
-    ru: { nativeName: 'Русский', flag: '🇷🇺' },
+    en: { nativeName: 'English', countryCode: 'US' },
+    zh: { nativeName: '中文', countryCode: 'CN' },
+    de: { nativeName: 'Deutsch', countryCode: 'DE' },
+    nl: { nativeName: 'Nederlands', countryCode: 'NL' },
+    es: { nativeName: 'Español', countryCode: 'ES' },
+    ru: { nativeName: 'Русский', countryCode: 'RU' },
 } as const;
 
 export type SupportedLanguage = keyof typeof supportedLanguages;
