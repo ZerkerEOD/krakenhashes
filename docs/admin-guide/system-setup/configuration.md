@@ -98,7 +98,7 @@ Changes to admin panel settings take effect immediately without requiring servic
 | `DB_NAME` | Database name | `krakenhashes` | `krakenhashes_prod` |
 | `DB_USER` | Database username | `krakenhashes` | `khuser` |
 | `DB_PASSWORD` | Database password | `krakenhashes` | `secure_password` |
-| `DB_CONNECTION_STRING` | Full connection string (alternative) | - | `postgres://user:pass@host:port/db?sslmode=disable` |
+| `DB_ARGUMENTS` | Additional connection arguments | `sslmode=disable` | `sslmode=require&connect_timeout=5` |
 
 ### Backend Configuration
 

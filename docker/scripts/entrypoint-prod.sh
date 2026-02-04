@@ -81,9 +81,10 @@ DB_PORT=${DB_PORT:-5432}
 DB_NAME=${DB_NAME}
 DB_USER=${DB_USER}
 DB_PASSWORD=${DB_PASSWORD}
+DB_ARGUMENTS=${DB_ARGUMENTS:-sslmode=disable}
 
 # Build connection string for external database
-DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable
+DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?${DB_ARGUMENTS}
 
 # JWT Configuration
 JWT_SECRET=${JWT_SECRET:-default_jwt_secret_replace_in_production}
