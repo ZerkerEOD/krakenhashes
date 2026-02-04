@@ -24,6 +24,10 @@ Hashlists are typically uploaded through the frontend UI.
     *   **Hash Type:** Select the correct hash type from the dropdown. This list is populated from the `hash_types` table in the database (see [Hash Types](#hash-types) below). The format displayed is `ID - Name` (e.g., `1000 - NTLM`).
     *   **Client:** (Optional) Select an existing client to associate this hashlist with, or create a new one on the fly.
     *   **File:** Choose the hashlist file from your local machine.
+    *   **Exclude from global potfile:** (Optional) When checked, cracked passwords from this hashlist will NOT be saved to the system-wide global potfile. This checkbox is only visible when the global potfile feature is enabled by an administrator. Default: unchecked (passwords ARE saved to the global potfile).
+    *   **Exclude from client potfile:** (Optional) When checked, cracked passwords from this hashlist will NOT be saved to the client-specific potfile. This checkbox is only visible when the client potfiles feature is enabled by an administrator. Default: unchecked (passwords ARE saved to the client potfile).
+
+> **Note:** These two exclusion checkboxes operate independently. You can exclude from one, both, or neither. The settings are captured at upload time and apply to all future cracks from this hashlist. For details on how these interact with client and system-level settings, see the [Three-Level Cascade System](../admin-guide/operations/potfile.md#three-level-cascade-system).
 4.  **Submit:** Click the upload button in the dialog.
 
 ### API Endpoint
@@ -326,6 +330,12 @@ The processor primarily expects:
     *   The original hashlist file is **securely deleted** from backend storage (overwritten with random data before removal).
     *   Individual hashes in the central `hashes` table are *not* deleted if they are referenced by other hashlists.
     *   Orphaned hashes (not linked to any hashlist) are automatically cleaned up.
+    *   **Potfile Removal Options:** The delete confirmation dialog may show two additional checkboxes:
+        *   **Remove from global potfile**: Surgically removes this hashlist's unique cracked passwords from the global potfile. Only shown when the hashlist is eligible (potfile was enabled and client was not opted out when cracks were written).
+        *   **Remove from client potfile**: Removes this hashlist's passwords from the client-specific potfile by regenerating the potfile from remaining hashlists. Only shown when eligible.
+        *   These checkboxes may be pre-checked based on system defaults and client-level overrides. If a client has forced removal settings, the checkboxes are locked and cannot be changed.
+        *   Via API: Pass optional JSON body `{"remove_from_global_potfile": true, "remove_from_client_potfile": true}` with the DELETE request.
+        *   For details, see [Surgical Potfile Removal](../admin-guide/operations/potfile.md#surgical-potfile-removal-on-hashlist-delete).
 
 ### Viewing Individual Hashes
 

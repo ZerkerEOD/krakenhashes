@@ -239,10 +239,13 @@ func (s *JobWebSocketIntegration) HandleCrackBatch(
        potfileEnabled := getSystemSetting("potfile_enabled")
    }
 
-   // NEW: Load once before loop
+   // NEW: Load once before loop (includes client potfile settings)
    potfileEnabled := getSystemSetting("potfile_enabled")
+   clientPotfilesEnabled := getSystemSetting("client_potfiles_enabled")
+   hashlistExcludeGlobal := hashlist.ExcludeFromPotfile
+   hashlistExcludeClient := hashlist.ExcludeFromClientPotfile
    for _, crack := range crackedHashes {
-       // Use pre-loaded value
+       // Use pre-loaded values for routing to global/client potfiles
    }
    ```
 
@@ -388,14 +391,24 @@ ORDER BY minute DESC;
 
 ### Potfile Integration
 
-Crack batches feed into the potfile staging system:
+Crack batches feed into the potfile staging system with client routing context:
 
 ```go
-// Stage entire batch at once
+// Stage entire batch at once - includes client context and exclusion flags
+entries := []PotfileStagingEntry{
+    {
+        Password:          "password123",
+        HashValue:         "5f4dcc3b...",
+        ClientID:          &clientUUID,      // nil if hashlist has no client
+        ExcludeFromGlobal: false,            // from hashlists.exclude_from_potfile
+        ExcludeFromClient: false,            // from hashlists.exclude_from_client_potfile
+    },
+    // ...
+}
 potfileService.StageBatch(ctx, entries)
 ```
 
-See [Potfile Management](../../admin-guide/operations/potfile.md) for details.
+The background worker processes staged entries and routes them to the global potfile and/or the client's potfile based on the three-level cascade (System → Client → Hashlist). See [Potfile Management](../../admin-guide/operations/potfile.md) for details on the cascade system.
 
 ### Job Completion Detection
 

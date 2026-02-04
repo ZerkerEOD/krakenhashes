@@ -23,6 +23,8 @@ The system continuously monitors three key directories:
 - **Rules**: `/data/krakenhashes/rules/`
 - **Potfile**: Special handling via staging mechanism
 
+> **Note**: The `wordlists/clients/` subdirectory is explicitly **skipped** by the directory monitor. Client wordlists and client potfiles are managed via their own database tables (`client_wordlists` and `client_potfiles`) and dedicated API endpoints, not through file system monitoring. The monitor performs a prefix check: any file with a relative path starting with `clients/` is ignored during directory scans.
+
 Every 30 seconds (configurable), the directory monitor:
 1. Calculates MD5 hashes of all monitored files
 2. Compares with previous hashes to detect changes
@@ -108,7 +110,16 @@ The potfile (collection of cracked passwords) has special handling:
 - Not monitored by directory monitor (excluded from scans)
 - Updates via database staging, not file watching
 - Requires explicit refresh action
-- Always grows (passwords only added, never removed)
+- Always grows (passwords only added, never removed — unless surgical removal is triggered on hashlist delete)
+
+### Client Potfile Updates
+
+Client potfiles have additional considerations:
+
+- **Not monitored by directory monitor**: Like the global potfile, client potfiles are excluded from file system scans
+- **No job keyspace impact**: Client potfiles are NOT registered in the main `wordlists` table, so changes to client potfiles do NOT trigger job keyspace recalculation via the standard update system
+- **Processed by same worker**: The unified `PotfileService` background worker handles both global and client potfile entries in a single batch processing cycle
+- **Staging table changes**: The `potfile_staging` table now includes `client_id` (UUID, nullable), `exclude_from_global` (boolean), and `exclude_from_client` (boolean) columns that control routing during processing
 
 ## Keyspace Recalculation Logic
 
@@ -205,7 +216,9 @@ Located in backend configuration:
 - `job_tasks`: Tracks dispatched work (rule_start_index, rule_end_index)
 - `wordlists`: Metadata including word_count, file_hash
 - `rules`: Metadata including rule_count, file_hash
-- `potfile_staging`: Temporary storage for cracked passwords
+- `potfile_staging`: Temporary storage for cracked passwords (includes `client_id`, `exclude_from_global`, `exclude_from_client` for routing)
+- `client_potfiles`: Metadata for client-specific potfiles (file_path, file_size, line_count, md5_hash)
+- `client_wordlists`: Client-specific wordlist files (file_path, file_name, file_size, line_count, md5_hash)
 
 ### Locking Strategy
 

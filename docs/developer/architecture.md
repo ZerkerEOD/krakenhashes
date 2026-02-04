@@ -107,6 +107,9 @@ The backend follows a clean layered architecture with clear separation of concer
 - `WebSocketService` - Real-time communication hub
 - `HashlistSyncService` - File synchronization to agents
 - `MetricsCleanupService` - Agent metrics pruning
+- `PotfileService` - Manages both global and client potfile staging and batch processing. Unified background worker handles password routing via three-level cascade. Includes per-client LRU bloom filter cache (max 50)
+- `ClientPotfileService` - Thin compatibility wrapper that delegates operations to the unified PotfileService for client potfile paths, info, deletion, and regeneration
+- `ClientWordlistManager` - Upload, validation, storage, counting, MD5 hashing, and deletion of client-specific wordlists. Sanitizes filenames, rejects reserved name `potfile.txt`
 
 #### 3. **Repository Layer** (`internal/repository/`)
 - Database access abstraction
@@ -119,6 +122,8 @@ The backend follows a clean layered architecture with clear separation of concer
 - `HashlistRepository` - Hashlist storage
 - `JobExecutionRepository` - Job tracking
 - `JobTaskRepository` - Task management
+- `ClientPotfileRepository` - CRUD for `client_potfiles` table; queries unique plaintexts for potfile regeneration
+- `ClientWordlistRepository` - CRUD for `client_wordlists` table; manages file paths and metadata
 
 #### 4. **Infrastructure Layer**
 - Database connections (`internal/database/`)
@@ -144,6 +149,7 @@ The backend follows a clean layered architecture with clear separation of concer
 - **Monitoring**: System metrics and heartbeat management
 - **Data Retention**: Configurable retention policies
 - **Accurate Keyspace Tracking**: Captures real keyspace from hashcat `progress[1]` values and recalculates progress every 2 seconds for precise, self-healing progress reporting
+- **Client Potfile Cascade**: Three-level (System/Client/Hashlist) exclusion controls for password routing to global and client potfiles, with per-client LRU bloom filter cache and surgical removal on hashlist delete
 
 ## Frontend Architecture
 
@@ -354,6 +360,9 @@ File synchronization uses HTTP(S) with the following endpoints:
 - `clients` - Customer/engagement tracking
 - `wordlists` - Dictionary files
 - `rules` - Rule files for mutations
+- `client_potfiles` - Client-specific potfile metadata (file_path, file_size, line_count, md5_hash, one per client)
+- `client_wordlists` - Client-specific wordlists (file_path, file_name, file_size, line_count, md5_hash)
+- `potfile_staging` - Temporary storage for cracked passwords (includes `client_id`, `exclude_from_global`, `exclude_from_client` for routing)
 
 #### System Management
 - `vouchers` - Agent registration codes
@@ -486,7 +495,11 @@ AuthMiddleware → RoleMiddleware → ResourceMiddleware → Handler
 │   ├── general/      # Common wordlists
 │   ├── specialized/  # Domain-specific
 │   ├── targeted/     # Custom lists
-│   └── custom/       # User uploads
+│   ├── custom/       # User uploads (includes global potfile.txt)
+│   └── clients/      # Client-specific files (auto-managed, excluded from directory monitor)
+│       └── {client_uuid}/
+│           ├── potfile.txt    # Auto-generated client potfile
+│           └── *.txt          # Uploaded client wordlists
 ├── rules/            # Mutation rules
 │   ├── hashcat/      # Hashcat rules
 │   ├── john/         # John rules
