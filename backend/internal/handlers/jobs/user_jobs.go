@@ -22,21 +22,23 @@ import (
 
 // UserJobsHandler handles job-related requests from users
 type UserJobsHandler struct {
-	jobExecRepo           *repository.JobExecutionRepository
-	jobTaskRepo           *repository.JobTaskRepository
-	jobIncrementLayerRepo *repository.JobIncrementLayerRepository
-	presetJobRepo         repository.PresetJobRepository
-	hashlistRepo          *repository.HashListRepository
-	clientRepo            *repository.ClientRepository
-	workflowRepo          repository.JobWorkflowRepository
-	hashTypeRepo          *repository.HashTypeRepository
-	wordlistStore         *wordlist.Store
-	ruleStore             *rule.Store
-	binaryStore           binary.Store
-	jobExecutionService   *services.JobExecutionService
-	systemSettingsRepo    *repository.SystemSettingsRepository
-	assocWordlistRepo     *repository.AssociationWordlistRepository
-	wsHandler             WSHandler
+	jobExecRepo            *repository.JobExecutionRepository
+	jobTaskRepo            *repository.JobTaskRepository
+	jobIncrementLayerRepo  *repository.JobIncrementLayerRepository
+	presetJobRepo          repository.PresetJobRepository
+	hashlistRepo           *repository.HashListRepository
+	clientRepo             *repository.ClientRepository
+	workflowRepo           repository.JobWorkflowRepository
+	hashTypeRepo           *repository.HashTypeRepository
+	wordlistStore          *wordlist.Store
+	ruleStore              *rule.Store
+	binaryStore            binary.Store
+	jobExecutionService    *services.JobExecutionService
+	systemSettingsRepo     *repository.SystemSettingsRepository
+	assocWordlistRepo      *repository.AssociationWordlistRepository
+	clientPotfileRepo      *repository.ClientPotfileRepository
+	clientWordlistManager  *services.ClientWordlistManager
+	wsHandler              WSHandler
 }
 
 // WSHandler interface for WebSocket operations
@@ -65,6 +67,8 @@ func NewUserJobsHandler(
 	jobExecutionService *services.JobExecutionService,
 	systemSettingsRepo *repository.SystemSettingsRepository,
 	assocWordlistRepo *repository.AssociationWordlistRepository,
+	clientPotfileRepo *repository.ClientPotfileRepository,
+	clientWordlistManager *services.ClientWordlistManager,
 ) *UserJobsHandler {
 	return &UserJobsHandler{
 		jobExecRepo:           jobExecRepo,
@@ -81,6 +85,8 @@ func NewUserJobsHandler(
 		jobExecutionService:   jobExecutionService,
 		systemSettingsRepo:    systemSettingsRepo,
 		assocWordlistRepo:     assocWordlistRepo,
+		clientPotfileRepo:     clientPotfileRepo,
+		clientWordlistManager: clientWordlistManager,
 		wsHandler:             nil, // Will be set later via SetWSHandler
 	}
 }
@@ -357,6 +363,39 @@ type JobNameConfig struct {
 func (h *UserJobsHandler) resolveWordlistNames(ctx context.Context, wordlistIDs []string) []string {
 	names := make([]string, 0, len(wordlistIDs))
 	for _, idStr := range wordlistIDs {
+		// Check for client-specific wordlist prefix "client:UUID"
+		if strings.HasPrefix(idStr, "client:") {
+			uuidStr := strings.TrimPrefix(idStr, "client:")
+			clientWordlistID, err := uuid.Parse(uuidStr)
+			if err != nil {
+				continue
+			}
+			if h.clientWordlistManager != nil {
+				wl, err := h.clientWordlistManager.Get(ctx, clientWordlistID)
+				if err == nil && wl != nil {
+					names = append(names, wl.FileName)
+				}
+			}
+			continue
+		}
+
+		// Check for client potfile prefix "potfile:ID"
+		if strings.HasPrefix(idStr, "potfile:") {
+			potfileIDStr := strings.TrimPrefix(idStr, "potfile:")
+			potfileID, err := strconv.Atoi(potfileIDStr)
+			if err != nil {
+				continue
+			}
+			if h.clientPotfileRepo != nil {
+				pf, err := h.clientPotfileRepo.GetByID(ctx, potfileID)
+				if err == nil && pf != nil {
+					names = append(names, "Client Potfile")
+				}
+			}
+			continue
+		}
+
+		// Global wordlist - numeric ID
 		id, err := strconv.Atoi(idStr)
 		if err != nil {
 			continue
@@ -1609,6 +1648,46 @@ func (h *UserJobsHandler) GetAvailablePresetJobs(w http.ResponseWriter, r *http.
 		"wordlists":       formatWordlists(wordlists),
 		"rules":           formatRules(rules),
 		"binary_versions": formatBinaries(binaries),
+	}
+
+	// Get hashlist to check for client
+	hashlist, err := h.hashlistRepo.GetByID(ctx, hashlistID)
+	if err != nil {
+		debug.Warning("Failed to get hashlist for client resources: %v", err)
+	}
+
+	// Add client resources if hashlist has a client
+	if hashlist != nil && hashlist.ClientID != uuid.Nil {
+		// Get client potfile if enabled
+		if h.clientPotfileRepo != nil {
+			potfile, err := h.clientPotfileRepo.GetByClientID(ctx, hashlist.ClientID)
+			if err == nil && potfile != nil && potfile.LineCount > 0 {
+				formData["client_potfile"] = map[string]interface{}{
+					"id":         potfile.ID,
+					"client_id":  potfile.ClientID.String(),
+					"file_size":  potfile.FileSize,
+					"line_count": potfile.LineCount,
+				}
+			}
+		}
+
+		// Get client wordlists
+		if h.clientWordlistManager != nil {
+			clientWordlists, err := h.clientWordlistManager.List(ctx, hashlist.ClientID)
+			if err == nil && len(clientWordlists) > 0 {
+				formattedClientWordlists := make([]map[string]interface{}, 0, len(clientWordlists))
+				for _, wl := range clientWordlists {
+					formattedClientWordlists = append(formattedClientWordlists, map[string]interface{}{
+						"id":         wl.ID.String(),
+						"client_id":  wl.ClientID.String(),
+						"file_name":  wl.FileName,
+						"file_size":  wl.FileSize,
+						"line_count": wl.LineCount,
+					})
+				}
+				formData["client_wordlists"] = formattedClientWordlists
+			}
+		}
 	}
 
 	// Return the expected structure

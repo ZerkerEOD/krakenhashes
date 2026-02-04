@@ -259,7 +259,7 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	jobsHandler := CreateJobsHandler(database, appConfig.DataDir, binaryManager)
 
 	// Register Hashlist Management Routes (includes user/agent hashlist, clients, hash types, hash search)
-	registerHashlistRoutes(jwtRouter, sqlDB, appConfig, agentService, clientPotfileService, jobsHandler)
+	registerHashlistRoutes(jwtRouter, sqlDB, appConfig, agentService, clientPotfileService, potfileService, jobsHandler)
 
 	// Setup WebSocket Routes
 	debug.Info("Setting up WebSocket routes...")

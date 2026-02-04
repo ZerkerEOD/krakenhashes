@@ -755,7 +755,19 @@ func (jm *JobManager) ensureClientWordlists(ctx context.Context, assignment *Job
 			return fmt.Errorf("failed to download client wordlist: %w", err)
 		}
 
-		// Verify the file was created
+		// The download function saves to wordlists/clients/{wordlistID}/{filename}
+		// but we need it at wordlists/clients/{clientID}/{filename} (from wordlistPath)
+		// Move the file to the correct location if paths differ
+		downloadedPath := filepath.Join(jm.config.DataDirectory, "wordlists", "clients", wordlistID, filepath.Base(wordlistPath))
+		if downloadedPath != localPath {
+			debug.Info("Moving client wordlist from %s to %s", downloadedPath, localPath)
+			if err := os.Rename(downloadedPath, localPath); err != nil {
+				debug.Error("Failed to move client wordlist: %v", err)
+				return fmt.Errorf("failed to move client wordlist to correct path: %w", err)
+			}
+		}
+
+		// Verify the file was created at the correct location
 		if info, err := os.Stat(localPath); err == nil {
 			debug.Info("Successfully downloaded client wordlist: %s (size: %d bytes)", wordlistPath, info.Size())
 		} else {

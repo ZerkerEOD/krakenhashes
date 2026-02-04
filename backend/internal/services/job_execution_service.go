@@ -41,6 +41,8 @@ type JobExecutionService struct {
 	binaryManager      binary.Manager
 	ruleSplitManager   *RuleSplitManager
 	assocWordlistRepo  *repository.AssociationWordlistRepository
+	clientWordlistRepo *repository.ClientWordlistRepository
+	clientPotfileRepo  *repository.ClientPotfileRepository
 
 	// Configuration paths
 	hashcatBinaryPath string
@@ -66,6 +68,8 @@ func NewJobExecutionService(
 	scheduleRepo *repository.AgentScheduleRepository,
 	binaryManager binary.Manager,
 	assocWordlistRepo *repository.AssociationWordlistRepository,
+	clientWordlistRepo *repository.ClientWordlistRepository,
+	clientPotfileRepo *repository.ClientPotfileRepository,
 	hashcatBinaryPath string,
 	dataDirectory string,
 ) *JobExecutionService {
@@ -97,6 +101,8 @@ func NewJobExecutionService(
 		binaryManager:            binaryManager,
 		ruleSplitManager:         ruleSplitManager,
 		assocWordlistRepo:        assocWordlistRepo,
+		clientWordlistRepo:       clientWordlistRepo,
+		clientPotfileRepo:        clientPotfileRepo,
 		hashcatBinaryPath:        hashcatBinaryPath,
 		dataDirectory:            dataDirectory,
 	}
@@ -2393,7 +2399,49 @@ func (s *JobExecutionService) GetDynamicChunkSize(ctx context.Context, agentID i
 
 // resolveWordlistPath gets the actual file path for a wordlist ID
 func (s *JobExecutionService) resolveWordlistPath(ctx context.Context, wordlistIDStr string) (string, error) {
-	// Try to parse as integer ID first
+	// Check for client-specific wordlist prefix "client:UUID"
+	if strings.HasPrefix(wordlistIDStr, "client:") {
+		uuidStr := strings.TrimPrefix(wordlistIDStr, "client:")
+		clientWordlistID, err := uuid.Parse(uuidStr)
+		if err != nil {
+			return "", fmt.Errorf("invalid client wordlist ID format: %w", err)
+		}
+		if s.clientWordlistRepo == nil {
+			return "", fmt.Errorf("client wordlist repository not configured")
+		}
+		wordlist, err := s.clientWordlistRepo.GetByID(ctx, clientWordlistID)
+		if err != nil {
+			return "", fmt.Errorf("client wordlist not found: %w", err)
+		}
+		debug.Log("Resolved client wordlist path", map[string]interface{}{
+			"client_wordlist_id": clientWordlistID,
+			"file_path":          wordlist.FilePath,
+		})
+		return wordlist.FilePath, nil
+	}
+
+	// Check for client potfile prefix "potfile:ID"
+	if strings.HasPrefix(wordlistIDStr, "potfile:") {
+		idStr := strings.TrimPrefix(wordlistIDStr, "potfile:")
+		potfileID, err := strconv.Atoi(idStr)
+		if err != nil {
+			return "", fmt.Errorf("invalid potfile ID format: %w", err)
+		}
+		if s.clientPotfileRepo == nil {
+			return "", fmt.Errorf("client potfile repository not configured")
+		}
+		potfile, err := s.clientPotfileRepo.GetByID(ctx, potfileID)
+		if err != nil {
+			return "", fmt.Errorf("client potfile not found: %w", err)
+		}
+		debug.Log("Resolved client potfile path", map[string]interface{}{
+			"potfile_id": potfileID,
+			"file_path":  potfile.FilePath,
+		})
+		return potfile.FilePath, nil
+	}
+
+	// Try to parse as integer ID first (global wordlist)
 	if wordlistID, err := strconv.Atoi(wordlistIDStr); err == nil {
 		// Look up wordlist in database
 		wordlists, err := s.fileRepo.GetWordlists(ctx, "")

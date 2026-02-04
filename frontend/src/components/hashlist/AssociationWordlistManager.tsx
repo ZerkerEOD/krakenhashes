@@ -52,6 +52,17 @@ interface ClientWordlist {
   created_at: string;
 }
 
+interface ClientPotfile {
+  id: number;
+  client_id: string;
+  file_path: string;
+  file_size: number;
+  line_count: number;
+  md5_hash?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 interface AssociationWordlistManagerProps {
   hashlistId: number;
   totalHashes: number;
@@ -105,6 +116,17 @@ export default function AssociationWordlistManager({
       if (!clientId) return [];
       const response = await api.get(`/api/clients/${clientId}/wordlists`);
       return response.data || [];
+    },
+    enabled: expanded && !!clientId
+  });
+
+  // Fetch client potfile (auto-generated potfile containing cracked passwords)
+  const { data: clientPotfile, isLoading: isLoadingPotfile } = useQuery<ClientPotfile | null>({
+    queryKey: ['client-potfile', clientId],
+    queryFn: async () => {
+      if (!clientId) return null;
+      const response = await api.get(`/api/clients/${clientId}/potfile`);
+      return response.data as ClientPotfile | null;
     },
     enabled: expanded && !!clientId
   });
@@ -407,6 +429,41 @@ export default function AssociationWordlistManager({
                     These can be used with any attack mode, not just association attacks.
                   </Typography>
                 </Alert>
+
+                {/* Client Potfile Section */}
+                {isLoadingPotfile ? (
+                  <LinearProgress sx={{ mb: 2 }} />
+                ) : clientPotfile && (
+                  <Paper variant="outlined" sx={{ p: 2, mb: 2, bgcolor: 'action.hover' }}>
+                    <Box display="flex" alignItems="center" gap={1} mb={1}>
+                      <ClientFolderIcon color="primary" />
+                      <Typography variant="subtitle2" fontWeight="bold">
+                        Client Potfile (Auto-generated)
+                      </Typography>
+                    </Box>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      This potfile contains all cracked passwords for this client.
+                      It is automatically updated when hashes are cracked.
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Chip
+                        label={`${clientPotfile.line_count.toLocaleString()} passwords`}
+                        size="small"
+                        color="success"
+                      />
+                      <Chip
+                        label={formatFileSize(clientPotfile.file_size)}
+                        size="small"
+                        variant="outlined"
+                      />
+                      <Chip
+                        label={`Updated: ${formatDate(clientPotfile.updated_at)}`}
+                        size="small"
+                        variant="outlined"
+                      />
+                    </Box>
+                  </Paper>
+                )}
 
                 {/* Upload section */}
                 <Box sx={{ mb: 2 }}>

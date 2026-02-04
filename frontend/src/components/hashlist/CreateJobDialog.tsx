@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -27,7 +27,8 @@ import {
   FormControlLabel,
   Stack,
   Grid,
-  Autocomplete
+  Autocomplete,
+  ListSubheader
 } from '@mui/material';
 import {
   Work as WorkIcon,
@@ -68,10 +69,37 @@ interface JobWorkflow {
   }>;
 }
 
+interface ClientWordlist {
+  id: string;
+  client_id: string;
+  file_name: string;
+  file_size: number;
+  line_count: number;
+}
+
+interface ClientPotfile {
+  id: number;
+  client_id: string;
+  file_size: number;
+  line_count: number;
+}
+
 interface FormData {
   wordlists: Array<{ id: number; name: string; file_size: number }>;
   rules: Array<{ id: number; name: string; rule_count: number }>;
   binary_versions: Array<{ id: number; version: string; type: string }>;
+  client_wordlists?: ClientWordlist[];
+  client_potfile?: ClientPotfile | null;
+}
+
+// Combined wordlist option type for categorized display
+interface WordlistOption {
+  id: string;
+  name: string;
+  file_size: number;
+  category: 'Client Specific' | 'Global';
+  line_count?: number;
+  isPotfile?: boolean;
 }
 
 interface AssociationWordlist {
@@ -141,6 +169,50 @@ export default function CreateJobDialog({
   const [workflows, setWorkflows] = useState<JobWorkflow[]>([]);
   const [formData, setFormData] = useState<FormData | null>(null);
   const [loadingJobs, setLoadingJobs] = useState(true);
+
+  // Compute combined wordlist options with categories (Client Specific above Global)
+  const combinedWordlistOptions = useMemo((): WordlistOption[] => {
+    const options: WordlistOption[] = [];
+
+    // Add client potfile first if available (it's the most valuable client-specific resource)
+    if (formData?.client_potfile) {
+      options.push({
+        id: `potfile:${formData.client_potfile.id}`,
+        name: `Client Potfile (${formData.client_potfile.line_count.toLocaleString()} passwords)`,
+        file_size: formData.client_potfile.file_size,
+        category: 'Client Specific',
+        line_count: formData.client_potfile.line_count,
+        isPotfile: true
+      });
+    }
+
+    // Add client wordlists
+    if (formData?.client_wordlists) {
+      formData.client_wordlists.forEach(wl => {
+        options.push({
+          id: `client:${wl.id}`,
+          name: wl.file_name,
+          file_size: wl.file_size,
+          category: 'Client Specific',
+          line_count: wl.line_count
+        });
+      });
+    }
+
+    // Add global wordlists
+    if (formData?.wordlists) {
+      formData.wordlists.forEach(wl => {
+        options.push({
+          id: String(wl.id),
+          name: wl.name,
+          file_size: wl.file_size,
+          category: 'Global'
+        });
+      });
+    }
+
+    return options;
+  }, [formData]);
 
   // Fetch available jobs and workflows
   useEffect(() => {
@@ -634,21 +706,48 @@ export default function CreateJobDialog({
                       <Grid item xs={12}>
                         <Autocomplete
                           multiple
-                          options={formData?.wordlists || []}
-                          getOptionLabel={(option) => `${option.name} (${(option.file_size / 1024 / 1024).toFixed(2)} MB)`}
-                          value={formData?.wordlists?.filter(w => customJob.wordlist_ids.includes(String(w.id))) || []}
+                          options={combinedWordlistOptions}
+                          groupBy={(option) => option.category}
+                          getOptionLabel={(option) => {
+                            const sizeStr = option.file_size >= 1024 * 1024
+                              ? `${(option.file_size / 1024 / 1024).toFixed(2)} MB`
+                              : `${(option.file_size / 1024).toFixed(1)} KB`;
+                            if (option.line_count) {
+                              return `${option.name} (${option.line_count.toLocaleString()} lines, ${sizeStr})`;
+                            }
+                            return `${option.name} (${sizeStr})`;
+                          }}
+                          value={combinedWordlistOptions.filter(w => customJob.wordlist_ids.includes(w.id))}
                           onChange={(e, newValue) => {
                             setCustomJob(prev => ({
                               ...prev,
-                              wordlist_ids: newValue.map(w => String(w.id))
+                              wordlist_ids: newValue.map(w => w.id)
                             }));
                           }}
+                          isOptionEqualToValue={(option, value) => option.id === value.id}
                           renderInput={(params) => (
                             <TextField
                               {...params}
                               label="Wordlists"
                               placeholder="Select wordlists"
                             />
+                          )}
+                          renderGroup={(params) => (
+                            <li key={params.key}>
+                              <Typography
+                                sx={{
+                                  fontWeight: 'bold',
+                                  fontSize: '0.875rem',
+                                  color: 'text.secondary',
+                                  px: 2,
+                                  py: 1,
+                                  bgcolor: 'action.hover'
+                                }}
+                              >
+                                {params.group}
+                              </Typography>
+                              <ul style={{ padding: 0 }}>{params.children}</ul>
+                            </li>
                           )}
                         />
                       </Grid>
@@ -695,11 +794,28 @@ export default function CreateJobDialog({
                             displayEmpty
                           >
                             <MenuItem value="" disabled><em>Select first wordlist</em></MenuItem>
-                            {formData?.wordlists?.map((w) => (
-                              <MenuItem key={`first-${w.id}`} value={String(w.id)}>
-                                {w.name} ({(w.file_size / 1024 / 1024).toFixed(2)} MB)
-                              </MenuItem>
-                            ))}
+                            {combinedWordlistOptions.filter(w => w.category === 'Client Specific').length > 0 && (
+                              <ListSubheader>Client Specific</ListSubheader>
+                            )}
+                            {combinedWordlistOptions
+                              .filter(w => w.category === 'Client Specific')
+                              .map((w) => (
+                                <MenuItem key={`first-${w.id}`} value={w.id}>
+                                  {w.name} {w.line_count ? `(${w.line_count.toLocaleString()} lines)` : `(${(w.file_size / 1024 / 1024).toFixed(2)} MB)`}
+                                </MenuItem>
+                              ))
+                            }
+                            {combinedWordlistOptions.filter(w => w.category === 'Global').length > 0 && (
+                              <ListSubheader>Global</ListSubheader>
+                            )}
+                            {combinedWordlistOptions
+                              .filter(w => w.category === 'Global')
+                              .map((w) => (
+                                <MenuItem key={`first-${w.id}`} value={w.id}>
+                                  {w.name} ({(w.file_size / 1024 / 1024).toFixed(2)} MB)
+                                </MenuItem>
+                              ))
+                            }
                           </Select>
                         </FormControl>
                       </Grid>
@@ -720,11 +836,28 @@ export default function CreateJobDialog({
                             displayEmpty
                           >
                             <MenuItem value="" disabled><em>Select second wordlist</em></MenuItem>
-                            {formData?.wordlists?.map((w) => (
-                              <MenuItem key={`second-${w.id}`} value={String(w.id)}>
-                                {w.name} ({(w.file_size / 1024 / 1024).toFixed(2)} MB)
-                              </MenuItem>
-                            ))}
+                            {combinedWordlistOptions.filter(w => w.category === 'Client Specific').length > 0 && (
+                              <ListSubheader>Client Specific</ListSubheader>
+                            )}
+                            {combinedWordlistOptions
+                              .filter(w => w.category === 'Client Specific')
+                              .map((w) => (
+                                <MenuItem key={`second-${w.id}`} value={w.id}>
+                                  {w.name} {w.line_count ? `(${w.line_count.toLocaleString()} lines)` : `(${(w.file_size / 1024 / 1024).toFixed(2)} MB)`}
+                                </MenuItem>
+                              ))
+                            }
+                            {combinedWordlistOptions.filter(w => w.category === 'Global').length > 0 && (
+                              <ListSubheader>Global</ListSubheader>
+                            )}
+                            {combinedWordlistOptions
+                              .filter(w => w.category === 'Global')
+                              .map((w) => (
+                                <MenuItem key={`second-${w.id}`} value={w.id}>
+                                  {w.name} ({(w.file_size / 1024 / 1024).toFixed(2)} MB)
+                                </MenuItem>
+                              ))
+                            }
                           </Select>
                         </FormControl>
                       </Grid>
@@ -752,21 +885,48 @@ export default function CreateJobDialog({
                       <Grid item xs={12}>
                         <Autocomplete
                           multiple
-                          options={formData?.wordlists || []}
-                          getOptionLabel={(option) => `${option.name} (${(option.file_size / 1024 / 1024).toFixed(2)} MB)`}
-                          value={formData?.wordlists?.filter(w => customJob.wordlist_ids.includes(String(w.id))) || []}
+                          options={combinedWordlistOptions}
+                          groupBy={(option) => option.category}
+                          getOptionLabel={(option) => {
+                            const sizeStr = option.file_size >= 1024 * 1024
+                              ? `${(option.file_size / 1024 / 1024).toFixed(2)} MB`
+                              : `${(option.file_size / 1024).toFixed(1)} KB`;
+                            if (option.line_count) {
+                              return `${option.name} (${option.line_count.toLocaleString()} lines, ${sizeStr})`;
+                            }
+                            return `${option.name} (${sizeStr})`;
+                          }}
+                          value={combinedWordlistOptions.filter(w => customJob.wordlist_ids.includes(w.id))}
                           onChange={(e, newValue) => {
                             setCustomJob(prev => ({
                               ...prev,
-                              wordlist_ids: newValue.map(w => String(w.id))
+                              wordlist_ids: newValue.map(w => w.id)
                             }));
                           }}
+                          isOptionEqualToValue={(option, value) => option.id === value.id}
                           renderInput={(params) => (
                             <TextField
                               {...params}
                               label="Wordlists"
                               placeholder="Select wordlists"
                             />
+                          )}
+                          renderGroup={(params) => (
+                            <li key={params.key}>
+                              <Typography
+                                sx={{
+                                  fontWeight: 'bold',
+                                  fontSize: '0.875rem',
+                                  color: 'text.secondary',
+                                  px: 2,
+                                  py: 1,
+                                  bgcolor: 'action.hover'
+                                }}
+                              >
+                                {params.group}
+                              </Typography>
+                              <ul style={{ padding: 0 }}>{params.children}</ul>
+                            </li>
                           )}
                         />
                       </Grid>
@@ -801,21 +961,48 @@ export default function CreateJobDialog({
                       <Grid item xs={12}>
                         <Autocomplete
                           multiple
-                          options={formData?.wordlists || []}
-                          getOptionLabel={(option) => `${option.name} (${(option.file_size / 1024 / 1024).toFixed(2)} MB)`}
-                          value={formData?.wordlists?.filter(w => customJob.wordlist_ids.includes(String(w.id))) || []}
+                          options={combinedWordlistOptions}
+                          groupBy={(option) => option.category}
+                          getOptionLabel={(option) => {
+                            const sizeStr = option.file_size >= 1024 * 1024
+                              ? `${(option.file_size / 1024 / 1024).toFixed(2)} MB`
+                              : `${(option.file_size / 1024).toFixed(1)} KB`;
+                            if (option.line_count) {
+                              return `${option.name} (${option.line_count.toLocaleString()} lines, ${sizeStr})`;
+                            }
+                            return `${option.name} (${sizeStr})`;
+                          }}
+                          value={combinedWordlistOptions.filter(w => customJob.wordlist_ids.includes(w.id))}
                           onChange={(e, newValue) => {
                             setCustomJob(prev => ({
                               ...prev,
-                              wordlist_ids: newValue.map(w => String(w.id))
+                              wordlist_ids: newValue.map(w => w.id)
                             }));
                           }}
+                          isOptionEqualToValue={(option, value) => option.id === value.id}
                           renderInput={(params) => (
                             <TextField
                               {...params}
                               label="Wordlists"
                               placeholder="Select wordlists"
                             />
+                          )}
+                          renderGroup={(params) => (
+                            <li key={params.key}>
+                              <Typography
+                                sx={{
+                                  fontWeight: 'bold',
+                                  fontSize: '0.875rem',
+                                  color: 'text.secondary',
+                                  px: 2,
+                                  py: 1,
+                                  bgcolor: 'action.hover'
+                                }}
+                              >
+                                {params.group}
+                              </Typography>
+                              <ul style={{ padding: 0 }}>{params.children}</ul>
+                            </li>
                           )}
                         />
                       </Grid>

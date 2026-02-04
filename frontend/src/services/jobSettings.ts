@@ -22,6 +22,10 @@ export interface JobExecutionSettings {
   rule_chunk_temp_dir: string;
   // Potfile settings
   potfile_enabled: boolean;
+  // Client potfile settings
+  client_potfiles_enabled: boolean;
+  remove_from_global_potfile_on_hashlist_delete_default: boolean;
+  remove_from_client_potfile_on_hashlist_delete_default: boolean;
 }
 
 export const getJobExecutionSettings = async (): Promise<JobExecutionSettings> => {

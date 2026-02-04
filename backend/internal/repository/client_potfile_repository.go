@@ -158,12 +158,12 @@ func (r *ClientPotfileRepository) Delete(ctx context.Context, clientID uuid.UUID
 	return nil
 }
 
-// ListActiveClientIDs returns all client IDs that have client potfiles enabled.
+// ListActiveClientIDs returns all client IDs that have client potfiles enabled (not excluded).
 func (r *ClientPotfileRepository) ListActiveClientIDs(ctx context.Context) ([]uuid.UUID, error) {
 	query := `
 		SELECT c.id
 		FROM clients c
-		WHERE c.enable_client_potfile = true
+		WHERE c.exclude_from_client_potfile = false
 	`
 
 	rows, err := r.db.QueryContext(ctx, query)
@@ -196,15 +196,15 @@ func (r *ClientPotfileRepository) ListActiveClientIDs(ctx context.Context) ([]uu
 // This is used when regenerating a client potfile after hashlist deletion.
 func (r *ClientPotfileRepository) GetUniquePlaintextsForClient(ctx context.Context, clientID uuid.UUID) ([]string, error) {
 	query := `
-		SELECT DISTINCT h.plaintext
+		SELECT DISTINCT h.password
 		FROM hashes h
 		JOIN hashlist_hashes hh ON h.id = hh.hash_id
 		JOIN hashlists hl ON hh.hashlist_id = hl.id
 		WHERE hl.client_id = $1
 		  AND h.is_cracked = true
-		  AND h.plaintext IS NOT NULL
-		  AND h.plaintext != ''
-		ORDER BY h.plaintext
+		  AND h.password IS NOT NULL
+		  AND h.password != ''
+		ORDER BY h.password
 	`
 
 	rows, err := r.db.QueryContext(ctx, query, clientID)

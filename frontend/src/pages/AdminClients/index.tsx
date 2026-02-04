@@ -8,12 +8,14 @@ import { DataGrid, GridColDef, GridRowParams, GridActionsCellItem } from '@mui/x
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import FolderIcon from '@mui/icons-material/Folder';
 import { useSnackbar } from 'notistack';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 import { Client } from '../../types/client';
 import { listClients, createClient, updateClient, deleteClient, getDefaultClientRetentionSetting } from '../../services/api';
+import ClientWordlistManagementDialog from '../../components/admin/ClientWordlistManagementDialog';
 
 export const AdminClients: React.FC = () => {
     const { t } = useTranslation('admin');
@@ -29,14 +31,16 @@ export const AdminClients: React.FC = () => {
         contactInfo: '',
         dataRetentionMonths: null,
         exclude_from_potfile: false,
-        enable_client_potfile: false,
-        contribute_to_global_potfile: true,
-        remove_passwords_on_hashlist_delete: null
+        exclude_from_client_potfile: false,
+        remove_from_global_potfile_on_hashlist_delete: null,
+        remove_from_client_potfile_on_hashlist_delete: null
     });
     const [formError, setFormError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState<boolean>(false);
     const [defaultRetention, setDefaultRetention] = useState<string | null>(null);
     const [isDefaultRetentionLoading, setIsDefaultRetentionLoading] = useState(true);
+    const [isWordlistDialogOpen, setIsWordlistDialogOpen] = useState<boolean>(false);
+    const [wordlistClient, setWordlistClient] = useState<Client | null>(null);
 
     const { enqueueSnackbar } = useSnackbar();
     const navigate = useNavigate();
@@ -127,6 +131,17 @@ export const AdminClients: React.FC = () => {
             },
         },
         {
+            field: 'wordlist_count',
+            headerName: t('clients.columns.wordlists', 'Wordlists') as string,
+            width: 100,
+            align: 'center',
+            headerAlign: 'center',
+            renderCell: (params) => {
+                const count = params.value || 0;
+                return <span>{count}</span>;
+            },
+        },
+        {
             field: 'dataRetentionMonths',
             headerName: t('clients.columns.retention') as string,
             flex: 1,
@@ -142,9 +157,15 @@ export const AdminClients: React.FC = () => {
             field: 'actions',
             type: 'actions',
             headerName: t('clients.columns.actions') as string,
-            width: 100,
+            width: 130,
             cellClassName: 'actions',
             getActions: (params: GridRowParams<Client>) => [
+                <GridActionsCellItem
+                    icon={<FolderIcon />}
+                    label={t('clients.columns.wordlists', 'Wordlists') as string}
+                    onClick={() => handleWordlistClick(params.row)}
+                    color="inherit"
+                />,
                 <GridActionsCellItem
                     icon={<EditIcon />}
                     label={t('common.edit') as string}
@@ -170,9 +191,9 @@ export const AdminClients: React.FC = () => {
           contactInfo: '',
           dataRetentionMonths: defaultRetention ? parseInt(defaultRetention, 10) : null,
           exclude_from_potfile: false,
-          enable_client_potfile: false,
-          contribute_to_global_potfile: true,
-          remove_passwords_on_hashlist_delete: null
+          exclude_from_client_potfile: false,
+          remove_from_global_potfile_on_hashlist_delete: null,
+          remove_from_client_potfile_on_hashlist_delete: null
         });
         setIsAddEditDialogOpen(true);
     };
@@ -185,9 +206,9 @@ export const AdminClients: React.FC = () => {
             contactInfo: client.contactInfo || '',
             dataRetentionMonths: client.dataRetentionMonths === undefined ? null : client.dataRetentionMonths,
             exclude_from_potfile: client.exclude_from_potfile || false,
-            enable_client_potfile: client.enable_client_potfile || false,
-            contribute_to_global_potfile: client.contribute_to_global_potfile !== false, // Default true
-            remove_passwords_on_hashlist_delete: client.remove_passwords_on_hashlist_delete
+            exclude_from_client_potfile: client.exclude_from_client_potfile || false,
+            remove_from_global_potfile_on_hashlist_delete: client.remove_from_global_potfile_on_hashlist_delete,
+            remove_from_client_potfile_on_hashlist_delete: client.remove_from_client_potfile_on_hashlist_delete
         });
         setFormError(null);
         setIsAddEditDialogOpen(true);
@@ -196,6 +217,17 @@ export const AdminClients: React.FC = () => {
     const handleDeleteClick = (client: Client) => {
         setSelectedClient(client);
         setIsDeleteDialogOpen(true);
+    };
+
+    const handleWordlistClick = (client: Client) => {
+        setWordlistClient(client);
+        setIsWordlistDialogOpen(true);
+    };
+
+    const handleWordlistDialogClose = () => {
+        setIsWordlistDialogOpen(false);
+        setWordlistClient(null);
+        fetchClients(); // Refresh counts after potential changes
     };
 
     const handleCloseDialog = () => {
@@ -215,7 +247,8 @@ export const AdminClients: React.FC = () => {
 
     const handleSelectChange = (event: SelectChangeEvent<string>) => {
         const { name, value } = event.target;
-        if (name === 'remove_passwords_on_hashlist_delete') {
+        if (name === 'remove_from_global_potfile_on_hashlist_delete' ||
+            name === 'remove_from_client_potfile_on_hashlist_delete') {
             setClientFormData(prev => ({
                 ...prev,
                 [name]: value === 'system' ? null : value === 'true'
@@ -245,9 +278,9 @@ export const AdminClients: React.FC = () => {
             contactInfo: clientFormData.contactInfo || undefined,
             dataRetentionMonths: clientFormData.dataRetentionMonths,
             exclude_from_potfile: clientFormData.exclude_from_potfile,
-            enable_client_potfile: clientFormData.enable_client_potfile,
-            contribute_to_global_potfile: clientFormData.contribute_to_global_potfile,
-            remove_passwords_on_hashlist_delete: clientFormData.remove_passwords_on_hashlist_delete
+            exclude_from_client_potfile: clientFormData.exclude_from_client_potfile,
+            remove_from_global_potfile_on_hashlist_delete: clientFormData.remove_from_global_potfile_on_hashlist_delete,
+            remove_from_client_potfile_on_hashlist_delete: clientFormData.remove_from_client_potfile_on_hashlist_delete
         };
 
         try {
@@ -395,59 +428,41 @@ export const AdminClients: React.FC = () => {
                         {t('clients.form.excludeFromPotfileHelperText', 'When enabled, cracked passwords from this client will not be added to the global potfile.')}
                     </Typography>
 
-                    <Divider sx={{ my: 2 }} />
-                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                        {t('clients.form.clientPotfileSettings', 'Client-Specific Potfile Settings')}
-                    </Typography>
-
                     <FormControlLabel
                         control={
                             <Checkbox
-                                checked={clientFormData.enable_client_potfile || false}
+                                checked={clientFormData.exclude_from_client_potfile || false}
                                 onChange={handleFormChange}
-                                name="enable_client_potfile"
+                                name="exclude_from_client_potfile"
                             />
                         }
-                        label={t('clients.form.enableClientPotfile', 'Enable client-specific potfile')}
+                        label={t('clients.form.excludeFromClientPotfile', 'Exclude from client potfile')}
+                        sx={{ mt: 1 }}
                     />
-                    <Typography variant="caption" color="textSecondary" display="block" sx={{ ml: 4, mt: -1, mb: 1 }}>
-                        {t('clients.form.enableClientPotfileHelperText', 'Maintain a separate potfile containing only passwords cracked for this client.')}
+                    <Typography variant="caption" color="textSecondary" display="block" sx={{ ml: 4, mt: -1, mb: 2 }}>
+                        {t('clients.form.excludeFromClientPotfileHelperText', 'When checked, cracked passwords for this client are NOT added to their client-specific potfile.')}
                     </Typography>
 
-                    {clientFormData.enable_client_potfile && (
-                        <>
-                            <FormControlLabel
-                                control={
-                                    <Checkbox
-                                        checked={clientFormData.contribute_to_global_potfile !== false}
-                                        onChange={handleFormChange}
-                                        name="contribute_to_global_potfile"
-                                    />
-                                }
-                                label={t('clients.form.contributeToGlobalPotfile', 'Also contribute to global potfile')}
-                                sx={{ ml: 2 }}
-                            />
-                            <Typography variant="caption" color="textSecondary" display="block" sx={{ ml: 6, mt: -1, mb: 2 }}>
-                                {t('clients.form.contributeToGlobalPotfileHelperText', 'When enabled, cracks are added to both client and global potfiles.')}
-                            </Typography>
-                        </>
-                    )}
+                    <Divider sx={{ my: 2 }} />
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                        {t('clients.form.clientPotfileSettings', 'Potfile Deletion Settings')}
+                    </Typography>
 
-                    <FormControl fullWidth sx={{ mt: 2 }}>
-                        <InputLabel id="remove-passwords-label">
-                            {t('clients.form.removePasswordsOnDelete', 'Remove passwords on hashlist delete')}
+                    <FormControl fullWidth sx={{ mt: 1 }}>
+                        <InputLabel id="remove-global-potfile-label">
+                            Remove from global potfile on delete
                         </InputLabel>
                         <Select
-                            labelId="remove-passwords-label"
-                            name="remove_passwords_on_hashlist_delete"
+                            labelId="remove-global-potfile-label"
+                            name="remove_from_global_potfile_on_hashlist_delete"
                             value={
-                                clientFormData.remove_passwords_on_hashlist_delete === null
+                                clientFormData.remove_from_global_potfile_on_hashlist_delete === null
                                     ? 'system'
-                                    : clientFormData.remove_passwords_on_hashlist_delete
+                                    : clientFormData.remove_from_global_potfile_on_hashlist_delete
                                     ? 'true'
                                     : 'false'
                             }
-                            label={t('clients.form.removePasswordsOnDelete', 'Remove passwords on hashlist delete')}
+                            label="Remove from global potfile on delete"
                             onChange={handleSelectChange}
                         >
                             <MenuItem value="system">
@@ -461,7 +476,39 @@ export const AdminClients: React.FC = () => {
                             </MenuItem>
                         </Select>
                         <Typography variant="caption" color="textSecondary" sx={{ mt: 1 }}>
-                            {t('clients.form.removePasswordsOnDeleteHelperText', 'Controls whether passwords are removed from the client potfile when a hashlist is deleted.')}
+                            Controls whether passwords are removed from the global potfile when a hashlist is deleted.
+                        </Typography>
+                    </FormControl>
+
+                    <FormControl fullWidth sx={{ mt: 2 }}>
+                        <InputLabel id="remove-client-potfile-label">
+                            Remove from client potfile on delete
+                        </InputLabel>
+                        <Select
+                            labelId="remove-client-potfile-label"
+                            name="remove_from_client_potfile_on_hashlist_delete"
+                            value={
+                                clientFormData.remove_from_client_potfile_on_hashlist_delete === null
+                                    ? 'system'
+                                    : clientFormData.remove_from_client_potfile_on_hashlist_delete
+                                    ? 'true'
+                                    : 'false'
+                            }
+                            label="Remove from client potfile on delete"
+                            onChange={handleSelectChange}
+                        >
+                            <MenuItem value="system">
+                                {t('clients.form.useSystemDefault', 'Use system default')}
+                            </MenuItem>
+                            <MenuItem value="true">
+                                {t('clients.form.alwaysRemove', 'Always remove')}
+                            </MenuItem>
+                            <MenuItem value="false">
+                                {t('clients.form.neverRemove', 'Never remove')}
+                            </MenuItem>
+                        </Select>
+                        <Typography variant="caption" color="textSecondary" sx={{ mt: 1 }}>
+                            Controls whether passwords are removed from the client potfile when a hashlist is deleted.
                         </Typography>
                     </FormControl>
                 </DialogContent>
@@ -494,6 +541,12 @@ export const AdminClients: React.FC = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            <ClientWordlistManagementDialog
+                open={isWordlistDialogOpen}
+                client={wordlistClient}
+                onClose={handleWordlistDialogClose}
+            />
         </Box>
     );
-}; 
+};

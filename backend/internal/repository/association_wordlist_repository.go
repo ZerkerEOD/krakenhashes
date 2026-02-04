@@ -193,6 +193,58 @@ func (r *AssociationWordlistRepository) GetFilePath(ctx context.Context, id uuid
 	return filePath, nil
 }
 
+// ListByClientID retrieves all association wordlists for a specific client.
+// It joins through hashlists to find association wordlists belonging to the client's hashlists.
+func (r *AssociationWordlistRepository) ListByClientID(ctx context.Context, clientID uuid.UUID) ([]models.AssociationWordlist, error) {
+	query := `
+		SELECT aw.id, aw.hashlist_id, aw.file_path, aw.file_name, aw.file_size, aw.line_count, aw.md5_hash, aw.created_at, hl.name as hashlist_name
+		FROM association_wordlists aw
+		JOIN hashlists hl ON aw.hashlist_id = hl.id
+		WHERE hl.client_id = $1
+		ORDER BY hl.name ASC, aw.created_at DESC
+	`
+	rows, err := r.db.QueryContext(ctx, query, clientID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list association wordlists for client %s: %w", clientID, err)
+	}
+	defer rows.Close()
+
+	var wordlists []models.AssociationWordlist
+	for rows.Next() {
+		var wordlist models.AssociationWordlist
+		var fileSize sql.NullInt64
+		var md5Hash sql.NullString
+		var hashlistName sql.NullString
+		if err := rows.Scan(
+			&wordlist.ID,
+			&wordlist.HashlistID,
+			&wordlist.FilePath,
+			&wordlist.FileName,
+			&fileSize,
+			&wordlist.LineCount,
+			&md5Hash,
+			&wordlist.CreatedAt,
+			&hashlistName,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan association wordlist row: %w", err)
+		}
+		if fileSize.Valid {
+			wordlist.FileSize = fileSize.Int64
+		}
+		if md5Hash.Valid {
+			wordlist.MD5Hash = md5Hash.String
+		}
+		if hashlistName.Valid {
+			wordlist.HashlistName = &hashlistName.String
+		}
+		wordlists = append(wordlists, wordlist)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating association wordlist rows: %w", err)
+	}
+	return wordlists, nil
+}
+
 // UpdateMD5Hash updates the MD5 hash for an association wordlist after calculation.
 func (r *AssociationWordlistRepository) UpdateMD5Hash(ctx context.Context, id uuid.UUID, md5Hash string) error {
 	query := `UPDATE association_wordlists SET md5_hash = $1 WHERE id = $2`

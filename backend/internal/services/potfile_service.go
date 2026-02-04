@@ -32,9 +32,11 @@ var ErrNoBinaryVersions = errors.New("no binary versions found")
 
 // PotfileStagingEntry represents a password to be staged in the potfile
 type PotfileStagingEntry struct {
-	Password  string
-	HashValue string
-	ClientID  *uuid.UUID // nil = global-only, non-nil = associated with a client
+	Password          string
+	HashValue         string
+	ClientID          *uuid.UUID // nil = global-only, non-nil = associated with a client
+	ExcludeFromGlobal bool       // If true, don't write to global potfile (from hashlist.exclude_from_potfile)
+	ExcludeFromClient bool       // If true, don't write to client potfile (from hashlist.exclude_from_client_potfile)
 }
 
 // PotfileService manages the pot-file and its staging mechanism
@@ -172,16 +174,16 @@ func (s *PotfileService) StageBatch(ctx context.Context, entries []PotfileStagin
 		return nil
 	}
 
-	// Build multi-row insert query with client_id support
-	query := `INSERT INTO potfile_staging (password, hash_value, client_id) VALUES `
-	args := make([]interface{}, 0, len(entries)*3)
+	// Build multi-row insert query with client_id and exclusion flag support
+	query := `INSERT INTO potfile_staging (password, hash_value, client_id, exclude_from_global, exclude_from_client) VALUES `
+	args := make([]interface{}, 0, len(entries)*5)
 
 	for i, entry := range entries {
 		if i > 0 {
 			query += ", "
 		}
-		query += fmt.Sprintf("($%d, $%d, $%d)", i*3+1, i*3+2, i*3+3)
-		args = append(args, entry.Password, entry.HashValue, entry.ClientID)
+		query += fmt.Sprintf("($%d, $%d, $%d, $%d, $%d)", i*5+1, i*5+2, i*5+3, i*5+4, i*5+5)
+		args = append(args, entry.Password, entry.HashValue, entry.ClientID, entry.ExcludeFromGlobal, entry.ExcludeFromClient)
 	}
 
 	query += ` ON CONFLICT DO NOTHING` // Ignore duplicates
@@ -340,7 +342,12 @@ func (s *PotfileService) ProcessStagedEntries(ctx context.Context) {
 
 	for _, entry := range entries {
 		if entry.ClientID == nil {
-			// No client - global potfile only
+			// No client - global potfile only (if not excluded at hashlist level)
+			if entry.ExcludeFromGlobal {
+				// Hashlist excludes from global potfile
+				duplicateIDs = append(duplicateIDs, entry.ID)
+				continue
+			}
 			if globalSeen[entry.Password] {
 				duplicateIDs = append(duplicateIDs, entry.ID)
 				continue
@@ -352,7 +359,8 @@ func (s *PotfileService) ProcessStagedEntries(ctx context.Context) {
 				globalSeen[entry.Password] = true
 			}
 		} else {
-			// Has client - check settings
+			// Has client - check settings with cascade logic
+			// Cascade: System → Client → Hashlist (all must permit for entry to be written)
 			clientID := *entry.ClientID
 			client, ok := clientSettings[clientID]
 			if !ok {
@@ -361,8 +369,8 @@ func (s *PotfileService) ProcessStagedEntries(ctx context.Context) {
 					client, err = s.clientRepo.GetByID(ctx, clientID)
 					if err != nil {
 						debug.Warning("Failed to get client %s settings: %v", clientID, err)
-						// Fall back to global-only behavior
-						if !globalSeen[entry.Password] && !s.isDuplicatePassword(entry.Password) {
+						// Fall back to global-only behavior (if not excluded)
+						if !entry.ExcludeFromGlobal && !globalSeen[entry.Password] && !s.isDuplicatePassword(entry.Password) {
 							globalEntries = append(globalEntries, entry)
 							globalSeen[entry.Password] = true
 						} else {
@@ -374,11 +382,13 @@ func (s *PotfileService) ProcessStagedEntries(ctx context.Context) {
 				clientSettings[clientID] = client
 			}
 
-			// Determine destinations based on client settings
+			// Determine destinations based on cascade: System → Client → Hashlist
 			addedSomewhere := false
 
 			// Check if should contribute to global potfile
-			if client == nil || client.ContributeToGlobalPotfile {
+			// Cascade check: client NOT excluded from global AND hashlist NOT excluded
+			shouldWriteGlobal := (client == nil || !client.ExcludeFromPotfile) && !entry.ExcludeFromGlobal
+			if shouldWriteGlobal {
 				if !globalSeen[entry.Password] && !s.isDuplicatePassword(entry.Password) {
 					globalEntries = append(globalEntries, entry)
 					globalSeen[entry.Password] = true
@@ -387,7 +397,13 @@ func (s *PotfileService) ProcessStagedEntries(ctx context.Context) {
 			}
 
 			// Check if should write to client potfile
-			if client != nil && client.EnableClientPotfile {
+			// Cascade check: client NOT excluded from client potfile AND hashlist NOT excluded
+			shouldWriteClient := client != nil && !client.ExcludeFromClientPotfile && !entry.ExcludeFromClient
+			if shouldWriteClient {
+				// Ensure bloom filter is loaded for this client before duplicate check
+				// This must happen BEFORE isClientDuplicatePassword is called
+				s.getOrCreateClientBloomFilter(ctx, clientID)
+
 				if clientSeen[clientID] == nil {
 					clientSeen[clientID] = make(map[string]bool)
 				}
@@ -398,7 +414,7 @@ func (s *PotfileService) ProcessStagedEntries(ctx context.Context) {
 				}
 			}
 
-			// If not added anywhere, it's a duplicate
+			// If not added anywhere, it's a duplicate or fully excluded
 			if !addedSomewhere {
 				duplicateIDs = append(duplicateIDs, entry.ID)
 			}
@@ -544,7 +560,7 @@ func (s *PotfileService) processClientEntries(ctx context.Context, clientID uuid
 	}
 
 	// Update client potfile metadata
-	if err := s.updateClientPotfileMetadata(ctx, clientID); err != nil {
+	if err := s.UpdateClientPotfileMetadata(ctx, clientID); err != nil {
 		debug.Error("Failed to update client %s potfile metadata: %v", clientID, err)
 	}
 
@@ -574,17 +590,19 @@ func (s *PotfileService) loadSettings(ctx context.Context) error {
 
 // potfileStagingEntry represents an entry in the staging table
 type potfileStagingEntry struct {
-	ID        int
-	Password  string
-	HashValue string
-	ClientID  *uuid.UUID // nil = global-only, non-nil = associated with a client
-	CreatedAt time.Time
+	ID                int
+	Password          string
+	HashValue         string
+	ClientID          *uuid.UUID // nil = global-only, non-nil = associated with a client
+	ExcludeFromGlobal bool       // If true, don't write to global potfile
+	ExcludeFromClient bool       // If true, don't write to client potfile
+	CreatedAt         time.Time
 }
 
 // getStagedEntries retrieves unprocessed entries from the staging table
 func (s *PotfileService) getStagedEntries(ctx context.Context) ([]potfileStagingEntry, error) {
 	query := `
-		SELECT id, password, hash_value, client_id, created_at
+		SELECT id, password, hash_value, client_id, exclude_from_global, exclude_from_client, created_at
 		FROM potfile_staging
 		WHERE processed = FALSE
 		ORDER BY created_at
@@ -600,7 +618,7 @@ func (s *PotfileService) getStagedEntries(ctx context.Context) ([]potfileStaging
 	var entries []potfileStagingEntry
 	for rows.Next() {
 		var entry potfileStagingEntry
-		if err := rows.Scan(&entry.ID, &entry.Password, &entry.HashValue, &entry.ClientID, &entry.CreatedAt); err != nil {
+		if err := rows.Scan(&entry.ID, &entry.Password, &entry.HashValue, &entry.ClientID, &entry.ExcludeFromGlobal, &entry.ExcludeFromClient, &entry.CreatedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan staged entry: %w", err)
 		}
 		entries = append(entries, entry)
@@ -1366,8 +1384,8 @@ func (s *PotfileService) updateClientBloomFilter(clientID uuid.UUID, passwords [
 	debug.Debug("Updated client %s bloom filter with %d new passwords", clientID, len(passwords))
 }
 
-// updateClientPotfileMetadata updates the file metadata for a client potfile
-func (s *PotfileService) updateClientPotfileMetadata(ctx context.Context, clientID uuid.UUID) error {
+// UpdateClientPotfileMetadata updates the file metadata for a client potfile
+func (s *PotfileService) UpdateClientPotfileMetadata(ctx context.Context, clientID uuid.UUID) error {
 	if s.clientPotfileRepo == nil {
 		return nil
 	}
@@ -1469,10 +1487,9 @@ func (s *PotfileService) getOrCreateClientBloomFilter(ctx context.Context, clien
 	var count int
 	for scanner.Scan() {
 		password := scanner.Text()
-		if password != "" {
-			filter.Add([]byte(password))
-			count++
-		}
+		// Add ALL passwords including empty - matches global potfile behavior
+		filter.Add([]byte(password))
+		count++
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -1564,7 +1581,7 @@ func (s *PotfileService) RegenerateClientPotfile(ctx context.Context, clientID u
 	s.clientBloomMutex.Unlock()
 
 	// Update metadata
-	if err := s.updateClientPotfileMetadata(ctx, clientID); err != nil {
+	if err := s.UpdateClientPotfileMetadata(ctx, clientID); err != nil {
 		debug.Error("Failed to update potfile metadata after regeneration: %v", err)
 	}
 
@@ -1601,4 +1618,273 @@ func (s *PotfileService) DeleteClientPotfile(ctx context.Context, clientID uuid.
 
 	debug.Info("Deleted potfile for client %s", clientID)
 	return nil
+}
+
+// GetUniquePlaintextsForGlobalRemoval returns plaintexts that belong ONLY to the
+// specified hashlist and no other hashlist that writes to the global potfile.
+// MUST be called BEFORE hashlist deletion to get accurate uniqueness information.
+func (s *PotfileService) GetUniquePlaintextsForGlobalRemoval(ctx context.Context, hashlistID int64) (map[string]struct{}, error) {
+	query := `
+		SELECT DISTINCT h.password
+		FROM hashes h
+		JOIN hashlist_hashes hh ON h.id = hh.hash_id
+		WHERE hh.hashlist_id = $1
+		  AND h.is_cracked = true
+		  AND h.password IS NOT NULL
+		  AND h.password != ''
+		  AND NOT EXISTS (
+			SELECT 1 FROM hashlist_hashes other_hh
+			JOIN hashlists other_hl ON other_hh.hashlist_id = other_hl.id
+			LEFT JOIN clients c ON other_hl.client_id = c.id
+			WHERE other_hh.hash_id = h.id
+			  AND other_hh.hashlist_id != $1
+			  AND other_hl.exclude_from_potfile = false
+			  AND (c.id IS NULL OR c.exclude_from_potfile = false)
+		  )
+	`
+
+	rows, err := s.db.DB.QueryContext(ctx, query, hashlistID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query unique plaintexts for global removal: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string]struct{})
+	for rows.Next() {
+		var plaintext string
+		if err := rows.Scan(&plaintext); err != nil {
+			return nil, fmt.Errorf("failed to scan plaintext: %w", err)
+		}
+		result[plaintext] = struct{}{}
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating plaintexts: %w", err)
+	}
+
+	debug.Info("Found %d unique plaintexts for global potfile removal from hashlist %d", len(result), hashlistID)
+	return result, nil
+}
+
+// GetUniquePlaintextsForClientRemoval returns plaintexts that belong ONLY to the
+// specified hashlist within the client's scope (no other hashlist of the same client
+// that writes to the client potfile has this plaintext).
+// MUST be called BEFORE hashlist deletion to get accurate uniqueness information.
+func (s *PotfileService) GetUniquePlaintextsForClientRemoval(ctx context.Context, hashlistID int64, clientID uuid.UUID) (map[string]struct{}, error) {
+	query := `
+		SELECT DISTINCT h.password
+		FROM hashes h
+		JOIN hashlist_hashes hh ON h.id = hh.hash_id
+		WHERE hh.hashlist_id = $1
+		  AND h.is_cracked = true
+		  AND h.password IS NOT NULL
+		  AND h.password != ''
+		  AND NOT EXISTS (
+			SELECT 1 FROM hashlist_hashes other_hh
+			JOIN hashlists other_hl ON other_hh.hashlist_id = other_hl.id
+			WHERE other_hh.hash_id = h.id
+			  AND other_hh.hashlist_id != $1
+			  AND other_hl.client_id = $2
+			  AND other_hl.exclude_from_client_potfile = false
+		  )
+	`
+
+	rows, err := s.db.DB.QueryContext(ctx, query, hashlistID, clientID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query unique plaintexts for client removal: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string]struct{})
+	for rows.Next() {
+		var plaintext string
+		if err := rows.Scan(&plaintext); err != nil {
+			return nil, fmt.Errorf("failed to scan plaintext: %w", err)
+		}
+		result[plaintext] = struct{}{}
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating plaintexts: %w", err)
+	}
+
+	debug.Info("Found %d unique plaintexts for client potfile removal from hashlist %d (client %s)", len(result), hashlistID, clientID)
+	return result, nil
+}
+
+// RemovePlaintextsFromPotfile removes specific plaintexts from a potfile using
+// stream-filter approach. Safe for large files, uses atomic rename.
+// Also cleans up duplicate empty lines - only preserves the FIRST empty line.
+func (s *PotfileService) RemovePlaintextsFromPotfile(potfilePath string, toRemove map[string]struct{}) (removedCount int64, err error) {
+	s.processingMutex.Lock()
+	defer s.processingMutex.Unlock()
+
+	if len(toRemove) == 0 {
+		return 0, nil
+	}
+
+	src, err := os.Open(potfilePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil // No potfile, nothing to remove
+		}
+		return 0, fmt.Errorf("failed to open potfile: %w", err)
+	}
+	defer src.Close()
+
+	// Create temp file in same directory for atomic rename
+	tmpPath := potfilePath + ".tmp." + uuid.New().String()
+	dst, err := os.Create(tmpPath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create temp file: %w", err)
+	}
+
+	scanner := bufio.NewScanner(src)
+	// Handle very long lines (some passwords can be long)
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 1024*1024)
+
+	writer := bufio.NewWriter(dst)
+
+	// Track if we've written the first empty line (null password)
+	// Only one empty line should exist at the start of the potfile
+	hasWrittenEmptyLine := false
+	duplicateEmptyLinesRemoved := int64(0)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// Handle empty lines (null passwords) specially
+		if line == "" {
+			if !hasWrittenEmptyLine {
+				// Write the first empty line at the start
+				if _, err := writer.WriteString("\n"); err != nil {
+					dst.Close()
+					os.Remove(tmpPath)
+					return 0, fmt.Errorf("failed to write empty line: %w", err)
+				}
+				hasWrittenEmptyLine = true
+			} else {
+				// Skip duplicate empty lines (cleanup)
+				duplicateEmptyLinesRemoved++
+			}
+			continue
+		}
+
+		// Check if this plaintext should be removed
+		if _, shouldRemove := toRemove[line]; !shouldRemove {
+			if _, err := writer.WriteString(line + "\n"); err != nil {
+				dst.Close()
+				os.Remove(tmpPath)
+				return 0, fmt.Errorf("failed to write line: %w", err)
+			}
+		} else {
+			removedCount++
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		dst.Close()
+		os.Remove(tmpPath)
+		return 0, fmt.Errorf("error scanning potfile: %w", err)
+	}
+
+	if err := writer.Flush(); err != nil {
+		dst.Close()
+		os.Remove(tmpPath)
+		return 0, fmt.Errorf("failed to flush writer: %w", err)
+	}
+
+	dst.Close()
+	src.Close()
+
+	// Atomic rename
+	if err := os.Rename(tmpPath, potfilePath); err != nil {
+		os.Remove(tmpPath)
+		return 0, fmt.Errorf("failed to rename temp file: %w", err)
+	}
+
+	// Rebuild bloom filter asynchronously
+	go s.rebuildBloomFilterFromFile(potfilePath)
+
+	debug.Info("Removed %d plaintexts from potfile %s (also cleaned %d duplicate empty lines)",
+		removedCount, potfilePath, duplicateEmptyLinesRemoved)
+	return removedCount, nil
+}
+
+// rebuildBloomFilterFromFile rebuilds the bloom filter by reading the potfile
+func (s *PotfileService) rebuildBloomFilterFromFile(potfilePath string) {
+	s.bloomMutex.Lock()
+	defer s.bloomMutex.Unlock()
+
+	// Count lines first to size the bloom filter appropriately
+	lineCount, err := s.countPotfileLinesForPath(potfilePath)
+	if err != nil {
+		debug.Error("Failed to count lines for bloom filter rebuild: %v", err)
+		return
+	}
+
+	// Create new bloom filter with appropriate size
+	expectedSize := uint(lineCount + 100000) // Add buffer for future entries
+	if expectedSize < 1000 {
+		expectedSize = 1000
+	}
+	newFilter := bloom.NewWithEstimates(expectedSize, 0.01)
+
+	// Read file and populate bloom filter
+	file, err := os.Open(potfilePath)
+	if err != nil {
+		debug.Error("Failed to open potfile for bloom filter rebuild: %v", err)
+		return
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 1024*1024)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line != "" {
+			newFilter.Add([]byte(line))
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		debug.Error("Error scanning potfile for bloom filter rebuild: %v", err)
+		return
+	}
+
+	// Swap in the new bloom filter
+	s.bloomFilter = newFilter
+	s.lastReload = time.Now()
+
+	debug.Info("Rebuilt bloom filter from potfile with %d entries", lineCount)
+}
+
+// countPotfileLinesForPath counts lines in a potfile at a specific path
+func (s *PotfileService) countPotfileLinesForPath(potfilePath string) (int64, error) {
+	file, err := os.Open(potfilePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("failed to open potfile: %w", err)
+	}
+	defer file.Close()
+
+	var count int64
+	scanner := bufio.NewScanner(file)
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 1024*1024)
+
+	for scanner.Scan() {
+		count++
+	}
+
+	if err := scanner.Err(); err != nil {
+		return 0, fmt.Errorf("error counting potfile lines: %w", err)
+	}
+
+	return count, nil
 }

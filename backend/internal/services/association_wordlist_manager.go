@@ -136,6 +136,11 @@ func (m *AssociationWordlistManager) List(ctx context.Context, hashlistID int64)
 	return m.assocWordlistRepo.ListByHashlistID(ctx, hashlistID)
 }
 
+// ListByClientID returns all association wordlists across all hashlists for a given client.
+func (m *AssociationWordlistManager) ListByClientID(ctx context.Context, clientID uuid.UUID) ([]models.AssociationWordlist, error) {
+	return m.assocWordlistRepo.ListByClientID(ctx, clientID)
+}
+
 // Get retrieves a specific association wordlist by ID.
 func (m *AssociationWordlistManager) Get(ctx context.Context, id uuid.UUID) (*models.AssociationWordlist, error) {
 	return m.assocWordlistRepo.GetByID(ctx, id)

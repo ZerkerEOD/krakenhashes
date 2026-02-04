@@ -209,6 +209,12 @@ func (m *DirectoryMonitor) checkWordlistDirectory() {
 			return nil
 		}
 
+		// Skip client wordlists - they are managed separately in the client_wordlists table
+		if strings.HasPrefix(relPath, "clients/") || strings.HasPrefix(relPath, "clients"+string(filepath.Separator)) {
+			debug.Debug("Skipping client wordlist from directory monitoring: %s", relPath)
+			return nil
+		}
+
 		// Skip if already being processed
 		if _, isProcessing := m.processingFiles.Load(relPath); isProcessing {
 			debug.Debug("Skipping file that is already being processed: %s", relPath)

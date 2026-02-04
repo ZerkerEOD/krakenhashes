@@ -28,8 +28,8 @@ func NewHashListRepository(database *db.DB) *HashListRepository {
 // It updates the hashlist.ID field with the newly generated serial ID.
 func (r *HashListRepository) Create(ctx context.Context, hashlist *models.HashList) error {
 	query := `
-		INSERT INTO hashlists (name, user_id, client_id, hash_type_id, status, exclude_from_potfile, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO hashlists (name, user_id, client_id, hash_type_id, status, exclude_from_potfile, exclude_from_client_potfile, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING id
 	`
 	var clientIDArg interface{} // Handle NULL client_id
@@ -46,6 +46,7 @@ func (r *HashListRepository) Create(ctx context.Context, hashlist *models.HashLi
 		hashlist.HashTypeID,
 		hashlist.Status,
 		hashlist.ExcludeFromPotfile,
+		hashlist.ExcludeFromClientPotfile,
 		hashlist.CreatedAt,
 		hashlist.UpdatedAt,
 	)
@@ -153,9 +154,13 @@ func (r *HashListRepository) GetByID(ctx context.Context, id int64) (*models.Has
 		SELECT
 			h.id, h.name, h.user_id, h.client_id, h.hash_type_id,
 			h.total_hashes, h.cracked_hashes, h.status, h.error_message,
-			h.exclude_from_potfile, h.original_file_path, h.has_mixed_work_factors,
+			h.exclude_from_potfile, h.exclude_from_client_potfile, h.original_file_path, h.has_mixed_work_factors,
 			h.created_at, h.updated_at,
-			c.name AS client_name
+			c.name AS client_name,
+			c.exclude_from_potfile AS client_exclude_from_global,
+			c.exclude_from_client_potfile AS client_exclude_from_client,
+			c.remove_from_global_potfile_on_hashlist_delete,
+			c.remove_from_client_potfile_on_hashlist_delete
 		FROM hashlists h
 		LEFT JOIN clients c ON h.client_id = c.id
 		WHERE h.id = $1
@@ -164,6 +169,10 @@ func (r *HashListRepository) GetByID(ctx context.Context, id int64) (*models.Has
 	var clientID sql.Null[uuid.UUID]    // Handle nullable client_id
 	var clientName sql.NullString       // Handle nullable client_name
 	var originalFilePath sql.NullString // Handle nullable original_file_path
+	var clientExcludeFromGlobal sql.NullBool
+	var clientExcludeFromClient sql.NullBool
+	var clientRemoveFromGlobalOnDelete sql.NullBool
+	var clientRemoveFromClientOnDelete sql.NullBool
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&hashlist.ID,
 		&hashlist.Name,
@@ -175,11 +184,16 @@ func (r *HashListRepository) GetByID(ctx context.Context, id int64) (*models.Has
 		&hashlist.Status,
 		&hashlist.ErrorMessage,
 		&hashlist.ExcludeFromPotfile,
+		&hashlist.ExcludeFromClientPotfile,
 		&originalFilePath,
 		&hashlist.HasMixedWorkFactors,
 		&hashlist.CreatedAt,
 		&hashlist.UpdatedAt,
 		&clientName,
+		&clientExcludeFromGlobal,
+		&clientExcludeFromClient,
+		&clientRemoveFromGlobalOnDelete,
+		&clientRemoveFromClientOnDelete,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -196,6 +210,18 @@ func (r *HashListRepository) GetByID(ctx context.Context, id int64) (*models.Has
 	if originalFilePath.Valid {
 		hashlist.OriginalFilePath = &originalFilePath.String
 	}
+	if clientExcludeFromGlobal.Valid {
+		hashlist.ClientExcludeFromGlobalPotfile = &clientExcludeFromGlobal.Bool
+	}
+	if clientExcludeFromClient.Valid {
+		hashlist.ClientExcludeFromClientPotfile = &clientExcludeFromClient.Bool
+	}
+	if clientRemoveFromGlobalOnDelete.Valid {
+		hashlist.ClientRemoveFromGlobalOnDelete = &clientRemoveFromGlobalOnDelete.Bool
+	}
+	if clientRemoveFromClientOnDelete.Valid {
+		hashlist.ClientRemoveFromClientOnDelete = &clientRemoveFromClientOnDelete.Bool
+	}
 	return &hashlist, nil
 }
 
@@ -211,14 +237,19 @@ type ListHashlistsParams struct {
 
 func (r *HashListRepository) List(ctx context.Context, params ListHashlistsParams) ([]models.HashList, int, error) {
 	debug.Info("[HashlistRepo.List] Called with params: %+v", params)
-	// Select hashlist columns prefixed with 'h.' and client name prefixed with 'c.'
+	// Select hashlist columns prefixed with 'h.' and client name/settings prefixed with 'c.'
 	baseQuery := `
 		SELECT
 			h.id, h.name, h.user_id, h.client_id, h.hash_type_id,
 			h.total_hashes, h.cracked_hashes, h.status,
-			h.error_message, h.exclude_from_potfile, h.original_file_path, h.has_mixed_work_factors,
+			h.error_message, h.exclude_from_potfile, h.exclude_from_client_potfile,
+			h.original_file_path, h.has_mixed_work_factors,
 			h.created_at, h.updated_at,
-			c.name AS client_name
+			c.name AS client_name,
+			c.exclude_from_potfile AS client_exclude_from_global,
+			c.exclude_from_client_potfile AS client_exclude_from_client,
+			c.remove_from_global_potfile_on_hashlist_delete,
+			c.remove_from_client_potfile_on_hashlist_delete
 		FROM hashlists h
 		LEFT JOIN clients c ON h.client_id = c.id
 	`
@@ -307,9 +338,13 @@ func (r *HashListRepository) List(ctx context.Context, params ListHashlistsParam
 	var hashlists []models.HashList
 	for rows.Next() {
 		var hashlist models.HashList
-		var clientID sql.Null[uuid.UUID]    // Use sql.Null for nullable UUID
-		var clientName sql.NullString       // Use sql.NullString for nullable client name from LEFT JOIN
-		var originalFilePath sql.NullString // Handle nullable original_file_path
+		var clientID sql.Null[uuid.UUID]                    // Use sql.Null for nullable UUID
+		var clientName sql.NullString                       // Use sql.NullString for nullable client name from LEFT JOIN
+		var originalFilePath sql.NullString                 // Handle nullable original_file_path
+		var clientExcludeFromGlobalPotfile sql.NullBool     // Client's exclude_from_potfile setting (for global)
+		var clientExcludeFromClientPotfile sql.NullBool     // Client's exclude_from_client_potfile setting
+		var clientRemoveFromGlobalOnDelete sql.NullBool     // Client's remove_from_global_potfile_on_hashlist_delete setting
+		var clientRemoveFromClientOnDelete sql.NullBool     // Client's remove_from_client_potfile_on_hashlist_delete setting
 
 		if err := rows.Scan(
 			&hashlist.ID,
@@ -322,11 +357,16 @@ func (r *HashListRepository) List(ctx context.Context, params ListHashlistsParam
 			&hashlist.Status,
 			&hashlist.ErrorMessage,
 			&hashlist.ExcludeFromPotfile,
+			&hashlist.ExcludeFromClientPotfile,
 			&originalFilePath,
 			&hashlist.HasMixedWorkFactors,
 			&hashlist.CreatedAt,
 			&hashlist.UpdatedAt,
 			&clientName, // Scan into nullable string
+			&clientExcludeFromGlobalPotfile,
+			&clientExcludeFromClientPotfile,
+			&clientRemoveFromGlobalOnDelete,
+			&clientRemoveFromClientOnDelete,
 		); err != nil {
 			debug.Error("[HashlistRepo.List] Error scanning row: %v", err)
 			return nil, 0, fmt.Errorf("failed to scan hashlist row: %w", err)
@@ -347,6 +387,20 @@ func (r *HashListRepository) List(ctx context.Context, params ListHashlistsParam
 			hashlist.OriginalFilePath = &originalFilePath.String
 		}
 
+		// Assign client potfile settings if valid
+		if clientExcludeFromGlobalPotfile.Valid {
+			hashlist.ClientExcludeFromGlobalPotfile = &clientExcludeFromGlobalPotfile.Bool
+		}
+		if clientExcludeFromClientPotfile.Valid {
+			hashlist.ClientExcludeFromClientPotfile = &clientExcludeFromClientPotfile.Bool
+		}
+		if clientRemoveFromGlobalOnDelete.Valid {
+			hashlist.ClientRemoveFromGlobalOnDelete = &clientRemoveFromGlobalOnDelete.Bool
+		}
+		if clientRemoveFromClientOnDelete.Valid {
+			hashlist.ClientRemoveFromClientOnDelete = &clientRemoveFromClientOnDelete.Bool
+		}
+
 		hashlists = append(hashlists, hashlist)
 	}
 	if err = rows.Err(); err != nil {
@@ -365,7 +419,8 @@ func (r *HashListRepository) List(ctx context.Context, params ListHashlistsParam
 // GetByClientID retrieves all hashlists associated with a specific client ID.
 func (r *HashListRepository) GetByClientID(ctx context.Context, clientID uuid.UUID) ([]models.HashList, error) {
 	query := `
-		SELECT id, name, user_id, client_id, hash_type_id, total_hashes, cracked_hashes, status, error_message, created_at, updated_at
+		SELECT id, name, user_id, client_id, hash_type_id, total_hashes, cracked_hashes, status, error_message,
+		       exclude_from_potfile, exclude_from_client_potfile, created_at, updated_at
 		FROM hashlists
 		WHERE client_id = $1
 		ORDER BY created_at DESC
@@ -391,6 +446,8 @@ func (r *HashListRepository) GetByClientID(ctx context.Context, clientID uuid.UU
 			&hashlist.CrackedHashes,
 			&hashlist.Status,
 			&hashlist.ErrorMessage,
+			&hashlist.ExcludeFromPotfile,
+			&hashlist.ExcludeFromClientPotfile,
 			&hashlist.CreatedAt,
 			&hashlist.UpdatedAt,
 		); err != nil {
@@ -1231,7 +1288,7 @@ func (r *HashListRepository) GetHashlistsContainingHashes(ctx context.Context, h
 	query := `
 		SELECT DISTINCT hl.id, hl.name, hl.hash_type_id, hl.total_hashes,
 		       hl.cracked_hashes, hl.user_id, hl.client_id, hl.created_at, hl.updated_at,
-		       hl.status, hl.exclude_from_potfile
+		       hl.status, hl.exclude_from_potfile, hl.exclude_from_client_potfile
 		FROM hashlists hl
 		JOIN hashlist_hashes hh ON hl.id = hh.hashlist_id
 		JOIN hashes h ON hh.hash_id = h.id
@@ -1250,7 +1307,7 @@ func (r *HashListRepository) GetHashlistsContainingHashes(ctx context.Context, h
 		var clientID sql.NullString
 		err := rows.Scan(&hl.ID, &hl.Name, &hl.HashTypeID, &hl.TotalHashes,
 			&hl.CrackedHashes, &hl.UserID, &clientID, &hl.CreatedAt, &hl.UpdatedAt,
-			&hl.Status, &hl.ExcludeFromPotfile)
+			&hl.Status, &hl.ExcludeFromPotfile, &hl.ExcludeFromClientPotfile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan hashlist: %w", err)
 		}
@@ -1319,7 +1376,7 @@ func (r *HashListRepository) GetLinkedHashlist(ctx context.Context, hashlistID i
 	query := `
 		SELECT hl.id, hl.name, hl.user_id, hl.client_id, hl.hash_type_id,
 		       hl.total_hashes, hl.cracked_hashes, hl.status, hl.error_message,
-		       hl.exclude_from_potfile, hl.created_at, hl.updated_at
+		       hl.exclude_from_potfile, hl.exclude_from_client_potfile, hl.created_at, hl.updated_at
 		FROM hashlists hl
 		INNER JOIN linked_hashlists lhl ON (
 			(lhl.hashlist_id_1 = $1 AND lhl.hashlist_id_2 = hl.id) OR
@@ -1344,6 +1401,7 @@ func (r *HashListRepository) GetLinkedHashlist(ctx context.Context, hashlistID i
 		&hl.Status,
 		&errorMessage,
 		&hl.ExcludeFromPotfile,
+		&hl.ExcludeFromClientPotfile,
 		&hl.CreatedAt,
 		&hl.UpdatedAt,
 	)
