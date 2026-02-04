@@ -585,14 +585,39 @@ func (m *DirectoryMonitor) checkRuleDirectory() {
 
 			ctx := context.Background()
 
-			// Calculate MD5 hash first (faster than counting lines)
-			// Uses cache to avoid recalculating unchanged files
+			// Normalize rule file — strip duplicate empty lines.
+			// hashcat treats empty lines as passthrough rules (:); multiples are redundant.
+			// This must happen BEFORE hash calculation so existing files get their
+			// normalized hash stored, preventing infinite re-processing.
+			m.fileStatuses.Store(relPath, "normalizing")
+			normalized, normErr := fsutil.NormalizeRuleFile(fullPath)
+			if normErr != nil {
+				debug.Warning("Failed to normalize rule file %s: %v", relPath, normErr)
+			} else if normalized {
+				debug.Info("Normalized rule file %s (stripped duplicate empty lines)", relPath)
+			}
+
+			// Calculate MD5 hash (of normalized file if changed)
 			m.fileStatuses.Store(relPath, "calculating hash")
-			md5Hash, err := m.hashCache.GetOrCalculate(fullPath)
-			if err != nil {
-				debug.Error("Failed to calculate MD5 hash for %s: %v", fullPath, err)
-				m.fileStatuses.Store(relPath, "error: "+err.Error())
-				return
+			var md5Hash string
+			if normalized {
+				// File was modified by normalization — bypass cache and calculate directly
+				newHash, err := m.ruleManager.CalculateFileMD5(fullPath)
+				if err != nil {
+					debug.Error("Failed to calculate MD5 after normalization for %s: %v", fullPath, err)
+					m.fileStatuses.Store(relPath, "error: "+err.Error())
+					return
+				}
+				md5Hash = newHash
+			} else {
+				// Use cache for unmodified files
+				hash, err := m.hashCache.GetOrCalculate(fullPath)
+				if err != nil {
+					debug.Error("Failed to calculate MD5 hash for %s: %v", fullPath, err)
+					m.fileStatuses.Store(relPath, "error: "+err.Error())
+					return
+				}
+				md5Hash = hash
 			}
 
 			// Check if file exists in database

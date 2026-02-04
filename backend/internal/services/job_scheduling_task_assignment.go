@@ -888,6 +888,20 @@ func (s *JobSchedulingService) calculateRuleSplitChunk(
 		state.IsExhausted = true
 		plan.SkipAssignment = true
 		plan.SkipReason = fmt.Sprintf("All rules dispatched for job %s", plan.JobExecution.ID)
+
+		// Safety net: sync dispatched_keyspace to effective_keyspace to prevent
+		// GetJobsWithPendingWork from returning this job in an infinite loop.
+		// This can happen if estimation gaps cause dispatched < effective even
+		// though all rules are fully dispatched.
+		if state.JobExecution.EffectiveKeyspace != nil && *state.JobExecution.EffectiveKeyspace > 0 {
+			if state.DispatchedKeyspace < *state.JobExecution.EffectiveKeyspace {
+				debug.Warning("Rule-split job %s: all rules dispatched but dispatched(%d) < effective(%d), syncing",
+					plan.JobExecution.ID, state.DispatchedKeyspace, *state.JobExecution.EffectiveKeyspace)
+				_ = s.jobExecutionService.jobExecRepo.UpdateDispatchedKeyspace(
+					ctx, plan.JobExecution.ID, *state.JobExecution.EffectiveKeyspace)
+			}
+		}
+
 		return nil
 	}
 
@@ -992,6 +1006,19 @@ func (s *JobSchedulingService) calculateRuleSplitChunk(
 	rulesInChunk := ruleEnd - ruleStart
 	estimatedChunkKeyspace := state.BaseKeyspace * int64(rulesInChunk)
 	effectiveKeyspaceEnd := effectiveKeyspaceStart + estimatedChunkKeyspace
+
+	// When this is the final chunk (all rules dispatched), snap to the job's actual
+	// effective_keyspace. This eliminates estimation gaps from avg_rule_multiplier
+	// or float precision that would cause dispatched_keyspace < effective_keyspace.
+	if ruleEnd == state.TotalRules && state.JobExecution.EffectiveKeyspace != nil && *state.JobExecution.EffectiveKeyspace > 0 {
+		effectiveKeyspaceEnd = *state.JobExecution.EffectiveKeyspace
+		debug.Log("Snapped final rule chunk effective_keyspace_end to job total", map[string]interface{}{
+			"job_id":              plan.JobExecution.ID,
+			"estimated_end":      effectiveKeyspaceStart + estimatedChunkKeyspace,
+			"snapped_end":        effectiveKeyspaceEnd,
+			"effective_keyspace": *state.JobExecution.EffectiveKeyspace,
+		})
+	}
 
 	// Update plan
 	plan.IsRuleSplit = true
