@@ -253,7 +253,19 @@ func (s *store) CreateAuditLog(ctx context.Context, log *BinaryAuditLog) error {
 
 // SetDefault implements Store.SetDefault
 func (s *store) SetDefault(ctx context.Context, id int64) error {
-	result, err := s.db.ExecContext(ctx, queries.SetBinaryDefault, id)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Step 1: Clear existing default for this binary type
+	if _, err := tx.ExecContext(ctx, queries.ClearBinaryDefault, id); err != nil {
+		return fmt.Errorf("failed to clear existing default: %w", err)
+	}
+
+	// Step 2: Set new default
+	result, err := tx.ExecContext(ctx, queries.SetBinaryDefaultByID, id)
 	if err != nil {
 		return fmt.Errorf("failed to set binary as default: %w", err)
 	}
@@ -266,7 +278,7 @@ func (s *store) SetDefault(ctx context.Context, id int64) error {
 		return fmt.Errorf("binary version not found or not active: %d", id)
 	}
 
-	return nil
+	return tx.Commit()
 }
 
 // GetDefault implements Store.GetDefault

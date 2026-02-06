@@ -71,13 +71,17 @@ const (
 			$1, $2, $3, $4
 		) RETURNING id, performed_at`
 
-	SetBinaryDefault = `
-		UPDATE binary_versions 
-		SET is_default = CASE 
-			WHEN id = $1 THEN true 
-			ELSE false 
-		END
+	ClearBinaryDefault = `
+		UPDATE binary_versions
+		SET is_default = false
 		WHERE binary_type = (SELECT binary_type FROM binary_versions WHERE id = $1)
+		AND is_active = true
+		AND is_default = true`
+
+	SetBinaryDefaultByID = `
+		UPDATE binary_versions
+		SET is_default = true
+		WHERE id = $1
 		AND is_active = true`
 
 	GetDefaultBinaryVersion = `

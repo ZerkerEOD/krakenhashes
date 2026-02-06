@@ -5,7 +5,6 @@ import {
   CardContent,
   Typography,
   TextField,
-  Button,
   Alert,
   CircularProgress,
   Grid,
@@ -191,33 +190,14 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
                 type="number"
                 value={formData.max_priority}
                 onChange={handleMaxPriorityChange}
+                onBlur={handleSave}
                 disabled={loading || saving}
                 inputProps={{
                   min: 1,
                   max: 1000000,
                 }}
                 helperText={t('systemSettings.priority.helperText')}
-                sx={{ mb: 3 }}
               />
-
-              <Box display="flex" gap={2}>
-                <Button
-                  variant="contained"
-                  onClick={handleSave}
-                  disabled={loading || saving || loadingData}
-                  startIcon={saving ? <CircularProgress size={20} /> : null}
-                >
-                  {saving ? t('systemSettings.priority.saving') : t('systemSettings.priority.saveButton')}
-                </Button>
-
-                <Button
-                  variant="outlined"
-                  onClick={loadSettings}
-                  disabled={loading || saving || loadingData}
-                >
-                  {t('systemSettings.priority.reset')}
-                </Button>
-              </Box>
             </CardContent>
           </Card>
         </Grid>

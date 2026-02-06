@@ -28,11 +28,19 @@ export interface JobExecutionSettings {
   remove_from_client_potfile_on_hashlist_delete_default: boolean;
 }
 
+export interface SettingsUpdateResponse {
+  success: boolean;
+  message: string;
+  failed_keys?: string[];
+  errors?: Record<string, string>;
+}
+
 export const getJobExecutionSettings = async (): Promise<JobExecutionSettings> => {
   const response = await api.get('/api/admin/settings/job-execution');
   return response.data;
 };
 
-export const updateJobExecutionSettings = async (settings: JobExecutionSettings): Promise<void> => {
-  await api.put('/api/admin/settings/job-execution', settings);
+export const updateJobExecutionSettings = async (settings: JobExecutionSettings): Promise<SettingsUpdateResponse> => {
+  const response = await api.put('/api/admin/settings/job-execution', settings);
+  return response.data;
 };

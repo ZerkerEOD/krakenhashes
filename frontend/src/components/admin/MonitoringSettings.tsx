@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
   TextField,
-  Button,
   Alert,
   CircularProgress,
   FormControl,
@@ -33,10 +32,16 @@ const MonitoringSettings: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { enqueueSnackbar } = useSnackbar();
+  const settingsRef = useRef<MonitoringSettingsData>(settings);
 
   useEffect(() => {
     fetchSettings();
   }, []);
+
+  // Keep ref in sync with state for blur handlers
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
 
   const fetchSettings = async () => {
     setLoading(true);
@@ -52,28 +57,72 @@ const MonitoringSettings: React.FC = () => {
     }
   };
 
-  const handleSave = async () => {
-    setError(null);
+  const saveSettings = useCallback(async (updatedSettings: MonitoringSettingsData) => {
     setSaving(true);
-
+    setError(null);
     try {
-      await updateMonitoringSettings(settings);
+      await updateMonitoringSettings(updatedSettings);
       enqueueSnackbar(t('monitoring.messages.updateSuccess') as string, { variant: 'success' });
     } catch (err: any) {
       console.error('Failed to save monitoring settings:', err);
       setError(err.response?.data?.error || t('monitoring.errors.saveFailed') as string);
       enqueueSnackbar(t('monitoring.errors.saveFailed') as string, { variant: 'error' });
+      await fetchSettings();
     } finally {
       setSaving(false);
     }
-  };
+  }, [t, enqueueSnackbar]);
 
+  // Auto-save handler for switch - saves immediately
+  const handleSwitchChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const previousSettings = { ...settings };
+    const updatedSettings = { ...settings, enable_aggregation: event.target.checked };
+    setSettings(updatedSettings);
+    setSaving(true);
+    setError(null);
+    try {
+      await updateMonitoringSettings(updatedSettings);
+      enqueueSnackbar(t('monitoring.messages.updateSuccess') as string, { variant: 'success' });
+    } catch (err: any) {
+      console.error('Failed to update setting:', err);
+      setSettings(previousSettings);
+      enqueueSnackbar(t('monitoring.errors.saveFailed') as string, { variant: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  }, [settings, t, enqueueSnackbar]);
+
+  // Auto-save handler for select - saves immediately
+  const handleIntervalChange = useCallback(async (value: string) => {
+    const previousSettings = { ...settings };
+    const updatedSettings = { ...settings, aggregation_interval: value };
+    setSettings(updatedSettings);
+    setSaving(true);
+    setError(null);
+    try {
+      await updateMonitoringSettings(updatedSettings);
+      enqueueSnackbar(t('monitoring.messages.updateSuccess') as string, { variant: 'success' });
+    } catch (err: any) {
+      console.error('Failed to update setting:', err);
+      setSettings(previousSettings);
+      enqueueSnackbar(t('monitoring.errors.saveFailed') as string, { variant: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  }, [settings, t, enqueueSnackbar]);
+
+  // Change handler for number fields - only updates local state
   const handleRetentionChange = (field: keyof MonitoringSettingsData) => (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(event.target.value, 10);
     if (!isNaN(value) && value >= 0) {
       setSettings({ ...settings, [field]: value });
     }
   };
+
+  // Blur handler for number fields - triggers save
+  const handleBlurSave = useCallback(async () => {
+    await saveSettings(settingsRef.current);
+  }, [saveSettings]);
 
   if (loading) {
     return (
@@ -110,6 +159,8 @@ const MonitoringSettings: React.FC = () => {
             type="number"
             value={settings.metrics_retention_realtime_days}
             onChange={handleRetentionChange('metrics_retention_realtime_days')}
+            onBlur={handleBlurSave}
+            disabled={saving}
             helperText={t('monitoring.metricsRetention.realtimeDataHelper')}
             inputProps={{ min: 0, step: 1 }}
             sx={{ mb: 2 }}
@@ -121,6 +172,8 @@ const MonitoringSettings: React.FC = () => {
             type="number"
             value={settings.metrics_retention_daily_days}
             onChange={handleRetentionChange('metrics_retention_daily_days')}
+            onBlur={handleBlurSave}
+            disabled={saving}
             helperText={t('monitoring.metricsRetention.dailyAggregatesHelper')}
             inputProps={{ min: 0, step: 1 }}
             sx={{ mb: 2 }}
@@ -132,6 +185,8 @@ const MonitoringSettings: React.FC = () => {
             type="number"
             value={settings.metrics_retention_weekly_days}
             onChange={handleRetentionChange('metrics_retention_weekly_days')}
+            onBlur={handleBlurSave}
+            disabled={saving}
             helperText={t('monitoring.metricsRetention.weeklyAggregatesHelper')}
             inputProps={{ min: 0, step: 1 }}
           />
@@ -147,7 +202,8 @@ const MonitoringSettings: React.FC = () => {
           control={
             <Switch
               checked={settings.enable_aggregation}
-              onChange={(e) => setSettings({ ...settings, enable_aggregation: e.target.checked })}
+              onChange={handleSwitchChange}
+              disabled={saving}
             />
           }
           label={t('monitoring.aggregation.enableAggregation')}
@@ -161,9 +217,9 @@ const MonitoringSettings: React.FC = () => {
           <InputLabel>{t('monitoring.aggregation.interval')}</InputLabel>
           <Select
             value={settings.aggregation_interval}
-            onChange={(e) => setSettings({ ...settings, aggregation_interval: e.target.value })}
+            onChange={(e) => handleIntervalChange(e.target.value)}
             label={t('monitoring.aggregation.interval')}
-            disabled={!settings.enable_aggregation}
+            disabled={!settings.enable_aggregation || saving}
           >
             <MenuItem value="hourly">{t('monitoring.aggregation.hourly')}</MenuItem>
             <MenuItem value="daily">{t('monitoring.aggregation.daily')}</MenuItem>
@@ -188,18 +244,6 @@ const MonitoringSettings: React.FC = () => {
           </Typography>
         </Alert>
       </Paper>
-
-      <Box display="flex" justifyContent="flex-end">
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={handleSave}
-          disabled={saving}
-          startIcon={saving && <CircularProgress size={20} />}
-        >
-          {saving ? t('monitoring.buttons.saving') : t('monitoring.buttons.save')}
-        </Button>
-      </Box>
     </Box>
   );
 };

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { Box, Tabs, Tab, Typography, Paper, TextField, Button, Alert, CircularProgress, IconButton } from '@mui/material';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { Box, Tabs, Tab, Typography, Paper, TextField, Alert, CircularProgress, IconButton } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { useTranslation } from 'react-i18next';
@@ -15,7 +15,6 @@ import MonitoringSettings from '../../components/admin/MonitoringSettings';
 import AgentDownloadSettings from '../../components/admin/AgentDownloadSettings';
 import NotificationSettings from '../../components/admin/NotificationSettings';
 import { useSnackbar } from 'notistack';
-import { updateAuthSettings } from '../../services/auth';
 import { getDefaultClientRetentionSetting, updateDefaultClientRetentionSetting } from '../../services/api';
 
 // Lazy load SSO Settings to avoid circular dependency
@@ -49,15 +48,13 @@ const TabPanel = (props: TabPanelProps) => {
 
 // --- Client Settings Component ---
 const ClientSettingsTab: React.FC = () => {
-  // Add a log to confirm component rendering
-  console.log("[ClientSettingsTab] Rendering...");
-
   const { t } = useTranslation('admin');
   const [retentionMonths, setRetentionMonths] = useState<string>('');
   const [initialLoading, setInitialLoading] = useState<boolean>(true);
-  const [saveLoading, setSaveLoading] = useState<boolean>(false);
+  const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const { enqueueSnackbar } = useSnackbar();
+  const retentionRef = useRef<string>('');
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -65,50 +62,45 @@ const ClientSettingsTab: React.FC = () => {
       setError(null);
       try {
         const response = await getDefaultClientRetentionSetting();
-        console.log('[ClientSettingsTab] useEffect - API response received:', response);
-        
-        // Add guards and detailed logging
-        if (response && response.data && response.data.data) { // Check nested data object
-          // Access value correctly via response.data.data.value
-          const apiValue = response.data.data.value; 
-          console.log(`[ClientSettingsTab] useEffect - Raw API value: ${apiValue} (Type: ${typeof apiValue})`);
-
-          const valueOrDefault = apiValue ?? '0';
-          console.log(`[ClientSettingsTab] useEffect - Value after ?? '0': ${valueOrDefault} (Type: ${typeof valueOrDefault})`);
-
-          const valueToSet = String(valueOrDefault);
-          console.log(`[ClientSettingsTab] useEffect - Final valueToSet (string): ${valueToSet}`);
-
-          setRetentionMonths(valueToSet); 
+        if (response && response.data && response.data.data) {
+          const apiValue = response.data.data.value;
+          const valueToSet = String(apiValue ?? '0');
+          setRetentionMonths(valueToSet);
+          retentionRef.current = valueToSet;
         } else {
-          console.error('[ClientSettingsTab] useEffect - Invalid response structure:', response);
+          console.error('[ClientSettingsTab] Invalid response structure:', response);
           setError('Failed to process settings from server.');
-          setRetentionMonths('0'); // Default to 0 on error
+          setRetentionMonths('0');
+          retentionRef.current = '0';
         }
       } catch (err) {
         console.error("Failed to fetch client retention settings:", err);
-        setError('Failed to load settings. Please try again.'); // Ensure error is set
-        setRetentionMonths('0'); // Default to 0 on fetch error
+        setError('Failed to load settings. Please try again.');
+        setRetentionMonths('0');
+        retentionRef.current = '0';
       } finally {
-        console.log('[ClientSettingsTab] useEffect - Setting initialLoading to false.');
         setInitialLoading(false);
       }
     };
     fetchSettings();
-  }, []); // Empty dependency array
+  }, []);
 
-  const handleSave = async () => {
+  // Keep ref in sync
+  useEffect(() => {
+    retentionRef.current = retentionMonths;
+  }, [retentionMonths]);
+
+  const handleBlurSave = async () => {
     setError(null);
-    setSaveLoading(true);
-    const valueToSave = retentionMonths.trim();
+    const valueToSave = retentionRef.current.trim();
     const numericValue = parseInt(valueToSave, 10);
 
     if (isNaN(numericValue) || numericValue < 0) {
       setError(t('clientSettings.errors.invalidRetention') as string);
-      setSaveLoading(false);
       return;
     }
 
+    setSaving(true);
     try {
       await updateDefaultClientRetentionSetting({ value: numericValue.toString() });
       enqueueSnackbar(t('clientSettings.messages.updateSuccess') as string, { variant: 'success' });
@@ -118,7 +110,7 @@ const ClientSettingsTab: React.FC = () => {
       setError(message);
       enqueueSnackbar(message, { variant: 'error' });
     } finally {
-      setSaveLoading(false);
+      setSaving(false);
     }
   };
 
@@ -138,6 +130,8 @@ const ClientSettingsTab: React.FC = () => {
             label={t('clientSettings.retentionPeriod') as string}
             value={retentionMonths}
             onChange={(e) => setRetentionMonths(e.target.value)}
+            onBlur={handleBlurSave}
+            disabled={saving}
             helperText={t('clientSettings.retentionHelperText') as string}
             margin="normal"
             InputProps={{
@@ -146,15 +140,6 @@ const ClientSettingsTab: React.FC = () => {
               }
           }}
           />
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleSave}
-            disabled={saveLoading || initialLoading}
-            sx={{ mt: 2 }}
-          >
-            {saveLoading ? <CircularProgress size={24} /> : t('clientSettings.saveButton') as string}
-          </Button>
         </Box>
       )}
     </Box>
@@ -170,9 +155,7 @@ export const AdminSettings = () => {
     return initialTab >= 0 && initialTab < 11 ? initialTab : 0;
   });
 
-  const [loading, setLoading] = useState(false);
   const { userRole } = useAuth();
-  const { enqueueSnackbar } = useSnackbar();
 
   // Redirect if not admin
   if (userRole !== 'admin') {
@@ -225,22 +208,7 @@ export const AdminSettings = () => {
           <EmailSettings />
         </TabPanel>
         <TabPanel value={currentTab} index={1}>
-          <AuthSettings
-            onSave={async (settings) => {
-              setLoading(true);
-              try {
-                await updateAuthSettings(settings);
-                enqueueSnackbar(t('settings.saved') as string, { variant: 'success' });
-              } catch (error) {
-                console.error('Failed to update settings:', error);
-                enqueueSnackbar(error instanceof Error ? error.message : t('settings.saveFailed') as string, { variant: 'error' });
-                throw error; // Propagate error to trigger form error state
-              } finally {
-                setLoading(false);
-              }
-            }}
-            loading={loading}
-          />
+          <AuthSettings />
         </TabPanel>
         <TabPanel value={currentTab} index={2}>
           <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>}>
