@@ -19,6 +19,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/config"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	adminclient "github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/admin/client"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/middleware"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/processor"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
@@ -62,13 +63,14 @@ type hashlistHandler struct {
 		GetAvailablePresetJobs(w http.ResponseWriter, r *http.Request)
 		CreateJobFromHashlist(w http.ResponseWriter, r *http.Request)
 	}
+	teamService *services.TeamService
 }
 
 // registerHashlistRoutes configures all hashlist, hash type, client, and hash search routes
 func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, agentService *services.AgentService, clientPotfileService *services.ClientPotfileService, potfileService *services.PotfileService, jobsHandler interface {
 	GetAvailablePresetJobs(w http.ResponseWriter, r *http.Request)
 	CreateJobFromHashlist(w http.ResponseWriter, r *http.Request)
-}) {
+}, teamService *services.TeamService) {
 	debug.Info("Registering hashlist, hash type, client, and hash search routes")
 
 	// Create DB wrapper for repositories
@@ -139,6 +141,7 @@ func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, ag
 		agentService:               agentService,
 		processor:                  proc,
 		jobsHandler:                jobsHandler,
+		teamService:                teamService,
 	}
 
 	// === User Routes (Authenticated via JWT) ===
@@ -765,6 +768,21 @@ func (h *hashlistHandler) handleListHashlists(w http.ResponseWriter, r *http.Req
 		}
 	}
 
+	// Apply team filter when teams are enabled and user is not admin
+	if middleware.IsTeamsEnabledFromContext(ctx) && !middleware.IsAdminFromContext(ctx) {
+		teamIDs := middleware.GetUserTeamIDsFromContext(ctx)
+		if teamIDs != nil {
+			params.TeamsEnabled = true
+			params.TeamIDs = teamIDs
+			// Also include hashlists owned by the user (legacy hashlists without client)
+			userID, err := getUserIDFromContext(ctx)
+			if err == nil {
+				params.UserID = &userID
+				params.IncludeOwned = true
+			}
+		}
+	}
+
 	// Fetch data from repository
 	hashlists, totalCount, err := h.hashlistRepo.List(ctx, params)
 	if err != nil {
@@ -892,18 +910,25 @@ func (h *hashlistHandler) handleListUserHashlists(w http.ResponseWriter, r *http
 
 func (h *hashlistHandler) handleGetHashlist(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	_, err := getUserIDFromContext(ctx)
+	userID, err := getUserIDFromContext(ctx)
 	if err != nil {
 		jsonError(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	// Note: Ownership check removed - all authenticated users can access all hashlists
-	// This will change when teams are implemented
 
 	id, err := getInt64FromPath(r, "id")
 	if err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+
+	// Team access check - return 404 to prevent enumeration
+	if middleware.IsTeamsEnabledFromContext(ctx) && !middleware.IsAdminFromContext(ctx) {
+		canAccess, err := h.teamService.CanUserAccessHashlist(ctx, userID, id, false)
+		if err != nil || !canAccess {
+			jsonError(w, "Hashlist not found", http.StatusNotFound)
+			return
+		}
 	}
 
 	hashlist, err := h.hashlistRepo.GetByID(ctx, id)
@@ -980,18 +1005,25 @@ func (h *hashlistHandler) handleGetHashlist(w http.ResponseWriter, r *http.Reque
 
 func (h *hashlistHandler) handleDeleteHashlist(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	_, err := getUserIDFromContext(ctx)
+	userID, err := getUserIDFromContext(ctx)
 	if err != nil {
 		jsonError(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	// Note: Ownership check removed - all authenticated users can delete all hashlists
-	// This will change when teams are implemented
 
 	id, err := getInt64FromPath(r, "id")
 	if err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+
+	// Team access check - return 404 to prevent enumeration
+	if middleware.IsTeamsEnabledFromContext(ctx) && !middleware.IsAdminFromContext(ctx) {
+		canAccess, accessErr := h.teamService.CanUserAccessHashlist(ctx, userID, id, false)
+		if accessErr != nil || !canAccess {
+			jsonError(w, "Hashlist not found", http.StatusNotFound)
+			return
+		}
 	}
 
 	// Parse optional request body for potfile removal options (TWO separate options)

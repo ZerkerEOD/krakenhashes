@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
@@ -233,6 +234,11 @@ type ListHashlistsParams struct {
 	NameLike *string // For searching by name pattern
 	Limit    int
 	Offset   int
+
+	// New fields for team filtering
+	TeamIDs      []uuid.UUID // Filter by these teams (via client)
+	TeamsEnabled bool        // Whether team filtering is active
+	IncludeOwned bool        // Include hashlists owned by user (for legacy)
 }
 
 func (r *HashListRepository) List(ctx context.Context, params ListHashlistsParams) ([]models.HashList, int, error) {
@@ -1422,4 +1428,112 @@ func (r *HashListRepository) GetLinkedHashlist(ctx context.Context, hashlistID i
 	hl.ErrorMessage = errorMessage
 
 	return &hl, nil
+}
+
+// ListWithTeamFilter returns hashlists filtered by team access
+func (r *HashListRepository) ListWithTeamFilter(ctx context.Context, params ListHashlistsParams) ([]models.HashList, int64, error) {
+	var baseQuery, countQuery string
+	var args []interface{}
+	argIndex := 1
+
+	if !params.TeamsEnabled || len(params.TeamIDs) == 0 {
+		// Teams not enabled or no teams - use existing logic
+		hashlists, count, err := r.List(ctx, params)
+		return hashlists, int64(count), err
+	}
+
+	// Build team-filtered query
+	teamPlaceholders := make([]string, len(params.TeamIDs))
+	for i, id := range params.TeamIDs {
+		teamPlaceholders[i] = fmt.Sprintf("$%d", argIndex)
+		args = append(args, id)
+		argIndex++
+	}
+
+	// Filter via client_teams join
+	baseQuery = fmt.Sprintf(`
+		SELECT DISTINCT h.id, h.name, h.hash_type_id, h.total_hashes, h.cracked_hashes,
+		       h.user_id, h.client_id, h.status, h.created_at, h.updated_at
+		FROM hashlists h
+		LEFT JOIN client_teams ct ON h.client_id = ct.client_id
+		WHERE (
+			ct.team_id IN (%s)`, strings.Join(teamPlaceholders, ", "))
+
+	// Optionally include hashlists owned by user (for legacy hashlists without clients)
+	if params.IncludeOwned && params.UserID != nil {
+		baseQuery += fmt.Sprintf(` OR (h.client_id IS NULL AND h.user_id = $%d)`, argIndex)
+		args = append(args, *params.UserID)
+		argIndex++
+	}
+
+	baseQuery += `)`
+
+	// Apply additional filters
+	if params.ClientID != nil {
+		baseQuery += fmt.Sprintf(` AND h.client_id = $%d`, argIndex)
+		args = append(args, *params.ClientID)
+		argIndex++
+	}
+
+	if params.Status != nil {
+		baseQuery += fmt.Sprintf(` AND h.status = $%d`, argIndex)
+		args = append(args, *params.Status)
+		argIndex++
+	}
+
+	if params.NameLike != nil && *params.NameLike != "" {
+		baseQuery += fmt.Sprintf(` AND LOWER(h.name) LIKE LOWER($%d)`, argIndex)
+		args = append(args, "%"+*params.NameLike+"%")
+		argIndex++
+	}
+
+	// Count query
+	countQuery = `SELECT COUNT(*) FROM (` + baseQuery + `) AS filtered`
+
+	var total int64
+	err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count hashlists: %w", err)
+	}
+
+	// Add ordering and pagination
+	baseQuery += ` ORDER BY h.created_at DESC`
+
+	if params.Limit > 0 {
+		baseQuery += fmt.Sprintf(` LIMIT $%d`, argIndex)
+		args = append(args, params.Limit)
+		argIndex++
+
+		if params.Offset > 0 {
+			baseQuery += fmt.Sprintf(` OFFSET $%d`, argIndex)
+			args = append(args, params.Offset)
+		}
+	}
+
+	rows, err := r.db.QueryContext(ctx, baseQuery, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query hashlists: %w", err)
+	}
+	defer rows.Close()
+
+	var hashlists []models.HashList
+	for rows.Next() {
+		var h models.HashList
+		var clientID sql.Null[uuid.UUID]
+		err := rows.Scan(
+			&h.ID, &h.Name, &h.HashTypeID, &h.TotalHashes, &h.CrackedHashes,
+			&h.UserID, &clientID, &h.Status, &h.CreatedAt, &h.UpdatedAt,
+		)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan hashlist: %w", err)
+		}
+
+		if clientID.Valid {
+			h.ClientID = clientID.V
+		}
+
+		hashlists = append(hashlists, h)
+	}
+
+	return hashlists, total, rows.Err()
 }

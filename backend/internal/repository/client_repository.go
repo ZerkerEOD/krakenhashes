@@ -293,3 +293,85 @@ func (r *ClientRepository) GetClientPotfileSettings(ctx context.Context, clientI
 	}
 	return excludeFromClientPotfile, excludeFromGlobalPotfile, nil
 }
+
+// ClientListFilters contains optional filters for client listing
+type ClientListFilters struct {
+	Search string
+	Limit  int
+	Offset int
+}
+
+// ListForTeams returns clients accessible to the given teams
+// If teamIDs is empty or nil, returns all clients (for admin or when teams disabled)
+func (r *ClientRepository) ListForTeams(ctx context.Context, teamIDs []uuid.UUID, filters *ClientListFilters) ([]models.Client, error) {
+	var query string
+	var args []interface{}
+	argIndex := 1
+
+	if len(teamIDs) == 0 {
+		// No team filter - return all (admin mode or teams disabled)
+		query = `
+			SELECT id, name, description, data_retention_months,
+			       exclude_from_potfile, created_at, updated_at
+			FROM clients
+			WHERE 1=1`
+	} else {
+		// Build team filter
+		placeholders := make([]string, len(teamIDs))
+		for i, id := range teamIDs {
+			placeholders[i] = fmt.Sprintf("$%d", argIndex)
+			args = append(args, id)
+			argIndex++
+		}
+
+		query = fmt.Sprintf(`
+			SELECT DISTINCT c.id, c.name, c.description, c.data_retention_months,
+			       c.exclude_from_potfile, c.created_at, c.updated_at
+			FROM clients c
+			INNER JOIN client_teams ct ON c.id = ct.client_id
+			WHERE ct.team_id IN (%s)`, strings.Join(placeholders, ", "))
+	}
+
+	// Apply additional filters
+	if filters != nil {
+		if filters.Search != "" {
+			query += fmt.Sprintf(` AND (LOWER(c.name) LIKE LOWER($%d) OR LOWER(c.description) LIKE LOWER($%d))`, argIndex, argIndex)
+			args = append(args, "%"+filters.Search+"%")
+			argIndex++
+		}
+	}
+
+	query += ` ORDER BY c.name ASC`
+
+	if filters != nil && filters.Limit > 0 {
+		query += fmt.Sprintf(` LIMIT $%d`, argIndex)
+		args = append(args, filters.Limit)
+		argIndex++
+
+		if filters.Offset > 0 {
+			query += fmt.Sprintf(` OFFSET $%d`, argIndex)
+			args = append(args, filters.Offset)
+		}
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query clients: %w", err)
+	}
+	defer rows.Close()
+
+	var clients []models.Client
+	for rows.Next() {
+		var c models.Client
+		err := rows.Scan(
+			&c.ID, &c.Name, &c.Description, &c.DataRetentionMonths,
+			&c.ExcludeFromPotfile, &c.CreatedAt, &c.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan client: %w", err)
+		}
+		clients = append(clients, c)
+	}
+
+	return clients, rows.Err()
+}

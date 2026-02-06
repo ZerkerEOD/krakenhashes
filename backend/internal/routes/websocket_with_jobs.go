@@ -68,6 +68,7 @@ func SetupWebSocketWithJobRoutes(
 	binaryManager binary.Manager,
 	potfileService *services.PotfileService,
 	clientPotfileService *services.ClientPotfileService,
+	teamService *services.TeamService,
 ) {
 	debug.Debug("Setting up WebSocket routes with job integration")
 
@@ -143,6 +144,7 @@ func SetupWebSocketWithJobRoutes(
 		agentRepo,
 		jobTaskRepo,
 		systemSettingsRepo,
+		teamService, // TeamService for team-aware agent filtering
 	)
 
 	// Create WebSocket service

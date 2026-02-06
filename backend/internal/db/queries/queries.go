@@ -161,8 +161,9 @@ const (
 	DeleteTeam = `DELETE FROM teams WHERE id = $1`
 
 	AddUserToTeam = `
-		INSERT INTO user_teams (user_id, team_id)
-		VALUES ($1, $2)`
+		INSERT INTO user_teams (user_id, team_id, role, joined_at)
+		VALUES ($1, $2, $3, NOW())
+		ON CONFLICT (user_id, team_id) DO NOTHING`
 
 	RemoveUserFromTeam = `
 		DELETE FROM user_teams

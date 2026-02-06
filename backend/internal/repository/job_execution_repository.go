@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
@@ -956,4 +957,107 @@ func (r *JobExecutionRepository) UpdateIncrementSettings(ctx context.Context, id
 	}
 
 	return nil
+}
+
+// JobListFilters contains filters for job listing
+type JobListFilters struct {
+	Status     string
+	HashlistID *int64
+	Limit      int
+	Offset     int
+}
+
+// ListJobsWithTeamFilter returns jobs filtered by team access
+// Access is determined by: job → hashlist → client → client_teams
+func (r *JobExecutionRepository) ListJobsWithTeamFilter(ctx context.Context, teamIDs []uuid.UUID, userID uuid.UUID, teamsEnabled bool, filters *JobListFilters) ([]models.JobExecution, int64, error) {
+	if !teamsEnabled || len(teamIDs) == 0 {
+		// Teams not enabled - return empty for now (would need to implement ListWithFilters first)
+		return []models.JobExecution{}, 0, nil
+	}
+
+	var args []interface{}
+	argIndex := 1
+
+	// Build team placeholders
+	teamPlaceholders := make([]string, len(teamIDs))
+	for i, id := range teamIDs {
+		teamPlaceholders[i] = fmt.Sprintf("$%d", argIndex)
+		args = append(args, id)
+		argIndex++
+	}
+
+	// Add userID for legacy hashlist check
+	args = append(args, userID)
+	userIDIndex := argIndex
+	argIndex++
+
+	baseQuery := fmt.Sprintf(`
+		SELECT DISTINCT j.id, j.hashlist_id, j.preset_job_id, j.status, j.priority,
+		       j.processed_keyspace, j.created_at, j.updated_at, j.started_at, j.completed_at
+		FROM job_executions j
+		INNER JOIN hashlists h ON j.hashlist_id = h.id
+		LEFT JOIN client_teams ct ON h.client_id = ct.client_id
+		WHERE (
+			ct.team_id IN (%s)
+			OR (h.client_id IS NULL AND h.user_id = $%d)
+		)`, strings.Join(teamPlaceholders, ", "), userIDIndex)
+
+	// Apply additional filters
+	if filters != nil {
+		if filters.Status != "" {
+			baseQuery += fmt.Sprintf(` AND j.status = $%d`, argIndex)
+			args = append(args, filters.Status)
+			argIndex++
+		}
+
+		if filters.HashlistID != nil {
+			baseQuery += fmt.Sprintf(` AND j.hashlist_id = $%d`, argIndex)
+			args = append(args, *filters.HashlistID)
+			argIndex++
+		}
+	}
+
+	// Count query
+	countQuery := `SELECT COUNT(*) FROM (` + baseQuery + `) AS filtered`
+
+	var total int64
+	err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count jobs: %w", err)
+	}
+
+	// Add ordering and pagination
+	baseQuery += ` ORDER BY j.created_at DESC`
+
+	if filters != nil && filters.Limit > 0 {
+		baseQuery += fmt.Sprintf(` LIMIT $%d`, argIndex)
+		args = append(args, filters.Limit)
+		argIndex++
+
+		if filters.Offset > 0 {
+			baseQuery += fmt.Sprintf(` OFFSET $%d`, argIndex)
+			args = append(args, filters.Offset)
+		}
+	}
+
+	rows, err := r.db.QueryContext(ctx, baseQuery, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query jobs: %w", err)
+	}
+	defer rows.Close()
+
+	var jobs []models.JobExecution
+	for rows.Next() {
+		var j models.JobExecution
+		err := rows.Scan(
+			&j.ID, &j.HashlistID, &j.PresetJobID, &j.Status, &j.Priority,
+			&j.ProcessedKeyspace, &j.CreatedAt, &j.UpdatedAt, &j.StartedAt, &j.CompletedAt,
+		)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan job: %w", err)
+		}
+		jobs = append(jobs, j)
+	}
+
+	return jobs, total, rows.Err()
 }

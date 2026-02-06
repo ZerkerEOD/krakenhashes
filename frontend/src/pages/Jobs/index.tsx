@@ -28,6 +28,7 @@ import JobsTable from './JobsTable';
 import DeleteConfirm from './DeleteConfirm';
 import { api } from '../../services/api';
 import { JobSummary, PaginationInfo } from '../../types/jobs';
+import { useTeamFilter } from '../../contexts/TeamFilterContext';
 
 interface JobsResponse {
   jobs: JobSummary[];
@@ -43,6 +44,7 @@ interface Filters {
 
 const Jobs: React.FC = () => {
   const { t } = useTranslation('jobs');
+  const { teamsEnabled, selectedTeamId } = useTeamFilter();
   // Pagination state
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -88,9 +90,13 @@ const Jobs: React.FC = () => {
     if (filters.search.trim()) {
       params.append('search', filters.search.trim());
     }
-    
+
+    if (teamsEnabled && selectedTeamId) {
+      params.append('team_id', selectedTeamId);
+    }
+
     return params.toString();
-  }, [page, pageSize, filters]);
+  }, [page, pageSize, filters, teamsEnabled, selectedTeamId]);
 
   // Fetch jobs with current filters and pagination
   const fetchJobs = useCallback(async (showLoading = false) => {
@@ -132,7 +138,7 @@ const Jobs: React.FC = () => {
   // Initial load and when dependencies change
   useEffect(() => {
     fetchJobs(true);
-  }, [page, pageSize, filters]);
+  }, [page, pageSize, filters, selectedTeamId]);
 
   // Set up polling
   useEffect(() => {

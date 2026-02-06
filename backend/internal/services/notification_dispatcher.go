@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -44,6 +45,7 @@ type NotificationDispatcher struct {
 	emailService       *emailPkg.Service
 	webhookService     *NotificationWebhookService
 	userHub            *UserNotificationHub
+	teamService        *TeamService // NEW: Team-aware notifications
 }
 
 // NewNotificationDispatcher creates a new notification dispatcher
@@ -52,6 +54,7 @@ func NewNotificationDispatcher(
 	emailService *emailPkg.Service,
 	webhookService *NotificationWebhookService,
 	userHub *UserNotificationHub,
+	teamService *TeamService, // NEW
 ) *NotificationDispatcher {
 	database := &db.DB{DB: dbConn}
 	return &NotificationDispatcher{
@@ -65,6 +68,7 @@ func NewNotificationDispatcher(
 		emailService:       emailService,
 		webhookService:     webhookService,
 		userHub:            userHub,
+		teamService:        teamService, // NEW
 	}
 }
 
@@ -246,8 +250,128 @@ func (d *NotificationDispatcher) DispatchToAdmins(ctx context.Context, params mo
 	return d.DispatchToMany(ctx, userIDs, params)
 }
 
+// shouldUserReceiveNotification checks if a user should receive a notification based on team access
+// Returns true if:
+//   - Teams are not enabled (all notifications go through)
+//   - Notification is a system alert (always delivered)
+//   - User has team access to the resource being notified about
+func (d *NotificationDispatcher) shouldUserReceiveNotification(ctx context.Context, userID uuid.UUID, notification *models.Notification) bool {
+	// If teamService is not configured or teams not enabled, all notifications go through
+	if d.teamService == nil || !d.teamService.IsTeamsEnabled(ctx) {
+		return true
+	}
+
+	// System alerts and security notifications always go through
+	switch notification.NotificationType {
+	case models.NotificationTypeSecuritySuspiciousLogin,
+		models.NotificationTypeSecurityMFADisabled,
+		models.NotificationTypeSecurityPasswordChanged,
+		models.NotificationTypeWebhookFailure:
+		return true
+	}
+
+	// Check team access based on source type
+	switch notification.SourceType {
+	case "job_execution", "job":
+		// Extract job ID from source_id
+		if notification.SourceID == "" {
+			return true // No source ID, allow through
+		}
+		jobID, err := uuid.Parse(notification.SourceID)
+		if err != nil {
+			debug.Warning("Failed to parse job ID from notification source: %v", err)
+			return true // Parse error, allow through
+		}
+		// Check if user can access this job (we don't know if user is admin here, pass false)
+		canAccess, err := d.teamService.CanUserAccessJob(ctx, userID, jobID, false)
+		if err != nil {
+			debug.Warning("Failed to check job access for notification: %v", err)
+			return true // Error, allow through
+		}
+		return canAccess
+
+	case "hashlist":
+		// Extract hashlist ID from notification data or source_id
+		var hashlistID int64
+		if hlID, ok := notification.Data["hashlist_id"]; ok {
+			switch v := hlID.(type) {
+			case float64:
+				hashlistID = int64(v)
+			case int64:
+				hashlistID = v
+			case int:
+				hashlistID = int64(v)
+			default:
+				return true // Unknown type, allow through
+			}
+		} else if notification.SourceID != "" {
+			// Try to parse from source_id
+			parsed, err := strconv.ParseInt(notification.SourceID, 10, 64)
+			if err != nil {
+				return true // Parse error, allow through
+			}
+			hashlistID = parsed
+		} else {
+			return true // No hashlist ID, allow through
+		}
+
+		// Check if user can access this hashlist
+		canAccess, err := d.teamService.CanUserAccessHashlist(ctx, userID, hashlistID, false)
+		if err != nil {
+			debug.Warning("Failed to check hashlist access for notification: %v", err)
+			return true // Error, allow through
+		}
+		return canAccess
+
+	case "client":
+		// Extract client ID from source_id or data
+		var clientID uuid.UUID
+		var err error
+		if notification.SourceID != "" {
+			clientID, err = uuid.Parse(notification.SourceID)
+			if err != nil {
+				return true // Parse error, allow through
+			}
+		} else if cID, ok := notification.Data["client_id"]; ok {
+			if cIDStr, ok := cID.(string); ok {
+				clientID, err = uuid.Parse(cIDStr)
+				if err != nil {
+					return true // Parse error, allow through
+				}
+			} else {
+				return true // Unknown type, allow through
+			}
+		} else {
+			return true // No client ID, allow through
+		}
+
+		// Check if user can access this client
+		canAccess, err := d.teamService.CanUserAccessClient(ctx, userID, clientID, false)
+		if err != nil {
+			debug.Warning("Failed to check client access for notification: %v", err)
+			return true // Error, allow through
+		}
+		return canAccess
+
+	default:
+		// Unscoped notifications are always delivered
+		return true
+	}
+}
+
 // deliverInApp pushes notification via WebSocket to user's browser
 func (d *NotificationDispatcher) deliverInApp(ctx context.Context, notification *models.Notification) error {
+	// Check if user should receive this notification based on team access
+	if !d.shouldUserReceiveNotification(ctx, notification.UserID, notification) {
+		debug.Log("Notification filtered by team access", map[string]interface{}{
+			"notification_id": notification.ID,
+			"user_id":         notification.UserID,
+			"source_type":     notification.SourceType,
+			"source_id":       notification.SourceID,
+		})
+		return nil
+	}
+
 	// Push via UserNotificationHub WebSocket if available
 	if d.userHub != nil {
 		d.userHub.SendToUser(notification.UserID, notification)

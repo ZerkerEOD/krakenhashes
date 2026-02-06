@@ -9,6 +9,7 @@
     "wordlists": "Wordlists",
     "rules": "Rules",
     "clientManagement": "Client Management",
+    "teams": "Teams",
     "analytics": "Analytics",
     "about": "About",
     "logout": "Logout"
@@ -20,7 +21,8 @@
     "presetJobs": "Preset Jobs",
     "jobWorkflows": "Job Workflows",
     "diagnostics": "Diagnostics",
-    "auditLog": "Audit Log"
+    "auditLog": "Audit Log",
+    "teamManagement": "Team Management"
   },
   "userMenu": {
     "userSettings": "User Settings",

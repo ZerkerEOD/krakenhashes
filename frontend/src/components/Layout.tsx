@@ -75,13 +75,16 @@ import {
     Lock as LockIcon,
     People as PeopleIcon,
     Analytics as AnalyticsIcon,
+    Groups as GroupsIcon,
 } from '@mui/icons-material';
 import { logout } from '../services/auth';
 import { useAuth } from '../contexts/AuthContext';
+import { useTeamFilter } from '../contexts/TeamFilterContext';
 import AdminMenu from './AdminMenu';
 import UserMenu from './common/UserMenu';
 import Footer from './Footer';
 import { NotificationBell } from './Notifications';
+import { TeamFilter } from './common/TeamFilter';
 
 interface MenuItem {
     textKey: string;
@@ -121,6 +124,7 @@ const Layout: React.FC<LayoutProps> = () => {
     const { setAuth, setUser, setUserRole, userRole } = useAuth();
     const { t } = useTranslation('navigation');
     const { t: tCommon } = useTranslation('common');
+    const { teamsEnabled } = useTeamFilter();
 
     const handleDrawerToggle = (): void => {
         setOpen(!open);
@@ -138,14 +142,25 @@ const Layout: React.FC<LayoutProps> = () => {
         }
     }, [navigate, setAuth, setUser, setUserRole]);
 
-    // Memoize menu items with translations
+    // Memoize menu items with translations (conditionally includes Teams when enabled)
     const menuItems = useMemo(
-        () =>
-            menuItemsConfig.map((item) => ({
+        () => {
+            const items = [...menuItemsConfig];
+            if (teamsEnabled) {
+                // Insert Teams after Client Management
+                const clientIdx = items.findIndex(i => i.textKey === 'menu.clientManagement');
+                items.splice(clientIdx + 1, 0, {
+                    textKey: 'menu.teams',
+                    icon: <GroupsIcon />,
+                    path: '/teams',
+                });
+            }
+            return items.map((item) => ({
                 ...item,
                 text: t(item.textKey) as string,
-            })),
-        [t]
+            }));
+        },
+        [t, teamsEnabled]
     );
 
     const bottomMenuItems = useMemo(
@@ -189,7 +204,11 @@ const Layout: React.FC<LayoutProps> = () => {
                             {t('appName') as string}
                         </Typography>
                     </Box>
-                    <NotificationBell />
+                    <Box sx={{ flexGrow: 1 }} />
+                    <TeamFilter />
+                    <Box sx={{ ml: 2 }}>
+                        <NotificationBell />
+                    </Box>
                     <UserMenu />
                 </Toolbar>
             </AppBar>

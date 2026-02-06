@@ -32,7 +32,7 @@ import (
 var UserJobsHandlerInstance *jobs.UserJobsHandler
 
 // CreateJobsHandler creates and returns the jobs handler
-func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Manager) *jobs.UserJobsHandler {
+func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Manager, teamService *services.TeamService) *jobs.UserJobsHandler {
 	// Create repositories
 	dbWrapper := &db.DB{DB: database.DB}
 	jobExecRepo := repository.NewJobExecutionRepository(dbWrapper)
@@ -113,15 +113,16 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 		assocWordlistRepo,
 		clientPotfileRepo,
 		clientWordlistManager,
+		teamService,
 	)
 }
 
 // SetupUserRoutes configures all user-related routes
-func SetupUserRoutes(router *mux.Router, database *db.DB, dataDir string, binaryManager binary.Manager, agentService *services.AgentService) {
+func SetupUserRoutes(router *mux.Router, database *db.DB, dataDir string, binaryManager binary.Manager, agentService *services.AgentService, teamService *services.TeamService) {
 	debug.Info("Setting up user routes")
 
 	// Create handlers
-	jobsHandler := CreateJobsHandler(database, dataDir, binaryManager)
+	jobsHandler := CreateJobsHandler(database, dataDir, binaryManager, teamService)
 
 	// Store the handler globally so we can set the WebSocket handler later
 	UserJobsHandlerInstance = jobsHandler

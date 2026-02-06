@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/middleware"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/rule"
@@ -38,6 +39,7 @@ type UserJobsHandler struct {
 	assocWordlistRepo      *repository.AssociationWordlistRepository
 	clientPotfileRepo      *repository.ClientPotfileRepository
 	clientWordlistManager  *services.ClientWordlistManager
+	teamService            *services.TeamService
 	wsHandler              WSHandler
 }
 
@@ -69,6 +71,7 @@ func NewUserJobsHandler(
 	assocWordlistRepo *repository.AssociationWordlistRepository,
 	clientPotfileRepo *repository.ClientPotfileRepository,
 	clientWordlistManager *services.ClientWordlistManager,
+	teamService *services.TeamService,
 ) *UserJobsHandler {
 	return &UserJobsHandler{
 		jobExecRepo:           jobExecRepo,
@@ -87,6 +90,7 @@ func NewUserJobsHandler(
 		assocWordlistRepo:     assocWordlistRepo,
 		clientPotfileRepo:     clientPotfileRepo,
 		clientWordlistManager: clientWordlistManager,
+		teamService:           teamService,
 		wsHandler:             nil, // Will be set later via SetWSHandler
 	}
 }
@@ -153,6 +157,14 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 		Search:   &search,
 	}
 
+	// Apply team filter when teams are enabled and user is not admin
+	if middleware.IsTeamsEnabledFromContext(ctx) && !middleware.IsAdminFromContext(ctx) {
+		teamIDs := middleware.GetUserTeamIDsFromContext(ctx)
+		if teamIDs != nil {
+			filter.TeamIDs = teamIDs
+		}
+	}
+
 	// Get jobs with filters and user information
 	jobsWithUser, err := h.jobExecRepo.ListWithFiltersAndUser(ctx, pageSize, (page-1)*pageSize, filter)
 	if err != nil {
@@ -169,8 +181,13 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get status counts
-	statusCounts, err := h.jobExecRepo.GetStatusCounts(ctx)
+	// Get status counts (filtered by team when applicable)
+	var statusCounts map[string]int
+	if len(filter.TeamIDs) > 0 {
+		statusCounts, err = h.jobExecRepo.GetStatusCountsFiltered(ctx, filter)
+	} else {
+		statusCounts, err = h.jobExecRepo.GetStatusCounts(ctx)
+	}
 	if err != nil {
 		debug.Error("Failed to get status counts: %v", err)
 		// Don't fail the request, just log the error
@@ -913,6 +930,11 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Team access check
+	if !h.checkJobTeamAccess(w, ctx, jobID) {
+		return
+	}
+
 	// Get hashlist
 	hashlist, err := h.hashlistRepo.GetByID(ctx, job.HashlistID)
 	if err != nil {
@@ -1176,6 +1198,24 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// checkJobTeamAccess verifies the user has team access to the specified job.
+// Returns true if access is granted. Writes an HTTP error and returns false if denied.
+func (h *UserJobsHandler) checkJobTeamAccess(w http.ResponseWriter, ctx context.Context, jobID uuid.UUID) bool {
+	if middleware.IsTeamsEnabledFromContext(ctx) && !middleware.IsAdminFromContext(ctx) {
+		userID, ok := middleware.GetUserIDFromContext(ctx)
+		if !ok {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return false
+		}
+		canAccess, err := h.teamService.CanUserAccessJob(ctx, userID, jobID, false)
+		if err != nil || !canAccess {
+			http.Error(w, "Job not found", http.StatusNotFound)
+			return false
+		}
+	}
+	return true
+}
+
 // UpdateJob handles PATCH /api/jobs/{id}
 func (h *UserJobsHandler) UpdateJob(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -1184,6 +1224,11 @@ func (h *UserJobsHandler) UpdateJob(w http.ResponseWriter, r *http.Request) {
 	jobID, err := uuid.Parse(vars["id"])
 	if err != nil {
 		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	// Team access check
+	if !h.checkJobTeamAccess(w, ctx, jobID) {
 		return
 	}
 
@@ -1274,6 +1319,11 @@ func (h *UserJobsHandler) RetryJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Team access check
+	if !h.checkJobTeamAccess(w, ctx, jobID) {
+		return
+	}
+
 	// Get the job
 	job, err := h.jobExecRepo.GetByID(ctx, jobID)
 	if err != nil {
@@ -1331,6 +1381,11 @@ func (h *UserJobsHandler) RetryTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Team access check
+	if !h.checkJobTeamAccess(w, ctx, jobID) {
+		return
+	}
+
 	taskID, err := uuid.Parse(vars["taskId"])
 	if err != nil {
 		http.Error(w, "Invalid task ID", http.StatusBadRequest)
@@ -1384,6 +1439,11 @@ func (h *UserJobsHandler) ForceCompleteJob(w http.ResponseWriter, r *http.Reques
 	jobID, err := uuid.Parse(vars["id"])
 	if err != nil {
 		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	// Team access check
+	if !h.checkJobTeamAccess(w, ctx, jobID) {
 		return
 	}
 
@@ -1492,6 +1552,11 @@ func (h *UserJobsHandler) DeleteJob(w http.ResponseWriter, r *http.Request) {
 	jobID, err := uuid.Parse(vars["id"])
 	if err != nil {
 		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	// Team access check
+	if !h.checkJobTeamAccess(w, ctx, jobID) {
 		return
 	}
 
@@ -1781,6 +1846,14 @@ func (h *UserJobsHandler) ListUserJobs(w http.ResponseWriter, r *http.Request) {
 		UserID:   &userID,
 	}
 
+	// Apply team filter when teams are enabled and user is not admin
+	if middleware.IsTeamsEnabledFromContext(ctx) && !middleware.IsAdminFromContext(ctx) {
+		teamIDs := middleware.GetUserTeamIDsFromContext(ctx)
+		if teamIDs != nil {
+			filter.TeamIDs = teamIDs
+		}
+	}
+
 	// Get jobs with filters and user information
 	jobsWithUser, err := h.jobExecRepo.ListWithFiltersAndUser(ctx, pageSize, (page-1)*pageSize, filter)
 	if err != nil {
@@ -1797,8 +1870,13 @@ func (h *UserJobsHandler) ListUserJobs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get status counts for this user
-	statusCounts, err := h.jobExecRepo.GetStatusCountsForUser(ctx, userID)
+	// Get status counts for this user (filtered by team when applicable)
+	var statusCounts map[string]int
+	if len(filter.TeamIDs) > 0 {
+		statusCounts, err = h.jobExecRepo.GetStatusCountsFiltered(ctx, filter)
+	} else {
+		statusCounts, err = h.jobExecRepo.GetStatusCountsForUser(ctx, userID)
+	}
 	if err != nil {
 		debug.Error("Failed to get user status counts: %v", err)
 		// Don't fail the request, just log the error
@@ -1969,6 +2047,11 @@ func (h *UserJobsHandler) GetJobLayers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Team access check
+	if !h.checkJobTeamAccess(w, r.Context(), jobID) {
+		return
+	}
+
 	// Get the job to verify it exists and user has access
 	job, err := h.jobExecRepo.GetByID(r.Context(), jobID)
 	if err != nil {
@@ -2007,6 +2090,11 @@ func (h *UserJobsHandler) GetJobLayerTasks(w http.ResponseWriter, r *http.Reques
 	jobID, err := uuid.Parse(jobIDStr)
 	if err != nil {
 		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	// Team access check
+	if !h.checkJobTeamAccess(w, r.Context(), jobID) {
 		return
 	}
 

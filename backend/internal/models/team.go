@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Team represents a team in the system
 type Team struct {
-	ID          string    `json:"id"`
+	ID          uuid.UUID `json:"id"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
 	Users       []User    `json:"users,omitempty"`

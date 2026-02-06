@@ -25,6 +25,7 @@ import {
   updateWebAuthnSettings,
 } from '../../services/auth';
 import { getEmailConfig } from '../../services/api';
+import { adminTeamsService } from '../../services/teams';
 import { PasswordPolicy, AccountSecurity, MFASettings as MFASettingsType, WebAuthnSettings } from '../../types/auth';
 import { isWebAuthnSupported } from '../../utils/webauthn';
 
@@ -39,6 +40,7 @@ const AuthSettingsForm: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasEmailGateway, setHasEmailGateway] = useState(false);
+  const [teamsEnabled, setTeamsEnabled] = useState(false);
   const webAuthnSupported = isWebAuthnSupported();
 
   // Refs to track latest state for blur handlers
@@ -73,6 +75,14 @@ const AuthSettingsForm: React.FC = () => {
         setWebauthnSettings(webauthn);
       } catch {
         setWebauthnSettings(null);
+      }
+
+      // Load teams_enabled setting
+      try {
+        const enabled = await adminTeamsService.getTeamsEnabled();
+        setTeamsEnabled(enabled);
+      } catch {
+        setTeamsEnabled(false);
       }
 
       // Fetch fresh data from API
@@ -241,6 +251,27 @@ const AuthSettingsForm: React.FC = () => {
     if (!webauthnSettingsRef.current) return;
     await saveWebAuthnSettings(webauthnSettingsRef.current);
   }, [saveWebAuthnSettings]);
+
+  // --- Teams toggle handler ---
+  const handleTeamsToggle = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.checked;
+    const previousValue = teamsEnabled;
+    setTeamsEnabled(newValue);
+    setSaving(true);
+    try {
+      await adminTeamsService.setTeamsEnabled(newValue);
+      enqueueSnackbar(
+        newValue ? 'Multi-team mode enabled' : 'Multi-team mode disabled',
+        { variant: 'success' }
+      );
+    } catch (err: any) {
+      console.error('Failed to update teams setting:', err);
+      setTeamsEnabled(previousValue);
+      enqueueSnackbar('Failed to update teams setting', { variant: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  }, [teamsEnabled, enqueueSnackbar]);
 
   if (loadingData) {
     return (
@@ -717,6 +748,38 @@ const AuthSettingsForm: React.FC = () => {
                   disabled={saving}
                 />
               </FormGroup>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Multi-Team Mode */}
+        <Grid item xs={12}>
+          <Card sx={{
+            backgroundColor: 'background.paper',
+            boxShadow: (theme) => `0 0 10px ${theme.palette.divider}`,
+            mt: 2
+          }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{
+                pb: 2,
+                borderBottom: (theme) => `1px solid ${theme.palette.divider}`
+              }}>
+                Multi-Team Mode
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                When enabled, users can only see clients, hashlists, and jobs assigned to their teams.
+                Users can be members of multiple teams, and team admins can manage team membership and client assignments.
+              </Typography>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={teamsEnabled}
+                    onChange={handleTeamsToggle}
+                    disabled={saving}
+                  />
+                }
+                label={teamsEnabled ? 'Enabled' : 'Disabled'}
+              />
             </CardContent>
           </Card>
         </Grid>

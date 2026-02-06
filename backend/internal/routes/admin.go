@@ -22,7 +22,7 @@ import (
 
 // SetupAdminRoutes configures all admin-related routes
 // It now accepts an AdminJobsHandler to set up job and workflow routes.
-func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.Service, jobHandler *AdminJobsHandler, binaryManager binary.Manager, ssoManager *sso.Manager) *mux.Router {
+func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.Service, jobHandler *AdminJobsHandler, binaryManager binary.Manager, ssoManager *sso.Manager, teamService *services.TeamService) *mux.Router {
 	debug.Debug("Setting up admin routes")
 
 	// Create Repositories needed by handlers/services
@@ -97,6 +97,9 @@ func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.S
 	adminRouter.HandleFunc("/settings/agent-download", agentSettingsHandler.GetAgentDownloadSettings).Methods(http.MethodGet, http.MethodOptions)
 	adminRouter.HandleFunc("/settings/agent-download", agentSettingsHandler.UpdateAgentDownloadSettings).Methods(http.MethodPut, http.MethodOptions)
 
+	// Team settings routes - Must be before generic {key} route
+	SetupAdminTeamRoutes(adminRouter, teamService)
+
 	// General system settings routes for listing and updating individual settings - Must be after specific routes
 	adminRouter.HandleFunc("/settings", systemSettingsHandler.ListSettings).Methods(http.MethodGet, http.MethodOptions)
 	adminRouter.HandleFunc("/settings/{key}", systemSettingsHandler.GetSetting).Methods(http.MethodGet, http.MethodOptions)
@@ -166,7 +169,7 @@ func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.S
 	// Note: Diagnostics routes (GH Issue #23) are configured separately via SetupDiagnosticsRoutes
 	// after WebSocket handler is initialized
 
-	debug.Info("Configured admin routes: /admin/* (including user management at /admin/users/*)")
+	debug.Info("Configured admin routes: /admin/* (including user management at /admin/users/*, team management at /admin/teams/*)")
 
 	return adminRouter
 }

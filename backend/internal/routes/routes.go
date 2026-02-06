@@ -181,12 +181,23 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	clientRepo := repository.NewClientRepository(database)
 	clientSettingsRepo := repository.NewClientSettingsRepository(database)
 	jobExecutionRepo := repository.NewJobExecutionRepository(database)
-	debug.Info("Initialized PresetJob, PresetIncrementLayer, SystemSettings, JobWorkflow, File, Hash, Hashlist, Client, and ClientSettings repositories")
+	debug.Info("Initialized PresetJob, PresetIncrementLayer, SystemSettings, JobWorkflow, File, Hash, Hashlist, Client, ClientSettings, and JobExecution repositories")
+
+	// Initialize Team-related repositories
+	agentRepo := repository.NewAgentRepository(database)
+	teamRepo := repository.NewTeamRepository(database)
+
+	clientTeamRepo := repository.NewClientTeamRepository(database)
+	debug.Info("Initialized Agent, Team, and ClientTeam repositories")
 
 	// Initialize Services for preset jobs and workflows
 	presetJobService := services.NewAdminPresetJobService(presetJobRepo, presetIncrementLayerRepo, systemSettingsRepo, binaryManager, fileRepository, appConfig.DataDir)
 	workflowService := services.NewAdminJobWorkflowService(sqlDB, workflowRepo, presetJobRepo) // Pass db, workflowRepo, presetJobRepo
 	debug.Info("Initialized AdminPresetJobService and AdminJobWorkflowService")
+
+	// Initialize TeamService for multi-team functionality
+	teamService := services.NewTeamService(database, teamRepo, clientTeamRepo, hashlistRepo, jobExecutionRepo, agentRepo, systemSettingsRepo)
+	debug.Info("Initialized TeamService")
 
 	// Initialize Handler for new admin job routes
 	adminJobsHandler := NewAdminJobsHandler(presetJobService, workflowService)
@@ -211,6 +222,7 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	// Setup JWT protected routes
 	jwtRouter := apiRouter.PathPrefix("").Subrouter()
 	jwtRouter.Use(middleware.RequireAuth(database))
+	jwtRouter.Use(middleware.TeamAccessMiddleware(teamService))
 	jwtRouter.Use(loggingMiddleware)
 
 	// Add token refresh endpoint (requires authentication)
@@ -235,14 +247,17 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	jwtRouter.HandleFunc("/settings/max-priority", userSystemSettingsHandler.GetMaxPriorityForUsers).Methods(http.MethodGet, http.MethodOptions)
 	jwtRouter.HandleFunc("/settings/retention", userRetentionSettingsHandler.GetDefaultRetention).Methods(http.MethodGet, http.MethodOptions)
 
-	SetupAdminRoutes(jwtRouter, database, emailService, adminJobsHandler, binaryManager, ssoManager) // Pass adminJobsHandler, binaryManager, and ssoManager
-	SetupUserRoutes(jwtRouter, database, appConfig.DataDir, binaryManager, agentService)
-	SetupNotificationRoutes(jwtRouter, database, emailService) // Enhanced notification system
+	// Setup team routes (must be before admin routes to register non-admin endpoints first)
+	SetupTeamRoutes(jwtRouter, teamService, database)
+
+	SetupAdminRoutes(jwtRouter, database, emailService, adminJobsHandler, binaryManager, ssoManager, teamService) // Pass adminJobsHandler, binaryManager, ssoManager, and teamService
+	SetupUserRoutes(jwtRouter, database, appConfig.DataDir, binaryManager, agentService, teamService)
+	SetupNotificationRoutes(jwtRouter, database, emailService, teamService) // Enhanced notification system with team filtering
 	SetupMFARoutes(jwtRouter, mfaHandler, database, emailService)
 	SetupPasskeyRoutes(jwtRouter, authHandler, database)
 	SetupAdminPasskeyRoutes(jwtRouter, authHandler, database)
 	// Use the enhanced WebSocket setup with job integration
-	SetupWebSocketWithJobRoutes(r, agentService, tlsProvider, sqlDB, appConfig, wordlistManager, ruleManager, binaryManager, potfileService, clientPotfileService)
+	SetupWebSocketWithJobRoutes(r, agentService, tlsProvider, sqlDB, appConfig, wordlistManager, ruleManager, binaryManager, potfileService, clientPotfileService, teamService)
 	SetupBinaryRoutes(jwtRouter, sqlDB, appConfig, agentService)
 
 	// Setup wordlist and rule routes
@@ -256,10 +271,10 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	SetupFileDownloadRoutes(r, sqlDB, appConfig, agentService)
 
 	// Create jobs handler for hashlist routes
-	jobsHandler := CreateJobsHandler(database, appConfig.DataDir, binaryManager)
+	jobsHandler := CreateJobsHandler(database, appConfig.DataDir, binaryManager, teamService)
 
 	// Register Hashlist Management Routes (includes user/agent hashlist, clients, hash types, hash search)
-	registerHashlistRoutes(jwtRouter, sqlDB, appConfig, agentService, clientPotfileService, potfileService, jobsHandler)
+	registerHashlistRoutes(jwtRouter, sqlDB, appConfig, agentService, clientPotfileService, potfileService, jobsHandler, teamService)
 
 	// Setup WebSocket Routes
 	debug.Info("Setting up WebSocket routes...")

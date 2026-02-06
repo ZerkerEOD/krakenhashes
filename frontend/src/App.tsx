@@ -47,6 +47,7 @@ import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 import CertificateCheck from './components/CertificateCheck';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { TeamFilterProvider } from './contexts/TeamFilterContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { SnackbarProvider, useSnackbar } from 'notistack';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -78,6 +79,10 @@ const NotificationCenterPage = lazy(() => import('./pages/Notifications/Notifica
 // Lazy load pages - Clients page moved to regular auth section
 const ClientsPage = lazy(() => import('./pages/AdminClients').then(module => ({ default: module.AdminClients })));
 
+// Lazy load Team Pages
+const TeamListPage = lazy(() => import('./pages/teams/TeamList'));
+const TeamDetailPage = lazy(() => import('./pages/teams/TeamDetail'));
+
 // Lazy load Admin Pages
 const PresetJobListPage = lazy(() => import('./pages/admin/PresetJobList'));
 const PresetJobFormPage = lazy(() => import('./pages/admin/PresetJobForm'));
@@ -87,6 +92,7 @@ const AdminAuthSettingsPage = lazy(() => import('./pages/admin/AuthSettings'));
 const AdminSSOSettingsPage = lazy(() => import('./pages/admin/SSOSettings'));
 const AdminUserListPage = lazy(() => import('./pages/admin/UserList'));
 const AdminUserDetailPage = lazy(() => import('./pages/admin/UserDetail'));
+const TeamManagementPage = lazy(() => import('./pages/admin/TeamManagement'));
 const AdminSettingsIndexPage = lazy(() => import('./pages/AdminSettings').then(module => ({ default: module.AdminSettings })));
 const AdminEmailSettingsIndexPage = lazy(() => import('./pages/AdminSettings/EmailSettings').then(module => ({ default: module.EmailSettings })));
 const AdminEmailProviderConfigPage = lazy(() => import('./pages/AdminSettings/EmailSettings/ProviderConfig').then(module => ({ default: module.ProviderConfig })));
@@ -123,6 +129,7 @@ const App: React.FC = () => {
 
   return (
     <AuthProvider>
+      <TeamFilterProvider>
         <QueryClientProvider client={queryClient}>
           <ThemeProvider theme={theme}>
             <CssBaseline />
@@ -154,6 +161,8 @@ const App: React.FC = () => {
                     <Route path="/pot/hashlist/:id" element={<PotHashlistPage />} />
                     <Route path="/pot/client/:id" element={<PotClientPage />} />
                     <Route path="/pot/job/:id" element={<PotJobPage />} />
+                    <Route path="/teams" element={<TeamListPage />} />
+                    <Route path="/teams/:teamId" element={<TeamDetailPage />} />
                     <Route path="/about" element={<AboutPage />} />
                     <Route path="/settings/profile" element={<ProfileSettingsPage />} />
                     <Route path="/notifications" element={<NotificationCenterPage />} />
@@ -171,6 +180,7 @@ const App: React.FC = () => {
                       <Route path="sso-settings" element={<AdminSSOSettingsPage />} />
                       <Route path="users" element={<AdminUserListPage />} />
                       <Route path="users/:id" element={<AdminUserDetailPage />} />
+                      <Route path="teams" element={<TeamManagementPage />} />
                       <Route path="settings" element={<AdminSettingsIndexPage />} />
                       <Route path="settings/email" element={<AdminEmailSettingsIndexPage />} />
                 <Route 
@@ -198,6 +208,7 @@ const App: React.FC = () => {
             </SnackbarProvider>
           </ThemeProvider>
         </QueryClientProvider>
+      </TeamFilterProvider>
     </AuthProvider>
   );
 };

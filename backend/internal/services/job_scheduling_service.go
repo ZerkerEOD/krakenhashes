@@ -44,6 +44,9 @@ type JobSchedulingService struct {
 	// Agent reservation system
 	reservedAgents   map[int]uuid.UUID // agentID -> jobID
 	reservationMutex sync.RWMutex
+
+	// NEW: Team-aware scheduling
+	teamService *TeamService
 }
 
 // NewJobSchedulingService creates a new job scheduling service
@@ -54,6 +57,7 @@ func NewJobSchedulingService(
 	agentRepo *repository.AgentRepository,
 	jobTaskRepo *repository.JobTaskRepository,
 	systemSettingsRepo *repository.SystemSettingsRepository,
+	teamService *TeamService, // NEW
 ) *JobSchedulingService {
 	return &JobSchedulingService{
 		jobExecutionService: jobExecutionService,
@@ -62,6 +66,7 @@ func NewJobSchedulingService(
 		agentRepo:           agentRepo,
 		jobTaskRepo:         jobTaskRepo,
 		systemSettingsRepo:  systemSettingsRepo,
+		teamService:         teamService, // NEW
 		reservedAgents:      make(map[int]uuid.UUID),
 	}
 }
@@ -740,6 +745,69 @@ func (s *JobSchedulingService) distributeOverflowAgentsWithCompatibility(
 	}
 }
 
+// filterAgentsByTeamAccess filters agents based on team access for a set of jobs.
+// Called at the start of ScheduleJobs, BEFORE CalculateAgentAllocation.
+// Returns a filtered agent list containing only agents that have team access to
+// at least one of the provided jobs.
+func (s *JobSchedulingService) filterAgentsByTeamAccess(
+	ctx context.Context,
+	agents []models.Agent,
+	jobsWithWork []models.JobExecutionWithWork,
+) ([]models.Agent, error) {
+	// If teamService is not configured or teams not enabled, all agents are eligible (no filtering)
+	if s.teamService == nil || !s.teamService.IsTeamsEnabled(ctx) {
+		return agents, nil
+	}
+
+	// Build team context: batch-load all agent and job team memberships
+	agentTeamMap := make(map[int][]uuid.UUID) // agent ID (int) → team IDs
+	for _, agent := range agents {
+		teams, err := s.teamService.GetAgentEffectiveTeams(ctx, agent.ID)
+		if err != nil {
+			debug.Warning("Failed to get teams for agent %d: %v", agent.ID, err)
+			continue // Log error, skip agent
+		}
+		agentTeamMap[agent.ID] = teams
+	}
+
+	jobTeamMap := make(map[uuid.UUID][]uuid.UUID) // job ID → team IDs
+	for _, job := range jobsWithWork {
+		teams, err := s.teamService.GetJobTeamIDs(ctx, job.ID)
+		if err != nil {
+			debug.Warning("Failed to get teams for job %s: %v", job.ID, err)
+			continue
+		}
+		jobTeamMap[job.ID] = teams
+	}
+
+	// Collect all unique job team IDs
+	allJobTeamIDs := make(map[uuid.UUID]struct{})
+	for _, teams := range jobTeamMap {
+		for _, t := range teams {
+			allJobTeamIDs[t] = struct{}{}
+		}
+	}
+
+	// Filter: keep only agents that have at least one team in common with any job
+	var filteredAgents []models.Agent
+	for _, agent := range agents {
+		agentTeams := agentTeamMap[agent.ID]
+		for _, t := range agentTeams {
+			if _, exists := allJobTeamIDs[t]; exists {
+				filteredAgents = append(filteredAgents, agent)
+				break
+			}
+		}
+	}
+
+	debug.Log("Team-based agent filtering complete", map[string]interface{}{
+		"original_agents": len(agents),
+		"filtered_agents": len(filteredAgents),
+	})
+
+	return filteredAgents, nil
+}
+
 // ScheduleJobs performs the main job scheduling logic
 func (s *JobSchedulingService) ScheduleJobs(ctx context.Context) (*ScheduleJobsResult, error) {
 	s.schedulingMutex.Lock()
@@ -819,6 +887,22 @@ func (s *JobSchedulingService) ScheduleJobs(ctx context.Context) (*ScheduleJobsR
 
 	if len(jobsWithWork) == 0 {
 		debug.Log("No jobs with pending work", nil)
+		return result, nil
+	}
+
+	// NEW: Team-based filtering
+	availableAgents, err = s.filterAgentsByTeamAccess(ctx, availableAgents, jobsWithWork)
+	if err != nil {
+		debug.Warning("Failed to filter agents by team access: %v", err)
+		// Continue with unfiltered agents on error
+	}
+
+	debug.Log("Agents after team filtering", map[string]interface{}{
+		"agent_count": len(availableAgents),
+	})
+
+	if len(availableAgents) == 0 {
+		debug.Log("No agents available after team filtering", nil)
 		return result, nil
 	}
 

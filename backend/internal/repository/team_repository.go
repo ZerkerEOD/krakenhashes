@@ -4,10 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db/queries"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
+	"github.com/google/uuid"
 )
 
 // TeamRepository handles database operations for teams
@@ -38,7 +40,7 @@ func (r *TeamRepository) Create(ctx context.Context, team *models.Team) error {
 }
 
 // GetByID retrieves a team by ID
-func (r *TeamRepository) GetByID(ctx context.Context, id string) (*models.Team, error) {
+func (r *TeamRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Team, error) {
 	team := &models.Team{}
 
 	err := r.db.QueryRowContext(ctx, queries.GetTeamByID, id).Scan(
@@ -98,7 +100,7 @@ func (r *TeamRepository) Update(ctx context.Context, team *models.Team) error {
 }
 
 // Delete deletes a team
-func (r *TeamRepository) Delete(ctx context.Context, id string) error {
+func (r *TeamRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	result, err := r.db.ExecContext(ctx, queries.DeleteTeam, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete team: %w", err)
@@ -116,17 +118,24 @@ func (r *TeamRepository) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// AddUser adds a user to the team
-func (r *TeamRepository) AddUser(ctx context.Context, teamID, userID string) error {
-	_, err := r.db.ExecContext(ctx, queries.AddUserToTeam, userID, teamID)
+// AddUser adds a user to a team with a specified role
+// This replaces the existing AddUser(ctx, teamID, userID string) which had no role parameter.
+// The role parameter must be "member" or "admin".
+func (r *TeamRepository) AddUser(ctx context.Context, teamID, userID uuid.UUID, role string) error {
+	if role != models.TeamRoleMember && role != models.TeamRoleAdmin {
+		return fmt.Errorf("invalid role: %s (must be 'member' or 'admin')", role)
+	}
+
+	_, err := r.db.ExecContext(ctx, queries.AddUserToTeam, userID, teamID, role)
 	if err != nil {
 		return fmt.Errorf("failed to add user to team: %w", err)
 	}
+
 	return nil
 }
 
 // RemoveUser removes a user from the team
-func (r *TeamRepository) RemoveUser(ctx context.Context, teamID, userID string) error {
+func (r *TeamRepository) RemoveUser(ctx context.Context, teamID, userID uuid.UUID) error {
 	_, err := r.db.ExecContext(ctx, queries.RemoveUserFromTeam, userID, teamID)
 	if err != nil {
 		return fmt.Errorf("failed to remove user from team: %w", err)
@@ -135,7 +144,7 @@ func (r *TeamRepository) RemoveUser(ctx context.Context, teamID, userID string) 
 }
 
 // AddAgent adds an agent to the team
-func (r *TeamRepository) AddAgent(ctx context.Context, teamID, agentID string) error {
+func (r *TeamRepository) AddAgent(ctx context.Context, teamID uuid.UUID, agentID int) error {
 	_, err := r.db.ExecContext(ctx, queries.AddAgentToTeam, agentID, teamID)
 	if err != nil {
 		return fmt.Errorf("failed to add agent to team: %w", err)
@@ -144,7 +153,7 @@ func (r *TeamRepository) AddAgent(ctx context.Context, teamID, agentID string) e
 }
 
 // RemoveAgent removes an agent from the team
-func (r *TeamRepository) RemoveAgent(ctx context.Context, teamID, agentID string) error {
+func (r *TeamRepository) RemoveAgent(ctx context.Context, teamID uuid.UUID, agentID int) error {
 	_, err := r.db.ExecContext(ctx, queries.RemoveAgentFromTeam, agentID, teamID)
 	if err != nil {
 		return fmt.Errorf("failed to remove agent from team: %w", err)
@@ -153,7 +162,7 @@ func (r *TeamRepository) RemoveAgent(ctx context.Context, teamID, agentID string
 }
 
 // getTeamUsers retrieves all users in a team
-func (r *TeamRepository) getTeamUsers(ctx context.Context, teamID string) ([]models.User, error) {
+func (r *TeamRepository) getTeamUsers(ctx context.Context, teamID uuid.UUID) ([]models.User, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT u.id, u.username, u.email, u.role, u.created_at, u.updated_at
 		FROM users u
@@ -190,7 +199,7 @@ func (r *TeamRepository) getTeamUsers(ctx context.Context, teamID string) ([]mod
 }
 
 // getTeamAgents retrieves all agents in a team
-func (r *TeamRepository) getTeamAgents(ctx context.Context, teamID string) ([]models.Agent, error) {
+func (r *TeamRepository) getTeamAgents(ctx context.Context, teamID uuid.UUID) ([]models.Agent, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT a.id, a.name, a.status, a.version, a.created_at, a.updated_at
 		FROM agents a
@@ -287,4 +296,357 @@ func (r *TeamRepository) List(ctx context.Context, filters map[string]interface{
 	}
 
 	return teams, nil
+}
+
+// ============================================================
+// New methods for multi-team dynamics
+// ============================================================
+
+// TeamWithRole extends Team with the user's role in that team
+type TeamWithRole struct {
+	models.Team
+	UserRole string `json:"user_role"`
+}
+
+// TeamMember represents a user's membership in a team
+type TeamMember struct {
+	UserID   uuid.UUID `json:"user_id"`
+	Username string    `json:"username"`
+	Email    string    `json:"email"`
+	Role     string    `json:"role"`
+	JoinedAt time.Time `json:"joined_at"`
+}
+
+// GetTeamsForUser returns all teams a user belongs to, including their role
+func (r *TeamRepository) GetTeamsForUser(ctx context.Context, userID uuid.UUID) ([]TeamWithRole, error) {
+	rows, err := r.db.QueryContext(ctx, queries.GetTeamsForUser, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query user teams: %w", err)
+	}
+	defer rows.Close()
+
+	var teams []TeamWithRole
+	for rows.Next() {
+		var t TeamWithRole
+		err := rows.Scan(
+			&t.ID,
+			&t.Name,
+			&t.Description,
+			&t.CreatedAt,
+			&t.UpdatedAt,
+			&t.UserRole,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan team row: %w", err)
+		}
+		teams = append(teams, t)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating team rows: %w", err)
+	}
+
+	return teams, nil
+}
+
+// GetUserTeamIDs returns just the team IDs for a user (efficient for access checks)
+func (r *TeamRepository) GetUserTeamIDs(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := r.db.QueryContext(ctx, queries.GetUserTeamIDs, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query user team IDs: %w", err)
+	}
+	defer rows.Close()
+
+	var teamIDs []uuid.UUID
+	for rows.Next() {
+		var teamID uuid.UUID
+		if err := rows.Scan(&teamID); err != nil {
+			return nil, fmt.Errorf("failed to scan team ID: %w", err)
+		}
+		teamIDs = append(teamIDs, teamID)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating team ID rows: %w", err)
+	}
+
+	return teamIDs, nil
+}
+
+// IsUserInTeam checks if a user is a member of a specific team
+func (r *TeamRepository) IsUserInTeam(ctx context.Context, userID, teamID uuid.UUID) (bool, error) {
+	var exists bool
+	err := r.db.QueryRowContext(ctx, queries.IsUserInTeam, userID, teamID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check team membership: %w", err)
+	}
+	return exists, nil
+}
+
+// GetTeamRole returns the user's role in a specific team
+// Returns empty string if user is not in the team
+func (r *TeamRepository) GetTeamRole(ctx context.Context, userID, teamID uuid.UUID) (string, error) {
+	var role string
+	err := r.db.QueryRowContext(ctx, queries.GetTeamRoleForUser, userID, teamID).Scan(&role)
+	if err == sql.ErrNoRows {
+		return "", nil // User not in team
+	}
+	if err != nil {
+		return "", fmt.Errorf("failed to get team role: %w", err)
+	}
+	return role, nil
+}
+
+// SetUserTeamRole updates a user's role in a team
+func (r *TeamRepository) SetUserTeamRole(ctx context.Context, userID, teamID uuid.UUID, role string) error {
+	// Validate role
+	if role != models.TeamRoleMember && role != models.TeamRoleAdmin {
+		return fmt.Errorf("invalid role: %s (must be 'member' or 'admin')", role)
+	}
+
+	result, err := r.db.ExecContext(ctx, queries.SetUserTeamRole, userID, teamID, role)
+	if err != nil {
+		return fmt.Errorf("failed to update team role: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return models.ErrNotTeamMember
+	}
+
+	return nil
+}
+
+// SearchUsersNotInTeam searches for users who are not members of a team
+// Supports pagination via limit and offset parameters
+func (r *TeamRepository) SearchUsersNotInTeam(ctx context.Context, teamID uuid.UUID, query string, limit, offset int) ([]models.User, error) {
+	// Add wildcards for LIKE search
+	searchPattern := "%" + query + "%"
+
+	rows, err := r.db.QueryContext(ctx, queries.SearchUsersNotInTeamPaginated, teamID, searchPattern, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search users: %w", err)
+	}
+	defer rows.Close()
+
+	var users []models.User
+	for rows.Next() {
+		var u models.User
+		err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.CreatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan user row: %w", err)
+		}
+		users = append(users, u)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating user rows: %w", err)
+	}
+
+	return users, nil
+}
+
+// CountTeamAdmins returns the number of admins in a team
+// Used to prevent removing the last admin
+func (r *TeamRepository) CountTeamAdmins(ctx context.Context, teamID uuid.UUID) (int, error) {
+	var count int
+	err := r.db.QueryRowContext(ctx, queries.CountTeamAdmins, teamID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count team admins: %w", err)
+	}
+	return count, nil
+}
+
+// GetTeamMembers returns all members of a team with their roles
+func (r *TeamRepository) GetTeamMembers(ctx context.Context, teamID uuid.UUID) ([]TeamMember, error) {
+	rows, err := r.db.QueryContext(ctx, queries.GetTeamMembers, teamID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query team members: %w", err)
+	}
+	defer rows.Close()
+
+	var members []TeamMember
+	for rows.Next() {
+		var m TeamMember
+		err := rows.Scan(&m.UserID, &m.Username, &m.Email, &m.Role, &m.JoinedAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan member row: %w", err)
+		}
+		members = append(members, m)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating member rows: %w", err)
+	}
+
+	return members, nil
+}
+
+// GetTeamIDsForAgent returns team IDs explicitly assigned to an agent
+// Used when agent.AdminOverrideTeams is true
+// Note: Agent.ID is int, not uuid.UUID
+func (r *TeamRepository) GetTeamIDsForAgent(ctx context.Context, agentID int) ([]uuid.UUID, error) {
+	rows, err := r.db.QueryContext(ctx, queries.GetTeamIDsForAgent, agentID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query agent team IDs: %w", err)
+	}
+	defer rows.Close()
+
+	var teamIDs []uuid.UUID
+	for rows.Next() {
+		var teamID uuid.UUID
+		if err := rows.Scan(&teamID); err != nil {
+			return nil, fmt.Errorf("failed to scan team ID: %w", err)
+		}
+		teamIDs = append(teamIDs, teamID)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating team ID rows: %w", err)
+	}
+
+	return teamIDs, nil
+}
+
+// IsDefaultTeam checks if the given team ID is the Default Team
+func (r *TeamRepository) IsDefaultTeam(teamID uuid.UUID) bool {
+	return teamID == models.DefaultTeamID
+}
+
+// ============================================================
+// Transaction-aware (Tx) methods
+// ============================================================
+// These methods mirror their non-Tx counterparts but execute
+// against an explicit *sql.Tx instead of r.db. Use them inside
+// service-layer transactions to ensure atomic, serializable
+// operations (e.g., team creation + admin seeding, or last-admin
+// checks before role demotion/removal).
+
+// CreateTx creates a new team within a transaction
+func (r *TeamRepository) CreateTx(ctx context.Context, tx *sql.Tx, team *models.Team) error {
+	err := tx.QueryRowContext(ctx,
+		`INSERT INTO teams (name, description, created_at, updated_at)
+		 VALUES ($1, $2, NOW(), NOW())
+		 RETURNING id, created_at, updated_at`,
+		team.Name, team.Description,
+	).Scan(&team.ID, &team.CreatedAt, &team.UpdatedAt)
+	if err != nil {
+		return fmt.Errorf("failed to create team (tx): %w", err)
+	}
+	return nil
+}
+
+// AddUserTx adds a user to a team with a specified role within a transaction
+func (r *TeamRepository) AddUserTx(ctx context.Context, tx *sql.Tx, teamID, userID uuid.UUID, role string) error {
+	if role != models.TeamRoleMember && role != models.TeamRoleAdmin {
+		return fmt.Errorf("invalid role: %s (must be 'member' or 'admin')", role)
+	}
+
+	_, err := tx.ExecContext(ctx, queries.AddUserToTeam, userID, teamID, role)
+	if err != nil {
+		return fmt.Errorf("failed to add user to team (tx): %w", err)
+	}
+	return nil
+}
+
+// RemoveUserTx removes a user from a team within a transaction
+func (r *TeamRepository) RemoveUserTx(ctx context.Context, tx *sql.Tx, teamID, userID uuid.UUID) error {
+	result, err := tx.ExecContext(ctx,
+		`DELETE FROM user_teams WHERE user_id = $1 AND team_id = $2`,
+		userID, teamID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to remove user from team (tx): %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected (tx): %w", err)
+	}
+	if rowsAffected == 0 {
+		return models.ErrNotTeamMember
+	}
+	return nil
+}
+
+// GetTeamRoleTx returns a user's role in a specific team within a transaction
+// Returns empty string if the user is not in the team
+func (r *TeamRepository) GetTeamRoleTx(ctx context.Context, tx *sql.Tx, userID, teamID uuid.UUID) (string, error) {
+	var role string
+	err := tx.QueryRowContext(ctx, queries.GetTeamRoleForUser, userID, teamID).Scan(&role)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("failed to get team role (tx): %w", err)
+	}
+	return role, nil
+}
+
+// CountTeamAdminsTx returns the number of admins in a team within a transaction.
+// Uses FOR UPDATE locking to prevent concurrent modifications from violating the
+// last-admin invariant. Two simultaneous demote/remove requests will be serialized
+// by the row-level lock, ensuring that at least one admin always remains.
+func (r *TeamRepository) CountTeamAdminsTx(ctx context.Context, tx *sql.Tx, teamID uuid.UUID) (int, error) {
+	var count int
+	err := tx.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM user_teams WHERE team_id = $1 AND role = 'admin' FOR UPDATE`,
+		teamID,
+	).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count team admins (tx): %w", err)
+	}
+	return count, nil
+}
+
+// DeleteTx deletes a team within a transaction
+// Must be called after removing all client_teams and user_teams entries
+// due to ON DELETE RESTRICT foreign keys
+func (r *TeamRepository) DeleteTx(ctx context.Context, tx *sql.Tx, id uuid.UUID) error {
+	// Also remove user_teams entries for the team
+	_, err := tx.ExecContext(ctx, `DELETE FROM user_teams WHERE team_id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("failed to remove user_teams for team (tx): %w", err)
+	}
+
+	result, err := tx.ExecContext(ctx, queries.DeleteTeam, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete team (tx): %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected (tx): %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("team not found: %s", id)
+	}
+
+	return nil
+}
+
+// SetUserTeamRoleTx updates a user's role in a team within a transaction
+func (r *TeamRepository) SetUserTeamRoleTx(ctx context.Context, tx *sql.Tx, userID, teamID uuid.UUID, role string) error {
+	if role != models.TeamRoleMember && role != models.TeamRoleAdmin {
+		return fmt.Errorf("invalid role: %s (must be 'member' or 'admin')", role)
+	}
+
+	result, err := tx.ExecContext(ctx, queries.SetUserTeamRole, userID, teamID, role)
+	if err != nil {
+		return fmt.Errorf("failed to update team role (tx): %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected (tx): %w", err)
+	}
+	if rowsAffected == 0 {
+		return models.ErrNotTeamMember
+	}
+	return nil
 }

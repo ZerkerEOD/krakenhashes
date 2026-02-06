@@ -6,6 +6,7 @@ import (
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 // ListWithPagination retrieves job executions with pagination, ordered by priority and creation time
@@ -69,6 +70,7 @@ type JobFilter struct {
 	Priority *int
 	Search   *string
 	UserID   *string
+	TeamIDs  []uuid.UUID // When set, filter jobs by team access (via hashlist → client → client_teams)
 }
 
 // JobExecutionWithUser represents a job execution with user information
@@ -230,6 +232,17 @@ func (r *JobExecutionRepository) GetFilteredCount(ctx context.Context, filter Jo
 		args = append(args, *filter.UserID)
 	}
 
+	// Apply team filter - filter by team access via hashlist → client → client_teams
+	if len(filter.TeamIDs) > 0 {
+		teamIDStrs := make([]string, len(filter.TeamIDs))
+		for i, id := range filter.TeamIDs {
+			teamIDStrs[i] = id.String()
+		}
+		argCount++
+		query += fmt.Sprintf(" AND h.client_id IN (SELECT ct.client_id FROM client_teams ct WHERE ct.team_id = ANY($%d::uuid[]))", argCount)
+		args = append(args, pq.Array(teamIDStrs))
+	}
+
 	var count int
 	err := r.db.QueryRowContext(ctx, query, args...).Scan(&count)
 	if err != nil {
@@ -275,6 +288,57 @@ func (r *JobExecutionRepository) GetStatusCountsForUser(ctx context.Context, use
 	rows, err := r.db.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get status counts for user: %w", err)
+	}
+	defer rows.Close()
+
+	counts := make(map[string]int)
+	for rows.Next() {
+		var status string
+		var count int
+		if err := rows.Scan(&status, &count); err != nil {
+			return nil, fmt.Errorf("failed to scan status count: %w", err)
+		}
+		counts[status] = count
+	}
+
+	return counts, nil
+}
+
+// GetStatusCountsFiltered returns counts of jobs grouped by status, respecting filters
+func (r *JobExecutionRepository) GetStatusCountsFiltered(ctx context.Context, filter JobFilter) (map[string]int, error) {
+	query := `
+		SELECT je.status, COUNT(*) as count
+		FROM job_executions je
+		JOIN hashlists h ON je.hashlist_id = h.id
+		LEFT JOIN preset_jobs pj ON je.preset_job_id = pj.id
+		WHERE 1=1`
+
+	args := []interface{}{}
+	argCount := 0
+
+	// Apply user filter
+	if filter.UserID != nil && *filter.UserID != "" {
+		argCount++
+		query += fmt.Sprintf(" AND je.created_by = $%d", argCount)
+		args = append(args, *filter.UserID)
+	}
+
+	// Apply team filter
+	if len(filter.TeamIDs) > 0 {
+		teamIDStrs := make([]string, len(filter.TeamIDs))
+		for i, id := range filter.TeamIDs {
+			teamIDStrs[i] = id.String()
+		}
+		argCount++
+		query += fmt.Sprintf(" AND h.client_id IN (SELECT ct.client_id FROM client_teams ct WHERE ct.team_id = ANY($%d::uuid[]))", argCount)
+		args = append(args, pq.Array(teamIDStrs))
+	}
+
+	query += " GROUP BY je.status"
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get filtered status counts: %w", err)
 	}
 	defer rows.Close()
 
@@ -512,6 +576,17 @@ func (r *JobExecutionRepository) ListWithFiltersAndUser(ctx context.Context, lim
 		argCount++
 		query += fmt.Sprintf(" AND je.created_by = $%d", argCount)
 		args = append(args, *filter.UserID)
+	}
+
+	// Apply team filter - filter by team access via hashlist → client → client_teams
+	if len(filter.TeamIDs) > 0 {
+		teamIDStrs := make([]string, len(filter.TeamIDs))
+		for i, id := range filter.TeamIDs {
+			teamIDStrs[i] = id.String()
+		}
+		argCount++
+		query += fmt.Sprintf(" AND h.client_id IN (SELECT ct.client_id FROM client_teams ct WHERE ct.team_id = ANY($%d::uuid[]))", argCount)
+		args = append(args, pq.Array(teamIDStrs))
 	}
 
 	// Add ordering

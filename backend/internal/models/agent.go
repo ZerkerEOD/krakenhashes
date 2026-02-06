@@ -100,7 +100,8 @@ type Agent struct {
 	SyncError           sql.NullString    `json:"syncError"`
 	FilesToSync         int               `json:"filesToSync"`
 	FilesSynced         int               `json:"filesSynced"`
-	BinaryVersion       string            `json:"binaryVersion"` // Version pattern specifying compatible binaries (e.g., "default", "7.x", "7.1.2")
+	BinaryVersion       string            `json:"binaryVersion"`        // Version pattern specifying compatible binaries (e.g., "default", "7.x", "7.1.2")
+	AdminOverrideTeams  bool              `json:"adminOverrideTeams"`   // When TRUE, uses explicit agent_teams; when FALSE, inherits from owner teams
 }
 
 // Hardware represents the hardware configuration of an agent
@@ -202,6 +203,7 @@ func (a Agent) MarshalJSON() ([]byte, error) {
 		FilesToSync         int               `json:"filesToSync"`
 		FilesSynced         int               `json:"filesSynced"`
 		BinaryVersion       string            `json:"binaryVersion"`
+		AdminOverrideTeams  bool              `json:"adminOverrideTeams"`
 	}
 
 	temp := AgentJSON{
@@ -233,6 +235,7 @@ func (a Agent) MarshalJSON() ([]byte, error) {
 		FilesToSync:         a.FilesToSync,
 		FilesSynced:         a.FilesSynced,
 		BinaryVersion:       a.BinaryVersion,
+		AdminOverrideTeams:  a.AdminOverrideTeams,
 	}
 
 	return json.Marshal(temp)

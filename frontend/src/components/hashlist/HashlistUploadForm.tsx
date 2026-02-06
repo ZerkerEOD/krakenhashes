@@ -146,11 +146,26 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
         setPotfileGloballyEnabled(true);
       }
 
-      // Fetch require client setting
+      // Fetch require client setting or check if teams are enabled
       try {
-        const response = await api.get('/api/admin/settings/require_client_for_hashlist');
-        const requireClientValue = response.data?.value === 'true';
-        setRequireClient(requireClientValue);
+        // Check if teams are enabled first (takes precedence)
+        let teamsEnabled = false;
+        try {
+          const teamsResponse = await api.get('/api/settings/teams_enabled');
+          teamsEnabled = teamsResponse.data?.teams_enabled === true;
+        } catch (err) {
+          console.error('Failed to fetch teams_enabled setting:', err);
+        }
+
+        if (teamsEnabled) {
+          // If teams are enabled, client is always required
+          setRequireClient(true);
+        } else {
+          // Otherwise, check the require_client_for_hashlist setting
+          const response = await api.get('/api/admin/settings/require_client_for_hashlist');
+          const requireClientValue = response.data?.value === 'true';
+          setRequireClient(requireClientValue);
+        }
       } catch (error) {
         console.error('Failed to fetch require client setting:', error);
         // Default to false if fetch fails
