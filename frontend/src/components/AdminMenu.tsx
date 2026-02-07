@@ -9,15 +9,12 @@ import {
     SupervisorAccount as SupervisorAccountIcon,
     BugReport as BugReportIcon,
     History as HistoryIcon,
-    Groups as GroupsIcon,
 } from '@mui/icons-material';
-import { useTeamFilter } from '../contexts/TeamFilterContext';
 
 const AdminMenu: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { t } = useTranslation('navigation');
-    const { teamsEnabled } = useTeamFilter();
 
     return (
         <List aria-label={t('aria.adminNavigation') as string}>
@@ -61,27 +58,6 @@ const AdminMenu: React.FC = () => {
                 <ListItemText primary={t('admin.userManagement') as string} />
             </ListItemButton>
 
-            {teamsEnabled && (
-                <ListItemButton
-                    onClick={() => navigate('/admin/teams')}
-                    selected={location.pathname.startsWith('/admin/teams')}
-                    sx={{
-                        minHeight: 48,
-                        px: 2.5,
-                    }}
-                >
-                    <ListItemIcon
-                        sx={{
-                            minWidth: 0,
-                            mr: 3,
-                            justifyContent: 'center',
-                        }}
-                    >
-                        <GroupsIcon />
-                    </ListItemIcon>
-                    <ListItemText primary={t('admin.teamManagement') as string} />
-                </ListItemButton>
-            )}
 
             <ListItemButton
                 onClick={() => navigate('/admin/preset-jobs')}

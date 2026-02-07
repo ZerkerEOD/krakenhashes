@@ -18,7 +18,7 @@ import (
 )
 
 // SetupV1Routes configures all /api/v1 routes for the User API
-func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager binary.Manager) {
+func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager binary.Manager, teamService *services.TeamService) {
 	debug.Info("Setting up /api/v1 User API routes")
 
 	// Use provided data directory
@@ -66,7 +66,8 @@ func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager
 	}).Methods("GET", "OPTIONS")
 
 	// Client endpoints
-	clientHandler := v1handlers.NewClientHandler(clientRepo, hashlistRepo, clientSettingsRepo, database)
+	clientTeamRepo := repository.NewClientTeamRepository(database)
+	clientHandler := v1handlers.NewClientHandler(clientRepo, hashlistRepo, clientSettingsRepo, clientTeamRepo, teamService, database)
 	v1Router.HandleFunc("/clients", clientHandler.CreateClient).Methods("POST", "OPTIONS")
 	v1Router.HandleFunc("/clients", clientHandler.ListClients).Methods("GET", "OPTIONS")
 	v1Router.HandleFunc("/clients/{id}", clientHandler.GetClient).Methods("GET", "OPTIONS")

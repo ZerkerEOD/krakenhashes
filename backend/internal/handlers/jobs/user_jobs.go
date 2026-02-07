@@ -157,12 +157,27 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 		Search:   &search,
 	}
 
-	// Apply team filter when teams are enabled and user is not admin
-	if middleware.IsTeamsEnabledFromContext(ctx) && !middleware.IsAdminFromContext(ctx) {
-		teamIDs := middleware.GetUserTeamIDsFromContext(ctx)
-		if teamIDs != nil {
-			filter.TeamIDs = teamIDs
+	// Apply team filter when teams are enabled
+	if middleware.IsTeamsEnabledFromContext(ctx) {
+		isAdmin := middleware.IsAdminFromContext(ctx)
+		teamIDParam := r.URL.Query().Get("team_id")
+
+		if teamIDParam != "" {
+			// Specific team selected in dropdown
+			teamID, err := uuid.Parse(teamIDParam)
+			if err == nil {
+				if isAdmin || middleware.IsUserInTeamFromContext(ctx, teamID) {
+					filter.TeamIDs = []uuid.UUID{teamID}
+				}
+			}
+		} else if !isAdmin {
+			// No specific team — non-admins get all their teams
+			teamIDs := middleware.GetUserTeamIDsFromContext(ctx)
+			if teamIDs != nil {
+				filter.TeamIDs = teamIDs
+			}
 		}
+		// Admin with no team_id → sees all jobs (no filter)
 	}
 
 	// Get jobs with filters and user information
@@ -1846,12 +1861,27 @@ func (h *UserJobsHandler) ListUserJobs(w http.ResponseWriter, r *http.Request) {
 		UserID:   &userID,
 	}
 
-	// Apply team filter when teams are enabled and user is not admin
-	if middleware.IsTeamsEnabledFromContext(ctx) && !middleware.IsAdminFromContext(ctx) {
-		teamIDs := middleware.GetUserTeamIDsFromContext(ctx)
-		if teamIDs != nil {
-			filter.TeamIDs = teamIDs
+	// Apply team filter when teams are enabled
+	if middleware.IsTeamsEnabledFromContext(ctx) {
+		isAdmin := middleware.IsAdminFromContext(ctx)
+		teamIDParam := r.URL.Query().Get("team_id")
+
+		if teamIDParam != "" {
+			// Specific team selected in dropdown
+			teamID, err := uuid.Parse(teamIDParam)
+			if err == nil {
+				if isAdmin || middleware.IsUserInTeamFromContext(ctx, teamID) {
+					filter.TeamIDs = []uuid.UUID{teamID}
+				}
+			}
+		} else if !isAdmin {
+			// No specific team — non-admins get all their teams
+			teamIDs := middleware.GetUserTeamIDsFromContext(ctx)
+			if teamIDs != nil {
+				filter.TeamIDs = teamIDs
+			}
 		}
+		// Admin with no team_id → sees all jobs (no filter)
 	}
 
 	// Get jobs with filters and user information

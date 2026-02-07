@@ -1,13 +1,16 @@
 package client
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/middleware"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
-	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/client"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
+	clientsvc "github.com/ZerkerEOD/krakenhashes/backend/internal/services/client"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/httputil"
 	"github.com/google/uuid"
@@ -16,15 +19,19 @@ import (
 
 // ClientHandler handles API requests for admin client management.
 type ClientHandler struct {
-	clientRepo *repository.ClientRepository
-	clientSvc  *client.ClientService
+	clientRepo     *repository.ClientRepository
+	clientSvc      *clientsvc.ClientService
+	teamService    *services.TeamService
+	clientTeamRepo *repository.ClientTeamRepository
 }
 
 // NewClientHandler creates a new handler instance.
-func NewClientHandler(cr *repository.ClientRepository, cs *client.ClientService) *ClientHandler {
+func NewClientHandler(cr *repository.ClientRepository, cs *clientsvc.ClientService, ts *services.TeamService, ctr *repository.ClientTeamRepository) *ClientHandler {
 	return &ClientHandler{
-		clientRepo: cr,
-		clientSvc:  cs,
+		clientRepo:     cr,
+		clientSvc:      cs,
+		teamService:    ts,
+		clientTeamRepo: ctr,
 	}
 }
 
@@ -61,11 +68,24 @@ func (h *ClientHandler) ListClients(w http.ResponseWriter, r *http.Request) {
 // @Router /admin/clients [post]
 // @Security ApiKeyAuth
 func (h *ClientHandler) CreateClient(w http.ResponseWriter, r *http.Request) {
-	var newClient models.Client
-	if err := httputil.ParseJSONBody(r, &newClient); err != nil {
+	// Parse raw JSON to extract team_id alongside client fields
+	var rawBody json.RawMessage
+	if err := json.NewDecoder(r.Body).Decode(&rawBody); err != nil {
 		httputil.RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
+
+	var newClient models.Client
+	if err := json.Unmarshal(rawBody, &newClient); err != nil {
+		httputil.RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+
+	// Extract team_id from the same body
+	var teamPayload struct {
+		TeamID *string `json:"team_id"`
+	}
+	json.Unmarshal(rawBody, &teamPayload) // ignore error, team_id is optional
 
 	// Basic validation
 	if newClient.Name == "" {
@@ -76,6 +96,50 @@ func (h *ClientHandler) CreateClient(w http.ResponseWriter, r *http.Request) {
 	if newClient.DataRetentionMonths != nil && *newClient.DataRetentionMonths < 0 {
 		httputil.RespondWithError(w, http.StatusBadRequest, "Data retention must be non-negative")
 		return
+	}
+
+	// Check if teams are enabled and validate team_id
+	ctx := r.Context()
+	teamsEnabled := h.teamService != nil && h.teamService.IsTeamsEnabled(ctx)
+	var teamID uuid.UUID
+	if teamsEnabled {
+		if teamPayload.TeamID == nil || *teamPayload.TeamID == "" {
+			httputil.RespondWithError(w, http.StatusBadRequest, "Team selection is required when teams are enabled")
+			return
+		}
+		var parseErr error
+		teamID, parseErr = uuid.Parse(*teamPayload.TeamID)
+		if parseErr != nil {
+			httputil.RespondWithError(w, http.StatusBadRequest, "Invalid team ID")
+			return
+		}
+
+		// Get the acting user ID from context
+		userIDStr, _ := ctx.Value("user_id").(string)
+		if userIDStr == "" {
+			httputil.RespondWithError(w, http.StatusUnauthorized, "Unauthorized")
+			return
+		}
+		actingUserID, parseErr := uuid.Parse(userIDStr)
+		if parseErr != nil {
+			httputil.RespondWithError(w, http.StatusUnauthorized, "Invalid user ID")
+			return
+		}
+
+		// Admins can assign to any team; non-admins must be a member
+		isAdmin := middleware.IsAdminFromContext(ctx)
+		if !isAdmin {
+			isMember, memberErr := h.teamService.IsUserInTeam(ctx, actingUserID, teamID)
+			if memberErr != nil {
+				debug.Error("Failed to check team membership: %v", memberErr)
+				httputil.RespondWithError(w, http.StatusInternalServerError, "Failed to verify team membership")
+				return
+			}
+			if !isMember {
+				httputil.RespondWithError(w, http.StatusForbidden, "You are not a member of the selected team")
+				return
+			}
+		}
 	}
 
 	// Set server-side fields
@@ -93,7 +157,17 @@ func (h *ClientHandler) CreateClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	debug.Info("Admin created new client with ID: %s", newClient.ID)
+	// Auto-assign to team when teams are enabled
+	if teamsEnabled && h.clientTeamRepo != nil {
+		userIDStr, _ := ctx.Value("user_id").(string)
+		assignedBy, _ := uuid.Parse(userIDStr)
+		if assignErr := h.clientTeamRepo.AssignClientToTeam(ctx, newClient.ID, teamID, &assignedBy); assignErr != nil {
+			debug.Error("Failed to assign new client %s to team %s: %v", newClient.ID, teamID, assignErr)
+			// Client was created but team assignment failed — don't fail the whole request
+		}
+	}
+
+	debug.Info("Created new client with ID: %s", newClient.ID)
 	httputil.RespondWithJSON(w, http.StatusCreated, map[string]interface{}{"data": newClient})
 }
 

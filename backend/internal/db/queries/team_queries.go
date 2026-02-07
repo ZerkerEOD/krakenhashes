@@ -2,12 +2,24 @@ package queries
 
 // Team queries - User membership
 const (
-	// Get all teams for a specific user
+	// Get all teams for a specific user with counts
 	GetTeamsForUser = `
-		SELECT t.id, t.name, t.description, t.created_at, t.updated_at, ut.role
+		SELECT t.id, t.name, t.description, t.created_at, t.updated_at, ut.role,
+			(SELECT COUNT(*) FROM user_teams WHERE team_id = t.id) AS member_count,
+			(SELECT COUNT(*) FROM client_teams WHERE team_id = t.id) AS client_count,
+			(SELECT COUNT(*) FROM hashlists h INNER JOIN client_teams ct ON h.client_id = ct.client_id WHERE ct.team_id = t.id) AS hashlist_count
 		FROM teams t
 		INNER JOIN user_teams ut ON t.id = ut.team_id
 		WHERE ut.user_id = $1
+		ORDER BY t.name ASC`
+
+	// Get all teams with counts (admin view)
+	GetAllTeamsWithCounts = `
+		SELECT t.id, t.name, t.description, t.created_at, t.updated_at,
+			(SELECT COUNT(*) FROM user_teams WHERE team_id = t.id) AS member_count,
+			(SELECT COUNT(*) FROM client_teams WHERE team_id = t.id) AS client_count,
+			(SELECT COUNT(*) FROM hashlists h INNER JOIN client_teams ct ON h.client_id = ct.client_id WHERE ct.team_id = t.id) AS hashlist_count
+		FROM teams t
 		ORDER BY t.name ASC`
 
 	// Get team IDs only for a user (faster for access checks)

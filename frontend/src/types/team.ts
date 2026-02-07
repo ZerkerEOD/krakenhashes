@@ -5,8 +5,10 @@ export interface Team {
   id: string;
   name: string;
   description: string;
-  user_role?: TeamRole;      // snake_case to match backend JSON tag
-  member_count?: number;     // snake_case to match backend JSON tag
+  user_role?: TeamRole;
+  member_count?: number;
+  client_count?: number;
+  hashlist_count?: number;
   created_at: string;
   updated_at: string;
 }

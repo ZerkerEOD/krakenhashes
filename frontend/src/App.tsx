@@ -92,7 +92,6 @@ const AdminAuthSettingsPage = lazy(() => import('./pages/admin/AuthSettings'));
 const AdminSSOSettingsPage = lazy(() => import('./pages/admin/SSOSettings'));
 const AdminUserListPage = lazy(() => import('./pages/admin/UserList'));
 const AdminUserDetailPage = lazy(() => import('./pages/admin/UserDetail'));
-const TeamManagementPage = lazy(() => import('./pages/admin/TeamManagement'));
 const AdminSettingsIndexPage = lazy(() => import('./pages/AdminSettings').then(module => ({ default: module.AdminSettings })));
 const AdminEmailSettingsIndexPage = lazy(() => import('./pages/AdminSettings/EmailSettings').then(module => ({ default: module.EmailSettings })));
 const AdminEmailProviderConfigPage = lazy(() => import('./pages/AdminSettings/EmailSettings/ProviderConfig').then(module => ({ default: module.ProviderConfig })));
@@ -180,7 +179,6 @@ const App: React.FC = () => {
                       <Route path="sso-settings" element={<AdminSSOSettingsPage />} />
                       <Route path="users" element={<AdminUserListPage />} />
                       <Route path="users/:id" element={<AdminUserDetailPage />} />
-                      <Route path="teams" element={<TeamManagementPage />} />
                       <Route path="settings" element={<AdminSettingsIndexPage />} />
                       <Route path="settings/email" element={<AdminEmailSettingsIndexPage />} />
                 <Route 

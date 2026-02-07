@@ -390,27 +390,22 @@ func (s *TeamService) GetTeam(ctx context.Context, teamID uuid.UUID) (*models.Te
 	return s.teamRepo.GetByID(ctx, teamID)
 }
 
-// ListTeams returns all teams (for admins) or user's teams
+// ListTeams returns all teams (for admins) or user's teams, with counts
 func (s *TeamService) ListTeams(ctx context.Context, userID uuid.UUID, isAdmin bool) ([]repository.TeamWithRole, error) {
 	if isAdmin {
-		// Admin sees all teams
-		teams, err := s.teamRepo.List(ctx, nil)
+		// Admin sees all teams with counts
+		teams, err := s.teamRepo.ListAllWithCounts(ctx)
 		if err != nil {
 			return nil, err
 		}
-
-		// Convert to TeamWithRole
-		result := make([]repository.TeamWithRole, len(teams))
-		for i, t := range teams {
-			result[i] = repository.TeamWithRole{
-				Team:     t,
-				UserRole: "admin", // Admin has admin access to all
-			}
+		// Set admin role for all teams
+		for i := range teams {
+			teams[i].UserRole = "admin"
 		}
-		return result, nil
+		return teams, nil
 	}
 
-	// Regular user sees their teams
+	// Regular user sees their teams (counts included via updated query)
 	return s.teamRepo.GetTeamsForUser(ctx, userID)
 }
 
@@ -587,35 +582,21 @@ func (s *TeamService) SearchUsersForTeam(ctx context.Context, teamID uuid.UUID, 
 // =============================================================================
 
 // AssignClientToTeam assigns a client to a team
-// Only team admins or system admins can assign clients
+// Only system admins can assign existing clients to teams (prevents privilege escalation)
 func (s *TeamService) AssignClientToTeam(ctx context.Context, clientID, teamID, actingUserID uuid.UUID, isSystemAdmin bool) error {
-	// Check if acting user can manage this team
 	if !isSystemAdmin {
-		isTeamAdmin, err := s.IsUserTeamAdmin(ctx, actingUserID, teamID)
-		if err != nil {
-			return fmt.Errorf("failed to check team admin status: %w", err)
-		}
-		if !isTeamAdmin {
-			return fmt.Errorf("user is not authorized to assign clients to this team")
-		}
+		return fmt.Errorf("only system administrators can assign clients to teams")
 	}
 
 	return s.clientTeamRepo.AssignClientToTeam(ctx, clientID, teamID, &actingUserID)
 }
 
 // RemoveClientFromTeam removes a client from a team
-// Only team admins or system admins can remove clients
+// Only system admins can remove clients from teams (prevents privilege escalation)
 // If this is the client's only team, it will be reassigned to Default Team
 func (s *TeamService) RemoveClientFromTeam(ctx context.Context, clientID, teamID, actingUserID uuid.UUID, isSystemAdmin bool) error {
-	// Check if acting user can manage this team
 	if !isSystemAdmin {
-		isTeamAdmin, err := s.IsUserTeamAdmin(ctx, actingUserID, teamID)
-		if err != nil {
-			return fmt.Errorf("failed to check team admin status: %w", err)
-		}
-		if !isTeamAdmin {
-			return fmt.Errorf("user is not authorized to remove clients from this team")
-		}
+		return fmt.Errorf("only system administrators can remove clients from teams")
 	}
 
 	// Check if client has other teams

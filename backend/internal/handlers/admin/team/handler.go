@@ -26,12 +26,14 @@ func NewAdminTeamHandler(teamService *services.TeamService) *AdminHandler {
 
 // TeamResponse represents a team in admin responses
 type TeamResponse struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	MemberCount int    `json:"member_count,omitempty"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Description   string `json:"description"`
+	MemberCount   int    `json:"member_count"`
+	ClientCount   int    `json:"client_count"`
+	HashlistCount int    `json:"hashlist_count"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
 }
 
 // ListAllTeams returns all teams (admin only)
@@ -50,11 +52,14 @@ func (h *AdminHandler) ListAllTeams(w http.ResponseWriter, r *http.Request) {
 	response := make([]TeamResponse, len(teams))
 	for i, t := range teams {
 		response[i] = TeamResponse{
-			ID:          t.ID.String(),
-			Name:        t.Name,
-			Description: t.Description,
-			CreatedAt:   t.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:   t.UpdatedAt.Format(time.RFC3339),
+			ID:            t.ID.String(),
+			Name:          t.Name,
+			Description:   t.Description,
+			MemberCount:   t.MemberCount,
+			ClientCount:   t.ClientCount,
+			HashlistCount: t.HashlistCount,
+			CreatedAt:     t.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:     t.UpdatedAt.Format(time.RFC3339),
 		}
 	}
 

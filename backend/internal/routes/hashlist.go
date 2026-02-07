@@ -204,7 +204,8 @@ func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, ag
 	analyticsRepoForHandler := repository.NewAnalyticsRepository(database)
 	retentionService := retentionsvc.NewRetentionService(database, hashlistRepo, hashRepo, clientRepoForHandler, clientSettingsRepoForHandler, analyticsRepoForHandler)
 	clientService := clientsvc.NewClientService(clientRepoForHandler, hashlistRepo, clientSettingsRepoForHandler, retentionService)
-	clientHandler := adminclient.NewClientHandler(clientRepoForHandler, clientService)
+	clientTeamRepoForHandler := repository.NewClientTeamRepository(database)
+	clientHandler := adminclient.NewClientHandler(clientRepoForHandler, clientService, teamService, clientTeamRepoForHandler)
 
 	// Register client routes for all authenticated users
 	clientRouter := r.PathPrefix("/clients").Subrouter() // Use 'r' directly

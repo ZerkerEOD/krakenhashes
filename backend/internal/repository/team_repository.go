@@ -302,10 +302,13 @@ func (r *TeamRepository) List(ctx context.Context, filters map[string]interface{
 // New methods for multi-team dynamics
 // ============================================================
 
-// TeamWithRole extends Team with the user's role in that team
+// TeamWithRole extends Team with the user's role and aggregate counts
 type TeamWithRole struct {
 	models.Team
-	UserRole string `json:"user_role"`
+	UserRole      string `json:"user_role"`
+	MemberCount   int    `json:"member_count"`
+	ClientCount   int    `json:"client_count"`
+	HashlistCount int    `json:"hashlist_count"`
 }
 
 // TeamMember represents a user's membership in a team
@@ -335,6 +338,43 @@ func (r *TeamRepository) GetTeamsForUser(ctx context.Context, userID uuid.UUID) 
 			&t.CreatedAt,
 			&t.UpdatedAt,
 			&t.UserRole,
+			&t.MemberCount,
+			&t.ClientCount,
+			&t.HashlistCount,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan team row: %w", err)
+		}
+		teams = append(teams, t)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating team rows: %w", err)
+	}
+
+	return teams, nil
+}
+
+// ListAllWithCounts returns all teams with member/client/hashlist counts (admin view)
+func (r *TeamRepository) ListAllWithCounts(ctx context.Context) ([]TeamWithRole, error) {
+	rows, err := r.db.QueryContext(ctx, queries.GetAllTeamsWithCounts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query all teams with counts: %w", err)
+	}
+	defer rows.Close()
+
+	var teams []TeamWithRole
+	for rows.Next() {
+		var t TeamWithRole
+		err := rows.Scan(
+			&t.ID,
+			&t.Name,
+			&t.Description,
+			&t.CreatedAt,
+			&t.UpdatedAt,
+			&t.MemberCount,
+			&t.ClientCount,
+			&t.HashlistCount,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan team row: %w", err)

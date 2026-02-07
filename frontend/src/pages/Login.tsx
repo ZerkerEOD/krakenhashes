@@ -70,7 +70,7 @@ const RATE_LIMIT = {
 
 const Login: React.FC = () => {
   const { t } = useTranslation('auth');
-  const { setAuth, setUserRole, checkAuthStatus } = useAuth();
+  const { setAuth, setUser, setUserRole, checkAuthStatus } = useAuth();
   const [credentials, setCredentials] = useState<LoginCredentials>({
     username: '',
     password: ''
@@ -195,7 +195,7 @@ const Login: React.FC = () => {
           expiresAt: response.expires_at
         });
       } else if (response.token) {
-        handleLoginSuccess(response.token);
+        await handleLoginSuccess(response.token);
       } else {
         setError(response.message || 'Login failed');
       }
@@ -206,16 +206,19 @@ const Login: React.FC = () => {
     }
   };
 
-  const handleMFASuccess = (token: string) => {
-    handleLoginSuccess(token);
+  const handleMFASuccess = async (token: string) => {
+    await handleLoginSuccess(token);
   };
 
-  const handleLoginSuccess = (token: string) => {
+  const handleLoginSuccess = async (token: string) => {
     if (rememberMe) {
       localStorage.setItem('rememberMe', 'true');
     }
+    // Clear any stale state from a previous session before setting new auth
+    setUserRole(null);
+    setUser(null);
     setAuth(true);
-    checkAuthStatus(); // This will fetch the user profile and set the role
+    await checkAuthStatus(); // Wait for user profile and role before navigating
     navigate('/dashboard', { replace: true });
   };
 
@@ -255,7 +258,7 @@ const Login: React.FC = () => {
         });
       } else if (response.success && response.token) {
         setLdapDialogOpen(false);
-        handleLoginSuccess(response.token);
+        await handleLoginSuccess(response.token);
       } else if (response.pending_approval) {
         setLdapDialogOpen(false);
         setError(t('errors.accountPendingApproval') as string);

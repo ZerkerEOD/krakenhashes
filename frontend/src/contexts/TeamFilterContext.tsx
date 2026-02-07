@@ -72,6 +72,7 @@ export const TeamFilterProvider: React.FC<{ children: ReactNode }> = ({ children
 
   useEffect(() => {
     loadTeamData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuth, user?.id]);
 
   // Save selected team to localStorage

@@ -14,7 +14,11 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 import { Client } from '../../types/client';
+import { Team } from '../../types/team';
 import { listClients, createClient, updateClient, deleteClient, getDefaultClientRetentionSetting } from '../../services/api';
+import { teamsService, adminTeamsService } from '../../services/teams';
+import { useTeamFilter } from '../../contexts/TeamFilterContext';
+import { useAuth } from '../../contexts/AuthContext';
 import ClientWordlistManagementDialog from '../../components/admin/ClientWordlistManagementDialog';
 
 export const AdminClients: React.FC = () => {
@@ -41,9 +45,13 @@ export const AdminClients: React.FC = () => {
     const [isDefaultRetentionLoading, setIsDefaultRetentionLoading] = useState(true);
     const [isWordlistDialogOpen, setIsWordlistDialogOpen] = useState<boolean>(false);
     const [wordlistClient, setWordlistClient] = useState<Client | null>(null);
+    const [selectedTeamId, setSelectedTeamId] = useState<string>('');
+    const [availableTeams, setAvailableTeams] = useState<Team[]>([]);
 
     const { enqueueSnackbar } = useSnackbar();
     const navigate = useNavigate();
+    const { teamsEnabled } = useTeamFilter();
+    const { userRole } = useAuth();
 
     const fetchClients = useCallback(async () => {
         setLoading(true);
@@ -182,9 +190,10 @@ export const AdminClients: React.FC = () => {
         },
     ];
     
-    const handleAddClick = () => {
+    const handleAddClick = async () => {
         setSelectedClient(null);
         setFormError(null);
+        setSelectedTeamId('');
         setClientFormData({
           name: '',
           description: '',
@@ -195,6 +204,18 @@ export const AdminClients: React.FC = () => {
           remove_from_global_potfile_on_hashlist_delete: null,
           remove_from_client_potfile_on_hashlist_delete: null
         });
+        // Load available teams when teams are enabled
+        if (teamsEnabled) {
+            try {
+                const teams = userRole === 'admin'
+                    ? await adminTeamsService.listAllTeams()
+                    : await teamsService.listUserTeams();
+                setAvailableTeams(teams || []);
+            } catch (err) {
+                console.error('Failed to load teams:', err);
+                setAvailableTeams([]);
+            }
+        }
         setIsAddEditDialogOpen(true);
     };
 
@@ -265,6 +286,12 @@ export const AdminClients: React.FC = () => {
             setIsSaving(false);
             return;
         }
+        // When creating and teams are enabled, require team selection
+        if (!selectedClient && teamsEnabled && !selectedTeamId) {
+            setFormError('Team selection is required when teams are enabled');
+            setIsSaving(false);
+            return;
+        }
         const retention = clientFormData.dataRetentionMonths;
         if (retention != null && (isNaN(retention) || retention < 0)) {
             setFormError(t('clients.validation.retentionInvalid') as string);
@@ -272,7 +299,7 @@ export const AdminClients: React.FC = () => {
             return;
         }
 
-        const payload: Partial<Client> = {
+        const payload: Record<string, any> = {
             name: clientFormData.name,
             description: clientFormData.description || undefined,
             contactInfo: clientFormData.contactInfo || undefined,
@@ -282,6 +309,11 @@ export const AdminClients: React.FC = () => {
             remove_from_global_potfile_on_hashlist_delete: clientFormData.remove_from_global_potfile_on_hashlist_delete,
             remove_from_client_potfile_on_hashlist_delete: clientFormData.remove_from_client_potfile_on_hashlist_delete
         };
+
+        // Include team_id when creating with teams enabled
+        if (!selectedClient && teamsEnabled && selectedTeamId) {
+            payload.team_id = selectedTeamId;
+        }
 
         try {
             if (selectedClient) {
@@ -375,6 +407,27 @@ export const AdminClients: React.FC = () => {
                         onChange={handleFormChange}
                         required
                     />
+                    {/* Team selection - only shown when creating a new client and teams are enabled */}
+                    {!selectedClient && teamsEnabled && (
+                        <FormControl fullWidth margin="dense" required>
+                            <InputLabel id="team-select-label">Assign to Team</InputLabel>
+                            <Select
+                                labelId="team-select-label"
+                                value={selectedTeamId}
+                                label="Assign to Team"
+                                onChange={(e) => setSelectedTeamId(e.target.value)}
+                            >
+                                {availableTeams.map((team) => (
+                                    <MenuItem key={team.id} value={team.id}>
+                                        {team.name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                            <Typography variant="caption" color="textSecondary" sx={{ mt: 0.5 }}>
+                                The new client will be assigned to this team. Existing client reassignment is managed via Admin Team Management.
+                            </Typography>
+                        </FormControl>
+                    )}
                     <TextField
                         margin="dense"
                         name="description"

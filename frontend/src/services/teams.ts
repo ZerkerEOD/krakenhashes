@@ -132,6 +132,12 @@ export const adminTeamsService = {
     return response.data;
   },
 
+  // Update team
+  async updateTeam(teamId: string, data: UpdateTeamRequest): Promise<Team> {
+    const response = await api.put<Team>(`${ADMIN_TEAMS_BASE}/${teamId}`, data);
+    return response.data;
+  },
+
   // Delete team
   async deleteTeam(teamId: string): Promise<void> {
     await api.delete(`${ADMIN_TEAMS_BASE}/${teamId}`);
