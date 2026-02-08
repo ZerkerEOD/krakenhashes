@@ -5,8 +5,11 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/middleware"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
@@ -63,8 +66,28 @@ func (h *VoucherHandler) GenerateVoucher(w http.ResponseWriter, r *http.Request)
 // ListVouchers handles listing all active vouchers
 func (h *VoucherHandler) ListVouchers(w http.ResponseWriter, r *http.Request) {
 	debug.Info("Listing active vouchers")
+	ctx := r.Context()
 
-	vouchers, err := h.service.ListVouchers(r.Context())
+	var vouchers []models.ClaimVoucher
+	var err error
+
+	// When teams enabled and not admin, only show vouchers created by this user
+	if middleware.IsTeamsEnabledFromContext(ctx) && !middleware.IsAdminFromContext(ctx) {
+		userIDStr, ok := ctx.Value("user_id").(string)
+		if !ok || userIDStr == "" {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		userUUID, parseErr := uuid.Parse(userIDStr)
+		if parseErr != nil {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		vouchers, err = h.service.ListVouchersByUser(ctx, userUUID)
+	} else {
+		vouchers, err = h.service.ListVouchers(ctx)
+	}
+
 	if err != nil {
 		debug.Error("failed to list vouchers: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -88,8 +111,32 @@ func (h *VoucherHandler) DeactivateVoucher(w http.ResponseWriter, r *http.Reques
 	}
 
 	debug.Info("Deactivating voucher: %s", code)
+	ctx := r.Context()
 
-	if err := h.service.DisableVoucher(r.Context(), code); err != nil {
+	// When teams enabled and not admin, verify the user owns this voucher
+	if middleware.IsTeamsEnabledFromContext(ctx) && !middleware.IsAdminFromContext(ctx) {
+		userIDStr, ok := ctx.Value("user_id").(string)
+		if !ok || userIDStr == "" {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		userUUID, parseErr := uuid.Parse(userIDStr)
+		if parseErr != nil {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		voucher, getErr := h.service.GetVoucher(ctx, code)
+		if getErr != nil {
+			http.Error(w, "Voucher not found", http.StatusNotFound)
+			return
+		}
+		if voucher.CreatedByID != userUUID {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+	}
+
+	if err := h.service.DisableVoucher(ctx, code); err != nil {
 		debug.Error("failed to disable voucher: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

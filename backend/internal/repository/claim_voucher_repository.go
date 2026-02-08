@@ -10,6 +10,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db/queries"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
+	"github.com/google/uuid"
 )
 
 // ClaimVoucherRepository handles database operations for claim vouchers
@@ -199,6 +200,73 @@ func (r *ClaimVoucherRepository) ListActive(ctx context.Context) ([]models.Claim
 		}
 
 		// Only set the used by agent if we have valid data
+		if agentID.Valid && agentName.Valid {
+			usedByAgent.ID = int(agentID.Int64)
+			usedByAgent.Name = agentName.String
+			usedByAgent.Status = agentStatus.String
+			voucher.UsedByAgent = &usedByAgent
+		}
+
+		vouchers = append(vouchers, voucher)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating claim vouchers: %w", err)
+	}
+
+	return vouchers, nil
+}
+
+// ListActiveByUser retrieves active claim vouchers created by a specific user
+func (r *ClaimVoucherRepository) ListActiveByUser(ctx context.Context, userID uuid.UUID) ([]models.ClaimVoucher, error) {
+	rows, err := r.db.QueryContext(ctx, queries.ListActiveVouchersByUser, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list active claim vouchers by user: %w", err)
+	}
+	defer rows.Close()
+
+	var vouchers []models.ClaimVoucher
+	for rows.Next() {
+		var voucher models.ClaimVoucher
+		var createdByUser models.User
+		var usedByAgent models.Agent
+		var usedByAgentID sql.NullInt64
+		var usedAt sql.NullTime
+		var createdByUsername, createdByEmail, createdByRole sql.NullString
+		var agentID sql.NullInt64
+		var agentName, agentStatus sql.NullString
+
+		err := rows.Scan(
+			&voucher.Code,
+			&voucher.IsActive,
+			&voucher.IsContinuous,
+			&voucher.CreatedByID,
+			&usedByAgentID,
+			&usedAt,
+			&voucher.CreatedAt,
+			&voucher.UpdatedAt,
+			&createdByUser.ID,
+			&createdByUsername,
+			&createdByEmail,
+			&createdByRole,
+			&agentID,
+			&agentName,
+			&agentStatus,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan claim voucher: %w", err)
+		}
+
+		voucher.UsedAt = usedAt
+		voucher.UsedByAgentID = usedByAgentID
+
+		if createdByUsername.Valid {
+			createdByUser.Username = createdByUsername.String
+			createdByUser.Email = createdByEmail.String
+			createdByUser.Role = createdByRole.String
+			voucher.CreatedBy = &createdByUser
+		}
+
 		if agentID.Valid && agentName.Valid {
 			usedByAgent.ID = int(agentID.Int64)
 			usedByAgent.Name = agentName.String

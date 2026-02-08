@@ -355,6 +355,12 @@ func (s *AgentService) ListAgents(ctx context.Context, filters map[string]interf
 	return s.agentRepo.List(ctx, filters)
 }
 
+// GetAgentsByOwner retrieves agents owned by a specific user
+func (s *AgentService) GetAgentsByOwner(ctx context.Context, ownerID uuid.UUID) ([]models.Agent, error) {
+	debug.Info("Listing agents for owner: %s", ownerID)
+	return s.agentRepo.GetByOwnerID(ctx, ownerID)
+}
+
 // DeleteAgent deletes an agent by ID
 func (s *AgentService) DeleteAgent(ctx context.Context, id int) error {
 	debug.Info("Deleting agent: %d", id)

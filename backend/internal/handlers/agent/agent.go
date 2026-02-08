@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/middleware"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
@@ -22,17 +24,36 @@ func NewAgentHandler(service *services.AgentService) *AgentHandler {
 // ListAgents handles listing all agents
 func (h *AgentHandler) ListAgents(w http.ResponseWriter, r *http.Request) {
 	debug.Info("Listing agents")
+	ctx := r.Context()
 
-	// Parse query parameters into filters
-	filters := make(map[string]interface{})
-	if status := r.URL.Query().Get("status"); status != "" {
-		filters["status"] = status
-	}
-	if team := r.URL.Query().Get("team"); team != "" {
-		filters["team"] = team
+	var agents interface{}
+	var err error
+
+	// When teams enabled and user is not admin, only show agents they own
+	if middleware.IsTeamsEnabledFromContext(ctx) && !middleware.IsAdminFromContext(ctx) {
+		userIDStr, ok := ctx.Value("user_id").(string)
+		if !ok || userIDStr == "" {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		userUUID, parseErr := uuid.Parse(userIDStr)
+		if parseErr != nil {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		agents, err = h.service.GetAgentsByOwner(ctx, userUUID)
+	} else {
+		// Parse query parameters into filters
+		filters := make(map[string]interface{})
+		if status := r.URL.Query().Get("status"); status != "" {
+			filters["status"] = status
+		}
+		if team := r.URL.Query().Get("team"); team != "" {
+			filters["team"] = team
+		}
+		agents, err = h.service.ListAgents(ctx, filters)
 	}
 
-	agents, err := h.service.ListAgents(r.Context(), filters)
 	if err != nil {
 		debug.Error("failed to list agents: %v", err)
 		http.Error(w, "Failed to list agents", http.StatusInternalServerError)
@@ -74,6 +95,12 @@ func (h *AgentHandler) GetAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check ownership
+	if err := checkAgentOwnership(r.Context(), agent.OwnerID); err != nil {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
 	// Send response
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(agent)
@@ -91,6 +118,22 @@ func (h *AgentHandler) DeleteAgent(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
 		http.Error(w, "Invalid agent ID", http.StatusBadRequest)
+		return
+	}
+
+	// Check ownership before deleting
+	agent, err := h.service.GetAgent(r.Context(), id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Agent not found", http.StatusNotFound)
+			return
+		}
+		debug.Error("Failed to get agent %d: %v", id, err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	if err := checkAgentOwnership(r.Context(), agent.OwnerID); err != nil {
+		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
@@ -161,6 +204,23 @@ func (h *AgentHandler) GetAgentDevices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check ownership
+	if middleware.IsTeamsEnabledFromContext(r.Context()) && !middleware.IsAdminFromContext(r.Context()) {
+		agent, err := h.service.GetAgent(r.Context(), agentID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				http.Error(w, "Agent not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+		if err := checkAgentOwnership(r.Context(), agent.OwnerID); err != nil {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+	}
+
 	// Get devices for agent
 	devices, err := h.service.GetAgentDevices(agentID)
 	if err != nil {
@@ -193,6 +253,23 @@ func (h *AgentHandler) UpdateDeviceStatus(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		http.Error(w, "Invalid device ID", http.StatusBadRequest)
 		return
+	}
+
+	// Check ownership
+	if middleware.IsTeamsEnabledFromContext(r.Context()) && !middleware.IsAdminFromContext(r.Context()) {
+		agent, err := h.service.GetAgent(r.Context(), agentID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				http.Error(w, "Agent not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+		if err := checkAgentOwnership(r.Context(), agent.OwnerID); err != nil {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
 	}
 
 	// Parse request body
@@ -239,6 +316,23 @@ func (h *AgentHandler) UpdateDeviceRuntime(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		http.Error(w, "Invalid device ID", http.StatusBadRequest)
 		return
+	}
+
+	// Check ownership
+	if middleware.IsTeamsEnabledFromContext(r.Context()) && !middleware.IsAdminFromContext(r.Context()) {
+		agent, err := h.service.GetAgent(r.Context(), agentID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				http.Error(w, "Agent not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+		if err := checkAgentOwnership(r.Context(), agent.OwnerID); err != nil {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
 	}
 
 	// Parse request body
@@ -297,6 +391,12 @@ func (h *AgentHandler) GetAgentWithDevices(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Check ownership
+	if err := checkAgentOwnership(r.Context(), agent.OwnerID); err != nil {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
 	// Get devices
 	devices, err := h.service.GetAgentDevices(agentID)
 	if err != nil {
@@ -322,7 +422,7 @@ func (h *AgentHandler) GetAgentWithDevices(w http.ResponseWriter, r *http.Reques
 // GetAgentMetrics retrieves performance metrics for an agent
 func (h *AgentHandler) GetAgentMetrics(w http.ResponseWriter, r *http.Request) {
 	debug.Info("Getting agent metrics")
-	
+
 	// Parse agent ID from URL
 	vars := mux.Vars(r)
 	agentID, err := strconv.Atoi(vars["id"])
@@ -330,18 +430,35 @@ func (h *AgentHandler) GetAgentMetrics(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid agent ID", http.StatusBadRequest)
 		return
 	}
-	
+
+	// Check ownership
+	if middleware.IsTeamsEnabledFromContext(r.Context()) && !middleware.IsAdminFromContext(r.Context()) {
+		agent, err := h.service.GetAgent(r.Context(), agentID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				http.Error(w, "Agent not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+		if err := checkAgentOwnership(r.Context(), agent.OwnerID); err != nil {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+	}
+
 	// Parse query parameters
 	timeRange := r.URL.Query().Get("timeRange")
 	if timeRange == "" {
 		timeRange = "1h" // Default to 1 hour
 	}
-	
+
 	metricsParam := r.URL.Query().Get("metrics")
 	if metricsParam == "" {
 		metricsParam = "temperature,utilization,fanspeed,hashrate"
 	}
-	
+
 	// Get metrics from service
 	metrics, err := h.service.GetAgentDeviceMetrics(r.Context(), agentID, timeRange, metricsParam)
 	if err != nil {
@@ -349,7 +466,7 @@ func (h *AgentHandler) GetAgentMetrics(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to get agent metrics", http.StatusInternalServerError)
 		return
 	}
-	
+
 	// Send response
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(metrics); err != nil {
@@ -366,12 +483,31 @@ func (h *AgentHandler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ctx := r.Context()
+
 	// Parse agent ID from URL
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
 		http.Error(w, "Invalid agent ID", http.StatusBadRequest)
 		return
+	}
+
+	// Check ownership before allowing update
+	if middleware.IsTeamsEnabledFromContext(ctx) && !middleware.IsAdminFromContext(ctx) {
+		agent, err := h.service.GetAgent(ctx, id)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				http.Error(w, "Agent not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+		if err := checkAgentOwnership(ctx, agent.OwnerID); err != nil {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
 	}
 
 	// Parse request body
@@ -386,6 +522,12 @@ func (h *AgentHandler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Non-admins cannot change agent ownership when teams are enabled
+	if middleware.IsTeamsEnabledFromContext(ctx) && !middleware.IsAdminFromContext(ctx) {
+		// Ignore any OwnerID change attempt by non-admins — keep current owner
+		req.OwnerID = nil
+	}
+
 	// Default to "default" if not specified
 	binaryVersion := req.BinaryVersion
 	if binaryVersion == "" {
@@ -393,7 +535,7 @@ func (h *AgentHandler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update agent
-	if err := h.service.UpdateAgent(r.Context(), id, req.IsEnabled, req.OwnerID, req.ExtraParameters, binaryVersion); err != nil {
+	if err := h.service.UpdateAgent(ctx, id, req.IsEnabled, req.OwnerID, req.ExtraParameters, binaryVersion); err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, "Agent not found", http.StatusNotFound)
 			return
@@ -454,6 +596,23 @@ func (h *AgentHandler) ClearBusyStatus(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "Invalid agent ID", http.StatusBadRequest)
 		return
+	}
+
+	// Check ownership
+	if middleware.IsTeamsEnabledFromContext(r.Context()) && !middleware.IsAdminFromContext(r.Context()) {
+		agent, err := h.service.GetAgent(r.Context(), id)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				http.Error(w, "Agent not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+		if err := checkAgentOwnership(r.Context(), agent.OwnerID); err != nil {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
 	}
 
 	debug.Info("Clearing busy status for agent %d", id)

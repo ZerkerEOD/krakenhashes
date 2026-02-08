@@ -48,6 +48,8 @@ import {
 } from '@mui/icons-material';
 import { api } from '../services/api';
 import { formatDistanceToNow } from 'date-fns';
+import { useAuth } from '../contexts/AuthContext';
+import { useTeamFilter } from '../contexts/TeamFilterContext';
 import DeviceMetricsChart from '../components/agent/DeviceMetricsChart';
 import BinaryVersionSelector from '../components/common/BinaryVersionSelector';
 import AgentScheduling from '../components/agent/AgentScheduling';
@@ -115,6 +117,9 @@ const AgentDetails: React.FC = () => {
   const { t } = useTranslation('agents');
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { userRole } = useAuth();
+  const { teamsEnabled } = useTeamFilter();
+  const canChangeOwner = !teamsEnabled || userRole === 'admin';
   const [agent, setAgent] = useState<Agent | null>(null);
   const [devices, setDevices] = useState<AgentDevice[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -152,8 +157,10 @@ const AgentDetails: React.FC = () => {
 
   useEffect(() => {
     fetchAgentDetails();
-    fetchUsers();
-  }, [id]);
+    if (canChangeOwner) {
+      fetchUsers();
+    }
+  }, [id, canChangeOwner]);
   
   // Fetch device metrics periodically
   useEffect(() => {
@@ -608,23 +615,32 @@ const AgentDetails: React.FC = () => {
               </Grid>
 
               <Grid item xs={12}>
-                <FormControl fullWidth>
-                  <InputLabel>{t('fields.owner') as string}</InputLabel>
-                  <Select
-                    value={ownerId}
-                    onChange={(e) => handleOwnerChange(e.target.value)}
-                    label={t('fields.owner') as string}
-                  >
-                    <MenuItem value="">
-                      <em>{t('common.none') as string}</em>
-                    </MenuItem>
-                    {users.map((user) => (
-                      <MenuItem key={user.id} value={user.id}>
-                        {user.username}
+                {canChangeOwner ? (
+                  <FormControl fullWidth>
+                    <InputLabel>{t('fields.owner') as string}</InputLabel>
+                    <Select
+                      value={ownerId}
+                      onChange={(e) => handleOwnerChange(e.target.value)}
+                      label={t('fields.owner') as string}
+                    >
+                      <MenuItem value="">
+                        <em>{t('common.none') as string}</em>
                       </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                      {users.map((user) => (
+                        <MenuItem key={user.id} value={user.id}>
+                          {user.username}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                ) : (
+                  <>
+                    <Typography variant="body2" color="text.secondary">{t('fields.owner') as string}</Typography>
+                    <Typography variant="body1">
+                      {agent?.createdBy?.username || t('common.none') as string}
+                    </Typography>
+                  </>
+                )}
               </Grid>
             </Grid>
           </Paper>

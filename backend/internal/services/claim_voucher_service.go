@@ -105,6 +105,20 @@ func (s *ClaimVoucherService) ListVouchers(ctx context.Context) ([]models.ClaimV
 	return vouchers, nil
 }
 
+// ListVouchersByUser retrieves active vouchers created by a specific user
+func (s *ClaimVoucherService) ListVouchersByUser(ctx context.Context, userID uuid.UUID) ([]models.ClaimVoucher, error) {
+	vouchers, err := s.repo.ListActiveByUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Format codes for display
+	for i := range vouchers {
+		vouchers[i].Code = formatClaimCode(vouchers[i].Code)
+	}
+	return vouchers, nil
+}
+
 // DisableVoucher disables a claim voucher
 func (s *ClaimVoucherService) DisableVoucher(ctx context.Context, code string) error {
 	// Normalize code before disabling

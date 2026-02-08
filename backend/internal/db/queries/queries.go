@@ -200,7 +200,7 @@ const (
 		WHERE v.code = $1`
 
 	ListActiveVouchers = `
-		SELECT 
+		SELECT
 			v.code, v.is_active, v.is_continuous,
 			v.created_by_id, v.used_by_agent_id, v.used_at, v.created_at, v.updated_at,
 			u1.id, u1.username, u1.email, u1.role,
@@ -209,6 +209,18 @@ const (
 		LEFT JOIN users u1 ON v.created_by_id = u1.id
 		LEFT JOIN agents a ON v.used_by_agent_id = a.id
 		WHERE v.is_active = true
+		ORDER BY v.created_at DESC`
+
+	ListActiveVouchersByUser = `
+		SELECT
+			v.code, v.is_active, v.is_continuous,
+			v.created_by_id, v.used_by_agent_id, v.used_at, v.created_at, v.updated_at,
+			u1.id, u1.username, u1.email, u1.role,
+			a.id, a.name, a.status
+		FROM claim_vouchers v
+		LEFT JOIN users u1 ON v.created_by_id = u1.id
+		LEFT JOIN agents a ON v.used_by_agent_id = a.id
+		WHERE v.is_active = true AND v.created_by_id = $1
 		ORDER BY v.created_at DESC`
 
 	UseClaimVoucherByAgent = `
