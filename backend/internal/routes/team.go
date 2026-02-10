@@ -18,6 +18,10 @@ func SetupTeamRoutes(jwtRouter *mux.Router, teamService *services.TeamService, d
 	// Create handler
 	handler := teamapi.NewTeamHandler(teamService)
 
+	// Literal path routes MUST be registered before parameterized routes
+	// (gorilla/mux is first-match-wins, so /teams/{id} would capture "names")
+	jwtRouter.HandleFunc("/teams/names", handler.ListAllTeamNames).Methods(http.MethodGet, http.MethodOptions)
+
 	// Team routes (authenticated users)
 	jwtRouter.HandleFunc("/teams", handler.ListUserTeams).Methods(http.MethodGet, http.MethodOptions)
 	jwtRouter.HandleFunc("/teams", handler.CreateTeam).Methods(http.MethodPost, http.MethodOptions)
@@ -32,6 +36,11 @@ func SetupTeamRoutes(jwtRouter *mux.Router, teamService *services.TeamService, d
 	jwtRouter.HandleFunc("/teams/{id}/members/{userId}", handler.UpdateMemberRole).Methods(http.MethodPut, http.MethodOptions)
 	jwtRouter.HandleFunc("/teams/{id}/clients/{clientId}", handler.AssignClient).Methods(http.MethodPost, http.MethodOptions)
 	jwtRouter.HandleFunc("/teams/{id}/clients/{clientId}", handler.RemoveClient).Methods(http.MethodDelete, http.MethodOptions)
+
+	// Team trust management (team admins manage own team's trust; system admins manage any)
+	jwtRouter.HandleFunc("/teams/{id}/trust", handler.ListTrustedTeams).Methods(http.MethodGet, http.MethodOptions)
+	jwtRouter.HandleFunc("/teams/{id}/trust/{trustedTeamId}", handler.AddTrust).Methods(http.MethodPost, http.MethodOptions)
+	jwtRouter.HandleFunc("/teams/{id}/trust/{trustedTeamId}", handler.RemoveTrust).Methods(http.MethodDelete, http.MethodOptions)
 
 	// User search for adding members
 	jwtRouter.HandleFunc("/users/search", handler.SearchUsers).Methods(http.MethodGet, http.MethodOptions)

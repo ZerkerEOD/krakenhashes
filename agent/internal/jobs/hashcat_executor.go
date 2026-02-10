@@ -364,7 +364,7 @@ func (e *HashcatExecutor) executeTaskInternal(ctx context.Context, assignment *J
 
 	// Create outfile directory if not exists
 	outfileDir := filepath.Join(e.dataDirectory, "outfile")
-	if err := os.MkdirAll(outfileDir, 0755); err != nil {
+	if err := os.MkdirAll(outfileDir, 0700); err != nil {
 		cancel()
 		return nil, fmt.Errorf("failed to create outfile directory: %w", err)
 	}
@@ -527,7 +527,7 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 	if !isBenchmark {
 		// Add outfile for reliable crack capture
 		outfileDir := filepath.Join(e.dataDirectory, "outfile")
-		if err := os.MkdirAll(outfileDir, 0755); err != nil {
+		if err := os.MkdirAll(outfileDir, 0700); err != nil {
 			return nil, "", "", "", fmt.Errorf("failed to create outfile directory: %w", err)
 		}
 

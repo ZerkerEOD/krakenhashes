@@ -38,6 +38,7 @@ type TeamResponse struct {
 	MemberCount   int    `json:"member_count"`
 	ClientCount   int    `json:"client_count"`
 	HashlistCount int    `json:"hashlist_count"`
+	AgentCount    int    `json:"agent_count"`
 	CreatedAt     string `json:"created_at"`
 	UpdatedAt     string `json:"updated_at"`
 }
@@ -190,6 +191,7 @@ func (h *Handler) ListUserTeams(w http.ResponseWriter, r *http.Request) {
 			MemberCount:   t.MemberCount,
 			ClientCount:   t.ClientCount,
 			HashlistCount: t.HashlistCount,
+			AgentCount:    t.AgentCount,
 			CreatedAt:     t.CreatedAt.Format(time.RFC3339),
 			UpdatedAt:     t.UpdatedAt.Format(time.RFC3339),
 		}
@@ -559,6 +561,134 @@ func (h *Handler) GetTeamsEnabled(w http.ResponseWriter, r *http.Request) {
 	enabled := h.teamService.IsTeamsEnabled(ctx)
 
 	respondWithJSON(w, http.StatusOK, map[string]bool{"teams_enabled": enabled})
+}
+
+// =============================================================================
+// Team Agent Trust Management
+// =============================================================================
+
+// TrustResponse represents a trust relationship for API responses
+type TrustResponse struct {
+	TeamID        string `json:"team_id"`
+	TrustedTeamID string `json:"trusted_team_id"`
+	TrustedName   string `json:"trusted_name,omitempty"`
+	CreatedAt     string `json:"created_at"`
+}
+
+// ListTrustedTeams returns teams that a team trusts
+// GET /api/teams/{id}/trust
+func (h *Handler) ListTrustedTeams(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	teamIDStr := mux.Vars(r)["id"]
+	teamID, err := uuid.Parse(teamIDStr)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid team ID")
+		return
+	}
+
+	trusts, err := h.teamService.GetTrustedTeams(ctx, teamID)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Build response with team names
+	allNames, _ := h.teamService.ListAllTeamNames(ctx)
+	nameMap := make(map[string]string, len(allNames))
+	for _, t := range allNames {
+		nameMap[t.ID.String()] = t.Name
+	}
+
+	response := make([]TrustResponse, 0, len(trusts))
+	for _, t := range trusts {
+		response = append(response, TrustResponse{
+			TeamID:        t.TeamID.String(),
+			TrustedTeamID: t.TrustedTeamID.String(),
+			TrustedName:   nameMap[t.TrustedTeamID.String()],
+			CreatedAt:     t.CreatedAt.Format(time.RFC3339),
+		})
+	}
+
+	respondWithJSON(w, http.StatusOK, response)
+}
+
+// AddTrust adds a trust relationship
+// POST /api/teams/{id}/trust/{trustedTeamId}
+func (h *Handler) AddTrust(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	teamIDStr := vars["id"]
+	teamID, err := uuid.Parse(teamIDStr)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid team ID")
+		return
+	}
+
+	trustedIDStr := vars["trustedTeamId"]
+	trustedTeamID, err := uuid.Parse(trustedIDStr)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid trusted team ID")
+		return
+	}
+
+	actingUserID, _ := middleware.GetUserIDFromContext(ctx)
+	isSystemAdmin := middleware.IsAdminFromContext(ctx)
+
+	err = h.teamService.AddTeamTrust(ctx, teamID, trustedTeamID, actingUserID, isSystemAdmin)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	respondWithJSON(w, http.StatusCreated, map[string]string{"message": "Trust relationship added"})
+}
+
+// RemoveTrust removes a trust relationship
+// DELETE /api/teams/{id}/trust/{trustedTeamId}
+func (h *Handler) RemoveTrust(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	teamIDStr := vars["id"]
+	teamID, err := uuid.Parse(teamIDStr)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid team ID")
+		return
+	}
+
+	trustedIDStr := vars["trustedTeamId"]
+	trustedTeamID, err := uuid.Parse(trustedIDStr)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid trusted team ID")
+		return
+	}
+
+	actingUserID, _ := middleware.GetUserIDFromContext(ctx)
+	isSystemAdmin := middleware.IsAdminFromContext(ctx)
+
+	err = h.teamService.RemoveTeamTrust(ctx, teamID, trustedTeamID, actingUserID, isSystemAdmin)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ListAllTeamNames returns a lightweight list of all teams (for trust picker UI)
+// GET /api/teams/names
+func (h *Handler) ListAllTeamNames(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	teams, err := h.teamService.ListAllTeamNames(ctx)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, teams)
 }
 
 // =============================================================================

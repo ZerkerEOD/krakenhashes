@@ -23,6 +23,9 @@ test_*.txt
 .cursorrules
 .cursor/
 
+# Claude Code
+.claude/
+
 # Frontend specific
 # Node.js dependencies and build artifacts
 node_modules/

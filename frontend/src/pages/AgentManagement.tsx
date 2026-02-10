@@ -67,6 +67,7 @@ export default function AgentManagement() {
   const [claimVouchers, setClaimVouchers] = useState<ClaimVoucher[]>([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [isContinuous, setIsContinuous] = useState(false);
+  const [isSystemVoucher, setIsSystemVoucher] = useState(false);
   const [claimCode, setClaimCode] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -130,7 +131,8 @@ export default function AgentManagement() {
     try {
       setError(null);
       const response = await api.post<{ code: string }>('/api/vouchers/temp', {
-        isContinuous: isContinuous
+        isContinuous: isContinuous,
+        isSystem: isSystemVoucher,
       });
       setClaimCode(response.data.code);
       await fetchData(); // Refresh the vouchers list
@@ -262,10 +264,16 @@ export default function AgentManagement() {
                     <TableCell>{voucher.created_by?.username || (t('common.unknown') as string)}</TableCell>
                     <TableCell>{new Date(voucher.created_at).toLocaleString()}</TableCell>
                     <TableCell>
-                      <Chip
-                        label={voucher.is_continuous ? (t('vouchers.continuous') as string) : (t('vouchers.singleUse') as string)}
-                        color={voucher.is_continuous ? "primary" : "default"}
-                      />
+                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                        <Chip
+                          label={voucher.is_continuous ? (t('vouchers.continuous') as string) : (t('vouchers.singleUse') as string)}
+                          color={voucher.is_continuous ? "primary" : "default"}
+                          size="small"
+                        />
+                        {voucher.created_by_id === '00000000-0000-0000-0000-000000000000' && (
+                          <Chip label="System" color="secondary" size="small" />
+                        )}
+                      </Box>
                     </TableCell>
                     <TableCell>
                       <IconButton
@@ -330,7 +338,13 @@ export default function AgentManagement() {
                         size="small"
                       />
                     </TableCell>
-                    <TableCell>{agent.createdBy?.username || (t('common.unknown') as string)}</TableCell>
+                    <TableCell>
+                      {(agent as any).isSystemAgent ? (
+                        <Chip label="System" color="secondary" size="small" />
+                      ) : (
+                        agent.createdBy?.username || (t('common.unknown') as string)
+                      )}
+                    </TableCell>
                     <TableCell>{agent.version}</TableCell>
                     <TableCell>
                       {agentDevices[agent.id]?.length > 0 ? (
@@ -438,15 +452,26 @@ export default function AgentManagement() {
           <DialogContent>
             <Box sx={{ pt: 2 }}>
               {!claimCode && (
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={isContinuous}
-                      onChange={(e) => setIsContinuous(e.target.checked)}
-                    />
-                  }
-                  label={t('dialogs.register.continuousLabel') as string}
-                />
+                <>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={isContinuous}
+                        onChange={(e) => setIsContinuous(e.target.checked)}
+                      />
+                    }
+                    label={t('dialogs.register.continuousLabel') as string}
+                  />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={isSystemVoucher}
+                        onChange={(e) => setIsSystemVoucher(e.target.checked)}
+                      />
+                    }
+                    label="System Agent (serves all teams)"
+                  />
+                </>
               )}
               {claimCode && (
                 <Box sx={{ mt: 2, textAlign: 'center' }}>
@@ -468,6 +493,7 @@ export default function AgentManagement() {
               setOpenDialog(false);
               setClaimCode('');
               setIsContinuous(false);
+              setIsSystemVoucher(false);
               setError(null);
             }}>
               {t('buttons.close') as string}

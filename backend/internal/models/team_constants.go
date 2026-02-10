@@ -2,6 +2,10 @@ package models
 
 import "github.com/google/uuid"
 
+// SystemUserID is the well-known UUID for the system user (uuid.Nil)
+// Agents owned by the system user are universal and can serve all teams
+var SystemUserID = uuid.MustParse("00000000-0000-0000-0000-000000000000")
+
 // DefaultTeamID is the well-known UUID for the system Default Team
 // This team is used for backwards compatibility and orphan handling
 var DefaultTeamID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
@@ -17,3 +21,8 @@ const (
 
 // SystemSettingTeamsEnabled is the key for the teams feature toggle
 const SystemSettingTeamsEnabled = "teams_enabled"
+
+// IsSystemOwned returns true if the given ownerID points to the system user
+func IsSystemOwned(ownerID *uuid.UUID) bool {
+	return ownerID != nil && *ownerID == SystemUserID
+}

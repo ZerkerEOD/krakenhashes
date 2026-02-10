@@ -1,13 +1,38 @@
 package queries
 
-// Team queries - User membership
-const (
+// agentCountSubquery counts agents accessible to a team via all resolution paths:
+// 1. Explicit agent_teams (admin_override_teams=true)
+// 2. Owner-inherited via user_teams (admin_override_teams=false)
+// 3. System agents (owner=system user) → Default Team
+// 4. Ownerless agents → Default Team
+// Used as a correlated subquery where `t` is the outer teams table alias.
+const agentCountSubquery = `(SELECT COUNT(DISTINCT sub.id) FROM (
+			SELECT a.id FROM agent_teams at2
+			JOIN agents a ON a.id = at2.agent_id AND a.admin_override_teams = true
+			WHERE at2.team_id = t.id
+			UNION
+			SELECT a.id FROM agents a
+			JOIN user_teams ut2 ON a.owner_id = ut2.user_id AND a.admin_override_teams = false
+			WHERE ut2.team_id = t.id
+			UNION
+			SELECT a.id FROM agents a
+			WHERE a.owner_id = '00000000-0000-0000-0000-000000000000'
+			AND t.id = '00000000-0000-0000-0000-000000000001'
+			UNION
+			SELECT a.id FROM agents a
+			WHERE a.owner_id IS NULL
+			AND t.id = '00000000-0000-0000-0000-000000000001'
+		) sub)`
+
+// Team queries that include agent counts (require string concatenation, so must be var)
+var (
 	// Get all teams for a specific user with counts
 	GetTeamsForUser = `
 		SELECT t.id, t.name, t.description, t.created_at, t.updated_at, ut.role,
 			(SELECT COUNT(*) FROM user_teams WHERE team_id = t.id) AS member_count,
 			(SELECT COUNT(*) FROM client_teams WHERE team_id = t.id) AS client_count,
-			(SELECT COUNT(*) FROM hashlists h INNER JOIN client_teams ct ON h.client_id = ct.client_id WHERE ct.team_id = t.id) AS hashlist_count
+			(SELECT COUNT(*) FROM hashlists h INNER JOIN client_teams ct ON h.client_id = ct.client_id WHERE ct.team_id = t.id) AS hashlist_count,
+			` + agentCountSubquery + ` AS agent_count
 		FROM teams t
 		INNER JOIN user_teams ut ON t.id = ut.team_id
 		WHERE ut.user_id = $1
@@ -18,10 +43,21 @@ const (
 		SELECT t.id, t.name, t.description, t.created_at, t.updated_at,
 			(SELECT COUNT(*) FROM user_teams WHERE team_id = t.id) AS member_count,
 			(SELECT COUNT(*) FROM client_teams WHERE team_id = t.id) AS client_count,
-			(SELECT COUNT(*) FROM hashlists h INNER JOIN client_teams ct ON h.client_id = ct.client_id WHERE ct.team_id = t.id) AS hashlist_count
+			(SELECT COUNT(*) FROM hashlists h INNER JOIN client_teams ct ON h.client_id = ct.client_id WHERE ct.team_id = t.id) AS hashlist_count,
+			` + agentCountSubquery + ` AS agent_count
 		FROM teams t
 		ORDER BY t.name ASC`
 
+	// Get all team names with agent counts (for trust picker UI)
+	GetAllTeamNamesWithAgentCounts = `
+		SELECT t.id, t.name,
+			` + agentCountSubquery + ` AS agent_count
+		FROM teams t
+		ORDER BY t.name ASC`
+)
+
+// Team queries - User membership
+const (
 	// Get team IDs only for a user (faster for access checks)
 	GetUserTeamIDs = `
 		SELECT team_id

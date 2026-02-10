@@ -695,7 +695,7 @@ func (fs *FileSync) DownloadFileWithInfoRetry(ctx context.Context, fileInfo *Fil
 		fileInfo.Name, finalPath, retryCount+1, fs.maxRetries+1)
 
 	// Create temporary file
-	tempFile, err := os.OpenFile(tempPath, os.O_CREATE|os.O_WRONLY, 0640)
+	tempFile, err := os.OpenFile(tempPath, os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		debug.Error("Failed to create temporary file %s: %v", tempPath, err)
 		return fs.retryOrFailInfo(ctx, fileInfo, retryCount,
@@ -835,6 +835,14 @@ func (fs *FileSync) DownloadFileWithInfoRetry(ctx context.Context, fileInfo *Fil
 		debug.Error("Failed to move file from %s to %s: %v", tempPath, finalPath, err)
 		return fs.retryOrFailInfo(ctx, fileInfo, retryCount,
 			fmt.Errorf("failed to move temporary file: %w", err))
+	}
+
+	// Harden permissions for sensitive file types (owner-only read/write)
+	switch fileInfo.FileType {
+	case "hashlist", "client_potfile", "client_wordlist":
+		if err := os.Chmod(finalPath, 0600); err != nil {
+			debug.Warning("Failed to set restricted permissions on %s: %v", finalPath, err)
+		}
 	}
 
 	// For binary files, extract if it's a 7z archive

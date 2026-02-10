@@ -32,6 +32,7 @@ type TeamResponse struct {
 	MemberCount   int    `json:"member_count"`
 	ClientCount   int    `json:"client_count"`
 	HashlistCount int    `json:"hashlist_count"`
+	AgentCount    int    `json:"agent_count"`
 	CreatedAt     string `json:"created_at"`
 	UpdatedAt     string `json:"updated_at"`
 }
@@ -58,6 +59,7 @@ func (h *AdminHandler) ListAllTeams(w http.ResponseWriter, r *http.Request) {
 			MemberCount:   t.MemberCount,
 			ClientCount:   t.ClientCount,
 			HashlistCount: t.HashlistCount,
+			AgentCount:    t.AgentCount,
 			CreatedAt:     t.CreatedAt.Format(time.RFC3339),
 			UpdatedAt:     t.UpdatedAt.Format(time.RFC3339),
 		}

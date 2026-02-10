@@ -18,6 +18,7 @@ type GenerateVoucherRequest struct {
 	UserID       string `json:"userId"`
 	ExpiresIn    int64  `json:"expiresIn"` // Duration in seconds
 	IsContinuous bool   `json:"isContinuous"`
+	IsSystem     bool   `json:"isSystem"` // When true, creates a system agent voucher (admin only)
 }
 
 type VoucherHandler struct {
@@ -48,8 +49,14 @@ func (h *VoucherHandler) GenerateVoucher(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Only admins can create system vouchers
+	if req.IsSystem && !middleware.IsAdminFromContext(r.Context()) {
+		http.Error(w, "Only admins can create system agent vouchers", http.StatusForbidden)
+		return
+	}
+
 	// Create voucher
-	voucher, err := h.service.CreateTempVoucher(r.Context(), userID, time.Duration(req.ExpiresIn)*time.Second, req.IsContinuous)
+	voucher, err := h.service.CreateTempVoucher(r.Context(), userID, time.Duration(req.ExpiresIn)*time.Second, req.IsContinuous, req.IsSystem)
 	if err != nil {
 		debug.Error("failed to create voucher: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

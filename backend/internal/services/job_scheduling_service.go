@@ -749,6 +749,13 @@ func (s *JobSchedulingService) distributeOverflowAgentsWithCompatibility(
 // Called at the start of ScheduleJobs, BEFORE CalculateAgentAllocation.
 // Returns a filtered agent list containing only agents that have team access to
 // at least one of the provided jobs.
+//
+// Trust model (all agents go through same logic, including system agents):
+//  1. Agent teams ∩ any job team ≠ ∅ → ALLOW (direct match)
+//  2. For each job team T: if T trusts any of agent's teams → ALLOW (trust match)
+//  3. Otherwise → DENY
+//
+// System agents belong to Default Team. Teams must trust Default Team to use them.
 func (s *JobSchedulingService) filterAgentsByTeamAccess(
 	ctx context.Context,
 	agents []models.Agent,
@@ -788,21 +795,58 @@ func (s *JobSchedulingService) filterAgentsByTeamAccess(
 		}
 	}
 
-	// Filter: keep only agents that have at least one team in common with any job
+	// Bulk-load trust relationships for efficient lookup
+	trustMap, err := s.teamService.GetAllTrustRelationships(ctx)
+	if err != nil {
+		debug.Warning("Failed to load trust relationships: %v", err)
+		trustMap = make(map[uuid.UUID][]uuid.UUID) // Continue without trust on error
+	}
+
+	// Filter agents using trust model — all agents (including system) go through same logic
 	var filteredAgents []models.Agent
 	for _, agent := range agents {
 		agentTeams := agentTeamMap[agent.ID]
+		if len(agentTeams) == 0 {
+			continue // Agent had an error loading teams or has no teams, skip
+		}
+
+		// Build set of agent's teams for fast lookup
+		agentTeamSet := make(map[uuid.UUID]struct{}, len(agentTeams))
 		for _, t := range agentTeams {
-			if _, exists := allJobTeamIDs[t]; exists {
-				filteredAgents = append(filteredAgents, agent)
+			agentTeamSet[t] = struct{}{}
+		}
+
+		canAccess := false
+
+		for jobTeamID := range allJobTeamIDs {
+			// Rule 1: Direct match — agent is in same team as job
+			if _, exists := agentTeamSet[jobTeamID]; exists {
+				canAccess = true
 				break
 			}
+
+			// Rule 2: Trust match — job's team trusts one of agent's teams
+			trustedTeams := trustMap[jobTeamID]
+			for _, trustedID := range trustedTeams {
+				if _, exists := agentTeamSet[trustedID]; exists {
+					canAccess = true
+					break
+				}
+			}
+			if canAccess {
+				break
+			}
+		}
+
+		if canAccess {
+			filteredAgents = append(filteredAgents, agent)
 		}
 	}
 
 	debug.Log("Team-based agent filtering complete", map[string]interface{}{
 		"original_agents": len(agents),
 		"filtered_agents": len(filteredAgents),
+		"trust_rules":     len(trustMap),
 	})
 
 	return filteredAgents, nil

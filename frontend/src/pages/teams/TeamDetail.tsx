@@ -31,10 +31,11 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import LinkIcon from '@mui/icons-material/Link';
+import SecurityIcon from '@mui/icons-material/Security';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
-import { Team, TeamMember, TeamRole, UserSearchResult } from '../../types/team';
+import { Team, TeamMember, TeamRole, UserSearchResult, TeamAgentTrust, TeamNameOnly } from '../../types/team';
 import { Client } from '../../types/client';
 import { teamsService } from '../../services/teams';
 import { listClients } from '../../services/api';
@@ -80,26 +81,35 @@ export const TeamDetail: React.FC = () => {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [loadingClients, setLoadingClients] = useState(false);
 
+  // Trust management state
+  const [trustedTeams, setTrustedTeams] = useState<TeamAgentTrust[]>([]);
+  const [allTeamNames, setAllTeamNames] = useState<TeamNameOnly[]>([]);
+  const [addTrustOpen, setAddTrustOpen] = useState(false);
+  const [selectedTrustTeam, setSelectedTrustTeam] = useState<TeamNameOnly | null>(null);
+
   // Permission checks
   const isTeamAdmin = team?.user_role === 'admin';
   const isSystemAdmin = userRole === 'admin';
   const canManageMembers = isTeamAdmin || isSystemAdmin;
   const canManageClients = isSystemAdmin;
   const canEditTeam = isTeamAdmin || isSystemAdmin;
+  const canManageTrust = isTeamAdmin || isSystemAdmin;
 
   const loadTeamData = async () => {
     if (!teamId) return;
 
     try {
       setLoading(true);
-      const [teamData, membersData, clientsData] = await Promise.all([
+      const [teamData, membersData, clientsData, trustData] = await Promise.all([
         teamsService.getTeam(teamId),
         teamsService.getTeamMembers(teamId),
         teamsService.getTeamClients(teamId),
+        teamsService.getTrustedTeams(teamId).catch(() => []),
       ]);
       setTeam(teamData);
       setMembers(membersData || []);
       setClients(clientsData || []);
+      setTrustedTeams(trustData || []);
     } catch (error) {
       console.error('Failed to load team data:', error);
       enqueueSnackbar('Failed to load team data', { variant: 'error' });
@@ -256,6 +266,49 @@ export const TeamDetail: React.FC = () => {
     }
   };
 
+  // Trust management handlers
+  const handleAddTrustOpen = async () => {
+    setAddTrustOpen(true);
+    setSelectedTrustTeam(null);
+    try {
+      const names = await teamsService.listAllTeamNames();
+      // Filter out current team and already trusted teams
+      const trustedIds = new Set(trustedTeams.map(t => t.trusted_team_id));
+      setAllTeamNames(names.filter(t => t.id !== teamId && !trustedIds.has(t.id)));
+    } catch (error) {
+      console.error('Failed to load team names:', error);
+      enqueueSnackbar('Failed to load team names', { variant: 'error' });
+    }
+  };
+
+  const handleAddTrust = async () => {
+    if (!teamId || !selectedTrustTeam) return;
+
+    try {
+      await teamsService.addTrust(teamId, selectedTrustTeam.id);
+      setAddTrustOpen(false);
+      setSelectedTrustTeam(null);
+      await loadTeamData();
+      enqueueSnackbar('Trust relationship added', { variant: 'success' });
+    } catch (error) {
+      console.error('Failed to add trust:', error);
+      enqueueSnackbar('Failed to add trust relationship', { variant: 'error' });
+    }
+  };
+
+  const handleRemoveTrust = async (trustedTeamId: string) => {
+    if (!teamId || !window.confirm('Remove this trust relationship? Agents from this team will no longer be able to run your jobs.')) return;
+
+    try {
+      await teamsService.removeTrust(teamId, trustedTeamId);
+      await loadTeamData();
+      enqueueSnackbar('Trust relationship removed', { variant: 'success' });
+    } catch (error) {
+      console.error('Failed to remove trust:', error);
+      enqueueSnackbar('Failed to remove trust relationship', { variant: 'error' });
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -301,6 +354,7 @@ export const TeamDetail: React.FC = () => {
         <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
           <Tab label={`Members (${members.length})`} />
           <Tab label={`Clients (${clients.length})`} />
+          <Tab label={`Trusted Teams (${trustedTeams.length})`} />
         </Tabs>
       </Box>
 
@@ -435,6 +489,64 @@ export const TeamDetail: React.FC = () => {
         </TableContainer>
       </TabPanel>
 
+      {/* Trusted Teams Tab */}
+      <TabPanel value={tabValue} index={2}>
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Trusting another team allows their agents to run your team's jobs. This is a one-way relationship
+          &mdash; trusting Team B does not give your agents access to Team B's jobs.
+        </Alert>
+        {canManageTrust && (
+          <Box sx={{ mb: 2 }}>
+            <Button
+              variant="contained"
+              startIcon={<SecurityIcon />}
+              onClick={handleAddTrustOpen}
+            >
+              Add Trust
+            </Button>
+          </Box>
+        )}
+
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Trusted Team</TableCell>
+                <TableCell>Trusted Since</TableCell>
+                {canManageTrust && <TableCell align="right">Actions</TableCell>}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {trustedTeams.map((trust) => (
+                <TableRow key={trust.trusted_team_id}>
+                  <TableCell>{trust.trusted_name || trust.trusted_team_id}</TableCell>
+                  <TableCell>{new Date(trust.created_at).toLocaleDateString()}</TableCell>
+                  {canManageTrust && (
+                    <TableCell align="right">
+                      <IconButton
+                        color="error"
+                        onClick={() => handleRemoveTrust(trust.trusted_team_id)}
+                        size="small"
+                        title="Remove trust"
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+              {trustedTeams.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={canManageTrust ? 3 : 2} align="center">
+                    No trusted teams. Only system agents and this team's own agents can run jobs.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </TabPanel>
+
       {/* Edit Team Dialog */}
       <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Edit Team</DialogTitle>
@@ -503,6 +615,37 @@ export const TeamDetail: React.FC = () => {
           <Button onClick={() => setAddMemberOpen(false)}>Cancel</Button>
           <Button onClick={handleAddMember} variant="contained" disabled={!selectedUser}>
             Add Member
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add Trust Dialog */}
+      <Dialog open={addTrustOpen} onClose={() => setAddTrustOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add Trusted Team</DialogTitle>
+        <DialogContent>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Agents owned by members of the trusted team will be allowed to run this team's jobs.
+          </Alert>
+          <Autocomplete
+            options={allTeamNames}
+            getOptionLabel={(option) => `${option.name} (${option.agent_count} agent${option.agent_count !== 1 ? 's' : ''})`}
+            value={selectedTrustTeam}
+            onChange={(_, value) => setSelectedTrustTeam(value)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Select team to trust"
+                margin="dense"
+                placeholder="Search teams..."
+              />
+            )}
+            noOptionsText="No teams available"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAddTrustOpen(false)}>Cancel</Button>
+          <Button onClick={handleAddTrust} variant="contained" disabled={!selectedTrustTeam}>
+            Add Trust
           </Button>
         </DialogActions>
       </Dialog>

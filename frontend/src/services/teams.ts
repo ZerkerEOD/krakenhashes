@@ -8,6 +8,8 @@ import {
   UpdateMemberRoleRequest,
   UserSearchResult,
   TeamsEnabledResponse,
+  TeamAgentTrust,
+  TeamNameOnly,
 } from '../types/team';
 import { Client } from '../types/client';
 
@@ -112,6 +114,32 @@ export const teamsService = {
       params: { q: query, team_id: teamId },
     });
     return response.data;
+  },
+
+  // =============================================================================
+  // Trust Management
+  // =============================================================================
+
+  // List all team names (lightweight, for trust picker UI)
+  async listAllTeamNames(): Promise<TeamNameOnly[]> {
+    const response = await api.get<TeamNameOnly[]>(`${TEAMS_BASE}/names`);
+    return response.data;
+  },
+
+  // Get trusted teams for a team
+  async getTrustedTeams(teamId: string): Promise<TeamAgentTrust[]> {
+    const response = await api.get<TeamAgentTrust[]>(`${TEAMS_BASE}/${teamId}/trust`);
+    return response.data;
+  },
+
+  // Add trust relationship
+  async addTrust(teamId: string, trustedTeamId: string): Promise<void> {
+    await api.post(`${TEAMS_BASE}/${teamId}/trust/${trustedTeamId}`);
+  },
+
+  // Remove trust relationship
+  async removeTrust(teamId: string, trustedTeamId: string): Promise<void> {
+    await api.delete(`${TEAMS_BASE}/${teamId}/trust/${trustedTeamId}`);
   },
 };
 

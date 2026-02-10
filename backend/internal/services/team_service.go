@@ -23,6 +23,7 @@ type TeamService struct {
 	jobRepo            *repository.JobExecutionRepository
 	agentRepo          *repository.AgentRepository
 	systemSettingsRepo *repository.SystemSettingsRepository
+	trustRepo          *repository.TeamAgentTrustRepository
 
 	// Cache for teams_enabled setting (refreshed periodically)
 	teamsEnabledCache     bool
@@ -40,6 +41,7 @@ func NewTeamService(
 	jobRepo *repository.JobExecutionRepository,
 	agentRepo *repository.AgentRepository,
 	systemSettingsRepo *repository.SystemSettingsRepository,
+	trustRepo *repository.TeamAgentTrustRepository,
 ) *TeamService {
 	return &TeamService{
 		db:                 database,
@@ -49,6 +51,7 @@ func NewTeamService(
 		jobRepo:            jobRepo,
 		agentRepo:          agentRepo,
 		systemSettingsRepo: systemSettingsRepo,
+		trustRepo:          trustRepo,
 		cacheTTL:           5 * time.Second, // Cache teams_enabled for 5 seconds
 	}
 }
@@ -634,15 +637,21 @@ func (s *TeamService) GetClientsForTeam(ctx context.Context, teamID uuid.UUID) (
 // Agent Team Resolution
 // =============================================================================
 
-// GetAgentEffectiveTeams returns the teams an agent can work with
-// If admin_override_teams is true, uses explicit agent_teams entries
-// Otherwise, inherits from agent owner's teams
+// GetAgentEffectiveTeams returns the teams an agent can work with.
+// System agents belong to Default Team — teams must trust Default Team to use them.
+// If admin_override_teams is true, uses explicit agent_teams entries.
+// Otherwise, inherits from agent owner's teams.
 // Note: Agent.ID is int, not uuid.UUID
 func (s *TeamService) GetAgentEffectiveTeams(ctx context.Context, agentID int) ([]uuid.UUID, error) {
 	// Get the agent
 	agent, err := s.agentRepo.GetByID(ctx, agentID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent: %w", err)
+	}
+
+	// System agents belong to Default Team — teams opt-in via trust
+	if agent.IsSystemAgent() {
+		return []uuid.UUID{models.DefaultTeamID}, nil
 	}
 
 	// Check if using explicit team assignments
@@ -721,4 +730,59 @@ func hasIntersection(a, b []uuid.UUID) bool {
 		}
 	}
 	return false
+}
+
+// =============================================================================
+// Team Agent Trust Management
+// =============================================================================
+
+// AddTeamTrust creates a trust relationship: teamID trusts trustedTeamID's agents.
+// Only team admins of teamID or system admins can manage trust.
+func (s *TeamService) AddTeamTrust(ctx context.Context, teamID, trustedTeamID, actingUserID uuid.UUID, isAdmin bool) error {
+	if teamID == trustedTeamID {
+		return fmt.Errorf("a team cannot trust itself")
+	}
+
+	if !isAdmin {
+		isTeamAdmin, err := s.IsUserTeamAdmin(ctx, actingUserID, teamID)
+		if err != nil {
+			return fmt.Errorf("failed to check team admin status: %w", err)
+		}
+		if !isTeamAdmin {
+			return fmt.Errorf("user is not authorized to manage trust for this team")
+		}
+	}
+
+	return s.trustRepo.AddTrust(ctx, teamID, trustedTeamID, actingUserID)
+}
+
+// RemoveTeamTrust removes a trust relationship.
+// Only team admins of teamID or system admins can manage trust.
+func (s *TeamService) RemoveTeamTrust(ctx context.Context, teamID, trustedTeamID, actingUserID uuid.UUID, isAdmin bool) error {
+	if !isAdmin {
+		isTeamAdmin, err := s.IsUserTeamAdmin(ctx, actingUserID, teamID)
+		if err != nil {
+			return fmt.Errorf("failed to check team admin status: %w", err)
+		}
+		if !isTeamAdmin {
+			return fmt.Errorf("user is not authorized to manage trust for this team")
+		}
+	}
+
+	return s.trustRepo.RemoveTrust(ctx, teamID, trustedTeamID)
+}
+
+// GetTrustedTeams returns the trust relationships for a team (for UI display)
+func (s *TeamService) GetTrustedTeams(ctx context.Context, teamID uuid.UUID) ([]models.TeamAgentTrust, error) {
+	return s.trustRepo.GetTrustForTeam(ctx, teamID)
+}
+
+// GetAllTrustRelationships bulk-loads all trust relationships (for scheduler)
+func (s *TeamService) GetAllTrustRelationships(ctx context.Context) (map[uuid.UUID][]uuid.UUID, error) {
+	return s.trustRepo.GetAllTrustRelationships(ctx)
+}
+
+// ListAllTeamNames returns a lightweight list of all team names (for trust picker UI)
+func (s *TeamService) ListAllTeamNames(ctx context.Context) ([]models.TeamNameOnly, error) {
+	return s.teamRepo.ListAllTeamNames(ctx)
 }

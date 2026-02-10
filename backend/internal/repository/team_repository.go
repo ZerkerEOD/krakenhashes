@@ -309,6 +309,7 @@ type TeamWithRole struct {
 	MemberCount   int    `json:"member_count"`
 	ClientCount   int    `json:"client_count"`
 	HashlistCount int    `json:"hashlist_count"`
+	AgentCount    int    `json:"agent_count"`
 }
 
 // TeamMember represents a user's membership in a team
@@ -341,6 +342,7 @@ func (r *TeamRepository) GetTeamsForUser(ctx context.Context, userID uuid.UUID) 
 			&t.MemberCount,
 			&t.ClientCount,
 			&t.HashlistCount,
+			&t.AgentCount,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan team row: %w", err)
@@ -375,6 +377,7 @@ func (r *TeamRepository) ListAllWithCounts(ctx context.Context) ([]TeamWithRole,
 			&t.MemberCount,
 			&t.ClientCount,
 			&t.HashlistCount,
+			&t.AgentCount,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan team row: %w", err)
@@ -689,4 +692,28 @@ func (r *TeamRepository) SetUserTeamRoleTx(ctx context.Context, tx *sql.Tx, user
 		return models.ErrNotTeamMember
 	}
 	return nil
+}
+
+// ListAllTeamNames returns a lightweight list of all team names with agent counts (for trust picker UI)
+func (r *TeamRepository) ListAllTeamNames(ctx context.Context) ([]models.TeamNameOnly, error) {
+	rows, err := r.db.QueryContext(ctx, queries.GetAllTeamNamesWithAgentCounts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query team names: %w", err)
+	}
+	defer rows.Close()
+
+	var teams []models.TeamNameOnly
+	for rows.Next() {
+		var t models.TeamNameOnly
+		if err := rows.Scan(&t.ID, &t.Name, &t.AgentCount); err != nil {
+			return nil, fmt.Errorf("failed to scan team name: %w", err)
+		}
+		teams = append(teams, t)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating team name rows: %w", err)
+	}
+
+	return teams, nil
 }

@@ -412,7 +412,7 @@ func (jm *JobManager) ensureHashlist(ctx context.Context, assignment *JobTaskAss
 	debug.Info("Expected local path: %s", localPath)
 
 	// Create directory if needed
-	if err := os.MkdirAll(filepath.Dir(localPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(localPath), 0700); err != nil {
 		return fmt.Errorf("failed to create hashlist directory: %w", err)
 	}
 
@@ -514,7 +514,7 @@ func (jm *JobManager) ensureRuleChunks(ctx context.Context, assignment *JobTaskA
 		
 		// Create directory structure if needed
 		localDir := filepath.Dir(localPath)
-		if err := os.MkdirAll(localDir, 0755); err != nil {
+		if err := os.MkdirAll(localDir, 0700); err != nil {
 			debug.Error("Failed to create rule chunk directory %s: %v", localDir, err)
 			return fmt.Errorf("failed to create rule chunk directory: %w", err)
 		}
@@ -580,7 +580,7 @@ func (jm *JobManager) ensureAssociationFiles(ctx context.Context, assignment *Jo
 	debug.Info("Ensuring association wordlist is available: %s", assocWordlistPath)
 
 	// Create directory if needed
-	if err := os.MkdirAll(filepath.Dir(localPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(localPath), 0700); err != nil {
 		return fmt.Errorf("failed to create directory for association wordlist: %w", err)
 	}
 
@@ -644,6 +644,67 @@ func (jm *JobManager) cleanupAssociationFiles(assignment *JobTaskAssignment) {
 	}
 }
 
+// cleanupSensitiveFiles removes sensitive team data immediately after task completion.
+// This minimizes the exposure window of hashlists, client potfiles, and client wordlists
+// on agents that may serve multiple teams.
+func (jm *JobManager) cleanupSensitiveFiles(assignment *JobTaskAssignment) {
+	deleted := 0
+
+	// Remove hashlist file
+	if assignment.HashlistPath != "" {
+		localPath := filepath.Join(jm.config.DataDirectory, assignment.HashlistPath)
+		if err := os.Remove(localPath); err != nil && !os.IsNotExist(err) {
+			debug.Warning("Failed to remove hashlist file %s: %v", localPath, err)
+		} else if err == nil {
+			debug.Debug("Removed sensitive hashlist: %s", localPath)
+			deleted++
+		}
+	}
+
+	// Remove original hashlist (mode 9 association attacks)
+	if assignment.OriginalHashlistPath != "" {
+		localPath := filepath.Join(jm.config.DataDirectory, assignment.OriginalHashlistPath)
+		if err := os.Remove(localPath); err != nil && !os.IsNotExist(err) {
+			debug.Warning("Failed to remove original hashlist file %s: %v", localPath, err)
+		} else if err == nil {
+			debug.Debug("Removed sensitive original hashlist: %s", localPath)
+			deleted++
+		}
+	}
+
+	// Remove client potfile
+	if assignment.ClientPotfilePath != "" {
+		localPath := filepath.Join(jm.config.DataDirectory, assignment.ClientPotfilePath)
+		if err := os.Remove(localPath); err != nil && !os.IsNotExist(err) {
+			debug.Warning("Failed to remove client potfile %s: %v", localPath, err)
+		} else if err == nil {
+			debug.Debug("Removed sensitive client potfile: %s", localPath)
+			deleted++
+		}
+		// Try to remove empty client directory
+		clientDir := filepath.Dir(localPath)
+		os.Remove(clientDir) // Ignore error — only succeeds if empty
+	}
+
+	// Remove client wordlists
+	for _, wordlistPath := range assignment.ClientWordlistPaths {
+		localPath := filepath.Join(jm.config.DataDirectory, wordlistPath)
+		if err := os.Remove(localPath); err != nil && !os.IsNotExist(err) {
+			debug.Warning("Failed to remove client wordlist %s: %v", localPath, err)
+		} else if err == nil {
+			debug.Debug("Removed sensitive client wordlist: %s", localPath)
+			deleted++
+		}
+		// Try to remove empty client directory
+		clientDir := filepath.Dir(localPath)
+		os.Remove(clientDir) // Ignore error — only succeeds if empty
+	}
+
+	if deleted > 0 {
+		debug.Info("Post-task cleanup: removed %d sensitive files", deleted)
+	}
+}
+
 // ensureClientPotfile downloads the client potfile if specified
 // Client potfiles are wordlists of previously cracked passwords for dictionary attacks
 func (jm *JobManager) ensureClientPotfile(ctx context.Context, assignment *JobTaskAssignment) error {
@@ -663,7 +724,7 @@ func (jm *JobManager) ensureClientPotfile(ctx context.Context, assignment *JobTa
 	debug.Info("Ensuring client potfile is available: %s (client: %s)", assignment.ClientPotfilePath, assignment.ClientID)
 
 	// Create directory if needed
-	if err := os.MkdirAll(filepath.Dir(localPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(localPath), 0700); err != nil {
 		return fmt.Errorf("failed to create directory for client potfile: %w", err)
 	}
 
@@ -721,14 +782,16 @@ func (jm *JobManager) ensureClientWordlists(ctx context.Context, assignment *Job
 		localPath := filepath.Join(jm.config.DataDirectory, wordlistPath)
 
 		// Create directory if needed
-		if err := os.MkdirAll(filepath.Dir(localPath), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(localPath), 0700); err != nil {
 			return fmt.Errorf("failed to create directory for client wordlist: %w", err)
 		}
 
-		// Check if already exists
+		// Always re-download to ensure fresh copy (matching hashlist/potfile pattern)
 		if _, err := os.Stat(localPath); err == nil {
-			debug.Info("Client wordlist already exists: %s", localPath)
-			continue
+			debug.Info("Removing existing client wordlist to download fresh copy: %s", localPath)
+			if err := os.Remove(localPath); err != nil {
+				debug.Warning("Failed to remove existing client wordlist (will overwrite): %v", err)
+			}
 		}
 
 		// Get the wordlist ID for this path
@@ -822,6 +885,9 @@ func (jm *JobManager) cleanupCompletedTask(jobExecution *JobExecution, finalStat
 
 		// Clean up association attack files after task completion
 		jm.cleanupAssociationFiles(exec.Assignment)
+
+		// Clean up sensitive files immediately after task completion
+		jm.cleanupSensitiveFiles(exec.Assignment)
 	}
 
 	// Remove from activeJobs - this MUST happen synchronously before logging

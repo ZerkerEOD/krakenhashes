@@ -104,6 +104,11 @@ type Agent struct {
 	AdminOverrideTeams  bool              `json:"adminOverrideTeams"`   // When TRUE, uses explicit agent_teams; when FALSE, inherits from owner teams
 }
 
+// IsSystemAgent returns true if the agent is owned by the system user (universal agent)
+func (a *Agent) IsSystemAgent() bool {
+	return IsSystemOwned(a.OwnerID)
+}
+
 // Hardware represents the hardware configuration of an agent
 type Hardware struct {
 	CPUs              []CPU              `json:"cpus"`
@@ -193,6 +198,7 @@ func (a Agent) MarshalJSON() ([]byte, error) {
 		OwnerID             *uuid.UUID        `json:"ownerId,omitempty"`
 		ExtraParameters     string            `json:"extraParameters"`
 		IsEnabled           bool              `json:"isEnabled"`
+		IsSystemAgent       bool              `json:"isSystemAgent"`
 		ConsecutiveFailures int               `json:"consecutiveFailures"`
 		SchedulingEnabled   bool              `json:"schedulingEnabled"`
 		ScheduleTimezone    string            `json:"scheduleTimezone"`
@@ -225,6 +231,7 @@ func (a Agent) MarshalJSON() ([]byte, error) {
 		OwnerID:             a.OwnerID,
 		ExtraParameters:     a.ExtraParameters,
 		IsEnabled:           a.IsEnabled,
+		IsSystemAgent:       a.IsSystemAgent(),
 		ConsecutiveFailures: a.ConsecutiveFailures,
 		SchedulingEnabled:   a.SchedulingEnabled,
 		ScheduleTimezone:    a.ScheduleTimezone,

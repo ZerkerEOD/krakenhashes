@@ -175,6 +175,7 @@ export const TeamList: React.FC = () => {
                 <TableCell>Members</TableCell>
                 <TableCell>Clients</TableCell>
                 <TableCell>Hashlists</TableCell>
+                <TableCell>Agents</TableCell>
                 <TableCell>Created</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
@@ -187,6 +188,7 @@ export const TeamList: React.FC = () => {
                   <TableCell>{team.member_count || 0}</TableCell>
                   <TableCell>{team.client_count || 0}</TableCell>
                   <TableCell>{team.hashlist_count || 0}</TableCell>
+                  <TableCell>{team.agent_count || 0}</TableCell>
                   <TableCell>{new Date(team.created_at).toLocaleDateString()}</TableCell>
                   <TableCell align="right">
                     <IconButton
@@ -218,7 +220,7 @@ export const TeamList: React.FC = () => {
               ))}
               {teams.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} align="center">
+                  <TableCell colSpan={8} align="center">
                     No teams found
                   </TableCell>
                 </TableRow>
@@ -249,6 +251,8 @@ export const TeamList: React.FC = () => {
                     {team.client_count || 0} client{(team.client_count || 0) !== 1 ? 's' : ''}
                     {' \u00B7 '}
                     {team.hashlist_count || 0} hashlist{(team.hashlist_count || 0) !== 1 ? 's' : ''}
+                    {' \u00B7 '}
+                    {team.agent_count || 0} agent{(team.agent_count || 0) !== 1 ? 's' : ''}
                   </Typography>
                 </CardContent>
                 <CardActions>

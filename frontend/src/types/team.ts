@@ -9,6 +9,7 @@ export interface Team {
   member_count?: number;
   client_count?: number;
   hashlist_count?: number;
+  agent_count?: number;
   created_at: string;
   updated_at: string;
 }
@@ -62,4 +63,18 @@ export interface UserSearchResult {
 
 export interface TeamsEnabledResponse {
   teams_enabled: boolean;
+}
+
+// Trust relationship types
+export interface TeamAgentTrust {
+  team_id: string;
+  trusted_team_id: string;
+  trusted_name?: string;
+  created_at: string;
+}
+
+export interface TeamNameOnly {
+  id: string;
+  name: string;
+  agent_count: number;
 }

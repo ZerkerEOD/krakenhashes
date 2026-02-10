@@ -195,9 +195,10 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	workflowService := services.NewAdminJobWorkflowService(sqlDB, workflowRepo, presetJobRepo) // Pass db, workflowRepo, presetJobRepo
 	debug.Info("Initialized AdminPresetJobService and AdminJobWorkflowService")
 
-	// Initialize TeamService for multi-team functionality
-	teamService := services.NewTeamService(database, teamRepo, clientTeamRepo, hashlistRepo, jobExecutionRepo, agentRepo, systemSettingsRepo)
-	debug.Info("Initialized TeamService")
+	// Initialize trust repository and TeamService for multi-team functionality
+	trustRepo := repository.NewTeamAgentTrustRepository(database)
+	teamService := services.NewTeamService(database, teamRepo, clientTeamRepo, hashlistRepo, jobExecutionRepo, agentRepo, systemSettingsRepo, trustRepo)
+	debug.Info("Initialized TeamService with trust repository")
 
 	// Initialize Handler for new admin job routes
 	adminJobsHandler := NewAdminJobsHandler(presetJobService, workflowService)

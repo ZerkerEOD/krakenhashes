@@ -66,7 +66,7 @@ func (h *AgentHandler) GenerateVoucher(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create the voucher
-	voucher, err := h.voucherService.CreateTempVoucher(r.Context(), userID.String(), time.Duration(req.ExpiresIn)*time.Second, req.IsContinuous)
+	voucher, err := h.voucherService.CreateTempVoucher(r.Context(), userID.String(), time.Duration(req.ExpiresIn)*time.Second, req.IsContinuous, false)
 	if err != nil {
 		sendAPIError(w, "Failed to generate voucher", "VOUCHER_GENERATION_FAILED", http.StatusInternalServerError)
 		return
