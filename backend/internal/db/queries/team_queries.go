@@ -56,6 +56,32 @@ var (
 		ORDER BY t.name ASC`
 )
 
+// GetAgentsForTeam retrieves agents accessible to a specific team via all resolution paths.
+// Uses the same 4-path UNION as agentCountSubquery but returns full rows.
+// Parameterized with $1 (team ID) instead of correlated t.id.
+const GetAgentsForTeam = `
+	SELECT DISTINCT a.id, a.name, a.status, a.version, a.owner_id, COALESCE(u.username, '') AS owner_username
+	FROM (
+		SELECT a2.id FROM agent_teams at2
+		JOIN agents a2 ON a2.id = at2.agent_id AND a2.admin_override_teams = true
+		WHERE at2.team_id = $1
+		UNION
+		SELECT a2.id FROM agents a2
+		JOIN user_teams ut2 ON a2.owner_id = ut2.user_id AND a2.admin_override_teams = false
+		WHERE ut2.team_id = $1
+		UNION
+		SELECT a2.id FROM agents a2
+		WHERE a2.owner_id = '00000000-0000-0000-0000-000000000000'
+		AND $1 = '00000000-0000-0000-0000-000000000001'
+		UNION
+		SELECT a2.id FROM agents a2
+		WHERE a2.owner_id IS NULL
+		AND $1 = '00000000-0000-0000-0000-000000000001'
+	) sub
+	JOIN agents a ON a.id = sub.id
+	LEFT JOIN users u ON a.owner_id = u.id
+	ORDER BY a.name ASC`
+
 // Team queries - User membership
 const (
 	// Get team IDs only for a user (faster for access checks)

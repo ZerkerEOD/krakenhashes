@@ -10,6 +10,7 @@ import {
   TeamsEnabledResponse,
   TeamAgentTrust,
   TeamNameOnly,
+  TeamAgent,
 } from '../types/team';
 import { Client } from '../types/client';
 
@@ -90,6 +91,16 @@ export const teamsService = {
   // Remove client from team
   async removeClient(teamId: string, clientId: string): Promise<void> {
     await api.delete(`${TEAMS_BASE}/${teamId}/clients/${clientId}`);
+  },
+
+  // =============================================================================
+  // Agent Visibility
+  // =============================================================================
+
+  // Get agents accessible to a team (direct + trusted)
+  async getTeamAgents(teamId: string): Promise<TeamAgent[]> {
+    const response = await api.get<TeamAgent[]>(`${TEAMS_BASE}/${teamId}/agents`);
+    return response.data;
   },
 
   // =============================================================================

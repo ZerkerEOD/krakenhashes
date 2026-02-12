@@ -488,7 +488,7 @@ func (s *TeamService) RemoveUserFromTeam(ctx context.Context, teamID, targetUser
 
 	if targetRole == models.TeamRoleAdmin {
 		// Count admins with FOR UPDATE lock to prevent race condition
-		// Query: SELECT COUNT(*) FROM user_teams WHERE team_id = $1 AND role = 'admin' FOR UPDATE
+		// Locks admin rows via subquery, then counts
 		adminCount, err := s.teamRepo.CountTeamAdminsTx(ctx, tx, teamID)
 		if err != nil {
 			return fmt.Errorf("failed to count team admins: %w", err)
@@ -594,6 +594,27 @@ func (s *TeamService) AssignClientToTeam(ctx context.Context, clientID, teamID, 
 	return s.clientTeamRepo.AssignClientToTeam(ctx, clientID, teamID, &actingUserID)
 }
 
+// BulkAssignClientsToTeam assigns multiple clients to a single team.
+// Returns counts of newly assigned and already-assigned clients.
+func (s *TeamService) BulkAssignClientsToTeam(ctx context.Context, clientIDs []uuid.UUID, teamID, actingUserID uuid.UUID, isSystemAdmin bool) (assigned int, alreadyAssigned int, err error) {
+	if !isSystemAdmin {
+		return 0, 0, fmt.Errorf("only system administrators can bulk assign clients to teams")
+	}
+
+	for _, clientID := range clientIDs {
+		wasNew, assignErr := s.clientTeamRepo.AssignClientToTeamWithResult(ctx, clientID, teamID, &actingUserID)
+		if assignErr != nil {
+			return assigned, alreadyAssigned, fmt.Errorf("failed to assign client %s to team: %w", clientID, assignErr)
+		}
+		if wasNew {
+			assigned++
+		} else {
+			alreadyAssigned++
+		}
+	}
+	return assigned, alreadyAssigned, nil
+}
+
 // RemoveClientFromTeam removes a client from a team
 // Only system admins can remove clients from teams (prevents privilege escalation)
 // If this is the client's only team, it will be reassigned to Default Team
@@ -669,7 +690,11 @@ func (s *TeamService) GetAgentEffectiveTeams(ctx context.Context, agentID int) (
 	return []uuid.UUID{models.DefaultTeamID}, nil
 }
 
-// CanAgentAccessJob checks if an agent can work on a job based on team access
+// CanAgentAccessJob checks if an agent can work on a job based on team access.
+// Applies the same two-rule trust model as filterAgentsByTeamAccess in the scheduler:
+//  1. Direct match — agent is in the same team as the job
+//  2. Trust match — a job's team trusts one of the agent's teams
+//
 // Note: Agent.ID is int, not uuid.UUID
 func (s *TeamService) CanAgentAccessJob(ctx context.Context, agentID int, jobID uuid.UUID) (bool, error) {
 	// If teams not enabled, any agent can work on any job
@@ -689,8 +714,30 @@ func (s *TeamService) CanAgentAccessJob(ctx context.Context, agentID int, jobID 
 		return false, err
 	}
 
-	// Check for intersection
-	return hasIntersection(jobTeamIDs, agentTeamIDs), nil
+	// Rule 1: Direct match — agent is in same team as job
+	if hasIntersection(jobTeamIDs, agentTeamIDs) {
+		return true, nil
+	}
+
+	// Rule 2: Trust match — job's team trusts one of agent's teams
+	agentTeamSet := make(map[uuid.UUID]struct{}, len(agentTeamIDs))
+	for _, t := range agentTeamIDs {
+		agentTeamSet[t] = struct{}{}
+	}
+
+	for _, jobTeamID := range jobTeamIDs {
+		trustedTeamIDs, trustErr := s.trustRepo.GetTrustedTeamIDs(ctx, jobTeamID)
+		if trustErr != nil {
+			return false, fmt.Errorf("failed to get trust relationships for team %s: %w", jobTeamID, trustErr)
+		}
+		for _, trustedID := range trustedTeamIDs {
+			if _, exists := agentTeamSet[trustedID]; exists {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
 }
 
 // GetJobTeamIDs returns the team IDs associated with a job
@@ -785,4 +832,78 @@ func (s *TeamService) GetAllTrustRelationships(ctx context.Context) (map[uuid.UU
 // ListAllTeamNames returns a lightweight list of all team names (for trust picker UI)
 func (s *TeamService) ListAllTeamNames(ctx context.Context) ([]models.TeamNameOnly, error) {
 	return s.teamRepo.ListAllTeamNames(ctx)
+}
+
+// TeamAgentInfo represents an agent accessible to a team, with source info
+type TeamAgentInfo struct {
+	ID             int    `json:"id"`
+	Name           string `json:"name"`
+	Status         string `json:"status"`
+	Version        string `json:"version"`
+	OwnerUsername  string `json:"owner_username,omitempty"`
+	Source         string `json:"source"`                        // "direct" or "trusted"
+	SourceTeamName string `json:"source_team_name,omitempty"`
+}
+
+// GetTeamAgents returns all agents accessible to a team, including trusted team agents
+func (s *TeamService) GetTeamAgents(ctx context.Context, teamID uuid.UUID) ([]TeamAgentInfo, error) {
+	// Get direct agents (owned by team members or explicitly assigned)
+	directAgents, err := s.agentRepo.GetAgentsForTeam(ctx, teamID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get direct agents for team: %w", err)
+	}
+
+	// Track seen agent IDs to deduplicate (direct takes priority)
+	seen := make(map[int]struct{}, len(directAgents))
+	var result []TeamAgentInfo
+
+	for _, a := range directAgents {
+		seen[a.ID] = struct{}{}
+		result = append(result, TeamAgentInfo{
+			ID:            a.ID,
+			Name:          a.Name,
+			Status:        a.Status,
+			Version:       a.Version,
+			OwnerUsername: a.OwnerUsername,
+			Source:        "direct",
+		})
+	}
+
+	// Get trusted teams and their agents
+	trustedTeamIDs, err := s.trustRepo.GetTrustedTeamIDs(ctx, teamID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get trusted team IDs: %w", err)
+	}
+
+	for _, trustedID := range trustedTeamIDs {
+		trustedAgents, agentErr := s.agentRepo.GetAgentsForTeam(ctx, trustedID)
+		if agentErr != nil {
+			continue // Skip teams that fail, don't block the whole response
+		}
+
+		// Resolve team name for display
+		var teamName string
+		team, teamErr := s.teamRepo.GetByID(ctx, trustedID)
+		if teamErr == nil {
+			teamName = team.Name
+		}
+
+		for _, a := range trustedAgents {
+			if _, exists := seen[a.ID]; exists {
+				continue // Already listed as direct agent
+			}
+			seen[a.ID] = struct{}{}
+			result = append(result, TeamAgentInfo{
+				ID:             a.ID,
+				Name:           a.Name,
+				Status:         a.Status,
+				Version:        a.Version,
+				OwnerUsername:  a.OwnerUsername,
+				Source:         "trusted",
+				SourceTeamName: teamName,
+			})
+		}
+	}
+
+	return result, nil
 }

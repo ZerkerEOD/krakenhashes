@@ -29,6 +29,7 @@ func SetupTeamRoutes(jwtRouter *mux.Router, teamService *services.TeamService, d
 	jwtRouter.HandleFunc("/teams/{id}", handler.UpdateTeam).Methods(http.MethodPut, http.MethodOptions)
 	jwtRouter.HandleFunc("/teams/{id}/members", handler.ListMembers).Methods(http.MethodGet, http.MethodOptions)
 	jwtRouter.HandleFunc("/teams/{id}/clients", handler.ListTeamClients).Methods(http.MethodGet, http.MethodOptions)
+	jwtRouter.HandleFunc("/teams/{id}/agents", handler.ListTeamAgents).Methods(http.MethodGet, http.MethodOptions)
 
 	// Team manager operations (require team admin role - enforced by service layer)
 	jwtRouter.HandleFunc("/teams/{id}/members", handler.AddMember).Methods(http.MethodPost, http.MethodOptions)

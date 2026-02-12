@@ -86,3 +86,57 @@ LEFT JOIN (
 ) aw ON aw.client_id = c.id
 ORDER BY c.name ASC
 `
+
+// ListClientsWithCrackedCountsByTeamsQueryBase retrieves clients filtered by team membership with cracked hash counts
+// Format string — caller must inject IN placeholders for team IDs.
+const ListClientsWithCrackedCountsByTeamsQueryBase = `
+SELECT
+    c.id,
+    c.name,
+    c.description,
+    c.contact_info,
+    c.data_retention_months,
+    c.exclude_from_potfile,
+    c.exclude_from_client_potfile,
+    c.remove_from_global_potfile_on_hashlist_delete,
+    c.remove_from_client_potfile_on_hashlist_delete,
+    c.created_at,
+    c.updated_at,
+    COALESCE(cc.cracked_count, 0) as cracked_count,
+    COALESCE(cw.wordlist_count, 0) + COALESCE(cp.potfile_count, 0) + COALESCE(aw.assoc_wordlist_count, 0) as wordlist_count
+FROM clients c
+INNER JOIN client_teams ct ON c.id = ct.client_id
+LEFT JOIN (
+    SELECT hl.client_id, COUNT(DISTINCT h.id) as cracked_count
+    FROM hashlists hl
+    JOIN hashlist_hashes hh ON hh.hashlist_id = hl.id
+    JOIN hashes h ON h.id = hh.hash_id AND h.is_cracked = true
+    WHERE hl.client_id IS NOT NULL
+    GROUP BY hl.client_id
+) cc ON cc.client_id = c.id
+LEFT JOIN (
+    SELECT client_id, COUNT(*) as wordlist_count
+    FROM client_wordlists
+    GROUP BY client_id
+) cw ON cw.client_id = c.id
+LEFT JOIN (
+    SELECT client_id, COUNT(*) as potfile_count
+    FROM client_potfiles
+    GROUP BY client_id
+) cp ON cp.client_id = c.id
+LEFT JOIN (
+    SELECT hl.client_id, COUNT(*) as assoc_wordlist_count
+    FROM association_wordlists aw
+    JOIN hashlists hl ON aw.hashlist_id = hl.id
+    WHERE hl.client_id IS NOT NULL
+    GROUP BY hl.client_id
+) aw ON aw.client_id = c.id
+WHERE ct.team_id IN (%s)
+GROUP BY c.id, c.name, c.description, c.contact_info, c.data_retention_months,
+         c.exclude_from_potfile, c.exclude_from_client_potfile,
+         c.remove_from_global_potfile_on_hashlist_delete,
+         c.remove_from_client_potfile_on_hashlist_delete,
+         c.created_at, c.updated_at, cc.cracked_count, cw.wordlist_count,
+         cp.potfile_count, aw.assoc_wordlist_count
+ORDER BY c.name ASC
+`

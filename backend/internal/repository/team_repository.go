@@ -637,7 +637,7 @@ func (r *TeamRepository) GetTeamRoleTx(ctx context.Context, tx *sql.Tx, userID, 
 func (r *TeamRepository) CountTeamAdminsTx(ctx context.Context, tx *sql.Tx, teamID uuid.UUID) (int, error) {
 	var count int
 	err := tx.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM user_teams WHERE team_id = $1 AND role = 'admin' FOR UPDATE`,
+		`SELECT COUNT(*) FROM (SELECT 1 FROM user_teams WHERE team_id = $1 AND role = 'admin' FOR UPDATE) locked`,
 		teamID,
 	).Scan(&count)
 	if err != nil {

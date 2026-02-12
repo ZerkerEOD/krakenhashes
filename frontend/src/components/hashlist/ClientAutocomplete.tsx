@@ -22,10 +22,12 @@ type ClientOption = Pick<Client, 'id' | 'name'>; // Only need id and name for op
 
 export default function ClientAutocomplete({
   value, // Represents the client *name*
-  onChange // Expects to receive the client *name*
+  onChange, // Expects to receive the client *name*
+  teamId, // Optional: filter clients by team
 }: {
   value: string | null;
   onChange: (value: string | null) => void;
+  teamId?: string;
 }) {
   const [inputValue, setInputValue] = useState(value || '');
   const [options, setOptions] = useState<ClientOption[]>([]);
@@ -48,7 +50,10 @@ export default function ClientAutocomplete({
     if (debouncedSearch) {
       setSearchLoading(true);
       setSearchError(null);
-      api.get<Client[]>(`/api/clients/search?q=${debouncedSearch}`)
+      const searchUrl = teamId
+        ? `/api/clients/search?q=${debouncedSearch}&team_id=${teamId}`
+        : `/api/clients/search?q=${debouncedSearch}`;
+      api.get<Client[]>(searchUrl)
         .then((res) => {
           const fetchedOptions = Array.isArray(res.data) ? res.data.map(c => ({ id: c.id, name: c.name })) : [];
           setOptions(fetchedOptions);
@@ -71,6 +76,13 @@ export default function ClientAutocomplete({
       setSearchError(null);
     }
   }, [debouncedSearch]);
+
+  // Reset options when teamId changes (clients are team-scoped)
+  useEffect(() => {
+    setOptions([]);
+    setShowSuggestions(false);
+    setSearchError(null);
+  }, [teamId]);
 
   // Update internal state if controlled value changes
   useEffect(() => {

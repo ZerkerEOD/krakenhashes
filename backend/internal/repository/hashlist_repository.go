@@ -1436,10 +1436,14 @@ func (r *HashListRepository) ListWithTeamFilter(ctx context.Context, params List
 	var args []interface{}
 	argIndex := 1
 
-	if !params.TeamsEnabled || len(params.TeamIDs) == 0 {
-		// Teams not enabled or no teams - use existing logic
+	if !params.TeamsEnabled {
+		// Teams not enabled — use normal unfiltered list
 		hashlists, count, err := r.List(ctx, params)
 		return hashlists, int64(count), err
+	}
+	if len(params.TeamIDs) == 0 {
+		// Teams enabled but user has no teams — return empty (fail-closed)
+		return []models.HashList{}, 0, nil
 	}
 
 	// Build team-filtered query

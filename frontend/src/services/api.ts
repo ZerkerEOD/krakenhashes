@@ -315,6 +315,19 @@ export const updateClient = (id: string, clientData: Partial<Omit<Client, 'id' |
 // Delete a client
 export const deleteClient = (id: string) => api.delete<any>(`/api/clients/${id}`);
 
+// Bulk assign clients to a team
+export interface BulkAssignTeamResponse {
+  assigned: number;
+  already_assigned: number;
+  total: number;
+}
+
+export const bulkAssignClientsToTeam = (clientIds: string[], teamId: string) =>
+  api.post<BulkAssignTeamResponse>('/api/clients/bulk-assign-team', {
+    client_ids: clientIds,
+    team_id: teamId,
+  });
+
 // Legacy admin client APIs (deprecated - use the above instead)
 export const listAdminClients = listClients;
 export const getAdminClient = getClient;

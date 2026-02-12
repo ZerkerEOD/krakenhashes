@@ -2,14 +2,16 @@ package team
 
 import (
 	"encoding/json"
-	"log"
+	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/middleware"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
+	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
@@ -103,8 +105,7 @@ func (h *Handler) CreateTeam(w http.ResponseWriter, r *http.Request) {
 
 	team, err := h.teamService.CreateTeam(ctx, req.Name, req.Description, creatorID)
 	if err != nil {
-		log.Printf("Failed to create team: %v", err)
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		handleServiceError(w, r, err)
 		return
 	}
 
@@ -156,7 +157,7 @@ func (h *Handler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 
 	err = h.teamService.UpdateTeam(ctx, teamID, req.Name, req.Description, userID, isSystemAdmin)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, err.Error())
+		handleServiceError(w, r, err)
 		return
 	}
 
@@ -303,6 +304,32 @@ func (h *Handler) ListTeamClients(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, clients)
 }
 
+// ListTeamAgents lists all agents accessible to a team (direct + trusted)
+// GET /api/teams/{id}/agents
+func (h *Handler) ListTeamAgents(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	teamIDStr := mux.Vars(r)["id"]
+	teamID, err := uuid.Parse(teamIDStr)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid team ID")
+		return
+	}
+
+	agents, err := h.teamService.GetTeamAgents(ctx, teamID)
+	if err != nil {
+		debug.Error("Error getting agents for team %s: %v", teamID, err)
+		respondWithError(w, http.StatusInternalServerError, "Failed to get team agents")
+		return
+	}
+
+	if agents == nil {
+		agents = []services.TeamAgentInfo{}
+	}
+
+	respondWithJSON(w, http.StatusOK, agents)
+}
+
 // =============================================================================
 // Team Manager Operations (require team admin role)
 // =============================================================================
@@ -348,7 +375,7 @@ func (h *Handler) AddMember(w http.ResponseWriter, r *http.Request) {
 
 	err = h.teamService.AddUserToTeam(ctx, teamID, targetUserID, actingUserID, role, isSystemAdmin)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, err.Error())
+		handleServiceError(w, r, err)
 		return
 	}
 
@@ -380,7 +407,7 @@ func (h *Handler) RemoveMember(w http.ResponseWriter, r *http.Request) {
 
 	err = h.teamService.RemoveUserFromTeam(ctx, teamID, targetUserID, actingUserID, isSystemAdmin)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, err.Error())
+		handleServiceError(w, r, err)
 		return
 	}
 
@@ -424,7 +451,7 @@ func (h *Handler) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 
 	err = h.teamService.UpdateUserTeamRole(ctx, teamID, targetUserID, actingUserID, req.Role, isSystemAdmin)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, err.Error())
+		handleServiceError(w, r, err)
 		return
 	}
 
@@ -456,7 +483,7 @@ func (h *Handler) AssignClient(w http.ResponseWriter, r *http.Request) {
 
 	err = h.teamService.AssignClientToTeam(ctx, clientID, teamID, actingUserID, isSystemAdmin)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, err.Error())
+		handleServiceError(w, r, err)
 		return
 	}
 
@@ -488,7 +515,7 @@ func (h *Handler) RemoveClient(w http.ResponseWriter, r *http.Request) {
 
 	err = h.teamService.RemoveClientFromTeam(ctx, clientID, teamID, actingUserID, isSystemAdmin)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, err.Error())
+		handleServiceError(w, r, err)
 		return
 	}
 
@@ -638,7 +665,7 @@ func (h *Handler) AddTrust(w http.ResponseWriter, r *http.Request) {
 
 	err = h.teamService.AddTeamTrust(ctx, teamID, trustedTeamID, actingUserID, isSystemAdmin)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, err.Error())
+		handleServiceError(w, r, err)
 		return
 	}
 
@@ -670,7 +697,7 @@ func (h *Handler) RemoveTrust(w http.ResponseWriter, r *http.Request) {
 
 	err = h.teamService.RemoveTeamTrust(ctx, teamID, trustedTeamID, actingUserID, isSystemAdmin)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, err.Error())
+		handleServiceError(w, r, err)
 		return
 	}
 
@@ -694,6 +721,36 @@ func (h *Handler) ListAllTeamNames(w http.ResponseWriter, r *http.Request) {
 // =============================================================================
 // Helper Methods
 // =============================================================================
+
+// handleServiceError maps service errors to appropriate HTTP status codes and logs them.
+// Input validation errors (invalid UUID, missing fields) should NOT use this — those
+// correctly return 400 directly. This is for errors returned by the service layer.
+func handleServiceError(w http.ResponseWriter, r *http.Request, err error) {
+	debug.Error("Team handler error: %s %s - %v", r.Method, r.URL.Path, err)
+
+	switch {
+	case errors.Is(err, models.ErrNotTeamMember):
+		respondWithError(w, http.StatusNotFound, err.Error())
+	case errors.Is(err, models.ErrTeamNotFound):
+		respondWithError(w, http.StatusNotFound, err.Error())
+	case errors.Is(err, models.ErrClientNotInTeam):
+		respondWithError(w, http.StatusNotFound, err.Error())
+	case errors.Is(err, models.ErrLastTeamAdmin):
+		respondWithError(w, http.StatusConflict, err.Error())
+	case errors.Is(err, models.ErrDefaultTeamProtected):
+		respondWithError(w, http.StatusForbidden, err.Error())
+	case strings.Contains(err.Error(), "not authorized"):
+		respondWithError(w, http.StatusForbidden, err.Error())
+	case strings.Contains(err.Error(), "already a member"):
+		respondWithError(w, http.StatusConflict, err.Error())
+	case strings.Contains(err.Error(), "already trusted"):
+		respondWithError(w, http.StatusConflict, err.Error())
+	case strings.Contains(err.Error(), "cannot trust itself"):
+		respondWithError(w, http.StatusBadRequest, err.Error())
+	default:
+		respondWithError(w, http.StatusInternalServerError, "An internal error occurred")
+	}
+}
 
 // respondWithJSON writes a JSON response with the given status code
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {

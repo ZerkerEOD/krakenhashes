@@ -26,6 +26,7 @@ import {
   CircularProgress,
   Autocomplete,
   Alert,
+  DialogContentText,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -35,7 +36,7 @@ import SecurityIcon from '@mui/icons-material/Security';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
-import { Team, TeamMember, TeamRole, UserSearchResult, TeamAgentTrust, TeamNameOnly } from '../../types/team';
+import { Team, TeamMember, TeamRole, UserSearchResult, TeamAgentTrust, TeamNameOnly, TeamAgent } from '../../types/team';
 import { Client } from '../../types/client';
 import { teamsService } from '../../services/teams';
 import { listClients } from '../../services/api';
@@ -81,11 +82,35 @@ export const TeamDetail: React.FC = () => {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [loadingClients, setLoadingClients] = useState(false);
 
+  // Agent visibility state
+  const [agents, setAgents] = useState<TeamAgent[]>([]);
+
   // Trust management state
   const [trustedTeams, setTrustedTeams] = useState<TeamAgentTrust[]>([]);
   const [allTeamNames, setAllTeamNames] = useState<TeamNameOnly[]>([]);
   const [addTrustOpen, setAddTrustOpen] = useState(false);
   const [selectedTrustTeam, setSelectedTrustTeam] = useState<TeamNameOnly | null>(null);
+
+  // Confirmation dialog state
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState('');
+  const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
+
+  const showConfirm = (message: string, action: () => void) => {
+    setConfirmMessage(message);
+    setConfirmAction(() => action);
+    setConfirmOpen(true);
+  };
+
+  const handleConfirm = () => {
+    setConfirmOpen(false);
+    confirmAction?.();
+  };
+
+  const handleConfirmClose = () => {
+    setConfirmOpen(false);
+    setConfirmAction(null);
+  };
 
   // Permission checks
   const isTeamAdmin = team?.user_role === 'admin';
@@ -100,16 +125,18 @@ export const TeamDetail: React.FC = () => {
 
     try {
       setLoading(true);
-      const [teamData, membersData, clientsData, trustData] = await Promise.all([
+      const [teamData, membersData, clientsData, trustData, agentsData] = await Promise.all([
         teamsService.getTeam(teamId),
         teamsService.getTeamMembers(teamId),
         teamsService.getTeamClients(teamId),
         teamsService.getTrustedTeams(teamId).catch(() => []),
+        teamsService.getTeamAgents(teamId).catch(() => []),
       ]);
       setTeam(teamData);
       setMembers(membersData || []);
       setClients(clientsData || []);
       setTrustedTeams(trustData || []);
+      setAgents(agentsData || []);
     } catch (error) {
       console.error('Failed to load team data:', error);
       enqueueSnackbar('Failed to load team data', { variant: 'error' });
@@ -163,17 +190,18 @@ export const TeamDetail: React.FC = () => {
     }
   };
 
-  const handleRemoveMember = async (userId: string) => {
-    if (!teamId || !window.confirm('Are you sure you want to remove this member?')) return;
-
-    try {
-      await teamsService.removeMember(teamId, userId);
-      await loadTeamData();
-      enqueueSnackbar('Member removed', { variant: 'success' });
-    } catch (error) {
-      console.error('Failed to remove member:', error);
-      enqueueSnackbar('Failed to remove member', { variant: 'error' });
-    }
+  const handleRemoveMember = (userId: string) => {
+    if (!teamId) return;
+    showConfirm('Are you sure you want to remove this member?', async () => {
+      try {
+        await teamsService.removeMember(teamId, userId);
+        await loadTeamData();
+        enqueueSnackbar('Member removed', { variant: 'success' });
+      } catch (error) {
+        console.error('Failed to remove member:', error);
+        enqueueSnackbar('Failed to remove member', { variant: 'error' });
+      }
+    });
   };
 
   const handleUpdateRole = async (userId: string, newRole: TeamRole) => {
@@ -247,23 +275,21 @@ export const TeamDetail: React.FC = () => {
     }
   };
 
-  const handleRemoveClient = async (clientId: string, clientName: string) => {
-    if (
-      !teamId ||
-      !window.confirm(
-        `Are you sure you want to remove "${clientName}" from this team? Team members will lose access to this client's data.`
-      )
-    )
-      return;
-
-    try {
-      await teamsService.removeClient(teamId, clientId);
-      await loadTeamData();
-      enqueueSnackbar('Client removed from team', { variant: 'success' });
-    } catch (error) {
-      console.error('Failed to remove client:', error);
-      enqueueSnackbar('Failed to remove client', { variant: 'error' });
-    }
+  const handleRemoveClient = (clientId: string, clientName: string) => {
+    if (!teamId) return;
+    showConfirm(
+      `Are you sure you want to remove "${clientName}" from this team? Team members will lose access to this client's data.`,
+      async () => {
+        try {
+          await teamsService.removeClient(teamId, clientId);
+          await loadTeamData();
+          enqueueSnackbar('Client removed from team', { variant: 'success' });
+        } catch (error) {
+          console.error('Failed to remove client:', error);
+          enqueueSnackbar('Failed to remove client', { variant: 'error' });
+        }
+      }
+    );
   };
 
   // Trust management handlers
@@ -296,17 +322,21 @@ export const TeamDetail: React.FC = () => {
     }
   };
 
-  const handleRemoveTrust = async (trustedTeamId: string) => {
-    if (!teamId || !window.confirm('Remove this trust relationship? Agents from this team will no longer be able to run your jobs.')) return;
-
-    try {
-      await teamsService.removeTrust(teamId, trustedTeamId);
-      await loadTeamData();
-      enqueueSnackbar('Trust relationship removed', { variant: 'success' });
-    } catch (error) {
-      console.error('Failed to remove trust:', error);
-      enqueueSnackbar('Failed to remove trust relationship', { variant: 'error' });
-    }
+  const handleRemoveTrust = (trustedTeamId: string) => {
+    if (!teamId) return;
+    showConfirm(
+      'Remove this trust relationship? Agents from this team will no longer be able to run your jobs.',
+      async () => {
+        try {
+          await teamsService.removeTrust(teamId, trustedTeamId);
+          await loadTeamData();
+          enqueueSnackbar('Trust relationship removed', { variant: 'success' });
+        } catch (error) {
+          console.error('Failed to remove trust:', error);
+          enqueueSnackbar('Failed to remove trust relationship', { variant: 'error' });
+        }
+      }
+    );
   };
 
   if (loading) {
@@ -355,6 +385,7 @@ export const TeamDetail: React.FC = () => {
           <Tab label={`Members (${members.length})`} />
           <Tab label={`Clients (${clients.length})`} />
           <Tab label={`Trusted Teams (${trustedTeams.length})`} />
+          <Tab label={`Agents (${agents.length})`} />
         </Tabs>
       </Box>
 
@@ -547,6 +578,69 @@ export const TeamDetail: React.FC = () => {
         </TableContainer>
       </TabPanel>
 
+      {/* Agents Tab */}
+      <TabPanel value={tabValue} index={3}>
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <strong>Direct</strong> agents are owned by members of this team.{' '}
+          <strong>Trusted</strong> agents come from teams you have established trust relationships with.
+        </Alert>
+
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Agent Name</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Version</TableCell>
+                <TableCell>Owner</TableCell>
+                <TableCell>Source</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {agents.map((agent) => (
+                <TableRow key={agent.id}>
+                  <TableCell>{agent.name}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={agent.status}
+                      color={
+                        agent.status === 'online'
+                          ? 'success'
+                          : agent.status === 'offline'
+                            ? 'default'
+                            : 'warning'
+                      }
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>{agent.version || '-'}</TableCell>
+                  <TableCell>{agent.owner_username || 'System'}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={
+                        agent.source === 'direct'
+                          ? 'Direct'
+                          : `Trusted — ${agent.source_team_name || 'Unknown'}`
+                      }
+                      color={agent.source === 'direct' ? 'primary' : 'secondary'}
+                      size="small"
+                      variant="outlined"
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+              {agents.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} align="center">
+                    No agents accessible to this team. Add team members with agents or establish trust relationships.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </TabPanel>
+
       {/* Edit Team Dialog */}
       <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Edit Team</DialogTitle>
@@ -646,6 +740,20 @@ export const TeamDetail: React.FC = () => {
           <Button onClick={() => setAddTrustOpen(false)}>Cancel</Button>
           <Button onClick={handleAddTrust} variant="contained" disabled={!selectedTrustTeam}>
             Add Trust
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Confirmation Dialog */}
+      <Dialog open={confirmOpen} onClose={handleConfirmClose} maxWidth="xs" fullWidth>
+        <DialogTitle>Confirm Action</DialogTitle>
+        <DialogContent>
+          <DialogContentText>{confirmMessage}</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleConfirmClose}>Cancel</Button>
+          <Button onClick={handleConfirm} variant="contained" color="error">
+            Confirm
           </Button>
         </DialogActions>
       </Dialog>

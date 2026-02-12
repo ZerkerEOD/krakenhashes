@@ -66,11 +66,12 @@ func (r *JobExecutionRepository) ListWithPagination(ctx context.Context, limit, 
 
 // JobFilter contains filter criteria for job queries
 type JobFilter struct {
-	Status   *string
-	Priority *int
-	Search   *string
-	UserID   *string
-	TeamIDs  []uuid.UUID // When set, filter jobs by team access (via hashlist → client → client_teams)
+	Status       *string
+	Priority     *int
+	Search       *string
+	UserID       *string
+	TeamsEnabled bool        // Whether team filtering is active (fail-closed when true + empty TeamIDs)
+	TeamIDs      []uuid.UUID // When set, filter jobs by team access (via hashlist → client → client_teams)
 }
 
 // JobExecutionWithUser represents a job execution with user information
@@ -233,6 +234,10 @@ func (r *JobExecutionRepository) GetFilteredCount(ctx context.Context, filter Jo
 	}
 
 	// Apply team filter - filter by team access via hashlist → client → client_teams
+	if filter.TeamsEnabled && len(filter.TeamIDs) == 0 {
+		// Teams enabled but no teams — fail-closed: no results
+		return 0, nil
+	}
 	if len(filter.TeamIDs) > 0 {
 		teamIDStrs := make([]string, len(filter.TeamIDs))
 		for i, id := range filter.TeamIDs {
@@ -579,6 +584,10 @@ func (r *JobExecutionRepository) ListWithFiltersAndUser(ctx context.Context, lim
 	}
 
 	// Apply team filter - filter by team access via hashlist → client → client_teams
+	if filter.TeamsEnabled && len(filter.TeamIDs) == 0 {
+		// Teams enabled but no teams — fail-closed: no results
+		return nil, nil
+	}
 	if len(filter.TeamIDs) > 0 {
 		teamIDStrs := make([]string, len(filter.TeamIDs))
 		for i, id := range filter.TeamIDs {

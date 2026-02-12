@@ -2,12 +2,15 @@ package team
 
 import (
 	"encoding/json"
-	"log"
+	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/middleware"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
+	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
@@ -149,7 +152,7 @@ func (h *AdminHandler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 
 	err = h.teamService.UpdateTeam(ctx, teamID, req.Name, req.Description, adminUserID, true)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, err.Error())
+		handleServiceError(w, r, err)
 		return
 	}
 
@@ -170,7 +173,7 @@ func (h *AdminHandler) DeleteTeam(w http.ResponseWriter, r *http.Request) {
 
 	err = h.teamService.DeleteTeam(ctx, teamID)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, err.Error())
+		handleServiceError(w, r, err)
 		return
 	}
 
@@ -193,8 +196,8 @@ func (h *AdminHandler) ToggleTeamsEnabled(w http.ResponseWriter, r *http.Request
 
 	// Call the OnTeamsEnabledChanged handler which updates the setting and handles migration
 	if err := h.teamService.OnTeamsEnabledChanged(ctx, req.Enabled); err != nil {
-		log.Printf("Warning: OnTeamsEnabledChanged failed: %v", err)
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		debug.Warning("OnTeamsEnabledChanged failed: %v", err)
+		respondWithError(w, http.StatusInternalServerError, "An internal error occurred")
 		return
 	}
 
@@ -217,6 +220,22 @@ func (h *AdminHandler) GetTeamsEnabled(w http.ResponseWriter, r *http.Request) {
 // =============================================================================
 // Helper Methods
 // =============================================================================
+
+// handleServiceError logs the error and responds with the appropriate HTTP status code.
+func handleServiceError(w http.ResponseWriter, r *http.Request, err error) {
+	debug.Error("Admin team handler error: %s %s - %v", r.Method, r.URL.Path, err)
+
+	switch {
+	case errors.Is(err, models.ErrTeamNotFound):
+		respondWithError(w, http.StatusNotFound, err.Error())
+	case errors.Is(err, models.ErrDefaultTeamProtected):
+		respondWithError(w, http.StatusForbidden, err.Error())
+	case strings.Contains(err.Error(), "already exists"):
+		respondWithError(w, http.StatusConflict, err.Error())
+	default:
+		respondWithError(w, http.StatusInternalServerError, "An internal error occurred")
+	}
+}
 
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 	w.Header().Set("Content-Type", "application/json")

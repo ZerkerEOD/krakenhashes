@@ -78,3 +78,13 @@ export interface TeamNameOnly {
   name: string;
   agent_count: number;
 }
+
+export interface TeamAgent {
+  id: number;
+  name: string;
+  status: string;
+  version: string;
+  owner_username?: string;
+  source: 'direct' | 'trusted';
+  source_team_name?: string;
+}

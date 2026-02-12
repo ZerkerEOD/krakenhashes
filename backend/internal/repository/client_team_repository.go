@@ -41,6 +41,20 @@ func (r *ClientTeamRepository) AssignClientToTeam(ctx context.Context, clientID,
 	return nil
 }
 
+// AssignClientToTeamWithResult assigns a client to a team and reports if a new row was inserted.
+// Returns true if newly assigned, false if already existed (ON CONFLICT DO NOTHING).
+func (r *ClientTeamRepository) AssignClientToTeamWithResult(ctx context.Context, clientID, teamID uuid.UUID, assignedBy *uuid.UUID) (bool, error) {
+	result, err := r.db.ExecContext(ctx, queries.AssignClientToTeam, clientID, teamID, assignedBy)
+	if err != nil {
+		return false, fmt.Errorf("failed to assign client to team: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	return rowsAffected > 0, nil
+}
+
 // RemoveClientFromTeam removes an association between a client and a team
 func (r *ClientTeamRepository) RemoveClientFromTeam(ctx context.Context, clientID, teamID uuid.UUID) error {
 	result, err := r.db.ExecContext(ctx, queries.RemoveClientFromTeam, clientID, teamID)

@@ -167,17 +167,20 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 			teamID, err := uuid.Parse(teamIDParam)
 			if err == nil {
 				if isAdmin || middleware.IsUserInTeamFromContext(ctx, teamID) {
+					filter.TeamsEnabled = true
 					filter.TeamIDs = []uuid.UUID{teamID}
 				}
 			}
 		} else if !isAdmin {
 			// No specific team — non-admins get all their teams
+			filter.TeamsEnabled = true
 			teamIDs := middleware.GetUserTeamIDsFromContext(ctx)
-			if teamIDs != nil {
-				filter.TeamIDs = teamIDs
+			if teamIDs == nil {
+				teamIDs = []uuid.UUID{} // fail-closed: empty = no access
 			}
+			filter.TeamIDs = teamIDs
 		}
-		// Admin with no team_id → sees all jobs (no filter)
+		// Admin with no team_id → sees all jobs (TeamsEnabled stays false)
 	}
 
 	// Get jobs with filters and user information
@@ -1871,17 +1874,20 @@ func (h *UserJobsHandler) ListUserJobs(w http.ResponseWriter, r *http.Request) {
 			teamID, err := uuid.Parse(teamIDParam)
 			if err == nil {
 				if isAdmin || middleware.IsUserInTeamFromContext(ctx, teamID) {
+					filter.TeamsEnabled = true
 					filter.TeamIDs = []uuid.UUID{teamID}
 				}
 			}
 		} else if !isAdmin {
 			// No specific team — non-admins get all their teams
+			filter.TeamsEnabled = true
 			teamIDs := middleware.GetUserTeamIDsFromContext(ctx)
-			if teamIDs != nil {
-				filter.TeamIDs = teamIDs
+			if teamIDs == nil {
+				teamIDs = []uuid.UUID{} // fail-closed: empty = no access
 			}
+			filter.TeamIDs = teamIDs
 		}
-		// Admin with no team_id → sees all jobs (no filter)
+		// Admin with no team_id → sees all jobs (TeamsEnabled stays false)
 	}
 
 	// Get jobs with filters and user information

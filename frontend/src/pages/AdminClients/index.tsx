@@ -4,18 +4,19 @@ import {
     Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, TextField, FormControlLabel, Checkbox,
     FormControl, InputLabel, Select, MenuItem, Divider, SelectChangeEvent
 } from '@mui/material';
-import { DataGrid, GridColDef, GridRowParams, GridActionsCellItem } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridRowParams, GridActionsCellItem, GridRowSelectionModel } from '@mui/x-data-grid';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FolderIcon from '@mui/icons-material/Folder';
+import GroupAddIcon from '@mui/icons-material/GroupAdd';
 import { useSnackbar } from 'notistack';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 import { Client } from '../../types/client';
 import { Team } from '../../types/team';
-import { listClients, createClient, updateClient, deleteClient, getDefaultClientRetentionSetting } from '../../services/api';
+import { listClients, createClient, updateClient, deleteClient, getDefaultClientRetentionSetting, bulkAssignClientsToTeam } from '../../services/api';
 import { teamsService, adminTeamsService } from '../../services/teams';
 import { useTeamFilter } from '../../contexts/TeamFilterContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -47,6 +48,10 @@ export const AdminClients: React.FC = () => {
     const [wordlistClient, setWordlistClient] = useState<Client | null>(null);
     const [selectedTeamId, setSelectedTeamId] = useState<string>('');
     const [availableTeams, setAvailableTeams] = useState<Team[]>([]);
+    const [selectedClientIds, setSelectedClientIds] = useState<GridRowSelectionModel>([]);
+    const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false);
+    const [bulkAssignTeamId, setBulkAssignTeamId] = useState<string>('');
+    const [isBulkAssigning, setIsBulkAssigning] = useState(false);
 
     const { enqueueSnackbar } = useSnackbar();
     const navigate = useNavigate();
@@ -349,10 +354,53 @@ export const AdminClients: React.FC = () => {
             enqueueSnackbar(message, { variant: 'error' });
         } finally {
             setIsSaving(false);
-            setIsDeleteDialogOpen(false); 
+            setIsDeleteDialogOpen(false);
         }
     };
-    
+
+    const handleBulkAssignOpen = async () => {
+        setBulkAssignTeamId('');
+        // Load teams if not already loaded
+        if (availableTeams.length === 0) {
+            try {
+                const teams = userRole === 'admin'
+                    ? await adminTeamsService.listAllTeams()
+                    : await teamsService.listUserTeams();
+                setAvailableTeams(teams || []);
+            } catch (err) {
+                console.error('Failed to load teams:', err);
+                setAvailableTeams([]);
+            }
+        }
+        setIsBulkAssignDialogOpen(true);
+    };
+
+    const handleBulkAssignConfirm = async () => {
+        if (!bulkAssignTeamId || selectedClientIds.length === 0) return;
+        setIsBulkAssigning(true);
+        try {
+            const response = await bulkAssignClientsToTeam(
+                selectedClientIds.map(id => String(id)),
+                bulkAssignTeamId,
+            );
+            const data = response.data;
+            const teamName = availableTeams.find(t => t.id === bulkAssignTeamId)?.name || 'team';
+            enqueueSnackbar(
+                `Assigned ${data.assigned} client(s) to ${teamName}` +
+                (data.already_assigned > 0 ? ` (${data.already_assigned} already assigned)` : ''),
+                { variant: 'success' }
+            );
+            setIsBulkAssignDialogOpen(false);
+            setSelectedClientIds([]);
+            fetchClients();
+        } catch (err: any) {
+            const message = err.response?.data?.error || 'Failed to assign clients to team';
+            enqueueSnackbar(message, { variant: 'error' });
+        } finally {
+            setIsBulkAssigning(false);
+        }
+    };
+
     return (
         <Box sx={{ width: '100%', p: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -370,6 +418,22 @@ export const AdminClients: React.FC = () => {
 
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
+            {teamsEnabled && userRole === 'admin' && selectedClientIds.length > 0 && (
+                <Paper sx={{ p: 1.5, mb: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Typography variant="body2">
+                        {selectedClientIds.length} client{selectedClientIds.length !== 1 ? 's' : ''} selected
+                    </Typography>
+                    <Button
+                        variant="contained"
+                        size="small"
+                        startIcon={<GroupAddIcon />}
+                        onClick={handleBulkAssignOpen}
+                    >
+                        Assign to Team
+                    </Button>
+                </Paper>
+            )}
+
             <Paper sx={{ height: '70vh', width: '100%' }}>
                 {loading ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
@@ -385,8 +449,10 @@ export const AdminClients: React.FC = () => {
                               paginationModel: { pageSize: 10 },
                             },
                           }}
-                        checkboxSelection={false}
+                        checkboxSelection={teamsEnabled && userRole === 'admin'}
                         disableRowSelectionOnClick
+                        onRowSelectionModelChange={(newSelection) => setSelectedClientIds(newSelection)}
+                        rowSelectionModel={selectedClientIds}
                     />
                 )}
             </Paper>
@@ -600,6 +666,36 @@ export const AdminClients: React.FC = () => {
                 client={wordlistClient}
                 onClose={handleWordlistDialogClose}
             />
+
+            {/* Bulk Assign to Team Dialog */}
+            <Dialog open={isBulkAssignDialogOpen} onClose={() => setIsBulkAssignDialogOpen(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>Assign Clients to Team</DialogTitle>
+                <DialogContent>
+                    <DialogContentText sx={{ mb: 2 }}>
+                        Assign {selectedClientIds.length} selected client{selectedClientIds.length !== 1 ? 's' : ''} to a team.
+                        Clients already in the selected team will be skipped.
+                    </DialogContentText>
+                    <FormControl fullWidth required sx={{ mt: 1 }}>
+                        <InputLabel id="bulk-team-select-label">Select Team</InputLabel>
+                        <Select
+                            labelId="bulk-team-select-label"
+                            value={bulkAssignTeamId}
+                            label="Select Team"
+                            onChange={(e) => setBulkAssignTeamId(e.target.value)}
+                        >
+                            {availableTeams.map((team) => (
+                                <MenuItem key={team.id} value={team.id}>{team.name}</MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setIsBulkAssignDialogOpen(false)} disabled={isBulkAssigning}>Cancel</Button>
+                    <Button onClick={handleBulkAssignConfirm} variant="contained" disabled={!bulkAssignTeamId || isBulkAssigning}>
+                        {isBulkAssigning ? <CircularProgress size={24} /> : 'Assign'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 };

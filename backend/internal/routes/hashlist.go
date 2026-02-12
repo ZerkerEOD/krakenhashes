@@ -63,7 +63,8 @@ type hashlistHandler struct {
 		GetAvailablePresetJobs(w http.ResponseWriter, r *http.Request)
 		CreateJobFromHashlist(w http.ResponseWriter, r *http.Request)
 	}
-	teamService *services.TeamService
+	teamService    *services.TeamService
+	clientTeamRepo *repository.ClientTeamRepository
 }
 
 // registerHashlistRoutes configures all hashlist, hash type, client, and hash search routes
@@ -120,6 +121,9 @@ func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, ag
 	}
 	clientWordlistManager := services.NewClientWordlistManager(clientWordlistRepo, clientRepo, clientWordlistBasePath)
 
+	// Create client team repository for team-based access control
+	clientTeamRepo := repository.NewClientTeamRepository(database)
+
 	// Create handler
 	h := &hashlistHandler{
 		db:                         database,
@@ -142,6 +146,7 @@ func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, ag
 		processor:                  proc,
 		jobsHandler:                jobsHandler,
 		teamService:                teamService,
+		clientTeamRepo:             clientTeamRepo,
 	}
 
 	// === User Routes (Authenticated via JWT) ===
@@ -211,6 +216,7 @@ func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, ag
 	clientRouter := r.PathPrefix("/clients").Subrouter() // Use 'r' directly
 	clientRouter.HandleFunc("", clientHandler.ListClients).Methods(http.MethodGet)
 	clientRouter.HandleFunc("/search", h.handleSearchClients).Methods(http.MethodGet) // Keep the search handler from hashlist
+	clientRouter.HandleFunc("/bulk-assign-team", clientHandler.BulkAssignTeam).Methods(http.MethodPost)
 	clientRouter.HandleFunc("", clientHandler.CreateClient).Methods(http.MethodPost)
 	clientRouter.HandleFunc("/{id:[0-9a-fA-F-]+}", clientHandler.GetClient).Methods(http.MethodGet)
 	clientRouter.HandleFunc("/{id:[0-9a-fA-F-]+}", clientHandler.UpdateClient).Methods(http.MethodPut)
@@ -358,7 +364,34 @@ func (h *hashlistHandler) handleUploadHashlist(w http.ResponseWriter, r *http.Re
 	excludeStr := r.FormValue("exclude_from_potfile")
 	excludeClientStr := r.FormValue("exclude_from_client_potfile")
 	createLinkedStr := r.FormValue("create_linked") // Support linked LM/NTLM hashlists
-	debug.Info("Received hashlist upload: name='%s', hashTypeID='%s', clientName='%s', excludeFromPotfile='%s', excludeFromClientPotfile='%s', createLinked='%s'", name, hashTypeIDStr, clientName, excludeStr, excludeClientStr, createLinkedStr)
+	teamIDStr := r.FormValue("team_id")             // Optional: explicit team for client assignment
+	debug.Info("Received hashlist upload: name='%s', hashTypeID='%s', clientName='%s', excludeFromPotfile='%s', excludeFromClientPotfile='%s', createLinked='%s', teamID='%s'", name, hashTypeIDStr, clientName, excludeStr, excludeClientStr, createLinkedStr, teamIDStr)
+
+	// Validate and resolve explicit team_id if provided
+	var explicitTeamID *uuid.UUID
+	if teamIDStr != "" {
+		parsed, parseErr := uuid.Parse(teamIDStr)
+		if parseErr != nil {
+			jsonError(w, "Invalid team_id format", http.StatusBadRequest)
+			return
+		}
+		// Validate user is a member of this team (admins can bypass)
+		if !middleware.IsAdminFromContext(ctx) {
+			userTeamIDs := middleware.GetUserTeamIDsFromContext(ctx)
+			isMember := false
+			for _, tid := range userTeamIDs {
+				if tid == parsed {
+					isMember = true
+					break
+				}
+			}
+			if !isMember {
+				jsonError(w, "You are not a member of the specified team", http.StatusForbidden)
+				return
+			}
+		}
+		explicitTeamID = &parsed
+	}
 
 	// --- Parse and validate hash type ID ---
 	hashTypeID, err := strconv.Atoi(hashTypeIDStr)
@@ -469,11 +502,48 @@ func (h *hashlistHandler) handleUploadHashlist(w http.ResponseWriter, r *http.Re
 				// Creation successful
 				clientID = newClient.ID
 				debug.Info("Successfully created new client '%s' with ID %s", trimmedClientName, clientID)
+
+				// Auto-assign new client to team when teams are enabled
+				if middleware.IsTeamsEnabledFromContext(ctx) {
+					var assignTeamID uuid.UUID
+					if explicitTeamID != nil {
+						// Use explicitly selected team from upload form
+						assignTeamID = *explicitTeamID
+					} else {
+						// Fall back to user's first team
+						teamIDs := middleware.GetUserTeamIDsFromContext(ctx)
+						if len(teamIDs) > 0 {
+							assignTeamID = teamIDs[0]
+						}
+					}
+					if assignTeamID != uuid.Nil {
+						if assignErr := h.clientTeamRepo.AssignClientToTeam(ctx, clientID, assignTeamID, &userID); assignErr != nil {
+							debug.Error("Failed to auto-assign new client %s to team %s: %v", clientID, assignTeamID, assignErr)
+						} else {
+							debug.Info("Auto-assigned new client %s to team %s", clientID, assignTeamID)
+						}
+					}
+				}
 			}
 		} else {
 			// *** Client Found - Use Existing ID ***
 			clientID = client.ID
 			debug.Info("Found existing client '%s' with ID %s", trimmedClientName, clientID)
+		}
+	}
+
+	// Verify client access when teams enabled (server-side defense)
+	if clientID != uuid.Nil && middleware.IsTeamsEnabledFromContext(ctx) && !middleware.IsAdminFromContext(ctx) {
+		canAccess, accessErr := h.teamService.CanUserAccessClient(ctx, userID, clientID, false)
+		if accessErr != nil {
+			debug.Error("Error checking client access for user %s, client %s: %v", userID, clientID, accessErr)
+			jsonError(w, "Failed to verify client access", http.StatusInternalServerError)
+			return
+		}
+		if !canAccess {
+			debug.Warning("User %s attempted to upload hashlist to inaccessible client %s", userID, clientID)
+			jsonError(w, "You do not have access to this client", http.StatusForbidden)
+			return
 		}
 	}
 
@@ -770,22 +840,20 @@ func (h *hashlistHandler) handleListHashlists(w http.ResponseWriter, r *http.Req
 	}
 
 	// Apply team filter when teams are enabled and user is not admin
+	// Strict team boundaries: only show hashlists whose client is in the user's teams
 	if middleware.IsTeamsEnabledFromContext(ctx) && !middleware.IsAdminFromContext(ctx) {
+		params.TeamsEnabled = true
 		teamIDs := middleware.GetUserTeamIDsFromContext(ctx)
 		if teamIDs != nil {
-			params.TeamsEnabled = true
 			params.TeamIDs = teamIDs
-			// Also include hashlists owned by the user (legacy hashlists without client)
-			userID, err := getUserIDFromContext(ctx)
-			if err == nil {
-				params.UserID = &userID
-				params.IncludeOwned = true
-			}
 		}
+		// If teamIDs is nil (middleware error), TeamsEnabled is still true
+		// → ListWithTeamFilter returns empty (fail-closed)
 	}
 
-	// Fetch data from repository
-	hashlists, totalCount, err := h.hashlistRepo.List(ctx, params)
+	// Fetch data from repository using team-aware query
+	hashlists, totalCount64, err := h.hashlistRepo.ListWithTeamFilter(ctx, params)
+	totalCount := int(totalCount64)
 	if err != nil {
 		// Error already logged in repository
 		jsonError(w, "Failed to retrieve hashlists", http.StatusInternalServerError)
@@ -1856,12 +1924,63 @@ func (h *hashlistHandler) handleListClients(w http.ResponseWriter, r *http.Reque
 func (h *hashlistHandler) handleSearchClients(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	query := r.URL.Query().Get("q")
-	if len(query) < 1 { // Minimum query length?
+	if len(query) < 1 {
 		jsonError(w, "Search query 'q' is required and must be at least 1 character", http.StatusBadRequest)
 		return
 	}
 
-	clients, err := h.clientRepo.Search(ctx, query)
+	var clients []models.Client
+	var err error
+
+	// Filter by team access when teams enabled
+	if middleware.IsTeamsEnabledFromContext(ctx) {
+		// Determine which team(s) to filter by
+		var filterTeamIDs []uuid.UUID
+
+		// If specific team_id provided, use it (after validation)
+		if teamIDParam := r.URL.Query().Get("team_id"); teamIDParam != "" {
+			parsed, parseErr := uuid.Parse(teamIDParam)
+			if parseErr != nil {
+				jsonError(w, "Invalid team_id format", http.StatusBadRequest)
+				return
+			}
+			// Validate membership for non-admins
+			if !middleware.IsAdminFromContext(ctx) {
+				userTeamIDs := middleware.GetUserTeamIDsFromContext(ctx)
+				isMember := false
+				for _, tid := range userTeamIDs {
+					if tid == parsed {
+						isMember = true
+						break
+					}
+				}
+				if !isMember {
+					jsonError(w, "You are not a member of the specified team", http.StatusForbidden)
+					return
+				}
+			}
+			filterTeamIDs = []uuid.UUID{parsed}
+		} else if !middleware.IsAdminFromContext(ctx) {
+			// No specific team — use all user teams (non-admin only)
+			filterTeamIDs = middleware.GetUserTeamIDsFromContext(ctx)
+		}
+
+		if filterTeamIDs != nil && len(filterTeamIDs) > 0 {
+			clients, err = h.clientRepo.ListForTeams(ctx, filterTeamIDs, &repository.ClientListFilters{
+				Search: query,
+				Limit:  50,
+			})
+		} else if !middleware.IsAdminFromContext(ctx) {
+			// Fail closed: no teams or middleware error = empty result
+			clients = []models.Client{}
+		} else {
+			// Admin with no specific team filter — show all
+			clients, err = h.clientRepo.Search(ctx, query)
+		}
+	} else {
+		clients, err = h.clientRepo.Search(ctx, query)
+	}
+
 	if err != nil {
 		debug.Error("Error searching clients with query '%s': %v", query, err)
 		jsonError(w, "Failed to search clients", http.StatusInternalServerError)
@@ -1869,41 +1988,6 @@ func (h *hashlistHandler) handleSearchClients(w http.ResponseWriter, r *http.Req
 	}
 
 	jsonResponse(w, http.StatusOK, clients)
-}
-
-func (h *hashlistHandler) handleCreateClient(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var client models.Client
-	if err := json.NewDecoder(r.Body).Decode(&client); err != nil {
-		jsonError(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	if client.Name == "" {
-		jsonError(w, "Client name is required", http.StatusBadRequest)
-		return
-	}
-
-	// Check if client name already exists
-	existing, _ := h.clientRepo.GetByName(ctx, client.Name)
-	if existing != nil {
-		jsonError(w, fmt.Sprintf("Client with name '%s' already exists", client.Name), http.StatusConflict)
-		return
-	}
-
-	client.ID = uuid.New()
-	now := time.Now()
-	client.CreatedAt = now
-	client.UpdatedAt = now
-
-	err := h.clientRepo.Create(ctx, &client)
-	if err != nil {
-		debug.Error("Error creating client: %v", err)
-		jsonError(w, "Failed to create client", http.StatusInternalServerError)
-		return
-	}
-
-	jsonResponse(w, http.StatusCreated, client)
 }
 
 func (h *hashlistHandler) handleGetClient(w http.ResponseWriter, r *http.Request) {

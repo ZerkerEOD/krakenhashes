@@ -22,13 +22,15 @@ import {
   TableRow,
   Paper,
   IconButton,
+  Alert,
+  Link,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import GroupsIcon from '@mui/icons-material/Groups';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import { Team, CreateTeamRequest } from '../../types/team';
 import { teamsService, adminTeamsService } from '../../services/teams';
@@ -163,6 +165,13 @@ export const TeamList: React.FC = () => {
           Create Team
         </Button>
       </Box>
+
+      {isSystemAdmin && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          To assign multiple clients to a team at once, use the bulk assignment feature on the{' '}
+          <Link component={RouterLink} to="/clients">Client Management</Link> page.
+        </Alert>
+      )}
 
       {/* Admin view: table layout */}
       {isSystemAdmin ? (

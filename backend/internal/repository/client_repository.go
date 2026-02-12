@@ -181,6 +181,61 @@ func (r *ClientRepository) ListWithCrackedCounts(ctx context.Context) ([]models.
 	return clients, nil
 }
 
+// ListWithCrackedCountsByTeamIDs retrieves clients filtered by team membership with cracked hash counts
+func (r *ClientRepository) ListWithCrackedCountsByTeamIDs(ctx context.Context, teamIDs []uuid.UUID) ([]models.Client, error) {
+	if len(teamIDs) == 0 {
+		return []models.Client{}, nil
+	}
+
+	// Build placeholders for IN clause
+	placeholders := make([]string, len(teamIDs))
+	args := make([]interface{}, len(teamIDs))
+	for i, id := range teamIDs {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		args[i] = id
+	}
+
+	query := fmt.Sprintf(queries.ListClientsWithCrackedCountsByTeamsQueryBase, strings.Join(placeholders, ", "))
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list clients with cracked counts by team IDs: %w", err)
+	}
+	defer rows.Close()
+
+	var clients []models.Client
+	for rows.Next() {
+		var client models.Client
+		var crackedCount int
+		var wordlistCount int
+		if err := rows.Scan(
+			&client.ID,
+			&client.Name,
+			&client.Description,
+			&client.ContactInfo,
+			&client.DataRetentionMonths,
+			&client.ExcludeFromPotfile,
+			&client.ExcludeFromClientPotfile,
+			&client.RemoveFromGlobalPotfileOnHashlistDelete,
+			&client.RemoveFromClientPotfileOnHashlistDelete,
+			&client.CreatedAt,
+			&client.UpdatedAt,
+			&crackedCount,
+			&wordlistCount,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan client row with cracked count: %w", err)
+		}
+		client.CrackedCount = &crackedCount
+		client.WordlistCount = &wordlistCount
+		clients = append(clients, client)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating client rows with cracked counts: %w", err)
+	}
+
+	return clients, nil
+}
+
 // Search retrieves clients matching a search query (name, description).
 func (r *ClientRepository) Search(ctx context.Context, query string) ([]models.Client, error) {
 	searchTerm := "%" + strings.ToLower(query) + "%"                            // Case-insensitive search

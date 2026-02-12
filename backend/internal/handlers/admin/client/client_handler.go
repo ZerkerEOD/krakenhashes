@@ -45,7 +45,23 @@ func NewClientHandler(cr *repository.ClientRepository, cs *clientsvc.ClientServi
 // @Router /admin/clients [get]
 // @Security ApiKeyAuth
 func (h *ClientHandler) ListClients(w http.ResponseWriter, r *http.Request) {
-	clients, err := h.clientRepo.ListWithCrackedCounts(r.Context())
+	ctx := r.Context()
+	var clients []models.Client
+	var err error
+
+	// Filter by team access when teams enabled and user is not admin
+	if h.teamService != nil && h.teamService.IsTeamsEnabled(ctx) && !middleware.IsAdminFromContext(ctx) {
+		teamIDs := middleware.GetUserTeamIDsFromContext(ctx)
+		if teamIDs != nil && len(teamIDs) > 0 {
+			clients, err = h.clientRepo.ListWithCrackedCountsByTeamIDs(ctx, teamIDs)
+		} else {
+			// Fail closed: no teams or middleware error = empty result
+			clients = []models.Client{}
+		}
+	} else {
+		clients, err = h.clientRepo.ListWithCrackedCounts(ctx)
+	}
+
 	if err != nil {
 		debug.Error("Failed to list clients with cracked counts: %v", err)
 		httputil.RespondWithError(w, http.StatusInternalServerError, "Failed to retrieve clients")
@@ -325,4 +341,65 @@ func (h *ClientHandler) DeleteClient(w http.ResponseWriter, r *http.Request) {
 
 	debug.Info("Admin deleted client: %s", clientID)
 	httputil.RespondWithJSON(w, http.StatusOK, map[string]string{"message": "Client deleted successfully"})
+}
+
+// BulkAssignTeam assigns multiple clients to a single team.
+// POST /api/clients/bulk-assign-team
+func (h *ClientHandler) BulkAssignTeam(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	if !middleware.IsAdminFromContext(ctx) {
+		httputil.RespondWithError(w, http.StatusForbidden, "Only administrators can bulk assign clients")
+		return
+	}
+
+	var req struct {
+		ClientIDs []string `json:"client_ids"`
+		TeamID    string   `json:"team_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httputil.RespondWithError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if len(req.ClientIDs) == 0 {
+		httputil.RespondWithError(w, http.StatusBadRequest, "At least one client ID is required")
+		return
+	}
+	if req.TeamID == "" {
+		httputil.RespondWithError(w, http.StatusBadRequest, "Team ID is required")
+		return
+	}
+
+	teamID, err := uuid.Parse(req.TeamID)
+	if err != nil {
+		httputil.RespondWithError(w, http.StatusBadRequest, "Invalid team ID format")
+		return
+	}
+
+	clientIDs := make([]uuid.UUID, 0, len(req.ClientIDs))
+	for _, idStr := range req.ClientIDs {
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			httputil.RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Invalid client ID format: %s", idStr))
+			return
+		}
+		clientIDs = append(clientIDs, id)
+	}
+
+	actingUserID, _ := middleware.GetUserIDFromContext(ctx)
+
+	assigned, alreadyAssigned, err := h.teamService.BulkAssignClientsToTeam(ctx, clientIDs, teamID, actingUserID, true)
+	if err != nil {
+		debug.Error("Bulk assign clients to team failed: %v", err)
+		httputil.RespondWithError(w, http.StatusInternalServerError, "Failed to assign clients to team")
+		return
+	}
+
+	debug.Info("Admin bulk assigned %d clients to team %s (%d new, %d already assigned)", len(clientIDs), teamID, assigned, alreadyAssigned)
+	httputil.RespondWithJSON(w, http.StatusOK, map[string]int{
+		"assigned":         assigned,
+		"already_assigned": alreadyAssigned,
+		"total":            len(clientIDs),
+	})
 }

@@ -793,3 +793,56 @@ func (r *AgentRepository) UpdateOSInfo(ctx context.Context, agentID int, osInfo 
 
 	return nil
 }
+
+// TeamAgent is a lightweight agent representation for team listings
+type TeamAgent struct {
+	ID            int        `json:"id"`
+	Name          string     `json:"name"`
+	Status        string     `json:"status"`
+	Version       string     `json:"version"`
+	OwnerID       *uuid.UUID `json:"owner_id,omitempty"`
+	OwnerUsername string     `json:"owner_username"`
+}
+
+// GetAgentsForTeam retrieves all agents accessible to a specific team
+// via the 4-path resolution (explicit teams, owner inheritance, system agents, ownerless agents)
+func (r *AgentRepository) GetAgentsForTeam(ctx context.Context, teamID uuid.UUID) ([]TeamAgent, error) {
+	rows, err := r.db.QueryContext(ctx, queries.GetAgentsForTeam, teamID.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get agents for team: %w", err)
+	}
+	defer rows.Close()
+
+	var agents []TeamAgent
+	for rows.Next() {
+		var agent TeamAgent
+		var ownerIDStr sql.NullString
+
+		err := rows.Scan(
+			&agent.ID,
+			&agent.Name,
+			&agent.Status,
+			&agent.Version,
+			&ownerIDStr,
+			&agent.OwnerUsername,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan team agent: %w", err)
+		}
+
+		if ownerIDStr.Valid {
+			ownerUUID, parseErr := uuid.Parse(ownerIDStr.String)
+			if parseErr == nil {
+				agent.OwnerID = &ownerUUID
+			}
+		}
+
+		agents = append(agents, agent)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating team agents: %w", err)
+	}
+
+	return agents, nil
+}

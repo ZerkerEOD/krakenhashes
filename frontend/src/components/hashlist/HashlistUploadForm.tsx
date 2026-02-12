@@ -15,7 +15,11 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import { Clear as ClearIcon } from '@mui/icons-material';
 import ClientAutocomplete from './ClientAutocomplete';
@@ -27,6 +31,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 import { getJobExecutionSettings } from '../../services/jobSettings';
+import { teamsService } from '../../services/teams';
+import { Team } from '../../types/team';
 
 // Create schema function to dynamically set client requirement
 const createSchema = (requireClient: boolean) => {
@@ -73,6 +79,9 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
   const [potfileGloballyEnabled, setPotfileGloballyEnabled] = useState(true);
   const [clientPotfilesSystemEnabled, setClientPotfilesSystemEnabled] = useState(true);
   const [requireClient, setRequireClient] = useState(false);
+  const [teamsEnabled, setTeamsEnabled] = useState(false);
+  const [userTeams, setUserTeams] = useState<Team[]>([]);
+  const [selectedTeamId, setSelectedTeamId] = useState<string>('');
   const [detectionResult, setDetectionResult] = useState<any>(null);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [isDetecting, setIsDetecting] = useState(false);
@@ -160,6 +169,18 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
         if (teamsEnabled) {
           // If teams are enabled, client is always required
           setRequireClient(true);
+          setTeamsEnabled(true);
+          // Fetch user's teams for the team selector
+          try {
+            const teams = await teamsService.listUserTeams();
+            setUserTeams(teams);
+            // Auto-select if user has exactly one team
+            if (teams.length === 1) {
+              setSelectedTeamId(teams[0].id);
+            }
+          } catch (teamErr) {
+            console.error('Failed to fetch user teams:', teamErr);
+          }
         } else {
           // Otherwise, check the require_client_for_hashlist setting
           const response = await api.get('/api/admin/settings/require_client_for_hashlist');
@@ -223,6 +244,9 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
       }
       if (createLinked) {
         formData.append('create_linked', 'true');
+      }
+      if (selectedTeamId) {
+        formData.append('team_id', selectedTeamId);
       }
 
       return api.post('/api/hashlists', formData, {
@@ -306,6 +330,29 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
         )}
       />
 
+      {/* Team Selector — shown when teams enabled and user has multiple teams */}
+      {teamsEnabled && userTeams.length > 1 && (
+        <FormControl fullWidth margin="normal">
+          <InputLabel id="team-select-label">Team</InputLabel>
+          <Select
+            labelId="team-select-label"
+            value={selectedTeamId}
+            label="Team"
+            onChange={(e) => {
+              setSelectedTeamId(e.target.value);
+              // Clear client when team changes (clients are team-scoped)
+              setValue('clientName', null);
+            }}
+          >
+            {userTeams.map((team) => (
+              <MenuItem key={team.id} value={team.id}>
+                {team.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      )}
+
       <Controller
         name="clientName"
         control={control}
@@ -314,6 +361,7 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
             <ClientAutocomplete
               value={field.value ?? null}
               onChange={field.onChange}
+              teamId={selectedTeamId || undefined}
             />
             {errors.clientName && (
               <Box sx={{ color: 'error.main', fontSize: '0.75rem', mt: 0.5, ml: 1.75 }}>
