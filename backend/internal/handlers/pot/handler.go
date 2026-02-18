@@ -1,17 +1,26 @@
 package pot
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/middleware"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+)
+
+var (
+	errUnauthorized = errors.New("unauthorized")
+	errForbidden    = errors.New("forbidden")
 )
 
 type Handler struct {
@@ -19,6 +28,7 @@ type Handler struct {
 	hashlistRepo *repository.HashListRepository
 	clientRepo   *repository.ClientRepository
 	jobRepo      *repository.JobExecutionRepository
+	teamService  *services.TeamService
 }
 
 func NewHandler(
@@ -26,12 +36,109 @@ func NewHandler(
 	hashlistRepo *repository.HashListRepository,
 	clientRepo *repository.ClientRepository,
 	jobRepo *repository.JobExecutionRepository,
+	teamService *services.TeamService,
 ) *Handler {
 	return &Handler{
 		hashRepo:     hashRepo,
 		hashlistRepo: hashlistRepo,
 		clientRepo:   clientRepo,
 		jobRepo:      jobRepo,
+		teamService:  teamService,
+	}
+}
+
+// checkClientAccess validates the user can access the given client via team membership.
+// Returns nil if access is allowed, errForbidden if denied, errUnauthorized if no user context.
+func (h *Handler) checkClientAccess(ctx context.Context, clientID uuid.UUID) error {
+	if h.teamService == nil || !middleware.IsTeamsEnabledFromContext(ctx) {
+		return nil
+	}
+	if middleware.IsAdminFromContext(ctx) {
+		return nil
+	}
+	userID, ok := middleware.GetUserIDFromContext(ctx)
+	if !ok {
+		return errUnauthorized
+	}
+	canAccess, err := h.teamService.CanUserAccessClient(ctx, userID, clientID, false)
+	if err != nil {
+		debug.Error("Failed to check client access: %v", err)
+		return errForbidden
+	}
+	if !canAccess {
+		return errForbidden
+	}
+	return nil
+}
+
+// checkHashlistAccess validates the user can access the given hashlist via team membership.
+func (h *Handler) checkHashlistAccess(ctx context.Context, hashlistID int64) error {
+	if h.teamService == nil || !middleware.IsTeamsEnabledFromContext(ctx) {
+		return nil
+	}
+	if middleware.IsAdminFromContext(ctx) {
+		return nil
+	}
+	userID, ok := middleware.GetUserIDFromContext(ctx)
+	if !ok {
+		return errUnauthorized
+	}
+	canAccess, err := h.teamService.CanUserAccessHashlist(ctx, userID, hashlistID, false)
+	if err != nil {
+		debug.Error("Failed to check hashlist access: %v", err)
+		return errForbidden
+	}
+	if !canAccess {
+		return errForbidden
+	}
+	return nil
+}
+
+// checkJobAccess validates the user can access the given job via team membership.
+func (h *Handler) checkJobAccess(ctx context.Context, jobID uuid.UUID) error {
+	if h.teamService == nil || !middleware.IsTeamsEnabledFromContext(ctx) {
+		return nil
+	}
+	if middleware.IsAdminFromContext(ctx) {
+		return nil
+	}
+	userID, ok := middleware.GetUserIDFromContext(ctx)
+	if !ok {
+		return errUnauthorized
+	}
+	canAccess, err := h.teamService.CanUserAccessJob(ctx, userID, jobID, false)
+	if err != nil {
+		debug.Error("Failed to check job access: %v", err)
+		return errForbidden
+	}
+	if !canAccess {
+		return errForbidden
+	}
+	return nil
+}
+
+// getAccessibleClientIDs returns the client IDs the user can access, or nil if unrestricted.
+// Returns a non-nil empty slice if the user has no accessible clients.
+func (h *Handler) getAccessibleClientIDs(ctx context.Context) ([]uuid.UUID, error) {
+	if h.teamService == nil || !middleware.IsTeamsEnabledFromContext(ctx) {
+		return nil, nil
+	}
+	if middleware.IsAdminFromContext(ctx) {
+		return nil, nil
+	}
+	userID, ok := middleware.GetUserIDFromContext(ctx)
+	if !ok {
+		return []uuid.UUID{}, nil
+	}
+	return h.teamService.GetAccessibleClientIDs(ctx, userID, false)
+}
+
+// handleAccessError writes the appropriate HTTP error for access check failures.
+func handleAccessError(w http.ResponseWriter, err error) {
+	if errors.Is(err, errUnauthorized) {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	} else {
+		http.Error(w, "Forbidden", http.StatusForbidden)
 	}
 }
 
@@ -78,7 +185,27 @@ func (h *Handler) HandleListCrackedHashes(w http.ResponseWriter, r *http.Request
 
 	debug.Info("Fetching cracked hashes with limit=%d, offset=%d, search=%q", params.Limit, params.Offset, params.Search)
 
-	hashes, totalCount, err := h.hashRepo.GetCrackedHashes(ctx, params)
+	// Filter by team-accessible clients when teams are enabled
+	accessibleClientIDs, err := h.getAccessibleClientIDs(ctx)
+	if err != nil {
+		debug.Error("Failed to get accessible client IDs: %v", err)
+		http.Error(w, "Failed to retrieve cracked hashes", http.StatusInternalServerError)
+		return
+	}
+
+	var hashes []*models.Hash
+	var totalCount int64
+
+	if accessibleClientIDs == nil {
+		// Unrestricted access (teams disabled or admin)
+		hashes, totalCount, err = h.hashRepo.GetCrackedHashes(ctx, params)
+	} else if len(accessibleClientIDs) == 0 {
+		// User has no accessible clients
+		hashes = []*models.Hash{}
+		totalCount = 0
+	} else {
+		hashes, totalCount, err = h.hashRepo.GetCrackedHashesByClientIDs(ctx, accessibleClientIDs, params)
+	}
 	if err != nil {
 		debug.Error("Failed to get cracked hashes: %v", err)
 		http.Error(w, "Failed to retrieve cracked hashes", http.StatusInternalServerError)
@@ -86,7 +213,7 @@ func (h *Handler) HandleListCrackedHashes(w http.ResponseWriter, r *http.Request
 	}
 
 	response := h.formatPotResponse(hashes, totalCount, params.Limit, params.Offset)
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		debug.Error("Failed to encode response: %v", err)
@@ -99,11 +226,16 @@ func (h *Handler) HandleListCrackedHashesByHashlist(w http.ResponseWriter, r *ht
 	ctx := r.Context()
 	vars := mux.Vars(r)
 	hashlistIDStr := vars["id"]
-	
+
 	hashlistID, err := strconv.ParseInt(hashlistIDStr, 10, 64)
 	if err != nil {
 		debug.Error("Invalid hashlist ID: %v", err)
 		http.Error(w, "Invalid hashlist ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.checkHashlistAccess(ctx, hashlistID); err != nil {
+		handleAccessError(w, err)
 		return
 	}
 
@@ -160,6 +292,11 @@ func (h *Handler) HandleListCrackedHashesByClient(w http.ResponseWriter, r *http
 		return
 	}
 
+	if err := h.checkClientAccess(ctx, clientID); err != nil {
+		handleAccessError(w, err)
+		return
+	}
+
 	params := repository.CrackedHashParams{
 		Limit:  500,
 		Offset: 0,
@@ -210,6 +347,11 @@ func (h *Handler) HandleListCrackedHashesByJob(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		debug.Error("Invalid job ID: %v", err)
 		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.checkJobAccess(ctx, jobID); err != nil {
+		handleAccessError(w, err)
 		return
 	}
 
@@ -285,78 +427,96 @@ func (h *Handler) formatPotResponse(hashes []*models.Hash, totalCount int64, lim
 	}
 }
 
+// getMasterCrackedHashes retrieves all cracked hashes with team filtering applied.
+// Returns nil hashes and an error string if retrieval fails.
+func (h *Handler) getMasterCrackedHashes(ctx context.Context, params repository.CrackedHashParams) ([]*models.Hash, error) {
+	accessibleClientIDs, err := h.getAccessibleClientIDs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get accessible client IDs: %w", err)
+	}
+
+	var hashes []*models.Hash
+	if accessibleClientIDs == nil {
+		hashes, _, err = h.hashRepo.GetCrackedHashes(ctx, params)
+	} else if len(accessibleClientIDs) == 0 {
+		return []*models.Hash{}, nil
+	} else {
+		hashes, _, err = h.hashRepo.GetCrackedHashesByClientIDs(ctx, accessibleClientIDs, params)
+	}
+	return hashes, err
+}
+
 // Download handlers for all cracked hashes
 
 func (h *Handler) HandleDownloadHashPass(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	
-	// Get all cracked hashes (no pagination)
+
 	params := repository.CrackedHashParams{
 		Limit:  999999,
 		Offset: 0,
 	}
-	
-	hashes, _, err := h.hashRepo.GetCrackedHashes(ctx, params)
+
+	hashes, err := h.getMasterCrackedHashes(ctx, params)
 	if err != nil {
 		debug.Error("Failed to get cracked hashes for download: %v", err)
 		http.Error(w, "Failed to retrieve cracked hashes", http.StatusInternalServerError)
 		return
 	}
-	
+
 	h.writeHashPassFormat(w, hashes, "master")
 }
 
 func (h *Handler) HandleDownloadUserPass(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	
+
 	params := repository.CrackedHashParams{
 		Limit:  999999,
 		Offset: 0,
 	}
-	
-	hashes, _, err := h.hashRepo.GetCrackedHashes(ctx, params)
+
+	hashes, err := h.getMasterCrackedHashes(ctx, params)
 	if err != nil {
 		debug.Error("Failed to get cracked hashes for download: %v", err)
 		http.Error(w, "Failed to retrieve cracked hashes", http.StatusInternalServerError)
 		return
 	}
-	
+
 	h.writeUserPassFormat(w, hashes, "master")
 }
 
 func (h *Handler) HandleDownloadUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	
+
 	params := repository.CrackedHashParams{
 		Limit:  999999,
 		Offset: 0,
 	}
-	
-	hashes, _, err := h.hashRepo.GetCrackedHashes(ctx, params)
+
+	hashes, err := h.getMasterCrackedHashes(ctx, params)
 	if err != nil {
 		debug.Error("Failed to get cracked hashes for download: %v", err)
 		http.Error(w, "Failed to retrieve cracked hashes", http.StatusInternalServerError)
 		return
 	}
-	
+
 	h.writeUserFormat(w, hashes, "master")
 }
 
 func (h *Handler) HandleDownloadPass(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	
+
 	params := repository.CrackedHashParams{
 		Limit:  999999,
 		Offset: 0,
 	}
-	
-	hashes, _, err := h.hashRepo.GetCrackedHashes(ctx, params)
+
+	hashes, err := h.getMasterCrackedHashes(ctx, params)
 	if err != nil {
 		debug.Error("Failed to get cracked hashes for download: %v", err)
 		http.Error(w, "Failed to retrieve cracked hashes", http.StatusInternalServerError)
 		return
 	}
-	
+
 	h.writePassFormat(w, hashes, "master")
 }
 
@@ -366,14 +526,19 @@ func (h *Handler) HandleDownloadHashPassByHashlist(w http.ResponseWriter, r *htt
 	ctx := r.Context()
 	vars := mux.Vars(r)
 	hashlistIDStr := vars["id"]
-	
+
 	hashlistID, err := strconv.ParseInt(hashlistIDStr, 10, 64)
 	if err != nil {
 		debug.Error("Invalid hashlist ID: %v", err)
 		http.Error(w, "Invalid hashlist ID", http.StatusBadRequest)
 		return
 	}
-	
+
+	if err := h.checkHashlistAccess(ctx, hashlistID); err != nil {
+		handleAccessError(w, err)
+		return
+	}
+
 	// Get hashlist name for filename
 	hashlist, err := h.hashlistRepo.GetByID(ctx, hashlistID)
 	if err != nil {
@@ -401,33 +566,38 @@ func (h *Handler) HandleDownloadUserPassByHashlist(w http.ResponseWriter, r *htt
 	ctx := r.Context()
 	vars := mux.Vars(r)
 	hashlistIDStr := vars["id"]
-	
+
 	hashlistID, err := strconv.ParseInt(hashlistIDStr, 10, 64)
 	if err != nil {
 		debug.Error("Invalid hashlist ID: %v", err)
 		http.Error(w, "Invalid hashlist ID", http.StatusBadRequest)
 		return
 	}
-	
+
+	if err := h.checkHashlistAccess(ctx, hashlistID); err != nil {
+		handleAccessError(w, err)
+		return
+	}
+
 	hashlist, err := h.hashlistRepo.GetByID(ctx, hashlistID)
 	if err != nil {
 		debug.Error("Failed to get hashlist: %v", err)
 		http.Error(w, "Failed to retrieve hashlist", http.StatusInternalServerError)
 		return
 	}
-	
+
 	params := repository.CrackedHashParams{
 		Limit:  999999,
 		Offset: 0,
 	}
-	
+
 	hashes, _, err := h.hashRepo.GetCrackedHashesByHashlist(ctx, hashlistID, params)
 	if err != nil {
 		debug.Error("Failed to get cracked hashes for download: %v", err)
 		http.Error(w, "Failed to retrieve cracked hashes", http.StatusInternalServerError)
 		return
 	}
-	
+
 	h.writeUserPassFormat(w, hashes, sanitizeFilename(hashlist.Name))
 }
 
@@ -435,33 +605,38 @@ func (h *Handler) HandleDownloadUserByHashlist(w http.ResponseWriter, r *http.Re
 	ctx := r.Context()
 	vars := mux.Vars(r)
 	hashlistIDStr := vars["id"]
-	
+
 	hashlistID, err := strconv.ParseInt(hashlistIDStr, 10, 64)
 	if err != nil {
 		debug.Error("Invalid hashlist ID: %v", err)
 		http.Error(w, "Invalid hashlist ID", http.StatusBadRequest)
 		return
 	}
-	
+
+	if err := h.checkHashlistAccess(ctx, hashlistID); err != nil {
+		handleAccessError(w, err)
+		return
+	}
+
 	hashlist, err := h.hashlistRepo.GetByID(ctx, hashlistID)
 	if err != nil {
 		debug.Error("Failed to get hashlist: %v", err)
 		http.Error(w, "Failed to retrieve hashlist", http.StatusInternalServerError)
 		return
 	}
-	
+
 	params := repository.CrackedHashParams{
 		Limit:  999999,
 		Offset: 0,
 	}
-	
+
 	hashes, _, err := h.hashRepo.GetCrackedHashesByHashlist(ctx, hashlistID, params)
 	if err != nil {
 		debug.Error("Failed to get cracked hashes for download: %v", err)
 		http.Error(w, "Failed to retrieve cracked hashes", http.StatusInternalServerError)
 		return
 	}
-	
+
 	h.writeUserFormat(w, hashes, sanitizeFilename(hashlist.Name))
 }
 
@@ -469,33 +644,38 @@ func (h *Handler) HandleDownloadPassByHashlist(w http.ResponseWriter, r *http.Re
 	ctx := r.Context()
 	vars := mux.Vars(r)
 	hashlistIDStr := vars["id"]
-	
+
 	hashlistID, err := strconv.ParseInt(hashlistIDStr, 10, 64)
 	if err != nil {
 		debug.Error("Invalid hashlist ID: %v", err)
 		http.Error(w, "Invalid hashlist ID", http.StatusBadRequest)
 		return
 	}
-	
+
+	if err := h.checkHashlistAccess(ctx, hashlistID); err != nil {
+		handleAccessError(w, err)
+		return
+	}
+
 	hashlist, err := h.hashlistRepo.GetByID(ctx, hashlistID)
 	if err != nil {
 		debug.Error("Failed to get hashlist: %v", err)
 		http.Error(w, "Failed to retrieve hashlist", http.StatusInternalServerError)
 		return
 	}
-	
+
 	params := repository.CrackedHashParams{
 		Limit:  999999,
 		Offset: 0,
 	}
-	
+
 	hashes, _, err := h.hashRepo.GetCrackedHashesByHashlist(ctx, hashlistID, params)
 	if err != nil {
 		debug.Error("Failed to get cracked hashes for download: %v", err)
 		http.Error(w, "Failed to retrieve cracked hashes", http.StatusInternalServerError)
 		return
 	}
-	
+
 	h.writePassFormat(w, hashes, sanitizeFilename(hashlist.Name))
 }
 
@@ -505,14 +685,19 @@ func (h *Handler) HandleDownloadHashPassByClient(w http.ResponseWriter, r *http.
 	ctx := r.Context()
 	vars := mux.Vars(r)
 	clientIDStr := vars["id"]
-	
+
 	clientID, err := uuid.Parse(clientIDStr)
 	if err != nil {
 		debug.Error("Invalid client ID: %v", err)
 		http.Error(w, "Invalid client ID", http.StatusBadRequest)
 		return
 	}
-	
+
+	if err := h.checkClientAccess(ctx, clientID); err != nil {
+		handleAccessError(w, err)
+		return
+	}
+
 	// Get client name for filename
 	client, err := h.clientRepo.GetByID(ctx, clientID)
 	if err != nil {
@@ -540,14 +725,19 @@ func (h *Handler) HandleDownloadUserPassByClient(w http.ResponseWriter, r *http.
 	ctx := r.Context()
 	vars := mux.Vars(r)
 	clientIDStr := vars["id"]
-	
+
 	clientID, err := uuid.Parse(clientIDStr)
 	if err != nil {
 		debug.Error("Invalid client ID: %v", err)
 		http.Error(w, "Invalid client ID", http.StatusBadRequest)
 		return
 	}
-	
+
+	if err := h.checkClientAccess(ctx, clientID); err != nil {
+		handleAccessError(w, err)
+		return
+	}
+
 	client, err := h.clientRepo.GetByID(ctx, clientID)
 	if err != nil {
 		debug.Error("Failed to get client: %v", err)
@@ -574,14 +764,19 @@ func (h *Handler) HandleDownloadUserByClient(w http.ResponseWriter, r *http.Requ
 	ctx := r.Context()
 	vars := mux.Vars(r)
 	clientIDStr := vars["id"]
-	
+
 	clientID, err := uuid.Parse(clientIDStr)
 	if err != nil {
 		debug.Error("Invalid client ID: %v", err)
 		http.Error(w, "Invalid client ID", http.StatusBadRequest)
 		return
 	}
-	
+
+	if err := h.checkClientAccess(ctx, clientID); err != nil {
+		handleAccessError(w, err)
+		return
+	}
+
 	client, err := h.clientRepo.GetByID(ctx, clientID)
 	if err != nil {
 		debug.Error("Failed to get client: %v", err)
@@ -608,14 +803,19 @@ func (h *Handler) HandleDownloadPassByClient(w http.ResponseWriter, r *http.Requ
 	ctx := r.Context()
 	vars := mux.Vars(r)
 	clientIDStr := vars["id"]
-	
+
 	clientID, err := uuid.Parse(clientIDStr)
 	if err != nil {
 		debug.Error("Invalid client ID: %v", err)
 		http.Error(w, "Invalid client ID", http.StatusBadRequest)
 		return
 	}
-	
+
+	if err := h.checkClientAccess(ctx, clientID); err != nil {
+		handleAccessError(w, err)
+		return
+	}
+
 	client, err := h.clientRepo.GetByID(ctx, clientID)
 	if err != nil {
 		debug.Error("Failed to get client: %v", err)
@@ -649,6 +849,11 @@ func (h *Handler) HandleDownloadHashPassByJob(w http.ResponseWriter, r *http.Req
 	if err != nil {
 		debug.Error("Invalid job ID: %v", err)
 		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.checkJobAccess(ctx, jobID); err != nil {
+		handleAccessError(w, err)
 		return
 	}
 
@@ -687,6 +892,11 @@ func (h *Handler) HandleDownloadUserPassByJob(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	if err := h.checkJobAccess(ctx, jobID); err != nil {
+		handleAccessError(w, err)
+		return
+	}
+
 	// Get job name for filename
 	job, err := h.jobRepo.GetByID(ctx, jobID)
 	if err != nil {
@@ -719,6 +929,11 @@ func (h *Handler) HandleDownloadUserByJob(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		debug.Error("Invalid job ID: %v", err)
 		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.checkJobAccess(ctx, jobID); err != nil {
+		handleAccessError(w, err)
 		return
 	}
 
@@ -757,6 +972,11 @@ func (h *Handler) HandleDownloadPassByJob(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	if err := h.checkJobAccess(ctx, jobID); err != nil {
+		handleAccessError(w, err)
+		return
+	}
+
 	// Get job name for filename
 	job, err := h.jobRepo.GetByID(ctx, jobID)
 	if err != nil {
@@ -790,7 +1010,7 @@ func (h *Handler) HandleDownloadDomainUser(w http.ResponseWriter, r *http.Reques
 		Offset: 0,
 	}
 
-	hashes, _, err := h.hashRepo.GetCrackedHashes(ctx, params)
+	hashes, err := h.getMasterCrackedHashes(ctx, params)
 	if err != nil {
 		debug.Error("Failed to get cracked hashes for download: %v", err)
 		http.Error(w, "Failed to retrieve cracked hashes", http.StatusInternalServerError)
@@ -808,7 +1028,7 @@ func (h *Handler) HandleDownloadDomainUserPass(w http.ResponseWriter, r *http.Re
 		Offset: 0,
 	}
 
-	hashes, _, err := h.hashRepo.GetCrackedHashes(ctx, params)
+	hashes, err := h.getMasterCrackedHashes(ctx, params)
 	if err != nil {
 		debug.Error("Failed to get cracked hashes for download: %v", err)
 		http.Error(w, "Failed to retrieve cracked hashes", http.StatusInternalServerError)
@@ -829,6 +1049,11 @@ func (h *Handler) HandleDownloadDomainUserByHashlist(w http.ResponseWriter, r *h
 	if err != nil {
 		debug.Error("Invalid hashlist ID: %v", err)
 		http.Error(w, "Invalid hashlist ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.checkHashlistAccess(ctx, hashlistID); err != nil {
+		handleAccessError(w, err)
 		return
 	}
 
@@ -863,6 +1088,11 @@ func (h *Handler) HandleDownloadDomainUserPassByHashlist(w http.ResponseWriter, 
 	if err != nil {
 		debug.Error("Invalid hashlist ID: %v", err)
 		http.Error(w, "Invalid hashlist ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.checkHashlistAccess(ctx, hashlistID); err != nil {
+		handleAccessError(w, err)
 		return
 	}
 
@@ -902,6 +1132,11 @@ func (h *Handler) HandleDownloadDomainUserByClient(w http.ResponseWriter, r *htt
 		return
 	}
 
+	if err := h.checkClientAccess(ctx, clientID); err != nil {
+		handleAccessError(w, err)
+		return
+	}
+
 	client, err := h.clientRepo.GetByID(ctx, clientID)
 	if err != nil {
 		debug.Error("Failed to get client: %v", err)
@@ -933,6 +1168,11 @@ func (h *Handler) HandleDownloadDomainUserPassByClient(w http.ResponseWriter, r 
 	if err != nil {
 		debug.Error("Invalid client ID: %v", err)
 		http.Error(w, "Invalid client ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.checkClientAccess(ctx, clientID); err != nil {
+		handleAccessError(w, err)
 		return
 	}
 
@@ -972,6 +1212,11 @@ func (h *Handler) HandleDownloadDomainUserByJob(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	if err := h.checkJobAccess(ctx, jobID); err != nil {
+		handleAccessError(w, err)
+		return
+	}
+
 	job, err := h.jobRepo.GetByID(ctx, jobID)
 	if err != nil {
 		debug.Error("Failed to get job: %v", err)
@@ -1003,6 +1248,11 @@ func (h *Handler) HandleDownloadDomainUserPassByJob(w http.ResponseWriter, r *ht
 	if err != nil {
 		debug.Error("Invalid job ID: %v", err)
 		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.checkJobAccess(ctx, jobID); err != nil {
+		handleAccessError(w, err)
 		return
 	}
 

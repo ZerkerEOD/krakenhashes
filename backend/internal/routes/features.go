@@ -81,8 +81,8 @@ func SetupVoucherRoutes(jwtRouter *mux.Router, voucherService *services.ClaimVou
 }
 
 // SetupPotRoutes configures pot (cracked hashes) routes
-func SetupPotRoutes(jwtRouter *mux.Router, hashRepo *repository.HashRepository, hashlistRepo *repository.HashListRepository, clientRepo *repository.ClientRepository, jobRepo *repository.JobExecutionRepository) {
-	potHandler := pot.NewHandler(hashRepo, hashlistRepo, clientRepo, jobRepo)
+func SetupPotRoutes(jwtRouter *mux.Router, hashRepo *repository.HashRepository, hashlistRepo *repository.HashListRepository, clientRepo *repository.ClientRepository, jobRepo *repository.JobExecutionRepository, teamService *services.TeamService) {
+	potHandler := pot.NewHandler(hashRepo, hashlistRepo, clientRepo, jobRepo, teamService)
 	
 	// List routes
 	jwtRouter.HandleFunc("/pot", potHandler.HandleListCrackedHashes).Methods("GET", "OPTIONS")

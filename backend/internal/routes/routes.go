@@ -242,7 +242,7 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	// Note: Skipping SetupJobRoutes(jwtRouter) as it conflicts with SetupUserRoutes - the real job routes are in SetupUserRoutes
 	SetupAgentRoutes(jwtRouter, agentService, database)
 	SetupVoucherRoutes(jwtRouter, services.NewClaimVoucherService(repository.NewClaimVoucherRepository(database)))
-	SetupPotRoutes(jwtRouter, hashRepo, hashlistRepo, clientRepo, jobExecutionRepo)
+	SetupPotRoutes(jwtRouter, hashRepo, hashlistRepo, clientRepo, jobExecutionRepo, teamService)
 
 	// Add user accessible routes for settings (read-only)
 	jwtRouter.HandleFunc("/settings/max-priority", userSystemSettingsHandler.GetMaxPriorityForUsers).Methods(http.MethodGet, http.MethodOptions)
@@ -266,7 +266,7 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	SetupRuleRoutes(jwtRouter, sqlDB, appConfig, agentService, presetJobService)
 
 	// Setup analytics routes
-	SetupAnalyticsRoutes(jwtRouter, database, analyticsQueueService)
+	SetupAnalyticsRoutes(jwtRouter, database, analyticsQueueService, teamService, clientTeamRepo)
 
 	// Setup file download routes for agents
 	SetupFileDownloadRoutes(r, sqlDB, appConfig, agentService)
