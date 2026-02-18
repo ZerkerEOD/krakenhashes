@@ -254,6 +254,10 @@ type TaskAssignmentPayload struct {
 	ClientPotfilePath     string   `json:"client_potfile_path,omitempty"`     // Path to client potfile (treated as wordlist)
 	ClientWordlistPaths   []string `json:"client_wordlist_paths,omitempty"`   // Paths to client-specific wordlists
 	ClientWordlistIDs     []string `json:"client_wordlist_ids,omitempty"`     // IDs for downloading client wordlists
+
+	// Server's base keyspace for agent-side coordinate conversion
+	// Agents with -O may have a different outer-loop keyspace; this lets them convert --skip/--limit
+	BaseKeyspace int64 `json:"base_keyspace,omitempty"`
 }
 
 // BenchmarkResultPayload represents benchmark results from an agent
@@ -264,6 +268,7 @@ type BenchmarkResultPayload struct {
 	Speed                  int64         `json:"speed"`                             // Total hashes per second
 	DeviceSpeeds           []DeviceSpeed `json:"device_speeds,omitempty"`           // Per-device speeds
 	TotalEffectiveKeyspace int64         `json:"total_effective_keyspace"`          // Hashcat progress[1] from full job run
+	AgentBaseKeyspace      int64         `json:"agent_base_keyspace"`              // Agent's hashcat --keyspace with its flags
 	Success                bool          `json:"success"`
 	Error                  string        `json:"error,omitempty"`
 }

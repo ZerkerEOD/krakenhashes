@@ -80,6 +80,7 @@ backend/certs/
 
 # Claude configuration
 CLAUDE.md
+.claude/
 
 # Agent specific
 # Go binaries

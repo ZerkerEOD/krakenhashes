@@ -1705,7 +1705,7 @@ func (c *Connection) readPump() {
 
 				// Get the executor from job manager
 				executor := c.jobManager.(*jobs.JobManager).GetExecutor()
-				totalSpeed, deviceSpeeds, totalEffectiveKeyspace, err := executor.RunSpeedTest(ctx, assignment, testDuration)
+				totalSpeed, deviceSpeeds, totalEffectiveKeyspace, agentBaseKeyspace, err := executor.RunSpeedTest(ctx, assignment, testDuration)
 
 				if err != nil {
 					debug.Error("Speed test failed: %v", err)
@@ -1717,6 +1717,7 @@ func (c *Connection) readPump() {
 						"speed":                     int64(0),
 						"device_speeds":             []jobs.DeviceSpeed{},
 						"total_effective_keyspace":  int64(0),
+						"agent_base_keyspace":       int64(0),
 						"success":                   false,
 						"error":                     err.Error(), // Backend expects "error" not "error_message"
 					}
@@ -1742,6 +1743,7 @@ func (c *Connection) readPump() {
 					"speed":                     totalSpeed, // Backend expects "speed" not "total_speed"
 					"device_speeds":             deviceSpeeds,
 					"total_effective_keyspace":  totalEffectiveKeyspace, // Hashcat's progress[1]
+					"agent_base_keyspace":       agentBaseKeyspace,      // Agent's hashcat --keyspace with its flags
 					"success":                   true,
 				}
 

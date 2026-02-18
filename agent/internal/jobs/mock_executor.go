@@ -500,7 +500,7 @@ func countFileLines(filepath string) (int64, error) {
 }
 
 // RunSpeedTest simulates a speed test
-func (e *MockHashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskAssignment, testDuration int) (int64, []DeviceSpeed, int64, error) {
+func (e *MockHashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskAssignment, testDuration int) (int64, []DeviceSpeed, int64, int64, error) {
 	debug.Info("Mock executor running speed test for hash type %d", assignment.HashType)
 
 	// Simulate benchmark time (much faster than real)
@@ -519,8 +519,8 @@ func (e *MockHashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobT
 	effectiveKeyspace := e.calculateKeyspace(assignment)
 	debug.Info("Mock benchmark: calculated effective keyspace = %d", effectiveKeyspace)
 
-	// Return total speed, device speeds, and effective keyspace
-	return e.hashRate, deviceSpeeds, effectiveKeyspace, nil
+	// Return total speed, device speeds, effective keyspace, and 0 for agent base keyspace (mock)
+	return e.hashRate, deviceSpeeds, effectiveKeyspace, 0, nil
 }
 
 // Helper functions to load configuration from environment
