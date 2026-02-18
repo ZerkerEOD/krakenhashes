@@ -1239,7 +1239,9 @@
       "maxRetryAttempts": "Макс. попыток повтора части",
       "maxRetryAttemptsHelper": "Количество попыток повтора неудачных частей",
       "jobsPerPage": "Заданий на странице",
-      "jobsPerPageHelper": "Размер пагинации по умолчанию для списков заданий"
+      "jobsPerPageHelper": "Размер пагинации по умолчанию для списков заданий",
+      "keyspaceTimeout": "Тайм-аут расчёта keyspace",
+      "keyspaceTimeoutHelper": "Максимальное время для команд hashcat --keyspace и --total-candidates. Увеличьте для больших словарей/правил."
     },
     "potfile": {
       "title": "Настройки Potfile",

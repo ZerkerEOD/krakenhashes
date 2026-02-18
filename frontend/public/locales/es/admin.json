@@ -1239,7 +1239,9 @@
       "maxRetryAttempts": "Maximo de intentos de reintento de fragmento",
       "maxRetryAttemptsHelper": "Numero de veces a reintentar fragmentos fallidos",
       "jobsPerPage": "Trabajos por pagina",
-      "jobsPerPageHelper": "Tamano de paginacion predeterminado para listas de trabajos"
+      "jobsPerPageHelper": "Tamano de paginacion predeterminado para listas de trabajos",
+      "keyspaceTimeout": "Tiempo limite de calculo de keyspace",
+      "keyspaceTimeoutHelper": "Tiempo maximo para comandos hashcat --keyspace y --total-candidates. Aumentar para listas de palabras/reglas grandes."
     },
     "potfile": {
       "title": "Configuracion de potfile",

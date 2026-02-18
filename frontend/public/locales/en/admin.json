@@ -1240,7 +1240,9 @@
       "maxRetryAttempts": "Max Chunk Retry Attempts",
       "maxRetryAttemptsHelper": "Number of times to retry failed chunks",
       "jobsPerPage": "Jobs Per Page",
-      "jobsPerPageHelper": "Default pagination size for job lists"
+      "jobsPerPageHelper": "Default pagination size for job lists",
+      "keyspaceTimeout": "Keyspace Calculation Timeout",
+      "keyspaceTimeoutHelper": "Maximum time for hashcat --keyspace and --total-candidates commands. Increase for large wordlists/rules."
     },
     "potfile": {
       "title": "Potfile Settings",

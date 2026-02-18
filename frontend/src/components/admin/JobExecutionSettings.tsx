@@ -410,6 +410,22 @@ const JobExecutionSettingsComponent: React.FC = () => {
                   }}
                 />
               </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label={t('jobExecution.jobControl.keyspaceTimeout') as string}
+                  value={settings.keyspace_calculation_timeout_minutes}
+                  onChange={handleNumberChange('keyspace_calculation_timeout_minutes')}
+                  onBlur={handleBlurSave}
+                  disabled={saving}
+                  helperText={t('jobExecution.jobControl.keyspaceTimeoutHelper')}
+                  InputProps={{
+                    inputProps: { min: 1, max: 60 },
+                    endAdornment: <InputAdornment position="end">{t('jobExecution.agentConfig.minutes')}</InputAdornment>,
+                  }}
+                />
+              </Grid>
             </Grid>
           </Paper>
         </Grid>

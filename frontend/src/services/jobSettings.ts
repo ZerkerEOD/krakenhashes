@@ -20,6 +20,8 @@ export interface JobExecutionSettings {
   rule_split_min_rules: number;
   rule_split_max_chunks: number;
   rule_chunk_temp_dir: string;
+  // Keyspace calculation settings
+  keyspace_calculation_timeout_minutes: number;
   // Potfile settings
   potfile_enabled: boolean;
   // Client potfile settings
