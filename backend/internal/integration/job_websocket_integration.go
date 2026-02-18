@@ -543,6 +543,7 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 
 	// Check if this task belongs to an increment layer
 	var maskToUse string
+	var taskBaseKeyspace int64 // Server's base keyspace for agent-side coordinate conversion
 	if task.IncrementLayerID != nil {
 		// This task belongs to a layer - fetch the layer to get its mask
 		layer, err := s.jobIncrementLayerRepo.GetByID(ctx, *task.IncrementLayerID)
@@ -551,6 +552,9 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 		}
 
 		maskToUse = layer.Mask
+		if layer.BaseKeyspace != nil {
+			taskBaseKeyspace = *layer.BaseKeyspace
+		}
 
 		debug.Log("Using layer-specific mask for task", map[string]interface{}{
 			"task_id":    task.ID,
@@ -561,6 +565,9 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 	} else {
 		// Regular job - use job's mask
 		maskToUse = jobExecution.Mask
+		if jobExecution.BaseKeyspace != nil {
+			taskBaseKeyspace = *jobExecution.BaseKeyspace
+		}
 	}
 
 	// Hashlist path is always the same - agent's download function picks the right endpoint
@@ -799,6 +806,7 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 		ClientWordlistPaths:   clientWordlistPaths,
 		ClientWordlistIDs:     clientWordlistIDs,
 		ClientPotfilePath:     clientPotfilePath,
+		BaseKeyspace:          taskBaseKeyspace,
 	}
 
 	// Log mode 9 task assignment for debugging
@@ -2589,6 +2597,12 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 			"attack_mode": result.AttackMode,
 			"success":     result.Success,
 		})
+	}
+
+	// Log agent's base keyspace for debugging coordinate conversion
+	if result.AgentBaseKeyspace > 0 {
+		debug.Info("Agent %d reported base_keyspace=%d for benchmark (job/layer %s, hash_type %d, attack_mode %d)",
+			agentID, result.AgentBaseKeyspace, result.JobExecutionID, result.HashType, result.AttackMode)
 	}
 
 	// Handle total effective keyspace from hashcat progress[1]

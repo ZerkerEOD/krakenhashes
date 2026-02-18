@@ -97,7 +97,7 @@ type ExecutorInterface interface {
 	GetTaskProgress(taskID string) (*JobProgress, error)
 	GetActiveTaskIDs() []string
 	ForceCleanup() error
-	RunSpeedTest(ctx context.Context, assignment *JobTaskAssignment, testDuration int) (int64, []DeviceSpeed, int64, error)
+	RunSpeedTest(ctx context.Context, assignment *JobTaskAssignment, testDuration int) (int64, []DeviceSpeed, int64, int64, error)
 	// Outfile acknowledgment protocol methods
 	RetransmitOutfile(taskID string) ([]CrackedHash, error)
 	DeleteOutfile(taskID string) error

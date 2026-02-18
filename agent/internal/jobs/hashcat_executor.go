@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -65,6 +66,7 @@ type JobTaskAssignment struct {
 	IncrementMin    *int        `json:"increment_min,omitempty"`    // Starting mask length for increment mode
 	IncrementMax    *int        `json:"increment_max,omitempty"`    // Maximum mask length for increment mode
 	IsKeyspaceSplit bool        `json:"is_keyspace_split"`          // Whether this task uses keyspace splitting (--skip/--limit)
+	BaseKeyspace    int64       `json:"base_keyspace,omitempty"`    // Server's base keyspace for --skip/--limit coordinate conversion
 	// Association attack fields (mode 9)
 	AssociationWordlistPath string `json:"association_wordlist_path,omitempty"` // Path to the association wordlist
 	OriginalHashlistPath    string `json:"original_hashlist_path,omitempty"`    // Path to the original hashlist file (preserves order)
@@ -204,6 +206,9 @@ type HashcatProcess struct {
 	OutfileSentHashes map[string]bool   // Track sent hash:password lines (deduplication)
 	OutfileMutex      sync.Mutex        // Protect outfile state
 	OutfileOffset     int64             // Current read position in outfile
+
+	// Keyspace coordinate conversion
+	KeyspaceRatio float64 // Ratio for coordinate conversion (agent_base / server_base), 0 = no conversion
 
 	// Error tracking
 	AlreadyRunningError bool
@@ -370,7 +375,7 @@ func (e *HashcatExecutor) executeTaskInternal(ctx context.Context, assignment *J
 	}
 
 	// Build hashcat command
-	command, statusFile, potFile, outputFile, err := e.buildHashcatCommand(assignment)
+	command, statusFile, potFile, outputFile, keyspaceRatio, err := e.buildHashcatCommand(assignment)
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("failed to build hashcat command: %w", err)
@@ -423,6 +428,7 @@ func (e *HashcatExecutor) executeTaskInternal(ctx context.Context, assignment *J
 		StdinPipe:         stdinPipe,
 		IsRunning:         false,
 		StartTime:         time.Now(),
+		KeyspaceRatio:     keyspaceRatio, // For reverse conversion of restore_point
 		HashlistContent:   hashlistContent,
 		HashlistMap:       hashlistMap, // O(1) lookup map for crack parsing
 		OutfilePath:       outputFile, // Set outfile path for monitoring
@@ -444,12 +450,14 @@ func (e *HashcatExecutor) executeTaskInternal(ctx context.Context, assignment *J
 }
 
 // buildHashcatCommand builds the hashcat command line arguments
-func (e *HashcatExecutor) buildHashcatCommand(assignment *JobTaskAssignment) (*exec.Cmd, string, string, string, error) {
+func (e *HashcatExecutor) buildHashcatCommand(assignment *JobTaskAssignment) (*exec.Cmd, string, string, string, float64, error) {
 	return e.buildHashcatCommandWithOptions(assignment, false)
 }
 
 // buildHashcatCommandWithOptions builds the hashcat command line arguments with options
-func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssignment, isBenchmark bool) (*exec.Cmd, string, string, string, error) {
+// Returns: cmd, statusFile, potFile, outputFile, keyspaceRatio, error
+// keyspaceRatio is the agent_base/server_base ratio (>1 when -O changes kernel split), 0 if no conversion
+func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssignment, isBenchmark bool) (*exec.Cmd, string, string, string, float64, error) {
 	debug.Info("Building hashcat command for task %s", assignment.TaskID)
 	debug.Info("Data directory: %s", e.dataDirectory)
 	debug.Info("Binary path from assignment: %s", assignment.BinaryPath)
@@ -527,8 +535,8 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 	if !isBenchmark {
 		// Add outfile for reliable crack capture
 		outfileDir := filepath.Join(e.dataDirectory, "outfile")
-		if err := os.MkdirAll(outfileDir, 0700); err != nil {
-			return nil, "", "", "", fmt.Errorf("failed to create outfile directory: %w", err)
+		if err := os.MkdirAll(outfileDir, 0755); err != nil {
+			return nil, "", "", "", 0, fmt.Errorf("failed to create outfile directory: %w", err)
 		}
 
 		outfilePath := filepath.Join(outfileDir, fmt.Sprintf("%s.txt", assignment.TaskID))
@@ -540,14 +548,32 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 
 	// Only use --skip/--limit when explicitly doing keyspace splitting
 	// Do NOT use for rule chunking or increment mode
+	var keyspaceRatio float64
 	if assignment.IsKeyspaceSplit {
-		if assignment.KeyspaceStart > 0 {
-			args = append(args, "--skip", strconv.FormatInt(assignment.KeyspaceStart, 10))
+		skip := assignment.KeyspaceStart
+		limit := assignment.KeyspaceEnd - assignment.KeyspaceStart
+
+		// Agent-side coordinate conversion: if the server's base_keyspace differs
+		// from this agent's outer-loop keyspace (e.g., due to -O flag changing the
+		// kernel split for mask attacks), convert --skip/--limit to the agent's space
+		if assignment.BaseKeyspace > 0 {
+			agentBase, err := e.getAgentKeyspace(assignment)
+			if err != nil {
+				debug.Warning("Failed to get agent keyspace for coordinate conversion, using server coordinates: %v", err)
+			} else if agentBase > 0 && agentBase != assignment.BaseKeyspace {
+				keyspaceRatio = float64(agentBase) / float64(assignment.BaseKeyspace)
+				skip = int64(float64(skip) * keyspaceRatio)
+				limit = int64(math.Ceil(float64(limit) * keyspaceRatio))
+				debug.Info("Keyspace coordinate conversion: ratio=%.2f, server_base=%d, agent_base=%d, skip=%d, limit=%d",
+					keyspaceRatio, assignment.BaseKeyspace, agentBase, skip, limit)
+			}
 		}
 
-		if assignment.KeyspaceEnd > assignment.KeyspaceStart {
-			keyspaceRange := assignment.KeyspaceEnd - assignment.KeyspaceStart
-			args = append(args, "--limit", strconv.FormatInt(keyspaceRange, 10))
+		if skip > 0 {
+			args = append(args, "--skip", strconv.FormatInt(skip, 10))
+		}
+		if limit > 0 {
+			args = append(args, "--limit", strconv.FormatInt(limit, 10))
 		}
 	}
 
@@ -560,7 +586,7 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 	// Debug: Check if hashlist file exists
 	if _, err := os.Stat(hashlistPath); os.IsNotExist(err) {
 		debug.Error("Hashlist file does not exist: %s", hashlistPath)
-		return nil, "", "", "", fmt.Errorf("hashlist file not found: %s", hashlistPath)
+		return nil, "", "", "", 0, fmt.Errorf("hashlist file not found: %s", hashlistPath)
 	}
 
 	args = append(args, hashlistPath)
@@ -640,7 +666,7 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 		// - Association wordlist (backend sends it in WordlistPaths[0])
 		// - Optional rules
 		if len(assignment.WordlistPaths) == 0 {
-			return nil, "", "", "", fmt.Errorf("association attack requires wordlist")
+			return nil, "", "", "", 0, fmt.Errorf("association attack requires wordlist")
 		}
 
 		// Use first wordlist as the association wordlist
@@ -649,7 +675,7 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 
 		// Verify association wordlist exists
 		if _, err := os.Stat(assocWordlistPath); os.IsNotExist(err) {
-			return nil, "", "", "", fmt.Errorf("association wordlist not found: %s", assocWordlistPath)
+			return nil, "", "", "", 0, fmt.Errorf("association wordlist not found: %s", assocWordlistPath)
 		}
 
 		args = append(args, assocWordlistPath)
@@ -662,13 +688,13 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 		}
 
 	default:
-		return nil, "", "", "", fmt.Errorf("unsupported attack mode: %d", assignment.AttackMode)
+		return nil, "", "", "", 0, fmt.Errorf("unsupported attack mode: %d", assignment.AttackMode)
 	}
 
 	// Resolve the hashcat binary path
 	hashcatBinary, err := e.resolveHashcatBinary(assignment.BinaryPath)
 	if err != nil {
-		return nil, "", "", "", fmt.Errorf("failed to resolve hashcat binary: %w", err)
+		return nil, "", "", "", 0, fmt.Errorf("failed to resolve hashcat binary: %w", err)
 	}
 	
 	debug.Info("Using hashcat binary: %s", hashcatBinary)
@@ -681,7 +707,91 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 	cmd.Dir = filepath.Dir(hashcatBinary)
 	debug.Info("Setting working directory to: %s", cmd.Dir)
 
-	return cmd, statusFile, potFile, outputFile, nil
+	return cmd, statusFile, potFile, outputFile, keyspaceRatio, nil
+}
+
+// getAgentKeyspace runs "hashcat --keyspace" with the agent's own flags to determine
+// this agent's outer-loop keyspace. This may differ from the server's base_keyspace
+// when the agent uses -O (optimized kernels), which changes the kernel split for mask attacks.
+func (e *HashcatExecutor) getAgentKeyspace(assignment *JobTaskAssignment) (int64, error) {
+	// Resolve hashcat binary
+	hashcatBinary, err := e.resolveHashcatBinary(assignment.BinaryPath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to resolve hashcat binary: %w", err)
+	}
+
+	// Build minimal command for --keyspace
+	args := []string{
+		"-m", strconv.Itoa(assignment.HashType),
+		"-a", strconv.Itoa(assignment.AttackMode),
+		"--keyspace",
+		"--quiet",
+		"--restore-disable",
+	}
+
+	// Add extra parameters (may include -O which affects the kernel split)
+	extraParams := assignment.ExtraParameters
+	if extraParams == "" && e.agentExtraParams != "" {
+		extraParams = e.agentExtraParams
+	}
+	if extraParams != "" {
+		args = append(args, strings.Fields(extraParams)...)
+	}
+
+	// Add attack-mode specific arguments (hashcat needs these to compute keyspace)
+	switch assignment.AttackMode {
+	case int(AttackModeStraight): // Dictionary attack
+		for _, wordlistPath := range assignment.WordlistPaths {
+			args = append(args, filepath.Join(e.dataDirectory, wordlistPath))
+		}
+		for _, rulePath := range assignment.RulePaths {
+			args = append(args, "-r", filepath.Join(e.dataDirectory, rulePath))
+		}
+	case int(AttackModeCombination):
+		if len(assignment.WordlistPaths) >= 2 {
+			args = append(args, filepath.Join(e.dataDirectory, assignment.WordlistPaths[0]))
+			args = append(args, filepath.Join(e.dataDirectory, assignment.WordlistPaths[1]))
+		}
+	case int(AttackModeBruteForce): // Mask attack
+		if assignment.Mask != "" {
+			args = append(args, assignment.Mask)
+		}
+	case int(AttackModeHybridWordlistMask):
+		if len(assignment.WordlistPaths) > 0 && assignment.Mask != "" {
+			args = append(args, filepath.Join(e.dataDirectory, assignment.WordlistPaths[0]))
+			args = append(args, assignment.Mask)
+		}
+	case int(AttackModeHybridMaskWordlist):
+		if assignment.Mask != "" && len(assignment.WordlistPaths) > 0 {
+			args = append(args, assignment.Mask)
+			args = append(args, filepath.Join(e.dataDirectory, assignment.WordlistPaths[0]))
+		}
+	case int(AttackModeAssociation):
+		if len(assignment.WordlistPaths) > 0 {
+			args = append(args, filepath.Join(e.dataDirectory, assignment.WordlistPaths[0]))
+		}
+		for _, rulePath := range assignment.RulePaths {
+			args = append(args, "-r", filepath.Join(e.dataDirectory, rulePath))
+		}
+	}
+
+	debug.Info("Running hashcat --keyspace: %s %s", hashcatBinary, strings.Join(args, " "))
+
+	cmd := exec.Command(hashcatBinary, args...)
+	cmd.Dir = filepath.Dir(hashcatBinary)
+	output, err := cmd.Output()
+	if err != nil {
+		return 0, fmt.Errorf("hashcat --keyspace failed: %w", err)
+	}
+
+	keyspaceStr := strings.TrimSpace(string(output))
+	keyspace, err := strconv.ParseInt(keyspaceStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse keyspace output %q: %w", keyspaceStr, err)
+	}
+
+	debug.Info("Agent keyspace for hash_type=%d, attack_mode=%d: %d", assignment.HashType, assignment.AttackMode, keyspace)
+	return keyspace, nil
 }
 
 // runHashcatProcess executes and monitors a hashcat process
@@ -833,6 +943,12 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 						var keyspaceProcessed int64
 						if restorePoint, ok := status["restore_point"].(float64); ok {
 							keyspaceProcessed = int64(restorePoint)
+							// Convert restore_point from agent coordinates back to server coordinates
+							// when -O changes the kernel split (ratio > 1). Without this, the backend
+							// would see agent-space values and prematurely complete the task.
+							if process.KeyspaceRatio > 1.0 {
+								keyspaceProcessed = int64(float64(keyspaceProcessed) / process.KeyspaceRatio)
+							}
 						}
 
 						// Extract progress values for percentage calculation
@@ -1508,8 +1624,8 @@ func (e *HashcatExecutor) waitForActiveProcesses(ctx context.Context) error {
 }
 
 // RunSpeedTest runs a real-world speed test with actual job configuration
-// Returns: totalSpeed (H/s), deviceSpeeds, totalEffectiveKeyspace (progress[1]), error
-func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskAssignment, testDuration int) (int64, []DeviceSpeed, int64, error) {
+// Returns: totalSpeed (H/s), deviceSpeeds, totalEffectiveKeyspace (progress[1]), agentBaseKeyspace, error
+func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskAssignment, testDuration int) (int64, []DeviceSpeed, int64, int64, error) {
 	debug.Info("Running speed test for hash type %d, attack mode %d, duration %d seconds",
 		assignment.HashType, assignment.AttackMode, testDuration)
 
@@ -1518,13 +1634,13 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 	// there's a ~1.3 second delay before the process fully exits and is removed from activeProcesses.
 	// Without this wait, the benchmark would fail with "Already an instance running" error.
 	if err := e.waitForActiveProcesses(ctx); err != nil {
-		return 0, nil, 0, fmt.Errorf("failed waiting for active processes: %w", err)
+		return 0, nil, 0, 0, fmt.Errorf("failed waiting for active processes: %w", err)
 	}
 	
 	// Build command similar to real job but without skip/limit and without --remove
-	cmd, _, _, _, err := e.buildHashcatCommandWithOptions(assignment, true)
+	cmd, _, _, _, _, err := e.buildHashcatCommandWithOptions(assignment, true)
 	if err != nil {
-		return 0, nil, 0, fmt.Errorf("failed to build command: %w", err)
+		return 0, nil, 0, 0, fmt.Errorf("failed to build command: %w", err)
 	}
 	
 	// Get the original args
@@ -1562,17 +1678,17 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 	// Set up pipes for stdout/stderr
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return 0, nil, 0, fmt.Errorf("failed to create stdout pipe: %w", err)
+		return 0, nil, 0, 0, fmt.Errorf("failed to create stdout pipe: %w", err)
 	}
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return 0, nil, 0, fmt.Errorf("failed to create stderr pipe: %w", err)
+		return 0, nil, 0, 0, fmt.Errorf("failed to create stderr pipe: %w", err)
 	}
 
 	// Start the command
 	if err := cmd.Start(); err != nil {
-		return 0, nil, 0, fmt.Errorf("failed to start hashcat: %w", err)
+		return 0, nil, 0, 0, fmt.Errorf("failed to start hashcat: %w", err)
 	}
 	
 	// Channel to collect status updates
@@ -1714,7 +1830,7 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 	if lastValidSpeed == 0 {
 		debug.Warning("[Speed test] No valid speed parsed during collection, checking stored updates")
 		if len(statusUpdates) == 0 {
-			return 0, nil, 0, fmt.Errorf("no status updates received during speed test")
+			return 0, nil, 0, 0, fmt.Errorf("no status updates received during speed test")
 		}
 
 		// Try to parse from the best available update
@@ -1729,7 +1845,7 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 		if err != nil {
 			// Log the actual content that failed to parse
 			debug.Error("[Speed test] Failed to parse JSON from update %d. Content: %s", statusIndex+1, statusUpdates[statusIndex])
-			return 0, nil, 0, fmt.Errorf("failed to parse speed from status: %w", err)
+			return 0, nil, 0, 0, fmt.Errorf("failed to parse speed from status: %w", err)
 		}
 
 		if totalSpeed == 0 {
@@ -1747,7 +1863,18 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 	}
 
 	debug.Info("Speed test completed: %d H/s total, effective keyspace: %d from %d updates", lastValidSpeed, lastTotalEffectiveKeyspace, len(statusUpdates))
-	return lastValidSpeed, lastDeviceSpeeds, lastTotalEffectiveKeyspace, nil
+
+	// Get the agent's own base keyspace (outer-loop size) for reporting back to the server
+	var agentBaseKeyspace int64
+	agentBase, err := e.getAgentKeyspace(assignment)
+	if err != nil {
+		debug.Warning("Failed to get agent base keyspace after benchmark: %v", err)
+	} else {
+		agentBaseKeyspace = agentBase
+		debug.Info("Agent base keyspace: %d (for hash_type=%d, attack_mode=%d)", agentBaseKeyspace, assignment.HashType, assignment.AttackMode)
+	}
+
+	return lastValidSpeed, lastDeviceSpeeds, lastTotalEffectiveKeyspace, agentBaseKeyspace, nil
 }
 
 // parseSpeedFromJSON parses device speeds and effective keyspace from hashcat JSON status output
