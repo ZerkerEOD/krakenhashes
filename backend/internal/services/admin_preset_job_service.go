@@ -64,6 +64,17 @@ func NewAdminPresetJobService(
 	}
 }
 
+// getKeyspaceTimeout returns the configured timeout for keyspace/total-candidates calculations.
+func (s *adminPresetJobService) getKeyspaceTimeout(ctx context.Context) time.Duration {
+	setting, err := s.systemSettingsRepo.GetSetting(ctx, "keyspace_calculation_timeout_minutes")
+	if err == nil && setting.Value != nil {
+		if val, err := strconv.Atoi(*setting.Value); err == nil && val > 0 {
+			return time.Duration(val) * time.Minute
+		}
+	}
+	return 4 * time.Minute // default
+}
+
 // presetJobBinaryStoreAdapter adapts binary.Manager to version.BinaryStore interface
 type presetJobBinaryStoreAdapter struct {
 	manager binary.Manager
@@ -720,14 +731,15 @@ func (s *adminPresetJobService) CalculateKeyspaceForPresetJob(ctx context.Contex
 		"full_command":   fmt.Sprintf("%s %s", hashcatPath, strings.Join(args, " ")),
 	})
 
-	// Execute hashcat command with timeout
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	// Execute hashcat command with configurable timeout
+	keyspaceTimeout := s.getKeyspaceTimeout(ctx)
+	ctx, cancel := context.WithTimeout(ctx, keyspaceTimeout)
 	defer cancel()
 
 	// Set working directory to data directory to ensure session files are created there
 	cmd := exec.CommandContext(ctx, hashcatPath, args...)
 	cmd.Dir = s.dataDirectory
-	
+
 	// Log environment
 	debug.Log("Executing hashcat command", map[string]interface{}{
 		"working_directory": cmd.Dir,
@@ -757,6 +769,11 @@ func (s *adminPresetJobService) CalculateKeyspaceForPresetJob(ctx context.Contex
 	}
 
 	if err != nil {
+		// Check if the error was caused by a timeout
+		if ctx.Err() == context.DeadlineExceeded {
+			debug.Error("Hashcat keyspace calculation timed out after %v", keyspaceTimeout)
+			return nil, fmt.Errorf("keyspace calculation timed out after %v — an administrator can increase this limit in Admin Settings > Job Execution > Keyspace Calculation Timeout", keyspaceTimeout)
+		}
 		// Check for specific error conditions
 		stderrStr := stderr.String()
 		if strings.Contains(stderrStr, "Already an instance") {
@@ -766,7 +783,7 @@ func (s *adminPresetJobService) CalculateKeyspaceForPresetJob(ctx context.Contex
 
 		debug.Error("Hashcat keyspace calculation failed: error=%v, exit_code=%d, stdout=%s, stderr=%s, command=%s, args=%v, session_id=%s, working_dir=%s",
 			err, cmd.ProcessState.ExitCode(), stdout.String(), stderrStr, hashcatPath, args, sessionID, cmd.Dir)
-		return nil, fmt.Errorf("hashcat keyspace calculation failed (exit code %d): %w\nstderr: %s\nstdout: %s", 
+		return nil, fmt.Errorf("hashcat keyspace calculation failed (exit code %d): %w\nstderr: %s\nstdout: %s",
 			cmd.ProcessState.ExitCode(), err, stderrStr, stdout.String())
 	}
 
@@ -1330,6 +1347,8 @@ func (s *adminPresetJobService) calculateTotalCandidates(
 	args = append(args, "--session", sessionID)
 	args = append(args, "--quiet")
 
+	keyspaceTimeout := s.getKeyspaceTimeout(ctx)
+
 	var lastErr error
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
@@ -1338,7 +1357,7 @@ func (s *adminPresetJobService) calculateTotalCandidates(
 			time.Sleep(retryDelay)
 		}
 
-		execCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+		execCtx, cancel := context.WithTimeout(ctx, keyspaceTimeout)
 		cmd := exec.CommandContext(execCtx, hashcatPath, args...)
 		cmd.Dir = s.dataDirectory
 
@@ -1360,6 +1379,11 @@ func (s *adminPresetJobService) calculateTotalCandidates(
 
 		if err != nil {
 			stderrStr := stderr.String()
+			// Check if timed out
+			if execCtx.Err() == context.DeadlineExceeded {
+				debug.Warning("--total-candidates timed out after %v for preset %s — consider increasing keyspace_calculation_timeout_minutes in Admin Settings", keyspaceTimeout, presetJobID)
+				return 0, false, nil // Allow fallback to estimation
+			}
 			// Check if hashcat is busy (already running)
 			if strings.Contains(stderrStr, "Already an instance") ||
 				strings.Contains(stderrStr, "already running") {

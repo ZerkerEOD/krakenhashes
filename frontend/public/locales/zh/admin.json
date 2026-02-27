@@ -1118,7 +1118,9 @@
       "maxRetryAttempts": "最大分块重试次数",
       "maxRetryAttemptsHelper": "失败分块的重试次数",
       "jobsPerPage": "每页任务数",
-      "jobsPerPageHelper": "任务列表的默认分页大小"
+      "jobsPerPageHelper": "任务列表的默认分页大小",
+      "keyspaceTimeout": "密钥空间计算超时",
+      "keyspaceTimeoutHelper": "hashcat --keyspace 和 --total-candidates 命令的最大时间。对于大型字典/规则文件请增加此值。"
     },
     "potfile": {
       "title": "Potfile 设置",

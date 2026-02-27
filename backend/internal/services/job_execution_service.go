@@ -881,9 +881,9 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 		"session_id":  sessionID,
 	})
 
-	// Execute hashcat command with timeout
-	// Increase timeout to 4 minutes to allow for large wordlist processing and --total-candidates
-	ctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
+	// Execute hashcat command with configurable timeout
+	keyspaceTimeout := s.getKeyspaceTimeout(ctx)
+	ctx, cancel := context.WithTimeout(ctx, keyspaceTimeout)
 	defer cancel()
 
 	startTime := time.Now()
@@ -915,6 +915,11 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 	}
 
 	if err != nil {
+		// Check if the error was caused by a timeout
+		if ctx.Err() == context.DeadlineExceeded {
+			debug.Error("Hashcat keyspace calculation timed out after %v", keyspaceTimeout)
+			return nil, nil, false, fmt.Errorf("keyspace calculation timed out after %v — an administrator can increase this limit in Admin Settings > Job Execution > Keyspace Calculation Timeout", keyspaceTimeout)
+		}
 		// Log the full output for debugging
 		debug.Error("Hashcat keyspace calculation failed: error=%v, stdout=%s, stderr=%s, working_dir=%s, command=%s, args=%v",
 			err, stdout.String(), stderr.String(), s.dataDirectory, hashcatPath, args)
@@ -1028,6 +1033,8 @@ func (s *JobExecutionService) calculateTotalCandidates(
 	args = append(args, "--session", sessionID)
 	args = append(args, "--quiet")
 
+	keyspaceTimeout := s.getKeyspaceTimeout(ctx)
+
 	var lastErr error
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
@@ -1036,7 +1043,7 @@ func (s *JobExecutionService) calculateTotalCandidates(
 			time.Sleep(retryDelay)
 		}
 
-		execCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+		execCtx, cancel := context.WithTimeout(ctx, keyspaceTimeout)
 		cmd := exec.CommandContext(execCtx, hashcatPath, args...)
 		cmd.Dir = s.dataDirectory
 
@@ -1058,6 +1065,11 @@ func (s *JobExecutionService) calculateTotalCandidates(
 
 		if err != nil {
 			stderrStr := stderr.String()
+			// Check if timed out
+			if execCtx.Err() == context.DeadlineExceeded {
+				debug.Warning("--total-candidates timed out after %v for job %s — consider increasing keyspace_calculation_timeout_minutes in Admin Settings", keyspaceTimeout, jobID)
+				return 0, false, nil // Allow fallback to estimation
+			}
 			// Check if hashcat is busy (already running)
 			if strings.Contains(stderrStr, "Already an instance") ||
 				strings.Contains(stderrStr, "already running") {
@@ -2267,6 +2279,17 @@ func (s *JobExecutionService) GetSystemSetting(ctx context.Context, key string) 
 	}
 
 	return value, nil
+}
+
+// getKeyspaceTimeout returns the configured timeout for keyspace/total-candidates calculations.
+func (s *JobExecutionService) getKeyspaceTimeout(ctx context.Context) time.Duration {
+	setting, err := s.systemSettingsRepo.GetSetting(ctx, "keyspace_calculation_timeout_minutes")
+	if err == nil && setting.Value != nil {
+		if val, err := strconv.Atoi(*setting.Value); err == nil && val > 0 {
+			return time.Duration(val) * time.Minute
+		}
+	}
+	return 4 * time.Minute // default
 }
 
 // GetJobExecutionByID retrieves a job execution by ID (public method for integration)

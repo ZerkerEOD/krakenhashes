@@ -43,6 +43,8 @@ type JobExecutionSettings struct {
 	RuleSplitMinRules  int     `json:"rule_split_min_rules"`
 	RuleSplitMaxChunks int     `json:"rule_split_max_chunks"`
 	RuleChunkTempDir   string  `json:"rule_chunk_temp_dir"`
+	// Keyspace calculation settings
+	KeyspaceCalculationTimeoutMinutes int `json:"keyspace_calculation_timeout_minutes"`
 	// Potfile settings
 	PotfileEnabled bool `json:"potfile_enabled"`
 	// Client potfile settings
@@ -77,6 +79,8 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 		"rule_split_min_rules",
 		"rule_split_max_chunks",
 		"rule_chunk_temp_dir",
+		// Keyspace calculation settings
+		"keyspace_calculation_timeout_minutes",
 		// Potfile settings
 		"potfile_enabled",
 		// Client potfile settings
@@ -106,6 +110,8 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 		RuleSplitMinRules:  100,
 		RuleSplitMaxChunks: 1000,
 		RuleChunkTempDir:   "/data/krakenhashes/temp/rule_chunks",
+		// Keyspace calculation defaults
+		KeyspaceCalculationTimeoutMinutes: 4, // 4 minutes
 		// Potfile defaults
 		PotfileEnabled: true,
 		// Client potfile defaults
@@ -192,6 +198,10 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 				}
 			case "rule_chunk_temp_dir":
 				settings.RuleChunkTempDir = *setting.Value
+			case "keyspace_calculation_timeout_minutes":
+				if val, err := strconv.Atoi(*setting.Value); err == nil {
+					settings.KeyspaceCalculationTimeoutMinutes = val
+				}
 			case "potfile_enabled":
 				settings.PotfileEnabled = *setting.Value == "true"
 			case "client_potfiles_enabled":
@@ -239,6 +249,8 @@ func (h *JobSettingsHandler) UpdateJobExecutionSettings(w http.ResponseWriter, r
 		"rule_split_min_rules":  strconv.Itoa(settings.RuleSplitMinRules),
 		"rule_split_max_chunks": strconv.Itoa(settings.RuleSplitMaxChunks),
 		"rule_chunk_temp_dir":   settings.RuleChunkTempDir,
+		// Keyspace calculation settings
+		"keyspace_calculation_timeout_minutes": strconv.Itoa(settings.KeyspaceCalculationTimeoutMinutes),
 		// Potfile settings
 		"potfile_enabled": strconv.FormatBool(settings.PotfileEnabled),
 		// Client potfile settings

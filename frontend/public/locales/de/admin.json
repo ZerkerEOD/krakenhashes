@@ -1239,7 +1239,9 @@
       "maxRetryAttempts": "Max. Chunk-Wiederholungsversuche",
       "maxRetryAttemptsHelper": "Anzahl der Wiederholungsversuche für fehlgeschlagene Chunks",
       "jobsPerPage": "Aufträge pro Seite",
-      "jobsPerPageHelper": "Standard-Paginierungsgröße für Auftragslisten"
+      "jobsPerPageHelper": "Standard-Paginierungsgröße für Auftragslisten",
+      "keyspaceTimeout": "Keyspace-Berechnungs-Timeout",
+      "keyspaceTimeoutHelper": "Maximale Zeit für hashcat --keyspace und --total-candidates Befehle. Erhöhen für große Wortlisten/Regeln."
     },
     "potfile": {
       "title": "Potfile-Einstellungen",

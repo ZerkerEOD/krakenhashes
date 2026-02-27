@@ -1239,7 +1239,9 @@
       "maxRetryAttempts": "Max. chunk-herpogingen",
       "maxRetryAttemptsHelper": "Aantal keren dat mislukte chunks opnieuw worden geprobeerd",
       "jobsPerPage": "Taken per pagina",
-      "jobsPerPageHelper": "Standaard paginagrootte voor takenlijsten"
+      "jobsPerPageHelper": "Standaard paginagrootte voor takenlijsten",
+      "keyspaceTimeout": "Keyspace-berekening timeout",
+      "keyspaceTimeoutHelper": "Maximale tijd voor hashcat --keyspace en --total-candidates commando's. Verhoog voor grote woordenlijsten/regels."
     },
     "potfile": {
       "title": "Potfile-instellingen",
