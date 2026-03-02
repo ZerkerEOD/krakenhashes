@@ -2714,7 +2714,7 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 					// Get actual rule count (not salt-adjusted multiplicationFactor)
 					actualRuleCount, ruleErr := s.jobExecutionService.GetTotalRuleCount(ctx, jobExec.RuleIDs)
 					if ruleErr != nil {
-						actualRuleCount = int64(jobExec.MultiplicationFactor)
+						actualRuleCount = jobExec.MultiplicationFactor
 					}
 
 					if int(actualRuleCount) >= minRules {

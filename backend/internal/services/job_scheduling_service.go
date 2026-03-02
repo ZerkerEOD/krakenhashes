@@ -558,6 +558,102 @@ func (s *JobSchedulingService) hasUndispatchedWork(ctx context.Context, job *mod
 	return false
 }
 
+// isJobStructurallyComplete checks if a job has dispatched all its work based on
+// structural indicators (rules dispatched, base keyspace covered, increment layers done)
+// rather than potentially-drifted effective_keyspace arithmetic.
+// This is used to detect jobs that are stuck due to keyspace drift from potfile/wordlist updates.
+func (s *JobSchedulingService) isJobStructurallyComplete(ctx context.Context, job *models.JobExecution) bool {
+	// Increment mode: check if all layers are complete
+	if job.IncrementMode != "" && job.IncrementMode != "off" {
+		layers, err := s.jobExecutionService.jobIncrementLayerRepo.GetByJobExecutionID(ctx, job.ID)
+		if err != nil {
+			return false
+		}
+		for _, layer := range layers {
+			if layer.Status != models.JobIncrementLayerStatusCompleted {
+				return false
+			}
+		}
+		return true
+	}
+
+	// Rule-split: check if all rule chunks have been dispatched
+	if job.UsesRuleSplitting {
+		totalRules := job.MultiplicationFactor
+		// Fallback: same logic as ProcessJobCompletion (effective / base)
+		if totalRules == 0 && job.EffectiveKeyspace != nil && job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
+			totalRules = *job.EffectiveKeyspace / *job.BaseKeyspace
+		}
+		if totalRules > 0 {
+			maxRuleEnd, err := s.jobExecutionService.jobTaskRepo.GetMaxRuleEndIndex(ctx, job.ID)
+			if err != nil {
+				return false
+			}
+			return maxRuleEnd != nil && int64(*maxRuleEnd) >= totalRules
+		}
+		return false // Can't determine without totalRules
+	}
+
+	// Keyspace-split: check if all base keyspace has been covered
+	if job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
+		maxBase, err := s.jobExecutionService.jobTaskRepo.GetMaxKeyspaceEnd(ctx, job.ID)
+		if err != nil {
+			return false
+		}
+		return maxBase >= *job.BaseKeyspace
+	}
+
+	// No structural check available — return true (caller has other guards)
+	return true
+}
+
+// completeExhaustedJobs detects jobs that are structurally complete (all rules/keyspace dispatched)
+// but stuck due to keyspace drift from potfile/wordlist updates, and triggers their completion.
+// This breaks the stuck loop where dispatched_keyspace < effective_keyspace but no more work
+// can actually be created (all rule chunks or base keyspace chunks have been dispatched).
+func (s *JobSchedulingService) completeExhaustedJobs(ctx context.Context, jobsWithWork []models.JobExecutionWithWork) {
+	for i := range jobsWithWork {
+		job := &jobsWithWork[i]
+
+		// Guard 1: Must have no incomplete tasks.
+		// NOTE: GetIncompleteTasksCount treats 'failed' as incomplete (NOT IN completed/cancelled).
+		// This is intentional — jobs with failed tasks go through reconcileStuckJobs instead.
+		incompleteTasks, err := s.jobExecutionService.jobTaskRepo.GetIncompleteTasksCount(ctx, job.ID)
+		if err != nil || incompleteTasks > 0 {
+			continue
+		}
+
+		// Guard 2: Must have at least one completed task (not a brand-new job with no tasks)
+		completedCount, err := s.jobExecutionService.jobTaskRepo.GetCompletedTaskCount(ctx, job.ID)
+		if err != nil || completedCount == 0 {
+			continue
+		}
+
+		// Guard 3: Must be structurally complete (all rules dispatched, all base keyspace covered, etc.)
+		if !s.isJobStructurallyComplete(ctx, &job.JobExecution) {
+			continue
+		}
+
+		debug.Info("Scheduler detected structurally complete job with keyspace drift - completing", map[string]interface{}{
+			"job_id":              job.ID,
+			"name":                job.Name,
+			"dispatched_keyspace": job.DispatchedKeyspace,
+			"effective_keyspace":  job.EffectiveKeyspace,
+			"uses_rule_splitting": job.UsesRuleSplitting,
+		})
+
+		// Use CompleteJobExecution directly (NOT ProcessJobCompletion) because:
+		// - ProcessJobCompletion has a hard dispatched < effective check for non-rule-split jobs
+		//   that would block completion even when all base keyspace is covered
+		// - CompleteJobExecution handles keyspace sync from actual task data
+		// - CompleteJobExecution checks HasFailedTasks and marks as FAILED if needed
+		// - isJobStructurallyComplete already validated dispatch completeness
+		if err := s.jobExecutionService.CompleteJobExecution(ctx, job.ID); err != nil {
+			debug.Error("Failed to complete structurally exhausted job %s: %v", job.ID, err)
+		}
+	}
+}
+
 // distributeOverflowAgents distributes extra agents beyond max_agents at the same priority level
 func (s *JobSchedulingService) distributeOverflowAgents(
 	ctx context.Context,
@@ -1098,6 +1194,11 @@ func (s *JobSchedulingService) ScheduleJobs(ctx context.Context) (*ScheduleJobsR
 	} else {
 		debug.Info("No task plans to execute", nil)
 	}
+
+	// Detect and complete jobs that are structurally done but stuck due to keyspace drift
+	// from potfile/wordlist updates (dispatched_keyspace < effective_keyspace but all rules
+	// or base keyspace fully dispatched)
+	s.completeExhaustedJobs(ctx, jobsWithWork)
 
 	// Release any unused reservations
 	s.releaseUnusedReservations()
@@ -1664,9 +1765,9 @@ func (s *JobSchedulingService) ProcessJobCompletion(ctx context.Context, jobExec
 		// Get total rules from the job's effective keyspace and base keyspace
 		totalRules := job.MultiplicationFactor
 		if totalRules == 0 && job.EffectiveKeyspace != nil && job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
-			totalRules = int(*job.EffectiveKeyspace / *job.BaseKeyspace)
+			totalRules = *job.EffectiveKeyspace / *job.BaseKeyspace
 		}
-		
+
 		// Get the maximum rule end index from all tasks
 		maxRuleEnd, err := s.jobExecutionService.jobTaskRepo.GetMaxRuleEndIndex(ctx, jobExecutionID)
 		if err != nil {
@@ -1675,11 +1776,11 @@ func (s *JobSchedulingService) ProcessJobCompletion(ctx context.Context, jobExec
 				"error":            err.Error(),
 			})
 		}
-		
+
 		// Check if all rules have been processed
 		allRulesProcessed := false
 		if maxRuleEnd != nil && totalRules > 0 {
-			allRulesProcessed = *maxRuleEnd >= totalRules
+			allRulesProcessed = int64(*maxRuleEnd) >= totalRules
 		}
 		
 		debug.Log("Rule-split job completion check", map[string]interface{}{
@@ -1718,40 +1819,6 @@ func (s *JobSchedulingService) ProcessJobCompletion(ctx context.Context, jobExec
 					"percentage":          float64(job.DispatchedKeyspace) / float64(*job.EffectiveKeyspace) * 100,
 				})
 				return nil // Don't complete yet
-			}
-		}
-
-		// CRITICAL SAFETY: Don't complete rule-split jobs if not all rules dispatched
-		// This is a final safety net in case effective_keyspace was set incorrectly
-		if job.UsesRuleSplitting {
-			// Get actual rule count from file(s)
-			totalRulesNeeded := 0
-			for _, ruleID := range job.RuleIDs {
-				rulePath, err := s.jobExecutionService.resolveRulePath(ctx, ruleID)
-				if err == nil {
-					ruleCount, err := s.jobExecutionService.ruleSplitManager.CountRules(ctx, rulePath)
-					if err == nil {
-						totalRulesNeeded += ruleCount
-					}
-				}
-			}
-
-			if totalRulesNeeded > 0 {
-				maxRuleEnd, _ := s.jobExecutionService.jobTaskRepo.GetMaxRuleEndIndex(ctx, jobExecutionID)
-				rulesDispatched := 0
-				if maxRuleEnd != nil {
-					rulesDispatched = *maxRuleEnd
-				}
-
-				if rulesDispatched < totalRulesNeeded {
-					debug.Log("Rule-split job incomplete - safety check prevented premature completion", map[string]interface{}{
-						"job_id": jobExecutionID,
-						"rules_dispatched": rulesDispatched,
-						"total_rules": totalRulesNeeded,
-						"percent_complete": float64(rulesDispatched) / float64(totalRulesNeeded) * 100,
-					})
-					return nil // NOT DONE - more rules to dispatch
-				}
 			}
 		}
 

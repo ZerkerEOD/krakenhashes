@@ -145,7 +145,7 @@ func (r *JobExecutionRepository) UpdateEffectiveKeyspace(ctx context.Context, jo
 }
 
 // UpdateMultiplicationFactor updates the multiplication factor for a job execution
-func (r *JobExecutionRepository) UpdateMultiplicationFactor(ctx context.Context, jobID uuid.UUID, multiplicationFactor int) error {
+func (r *JobExecutionRepository) UpdateMultiplicationFactor(ctx context.Context, jobID uuid.UUID, multiplicationFactor int64) error {
 	query := `
 		UPDATE job_executions
 		SET multiplication_factor = $1, updated_at = CURRENT_TIMESTAMP

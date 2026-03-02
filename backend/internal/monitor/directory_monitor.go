@@ -23,7 +23,7 @@ type JobUpdateHandler interface {
 	FinishUpdate(ctx context.Context)
 	IsUpdating() bool
 	HandleWordlistUpdate(ctx context.Context, wordlistID int, oldLines, newLines int64) error
-	HandleRuleUpdate(ctx context.Context, ruleID int, oldCount, newCount int) error
+	HandleRuleUpdate(ctx context.Context, ruleID int, oldCount, newCount int64) error
 }
 
 // DirectoryMonitor watches directories for file changes
@@ -810,9 +810,9 @@ func (m *DirectoryMonitor) updateExistingRule(ctx context.Context, fullPath, rel
 
 		// Get the old rule count before updating
 		oldRule, err := m.ruleManager.GetRule(ctx, ruleID)
-		oldCount := 0
+		var oldCount int64
 		if err == nil && oldRule != nil {
-			oldCount = int(oldRule.RuleCount)
+			oldCount = int64(oldRule.RuleCount)
 		}
 
 		// Verify rule with updated count
@@ -831,7 +831,7 @@ func (m *DirectoryMonitor) updateExistingRule(ctx context.Context, fullPath, rel
 			m.jobUpdateHandler.StartUpdate(ctx)
 			defer m.jobUpdateHandler.FinishUpdate(ctx)
 
-			newCount := int(ruleCount)
+			newCount := int64(ruleCount)
 			if err := m.jobUpdateHandler.HandleRuleUpdate(ctx, ruleID, oldCount, newCount); err != nil {
 				debug.Error("Failed to update jobs for rule change: %v", err)
 			}

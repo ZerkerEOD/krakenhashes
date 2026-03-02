@@ -658,7 +658,7 @@ func (s *JobProgressCalculationService) shouldJobComplete(ctx context.Context, j
 		if err != nil {
 			return false
 		}
-		return maxRuleEnd != nil && *maxRuleEnd >= job.MultiplicationFactor
+		return maxRuleEnd != nil && int64(*maxRuleEnd) >= job.MultiplicationFactor
 	}
 
 	// For non-rule-split jobs, AreAllTasksComplete() already validates dispatch

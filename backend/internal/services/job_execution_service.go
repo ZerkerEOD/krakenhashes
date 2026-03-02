@@ -298,7 +298,7 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 	var effectiveKeyspace *int64
 	var isAccurateKeyspace bool
 	var useRuleSplitting bool
-	var multiplicationFactor int = 1
+	var multiplicationFactor int64 = 1
 
 	if presetJob.Keyspace != nil && *presetJob.Keyspace > 0 {
 		totalKeyspace = presetJob.Keyspace
@@ -326,7 +326,7 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		// or at first task dispatch (after benchmark) for estimate-based jobs as fallback
 		// Calculate multiplication factor from returned values
 		if isAccurateKeyspace && totalKeyspace != nil && *totalKeyspace > 0 && effectiveKeyspace != nil && *effectiveKeyspace > 0 {
-			multiplicationFactor = int(*effectiveKeyspace / *totalKeyspace)
+			multiplicationFactor = *effectiveKeyspace / *totalKeyspace
 			if multiplicationFactor < 1 {
 				multiplicationFactor = 1
 			}
@@ -346,7 +346,7 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 				effectiveKeyspace = &adjustedEffective
 				// Also adjust multiplication factor
 				if totalKeyspace != nil && *totalKeyspace > 0 {
-					multiplicationFactor = int(adjustedEffective / *totalKeyspace)
+					multiplicationFactor = adjustedEffective / *totalKeyspace
 				}
 				debug.Log("Applied salt adjustment to effective keyspace at job creation", map[string]interface{}{
 					"preset_job_id":      presetJobID,
@@ -557,9 +557,9 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 	useRuleSplitting := false
 
 	// Calculate multiplication factor from keyspace values
-	multiplicationFactor := 1
+	var multiplicationFactor int64 = 1
 	if isAccurateKeyspace && totalKeyspace != nil && *totalKeyspace > 0 && effectiveKeyspace != nil && *effectiveKeyspace > 0 {
-		multiplicationFactor = int(*effectiveKeyspace / *totalKeyspace)
+		multiplicationFactor = *effectiveKeyspace / *totalKeyspace
 		if multiplicationFactor < 1 {
 			multiplicationFactor = 1
 		}
@@ -578,7 +578,7 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 				effectiveKeyspace = &adjustedEffective
 				// Also adjust multiplication factor
 				if totalKeyspace != nil && *totalKeyspace > 0 {
-					multiplicationFactor = int(adjustedEffective / *totalKeyspace)
+					multiplicationFactor = adjustedEffective / *totalKeyspace
 				}
 				debug.Log("Applied salt adjustment to effective keyspace at custom job creation", map[string]interface{}{
 					"custom_job_name":    config.Name,
@@ -1265,7 +1265,7 @@ func (s *JobExecutionService) calculateEffectiveKeyspace(ctx context.Context, jo
 			}
 
 			job.BaseKeyspace = &baseKeyspace
-			job.MultiplicationFactor = int(totalRuleCount)
+			job.MultiplicationFactor = totalRuleCount
 			job.IsAccurateKeyspace = false // Will be set by first agent benchmark or --total-candidates
 
 			// Estimate effective keyspace using simple formula
@@ -1309,9 +1309,9 @@ func (s *JobExecutionService) calculateEffectiveKeyspace(ctx context.Context, jo
 
 			// Multiplication factor is the smaller wordlist
 			if keyspace1 > keyspace2 {
-				job.MultiplicationFactor = int(keyspace2)
+				job.MultiplicationFactor = keyspace2
 			} else {
-				job.MultiplicationFactor = int(keyspace1)
+				job.MultiplicationFactor = keyspace1
 			}
 
 			job.IsAccurateKeyspace = false // Will be set by first agent benchmark
@@ -1350,7 +1350,7 @@ func (s *JobExecutionService) calculateEffectiveKeyspace(ctx context.Context, jo
 				}
 
 				job.BaseKeyspace = &lineCount
-				job.MultiplicationFactor = int(ruleCount)
+				job.MultiplicationFactor = ruleCount
 				// Mode 9 keyspace is estimated from wordlist line count × rule count
 				// IsAccurateKeyspace = false triggers forced benchmark for speed measurement
 				job.IsAccurateKeyspace = false
@@ -1397,7 +1397,7 @@ func (s *JobExecutionService) calculateEffectiveKeyspace(ctx context.Context, jo
 					job.EffectiveKeyspace = &adjustedEffective
 					// Also adjust multiplication factor to reflect salts
 					if job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
-						job.MultiplicationFactor = int(adjustedEffective / *job.BaseKeyspace)
+						job.MultiplicationFactor = adjustedEffective / *job.BaseKeyspace
 					}
 					debug.Log("Applied salt adjustment in calculateEffectiveKeyspace", map[string]interface{}{
 						"job_id":             job.ID,
@@ -1711,7 +1711,7 @@ func (s *JobExecutionService) CreateJobTask(ctx context.Context, jobExecution *m
 	} else if jobExecution.MultiplicationFactor > 1 && jobExecution.BaseKeyspace != nil && *jobExecution.BaseKeyspace > 0 {
 		// Non-split task with rules: estimate total effective keyspace
 		effectiveStart = 0
-		effectiveEnd = *jobExecution.BaseKeyspace * int64(jobExecution.MultiplicationFactor)
+		effectiveEnd = *jobExecution.BaseKeyspace * jobExecution.MultiplicationFactor
 
 		debug.Log("Non-split task with rules - estimated effective keyspace", map[string]interface{}{
 			"job_id":              jobExecution.ID,
@@ -2699,7 +2699,7 @@ func (s *JobExecutionService) analyzeForRuleSplitting(ctx context.Context, job *
 	// Get actual rule count (not salt-adjusted) for minRules comparison
 	actualRuleCount, ruleErr := s.GetTotalRuleCount(ctx, presetJob.RuleIDs)
 	if ruleErr != nil {
-		actualRuleCount = int64(job.MultiplicationFactor) // Fallback to multiplicationFactor
+		actualRuleCount = job.MultiplicationFactor // Fallback to multiplicationFactor
 	}
 
 	debug.Log("Analyzing for rule splitting", map[string]interface{}{

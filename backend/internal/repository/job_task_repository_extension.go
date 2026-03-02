@@ -301,7 +301,7 @@ func (r *JobTaskRepository) AreAllTasksComplete(ctx context.Context, jobExecutio
 		WHERE id = $1`
 
 	var usesRuleSplitting bool
-	var multiplicationFactor int
+	var multiplicationFactor int64
 	var effectiveKeyspace, baseKeyspace *int64
 	var dispatchedKeyspace int64
 
@@ -335,7 +335,7 @@ func (r *JobTaskRepository) AreAllTasksComplete(ctx context.Context, jobExecutio
 		// Calculate total rules from multiplication factor or effective/base keyspace
 		totalRules := multiplicationFactor
 		if totalRules == 0 && effectiveKeyspace != nil && baseKeyspace != nil && *baseKeyspace > 0 {
-			totalRules = int(*effectiveKeyspace / *baseKeyspace)
+			totalRules = *effectiveKeyspace / *baseKeyspace
 		}
 
 		if totalRules > 0 {
@@ -346,7 +346,7 @@ func (r *JobTaskRepository) AreAllTasksComplete(ctx context.Context, jobExecutio
 			}
 
 			// Check if all rules have been dispatched
-			if maxRuleEnd == nil || *maxRuleEnd < totalRules {
+			if maxRuleEnd == nil || int64(*maxRuleEnd) < totalRules {
 				// More rules need to be dispatched
 				return false, nil
 			}

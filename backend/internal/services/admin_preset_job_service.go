@@ -836,7 +836,7 @@ func (s *adminPresetJobService) CalculateKeyspaceForPresetJob(ctx context.Contex
 
 		// Calculate multiplication factor from accurate keyspace
 		if keyspace > 0 {
-			presetJob.MultiplicationFactor = int(effectiveKeyspace / keyspace)
+			presetJob.MultiplicationFactor = effectiveKeyspace / keyspace
 			if presetJob.MultiplicationFactor < 1 {
 				presetJob.MultiplicationFactor = 1
 			}
@@ -861,7 +861,7 @@ func (s *adminPresetJobService) CalculateKeyspaceForPresetJob(ctx context.Contex
 			if ruleCount > 0 {
 				estimatedEffective = keyspace * ruleCount
 			}
-			presetJob.MultiplicationFactor = int(ruleCount)
+			presetJob.MultiplicationFactor = ruleCount
 		} else {
 			presetJob.MultiplicationFactor = 1
 		}

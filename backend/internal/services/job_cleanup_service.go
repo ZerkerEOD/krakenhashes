@@ -705,7 +705,7 @@ func (s *JobCleanupService) shouldJobCompleteStructural(ctx context.Context, job
 		}
 
 		if job.MultiplicationFactor > 0 {
-			if maxRuleEnd == nil || *maxRuleEnd < job.MultiplicationFactor {
+			if maxRuleEnd == nil || int64(*maxRuleEnd) < job.MultiplicationFactor {
 				return false // More rule chunks needed
 			}
 		}

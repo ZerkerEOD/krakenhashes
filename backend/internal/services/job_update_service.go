@@ -55,7 +55,7 @@ func (s *JobUpdateService) IsUpdating() bool {
 }
 
 // HandleRuleUpdate handles updates when a rule file changes
-func (s *JobUpdateService) HandleRuleUpdate(ctx context.Context, ruleID int, oldCount, newCount int) error {
+func (s *JobUpdateService) HandleRuleUpdate(ctx context.Context, ruleID int, oldCount, newCount int64) error {
 	debug.Log("Handling rule update", map[string]interface{}{
 		"rule_id":   ruleID,
 		"old_count": oldCount,
@@ -126,7 +126,7 @@ func (s *JobUpdateService) HandleWordlistUpdate(ctx context.Context, wordlistID 
 		// For rule-splitting jobs, recalculate effective keyspace accounting for missed work
 		if job.UsesRuleSplitting && job.MultiplicationFactor > 0 {
 			// Calculate the theoretical new effective keyspace
-			theoreticalNewEffective := newLines * int64(job.MultiplicationFactor)
+			theoreticalNewEffective := newLines * job.MultiplicationFactor
 
 			// Calculate how many words were added
 			wordsDifference := newLines - oldLines
@@ -173,7 +173,7 @@ func (s *JobUpdateService) HandleWordlistUpdate(ctx context.Context, wordlistID 
 			var newEffective int64
 			if job.MultiplicationFactor > 0 {
 				// Job has rules but doesn't use rule splitting
-				newEffective = newLines * int64(job.MultiplicationFactor)
+				newEffective = newLines * job.MultiplicationFactor
 			} else {
 				// Pure wordlist job without rules
 				newEffective = newLines
@@ -197,14 +197,14 @@ func (s *JobUpdateService) HandleWordlistUpdate(ctx context.Context, wordlistID 
 }
 
 // recalculateJobKeyspace recalculates keyspace for jobs with no tasks
-func (s *JobUpdateService) recalculateJobKeyspace(ctx context.Context, job *models.JobExecution, newRuleCount int) {
+func (s *JobUpdateService) recalculateJobKeyspace(ctx context.Context, job *models.JobExecution, newRuleCount int64) {
 	if job.BaseKeyspace == nil {
 		debug.Warning("Job %s has no base keyspace, skipping recalculation", job.ID)
 		return
 	}
 
 	newMultFactor := newRuleCount
-	newEffective := *job.BaseKeyspace * int64(newMultFactor)
+	newEffective := *job.BaseKeyspace * newMultFactor
 
 	updates := map[string]interface{}{
 		"multiplication_factor": newMultFactor,
@@ -225,7 +225,7 @@ func (s *JobUpdateService) recalculateJobKeyspace(ctx context.Context, job *mode
 }
 
 // adjustRemainingKeyspace adjusts keyspace for jobs with existing tasks
-func (s *JobUpdateService) adjustRemainingKeyspace(ctx context.Context, job *models.JobExecution, oldRules, newRules int) {
+func (s *JobUpdateService) adjustRemainingKeyspace(ctx context.Context, job *models.JobExecution, oldRules, newRules int64) {
 	// Get the highest rule that's been dispatched
 	maxRuleEnd, err := s.jobTaskRepo.GetMaxRuleEndIndex(ctx, job.ID)
 	if err != nil {
@@ -233,20 +233,20 @@ func (s *JobUpdateService) adjustRemainingKeyspace(ctx context.Context, job *mod
 		return
 	}
 
-	if maxRuleEnd == nil {
-		zero := 0
-		maxRuleEnd = &zero
+	var maxRuleEndVal int64
+	if maxRuleEnd != nil {
+		maxRuleEndVal = int64(*maxRuleEnd)
 	}
 
-	if newRules <= *maxRuleEnd {
+	if newRules <= maxRuleEndVal {
 		// All new rules already covered - update to reflect reality
-		err = s.jobExecRepo.UpdateMultiplicationFactor(ctx, job.ID, *maxRuleEnd)
+		err = s.jobExecRepo.UpdateMultiplicationFactor(ctx, job.ID, maxRuleEndVal)
 		if err != nil {
 			debug.Error("Failed to update multiplication factor for job %s: %v", job.ID, err)
 		}
 		debug.Log("Rules shrunk below dispatched range, job effectively complete", map[string]interface{}{
 			"job_id":      job.ID,
-			"max_rule":    *maxRuleEnd,
+			"max_rule":    maxRuleEndVal,
 			"new_rules":   newRules,
 		})
 	} else {
@@ -259,7 +259,7 @@ func (s *JobUpdateService) adjustRemainingKeyspace(ctx context.Context, job *mod
 
 		// Recalculate effective keyspace
 		if job.BaseKeyspace != nil {
-			newEffective := *job.BaseKeyspace * int64(newRules)
+			newEffective := *job.BaseKeyspace * newRules
 			err = s.jobExecRepo.UpdateEffectiveKeyspace(ctx, job.ID, newEffective)
 			if err != nil {
 				debug.Error("Failed to update effective keyspace for job %s: %v", job.ID, err)
@@ -268,9 +268,9 @@ func (s *JobUpdateService) adjustRemainingKeyspace(ctx context.Context, job *mod
 
 		debug.Log("Adjusted remaining keyspace for job with tasks", map[string]interface{}{
 			"job_id":             job.ID,
-			"max_dispatched":     *maxRuleEnd,
+			"max_dispatched":     maxRuleEndVal,
 			"new_total_rules":    newRules,
-			"rules_to_process":   newRules - *maxRuleEnd,
+			"rules_to_process":   newRules - maxRuleEndVal,
 		})
 	}
 }

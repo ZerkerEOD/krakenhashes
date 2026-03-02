@@ -70,7 +70,7 @@ type PresetJob struct {
 	EffectiveKeyspace         *int64     `json:"effective_keyspace,omitempty" db:"effective_keyspace"` // Actual effective keyspace from --total-candidates
 	IsAccurateKeyspace        bool       `json:"is_accurate_keyspace" db:"is_accurate_keyspace"` // TRUE if effective_keyspace from --total-candidates
 	UseRuleSplitting          bool       `json:"use_rule_splitting" db:"use_rule_splitting"`    // TRUE if jobs should use rule splitting
-	MultiplicationFactor      int        `json:"multiplication_factor" db:"multiplication_factor"` // Rule multiplier (effective/base) for rule splitting
+	MultiplicationFactor      int64      `json:"multiplication_factor" db:"multiplication_factor"` // Rule multiplier (effective/base) for rule splitting
 	MaxAgents                 int        `json:"max_agents" db:"max_agents"`                     // Max agents allowed (0 = unlimited)
 	IncrementMode             string     `json:"increment_mode,omitempty" db:"increment_mode"`   // Mask increment mode: off, increment, increment_inverse
 	IncrementMin              *int       `json:"increment_min,omitempty" db:"increment_min"`     // Starting mask length for increment mode
@@ -175,7 +175,7 @@ type JobExecution struct {
 	// Enhanced chunking fields
 	BaseKeyspace         *int64   `json:"base_keyspace" db:"base_keyspace"`                 // Wordlist-only keyspace
 	EffectiveKeyspace    *int64   `json:"effective_keyspace" db:"effective_keyspace"`       // Base × multiplication factor (or from hashcat progress[1])
-	MultiplicationFactor int      `json:"multiplication_factor" db:"multiplication_factor"` // Rules count or second wordlist size
+	MultiplicationFactor int64    `json:"multiplication_factor" db:"multiplication_factor"` // Rules count or second wordlist size
 	AvgRuleMultiplier    *float64 `json:"avg_rule_multiplier" db:"avg_rule_multiplier"`     // Actual effectiveness from hashcat: effective/base/rules
 	IsAccurateKeyspace   bool     `json:"is_accurate_keyspace" db:"is_accurate_keyspace"`   // TRUE if effective_keyspace from hashcat progress[1]
 	UsesRuleSplitting    bool     `json:"uses_rule_splitting" db:"uses_rule_splitting"`     // Whether this job uses rule splitting

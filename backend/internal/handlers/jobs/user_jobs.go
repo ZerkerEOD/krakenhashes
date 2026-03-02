@@ -115,7 +115,7 @@ type JobSummary struct {
 	CreatedByUsername      *string `json:"created_by_username,omitempty"`
 	ErrorMessage           *string `json:"error_message,omitempty"`
 	EffectiveKeyspace      *int64  `json:"effective_keyspace,omitempty"`
-	MultiplicationFactor   int     `json:"multiplication_factor,omitempty"`
+	MultiplicationFactor   int64   `json:"multiplication_factor,omitempty"`
 	UsesRuleSplitting      bool    `json:"uses_rule_splitting"`
 	ProcessedKeyspace      *int64  `json:"processed_keyspace,omitempty"`
 	DispatchedKeyspace     *int64  `json:"dispatched_keyspace,omitempty"`
