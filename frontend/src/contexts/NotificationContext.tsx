@@ -68,6 +68,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const intentionalDisconnectRef = useRef(false);
+  const addNotificationRef = useRef<(notification: Notification) => void>();
+  const addSystemAlertRef = useRef<(alert: SystemAlert) => void>();
+  const recentToastIdsRef = useRef<Set<string>>(new Set());
 
   // Refresh unread count from API
   const refreshUnreadCount = useCallback(async () => {
@@ -134,6 +138,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
   // Add a new notification (from WebSocket)
   const addNotification = useCallback(
     (notification: Notification) => {
+      // Deduplicate toasts — ignore if we already showed this notification recently
+      if (recentToastIdsRef.current.has(notification.id)) return;
+      recentToastIdsRef.current.add(notification.id);
+      setTimeout(() => recentToastIdsRef.current.delete(notification.id), 5000);
+
       setRecentNotifications((prev) => {
         // Add to front, keep only 5 most recent
         const updated = [notification, ...prev.filter((n) => n.id !== notification.id)];
@@ -153,6 +162,9 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     [enqueueSnackbar]
   );
 
+  // Sync addNotification to ref so WebSocket handler always uses latest
+  addNotificationRef.current = addNotification;
+
   // Dismiss a system alert
   const dismissSystemAlert = useCallback((alertId: string) => {
     setSystemAlerts((prev) => prev.filter((a) => a.id !== alertId));
@@ -166,6 +178,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
   // Add a system alert (from WebSocket - for admins)
   const addSystemAlert = useCallback(
     (alert: SystemAlert) => {
+      // Deduplicate toasts — ignore if we already showed this alert recently
+      if (recentToastIdsRef.current.has(alert.id)) return;
+      recentToastIdsRef.current.add(alert.id);
+      setTimeout(() => recentToastIdsRef.current.delete(alert.id), 10000);
+
       // Add to front, keep only last 10 alerts
       setSystemAlerts((prev) => {
         const updated = [alert, ...prev.filter((a) => a.id !== alert.id)];
@@ -183,7 +200,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     [enqueueSnackbar]
   );
 
-  // Handle WebSocket message
+  // Sync addSystemAlert to ref so WebSocket handler always uses latest
+  addSystemAlertRef.current = addSystemAlert;
+
+  // Handle WebSocket message — uses refs so this callback is stable (no deps)
   const handleWSMessage = useCallback(
     (event: MessageEvent) => {
       try {
@@ -192,7 +212,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
         switch (message.type) {
           case 'notification':
             const notificationPayload = message.payload as WSNotificationPayload;
-            addNotification(notificationPayload);
+            addNotificationRef.current?.(notificationPayload);
             break;
 
           case 'unread_count':
@@ -214,7 +234,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
           case 'system_alert':
             // System alerts are for admin users - real-time security/critical event notifications
             const systemAlertPayload = message.payload as SystemAlert;
-            addSystemAlert(systemAlertPayload);
+            addSystemAlertRef.current?.(systemAlertPayload);
             break;
 
           case 'pong':
@@ -228,14 +248,17 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
         console.error('[Notifications] Failed to parse WS message:', error);
       }
     },
-    [addNotification, addSystemAlert]
+    [] // Stable — reads handlers from refs
   );
 
   // Connect to WebSocket
   const connectWebSocket = useCallback(() => {
-    if (!isAuth || wsRef.current?.readyState === WebSocket.OPEN) {
+    const state = wsRef.current?.readyState;
+    if (!isAuth || state === WebSocket.OPEN || state === WebSocket.CONNECTING) {
       return;
     }
+
+    intentionalDisconnectRef.current = false;
 
     const wsUrl = getNotificationWebSocketUrl();
     console.debug('[Notifications] Connecting to WebSocket:', wsUrl);
@@ -244,6 +267,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
+        if (wsRef.current !== ws) return;
         console.debug('[Notifications] WebSocket connected');
         setIsConnected(true);
         reconnectAttemptsRef.current = 0;
@@ -253,8 +277,15 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
 
       ws.onclose = (event) => {
         console.debug('[Notifications] WebSocket closed:', event.code, event.reason);
+
+        // Ignore close events from stale (already-replaced) WebSocket connections
+        if (wsRef.current !== ws) return;
+
         setIsConnected(false);
         wsRef.current = null;
+
+        // Don't reconnect if this was an intentional disconnect
+        if (intentionalDisconnectRef.current) return;
 
         // Attempt reconnect if still authenticated
         if (
@@ -272,6 +303,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
       };
 
       ws.onerror = (error) => {
+        if (wsRef.current !== ws) return;
         console.error('[Notifications] WebSocket error:', error);
       };
 
@@ -283,6 +315,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Disconnect WebSocket
   const disconnectWebSocket = useCallback(() => {
+    intentionalDisconnectRef.current = true;
+
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
@@ -325,7 +359,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => {
       disconnectWebSocket();
     };
-  }, [isAuth, user, connectWebSocket, disconnectWebSocket, refreshUnreadCount, refreshRecentNotifications]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuth, user]);
 
   const value: NotificationContextType = {
     unreadCount,
