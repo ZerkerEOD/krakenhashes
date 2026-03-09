@@ -55,8 +55,9 @@ type JobTaskAssignment struct {
 	KeyspaceEnd     int64       `json:"keyspace_end"`
 	WordlistPaths   []string    `json:"wordlist_paths"`   // Local paths on agent
 	RulePaths       []string    `json:"rule_paths"`       // Local paths on agent
-	Mask            string      `json:"mask,omitempty"`   // For mask attacks
-	BinaryPath      string      `json:"binary_path"`      // Hashcat binary to use
+	Mask            string            `json:"mask,omitempty"`             // For mask attacks
+	CustomCharsets  map[string]string `json:"custom_charsets,omitempty"`  // Custom charsets: {"1": "?u?d", "3": "?s"}
+	BinaryPath      string            `json:"binary_path"`                // Hashcat binary to use
 	ChunkDuration   int         `json:"chunk_duration"`   // Expected duration in seconds
 	ReportInterval  int         `json:"report_interval"`  // Progress reporting interval
 	OutputFormat    string      `json:"output_format"`    // Hashcat output format
@@ -591,6 +592,13 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 
 	args = append(args, hashlistPath)
 
+	// Add custom charset flags (-1 through -4) before attack-specific args
+	for _, slot := range []string{"1", "2", "3", "4"} {
+		if def, ok := assignment.CustomCharsets[slot]; ok && def != "" {
+			args = append(args, "-"+slot, def)
+		}
+	}
+
 	// Add attack-mode specific arguments
 	switch assignment.AttackMode {
 	case int(AttackModeStraight): // Dictionary attack
@@ -736,6 +744,13 @@ func (e *HashcatExecutor) getAgentKeyspace(assignment *JobTaskAssignment) (int64
 	}
 	if extraParams != "" {
 		args = append(args, strings.Fields(extraParams)...)
+	}
+
+	// Add custom charset flags (-1 through -4) before attack-specific args
+	for _, slot := range []string{"1", "2", "3", "4"} {
+		if def, ok := assignment.CustomCharsets[slot]; ok && def != "" {
+			args = append(args, "-"+slot, def)
+		}
 	}
 
 	// Add attack-mode specific arguments (hashcat needs these to compute keyspace)

@@ -162,6 +162,16 @@ func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.S
 		debug.Error("Binary manager not provided to SetupAdminRoutes")
 	}
 
+	// Custom charset routes (global scope - admin managed)
+	charsetRepo := repository.NewCustomCharsetRepository(database.DB)
+	charsetService := services.NewCustomCharsetService(charsetRepo)
+	charsetHandler := adminhandlers.NewCustomCharsetHandler(charsetService)
+	adminRouter.HandleFunc("/custom-charsets", charsetHandler.ListGlobalCharsets).Methods(http.MethodGet, http.MethodOptions)
+	adminRouter.HandleFunc("/custom-charsets", charsetHandler.CreateGlobalCharset).Methods(http.MethodPost, http.MethodOptions)
+	adminRouter.HandleFunc("/custom-charsets/{id:[0-9a-fA-F-]+}", charsetHandler.UpdateGlobalCharset).Methods(http.MethodPut, http.MethodOptions)
+	adminRouter.HandleFunc("/custom-charsets/{id:[0-9a-fA-F-]+}", charsetHandler.DeleteGlobalCharset).Methods(http.MethodDelete, http.MethodOptions)
+	debug.Info("Configured admin custom charset routes: /admin/custom-charsets/*")
+
 	// Setup Preset Job and Job Workflow routes using the passed handler
 	SetupAdminJobRoutes(adminRouter, jobHandler)
 	debug.Info("Configured admin preset job and workflow routes: /admin/preset-jobs/*, /admin/job-workflows/*")

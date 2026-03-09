@@ -18,6 +18,7 @@
     "title": "Admin",
     "settings": "Admin Settings",
     "userManagement": "User Management",
+    "customCharsets": "Custom Charsets",
     "presetJobs": "Preset Jobs",
     "jobWorkflows": "Job Workflows",
     "diagnostics": "Diagnostics",
@@ -26,6 +27,7 @@
   },
   "userMenu": {
     "userSettings": "User Settings",
+    "savedCharsets": "Saved Charsets",
     "logout": "Logout",
     "user": "User"
   },

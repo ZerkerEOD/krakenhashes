@@ -205,6 +205,7 @@ export interface JobDetailsResponse {
   rule_ids?: string[];
   rule_names?: string[];
   mask?: string;
+  custom_charsets?: Record<string, string> | null;
   /** Binary version pattern (e.g., "default", "7.x", "7.1.x", "7.1.2") */
   binary_version?: string;
   chunk_size_seconds?: number;

@@ -594,6 +594,16 @@ func (s *adminPresetJobService) needsKeyspaceRecalculation(existing, updated *mo
 		return true
 	}
 
+	// Check if custom charsets changed
+	if len(existing.CustomCharsets) != len(updated.CustomCharsets) {
+		return true
+	}
+	for k, v := range existing.CustomCharsets {
+		if updated.CustomCharsets[k] != v {
+			return true
+		}
+	}
+
 	// Check if binary version changed
 	if existing.BinaryVersion != updated.BinaryVersion {
 		return true
@@ -644,6 +654,13 @@ func (s *adminPresetJobService) CalculateKeyspaceForPresetJob(ctx context.Contex
 
 	// Add attack mode flag
 	args = append(args, "-a", fmt.Sprintf("%d", presetJob.AttackMode))
+
+	// Add custom charset flags (-1 through -4) before the mask
+	for _, slot := range []string{"1", "2", "3", "4"} {
+		if def, ok := presetJob.CustomCharsets[slot]; ok && def != "" {
+			args = append(args, "-"+slot, def)
+		}
+	}
 
 	// Add attack-specific arguments
 	switch presetJob.AttackMode {
@@ -1205,13 +1222,13 @@ func (s *adminPresetJobService) initializePresetIncrementLayers(ctx context.Cont
 	var totalEffectiveKeyspace int64 = 0
 	for i, layerMask := range layerMasks {
 		// Calculate base_keyspace using hashcat --keyspace
-		baseKeyspace, err := s.calculateMaskKeyspace(ctx, hashcatPath, layerMask)
+		baseKeyspace, err := s.calculateMaskKeyspace(ctx, hashcatPath, layerMask, presetJob.CustomCharsets)
 		if err != nil {
 			return 0, fmt.Errorf("failed to calculate keyspace for layer %d mask %s: %w", i+1, layerMask, err)
 		}
 
 		// Calculate effective keyspace from mask
-		effectiveKeyspace, err := utils.CalculateEffectiveKeyspace(layerMask)
+		effectiveKeyspace, err := utils.CalculateEffectiveKeyspace(layerMask, presetJob.CustomCharsets)
 		if err != nil {
 			debug.Warning("Failed to calculate effective keyspace for mask %s: %v, falling back to base", layerMask, err)
 			effectiveKeyspace = baseKeyspace
@@ -1259,9 +1276,18 @@ func (s *adminPresetJobService) initializePresetIncrementLayers(ctx context.Cont
 }
 
 // calculateMaskKeyspace runs hashcat --keyspace to get the keyspace for a specific mask
-func (s *adminPresetJobService) calculateMaskKeyspace(ctx context.Context, hashcatPath string, mask string) (int64, error) {
-	// Build command: hashcat -a 3 <mask> --keyspace
-	args := []string{"-a", "3", mask, "--keyspace", "--restore-disable", "--quiet"}
+func (s *adminPresetJobService) calculateMaskKeyspace(ctx context.Context, hashcatPath string, mask string, customCharsets map[string]string) (int64, error) {
+	// Build command: hashcat -a 3 [-1 def ...] <mask> --keyspace
+	args := []string{"-a", "3"}
+
+	// Add custom charset flags before the mask
+	for _, slot := range []string{"1", "2", "3", "4"} {
+		if def, ok := customCharsets[slot]; ok && def != "" {
+			args = append(args, "-"+slot, def)
+		}
+	}
+
+	args = append(args, mask, "--keyspace", "--restore-disable", "--quiet")
 
 	// Add a unique session ID to allow concurrent executions
 	sessionID := fmt.Sprintf("preset_keyspace_%d", time.Now().UnixNano())

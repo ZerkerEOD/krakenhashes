@@ -220,15 +220,15 @@ func (s *JobExecutionService) initializeIncrementLayers(ctx context.Context, job
 	var totalEffectiveKeyspace int64 = 0
 	for i, layerMask := range layerMasks {
 		// Calculate base_keyspace using hashcat --keyspace
-		baseKeyspace, err := s.calculateMaskKeyspace(ctx, hashcatPath, layerMask)
+		baseKeyspace, err := s.calculateMaskKeyspace(ctx, hashcatPath, layerMask, jobExecution.CustomCharsets)
 		if err != nil {
 			return fmt.Errorf("failed to calculate keyspace for layer %d mask %s: %w", i+1, layerMask, err)
 		}
 
 		// Calculate estimated effective keyspace from mask
 		// This multiplies charset sizes to get actual candidate count
-		// For example: ?l?l = 26*26 = 676, ?l?l?l = 26*26*26 = 17576
-		estimatedEffective, err := utils.CalculateEffectiveKeyspace(layerMask)
+		// For example: ?l?l = 26*26 = 676, ?1?1 with charset_1=?u?d = 36*36 = 1296
+		estimatedEffective, err := utils.CalculateEffectiveKeyspace(layerMask, jobExecution.CustomCharsets)
 		if err != nil {
 			debug.Warning("Failed to calculate effective keyspace for mask %s: %v, falling back to base", layerMask, err)
 			estimatedEffective = baseKeyspace
@@ -303,9 +303,18 @@ func (s *JobExecutionService) initializeIncrementLayers(ctx context.Context, job
 }
 
 // calculateMaskKeyspace runs hashcat --keyspace to get the keyspace for a specific mask
-func (s *JobExecutionService) calculateMaskKeyspace(ctx context.Context, hashcatPath string, mask string) (int64, error) {
-	// Build command: hashcat -a 3 <mask> --keyspace
-	args := []string{"-a", "3", mask, "--keyspace", "--restore-disable", "--quiet"}
+func (s *JobExecutionService) calculateMaskKeyspace(ctx context.Context, hashcatPath string, mask string, customCharsets map[string]string) (int64, error) {
+	// Build command: hashcat -a 3 [-1 def ...] <mask> --keyspace
+	args := []string{"-a", "3"}
+
+	// Add custom charset flags before the mask
+	for _, slot := range []string{"1", "2", "3", "4"} {
+		if def, ok := customCharsets[slot]; ok && def != "" {
+			args = append(args, "-"+slot, def)
+		}
+	}
+
+	args = append(args, mask, "--keyspace", "--restore-disable", "--quiet")
 
 	// Add a unique session ID to allow concurrent executions
 	sessionID := fmt.Sprintf("layer_keyspace_%d", time.Now().UnixNano())

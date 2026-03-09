@@ -50,6 +50,39 @@ func (a *IDArray) Scan(value interface{}) error {
 	return json.Unmarshal(bytes, a)
 }
 
+// CustomCharsets maps charset slot ("1"-"4") to its definition string (e.g., "?u?d").
+// Used on PresetJob and JobExecution to store hashcat custom charset definitions.
+// Stored as JSONB in PostgreSQL. Example: {"1": "?u?d", "3": "?s?l"}
+type CustomCharsets map[string]string
+
+// Value implements the driver.Valuer interface for JSONB serialization
+func (c CustomCharsets) Value() (driver.Value, error) {
+	if c == nil {
+		return nil, nil
+	}
+	return json.Marshal(c)
+}
+
+// Scan implements the sql.Scanner interface for JSONB deserialization
+func (c *CustomCharsets) Scan(value interface{}) error {
+	if value == nil {
+		*c = nil
+		return nil
+	}
+
+	var bytes []byte
+	switch v := value.(type) {
+	case string:
+		bytes = []byte(v)
+	case []byte:
+		bytes = v
+	default:
+		return fmt.Errorf("unsupported type for CustomCharsets: %T", value)
+	}
+
+	return json.Unmarshal(bytes, c)
+}
+
 // PresetJob mirrors the preset_jobs table structure.
 // It defines a pre-configured set of parameters for a cracking job.
 type PresetJob struct {
@@ -64,9 +97,10 @@ type PresetJob struct {
 	StatusUpdatesEnabled      bool       `json:"status_updates_enabled" db:"status_updates_enabled"`
 	AllowHighPriorityOverride bool       `json:"allow_high_priority_override" db:"allow_high_priority_override"`
 	BinaryVersion             string     `json:"binary_version" db:"binary_version"`             // Version pattern (e.g., "default", "7.x", "7.1.2")
-	Mask                      string     `json:"mask,omitempty" db:"mask"`                       // For mask-based attack modes
-	AdditionalArgs            *string    `json:"additional_args,omitempty" db:"additional_args"` // Additional hashcat arguments
-	Keyspace                  *int64     `json:"keyspace,omitempty" db:"keyspace"`               // Pre-calculated base keyspace from --keyspace
+	Mask                      string         `json:"mask,omitempty" db:"mask"`                           // For mask-based attack modes
+	CustomCharsets            CustomCharsets `json:"custom_charsets,omitempty" db:"custom_charsets"`     // Custom charset definitions {"1": "?u?d", ...}
+	AdditionalArgs            *string        `json:"additional_args,omitempty" db:"additional_args"`     // Additional hashcat arguments
+	Keyspace                  *int64         `json:"keyspace,omitempty" db:"keyspace"`                   // Pre-calculated base keyspace from --keyspace
 	EffectiveKeyspace         *int64     `json:"effective_keyspace,omitempty" db:"effective_keyspace"` // Actual effective keyspace from --total-candidates
 	IsAccurateKeyspace        bool       `json:"is_accurate_keyspace" db:"is_accurate_keyspace"` // TRUE if effective_keyspace from --total-candidates
 	UseRuleSplitting          bool       `json:"use_rule_splitting" db:"use_rule_splitting"`    // TRUE if jobs should use rule splitting
@@ -166,9 +200,10 @@ type JobExecution struct {
 	StatusUpdatesEnabled      bool    `json:"status_updates_enabled" db:"status_updates_enabled"`
 	AllowHighPriorityOverride bool    `json:"allow_high_priority_override" db:"allow_high_priority_override"`
 	BinaryVersion             string  `json:"binary_version" db:"binary_version"` // Version pattern (e.g., "default", "7.x", "7.1.2")
-	Mask                      string  `json:"mask,omitempty" db:"mask"`
-	AdditionalArgs            *string `json:"additional_args,omitempty" db:"additional_args"`
-	IncrementMode             string  `json:"increment_mode,omitempty" db:"increment_mode"` // Mask increment mode: off, increment, increment_inverse
+	Mask                      string         `json:"mask,omitempty" db:"mask"`
+	CustomCharsets            CustomCharsets `json:"custom_charsets,omitempty" db:"custom_charsets"` // Custom charset definitions {"1": "?u?d", ...}
+	AdditionalArgs            *string        `json:"additional_args,omitempty" db:"additional_args"`
+	IncrementMode             string         `json:"increment_mode,omitempty" db:"increment_mode"` // Mask increment mode: off, increment, increment_inverse
 	IncrementMin              *int    `json:"increment_min,omitempty" db:"increment_min"`   // Starting mask length for increment mode
 	IncrementMax              *int    `json:"increment_max,omitempty" db:"increment_max"`   // Maximum mask length for increment mode
 

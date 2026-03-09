@@ -159,9 +159,10 @@ type BenchmarkRequest struct {
 	BinaryPath      string             `json:"binary_path"`
 	TestDuration    int                `json:"test_duration"`    // How long to run test (seconds)
 	TimeoutDuration int                `json:"timeout_duration"` // Maximum time to wait for speedtest (seconds)
-	ExtraParameters         string   `json:"extra_parameters,omitempty"`          // Agent-specific hashcat parameters
-	EnabledDevices          []int    `json:"enabled_devices,omitempty"`           // List of enabled device IDs
-	AssociationWordlistPath string   `json:"association_wordlist_path,omitempty"` // For mode 9 association attacks
+	ExtraParameters         string            `json:"extra_parameters,omitempty"`          // Agent-specific hashcat parameters
+	EnabledDevices          []int             `json:"enabled_devices,omitempty"`           // List of enabled device IDs
+	AssociationWordlistPath string            `json:"association_wordlist_path,omitempty"` // For mode 9 association attacks
+	CustomCharsets          map[string]string `json:"custom_charsets,omitempty"`           // Custom charset definitions (-1 through -4)
 }
 
 // BenchmarkResult represents the result of a speed test
@@ -1686,6 +1687,7 @@ func (c *Connection) readPump() {
 					ExtraParameters:         benchmarkPayload.ExtraParameters,         // Agent-specific parameters
 					EnabledDevices:          benchmarkPayload.EnabledDevices,           // Device list
 					AssociationWordlistPath: benchmarkPayload.AssociationWordlistPath, // For mode 9
+					CustomCharsets:          benchmarkPayload.CustomCharsets,          // Custom charset definitions
 				}
 
 				// Default test duration to 16 seconds if not specified

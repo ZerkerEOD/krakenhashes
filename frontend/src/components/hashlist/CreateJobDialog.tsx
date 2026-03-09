@@ -42,6 +42,9 @@ import { api } from '../../services/api';
 import { getJobExecutionSettings } from '../../services/jobSettings';
 import { useNavigate } from 'react-router-dom';
 import BinaryVersionSelector from '../common/BinaryVersionSelector';
+import CharsetInputs from '../common/CharsetInputs';
+import { CustomCharset } from '../../types/customCharsets';
+import { listAccessibleCharsets } from '../../services/customCharsetService';
 
 interface PresetJob {
   id: string;
@@ -161,9 +164,13 @@ export default function CreateJobDialog({
     increment_mode: 'off' as string,
     increment_min: undefined as number | undefined,
     increment_max: undefined as number | undefined,
-    association_wordlist_id: undefined as string | undefined
+    association_wordlist_id: undefined as string | undefined,
+    custom_charsets: null as Record<string, string> | null
   });
-  
+
+  // Saved charsets for picker
+  const [savedCharsets, setSavedCharsets] = useState<CustomCharset[]>([]);
+
   // Available data
   const [presetJobs, setPresetJobs] = useState<PresetJob[]>([]);
   const [workflows, setWorkflows] = useState<JobWorkflow[]>([]);
@@ -225,11 +232,14 @@ export default function CreateJobDialog({
     setLoadingJobs(true);
     try {
       // Fetch available jobs, job execution settings, and association wordlists in parallel
-      const [response, jobExecutionSettings, assocWordlistsResponse] = await Promise.all([
+      const [response, jobExecutionSettings, assocWordlistsResponse, accessibleCharsets] = await Promise.all([
         api.get(`/api/hashlists/${hashlistId}/available-jobs`),
         getJobExecutionSettings().catch(() => null), // Gracefully handle if settings fetch fails
-        api.get(`/api/hashlists/${hashlistId}/association-wordlists`).catch(() => ({ data: [] }))
+        api.get(`/api/hashlists/${hashlistId}/association-wordlists`).catch(() => ({ data: [] })),
+        listAccessibleCharsets().catch(() => [])
       ]);
+
+      setSavedCharsets(accessibleCharsets);
 
       setPresetJobs(response.data.preset_jobs || []);
       setWorkflows(response.data.workflows || []);
@@ -410,7 +420,8 @@ export default function CreateJobDialog({
         increment_mode: 'off',
         increment_min: undefined,
         increment_max: undefined,
-        association_wordlist_id: undefined
+        association_wordlist_id: undefined,
+        custom_charsets: null
       });
       setTabValue(0);
       setCustomJobName('');
@@ -664,7 +675,8 @@ export default function CreateJobDialog({
                             wordlist_ids: [],
                             rule_ids: [],
                             mask: '',
-                            association_wordlist_id: undefined
+                            association_wordlist_id: undefined,
+                            custom_charsets: null
                           }));
                           // Reset combination wordlist state
                           setCombWordlist1('');
@@ -864,22 +876,35 @@ export default function CreateJobDialog({
                     </>
                   )}
 
-                  {/* Attack mode 3 (Brute Force): Mask only */}
+                  {/* Attack mode 3 (Brute Force): Mask + Custom Charsets */}
                   {customJob.attack_mode === 3 && (
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        label="Mask"
-                        value={customJob.mask}
-                        onChange={(e) => setCustomJob(prev => ({ ...prev, mask: e.target.value }))}
-                        placeholder="e.g., ?u?l?l?l?l?d?d"
-                        helperText="?l = lowercase, ?u = uppercase, ?d = digit, ?s = special"
-                        required
-                      />
-                    </Grid>
+                    <>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          label="Mask"
+                          value={customJob.mask}
+                          onChange={(e) => setCustomJob(prev => ({ ...prev, mask: e.target.value }))}
+                          placeholder="e.g., ?u?l?l?l?l?d?d"
+                          helperText="?l = lowercase, ?u = uppercase, ?d = digit, ?s = special, ?1-?4 = custom"
+                          required
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <CharsetInputs
+                          customCharsets={customJob.custom_charsets || {}}
+                          onChange={(charsets) => setCustomJob(prev => ({
+                            ...prev,
+                            custom_charsets: Object.keys(charsets).length > 0 ? charsets : null
+                          }))}
+                          mask={customJob.mask}
+                          savedCharsets={savedCharsets}
+                        />
+                      </Grid>
+                    </>
                   )}
 
-                  {/* Attack mode 6 (Hybrid Wordlist + Mask): Wordlists → Mask */}
+                  {/* Attack mode 6 (Hybrid Wordlist + Mask): Wordlists → Mask → Custom Charsets */}
                   {customJob.attack_mode === 6 && (
                     <>
                       <Grid item xs={12}>
@@ -937,14 +962,25 @@ export default function CreateJobDialog({
                           value={customJob.mask}
                           onChange={(e) => setCustomJob(prev => ({ ...prev, mask: e.target.value }))}
                           placeholder="e.g., ?u?l?l?l?l?d?d"
-                          helperText="?l = lowercase, ?u = uppercase, ?d = digit, ?s = special"
+                          helperText="?l = lowercase, ?u = uppercase, ?d = digit, ?s = special, ?1-?4 = custom"
                           required
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <CharsetInputs
+                          customCharsets={customJob.custom_charsets || {}}
+                          onChange={(charsets) => setCustomJob(prev => ({
+                            ...prev,
+                            custom_charsets: Object.keys(charsets).length > 0 ? charsets : null
+                          }))}
+                          mask={customJob.mask}
+                          savedCharsets={savedCharsets}
                         />
                       </Grid>
                     </>
                   )}
 
-                  {/* Attack mode 7 (Hybrid Mask + Wordlist): Mask → Wordlists */}
+                  {/* Attack mode 7 (Hybrid Mask + Wordlist): Mask → Custom Charsets → Wordlists */}
                   {customJob.attack_mode === 7 && (
                     <>
                       <Grid item xs={12}>
@@ -954,8 +990,19 @@ export default function CreateJobDialog({
                           value={customJob.mask}
                           onChange={(e) => setCustomJob(prev => ({ ...prev, mask: e.target.value }))}
                           placeholder="e.g., ?u?l?l?l?l?d?d"
-                          helperText="?l = lowercase, ?u = uppercase, ?d = digit, ?s = special"
+                          helperText="?l = lowercase, ?u = uppercase, ?d = digit, ?s = special, ?1-?4 = custom"
                           required
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <CharsetInputs
+                          customCharsets={customJob.custom_charsets || {}}
+                          onChange={(charsets) => setCustomJob(prev => ({
+                            ...prev,
+                            custom_charsets: Object.keys(charsets).length > 0 ? charsets : null
+                          }))}
+                          mask={customJob.mask}
+                          savedCharsets={savedCharsets}
                         />
                       </Grid>
                       <Grid item xs={12}>

@@ -796,6 +796,7 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 		WordlistPaths:   wordlistPaths,
 		RulePaths:       rulePaths,
 		Mask:            maskToUse, // Layer mask or job mask
+		CustomCharsets:  map[string]string(jobExecution.CustomCharsets),
 		BinaryPath:      binaryPath,
 		ChunkDuration:   task.ChunkDuration,
 		ReportInterval:  reportInterval,
@@ -1226,6 +1227,7 @@ func (s *JobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, age
 		WordlistPaths:   wordlistPaths,
 		RulePaths:       rulePaths,
 		Mask:            maskToUse,        // LAYER MASK for layer benchmarks, JOB MASK for regular
+		CustomCharsets:  map[string]string(jobExecution.CustomCharsets),
 		TestDuration:    30,               // 30-second benchmark for accuracy
 		TimeoutDuration: speedtestTimeout, // Configurable timeout for speedtest
 		ExtraParameters: agent.ExtraParameters,

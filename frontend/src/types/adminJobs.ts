@@ -54,6 +54,7 @@ export interface PresetJob {
   updated_at: string; // ISO 8601 date string
   binary_version_name?: string; // Optional, resolved display name from pattern
   mask?: string; // Mask pattern for mask-based attack modes
+  custom_charsets?: Record<string, string> | null; // Custom charsets: {"1": "?u?d", "3": "?s"}
   keyspace?: number | null; // Pre-calculated keyspace
   max_agents: number; // Max agents allowed (0 = unlimited)
   increment_mode?: string; // Mask increment mode: off, increment, increment_inverse
@@ -72,6 +73,7 @@ export interface PresetJobFormData {
   /** Binary version pattern (e.g., "default", "7.x", "7.1.x", "7.1.2") */
   binary_version: string;
   mask?: string; // Mask pattern for mask-based attack modes
+  custom_charsets?: Record<string, string> | null; // Custom charsets: {"1": "?u?d", "3": "?s"}
   allow_high_priority_override: boolean;
   max_agents: number;
   increment_mode: string; // Mask increment mode

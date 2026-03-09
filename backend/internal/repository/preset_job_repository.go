@@ -49,19 +49,19 @@ func (r *presetJobRepository) Create(ctx context.Context, params models.PresetJo
 		INSERT INTO preset_jobs (
 			name, wordlist_ids, rule_ids, attack_mode, priority,
 			chunk_size_seconds, status_updates_enabled,
-			allow_high_priority_override, binary_version, mask, keyspace,
+			allow_high_priority_override, binary_version, mask, custom_charsets, keyspace,
 			effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
 			max_agents, increment_mode, increment_min, increment_max
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
 		RETURNING id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
 				  status_updates_enabled, allow_high_priority_override,
-				  binary_version, mask, keyspace, effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
+				  binary_version, mask, custom_charsets, keyspace, effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
 				  max_agents, increment_mode, increment_min, increment_max, created_at, updated_at`
 
 	row := r.db.QueryRowContext(ctx, query,
 		params.Name, params.WordlistIDs, params.RuleIDs, params.AttackMode, params.Priority,
 		params.ChunkSizeSeconds, params.StatusUpdatesEnabled,
-		params.AllowHighPriorityOverride, params.BinaryVersion, params.Mask, params.Keyspace,
+		params.AllowHighPriorityOverride, params.BinaryVersion, params.Mask, params.CustomCharsets, params.Keyspace,
 		params.EffectiveKeyspace, params.IsAccurateKeyspace, params.UseRuleSplitting, params.MultiplicationFactor,
 		params.MaxAgents, params.IncrementMode, params.IncrementMin, params.IncrementMax,
 	)
@@ -70,7 +70,7 @@ func (r *presetJobRepository) Create(ctx context.Context, params models.PresetJo
 	err := row.Scan(
 		&created.ID, &created.Name, &created.WordlistIDs, &created.RuleIDs, &created.AttackMode, &created.Priority,
 		&created.ChunkSizeSeconds, &created.StatusUpdatesEnabled,
-		&created.AllowHighPriorityOverride, &created.BinaryVersion, &created.Mask, &created.Keyspace,
+		&created.AllowHighPriorityOverride, &created.BinaryVersion, &created.Mask, &created.CustomCharsets, &created.Keyspace,
 		&created.EffectiveKeyspace, &created.IsAccurateKeyspace, &created.UseRuleSplitting, &created.MultiplicationFactor,
 		&created.MaxAgents, &created.IncrementMode, &created.IncrementMin, &created.IncrementMax,
 		&created.CreatedAt, &created.UpdatedAt,
@@ -88,7 +88,7 @@ func (r *presetJobRepository) GetByID(ctx context.Context, id uuid.UUID) (*model
 		SELECT
 			id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
 			status_updates_enabled, allow_high_priority_override,
-			binary_version, mask, keyspace, effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
+			binary_version, mask, custom_charsets, keyspace, effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
 			max_agents, increment_mode, increment_min, increment_max, created_at, updated_at
 		FROM preset_jobs WHERE id = $1 LIMIT 1`
 
@@ -97,7 +97,7 @@ func (r *presetJobRepository) GetByID(ctx context.Context, id uuid.UUID) (*model
 	err := row.Scan(
 		&job.ID, &job.Name, &job.WordlistIDs, &job.RuleIDs, &job.AttackMode, &job.Priority,
 		&job.ChunkSizeSeconds, &job.StatusUpdatesEnabled,
-		&job.AllowHighPriorityOverride, &job.BinaryVersion, &job.Mask, &job.Keyspace,
+		&job.AllowHighPriorityOverride, &job.BinaryVersion, &job.Mask, &job.CustomCharsets, &job.Keyspace,
 		&job.EffectiveKeyspace, &job.IsAccurateKeyspace, &job.UseRuleSplitting, &job.MultiplicationFactor,
 		&job.MaxAgents, &job.IncrementMode, &job.IncrementMin, &job.IncrementMax,
 		&job.CreatedAt, &job.UpdatedAt,
@@ -118,7 +118,7 @@ func (r *presetJobRepository) GetByName(ctx context.Context, name string) (*mode
 		SELECT
 			id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
 			status_updates_enabled, allow_high_priority_override,
-			binary_version, mask, keyspace, effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
+			binary_version, mask, custom_charsets, keyspace, effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
 			max_agents, increment_mode, increment_min, increment_max, created_at, updated_at
 		FROM preset_jobs WHERE name = $1 LIMIT 1`
 
@@ -127,7 +127,7 @@ func (r *presetJobRepository) GetByName(ctx context.Context, name string) (*mode
 	err := row.Scan(
 		&job.ID, &job.Name, &job.WordlistIDs, &job.RuleIDs, &job.AttackMode, &job.Priority,
 		&job.ChunkSizeSeconds, &job.StatusUpdatesEnabled,
-		&job.AllowHighPriorityOverride, &job.BinaryVersion, &job.Mask, &job.Keyspace,
+		&job.AllowHighPriorityOverride, &job.BinaryVersion, &job.Mask, &job.CustomCharsets, &job.Keyspace,
 		&job.EffectiveKeyspace, &job.IsAccurateKeyspace, &job.UseRuleSplitting, &job.MultiplicationFactor,
 		&job.MaxAgents, &job.IncrementMode, &job.IncrementMin, &job.IncrementMax,
 		&job.CreatedAt, &job.UpdatedAt,
@@ -148,7 +148,7 @@ func (r *presetJobRepository) List(ctx context.Context) ([]models.PresetJob, err
 		SELECT
 			pj.id, pj.name, pj.wordlist_ids, pj.rule_ids, pj.attack_mode, pj.priority,
 			pj.chunk_size_seconds, pj.status_updates_enabled,
-			pj.allow_high_priority_override, pj.binary_version, pj.mask, pj.keyspace,
+			pj.allow_high_priority_override, pj.binary_version, pj.mask, pj.custom_charsets, pj.keyspace,
 			pj.effective_keyspace, pj.is_accurate_keyspace, pj.use_rule_splitting, pj.multiplication_factor,
 			pj.max_agents, pj.increment_mode, pj.increment_min, pj.increment_max,
 			pj.created_at, pj.updated_at,
@@ -170,7 +170,7 @@ func (r *presetJobRepository) List(ctx context.Context) ([]models.PresetJob, err
 		if err := rows.Scan(
 			&job.ID, &job.Name, &job.WordlistIDs, &job.RuleIDs, &job.AttackMode, &job.Priority,
 			&job.ChunkSizeSeconds, &job.StatusUpdatesEnabled,
-			&job.AllowHighPriorityOverride, &job.BinaryVersion, &job.Mask, &job.Keyspace,
+			&job.AllowHighPriorityOverride, &job.BinaryVersion, &job.Mask, &job.CustomCharsets, &job.Keyspace,
 			&job.EffectiveKeyspace, &job.IsAccurateKeyspace, &job.UseRuleSplitting, &job.MultiplicationFactor,
 			&job.MaxAgents, &job.IncrementMode, &job.IncrementMin, &job.IncrementMax,
 			&job.CreatedAt, &job.UpdatedAt,
@@ -208,26 +208,27 @@ func (r *presetJobRepository) Update(ctx context.Context, id uuid.UUID, params m
 			allow_high_priority_override = $9,
 			binary_version = $10,
 			mask = $11,
-			keyspace = $12,
-			effective_keyspace = $13,
-			is_accurate_keyspace = $14,
-			use_rule_splitting = $15,
-			multiplication_factor = $16,
-			max_agents = $17,
-			increment_mode = $18,
-			increment_min = $19,
-			increment_max = $20,
+			custom_charsets = $12,
+			keyspace = $13,
+			effective_keyspace = $14,
+			is_accurate_keyspace = $15,
+			use_rule_splitting = $16,
+			multiplication_factor = $17,
+			max_agents = $18,
+			increment_mode = $19,
+			increment_min = $20,
+			increment_max = $21,
 			updated_at = NOW()
 		WHERE id = $1
 		RETURNING id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
 				  status_updates_enabled, allow_high_priority_override,
-				  binary_version, mask, keyspace, effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
+				  binary_version, mask, custom_charsets, keyspace, effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
 				  max_agents, increment_mode, increment_min, increment_max, created_at, updated_at`
 
 	row := r.db.QueryRowContext(ctx, query,
 		id, params.Name, params.WordlistIDs, params.RuleIDs, params.AttackMode, params.Priority,
 		params.ChunkSizeSeconds, params.StatusUpdatesEnabled,
-		params.AllowHighPriorityOverride, params.BinaryVersion, params.Mask, params.Keyspace,
+		params.AllowHighPriorityOverride, params.BinaryVersion, params.Mask, params.CustomCharsets, params.Keyspace,
 		params.EffectiveKeyspace, params.IsAccurateKeyspace, params.UseRuleSplitting, params.MultiplicationFactor,
 		params.MaxAgents, params.IncrementMode, params.IncrementMin, params.IncrementMax,
 	)
@@ -236,7 +237,7 @@ func (r *presetJobRepository) Update(ctx context.Context, id uuid.UUID, params m
 	err := row.Scan(
 		&updated.ID, &updated.Name, &updated.WordlistIDs, &updated.RuleIDs, &updated.AttackMode, &updated.Priority,
 		&updated.ChunkSizeSeconds, &updated.StatusUpdatesEnabled,
-		&updated.AllowHighPriorityOverride, &updated.BinaryVersion, &updated.Mask, &updated.Keyspace,
+		&updated.AllowHighPriorityOverride, &updated.BinaryVersion, &updated.Mask, &updated.CustomCharsets, &updated.Keyspace,
 		&updated.EffectiveKeyspace, &updated.IsAccurateKeyspace, &updated.UseRuleSplitting, &updated.MultiplicationFactor,
 		&updated.MaxAgents, &updated.IncrementMode, &updated.IncrementMin, &updated.IncrementMax,
 		&updated.CreatedAt, &updated.UpdatedAt,
@@ -352,7 +353,7 @@ func (r *presetJobRepository) GetByWordlistID(ctx context.Context, wordlistID st
 		SELECT
 			id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
 			status_updates_enabled, allow_high_priority_override,
-			binary_version, mask, keyspace, effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
+			binary_version, mask, custom_charsets, keyspace, effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
 			max_agents, increment_mode, increment_min, increment_max, created_at, updated_at
 		FROM preset_jobs
 		WHERE wordlist_ids ? $1`
@@ -395,7 +396,7 @@ func (r *presetJobRepository) GetByRuleID(ctx context.Context, ruleID string) ([
 		SELECT
 			id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
 			status_updates_enabled, allow_high_priority_override,
-			binary_version, mask, keyspace, effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
+			binary_version, mask, custom_charsets, keyspace, effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
 			max_agents, increment_mode, increment_min, increment_max, created_at, updated_at
 		FROM preset_jobs
 		WHERE rule_ids ? $1`

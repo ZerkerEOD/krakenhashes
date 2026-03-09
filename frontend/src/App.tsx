@@ -96,8 +96,10 @@ const AdminSettingsIndexPage = lazy(() => import('./pages/AdminSettings').then(m
 const AdminEmailSettingsIndexPage = lazy(() => import('./pages/AdminSettings/EmailSettings').then(module => ({ default: module.EmailSettings })));
 const AdminEmailProviderConfigPage = lazy(() => import('./pages/AdminSettings/EmailSettings/ProviderConfig').then(module => ({ default: module.ProviderConfig })));
 const AdminEmailTemplateEditorPage = lazy(() => import('./pages/AdminSettings/EmailSettings/TemplateEditor').then(module => ({ default: module.TemplateEditor })));
+const CustomCharsetListPage = lazy(() => import('./pages/admin/CustomCharsetList'));
 const DiagnosticsPage = lazy(() => import('./pages/admin/Diagnostics'));
 const AdminAuditLogPage = lazy(() => import('./pages/AdminAuditLog'));
+const SavedCharsetsPage = lazy(() => import('./pages/settings/SavedCharsets'));
 
 const App: React.FC = () => {
   const [certVerified, setCertVerified] = useState(() => {
@@ -164,11 +166,13 @@ const App: React.FC = () => {
                     <Route path="/teams/:teamId" element={<TeamDetailPage />} />
                     <Route path="/about" element={<AboutPage />} />
                     <Route path="/settings/profile" element={<ProfileSettingsPage />} />
+                    <Route path="/settings/charsets" element={<SavedCharsetsPage />} />
                     <Route path="/notifications" element={<NotificationCenterPage />} />
 
                     {/* Admin Section Routes */}
                     <Route path="/admin" element={<RequireAdmin><Outlet /></RequireAdmin>}>
                       <Route index element={<Navigate to="auth-settings" replace />} />
+                      <Route path="custom-charsets" element={<CustomCharsetListPage />} />
                       <Route path="preset-jobs" element={<PresetJobListPage />} />
                       <Route path="preset-jobs/new" element={<PresetJobFormPage />} />
                       <Route path="preset-jobs/:presetJobId/edit" element={<PresetJobFormPage />} />

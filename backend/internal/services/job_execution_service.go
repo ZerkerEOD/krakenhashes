@@ -263,6 +263,7 @@ type CustomJobConfig struct {
 	RuleIDs                   models.IDArray
 	AttackMode                models.AttackMode
 	Mask                      string
+	CustomCharsets            models.CustomCharsets
 	Priority                  int
 	MaxAgents                 int
 	BinaryVersion             string // Version pattern (e.g., "default", "7.x", "7.1.2")
@@ -426,6 +427,7 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		AllowHighPriorityOverride: presetJob.AllowHighPriorityOverride,
 		BinaryVersion:           presetJob.BinaryVersion,
 		Mask:                      presetJob.Mask,
+		CustomCharsets:            presetJob.CustomCharsets,
 		AdditionalArgs:            presetJob.AdditionalArgs,
 		IncrementMode:             presetJob.IncrementMode,
 		IncrementMin:              presetJob.IncrementMin,
@@ -529,6 +531,7 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		HashType:                  hashlist.HashTypeID,
 		BinaryVersion:           config.BinaryVersion,
 		Mask:                      config.Mask,
+		CustomCharsets:            config.CustomCharsets,
 		Priority:                  config.Priority,
 		MaxAgents:                 config.MaxAgents,
 		AllowHighPriorityOverride: config.AllowHighPriorityOverride,
@@ -658,6 +661,7 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		AllowHighPriorityOverride: config.AllowHighPriorityOverride,
 		BinaryVersion:           config.BinaryVersion,
 		Mask:                      config.Mask,
+		CustomCharsets:            config.CustomCharsets,
 		AdditionalArgs:            nil,
 		IncrementMode:             config.IncrementMode,
 		IncrementMin:              config.IncrementMin,
@@ -855,6 +859,13 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 
 	default:
 		return nil, nil, false, fmt.Errorf("unsupported attack mode for keyspace calculation: %d", presetJob.AttackMode)
+	}
+
+	// Add custom charset flags (-1 through -4) before keyspace calculation
+	for _, slot := range []string{"1", "2", "3", "4"} {
+		if def, ok := presetJob.CustomCharsets[slot]; ok && def != "" {
+			args = append(args, "-"+slot, def)
+		}
 	}
 
 	// Save base args for reuse with --total-candidates

@@ -40,6 +40,9 @@ import {
   RuleBasic
 } from '../../types/adminJobs';
 import BinaryVersionSelector from '../../components/common/BinaryVersionSelector';
+import CharsetInputs from '../../components/common/CharsetInputs';
+import { CustomCharset } from '../../types/customCharsets';
+import { listGlobalCharsets } from '../../services/customCharsetService';
 
 const ITEM_HEIGHT = 48;
 const ITEM_PADDING_TOP = 8;
@@ -66,7 +69,8 @@ const getInitialFormState = (defaultChunkDuration: number = 300): PresetJobFormD
   max_agents: 0,
   increment_mode: 'off',
   increment_min: undefined as number | undefined,
-  increment_max: undefined as number | undefined
+  increment_max: undefined as number | undefined,
+  custom_charsets: null as Record<string, string> | null
 });
 
 // Attack mode descriptions and requirements
@@ -135,6 +139,7 @@ const PresetJobFormPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [maxPriority, setMaxPriority] = useState<number>(1000);
+  const [savedCharsets, setSavedCharsets] = useState<CustomCharset[]>([]);
 
   // Get current attack mode info
   const currentModeInfo = attackModeInfo[formData.attack_mode];
@@ -151,11 +156,14 @@ const PresetJobFormPage: React.FC = () => {
         setError(null);
         
         // Fetch form options (wordlists, rules, binary versions), max priority, and job execution settings
-        const [formDataResponse, maxPriorityResponse, jobExecutionSettings] = await Promise.all([
+        const [formDataResponse, maxPriorityResponse, jobExecutionSettings, globalCharsets] = await Promise.all([
           getPresetJobFormData(),
           getMaxPriorityForUsers(),
-          getJobExecutionSettings().catch(() => null) // Gracefully handle if settings fetch fails
+          getJobExecutionSettings().catch(() => null), // Gracefully handle if settings fetch fails
+          listGlobalCharsets().catch(() => [])
         ]);
+
+        setSavedCharsets(globalCharsets);
         
         setMaxPriority(maxPriorityResponse.max_priority);
         
@@ -193,7 +201,8 @@ const PresetJobFormPage: React.FC = () => {
               max_agents: presetJob.max_agents || 0,
               increment_mode: presetJob.increment_mode || 'off',
               increment_min: presetJob.increment_min ?? undefined,
-              increment_max: presetJob.increment_max ?? undefined
+              increment_max: presetJob.increment_max ?? undefined,
+              custom_charsets: presetJob.custom_charsets || null
             });
 
             // Initialize combination wordlists if in combination mode
@@ -665,6 +674,21 @@ const PresetJobFormPage: React.FC = () => {
                   </Tooltip>
                 </span>
               }
+            />
+          </Grid>
+        )}
+
+        {/* Custom Charsets - only show for mask-based attack modes */}
+        {showMaskInput && (
+          <Grid item xs={12}>
+            <CharsetInputs
+              customCharsets={formData.custom_charsets || {}}
+              onChange={(charsets) => setFormData(prev => ({
+                ...prev,
+                custom_charsets: Object.keys(charsets).length > 0 ? charsets : null
+              }))}
+              mask={formData.mask || ''}
+              savedCharsets={savedCharsets}
             />
           </Grid>
         )}

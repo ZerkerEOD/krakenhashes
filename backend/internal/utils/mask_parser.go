@@ -141,11 +141,26 @@ func GetMaskLength(mask string) (int, error) {
 
 // CalculateEffectiveKeyspace calculates the total number of candidates for a mask
 // by multiplying the charset size for each position.
-// For example: ?l?l = 26 * 26 = 676, ?l?d = 26 * 10 = 260
-func CalculateEffectiveKeyspace(mask string) (int64, error) {
+// customCharsets maps slot keys ("1"-"4") to charset definitions (e.g., "?u?d").
+// For example: ?l?l = 26 * 26 = 676, ?1?1 with charset_1=?u?d = 36 * 36 = 1,296
+func CalculateEffectiveKeyspace(mask string, customCharsets map[string]string) (int64, error) {
 	positions, err := ParseMask(mask)
 	if err != nil {
 		return 0, fmt.Errorf("failed to parse mask: %w", err)
+	}
+
+	// Pre-resolve custom charset sizes (ordered 1-4 to allow back-references)
+	resolvedSizes := make(map[string]int64)
+	for _, slot := range []string{"1", "2", "3", "4"} {
+		def, ok := customCharsets[slot]
+		if !ok || def == "" {
+			continue
+		}
+		size, err := ResolveCharsetSize(def, customCharsets, resolvedSizes)
+		if err != nil {
+			return 0, fmt.Errorf("failed to resolve custom charset %s (%q): %w", slot, def, err)
+		}
+		resolvedSizes[slot] = size
 	}
 
 	var keyspace int64 = 1
@@ -155,15 +170,74 @@ func CalculateEffectiveKeyspace(mask string) (int64, error) {
 			continue
 		}
 
-		charsetSize := getCharsetSize(pos.Placeholder)
+		charsetSize := getCharsetSize(pos.Placeholder, resolvedSizes)
 		keyspace *= charsetSize
 	}
 
 	return keyspace, nil
 }
 
+// ResolveCharsetSize calculates the number of unique characters in a charset definition.
+// A definition can contain built-in placeholders (?l, ?u, ?d, etc.), references to
+// earlier custom charsets (?1-?4), and literal characters.
+// The resolved map contains sizes of previously-resolved custom charsets.
+func ResolveCharsetSize(definition string, customCharsets map[string]string, resolved map[string]int64) (int64, error) {
+	if definition == "" {
+		return 0, fmt.Errorf("charset definition cannot be empty")
+	}
+
+	var totalSize int64
+	uniqueLiterals := make(map[byte]bool)
+
+	i := 0
+	for i < len(definition) {
+		if definition[i] == '?' && i+1 < len(definition) {
+			placeholder := definition[i : i+2]
+			second := definition[i+1]
+
+			switch second {
+			case 'l':
+				totalSize += 26
+			case 'u':
+				totalSize += 26
+			case 'd':
+				totalSize += 10
+			case 's':
+				totalSize += 33
+			case 'a':
+				totalSize += 95
+			case 'b':
+				totalSize += 256
+			case 'h':
+				totalSize += 16
+			case 'H':
+				totalSize += 16
+			case '1', '2', '3', '4':
+				slot := string(second)
+				if size, ok := resolved[slot]; ok {
+					totalSize += size
+				} else {
+					return 0, fmt.Errorf("custom charset ?%s not defined or forward-referenced in %q", slot, definition)
+				}
+			default:
+				return 0, fmt.Errorf("invalid placeholder %s in charset definition %q", placeholder, definition)
+			}
+			i += 2
+		} else {
+			// Literal character
+			if !uniqueLiterals[definition[i]] {
+				uniqueLiterals[definition[i]] = true
+				totalSize++
+			}
+			i++
+		}
+	}
+
+	return totalSize, nil
+}
+
 // getCharsetSize returns the number of characters in a placeholder's charset
-func getCharsetSize(placeholder string) int64 {
+func getCharsetSize(placeholder string, resolvedCustom map[string]int64) int64 {
 	switch placeholder {
 	case "?l": // lowercase letters (a-z)
 		return 26
@@ -182,7 +256,14 @@ func getCharsetSize(placeholder string) int64 {
 	case "?H": // uppercase hex (0-9A-F)
 		return 16
 	default:
-		// Custom charsets (?1-?9) - cannot determine size, assume 26 for estimation
+		// Custom charsets (?1-?4) - look up resolved size
+		if len(placeholder) == 2 && placeholder[0] == '?' {
+			slot := string(placeholder[1])
+			if size, ok := resolvedCustom[slot]; ok {
+				return size
+			}
+		}
+		// Fallback for undefined custom charsets
 		return 26
 	}
 }

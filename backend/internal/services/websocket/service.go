@@ -234,11 +234,12 @@ type TaskAssignmentPayload struct {
 	KeyspaceEnd     int64    `json:"keyspace_end"`
 	WordlistPaths   []string `json:"wordlist_paths"`
 	RulePaths       []string `json:"rule_paths"`
-	Mask            string   `json:"mask,omitempty"`
-	IncrementMode   string   `json:"increment_mode,omitempty"`
-	IncrementMin    *int     `json:"increment_min,omitempty"`
-	IncrementMax    *int     `json:"increment_max,omitempty"`
-	BinaryPath      string   `json:"binary_path"`
+	Mask            string            `json:"mask,omitempty"`
+	CustomCharsets  map[string]string `json:"custom_charsets,omitempty"`
+	IncrementMode   string            `json:"increment_mode,omitempty"`
+	IncrementMin    *int              `json:"increment_min,omitempty"`
+	IncrementMax    *int              `json:"increment_max,omitempty"`
+	BinaryPath      string            `json:"binary_path"`
 	ChunkDuration   int      `json:"chunk_duration"`
 	ReportInterval  int      `json:"report_interval"`
 	OutputFormat    string   `json:"output_format"`
@@ -301,8 +302,9 @@ type BenchmarkRequestPayload struct {
 	HashlistPath    string   `json:"hashlist_path,omitempty"`
 	WordlistPaths   []string `json:"wordlist_paths,omitempty"`
 	RulePaths       []string `json:"rule_paths,omitempty"`
-	Mask            string   `json:"mask,omitempty"`
-	TestDuration    int      `json:"test_duration,omitempty"`    // Duration in seconds for speed test
+	Mask            string            `json:"mask,omitempty"`
+	CustomCharsets  map[string]string `json:"custom_charsets,omitempty"`
+	TestDuration    int               `json:"test_duration,omitempty"`    // Duration in seconds for speed test
 	TimeoutDuration int      `json:"timeout_duration,omitempty"` // Maximum time to wait for speedtest (seconds)
 	ExtraParameters         string   `json:"extra_parameters,omitempty"`          // Agent-specific hashcat parameters
 	EnabledDevices          []int    `json:"enabled_devices,omitempty"`           // List of enabled device IDs
@@ -542,6 +544,14 @@ func (s *Service) HandleMessage(ctx context.Context, agent *models.Agent, msg *M
 		return nil
 	case TypeLogPurgeAck:
 		// Log purge ack is handled in the handler layer
+		// Just update heartbeat here
+		return nil
+	case TypeStateSyncResponse:
+		// State sync response is handled in the handler layer
+		// Just update heartbeat here
+		return nil
+	case TypePhysicalDeviceDetection:
+		// Physical device detection is handled in the handler layer
 		// Just update heartbeat here
 		return nil
 	default:

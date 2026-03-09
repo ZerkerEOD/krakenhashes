@@ -9,6 +9,7 @@ import {
     SupervisorAccount as SupervisorAccountIcon,
     BugReport as BugReportIcon,
     History as HistoryIcon,
+    TextFields as TextFieldsIcon,
 } from '@mui/icons-material';
 
 const AdminMenu: React.FC = () => {
@@ -77,6 +78,26 @@ const AdminMenu: React.FC = () => {
                     <PlaylistAddCheckIcon />
                 </ListItemIcon>
                 <ListItemText primary={t('admin.presetJobs') as string} />
+            </ListItemButton>
+
+            <ListItemButton
+                onClick={() => navigate('/admin/custom-charsets')}
+                selected={location.pathname.startsWith('/admin/custom-charsets')}
+                sx={{
+                    minHeight: 48,
+                    px: 2.5,
+                }}
+            >
+                <ListItemIcon
+                    sx={{
+                        minWidth: 0,
+                        mr: 3,
+                        justifyContent: 'center',
+                    }}
+                >
+                    <TextFieldsIcon />
+                </ListItemIcon>
+                <ListItemText primary={t('admin.customCharsets') as string} />
             </ListItemButton>
 
             <ListItemButton

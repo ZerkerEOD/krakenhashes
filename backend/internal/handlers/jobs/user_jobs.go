@@ -770,8 +770,9 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 				AttackMode                int      `json:"attack_mode"`
 				WordlistIDs               []string `json:"wordlist_ids"`
 				RuleIDs                   []string `json:"rule_ids"`
-				Mask                      string   `json:"mask"`
-				Priority                  int      `json:"priority"`
+				Mask                      string            `json:"mask"`
+				CustomCharsets            map[string]string `json:"custom_charsets"`
+				Priority                  int               `json:"priority"`
 				MaxAgents                 int      `json:"max_agents"`
 				BinaryVersion             string   `json:"binary_version"`
 				AllowHighPriorityOverride bool     `json:"allow_high_priority_override"`
@@ -845,6 +846,7 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			WordlistIDs:               models.IDArray(req.CustomJob.WordlistIDs),
 			RuleIDs:                   models.IDArray(req.CustomJob.RuleIDs),
 			Mask:                      req.CustomJob.Mask,
+			CustomCharsets:            models.CustomCharsets(req.CustomJob.CustomCharsets),
 			Priority:                  req.CustomJob.Priority,
 			MaxAgents:                 req.CustomJob.MaxAgents,
 			BinaryVersion:             req.CustomJob.BinaryVersion,
