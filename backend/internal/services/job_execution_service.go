@@ -521,6 +521,16 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		}
 	}
 
+	// Validate mask pattern for attack modes that use masks
+	if config.Mask != "" {
+		switch config.AttackMode {
+		case models.AttackModeBruteForce, models.AttackModeHybridWordlistMask, models.AttackModeHybridMaskWordlist:
+			if !validateMaskPattern(config.Mask) {
+				return nil, fmt.Errorf("invalid mask pattern format")
+			}
+		}
+	}
+
 	// Create a temporary preset job structure for keyspace calculation
 	// This ensures we use EXACTLY the same calculation logic as preset jobs
 	tempPreset := &models.PresetJob{

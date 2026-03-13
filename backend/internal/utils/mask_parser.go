@@ -12,7 +12,7 @@ type MaskPosition struct {
 }
 
 // ParseMask parses a hashcat mask into individual positions
-// Hashcat placeholders are 2 characters: ?l, ?u, ?d, ?s, ?a, ?b, ?1-?9
+// Hashcat placeholders are 2 characters: ?l, ?u, ?d, ?s, ?a, ?b, ?1-?4
 // Everything else is treated as a literal character
 func ParseMask(mask string) ([]MaskPosition, error) {
 	if mask == "" {
@@ -62,12 +62,12 @@ func isValidPlaceholder(placeholder string) bool {
 		return false
 	}
 
-	// Valid second characters: l, u, d, s, a, b, 1-9
+	// Valid second characters: l, u, d, s, a, b, h, H, 1-4
 	second := placeholder[1]
 	switch second {
-	case 'l', 'u', 'd', 's', 'a', 'b':
+	case 'l', 'u', 'd', 's', 'a', 'b', 'h', 'H':
 		return true
-	case '1', '2', '3', '4', '5', '6', '7', '8', '9':
+	case '1', '2', '3', '4':
 		return true
 	default:
 		return false

@@ -331,6 +331,10 @@ func validateMaskPattern(mask string) bool {
 		"?b": true, // binary (0x00 - 0xff)
 		"?h": true, // lowercase hex
 		"?H": true, // uppercase hex
+		"?1": true, // custom charset 1
+		"?2": true, // custom charset 2
+		"?3": true, // custom charset 3
+		"?4": true, // custom charset 4
 	}
 
 	i := 0
