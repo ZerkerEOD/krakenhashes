@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
+	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 )
 
@@ -136,5 +137,9 @@ func (b *BaseProvider) EncryptSecret(plaintext string) (string, error) {
 
 // DecryptSecret decrypts a secret using the encryption service
 func (b *BaseProvider) DecryptSecret(ciphertext string) (string, error) {
-	return b.encryption.Decrypt(ciphertext)
+	result, err := b.encryption.Decrypt(ciphertext)
+	if err != nil && ciphertext != "" {
+		debug.Warning("Failed to decrypt secret for provider '%s': %v. If the server was restarted without SSO_ENCRYPTION_KEY configured, re-enter the secret in the admin panel.", b.Name(), err)
+	}
+	return result, err
 }
