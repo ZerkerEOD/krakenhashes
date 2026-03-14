@@ -29,7 +29,7 @@ import {
   updatePresetJob 
 } from '../../services/api';
 import { getMaxPriorityForUsers } from '../../services/systemSettings';
-import { getJobExecutionSettings } from '../../services/jobSettings';
+import { getJobDefaultsForUsers } from '../../services/jobSettings';
 import {
   PresetJob,
   PresetJobInput,
@@ -156,10 +156,10 @@ const PresetJobFormPage: React.FC = () => {
         setError(null);
         
         // Fetch form options (wordlists, rules, binary versions), max priority, and job execution settings
-        const [formDataResponse, maxPriorityResponse, jobExecutionSettings, globalCharsets] = await Promise.all([
+        const [formDataResponse, maxPriorityResponse, jobDefaults, globalCharsets] = await Promise.all([
           getPresetJobFormData(),
           getMaxPriorityForUsers(),
-          getJobExecutionSettings().catch(() => null), // Gracefully handle if settings fetch fails
+          getJobDefaultsForUsers().catch(() => null), // Gracefully handle if settings fetch fails
           listGlobalCharsets().catch(() => [])
         ]);
 
@@ -169,8 +169,8 @@ const PresetJobFormPage: React.FC = () => {
         
         // Set default chunk duration from system settings
         let systemDefaultChunkDuration = 1200; // fallback to 20 minutes
-        if (jobExecutionSettings?.default_chunk_duration) {
-          systemDefaultChunkDuration = jobExecutionSettings.default_chunk_duration;
+        if (jobDefaults?.default_chunk_duration) {
+          systemDefaultChunkDuration = jobDefaults.default_chunk_duration;
         }
         setDefaultChunkDuration(systemDefaultChunkDuration);
 

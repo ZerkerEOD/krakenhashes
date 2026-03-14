@@ -217,6 +217,36 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 	httputil.RespondWithJSON(w, http.StatusOK, settings)
 }
 
+// UserJobDefaults represents the subset of job execution settings
+// that non-admin authenticated users need for job creation forms.
+type UserJobDefaults struct {
+	DefaultChunkDuration int  `json:"default_chunk_duration"`
+	PotfileEnabled       bool `json:"potfile_enabled"`
+}
+
+// GetJobDefaultsForUsers returns user-relevant job defaults (non-admin, read-only).
+func (h *JobSettingsHandler) GetJobDefaultsForUsers(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	debug.Log("Getting job defaults for users", nil)
+
+	defaults := UserJobDefaults{
+		DefaultChunkDuration: 1200, // fallback: 20 minutes
+		PotfileEnabled:       true, // fallback: enabled
+	}
+
+	if setting, err := h.systemSettingsRepo.GetSetting(ctx, "default_chunk_duration"); err == nil && setting.Value != nil {
+		if val, parseErr := strconv.Atoi(*setting.Value); parseErr == nil {
+			defaults.DefaultChunkDuration = val
+		}
+	}
+
+	if setting, err := h.systemSettingsRepo.GetSetting(ctx, "potfile_enabled"); err == nil && setting.Value != nil {
+		defaults.PotfileEnabled = *setting.Value == "true"
+	}
+
+	httputil.RespondWithJSON(w, http.StatusOK, defaults)
+}
+
 // UpdateJobExecutionSettings updates job execution settings
 func (h *JobSettingsHandler) UpdateJobExecutionSettings(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

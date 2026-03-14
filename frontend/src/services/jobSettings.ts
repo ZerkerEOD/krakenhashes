@@ -42,6 +42,17 @@ export const getJobExecutionSettings = async (): Promise<JobExecutionSettings> =
   return response.data;
 };
 
+// User-accessible job defaults (non-admin, read-only)
+export interface UserJobDefaults {
+  default_chunk_duration: number;
+  potfile_enabled: boolean;
+}
+
+export const getJobDefaultsForUsers = async (): Promise<UserJobDefaults> => {
+  const response = await api.get<UserJobDefaults>('/api/settings/job-defaults');
+  return response.data;
+};
+
 export const updateJobExecutionSettings = async (settings: JobExecutionSettings): Promise<SettingsUpdateResponse> => {
   const response = await api.put('/api/admin/settings/job-execution', settings);
   return response.data;

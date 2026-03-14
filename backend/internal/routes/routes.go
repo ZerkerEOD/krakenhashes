@@ -237,6 +237,9 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	// Create retention settings handler for users (read-only access to default retention)
 	userRetentionSettingsHandler := adminsettings.NewRetentionSettingsHandler(clientSettingsRepo)
 
+	// Create job settings handler for users (read-only access to job defaults)
+	userJobSettingsHandler := adminsettings.NewJobSettingsHandler(systemSettingsRepo)
+
 	// Setup feature-specific routes
 	SetupDashboardRoutes(jwtRouter)
 	SetupHashlistRoutes(jwtRouter)
@@ -248,6 +251,7 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	// Add user accessible routes for settings (read-only)
 	jwtRouter.HandleFunc("/settings/max-priority", userSystemSettingsHandler.GetMaxPriorityForUsers).Methods(http.MethodGet, http.MethodOptions)
 	jwtRouter.HandleFunc("/settings/retention", userRetentionSettingsHandler.GetDefaultRetention).Methods(http.MethodGet, http.MethodOptions)
+	jwtRouter.HandleFunc("/settings/job-defaults", userJobSettingsHandler.GetJobDefaultsForUsers).Methods(http.MethodGet, http.MethodOptions)
 
 	// Setup team routes (must be before admin routes to register non-admin endpoints first)
 	SetupTeamRoutes(jwtRouter, teamService, database)

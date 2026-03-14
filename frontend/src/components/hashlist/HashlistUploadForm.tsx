@@ -30,7 +30,7 @@ import { z } from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
-import { getJobExecutionSettings } from '../../services/jobSettings';
+import { getJobDefaultsForUsers } from '../../services/jobSettings';
 import { teamsService } from '../../services/teams';
 import { Team } from '../../types/team';
 
@@ -147,8 +147,8 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const settings = await getJobExecutionSettings();
-        setPotfileGloballyEnabled(settings.potfile_enabled);
+        const defaults = await getJobDefaultsForUsers();
+        setPotfileGloballyEnabled(defaults.potfile_enabled);
       } catch (error) {
         console.error('Failed to fetch potfile setting:', error);
         // Default to true if fetch fails

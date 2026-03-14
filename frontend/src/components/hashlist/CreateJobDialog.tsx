@@ -39,7 +39,7 @@ import {
   Info as InfoIcon
 } from '@mui/icons-material';
 import { api } from '../../services/api';
-import { getJobExecutionSettings } from '../../services/jobSettings';
+import { getJobDefaultsForUsers } from '../../services/jobSettings';
 import { useNavigate } from 'react-router-dom';
 import BinaryVersionSelector from '../common/BinaryVersionSelector';
 import CharsetInputs from '../common/CharsetInputs';
@@ -232,9 +232,9 @@ export default function CreateJobDialog({
     setLoadingJobs(true);
     try {
       // Fetch available jobs, job execution settings, and association wordlists in parallel
-      const [response, jobExecutionSettings, assocWordlistsResponse, accessibleCharsets] = await Promise.all([
+      const [response, jobDefaults, assocWordlistsResponse, accessibleCharsets] = await Promise.all([
         api.get(`/api/hashlists/${hashlistId}/available-jobs`),
-        getJobExecutionSettings().catch(() => null), // Gracefully handle if settings fetch fails
+        getJobDefaultsForUsers().catch(() => null), // Gracefully handle if settings fetch fails
         api.get(`/api/hashlists/${hashlistId}/association-wordlists`).catch(() => ({ data: [] })),
         listAccessibleCharsets().catch(() => [])
       ]);
@@ -248,8 +248,8 @@ export default function CreateJobDialog({
       
       // Set default chunk duration from system settings
       let systemDefaultChunkDuration = 1200; // fallback to 20 minutes
-      if (jobExecutionSettings?.default_chunk_duration) {
-        systemDefaultChunkDuration = jobExecutionSettings.default_chunk_duration;
+      if (jobDefaults?.default_chunk_duration) {
+        systemDefaultChunkDuration = jobDefaults.default_chunk_duration;
       }
 
       // Update chunk duration (binary_version defaults to 'default')
