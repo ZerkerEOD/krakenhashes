@@ -193,7 +193,7 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
     enqueueSnackbar(t('notifications.copiedToClipboard') as string, { variant: 'success' });
   };
 
-  const downloadFormat = async (format: 'hash-pass' | 'user-pass' | 'user' | 'pass' | 'domain-user' | 'domain-user-pass') => {
+  const downloadFormat = async (format: 'hash-pass' | 'user-pass' | 'user' | 'pass' | 'domain-user' | 'domain-user-pass' | 'potfile') => {
     try {
       setDownloadingFormat(format);
 
@@ -440,6 +440,16 @@ export default function PotTable({ title, fetchData, filterParam, filterValue, c
             disabled={downloadingFormat !== null || !hasUsernameData}
           >
             {t('export.domainUserPass') as string}
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={() => downloadFormat('potfile')}
+            disabled={downloadingFormat !== null}
+            color="secondary"
+          >
+            {t('export.potfile') as string}
           </Button>
         </Box>
         

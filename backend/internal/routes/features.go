@@ -122,5 +122,11 @@ func SetupPotRoutes(jwtRouter *mux.Router, hashRepo *repository.HashRepository, 
 	jwtRouter.HandleFunc("/pot/job/{id}/download/domain-user", potHandler.HandleDownloadDomainUserByJob).Methods("GET", "OPTIONS")
 	jwtRouter.HandleFunc("/pot/job/{id}/download/domain-user-pass", potHandler.HandleDownloadDomainUserPassByJob).Methods("GET", "OPTIONS")
 
+	// Potfile (hashcat format) download routes
+	jwtRouter.HandleFunc("/pot/download/potfile", potHandler.HandleDownloadPotfile).Methods("GET", "OPTIONS")
+	jwtRouter.HandleFunc("/pot/hashlist/{id}/download/potfile", potHandler.HandleDownloadPotfileByHashlist).Methods("GET", "OPTIONS")
+	jwtRouter.HandleFunc("/pot/client/{id}/download/potfile", potHandler.HandleDownloadPotfileByClient).Methods("GET", "OPTIONS")
+	jwtRouter.HandleFunc("/pot/job/{id}/download/potfile", potHandler.HandleDownloadPotfileByJob).Methods("GET", "OPTIONS")
+
 	debug.Info("Configured pot endpoints: list and download routes for all/hashlist/client/job contexts")
 }

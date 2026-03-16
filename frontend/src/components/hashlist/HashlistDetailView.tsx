@@ -25,7 +25,8 @@ import {
   History as HistoryIcon,
   ArrowBack as ArrowBackIcon,
   PlayArrow as PlayArrowIcon,
-  Edit as EditIcon
+  Edit as EditIcon,
+  Visibility as VisibilityIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -411,6 +412,14 @@ export default function HashlistDetailView() {
               disabled={hashlist.status !== 'ready'}
             >
               Create Job
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<VisibilityIcon />}
+              onClick={() => navigate(`/pot/hashlist/${id}`)}
+              disabled={!hashlist.cracked_hashes || hashlist.cracked_hashes === 0}
+            >
+              View Cracked Hashes
             </Button>
             <Tooltip title="Download">
               <span>

@@ -2,7 +2,9 @@
   "title": "已破解哈希",
   "page": {
     "title": "已破解哈希 (Pot)",
-    "description": "查看所有哈希列表和客户中成功破解的密码哈希。"
+    "description": "查看所有哈希列表和客户中成功破解的密码哈希。",
+    "filterByHashlist": "跳转到哈希列表",
+    "hashlistPlaceholder": "选择一个哈希列表..."
   },
   "table": {
     "allCrackedHashes": "所有已破解哈希"
@@ -50,6 +52,7 @@
     "password": "密码",
     "domainUser": "域\\\\用户",
     "domainUserPass": "域\\\\用户:密码",
+    "potfile": "Potfile (Hashcat)",
     "exportVisible": "导出可见结果",
     "downloaded": "已下载 {{filename}}",
     "downloadFailed": "下载文件失败"

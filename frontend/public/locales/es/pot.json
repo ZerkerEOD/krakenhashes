@@ -2,7 +2,9 @@
   "title": "Hashes descifrados",
   "page": {
     "title": "Hashes descifrados (Pot)",
-    "description": "Ver todos los hashes de contraseñas descifrados exitosamente de todas las listas de hashes y clientes."
+    "description": "Ver todos los hashes de contraseñas descifrados exitosamente de todas las listas de hashes y clientes.",
+    "filterByHashlist": "Ir a lista de hashes",
+    "hashlistPlaceholder": "Seleccionar una lista de hashes..."
   },
   "table": {
     "allCrackedHashes": "Todos los hashes descifrados"
@@ -50,6 +52,7 @@
     "password": "Contraseña",
     "domainUser": "Dominio\\Usuario",
     "domainUserPass": "Dominio\\Usuario:Contraseña",
+    "potfile": "Potfile (Hashcat)",
     "exportVisible": "Exportar resultados visibles",
     "downloaded": "Descargado {{filename}}",
     "downloadFailed": "Error al descargar el archivo"

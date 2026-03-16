@@ -2,7 +2,9 @@
   "title": "Cracked Hashes",
   "page": {
     "title": "Cracked Hashes (Pot)",
-    "description": "View all successfully cracked password hashes across all hashlists and clients."
+    "description": "View all successfully cracked password hashes across all hashlists and clients.",
+    "filterByHashlist": "Jump to Hashlist",
+    "hashlistPlaceholder": "Select a hashlist..."
   },
   "table": {
     "allCrackedHashes": "All Cracked Hashes"
@@ -50,6 +52,7 @@
     "password": "Password",
     "domainUser": "Domain\\User",
     "domainUserPass": "Domain\\User:Pass",
+    "potfile": "Potfile (Hashcat)",
     "exportVisible": "Export visible results",
     "downloaded": "Downloaded {{filename}}",
     "downloadFailed": "Failed to download file"

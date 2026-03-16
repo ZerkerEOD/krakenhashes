@@ -2,7 +2,9 @@
   "title": "Gekraakte hashes",
   "page": {
     "title": "Gekraakte hashes (Pot)",
-    "description": "Bekijk alle succesvol gekraakte wachtwoordhashes van alle hashlijsten en klanten."
+    "description": "Bekijk alle succesvol gekraakte wachtwoordhashes van alle hashlijsten en klanten.",
+    "filterByHashlist": "Naar hashlijst springen",
+    "hashlistPlaceholder": "Selecteer een hashlijst..."
   },
   "table": {
     "allCrackedHashes": "Alle gekraakte hashes"
@@ -50,6 +52,7 @@
     "password": "Wachtwoord",
     "domainUser": "Domein\\Gebruiker",
     "domainUserPass": "Domein\\Gebruiker:Wachtwoord",
+    "potfile": "Potfile (Hashcat)",
     "exportVisible": "Zichtbare resultaten exporteren",
     "downloaded": "{{filename}} gedownload",
     "downloadFailed": "Bestand downloaden mislukt"

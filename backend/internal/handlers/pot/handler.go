@@ -2,6 +2,7 @@ package pot
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1278,6 +1279,149 @@ func (h *Handler) HandleDownloadDomainUserPassByJob(w http.ResponseWriter, r *ht
 	h.writeDomainUserPassFormat(w, hashes, sanitizeFilename(job.Name))
 }
 
+// Potfile download handlers for all cracked hashes
+
+func (h *Handler) HandleDownloadPotfile(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	params := repository.CrackedHashParams{
+		Limit:  999999,
+		Offset: 0,
+	}
+
+	hashes, err := h.getMasterCrackedHashes(ctx, params)
+	if err != nil {
+		debug.Error("Failed to get cracked hashes for potfile download: %v", err)
+		http.Error(w, "Failed to retrieve cracked hashes", http.StatusInternalServerError)
+		return
+	}
+
+	h.writePotfileFormat(w, hashes, "master")
+}
+
+// Potfile download handlers for hashlist-specific cracked hashes
+
+func (h *Handler) HandleDownloadPotfileByHashlist(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+	hashlistIDStr := vars["id"]
+
+	hashlistID, err := strconv.ParseInt(hashlistIDStr, 10, 64)
+	if err != nil {
+		debug.Error("Invalid hashlist ID: %v", err)
+		http.Error(w, "Invalid hashlist ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.checkHashlistAccess(ctx, hashlistID); err != nil {
+		handleAccessError(w, err)
+		return
+	}
+
+	hashlist, err := h.hashlistRepo.GetByID(ctx, hashlistID)
+	if err != nil {
+		debug.Error("Failed to get hashlist: %v", err)
+		http.Error(w, "Failed to retrieve hashlist", http.StatusInternalServerError)
+		return
+	}
+
+	params := repository.CrackedHashParams{
+		Limit:  999999,
+		Offset: 0,
+	}
+
+	hashes, _, err := h.hashRepo.GetCrackedHashesByHashlist(ctx, hashlistID, params)
+	if err != nil {
+		debug.Error("Failed to get cracked hashes for potfile download: %v", err)
+		http.Error(w, "Failed to retrieve cracked hashes", http.StatusInternalServerError)
+		return
+	}
+
+	h.writePotfileFormat(w, hashes, sanitizeFilename(hashlist.Name))
+}
+
+// Potfile download handlers for client-specific cracked hashes
+
+func (h *Handler) HandleDownloadPotfileByClient(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+	clientIDStr := vars["id"]
+
+	clientID, err := uuid.Parse(clientIDStr)
+	if err != nil {
+		debug.Error("Invalid client ID: %v", err)
+		http.Error(w, "Invalid client ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.checkClientAccess(ctx, clientID); err != nil {
+		handleAccessError(w, err)
+		return
+	}
+
+	client, err := h.clientRepo.GetByID(ctx, clientID)
+	if err != nil {
+		debug.Error("Failed to get client: %v", err)
+		http.Error(w, "Failed to retrieve client", http.StatusInternalServerError)
+		return
+	}
+
+	params := repository.CrackedHashParams{
+		Limit:  999999,
+		Offset: 0,
+	}
+
+	hashes, _, err := h.hashRepo.GetCrackedHashesByClient(ctx, clientID, params)
+	if err != nil {
+		debug.Error("Failed to get cracked hashes for potfile download: %v", err)
+		http.Error(w, "Failed to retrieve cracked hashes", http.StatusInternalServerError)
+		return
+	}
+
+	h.writePotfileFormat(w, hashes, sanitizeFilename(client.Name))
+}
+
+// Potfile download handlers for job-specific cracked hashes
+
+func (h *Handler) HandleDownloadPotfileByJob(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+	jobIDStr := vars["id"]
+
+	jobID, err := uuid.Parse(jobIDStr)
+	if err != nil {
+		debug.Error("Invalid job ID: %v", err)
+		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.checkJobAccess(ctx, jobID); err != nil {
+		handleAccessError(w, err)
+		return
+	}
+
+	job, err := h.jobRepo.GetByID(ctx, jobID)
+	if err != nil {
+		debug.Error("Failed to get job: %v", err)
+		http.Error(w, "Failed to retrieve job", http.StatusInternalServerError)
+		return
+	}
+
+	params := repository.CrackedHashParams{
+		Limit:  999999,
+		Offset: 0,
+	}
+
+	hashes, _, err := h.hashRepo.GetCrackedHashesByJob(ctx, jobID, params)
+	if err != nil {
+		debug.Error("Failed to get cracked hashes for potfile download: %v", err)
+		http.Error(w, "Failed to retrieve cracked hashes", http.StatusInternalServerError)
+		return
+	}
+
+	h.writePotfileFormat(w, hashes, sanitizeFilename(job.Name))
+}
+
 // Helper functions for writing different formats
 
 func (h *Handler) writeHashPassFormat(w http.ResponseWriter, hashes []*models.Hash, context string) {
@@ -1358,6 +1502,38 @@ func (h *Handler) writeDomainUserPassFormat(w http.ResponseWriter, hashes []*mod
 			fmt.Fprintf(w, "%s:%s\n", *hash.Username, *hash.Password)
 		}
 	}
+}
+
+func (h *Handler) writePotfileFormat(w http.ResponseWriter, hashes []*models.Hash, context string) {
+	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.potfile\"", context))
+
+	for _, hash := range hashes {
+		password := ""
+		if hash.Password != nil {
+			password = *hash.Password
+		}
+		if needsHexEncoding(password) {
+			password = hexEncodePassword(password)
+		}
+		fmt.Fprintf(w, "%s:%s\n", hash.HashValue, password)
+	}
+}
+
+// needsHexEncoding checks if a password contains characters that require
+// hashcat's $HEX[] encoding in the potfile format.
+func needsHexEncoding(password string) bool {
+	for _, b := range []byte(password) {
+		if b == ':' || b == '\n' || b == '\r' || b == 0 || b < 0x20 || b == 0x7F {
+			return true
+		}
+	}
+	return false
+}
+
+// hexEncodePassword encodes a password using hashcat's $HEX[] format.
+func hexEncodePassword(password string) string {
+	return "$HEX[" + hex.EncodeToString([]byte(password)) + "]"
 }
 
 // sanitizeFilename removes or replaces characters that are problematic in filenames

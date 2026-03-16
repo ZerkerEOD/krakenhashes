@@ -2,7 +2,9 @@
   "title": "Geknackte Hashes",
   "page": {
     "title": "Geknackte Hashes (Pot)",
-    "description": "Alle erfolgreich geknackten Passwort-Hashes über alle Hashlisten und Kunden anzeigen."
+    "description": "Alle erfolgreich geknackten Passwort-Hashes über alle Hashlisten und Kunden anzeigen.",
+    "filterByHashlist": "Zur Hashliste springen",
+    "hashlistPlaceholder": "Hashliste auswählen..."
   },
   "table": {
     "allCrackedHashes": "Alle geknackten Hashes"
@@ -50,6 +52,7 @@
     "password": "Passwort",
     "domainUser": "Domäne\\\\Benutzer",
     "domainUserPass": "Domäne\\\\Benutzer:Pass",
+    "potfile": "Potfile (Hashcat)",
     "exportVisible": "Sichtbare Ergebnisse exportieren",
     "downloaded": "{{filename}} heruntergeladen",
     "downloadFailed": "Datei-Download fehlgeschlagen"
