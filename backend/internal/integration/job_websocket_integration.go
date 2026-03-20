@@ -1644,6 +1644,12 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 				progress.TaskID, fullKeyspaceProcessed, effectiveProcessed)
 		}
 
+		// Store device-level performance metrics so CalculateAndStoreAverageSpeed() has data
+		// For fast-completing jobs (status 6), this is the only progress update we get
+		if err := s.jobSchedulingService.ProcessTaskProgress(ctx, progress.TaskID, progress); err != nil {
+			debug.Warning("Failed to store task metrics for all-hashes-cracked: %v", err)
+		}
+
 		// Determine expected crack count for processing status
 		// Agent should send this in progress.CrackedCount, but if it's 0, get from hashlist
 		expectedCracks := progress.CrackedCount

@@ -20,7 +20,8 @@
     "presetJobs": "Vooringestelde taken",
     "jobWorkflows": "Taakworkflows",
     "diagnostics": "Diagnostiek",
-    "auditLog": "Auditlogboek"
+    "auditLog": "Auditlogboek",
+    "jobAnalytics": "Taakanalyse"
   },
   "userMenu": {
     "userSettings": "Gebruikersinstellingen",

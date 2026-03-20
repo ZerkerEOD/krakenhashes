@@ -20,7 +20,8 @@
     "presetJobs": "Trabajos predefinidos",
     "jobWorkflows": "Flujos de trabajo",
     "diagnostics": "Diagnósticos",
-    "auditLog": "Registro de auditoría"
+    "auditLog": "Registro de auditoría",
+    "jobAnalytics": "Analíticas de Trabajos"
   },
   "userMenu": {
     "userSettings": "Configuración de usuario",

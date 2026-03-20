@@ -1107,6 +1107,8 @@
       "progressReportingHelper": "代理报告进度的频率",
       "benchmarkCache": "基准缓存时长",
       "benchmarkCacheHelper": "缓存代理基准测试的时长",
+      "benchmarkHistoryRetention": "基准历史保留期",
+      "benchmarkHistoryRetentionHelper": "保留基准历史记录的天数（0 = 无限制）",
       "speedtestTimeout": "速度测试超时",
       "speedtestTimeoutHelper": "等待速度测试完成的最大时间",
       "reconnectGrace": "重连宽限期",

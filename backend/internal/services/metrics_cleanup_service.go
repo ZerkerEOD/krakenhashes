@@ -98,6 +98,20 @@ func (s *MetricsCleanupService) runCleanup(ctx context.Context) {
 		debug.Error("Failed to delete old weekly metrics: %v", err)
 	}
 
+	// Clean up old benchmark history
+	benchRetentionDays, err := s.getBenchmarkHistoryRetentionDays(ctx)
+	if err != nil {
+		debug.Error("Failed to get benchmark history retention: %v", err)
+	} else if benchRetentionDays > 0 {
+		benchCutoff := time.Now().AddDate(0, 0, -benchRetentionDays)
+		err = s.benchmarkRepo.DeleteOldBenchmarkHistory(ctx, benchCutoff)
+		if err != nil {
+			debug.Error("Failed to delete old benchmark history: %v", err)
+		} else {
+			debug.Info("Cleaned up benchmark history older than %d days", benchRetentionDays)
+		}
+	}
+
 	debug.Info("Metrics cleanup completed")
 }
 
@@ -142,6 +156,23 @@ func (s *MetricsCleanupService) getRetentionDays(ctx context.Context) (int, erro
 		return 7, fmt.Errorf("invalid retention days value: %s", *setting.Value)
 	}
 
+	return days, nil
+}
+
+// getBenchmarkHistoryRetentionDays retrieves the benchmark history retention setting
+func (s *MetricsCleanupService) getBenchmarkHistoryRetentionDays(ctx context.Context) (int, error) {
+	setting, err := s.systemSettingsRepo.GetSetting(ctx, "benchmark_history_retention_days")
+	if err != nil {
+		return 365, nil // Default 1 year
+	}
+	if setting.Value == nil {
+		return 365, nil
+	}
+	var days int
+	_, err = fmt.Sscanf(*setting.Value, "%d", &days)
+	if err != nil {
+		return 365, fmt.Errorf("invalid benchmark history retention value: %s", *setting.Value)
+	}
 	return days, nil
 }
 

@@ -294,6 +294,22 @@ const JobExecutionSettingsComponent: React.FC = () => {
                 <TextField
                   fullWidth
                   type="number"
+                  label={t('jobExecution.agentConfig.benchmarkHistoryRetention') as string}
+                  value={settings.benchmark_history_retention_days}
+                  onChange={handleNumberChange('benchmark_history_retention_days')}
+                  onBlur={handleBlurSave}
+                  disabled={saving}
+                  helperText={t('jobExecution.agentConfig.benchmarkHistoryRetentionHelper')}
+                  InputProps={{
+                    inputProps: { min: 0 },
+                    endAdornment: <InputAdornment position="end">{t('jobExecution.agentConfig.days')}</InputAdornment>,
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  type="number"
                   label={t('jobExecution.agentConfig.speedtestTimeout') as string}
                   value={settings.speedtest_timeout_seconds}
                   onChange={handleNumberChange('speedtest_timeout_seconds')}

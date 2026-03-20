@@ -70,17 +70,17 @@ Instructions for setting up and running each component can be found in their res
 
 -   [x] Passkey support for MFA
 -   [x] Additional authentication methods
--   [ ] Advanced job dependencies
--   [ ] Enhanced benchmarking with historical tracking
+-   [x] Advanced job dependencies (covered by priority-based scheduling, potfile sharing, auto-cancel on full crack)
+-   [x] Enhanced benchmarking with historical tracking (job performance analytics dashboard + benchmark history)
 -   [x] Job queuing and scheduling improvements
 -   [x] POT statistics and analytics
--   [ ] Team system implementation
-    -   [ ] Team management infrastructure
-        -   [ ] Team manager roles
-        -   [ ] User-team assignments
-        -   [ ] Team-based agent access control
-    -   [ ] Frontend team interfaces
-        -   [ ] Team management UI
-        -   [ ] Team assignment system
-        -   [ ] Team management guidelines
+-   [x] Team system implementation
+    -   [x] Team management infrastructure
+        -   [x] Team manager roles
+        -   [x] User-team assignments
+        -   [x] Team-based agent access control
+    -   [x] Frontend team interfaces
+        -   [x] Team management UI
+        -   [x] Team assignment system
+        -   [x] Team management guidelines
 -   [x] Statistics and analytics (move to v2.0)

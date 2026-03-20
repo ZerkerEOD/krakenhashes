@@ -51,6 +51,8 @@ type JobExecutionSettings struct {
 	ClientPotfilesEnabled                          bool `json:"client_potfiles_enabled"`
 	RemoveFromGlobalPotfileOnHashlistDeleteDefault bool `json:"remove_from_global_potfile_on_hashlist_delete_default"`
 	RemoveFromClientPotfileOnHashlistDeleteDefault bool `json:"remove_from_client_potfile_on_hashlist_delete_default"`
+	// Benchmark history settings
+	BenchmarkHistoryRetentionDays int `json:"benchmark_history_retention_days"`
 }
 
 // GetJobExecutionSettings returns all job execution settings
@@ -87,6 +89,8 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 		"client_potfiles_enabled",
 		"remove_from_global_potfile_on_hashlist_delete_default",
 		"remove_from_client_potfile_on_hashlist_delete_default",
+		// Benchmark history settings
+		"benchmark_history_retention_days",
 	}
 
 	settings := JobExecutionSettings{
@@ -118,6 +122,8 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 		ClientPotfilesEnabled:                          true,
 		RemoveFromGlobalPotfileOnHashlistDeleteDefault: false,
 		RemoveFromClientPotfileOnHashlistDeleteDefault: false,
+		// Benchmark history defaults
+		BenchmarkHistoryRetentionDays: 365,
 	}
 
 	// Retrieve each setting
@@ -210,6 +216,10 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 				settings.RemoveFromGlobalPotfileOnHashlistDeleteDefault = *setting.Value == "true"
 			case "remove_from_client_potfile_on_hashlist_delete_default":
 				settings.RemoveFromClientPotfileOnHashlistDeleteDefault = *setting.Value == "true"
+			case "benchmark_history_retention_days":
+				if val, err := strconv.Atoi(*setting.Value); err == nil {
+					settings.BenchmarkHistoryRetentionDays = val
+				}
 			}
 		}
 	}
@@ -287,6 +297,8 @@ func (h *JobSettingsHandler) UpdateJobExecutionSettings(w http.ResponseWriter, r
 		"client_potfiles_enabled":                              strconv.FormatBool(settings.ClientPotfilesEnabled),
 		"remove_from_global_potfile_on_hashlist_delete_default": strconv.FormatBool(settings.RemoveFromGlobalPotfileOnHashlistDeleteDefault),
 		"remove_from_client_potfile_on_hashlist_delete_default": strconv.FormatBool(settings.RemoveFromClientPotfileOnHashlistDeleteDefault),
+		// Benchmark history settings
+		"benchmark_history_retention_days": strconv.Itoa(settings.BenchmarkHistoryRetentionDays),
 	}
 
 	var failedKeys []string

@@ -369,6 +369,19 @@ type JobPerformanceMetric struct {
 	PeriodEnd        *time.Time       `json:"period_end" db:"period_end"`
 }
 
+// AgentBenchmarkHistory stores historical benchmark records (append-only)
+type AgentBenchmarkHistory struct {
+	ID           uuid.UUID  `json:"id" db:"id"`
+	AgentID      int        `json:"agent_id" db:"agent_id"`
+	AttackMode   AttackMode `json:"attack_mode" db:"attack_mode"`
+	HashType     int        `json:"hash_type" db:"hash_type"`
+	SaltCount    *int       `json:"salt_count" db:"salt_count"`
+	Speed        int64      `json:"speed" db:"speed"`
+	Success      bool       `json:"success" db:"success"`
+	ErrorMessage *string    `json:"error_message" db:"error_message"`
+	RecordedAt   time.Time  `json:"recorded_at" db:"recorded_at"`
+}
+
 // AgentHashlist tracks hashlist distribution to agents
 type AgentHashlist struct {
 	ID           uuid.UUID `json:"id" db:"id"`

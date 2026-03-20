@@ -44,6 +44,18 @@ func (r *BenchmarkRepository) CreateOrUpdateAgentBenchmark(ctx context.Context, 
 		return fmt.Errorf("failed to create or update agent benchmark: %w", err)
 	}
 
+	// Also append to benchmark history (non-fatal)
+	historyQuery := `
+		INSERT INTO agent_benchmark_history (agent_id, attack_mode, hash_type, salt_count, speed)
+		VALUES ($1, $2, $3, $4, $5)`
+	_, histErr := r.db.ExecContext(ctx, historyQuery,
+		benchmark.AgentID, benchmark.AttackMode, benchmark.HashType,
+		benchmark.SaltCount, benchmark.Speed)
+	if histErr != nil {
+		// Log but don't fail — history is supplementary
+		fmt.Printf("[WARNING] Failed to record benchmark history: %v\n", histErr)
+	}
+
 	return nil
 }
 
@@ -388,6 +400,119 @@ func (r *BenchmarkRepository) AggregateMetrics(ctx context.Context, fromLevel, t
 		return fmt.Errorf("failed to aggregate job metrics: %w", err)
 	}
 
+	return nil
+}
+
+// GetBenchmarkHistory retrieves paginated benchmark history with filters
+func (r *BenchmarkRepository) GetBenchmarkHistory(ctx context.Context, agentID *int, hashType *int, attackMode *int, limit, offset int) ([]models.AgentBenchmarkHistory, int, error) {
+	where := []string{"1=1"}
+	args := []interface{}{}
+	argIdx := 1
+
+	if agentID != nil {
+		where = append(where, fmt.Sprintf("abh.agent_id = $%d", argIdx))
+		args = append(args, *agentID)
+		argIdx++
+	}
+	if hashType != nil {
+		where = append(where, fmt.Sprintf("abh.hash_type = $%d", argIdx))
+		args = append(args, *hashType)
+		argIdx++
+	}
+	if attackMode != nil {
+		where = append(where, fmt.Sprintf("abh.attack_mode = $%d", argIdx))
+		args = append(args, *attackMode)
+		argIdx++
+	}
+
+	whereClause := strings.Join(where, " AND ")
+
+	// Count total
+	countQuery := fmt.Sprintf(`SELECT COUNT(*) FROM agent_benchmark_history abh WHERE %s`, whereClause)
+	var total int
+	err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count benchmark history: %w", err)
+	}
+
+	// Fetch page
+	dataQuery := fmt.Sprintf(`
+		SELECT abh.id, abh.agent_id, abh.attack_mode, abh.hash_type, abh.salt_count,
+		       abh.speed, abh.success, abh.error_message, abh.recorded_at
+		FROM agent_benchmark_history abh
+		WHERE %s
+		ORDER BY abh.recorded_at DESC
+		LIMIT $%d OFFSET $%d`, whereClause, argIdx, argIdx+1)
+	args = append(args, limit, offset)
+
+	rows, err := r.db.QueryContext(ctx, dataQuery, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query benchmark history: %w", err)
+	}
+	defer rows.Close()
+
+	var entries []models.AgentBenchmarkHistory
+	for rows.Next() {
+		var e models.AgentBenchmarkHistory
+		if err := rows.Scan(&e.ID, &e.AgentID, &e.AttackMode, &e.HashType, &e.SaltCount,
+			&e.Speed, &e.Success, &e.ErrorMessage, &e.RecordedAt); err != nil {
+			return nil, 0, fmt.Errorf("failed to scan benchmark history: %w", err)
+		}
+		entries = append(entries, e)
+	}
+
+	return entries, total, nil
+}
+
+// GetBenchmarkTrends retrieves benchmark speed data over time for charting
+func (r *BenchmarkRepository) GetBenchmarkTrends(ctx context.Context, agentID int, hashType *int, attackMode *int, since time.Time) ([]models.AgentBenchmarkHistory, error) {
+	where := []string{"agent_id = $1", "success = true", "recorded_at >= $2"}
+	args := []interface{}{agentID, since}
+	argIdx := 3
+
+	if hashType != nil {
+		where = append(where, fmt.Sprintf("hash_type = $%d", argIdx))
+		args = append(args, *hashType)
+		argIdx++
+	}
+	if attackMode != nil {
+		where = append(where, fmt.Sprintf("attack_mode = $%d", argIdx))
+		args = append(args, *attackMode)
+		argIdx++
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id, agent_id, attack_mode, hash_type, salt_count, speed, success, error_message, recorded_at
+		FROM agent_benchmark_history
+		WHERE %s
+		ORDER BY recorded_at ASC`, strings.Join(where, " AND "))
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query benchmark trends: %w", err)
+	}
+	defer rows.Close()
+
+	var entries []models.AgentBenchmarkHistory
+	for rows.Next() {
+		var e models.AgentBenchmarkHistory
+		if err := rows.Scan(&e.ID, &e.AgentID, &e.AttackMode, &e.HashType, &e.SaltCount,
+			&e.Speed, &e.Success, &e.ErrorMessage, &e.RecordedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan benchmark trend: %w", err)
+		}
+		entries = append(entries, e)
+	}
+
+	return entries, nil
+}
+
+// DeleteOldBenchmarkHistory deletes benchmark history records older than the given time
+func (r *BenchmarkRepository) DeleteOldBenchmarkHistory(ctx context.Context, before time.Time) error {
+	query := `DELETE FROM agent_benchmark_history WHERE recorded_at < $1`
+	_, err := r.db.ExecContext(ctx, query, before)
+	if err != nil {
+		return fmt.Errorf("failed to delete old benchmark history: %w", err)
+	}
 	return nil
 }
 

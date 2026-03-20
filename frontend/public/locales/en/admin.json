@@ -1229,6 +1229,8 @@
       "progressReportingHelper": "How often agents report progress",
       "benchmarkCache": "Benchmark Cache Duration",
       "benchmarkCacheHelper": "How long to cache agent benchmarks",
+      "benchmarkHistoryRetention": "Benchmark History Retention",
+      "benchmarkHistoryRetentionHelper": "Days to retain benchmark history records (0 = unlimited)",
       "speedtestTimeout": "Speedtest Timeout",
       "speedtestTimeoutHelper": "Maximum time to wait for speedtest completion",
       "reconnectGrace": "Reconnect Grace Period",

@@ -10,6 +10,7 @@ import {
     BugReport as BugReportIcon,
     History as HistoryIcon,
     TextFields as TextFieldsIcon,
+    TrendingUp as TrendingUpIcon,
 } from '@mui/icons-material';
 
 const AdminMenu: React.FC = () => {
@@ -118,6 +119,26 @@ const AdminMenu: React.FC = () => {
                     <AccountTreeIcon />
                 </ListItemIcon>
                 <ListItemText primary={t('admin.jobWorkflows') as string} />
+            </ListItemButton>
+
+            <ListItemButton
+                onClick={() => navigate('/admin/job-analytics')}
+                selected={location.pathname.startsWith('/admin/job-analytics')}
+                sx={{
+                    minHeight: 48,
+                    px: 2.5,
+                }}
+            >
+                <ListItemIcon
+                    sx={{
+                        minWidth: 0,
+                        mr: 3,
+                        justifyContent: 'center',
+                    }}
+                >
+                    <TrendingUpIcon />
+                </ListItemIcon>
+                <ListItemText primary={t('admin.jobAnalytics') as string} />
             </ListItemButton>
 
             <ListItemButton

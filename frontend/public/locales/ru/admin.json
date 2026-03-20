@@ -1228,6 +1228,8 @@
       "progressReportingHelper": "Как часто агенты отправляют отчёты о прогрессе",
       "benchmarkCache": "Срок хранения бенчмарков",
       "benchmarkCacheHelper": "Как долго кэшировать бенчмарки агентов",
+      "benchmarkHistoryRetention": "Хранение истории бенчмарков",
+      "benchmarkHistoryRetentionHelper": "Дней хранения записей истории бенчмарков (0 = без ограничений)",
       "speedtestTimeout": "Тайм-аут теста скорости",
       "speedtestTimeoutHelper": "Максимальное время ожидания завершения теста скорости",
       "reconnectGrace": "Льготный период переподключения",

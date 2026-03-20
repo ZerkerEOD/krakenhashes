@@ -176,6 +176,10 @@ func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.S
 	SetupAdminJobRoutes(adminRouter, jobHandler)
 	debug.Info("Configured admin preset job and workflow routes: /admin/preset-jobs/*, /admin/job-workflows/*")
 
+	// Job Performance Analytics routes
+	SetupJobAnalyticsRoutes(adminRouter, database)
+	debug.Info("Configured admin job analytics routes: /admin/job-analytics/*")
+
 	// Note: Diagnostics routes (GH Issue #23) are configured separately via SetupDiagnosticsRoutes
 	// after WebSocket handler is initialized
 

@@ -99,6 +99,7 @@ const AdminEmailTemplateEditorPage = lazy(() => import('./pages/AdminSettings/Em
 const CustomCharsetListPage = lazy(() => import('./pages/admin/CustomCharsetList'));
 const DiagnosticsPage = lazy(() => import('./pages/admin/Diagnostics'));
 const AdminAuditLogPage = lazy(() => import('./pages/AdminAuditLog'));
+const JobAnalyticsPage = lazy(() => import('./pages/admin/JobAnalytics'));
 const SavedCharsetsPage = lazy(() => import('./pages/settings/SavedCharsets'));
 
 const App: React.FC = () => {
@@ -195,6 +196,7 @@ const App: React.FC = () => {
                       />
                       <Route path="diagnostics" element={<DiagnosticsPage />} />
                       <Route path="audit-log" element={<AdminAuditLogPage />} />
+                      <Route path="job-analytics" element={<JobAnalyticsPage />} />
                     </Route>
 
                     {/* Catch-all for authenticated users */}

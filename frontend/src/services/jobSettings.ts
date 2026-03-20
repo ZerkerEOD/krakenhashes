@@ -28,6 +28,8 @@ export interface JobExecutionSettings {
   client_potfiles_enabled: boolean;
   remove_from_global_potfile_on_hashlist_delete_default: boolean;
   remove_from_client_potfile_on_hashlist_delete_default: boolean;
+  // Benchmark history settings
+  benchmark_history_retention_days: number;
 }
 
 export interface SettingsUpdateResponse {

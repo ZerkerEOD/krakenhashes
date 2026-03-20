@@ -1228,6 +1228,8 @@
       "progressReportingHelper": "Hoe vaak agents voortgang rapporteren",
       "benchmarkCache": "Benchmark cacheduur",
       "benchmarkCacheHelper": "Hoe lang agent-benchmarks worden gecached",
+      "benchmarkHistoryRetention": "Benchmarkgeschiedenis bewaren",
+      "benchmarkHistoryRetentionHelper": "Dagen om benchmarkgeschiedenis te bewaren (0 = onbeperkt)",
       "speedtestTimeout": "Speedtest-timeout",
       "speedtestTimeoutHelper": "Maximale wachttijd voor voltooiing van speedtest",
       "reconnectGrace": "Herverbindingsrespijtperiode",

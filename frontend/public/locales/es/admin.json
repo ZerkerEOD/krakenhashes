@@ -1228,6 +1228,8 @@
       "progressReportingHelper": "Con que frecuencia los agentes reportan el progreso",
       "benchmarkCache": "Duracion de cache de benchmark",
       "benchmarkCacheHelper": "Cuanto tiempo almacenar en cache los benchmarks de agentes",
+      "benchmarkHistoryRetention": "Retención del historial de benchmarks",
+      "benchmarkHistoryRetentionHelper": "Días para retener registros del historial de benchmarks (0 = ilimitado)",
       "speedtestTimeout": "Tiempo de espera de prueba de velocidad",
       "speedtestTimeoutHelper": "Tiempo maximo de espera para completar la prueba de velocidad",
       "reconnectGrace": "Periodo de gracia de reconexion",

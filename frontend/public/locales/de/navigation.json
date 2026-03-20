@@ -20,7 +20,8 @@
     "presetJobs": "Vorlagen-Aufträge",
     "jobWorkflows": "Auftrags-Workflows",
     "diagnostics": "Diagnose",
-    "auditLog": "Audit-Protokoll"
+    "auditLog": "Audit-Protokoll",
+    "jobAnalytics": "Auftragsanalysen"
   },
   "userMenu": {
     "userSettings": "Benutzereinstellungen",
