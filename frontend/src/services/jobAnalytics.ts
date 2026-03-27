@@ -6,6 +6,7 @@ import {
   TimelinePoint,
   TaskSegment,
   BenchmarkHistoryEntry,
+  SuccessRateEntry,
   PaginatedResponse,
   JobAnalyticsFilterParams,
 } from '../types/jobAnalytics';
@@ -66,6 +67,14 @@ export const jobAnalyticsService = {
     jobId: string
   ): Promise<{ metrics: TimelinePoint[]; tasks: TaskSegment[] }> => {
     const response = await api.get(`/api/admin/job-analytics/jobs/${jobId}/timeline`);
+    return response.data;
+  },
+
+  getSuccessRates: async (
+    filter: JobAnalyticsFilterParams
+  ): Promise<{ entries: SuccessRateEntry[] }> => {
+    const qs = buildParams(filter);
+    const response = await api.get(`/api/admin/job-analytics/success-rates?${qs}`);
     return response.data;
   },
 

@@ -56,6 +56,28 @@ export interface TaskSegment {
   status: string;
 }
 
+export interface SuccessRateEntry {
+  display_name: string;
+  is_preset: boolean;
+  preset_name: string;
+  attack_mode: number;
+  attack_mode_label: string;
+  hash_type: number;
+  hash_type_name: string;
+  wordlist_names: string;
+  rule_names: string;
+  mask: string;
+  increment_mode: string;
+  increment_min: number | null;
+  increment_max: number | null;
+  total_runs: number;
+  total_cracks: number;
+  total_hashes: number;
+  success_rate_percent: number;
+  avg_job_duration_seconds: number;
+  total_compute_seconds: number;
+}
+
 export interface BenchmarkHistoryEntry {
   id: string;
   agent_id: number;

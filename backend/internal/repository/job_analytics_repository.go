@@ -121,6 +121,61 @@ type TaskSegment struct {
 	Status         string     `json:"status"`
 }
 
+// SuccessRateRow represents raw aggregated stats for one configuration fingerprint from SQL
+type SuccessRateRow struct {
+	AttackMode    int
+	WordlistIDs   string // raw JSONB text e.g. ["1","3"]
+	RuleIDs       string // raw JSONB text e.g. ["2"]
+	Mask          string
+	IncrementMode string
+	IncrementMin  sql.NullInt32
+	IncrementMax  sql.NullInt32
+	HashType      int
+	HashTypeName  string
+	RunCount      int
+	TotalCracks   int64
+	TotalHashes   int64
+	SuccessRate   float64
+	AvgDuration   float64 // avg wall-clock per run (seconds)
+	TotalCompute  float64 // total task compute time (seconds)
+}
+
+// SuccessRateEntry is the enriched response sent to the frontend
+type SuccessRateEntry struct {
+	DisplayName    string  `json:"display_name"`
+	IsPreset       bool    `json:"is_preset"`
+	PresetName     string  `json:"preset_name,omitempty"`
+	AttackMode     int     `json:"attack_mode"`
+	AttackModeLabel string `json:"attack_mode_label"`
+	HashType       int     `json:"hash_type"`
+	HashTypeName   string  `json:"hash_type_name"`
+	WordlistNames  string  `json:"wordlist_names"`
+	RuleNames      string  `json:"rule_names"`
+	Mask           string  `json:"mask,omitempty"`
+	IncrementMode  string  `json:"increment_mode"`
+	IncrementMin   *int    `json:"increment_min,omitempty"`
+	IncrementMax   *int    `json:"increment_max,omitempty"`
+	TotalRuns      int     `json:"total_runs"`
+	TotalCracks    int64   `json:"total_cracks"`
+	TotalHashes    int64   `json:"total_hashes"`
+	SuccessRate    float64 `json:"success_rate_percent"`
+	AvgDuration    float64 `json:"avg_job_duration_seconds"`
+	TotalCompute   float64 `json:"total_compute_seconds"`
+}
+
+// PresetFingerprint holds the configuration fingerprint of a preset job for matching
+type PresetFingerprint struct {
+	ID            uuid.UUID
+	Name          string
+	AttackMode    int
+	WordlistIDs   string
+	RuleIDs       string
+	Mask          string
+	IncrementMode string
+	IncrementMin  sql.NullInt32
+	IncrementMax  sql.NullInt32
+}
+
 // buildFilterClauses builds WHERE clause fragments and args from a filter
 func (f *JobAnalyticsFilter) buildFilterClauses(startArgIdx int) ([]string, []interface{}) {
 	where := []string{}
@@ -516,4 +571,157 @@ func (r *JobAnalyticsRepository) GetJobTimeline(ctx context.Context, jobID uuid.
 	}
 
 	return points, tasks, nil
+}
+
+// GetSuccessRates returns aggregated success rate data grouped by job configuration fingerprint
+func (r *JobAnalyticsRepository) GetSuccessRates(ctx context.Context, filter *JobAnalyticsFilter) ([]SuccessRateRow, error) {
+	filterClauses, filterArgs := filter.buildFilterClauses(1)
+
+	whereClause := "je.started_at IS NOT NULL AND je.status IN ('completed', 'processing', 'running')"
+	if len(filterClauses) > 0 {
+		whereClause += " AND " + strings.Join(filterClauses, " AND ")
+	}
+
+	query := fmt.Sprintf(`
+		SELECT
+			je.attack_mode,
+			COALESCE(je.wordlist_ids::text, '[]'),
+			COALESCE(je.rule_ids::text, '[]'),
+			COALESCE(je.mask, ''),
+			COALESCE(je.increment_mode, 'off'),
+			je.increment_min,
+			je.increment_max,
+			je.hash_type,
+			COALESCE(ht.name, 'Hash Type ' || je.hash_type::text),
+			COUNT(DISTINCT je.id),
+			COALESCE(SUM(ts.total_cracks), 0),
+			COALESCE(SUM(hl.total_hashes), 0),
+			CASE WHEN SUM(hl.total_hashes) > 0
+				THEN (SUM(ts.total_cracks)::float / SUM(hl.total_hashes)::float) * 100
+				ELSE 0 END,
+			COALESCE(AVG(EXTRACT(EPOCH FROM (
+				COALESCE(je.cracking_completed_at, je.completed_at) - je.started_at
+			))) FILTER (WHERE je.started_at IS NOT NULL
+				AND (je.cracking_completed_at IS NOT NULL OR je.completed_at IS NOT NULL)), 0),
+			COALESCE(SUM(ts.compute_secs), 0)
+		FROM job_executions je
+		LEFT JOIN LATERAL (
+			SELECT COALESCE(SUM(crack_count), 0) as total_cracks,
+			       COALESCE(SUM(EXTRACT(EPOCH FROM (jt.completed_at - jt.started_at)))
+			           FILTER (WHERE jt.started_at IS NOT NULL AND jt.completed_at IS NOT NULL), 0) as compute_secs
+			FROM job_tasks jt WHERE jt.job_execution_id = je.id
+		) ts ON true
+		JOIN hashlists hl ON hl.id = je.hashlist_id
+		LEFT JOIN hash_types ht ON ht.id = je.hash_type
+		WHERE %s
+		GROUP BY je.attack_mode, je.wordlist_ids::text, je.rule_ids::text,
+		         COALESCE(je.mask, ''), COALESCE(je.increment_mode, 'off'),
+		         je.increment_min, je.increment_max, je.hash_type, ht.name
+		ORDER BY CASE WHEN SUM(hl.total_hashes) > 0
+			THEN (SUM(ts.total_cracks)::float / SUM(hl.total_hashes)::float) * 100
+			ELSE 0 END DESC`, whereClause)
+
+	rows, err := r.db.QueryContext(ctx, query, filterArgs...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query success rates: %w", err)
+	}
+	defer rows.Close()
+
+	var results []SuccessRateRow
+	for rows.Next() {
+		var row SuccessRateRow
+		if err := rows.Scan(
+			&row.AttackMode,
+			&row.WordlistIDs,
+			&row.RuleIDs,
+			&row.Mask,
+			&row.IncrementMode,
+			&row.IncrementMin,
+			&row.IncrementMax,
+			&row.HashType,
+			&row.HashTypeName,
+			&row.RunCount,
+			&row.TotalCracks,
+			&row.TotalHashes,
+			&row.SuccessRate,
+			&row.AvgDuration,
+			&row.TotalCompute,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan success rate row: %w", err)
+		}
+		results = append(results, row)
+	}
+
+	return results, nil
+}
+
+// GetWordlistNames returns a map of wordlist ID to name
+func (r *JobAnalyticsRepository) GetWordlistNames(ctx context.Context) (map[int]string, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT id, name FROM wordlists ORDER BY id`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query wordlist names: %w", err)
+	}
+	defer rows.Close()
+
+	names := make(map[int]string)
+	for rows.Next() {
+		var id int
+		var name string
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, err
+		}
+		names[id] = name
+	}
+	return names, nil
+}
+
+// GetRuleNames returns a map of rule ID to name
+func (r *JobAnalyticsRepository) GetRuleNames(ctx context.Context) (map[int]string, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT id, name FROM rules ORDER BY id`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query rule names: %w", err)
+	}
+	defer rows.Close()
+
+	names := make(map[int]string)
+	for rows.Next() {
+		var id int
+		var name string
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, err
+		}
+		names[id] = name
+	}
+	return names, nil
+}
+
+// GetPresetFingerprints returns all preset jobs with their configuration fingerprints
+func (r *JobAnalyticsRepository) GetPresetFingerprints(ctx context.Context) ([]PresetFingerprint, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, name, attack_mode,
+		       COALESCE(wordlist_ids::text, '[]'),
+		       COALESCE(rule_ids::text, '[]'),
+		       COALESCE(mask, ''),
+		       COALESCE(increment_mode, 'off'),
+		       increment_min, increment_max
+		FROM preset_jobs
+		ORDER BY name`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query preset fingerprints: %w", err)
+	}
+	defer rows.Close()
+
+	var presets []PresetFingerprint
+	for rows.Next() {
+		var p PresetFingerprint
+		if err := rows.Scan(
+			&p.ID, &p.Name, &p.AttackMode,
+			&p.WordlistIDs, &p.RuleIDs, &p.Mask,
+			&p.IncrementMode, &p.IncrementMin, &p.IncrementMax,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan preset fingerprint: %w", err)
+		}
+		presets = append(presets, p)
+	}
+	return presets, nil
 }

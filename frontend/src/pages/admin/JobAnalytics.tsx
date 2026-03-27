@@ -6,6 +6,7 @@ import JobHashRateChart from '../../components/admin/job-analytics/JobHashRateCh
 import JobExecutionTable from '../../components/admin/job-analytics/JobExecutionTable';
 import BenchmarkTrendChart from '../../components/admin/job-analytics/BenchmarkTrendChart';
 import BenchmarkHistoryTable from '../../components/admin/job-analytics/BenchmarkHistoryTable';
+import SuccessRateTable from '../../components/admin/job-analytics/SuccessRateTable';
 import {
   JobAnalyticsFilterOptions,
   JobAnalyticsSummary,
@@ -156,6 +157,7 @@ const JobAnalyticsPage: React.FC = () => {
         sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
       >
         <Tab label="Job Performance" />
+        <Tab label="Success Rate" />
         <Tab label="Benchmark History" />
       </Tabs>
 
@@ -183,6 +185,10 @@ const JobAnalyticsPage: React.FC = () => {
       )}
 
       {tab === 1 && (
+        <SuccessRateTable filter={appliedFilter} />
+      )}
+
+      {tab === 2 && (
         <>
           <BenchmarkTrendChart filterOptions={filterOptions} />
           <BenchmarkHistoryTable filterOptions={filterOptions} />

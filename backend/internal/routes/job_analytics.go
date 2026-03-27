@@ -23,6 +23,7 @@ func SetupJobAnalyticsRoutes(adminRouter *mux.Router, database *db.DB) {
 	adminRouter.HandleFunc("/job-analytics/jobs", handler.GetJobs).Methods(http.MethodGet, http.MethodOptions)
 	adminRouter.HandleFunc("/job-analytics/timeline", handler.GetTimeline).Methods(http.MethodGet, http.MethodOptions)
 	adminRouter.HandleFunc("/job-analytics/jobs/{id:[0-9a-fA-F-]+}/timeline", handler.GetJobTimeline).Methods(http.MethodGet, http.MethodOptions)
+	adminRouter.HandleFunc("/job-analytics/success-rates", handler.GetSuccessRates).Methods(http.MethodGet, http.MethodOptions)
 	adminRouter.HandleFunc("/job-analytics/benchmarks", handler.GetBenchmarkHistory).Methods(http.MethodGet, http.MethodOptions)
 	adminRouter.HandleFunc("/job-analytics/benchmarks/trends", handler.GetBenchmarkTrends).Methods(http.MethodGet, http.MethodOptions)
 }

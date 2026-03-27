@@ -229,6 +229,22 @@ func (h *JobAnalyticsHandler) GetBenchmarkTrends(w http.ResponseWriter, r *http.
 	})
 }
 
+// GetSuccessRates returns success rate analytics grouped by job configuration
+func (h *JobAnalyticsHandler) GetSuccessRates(w http.ResponseWriter, r *http.Request) {
+	filter := parseJobAnalyticsFilter(r)
+
+	entries, err := h.service.GetSuccessRates(r.Context(), filter)
+	if err != nil {
+		debug.Error("Failed to get success rates: %v", err)
+		httputil.RespondWithError(w, http.StatusInternalServerError, "Failed to get success rates")
+		return
+	}
+
+	httputil.RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+		"entries": entries,
+	})
+}
+
 // parseJobAnalyticsFilter extracts filter parameters from query string
 func parseJobAnalyticsFilter(r *http.Request) *repository.JobAnalyticsFilter {
 	filter := &repository.JobAnalyticsFilter{}
