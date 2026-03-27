@@ -7,11 +7,11 @@ KrakenHashes is a distributed password cracking system designed for security pro
 ## Disclaimer
 
 **⚠️ Active Development Warning**  
-This project is currently in **beta development**. Key considerations:
+This project is currently in released and used in production environments. Key considerations:
 
 > **Use at your own risk** - This software may eat your data, catch fire, or summon a digital Kraken. You've been warned.
 
-With the release of version 1.0.0, it should be a working for it's intended uses. While it may have bugs, I request that you open an issue (bottom of the frontend has a link). This tool is for legitimate professionals with permission from clients to run hashes for their testing. I am not responsible for how you use the tool or anything you do with it. In addition while the docs should be helpful, please let me know if you identify any issues. I have tested them to get a server running with agents a few times.
+With the release of version 2.0.0, it should be a working for it's intended uses. While it may have bugs, I request that you open an issue (bottom of the frontend has a link). This tool is for legitimate professionals with permission from clients to run hashes for their testing. I am not responsible for how you use the tool or anything you do with it. In addition while the docs should be helpful, please let me know if you identify any issues.
 
 ## Component Details
 
@@ -44,7 +44,7 @@ With the release of version 1.0.0, it should be a working for it's intended uses
 -   Security training environments
 
 > **License**: AGPLv3 (See LICENSE.md)  
-> **Status**: Actively in development, there will be bugs and major braking changes
+> **Status**: Actively in development, there will be bugs but it is getting less every day. The project is stable and can be used for production environments.
 
 ## Documentation
 
@@ -66,21 +66,7 @@ Join our Discord community for support, discussions, and updates:
 
 Instructions for setting up and running each component can be found in their respective directories.
 
-### Version 2.0 Considerations
+### Version 3.0.0 Considerations
 
--   [x] Passkey support for MFA
--   [x] Additional authentication methods
--   [x] Advanced job dependencies (covered by priority-based scheduling, potfile sharing, auto-cancel on full crack)
--   [x] Enhanced benchmarking with historical tracking (job performance analytics dashboard + benchmark history)
--   [x] Job queuing and scheduling improvements
--   [x] POT statistics and analytics
--   [x] Team system implementation
-    -   [x] Team management infrastructure
-        -   [x] Team manager roles
-        -   [x] User-team assignments
-        -   [x] Team-based agent access control
-    -   [x] Frontend team interfaces
-        -   [x] Team management UI
-        -   [x] Team assignment system
-        -   [x] Team management guidelines
--   [x] Statistics and analytics (move to v2.0)
+-   [ ] Better file syncing to agents
+-   [ ] Use bloodhound data for client password analytics
