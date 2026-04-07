@@ -14,12 +14,12 @@
   },
   "client": {
     "title": "Geknackte Hashes - Kundenansicht",
-    "description": "Geknackte Hashes für Kunde anzeigen: <1>{{clientName}}</1>",
+    "description": "Geknackte Hashes für Kunde anzeigen: {{clientName}}",
     "tableTitle": "Geknackte Hashes für \"{{clientName}}\""
   },
   "hashlist": {
     "title": "Geknackte Hashes - Hashlistenansicht",
-    "description": "Geknackte Hashes für Hashliste anzeigen: <1>{{hashlistName}}</1>",
+    "description": "Geknackte Hashes für Hashliste anzeigen: {{hashlistName}}",
     "tableTitle": "Geknackte Hashes für \"{{hashlistName}}\""
   },
   "job": {

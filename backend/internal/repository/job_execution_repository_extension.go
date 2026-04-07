@@ -66,12 +66,13 @@ func (r *JobExecutionRepository) ListWithPagination(ctx context.Context, limit, 
 
 // JobFilter contains filter criteria for job queries
 type JobFilter struct {
-	Status       *string
-	Priority     *int
-	Search       *string
-	UserID       *string
-	TeamsEnabled bool        // Whether team filtering is active (fail-closed when true + empty TeamIDs)
-	TeamIDs      []uuid.UUID // When set, filter jobs by team access (via hashlist → client → client_teams)
+	Status          *string
+	Priority        *int
+	Search          *string
+	UserID          *string
+	TeamsEnabled    bool        // Whether team filtering is active (fail-closed when true + empty TeamIDs)
+	TeamIDs         []uuid.UUID // When set, filter jobs by team access (via hashlist → client → client_teams)
+	IncludeArchived bool        // When false (default), exclude archived jobs
 }
 
 // JobExecutionWithUser represents a job execution with user information
@@ -86,7 +87,8 @@ func (r *JobExecutionRepository) ListWithFilters(ctx context.Context, limit, off
 		SELECT
 			je.id, je.preset_job_id, je.hashlist_id, je.status, je.priority, COALESCE(je.max_agents, 0) as max_agents,
 			je.processed_keyspace, je.attack_mode, je.created_by,
-			je.created_at, je.started_at, je.completed_at, je.error_message, je.interrupted_by, je.updated_at
+			je.created_at, je.started_at, je.completed_at, je.error_message, je.interrupted_by, je.updated_at,
+			je.archived_at
 		FROM job_executions je
 		LEFT JOIN preset_jobs pj ON je.preset_job_id = pj.id
 		JOIN hashlists h ON je.hashlist_id = h.id
@@ -95,6 +97,11 @@ func (r *JobExecutionRepository) ListWithFilters(ctx context.Context, limit, off
 
 	args := []interface{}{}
 	argCount := 0
+
+	// Apply archive filter
+	if !filter.IncludeArchived {
+		query += " AND je.archived_at IS NULL"
+	}
 
 	// Apply status filter
 	if filter.Status != nil && *filter.Status != "" {
@@ -171,6 +178,7 @@ func (r *JobExecutionRepository) ListWithFilters(ctx context.Context, limit, off
 			&exec.ID, &exec.PresetJobID, &exec.HashlistID, &exec.Status, &exec.Priority, &exec.MaxAgents,
 			&exec.ProcessedKeyspace, &exec.AttackMode, &exec.CreatedBy,
 			&exec.CreatedAt, &exec.StartedAt, &exec.CompletedAt, &exec.ErrorMessage, &exec.InterruptedBy, &exec.UpdatedAt,
+			&exec.ArchivedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan job execution: %w", err)
@@ -195,7 +203,7 @@ func (r *JobExecutionRepository) GetTotalCount(ctx context.Context) (int, error)
 // GetFilteredCount returns the number of job executions matching the filter
 func (r *JobExecutionRepository) GetFilteredCount(ctx context.Context, filter JobFilter) (int, error) {
 	query := `
-		SELECT COUNT(*) 
+		SELECT COUNT(*)
 		FROM job_executions je
 		LEFT JOIN preset_jobs pj ON je.preset_job_id = pj.id
 		JOIN hashlists h ON je.hashlist_id = h.id
@@ -203,6 +211,11 @@ func (r *JobExecutionRepository) GetFilteredCount(ctx context.Context, filter Jo
 
 	args := []interface{}{}
 	argCount := 0
+
+	// Apply archive filter
+	if !filter.IncludeArchived {
+		query += " AND je.archived_at IS NULL"
+	}
 
 	// Apply status filter
 	if filter.Status != nil && *filter.Status != "" {
@@ -256,11 +269,12 @@ func (r *JobExecutionRepository) GetFilteredCount(ctx context.Context, filter Jo
 	return count, nil
 }
 
-// GetStatusCounts returns counts of jobs grouped by status
+// GetStatusCounts returns counts of jobs grouped by status (excludes archived)
 func (r *JobExecutionRepository) GetStatusCounts(ctx context.Context) (map[string]int, error) {
 	query := `
 		SELECT status, COUNT(*) as count
 		FROM job_executions
+		WHERE archived_at IS NULL
 		GROUP BY status`
 
 	rows, err := r.db.QueryContext(ctx, query)
@@ -282,12 +296,12 @@ func (r *JobExecutionRepository) GetStatusCounts(ctx context.Context) (map[strin
 	return counts, nil
 }
 
-// GetStatusCountsForUser returns counts of jobs grouped by status for a specific user
+// GetStatusCountsForUser returns counts of jobs grouped by status for a specific user (excludes archived)
 func (r *JobExecutionRepository) GetStatusCountsForUser(ctx context.Context, userID string) (map[string]int, error) {
 	query := `
 		SELECT je.status, COUNT(*) as count
 		FROM job_executions je
-		WHERE je.created_by = $1
+		WHERE je.created_by = $1 AND je.archived_at IS NULL
 		GROUP BY je.status`
 
 	rows, err := r.db.QueryContext(ctx, query, userID)
@@ -309,14 +323,14 @@ func (r *JobExecutionRepository) GetStatusCountsForUser(ctx context.Context, use
 	return counts, nil
 }
 
-// GetStatusCountsFiltered returns counts of jobs grouped by status, respecting filters
+// GetStatusCountsFiltered returns counts of jobs grouped by status, respecting filters (excludes archived)
 func (r *JobExecutionRepository) GetStatusCountsFiltered(ctx context.Context, filter JobFilter) (map[string]int, error) {
 	query := `
 		SELECT je.status, COUNT(*) as count
 		FROM job_executions je
 		JOIN hashlists h ON je.hashlist_id = h.id
 		LEFT JOIN preset_jobs pj ON je.preset_job_id = pj.id
-		WHERE 1=1`
+		WHERE je.archived_at IS NULL`
 
 	args := []interface{}{}
 	argCount := 0
@@ -479,44 +493,44 @@ func (r *JobExecutionRepository) DeleteFinished(ctx context.Context) (int, error
 	}
 	defer tx.Rollback()
 
-	// Clear any references to finished jobs in the interrupted_by column
+	// Clear any references to finished jobs in the interrupted_by column (exclude archived)
 	_, err = tx.ExecContext(ctx, `
-		UPDATE job_executions 
-		SET interrupted_by = NULL 
+		UPDATE job_executions
+		SET interrupted_by = NULL
 		WHERE interrupted_by IN (
-			SELECT id FROM job_executions 
-			WHERE status IN ('completed', 'failed', 'cancelled')
+			SELECT id FROM job_executions
+			WHERE status IN ('completed', 'failed', 'cancelled') AND archived_at IS NULL
 		)`)
 	if err != nil {
 		return 0, fmt.Errorf("failed to clear interrupted_by references: %w", err)
 	}
 
-	// Delete related performance metrics
+	// Delete related performance metrics (exclude archived)
 	_, err = tx.ExecContext(ctx, `
-		DELETE FROM job_performance_metrics 
+		DELETE FROM job_performance_metrics
 		WHERE job_execution_id IN (
-			SELECT id FROM job_executions 
-			WHERE status IN ('completed', 'failed', 'cancelled')
+			SELECT id FROM job_executions
+			WHERE status IN ('completed', 'failed', 'cancelled') AND archived_at IS NULL
 		)`)
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete related performance metrics: %w", err)
 	}
 
-	// Delete related tasks
+	// Delete related tasks (exclude archived)
 	_, err = tx.ExecContext(ctx, `
-		DELETE FROM job_tasks 
+		DELETE FROM job_tasks
 		WHERE job_execution_id IN (
-			SELECT id FROM job_executions 
-			WHERE status IN ('completed', 'failed', 'cancelled')
+			SELECT id FROM job_executions
+			WHERE status IN ('completed', 'failed', 'cancelled') AND archived_at IS NULL
 		)`)
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete related job tasks: %w", err)
 	}
 
-	// Delete finished job executions
+	// Delete finished job executions (exclude archived)
 	result, err := tx.ExecContext(ctx, `
-		DELETE FROM job_executions 
-		WHERE status IN ('completed', 'failed', 'cancelled')`)
+		DELETE FROM job_executions
+		WHERE status IN ('completed', 'failed', 'cancelled') AND archived_at IS NULL`)
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete finished job executions: %w", err)
 	}
@@ -543,7 +557,7 @@ func (r *JobExecutionRepository) ListWithFiltersAndUser(ctx context.Context, lim
 			je.created_at, je.started_at, je.completed_at, je.error_message, je.interrupted_by, je.updated_at,
 			je.base_keyspace, je.effective_keyspace, je.multiplication_factor, je.uses_rule_splitting,
 			je.rule_split_count, je.overall_progress_percent, je.dispatched_keyspace,
-			je.name,
+			je.name, je.archived_at,
 			u.username as created_by_username
 		FROM job_executions je
 		LEFT JOIN preset_jobs pj ON je.preset_job_id = pj.id
@@ -553,6 +567,11 @@ func (r *JobExecutionRepository) ListWithFiltersAndUser(ctx context.Context, lim
 
 	args := []interface{}{}
 	argCount := 0
+
+	// Apply archive filter
+	if !filter.IncludeArchived {
+		query += " AND je.archived_at IS NULL"
+	}
 
 	// Apply status filter
 	if filter.Status != nil && *filter.Status != "" {
@@ -646,7 +665,7 @@ func (r *JobExecutionRepository) ListWithFiltersAndUser(ctx context.Context, lim
 			&exec.CreatedAt, &exec.StartedAt, &exec.CompletedAt, &exec.ErrorMessage, &exec.InterruptedBy, &exec.UpdatedAt,
 			&exec.BaseKeyspace, &exec.EffectiveKeyspace, &exec.MultiplicationFactor, &exec.UsesRuleSplitting,
 			&exec.RuleSplitCount, &exec.OverallProgressPercent, &exec.DispatchedKeyspace,
-			&exec.Name,
+			&exec.Name, &exec.ArchivedAt,
 			&exec.CreatedByUsername,
 		)
 		if err != nil {
@@ -656,4 +675,49 @@ func (r *JobExecutionRepository) ListWithFiltersAndUser(ctx context.Context, lim
 	}
 
 	return executions, nil
+}
+
+// ArchiveJob sets the archived_at timestamp for a job execution
+func (r *JobExecutionRepository) ArchiveJob(ctx context.Context, id uuid.UUID) error {
+	query := `UPDATE job_executions SET archived_at = NOW(), updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND archived_at IS NULL`
+	result, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to archive job execution: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// UnarchiveJob clears the archived_at timestamp for a job execution
+func (r *JobExecutionRepository) UnarchiveJob(ctx context.Context, id uuid.UUID) error {
+	query := `UPDATE job_executions SET archived_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND archived_at IS NOT NULL`
+	result, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to unarchive job execution: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// HasActiveTasks checks if a job execution has any active (pending/running/dispatched) tasks
+func (r *JobExecutionRepository) HasActiveTasks(ctx context.Context, jobID uuid.UUID) (bool, error) {
+	query := `SELECT EXISTS(SELECT 1 FROM job_tasks WHERE job_execution_id = $1 AND status IN ('pending', 'running', 'dispatched'))`
+	var exists bool
+	err := r.db.QueryRowContext(ctx, query, jobID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check active tasks: %w", err)
+	}
+	return exists, nil
 }

@@ -22,6 +22,7 @@ export interface JobSummary {
   created_at: string;
   updated_at: string;
   completed_at?: string;
+  archived_at?: string;
   created_by_username?: string;
   error_message?: string;
   // Enhanced chunking fields

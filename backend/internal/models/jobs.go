@@ -190,6 +190,7 @@ type JobExecution struct {
 	ErrorMessage           *string            `json:"error_message" db:"error_message"`
 	InterruptedBy          *uuid.UUID         `json:"interrupted_by" db:"interrupted_by"`
 	ConsecutiveFailures    int                `json:"consecutive_failures" db:"consecutive_failures"` // Track consecutive task failures
+	ArchivedAt             *time.Time         `json:"archived_at,omitempty" db:"archived_at"`
 
 	// Self-contained configuration fields (no need to look up preset)
 	Name                      string  `json:"name" db:"name"`

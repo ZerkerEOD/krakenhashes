@@ -9,6 +9,7 @@ import {
   TablePagination,
   Typography,
   Box,
+  Checkbox,
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import JobRow from './JobRow';
@@ -23,6 +24,10 @@ interface JobsTableProps {
   currentPage: number;
   pageSize: number;
   onJobUpdated?: () => void;
+  selectedIds?: Set<string>;
+  onSelectAll?: (checked: boolean) => void;
+  onSelectOne?: (id: string) => void;
+  showArchived?: boolean;
 }
 
 const JobsTable: React.FC<JobsTableProps> = ({
@@ -33,6 +38,10 @@ const JobsTable: React.FC<JobsTableProps> = ({
   currentPage,
   pageSize,
   onJobUpdated,
+  selectedIds,
+  onSelectAll,
+  onSelectOne,
+  showArchived,
 }) => {
   const { t } = useTranslation('dashboard');
   const [maxPriority, setMaxPriority] = useState<number>(10); // Default to 10 as fallback
@@ -85,6 +94,16 @@ const JobsTable: React.FC<JobsTableProps> = ({
         <Table stickyHeader>
           <TableHead>
             <TableRow>
+              {selectedIds && onSelectAll && (
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    indeterminate={selectedIds.size > 0 && selectedIds.size < jobs.length}
+                    checked={jobs.length > 0 && selectedIds.size === jobs.length}
+                    onChange={(e) => onSelectAll(e.target.checked)}
+                    size="small"
+                  />
+                </TableCell>
+              )}
               <TableCell>{t('jobsTable.columns.jobName')}</TableCell>
               <TableCell>{t('jobsTable.columns.hashlist')}</TableCell>
               <TableCell>{t('jobsTable.columns.createdBy')}</TableCell>
@@ -100,34 +119,40 @@ const JobsTable: React.FC<JobsTableProps> = ({
           <TableBody>
             {/* Active Jobs */}
             {activeJobs.map((job, index) => (
-              <JobRow 
-                key={job.id} 
-                job={job} 
+              <JobRow
+                key={job.id}
+                job={job}
                 onJobUpdated={onJobUpdated}
                 isLastActiveJob={index === activeJobs.length - 1 && completedJobs.length > 0}
                 maxPriority={maxPriority}
+                selected={selectedIds?.has(job.id)}
+                onSelect={onSelectOne}
+                showArchived={showArchived}
               />
             ))}
-            
+
             {/* Visual separator between active and completed jobs */}
             {activeJobs.length > 0 && completedJobs.length > 0 && (
               <TableRow>
-                <TableCell colSpan={10} sx={{ py: 1, bgcolor: 'action.hover' }}>
+                <TableCell colSpan={selectedIds ? 11 : 10} sx={{ py: 1, bgcolor: 'action.hover' }}>
                   <Typography variant="body2" sx={{ fontWeight: 'medium', color: 'text.secondary', textAlign: 'center' }}>
                     {t('jobsTable.completedJobs')}
                   </Typography>
                 </TableCell>
               </TableRow>
             )}
-            
+
             {/* Completed Jobs */}
             {completedJobs.map((job) => (
-              <JobRow 
-                key={job.id} 
-                job={job} 
-                onJobUpdated={onJobUpdated} 
+              <JobRow
+                key={job.id}
+                job={job}
+                onJobUpdated={onJobUpdated}
                 isCompletedSection={true}
                 maxPriority={maxPriority}
+                selected={selectedIds?.has(job.id)}
+                onSelect={onSelectOne}
+                showArchived={showArchived}
               />
             ))}
           </TableBody>

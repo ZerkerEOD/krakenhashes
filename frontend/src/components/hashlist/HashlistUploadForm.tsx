@@ -22,7 +22,7 @@ import {
   MenuItem,
 } from '@mui/material';
 import { Clear as ClearIcon } from '@mui/icons-material';
-import ClientAutocomplete from './ClientAutocomplete';
+import ClientAutocomplete, { NewClientData } from './ClientAutocomplete';
 import HashTypeSelect from './HashTypeSelect';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -30,6 +30,8 @@ import { z } from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
+import { useSnackbar } from 'notistack';
+import { useTranslation } from 'react-i18next';
 import { getJobDefaultsForUsers } from '../../services/jobSettings';
 import { teamsService } from '../../services/teams';
 import { Team } from '../../types/team';
@@ -86,6 +88,8 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [isDetecting, setIsDetecting] = useState(false);
   const [createLinked, setCreateLinked] = useState(false);
+  const [defaultRetention, setDefaultRetention] = useState<number | null>(null);
+  const [newClientData, setNewClientData] = useState<NewClientData | null>(null);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -107,9 +111,44 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
     .filter(line => line.trim().length > 0)
     .length;
 
+  const { enqueueSnackbar } = useSnackbar();
+  const { t } = useTranslation('hashlists');
+
+  // Detect executable files by reading magic bytes (file signatures)
+  // MIME types are unreliable — browsers often report application/octet-stream for binaries
+  const isExecutableFile = async (file: File): Promise<boolean> => {
+    const header = await file.slice(0, 8).arrayBuffer();
+    const bytes = new Uint8Array(header);
+    if (bytes.length < 2) return false;
+
+    // ELF binary (Linux, including Go binaries): \x7fELF
+    if (bytes[0] === 0x7f && bytes[1] === 0x45 && bytes[2] === 0x4c && bytes[3] === 0x46) return true;
+    // Windows PE/EXE: MZ
+    if (bytes[0] === 0x4d && bytes[1] === 0x5a) return true;
+    // macOS Mach-O (32-bit): \xfe\xed\xfa\xce
+    if (bytes[0] === 0xfe && bytes[1] === 0xed && bytes[2] === 0xfa && bytes[3] === 0xce) return true;
+    // macOS Mach-O (64-bit): \xfe\xed\xfa\xcf
+    if (bytes[0] === 0xfe && bytes[1] === 0xed && bytes[2] === 0xfa && bytes[3] === 0xcf) return true;
+    // macOS Mach-O (reverse byte order 32-bit): \xce\xfa\xed\xfe
+    if (bytes[0] === 0xce && bytes[1] === 0xfa && bytes[2] === 0xed && bytes[3] === 0xfe) return true;
+    // macOS Mach-O (reverse byte order 64-bit): \xcf\xfa\xed\xfe
+    if (bytes[0] === 0xcf && bytes[1] === 0xfa && bytes[2] === 0xed && bytes[3] === 0xfe) return true;
+    // macOS Universal binary (fat binary): \xca\xfe\xba\xbe
+    if (bytes[0] === 0xca && bytes[1] === 0xfe && bytes[2] === 0xba && bytes[3] === 0xbe) return true;
+
+    return false;
+  };
+
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
       const selectedFile = acceptedFiles[0];
+
+      // Block executable files using magic bytes detection
+      if (await isExecutableFile(selectedFile)) {
+        enqueueSnackbar(t('upload.executableBlocked'), { variant: 'error' });
+        return;
+      }
+
       setFile(selectedFile);
       setPastedHashes('');
 
@@ -135,11 +174,6 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
-      'text/plain': ['.txt', '.hash', '.hashes', '.lst', '.pot'],
-      'text/csv': ['.csv'],
-      'application/octet-stream': ['.hash', '.hashes'],
-    },
     maxFiles: 1
   });
 
@@ -149,6 +183,9 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
       try {
         const defaults = await getJobDefaultsForUsers();
         setPotfileGloballyEnabled(defaults.potfile_enabled);
+        if (defaults.default_data_retention_months !== undefined) {
+          setDefaultRetention(defaults.default_data_retention_months);
+        }
       } catch (error) {
         console.error('Failed to fetch potfile setting:', error);
         // Default to true if fetch fails
@@ -247,6 +284,25 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
       }
       if (selectedTeamId) {
         formData.append('team_id', selectedTeamId);
+      }
+
+      // Append new client override fields when creating a new client
+      if (newClientData) {
+        if (newClientData.description) {
+          formData.append('client_description', newClientData.description);
+        }
+        if (newClientData.contactInfo) {
+          formData.append('client_contact_info', newClientData.contactInfo);
+        }
+        if (newClientData.dataRetentionMonths !== undefined && newClientData.dataRetentionMonths !== null) {
+          formData.append('client_data_retention_months', newClientData.dataRetentionMonths.toString());
+        }
+        if (newClientData.excludeFromPotfile) {
+          formData.append('client_exclude_from_potfile', 'true');
+        }
+        if (newClientData.excludeFromClientPotfile) {
+          formData.append('client_exclude_from_client_potfile', 'true');
+        }
       }
 
       return api.post('/api/hashlists', formData, {
@@ -362,6 +418,8 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
               value={field.value ?? null}
               onChange={field.onChange}
               teamId={selectedTeamId || undefined}
+              defaultRetention={defaultRetention}
+              onNewClientDataChange={setNewClientData}
             />
             {errors.clientName && (
               <Box sx={{ color: 'error.main', fontSize: '0.75rem', mt: 0.5, ml: 1.75 }}>
@@ -423,7 +481,7 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
               <>
                 <Typography>Drag and drop a hashlist file, or click to select</Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                  Supported: .txt, .hash, .hashes, .csv, .lst, .pot
+                  All file types accepted except executables
                 </Typography>
               </>
             )}

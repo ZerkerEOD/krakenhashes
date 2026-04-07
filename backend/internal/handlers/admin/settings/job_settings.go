@@ -13,12 +13,14 @@ import (
 // JobSettingsHandler handles job execution settings for admin
 type JobSettingsHandler struct {
 	systemSettingsRepo *repository.SystemSettingsRepository
+	clientSettingsRepo *repository.ClientSettingsRepository
 }
 
 // NewJobSettingsHandler creates a new job settings handler
-func NewJobSettingsHandler(systemSettingsRepo *repository.SystemSettingsRepository) *JobSettingsHandler {
+func NewJobSettingsHandler(systemSettingsRepo *repository.SystemSettingsRepository, clientSettingsRepo *repository.ClientSettingsRepository) *JobSettingsHandler {
 	return &JobSettingsHandler{
 		systemSettingsRepo: systemSettingsRepo,
+		clientSettingsRepo: clientSettingsRepo,
 	}
 }
 
@@ -53,6 +55,8 @@ type JobExecutionSettings struct {
 	RemoveFromClientPotfileOnHashlistDeleteDefault bool `json:"remove_from_client_potfile_on_hashlist_delete_default"`
 	// Benchmark history settings
 	BenchmarkHistoryRetentionDays int `json:"benchmark_history_retention_days"`
+	// Analytics settings
+	AnalyticsDefaultDateRangeMonths int `json:"analytics_default_date_range_months"`
 }
 
 // GetJobExecutionSettings returns all job execution settings
@@ -91,6 +95,8 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 		"remove_from_client_potfile_on_hashlist_delete_default",
 		// Benchmark history settings
 		"benchmark_history_retention_days",
+		// Analytics settings
+		"analytics_default_date_range_months",
 	}
 
 	settings := JobExecutionSettings{
@@ -124,6 +130,8 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 		RemoveFromClientPotfileOnHashlistDeleteDefault: false,
 		// Benchmark history defaults
 		BenchmarkHistoryRetentionDays: 365,
+		// Analytics defaults
+		AnalyticsDefaultDateRangeMonths: 12,
 	}
 
 	// Retrieve each setting
@@ -220,6 +228,10 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 				if val, err := strconv.Atoi(*setting.Value); err == nil {
 					settings.BenchmarkHistoryRetentionDays = val
 				}
+			case "analytics_default_date_range_months":
+				if val, err := strconv.Atoi(*setting.Value); err == nil {
+					settings.AnalyticsDefaultDateRangeMonths = val
+				}
 			}
 		}
 	}
@@ -230,8 +242,10 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 // UserJobDefaults represents the subset of job execution settings
 // that non-admin authenticated users need for job creation forms.
 type UserJobDefaults struct {
-	DefaultChunkDuration int  `json:"default_chunk_duration"`
-	PotfileEnabled       bool `json:"potfile_enabled"`
+	DefaultChunkDuration            int  `json:"default_chunk_duration"`
+	PotfileEnabled                  bool `json:"potfile_enabled"`
+	DefaultDataRetentionMonths      *int `json:"default_data_retention_months"`
+	AnalyticsDefaultDateRangeMonths int  `json:"analytics_default_date_range_months"`
 }
 
 // GetJobDefaultsForUsers returns user-relevant job defaults (non-admin, read-only).
@@ -240,8 +254,9 @@ func (h *JobSettingsHandler) GetJobDefaultsForUsers(w http.ResponseWriter, r *ht
 	debug.Log("Getting job defaults for users", nil)
 
 	defaults := UserJobDefaults{
-		DefaultChunkDuration: 1200, // fallback: 20 minutes
-		PotfileEnabled:       true, // fallback: enabled
+		DefaultChunkDuration:            1200, // fallback: 20 minutes
+		PotfileEnabled:                  true, // fallback: enabled
+		AnalyticsDefaultDateRangeMonths: 12,   // fallback: 12 months
 	}
 
 	if setting, err := h.systemSettingsRepo.GetSetting(ctx, "default_chunk_duration"); err == nil && setting.Value != nil {
@@ -252,6 +267,22 @@ func (h *JobSettingsHandler) GetJobDefaultsForUsers(w http.ResponseWriter, r *ht
 
 	if setting, err := h.systemSettingsRepo.GetSetting(ctx, "potfile_enabled"); err == nil && setting.Value != nil {
 		defaults.PotfileEnabled = *setting.Value == "true"
+	}
+
+	// Fetch default data retention from client_settings
+	if h.clientSettingsRepo != nil {
+		if setting, err := h.clientSettingsRepo.GetSetting(ctx, "default_data_retention_months"); err == nil && setting.Value != nil {
+			if val, parseErr := strconv.Atoi(*setting.Value); parseErr == nil {
+				defaults.DefaultDataRetentionMonths = &val
+			}
+		}
+	}
+
+	// Fetch analytics default date range
+	if setting, err := h.systemSettingsRepo.GetSetting(ctx, "analytics_default_date_range_months"); err == nil && setting.Value != nil {
+		if val, parseErr := strconv.Atoi(*setting.Value); parseErr == nil {
+			defaults.AnalyticsDefaultDateRangeMonths = val
+		}
 	}
 
 	httputil.RespondWithJSON(w, http.StatusOK, defaults)
@@ -299,6 +330,8 @@ func (h *JobSettingsHandler) UpdateJobExecutionSettings(w http.ResponseWriter, r
 		"remove_from_client_potfile_on_hashlist_delete_default": strconv.FormatBool(settings.RemoveFromClientPotfileOnHashlistDeleteDefault),
 		// Benchmark history settings
 		"benchmark_history_retention_days": strconv.Itoa(settings.BenchmarkHistoryRetentionDays),
+		// Analytics settings
+		"analytics_default_date_range_months": strconv.Itoa(settings.AnalyticsDefaultDateRangeMonths),
 	}
 
 	var failedKeys []string

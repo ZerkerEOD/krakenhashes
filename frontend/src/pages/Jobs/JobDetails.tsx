@@ -440,6 +440,23 @@ const JobDetails: React.FC = () => {
     return `~${displayParts.join(' ')}`;
   };
 
+  const calculateTotalRunningTime = (): string => {
+    if (!jobData?.started_at) return t('common.notAvailable');
+
+    const startTime = new Date(jobData.started_at).getTime();
+    const endTime = jobData.completed_at
+      ? new Date(jobData.completed_at).getTime()
+      : Date.now();
+
+    const totalSeconds = Math.floor((endTime - startTime) / 1000);
+
+    if (totalSeconds <= 0) return t('details.lessThanOneMinute');
+
+    const duration = formatDuration(totalSeconds);
+    // formatDuration prepends "~" for estimates; strip it for actual elapsed time
+    return duration.startsWith('~') ? duration.substring(1).trim() : duration;
+  };
+
   const calculateEstimatedCompletion = (): { timeRemaining: string; estimatedDate: string } => {
     // Check if job is completed
     if (jobData?.status === 'completed') {
@@ -1100,6 +1117,12 @@ const JobDetails: React.FC = () => {
                 <TableCell sx={{ fontWeight: 'bold' }}>{t('common.completedAt')}</TableCell>
                 <TableCell>{formatDate(jobData.completed_at)}</TableCell>
               </TableRow>
+              {jobData.started_at && (
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold' }}>{t('details.totalRunningTime')}</TableCell>
+                  <TableCell>{calculateTotalRunningTime()}</TableCell>
+                </TableRow>
+              )}
               {jobData.error_message && (
                 <TableRow>
                   <TableCell sx={{ fontWeight: 'bold' }}>{t('common.error')}</TableCell>

@@ -35,6 +35,7 @@ type HashList struct {
 	HasMixedWorkFactors bool           `json:"has_mixed_work_factors"`         // Warning flag if hashes have different work factors
 	CreatedAt           time.Time      `json:"createdAt"`                      // Timestamp of creation - Use camelCase
 	UpdatedAt           time.Time      `json:"updatedAt"`                      // Timestamp of last update - Use camelCase
+	ArchivedAt          *time.Time     `json:"archived_at,omitempty"`          // When the hashlist was archived (NULL = active)
 
 	// Client potfile settings (populated from JOIN when available)
 	ClientExcludeFromClientPotfile    *bool `json:"client_exclude_from_client_potfile,omitempty"`            // Client's exclude_from_client_potfile setting

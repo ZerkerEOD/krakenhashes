@@ -45,7 +45,8 @@
     "file": "Archivo de hashes",
     "selectFile": "Seleccionar archivo",
     "uploading": "Subiendo...",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "executableBlocked": "Este archivo parece ser un ejecutable binario y no se puede subir como lista de hashes."
   },
   "actions": {
     "viewDetails": "Ver detalles",
@@ -90,12 +91,32 @@
   "notifications": {
     "deleteSuccess": "Lista de hashes eliminada exitosamente",
     "uploadSuccess": "Lista de hashes subida exitosamente",
-    "downloaded": "Descargado {{filename}}"
+    "downloaded": "Descargado {{filename}}",
+    "archiveSuccess": "Lista de hashes archivada exitosamente",
+    "unarchiveSuccess": "Lista de hashes desarchivada exitosamente",
+    "bulkArchiveSuccess": "{{count}} lista(s) de hashes archivada(s) exitosamente",
+    "bulkUnarchiveSuccess": "{{count}} lista(s) de hashes desarchivada(s) exitosamente"
   },
   "errors": {
     "loadFailed": "Error al obtener listas de hashes.",
     "uploadFailed": "Error al subir lista de hashes",
     "deleteFailed": "Eliminación fallida: {{error}}"
+  },
+  "archive": {
+    "showArchived": "Mostrar archivados",
+    "archive": "Archivar",
+    "unarchive": "Desarchivar",
+    "archived": "Archivado",
+    "selectedCount": "{{count}} seleccionado(s)",
+    "archiveSelected": "Archivar seleccionados",
+    "unarchiveSelected": "Desarchivar seleccionados",
+    "deleteSelected": "Eliminar seleccionados",
+    "confirmBulkDelete": {
+      "title": "Confirmar eliminación masiva",
+      "message": "¿Estás seguro de que deseas eliminar {{count}} lista(s) de hashes? Esta acción no se puede deshacer.",
+      "warning": "Esto eliminará permanentemente las listas de hashes seleccionadas y todos los datos asociados."
+    },
+    "bulkDeleteSuccess": "{{count}} lista(s) de hashes eliminada(s) exitosamente"
   },
   "hashDetails": {
     "title": "Detalles del hash",

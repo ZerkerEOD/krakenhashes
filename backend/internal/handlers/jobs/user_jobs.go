@@ -150,11 +150,15 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Parse archive filter
+	includeArchived := r.URL.Query().Get("include_archived") == "true"
+
 	// Create filter
 	filter := repository.JobFilter{
-		Status:   &status,
-		Priority: priority,
-		Search:   &search,
+		Status:          &status,
+		Priority:        priority,
+		Search:          &search,
+		IncludeArchived: includeArchived,
 	}
 
 	// Apply team filter when teams are enabled
@@ -1616,6 +1620,71 @@ func (h *UserJobsHandler) DeleteFinishedJobs(w http.ResponseWriter, r *http.Requ
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"message":       "Finished jobs deleted successfully",
 		"deleted_count": deletedCount,
+	})
+}
+
+// ArchiveJob handles POST /api/jobs/{id}/archive
+func (h *UserJobsHandler) ArchiveJob(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+
+	jobID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	// Check if job has active tasks
+	hasActive, err := h.jobExecRepo.HasActiveTasks(ctx, jobID)
+	if err != nil {
+		debug.Error("Failed to check active tasks for job %s: %v", jobID, err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	if hasActive {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Cannot archive job with active tasks",
+		})
+		return
+	}
+
+	err = h.jobExecRepo.ArchiveJob(ctx, jobID)
+	if err != nil {
+		debug.Error("Failed to archive job %s: %v", jobID, err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Job archived successfully",
+	})
+}
+
+// UnarchiveJob handles POST /api/jobs/{id}/unarchive
+func (h *UserJobsHandler) UnarchiveJob(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+
+	jobID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	err = h.jobExecRepo.UnarchiveJob(ctx, jobID)
+	if err != nil {
+		debug.Error("Failed to unarchive job %s: %v", jobID, err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Job unarchived successfully",
 	})
 }
 

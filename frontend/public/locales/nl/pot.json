@@ -14,12 +14,12 @@
   },
   "client": {
     "title": "Gekraakte hashes - Klantweergave",
-    "description": "Bekijk gekraakte hashes voor klant: <1>{{clientName}}</1>",
+    "description": "Bekijk gekraakte hashes voor klant: {{clientName}}",
     "tableTitle": "Gekraakte hashes voor \"{{clientName}}\""
   },
   "hashlist": {
     "title": "Gekraakte hashes - Hashlijstweergave",
-    "description": "Bekijk gekraakte hashes voor hashlijst: <1>{{hashlistName}}</1>",
+    "description": "Bekijk gekraakte hashes voor hashlijst: {{hashlistName}}",
     "tableTitle": "Gekraakte hashes voor \"{{hashlistName}}\""
   },
   "job": {

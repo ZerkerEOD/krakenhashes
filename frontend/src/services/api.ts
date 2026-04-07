@@ -798,6 +798,33 @@ export const getDeletionProgress = async (hashlistId: string): Promise<DeletionP
   return response.data;
 };
 
+// Archive a hashlist
+export const archiveHashlist = async (hashlistId: string): Promise<void> => {
+  const url = `/api/hashlists/${hashlistId}/archive`;
+  logApiCall('POST', url);
+  await api.post(url);
+};
+
+// Unarchive a hashlist
+export const unarchiveHashlist = async (hashlistId: string): Promise<void> => {
+  const url = `/api/hashlists/${hashlistId}/unarchive`;
+  logApiCall('POST', url);
+  await api.post(url);
+};
+
+// Job archive functions
+export const archiveJob = async (jobId: string): Promise<void> => {
+  const url = `/api/jobs/${jobId}/archive`;
+  logApiCall('POST', url);
+  await api.post(url);
+};
+
+export const unarchiveJob = async (jobId: string): Promise<void> => {
+  const url = `/api/jobs/${jobId}/unarchive`;
+  logApiCall('POST', url);
+  await api.post(url);
+};
+
 // Processing progress response type
 export interface ProcessingProgressResponse {
   hashlist_id: number;

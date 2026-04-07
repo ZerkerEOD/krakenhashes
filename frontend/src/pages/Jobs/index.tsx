@@ -17,16 +17,26 @@ import {
   Badge,
   ToggleButton,
   ToggleButtonGroup,
+  FormControlLabel,
+  Checkbox,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from '@mui/material';
-import { 
-  Delete as DeleteIcon, 
+import {
+  Delete as DeleteIcon,
   Refresh as RefreshIcon,
   Search as SearchIcon,
   FilterList as FilterListIcon,
+  Archive as ArchiveIcon,
+  Unarchive as UnarchiveIcon,
 } from '@mui/icons-material';
+import { useSnackbar } from 'notistack';
 import JobsTable from './JobsTable';
 import DeleteConfirm from './DeleteConfirm';
-import { api } from '../../services/api';
+import { api, archiveJob, unarchiveJob } from '../../services/api';
 import { JobSummary, PaginationInfo } from '../../types/jobs';
 import { useTeamFilter } from '../../contexts/TeamFilterContext';
 
@@ -45,30 +55,37 @@ interface Filters {
 const Jobs: React.FC = () => {
   const { t } = useTranslation('jobs');
   const { teamsEnabled, selectedTeamId } = useTeamFilter();
+  const { enqueueSnackbar } = useSnackbar();
   // Pagination state
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-  
+
   // Filter state
   const [filters, setFilters] = useState<Filters>({
     status: null,
     priority: null,
     search: '',
   });
-  
+
   // Data state
   const [jobs, setJobs] = useState<JobSummary[]>([]);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  
+
   // UI state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [lastUpdateTime, setLastUpdateTime] = useState(new Date());
   const [isPolling, setIsPolling] = useState(true);
-  
+
+  // Archive & selection state
+  const [showArchived, setShowArchived] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+  const [bulkOperating, setBulkOperating] = useState(false);
+
   // Refs for cleanup
   const pollingTimer = useRef<NodeJS.Timeout | null>(null);
   const abortController = useRef<AbortController | null>(null);
@@ -95,8 +112,12 @@ const Jobs: React.FC = () => {
       params.append('team_id', selectedTeamId);
     }
 
+    if (showArchived) {
+      params.append('include_archived', 'true');
+    }
+
     return params.toString();
-  }, [page, pageSize, filters, teamsEnabled, selectedTeamId]);
+  }, [page, pageSize, filters, teamsEnabled, selectedTeamId, showArchived]);
 
   // Fetch jobs with current filters and pagination
   const fetchJobs = useCallback(async (showLoading = false) => {
@@ -138,7 +159,8 @@ const Jobs: React.FC = () => {
   // Initial load and when dependencies change
   useEffect(() => {
     fetchJobs(true);
-  }, [page, pageSize, filters, selectedTeamId]);
+    setSelectedIds(new Set());
+  }, [page, pageSize, filters, selectedTeamId, showArchived]);
 
   // Set up polling
   useEffect(() => {
@@ -222,6 +244,85 @@ const Jobs: React.FC = () => {
     setIsPolling(prev => !prev);
   };
 
+  // Selection handlers
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(jobs.map(j => j.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleSelectOne = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  // Bulk archive handler
+  const handleBulkArchive = async (archive: boolean) => {
+    setBulkOperating(true);
+    const ids = Array.from(selectedIds).filter(id => {
+      const job = jobs.find(j => j.id === id);
+      return archive ? !job?.archived_at : !!job?.archived_at;
+    });
+    let successCount = 0;
+    for (const id of ids) {
+      try {
+        if (archive) {
+          await archiveJob(id);
+        } else {
+          await unarchiveJob(id);
+        }
+        successCount++;
+      } catch (err: any) {
+        const name = jobs.find(j => j.id === id)?.name || id;
+        enqueueSnackbar(`${name}: ${err.response?.data?.error || err.message}`, { variant: 'error' });
+      }
+    }
+    if (successCount > 0) {
+      enqueueSnackbar(
+        t(archive ? 'archive.bulkArchiveSuccess' : 'archive.bulkUnarchiveSuccess', { count: successCount }) as string,
+        { variant: 'success' }
+      );
+      fetchJobs(true);
+    }
+    setSelectedIds(new Set());
+    setBulkOperating(false);
+  };
+
+  // Bulk delete handler
+  const handleBulkDelete = async () => {
+    setBulkOperating(true);
+    const ids = Array.from(selectedIds);
+    let successCount = 0;
+    for (const id of ids) {
+      try {
+        await api.delete(`/api/jobs/${id}`);
+        successCount++;
+      } catch (err: any) {
+        const name = jobs.find(j => j.id === id)?.name || id;
+        enqueueSnackbar(`${name}: ${err.response?.data?.error || err.message}`, { variant: 'error' });
+      }
+    }
+    if (successCount > 0) {
+      enqueueSnackbar(
+        t('archive.bulkDeleteSuccess', { count: successCount }) as string,
+        { variant: 'success' }
+      );
+      fetchJobs(true);
+    }
+    setSelectedIds(new Set());
+    setBulkOperating(false);
+    setBulkDeleteDialogOpen(false);
+  };
+
   // Get status badge color
   const getStatusColor = (status: string): 'default' | 'primary' | 'success' | 'error' | 'warning' => {
     switch (status) {
@@ -292,6 +393,43 @@ const Jobs: React.FC = () => {
         </Box>
       </Box>
 
+      {/* Bulk Action Bar */}
+      {selectedIds.size > 0 && (
+        <Paper sx={{ p: 1.5, mb: 2, display: 'flex', alignItems: 'center', gap: 2, bgcolor: 'action.selected' }}>
+          <Typography variant="body2" fontWeight="medium">
+            {t('archive.selectedCount', { count: selectedIds.size })}
+          </Typography>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<ArchiveIcon />}
+            onClick={() => handleBulkArchive(true)}
+            disabled={bulkOperating}
+          >
+            {t('archive.archiveSelected')}
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<UnarchiveIcon />}
+            onClick={() => handleBulkArchive(false)}
+            disabled={bulkOperating}
+          >
+            {t('archive.unarchiveSelected')}
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            color="error"
+            startIcon={<DeleteIcon />}
+            onClick={() => setBulkDeleteDialogOpen(true)}
+            disabled={bulkOperating}
+          >
+            {t('archive.deleteSelected')}
+          </Button>
+        </Paper>
+      )}
+
       {/* Filters Section */}
       <Paper sx={{ p: 2, mb: 2 }}>
         <Stack spacing={2}>
@@ -324,6 +462,21 @@ const Jobs: React.FC = () => {
                 <MenuItem value={5}>{t('priority.maximum') as string}</MenuItem>
               </Select>
             </FormControl>
+
+            {/* Show Archived Toggle */}
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={showArchived}
+                  onChange={(e) => {
+                    setShowArchived(e.target.checked);
+                    setSelectedIds(new Set());
+                  }}
+                  size="small"
+                />
+              }
+              label={t('archive.showArchived') as string}
+            />
           </Box>
 
           {/* Status Filter Buttons */}
@@ -401,6 +554,10 @@ const Jobs: React.FC = () => {
             currentPage={page}
             pageSize={pageSize}
             onJobUpdated={fetchJobs}
+            selectedIds={selectedIds}
+            onSelectAll={handleSelectAll}
+            onSelectOne={handleSelectOne}
+            showArchived={showArchived}
           />
         )}
       </Paper>
@@ -414,6 +571,27 @@ const Jobs: React.FC = () => {
         title={t('dialogs.deleteFinished.title') as string}
         message={t('dialogs.deleteFinished.message') as string}
       />
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={bulkDeleteDialogOpen} onClose={() => setBulkDeleteDialogOpen(false)}>
+        <DialogTitle>{t('archive.confirmBulkDelete.title')}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {t('archive.confirmBulkDelete.message', { count: selectedIds.size })}
+          </DialogContentText>
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            {t('archive.confirmBulkDelete.warning')}
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkDeleteDialogOpen(false)} disabled={bulkOperating}>
+            {t('archive.confirmBulkDelete.cancel')}
+          </Button>
+          <Button onClick={handleBulkDelete} color="error" variant="contained" disabled={bulkOperating}>
+            {bulkOperating ? t('archive.confirmBulkDelete.deleting') : t('archive.confirmBulkDelete.delete')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

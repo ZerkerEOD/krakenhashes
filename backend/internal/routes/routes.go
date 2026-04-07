@@ -238,7 +238,7 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	userRetentionSettingsHandler := adminsettings.NewRetentionSettingsHandler(clientSettingsRepo)
 
 	// Create job settings handler for users (read-only access to job defaults)
-	userJobSettingsHandler := adminsettings.NewJobSettingsHandler(systemSettingsRepo)
+	userJobSettingsHandler := adminsettings.NewJobSettingsHandler(systemSettingsRepo, clientSettingsRepo)
 
 	// Setup feature-specific routes
 	SetupDashboardRoutes(jwtRouter)

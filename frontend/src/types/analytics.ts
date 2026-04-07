@@ -13,6 +13,7 @@ export interface AnalyticsReport {
   total_cracked: number;
   queue_position?: number;
   custom_patterns: string[];
+  hashlist_ids?: number[];
   created_at: string;
   started_at?: string;
   completed_at?: string;
@@ -217,6 +218,18 @@ export interface CreateAnalyticsReportRequest {
   start_date: string;
   end_date: string;
   custom_patterns?: string[];
+  hashlist_ids?: number[];
+}
+
+export interface HashlistSummary {
+  id: number;
+  name: string;
+  hash_type_id: number;
+  hash_type_name: string;
+  total_hashes: number;
+  cracked_hashes: number;
+  created_at: string;
+  archived_at?: string;
 }
 
 export interface QueueStatus {

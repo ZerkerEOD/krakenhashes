@@ -49,6 +49,7 @@ import CertificateCheck from './components/CertificateCheck';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { TeamFilterProvider } from './contexts/TeamFilterContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { DeletionProgressProvider } from './contexts/DeletionProgressContext';
 import { SnackbarProvider, useSnackbar } from 'notistack';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { getCookie } from './utils/cookies';
@@ -137,6 +138,7 @@ const App: React.FC = () => {
             <CssBaseline />
             <SnackbarProvider maxSnack={3}>
               <NotificationProvider>
+              <DeletionProgressProvider>
               <Router>
                 <Suspense fallback={
                   <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
@@ -208,6 +210,7 @@ const App: React.FC = () => {
                 </Routes>
                 </Suspense>
               </Router>
+              </DeletionProgressProvider>
               </NotificationProvider>
             </SnackbarProvider>
           </ThemeProvider>

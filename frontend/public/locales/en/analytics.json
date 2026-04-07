@@ -21,6 +21,19 @@
     "customPatternsPlaceholder": "e.g., goog, ggl, micro, soft",
     "customPatternsHelper": "Add custom organization name variations to check"
   },
+  "hashlistSelection": {
+    "title": "Hashlists",
+    "selectAll": "Select All",
+    "deselectAll": "Deselect All",
+    "noHashlists": "No hashlists found for the selected client and date range",
+    "name": "Name",
+    "hashType": "Hash Type",
+    "hashes": "Hashes",
+    "cracked": "Cracked",
+    "status": "Status",
+    "active": "Active",
+    "archived": "Archived"
+  },
   "table": {
     "dateRange": "Date Range",
     "generatedOn": "Generated On",
@@ -49,6 +62,7 @@
   },
   "messages": {
     "selectClient": "Please select a client",
+    "selectHashlists": "Please select at least one hashlist",
     "reportQueued": "Report queued (Position: {{position}})",
     "reportQueuedRetry": "Report queued for retry (Position: {{position}})",
     "reportDeleted": "Report deleted successfully",

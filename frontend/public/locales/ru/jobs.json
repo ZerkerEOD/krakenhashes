@@ -94,6 +94,7 @@
     "timeRemaining": "Оставшееся время",
     "estimatedCompletion": "Расчётное завершение",
     "crackingCompletedAt": "Взлом завершён",
+    "totalRunningTime": "Общее время работы",
     "chunkSizeDefault": "Не задано (используется по умолчанию)",
     "noActiveTasksEstimate": "Невозможно оценить — нет выполняемых задач",
     "lessThanOneMinute": "Менее 1 минуты",
@@ -301,5 +302,26 @@
   },
   "lastUpdated": "Последнее обновление: {{time}}",
   "filtered": "(отфильтровано)",
-  "loading": "Загрузка заданий..."
+  "loading": "Загрузка заданий...",
+  "archive": {
+    "showArchived": "Показать архивные",
+    "archive": "Архивировать",
+    "unarchive": "Разархивировать",
+    "archived": "Архивировано",
+    "archiveSelected": "Архивировать выбранные",
+    "unarchiveSelected": "Разархивировать выбранные",
+    "deleteSelected": "Удалить выбранные",
+    "selectedCount": "Выбрано: {{count}}",
+    "confirmBulkDelete": {
+      "title": "Подтвердите массовое удаление",
+      "message": "Вы уверены, что хотите удалить {{count}} задание(й)? Это действие нельзя отменить.",
+      "warning": "Это навсегда удалит выбранные задания и все связанные данные.",
+      "cancel": "Отмена",
+      "delete": "Удалить",
+      "deleting": "Удаление..."
+    },
+    "bulkArchiveSuccess": "{{count}} задание(й) успешно архивировано",
+    "bulkUnarchiveSuccess": "{{count}} задание(й) успешно разархивировано",
+    "bulkDeleteSuccess": "{{count}} задание(й) успешно удалено"
+  }
 }

@@ -30,6 +30,8 @@ export interface JobExecutionSettings {
   remove_from_client_potfile_on_hashlist_delete_default: boolean;
   // Benchmark history settings
   benchmark_history_retention_days: number;
+  // Analytics settings
+  analytics_default_date_range_months: number;
 }
 
 export interface SettingsUpdateResponse {
@@ -48,6 +50,8 @@ export const getJobExecutionSettings = async (): Promise<JobExecutionSettings> =
 export interface UserJobDefaults {
   default_chunk_duration: number;
   potfile_enabled: boolean;
+  default_data_retention_months: number | null;
+  analytics_default_date_range_months: number;
 }
 
 export const getJobDefaultsForUsers = async (): Promise<UserJobDefaults> => {

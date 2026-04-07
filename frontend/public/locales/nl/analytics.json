@@ -21,6 +21,19 @@
     "customPatternsPlaceholder": "bijv. goog, ggl, micro, soft",
     "customPatternsHelper": "Voeg aangepaste organisatienaamvariaties toe om te controleren"
   },
+  "hashlistSelection": {
+    "title": "Hashlijsten",
+    "selectAll": "Alles selecteren",
+    "deselectAll": "Alles deselecteren",
+    "noHashlists": "Geen hashlijsten gevonden voor de geselecteerde klant en datumbereik",
+    "name": "Naam",
+    "hashType": "Hash-type",
+    "hashes": "Hashes",
+    "cracked": "Gekraakt",
+    "status": "Status",
+    "active": "Actief",
+    "archived": "Gearchiveerd"
+  },
   "table": {
     "dateRange": "Datumbereik",
     "generatedOn": "Gegenereerd op",
@@ -49,6 +62,7 @@
   },
   "messages": {
     "selectClient": "Selecteer een klant",
+    "selectHashlists": "Selecteer ten minste één hashlijst",
     "reportQueued": "Rapport in wachtrij (Positie: {{position}})",
     "reportQueuedRetry": "Rapport in wachtrij voor nieuwe poging (Positie: {{position}})",
     "reportDeleted": "Rapport succesvol verwijderd",

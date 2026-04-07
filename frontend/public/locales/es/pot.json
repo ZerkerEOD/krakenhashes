@@ -14,12 +14,12 @@
   },
   "client": {
     "title": "Hashes descifrados - Vista de cliente",
-    "description": "Viendo hashes descifrados para el cliente: <1>{{clientName}}</1>",
+    "description": "Viendo hashes descifrados para el cliente: {{clientName}}",
     "tableTitle": "Hashes descifrados para \"{{clientName}}\""
   },
   "hashlist": {
     "title": "Hashes descifrados - Vista de lista de hashes",
-    "description": "Viendo hashes descifrados para la lista de hashes: <1>{{hashlistName}}</1>",
+    "description": "Viendo hashes descifrados para la lista de hashes: {{hashlistName}}",
     "tableTitle": "Hashes descifrados para \"{{hashlistName}}\""
   },
   "job": {

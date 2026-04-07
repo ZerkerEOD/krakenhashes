@@ -43,7 +43,7 @@ func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.S
 	emailHandler := emailhandler.NewHandler(emailService)
 	retentionSettingsHandler := adminsettings.NewRetentionSettingsHandler(clientSettingsRepo)
 	systemSettingsHandler := adminsettings.NewSystemSettingsHandler(systemSettingsRepo, presetJobRepo)
-	jobSettingsHandler := adminsettings.NewJobSettingsHandler(systemSettingsRepo)
+	jobSettingsHandler := adminsettings.NewJobSettingsHandler(systemSettingsRepo, clientSettingsRepo)
 	monitoringSettingsHandler := adminsettings.NewMonitoringSettingsHandler(systemSettingsRepo)
 	// clientHandler removed - client management moved to regular authenticated users
 	userHandler := adminuser.NewUserHandler(userRepo, database)

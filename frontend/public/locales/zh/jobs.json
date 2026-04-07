@@ -94,6 +94,7 @@
     "timeRemaining": "剩余时间",
     "estimatedCompletion": "预计完成时间",
     "crackingCompletedAt": "破解完成时间",
+    "totalRunningTime": "总运行时间",
     "chunkSizeDefault": "未设置（使用默认值）",
     "noActiveTasksEstimate": "无法估计 - 当前没有运行中的任务",
     "lessThanOneMinute": "不到 1 分钟",
@@ -301,5 +302,26 @@
   },
   "lastUpdated": "最后更新：{{time}}",
   "filtered": "（已筛选）",
-  "loading": "正在加载任务..."
+  "loading": "正在加载任务...",
+  "archive": {
+    "showArchived": "显示已归档",
+    "archive": "归档",
+    "unarchive": "取消归档",
+    "archived": "已归档",
+    "archiveSelected": "归档所选",
+    "unarchiveSelected": "取消归档所选",
+    "deleteSelected": "删除所选",
+    "selectedCount": "已选择 {{count}} 项",
+    "confirmBulkDelete": {
+      "title": "确认批量删除",
+      "message": "确定要删除 {{count}} 个任务吗？此操作无法撤销。",
+      "warning": "这将永久删除所选任务及所有相关数据。",
+      "cancel": "取消",
+      "delete": "删除",
+      "deleting": "正在删除..."
+    },
+    "bulkArchiveSuccess": "{{count}} 个任务归档成功",
+    "bulkUnarchiveSuccess": "{{count}} 个任务取消归档成功",
+    "bulkDeleteSuccess": "{{count}} 个任务删除成功"
+  }
 }

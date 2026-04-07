@@ -338,6 +338,22 @@ const JobExecutionSettingsComponent: React.FC = () => {
                   }}
                 />
               </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Analytics Default Date Range"
+                  value={settings.analytics_default_date_range_months}
+                  onChange={handleNumberChange('analytics_default_date_range_months')}
+                  onBlur={handleBlurSave}
+                  disabled={saving}
+                  helperText="Default date range for analytics reports (in months). Users can override this per-report."
+                  InputProps={{
+                    inputProps: { min: 1, max: 120 },
+                    endAdornment: <InputAdornment position="end">months</InputAdornment>,
+                  }}
+                />
+              </Grid>
             </Grid>
           </Paper>
         </Grid>

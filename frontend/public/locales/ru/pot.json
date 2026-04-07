@@ -14,12 +14,12 @@
   },
   "client": {
     "title": "Взломанные хеши — по клиенту",
-    "description": "Просмотр взломанных хешей для клиента: <1>{{clientName}}</1>",
+    "description": "Просмотр взломанных хешей для клиента: {{clientName}}",
     "tableTitle": "Взломанные хеши для \"{{clientName}}\""
   },
   "hashlist": {
     "title": "Взломанные хеши — по списку хешей",
-    "description": "Просмотр взломанных хешей для списка: <1>{{hashlistName}}</1>",
+    "description": "Просмотр взломанных хешей для списка: {{hashlistName}}",
     "tableTitle": "Взломанные хеши для \"{{hashlistName}}\""
   },
   "job": {

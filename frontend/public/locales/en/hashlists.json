@@ -45,7 +45,8 @@
     "file": "Hash File",
     "selectFile": "Select File",
     "uploading": "Uploading...",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "executableBlocked": "This file appears to be an executable binary and cannot be uploaded as a hashlist."
   },
   "actions": {
     "viewDetails": "View Details",
@@ -90,12 +91,32 @@
   "notifications": {
     "deleteSuccess": "Hashlist deleted successfully",
     "uploadSuccess": "Hashlist uploaded successfully",
-    "downloaded": "Downloaded {{filename}}"
+    "downloaded": "Downloaded {{filename}}",
+    "archiveSuccess": "Hashlist archived successfully",
+    "unarchiveSuccess": "Hashlist unarchived successfully",
+    "bulkArchiveSuccess": "{{count}} hashlist(s) archived successfully",
+    "bulkUnarchiveSuccess": "{{count}} hashlist(s) unarchived successfully"
   },
   "errors": {
     "loadFailed": "Error fetching hashlists.",
     "uploadFailed": "Failed to upload hashlist",
     "deleteFailed": "Deletion failed: {{error}}"
+  },
+  "archive": {
+    "showArchived": "Show Archived",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "archived": "Archived",
+    "selectedCount": "{{count}} selected",
+    "archiveSelected": "Archive Selected",
+    "unarchiveSelected": "Unarchive Selected",
+    "deleteSelected": "Delete Selected",
+    "confirmBulkDelete": {
+      "title": "Confirm Bulk Delete",
+      "message": "Are you sure you want to delete {{count}} hashlist(s)? This action cannot be undone.",
+      "warning": "This will permanently delete the selected hashlists and all associated data."
+    },
+    "bulkDeleteSuccess": "{{count}} hashlist(s) deleted successfully"
   },
   "hashDetails": {
     "title": "Hash Details",

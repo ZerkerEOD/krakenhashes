@@ -169,6 +169,8 @@ func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, ag
 	hashlistRouter.HandleFunc("/{id}/available-jobs", h.handleGetAvailableJobs).Methods(http.MethodGet, http.MethodOptions)
 	hashlistRouter.HandleFunc("/{id}/create-job", h.handleCreateJob).Methods(http.MethodPost, http.MethodOptions)
 	hashlistRouter.HandleFunc("/{id}/client", h.handleUpdateHashlistClient).Methods(http.MethodPatch, http.MethodOptions)
+	hashlistRouter.HandleFunc("/{id}/archive", h.handleArchiveHashlist).Methods(http.MethodPost, http.MethodOptions)
+	hashlistRouter.HandleFunc("/{id}/unarchive", h.handleUnarchiveHashlist).Methods(http.MethodPost, http.MethodOptions)
 
 	// Association wordlist routes (for association attacks -a 9)
 	hashlistRouter.HandleFunc("/{id}/association-wordlists", h.handleListAssociationWordlists).Methods(http.MethodGet, http.MethodOptions)
@@ -365,6 +367,12 @@ func (h *hashlistHandler) handleUploadHashlist(w http.ResponseWriter, r *http.Re
 	excludeClientStr := r.FormValue("exclude_from_client_potfile")
 	createLinkedStr := r.FormValue("create_linked") // Support linked LM/NTLM hashlists
 	teamIDStr := r.FormValue("team_id")             // Optional: explicit team for client assignment
+	// Optional client creation overrides (used when "Create New Client" is selected)
+	clientDescriptionStr := r.FormValue("client_description")
+	clientContactInfoStr := r.FormValue("client_contact_info")
+	clientRetentionStr := r.FormValue("client_data_retention_months")
+	clientExcludePotfileStr := r.FormValue("client_exclude_from_potfile")
+	clientExcludeClientPotfileStr := r.FormValue("client_exclude_from_client_potfile")
 	debug.Info("Received hashlist upload: name='%s', hashTypeID='%s', clientName='%s', excludeFromPotfile='%s', excludeFromClientPotfile='%s', createLinked='%s', teamID='%s'", name, hashTypeIDStr, clientName, excludeStr, excludeClientStr, createLinkedStr, teamIDStr)
 
 	// Validate and resolve explicit team_id if provided
@@ -443,40 +451,63 @@ func (h *hashlistHandler) handleUploadHashlist(w http.ResponseWriter, r *http.Re
 				return
 			}
 
-			// Fetch default retention setting
-			debug.Info("Fetching default retention setting...")
-			defaultRetentionSetting, settingErr := h.clientSettingsRepo.GetSetting(ctx, "default_data_retention_months") // Use settingErr
-			var defaultRetentionMonths *int                                                                              // Use pointer for nullable int
-
-			if settingErr != nil {
-				debug.Error("Failed to get default retention setting during client creation: %v. Client will have NULL retention.", settingErr)
-			} else if defaultRetentionSetting.Value != nil {
-				debug.Info("Default retention setting value found: '%s'", *defaultRetentionSetting.Value)
-				val, convErr := strconv.Atoi(*defaultRetentionSetting.Value)
-				if convErr != nil {
-					debug.Error("Failed to convert default retention setting '%s' to int: %v. Client will have NULL retention.", *defaultRetentionSetting.Value, convErr)
-				} else {
-					defaultRetentionMonths = &val
-					debug.Info("Successfully parsed and applying default retention of %d months to new client '%s'", val, trimmedClientName)
+			// Determine retention: use override from form if provided, otherwise fetch default
+			var retentionMonths *int
+			if clientRetentionStr != "" {
+				if val, convErr := strconv.Atoi(clientRetentionStr); convErr == nil && val >= 0 {
+					retentionMonths = &val
+					debug.Info("Using client retention override of %d months for new client '%s'", val, trimmedClientName)
+				} else if convErr != nil {
+					debug.Warning("Invalid client_data_retention_months value '%s': %v. Falling back to system default.", clientRetentionStr, convErr)
 				}
-			} else {
-				debug.Warning("Default retention setting found but its value is nil. Client will have NULL retention.")
 			}
+			if retentionMonths == nil {
+				// Fetch default retention setting
+				debug.Info("Fetching default retention setting...")
+				defaultRetentionSetting, settingErr := h.clientSettingsRepo.GetSetting(ctx, "default_data_retention_months")
+				if settingErr != nil {
+					debug.Error("Failed to get default retention setting during client creation: %v. Client will have NULL retention.", settingErr)
+				} else if defaultRetentionSetting.Value != nil {
+					val, convErr := strconv.Atoi(*defaultRetentionSetting.Value)
+					if convErr != nil {
+						debug.Error("Failed to convert default retention setting '%s' to int: %v. Client will have NULL retention.", *defaultRetentionSetting.Value, convErr)
+					} else {
+						retentionMonths = &val
+						debug.Info("Applying default retention of %d months to new client '%s'", val, trimmedClientName)
+					}
+				}
+			}
+
+			// Parse optional client field overrides
+			var clientDescription *string
+			if clientDescriptionStr != "" {
+				clientDescription = &clientDescriptionStr
+			}
+			var clientContactInfo *string
+			if clientContactInfoStr != "" {
+				clientContactInfo = &clientContactInfoStr
+			}
+			clientExcludePotfile := clientExcludePotfileStr == "true"
+			clientExcludeClientPotfile := clientExcludeClientPotfileStr == "true"
 
 			// Construct the new client model
 			newClient := &models.Client{
-				ID:                  uuid.New(),
-				Name:                trimmedClientName,
-				DataRetentionMonths: defaultRetentionMonths, // Assign fetched default (or nil)
-				CreatedAt:           time.Now(),
-				UpdatedAt:           time.Now(),
+				ID:                       uuid.New(),
+				Name:                     trimmedClientName,
+				Description:              clientDescription,
+				ContactInfo:              clientContactInfo,
+				DataRetentionMonths:      retentionMonths,
+				ExcludeFromPotfile:       clientExcludePotfile,
+				ExcludeFromClientPotfile: clientExcludeClientPotfile,
+				CreatedAt:                time.Now(),
+				UpdatedAt:                time.Now(),
 			}
 
 			// Log before calling Create
-			if defaultRetentionMonths == nil {
+			if retentionMonths == nil {
 				debug.Warning("[Pre-Create] Attempting to create client with ID %s with NULL DataRetentionMonths.", newClient.ID)
 			} else {
-				debug.Info("[Pre-Create] Attempting to create client with ID %s with DataRetentionMonths = %d.", newClient.ID, *defaultRetentionMonths)
+				debug.Info("[Pre-Create] Attempting to create client with ID %s with DataRetentionMonths = %d.", newClient.ID, *retentionMonths)
 			}
 
 			// Create the client
@@ -827,6 +858,9 @@ func (h *hashlistHandler) handleListHashlists(w http.ResponseWriter, r *http.Req
 	if name := queryVals.Get("name"); name != "" {
 		params.NameLike = &name
 	}
+	if queryVals.Get("include_archived") == "true" {
+		params.IncludeArchived = true
+	}
 	if clientIDStr := queryVals.Get("client_id"); clientIDStr != "" {
 		clientID, err := uuid.Parse(clientIDStr)
 		if err == nil {
@@ -951,6 +985,9 @@ func (h *hashlistHandler) handleListUserHashlists(w http.ResponseWriter, r *http
 	}
 	if name := queryVals.Get("name"); name != "" {
 		params.NameLike = &name
+	}
+	if queryVals.Get("include_archived") == "true" {
+		params.IncludeArchived = true
 	}
 
 	// Fetch data from repository
@@ -1463,6 +1500,76 @@ func (h *hashlistHandler) handleUpdateHashlistClient(w http.ResponseWriter, r *h
 	}
 
 	jsonResponse(w, http.StatusOK, hashlist)
+}
+
+// handleArchiveHashlist archives a hashlist, hiding it from default list views.
+func (h *hashlistHandler) handleArchiveHashlist(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	_, err := getUserIDFromContext(ctx)
+	if err != nil {
+		jsonError(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	id, err := getInt64FromPath(r, "id")
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Check for active jobs
+	hasActive, err := h.hashlistRepo.HasActiveJobs(ctx, id)
+	if err != nil {
+		debug.Error("Error checking active jobs for hashlist %d: %v", id, err)
+		jsonError(w, "Failed to check active jobs", http.StatusInternalServerError)
+		return
+	}
+	if hasActive {
+		jsonError(w, "Cannot archive a hashlist with active (pending/running) jobs", http.StatusConflict)
+		return
+	}
+
+	err = h.hashlistRepo.Archive(ctx, id)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			jsonError(w, "Hashlist not found or already archived", http.StatusNotFound)
+		} else {
+			debug.Error("Error archiving hashlist %d: %v", id, err)
+			jsonError(w, "Failed to archive hashlist", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, map[string]string{"message": "Hashlist archived successfully"})
+}
+
+// handleUnarchiveHashlist unarchives a hashlist, making it visible in default list views.
+func (h *hashlistHandler) handleUnarchiveHashlist(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	_, err := getUserIDFromContext(ctx)
+	if err != nil {
+		jsonError(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	id, err := getInt64FromPath(r, "id")
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	err = h.hashlistRepo.Unarchive(ctx, id)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			jsonError(w, "Hashlist not found or not archived", http.StatusNotFound)
+		} else {
+			debug.Error("Error unarchiving hashlist %d: %v", id, err)
+			jsonError(w, "Failed to unarchive hashlist", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, map[string]string{"message": "Hashlist unarchived successfully"})
 }
 
 func (h *hashlistHandler) handleDownloadHashlist(w http.ResponseWriter, r *http.Request) {

@@ -21,6 +21,19 @@
     "customPatternsPlaceholder": "例如：goog, ggl, micro, soft",
     "customPatternsHelper": "添加要检查的自定义组织名称变体"
   },
+  "hashlistSelection": {
+    "title": "哈希列表",
+    "selectAll": "全选",
+    "deselectAll": "取消全选",
+    "noHashlists": "未找到所选客户端和日期范围内的哈希列表",
+    "name": "名称",
+    "hashType": "哈希类型",
+    "hashes": "哈希数",
+    "cracked": "已破解",
+    "status": "状态",
+    "active": "活跃",
+    "archived": "已归档"
+  },
   "table": {
     "dateRange": "日期范围",
     "generatedOn": "生成时间",
@@ -49,6 +62,7 @@
   },
   "messages": {
     "selectClient": "请选择客户",
+    "selectHashlists": "请至少选择一个哈希列表",
     "reportQueued": "报告已排队（位置：{{position}}）",
     "reportQueuedRetry": "报告已排队重试（位置：{{position}}）",
     "reportDeleted": "报告删除成功",

@@ -14,6 +14,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/lib/pq"
 )
 
 // Handler handles analytics-related requests
@@ -115,6 +116,7 @@ func (h *Handler) CreateReport(w http.ResponseWriter, r *http.Request) {
 		EndDate:        req.EndDate,
 		Status:         "queued",
 		CustomPatterns: req.CustomPatterns,
+		HashlistIDs:    pq.Int64Array(req.HashlistIDs),
 		QueuePosition:  &queuePos,
 		CreatedAt:      time.Now(),
 	}
@@ -325,6 +327,62 @@ func (h *Handler) GetQueueStatus(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(status)
+}
+
+// GetHashlistsForReport returns hashlist summaries for the analytics selection UI
+// GET /api/analytics/hashlists?client_id=X&start_date=Y&end_date=Z
+func (h *Handler) GetHashlistsForReport(w http.ResponseWriter, r *http.Request) {
+	clientIDStr := r.URL.Query().Get("client_id")
+	startDateStr := r.URL.Query().Get("start_date")
+	endDateStr := r.URL.Query().Get("end_date")
+
+	if clientIDStr == "" || startDateStr == "" || endDateStr == "" {
+		http.Error(w, "client_id, start_date, and end_date are required", http.StatusBadRequest)
+		return
+	}
+
+	clientID, err := uuid.Parse(clientIDStr)
+	if err != nil {
+		http.Error(w, "Invalid client_id", http.StatusBadRequest)
+		return
+	}
+
+	// Validate team access to client
+	if !h.checkClientAccess(r.Context(), clientID) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	startDate, err := time.Parse(time.RFC3339, startDateStr)
+	if err != nil {
+		http.Error(w, "Invalid start_date format (use RFC3339)", http.StatusBadRequest)
+		return
+	}
+
+	endDate, err := time.Parse(time.RFC3339, endDateStr)
+	if err != nil {
+		http.Error(w, "Invalid end_date format (use RFC3339)", http.StatusBadRequest)
+		return
+	}
+
+	if endDate.Before(startDate) {
+		http.Error(w, "end_date must be after start_date", http.StatusBadRequest)
+		return
+	}
+
+	summaries, err := h.repo.GetHashlistSummariesByClientAndDateRange(r.Context(), clientID, startDate, endDate)
+	if err != nil {
+		debug.Error("Failed to get hashlist summaries: %v", err)
+		http.Error(w, "Failed to retrieve hashlists", http.StatusInternalServerError)
+		return
+	}
+
+	if summaries == nil {
+		summaries = []models.HashlistSummary{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(summaries)
 }
 
 // GetClients retrieves clients for analytics dropdown, filtered by team access

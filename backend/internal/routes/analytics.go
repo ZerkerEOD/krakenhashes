@@ -18,6 +18,7 @@ func SetupAnalyticsRoutes(router *mux.Router, database *db.DB, queueService *ser
 
 	// Analytics routes (all require authentication via JWT middleware)
 	router.HandleFunc("/analytics/clients", handler.GetClients).Methods("GET", "OPTIONS")
+	router.HandleFunc("/analytics/hashlists", handler.GetHashlistsForReport).Methods("GET", "OPTIONS")
 	router.HandleFunc("/analytics/reports", handler.CreateReport).Methods("POST", "OPTIONS")
 	router.HandleFunc("/analytics/reports/{id}", handler.GetReport).Methods("GET", "OPTIONS")
 	router.HandleFunc("/analytics/reports/client/{clientId}", handler.GetClientReports).Methods("GET", "OPTIONS")

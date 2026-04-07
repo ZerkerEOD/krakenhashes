@@ -147,6 +147,10 @@ func SetupUserRoutes(router *mux.Router, database *db.DB, dataDir string, binary
 	// Other specific job routes (before generic {id} pattern)
 	router.HandleFunc("/jobs/finished", jobsHandler.DeleteFinishedJobs).Methods("DELETE", "OPTIONS")
 
+	// Job archive routes (before generic {id} pattern)
+	router.HandleFunc("/jobs/{id}/archive", jobsHandler.ArchiveJob).Methods("POST", "OPTIONS")
+	router.HandleFunc("/jobs/{id}/unarchive", jobsHandler.UnarchiveJob).Methods("POST", "OPTIONS")
+
 	// Generic job routes (MUST come after specific routes)
 	router.HandleFunc("/jobs", jobsHandler.ListJobs).Methods("GET", "OPTIONS")
 	router.HandleFunc("/jobs/{id}", jobsHandler.GetJobDetail).Methods("GET", "OPTIONS")

@@ -14,12 +14,12 @@
   },
   "client": {
     "title": "已破解哈希 - 客户视图",
-    "description": "查看客户的已破解哈希：<1>{{clientName}}</1>",
+    "description": "查看客户的已破解哈希：{{clientName}}",
     "tableTitle": "\"{{clientName}}\" 的已破解哈希"
   },
   "hashlist": {
     "title": "已破解哈希 - 哈希列表视图",
-    "description": "查看哈希列表的已破解哈希：<1>{{hashlistName}}</1>",
+    "description": "查看哈希列表的已破解哈希：{{hashlistName}}",
     "tableTitle": "\"{{hashlistName}}\" 的已破解哈希"
   },
   "job": {

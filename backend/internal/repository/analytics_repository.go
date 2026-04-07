@@ -28,8 +28,8 @@ func (r *AnalyticsRepository) Create(ctx context.Context, report *models.Analyti
 		INSERT INTO analytics_reports (
 			id, client_id, user_id, start_date, end_date, status,
 			analytics_data, total_hashlists, total_hashes, total_cracked,
-			queue_position, custom_patterns, created_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+			queue_position, custom_patterns, hashlist_ids, created_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 	`
 
 	_, err := r.db.ExecContext(ctx, query,
@@ -45,6 +45,7 @@ func (r *AnalyticsRepository) Create(ctx context.Context, report *models.Analyti
 		report.TotalCracked,
 		report.QueuePosition,
 		report.CustomPatterns,
+		report.HashlistIDs,
 		report.CreatedAt,
 	)
 	if err != nil {
@@ -59,7 +60,7 @@ func (r *AnalyticsRepository) GetByID(ctx context.Context, id uuid.UUID) (*model
 	query := `
 		SELECT id, client_id, user_id, start_date, end_date, status,
 			analytics_data, total_hashlists, total_hashes, total_cracked,
-			queue_position, custom_patterns, created_at, started_at, completed_at, error_message
+			queue_position, custom_patterns, hashlist_ids, created_at, started_at, completed_at, error_message
 		FROM analytics_reports
 		WHERE id = $1
 	`
@@ -78,6 +79,7 @@ func (r *AnalyticsRepository) GetByID(ctx context.Context, id uuid.UUID) (*model
 		&report.TotalCracked,
 		&report.QueuePosition,
 		&report.CustomPatterns,
+		&report.HashlistIDs,
 		&report.CreatedAt,
 		&report.StartedAt,
 		&report.CompletedAt,
@@ -98,7 +100,7 @@ func (r *AnalyticsRepository) GetByClient(ctx context.Context, clientID uuid.UUI
 	query := `
 		SELECT id, client_id, user_id, start_date, end_date, status,
 			analytics_data, total_hashlists, total_hashes, total_cracked,
-			queue_position, custom_patterns, created_at, started_at, completed_at, error_message
+			queue_position, custom_patterns, hashlist_ids, created_at, started_at, completed_at, error_message
 		FROM analytics_reports
 		WHERE client_id = $1
 		ORDER BY created_at DESC
@@ -126,6 +128,7 @@ func (r *AnalyticsRepository) GetByClient(ctx context.Context, clientID uuid.UUI
 			&report.TotalCracked,
 			&report.QueuePosition,
 			&report.CustomPatterns,
+			&report.HashlistIDs,
 			&report.CreatedAt,
 			&report.StartedAt,
 			&report.CompletedAt,
@@ -272,7 +275,7 @@ func (r *AnalyticsRepository) GetQueuedReports(ctx context.Context) ([]*models.A
 	query := `
 		SELECT id, client_id, user_id, start_date, end_date, status,
 			analytics_data, total_hashlists, total_hashes, total_cracked,
-			queue_position, custom_patterns, created_at, started_at, completed_at, error_message
+			queue_position, custom_patterns, hashlist_ids, created_at, started_at, completed_at, error_message
 		FROM analytics_reports
 		WHERE status = 'queued'
 		ORDER BY queue_position ASC, created_at ASC
@@ -300,6 +303,7 @@ func (r *AnalyticsRepository) GetQueuedReports(ctx context.Context) ([]*models.A
 			&report.TotalCracked,
 			&report.QueuePosition,
 			&report.CustomPatterns,
+			&report.HashlistIDs,
 			&report.CreatedAt,
 			&report.StartedAt,
 			&report.CompletedAt,
@@ -387,6 +391,47 @@ func (r *AnalyticsRepository) GetHashlistsByClientAndDateRange(ctx context.Conte
 	}
 
 	return hashlistIDs, nil
+}
+
+// GetHashlistSummariesByClientAndDateRange returns lightweight hashlist info for the analytics selection UI
+func (r *AnalyticsRepository) GetHashlistSummariesByClientAndDateRange(ctx context.Context, clientID uuid.UUID, startDate, endDate time.Time) ([]models.HashlistSummary, error) {
+	query := `
+		SELECT hl.id, hl.name, hl.hash_type_id,
+		       COALESCE(ht.name, 'Unknown') as hash_type_name,
+		       hl.total_hashes, hl.cracked_hashes,
+		       hl.created_at, hl.archived_at
+		FROM hashlists hl
+		LEFT JOIN hash_types ht ON hl.hash_type_id = ht.id
+		WHERE hl.client_id = $1
+		  AND hl.created_at >= $2
+		  AND hl.created_at <= $3
+		ORDER BY hl.archived_at NULLS FIRST, hl.created_at ASC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, clientID, startDate, endDate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query hashlist summaries: %w", err)
+	}
+	defer rows.Close()
+
+	var summaries []models.HashlistSummary
+	for rows.Next() {
+		var s models.HashlistSummary
+		if err := rows.Scan(
+			&s.ID, &s.Name, &s.HashTypeID, &s.HashTypeName,
+			&s.TotalHashes, &s.CrackedHashes,
+			&s.CreatedAt, &s.ArchivedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan hashlist summary: %w", err)
+		}
+		summaries = append(summaries, s)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating hashlist summary rows: %w", err)
+	}
+
+	return summaries, nil
 }
 
 // GetLinkedHashlistCount returns the number of linked hashlist pairs
@@ -797,7 +842,7 @@ func (r *AnalyticsRepository) List(ctx context.Context, limit, offset int) ([]*m
 	query := `
 		SELECT id, client_id, user_id, start_date, end_date, status,
 			analytics_data, total_hashlists, total_hashes, total_cracked,
-			queue_position, custom_patterns, created_at, started_at, completed_at, error_message
+			queue_position, custom_patterns, hashlist_ids, created_at, started_at, completed_at, error_message
 		FROM analytics_reports
 		ORDER BY created_at DESC
 		LIMIT $1 OFFSET $2
@@ -825,6 +870,7 @@ func (r *AnalyticsRepository) List(ctx context.Context, limit, offset int) ([]*m
 			&report.TotalCracked,
 			&report.QueuePosition,
 			&report.CustomPatterns,
+			&report.HashlistIDs,
 			&report.CreatedAt,
 			&report.StartedAt,
 			&report.CompletedAt,

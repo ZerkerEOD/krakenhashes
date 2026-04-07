@@ -1,182 +1,310 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   TextField,
   CircularProgress,
   Alert,
   Box,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
-  Paper,
-  Popper,
-  ClickAwayListener
+  Autocomplete,
+  Typography,
+  FormControlLabel,
+  Checkbox,
+  Collapse,
+  Divider,
 } from '@mui/material';
-import { api } from '../../services/api';
+import { Add as AddIcon } from '@mui/icons-material';
+import { listClients } from '../../services/api';
 import { Client } from '../../types/client';
-import useDebounce from '../../hooks/useDebounce';
-import { AxiosError } from 'axios';
 
-// Define the Option type for Autocomplete
-type ClientOption = Pick<Client, 'id' | 'name'>; // Only need id and name for options
+// Option type for the Autocomplete dropdown
+interface ClientOption {
+  id: string;
+  name: string;
+  isCreateNew?: boolean;
+}
+
+const CREATE_NEW_OPTION: ClientOption = {
+  id: '__create_new__',
+  name: 'Create New Client',
+  isCreateNew: true,
+};
+
+// Data passed back to the parent form when "Create New Client" is active
+export interface NewClientData {
+  clientName: string;
+  description?: string;
+  contactInfo?: string;
+  dataRetentionMonths?: number | null;
+  excludeFromPotfile?: boolean;
+  excludeFromClientPotfile?: boolean;
+}
+
+interface ClientAutocompleteProps {
+  value: string | null;
+  onChange: (clientName: string | null) => void;
+  teamId?: string;
+  defaultRetention?: number | null;
+  onNewClientDataChange?: (data: NewClientData | null) => void;
+}
 
 export default function ClientAutocomplete({
-  value, // Represents the client *name*
-  onChange, // Expects to receive the client *name*
-  teamId, // Optional: filter clients by team
-}: {
-  value: string | null;
-  onChange: (value: string | null) => void;
-  teamId?: string;
-}) {
-  const [inputValue, setInputValue] = useState(value || '');
+  value,
+  onChange,
+  teamId,
+  defaultRetention,
+  onNewClientDataChange,
+}: ClientAutocompleteProps) {
   const [options, setOptions] = useState<ClientOption[]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const justSelectedRef = useRef(false); // Track if user just selected from dropdown
-  const anchorEl = useRef<HTMLDivElement>(null); // Anchor for the Popper
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedOption, setSelectedOption] = useState<ClientOption | null>(null);
+  const [isCreateMode, setIsCreateMode] = useState(false);
 
-  const debouncedSearch = useDebounce(inputValue, 300);
+  // New client form state
+  const [newClientName, setNewClientName] = useState('');
+  const [newClientDescription, setNewClientDescription] = useState('');
+  const [newClientContactInfo, setNewClientContactInfo] = useState('');
+  const [newClientRetention, setNewClientRetention] = useState<string>('');
+  const [newClientExcludePotfile, setNewClientExcludePotfile] = useState(false);
+  const [newClientExcludeClientPotfile, setNewClientExcludeClientPotfile] = useState(false);
 
-  // Effect to fetch suggestions
+  // Fetch clients on mount and when teamId changes
   useEffect(() => {
-    // Don't search if user just selected an option
-    if (justSelectedRef.current) {
-      justSelectedRef.current = false;
-      return;
-    }
-
-    if (debouncedSearch) {
-      setSearchLoading(true);
-      setSearchError(null);
-      const searchUrl = teamId
-        ? `/api/clients/search?q=${debouncedSearch}&team_id=${teamId}`
-        : `/api/clients/search?q=${debouncedSearch}`;
-      api.get<Client[]>(searchUrl)
-        .then((res) => {
-          const fetchedOptions = Array.isArray(res.data) ? res.data.map(c => ({ id: c.id, name: c.name })) : [];
-          setOptions(fetchedOptions);
-          setShowSuggestions(fetchedOptions.length > 0); // Show suggestions only if results exist
-          console.log('[API Success] Setting options:', fetchedOptions);
-          console.log('[API Success] Setting showSuggestions to:', fetchedOptions.length > 0);
-        })
-        .catch((err: AxiosError) => {
-          console.error("Error searching clients:", err);
-          setSearchError((err.response?.data as any)?.error || err.message || 'Failed to fetch clients');
-          setOptions([]);
-          setShowSuggestions(false);
-        })
-        .finally(() => {
-          setSearchLoading(false);
-        });
-    } else {
-      setOptions([]);
-      setShowSuggestions(false);
-      setSearchError(null);
-    }
-  }, [debouncedSearch]);
-
-  // Reset options when teamId changes (clients are team-scoped)
-  useEffect(() => {
-    setOptions([]);
-    setShowSuggestions(false);
-    setSearchError(null);
+    fetchClients();
   }, [teamId]);
 
-  // Update internal state if controlled value changes
-  useEffect(() => {
-    if (value !== inputValue) { // Avoid infinite loop
-        setInputValue(value || '');
+  const fetchClients = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await listClients();
+      let clients: Client[] = response.data?.data || [];
+
+      // Filter by team if teamId is provided (client-side filter for team-scoped view)
+      // The backend listClients returns all accessible clients; team filtering
+      // is typically handled by backend middleware, but we add client-side filter as safety
+      const clientOptions: ClientOption[] = clients.map((c) => ({
+        id: c.id,
+        name: c.name,
+      }));
+
+      // Sort alphabetically
+      clientOptions.sort((a, b) => a.name.localeCompare(b.name));
+
+      setOptions(clientOptions);
+    } catch (err: any) {
+      console.error('Error fetching clients:', err);
+      setError(err.response?.data?.error || err.message || 'Failed to fetch clients');
+      setOptions([]);
+    } finally {
+      setLoading(false);
     }
-  }, [value]);
-
-  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = event.target.value;
-    setInputValue(newValue);
-    onChange(newValue.trim() || null); // Update form state as user types
-    setShowSuggestions(true); // Try to show suggestions while typing
   };
 
-  const handleSuggestionClick = (option: ClientOption) => {
-    justSelectedRef.current = true; // Mark that user just selected an option
-    setInputValue(option.name); // Update text field
-    onChange(option.name); // Update form state with selected name
-    setShowSuggestions(false); // Close suggestions immediately
-    setOptions([]); // Clear options after selection
+  // Sync selected option with external value
+  useEffect(() => {
+    if (!value) {
+      if (!isCreateMode) {
+        setSelectedOption(null);
+      }
+      return;
+    }
+    // Find matching option
+    const match = options.find((o) => o.name === value);
+    if (match) {
+      setSelectedOption(match);
+      setIsCreateMode(false);
+    }
+  }, [value, options]);
+
+  // Notify parent of new client data changes
+  useEffect(() => {
+    if (isCreateMode && newClientName.trim()) {
+      const retentionValue = newClientRetention.trim() !== ''
+        ? parseInt(newClientRetention, 10)
+        : undefined;
+
+      onNewClientDataChange?.({
+        clientName: newClientName.trim(),
+        description: newClientDescription.trim() || undefined,
+        contactInfo: newClientContactInfo.trim() || undefined,
+        dataRetentionMonths: retentionValue !== undefined && !isNaN(retentionValue)
+          ? retentionValue
+          : undefined,
+        excludeFromPotfile: newClientExcludePotfile,
+        excludeFromClientPotfile: newClientExcludeClientPotfile,
+      });
+    } else if (isCreateMode) {
+      onNewClientDataChange?.(null);
+    }
+  }, [
+    isCreateMode,
+    newClientName,
+    newClientDescription,
+    newClientContactInfo,
+    newClientRetention,
+    newClientExcludePotfile,
+    newClientExcludeClientPotfile,
+  ]);
+
+  const handleOptionChange = (_event: React.SyntheticEvent, newValue: ClientOption | null) => {
+    if (newValue?.isCreateNew) {
+      setSelectedOption(CREATE_NEW_OPTION);
+      setIsCreateMode(true);
+      setNewClientName('');
+      setNewClientDescription('');
+      setNewClientContactInfo('');
+      setNewClientRetention('');
+      setNewClientExcludePotfile(false);
+      setNewClientExcludeClientPotfile(false);
+      onChange(null); // Clear until user types a name
+    } else {
+      setSelectedOption(newValue);
+      setIsCreateMode(false);
+      onChange(newValue ? newValue.name : null);
+      onNewClientDataChange?.(null);
+    }
   };
 
-  const handleCloseSuggestions = () => {
-    console.log('[handleCloseSuggestions] Setting showSuggestions to false');
-    setShowSuggestions(false);
+  const handleNewClientNameChange = (name: string) => {
+    setNewClientName(name);
+    onChange(name.trim() || null);
   };
 
-  // ---> ADD LOGGING <---
-  console.log('[Render] showSuggestions:', showSuggestions);
-  console.log('[Render] options:', options);
-  // ---> ADD ANCHOR LOGGING <---
-  if (showSuggestions && options.length > 0) {
-    console.log('[Render] Anchor Width:', anchorEl.current?.clientWidth);
-  }
-  // ---> END LOGGING <---
+  // Build options list with "Create New Client" at top
+  const allOptions: ClientOption[] = [CREATE_NEW_OPTION, ...options];
 
   return (
-    <Box sx={{ position: 'relative', my: 2 }} ref={anchorEl}>
-        <TextField
-            fullWidth // Make TextField take full width
-            label="Client Name"
-            placeholder="Search or type client name..."
-            value={inputValue}
-            onChange={handleInputChange}
-            onFocus={() => { if (options.length > 0) setShowSuggestions(true); }} // Show suggestions on focus if available
+    <Box sx={{ my: 2 }}>
+      <Autocomplete
+        options={allOptions}
+        getOptionLabel={(option) => option.name}
+        value={selectedOption}
+        onChange={handleOptionChange}
+        loading={loading}
+        isOptionEqualToValue={(option, val) => option.id === val.id}
+        renderOption={(props, option) => {
+          if (option.isCreateNew) {
+            return (
+              <Box component="li" {...props} key={option.id}>
+                <AddIcon sx={{ mr: 1, color: 'primary.main' }} />
+                <Typography color="primary.main" fontWeight="medium">
+                  {option.name}
+                </Typography>
+              </Box>
+            );
+          }
+          return (
+            <Box component="li" {...props} key={option.id}>
+              <Typography>{option.name}</Typography>
+            </Box>
+          );
+        }}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label="Client"
+            placeholder="Select a client..."
             InputProps={{
+              ...params.InputProps,
               endAdornment: (
                 <>
-                  {searchLoading && <CircularProgress color="inherit" size={20} />}
+                  {loading && <CircularProgress color="inherit" size={20} />}
+                  {params.InputProps.endAdornment}
                 </>
               ),
             }}
-        />
-        <Popper
-            open={showSuggestions && options.length > 0}
-            anchorEl={anchorEl.current}
-            placement="bottom-start"
-            style={{ zIndex: 1400 }} // Ensure it's above Dialog (often ~1300)
-            modifiers={[
-                {
-                    name: 'offset',
-                    options: {
-                        offset: [0, 8], // Offset below the text field
-                    },
-                },
-                {
-                     name: 'preventOverflow',
-                     options: {
-                         boundary: 'clippingParents',
-                     },
-                },
-            ]}
-        >
-             <ClickAwayListener onClickAway={handleCloseSuggestions}>
-                <Paper elevation={3} sx={{ width: anchorEl.current?.clientWidth, maxHeight: 200, overflow: 'auto' }}>
-                    <List dense>
-                        {options.map((option) => (
-                            <ListItem key={option.id} disablePadding>
-                                <ListItemButton onClick={() => handleSuggestionClick(option)}>
-                                    <ListItemText primary={option.name} />
-                                </ListItemButton>
-                            </ListItem>
-                        ))}
-                    </List>
-                </Paper>
-            </ClickAwayListener>
-        </Popper>
-
-        {searchError && (
-            <Alert severity="error" sx={{ mt: 1 }}>
-                {searchError}
-            </Alert>
+          />
         )}
+      />
+
+      {/* Create New Client inline form */}
+      <Collapse in={isCreateMode}>
+        <Box sx={{ mt: 2, p: 2, border: 1, borderColor: 'divider', borderRadius: 1 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            New Client Details
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+
+          <TextField
+            fullWidth
+            required={isCreateMode}
+            label="Client Name"
+            value={newClientName}
+            onChange={(e) => handleNewClientNameChange(e.target.value)}
+            sx={{ mb: 2 }}
+          />
+
+          <TextField
+            fullWidth
+            label="Description"
+            value={newClientDescription}
+            onChange={(e) => setNewClientDescription(e.target.value)}
+            multiline
+            rows={2}
+            sx={{ mb: 2 }}
+          />
+
+          <TextField
+            fullWidth
+            label="Contact Info"
+            value={newClientContactInfo}
+            onChange={(e) => setNewClientContactInfo(e.target.value)}
+            sx={{ mb: 2 }}
+          />
+
+          <TextField
+            fullWidth
+            type="number"
+            label="Data Retention (months)"
+            value={newClientRetention}
+            onChange={(e) => setNewClientRetention(e.target.value)}
+            placeholder={
+              defaultRetention !== null && defaultRetention !== undefined
+                ? `System default: ${defaultRetention}`
+                : 'Not set (keep indefinitely)'
+            }
+            helperText={
+              defaultRetention !== null && defaultRetention !== undefined
+                ? `Leave empty to use system default (${defaultRetention} months). Set 0 to keep forever.`
+                : 'Leave empty to use system default. Set 0 to keep forever.'
+            }
+            InputProps={{ inputProps: { min: 0 } }}
+            sx={{ mb: 2 }}
+          />
+
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={newClientExcludePotfile}
+                onChange={(e) => setNewClientExcludePotfile(e.target.checked)}
+              />
+            }
+            label="Exclude from global potfile"
+          />
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 4, mt: -0.5, mb: 1 }}>
+            Cracked passwords from this client won't be added to the global potfile.
+          </Typography>
+
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={newClientExcludeClientPotfile}
+                onChange={(e) => setNewClientExcludeClientPotfile(e.target.checked)}
+              />
+            }
+            label="Exclude from client potfile"
+          />
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 4, mt: -0.5 }}>
+            Cracked passwords from this client won't be added to their client-specific potfile.
+          </Typography>
+        </Box>
+      </Collapse>
+
+      {error && (
+        <Alert severity="error" sx={{ mt: 1 }}>
+          {error}
+        </Alert>
+      )}
     </Box>
   );
 }

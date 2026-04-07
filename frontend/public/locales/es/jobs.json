@@ -94,6 +94,7 @@
     "timeRemaining": "Tiempo restante",
     "estimatedCompletion": "Finalizacion estimada",
     "crackingCompletedAt": "Descifrado completado el",
+    "totalRunningTime": "Tiempo total de ejecución",
     "chunkSizeDefault": "No establecido (usando predeterminado)",
     "noActiveTasksEstimate": "No se puede estimar - no hay tareas en ejecucion actualmente",
     "lessThanOneMinute": "Menos de 1 minuto",
@@ -301,5 +302,26 @@
   },
   "lastUpdated": "Ultima actualizacion: {{time}}",
   "filtered": "(filtrado)",
-  "loading": "Cargando trabajos..."
+  "loading": "Cargando trabajos...",
+  "archive": {
+    "showArchived": "Mostrar archivados",
+    "archive": "Archivar",
+    "unarchive": "Desarchivar",
+    "archived": "Archivado",
+    "archiveSelected": "Archivar seleccionados",
+    "unarchiveSelected": "Desarchivar seleccionados",
+    "deleteSelected": "Eliminar seleccionados",
+    "selectedCount": "{{count}} seleccionados",
+    "confirmBulkDelete": {
+      "title": "Confirmar eliminacion masiva",
+      "message": "Estas seguro de que deseas eliminar {{count}} trabajo(s)? Esta accion no se puede deshacer.",
+      "warning": "Esto eliminara permanentemente los trabajos seleccionados y todos los datos asociados.",
+      "cancel": "Cancelar",
+      "delete": "Eliminar",
+      "deleting": "Eliminando..."
+    },
+    "bulkArchiveSuccess": "{{count}} trabajo(s) archivados exitosamente",
+    "bulkUnarchiveSuccess": "{{count}} trabajo(s) desarchivados exitosamente",
+    "bulkDeleteSuccess": "{{count}} trabajo(s) eliminados exitosamente"
+  }
 }

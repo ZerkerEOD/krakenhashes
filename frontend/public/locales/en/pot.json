@@ -14,12 +14,12 @@
   },
   "client": {
     "title": "Cracked Hashes - Client View",
-    "description": "Viewing cracked hashes for client: <1>{{clientName}}</1>",
+    "description": "Viewing cracked hashes for client: {{clientName}}",
     "tableTitle": "Cracked Hashes for \"{{clientName}}\""
   },
   "hashlist": {
     "title": "Cracked Hashes - Hashlist View",
-    "description": "Viewing cracked hashes for hashlist: <1>{{hashlistName}}</1>",
+    "description": "Viewing cracked hashes for hashlist: {{hashlistName}}",
     "tableTitle": "Cracked Hashes for \"{{hashlistName}}\""
   },
   "job": {

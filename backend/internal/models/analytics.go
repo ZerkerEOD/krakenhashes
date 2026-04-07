@@ -23,6 +23,7 @@ type AnalyticsReport struct {
 	TotalCracked   int            `json:"total_cracked"`
 	QueuePosition  *int           `json:"queue_position"`
 	CustomPatterns pq.StringArray `json:"custom_patterns" db:"custom_patterns"`
+	HashlistIDs    pq.Int64Array  `json:"hashlist_ids" db:"hashlist_ids"`
 	CreatedAt      time.Time      `json:"created_at"`
 	StartedAt      *time.Time     `json:"started_at"`
 	CompletedAt    *time.Time     `json:"completed_at"`
@@ -430,4 +431,17 @@ type CreateAnalyticsReportRequest struct {
 	StartDate      time.Time `json:"start_date" binding:"required"`
 	EndDate        time.Time `json:"end_date" binding:"required"`
 	CustomPatterns []string  `json:"custom_patterns"`
+	HashlistIDs    []int64   `json:"hashlist_ids"`
+}
+
+// HashlistSummary provides lightweight hashlist info for the analytics selection UI
+type HashlistSummary struct {
+	ID            int64      `json:"id"`
+	Name          string     `json:"name"`
+	HashTypeID    int        `json:"hash_type_id"`
+	HashTypeName  string     `json:"hash_type_name"`
+	TotalHashes   int        `json:"total_hashes"`
+	CrackedHashes int        `json:"cracked_hashes"`
+	CreatedAt     time.Time  `json:"created_at"`
+	ArchivedAt    *time.Time `json:"archived_at,omitempty"`
 }
