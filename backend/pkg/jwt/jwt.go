@@ -8,7 +8,7 @@ import (
 
 	"encoding/base64"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 var jwtKey = []byte(os.Getenv("JWT_SECRET"))
@@ -16,11 +16,11 @@ var jwtKey = []byte(os.Getenv("JWT_SECRET"))
 type Claims struct {
 	UserID string `json:"user_id"`
 	Role   string `json:"role"`
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 }
 
 func GenerateToken(userID string, role string, expiryMinutes int) (string, error) {
-	token := jwt.New(jwt.SigningMethodHS256)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{})
 
 	// Set claims
 	claims := token.Claims.(jwt.MapClaims)

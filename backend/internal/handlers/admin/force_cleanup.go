@@ -6,7 +6,7 @@ import (
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/integration"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
-	"github.com/go-chi/chi/v5"
+	"github.com/gorilla/mux"
 )
 
 // ForceCleanupHandler handles force cleanup requests for agents
@@ -24,7 +24,7 @@ func NewForceCleanupHandler(wsIntegration *integration.JobWebSocketIntegration) 
 // ForceCleanup sends a force cleanup command to an agent
 func (h *ForceCleanupHandler) ForceCleanup(w http.ResponseWriter, r *http.Request) {
 	// Get agent ID from URL parameter
-	agentIDStr := chi.URLParam(r, "id")
+	agentIDStr := mux.Vars(r)["id"]
 	agentID, err := strconv.Atoi(agentIDStr)
 	if err != nil {
 		debug.Error("Invalid agent ID: %s, error: %v", agentIDStr, err)

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -95,7 +95,7 @@ func TestValidateJWT(t *testing.T) {
 	require.NoError(t, err)
 
 	// Generate an expired token
-	expiredToken := jwt.New(jwt.SigningMethodHS256)
+	expiredToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{})
 	claims := expiredToken.Claims.(jwt.MapClaims)
 	claims["user_id"] = userID
 	claims["role"] = role
@@ -104,7 +104,7 @@ func TestValidateJWT(t *testing.T) {
 	require.NoError(t, err)
 
 	// Generate a token with wrong signing method
-	wrongMethodToken := jwt.New(jwt.SigningMethodRS256) // Using RS256 instead of HS256
+	wrongMethodToken := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{}) // Using RS256 instead of HS256
 	claims = wrongMethodToken.Claims.(jwt.MapClaims)
 	claims["user_id"] = userID
 	claims["role"] = role
@@ -231,7 +231,7 @@ func TestGetUserRole(t *testing.T) {
 
 	// Test with token missing role claim
 	t.Run("token without role claim", func(t *testing.T) {
-		token := jwt.New(jwt.SigningMethodHS256)
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{})
 		claims := token.Claims.(jwt.MapClaims)
 		claims["user_id"] = uuid.New().String()
 		claims["exp"] = time.Now().Add(time.Hour).Unix()
@@ -313,7 +313,7 @@ func TestIsAdmin(t *testing.T) {
 
 // Helper function to generate a token with a specific secret
 func generateTokenWithSecret(t *testing.T, userID, role, secret string) string {
-	token := jwt.New(jwt.SigningMethodHS256)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{})
 	claims := token.Claims.(jwt.MapClaims)
 	claims["user_id"] = userID
 	claims["role"] = role
