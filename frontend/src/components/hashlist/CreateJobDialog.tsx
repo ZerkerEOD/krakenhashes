@@ -165,7 +165,8 @@ export default function CreateJobDialog({
     increment_min: undefined as number | undefined,
     increment_max: undefined as number | undefined,
     association_wordlist_id: undefined as string | undefined,
-    custom_charsets: null as Record<string, string> | null
+    custom_charsets: null as Record<string, string> | null,
+    additional_args: ''
   });
 
   // Saved charsets for picker
@@ -353,7 +354,8 @@ export default function CreateJobDialog({
         // Map chunk_duration to chunk_size_seconds for API
         const customJobPayload = {
           ...customJob,
-          chunk_size_seconds: customJob.chunk_duration
+          chunk_size_seconds: customJob.chunk_duration,
+          additional_args: customJob.additional_args || null
         };
         delete (customJobPayload as any).chunk_duration;
 
@@ -376,7 +378,11 @@ export default function CreateJobDialog({
       }, 1500);
     } catch (err: any) {
       console.error('Failed to create job:', err);
-      setError(err.response?.data?.error || 'Failed to create job');
+      setError(
+        err.response?.data?.error ||
+        (typeof err.response?.data === 'string' ? err.response.data : null) ||
+        'Failed to create job'
+      );
     } finally {
       setLoading(false);
       setLoadingMessage('Creating...');
@@ -421,7 +427,8 @@ export default function CreateJobDialog({
         increment_min: undefined,
         increment_max: undefined,
         association_wordlist_id: undefined,
-        custom_charsets: null
+        custom_charsets: null,
+        additional_args: ''
       });
       setTabValue(0);
       setCustomJobName('');
@@ -1235,6 +1242,18 @@ export default function CreateJobDialog({
                       }
                       label="Allow High Priority Override"
                       sx={{ mt: 1 }}
+                    />
+                  </Grid>
+
+                  {/* Additional Hashcat Arguments */}
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Additional Hashcat Arguments (Optional)"
+                      value={customJob.additional_args || ''}
+                      onChange={(e) => setCustomJob(prev => ({ ...prev, additional_args: e.target.value }))}
+                      placeholder="e.g., -w 4 -O --force"
+                      helperText="Extra hashcat flags for this job. Agent-level flags take priority on conflicts."
                     />
                   </Grid>
                 </Grid>

@@ -54,6 +54,10 @@
     "download": "Download",
     "delete": "Delete"
   },
+  "createJob": {
+    "additionalArgs": "Additional Hashcat Arguments (Optional)",
+    "additionalArgsHelper": "Extra hashcat flags for this job. Agent-level flags take priority on conflicts."
+  },
   "confirmDelete": {
     "title": "Confirm Deletion",
     "message": "Are you sure you want to delete the hashlist \"{{name}}\"? This action cannot be undone.",

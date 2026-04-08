@@ -785,6 +785,7 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 				IncrementMin              *int     `json:"increment_min"`
 				IncrementMax              *int     `json:"increment_max"`
 				AssociationWordlistID     *string  `json:"association_wordlist_id"`
+				AdditionalArgs            *string  `json:"additional_args"`
 			} `json:"custom_job"`
 		}
 		if err := json.Unmarshal(rawReq, &req); err != nil {
@@ -834,6 +835,14 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			}
 		}
 
+		// Validate additional args if provided
+		if req.CustomJob.AdditionalArgs != nil && *req.CustomJob.AdditionalArgs != "" {
+			if err := services.ValidateAdditionalArgs(*req.CustomJob.AdditionalArgs); err != nil {
+				http.Error(w, fmt.Sprintf("Invalid additional arguments: %v", err), http.StatusBadRequest)
+				return
+			}
+		}
+
 		// Debug logging for increment mode
 		debug.Info("Received custom job request with increment settings", map[string]interface{}{
 			"increment_mode": req.CustomJob.IncrementMode,
@@ -859,6 +868,7 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			IncrementMode:             req.CustomJob.IncrementMode,
 			IncrementMin:              req.CustomJob.IncrementMin,
 			IncrementMax:              req.CustomJob.IncrementMax,
+			AdditionalArgs:            req.CustomJob.AdditionalArgs,
 		}
 
 		// Add association wordlist ID for mode 9

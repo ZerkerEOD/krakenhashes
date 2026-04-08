@@ -60,6 +60,7 @@ export interface PresetJob {
   increment_mode?: string; // Mask increment mode: off, increment, increment_inverse
   increment_min?: number | null; // Starting mask length
   increment_max?: number | null; // Maximum mask length
+  additional_args?: string | null; // Additional hashcat arguments
 }
 
 // Internal form state type for use in the UI - keeps IDs as numbers
@@ -79,6 +80,7 @@ export interface PresetJobFormData {
   increment_mode: string; // Mask increment mode
   increment_min: number | undefined; // Optional, backend applies defaults
   increment_max: number | undefined; // Optional, backend applies defaults
+  additional_args: string; // Additional hashcat arguments
 }
 
 // API type for create/update operations - using string UUIDs

@@ -566,6 +566,8 @@ export const createPresetJob = async (data: PresetJobInput): Promise<PresetJob> 
     // Convert undefined to null for backend (backend applies defaults for null values)
     increment_min: data.increment_min ?? null,
     increment_max: data.increment_max ?? null,
+    // Convert empty string to null for backend
+    additional_args: data.additional_args || null,
   };
 
   console.log('Converted API data:', JSON.stringify(apiData, null, 2));
@@ -596,6 +598,8 @@ export const updatePresetJob = async (id: string, data: PresetJobInput): Promise
     // Convert undefined to null for backend (backend applies defaults for null values)
     increment_min: data.increment_min ?? null,
     increment_max: data.increment_max ?? null,
+    // Convert empty string to null for backend
+    additional_args: data.additional_args || null,
   };
 
   console.log('Converted update API data:', JSON.stringify(apiData, null, 2));

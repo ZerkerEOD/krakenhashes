@@ -534,7 +534,8 @@
         "ruleOptional": "Rule (Optional)",
         "firstWordlist": "First Wordlist",
         "secondWordlist": "Second Wordlist",
-        "allowHighPriorityOverride": "Allow High Priority Override (can interrupt running jobs)"
+        "allowHighPriorityOverride": "Allow High Priority Override (can interrupt running jobs)",
+        "additionalArgs": "Additional Hashcat Arguments"
       },
       "incrementModes": {
         "off": "Off (use full mask)",
@@ -557,7 +558,8 @@
         "rulesNotUsed": "Rules not used for this attack mode",
         "selectRule": "Optionally select a rule file to apply transformations",
         "firstWordlist": "Words from this list will be used as the first part",
-        "secondWordlist": "Words from this list will be appended to the first"
+        "secondWordlist": "Words from this list will be appended to the first",
+        "additionalArgs": "Extra hashcat flags for this job. Agent-level flags take priority on conflicts."
       },
       "errors": {
         "nameRequired": "Job name is required",

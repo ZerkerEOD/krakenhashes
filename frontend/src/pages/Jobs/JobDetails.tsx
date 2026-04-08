@@ -1045,6 +1045,12 @@ const JobDetails: React.FC = () => {
               </TableRow>
               {/* Attack configuration rows based on attack mode */}
               {renderAttackConfigRows()}
+              {jobData.additional_args && (
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold' }}>{t('jobs:details.additionalArgs', 'Additional Arguments')}</TableCell>
+                  <TableCell sx={{ fontFamily: 'monospace' }}>{jobData.additional_args}</TableCell>
+                </TableRow>
+              )}
               <TableRow>
                 <TableCell sx={{ fontWeight: 'bold' }}>{t('common.keyspace')}</TableCell>
                 <TableCell>{formatKeyspace(jobData.base_keyspace)}</TableCell>

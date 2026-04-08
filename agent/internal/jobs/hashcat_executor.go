@@ -61,8 +61,9 @@ type JobTaskAssignment struct {
 	ChunkDuration   int         `json:"chunk_duration"`   // Expected duration in seconds
 	ReportInterval  int         `json:"report_interval"`  // Progress reporting interval
 	OutputFormat    string      `json:"output_format"`    // Hashcat output format
-	ExtraParameters string      `json:"extra_parameters,omitempty"` // Agent-specific hashcat parameters
-	EnabledDevices  []int       `json:"enabled_devices,omitempty"`  // List of enabled device IDs
+	ExtraParameters   string    `json:"extra_parameters,omitempty"`     // Agent-specific hashcat parameters
+	JobAdditionalArgs string    `json:"job_additional_args,omitempty"` // Job-level hashcat parameters (merged with agent params)
+	EnabledDevices    []int     `json:"enabled_devices,omitempty"`     // List of enabled device IDs
 	IncrementMode   string      `json:"increment_mode,omitempty"`   // Mask increment mode: off, increment, increment_inverse
 	IncrementMin    *int        `json:"increment_min,omitempty"`    // Starting mask length for increment mode
 	IncrementMax    *int        `json:"increment_max,omitempty"`    // Maximum mask length for increment mode
@@ -496,17 +497,15 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 	}
 	// If no devices specified, hashcat will use all available devices
 	
-	// Add extra parameters - prefer task-specific over agent defaults
-	extraParams := assignment.ExtraParameters
-	if extraParams == "" && e.agentExtraParams != "" {
-		extraParams = e.agentExtraParams
+	// Merge job-level args with agent-level args (agent wins on conflicts)
+	agentArgs := assignment.ExtraParameters
+	if agentArgs == "" {
+		agentArgs = e.agentExtraParams
 	}
-	
-	if extraParams != "" {
-		debug.Info("Adding extra parameters: %s", extraParams)
-		// Split the extra parameters by space and append them
-		extraParamsList := strings.Fields(extraParams)
-		args = append(args, extraParamsList...)
+	mergedArgs := MergeHashcatArgs(assignment.JobAdditionalArgs, agentArgs)
+	if mergedArgs != "" {
+		debug.Info("Adding merged extra parameters: %s (job: %s, agent: %s)", mergedArgs, assignment.JobAdditionalArgs, agentArgs)
+		args = append(args, strings.Fields(mergedArgs)...)
 	}
 
 	// Add increment flags for mask-based attacks
@@ -737,13 +736,14 @@ func (e *HashcatExecutor) getAgentKeyspace(assignment *JobTaskAssignment) (int64
 		"--restore-disable",
 	}
 
-	// Add extra parameters (may include -O which affects the kernel split)
-	extraParams := assignment.ExtraParameters
-	if extraParams == "" && e.agentExtraParams != "" {
-		extraParams = e.agentExtraParams
+	// Merge job-level args with agent-level args (may include -O which affects the kernel split)
+	agentArgs := assignment.ExtraParameters
+	if agentArgs == "" {
+		agentArgs = e.agentExtraParams
 	}
-	if extraParams != "" {
-		args = append(args, strings.Fields(extraParams)...)
+	mergedArgs := MergeHashcatArgs(assignment.JobAdditionalArgs, agentArgs)
+	if mergedArgs != "" {
+		args = append(args, strings.Fields(mergedArgs)...)
 	}
 
 	// Add custom charset flags (-1 through -4) before attack-specific args

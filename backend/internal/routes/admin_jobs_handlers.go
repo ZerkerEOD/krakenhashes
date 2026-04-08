@@ -39,6 +39,14 @@ func (h *AdminJobsHandler) CreatePresetJob(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Validate additional args if provided
+	if job.AdditionalArgs != nil && *job.AdditionalArgs != "" {
+		if err := services.ValidateAdditionalArgs(*job.AdditionalArgs); err != nil {
+			httputil.RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Invalid additional arguments: %v", err))
+			return
+		}
+	}
+
 	createdJob, err := h.presetJobService.CreatePresetJob(r.Context(), job)
 	if err != nil {
 		// Basic error handling, could check for specific validation errors
@@ -117,6 +125,14 @@ func (h *AdminJobsHandler) UpdatePresetJob(w http.ResponseWriter, r *http.Reques
 	if err := json.NewDecoder(r.Body).Decode(&job); err != nil {
 		httputil.RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
 		return
+	}
+
+	// Validate additional args if provided
+	if job.AdditionalArgs != nil && *job.AdditionalArgs != "" {
+		if err := services.ValidateAdditionalArgs(*job.AdditionalArgs); err != nil {
+			httputil.RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Invalid additional arguments: %v", err))
+			return
+		}
 	}
 
 	updatedJob, err := h.presetJobService.UpdatePresetJob(r.Context(), id, job)

@@ -70,7 +70,8 @@ const getInitialFormState = (defaultChunkDuration: number = 300): PresetJobFormD
   increment_mode: 'off',
   increment_min: undefined as number | undefined,
   increment_max: undefined as number | undefined,
-  custom_charsets: null as Record<string, string> | null
+  custom_charsets: null as Record<string, string> | null,
+  additional_args: ''
 });
 
 // Attack mode descriptions and requirements
@@ -202,7 +203,8 @@ const PresetJobFormPage: React.FC = () => {
               increment_mode: presetJob.increment_mode || 'off',
               increment_min: presetJob.increment_min ?? undefined,
               increment_max: presetJob.increment_max ?? undefined,
-              custom_charsets: presetJob.custom_charsets || null
+              custom_charsets: presetJob.custom_charsets || null,
+              additional_args: presetJob.additional_args || ''
             });
 
             // Initialize combination wordlists if in combination mode
@@ -515,7 +517,11 @@ const PresetJobFormPage: React.FC = () => {
       }
     } catch (err) {
       console.error('Error submitting form:', err);
-      setError(t('presetJobs.form.errors.saveFailed') as string);
+      setError(
+        (err as any).response?.data?.error ||
+        (typeof (err as any).response?.data === 'string' ? (err as any).response.data : null) ||
+        t('presetJobs.form.errors.saveFailed') as string
+      );
     } finally {
       setSubmitting(false);
     }
@@ -944,6 +950,20 @@ const PresetJobFormPage: React.FC = () => {
           <FormHelperText>
             {t('presetJobs.form.helperText.allowHighPriorityOverride') as string}
           </FormHelperText>
+        </Grid>
+
+        {/* Additional Hashcat Arguments */}
+        <Grid item xs={12}>
+          <TextField
+            name="additional_args"
+            label={t('presetJobs.form.fields.additionalArgs', 'Additional Hashcat Arguments')}
+            value={formData.additional_args || ''}
+            onChange={handleChange}
+            fullWidth
+            margin="normal"
+            placeholder="e.g., -w 4 -O --force"
+            helperText={t('presetJobs.form.helperText.additionalArgs', 'Extra hashcat flags for this job. Agent-level flags take priority on conflicts.')}
+          />
         </Grid>
 
         {/* Submit Button */}

@@ -802,6 +802,7 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 		ReportInterval:  reportInterval,
 		OutputFormat:    "3",                   // hash:plain format
 		ExtraParameters:       agent.ExtraParameters, // Agent-specific hashcat parameters
+		JobAdditionalArgs:     func() string { if jobExecution.AdditionalArgs != nil { return *jobExecution.AdditionalArgs }; return "" }(),
 		EnabledDevices:        enabledDeviceIDs,      // Only populated if some devices are disabled
 		IsKeyspaceSplit:       task.IsKeyspaceSplit,
 		ClientWordlistPaths:   clientWordlistPaths,
@@ -1230,8 +1231,9 @@ func (s *JobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, age
 		CustomCharsets:  map[string]string(jobExecution.CustomCharsets),
 		TestDuration:    30,               // 30-second benchmark for accuracy
 		TimeoutDuration: speedtestTimeout, // Configurable timeout for speedtest
-		ExtraParameters: agent.ExtraParameters,
-		EnabledDevices:  enabledDeviceIDs,
+		ExtraParameters:   agent.ExtraParameters,
+		JobAdditionalArgs: func() string { if jobExecution.AdditionalArgs != nil { return *jobExecution.AdditionalArgs }; return "" }(),
+		EnabledDevices:    enabledDeviceIDs,
 	}
 
 	// Marshal payload

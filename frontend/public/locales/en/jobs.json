@@ -199,6 +199,7 @@
       "cracks": "Cracks",
       "cracksFound": "Cracks Found"
     },
+    "additionalArgs": "Additional Arguments",
     "attackModes": {
       "dictionary": "Dictionary",
       "combination": "Combination",

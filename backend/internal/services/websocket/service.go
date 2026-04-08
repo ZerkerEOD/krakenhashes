@@ -243,9 +243,10 @@ type TaskAssignmentPayload struct {
 	ChunkDuration   int      `json:"chunk_duration"`
 	ReportInterval  int      `json:"report_interval"`
 	OutputFormat    string   `json:"output_format"`
-	ExtraParameters string   `json:"extra_parameters,omitempty"`
-	EnabledDevices  []int    `json:"enabled_devices,omitempty"`
-	IsKeyspaceSplit bool     `json:"is_keyspace_split"`
+	ExtraParameters   string `json:"extra_parameters,omitempty"`
+	JobAdditionalArgs string `json:"job_additional_args,omitempty"` // Job-level hashcat parameters (merged with agent params on agent side)
+	EnabledDevices    []int  `json:"enabled_devices,omitempty"`
+	IsKeyspaceSplit   bool   `json:"is_keyspace_split"`
 	// Association attack fields (mode 9)
 	AssociationWordlistPath string `json:"association_wordlist_path,omitempty"` // Path to the association wordlist
 	OriginalHashlistPath    string `json:"original_hashlist_path,omitempty"`    // Path to the original hashlist file (preserves order)
@@ -307,6 +308,7 @@ type BenchmarkRequestPayload struct {
 	TestDuration    int               `json:"test_duration,omitempty"`    // Duration in seconds for speed test
 	TimeoutDuration int      `json:"timeout_duration,omitempty"` // Maximum time to wait for speedtest (seconds)
 	ExtraParameters         string   `json:"extra_parameters,omitempty"`          // Agent-specific hashcat parameters
+	JobAdditionalArgs       string   `json:"job_additional_args,omitempty"`       // Job-level hashcat parameters
 	EnabledDevices          []int    `json:"enabled_devices,omitempty"`           // List of enabled device IDs
 	AssociationWordlistPath string   `json:"association_wordlist_path,omitempty"` // For mode 9 association attacks
 }

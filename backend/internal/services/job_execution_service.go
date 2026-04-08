@@ -273,6 +273,7 @@ type CustomJobConfig struct {
 	IncrementMin              *int
 	IncrementMax              *int
 	AssociationWordlistID     *uuid.UUID // For association attacks (-a 9)
+	AdditionalArgs            *string    // Additional hashcat arguments
 }
 
 // CreateJobExecution creates a new job execution from a preset job and hashlist
@@ -672,7 +673,7 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		BinaryVersion:           config.BinaryVersion,
 		Mask:                      config.Mask,
 		CustomCharsets:            config.CustomCharsets,
-		AdditionalArgs:            nil,
+		AdditionalArgs:            config.AdditionalArgs,
 		IncrementMode:             config.IncrementMode,
 		IncrementMin:              config.IncrementMin,
 		IncrementMax:              config.IncrementMax,
