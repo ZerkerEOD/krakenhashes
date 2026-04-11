@@ -1329,15 +1329,15 @@
       "benefit": "Cette approche maintient des graphiques lisibles tout en préservant les tendances historiques"
     },
     "buttons": {
-      "save": "Enregistrer les parametres",
+      "save": "Enregistrer les paramètres",
       "saving": "Enregistrement..."
     },
     "errors": {
-      "loadFailed": "Impossible de charger les parametres. Reessayez.",
-      "saveFailed": "Impossible d'enregistrer les parametres. Reessayez."
+      "loadFailed": "Impossible de charger les paramètres. Réessayez.",
+      "saveFailed": "Impossible d'enregistrer les paramètres. Réessayez."
     },
     "messages": {
-      "updateSuccess": "Parametres de monitoring enregistres avec succes"
+      "updateSuccess": "Paramètres de monitoring enregistrés avec succès"
     }
   },
   "agentDownloads": {
