@@ -123,7 +123,7 @@
     "count": "Nombre",
     "percentage": "Pourcentage",
     "length": "Longueur",
-    "password": "Password",
+    "password": "Mot de passe",
     "pattern": "Motif",
     "mask": "Masque"
   },
@@ -140,7 +140,7 @@
     "patternType": "Type de motif",
     "correlationType": "Type de corrélation",
     "metric": "Indicateur",
-    "password": "Password",
+    "password": "Mot de passe",
     "users": "Utilisateurs",
     "occurrences": "Occurrences",
     "username": "Nom d'utilisateur",

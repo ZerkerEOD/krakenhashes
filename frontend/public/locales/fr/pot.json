@@ -49,7 +49,7 @@
     "hashPass": "Hash:Pass",
     "userPass": "User:Pass",
     "username": "Nom d'utilisateur",
-    "password": "Password",
+    "password": "Mot de passe",
     "domainUser": "Domain\\User",
     "domainUserPass": "Domain\\User:Pass",
     "potfile": "Potfile (Hashcat)",
