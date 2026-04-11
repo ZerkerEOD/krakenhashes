@@ -1,0 +1,38 @@
+{
+  "network": {
+    "connectionFailed": "Connexion impossible. Vérifiez votre réseau.",
+    "timeout": "La requête a expiré. Réessayez.",
+    "serverUnavailable": "Serveur indisponible. Réessayez plus tard."
+  },
+  "authentication": {
+    "unauthorized": "Vous n'êtes pas autorisé à effectuer cette action.",
+    "sessionExpired": "Votre session a expiré. Reconnectez-vous.",
+    "invalidToken": "Jeton d'authentification invalide.",
+    "loginRequired": "Connectez-vous pour continuer."
+  },
+  "validation": {
+    "required": "Ce champ est obligatoire.",
+    "invalidEmail": "Saisissez une adresse e-mail valide.",
+    "invalidFormat": "Format invalide.",
+    "tooShort": "{{min}} caractères minimum.",
+    "tooLong": "{{max}} caractères maximum.",
+    "passwordRequirements": "Le mot de passe doit comporter au moins 8 caractères, dont des majuscules, des minuscules, des chiffres et des caractères spéciaux."
+  },
+  "api": {
+    "badRequest": "Requête invalide. Vérifiez vos saisies.",
+    "notFound": "La ressource demandée est introuvable.",
+    "conflict": "Un conflit est survenu. La ressource existe peut-être déjà.",
+    "serverError": "Une erreur interne du serveur est survenue.",
+    "rateLimited": "Trop de requêtes. Patientez puis réessayez."
+  },
+  "file": {
+    "tooLarge": "Fichier trop volumineux. Taille maximale : {{maxSize}}.",
+    "invalidType": "Type de fichier invalide. Types autorisés : {{allowedTypes}}.",
+    "uploadFailed": "Échec de l'import du fichier. Réessayez."
+  },
+  "generic": {
+    "unknownError": "Une erreur inconnue est survenue.",
+    "tryAgain": "Réessayez.",
+    "contactSupport": "Si le problème persiste, contactez le support."
+  }
+}

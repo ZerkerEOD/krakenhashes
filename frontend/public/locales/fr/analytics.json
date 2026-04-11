@@ -1,0 +1,360 @@
+{
+  "title": "Statistiques des mots de passe",
+  "description": "Générez des rapports d'analyse de mots de passe complets pour vos évaluations de sécurité",
+  "selectHashlist": "Sélectionner une Hashlist",
+  "generateReport": "Générer le rapport",
+  "downloadReport": "Télécharger le rapport",
+  "clientSelection": {
+    "title": "Sélectionner un client",
+    "label": "Client",
+    "placeholder": "Sélectionner un client"
+  },
+  "tabs": {
+    "generateNew": "Générer un nouveau rapport",
+    "viewPrevious": "Rapports précédents",
+    "all": "Tous"
+  },
+  "form": {
+    "startDate": "Date de début",
+    "endDate": "Date de fin",
+    "customPatterns": "Motifs personnalisés (séparés par des virgules)",
+    "customPatternsPlaceholder": "ex. : goog, ggl, micro, soft",
+    "customPatternsHelper": "Ajoutez des variantes du nom de l'organisation à vérifier"
+  },
+  "hashlistSelection": {
+    "title": "Hashlists",
+    "selectAll": "Tout sélectionner",
+    "deselectAll": "Tout désélectionner",
+    "noHashlists": "Aucune Hashlist trouvée pour le client et la période sélectionnés",
+    "name": "Nom",
+    "hashType": "Type de hash",
+    "hashes": "Hashes",
+    "cracked": "Cassés",
+    "status": "Statut",
+    "active": "Active",
+    "archived": "Archivée"
+  },
+  "table": {
+    "dateRange": "Période",
+    "generatedOn": "Généré le",
+    "status": "Statut",
+    "hashes": "Hashes",
+    "cracked": "Cassés",
+    "actions": "Actions",
+    "noReports": "Aucun rapport trouvé pour ce client"
+  },
+  "status": {
+    "queued": "En file d'attente",
+    "processing": "Traitement en cours",
+    "completed": "Terminé",
+    "failed": "Échec",
+    "pendingGeneration": "Génération du rapport en attente",
+    "generating": "Le rapport est en cours de génération"
+  },
+  "actions": {
+    "viewReport": "Voir le rapport",
+    "retryReport": "Relancer le rapport",
+    "deleteReport": "Supprimer le rapport",
+    "retry": "Relancer",
+    "delete": "Supprimer",
+    "exportHcmask": "Exporter en .hcmask",
+    "exportTxt": "Exporter en .txt"
+  },
+  "messages": {
+    "selectClient": "Veuillez sélectionner un client",
+    "selectHashlists": "Veuillez sélectionner au moins une Hashlist",
+    "reportQueued": "Rapport en file d'attente (position : {{position}})",
+    "reportQueuedRetry": "Rapport mis en file d'attente pour relance (position : {{position}})",
+    "reportDeleted": "Rapport supprimé avec succès",
+    "failedLoadClients": "Impossible de charger les clients",
+    "failedLoadReports": "Impossible de charger les rapports",
+    "failedLoadReport": "Impossible de charger le rapport",
+    "failedGenerateReport": "Impossible de générer le rapport",
+    "failedDeleteReport": "Impossible de supprimer le rapport",
+    "failedRetryReport": "Impossible de relancer le rapport",
+    "queuedPosition": "Votre rapport est en file d'attente pour traitement. Position :",
+    "processingDescription": "Votre rapport est en cours de traitement. Cela peut prendre plusieurs minutes selon la taille du jeu de données.",
+    "generationError": "Une erreur s'est produite lors de la génération du rapport.",
+    "noHashReuse": "Aucune réutilisation de hash détectée. Toutes les valeurs de hash NTLM/LM sont uniques.",
+    "andMoreUsers": "...et {{count}} de plus",
+    "copiedSuccess": "Noms d'utilisateur copiés dans le presse-papiers !",
+    "noRecommendations": "Aucune recommandation spécifique pour le moment. Les politiques de mot de passe semblent adéquates.",
+    "top50Hashes": "Affichage des 50 hashes les plus réutilisés",
+    "top50PartialCracks": "Affichage des 50 cassages partiels principaux"
+  },
+  "sections": {
+    "lengthDistribution": "Répartition des longueurs",
+    "characterComposition": "Composition des caractères",
+    "commonPatterns": "Motifs courants",
+    "topPasswords": "Mots de passe les plus fréquents",
+    "maskAnalysis": "Analyse des masques",
+    "complexityAnalysis": "Analyse de la complexité des caractères",
+    "sequentialPatterns": "Suites",
+    "keyboardPatterns": "Motifs clavier",
+    "datePatterns": "Motifs de date",
+    "leetSpeak": "Analyse du leet speak",
+    "baseWords": "Mots de base",
+    "characterSets": "Charsets",
+    "entropyDistribution": "Répartition de l'entropie",
+    "overview": "Vue d'ensemble",
+    "domainBreakdown": "Répartition par domaine",
+    "hashModeBreakdown": "Répartition par mode de hash",
+    "windowsHashAnalytics": "Statistiques des hashes Windows",
+    "positionalAnalysis": "Analyse positionnelle",
+    "patternDetection": "Détection de motifs",
+    "usernameCorrelation": "Corrélation avec les noms d'utilisateur",
+    "passwordReuse": "Réutilisation de mots de passe",
+    "hashReuse": "Réutilisation de mots de passe basé sur le hash",
+    "temporalPatterns": "Motifs temporels",
+    "yearBreakdown": "Répartition par année",
+    "strengthMetrics": "Indicateurs de robustesse",
+    "crackTimeEstimates": "Temps de cassage estimé par vitesse",
+    "customPatterns": "Motifs liés au nom de l'organisation",
+    "recommendations": "Recommandations",
+    "lmPartialCracks": "Cassages LM partiels",
+    "lmToNtlmMasks": "Génération de masques LM-to-NTLM",
+    "hashTypes": "Types de hash",
+    "kerberos": "Kerberos",
+    "encryptionTypes": "Types de chiffrement",
+    "linkedHashCorrelation": "Corrélation des hashes LM/NTLM liés",
+    "reusedPasswords": "Mots de passe réutilisés par occurrence"
+  },
+  "charts": {
+    "count": "Nombre",
+    "percentage": "Pourcentage",
+    "length": "Longueur",
+    "password": "Mot de passe",
+    "pattern": "Motif",
+    "mask": "Masque"
+  },
+  "columns": {
+    "domain": "Domaine",
+    "totalHashes": "Hashes totaux",
+    "cracked": "Cassés",
+    "percentage": "Pourcentage",
+    "hashType": "Type de hash",
+    "length": "Longueur",
+    "count": "Nombre",
+    "category": "Catégorie",
+    "pattern": "Motif",
+    "patternType": "Type de motif",
+    "correlationType": "Type de corrélation",
+    "metric": "Indicateur",
+    "password": "Mot de passe",
+    "users": "Utilisateurs",
+    "occurrences": "Occurrences",
+    "username": "Nom d'utilisateur",
+    "hashlistCount": "Nb. de Hashlists",
+    "hashValue": "Valeur du hash",
+    "type": "Type",
+    "total": "Total",
+    "year": "Année",
+    "maskPattern": "Motif de masque",
+    "entropyLevel": "Niveau d'entropie",
+    "range": "Plage",
+    "speedLevel": "Niveau de vitesse",
+    "speed": "Vitesse (H/s)",
+    "rank": "Rang",
+    "actions": "Actions",
+    "firstHalf": "Première moitié (1-7)",
+    "secondHalf": "Seconde moitié (8-14)",
+    "hashlist": "Hashlist",
+    "mask": "Masque",
+    "lmPattern": "Motif LM",
+    "matchPercentage": "Taux de correspondance %",
+    "estimatedKeyspace": "Keyspace estimé",
+    "exampleLm": "Exemple LM",
+    "usersHashlistCount": "Utilisateurs (nb. de Hashlists)",
+    "totalOccurrences": "Occurrences totales",
+    "userCount": "Nb. d'utilisateurs"
+  },
+  "labels": {
+    "reportId": "ID du rapport :",
+    "total": "Total",
+    "cracked": "Cassés :",
+    "percentage": "Pourcentage :",
+    "totalHashRecords": "Enregistrements de hash au total",
+    "uniqueUsers": "Utilisateurs uniques",
+    "successRate": "Taux de cassage",
+    "linkedPairsFound": "Paires LM/NTLM liées trouvées",
+    "totalLinkedPairs": "Paires liées au total :",
+    "bothCracked": "Les deux cassés",
+    "ntlmOnly": "NTLM uniquement",
+    "lmOnly": "LM uniquement",
+    "neitherCracked": "Aucun cassé",
+    "passwordsReused": "Mots de passe réutilisés",
+    "uniquePasswords": "Mots de passe uniques",
+    "totalReused": "Total réutilisés",
+    "totalUnique": "Total uniques",
+    "reusePercentage": "Taux de réutilisation",
+    "usersWithHash": "Utilisateurs avec ce hash :",
+    "totalPartial": "Total partiel",
+    "firstHalfOnly": "Première moitié uniquement",
+    "secondHalfOnly": "Seconde moitié uniquement",
+    "unknown": "Inconnu",
+    "lmPasswordsAnalyzed": "Mots de passe LM analysés",
+    "masksGenerated": "Masques générés",
+    "totalEstimatedKeyspace": "Keyspace estimé total",
+    "underOrEqual7Chars": "<=7 caractères :",
+    "8To14Chars": "8-14 caractères :",
+    "partiallyCracked": "Partiellement cassés :"
+  },
+  "cards": {
+    "totalHashes": "Hashes totaux",
+    "cracked": "Cassés",
+    "crackRate": "Taux de cassage",
+    "hashlistsAnalyzed": "Hashlists analysées"
+  },
+  "descriptions": {
+    "lengthDistribution": "Répartition des longueurs (basée sur le hash) :",
+    "includesAllTypes": "Inclut tous les types de hash",
+    "distinctUsernames": "Noms d'utilisateur distincts",
+    "successfullyCracked": "Cassés avec succès",
+    "overallPercentage": "Pourcentage global",
+    "complexityDistribution": "Répartition des mots de passe selon les combinaisons de types de caractères",
+    "positionalPatterns": "Motifs positionnels courants dans les mots de passe",
+    "weakPatterns": "Motifs faibles courants détectés dans les mots de passe",
+    "usernameCorrelation": "Mots de passe corrélés aux noms d'utilisateur",
+    "hashReuseAnalysis": "Des valeurs de hash NTLM/LM identiques indiquent une réutilisation de mot de passe entre comptes, même lorsque le mot de passe en clair est inconnu.",
+    "datePatterns": "Motifs liés aux dates trouvés dans les mots de passe",
+    "maskFormat": "Principaux motifs de mots de passe au format de masque hashcat (?u=majuscule, ?l=minuscule, ?d=chiffre, ?s=spécial)",
+    "shannonEntropy": "Catégorisation de la robustesse des mots de passe selon l'entropie de Shannon",
+    "crackTimeEstimates": "Pourcentage de mots de passe cassables sur différentes périodes selon le niveau de vitesse",
+    "topPasswords": "Mots de passe les plus utilisés (minimum 2 occurrences)",
+    "customPatterns": "Mots de passe contenant des variantes du nom de l'organisation",
+    "recommendations": "Améliorations suggérées de la politique de mot de passe selon l'analyse",
+    "lmDerivable": "(dérivable en LM)",
+    "ntlmUnknown": "(NTLM inconnu)",
+    "ofLmHashes": "des hashes LM",
+    "chars1To7": "Caractères 1 à 7 cassés",
+    "chars8To14": "Caractères 8 à 14 cassés",
+    "maskGeneration": "Générez des masques hashcat à partir de mots de passe LM cassés pour retrouver les variantes de casse NTLM correspondantes.",
+    "maskSorting": "Masques triés par fréquence, puis par keyspace",
+    "averageLength": "Longueur moyenne (mots de passe <15 caractères) :"
+  },
+  "patterns": {
+    "startsUppercase": "Commence par une majuscule",
+    "endsNumber": "Se termine par un chiffre",
+    "endsSpecial": "Se termine par un caractère spécial",
+    "keyboardWalks": "Chemins clavier (ex. : qwerty, asdfgh)",
+    "sequences": "Suites (ex. : 123, abc)",
+    "repeatingChars": "Caractères répétés (ex. : aaa, 111)",
+    "containsYear": "Contient une année",
+    "containsMonth": "Contient un mois",
+    "containsSeason": "Contient une saison"
+  },
+  "correlations": {
+    "sameAsUsername": "Mot de passe identique au nom d'utilisateur",
+    "containsUsername": "Le mot de passe contient le nom d'utilisateur",
+    "usernamePart": "Le nom d'utilisateur fait partie du mot de passe"
+  },
+  "categories": {
+    "singleCharType": "Un seul type de caractères",
+    "twoCharTypes": "Deux types de caractères",
+    "threeCharTypes": "Trois types de caractères",
+    "fourCharTypes": "Quatre types de caractères",
+    "allCharTypes": "Tous les types de caractères",
+    "complexPasswords": "Mots de passe complexes (3-4 types)",
+    "complexShort": "Complexes (<=14 caractères)",
+    "complexLong": "Complexes (15+ caractères)"
+  },
+  "hashTypes": {
+    "ntlm": "NTLM",
+    "lm": "LM",
+    "netntlmv1": "NetNTLMv1",
+    "netntlmv2": "NetNTLMv2",
+    "dcc": "DCC (MS Cache)",
+    "dcc2": "DCC2 (MS Cache 2)"
+  },
+  "kerberosTypes": {
+    "rc4": "RC4",
+    "aes128": "AES-128",
+    "aes256": "AES-256"
+  },
+  "entropyLevels": {
+    "low": "Faible",
+    "moderate": "Modérée",
+    "high": "Élevée"
+  },
+  "entropyRanges": {
+    "low": "<78 bits",
+    "moderate": "78-127 bits",
+    "high": "128+ bits"
+  },
+  "speedLevels": {
+    "speed50": "50 % de vitesse",
+    "speed75": "75 % de vitesse",
+    "speed100": "100 % de vitesse (moyenne)",
+    "speed150": "150 % de vitesse",
+    "speed200": "200 % de vitesse"
+  },
+  "timeframes": {
+    "lessThan1Hour": "<1 heure",
+    "lessThan1Day": "<1 jour",
+    "lessThan1Week": "<1 semaine",
+    "lessThan1Month": "<1 mois",
+    "lessThan6Months": "<6 mois",
+    "lessThan1Year": "<1 an",
+    "greaterThan1Year": ">1 an"
+  },
+  "severities": {
+    "critical": "CRITICAL",
+    "high": "HIGH",
+    "medium": "MEDIUM",
+    "info": "INFO"
+  },
+  "tooltips": {
+    "copyUsernames": "Copier les noms d'utilisateur dans le presse-papiers",
+    "processing": "Traitement en cours",
+    "requiresProcessing": "Nécessite un traitement spécifique"
+  },
+  "warnings": {
+    "internalUseOnly": "Usage interne uniquement : cette section contient des mots de passe en clair. Ne pas partager en externe.",
+    "partialCracks": "Les utilisateurs avec des cassages LM partiels doivent être contraints de réinitialiser immédiatement leur mot de passe.",
+    "linkedHashlistAnalysis": "Analyse des Hashlists liées"
+  },
+  "alerts": {
+    "linkedHashlistInfo": "Cette Hashlist fait partie d'une paire LM/NTLM liée. L'analyse inclut la corrélation entre les hashes LM et NTLM pour les mêmes utilisateurs."
+  },
+  "filters": {
+    "domain": "Filtrer par domaine",
+    "allDomains": "Tous les domaines",
+    "minOccurrences": "Occurrences min.",
+    "topN": "N meilleurs résultats"
+  },
+  "errors": {
+    "loadFailed": "Impossible de charger les statistiques",
+    "noData": "Aucune donnée disponible pour l'analyse"
+  },
+  "noReport": {
+    "title": "Aucun rapport disponible",
+    "message": "Sélectionnez une Hashlist et générez un rapport pour afficher les statistiques."
+  },
+  "units": {
+    "chars": "car."
+  },
+  "pagination": {
+    "masks": "{{from}}-{{to}} sur {{count}} masques"
+  },
+  "export": {
+    "header": "# Masques Hashcat LM-to-NTLM",
+    "generatedFrom": "# Généré à partir de {{count}} mots de passe LM cassés",
+    "totalMasks": "# Nombre total de masques : {{count}}",
+    "totalKeyspace": "# Keyspace estimé total : {{keyspace}}",
+    "format": "# Format : masque | motif | nombre | taux% | keyspace | exemple"
+  },
+  "monthNames": {
+    "jan": "Jan",
+    "feb": "Fév",
+    "mar": "Mar",
+    "apr": "Avr",
+    "may": "Mai",
+    "jun": "Juin",
+    "jul": "Juil",
+    "aug": "Aoû",
+    "sep": "Sep",
+    "oct": "Oct",
+    "nov": "Nov",
+    "dec": "Déc"
+  }
+}
