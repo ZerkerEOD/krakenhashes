@@ -1,0 +1,89 @@
+{
+  "title": "Hashes cassés",
+  "page": {
+    "title": "Hashes cassés (Pot)",
+    "description": "Consultez tous les hashes de mots de passe cassés avec succès, toutes Hashlists et tous clients confondus.",
+    "filterByHashlist": "Aller à la Hashlist",
+    "hashlistPlaceholder": "Sélectionner une Hashlist..."
+  },
+  "table": {
+    "allCrackedHashes": "Tous les hashes cassés"
+  },
+  "navigation": {
+    "backToAll": "Retour à tous les hashes cassés"
+  },
+  "client": {
+    "title": "Hashes cassés - Vue client",
+    "description": "Affichage des hashes cassés pour le client : {{clientName}}",
+    "tableTitle": "Hashes cassés de \"{{clientName}}\""
+  },
+  "hashlist": {
+    "title": "Hashes cassés - Vue Hashlist",
+    "description": "Affichage des hashes cassés pour la Hashlist : {{hashlistName}}",
+    "tableTitle": "Hashes cassés de \"{{hashlistName}}\""
+  },
+  "job": {
+    "title": "Hashes cassés du Job : {{jobName}}",
+    "description": "Consultez tous les hashes de mots de passe cassés avec succès lors de l'exécution de ce Job.",
+    "tableTitle": "Hashes cassés - {{jobName}}",
+    "defaultName": "Job {{id}}"
+  },
+  "columns": {
+    "originalHash": "Hash d'origine",
+    "domain": "Domaine",
+    "username": "Nom d'utilisateur",
+    "password": "Mot de passe",
+    "hashType": "Type de hash",
+    "actions": "Actions"
+  },
+  "search": {
+    "placeholder": "Rechercher dans la base...",
+    "filterPlaceholder": "Filtrer cette page...",
+    "button": "Rechercher",
+    "resultsFound": "{{count}} résultat trouvé",
+    "resultsFound_plural": "{{count}} résultats trouvés",
+    "noResults": "Aucun résultat",
+    "searching": "Recherche..."
+  },
+  "export": {
+    "hashPass": "Hash:Pass",
+    "userPass": "User:Pass",
+    "username": "Nom d'utilisateur",
+    "password": "Password",
+    "domainUser": "Domain\\User",
+    "domainUserPass": "Domain\\User:Pass",
+    "potfile": "Potfile (Hashcat)",
+    "exportVisible": "Exporter les résultats visibles",
+    "downloaded": "Téléchargé : {{filename}}",
+    "downloadFailed": "Échec du téléchargement du fichier"
+  },
+  "tooltips": {
+    "copyHash": "Copier hash:password",
+    "copyDomain": "Cliquer pour copier le domaine",
+    "copyUsername": "Cliquer pour copier le nom d'utilisateur",
+    "copyPassword": "Cliquer pour copier le mot de passe"
+  },
+  "dialogs": {
+    "loadAllTitle": "Charger tous les résultats ?",
+    "loadAllMessage": "Charger les {{value}} résultats peut prendre du temps et impacter les performances. Voulez-vous continuer ?",
+    "loadingAll": "Chargement de tous les résultats. Cela peut prendre un moment...",
+    "cancel": "Annuler",
+    "loadAll": "Tout charger"
+  },
+  "pagination": {
+    "all": "Tous"
+  },
+  "notifications": {
+    "copiedToClipboard": "Copié dans le presse-papiers",
+    "exported": "Hashes cassés exportés"
+  },
+  "errors": {
+    "loadFailed": "Impossible de charger les hashes cassés",
+    "loadClientFailed": "Impossible de charger les informations du client",
+    "loadHashlistFailed": "Impossible de charger les informations de la Hashlist",
+    "loadJobFailed": "Impossible de charger les informations du Job"
+  },
+  "filter": {
+    "filteredBy": "Filtré par {{param}} : {{value}}"
+  }
+}

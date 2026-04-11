@@ -1,0 +1,149 @@
+{
+  "title": "Paramètres utilisateur",
+  "profileSettings": {
+    "title": "Paramètres du profil"
+  },
+  "profile": {
+    "title": "Profil",
+    "username": "Nom d'utilisateur",
+    "email": "E-mail",
+    "changePassword": "Changer le mot de passe",
+    "currentPassword": "Mot de passe actuel",
+    "newPassword": "Nouveau mot de passe",
+    "confirmPassword": "Confirmer le nouveau mot de passe",
+    "updateProfile": "Mettre à jour le profil",
+    "profileUpdated": "Profil mis à jour avec succès"
+  },
+  "account": {
+    "title": "Informations du compte",
+    "username": "Nom d'utilisateur",
+    "email": "E-mail",
+    "usernameCannotChange": "Le nom d'utilisateur ne peut pas être modifié",
+    "saving": "Enregistrement...",
+    "saveEmail": "Enregistrer l'e-mail",
+    "confirmEmailUpdate": {
+      "title": "Confirmer la modification de l'e-mail",
+      "message": "Veuillez saisir votre mot de passe actuel pour modifier votre adresse e-mail."
+    },
+    "errors": {
+      "noChanges": "Aucune modification à enregistrer",
+      "invalidEmail": "Adresse e-mail invalide",
+      "updateFailed": "Impossible de mettre à jour l'e-mail",
+      "incorrectPassword": "Mot de passe incorrect"
+    },
+    "success": {
+      "emailUpdated": "E-mail mis à jour avec succès"
+    }
+  },
+  "password": {
+    "title": "Changer le mot de passe",
+    "currentPassword": "Mot de passe actuel",
+    "newPassword": "Nouveau mot de passe",
+    "confirmNewPassword": "Confirmer le nouveau mot de passe",
+    "enterCurrentFirst": "Saisissez d'abord le mot de passe actuel",
+    "passwordsMatch": "Les mots de passe correspondent",
+    "changePassword": "Changer le mot de passe",
+    "changing": "Changement du mot de passe...",
+    "errors": {
+      "currentRequired": "Le mot de passe actuel est requis",
+      "newRequired": "Le nouveau mot de passe est requis",
+      "mismatch": "Les mots de passe ne correspondent pas",
+      "requirements": "Le nouveau mot de passe ne respecte pas les exigences",
+      "updateFailed": "Impossible de mettre à jour le mot de passe"
+    },
+    "success": {
+      "changed": "Mot de passe modifié avec succès"
+    }
+  },
+  "apiKey": {
+    "title": "Clés API",
+    "status": "Statut de la clé API",
+    "active": "Active",
+    "noKeyGenerated": "Aucune clé API générée",
+    "created": "Créée le",
+    "lastUsed": "Dernière utilisation",
+    "generate": "Générer une clé API",
+    "regenerate": "Régénérer la clé API",
+    "revoke": "Révoquer la clé API",
+    "viewDocs": "Voir la documentation API",
+    "dialog": {
+      "title": "Votre clé API",
+      "saveNow": "Enregistrez cette clé maintenant !",
+      "cantSeeAgain": "Vous ne pourrez plus la voir ensuite.",
+      "instructions": "Utilisez cette clé API dans vos requêtes HTTP en l'ajoutant à l'en-tête X-API-Key.",
+      "saved": "Je l'ai enregistrée"
+    },
+    "confirmRegenerate": {
+      "title": "Régénérer la clé API ?",
+      "warning": "Cela invalidera votre clé API actuelle. Toutes les applications qui l'utilisent cesseront de fonctionner.",
+      "confirm": "Voulez-vous vraiment continuer ?"
+    },
+    "confirmRevoke": {
+      "title": "Révoquer la clé API ?",
+      "warning": "Cela désactivera immédiatement l'accès à l'API. Toutes les applications utilisant cette clé cesseront de fonctionner.",
+      "confirm": "Voulez-vous vraiment révoquer votre clé API ?"
+    },
+    "errors": {
+      "generateFailed": "Impossible de générer la clé API",
+      "revokeFailed": "Impossible de révoquer la clé API"
+    },
+    "success": {
+      "revoked": "Clé API révoquée avec succès",
+      "copied": "Clé API copiée dans le presse-papiers"
+    }
+  },
+  "common": {
+    "cancel": "Annuler",
+    "never": "Jamais",
+    "invalidDate": "Date invalide"
+  },
+  "mfa": {
+    "title": "Authentification à deux facteurs",
+    "status": "Statut de la 2FA",
+    "enabled": "Activée",
+    "disabled": "Désactivée",
+    "enable": "Activer la 2FA",
+    "disable": "Désactiver la 2FA",
+    "methods": {
+      "title": "Méthodes d'authentification",
+      "totp": "Application d'authentification",
+      "email": "E-mail",
+      "backupCodes": "Codes de récupération"
+    },
+    "setup": {
+      "scanQR": "Scannez ce code QR avec votre application d'authentification",
+      "enterCode": "Saisissez le code de votre application pour vérifier",
+      "backupCodesGenerated": "Enregistrez ces codes de récupération dans un endroit sûr"
+    }
+  },
+  "linkedAccounts": {
+    "title": "Comptes liés",
+    "noAccounts": "Aucun compte lié",
+    "link": "Lier un compte",
+    "unlink": "Dissocier"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "emailNotifications": "Notifications par e-mail",
+    "jobCompleted": "Job terminé",
+    "agentOffline": "Agent hors ligne",
+    "securityAlerts": "Alertes de sécurité"
+  },
+  "preferences": {
+    "title": "Préférences",
+    "language": "Langue",
+    "timezone": "Fuseau horaire",
+    "dateFormat": "Format de date",
+    "theme": "Thème",
+    "themes": {
+      "light": "Clair",
+      "dark": "Sombre",
+      "system": "Système"
+    }
+  },
+  "errors": {
+    "updateFailed": "Impossible de mettre à jour les paramètres",
+    "passwordMismatch": "Les mots de passe ne correspondent pas",
+    "invalidPassword": "Mot de passe actuel invalide"
+  }
+}
