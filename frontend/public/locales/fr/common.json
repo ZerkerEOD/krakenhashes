@@ -1,0 +1,153 @@
+{
+  "buttons": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "create": "Créer",
+    "submit": "Valider",
+    "close": "Fermer",
+    "confirm": "Confirmer",
+    "retry": "Réessayer",
+    "refresh": "Actualiser",
+    "download": "Télécharger",
+    "upload": "Importer",
+    "copy": "Copier",
+    "search": "Rechercher",
+    "filter": "Filtrer",
+    "clearFilters": "Effacer les filtres",
+    "loadAll": "Tout charger",
+    "signIn": "Se connecter",
+    "logIn": "Se connecter",
+    "logout": "Se déconnecter"
+  },
+  "labels": {
+    "loading": "Chargement...",
+    "noData": "Aucune donnée disponible",
+    "error": "Une erreur est survenue",
+    "success": "Succès",
+    "warning": "Attention",
+    "info": "Information",
+    "required": "Obligatoire",
+    "optional": "Optionnel",
+    "all": "Tous",
+    "none": "Aucun",
+    "yes": "Oui",
+    "no": "Non",
+    "enabled": "Active",
+    "disabled": "Désactivé",
+    "active": "Actif",
+    "inactive": "Inactif",
+    "pending": "En attente",
+    "completed": "Terminé",
+    "failed": "Échec",
+    "unknown": "Inconnu"
+  },
+  "pagination": {
+    "rowsPerPage": "Lignes par page",
+    "page": "Page {{current}} sur {{total}}",
+    "showing": "Affichage de {{from}} à {{to}} sur {{total}}",
+    "first": "Première page",
+    "last": "Dernière page",
+    "next": "Page suivante",
+    "previous": "Page précédente"
+  },
+  "language": {
+    "selectLanguage": "Choisir la langue",
+    "currentLanguage": "Langue actuelle"
+  },
+  "clipboard": {
+    "copied": "Copié dans le presse-papiers",
+    "copyFailed": "Impossible de copier dans le presse-papiers"
+  },
+  "errors": {
+    "networkError": "Erreur réseau. Vérifiez votre connexion.",
+    "serverError": "Erreur serveur. Réessayez plus tard.",
+    "unknownError": "Une erreur inconnue est survenue",
+    "validationError": "Vérifiez vos saisies puis réessayez",
+    "permissionDenied": "Permission refusée",
+    "notFound": "Introuvable",
+    "sessionExpired": "Votre session a expiré. Veuillez vous reconnecter."
+  },
+  "confirmations": {
+    "areYouSure": "Confirmez-vous cette action ?",
+    "cannotBeUndone": "Cette action est irréversible.",
+    "confirmDelete": "Confirmer la suppression",
+    "confirmAction": "Confirmer l'action"
+  },
+  "time": {
+    "justNow": "À l'instant",
+    "minutesAgo": "Il y a {{count}} minute",
+    "minutesAgo_plural": "Il y a {{count}} minutes",
+    "hoursAgo": "Il y a {{count}} heure",
+    "hoursAgo_plural": "Il y a {{count}} heures",
+    "daysAgo": "Il y a {{count}} jour",
+    "daysAgo_plural": "Il y a {{count}} jours",
+    "never": "Jamais"
+  },
+  "fileUpload": {
+    "dragAndDrop": "Glissez-déposez un fichier ici ou cliquez pour le sélectionner",
+    "selectFile": "Sélectionner un fichier",
+    "uploading": "Import en cours...",
+    "uploadSuccess": "Fichier importé avec succès",
+    "uploadFailed": "Échec de l'import du fichier",
+    "chooseFile": "Choisir un fichier",
+    "description": "Description",
+    "loading": "Chargement..."
+  },
+  "binaryVersionSelector": {
+    "label": "Version du binaire",
+    "helperText": "Sélectionnez le modèle de version du binaire pour ce job",
+    "default": "Par défaut",
+    "majorVersion": "Version majeure (dernier mineur)",
+    "minorVersion": "Version mineure (dernier correctif)",
+    "exactVersion": "Version exacte",
+    "loading": "Chargement...",
+    "loadingVersions": "Chargement des versions du binaire...",
+    "loadError": "Impossible de charger les versions du binaire"
+  },
+  "passwordValidation": {
+    "requirements": "Exigences du mot de passe :",
+    "minLength": "Au moins {{length}} caractères",
+    "uppercase": "Au moins une lettre majuscule",
+    "lowercase": "Au moins une lettre minuscule",
+    "number": "Au moins un chiffre",
+    "specialChar": "Au moins un caractère spécial"
+  },
+  "footer": {
+    "documentation": "Documentation",
+    "issues": "Tickets",
+    "loading": "Chargement...",
+    "release": "Version v{{version}}",
+    "versionUnavailable": "Version indisponible"
+  },
+  "layout": {
+    "logoAlt": "Logo KrakenHashes"
+  },
+  "table": {
+    "noResults": "Aucun résultat trouvé",
+    "loading": "Chargement des données...",
+    "emptyState": "Aucune donnée à afficher"
+  },
+  "about": {
+    "title": "À propos de KrakenHashes",
+    "versionInfo": {
+      "title": "Informations de version",
+      "release": "Version",
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "agent": "Version de l'agent",
+      "api": "Version de l'API",
+      "database": "Base de données"
+    },
+    "projectInfo": {
+      "title": "Informations sur le projet",
+      "description": "KrakenHashes est une plateforme distribuée de gestion du cassage de mots de passe, conçue pour coordonner et piloter les tâches de cassage sur plusieurs agents.",
+      "license": "Ce projet open source est distribué sous licence GNU Affero General Public License v3.0 (AGPL-3.0).",
+      "githubLink": "Dépôt GitHub"
+    },
+    "errors": {
+      "fetchFailed": "Impossible de récupérer les informations de version"
+    }
+  }
+}

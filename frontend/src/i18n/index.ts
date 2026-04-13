@@ -16,6 +16,7 @@ export const supportedLanguages = {
     nl: { nativeName: 'Nederlands', countryCode: 'NL' },
     es: { nativeName: 'Español', countryCode: 'ES' },
     ru: { nativeName: 'Русский', countryCode: 'RU' },
+    fr: { nativeName: 'Français', countryCode: 'FR' },
 } as const;
 
 export type SupportedLanguage = keyof typeof supportedLanguages;

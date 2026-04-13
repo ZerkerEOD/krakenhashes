@@ -1,0 +1,137 @@
+{
+  "title": "Hashlists",
+  "uploadButton": "Importer une Hashlist",
+  "page": {
+    "title": "Gestion des Hashlists",
+    "description": "Importez et gérez des listes de hash de mots de passe pour les opérations de cassage"
+  },
+  "columns": {
+    "name": "Nom",
+    "hashType": "Type de hash",
+    "totalHashes": "Hashes totaux",
+    "crackedHashes": "Cassés",
+    "progress": "Cassés (%)",
+    "client": "Client",
+    "status": "Statut",
+    "createdAt": "Créé le",
+    "actions": "Actions"
+  },
+  "filters": {
+    "filterByName": "Filtrer par nom",
+    "status": "Statut",
+    "all": "Tous"
+  },
+  "status": {
+    "uploading": "Import en cours",
+    "processing": "Traitement en cours",
+    "ready": "Prête",
+    "error": "Erreur"
+  },
+  "table": {
+    "noHashlists": "Aucune Hashlist trouvée."
+  },
+  "details": {
+    "title": "Détails de la Hashlist",
+    "overview": "Vue d'ensemble",
+    "hashes": "Hashes",
+    "jobs": "Jobs",
+    "stats": "Statistiques"
+  },
+  "upload": {
+    "title": "Importer une nouvelle Hashlist",
+    "name": "Nom de la Hashlist",
+    "hashType": "Type de hash",
+    "client": "Client (optionnel)",
+    "file": "Fichier de hash",
+    "selectFile": "Sélectionner un fichier",
+    "uploading": "Import en cours...",
+    "cancel": "Annuler",
+    "executableBlocked": "Ce fichier semble être un binaire exécutable et ne peut pas être importé comme Hashlist."
+  },
+  "actions": {
+    "viewDetails": "Voir les détails",
+    "createJob": "Créer un Job",
+    "download": "Télécharger",
+    "delete": "Supprimer"
+  },
+  "createJob": {
+    "additionalArgs": "Arguments Hashcat supplémentaires (optionnel)",
+    "additionalArgsHelper": "Options hashcat supplémentaires pour ce job. En cas de conflit, les options définies au niveau de l'Agent sont prioritaires."
+  },
+  "confirmDelete": {
+    "title": "Confirmer la suppression",
+    "message": "Voulez-vous vraiment supprimer la Hashlist \"{{name}}\" ? Cette action est irréversible.",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "deleting": "Suppression..."
+  },
+  "deletionProgress": {
+    "title": "Suppression de la Hashlist",
+    "successTitle": "Hashlist supprimée avec succès",
+    "complete": "Suppression terminée !",
+    "failed": "Échec de la suppression",
+    "summary": "Résumé :",
+    "totalProcessed": "Nombre total de hashes traités : {{value}}",
+    "orphansDeleted": "Hashes orphelins supprimés : {{value}}",
+    "sharedPreserved": "Hashes partagés conservés : {{value}}",
+    "jobsDeleted": "Jobs supprimés : {{value}}",
+    "duration": "Durée : {{duration}}",
+    "phase": "Phase {{current}}/{{total}} : {{label}}",
+    "phases": {
+      "preparing": "Préparation...",
+      "removingHashes": "Suppression des hashes",
+      "clearingReferences": "Nettoyage des références de tâches",
+      "cleaningOrphans": "Nettoyage des hashes orphelins",
+      "finalizing": "Finalisation de la suppression"
+    },
+    "units": {
+      "hashes": "hashes",
+      "references": "références"
+    },
+    "error": "Erreur : {{error}}",
+    "done": "Terminé",
+    "close": "Fermer"
+  },
+  "notifications": {
+    "deleteSuccess": "Hashlist supprimée avec succès",
+    "uploadSuccess": "Hashlist importée avec succès",
+    "downloaded": "Téléchargé : {{filename}}",
+    "archiveSuccess": "Hashlist archivée avec succès",
+    "unarchiveSuccess": "Hashlist désarchivée avec succès",
+    "bulkArchiveSuccess": "{{count}} hashlist archivée avec succès",
+    "bulkArchiveSuccess_plural": "{{count}} hashlists archivées avec succès",
+    "bulkUnarchiveSuccess": "{{count}} hashlist désarchivée avec succès",
+    "bulkUnarchiveSuccess_plural": "{{count}} hashlists désarchivées avec succès"
+  },
+  "errors": {
+    "loadFailed": "Impossible de récupérer les Hashlists.",
+    "uploadFailed": "Impossible d'importer la Hashlist",
+    "deleteFailed": "Échec de la suppression : {{error}}"
+  },
+  "archive": {
+    "showArchived": "Afficher les archives",
+    "archive": "Archiver",
+    "unarchive": "Désarchiver",
+    "archived": "Archivée",
+    "selectedCount": "{{count}} sélectionnée",
+    "selectedCount_plural": "{{count}} sélectionnées",
+    "archiveSelected": "Archiver la sélection",
+    "unarchiveSelected": "Désarchiver la sélection",
+    "deleteSelected": "Supprimer la sélection",
+    "confirmBulkDelete": {
+      "title": "Confirmer la suppression multiple",
+      "message": "Voulez-vous vraiment supprimer {{count}} hashlist ? Cette action est irréversible.",
+      "message_plural": "Voulez-vous vraiment supprimer {{count}} hashlists ? Cette action est irréversible.",
+      "warning": "Les Hashlists sélectionnées et toutes leurs données associées seront supprimées définitivement."
+    },
+    "bulkDeleteSuccess": "{{count}} hashlist supprimée avec succès",
+    "bulkDeleteSuccess_plural": "{{count}} hashlists supprimées avec succès"
+  },
+  "hashDetails": {
+    "title": "Détails du hash",
+    "originalHash": "Hash d'origine",
+    "password": "Mot de passe",
+    "cracked": "Cassé",
+    "crackedAt": "Cassé le"
+  }
+}

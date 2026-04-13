@@ -1,0 +1,116 @@
+{
+  "title": "Tableau de bord",
+  "welcome": "Bienvenue sur KrakenHashes",
+  "stats": {
+    "title": "Vue d'ensemble",
+    "totalJobs": "Jobs au total",
+    "activeJobs": "Jobs actifs",
+    "completedJobs": "Jobs terminés",
+    "totalHashes": "Hashes au total",
+    "crackedHashes": "Hashes cassés",
+    "crackRate": "Taux de cassage",
+    "activeAgents": "Agents actifs",
+    "totalAgents": "Agents au total"
+  },
+  "recentActivity": {
+    "title": "Activité récente",
+    "noActivity": "Aucune activité récente"
+  },
+  "quickActions": {
+    "title": "Actions rapides",
+    "createJob": "Créer un Job",
+    "uploadHashlist": "Importer une Hashlist",
+    "viewAgents": "Voir les Agents"
+  },
+  "agents": {
+    "title": "Vos Agents",
+    "loadError": "Impossible de charger les agents : {{message}}",
+    "noAgents": "Aucun agent enregistré",
+    "hashRate": "Hash Rate",
+    "notAvailable": "N/A",
+    "job": "Job",
+    "unnamedJob": "Job sans nom",
+    "noActiveTask": "Aucune tâche active"
+  },
+  "pagination": {
+    "previous": "Précédent",
+    "next": "Suivant",
+    "pageOf": "Page {{current}} sur {{total}}"
+  },
+  "jobs": {
+    "title": "Vos Jobs",
+    "total": "Total",
+    "autoRefreshOn": "Auto",
+    "autoRefreshOff": "Désactivé",
+    "lastUpdated": "Dernière mise à jour : {{time}}",
+    "loadError": "Impossible de charger les jobs : {{message}}",
+    "noJobs": "Aucun job trouvé. Créez un nouveau job pour commencer."
+  },
+  "buttons": {
+    "refresh": "Actualiser",
+    "deleteFinished": "Supprimer les jobs terminés"
+  },
+  "filters": {
+    "status": "Statut",
+    "priority": "Priorité",
+    "all": "Tous",
+    "searchPlaceholder": "Rechercher des jobs...",
+    "clear": "Effacer les filtres"
+  },
+  "status": {
+    "pending": "En attente",
+    "running": "En cours",
+    "paused": "En pause",
+    "completed": "Terminé",
+    "failed": "Échec",
+    "cancelled": "Annulé"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Supprimer les Jobs terminés",
+      "message": "Voulez-vous vraiment supprimer tous les jobs terminés ? Cette action est irréversible."
+    }
+  },
+  "errors": {
+    "deleteFinishedFailed": "Impossible de supprimer les jobs terminés",
+    "deleteJobFailed": "Impossible de supprimer le job",
+    "retryJobFailed": "Impossible de relancer le job",
+    "updateJobFailed": "Impossible de mettre à jour le job"
+  },
+  "hashlistOverview": {
+    "title": "Vue d'ensemble des Hashlists",
+    "loadError": "Impossible de charger les hashlists",
+    "noHashlists": "Aucune hashlist trouvée",
+    "columns": {
+      "name": "Nom",
+      "client": "Client",
+      "status": "Statut",
+      "total": "Total",
+      "cracked": "Cassés",
+      "progress": "Progression"
+    },
+    "status": {
+      "ready": "Prête",
+      "error": "Erreur",
+      "uploading": "Import en cours",
+      "processing": "Traitement en cours"
+    }
+  },
+  "jobsTable": {
+    "noJobs": "Aucun job trouvé",
+    "noJobsHint": "Créez un nouveau job depuis la page Hashlists pour commencer.",
+    "completedJobs": "Jobs terminés",
+    "columns": {
+      "jobName": "Nom du Job",
+      "hashlist": "Hashlist",
+      "createdBy": "Créé par",
+      "progress": "Progression",
+      "keyspace": "Keyspace",
+      "cracked": "Cassés",
+      "agents": "Agents",
+      "priority": "Priorité",
+      "maxAgents": "Agents max.",
+      "actions": "Actions"
+    }
+  }
+}
