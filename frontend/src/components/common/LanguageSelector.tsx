@@ -33,7 +33,7 @@ import {
 import { supportedLanguages, SupportedLanguage } from '../../i18n';
 
 // Import SVG flag components (add new flags here when adding languages)
-import { US, CN, DE, NL, ES, RU } from 'country-flag-icons/react/3x2';
+import { US, CN, DE, NL, ES, RU, FR } from 'country-flag-icons/react/3x2';
 
 /**
  * Map of country codes to flag React components.
@@ -46,6 +46,7 @@ const flagComponents: Record<string, typeof US> = {
     NL,
     ES,
     RU,
+    FR,
 };
 
 const LanguageSelector: React.FC = () => {
