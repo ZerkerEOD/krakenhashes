@@ -139,15 +139,11 @@ func (h *SSOHandler) OAuthStart(w http.ResponseWriter, r *http.Request) {
 
 	// Get redirect URI from query params or use default
 	redirectURI := r.URL.Query().Get("redirect_uri")
-	if redirectURI == "" {
-		// Build default callback URL
-		scheme := "https"
-		if r.TLS == nil {
-			scheme = "http"
-		}
-		host := r.Host
-		redirectURI = scheme + "://" + host + "/api/auth/oauth/" + providerIDStr + "/callback"
-	}
+    if redirectURI == "" {
+        // Build default callback URL
+        redirectURI = getRequestBaseURL(r) + "/api/auth/oauth/" + providerIDStr + "/callback"
+    }
+
 
 	// Get authorization URL
 	authURL, err := h.ssoManager.GetStartURL(r.Context(), providerID, redirectURI)
@@ -223,15 +219,10 @@ func (h *SSOHandler) SAMLStart(w http.ResponseWriter, r *http.Request) {
 
 	// Get redirect URI from query params or use default
 	redirectURI := r.URL.Query().Get("redirect_uri")
-	if redirectURI == "" {
-		// Build default ACS URL
-		scheme := "https"
-		if r.TLS == nil {
-			scheme = "http"
-		}
-		host := r.Host
-		redirectURI = scheme + "://" + host + "/api/auth/saml/" + providerIDStr + "/acs"
-	}
+    if redirectURI == "" {
+        // Build default ACS URL
+        redirectURI = getRequestBaseURL(r) + "/api/auth/saml/" + providerIDStr + "/acs"
+    }
 
 	// Get authorization URL
 	authURL, err := h.ssoManager.GetStartURL(r.Context(), providerID, redirectURI)
@@ -335,11 +326,7 @@ func (h *SSOHandler) SAMLMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build ACS URL
-	scheme := "https"
-	if r.TLS == nil {
-		scheme = "http"
-	}
-	acsURL := scheme + "://" + r.Host + "/api/auth/saml/" + providerIDStr + "/acs"
+	acsURL := getRequestBaseURL(r) + "/api/auth/saml/" + providerIDStr + "/acs"
 
 	metadata, err := samlProvider.GenerateMetadata(acsURL)
 	if err != nil {
@@ -759,22 +746,39 @@ func (h *SSOHandler) logSSOLoginAttempt(r *http.Request, userID *uuid.UUID, prov
 
 // ssoRedirect redirects to frontend with optional message
 func (h *SSOHandler) ssoRedirect(w http.ResponseWriter, r *http.Request, path string) {
-	// Get the frontend URL from the origin or use default
-	origin := r.Header.Get("Origin")
-	if origin == "" {
-		// Fall back to the request host
-		scheme := "https"
-		if r.TLS == nil {
-			scheme = "http"
-		}
-		origin = scheme + "://" + r.Host
-	}
+    // Get the frontend URL from the origin or use default
+    origin := r.Header.Get("Origin")
+    if origin == "" {
+        origin = getRequestBaseURL(r)
+    }
 
-	redirectURL := origin + path
-	http.Redirect(w, r, redirectURL, http.StatusFound)
+    redirectURL := origin + path
+    http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
 // ssoErrorRedirect redirects to frontend with error message
 func (h *SSOHandler) ssoErrorRedirect(w http.ResponseWriter, r *http.Request, errorMsg string) {
 	h.ssoRedirect(w, r, "/login?sso_error="+url.QueryEscape(errorMsg))
+}
+
+// getRequestBaseURL adds request headers to preserve port 
+func getRequestBaseURL(r *http.Request) string {
+    scheme := r.Header.Get("X-Forwarded-Proto")
+    if scheme == "" {
+        scheme = r.Header.Get("X-Forwarded-Scheme")
+    }
+    if scheme == "" {
+        if r.TLS != nil {
+            scheme = "https"
+        } else {
+            scheme = "http"
+        }
+    }
+
+    host := r.Header.Get("X-Forwarded-Host")
+    if host == "" {
+        host = r.Host
+    }
+
+    return scheme + "://" + host
 }
