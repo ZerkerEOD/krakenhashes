@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/config"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/auth"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
@@ -16,7 +17,7 @@ import (
 )
 
 // SetupSSORoutes configures all SSO authentication routes
-func SetupSSORoutes(apiRouter *mux.Router, sqlDB *sql.DB) *sso.Manager {
+func SetupSSORoutes(apiRouter *mux.Router, sqlDB *sql.DB, appConfig *config.Config) *sso.Manager {
 	debug.Debug("Setting up SSO routes")
 
 	// Create db wrapper
@@ -40,7 +41,7 @@ func SetupSSORoutes(apiRouter *mux.Router, sqlDB *sql.DB) *sso.Manager {
 	}
 
 	// Create SSO handler
-	ssoHandler := auth.NewSSOHandler(database, ssoManager, ssoRepo)
+	ssoHandler := auth.NewSSOHandler(database, ssoManager, ssoRepo, appConfig.ExternalURL)
 
 	// Public SSO routes (no authentication required)
 	// List enabled providers for login page

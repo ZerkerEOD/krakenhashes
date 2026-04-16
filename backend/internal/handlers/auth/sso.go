@@ -26,17 +26,19 @@ import (
 
 // SSOHandler handles SSO authentication requests
 type SSOHandler struct {
-	db         *db.DB
-	ssoManager *sso.Manager
-	ssoRepo    *repository.SSORepository
+	db          *db.DB
+	ssoManager  *sso.Manager
+	ssoRepo     *repository.SSORepository
+	externalURL string
 }
 
 // NewSSOHandler creates a new SSO handler
-func NewSSOHandler(database *db.DB, ssoManager *sso.Manager, ssoRepo *repository.SSORepository) *SSOHandler {
+func NewSSOHandler(database *db.DB, ssoManager *sso.Manager, ssoRepo *repository.SSORepository, externalURL string) *SSOHandler {
 	return &SSOHandler{
-		db:         database,
-		ssoManager: ssoManager,
-		ssoRepo:    ssoRepo,
+		db:          database,
+		ssoManager:  ssoManager,
+		ssoRepo:     ssoRepo,
+		externalURL: externalURL,
 	}
 }
 
@@ -139,11 +141,10 @@ func (h *SSOHandler) OAuthStart(w http.ResponseWriter, r *http.Request) {
 
 	// Get redirect URI from query params or use default
 	redirectURI := r.URL.Query().Get("redirect_uri")
-    if redirectURI == "" {
-        // Build default callback URL
-        redirectURI = getRequestBaseURL(r) + "/api/auth/oauth/" + providerIDStr + "/callback"
-    }
-
+	if redirectURI == "" {
+		// Build default callback URL
+		redirectURI = getRequestBaseURL(r, h.externalURL) + "/api/auth/oauth/" + providerIDStr + "/callback"
+	}
 
 	// Get authorization URL
 	authURL, err := h.ssoManager.GetStartURL(r.Context(), providerID, redirectURI)
@@ -219,10 +220,10 @@ func (h *SSOHandler) SAMLStart(w http.ResponseWriter, r *http.Request) {
 
 	// Get redirect URI from query params or use default
 	redirectURI := r.URL.Query().Get("redirect_uri")
-    if redirectURI == "" {
-        // Build default ACS URL
-        redirectURI = getRequestBaseURL(r) + "/api/auth/saml/" + providerIDStr + "/acs"
-    }
+	if redirectURI == "" {
+		// Build default ACS URL
+		redirectURI = getRequestBaseURL(r, h.externalURL) + "/api/auth/saml/" + providerIDStr + "/acs"
+	}
 
 	// Get authorization URL
 	authURL, err := h.ssoManager.GetStartURL(r.Context(), providerID, redirectURI)
@@ -326,7 +327,7 @@ func (h *SSOHandler) SAMLMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build ACS URL
-	acsURL := getRequestBaseURL(r) + "/api/auth/saml/" + providerIDStr + "/acs"
+	acsURL := getRequestBaseURL(r, h.externalURL) + "/api/auth/saml/" + providerIDStr + "/acs"
 
 	metadata, err := samlProvider.GenerateMetadata(acsURL)
 	if err != nil {
@@ -746,14 +747,14 @@ func (h *SSOHandler) logSSOLoginAttempt(r *http.Request, userID *uuid.UUID, prov
 
 // ssoRedirect redirects to frontend with optional message
 func (h *SSOHandler) ssoRedirect(w http.ResponseWriter, r *http.Request, path string) {
-    // Get the frontend URL from the origin or use default
-    origin := r.Header.Get("Origin")
-    if origin == "" {
-        origin = getRequestBaseURL(r)
-    }
+	// Get the frontend URL from the origin or use default
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		origin = getRequestBaseURL(r, h.externalURL)
+	}
 
-    redirectURL := origin + path
-    http.Redirect(w, r, redirectURL, http.StatusFound)
+	redirectURL := origin + path
+	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
 // ssoErrorRedirect redirects to frontend with error message
@@ -761,24 +762,15 @@ func (h *SSOHandler) ssoErrorRedirect(w http.ResponseWriter, r *http.Request, er
 	h.ssoRedirect(w, r, "/login?sso_error="+url.QueryEscape(errorMsg))
 }
 
-// getRequestBaseURL adds request headers to preserve port 
-func getRequestBaseURL(r *http.Request) string {
-    scheme := r.Header.Get("X-Forwarded-Proto")
-    if scheme == "" {
-        scheme = r.Header.Get("X-Forwarded-Scheme")
-    }
-    if scheme == "" {
-        if r.TLS != nil {
-            scheme = "https"
-        } else {
-            scheme = "http"
-        }
-    }
-
-    host := r.Header.Get("X-Forwarded-Host")
-    if host == "" {
-        host = r.Host
-    }
-
-    return scheme + "://" + host
+// getRequestBaseURL gets config URL but falls back on default if missing
+func getRequestBaseURL(r *http.Request, externalURL string) string {
+	if externalURL != "" {
+		return externalURL
+	}
+	// Backward compatible fallback
+	scheme := "https"
+	if r.TLS == nil {
+		scheme = "http"
+	}
+	return scheme + "://" + r.Host
 }

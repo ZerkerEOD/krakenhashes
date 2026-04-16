@@ -20,6 +20,7 @@ type Config struct {
 	DataDir       string // Base directory for mutable data (uploads, db?)
 	MaxUploadSize int64  // Max size for file uploads in bytes
 	HashUploadDir string // Directory within DataDir to store hashlist uploads
+	ExternalURL   string // External URL for SSO redirects (e.g. https://krakenhashes.local:8443)
 }
 
 // NewConfig creates a new Config instance with values from environment variables
@@ -186,6 +187,7 @@ func NewConfig() *Config {
 		DataDir:       dataDir,
 		MaxUploadSize: maxUploadSize,
 		HashUploadDir: hashUploadDir,
+		ExternalURL:   os.Getenv("KH_EXTERNAL_URL"),
 	}
 }
 
