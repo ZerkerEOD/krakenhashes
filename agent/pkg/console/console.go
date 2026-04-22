@@ -329,6 +329,7 @@ type TaskProgress struct {
 	Status            string
 	KeyspaceProcessed int64
 	TotalKeyspace     int64
+	CrackedCount      int
 }
 
 // FormatTaskProgress formats task progress for display
@@ -340,6 +341,6 @@ func FormatTaskProgress(p TaskProgress) string {
 	// Format keyspace as "current/total"
 	keyspace := fmt.Sprintf("%d/%d", p.KeyspaceProcessed, p.TotalKeyspace)
 
-	return fmt.Sprintf("%s %6.2f%% | %s | %s | ETA: %s",
-		bar, p.ProgressPercent, keyspace, speed, eta)
+	return fmt.Sprintf("%s %6.2f%% | %s | %s | ETA: %s | Found: %d",
+		bar, p.ProgressPercent, keyspace, speed, eta, p.CrackedCount)
 }

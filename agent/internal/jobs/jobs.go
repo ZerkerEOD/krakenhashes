@@ -952,6 +952,7 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 						Status:            "running",
 						KeyspaceProcessed: effectiveProgress,
 						TotalKeyspace:     totalEffective,
+						CrackedCount:      progress.CrackedCount,
 					}
 					if progress.TimeRemaining != nil {
 						taskProgress.TimeRemaining = *progress.TimeRemaining
@@ -1062,11 +1063,6 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 					jm.progressCallback(progress)
 				}
 
-				// Log any cracked hashes with console output
-				if progress.CrackedCount > 0 {
-					console.Info("Found %d cracked hashes", progress.CrackedCount)
-				}
-
 				// If this was a final status (completed or failed), drain remaining messages then exit
 				if progress.Status == "completed" || progress.Status == "failed" {
 					// Drain any remaining crack batches from the channel before exiting
@@ -1099,8 +1095,6 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 									}
 									jm.crackCallback(batch)
 								}
-
-								console.Info("Found %d cracked hashes", remaining.CrackedCount)
 							}
 						case <-time.After(30 * time.Second):
 							// No more messages after 30s, safe to exit
