@@ -10,6 +10,7 @@ This document provides a comprehensive reference for all environment variables u
 - [Docker & Deployment](#docker--deployment)
 - [Database](#database)
 - [Authentication & Security](#authentication--security)
+- [SSO Configuration](#sso-configuration)
 - [TLS/SSL Configuration](#tlsssl-configuration)
 - [Logging & Debugging](#logging--debugging)
 - [WebSocket Configuration](#websocket-configuration)
@@ -147,6 +148,15 @@ The backend builds the connection string dynamically from these variables.
 |----------|------|---------|----------|-------------|
 | `CORS_ALLOWED_ORIGIN` | string | `https://localhost:443` | No | Allowed CORS origin |
 | `ALLOWED_ORIGINS` | string | `*` | No | Comma-separated list of allowed origins |
+
+### SSO Configuration
+
+| Variable | Type | Default | Required | Description |
+|----------|------|---------|----------|-------------|
+| `SSO_ENCRYPTION_KEY` | string | - | Yes* | AES-256-GCM key for encrypting SSO secrets. Generate with `openssl rand -base64 32` |
+| `KH_EXTERNAL_URL` | string | - | No | External URL for SSO redirect callbacks (e.g., `https://krakenhashes.local:8443`). Required when behind a reverse proxy on a nonstandard port. Falls back to request Host header if unset |
+
+\* Required in production for SSO secrets to persist across restarts
 
 ## TLS/SSL Configuration
 

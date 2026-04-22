@@ -99,6 +99,18 @@ When running multiple backend instances:
 - Store the key in a secrets manager (Vault, AWS Secrets Manager, etc.)
 - Rotate keys by re-encrypting all secrets with a new key
 
+## Reverse Proxy Configuration
+
+If KrakenHashes runs behind a reverse proxy (e.g., Traefik, HAProxy) on a nonstandard port, SSO redirect URLs may lose the port number. Set `KH_EXTERNAL_URL` to the URL users access KrakenHashes at:
+
+```env
+KH_EXTERNAL_URL=https://krakenhashes.local:8443
+```
+
+This ensures OAuth callback URLs and SAML ACS URLs include the correct scheme, host, and port. Do not include a trailing slash.
+
+If unset, URLs are built from the request `Host` header, which works correctly for standard ports (443/80) and direct access without a reverse proxy.
+
 ## LDAP Configuration
 
 ### Basic Setup

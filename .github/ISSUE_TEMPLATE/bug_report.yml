@@ -164,3 +164,12 @@ body:
           placeholder: Add any other context about the problem here...
       validations:
           required: false
+
+    - type: input
+      id: discord-username
+      attributes:
+          label: Discord Username (for attribution)
+          description: If you'd like to receive credit in our Discord community for this contribution, provide your Discord username.
+          placeholder: "e.g., username"
+      validations:
+          required: false
