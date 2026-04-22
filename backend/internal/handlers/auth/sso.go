@@ -26,17 +26,19 @@ import (
 
 // SSOHandler handles SSO authentication requests
 type SSOHandler struct {
-	db         *db.DB
-	ssoManager *sso.Manager
-	ssoRepo    *repository.SSORepository
+	db          *db.DB
+	ssoManager  *sso.Manager
+	ssoRepo     *repository.SSORepository
+	externalURL string
 }
 
 // NewSSOHandler creates a new SSO handler
-func NewSSOHandler(database *db.DB, ssoManager *sso.Manager, ssoRepo *repository.SSORepository) *SSOHandler {
+func NewSSOHandler(database *db.DB, ssoManager *sso.Manager, ssoRepo *repository.SSORepository, externalURL string) *SSOHandler {
 	return &SSOHandler{
-		db:         database,
-		ssoManager: ssoManager,
-		ssoRepo:    ssoRepo,
+		db:          database,
+		ssoManager:  ssoManager,
+		ssoRepo:     ssoRepo,
+		externalURL: externalURL,
 	}
 }
 
@@ -141,12 +143,7 @@ func (h *SSOHandler) OAuthStart(w http.ResponseWriter, r *http.Request) {
 	redirectURI := r.URL.Query().Get("redirect_uri")
 	if redirectURI == "" {
 		// Build default callback URL
-		scheme := "https"
-		if r.TLS == nil {
-			scheme = "http"
-		}
-		host := r.Host
-		redirectURI = scheme + "://" + host + "/api/auth/oauth/" + providerIDStr + "/callback"
+		redirectURI = getRequestBaseURL(r, h.externalURL) + "/api/auth/oauth/" + providerIDStr + "/callback"
 	}
 
 	// Get authorization URL
@@ -225,12 +222,7 @@ func (h *SSOHandler) SAMLStart(w http.ResponseWriter, r *http.Request) {
 	redirectURI := r.URL.Query().Get("redirect_uri")
 	if redirectURI == "" {
 		// Build default ACS URL
-		scheme := "https"
-		if r.TLS == nil {
-			scheme = "http"
-		}
-		host := r.Host
-		redirectURI = scheme + "://" + host + "/api/auth/saml/" + providerIDStr + "/acs"
+		redirectURI = getRequestBaseURL(r, h.externalURL) + "/api/auth/saml/" + providerIDStr + "/acs"
 	}
 
 	// Get authorization URL
@@ -335,11 +327,7 @@ func (h *SSOHandler) SAMLMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build ACS URL
-	scheme := "https"
-	if r.TLS == nil {
-		scheme = "http"
-	}
-	acsURL := scheme + "://" + r.Host + "/api/auth/saml/" + providerIDStr + "/acs"
+	acsURL := getRequestBaseURL(r, h.externalURL) + "/api/auth/saml/" + providerIDStr + "/acs"
 
 	metadata, err := samlProvider.GenerateMetadata(acsURL)
 	if err != nil {
@@ -762,12 +750,7 @@ func (h *SSOHandler) ssoRedirect(w http.ResponseWriter, r *http.Request, path st
 	// Get the frontend URL from the origin or use default
 	origin := r.Header.Get("Origin")
 	if origin == "" {
-		// Fall back to the request host
-		scheme := "https"
-		if r.TLS == nil {
-			scheme = "http"
-		}
-		origin = scheme + "://" + r.Host
+		origin = getRequestBaseURL(r, h.externalURL)
 	}
 
 	redirectURL := origin + path
@@ -777,4 +760,17 @@ func (h *SSOHandler) ssoRedirect(w http.ResponseWriter, r *http.Request, path st
 // ssoErrorRedirect redirects to frontend with error message
 func (h *SSOHandler) ssoErrorRedirect(w http.ResponseWriter, r *http.Request, errorMsg string) {
 	h.ssoRedirect(w, r, "/login?sso_error="+url.QueryEscape(errorMsg))
+}
+
+// getRequestBaseURL gets config URL but falls back on default if missing
+func getRequestBaseURL(r *http.Request, externalURL string) string {
+	if externalURL != "" {
+		return externalURL
+	}
+	// Backward compatible fallback
+	scheme := "https"
+	if r.TLS == nil {
+		scheme = "http"
+	}
+	return scheme + "://" + r.Host
 }

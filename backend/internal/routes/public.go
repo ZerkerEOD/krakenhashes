@@ -33,7 +33,7 @@ func SetupPublicRoutes(apiRouter *mux.Router, database *db.DB, agentService *ser
 	debug.Info("Configured authentication endpoints: /login, /logout, /check-auth, /verify-mfa")
 
 	// Setup SSO routes (LDAP, SAML, OAuth/OIDC)
-	ssoManager := SetupSSORoutes(apiRouter, database.DB)
+	ssoManager := SetupSSORoutes(apiRouter, database.DB, appConfig)
 
 	// Health check endpoint - publicly accessible
 	publicRouter := apiRouter.PathPrefix("").Subrouter()
