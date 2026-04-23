@@ -162,7 +162,10 @@ type BenchmarkRequest struct {
 	ExtraParameters         string            `json:"extra_parameters,omitempty"`          // Agent-specific hashcat parameters
 	EnabledDevices          []int             `json:"enabled_devices,omitempty"`           // List of enabled device IDs
 	AssociationWordlistPath string            `json:"association_wordlist_path,omitempty"` // For mode 9 association attacks
-	CustomCharsets          map[string]string `json:"custom_charsets,omitempty"`           // Custom charset definitions (-1 through -4)
+	CustomCharsets          map[string]string            `json:"custom_charsets,omitempty"`           // Custom charset definitions (-1 through -4)
+	CharsetFiles           map[string]jobs.CharsetFileInfo `json:"charset_files,omitempty"`          // File-based charset references
+	HexCharset             bool                           `json:"hex_charset,omitempty"`             // Hex-encoded inline charsets
+	JobAdditionalArgs      string                         `json:"job_additional_args,omitempty"`     // Job-level additional hashcat args
 }
 
 // BenchmarkResult represents the result of a speed test
@@ -1672,6 +1675,62 @@ func (c *Connection) readPump() {
 						debug.Info("Successfully downloaded hashlist %d for benchmark", benchmarkPayload.HashlistID)
 					}
 
+				// Ensure charset files are available before benchmark
+				for slot, charsetFile := range benchmarkPayload.CharsetFiles {
+					if charsetFile.Name == "" {
+						continue
+					}
+					dataDirs, _ := config.GetDataDirs()
+					localPath := filepath.Join(dataDirs.Charsets, charsetFile.Name)
+
+					// Skip if file already exists with matching MD5
+					if info, err := os.Stat(localPath); err == nil && info.Size() > 0 {
+						if charsetFile.MD5Hash != "" {
+							if hash, err := c.fileSync.CalculateFileHash(localPath); err == nil && hash == charsetFile.MD5Hash {
+								debug.Info("Charset file %s for slot %s already exists with correct MD5, skipping download", charsetFile.Name, slot)
+								continue
+							}
+						} else {
+							debug.Info("Charset file %s for slot %s already exists, skipping download", charsetFile.Name, slot)
+							continue
+						}
+					}
+
+					debug.Info("Downloading charset file %s for benchmark slot %s...", charsetFile.Name, slot)
+					fileInfo := &filesync.FileInfo{
+						Name:     charsetFile.Name,
+						FileType: "charset",
+						MD5Hash:  charsetFile.MD5Hash,
+					}
+
+					downloadCtx, downloadCancel := context.WithTimeout(context.Background(), 2*time.Minute)
+					if err := c.fileSync.DownloadFileFromInfo(downloadCtx, fileInfo); err != nil {
+						downloadCancel()
+						debug.Error("Failed to download charset file %s for benchmark: %v", charsetFile.Name, err)
+						resultPayload := map[string]interface{}{
+							"job_execution_id": benchmarkPayload.JobExecutionID,
+							"attack_mode":      benchmarkPayload.AttackMode,
+							"hash_type":        benchmarkPayload.HashType,
+							"speed":            int64(0),
+							"device_speeds":    []jobs.DeviceSpeed{},
+							"success":          false,
+							"error":            fmt.Sprintf("Failed to download charset file %s: %v", charsetFile.Name, err),
+						}
+						payloadBytes, _ := json.Marshal(resultPayload)
+						response := WSMessage{
+							Type:      WSTypeBenchmarkResult,
+							Payload:   payloadBytes,
+							Timestamp: time.Now(),
+						}
+						if err := c.ws.WriteJSON(response); err != nil {
+							debug.Error("Failed to send benchmark failure result: %v", err)
+						}
+						return
+					}
+					downloadCancel()
+					debug.Info("Successfully downloaded charset file %s for benchmark slot %s", charsetFile.Name, slot)
+				}
+
 				// Create a JobTaskAssignment from benchmark request
 				assignment := &jobs.JobTaskAssignment{
 					TaskID:                  benchmarkPayload.TaskID,
@@ -1688,6 +1747,9 @@ func (c *Connection) readPump() {
 					EnabledDevices:          benchmarkPayload.EnabledDevices,           // Device list
 					AssociationWordlistPath: benchmarkPayload.AssociationWordlistPath, // For mode 9
 					CustomCharsets:          benchmarkPayload.CustomCharsets,          // Custom charset definitions
+					CharsetFiles:           benchmarkPayload.CharsetFiles,            // File-based charset references
+					HexCharset:             benchmarkPayload.HexCharset,              // Hex charset flag
+					JobAdditionalArgs:      benchmarkPayload.JobAdditionalArgs,       // Job-level additional args
 				}
 
 				// Default test duration to 16 seconds if not specified

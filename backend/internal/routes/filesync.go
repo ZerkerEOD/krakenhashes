@@ -95,6 +95,9 @@ func SetupFileDownloadRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, a
 			} else {
 				filePath = filepath.Join(cfg.DataDir, "rules", category, filename)
 			}
+		case "charset":
+			// Charset files are stored directly in the charsets directory
+			filePath = filepath.Join(cfg.DataDir, "charsets", filename)
 		case "binary":
 			// Binary files are stored in directories named by their ID in the database
 			// First try the provided category (might be an ID)
@@ -243,6 +246,9 @@ func SetupFileDownloadRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, a
 				baseName := parts[len(parts)-1]
 				filePath = filepath.Join(cfg.DataDir, "rules", category, baseName)
 			}
+		case "charset":
+			// Charset files are stored directly in the charsets directory
+			filePath = filepath.Join(cfg.DataDir, "charsets", filename)
 		case "binary":
 			// For binary files without a category, query the database
 			if !strings.Contains(filename, "/") {

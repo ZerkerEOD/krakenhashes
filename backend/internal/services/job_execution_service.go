@@ -264,6 +264,8 @@ type CustomJobConfig struct {
 	AttackMode                models.AttackMode
 	Mask                      string
 	CustomCharsets            models.CustomCharsets
+	CustomCharsetFiles        models.CustomCharsetFiles
+	HexCharset                bool
 	Priority                  int
 	MaxAgents                 int
 	BinaryVersion             string // Version pattern (e.g., "default", "7.x", "7.1.2")
@@ -429,6 +431,8 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		BinaryVersion:           presetJob.BinaryVersion,
 		Mask:                      presetJob.Mask,
 		CustomCharsets:            presetJob.CustomCharsets,
+		CustomCharsetFiles:       presetJob.CustomCharsetFiles,
+		HexCharset:                presetJob.HexCharset,
 		AdditionalArgs:            presetJob.AdditionalArgs,
 		IncrementMode:             presetJob.IncrementMode,
 		IncrementMin:              presetJob.IncrementMin,
@@ -543,6 +547,8 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		BinaryVersion:           config.BinaryVersion,
 		Mask:                      config.Mask,
 		CustomCharsets:            config.CustomCharsets,
+		CustomCharsetFiles:       config.CustomCharsetFiles,
+		HexCharset:                config.HexCharset,
 		Priority:                  config.Priority,
 		MaxAgents:                 config.MaxAgents,
 		AllowHighPriorityOverride: config.AllowHighPriorityOverride,
@@ -673,6 +679,8 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		BinaryVersion:           config.BinaryVersion,
 		Mask:                      config.Mask,
 		CustomCharsets:            config.CustomCharsets,
+		CustomCharsetFiles:       config.CustomCharsetFiles,
+		HexCharset:                config.HexCharset,
 		AdditionalArgs:            config.AdditionalArgs,
 		IncrementMode:             config.IncrementMode,
 		IncrementMin:              config.IncrementMin,
@@ -872,9 +880,33 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 		return nil, nil, false, fmt.Errorf("unsupported attack mode for keyspace calculation: %d", presetJob.AttackMode)
 	}
 
+	// Add --hex-charset ONLY if job uses hex mode AND has inline charset definitions
+	// (file charsets are unaffected by --hex-charset, and without any -1/-2/-3/-4 inline defs
+	// hashcat will reject --hex-charset as it tries to interpret the mask as hex)
+	if presetJob.HexCharset {
+		hasInlineCharset := false
+		for _, slot := range []string{"1", "2", "3", "4"} {
+			if _, isFile := presetJob.CustomCharsetFiles[slot]; isFile {
+				continue
+			}
+			if def, ok := presetJob.CustomCharsets[slot]; ok && def != "" {
+				hasInlineCharset = true
+				break
+			}
+		}
+		if hasInlineCharset {
+			args = append(args, "--hex-charset")
+		}
+	}
+
 	// Add custom charset flags (-1 through -4) before keyspace calculation
+	// File charsets take priority over inline definitions (same slot can't have both)
 	for _, slot := range []string{"1", "2", "3", "4"} {
-		if def, ok := presetJob.CustomCharsets[slot]; ok && def != "" {
+		if cf, ok := presetJob.CustomCharsetFiles[slot]; ok && cf.FilePath != "" {
+			// File charset — use the actual backend file path so hashcat can read it for keyspace
+			charsetPath := filepath.Join(s.dataDirectory, cf.FilePath)
+			args = append(args, "-"+slot, charsetPath)
+		} else if def, ok := presetJob.CustomCharsets[slot]; ok && def != "" {
 			args = append(args, "-"+slot, def)
 		}
 	}

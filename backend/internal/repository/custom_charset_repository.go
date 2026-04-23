@@ -20,6 +20,7 @@ type CustomCharsetRepository interface {
 	ListByUser(ctx context.Context, userID uuid.UUID) ([]models.CustomCharset, error)
 	ListByTeam(ctx context.Context, teamID uuid.UUID) ([]models.CustomCharset, error)
 	ListAccessible(ctx context.Context, userID uuid.UUID, teamIDs []uuid.UUID) ([]models.CustomCharset, error)
+	GetByFilePath(ctx context.Context, filePath string) (*models.CustomCharset, error)
 }
 
 // customCharsetRepository implements CustomCharsetRepository.
@@ -32,17 +33,38 @@ func NewCustomCharsetRepository(db *sql.DB) CustomCharsetRepository {
 	return &customCharsetRepository{db: db}
 }
 
-const customCharsetColumns = `id, name, description, definition, scope, owner_id, created_by, created_at, updated_at`
+const customCharsetColumns = `id, name, description, charset_type, definition, file_path, file_md5, file_size, byte_count, is_hex, scope, owner_id, created_by, created_at, updated_at`
 
 func scanCustomCharset(row interface{ Scan(dest ...interface{}) error }) (*models.CustomCharset, error) {
 	var c models.CustomCharset
 	var ownerID, createdBy sql.NullString
+	var definition, filePath, fileMD5 sql.NullString
+	var fileSize sql.NullInt64
+	var byteCount sql.NullInt32
 	err := row.Scan(
-		&c.ID, &c.Name, &c.Description, &c.Definition, &c.Scope,
-		&ownerID, &createdBy, &c.CreatedAt, &c.UpdatedAt,
+		&c.ID, &c.Name, &c.Description, &c.CharsetType,
+		&definition, &filePath, &fileMD5, &fileSize, &byteCount,
+		&c.IsHex, &c.Scope, &ownerID, &createdBy, &c.CreatedAt, &c.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
+	}
+	if definition.Valid {
+		c.Definition = &definition.String
+	}
+	if filePath.Valid {
+		c.FilePath = &filePath.String
+	}
+	if fileMD5.Valid {
+		c.FileMD5 = &fileMD5.String
+	}
+	if fileSize.Valid {
+		v := fileSize.Int64
+		c.FileSize = &v
+	}
+	if byteCount.Valid {
+		v := int(byteCount.Int32)
+		c.ByteCount = &v
 	}
 	if ownerID.Valid {
 		id, _ := uuid.Parse(ownerID.String)
@@ -58,13 +80,14 @@ func scanCustomCharset(row interface{ Scan(dest ...interface{}) error }) (*model
 // Create inserts a new custom charset into the database.
 func (r *customCharsetRepository) Create(ctx context.Context, charset *models.CustomCharset) (*models.CustomCharset, error) {
 	query := fmt.Sprintf(`
-		INSERT INTO custom_charsets (name, description, definition, scope, owner_id, created_by)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO custom_charsets (name, description, charset_type, definition, file_path, file_md5, file_size, byte_count, is_hex, scope, owner_id, created_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING %s`, customCharsetColumns)
 
 	row := r.db.QueryRowContext(ctx, query,
-		charset.Name, charset.Description, charset.Definition,
-		charset.Scope, charset.OwnerID, charset.CreatedBy,
+		charset.Name, charset.Description, charset.CharsetType,
+		charset.Definition, charset.FilePath, charset.FileMD5, charset.FileSize, charset.ByteCount,
+		charset.IsHex, charset.Scope, charset.OwnerID, charset.CreatedBy,
 	)
 
 	created, err := scanCustomCharset(row)
@@ -91,7 +114,23 @@ func (r *customCharsetRepository) GetByID(ctx context.Context, id uuid.UUID) (*m
 	return charset, nil
 }
 
-// Update modifies an existing custom charset.
+// GetByFilePath retrieves a custom charset by its file path.
+func (r *customCharsetRepository) GetByFilePath(ctx context.Context, filePath string) (*models.CustomCharset, error) {
+	query := fmt.Sprintf(`SELECT %s FROM custom_charsets WHERE file_path = $1`, customCharsetColumns)
+
+	row := r.db.QueryRowContext(ctx, query, filePath)
+	charset, err := scanCustomCharset(row)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil // Not found is not an error for this lookup
+		}
+		debug.Error("Error getting custom charset by file path %s: %v", filePath, err)
+		return nil, fmt.Errorf("error getting custom charset by file path: %w", err)
+	}
+	return charset, nil
+}
+
+// Update modifies an existing custom charset's name, description, and definition (inline only).
 func (r *customCharsetRepository) Update(ctx context.Context, id uuid.UUID, charset *models.CustomCharset) (*models.CustomCharset, error) {
 	query := fmt.Sprintf(`
 		UPDATE custom_charsets

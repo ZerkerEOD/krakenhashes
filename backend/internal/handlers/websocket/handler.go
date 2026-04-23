@@ -705,7 +705,7 @@ func (h *Handler) initiateFileSync(client *Client) {
 	// Create sync request payload
 	payload := wsservice.FileSyncRequestPayload{
 		RequestID: requestID,
-		FileTypes: []string{"wordlist", "rule", "binary"},
+		FileTypes: []string{"wordlist", "rule", "binary", "charset"},
 	}
 
 	// Marshal payload

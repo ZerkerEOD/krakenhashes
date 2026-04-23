@@ -43,6 +43,14 @@ const (
 	HashcatRetryDelay = 5 * time.Second
 )
 
+// CharsetFileInfo describes a charset file referenced by a task assignment
+type CharsetFileInfo struct {
+	Name      string `json:"name"`
+	MD5Hash   string `json:"md5_hash"`
+	Size      int64  `json:"size"`
+	ByteCount int    `json:"byte_count"`
+}
+
 // JobTaskAssignment represents a task assignment from the backend
 type JobTaskAssignment struct {
 	TaskID          string      `json:"task_id"`
@@ -56,7 +64,9 @@ type JobTaskAssignment struct {
 	WordlistPaths   []string    `json:"wordlist_paths"`   // Local paths on agent
 	RulePaths       []string    `json:"rule_paths"`       // Local paths on agent
 	Mask            string            `json:"mask,omitempty"`             // For mask attacks
-	CustomCharsets  map[string]string `json:"custom_charsets,omitempty"`  // Custom charsets: {"1": "?u?d", "3": "?s"}
+	CustomCharsets  map[string]string          `json:"custom_charsets,omitempty"`  // Custom charsets: {"1": "?u?d", "3": "?s"}
+	CharsetFiles   map[string]CharsetFileInfo `json:"charset_files,omitempty"`   // File-based charsets: {"1": {name: "file.hcchr", ...}}
+	HexCharset     bool              `json:"hex_charset,omitempty"`      // When true, auto-inject --hex-charset flag
 	BinaryPath      string            `json:"binary_path"`                // Hashcat binary to use
 	ChunkDuration   int         `json:"chunk_duration"`   // Expected duration in seconds
 	ReportInterval  int         `json:"report_interval"`  // Progress reporting interval
@@ -591,9 +601,33 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 
 	args = append(args, hashlistPath)
 
+	// Auto-inject --hex-charset ONLY when the job has hex mode AND inline charset definitions
+	// (file charsets are unaffected by --hex-charset, and without any -1/-2/-3/-4 inline defs
+	// hashcat will reject --hex-charset as it tries to interpret the mask as hex)
+	if assignment.HexCharset {
+		hasInlineCharset := false
+		for _, slot := range []string{"1", "2", "3", "4"} {
+			if _, isFile := assignment.CharsetFiles[slot]; isFile {
+				continue
+			}
+			if def, ok := assignment.CustomCharsets[slot]; ok && def != "" {
+				hasInlineCharset = true
+				break
+			}
+		}
+		if hasInlineCharset {
+			args = append(args, "--hex-charset")
+			debug.Info("Adding --hex-charset flag (job has hex-encoded inline charsets)")
+		}
+	}
+
 	// Add custom charset flags (-1 through -4) before attack-specific args
 	for _, slot := range []string{"1", "2", "3", "4"} {
-		if def, ok := assignment.CustomCharsets[slot]; ok && def != "" {
+		if cf, ok := assignment.CharsetFiles[slot]; ok && cf.Name != "" {
+			// File charset — use local file path
+			charsetPath := filepath.Join(e.dataDirectory, "charsets", cf.Name)
+			args = append(args, "-"+slot, charsetPath)
+		} else if def, ok := assignment.CustomCharsets[slot]; ok && def != "" {
 			args = append(args, "-"+slot, def)
 		}
 	}
@@ -746,9 +780,30 @@ func (e *HashcatExecutor) getAgentKeyspace(assignment *JobTaskAssignment) (int64
 		args = append(args, strings.Fields(mergedArgs)...)
 	}
 
+	// Auto-inject --hex-charset ONLY when the job has hex mode AND inline charset definitions
+	if assignment.HexCharset {
+		hasInlineCharset := false
+		for _, slot := range []string{"1", "2", "3", "4"} {
+			if _, isFile := assignment.CharsetFiles[slot]; isFile {
+				continue
+			}
+			if def, ok := assignment.CustomCharsets[slot]; ok && def != "" {
+				hasInlineCharset = true
+				break
+			}
+		}
+		if hasInlineCharset {
+			args = append(args, "--hex-charset")
+		}
+	}
+
 	// Add custom charset flags (-1 through -4) before attack-specific args
 	for _, slot := range []string{"1", "2", "3", "4"} {
-		if def, ok := assignment.CustomCharsets[slot]; ok && def != "" {
+		if cf, ok := assignment.CharsetFiles[slot]; ok && cf.Name != "" {
+			// File charset — use local file path
+			charsetPath := filepath.Join(e.dataDirectory, "charsets", cf.Name)
+			args = append(args, "-"+slot, charsetPath)
+		} else if def, ok := assignment.CustomCharsets[slot]; ok && def != "" {
 			args = append(args, "-"+slot, def)
 		}
 	}

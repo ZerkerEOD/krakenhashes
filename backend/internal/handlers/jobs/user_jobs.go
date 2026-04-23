@@ -40,6 +40,7 @@ type UserJobsHandler struct {
 	clientPotfileRepo      *repository.ClientPotfileRepository
 	clientWordlistManager  *services.ClientWordlistManager
 	teamService            *services.TeamService
+	charsetRepo            repository.CustomCharsetRepository
 	wsHandler              WSHandler
 }
 
@@ -72,6 +73,7 @@ func NewUserJobsHandler(
 	clientPotfileRepo *repository.ClientPotfileRepository,
 	clientWordlistManager *services.ClientWordlistManager,
 	teamService *services.TeamService,
+	charsetRepo repository.CustomCharsetRepository,
 ) *UserJobsHandler {
 	return &UserJobsHandler{
 		jobExecRepo:           jobExecRepo,
@@ -91,6 +93,7 @@ func NewUserJobsHandler(
 		clientPotfileRepo:     clientPotfileRepo,
 		clientWordlistManager: clientWordlistManager,
 		teamService:           teamService,
+		charsetRepo:           charsetRepo,
 		wsHandler:             nil, // Will be set later via SetWSHandler
 	}
 }
@@ -776,6 +779,7 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 				RuleIDs                   []string `json:"rule_ids"`
 				Mask                      string            `json:"mask"`
 				CustomCharsets            map[string]string `json:"custom_charsets"`
+				CustomCharsetFileIDs     map[string]string `json:"custom_charset_file_ids"`
 				Priority                  int               `json:"priority"`
 				MaxAgents                 int      `json:"max_agents"`
 				BinaryVersion             string   `json:"binary_version"`
@@ -785,6 +789,7 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 				IncrementMin              *int     `json:"increment_min"`
 				IncrementMax              *int     `json:"increment_max"`
 				AssociationWordlistID     *string  `json:"association_wordlist_id"`
+				HexCharset                bool     `json:"hex_charset"`
 				AdditionalArgs            *string  `json:"additional_args"`
 			} `json:"custom_job"`
 		}
@@ -852,6 +857,63 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			"attack_mode":    req.CustomJob.AttackMode,
 		})
 
+		// Resolve file charset references (slot → charset UUID → CharsetFileRef)
+		var charsetFiles models.CustomCharsetFiles
+		if len(req.CustomJob.CustomCharsetFileIDs) > 0 {
+			charsetFiles = make(models.CustomCharsetFiles)
+			for slot, charsetIDStr := range req.CustomJob.CustomCharsetFileIDs {
+				// Validate slot is 1-4
+				if slot != "1" && slot != "2" && slot != "3" && slot != "4" {
+					http.Error(w, fmt.Sprintf("Invalid charset file slot: %s (must be 1-4)", slot), http.StatusBadRequest)
+					return
+				}
+				// Check no overlap with inline charsets
+				if _, exists := req.CustomJob.CustomCharsets[slot]; exists {
+					http.Error(w, fmt.Sprintf("Slot %s has both an inline charset and a file charset — only one allowed per slot", slot), http.StatusBadRequest)
+					return
+				}
+				charsetID, err := uuid.Parse(charsetIDStr)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("Invalid charset file ID for slot %s: %s", slot, charsetIDStr), http.StatusBadRequest)
+					return
+				}
+				charset, err := h.charsetRepo.GetByID(ctx, charsetID)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("Charset file not found for slot %s: %s", slot, charsetIDStr), http.StatusNotFound)
+					return
+				}
+				if charset.CharsetType != models.CustomCharsetTypeFile {
+					http.Error(w, fmt.Sprintf("Charset %s is not a file charset", charsetIDStr), http.StatusBadRequest)
+					return
+				}
+				charsetFiles[slot] = models.CharsetFileRef{
+					ID:        charset.ID.String(),
+					FilePath:  *charset.FilePath,
+					MD5:       *charset.FileMD5,
+					ByteCount: *charset.ByteCount,
+				}
+			}
+		}
+
+		// Validate hex charset consistency
+		if req.CustomJob.HexCharset && len(req.CustomJob.CustomCharsets) > 0 {
+			for slot, def := range req.CustomJob.CustomCharsets {
+				if def == "" {
+					continue
+				}
+				if len(def)%2 != 0 {
+					http.Error(w, fmt.Sprintf("Hex charset mode is enabled but charset in slot %s has odd length (%d chars) — hex charsets must be even-length byte pairs", slot, len(def)), http.StatusBadRequest)
+					return
+				}
+				for i, c := range def {
+					if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+						http.Error(w, fmt.Sprintf("Hex charset mode is enabled but charset in slot %s contains non-hex character %q at position %d", slot, string(c), i), http.StatusBadRequest)
+						return
+					}
+				}
+			}
+		}
+
 		// Create custom job configuration (NO preset job creation)
 		config := services.CustomJobConfig{
 			Name:                      req.CustomJob.Name,
@@ -860,6 +922,8 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			RuleIDs:                   models.IDArray(req.CustomJob.RuleIDs),
 			Mask:                      req.CustomJob.Mask,
 			CustomCharsets:            models.CustomCharsets(req.CustomJob.CustomCharsets),
+			CustomCharsetFiles:        charsetFiles,
+			HexCharset:                req.CustomJob.HexCharset,
 			Priority:                  req.CustomJob.Priority,
 			MaxAgents:                 req.CustomJob.MaxAgents,
 			BinaryVersion:             req.CustomJob.BinaryVersion,

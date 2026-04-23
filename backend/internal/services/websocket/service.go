@@ -222,6 +222,14 @@ type SyncProgressPayload struct {
 	Percentage  int `json:"percentage"`
 }
 
+// CharsetFileInfo contains metadata about a .hcchr charset file to be synced to an agent.
+type CharsetFileInfo struct {
+	Name      string `json:"name"`       // Filename on disk (e.g., "uuid.hcchr")
+	MD5Hash   string `json:"md5_hash"`   // MD5 for integrity verification
+	Size      int64  `json:"size"`       // File size in bytes
+	ByteCount int    `json:"byte_count"` // Number of unique bytes (for keyspace display)
+}
+
 // TaskAssignmentPayload represents a job task assignment sent to an agent
 type TaskAssignmentPayload struct {
 	TaskID          string   `json:"task_id"`
@@ -235,7 +243,9 @@ type TaskAssignmentPayload struct {
 	WordlistPaths   []string `json:"wordlist_paths"`
 	RulePaths       []string `json:"rule_paths"`
 	Mask            string            `json:"mask,omitempty"`
-	CustomCharsets  map[string]string `json:"custom_charsets,omitempty"`
+	CustomCharsets  map[string]string            `json:"custom_charsets,omitempty"`
+	CharsetFiles   map[string]CharsetFileInfo  `json:"charset_files,omitempty"`
+	HexCharset     bool                       `json:"hex_charset,omitempty"`
 	IncrementMode   string            `json:"increment_mode,omitempty"`
 	IncrementMin    *int              `json:"increment_min,omitempty"`
 	IncrementMax    *int              `json:"increment_max,omitempty"`
@@ -304,7 +314,9 @@ type BenchmarkRequestPayload struct {
 	WordlistPaths   []string `json:"wordlist_paths,omitempty"`
 	RulePaths       []string `json:"rule_paths,omitempty"`
 	Mask            string            `json:"mask,omitempty"`
-	CustomCharsets  map[string]string `json:"custom_charsets,omitempty"`
+	CustomCharsets  map[string]string            `json:"custom_charsets,omitempty"`
+	CharsetFiles   map[string]CharsetFileInfo  `json:"charset_files,omitempty"`
+	HexCharset     bool                       `json:"hex_charset,omitempty"`
 	TestDuration    int               `json:"test_duration,omitempty"`    // Duration in seconds for speed test
 	TimeoutDuration int      `json:"timeout_duration,omitempty"` // Maximum time to wait for speedtest (seconds)
 	ExtraParameters         string   `json:"extra_parameters,omitempty"`          // Agent-specific hashcat parameters

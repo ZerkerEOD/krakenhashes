@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/config"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/email"
 	adminhandlers "github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/admin"
@@ -163,11 +164,13 @@ func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.S
 	}
 
 	// Custom charset routes (global scope - admin managed)
+	adminCfg := config.NewConfig()
 	charsetRepo := repository.NewCustomCharsetRepository(database.DB)
-	charsetService := services.NewCustomCharsetService(charsetRepo)
+	charsetService := services.NewCustomCharsetService(charsetRepo, adminCfg.DataDir)
 	charsetHandler := adminhandlers.NewCustomCharsetHandler(charsetService)
 	adminRouter.HandleFunc("/custom-charsets", charsetHandler.ListGlobalCharsets).Methods(http.MethodGet, http.MethodOptions)
 	adminRouter.HandleFunc("/custom-charsets", charsetHandler.CreateGlobalCharset).Methods(http.MethodPost, http.MethodOptions)
+	adminRouter.HandleFunc("/custom-charsets/upload", charsetHandler.UploadGlobalCharsetFile).Methods(http.MethodPost, http.MethodOptions)
 	adminRouter.HandleFunc("/custom-charsets/{id:[0-9a-fA-F-]+}", charsetHandler.UpdateGlobalCharset).Methods(http.MethodPut, http.MethodOptions)
 	adminRouter.HandleFunc("/custom-charsets/{id:[0-9a-fA-F-]+}", charsetHandler.DeleteGlobalCharset).Methods(http.MethodDelete, http.MethodOptions)
 	debug.Info("Configured admin custom charset routes: /admin/custom-charsets/*")

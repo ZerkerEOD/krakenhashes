@@ -2,6 +2,7 @@ package routes
 
 import (
 	"bufio"
+	"context"
 	"database/sql"
 	"fmt"
 	"net"
@@ -202,7 +203,8 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	debug.Info("Initialized TeamService with trust repository")
 
 	// Initialize Handler for new admin job routes
-	adminJobsHandler := NewAdminJobsHandler(presetJobService, workflowService)
+	adminCharsetRepo := repository.NewCustomCharsetRepository(sqlDB)
+	adminJobsHandler := NewAdminJobsHandler(presetJobService, workflowService, adminCharsetRepo)
 	debug.Info("Initialized AdminJobsHandler")
 
 	// Initialize binary service for agent downloads
@@ -258,13 +260,19 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 
 	// User-facing custom charset routes (accessible to all authenticated users)
 	userCharsetRepo := repository.NewCustomCharsetRepository(sqlDB)
-	userCharsetService := services.NewCustomCharsetService(userCharsetRepo)
+	userCharsetService := services.NewCustomCharsetService(userCharsetRepo, appConfig.DataDir)
 	userCharsetHandler := v1handlers.NewCustomCharsetHandler(userCharsetService)
 	jwtRouter.HandleFunc("/custom-charsets", userCharsetHandler.ListAccessibleCharsets).Methods(http.MethodGet, http.MethodOptions)
 	jwtRouter.HandleFunc("/custom-charsets", userCharsetHandler.CreateUserCharset).Methods(http.MethodPost, http.MethodOptions)
+	jwtRouter.HandleFunc("/custom-charsets/upload", userCharsetHandler.UploadUserCharsetFile).Methods(http.MethodPost, http.MethodOptions)
 	jwtRouter.HandleFunc("/custom-charsets/{id:[0-9a-fA-F-]+}", userCharsetHandler.UpdateOwnCharset).Methods(http.MethodPut, http.MethodOptions)
 	jwtRouter.HandleFunc("/custom-charsets/{id:[0-9a-fA-F-]+}", userCharsetHandler.DeleteOwnCharset).Methods(http.MethodDelete, http.MethodOptions)
 	debug.Info("Configured user custom charset routes: /api/custom-charsets/*")
+
+	// Seed DES charset file on startup
+	if err := userCharsetService.SeedDESCharset(context.Background()); err != nil {
+		debug.Warning("Failed to seed DES charset: %v", err)
+	}
 
 	SetupAdminRoutes(jwtRouter, database, emailService, adminJobsHandler, binaryManager, ssoManager, teamService) // Pass adminJobsHandler, binaryManager, ssoManager, and teamService
 	SetupUserRoutes(jwtRouter, database, appConfig.DataDir, binaryManager, agentService, teamService)

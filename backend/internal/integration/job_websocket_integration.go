@@ -23,6 +23,23 @@ import (
 	"strings"
 )
 
+// convertCharsetFiles converts model CustomCharsetFiles to websocket CharsetFileInfo map.
+func convertCharsetFiles(files models.CustomCharsetFiles) map[string]wsservice.CharsetFileInfo {
+	if len(files) == 0 {
+		return nil
+	}
+	result := make(map[string]wsservice.CharsetFileInfo, len(files))
+	for slot, ref := range files {
+		result[slot] = wsservice.CharsetFileInfo{
+			Name:      filepath.Base(ref.FilePath),
+			MD5Hash:   ref.MD5,
+			Size:      0, // Size not stored in CharsetFileRef; agent uses MD5 for verification
+			ByteCount: ref.ByteCount,
+		}
+	}
+	return result
+}
+
 // retransmitCollectionState collects all retransmit batches before processing
 // This allows us to:
 // 1. Load existing hashes from DB ONCE (after all batches received)
@@ -234,7 +251,7 @@ func (s *JobWebSocketIntegration) SyncAgentFiles(ctx context.Context, agentID in
 	// Create file sync request payload
 	payload := map[string]interface{}{
 		"request_id": fmt.Sprintf("sync-%d-%d", agentID, time.Now().UnixNano()),
-		"file_types": []string{"wordlist", "rule", "binary"},
+		"file_types": []string{"wordlist", "rule", "binary", "charset"},
 	}
 
 	payloadBytes, _ := json.Marshal(payload)
@@ -321,7 +338,7 @@ func (s *JobWebSocketIntegration) CheckAndSyncAgentFiles(ctx context.Context, ag
 	defer s.wsHandler.UnregisterInventoryCallback(agentID)
 
 	payload := wsservice.FileSyncRequestPayload{
-		FileTypes: []string{"wordlist", "rule", "binary"},
+		FileTypes: []string{"wordlist", "rule", "binary", "charset"},
 	}
 	payloadBytes, _ := json.Marshal(payload)
 	msg := &wsservice.Message{
@@ -507,6 +524,16 @@ func (s *JobWebSocketIntegration) CheckAgentFilesForJob(ctx context.Context, age
 				Name:     filepath.Base(assocWL.FilePath),
 				FileType: "wordlist",
 				Category: "association", // Association wordlists are stored in "association" category
+			})
+		}
+	}
+
+	// Add charset files (file-based charsets used in mask attacks)
+	for _, charsetRef := range jobExecution.CustomCharsetFiles {
+		if charsetRef.FilePath != "" {
+			requiredFiles = append(requiredFiles, FileRequirement{
+				Name:     filepath.Base(charsetRef.FilePath),
+				FileType: "charset",
 			})
 		}
 	}
@@ -797,6 +824,8 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 		RulePaths:       rulePaths,
 		Mask:            maskToUse, // Layer mask or job mask
 		CustomCharsets:  map[string]string(jobExecution.CustomCharsets),
+		CharsetFiles:   convertCharsetFiles(jobExecution.CustomCharsetFiles),
+		HexCharset:     jobExecution.HexCharset,
 		BinaryPath:      binaryPath,
 		ChunkDuration:   task.ChunkDuration,
 		ReportInterval:  reportInterval,
@@ -1229,6 +1258,8 @@ func (s *JobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, age
 		RulePaths:       rulePaths,
 		Mask:            maskToUse,        // LAYER MASK for layer benchmarks, JOB MASK for regular
 		CustomCharsets:  map[string]string(jobExecution.CustomCharsets),
+		CharsetFiles:   convertCharsetFiles(jobExecution.CustomCharsetFiles),
+		HexCharset:     jobExecution.HexCharset,
 		TestDuration:    30,               // 30-second benchmark for accuracy
 		TimeoutDuration: speedtestTimeout, // Configurable timeout for speedtest
 		ExtraParameters:   agent.ExtraParameters,

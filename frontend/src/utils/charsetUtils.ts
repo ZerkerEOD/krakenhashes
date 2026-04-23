@@ -13,13 +13,20 @@ const BUILTIN_CHARSET_SIZES: Record<string, number> = {
 /**
  * Resolves the number of unique characters in a custom charset definition.
  * Handles built-in placeholders, references to earlier custom charsets, and literals.
+ * When isHex is true, size = definition.length / 2 (hex byte pairs).
  */
 export function resolveCharsetSize(
   definition: string,
   customCharsets: Record<string, string>,
-  resolved: Record<string, number>
+  resolved: Record<string, number>,
+  isHex?: boolean
 ): number {
   if (!definition) return 0;
+
+  // Hex mode: each pair of hex chars = one byte in the charset
+  if (isHex) {
+    return Math.floor(definition.length / 2);
+  }
 
   let totalSize = 0;
   const uniqueLiterals = new Set<string>();
@@ -55,19 +62,27 @@ export function resolveCharsetSize(
 /**
  * Calculates the estimated keyspace for a mask with custom charsets.
  * Returns 0 if the mask is empty.
+ * When isHex is true, inline charset sizes use hex byte pair counting.
  */
 export function calculateMaskKeyspace(
   mask: string,
-  customCharsets: Record<string, string>
+  customCharsets: Record<string, string>,
+  fileCharsetByteCounts?: Record<string, number>,
+  isHex?: boolean
 ): number {
   if (!mask) return 0;
 
   // Pre-resolve custom charset sizes (ordered 1-4 for back-references)
+  // File charsets use byte_count directly instead of parsing definition
   const resolved: Record<string, number> = {};
   for (const slot of ['1', '2', '3', '4']) {
-    const def = customCharsets[slot];
-    if (def) {
-      resolved[slot] = resolveCharsetSize(def, customCharsets, resolved);
+    if (fileCharsetByteCounts?.[slot]) {
+      resolved[slot] = fileCharsetByteCounts[slot];
+    } else {
+      const def = customCharsets[slot];
+      if (def) {
+        resolved[slot] = resolveCharsetSize(def, customCharsets, resolved, isHex);
+      }
     }
   }
 
@@ -126,5 +141,21 @@ export function validateCharsetDefinition(definition: string): string {
     }
   }
 
+  return '';
+}
+
+/**
+ * Validates a hex-encoded charset definition.
+ * Returns an error message or empty string if valid.
+ * Hex definitions must be even-length and contain only [0-9a-fA-F].
+ */
+export function validateHexCharsetDefinition(definition: string): string {
+  if (!definition) return 'Hex charset definition cannot be empty';
+  if (definition.length % 2 !== 0) {
+    return `Hex charset must have even length (byte pairs), got ${definition.length} characters`;
+  }
+  if (!/^[0-9a-fA-F]+$/.test(definition)) {
+    return 'Hex charset must contain only hex characters (0-9, a-f, A-F)';
+  }
   return '';
 }

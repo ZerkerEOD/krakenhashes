@@ -1,6 +1,13 @@
 import { api } from './api';
 import { CustomCharset, CustomCharsetFormData } from '../types/customCharsets';
 
+interface CharsetCreatePayload {
+  name: string;
+  description: string;
+  definition: string;
+  is_hex?: boolean;
+}
+
 // Admin CRUD for global charsets
 export const listGlobalCharsets = async (): Promise<CustomCharset[]> => {
   const response = await api.get<CustomCharset[]>('/api/admin/custom-charsets');
@@ -8,7 +15,20 @@ export const listGlobalCharsets = async (): Promise<CustomCharset[]> => {
 };
 
 export const createGlobalCharset = async (data: CustomCharsetFormData): Promise<CustomCharset> => {
-  const response = await api.post<CustomCharset>('/api/admin/custom-charsets', data);
+  const payload: CharsetCreatePayload = {
+    name: data.name,
+    description: data.description,
+    definition: data.definition,
+    is_hex: data.is_hex,
+  };
+  const response = await api.post<CustomCharset>('/api/admin/custom-charsets', payload);
+  return response.data;
+};
+
+export const uploadGlobalCharsetFile = async (formData: FormData): Promise<CustomCharset> => {
+  const response = await api.post<CustomCharset>('/api/admin/custom-charsets/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
   return response.data;
 };
 
@@ -28,7 +48,20 @@ export const listAccessibleCharsets = async (): Promise<CustomCharset[]> => {
 };
 
 export const createUserCharset = async (data: CustomCharsetFormData): Promise<CustomCharset> => {
-  const response = await api.post<CustomCharset>('/api/custom-charsets', data);
+  const payload: CharsetCreatePayload = {
+    name: data.name,
+    description: data.description,
+    definition: data.definition,
+    is_hex: data.is_hex,
+  };
+  const response = await api.post<CustomCharset>('/api/custom-charsets', payload);
+  return response.data;
+};
+
+export const uploadUserCharsetFile = async (formData: FormData): Promise<CustomCharset> => {
+  const response = await api.post<CustomCharset>('/api/custom-charsets/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
   return response.data;
 };
 

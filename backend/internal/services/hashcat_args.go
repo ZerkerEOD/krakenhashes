@@ -100,6 +100,9 @@ var blockedFlags = map[string]string{
 	"--identify":       "identify mode would prevent cracking",
 	"--stdout":         "stdout mode would prevent cracking",
 	"--brain-server":   "brain server mode would break agent communication",
+
+	// System-controlled: managed by hex_charset job flag
+	"--hex-charset": "hex charset mode is managed automatically via the job's hex_charset setting",
 }
 
 // shellMetacharacters contains characters that could be used for shell injection

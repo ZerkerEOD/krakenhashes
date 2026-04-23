@@ -166,6 +166,8 @@ export default function CreateJobDialog({
     increment_max: undefined as number | undefined,
     association_wordlist_id: undefined as string | undefined,
     custom_charsets: null as Record<string, string> | null,
+    custom_charset_file_ids: null as Record<string, string> | null,
+    hex_charset: false,
     additional_args: ''
   });
 
@@ -428,6 +430,8 @@ export default function CreateJobDialog({
         increment_max: undefined,
         association_wordlist_id: undefined,
         custom_charsets: null,
+        custom_charset_file_ids: null,
+        hex_charset: false,
         additional_args: ''
       });
       setTabValue(0);
@@ -683,7 +687,9 @@ export default function CreateJobDialog({
                             rule_ids: [],
                             mask: '',
                             association_wordlist_id: undefined,
-                            custom_charsets: null
+                            custom_charsets: null,
+                            custom_charset_file_ids: null,
+                            hex_charset: false
                           }));
                           // Reset combination wordlist state
                           setCombWordlist1('');
@@ -900,12 +906,16 @@ export default function CreateJobDialog({
                       <Grid item xs={12}>
                         <CharsetInputs
                           customCharsets={customJob.custom_charsets || {}}
-                          onChange={(charsets) => setCustomJob(prev => ({
+                          charsetFileIds={customJob.custom_charset_file_ids || {}}
+                          onChange={(charsets, fileIds) => setCustomJob(prev => ({
                             ...prev,
-                            custom_charsets: Object.keys(charsets).length > 0 ? charsets : null
+                            custom_charsets: Object.keys(charsets).length > 0 ? charsets : null,
+                            custom_charset_file_ids: fileIds && Object.keys(fileIds).length > 0 ? fileIds : null
                           }))}
                           mask={customJob.mask}
                           savedCharsets={savedCharsets}
+                          hexCharset={customJob.hex_charset}
+                          onHexCharsetChange={(hex) => setCustomJob(prev => ({ ...prev, hex_charset: hex }))}
                         />
                       </Grid>
                     </>
@@ -976,12 +986,16 @@ export default function CreateJobDialog({
                       <Grid item xs={12}>
                         <CharsetInputs
                           customCharsets={customJob.custom_charsets || {}}
-                          onChange={(charsets) => setCustomJob(prev => ({
+                          charsetFileIds={customJob.custom_charset_file_ids || {}}
+                          onChange={(charsets, fileIds) => setCustomJob(prev => ({
                             ...prev,
-                            custom_charsets: Object.keys(charsets).length > 0 ? charsets : null
+                            custom_charsets: Object.keys(charsets).length > 0 ? charsets : null,
+                            custom_charset_file_ids: fileIds && Object.keys(fileIds).length > 0 ? fileIds : null
                           }))}
                           mask={customJob.mask}
                           savedCharsets={savedCharsets}
+                          hexCharset={customJob.hex_charset}
+                          onHexCharsetChange={(hex) => setCustomJob(prev => ({ ...prev, hex_charset: hex }))}
                         />
                       </Grid>
                     </>
@@ -1004,12 +1018,16 @@ export default function CreateJobDialog({
                       <Grid item xs={12}>
                         <CharsetInputs
                           customCharsets={customJob.custom_charsets || {}}
-                          onChange={(charsets) => setCustomJob(prev => ({
+                          charsetFileIds={customJob.custom_charset_file_ids || {}}
+                          onChange={(charsets, fileIds) => setCustomJob(prev => ({
                             ...prev,
-                            custom_charsets: Object.keys(charsets).length > 0 ? charsets : null
+                            custom_charsets: Object.keys(charsets).length > 0 ? charsets : null,
+                            custom_charset_file_ids: fileIds && Object.keys(fileIds).length > 0 ? fileIds : null
                           }))}
                           mask={customJob.mask}
                           savedCharsets={savedCharsets}
+                          hexCharset={customJob.hex_charset}
+                          onHexCharsetChange={(hex) => setCustomJob(prev => ({ ...prev, hex_charset: hex }))}
                         />
                       </Grid>
                       <Grid item xs={12}>

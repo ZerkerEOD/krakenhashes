@@ -71,6 +71,8 @@ const getInitialFormState = (defaultChunkDuration: number = 300): PresetJobFormD
   increment_min: undefined as number | undefined,
   increment_max: undefined as number | undefined,
   custom_charsets: null as Record<string, string> | null,
+  custom_charset_file_ids: null as Record<string, string> | null,
+  hex_charset: false,
   additional_args: ''
 });
 
@@ -204,6 +206,10 @@ const PresetJobFormPage: React.FC = () => {
               increment_min: presetJob.increment_min ?? undefined,
               increment_max: presetJob.increment_max ?? undefined,
               custom_charsets: presetJob.custom_charsets || null,
+              custom_charset_file_ids: presetJob.custom_charset_files
+                ? Object.fromEntries(Object.entries(presetJob.custom_charset_files).map(([slot, ref]) => [slot, ref.id]))
+                : null,
+              hex_charset: presetJob.hex_charset || false,
               additional_args: presetJob.additional_args || ''
             });
 
@@ -689,12 +695,16 @@ const PresetJobFormPage: React.FC = () => {
           <Grid item xs={12}>
             <CharsetInputs
               customCharsets={formData.custom_charsets || {}}
-              onChange={(charsets) => setFormData(prev => ({
+              charsetFileIds={formData.custom_charset_file_ids || {}}
+              onChange={(charsets, fileIds) => setFormData(prev => ({
                 ...prev,
-                custom_charsets: Object.keys(charsets).length > 0 ? charsets : null
+                custom_charsets: Object.keys(charsets).length > 0 ? charsets : null,
+                custom_charset_file_ids: fileIds && Object.keys(fileIds).length > 0 ? fileIds : null
               }))}
               mask={formData.mask || ''}
               savedCharsets={savedCharsets}
+              hexCharset={formData.hex_charset}
+              onHexCharsetChange={(hex) => setFormData(prev => ({ ...prev, hex_charset: hex }))}
             />
           </Grid>
         )}

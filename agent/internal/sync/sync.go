@@ -510,7 +510,7 @@ func (fs *FileSync) PopulateHashCache() error {
 	debug.Info("Pre-populating file hash cache...")
 	start := time.Now()
 
-	fileTypes := []string{"wordlist", "rule", "binary"}
+	fileTypes := []string{"wordlist", "rule", "binary", "charset"}
 	var totalFiles int
 
 	for _, fileType := range fileTypes {
@@ -655,6 +655,10 @@ func (fs *FileSync) DownloadFileWithInfoRetry(ctx context.Context, fileInfo *Fil
 		targetDir = fs.dataDirs.Hashlists
 		finalPath = filepath.Join(targetDir, fileInfo.Name)
 		debug.Info("Hashlist download - Target dir: %s, Final path: %s", targetDir, finalPath)
+	case "charset":
+		targetDir = fs.dataDirs.Charsets
+		finalPath = filepath.Join(targetDir, fileInfo.Name)
+		debug.Info("Charset download - Target dir: %s, Final path: %s", targetDir, finalPath)
 	case "client_potfile":
 		// Client potfile: stored in wordlists/clients/{client_id}/potfile.txt
 		// Category contains the client UUID
@@ -982,6 +986,8 @@ func (fs *FileSync) GetFileTypeDir(fileType string) (string, error) {
 		return filepath.Join(fs.dataDirs.Hashlists, "original"), nil
 	case "binary":
 		return fs.dataDirs.Binaries, nil
+	case "charset":
+		return fs.dataDirs.Charsets, nil
 	default:
 		return "", fmt.Errorf("unsupported file type: %s", fileType)
 	}

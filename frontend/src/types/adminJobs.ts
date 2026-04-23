@@ -55,6 +55,9 @@ export interface PresetJob {
   binary_version_name?: string; // Optional, resolved display name from pattern
   mask?: string; // Mask pattern for mask-based attack modes
   custom_charsets?: Record<string, string> | null; // Custom charsets: {"1": "?u?d", "3": "?s"}
+  custom_charset_file_ids?: Record<string, string> | null; // File charset references: {"1": "uuid", "2": "uuid"}
+  custom_charset_files?: Record<string, { id: string; file_path: string; md5: string; byte_count: number }> | null; // Full file charset refs from API
+  hex_charset?: boolean; // True if inline charsets use hex encoding
   keyspace?: number | null; // Pre-calculated keyspace
   max_agents: number; // Max agents allowed (0 = unlimited)
   increment_mode?: string; // Mask increment mode: off, increment, increment_inverse
@@ -75,6 +78,8 @@ export interface PresetJobFormData {
   binary_version: string;
   mask?: string; // Mask pattern for mask-based attack modes
   custom_charsets?: Record<string, string> | null; // Custom charsets: {"1": "?u?d", "3": "?s"}
+  custom_charset_file_ids?: Record<string, string> | null; // File charset references: {"1": "uuid", "2": "uuid"}
+  hex_charset?: boolean; // True if inline charsets use hex encoding
   allow_high_priority_override: boolean;
   max_agents: number;
   increment_mode: string; // Mask increment mode

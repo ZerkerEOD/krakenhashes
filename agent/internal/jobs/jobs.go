@@ -360,6 +360,12 @@ func (jm *JobManager) ProcessJobAssignment(ctx context.Context, assignmentData [
 		return fmt.Errorf("failed to ensure client wordlists: %w", err)
 	}
 
+	// Ensure charset files are available if job uses file-based charsets
+	err = jm.ensureCharsetFiles(ctx, &assignment)
+	if err != nil {
+		return fmt.Errorf("failed to ensure charset files: %w", err)
+	}
+
 	// Run benchmark if needed
 	err = jm.ensureBenchmark(ctx, &assignment)
 	if err != nil {
@@ -837,6 +843,63 @@ func (jm *JobManager) ensureClientWordlists(ctx context.Context, assignment *Job
 			debug.Error("Client wordlist not found after download: %s", localPath)
 			return fmt.Errorf("client wordlist not found after download")
 		}
+	}
+
+	return nil
+}
+
+// ensureCharsetFiles ensures file-based charset files are available locally
+func (jm *JobManager) ensureCharsetFiles(ctx context.Context, assignment *JobTaskAssignment) error {
+	if len(assignment.CharsetFiles) == 0 {
+		return nil
+	}
+
+	if jm.fileSync == nil {
+		return fmt.Errorf("file sync not initialized")
+	}
+
+	dataDirs, err := config.GetDataDirs()
+	if err != nil {
+		return fmt.Errorf("failed to get data dirs: %w", err)
+	}
+
+	// Ensure charsets directory exists
+	if err := os.MkdirAll(dataDirs.Charsets, 0700); err != nil {
+		return fmt.Errorf("failed to create charsets directory: %w", err)
+	}
+
+	for slot, charsetFile := range assignment.CharsetFiles {
+		if charsetFile.Name == "" {
+			continue
+		}
+
+		localPath := filepath.Join(dataDirs.Charsets, charsetFile.Name)
+
+		// Check if file already exists with correct MD5
+		if info, statErr := os.Stat(localPath); statErr == nil && info.Size() > 0 {
+			if charsetFile.MD5Hash != "" {
+				if hash, hashErr := jm.fileSync.CalculateFileHash(localPath); hashErr == nil && hash == charsetFile.MD5Hash {
+					debug.Info("Charset file %s for slot %s already exists with correct MD5", charsetFile.Name, slot)
+					continue
+				}
+			} else {
+				debug.Info("Charset file %s for slot %s already exists", charsetFile.Name, slot)
+				continue
+			}
+		}
+
+		debug.Info("Downloading charset file %s for slot %s...", charsetFile.Name, slot)
+		fileInfo := &filesync.FileInfo{
+			Name:     charsetFile.Name,
+			FileType: "charset",
+			MD5Hash:  charsetFile.MD5Hash,
+		}
+
+		if err := jm.fileSync.DownloadFileFromInfo(ctx, fileInfo); err != nil {
+			return fmt.Errorf("failed to download charset file %s for slot %s: %w", charsetFile.Name, slot, err)
+		}
+
+		debug.Info("Successfully downloaded charset file %s for slot %s", charsetFile.Name, slot)
 	}
 
 	return nil

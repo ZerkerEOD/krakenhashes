@@ -63,6 +63,7 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 	jobIncrementLayerRepo := repository.NewJobIncrementLayerRepository(dbWrapper)
 	presetIncrementLayerRepo := repository.NewPresetIncrementLayerRepository(dbWrapper)
 	assocWordlistRepo := repository.NewAssociationWordlistRepository(dbWrapper)
+	charsetRepo := repository.NewCustomCharsetRepository(database.DB)
 
 	// Create client potfile and wordlist dependencies
 	clientPotfileRepo := repository.NewClientPotfileRepository(dbWrapper)
@@ -114,6 +115,7 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 		clientPotfileRepo,
 		clientWordlistManager,
 		teamService,
+		charsetRepo,
 	)
 }
 

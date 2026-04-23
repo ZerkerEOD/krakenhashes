@@ -27,13 +27,13 @@ func (r *JobExecutionRepository) Create(ctx context.Context, exec *models.JobExe
 	query := `
 		INSERT INTO job_executions (
 			preset_job_id, hashlist_id, association_wordlist_id, status, priority, max_agents, attack_mode, created_by,
-			name, wordlist_ids, rule_ids, mask, custom_charsets, binary_version, hash_type,
+			name, wordlist_ids, rule_ids, mask, custom_charsets, custom_charset_files, hex_charset, binary_version, hash_type,
 			chunk_size_seconds, status_updates_enabled, allow_high_priority_override, additional_args,
 			increment_mode, increment_min, increment_max,
 			base_keyspace, effective_keyspace, multiplication_factor, is_accurate_keyspace, uses_rule_splitting,
 			avg_rule_multiplier
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)
 		RETURNING id, created_at`
 
 	err := r.db.QueryRowContext(ctx, query,
@@ -50,6 +50,8 @@ func (r *JobExecutionRepository) Create(ctx context.Context, exec *models.JobExe
 		exec.RuleIDs,
 		exec.Mask,
 		exec.CustomCharsets,
+		exec.CustomCharsetFiles,
+		exec.HexCharset,
 		exec.BinaryVersion,
 		exec.HashType,
 		exec.ChunkSizeSeconds,
@@ -87,7 +89,7 @@ func (r *JobExecutionRepository) GetByID(ctx context.Context, id uuid.UUID) (*mo
 			je.overall_progress_percent, je.last_progress_update,
 			je.dispatched_keyspace,
 			je.completion_email_sent, je.completion_email_sent_at, je.completion_email_error,
-			je.wordlist_ids, je.rule_ids, je.mask, je.custom_charsets, je.binary_version,
+			je.wordlist_ids, je.rule_ids, je.mask, je.custom_charsets, je.custom_charset_files, je.hex_charset, je.binary_version,
 			je.chunk_size_seconds, je.status_updates_enabled, je.allow_high_priority_override,
 			je.additional_args, je.hash_type, je.updated_at,
 			je.avg_rule_multiplier, je.is_accurate_keyspace,
@@ -106,7 +108,7 @@ func (r *JobExecutionRepository) GetByID(ctx context.Context, id uuid.UUID) (*mo
 		&exec.OverallProgressPercent, &exec.LastProgressUpdate,
 		&exec.DispatchedKeyspace,
 		&exec.CompletionEmailSent, &exec.CompletionEmailSentAt, &exec.CompletionEmailError,
-		&exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.CustomCharsets, &exec.BinaryVersion,
+		&exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.CustomCharsets, &exec.CustomCharsetFiles, &exec.HexCharset, &exec.BinaryVersion,
 		&exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled, &exec.AllowHighPriorityOverride,
 		&exec.AdditionalArgs, &exec.HashType, &exec.UpdatedAt,
 		&exec.AvgRuleMultiplier, &exec.IsAccurateKeyspace,
@@ -137,8 +139,8 @@ func (r *JobExecutionRepository) GetPendingJobs(ctx context.Context) ([]models.J
 			je.uses_rule_splitting, je.rule_split_count,
 			je.overall_progress_percent, je.last_progress_update,
 			je.dispatched_keyspace,
-			je.name, je.wordlist_ids, je.rule_ids, je.mask, je.custom_charsets,
-			je.binary_version, je.chunk_size_seconds, je.status_updates_enabled,
+			je.name, je.wordlist_ids, je.rule_ids, je.mask, je.custom_charsets, je.custom_charset_files,
+			je.hex_charset, je.binary_version, je.chunk_size_seconds, je.status_updates_enabled,
 			je.allow_high_priority_override, je.additional_args,
 			je.hash_type,
 			je.increment_mode, je.increment_min, je.increment_max
@@ -166,8 +168,8 @@ func (r *JobExecutionRepository) GetPendingJobs(ctx context.Context) ([]models.J
 			&exec.UsesRuleSplitting, &exec.RuleSplitCount,
 			&exec.OverallProgressPercent, &exec.LastProgressUpdate,
 			&exec.DispatchedKeyspace,
-			&exec.Name, &exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.CustomCharsets,
-			&exec.BinaryVersion, &exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled,
+			&exec.Name, &exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.CustomCharsets, &exec.CustomCharsetFiles,
+			&exec.HexCharset, &exec.BinaryVersion, &exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled,
 			&exec.AllowHighPriorityOverride, &exec.AdditionalArgs,
 			&exec.HashType,
 			&exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
@@ -436,8 +438,8 @@ func (r *JobExecutionRepository) GetPendingJobsWithHighPriorityOverride(ctx cont
 			uses_rule_splitting, rule_split_count,
 			overall_progress_percent, last_progress_update,
 			dispatched_keyspace,
-			name, wordlist_ids, rule_ids, mask, custom_charsets,
-			binary_version, chunk_size_seconds, status_updates_enabled,
+			name, wordlist_ids, rule_ids, mask, custom_charsets, custom_charset_files,
+			hex_charset, binary_version, chunk_size_seconds, status_updates_enabled,
 			allow_high_priority_override, additional_args,
 			hash_type
 		FROM job_executions
@@ -465,8 +467,8 @@ func (r *JobExecutionRepository) GetPendingJobsWithHighPriorityOverride(ctx cont
 			&exec.UsesRuleSplitting, &exec.RuleSplitCount,
 			&exec.OverallProgressPercent, &exec.LastProgressUpdate,
 			&exec.DispatchedKeyspace,
-			&exec.Name, &exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.CustomCharsets,
-			&exec.BinaryVersion, &exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled,
+			&exec.Name, &exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.CustomCharsets, &exec.CustomCharsetFiles,
+			&exec.HexCharset, &exec.BinaryVersion, &exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled,
 			&exec.AllowHighPriorityOverride, &exec.AdditionalArgs,
 			&exec.HashType,
 		)
@@ -695,8 +697,8 @@ func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]
 			je.uses_rule_splitting, je.rule_split_count,
 			je.overall_progress_percent, je.last_progress_update,
 			je.dispatched_keyspace,
-			je.name, je.wordlist_ids, je.rule_ids, je.mask, je.custom_charsets,
-			je.binary_version, je.chunk_size_seconds, je.status_updates_enabled,
+			je.name, je.wordlist_ids, je.rule_ids, je.mask, je.custom_charsets, je.custom_charset_files,
+			je.hex_charset, je.binary_version, je.chunk_size_seconds, je.status_updates_enabled,
 			je.allow_high_priority_override, je.additional_args,
 			je.hash_type,
 			je.increment_mode, je.increment_min, je.increment_max,
@@ -754,8 +756,8 @@ func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]
 			&exec.UsesRuleSplitting, &exec.RuleSplitCount,
 			&exec.OverallProgressPercent, &exec.LastProgressUpdate,
 			&exec.DispatchedKeyspace,
-			&exec.Name, &exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.CustomCharsets,
-			&exec.BinaryVersion, &exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled,
+			&exec.Name, &exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.CustomCharsets, &exec.CustomCharsetFiles,
+			&exec.HexCharset, &exec.BinaryVersion, &exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled,
 			&exec.AllowHighPriorityOverride, &exec.AdditionalArgs,
 			&exec.HashType,
 			&exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
@@ -777,8 +779,8 @@ func (r *JobExecutionRepository) GetNonCompletedJobsByHashlistID(ctx context.Con
 			id, name, preset_job_id, hashlist_id, status, priority, max_agents, attack_mode,
 			hash_type, effective_keyspace, base_keyspace, processed_keyspace,
 			dispatched_keyspace, multiplication_factor, uses_rule_splitting, overall_progress_percent,
-			chunk_size_seconds, allow_high_priority_override, wordlist_ids, rule_ids, mask, custom_charsets,
-			additional_args, binary_version, started_at, completed_at, error_message, created_by,
+			chunk_size_seconds, allow_high_priority_override, wordlist_ids, rule_ids, mask, custom_charsets, custom_charset_files,
+			hex_charset, additional_args, binary_version, started_at, completed_at, error_message, created_by,
 			created_at, updated_at, increment_mode, increment_min, increment_max
 		FROM job_executions
 		WHERE hashlist_id = $1 AND status != 'completed'
@@ -799,7 +801,7 @@ func (r *JobExecutionRepository) GetNonCompletedJobsByHashlistID(ctx context.Con
 			&exec.AttackMode, &exec.HashType, &exec.EffectiveKeyspace, &exec.BaseKeyspace,
 			&exec.ProcessedKeyspace, &exec.DispatchedKeyspace, &exec.MultiplicationFactor, &exec.UsesRuleSplitting,
 			&exec.OverallProgressPercent, &exec.ChunkSizeSeconds, &exec.AllowHighPriorityOverride,
-			&exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.CustomCharsets, &exec.AdditionalArgs, &exec.BinaryVersion,
+			&exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.CustomCharsets, &exec.CustomCharsetFiles, &exec.HexCharset, &exec.AdditionalArgs, &exec.BinaryVersion,
 			&exec.StartedAt, &exec.CompletedAt, &exec.ErrorMessage, &exec.CreatedBy,
 			&exec.CreatedAt, &exec.UpdatedAt, &exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
 		)
@@ -884,7 +886,7 @@ func (r *JobExecutionRepository) GetPotentiallyStuckJobs(ctx context.Context, mi
 			je.overall_progress_percent, je.last_progress_update,
 			je.dispatched_keyspace,
 			je.completion_email_sent, je.completion_email_sent_at, je.completion_email_error,
-			je.wordlist_ids, je.rule_ids, je.mask, je.custom_charsets, je.binary_version,
+			je.wordlist_ids, je.rule_ids, je.mask, je.custom_charsets, je.custom_charset_files, je.hex_charset, je.binary_version,
 			je.chunk_size_seconds, je.status_updates_enabled, je.allow_high_priority_override,
 			je.additional_args, je.hash_type, je.updated_at,
 			je.avg_rule_multiplier, je.is_accurate_keyspace,
@@ -918,7 +920,7 @@ func (r *JobExecutionRepository) GetPotentiallyStuckJobs(ctx context.Context, mi
 			&exec.OverallProgressPercent, &exec.LastProgressUpdate,
 			&exec.DispatchedKeyspace,
 			&exec.CompletionEmailSent, &exec.CompletionEmailSentAt, &exec.CompletionEmailError,
-			&exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.CustomCharsets, &exec.BinaryVersion,
+			&exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.CustomCharsets, &exec.CustomCharsetFiles, &exec.HexCharset, &exec.BinaryVersion,
 			&exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled, &exec.AllowHighPriorityOverride,
 			&exec.AdditionalArgs, &exec.HashType, &exec.UpdatedAt,
 			&exec.AvgRuleMultiplier, &exec.IsAccurateKeyspace,
