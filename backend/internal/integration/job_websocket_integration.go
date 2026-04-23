@@ -2545,6 +2545,14 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 			"agent_id": agentID,
 			"error":    result.Error,
 		})
+		if err := s.jobSchedulingService.AttributeBenchmarkFailure(
+			ctx, agentID,
+			models.AttackMode(result.AttackMode), result.HashType,
+			result.JobExecutionID, result.Error,
+		); err != nil {
+			// Attribution failure should not mask the original error; log and continue.
+			debug.Warning("Failed to record benchmark failure attribution for agent %d: %v", agentID, err)
+		}
 		return fmt.Errorf("benchmark failed: %s", result.Error)
 	}
 
@@ -2832,6 +2840,21 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 	}
 
 	return nil
+}
+
+// HandleBenchmarkFailure is retained as a thin delegator for external callers
+// (tests, future integrations). All attribution logic lives in
+// JobSchedulingService.AttributeBenchmarkFailure so the agent-reported path
+// and the server-timeout path stay identical.
+func (s *JobWebSocketIntegration) HandleBenchmarkFailure(
+	ctx context.Context,
+	agentID int,
+	attackMode models.AttackMode,
+	hashType int,
+	entityID string,
+	errMsg string,
+) error {
+	return s.jobSchedulingService.AttributeBenchmarkFailure(ctx, agentID, attackMode, hashType, entityID, errMsg)
 }
 
 // processCrackedHashes processes cracked hashes from a job progress update

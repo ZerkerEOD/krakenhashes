@@ -167,6 +167,15 @@ func (m *JobIntegrationManager) ClearStoppedTaskAgent(ctx context.Context, taskI
 	return m.wsIntegration.ClearStoppedTaskAgent(ctx, taskID, agentID)
 }
 
+// HandleAgentDisconnection forwards disconnect events to the WebSocket
+// integration so tasks get flagged reconnect_pending and the grace-period
+// timer starts. Without this delegation the wsservice type-asserts against
+// this manager (not wsIntegration) and emits
+// "Job handler does not support disconnection handling".
+func (m *JobIntegrationManager) HandleAgentDisconnection(ctx context.Context, agentID int) error {
+	return m.wsIntegration.HandleAgentDisconnection(ctx, agentID)
+}
+
 // GetWebSocketIntegration returns the WebSocket integration instance
 func (m *JobIntegrationManager) GetWebSocketIntegration() *JobWebSocketIntegration {
 	return m.wsIntegration

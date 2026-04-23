@@ -38,6 +38,7 @@ import {
 import { getJobDetails, getJobLayers, api } from '../../services/api';
 import { JobDetailsResponse, JobTask, JobIncrementLayerWithStats } from '../../types/jobs';
 import JobProgressBar from '../../components/JobProgressBar';
+import BenchmarkBlocklistPanel from '../../components/jobs/BenchmarkBlocklistPanel';
 import { useSnackbar } from 'notistack';
 import { getMaxPriorityForUsers } from '../../services/systemSettings';
 
@@ -1448,6 +1449,9 @@ const JobDetails: React.FC = () => {
           )}
         </Paper>
       )}
+
+      {/* Benchmark blocklist — only renders when entries exist */}
+      <BenchmarkBlocklistPanel jobId={jobData.id} />
 
       {/* Force Complete Warning Dialog */}
       <Dialog

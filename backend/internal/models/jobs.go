@@ -427,6 +427,50 @@ type AgentBenchmarkHistory struct {
 	Success      bool       `json:"success" db:"success"`
 	ErrorMessage *string    `json:"error_message" db:"error_message"`
 	RecordedAt   time.Time  `json:"recorded_at" db:"recorded_at"`
+	Source       string     `json:"source" db:"source"` // "speedtest" or "observed_task"
+}
+
+// BenchmarkHistorySource values for AgentBenchmarkHistory.Source.
+const (
+	BenchmarkHistorySourceSpeedtest     = "speedtest"
+	BenchmarkHistorySourceObservedTask  = "observed_task"
+)
+
+// BenchmarkFailureAttempt tracks repeated benchmark failures for a
+// (agent, job_execution, attack_mode, hash_type) combination. Used by the
+// scheduler to decide when to blocklist an agent for a job.
+type BenchmarkFailureAttempt struct {
+	ID              uuid.UUID  `json:"id" db:"id"`
+	AgentID         int        `json:"agent_id" db:"agent_id"`
+	JobExecutionID  uuid.UUID  `json:"job_execution_id" db:"job_execution_id"`
+	AttackMode      AttackMode `json:"attack_mode" db:"attack_mode"`
+	HashType        int        `json:"hash_type" db:"hash_type"`
+	FailureCount    int        `json:"failure_count" db:"failure_count"`
+	FirstFailureAt  time.Time  `json:"first_failure_at" db:"first_failure_at"`
+	LastFailureAt   time.Time  `json:"last_failure_at" db:"last_failure_at"`
+	LastError       *string    `json:"last_error" db:"last_error"`
+}
+
+// AgentBenchmarkBlocklist prevents the scheduler from selecting an agent for
+// a (hash_type, attack_mode) combination until `expires_at` elapses or an
+// operator clears the entry via the /jobs/{id} UI. If JobExecutionID is nil
+// the entry applies to every job with the same (hash_type, attack_mode).
+type AgentBenchmarkBlocklist struct {
+	ID              uuid.UUID  `json:"id" db:"id"`
+	AgentID         int        `json:"agent_id" db:"agent_id"`
+	JobExecutionID  *uuid.UUID `json:"job_execution_id" db:"job_execution_id"`
+	AttackMode      AttackMode `json:"attack_mode" db:"attack_mode"`
+	HashType        int        `json:"hash_type" db:"hash_type"`
+	Reason          string     `json:"reason" db:"reason"`
+	ExpiresAt       time.Time  `json:"expires_at" db:"expires_at"`
+	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
+	ClearedAt       *time.Time `json:"cleared_at" db:"cleared_at"`
+	ClearedBy       *uuid.UUID `json:"cleared_by" db:"cleared_by"`
+
+	// Populated by JOINs for the /jobs/{id} panel.
+	AgentName       *string    `json:"agent_name,omitempty" db:"agent_name"`
+	FailureCount    *int       `json:"failure_count,omitempty" db:"failure_count"`
+	LastError       *string    `json:"last_error,omitempty" db:"last_error"`
 }
 
 // AgentHashlist tracks hashlist distribution to agents

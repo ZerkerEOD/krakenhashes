@@ -41,6 +41,7 @@ type UserJobsHandler struct {
 	clientWordlistManager  *services.ClientWordlistManager
 	teamService            *services.TeamService
 	charsetRepo            repository.CustomCharsetRepository
+	benchmarkRepo          *repository.BenchmarkRepository
 	wsHandler              WSHandler
 }
 
@@ -74,6 +75,7 @@ func NewUserJobsHandler(
 	clientWordlistManager *services.ClientWordlistManager,
 	teamService *services.TeamService,
 	charsetRepo repository.CustomCharsetRepository,
+	benchmarkRepo *repository.BenchmarkRepository,
 ) *UserJobsHandler {
 	return &UserJobsHandler{
 		jobExecRepo:           jobExecRepo,
@@ -94,6 +96,7 @@ func NewUserJobsHandler(
 		clientWordlistManager: clientWordlistManager,
 		teamService:           teamService,
 		charsetRepo:           charsetRepo,
+		benchmarkRepo:         benchmarkRepo,
 		wsHandler:             nil, // Will be set later via SetWSHandler
 	}
 }
@@ -2319,4 +2322,113 @@ func (h *UserJobsHandler) GetJobLayerTasks(w http.ResponseWriter, r *http.Reques
 		debug.Error("Failed to encode response: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
+}
+
+// blocklistEntryDTO is the shape returned to the /jobs/{id} UI panel. Includes
+// joined agent name and failure-attempt details for at-a-glance triage.
+type blocklistEntryDTO struct {
+	ID             string     `json:"id"`
+	AgentID        int        `json:"agent_id"`
+	AgentName      *string    `json:"agent_name,omitempty"`
+	JobExecutionID *string    `json:"job_execution_id,omitempty"`
+	AttackMode     int        `json:"attack_mode"`
+	HashType       int        `json:"hash_type"`
+	Reason         string     `json:"reason"`
+	ExpiresAt      time.Time  `json:"expires_at"`
+	CreatedAt      time.Time  `json:"created_at"`
+	FailureCount   *int       `json:"failure_count,omitempty"`
+	LastError      *string    `json:"last_error,omitempty"`
+	ClearedAt      *time.Time `json:"cleared_at,omitempty"`
+}
+
+// GetBenchmarkBlocklist handles GET /api/jobs/{id}/benchmark-blocklist.
+// Returns every active blocklist entry whose scope covers this job — either
+// job-scoped entries for this job OR global entries matching the same
+// (hash_type, attack_mode). The panel lists these so the operator can see why
+// a job is stalled and which agents are in cooldown.
+func (h *UserJobsHandler) GetBenchmarkBlocklist(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	jobID, err := uuid.Parse(mux.Vars(r)["id"])
+	if err != nil {
+		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+	if !h.checkJobTeamAccess(w, ctx, jobID) {
+		return
+	}
+
+	entries, err := h.benchmarkRepo.ListBlocklistForJob(ctx, jobID)
+	if err != nil {
+		debug.Error("ListBlocklistForJob(%s): %v", jobID, err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	out := make([]blocklistEntryDTO, 0, len(entries))
+	for _, e := range entries {
+		var jobIDStr *string
+		if e.JobExecutionID != nil {
+			s := e.JobExecutionID.String()
+			jobIDStr = &s
+		}
+		out = append(out, blocklistEntryDTO{
+			ID:             e.ID.String(),
+			AgentID:        e.AgentID,
+			AgentName:      e.AgentName,
+			JobExecutionID: jobIDStr,
+			AttackMode:     int(e.AttackMode),
+			HashType:       e.HashType,
+			Reason:         e.Reason,
+			ExpiresAt:      e.ExpiresAt,
+			CreatedAt:      e.CreatedAt,
+			FailureCount:   e.FailureCount,
+			LastError:      e.LastError,
+			ClearedAt:      e.ClearedAt,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(out); err != nil {
+		debug.Error("encode blocklist response: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
+// ClearBenchmarkBlocklistEntry handles
+// POST /api/jobs/{id}/benchmark-blocklist/{entryID}/clear.
+// Marks the entry as cleared by the calling user so the scheduler can retry
+// the (agent, hash_type, attack_mode) combination on the next cycle.
+func (h *UserJobsHandler) ClearBenchmarkBlocklistEntry(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+	jobID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+	if !h.checkJobTeamAccess(w, ctx, jobID) {
+		return
+	}
+	entryID, err := uuid.Parse(vars["entryID"])
+	if err != nil {
+		http.Error(w, "Invalid entry ID", http.StatusBadRequest)
+		return
+	}
+
+	userID, ok := middleware.GetUserIDFromContext(ctx)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if err := h.benchmarkRepo.ClearBlocklistEntry(ctx, entryID, userID); err != nil {
+		// ClearBlocklistEntry returns sql.ErrNoRows when the entry is already
+		// cleared or doesn't exist — treat both as 404 so the UI can refresh
+		// the list.
+		debug.Warning("ClearBlocklistEntry(%s): %v", entryID, err)
+		http.Error(w, "Entry not found or already cleared", http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

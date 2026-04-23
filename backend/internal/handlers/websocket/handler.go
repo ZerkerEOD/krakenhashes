@@ -695,6 +695,23 @@ func (h *Handler) sendInitialConfiguration(client *Client) {
 	}
 }
 
+// TriggerFileSync re-issues a file-sync request to an agent that is already
+// connected. Used by the periodic sync recovery goroutine to unstick agents
+// whose sync_status is "pending" but never gets resolved (e.g. when the
+// initial sync failed silently or the forced-benchmark flow reset the status
+// without completing the sync). Returns an error if the agent is not
+// currently connected.
+func (h *Handler) TriggerFileSync(agentID int) error {
+	h.mu.RLock()
+	client, ok := h.clients[agentID]
+	h.mu.RUnlock()
+	if !ok || client == nil {
+		return fmt.Errorf("agent %d is not connected", agentID)
+	}
+	h.initiateFileSync(client)
+	return nil
+}
+
 // initiateFileSync starts the file synchronization process with an agent
 func (h *Handler) initiateFileSync(client *Client) {
 	debug.Info("Initiating file sync with agent %d", client.agent.ID)

@@ -116,6 +116,7 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 		clientWordlistManager,
 		teamService,
 		charsetRepo,
+		benchmarkRepo,
 	)
 }
 
@@ -165,6 +166,12 @@ func SetupUserRoutes(router *mux.Router, database *db.DB, dataDir string, binary
 	// Increment layer routes
 	router.HandleFunc("/jobs/{id}/layers", jobsHandler.GetJobLayers).Methods("GET", "OPTIONS")
 	router.HandleFunc("/jobs/{id}/layers/{layer_id}/tasks", jobsHandler.GetJobLayerTasks).Methods("GET", "OPTIONS")
+
+	// Benchmark blocklist (per-job cooldown entries) — surfaces why the
+	// scheduler is skipping agents for this job and lets operators clear
+	// cooldowns early.
+	router.HandleFunc("/jobs/{id}/benchmark-blocklist", jobsHandler.GetBenchmarkBlocklist).Methods("GET", "OPTIONS")
+	router.HandleFunc("/jobs/{id}/benchmark-blocklist/{entryID}/clear", jobsHandler.ClearBenchmarkBlocklistEntry).Methods("POST", "OPTIONS")
 
 	// Get user profile
 	router.HandleFunc("/user/profile", func(w http.ResponseWriter, r *http.Request) {

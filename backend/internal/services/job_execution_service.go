@@ -3128,6 +3128,13 @@ func (s *JobExecutionService) HandleTaskCompletion(ctx context.Context, taskID u
 		"job_execution_id":    task.JobExecutionID,
 	})
 
+	// Self-heal the cached benchmark from this task's observed speed so a
+	// pessimistic cold-start benchmark stops permanently under-sizing future
+	// tasks for this (agent, hash_type, attack_mode). Non-fatal on error.
+	if err := s.updateBenchmarkFromTaskCompletion(ctx, task); err != nil {
+		debug.Warning("Benchmark EMA update from task %s failed: %v", taskID, err)
+	}
+
 	// Cleanup task resources
 	if err := s.cleanupTaskResources(ctx, task); err != nil {
 		debug.Error("Failed to cleanup task resources on completion: %v", err)
@@ -3404,4 +3411,144 @@ func (s *JobExecutionService) DetermineBinaryForTask(ctx context.Context, agentI
 	})
 
 	return binaryID, nil
+}
+
+// updateBenchmarkFromTaskCompletion applies an exponential moving average to
+// the cached agent benchmark speed using this task's observed hashrate. The
+// purpose is self-healing: a cold-start benchmark that ran subpar should not
+// permanently under-size future tasks for the same (agent, hash_type,
+// attack_mode). Non-fatal on any error — this path must never block task
+// completion.
+//
+// Guardrails:
+//  - Task must have an assigned agent and a wall time >= 30s.
+//  - We derive the observation from task.AverageSpeed when hashcat reported it;
+//    otherwise compute from effective keyspace / wall_time / avg_rule_multiplier.
+//  - Skip salted hash types: agent_benchmarks is keyed on salt_count which is
+//    not recorded on the task, so updating would risk overwriting the wrong
+//    cache row. Salted-hash EMA is a future enhancement.
+//  - Skip if observed speed is >10x or <0.1x of the cached speed — that
+//    indicates a bug or a very short sample, not drift; the huge delta would
+//    poison the cache.
+//  - Skip rule-splitting tasks until avg_rule_multiplier is known, otherwise
+//    the raw observation would be biased by the split boundary.
+func (s *JobExecutionService) updateBenchmarkFromTaskCompletion(
+	ctx context.Context,
+	task *models.JobTask,
+) error {
+	if task == nil || task.AgentID == nil {
+		return nil
+	}
+	if task.StartedAt == nil || task.CompletedAt == nil {
+		return nil
+	}
+	wallTime := task.CompletedAt.Sub(*task.StartedAt).Seconds()
+	if wallTime < 30 {
+		return nil
+	}
+	if task.IsRuleSplitTask {
+		// Rule-split chunks report a biased slice of work; let the standard
+		// benchmark path drive speed for these.
+		return nil
+	}
+
+	jobExec, err := s.GetJobExecutionByID(ctx, task.JobExecutionID)
+	if err != nil || jobExec == nil {
+		return fmt.Errorf("load job execution: %w", err)
+	}
+
+	// Skip salted hash types (see comment above).
+	hashlist, err := s.hashlistRepo.GetByID(ctx, jobExec.HashlistID)
+	if err != nil || hashlist == nil {
+		return fmt.Errorf("load hashlist: %w", err)
+	}
+	hashType, err := s.hashTypeRepo.GetByID(ctx, hashlist.HashTypeID)
+	if err != nil || hashType == nil {
+		return fmt.Errorf("load hash_type: %w", err)
+	}
+	if hashType.IsSalted {
+		debug.Log("Skipping EMA update for salted hash type", map[string]interface{}{
+			"task_id":   task.ID,
+			"hash_type": hashType.ID,
+		})
+		return nil
+	}
+
+	// Prefer the task's hashcat-reported average speed. Fall back to derived
+	// speed from effective keyspace / wall_time, divided by avg_rule_multiplier
+	// so the value matches the raw h/s semantic of agent_benchmarks.speed.
+	var observedSpeed int64
+	if task.AverageSpeed != nil && *task.AverageSpeed > 0 {
+		observedSpeed = *task.AverageSpeed
+	} else {
+		effective := task.KeyspaceEnd - task.KeyspaceStart
+		if task.EffectiveKeyspaceEnd != nil && task.EffectiveKeyspaceStart != nil {
+			effective = *task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart
+		}
+		if effective <= 0 {
+			return nil
+		}
+		multiplier := 1.0
+		if jobExec.AvgRuleMultiplier != nil && *jobExec.AvgRuleMultiplier > 0 {
+			multiplier = *jobExec.AvgRuleMultiplier
+		}
+		observedSpeed = int64(float64(effective) / wallTime / multiplier)
+	}
+	if observedSpeed <= 0 {
+		return nil
+	}
+
+	attackMode := jobExec.AttackMode
+	agentID := *task.AgentID
+
+	// Sanity-check against any current cached value to avoid EMA poisoning
+	// from outlier observations.
+	cached, err := s.benchmarkRepo.GetAgentBenchmark(ctx, agentID, attackMode, hashType.ID, nil)
+	if err != nil && err != repository.ErrNotFound {
+		return fmt.Errorf("load existing benchmark: %w", err)
+	}
+	if cached != nil && cached.Speed > 0 {
+		ratio := float64(observedSpeed) / float64(cached.Speed)
+		if ratio > 10 || ratio < 0.1 {
+			debug.Warning(
+				"EMA skipped: observed speed %d is %.2fx cached %d (task %s, agent %d, hash_type %d) — outside sanity window",
+				observedSpeed, ratio, cached.Speed, task.ID, agentID, hashType.ID,
+			)
+			return nil
+		}
+	}
+
+	alpha := s.benchmarkObservationAlpha(ctx)
+	oldSpeed, newSpeed, err := s.benchmarkRepo.UpdateSpeedEMA(
+		ctx, agentID, attackMode, hashType.ID, nil, observedSpeed, alpha,
+	)
+	if err != nil {
+		return fmt.Errorf("apply EMA: %w", err)
+	}
+	debug.Log("Benchmark EMA update from task completion", map[string]interface{}{
+		"task_id":        task.ID,
+		"agent_id":       agentID,
+		"hash_type":      hashType.ID,
+		"attack_mode":    int(attackMode),
+		"observed_speed": observedSpeed,
+		"old_speed":      oldSpeed,
+		"new_speed":      newSpeed,
+		"alpha":          alpha,
+		"wall_time_s":    wallTime,
+	})
+	return nil
+}
+
+// benchmarkObservationAlpha returns the EMA weight for a single observation.
+// Default 0.3 biases toward the existing cached value while allowing drift.
+func (s *JobExecutionService) benchmarkObservationAlpha(ctx context.Context) float64 {
+	const defaultAlpha = 0.3
+	setting, err := s.systemSettingsRepo.GetSetting(ctx, "benchmark_observation_ema_alpha")
+	if err != nil || setting == nil || setting.Value == nil {
+		return defaultAlpha
+	}
+	if f, err := strconv.ParseFloat(*setting.Value, 64); err == nil && f > 0 && f <= 1 {
+		return f
+	}
+	return defaultAlpha
 }

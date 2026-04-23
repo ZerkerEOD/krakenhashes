@@ -224,6 +224,16 @@ func SetupWebSocketWithJobRoutes(
 	// Set the job handler in the WebSocket service
 	wsService.SetJobHandler(jobIntegration)
 
+	// Launch periodic agent sync recovery. Covers the case where an agent is
+	// connected and heartbeating but stuck at sync_status='pending' — usually
+	// because a forced-benchmark flow reset the status and the subsequent
+	// sync never completed. Without this loop those agents stay locked out of
+	// scheduling until the next fresh connect.
+	syncRecovery := services.NewAgentSyncRecovery(database, wsHandler)
+	if err := syncRecovery.Start(context.Background()); err != nil {
+		debug.Warning("Failed to start agent sync recovery: %v", err)
+	}
+
 	// Setup WebSocket routes
 	wsRouter := r.PathPrefix("/ws").Subrouter()
 	wsRouter.Use(api.APIKeyMiddleware(agentService))

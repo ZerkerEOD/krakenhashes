@@ -2,13 +2,16 @@ package services
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary/version"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 )
@@ -97,8 +100,17 @@ func (s *JobSchedulingService) CreateBenchmarkPlan(
 		return nil, fmt.Errorf("failed to build agent benchmark status: %w", err)
 	}
 
+	// 3b. Pre-compute blocklist membership for every (agent, job, combo) pair
+	//     the allocator might consider. Pulling this up front avoids O(N*M)
+	//     DB calls inside the nested selection loops and keeps allocate*
+	//     functions pure.
+	blocklist, err := s.buildBenchmarkBlocklistSet(ctx, availableAgents, jobHashInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build benchmark blocklist set: %w", err)
+	}
+
 	// 4. Allocate forced benchmarks (for new jobs only)
-	forcedTasks, usedAgents := s.allocateForcedBenchmarks(jobHashInfo, availableAgents, agentBenchmarkStatus)
+	forcedTasks, usedAgents := s.allocateForcedBenchmarks(jobHashInfo, availableAgents, agentBenchmarkStatus, blocklist)
 
 	debug.Log("Allocated forced benchmarks", map[string]interface{}{
 		"forced_benchmark_count": len(forcedTasks),
@@ -113,7 +125,7 @@ func (s *JobSchedulingService) CreateBenchmarkPlan(
 	})
 
 	// 6. Round-robin allocate agent speed benchmarks for remaining agents
-	agentTasks := s.allocateAgentBenchmarks(availableAgents, usedAgents, uniqueHashTypes, agentBenchmarkStatus)
+	agentTasks := s.allocateAgentBenchmarks(availableAgents, usedAgents, uniqueHashTypes, agentBenchmarkStatus, blocklist)
 
 	debug.Log("Allocated agent speed benchmarks", map[string]interface{}{
 		"agent_benchmark_count": len(agentTasks),
@@ -312,11 +324,174 @@ func buildBenchmarkCacheKey(attackMode models.AttackMode, hashType int, saltCoun
 	return fmt.Sprintf("%d_%d_%d", attackMode, hashType, *saltCount)
 }
 
+// benchmarkBlocklistSet is a pre-computed lookup of active blocklist entries.
+// Keys: jobBlocklistKey (agent_id, job_execution_id, attack_mode, hash_type) for
+// job-scoped entries, and globalBlocklistKey (agent_id, attack_mode, hash_type)
+// for global entries (job_execution_id IS NULL). An agent is considered
+// blocklisted for a (job, combo) if either key is present.
+type benchmarkBlocklistSet struct {
+	jobScoped map[string]struct{}
+	global    map[string]struct{}
+}
+
+func jobBlocklistKey(agentID int, jobID uuid.UUID, attackMode models.AttackMode, hashType int) string {
+	return fmt.Sprintf("%d|%s|%d|%d", agentID, jobID.String(), int(attackMode), hashType)
+}
+
+func globalBlocklistKey(agentID int, attackMode models.AttackMode, hashType int) string {
+	return fmt.Sprintf("%d|%d|%d", agentID, int(attackMode), hashType)
+}
+
+func (b *benchmarkBlocklistSet) isBlocklisted(agentID int, jobID uuid.UUID, attackMode models.AttackMode, hashType int) bool {
+	if b == nil {
+		return false
+	}
+	if _, ok := b.global[globalBlocklistKey(agentID, attackMode, hashType)]; ok {
+		return true
+	}
+	if _, ok := b.jobScoped[jobBlocklistKey(agentID, jobID, attackMode, hashType)]; ok {
+		return true
+	}
+	return false
+}
+
+// buildBenchmarkBlocklistSet loads every active blocklist row that could
+// matter for the current allocation cycle — i.e., the row's (agent, job?,
+// attack_mode, hash_type) overlaps with at least one candidate. This is a
+// single SELECT so the allocator loops stay O(1) per check.
+func (s *JobSchedulingService) buildBenchmarkBlocklistSet(
+	ctx context.Context,
+	availableAgents []models.Agent,
+	jobHashInfo []JobHashTypeInfo,
+) (*benchmarkBlocklistSet, error) {
+	set := &benchmarkBlocklistSet{
+		jobScoped: make(map[string]struct{}),
+		global:    make(map[string]struct{}),
+	}
+	if len(availableAgents) == 0 || len(jobHashInfo) == 0 {
+		return set, nil
+	}
+
+	// Collect candidate combos and agent IDs.
+	agentIDs := make([]int, 0, len(availableAgents))
+	for _, a := range availableAgents {
+		agentIDs = append(agentIDs, a.ID)
+	}
+
+	// Distinct (jobID, attackMode, hashType) across candidate jobs.
+	type comboKey struct {
+		jobID      uuid.UUID
+		attackMode models.AttackMode
+		hashType   int
+	}
+	seen := make(map[comboKey]struct{})
+	jobIDs := make([]uuid.UUID, 0, len(jobHashInfo))
+	attackModes := make([]int, 0, len(jobHashInfo))
+	hashTypes := make([]int, 0, len(jobHashInfo))
+	for _, info := range jobHashInfo {
+		k := comboKey{jobID: info.JobID, attackMode: info.AttackMode, hashType: info.HashType}
+		if _, ok := seen[k]; ok {
+			continue
+		}
+		seen[k] = struct{}{}
+		jobIDs = append(jobIDs, info.JobID)
+		attackModes = append(attackModes, int(info.AttackMode))
+		hashTypes = append(hashTypes, info.HashType)
+	}
+	if len(jobIDs) == 0 {
+		return set, nil
+	}
+
+	// Single wide SELECT. Postgres ANY($1::<type>[]) handles the array
+	// parameters cleanly and lets us filter on every dimension at once.
+	query := `
+		SELECT agent_id, job_execution_id, attack_mode, hash_type
+		FROM agent_benchmark_blocklist
+		WHERE cleared_at IS NULL
+		  AND expires_at > CURRENT_TIMESTAMP
+		  AND agent_id = ANY($1::int[])
+		  AND attack_mode = ANY($2::int[])
+		  AND hash_type = ANY($3::int[])
+		  AND (job_execution_id IS NULL OR job_execution_id = ANY($4::uuid[]))`
+
+	rows, err := s.jobExecutionService.db.QueryContext(ctx, query,
+		intSliceAsPGArray(agentIDs),
+		intSliceAsPGArray(attackModes),
+		intSliceAsPGArray(hashTypes),
+		uuidSliceAsPGArray(jobIDs),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query blocklist: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			agentID    int
+			jobID      sql.NullString
+			attackMode int
+			hashType   int
+		)
+		if err := rows.Scan(&agentID, &jobID, &attackMode, &hashType); err != nil {
+			debug.Warning("scan blocklist row: %v", err)
+			continue
+		}
+		mode := models.AttackMode(attackMode)
+		if !jobID.Valid {
+			set.global[globalBlocklistKey(agentID, mode, hashType)] = struct{}{}
+			continue
+		}
+		parsed, parseErr := uuid.Parse(jobID.String)
+		if parseErr != nil {
+			debug.Warning("bad job_execution_id %q in blocklist: %v", jobID.String, parseErr)
+			continue
+		}
+		set.jobScoped[jobBlocklistKey(agentID, parsed, mode, hashType)] = struct{}{}
+	}
+	return set, nil
+}
+
+// intSliceAsPGArray returns a textual pg array literal for a slice of ints.
+// Using the literal form keeps the single query above portable across the
+// lib/pq driver without pulling in the pq.Array helper type.
+func intSliceAsPGArray(vals []int) string {
+	if len(vals) == 0 {
+		return "{}"
+	}
+	b := strings.Builder{}
+	b.WriteByte('{')
+	for i, v := range vals {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(strconv.Itoa(v))
+	}
+	b.WriteByte('}')
+	return b.String()
+}
+
+func uuidSliceAsPGArray(vals []uuid.UUID) string {
+	if len(vals) == 0 {
+		return "{}"
+	}
+	b := strings.Builder{}
+	b.WriteByte('{')
+	for i, v := range vals {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(v.String())
+	}
+	b.WriteByte('}')
+	return b.String()
+}
+
 // allocateForcedBenchmarks assigns agents to jobs needing forced benchmarks
 func (s *JobSchedulingService) allocateForcedBenchmarks(
 	jobHashInfo []JobHashTypeInfo,
 	availableAgents []models.Agent,
 	agentBenchmarkStatus map[int]map[string]bool,
+	blocklist *benchmarkBlocklistSet,
 ) ([]ForcedBenchmarkTask, map[int]uuid.UUID) {
 	// Filter and sort jobs needing forced benchmarks
 	var jobsNeedingForced []JobHashTypeInfo
@@ -379,6 +554,17 @@ func (s *JobSchedulingService) allocateForcedBenchmarks(
 				continue // Not compatible with job's binary version
 			}
 
+			// Skip if this agent is blocklisted for this (job, hash_type, attack_mode).
+			if blocklist.isBlocklisted(availableAgents[i].ID, job.JobID, job.AttackMode, job.HashType) {
+				debug.Log("Skipping blocklisted agent for forced benchmark", map[string]interface{}{
+					"agent_id":    availableAgents[i].ID,
+					"job_id":      job.JobID,
+					"attack_mode": int(job.AttackMode),
+					"hash_type":   job.HashType,
+				})
+				continue
+			}
+
 			if !agentBenchmarkStatus[availableAgents[i].ID][key] {
 				bestAgent = &availableAgents[i]
 				break
@@ -392,6 +578,9 @@ func (s *JobSchedulingService) allocateForcedBenchmarks(
 					// Check binary version compatibility
 					if !version.IsCompatibleStr(availableAgents[i].BinaryVersion, job.BinaryVersion) {
 						continue // Not compatible with job's binary version
+					}
+					if blocklist.isBlocklisted(availableAgents[i].ID, job.JobID, job.AttackMode, job.HashType) {
+						continue
 					}
 					bestAgent = &availableAgents[i]
 					break
@@ -465,6 +654,7 @@ func (s *JobSchedulingService) allocateAgentBenchmarks(
 	usedAgents map[int]uuid.UUID,
 	uniqueHashTypes []JobHashTypeInfo,
 	agentBenchmarkStatus map[int]map[string]bool,
+	blocklist *benchmarkBlocklistSet,
 ) []AgentBenchmarkTask {
 	if len(uniqueHashTypes) == 0 {
 		return []AgentBenchmarkTask{}
@@ -483,6 +673,14 @@ func (s *JobSchedulingService) allocateAgentBenchmarks(
 			// Check binary version compatibility first
 			if !version.IsCompatibleStr(agent.BinaryVersion, htInfo.BinaryVersion) {
 				continue // Agent not compatible with this job's binary version
+			}
+
+			// Skip agent speed benchmarks when the agent is blocklisted for
+			// this (job, hash_type, attack_mode). Speed benchmarks reuse the
+			// same hashcat speedtest flow as forced benchmarks, so an agent
+			// that keeps failing the speedtest is just as likely to fail here.
+			if blocklist.isBlocklisted(agent.ID, htInfo.JobID, htInfo.AttackMode, htInfo.HashType) {
+				continue
 			}
 
 			key := buildBenchmarkCacheKey(htInfo.AttackMode, htInfo.HashType, htInfo.SaltCount)
@@ -940,10 +1138,14 @@ func (s *JobSchedulingService) InsertBenchmarkRequests(ctx context.Context, plan
 	return nil
 }
 
-// MarkTimedOutBenchmarksAsFailed marks any incomplete benchmarks as failed and updates job error messages
-// This is called when WaitForBenchmarks times out, before clearing the benchmark_requests table
+// MarkTimedOutBenchmarksAsFailed marks any incomplete benchmarks as failed and
+// routes each timed-out row through AttributeBenchmarkFailure so the agent-
+// reported and server-timeout paths apply the same blocklist/attribution
+// policy. Called when WaitForBenchmarks times out.
 func (s *JobSchedulingService) MarkTimedOutBenchmarksAsFailed(ctx context.Context) error {
-	// First, get the list of timed-out benchmark requests (those without completed_at)
+	// Capture the list of timed-out (agent, job, mode, hash) tuples BEFORE the
+	// bulk update — AttributeBenchmarkFailure's own WHERE completed_at IS NULL
+	// clause would otherwise miss rows the bulk update just marked complete.
 	rows, err := s.jobExecutionService.db.QueryContext(ctx, `
 		SELECT agent_id, job_execution_id, attack_mode, hash_type
 		FROM benchmark_requests
@@ -952,52 +1154,89 @@ func (s *JobSchedulingService) MarkTimedOutBenchmarksAsFailed(ctx context.Contex
 	if err != nil {
 		return fmt.Errorf("failed to query timed-out benchmarks: %w", err)
 	}
-	defer rows.Close()
-
-	var timedOutJobs []uuid.UUID
+	type timedOutRow struct {
+		agentID    int
+		jobID      uuid.UUID
+		attackMode models.AttackMode
+		hashType   int
+	}
+	var timedOut []timedOutRow
 	for rows.Next() {
-		var agentID int
-		var jobID uuid.UUID
-		var attackMode string
-		var hashType int
+		var (
+			agentID    int
+			jobID      uuid.UUID
+			attackMode string
+			hashType   int
+		)
 		if err := rows.Scan(&agentID, &jobID, &attackMode, &hashType); err != nil {
 			debug.Warning("Failed to scan timed-out benchmark row: %v", err)
 			continue
 		}
-		debug.Warning("Benchmark timed out for agent %d, job %s, attack_mode %s, hash_type %d",
-			agentID, jobID, attackMode, hashType)
-		timedOutJobs = append(timedOutJobs, jobID)
+		modeInt, parseErr := strconv.Atoi(attackMode)
+		if parseErr != nil {
+			debug.Warning("Failed to parse attack_mode %q on timed-out benchmark: %v", attackMode, parseErr)
+			continue
+		}
+		debug.Warning("Benchmark timed out for agent %d, job %s, attack_mode %d, hash_type %d",
+			agentID, jobID, modeInt, hashType)
+		timedOut = append(timedOut, timedOutRow{
+			agentID:    agentID,
+			jobID:      jobID,
+			attackMode: models.AttackMode(modeInt),
+			hashType:   hashType,
+		})
 	}
+	_ = rows.Close()
 
-	if len(timedOutJobs) == 0 {
+	if len(timedOut) == 0 {
 		return nil
 	}
 
-	// Mark all incomplete benchmarks as failed
-	_, err = s.jobExecutionService.db.ExecContext(ctx, `
+	// Bulk-mark all remaining incomplete rows as failed. This is the closest
+	// equivalent to the original behavior; per-row attribution follows below.
+	if _, err := s.jobExecutionService.db.ExecContext(ctx, `
 		UPDATE benchmark_requests
 		SET completed_at = CURRENT_TIMESTAMP,
-			success = false,
-			error_message = 'Benchmark timed out waiting for agent response'
+		    success = false,
+		    error_message = 'Benchmark timed out waiting for agent response'
 		WHERE completed_at IS NULL
-	`)
-	if err != nil {
+	`); err != nil {
 		return fmt.Errorf("failed to mark timed-out benchmarks as failed: %w", err)
 	}
 
-	// Update the affected jobs with error message
-	for _, jobID := range timedOutJobs {
-		_, err := s.jobExecutionService.db.ExecContext(ctx, `
+	// Per-row attribution: clear agent metadata, count failures, decide blocklist,
+	// and (if applicable) fail the job. This is the only place that can observe
+	// multiple agents timing out on the same job in one cycle, so the job-fail
+	// check fires at the right moment.
+	const timeoutErrMsg = "Benchmark timed out waiting for agent response"
+	attributed := make(map[uuid.UUID]bool, len(timedOut))
+	for _, row := range timedOut {
+		if err := s.AttributeBenchmarkFailure(
+			ctx, row.agentID, row.attackMode, row.hashType,
+			row.jobID.String(), timeoutErrMsg,
+		); err != nil {
+			debug.Warning("AttributeBenchmarkFailure for timed-out agent %d, job %s: %v",
+				row.agentID, row.jobID, err)
+		}
+		attributed[row.jobID] = true
+	}
+
+	// Keep the historical "job error_message = timed out" behavior for visibility
+	// in the UI. This only sets the message when empty; AttributeBenchmarkFailure
+	// may have already overwritten it with a more specific reason when marking
+	// the job failed.
+	for jobID := range attributed {
+		if _, err := s.jobExecutionService.db.ExecContext(ctx, `
 			UPDATE job_executions
-			SET error_message = 'Benchmark timed out waiting for agent response'
+			SET error_message = $2
 			WHERE id = $1 AND error_message IS NULL
-		`, jobID)
-		if err != nil {
+		`, jobID, timeoutErrMsg); err != nil {
 			debug.Warning("Failed to update job %s error message: %v", jobID, err)
 		}
 	}
 
-	debug.Warning("Marked %d timed-out benchmarks as failed", len(timedOutJobs))
+	debug.Warning("Marked %d timed-out benchmark(s) as failed across %d job(s)",
+		len(timedOut), len(attributed))
 	return nil
 }
 
@@ -1046,4 +1285,280 @@ func (s *JobSchedulingService) PrioritizeForcedBenchmarkAgents(
 			s.agentRepo.UpdateMetadata(ctx, agent.ID, agent.Metadata)
 		}
 	}
+}
+
+// AttributeBenchmarkFailure is the single shared path for recording a failed
+// benchmark attempt. Both the agent-reported failure (HandleBenchmarkResult)
+// and the server-side timeout (MarkTimedOutBenchmarksAsFailed) route through
+// here so blocklist/attribution policy stays uniform.
+//
+// Responsibilities:
+//  1. Clear `pending_benchmark_job` + `benchmark_requested_at` agent metadata
+//     so the scheduler does not immediately re-select the same benchmark.
+//  2. Mark matching benchmark_requests rows complete with success=false (no-op
+//     for the timeout path, which has already bulk-updated them).
+//  3. Resolve layer → parent job_execution_id (attribution keys on parent).
+//  4. Upsert benchmark_failure_attempts (per-(agent, job, mode, hash_type)).
+//  5. Apply blocklist threshold:
+//     - 1 failure if any other agent has a recent successful benchmark for this
+//       (hash_type, attack_mode) OR the job has active tasks on other agents
+//       (strong evidence the failure is agent-specific).
+//     - Otherwise N failures (default 3, configurable).
+//  6. If threshold reached, insert a cooldown blocklist entry keyed on
+//     (agent_id, job_execution_id, attack_mode, hash_type).
+//  7. If every agent eligible for scheduling is now blocklisted for this job,
+//     mark the job failed so it stops idling the scheduler forever.
+//
+// Returns non-nil only for unexpected repository errors; callers log but do
+// not propagate (the surface error is the original benchmark failure).
+func (s *JobSchedulingService) AttributeBenchmarkFailure(
+	ctx context.Context,
+	agentID int,
+	attackMode models.AttackMode,
+	hashType int,
+	entityID string, // layer ID or job execution ID (as sent by the agent)
+	errMsg string,
+) error {
+	// 1. Clear agent metadata. This is the immediate loop-breaker.
+	agent, err := s.agentRepo.GetByID(ctx, agentID)
+	if err != nil {
+		return fmt.Errorf("get agent %d: %w", agentID, err)
+	}
+	if agent.Metadata != nil {
+		if _, had := agent.Metadata["pending_benchmark_job"]; had {
+			delete(agent.Metadata, "pending_benchmark_job")
+			delete(agent.Metadata, "benchmark_requested_at")
+			if err := s.agentRepo.Update(ctx, agent); err != nil {
+				debug.Warning("Failed to clear agent %d pending_benchmark metadata: %v", agentID, err)
+			} else {
+				debug.Info("Cleared pending_benchmark metadata for agent %d after benchmark failure", agentID)
+			}
+		}
+	}
+
+	// 2. Mark matching benchmark_requests row complete. WHERE completed_at IS
+	//    NULL makes this a no-op when the timeout path already did the bulk
+	//    update, so it's safe to call from either caller.
+	if _, err := s.jobExecutionService.db.ExecContext(ctx, `
+		UPDATE benchmark_requests
+		SET completed_at = CURRENT_TIMESTAMP,
+		    success = false,
+		    error_message = $1
+		WHERE agent_id = $2
+		  AND attack_mode = $3
+		  AND hash_type = $4
+		  AND completed_at IS NULL
+	`, errMsg, agentID, int(attackMode), hashType); err != nil {
+		debug.Warning("Failed to update benchmark_requests on failure: %v", err)
+	}
+
+	// 3. Resolve layer → parent job if applicable. Attribution keys on parent.
+	if entityID == "" {
+		debug.Warning("AttributeBenchmarkFailure: empty entity_id, skipping attribution (agent_id=%d)", agentID)
+		return nil
+	}
+	parsedID, parseErr := uuid.Parse(entityID)
+	if parseErr != nil {
+		debug.Warning("AttributeBenchmarkFailure: invalid entity_id %q: %v", entityID, parseErr)
+		return nil
+	}
+
+	jobExecutionID := parsedID
+	if layer, err := s.jobExecutionService.jobIncrementLayerRepo.GetByID(ctx, parsedID); err == nil && layer != nil {
+		jobExecutionID = layer.JobExecutionID
+		debug.Info("AttributeBenchmarkFailure: entity %s is a layer; attributing to parent job %s",
+			parsedID, jobExecutionID)
+	}
+
+	benchmarkRepo := s.jobExecutionService.benchmarkRepo
+
+	// 4. Upsert failure counter.
+	attempt, err := benchmarkRepo.RecordFailureAttempt(
+		ctx, agentID, jobExecutionID, attackMode, hashType, errMsg,
+	)
+	if err != nil {
+		return fmt.Errorf("record failure attempt: %w", err)
+	}
+	debug.Log("Recorded benchmark failure attempt", map[string]interface{}{
+		"agent_id":         agentID,
+		"job_execution_id": jobExecutionID,
+		"attack_mode":      int(attackMode),
+		"hash_type":        hashType,
+		"failure_count":    attempt.FailureCount,
+	})
+
+	// 5. Decide whether to blocklist yet.
+	threshold := s.benchmarkFailureThreshold(ctx)
+	cacheDuration := s.benchmarkCacheDurationForAttribution(ctx)
+
+	otherAgentsSucceeded, err := benchmarkRepo.CountAgentsWithRecentBenchmark(
+		ctx, agentID, attackMode, hashType, cacheDuration,
+	)
+	if err != nil {
+		debug.Warning("CountAgentsWithRecentBenchmark: %v", err)
+		otherAgentsSucceeded = 0
+	}
+	activeAgentCount := 0
+	if n, err := s.jobTaskRepo.GetActiveAgentCountByJob(ctx, jobExecutionID); err == nil {
+		activeAgentCount = n
+	} else {
+		debug.Warning("GetActiveAgentCountByJob: %v", err)
+	}
+	hasRunningTasksOnOthers := activeAgentCount > 0
+
+	blocklistNow := false
+	blockReason := ""
+	switch {
+	case otherAgentsSucceeded > 0:
+		blocklistNow = true
+		blockReason = fmt.Sprintf(
+			"benchmark failed on agent %d while %d other agent(s) have a recent successful benchmark for hash_type=%d attack_mode=%d — treating as agent-specific",
+			agentID, otherAgentsSucceeded, hashType, int(attackMode),
+		)
+	case hasRunningTasksOnOthers:
+		blocklistNow = true
+		blockReason = fmt.Sprintf(
+			"benchmark failed on agent %d while other agents are running tasks for this job — treating as agent-specific",
+			agentID,
+		)
+	case attempt.FailureCount >= threshold:
+		blocklistNow = true
+		blockReason = fmt.Sprintf(
+			"benchmark failed %d times on agent %d for this (hash_type=%d, attack_mode=%d); threshold=%d",
+			attempt.FailureCount, agentID, hashType, int(attackMode), threshold,
+		)
+	}
+
+	if !blocklistNow {
+		return nil
+	}
+
+	// 6. Insert cooldown blocklist entry (job-scoped).
+	cooldown := s.benchmarkBlocklistCooldown(ctx)
+	expiresAt := time.Now().Add(cooldown)
+	jobScoped := jobExecutionID
+	if _, err := benchmarkRepo.AddBlocklistEntry(
+		ctx, agentID, &jobScoped, attackMode, hashType, blockReason, expiresAt,
+	); err != nil {
+		return fmt.Errorf("add blocklist entry: %w", err)
+	}
+	debug.Info("Blocklisted agent %d for job %s (hash_type=%d, attack_mode=%d) until %s: %s",
+		agentID, jobExecutionID, hashType, int(attackMode), expiresAt.Format(time.RFC3339), blockReason)
+
+	// 7. If every eligible agent is now blocklisted for this combo on this job,
+	//    fail the job so operators see it rather than an infinite idle.
+	if err := s.failJobIfAllAgentsBlocklisted(ctx, jobExecutionID, attackMode, hashType); err != nil {
+		debug.Warning("failJobIfAllAgentsBlocklisted for job %s: %v", jobExecutionID, err)
+	}
+
+	return nil
+}
+
+// benchmarkFailureThreshold returns the failure count threshold before
+// blocklisting a (agent, job) combination when attribution evidence is weak.
+func (s *JobSchedulingService) benchmarkFailureThreshold(ctx context.Context) int {
+	const defaultThreshold = 3
+	setting, err := s.systemSettingsRepo.GetSetting(ctx, "benchmark_failure_threshold")
+	if err != nil || setting == nil || setting.Value == nil {
+		return defaultThreshold
+	}
+	if n, err := strconv.Atoi(*setting.Value); err == nil && n > 0 {
+		return n
+	}
+	return defaultThreshold
+}
+
+// benchmarkBlocklistCooldown returns the cooldown duration for new blocklist
+// entries.
+func (s *JobSchedulingService) benchmarkBlocklistCooldown(ctx context.Context) time.Duration {
+	const defaultCooldown = 24 * time.Hour
+	setting, err := s.systemSettingsRepo.GetSetting(ctx, "benchmark_blocklist_cooldown_hours")
+	if err != nil || setting == nil || setting.Value == nil {
+		return defaultCooldown
+	}
+	if h, err := strconv.Atoi(*setting.Value); err == nil && h > 0 {
+		return time.Duration(h) * time.Hour
+	}
+	return defaultCooldown
+}
+
+// benchmarkCacheDurationForAttribution mirrors the TTL used by
+// CreateBenchmarkPlan so the "other agent has a recent successful benchmark"
+// check is consistent with the cache the scheduler would otherwise use.
+func (s *JobSchedulingService) benchmarkCacheDurationForAttribution(ctx context.Context) time.Duration {
+	const defaultCache = 168 * time.Hour
+	setting, err := s.systemSettingsRepo.GetSetting(ctx, "benchmark_cache_duration_hours")
+	if err != nil || setting == nil || setting.Value == nil {
+		return defaultCache
+	}
+	if h, err := strconv.Atoi(*setting.Value); err == nil && h > 0 {
+		return time.Duration(h) * time.Hour
+	}
+	return defaultCache
+}
+
+// failJobIfAllAgentsBlocklisted marks the job failed if every eligible agent
+// is currently blocklisted for this (hash_type, attack_mode) combination. This
+// prevents the scheduler from idling forever on a job no one can benchmark.
+func (s *JobSchedulingService) failJobIfAllAgentsBlocklisted(
+	ctx context.Context,
+	jobExecutionID uuid.UUID,
+	attackMode models.AttackMode,
+	hashType int,
+) error {
+	agents, err := s.agentRepo.List(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("list agents: %w", err)
+	}
+
+	eligible := 0
+	blocklisted := 0
+	var blockedAgentNames []string
+	benchmarkRepo := s.jobExecutionService.benchmarkRepo
+	for i := range agents {
+		a := &agents[i]
+		if a.Status != models.AgentStatusActive {
+			continue
+		}
+		if !a.IsEnabled {
+			continue
+		}
+		if a.SyncStatus != models.AgentSyncStatusCompleted {
+			continue
+		}
+		eligible++
+		blocked, err := benchmarkRepo.IsBlocklisted(ctx, a.ID, jobExecutionID, attackMode, hashType)
+		if err != nil {
+			debug.Warning("IsBlocklisted(agent=%d, job=%s): %v", a.ID, jobExecutionID, err)
+			continue
+		}
+		if blocked {
+			blocklisted++
+			blockedAgentNames = append(blockedAgentNames, fmt.Sprintf("%d", a.ID))
+		}
+	}
+
+	if eligible == 0 || blocklisted < eligible {
+		return nil
+	}
+
+	reason := fmt.Sprintf(
+		"benchmark failed on all %d eligible agents (ids: %s) for hash_type=%d attack_mode=%d; see per-agent blocklist entries under this job for details",
+		eligible, strings.Join(blockedAgentNames, ","), hashType, int(attackMode),
+	)
+	debug.Warning("Marking job %s failed — all eligible agents blocklisted: %s", jobExecutionID, reason)
+
+	jobExecRepo := repository.NewJobExecutionRepository(s.jobExecutionService.db)
+	if err := jobExecRepo.UpdateErrorMessage(ctx, jobExecutionID, reason); err != nil {
+		debug.Warning("UpdateErrorMessage on all-blocklisted job %s: %v", jobExecutionID, err)
+	}
+	if err := jobExecRepo.UpdateStatus(ctx, jobExecutionID, models.JobExecutionStatusFailed); err != nil {
+		return fmt.Errorf("mark job failed: %w", err)
+	}
+
+	// Fire the standard job-failed notification so operators see it in the UI.
+	if jobExec, err := s.jobExecutionService.GetJobExecutionByID(ctx, jobExecutionID); err == nil && jobExec != nil {
+		s.jobExecutionService.dispatchJobFailedNotification(ctx, jobExec, reason)
+	}
+	return nil
 }
