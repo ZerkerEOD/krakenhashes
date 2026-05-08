@@ -215,6 +215,19 @@ func (s *JobChunkingService) CalculateNextChunk(ctx context.Context, req ChunkCa
 		}
 	}
 
+	// Guard against degenerate 1-candidate (or smaller) chunks. We've seen this
+	// happen historically when an agent reports 0 H/s and the chunking math
+	// degenerates; the resulting `--limit 1` task completes instantly and
+	// loops forever. The rest of the pipeline now rejects 0 H/s benchmarks at
+	// receive time, but keep this hard floor so a future regression can't
+	// silently dispatch a useless chunk.
+	chunkSize := keyspaceEnd - keyspaceStart
+	if chunkSize <= 1 {
+		debug.Warning("Refusing to dispatch degenerate chunk (size=%d) for job %s: keyspace_start=%d, keyspace_end=%d, base_keyspace=%d, benchmark_speed=%d",
+			chunkSize, req.JobExecution.ID, keyspaceStart, keyspaceEnd, baseKeyspace, benchmarkSpeed)
+		return nil, fmt.Errorf("calculated chunk size %d is too small to dispatch (start=%d, end=%d). The agent's benchmark may be stale or zero; check benchmark history for agent %d.", chunkSize, keyspaceStart, keyspaceEnd, req.Agent.ID)
+	}
+
 	result := &ChunkCalculationResult{
 		KeyspaceStart:  keyspaceStart,
 		KeyspaceEnd:    keyspaceEnd,

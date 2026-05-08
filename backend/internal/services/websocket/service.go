@@ -283,7 +283,15 @@ type BenchmarkResultPayload struct {
 	AgentBaseKeyspace      int64         `json:"agent_base_keyspace"`              // Agent's hashcat --keyspace with its flags
 	Success                bool          `json:"success"`
 	Error                  string        `json:"error,omitempty"`
+	ErrorCode              string        `json:"error_code,omitempty"` // Typed failure mode (BENCHMARK_TIMEOUT, BENCHMARK_ZERO_SPEED) for actionable admin errors
 }
+
+// Benchmark error codes the agent can report back. Keep in sync with the
+// agent (agent/internal/jobs/hashcat_executor.go).
+const (
+	BenchmarkErrorTimeout   = "BENCHMARK_TIMEOUT"    // Speed test ran for the full configured duration without producing any usable status update
+	BenchmarkErrorZeroSpeed = "BENCHMARK_ZERO_SPEED" // Status updates were collected but every device reported 0 H/s
+)
 
 // DeviceSpeed represents speed for a single device
 type DeviceSpeed struct {
@@ -317,8 +325,9 @@ type BenchmarkRequestPayload struct {
 	CustomCharsets  map[string]string            `json:"custom_charsets,omitempty"`
 	CharsetFiles   map[string]CharsetFileInfo  `json:"charset_files,omitempty"`
 	HexCharset     bool                       `json:"hex_charset,omitempty"`
-	TestDuration    int               `json:"test_duration,omitempty"`    // Duration in seconds for speed test
-	TimeoutDuration int      `json:"timeout_duration,omitempty"` // Maximum time to wait for speedtest (seconds)
+	TestDuration     int               `json:"test_duration,omitempty"`     // Maximum seconds the agent should spend collecting status updates before giving up
+	TimeoutDuration  int               `json:"timeout_duration,omitempty"`  // Hard wall-clock cap on the entire speed-test (context deadline); should be >= TestDuration
+	MinStatusUpdates int               `json:"min_status_updates,omitempty"` // Minimum hashcat --status-json ticks the agent must collect before returning a result. <=0 means use the agent's default.
 	ExtraParameters         string   `json:"extra_parameters,omitempty"`          // Agent-specific hashcat parameters
 	JobAdditionalArgs       string   `json:"job_additional_args,omitempty"`       // Job-level hashcat parameters
 	EnabledDevices          []int    `json:"enabled_devices,omitempty"`           // List of enabled device IDs

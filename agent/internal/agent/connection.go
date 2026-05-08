@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -157,8 +158,9 @@ type BenchmarkRequest struct {
 	RulePaths       []string           `json:"rule_paths"`
 	Mask            string             `json:"mask,omitempty"`
 	BinaryPath      string             `json:"binary_path"`
-	TestDuration    int                `json:"test_duration"`    // How long to run test (seconds)
-	TimeoutDuration int                `json:"timeout_duration"` // Maximum time to wait for speedtest (seconds)
+	TestDuration     int                `json:"test_duration"`               // Maximum seconds the agent should spend collecting status updates before giving up
+	TimeoutDuration  int                `json:"timeout_duration"`            // Hard wall-clock cap on the entire speed-test (context deadline); should be >= TestDuration
+	MinStatusUpdates int                `json:"min_status_updates,omitempty"` // Minimum hashcat --status-json ticks the agent must collect before returning a result. <=0 means use the agent's default.
 	ExtraParameters         string            `json:"extra_parameters,omitempty"`          // Agent-specific hashcat parameters
 	EnabledDevices          []int             `json:"enabled_devices,omitempty"`           // List of enabled device IDs
 	AssociationWordlistPath string            `json:"association_wordlist_path,omitempty"` // For mode 9 association attacks
@@ -1752,28 +1754,44 @@ func (c *Connection) readPump() {
 					JobAdditionalArgs:      benchmarkPayload.JobAdditionalArgs,       // Job-level additional args
 				}
 
-				// Default test duration to 16 seconds if not specified
+				// Default test duration to 120s if backend didn't supply one
+				// (e.g. older backend). The current backend sends one of the
+				// two configurable timeouts based on wordlist compression.
 				testDuration := benchmarkPayload.TestDuration
 				if testDuration == 0 {
-					testDuration = 16
+					testDuration = 120
 				}
 
-				// Use configurable timeout duration, default to 180 seconds (3 minutes)
+				// Wall-clock cap on the whole speed test. Should be >=
+				// testDuration; default to testDuration + 60s grace if the
+				// backend didn't set it.
 				timeoutDuration := benchmarkPayload.TimeoutDuration
 				if timeoutDuration == 0 {
-					timeoutDuration = 180
+					timeoutDuration = testDuration + 60
 				}
+
+				// Minimum status-JSON ticks before we trust the result. <=0
+				// means "use executor default".
+				minStatusUpdates := benchmarkPayload.MinStatusUpdates
 
 				ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutDuration)*time.Second)
 				defer cancel()
 
 				// Get the executor from job manager
 				executor := c.jobManager.(*jobs.JobManager).GetExecutor()
-				totalSpeed, deviceSpeeds, totalEffectiveKeyspace, agentBaseKeyspace, err := executor.RunSpeedTest(ctx, assignment, testDuration)
+				totalSpeed, deviceSpeeds, totalEffectiveKeyspace, agentBaseKeyspace, err := executor.RunSpeedTest(ctx, assignment, testDuration, minStatusUpdates)
 
 				if err != nil {
 					debug.Error("Speed test failed: %v", err)
-					// Send failure result in the format the backend expects
+					// Map sentinel errors to the typed error_code the backend
+					// uses to format admin-friendly messages on the job.
+					errorCode := ""
+					switch {
+					case errors.Is(err, jobs.ErrBenchmarkTimeout):
+						errorCode = "BENCHMARK_TIMEOUT"
+					case errors.Is(err, jobs.ErrBenchmarkZeroSpeed):
+						errorCode = "BENCHMARK_ZERO_SPEED"
+					}
 					resultPayload := map[string]interface{}{
 						"job_execution_id":          benchmarkPayload.JobExecutionID,
 						"attack_mode":               benchmarkPayload.AttackMode,
@@ -1784,6 +1802,7 @@ func (c *Connection) readPump() {
 						"agent_base_keyspace":       int64(0),
 						"success":                   false,
 						"error":                     err.Error(), // Backend expects "error" not "error_message"
+						"error_code":                errorCode,
 					}
 
 					payloadBytes, _ := json.Marshal(resultPayload)

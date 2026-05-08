@@ -1234,15 +1234,11 @@ func (s *JobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, age
 		"enabled_devices": enabledDeviceIDs,
 	})
 
-	// Get speedtest timeout from system settings
-	speedtestTimeout := 180 // Default to 3 minutes
-	if s.systemSettingsRepo != nil {
-		if setting, err := s.systemSettingsRepo.GetSetting(ctx, "speedtest_timeout_seconds"); err == nil && setting.Value != nil {
-			if timeout, err := strconv.Atoi(*setting.Value); err == nil && timeout > 0 {
-				speedtestTimeout = timeout
-			}
-		}
-	}
+	// Pick the speed-test parameters from system_settings. These are read live
+	// (no restart needed). The TestDuration is split by wordlist compression
+	// because compressed wordlists need significantly longer to dictstat-
+	// preprocess before hashcat starts producing valid status updates.
+	testDuration, speedtestTimeout, minStatusUpdates := s.resolveSpeedTestParameters(ctx, wordlistPaths)
 
 	// Create enhanced benchmark request payload with job-specific configuration
 	benchmarkReq := wsservice.BenchmarkRequestPayload{
@@ -1260,8 +1256,9 @@ func (s *JobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, age
 		CustomCharsets:  map[string]string(jobExecution.CustomCharsets),
 		CharsetFiles:   convertCharsetFiles(jobExecution.CustomCharsetFiles),
 		HexCharset:     jobExecution.HexCharset,
-		TestDuration:    30,               // 30-second benchmark for accuracy
-		TimeoutDuration: speedtestTimeout, // Configurable timeout for speedtest
+		TestDuration:     testDuration,
+		TimeoutDuration:  speedtestTimeout,
+		MinStatusUpdates: minStatusUpdates,
 		ExtraParameters:   agent.ExtraParameters,
 		JobAdditionalArgs: func() string { if jobExecution.AdditionalArgs != nil { return *jobExecution.AdditionalArgs }; return "" }(),
 		EnabledDevices:    enabledDeviceIDs,
@@ -1291,6 +1288,118 @@ func (s *JobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, age
 	})
 
 	return nil
+}
+
+// compressedWordlistExts are the wordlist file suffixes we treat as compressed
+// when picking a benchmark timeout. Hashcat needs significantly more time to
+// dictstat-preprocess these before the GPUs start crunching, so they get the
+// larger configured timeout. Match is case-insensitive against the trailing
+// suffix of the wordlist path.
+var compressedWordlistExts = []string{".gz", ".gzip", ".bz2", ".zst", ".7z", ".zip"}
+
+// hasCompressedWordlist returns true if any of the supplied wordlist paths
+// looks compressed by extension. Used by resolveSpeedTestParameters.
+func hasCompressedWordlist(paths []string) bool {
+	for _, p := range paths {
+		lower := strings.ToLower(p)
+		for _, ext := range compressedWordlistExts {
+			if strings.HasSuffix(lower, ext) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// resolveSpeedTestParameters reads the speed-test admin settings live and
+// returns the (testDuration, timeoutDuration, minStatusUpdates) triple to put
+// in the BenchmarkRequestPayload. If a compressed wordlist is in the request,
+// the larger compressed timeout wins. The wall-clock TimeoutDuration is set
+// slightly larger than TestDuration so the agent's outer context never fires
+// before the inner status-collection deadline. Falls back to the previous
+// `speedtest_timeout_seconds` setting (and conservative defaults) if any of
+// the new keys are missing or invalid, so an upgrade with a partial DB still
+// runs.
+func (s *JobWebSocketIntegration) resolveSpeedTestParameters(ctx context.Context, wordlistPaths []string) (testDuration, timeoutDuration, minStatusUpdates int) {
+	// Conservative defaults that match the migration seeds.
+	const (
+		defaultUncompressed = 120
+		defaultCompressed   = 300
+		defaultMinUpdates   = 3
+		timeoutGraceSeconds = 60
+	)
+
+	uncompressed := defaultUncompressed
+	compressed := defaultCompressed
+	minStatusUpdates = defaultMinUpdates
+
+	if s.systemSettingsRepo != nil {
+		if v, ok := s.readIntSetting(ctx, "speed_test_timeout_seconds_uncompressed"); ok && v > 0 {
+			uncompressed = v
+		}
+		if v, ok := s.readIntSetting(ctx, "speed_test_timeout_seconds_compressed"); ok && v > 0 {
+			compressed = v
+		}
+		if v, ok := s.readIntSetting(ctx, "speed_test_min_status_updates"); ok && v >= 1 {
+			minStatusUpdates = v
+		}
+	}
+
+	if hasCompressedWordlist(wordlistPaths) {
+		testDuration = compressed
+	} else {
+		testDuration = uncompressed
+	}
+
+	// Honour the legacy `speedtest_timeout_seconds` knob as a hard outer cap so
+	// existing deployments that bumped it for slow agents don't regress. The
+	// wall-clock TimeoutDuration must be at least TestDuration plus a grace
+	// period for hashcat init/teardown.
+	timeoutDuration = testDuration + timeoutGraceSeconds
+	if s.systemSettingsRepo != nil {
+		if v, ok := s.readIntSetting(ctx, "speedtest_timeout_seconds"); ok && v > timeoutDuration {
+			timeoutDuration = v
+		}
+	}
+
+	return testDuration, timeoutDuration, minStatusUpdates
+}
+
+// readIntSetting fetches a system setting and parses it as int. Returns
+// (value, true) on success, (0, false) on any error or non-integer value.
+func (s *JobWebSocketIntegration) readIntSetting(ctx context.Context, key string) (int, bool) {
+	setting, err := s.systemSettingsRepo.GetSetting(ctx, key)
+	if err != nil || setting == nil || setting.Value == nil {
+		return 0, false
+	}
+	v, err := strconv.Atoi(*setting.Value)
+	if err != nil {
+		return 0, false
+	}
+	return v, true
+}
+
+// formatBenchmarkErrorMessage turns the agent's typed ErrorCode + raw Error
+// into an admin-friendly message that surfaces on the job. Falls back to the
+// raw error for unknown codes so older agents still produce useful output.
+func formatBenchmarkErrorMessage(errorCode, rawError string) string {
+	switch errorCode {
+	case wsservice.BenchmarkErrorTimeout:
+		if rawError != "" {
+			return fmt.Sprintf("Speed test timed out before producing a usable result (%s). An admin should increase the speed-test timeout in admin settings (compressed / uncompressed).", rawError)
+		}
+		return "Speed test timed out before producing a usable result. An admin should increase the speed-test timeout in admin settings (compressed / uncompressed)."
+	case wsservice.BenchmarkErrorZeroSpeed:
+		if rawError != "" {
+			return fmt.Sprintf("Speed test ran but every device reported 0 H/s (%s). The hashcat process likely never finished initialisation; check the agent logs.", rawError)
+		}
+		return "Speed test ran but every device reported 0 H/s. The hashcat process likely never finished initialisation; check the agent logs."
+	default:
+		if rawError != "" {
+			return rawError
+		}
+		return "benchmark failed: unknown error"
+	}
 }
 
 // HandleJobProgress processes job progress updates from agents
@@ -2540,20 +2649,39 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 		"success":     result.Success,
 	})
 
+	// A reported speed of 0 H/s with success=true is never useful: the chunk
+	// math would either fall back to a default estimate or produce a degenerate
+	// 1-candidate task. Treat it as a failure so the scheduler attributes the
+	// failure and the admin gets an actionable error on the job. This also
+	// catches older agents that don't yet emit ErrorCode.
+	if result.Success && result.Speed <= 0 {
+		debug.Warning("Benchmark reported success=true with speed<=0; treating as a zero-speed failure (agent %d, hash_type %d, attack_mode %d)",
+			agentID, result.HashType, result.AttackMode)
+		result.Success = false
+		if result.ErrorCode == "" {
+			result.ErrorCode = wsservice.BenchmarkErrorZeroSpeed
+		}
+		if result.Error == "" {
+			result.Error = "speed test reported 0 H/s"
+		}
+	}
+
 	if !result.Success {
+		errorMessage := formatBenchmarkErrorMessage(result.ErrorCode, result.Error)
 		debug.Log("Benchmark failed", map[string]interface{}{
-			"agent_id": agentID,
-			"error":    result.Error,
+			"agent_id":   agentID,
+			"error":      result.Error,
+			"error_code": result.ErrorCode,
 		})
 		if err := s.jobSchedulingService.AttributeBenchmarkFailure(
 			ctx, agentID,
 			models.AttackMode(result.AttackMode), result.HashType,
-			result.JobExecutionID, result.Error,
+			result.JobExecutionID, errorMessage,
 		); err != nil {
 			// Attribution failure should not mask the original error; log and continue.
 			debug.Warning("Failed to record benchmark failure attribution for agent %d: %v", agentID, err)
 		}
-		return fmt.Errorf("benchmark failed: %s", result.Error)
+		return fmt.Errorf("benchmark failed: %s", errorMessage)
 	}
 
 	// Get agent

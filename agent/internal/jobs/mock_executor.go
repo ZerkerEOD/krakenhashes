@@ -499,8 +499,9 @@ func countFileLines(filepath string) (int64, error) {
 	return count, nil
 }
 
-// RunSpeedTest simulates a speed test
-func (e *MockHashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskAssignment, testDuration int) (int64, []DeviceSpeed, int64, int64, error) {
+// RunSpeedTest simulates a speed test. minStatusUpdates is accepted to satisfy
+// ExecutorInterface but ignored: the mock returns a synthetic result instantly.
+func (e *MockHashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskAssignment, testDuration int, minStatusUpdates int) (int64, []DeviceSpeed, int64, int64, error) {
 	debug.Info("Mock executor running speed test for hash type %d", assignment.HashType)
 
 	// Simulate benchmark time (much faster than real)

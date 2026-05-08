@@ -24,6 +24,14 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/agent/pkg/debug"
 )
 
+// Speed-test failure sentinels. The benchmark handler in connection.go uses
+// errors.Is to set error_code on the result so the backend can format an
+// admin-friendly message. Keep in sync with backend wsservice.BenchmarkError*.
+var (
+	ErrBenchmarkTimeout   = fmt.Errorf("BENCHMARK_TIMEOUT")
+	ErrBenchmarkZeroSpeed = fmt.Errorf("BENCHMARK_ZERO_SPEED")
+)
+
 // AttackMode represents hashcat attack modes
 type AttackMode int
 
@@ -1693,11 +1701,22 @@ func (e *HashcatExecutor) waitForActiveProcesses(ctx context.Context) error {
 	}
 }
 
-// RunSpeedTest runs a real-world speed test with actual job configuration
-// Returns: totalSpeed (H/s), deviceSpeeds, totalEffectiveKeyspace (progress[1]), agentBaseKeyspace, error
-func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskAssignment, testDuration int) (int64, []DeviceSpeed, int64, int64, error) {
-	debug.Info("Running speed test for hash type %d, attack mode %d, duration %d seconds",
-		assignment.HashType, assignment.AttackMode, testDuration)
+// RunSpeedTest runs a real-world speed test with actual job configuration.
+// testDuration bounds how long we collect status updates (seconds, must be >0).
+// minStatusUpdates is the minimum number of hashcat --status-json ticks to
+// collect before returning a result; <=0 falls back to a sane default.
+// Returns: totalSpeed (H/s), deviceSpeeds, totalEffectiveKeyspace (progress[1]),
+// agentBaseKeyspace, error. On benchmark-side failures, the returned error
+// wraps ErrBenchmarkTimeout or ErrBenchmarkZeroSpeed so callers can label it.
+func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskAssignment, testDuration int, minStatusUpdates int) (int64, []DeviceSpeed, int64, int64, error) {
+	if minStatusUpdates < 1 {
+		minStatusUpdates = 3
+	}
+	if testDuration < 1 {
+		testDuration = 120
+	}
+	debug.Info("Running speed test for hash type %d, attack mode %d, duration %d seconds, min_status_updates %d",
+		assignment.HashType, assignment.AttackMode, testDuration, minStatusUpdates)
 
 	// Part 9: Wait for any active hashcat processes to complete before starting benchmark.
 	// Hashcat can only run one instance at a time. If a task just completed (status=5 Exhausted),
@@ -1865,15 +1884,16 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 	}
 	defer cleanup()
 	
-	// Timer to stop after timeout - use context deadline if available, otherwise 3 minutes
-	var timer *time.Timer
+	// Stop collecting after testDuration seconds, but never longer than the
+	// context deadline (the agent caller wraps us in a context with a slightly
+	// larger TimeoutDuration for belt-and-suspenders).
+	collectFor := time.Duration(testDuration) * time.Second
 	if deadline, ok := ctx.Deadline(); ok {
-		// Use remaining time from context
-		timer = time.NewTimer(time.Until(deadline))
-	} else {
-		// Fallback to 3 minutes if no deadline set
-		timer = time.NewTimer(3 * time.Minute)
+		if remaining := time.Until(deadline); remaining > 0 && remaining < collectFor {
+			collectFor = remaining
+		}
 	}
+	timer := time.NewTimer(collectFor)
 	
 	// Collect status updates
 	var statusUpdates []string
@@ -1919,9 +1939,9 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 					}
 				}
 				
-				// We want to get at least 3 updates for stability
-				if len(statusUpdates) >= 3 {
-					debug.Info("[Speed test] Collected 3 updates, stopping collection")
+				// We want at least minStatusUpdates updates for stability.
+				if len(statusUpdates) >= minStatusUpdates {
+					debug.Info("[Speed test] Collected %d updates (min=%d), stopping collection", len(statusUpdates), minStatusUpdates)
 					timer.Stop()
 					close(statusCollected)
 					return
@@ -1949,31 +1969,34 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 	if lastValidSpeed == 0 {
 		debug.Warning("[Speed test] No valid speed parsed during collection, checking stored updates")
 		if len(statusUpdates) == 0 {
-			return 0, nil, 0, 0, fmt.Errorf("no status updates received during speed test")
+			// No JSON ever arrived: hashcat is still in autotune/init/decompress
+			// when the timer fired. Backend reads this code as
+			// BENCHMARK_TIMEOUT and asks the admin to bump the timeout.
+			return 0, nil, 0, 0, fmt.Errorf("%w: no status updates received during %ds speed test", ErrBenchmarkTimeout, testDuration)
 		}
 
-		// Try to parse from the best available update
-		// Use 3rd update if available, otherwise use the last update
+		// Try to parse from the best available update.
+		// Use the third update if available (more stable), otherwise the last.
 		statusIndex := len(statusUpdates) - 1
 		if len(statusUpdates) >= 3 {
-			statusIndex = 2 // Third update (0-indexed) for stability
+			statusIndex = 2
 		}
 
 		debug.Debug("[Speed test] Attempting to parse update %d of %d: %s", statusIndex+1, len(statusUpdates), statusUpdates[statusIndex])
 		totalSpeed, deviceSpeeds, totalEffective, err := e.parseSpeedFromJSON(statusUpdates[statusIndex])
 		if err != nil {
-			// Log the actual content that failed to parse
 			debug.Error("[Speed test] Failed to parse JSON from update %d. Content: %s", statusIndex+1, statusUpdates[statusIndex])
 			return 0, nil, 0, 0, fmt.Errorf("failed to parse speed from status: %w", err)
 		}
 
 		if totalSpeed == 0 {
-			// For exhausted jobs with only 1 update, this might be expected
-			debug.Warning("[Speed test] Speed is 0 H/s after %d updates - job may have exhausted immediately", len(statusUpdates))
-			// Still try to return if we have device speeds
-			if len(deviceSpeeds) > 0 {
-				debug.Info("[Speed test] Using device speeds even though total is 0")
-			}
+			// We collected updates but the GPUs reported 0 H/s on every one.
+			// This was the user-visible failure mode in agent_6.log: the
+			// backend's chunk math degenerated to a 1-candidate task. Refuse
+			// the result here so the backend can attribute the failure and
+			// surface an actionable error on the job.
+			debug.Warning("[Speed test] Speed is 0 H/s after %d updates - returning typed failure", len(statusUpdates))
+			return 0, nil, 0, 0, fmt.Errorf("%w: %d status updates, all 0 H/s", ErrBenchmarkZeroSpeed, len(statusUpdates))
 		}
 
 		lastValidSpeed = totalSpeed

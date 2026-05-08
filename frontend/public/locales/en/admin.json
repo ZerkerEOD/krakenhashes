@@ -1188,6 +1188,18 @@
       "passwordsEvery": "passwords every",
       "seconds": "seconds"
     },
+    "speedTest": {
+      "title": "Speed Test (Benchmark)",
+      "tooltip": "Tune how long agents wait for hashcat to produce a usable benchmark before failing the speed test. Compressed wordlists need significantly more time to dictstat-preprocess.",
+      "timeoutUncompressed": "Timeout: plain-text wordlists (seconds)",
+      "timeoutUncompressedHelper": "Maximum seconds the agent will wait for a valid speed reading on plain-text wordlists. Default: 120.",
+      "timeoutCompressed": "Timeout: compressed wordlists (seconds)",
+      "timeoutCompressedHelper": "Maximum seconds for .gz / .gzip / .bz2 / .zst / .7z / .zip wordlists. These need longer to decompress and dictstat-preprocess. Default: 300.",
+      "minStatusUpdates": "Minimum status updates",
+      "minStatusUpdatesHelper": "Minimum number of hashcat --status-json ticks the agent must collect before returning a result. Default: 3.",
+      "minUpdatesLowWarning": "Values below 3 may produce inaccurate readings: GPUs may not have finished spinning up.",
+      "description": "If the agent times out without producing a non-zero speed, the benchmark is reported as failed and the job surfaces an admin-actionable error. The chunking pipeline also refuses to dispatch a 1-candidate task, so a stale 0 H/s benchmark cannot loop forever."
+    },
     "errors": {
       "loadFailed": "Failed to load system settings",
       "maxPriorityRequired": "Maximum priority is required",
@@ -1195,7 +1207,9 @@
       "maxPriorityMax": "Maximum priority cannot exceed 1,000,000",
       "saveFailed": "Failed to save system settings",
       "batchSizeRange": "Batch size must be between {{min}} and {{max}}",
-      "intervalRange": "Interval must be between {{min}} and {{max}} seconds"
+      "intervalRange": "Interval must be between {{min}} and {{max}} seconds",
+      "speedTestTimeoutRange": "Speed-test timeout must be between {{min}} and {{max}} seconds",
+      "minStatusUpdatesRange": "Minimum status updates must be between {{min}} and {{max}}"
     },
     "messages": {
       "updateSuccess": "System settings updated successfully",
@@ -1207,6 +1221,8 @@
       "hashlistBatchUpdated": "Hashlist batch size updated",
       "potfileBatchUpdated": "Potfile batch size updated",
       "potfileIntervalUpdated": "Potfile batch interval updated",
+      "speedTestTimeoutUpdated": "Speed-test timeout updated",
+      "speedTestMinUpdatesUpdated": "Speed-test minimum status updates updated",
       "updateFailed": "Failed to update setting"
     }
   },
