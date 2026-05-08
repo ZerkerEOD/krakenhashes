@@ -1764,54 +1764,106 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 	// Channel to collect status updates
 	statusChan := make(chan string, 10)
 	stopReading := make(chan bool)
-	
-	// Read stdout in goroutine
+
+	// readersWG lets cleanup know when both reader goroutines have exited so we
+	// can safely tear down the process without leaking goroutines.
+	var readersWG sync.WaitGroup
+	readersWG.Add(2)
+
+	// Read stdout in goroutine. The scanner unblocks when cleanup closes stdout
+	// (defer below), which makes Scan() return false; sends to statusChan are
+	// guarded with stopReading so a slow consumer can't deadlock the reader.
 	go func() {
+		defer readersWG.Done()
 		scanner := bufio.NewScanner(stdout)
 		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.TrimSpace(line) == "" {
+				continue
+			}
+			debug.Debug("[Speed test stdout raw] %s", line)
+			var jsonPart string
+			if strings.Contains(line, ":") && strings.Contains(line, "{") && strings.Contains(line, "\"status\"") {
+				jsonStart := strings.Index(line, "{")
+				jsonPart = line[jsonStart:]
+				debug.Debug("[Speed test] Found mixed output, extracted JSON: %s", jsonPart)
+			} else if strings.HasPrefix(line, "{") && strings.Contains(line, "\"status\"") {
+				jsonPart = line
+				debug.Debug("[Speed test] Found pure JSON status")
+			} else {
+				continue
+			}
 			select {
+			case statusChan <- jsonPart:
 			case <-stopReading:
-				debug.Debug("[Speed test] Stopping stdout reader")
 				return
-			default:
-				line := scanner.Text()
-				if strings.TrimSpace(line) != "" {
-					debug.Debug("[Speed test stdout raw] %s", line)
-					// Sometimes hashcat outputs crack result and JSON on same line
-					// First check if line contains both crack and JSON
-					if strings.Contains(line, ":") && strings.Contains(line, "{") && strings.Contains(line, "\"status\"") {
-						// Split at the JSON start
-						jsonStart := strings.Index(line, "{")
-						jsonPart := line[jsonStart:]
-						debug.Debug("[Speed test] Found mixed output, extracted JSON: %s", jsonPart)
-						// Just use the JSON part for speed test
-						select {
-						case statusChan <- jsonPart:
-						case <-stopReading:
-							return
-						}
-					} else if strings.HasPrefix(line, "{") && strings.Contains(line, "\"status\"") {
-						// Pure JSON status line
-						debug.Debug("[Speed test] Found pure JSON status")
-						select {
-						case statusChan <- line:
-						case <-stopReading:
-							return
-						}
-					}
-				}
 			}
 		}
 	}()
-	
-	// Read stderr in goroutine
+
+	// Read stderr in goroutine. Unblocks the same way (cleanup closes stderr).
 	go func() {
+		defer readersWG.Done()
 		scanner := bufio.NewScanner(stderr)
 		for scanner.Scan() {
 			line := scanner.Text()
 			debug.Debug("[Hashcat stderr] %s", line)
 		}
 	}()
+
+	// Cleanup: close pipes (unblocks readers), kill the process, wait with a
+	// hard deadline so a stuck hashcat never leaves us with a zombie. This
+	// runs on every return path including errors.
+	cleanedUp := false
+	cleanup := func() {
+		if cleanedUp {
+			return
+		}
+		cleanedUp = true
+
+		// Signal readers' send-paths to abort. Safe to close once.
+		select {
+		case <-stopReading:
+		default:
+			close(stopReading)
+		}
+
+		// Best-effort SIGKILL. Capture the error so we know if it failed.
+		if cmd.Process != nil {
+			if err := cmd.Process.Kill(); err != nil && !strings.Contains(err.Error(), "process already finished") {
+				debug.Warning("[Speed test] Kill PID %d failed: %v", cmd.Process.Pid, err)
+			}
+		}
+
+		// Force readers to exit by closing the pipes; cmd.Wait would close
+		// them eventually, but only after the process actually dies.
+		if stdout != nil {
+			_ = stdout.Close()
+		}
+		if stderr != nil {
+			_ = stderr.Close()
+		}
+
+		// Wait for the process to exit, but bound it. If hashcat is stuck in
+		// a long syscall (e.g. decompressing a huge .gz wordlist), SIGKILL
+		// may take time to land; we don't want to block here forever.
+		waitDone := make(chan error, 1)
+		go func() { waitDone <- cmd.Wait() }()
+		select {
+		case <-waitDone:
+		case <-time.After(5 * time.Second):
+			pid := -1
+			if cmd.Process != nil {
+				pid = cmd.Process.Pid
+				_ = cmd.Process.Release()
+			}
+			debug.Warning("[Speed test] cmd.Wait did not return within 5s for PID %d; released process handle. Hashcat may still be alive and the next task on this agent could collide.", pid)
+		}
+
+		// Drain reader goroutines (stdout/stderr are now closed so they exit).
+		readersWG.Wait()
+	}
+	defer cleanup()
 	
 	// Timer to stop after timeout - use context deadline if available, otherwise 3 minutes
 	var timer *time.Timer
@@ -1848,9 +1900,12 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 				
 				statusUpdates = append(statusUpdates, status)
 				
-				// Check if hashcat has completed
-				// Status codes: 1=init, 2=running, 3=paused, 4=bypassed, 5=exhausted, 6=cracked, 7=aborted, 8=quit, 9=error
-				// Parse the status field to see if the job is done
+				// Check if hashcat has completed.
+				// Hashcat status codes (from upstream inc_types.h): 0=init, 1=autotune,
+				// 2=selftest, 3=running, 4=paused, 5=exhausted, 6=cracked, 7=aborted,
+				// 8=quit, 9=bypass. 5/6 are terminal; everything else means hashcat is
+				// still working and a 0 H/s reading just means the GPUs aren't crunching
+				// yet (init/autotune/decompress).
 				var statusCheck struct {
 					Status int `json:"status"`
 				}
@@ -1879,17 +1934,11 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 		}
 	}()
 	
-	// Wait for status collection to complete
+	// Wait for status collection to complete, then run cleanup synchronously
+	// so the process is reaped before we evaluate the result. The deferred
+	// cleanup remains as a safety net for error paths.
 	<-statusCollected
-	
-	// Stop reading stdout/stderr
-	close(stopReading)
-	
-	// Kill the process and wait for it to exit
-	if cmd.Process != nil {
-		cmd.Process.Kill()
-	}
-	cmd.Wait() // Clean up the process
+	cleanup()
 
 	// Clean up benchmark outfile (best-effort, next benchmark will overwrite anyway)
 	if err := os.Remove(benchmarkOutfile); err != nil && !os.IsNotExist(err) {
