@@ -56,6 +56,7 @@ const (
 	TypeOutfileDeleteRejected   MessageType = "outfile_delete_rejected"   // Agent rejects outfile deletion (line count mismatch)
 	TypeTaskStopAck             MessageType = "task_stop_ack"             // Agent acknowledges stop command (GH Issue #12)
 	TypeStateSyncResponse       MessageType = "state_sync_response"       // Agent responds with state sync (GH Issue #12)
+	TypeAgentOrphanReport       MessageType = "agent_orphan_report"       // Agent audits an "Already an instance" hashcat collision (Slice C)
 
 	// Server -> Agent messages
 	TypeTaskAssignment         MessageType = "task_assignment"
@@ -270,6 +271,20 @@ type TaskAssignmentPayload struct {
 	// Server's base keyspace for agent-side coordinate conversion
 	// Agents with -O may have a different outer-loop keyspace; this lets them convert --skip/--limit
 	BaseKeyspace int64 `json:"base_keyspace,omitempty"`
+}
+
+// AgentOrphanReportPayload is the agent's audit notification when its
+// executor's stderr handler detected an "Already an instance running on
+// pid X" hashcat collision and reconciled it. Killed=true means the PID
+// was foreign and the executor SIGKILLed it; FromOurAgent=true means the
+// PID was one of the agent's own running tasks (legitimate self-collision,
+// not killed). AttemptedTaskID is the task whose start was blocked.
+type AgentOrphanReportPayload struct {
+	PID             int    `json:"pid"`
+	AttemptedTaskID string `json:"attempted_task_id,omitempty"`
+	FromOurAgent    bool   `json:"from_our_agent"`
+	Killed          bool   `json:"killed"`
+	Timestamp       int64  `json:"timestamp"`
 }
 
 // BenchmarkResultPayload represents benchmark results from an agent

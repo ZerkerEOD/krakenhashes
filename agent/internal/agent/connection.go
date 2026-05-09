@@ -88,6 +88,12 @@ const (
 	WSTypeStateSyncRequest  WSMessageType = "state_sync_request"  // Server -> Agent: request agent state
 	WSTypeStateSyncResponse WSMessageType = "state_sync_response" // Agent -> Server: report current state
 
+	// Hashcat orphan reconciliation (Slice C of speed-test/orphan bugfix).
+	// Agent -> Server fire-and-forget audit notification when the executor's
+	// stderr handler detects "Already an instance running on pid X" and the
+	// executor reconciles it (kills it if foreign, ignores if it's our own).
+	WSTypeAgentOrphanReport WSMessageType = "agent_orphan_report"
+
 	// Diagnostics message types (GH Issue #23)
 	WSTypeDebugStatusReport WSMessageType = "debug_status_report" // Agent -> Server: report debug state
 	WSTypeDebugToggle       WSMessageType = "debug_toggle"        // Server -> Agent: toggle debug mode
@@ -202,6 +208,20 @@ type TaskStopAckPayload struct {
 type StateSyncRequestPayload struct {
 	RequestID string `json:"request_id"`
 	AgentID   int    `json:"agent_id"`
+}
+
+// AgentOrphanReportPayload reports that the agent's executor detected an
+// "Already an instance" stderr line and reconciled the conflicting PID.
+// `Killed` is true when the PID was foreign and the executor SIGKILLed it.
+// `FromOurAgent` is true when the PID belonged to one of our own running
+// tasks (a self-collision; not killed). `AttemptedTaskID` is the task whose
+// start was blocked by the conflict (may be empty for benchmark runs).
+type AgentOrphanReportPayload struct {
+	PID             int    `json:"pid"`
+	AttemptedTaskID string `json:"attempted_task_id,omitempty"`
+	FromOurAgent    bool   `json:"from_our_agent"`
+	Killed          bool   `json:"killed"`
+	Timestamp       int64  `json:"timestamp"`
 }
 
 // StateSyncResponsePayload is sent in response to state sync request (GH Issue #12)
@@ -2158,6 +2178,36 @@ func (c *Connection) writePump() {
 			debug.Info("WritePump received done signal")
 			return
 		}
+	}
+}
+
+// SendAgentOrphanReport audits an "Already an instance" hashcat collision to
+// the backend. Best-effort: any error is logged, never returned. Called from
+// the executor's orphan callback, which the agent main wires up at startup.
+func (c *Connection) SendAgentOrphanReport(pid int, attemptedTaskID string, fromOurAgent bool) {
+	if !c.isConnected.Load() {
+		debug.Warning("Skipping orphan report (PID %d) — not connected", pid)
+		return
+	}
+	payload := AgentOrphanReportPayload{
+		PID:             pid,
+		AttemptedTaskID: attemptedTaskID,
+		FromOurAgent:    fromOurAgent,
+		Killed:          !fromOurAgent, // executor only kills foreign PIDs
+		Timestamp:       time.Now().Unix(),
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		debug.Error("Failed to marshal orphan report for PID %d: %v", pid, err)
+		return
+	}
+	msg := &WSMessage{
+		Type:      WSTypeAgentOrphanReport,
+		Payload:   body,
+		Timestamp: time.Now(),
+	}
+	if !c.safeSendMessage(msg, 2000) {
+		debug.Warning("Failed to queue orphan report for PID %d (channel blocked or closed)", pid)
 	}
 }
 

@@ -90,6 +90,7 @@ type CompletedTaskInfo struct {
 // ExecutorInterface defines the methods needed by JobManager
 type ExecutorInterface interface {
 	SetOutputCallback(callback func(taskID string, output string, isError bool))
+	SetOrphanCallback(callback func(pid int, attemptedTaskID string, fromOurAgent bool))
 	SetDeviceFlagsCallback(callback func() string)
 	SetAgentExtraParams(params string)
 	ExecuteTask(ctx context.Context, assignment *JobTaskAssignment) (*HashcatProcess, error)
@@ -161,6 +162,13 @@ func (jm *JobManager) SetOutputCallback(callback func(taskID string, output stri
 	jm.outputCallback = callback
 	// Pass it through to the executor
 	jm.executor.SetOutputCallback(callback)
+}
+
+// SetOrphanCallback sets the callback fired when an orphaned hashcat PID is
+// detected and reconciled by the executor. The callback is expected to send
+// an audit notification to the backend.
+func (jm *JobManager) SetOrphanCallback(callback func(pid int, attemptedTaskID string, fromOurAgent bool)) {
+	jm.executor.SetOrphanCallback(callback)
 }
 
 // GetCurrentTaskStatus returns information about the currently running or completed task

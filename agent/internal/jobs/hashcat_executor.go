@@ -186,6 +186,14 @@ type HashcatExecutor struct {
 	// Output callback for sending output via websocket
 	outputCallback  func(taskID string, output string, isError bool)
 
+	// Orphan callback fires when hashcat refuses to start because another
+	// (foreign-to-us) hashcat process is already holding the session lock.
+	// The executor has already SIGKILLed the orphan PID by the time the
+	// callback runs; the callback's job is to notify the backend so it can
+	// audit / reconcile. attemptedTaskID is the task whose start was blocked
+	// (may be empty for benchmark runs that don't have a real task ID).
+	orphanCallback func(pid int, attemptedTaskID string, fromOurAgent bool)
+
 	// Device flags callback - returns device flags for hashcat (-d flag)
 	deviceFlagsCallback func() string
 
@@ -351,6 +359,73 @@ func (e *HashcatExecutor) killProcess(pid int) error {
 // SetOutputCallback sets the callback for sending output via websocket
 func (e *HashcatExecutor) SetOutputCallback(callback func(taskID string, output string, isError bool)) {
 	e.outputCallback = callback
+}
+
+// SetOrphanCallback sets the callback fired when an orphaned hashcat PID is
+// detected and SIGKILLed by the stderr "Already an instance" handler.
+func (e *HashcatExecutor) SetOrphanCallback(callback func(pid int, attemptedTaskID string, fromOurAgent bool)) {
+	e.orphanCallback = callback
+}
+
+// lookupActiveTaskByPID scans activeProcesses for a process whose hashcat PID
+// matches the supplied pid. Returns the owning task ID and true on a hit,
+// "" and false otherwise. Caller must not be holding e.mutex.
+func (e *HashcatExecutor) lookupActiveTaskByPID(pid int) (string, bool) {
+	if pid <= 0 {
+		return "", false
+	}
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+	for taskID, p := range e.activeProcesses {
+		if p == nil || p.Cmd == nil || p.Cmd.Process == nil {
+			continue
+		}
+		if p.Cmd.Process.Pid == pid {
+			return taskID, true
+		}
+	}
+	return "", false
+}
+
+// reconcileOrphanHashcat is invoked when hashcat refuses to start because
+// another instance owns the session lock. It distinguishes a self-collision
+// (the conflicting PID is one of ours, so the existing retry path will sort
+// itself out as the running task finishes) from a true orphan (the PID is
+// NOT in our activeProcesses map, e.g. left over from a crashed previous
+// agent run, a leaked speed test, or a stale lock with a recycled PID). In
+// the orphan case the executor SIGKILLs the PID directly and notifies the
+// backend so it can mark any task that was running on this agent as
+// unrecoverable.
+func (e *HashcatExecutor) reconcileOrphanHashcat(pid int, attemptedTaskID string) {
+	if pid <= 0 {
+		return
+	}
+
+	if owningTask, ours := e.lookupActiveTaskByPID(pid); ours {
+		debug.Warning("Hashcat 'Already an instance' on PID %d collided with our own task %s; not killing. The retry path will pick up after that task finishes.", pid, owningTask)
+		if e.orphanCallback != nil {
+			e.orphanCallback(pid, attemptedTaskID, true)
+		}
+		return
+	}
+
+	// Foreign PID: best-effort kill. We can't re-attach to its stdout to
+	// recover progress, so the only useful action is to free the session
+	// lock and let our retry succeed. os.FindProcess + Process.Kill is
+	// portable: SIGKILL on Linux/macOS, TerminateProcess on Windows. Either
+	// way an already-exited PID just produces a benign error which we log.
+	proc, ferr := os.FindProcess(pid)
+	if ferr != nil {
+		debug.Warning("os.FindProcess(%d) failed (orphan may have already exited): %v", pid, ferr)
+	} else if kerr := proc.Kill(); kerr != nil {
+		debug.Warning("Failed to kill orphaned hashcat PID %d: %v (it may have already exited)", pid, kerr)
+	} else {
+		debug.Info("Killed orphaned hashcat PID %d (was blocking task %s)", pid, attemptedTaskID)
+	}
+
+	if e.orphanCallback != nil {
+		e.orphanCallback(pid, attemptedTaskID, false)
+	}
 }
 
 // SetDeviceFlagsCallback sets the callback for getting device flags
@@ -1210,15 +1285,22 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 			}
 		}
 		
-		// If we detected the "already running" error, store it
+		// If we detected the "already running" error, store it and try to
+		// reconcile. reconcileOrphanHashcat distinguishes a self-collision
+		// (legitimate race against one of our own running tasks) from an
+		// orphan (foreign PID; SIGKILL it so the retry path can take over).
 		if alreadyRunningDetected {
 			process.mutex.Lock()
 			process.AlreadyRunningError = true
 			process.mutex.Unlock()
-			
-			// Log additional details for debugging
+
 			if alreadyRunningPID != "" {
 				debug.Info("Hashcat process %s blocked by existing instance with PID %s", process.TaskID, alreadyRunningPID)
+				if pid, parseErr := strconv.Atoi(alreadyRunningPID); parseErr == nil {
+					e.reconcileOrphanHashcat(pid, process.TaskID)
+				} else {
+					debug.Warning("Could not parse 'Already an instance' PID %q: %v", alreadyRunningPID, parseErr)
+				}
 			}
 		}
 		

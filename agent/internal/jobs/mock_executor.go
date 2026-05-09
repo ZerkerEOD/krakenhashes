@@ -72,6 +72,11 @@ func NewMockHashcatExecutor(dataDirectory string) *MockHashcatExecutor {
 }
 
 // SetOutputCallback sets the callback for hashcat output
+// SetOrphanCallback is a no-op for the mock: the mock executor never spawns
+// real hashcat, so there are no orphaned processes to reconcile.
+func (e *MockHashcatExecutor) SetOrphanCallback(callback func(pid int, attemptedTaskID string, fromOurAgent bool)) {
+}
+
 func (e *MockHashcatExecutor) SetOutputCallback(callback func(taskID string, output string, isError bool)) {
 	e.outputCallback = callback
 }

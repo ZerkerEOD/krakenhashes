@@ -470,6 +470,9 @@ func (c *Client) readPump() {
 		case wsservice.TypeStateSyncResponse:
 			c.handler.handleStateSyncResponse(c, &msg)
 
+		case wsservice.TypeAgentOrphanReport:
+			c.handler.handleAgentOrphanReport(c, &msg)
+
 		// Diagnostics message handlers (GH Issue #23)
 		case wsservice.TypeDebugStatusReport:
 			c.handler.handleDebugStatusReport(c, &msg)
@@ -1800,6 +1803,33 @@ func (h *Handler) handleStateSyncResponse(client *Client, msg *wsservice.Message
 
 	// Reconcile state with backend records
 	h.reconcileAgentState(client, &response)
+}
+
+// handleAgentOrphanReport processes the audit notification an agent sends
+// when its executor's stderr handler detects "Already an instance running
+// on pid X" and reconciles it. The agent has already SIGKILLed the orphan
+// (or left a self-collision alone). We log the event so an operator can
+// audit hashcat lock-file regressions, and don't take further action: the
+// agent's existing retry path will handle the blocked task locally, and the
+// existing benchmark-failure attribution / task-timeout machinery handles
+// any tasks the orphan was running. Future work can cross-reference
+// `job_tasks` for this agent and proactively mark them lost; this lands the
+// audit trail first.
+func (h *Handler) handleAgentOrphanReport(client *Client, msg *wsservice.Message) {
+	var report wsservice.AgentOrphanReportPayload
+	if err := json.Unmarshal(msg.Payload, &report); err != nil {
+		debug.Error("Agent %d: Failed to unmarshal agent_orphan_report: %v", client.agent.ID, err)
+		return
+	}
+
+	if report.FromOurAgent {
+		debug.Info("Agent %d: Hashcat self-collision detected (PID %d blocked task %q); the existing retry path will handle it",
+			client.agent.ID, report.PID, report.AttemptedTaskID)
+		return
+	}
+
+	debug.Warning("Agent %d: Orphaned hashcat PID %d killed (was blocking task %q). Any task that orphan was running has lost its progress; the agent will retry the new task. If this happens repeatedly on the same agent, check for stale lock files in the hashcat session directory or for a misbehaving agent restart.",
+		client.agent.ID, report.PID, report.AttemptedTaskID)
 }
 
 // ============================================================================

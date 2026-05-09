@@ -820,6 +820,14 @@ func main() {
 		jobManager.SetOutputCallback(outputCallback)
 		debug.Info("Output callback configured to send hashcat output to backend")
 
+		// Wire orphan reconciliation: on "Already an instance" detections the
+		// executor reconciles locally (kills foreign PIDs, leaves our own
+		// alone) and asks us to audit-notify the backend.
+		jobManager.SetOrphanCallback(func(pid int, attemptedTaskID string, fromOurAgent bool) {
+			conn.SendAgentOrphanReport(pid, attemptedTaskID, fromOurAgent)
+		})
+		debug.Info("Orphan callback configured for hashcat reconciliation")
+
 		lastError = nil
 		break
 	}
