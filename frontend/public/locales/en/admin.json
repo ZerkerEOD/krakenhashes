@@ -1194,7 +1194,7 @@
       "timeoutUncompressed": "Timeout: plain-text wordlists (seconds)",
       "timeoutUncompressedHelper": "Maximum seconds the agent will wait for a valid speed reading on plain-text wordlists. Default: 120.",
       "timeoutCompressed": "Timeout: compressed wordlists (seconds)",
-      "timeoutCompressedHelper": "Maximum seconds for .gz / .gzip / .bz2 / .zst / .7z / .zip wordlists. These need longer to decompress and dictstat-preprocess. Default: 300.",
+      "timeoutCompressedHelper": "Maximum seconds for .gz / .zip / .xz wordlists — the three formats hashcat reads natively. These need longer to decompress and dictstat-preprocess. Default: 300.",
       "minStatusUpdates": "Minimum status updates",
       "minStatusUpdatesHelper": "Minimum number of hashcat --status-json ticks the agent must collect before returning a result. Default: 3.",
       "minUpdatesLowWarning": "Values below 3 may produce inaccurate readings: GPUs may not have finished spinning up.",

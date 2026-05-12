@@ -2088,17 +2088,15 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 
 	debug.Info("Speed test completed: %d H/s total, effective keyspace: %d from %d updates", lastValidSpeed, lastTotalEffectiveKeyspace, len(statusUpdates))
 
-	// Get the agent's own base keyspace (outer-loop size) for reporting back to the server
-	var agentBaseKeyspace int64
-	agentBase, err := e.getAgentKeyspace(assignment)
-	if err != nil {
-		debug.Warning("Failed to get agent base keyspace after benchmark: %v", err)
-	} else {
-		agentBaseKeyspace = agentBase
-		debug.Info("Agent base keyspace: %d (for hash_type=%d, attack_mode=%d)", agentBaseKeyspace, assignment.HashType, assignment.AttackMode)
-	}
-
-	return lastValidSpeed, lastDeviceSpeeds, lastTotalEffectiveKeyspace, agentBaseKeyspace, nil
+	// Previously we ran `hashcat --keyspace` here for every speed test and
+	// shipped the result back as `agent_base_keyspace`. That was a holdover
+	// from when coordinate conversion for -O kernel splits was unconditional.
+	// It's now handled at task-execution time in buildHashcatCommandWithOptions
+	// (guarded by IsKeyspaceSplit && BaseKeyspace > 0), so this call became
+	// dead pre-task latency — ~49 s on a 26 GB .gz wordlist with a 264 k rule
+	// file. Backend only logged the value, never used it; the wire field is
+	// kept (sent as 0) to avoid a protocol bump.
+	return lastValidSpeed, lastDeviceSpeeds, lastTotalEffectiveKeyspace, 0, nil
 }
 
 // parseSpeedFromJSON parses device speeds and effective keyspace from hashcat JSON status output

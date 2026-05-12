@@ -1295,7 +1295,17 @@ func (s *JobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, age
 // dictstat-preprocess these before the GPUs start crunching, so they get the
 // larger configured timeout. Match is case-insensitive against the trailing
 // suffix of the wordlist path.
-var compressedWordlistExts = []string{".gz", ".gzip", ".bz2", ".zst", ".7z", ".zip"}
+//
+// This set must mirror the formats hashcat itself recognises in
+// src/filehandling.c (magic-byte detection at hc_fopen):
+//   - .gz  → gzip (magic 1F 8B 08), opened via gzdopen
+//   - .zip → zip  (magic PK\x03\x04), opened via unzOpen64 (first file in archive)
+//   - .xz  → xz   (magic FD 37 7A 58 5A 00), opened via the LZMA-SDK xz unpacker
+//
+// Hashcat does not support bzip2, zstd, or 7z wordlists — adding those
+// extensions would just hand them the longer timeout and then surface a
+// typed read failure, with no chance of success.
+var compressedWordlistExts = []string{".gz", ".zip", ".xz"}
 
 // hasCompressedWordlist returns true if any of the supplied wordlist paths
 // looks compressed by extension. Used by resolveSpeedTestParameters.
