@@ -313,10 +313,26 @@ func (s *JobSchedulingService) buildAgentBenchmarkStatus(
 			if err != nil {
 				// Error checking - treat as not recent
 				agentBenchmarkStatus[agent.ID][key] = false
+				debug.Warning("IsRecentBenchmark failed (agent=%d, key=%s): %v — treating combo as needing a benchmark this cycle",
+					agent.ID, key, err)
 				continue
 			}
 
 			agentBenchmarkStatus[agent.ID][key] = isRecent
+			if !isRecent {
+				// A miss here is the proximate cause of "successful benchmark, then re-issued"
+				// loops. Logging the combo + cache duration makes the next dump diagnosable
+				// without having to query the DB.
+				debug.Log("Benchmark cache miss — will request benchmark", map[string]interface{}{
+					"agent_id":           agent.ID,
+					"cache_key":          key,
+					"attack_mode":        int(jobInfo.AttackMode),
+					"hash_type":          jobInfo.HashType,
+					"salt_count":         jobInfo.SaltCount,
+					"cache_duration":     cacheDuration.String(),
+					"job_execution_id":   jobInfo.JobID,
+				})
+			}
 		}
 	}
 

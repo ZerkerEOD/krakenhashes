@@ -22,51 +22,106 @@ func NewBenchmarkRepository(db *db.DB) *BenchmarkRepository {
 	return &BenchmarkRepository{db: db}
 }
 
-// CreateOrUpdateAgentBenchmark creates or updates an agent benchmark
-// salt_count is used for salted hash types where benchmark speed varies with salt count
+// CreateOrUpdateAgentBenchmark stores the latest benchmark for an agent.
+//
+// salt_count is non-nil only for salted hash types where benchmark speed
+// varies with salt count. For non-salted hashes the value is NULL.
+//
+// Implementation note: the unique constraint on (agent_id, attack_mode,
+// hash_type, salt_count) was created NULLS DISTINCT (Postgres default), so
+// an `INSERT ... ON CONFLICT (..., salt_count) DO UPDATE` never fires when
+// salt_count is NULL — every call would otherwise leak a fresh duplicate
+// row. The EMA-update path at UpdateAgentBenchmarkEMA discovered the same
+// pitfall and switched to a transactional SELECT-FOR-UPDATE + UPDATE-by-id;
+// we mirror that here so the public store path is also a true upsert.
+//
+// Migration 000144 tightens the constraint to NULLS NOT DISTINCT going
+// forward, but keeping this SELECT-then-modify pattern is still cheaper
+// than relying on the constraint alone (it skips a wasted INSERT attempt
+// when the row already exists) and survives a future schema change that
+// might drop NULLS NOT DISTINCT.
 func (r *BenchmarkRepository) CreateOrUpdateAgentBenchmark(ctx context.Context, benchmark *models.AgentBenchmark) error {
-	query := `
-		INSERT INTO agent_benchmarks (agent_id, attack_mode, hash_type, salt_count, speed)
-		VALUES ($1, $2, $3, $4, $5)
-		ON CONFLICT (agent_id, attack_mode, hash_type, salt_count)
-		DO UPDATE SET speed = $5, updated_at = CURRENT_TIMESTAMP
-		RETURNING id, created_at, updated_at`
-
-	err := r.db.QueryRowContext(ctx, query,
-		benchmark.AgentID,
-		benchmark.AttackMode,
-		benchmark.HashType,
-		benchmark.SaltCount,
-		benchmark.Speed,
-	).Scan(&benchmark.ID, &benchmark.CreatedAt, &benchmark.UpdatedAt)
-
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create or update agent benchmark: %w", err)
+		return fmt.Errorf("begin: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// Lock the freshest matching row (if any). IS NOT DISTINCT FROM is
+	// NULL-safe; the unique constraint is not, so concurrent callers may
+	// briefly see no row even when one exists — FOR UPDATE serialises them.
+	var existingID sql.NullString
+	err = tx.QueryRowContext(ctx, `
+		SELECT id FROM agent_benchmarks
+		WHERE agent_id = $1 AND attack_mode = $2 AND hash_type = $3
+		  AND salt_count IS NOT DISTINCT FROM $4
+		ORDER BY updated_at DESC
+		LIMIT 1
+		FOR UPDATE`,
+		benchmark.AgentID, benchmark.AttackMode, benchmark.HashType, benchmark.SaltCount,
+	).Scan(&existingID)
+	if err != nil && err != sql.ErrNoRows {
+		return fmt.Errorf("lock existing benchmark: %w", err)
 	}
 
-	// Also append to benchmark history (non-fatal)
-	historyQuery := `
+	if existingID.Valid {
+		err = tx.QueryRowContext(ctx, `
+			UPDATE agent_benchmarks
+			SET speed = $1, updated_at = CURRENT_TIMESTAMP
+			WHERE id = $2
+			RETURNING id, created_at, updated_at`,
+			benchmark.Speed, existingID.String,
+		).Scan(&benchmark.ID, &benchmark.CreatedAt, &benchmark.UpdatedAt)
+		if err != nil {
+			return fmt.Errorf("update agent benchmark: %w", err)
+		}
+	} else {
+		err = tx.QueryRowContext(ctx, `
+			INSERT INTO agent_benchmarks (agent_id, attack_mode, hash_type, salt_count, speed)
+			VALUES ($1, $2, $3, $4, $5)
+			RETURNING id, created_at, updated_at`,
+			benchmark.AgentID, benchmark.AttackMode, benchmark.HashType,
+			benchmark.SaltCount, benchmark.Speed,
+		).Scan(&benchmark.ID, &benchmark.CreatedAt, &benchmark.UpdatedAt)
+		if err != nil {
+			return fmt.Errorf("insert agent benchmark: %w", err)
+		}
+	}
+
+	// History is append-only and supplementary — failure here doesn't
+	// invalidate the current-best estimate above.
+	if _, histErr := tx.ExecContext(ctx, `
 		INSERT INTO agent_benchmark_history (agent_id, attack_mode, hash_type, salt_count, speed, source)
-		VALUES ($1, $2, $3, $4, $5, $6)`
-	_, histErr := r.db.ExecContext(ctx, historyQuery,
+		VALUES ($1, $2, $3, $4, $5, $6)`,
 		benchmark.AgentID, benchmark.AttackMode, benchmark.HashType,
-		benchmark.SaltCount, benchmark.Speed, models.BenchmarkHistorySourceSpeedtest)
-	if histErr != nil {
-		// Log but don't fail — history is supplementary
+		benchmark.SaltCount, benchmark.Speed, models.BenchmarkHistorySourceSpeedtest,
+	); histErr != nil {
 		fmt.Printf("[WARNING] Failed to record benchmark history: %v\n", histErr)
 	}
 
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("commit: %w", err)
+	}
 	return nil
 }
 
-// GetAgentBenchmark retrieves a specific benchmark for an agent
-// saltCount is used for salted hash types - use nil for non-salted hash types
-// Uses IS NOT DISTINCT FROM for NULL-safe comparison of salt_count
+// GetAgentBenchmark retrieves the freshest benchmark for an agent + combo.
+// saltCount is used for salted hash types - use nil for non-salted hash types.
+// Uses IS NOT DISTINCT FROM for NULL-safe comparison of salt_count.
+// ORDER BY ... LIMIT 1 mirrors IsRecentBenchmark — defensive against any
+// pre-migration-000144 duplicate rows still present in the table.
 func (r *BenchmarkRepository) GetAgentBenchmark(ctx context.Context, agentID int, attackMode models.AttackMode, hashType int, saltCount *int) (*models.AgentBenchmark, error) {
 	query := `
 		SELECT id, agent_id, attack_mode, hash_type, salt_count, speed, created_at, updated_at
 		FROM agent_benchmarks
-		WHERE agent_id = $1 AND attack_mode = $2 AND hash_type = $3 AND salt_count IS NOT DISTINCT FROM $4`
+		WHERE agent_id = $1 AND attack_mode = $2 AND hash_type = $3
+		  AND salt_count IS NOT DISTINCT FROM $4
+		ORDER BY updated_at DESC
+		LIMIT 1`
 
 	var benchmark models.AgentBenchmark
 	err := r.db.QueryRowContext(ctx, query, agentID, attackMode, hashType, saltCount).Scan(
@@ -126,14 +181,23 @@ func (r *BenchmarkRepository) GetAgentBenchmarks(ctx context.Context, agentID in
 	return benchmarks, nil
 }
 
-// IsRecentBenchmark checks if a benchmark is recent based on cache duration
-// saltCount is used for salted hash types - use nil for non-salted hash types
-// Uses IS NOT DISTINCT FROM for NULL-safe comparison of salt_count
+// IsRecentBenchmark checks if a benchmark is recent based on cache duration.
+// saltCount is used for salted hash types - use nil for non-salted hash types.
+// Uses IS NOT DISTINCT FROM for NULL-safe comparison of salt_count.
+//
+// ORDER BY updated_at DESC LIMIT 1 is intentional: pre-migration-000144 data
+// can contain multiple duplicate rows for the same (agent, mode, type) when
+// salt_count is NULL (see CreateOrUpdateAgentBenchmark for the history). Even
+// after the dedupe migration, this is cheap and prevents a regression if any
+// future code path forgets the upsert pattern.
 func (r *BenchmarkRepository) IsRecentBenchmark(ctx context.Context, agentID int, attackMode models.AttackMode, hashType int, saltCount *int, cacheDuration time.Duration) (bool, error) {
 	query := `
 		SELECT updated_at
 		FROM agent_benchmarks
-		WHERE agent_id = $1 AND attack_mode = $2 AND hash_type = $3 AND salt_count IS NOT DISTINCT FROM $4`
+		WHERE agent_id = $1 AND attack_mode = $2 AND hash_type = $3
+		  AND salt_count IS NOT DISTINCT FROM $4
+		ORDER BY updated_at DESC
+		LIMIT 1`
 
 	var updatedAt time.Time
 	err := r.db.QueryRowContext(ctx, query, agentID, attackMode, hashType, saltCount).Scan(&updatedAt)
