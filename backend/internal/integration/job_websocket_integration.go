@@ -2803,6 +2803,27 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 		})
 	}
 
+	// A successful benchmark is the canonical signal that this (agent, combo)
+	// is healthy. Reset both the per-tuple failure counter and the per-agent
+	// benchmark health counters so prior failures don't keep influencing
+	// scheduling. Both helpers are idempotent.
+	if result.JobExecutionID != "" {
+		if entityID, parseErr := uuid.Parse(result.JobExecutionID); parseErr == nil {
+			jobExecutionID := entityID
+			if layer, lErr := s.jobIncrementLayerRepo.GetByID(ctx, entityID); lErr == nil && layer != nil {
+				jobExecutionID = layer.JobExecutionID
+			}
+			if err := s.benchmarkRepo.ResetFailureAttempts(
+				ctx, agentID, jobExecutionID, models.AttackMode(result.AttackMode), result.HashType,
+			); err != nil {
+				debug.Warning("ResetFailureAttempts on benchmark success (agent=%d, job=%s): %v", agentID, jobExecutionID, err)
+			}
+		}
+	}
+	if err := s.benchmarkRepo.ResetAgentBenchmarkHealth(ctx, agentID); err != nil {
+		debug.Warning("ResetAgentBenchmarkHealth on benchmark success (agent=%d): %v", agentID, err)
+	}
+
 	// Log agent's base keyspace for debugging coordinate conversion
 	if result.AgentBaseKeyspace > 0 {
 		debug.Info("Agent %d reported base_keyspace=%d for benchmark (job/layer %s, hash_type %d, attack_mode %d)",

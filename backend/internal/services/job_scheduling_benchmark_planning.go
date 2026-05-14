@@ -109,8 +109,16 @@ func (s *JobSchedulingService) CreateBenchmarkPlan(
 		return nil, fmt.Errorf("failed to build benchmark blocklist set: %w", err)
 	}
 
+	// 3c. Same shape as the blocklist, but for the per-tuple hard-failure cap.
+	//     An over-cap tuple is one we've already decided to fail the job over;
+	//     don't waste an agent slot re-requesting that benchmark.
+	overCap, err := s.buildBenchmarkOverCapSet(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build benchmark over-cap set: %w", err)
+	}
+
 	// 4. Allocate forced benchmarks (for new jobs only)
-	forcedTasks, usedAgents := s.allocateForcedBenchmarks(jobHashInfo, availableAgents, agentBenchmarkStatus, blocklist)
+	forcedTasks, usedAgents := s.allocateForcedBenchmarks(jobHashInfo, availableAgents, agentBenchmarkStatus, blocklist, overCap)
 
 	debug.Log("Allocated forced benchmarks", map[string]interface{}{
 		"forced_benchmark_count": len(forcedTasks),
@@ -125,7 +133,7 @@ func (s *JobSchedulingService) CreateBenchmarkPlan(
 	})
 
 	// 6. Round-robin allocate agent speed benchmarks for remaining agents
-	agentTasks := s.allocateAgentBenchmarks(availableAgents, usedAgents, uniqueHashTypes, agentBenchmarkStatus, blocklist)
+	agentTasks := s.allocateAgentBenchmarks(availableAgents, usedAgents, uniqueHashTypes, agentBenchmarkStatus, blocklist, overCap)
 
 	debug.Log("Allocated agent speed benchmarks", map[string]interface{}{
 		"agent_benchmark_count": len(agentTasks),
@@ -355,6 +363,48 @@ func (b *benchmarkBlocklistSet) isBlocklisted(agentID int, jobID uuid.UUID, atta
 	return false
 }
 
+// benchmarkOverCapSet is the per-(agent, job, attack_mode, hash_type) set of
+// tuples whose failure_count has already reached the hard cap. The forced-
+// benchmark planner consults it to avoid re-asking an agent for a benchmark
+// the system is about to fail the job over. Distinct from the blocklist
+// because the cap can be reached without a successful blocklist insert (and
+// after Fix 1 the blocklist is reliable, but defense in depth is still cheap).
+type benchmarkOverCapSet struct {
+	m map[string]struct{}
+}
+
+func (o *benchmarkOverCapSet) isOverCap(agentID int, jobID uuid.UUID, attackMode models.AttackMode, hashType int) bool {
+	if o == nil {
+		return false
+	}
+	_, ok := o.m[jobBlocklistKey(agentID, jobID, attackMode, hashType)]
+	return ok
+}
+
+// buildBenchmarkOverCapSet loads every (agent, job, mode, hash_type) tuple
+// where failure_count >= cap. Empty set when the cap is disabled (<= 0).
+func (s *JobSchedulingService) buildBenchmarkOverCapSet(ctx context.Context) (*benchmarkOverCapSet, error) {
+	set := &benchmarkOverCapSet{m: make(map[string]struct{})}
+	cap := s.benchmarkHardFailureCap(ctx)
+	if cap <= 0 {
+		return set, nil
+	}
+	tuples, err := s.jobExecutionService.benchmarkRepo.GetOverCapTuples(ctx, cap)
+	if err != nil {
+		return nil, fmt.Errorf("get over-cap tuples: %w", err)
+	}
+	for _, t := range tuples {
+		set.m[jobBlocklistKey(t.AgentID, t.JobExecutionID, t.AttackMode, t.HashType)] = struct{}{}
+	}
+	return set, nil
+}
+
+// rotationKey is the lookup key for lastForcedBenchmarkAgent. Same combo
+// shape as jobBlocklistKey but without the agent — the *value* is the agent.
+func rotationKey(jobID uuid.UUID, attackMode models.AttackMode, hashType int) string {
+	return fmt.Sprintf("%s|%d|%d", jobID.String(), int(attackMode), hashType)
+}
+
 // buildBenchmarkBlocklistSet loads every active blocklist row that could
 // matter for the current allocation cycle — i.e., the row's (agent, job?,
 // attack_mode, hash_type) overlaps with at least one candidate. This is a
@@ -486,12 +536,18 @@ func uuidSliceAsPGArray(vals []uuid.UUID) string {
 	return b.String()
 }
 
-// allocateForcedBenchmarks assigns agents to jobs needing forced benchmarks
+// allocateForcedBenchmarks assigns agents to jobs needing forced benchmarks.
+// Skip conditions, in order: binary-version incompat, already used this cycle,
+// blocklisted, over-cap. Within the eligible set, agents we asked last cycle
+// for the same (job, mode, hash_type) sink to the back of the candidate list
+// so multi-agent fleets converge on failJobIfAllAgentsBlocklisted faster
+// instead of pounding the same box every cycle.
 func (s *JobSchedulingService) allocateForcedBenchmarks(
 	jobHashInfo []JobHashTypeInfo,
 	availableAgents []models.Agent,
 	agentBenchmarkStatus map[int]map[string]bool,
 	blocklist *benchmarkBlocklistSet,
+	overCap *benchmarkOverCapSet,
 ) ([]ForcedBenchmarkTask, map[int]uuid.UUID) {
 	// Filter and sort jobs needing forced benchmarks
 	var jobsNeedingForced []JobHashTypeInfo
@@ -541,51 +597,71 @@ func (s *JobSchedulingService) allocateForcedBenchmarks(
 		// Prefer agents WITHOUT valid benchmark for this hash type (including salt count)
 		// MUST be compatible with job's binary version
 		key := buildBenchmarkCacheKey(job.AttackMode, job.HashType, job.SaltCount)
-		var bestAgent *models.Agent
 
-		// First pass: look for compatible agent without this benchmark
-		for i := range availableAgents {
-			if usedAgents[availableAgents[i].ID] != uuid.Nil {
-				continue // Already used
-			}
-
-			// Check binary version compatibility
-			if !version.IsCompatibleStr(availableAgents[i].BinaryVersion, job.BinaryVersion) {
-				continue // Not compatible with job's binary version
-			}
-
-			// Skip if this agent is blocklisted for this (job, hash_type, attack_mode).
-			if blocklist.isBlocklisted(availableAgents[i].ID, job.JobID, job.AttackMode, job.HashType) {
-				debug.Log("Skipping blocklisted agent for forced benchmark", map[string]interface{}{
-					"agent_id":    availableAgents[i].ID,
-					"job_id":      job.JobID,
-					"attack_mode": int(job.AttackMode),
-					"hash_type":   job.HashType,
-				})
-				continue
-			}
-
-			if !agentBenchmarkStatus[availableAgents[i].ID][key] {
-				bestAgent = &availableAgents[i]
-				break
+		// Determine last-picked agent for this combo so we can deprioritize it.
+		// Pure heuristic — no behavior change when only one agent qualifies.
+		var lastPickedID int
+		if v, ok := s.lastForcedBenchmarkAgent.Load(rotationKey(job.JobID, job.AttackMode, job.HashType)); ok {
+			if id, isInt := v.(int); isInt {
+				lastPickedID = id
 			}
 		}
 
-		// Second pass: if all compatible agents have it, just pick first available compatible agent
-		if bestAgent == nil {
-			for i := range availableAgents {
-				if usedAgents[availableAgents[i].ID] == uuid.Nil {
-					// Check binary version compatibility
-					if !version.IsCompatibleStr(availableAgents[i].BinaryVersion, job.BinaryVersion) {
-						continue // Not compatible with job's binary version
-					}
-					if blocklist.isBlocklisted(availableAgents[i].ID, job.JobID, job.AttackMode, job.HashType) {
+		// eligible returns true if availableAgents[i] is a viable candidate.
+		eligible := func(i int) bool {
+			a := &availableAgents[i]
+			if usedAgents[a.ID] != uuid.Nil {
+				return false
+			}
+			if !version.IsCompatibleStr(a.BinaryVersion, job.BinaryVersion) {
+				return false
+			}
+			if blocklist.isBlocklisted(a.ID, job.JobID, job.AttackMode, job.HashType) {
+				debug.Log("Skipping blocklisted agent for forced benchmark", map[string]interface{}{
+					"agent_id": a.ID, "job_id": job.JobID,
+					"attack_mode": int(job.AttackMode), "hash_type": job.HashType,
+				})
+				return false
+			}
+			if overCap.isOverCap(a.ID, job.JobID, job.AttackMode, job.HashType) {
+				debug.Log("Skipping over-cap agent for forced benchmark", map[string]interface{}{
+					"agent_id": a.ID, "job_id": job.JobID,
+					"attack_mode": int(job.AttackMode), "hash_type": job.HashType,
+				})
+				return false
+			}
+			return true
+		}
+
+		// pickFirstMatching iterates eligible agents twice — once skipping the
+		// last-picked agent, once including it — so any "new blood" wins over
+		// re-asking the same box, but a singleton candidate isn't excluded.
+		pickFirstMatching := func(want func(i int) bool) *models.Agent {
+			for skipLast := true; ; skipLast = false {
+				for i := range availableAgents {
+					if !eligible(i) {
 						continue
 					}
-					bestAgent = &availableAgents[i]
-					break
+					if skipLast && availableAgents[i].ID == lastPickedID {
+						continue
+					}
+					if want(i) {
+						return &availableAgents[i]
+					}
+				}
+				if !skipLast {
+					return nil
 				}
 			}
+		}
+
+		// First pass: agent without a valid benchmark for this combo.
+		bestAgent := pickFirstMatching(func(i int) bool {
+			return !agentBenchmarkStatus[availableAgents[i].ID][key]
+		})
+		// Second pass: any eligible agent.
+		if bestAgent == nil {
+			bestAgent = pickFirstMatching(func(i int) bool { return true })
 		}
 
 		if bestAgent == nil {
@@ -609,6 +685,8 @@ func (s *JobSchedulingService) allocateForcedBenchmarks(
 		})
 
 		usedAgents[bestAgent.ID] = job.JobID
+		// Remember whom we picked so the next cycle can prefer someone else.
+		s.lastForcedBenchmarkAgent.Store(rotationKey(job.JobID, job.AttackMode, job.HashType), bestAgent.ID)
 	}
 
 	return forcedTasks, usedAgents
@@ -655,6 +733,7 @@ func (s *JobSchedulingService) allocateAgentBenchmarks(
 	uniqueHashTypes []JobHashTypeInfo,
 	agentBenchmarkStatus map[int]map[string]bool,
 	blocklist *benchmarkBlocklistSet,
+	overCap *benchmarkOverCapSet,
 ) []AgentBenchmarkTask {
 	if len(uniqueHashTypes) == 0 {
 		return []AgentBenchmarkTask{}
@@ -680,6 +759,11 @@ func (s *JobSchedulingService) allocateAgentBenchmarks(
 			// same hashcat speedtest flow as forced benchmarks, so an agent
 			// that keeps failing the speedtest is just as likely to fail here.
 			if blocklist.isBlocklisted(agent.ID, htInfo.JobID, htInfo.AttackMode, htInfo.HashType) {
+				continue
+			}
+			// Same rationale for the per-tuple hard cap: don't reuse this
+			// agent for a combo we've already given up on.
+			if overCap.isOverCap(agent.ID, htInfo.JobID, htInfo.AttackMode, htInfo.HashType) {
 				continue
 			}
 
@@ -1307,25 +1391,36 @@ func (s *JobSchedulingService) PrioritizeForcedBenchmarkAgents(
 // and the server-side timeout (MarkTimedOutBenchmarksAsFailed) route through
 // here so blocklist/attribution policy stays uniform.
 //
-// Responsibilities:
-//  1. Clear `pending_benchmark_job` + `benchmark_requested_at` agent metadata
+// Pipeline (each step is independent — a failure in any step is logged but
+// does not short-circuit subsequent steps, so notifications + job-fail still
+// fire in degraded conditions):
+//
+//  1. Clear pending_benchmark_job + benchmark_requested_at agent metadata
 //     so the scheduler does not immediately re-select the same benchmark.
-//  2. Mark matching benchmark_requests rows complete with success=false (no-op
-//     for the timeout path, which has already bulk-updated them).
+//  2. Mark matching benchmark_requests rows complete with success=false
+//     (no-op for the timeout path, which has already bulk-updated them).
 //  3. Resolve layer → parent job_execution_id (attribution keys on parent).
 //  4. Upsert benchmark_failure_attempts (per-(agent, job, mode, hash_type)).
-//  5. Apply blocklist threshold:
-//     - 1 failure if any other agent has a recent successful benchmark for this
-//       (hash_type, attack_mode) OR the job has active tasks on other agents
-//       (strong evidence the failure is agent-specific).
-//     - Otherwise N failures (default 3, configurable).
-//  6. If threshold reached, insert a cooldown blocklist entry keyed on
-//     (agent_id, job_execution_id, attack_mode, hash_type).
-//  7. If every agent eligible for scheduling is now blocklisted for this job,
-//     mark the job failed so it stops idling the scheduler forever.
+//  5. Update per-agent benchmark health counters. If they cross either the
+//     streak or distinct-combos threshold, quarantine the agent
+//     (is_enabled=false) and emit an agent_error notification. This rotates
+//     work away from a sick box without waiting for combo-wide attribution.
+//  6. If the per-tuple failure_count has reached the hard cap (default 10),
+//     mark the job failed immediately — regardless of other evidence — so a
+//     deadlocked combo cannot starve the queue indefinitely.
+//  7. Apply combo-wide blocklist threshold (existing logic): 1 failure if
+//     other agents have evidence the job works; N failures (default 3)
+//     otherwise.
+//  8. Insert cooldown blocklist entry (idempotent thanks to ON CONFLICT).
+//  9. If every eligible agent is now blocklisted for this combo on this
+//     job, mark the job failed and dispatch job_failed.
+//  10. If the cumulative failure count for this job within the storm window
+//     crosses the storm threshold, dispatch a benchmark_storm advisory
+//     notification (admins only). Soft alert — does not change state.
 //
-// Returns non-nil only for unexpected repository errors; callers log but do
-// not propagate (the surface error is the original benchmark failure).
+// Returns non-nil only for unexpected repository errors that prevented any
+// step from running; callers log but do not propagate (the surface error is
+// the original benchmark failure).
 func (s *JobSchedulingService) AttributeBenchmarkFailure(
 	ctx context.Context,
 	agentID int,
@@ -1402,7 +1497,68 @@ func (s *JobSchedulingService) AttributeBenchmarkFailure(
 		"failure_count":    attempt.FailureCount,
 	})
 
-	// 5. Decide whether to blocklist yet.
+	// 5. Per-agent benchmark health → quarantine if either threshold trips.
+	//    Distinct from the per-tuple cap below: this catches "agent is broadly
+	//    busted" (multiple combos failing) and "agent is locked on one combo"
+	//    (streak ≥ N), independent of combo-wide evidence.
+	streakReset := s.benchmarkStreakResetWindow(ctx)
+	if health, err := benchmarkRepo.RecordAgentBenchmarkFailure(ctx, agentID, streakReset); err != nil {
+		debug.Warning("RecordAgentBenchmarkFailure(agent=%d): %v", agentID, err)
+	} else {
+		streakCap := s.agentBenchmarkQuarantineStreak(ctx)
+		distinctCap := s.agentBenchmarkQuarantineDistinct(ctx)
+		if (streakCap > 0 && health.Streak >= streakCap) ||
+			(distinctCap > 0 && health.DistinctCombosFailed >= distinctCap) {
+			reason := fmt.Sprintf(
+				"auto-quarantine: benchmark streak=%d (cap=%d), distinct_combos=%d (cap=%d) within %s",
+				health.Streak, streakCap, health.DistinctCombosFailed, distinctCap, streakReset,
+			)
+			if qErr := benchmarkRepo.QuarantineAgent(ctx, agentID, reason); qErr != nil {
+				debug.Warning("QuarantineAgent(agent=%d): %v", agentID, qErr)
+			} else {
+				debug.Warning("Quarantined agent %d: %s", agentID, reason)
+				// Reload agent to capture is_enabled=false + last_error for the notification.
+				if refreshed, refErr := s.agentRepo.GetByID(ctx, agentID); refErr == nil {
+					s.jobExecutionService.DispatchAgentErrorNotification(ctx, refreshed, reason, map[string]interface{}{
+						"streak":           health.Streak,
+						"streak_cap":       streakCap,
+						"distinct_combos":  health.DistinctCombosFailed,
+						"distinct_cap":     distinctCap,
+						"reset_window":     streakReset.String(),
+						"job_execution_id": jobExecutionID.String(),
+						"hash_type":        hashType,
+						"attack_mode":      int(attackMode),
+					})
+				}
+			}
+		}
+	}
+
+	// 6. Per-tuple hard cap — fail the job once any (agent, job, mode, type)
+	//    has failed `cap` times, regardless of attribution evidence. This is
+	//    the catch-all that breaks loops single-agent deployments could
+	//    otherwise stay stuck in forever.
+	hardCap := s.benchmarkHardFailureCap(ctx)
+	if hardCap > 0 && attempt.FailureCount >= hardCap {
+		reason := fmt.Sprintf(
+			"per-tuple hard cap reached: benchmark failed %d times on agent %d for (hash_type=%d, attack_mode=%d); cap=%d",
+			attempt.FailureCount, agentID, hashType, int(attackMode), hardCap,
+		)
+		debug.Warning("Marking job %s failed via hard cap: %s", jobExecutionID, reason)
+		jobExecRepo := repository.NewJobExecutionRepository(s.jobExecutionService.db)
+		if err := jobExecRepo.UpdateErrorMessage(ctx, jobExecutionID, reason); err != nil {
+			debug.Warning("UpdateErrorMessage(hard cap) for job %s: %v", jobExecutionID, err)
+		}
+		if err := jobExecRepo.UpdateStatus(ctx, jobExecutionID, models.JobExecutionStatusFailed); err != nil {
+			debug.Warning("UpdateStatus(hard cap) for job %s: %v", jobExecutionID, err)
+		}
+		if jobExec, err := s.jobExecutionService.GetJobExecutionByID(ctx, jobExecutionID); err == nil && jobExec != nil {
+			s.jobExecutionService.dispatchJobFailedNotification(ctx, jobExec, reason)
+		}
+		// Storm check still runs below; don't return early.
+	}
+
+	// 7. Decide whether to blocklist yet (combo-wide policy).
 	threshold := s.benchmarkFailureThreshold(ctx)
 	cacheDuration := s.benchmarkCacheDurationForAttribution(ctx)
 
@@ -1444,26 +1600,41 @@ func (s *JobSchedulingService) AttributeBenchmarkFailure(
 		)
 	}
 
-	if !blocklistNow {
-		return nil
+	if blocklistNow {
+		// 8. Insert cooldown blocklist entry (job-scoped). AddBlocklistEntry
+		//    is now idempotent via ON CONFLICT DO UPDATE; an error here is a
+		//    genuine DB problem and is logged-not-returned so steps 9/10 run.
+		cooldown := s.benchmarkBlocklistCooldown(ctx)
+		expiresAt := time.Now().Add(cooldown)
+		jobScoped := jobExecutionID
+		if _, err := benchmarkRepo.AddBlocklistEntry(
+			ctx, agentID, &jobScoped, attackMode, hashType, blockReason, expiresAt,
+		); err != nil {
+			debug.Warning("AddBlocklistEntry(agent=%d, job=%s): %v — continuing", agentID, jobExecutionID, err)
+		} else {
+			debug.Info("Blocklisted agent %d for job %s (hash_type=%d, attack_mode=%d) until %s: %s",
+				agentID, jobExecutionID, hashType, int(attackMode), expiresAt.Format(time.RFC3339), blockReason)
+		}
+
+		// 9. If every eligible agent is now blocklisted for this combo on
+		//    this job, fail the job. Always runs after a blocklist attempt.
+		if err := s.failJobIfAllAgentsBlocklisted(ctx, jobExecutionID, attackMode, hashType); err != nil {
+			debug.Warning("failJobIfAllAgentsBlocklisted for job %s: %v", jobExecutionID, err)
+		}
 	}
 
-	// 6. Insert cooldown blocklist entry (job-scoped).
-	cooldown := s.benchmarkBlocklistCooldown(ctx)
-	expiresAt := time.Now().Add(cooldown)
-	jobScoped := jobExecutionID
-	if _, err := benchmarkRepo.AddBlocklistEntry(
-		ctx, agentID, &jobScoped, attackMode, hashType, blockReason, expiresAt,
-	); err != nil {
-		return fmt.Errorf("add blocklist entry: %w", err)
-	}
-	debug.Info("Blocklisted agent %d for job %s (hash_type=%d, attack_mode=%d) until %s: %s",
-		agentID, jobExecutionID, hashType, int(attackMode), expiresAt.Format(time.RFC3339), blockReason)
-
-	// 7. If every eligible agent is now blocklisted for this combo on this job,
-	//    fail the job so operators see it rather than an infinite idle.
-	if err := s.failJobIfAllAgentsBlocklisted(ctx, jobExecutionID, attackMode, hashType); err != nil {
-		debug.Warning("failJobIfAllAgentsBlocklisted for job %s: %v", jobExecutionID, err)
+	// 10. Storm advisory (admins only, soft alert).
+	stormThreshold := s.benchmarkStormThreshold(ctx)
+	stormWindow := s.benchmarkStormWindow(ctx)
+	if stormThreshold > 0 && stormWindow > 0 {
+		if n, err := benchmarkRepo.CountRecentBenchmarkFailuresForJob(ctx, jobExecutionID, stormWindow); err == nil && n >= stormThreshold {
+			if jobExec, jErr := s.jobExecutionService.GetJobExecutionByID(ctx, jobExecutionID); jErr == nil && jobExec != nil {
+				// Only fire while the job is still running — avoid spamming after a failed job is already marked.
+				if jobExec.Status == models.JobExecutionStatusRunning || jobExec.Status == models.JobExecutionStatusPending {
+					s.jobExecutionService.DispatchBenchmarkStormNotification(ctx, jobExec, n, int(stormWindow/time.Minute))
+				}
+			}
+		}
 	}
 
 	return nil
@@ -1510,6 +1681,94 @@ func (s *JobSchedulingService) benchmarkCacheDurationForAttribution(ctx context.
 		return time.Duration(h) * time.Hour
 	}
 	return defaultCache
+}
+
+// benchmarkHardFailureCap is the per-(agent, job, attack_mode, hash_type)
+// ceiling. When failure_count crosses it, the job is auto-marked failed
+// regardless of any other attribution evidence. Default 10. Set to 0 to
+// disable.
+func (s *JobSchedulingService) benchmarkHardFailureCap(ctx context.Context) int {
+	const defaultCap = 10
+	setting, err := s.systemSettingsRepo.GetSetting(ctx, "benchmark_hard_failure_cap")
+	if err != nil || setting == nil || setting.Value == nil {
+		return defaultCap
+	}
+	if n, err := strconv.Atoi(*setting.Value); err == nil && n >= 0 {
+		return n
+	}
+	return defaultCap
+}
+
+// agentBenchmarkQuarantineStreak is the per-agent consecutive benchmark
+// failure count that trips auto-quarantine. Default 15. Set to 0 to disable.
+func (s *JobSchedulingService) agentBenchmarkQuarantineStreak(ctx context.Context) int {
+	const defaultStreak = 15
+	setting, err := s.systemSettingsRepo.GetSetting(ctx, "agent_benchmark_quarantine_streak")
+	if err != nil || setting == nil || setting.Value == nil {
+		return defaultStreak
+	}
+	if n, err := strconv.Atoi(*setting.Value); err == nil && n >= 0 {
+		return n
+	}
+	return defaultStreak
+}
+
+// agentBenchmarkQuarantineDistinct is the per-agent number of DISTINCT
+// (hash_type, attack_mode) tuples that must fail within the streak reset
+// window before auto-quarantine. Default 3. Set to 0 to disable.
+func (s *JobSchedulingService) agentBenchmarkQuarantineDistinct(ctx context.Context) int {
+	const defaultDistinct = 3
+	setting, err := s.systemSettingsRepo.GetSetting(ctx, "agent_benchmark_quarantine_distinct")
+	if err != nil || setting == nil || setting.Value == nil {
+		return defaultDistinct
+	}
+	if n, err := strconv.Atoi(*setting.Value); err == nil && n >= 0 {
+		return n
+	}
+	return defaultDistinct
+}
+
+// benchmarkStreakResetWindow is the inactivity period after which the
+// per-agent benchmark failure streak resets. Default 60 minutes.
+func (s *JobSchedulingService) benchmarkStreakResetWindow(ctx context.Context) time.Duration {
+	const defaultMinutes = 60
+	setting, err := s.systemSettingsRepo.GetSetting(ctx, "agent_benchmark_streak_reset_minutes")
+	if err != nil || setting == nil || setting.Value == nil {
+		return defaultMinutes * time.Minute
+	}
+	if m, err := strconv.Atoi(*setting.Value); err == nil && m > 0 {
+		return time.Duration(m) * time.Minute
+	}
+	return defaultMinutes * time.Minute
+}
+
+// benchmarkStormThreshold is the minimum cumulative benchmark failure count
+// on a single job within the storm window before a benchmark_storm advisory
+// fires. Default 5. Set to 0 to disable storm notifications entirely.
+func (s *JobSchedulingService) benchmarkStormThreshold(ctx context.Context) int {
+	const defaultThreshold = 5
+	setting, err := s.systemSettingsRepo.GetSetting(ctx, "benchmark_storm_threshold")
+	if err != nil || setting == nil || setting.Value == nil {
+		return defaultThreshold
+	}
+	if n, err := strconv.Atoi(*setting.Value); err == nil && n >= 0 {
+		return n
+	}
+	return defaultThreshold
+}
+
+// benchmarkStormWindow is the rolling window over which storm failures are
+// counted. Default 15 minutes.
+func (s *JobSchedulingService) benchmarkStormWindow(ctx context.Context) time.Duration {
+	const defaultMinutes = 15
+	setting, err := s.systemSettingsRepo.GetSetting(ctx, "benchmark_storm_window_minutes")
+	if err != nil || setting == nil || setting.Value == nil {
+		return defaultMinutes * time.Minute
+	}
+	if m, err := strconv.Atoi(*setting.Value); err == nil && m > 0 {
+		return time.Duration(m) * time.Minute
+	}
+	return defaultMinutes * time.Minute
 }
 
 // failJobIfAllAgentsBlocklisted marks the job failed if every eligible agent

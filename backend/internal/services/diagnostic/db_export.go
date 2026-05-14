@@ -30,13 +30,18 @@ type TableExport struct {
 	Rows       []map[string]interface{} `json:"rows"`
 }
 
-// DiagnosticTables lists tables to export for diagnostics (non-sensitive)
+// DiagnosticTables lists tables to export for diagnostics (non-sensitive).
+// Every table here must have any free-text columns covered by SensitiveColumns
+// below; the privacy guarantee is enforced by the dump unit tests.
 var DiagnosticTables = []string{
 	"agents",
 	"agent_devices",
-	"agent_physical_devices",
 	"agent_schedules",
 	"agent_settings",
+	"agent_benchmark_blocklist",
+	"agent_benchmark_history",
+	"benchmark_failure_attempts",
+	"benchmark_requests",
 	"binary_versions",
 	"hashlists",
 	"job_executions",
@@ -48,36 +53,73 @@ var DiagnosticTables = []string{
 	"system_settings",
 }
 
-// SensitiveColumns maps table names to columns that should be censored
+// SensitiveColumns maps table names to columns that should be censored.
+// Free-text columns that could contain hostnames, file paths, or
+// operator-authored prose all belong here. Non-string scalars
+// (timestamps, counts, IDs) are safe to pass through verbatim.
 var SensitiveColumns = map[string][]string{
-	"agents":          {"name", "hostname", "api_key"},
-	"hashlists":       {"name", "file_path", "original_filename"},
-	"job_workflows":   {"name", "description"},
-	"job_executions":  {"error_message"},
-	"preset_jobs":     {"name", "description"},
-	"wordlists":       {"name", "file_path", "description"},
-	"rules":           {"name", "file_path", "description"},
-	"binary_versions": {"file_path"},
-	"users":           {"username", "email", "first_name", "last_name"},
-	"clients":         {"name", "description"},
-	"teams":           {"name", "description"},
+	"agents":                    {"name", "hostname", "api_key", "last_error", "sync_error", "device_detection_error"},
+	"agent_benchmark_blocklist": {"reason"},
+	"benchmark_failure_attempts": {"last_error"},
+	"benchmark_requests":         {"error_message"},
+	"hashlists":                  {"name", "file_path", "original_filename"},
+	"job_workflows":              {"name", "description"},
+	"job_executions":             {"error_message", "name"},
+	"preset_jobs":                {"name", "description"},
+	"wordlists":                  {"name", "file_path", "description"},
+	"rules":                      {"name", "file_path", "description"},
+	"binary_versions":            {"file_path"},
+	"users":                      {"username", "email", "first_name", "last_name"},
+	"clients":                    {"name", "description"},
+	"teams":                      {"name", "description"},
 }
 
-// ExportAllTables exports all diagnostic tables with sanitization
+// systemSettingsSecretKeyPrefixes lists key prefixes whose `value` column in
+// `system_settings` must always be redacted, regardless of column-level
+// sensitivity. Acts as a belt-and-suspenders on top of operator hygiene —
+// even if someone forgets to mark a secret in code, names containing these
+// substrings get redacted automatically.
+var systemSettingsSecretKeyPrefixes = []string{
+	"password",
+	"secret",
+	"token",
+	"api_key",
+	"smtp_pass",
+	"webhook_signing",
+	"acme",
+	"certbot",
+	"cloudflare",
+}
+
+// ExportAllTables exports all diagnostic tables with sanitization.
+//
+// Each table runs in its own short-lived read-only transaction so a single
+// failure (missing table, permission denied, anything else) does not poison
+// the rest of the dump. The previous "one big tx" design swallowed every
+// table after the first error with "current transaction is aborted" and
+// silently truncated diagnostic dumps to the alphabetical prefix that
+// happened to come before the broken table.
+//
+// Tables that don't exist (e.g. when a future contributor removes one but
+// forgets to drop it from DiagnosticTables) are reported as a warning and
+// skipped, not treated as a fatal error.
 func (s *DBExportService) ExportAllTables(ctx context.Context) (map[string]*TableExport, error) {
 	debug.Info("Starting database export for diagnostics")
-
-	// Start a read-only transaction for consistent snapshot
-	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true, Isolation: sql.LevelRepeatableRead})
-	if err != nil {
-		return nil, fmt.Errorf("failed to start transaction: %w", err)
-	}
-	defer tx.Rollback()
 
 	results := make(map[string]*TableExport)
 
 	for _, tableName := range DiagnosticTables {
-		export, err := s.exportTable(ctx, tx, tableName)
+		exists, err := s.tableExists(ctx, tableName)
+		if err != nil {
+			debug.Warning("Failed to check existence of table %s: %v", tableName, err)
+			continue
+		}
+		if !exists {
+			debug.Warning("Diagnostic table %q not found in schema; skipping. Remove from DiagnosticTables or add the migration.", tableName)
+			continue
+		}
+
+		export, err := s.exportTableTx(ctx, tableName)
 		if err != nil {
 			debug.Warning("Failed to export table %s: %v", tableName, err)
 			// Continue with other tables
@@ -89,6 +131,35 @@ func (s *DBExportService) ExportAllTables(ctx context.Context) (map[string]*Tabl
 
 	debug.Info("Database export complete: %d tables exported", len(results))
 	return results, nil
+}
+
+// tableExists returns true if the named table is present in the public schema.
+func (s *DBExportService) tableExists(ctx context.Context, tableName string) (bool, error) {
+	if !isValidTableName(tableName) {
+		return false, fmt.Errorf("invalid table name: %s", tableName)
+	}
+	var exists bool
+	err := s.db.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM information_schema.tables
+			WHERE table_schema = 'public' AND table_name = $1
+		)`, tableName,
+	).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
+// exportTableTx opens a dedicated read-only transaction for a single table so
+// errors do not bleed into other tables in the same dump.
+func (s *DBExportService) exportTableTx(ctx context.Context, tableName string) (*TableExport, error) {
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return nil, fmt.Errorf("failed to start transaction for %s: %w", tableName, err)
+	}
+	defer tx.Rollback()
+	return s.exportTable(ctx, tx, tableName)
 }
 
 // ExportTable exports a single table with sanitization
@@ -131,6 +202,17 @@ func (s *DBExportService) exportTable(ctx context.Context, tx *sql.Tx, tableName
 		}
 	}
 
+	// Identify which column index holds the row's lookup key for the
+	// system_settings secret-key redactor (works for any table that has a
+	// "key" column; harmless on tables without one).
+	keyColIdx := -1
+	for i, c := range columns {
+		if c == "key" {
+			keyColIdx = i
+			break
+		}
+	}
+
 	// Scan rows
 	var exportedRows []map[string]interface{}
 	for rows.Next() {
@@ -145,18 +227,32 @@ func (s *DBExportService) exportTable(ctx context.Context, tx *sql.Tx, tableName
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
 
+		// Detect system_settings rows whose `key` matches a known-secret
+		// prefix. The matching `value` column gets redacted regardless of
+		// SensitiveColumns coverage — defense against operator hygiene gaps.
+		secretRow := false
+		if tableName == "system_settings" && keyColIdx >= 0 {
+			if k, ok := values[keyColIdx].(string); ok {
+				secretRow = isSecretSettingKey(k)
+			} else if kb, ok := values[keyColIdx].([]byte); ok {
+				secretRow = isSecretSettingKey(string(kb))
+			}
+		}
+
 		// Convert to map with sanitization
 		row := make(map[string]interface{})
 		for i, col := range columns {
 			val := values[i]
 
-			// Sanitize sensitive columns
-			if sensitiveColsMap[col] {
+			switch {
+			case secretRow && col == "value":
+				val = sanitizeValue(val, "system_settings.value")
+			case sensitiveColsMap[col]:
 				val = sanitizeValue(val, col)
-			} else if col == "os_info" {
+			case col == "os_info":
 				// Special handling for os_info JSON field - redact hostname only
 				val = sanitizeOsInfo(val)
-			} else {
+			default:
 				// Convert byte arrays to strings for readability
 				if b, ok := val.([]byte); ok {
 					val = string(b)
@@ -278,6 +374,24 @@ func sanitizeOsInfo(val interface{}) interface{} {
 		return jsonStr
 	}
 	return string(sanitized)
+}
+
+// isSecretSettingKey returns true when a system_settings.key looks like it
+// holds a credential or otherwise sensitive value. Matched
+// case-insensitively against a substring list — keys like
+// "smtp_password" or "webhook_signing_secret" trip the redactor without any
+// per-key configuration.
+func isSecretSettingKey(key string) bool {
+	if key == "" {
+		return false
+	}
+	lk := strings.ToLower(key)
+	for _, needle := range systemSettingsSecretKeyPrefixes {
+		if strings.Contains(lk, needle) {
+			return true
+		}
+	}
+	return false
 }
 
 // isValidTableName validates table name to prevent SQL injection

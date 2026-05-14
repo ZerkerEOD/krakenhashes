@@ -685,9 +685,16 @@ func (r *BenchmarkRepository) ResetFailureAttempts(
 	return nil
 }
 
-// AddBlocklistEntry inserts a cooldown entry. jobExecutionID may be nil for a
-// "any job with this combo" entry. Uses ON CONFLICT DO NOTHING against the two
-// partial unique indexes so repeated calls are safe.
+// AddBlocklistEntry inserts (or refreshes) a cooldown entry. jobExecutionID
+// may be nil for a global "any job with this combo" entry.
+//
+// Postgres supports ON CONFLICT against a partial unique index when the
+// WHERE matches the index predicate, so we target the two partial indexes
+// directly (idx_bench_blocklist_active_job_scoped and
+// idx_bench_blocklist_active_global). This is fully idempotent and self-
+// healing: if a row exists with cleared_at IS NULL but expires_at in the
+// past (cooldown elapsed without being refreshed), DO UPDATE resurrects it
+// with the new expiry instead of hitting a duplicate-key error.
 func (r *BenchmarkRepository) AddBlocklistEntry(
 	ctx context.Context,
 	agentID int,
@@ -697,45 +704,47 @@ func (r *BenchmarkRepository) AddBlocklistEntry(
 	reason string,
 	expiresAt time.Time,
 ) (*models.AgentBenchmarkBlocklist, error) {
-	// Partial-unique indexes don't play with ON CONFLICT target inference,
-	// so check first then insert. This runs under the caller's transaction
-	// context where the same logic can't race with itself.
-	existing, err := r.GetActiveBlocklistEntry(ctx, agentID, jobExecutionID, attackMode, hashType)
-	if err != nil {
-		return nil, err
-	}
-	if existing != nil {
-		// Refresh expiry if the new window is longer; leave reason alone.
-		if expiresAt.After(existing.ExpiresAt) {
-			_, err = r.db.ExecContext(ctx, `
-				UPDATE agent_benchmark_blocklist
-				SET expires_at = $1
-				WHERE id = $2`, expiresAt, existing.ID)
-			if err != nil {
-				return nil, fmt.Errorf("extend blocklist entry: %w", err)
-			}
-			existing.ExpiresAt = expiresAt
-		}
-		return existing, nil
+	var (
+		query string
+		args  []interface{}
+	)
+	if jobExecutionID != nil {
+		query = `
+			INSERT INTO agent_benchmark_blocklist (
+				agent_id, job_execution_id, attack_mode, hash_type, reason, expires_at
+			)
+			VALUES ($1, $2, $3, $4, $5, $6)
+			ON CONFLICT (agent_id, job_execution_id, attack_mode, hash_type)
+				WHERE cleared_at IS NULL AND job_execution_id IS NOT NULL
+			DO UPDATE SET
+				expires_at = GREATEST(agent_benchmark_blocklist.expires_at, EXCLUDED.expires_at),
+				reason     = EXCLUDED.reason
+			RETURNING id, created_at, expires_at`
+		args = []interface{}{agentID, *jobExecutionID, attackMode, hashType, reason, expiresAt}
+	} else {
+		query = `
+			INSERT INTO agent_benchmark_blocklist (
+				agent_id, job_execution_id, attack_mode, hash_type, reason, expires_at
+			)
+			VALUES ($1, NULL, $2, $3, $4, $5)
+			ON CONFLICT (agent_id, attack_mode, hash_type)
+				WHERE cleared_at IS NULL AND job_execution_id IS NULL
+			DO UPDATE SET
+				expires_at = GREATEST(agent_benchmark_blocklist.expires_at, EXCLUDED.expires_at),
+				reason     = EXCLUDED.reason
+			RETURNING id, created_at, expires_at`
+		args = []interface{}{agentID, attackMode, hashType, reason, expiresAt}
 	}
 
-	query := `
-		INSERT INTO agent_benchmark_blocklist (
-			agent_id, job_execution_id, attack_mode, hash_type, reason, expires_at
-		)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, created_at`
 	var entry models.AgentBenchmarkBlocklist
 	entry.AgentID = agentID
 	entry.JobExecutionID = jobExecutionID
 	entry.AttackMode = attackMode
 	entry.HashType = hashType
 	entry.Reason = reason
-	entry.ExpiresAt = expiresAt
-	err = r.db.QueryRowContext(ctx, query,
-		agentID, jobExecutionID, attackMode, hashType, reason, expiresAt,
-	).Scan(&entry.ID, &entry.CreatedAt)
-	if err != nil {
+	if err := r.db.QueryRowContext(ctx, query, args...).Scan(
+		&entry.ID, &entry.CreatedAt, &entry.ExpiresAt,
+	); err != nil {
 		return nil, fmt.Errorf("add blocklist entry: %w", err)
 	}
 	return &entry, nil
@@ -897,6 +906,166 @@ func (r *BenchmarkRepository) CountAgentsWithRecentBenchmark(
 		return 0, fmt.Errorf("count agents with recent benchmark: %w", err)
 	}
 	return n, nil
+}
+
+// AgentBenchmarkHealth is the bookkeeping snapshot used by quarantine logic.
+type AgentBenchmarkHealth struct {
+	Streak               int
+	DistinctCombosFailed int
+}
+
+// RecordAgentBenchmarkFailure atomically updates the per-agent benchmark
+// health counters and returns the post-update values.
+//
+//   - benchmark_failure_streak: incremented every call, OR reset to 1 if the
+//     agent has been idle for longer than resetWindow (avoids false positives
+//     after a long quiet period).
+//   - benchmark_distinct_combos_failed: recomputed from
+//     benchmark_failure_attempts within resetWindow.
+//   - benchmark_last_failure_at: bumped to NOW().
+func (r *BenchmarkRepository) RecordAgentBenchmarkFailure(
+	ctx context.Context,
+	agentID int,
+	resetWindow time.Duration,
+) (*AgentBenchmarkHealth, error) {
+	resetSeconds := int64(resetWindow.Seconds())
+	if resetSeconds < 1 {
+		resetSeconds = 1
+	}
+	query := `
+		WITH window_distinct AS (
+			SELECT COUNT(DISTINCT (attack_mode, hash_type)) AS n
+			FROM benchmark_failure_attempts
+			WHERE agent_id = $1
+			  AND last_failure_at > NOW() - make_interval(secs => $2::bigint)
+		)
+		UPDATE agents
+		SET benchmark_failure_streak =
+		        CASE
+		            WHEN benchmark_last_failure_at IS NULL THEN 1
+		            WHEN benchmark_last_failure_at < NOW() - make_interval(secs => $2::bigint) THEN 1
+		            ELSE benchmark_failure_streak + 1
+		        END,
+		    benchmark_distinct_combos_failed = COALESCE((SELECT n FROM window_distinct), 0),
+		    benchmark_last_failure_at = NOW()
+		WHERE id = $1
+		RETURNING benchmark_failure_streak, benchmark_distinct_combos_failed`
+	var h AgentBenchmarkHealth
+	if err := r.db.QueryRowContext(ctx, query, agentID, resetSeconds).Scan(
+		&h.Streak, &h.DistinctCombosFailed,
+	); err != nil {
+		return nil, fmt.Errorf("record agent benchmark failure: %w", err)
+	}
+	return &h, nil
+}
+
+// ResetAgentBenchmarkHealth clears the per-agent benchmark health counters
+// after a successful benchmark. Idempotent.
+func (r *BenchmarkRepository) ResetAgentBenchmarkHealth(
+	ctx context.Context,
+	agentID int,
+) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE agents
+		SET benchmark_failure_streak = 0,
+		    benchmark_distinct_combos_failed = 0
+		WHERE id = $1
+		  AND (benchmark_failure_streak <> 0 OR benchmark_distinct_combos_failed <> 0)`,
+		agentID)
+	if err != nil {
+		return fmt.Errorf("reset agent benchmark health: %w", err)
+	}
+	return nil
+}
+
+// QuarantineAgent disables an agent (`is_enabled = false`) and stamps a reason
+// into `last_error` so the operator UI surfaces why it stopped getting work.
+// Idempotent: if the agent is already disabled, the row is still updated so the
+// reason reflects the most recent diagnosis.
+func (r *BenchmarkRepository) QuarantineAgent(
+	ctx context.Context,
+	agentID int,
+	reason string,
+) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE agents
+		SET is_enabled = false,
+		    last_error = $2,
+		    updated_at = NOW()
+		WHERE id = $1`,
+		agentID, reason)
+	if err != nil {
+		return fmt.Errorf("quarantine agent %d: %w", agentID, err)
+	}
+	return nil
+}
+
+// CountRecentBenchmarkFailuresForJob returns the number of benchmark failure
+// rows recorded against a job within `window`. Used to trigger
+// `benchmark_storm` informational notifications before the per-tuple hard cap
+// fires.
+func (r *BenchmarkRepository) CountRecentBenchmarkFailuresForJob(
+	ctx context.Context,
+	jobExecutionID uuid.UUID,
+	window time.Duration,
+) (int, error) {
+	windowSeconds := int64(window.Seconds())
+	if windowSeconds < 1 {
+		windowSeconds = 1
+	}
+	var n int
+	err := r.db.QueryRowContext(ctx, `
+		SELECT COALESCE(SUM(failure_count), 0)
+		FROM benchmark_failure_attempts
+		WHERE job_execution_id = $1
+		  AND last_failure_at > NOW() - make_interval(secs => $2::bigint)`,
+		jobExecutionID, windowSeconds,
+	).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("count recent benchmark failures: %w", err)
+	}
+	return n, nil
+}
+
+// GetOverCapTuples returns the set of (agent_id, job_execution_id, attack_mode,
+// hash_type) tuples whose per-tuple failure_count has reached the supplied cap.
+// Used by the forced-benchmark planner to skip already-doomed targets without
+// requiring an active blocklist row.
+type OverCapTuple struct {
+	AgentID        int
+	JobExecutionID uuid.UUID
+	AttackMode     models.AttackMode
+	HashType       int
+	FailureCount   int
+}
+
+func (r *BenchmarkRepository) GetOverCapTuples(
+	ctx context.Context,
+	cap int,
+) ([]OverCapTuple, error) {
+	if cap < 1 {
+		return nil, nil
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT agent_id, job_execution_id, attack_mode, hash_type, failure_count
+		FROM benchmark_failure_attempts
+		WHERE failure_count >= $1`,
+		cap)
+	if err != nil {
+		return nil, fmt.Errorf("query over-cap tuples: %w", err)
+	}
+	defer rows.Close()
+	var out []OverCapTuple
+	for rows.Next() {
+		var t OverCapTuple
+		var mode int
+		if err := rows.Scan(&t.AgentID, &t.JobExecutionID, &mode, &t.HashType, &t.FailureCount); err != nil {
+			return nil, fmt.Errorf("scan over-cap tuple: %w", err)
+		}
+		t.AttackMode = models.AttackMode(mode)
+		out = append(out, t)
+	}
+	return out, nil
 }
 
 // DeleteOldMetrics deletes metrics older than the retention period

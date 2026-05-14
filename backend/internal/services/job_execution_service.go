@@ -2165,6 +2165,175 @@ func (s *JobExecutionService) dispatchJobFailedNotification(ctx context.Context,
 	}
 }
 
+// adminUserIDs returns the IDs of every enabled, non-deleted admin user.
+// Used as the fan-out target for system-level notifications
+// (agent_error, benchmark_storm, hashlist_malformed). Best-effort: returns
+// nil on failure so the caller can keep going.
+func (s *JobExecutionService) adminUserIDs(ctx context.Context) []uuid.UUID {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id FROM users
+		WHERE role = 'admin' AND account_enabled = true AND deleted_at IS NULL`)
+	if err != nil {
+		debug.Warning("adminUserIDs query: %v", err)
+		return nil
+	}
+	defer rows.Close()
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			debug.Warning("adminUserIDs scan: %v", err)
+			continue
+		}
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+// fanout dispatches the same notification template to a deduplicated set of
+// recipients. The dispatcher honors each user's per-channel preferences, so
+// callers don't need to think about email/webhook/in-app selection here.
+func (s *JobExecutionService) fanout(
+	ctx context.Context,
+	recipients []uuid.UUID,
+	template models.NotificationDispatchParams,
+) {
+	dispatcher := GetGlobalDispatcher()
+	if dispatcher == nil {
+		debug.Warning("Notification dispatcher not available, skipping %s fan-out", template.Type)
+		return
+	}
+	seen := make(map[uuid.UUID]struct{}, len(recipients))
+	for _, uid := range recipients {
+		if uid == uuid.Nil {
+			continue
+		}
+		if _, dup := seen[uid]; dup {
+			continue
+		}
+		seen[uid] = struct{}{}
+		params := template
+		params.UserID = uid
+		if err := dispatcher.Dispatch(ctx, params); err != nil {
+			debug.Warning("Dispatch %s to %s: %v", template.Type, uid, err)
+		}
+	}
+}
+
+// DispatchAgentErrorNotification informs the agent owner and admins that an
+// agent has been auto-quarantined or otherwise entered an unhealthy state.
+// Exported because it's also fired from the scheduling layer (after the
+// per-agent benchmark health thresholds trip).
+func (s *JobExecutionService) DispatchAgentErrorNotification(
+	ctx context.Context,
+	agent *models.Agent,
+	reason string,
+	details map[string]interface{},
+) {
+	if agent == nil {
+		return
+	}
+	recipients := s.adminUserIDs(ctx)
+	if agent.OwnerID != nil {
+		recipients = append(recipients, *agent.OwnerID)
+	}
+	if len(recipients) == 0 {
+		debug.Warning("No recipients for agent_error notification (agent %d)", agent.ID)
+		return
+	}
+	data := map[string]interface{}{
+		"agent_id":   agent.ID,
+		"agent_name": agent.Name,
+		"reason":     reason,
+		"fired_at":   time.Now().Format(time.RFC3339),
+	}
+	for k, v := range details {
+		if _, dup := data[k]; !dup {
+			data[k] = v
+		}
+	}
+	s.fanout(ctx, recipients, models.NotificationDispatchParams{
+		Type:       models.NotificationTypeAgentError,
+		Title:      "Agent Quarantined",
+		Message:    fmt.Sprintf("Agent %q (id=%d) auto-quarantined: %s", agent.Name, agent.ID, reason),
+		Data:       data,
+		SourceType: "agent",
+		SourceID:   fmt.Sprintf("%d", agent.ID),
+	})
+}
+
+// DispatchHashlistMalformedNotification informs the hashlist owner and admins
+// that a hashlist could not be parsed. The reason is operator-facing and
+// should include enough context to fix the file (line number, hash mode, etc).
+func (s *JobExecutionService) DispatchHashlistMalformedNotification(
+	ctx context.Context,
+	hashlistID int64,
+	hashlistName string,
+	ownerID uuid.UUID,
+	reason string,
+	details map[string]interface{},
+) {
+	recipients := s.adminUserIDs(ctx)
+	if ownerID != uuid.Nil {
+		recipients = append(recipients, ownerID)
+	}
+	if len(recipients) == 0 {
+		return
+	}
+	data := map[string]interface{}{
+		"hashlist_id":   hashlistID,
+		"hashlist_name": hashlistName,
+		"reason":        reason,
+		"fired_at":      time.Now().Format(time.RFC3339),
+	}
+	for k, v := range details {
+		if _, dup := data[k]; !dup {
+			data[k] = v
+		}
+	}
+	s.fanout(ctx, recipients, models.NotificationDispatchParams{
+		Type:       models.NotificationTypeHashlistMalformed,
+		Title:      "Hashlist Malformed",
+		Message:    fmt.Sprintf("Hashlist %q (id=%d) could not be parsed: %s", hashlistName, hashlistID, reason),
+		Data:       data,
+		SourceType: "hashlist",
+		SourceID:   fmt.Sprintf("%d", hashlistID),
+	})
+}
+
+// DispatchBenchmarkStormNotification fires an admin-only soft alert when a
+// single job has accumulated an unusual number of benchmark failures within
+// the storm window — before the per-tuple hard cap auto-fails the job. Lets
+// an operator step in early.
+func (s *JobExecutionService) DispatchBenchmarkStormNotification(
+	ctx context.Context,
+	jobExec *models.JobExecution,
+	failureCount int,
+	windowMinutes int,
+) {
+	if jobExec == nil {
+		return
+	}
+	recipients := s.adminUserIDs(ctx)
+	if len(recipients) == 0 {
+		return
+	}
+	s.fanout(ctx, recipients, models.NotificationDispatchParams{
+		Type:    models.NotificationTypeBenchmarkStorm,
+		Title:   "Benchmark Storm Detected",
+		Message: fmt.Sprintf("Job %q saw %d benchmark failures in the last %d minutes — investigate before it auto-fails.", jobExec.Name, failureCount, windowMinutes),
+		Data: map[string]interface{}{
+			"job_id":         jobExec.ID.String(),
+			"job_name":       jobExec.Name,
+			"failure_count":  failureCount,
+			"window_minutes": windowMinutes,
+			"fired_at":       time.Now().Format(time.RFC3339),
+		},
+		SourceType: "job",
+		SourceID:   jobExec.ID.String(),
+	})
+}
+
 // UpdateTaskProgress updates the progress of a task accounting for rule splitting and keysplit tasks
 func (s *JobExecutionService) UpdateTaskProgress(ctx context.Context, taskID uuid.UUID, keyspaceProcessed int64, effectiveProgress int64, hashRate *int64, progressPercent float64) error {
 	// Get the task to check for keysplit

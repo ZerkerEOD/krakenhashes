@@ -24,6 +24,13 @@ import (
 // Add a new constant for the status
 const HashListStatusReadyWithErrors = "ready_with_errors"
 
+// MalformedNotifier is called when a hashlist hits a parse / read / import
+// failure that the operator should know about. Optional — when nil the
+// processor simply skips the notification. Wiring lives outside this package
+// (routes/api_v1.go and routes/hashlist.go) so the processor stays free of
+// the notification subsystem dependency.
+type MalformedNotifier func(ctx context.Context, hashlistID int64, hashlistName string, ownerID uuid.UUID, reason string, details map[string]interface{})
+
 // HashlistDBProcessor handles the asynchronous processing of uploaded hashlists, focusing on DB interactions.
 type HashlistDBProcessor struct {
 	hashlistRepo       *repository.HashListRepository
@@ -32,6 +39,33 @@ type HashlistDBProcessor struct {
 	systemSettingsRepo *repository.SystemSettingsRepository
 	config             *config.Config
 	progressService    *services.ProcessingProgressService
+
+	// SetMalformedNotifier wires a callback that fires whenever a hashlist
+	// transitions to HashListStatusError because of a parse / read / import
+	// failure. Set via SetMalformedNotifier; safe to leave nil.
+	malformedNotifier MalformedNotifier
+}
+
+// SetMalformedNotifier installs the malformed-hashlist callback. Idempotent.
+func (p *HashlistDBProcessor) SetMalformedNotifier(n MalformedNotifier) {
+	p.malformedNotifier = n
+}
+
+// notifyMalformed is the internal dispatch wrapper. It looks up the hashlist
+// (cheap — usually already cached) so the notification carries the name and
+// owner the operator UI expects.
+func (p *HashlistDBProcessor) notifyMalformed(ctx context.Context, hashlistID int64, reason string, details map[string]interface{}) {
+	if p.malformedNotifier == nil {
+		return
+	}
+	hashlist, err := p.hashlistRepo.GetByID(ctx, hashlistID)
+	if err != nil || hashlist == nil {
+		// Still notify with what we have; recipients will see the ID but no
+		// name. Better than silent.
+		p.malformedNotifier(ctx, hashlistID, "", uuid.Nil, reason, details)
+		return
+	}
+	p.malformedNotifier(ctx, hashlistID, hashlist.Name, hashlist.UserID, reason, details)
 }
 
 // NewHashlistDBProcessor creates a new instance of HashlistDBProcessor.
@@ -83,6 +117,7 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64, filePath string)
 		if p.progressService != nil {
 			p.progressService.FailProcessing(hashlistID, "File path is missing")
 		}
+		p.notifyMalformed(ctx, hashlistID, "File path is missing", map[string]interface{}{"stage": "preflight"})
 		return
 	}
 
@@ -94,6 +129,7 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64, filePath string)
 		if p.progressService != nil {
 			p.progressService.FailProcessing(hashlistID, "Invalid hash type")
 		}
+		p.notifyMalformed(ctx, hashlistID, "Invalid hash type", map[string]interface{}{"hash_type_id": hashlist.HashTypeID, "stage": "preflight"})
 		return
 	}
 
@@ -105,6 +141,7 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64, filePath string)
 		if p.progressService != nil {
 			p.progressService.FailProcessing(hashlistID, "Failed to open hashlist file")
 		}
+		p.notifyMalformed(ctx, hashlistID, "Failed to open hashlist file", map[string]interface{}{"stage": "open"})
 		return
 	}
 	defer file.Close()
@@ -258,6 +295,11 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64, filePath string)
 				if p.progressService != nil {
 					p.progressService.FailProcessing(hashlistID, "Error bulk importing hash batch")
 				}
+				p.notifyMalformed(ctx, hashlistID, "Error bulk importing hash batch", map[string]interface{}{
+					"stage":      "bulk_import",
+					"last_line":  lineNumber,
+					"batch_size": len(hashesToProcess),
+				})
 				return
 			}
 			crackedHashes += result.CrackedInBatch
@@ -282,6 +324,11 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64, filePath string)
 			if p.progressService != nil {
 				p.progressService.FailProcessing(hashlistID, "Error bulk importing final hash batch")
 			}
+			p.notifyMalformed(ctx, hashlistID, "Error bulk importing final hash batch", map[string]interface{}{
+				"stage":      "bulk_import_final",
+				"last_line":  lineNumber,
+				"batch_size": len(hashesToProcess),
+			})
 			return
 		}
 		crackedHashes += result.CrackedInBatch
@@ -296,6 +343,11 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64, filePath string)
 		if p.progressService != nil {
 			p.progressService.FailProcessing(hashlistID, "Error reading hashlist file")
 		}
+		p.notifyMalformed(ctx, hashlistID, "Error reading hashlist file (encoding or I/O failure)", map[string]interface{}{
+			"stage":     "scan",
+			"last_line": lineNumber,
+			"detail":    err.Error(),
+		})
 		return
 	}
 

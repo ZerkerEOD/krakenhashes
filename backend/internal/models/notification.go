@@ -21,6 +21,8 @@ const (
 	NotificationTypeTaskCompletedWithCracks NotificationType = "task_completed_with_cracks"
 	NotificationTypeAgentOffline           NotificationType = "agent_offline"
 	NotificationTypeAgentError             NotificationType = "agent_error"
+	NotificationTypeBenchmarkStorm         NotificationType = "benchmark_storm"
+	NotificationTypeHashlistMalformed      NotificationType = "hashlist_malformed"
 	NotificationTypeSecuritySuspiciousLogin NotificationType = "security_suspicious_login"
 	NotificationTypeSecurityMFADisabled    NotificationType = "security_mfa_disabled"
 	NotificationTypeSecurityPasswordChanged NotificationType = "security_password_changed"
@@ -37,6 +39,8 @@ func AllNotificationTypes() []NotificationType {
 		NotificationTypeTaskCompletedWithCracks,
 		NotificationTypeAgentOffline,
 		NotificationTypeAgentError,
+		NotificationTypeBenchmarkStorm,
+		NotificationTypeHashlistMalformed,
 		NotificationTypeSecuritySuspiciousLogin,
 		NotificationTypeSecurityMFADisabled,
 		NotificationTypeSecurityPasswordChanged,
@@ -54,6 +58,8 @@ func (t NotificationType) IsValid() bool {
 		NotificationTypeTaskCompletedWithCracks,
 		NotificationTypeAgentOffline,
 		NotificationTypeAgentError,
+		NotificationTypeBenchmarkStorm,
+		NotificationTypeHashlistMalformed,
 		NotificationTypeSecuritySuspiciousLogin,
 		NotificationTypeSecurityMFADisabled,
 		NotificationTypeSecurityPasswordChanged,
@@ -83,8 +89,11 @@ func (t NotificationType) Category() string {
 		NotificationTypeTaskCompletedWithCracks:
 		return "job"
 	case NotificationTypeAgentOffline,
-		NotificationTypeAgentError:
+		NotificationTypeAgentError,
+		NotificationTypeBenchmarkStorm:
 		return "agent"
+	case NotificationTypeHashlistMalformed:
+		return "job"
 	case NotificationTypeSecuritySuspiciousLogin,
 		NotificationTypeSecurityMFADisabled,
 		NotificationTypeSecurityPasswordChanged:

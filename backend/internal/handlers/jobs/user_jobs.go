@@ -101,6 +101,13 @@ func NewUserJobsHandler(
 	}
 }
 
+// JobExecutionService exposes the embedded service. Used by adjacent route
+// wiring (e.g. hashlist routes) that need access to dispatchers attached to
+// the service without re-constructing it.
+func (h *UserJobsHandler) JobExecutionService() *services.JobExecutionService {
+	return h.jobExecutionService
+}
+
 // JobSummary represents a job summary for the UI
 type JobSummary struct {
 	ID                     string  `json:"id"`

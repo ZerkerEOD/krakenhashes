@@ -62,6 +62,7 @@ type hashlistHandler struct {
 	jobsHandler interface {
 		GetAvailablePresetJobs(w http.ResponseWriter, r *http.Request)
 		CreateJobFromHashlist(w http.ResponseWriter, r *http.Request)
+		JobExecutionService() *services.JobExecutionService
 	}
 	teamService    *services.TeamService
 	clientTeamRepo *repository.ClientTeamRepository
@@ -71,6 +72,7 @@ type hashlistHandler struct {
 func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, agentService *services.AgentService, clientPotfileService *services.ClientPotfileService, potfileService *services.PotfileService, jobsHandler interface {
 	GetAvailablePresetJobs(w http.ResponseWriter, r *http.Request)
 	CreateJobFromHashlist(w http.ResponseWriter, r *http.Request)
+	JobExecutionService() *services.JobExecutionService
 }, teamService *services.TeamService) {
 	debug.Info("Registering hashlist, hash type, client, and hash search routes")
 
@@ -103,6 +105,12 @@ func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, ag
 
 	// Create processor with progress service
 	proc := processor.NewHashlistDBProcessor(hashlistRepo, hashTypeRepo, hashRepo, systemSettingsRepo, cfg, processingProgressSvc)
+
+	// Wire the malformed-hashlist notifier so parse failures emit a
+	// hashlist_malformed notification to the owner + admins.
+	if jobExec := jobsHandler.JobExecutionService(); jobExec != nil {
+		proc.SetMalformedNotifier(jobExec.DispatchHashlistMalformedNotification)
+	}
 
 	// Create association wordlist repository and manager
 	assocWordlistRepo := repository.NewAssociationWordlistRepository(database)

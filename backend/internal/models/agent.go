@@ -92,7 +92,12 @@ type Agent struct {
 	ExtraParameters     string            `json:"extraParameters"`
 	IsEnabled           bool              `json:"isEnabled"`
 	ConsecutiveFailures int               `json:"consecutiveFailures"` // Track consecutive task failures
-	SchedulingEnabled   bool              `json:"schedulingEnabled"`
+	// Per-agent benchmark health — distinct from ConsecutiveFailures (which is
+	// task-execution-scoped). Used by AttributeBenchmarkFailure → quarantine.
+	BenchmarkFailureStreak        int          `json:"benchmarkFailureStreak"`
+	BenchmarkDistinctCombosFailed int          `json:"benchmarkDistinctCombosFailed"`
+	BenchmarkLastFailureAt        sql.NullTime `json:"benchmarkLastFailureAt"`
+	SchedulingEnabled             bool         `json:"schedulingEnabled"`
 	ScheduleTimezone    string            `json:"scheduleTimezone"`
 	SyncStatus          string            `json:"syncStatus"`
 	SyncCompletedAt     sql.NullTime      `json:"syncCompletedAt"`
@@ -197,10 +202,13 @@ func (a Agent) MarshalJSON() ([]byte, error) {
 		Metadata            map[string]string `json:"metadata,omitempty"`
 		OwnerID             *uuid.UUID        `json:"ownerId,omitempty"`
 		ExtraParameters     string            `json:"extraParameters"`
-		IsEnabled           bool              `json:"isEnabled"`
-		IsSystemAgent       bool              `json:"isSystemAgent"`
-		ConsecutiveFailures int               `json:"consecutiveFailures"`
-		SchedulingEnabled   bool              `json:"schedulingEnabled"`
+		IsEnabled                     bool         `json:"isEnabled"`
+		IsSystemAgent                 bool         `json:"isSystemAgent"`
+		ConsecutiveFailures           int          `json:"consecutiveFailures"`
+		BenchmarkFailureStreak        int          `json:"benchmarkFailureStreak"`
+		BenchmarkDistinctCombosFailed int          `json:"benchmarkDistinctCombosFailed"`
+		BenchmarkLastFailureAt        sql.NullTime `json:"benchmarkLastFailureAt"`
+		SchedulingEnabled             bool         `json:"schedulingEnabled"`
 		ScheduleTimezone    string            `json:"scheduleTimezone"`
 		SyncStatus          string            `json:"syncStatus"`
 		SyncCompletedAt     sql.NullTime      `json:"syncCompletedAt"`
@@ -232,8 +240,11 @@ func (a Agent) MarshalJSON() ([]byte, error) {
 		ExtraParameters:     a.ExtraParameters,
 		IsEnabled:           a.IsEnabled,
 		IsSystemAgent:       a.IsSystemAgent(),
-		ConsecutiveFailures: a.ConsecutiveFailures,
-		SchedulingEnabled:   a.SchedulingEnabled,
+		ConsecutiveFailures:           a.ConsecutiveFailures,
+		BenchmarkFailureStreak:        a.BenchmarkFailureStreak,
+		BenchmarkDistinctCombosFailed: a.BenchmarkDistinctCombosFailed,
+		BenchmarkLastFailureAt:        a.BenchmarkLastFailureAt,
+		SchedulingEnabled:             a.SchedulingEnabled,
 		ScheduleTimezone:    a.ScheduleTimezone,
 		SyncStatus:          a.SyncStatus,
 		SyncCompletedAt:     a.SyncCompletedAt,

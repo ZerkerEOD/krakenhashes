@@ -131,6 +131,11 @@ func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager
 		dataDirectory,
 	)
 
+	// Wire the malformed-hashlist notifier now that jobExecutionService exists.
+	// Safe to set after construction — the processor only invokes it on errors,
+	// and no hashlist has yet been submitted via this router.
+	hashlistProcessor.SetMalformedNotifier(jobExecutionService.DispatchHashlistMalformedNotification)
+
 	// Create job handler (schedulingService is nil as it's only needed for Delete/Stop operations)
 	jobHandler := v1handlers.NewJobHandler(
 		jobExecutionService,

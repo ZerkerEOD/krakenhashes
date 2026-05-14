@@ -45,6 +45,14 @@ type JobSchedulingService struct {
 	reservedAgents   map[int]uuid.UUID // agentID -> jobID
 	reservationMutex sync.RWMutex
 
+	// Forced-benchmark rotation memory: maps a (jobID, attackMode, hashType)
+	// key to the last agent we asked to benchmark that combo. Used purely as
+	// a hint to push that agent to the back of the candidate list next cycle,
+	// so multi-agent fleets don't pound the same box repeatedly. In-memory
+	// only — survives only as long as the scheduler is up, which is fine
+	// because the failure_attempts table is the durable record.
+	lastForcedBenchmarkAgent sync.Map // map[string]int
+
 	// NEW: Team-aware scheduling
 	teamService *TeamService
 }
