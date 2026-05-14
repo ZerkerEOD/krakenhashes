@@ -25,9 +25,9 @@ func NewPresetIncrementLayerRepository(db *db.DB) *PresetIncrementLayerRepositor
 func (r *PresetIncrementLayerRepository) Create(ctx context.Context, layer *models.PresetIncrementLayer) error {
 	query := `
 		INSERT INTO preset_increment_layers (
-			preset_job_id, layer_index, mask, base_keyspace, effective_keyspace
+			preset_job_id, layer_index, mask, base_keyspace, effective_keyspace, is_accurate_keyspace
 		)
-		VALUES ($1, $2, $3, $4, $5)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id, created_at, updated_at`
 
 	err := r.db.QueryRowContext(ctx, query,
@@ -36,6 +36,7 @@ func (r *PresetIncrementLayerRepository) Create(ctx context.Context, layer *mode
 		layer.Mask,
 		layer.BaseKeyspace,
 		layer.EffectiveKeyspace,
+		layer.IsAccurateKeyspace,
 	).Scan(&layer.ID, &layer.CreatedAt, &layer.UpdatedAt)
 
 	if err != nil {
@@ -57,7 +58,7 @@ func (r *PresetIncrementLayerRepository) Create(ctx context.Context, layer *mode
 func (r *PresetIncrementLayerRepository) GetByPresetJobID(ctx context.Context, presetJobID uuid.UUID) ([]models.PresetIncrementLayer, error) {
 	query := `
 		SELECT id, preset_job_id, layer_index, mask, base_keyspace, effective_keyspace,
-		       created_at, updated_at
+		       is_accurate_keyspace, created_at, updated_at
 		FROM preset_increment_layers
 		WHERE preset_job_id = $1
 		ORDER BY layer_index ASC`
@@ -78,6 +79,7 @@ func (r *PresetIncrementLayerRepository) GetByPresetJobID(ctx context.Context, p
 			&layer.Mask,
 			&layer.BaseKeyspace,
 			&layer.EffectiveKeyspace,
+			&layer.IsAccurateKeyspace,
 			&layer.CreatedAt,
 			&layer.UpdatedAt,
 		)
@@ -120,7 +122,7 @@ func (r *PresetIncrementLayerRepository) DeleteByPresetJobID(ctx context.Context
 func (r *PresetIncrementLayerRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.PresetIncrementLayer, error) {
 	query := `
 		SELECT id, preset_job_id, layer_index, mask, base_keyspace, effective_keyspace,
-		       created_at, updated_at
+		       is_accurate_keyspace, created_at, updated_at
 		FROM preset_increment_layers
 		WHERE id = $1`
 
@@ -132,6 +134,7 @@ func (r *PresetIncrementLayerRepository) GetByID(ctx context.Context, id uuid.UU
 		&layer.Mask,
 		&layer.BaseKeyspace,
 		&layer.EffectiveKeyspace,
+		&layer.IsAccurateKeyspace,
 		&layer.CreatedAt,
 		&layer.UpdatedAt,
 	)

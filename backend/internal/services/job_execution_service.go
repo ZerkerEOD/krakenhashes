@@ -2495,6 +2495,31 @@ func (s *JobExecutionService) GetDynamicChunkSize(ctx context.Context, agentID i
 	return keyspaceSize, nil
 }
 
+// getWordlistWordCount returns the recorded word_count for a wordlist ID, or 0 on any error.
+// Used to supply a wordlist multiplier to utils.CalculateEffectiveKeyspace for hybrid modes.
+// Returning 0 is safe — the estimator treats values < 2 as "no multiplier".
+// Skips client-specific wordlist prefixes ("client:" / "potfile:") since those line counts
+// live in different repositories; hybrid jobs use regular wordlists via numeric IDs.
+func (s *JobExecutionService) getWordlistWordCount(ctx context.Context, wordlistIDStr string) int64 {
+	if strings.HasPrefix(wordlistIDStr, "client:") || strings.HasPrefix(wordlistIDStr, "potfile:") {
+		return 0
+	}
+	wordlistID, err := strconv.ParseInt(wordlistIDStr, 10, 64)
+	if err != nil {
+		return 0
+	}
+	wordlists, err := s.fileRepo.GetWordlists(ctx, "")
+	if err != nil {
+		return 0
+	}
+	for _, wl := range wordlists {
+		if wl.ID == int(wordlistID) {
+			return wl.WordCount
+		}
+	}
+	return 0
+}
+
 // resolveWordlistPath gets the actual file path for a wordlist ID
 func (s *JobExecutionService) resolveWordlistPath(ctx context.Context, wordlistIDStr string) (string, error) {
 	// Check for client-specific wordlist prefix "client:UUID"

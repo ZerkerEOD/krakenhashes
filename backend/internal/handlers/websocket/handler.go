@@ -89,16 +89,17 @@ var upgrader = websocket.Upgrader{
 
 // Handler manages WebSocket connections for agents
 type Handler struct {
-	wsService           *wsservice.Service
-	agentService        *services.AgentService
-	jobExecutionService *services.JobExecutionService
-	systemSettingsRepo  *repository.SystemSettingsRepository
-	jobTaskRepo         *repository.JobTaskRepository
-	jobExecRepo         *repository.JobExecutionRepository
-	potfileHistory      *filehash.PotfileHistory
-	tlsConfig           *tls.Config
-	clients             map[int]*Client
-	mu                  sync.RWMutex
+	wsService             *wsservice.Service
+	agentService          *services.AgentService
+	jobExecutionService   *services.JobExecutionService
+	systemSettingsRepo    *repository.SystemSettingsRepository
+	jobTaskRepo           *repository.JobTaskRepository
+	jobExecRepo           *repository.JobExecutionRepository
+	jobIncrementLayerRepo *repository.JobIncrementLayerRepository
+	potfileHistory        *filehash.PotfileHistory
+	tlsConfig             *tls.Config
+	clients               map[int]*Client
+	mu                    sync.RWMutex
 
 	// Inventory callback system for pre-benchmark file checks
 	// Key is agentID - only one pending file sync callback per agent at a time
@@ -116,22 +117,25 @@ type Client struct {
 	cancel  context.CancelFunc
 }
 
-// NewHandler creates a new WebSocket handler
-func NewHandler(wsService *wsservice.Service, agentService *services.AgentService, jobExecutionService *services.JobExecutionService, systemSettingsRepo *repository.SystemSettingsRepository, jobTaskRepo *repository.JobTaskRepository, jobExecRepo *repository.JobExecutionRepository, tlsConfig *tls.Config, potfileHistory *filehash.PotfileHistory) *Handler {
+// NewHandler creates a new WebSocket handler.
+// jobIncrementLayerRepo may be nil for legacy/no-jobs route variants; callers that need
+// increment-layer cascading must check for nil before use.
+func NewHandler(wsService *wsservice.Service, agentService *services.AgentService, jobExecutionService *services.JobExecutionService, systemSettingsRepo *repository.SystemSettingsRepository, jobTaskRepo *repository.JobTaskRepository, jobExecRepo *repository.JobExecutionRepository, jobIncrementLayerRepo *repository.JobIncrementLayerRepository, tlsConfig *tls.Config, potfileHistory *filehash.PotfileHistory) *Handler {
 	// Initialize timing configuration
 	initTimingConfig()
 
 	return &Handler{
-		wsService:           wsService,
-		agentService:        agentService,
-		jobExecutionService: jobExecutionService,
-		systemSettingsRepo:  systemSettingsRepo,
-		jobTaskRepo:         jobTaskRepo,
-		jobExecRepo:         jobExecRepo,
-		potfileHistory:      potfileHistory,
-		tlsConfig:           tlsConfig,
-		clients:             make(map[int]*Client),
-		inventoryCallbacks:  make(map[int]chan *wsservice.FileSyncResponsePayload),
+		wsService:             wsService,
+		agentService:          agentService,
+		jobExecutionService:   jobExecutionService,
+		systemSettingsRepo:    systemSettingsRepo,
+		jobTaskRepo:           jobTaskRepo,
+		jobExecRepo:           jobExecRepo,
+		jobIncrementLayerRepo: jobIncrementLayerRepo,
+		potfileHistory:        potfileHistory,
+		tlsConfig:             tlsConfig,
+		clients:               make(map[int]*Client),
+		inventoryCallbacks:    make(map[int]chan *wsservice.FileSyncResponsePayload),
 	}
 }
 
@@ -1560,14 +1564,44 @@ func (h *Handler) handleAgentShutdown(client *Client, msg *wsservice.Message) {
 			debug.Error("Agent %d: Failed to parse task ID %s: %v",
 				client.agent.ID, shutdownPayload.TaskID, err)
 		} else {
-			// Directly set the task to pending for immediate reassignment
-			err = h.jobTaskRepo.SetTaskPending(client.ctx, taskID)
+			// Directly set the task to pending for immediate reassignment.
+			// SetTaskPending returns the task's increment_layer_id (nil for non-increment jobs).
+			layerID, err := h.jobTaskRepo.SetTaskPending(client.ctx, taskID)
 			if err != nil {
 				debug.Error("Agent %d: Failed to reset task %s to pending: %v",
 					client.agent.ID, taskID, err)
 			} else {
 				debug.Info("Agent %d: Successfully reset task %s to pending for immediate reassignment",
 					client.agent.ID, taskID)
+
+				// Cascade: if this task belonged to an increment layer and no other tasks
+				// for that layer are still active, reset the layer back to pending. Without
+				// this, the layer stays stuck on 'running' even though no work is dispatched
+				// against it, confusing both the scheduler and the UI.
+				if layerID != nil && h.jobIncrementLayerRepo != nil {
+					activeOnLayer, lerr := h.jobTaskRepo.GetActiveTaskCountByLayer(client.ctx, *layerID)
+					if lerr != nil {
+						debug.Warning("Agent %d: Failed to count active tasks for layer %s: %v",
+							client.agent.ID, *layerID, lerr)
+					} else if activeOnLayer == 0 {
+						// Defensive guard: only transition running → pending. Fetch current
+						// status so we don't inadvertently flip a completed/failed/cancelled
+						// layer back to pending.
+						layer, gerr := h.jobIncrementLayerRepo.GetByID(client.ctx, *layerID)
+						if gerr != nil {
+							debug.Warning("Agent %d: Failed to fetch layer %s for status check: %v",
+								client.agent.ID, *layerID, gerr)
+						} else if layer != nil && layer.Status == models.JobIncrementLayerStatusRunning {
+							if uerr := h.jobIncrementLayerRepo.UpdateStatus(client.ctx, *layerID, models.JobIncrementLayerStatusPending); uerr != nil {
+								debug.Warning("Agent %d: Failed to reset increment layer %s to pending: %v",
+									client.agent.ID, *layerID, uerr)
+							} else {
+								debug.Info("Agent %d: Reset increment layer %s back to pending (no active tasks remaining)",
+									client.agent.ID, *layerID)
+							}
+						}
+					}
+				}
 
 				// Check if we need to update the job status
 				// If this was the only running task, the job should also be set to pending

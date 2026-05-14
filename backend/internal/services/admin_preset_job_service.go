@@ -659,9 +659,33 @@ func (s *adminPresetJobService) CalculateKeyspaceForPresetJob(ctx context.Contex
 	// Add attack mode flag
 	args = append(args, "-a", fmt.Sprintf("%d", presetJob.AttackMode))
 
+	// Add --hex-charset ONLY if job uses hex mode AND has inline charset definitions
+	// (file charsets are unaffected by --hex-charset, and without any -1/-2/-3/-4 inline defs
+	// hashcat will reject --hex-charset as it tries to interpret the mask as hex)
+	if presetJob.HexCharset {
+		hasInlineCharset := false
+		for _, slot := range []string{"1", "2", "3", "4"} {
+			if _, isFile := presetJob.CustomCharsetFiles[slot]; isFile {
+				continue
+			}
+			if def, ok := presetJob.CustomCharsets[slot]; ok && def != "" {
+				hasInlineCharset = true
+				break
+			}
+		}
+		if hasInlineCharset {
+			args = append(args, "--hex-charset")
+		}
+	}
+
 	// Add custom charset flags (-1 through -4) before the mask
+	// File charsets take priority over inline definitions (same slot can't have both)
 	for _, slot := range []string{"1", "2", "3", "4"} {
-		if def, ok := presetJob.CustomCharsets[slot]; ok && def != "" {
+		if cf, ok := presetJob.CustomCharsetFiles[slot]; ok && cf.FilePath != "" {
+			// File charset — resolve relative path to absolute via data directory
+			charsetPath := filepath.Join(s.dataDirectory, cf.FilePath)
+			args = append(args, "-"+slot, charsetPath)
+		} else if def, ok := presetJob.CustomCharsets[slot]; ok && def != "" {
 			args = append(args, "-"+slot, def)
 		}
 	}
@@ -915,6 +939,26 @@ func (s *adminPresetJobService) CalculateKeyspaceForPresetJob(ctx context.Contex
 	})
 
 	return &keyspace, nil
+}
+
+// getWordlistWordCount returns the recorded word_count for a wordlist ID, or 0 on any error.
+// Used to supply a wordlist multiplier to utils.CalculateEffectiveKeyspace for hybrid modes.
+// Returning 0 is safe — the estimator treats values < 2 as "no multiplier".
+func (s *adminPresetJobService) getWordlistWordCount(ctx context.Context, wordlistIDStr string) int64 {
+	wordlistID, err := strconv.ParseInt(wordlistIDStr, 10, 64)
+	if err != nil {
+		return 0
+	}
+	wordlists, err := s.fileRepo.GetWordlists(ctx, "")
+	if err != nil {
+		return 0
+	}
+	for _, wl := range wordlists {
+		if wl.ID == int(wordlistID) {
+			return wl.WordCount
+		}
+	}
+	return 0
 }
 
 // resolveWordlistPath resolves the full path for a wordlist ID
@@ -1222,20 +1266,47 @@ func (s *adminPresetJobService) initializePresetIncrementLayers(ctx context.Cont
 		return 0, fmt.Errorf("failed to get hashcat binary path: %w", err)
 	}
 
+	// For hybrid attacks (modes 6 and 7), --keyspace and --total-candidates need the wordlist
+	// so hashcat can report wordlist_lines × mask_candidates instead of mask-only candidates.
+	attackMode := presetJob.AttackMode
+	wordlistPath := ""
+	var wordlistLines int64 = 0
+	if attackMode == models.AttackModeHybridWordlistMask || attackMode == models.AttackModeHybridMaskWordlist {
+		if len(presetJob.WordlistIDs) == 0 {
+			return 0, fmt.Errorf("hybrid attack mode %d requires a wordlist for increment-layer keyspace calculation", attackMode)
+		}
+		wordlistPath, err = s.resolveWordlistPath(ctx, presetJob.WordlistIDs[0])
+		if err != nil {
+			return 0, fmt.Errorf("failed to resolve wordlist path for increment layer keyspace: %w", err)
+		}
+		wordlistLines = s.getWordlistWordCount(ctx, presetJob.WordlistIDs[0])
+	}
+
 	// Create layers with keyspace calculation
 	var totalEffectiveKeyspace int64 = 0
 	for i, layerMask := range layerMasks {
-		// Calculate base_keyspace using hashcat --keyspace
-		baseKeyspace, err := s.calculateMaskKeyspace(ctx, hashcatPath, layerMask, presetJob.CustomCharsets)
+		// Calculate base_keyspace using hashcat --keyspace (mode-aware)
+		baseKeyspace, err := s.calculateMaskKeyspace(ctx, hashcatPath, attackMode, layerMask, wordlistPath, presetJob.CustomCharsets, presetJob.CustomCharsetFiles, presetJob.HexCharset)
 		if err != nil {
 			return 0, fmt.Errorf("failed to calculate keyspace for layer %d mask %s: %w", i+1, layerMask, err)
 		}
 
-		// Calculate effective keyspace from mask
-		effectiveKeyspace, err := utils.CalculateEffectiveKeyspace(layerMask, presetJob.CustomCharsets)
+		// Get accurate effective keyspace via hashcat --total-candidates. Fall back to mask-math estimate on failure.
+		baseArgs := s.buildPresetMaskKeyspaceBaseArgs(attackMode, layerMask, wordlistPath, presetJob.CustomCharsets, presetJob.CustomCharsetFiles, presetJob.HexCharset)
+		effectiveKeyspace, isAccurate, err := s.calculatePresetMaskTotalCandidates(ctx, hashcatPath, baseArgs, presetJob.ID.String())
 		if err != nil {
-			debug.Warning("Failed to calculate effective keyspace for mask %s: %v, falling back to base", layerMask, err)
-			effectiveKeyspace = baseKeyspace
+			debug.Warning("Layer %d --total-candidates returned error, falling back: %v", i+1, err)
+			isAccurate = false
+		}
+
+		if !isAccurate || effectiveKeyspace <= 0 {
+			est, estErr := utils.CalculateEffectiveKeyspace(layerMask, presetJob.CustomCharsets, presetJob.CustomCharsetFiles, wordlistLines)
+			if estErr != nil {
+				debug.Warning("Failed to calculate effective keyspace for mask %s: %v, falling back to base", layerMask, estErr)
+				effectiveKeyspace = baseKeyspace
+			} else {
+				effectiveKeyspace = est
+			}
 		}
 
 		debug.Log("Calculated keyspace for preset layer", map[string]interface{}{
@@ -1243,15 +1314,17 @@ func (s *adminPresetJobService) initializePresetIncrementLayers(ctx context.Cont
 			"mask":               layerMask,
 			"base_keyspace":      baseKeyspace,
 			"effective_keyspace": effectiveKeyspace,
+			"is_accurate":        isAccurate,
 		})
 
 		// Create layer record
 		layer := &models.PresetIncrementLayer{
-			PresetJobID:       presetJob.ID,
-			LayerIndex:        i + 1, // 1-indexed
-			Mask:              layerMask,
-			BaseKeyspace:      &baseKeyspace,
-			EffectiveKeyspace: &effectiveKeyspace,
+			PresetJobID:        presetJob.ID,
+			LayerIndex:         i + 1, // 1-indexed
+			Mask:               layerMask,
+			BaseKeyspace:       &baseKeyspace,
+			EffectiveKeyspace:  &effectiveKeyspace,
+			IsAccurateKeyspace: isAccurate,
 		}
 
 		err = s.presetIncrementLayerRepo.Create(ctx, layer)
@@ -1262,11 +1335,12 @@ func (s *adminPresetJobService) initializePresetIncrementLayers(ctx context.Cont
 		totalEffectiveKeyspace += effectiveKeyspace
 
 		debug.Log("Created preset increment layer", map[string]interface{}{
-			"preset_job_id":      presetJob.ID,
-			"layer_index":        layer.LayerIndex,
-			"mask":               layer.Mask,
-			"base_keyspace":      baseKeyspace,
-			"effective_keyspace": effectiveKeyspace,
+			"preset_job_id":        presetJob.ID,
+			"layer_index":          layer.LayerIndex,
+			"mask":                 layer.Mask,
+			"base_keyspace":        baseKeyspace,
+			"effective_keyspace":   effectiveKeyspace,
+			"is_accurate_keyspace": isAccurate,
 		})
 	}
 
@@ -1279,19 +1353,56 @@ func (s *adminPresetJobService) initializePresetIncrementLayers(ctx context.Cont
 	return totalEffectiveKeyspace, nil
 }
 
-// calculateMaskKeyspace runs hashcat --keyspace to get the keyspace for a specific mask
-func (s *adminPresetJobService) calculateMaskKeyspace(ctx context.Context, hashcatPath string, mask string, customCharsets map[string]string) (int64, error) {
-	// Build command: hashcat -a 3 [-1 def ...] <mask> --keyspace
-	args := []string{"-a", "3"}
+// buildPresetMaskKeyspaceBaseArgs builds the argv prefix shared by --keyspace and
+// --total-candidates invocations for a single layer mask under the given attack mode.
+// For modes 6/7 wordlistPath is required so hashcat measures wordlist_lines × mask_candidates.
+// For mode 3 wordlistPath is unused and the mask is the sole positional argument.
+func (s *adminPresetJobService) buildPresetMaskKeyspaceBaseArgs(attackMode models.AttackMode, mask string, wordlistPath string, customCharsets models.CustomCharsets, charsetFiles models.CustomCharsetFiles, hexCharset bool) []string {
+	args := []string{"-a", strconv.Itoa(int(attackMode))}
 
-	// Add custom charset flags before the mask
+	if hexCharset {
+		hasInlineCharset := false
+		for _, slot := range []string{"1", "2", "3", "4"} {
+			if _, isFile := charsetFiles[slot]; isFile {
+				continue
+			}
+			if def, ok := customCharsets[slot]; ok && def != "" {
+				hasInlineCharset = true
+				break
+			}
+		}
+		if hasInlineCharset {
+			args = append(args, "--hex-charset")
+		}
+	}
+
 	for _, slot := range []string{"1", "2", "3", "4"} {
-		if def, ok := customCharsets[slot]; ok && def != "" {
+		if cf, ok := charsetFiles[slot]; ok && cf.FilePath != "" {
+			charsetPath := filepath.Join(s.dataDirectory, cf.FilePath)
+			args = append(args, "-"+slot, charsetPath)
+		} else if def, ok := customCharsets[slot]; ok && def != "" {
 			args = append(args, "-"+slot, def)
 		}
 	}
 
-	args = append(args, mask, "--keyspace", "--restore-disable", "--quiet")
+	switch attackMode {
+	case models.AttackModeHybridWordlistMask: // -a 6: wordlist + mask
+		args = append(args, wordlistPath, mask)
+	case models.AttackModeHybridMaskWordlist: // -a 7: mask + wordlist
+		args = append(args, mask, wordlistPath)
+	default: // -a 3 (brute-force mask) and anything else falls back to mask-only
+		args = append(args, mask)
+	}
+	return args
+}
+
+// calculateMaskKeyspace runs hashcat --keyspace for a specific layer mask under the given attack mode.
+// For hybrid modes (6, 7), wordlistPath must be the absolute path to the wordlist used in the preset.
+func (s *adminPresetJobService) calculateMaskKeyspace(ctx context.Context, hashcatPath string, attackMode models.AttackMode, mask string, wordlistPath string, customCharsets models.CustomCharsets, charsetFiles models.CustomCharsetFiles, hexCharset bool) (int64, error) {
+	baseArgs := s.buildPresetMaskKeyspaceBaseArgs(attackMode, mask, wordlistPath, customCharsets, charsetFiles, hexCharset)
+
+	args := append([]string{}, baseArgs...)
+	args = append(args, "--keyspace", "--restore-disable", "--quiet")
 
 	// Add a unique session ID to allow concurrent executions
 	sessionID := fmt.Sprintf("preset_keyspace_%d", time.Now().UnixNano())
@@ -1351,6 +1462,91 @@ func (s *adminPresetJobService) calculateMaskKeyspace(ctx context.Context, hashc
 	})
 
 	return keyspace, nil
+}
+
+// calculatePresetMaskTotalCandidates runs hashcat --total-candidates for a single layer mask.
+// Returns (effectiveKeyspace, isAccurate, error). On failure or timeout returns (0, false, nil)
+// so the caller can fall back to the mask-math estimate. Mirrors calculateMaskTotalCandidates
+// on the job-execution side but lives on the preset service for its receiver/timeout context.
+func (s *adminPresetJobService) calculatePresetMaskTotalCandidates(ctx context.Context, hashcatPath string, baseArgs []string, presetJobID string) (int64, bool, error) {
+	const maxRetries = 3
+	const retryDelay = 5 * time.Second
+
+	args := append([]string{}, baseArgs...)
+	args = append(args, "--total-candidates", "--restore-disable", "--quiet")
+	sessionID := fmt.Sprintf("preset_layer_total_candidates_%s_%d", presetJobID, time.Now().UnixNano())
+	args = append(args, "--session", sessionID)
+
+	keyspaceTimeout := s.getKeyspaceTimeout(ctx)
+
+	var lastErr error
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			debug.Warning("Retrying preset layer --total-candidates (attempt %d/%d) after %v delay: %v",
+				attempt, maxRetries, retryDelay, lastErr)
+			time.Sleep(retryDelay)
+		}
+
+		execCtx, cancel := context.WithTimeout(ctx, keyspaceTimeout)
+		cmd := exec.CommandContext(execCtx, hashcatPath, args...)
+		cmd.Dir = s.dataDirectory
+
+		var stdout, stderr bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+
+		err := cmd.Run()
+		cancel()
+
+		sessionFiles := []string{
+			filepath.Join(s.dataDirectory, sessionID+".log"),
+			filepath.Join(s.dataDirectory, sessionID+".potfile"),
+		}
+		for _, file := range sessionFiles {
+			_ = os.Remove(file)
+		}
+
+		if err != nil {
+			stderrStr := stderr.String()
+			if execCtx.Err() == context.DeadlineExceeded {
+				debug.Warning("preset layer --total-candidates timed out after %v for preset %s", keyspaceTimeout, presetJobID)
+				return 0, false, nil
+			}
+			if strings.Contains(stderrStr, "Already an instance") ||
+				strings.Contains(stderrStr, "already running") {
+				lastErr = fmt.Errorf("hashcat busy: %s", stderrStr)
+				continue
+			}
+			debug.Warning("preset layer --total-candidates failed: %v, stderr: %s", err, stderrStr)
+			return 0, false, nil
+		}
+
+		outputLines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+		var keyspaceStr string
+		for i := len(outputLines) - 1; i >= 0; i-- {
+			line := strings.TrimSpace(outputLines[i])
+			if line != "" {
+				keyspaceStr = line
+				break
+			}
+		}
+
+		effectiveKeyspace, parseErr := strconv.ParseInt(keyspaceStr, 10, 64)
+		if parseErr != nil {
+			debug.Warning("Failed to parse preset layer --total-candidates output '%s': %v", keyspaceStr, parseErr)
+			return 0, false, nil
+		}
+
+		debug.Log("Calculated preset layer total candidates successfully", map[string]interface{}{
+			"preset_job_id":      presetJobID,
+			"effective_keyspace": effectiveKeyspace,
+		})
+
+		return effectiveKeyspace, true, nil
+	}
+
+	debug.Warning("preset layer --total-candidates exhausted retries for preset %s: %v", presetJobID, lastErr)
+	return 0, false, nil
 }
 
 // calculateTotalCandidates runs hashcat --total-candidates with retry logic to get actual effective keyspace.

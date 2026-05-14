@@ -296,9 +296,9 @@ const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isC
                 <Typography variant="body2">
                   {formatKeyspace(job.effective_keyspace)}
                 </Typography>
-                {job.multiplication_factor && job.multiplication_factor > 1 && (
+                {job.uses_rule_splitting && job.multiplication_factor && job.multiplication_factor > 1 && (
                   <Chip
-                    label={`×${job.multiplication_factor}${job.uses_rule_splitting ? ' (rules)' : ''}`}
+                    label={`×${job.multiplication_factor} (rules)`}
                     size="small"
                     color="error"
                     variant="filled"

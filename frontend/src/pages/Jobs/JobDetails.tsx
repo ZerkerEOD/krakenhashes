@@ -1060,9 +1060,9 @@ const JobDetails: React.FC = () => {
                 <TableCell sx={{ fontWeight: 'bold' }}>{t('common.effectiveKeyspace')}</TableCell>
                 <TableCell>
                   {formatKeyspace(jobData.effective_keyspace)}
-                  {jobData.multiplication_factor && jobData.multiplication_factor > 1 && (
+                  {jobData.uses_rule_splitting && jobData.multiplication_factor && jobData.multiplication_factor > 1 && (
                     <Chip
-                      label={`×${jobData.multiplication_factor}${jobData.uses_rule_splitting ? ` ${t('common.rulesMultiplier')}` : ''}`}
+                      label={`×${jobData.multiplication_factor} ${t('common.rulesMultiplier')}`}
                       size="small"
                       color="error"
                       variant="filled"

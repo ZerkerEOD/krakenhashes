@@ -2,6 +2,8 @@ package utils
 
 import (
 	"testing"
+
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 )
 
 func TestParseMask(t *testing.T) {
@@ -226,100 +228,147 @@ func TestCalculateEffectiveKeyspace(t *testing.T) {
 	tests := []struct {
 		name           string
 		mask           string
-		customCharsets map[string]string
+		customCharsets models.CustomCharsets
+		charsetFiles   models.CustomCharsetFiles
+		wordlistLines  int64
 		want           int64
 		wantErr        bool
 	}{
 		{
-			name:           "simple lowercase",
-			mask:           "?l?l",
-			customCharsets: nil,
-			want:           26 * 26,
+			name: "simple lowercase",
+			mask: "?l?l",
+			want: 26 * 26,
 		},
 		{
-			name:           "mixed builtin",
-			mask:           "?l?d",
-			customCharsets: nil,
-			want:           26 * 10,
+			name: "mixed builtin",
+			mask: "?l?d",
+			want: 26 * 10,
 		},
 		{
-			name:           "all printable",
-			mask:           "?a?a?a",
-			customCharsets: nil,
-			want:           95 * 95 * 95,
+			name: "all printable",
+			mask: "?a?a?a",
+			want: 95 * 95 * 95,
 		},
 		{
-			name:           "with literal (does not multiply)",
-			mask:           "pass?l?d",
-			customCharsets: nil,
-			want:           26 * 10,
+			name: "with literal (does not multiply)",
+			mask: "pass?l?d",
+			want: 26 * 10,
 		},
 		{
 			name:           "custom charset ?u?d = 36",
 			mask:           "?1?1?1?1",
-			customCharsets: map[string]string{"1": "?u?d"},
+			customCharsets: models.CustomCharsets{"1": "?u?d"},
 			want:           36 * 36 * 36 * 36, // 1,679,616
 		},
 		{
 			name:           "HP iLO use case: ?u?d 8 chars",
 			mask:           "?1?1?1?1?1?1?1?1",
-			customCharsets: map[string]string{"1": "?u?d"},
+			customCharsets: models.CustomCharsets{"1": "?u?d"},
 			want:           2821109907456, // 36^8
 		},
 		{
 			name:           "two custom charsets",
 			mask:           "?1?1?2?2",
-			customCharsets: map[string]string{"1": "?u?d", "2": "?s?l"},
+			customCharsets: models.CustomCharsets{"1": "?u?d", "2": "?s?l"},
 			want:           36 * 36 * 59 * 59, // ?u?d=36, ?s?l=33+26=59
 		},
 		{
 			name:           "charset with literal chars",
 			mask:           "?1?1",
-			customCharsets: map[string]string{"1": "abc"},
+			customCharsets: models.CustomCharsets{"1": "abc"},
 			want:           3 * 3,
 		},
 		{
 			name:           "charset with mixed literals and placeholder",
 			mask:           "?1?1",
-			customCharsets: map[string]string{"1": "?dABC"},
+			customCharsets: models.CustomCharsets{"1": "?dABC"},
 			want:           14 * 14, // 10 digits + 4 literals
 		},
 		{
 			name:           "charset referencing earlier charset",
 			mask:           "?2?2",
-			customCharsets: map[string]string{"1": "?u?d", "2": "?1?s"},
+			customCharsets: models.CustomCharsets{"1": "?u?d", "2": "?1?s"},
 			want:           69 * 69, // charset 2 = charset 1 (36) + ?s (33) = 69
 		},
 		{
-			name:           "nil charsets with no custom refs",
-			mask:           "?l?u?d",
-			customCharsets: nil,
-			want:           26 * 26 * 10,
+			name: "nil charsets with no custom refs",
+			mask: "?l?u?d",
+			want: 26 * 26 * 10,
 		},
 		{
 			name:           "empty charsets map",
 			mask:           "?l?u",
-			customCharsets: map[string]string{},
+			customCharsets: models.CustomCharsets{},
 			want:           26 * 26,
 		},
 		{
-			name:           "undefined custom charset falls back to 26",
-			mask:           "?1?1",
-			customCharsets: nil,
-			want:           26 * 26, // falls back to 26 for undefined charsets
+			name:    "undefined custom charset returns error",
+			mask:    "?1?1",
+			wantErr: true,
 		},
 		{
 			name:           "forward reference errors",
 			mask:           "?1?1",
-			customCharsets: map[string]string{"1": "?2"},
+			customCharsets: models.CustomCharsets{"1": "?2"},
 			want:           0,
 			wantErr:        true,
+		},
+		{
+			name:         "file charset slot 1 = 256 bytes",
+			mask:         "?1?1?1",
+			charsetFiles: models.CustomCharsetFiles{"1": models.CharsetFileRef{ByteCount: 256}},
+			want:         256 * 256 * 256,
+		},
+		{
+			name:         "file charset alongside builtin",
+			mask:         "?1?d",
+			charsetFiles: models.CustomCharsetFiles{"1": models.CharsetFileRef{ByteCount: 16}},
+			want:         16 * 10,
+		},
+		{
+			name:           "file charset takes priority over inline definition for same slot",
+			mask:           "?1?1",
+			customCharsets: models.CustomCharsets{"1": "?l"},
+			charsetFiles:   models.CustomCharsetFiles{"1": models.CharsetFileRef{ByteCount: 256}},
+			want:           256 * 256,
+		},
+		{
+			name:           "mix of file charset slot 1 and inline slot 2",
+			mask:           "?1?2",
+			customCharsets: models.CustomCharsets{"2": "?u?d"},
+			charsetFiles:   models.CustomCharsetFiles{"1": models.CharsetFileRef{ByteCount: 256}},
+			want:           256 * 36,
+		},
+		{
+			name:          "wordlist multiplier mode 6: ?1 with 256-byte file × 1M wordlist",
+			mask:          "?1",
+			charsetFiles:  models.CustomCharsetFiles{"1": models.CharsetFileRef{ByteCount: 256}},
+			wordlistLines: 1_000_000,
+			want:          256 * 1_000_000,
+		},
+		{
+			name:          "wordlist multiplier mode 6: ?l?d × 100 wordlist",
+			mask:          "?l?d",
+			wordlistLines: 100,
+			want:          26 * 10 * 100,
+		},
+		{
+			name:          "wordlist multiplier of 0 treated as no multiplier",
+			mask:          "?l?l",
+			wordlistLines: 0,
+			want:          26 * 26,
+		},
+		{
+			name:          "wordlist multiplier of 1 treated as no multiplier",
+			mask:          "?l?l",
+			wordlistLines: 1,
+			want:          26 * 26,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := CalculateEffectiveKeyspace(tt.mask, tt.customCharsets)
+			got, err := CalculateEffectiveKeyspace(tt.mask, tt.customCharsets, tt.charsetFiles, tt.wordlistLines)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CalculateEffectiveKeyspace() error = %v, wantErr %v", err, tt.wantErr)
 				return

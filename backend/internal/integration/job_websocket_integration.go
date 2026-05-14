@@ -1538,32 +1538,46 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			if err != nil {
 				debug.Error("Failed to get job for keyspace update: %v", err)
 			} else {
-				// Handle increment mode jobs differently - update layer, then recalc job total
+				// Handle increment mode jobs differently - update layer, then recalc job total.
+				// Skip the cascade if the layer already has an accurate effective_keyspace
+				// (set by --total-candidates at layer init), since the chunk's progress[1] only
+				// represents one chunk's keyspace and would clobber the layer total for
+				// multi-chunk layers.
 				if job.IncrementMode != "" && job.IncrementMode != "off" && task.IncrementLayerID != nil {
-					// Update the layer's effective keyspace
-					err = s.jobIncrementLayerRepo.UpdateEffectiveKeyspace(ctx, *task.IncrementLayerID, chunkActualKeyspace)
-					if err != nil {
-						debug.Error("Failed to update layer effective keyspace: %v", err)
+					existingLayer, layerErr := s.jobIncrementLayerRepo.GetByID(ctx, *task.IncrementLayerID)
+					if layerErr != nil {
+						debug.Warning("Failed to fetch layer for accuracy check, proceeding with overwrite: %v", layerErr)
+					}
+					if existingLayer != nil && existingLayer.IsAccurateKeyspace {
+						debug.Info("Skipping layer %s effective_keyspace overwrite: already accurate from --total-candidates",
+							*task.IncrementLayerID)
 					} else {
-						debug.Info("Updated layer %s effective_keyspace to %d (actual from hashcat)",
-							*task.IncrementLayerID, chunkActualKeyspace)
-
-						// Recalculate job's total effective keyspace as sum of all layers
-						totalKeyspace, err := s.jobIncrementLayerRepo.GetTotalEffectiveKeyspace(ctx, task.JobExecutionID)
+						// Layer is still using an estimate — replace it with the chunk's actual value.
+						// Note: this is correct for single-chunk layers; for multi-chunk layers it remains a
+						// pre-existing limitation that Step 3 (--total-candidates at init) sidesteps.
+						err = s.jobIncrementLayerRepo.UpdateEffectiveKeyspace(ctx, *task.IncrementLayerID, chunkActualKeyspace)
 						if err != nil {
-							debug.Error("Failed to get total effective keyspace from layers: %v", err)
+							debug.Error("Failed to update layer effective keyspace: %v", err)
 						} else {
-							// Update job's effective keyspace to the sum of all layers
-							err = jobExecRepo.UpdateEffectiveKeyspace(ctx, task.JobExecutionID, totalKeyspace)
+							debug.Info("Updated layer %s effective_keyspace to %d (actual from hashcat)",
+								*task.IncrementLayerID, chunkActualKeyspace)
+
+							// Recalculate job's total effective keyspace as sum of all layers
+							totalKeyspace, err := s.jobIncrementLayerRepo.GetTotalEffectiveKeyspace(ctx, task.JobExecutionID)
 							if err != nil {
-								debug.Error("Failed to update job effective keyspace from layer sum: %v", err)
+								debug.Error("Failed to get total effective keyspace from layers: %v", err)
 							} else {
-								oldEffective := int64(0)
-								if job.EffectiveKeyspace != nil {
-									oldEffective = *job.EffectiveKeyspace
+								err = jobExecRepo.UpdateEffectiveKeyspace(ctx, task.JobExecutionID, totalKeyspace)
+								if err != nil {
+									debug.Error("Failed to update job effective keyspace from layer sum: %v", err)
+								} else {
+									oldEffective := int64(0)
+									if job.EffectiveKeyspace != nil {
+										oldEffective = *job.EffectiveKeyspace
+									}
+									debug.Info("Updated increment job %s effective_keyspace from %d to %d (sum of all layers)",
+										task.JobExecutionID, oldEffective, totalKeyspace)
 								}
-								debug.Info("Updated increment job %s effective_keyspace from %d to %d (sum of all layers)",
-									task.JobExecutionID, oldEffective, totalKeyspace)
 							}
 						}
 					}
@@ -1711,8 +1725,11 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			debug.Warning("Agent rejected task assignment (will be reassigned): task=%s, agent=%d, reason=%s",
 				progress.TaskID, agentID, progress.ErrorMessage)
 
-			// Revert task to pending (NOT failed) - SetTaskPending clears agent_id and assigned_at
-			err := s.jobTaskRepo.SetTaskPending(ctx, progress.TaskID)
+			// Revert task to pending (NOT failed) - SetTaskPending clears agent_id and assigned_at.
+			// Layer status intentionally not cascaded here: rejected tasks are immediately
+			// reassigned to a different agent, so any running→pending→running flicker on the
+			// parent layer would be noise rather than meaningful state.
+			_, err := s.jobTaskRepo.SetTaskPending(ctx, progress.TaskID)
 			if err != nil {
 				debug.Error("Failed to revert rejected task to pending: %v", err)
 			}

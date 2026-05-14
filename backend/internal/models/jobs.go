@@ -662,14 +662,15 @@ type JobIncrementLayerWithStats struct {
 // These layers are calculated when a preset job with increment mode is created,
 // and copied to job_increment_layers when a job is created from the preset.
 type PresetIncrementLayer struct {
-	ID                uuid.UUID `json:"id" db:"id"`
-	PresetJobID       uuid.UUID `json:"preset_job_id" db:"preset_job_id"`
-	LayerIndex        int       `json:"layer_index" db:"layer_index"` // Ordering based on increment mode
-	Mask              string    `json:"mask" db:"mask"`               // Specific mask for this layer
+	ID          uuid.UUID `json:"id" db:"id"`
+	PresetJobID uuid.UUID `json:"preset_job_id" db:"preset_job_id"`
+	LayerIndex  int       `json:"layer_index" db:"layer_index"` // Ordering based on increment mode
+	Mask        string    `json:"mask" db:"mask"`               // Specific mask for this layer
 
 	// Keyspace tracking (pre-calculated at preset creation time)
-	BaseKeyspace      *int64 `json:"base_keyspace,omitempty" db:"base_keyspace"`           // From --keyspace command
-	EffectiveKeyspace *int64 `json:"effective_keyspace,omitempty" db:"effective_keyspace"` // Calculated from mask
+	BaseKeyspace       *int64 `json:"base_keyspace,omitempty" db:"base_keyspace"`           // From --keyspace command
+	EffectiveKeyspace  *int64 `json:"effective_keyspace,omitempty" db:"effective_keyspace"` // Total candidate count
+	IsAccurateKeyspace bool   `json:"is_accurate_keyspace" db:"is_accurate_keyspace"`       // TRUE if effective_keyspace was set from hashcat --total-candidates, FALSE if from the mask-math fallback estimator
 
 	// Timing
 	CreatedAt time.Time `json:"created_at" db:"created_at"`

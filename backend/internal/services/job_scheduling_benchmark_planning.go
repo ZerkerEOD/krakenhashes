@@ -929,6 +929,15 @@ func (s *JobSchedulingService) ExecuteBenchmarkPlan(
 
 // executeForcedBenchmark sends a forced benchmark request for a specific job
 func (s *JobSchedulingService) executeForcedBenchmark(ctx context.Context, task ForcedBenchmarkTask) error {
+	// Last-second busy check: agent state can change between planning (GetAvailableAgents in
+	// CreateBenchmarkPlan) and this send. If the agent picked up a task in between, sending
+	// a benchmark now would force the agent to wait for the running task in
+	// waitForActiveProcesses and time out 30s later. Skip and let the next scheduler tick retry.
+	if activeTasks, atErr := s.jobTaskRepo.GetActiveTasksByAgent(ctx, task.AgentID); atErr == nil && len(activeTasks) > 0 {
+		debug.Info("Agent %d became busy between planning and send; skipping forced benchmark this cycle (active_tasks=%d)", task.AgentID, len(activeTasks))
+		return nil
+	}
+
 	// Get job execution
 	job, err := s.jobExecutionService.GetJobExecutionByID(ctx, task.JobID)
 	if err != nil {
@@ -989,6 +998,12 @@ func (s *JobSchedulingService) executeForcedBenchmark(ctx context.Context, task 
 
 // executeAgentBenchmark sends an agent speed benchmark request
 func (s *JobSchedulingService) executeAgentBenchmark(ctx context.Context, task AgentBenchmarkTask) error {
+	// Last-second busy check (see executeForcedBenchmark for the full rationale).
+	if activeTasks, atErr := s.jobTaskRepo.GetActiveTasksByAgent(ctx, task.AgentID); atErr == nil && len(activeTasks) > 0 {
+		debug.Info("Agent %d became busy between planning and send; skipping agent benchmark this cycle (active_tasks=%d)", task.AgentID, len(activeTasks))
+		return nil
+	}
+
 	// Get job execution
 	job, err := s.jobExecutionService.GetJobExecutionByID(ctx, task.JobID)
 	if err != nil {

@@ -417,40 +417,47 @@ func (s *JobProgressCalculationService) calculateAndUpdateLayerProgress(ctx cont
 		isKeyspaceSplitLayer = multiplier > 1.01 || multiplier < 0.99
 	}
 
-	// Aggregate processed and dispatched keyspace from layer tasks
+	// Aggregate processed and dispatched keyspace from layer tasks.
+	//
+	// Unit contract:
+	//   task.EffectiveKeyspaceProcessed → effective units (candidate count) — always preferred when set
+	//   task.KeyspaceProcessed          → mode-dependent: base mask units for -a 3, wordlist offset for -a 0/6/7
+	//   task.EffectiveKeyspace{Start,End} → effective-unit chunk boundaries
+	//   chunkSize (= KeyspaceEnd - KeyspaceStart) → base units
+	//
+	// Priority order matches the regular (non-layer) path in calculateRegularJobProgress:
+	// 1) Use EffectiveKeyspaceProcessed/EffectiveKeyspaceEnd when available (most accurate)
+	// 2) Fall back to KeyspaceProcessed × multiplier ONLY for keyspace-split layers (legacy data)
+	// 3) Fall back to raw KeyspaceProcessed for non-split layers
 	var processedKeyspace int64
 	var dispatchedKeyspace int64
 	for _, task := range layerTasks {
-		// Calculate chunk size for this task (dispatched keyspace in BASE units)
 		chunkSize := task.KeyspaceEnd - task.KeyspaceStart
 
-		// For keyspace-split tasks, KeyspaceProcessed storage is INCONSISTENT:
-		// - COMPLETED tasks: relative (chunk size)
-		// - RUNNING tasks: absolute (restore_point from hashcat)
-		// We detect absolute values by checking if KeyspaceProcessed >= KeyspaceStart
-		if isKeyspaceSplitLayer {
+		if task.EffectiveKeyspaceProcessed != nil && *task.EffectiveKeyspaceProcessed > 0 {
+			// Preferred path — agent reported effective progress (unambiguous candidate count).
+			processedKeyspace += *task.EffectiveKeyspaceProcessed
+
+			if task.EffectiveKeyspaceStart != nil && task.EffectiveKeyspaceEnd != nil {
+				dispatchedKeyspace += (*task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart)
+			} else if isKeyspaceSplitLayer && chunkSize > 0 {
+				dispatchedKeyspace += int64(float64(chunkSize) * multiplier)
+			} else if chunkSize > 0 {
+				dispatchedKeyspace += chunkSize
+			}
+		} else if isKeyspaceSplitLayer {
+			// Legacy / pre-effective-tracking fallback. KeyspaceProcessed storage is INCONSISTENT:
+			// COMPLETED tasks store the relative chunk size, RUNNING tasks store the absolute
+			// restore_point from hashcat. Detect absolute by comparing to KeyspaceStart.
 			var relativeProcessed int64
 			if task.KeyspaceStart > 0 && task.KeyspaceProcessed >= task.KeyspaceStart {
-				// keyspace_processed is absolute - convert to relative
 				relativeProcessed = task.KeyspaceProcessed - task.KeyspaceStart
 			} else {
-				// keyspace_processed is already relative (or KeyspaceStart=0)
 				relativeProcessed = task.KeyspaceProcessed
 			}
 			processedKeyspace += int64(float64(relativeProcessed) * multiplier)
-
-			// Dispatched keyspace: convert BASE chunk size to EFFECTIVE units
 			if chunkSize > 0 {
 				dispatchedKeyspace += int64(float64(chunkSize) * multiplier)
-			}
-		} else if task.EffectiveKeyspaceProcessed != nil && *task.EffectiveKeyspaceProcessed > 0 {
-			processedKeyspace += *task.EffectiveKeyspaceProcessed
-
-			// Use effective keyspace range if available
-			if task.EffectiveKeyspaceStart != nil && task.EffectiveKeyspaceEnd != nil {
-				dispatchedKeyspace += (*task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart)
-			} else if chunkSize > 0 {
-				dispatchedKeyspace += chunkSize
 			}
 		} else {
 			processedKeyspace += task.KeyspaceProcessed

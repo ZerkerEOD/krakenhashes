@@ -949,12 +949,15 @@ func (r *JobTaskRepository) CancelTask(ctx context.Context, id uuid.UUID) error 
 	return nil
 }
 
-// SetTaskPending sets a task back to pending status for reassignment
-// This is used when interrupting a task for a higher priority job
-func (r *JobTaskRepository) SetTaskPending(ctx context.Context, id uuid.UUID) error {
+// SetTaskPending sets a task back to pending status for reassignment.
+// This is used when interrupting a task for a higher priority job, or when an agent
+// shuts down with a running task.
+// Returns the task's increment_layer_id (nil for non-increment-mode jobs) so the caller
+// can cascade the reset to the parent layer when no other tasks for that layer are active.
+func (r *JobTaskRepository) SetTaskPending(ctx context.Context, id uuid.UUID) (*uuid.UUID, error) {
 	query := `
-		UPDATE job_tasks 
-		SET 
+		UPDATE job_tasks
+		SET
 			status = 'pending',
 			detailed_status = 'pending',
 			agent_id = NULL,
@@ -962,23 +965,22 @@ func (r *JobTaskRepository) SetTaskPending(ctx context.Context, id uuid.UUID) er
 			started_at = NULL,
 			last_checkpoint = CURRENT_TIMESTAMP,
 			updated_at = CURRENT_TIMESTAMP
-		WHERE id = $1 AND status IN ('assigned', 'running')`
-	
-	result, err := r.db.ExecContext(ctx, query, id)
+		WHERE id = $1 AND status IN ('assigned', 'running')
+		RETURNING increment_layer_id`
+
+	var layerID uuid.NullUUID
+	err := r.db.QueryRowContext(ctx, query, id).Scan(&layerID)
 	if err != nil {
-		return fmt.Errorf("failed to set task to pending: %w", err)
+		if err == sql.ErrNoRows {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("failed to set task to pending: %w", err)
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
+	if layerID.Valid {
+		return &layerID.UUID, nil
 	}
-
-	if rowsAffected == 0 {
-		return ErrNotFound
-	}
-
-	return nil
+	return nil, nil
 }
 
 // SetTaskStopping marks a task as stopping but preserves agent_id
@@ -1175,20 +1177,25 @@ func (r *JobTaskRepository) UpdateTaskStatus(ctx context.Context, id uuid.UUID, 
 	return nil
 }
 
-// ResetTaskForRetry resets a task for retry by incrementing retry count and resetting status
+// ResetTaskForRetry resets a task for retry by incrementing retry count and resetting status.
+// When the task belongs to an increment layer and no other tasks for that layer remain
+// active, the layer's status is also cascaded back to 'pending' inside the same transaction
+// so the scheduler treats it as having available work.
 func (r *JobTaskRepository) ResetTaskForRetry(ctx context.Context, id uuid.UUID) error {
 	// First, get the current task details including both base and effective keyspace ranges
+	// plus the increment_layer_id for the layer-cascade decision.
 	var jobExecutionID uuid.UUID
 	var keyspaceProcessed int64
 	var keyspaceStart int64
 	var keyspaceEnd int64
 	var effectiveKeyspaceStart sql.NullInt64
 	var effectiveKeyspaceEnd sql.NullInt64
+	var incrementLayerID uuid.NullUUID
 	err := r.db.QueryRowContext(ctx,
 		"SELECT job_execution_id, keyspace_processed, keyspace_start, keyspace_end, "+
-		"effective_keyspace_start, effective_keyspace_end FROM job_tasks WHERE id = $1",
+			"effective_keyspace_start, effective_keyspace_end, increment_layer_id FROM job_tasks WHERE id = $1",
 		id).Scan(&jobExecutionID, &keyspaceProcessed, &keyspaceStart, &keyspaceEnd,
-		&effectiveKeyspaceStart, &effectiveKeyspaceEnd)
+		&effectiveKeyspaceStart, &effectiveKeyspaceEnd, &incrementLayerID)
 	if err != nil {
 		return fmt.Errorf("failed to get task details: %w", err)
 	}
@@ -1232,6 +1239,29 @@ func (r *JobTaskRepository) ResetTaskForRetry(ctx context.Context, id uuid.UUID)
 		_, err = tx.ExecContext(ctx, updateJobQuery, keyspaceProcessed, jobExecutionID)
 		if err != nil {
 			return fmt.Errorf("failed to update job processed keyspace: %w", err)
+		}
+	}
+
+	// Cascade: if this was an increment-layer task and no other tasks for the same layer
+	// remain active (running/assigned), reset the layer's status back to 'pending'.
+	// The `status = 'running'` guard on the layer UPDATE ensures completed/failed/cancelled
+	// layers are left untouched. The task we just reset is excluded from the active count
+	// since its row in this transaction is already 'pending'.
+	if incrementLayerID.Valid {
+		var activeCount int
+		err = tx.QueryRowContext(ctx,
+			"SELECT COUNT(*) FROM job_tasks WHERE increment_layer_id = $1 AND status IN ('running', 'assigned') AND id != $2",
+			incrementLayerID.UUID, id).Scan(&activeCount)
+		if err != nil {
+			return fmt.Errorf("failed to count active tasks for layer cascade: %w", err)
+		}
+		if activeCount == 0 {
+			_, err = tx.ExecContext(ctx,
+				"UPDATE job_increment_layers SET status = 'pending', updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND status = 'running'",
+				incrementLayerID.UUID)
+			if err != nil {
+				return fmt.Errorf("failed to cascade layer reset to pending: %w", err)
+			}
 		}
 	}
 
@@ -1466,6 +1496,28 @@ func (r *JobTaskRepository) GetActiveTasksCount(ctx context.Context, jobExecutio
 	err := r.db.QueryRowContext(ctx, query, jobExecutionID).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get active tasks count: %w", err)
+	}
+
+	return count, nil
+}
+
+// GetActiveTaskCountByLayer returns the number of active tasks (running or assigned) for an
+// increment layer. Used by the cascade in handleAgentShutdown / ResetTaskForRetry to decide
+// whether resetting one task should also reset the parent layer's status.
+// "Active" matches GetActiveTasksCount (job-level) — running and assigned only. Tasks in
+// reconnect_pending are NOT counted; when they transition (back to running on reconnect, or
+// to pending after grace expires), the appropriate cascade re-evaluates layer status.
+func (r *JobTaskRepository) GetActiveTaskCountByLayer(ctx context.Context, layerID uuid.UUID) (int, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM job_tasks
+		WHERE increment_layer_id = $1
+		  AND status IN ('running', 'assigned')`
+
+	var count int
+	err := r.db.QueryRowContext(ctx, query, layerID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get active task count for layer: %w", err)
 	}
 
 	return count, nil
