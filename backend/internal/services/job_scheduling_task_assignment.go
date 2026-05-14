@@ -893,10 +893,19 @@ func (s *JobSchedulingService) calculateRuleSplitChunk(
 		// GetJobsWithPendingWork from returning this job in an infinite loop.
 		// This can happen if estimation gaps cause dispatched < effective even
 		// though all rules are fully dispatched.
+		//
+		// state.DispatchedKeyspace is recomputed from job_tasks every cycle
+		// (not read from the synced column), so without gating the warning
+		// would fire every ~3 s for the lifetime of a zombie job — 800+ times
+		// per dump on the prod incident. completeExhaustedJobs (the proper
+		// long-term fix) should now retire the zombie within one cycle, but
+		// log-once defensively so a regression doesn't go quiet either.
 		if state.JobExecution.EffectiveKeyspace != nil && *state.JobExecution.EffectiveKeyspace > 0 {
 			if state.DispatchedKeyspace < *state.JobExecution.EffectiveKeyspace {
-				debug.Warning("Rule-split job %s: all rules dispatched but dispatched(%d) < effective(%d), syncing",
-					plan.JobExecution.ID, state.DispatchedKeyspace, *state.JobExecution.EffectiveKeyspace)
+				if _, alreadyWarned := s.ruleSplitSyncWarned.LoadOrStore(plan.JobExecution.ID, struct{}{}); !alreadyWarned {
+					debug.Warning("Rule-split job %s: all rules dispatched but dispatched(%d) < effective(%d), syncing",
+						plan.JobExecution.ID, state.DispatchedKeyspace, *state.JobExecution.EffectiveKeyspace)
+				}
 				_ = s.jobExecutionService.jobExecRepo.UpdateDispatchedKeyspace(
 					ctx, plan.JobExecution.ID, *state.JobExecution.EffectiveKeyspace)
 			}

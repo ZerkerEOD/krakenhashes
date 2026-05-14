@@ -37,7 +37,6 @@ var DiagnosticTables = []string{
 	"agents",
 	"agent_devices",
 	"agent_schedules",
-	"agent_settings",
 	"agent_benchmark_blocklist",
 	"agent_benchmark_history",
 	"benchmark_failure_attempts",

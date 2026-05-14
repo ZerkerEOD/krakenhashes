@@ -53,6 +53,14 @@ type JobSchedulingService struct {
 	// because the failure_attempts table is the durable record.
 	lastForcedBenchmarkAgent sync.Map // map[string]int
 
+	// Rule-split keyspace-drift warning gate: keyed by job_execution_id.
+	// `calculateRuleSplitChunk` logs a warning the first time it has to sync
+	// dispatched_keyspace to effective_keyspace, then silently re-syncs on
+	// subsequent cycles to avoid flooding the log (the underlying sync is
+	// idempotent and cheap). In-memory only; on backend restart the warning
+	// will fire once more per job, which is what we want.
+	ruleSplitSyncWarned sync.Map // map[uuid.UUID]struct{}
+
 	// NEW: Team-aware scheduling
 	teamService *TeamService
 }
@@ -585,21 +593,50 @@ func (s *JobSchedulingService) isJobStructurallyComplete(ctx context.Context, jo
 		return true
 	}
 
-	// Rule-split: check if all rule chunks have been dispatched
+	// Rule-split: check if all rule chunks have been dispatched.
+	//
+	// The comparison must be in the *raw rule-file* unit — `max_rule_end_index`
+	// from job_tasks is a rule-file index (≤ rule_count). `MultiplicationFactor`
+	// is NOT in that unit for salted hash types: it's stored as
+	// `rule_count × salt_count` so that `effective_keyspace = base_keyspace ×
+	// multiplication_factor` arithmetic works out. Comparing the two directly
+	// makes salted rule-split jobs invisible to the structural check — they
+	// stay zombie-pending forever, starving lower-priority jobs.
+	//
+	// Use the same source the chunker uses
+	// (`ruleSplitManager.CountRules(rulePath)`, called at
+	// job_scheduling_task_assignment.go:246 to initialize state.TotalRules)
+	// so the completion-detector and the chunker agree on what "all rules
+	// dispatched" means.
 	if job.UsesRuleSplitting {
-		totalRules := job.MultiplicationFactor
-		// Fallback: same logic as ProcessJobCompletion (effective / base)
-		if totalRules == 0 && job.EffectiveKeyspace != nil && job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
-			totalRules = *job.EffectiveKeyspace / *job.BaseKeyspace
-		}
-		if totalRules > 0 {
-			maxRuleEnd, err := s.jobExecutionService.jobTaskRepo.GetMaxRuleEndIndex(ctx, job.ID)
-			if err != nil {
-				return false
+		var totalRules int64
+
+		if len(job.RuleIDs) > 0 {
+			if rulePath, err := s.jobExecutionService.resolveRulePath(ctx, job.RuleIDs[0]); err == nil {
+				if n, err := s.jobExecutionService.ruleSplitManager.CountRules(ctx, rulePath); err == nil {
+					totalRules = int64(n)
+				}
 			}
-			return maxRuleEnd != nil && int64(*maxRuleEnd) >= totalRules
 		}
-		return false // Can't determine without totalRules
+
+		// Fallback only when the rule file is unreadable. MultiplicationFactor
+		// and effective/base both OVERESTIMATE for salted hash types, so the
+		// check stays conservative (no false-positive completion).
+		if totalRules == 0 {
+			totalRules = job.MultiplicationFactor
+			if totalRules == 0 && job.EffectiveKeyspace != nil && job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
+				totalRules = *job.EffectiveKeyspace / *job.BaseKeyspace
+			}
+		}
+
+		if totalRules <= 0 {
+			return false // Can't determine without totalRules
+		}
+		maxRuleEnd, err := s.jobExecutionService.jobTaskRepo.GetMaxRuleEndIndex(ctx, job.ID)
+		if err != nil {
+			return false
+		}
+		return maxRuleEnd != nil && int64(*maxRuleEnd) >= totalRules
 	}
 
 	// Keyspace-split: check if all base keyspace has been covered
@@ -639,6 +676,25 @@ func (s *JobSchedulingService) completeExhaustedJobs(ctx context.Context, jobsWi
 
 		// Guard 3: Must be structurally complete (all rules dispatched, all base keyspace covered, etc.)
 		if !s.isJobStructurallyComplete(ctx, &job.JobExecution) {
+			// Defensive diagnostic: at this point the job has no incomplete
+			// tasks and at least one completed task, but isJobStructurallyComplete
+			// disagrees. Either the rule file is unreadable, or there's a unit
+			// mismatch between max_rule_end_index and whatever totalRules
+			// source the check used. Logging the triple makes future "stuck job"
+			// reports diagnosable from the backend log alone.
+			if job.UsesRuleSplitting {
+				maxRuleEnd, _ := s.jobExecutionService.jobTaskRepo.GetMaxRuleEndIndex(ctx, job.ID)
+				debug.Info("Job has zero incomplete tasks but is not structurally complete", map[string]interface{}{
+					"job_id":                 job.ID,
+					"name":                   job.Name,
+					"uses_rule_splitting":    job.UsesRuleSplitting,
+					"multiplication_factor":  job.MultiplicationFactor,
+					"max_rule_end_index":     maxRuleEnd,
+					"dispatched_keyspace":    job.DispatchedKeyspace,
+					"effective_keyspace":     job.EffectiveKeyspace,
+					"hint":                   "if max_rule_end_index >= the rule file's CountRules result, the rule file is probably unreadable; otherwise structural check is conservative and waiting for more rules to be dispatched",
+				})
+			}
 			continue
 		}
 
