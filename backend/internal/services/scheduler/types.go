@@ -1,11 +1,11 @@
 // Package scheduler is the new scheduling pipeline introduced by the
 // rewrite. The 6-step cycle from plan §6.1 lives here:
-//   1. EvictTimedOutTasks       (sweeper.go)
-//   2. RefreshCompatibilityCache (not in Phase A; lands later)
-//   3. SelectSchedulableUnits   (selector.go)
-//   4. AllocateAgentsByPriority (allocator.go)
-//   5. DispatchOneChunkPerAgent (dispatcher.go)
-//   6. CommitTransaction        (each function owns its own transaction)
+//  1. EvictTimedOutTasks       (sweeper.go)
+//  2. RefreshCompatibilityCache (not in Phase A; lands later)
+//  3. SelectSchedulableUnits   (selector.go)
+//  4. AllocateAgentsByPriority (allocator.go)
+//  5. DispatchOneChunkPerAgent (dispatcher.go)
+//  6. CommitTransaction        (each function owns its own transaction)
 //
 // This package intentionally has no dependency on the legacy
 // job_scheduling_service.go. The clean cutover replaces the old pipeline
@@ -14,6 +14,8 @@
 package scheduler
 
 import (
+	"context"
+
 	"github.com/google/uuid"
 )
 
@@ -100,3 +102,12 @@ type Allocation struct {
 // unit. The production implementation is backed by the compatibility cache
 // (binary-version match etc.); tests pass a synthetic closure.
 type CompatibilityFn func(unitID uuid.UUID, agentID int) bool
+
+// BinaryResolver picks the hashcat binary version ID to use for a given
+// (agent, job_execution) pair. Production implementation is
+// services.JobExecutionService.DetermineBinaryForTask, which walks the
+// agent + job binary-version patterns through the version resolver.
+// The interface keeps the scheduler package free of a circular import.
+type BinaryResolver interface {
+	DetermineBinaryForTask(ctx context.Context, agentID int, jobExecutionID uuid.UUID) (int64, error)
+}

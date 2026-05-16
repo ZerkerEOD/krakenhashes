@@ -119,7 +119,12 @@ func NewJobIntegrationManager(
 		database := &khdb.DB{DB: db}
 		unitRepo := repository.NewSchedulingUnitRepository(database)
 		intervalRepo := repository.NewKeyspaceIntervalRepository(database)
-		cycle := scheduler.NewCycle(database, unitRepo, intervalRepo, systemSettingsRepo, wsHandler)
+		// jobExecutionService satisfies scheduler.BinaryResolver
+		// structurally — it has DetermineBinaryForTask. Pass it as
+		// the resolver so sendAssignment can populate BinaryPath
+		// without the scheduler package importing services
+		// (which would be a circular dependency).
+		cycle := scheduler.NewCycle(database, unitRepo, intervalRepo, systemSettingsRepo, wsHandler, jobExecutionService)
 		mgr.schedulerV2Runner = scheduler.NewRunner(cycle, 3*time.Second)
 		mgr.sweeperRunner = scheduler.NewSweeperRunner(database, systemSettingsRepo, 10*time.Second)
 		debug.Info("SCHEDULER_V2_ENABLED=true: constructed scheduler-v2 runners (start deferred)")

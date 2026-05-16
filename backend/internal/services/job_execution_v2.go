@@ -30,14 +30,6 @@ func (s *JobExecutionService) populateSchedulingUnitsIfEnabled(ctx context.Conte
 		return
 	}
 
-	// Defer mode 9 (association) to a follow-up — it has its own
-	// wordlist resolution path via association_wordlist_id that the
-	// generic IDArray resolver doesn't handle.
-	if int(jobExec.AttackMode) == 9 {
-		debug.Info("scheduler-v2: skipping populate for mode-9 job %s (mode 9 wiring deferred)", jobExec.ID)
-		return
-	}
-
 	if err := s.populateSchedulingUnits(ctx, jobExec); err != nil {
 		debug.Warning("scheduler-v2: populateSchedulingUnits for job %s failed: %v — job remains legacy-owned",
 			jobExec.ID, err)
@@ -57,9 +49,25 @@ func (s *JobExecutionService) populateSchedulingUnitsIfEnabled(ctx context.Conte
 func (s *JobExecutionService) populateSchedulingUnits(ctx context.Context, jobExec *models.JobExecution) error {
 	unitRepo := repository.NewSchedulingUnitRepository(s.db)
 
-	wordlistRefs, err := s.resolveWordlistRefsForV2(ctx, jobExec.WordlistIDs)
-	if err != nil {
-		return fmt.Errorf("resolve wordlist refs: %w", err)
+	var (
+		wordlistRefs []string
+		err          error
+	)
+	if int(jobExec.AttackMode) == 9 {
+		// Mode 9 (association) routes its single wordlist through
+		// association_wordlist_id, not the generic WordlistIDs
+		// array. The path format mirrors the legacy emitter at
+		// job_websocket_integration.go:620 —
+		// "wordlists/association/<hashlist_id>_<filename>".
+		wordlistRefs, err = s.resolveAssociationWordlistRefForV2(ctx, jobExec)
+		if err != nil {
+			return fmt.Errorf("resolve association wordlist: %w", err)
+		}
+	} else {
+		wordlistRefs, err = s.resolveWordlistRefsForV2(ctx, jobExec.WordlistIDs)
+		if err != nil {
+			return fmt.Errorf("resolve wordlist refs: %w", err)
+		}
 	}
 	ruleFileRefs, err := s.resolveRuleRefsForV2(ctx, jobExec.RuleIDs)
 	if err != nil {
@@ -187,6 +195,31 @@ func (s *JobExecutionService) resolveWordlistRefsForV2(ctx context.Context, ids 
 		out = append(out, relPath(s.dataDirectory, abs))
 	}
 	return out, nil
+}
+
+// resolveAssociationWordlistRefForV2 produces the single-entry
+// wordlist_refs slice for a -a 9 job. The path matches the legacy
+// emitter at job_websocket_integration.go:620,1120 —
+// "wordlists/association/<hashlist_id>_<filename>". One entry only:
+// the BuildTaskAssignment for -a 9 reads wordlist_refs[0] and mirrors
+// it into both WordlistPaths[0] and AssociationWordlistPath on the
+// payload.
+func (s *JobExecutionService) resolveAssociationWordlistRefForV2(ctx context.Context, jobExec *models.JobExecution) ([]string, error) {
+	if jobExec.AssociationWordlistID == nil {
+		return nil, errors.New("mode 9 job has no association_wordlist_id")
+	}
+	if s.assocWordlistRepo == nil {
+		return nil, errors.New("association wordlist repository not configured")
+	}
+	assocWL, err := s.assocWordlistRepo.GetByID(ctx, *jobExec.AssociationWordlistID)
+	if err != nil {
+		return nil, fmt.Errorf("get association wordlist %s: %w", *jobExec.AssociationWordlistID, err)
+	}
+	if assocWL == nil {
+		return nil, fmt.Errorf("association wordlist %s not found", *jobExec.AssociationWordlistID)
+	}
+	path := fmt.Sprintf("wordlists/association/%d_%s", jobExec.HashlistID, assocWL.FileName)
+	return []string{path}, nil
 }
 
 func (s *JobExecutionService) resolveRuleRefsForV2(ctx context.Context, ids models.IDArray) ([]string, error) {

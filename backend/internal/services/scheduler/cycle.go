@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -31,15 +32,22 @@ type Cycle struct {
 	intervalRepo       *repository.KeyspaceIntervalRepository
 	systemSettingsRepo *repository.SystemSettingsRepository
 	wsSender           WSSender
+	// binaryResolver may be nil — if so, sendAssignment falls back to
+	// an empty BinaryPath (the agent will fail to spawn hashcat, but
+	// the rest of the dispatch path still exercises). Production
+	// wiring passes services.JobExecutionService.
+	binaryResolver BinaryResolver
 }
 
-// NewCycle wires the dependencies.
+// NewCycle wires the dependencies. binaryResolver may be nil for tests
+// that don't exercise the BinaryPath enrichment.
 func NewCycle(
 	database *db.DB,
 	unitRepo *repository.SchedulingUnitRepository,
 	intervalRepo *repository.KeyspaceIntervalRepository,
 	systemSettingsRepo *repository.SystemSettingsRepository,
 	wsSender WSSender,
+	binaryResolver BinaryResolver,
 ) *Cycle {
 	return &Cycle{
 		db:                 database,
@@ -47,6 +55,7 @@ func NewCycle(
 		intervalRepo:       intervalRepo,
 		systemSettingsRepo: systemSettingsRepo,
 		wsSender:           wsSender,
+		binaryResolver:     binaryResolver,
 	}
 }
 
@@ -303,8 +312,14 @@ func (c *Cycle) getIdleAgents(ctx context.Context) ([]AgentInfo, error) {
 // each allocated unit needs. Missing entries fall through to
 // ConservativeAgentSpeed in the dispatcher.
 //
-// For Phase B this looks up only attack_mode + hash_type (NULL salt
-// count). Salt-count-specific lookup is a Phase C tightening.
+// Salt-aware lookup:
+//   - For salted hash types, the desired salt_count is the parent
+//     hashlist's total_hashes (per the legacy benchmark insertion
+//     convention at job_scheduling_benchmark_planning.go).
+//   - For non-salted hash types, the desired salt_count is NULL.
+//   - The query prefers an exact (NULL-safe) salt_count match and
+//     falls back to the most-recent benchmark for the combo with any
+//     salt count, so a new salt count doesn't kill the chunk size.
 func (c *Cycle) readAgentSpeeds(ctx context.Context, allocations []Allocation, unitsByID map[uuid.UUID]*models.SchedulingUnit) map[int]int64 {
 	out := map[int]int64{}
 	for _, alloc := range allocations {
@@ -312,17 +327,21 @@ func (c *Cycle) readAgentSpeeds(ctx context.Context, allocations []Allocation, u
 		if u == nil {
 			continue
 		}
-		hashType := c.lookupHashType(ctx, u.ParentJobID)
+		hashType, saltCount := c.lookupHashTypeAndSalt(ctx, u.ParentJobID)
 		if hashType < 0 {
 			continue
 		}
 		var speed int64
+		// IS NOT DISTINCT FROM is NULL-safe equality. The ORDER BY
+		// pushes the exact-salt match to the top, then most-recent.
 		err := c.db.QueryRowContext(ctx, `
 			SELECT speed FROM agent_benchmarks
 			WHERE agent_id = $1 AND attack_mode = $2 AND hash_type = $3
-			ORDER BY updated_at DESC
+			ORDER BY
+			  CASE WHEN salt_count IS NOT DISTINCT FROM $4 THEN 0 ELSE 1 END,
+			  updated_at DESC
 			LIMIT 1
-		`, alloc.AgentID, u.AttackMode, hashType).Scan(&speed)
+		`, alloc.AgentID, u.AttackMode, hashType, saltCount).Scan(&speed)
 		if err == nil && speed > 0 {
 			out[alloc.AgentID] = speed
 		}
@@ -330,21 +349,30 @@ func (c *Cycle) readAgentSpeeds(ctx context.Context, allocations []Allocation, u
 	return out
 }
 
-// lookupHashType resolves the hash type for a scheduling unit by
-// following parent_job_id -> hashlists.hash_type_id. Returns -1 on
-// any lookup failure; the caller treats that as "unknown."
-func (c *Cycle) lookupHashType(ctx context.Context, parentJobID uuid.UUID) int {
+// lookupHashTypeAndSalt resolves (hash_type_id, desired_salt_count)
+// for a scheduling unit. desired_salt_count is the hashlist's
+// total_hashes when the hash type is salted, or sql.NullInt64{}
+// (meaning NULL) otherwise. Returns (-1, NullInt64{}) on any lookup
+// failure; the caller treats that as "unknown" and skips speed
+// lookup.
+func (c *Cycle) lookupHashTypeAndSalt(ctx context.Context, parentJobID uuid.UUID) (int, sql.NullInt64) {
 	var ht int
+	var isSalted bool
+	var totalHashes int
 	err := c.db.QueryRowContext(ctx, `
-		SELECT h.hash_type_id
+		SELECT h.hash_type_id, ht.is_salted, h.total_hashes
 		FROM job_executions je
 		JOIN hashlists h ON h.id = je.hashlist_id
+		JOIN hash_types ht ON ht.id = h.hash_type_id
 		WHERE je.id = $1
-	`, parentJobID).Scan(&ht)
+	`, parentJobID).Scan(&ht, &isSalted, &totalHashes)
 	if err != nil {
-		return -1
+		return -1, sql.NullInt64{}
 	}
-	return ht
+	if isSalted && totalHashes > 0 {
+		return ht, sql.NullInt64{Int64: int64(totalHashes), Valid: true}
+	}
+	return ht, sql.NullInt64{} // NULL salt_count
 }
 
 // sendAssignment composes the WebSocket TaskAssignmentPayload for a
@@ -363,27 +391,49 @@ func (c *Cycle) sendAssignment(ctx context.Context, dt DispatchedTask, unit *mod
 		return fmt.Errorf("build assignment: %w", err)
 	}
 
-	// Enrich from parent job_execution + hashlist.
+	// Enrich from parent job_execution + hashlist. Path format matches
+	// the legacy emitter at job_websocket_integration.go:602,1106 —
+	// the agent expects the processed-into-DB version at
+	// "hashlists/<id>.hash". Mode 9 additionally needs the original
+	// file path so hashcat can pair hashes with candidates by line
+	// order; that lives in hashlists.original_file_path.
 	var hashlistID int64
 	var hashType int
-	var hashlistPath string
+	var originalFilePath string
 	err = c.db.QueryRowContext(ctx, `
 		SELECT je.hashlist_id, h.hash_type_id, COALESCE(h.original_file_path, '')
 		FROM job_executions je
 		JOIN hashlists h ON h.id = je.hashlist_id
 		WHERE je.id = $1
-	`, unit.ParentJobID).Scan(&hashlistID, &hashType, &hashlistPath)
+	`, unit.ParentJobID).Scan(&hashlistID, &hashType, &originalFilePath)
 	if err != nil {
 		return fmt.Errorf("lookup parent + hashlist: %w", err)
 	}
 
 	payload.HashlistID = hashlistID
 	payload.HashType = hashType
-	payload.HashlistPath = hashlistPath
+	payload.HashlistPath = fmt.Sprintf("hashlists/%d.hash", hashlistID)
 	payload.ChunkDuration = chunkDuration
 	payload.ReportInterval = 5
-	// BinaryPath is intentionally left empty for Phase B; Phase E
-	// populates it from the binary_versions table.
+	if unit.AttackMode == AttackModeAssociation && originalFilePath != "" {
+		payload.OriginalHashlistPath = originalFilePath
+	}
+
+	// Resolve binary path via the injected resolver. Matches the
+	// legacy format from job_websocket_integration.go:781 —
+	// "binaries/<binary_version_id>". Errors here are non-fatal; we
+	// log and send the assignment with an empty BinaryPath, which
+	// the agent will reject. That's a clear failure signal in the
+	// agent log rather than a silent fall-through to "default."
+	if c.binaryResolver != nil {
+		binaryID, berr := c.binaryResolver.DetermineBinaryForTask(ctx, dt.AgentID, unit.ParentJobID)
+		if berr != nil {
+			debug.Warning("scheduler-v2: binary resolution failed for task %s (agent %d, job %s): %v",
+				dt.TaskID, dt.AgentID, unit.ParentJobID, berr)
+		} else {
+			payload.BinaryPath = fmt.Sprintf("binaries/%d", binaryID)
+		}
+	}
 
 	body, err := json.Marshal(payload)
 	if err != nil {
