@@ -5,13 +5,16 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary"
+	khdb "github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/rule"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/scheduler"
 	wsservice "github.com/ZerkerEOD/krakenhashes/backend/internal/services/websocket"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/wordlist"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
@@ -28,6 +31,13 @@ type JobIntegrationManager struct {
 		RegisterInventoryCallback(agentID int) <-chan *wsservice.FileSyncResponsePayload
 		UnregisterInventoryCallback(agentID int)
 	}
+
+	// Scheduler-v2 runners. Non-nil only when SCHEDULER_V2_ENABLED=true
+	// at construction time. They run alongside the legacy scheduler
+	// during the cutover window; on cutover, the legacy path is
+	// removed and these stand alone.
+	schedulerV2Runner *scheduler.Runner
+	sweeperRunner     *scheduler.SweeperRunner
 }
 
 // NewJobIntegrationManager creates a new job integration manager
@@ -95,11 +105,27 @@ func NewJobIntegrationManager(
 	// Set the WebSocket integration in the scheduling service
 	jobSchedulingService.SetWebSocketIntegration(wsIntegration)
 
-	return &JobIntegrationManager{
+	mgr := &JobIntegrationManager{
 		wsIntegration:        wsIntegration,
 		jobSchedulingService: jobSchedulingService,
 		wsHandler:            wsHandler,
 	}
+
+	// Construct (but do not start) the scheduler-v2 runners when the
+	// env gate is on. Start happens in StartScheduler so lifecycle
+	// stays in one place. The legacy scheduler keeps running
+	// regardless of this flag — both can coexist until the cutover.
+	if os.Getenv("SCHEDULER_V2_ENABLED") == "true" {
+		database := &khdb.DB{DB: db}
+		unitRepo := repository.NewSchedulingUnitRepository(database)
+		intervalRepo := repository.NewKeyspaceIntervalRepository(database)
+		cycle := scheduler.NewCycle(database, unitRepo, intervalRepo, systemSettingsRepo, wsHandler)
+		mgr.schedulerV2Runner = scheduler.NewRunner(cycle, 3*time.Second)
+		mgr.sweeperRunner = scheduler.NewSweeperRunner(database, systemSettingsRepo, 10*time.Second)
+		debug.Info("SCHEDULER_V2_ENABLED=true: constructed scheduler-v2 runners (start deferred)")
+	}
+
+	return mgr
 }
 
 // ProcessJobProgress handles job progress messages from agents (implements interfaces.JobHandler)
@@ -181,11 +207,27 @@ func (m *JobIntegrationManager) GetWebSocketIntegration() *JobWebSocketIntegrati
 	return m.wsIntegration
 }
 
-// StartScheduler starts the job scheduling service
+// StartScheduler starts the job scheduling service.
+//
+// The legacy scheduler always starts. The scheduler-v2 runners start
+// only when SCHEDULER_V2_ENABLED=true at process startup (the gate
+// was already checked in the constructor; here we just start what's
+// been constructed). Both can run side-by-side during the cutover
+// window — scheduler-v2 only touches rows tagged with
+// scheduling_unit_id, so the two paths don't fight over the same
+// tasks until the cutover migration removes the legacy path entirely.
 func (m *JobIntegrationManager) StartScheduler(ctx context.Context) {
 	debug.Log("Starting job scheduler", nil)
-	// Start scheduler with 3 second interval
+	// Start legacy scheduler with 3 second interval
 	go m.jobSchedulingService.StartScheduler(ctx, 3*time.Second)
+
+	// Start scheduler-v2 runners if they were constructed.
+	if m.schedulerV2Runner != nil {
+		m.schedulerV2Runner.Start(ctx)
+	}
+	if m.sweeperRunner != nil {
+		go m.sweeperRunner.Run(ctx)
+	}
 }
 
 // StopJob stops a running job
