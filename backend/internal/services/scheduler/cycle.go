@@ -37,10 +37,14 @@ type Cycle struct {
 	// the rest of the dispatch path still exercises). Production
 	// wiring passes services.JobExecutionService.
 	binaryResolver BinaryResolver
+	// compatCache replaces the per-cycle linear scan with a cached
+	// lookup. May be nil — if so, compatFn falls back to the inline
+	// version.IsCompatibleStr call (correct but slower).
+	compatCache *CompatCache
 }
 
-// NewCycle wires the dependencies. binaryResolver may be nil for tests
-// that don't exercise the BinaryPath enrichment.
+// NewCycle wires the dependencies. binaryResolver and compatCache may
+// be nil for tests that don't exercise those code paths.
 func NewCycle(
 	database *db.DB,
 	unitRepo *repository.SchedulingUnitRepository,
@@ -48,6 +52,7 @@ func NewCycle(
 	systemSettingsRepo *repository.SystemSettingsRepository,
 	wsSender WSSender,
 	binaryResolver BinaryResolver,
+	compatCache *CompatCache,
 ) *Cycle {
 	return &Cycle{
 		db:                 database,
@@ -56,6 +61,7 @@ func NewCycle(
 		systemSettingsRepo: systemSettingsRepo,
 		wsSender:           wsSender,
 		binaryResolver:     binaryResolver,
+		compatCache:        compatCache,
 	}
 }
 
@@ -109,26 +115,33 @@ func (c *Cycle) RunOnce(ctx context.Context) (CycleResult, error) {
 		return res, nil
 	}
 
-	// Compatibility closure: agent.BinaryVersion vs unit.BinaryVersion.
-	compatFn := func(unitID uuid.UUID, agentID int) bool {
-		var unitVer, agentVer string
-		for _, u := range unitInfos {
-			if u.ID == unitID {
-				unitVer = u.BinaryVersion
-				break
+	// Compatibility closure: prefer the cache when wired, fall back
+	// to the inline closure for tests / setups that didn't construct
+	// a CompatCache. Functionally identical; the cache just avoids
+	// the per-cycle O(units × agents) version-pattern parse.
+	var compatFn CompatibilityFn
+	if c.compatCache != nil {
+		compatFn = c.compatCache.CompatFn(ctx)
+	} else {
+		compatFn = func(unitID uuid.UUID, agentID int) bool {
+			var unitVer, agentVer string
+			for _, u := range unitInfos {
+				if u.ID == unitID {
+					unitVer = u.BinaryVersion
+					break
+				}
 			}
-		}
-		for _, a := range agentInfos {
-			if a.ID == agentID {
-				agentVer = a.BinaryVersion
-				break
+			for _, a := range agentInfos {
+				if a.ID == agentID {
+					agentVer = a.BinaryVersion
+					break
+				}
 			}
+			if unitVer == "" {
+				return true
+			}
+			return version.IsCompatibleStr(agentVer, unitVer)
 		}
-		// Empty unit version means "any" — every agent is compatible.
-		if unitVer == "" {
-			return true
-		}
-		return version.IsCompatibleStr(agentVer, unitVer)
 	}
 
 	// Step 4: allocate.

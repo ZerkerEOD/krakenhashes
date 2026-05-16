@@ -38,6 +38,10 @@ type JobIntegrationManager struct {
 	// removed and these stand alone.
 	schedulerV2Runner *scheduler.Runner
 	sweeperRunner     *scheduler.SweeperRunner
+	// compatCache is the (agent_id, unit_id) compatibility lookup.
+	// Warmed at StartScheduler and refreshed periodically; misses
+	// fall through to lazy single-pair evaluation.
+	compatCache *scheduler.CompatCache
 }
 
 // NewJobIntegrationManager creates a new job integration manager
@@ -119,12 +123,13 @@ func NewJobIntegrationManager(
 		database := &khdb.DB{DB: db}
 		unitRepo := repository.NewSchedulingUnitRepository(database)
 		intervalRepo := repository.NewKeyspaceIntervalRepository(database)
+		mgr.compatCache = scheduler.NewCompatCache(database)
 		// jobExecutionService satisfies scheduler.BinaryResolver
 		// structurally — it has DetermineBinaryForTask. Pass it as
 		// the resolver so sendAssignment can populate BinaryPath
 		// without the scheduler package importing services
 		// (which would be a circular dependency).
-		cycle := scheduler.NewCycle(database, unitRepo, intervalRepo, systemSettingsRepo, wsHandler, jobExecutionService)
+		cycle := scheduler.NewCycle(database, unitRepo, intervalRepo, systemSettingsRepo, wsHandler, jobExecutionService, mgr.compatCache)
 		mgr.schedulerV2Runner = scheduler.NewRunner(cycle, 3*time.Second)
 		mgr.sweeperRunner = scheduler.NewSweeperRunner(database, systemSettingsRepo, 10*time.Second)
 		debug.Info("SCHEDULER_V2_ENABLED=true: constructed scheduler-v2 runners (start deferred)")
@@ -232,6 +237,36 @@ func (m *JobIntegrationManager) StartScheduler(ctx context.Context) {
 	}
 	if m.sweeperRunner != nil {
 		go m.sweeperRunner.Run(ctx)
+	}
+	// Warm the compatibility cache and start a periodic refresh
+	// goroutine that re-evaluates everything every 30 seconds.
+	// Misses between refreshes fall through to lazy single-pair
+	// EvaluatePair so this isn't a correctness backstop, just a
+	// freshness one.
+	if m.compatCache != nil {
+		if err := m.compatCache.WarmAll(ctx); err != nil {
+			debug.Warning("compat cache initial warm failed: %v", err)
+		}
+		go m.runCompatCacheRefresh(ctx)
+	}
+}
+
+// runCompatCacheRefresh periodically rewarms the cache so an
+// undelivered OnAgent / OnUnit invalidation can't leave stale rows
+// forever. 30s is plenty — the cycle runs every 3s and is the only
+// reader; staleness only matters within that window.
+func (m *JobIntegrationManager) runCompatCacheRefresh(ctx context.Context) {
+	t := time.NewTicker(30 * time.Second)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			if err := m.compatCache.WarmAll(ctx); err != nil {
+				debug.Warning("compat cache periodic warm failed: %v", err)
+			}
+		}
 	}
 }
 
