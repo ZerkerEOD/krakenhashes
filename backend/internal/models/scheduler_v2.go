@@ -25,8 +25,14 @@ type SchedulingUnit struct {
 	AttackMode           int             `json:"attack_mode" db:"attack_mode"`
 	EffectiveKeyspace    int64           `json:"effective_keyspace" db:"effective_keyspace"`
 	IsAccurateKeyspace   bool            `json:"is_accurate_keyspace" db:"is_accurate_keyspace"`
-	WordlistRef          *string         `json:"wordlist_ref,omitempty" db:"wordlist_ref"`
-	RuleFileRef          *string         `json:"rule_file_ref,omitempty" db:"rule_file_ref"`
+	// WordlistRefs holds one or more wordlist paths/refs. Single-entry for
+	// -a 0/-a 9, two-entry for -a 1 (combinator), single-entry plus
+	// MaskString for -a 6/-a 7 (hybrid). Stored as TEXT[].
+	WordlistRefs         []string        `json:"wordlist_refs,omitempty" db:"wordlist_refs"`
+	// RuleFileRefs is a list because hashcat supports rule stacking via
+	// multiple -r flags (cartesian product). Stored as TEXT[] in Postgres
+	// and read/written through pq.Array() in the repository.
+	RuleFileRefs         []string        `json:"rule_file_refs,omitempty" db:"rule_file_refs"`
 	MaskString           *string         `json:"mask_string,omitempty" db:"mask_string"`
 	CustomCharsets       json.RawMessage `json:"custom_charsets,omitempty" db:"custom_charsets"`
 	RetryBudgetRemaining int             `json:"retry_budget_remaining" db:"retry_budget_remaining"`

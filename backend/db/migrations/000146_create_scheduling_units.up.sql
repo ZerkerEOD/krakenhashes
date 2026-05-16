@@ -42,8 +42,23 @@ CREATE TABLE scheduling_units (
     -- Attack-input refs. Stored as the same shape as job_executions' columns
     -- for the v1; populated from the parent at creation. Nullable because
     -- different attack modes use different combinations.
-    wordlist_ref           TEXT,
-    rule_file_ref          TEXT,
+    --
+    -- wordlist_refs is a TEXT[] so:
+    --   - -a 0 / -a 9: typically one entry
+    --   - -a 1 (combinator): two entries (dict1, dict2)
+    --   - -a 6 (hybrid wl+mask): one entry plus mask_string
+    --   - -a 7 (hybrid mask+wl): one entry plus mask_string
+    -- The agent's payload already carries WordlistPaths as []string at
+    -- hashcat_executor.go:72.
+    --
+    -- rule_file_refs is a TEXT[] so multiple -r flags can be
+    -- stacked at hashcat invocation. The agent already iterates RulePaths[]
+    -- at hashcat_executor.go:755-761 — this column supplies that list.
+    -- Rule STACKING (cartesian product of N rule files) is a real feature;
+    -- rule CHUNKING (splitting one rule file into pieces) is what the
+    -- rewrite removes.
+    wordlist_refs          TEXT[],
+    rule_file_refs         TEXT[],
     mask_string            TEXT,
     custom_charsets        JSONB,
 

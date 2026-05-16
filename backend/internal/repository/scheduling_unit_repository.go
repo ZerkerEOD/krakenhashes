@@ -9,6 +9,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 // SchedulingUnitRepository handles persistence for scheduling_units, the new
@@ -42,7 +43,7 @@ func (r *SchedulingUnitRepository) Create(ctx context.Context, unit *models.Sche
 		INSERT INTO scheduling_units (
 			id, parent_job_id, layer_index, status, priority, max_agents,
 			attack_mode, effective_keyspace, is_accurate_keyspace,
-			wordlist_ref, rule_file_ref, mask_string, custom_charsets,
+			wordlist_refs, rule_file_refs, mask_string, custom_charsets,
 			retry_budget_remaining
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		RETURNING created_at, updated_at
@@ -58,8 +59,8 @@ func (r *SchedulingUnitRepository) Create(ctx context.Context, unit *models.Sche
 		unit.AttackMode,
 		unit.EffectiveKeyspace,
 		unit.IsAccurateKeyspace,
-		unit.WordlistRef,
-		unit.RuleFileRef,
+		pq.Array(unit.WordlistRefs),
+		pq.Array(unit.RuleFileRefs),
 		unit.MaskString,
 		unit.CustomCharsets,
 		unit.RetryBudgetRemaining,
@@ -77,7 +78,7 @@ func (r *SchedulingUnitRepository) GetByID(ctx context.Context, id uuid.UUID) (*
 	const query = `
 		SELECT id, parent_job_id, layer_index, status, priority, max_agents,
 		       attack_mode, effective_keyspace, is_accurate_keyspace,
-		       wordlist_ref, rule_file_ref, mask_string, custom_charsets,
+		       wordlist_refs, rule_file_refs, mask_string, custom_charsets,
 		       retry_budget_remaining, created_at, updated_at
 		FROM scheduling_units
 		WHERE id = $1
@@ -93,7 +94,7 @@ func (r *SchedulingUnitRepository) GetByParentJobID(ctx context.Context, parentJ
 	const query = `
 		SELECT id, parent_job_id, layer_index, status, priority, max_agents,
 		       attack_mode, effective_keyspace, is_accurate_keyspace,
-		       wordlist_ref, rule_file_ref, mask_string, custom_charsets,
+		       wordlist_refs, rule_file_refs, mask_string, custom_charsets,
 		       retry_budget_remaining, created_at, updated_at
 		FROM scheduling_units
 		WHERE parent_job_id = $1
@@ -128,7 +129,7 @@ func (r *SchedulingUnitRepository) GetSchedulable(ctx context.Context) ([]*model
 	const query = `
 		SELECT id, parent_job_id, layer_index, status, priority, max_agents,
 		       attack_mode, effective_keyspace, is_accurate_keyspace,
-		       wordlist_ref, rule_file_ref, mask_string, custom_charsets,
+		       wordlist_refs, rule_file_refs, mask_string, custom_charsets,
 		       retry_budget_remaining, created_at, updated_at
 		FROM scheduling_units
 		WHERE status IN ('pending', 'running')
@@ -234,8 +235,8 @@ func scanSchedulingUnit(scanner rowScanner) (*models.SchedulingUnit, error) {
 		&u.AttackMode,
 		&u.EffectiveKeyspace,
 		&u.IsAccurateKeyspace,
-		&u.WordlistRef,
-		&u.RuleFileRef,
+		pq.Array(&u.WordlistRefs),
+		pq.Array(&u.RuleFileRefs),
 		&u.MaskString,
 		&u.CustomCharsets,
 		&u.RetryBudgetRemaining,
