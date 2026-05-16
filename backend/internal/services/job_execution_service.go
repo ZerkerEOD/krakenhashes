@@ -24,26 +24,26 @@ import (
 
 // JobExecutionService handles job execution orchestration
 type JobExecutionService struct {
-	db                 *db.DB // Store db connection for notification service
-	jobExecRepo        *repository.JobExecutionRepository
-	jobTaskRepo        *repository.JobTaskRepository
-	jobIncrementLayerRepo *repository.JobIncrementLayerRepository
+	db                       *db.DB // Store db connection for notification service
+	jobExecRepo              *repository.JobExecutionRepository
+	jobTaskRepo              *repository.JobTaskRepository
+	jobIncrementLayerRepo    *repository.JobIncrementLayerRepository
 	presetIncrementLayerRepo *repository.PresetIncrementLayerRepository
-	benchmarkRepo      *repository.BenchmarkRepository
-	agentHashlistRepo  *repository.AgentHashlistRepository
-	agentRepo          *repository.AgentRepository
-	deviceRepo         *repository.AgentDeviceRepository
-	presetJobRepo      repository.PresetJobRepository
-	hashlistRepo       *repository.HashListRepository
-	hashTypeRepo       *repository.HashTypeRepository
-	systemSettingsRepo *repository.SystemSettingsRepository
-	fileRepo           *repository.FileRepository
-	scheduleRepo       *repository.AgentScheduleRepository
-	binaryManager      binary.Manager
-	ruleSplitManager   *RuleSplitManager
-	assocWordlistRepo  *repository.AssociationWordlistRepository
-	clientWordlistRepo *repository.ClientWordlistRepository
-	clientPotfileRepo  *repository.ClientPotfileRepository
+	benchmarkRepo            *repository.BenchmarkRepository
+	agentHashlistRepo        *repository.AgentHashlistRepository
+	agentRepo                *repository.AgentRepository
+	deviceRepo               *repository.AgentDeviceRepository
+	presetJobRepo            repository.PresetJobRepository
+	hashlistRepo             *repository.HashListRepository
+	hashTypeRepo             *repository.HashTypeRepository
+	systemSettingsRepo       *repository.SystemSettingsRepository
+	fileRepo                 *repository.FileRepository
+	scheduleRepo             *repository.AgentScheduleRepository
+	binaryManager            binary.Manager
+	ruleSplitManager         *RuleSplitManager
+	assocWordlistRepo        *repository.AssociationWordlistRepository
+	clientWordlistRepo       *repository.ClientWordlistRepository
+	clientPotfileRepo        *repository.ClientPotfileRepository
 
 	// Configuration paths
 	hashcatBinaryPath string
@@ -391,11 +391,11 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 			if int(actualRuleCount) >= minRules {
 				useRuleSplitting = true
 				debug.Log("Rule splitting enabled at preset job creation", map[string]interface{}{
-					"preset_job_id":          presetJobID,
-					"actual_rule_count":      actualRuleCount,
-					"multiplication_factor":  multiplicationFactor,
-					"min_rules":              minRules,
-					"is_accurate_keyspace":   isAccurateKeyspace,
+					"preset_job_id":         presetJobID,
+					"actual_rule_count":     actualRuleCount,
+					"multiplication_factor": multiplicationFactor,
+					"min_rules":             minRules,
+					"is_accurate_keyspace":  isAccurateKeyspace,
 				})
 			}
 		}
@@ -428,10 +428,10 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		ChunkSizeSeconds:          presetJob.ChunkSizeSeconds,
 		StatusUpdatesEnabled:      presetJob.StatusUpdatesEnabled,
 		AllowHighPriorityOverride: presetJob.AllowHighPriorityOverride,
-		BinaryVersion:           presetJob.BinaryVersion,
+		BinaryVersion:             presetJob.BinaryVersion,
 		Mask:                      presetJob.Mask,
 		CustomCharsets:            presetJob.CustomCharsets,
-		CustomCharsetFiles:       presetJob.CustomCharsetFiles,
+		CustomCharsetFiles:        presetJob.CustomCharsetFiles,
 		HexCharset:                presetJob.HexCharset,
 		AdditionalArgs:            presetJob.AdditionalArgs,
 		IncrementMode:             presetJob.IncrementMode,
@@ -493,6 +493,12 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		"multiplication_factor": jobExecution.MultiplicationFactor,
 	})
 
+	// Phase E hook: create scheduling_units rows when SCHEDULER_V2_ENABLED.
+	// No-op otherwise. Failure leaves the job as legacy-owned (the legacy
+	// GetJobsWithPendingWork picks it up via NOT EXISTS), so a v2 wiring
+	// bug doesn't take down job creation.
+	s.populateSchedulingUnitsIfEnabled(ctx, jobExecution)
+
 	return jobExecution, nil
 }
 
@@ -544,10 +550,10 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		RuleIDs:                   config.RuleIDs,
 		AttackMode:                config.AttackMode,
 		HashType:                  hashlist.HashTypeID,
-		BinaryVersion:           config.BinaryVersion,
+		BinaryVersion:             config.BinaryVersion,
 		Mask:                      config.Mask,
 		CustomCharsets:            config.CustomCharsets,
-		CustomCharsetFiles:       config.CustomCharsetFiles,
+		CustomCharsetFiles:        config.CustomCharsetFiles,
 		HexCharset:                config.HexCharset,
 		Priority:                  config.Priority,
 		MaxAgents:                 config.MaxAgents,
@@ -676,10 +682,10 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		ChunkSizeSeconds:          chunkSize,
 		StatusUpdatesEnabled:      true,
 		AllowHighPriorityOverride: config.AllowHighPriorityOverride,
-		BinaryVersion:           config.BinaryVersion,
+		BinaryVersion:             config.BinaryVersion,
 		Mask:                      config.Mask,
 		CustomCharsets:            config.CustomCharsets,
-		CustomCharsetFiles:       config.CustomCharsetFiles,
+		CustomCharsetFiles:        config.CustomCharsetFiles,
 		HexCharset:                config.HexCharset,
 		AdditionalArgs:            config.AdditionalArgs,
 		IncrementMode:             config.IncrementMode,
@@ -732,6 +738,9 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		"multiplication_factor": jobExecution.MultiplicationFactor,
 	})
 
+	// Phase E hook — same as CreateJobExecution; see comment there.
+	s.populateSchedulingUnitsIfEnabled(ctx, jobExecution)
+
 	return jobExecution, nil
 }
 
@@ -741,11 +750,11 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 // Otherwise, effectiveKeyspace will be an estimate and isAccurateKeyspace=false
 func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *models.PresetJob, hashlist *models.HashList) (*int64, *int64, bool, error) {
 	debug.Log("Starting keyspace calculation for job execution", map[string]interface{}{
-		"preset_job_id":     presetJob.ID,
-		"binary_version":    presetJob.BinaryVersion,
-		"attack_mode":       presetJob.AttackMode,
-		"hashlist_id":       hashlist.ID,
-		"data_directory":    s.dataDirectory,
+		"preset_job_id":  presetJob.ID,
+		"binary_version": presetJob.BinaryVersion,
+		"attack_mode":    presetJob.AttackMode,
+		"hashlist_id":    hashlist.ID,
+		"data_directory": s.dataDirectory,
 	})
 
 	// Resolve binary version pattern to actual binary ID
@@ -1046,10 +1055,10 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 		effectiveKeyspacePtr = &estimatedEffective
 
 		debug.Log("Using estimated effective keyspace (--total-candidates failed or unavailable)", map[string]interface{}{
-			"hashlist_id":       hashlist.ID,
-			"base_keyspace":     keyspace,
+			"hashlist_id":         hashlist.ID,
+			"base_keyspace":       keyspace,
 			"estimated_effective": estimatedEffective,
-			"rule_count":        len(presetJob.RuleIDs),
+			"rule_count":          len(presetJob.RuleIDs),
 		})
 	}
 
@@ -1270,10 +1279,10 @@ func (s *JobExecutionService) calculateEffectiveKeyspace(ctx context.Context, jo
 	attackMode := s.parseAttackMode(presetJob)
 
 	debug.Log("Calculating effective keyspace", map[string]interface{}{
-		"job_id":        job.ID,
-		"base_keyspace": baseKeyspace,
-		"attack_mode":   attackMode,
-		"rule_ids":      presetJob.RuleIDs,
+		"job_id":         job.ID,
+		"base_keyspace":  baseKeyspace,
+		"attack_mode":    attackMode,
+		"rule_ids":       presetJob.RuleIDs,
 		"data_directory": s.dataDirectory,
 	})
 
@@ -1588,7 +1597,7 @@ func (s *JobExecutionService) GetAvailableAgents(ctx context.Context) ([]models.
 				if err != nil {
 					// Invalid task ID, clear stale busy status
 					debug.Log("Clearing stale busy status with invalid task ID in GetAvailableAgents", map[string]interface{}{
-						"agent_id":      agent.ID,
+						"agent_id":     agent.ID,
 						"invalid_task": taskIDStr,
 					})
 					agent.Metadata["busy_status"] = "false"
@@ -1629,10 +1638,10 @@ func (s *JobExecutionService) GetAvailableAgents(ctx context.Context) ([]models.
 						debug.Warning("Clearing stale busy status - task in terminal state %s (GH Issue #12 recovery)",
 							task.Status)
 						debug.Log("Agent busy status recovery", map[string]interface{}{
-							"agent_id":     agent.ID,
-							"task_id":      taskIDStr,
-							"task_status":  task.Status,
-							"reason":       "task_in_terminal_state",
+							"agent_id":    agent.ID,
+							"task_id":     taskIDStr,
+							"task_status": task.Status,
+							"reason":      "task_in_terminal_state",
 						})
 						agent.Metadata["busy_status"] = "false"
 						delete(agent.Metadata, "current_task_id")
@@ -1641,9 +1650,9 @@ func (s *JobExecutionService) GetAvailableAgents(ctx context.Context) ([]models.
 					} else if task.Status != models.JobTaskStatusRunning && task.Status != models.JobTaskStatusAssigned {
 						// Task in unexpected state
 						debug.Log("Clearing stale busy status - task in unexpected state", map[string]interface{}{
-							"agent_id":     agent.ID,
+							"agent_id":      agent.ID,
 							"stale_task_id": taskIDStr,
-							"task_status":  task.Status,
+							"task_status":   task.Status,
 						})
 						agent.Metadata["busy_status"] = "false"
 						delete(agent.Metadata, "current_task_id")
@@ -1731,7 +1740,7 @@ func (s *JobExecutionService) GetAvailableAgents(ctx context.Context) ([]models.
 						}
 					}
 				}
-				
+
 				availableAgents = append(availableAgents, agent)
 			} else {
 				debug.Log("Agent has no enabled devices, skipping", map[string]interface{}{
@@ -1768,10 +1777,10 @@ func (s *JobExecutionService) CreateJobTask(ctx context.Context, jobExecution *m
 		effectiveEnd = *jobExecution.BaseKeyspace * jobExecution.MultiplicationFactor
 
 		debug.Log("Non-split task with rules - estimated effective keyspace", map[string]interface{}{
-			"job_id":              jobExecution.ID,
-			"base_keyspace":       *jobExecution.BaseKeyspace,
+			"job_id":                jobExecution.ID,
+			"base_keyspace":         *jobExecution.BaseKeyspace,
 			"multiplication_factor": jobExecution.MultiplicationFactor,
-			"estimated_effective": effectiveEnd,
+			"estimated_effective":   effectiveEnd,
 		})
 	} else {
 		// No rules: effective = base keyspace range
@@ -1786,7 +1795,7 @@ func (s *JobExecutionService) CreateJobTask(ctx context.Context, jobExecution *m
 	}
 
 	// Data integrity check: validate that task's effective keyspace doesn't exceed job total (with 10% tolerance for estimates)
-	if jobExecution.EffectiveKeyspace != nil && effectiveEnd > (*jobExecution.EffectiveKeyspace + (*jobExecution.EffectiveKeyspace / 10)) {
+	if jobExecution.EffectiveKeyspace != nil && effectiveEnd > (*jobExecution.EffectiveKeyspace+(*jobExecution.EffectiveKeyspace/10)) {
 		debug.Warning("Task effective_keyspace_end exceeds job total (with tolerance): job_id=%s, task_effective_end=%d, job_effective_total=%d",
 			jobExecution.ID, effectiveEnd, *jobExecution.EffectiveKeyspace)
 	}
@@ -1825,13 +1834,13 @@ func (s *JobExecutionService) CreateJobTask(ctx context.Context, jobExecution *m
 	})
 
 	debug.Log("Job task created", map[string]interface{}{
-		"task_id":               jobTask.ID,
-		"agent_id":              agent.ID,
-		"keyspace_start":        keyspaceStart,
-		"keyspace_end":          keyspaceEnd,
-		"chunk_duration":        chunkDuration,
-		"base_chunk_size":       baseChunkSize,
-		"effective_chunk_size":  effectiveChunkSize,
+		"task_id":              jobTask.ID,
+		"agent_id":             agent.ID,
+		"keyspace_start":       keyspaceStart,
+		"keyspace_end":         keyspaceEnd,
+		"chunk_duration":       chunkDuration,
+		"base_chunk_size":      baseChunkSize,
+		"effective_chunk_size": effectiveChunkSize,
 	})
 
 	return jobTask, nil
@@ -2056,7 +2065,7 @@ func (s *JobExecutionService) dispatchJobCompletedNotification(ctx context.Conte
 			"duration":         duration,
 			"cracked_count":    crackedCount,
 			"total_hashes":     totalHashes,
-			"hashes_processed": totalHashes, // Template uses {{ .HashesProcessed }}
+			"hashes_processed": totalHashes,                      // Template uses {{ .HashesProcessed }}
 			"success_rate":     fmt.Sprintf("%.1f", successRate), // No % - template adds it
 		},
 		SourceType: "job",
@@ -2352,9 +2361,9 @@ func (s *JobExecutionService) UpdateTaskProgress(ctx context.Context, taskID uui
 		if effectiveProgress >= *task.EffectiveKeyspaceStart {
 			effectiveKeyspaceProcessed = effectiveProgress - *task.EffectiveKeyspaceStart
 			debug.Log("Converted absolute to relative effective keyspace for keysplit task", map[string]interface{}{
-				"task_id":                   taskID,
-				"effective_progress_raw":   effectiveProgress,
-				"effective_keyspace_start": *task.EffectiveKeyspaceStart,
+				"task_id":                      taskID,
+				"effective_progress_raw":       effectiveProgress,
+				"effective_keyspace_start":     *task.EffectiveKeyspaceStart,
 				"effective_keyspace_processed": effectiveKeyspaceProcessed,
 			})
 		}
@@ -2476,10 +2485,10 @@ func (s *JobExecutionService) InterruptJob(ctx context.Context, jobExecutionID, 
 	}
 
 	debug.Log("Job interrupted", map[string]interface{}{
-		"job_execution_id":      jobExecutionID,
-		"interrupting_job_id":   interruptingJobID,
-		"selective_interrupt":   selectiveInterrupt,
-		"tasks_to_interrupt":    len(taskIDsToInterrupt),
+		"job_execution_id":    jobExecutionID,
+		"interrupting_job_id": interruptingJobID,
+		"selective_interrupt": selectiveInterrupt,
+		"tasks_to_interrupt":  len(taskIDsToInterrupt),
 	})
 
 	return nil
@@ -3080,10 +3089,10 @@ func (s *JobExecutionService) createJobTasksWithRuleSplitting(ctx context.Contex
 	}
 
 	debug.Log("Enabled rule splitting for job", map[string]interface{}{
-		"job_id":          job.ID,
-		"total_rules":     decision.TotalRules,
-		"rule_file":       decision.RuleFileToSplit,
-		"uses_splitting":  true,
+		"job_id":         job.ID,
+		"total_rules":    decision.TotalRules,
+		"rule_file":      decision.RuleFileToSplit,
+		"uses_splitting": true,
 	})
 
 	// Tasks will be created dynamically by the scheduler as agents become available
@@ -3316,10 +3325,10 @@ func (s *JobExecutionService) HandleTaskCompletion(ctx context.Context, taskID u
 	}
 
 	debug.Log("Retrieved task for completion handling", map[string]interface{}{
-		"task_id":             taskID,
-		"increment_layer_id":  task.IncrementLayerID,
-		"status":              task.Status,
-		"job_execution_id":    task.JobExecutionID,
+		"task_id":            taskID,
+		"increment_layer_id": task.IncrementLayerID,
+		"status":             task.Status,
+		"job_execution_id":   task.JobExecutionID,
 	})
 
 	// Self-heal the cached benchmark from this task's observed speed so a
@@ -3615,17 +3624,17 @@ func (s *JobExecutionService) DetermineBinaryForTask(ctx context.Context, agentI
 // completion.
 //
 // Guardrails:
-//  - Task must have an assigned agent and a wall time >= 30s.
-//  - We derive the observation from task.AverageSpeed when hashcat reported it;
-//    otherwise compute from effective keyspace / wall_time / avg_rule_multiplier.
-//  - Skip salted hash types: agent_benchmarks is keyed on salt_count which is
-//    not recorded on the task, so updating would risk overwriting the wrong
-//    cache row. Salted-hash EMA is a future enhancement.
-//  - Skip if observed speed is >10x or <0.1x of the cached speed — that
-//    indicates a bug or a very short sample, not drift; the huge delta would
-//    poison the cache.
-//  - Skip rule-splitting tasks until avg_rule_multiplier is known, otherwise
-//    the raw observation would be biased by the split boundary.
+//   - Task must have an assigned agent and a wall time >= 30s.
+//   - We derive the observation from task.AverageSpeed when hashcat reported it;
+//     otherwise compute from effective keyspace / wall_time / avg_rule_multiplier.
+//   - Skip salted hash types: agent_benchmarks is keyed on salt_count which is
+//     not recorded on the task, so updating would risk overwriting the wrong
+//     cache row. Salted-hash EMA is a future enhancement.
+//   - Skip if observed speed is >10x or <0.1x of the cached speed — that
+//     indicates a bug or a very short sample, not drift; the huge delta would
+//     poison the cache.
+//   - Skip rule-splitting tasks until avg_rule_multiplier is known, otherwise
+//     the raw observation would be biased by the split boundary.
 func (s *JobExecutionService) updateBenchmarkFromTaskCompletion(
 	ctx context.Context,
 	task *models.JobTask,

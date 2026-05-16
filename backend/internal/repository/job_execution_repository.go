@@ -531,21 +531,21 @@ func (r *JobExecutionRepository) UpdateEmailStatus(ctx context.Context, id uuid.
 			completion_email_error = $4,
 			updated_at = NOW()
 		WHERE id = $1`
-		
+
 	result, err := r.db.ExecContext(ctx, query, id, sent, sentAt, errorMsg)
 	if err != nil {
 		return fmt.Errorf("failed to update email status: %w", err)
 	}
-	
+
 	rows, err := result.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("failed to get rows affected: %w", err)
 	}
-	
+
 	if rows == 0 {
 		return fmt.Errorf("job execution not found: %s", id)
 	}
-	
+
 	return nil
 }
 
@@ -653,7 +653,7 @@ func (r *JobExecutionRepository) UpdateDispatchedKeyspace(ctx context.Context, i
 		SET dispatched_keyspace = $1,
 		    updated_at = CURRENT_TIMESTAMP
 		WHERE id = $2`
-	
+
 	result, err := r.db.ExecContext(ctx, query, dispatchedKeyspace, id)
 	if err != nil {
 		return fmt.Errorf("failed to update job execution dispatched keyspace: %w", err)
@@ -707,6 +707,10 @@ func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]
 		FROM job_executions je
 		LEFT JOIN job_stats js ON je.id = js.id
 		WHERE je.status IN ('pending', 'running')
+			-- Exclude jobs owned by scheduler-v2 (those that have
+			-- scheduling_units rows pointing at them). The new
+			-- scheduler dispatches those via its own cycle.
+			AND NOT EXISTS (SELECT 1 FROM scheduling_units WHERE parent_job_id = je.id)
 			AND (
 				-- Job has no tasks yet (new job)
 				(NOT EXISTS (SELECT 1 FROM job_tasks WHERE job_execution_id = je.id))
@@ -870,7 +874,6 @@ func (r *JobExecutionRepository) SetCrackingCompleted(ctx context.Context, id uu
 
 	return nil
 }
-
 
 // GetPotentiallyStuckJobs finds jobs that may be stuck: in pending/running status with no active tasks
 // and haven't been updated in minMinutes. These are candidates for structural completion checks.
