@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
@@ -25,13 +24,16 @@ import (
 // the v2 unit never lands, and the legacy scheduler will pick up the
 // job by default. Better to leave the job runnable on legacy than to
 // fail job creation entirely on a v2 wiring bug.
+// populateSchedulingUnitsIfEnabled retains its name for historical
+// continuity but post-Phase-F.1 (soft cutover) it always runs — the
+// SCHEDULER_V2_ENABLED env gate is gone. Every new job_execution gets
+// scheduling_units; the legacy scheduler is no longer started, so the
+// NOT EXISTS clause in GetJobsWithPendingWork is a belt-and-suspenders
+// guard for any leftover code paths that might invoke the legacy
+// query directly (admin diagnostics, etc.).
 func (s *JobExecutionService) populateSchedulingUnitsIfEnabled(ctx context.Context, jobExec *models.JobExecution) {
-	if os.Getenv("SCHEDULER_V2_ENABLED") != "true" {
-		return
-	}
-
 	if err := s.populateSchedulingUnits(ctx, jobExec); err != nil {
-		debug.Warning("scheduler-v2: populateSchedulingUnits for job %s failed: %v — job remains legacy-owned",
+		debug.Warning("scheduler-v2: populateSchedulingUnits for job %s failed: %v",
 			jobExec.ID, err)
 	}
 }

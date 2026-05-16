@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary"
@@ -115,25 +114,24 @@ func NewJobIntegrationManager(
 		wsHandler:            wsHandler,
 	}
 
-	// Construct (but do not start) the scheduler-v2 runners when the
-	// env gate is on. Start happens in StartScheduler so lifecycle
-	// stays in one place. The legacy scheduler keeps running
-	// regardless of this flag — both can coexist until the cutover.
-	if os.Getenv("SCHEDULER_V2_ENABLED") == "true" {
-		database := &khdb.DB{DB: db}
-		unitRepo := repository.NewSchedulingUnitRepository(database)
-		intervalRepo := repository.NewKeyspaceIntervalRepository(database)
-		mgr.compatCache = scheduler.NewCompatCache(database)
-		// jobExecutionService satisfies scheduler.BinaryResolver
-		// structurally — it has DetermineBinaryForTask. Pass it as
-		// the resolver so sendAssignment can populate BinaryPath
-		// without the scheduler package importing services
-		// (which would be a circular dependency).
-		cycle := scheduler.NewCycle(database, unitRepo, intervalRepo, systemSettingsRepo, wsHandler, jobExecutionService, mgr.compatCache)
-		mgr.schedulerV2Runner = scheduler.NewRunner(cycle, 3*time.Second)
-		mgr.sweeperRunner = scheduler.NewSweeperRunner(database, systemSettingsRepo, 10*time.Second)
-		debug.Info("SCHEDULER_V2_ENABLED=true: constructed scheduler-v2 runners (start deferred)")
-	}
+	// Soft cutover (Phase F.1): scheduler-v2 is always on. The
+	// SCHEDULER_V2_ENABLED env gate is gone. The legacy scheduler
+	// remains in the binary but is NOT started in StartScheduler
+	// below — it's inert dead weight until the hard cutover follow-up
+	// drops it from the tree.
+	database := &khdb.DB{DB: db}
+	unitRepo := repository.NewSchedulingUnitRepository(database)
+	intervalRepo := repository.NewKeyspaceIntervalRepository(database)
+	mgr.compatCache = scheduler.NewCompatCache(database)
+	// jobExecutionService satisfies scheduler.BinaryResolver
+	// structurally — it has DetermineBinaryForTask. Pass it as
+	// the resolver so sendAssignment can populate BinaryPath
+	// without the scheduler package importing services
+	// (which would be a circular dependency).
+	cycle := scheduler.NewCycle(database, unitRepo, intervalRepo, systemSettingsRepo, wsHandler, jobExecutionService, mgr.compatCache)
+	mgr.schedulerV2Runner = scheduler.NewRunner(cycle, 3*time.Second)
+	mgr.sweeperRunner = scheduler.NewSweeperRunner(database, systemSettingsRepo, 10*time.Second)
+	debug.Info("scheduler-v2: runners constructed (start deferred)")
 
 	return mgr
 }
@@ -219,19 +217,20 @@ func (m *JobIntegrationManager) GetWebSocketIntegration() *JobWebSocketIntegrati
 
 // StartScheduler starts the job scheduling service.
 //
-// The legacy scheduler always starts. The scheduler-v2 runners start
-// only when SCHEDULER_V2_ENABLED=true at process startup (the gate
-// was already checked in the constructor; here we just start what's
-// been constructed). Both can run side-by-side during the cutover
-// window — scheduler-v2 only touches rows tagged with
-// scheduling_unit_id, so the two paths don't fight over the same
-// tasks until the cutover migration removes the legacy path entirely.
+// Soft cutover (Phase F.1): only scheduler-v2 ticks. The legacy
+// scheduler is no longer started — it remains in the binary as inert
+// code, ready for the hard-cutover follow-up to delete it along with
+// its dependent columns. The legacy GetJobsWithPendingWork query and
+// the rest of job_scheduling_service still compile and could be
+// invoked manually for diagnostics if needed; they just don't run on
+// the 3-second tick.
 func (m *JobIntegrationManager) StartScheduler(ctx context.Context) {
-	debug.Log("Starting job scheduler", nil)
-	// Start legacy scheduler with 3 second interval
-	go m.jobSchedulingService.StartScheduler(ctx, 3*time.Second)
+	debug.Log("Starting job scheduler (v2-only)", nil)
 
-	// Start scheduler-v2 runners if they were constructed.
+	// Legacy scheduler intentionally not started here. See the
+	// soft-cutover comment in NewJobIntegrationManager.
+	_ = m.jobSchedulingService // referenced to keep the import; not invoked
+
 	if m.schedulerV2Runner != nil {
 		m.schedulerV2Runner.Start(ctx)
 	}
