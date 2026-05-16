@@ -144,6 +144,33 @@ func (c *Cycle) RunOnce(ctx context.Context) (CycleResult, error) {
 		}
 	}
 
+	// Step 3.5: benchmark phase. For each idle agent that lacks a
+	// cached benchmark for some pending unit's combo, fire a
+	// benchmark request. Fire-and-forget — the result lands in
+	// agent_benchmarks via the existing HandleBenchmarkResult
+	// handler. Agents currently running benchmarks are excluded
+	// from this cycle's allocation; they're picked up next cycle
+	// with the freshly-cached speed.
+	agentIDs := make([]int, 0, len(agentInfos))
+	for _, a := range agentInfos {
+		agentIDs = append(agentIDs, a.ID)
+	}
+	bgaps, bErr := IdentifyMissingBenchmarks(ctx, c.db, units, agentIDs, compatFn)
+	if bErr != nil {
+		res.Errors = append(res.Errors, fmt.Errorf("cycle: identify benchmarks: %w", bErr))
+	}
+	busyAgents, bdErrs := DispatchBenchmarks(ctx, c.db, c.wsSender, c.binaryResolver, bgaps, unitsByID)
+	res.Errors = append(res.Errors, bdErrs...)
+	if len(busyAgents) > 0 {
+		filtered := make([]AgentInfo, 0, len(agentInfos))
+		for _, a := range agentInfos {
+			if !busyAgents[a.ID] {
+				filtered = append(filtered, a)
+			}
+		}
+		agentInfos = filtered
+	}
+
 	// Step 4: allocate.
 	mode := c.readOverflowMode(ctx)
 	allocations := AllocateAgentsByPriority(unitInfos, agentInfos, mode, compatFn)
