@@ -168,7 +168,44 @@ func (c *Cycle) RunOnce(ctx context.Context) (CycleResult, error) {
 		}
 	}
 
+	// Step 7: preemption. If any schedulable units got zero
+	// allocations this cycle, look for compatible lower-priority
+	// running tasks we can stop to free agents for them. The
+	// preempted tasks become gaps via the existing graceful-
+	// shutdown -> RecoverTaskByID flow, and the freed agents are
+	// picked up in the next cycle.
+	starving := computeStarvingUnits(unitInfos, allocations)
+	if len(starving) > 0 {
+		preempted, perrs := FindAndPreempt(ctx, c.db, c.wsSender, starving, compatFn)
+		res.Errors = append(res.Errors, perrs...)
+		if len(preempted) > 0 {
+			debug.Info("scheduler-v2: issued %d preemption(s)", len(preempted))
+		}
+	}
+
 	return res, nil
+}
+
+// computeStarvingUnits returns the schedulable units (from the
+// allocator's input) that ended up with zero allocations this cycle.
+// Only those at non-zero priority are eligible — priority-0 jobs
+// never preempt anything (and at the bottom of the queue there's
+// nothing lower to preempt anyway).
+func computeStarvingUnits(units []UnitInfo, allocations []Allocation) []UnitInfo {
+	allocated := map[uuid.UUID]bool{}
+	for _, a := range allocations {
+		allocated[a.UnitID] = true
+	}
+	var starving []UnitInfo
+	for _, u := range units {
+		if u.Priority <= 0 {
+			continue
+		}
+		if !allocated[u.ID] {
+			starving = append(starving, u)
+		}
+	}
+	return starving
 }
 
 // buildUnitInfos converts SchedulingUnit rows into the allocator's
