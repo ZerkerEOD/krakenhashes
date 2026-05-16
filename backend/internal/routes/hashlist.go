@@ -48,12 +48,14 @@ type hashlistHandler struct {
 	fileRepo                    *repository.FileRepository
 	clientSettingsRepo          *repository.ClientSettingsRepository
 	systemSettingsRepo          *repository.SystemSettingsRepository
+	invalidHashRepo             *repository.InvalidHashRepository
 	deletionProgressService     *services.DeletionProgressService
 	processingProgressService   *services.ProcessingProgressService
 	associationWordlistManager  *services.AssociationWordlistManager
 	clientWordlistManager       *services.ClientWordlistManager
 	clientPotfileService        *services.ClientPotfileService
 	potfileService              *services.PotfileService
+	validationService           *services.HashlistValidationService
 	dataDir                     string // Base directory for storing hashlist files
 	cfg                         *config.Config
 	agentService                *services.AgentService
@@ -106,6 +108,12 @@ func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, ag
 	// Create processor with progress service
 	proc := processor.NewHashlistDBProcessor(hashlistRepo, hashTypeRepo, hashRepo, systemSettingsRepo, cfg, processingProgressSvc)
 
+	// Wire the invalid-hash repo so the processor skips lines flagged at
+	// upload time (GitHub issue #38). Repository constructed here so it can
+	// also be wired into the handler below.
+	invalidHashRepoEarly := repository.NewInvalidHashRepository(database)
+	proc.SetInvalidHashRepo(invalidHashRepoEarly)
+
 	// Wire the malformed-hashlist notifier so parse failures emit a
 	// hashlist_malformed notification to the owner + admins.
 	if jobExec := jobsHandler.JobExecutionService(); jobExec != nil {
@@ -132,6 +140,11 @@ func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, ag
 	// Create client team repository for team-based access control
 	clientTeamRepo := repository.NewClientTeamRepository(database)
 
+	// Hash validator wiring (GitHub issue #38). Re-use the repo instance the
+	// processor already received so both sides reference the same singleton.
+	invalidHashRepo := invalidHashRepoEarly
+	validationSvc := services.NewHashlistValidationService(hashlistRepo, invalidHashRepo, hashTypeRepo)
+
 	// Create handler
 	h := &hashlistHandler{
 		db:                         database,
@@ -142,12 +155,14 @@ func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, ag
 		systemSettingsRepo:         systemSettingsRepo,
 		hashRepo:                   hashRepo,
 		fileRepo:                   fileRepo,
+		invalidHashRepo:            invalidHashRepo,
 		deletionProgressService:    deletionProgressSvc,
 		processingProgressService:  processingProgressSvc,
 		associationWordlistManager: assocWordlistManager,
 		clientWordlistManager:      clientWordlistManager,
 		clientPotfileService:       clientPotfileService,
 		potfileService:             potfileService,
+		validationService:          validationSvc,
 		dataDir:                    hashlistDataDir,
 		cfg:                        cfg,
 		agentService:               agentService,
@@ -179,6 +194,11 @@ func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, ag
 	hashlistRouter.HandleFunc("/{id}/client", h.handleUpdateHashlistClient).Methods(http.MethodPatch, http.MethodOptions)
 	hashlistRouter.HandleFunc("/{id}/archive", h.handleArchiveHashlist).Methods(http.MethodPost, http.MethodOptions)
 	hashlistRouter.HandleFunc("/{id}/unarchive", h.handleUnarchiveHashlist).Methods(http.MethodPost, http.MethodOptions)
+
+	// Hash validator workflow endpoints (GitHub issue #38)
+	hashlistRouter.HandleFunc("/{id}/confirm", h.handleConfirmValidation).Methods(http.MethodPost, http.MethodOptions)
+	hashlistRouter.HandleFunc("/{id}/revalidate", h.handleRevalidate).Methods(http.MethodPut, http.MethodOptions)
+	hashlistRouter.HandleFunc("/{id}/invalid-hashes", h.handleListInvalidHashes).Methods(http.MethodGet, http.MethodOptions)
 
 	// Association wordlist routes (for association attacks -a 9)
 	hashlistRouter.HandleFunc("/{id}/association-wordlists", h.handleListAssociationWordlists).Methods(http.MethodGet, http.MethodOptions)
@@ -693,6 +713,56 @@ func (h *hashlistHandler) handleUploadHashlist(w http.ResponseWriter, r *http.Re
 		jsonError(w, "Failed to copy uploaded file data", http.StatusInternalServerError)
 		return
 	}
+	// Force-close so subsequent reads see all written bytes.
+	dst.Close()
+
+	// --- Upload-time hash validation (GitHub issue #38) ---
+	force := parseBoolForm(r.FormValue("force"))
+	outcome, err := h.validationService.ValidateUpload(ctx, hashlist.ID, hashlistPath, hashTypeID)
+	if err != nil {
+		debug.Error("Hash validation failed for hashlist %d: %v", hashlist.ID, err)
+		h.updateHashlistStatus(ctx, hashlist.ID, models.HashListStatusError, "Hash validation failed")
+		os.Remove(hashlistPath)
+		jsonError(w, "Failed to validate hashlist contents", http.StatusInternalServerError)
+		return
+	}
+
+	// If invalid lines were found and the user hasn't pre-approved, pause for
+	// confirmation. The hashlist stays at 'awaiting_validation_decision' until
+	// the user POSTs /hashlists/{id}/confirm with action=proceed|cancel.
+	if outcome.HasValidator && outcome.InvalidCount > 0 && !force {
+		if err := h.hashlistRepo.UpdateStatus(ctx, hashlist.ID, models.HashListStatusAwaitingValidationDecision, ""); err != nil {
+			debug.Error("Failed to mark hashlist %d as awaiting_validation_decision: %v", hashlist.ID, err)
+			os.Remove(hashlistPath)
+			jsonError(w, "Failed to finalize hashlist upload", http.StatusInternalServerError)
+			return
+		}
+		hashlist.Status = models.HashListStatusAwaitingValidationDecision
+		hashlist.InvalidCount = outcome.InvalidCount
+		hashlist.TotalInputLines = outcome.TotalInputLines
+
+		// Mirror the hashlist's standard JSON shape and tack the validation
+		// summary on as sibling fields so existing clients can still read
+		// `response.id` / `response.status` etc.
+		body, err := flattenHashlistResponse(hashlist, map[string]interface{}{
+			"validation_status": "awaiting_decision",
+			"total_input_lines": outcome.TotalInputLines,
+			"valid_count":       outcome.ValidCount,
+			"invalid_count":     outcome.InvalidCount,
+			"truncated":         outcome.Truncated,
+			"sample_invalid":    outcome.InvalidSample,
+			"message":           "Validation found malformed hashes. POST /hashlists/{id}/confirm with action=\"proceed\" to keep the valid hashes, or action=\"cancel\" to delete the upload.",
+		})
+		if err != nil {
+			debug.Error("Failed to encode validation response: %v", err)
+			jsonError(w, "Failed to encode response", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(body)
+		return
+	}
 
 	// --- Update database status and trigger processing ---
 	hashlist.Status = models.HashListStatusProcessing // Ready for background processing
@@ -711,8 +781,35 @@ func (h *hashlistHandler) handleUploadHashlist(w http.ResponseWriter, r *http.Re
 	go h.processor.SubmitHashlistForProcessing(hashlist.ID, hashlistPath)
 	debug.Info("Hashlist %d uploaded successfully, path: %s. Background processing triggered.", hashlist.ID, hashlistPath)
 
-	// Return the initial hashlist record
-	jsonResponse(w, http.StatusAccepted, hashlist) // Use 202 Accepted as processing is happening
+	// Return the initial hashlist record alongside a non-blocking notice when
+	// the hash type had no validator coverage. Body matches the historical
+	// shape (top-level hashlist fields) plus an optional validation_notice.
+	if !outcome.HasValidator {
+		body, encErr := flattenHashlistResponse(hashlist, map[string]interface{}{
+			"validation_notice": outcome.Notice,
+		})
+		if encErr != nil {
+			debug.Error("Failed to encode upload response with notice: %v", encErr)
+			jsonError(w, "Failed to encode response", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = w.Write(body)
+		return
+	}
+	jsonResponse(w, http.StatusAccepted, hashlist)
+}
+
+// parseBoolForm interprets a multipart form field as a boolean. Defaults to
+// false if the field is missing or unparseable.
+func parseBoolForm(s string) bool {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "true", "1", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 // handleLinkedHashlistUpload creates two linked hashlists (LM and NTLM) from a single pwdump file
@@ -1104,6 +1201,10 @@ func (h *hashlistHandler) handleGetHashlist(w http.ResponseWriter, r *http.Reque
 		"client_remove_from_client_on_delete":           hashlist.ClientRemoveFromClientOnDelete,
 		"can_remove_from_global_potfile":                hashlist.CanRemoveFromGlobalPotfile,
 		"can_remove_from_client_potfile":                hashlist.CanRemoveFromClientPotfile,
+		// Validator workflow (GitHub issue #38)
+		"invalid_count":     hashlist.InvalidCount,
+		"total_input_lines": hashlist.TotalInputLines,
+		"validation_notice": pointerString(hashlist.ValidationNotice),
 		"createdAt":                     hashlist.CreatedAt,
 		"updatedAt":                     hashlist.UpdatedAt,
 	}
@@ -2546,6 +2647,21 @@ func (h *hashlistHandler) handleUploadAssociationWordlist(w http.ResponseWriter,
 	// Upload and validate via the manager
 	result, err := h.associationWordlistManager.Upload(ctx, hashlistID, header.Filename, tempPath)
 	if err != nil {
+		// Line-count mismatch is a hard reject — return a structured 422 so
+		// the frontend can show a precise error (GitHub issue #38).
+		var lcm *services.LineCountMismatchError
+		if errors.As(err, &lcm) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"error":          "line_count_mismatch",
+				"message":        fmt.Sprintf("Wordlist has %d lines but the hashlist has %d valid hashes. Either re-upload a matching wordlist, or fix the hashlist.", lcm.WordlistLines, lcm.HashlistLines),
+				"hashlist_id":    lcm.HashlistID,
+				"wordlist_lines": lcm.WordlistLines,
+				"hashlist_lines": lcm.HashlistLines,
+			})
+			return
+		}
 		debug.Error("Failed to upload association wordlist: %v", err)
 		jsonError(w, fmt.Sprintf("Failed to upload wordlist: %v", err), http.StatusInternalServerError)
 		return

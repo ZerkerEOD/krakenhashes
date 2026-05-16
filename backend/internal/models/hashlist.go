@@ -9,12 +9,14 @@ import (
 
 // HashListStatus represents the processing status of a hashlist.
 const (
-	HashListStatusUploading       = "uploading"  // Initial state upon upload start
-	HashListStatusProcessing      = "processing" // State while hashes are being processed and added to DB
-	HashListStatusReady           = "ready"      // State when processing is complete and list is usable
-	HashListStatusError           = "error"      // State if an error occurred during processing
-	HashListStatusDeleting        = "deleting"
-	HashListStatusReadyWithErrors = "ready_with_errors" // Processing finished, but some lines had errors
+	HashListStatusUploading                  = "uploading"  // Initial state upon upload start
+	HashListStatusProcessing                 = "processing" // State while hashes are being processed and added to DB
+	HashListStatusReady                      = "ready"      // State when processing is complete and list is usable
+	HashListStatusError                      = "error"      // State if an error occurred during processing
+	HashListStatusDeleting                   = "deleting"
+	HashListStatusReadyWithErrors            = "ready_with_errors"            // Processing finished, but some lines had errors
+	HashListStatusAwaitingValidationDecision = "awaiting_validation_decision" // Validation found invalid lines; awaiting user confirm/cancel
+	HashListStatusCancelled                  = "cancelled"                    // User cancelled the upload after validation preview
 )
 
 // HashList represents a collection of hashes uploaded by a user.
@@ -33,6 +35,12 @@ type HashList struct {
 	ExcludeFromClientPotfile  bool           `json:"exclude_from_client_potfile"`      // Flag to exclude cracked passwords from client potfile
 	OriginalFilePath          *string        `json:"original_file_path,omitempty"`     // Path to original uploaded file for association attacks
 	HasMixedWorkFactors bool           `json:"has_mixed_work_factors"`         // Warning flag if hashes have different work factors
+
+	// Validator workflow (GitHub issue #38)
+	InvalidCount     int     `json:"invalid_count"`               // Lines that failed validation at upload
+	TotalInputLines  int     `json:"total_input_lines"`           // Lines read from the source file (pre-filter)
+	ValidationNotice *string `json:"validation_notice,omitempty"` // Non-blocking notice when no validator covered the hash type
+
 	CreatedAt           time.Time      `json:"createdAt"`                      // Timestamp of creation - Use camelCase
 	UpdatedAt           time.Time      `json:"updatedAt"`                      // Timestamp of last update - Use camelCase
 	ArchivedAt          *time.Time     `json:"archived_at,omitempty"`          // When the hashlist was archived (NULL = active)
@@ -156,6 +164,19 @@ type LinkedHashlistCreationRequest struct {
 	CreateLinked       bool      `json:"create_linked"`       // Whether to create linked hashlists
 	LMHashlistName     string    `json:"lm_hashlist_name"`   // Optional custom name for LM hashlist
 	NTLMHashlistName   string    `json:"ntlm_hashlist_name"` // Optional custom name for NTLM hashlist
+}
+
+// InvalidHash is a line from a hashlist upload that failed validation. Stored
+// in the invalid_hashes table; surfaced to the user via the validation
+// preview dialog and consumed by the async processor to know which line
+// numbers to skip when committing valid hashes.
+type InvalidHash struct {
+	ID         int64     `json:"id"`
+	HashlistID int64     `json:"hashlist_id"`
+	LineNumber int       `json:"line_number"`
+	Content    string    `json:"content"`
+	Reason     string    `json:"reason"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 // AssociationWordlist represents a wordlist uploaded for association attacks.

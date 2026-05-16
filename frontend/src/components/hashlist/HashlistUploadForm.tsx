@@ -24,6 +24,7 @@ import {
 import { Clear as ClearIcon } from '@mui/icons-material';
 import ClientAutocomplete, { NewClientData } from './ClientAutocomplete';
 import HashTypeSelect from './HashTypeSelect';
+import ValidationPreviewDialog, { ValidationInvalidEntry } from './ValidationPreviewDialog';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -90,6 +91,20 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
   const [createLinked, setCreateLinked] = useState(false);
   const [defaultRetention, setDefaultRetention] = useState<number | null>(null);
   const [newClientData, setNewClientData] = useState<NewClientData | null>(null);
+
+  // Validation preview dialog state (GitHub issue #38). Populated when the
+  // backend pauses the upload at the awaiting_validation_decision state.
+  const [validationPreview, setValidationPreview] = useState<{
+    hashlistId: number;
+    hashlistName: string;
+    currentHashTypeId: number;
+    totalInputLines: number;
+    validCount: number;
+    invalidCount: number;
+    truncated: boolean;
+    initialSample: ValidationInvalidEntry[];
+  } | null>(null);
+
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -315,6 +330,29 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
       });
     },
     onSuccess: (response) => {
+      // Validation paused for user decision (GitHub issue #38). Show the
+      // preview dialog instead of navigating — the user picks proceed/cancel
+      // before the hashlist starts processing.
+      if (response.data?.validation_status === 'awaiting_decision' && response.data?.id) {
+        setValidationPreview({
+          hashlistId: response.data.id,
+          hashlistName: response.data.name || 'Hashlist',
+          currentHashTypeId: response.data.hash_type_id ?? 0,
+          totalInputLines: response.data.total_input_lines ?? 0,
+          validCount: response.data.valid_count ?? 0,
+          invalidCount: response.data.invalid_count ?? 0,
+          truncated: !!response.data.truncated,
+          initialSample: response.data.sample_invalid ?? [],
+        });
+        setUploadProgress(0);
+        return;
+      }
+
+      // Non-blocking notice for hash types with no validator coverage.
+      if (response.data?.validation_notice) {
+        enqueueSnackbar(response.data.validation_notice, { variant: 'info', persist: false });
+      }
+
       // The backend returns the created hashlist data
       const hashlistId = response.data?.id || response.data?.data?.id;
 
@@ -331,8 +369,21 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
       setPastedHashes('');
       setUploadProgress(0);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("Upload failed:", error);
+      const data = error?.response?.data;
+      const status = error?.response?.status;
+      let msg: string;
+      if (data?.error) {
+        msg = data.error;
+      } else if (status) {
+        msg = `Upload failed (HTTP ${status})`;
+      } else if (error?.message) {
+        msg = `Upload failed: ${error.message}`;
+      } else {
+        msg = 'Upload failed (unknown error)';
+      }
+      enqueueSnackbar(msg, { variant: 'error', persist: true });
       setUploadProgress(0);
     }
   });
@@ -640,6 +691,36 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Hash validator preview (GitHub issue #38) */}
+      <ValidationPreviewDialog
+        open={!!validationPreview}
+        hashlistId={validationPreview?.hashlistId ?? null}
+        hashlistName={validationPreview?.hashlistName ?? ''}
+        currentHashTypeId={validationPreview?.currentHashTypeId ?? 0}
+        totalInputLines={validationPreview?.totalInputLines ?? 0}
+        validCount={validationPreview?.validCount ?? 0}
+        invalidCount={validationPreview?.invalidCount ?? 0}
+        truncated={validationPreview?.truncated ?? false}
+        initialSample={validationPreview?.initialSample ?? []}
+        onProceed={() => {
+          const id = validationPreview?.hashlistId;
+          setValidationPreview(null);
+          reset();
+          setFile(null);
+          setPastedHashes('');
+          queryClient.invalidateQueries({ queryKey: ['hashlists'] });
+          if (id) {
+            navigate(`/hashlists/${id}`);
+          } else if (onSuccess) {
+            onSuccess();
+          }
+        }}
+        onCancel={() => {
+          setValidationPreview(null);
+          enqueueSnackbar('Upload cancelled. Fix the file and try again.', { variant: 'info' });
+        }}
+      />
     </Box>
   );
 }

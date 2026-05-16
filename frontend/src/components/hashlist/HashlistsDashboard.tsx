@@ -59,7 +59,7 @@ const allStatuses: HashlistStatus[] = ['uploading', 'processing', 'ready', 'erro
 interface Hashlist {
   id: string;
   name: string;
-  status: 'uploading' | 'processing' | 'ready' | 'error';
+  status: 'uploading' | 'processing' | 'ready' | 'error' | 'ready_with_errors' | 'awaiting_validation_decision' | 'cancelled' | 'deleting';
   total_hashes: number;
   cracked_hashes: number;
   createdAt: string;
@@ -77,6 +77,10 @@ interface Hashlist {
   can_remove_from_client_potfile?: boolean;
   // Archive
   archived_at?: string | null;
+  // Validator workflow (GitHub issue #38)
+  invalid_count?: number;
+  total_input_lines?: number;
+  validation_notice?: string | null;
 }
 
 interface ApiHashlistResponse {
@@ -635,7 +639,9 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
                           label={hashlist.status}
                           color={
                             hashlist.status === 'ready' ? 'success' :
-                            hashlist.status === 'error' ? 'error' :
+                            hashlist.status === 'error' || hashlist.status === 'cancelled' ? 'error' :
+                            hashlist.status === 'awaiting_validation_decision' ? 'warning' :
+                            hashlist.status === 'ready_with_errors' ? 'warning' :
                             'primary'
                           }
                           size="small"
@@ -647,6 +653,27 @@ export default function HashlistsDashboard({ uploadDialogOpen, setUploadDialogOp
                             variant="outlined"
                             color="warning"
                           />
+                        )}
+                        {/* Validator-workflow indicators (GitHub issue #38) */}
+                        {hashlist.validation_notice && (
+                          <Tooltip title={hashlist.validation_notice}>
+                            <Chip
+                              label="unvalidated type"
+                              size="small"
+                              variant="outlined"
+                              color="info"
+                            />
+                          </Tooltip>
+                        )}
+                        {(hashlist.invalid_count ?? 0) > 0 && hashlist.status !== 'awaiting_validation_decision' && (
+                          <Tooltip title={`${hashlist.invalid_count} of ${hashlist.total_input_lines ?? '?'} lines were malformed and skipped`}>
+                            <Chip
+                              label={`${hashlist.invalid_count} skipped`}
+                              size="small"
+                              variant="outlined"
+                              color="warning"
+                            />
+                          </Tooltip>
                         )}
                       </>
                     )}

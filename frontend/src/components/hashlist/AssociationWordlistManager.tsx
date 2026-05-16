@@ -189,7 +189,20 @@ export default function AssociationWordlistManager({
       enqueueSnackbar('Association wordlist uploaded successfully', { variant: 'success' });
       queryClient.invalidateQueries({ queryKey: ['association-wordlists', hashlistId] });
     } catch (error: any) {
-      enqueueSnackbar(error.response?.data?.error || 'Failed to upload wordlist', { variant: 'error' });
+      // 422 line-count mismatch carries a structured payload with the
+      // expected vs. actual counts (GitHub issue #38). Surface that as a
+      // persistent error so the user can act on it.
+      const status = error?.response?.status;
+      const data = error?.response?.data;
+      if (status === 422 && data?.error === 'line_count_mismatch') {
+        enqueueSnackbar(
+          data.message ||
+            `Wordlist has ${data.wordlist_lines} lines but the hashlist has ${data.hashlist_lines} valid hashes.`,
+          { variant: 'error', persist: true },
+        );
+      } else {
+        enqueueSnackbar(data?.error || 'Failed to upload wordlist', { variant: 'error' });
+      }
     } finally {
       setUploading(false);
       setUploadProgress(0);

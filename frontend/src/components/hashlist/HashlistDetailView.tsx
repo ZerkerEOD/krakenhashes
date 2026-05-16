@@ -37,6 +37,7 @@ import CreateJobDialog from './CreateJobDialog';
 import HashlistHashesTable from './HashlistHashesTable';
 import ClientAutocomplete from './ClientAutocomplete';
 import AssociationWordlistManager from './AssociationWordlistManager';
+import ValidationPreviewDialog, { ValidationInvalidEntry } from './ValidationPreviewDialog';
 import { useSnackbar } from 'notistack';
 import { AxiosResponse, AxiosError } from 'axios';
 
@@ -78,6 +79,13 @@ export default function HashlistDetailView() {
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [downloadingHashlist, setDownloadingHashlist] = useState(false);
   const processingPollingRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Validation preview state (GitHub issue #38). Re-opens the dialog from the
+  // detail view when the hashlist is stuck in awaiting_validation_decision —
+  // e.g. user closed the tab after upload without choosing proceed/cancel.
+  const [resumeValidationOpen, setResumeValidationOpen] = useState(false);
+  const [resumeSample, setResumeSample] = useState<ValidationInvalidEntry[]>([]);
+  const [resumeLoading, setResumeLoading] = useState(false);
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
   const { startTracking, isDeleting, getDeletion } = useDeletionProgress();
@@ -373,6 +381,62 @@ export default function HashlistDetailView() {
         );
       })()}
 
+      {/* No-validator notice (GitHub issue #38). Persists on the hashlist
+          row so users see it on revisit, not just at upload time. */}
+      {(hashlist as any).validation_notice && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {(hashlist as any).validation_notice}
+        </Alert>
+      )}
+
+      {/* Awaiting validation decision (GitHub issue #38) — the user closed
+          the upload dialog without proceeding or cancelling. Surface a clear
+          banner that re-opens the dialog. */}
+      {hashlist.status === 'awaiting_validation_decision' && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 2 }}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              disabled={resumeLoading}
+              onClick={async () => {
+                if (!id) return;
+                setResumeLoading(true);
+                try {
+                  const resp = await api.get(`/api/hashlists/${id}/invalid-hashes`, {
+                    params: { page: 1, page_size: 20 },
+                  });
+                  setResumeSample(resp.data?.items ?? []);
+                  setResumeValidationOpen(true);
+                } catch (e: any) {
+                  enqueueSnackbar(
+                    e?.response?.data?.error || 'Failed to load invalid hashes',
+                    { variant: 'error' },
+                  );
+                } finally {
+                  setResumeLoading(false);
+                }
+              }}
+            >
+              {resumeLoading ? 'Loading…' : 'Resume review'}
+            </Button>
+          }
+        >
+          <Typography variant="subtitle2" gutterBottom>
+            This hashlist is paused awaiting a validation decision.
+          </Typography>
+          <Typography variant="body2">
+            Hash validation flagged{' '}
+            <strong>{(hashlist as any).invalid_count?.toLocaleString() ?? 0}</strong> of{' '}
+            <strong>{(hashlist as any).total_input_lines?.toLocaleString() ?? 0}</strong> lines as
+            malformed. Open the review dialog to proceed with the valid hashes, change the hash
+            type, or cancel the upload.
+          </Typography>
+        </Alert>
+      )}
+
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h5">{hashlist.name}</Typography>
@@ -610,6 +674,35 @@ export default function HashlistDetailView() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Resume validation review (GitHub issue #38) */}
+      <ValidationPreviewDialog
+        open={resumeValidationOpen}
+        hashlistId={hashlist?.id ? Number(hashlist.id) : null}
+        hashlistName={hashlist?.name || 'Hashlist'}
+        currentHashTypeId={hashlist?.hash_type_id ?? 0}
+        totalInputLines={(hashlist as any)?.total_input_lines ?? 0}
+        validCount={Math.max(
+          0,
+          ((hashlist as any)?.total_input_lines ?? 0) - ((hashlist as any)?.invalid_count ?? 0),
+        )}
+        invalidCount={(hashlist as any)?.invalid_count ?? 0}
+        truncated={false}
+        initialSample={resumeSample}
+        onProceed={() => {
+          setResumeValidationOpen(false);
+          setResumeSample([]);
+          queryClient.invalidateQueries({ queryKey: ['hashlist', id] });
+          enqueueSnackbar('Processing resumed.', { variant: 'success' });
+          refetch();
+        }}
+        onCancel={() => {
+          setResumeValidationOpen(false);
+          setResumeSample([]);
+          enqueueSnackbar('Upload cancelled.', { variant: 'info' });
+          navigate('/hashlists');
+        }}
+      />
 
     </Box>
   );

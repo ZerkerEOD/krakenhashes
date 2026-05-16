@@ -46,6 +46,20 @@ type UploadResult struct {
 	Warning        string
 }
 
+// LineCountMismatchError is returned by Upload when the wordlist's line count
+// does not match the hashlist's TotalHashes. Callers should respond with
+// HTTP 422 Unprocessable Entity and a clear message (GitHub issue #38). The
+// wordlist file is NOT saved on this error path.
+type LineCountMismatchError struct {
+	HashlistID    int64
+	WordlistLines int64
+	HashlistLines int64
+}
+
+func (e *LineCountMismatchError) Error() string {
+	return fmt.Sprintf("association wordlist line count mismatch: wordlist has %d lines but hashlist %d has %d valid hashes", e.WordlistLines, e.HashlistID, e.HashlistLines)
+}
+
 // Upload handles the upload and validation of an association wordlist.
 // It validates that the wordlist line count matches the hashlist's total hashes.
 func (m *AssociationWordlistManager) Upload(ctx context.Context, hashlistID int64, filename string, tempFilePath string) (*UploadResult, error) {
@@ -63,6 +77,19 @@ func (m *AssociationWordlistManager) Upload(ctx context.Context, hashlistID int6
 		return nil, fmt.Errorf("failed to count lines in wordlist: %w", err)
 	}
 	debug.Info("Association wordlist '%s' has %d lines, hashlist %d has %d hashes", filename, lineCount, hashlistID, hashlist.TotalHashes)
+
+	// Hard reject on line-count mismatch (GitHub issue #38). Hashcat
+	// association mode requires the wordlist to have exactly one candidate
+	// per hash; uploading a mismatched wordlist used to silently leave the
+	// resulting job stuck on 'pending' once every agent failed the
+	// benchmark. We reject pre-save so no orphan file is left on disk.
+	if lineCount != int64(hashlist.TotalHashes) {
+		return nil, &LineCountMismatchError{
+			HashlistID:    hashlistID,
+			WordlistLines: lineCount,
+			HashlistLines: int64(hashlist.TotalHashes),
+		}
+	}
 
 	// Create the destination path
 	destPath := m.getWordlistPath(hashlistID, filename)
@@ -111,23 +138,17 @@ func (m *AssociationWordlistManager) Upload(ctx context.Context, hashlistID int6
 		return nil, fmt.Errorf("failed to create association wordlist record: %w", err)
 	}
 
-	// Check if line counts match
-	lineCountMatch := lineCount == int64(hashlist.TotalHashes)
-	var warning string
-	if !lineCountMatch {
-		warning = fmt.Sprintf("Line count mismatch: wordlist has %d lines but hashlist has %d hashes. Association attacks require exact line count match.", lineCount, hashlist.TotalHashes)
-		debug.Warning("Association wordlist %s: %s", wordlist.ID, warning)
-	}
-
+	// Line counts already verified to match above (mismatch returns
+	// LineCountMismatchError before any file work). The match flag is kept on
+	// the result for API back-compat.
 	result := &UploadResult{
 		Wordlist:       wordlist,
-		LineCountMatch: lineCountMatch,
+		LineCountMatch: true,
 		HashlistLines:  int64(hashlist.TotalHashes),
 		WordlistLines:  lineCount,
-		Warning:        warning,
 	}
 
-	debug.Info("Successfully uploaded association wordlist %s for hashlist %d (lines match: %v)", wordlist.ID, hashlistID, lineCountMatch)
+	debug.Info("Successfully uploaded association wordlist %s for hashlist %d (%d lines)", wordlist.ID, hashlistID, lineCount)
 	return result, nil
 }
 

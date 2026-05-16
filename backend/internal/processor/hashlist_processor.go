@@ -37,13 +37,25 @@ type HashlistDBProcessor struct {
 	hashTypeRepo       *repository.HashTypeRepository
 	hashRepo           *repository.HashRepository
 	systemSettingsRepo *repository.SystemSettingsRepository
-	config             *config.Config
-	progressService    *services.ProcessingProgressService
+	// invalidHashRepo lets the processor skip line numbers the upload-time
+	// validator already flagged as malformed (GitHub issue #38). Optional —
+	// when nil the processor reads every line as before.
+	invalidHashRepo *repository.InvalidHashRepository
+	config          *config.Config
+	progressService *services.ProcessingProgressService
 
 	// SetMalformedNotifier wires a callback that fires whenever a hashlist
 	// transitions to HashListStatusError because of a parse / read / import
 	// failure. Set via SetMalformedNotifier; safe to leave nil.
 	malformedNotifier MalformedNotifier
+}
+
+// SetInvalidHashRepo wires the InvalidHashRepository used to look up
+// line numbers the validator flagged at upload time. Safe to call after
+// construction; thread-safety is not required because the wiring happens at
+// startup before any goroutines run.
+func (p *HashlistDBProcessor) SetInvalidHashRepo(r *repository.InvalidHashRepository) {
+	p.invalidHashRepo = r
 }
 
 // SetMalformedNotifier installs the malformed-hashlist callback. Idempotent.
@@ -193,11 +205,33 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64, filePath string)
 	// Get the needs_processing flag from the fetched hashType
 	needsProcessing := hashType.NeedsProcessing
 
+	// Skip-set: line numbers the upload-time validator flagged as invalid
+	// (GitHub issue #38). Empty when the upload had no invalid lines or when
+	// the validator wasn't wired in.
+	var invalidLineSet map[int]struct{}
+	if p.invalidHashRepo != nil {
+		if s, err := p.invalidHashRepo.LineNumbersByHashlist(ctx, hashlistID); err == nil {
+			invalidLineSet = s
+			if len(invalidLineSet) > 0 {
+				debug.Info("[Processor:%d] Skipping %d lines flagged by upload-time validation", hashlistID, len(invalidLineSet))
+			}
+		} else {
+			debug.Warning("[Processor:%d] Failed to load invalid-line skip set: %v — proceeding without skipping", hashlistID, err)
+		}
+	}
+
 	for scanner.Scan() {
 		lineNumber++
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue // Skip empty lines and comments
+		}
+
+		// Skip lines the upload-time validator already flagged. We still
+		// counted them as "input lines" in hashlists.total_input_lines, but
+		// they don't contribute to total_hashes.
+		if _, skip := invalidLineSet[lineNumber]; skip {
+			continue
 		}
 
 		totalHashes++
