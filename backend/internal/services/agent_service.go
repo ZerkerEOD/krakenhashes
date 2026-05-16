@@ -21,14 +21,14 @@ import (
 
 // AgentService handles agent-related operations
 type AgentService struct {
-	agentRepo       *repository.AgentRepository
-	voucherRepo     *repository.ClaimVoucherRepository
-	fileRepo        *repository.FileRepository
-	deviceRepo      *repository.AgentDeviceRepository
-	jobTaskRepo     *repository.JobTaskRepository
+	agentRepo        *repository.AgentRepository
+	voucherRepo      *repository.ClaimVoucherRepository
+	fileRepo         *repository.FileRepository
+	deviceRepo       *repository.AgentDeviceRepository
+	jobTaskRepo      *repository.JobTaskRepository
 	jobExecutionRepo *repository.JobExecutionRepository
-	tokens          map[string]downloadToken
-	tokenMutex      sync.RWMutex
+	tokens           map[string]downloadToken
+	tokenMutex       sync.RWMutex
 }
 
 type downloadToken struct {
@@ -474,6 +474,17 @@ func (s *AgentService) UpdateAgentMetadata(ctx context.Context, id int, metadata
 	return s.agentRepo.UpdateMetadata(ctx, id, metadata)
 }
 
+// SetDisconnectGrace sets or clears the disconnect_grace_expires_at
+// timestamp on an agent. The scheduler-v2 sweeper reads this column to
+// decide when a hard-disconnected agent's tasks should be evicted.
+//
+// Pass a non-nil expiresAt (typically NOW() + network_grace_seconds) when
+// the agent's WebSocket disconnects. Pass nil to clear on reconnect.
+// Additive to the existing legacy disconnect handling.
+func (s *AgentService) SetDisconnectGrace(ctx context.Context, id int, expiresAt *time.Time) error {
+	return s.agentRepo.SetDisconnectGrace(ctx, id, expiresAt)
+}
+
 // UpdateAgentSyncStatus updates the sync status for an agent
 func (s *AgentService) UpdateAgentSyncStatus(ctx context.Context, id int, status string, errorMsg string) error {
 	debug.Debug("Updating agent %d sync status to %s", id, status)
@@ -728,10 +739,10 @@ func (s *AgentService) GetAgentDeviceMetrics(ctx context.Context, agentID int, t
 	default:
 		duration = 10 * time.Minute
 	}
-	
+
 	endTime := time.Now()
 	startTime := endTime.Add(-duration)
-	
+
 	// Parse metrics types
 	metricTypeMap := map[string]models.MetricType{
 		"temperature": models.MetricTypeTemperature,
@@ -739,7 +750,7 @@ func (s *AgentService) GetAgentDeviceMetrics(ctx context.Context, agentID int, t
 		"fanspeed":    models.MetricTypePowerUsage, // Using power_usage as placeholder for fan speed
 		"hashrate":    models.MetricTypeHashRate,
 	}
-	
+
 	var requestedMetrics []models.MetricType
 	for _, metric := range strings.Split(metricsParam, ",") {
 		metric = strings.TrimSpace(metric)
@@ -747,37 +758,37 @@ func (s *AgentService) GetAgentDeviceMetrics(ctx context.Context, agentID int, t
 			requestedMetrics = append(requestedMetrics, metricType)
 		}
 	}
-	
+
 	// Get benchmark repository for metrics
 	// Create a db.DB wrapper from the agent repository's database
 	dbWrapper := &db.DB{DB: s.agentRepo.GetDB()}
 	benchmarkRepo := repository.NewBenchmarkRepository(dbWrapper)
-	
+
 	// Fetch metrics from database
 	metrics, err := benchmarkRepo.GetAgentDeviceMetrics(ctx, agentID, requestedMetrics, startTime, endTime)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get device metrics: %w", err)
 	}
-	
+
 	// Transform metrics for frontend consumption
 	// Group by device and metric type
 	deviceMetrics := make(map[int]map[string][]map[string]interface{})
 	deviceNames := make(map[int]string)
-	
+
 	for _, metric := range metrics {
 		if metric.DeviceID == nil {
 			continue
 		}
-		
+
 		deviceID := *metric.DeviceID
 		if metric.DeviceName != nil {
 			deviceNames[deviceID] = *metric.DeviceName
 		}
-		
+
 		if _, ok := deviceMetrics[deviceID]; !ok {
 			deviceMetrics[deviceID] = make(map[string][]map[string]interface{})
 		}
-		
+
 		// Map metric type to frontend name
 		var metricName string
 		switch metric.MetricType {
@@ -790,15 +801,15 @@ func (s *AgentService) GetAgentDeviceMetrics(ctx context.Context, agentID int, t
 		case models.MetricTypeHashRate:
 			metricName = "hashrate"
 		}
-		
+
 		dataPoint := map[string]interface{}{
 			"timestamp": metric.Timestamp.Unix() * 1000, // Convert to milliseconds for JavaScript
 			"value":     metric.Value,
 		}
-		
+
 		deviceMetrics[deviceID][metricName] = append(deviceMetrics[deviceID][metricName], dataPoint)
 	}
-	
+
 	// Build response structure
 	response := map[string]interface{}{
 		"timeRange": timeRange,
@@ -806,7 +817,7 @@ func (s *AgentService) GetAgentDeviceMetrics(ctx context.Context, agentID int, t
 		"endTime":   endTime.Unix() * 1000,
 		"devices":   []map[string]interface{}{},
 	}
-	
+
 	// Convert to array format for frontend
 	for deviceID, metrics := range deviceMetrics {
 		deviceData := map[string]interface{}{
@@ -816,7 +827,7 @@ func (s *AgentService) GetAgentDeviceMetrics(ctx context.Context, agentID int, t
 		}
 		response["devices"] = append(response["devices"].([]map[string]interface{}), deviceData)
 	}
-	
+
 	return response, nil
 }
 

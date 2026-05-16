@@ -8,14 +8,17 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/cache/filehash"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/scheduler"
 	wsservice "github.com/ZerkerEOD/krakenhashes/backend/internal/services/websocket"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
@@ -96,10 +99,15 @@ type Handler struct {
 	jobTaskRepo           *repository.JobTaskRepository
 	jobExecRepo           *repository.JobExecutionRepository
 	jobIncrementLayerRepo *repository.JobIncrementLayerRepository
-	potfileHistory        *filehash.PotfileHistory
-	tlsConfig             *tls.Config
-	clients               map[int]*Client
-	mu                    sync.RWMutex
+	// database is held for direct SQL access by the scheduler-v2
+	// recovery primitive (scheduler.RecoverTaskByID), which needs to
+	// run a multi-table read + per-task transaction. May be nil when
+	// the scheduler-v2 path is not configured (legacy routes).
+	database       *db.DB
+	potfileHistory *filehash.PotfileHistory
+	tlsConfig      *tls.Config
+	clients        map[int]*Client
+	mu             sync.RWMutex
 
 	// Inventory callback system for pre-benchmark file checks
 	// Key is agentID - only one pending file sync callback per agent at a time
@@ -120,7 +128,9 @@ type Client struct {
 // NewHandler creates a new WebSocket handler.
 // jobIncrementLayerRepo may be nil for legacy/no-jobs route variants; callers that need
 // increment-layer cascading must check for nil before use.
-func NewHandler(wsService *wsservice.Service, agentService *services.AgentService, jobExecutionService *services.JobExecutionService, systemSettingsRepo *repository.SystemSettingsRepository, jobTaskRepo *repository.JobTaskRepository, jobExecRepo *repository.JobExecutionRepository, jobIncrementLayerRepo *repository.JobIncrementLayerRepository, tlsConfig *tls.Config, potfileHistory *filehash.PotfileHistory) *Handler {
+// database may be nil; if so, the scheduler-v2 graceful-shutdown recovery
+// is skipped and the legacy SetTaskPending path runs unconditionally.
+func NewHandler(wsService *wsservice.Service, agentService *services.AgentService, jobExecutionService *services.JobExecutionService, systemSettingsRepo *repository.SystemSettingsRepository, jobTaskRepo *repository.JobTaskRepository, jobExecRepo *repository.JobExecutionRepository, jobIncrementLayerRepo *repository.JobIncrementLayerRepository, database *db.DB, tlsConfig *tls.Config, potfileHistory *filehash.PotfileHistory) *Handler {
 	// Initialize timing configuration
 	initTimingConfig()
 
@@ -132,6 +142,7 @@ func NewHandler(wsService *wsservice.Service, agentService *services.AgentServic
 		jobTaskRepo:           jobTaskRepo,
 		jobExecRepo:           jobExecRepo,
 		jobIncrementLayerRepo: jobIncrementLayerRepo,
+		database:              database,
 		potfileHistory:        potfileHistory,
 		tlsConfig:             tlsConfig,
 		clients:               make(map[int]*Client),
@@ -270,7 +281,7 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 	// NOTE: We no longer immediately mark agent as active here
 	// The agent will be marked active after we receive its current task status
 	debug.Info("Agent %d connected - waiting for task status report before marking as active", agent.ID)
-	
+
 	// Log job handler status for debugging
 	if h.wsService.GetJobHandler() != nil {
 		debug.Info("Agent %d connected - job handler is available", agent.ID)
@@ -283,6 +294,16 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		debug.Error("Failed to update agent heartbeat: %v", err)
 	} else {
 		debug.Info("Successfully updated heartbeat for agent %d", agent.ID)
+	}
+
+	// Clear the scheduler-v2 disconnect grace. The agent is back online,
+	// so the sweeper should not evict its tasks under the grace-expiry
+	// branch. Errors here are non-fatal — the row may not have a grace
+	// set, and a stale grace would only matter if the agent then went
+	// silent for the heartbeat-timeout window without progress, which is
+	// the OTHER branch of the sweeper's WHERE clause anyway.
+	if err := h.agentService.SetDisconnectGrace(ctx, agent.ID, nil); err != nil {
+		debug.Warning("Failed to clear disconnect grace for agent %d: %v", agent.ID, err)
 	}
 
 	// Cancel any pending offline notification since agent reconnected
@@ -443,13 +464,13 @@ func (c *Client) readPump() {
 
 		case wsservice.TypeDeviceUpdate:
 			c.handler.handleDeviceUpdate(c, &msg)
-			
+
 		case wsservice.TypeBufferedMessages:
 			c.handler.handleBufferedMessages(c, &msg)
-		
+
 		case wsservice.TypeCurrentTaskStatus:
 			c.handler.handleCurrentTaskStatus(c, &msg)
-		
+
 		case wsservice.TypeAgentShutdown:
 			c.handler.handleAgentShutdown(c, &msg)
 
@@ -616,6 +637,16 @@ func (h *Handler) unregisterClient(c *Client) {
 		}
 	}
 
+	// Set the scheduler-v2 disconnect grace. The sweeper will evict the
+	// agent's tasks under the grace-expiry branch if it doesn't
+	// reconnect by then. Falls back to a 30s default if the system
+	// setting can't be read.
+	graceSeconds := h.readNetworkGraceSeconds()
+	expires := time.Now().Add(time.Duration(graceSeconds) * time.Second)
+	if err := h.agentService.SetDisconnectGrace(context.Background(), c.agent.ID, &expires); err != nil {
+		debug.Warning("Failed to set disconnect grace for agent %d: %v", c.agent.ID, err)
+	}
+
 	// Create agent offline buffer entry for delayed notification
 	if agentOfflineMonitorGetter != nil {
 		if monitor := agentOfflineMonitorGetter(); monitor != nil {
@@ -625,6 +656,28 @@ func (h *Handler) unregisterClient(c *Client) {
 			}
 		}
 	}
+}
+
+// readNetworkGraceSeconds reads system_settings.network_grace_seconds and
+// returns the default 30s if anything goes wrong (missing setting, bad
+// value, repo error). Centralized here so both the disconnect handler
+// and any future caller use the same default.
+func (h *Handler) readNetworkGraceSeconds() int {
+	const def = 30
+	if h.systemSettingsRepo == nil {
+		return def
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	setting, err := h.systemSettingsRepo.GetSetting(ctx, "network_grace_seconds")
+	if err != nil || setting == nil || setting.Value == nil {
+		return def
+	}
+	n, err := strconv.Atoi(*setting.Value)
+	if err != nil || n <= 0 {
+		return def
+	}
+	return n
 }
 
 // GetConnectedAgents returns a list of connected agent IDs
@@ -652,11 +705,11 @@ func (h *Handler) sendInitialConfiguration(client *Client) {
 		debug.Error("Failed to get agent download settings: %v", err)
 		// Use defaults if we can't fetch settings
 		settings = &models.AgentDownloadSettings{
-			MaxConcurrentDownloads:      3,
-			DownloadTimeoutMinutes:      60,
-			DownloadRetryAttempts:       3,
-			ProgressIntervalSeconds:     10,
-			ChunkSizeMB:                 10,
+			MaxConcurrentDownloads:  3,
+			DownloadTimeoutMinutes:  60,
+			DownloadRetryAttempts:   3,
+			ProgressIntervalSeconds: 10,
+			ChunkSizeMB:             10,
 		}
 	}
 
@@ -1183,7 +1236,7 @@ func (h *Handler) handleDeviceUpdate(client *Client, msg *wsservice.Message) {
 // handleBufferedMessages processes buffered messages from agents after reconnection
 func (h *Handler) handleBufferedMessages(client *Client, msg *wsservice.Message) {
 	debug.Info("Agent %d: Received buffered messages", client.agent.ID)
-	
+
 	// Parse the buffered messages payload
 	var payload struct {
 		Messages []struct {
@@ -1195,28 +1248,28 @@ func (h *Handler) handleBufferedMessages(client *Client, msg *wsservice.Message)
 		} `json:"messages"`
 		AgentID int `json:"agent_id"`
 	}
-	
+
 	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 		debug.Error("Agent %d: Failed to parse buffered messages: %v", client.agent.ID, err)
 		return
 	}
-	
+
 	debug.Info("Agent %d: Processing %d buffered messages", client.agent.ID, len(payload.Messages))
-	
+
 	// Track processed message IDs for acknowledgment
 	processedIDs := make([]string, 0, len(payload.Messages))
-	
+
 	// Process each buffered message
 	for _, bufferedMsg := range payload.Messages {
 		debug.Info("Agent %d: Processing buffered message %s of type %s from %v",
 			client.agent.ID, bufferedMsg.ID, bufferedMsg.Type, bufferedMsg.Timestamp)
-		
+
 		// Create a Message struct for the buffered message
 		reconstructedMsg := wsservice.Message{
 			Type:    wsservice.MessageType(bufferedMsg.Type),
 			Payload: bufferedMsg.Payload,
 		}
-		
+
 		// Process the message based on its type
 		switch reconstructedMsg.Type {
 		case wsservice.TypeJobProgress:
@@ -1224,7 +1277,7 @@ func (h *Handler) handleBufferedMessages(client *Client, msg *wsservice.Message)
 			if containsCracks(bufferedMsg.Payload) {
 				debug.Info("Agent %d: Buffered message contains crack information", client.agent.ID)
 			}
-			
+
 			// Forward to WebSocket service for processing
 			if h.wsService != nil {
 				// The WebSocket service will handle forwarding to the appropriate integration
@@ -1232,46 +1285,46 @@ func (h *Handler) handleBufferedMessages(client *Client, msg *wsservice.Message)
 				// Note: The actual job progress processing happens through the integration layer
 				// which is registered with the WebSocket service
 			}
-			
+
 		case wsservice.TypeHashcatOutput:
 			// Log hashcat output which may contain cracks
 			debug.Info("Agent %d: Processing buffered hashcat output", client.agent.ID)
 			// The hashcat output is typically logged for debugging
 			// Actual crack processing happens through job progress messages
-			
+
 		case wsservice.TypeBenchmarkResult:
 			// Process benchmark result
 			debug.Info("Agent %d: Processing buffered benchmark result", client.agent.ID)
 			// Similar to job progress, benchmark results are processed through integration
-			
+
 		default:
 			debug.Warning("Agent %d: Unsupported buffered message type: %s", client.agent.ID, bufferedMsg.Type)
 			continue
 		}
-		
+
 		// Mark message as processed
 		processedIDs = append(processedIDs, bufferedMsg.ID)
 	}
-	
+
 	debug.Info("Agent %d: Successfully processed %d/%d buffered messages",
 		client.agent.ID, len(processedIDs), len(payload.Messages))
-	
+
 	// Send acknowledgment back to agent
 	ackPayload := map[string]interface{}{
 		"message_ids": processedIDs,
 	}
-	
+
 	ackData, err := json.Marshal(ackPayload)
 	if err != nil {
 		debug.Error("Agent %d: Failed to marshal ACK payload: %v", client.agent.ID, err)
 		return
 	}
-	
+
 	ackMsg := wsservice.Message{
 		Type:    wsservice.TypeBufferAck,
 		Payload: ackData,
 	}
-	
+
 	client.send <- &ackMsg
 	debug.Info("Agent %d: Sent buffer acknowledgment for %d messages", client.agent.ID, len(processedIDs))
 }
@@ -1282,18 +1335,18 @@ func containsCracks(payload json.RawMessage) bool {
 		CrackedCount  int      `json:"cracked_count"`
 		CrackedHashes []string `json:"cracked_hashes"`
 	}
-	
+
 	if err := json.Unmarshal(payload, &progress); err != nil {
 		return false
 	}
-	
+
 	return progress.CrackedCount > 0 || len(progress.CrackedHashes) > 0
 }
 
 // handleCurrentTaskStatus processes the current task status from an agent
 func (h *Handler) handleCurrentTaskStatus(client *Client, msg *wsservice.Message) {
 	debug.Info("Agent %d: Received current task status", client.agent.ID)
-	
+
 	// Parse the status payload - includes all progress fields for offline completion handling
 	var status struct {
 		AgentID                int     `json:"agent_id"`
@@ -1310,15 +1363,15 @@ func (h *Handler) handleCurrentTaskStatus(client *Client, msg *wsservice.Message
 		Status                 string  `json:"status,omitempty"`
 		ErrorMessage           string  `json:"error_message,omitempty"`
 	}
-	
+
 	if err := json.Unmarshal(msg.Payload, &status); err != nil {
 		debug.Error("Agent %d: Failed to parse task status: %v", client.agent.ID, err)
 		return
 	}
-	
+
 	debug.Info("Agent %d: Task status - HasTask: %v, TaskID: %s, JobID: %s, Status: %s",
 		client.agent.ID, status.HasRunningTask, status.TaskID, status.JobID, status.Status)
-	
+
 	// If agent has a running task, try to recover it
 	if status.HasRunningTask && status.TaskID != "" {
 		// Validate the task before setting busy status
@@ -1330,7 +1383,7 @@ func (h *Handler) handleCurrentTaskStatus(client *Client, msg *wsservice.Message
 				debug.Warning("Agent %d reported status for non-existent task %s", client.agent.ID, status.TaskID)
 				// Tell agent to stop the non-existent task
 				stopMsg := wsservice.Message{
-					Type: wsservice.TypeJobStop,
+					Type:    wsservice.TypeJobStop,
 					Payload: json.RawMessage(`{"task_id":"` + status.TaskID + `"}`),
 				}
 				select {
@@ -1345,7 +1398,7 @@ func (h *Handler) handleCurrentTaskStatus(client *Client, msg *wsservice.Message
 					client.agent.ID, status.TaskID, task.AgentID)
 				// Tell agent to stop the task that's not assigned to it
 				stopMsg := wsservice.Message{
-					Type: wsservice.TypeJobStop,
+					Type:    wsservice.TypeJobStop,
 					Payload: json.RawMessage(`{"task_id":"` + status.TaskID + `"}`),
 				}
 				select {
@@ -1389,7 +1442,7 @@ func (h *Handler) handleCurrentTaskStatus(client *Client, msg *wsservice.Message
 
 					// Tell agent to stop the task if recovery failed
 					stopMsg := wsservice.Message{
-						Type: wsservice.TypeJobStop,
+						Type:    wsservice.TypeJobStop,
 						Payload: json.RawMessage(`{"task_id":"` + status.TaskID + `"}`),
 					}
 					select {
@@ -1406,7 +1459,7 @@ func (h *Handler) handleCurrentTaskStatus(client *Client, msg *wsservice.Message
 			}
 		}
 	}
-	
+
 	// Only mark agent as active/available if it has no running tasks
 	if !status.HasRunningTask {
 		// Check if there are any reconnect_pending tasks for this agent
@@ -1425,7 +1478,7 @@ func (h *Handler) handleCurrentTaskStatus(client *Client, msg *wsservice.Message
 		} else {
 			debug.Warning("Agent %d: JobHandler is nil, cannot handle reconnection", client.agent.ID)
 		}
-		
+
 		// Clear busy status in metadata
 		if client.agent.Metadata == nil {
 			client.agent.Metadata = make(map[string]string)
@@ -1433,12 +1486,12 @@ func (h *Handler) handleCurrentTaskStatus(client *Client, msg *wsservice.Message
 		client.agent.Metadata["busy_status"] = "false"
 		delete(client.agent.Metadata, "current_task_id")
 		delete(client.agent.Metadata, "current_job_id")
-		
+
 		// Update agent in database
 		if err := h.agentService.UpdateAgentMetadata(client.ctx, client.agent.ID, client.agent.Metadata); err != nil {
 			debug.Error("Failed to update agent metadata: %v", err)
 		}
-		
+
 		// Check sync status before marking agent as active
 		// This prevents a race condition where the agent is marked active before file sync completes
 		agent, err := h.agentService.GetByID(client.ctx, client.agent.ID)
@@ -1535,7 +1588,7 @@ func (h *Handler) handleOfflineTaskCompletion(client *Client, status *struct {
 // handleAgentShutdown processes graceful shutdown notification from an agent
 func (h *Handler) handleAgentShutdown(client *Client, msg *wsservice.Message) {
 	debug.Info("Agent %d: Received graceful shutdown notification", client.agent.ID)
-	
+
 	// Parse the shutdown payload
 	var shutdownPayload struct {
 		AgentID        int    `json:"agent_id"`
@@ -1544,15 +1597,15 @@ func (h *Handler) handleAgentShutdown(client *Client, msg *wsservice.Message) {
 		TaskID         string `json:"task_id,omitempty"`
 		JobID          string `json:"job_id,omitempty"`
 	}
-	
+
 	if err := json.Unmarshal(msg.Payload, &shutdownPayload); err != nil {
 		debug.Error("Agent %d: Failed to parse shutdown payload: %v", client.agent.ID, err)
 		return
 	}
-	
-	debug.Info("Agent %d: Shutdown reason: %s, HasTask: %v, TaskID: %s", 
+
+	debug.Info("Agent %d: Shutdown reason: %s, HasTask: %v, TaskID: %s",
 		client.agent.ID, shutdownPayload.Reason, shutdownPayload.HasRunningTask, shutdownPayload.TaskID)
-	
+
 	// If agent had running tasks, reset them immediately to pending
 	if shutdownPayload.HasRunningTask && shutdownPayload.TaskID != "" {
 		debug.Info("Agent %d: Agent was running task %s, will reset to pending immediately",
@@ -1563,7 +1616,35 @@ func (h *Handler) handleAgentShutdown(client *Client, msg *wsservice.Message) {
 		if err != nil {
 			debug.Error("Agent %d: Failed to parse task ID %s: %v",
 				client.agent.ID, shutdownPayload.TaskID, err)
-		} else {
+			goto afterTaskHandling
+		}
+
+		// Scheduler-v2 routing: if the task has scheduling_unit_id, run
+		// the §8.2 split-and-gap recovery and skip the legacy
+		// SetTaskPending path. RecoverTaskByID returns Handled=false
+		// for legacy tasks, so the existing code below handles those.
+		if h.database != nil {
+			result, recErr := scheduler.RecoverTaskByID(client.ctx, h.database, taskID, "agent disconnect")
+			if recErr != nil {
+				debug.Warning("Agent %d: scheduler-v2 recovery for task %s failed: %v",
+					client.agent.ID, taskID, recErr)
+				// Fall through to legacy SetTaskPending — better to
+				// stale-process a task with the wrong scheduler than
+				// to leave it stuck.
+			} else if result.Handled {
+				if result.Truncated {
+					debug.Info("Agent %d: scheduler-v2 truncated interval for task %s (progress preserved as gap)",
+						client.agent.ID, taskID)
+				} else {
+					debug.Info("Agent %d: scheduler-v2 failed interval for task %s (no progress to preserve)",
+						client.agent.ID, taskID)
+				}
+				goto afterTaskHandling
+			}
+		}
+
+		// Legacy path: SetTaskPending + layer + job cascade.
+		{
 			// Directly set the task to pending for immediate reassignment.
 			// SetTaskPending returns the task's increment_layer_id (nil for non-increment jobs).
 			layerID, err := h.jobTaskRepo.SetTaskPending(client.ctx, taskID)
@@ -1629,14 +1710,15 @@ func (h *Handler) handleAgentShutdown(client *Client, msg *wsservice.Message) {
 			}
 		}
 	}
-	
+
+afterTaskHandling:
 	// Mark agent as inactive
 	if err := h.agentService.UpdateAgentStatus(client.ctx, client.agent.ID, models.AgentStatusInactive, nil); err != nil {
 		debug.Error("Agent %d: Failed to update status to inactive: %v", client.agent.ID, err)
 	} else {
 		debug.Info("Agent %d: Marked as inactive due to graceful shutdown", client.agent.ID)
 	}
-	
+
 	// Clear agent metadata
 	if client.agent.Metadata == nil {
 		client.agent.Metadata = make(map[string]string)
@@ -1956,12 +2038,12 @@ func (h *Handler) handleDebugToggleAck(client *Client, msg *wsservice.Message) {
 
 // Callbacks for diagnostic responses (GH Issue #23)
 var (
-	logDataCallbacks      = make(map[string]chan *wsservice.LogDataPayload)
-	logDataCallbacksMu    sync.RWMutex
-	logStatusCallbacks    = make(map[string]chan *wsservice.LogStatusResponsePayload)
-	logStatusCallbacksMu  sync.RWMutex
-	logPurgeCallbacks     = make(map[string]chan *wsservice.LogPurgeAckPayload)
-	logPurgeCallbacksMu   sync.RWMutex
+	logDataCallbacks     = make(map[string]chan *wsservice.LogDataPayload)
+	logDataCallbacksMu   sync.RWMutex
+	logStatusCallbacks   = make(map[string]chan *wsservice.LogStatusResponsePayload)
+	logStatusCallbacksMu sync.RWMutex
+	logPurgeCallbacks    = make(map[string]chan *wsservice.LogPurgeAckPayload)
+	logPurgeCallbacksMu  sync.RWMutex
 )
 
 // RegisterLogDataCallback registers a callback for log data response

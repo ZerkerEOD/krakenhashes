@@ -14,13 +14,13 @@ import (
 // invoked from here, but the *redispatch* of the resulting gap is the
 // dispatcher's concern on the next cycle.
 type EvictedTask struct {
-	TaskID        uuid.UUID
-	UnitID        uuid.UUID
-	IntervalID    uuid.UUID
-	RangeStart    int64
-	RangeEnd      int64
-	RestorePoint  sql.NullInt64
-	Reason        string
+	TaskID       uuid.UUID
+	UnitID       uuid.UUID
+	IntervalID   uuid.UUID
+	RangeStart   int64
+	RangeEnd     int64
+	RestorePoint sql.NullInt64
+	Reason       string
 }
 
 // EvictTimedOutTasks scans for job_tasks whose last_activity_at is older
@@ -53,20 +53,37 @@ func EvictTimedOutTasks(
 	}
 
 	// Find stale tasks plus the interval row they own (joined via
-	// task_id). LEFT JOIN because we want to evict the task even if its
-	// interval is somehow missing (shouldn't happen, but defensive).
+	// task_id). LEFT JOIN to the interval because we want to evict the
+	// task even if its interval is somehow missing (defensive). LEFT
+	// JOIN to the agent so we can include disconnect-grace expiry as a
+	// second eviction trigger — see §8.7 and migration 000150. A task
+	// is stale if EITHER:
+	//   - its last_activity_at is older than the heartbeat timeout
+	//     (agent connected but silent), OR
+	//   - its agent's disconnect_grace_expires_at has passed (agent
+	//     gone and didn't come back).
 	const query = `
 		SELECT
 			t.id, t.scheduling_unit_id, t.range_start, t.range_end, t.restore_point,
 			i.id AS interval_id
 		FROM job_tasks t
 		LEFT JOIN job_keyspace_intervals i ON i.task_id = t.id
+		LEFT JOIN agents a ON a.id = t.agent_id
 		WHERE t.status IN ('assigned', 'running')
 		  AND t.scheduling_unit_id IS NOT NULL
 		  AND t.range_start IS NOT NULL
 		  AND t.range_end IS NOT NULL
-		  AND t.last_activity_at IS NOT NULL
-		  AND t.last_activity_at < NOW() - ($1 || ' seconds')::INTERVAL
+		  AND (
+			  (
+				  t.last_activity_at IS NOT NULL
+				  AND t.last_activity_at < NOW() - ($1 || ' seconds')::INTERVAL
+			  )
+			  OR
+			  (
+				  a.disconnect_grace_expires_at IS NOT NULL
+				  AND a.disconnect_grace_expires_at < NOW()
+			  )
+		  )
 	`
 	rows, err := database.QueryContext(ctx, query, heartbeatTimeoutSeconds)
 	if err != nil {
@@ -128,8 +145,9 @@ func EvictTimedOutTasks(
 	return evicted, errs
 }
 
-// evictOne runs the per-task eviction in a transaction: split-and-gap
-// the interval (or fail it outright), then mark the task failed.
+// evictOne runs the per-task eviction by delegating to applyRecovery
+// (recovery.go), which is the canonical split-and-gap implementation
+// shared with the graceful-shutdown path.
 func evictOne(
 	ctx context.Context,
 	database *db.DB,
@@ -138,59 +156,6 @@ func evictOne(
 	rangeStart int64,
 	restorePoint sql.NullInt64,
 ) error {
-	return database.WithTx(ctx, func(tx *sql.Tx) error {
-		if intervalID.Valid {
-			// Decide: truncate (progress was made) or fail (no progress).
-			if restorePoint.Valid && restorePoint.Int64 > rangeStart {
-				// Truncate to restore_point. The query mirrors
-				// KeyspaceIntervalRepository.Truncate but runs inside
-				// the transaction.
-				res, err := tx.ExecContext(ctx, `
-					UPDATE job_keyspace_intervals
-					SET range_end = $1, status = 'completed'
-					WHERE id = $2
-					  AND status IN ('assigned', 'running')
-					  AND range_start < $1
-					  AND $1 <= range_end
-				`, restorePoint.Int64, intervalID.UUID)
-				if err != nil {
-					return fmt.Errorf("truncate interval: %w", err)
-				}
-				n, _ := res.RowsAffected()
-				if n == 0 {
-					// Truncate window didn't match (race?). Fall
-					// through to fail-the-interval path so the
-					// range becomes a gap.
-					if _, ferr := tx.ExecContext(ctx, `
-						UPDATE job_keyspace_intervals
-						SET status = 'failed'
-						WHERE id = $1 AND status IN ('assigned','running')
-					`, intervalID.UUID); ferr != nil {
-						return fmt.Errorf("fallback fail interval: %w", ferr)
-					}
-				}
-			} else {
-				// No progress: mark interval failed.
-				if _, err := tx.ExecContext(ctx, `
-					UPDATE job_keyspace_intervals
-					SET status = 'failed'
-					WHERE id = $1 AND status IN ('assigned', 'running')
-				`, intervalID.UUID); err != nil {
-					return fmt.Errorf("fail interval: %w", err)
-				}
-			}
-		}
-
-		// Mark the task failed regardless of which interval branch we
-		// took. failure_reason is the new column; status moves to
-		// failed.
-		if _, err := tx.ExecContext(ctx, `
-			UPDATE job_tasks
-			SET status = 'failed', failure_reason = 'heartbeat timeout'
-			WHERE id = $1
-		`, taskID); err != nil {
-			return fmt.Errorf("fail task: %w", err)
-		}
-		return nil
-	})
+	_, err := applyRecovery(ctx, database, taskID, intervalID, rangeStart, restorePoint, "heartbeat timeout")
+	return err
 }
