@@ -21,10 +21,10 @@ import (
 type JobManager struct {
 	executor                     ExecutorInterface
 	config                       *config.Config
-	statusCallback               func(*JobStatus)             // Callback for status updates (synchronous)
-	crackCallback                func(*CrackBatch)            // Callback for crack batches (asynchronous)
-	crackBatchesCompleteCallback func(*CrackBatchesComplete)  // Callback to signal all crack batches sent
-	progressCallback             func(*JobProgress)           // Legacy callback (deprecated, use statusCallback/crackCallback)
+	statusCallback               func(*JobStatus)                                 // Callback for status updates (synchronous)
+	crackCallback                func(*CrackBatch)                                // Callback for crack batches (asynchronous)
+	crackBatchesCompleteCallback func(*CrackBatchesComplete)                      // Callback to signal all crack batches sent
+	progressCallback             func(*JobProgress)                               // Legacy callback (deprecated, use statusCallback/crackCallback)
 	outputCallback               func(taskID string, output string, isError bool) // Callback for sending output via websocket
 	fileSync                     *filesync.FileSync
 	hwMonitor                    HardwareMonitor // Interface for hardware monitor
@@ -53,26 +53,26 @@ type HardwareMonitor interface {
 
 // JobExecution represents an active job execution
 type JobExecution struct {
-	Assignment      *JobTaskAssignment
-	Process         *HashcatProcess
-	StartTime       time.Time
-	LastProgress    *JobProgress
-	Status          string
+	Assignment   *JobTaskAssignment
+	Process      *HashcatProcess
+	StartTime    time.Time
+	LastProgress *JobProgress
+	Status       string
 }
 
 // BenchmarkResult stores benchmark results
 type BenchmarkResult struct {
-	HashType    int
-	AttackMode  int
-	Speed       int64
-	Timestamp   time.Time
+	HashType   int
+	AttackMode int
+	Speed      int64
+	Timestamp  time.Time
 }
 
 // CompletedTaskInfo stores all progress data needed for reconnection
 // Used to report completion status if agent reconnects after task finished
 type CompletedTaskInfo struct {
-	TaskID                 string
-	JobID                  string
+	TaskID string
+	JobID  string
 	// Progress fields - copy from LastProgress
 	KeyspaceProcessed      int64
 	EffectiveProgress      int64
@@ -82,9 +82,9 @@ type CompletedTaskInfo struct {
 	CrackedCount           int
 	AllHashesCracked       bool
 	// Status fields
-	Status                 string // "completed", "failed", or "running"
-	ErrorMessage           string
-	CompletedAt            time.Time
+	Status       string // "completed", "failed", or "running"
+	ErrorMessage string
+	CompletedAt  time.Time
 }
 
 // ExecutorInterface defines the methods needed by JobManager
@@ -343,12 +343,10 @@ func (jm *JobManager) ProcessJobAssignment(ctx context.Context, assignmentData [
 	if err != nil {
 		return fmt.Errorf("failed to ensure hashlist: %w", err)
 	}
-	
-	// Ensure rule chunks are available if this job uses rule chunks
-	err = jm.ensureRuleChunks(ctx, &assignment)
-	if err != nil {
-		return fmt.Errorf("failed to ensure rule chunks: %w", err)
-	}
+
+	// Rule chunks are gone in the scheduler rewrite — rules are stacked
+	// (multiple -r flags) but never split. Whole rule files arrive via
+	// the regular rule sync path; nothing to pre-flight here.
 
 	// Ensure association files are available if this is an association attack (mode 9)
 	err = jm.ensureAssociationFiles(ctx, &assignment)
@@ -389,10 +387,10 @@ func (jm *JobManager) ProcessJobAssignment(ctx context.Context, assignmentData [
 
 	// Create job execution record
 	jobExecution := &JobExecution{
-		Assignment:   &assignment,
-		Process:      process,
-		StartTime:    time.Now(),
-		Status:       "running",
+		Assignment: &assignment,
+		Process:    process,
+		StartTime:  time.Now(),
+		Status:     "running",
 	}
 
 	jm.mutex.Lock()
@@ -466,105 +464,6 @@ func (jm *JobManager) ensureHashlist(ctx context.Context, assignment *JobTaskAss
 		return fmt.Errorf("hashlist file not found after download")
 	}
 
-	return nil
-}
-
-// ensureRuleChunks downloads rule chunk files if the job uses rule splitting
-func (jm *JobManager) ensureRuleChunks(ctx context.Context, assignment *JobTaskAssignment) error {
-	if jm.fileSync == nil {
-		debug.Warning("File sync not initialized, skipping rule chunk download")
-		return nil
-	}
-	
-	// Check if this job has rule chunks (rule paths that contain "chunks/")
-	hasRuleChunks := false
-	for _, rulePath := range assignment.RulePaths {
-		if strings.Contains(rulePath, "rules/chunks/") {
-			hasRuleChunks = true
-			break
-		}
-	}
-	
-	if !hasRuleChunks {
-		// No rule chunks to download
-		return nil
-	}
-	
-	debug.Info("Job uses rule chunks, ensuring they are downloaded")
-	
-	// Process each rule chunk
-	for _, rulePath := range assignment.RulePaths {
-		if !strings.HasPrefix(rulePath, "rules/chunks/") {
-			continue // Skip non-chunk rules
-		}
-		
-		// Extract the chunk filename and job directory
-		// Format: rules/chunks/job_<ID>/chunk_<N>.rule
-		parts := strings.Split(rulePath, "/")
-		if len(parts) < 3 {
-			debug.Error("Invalid rule chunk path format: %s", rulePath)
-			continue
-		}
-		
-		var jobDir string
-		var chunkFile string
-		
-		// Check if path includes job directory
-		if len(parts) == 4 && strings.HasPrefix(parts[2], "job_") {
-			// Format: rules/chunks/job_<ID>/chunk_<N>.rule
-			jobDir = parts[2]
-			chunkFile = parts[3]
-		} else if len(parts) == 3 {
-			// Format: rules/chunks/chunk_<N>.rule (legacy)
-			chunkFile = parts[2]
-		}
-		
-		// Check if chunk already exists locally
-		localPath := filepath.Join(jm.config.DataDirectory, rulePath)
-		if _, err := os.Stat(localPath); err == nil {
-			debug.Info("Rule chunk already exists locally: %s", localPath)
-			continue
-		}
-		
-		// Create directory structure if needed
-		localDir := filepath.Dir(localPath)
-		if err := os.MkdirAll(localDir, 0700); err != nil {
-			debug.Error("Failed to create rule chunk directory %s: %v", localDir, err)
-			return fmt.Errorf("failed to create rule chunk directory: %w", err)
-		}
-		
-		// Prepare file info for download
-		// The backend serves chunks at /api/files/rule/chunks/<filename> or /api/files/rule/chunks/<jobDir>/<filename>
-		var fileInfo *filesync.FileInfo
-		if jobDir != "" {
-			fileInfo = &filesync.FileInfo{
-				Name:     fmt.Sprintf("%s/%s", jobDir, chunkFile),
-				FileType: "rule",
-				Category: "chunks",
-			}
-		} else {
-			fileInfo = &filesync.FileInfo{
-				Name:     chunkFile,
-				FileType: "rule",
-				Category: "chunks",
-			}
-		}
-		
-		debug.Info("Downloading rule chunk: %s", fileInfo.Name)
-		if err := jm.fileSync.DownloadFileFromInfo(ctx, fileInfo); err != nil {
-			debug.Error("Failed to download rule chunk %s: %v", fileInfo.Name, err)
-			return fmt.Errorf("failed to download rule chunk %s: %w", fileInfo.Name, err)
-		}
-		
-		// Verify the file was created
-		if fileInfo, err := os.Stat(localPath); err == nil {
-			debug.Info("Successfully downloaded rule chunk: %s (size: %d bytes)", chunkFile, fileInfo.Size())
-		} else {
-			debug.Error("Rule chunk file not found after download: %s", localPath)
-			return fmt.Errorf("rule chunk file not found after download")
-		}
-	}
-	
 	return nil
 }
 
@@ -1041,12 +940,12 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 					retryCount++
 					debug.Info("Task %s failed with 'already running' error, attempting retry %d/%d",
 						progress.TaskID, retryCount, MaxHashcatRetries)
-					
+
 					// Remove from active jobs
 					jm.mutex.Lock()
 					delete(jm.activeJobs, jobExecution.Assignment.TaskID)
 					jm.mutex.Unlock()
-					
+
 					// Wait before retry
 					select {
 					case <-ctx.Done():
@@ -1077,19 +976,19 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 						debug.Info("State transition: running -> failed (task: %s, retry failed)", jobExecution.Assignment.TaskID)
 						return
 					}
-					
+
 					// Update the job execution with new process
 					jobExecution.Process = newProcess
-					
+
 					// Re-add to active jobs
 					jm.mutex.Lock()
 					jm.activeJobs[jobExecution.Assignment.TaskID] = jobExecution
 					jm.mutex.Unlock()
-					
+
 					// Continue monitoring the new process
 					continue
 				}
-				
+
 				// Send to backend via dual callbacks (new approach)
 				jm.mutex.RLock()
 				hasStatusCallback := jm.statusCallback != nil
@@ -1321,7 +1220,7 @@ func (jm *JobManager) GetActiveJobs() map[string]*JobExecution {
 // ForceCleanup forces cleanup of all active jobs and hashcat processes
 func (jm *JobManager) ForceCleanup() error {
 	console.Status("Forcing cleanup of all active jobs")
-	
+
 	// Stop all active jobs
 	jm.mutex.Lock()
 	for taskID := range jm.activeJobs {
@@ -1330,7 +1229,7 @@ func (jm *JobManager) ForceCleanup() error {
 	// Clear the active jobs map
 	jm.activeJobs = make(map[string]*JobExecution)
 	jm.mutex.Unlock()
-	
+
 	// Force cleanup in the executor
 	return jm.executor.ForceCleanup()
 }
