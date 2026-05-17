@@ -335,12 +335,20 @@ func (c *Cycle) activeAgentCountsByUnit(ctx context.Context, units []*models.Sch
 }
 
 // getIdleAgents returns agents that are:
-//   - currently WebSocket-connected (per wsSender.GetConnectedAgents),
-//   - enabled and sync-completed,
+//   - currently WebSocket-connected (per wsSender.GetConnectedAgents,
+//     the source of truth for "agent is online" — not the agents.status
+//     or agents.last_heartbeat columns, which are derived snapshots
+//     maintained by legacy handlers and can be stale),
+//   - operator-enabled (is_enabled is the only operator-controlled
+//     "this agent should accept work" knob),
 //   - not currently running a scheduler-v2 task.
 //
-// The query intersects with the connected-agent set in memory because
-// WebSocket connectedness lives in the handler, not the database.
+// Intentionally does NOT filter on sync_status. The agent's per-task
+// pre-flight (ensureHashlist, ensureAssociationFiles, ensureClientPotfile,
+// etc. in agent/internal/jobs/jobs.go) handles file sync per-job at
+// dispatch time. The legacy sync_status='completed' gate was a global
+// "files are warm" precondition that doesn't match the v2 dispatch
+// model.
 func (c *Cycle) getIdleAgents(ctx context.Context) ([]AgentInfo, error) {
 	connected := c.wsSender.GetConnectedAgents()
 	if len(connected) == 0 {
@@ -355,7 +363,6 @@ func (c *Cycle) getIdleAgents(ctx context.Context) ([]AgentInfo, error) {
 		FROM agents a
 		WHERE a.id = ANY($1::bigint[])
 		  AND a.is_enabled = true
-		  AND a.sync_status = 'completed'
 		  AND NOT EXISTS (
 			  SELECT 1 FROM job_tasks t
 			  WHERE t.agent_id = a.id
