@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -232,8 +233,15 @@ func (r *SchedulingUnitRepository) DecrementRetryBudget(ctx context.Context, id 
 // scanSchedulingUnit reads a row into a SchedulingUnit. Works against
 // either *sql.Row or *sql.Rows because both implement the Scan method we
 // need.
+//
+// custom_charsets is scanned into a nullable []byte then assigned to
+// json.RawMessage. Scanning directly into *json.RawMessage doesn't
+// work because the type doesn't implement sql.Scanner; lib/pq raises
+// "unsupported Scan, storing driver.Value type <nil> into type
+// *json.RawMessage" when the column is NULL.
 func scanSchedulingUnit(scanner rowScanner) (*models.SchedulingUnit, error) {
 	u := &models.SchedulingUnit{}
+	var customCharsetsBytes []byte
 	err := scanner.Scan(
 		&u.ID,
 		&u.ParentJobID,
@@ -247,7 +255,7 @@ func scanSchedulingUnit(scanner rowScanner) (*models.SchedulingUnit, error) {
 		pq.Array(&u.WordlistRefs),
 		pq.Array(&u.RuleFileRefs),
 		&u.MaskString,
-		&u.CustomCharsets,
+		&customCharsetsBytes,
 		&u.RetryBudgetRemaining,
 		&u.CreatedAt,
 		&u.UpdatedAt,
@@ -257,6 +265,9 @@ func scanSchedulingUnit(scanner rowScanner) (*models.SchedulingUnit, error) {
 			return nil, err
 		}
 		return nil, fmt.Errorf("failed to scan scheduling_unit: %w", err)
+	}
+	if len(customCharsetsBytes) > 0 {
+		u.CustomCharsets = json.RawMessage(customCharsetsBytes)
 	}
 	return u, nil
 }
