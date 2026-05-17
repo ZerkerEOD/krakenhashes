@@ -33,30 +33,30 @@ type MessageType string
 
 const (
 	// Agent -> Server messages
-	TypeHeartbeat            MessageType = "heartbeat"
-	TypeTaskStatus           MessageType = "task_status"
-	TypeJobProgress          MessageType = "job_progress"
-	TypeJobStatus            MessageType = "job_status"              // Status-only (synchronous)
-	TypeCrackBatch           MessageType = "crack_batch"             // Cracks-only (asynchronous)
-	TypeCrackBatchesComplete MessageType = "crack_batches_complete" // Signal that all crack batches sent
-	TypeBenchmarkResult      MessageType = "benchmark_result"
-	TypeAgentStatus          MessageType = "agent_status"
-	TypeErrorReport          MessageType = "error_report"
-	TypeHardwareInfo         MessageType = "hardware_info"
-	TypeSyncResponse         MessageType = "file_sync_response"
-	TypeSyncStatus           MessageType = "file_sync_status"
-	TypeHashcatOutput        MessageType = "hashcat_output"
-	TypeDeviceDetection      MessageType = "device_detection"
+	TypeHeartbeat               MessageType = "heartbeat"
+	TypeTaskStatus              MessageType = "task_status"
+	TypeJobProgress             MessageType = "job_progress"
+	TypeJobStatus               MessageType = "job_status"             // Status-only (synchronous)
+	TypeCrackBatch              MessageType = "crack_batch"            // Cracks-only (asynchronous)
+	TypeCrackBatchesComplete    MessageType = "crack_batches_complete" // Signal that all crack batches sent
+	TypeBenchmarkResult         MessageType = "benchmark_result"
+	TypeAgentStatus             MessageType = "agent_status"
+	TypeErrorReport             MessageType = "error_report"
+	TypeHardwareInfo            MessageType = "hardware_info"
+	TypeSyncResponse            MessageType = "file_sync_response"
+	TypeSyncStatus              MessageType = "file_sync_status"
+	TypeHashcatOutput           MessageType = "hashcat_output"
+	TypeDeviceDetection         MessageType = "device_detection"
 	TypePhysicalDeviceDetection MessageType = "physical_device_detection"
 	TypeDeviceUpdate            MessageType = "device_update"
 	TypeBufferedMessages        MessageType = "buffered_messages"
 	TypeCurrentTaskStatus       MessageType = "current_task_status"
 	TypeAgentShutdown           MessageType = "agent_shutdown"
-	TypePendingOutfiles         MessageType = "pending_outfiles"          // Agent reports tasks with unacknowledged outfiles
-	TypeOutfileDeleteRejected   MessageType = "outfile_delete_rejected"   // Agent rejects outfile deletion (line count mismatch)
-	TypeTaskStopAck             MessageType = "task_stop_ack"             // Agent acknowledges stop command (GH Issue #12)
-	TypeStateSyncResponse       MessageType = "state_sync_response"       // Agent responds with state sync (GH Issue #12)
-	TypeAgentOrphanReport       MessageType = "agent_orphan_report"       // Agent audits an "Already an instance" hashcat collision (Slice C)
+	TypePendingOutfiles         MessageType = "pending_outfiles"        // Agent reports tasks with unacknowledged outfiles
+	TypeOutfileDeleteRejected   MessageType = "outfile_delete_rejected" // Agent rejects outfile deletion (line count mismatch)
+	TypeTaskStopAck             MessageType = "task_stop_ack"           // Agent acknowledges stop command (GH Issue #12)
+	TypeStateSyncResponse       MessageType = "state_sync_response"     // Agent responds with state sync (GH Issue #12)
+	TypeAgentOrphanReport       MessageType = "agent_orphan_report"     // Agent audits an "Already an instance" hashcat collision (Slice C)
 
 	// Server -> Agent messages
 	TypeTaskAssignment         MessageType = "task_assignment"
@@ -85,15 +85,15 @@ const (
 	TypeSyncProgress  MessageType = "sync_progress"
 
 	// Diagnostics message types (GH Issue #23)
-	TypeDebugStatusReport   MessageType = "debug_status_report"   // Agent reports debug status
-	TypeDebugToggle         MessageType = "debug_toggle"          // Server requests debug toggle
-	TypeDebugToggleAck      MessageType = "debug_toggle_ack"      // Agent acknowledges debug toggle
-	TypeLogRequest          MessageType = "log_request"           // Server requests agent logs
-	TypeLogData             MessageType = "log_data"              // Agent sends log data
-	TypeLogStatusRequest    MessageType = "log_status_request"    // Server requests log status
-	TypeLogStatusResponse   MessageType = "log_status_response"   // Agent responds with log status
-	TypeLogPurge            MessageType = "log_purge"             // Server requests log purge
-	TypeLogPurgeAck         MessageType = "log_purge_ack"         // Agent acknowledges log purge
+	TypeDebugStatusReport MessageType = "debug_status_report" // Agent reports debug status
+	TypeDebugToggle       MessageType = "debug_toggle"        // Server requests debug toggle
+	TypeDebugToggleAck    MessageType = "debug_toggle_ack"    // Agent acknowledges debug toggle
+	TypeLogRequest        MessageType = "log_request"         // Server requests agent logs
+	TypeLogData           MessageType = "log_data"            // Agent sends log data
+	TypeLogStatusRequest  MessageType = "log_status_request"  // Server requests log status
+	TypeLogStatusResponse MessageType = "log_status_response" // Agent responds with log status
+	TypeLogPurge          MessageType = "log_purge"           // Server requests log purge
+	TypeLogPurgeAck       MessageType = "log_purge_ack"       // Agent acknowledges log purge
 )
 
 // Client represents a connected agent
@@ -108,7 +108,6 @@ type Message struct {
 	HardwareInfo *models.Hardware `json:"hardware_info,omitempty"`
 	OSInfo       json.RawMessage  `json:"os_info,omitempty"`
 }
-
 
 // HeartbeatPayload represents a heartbeat message from agent
 type HeartbeatPayload struct {
@@ -233,40 +232,40 @@ type CharsetFileInfo struct {
 
 // TaskAssignmentPayload represents a job task assignment sent to an agent
 type TaskAssignmentPayload struct {
-	TaskID          string   `json:"task_id"`
-	JobExecutionID  string   `json:"job_execution_id"`
-	HashlistID      int64    `json:"hashlist_id"`
-	HashlistPath    string   `json:"hashlist_path"`
-	AttackMode      int      `json:"attack_mode"`
-	HashType        int      `json:"hash_type"`
-	KeyspaceStart   int64    `json:"keyspace_start"`
-	KeyspaceEnd     int64    `json:"keyspace_end"`
-	WordlistPaths   []string `json:"wordlist_paths"`
-	RulePaths       []string `json:"rule_paths"`
-	Mask            string            `json:"mask,omitempty"`
-	CustomCharsets  map[string]string            `json:"custom_charsets,omitempty"`
-	CharsetFiles   map[string]CharsetFileInfo  `json:"charset_files,omitempty"`
-	HexCharset     bool                       `json:"hex_charset,omitempty"`
-	IncrementMode   string            `json:"increment_mode,omitempty"`
-	IncrementMin    *int              `json:"increment_min,omitempty"`
-	IncrementMax    *int              `json:"increment_max,omitempty"`
-	BinaryPath      string            `json:"binary_path"`
-	ChunkDuration   int      `json:"chunk_duration"`
-	ReportInterval  int      `json:"report_interval"`
-	OutputFormat    string   `json:"output_format"`
-	ExtraParameters   string `json:"extra_parameters,omitempty"`
-	JobAdditionalArgs string `json:"job_additional_args,omitempty"` // Job-level hashcat parameters (merged with agent params on agent side)
-	EnabledDevices    []int  `json:"enabled_devices,omitempty"`
-	IsKeyspaceSplit   bool   `json:"is_keyspace_split"`
+	TaskID            string                     `json:"task_id"`
+	JobExecutionID    string                     `json:"job_execution_id"`
+	HashlistID        int64                      `json:"hashlist_id"`
+	HashlistPath      string                     `json:"hashlist_path"`
+	AttackMode        int                        `json:"attack_mode"`
+	HashType          int                        `json:"hash_type"`
+	KeyspaceStart     int64                      `json:"keyspace_start"`
+	KeyspaceEnd       int64                      `json:"keyspace_end"`
+	WordlistPaths     []string                   `json:"wordlist_paths"`
+	RulePaths         []string                   `json:"rule_paths"`
+	Mask              string                     `json:"mask,omitempty"`
+	CustomCharsets    map[string]string          `json:"custom_charsets,omitempty"`
+	CharsetFiles      map[string]CharsetFileInfo `json:"charset_files,omitempty"`
+	HexCharset        bool                       `json:"hex_charset,omitempty"`
+	IncrementMode     string                     `json:"increment_mode,omitempty"`
+	IncrementMin      *int                       `json:"increment_min,omitempty"`
+	IncrementMax      *int                       `json:"increment_max,omitempty"`
+	BinaryPath        string                     `json:"binary_path"`
+	ChunkDuration     int                        `json:"chunk_duration"`
+	ReportInterval    int                        `json:"report_interval"`
+	OutputFormat      string                     `json:"output_format"`
+	ExtraParameters   string                     `json:"extra_parameters,omitempty"`
+	JobAdditionalArgs string                     `json:"job_additional_args,omitempty"` // Job-level hashcat parameters (merged with agent params on agent side)
+	EnabledDevices    []int                      `json:"enabled_devices,omitempty"`
+	IsKeyspaceSplit   bool                       `json:"is_keyspace_split"`
 	// Association attack fields (mode 9)
 	AssociationWordlistPath string `json:"association_wordlist_path,omitempty"` // Path to the association wordlist
 	OriginalHashlistPath    string `json:"original_hashlist_path,omitempty"`    // Path to the original hashlist file (preserves order)
 
 	// Client-specific wordlists (potfile and uploaded wordlists)
-	ClientID              string   `json:"client_id,omitempty"`               // Client UUID for this hashlist
-	ClientPotfilePath     string   `json:"client_potfile_path,omitempty"`     // Path to client potfile (treated as wordlist)
-	ClientWordlistPaths   []string `json:"client_wordlist_paths,omitempty"`   // Paths to client-specific wordlists
-	ClientWordlistIDs     []string `json:"client_wordlist_ids,omitempty"`     // IDs for downloading client wordlists
+	ClientID            string   `json:"client_id,omitempty"`             // Client UUID for this hashlist
+	ClientPotfilePath   string   `json:"client_potfile_path,omitempty"`   // Path to client potfile (treated as wordlist)
+	ClientWordlistPaths []string `json:"client_wordlist_paths,omitempty"` // Paths to client-specific wordlists
+	ClientWordlistIDs   []string `json:"client_wordlist_ids,omitempty"`   // IDs for downloading client wordlists
 
 	// Server's base keyspace for agent-side coordinate conversion
 	// Agents with -O may have a different outer-loop keyspace; this lets them convert --skip/--limit
@@ -289,13 +288,13 @@ type AgentOrphanReportPayload struct {
 
 // BenchmarkResultPayload represents benchmark results from an agent
 type BenchmarkResultPayload struct {
-	JobExecutionID         string        `json:"job_execution_id"`                  // Job execution ID to match with request
+	JobExecutionID         string        `json:"job_execution_id"` // Job execution ID to match with request
 	AttackMode             int           `json:"attack_mode"`
 	HashType               int           `json:"hash_type"`
-	Speed                  int64         `json:"speed"`                             // Total hashes per second
-	DeviceSpeeds           []DeviceSpeed `json:"device_speeds,omitempty"`           // Per-device speeds
-	TotalEffectiveKeyspace int64         `json:"total_effective_keyspace"`          // Hashcat progress[1] from full job run
-	AgentBaseKeyspace      int64         `json:"agent_base_keyspace"`              // Agent's hashcat --keyspace with its flags
+	Speed                  int64         `json:"speed"`                    // Total hashes per second
+	DeviceSpeeds           []DeviceSpeed `json:"device_speeds,omitempty"`  // Per-device speeds
+	TotalEffectiveKeyspace int64         `json:"total_effective_keyspace"` // Hashcat progress[1] from full job run
+	AgentBaseKeyspace      int64         `json:"agent_base_keyspace"`      // Agent's hashcat --keyspace with its flags
 	Success                bool          `json:"success"`
 	Error                  string        `json:"error,omitempty"`
 	ErrorCode              string        `json:"error_code,omitempty"` // Typed failure mode (BENCHMARK_TIMEOUT, BENCHMARK_ZERO_SPEED) for actionable admin errors
@@ -304,8 +303,9 @@ type BenchmarkResultPayload struct {
 // Benchmark error codes the agent can report back. Keep in sync with the
 // agent (agent/internal/jobs/hashcat_executor.go).
 const (
-	BenchmarkErrorTimeout   = "BENCHMARK_TIMEOUT"    // Speed test ran for the full configured duration without producing any usable status update
-	BenchmarkErrorZeroSpeed = "BENCHMARK_ZERO_SPEED" // Status updates were collected but every device reported 0 H/s
+	BenchmarkErrorTimeout        = "BENCHMARK_TIMEOUT"          // Speed test ran for the full configured duration without producing any usable status update
+	BenchmarkErrorZeroSpeed      = "BENCHMARK_ZERO_SPEED"       // Status updates were collected but every device reported 0 H/s
+	BenchmarkErrorNoHashesLoaded = "BENCHMARK_NO_HASHES_LOADED" // Hashcat rejected every line in the hashlist for the chosen hash mode — job is doomed, fail-fast instead of cycling through the per-tuple retry cap
 )
 
 // DeviceSpeed represents speed for a single device
@@ -325,28 +325,28 @@ type JobStopPayload struct {
 
 // BenchmarkRequestPayload represents a benchmark request sent to an agent
 type BenchmarkRequestPayload struct {
-	RequestID       string `json:"request_id"`
-	JobExecutionID  string `json:"job_execution_id"`               // Job execution ID for tracking benchmark results
-	AttackMode      int    `json:"attack_mode"`
-	HashType        int    `json:"hash_type"`
-	BinaryPath      string `json:"binary_path"`
+	RequestID      string `json:"request_id"`
+	JobExecutionID string `json:"job_execution_id"` // Job execution ID for tracking benchmark results
+	AttackMode     int    `json:"attack_mode"`
+	HashType       int    `json:"hash_type"`
+	BinaryPath     string `json:"binary_path"`
 	// Additional fields for real-world speed test
-	TaskID          string   `json:"task_id,omitempty"`
-	HashlistID      int64    `json:"hashlist_id,omitempty"`
-	HashlistPath    string   `json:"hashlist_path,omitempty"`
-	WordlistPaths   []string `json:"wordlist_paths,omitempty"`
-	RulePaths       []string `json:"rule_paths,omitempty"`
-	Mask            string            `json:"mask,omitempty"`
-	CustomCharsets  map[string]string            `json:"custom_charsets,omitempty"`
-	CharsetFiles   map[string]CharsetFileInfo  `json:"charset_files,omitempty"`
-	HexCharset     bool                       `json:"hex_charset,omitempty"`
-	TestDuration     int               `json:"test_duration,omitempty"`     // Maximum seconds the agent should spend collecting status updates before giving up
-	TimeoutDuration  int               `json:"timeout_duration,omitempty"`  // Hard wall-clock cap on the entire speed-test (context deadline); should be >= TestDuration
-	MinStatusUpdates int               `json:"min_status_updates,omitempty"` // Minimum hashcat --status-json ticks the agent must collect before returning a result. <=0 means use the agent's default.
-	ExtraParameters         string   `json:"extra_parameters,omitempty"`          // Agent-specific hashcat parameters
-	JobAdditionalArgs       string   `json:"job_additional_args,omitempty"`       // Job-level hashcat parameters
-	EnabledDevices          []int    `json:"enabled_devices,omitempty"`           // List of enabled device IDs
-	AssociationWordlistPath string   `json:"association_wordlist_path,omitempty"` // For mode 9 association attacks
+	TaskID                  string                     `json:"task_id,omitempty"`
+	HashlistID              int64                      `json:"hashlist_id,omitempty"`
+	HashlistPath            string                     `json:"hashlist_path,omitempty"`
+	WordlistPaths           []string                   `json:"wordlist_paths,omitempty"`
+	RulePaths               []string                   `json:"rule_paths,omitempty"`
+	Mask                    string                     `json:"mask,omitempty"`
+	CustomCharsets          map[string]string          `json:"custom_charsets,omitempty"`
+	CharsetFiles            map[string]CharsetFileInfo `json:"charset_files,omitempty"`
+	HexCharset              bool                       `json:"hex_charset,omitempty"`
+	TestDuration            int                        `json:"test_duration,omitempty"`             // Maximum seconds the agent should spend collecting status updates before giving up
+	TimeoutDuration         int                        `json:"timeout_duration,omitempty"`          // Hard wall-clock cap on the entire speed-test (context deadline); should be >= TestDuration
+	MinStatusUpdates        int                        `json:"min_status_updates,omitempty"`        // Minimum hashcat --status-json ticks the agent must collect before returning a result. <=0 means use the agent's default.
+	ExtraParameters         string                     `json:"extra_parameters,omitempty"`          // Agent-specific hashcat parameters
+	JobAdditionalArgs       string                     `json:"job_additional_args,omitempty"`       // Job-level hashcat parameters
+	EnabledDevices          []int                      `json:"enabled_devices,omitempty"`           // List of enabled device IDs
+	AssociationWordlistPath string                     `json:"association_wordlist_path,omitempty"` // For mode 9 association attacks
 }
 
 // TaskCompleteAckPayload is sent by the backend to acknowledge task completion (GH Issue #12)
@@ -360,8 +360,8 @@ type TaskCompleteAckPayload struct {
 // TaskStopAckPayload is sent by the agent to acknowledge a stop command (GH Issue #12)
 type TaskStopAckPayload struct {
 	TaskID    string `json:"task_id"`
-	StopID    string `json:"stop_id"`    // Unique ID from the stop command for tracking
-	Stopped   bool   `json:"stopped"`    // Whether the task was actually stopped
+	StopID    string `json:"stop_id"` // Unique ID from the stop command for tracking
+	Stopped   bool   `json:"stopped"` // Whether the task was actually stopped
 	Timestamp int64  `json:"timestamp"`
 	Message   string `json:"message,omitempty"` // Optional reason (e.g., "task already completed")
 }
@@ -631,7 +631,6 @@ func (s *Service) handleHeartbeat(ctx context.Context, agent *models.Agent, msg 
 	s.updateLastSeen(agent.ID)
 	return nil
 }
-
 
 // handleTaskStatus processes task status messages
 func (s *Service) handleTaskStatus(ctx context.Context, agent *models.Agent, msg *Message) error {
@@ -949,17 +948,17 @@ func (s *Service) HandleAgentDisconnection(ctx context.Context, agentID int) err
 		debug.Warning("Agent %d disconnected but no job handler available to mark tasks", agentID)
 		return nil
 	}
-	
+
 	// Call the job handler to mark tasks as reconnect_pending
 	// We use a type assertion to check if the handler supports disconnection handling
 	type disconnectionHandler interface {
 		HandleAgentDisconnection(ctx context.Context, agentID int) error
 	}
-	
+
 	if handler, ok := s.jobHandler.(disconnectionHandler); ok {
 		return handler.HandleAgentDisconnection(ctx, agentID)
 	}
-	
+
 	debug.Warning("Job handler does not support disconnection handling")
 	return nil
 }

@@ -324,13 +324,13 @@ func (s *JobSchedulingService) buildAgentBenchmarkStatus(
 				// loops. Logging the combo + cache duration makes the next dump diagnosable
 				// without having to query the DB.
 				debug.Log("Benchmark cache miss — will request benchmark", map[string]interface{}{
-					"agent_id":           agent.ID,
-					"cache_key":          key,
-					"attack_mode":        int(jobInfo.AttackMode),
-					"hash_type":          jobInfo.HashType,
-					"salt_count":         jobInfo.SaltCount,
-					"cache_duration":     cacheDuration.String(),
-					"job_execution_id":   jobInfo.JobID,
+					"agent_id":         agent.ID,
+					"cache_key":        key,
+					"attack_mode":      int(jobInfo.AttackMode),
+					"hash_type":        jobInfo.HashType,
+					"salt_count":       jobInfo.SaltCount,
+					"cache_duration":   cacheDuration.String(),
+					"job_execution_id": jobInfo.JobID,
 				})
 			}
 		}
@@ -1494,6 +1494,42 @@ func (s *JobSchedulingService) AttributeBenchmarkFailure(
 		jobExecutionID = layer.JobExecutionID
 		debug.Info("AttributeBenchmarkFailure: entity %s is a layer; attributing to parent job %s",
 			parsedID, jobExecutionID)
+	}
+
+	// Fast-fail: hashcat reported the hashlist itself is wrong for
+	// this hash mode ("No hashes loaded" / "Token length exception"
+	// / "Separator unmatched" on every line). Retrying doesn't help
+	// — the hashlist content is the problem and would fail on every
+	// agent. Mark the job failed immediately with an admin-actionable
+	// message and skip the per-tuple-cap retry loop.
+	if strings.Contains(errMsg, "BENCHMARK_NO_HASHES_LOADED") {
+		reason := fmt.Sprintf(
+			"hashlist content invalid for hash type %d: hashcat rejected every line (agent %d reported BENCHMARK_NO_HASHES_LOADED). Verify the hashlist contains valid hashes for the selected mode.",
+			hashType, agentID,
+		)
+		debug.Warning("Fast-failing job %s: %s", jobExecutionID, reason)
+		jobExecRepo := repository.NewJobExecutionRepository(s.jobExecutionService.db)
+		if err := jobExecRepo.UpdateErrorMessage(ctx, jobExecutionID, reason); err != nil {
+			debug.Warning("UpdateErrorMessage(no-hashes) for job %s: %v", jobExecutionID, err)
+		}
+		if err := jobExecRepo.UpdateStatus(ctx, jobExecutionID, models.JobExecutionStatusFailed); err != nil {
+			debug.Warning("UpdateStatus(no-hashes) for job %s: %v", jobExecutionID, err)
+		}
+		if jobExec, err := s.jobExecutionService.GetJobExecutionByID(ctx, jobExecutionID); err == nil && jobExec != nil {
+			s.jobExecutionService.dispatchJobFailedNotification(ctx, jobExec, reason)
+		}
+		// Also add a global blocklist entry so the scheduler-v2
+		// benchmark phase doesn't immediately re-fire for this combo
+		// against any other job using the same hashlist content.
+		// 24h is plenty — the underlying hashlist would have to be
+		// fixed for the situation to resolve.
+		expiresAt := time.Now().Add(24 * time.Hour)
+		if _, err := s.jobExecutionService.benchmarkRepo.AddBlocklistEntry(
+			ctx, agentID, nil, attackMode, hashType, "BENCHMARK_NO_HASHES_LOADED", expiresAt,
+		); err != nil {
+			debug.Warning("AddBlocklistEntry(no-hashes, global) for agent %d: %v", agentID, err)
+		}
+		return nil
 	}
 
 	benchmarkRepo := s.jobExecutionService.benchmarkRepo
