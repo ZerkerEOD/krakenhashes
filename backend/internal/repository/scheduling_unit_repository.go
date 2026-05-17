@@ -49,6 +49,15 @@ func (r *SchedulingUnitRepository) Create(ctx context.Context, unit *models.Sche
 		RETURNING created_at, updated_at
 	`
 
+	// json.RawMessage's zero value is []byte(nil), which lib/pq tries
+	// to serialize as JSON and rejects ("invalid input syntax for
+	// type json"). When the unit carries no custom charsets, pass a
+	// real nil interface{} so the driver writes SQL NULL.
+	var customCharsetsArg interface{}
+	if len(unit.CustomCharsets) > 0 {
+		customCharsetsArg = []byte(unit.CustomCharsets)
+	}
+
 	err := r.db.QueryRowContext(ctx, query,
 		unit.ID,
 		unit.ParentJobID,
@@ -62,7 +71,7 @@ func (r *SchedulingUnitRepository) Create(ctx context.Context, unit *models.Sche
 		pq.Array(unit.WordlistRefs),
 		pq.Array(unit.RuleFileRefs),
 		unit.MaskString,
-		unit.CustomCharsets,
+		customCharsetsArg,
 		unit.RetryBudgetRemaining,
 	).Scan(&unit.CreatedAt, &unit.UpdatedAt)
 
