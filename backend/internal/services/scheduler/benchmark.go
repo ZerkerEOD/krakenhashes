@@ -104,6 +104,21 @@ func IdentifyMissingBenchmarks(
 			if has {
 				continue
 			}
+			// Storm guard: if this (agent, job, combo) has an active
+			// blocklist entry (typically because a recent benchmark
+			// failed via HandleBenchmarkResult ->
+			// AttributeBenchmarkFailure -> AddBlocklistEntry), skip.
+			// Without this check, every cycle re-fires the same
+			// failing benchmark, hammering the agent. Global entries
+			// (job_execution_id IS NULL) also match.
+			blocked, err := agentBenchmarkBlocklisted(ctx, database, agentID, u.ParentJobID, int(u.AttackMode), c.hashType)
+			if err != nil {
+				debug.Warning("benchmark: blocklist check (agent=%d unit=%s): %v", agentID, u.ID, err)
+				continue
+			}
+			if blocked {
+				continue
+			}
 			gaps = append(gaps, BenchmarkGap{
 				AgentID:    agentID,
 				UnitID:     u.ID,
@@ -115,6 +130,28 @@ func IdentifyMissingBenchmarks(
 		}
 	}
 	return gaps, nil
+}
+
+// agentBenchmarkBlocklisted reports whether agent_benchmark_blocklist
+// has an active uncleared entry that prevents (agent, attack_mode,
+// hash_type) from being benchmarked. Job-scoped entries (matching
+// parent_job_id) and global entries (job_execution_id IS NULL) both
+// count. Matches the legacy IsBlocklisted query shape at
+// benchmark_repository.go:852.
+func agentBenchmarkBlocklisted(ctx context.Context, database *db.DB, agentID int, parentJobID uuid.UUID, attackMode, hashType int) (bool, error) {
+	var exists bool
+	err := database.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM agent_benchmark_blocklist
+			WHERE agent_id = $1
+			  AND (job_execution_id = $2 OR job_execution_id IS NULL)
+			  AND attack_mode = $3
+			  AND hash_type = $4
+			  AND cleared_at IS NULL
+			  AND expires_at > NOW()
+		)
+	`, agentID, parentJobID, attackMode, hashType).Scan(&exists)
+	return exists, err
 }
 
 // agentHasBenchmarkFor reports whether agent_benchmarks already has a
