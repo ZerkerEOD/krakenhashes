@@ -12,6 +12,10 @@ import {
   IconButton,
   Switch,
   FormControlLabel,
+  FormControl,
+  FormLabel,
+  RadioGroup,
+  Radio,
 } from '@mui/material';
 import { Info as InfoIcon } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
@@ -307,35 +311,43 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
                 </Tooltip>
               </Box>
 
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={agentOverflowMode === 'round_robin'}
-                    onChange={async (e) => {
-                      const newValue = e.target.checked ? 'round_robin' : 'fifo';
-                      setAgentOverflowMode(newValue);
-                      try {
-                        await updateSystemSetting('agent_overflow_allocation_mode', newValue);
-                        enqueueSnackbar(t('systemSettings.messages.overflowUpdated') as string, { variant: 'success' });
-                      } catch (error) {
-                        console.error('Failed to update overflow allocation mode:', error);
-                        setAgentOverflowMode(agentOverflowMode === 'round_robin' ? 'fifo' : 'round_robin'); // Revert on error
-                        enqueueSnackbar(t('systemSettings.messages.overflowFailed') as string, { variant: 'error' });
-                      }
-                    }}
-                    disabled={loading || saving || loadingData}
-                  />
-                }
-                label={agentOverflowMode === 'round_robin' ? t('systemSettings.agentOverflow.roundRobinMode') : t('systemSettings.agentOverflow.fifoMode')}
-              />
-
-              <Typography variant="body2" color="text.secondary" paragraph sx={{ mt: 2 }}>
-                <strong>{t('systemSettings.agentOverflow.fifoMode')} ({t('common.default')}):</strong> {t('systemSettings.agentOverflow.fifoDescription')}
-              </Typography>
-
-              <Typography variant="body2" color="text.secondary">
-                <strong>{t('systemSettings.agentOverflow.roundRobinMode')}:</strong> {t('systemSettings.agentOverflow.roundRobinDescription')}
-              </Typography>
+              <FormControl component="fieldset" disabled={loading || saving || loadingData}>
+                <FormLabel component="legend" sx={{ mb: 1 }}>
+                  {t('systemSettings.agentOverflow.modeLabel')}
+                </FormLabel>
+                <RadioGroup
+                  value={agentOverflowMode}
+                  onChange={async (e) => {
+                    const newValue = e.target.value;
+                    const prevValue = agentOverflowMode;
+                    setAgentOverflowMode(newValue);
+                    try {
+                      await updateSystemSetting('agent_overflow_allocation_mode', newValue);
+                      enqueueSnackbar(t('systemSettings.messages.overflowUpdated') as string, { variant: 'success' });
+                    } catch (error) {
+                      console.error('Failed to update overflow allocation mode:', error);
+                      setAgentOverflowMode(prevValue); // Revert on error
+                      enqueueSnackbar(t('systemSettings.messages.overflowFailed') as string, { variant: 'error' });
+                    }
+                  }}
+                >
+                  <Tooltip title={t('systemSettings.agentOverflow.priorityFifoDescription') as string} placement="right" arrow>
+                    <FormControlLabel value="fifo" control={<Radio />} label={t('systemSettings.agentOverflow.priorityFifoMode')} />
+                  </Tooltip>
+                  <Tooltip title={t('systemSettings.agentOverflow.priorityRoundRobinDescription') as string} placement="right" arrow>
+                    <FormControlLabel value="round_robin" control={<Radio />} label={t('systemSettings.agentOverflow.priorityRoundRobinMode')} />
+                  </Tooltip>
+                  <Tooltip title={t('systemSettings.agentOverflow.enforceMaxAgentsDescription') as string} placement="right" arrow>
+                    <FormControlLabel value="enforce_max_agents" control={<Radio />} label={t('systemSettings.agentOverflow.enforceMaxAgentsMode')} />
+                  </Tooltip>
+                  <Tooltip title={t('systemSettings.agentOverflow.maxAgentsFifoDescription') as string} placement="right" arrow>
+                    <FormControlLabel value="max_agents_fifo" control={<Radio />} label={t('systemSettings.agentOverflow.maxAgentsFifoMode')} />
+                  </Tooltip>
+                  <Tooltip title={t('systemSettings.agentOverflow.maxAgentsRoundRobinDescription') as string} placement="right" arrow>
+                    <FormControlLabel value="max_agents_round_robin" control={<Radio />} label={t('systemSettings.agentOverflow.maxAgentsRoundRobinMode')} />
+                  </Tooltip>
+                </RadioGroup>
+              </FormControl>
             </CardContent>
           </Card>
         </Grid>

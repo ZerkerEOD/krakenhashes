@@ -98,25 +98,32 @@ func (r *KeyspaceIntervalRepository) GetByUnitID(ctx context.Context, unitID uui
 }
 
 // UndispatchedRanges returns the gap set: every [start, end) range in
-// [0, effective_keyspace) that is NOT covered by a non-failed interval for
+// [0, base_keyspace) that is NOT covered by a non-failed interval for
 // the given scheduling_unit. Returned in ascending start order, so the
 // dispatcher picks the first (smallest-start) gap to fill — this is the
 // "fill gaps before appending" rule from plan §6.5 / §8.3.
+//
+// Gap arithmetic is in BASE keyspace units (= hashcat's --skip/--limit
+// dimension for -a 0). Using effective_keyspace as the tail bound would
+// falsely shrink the schedulable space when salts get removed mid-job,
+// even though the chunkable dimension (wordlist words) hasn't shrunk.
 //
 // The query computes gaps with a window-function pass:
 //   1. Order non-failed intervals by range_start.
 //   2. For each, look at the previous row's range_end (0 if first).
 //   3. If range_start > previous range_end, emit [prev_end, range_start)
 //      as a gap.
-//   4. After the last interval, emit [last_end, effective_keyspace) if
-//      last_end < effective_keyspace.
+//   4. After the last interval, emit [last_end, base_keyspace) if
+//      last_end < base_keyspace.
 //
 // An empty unit (no intervals) returns one gap covering the whole
-// effective_keyspace.
+// base_keyspace. Units with NULL base_keyspace (predate migration
+// 000151) return no rows — the HAVING clause fails — and the dispatcher
+// skips them until the backfill / re-create lands.
 func (r *KeyspaceIntervalRepository) UndispatchedRanges(ctx context.Context, unitID uuid.UUID) ([]models.UndispatchedRange, error) {
 	const query = `
 		WITH unit AS (
-			SELECT effective_keyspace FROM scheduling_units WHERE id = $1
+			SELECT base_keyspace FROM scheduling_units WHERE id = $1
 		),
 		ordered AS (
 			SELECT range_start, range_end
@@ -135,9 +142,9 @@ func (r *KeyspaceIntervalRepository) UndispatchedRanges(ctx context.Context, uni
 		),
 		tail_gap AS (
 			SELECT COALESCE(MAX(range_end), 0) AS gap_start,
-			       (SELECT effective_keyspace FROM unit) AS gap_end
+			       (SELECT base_keyspace FROM unit) AS gap_end
 			FROM ordered
-			HAVING COALESCE(MAX(range_end), 0) < (SELECT effective_keyspace FROM unit)
+			HAVING COALESCE(MAX(range_end), 0) < (SELECT base_keyspace FROM unit)
 		)
 		SELECT gap_start, gap_end FROM mid_gaps
 		UNION ALL

@@ -1,11 +1,18 @@
 import React from 'react';
 import { Box, Tooltip, Typography } from '@mui/material';
-import { JobTask } from '../types/jobs';
+import { JobTask, JobIncrementLayer } from '../types/jobs';
 
 interface JobProgressBarProps {
   tasks: JobTask[];
   totalKeyspace: number;
   height?: number;
+  // For increment-mode jobs only. Each layer's task stores LAYER-LOCAL
+  // effective_keyspace_start/end (Step 11c backend change) — the bar
+  // composes them into one continuous coordinate space by applying a
+  // per-layer offset of sum(prior layers' effective_keyspace). For
+  // non-increment jobs leave undefined; tasks then render at their
+  // stored coords without offset.
+  layers?: JobIncrementLayer[];
 }
 
 interface TaskSegment {
@@ -14,23 +21,55 @@ interface TaskSegment {
   widthPercent: number;
   color: string;
   cracksFound: number;
+  zIndex: number;
 }
 
-const JobProgressBar: React.FC<JobProgressBarProps> = ({ 
-  tasks, 
-  totalKeyspace, 
-  height = 40 
+// Tiered display priority. Higher z-index renders on top — so a 'completed'
+// segment naturally hides an underlying 'failed' segment from a prior
+// rejected/recovered attempt at the same keyspace range. Where the lower-tier
+// segment extends beyond the higher-tier one (a partial failure not yet
+// re-attempted), the bare portion of the lower-tier still shows.
+const STATUS_TIER: Record<string, number> = {
+  completed: 5,
+  processing: 4,
+  running: 3,
+  processing_error: 2,
+  failed: 1,
+  pending: 0,
+};
+
+const JobProgressBar: React.FC<JobProgressBarProps> = ({
+  tasks,
+  totalKeyspace,
+  height = 40,
+  layers,
 }) => {
+  // For increment-mode jobs, precompute the per-layer effective-keyspace
+  // offset: layer N's display coords = layerOffset[N] + task.effective_start.
+  // For non-increment jobs (layers undefined/empty) every task gets offset=0.
+  const layerOffsetById: Record<string, number> = {};
+  if (layers && layers.length > 0) {
+    const sortedLayers = [...layers].sort((a, b) => a.layer_index - b.layer_index);
+    let cumulative = 0;
+    for (const layer of sortedLayers) {
+      layerOffsetById[layer.id] = cumulative;
+      cumulative += layer.effective_keyspace ?? 0;
+    }
+  }
+
   // Calculate segments for visualization
   const segments: TaskSegment[] = tasks.map(task => {
     // Use effective keyspace if available, otherwise use regular keyspace
-    const start = task.effective_keyspace_start ?? task.keyspace_start;
-    const end = task.effective_keyspace_end ?? task.keyspace_end;
-    const processed = task.effective_keyspace_processed ?? task.keyspace_processed;
-    
+    const rawStart = task.effective_keyspace_start ?? task.keyspace_start;
+    const rawEnd = task.effective_keyspace_end ?? task.keyspace_end;
+
+    const offset = task.increment_layer_id ? (layerOffsetById[task.increment_layer_id] ?? 0) : 0;
+    const start = rawStart + offset;
+    const end = rawEnd + offset;
+
     const startPercent = (start / totalKeyspace) * 100;
     const widthPercent = ((end - start) / totalKeyspace) * 100;
-    
+
     // Determine color based on status
     let color = '#e0e0e0'; // Default gray for pending
     if (task.status === 'running') {
@@ -44,18 +83,25 @@ const JobProgressBar: React.FC<JobProgressBarProps> = ({
     } else if (task.status === 'failed') {
       color = '#f44336'; // Red for failed
     }
-    
+
     return {
       task,
       startPercent,
       widthPercent,
       color,
-      cracksFound: task.crack_count || 0
+      cracksFound: task.crack_count || 0,
+      zIndex: STATUS_TIER[task.status] ?? 0,
     };
   });
 
-  // Calculate overall progress
+  // Calculate overall progress. Failed tasks are excluded — their interval's
+  // range reopens as a gap and gets re-dispatched, so counting their
+  // effective_keyspace_processed would double-count work alongside the
+  // re-attempt.
   const totalProcessed = tasks.reduce((sum, task) => {
+    if (task.status === 'failed' || task.status === 'cancelled') {
+      return sum;
+    }
     const processed = task.effective_keyspace_processed ?? task.keyspace_processed;
     return sum + processed;
   }, 0);
@@ -140,6 +186,11 @@ const JobProgressBar: React.FC<JobProgressBarProps> = ({
                 width: `${segment.widthPercent}%`,
                 height: '100%',
                 backgroundColor: segment.color,
+                // Tiered z-index: completed/running/processing render OVER
+                // failed segments at the same range, so a re-attempted chunk
+                // hides the failed predecessor. Where the failed range
+                // extends beyond the re-attempt, the bare portion shows.
+                zIndex: segment.zIndex,
                 transition: 'all 0.3s ease',
                 display: 'flex',
                 alignItems: 'center',

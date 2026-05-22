@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
@@ -12,6 +13,21 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 )
+
+// benchmarkInFlightWindow bounds how long an uncompleted
+// benchmark_requests row is considered "still in flight" before the
+// dispatcher will retry. Set generously because:
+//   - Mock benchmarks under contention have been observed to take ~3
+//     minutes to return a result.
+//   - Real benchmarks on slow hash types (bcrypt, scrypt, NTLMv2) can
+//     take longer than that.
+//   - On the other end, an agent that crashed mid-benchmark will leave
+//     an orphaned row; the staleness window is the longest we'll wait
+//     before retrying without it.
+//
+// 5 minutes is the chosen middle ground. If real-world benchmarks need
+// longer, lift this to a system setting in a follow-up.
+const benchmarkInFlightWindow = 5 * time.Minute
 
 // BenchmarkGap describes one (agent, unit-combo) tuple that lacks a
 // cached speed in agent_benchmarks.
@@ -104,6 +120,30 @@ func IdentifyMissingBenchmarks(
 			if has {
 				continue
 			}
+			// In-flight guard: if benchmark_requests has an uncompleted
+			// row for this (agent, attack_mode, hash_type) within the
+			// in-flight window, the agent is still running the previous
+			// benchmark — don't fire a duplicate. Without this check,
+			// every cycle re-dispatches the same combo until the result
+			// finally arrives in agent_benchmarks (which can take
+			// minutes for slow hash types or large hashlists). The
+			// agent then races multiple concurrent benchmark goroutines
+			// against the same WebSocket and crashes with "concurrent
+			// write to websocket connection".
+			//
+			// The WS handler updates completed_at on benchmark_result
+			// arrival (see job_websocket_integration.go
+			// HandleBenchmarkResult), so a normal completion releases
+			// the guard immediately. Orphaned rows from crashed agents
+			// time out after benchmarkInFlightWindow.
+			inFlight, err := agentHasInFlightBenchmark(ctx, database, agentID, int(u.AttackMode), c.hashType)
+			if err != nil {
+				debug.Warning("benchmark: in-flight check (agent=%d unit=%s): %v", agentID, u.ID, err)
+				continue
+			}
+			if inFlight {
+				continue
+			}
 			// Storm guard: if this (agent, job, combo) has an active
 			// blocklist entry (typically because a recent benchmark
 			// failed via HandleBenchmarkResult ->
@@ -151,6 +191,33 @@ func agentBenchmarkBlocklisted(ctx context.Context, database *db.DB, agentID int
 			  AND expires_at > NOW()
 		)
 	`, agentID, parentJobID, attackMode, hashType).Scan(&exists)
+	return exists, err
+}
+
+// agentHasInFlightBenchmark reports whether benchmark_requests has an
+// uncompleted row for (agent, attack_mode, hash_type) within the
+// in-flight staleness window. Used by IdentifyMissingBenchmarks to
+// skip combos where the agent is still running a previous benchmark.
+//
+// attack_mode is stored as text in benchmark_requests (legacy schema —
+// see migration that created the table); we stringify the int to match.
+// salt_count is NOT in benchmark_requests' UNIQUE constraint, so the
+// in-flight guard is broader than agent_benchmarks's salt-aware lookup:
+// any pending request for (agent, mode, type) blocks dispatch
+// regardless of salt_count. That's the intended scope — agents run one
+// benchmark at a time per (mode, type) regardless of salt count.
+func agentHasInFlightBenchmark(ctx context.Context, database *db.DB, agentID, attackMode, hashType int) (bool, error) {
+	var exists bool
+	err := database.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM benchmark_requests
+			WHERE agent_id = $1
+			  AND attack_mode = $2
+			  AND hash_type = $3
+			  AND completed_at IS NULL
+			  AND requested_at > NOW() - ($4::text || ' seconds')::interval
+		)
+	`, agentID, strconv.Itoa(attackMode), hashType, strconv.Itoa(int(benchmarkInFlightWindow.Seconds()))).Scan(&exists)
 	return exists, err
 }
 
@@ -215,6 +282,36 @@ func DispatchBenchmarks(
 			Type:    wsservice.TypeBenchmarkRequest,
 			Payload: body,
 		}
+		// Record the in-flight tracking row BEFORE sending. The next
+		// cycle's IdentifyMissingBenchmarks consults this table to
+		// suppress duplicate dispatches while the agent is still
+		// running the benchmark. UPSERT (with DO UPDATE) handles
+		// retries cleanly:
+		//   - First dispatch: INSERT new row.
+		//   - Stale uncompleted row (>5min): UPDATE refreshes
+		//     requested_at, clears the previous completed_at/success/
+		//     error_message (treated as a fresh attempt).
+		//   - Completed row reaching this point means
+		//     agentHasBenchmarkFor missed the cache write (race);
+		//     resetting the row is still correct — we genuinely are
+		//     re-running the benchmark.
+		// If the INSERT fails (DB issue), we log and STILL send the
+		// WS message — losing the tracking row is recoverable (worst
+		// case: one duplicate dispatch next cycle), but losing the
+		// benchmark request entirely would stall the cycle.
+		if _, insErr := database.ExecContext(ctx, `
+			INSERT INTO benchmark_requests (agent_id, job_execution_id, attack_mode, hash_type, request_type, requested_at)
+			VALUES ($1, $2, $3, $4, 'agent_speed', NOW())
+			ON CONFLICT (agent_id, attack_mode, hash_type) DO UPDATE
+			SET requested_at     = NOW(),
+			    completed_at     = NULL,
+			    success          = NULL,
+			    error_message    = NULL,
+			    job_execution_id = EXCLUDED.job_execution_id,
+			    request_type     = EXCLUDED.request_type
+		`, g.AgentID, unit.ParentJobID, strconv.Itoa(g.AttackMode), g.HashType); insErr != nil {
+			debug.Warning("benchmark: failed to record in-flight row for agent %d combo=%d/%d: %v (continuing with dispatch)", g.AgentID, g.AttackMode, g.HashType, insErr)
+		}
 		if sErr := wsSender.SendMessage(g.AgentID, msg); sErr != nil {
 			errs = append(errs, fmt.Errorf("benchmark: send to agent %d: %w", g.AgentID, sErr))
 			continue
@@ -244,7 +341,7 @@ func buildBenchmarkRequest(
 	// layout. KeyspaceStart=0 KeyspaceEnd=1 is a placeholder; the
 	// agent's benchmark code reads test_duration / timeout_duration
 	// for the actual loop length, not the keyspace range.
-	taskPayload, err := BuildTaskAssignment(unit, uuid.New(), 0, 1)
+	taskPayload, err := BuildTaskAssignment(unit, uuid.New(), 0, 1, 0, 0)
 	if err != nil {
 		return nil, fmt.Errorf("build task layout: %w", err)
 	}

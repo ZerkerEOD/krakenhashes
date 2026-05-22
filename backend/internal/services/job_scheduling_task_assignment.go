@@ -13,6 +13,39 @@ import (
 	"github.com/google/uuid"
 )
 
+// derefString returns the pointed-to string or "" for nil. Used at the
+// boundary between *string fields on models.JobTask and the local
+// non-pointer struct fields below (the legacy scheduler always populates
+// AttackCmd/ChunkNumber, so the local types stay non-nullable for
+// readability; the model exposes them as pointers because scheduler-v2
+// tasks legitimately omit them).
+func derefString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+// derefInt is the int counterpart to derefString.
+func derefInt(i *int) int {
+	if i == nil {
+		return 0
+	}
+	return *i
+}
+
+// ptrString wraps a string into a *string for assignment to a nullable
+// JobTask field.
+func ptrString(s string) *string {
+	return &s
+}
+
+// ptrInt wraps an int into a *int for assignment to a nullable JobTask
+// field.
+func ptrInt(i int) *int {
+	return &i
+}
+
 // TaskAssignmentPlan contains all pre-calculated data for assigning a task to an agent
 type TaskAssignmentPlan struct {
 	AgentID     int
@@ -471,8 +504,12 @@ func (s *JobSchedulingService) createSingleTaskPlan(
 				EffectiveKeyspaceStart: recoveryEffectiveStart,
 				EffectiveKeyspaceEnd:   effectiveEnd,
 				IsKeyspaceSplit:        recoveryIsKeyspaceSplit,
-				AttackCmd:              pendingTask.AttackCmd,
-				ChunkNumber:            pendingTask.ChunkNumber,
+				// AttackCmd / ChunkNumber on JobTask are *string / *int after
+				// the scheduler-v2 refactor; the local plan struct keeps
+				// non-pointer types because the legacy path always populates
+				// them. Coerce here at the boundary.
+				AttackCmd:   derefString(pendingTask.AttackCmd),
+				ChunkNumber: derefInt(pendingTask.ChunkNumber),
 
 				// Salt-aware chunk calculation
 				IsSalted:      isSalted,
@@ -744,7 +781,7 @@ func (s *JobSchedulingService) executeTaskAssignment(
 		task = plan.ExistingTask
 		task.AgentID = &plan.AgentID
 		task.Status = models.JobTaskStatusAssigned
-		task.AttackCmd = plan.AttackCmd // Updated with new chunk path if rule-split
+		task.AttackCmd = ptrString(plan.AttackCmd) // Updated with new chunk path if rule-split
 		now := time.Now()
 		task.AssignedAt = &now
 
@@ -778,13 +815,13 @@ func (s *JobSchedulingService) executeTaskAssignment(
 			AgentID:                &plan.AgentID,
 			Status:                 models.JobTaskStatusPending,
 			Priority:               plan.JobExecution.Priority,
-			AttackCmd:              plan.AttackCmd,
+			AttackCmd:              ptrString(plan.AttackCmd),
 			KeyspaceStart:          plan.KeyspaceStart,
 			KeyspaceEnd:            plan.KeyspaceEnd,
 			KeyspaceProcessed:      0,
 			EffectiveKeyspaceStart: &plan.EffectiveKeyspaceStart,
 			EffectiveKeyspaceEnd:   &plan.EffectiveKeyspaceEnd,
-			ChunkNumber:            plan.ChunkNumber,
+			ChunkNumber:            ptrInt(plan.ChunkNumber),
 			ChunkDuration:          plan.ChunkDuration,
 			BenchmarkSpeed:         &plan.BenchmarkSpeed,
 			IncrementLayerID:       plan.IncrementLayerID, // Set layer ID for increment mode tasks

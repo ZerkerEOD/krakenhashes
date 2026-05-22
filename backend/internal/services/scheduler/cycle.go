@@ -5,7 +5,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math"
 	"strconv"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary/version"
@@ -22,6 +25,19 @@ import (
 type WSSender interface {
 	SendMessage(agentID int, msg *wsservice.Message) error
 	GetConnectedAgents() []int
+	// IsShuttingDown reports whether the given agent is currently
+	// in a graceful-shutdown handshake. The cycle excludes such
+	// agents from idle-allocation candidates. Implementations should
+	// return false for unknown agent IDs.
+	IsShuttingDown(agentID int) bool
+	// WasRecentlyRejected reports whether the given agent rejected a
+	// task assignment within the rejection-cooldown window. Used by
+	// getIdleAgents to break the inter-cycle race where the dispatcher
+	// would otherwise immediately re-dispatch to an agent that just
+	// rejected (the agent's real task hasn't yet flipped to 'running'
+	// in the DB). Implementations should return false for unknown
+	// agent IDs.
+	WasRecentlyRejected(agentID int) bool
 }
 
 // Cycle is the scheduler-v2 dispatch pipeline. Holds long-lived
@@ -31,27 +47,60 @@ type Cycle struct {
 	unitRepo           *repository.SchedulingUnitRepository
 	intervalRepo       *repository.KeyspaceIntervalRepository
 	systemSettingsRepo *repository.SystemSettingsRepository
+	deviceRepo         *repository.AgentDeviceRepository
+	agentRepo          *repository.AgentRepository
+	scheduleRepo       *repository.AgentScheduleRepository
 	wsSender           WSSender
 	// binaryResolver may be nil — if so, sendAssignment falls back to
 	// an empty BinaryPath (the agent will fail to spawn hashcat, but
 	// the rest of the dispatch path still exercises). Production
 	// wiring passes services.JobExecutionService.
 	binaryResolver BinaryResolver
+	// jobStarter transitions the parent job_execution from 'pending'
+	// to 'running' on first dispatch. May be nil in tests — production
+	// wiring passes services.JobExecutionService. The legacy scheduler
+	// did this from inside executeTaskAssignment; the v2 cycle calls
+	// it explicitly after each successful dispatch (StartExecution is
+	// gated on WHERE status='pending' so the call is idempotent).
+	jobStarter JobExecutionStarter
 	// compatCache replaces the per-cycle linear scan with a cached
 	// lookup. May be nil — if so, compatFn falls back to the inline
 	// version.IsCompatibleStr call (correct but slower).
 	compatCache *CompatCache
+
+	// running is the single-flight guard. Today, the runner's
+	// single-goroutine ticker pattern guarantees no overlap, but a
+	// future refactor that adds a manual cycle trigger (e.g., on agent
+	// connect or job creation) without remembering to coordinate with
+	// the ticker would break that. CompareAndSwap returns false on
+	// overlap and we skip — we deliberately don't queue (a sync.Mutex
+	// would queue the second caller and produce exactly the pile-up
+	// we're guarding against).
+	running atomic.Bool
+
+	// fanoutMu serializes appends to CycleResult.Errors from the
+	// parallel fan-out goroutines in RunOnce. Held only briefly.
+	fanoutMu sync.Mutex
 }
 
-// NewCycle wires the dependencies. binaryResolver and compatCache may
-// be nil for tests that don't exercise those code paths.
+// NewCycle wires the dependencies. binaryResolver, jobStarter,
+// deviceRepo, agentRepo, scheduleRepo, and compatCache may be nil for
+// tests that don't exercise those code paths. In production, agentRepo
+// and scheduleRepo together gate idle agents on the agent-scheduling
+// window (only run during the agent's approved hours when the global
+// `agent_scheduling_enabled` setting is on AND the per-agent toggle is
+// on). Mirrors legacy JobExecutionService.filterAvailableAgents.
 func NewCycle(
 	database *db.DB,
 	unitRepo *repository.SchedulingUnitRepository,
 	intervalRepo *repository.KeyspaceIntervalRepository,
 	systemSettingsRepo *repository.SystemSettingsRepository,
+	deviceRepo *repository.AgentDeviceRepository,
+	agentRepo *repository.AgentRepository,
+	scheduleRepo *repository.AgentScheduleRepository,
 	wsSender WSSender,
 	binaryResolver BinaryResolver,
+	jobStarter JobExecutionStarter,
 	compatCache *CompatCache,
 ) *Cycle {
 	return &Cycle{
@@ -59,10 +108,42 @@ func NewCycle(
 		unitRepo:           unitRepo,
 		intervalRepo:       intervalRepo,
 		systemSettingsRepo: systemSettingsRepo,
+		deviceRepo:         deviceRepo,
+		agentRepo:          agentRepo,
+		scheduleRepo:       scheduleRepo,
 		wsSender:           wsSender,
 		binaryResolver:     binaryResolver,
+		jobStarter:         jobStarter,
 		compatCache:        compatCache,
 	}
+}
+
+// enabledDeviceIDsForAgent returns the hashcat device IDs that should be
+// passed via -d to hashcat. Returns nil if all devices are enabled (in
+// which case the agent omits -d and hashcat uses everything). Matches
+// the legacy behavior at job_websocket_integration.go:797-810.
+func (c *Cycle) enabledDeviceIDsForAgent(_ context.Context, agentID int) ([]int, error) {
+	if c.deviceRepo == nil {
+		return nil, nil
+	}
+	devices, err := c.deviceRepo.GetByAgentID(agentID)
+	if err != nil {
+		return nil, fmt.Errorf("get devices for agent %d: %w", agentID, err)
+	}
+	var enabled []int
+	hasDisabled := false
+	for i := range devices {
+		if !devices[i].Enabled {
+			hasDisabled = true
+		} else {
+			enabled = append(enabled, devices[i].GetHashcatDeviceID())
+		}
+	}
+	if !hasDisabled {
+		// All enabled: agent uses every device; -d omitted.
+		return nil, nil
+	}
+	return enabled, nil
 }
 
 // CycleResult is the per-cycle summary, used for logging and tests.
@@ -83,6 +164,18 @@ type CycleResult struct {
 // when an early-stage failure (e.g., GetSchedulable) makes the rest
 // pointless.
 func (c *Cycle) RunOnce(ctx context.Context) (CycleResult, error) {
+	// Single-flight guard. Returns the zero CycleResult immediately if
+	// another RunOnce is already in flight (e.g., a slow DB query
+	// blew past the ticker interval, or a future caller invoked
+	// RunOnce manually from a different goroutine). We deliberately
+	// skip rather than queue — queueing would produce the pile-up
+	// we're guarding against.
+	if !c.running.CompareAndSwap(false, true) {
+		debug.Warning("scheduler-v2: RunOnce called while a cycle is already in flight; skipping")
+		return CycleResult{}, nil
+	}
+	defer c.running.Store(false)
+
 	res := CycleResult{}
 
 	// Step 3: select schedulable units (Step 1 = sweeper, runs separately
@@ -180,7 +273,17 @@ func (c *Cycle) RunOnce(ctx context.Context) (CycleResult, error) {
 	}
 
 	// Step 5: dispatch.
-	targetChunkSec := c.readIntSetting(ctx, "target_chunk_seconds", 60)
+	// Step 11m: read default_chunk_duration first — this is the v1 /
+	// unified system setting that the UI exposes. Fall back to the
+	// v2-era duplicate target_chunk_seconds (migration 000149) only
+	// when default_chunk_duration is missing or zero. Either name
+	// returns the same concept: target wall time per chunk in seconds.
+	// The per-job override (job_executions.chunk_size_seconds, Step 11k)
+	// still wins inside dispatchOne.
+	targetChunkSec := c.readIntSetting(ctx, "default_chunk_duration", 0)
+	if targetChunkSec <= 0 {
+		targetChunkSec = c.readIntSetting(ctx, "target_chunk_seconds", 60)
+	}
 	minChunkSec := c.readIntSetting(ctx, "min_chunk_seconds", 5)
 
 	dispatchIn := DispatchInputs{
@@ -195,18 +298,62 @@ func (c *Cycle) RunOnce(ctx context.Context) (CycleResult, error) {
 	res.Dispatched = len(dispatched)
 
 	// Step 6: fan out WebSocket task_assignment messages.
+	//
+	// Each dispatched task's per-agent metadata lookup
+	// (binary_path, extra_parameters, enabled_devices, hashlist meta)
+	// runs read-only against the DB and finishes with a non-blocking
+	// channel send. Nothing in the loop body shares mutable state
+	// with another iteration except res.Errors, so we fan out with a
+	// bounded semaphore to slash tail latency on large batches (e.g.,
+	// 15 agents allocated in one cycle).
+	//
+	// Concurrency cap is a system setting so operators can dial it
+	// down if the DB shows lock contention or up if dispatch tail is
+	// visible. Default 16 matches typical fleet sizes.
+	fanoutLimit := c.readIntSetting(ctx, "scheduler_v2_fanout_concurrency", 16)
+	if fanoutLimit < 1 {
+		fanoutLimit = 1
+	}
+	sem := make(chan struct{}, fanoutLimit)
+	var wg sync.WaitGroup
+	appendErr := func(err error) {
+		c.fanoutMu.Lock()
+		res.Errors = append(res.Errors, err)
+		c.fanoutMu.Unlock()
+	}
 	for _, dt := range dispatched {
 		unit := unitsByID[dt.UnitID]
 		if unit == nil {
-			res.Errors = append(res.Errors, fmt.Errorf("cycle: missing unit for dispatched task %s", dt.TaskID))
+			appendErr(fmt.Errorf("cycle: missing unit for dispatched task %s", dt.TaskID))
 			continue
 		}
-		if err := c.sendAssignment(ctx, dt, unit, targetChunkSec); err != nil {
-			res.Errors = append(res.Errors, fmt.Errorf("cycle: send task %s to agent %d: %w", dt.TaskID, dt.AgentID, err))
-			// Don't roll back the DB insert. The heartbeat sweep
-			// recovers if the agent never gets the message.
-		}
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(dt DispatchedTask, unit *models.SchedulingUnit) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			// Transition the parent job_execution from 'pending' to
+			// 'running' on first dispatch. StartJobExecution is gated
+			// on WHERE status='pending' at the repo layer, so
+			// concurrent calls for the same job are no-ops on all but
+			// one — safe to call from goroutines. Without this call
+			// the job UI stays "pending" forever even though tasks
+			// are flowing — the legacy scheduler did this from
+			// inside executeTaskAssignment; the v2 cycle has no
+			// equivalent and must do it explicitly here.
+			if c.jobStarter != nil {
+				if err := c.jobStarter.StartJobExecution(ctx, unit.ParentJobID); err != nil {
+					debug.Debug("scheduler-v2: StartJobExecution(%s) noop or non-fatal: %v", unit.ParentJobID, err)
+				}
+			}
+			if err := c.sendAssignment(ctx, dt, unit, targetChunkSec); err != nil {
+				appendErr(fmt.Errorf("cycle: send task %s to agent %d: %w", dt.TaskID, dt.AgentID, err))
+				// Don't roll back the DB insert. The heartbeat sweep
+				// recovers if the agent never gets the message.
+			}
+		}(dt, unit)
 	}
+	wg.Wait()
 
 	// Step 7: preemption. If any schedulable units got zero
 	// allocations this cycle, look for compatible lower-priority
@@ -227,109 +374,299 @@ func (c *Cycle) RunOnce(ctx context.Context) (CycleResult, error) {
 }
 
 // computeStarvingUnits returns the schedulable units (from the
-// allocator's input) that ended up with zero allocations this cycle.
-// Only those at non-zero priority are eligible — priority-0 jobs
-// never preempt anything (and at the bottom of the queue there's
-// nothing lower to preempt anyway).
+// allocator's input) that ended up with zero allocations this cycle
+// AND could legitimately benefit from a preemption. Only those at
+// non-zero priority are eligible — priority-0 jobs never preempt
+// anything (and at the bottom of the queue there's nothing lower to
+// preempt anyway).
+//
+// Parent-cap awareness: a unit whose parent job is already at its
+// MaxAgents cap (via in-flight tasks or via sibling units that took
+// the cap this cycle) is NOT starving — preempting another job to
+// free an agent wouldn't help because the parent cap blocks any new
+// allocation to this unit. Without this check, increment-job sibling
+// layers (which share the parent cap) get treated as starving and
+// trigger needless preemption of lower-priority jobs every cycle —
+// the dispatched task gets preempted milliseconds later and ends up
+// in 'pending' with NULL agent_id (via SetTaskPending), thrashing
+// agents and preventing the lower-priority job from making progress.
 func computeStarvingUnits(units []UnitInfo, allocations []Allocation) []UnitInfo {
 	allocated := map[uuid.UUID]bool{}
+	// Build unit_id → parent map and tally per-parent allocations
+	// produced this cycle. UnitInfo.ActiveAgentCount already includes
+	// in-flight tasks across the parent's siblings.
+	unitParent := map[uuid.UUID]uuid.UUID{}
+	for _, u := range units {
+		unitParent[u.ID] = u.ParentJobID
+	}
+	parentAllocatedThisCycle := map[uuid.UUID]int{}
 	for _, a := range allocations {
 		allocated[a.UnitID] = true
+		if pid, ok := unitParent[a.UnitID]; ok {
+			parentAllocatedThisCycle[pid]++
+		}
 	}
+
 	var starving []UnitInfo
 	for _, u := range units {
 		if u.Priority <= 0 {
 			continue
 		}
-		if !allocated[u.ID] {
-			starving = append(starving, u)
+		if allocated[u.ID] {
+			continue
 		}
+		// Parent-cap check: if the parent's max_agents is set and the
+		// parent has no remaining slots, this unit isn't starving —
+		// it's parent-capped. Preemption can't help.
+		if u.MaxAgents > 0 {
+			parentTotal := u.ActiveAgentCount + parentAllocatedThisCycle[u.ParentJobID]
+			if parentTotal >= u.MaxAgents {
+				continue
+			}
+		}
+		starving = append(starving, u)
 	}
 	return starving
 }
 
 // buildUnitInfos converts SchedulingUnit rows into the allocator's
-// UnitInfo. Joins job_executions to get the binary_version. Also returns
-// a map of unit_id -> *SchedulingUnit for the dispatcher's lookup needs.
+// UnitInfo. JOINs job_executions to get the binary_version AND the
+// live priority + max_agents — those two fields are NOT denormalized
+// onto scheduling_units (migration 000153 dropped them) precisely
+// because they need to reflect operator edits in the admin UI on the
+// next scheduler cycle. Also returns a map of unit_id ->
+// *SchedulingUnit for the dispatcher's lookup needs.
 func (c *Cycle) buildUnitInfos(ctx context.Context, units []*models.SchedulingUnit) ([]UnitInfo, map[uuid.UUID]*models.SchedulingUnit, error) {
 	if len(units) == 0 {
 		return nil, nil, nil
 	}
 
-	// Collect parent job IDs and query binary_version for each.
+	// Collect parent job IDs and query the live job-level fields.
 	parentIDs := make([]uuid.UUID, 0, len(units))
 	for _, u := range units {
 		parentIDs = append(parentIDs, u.ParentJobID)
 	}
 
-	// Single query: parent_id -> binary_version. Use ANY() with a UUID
-	// array; lib/pq handles the array marshalling.
-	binaryVersions := make(map[uuid.UUID]string)
+	// Single query: parent_id -> (binary_version, priority, max_agents).
+	// ANY($1) with a UUID array; lib/pq handles the array marshalling.
+	type parentRow struct {
+		binaryVersion string
+		priority      int
+		maxAgents     int
+	}
+	parents := make(map[uuid.UUID]parentRow)
 	rows, err := c.db.QueryContext(ctx, `
-		SELECT id, COALESCE(binary_version, '') FROM job_executions
+		SELECT id, COALESCE(binary_version, ''), priority, max_agents
+		FROM job_executions
 		WHERE id = ANY($1::uuid[])
 	`, uuidSliceToTextArray(parentIDs))
 	if err != nil {
-		return nil, nil, fmt.Errorf("query binary_versions: %w", err)
+		return nil, nil, fmt.Errorf("query parent job fields: %w", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var id uuid.UUID
-		var ver string
-		if err := rows.Scan(&id, &ver); err != nil {
-			return nil, nil, fmt.Errorf("scan binary_version: %w", err)
+		var pr parentRow
+		if err := rows.Scan(&id, &pr.binaryVersion, &pr.priority, &pr.maxAgents); err != nil {
+			return nil, nil, fmt.Errorf("scan parent job row: %w", err)
 		}
-		binaryVersions[id] = ver
+		parents[id] = pr
 	}
 
-	// Get active-agent counts per unit. One query: unit_id -> count of
-	// (assigned, running) tasks. Tasks without scheduling_unit_id are
-	// legacy and excluded.
-	counts, err := c.activeAgentCountsByUnit(ctx, units)
+	// Get active-agent counts per PARENT JOB. For non-increment jobs
+	// this is identical to per-unit. For increment jobs (multiple
+	// layer units per parent), the count aggregates across siblings so
+	// the allocator's parent-cap check sees the true total. All sibling
+	// UnitInfos receive the same value below.
+	counts, err := c.activeAgentCountsByParent(ctx, units)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	// Per-unit interval coverage (sum of non-failed range widths in base
+	// units). Used to compute MaxNewChunksThisCycle below — without
+	// this hint, the FIFO/RR overflow paths blindly pile extras on the
+	// oldest tier unit even when its keyspace is fully tiled by
+	// in-flight chunks, leaving the surplus agents idle for the cycle.
+	coverage, err := c.intervalCoverageByUnit(ctx, units)
+	if err != nil {
+		return nil, nil, fmt.Errorf("compute interval coverage: %w", err)
+	}
+
+	// Conservative per-chunk effective-keyspace estimate used to bound
+	// "how many more chunks fit on this unit this cycle." Mirrors the
+	// dispatcher's sizeChunk math when agent_speed is unknown:
+	// chunk_size_effective ≈ target_chunk_seconds × conservative_speed.
+	// Reading the system setting once here avoids per-unit lookups.
+	targetChunkSeconds := c.readTargetChunkSeconds(ctx)
+	if targetChunkSeconds <= 0 {
+		targetChunkSeconds = 60
+	}
+	chunkEstimateEffective := int64(targetChunkSeconds) * ConservativeAgentSpeed
+
 	infos := make([]UnitInfo, 0, len(units))
 	byID := make(map[uuid.UUID]*models.SchedulingUnit, len(units))
 	for _, u := range units {
+		p := parents[u.ParentJobID]
+
+		// MaxNewChunksThisCycle: how many fresh chunks could realistically
+		// dispatch on this unit this cycle. Floor of MaxAgents so Phase 1
+		// cap-fill always fits; ceiling of remaining-effective-keyspace
+		// divided by the chunk-size estimate so overflow doesn't pile
+		// past what the dispatcher could actually use. Unbounded (-1
+		// sentinel via 0 default) for units missing base_keyspace —
+		// safest fallback is current behavior.
+		maxNew := 0
+		if u.BaseKeyspace != nil && *u.BaseKeyspace > 0 {
+			coveredBase := coverage[u.ID]
+			remainingBase := *u.BaseKeyspace - coveredBase
+			if remainingBase < 0 {
+				remainingBase = 0
+			}
+			multiplier := int64(1)
+			if *u.BaseKeyspace > 0 {
+				multiplier = u.EffectiveKeyspace / *u.BaseKeyspace
+				if multiplier < 1 {
+					multiplier = 1
+				}
+			}
+			// Overflow guard: remainingBase × multiplier can exceed
+			// int64 max (~9.2e18) for very large jobs (e.g., base 1e10
+			// × multiplier 1e9 = 1e19). If the multiply would wrap,
+			// fall back to a huge sentinel (math.MaxInt64) so the cap
+			// becomes "effectively unlimited" — the unit is so large
+			// that any reasonable per-cycle overflow allocation is
+			// safe. Detect by checking if remainingBase > MaxInt64 /
+			// multiplier BEFORE multiplying.
+			var remainingEffective int64
+			if multiplier > 0 && remainingBase > math.MaxInt64/multiplier {
+				remainingEffective = math.MaxInt64
+			} else {
+				remainingEffective = remainingBase * multiplier
+			}
+			chunksFit := int(remainingEffective / chunkEstimateEffective)
+			if remainingEffective > 0 && chunksFit < 1 {
+				chunksFit = 1
+			}
+			// Floor at MaxAgents so the Phase 1 baseline cap always
+			// fits even when the estimate would otherwise round to 0.
+			// MaxAgents=0 means "unlimited," which we read as the larger
+			// of the two.
+			maxNew = chunksFit
+			if p.maxAgents > 0 && maxNew < p.maxAgents {
+				maxNew = p.maxAgents
+			}
+		}
+
 		infos = append(infos, UnitInfo{
-			ID:               u.ID,
-			Priority:         u.Priority,
-			MaxAgents:        u.MaxAgents,
-			BinaryVersion:    binaryVersions[u.ParentJobID],
-			ActiveAgentCount: counts[u.ID],
-			CreatedAtNanos:   u.CreatedAt.UnixNano(),
+			ID:                    u.ID,
+			ParentJobID:           u.ParentJobID,
+			Priority:              p.priority,
+			MaxAgents:             p.maxAgents,
+			BinaryVersion:         p.binaryVersion,
+			ActiveAgentCount:      counts[u.ParentJobID],
+			CreatedAtNanos:        u.CreatedAt.UnixNano(),
+			MaxNewChunksThisCycle: maxNew,
 		})
 		byID[u.ID] = u
 	}
 	return infos, byID, nil
 }
 
-func (c *Cycle) activeAgentCountsByUnit(ctx context.Context, units []*models.SchedulingUnit) (map[uuid.UUID]int, error) {
+// intervalCoverageByUnit returns unit_id -> sum of (range_end - range_start)
+// for all non-failed intervals on that unit. Used by buildUnitInfos to
+// compute "remaining base keyspace" for the per-cycle overflow cap.
+func (c *Cycle) intervalCoverageByUnit(ctx context.Context, units []*models.SchedulingUnit) (map[uuid.UUID]int64, error) {
+	if len(units) == 0 {
+		return nil, nil
+	}
 	ids := make([]uuid.UUID, 0, len(units))
 	for _, u := range units {
 		ids = append(ids, u.ID)
 	}
-	out := map[uuid.UUID]int{}
 	rows, err := c.db.QueryContext(ctx, `
-		SELECT scheduling_unit_id, COUNT(*)
-		FROM job_tasks
+		SELECT scheduling_unit_id, COALESCE(SUM(range_end - range_start), 0)
+		FROM job_keyspace_intervals
 		WHERE scheduling_unit_id = ANY($1::uuid[])
-		  AND status IN ('assigned', 'running')
+		  AND status <> 'failed'
 		GROUP BY scheduling_unit_id
 	`, uuidSliceToTextArray(ids))
 	if err != nil {
-		return nil, fmt.Errorf("query active agent counts: %w", err)
+		return nil, fmt.Errorf("query interval coverage: %w", err)
+	}
+	defer rows.Close()
+	out := make(map[uuid.UUID]int64, len(ids))
+	for rows.Next() {
+		var id uuid.UUID
+		var covered int64
+		if err := rows.Scan(&id, &covered); err != nil {
+			return nil, fmt.Errorf("scan interval coverage: %w", err)
+		}
+		out[id] = covered
+	}
+	return out, rows.Err()
+}
+
+// readTargetChunkSeconds fetches the target_chunk_seconds system setting,
+// falling back to 60s if unset/invalid. Used by buildUnitInfos to
+// estimate how many more chunks fit on a unit this cycle.
+func (c *Cycle) readTargetChunkSeconds(ctx context.Context) int {
+	if c.systemSettingsRepo == nil {
+		return 60
+	}
+	rctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	setting, err := c.systemSettingsRepo.GetSetting(rctx, "target_chunk_seconds")
+	if err != nil || setting == nil || setting.Value == nil {
+		return 60
+	}
+	n, err := strconv.Atoi(*setting.Value)
+	if err != nil || n <= 0 {
+		return 60
+	}
+	return n
+}
+
+// activeAgentCountsByParent returns parent_job_id -> count of in-flight
+// (assigned/running) scheduler-v2 tasks aggregated across ALL units of
+// the parent, including units that may no longer be in the schedulable
+// set. Critical for the parent-cap allocator: once a sibling unit has
+// no more gaps it falls out of the schedulable list, but its running
+// task still counts toward the parent's max_agents cap. Filtering on
+// parent_job_id (not unit IDs) keeps the count correct in that case.
+// Tasks without scheduling_unit_id are legacy and excluded by the JOIN.
+func (c *Cycle) activeAgentCountsByParent(ctx context.Context, units []*models.SchedulingUnit) (map[uuid.UUID]int, error) {
+	// De-dupe parent IDs — increment jobs have multiple units sharing
+	// one parent.
+	seen := make(map[uuid.UUID]struct{}, len(units))
+	parentIDs := make([]uuid.UUID, 0, len(units))
+	for _, u := range units {
+		if _, dup := seen[u.ParentJobID]; dup {
+			continue
+		}
+		seen[u.ParentJobID] = struct{}{}
+		parentIDs = append(parentIDs, u.ParentJobID)
+	}
+	out := map[uuid.UUID]int{}
+	rows, err := c.db.QueryContext(ctx, `
+		SELECT su.parent_job_id, COUNT(*)
+		FROM job_tasks t
+		JOIN scheduling_units su ON su.id = t.scheduling_unit_id
+		WHERE su.parent_job_id = ANY($1::uuid[])
+		  AND t.status IN ('assigned', 'running')
+		GROUP BY su.parent_job_id
+	`, uuidSliceToTextArray(parentIDs))
+	if err != nil {
+		return nil, fmt.Errorf("query active agent counts by parent: %w", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var id uuid.UUID
+		var parentID uuid.UUID
 		var n int
-		if err := rows.Scan(&id, &n); err != nil {
+		if err := rows.Scan(&parentID, &n); err != nil {
 			return nil, fmt.Errorf("scan active count: %w", err)
 		}
-		out[id] = n
+		out[parentID] = n
 	}
 	return out, nil
 }
@@ -355,8 +692,30 @@ func (c *Cycle) getIdleAgents(ctx context.Context) ([]AgentInfo, error) {
 		return nil, nil
 	}
 
+	// Filter out agents that are currently in graceful-shutdown
+	// handshake, OR that rejected a task within the rejection-cooldown
+	// window. Without these the cycle would push a fresh task at an
+	// agent we already know can't accept it — wasting the round trip,
+	// creating zombie 'assigned' rows, and (for the rejection case)
+	// looping a rejection storm until the agent's real task finally
+	// flips to 'running' in the DB.
+	live := make([]int, 0, len(connected))
+	for _, agentID := range connected {
+		if c.wsSender.IsShuttingDown(agentID) {
+			continue
+		}
+		if c.wsSender.WasRecentlyRejected(agentID) {
+			debug.Debug("scheduler-v2: agent %d in rejection cooldown; skipping this cycle", agentID)
+			continue
+		}
+		live = append(live, agentID)
+	}
+	if len(live) == 0 {
+		return nil, nil
+	}
+
 	// Postgres int[] -> use ANY().
-	connectedArr := intSliceToBigintArray(connected)
+	connectedArr := intSliceToBigintArray(live)
 
 	rows, err := c.db.QueryContext(ctx, `
 		SELECT a.id, COALESCE(a.binary_version, '')
@@ -388,7 +747,46 @@ func (c *Cycle) getIdleAgents(ctx context.Context) ([]AgentInfo, error) {
 			BenchmarkSpeed: 0, // filled later by readAgentSpeeds
 		})
 	}
-	return out, nil
+
+	// Agent scheduling filter (mirrors legacy
+	// JobExecutionService.filterAvailableAgents). If the global
+	// `agent_scheduling_enabled` setting is on, AND the per-agent
+	// SchedulingEnabled toggle is on, AND the current UTC time is NOT
+	// inside the agent's approved schedule window, exclude the agent.
+	// Either dep being nil disables the filter entirely (safe default
+	// for tests that don't wire these up).
+	if c.scheduleRepo == nil || c.agentRepo == nil || c.systemSettingsRepo == nil || len(out) == 0 {
+		return out, nil
+	}
+	schedulingSetting, sErr := c.systemSettingsRepo.GetSetting(ctx, "agent_scheduling_enabled")
+	globalOn := sErr == nil && schedulingSetting != nil && schedulingSetting.Value != nil && *schedulingSetting.Value == "true"
+	if !globalOn {
+		return out, nil
+	}
+	filtered := out[:0]
+	for _, ai := range out {
+		agent, aErr := c.agentRepo.GetByID(ctx, ai.ID)
+		if aErr != nil {
+			debug.Warning("scheduler-v2: lookup agent %d for scheduling check: %v", ai.ID, aErr)
+			// Treat as ineligible — safer than overdispatching outside an
+			// agent's window.
+			continue
+		}
+		if !agent.SchedulingEnabled {
+			// Per-agent scheduling off → agent runs 24/7 (when connected).
+			filtered = append(filtered, ai)
+			continue
+		}
+		scheduled, schedErr := c.scheduleRepo.IsAgentScheduledNow(ctx, ai.ID)
+		if schedErr != nil {
+			debug.Warning("scheduler-v2: IsAgentScheduledNow(agent=%d): %v", ai.ID, schedErr)
+			continue
+		}
+		if scheduled {
+			filtered = append(filtered, ai)
+		}
+	}
+	return filtered, nil
 }
 
 // readAgentSpeeds returns a (agent_id -> speed) map populated from
@@ -470,26 +868,42 @@ func (c *Cycle) lookupHashTypeAndSalt(ctx context.Context, parentJobID uuid.UUID
 // populate them on the scheduling_unit at creation time, eliminating
 // the per-dispatch lookups.
 func (c *Cycle) sendAssignment(ctx context.Context, dt DispatchedTask, unit *models.SchedulingUnit, chunkDuration int) error {
-	payload, err := BuildTaskAssignment(unit, dt.TaskID, dt.RangeStart, dt.RangeEnd)
+	payload, err := BuildTaskAssignment(unit, dt.TaskID, dt.RangeStart, dt.RangeEnd, dt.EffectiveKeyspaceStart, dt.EffectiveKeyspaceEnd)
 	if err != nil {
 		return fmt.Errorf("build assignment: %w", err)
 	}
 
-	// Enrich from parent job_execution + hashlist. Path format matches
-	// the legacy emitter at job_websocket_integration.go:602,1106 —
-	// the agent expects the processed-into-DB version at
+	// Enrich from parent job_execution + hashlist + agent. Path format
+	// matches the legacy emitter at job_websocket_integration.go:602,
+	// 1106 — the agent expects the processed-into-DB version at
 	// "hashlists/<id>.hash". Mode 9 additionally needs the original
 	// file path so hashcat can pair hashes with candidates by line
 	// order; that lives in hashlists.original_file_path.
+	//
+	// Three fields the legacy dispatcher set that the v2 cycle
+	// previously dropped on the floor (the agent reads them all):
+	//   - job_executions.additional_args     → payload.JobAdditionalArgs
+	//   - job_executions.base_keyspace       → payload.BaseKeyspace
+	//   - hashlists.client_id                → payload.ClientID
+	//
+	// Without these the agent runs hashcat with wrong tuning, can't
+	// resolve client potfile routing, and (when -O kernel-split fires)
+	// can land --skip/--limit in the wrong window. Restoring them here
+	// matches the legacy behavior verbatim.
 	var hashlistID int64
 	var hashType int
 	var originalFilePath string
+	var jobAdditionalArgs sql.NullString
+	var baseKeyspace sql.NullInt64
+	var hashlistClientID uuid.NullUUID
 	err = c.db.QueryRowContext(ctx, `
-		SELECT je.hashlist_id, h.hash_type_id, COALESCE(h.original_file_path, '')
+		SELECT je.hashlist_id, h.hash_type_id, COALESCE(h.original_file_path, ''),
+		       je.additional_args, je.base_keyspace, h.client_id
 		FROM job_executions je
 		JOIN hashlists h ON h.id = je.hashlist_id
 		WHERE je.id = $1
-	`, unit.ParentJobID).Scan(&hashlistID, &hashType, &originalFilePath)
+	`, unit.ParentJobID).Scan(&hashlistID, &hashType, &originalFilePath,
+		&jobAdditionalArgs, &baseKeyspace, &hashlistClientID)
 	if err != nil {
 		return fmt.Errorf("lookup parent + hashlist: %w", err)
 	}
@@ -501,6 +915,63 @@ func (c *Cycle) sendAssignment(ctx context.Context, dt DispatchedTask, unit *mod
 	payload.ReportInterval = 5
 	if unit.AttackMode == AttackModeAssociation && originalFilePath != "" {
 		payload.OriginalHashlistPath = originalFilePath
+	}
+	if jobAdditionalArgs.Valid {
+		payload.JobAdditionalArgs = jobAdditionalArgs.String
+	}
+	// Prefer the UNIT's base_keyspace over the parent job's. For
+	// non-increment jobs they're equal (populateSingleUnit copies job's
+	// base to the unit). For INCREMENT-mode jobs the job's base is the
+	// SUM of all layer bases (e.g., 245218371 = 1+95+9025+...+81M+81M+81M),
+	// while each unit holds its layer's local base (e.g., 81450625 for
+	// ?a?a?a?a?a?a). The agent rescales when these disagree (visible in
+	// agent log as "Keyspace coordinate conversion: ratio=0.33") — that
+	// works but is fragile and obscures intent. Sending the layer's own
+	// base aligns server and agent coordinates; ratio becomes 1 and no
+	// rescale fires.
+	if unit.BaseKeyspace != nil && *unit.BaseKeyspace > 0 {
+		payload.BaseKeyspace = *unit.BaseKeyspace
+	} else if baseKeyspace.Valid {
+		payload.BaseKeyspace = baseKeyspace.Int64
+	}
+	if hashlistClientID.Valid {
+		payload.ClientID = hashlistClientID.UUID.String()
+	}
+
+	// TODO (separate v2 gap): ClientPotfilePath is intentionally NOT
+	// set here. The legacy dispatcher set it only when the user
+	// referenced a "potfile:ID" prefix in their job's wordlist list,
+	// and the resolution happened at dispatch time. The v2 unit
+	// creation (populateSchedulingUnits in job_execution_v2.go) does
+	// NOT yet handle "potfile:ID" or "client:UUID" wordlist prefixes,
+	// so by the time we get here the prefix has either been stripped
+	// or stored as a raw ref the agent can't resolve. Fixing this is
+	// scoped to job_execution_v2.go, not this dispatch site. Until
+	// then, jobs that reference a client potfile as a wordlist will
+	// silently degrade (the agent will fail to find the file).
+	// The crack-save path is unaffected — hashes.client_id routing
+	// happens server-side in processCrackedHashes regardless.
+
+	// Agent-level fields: extra_parameters + enabled device list.
+	// Matches the legacy lookup at job_websocket_integration.go:561
+	// (agentRepo.GetByID) and :793 (deviceRepo.GetByAgentID).
+	var agentExtraParams sql.NullString
+	if err := c.db.QueryRowContext(ctx, `
+		SELECT extra_parameters FROM agents WHERE id = $1
+	`, dt.AgentID).Scan(&agentExtraParams); err != nil {
+		debug.Warning("scheduler-v2: lookup agent extra_parameters for agent %d failed: %v", dt.AgentID, err)
+	} else if agentExtraParams.Valid {
+		payload.ExtraParameters = agentExtraParams.String
+	}
+
+	// Enabled-device list: only populated when SOME devices are
+	// disabled. If all are enabled, leave nil so the agent uses every
+	// device hashcat detected. Matches legacy behavior at
+	// job_websocket_integration.go:797-810.
+	if enabled, err := c.enabledDeviceIDsForAgent(ctx, dt.AgentID); err != nil {
+		debug.Warning("scheduler-v2: lookup enabled devices for agent %d failed: %v", dt.AgentID, err)
+	} else {
+		payload.EnabledDevices = enabled
 	}
 
 	// Resolve binary path via the injected resolver. Matches the

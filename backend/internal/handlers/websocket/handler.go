@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/cache/filehash"
@@ -113,6 +114,15 @@ type Handler struct {
 	// Key is agentID - only one pending file sync callback per agent at a time
 	inventoryCallbacks   map[int]chan *wsservice.FileSyncResponsePayload
 	inventoryCallbacksMu sync.RWMutex
+
+	// recentRejections tracks the wall-clock time of the most recent
+	// task_assignment_rejected (or "already running" job_status: failed)
+	// per agent. The scheduler-v2 cycle calls WasRecentlyRejected from
+	// getIdleAgents to skip the agent for a short cooldown window after
+	// a rejection, so an inter-cycle race against the agent's local
+	// "currently running" state doesn't loop into a rejection storm.
+	// Keys are agentID (int); values are time.Time.
+	recentRejections sync.Map
 }
 
 // Client represents a connected agent
@@ -123,6 +133,13 @@ type Client struct {
 	send    chan *wsservice.Message
 	ctx     context.Context
 	cancel  context.CancelFunc
+
+	// shuttingDown is set true the moment handleAgentShutdown sees a
+	// graceful-shutdown message from the agent. The scheduler v2 cycle
+	// (Handler.GetIdleConnectedAgents) excludes shutting-down agents
+	// from idle-allocation candidates so it doesn't push new tasks at
+	// an agent that already said it's going away.
+	shuttingDown atomic.Bool
 }
 
 // NewHandler creates a new WebSocket handler.
@@ -474,6 +491,9 @@ func (c *Client) readPump() {
 		case wsservice.TypeAgentShutdown:
 			c.handler.handleAgentShutdown(c, &msg)
 
+		case wsservice.TypeTaskAssignmentRejected:
+			c.handler.handleTaskAssignmentRejected(c, &msg)
+
 		case wsservice.TypeDownloadProgress:
 			c.handler.handleDownloadProgress(c, &msg)
 
@@ -680,7 +700,10 @@ func (h *Handler) readNetworkGraceSeconds() int {
 	return n
 }
 
-// GetConnectedAgents returns a list of connected agent IDs
+// GetConnectedAgents returns a list of connected agent IDs.
+// NOTE: this returns shutting-down agents too — most callers want this
+// (e.g., to fan out broadcasts to everyone). The scheduler-v2 cycle
+// uses IsShuttingDown to filter the result before dispatching.
 func (h *Handler) GetConnectedAgents() []int {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
@@ -690,6 +713,65 @@ func (h *Handler) GetConnectedAgents() []int {
 		agents = append(agents, agentID)
 	}
 	return agents
+}
+
+// IsShuttingDown reports whether the agent's WS client has flipped its
+// shutting-down flag (i.e., we've received an agent_shutdown message
+// from it). The scheduler v2 cycle calls this from getIdleAgents to
+// exclude graceful-shutdown agents from dispatch candidates. Returns
+// false for unknown agent IDs — a disconnected agent can't accept
+// work anyway, so the answer is equivalent.
+func (h *Handler) IsShuttingDown(agentID int) bool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	c, ok := h.clients[agentID]
+	if !ok {
+		return false
+	}
+	return c.shuttingDown.Load()
+}
+
+// rejectionCooldown is how long an agent stays excluded from idle-agent
+// candidates after a state-change signal (rejection OR task completion).
+// Both events share the same root cause: the agent's local cleanup window
+// where its activeJobs map is still populated even though it told the
+// backend the task is done/rejected. Live measurement of the agent's
+// cleanup window was ~1.8s for normal completion; 5s gives comfortable
+// headroom while not over-delaying the next dispatch.
+const rejectionCooldown = 5 * time.Second
+
+// MarkRejected records that the agent just signaled a state change that
+// will leave its local activeJobs map populated for a short cleanup
+// window. The scheduler-v2 cycle will skip the agent for
+// `rejectionCooldown` to prevent re-dispatching while the agent's local
+// state is mid-handoff. Used for two cases:
+//   - Agent rejected a task assignment (race with prior task's cleanup)
+//   - Agent reported a task as completed (cleanup not yet finished)
+// Name kept as MarkRejected for diff hygiene; the semantics broadened
+// when post-completion cooldown was added.
+func (h *Handler) MarkRejected(agentID int) {
+	h.recentRejections.Store(agentID, time.Now())
+}
+
+// WasRecentlyRejected returns true if the agent rejected a task within
+// `rejectionCooldown` ago. Stale entries (older than the cooldown) are
+// opportunistically deleted so the map doesn't grow unbounded for
+// long-lived deployments.
+func (h *Handler) WasRecentlyRejected(agentID int) bool {
+	v, ok := h.recentRejections.Load(agentID)
+	if !ok {
+		return false
+	}
+	t, ok := v.(time.Time)
+	if !ok {
+		h.recentRejections.Delete(agentID)
+		return false
+	}
+	if time.Since(t) > rejectionCooldown {
+		h.recentRejections.Delete(agentID)
+		return false
+	}
+	return true
 }
 
 // sendInitialConfiguration sends initial configuration to the agent including download settings
@@ -1585,9 +1667,63 @@ func (h *Handler) handleOfflineTaskCompletion(client *Client, status *struct {
 		client.agent.ID, status.TaskID, status.Status)
 }
 
+// handleTaskAssignmentRejected processes a task_assignment_rejected
+// message from an agent (e.g., the agent's JobManager.shuttingDown
+// flag refused our dispatch during the shutdown handshake). We run
+// the scheduler-v2 recovery primitive on the task so the gap is freed
+// for re-dispatch to a different agent immediately — without it, the
+// task would sit until the sweeper's 120s heartbeat timeout.
+func (h *Handler) handleTaskAssignmentRejected(client *Client, msg *wsservice.Message) {
+	var payload struct {
+		TaskID string `json:"task_id"`
+		Reason string `json:"reason"`
+	}
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		debug.Error("Agent %d: Failed to parse task_assignment_rejected payload: %v", client.agent.ID, err)
+		return
+	}
+	debug.Info("Agent %d: rejected task assignment %s (reason: %s)", client.agent.ID, payload.TaskID, payload.Reason)
+
+	// Put the agent in the rejection-cooldown set so the next few
+	// scheduler-v2 cycles skip it. Either side of the race (intra-cycle
+	// double-dispatch caught by dispatcher dedup, or inter-cycle race
+	// against the agent's local task state) ends up here.
+	h.MarkRejected(client.agent.ID)
+
+	taskID, err := uuid.Parse(payload.TaskID)
+	if err != nil {
+		debug.Error("Agent %d: task_assignment_rejected with malformed task ID %q: %v", client.agent.ID, payload.TaskID, err)
+		return
+	}
+	if h.database == nil {
+		debug.Warning("Agent %d: task_assignment_rejected for task %s but database is nil; can't recover", client.agent.ID, taskID)
+		return
+	}
+	reason := "agent rejected assignment"
+	if payload.Reason != "" {
+		reason = "agent rejected assignment: " + payload.Reason
+	}
+	result, recErr := scheduler.RecoverTaskByID(client.ctx, h.database, taskID, reason)
+	if recErr != nil {
+		debug.Warning("Agent %d: scheduler-v2 recovery for rejected task %s failed: %v", client.agent.ID, taskID, recErr)
+		return
+	}
+	if !result.Handled {
+		debug.Info("Agent %d: task_assignment_rejected for non-v2 task %s — nothing to do (legacy task)", client.agent.ID, taskID)
+		return
+	}
+	debug.Info("Agent %d: scheduler-v2 freed interval for rejected task %s (truncated=%v)", client.agent.ID, taskID, result.Truncated)
+}
+
 // handleAgentShutdown processes graceful shutdown notification from an agent
 func (h *Handler) handleAgentShutdown(client *Client, msg *wsservice.Message) {
 	debug.Info("Agent %d: Received graceful shutdown notification", client.agent.ID)
+
+	// Mark the client as shutting down BEFORE any other work, so the
+	// next scheduler-v2 cycle (3s tick) excludes us from idle-allocation
+	// candidates. Closes the race window where the cycle could dispatch
+	// a new task while we're still processing the in-flight one.
+	client.shuttingDown.Store(true)
 
 	// Parse the shutdown payload
 	var shutdownPayload struct {

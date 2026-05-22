@@ -76,6 +76,12 @@ const (
 	// Shutdown message type
 	WSTypeAgentShutdown WSMessageType = "agent_shutdown"
 
+	// WSTypeTaskAssignmentRejected is sent when the agent refuses an
+	// inbound task_assignment (e.g., graceful shutdown in progress).
+	// The backend handler runs RecoverTaskByID so the chunk is freed
+	// for re-dispatch without waiting for the heartbeat timeout.
+	WSTypeTaskAssignmentRejected WSMessageType = "task_assignment_rejected"
+
 	// Outfile acknowledgment protocol message types
 	WSTypePendingOutfiles        WSMessageType = "pending_outfiles"         // Agent -> Server: report tasks with pending outfiles
 	WSTypeRequestCrackRetransmit WSMessageType = "request_crack_retransmit" // Server -> Agent: request full outfile retransmission
@@ -1410,16 +1416,30 @@ func (c *Connection) readPump() {
 						TaskID string `json:"task_id"`
 					}
 					if unmarshalErr := json.Unmarshal(payload, &assignment); unmarshalErr == nil && assignment.TaskID != "" {
-						// Send failure status to backend so it can update task state
-						failureStatus := &jobs.JobStatus{
-							TaskID:       assignment.TaskID,
-							Status:       "failed",
-							ErrorMessage: fmt.Sprintf("Failed to prepare task: %v", err),
-						}
-						if sendErr := c.SendJobStatus(failureStatus); sendErr != nil {
-							debug.Error("Failed to send task failure status to backend: %v", sendErr)
+						// Special case: graceful-shutdown refusal. The error
+						// string is set by JobManager.ProcessJobAssignment when
+						// BeginShutdown() has been called. Send a dedicated
+						// task_assignment_rejected frame so the backend can run
+						// RecoverTaskByID and re-dispatch immediately instead of
+						// waiting for the heartbeat timeout.
+						if strings.Contains(err.Error(), "shutting down") {
+							if sendErr := c.SendTaskAssignmentRejected(assignment.TaskID, err.Error()); sendErr != nil {
+								debug.Error("Failed to send task_assignment_rejected for task %s: %v", assignment.TaskID, sendErr)
+							} else {
+								debug.Info("Sent task_assignment_rejected (shutdown) for task %s", assignment.TaskID)
+							}
 						} else {
-							debug.Info("Sent task failure status to backend for task %s", assignment.TaskID)
+							// Generic failure: existing path — report task failed.
+							failureStatus := &jobs.JobStatus{
+								TaskID:       assignment.TaskID,
+								Status:       "failed",
+								ErrorMessage: fmt.Sprintf("Failed to prepare task: %v", err),
+							}
+							if sendErr := c.SendJobStatus(failureStatus); sendErr != nil {
+								debug.Error("Failed to send task failure status to backend: %v", sendErr)
+							} else {
+								debug.Info("Sent task failure status to backend for task %s", assignment.TaskID)
+							}
 						}
 					} else {
 						debug.Error("Could not extract task ID from failed assignment to report failure")
@@ -2807,6 +2827,33 @@ func (c *Connection) SetJobManager(jm JobManager) {
 }
 
 // SendShutdownNotification sends a notification to the backend that the agent is shutting down gracefully
+// SendTaskAssignmentRejected tells the backend the agent refused an
+// inbound task_assignment. The backend's HandleTaskAssignmentRejected
+// runs RecoverTaskByID on the task so the chunk is immediately freed
+// for re-dispatch — closes the agent-shutdown race window without
+// waiting for the heartbeat sweep.
+func (c *Connection) SendTaskAssignmentRejected(taskID, reason string) error {
+	if !c.isConnected.Load() {
+		return fmt.Errorf("not connected")
+	}
+	payloadBytes, err := json.Marshal(struct {
+		TaskID string `json:"task_id"`
+		Reason string `json:"reason"`
+	}{TaskID: taskID, Reason: reason})
+	if err != nil {
+		return fmt.Errorf("marshal task_assignment_rejected: %w", err)
+	}
+	msg := &WSMessage{
+		Type:      WSTypeTaskAssignmentRejected,
+		Payload:   payloadBytes,
+		Timestamp: time.Now(),
+	}
+	if !c.safeSendMessage(msg, 2000) {
+		return fmt.Errorf("send timeout / channel blocked")
+	}
+	return nil
+}
+
 func (c *Connection) SendShutdownNotification(hasTask bool, taskID string, jobID string) {
 	debug.Info("Sending shutdown notification to backend")
 

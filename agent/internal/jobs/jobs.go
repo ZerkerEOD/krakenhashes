@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/agent/internal/config"
@@ -43,6 +44,15 @@ type JobManager struct {
 	// Explicit state machine for reliable state tracking
 	// This prevents race conditions from deferred cleanup
 	stateManager *TaskStateManager
+
+	// shuttingDown is set to true the instant graceful shutdown
+	// begins, so any new task_assignment messages arriving on the WS
+	// after this point are refused. Without this gate, the backend's
+	// scheduler-v2 cycle (3s tick) can race the shutdown sequence and
+	// push a new task into the window between "we told the backend we're
+	// going down" and "our WS actually closed." The agent would happily
+	// start hashcat on the new task and then leave it orphaned.
+	shuttingDown atomic.Bool
 }
 
 // HardwareMonitor interface for device management
@@ -302,8 +312,25 @@ func (jm *JobManager) SetAckWaitCallback(callback func(taskID string, resendFunc
 	jm.ackWaitCallback = callback
 }
 
+// BeginShutdown flips the shutting-down flag so any subsequent
+// ProcessJobAssignment calls refuse the assignment. Idempotent.
+// Called from main.go's shutdown sequence BEFORE the WS notification
+// fires, so we don't accept work we have no intention of running.
+func (jm *JobManager) BeginShutdown() {
+	jm.shuttingDown.Store(true)
+}
+
 // ProcessJobAssignment processes a job assignment from the backend
 func (jm *JobManager) ProcessJobAssignment(ctx context.Context, assignmentData []byte) error {
+	// Refuse new work once shutdown has begun. The caller in
+	// connection.readPump translates this error into a
+	// task_assignment_rejected WS frame so the backend can re-dispatch
+	// the chunk to a different agent instead of waiting for the heartbeat
+	// timeout to kick in.
+	if jm.shuttingDown.Load() {
+		return fmt.Errorf("agent is shutting down — refusing task assignment")
+	}
+
 	// DEBUG: Log raw JSON received
 	debug.Info("Received task assignment JSON: %s", string(assignmentData))
 

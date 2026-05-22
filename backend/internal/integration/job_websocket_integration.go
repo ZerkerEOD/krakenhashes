@@ -64,6 +64,7 @@ type JobWebSocketIntegration struct {
 		SendMessage(agentID int, msg *wsservice.Message) error
 		RegisterInventoryCallback(agentID int) <-chan *wsservice.FileSyncResponsePayload
 		UnregisterInventoryCallback(agentID int)
+		MarkRejected(agentID int)
 	}
 	jobSchedulingService      *services.JobSchedulingService
 	jobExecutionService       *services.JobExecutionService
@@ -105,6 +106,7 @@ func NewJobWebSocketIntegration(
 		SendMessage(agentID int, msg *wsservice.Message) error
 		RegisterInventoryCallback(agentID int) <-chan *wsservice.FileSyncResponsePayload
 		UnregisterInventoryCallback(agentID int)
+		MarkRejected(agentID int)
 	},
 	jobSchedulingService *services.JobSchedulingService,
 	jobExecutionService *services.JobExecutionService,
@@ -1452,6 +1454,16 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 		debug.Warning("scheduler-v2 progress ingestion for task %s failed (legacy path continues): %v", progress.TaskID, v2Err)
 	}
 
+	// Refresh agent_benchmarks.speed from the observed hash rate.
+	// Without this the dispatcher keeps using the stale benchmark for
+	// chunk sizing (1.07 GH/s in the live bug report) even when the
+	// agent is actually running at 3.71 GH/s, so chunks under-shoot
+	// the configured target. Best-effort; failure does not break
+	// progress handling.
+	if benchErr := s.refreshBenchmarkFromObserved(ctx, agentID, task.JobExecutionID, progress); benchErr != nil {
+		debug.Warning("benchmark refresh from observed speed (agent=%d, task=%s): %v", agentID, progress.TaskID, benchErr)
+	}
+
 	// Verify the task is assigned to this agent
 	if task.AgentID == nil || *task.AgentID != agentID {
 		// Check if this task is stopping (agent was told to stop but hasn't ack'd yet)
@@ -1601,7 +1613,7 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 							}
 						}
 					}
-				} else if !job.UsesRuleSplitting && task.ChunkNumber == 1 {
+				} else if !job.UsesRuleSplitting && task.ChunkNumber != nil && *task.ChunkNumber == 1 {
 					// Regular (non-increment) single-task jobs - update effective_keyspace to match actual
 					// This ensures progress calculations use actual keyspace, not estimates
 					// Check if this is the only task for this job
@@ -1717,12 +1729,16 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			// the chunk's portion of work. For keyspace-split tasks, hashcat's progress[1] reports the
 			// ENTIRE job's effective keyspace (not just the chunk's), so cascade recalculation would corrupt
 			// the effective keyspace chain with incorrect values.
-			if task.ChunkNumber > 0 && !task.IsKeyspaceSplit {
-				err = s.recalculateSubsequentChunks(ctx, task.JobExecutionID, task.ChunkNumber)
+			// task.ChunkNumber may be nil for scheduler-v2 tasks (which are
+			// interval-based, not sequence-numbered). Skip the cascade
+			// recalculation in that case — v2 tracks coverage via
+			// job_keyspace_intervals, not chunk_number ordering.
+			if task.ChunkNumber != nil && *task.ChunkNumber > 0 && !task.IsKeyspaceSplit {
+				err = s.recalculateSubsequentChunks(ctx, task.JobExecutionID, *task.ChunkNumber)
 				if err != nil {
 					debug.Error("Failed to cascade update subsequent chunks: %v", err)
 				} else {
-					debug.Info("Cascaded effective keyspace updates to chunks after chunk %d", task.ChunkNumber)
+					debug.Info("Cascaded effective keyspace updates to chunks after chunk %d", *task.ChunkNumber)
 				}
 			}
 		}
@@ -1733,6 +1749,29 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 	s.taskProgressMap[progress.TaskID.String()] = progress
 	s.progressMutex.Unlock()
 
+	// Operator-initiated stop (agent Ctrl+C / agent shutdown / explicit
+	// StopJob). The agent now sends status="stopped" with the last-known
+	// KeyspaceProcessed (Step 10c-1) instead of empty zeros. Treat this
+	// as truncate-and-preserve: ingest the final restore_point, then
+	// RecoverTaskByID truncates the interval at that point and marks
+	// task+interval 'completed'. The unprocessed portion of the original
+	// range automatically becomes a gap, re-dispatchable to a different
+	// agent. NO progress overwrite to 0%.
+	if progress.Status == "stopped" {
+		database := &db.DB{DB: s.db}
+		if ierr := scheduler.IngestProgressV2(ctx, database, progress.TaskID, progress.KeyspaceProcessed, progress.TotalEffectiveKeyspace); ierr != nil {
+			debug.Warning("IngestProgressV2 on stopped task %s: %v", progress.TaskID, ierr)
+		}
+		if _, rerr := scheduler.RecoverTaskByID(ctx, database, progress.TaskID, "agent stopped by operator"); rerr != nil {
+			debug.Warning("RecoverTaskByID on stopped task %s: %v", progress.TaskID, rerr)
+		}
+		// ACK so the agent doesn't retry.
+		taskIDStr := progress.TaskID.String()
+		s.cacheCompletion(taskIDStr)
+		s.sendTaskCompleteAck(agentID, taskIDStr, true, "task stopped by operator")
+		return nil
+	}
+
 	// Check if this is a failure update
 	if progress.Status == "failed" && progress.ErrorMessage != "" {
 		// Check if this is an agent-side rejection (not an execution failure)
@@ -1741,20 +1780,50 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			strings.Contains(progress.ErrorMessage, "already running task")
 
 		if isAgentRejection {
-			// Agent rejected the task - return it to pending for reassignment
-			debug.Warning("Agent rejected task assignment (will be reassigned): task=%s, agent=%d, reason=%s",
+			// Agent rejected because it's still mid-cleanup of its prior
+			// task — scheduler-side race against the agent's local
+			// activeJobs map. NOT an agent fault.
+			//
+			// Per user-stated principle: "A rejected task isn't a failed
+			// task — it gets redone." Marking the row 'failed' (the
+			// previous approach) polluted the task list and triggered
+			// per-tuple failure attribution against a healthy agent.
+			// Better: DELETE the just-inserted task+interval rows. The
+			// dispatcher's gap query naturally reopens the range; the
+			// next cycle (after the 5s MarkRejected cooldown) re-issues.
+			//
+			// Recovery steps:
+			//  1. MarkRejected so the next scheduler-v2 cycles skip this
+			//     agent for `rejectionCooldown` (5s) and the race quiets
+			//     down instead of looping a rejection storm.
+			//  2. DELETE the rejected task and its interval row. Safe
+			//     because the rows were just inserted milliseconds ago;
+			//     no downstream references (no progress updates, no
+			//     completion handlers, no benchmark writes).
+			//  3. ACK the agent so it doesn't retry.
+			debug.Warning("Agent rejected task assignment (race — deleting and re-dispatching after cooldown): task=%s, agent=%d, reason=%s",
 				progress.TaskID, agentID, progress.ErrorMessage)
 
-			// Revert task to pending (NOT failed) - SetTaskPending clears agent_id and assigned_at.
-			// Layer status intentionally not cascaded here: rejected tasks are immediately
-			// reassigned to a different agent, so any running→pending→running flicker on the
-			// parent layer would be noise rather than meaningful state.
-			_, err := s.jobTaskRepo.SetTaskPending(ctx, progress.TaskID)
-			if err != nil {
-				debug.Error("Failed to revert rejected task to pending: %v", err)
+			s.wsHandler.MarkRejected(agentID)
+
+			// Delete interval first (it has FK to task_id), then task.
+			// Best-effort: log on error, continue. If the rows are
+			// somehow already gone, the DELETEs are safe no-ops.
+			if _, delErr := s.db.ExecContext(ctx, `
+				DELETE FROM job_keyspace_intervals WHERE task_id = $1
+			`, progress.TaskID); delErr != nil {
+				debug.Warning("delete interval for rejected task %s: %v", progress.TaskID, delErr)
+			}
+			if _, delErr := s.db.ExecContext(ctx, `
+				DELETE FROM job_tasks WHERE id = $1
+			`, progress.TaskID); delErr != nil {
+				debug.Warning("delete rejected task %s: %v", progress.TaskID, delErr)
 			}
 
-			// Don't mark job as failed - the task will be reassigned
+			taskIDStr := progress.TaskID.String()
+			s.cacheCompletion(taskIDStr)
+			s.sendTaskCompleteAck(agentID, taskIDStr, true, "task rejected (race): "+progress.ErrorMessage)
+
 			return nil
 		}
 
@@ -1763,43 +1832,74 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			"error":   progress.ErrorMessage,
 		})
 
-		// Mark task as permanently failed, decrement dispatched keyspace, AND clear agent status atomically
-		// Agent-reported failures are considered permanent and the job will be marked as failed
+		// Mark the task row as failed (clears agent_id atomically when known
+		// so the agent is freed for new work). This is local-to-the-task
+		// bookkeeping; the JOB-level decision is delegated to the
+		// attribution machinery below.
 		if task.AgentID != nil {
-			err := s.jobTaskRepo.MarkTaskFailedPermanentlyAndClearAgentStatus(ctx, progress.TaskID, *task.AgentID, progress.ErrorMessage)
-			if err != nil {
+			if err := s.jobTaskRepo.MarkTaskFailedPermanentlyAndClearAgentStatus(ctx, progress.TaskID, *task.AgentID, progress.ErrorMessage); err != nil {
 				debug.Error("Failed to atomically fail task and clear agent status: %v", err)
 			}
 		} else {
-			// No agent ID - just mark task as failed
-			err := s.jobTaskRepo.MarkTaskFailedPermanently(ctx, progress.TaskID, progress.ErrorMessage)
-			if err != nil {
+			if err := s.jobTaskRepo.MarkTaskFailedPermanently(ctx, progress.TaskID, progress.ErrorMessage); err != nil {
 				debug.Error("Failed to mark task as permanently failed: %v", err)
 			}
 		}
 
-		// Update job execution status to failed
-		// Wrap sql.DB in custom DB type
+		// Scheduler-v2 recovery: mark the interval failed so its keyspace
+		// range becomes a gap again. The next cycle will re-issue it to
+		// the same agent (if other_agents_failed=0) or, post-attribution,
+		// to a different agent if this agent has been blocklisted for
+		// this job. RecoverTaskByID is a no-op for legacy tasks
+		// (Handled=false), so this is safe to call unconditionally.
 		database := &db.DB{DB: s.db}
-		jobExecRepo := repository.NewJobExecutionRepository(database)
-		if err := jobExecRepo.UpdateStatus(ctx, task.JobExecutionID, models.JobExecutionStatusFailed); err != nil {
-			debug.Error("Failed to update job execution status: %v", err)
-		}
-		if err := jobExecRepo.UpdateErrorMessage(ctx, task.JobExecutionID, progress.ErrorMessage); err != nil {
-			debug.Error("Failed to update job execution error message: %v", err)
+		if _, recErr := scheduler.RecoverTaskByID(ctx, database, progress.TaskID, "agent-reported failure: "+progress.ErrorMessage); recErr != nil {
+			debug.Warning("scheduler-v2 recovery for failed task %s: %v", progress.TaskID, recErr)
 		}
 
-		// Handle task failure cleanup
-		err = s.jobExecutionService.HandleTaskCompletion(ctx, progress.TaskID)
-		if err != nil {
+		// Delegate the JOB-level decision (blocklist, fail job after N,
+		// multi-agent failover, etc.) to the existing attribution
+		// machinery — the same code path that runs on benchmark failures.
+		// AttributeBenchmarkFailure is misnamed (it handles task failures
+		// too) but its body is generic agent/job/mode/hash_type policy.
+		// Without this delegation we'd hit the runaway-dispatch
+		// pathology of 2026-05-17: every task failure blindly flipped the
+		// job to 'failed', no per-tuple thresholds, no cross-agent
+		// failover, no all-agents-blocklisted protection.
+		//
+		// Look up the attack_mode + hash_type from the parent job since
+		// they aren't carried on the progress message.
+		jobExec, jeErr := s.jobExecutionService.GetJobExecutionByID(ctx, task.JobExecutionID)
+		if jeErr != nil {
+			debug.Warning("Failed to load job %s for task-failure attribution: %v", task.JobExecutionID, jeErr)
+		} else {
+			hashlist, hlErr := s.hashlistRepo.GetByID(ctx, jobExec.HashlistID)
+			if hlErr != nil {
+				debug.Warning("Failed to load hashlist %d for task-failure attribution: %v", jobExec.HashlistID, hlErr)
+			} else {
+				entityID := task.JobExecutionID.String()
+				if task.IncrementLayerID != nil {
+					entityID = task.IncrementLayerID.String()
+				}
+				if attrErr := s.jobSchedulingService.AttributeBenchmarkFailure(
+					ctx, agentID, jobExec.AttackMode, hashlist.HashTypeID, entityID, progress.ErrorMessage,
+				); attrErr != nil {
+					debug.Warning("Task-failure attribution for task %s (agent=%d, job=%s): %v",
+						progress.TaskID, agentID, task.JobExecutionID, attrErr)
+				}
+			}
+		}
+
+		// Bookkeeping cleanup (release reservations, etc.) — separate from
+		// the policy decision above.
+		if err = s.jobExecutionService.HandleTaskCompletion(ctx, progress.TaskID); err != nil {
 			debug.Log("Failed to handle failed task cleanup", map[string]interface{}{
 				"task_id": progress.TaskID,
 				"error":   err.Error(),
 			})
 		}
 
-		// Cache and send ACK for failure (GH Issue #12)
-		// Failures also need ACK so agent knows backend received the status
+		// ACK so the agent stops retrying.
 		taskIDStr := progress.TaskID.String()
 		s.cacheCompletion(taskIDStr)
 		s.sendTaskCompleteAck(agentID, taskIDStr, true, "task failed: "+progress.ErrorMessage)
@@ -1947,6 +2047,15 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 
 	// Check if this is a completion update
 	if progress.Status == "completed" {
+		// Post-completion cooldown: the agent told us "completed" but its
+		// local activeJobs map stays populated for ~1-2s while crack
+		// batches drain and hashcat process cleanup finishes. During that
+		// window any new dispatch gets rejected with "already running
+		// task X". MarkRejected (semantically "agent is in a state-change
+		// cleanup window") makes the next ~5s of scheduler-v2 cycles
+		// skip this agent, preventing the doomed dispatch.
+		s.wsHandler.MarkRejected(agentID)
+
 		taskIDStr := progress.TaskID.String()
 
 		// Idempotent handling: check if this completion was already processed (GH Issue #12)
@@ -2479,7 +2588,16 @@ func (s *JobWebSocketIntegration) HandleCrackBatchesComplete(ctx context.Context
 }
 
 // checkJobProcessingStatus checks if a job should transition to processing status
-// This happens when the last task with no remaining work enters processing status
+// This happens when the last task with no remaining work enters processing status.
+//
+// CRITICAL: For scheduler-v2 jobs (those with scheduling_units rows), the legacy
+// GetJobsWithPendingWork query DELIBERATELY excludes them via its NOT EXISTS
+// clause — that's how the two schedulers self-partition in transition mode.
+// Without the v2-aware check below, every v2 job appears to have "no remaining
+// work" the moment any task hits processing status, and the job gets prematurely
+// flipped to 'processing' even though its scheduling_units still have gaps to
+// dispatch. Once flipped, the Step 11n cascade in HandleTaskCompletion (which
+// only handles running→pending) cannot recover it.
 func (s *JobWebSocketIntegration) checkJobProcessingStatus(ctx context.Context, jobExecutionID uuid.UUID) {
 	// Wrap sql.DB in custom DB type
 	database := &db.DB{DB: s.db}
@@ -2497,7 +2615,45 @@ func (s *JobWebSocketIntegration) checkJobProcessingStatus(ctx context.Context, 
 		return
 	}
 
-	// Check if there's any remaining work
+	// v2-aware remaining-work check: a job has remaining work if ANY of its
+	// scheduling_units is non-terminal AND has gaps left. The legacy
+	// GetJobsWithPendingWork can't answer this because it filters v2 jobs
+	// out by design. Check this BEFORE falling through to the legacy query
+	// so v2 jobs short-circuit correctly.
+	var v2RemainingUnits int
+	v2Err := s.db.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM scheduling_units su
+		WHERE su.parent_job_id = $1
+		  AND su.status NOT IN ('completed', 'cancelled', 'failed')
+		  AND (
+		      su.base_keyspace IS NULL
+		      OR (
+		          SELECT COALESCE(SUM(jki.range_end - jki.range_start), 0)
+		          FROM job_keyspace_intervals jki
+		          WHERE jki.scheduling_unit_id = su.id
+		            AND jki.status NOT IN ('failed', 'cancelled')
+		      ) < su.base_keyspace
+		  )
+	`, jobExecutionID).Scan(&v2RemainingUnits)
+	if v2Err != nil {
+		debug.Warning("checkJobProcessingStatus: v2 remaining-work check failed for job %s: %v", jobExecutionID, v2Err)
+		// Fall through to legacy logic; safer to risk a false processing
+		// flip than to silently swallow the error.
+	} else if v2RemainingUnits > 0 {
+		// v2 job still has units with gaps — do NOT flip to processing.
+		// The unit's next chunk gets dispatched on the next scheduler-v2
+		// cycle and the job stays running.
+		debug.Debug("checkJobProcessingStatus: job %s has %d v2 units with remaining work; not flipping to processing",
+			jobExecutionID, v2RemainingUnits)
+		return
+	}
+
+	// Legacy path: check GetJobsWithPendingWork. For v2 jobs that reach
+	// here it means scheduling_units exist but none have gaps left — the
+	// job is genuinely done with its keyspace and any processing tasks are
+	// just waiting for crack batches to drain. Same behavior as the
+	// non-v2 path.
 	jobsWithWork, err := jobExecRepo.GetJobsWithPendingWork(ctx)
 	if err != nil {
 		debug.Error("Failed to check jobs with pending work: %v", err)
@@ -3804,19 +3960,38 @@ func (s *JobWebSocketIntegration) RecoverTask(ctx context.Context, taskID string
 	return nil
 }
 
-// HandleAgentDisconnection marks tasks as reconnect_pending when an agent disconnects
+// HandleAgentDisconnection routes each affected task through the proper
+// recovery path the instant the WebSocket closes.
+//
+// For SCHEDULER-V2 tasks (scheduling_unit_id IS NOT NULL): we call
+// scheduler.RecoverTaskByID directly. That truncates the interval at
+// restore_point (preserving any progress reported pre-disconnect),
+// marks the task completed-or-failed, and cascades unit/layer/job
+// back to 'pending' so the next scheduler tick (≤3s) can redispatch
+// the freed range. The 120s heartbeat-timeout sweeper remains, but
+// only as last resort for crashes that miss this hook.
+//
+// For LEGACY tasks (no scheduling_unit_id): we keep the historical
+// reconnect_pending + 2-minute grace flow. Legacy has no equivalent
+// of applyRecovery's interval truncation, so the slower path is
+// correct there.
+//
+// Uses context.Background() because the caller's ctx is the WS request
+// context, canceled the moment the agent's WebSocket closes.
 func (s *JobWebSocketIntegration) HandleAgentDisconnection(ctx context.Context, agentID int) error {
+	_ = ctx // intentionally unused — see context.Background() rationale above
+	recoverCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	debug.Log("Handling agent disconnection", map[string]interface{}{
 		"agent_id": agentID,
 	})
 
-	// Find all running or assigned tasks for this agent
-	// Wrap sql.DB in custom DB type
 	database := &db.DB{DB: s.db}
 	taskRepo := repository.NewJobTaskRepository(database)
 
-	// Get task IDs that are currently running or assigned to this agent
-	taskIDs, err := taskRepo.GetTasksByAgentAndStatus(ctx, agentID, models.JobTaskStatusRunning)
+	// Get task IDs that are currently running or assigned to this agent.
+	taskIDs, err := taskRepo.GetTasksByAgentAndStatus(recoverCtx, agentID, models.JobTaskStatusRunning)
 	if err != nil {
 		debug.Log("Failed to get running tasks for disconnected agent", map[string]interface{}{
 			"agent_id": agentID,
@@ -3824,8 +3999,7 @@ func (s *JobWebSocketIntegration) HandleAgentDisconnection(ctx context.Context, 
 		})
 	}
 
-	// Also get assigned tasks
-	assignedTaskIDs, err := taskRepo.GetTasksByAgentAndStatus(ctx, agentID, models.JobTaskStatusAssigned)
+	assignedTaskIDs, err := taskRepo.GetTasksByAgentAndStatus(recoverCtx, agentID, models.JobTaskStatusAssigned)
 	if err != nil {
 		debug.Log("Failed to get assigned tasks for disconnected agent", map[string]interface{}{
 			"agent_id": agentID,
@@ -3833,62 +4007,90 @@ func (s *JobWebSocketIntegration) HandleAgentDisconnection(ctx context.Context, 
 		})
 	}
 
-	// Combine both lists
 	if assignedTaskIDs != nil {
 		taskIDs = append(taskIDs, assignedTaskIDs...)
 	}
 
-	// Get full task objects and mark each as reconnect_pending
-	var tasks []models.JobTask
+	// Partition into v2 and legacy as we go. Legacy tasks queue up for
+	// the grace-period goroutine; v2 tasks are recovered inline.
+	var legacyTasks []models.JobTask
+	v2Recovered := 0
+	v2Failed := 0
 	for _, taskID := range taskIDs {
-		// Get the full task object
-		task, err := taskRepo.GetByID(ctx, taskID)
+		task, err := taskRepo.GetByID(recoverCtx, taskID)
 		if err != nil || task == nil {
-			debug.Log("Failed to get task details", map[string]interface{}{
+			debug.Log("Failed to get task details on disconnect", map[string]interface{}{
 				"task_id": taskID,
 				"error":   err,
 			})
 			continue
 		}
 
-		debug.Log("Marking task as reconnect_pending due to agent disconnection", map[string]interface{}{
+		// v2 probe: scheduling_unit_id is on the DB row but not on the
+		// JobTask model. RecoverTaskByID returns Handled=false for legacy
+		// (no scheduling_unit_id), so we use its return as the partition
+		// signal AND the recovery primitive in one call.
+		res, rerr := scheduler.RecoverTaskByID(recoverCtx, database, taskID, "agent disconnect")
+		if rerr != nil {
+			debug.Log("v2 recovery failed on agent disconnect; will retry via sweeper", map[string]interface{}{
+				"task_id":  taskID,
+				"agent_id": agentID,
+				"error":    rerr.Error(),
+			})
+			v2Failed++
+			continue
+		}
+		if res.Handled {
+			v2Recovered++
+			debug.Log("Recovered v2 task on agent disconnect", map[string]interface{}{
+				"task_id":   taskID,
+				"agent_id":  agentID,
+				"job_id":    task.JobExecutionID,
+				"truncated": res.Truncated,
+			})
+			continue
+		}
+
+		// Legacy: existing reconnect_pending + grace flow.
+		debug.Log("Marking legacy task as reconnect_pending on disconnect", map[string]interface{}{
 			"task_id":  taskID,
 			"agent_id": agentID,
 			"job_id":   task.JobExecutionID,
 		})
-
-		// Update task status to reconnect_pending
-		err = taskRepo.UpdateStatus(ctx, taskID, models.JobTaskStatusReconnectPending)
-		if err != nil {
-			debug.Log("Failed to mark task as reconnect_pending", map[string]interface{}{
+		if err := taskRepo.UpdateStatus(recoverCtx, taskID, models.JobTaskStatusReconnectPending); err != nil {
+			debug.Log("Failed to mark legacy task as reconnect_pending", map[string]interface{}{
 				"task_id": taskID,
 				"error":   err.Error(),
 			})
 			continue
 		}
-
-		// Clear the agent_id from the task so it can be reassigned
 		task.AgentID = nil
 		task.Status = models.JobTaskStatusReconnectPending
-		err = taskRepo.Update(ctx, task)
-		if err != nil {
-			debug.Log("Failed to clear agent_id from task", map[string]interface{}{
+		if err := taskRepo.Update(recoverCtx, task); err != nil {
+			debug.Log("Failed to clear agent_id from legacy task", map[string]interface{}{
 				"task_id": taskID,
 				"error":   err.Error(),
 			})
 		}
-
-		tasks = append(tasks, *task)
+		legacyTasks = append(legacyTasks, *task)
 	}
 
-	if len(tasks) > 0 {
-		debug.Log("Successfully marked tasks as reconnect_pending", map[string]interface{}{
-			"agent_id":   agentID,
-			"task_count": len(tasks),
+	if v2Recovered > 0 || v2Failed > 0 {
+		debug.Log("v2 task recovery on disconnect", map[string]interface{}{
+			"agent_id":  agentID,
+			"recovered": v2Recovered,
+			"failed":    v2Failed,
 		})
+	}
 
-		// Start a timer to handle grace period expiration (2 minutes)
-		go s.handleReconnectGracePeriod(ctx, tasks, agentID)
+	if len(legacyTasks) > 0 {
+		debug.Log("Scheduling grace timer for legacy tasks", map[string]interface{}{
+			"agent_id":   agentID,
+			"task_count": len(legacyTasks),
+		})
+		// context.Background() (not recoverCtx) because the goroutine
+		// outlives this function's 30s timeout.
+		go s.handleReconnectGracePeriod(context.Background(), legacyTasks, agentID)
 	}
 
 	return nil
@@ -4076,6 +4278,35 @@ func (s *JobWebSocketIntegration) handleReconnectGracePeriod(ctx context.Context
 		}
 
 		if currentTask != nil && currentTask.Status == models.JobTaskStatusReconnectPending {
+			// Skip scheduler-v2 tasks. For v2, this legacy handler would
+			// flip status → 'pending' WITHOUT touching the interval row,
+			// leaving the interval stuck in 'assigned'/'running'. The v2
+			// gap query excludes only 'failed' intervals, so an orphan
+			// interval here makes the dispatcher think the range is
+			// already covered and the work is never redispatched. The v2
+			// sweeper (sweeper.go) now handles reconnect_pending tasks
+			// with the canonical applyRecovery path, which correctly
+			// truncates or fails the interval AND cascades the job back
+			// to 'pending'. The JobTask model doesn't expose
+			// scheduling_unit_id, so we probe directly.
+			var isV2 bool
+			if err := s.db.QueryRowContext(ctx,
+				`SELECT scheduling_unit_id IS NOT NULL FROM job_tasks WHERE id = $1`,
+				task.ID,
+			).Scan(&isV2); err != nil {
+				debug.Log("Failed to probe v2 ownership for grace task", map[string]interface{}{
+					"task_id": task.ID,
+					"error":   err.Error(),
+				})
+				continue
+			}
+			if isV2 {
+				debug.Log("Skipping v2 task in legacy grace handler — v2 sweeper owns this path", map[string]interface{}{
+					"task_id": task.ID,
+				})
+				continue
+			}
+
 			debug.Log("Task still in reconnect_pending after grace period, marking as pending for reassignment", map[string]interface{}{
 				"task_id": task.ID,
 			})
@@ -4482,6 +4713,127 @@ func (s *JobWebSocketIntegration) cleanupStaleRetransmitCollection() {
 		}
 		state.mu.Unlock()
 	}
+}
+
+// refreshBenchmarkFromObserved updates agent_benchmarks.speed using the
+// hash rate the agent is actually reporting from a live task. The
+// dispatcher reads agent_benchmarks.speed for chunk sizing; if that
+// value is stale (last benchmark ran on a colder GPU, on a smaller
+// hashlist, etc.), chunks will under- or over-shoot the configured
+// target. Continuous refresh from observed reality converges the
+// estimate toward what the agent actually does on THIS job.
+//
+// Skip rules:
+//   - HashRate == 0 (no signal yet, warm-up)
+//   - ProgressPercent < 5% (early-task volatility; hashcat reports
+//     spiky speeds before the kernel settles)
+//
+// Update rule:
+//   - EWMA: new = α * observed + (1-α) * old, α = 0.3
+//   - Cap: new ≤ 3 × old (anti-spike runaway)
+//   - If no existing row, use observed verbatim (no smoothing yet)
+//
+// salt_count semantics match the dispatcher / readAgentSpeeds:
+//   - salted hash type: salt_count = hashlist.total_hashes
+//   - non-salted: salt_count = NULL
+func (s *JobWebSocketIntegration) refreshBenchmarkFromObserved(
+	ctx context.Context,
+	agentID int,
+	jobExecutionID uuid.UUID,
+	progress *models.JobProgress,
+) error {
+	if progress.HashRate <= 0 {
+		return nil
+	}
+	if progress.ProgressPercent < 5.0 {
+		// Warm-up period — let hashcat settle before sampling.
+		return nil
+	}
+
+	// One query for everything the EWMA needs: attack_mode, hash_type,
+	// is_salted, total_hashes.
+	var attackMode int
+	var hashType int
+	var isSalted bool
+	var totalHashes int
+	err := s.db.QueryRowContext(ctx, `
+		SELECT je.attack_mode, h.hash_type_id, ht.is_salted, h.total_hashes
+		FROM job_executions je
+		JOIN hashlists h ON h.id = je.hashlist_id
+		JOIN hash_types ht ON ht.id = h.hash_type_id
+		WHERE je.id = $1
+	`, jobExecutionID).Scan(&attackMode, &hashType, &isSalted, &totalHashes)
+	if err != nil {
+		return fmt.Errorf("lookup job for benchmark refresh: %w", err)
+	}
+
+	var saltCount sql.NullInt32
+	if isSalted && totalHashes > 0 {
+		saltCount = sql.NullInt32{Int32: int32(totalHashes), Valid: true}
+	}
+
+	// Read the freshest existing benchmark for this (agent, mode, hash,
+	// salt) so we can smooth. IS NOT DISTINCT FROM is NULL-safe.
+	var oldSpeed sql.NullInt64
+	err = s.db.QueryRowContext(ctx, `
+		SELECT speed FROM agent_benchmarks
+		WHERE agent_id = $1 AND attack_mode = $2 AND hash_type = $3
+		  AND salt_count IS NOT DISTINCT FROM $4
+		ORDER BY updated_at DESC
+		LIMIT 1
+	`, agentID, attackMode, hashType, saltCount).Scan(&oldSpeed)
+	if err != nil && err != sql.ErrNoRows {
+		return fmt.Errorf("lookup existing benchmark: %w", err)
+	}
+
+	// Compute the smoothed/capped new speed.
+	var newSpeed int64
+	if !oldSpeed.Valid || oldSpeed.Int64 <= 0 {
+		// No existing benchmark — use observed verbatim.
+		newSpeed = progress.HashRate
+	} else {
+		// EWMA: 30% new, 70% old. Cap at 3× old to absorb spikes.
+		const alphaNum, alphaDen = 3, 10
+		smoothed := (progress.HashRate*alphaNum + oldSpeed.Int64*(alphaDen-alphaNum)) / alphaDen
+		maxAllowed := oldSpeed.Int64 * 3
+		if smoothed > maxAllowed {
+			smoothed = maxAllowed
+		}
+		newSpeed = smoothed
+	}
+
+	if newSpeed <= 0 {
+		return nil
+	}
+
+	// Skip the write if the change is trivially small (< 5%); avoids
+	// hammering the DB with no-op updates every 5s.
+	if oldSpeed.Valid && oldSpeed.Int64 > 0 {
+		delta := newSpeed - oldSpeed.Int64
+		if delta < 0 {
+			delta = -delta
+		}
+		if delta*20 < oldSpeed.Int64 { // < 5%
+			return nil
+		}
+	}
+
+	benchmark := &models.AgentBenchmark{
+		AgentID:    agentID,
+		AttackMode: models.AttackMode(attackMode),
+		HashType:   hashType,
+		Speed:      newSpeed,
+	}
+	if saltCount.Valid {
+		sc := int(saltCount.Int32)
+		benchmark.SaltCount = &sc
+	}
+	if err := s.benchmarkRepo.CreateOrUpdateAgentBenchmark(ctx, benchmark); err != nil {
+		return fmt.Errorf("upsert benchmark: %w", err)
+	}
+	debug.Debug("benchmark refresh: agent=%d mode=%d hash=%d salt=%v old=%d observed=%d new=%d",
+		agentID, attackMode, hashType, saltCount, oldSpeed.Int64, progress.HashRate, newSpeed)
+	return nil
 }
 
 // ProcessPendingOutfiles handles the pending_outfiles message from agents on reconnect

@@ -8,9 +8,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 )
 
-// Runner drives the new scheduler's 3-second cycle. Independent
-// lifecycle from the legacy JobSchedulerStarter — both can run side
-// by side during the cutover window, gated by SCHEDULER_V2_ENABLED.
+// Runner drives the scheduler's 3-second cycle.
 type Runner struct {
 	cycle    *Cycle
 	interval time.Duration

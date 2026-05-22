@@ -838,11 +838,16 @@ func (s *AgentService) HasEnabledDevices(agentID int) (bool, error) {
 
 // UpdateAgent updates agent settings including owner and extra parameters
 func (s *AgentService) UpdateAgent(ctx context.Context, agentID int, isEnabled bool, ownerID *string, extraParameters string, binaryVersion string) error {
-	// First check if agent exists
-	_, err := s.agentRepo.GetByID(ctx, agentID)
+	// First check if agent exists; capture prior IsEnabled so a false→true
+	// transition can reset the benchmark health counters. Without this
+	// reset, manually re-enabling an auto-quarantined agent leaves its
+	// streak/distinct counters in place, so the very next failure re-trips
+	// the quarantine threshold instantly.
+	existing, err := s.agentRepo.GetByID(ctx, agentID)
 	if err != nil {
 		return err
 	}
+	wasDisabled := !existing.IsEnabled
 
 	// Default to "default" if empty
 	if binaryVersion == "" {
@@ -850,7 +855,22 @@ func (s *AgentService) UpdateAgent(ctx context.Context, agentID int, isEnabled b
 	}
 
 	// Update agent in database
-	return s.agentRepo.UpdateAgentSettings(ctx, agentID, isEnabled, ownerID, extraParameters, binaryVersion)
+	if err := s.agentRepo.UpdateAgentSettings(ctx, agentID, isEnabled, ownerID, extraParameters, binaryVersion); err != nil {
+		return err
+	}
+
+	// Reset benchmark health on manual re-enable. Best-effort: the update
+	// itself already succeeded — failure to reset is a courtesy log only.
+	// Inline-create the benchmark repo (matches the pattern at line 765).
+	if wasDisabled && isEnabled {
+		dbWrapper := &db.DB{DB: s.agentRepo.GetDB()}
+		benchmarkRepo := repository.NewBenchmarkRepository(dbWrapper)
+		if rErr := benchmarkRepo.ResetAgentBenchmarkHealth(ctx, agentID); rErr != nil {
+			debug.Warning("ResetAgentBenchmarkHealth after manual re-enable (agent=%d): %v", agentID, rErr)
+		}
+	}
+
+	return nil
 }
 
 // UpdateAgentOSInfo updates an agent's OS information

@@ -9,33 +9,173 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
+	"github.com/google/uuid"
 )
 
-// populateSchedulingUnitsIfEnabled is the Phase E hook called from
-// CreateJobExecution / CreateCustomJobExecution. When
-// SCHEDULER_V2_ENABLED=true at runtime, it creates one or more
-// scheduling_units rows pointing at the just-created job_execution so
-// the scheduler-v2 cycle (cycle.go) picks it up. The legacy scheduler
-// is taught (via the NOT EXISTS clause in GetJobsWithPendingWork) to
-// skip jobs that have any scheduling_units rows, so each new job is
-// owned by exactly one scheduler.
+// populateSchedulingUnitsIfEnabled is called from CreateJobExecution /
+// CreateCustomJobExecution after the job_executions row is inserted. It
+// creates the scheduling_units rows the scheduler-v2 cycle reads from.
 //
-// Errors are logged as warnings and swallowed: a partial failure means
-// the v2 unit never lands, and the legacy scheduler will pick up the
-// job by default. Better to leave the job runnable on legacy than to
-// fail job creation entirely on a v2 wiring bug.
-// populateSchedulingUnitsIfEnabled retains its name for historical
-// continuity but post-Phase-F.1 (soft cutover) it always runs — the
-// SCHEDULER_V2_ENABLED env gate is gone. Every new job_execution gets
-// scheduling_units; the legacy scheduler is no longer started, so the
-// NOT EXISTS clause in GetJobsWithPendingWork is a belt-and-suspenders
-// guard for any leftover code paths that might invoke the legacy
-// query directly (admin diagnostics, etc.).
+// Errors are logged and swallowed: a partial failure means the unit
+// never lands and the job will sit pending with no runner. The caller
+// can investigate via the log and either fix the underlying issue
+// (e.g., missing wordlist) or delete the job from the UI.
 func (s *JobExecutionService) populateSchedulingUnitsIfEnabled(ctx context.Context, jobExec *models.JobExecution) {
 	if err := s.populateSchedulingUnits(ctx, jobExec); err != nil {
 		debug.Warning("scheduler-v2: populateSchedulingUnits for job %s failed: %v",
 			jobExec.ID, err)
 	}
+}
+
+// ConvertLegacyJobsToV2 is a one-shot startup migration. For every
+// job_execution in a non-terminal state that has no scheduling_units
+// row, either:
+//
+//   - Convert it to a v2 job: create scheduling_units, delete in-flight
+//     job_tasks, reset progress fields, reset increment layers.
+//   - Delete it entirely if its wordlist or rule refs can no longer be
+//     resolved (file/record removed from disk or DB). The job could
+//     not run under v1 or v2, so it's removed.
+//
+// Idempotent: re-runs skip jobs that already have scheduling_units.
+// The legacy progress columns on job_executions/job_increment_layers
+// are reset for UI consistency but v2 never reads them.
+func (s *JobExecutionService) ConvertLegacyJobsToV2(ctx context.Context) error {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT je.id
+		FROM job_executions je
+		WHERE je.status IN ('pending', 'running', 'paused')
+		  AND NOT EXISTS (
+		      SELECT 1 FROM scheduling_units WHERE parent_job_id = je.id
+		  )
+	`)
+	if err != nil {
+		return fmt.Errorf("query legacy jobs: %w", err)
+	}
+	var jobIDs []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if scanErr := rows.Scan(&id); scanErr != nil {
+			rows.Close()
+			return fmt.Errorf("scan legacy job id: %w", scanErr)
+		}
+		jobIDs = append(jobIDs, id)
+	}
+	rows.Close()
+
+	if len(jobIDs) == 0 {
+		debug.Info("scheduler-v2 converter: no in-flight legacy jobs to convert")
+		return nil
+	}
+	debug.Info("scheduler-v2 converter: found %d legacy job(s) to process", len(jobIDs))
+
+	var converted, deleted, errored int
+	for _, jobID := range jobIDs {
+		outcome, convErr := s.convertLegacyJob(ctx, jobID)
+		switch {
+		case convErr != nil:
+			debug.Error("scheduler-v2 converter: job %s failed (left in legacy state): %v", jobID, convErr)
+			errored++
+		case outcome == "deleted":
+			deleted++
+		case outcome == "converted":
+			converted++
+		}
+	}
+
+	// Best-effort cleanup of legacy state that no longer references
+	// any runnable job. Failures here are non-fatal — at worst the
+	// stale rows linger and operators clean up manually.
+	if _, mdErr := s.db.ExecContext(ctx, `
+		UPDATE agents
+		SET metadata = metadata
+		    - 'pending_benchmark_job'
+		    - 'benchmark_requested_at'
+		    - 'forced_benchmark_completed_for_job'
+		WHERE metadata ?| array['pending_benchmark_job', 'benchmark_requested_at', 'forced_benchmark_completed_for_job']
+	`); mdErr != nil {
+		debug.Warning("scheduler-v2 converter: clear stale agent metadata: %v", mdErr)
+	}
+	if _, brErr := s.db.ExecContext(ctx, `
+		DELETE FROM benchmark_requests WHERE completed_at IS NULL
+	`); brErr != nil {
+		debug.Warning("scheduler-v2 converter: clear stale benchmark_requests: %v", brErr)
+	}
+
+	debug.Info("scheduler-v2 converter: %d converted, %d deleted (unresolvable refs), %d errored",
+		converted, deleted, errored)
+	return nil
+}
+
+// convertLegacyJob handles a single job_execution. Returns "converted",
+// "deleted", or "" with an error.
+func (s *JobExecutionService) convertLegacyJob(ctx context.Context, jobID uuid.UUID) (string, error) {
+	jobExec, err := s.jobExecRepo.GetByID(ctx, jobID)
+	if err != nil {
+		return "", fmt.Errorf("fetch job: %w", err)
+	}
+
+	// Try populating scheduling_units. The wordlist/rule resolvers
+	// hit the file_repo (DB) and the wordlist/rule managers
+	// (filesystem). If any ref no longer resolves, the job can't run
+	// — delete it and move on. ON DELETE CASCADE on job_executions
+	// cleans up job_tasks, job_increment_layers, and any
+	// agent_benchmark_blocklist entries.
+	if popErr := s.populateSchedulingUnits(ctx, jobExec); popErr != nil {
+		debug.Info("scheduler-v2 converter: deleting unconvertible job %s: %v", jobID, popErr)
+		if _, delErr := s.db.ExecContext(ctx, `DELETE FROM job_executions WHERE id = $1`, jobID); delErr != nil {
+			return "", fmt.Errorf("delete unconvertible job: %w", delErr)
+		}
+		return "deleted", nil
+	}
+
+	// scheduling_units now exist for this job. Clean up the legacy
+	// state so the UI doesn't show stale progress and the v2 sweeper
+	// doesn't see ghost "running" task rows.
+	//
+	// In-flight v1 tasks all have scheduling_unit_id IS NULL. Delete
+	// only the non-terminal ones; keep completed/failed/cancelled as
+	// audit trail. The job_execution row is the same row v2 will use
+	// — we just reset its progress counters.
+	if _, txErr := s.db.ExecContext(ctx, `
+		DELETE FROM job_tasks
+		WHERE job_execution_id = $1
+		  AND status IN ('pending','assigned','reconnect_pending','running','processing','processing_error')
+	`, jobID); txErr != nil {
+		return "", fmt.Errorf("delete in-flight tasks: %w", txErr)
+	}
+
+	if _, txErr := s.db.ExecContext(ctx, `
+		UPDATE job_executions SET
+			status = 'pending',
+			processed_keyspace = 0,
+			dispatched_keyspace = 0,
+			overall_progress_percent = 0,
+			consecutive_failures = 0,
+			started_at = NULL,
+			last_progress_update = NULL
+		WHERE id = $1
+	`, jobID); txErr != nil {
+		return "", fmt.Errorf("reset job_executions: %w", txErr)
+	}
+
+	if jobExec.IncrementMode != "" && jobExec.IncrementMode != "off" {
+		if _, txErr := s.db.ExecContext(ctx, `
+			UPDATE job_increment_layers SET
+				status = 'pending',
+				dispatched_keyspace = 0,
+				processed_keyspace = 0,
+				overall_progress_percent = 0,
+				started_at = NULL,
+				last_progress_update = NULL
+			WHERE job_execution_id = $1
+		`, jobID); txErr != nil {
+			return "", fmt.Errorf("reset job_increment_layers: %w", txErr)
+		}
+	}
+
+	debug.Info("scheduler-v2 converter: converted job %s", jobID)
+	return "converted", nil
 }
 
 // populateSchedulingUnits creates scheduling_units rows for a newly
@@ -109,13 +249,20 @@ func (s *JobExecutionService) populateSingleUnit(
 	}
 
 	unit := &models.SchedulingUnit{
-		ParentJobID:        jobExec.ID,
-		LayerIndex:         0,
-		Status:             models.SchedulingUnitStatusPending,
-		Priority:           jobExec.Priority,
-		MaxAgents:          jobExec.MaxAgents,
-		AttackMode:         int(jobExec.AttackMode),
-		EffectiveKeyspace:  effective,
+		ParentJobID:       jobExec.ID,
+		LayerIndex:        0,
+		Status:            models.SchedulingUnitStatusPending,
+		// Priority and MaxAgents are NOT denormalized onto the unit.
+		// scheduler/cycle.go buildUnitInfos JOINs job_executions live
+		// so operator edits propagate on the next cycle.
+		AttackMode:        int(jobExec.AttackMode),
+		EffectiveKeyspace: effective,
+		// BaseKeyspace denormalized from the parent job — dispatcher uses it
+		// to size chunks via v1's multiplier formula (base_per_sec =
+		// effective_speed / (effective / base)) AND to tile intervals on the
+		// chunkable dimension that hashcat's --skip/--limit actually
+		// operates on.
+		BaseKeyspace:       jobExec.BaseKeyspace,
 		IsAccurateKeyspace: jobExec.IsAccurateKeyspace,
 		WordlistRefs:       wordlistRefs,
 		RuleFileRefs:       ruleFileRefs,
@@ -125,8 +272,12 @@ func (s *JobExecutionService) populateSingleUnit(
 	if err := unitRepo.Create(ctx, unit); err != nil {
 		return fmt.Errorf("create single unit: %w", err)
 	}
-	debug.Info("scheduler-v2: created scheduling_unit %s for job %s (eff_keyspace=%d, accurate=%v)",
-		unit.ID, jobExec.ID, unit.EffectiveKeyspace, unit.IsAccurateKeyspace)
+	var baseLog int64
+	if unit.BaseKeyspace != nil {
+		baseLog = *unit.BaseKeyspace
+	}
+	debug.Info("scheduler-v2: created scheduling_unit %s for job %s (eff_keyspace=%d, base_keyspace=%d, accurate=%v)",
+		unit.ID, jobExec.ID, unit.EffectiveKeyspace, baseLog, unit.IsAccurateKeyspace)
 	return nil
 }
 
@@ -157,13 +308,17 @@ func (s *JobExecutionService) populateIncrementUnits(
 		maskPtr := &mask
 
 		unit := &models.SchedulingUnit{
-			ParentJobID:        jobExec.ID,
-			LayerIndex:         layer.LayerIndex,
-			Status:             models.SchedulingUnitStatusPending,
-			Priority:           jobExec.Priority,
-			MaxAgents:          jobExec.MaxAgents,
-			AttackMode:         int(jobExec.AttackMode),
-			EffectiveKeyspace:  effective,
+			ParentJobID:       jobExec.ID,
+			LayerIndex:        layer.LayerIndex,
+			Status:            models.SchedulingUnitStatusPending,
+			// Priority and MaxAgents are read live from job_executions
+			// in buildUnitInfos — see comment in the single-unit branch
+			// and migration 000153.
+			AttackMode:        int(jobExec.AttackMode),
+			EffectiveKeyspace: effective,
+			// BaseKeyspace per-layer — each increment layer has its own base
+			// (different mask length = different total candidate count).
+			BaseKeyspace:       layer.BaseKeyspace,
 			IsAccurateKeyspace: layer.IsAccurateKeyspace,
 			WordlistRefs:       wordlistRefs,
 			RuleFileRefs:       ruleFileRefs,
@@ -173,8 +328,12 @@ func (s *JobExecutionService) populateIncrementUnits(
 		if err := unitRepo.Create(ctx, unit); err != nil {
 			return fmt.Errorf("create unit for layer %d: %w", layer.LayerIndex, err)
 		}
-		debug.Info("scheduler-v2: created scheduling_unit %s for job %s layer %d (mask=%q, eff=%d)",
-			unit.ID, jobExec.ID, layer.LayerIndex, mask, effective)
+		var baseLog int64
+		if unit.BaseKeyspace != nil {
+			baseLog = *unit.BaseKeyspace
+		}
+		debug.Info("scheduler-v2: created scheduling_unit %s for job %s layer %d (mask=%q, eff=%d, base=%d)",
+			unit.ID, jobExec.ID, layer.LayerIndex, mask, effective, baseLog)
 	}
 	return nil
 }

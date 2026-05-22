@@ -332,9 +332,16 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 			processedKeyspace += task.KeyspaceProcessed
 		}
 
-		// Calculate dispatched keyspace for ALL tasks with defined ranges
-		// This includes pending, failed, and cancelled tasks because "dispatched"
-		// means work was allocated, showing total coverage (including gaps)
+		// Calculate dispatched keyspace ONLY for tasks whose ranges are
+		// still part of the active coverage set. In scheduler-v2 a failed
+		// task has its interval marked 'failed' which reopens the range as
+		// a gap — counting that range as dispatched would over-state
+		// coverage and let `dispatched_percent` exceed reality. Same for
+		// 'cancelled' (operator-initiated stop). Pending tasks DO count:
+		// the dispatcher created an 'assigned' interval covering them.
+		if task.Status == models.JobTaskStatusFailed || task.Status == models.JobTaskStatusCancelled {
+			continue
+		}
 		// PRIORITY: Use effective keyspace range when available
 		// FALLBACK: For keyspace-split jobs, estimate using multiplier
 		if task.EffectiveKeyspaceStart != nil && task.EffectiveKeyspaceEnd != nil {
@@ -645,6 +652,41 @@ func (s *JobProgressCalculationService) checkJobsForCompletion(ctx context.Conte
 // shouldJobComplete performs structural checks to determine if a job should be marked complete.
 // This is called after AreAllTasksComplete() returns true, so dispatch validation is already done.
 func (s *JobProgressCalculationService) shouldJobComplete(ctx context.Context, job *models.JobExecution) bool {
+	// Scheduler-v2 base-keyspace gap check: if ANY scheduling_unit for this
+	// job still has undispatched base-keyspace gaps, the job is NOT complete
+	// — no matter what AreAllTasksComplete says about in-flight tasks.
+	//
+	// This prevents the premature-completion bug where an operator kills the
+	// only agent mid-job: the in-flight task gets marked failed (recovery),
+	// AreAllTasksComplete returns true (no active tasks left), and the old
+	// code would auto-flip the job to 'completed' with most of the keyspace
+	// untouched. With this guard the job stays in its current state waiting
+	// for an agent to come back online.
+	//
+	// Gap arithmetic is in BASE keyspace (= invariant chunkable dimension,
+	// matching hashcat's --skip/--limit). Per the user-stated model, base
+	// is the source of truth for coverage; effective is derived for display.
+	var gapsRemaining int
+	gapErr := s.db.QueryRowContext(ctx, `
+		WITH unit_gaps AS (
+			SELECT su.id AS unit_id, su.base_keyspace,
+				COALESCE(SUM(jki.range_end - jki.range_start) FILTER (WHERE jki.status <> 'failed'), 0) AS covered
+			FROM scheduling_units su
+			LEFT JOIN job_keyspace_intervals jki ON jki.scheduling_unit_id = su.id
+			WHERE su.parent_job_id = $1
+			  AND su.base_keyspace IS NOT NULL
+			GROUP BY su.id, su.base_keyspace
+		)
+		SELECT COUNT(*) FROM unit_gaps WHERE covered < base_keyspace
+	`, job.ID).Scan(&gapsRemaining)
+	if gapErr == nil && gapsRemaining > 0 {
+		debug.Log("Job has uncovered base-keyspace gaps; not completing", map[string]interface{}{
+			"job_id":         job.ID,
+			"units_with_gap": gapsRemaining,
+		})
+		return false
+	}
+
 	// For increment mode, check layer status
 	if job.IncrementMode != "" && job.IncrementMode != "off" {
 		layers, err := s.jobIncrementLayerRepo.GetByJobExecutionID(ctx, job.ID)
@@ -668,9 +710,6 @@ func (s *JobProgressCalculationService) shouldJobComplete(ctx context.Context, j
 		return maxRuleEnd != nil && int64(*maxRuleEnd) >= job.MultiplicationFactor
 	}
 
-	// For non-rule-split jobs, AreAllTasksComplete() already validates dispatch
-	// using effective_keyspace comparison. No additional structural check needed.
-	// Note: We intentionally do NOT compare base_keyspace here because base_keyspace
-	// (wordlist size) and effective_keyspace (total candidates) are different dimensions.
+	// For non-rule-split jobs without gap remaining, completion is valid.
 	return true
 }

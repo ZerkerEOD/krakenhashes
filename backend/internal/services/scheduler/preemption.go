@@ -125,11 +125,16 @@ func FindAndPreempt(
 // 1e9 converts the timestamp to nanoseconds so we can compare with
 // the UnitInfo.CreatedAtNanos format used elsewhere in the package.
 func loadRunningTaskSnapshots(ctx context.Context, database *db.DB) ([]runningTaskSnapshot, error) {
+	// Priority comes from job_executions live (migration 000153 dropped
+	// the denormalized scheduling_units.priority column). The double
+	// JOIN here is unavoidable: tasks → scheduling_units gives the
+	// parent_job_id, which then resolves to the job's current priority.
 	rows, err := database.QueryContext(ctx, `
-		SELECT t.id, t.scheduling_unit_id, t.agent_id, u.priority,
+		SELECT t.id, t.scheduling_unit_id, t.agent_id, je.priority,
 		       EXTRACT(EPOCH FROM t.created_at) * 1000000000, u.parent_job_id
 		FROM job_tasks t
 		JOIN scheduling_units u ON u.id = t.scheduling_unit_id
+		JOIN job_executions je ON je.id = u.parent_job_id
 		WHERE t.status IN ('assigned', 'running')
 		  AND t.scheduling_unit_id IS NOT NULL
 		  AND t.agent_id IS NOT NULL

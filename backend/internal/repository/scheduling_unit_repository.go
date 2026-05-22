@@ -40,13 +40,17 @@ func (r *SchedulingUnitRepository) Create(ctx context.Context, unit *models.Sche
 		unit.RetryBudgetRemaining = 5
 	}
 
+	// priority and max_agents are read live from job_executions in
+	// scheduler/cycle.go buildUnitInfos — they are NOT denormalized
+	// here. Migration 000153 dropped the columns. See plan
+	// drop-denormalized-priority-max-agents.
 	const query = `
 		INSERT INTO scheduling_units (
-			id, parent_job_id, layer_index, status, priority, max_agents,
-			attack_mode, effective_keyspace, is_accurate_keyspace,
+			id, parent_job_id, layer_index, status,
+			attack_mode, effective_keyspace, base_keyspace, is_accurate_keyspace,
 			wordlist_refs, rule_file_refs, mask_string, custom_charsets,
 			retry_budget_remaining
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		RETURNING created_at, updated_at
 	`
 
@@ -64,10 +68,9 @@ func (r *SchedulingUnitRepository) Create(ctx context.Context, unit *models.Sche
 		unit.ParentJobID,
 		unit.LayerIndex,
 		unit.Status,
-		unit.Priority,
-		unit.MaxAgents,
 		unit.AttackMode,
 		unit.EffectiveKeyspace,
+		unit.BaseKeyspace, // nullable *int64; nil → SQL NULL
 		unit.IsAccurateKeyspace,
 		pq.Array(unit.WordlistRefs),
 		pq.Array(unit.RuleFileRefs),
@@ -86,8 +89,8 @@ func (r *SchedulingUnitRepository) Create(ctx context.Context, unit *models.Sche
 // not found.
 func (r *SchedulingUnitRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.SchedulingUnit, error) {
 	const query = `
-		SELECT id, parent_job_id, layer_index, status, priority, max_agents,
-		       attack_mode, effective_keyspace, is_accurate_keyspace,
+		SELECT id, parent_job_id, layer_index, status,
+		       attack_mode, effective_keyspace, base_keyspace, is_accurate_keyspace,
 		       wordlist_refs, rule_file_refs, mask_string, custom_charsets,
 		       retry_budget_remaining, created_at, updated_at
 		FROM scheduling_units
@@ -102,8 +105,8 @@ func (r *SchedulingUnitRepository) GetByID(ctx context.Context, id uuid.UUID) (*
 // 1-4 job returns four.
 func (r *SchedulingUnitRepository) GetByParentJobID(ctx context.Context, parentJobID uuid.UUID) ([]*models.SchedulingUnit, error) {
 	const query = `
-		SELECT id, parent_job_id, layer_index, status, priority, max_agents,
-		       attack_mode, effective_keyspace, is_accurate_keyspace,
+		SELECT id, parent_job_id, layer_index, status,
+		       attack_mode, effective_keyspace, base_keyspace, is_accurate_keyspace,
 		       wordlist_refs, rule_file_refs, mask_string, custom_charsets,
 		       retry_budget_remaining, created_at, updated_at
 		FROM scheduling_units
@@ -131,20 +134,35 @@ func (r *SchedulingUnitRepository) GetByParentJobID(ctx context.Context, parentJ
 }
 
 // GetSchedulable returns scheduling_units eligible for dispatch this cycle:
-// status pending or running, with an accurate keyspace, ordered by priority
-// then created_at. Coverage / gap-existence checks are deferred to the
-// dispatcher because they require the intervals table — keeping that logic
-// out of this repo avoids cross-table coupling at the persistence layer.
+// status pending or running, with an accurate keyspace, parent job_execution
+// also in a non-terminal state, ordered by priority then created_at. Coverage
+// / gap-existence checks are deferred to the dispatcher because they require
+// the intervals table — keeping that logic out of this repo avoids cross-table
+// coupling at the persistence layer.
+//
+// The parent-job-status JOIN is the primary stop-the-runaway fix: without it,
+// a unit whose parent job has been marked completed (e.g., by
+// HandleHashlistFullyCracked when all hashes crack) stays selectable because
+// its own status is still 'pending'. The cycle then dispatches against an
+// empty hashlist forever, every task failing with exit 255.
 func (r *SchedulingUnitRepository) GetSchedulable(ctx context.Context) ([]*models.SchedulingUnit, error) {
+	// Ordering by je.priority (not the dropped su.priority column).
+	// The allocator re-sorts by priority anyway (allocator.go:170-171)
+	// so the ORDER BY here is only for caller convenience and stable
+	// test output. If profiling shows the join+sort is slow at scale,
+	// materialize a partial index on (created_at) WHERE su.status IN
+	// ('pending','running') AND su.is_accurate_keyspace = true.
 	const query = `
-		SELECT id, parent_job_id, layer_index, status, priority, max_agents,
-		       attack_mode, effective_keyspace, is_accurate_keyspace,
-		       wordlist_refs, rule_file_refs, mask_string, custom_charsets,
-		       retry_budget_remaining, created_at, updated_at
-		FROM scheduling_units
-		WHERE status IN ('pending', 'running')
-		  AND is_accurate_keyspace = true
-		ORDER BY priority DESC, created_at ASC
+		SELECT su.id, su.parent_job_id, su.layer_index, su.status,
+		       su.attack_mode, su.effective_keyspace, su.base_keyspace, su.is_accurate_keyspace,
+		       su.wordlist_refs, su.rule_file_refs, su.mask_string, su.custom_charsets,
+		       su.retry_budget_remaining, su.created_at, su.updated_at
+		FROM scheduling_units su
+		JOIN job_executions je ON je.id = su.parent_job_id
+		WHERE su.status IN ('pending', 'running')
+		  AND su.is_accurate_keyspace = true
+		  AND je.status IN ('pending', 'running')
+		ORDER BY je.priority DESC, su.created_at ASC
 	`
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
@@ -247,10 +265,9 @@ func scanSchedulingUnit(scanner rowScanner) (*models.SchedulingUnit, error) {
 		&u.ParentJobID,
 		&u.LayerIndex,
 		&u.Status,
-		&u.Priority,
-		&u.MaxAgents,
 		&u.AttackMode,
 		&u.EffectiveKeyspace,
+		&u.BaseKeyspace, // nullable *int64
 		&u.IsAccurateKeyspace,
 		pq.Array(&u.WordlistRefs),
 		pq.Array(&u.RuleFileRefs),

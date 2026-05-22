@@ -1549,21 +1549,39 @@ func (s *JobSchedulingService) AttributeBenchmarkFailure(
 		"failure_count":    attempt.FailureCount,
 	})
 
-	// 5. Per-agent benchmark health → quarantine if either threshold trips.
-	//    Distinct from the per-tuple cap below: this catches "agent is broadly
-	//    busted" (multiple combos failing) and "agent is locked on one combo"
-	//    (streak ≥ N), independent of combo-wide evidence.
+	// 5. Per-agent benchmark health → quarantine ONLY when thresholds trip
+	//    AND cross-agent evidence proves the failure is agent-specific. A
+	//    threshold alone is ambiguous: a streak on one combo, or distinct
+	//    failures across several combos, could just as easily mean the
+	//    user is feeding bad hashlists / unsupported modes as it could
+	//    mean the agent is broken. We only disable the agent when other
+	//    agents are succeeding on the same (attack_mode, hash_type) combo
+	//    that just failed here — that's the cross-agent signal the user
+	//    asked for ("typically means an agent issue not a job or hashlist
+	//    issue"). Without that signal, blocklisting (step 7) and the
+	//    per-tuple hard cap (step 6) are the right tools.
 	streakReset := s.benchmarkStreakResetWindow(ctx)
+	cacheDuration := s.benchmarkCacheDurationForAttribution(ctx)
+	otherAgentsSucceeded, oasErr := benchmarkRepo.CountAgentsWithRecentBenchmark(
+		ctx, agentID, attackMode, hashType, cacheDuration,
+	)
+	if oasErr != nil {
+		debug.Warning("CountAgentsWithRecentBenchmark: %v", oasErr)
+		otherAgentsSucceeded = 0
+	}
 	if health, err := benchmarkRepo.RecordAgentBenchmarkFailure(ctx, agentID, streakReset); err != nil {
 		debug.Warning("RecordAgentBenchmarkFailure(agent=%d): %v", agentID, err)
 	} else {
 		streakCap := s.agentBenchmarkQuarantineStreak(ctx)
 		distinctCap := s.agentBenchmarkQuarantineDistinct(ctx)
-		if (streakCap > 0 && health.Streak >= streakCap) ||
-			(distinctCap > 0 && health.DistinctCombosFailed >= distinctCap) {
+		thresholdTripped := (streakCap > 0 && health.Streak >= streakCap) ||
+			(distinctCap > 0 && health.DistinctCombosFailed >= distinctCap)
+		switch {
+		case thresholdTripped && otherAgentsSucceeded > 0:
 			reason := fmt.Sprintf(
-				"auto-quarantine: benchmark streak=%d (cap=%d), distinct_combos=%d (cap=%d) within %s",
+				"auto-quarantine: benchmark streak=%d (cap=%d), distinct_combos=%d (cap=%d) within %s; %d other agent(s) succeeded on (attack_mode=%d, hash_type=%d)",
 				health.Streak, streakCap, health.DistinctCombosFailed, distinctCap, streakReset,
+				otherAgentsSucceeded, int(attackMode), hashType,
 			)
 			if qErr := benchmarkRepo.QuarantineAgent(ctx, agentID, reason); qErr != nil {
 				debug.Warning("QuarantineAgent(agent=%d): %v", agentID, qErr)
@@ -1572,17 +1590,27 @@ func (s *JobSchedulingService) AttributeBenchmarkFailure(
 				// Reload agent to capture is_enabled=false + last_error for the notification.
 				if refreshed, refErr := s.agentRepo.GetByID(ctx, agentID); refErr == nil {
 					s.jobExecutionService.DispatchAgentErrorNotification(ctx, refreshed, reason, map[string]interface{}{
-						"streak":           health.Streak,
-						"streak_cap":       streakCap,
-						"distinct_combos":  health.DistinctCombosFailed,
-						"distinct_cap":     distinctCap,
-						"reset_window":     streakReset.String(),
-						"job_execution_id": jobExecutionID.String(),
-						"hash_type":        hashType,
-						"attack_mode":      int(attackMode),
+						"streak":                 health.Streak,
+						"streak_cap":             streakCap,
+						"distinct_combos":        health.DistinctCombosFailed,
+						"distinct_cap":           distinctCap,
+						"other_agents_succeeded": otherAgentsSucceeded,
+						"reset_window":           streakReset.String(),
+						"job_execution_id":       jobExecutionID.String(),
+						"hash_type":              hashType,
+						"attack_mode":            int(attackMode),
 					})
 				}
 			}
+		case thresholdTripped:
+			// Thresholds tripped, but no cross-agent evidence. Could be a
+			// bad job/hashlist rather than a bad agent — defer to the
+			// per-tuple hard cap (which fails the JOB, not the agent).
+			debug.Warning(
+				"agent %d benchmark thresholds tripped (streak=%d/%d, distinct=%d/%d within %s) but no other agent has a recent successful (attack_mode=%d, hash_type=%d) benchmark; deferring quarantine — letting per-tuple hard cap fail the job instead",
+				agentID, health.Streak, streakCap, health.DistinctCombosFailed, distinctCap, streakReset,
+				int(attackMode), hashType,
+			)
 		}
 	}
 
@@ -1611,16 +1639,9 @@ func (s *JobSchedulingService) AttributeBenchmarkFailure(
 	}
 
 	// 7. Decide whether to blocklist yet (combo-wide policy).
+	// otherAgentsSucceeded and cacheDuration were computed in step 5;
+	// reuse them here.
 	threshold := s.benchmarkFailureThreshold(ctx)
-	cacheDuration := s.benchmarkCacheDurationForAttribution(ctx)
-
-	otherAgentsSucceeded, err := benchmarkRepo.CountAgentsWithRecentBenchmark(
-		ctx, agentID, attackMode, hashType, cacheDuration,
-	)
-	if err != nil {
-		debug.Warning("CountAgentsWithRecentBenchmark: %v", err)
-		otherAgentsSucceeded = 0
-	}
 	activeAgentCount := 0
 	if n, err := s.jobTaskRepo.GetActiveAgentCountByJob(ctx, jobExecutionID); err == nil {
 		activeAgentCount = n
@@ -1843,13 +1864,14 @@ func (s *JobSchedulingService) failJobIfAllAgentsBlocklisted(
 	benchmarkRepo := s.jobExecutionService.benchmarkRepo
 	for i := range agents {
 		a := &agents[i]
-		if a.Status != models.AgentStatusActive {
-			continue
-		}
+		// Eligibility is is_enabled ONLY — NOT online/active/sync-completed.
+		// An offline-but-enabled agent could come back online later and try
+		// the job, so we should keep the job alive for it. Failing the job
+		// just because the currently-connected fleet is all blocklisted
+		// would prematurely close work that another agent could rescue.
+		// This matches the user-stated "multi-agent = any agent with
+		// is_enabled = true" definition.
 		if !a.IsEnabled {
-			continue
-		}
-		if a.SyncStatus != models.AgentSyncStatusCompleted {
 			continue
 		}
 		eligible++

@@ -415,7 +415,13 @@ func (h *JobHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		// Calculate percentages
+		// Calculate percentages. Both are ratios into the unit's CURRENT
+		// effective_keyspace. The frontend bar should fill to
+		// searchedPercent (= overall % of effective_keyspace processed),
+		// while dispatchedPercent is informational. We DON'T clamp
+		// searched ≤ dispatched here — if salt removal shrinks effective
+		// faster than processed grows, that's a backend-side accounting
+		// drift to fix in the calculation service, not a UI lie.
 		dispatchedPercent := 0.0
 		searchedPercent := 0.0
 

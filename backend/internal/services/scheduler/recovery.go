@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
+	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 )
 
@@ -130,14 +131,72 @@ func applyRecovery(
 			n, _ := res.RowsAffected()
 			if n == 1 {
 				truncated = true
-				// Task gets completed status — the chunk did real work.
+				// Step 11o: truncate the TASK row to reflect what was
+				// actually completed — not the originally dispatched range.
+				// Update range_end to restore_point, scale
+				// effective_keyspace_end proportionally, set
+				// progress_percent = 100 (the task is fully done for its
+				// new smaller range), and update keyspace_processed to
+				// match. Frontend will then display "X.XXT - Y.YYT |
+				// 100%" honestly instead of the misleading "5.96T - 8.01T
+				// | 79.82%" of the original range.
+				//
+				// The unprocessed remainder (restore_point → old range_end)
+				// becomes a gap automatically because the interval's
+				// range_end was also truncated above.
+				//
+				// The proportional eff_end / eff_processed math uses
+				// existing columns on the task row, so we can do it in
+				// SQL without re-querying.
+				// Proportional-eff math runs in NUMERIC to avoid int64
+				// overflow. Without the cast, ($3 - range_start) ×
+				// (effective_keyspace_end - effective_keyspace_start)
+				// can exceed int64 max (~9.2e18) easily: a 600M base
+				// chunk on a job with a 77× rule multiplier produces
+				// 600M × 46B = 2.8e19, well past the limit. The
+				// overflow surfaces as `pq: bigint out of range` and
+				// leaves the task stuck in 'running' forever because
+				// the sweeper retries the same overflowing SQL.
+				// NUMERIC handles arbitrary precision; we cast the
+				// final value back to bigint for storage.
 				if _, terr := tx.ExecContext(ctx, `
 					UPDATE job_tasks
-					SET status = 'completed', failure_reason = $2, completed_at = NOW()
+					SET status = 'completed',
+					    range_end = $3,
+					    restore_point = $3,
+					    keyspace_processed = $3 - range_start,
+					    progress_percent = 100.0,
+					    effective_keyspace_end = CASE
+					        WHEN effective_keyspace_start IS NOT NULL
+					         AND effective_keyspace_end IS NOT NULL
+					         AND range_end > range_start
+					        THEN effective_keyspace_start +
+					             ( (($3 - range_start)::numeric * (effective_keyspace_end - effective_keyspace_start)::numeric)
+					               / NULLIF((range_end - range_start)::numeric, 0)
+					             )::bigint
+					        ELSE effective_keyspace_end
+					    END,
+					    effective_keyspace_processed = CASE
+					        WHEN effective_keyspace_start IS NOT NULL
+					         AND effective_keyspace_end IS NOT NULL
+					         AND range_end > range_start
+					        THEN ( (($3 - range_start)::numeric * (effective_keyspace_end - effective_keyspace_start)::numeric)
+					               / NULLIF((range_end - range_start)::numeric, 0)
+					             )::bigint
+					        ELSE effective_keyspace_processed
+					    END,
+					    failure_reason = $2,
+					    completed_at = NOW()
 					WHERE id = $1
-				`, taskID, reason); terr != nil {
+				`, taskID, reason, restorePoint.Int64); terr != nil {
 					return fmt.Errorf("complete task: %w", terr)
 				}
+
+				// Step 11p: cascade unit/layer/job status pending when work
+				// remains and no other tasks are in flight. Run inside the
+				// same transaction so all updates atomically commit.
+				cascadePendingFromRecovery(ctx, tx, taskID)
+
 				return nil
 			}
 			// Truncate-window mismatch (race or already-completed
@@ -154,17 +213,99 @@ func applyRecovery(
 				return fmt.Errorf("fail interval: %w", err)
 			}
 		}
+		// Status guard: don't flip an already-terminal task. Without
+		// this, a second RecoverTaskByID invocation (e.g., disconnect +
+		// agent-reported failure both fire) overwrites a successful
+		// truncate-and-complete with 'failed'. The interval row is
+		// guarded the same way above. See Bug B / Finding 3.
 		if _, err := tx.ExecContext(ctx, `
 			UPDATE job_tasks
 			SET status = 'failed', failure_reason = $2
 			WHERE id = $1
+			  AND status NOT IN ('completed', 'cancelled')
 		`, taskID, reason); err != nil {
 			return fmt.Errorf("fail task: %w", err)
 		}
+
+		// Step 11p: same pending cascade for the fail-both branch. A
+		// failed task that releases its range still leaves the unit/
+		// layer/job in a possibly-idle state; honest status display
+		// requires the cascade to fire here too.
+		cascadePendingFromRecovery(ctx, tx, taskID)
+
 		return nil
 	})
 
 	return truncated, err
+}
+
+// cascadePendingFromRecovery mirrors the Step 11n cascades from
+// HandleTaskCompletion. Needed in recovery.go because RecoverTaskByID
+// doesn't go through HandleTaskCompletion — it writes the task UPDATE
+// directly. Without this duplication, scheduling_units /
+// job_increment_layers / job_executions would stay 'running' after an
+// agent disconnect even when no work is in flight.
+//
+// All three UPDATEs are idempotent and safe to no-op:
+//   - unit: only flips 'running' → 'pending' when gaps remain AND no
+//     in-flight tasks for the unit
+//   - layer: only flips when its corresponding unit just went pending
+//   - job: only flips when no in-flight tasks anywhere AND at least
+//     one unit isn't completed yet
+//
+// Best-effort: errors are logged but don't fail the recovery transaction.
+func cascadePendingFromRecovery(ctx context.Context, tx *sql.Tx, taskID uuid.UUID) {
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE scheduling_units su
+		SET status = 'pending', updated_at = NOW()
+		WHERE su.id = (SELECT scheduling_unit_id FROM job_tasks WHERE id = $1)
+		  AND su.status = 'running'
+		  AND su.base_keyspace IS NOT NULL
+		  AND (
+			SELECT COALESCE(SUM(range_end - range_start), 0)
+			FROM job_keyspace_intervals jki
+			WHERE jki.scheduling_unit_id = su.id
+			  AND jki.status NOT IN ('failed', 'cancelled')
+		  ) < su.base_keyspace
+		  AND NOT EXISTS (
+			SELECT 1 FROM job_tasks t
+			WHERE t.scheduling_unit_id = su.id
+			  AND t.status IN ('assigned', 'running', 'processing')
+		  )
+	`, taskID); err != nil {
+		debug.Warning("recovery cascade: unit->pending for task %s: %v", taskID, err)
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE job_increment_layers l
+		SET status = 'pending', updated_at = NOW()
+		FROM job_tasks t, scheduling_units su
+		WHERE t.id = $1
+		  AND t.increment_layer_id = l.id
+		  AND su.id = t.scheduling_unit_id
+		  AND l.status = 'running'
+		  AND su.status = 'pending'
+	`, taskID); err != nil {
+		debug.Warning("recovery cascade: layer->pending for task %s: %v", taskID, err)
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE job_executions je
+		SET status = 'pending', updated_at = NOW()
+		WHERE je.id = (SELECT job_execution_id FROM job_tasks WHERE id = $1)
+		  AND je.status = 'running'
+		  AND NOT EXISTS (
+			SELECT 1 FROM job_tasks t
+			WHERE t.job_execution_id = je.id
+			  AND t.status IN ('assigned', 'running', 'processing')
+		  )
+		  AND EXISTS (
+			SELECT 1 FROM scheduling_units su
+			WHERE su.parent_job_id = je.id AND su.status <> 'completed'
+		  )
+	`, taskID); err != nil {
+		debug.Warning("recovery cascade: job->pending for task %s: %v", taskID, err)
+	}
 }
 
 // failTaskAndInterval is the all-failed path for malformed tasks

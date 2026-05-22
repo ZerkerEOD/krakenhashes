@@ -1032,11 +1032,18 @@
     },
     "agentOverflow": {
       "title": "代理溢出分配",
-      "tooltip": "配置当具有相同优先级的任务超出 max_agents 限制时，如何分配额外的代理",
-      "roundRobinMode": "轮询模式",
-      "fifoMode": "先进先出模式",
-      "fifoDescription": "当多个相同优先级的任务超出其 max_agents 限制时，最早创建的任务将获得所有额外的代理。",
-      "roundRobinDescription": "额外的代理将均匀分配给所有相同优先级的任务，每次一个代理，确保公平分配。"
+      "tooltip": "配置当每个优先级的每个任务都达到其 max_agents 限制后，如何分配剩余的空闲代理。",
+      "modeLabel": "溢出分配模式",
+      "priorityFifoMode": "优先级 - 先进先出",
+      "priorityRoundRobinMode": "优先级 - 轮询",
+      "enforceMaxAgentsMode": "强制 max_agents",
+      "maxAgentsFifoMode": "最大代理数 - 先进先出",
+      "maxAgentsRoundRobinMode": "最大代理数 - 轮询",
+      "priorityFifoDescription": "当多个相同优先级的任务超出其 max_agents 限制时，最早创建的任务将获得所有额外的代理。",
+      "priorityRoundRobinDescription": "额外的代理将均匀分配给所有相同优先级的任务，每次一个代理，确保公平分配。",
+      "enforceMaxAgentsDescription": "Strictly cap each job at its max_agents limit — no overflow. Surplus agents stay idle. Most predictable; can waste capacity.",
+      "maxAgentsFifoDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then pile on the OLDEST job overall — bypassing priority. Maximizes throughput while still giving every job its baseline.",
+      "maxAgentsRoundRobinDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then rotate evenly across ALL jobs — bypassing priority. Maximizes throughput with fair distribution beyond the baseline."
     },
     "hashlist": {
       "title": "哈希列表设置",

@@ -32,7 +32,6 @@ import {
   Save as SaveIcon,
   Cancel as CancelIcon,
   Refresh as RefreshIcon,
-  Replay as ReplayIcon,
   CheckCircle as CheckCircleIcon
 } from '@mui/icons-material';
 import { getJobDetails, getJobLayers, api } from '../../services/api';
@@ -315,19 +314,6 @@ const JobDetails: React.FC = () => {
   const handleCancelChunkSize = () => {
     setEditingChunkSize(false);
     setAutoRefreshEnabled(true); // Resume auto-refresh after cancel
-  };
-
-  // Handle retry task
-  const handleRetryTask = async (taskId: string) => {
-    if (!id) return;
-
-    try {
-      await api.post(`/api/jobs/${id}/tasks/${taskId}/retry`);
-      await fetchJobDetails();
-    } catch (err) {
-      console.error('Failed to retry task:', err);
-      setError(t('errors.retryTaskFailed'));
-    }
   };
 
   // Handle force complete job
@@ -1038,7 +1024,7 @@ const JobDetails: React.FC = () => {
               </TableRow>
               <TableRow>
                 <TableCell sx={{ fontWeight: 'bold' }}>{t('common.hashType')}</TableCell>
-                <TableCell>{jobData.hash_type || t('common.notAvailable')}</TableCell>
+                <TableCell>{jobData.hash_type != null ? jobData.hash_type : t('common.notAvailable')}</TableCell>
               </TableRow>
               <TableRow>
                 <TableCell sx={{ fontWeight: 'bold' }}>{t('common.attackMode')}</TableCell>
@@ -1235,6 +1221,7 @@ const JobDetails: React.FC = () => {
           tasks={allTasks}
           totalKeyspace={totalKeyspace}
           height={50}
+          layers={layers}
         />
       </Paper>
 
@@ -1324,7 +1311,10 @@ const JobDetails: React.FC = () => {
                   <TableCell>{t('details.failedTasksTable.retryCount')}</TableCell>
                   <TableCell>{t('details.failedTasksTable.errorMessage')}</TableCell>
                   <TableCell>{t('details.failedTasksTable.lastUpdated')}</TableCell>
-                  <TableCell align="center">{t('details.failedTasksTable.actions')}</TableCell>
+                  {/* Actions column removed: per-task Retry no longer applies in scheduler-v2.
+                      Every dispatch is a fresh task with a new UUID; "retrying" a failed task
+                      can't reuse the same task ID — it would just create another orphan.
+                      Job-level retry (clone/recreate the job) is the v2 primitive. */}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -1350,17 +1340,6 @@ const JobDetails: React.FC = () => {
                       </Typography>
                     </TableCell>
                     <TableCell>{formatDate(task.updated_at)}</TableCell>
-                    <TableCell align="center">
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<ReplayIcon />}
-                        onClick={() => handleRetryTask(task.id)}
-                        sx={{ textTransform: 'none' }}
-                      >
-                        {t('buttons.retry')}
-                      </Button>
-                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

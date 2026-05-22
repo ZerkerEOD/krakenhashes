@@ -57,11 +57,22 @@ func EvictTimedOutTasks(
 	// task even if its interval is somehow missing (defensive). LEFT
 	// JOIN to the agent so we can include disconnect-grace expiry as a
 	// second eviction trigger — see §8.7 and migration 000150. A task
-	// is stale if EITHER:
-	//   - its last_activity_at is older than the heartbeat timeout
-	//     (agent connected but silent), OR
-	//   - its agent's disconnect_grace_expires_at has passed (agent
-	//     gone and didn't come back).
+	// is stale if ANY of:
+	//   - status IN ('assigned','running') and last_activity_at is
+	//     older than the heartbeat timeout (agent connected but silent)
+	//   - status IN ('assigned','running') and its agent's
+	//     disconnect_grace_expires_at has passed (agent gone, hasn't
+	//     come back, and we caught the task before HandleAgentDisconnection
+	//     severed the agent_id link)
+	//   - status='reconnect_pending' (legacy disconnect path NULLs out
+	//     agent_id so neither check above can fire) and the task hasn't
+	//     been updated within the heartbeat timeout — meaning the
+	//     2-minute reconnect goroutine either never fired (canceled ctx)
+	//     or fired and saw nothing reconnect. We use updated_at as a
+	//     proxy for "how long has this been orphaned" since there's no
+	//     agent link to consult. Restricted to scheduler-v2 tasks
+	//     (scheduling_unit_id IS NOT NULL) so legacy tasks keep their
+	//     existing recovery path.
 	const query = `
 		SELECT
 			t.id, t.scheduling_unit_id, t.range_start, t.range_end, t.restore_point,
@@ -69,19 +80,25 @@ func EvictTimedOutTasks(
 		FROM job_tasks t
 		LEFT JOIN job_keyspace_intervals i ON i.task_id = t.id
 		LEFT JOIN agents a ON a.id = t.agent_id
-		WHERE t.status IN ('assigned', 'running')
-		  AND t.scheduling_unit_id IS NOT NULL
+		WHERE t.scheduling_unit_id IS NOT NULL
 		  AND t.range_start IS NOT NULL
 		  AND t.range_end IS NOT NULL
 		  AND (
 			  (
-				  t.last_activity_at IS NOT NULL
+				  t.status IN ('assigned', 'running')
+				  AND t.last_activity_at IS NOT NULL
 				  AND t.last_activity_at < NOW() - ($1 || ' seconds')::INTERVAL
 			  )
 			  OR
 			  (
-				  a.disconnect_grace_expires_at IS NOT NULL
+				  t.status IN ('assigned', 'running')
+				  AND a.disconnect_grace_expires_at IS NOT NULL
 				  AND a.disconnect_grace_expires_at < NOW()
+			  )
+			  OR
+			  (
+				  t.status = 'reconnect_pending'
+				  AND t.updated_at < NOW() - ($1 || ' seconds')::INTERVAL
 			  )
 		  )
 	`

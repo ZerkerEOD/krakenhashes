@@ -16,14 +16,30 @@ import (
 // allocates agents to, and dispatches chunks for SchedulingUnits — it does
 // not see job_executions directly.
 type SchedulingUnit struct {
-	ID                   uuid.UUID       `json:"id" db:"id"`
-	ParentJobID          uuid.UUID       `json:"parent_job_id" db:"parent_job_id"`
-	LayerIndex           int             `json:"layer_index" db:"layer_index"`
-	Status               string          `json:"status" db:"status"`
-	Priority             int             `json:"priority" db:"priority"`
-	MaxAgents            int             `json:"max_agents" db:"max_agents"`
-	AttackMode           int             `json:"attack_mode" db:"attack_mode"`
+	ID          uuid.UUID `json:"id" db:"id"`
+	ParentJobID uuid.UUID `json:"parent_job_id" db:"parent_job_id"`
+	LayerIndex  int       `json:"layer_index" db:"layer_index"`
+	Status      string    `json:"status" db:"status"`
+	// Priority and MaxAgents intentionally live on job_executions, not
+	// here. They are read live via JOIN in scheduler/cycle.go
+	// (buildUnitInfos) so that operator edits in the admin UI take
+	// effect on the next scheduler cycle. Migration 000153 dropped the
+	// denormalized columns from this table.
+	AttackMode int `json:"attack_mode" db:"attack_mode"`
+	// EffectiveKeyspace is total work in effective hashes (base × rules × salts).
+	// Updated continuously by IngestProgressV2 as agent reports — DECREASES as
+	// salts get removed during salted-hashlist jobs. Used as input to chunk-size
+	// math, NOT for coverage tracking. Frontend reads this for "total work" display.
 	EffectiveKeyspace    int64           `json:"effective_keyspace" db:"effective_keyspace"`
+	// BaseKeyspace is the chunkable dimension (wordlist size for -a 0, etc.).
+	// Set once at unit creation from job_executions.base_keyspace (or
+	// job_increment_layers.base_keyspace for layer units). INVARIANT after
+	// creation. Used for coverage tracking (intervals tile [0, BaseKeyspace))
+	// AND as the divisor in chunk-size math (basePerSec = speed / multiplier
+	// where multiplier = EffectiveKeyspace / BaseKeyspace). Nullable for old
+	// rows that predate migration 000151; dispatcher treats nil as "skip — wait
+	// for accurate keyspace."
+	BaseKeyspace         *int64          `json:"base_keyspace,omitempty" db:"base_keyspace"`
 	IsAccurateKeyspace   bool            `json:"is_accurate_keyspace" db:"is_accurate_keyspace"`
 	// WordlistRefs holds one or more wordlist paths/refs. Single-entry for
 	// -a 0/-a 9, two-entry for -a 1 (combinator), single-entry plus

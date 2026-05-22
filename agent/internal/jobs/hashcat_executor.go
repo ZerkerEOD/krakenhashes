@@ -88,6 +88,15 @@ type JobTaskAssignment struct {
 	IncrementMax      *int                       `json:"increment_max,omitempty"`       // Maximum mask length for increment mode
 	IsKeyspaceSplit   bool                       `json:"is_keyspace_split"`             // Whether this task uses keyspace splitting (--skip/--limit)
 	BaseKeyspace      int64                      `json:"base_keyspace,omitempty"`       // Server's base keyspace for --skip/--limit coordinate conversion
+	// Effective-keyspace range (base × rule/salt multipliers) for this
+	// task. The real hashcat executor reads effective progress from
+	// hashcat's progress[0]/[1] and ignores these. They exist so the
+	// mock executor (and any future non-hashcat executor) can report
+	// EffectiveProgress / TotalEffectiveKeyspace without re-deriving the
+	// multiplier the scheduler already computed. Zero when the backend
+	// couldn't compute them (overflow / unset).
+	EffectiveKeyspaceStart int64 `json:"effective_keyspace_start,omitempty"`
+	EffectiveKeyspaceEnd   int64 `json:"effective_keyspace_end,omitempty"`
 	// Association attack fields (mode 9)
 	AssociationWordlistPath string `json:"association_wordlist_path,omitempty"` // Path to the association wordlist
 	OriginalHashlistPath    string `json:"original_hashlist_path,omitempty"`    // Path to the original hashlist file (preserves order)
@@ -239,9 +248,20 @@ type HashcatProcess struct {
 	// Keyspace coordinate conversion
 	KeyspaceRatio float64 // Ratio for coordinate conversion (agent_base / server_base), 0 = no conversion
 
+	// Step 11s: chunk-local progress baseline.
+	// Hashcat's progress[0] is reported in absolute effective coords
+	// — for a chunk with --skip > 0, the first reading is already at
+	// the skip-equivalent baseline, not 0. Capture that baseline on
+	// the first non-zero status report so the terminal progress bar
+	// can display chunk-local % (0 → 100 over THIS chunk's lifetime)
+	// instead of the absolute ratio (which starts at e.g. 51% baseline).
+	InitialEffectiveProgress int64
+	InitialProgressCaptured  bool
+
 	// Error tracking
-	AlreadyRunningError bool
-	mutex               sync.Mutex
+	AlreadyRunningError    bool
+	HashcatRejectedHashlist atomic.Bool // set when stderr/stdout indicates "No hashes loaded" / "Hash parsing error" / etc. → fast-fail the job
+	mutex                  sync.Mutex
 
 	// Cleanup coordination
 	CleanupInProgress atomic.Bool // Flag to prevent timer creation during cleanup
@@ -1096,10 +1116,18 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 						var keyspaceProcessed int64
 						if restorePoint, ok := status["restore_point"].(float64); ok {
 							keyspaceProcessed = int64(restorePoint)
-							// Convert restore_point from agent coordinates back to server coordinates
-							// when -O changes the kernel split (ratio > 1). Without this, the backend
-							// would see agent-space values and prematurely complete the task.
-							if process.KeyspaceRatio > 1.0 {
+							// Convert restore_point from agent base coords back to server
+							// base coords whenever the two differ. The previous guard
+							// `ratio > 1.0` only handled the -O kernel-split case (server
+							// space larger than agent's); it missed ratio < 1.0 which
+							// happened on increment-mode jobs pre-Step-11h (server sent
+							// the JOB's combined base ~245M while agent's hashcat reported
+							// per-layer base ~81M → ratio 0.33). Conversion math
+							// `hashcat_value / ratio` is correct in both directions.
+							// Step 11h normalizes ratio to 1.0 for increment dispatches,
+							// but this conversion stays robust against any future
+							// ratio != 1.0 case.
+							if process.KeyspaceRatio > 0 && process.KeyspaceRatio != 1.0 {
 								keyspaceProcessed = int64(float64(keyspaceProcessed) / process.KeyspaceRatio)
 							}
 						}
@@ -1113,9 +1141,32 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 							totalProgress = int64(total) // Total to process (total words * total rules) - this is progress[1]
 						}
 
-						// Calculate progress percentage
+						// Step 11s: capture baseline on first non-zero progress reading.
+						// For chunks with --skip > 0, hashcat's progress[0] starts at
+						// the skip-equivalent position (not 0). The terminal progress
+						// bar should display chunk-local % (0 → 100 over this chunk's
+						// run), not the absolute hashcat ratio (which would start at
+						// e.g. 51% baseline for a chunk dispatched at job midpoint).
+						if !process.InitialProgressCaptured && currentProgress > 0 {
+							process.InitialEffectiveProgress = currentProgress
+							process.InitialProgressCaptured = true
+						}
+
+						// Calculate chunk-local progress percentage by subtracting
+						// the baseline from both numerator and denominator.
 						var progressPercent float64
-						if totalProgress > 0 {
+						if totalProgress > process.InitialEffectiveProgress {
+							progressPercent = (float64(currentProgress-process.InitialEffectiveProgress) /
+								float64(totalProgress-process.InitialEffectiveProgress)) * 100
+							if progressPercent < 0 {
+								progressPercent = 0
+							}
+							if progressPercent > 100 {
+								progressPercent = 100
+							}
+						} else if totalProgress > 0 {
+							// Fallback when baseline wasn't captured (e.g., first status
+							// arrived before any work was done with currentProgress=0).
 							progressPercent = (float64(currentProgress) / float64(totalProgress)) * 100
 						}
 
@@ -1264,6 +1315,20 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 			lineCount++
 			debug.Debug("[Hashcat stderr] %s", line)
 
+			// Detect "no usable hashes" patterns so the backend can
+			// fast-fail the job instead of cycling through the per-tuple
+			// retry cap. Same patterns the benchmark path watches. When
+			// any of these fire, the task's exit-code handler tags the
+			// error message with BENCHMARK_NO_HASHES_LOADED, which the
+			// backend's AttributeBenchmarkFailure recognizes as the
+			// fast-fail sentinel.
+			if strings.Contains(line, "No hashes loaded") ||
+				strings.Contains(line, "Hash parsing error") ||
+				strings.Contains(line, "Token length exception") ||
+				strings.Contains(line, "Separator unmatched") {
+				process.HashcatRejectedHashlist.Store(true)
+			}
+
 			// Check for "Already an instance" error
 			// Example: "Already an instance C:\Users\Aaron Sullivan\Desktop\KrakenHashes\data\binaries\2\hashcat.exe running on pid 50444"
 			if strings.Contains(line, "Already an instance") && strings.Contains(line, "running on pid") {
@@ -1360,14 +1425,34 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 	debug.Info("Entering main select loop for task %s", process.TaskID)
 	select {
 	case <-ctx.Done():
-		// Context cancelled, kill the process
+		// Context cancelled (operator Ctrl+C, StopJob, agent shutdown).
+		// Kill hashcat and send a final status that PRESERVES the
+		// last-known progress. The previous code sent an empty
+		// JobProgress (all zeros), which the backend then wrote on
+		// top of the real progress, displaying 0.00% / N/A speed for
+		// a task that was actually 88% done.
+		//
+		// New behavior: status="stopped" (distinct from "completed"
+		// or "failed") carries the last KeyspaceProcessed and
+		// EffectiveProgress so the backend can truncate the
+		// task/interval at that point and the remaining range gets
+		// re-dispatched, with no loss of completed work.
 		debug.Info("Context cancelled for task %s, killing process", process.TaskID)
 		if process.Cmd.Process != nil {
 			process.Cmd.Process.Kill()
 		}
-		e.sendProgressUpdate(process, &JobProgress{
+		stoppedProgress := &JobProgress{
 			TaskID: process.TaskID,
-		}, "cancelled")
+		}
+		if process.LastProgress != nil {
+			stoppedProgress.KeyspaceProcessed = process.LastProgress.KeyspaceProcessed
+			stoppedProgress.EffectiveProgress = process.LastProgress.EffectiveProgress
+			stoppedProgress.ProgressPercent = process.LastProgress.ProgressPercent
+			stoppedProgress.HashRate = process.LastProgress.HashRate
+			stoppedProgress.TotalEffectiveKeyspace = process.LastProgress.TotalEffectiveKeyspace
+			stoppedProgress.CrackedCount = process.LastProgress.CrackedCount
+		}
+		e.sendProgressUpdate(process, stoppedProgress, "stopped")
 
 	case err := <-done:
 		// Process completed
@@ -1403,8 +1488,36 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 		}
 
 		if err != nil {
-			// Check if it's just a non-zero exit code (hashcat uses different exit codes)
-			if exitErr, ok := err.(*exec.ExitError); ok {
+			// Step 11t: detect signal-killed hashcat (SIGINT from Ctrl+C
+			// propagating through the process group, SIGTERM/SIGKILL from
+			// graceful kill) and report as "stopped" instead of "failed".
+			// Without this, the user's Ctrl+C produces "Hashcat failed
+			// with exit code -1" — the work hashcat actually did is lost
+			// because the failed-status path doesn't truncate-and-complete.
+			//
+			// This check fires BEFORE the exit-code switch because Go's
+			// exec.ExitError.ExitCode() returns -1 for signal kills, which
+			// would otherwise fall into the "unknown error" branch below.
+			// The cached LastProgress is valid; the backend's status="stopped"
+			// handler (Step 10c-2) calls IngestProgressV2 + RecoverTaskByID
+			// to truncate the interval at the last known progress.
+			errStr := err.Error()
+			if strings.Contains(errStr, "signal: interrupt") ||
+				strings.Contains(errStr, "signal: terminated") ||
+				strings.Contains(errStr, "signal: killed") {
+				debug.Info("Hashcat process killed by signal (%s) for task %s — treating as stopped, preserving progress", errStr, process.TaskID)
+				stoppedProgress := &JobProgress{TaskID: process.TaskID}
+				if process.LastProgress != nil {
+					stoppedProgress.KeyspaceProcessed = process.LastProgress.KeyspaceProcessed
+					stoppedProgress.EffectiveProgress = process.LastProgress.EffectiveProgress
+					stoppedProgress.ProgressPercent = process.LastProgress.ProgressPercent
+					stoppedProgress.HashRate = process.LastProgress.HashRate
+					stoppedProgress.TotalEffectiveKeyspace = process.LastProgress.TotalEffectiveKeyspace
+					stoppedProgress.CrackedCount = process.LastProgress.CrackedCount
+				}
+				e.sendProgressUpdate(process, stoppedProgress, "stopped")
+				// Skip the exit-code switch — signal-kill is fully handled here.
+			} else if exitErr, ok := err.(*exec.ExitError); ok {
 				exitCode := exitErr.ExitCode()
 				debug.Info("Hashcat exited with code: %d for task %s", exitCode, process.TaskID)
 
@@ -1489,6 +1602,16 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 					if alreadyRunning {
 						debug.Error("Hashcat exit code %d for task %s - confirmed another instance is running", exitCode, process.TaskID)
 						e.sendErrorProgress(process, "Hashcat failed to start - another instance is already running")
+					} else if process.HashcatRejectedHashlist.Load() {
+						// Hashcat parsed the hashlist and rejected every line — wrong
+						// hash type for these hashes, or the file is corrupt. Tag the
+						// error with the BENCHMARK_NO_HASHES_LOADED sentinel so the
+						// backend's AttributeBenchmarkFailure fast-fails the job
+						// (no point retrying — every agent will hit the same
+						// rejection).
+						msg := fmt.Sprintf("BENCHMARK_NO_HASHES_LOADED: hashcat rejected all hashes (exit %d) — verify the hashlist contains valid hashes for hash type %d", exitCode, process.Assignment.HashType)
+						debug.Error("[Task %s] %s", process.TaskID, msg)
+						e.sendErrorProgress(process, msg)
 					} else {
 						debug.Error("Hashcat exit code %d for task %s - unknown error", exitCode, process.TaskID)
 						e.sendErrorProgress(process, fmt.Sprintf("Hashcat failed with exit code %d", exitCode))

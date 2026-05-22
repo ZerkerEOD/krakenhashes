@@ -9,6 +9,7 @@ import (
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
+	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 )
 
@@ -252,9 +253,24 @@ func (r *JobExecutionRepository) GetJobsByStatus(ctx context.Context, status mod
 	return jobs, nil
 }
 
-// UpdateStatus updates the status of a job execution
-// For terminal states (completed, failed, cancelled), it also sets completed_at
-// For non-terminal states, it clears completed_at (supports retry functionality)
+// UpdateStatus updates the status of a job execution.
+//
+// Terminal-state guard: once a job is in completed/failed/cancelled, this
+// method REFUSES to flip it to a different status. The runaway-dispatch bug
+// we hit on 2026-05-17 was caused by HandleHashlistFullyCracked correctly
+// marking a job 'completed' at 13:13:52, then the per-tuple hard-cap blindly
+// re-marking it 'failed' at 13:18:36 after empty-hashlist tasks accumulated
+// failures. The fix: enforce that terminal is terminal at the repository
+// layer so no caller can accidentally overwrite a closed job's status.
+//
+// For terminal targets (completed, failed, cancelled), sets completed_at.
+// For non-terminal targets (pending, running, paused), clears completed_at
+// (supports an explicit retry workflow where the caller resets the job).
+// The non-terminal path is ALSO gated by the terminal guard — to retry a
+// terminal job, the caller must first explicitly clear the terminal state
+// (via a different repository method designed for retry). This is the
+// trade-off for safety; in practice no current code retries from a terminal
+// state via this method.
 func (r *JobExecutionRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status models.JobExecutionStatus) error {
 	var query string
 	var args []interface{}
@@ -263,12 +279,13 @@ func (r *JobExecutionRepository) UpdateStatus(ctx context.Context, id uuid.UUID,
 	if status == models.JobExecutionStatusCompleted ||
 		status == models.JobExecutionStatusFailed ||
 		status == models.JobExecutionStatusCancelled {
-		query = `UPDATE job_executions SET status = $1, completed_at = $2 WHERE id = $3`
+		query = `UPDATE job_executions SET status = $1, completed_at = $2 WHERE id = $3
+		         AND status NOT IN ('completed', 'failed', 'cancelled')`
 		args = []interface{}{status, time.Now(), id}
 	} else {
 		// For non-terminal states (pending, running, paused), clear completed_at
-		// This supports retry functionality - retried jobs should not have completed_at set
-		query = `UPDATE job_executions SET status = $1, completed_at = NULL WHERE id = $2`
+		query = `UPDATE job_executions SET status = $1, completed_at = NULL WHERE id = $2
+		         AND status NOT IN ('completed', 'failed', 'cancelled')`
 		args = []interface{}{status, id}
 	}
 
@@ -283,7 +300,24 @@ func (r *JobExecutionRepository) UpdateStatus(ctx context.Context, id uuid.UUID,
 	}
 
 	if rowsAffected == 0 {
-		return ErrNotFound
+		// Either: (a) the row doesn't exist, or (b) the job is already in
+		// a terminal state and the guard refused the update. Distinguish
+		// by a quick read. The two cases need different reactions: (a) is
+		// a genuine "not found" (ErrNotFound), (b) is a no-op that the
+		// caller should ignore.
+		var currentStatus string
+		err := r.db.QueryRowContext(ctx, `SELECT status FROM job_executions WHERE id = $1`, id).Scan(&currentStatus)
+		if err != nil {
+			// Row really doesn't exist, or some other read error — preserve
+			// ErrNotFound semantics for the no-row case.
+			return ErrNotFound
+		}
+		// Row exists; guard refused the write. Debug-log only — this is
+		// expected when e.g. the hard-cap fires on a job that
+		// HandleHashlistFullyCracked already marked completed.
+		debug.Debug("UpdateStatus(%s -> %s) skipped: job already in terminal state %s",
+			id, status, currentStatus)
+		return nil
 	}
 
 	return nil
@@ -707,10 +741,6 @@ func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]
 		FROM job_executions je
 		LEFT JOIN job_stats js ON je.id = js.id
 		WHERE je.status IN ('pending', 'running')
-			-- Exclude jobs owned by scheduler-v2 (those that have
-			-- scheduling_units rows pointing at them). The new
-			-- scheduler dispatches those via its own cycle.
-			AND NOT EXISTS (SELECT 1 FROM scheduling_units WHERE parent_job_id = je.id)
 			AND (
 				-- Job has no tasks yet (new job)
 				(NOT EXISTS (SELECT 1 FROM job_tasks WHERE job_execution_id = je.id))

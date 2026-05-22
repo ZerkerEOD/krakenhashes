@@ -297,8 +297,8 @@ type JobTask struct {
 	AgentID           *int          `json:"agent_id" db:"agent_id"`
 	BinaryVersionID   *int64        `json:"binary_version_id,omitempty" db:"binary_version_id"` // Resolved binary version ID at task creation
 	Status            JobTaskStatus `json:"status" db:"status"`
-	Priority          int           `json:"priority" db:"priority"`     // Task priority (inherited from job)
-	AttackCmd         string        `json:"attack_cmd" db:"attack_cmd"` // Full hashcat command for this task
+	Priority          int           `json:"priority" db:"priority"`               // Task priority (inherited from job)
+	AttackCmd         *string       `json:"attack_cmd,omitempty" db:"attack_cmd"` // Full hashcat command for this task. Nullable: scheduler-v2 tasks don't carry one (the agent builds the command from the task_assignment payload). Legacy scheduler always populated this. Treat nil as "not set" — do NOT default to empty string at write time.
 	KeyspaceStart           int64   `json:"keyspace_start" db:"keyspace_start"`
 	KeyspaceEnd             int64   `json:"keyspace_end" db:"keyspace_end"`
 	KeyspaceProcessed       int64   `json:"keyspace_processed" db:"keyspace_processed"`
@@ -340,7 +340,7 @@ type JobTask struct {
 	IsKeyspaceSplit bool    `json:"is_keyspace_split" db:"is_keyspace_split"`   // Whether this task uses keyspace splitting (--skip/--limit)
 
 	// Chunk tracking
-	ChunkNumber int `json:"chunk_number" db:"chunk_number"` // Sequential chunk number within this job (1, 2, 3...)
+	ChunkNumber *int `json:"chunk_number,omitempty" db:"chunk_number"` // Sequential chunk number within this job (1, 2, 3...). Nullable: scheduler-v2 tasks are interval-based, not sequence-numbered. Legacy scheduler set this for display/cascade. Treat nil as "not set" — most v2 callsites should check `if t.ChunkNumber != nil`.
 
 	// Populated fields from JOINs
 	AgentName *string `json:"agent_name,omitempty" db:"agent_name"`

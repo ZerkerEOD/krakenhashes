@@ -22,12 +22,33 @@ func allocationSet(allocs []Allocation) map[uuid.UUID][]int {
 	return out
 }
 
+// unit is the "one unit per parent" helper — each call gets a fresh
+// random ParentJobID, so the new parent-cap tracker in the allocator
+// treats every unit independently (matches the non-increment-job
+// production case). Tests that need sibling units sharing a parent
+// (i.e., increment-job semantics) should use siblingUnit() instead.
 func unit(id uuid.UUID, priority, maxAgents, activeCount int, createdAtNanos int64) UnitInfo {
 	return UnitInfo{
 		ID:               id,
+		ParentJobID:      uuid.New(),
 		Priority:         priority,
 		MaxAgents:        maxAgents,
 		ActiveAgentCount: activeCount,
+		CreatedAtNanos:   createdAtNanos,
+	}
+}
+
+// siblingUnit produces a UnitInfo that shares a ParentJobID with other
+// units of the same increment job. The parent's MaxAgents and
+// ActiveAgentCount are passed once and stamped onto every sibling — this
+// matches what buildUnitInfos does in production.
+func siblingUnit(id, parentJobID uuid.UUID, priority, parentMaxAgents, parentActiveCount int, createdAtNanos int64) UnitInfo {
+	return UnitInfo{
+		ID:               id,
+		ParentJobID:      parentJobID,
+		Priority:         priority,
+		MaxAgents:        parentMaxAgents,
+		ActiveAgentCount: parentActiveCount,
 		CreatedAtNanos:   createdAtNanos,
 	}
 }
@@ -313,3 +334,222 @@ func TestAllocator_NoDoubleAssignment(t *testing.T) {
 	}
 }
 
+// Increment job: 4 sibling units (one per layer) share a parent with
+// max_agents=1. The fill phase must cap TOTAL allocations across the 4
+// units at 1 — not 1 per layer (which would let an increment job
+// consume max_agents × N_layers agents). This is the regression test
+// for the bug observed in the FIFO/enforce_max_agents testing pass.
+func TestAllocator_IncrementJob_ParentCapEnforced(t *testing.T) {
+	parent := uuid.New()
+	layer1 := uuid.New()
+	layer2 := uuid.New()
+	layer3 := uuid.New()
+	layer4 := uuid.New()
+	units := []UnitInfo{
+		siblingUnit(layer1, parent, 5, 1, 0, 1),
+		siblingUnit(layer2, parent, 5, 1, 0, 2),
+		siblingUnit(layer3, parent, 5, 1, 0, 3),
+		siblingUnit(layer4, parent, 5, 1, 0, 4),
+	}
+	agents := []AgentInfo{agentN(1), agentN(2), agentN(3), agentN(4), agentN(5)}
+
+	out := AllocateAgentsByPriority(units, agents, OverflowEnforceMaxAgents, alwaysCompatible)
+	if len(out) != 1 {
+		t.Fatalf("expected exactly 1 allocation under parent_max=1 across 4 sibling layers, got %d: %+v", len(out), out)
+	}
+}
+
+// Same scenario but the parent already has an in-flight task on one of
+// its layers — the cycle must not allocate any new agents (cap of 1 is
+// already used by the existing task).
+func TestAllocator_IncrementJob_ParentCapRespectsActiveAgentCount(t *testing.T) {
+	parent := uuid.New()
+	layer1 := uuid.New()
+	layer2 := uuid.New()
+	// ActiveAgentCount=1 represents one in-flight task across the
+	// parent's units (typically on layer 1, but the allocator only
+	// cares about the per-parent total).
+	units := []UnitInfo{
+		siblingUnit(layer1, parent, 5, 1, 1, 1),
+		siblingUnit(layer2, parent, 5, 1, 1, 2),
+	}
+	agents := []AgentInfo{agentN(1), agentN(2), agentN(3)}
+
+	out := AllocateAgentsByPriority(units, agents, OverflowEnforceMaxAgents, alwaysCompatible)
+	if len(out) != 0 {
+		t.Fatalf("expected 0 allocations (parent already at cap), got %d: %+v", len(out), out)
+	}
+}
+
+// Increment job with parent_max=4 and 4 layers should distribute the
+// 4 agents across all 4 layers (one each), not pile them on layer 1.
+// The allocator iterates units in FIFO order; once a layer has taken
+// its share, the next sibling gets the next agent.
+func TestAllocator_IncrementJob_ParentCapDistributesAcrossLayers(t *testing.T) {
+	parent := uuid.New()
+	layer1 := uuid.New()
+	layer2 := uuid.New()
+	layer3 := uuid.New()
+	layer4 := uuid.New()
+	units := []UnitInfo{
+		siblingUnit(layer1, parent, 5, 4, 0, 1),
+		siblingUnit(layer2, parent, 5, 4, 0, 2),
+		siblingUnit(layer3, parent, 5, 4, 0, 3),
+		siblingUnit(layer4, parent, 5, 4, 0, 4),
+	}
+	agents := []AgentInfo{agentN(1), agentN(2), agentN(3), agentN(4)}
+
+	out := AllocateAgentsByPriority(units, agents, OverflowEnforceMaxAgents, alwaysCompatible)
+	if len(out) != 4 {
+		t.Fatalf("expected 4 allocations (parent_max=4, 4 layers, 4 agents), got %d: %+v", len(out), out)
+	}
+	// Each layer must have received at least one agent — the fill loop
+	// fills layer 1 first (oldest), but it caps at 1 due to remaining
+	// parent capacity decreasing as agents are placed.
+	bySite := allocationSet(out)
+	for _, lid := range []uuid.UUID{layer1, layer2, layer3, layer4} {
+		if len(bySite[lid]) == 0 {
+			t.Errorf("layer %s got 0 agents; expected 1", lid)
+		}
+		if len(bySite[lid]) > 1 {
+			t.Errorf("layer %s got %d agents; expected 1 (parent cap should prevent piling on layer 1)", lid, len(bySite[lid]))
+		}
+	}
+}
+
+
+// ---------------------------------------------------------------------------
+// Max-Agents overflow modes (priority-agnostic overflow)
+// ---------------------------------------------------------------------------
+
+// Max-Agents-FIFO: every tier fills to max_agents first (strict caps),
+// then any surplus piles on the OLDEST UNIT OVERALL by created_at,
+// regardless of priority. Distinct from Priority-FIFO (which would dump
+// extras on the oldest within the top tier and starve lower tiers).
+func TestAllocator_MaxAgentsFIFO_RespectsCapsThenOverflows(t *testing.T) {
+	// Tier 5: 2 units, both max=2 → 4 cap. Created 100 and 200.
+	// Tier 4: 1 unit,  max=1       → 1 cap. Created 50 (OLDEST overall).
+	// Total cap = 5. With 8 agents, surplus = 3.
+	tier5a := uuid.New()
+	tier5b := uuid.New()
+	tier4 := uuid.New()
+	units := []UnitInfo{
+		unit(tier5a, 5, 2, 0, 100),
+		unit(tier5b, 5, 2, 0, 200),
+		unit(tier4, 4, 1, 0, 50),
+	}
+	agents := []AgentInfo{
+		agentN(1), agentN(2), agentN(3), agentN(4),
+		agentN(5), agentN(6), agentN(7), agentN(8),
+	}
+
+	out := AllocateAgentsByPriority(units, agents, OverflowMaxAgentsFIFO, alwaysCompatible)
+	if len(out) != 8 {
+		t.Fatalf("expected all 8 agents allocated (cap 5 + 3 overflow), got %d: %+v", len(out), out)
+	}
+	bySite := allocationSet(out)
+	if got := len(bySite[tier5a]); got != 2 {
+		t.Errorf("tier5a should be exactly at cap (2), got %d", got)
+	}
+	if got := len(bySite[tier5b]); got != 2 {
+		t.Errorf("tier5b should be exactly at cap (2), got %d", got)
+	}
+	// tier4 is OLDEST (created 50) — gets its baseline 1 + all 3 extras = 4
+	if got := len(bySite[tier4]); got != 4 {
+		t.Errorf("tier4 (oldest overall) should absorb baseline + 3 overflow = 4, got %d", got)
+	}
+}
+
+// Max-Agents-FIFO crosses priority tiers: lower-priority oldest unit
+// gets the overflow even though higher-priority units exist. The exact
+// scenario that distinguishes this mode from Priority-FIFO.
+func TestAllocator_MaxAgentsFIFO_CrossesTiers(t *testing.T) {
+	hi := uuid.New() // priority 100, newer
+	lo := uuid.New() // priority 1, older — should absorb extras
+	units := []UnitInfo{
+		unit(hi, 100, 1, 0, 200),
+		unit(lo, 1, 1, 0, 100),
+	}
+	agents := []AgentInfo{agentN(1), agentN(2), agentN(3), agentN(4), agentN(5)}
+
+	out := AllocateAgentsByPriority(units, agents, OverflowMaxAgentsFIFO, alwaysCompatible)
+	if len(out) != 5 {
+		t.Fatalf("expected all 5 agents allocated, got %d", len(out))
+	}
+	bySite := allocationSet(out)
+	if got := len(bySite[hi]); got != 1 {
+		t.Errorf("hi-priority unit must stay at cap (1), got %d", got)
+	}
+	if got := len(bySite[lo]); got != 4 {
+		t.Errorf("lo-priority unit (oldest overall) should absorb 1 baseline + 3 overflow = 4, got %d", got)
+	}
+}
+
+// Max-Agents-Round-Robin: rotates the overflow across ALL units by
+// created_at, one agent per unit per pass. Distinct from Priority-RR
+// (which only rotates within the top tier).
+func TestAllocator_MaxAgentsRoundRobin_RotatesAcrossTiers(t *testing.T) {
+	// 3 units across 2 tiers, each with max=1. Cap = 3.
+	// 9 agents → 6 in overflow → 2 extra per unit if rotation works.
+	a := uuid.New()
+	b := uuid.New()
+	c := uuid.New()
+	units := []UnitInfo{
+		unit(a, 5, 1, 0, 100), // oldest
+		unit(b, 3, 1, 0, 200),
+		unit(c, 5, 1, 0, 300),
+	}
+	agents := []AgentInfo{
+		agentN(1), agentN(2), agentN(3),
+		agentN(4), agentN(5), agentN(6),
+		agentN(7), agentN(8), agentN(9),
+	}
+
+	out := AllocateAgentsByPriority(units, agents, OverflowMaxAgentsRoundRobin, alwaysCompatible)
+	if len(out) != 9 {
+		t.Fatalf("expected all 9 agents allocated, got %d", len(out))
+	}
+	bySite := allocationSet(out)
+	// Baseline 1 each + ~2 each from rotation. Tolerate ±1 because
+	// rotation order depends on which agent is at the head of the free
+	// pool when each unit's turn comes around.
+	for id, label := range map[uuid.UUID]string{a: "a", b: "b", c: "c"} {
+		got := len(bySite[id])
+		if got < 2 || got > 4 {
+			t.Errorf("unit %s got %d agents; expected 2-4 (1 baseline + ~2 rotated)", label, got)
+		}
+	}
+}
+
+// Max-Agents-FIFO with compatibility constraints: if the oldest unit
+// can't accept a given agent (binary version etc.), that agent falls
+// through to the next compatible oldest unit.
+func TestAllocator_MaxAgentsFIFO_RespectsCompatibility(t *testing.T) {
+	old := uuid.New() // older, but ONLY accepts agent 1
+	new := uuid.New() // newer, accepts everyone
+	units := []UnitInfo{
+		unit(old, 5, 1, 0, 100),
+		unit(new, 5, 1, 0, 200),
+	}
+	agents := []AgentInfo{agentN(1), agentN(2), agentN(3)}
+	compat := func(unitID uuid.UUID, agentID int) bool {
+		if unitID == old && agentID != 1 {
+			return false
+		}
+		return true
+	}
+
+	out := AllocateAgentsByPriority(units, agents, OverflowMaxAgentsFIFO, compat)
+	if len(out) != 3 {
+		t.Fatalf("expected all 3 agents allocated, got %d", len(out))
+	}
+	bySite := allocationSet(out)
+	// Old gets agent 1 (baseline). Overflow (2 agents) all go to `new`
+	// because `old` rejects them — `old` ends with 1, `new` with 2.
+	if got := len(bySite[old]); got != 1 {
+		t.Errorf("old (only agent 1 compatible) should have 1 agent, got %d", got)
+	}
+	if got := len(bySite[new]); got != 2 {
+		t.Errorf("new (catch-all for incompatible overflow) should have 2 agents, got %d", got)
+	}
+}

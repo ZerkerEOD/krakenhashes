@@ -21,17 +21,17 @@ func newUnit(mode int, wordlists []string, rules []string, mask *string) *models
 }
 
 func TestBuildTaskAssignment_NilUnit(t *testing.T) {
-	if _, err := BuildTaskAssignment(nil, uuid.New(), 0, 100); err == nil {
+	if _, err := BuildTaskAssignment(nil, uuid.New(), 0, 100, 0, 0); err == nil {
 		t.Fatal("expected error on nil unit")
 	}
 }
 
 func TestBuildTaskAssignment_BadRange(t *testing.T) {
 	u := newUnit(AttackModeStraight, []string{"wl"}, nil, nil)
-	if _, err := BuildTaskAssignment(u, uuid.New(), 100, 50); err == nil {
+	if _, err := BuildTaskAssignment(u, uuid.New(), 100, 50, 0, 0); err == nil {
 		t.Fatal("expected error when rangeEnd <= rangeStart")
 	}
-	if _, err := BuildTaskAssignment(u, uuid.New(), 100, 100); err == nil {
+	if _, err := BuildTaskAssignment(u, uuid.New(), 100, 100, 0, 0); err == nil {
 		t.Fatal("expected error when rangeEnd == rangeStart")
 	}
 }
@@ -42,7 +42,7 @@ func TestBuildTaskAssignment_A0_StraightWithRules(t *testing.T) {
 	u := newUnit(AttackModeStraight, []string{"wordlists/rockyou.txt"}, []string{"rules/best64.rule", "rules/d3ad0ne.rule"}, nil)
 	taskID := uuid.New()
 
-	p, err := BuildTaskAssignment(u, taskID, 1000, 1500)
+	p, err := BuildTaskAssignment(u, taskID, 1000, 1500, 0, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -74,14 +74,14 @@ func TestBuildTaskAssignment_A0_StraightWithRules(t *testing.T) {
 
 func TestBuildTaskAssignment_A0_NoWordlistFails(t *testing.T) {
 	u := newUnit(AttackModeStraight, nil, []string{"rules/best64.rule"}, nil)
-	if _, err := BuildTaskAssignment(u, uuid.New(), 0, 100); err == nil {
+	if _, err := BuildTaskAssignment(u, uuid.New(), 0, 100, 0, 0); err == nil {
 		t.Fatal("-a 0 with no wordlist should fail")
 	}
 }
 
 func TestBuildTaskAssignment_A0_NoRulesIsValid(t *testing.T) {
 	u := newUnit(AttackModeStraight, []string{"wl"}, nil, nil)
-	p, err := BuildTaskAssignment(u, uuid.New(), 0, 100)
+	p, err := BuildTaskAssignment(u, uuid.New(), 0, 100, 0, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestBuildTaskAssignment_A0_NoRulesIsValid(t *testing.T) {
 
 func TestBuildTaskAssignment_A1_Combinator(t *testing.T) {
 	u := newUnit(AttackModeCombinator, []string{"wl/left.txt", "wl/right.txt"}, nil, nil)
-	p, err := BuildTaskAssignment(u, uuid.New(), 0, 100)
+	p, err := BuildTaskAssignment(u, uuid.New(), 0, 100, 0, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -110,7 +110,7 @@ func TestBuildTaskAssignment_A1_WrongCountFails(t *testing.T) {
 			wls[i] = "wl"
 		}
 		u := newUnit(AttackModeCombinator, wls, nil, nil)
-		if _, err := BuildTaskAssignment(u, uuid.New(), 0, 100); err == nil {
+		if _, err := BuildTaskAssignment(u, uuid.New(), 0, 100, 0, 0); err == nil {
 			t.Errorf("-a 1 with %d wordlists should fail", count)
 		}
 	}
@@ -118,7 +118,7 @@ func TestBuildTaskAssignment_A1_WrongCountFails(t *testing.T) {
 
 func TestBuildTaskAssignment_A1_RejectsRules(t *testing.T) {
 	u := newUnit(AttackModeCombinator, []string{"a", "b"}, []string{"r.rule"}, nil)
-	if _, err := BuildTaskAssignment(u, uuid.New(), 0, 100); err == nil {
+	if _, err := BuildTaskAssignment(u, uuid.New(), 0, 100, 0, 0); err == nil {
 		t.Fatal("-a 1 with rules should fail (hashcat doesn't accept -r in combinator)")
 	}
 }
@@ -127,7 +127,7 @@ func TestBuildTaskAssignment_A1_RejectsRules(t *testing.T) {
 
 func TestBuildTaskAssignment_A3_Mask(t *testing.T) {
 	u := newUnit(AttackModeMask, nil, nil, ptr("?a?a?a?a"))
-	p, err := BuildTaskAssignment(u, uuid.New(), 0, 100)
+	p, err := BuildTaskAssignment(u, uuid.New(), 0, 100, 0, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -141,20 +141,20 @@ func TestBuildTaskAssignment_A3_Mask(t *testing.T) {
 
 func TestBuildTaskAssignment_A3_NoMaskFails(t *testing.T) {
 	u := newUnit(AttackModeMask, nil, nil, nil)
-	if _, err := BuildTaskAssignment(u, uuid.New(), 0, 100); err == nil {
+	if _, err := BuildTaskAssignment(u, uuid.New(), 0, 100, 0, 0); err == nil {
 		t.Fatal("-a 3 without mask should fail")
 	}
 
 	empty := ""
 	u2 := newUnit(AttackModeMask, nil, nil, &empty)
-	if _, err := BuildTaskAssignment(u2, uuid.New(), 0, 100); err == nil {
+	if _, err := BuildTaskAssignment(u2, uuid.New(), 0, 100, 0, 0); err == nil {
 		t.Fatal("-a 3 with empty-string mask should fail")
 	}
 }
 
 func TestBuildTaskAssignment_A3_RejectsWordlist(t *testing.T) {
 	u := newUnit(AttackModeMask, []string{"wl"}, nil, ptr("?d?d?d"))
-	if _, err := BuildTaskAssignment(u, uuid.New(), 0, 100); err == nil {
+	if _, err := BuildTaskAssignment(u, uuid.New(), 0, 100, 0, 0); err == nil {
 		t.Fatal("-a 3 with a wordlist should fail")
 	}
 }
@@ -163,7 +163,7 @@ func TestBuildTaskAssignment_A3_RejectsWordlist(t *testing.T) {
 
 func TestBuildTaskAssignment_A6_HybridWordlistMask(t *testing.T) {
 	u := newUnit(AttackModeHybridWLM, []string{"wl/rockyou.txt"}, nil, ptr("?d?d?d?d"))
-	p, err := BuildTaskAssignment(u, uuid.New(), 0, 100)
+	p, err := BuildTaskAssignment(u, uuid.New(), 0, 100, 0, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -177,12 +177,12 @@ func TestBuildTaskAssignment_A6_HybridWordlistMask(t *testing.T) {
 
 func TestBuildTaskAssignment_A6_NeedsBoth(t *testing.T) {
 	u := newUnit(AttackModeHybridWLM, []string{"wl"}, nil, nil)
-	if _, err := BuildTaskAssignment(u, uuid.New(), 0, 100); err == nil {
+	if _, err := BuildTaskAssignment(u, uuid.New(), 0, 100, 0, 0); err == nil {
 		t.Fatal("-a 6 without mask should fail")
 	}
 
 	u2 := newUnit(AttackModeHybridWLM, nil, nil, ptr("?d?d"))
-	if _, err := BuildTaskAssignment(u2, uuid.New(), 0, 100); err == nil {
+	if _, err := BuildTaskAssignment(u2, uuid.New(), 0, 100, 0, 0); err == nil {
 		t.Fatal("-a 6 without wordlist should fail")
 	}
 }
@@ -191,7 +191,7 @@ func TestBuildTaskAssignment_A6_NeedsBoth(t *testing.T) {
 
 func TestBuildTaskAssignment_A7_HybridMaskWordlist(t *testing.T) {
 	u := newUnit(AttackModeHybridMWL, []string{"wl/rockyou.txt"}, nil, ptr("?d?d?d?d"))
-	p, err := BuildTaskAssignment(u, uuid.New(), 0, 100)
+	p, err := BuildTaskAssignment(u, uuid.New(), 0, 100, 0, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -207,7 +207,7 @@ func TestBuildTaskAssignment_A7_HybridMaskWordlist(t *testing.T) {
 
 func TestBuildTaskAssignment_A9_Association(t *testing.T) {
 	u := newUnit(AttackModeAssociation, []string{"wl/usernames.txt"}, []string{"rules/best64.rule"}, nil)
-	p, err := BuildTaskAssignment(u, uuid.New(), 100, 200)
+	p, err := BuildTaskAssignment(u, uuid.New(), 100, 200, 0, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -224,7 +224,7 @@ func TestBuildTaskAssignment_A9_Association(t *testing.T) {
 
 func TestBuildTaskAssignment_A9_NoWordlistFails(t *testing.T) {
 	u := newUnit(AttackModeAssociation, nil, nil, nil)
-	if _, err := BuildTaskAssignment(u, uuid.New(), 0, 100); err == nil {
+	if _, err := BuildTaskAssignment(u, uuid.New(), 0, 100, 0, 0); err == nil {
 		t.Fatal("-a 9 with no association wordlist should fail")
 	}
 }
@@ -233,7 +233,7 @@ func TestBuildTaskAssignment_A9_NoWordlistFails(t *testing.T) {
 
 func TestBuildTaskAssignment_UnsupportedMode(t *testing.T) {
 	u := newUnit(8, nil, nil, nil) // 8 = PRINCE, removed from hashcat
-	if _, err := BuildTaskAssignment(u, uuid.New(), 0, 100); err == nil {
+	if _, err := BuildTaskAssignment(u, uuid.New(), 0, 100, 0, 0); err == nil {
 		t.Fatal("expected error for unsupported attack mode")
 	}
 }
@@ -254,7 +254,7 @@ func TestBuildTaskAssignment_IsKeyspaceSplitAlwaysTrue(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			p, err := BuildTaskAssignment(tc.u, uuid.New(), 0, 100)
+			p, err := BuildTaskAssignment(tc.u, uuid.New(), 0, 100, 0, 0)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}

@@ -23,18 +23,21 @@ import (
 // JobIntegrationManager manages the integration between WebSocket and job execution services
 type JobIntegrationManager struct {
 	wsIntegration        *JobWebSocketIntegration
+	jobExecutionService  *services.JobExecutionService
 	jobSchedulingService *services.JobSchedulingService
 	wsHandler            interface {
 		SendMessage(agentID int, msg *wsservice.Message) error
 		GetConnectedAgents() []int
+		IsShuttingDown(agentID int) bool
+		WasRecentlyRejected(agentID int) bool
+		MarkRejected(agentID int)
 		RegisterInventoryCallback(agentID int) <-chan *wsservice.FileSyncResponsePayload
 		UnregisterInventoryCallback(agentID int)
 	}
 
-	// Scheduler-v2 runners. Non-nil only when SCHEDULER_V2_ENABLED=true
-	// at construction time. They run alongside the legacy scheduler
-	// during the cutover window; on cutover, the legacy path is
-	// removed and these stand alone.
+	// Scheduler-v2 runners. The legacy scheduler is no longer started
+	// (its source remains in-tree until the hard-cutover release that
+	// drops job_scheduling_service.go and its co-located files).
 	schedulerV2Runner *scheduler.Runner
 	sweeperRunner     *scheduler.SweeperRunner
 	// compatCache is the (agent_id, unit_id) compatibility lookup.
@@ -48,6 +51,9 @@ func NewJobIntegrationManager(
 	wsHandler interface {
 		SendMessage(agentID int, msg *wsservice.Message) error
 		GetConnectedAgents() []int
+		IsShuttingDown(agentID int) bool
+		WasRecentlyRejected(agentID int) bool
+		MarkRejected(agentID int)
 		RegisterInventoryCallback(agentID int) <-chan *wsservice.FileSyncResponsePayload
 		UnregisterInventoryCallback(agentID int)
 	},
@@ -63,6 +69,7 @@ func NewJobIntegrationManager(
 	jobIncrementLayerRepo *repository.JobIncrementLayerRepository,
 	agentRepo *repository.AgentRepository,
 	deviceRepo *repository.AgentDeviceRepository,
+	scheduleRepo *repository.AgentScheduleRepository,
 	clientRepo *repository.ClientRepository,
 	systemSettingsRepo *repository.SystemSettingsRepository,
 	assocWordlistRepo *repository.AssociationWordlistRepository,
@@ -110,25 +117,30 @@ func NewJobIntegrationManager(
 
 	mgr := &JobIntegrationManager{
 		wsIntegration:        wsIntegration,
+		jobExecutionService:  jobExecutionService,
 		jobSchedulingService: jobSchedulingService,
 		wsHandler:            wsHandler,
 	}
 
-	// Soft cutover (Phase F.1): scheduler-v2 is always on. The
-	// SCHEDULER_V2_ENABLED env gate is gone. The legacy scheduler
-	// remains in the binary but is NOT started in StartScheduler
-	// below — it's inert dead weight until the hard cutover follow-up
-	// drops it from the tree.
+	// Scheduler-v2 owns all jobs. The legacy scheduler runner is no
+	// longer started (see StartScheduler) and the converter runs once
+	// at boot to migrate any pre-existing v1 jobs.
 	database := &khdb.DB{DB: db}
 	unitRepo := repository.NewSchedulingUnitRepository(database)
 	intervalRepo := repository.NewKeyspaceIntervalRepository(database)
 	mgr.compatCache = scheduler.NewCompatCache(database)
-	// jobExecutionService satisfies scheduler.BinaryResolver
-	// structurally — it has DetermineBinaryForTask. Pass it as
-	// the resolver so sendAssignment can populate BinaryPath
-	// without the scheduler package importing services
-	// (which would be a circular dependency).
-	cycle := scheduler.NewCycle(database, unitRepo, intervalRepo, systemSettingsRepo, wsHandler, jobExecutionService, mgr.compatCache)
+	// jobExecutionService satisfies both scheduler.BinaryResolver
+	// (DetermineBinaryForTask) and scheduler.JobExecutionStarter
+	// (StartJobExecution) structurally. Pass it twice so the cycle
+	// can populate BinaryPath AND transition the parent job from
+	// pending→running on first dispatch without the scheduler
+	// package importing services (which would be a circular
+	// dependency).
+	// deviceRepo lets the cycle emit -d <enabled-IDs> in task
+	// assignments when the user has disabled some GPUs. agentRepo +
+	// scheduleRepo enable the agent-scheduling check in getIdleAgents
+	// (mirror of legacy filterAvailableAgents).
+	cycle := scheduler.NewCycle(database, unitRepo, intervalRepo, systemSettingsRepo, deviceRepo, agentRepo, scheduleRepo, wsHandler, jobExecutionService, jobExecutionService, mgr.compatCache)
 	mgr.schedulerV2Runner = scheduler.NewRunner(cycle, 3*time.Second)
 	mgr.sweeperRunner = scheduler.NewSweeperRunner(database, systemSettingsRepo, 10*time.Second)
 	debug.Info("scheduler-v2: runners constructed (start deferred)")
@@ -215,21 +227,25 @@ func (m *JobIntegrationManager) GetWebSocketIntegration() *JobWebSocketIntegrati
 	return m.wsIntegration
 }
 
-// StartScheduler starts the job scheduling service.
+// ConvertLegacyJobsToV2 runs the one-shot startup converter that
+// migrates any pre-existing v1 jobs (job_executions without a
+// scheduling_units row) into v2 jobs, or deletes them if their
+// wordlist/rule refs no longer resolve.
 //
-// Soft cutover (Phase F.1): only scheduler-v2 ticks. The legacy
-// scheduler is no longer started — it remains in the binary as inert
-// code, ready for the hard-cutover follow-up to delete it along with
-// its dependent columns. The legacy GetJobsWithPendingWork query and
-// the rest of job_scheduling_service still compile and could be
-// invoked manually for diagnostics if needed; they just don't run on
-// the 3-second tick.
-func (m *JobIntegrationManager) StartScheduler(ctx context.Context) {
-	debug.Log("Starting job scheduler (v2-only)", nil)
+// Idempotent: safe to call on every boot. After the first successful
+// run there will be nothing to convert.
+func (m *JobIntegrationManager) ConvertLegacyJobsToV2(ctx context.Context) error {
+	if m.jobExecutionService == nil {
+		return nil
+	}
+	return m.jobExecutionService.ConvertLegacyJobsToV2(ctx)
+}
 
-	// Legacy scheduler intentionally not started here. See the
-	// soft-cutover comment in NewJobIntegrationManager.
-	_ = m.jobSchedulingService // referenced to keep the import; not invoked
+// StartScheduler starts scheduler-v2. The legacy runner is no longer
+// started — its source code is retained for one more release as a
+// rollback option, but it does not tick.
+func (m *JobIntegrationManager) StartScheduler(ctx context.Context) {
+	debug.Info("scheduler-v2: starting runner, sweeper, and compat cache refresh")
 
 	if m.schedulerV2Runner != nil {
 		m.schedulerV2Runner.Start(ctx)
@@ -237,6 +253,7 @@ func (m *JobIntegrationManager) StartScheduler(ctx context.Context) {
 	if m.sweeperRunner != nil {
 		go m.sweeperRunner.Run(ctx)
 	}
+
 	// Warm the compatibility cache and start a periodic refresh
 	// goroutine that re-evaluates everything every 30 seconds.
 	// Misses between refreshes fall through to lazy single-pair

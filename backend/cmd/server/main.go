@@ -502,6 +502,18 @@ func main() {
 
 	// Start the job scheduler if it was initialized
 	if routes.JobIntegrationManager != nil {
+		// One-shot converter: migrate any pre-existing v1 jobs into v2
+		// units before the scheduler runs. Jobs whose wordlist or rule
+		// refs no longer resolve are deleted. Must run before
+		// StartScheduler so the cycle sees a fully-v2 world.
+		convCtx, convCancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		if err := routes.JobIntegrationManager.ConvertLegacyJobsToV2(convCtx); err != nil {
+			debug.Error("Legacy job converter failed: %v", err)
+			convCancel()
+			os.Exit(1)
+		}
+		convCancel()
+
 		debug.Info("Starting job scheduler")
 		jobSchedulerCtx, jobSchedulerCancel := context.WithCancel(context.Background())
 		defer jobSchedulerCancel()

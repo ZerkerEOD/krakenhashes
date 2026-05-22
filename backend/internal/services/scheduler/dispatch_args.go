@@ -46,6 +46,7 @@ func BuildTaskAssignment(
 	unit *models.SchedulingUnit,
 	taskID uuid.UUID,
 	rangeStart, rangeEnd int64,
+	effStart, effEnd int64,
 ) (*wsservice.TaskAssignmentPayload, error) {
 	if unit == nil {
 		return nil, errors.New("BuildTaskAssignment: unit is nil")
@@ -55,13 +56,15 @@ func BuildTaskAssignment(
 	}
 
 	p := &wsservice.TaskAssignmentPayload{
-		TaskID:          taskID.String(),
-		JobExecutionID:  unit.ParentJobID.String(),
-		AttackMode:      unit.AttackMode,
-		KeyspaceStart:   rangeStart,
-		KeyspaceEnd:     rangeEnd,
-		IsKeyspaceSplit: true,
-		OutputFormat:    "3", // hash:plain — same as legacy at job_websocket_integration.go:832
+		TaskID:                 taskID.String(),
+		JobExecutionID:         unit.ParentJobID.String(),
+		AttackMode:             unit.AttackMode,
+		KeyspaceStart:          rangeStart,
+		KeyspaceEnd:            rangeEnd,
+		EffectiveKeyspaceStart: effStart,
+		EffectiveKeyspaceEnd:   effEnd,
+		IsKeyspaceSplit:        true,
+		OutputFormat:           "3", // hash:plain — same as legacy at job_websocket_integration.go:832
 	}
 
 	switch unit.AttackMode {

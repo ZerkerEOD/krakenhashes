@@ -493,10 +493,6 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		"multiplication_factor": jobExecution.MultiplicationFactor,
 	})
 
-	// Phase E hook: create scheduling_units rows when SCHEDULER_V2_ENABLED.
-	// No-op otherwise. Failure leaves the job as legacy-owned (the legacy
-	// GetJobsWithPendingWork picks it up via NOT EXISTS), so a v2 wiring
-	// bug doesn't take down job creation.
 	s.populateSchedulingUnitsIfEnabled(ctx, jobExecution)
 
 	return jobExecution, nil
@@ -2370,6 +2366,27 @@ func (s *JobExecutionService) UpdateTaskProgress(ctx context.Context, taskID uui
 		// If effectiveProgress < EffectiveKeyspaceStart, keep original (shouldn't happen but be safe)
 	}
 
+	// Step 11r: recalculate progress_percent as a CHUNK-local fraction.
+	// The agent sends progress_percent as hashcat's absolute ratio
+	// (progress[0]/progress[1]). For chunks dispatched at --skip > 0,
+	// this starts high (e.g., 51% baseline for a chunk at job midpoint)
+	// — confusing display because the chunk hasn't done that much
+	// work; it's just sitting at a high absolute coordinate.
+	//
+	// User-expected behavior: a single chunk reads 0% → 100% over its
+	// own lifetime. Use the chunk-relative values we just computed
+	// above: chunk_percent = effective_processed / chunk_effective_size × 100.
+	if task.EffectiveKeyspaceStart != nil && task.EffectiveKeyspaceEnd != nil {
+		chunkEff := *task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart
+		if chunkEff > 0 {
+			localPercent := float64(effectiveKeyspaceProcessed) / float64(chunkEff) * 100.0
+			if localPercent > 100.0 {
+				localPercent = 100.0
+			}
+			progressPercent = localPercent
+		}
+	}
+
 	// Update the task progress
 	// Note: Job-level progress is now calculated by the polling service (JobProgressCalculationService)
 	// which runs every 2 seconds and recalculates from task data
@@ -3331,6 +3348,122 @@ func (s *JobExecutionService) HandleTaskCompletion(ctx context.Context, taskID u
 		"job_execution_id":   task.JobExecutionID,
 	})
 
+	// Scheduler-v2 cascade: when a v2 task completes normally, mark its
+	// keyspace interval 'completed' too. Without this, intervals stay
+	// 'assigned' forever for normally-completed tasks (only RecoverTaskByID's
+	// truncate path was updating intervals previously). Legacy tasks have
+	// no row in job_keyspace_intervals, so the UPDATE is a safe no-op for
+	// them. Status guard makes repeat calls safe. Best-effort: log on
+	// error rather than failing task completion.
+	if _, err := s.db.ExecContext(ctx, `
+		UPDATE job_keyspace_intervals
+		SET status = 'completed'
+		WHERE task_id = $1 AND status IN ('assigned', 'running')
+	`, taskID); err != nil {
+		debug.Warning("Failed to cascade interval->completed for task %s: %v", taskID, err)
+	}
+
+	// Step 11b: cascade scheduling_units.status -> completed when the
+	// unit's non-failed/non-cancelled intervals fully cover its
+	// base_keyspace. Each layer is its own "job" — once its keyspace is
+	// fully covered, the unit transitions to 'completed' and drops out
+	// of the scheduler's candidate set. Intervals don't overlap (no_overlap_per_unit
+	// constraint), so SUM(range_end - range_start) >= base_keyspace
+	// exactly when coverage is complete.
+	if _, err := s.db.ExecContext(ctx, `
+		UPDATE scheduling_units su
+		SET status = 'completed', updated_at = NOW()
+		WHERE su.id = (SELECT scheduling_unit_id FROM job_tasks WHERE id = $1)
+		  AND su.status IN ('pending', 'running')
+		  AND su.base_keyspace IS NOT NULL
+		  AND (
+			SELECT COALESCE(SUM(range_end - range_start), 0)
+			FROM job_keyspace_intervals jki
+			WHERE jki.scheduling_unit_id = su.id
+			  AND jki.status NOT IN ('failed', 'cancelled')
+		  ) >= su.base_keyspace
+	`, taskID); err != nil {
+		debug.Warning("Failed to cascade unit->completed for task %s: %v", taskID, err)
+	}
+
+	// Step 11n: cascade scheduling_units.status -> pending when the
+	// unit has REMAINING work (incomplete coverage) AND no other tasks
+	// are currently in flight for it. The dispatcher's idempotent
+	// pending->running transition (Step 11e) flips it back to running
+	// on the next successful dispatch. Without this, the unit would
+	// stay 'running' forever after the last task fails/completes if no
+	// agent picks it up — misleading UI status.
+	//
+	// Gated by:
+	//   - unit currently 'running' (don't downgrade other states)
+	//   - has gaps (coverage < base_keyspace)
+	//   - no active tasks (assigned/running/processing) for this unit
+	if _, err := s.db.ExecContext(ctx, `
+		UPDATE scheduling_units su
+		SET status = 'pending', updated_at = NOW()
+		WHERE su.id = (SELECT scheduling_unit_id FROM job_tasks WHERE id = $1)
+		  AND su.status = 'running'
+		  AND su.base_keyspace IS NOT NULL
+		  AND (
+			SELECT COALESCE(SUM(range_end - range_start), 0)
+			FROM job_keyspace_intervals jki
+			WHERE jki.scheduling_unit_id = su.id
+			  AND jki.status NOT IN ('failed', 'cancelled')
+		  ) < su.base_keyspace
+		  AND NOT EXISTS (
+			SELECT 1 FROM job_tasks t
+			WHERE t.scheduling_unit_id = su.id
+			  AND t.status IN ('assigned', 'running', 'processing')
+		  )
+	`, taskID); err != nil {
+		debug.Warning("Failed to cascade unit->pending for task %s: %v", taskID, err)
+	}
+
+	// Step 11n (cont.): mirror cascade for the increment layer.
+	// If its corresponding unit just transitioned to 'pending', the
+	// layer should follow. The increment_layer_id is on the task row.
+	if _, err := s.db.ExecContext(ctx, `
+		UPDATE job_increment_layers l
+		SET status = 'pending', updated_at = NOW()
+		FROM job_tasks t, scheduling_units su
+		WHERE t.id = $1
+		  AND t.increment_layer_id = l.id
+		  AND su.id = t.scheduling_unit_id
+		  AND l.status = 'running'
+		  AND su.status = 'pending'
+	`, taskID); err != nil {
+		debug.Warning("Failed to cascade layer->pending for task %s: %v", taskID, err)
+	}
+
+	// Step 11n (cont.): mirror cascade for the parent job. Goes
+	// pending only if NO tasks anywhere on this job are active AND
+	// not every unit is already completed (which is the completion
+	// path handled by JobProgressCalculationService.checkJobsForCompletion).
+	//
+	// Also accepts 'processing' as a starting state — checkJobProcessingStatus
+	// can prematurely flip a v2 job to 'processing' if its v2-aware check
+	// somehow fails. Without recovering from 'processing' here, the job
+	// would stay stuck even after every task drained.
+	if _, err := s.db.ExecContext(ctx, `
+		UPDATE job_executions je
+		SET status = 'pending', updated_at = NOW()
+		WHERE je.id = (SELECT job_execution_id FROM job_tasks WHERE id = $1)
+		  AND je.status IN ('running', 'processing')
+		  AND NOT EXISTS (
+			SELECT 1 FROM job_tasks t
+			WHERE t.job_execution_id = je.id
+			  AND t.status IN ('assigned', 'running', 'processing')
+		  )
+		  AND EXISTS (
+			-- At least one unit is still incomplete; otherwise the
+			-- completion check should mark the JOB completed, not pending.
+			SELECT 1 FROM scheduling_units su
+			WHERE su.parent_job_id = je.id AND su.status <> 'completed'
+		  )
+	`, taskID); err != nil {
+		debug.Warning("Failed to cascade job->pending for task %s: %v", taskID, err)
+	}
+
 	// Self-heal the cached benchmark from this task's observed speed so a
 	// pessimistic cold-start benchmark stops permanently under-sizing future
 	// tasks for this (agent, hash_type, attack_mode). Non-fatal on error.
@@ -3361,52 +3494,62 @@ func (s *JobExecutionService) HandleTaskCompletion(ctx context.Context, taskID u
 			})
 
 			if allLayerTasksComplete {
-				// CRITICAL: Check for failed layer tasks - don't mark layer as completed if any tasks failed
-				hasFailedLayerTasks, failErr := s.jobTaskRepo.HasFailedLayerTasks(ctx, *task.IncrementLayerID)
-				if failErr != nil {
-					debug.Error("Failed to check for failed layer tasks: %v", failErr)
-				} else if hasFailedLayerTasks {
-					debug.Warning("Layer %s has failed tasks - marking as failed, not completed", *task.IncrementLayerID)
-					if updateErr := s.jobIncrementLayerRepo.UpdateStatus(ctx, *task.IncrementLayerID, models.JobIncrementLayerStatusFailed); updateErr != nil {
-						debug.Error("Failed to mark layer as failed: %v", updateErr)
-					}
-					// Continue to check job completion (which will mark job as failed)
-				} else {
-					// Safety check: ensure all base keyspace is covered before marking layer complete
-					// This prevents premature completion when keyspace splitting is in use
-					layer, layerErr := s.jobIncrementLayerRepo.GetByID(ctx, *task.IncrementLayerID)
-					if layerErr != nil {
-						debug.Error("Failed to get layer for completion check: %v", layerErr)
-					} else if layer.BaseKeyspace != nil && *layer.BaseKeyspace > 0 {
-						maxBaseDispatched, maxErr := s.jobTaskRepo.GetMaxKeyspaceEndByLayer(ctx, *task.IncrementLayerID)
-						if maxErr != nil {
-							debug.Error("Failed to get max keyspace end for layer: %v", maxErr)
-						} else if maxBaseDispatched < *layer.BaseKeyspace {
-							// NOT all keyspace covered - keep layer running so scheduler creates more tasks
-							debug.Log("Layer has remaining work - not marking complete", map[string]interface{}{
-								"layer_id":         *task.IncrementLayerID,
-								"base_keyspace":    *layer.BaseKeyspace,
-								"max_keyspace_end": maxBaseDispatched,
-								"remaining":        *layer.BaseKeyspace - maxBaseDispatched,
-							})
-							return nil // Don't mark as completed - scheduler will create more tasks
-						}
-					}
-
-					debug.Log("All layer tasks complete and keyspace covered, marking layer as completed", map[string]interface{}{
-						"layer_id": task.IncrementLayerID,
-					})
-
-					// Mark layer as completed
-					err = s.jobIncrementLayerRepo.UpdateStatus(ctx, *task.IncrementLayerID, models.JobIncrementLayerStatusCompleted)
-					if err != nil {
-						debug.Error("Failed to mark layer as completed: %v", err)
-					} else {
-						debug.Log("Layer marked as completed", map[string]interface{}{
-							"layer_id": task.IncrementLayerID,
-							"job_id":   task.JobExecutionID,
+				// V2 layer-cascade (Step 11j): use coverage check, not
+				// task-failure presence. A v2 task that fails has its
+				// interval reverted to a gap by RecoverTaskByID; the gap
+				// gets re-issued and a later task fills it. So a single
+				// failed task does NOT mean the layer is unrecoverable —
+				// what matters is whether the layer's intervals (non-failed,
+				// non-cancelled) fully cover its base_keyspace.
+				//
+				// The OLD `HasFailedLayerTasks → mark layer failed` cascade
+				// was v1-era logic (where a failed task was terminal). In v2
+				// it incorrectly poisoned layers whose coverage was actually
+				// complete via re-attempted tasks. A layer goes 'failed'
+				// only via external policy (e.g., AttributeBenchmarkFailure
+				// exhausting all eligible agents) — not from transient
+				// per-task failures.
+				layer, layerErr := s.jobIncrementLayerRepo.GetByID(ctx, *task.IncrementLayerID)
+				if layerErr != nil {
+					debug.Error("Failed to get layer for completion check: %v", layerErr)
+				} else if layer.BaseKeyspace != nil && *layer.BaseKeyspace > 0 {
+					var covered int64
+					if cErr := s.db.QueryRowContext(ctx, `
+						SELECT COALESCE(SUM(jki.range_end - jki.range_start), 0)
+						FROM job_keyspace_intervals jki
+						JOIN scheduling_units su ON su.id = jki.scheduling_unit_id
+						WHERE su.parent_job_id = $1
+						  AND su.layer_index = $2
+						  AND jki.status NOT IN ('failed', 'cancelled')
+					`, task.JobExecutionID, layer.LayerIndex).Scan(&covered); cErr != nil {
+						debug.Error("Failed to compute layer coverage: %v", cErr)
+					} else if covered < *layer.BaseKeyspace {
+						// Gaps remain — leave layer 'running' so the scheduler
+						// continues filling. The dispatcher's gap query
+						// already excludes failed/cancelled intervals.
+						debug.Log("Layer has uncovered range — staying running", map[string]interface{}{
+							"layer_id":      *task.IncrementLayerID,
+							"base_keyspace": *layer.BaseKeyspace,
+							"covered":       covered,
+							"remaining":     *layer.BaseKeyspace - covered,
 						})
+						return nil
 					}
+				}
+
+				debug.Log("All layer tasks complete and keyspace covered, marking layer as completed", map[string]interface{}{
+					"layer_id": task.IncrementLayerID,
+				})
+
+				// Mark layer as completed
+				err = s.jobIncrementLayerRepo.UpdateStatus(ctx, *task.IncrementLayerID, models.JobIncrementLayerStatusCompleted)
+				if err != nil {
+					debug.Error("Failed to mark layer as completed: %v", err)
+				} else {
+					debug.Log("Layer marked as completed", map[string]interface{}{
+						"layer_id": task.IncrementLayerID,
+						"job_id":   task.JobExecutionID,
+					})
 				}
 			}
 		}

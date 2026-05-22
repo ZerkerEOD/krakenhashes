@@ -1153,11 +1153,18 @@
     },
     "agentOverflow": {
       "title": "Agenten-Überlauf-Zuweisung",
-      "tooltip": "Konfigurieren Sie, wie Agenten über die max_agents-Grenzen hinaus zugewiesen werden, wenn Aufträge die gleiche Priorität haben",
-      "roundRobinMode": "Round-Robin-Modus",
-      "fifoMode": "FIFO-Modus",
-      "fifoDescription": "Wenn mehrere Aufträge mit gleicher Priorität ihre max_agents-Grenzen überschreiten, erhält der älteste Auftrag (zuerst erstellt) alle zusätzlichen Agenten.",
-      "roundRobinDescription": "Zusätzliche Agenten werden gleichmäßig auf alle Aufträge mit gleicher Priorität verteilt, einen Agenten nach dem anderen, um eine faire Zuweisung zu gewährleisten."
+      "tooltip": "Konfigurieren Sie, wie freie Agenten verteilt werden, sobald jeder Auftrag auf jeder Prioritätsstufe seine max_agents-Grenze erreicht hat.",
+      "modeLabel": "Überlauf-Zuweisungsmodus",
+      "priorityFifoMode": "Priorität - FIFO",
+      "priorityRoundRobinMode": "Priorität - Round Robin",
+      "enforceMaxAgentsMode": "max_agents erzwingen",
+      "maxAgentsFifoMode": "Max Agenten - FIFO",
+      "maxAgentsRoundRobinMode": "Max Agenten - Round Robin",
+      "priorityFifoDescription": "Wenn mehrere Aufträge mit gleicher Priorität ihre max_agents-Grenzen überschreiten, erhält der älteste Auftrag (zuerst erstellt) alle zusätzlichen Agenten.",
+      "priorityRoundRobinDescription": "Zusätzliche Agenten werden gleichmäßig auf alle Aufträge mit gleicher Priorität verteilt, einen Agenten nach dem anderen, um eine faire Zuweisung zu gewährleisten.",
+      "enforceMaxAgentsDescription": "Strictly cap each job at its max_agents limit — no overflow. Surplus agents stay idle. Most predictable; can waste capacity.",
+      "maxAgentsFifoDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then pile on the OLDEST job overall — bypassing priority. Maximizes throughput while still giving every job its baseline.",
+      "maxAgentsRoundRobinDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then rotate evenly across ALL jobs — bypassing priority. Maximizes throughput with fair distribution beyond the baseline."
     },
     "hashlist": {
       "title": "Hashlisten-Einstellungen",

@@ -207,6 +207,7 @@ func SetupWebSocketWithJobRoutes(
 		jobIncrementLayerRepo,
 		agentRepo,
 		deviceRepo,
+		scheduleRepo,
 		clientRepo,
 		systemSettingsRepo,
 		assocWordlistRepo,

@@ -885,7 +885,29 @@ func main() {
 		}
 	}
 
-	// Now stop the job manager to cleanly stop all running jobs
+	// Mark the job manager as shutting down BEFORE anything else. From
+	// this instant, any inbound task_assignment from the backend is
+	// refused locally — closes the race where a v2 cycle dispatches into
+	// us during the 5s shutdown window. ProcessJobAssignment returns an
+	// error that the connection translates into a task_assignment_rejected
+	// WS frame so the backend can re-dispatch elsewhere immediately.
+	if jobManager != nil {
+		jobManager.BeginShutdown()
+	}
+
+	// THEN send the shutdown notification to the backend. The backend's
+	// handleAgentShutdown runs RecoverTaskByID on the captured task ID,
+	// freeing the gap for re-dispatch elsewhere, and marks the agent
+	// shutting-down so its scheduler cycle stops considering us idle.
+	if conn != nil {
+		debug.Info("Sending shutdown notification to server...")
+		conn.SendShutdownNotification(hasTask, taskID, jobID)
+		time.Sleep(500 * time.Millisecond) // Give time for the message to be sent
+	}
+
+	// Now stop the job manager to cleanly stop all running jobs.
+	// Once shutdownCtx (passed to the JobManager constructor) is
+	// cancelled, ProcessJobAssignment refuses any inbound assignments.
 	if jobManager != nil {
 		debug.Info("Stopping job manager and all running tasks...")
 		console.Status("Stopping active tasks...")
@@ -898,12 +920,8 @@ func main() {
 		}
 	}
 
-	// Send shutdown notification to server before closing connection
+	// Close the connection last.
 	if conn != nil {
-		debug.Info("Sending shutdown notification to server...")
-		conn.SendShutdownNotification(hasTask, taskID, jobID)
-		time.Sleep(500 * time.Millisecond) // Give time for the message to be sent
-
 		debug.Info("Stopping connection...")
 		console.Status("Disconnecting from backend...")
 		conn.Stop() // Stop the active connection and maintenance routines

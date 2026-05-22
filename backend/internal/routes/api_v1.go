@@ -81,8 +81,17 @@ func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager
 	v1Router.HandleFunc("/hashlists/{id:[0-9]+}", hashlistHandler.GetHashlist).Methods("GET", "OPTIONS")
 	v1Router.HandleFunc("/hashlists/{id:[0-9]+}", hashlistHandler.DeleteHashlist).Methods("DELETE", "OPTIONS")
 
+	// Job endpoints - create necessary repositories and services
+	// (declared before /agents so the agent handler can hold a
+	// benchmarkRepo reference for the manual re-enable reset path)
+	jobExecRepo := repository.NewJobExecutionRepository(database)
+	jobTaskRepo := repository.NewJobTaskRepository(database)
+	jobIncrementLayerRepo := repository.NewJobIncrementLayerRepository(database)
+	presetIncrementLayerRepo := repository.NewPresetIncrementLayerRepository(database)
+	benchmarkRepo := repository.NewBenchmarkRepository(database)
+
 	// Agent endpoints
-	agentHandler := v1handlers.NewAgentHandler(agentRepo, voucherService)
+	agentHandler := v1handlers.NewAgentHandler(agentRepo, benchmarkRepo, voucherService)
 	v1Router.HandleFunc("/agents/vouchers", agentHandler.GenerateVoucher).Methods("POST", "OPTIONS")
 	v1Router.HandleFunc("/agents", agentHandler.ListAgents).Methods("GET", "OPTIONS")
 	v1Router.HandleFunc("/agents/{id:[0-9]+}", agentHandler.GetAgent).Methods("GET", "OPTIONS")
@@ -94,13 +103,6 @@ func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager
 	v1Router.HandleFunc("/hash-types", helperHandler.ListHashTypes).Methods("GET", "OPTIONS")
 	v1Router.HandleFunc("/workflows", helperHandler.ListWorkflows).Methods("GET", "OPTIONS")
 	v1Router.HandleFunc("/preset-jobs", helperHandler.ListPresetJobs).Methods("GET", "OPTIONS")
-
-	// Job endpoints - create necessary repositories and services
-	jobExecRepo := repository.NewJobExecutionRepository(database)
-	jobTaskRepo := repository.NewJobTaskRepository(database)
-	jobIncrementLayerRepo := repository.NewJobIncrementLayerRepository(database)
-	presetIncrementLayerRepo := repository.NewPresetIncrementLayerRepository(database)
-	benchmarkRepo := repository.NewBenchmarkRepository(database)
 	agentHashlistRepo := repository.NewAgentHashlistRepository(database)
 	deviceRepo := repository.NewAgentDeviceRepository(database)
 	scheduleRepo := repository.NewAgentScheduleRepository(database)

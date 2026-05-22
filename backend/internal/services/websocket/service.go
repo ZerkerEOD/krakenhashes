@@ -57,6 +57,7 @@ const (
 	TypeTaskStopAck             MessageType = "task_stop_ack"           // Agent acknowledges stop command (GH Issue #12)
 	TypeStateSyncResponse       MessageType = "state_sync_response"     // Agent responds with state sync (GH Issue #12)
 	TypeAgentOrphanReport       MessageType = "agent_orphan_report"     // Agent audits an "Already an instance" hashcat collision (Slice C)
+	TypeTaskAssignmentRejected  MessageType = "task_assignment_rejected" // Agent refused an inbound task_assignment (e.g., shutdown in progress)
 
 	// Server -> Agent messages
 	TypeTaskAssignment         MessageType = "task_assignment"
@@ -270,6 +271,14 @@ type TaskAssignmentPayload struct {
 	// Server's base keyspace for agent-side coordinate conversion
 	// Agents with -O may have a different outer-loop keyspace; this lets them convert --skip/--limit
 	BaseKeyspace int64 `json:"base_keyspace,omitempty"`
+
+	// Effective keyspace range for this task (base × rule/salt multipliers).
+	// Real hashcat agents derive effective progress from hashcat's progress[0]/[1]
+	// and don't need these. They exist so the mock executor (and any future
+	// non-hashcat executor) can compute EffectiveProgress / TotalEffectiveKeyspace
+	// without re-doing the multiplier math the scheduler already did.
+	EffectiveKeyspaceStart int64 `json:"effective_keyspace_start,omitempty"`
+	EffectiveKeyspaceEnd   int64 `json:"effective_keyspace_end,omitempty"`
 }
 
 // AgentOrphanReportPayload is the agent's audit notification when its
@@ -551,6 +560,11 @@ func (s *Service) HandleMessage(ctx context.Context, agent *models.Agent, msg *M
 	case TypeAgentShutdown:
 		// Agent shutdown is handled in the handler layer
 		// Just update heartbeat here
+		return nil
+	case TypeTaskAssignmentRejected:
+		// task_assignment_rejected is routed by the handler layer
+		// (handler.go switch) into JobIntegrationManager. Nothing to do
+		// at the service level beyond heartbeat refresh.
 		return nil
 	case TypeSyncStarted:
 		return s.handleSyncStarted(ctx, agent, msg)
