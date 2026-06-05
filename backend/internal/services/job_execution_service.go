@@ -3455,6 +3455,62 @@ func (s *JobExecutionService) CleanupJobResources(ctx context.Context, jobID uui
 		}
 	}
 
+	// Self-healing sweep of ephemeral filtered wordlists (GH #40) owned by any
+	// terminal job. Running it here means every completed job also clears
+	// stragglers left by failed/cancelled jobs that didn't reach this path.
+	if err := s.sweepEphemeralWordlists(ctx); err != nil {
+		debug.Error("Failed to sweep ephemeral filtered wordlists: %v", err)
+	}
+
+	return nil
+}
+
+// sweepEphemeralWordlists deletes ephemeral (job-scoped) filtered wordlists whose
+// owning job has reached a terminal state, removing both the file and the row
+// (GH #40). It is best-effort and safe to run repeatedly.
+func (s *JobExecutionService) sweepEphemeralWordlists(ctx context.Context) error {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT w.id, w.file_name
+		FROM wordlists w
+		JOIN job_executions j ON j.id = w.owner_job_id
+		WHERE w.is_ephemeral = true
+		  AND j.status IN ('completed', 'failed', 'cancelled')`)
+	if err != nil {
+		return fmt.Errorf("query ephemeral wordlists: %w", err)
+	}
+	defer rows.Close()
+
+	type ephemeral struct {
+		id       int
+		fileName string
+	}
+	var toDelete []ephemeral
+	for rows.Next() {
+		var e ephemeral
+		if err := rows.Scan(&e.id, &e.fileName); err != nil {
+			debug.Error("Failed to scan ephemeral wordlist row: %v", err)
+			continue
+		}
+		toDelete = append(toDelete, e)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for _, e := range toDelete {
+		filePath := filepath.Join(s.dataDirectory, "wordlists", e.fileName)
+		if rmErr := os.Remove(filePath); rmErr != nil && !os.IsNotExist(rmErr) {
+			debug.Error("Failed to remove ephemeral wordlist file %s: %v", filePath, rmErr)
+		}
+		if _, delErr := s.db.ExecContext(ctx, "DELETE FROM wordlist_tags WHERE wordlist_id = $1", e.id); delErr != nil {
+			debug.Error("Failed to delete tags for ephemeral wordlist %d: %v", e.id, delErr)
+		}
+		if _, delErr := s.db.ExecContext(ctx, "DELETE FROM wordlists WHERE id = $1", e.id); delErr != nil {
+			debug.Error("Failed to delete ephemeral wordlist row %d: %v", e.id, delErr)
+			continue
+		}
+		debug.Info("Swept ephemeral filtered wordlist %d (%s)", e.id, e.fileName)
+	}
 	return nil
 }
 

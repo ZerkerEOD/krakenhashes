@@ -58,6 +58,16 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 	// Create additional repositories for job creation
 	workflowRepo := repository.NewJobWorkflowRepository(database.DB)
 	wordlistStore := wordlist.NewStore(database.DB)
+	wordlistManager := wordlist.NewManager(
+		wordlistStore,
+		filepath.Join(dataDir, "wordlists"),
+		0,
+		[]string{"txt", "dict", "lst", "gz", "zip"},
+		[]string{"text/plain", "application/gzip", "application/zip"},
+		jobExecRepo,
+		presetJobRepo,
+		workflowRepo,
+	)
 	ruleStore := rule.NewStore(database.DB)
 	binaryStore := binary.NewStore(database.DB)
 	jobIncrementLayerRepo := repository.NewJobIncrementLayerRepository(dbWrapper)
@@ -107,6 +117,7 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 		workflowRepo,
 		hashTypeRepo,
 		wordlistStore,
+		wordlistManager,
 		ruleStore,
 		binaryStore,
 		jobExecutionService,
@@ -141,7 +152,7 @@ func SetupUserRoutes(router *mux.Router, database *db.DB, dataDir string, binary
 
 	// User-specific jobs route
 	router.HandleFunc("/user/jobs", jobsHandler.ListUserJobs).Methods("GET", "OPTIONS")
-	
+
 	// User-specific agents route with current task info
 	router.HandleFunc("/user/agents", agentHandler.GetUserAgents).Methods("GET", "OPTIONS")
 

@@ -45,6 +45,8 @@ import BinaryVersionSelector from '../common/BinaryVersionSelector';
 import CharsetInputs from '../common/CharsetInputs';
 import { CustomCharset } from '../../types/customCharsets';
 import { listAccessibleCharsets } from '../../services/customCharsetService';
+import FilterCriteriaForm, { isFilterEmpty } from '../wordlists/FilterCriteriaForm';
+import { WordlistFilter } from '../../types/wordlists';
 
 interface PresetJob {
   id: string;
@@ -170,6 +172,10 @@ export default function CreateJobDialog({
     hex_charset: false,
     additional_args: ''
   });
+
+  // Ephemeral wordlist filtering (GH #40) — applies to wordlist-based attacks only.
+  const [filterEnabled, setFilterEnabled] = useState(false);
+  const [customFilter, setCustomFilter] = useState<WordlistFilter>({});
 
   // Saved charsets for picker
   const [savedCharsets, setSavedCharsets] = useState<CustomCharset[]>([]);
@@ -354,12 +360,17 @@ export default function CreateJobDialog({
         setLoadingMessage('Calculating keyspace...');
 
         // Map chunk_duration to chunk_size_seconds for API
-        const customJobPayload = {
+        const customJobPayload: any = {
           ...customJob,
           chunk_size_seconds: customJob.chunk_duration,
           additional_args: customJob.additional_args || null
         };
         delete (customJobPayload as any).chunk_duration;
+
+        // Attach an ephemeral wordlist filter for wordlist-based attacks (GH #40).
+        if (filterEnabled && [0, 1, 6, 7].includes(customJob.attack_mode) && !isFilterEmpty(customFilter)) {
+          customJobPayload.filter = customFilter;
+        }
 
         payload = {
           type: 'custom',
@@ -436,6 +447,9 @@ export default function CreateJobDialog({
       });
       setTabValue(0);
       setCustomJobName('');
+      // Reset ephemeral filter state
+      setFilterEnabled(false);
+      setCustomFilter({});
       // Reset combination wordlist state
       setCombWordlist1('');
       setCombWordlist2('');
@@ -1079,6 +1093,35 @@ export default function CreateJobDialog({
                         />
                       </Grid>
                     </>
+                  )}
+
+                  {/* Ephemeral wordlist filter (GH #40) - wordlist-based attacks only */}
+                  {[0, 1, 6, 7].includes(customJob.attack_mode) && customJob.wordlist_ids.length > 0 && (
+                    <Grid item xs={12}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={filterEnabled}
+                            onChange={(e) => setFilterEnabled(e.target.checked)}
+                          />
+                        }
+                        label="Pre-filter the selected wordlist(s) for this job"
+                      />
+                      {filterEnabled && (
+                        <Box sx={{ pl: 1, pt: 1 }}>
+                          <Alert severity="info" sx={{ mb: 2 }}>
+                            This filtered list is ephemeral and used only for this job. To create a
+                            reusable filtered wordlist, use Wordlist Management. Generation runs in the
+                            background; the job starts automatically once it's ready.
+                          </Alert>
+                          <FilterCriteriaForm
+                            value={customFilter}
+                            onChange={setCustomFilter}
+                            showPreview={false}
+                          />
+                        </Box>
+                      )}
+                    </Grid>
                   )}
 
                   {/* Increment Mode - only for mask-based attacks */}

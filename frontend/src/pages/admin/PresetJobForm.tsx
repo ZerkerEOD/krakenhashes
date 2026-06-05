@@ -875,6 +875,13 @@ const PresetJobFormPage: React.FC = () => {
                 }
               </FormHelperText>
             </FormControl>
+            {!isWordlistsDisabled && (
+              <Alert severity="info" sx={{ mt: 1 }}>
+                To use a pre-filtered wordlist in a preset job, create it first in Wordlist
+                Management — it will then appear in this list. Inline ephemeral filtering is
+                available only on one-off custom jobs.
+              </Alert>
+            )}
           </Grid>
         )}
 

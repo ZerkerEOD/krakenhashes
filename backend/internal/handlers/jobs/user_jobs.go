@@ -23,26 +23,27 @@ import (
 
 // UserJobsHandler handles job-related requests from users
 type UserJobsHandler struct {
-	jobExecRepo            *repository.JobExecutionRepository
-	jobTaskRepo            *repository.JobTaskRepository
-	jobIncrementLayerRepo  *repository.JobIncrementLayerRepository
-	presetJobRepo          repository.PresetJobRepository
-	hashlistRepo           *repository.HashListRepository
-	clientRepo             *repository.ClientRepository
-	workflowRepo           repository.JobWorkflowRepository
-	hashTypeRepo           *repository.HashTypeRepository
-	wordlistStore          *wordlist.Store
-	ruleStore              *rule.Store
-	binaryStore            binary.Store
-	jobExecutionService    *services.JobExecutionService
-	systemSettingsRepo     *repository.SystemSettingsRepository
-	assocWordlistRepo      *repository.AssociationWordlistRepository
-	clientPotfileRepo      *repository.ClientPotfileRepository
-	clientWordlistManager  *services.ClientWordlistManager
-	teamService            *services.TeamService
-	charsetRepo            repository.CustomCharsetRepository
-	benchmarkRepo          *repository.BenchmarkRepository
-	wsHandler              WSHandler
+	jobExecRepo           *repository.JobExecutionRepository
+	jobTaskRepo           *repository.JobTaskRepository
+	jobIncrementLayerRepo *repository.JobIncrementLayerRepository
+	presetJobRepo         repository.PresetJobRepository
+	hashlistRepo          *repository.HashListRepository
+	clientRepo            *repository.ClientRepository
+	workflowRepo          repository.JobWorkflowRepository
+	hashTypeRepo          *repository.HashTypeRepository
+	wordlistStore         *wordlist.Store
+	wordlistManager       wordlist.Manager
+	ruleStore             *rule.Store
+	binaryStore           binary.Store
+	jobExecutionService   *services.JobExecutionService
+	systemSettingsRepo    *repository.SystemSettingsRepository
+	assocWordlistRepo     *repository.AssociationWordlistRepository
+	clientPotfileRepo     *repository.ClientPotfileRepository
+	clientWordlistManager *services.ClientWordlistManager
+	teamService           *services.TeamService
+	charsetRepo           repository.CustomCharsetRepository
+	benchmarkRepo         *repository.BenchmarkRepository
+	wsHandler             WSHandler
 }
 
 // WSHandler interface for WebSocket operations
@@ -66,6 +67,7 @@ func NewUserJobsHandler(
 	workflowRepo repository.JobWorkflowRepository,
 	hashTypeRepo *repository.HashTypeRepository,
 	wordlistStore *wordlist.Store,
+	wordlistManager wordlist.Manager,
 	ruleStore *rule.Store,
 	binaryStore binary.Store,
 	jobExecutionService *services.JobExecutionService,
@@ -87,6 +89,7 @@ func NewUserJobsHandler(
 		workflowRepo:          workflowRepo,
 		hashTypeRepo:          hashTypeRepo,
 		wordlistStore:         wordlistStore,
+		wordlistManager:       wordlistManager,
 		ruleStore:             ruleStore,
 		binaryStore:           binaryStore,
 		jobExecutionService:   jobExecutionService,
@@ -292,7 +295,7 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 							totalEffectiveDispatched += (*task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart)
 						}
 					}
-					
+
 					// Calculate searched effective keyspace from all tasks
 					if task.EffectiveKeyspaceProcessed != nil {
 						totalEffectiveSearched += *task.EffectiveKeyspaceProcessed
@@ -400,15 +403,15 @@ func getJobName(job models.JobExecution, hashlist *models.HashList) string {
 
 // JobNameConfig holds all data needed to generate a job name
 type JobNameConfig struct {
-	Client                   *models.Client
-	AttackMode               models.AttackMode
-	WordlistNames            []string
-	RuleNames                []string
-	Mask                     string
-	IncrementMode            string // "off", "increment", "increment_inverse"
-	HashTypeID               int
-	CustomName               string
-	AssociationWordlistName  string // For association attack (mode 9)
+	Client                  *models.Client
+	AttackMode              models.AttackMode
+	WordlistNames           []string
+	RuleNames               []string
+	Mask                    string
+	IncrementMode           string // "off", "increment", "increment_inverse"
+	HashTypeID              int
+	CustomName              string
+	AssociationWordlistName string // For association attack (mode 9)
 }
 
 // resolveWordlistNames converts wordlist IDs to their names
@@ -646,7 +649,7 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 		http.Error(w, "Hashlist not found", http.StatusNotFound)
 		return
 	}
-	
+
 	// Get client info if available
 	var client *models.Client
 	if hashlist.ClientID != uuid.Nil {
@@ -782,25 +785,28 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 		var req struct {
 			Type          string `json:"type"`
 			CustomJobName string `json:"custom_job_name"`
-			CustomJob struct {
-				Name                      string   `json:"name"`
-				AttackMode                int      `json:"attack_mode"`
-				WordlistIDs               []string `json:"wordlist_ids"`
-				RuleIDs                   []string `json:"rule_ids"`
+			CustomJob     struct {
+				Name                      string            `json:"name"`
+				AttackMode                int               `json:"attack_mode"`
+				WordlistIDs               []string          `json:"wordlist_ids"`
+				RuleIDs                   []string          `json:"rule_ids"`
 				Mask                      string            `json:"mask"`
 				CustomCharsets            map[string]string `json:"custom_charsets"`
-				CustomCharsetFileIDs     map[string]string `json:"custom_charset_file_ids"`
+				CustomCharsetFileIDs      map[string]string `json:"custom_charset_file_ids"`
 				Priority                  int               `json:"priority"`
-				MaxAgents                 int      `json:"max_agents"`
-				BinaryVersion             string   `json:"binary_version"`
-				AllowHighPriorityOverride bool     `json:"allow_high_priority_override"`
-				ChunkSizeSeconds          int      `json:"chunk_size_seconds"`
-				IncrementMode             string   `json:"increment_mode"`
-				IncrementMin              *int     `json:"increment_min"`
-				IncrementMax              *int     `json:"increment_max"`
-				AssociationWordlistID     *string  `json:"association_wordlist_id"`
-				HexCharset                bool     `json:"hex_charset"`
-				AdditionalArgs            *string  `json:"additional_args"`
+				MaxAgents                 int               `json:"max_agents"`
+				BinaryVersion             string            `json:"binary_version"`
+				AllowHighPriorityOverride bool              `json:"allow_high_priority_override"`
+				ChunkSizeSeconds          int               `json:"chunk_size_seconds"`
+				IncrementMode             string            `json:"increment_mode"`
+				IncrementMin              *int              `json:"increment_min"`
+				IncrementMax              *int              `json:"increment_max"`
+				AssociationWordlistID     *string           `json:"association_wordlist_id"`
+				HexCharset                bool              `json:"hex_charset"`
+				AdditionalArgs            *string           `json:"additional_args"`
+				// Filter, when present, generates an ephemeral filtered wordlist
+				// from the selected wordlist(s) for this job only (GH #40).
+				Filter *models.WordlistFilter `json:"filter"`
 			} `json:"custom_job"`
 		}
 		if err := json.Unmarshal(rawReq, &req); err != nil {
@@ -978,7 +984,43 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			CustomName:              req.CustomJobName,
 			AssociationWordlistName: assocWordlistName,
 		})
-		
+
+		// Ephemeral wordlist pre-filtering (GH #40): when a filter is supplied on a
+		// wordlist-based attack, generate a job-scoped filtered wordlist from the
+		// selected wordlist(s) before creating the job. Generation can take a while
+		// for very large wordlists, so it runs in the background and the request
+		// returns 202; the job is created (and becomes schedulable) only once the
+		// filtered wordlist exists and its keyspace is known.
+		if req.CustomJob.Filter != nil && !req.CustomJob.Filter.IsEmpty() {
+			if err := req.CustomJob.Filter.Validate(); err != nil {
+				http.Error(w, fmt.Sprintf("Invalid wordlist filter: %v", err), http.StatusBadRequest)
+				return
+			}
+			switch config.AttackMode {
+			case models.AttackModeStraight, models.AttackModeCombination,
+				models.AttackModeHybridWordlistMask, models.AttackModeHybridMaskWordlist:
+				// supported
+			default:
+				http.Error(w, "Wordlist filtering is only supported for wordlist-based attack modes", http.StatusBadRequest)
+				return
+			}
+			if len(config.WordlistIDs) == 0 {
+				http.Error(w, "Wordlist filtering requires at least one wordlist", http.StatusBadRequest)
+				return
+			}
+
+			filter := *req.CustomJob.Filter
+			go h.prepareAndCreateFilteredCustomJob(config, filter, hashlistID, userID, jobName)
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusAccepted)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"status":  "preparing",
+				"message": "Generating filtered wordlist; the job will start automatically once it's ready.",
+			})
+			return
+		}
+
 		// Create job execution directly without saving preset
 		jobExecution, err := h.jobExecutionService.CreateCustomJobExecution(ctx, config, hashlistID, &userID, jobName)
 		if err != nil {
@@ -1017,6 +1059,71 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(response)
+}
+
+// prepareAndCreateFilteredCustomJob generates ephemeral filtered wordlists from
+// the job's selected wordlists, then creates the custom job referencing them
+// (GH #40). It runs in the background; the keyspace is computed on the filtered
+// files inside CreateCustomJobExecution, so the scheduler never sees the job
+// until it is fully ready. Any failure (including a full disk during generation)
+// aborts cleanly and removes the partial filtered wordlists.
+func (h *UserJobsHandler) prepareAndCreateFilteredCustomJob(config services.CustomJobConfig, filter models.WordlistFilter, hashlistID int64, userID uuid.UUID, jobName string) {
+	ctx := context.Background()
+
+	var filteredIDs models.IDArray
+	var createdWordlistIDs []int
+
+	cleanup := func() {
+		for _, id := range createdWordlistIDs {
+			if err := h.wordlistManager.DeleteWordlist(ctx, id, nil); err != nil {
+				debug.Error("Failed to clean up ephemeral filtered wordlist %d: %v", id, err)
+			}
+		}
+	}
+
+	for _, wlIDStr := range config.WordlistIDs {
+		// Only filter global numeric wordlists. Client/potfile special IDs
+		// (e.g. "client:1", "potfile:2") are passed through unfiltered.
+		parentID, err := strconv.Atoi(wlIDStr)
+		if err != nil {
+			filteredIDs = append(filteredIDs, wlIDStr)
+			continue
+		}
+
+		wl, err := h.wordlistManager.CreateFilteredWordlistRecord(ctx, parentID, "", "", filter, true, nil, userID)
+		if err != nil {
+			debug.Error("Failed to create ephemeral filtered wordlist from %d: %v", parentID, err)
+			cleanup()
+			return
+		}
+		createdWordlistIDs = append(createdWordlistIDs, wl.ID)
+
+		if err := h.wordlistManager.GenerateFilteredWordlist(ctx, wl.ID); err != nil {
+			debug.Error("Failed to generate ephemeral filtered wordlist %d (job %q): %v", wl.ID, jobName, err)
+			cleanup()
+			return
+		}
+
+		filteredIDs = append(filteredIDs, strconv.Itoa(wl.ID))
+	}
+
+	config.WordlistIDs = filteredIDs
+
+	jobExecution, err := h.jobExecutionService.CreateCustomJobExecution(ctx, config, hashlistID, &userID, jobName)
+	if err != nil {
+		debug.Error("Failed to create filtered custom job %q: %v", jobName, err)
+		cleanup()
+		return
+	}
+
+	// Attach the ephemeral wordlists to the job so they are swept when it ends.
+	for _, id := range createdWordlistIDs {
+		if err := h.wordlistManager.SetWordlistOwnerJob(ctx, id, jobExecution.ID); err != nil {
+			debug.Error("Failed to attach ephemeral wordlist %d to job %s: %v", id, jobExecution.ID, err)
+		}
+	}
+
+	debug.Info("Created filtered custom job %s with %d ephemeral wordlist(s)", jobExecution.ID, len(createdWordlistIDs))
 }
 
 // GetJobDetail handles GET /api/jobs/{id}
@@ -1141,13 +1248,13 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 		dispatchedPercent = float64(job.DispatchedKeyspace) / float64(*job.EffectiveKeyspace) * 100
 		// Searched: Use the processed_keyspace from the job execution
 		searchedPercent = float64(job.ProcessedKeyspace) / float64(*job.EffectiveKeyspace) * 100
-		
+
 		// Validation: Log if searched exceeds dispatched
 		if searchedPercent > dispatchedPercent {
 			debug.Warning("Searched percentage (%.3f%%) exceeds dispatched percentage (%.3f%%) for job %s",
 				searchedPercent, dispatchedPercent, job.ID)
 		}
-		
+
 		// Cap percentages at 100%
 		if dispatchedPercent > 100 {
 			debug.Warning("Dispatched percentage exceeds 100%% (%.3f%%) for job %s, capping at 100%%",
@@ -1155,7 +1262,7 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 			dispatchedPercent = 100
 		}
 		if searchedPercent > 100 {
-			debug.Warning("Searched percentage exceeds 100%% (%.3f%%) for job %s, capping at 100%%", 
+			debug.Warning("Searched percentage exceeds 100%% (%.3f%%) for job %s, capping at 100%%",
 				searchedPercent, job.ID)
 			searchedPercent = 100
 		}
@@ -1239,40 +1346,40 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 
 	// Prepare response
 	response := map[string]interface{}{
-		"id":                        jobID.String(),
-		"name":                      getJobName(*job, hashlist),
-		"hashlist_id":               job.HashlistID,
-		"hashlist_name":             hashlist.Name,
-		"status":                    string(job.Status),
-		"priority":                  job.Priority,
-		"max_agents":                job.MaxAgents,
-		"chunk_size_seconds":        job.ChunkSizeSeconds,
-		"attack_mode":               job.AttackMode,
-		"hash_type":                 formattedHashType,
-		"effective_keyspace":        job.EffectiveKeyspace,
-		"base_keyspace":             job.BaseKeyspace,
-		"processed_keyspace":        job.ProcessedKeyspace,
-		"dispatched_keyspace":       job.DispatchedKeyspace,
-		"dispatched_percent":        dispatchedPercent,
-		"searched_percent":          searchedPercent,
-		"overall_progress_percent":  overallProgressPercent,
-		"multiplication_factor":     job.MultiplicationFactor,
-		"uses_rule_splitting":       job.UsesRuleSplitting,
-		"increment_mode":            job.IncrementMode,
-		"increment_min":             job.IncrementMin,
-		"increment_max":             job.IncrementMax,
-		"cracked_count":             crackedCount,
-		"agent_count":               agentCount,
-		"total_speed":               totalSpeed,
-		"created_at":                job.CreatedAt.Format(time.RFC3339),
-		"updated_at":                job.UpdatedAt.Format(time.RFC3339),
-		"tasks":                     taskSummaries,
-		"total_tasks":               totalTasks,
-		"wordlist_ids":              job.WordlistIDs,
-		"wordlist_names":            wordlistNames,
-		"rule_ids":                  job.RuleIDs,
-		"rule_names":                ruleNames,
-		"mask":                      job.Mask,
+		"id":                       jobID.String(),
+		"name":                     getJobName(*job, hashlist),
+		"hashlist_id":              job.HashlistID,
+		"hashlist_name":            hashlist.Name,
+		"status":                   string(job.Status),
+		"priority":                 job.Priority,
+		"max_agents":               job.MaxAgents,
+		"chunk_size_seconds":       job.ChunkSizeSeconds,
+		"attack_mode":              job.AttackMode,
+		"hash_type":                formattedHashType,
+		"effective_keyspace":       job.EffectiveKeyspace,
+		"base_keyspace":            job.BaseKeyspace,
+		"processed_keyspace":       job.ProcessedKeyspace,
+		"dispatched_keyspace":      job.DispatchedKeyspace,
+		"dispatched_percent":       dispatchedPercent,
+		"searched_percent":         searchedPercent,
+		"overall_progress_percent": overallProgressPercent,
+		"multiplication_factor":    job.MultiplicationFactor,
+		"uses_rule_splitting":      job.UsesRuleSplitting,
+		"increment_mode":           job.IncrementMode,
+		"increment_min":            job.IncrementMin,
+		"increment_max":            job.IncrementMax,
+		"cracked_count":            crackedCount,
+		"agent_count":              agentCount,
+		"total_speed":              totalSpeed,
+		"created_at":               job.CreatedAt.Format(time.RFC3339),
+		"updated_at":               job.UpdatedAt.Format(time.RFC3339),
+		"tasks":                    taskSummaries,
+		"total_tasks":              totalTasks,
+		"wordlist_ids":             job.WordlistIDs,
+		"wordlist_names":           wordlistNames,
+		"rule_ids":                 job.RuleIDs,
+		"rule_names":               ruleNames,
+		"mask":                     job.Mask,
 	}
 
 	if job.StartedAt != nil {
@@ -1874,9 +1981,9 @@ func (h *UserJobsHandler) GetAvailablePresetJobs(w http.ResponseWriter, r *http.
 		}
 
 		formattedWorkflows = append(formattedWorkflows, map[string]interface{}{
-			"id":                        workflow.ID.String(),
-			"name":                      workflow.Name,
-			"steps":                     formattedSteps,
+			"id":                         workflow.ID.String(),
+			"name":                       workflow.Name,
+			"steps":                      formattedSteps,
 			"has_high_priority_override": hasHighPriorityOverride,
 		})
 	}
@@ -2137,7 +2244,7 @@ func (h *UserJobsHandler) ListUserJobs(w http.ResponseWriter, r *http.Request) {
 							totalEffectiveDispatched += (*task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart)
 						}
 					}
-					
+
 					// Calculate searched effective keyspace from all tasks
 					if task.EffectiveKeyspaceProcessed != nil {
 						totalEffectiveSearched += *task.EffectiveKeyspaceProcessed

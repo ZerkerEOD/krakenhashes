@@ -25,7 +25,21 @@ import (
 
 	// Go library for archive extraction
 	"github.com/bodgit/sevenzip"
+
+	// Cross-platform disk usage (linux/mac/windows)
+	"github.com/shirou/gopsutil/disk"
 )
+
+// freeDiskSpace returns the bytes available on the filesystem holding dir.
+// Cross-platform via gopsutil. The bool is false if it could not be determined,
+// in which case callers should proceed without blocking the download.
+func freeDiskSpace(dir string) (uint64, bool) {
+	usage, err := disk.Usage(dir)
+	if err != nil || usage == nil {
+		return 0, false
+	}
+	return usage.Free, true
+}
 
 // CachedFileInfo stores file metadata and hash to avoid recalculation
 // Hash is only recalculated if mtime or size changes
@@ -693,6 +707,18 @@ func (fs *FileSync) DownloadFileWithInfoRetry(ctx context.Context, fileInfo *Fil
 			fmt.Errorf("failed to create parent directory: %w", err))
 	}
 
+	// Disk-full guard (GH #40): when the expected size is known, fail fast with a
+	// clear message instead of partially writing a file we can't finish. This is
+	// a terminal failure (no retry) since the disk won't free up on its own.
+	if fileInfo.Size > 0 {
+		if free, ok := freeDiskSpace(parentDir); ok && free < uint64(fileInfo.Size) {
+			debug.Error("Insufficient disk space for %s: need %d bytes, only %d free in %s",
+				fileInfo.Name, fileInfo.Size, free, parentDir)
+			return fmt.Errorf("insufficient disk space to download %s: need %d bytes, only %d available",
+				fileInfo.Name, fileInfo.Size, free)
+		}
+	}
+
 	tempPath := finalPath + ".tmp"
 
 	debug.Info("Starting download of %s to %s (attempt %d/%d)",
@@ -801,6 +827,11 @@ func (fs *FileSync) DownloadFileWithInfoRetry(ctx context.Context, fileInfo *Fil
 		// Clear progress on error
 		if fs.multiProgress != nil {
 			fs.multiProgress.Remove(fileInfo.Name)
+		}
+		// If the disk filled up mid-write, fail fast with a clear message rather
+		// than retrying (the temp file is removed by the deferred cleanup).
+		if free, ok := freeDiskSpace(parentDir); ok && free < 1024*1024 {
+			return fmt.Errorf("ran out of disk space while downloading %s: %w", fileInfo.Name, err)
 		}
 		return fs.retryOrFailInfo(ctx, fileInfo, retryCount,
 			fmt.Errorf("failed to write file: %w", err))

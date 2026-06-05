@@ -7,13 +7,18 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
@@ -40,6 +45,15 @@ type Manager interface {
 	GetWordlistPath(filename string, wordlistType string) string
 	CountWordsInFile(filepath string) (int64, error)
 	CalculateFileMD5(filepath string) (string, error)
+
+	// Filtered wordlists (GH #40)
+	CreateFilteredWordlistRecord(ctx context.Context, parentID int, name, description string, filter models.WordlistFilter, ephemeral bool, ownerJobID *uuid.UUID, userID uuid.UUID) (*models.Wordlist, error)
+	GenerateFilteredWordlist(ctx context.Context, wordlistID int) error
+	RegenerateFilteredWordlist(ctx context.Context, wordlistID int) error
+	PreviewFilter(ctx context.Context, parentID int, filter models.WordlistFilter, sampleLines int64) (*models.FilterPreviewResponse, error)
+	GetFilteredChildren(ctx context.Context, parentID int) ([]*models.Wordlist, error)
+	GetEphemeralWordlistsByJob(ctx context.Context, jobID uuid.UUID) ([]*models.Wordlist, error)
+	SetWordlistOwnerJob(ctx context.Context, wordlistID int, jobID uuid.UUID) error
 }
 
 // Store defines the interface for wordlist data storage operations
@@ -55,6 +69,14 @@ type WordlistStore interface {
 	UpdateWordlistVerification(ctx context.Context, id int, status string, wordCount *int64) error
 	UpdateWordlistFileInfo(ctx context.Context, id int, md5Hash string, fileSize int64) error
 	UpdateWordlistComplete(ctx context.Context, id int, md5Hash string, fileSize int64, wordCount int64) error
+
+	// Filtered wordlist operations (GH #40)
+	GetFilteredChildren(ctx context.Context, parentID int) ([]*models.Wordlist, error)
+	GetEphemeralByJob(ctx context.Context, jobID uuid.UUID) ([]*models.Wordlist, error)
+	MarkChildrenStale(ctx context.Context, parentID int, currentParentMD5 string) error
+	ClearStale(ctx context.Context, id int) error
+	UpdateFilteredParentMD5(ctx context.Context, id int, parentMD5 string) error
+	SetWordlistOwnerJob(ctx context.Context, wordlistID int, jobID uuid.UUID) error
 
 	// Tag operations
 	GetWordlistTags(ctx context.Context, id int) ([]string, error)
@@ -417,12 +439,26 @@ func (m *manager) VerifyWordlist(ctx context.Context, id int, req *models.Wordli
 
 // UpdateWordlistFileInfo updates a wordlist's file information (MD5 hash and file size)
 func (m *manager) UpdateWordlistFileInfo(ctx context.Context, id int, md5Hash string, fileSize int64) error {
-	return m.store.UpdateWordlistFileInfo(ctx, id, md5Hash, fileSize)
+	if err := m.store.UpdateWordlistFileInfo(ctx, id, md5Hash, fileSize); err != nil {
+		return err
+	}
+	// If this wordlist is a parent of filtered wordlists, flag stale children (GH #40).
+	if err := m.store.MarkChildrenStale(ctx, id, md5Hash); err != nil {
+		debug.Warning("Failed to flag filtered children stale for wordlist %d: %v", id, err)
+	}
+	return nil
 }
 
 // UpdateWordlistComplete updates a wordlist's complete file information (MD5 hash, file size, and word count)
 func (m *manager) UpdateWordlistComplete(ctx context.Context, id int, md5Hash string, fileSize int64, wordCount int64) error {
-	return m.store.UpdateWordlistComplete(ctx, id, md5Hash, fileSize, wordCount)
+	if err := m.store.UpdateWordlistComplete(ctx, id, md5Hash, fileSize, wordCount); err != nil {
+		return err
+	}
+	// If this wordlist is a parent of filtered wordlists, flag stale children (GH #40).
+	if err := m.store.MarkChildrenStale(ctx, id, md5Hash); err != nil {
+		debug.Warning("Failed to flag filtered children stale for wordlist %d: %v", id, err)
+	}
+	return nil
 }
 
 // AddWordlistTag adds a tag to a wordlist
@@ -557,31 +593,76 @@ func (m *manager) CalculateFileMD5(filepath string) (string, error) {
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
-// countLinesInGzip counts lines in a gzip-compressed file using streaming decompression.
-// Uses a 16MB buffer for performance consistency with large uncompressed file handling.
-func countLinesInGzip(filePath string) (int64, error) {
-	debug.Info("countLinesInGzip: Starting streaming line count for: %s", filePath)
+// multiReadCloser couples a reader with the closers that must be released when
+// the reader is done (e.g. a gzip reader plus its underlying file).
+type multiReadCloser struct {
+	io.Reader
+	closers []io.Closer
+}
 
-	file, err := os.Open(filePath)
-	if err != nil {
-		debug.Error("countLinesInGzip: Failed to open file: %v", err)
-		return 0, err
+func (m *multiReadCloser) Close() error {
+	var firstErr error
+	// Close in reverse order (innermost reader first).
+	for i := len(m.closers) - 1; i >= 0; i-- {
+		if err := m.closers[i].Close(); err != nil && firstErr == nil {
+			firstErr = err
+		}
 	}
-	defer file.Close()
+	return firstErr
+}
 
-	gzReader, err := gzip.NewReader(file)
-	if err != nil {
-		debug.Error("countLinesInGzip: Failed to create gzip reader: %v", err)
-		return 0, err
+// openWordlistReader opens a wordlist for streaming reads, transparently
+// decompressing .gz and .zip sources. This is the single place archive handling
+// lives so counting, filtering, and previewing all read the same way (GH #40).
+func openWordlistReader(filePath string) (io.ReadCloser, error) {
+	ext := strings.ToLower(path.Ext(filePath))
+	switch ext {
+	case ".gz":
+		file, err := os.Open(filePath)
+		if err != nil {
+			return nil, err
+		}
+		gzReader, err := gzip.NewReader(file)
+		if err != nil {
+			file.Close()
+			return nil, err
+		}
+		return &multiReadCloser{Reader: gzReader, closers: []io.Closer{file, gzReader}}, nil
+	case ".zip":
+		zipReader, err := zip.OpenReader(filePath)
+		if err != nil {
+			return nil, err
+		}
+		var targetFile *zip.File
+		for _, f := range zipReader.File {
+			if !f.FileInfo().IsDir() {
+				targetFile = f
+				break
+			}
+		}
+		if targetFile == nil {
+			zipReader.Close()
+			return nil, fmt.Errorf("no files found in zip archive")
+		}
+		rc, err := targetFile.Open()
+		if err != nil {
+			zipReader.Close()
+			return nil, err
+		}
+		return &multiReadCloser{Reader: rc, closers: []io.Closer{rc, zipReader}}, nil
+	default:
+		return os.Open(filePath)
 	}
-	defer gzReader.Close()
+}
 
+// countLinesFromReader counts newline-delimited lines from a reader using a
+// 16MB buffer for throughput.
+func countLinesFromReader(r io.Reader) (int64, error) {
 	var count int64
-	const bufferSize = 16 * 1024 * 1024 // 16MB buffer for performance
+	const bufferSize = 16 * 1024 * 1024
 	buf := make([]byte, bufferSize)
-
 	for {
-		n, err := gzReader.Read(buf)
+		n, err := r.Read(buf)
 		for i := 0; i < n; i++ {
 			if buf[i] == '\n' {
 				count++
@@ -591,71 +672,455 @@ func countLinesInGzip(filePath string) (int64, error) {
 			break
 		}
 		if err != nil {
-			debug.Error("countLinesInGzip: Error reading: %v", err)
 			return 0, err
 		}
 	}
+	return count, nil
+}
 
+// countLinesInGzip counts lines in a gzip-compressed wordlist.
+func countLinesInGzip(filePath string) (int64, error) {
+	debug.Info("countLinesInGzip: Starting streaming line count for: %s", filePath)
+	reader, err := openWordlistReader(filePath)
+	if err != nil {
+		debug.Error("countLinesInGzip: Failed to open file: %v", err)
+		return 0, err
+	}
+	defer reader.Close()
+
+	count, err := countLinesFromReader(reader)
+	if err != nil {
+		debug.Error("countLinesInGzip: Error reading: %v", err)
+		return 0, err
+	}
 	debug.Info("countLinesInGzip: Counted %d lines", count)
 	return count, nil
 }
 
 // countLinesInZip counts lines in a zip archive containing a wordlist.
 // Expects a single text file inside the archive (standard for hashcat wordlists).
-// Uses a 16MB buffer for performance consistency with large uncompressed file handling.
 func countLinesInZip(filePath string) (int64, error) {
 	debug.Info("countLinesInZip: Starting streaming line count for: %s", filePath)
-
-	zipReader, err := zip.OpenReader(filePath)
+	reader, err := openWordlistReader(filePath)
 	if err != nil {
 		debug.Error("countLinesInZip: Failed to open zip: %v", err)
 		return 0, err
 	}
-	defer zipReader.Close()
+	defer reader.Close()
 
-	// Find first non-directory file (the wordlist)
-	var targetFile *zip.File
-	for _, f := range zipReader.File {
-		if !f.FileInfo().IsDir() {
-			targetFile = f
-			break
+	count, err := countLinesFromReader(reader)
+	if err != nil {
+		debug.Error("countLinesInZip: Error reading: %v", err)
+		return 0, err
+	}
+	debug.Info("countLinesInZip: Counted %d lines", count)
+	return count, nil
+}
+
+// ---------------------------------------------------------------------------
+// Wordlist pre-filtering engine (GH #40)
+// ---------------------------------------------------------------------------
+
+// compiledFilter is a WordlistFilter prepared for fast per-line evaluation.
+type compiledFilter struct {
+	minLen     *int
+	maxLen     *int
+	reqUpper   bool
+	reqLower   bool
+	reqDigit   bool
+	reqSpecial bool
+	minClasses *int
+	re         *regexp.Regexp
+}
+
+func compileFilter(f models.WordlistFilter) (*compiledFilter, error) {
+	cf := &compiledFilter{
+		minLen:     f.MinLength,
+		maxLen:     f.MaxLength,
+		reqUpper:   f.RequireUpper,
+		reqLower:   f.RequireLower,
+		reqDigit:   f.RequireDigit,
+		reqSpecial: f.RequireSpecial,
+		minClasses: f.MinClasses,
+	}
+	if f.Regex != "" {
+		re, err := regexp.Compile(f.Regex)
+		if err != nil {
+			return nil, fmt.Errorf("invalid regex: %w", err)
+		}
+		cf.re = re
+	}
+	return cf, nil
+}
+
+// isSpecialChar reports whether a rune is a printable ASCII non-alphanumeric
+// character (the "special" password class).
+func isSpecialChar(r rune) bool {
+	return r > 0x20 && r < 0x7f && !unicode.IsLetter(r) && !unicode.IsDigit(r)
+}
+
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// match reports whether a single line (newline already stripped) passes the filter.
+func (c *compiledFilter) match(s string) bool {
+	if c.minLen != nil || c.maxLen != nil {
+		length := utf8.RuneCountInString(s)
+		if c.minLen != nil && length < *c.minLen {
+			return false
+		}
+		if c.maxLen != nil && length > *c.maxLen {
+			return false
 		}
 	}
 
-	if targetFile == nil {
-		debug.Error("countLinesInZip: No files found in zip archive")
-		return 0, fmt.Errorf("no files found in zip archive")
+	if c.reqUpper || c.reqLower || c.reqDigit || c.reqSpecial || c.minClasses != nil {
+		var hasU, hasL, hasD, hasS bool
+		for _, r := range s {
+			switch {
+			case unicode.IsUpper(r):
+				hasU = true
+			case unicode.IsLower(r):
+				hasL = true
+			case unicode.IsDigit(r):
+				hasD = true
+			case isSpecialChar(r):
+				hasS = true
+			}
+		}
+		if c.reqUpper && !hasU {
+			return false
+		}
+		if c.reqLower && !hasL {
+			return false
+		}
+		if c.reqDigit && !hasD {
+			return false
+		}
+		if c.reqSpecial && !hasS {
+			return false
+		}
+		if c.minClasses != nil {
+			n := boolToInt(hasU) + boolToInt(hasL) + boolToInt(hasD) + boolToInt(hasS)
+			if n < *c.minClasses {
+				return false
+			}
+		}
 	}
 
-	debug.Info("countLinesInZip: Reading file from archive: %s", targetFile.Name)
+	if c.re != nil && !c.re.MatchString(s) {
+		return false
+	}
+	return true
+}
 
-	rc, err := targetFile.Open()
-	if err != nil {
-		debug.Error("countLinesInZip: Failed to open file in archive: %v", err)
+// freeDiskSpace returns the bytes available to a non-privileged user on the
+// filesystem holding dir. Backend runs on Linux, so syscall.Statfs is used.
+func freeDiskSpace(dir string) (uint64, error) {
+	var stat syscall.Statfs_t
+	if err := syscall.Statfs(dir, &stat); err != nil {
 		return 0, err
 	}
-	defer rc.Close()
+	return stat.Bavail * uint64(stat.Bsize), nil
+}
+
+func isNoSpaceErr(err error) bool {
+	return errors.Is(err, syscall.ENOSPC)
+}
+
+// FilterWordlist streams srcPath through the filter and materializes matching
+// lines (normalized to '\n' line endings) at dstPath. It returns the number of
+// matching lines and the MD5 of the produced file. A partial .tmp is removed on
+// any error, including running out of disk space.
+func (m *manager) FilterWordlist(ctx context.Context, srcPath, dstPath string, f models.WordlistFilter) (int64, string, error) {
+	cf, err := compileFilter(f)
+	if err != nil {
+		return 0, "", err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
+		return 0, "", err
+	}
+
+	// Best-effort free-space pre-check: require at least the source size free.
+	if info, statErr := os.Stat(srcPath); statErr == nil {
+		if free, derr := freeDiskSpace(filepath.Dir(dstPath)); derr == nil && free < uint64(info.Size()) {
+			return 0, "", fmt.Errorf("insufficient disk space to filter wordlist: need ~%d bytes free, have %d", info.Size(), free)
+		}
+	}
+
+	reader, err := openWordlistReader(srcPath)
+	if err != nil {
+		return 0, "", err
+	}
+	defer reader.Close()
+
+	tmpPath := dstPath + ".tmp"
+	out, err := os.Create(tmpPath)
+	if err != nil {
+		return 0, "", err
+	}
+
+	hash := md5.New()
+	writer := bufio.NewWriterSize(io.MultiWriter(out, hash), 4*1024*1024)
+	br := bufio.NewReaderSize(reader, 16*1024*1024)
 
 	var count int64
-	const bufferSize = 16 * 1024 * 1024 // 16MB buffer for performance
-	buf := make([]byte, bufferSize)
-
+	var genErr error
 	for {
-		n, err := rc.Read(buf)
-		for i := 0; i < n; i++ {
-			if buf[i] == '\n' {
+		if ctx.Err() != nil {
+			genErr = ctx.Err()
+			break
+		}
+		line, rerr := br.ReadString('\n')
+		if len(line) > 0 {
+			trimmed := strings.TrimRight(line, "\r\n")
+			if cf.match(trimmed) {
+				if _, werr := writer.WriteString(trimmed); werr != nil {
+					genErr = werr
+					break
+				}
+				if werr := writer.WriteByte('\n'); werr != nil {
+					genErr = werr
+					break
+				}
 				count++
 			}
 		}
-		if err == io.EOF {
+		if rerr == io.EOF {
 			break
 		}
-		if err != nil {
-			debug.Error("countLinesInZip: Error reading: %v", err)
-			return 0, err
+		if rerr != nil {
+			genErr = rerr
+			break
 		}
 	}
 
-	debug.Info("countLinesInZip: Counted %d lines", count)
-	return count, nil
+	if genErr == nil {
+		if ferr := writer.Flush(); ferr != nil {
+			genErr = ferr
+		}
+	}
+	if cerr := out.Close(); cerr != nil && genErr == nil {
+		genErr = cerr
+	}
+
+	if genErr != nil {
+		os.Remove(tmpPath)
+		if isNoSpaceErr(genErr) {
+			return 0, "", fmt.Errorf("ran out of disk space while filtering wordlist: %w", genErr)
+		}
+		return 0, "", genErr
+	}
+
+	if err := os.Rename(tmpPath, dstPath); err != nil {
+		os.Remove(tmpPath)
+		return 0, "", err
+	}
+
+	return count, hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+// PreviewFilter estimates how many candidates a filter keeps by sampling the
+// first sampleLines of the parent wordlist and extrapolating to its full count.
+func (m *manager) PreviewFilter(ctx context.Context, parentID int, f models.WordlistFilter, sampleLines int64) (*models.FilterPreviewResponse, error) {
+	if err := f.Validate(); err != nil {
+		return nil, err
+	}
+	parent, err := m.store.GetWordlist(ctx, parentID)
+	if err != nil {
+		return nil, err
+	}
+	if parent == nil {
+		return nil, fmt.Errorf("parent wordlist not found")
+	}
+	cf, err := compileFilter(f)
+	if err != nil {
+		return nil, err
+	}
+	if sampleLines <= 0 {
+		sampleLines = 1000000
+	}
+
+	srcPath := m.GetWordlistPath(parent.FileName, parent.WordlistType)
+	reader, err := openWordlistReader(srcPath)
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+
+	br := bufio.NewReaderSize(reader, 16*1024*1024)
+	var sampled, matched int64
+	for sampled < sampleLines {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		line, rerr := br.ReadString('\n')
+		if len(line) > 0 {
+			sampled++
+			if cf.match(strings.TrimRight(line, "\r\n")) {
+				matched++
+			}
+		}
+		if rerr != nil {
+			break
+		}
+	}
+
+	rate := 0.0
+	if sampled > 0 {
+		rate = float64(matched) / float64(sampled)
+	}
+	est := int64(rate * float64(parent.WordCount))
+	return &models.FilterPreviewResponse{
+		EstimatedCount:  est,
+		SampledLines:    sampled,
+		MatchedInSample: matched,
+		MatchRate:       rate,
+		ParentCount:     parent.WordCount,
+	}, nil
+}
+
+// CreateFilteredWordlistRecord validates a filter and creates a pending filtered
+// wordlist row referencing its parent. Generation is performed separately via
+// GenerateFilteredWordlist. When ownerJobID is set the wordlist is ephemeral
+// (job-scoped) and hidden from listings.
+func (m *manager) CreateFilteredWordlistRecord(ctx context.Context, parentID int, name, description string, filter models.WordlistFilter, ephemeral bool, ownerJobID *uuid.UUID, userID uuid.UUID) (*models.Wordlist, error) {
+	if err := filter.Validate(); err != nil {
+		return nil, err
+	}
+	parent, err := m.store.GetWordlist(ctx, parentID)
+	if err != nil {
+		return nil, err
+	}
+	if parent == nil {
+		return nil, fmt.Errorf("parent wordlist not found")
+	}
+	if parent.ParentWordlistID != nil {
+		return nil, fmt.Errorf("cannot filter an already-filtered wordlist")
+	}
+
+	if name == "" {
+		name = parent.Name + " (filtered)"
+	}
+	base := fsutil.SanitizeFilename(name)
+	if base == "" {
+		base = "filtered"
+	}
+	fileName := filepath.Join("custom", fmt.Sprintf("%s_%s.txt", base, uuid.New().String()[:8]))
+
+	filterCopy := filter
+	wl := &models.Wordlist{
+		Name:               name,
+		Description:        description,
+		WordlistType:       "custom",
+		Format:             string(models.WordlistFormatPlaintext),
+		FileName:           fileName,
+		WordCount:          0,
+		CreatedBy:          userID,
+		VerificationStatus: "pending",
+		ParentWordlistID:   &parentID,
+		FilterSpec:         &filterCopy,
+		ParentMD5:          parent.MD5Hash,
+		IsEphemeral:        ephemeral,
+		OwnerJobID:         ownerJobID,
+	}
+	if err := m.store.CreateWordlist(ctx, wl); err != nil {
+		return nil, err
+	}
+	return wl, nil
+}
+
+// SetWordlistOwnerJob attaches an ephemeral filtered wordlist to its owning job
+// (used for cleanup once the job ends).
+func (m *manager) SetWordlistOwnerJob(ctx context.Context, wordlistID int, jobID uuid.UUID) error {
+	return m.store.SetWordlistOwnerJob(ctx, wordlistID, jobID)
+}
+
+// GenerateFilteredWordlist runs the materialization pass for a filtered wordlist
+// and updates its status to verified (with counts) or failed.
+func (m *manager) GenerateFilteredWordlist(ctx context.Context, wordlistID int) error {
+	wl, err := m.store.GetWordlist(ctx, wordlistID)
+	if err != nil {
+		return err
+	}
+	if wl == nil {
+		return fmt.Errorf("wordlist not found")
+	}
+	if wl.ParentWordlistID == nil || wl.FilterSpec == nil {
+		return fmt.Errorf("wordlist %d is not a filtered wordlist", wordlistID)
+	}
+
+	parent, err := m.store.GetWordlist(ctx, *wl.ParentWordlistID)
+	if err != nil {
+		return err
+	}
+	if parent == nil {
+		_ = m.store.UpdateWordlistVerification(ctx, wordlistID, "failed", nil)
+		return fmt.Errorf("parent wordlist %d not found", *wl.ParentWordlistID)
+	}
+
+	srcPath := m.GetWordlistPath(parent.FileName, parent.WordlistType)
+	dstPath := m.GetWordlistPath(wl.FileName, wl.WordlistType)
+
+	count, md5hex, ferr := m.FilterWordlist(ctx, srcPath, dstPath, *wl.FilterSpec)
+	if ferr != nil {
+		debug.Error("Failed to generate filtered wordlist %d: %v", wordlistID, ferr)
+		_ = m.store.UpdateWordlistVerification(ctx, wordlistID, "failed", nil)
+		return ferr
+	}
+	if count == 0 {
+		os.Remove(dstPath)
+		_ = m.store.UpdateWordlistVerification(ctx, wordlistID, "failed", nil)
+		return fmt.Errorf("filter matched 0 candidates")
+	}
+
+	var size int64
+	if info, statErr := os.Stat(dstPath); statErr == nil {
+		size = info.Size()
+	}
+	if err := m.store.UpdateWordlistComplete(ctx, wordlistID, md5hex, size, count); err != nil {
+		return err
+	}
+	if err := m.store.UpdateFilteredParentMD5(ctx, wordlistID, parent.MD5Hash); err != nil {
+		debug.Warning("Failed to record parent MD5 for filtered wordlist %d: %v", wordlistID, err)
+	}
+	if err := m.store.ClearStale(ctx, wordlistID); err != nil {
+		debug.Warning("Failed to clear stale flag for filtered wordlist %d: %v", wordlistID, err)
+	}
+	debug.Info("Generated filtered wordlist %d: %d candidates", wordlistID, count)
+	return m.store.UpdateWordlistVerification(ctx, wordlistID, "verified", &count)
+}
+
+// RegenerateFilteredWordlist re-runs generation for an existing filtered
+// wordlist (e.g. after its parent changed), refreshing the parent MD5 baseline.
+func (m *manager) RegenerateFilteredWordlist(ctx context.Context, wordlistID int) error {
+	wl, err := m.store.GetWordlist(ctx, wordlistID)
+	if err != nil {
+		return err
+	}
+	if wl == nil {
+		return fmt.Errorf("wordlist not found")
+	}
+	if wl.ParentWordlistID == nil {
+		return fmt.Errorf("wordlist %d is not a filtered wordlist", wordlistID)
+	}
+	if err := m.store.UpdateWordlistVerification(ctx, wordlistID, "pending", nil); err != nil {
+		return err
+	}
+	return m.GenerateFilteredWordlist(ctx, wordlistID)
+}
+
+// GetFilteredChildren returns filtered wordlists derived from a parent.
+func (m *manager) GetFilteredChildren(ctx context.Context, parentID int) ([]*models.Wordlist, error) {
+	return m.store.GetFilteredChildren(ctx, parentID)
+}
+
+// GetEphemeralWordlistsByJob returns ephemeral filtered wordlists owned by a job.
+func (m *manager) GetEphemeralWordlistsByJob(ctx context.Context, jobID uuid.UUID) ([]*models.Wordlist, error) {
+	return m.store.GetEphemeralByJob(ctx, jobID)
 }
