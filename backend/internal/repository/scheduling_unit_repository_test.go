@@ -20,8 +20,6 @@ func TestSchedulingUnitRepository_Create(t *testing.T) {
 	ctx := context.Background()
 
 	unit := newTestSchedulingUnit(parentJobID)
-	unit.Priority = 500
-	unit.MaxAgents = 3
 	unit.EffectiveKeyspace = 42_000
 
 	err := repo.Create(ctx, unit)
@@ -33,8 +31,9 @@ func TestSchedulingUnitRepository_Create(t *testing.T) {
 	retrieved, err := repo.GetByID(ctx, unit.ID)
 	require.NoError(t, err)
 	assert.Equal(t, unit.ID, retrieved.ID)
-	assert.Equal(t, 500, retrieved.Priority)
-	assert.Equal(t, 3, retrieved.MaxAgents)
+	// priority / max_agents are no longer denormalized onto the unit
+	// (migration 000153) — they live on job_executions and are read live by
+	// the scheduler's buildUnitInfos.
 	assert.Equal(t, int64(42_000), retrieved.EffectiveKeyspace)
 	assert.Equal(t, 5, retrieved.RetryBudgetRemaining, "default retry budget should be 5")
 }
@@ -70,7 +69,7 @@ func TestSchedulingUnitRepository_GetByParentJobID(t *testing.T) {
 	}
 }
 
-func TestSchedulingUnitRepository_GetSchedulable_FiltersByStatusAndAccuracy(t *testing.T) {
+func TestSchedulingUnitRepository_GetSchedulable_FiltersByStatus(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	repo := NewSchedulingUnitRepository(database)
 	parentJobID := createSchedulerV2Prereqs(t, database)
@@ -79,27 +78,26 @@ func TestSchedulingUnitRepository_GetSchedulable_FiltersByStatusAndAccuracy(t *t
 	// Unit A: pending, accurate keyspace -> schedulable
 	uA := newTestSchedulingUnit(parentJobID)
 	uA.LayerIndex = 0
-	uA.Priority = 100
 	require.NoError(t, repo.Create(ctx, uA))
 
-	// Unit B: pending, NOT accurate -> NOT schedulable
+	// Unit B: pending, NOT accurate -> STILL schedulable. GetSchedulable no
+	// longer filters on is_accurate_keyspace; the scheduler cycle handles
+	// inaccurate units by dispatching a benchmark before a chunk (see
+	// GetSchedulable docs and scheduler/cycle.go classification).
 	uB := newTestSchedulingUnit(parentJobID)
 	uB.LayerIndex = 1
-	uB.Priority = 200
 	uB.IsAccurateKeyspace = false
 	require.NoError(t, repo.Create(ctx, uB))
 
 	// Unit C: completed -> NOT schedulable
 	uC := newTestSchedulingUnit(parentJobID)
 	uC.LayerIndex = 2
-	uC.Priority = 300
 	require.NoError(t, repo.Create(ctx, uC))
 	require.NoError(t, repo.UpdateStatus(ctx, uC.ID, models.SchedulingUnitStatusCompleted))
 
 	// Unit D: running, accurate -> schedulable
 	uD := newTestSchedulingUnit(parentJobID)
 	uD.LayerIndex = 3
-	uD.Priority = 400
 	require.NoError(t, repo.Create(ctx, uD))
 	require.NoError(t, repo.UpdateStatus(ctx, uD.ID, models.SchedulingUnitStatusRunning))
 
@@ -111,7 +109,7 @@ func TestSchedulingUnitRepository_GetSchedulable_FiltersByStatusAndAccuracy(t *t
 		gotIDs[u.ID] = true
 	}
 	assert.True(t, gotIDs[uA.ID], "pending+accurate unit A should be schedulable")
-	assert.False(t, gotIDs[uB.ID], "non-accurate unit B should be excluded")
+	assert.True(t, gotIDs[uB.ID], "pending+inaccurate unit B should still be schedulable (benchmark bootstraps it)")
 	assert.False(t, gotIDs[uC.ID], "completed unit C should be excluded")
 	assert.True(t, gotIDs[uD.ID], "running+accurate unit D should be schedulable")
 }
@@ -119,27 +117,29 @@ func TestSchedulingUnitRepository_GetSchedulable_FiltersByStatusAndAccuracy(t *t
 func TestSchedulingUnitRepository_GetSchedulable_OrdersByPriorityThenCreatedAt(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	repo := NewSchedulingUnitRepository(database)
-	parentJobID := createSchedulerV2Prereqs(t, database)
 	ctx := context.Background()
 
-	// Three units: priorities 100, 300, 200. Expected order: 300, 200, 100.
-	priorities := []int{100, 300, 200}
-	createdIDs := make([]uuid.UUID, 0, 3)
-	for i, p := range priorities {
-		u := newTestSchedulingUnit(parentJobID)
-		u.LayerIndex = i
-		u.Priority = p
+	// Priority lives on job_executions (migration 000153), so each unit gets
+	// its own parent job at a distinct priority. GetSchedulable orders by
+	// je.priority DESC, so expected unit order is the 300, 200, 100 jobs.
+	jobP100 := createSchedulerV2PrereqsWithPriority(t, database, 100)
+	jobP300 := createSchedulerV2PrereqsWithPriority(t, database, 300)
+	jobP200 := createSchedulerV2PrereqsWithPriority(t, database, 200)
+
+	unitByJob := make(map[uuid.UUID]uuid.UUID, 3)
+	for _, jobID := range []uuid.UUID{jobP100, jobP300, jobP200} {
+		u := newTestSchedulingUnit(jobID)
 		require.NoError(t, repo.Create(ctx, u))
-		createdIDs = append(createdIDs, u.ID)
+		unitByJob[jobID] = u.ID
 	}
 
 	units, err := repo.GetSchedulable(ctx)
 	require.NoError(t, err)
 	require.Len(t, units, 3)
 
-	assert.Equal(t, 300, units[0].Priority, "highest priority first")
-	assert.Equal(t, 200, units[1].Priority, "middle priority second")
-	assert.Equal(t, 100, units[2].Priority, "lowest priority last")
+	assert.Equal(t, unitByJob[jobP300], units[0].ID, "highest-priority job's unit first")
+	assert.Equal(t, unitByJob[jobP200], units[1].ID, "middle-priority job's unit second")
+	assert.Equal(t, unitByJob[jobP100], units[2].ID, "lowest-priority job's unit last")
 }
 
 func TestSchedulingUnitRepository_UpdateStatus(t *testing.T) {
