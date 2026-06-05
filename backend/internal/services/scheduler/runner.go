@@ -90,12 +90,14 @@ func (r *Runner) runCycle(parent context.Context) {
 		debug.Warning("scheduler-v2 cycle: %v", err)
 		return
 	}
-	if res.UnitsSchedulable == 0 && len(res.Errors) == 0 {
-		// Quiet path — no work to do.
+	if res.Allocations == 0 && res.Benchmarked == 0 && res.Dispatched == 0 && len(res.Errors) == 0 {
+		// Quiet path — nothing actionable happened (no work, or no idle
+		// agents). Avoids an INFO line every 3s while units sit pending with
+		// no agents available.
 		return
 	}
-	debug.Info("scheduler-v2 cycle: units=%d idle_agents=%d allocations=%d dispatched=%d errors=%d",
-		res.UnitsSchedulable, res.IdleAgents, res.Allocations, res.Dispatched, len(res.Errors))
+	debug.Info("scheduler-v2 cycle: units=%d idle_agents=%d allocations=%d benchmarked=%d dispatched=%d errors=%d",
+		res.UnitsSchedulable, res.IdleAgents, res.Allocations, res.Benchmarked, res.Dispatched, len(res.Errors))
 	for _, e := range res.Errors {
 		debug.Warning("scheduler-v2 cycle error: %v", e)
 	}

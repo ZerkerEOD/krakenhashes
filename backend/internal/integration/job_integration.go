@@ -241,6 +241,16 @@ func (m *JobIntegrationManager) ConvertLegacyJobsToV2(ctx context.Context) error
 	return m.jobExecutionService.ConvertLegacyJobsToV2(ctx)
 }
 
+// RepairPendingJobKeyspaces delegates to the job execution service's boot-time
+// keyspace repair (see JobExecutionService.RepairPendingJobKeyspaces). Returns
+// the number of pending jobs whose keyspace was recomputed accurately.
+func (m *JobIntegrationManager) RepairPendingJobKeyspaces(ctx context.Context) (int, error) {
+	if m.jobExecutionService == nil {
+		return 0, nil
+	}
+	return m.jobExecutionService.RepairPendingJobKeyspaces(ctx)
+}
+
 // StartScheduler starts scheduler-v2. The legacy runner is no longer
 // started — its source code is retained for one more release as a
 // rollback option, but it does not tick.

@@ -519,6 +519,22 @@ func main() {
 		defer jobSchedulerCancel()
 		routes.JobIntegrationManager.StartScheduler(jobSchedulerCtx)
 		debug.Info("Job scheduler started successfully")
+
+		// One-time safety sweep: repair pending jobs that never started and have
+		// an inaccurate keyspace (e.g. stranded by the older scheduler-v2
+		// bootstrap deadlock) by recomputing it via hashcat
+		// --keyspace/--total-candidates. Runs in the background so per-job
+		// hashcat execs don't delay boot; the scheduler picks up repaired jobs
+		// on its next cycle. Best-effort — failures are logged, not fatal.
+		go func() {
+			repairCtx, repairCancel := context.WithTimeout(context.Background(), 30*time.Minute)
+			defer repairCancel()
+			if n, err := routes.JobIntegrationManager.RepairPendingJobKeyspaces(repairCtx); err != nil {
+				debug.Warning("Pending-job keyspace repair sweep failed: %v", err)
+			} else if n > 0 {
+				debug.Info("Pending-job keyspace repair sweep: repaired %d job(s)", n)
+			}
+		}()
 	} else {
 		debug.Warning("Job integration manager not initialized, job scheduler will not start")
 	}

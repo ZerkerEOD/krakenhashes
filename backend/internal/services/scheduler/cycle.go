@@ -151,8 +151,12 @@ type CycleResult struct {
 	UnitsSchedulable int
 	IdleAgents       int
 	Allocations      int
-	Dispatched       int
-	Errors           []error
+	// Benchmarked is the number of planned allocations that were turned into
+	// benchmark dispatches this cycle (agent/unit pairs that lacked an accurate
+	// keyspace or a cached speed) instead of task dispatches.
+	Benchmarked int
+	Dispatched  int
+	Errors      []error
 }
 
 // RunOnce performs a single scheduling cycle: select schedulable
@@ -237,34 +241,12 @@ func (c *Cycle) RunOnce(ctx context.Context) (CycleResult, error) {
 		}
 	}
 
-	// Step 3.5: benchmark phase. For each idle agent that lacks a
-	// cached benchmark for some pending unit's combo, fire a
-	// benchmark request. Fire-and-forget — the result lands in
-	// agent_benchmarks via the existing HandleBenchmarkResult
-	// handler. Agents currently running benchmarks are excluded
-	// from this cycle's allocation; they're picked up next cycle
-	// with the freshly-cached speed.
-	agentIDs := make([]int, 0, len(agentInfos))
-	for _, a := range agentInfos {
-		agentIDs = append(agentIDs, a.ID)
-	}
-	bgaps, bErr := IdentifyMissingBenchmarks(ctx, c.db, units, agentIDs, compatFn)
-	if bErr != nil {
-		res.Errors = append(res.Errors, fmt.Errorf("cycle: identify benchmarks: %w", bErr))
-	}
-	busyAgents, bdErrs := DispatchBenchmarks(ctx, c.db, c.wsSender, c.binaryResolver, bgaps, unitsByID)
-	res.Errors = append(res.Errors, bdErrs...)
-	if len(busyAgents) > 0 {
-		filtered := make([]AgentInfo, 0, len(agentInfos))
-		for _, a := range agentInfos {
-			if !busyAgents[a.ID] {
-				filtered = append(filtered, a)
-			}
-		}
-		agentInfos = filtered
-	}
-
-	// Step 4: allocate.
+	// Step 4: allocate over ALL candidate units (accurate AND inaccurate).
+	// The allocator decides which (agent, unit) pairs would run this cycle
+	// per priority + max_agents + overflow + binary-compat. The next step
+	// decides, per pair, whether it dispatches a real chunk or first needs a
+	// benchmark — driving benchmarks off what would actually be dispatched
+	// (so we only ever benchmark agent/unit combos that matter this cycle).
 	mode := c.readOverflowMode(ctx)
 	allocations := AllocateAgentsByPriority(unitInfos, agentInfos, mode, compatFn)
 	res.Allocations = len(allocations)
@@ -272,30 +254,110 @@ func (c *Cycle) RunOnce(ctx context.Context) (CycleResult, error) {
 		return res, nil
 	}
 
-	// Step 5: dispatch.
-	// Step 11m: read default_chunk_duration first — this is the v1 /
-	// unified system setting that the UI exposes. Fall back to the
-	// v2-era duplicate target_chunk_seconds (migration 000149) only
-	// when default_chunk_duration is missing or zero. Either name
-	// returns the same concept: target wall time per chunk in seconds.
-	// The per-job override (job_executions.chunk_size_seconds, Step 11k)
-	// still wins inside dispatchOne.
+	// Step 4.5: classify each planned allocation as benchmark-vs-dispatch.
+	// AllocateAgentsByPriority places each agent at most once, so a pair is
+	// EITHER a benchmark OR a task this cycle — never both (hashcat runs one
+	// thing at a time). A pair needs a benchmark when:
+	//   - the unit's keyspace isn't accurate yet — the benchmark's progress[1]
+	//     supplies the accurate effective keyspace (see HandleBenchmarkResult),
+	//     OR
+	//   - the agent has no cached speed for the unit's (attack_mode, hash_type,
+	//     salt_count) combo — the dispatcher needs a speed to size the chunk.
+	// Otherwise the pair is ready to dispatch a real chunk now.
+	var benchGaps []BenchmarkGap
+	readyAllocations := make([]Allocation, 0, len(allocations))
+	for _, alloc := range allocations {
+		u := unitsByID[alloc.UnitID]
+		if u == nil {
+			res.Errors = append(res.Errors, fmt.Errorf("cycle: missing unit for allocation %s", alloc.UnitID))
+			continue
+		}
+		hashType, saltNull := c.lookupHashTypeAndSalt(ctx, u.ParentJobID)
+		if hashType < 0 {
+			res.Errors = append(res.Errors, fmt.Errorf("cycle: hash-type lookup failed for unit %s", u.ID))
+			continue
+		}
+		var saltPtr *int
+		if saltNull.Valid {
+			sc := int(saltNull.Int64)
+			saltPtr = &sc
+		}
+		needsBench := !u.IsAccurateKeyspace
+		if !needsBench {
+			has, hErr := agentHasBenchmarkFor(ctx, c.db, alloc.AgentID, u.AttackMode, hashType, saltPtr)
+			if hErr != nil {
+				res.Errors = append(res.Errors, fmt.Errorf("cycle: benchmark check (agent=%d unit=%s): %w", alloc.AgentID, u.ID, hErr))
+				needsBench = true // can't confirm a cached speed → benchmark rather than mis-size a chunk
+			} else if !has {
+				needsBench = true
+			}
+		}
+		if needsBench {
+			// Storm guard: skip if this (agent, job, combo) is blocklisted —
+			// a recent benchmark failed and AttributeBenchmarkFailure added an
+			// entry (job-scoped or global). Without this we'd re-fire the same
+			// failing benchmark every cycle, hammering the agent. The agent
+			// sits this unit out until the entry clears/expires; another
+			// compatible agent can still pick the unit up.
+			if blocked, bErr := agentBenchmarkBlocklisted(ctx, c.db, alloc.AgentID, u.ParentJobID, u.AttackMode, hashType); bErr != nil {
+				res.Errors = append(res.Errors, fmt.Errorf("cycle: blocklist check (agent=%d unit=%s): %w", alloc.AgentID, u.ID, bErr))
+				continue
+			} else if blocked {
+				continue
+			}
+			benchGaps = append(benchGaps, BenchmarkGap{
+				AgentID:    alloc.AgentID,
+				UnitID:     u.ID,
+				AttackMode: u.AttackMode,
+				HashType:   hashType,
+				SaltCount:  saltPtr,
+			})
+			continue
+		}
+		readyAllocations = append(readyAllocations, alloc)
+	}
+
+	// Step 4.6: dispatch benchmarks for the pairs that need one. Fire-and-
+	// forget — the result lands via HandleBenchmarkResult, which caches the
+	// speed AND (for inaccurate units) flips is_accurate_keyspace using
+	// progress[1]. These agents are excluded from task dispatch this cycle
+	// (they aren't in readyAllocations) and from future idle pools until the
+	// benchmark completes (getIdleAgents in-flight guard), so the agent never
+	// runs a benchmark and a task at once. They pick up their real task on a
+	// later cycle once the benchmark result lands.
+	if len(benchGaps) > 0 {
+		_, bdErrs := DispatchBenchmarks(ctx, c.db, c.wsSender, c.binaryResolver, benchGaps, unitsByID)
+		res.Errors = append(res.Errors, bdErrs...)
+		res.Benchmarked = len(benchGaps)
+	}
+
+	// Step 5: dispatch the ready allocations (accurate keyspace + cached speed).
+	// Step 11m: read default_chunk_duration first — the v1 / unified system
+	// setting the UI exposes. Fall back to the v2-era duplicate
+	// target_chunk_seconds (migration 000149) only when default_chunk_duration
+	// is missing or zero. Either name returns the same concept: target wall
+	// time per chunk in seconds. The per-job override
+	// (job_executions.chunk_size_seconds, Step 11k) still wins inside dispatchOne.
 	targetChunkSec := c.readIntSetting(ctx, "default_chunk_duration", 0)
 	if targetChunkSec <= 0 {
 		targetChunkSec = c.readIntSetting(ctx, "target_chunk_seconds", 60)
 	}
 	minChunkSec := c.readIntSetting(ctx, "min_chunk_seconds", 5)
 
-	dispatchIn := DispatchInputs{
-		Allocations:        allocations,
-		Units:              unitsByID,
-		AgentSpeeds:        c.readAgentSpeeds(ctx, allocations, unitsByID),
-		TargetChunkSeconds: targetChunkSec,
-		MinChunkSeconds:    minChunkSec,
+	var dispatched []DispatchedTask
+	if len(readyAllocations) > 0 {
+		dispatchIn := DispatchInputs{
+			Allocations:        readyAllocations,
+			Units:              unitsByID,
+			AgentSpeeds:        c.readAgentSpeeds(ctx, readyAllocations, unitsByID),
+			TargetChunkSeconds: targetChunkSec,
+			MinChunkSeconds:    minChunkSec,
+		}
+		var dispatchErrs []error
+		dispatched, dispatchErrs = DispatchOneChunkPerAgent(ctx, c.db, dispatchIn)
+		res.Errors = append(res.Errors, dispatchErrs...)
+		res.Dispatched = len(dispatched)
 	}
-	dispatched, dispatchErrs := DispatchOneChunkPerAgent(ctx, c.db, dispatchIn)
-	res.Errors = append(res.Errors, dispatchErrs...)
-	res.Dispatched = len(dispatched)
 
 	// Step 6: fan out WebSocket task_assignment messages.
 	//
@@ -717,6 +779,16 @@ func (c *Cycle) getIdleAgents(ctx context.Context) ([]AgentInfo, error) {
 	// Postgres int[] -> use ANY().
 	connectedArr := intSliceToBigintArray(live)
 
+	// An agent is idle only if it has no in-flight scheduler-v2 task AND no
+	// in-flight benchmark. The benchmark exclusion enforces "one hashcat
+	// invocation at a time" ACROSS cycles: DispatchBenchmarks records a
+	// benchmark_requests row (completed_at NULL) before sending, and a real
+	// benchmark can take minutes to return. Without this guard the next cycle
+	// would see the still-benchmarking agent as idle and hand it a task,
+	// colliding with the running benchmark. The window matches
+	// benchmarkInFlightWindow so a crashed/never-returned benchmark eventually
+	// frees the agent for a retry rather than wedging it forever.
+	benchWindowSecs := int(benchmarkInFlightWindow / time.Second)
 	rows, err := c.db.QueryContext(ctx, `
 		SELECT a.id, COALESCE(a.binary_version, '')
 		FROM agents a
@@ -728,7 +800,13 @@ func (c *Cycle) getIdleAgents(ctx context.Context) ([]AgentInfo, error) {
 				AND t.status IN ('assigned', 'running')
 				AND t.scheduling_unit_id IS NOT NULL
 		  )
-	`, connectedArr)
+		  AND NOT EXISTS (
+			  SELECT 1 FROM benchmark_requests br
+			  WHERE br.agent_id = a.id
+				AND br.completed_at IS NULL
+				AND br.requested_at > NOW() - ($2 || ' seconds')::INTERVAL
+		  )
+	`, connectedArr, benchWindowSecs)
 	if err != nil {
 		return nil, fmt.Errorf("query idle agents: %w", err)
 	}

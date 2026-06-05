@@ -291,6 +291,22 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		return nil, fmt.Errorf("failed to get preset job: %w", err)
 	}
 
+	// Refresh the preset's keyspace if stale BEFORE reading its pre-calculated
+	// values below. This runs hashcat --keyspace/--total-candidates only when
+	// the cached values are missing/inaccurate or a referenced wordlist/rule
+	// changed since the preset was last computed, so the created job inherits an
+	// accurate keyspace and the scheduler-v2 dispatch gate opens immediately —
+	// no agent benchmark needed just for keyspace. Best-effort: on failure we
+	// proceed with whatever the preset already had (the scheduler's benchmark
+	// phase remains the accuracy backstop). Skipped for increment-mode presets
+	// inside EnsurePresetKeyspaceFresh.
+	presetSvc := NewAdminPresetJobService(s.presetJobRepo, s.presetIncrementLayerRepo, s.systemSettingsRepo, s.binaryManager, s.fileRepo, s.dataDirectory)
+	if fresh, ferr := presetSvc.EnsurePresetKeyspaceFresh(ctx, presetJob); ferr != nil {
+		debug.Warning("CreateJobExecution: preset keyspace refresh failed for %s: %v", presetJobID, ferr)
+	} else if fresh != nil {
+		presetJob = fresh
+	}
+
 	// Get the hashlist
 	hashlist, err := s.hashlistRepo.GetByID(ctx, hashlistID)
 	if err != nil {
@@ -2412,6 +2428,120 @@ func (s *JobExecutionService) UpdateRuleSplitting(ctx context.Context, jobID uui
 // UpdateKeyspaceInfo updates the keyspace information for a job execution
 func (s *JobExecutionService) UpdateKeyspaceInfo(ctx context.Context, job *models.JobExecution) error {
 	return s.jobExecRepo.UpdateKeyspaceInfo(ctx, job)
+}
+
+// RepairPendingJobKeyspaces is a boot-time safety net. It finds pending jobs
+// that never started (no processed/dispatched keyspace) and whose keyspace is
+// not accurate, then recomputes an accurate keyspace via hashcat
+// --keyspace/--total-candidates from the job's OWN attack params and persists it
+// (both the job_executions row and its scheduler-v2 scheduling_units). This
+// self-heals jobs left inaccurate by an older build — e.g. the scheduler-v2
+// bootstrap deadlock that stranded pending jobs — without waiting on an agent
+// benchmark, for the common non-optimized case.
+//
+// Skipped (left to the scheduler's agent-benchmark path):
+//   - association (-a 9): hashcat rejects --keyspace/--total-candidates
+//   - increment-mode jobs: keyspace is tracked per layer, not job-wide
+//   - jobs whose --total-candidates can't produce an accurate value (e.g. it
+//     timed out): the agent benchmark remains the backstop
+//
+// Best-effort: per-job errors are logged and skipped. Returns how many were
+// repaired. Intended to run once at server start; safe to run repeatedly (a
+// job already accurate or started is skipped, so it's a cheap no-op afterward).
+func (s *JobExecutionService) RepairPendingJobKeyspaces(ctx context.Context) (int, error) {
+	jobs, err := s.jobExecRepo.GetPendingJobs(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("list pending jobs: %w", err)
+	}
+	unitRepo := repository.NewSchedulingUnitRepository(s.db)
+	repaired := 0
+	for i := range jobs {
+		job := jobs[i]
+		if job.IsAccurateKeyspace {
+			continue
+		}
+		if job.ProcessedKeyspace > 0 || job.DispatchedKeyspace > 0 {
+			continue // already started — don't disturb in-flight accounting
+		}
+		if job.AttackMode == models.AttackModeAssociation {
+			continue
+		}
+		if job.IncrementMode != "" && job.IncrementMode != "off" {
+			continue
+		}
+
+		hashlist, hlErr := s.hashlistRepo.GetByID(ctx, job.HashlistID)
+		if hlErr != nil || hashlist == nil {
+			debug.Warning("RepairPendingJobKeyspaces: job %s hashlist %d: %v", job.ID, job.HashlistID, hlErr)
+			continue
+		}
+
+		// Rebuild a preset-shaped struct from the job's own params so we reuse
+		// the exact same calculation path as creation (calculateKeyspace).
+		tempPreset := &models.PresetJob{
+			Name:               job.Name,
+			WordlistIDs:        job.WordlistIDs,
+			RuleIDs:            job.RuleIDs,
+			AttackMode:         job.AttackMode,
+			HashType:           hashlist.HashTypeID,
+			BinaryVersion:      job.BinaryVersion,
+			Mask:               job.Mask,
+			CustomCharsets:     job.CustomCharsets,
+			CustomCharsetFiles: job.CustomCharsetFiles,
+			HexCharset:         job.HexCharset,
+		}
+
+		base, effective, accurate, kErr := s.calculateKeyspace(ctx, tempPreset, hashlist)
+		if kErr != nil {
+			debug.Warning("RepairPendingJobKeyspaces: job %s keyspace calc failed: %v", job.ID, kErr)
+			continue
+		}
+		if !accurate || base == nil || effective == nil || *base <= 0 || *effective <= 0 {
+			continue // couldn't measure accurately; leave for the agent benchmark
+		}
+
+		// Salt adjustment: effective = base × rules × salts (matches hashcat's
+		// progress[1] and the creation-time logic). --total-candidates is
+		// hashlist-independent, so salts are applied here.
+		eff := *effective
+		if ht, htErr := s.hashTypeRepo.GetByID(ctx, hashlist.HashTypeID); htErr == nil && ht != nil && ht.IsSalted {
+			if salt := int64(hashlist.TotalHashes); salt > 0 {
+				eff = eff * salt
+			}
+		}
+		mf := eff / *base
+		if mf < 1 {
+			mf = 1
+		}
+
+		job.BaseKeyspace = base
+		job.EffectiveKeyspace = &eff
+		job.IsAccurateKeyspace = true
+		job.MultiplicationFactor = mf
+		if err := s.jobExecRepo.UpdateKeyspaceInfo(ctx, &job); err != nil {
+			debug.Warning("RepairPendingJobKeyspaces: persist job %s: %v", job.ID, err)
+			continue
+		}
+
+		// Propagate to scheduler-v2 units so the dispatch gate opens without an
+		// agent benchmark. Non-increment jobs have exactly one unit.
+		if units, uErr := unitRepo.GetByParentJobID(ctx, job.ID); uErr == nil {
+			for _, u := range units {
+				if err := unitRepo.UpdateEffectiveKeyspace(ctx, u.ID, eff, true); err != nil {
+					debug.Warning("RepairPendingJobKeyspaces: unit %s: %v", u.ID, err)
+				}
+			}
+		} else {
+			debug.Warning("RepairPendingJobKeyspaces: get units for job %s: %v", job.ID, uErr)
+		}
+
+		repaired++
+		debug.Info("RepairPendingJobKeyspaces: job %s now accurate (base=%d effective=%d)", job.ID, *base, eff)
+	}
+	if repaired > 0 {
+		debug.Info("RepairPendingJobKeyspaces: repaired %d pending job(s)", repaired)
+	}
+	return repaired, nil
 }
 
 // UpdateCrackedCount updates the total number of cracked hashes for a job execution

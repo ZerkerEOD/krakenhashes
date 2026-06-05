@@ -33,6 +33,13 @@ type AdminPresetJobService interface {
 	CalculateKeyspaceForPresetJob(ctx context.Context, presetJob *models.PresetJob) (*int64, error)
 	RecalculateKeyspacesForWordlist(ctx context.Context, wordlistID string) error
 	RecalculateKeyspacesForRule(ctx context.Context, ruleID string) error
+	// EnsurePresetKeyspaceFresh recomputes and persists a preset's keyspace via
+	// --keyspace/--total-candidates when its stored values are stale, returning
+	// the up-to-date preset. Safe (cheap no-op) when already fresh.
+	EnsurePresetKeyspaceFresh(ctx context.Context, preset *models.PresetJob) (*models.PresetJob, error)
+	// RefreshStalePresetKeyspaces recomputes every stale preset. Intended for a
+	// periodic background sweep so users rarely wait on first use.
+	RefreshStalePresetKeyspaces(ctx context.Context) (refreshed int, err error)
 }
 
 // adminPresetJobService implements AdminPresetJobService.
@@ -1141,6 +1148,120 @@ func (s *adminPresetJobService) RecalculateKeyspacesForRule(ctx context.Context,
 	}
 
 	return nil
+}
+
+// EnsurePresetKeyspaceFresh recomputes a preset's keyspace via
+// --keyspace/--total-candidates when its stored values are stale, then
+// persists them and returns the fresh copy. "Stale" means either the cached
+// values are missing/inaccurate, or a referenced wordlist/rule has changed
+// since the preset was last updated. A fresh preset is a cheap no-op (no
+// hashcat exec). On any recalc/persist error it logs and returns the preset
+// unchanged — callers fall back to the stored values, and the scheduler's
+// agent-benchmark phase remains the final accuracy backstop.
+func (s *adminPresetJobService) EnsurePresetKeyspaceFresh(ctx context.Context, preset *models.PresetJob) (*models.PresetJob, error) {
+	if preset == nil {
+		return nil, fmt.Errorf("EnsurePresetKeyspaceFresh: nil preset")
+	}
+	// Increment-mode presets compute keyspace per-layer (preset_increment_layers
+	// / job_increment_layers) via a different path; recomputing the single
+	// CalculateKeyspaceForPresetJob value here would be wrong. Leave them to the
+	// layer init + per-layer benchmark.
+	if s.hasIncrementMode(preset) {
+		return preset, nil
+	}
+	if !s.presetKeyspaceStale(ctx, preset) {
+		return preset, nil
+	}
+	debug.Info("Preset %s keyspace stale — recomputing --keyspace/--total-candidates", preset.ID)
+
+	keyspace, err := s.CalculateKeyspaceForPresetJob(ctx, preset)
+	if err != nil {
+		debug.Warning("EnsurePresetKeyspaceFresh: recalc preset %s failed: %v (using stored values)", preset.ID, err)
+		return preset, nil
+	}
+	preset.Keyspace = keyspace
+
+	updated, err := s.presetJobRepo.Update(ctx, preset.ID, *preset)
+	if err != nil {
+		debug.Warning("EnsurePresetKeyspaceFresh: persist preset %s failed: %v", preset.ID, err)
+		return preset, nil
+	}
+	debug.Info("Preset %s keyspace refreshed: keyspace=%v effective=%v accurate=%v",
+		updated.ID, updated.Keyspace, updated.EffectiveKeyspace, updated.IsAccurateKeyspace)
+	return updated, nil
+}
+
+// RefreshStalePresetKeyspaces walks every preset and refreshes the stale ones.
+// Returns the number actually recomputed. Errors on individual presets are
+// logged and skipped so one bad preset doesn't abort the sweep.
+func (s *adminPresetJobService) RefreshStalePresetKeyspaces(ctx context.Context) (int, error) {
+	presets, err := s.presetJobRepo.List(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("list preset jobs: %w", err)
+	}
+	refreshed := 0
+	for i := range presets {
+		p := presets[i]
+		if !s.presetKeyspaceStale(ctx, &p) {
+			continue
+		}
+		if _, err := s.EnsurePresetKeyspaceFresh(ctx, &p); err != nil {
+			debug.Warning("RefreshStalePresetKeyspaces: preset %s: %v", p.ID, err)
+			continue
+		}
+		refreshed++
+	}
+	if refreshed > 0 {
+		debug.Info("RefreshStalePresetKeyspaces: refreshed %d/%d presets", refreshed, len(presets))
+	}
+	return refreshed, nil
+}
+
+// presetKeyspaceStale reports whether a preset's cached keyspace must be
+// recomputed: the base or effective keyspace is missing, the values aren't
+// marked accurate (the --total-candidates result was never captured), or a
+// referenced wordlist/rule has been updated since the preset last was.
+func (s *adminPresetJobService) presetKeyspaceStale(ctx context.Context, preset *models.PresetJob) bool {
+	if preset.Keyspace == nil || preset.EffectiveKeyspace == nil || !preset.IsAccurateKeyspace {
+		return true
+	}
+	newest := s.newestReferencedFileUnix(ctx, preset)
+	return newest > 0 && newest > preset.UpdatedAt.Unix()
+}
+
+// newestReferencedFileUnix returns the most recent updated_at (unix seconds)
+// across the wordlists and rules a preset references, or 0 if none resolve.
+// FileInfo.Timestamp carries the file row's updated_at (see
+// FileRepository.GetWordlists/GetRules).
+func (s *adminPresetJobService) newestReferencedFileUnix(ctx context.Context, preset *models.PresetJob) int64 {
+	var newest int64
+	if len(preset.WordlistIDs) > 0 {
+		if wordlists, err := s.fileRepo.GetWordlists(ctx, ""); err == nil {
+			idx := make(map[string]int64, len(wordlists))
+			for _, wl := range wordlists {
+				idx[strconv.Itoa(wl.ID)] = wl.Timestamp
+			}
+			for _, id := range preset.WordlistIDs {
+				if ts, ok := idx[id]; ok && ts > newest {
+					newest = ts
+				}
+			}
+		}
+	}
+	if len(preset.RuleIDs) > 0 {
+		if rules, err := s.fileRepo.GetRules(ctx, ""); err == nil {
+			idx := make(map[string]int64, len(rules))
+			for _, r := range rules {
+				idx[strconv.Itoa(r.ID)] = r.Timestamp
+			}
+			for _, id := range preset.RuleIDs {
+				if ts, ok := idx[id]; ok && ts > newest {
+					newest = ts
+				}
+			}
+		}
+	}
+	return newest
 }
 
 // hasIncrementMode checks if a preset job has increment mode enabled

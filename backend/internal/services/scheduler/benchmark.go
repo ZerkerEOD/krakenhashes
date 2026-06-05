@@ -346,18 +346,36 @@ func buildBenchmarkRequest(
 		return nil, fmt.Errorf("build task layout: %w", err)
 	}
 
-	// Enrich with hashlist + binary.
+	// Enrich with hashlist + binary + the job's additional_args. The
+	// additional_args (and the agent's extra_parameters fetched below) MUST
+	// be passed so the benchmark runs the SAME flags as a real chunk —
+	// crucially -O. Optimized kernels cap candidate length, which changes both
+	// the measured speed AND the effective keyspace hashcat reports via
+	// progress[1]. Running the benchmark without -O while real tasks use -O
+	// caches a wrong speed (chunk-duration underestimation) and an unoptimized
+	// keyspace. Mirrors the task-dispatch enrichment in cycle.sendAssignment.
 	var hashlistID int64
 	var hashType int
 	var originalFilePath string
+	var jobAdditionalArgs string
 	err = database.QueryRowContext(ctx, `
-		SELECT je.hashlist_id, h.hash_type_id, COALESCE(h.original_file_path, '')
+		SELECT je.hashlist_id, h.hash_type_id, COALESCE(h.original_file_path, ''),
+		       COALESCE(je.additional_args, '')
 		FROM job_executions je
 		JOIN hashlists h ON h.id = je.hashlist_id
 		WHERE je.id = $1
-	`, unit.ParentJobID).Scan(&hashlistID, &hashType, &originalFilePath)
+	`, unit.ParentJobID).Scan(&hashlistID, &hashType, &originalFilePath, &jobAdditionalArgs)
 	if err != nil {
 		return nil, fmt.Errorf("lookup parent + hashlist: %w", err)
+	}
+
+	// Agent-level extra_parameters (e.g. "-w 4 -O"). Non-fatal on error —
+	// a benchmark without them is still better than none, but log it.
+	var agentExtraParams string
+	if err := database.QueryRowContext(ctx, `
+		SELECT COALESCE(extra_parameters, '') FROM agents WHERE id = $1
+	`, g.AgentID).Scan(&agentExtraParams); err != nil {
+		debug.Warning("benchmark: lookup agent %d extra_parameters: %v", g.AgentID, err)
 	}
 
 	binaryPath := ""
@@ -384,10 +402,17 @@ func buildBenchmarkRequest(
 		CharsetFiles:            taskPayload.CharsetFiles,
 		HexCharset:              taskPayload.HexCharset,
 		AssociationWordlistPath: taskPayload.AssociationWordlistPath,
+		ExtraParameters:         agentExtraParams,
+		JobAdditionalArgs:       jobAdditionalArgs,
 		TestDuration:            10,
 		TimeoutDuration:         30,
 		MinStatusUpdates:        2,
 	}
+	// NOTE: EnabledDevices is intentionally not set here — the benchmark runs
+	// on all of the agent's devices. Deriving the enabled subset needs the
+	// device repo's runtime-options parsing (GetHashcatDeviceID), which this
+	// free function doesn't have wired. Minor follow-up if device-limited
+	// agents need device-scoped benchmark speed.
 	if unit.AttackMode == AttackModeAssociation && originalFilePath != "" {
 		req.HashlistPath = originalFilePath
 	}

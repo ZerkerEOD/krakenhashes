@@ -3046,6 +3046,10 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 				debug.Info("Set job %s is_accurate_keyspace=true after layer benchmark", layer.JobExecutionID)
 			}
 
+			// Propagate accuracy to the scheduler-v2 unit for THIS layer so the
+			// dispatch gate (unit.is_accurate_keyspace=true) opens for it.
+			s.propagateUnitKeyspaceAccuracy(ctx, layer.JobExecutionID, layer.LayerIndex, result.TotalEffectiveKeyspace)
+
 			// Update metadata for forced benchmark completion
 			if agent.Metadata != nil {
 				if pendingJob, exists := agent.Metadata["pending_benchmark_job"]; exists && pendingJob == entityID.String() {
@@ -3136,6 +3140,12 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 				debug.Error("Failed to update job keyspace info: %v", err)
 				return fmt.Errorf("failed to update job keyspace info: %w", err)
 			}
+
+			// Propagate accuracy to the scheduler-v2 unit(s) for this job so the
+			// dispatch gate (unit.is_accurate_keyspace=true) opens. A
+			// non-increment job has exactly one unit (layer_index 0); passing
+			// layerIndex=-1 updates all of the job's units.
+			s.propagateUnitKeyspaceAccuracy(ctx, jobExec.ID, -1, result.TotalEffectiveKeyspace)
 		} else {
 			// Subsequent benchmark - validate consistency (should match job total)
 			diff := result.TotalEffectiveKeyspace - *jobExec.EffectiveKeyspace
@@ -3192,6 +3202,38 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 	}
 
 	return nil
+}
+
+// propagateUnitKeyspaceAccuracy upgrades scheduler-v2 scheduling_units for a
+// parent job to an accurate effective keyspace after a benchmark reports the
+// real value from hashcat's progress[1]. The v2 dispatch gate requires a
+// unit's is_accurate_keyspace=true; without this propagation a job that
+// bootstraps its keyspace via an agent benchmark would have its job/layer rows
+// flipped accurate but its scheduling_unit left inaccurate forever, so it would
+// never dispatch. If layerIndex >= 0 only the unit for that increment layer is
+// updated; layerIndex < 0 updates every unit of the job (a non-increment job
+// has exactly one, layer_index 0). Best-effort: failures are logged, not fatal.
+func (s *JobWebSocketIntegration) propagateUnitKeyspaceAccuracy(ctx context.Context, parentJobID uuid.UUID, layerIndex int, effective int64) {
+	if effective <= 0 {
+		return
+	}
+	database := &db.DB{DB: s.db}
+	unitRepo := repository.NewSchedulingUnitRepository(database)
+	units, err := unitRepo.GetByParentJobID(ctx, parentJobID)
+	if err != nil {
+		debug.Warning("scheduler-v2: get units for job %s to set accurate keyspace: %v", parentJobID, err)
+		return
+	}
+	for _, u := range units {
+		if layerIndex >= 0 && u.LayerIndex != layerIndex {
+			continue
+		}
+		if err := unitRepo.UpdateEffectiveKeyspace(ctx, u.ID, effective, true); err != nil {
+			debug.Warning("scheduler-v2: set unit %s accurate keyspace: %v", u.ID, err)
+		} else {
+			debug.Info("scheduler-v2: unit %s effective_keyspace=%d is_accurate=true (from benchmark)", u.ID, effective)
+		}
+	}
 }
 
 // HandleBenchmarkFailure is retained as a thin delegator for external callers

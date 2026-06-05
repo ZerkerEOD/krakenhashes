@@ -197,6 +197,32 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	workflowService := services.NewAdminJobWorkflowService(sqlDB, workflowRepo, presetJobRepo) // Pass db, workflowRepo, presetJobRepo
 	debug.Info("Initialized AdminPresetJobService and AdminJobWorkflowService")
 
+	// Background sweep: periodically recompute stale preset-job keyspaces — a
+	// referenced wordlist/rule changed since the preset was last computed, or
+	// the --total-candidates value was never captured (is_accurate=false /
+	// effective_keyspace NULL). Keeping presets accurate means jobs created from
+	// them inherit an accurate keyspace and dispatch immediately, without the
+	// scheduler-v2 agent-benchmark round-trip. Best-effort; logs and continues.
+	go func() {
+		sweepCtx := context.Background()
+		// Small initial delay so long-stale presets self-heal soon after boot
+		// (once the hashcat binary is available) without waiting a full interval.
+		time.Sleep(30 * time.Second)
+		runSweep := func(phase string) {
+			if n, err := presetJobService.RefreshStalePresetKeyspaces(sweepCtx); err != nil {
+				debug.Warning("preset keyspace sweep (%s): %v", phase, err)
+			} else if n > 0 {
+				debug.Info("preset keyspace sweep (%s): refreshed %d presets", phase, n)
+			}
+		}
+		runSweep("initial")
+		ticker := time.NewTicker(10 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			runSweep("periodic")
+		}
+	}()
+
 	// Initialize trust repository and TeamService for multi-team functionality
 	trustRepo := repository.NewTeamAgentTrustRepository(database)
 	teamService := services.NewTeamService(database, teamRepo, clientTeamRepo, hashlistRepo, jobExecutionRepo, agentRepo, systemSettingsRepo, trustRepo)

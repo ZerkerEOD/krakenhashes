@@ -133,12 +133,21 @@ func (r *SchedulingUnitRepository) GetByParentJobID(ctx context.Context, parentJ
 	return units, nil
 }
 
-// GetSchedulable returns scheduling_units eligible for dispatch this cycle:
-// status pending or running, with an accurate keyspace, parent job_execution
-// also in a non-terminal state, ordered by priority then created_at. Coverage
-// / gap-existence checks are deferred to the dispatcher because they require
-// the intervals table — keeping that logic out of this repo avoids cross-table
+// GetSchedulable returns scheduling_units eligible for dispatch consideration
+// this cycle: status pending or running, parent job_execution also in a
+// non-terminal state, ordered by priority then created_at. Coverage /
+// gap-existence checks are deferred to the dispatcher because they require the
+// intervals table — keeping that logic out of this repo avoids cross-table
 // coupling at the persistence layer.
+//
+// Accuracy is intentionally NOT filtered here. The scheduler-v2 cycle must see
+// inaccurate units so it can plan their allocation and bootstrap them with an
+// agent benchmark (which captures the accurate effective keyspace from hashcat's
+// progress[1]). Gating selection on is_accurate_keyspace=true previously
+// deadlocked every new job: a unit needed accuracy to be selected, but the only
+// thing that makes it accurate — the benchmark phase — ran after selection. The
+// cycle now classifies accurate-vs-inaccurate per allocation (accurate →
+// dispatch a chunk; inaccurate → dispatch a benchmark first).
 //
 // The parent-job-status JOIN is the primary stop-the-runaway fix: without it,
 // a unit whose parent job has been marked completed (e.g., by
@@ -151,7 +160,7 @@ func (r *SchedulingUnitRepository) GetSchedulable(ctx context.Context) ([]*model
 	// so the ORDER BY here is only for caller convenience and stable
 	// test output. If profiling shows the join+sort is slow at scale,
 	// materialize a partial index on (created_at) WHERE su.status IN
-	// ('pending','running') AND su.is_accurate_keyspace = true.
+	// ('pending','running').
 	const query = `
 		SELECT su.id, su.parent_job_id, su.layer_index, su.status,
 		       su.attack_mode, su.effective_keyspace, su.base_keyspace, su.is_accurate_keyspace,
@@ -160,7 +169,6 @@ func (r *SchedulingUnitRepository) GetSchedulable(ctx context.Context) ([]*model
 		FROM scheduling_units su
 		JOIN job_executions je ON je.id = su.parent_job_id
 		WHERE su.status IN ('pending', 'running')
-		  AND su.is_accurate_keyspace = true
 		  AND je.status IN ('pending', 'running')
 		ORDER BY je.priority DESC, su.created_at ASC
 	`

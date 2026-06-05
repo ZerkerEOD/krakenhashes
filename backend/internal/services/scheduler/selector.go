@@ -23,9 +23,12 @@ type IntervalGapReader interface {
 }
 
 // SelectSchedulableUnits returns the units the dispatcher should consider
-// for allocation this cycle: status pending or running, accurate keyspace,
-// AND at least one undispatched range. Returned in priority DESC,
-// created_at ASC order (same as GetSchedulable).
+// for allocation this cycle: status pending or running (parent job also
+// non-terminal) AND at least one undispatched range. Accuracy is NOT a filter
+// here — inaccurate units are returned so the cycle can bootstrap them with a
+// benchmark; the per-allocation classification in cycle.go decides
+// benchmark-vs-dispatch. Returned in priority DESC, created_at ASC order (same
+// as GetSchedulable).
 //
 // The gap check is intentionally per-unit rather than a single fancy SQL
 // join. The win from one big query is small because Postgres has to do
