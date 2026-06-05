@@ -8,10 +8,12 @@ import (
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary"
+	khdb "github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/rule"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/scheduler"
 	wsservice "github.com/ZerkerEOD/krakenhashes/backend/internal/services/websocket"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/wordlist"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
@@ -21,13 +23,27 @@ import (
 // JobIntegrationManager manages the integration between WebSocket and job execution services
 type JobIntegrationManager struct {
 	wsIntegration        *JobWebSocketIntegration
+	jobExecutionService  *services.JobExecutionService
 	jobSchedulingService *services.JobSchedulingService
 	wsHandler            interface {
 		SendMessage(agentID int, msg *wsservice.Message) error
 		GetConnectedAgents() []int
+		IsShuttingDown(agentID int) bool
+		WasRecentlyRejected(agentID int) bool
+		MarkRejected(agentID int)
 		RegisterInventoryCallback(agentID int) <-chan *wsservice.FileSyncResponsePayload
 		UnregisterInventoryCallback(agentID int)
 	}
+
+	// Scheduler-v2 runners. The legacy scheduler is no longer started
+	// (its source remains in-tree until the hard-cutover release that
+	// drops job_scheduling_service.go and its co-located files).
+	schedulerV2Runner *scheduler.Runner
+	sweeperRunner     *scheduler.SweeperRunner
+	// compatCache is the (agent_id, unit_id) compatibility lookup.
+	// Warmed at StartScheduler and refreshed periodically; misses
+	// fall through to lazy single-pair evaluation.
+	compatCache *scheduler.CompatCache
 }
 
 // NewJobIntegrationManager creates a new job integration manager
@@ -35,6 +51,9 @@ func NewJobIntegrationManager(
 	wsHandler interface {
 		SendMessage(agentID int, msg *wsservice.Message) error
 		GetConnectedAgents() []int
+		IsShuttingDown(agentID int) bool
+		WasRecentlyRejected(agentID int) bool
+		MarkRejected(agentID int)
 		RegisterInventoryCallback(agentID int) <-chan *wsservice.FileSyncResponsePayload
 		UnregisterInventoryCallback(agentID int)
 	},
@@ -50,6 +69,7 @@ func NewJobIntegrationManager(
 	jobIncrementLayerRepo *repository.JobIncrementLayerRepository,
 	agentRepo *repository.AgentRepository,
 	deviceRepo *repository.AgentDeviceRepository,
+	scheduleRepo *repository.AgentScheduleRepository,
 	clientRepo *repository.ClientRepository,
 	systemSettingsRepo *repository.SystemSettingsRepository,
 	assocWordlistRepo *repository.AssociationWordlistRepository,
@@ -95,11 +115,37 @@ func NewJobIntegrationManager(
 	// Set the WebSocket integration in the scheduling service
 	jobSchedulingService.SetWebSocketIntegration(wsIntegration)
 
-	return &JobIntegrationManager{
+	mgr := &JobIntegrationManager{
 		wsIntegration:        wsIntegration,
+		jobExecutionService:  jobExecutionService,
 		jobSchedulingService: jobSchedulingService,
 		wsHandler:            wsHandler,
 	}
+
+	// Scheduler-v2 owns all jobs. The legacy scheduler runner is no
+	// longer started (see StartScheduler) and the converter runs once
+	// at boot to migrate any pre-existing v1 jobs.
+	database := &khdb.DB{DB: db}
+	unitRepo := repository.NewSchedulingUnitRepository(database)
+	intervalRepo := repository.NewKeyspaceIntervalRepository(database)
+	mgr.compatCache = scheduler.NewCompatCache(database)
+	// jobExecutionService satisfies both scheduler.BinaryResolver
+	// (DetermineBinaryForTask) and scheduler.JobExecutionStarter
+	// (StartJobExecution) structurally. Pass it twice so the cycle
+	// can populate BinaryPath AND transition the parent job from
+	// pending→running on first dispatch without the scheduler
+	// package importing services (which would be a circular
+	// dependency).
+	// deviceRepo lets the cycle emit -d <enabled-IDs> in task
+	// assignments when the user has disabled some GPUs. agentRepo +
+	// scheduleRepo enable the agent-scheduling check in getIdleAgents
+	// (mirror of legacy filterAvailableAgents).
+	cycle := scheduler.NewCycle(database, unitRepo, intervalRepo, systemSettingsRepo, deviceRepo, agentRepo, scheduleRepo, wsHandler, jobExecutionService, jobExecutionService, mgr.compatCache)
+	mgr.schedulerV2Runner = scheduler.NewRunner(cycle, 3*time.Second)
+	mgr.sweeperRunner = scheduler.NewSweeperRunner(database, systemSettingsRepo, 10*time.Second)
+	debug.Info("scheduler-v2: runners constructed (start deferred)")
+
+	return mgr
 }
 
 // ProcessJobProgress handles job progress messages from agents (implements interfaces.JobHandler)
@@ -181,11 +227,73 @@ func (m *JobIntegrationManager) GetWebSocketIntegration() *JobWebSocketIntegrati
 	return m.wsIntegration
 }
 
-// StartScheduler starts the job scheduling service
+// ConvertLegacyJobsToV2 runs the one-shot startup converter that
+// migrates any pre-existing v1 jobs (job_executions without a
+// scheduling_units row) into v2 jobs, or deletes them if their
+// wordlist/rule refs no longer resolve.
+//
+// Idempotent: safe to call on every boot. After the first successful
+// run there will be nothing to convert.
+func (m *JobIntegrationManager) ConvertLegacyJobsToV2(ctx context.Context) error {
+	if m.jobExecutionService == nil {
+		return nil
+	}
+	return m.jobExecutionService.ConvertLegacyJobsToV2(ctx)
+}
+
+// RepairPendingJobKeyspaces delegates to the job execution service's boot-time
+// keyspace repair (see JobExecutionService.RepairPendingJobKeyspaces). Returns
+// the number of pending jobs whose keyspace was recomputed accurately.
+func (m *JobIntegrationManager) RepairPendingJobKeyspaces(ctx context.Context) (int, error) {
+	if m.jobExecutionService == nil {
+		return 0, nil
+	}
+	return m.jobExecutionService.RepairPendingJobKeyspaces(ctx)
+}
+
+// StartScheduler starts scheduler-v2. The legacy runner is no longer
+// started — its source code is retained for one more release as a
+// rollback option, but it does not tick.
 func (m *JobIntegrationManager) StartScheduler(ctx context.Context) {
-	debug.Log("Starting job scheduler", nil)
-	// Start scheduler with 3 second interval
-	go m.jobSchedulingService.StartScheduler(ctx, 3*time.Second)
+	debug.Info("scheduler-v2: starting runner, sweeper, and compat cache refresh")
+
+	if m.schedulerV2Runner != nil {
+		m.schedulerV2Runner.Start(ctx)
+	}
+	if m.sweeperRunner != nil {
+		go m.sweeperRunner.Run(ctx)
+	}
+
+	// Warm the compatibility cache and start a periodic refresh
+	// goroutine that re-evaluates everything every 30 seconds.
+	// Misses between refreshes fall through to lazy single-pair
+	// EvaluatePair so this isn't a correctness backstop, just a
+	// freshness one.
+	if m.compatCache != nil {
+		if err := m.compatCache.WarmAll(ctx); err != nil {
+			debug.Warning("compat cache initial warm failed: %v", err)
+		}
+		go m.runCompatCacheRefresh(ctx)
+	}
+}
+
+// runCompatCacheRefresh periodically rewarms the cache so an
+// undelivered OnAgent / OnUnit invalidation can't leave stale rows
+// forever. 30s is plenty — the cycle runs every 3s and is the only
+// reader; staleness only matters within that window.
+func (m *JobIntegrationManager) runCompatCacheRefresh(ctx context.Context) {
+	t := time.NewTicker(30 * time.Second)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			if err := m.compatCache.WarmAll(ctx); err != nil {
+				debug.Warning("compat cache periodic warm failed: %v", err)
+			}
+		}
+	}
 }
 
 // StopJob stops a running job

@@ -1156,11 +1156,18 @@
     },
     "agentOverflow": {
       "title": "Agent Overflow Allocation",
-      "tooltip": "Configure how agents beyond max_agents limits are allocated when jobs have the same priority",
-      "roundRobinMode": "Round-Robin Mode",
-      "fifoMode": "FIFO Mode",
-      "fifoDescription": "When multiple jobs at the same priority exceed their max_agents limits, the oldest job (created first) receives all extra agents.",
-      "roundRobinDescription": "Extra agents are distributed evenly across all jobs at the same priority, one agent at a time, ensuring fair allocation."
+      "tooltip": "Configure how free agents are distributed once every job at every priority tier has filled to its max_agents cap.",
+      "modeLabel": "Overflow allocation mode",
+      "priorityFifoMode": "Priority - FIFO",
+      "priorityRoundRobinMode": "Priority - Round Robin",
+      "enforceMaxAgentsMode": "Enforce Max Agents",
+      "maxAgentsFifoMode": "Max Agents - FIFO",
+      "maxAgentsRoundRobinMode": "Max Agents - Round Robin",
+      "priorityFifoDescription": "Tiers fill highest-priority first. Once a tier hits max_agents, remaining agents pile on the OLDEST job in that tier — exceeding its cap. Lower-priority jobs may starve until higher tiers are exhausted.",
+      "priorityRoundRobinDescription": "Tiers fill highest-priority first. Once a tier hits max_agents, remaining agents rotate evenly across that tier's jobs — exceeding caps. Lower-priority jobs may starve.",
+      "enforceMaxAgentsDescription": "Strictly cap each job at its max_agents limit — no overflow. Surplus agents stay idle. Most predictable; can waste capacity.",
+      "maxAgentsFifoDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then pile on the OLDEST job overall — bypassing priority. Maximizes throughput while still giving every job its baseline.",
+      "maxAgentsRoundRobinDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then rotate evenly across ALL jobs — bypassing priority. Maximizes throughput with fair distribution beyond the baseline."
     },
     "hashlist": {
       "title": "Hashlist Settings",

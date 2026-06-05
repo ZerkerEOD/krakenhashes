@@ -120,6 +120,25 @@ func (r *JobExecutionRepository) UpdateBaseKeyspace(ctx context.Context, jobID u
 	return nil
 }
 
+// IsSchedulerV2Job reports whether the given job execution is owned
+// by scheduler-v2 — i.e., whether it has any scheduling_units rows.
+// Legacy code paths that mutate keyspace / status fields should
+// consult this first and short-circuit, because v2 owns those fields
+// for its own jobs (and the legacy aggregation columns like
+// chunk_actual_keyspace aren't populated by the v2 dispatcher, so
+// any legacy SUM produces wrong values).
+func (r *JobExecutionRepository) IsSchedulerV2Job(ctx context.Context, jobID uuid.UUID) (bool, error) {
+	var exists bool
+	err := r.db.QueryRowContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM scheduling_units WHERE parent_job_id = $1)`,
+		jobID,
+	).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check scheduler-v2 ownership for job %s: %w", jobID, err)
+	}
+	return exists, nil
+}
+
 // UpdateEffectiveKeyspace updates the effective keyspace for a job execution
 func (r *JobExecutionRepository) UpdateEffectiveKeyspace(ctx context.Context, jobID uuid.UUID, effectiveKeyspace int64) error {
 	query := `

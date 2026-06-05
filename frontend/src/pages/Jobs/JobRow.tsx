@@ -346,6 +346,41 @@ const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isC
             <Typography variant="body2">
               {job.agent_count}
             </Typography>
+            {/* Overflow indicator: when the scheduler has placed more
+                agents on this job than its max_agents baseline, it's
+                because a Priority/Max-Agents overflow phase cascaded
+                spare agents here (typically because higher-priority
+                or older-FIFO jobs were already saturated). Shown as a
+                small chip so operators can tell at a glance why this
+                job is over its configured cap. */}
+            {job.max_agents > 0 && job.agent_count > job.max_agents && (
+              <Tooltip title={`+${job.agent_count - job.max_agents} from overflow — higher-priority or older jobs are at keyspace or parent-cap saturation, so spare agents cascaded here`}>
+                <Chip
+                  label={`+${job.agent_count - job.max_agents}`}
+                  size="small"
+                  color="warning"
+                  variant="outlined"
+                  sx={{ height: 18, fontSize: '0.65rem', ml: 0.5 }}
+                />
+              </Tooltip>
+            )}
+            {/* Under-cap indicator: agent_count < max_agents AND job
+                is active means the scheduler couldn't (or chose not
+                to) fill this job to its cap this cycle. Common causes:
+                keyspace fully tiled by in-flight chunks, parent cap
+                reached for increment jobs, or all eligible agents
+                already claimed by higher-priority jobs. */}
+            {(job.status === 'running' || job.status === 'pending') && job.max_agents > 0 && job.agent_count < job.max_agents && (
+              <Tooltip title={`${job.max_agents - job.agent_count} short of max_agents — waiting on agents to free up, or this job's remaining keyspace is fully tiled by current chunks`}>
+                <Chip
+                  label={`-${job.max_agents - job.agent_count}`}
+                  size="small"
+                  color="info"
+                  variant="outlined"
+                  sx={{ height: 18, fontSize: '0.65rem', ml: 0.5 }}
+                />
+              </Tooltip>
+            )}
             {job.total_speed > 0 && (
               <Tooltip title={t('tooltips.combinedHashRate')}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 1 }}>

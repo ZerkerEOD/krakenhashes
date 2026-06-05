@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"io/ioutil"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -28,8 +28,9 @@ import (
 // errors.Is to set error_code on the result so the backend can format an
 // admin-friendly message. Keep in sync with backend wsservice.BenchmarkError*.
 var (
-	ErrBenchmarkTimeout   = fmt.Errorf("BENCHMARK_TIMEOUT")
-	ErrBenchmarkZeroSpeed = fmt.Errorf("BENCHMARK_ZERO_SPEED")
+	ErrBenchmarkTimeout        = fmt.Errorf("BENCHMARK_TIMEOUT")
+	ErrBenchmarkZeroSpeed      = fmt.Errorf("BENCHMARK_ZERO_SPEED")
+	ErrBenchmarkNoHashesLoaded = fmt.Errorf("BENCHMARK_NO_HASHES_LOADED")
 )
 
 // AttackMode represents hashcat attack modes
@@ -61,32 +62,41 @@ type CharsetFileInfo struct {
 
 // JobTaskAssignment represents a task assignment from the backend
 type JobTaskAssignment struct {
-	TaskID          string      `json:"task_id"`
-	JobExecutionID  string      `json:"job_execution_id"`
-	HashlistID      int64       `json:"hashlist_id"`
-	HashlistPath    string      `json:"hashlist_path"`    // Local path on agent
-	AttackMode      int         `json:"attack_mode"`
-	HashType        int         `json:"hash_type"`
-	KeyspaceStart   int64       `json:"keyspace_start"`
-	KeyspaceEnd     int64       `json:"keyspace_end"`
-	WordlistPaths   []string    `json:"wordlist_paths"`   // Local paths on agent
-	RulePaths       []string    `json:"rule_paths"`       // Local paths on agent
-	Mask            string            `json:"mask,omitempty"`             // For mask attacks
-	CustomCharsets  map[string]string          `json:"custom_charsets,omitempty"`  // Custom charsets: {"1": "?u?d", "3": "?s"}
-	CharsetFiles   map[string]CharsetFileInfo `json:"charset_files,omitempty"`   // File-based charsets: {"1": {name: "file.hcchr", ...}}
-	HexCharset     bool              `json:"hex_charset,omitempty"`      // When true, auto-inject --hex-charset flag
-	BinaryPath      string            `json:"binary_path"`                // Hashcat binary to use
-	ChunkDuration   int         `json:"chunk_duration"`   // Expected duration in seconds
-	ReportInterval  int         `json:"report_interval"`  // Progress reporting interval
-	OutputFormat    string      `json:"output_format"`    // Hashcat output format
-	ExtraParameters   string    `json:"extra_parameters,omitempty"`     // Agent-specific hashcat parameters
-	JobAdditionalArgs string    `json:"job_additional_args,omitempty"` // Job-level hashcat parameters (merged with agent params)
-	EnabledDevices    []int     `json:"enabled_devices,omitempty"`     // List of enabled device IDs
-	IncrementMode   string      `json:"increment_mode,omitempty"`   // Mask increment mode: off, increment, increment_inverse
-	IncrementMin    *int        `json:"increment_min,omitempty"`    // Starting mask length for increment mode
-	IncrementMax    *int        `json:"increment_max,omitempty"`    // Maximum mask length for increment mode
-	IsKeyspaceSplit bool        `json:"is_keyspace_split"`          // Whether this task uses keyspace splitting (--skip/--limit)
-	BaseKeyspace    int64       `json:"base_keyspace,omitempty"`    // Server's base keyspace for --skip/--limit coordinate conversion
+	TaskID            string                     `json:"task_id"`
+	JobExecutionID    string                     `json:"job_execution_id"`
+	HashlistID        int64                      `json:"hashlist_id"`
+	HashlistPath      string                     `json:"hashlist_path"` // Local path on agent
+	AttackMode        int                        `json:"attack_mode"`
+	HashType          int                        `json:"hash_type"`
+	KeyspaceStart     int64                      `json:"keyspace_start"`
+	KeyspaceEnd       int64                      `json:"keyspace_end"`
+	WordlistPaths     []string                   `json:"wordlist_paths"`                // Local paths on agent
+	RulePaths         []string                   `json:"rule_paths"`                    // Local paths on agent
+	Mask              string                     `json:"mask,omitempty"`                // For mask attacks
+	CustomCharsets    map[string]string          `json:"custom_charsets,omitempty"`     // Custom charsets: {"1": "?u?d", "3": "?s"}
+	CharsetFiles      map[string]CharsetFileInfo `json:"charset_files,omitempty"`       // File-based charsets: {"1": {name: "file.hcchr", ...}}
+	HexCharset        bool                       `json:"hex_charset,omitempty"`         // When true, auto-inject --hex-charset flag
+	BinaryPath        string                     `json:"binary_path"`                   // Hashcat binary to use
+	ChunkDuration     int                        `json:"chunk_duration"`                // Expected duration in seconds
+	ReportInterval    int                        `json:"report_interval"`               // Progress reporting interval
+	OutputFormat      string                     `json:"output_format"`                 // Hashcat output format
+	ExtraParameters   string                     `json:"extra_parameters,omitempty"`    // Agent-specific hashcat parameters
+	JobAdditionalArgs string                     `json:"job_additional_args,omitempty"` // Job-level hashcat parameters (merged with agent params)
+	EnabledDevices    []int                      `json:"enabled_devices,omitempty"`     // List of enabled device IDs
+	IncrementMode     string                     `json:"increment_mode,omitempty"`      // Mask increment mode: off, increment, increment_inverse
+	IncrementMin      *int                       `json:"increment_min,omitempty"`       // Starting mask length for increment mode
+	IncrementMax      *int                       `json:"increment_max,omitempty"`       // Maximum mask length for increment mode
+	IsKeyspaceSplit   bool                       `json:"is_keyspace_split"`             // Whether this task uses keyspace splitting (--skip/--limit)
+	BaseKeyspace      int64                      `json:"base_keyspace,omitempty"`       // Server's base keyspace for --skip/--limit coordinate conversion
+	// Effective-keyspace range (base × rule/salt multipliers) for this
+	// task. The real hashcat executor reads effective progress from
+	// hashcat's progress[0]/[1] and ignores these. They exist so the
+	// mock executor (and any future non-hashcat executor) can report
+	// EffectiveProgress / TotalEffectiveKeyspace without re-deriving the
+	// multiplier the scheduler already computed. Zero when the backend
+	// couldn't compute them (overflow / unset).
+	EffectiveKeyspaceStart int64 `json:"effective_keyspace_start,omitempty"`
+	EffectiveKeyspaceEnd   int64 `json:"effective_keyspace_end,omitempty"`
 	// Association attack fields (mode 9)
 	AssociationWordlistPath string `json:"association_wordlist_path,omitempty"` // Path to the association wordlist
 	OriginalHashlistPath    string `json:"original_hashlist_path,omitempty"`    // Path to the original hashlist file (preserves order)
@@ -111,38 +121,38 @@ type DeviceMetric struct {
 // JobProgress represents progress updates sent to backend
 type JobProgress struct {
 	TaskID                 string         `json:"task_id"`
-	KeyspaceProcessed      int64          `json:"keyspace_processed"`                   // Restore point (position in wordlist)
-	EffectiveProgress      int64          `json:"effective_progress"`                   // Actual effective progress (words × rules processed)
-	ProgressPercent        float64        `json:"progress_percent"`                     // Actual progress percentage (0-100)
-	TotalEffectiveKeyspace *int64         `json:"total_effective_keyspace,omitempty"`   // Only sent on first update - hashcat progress[1]
-	IsFirstUpdate          bool           `json:"is_first_update"`                      // Flag indicating this is the first progress update
-	HashRate               int64          `json:"hash_rate"`                            // Current hashes per second
-	Temperature            *float64       `json:"temperature"`                          // GPU temperature (deprecated, use DeviceMetrics)
-	Utilization            *float64       `json:"utilization"`                          // GPU utilization percentage (deprecated, use DeviceMetrics)
-	TimeRemaining          *int           `json:"time_remaining"`                       // Estimated seconds remaining
-	CrackedCount           int            `json:"cracked_count"`                        // Number of hashes cracked in this update
-	CrackedHashes          []CrackedHash  `json:"cracked_hashes"`                       // Detailed crack information
-	Status                 string         `json:"status,omitempty"`                     // Task status (running, completed, failed)
-	ErrorMessage           string         `json:"error_message,omitempty"`              // Error message if status is failed
-	DeviceMetrics          []DeviceMetric `json:"device_metrics,omitempty"`              // Per-device metrics
-	AllHashesCracked       bool           `json:"all_hashes_cracked,omitempty"`         // Flag indicating all hashes in hashlist were cracked (exit code 6)
+	KeyspaceProcessed      int64          `json:"keyspace_processed"`                 // Restore point (position in wordlist)
+	EffectiveProgress      int64          `json:"effective_progress"`                 // Actual effective progress (words × rules processed)
+	ProgressPercent        float64        `json:"progress_percent"`                   // Actual progress percentage (0-100)
+	TotalEffectiveKeyspace *int64         `json:"total_effective_keyspace,omitempty"` // Only sent on first update - hashcat progress[1]
+	IsFirstUpdate          bool           `json:"is_first_update"`                    // Flag indicating this is the first progress update
+	HashRate               int64          `json:"hash_rate"`                          // Current hashes per second
+	Temperature            *float64       `json:"temperature"`                        // GPU temperature (deprecated, use DeviceMetrics)
+	Utilization            *float64       `json:"utilization"`                        // GPU utilization percentage (deprecated, use DeviceMetrics)
+	TimeRemaining          *int           `json:"time_remaining"`                     // Estimated seconds remaining
+	CrackedCount           int            `json:"cracked_count"`                      // Number of hashes cracked in this update
+	CrackedHashes          []CrackedHash  `json:"cracked_hashes"`                     // Detailed crack information
+	Status                 string         `json:"status,omitempty"`                   // Task status (running, completed, failed)
+	ErrorMessage           string         `json:"error_message,omitempty"`            // Error message if status is failed
+	DeviceMetrics          []DeviceMetric `json:"device_metrics,omitempty"`           // Per-device metrics
+	AllHashesCracked       bool           `json:"all_hashes_cracked,omitempty"`       // Flag indicating all hashes in hashlist were cracked (exit code 6)
 }
 
 // JobStatus represents status-only message (synchronous, no crack data)
 type JobStatus struct {
-	TaskID                 string   `json:"task_id"`
-	KeyspaceProcessed      int64    `json:"keyspace_processed"`
-	EffectiveProgress      int64    `json:"effective_progress"`
-	ProgressPercent        float64  `json:"progress_percent"`
-	TotalEffectiveKeyspace *int64   `json:"total_effective_keyspace,omitempty"`
-	IsFirstUpdate          bool     `json:"is_first_update"`
-	HashRate               int64    `json:"hash_rate"`
-	TimeRemaining          *int     `json:"time_remaining,omitempty"`
-	CrackedCount           int      `json:"cracked_count"` // Total count only, not actual hashes
-	Status                 string   `json:"status,omitempty"`
-	ErrorMessage           string   `json:"error_message,omitempty"`
+	TaskID                 string         `json:"task_id"`
+	KeyspaceProcessed      int64          `json:"keyspace_processed"`
+	EffectiveProgress      int64          `json:"effective_progress"`
+	ProgressPercent        float64        `json:"progress_percent"`
+	TotalEffectiveKeyspace *int64         `json:"total_effective_keyspace,omitempty"`
+	IsFirstUpdate          bool           `json:"is_first_update"`
+	HashRate               int64          `json:"hash_rate"`
+	TimeRemaining          *int           `json:"time_remaining,omitempty"`
+	CrackedCount           int            `json:"cracked_count"` // Total count only, not actual hashes
+	Status                 string         `json:"status,omitempty"`
+	ErrorMessage           string         `json:"error_message,omitempty"`
 	DeviceMetrics          []DeviceMetric `json:"device_metrics,omitempty"`
-	AllHashesCracked       bool     `json:"all_hashes_cracked,omitempty"`
+	AllHashesCracked       bool           `json:"all_hashes_cracked,omitempty"`
 }
 
 // CrackBatch represents crack-only message (asynchronous)
@@ -160,12 +170,12 @@ type CrackBatchesComplete struct {
 
 // CrackedHash represents a cracked hash with all available information
 type CrackedHash struct {
-	Hash         string `json:"hash"`          // The original hash
-	Salt         string `json:"salt"`          // Salt (if applicable)
-	Plain        string `json:"plain"`         // Plain text password
-	HexPlain     string `json:"hex_plain"`     // Hex representation of plain
-	CrackPos     string `json:"crack_pos"`     // Position in keyspace where found
-	FullLine     string `json:"full_line"`     // Full output line for reference
+	Hash     string `json:"hash"`      // The original hash
+	Salt     string `json:"salt"`      // Salt (if applicable)
+	Plain    string `json:"plain"`     // Plain text password
+	HexPlain string `json:"hex_plain"` // Hex representation of plain
+	CrackPos string `json:"crack_pos"` // Position in keyspace where found
+	FullLine string `json:"full_line"` // Full output line for reference
 }
 
 // DeviceSpeed represents speed for a single device
@@ -184,7 +194,7 @@ type HashcatExecutor struct {
 	activeProcesses map[string]*HashcatProcess
 
 	// Output callback for sending output via websocket
-	outputCallback  func(taskID string, output string, isError bool)
+	outputCallback func(taskID string, output string, isError bool)
 
 	// Orphan callback fires when hashcat refuses to start because another
 	// (foreign-to-us) hashcat process is already holding the session lock.
@@ -220,38 +230,48 @@ type HashcatProcess struct {
 	StdinPipe       io.WriteCloser
 
 	// Process state
-	IsRunning       bool
-	StartTime       time.Time
-	LastProgress    *JobProgress
-	LastCheckpoint  time.Time
+	IsRunning      bool
+	StartTime      time.Time
+	LastProgress   *JobProgress
+	LastCheckpoint time.Time
 
 	// Hashlist tracking for crack parsing
-	HashlistContent []string           // Store the hashes we're cracking (kept for special hash types)
-	HashlistMap     map[string]string  // Key: lowercase hash, Value: original hash (for O(1) lookups)
+	HashlistContent []string          // Store the hashes we're cracking (kept for special hash types)
+	HashlistMap     map[string]string // Key: lowercase hash, Value: original hash (for O(1) lookups)
 
 	// Outfile tracking for reliable crack capture
-	OutfilePath       string            // Path to hashcat --outfile
-	OutfileSentHashes map[string]bool   // Track sent hash:password lines (deduplication)
-	OutfileMutex      sync.Mutex        // Protect outfile state
-	OutfileOffset     int64             // Current read position in outfile
+	OutfilePath       string          // Path to hashcat --outfile
+	OutfileSentHashes map[string]bool // Track sent hash:password lines (deduplication)
+	OutfileMutex      sync.Mutex      // Protect outfile state
+	OutfileOffset     int64           // Current read position in outfile
 
 	// Keyspace coordinate conversion
 	KeyspaceRatio float64 // Ratio for coordinate conversion (agent_base / server_base), 0 = no conversion
 
+	// Step 11s: chunk-local progress baseline.
+	// Hashcat's progress[0] is reported in absolute effective coords
+	// — for a chunk with --skip > 0, the first reading is already at
+	// the skip-equivalent baseline, not 0. Capture that baseline on
+	// the first non-zero status report so the terminal progress bar
+	// can display chunk-local % (0 → 100 over THIS chunk's lifetime)
+	// instead of the absolute ratio (which starts at e.g. 51% baseline).
+	InitialEffectiveProgress int64
+	InitialProgressCaptured  bool
+
 	// Error tracking
-	AlreadyRunningError bool
-	mutex              sync.Mutex
+	AlreadyRunningError    bool
+	HashcatRejectedHashlist atomic.Bool // set when stderr/stdout indicates "No hashes loaded" / "Hash parsing error" / etc. → fast-fail the job
+	mutex                  sync.Mutex
 
 	// Cleanup coordination
 	CleanupInProgress atomic.Bool // Flag to prevent timer creation during cleanup
 }
 
-
 // NewHashcatExecutor creates a new hashcat executor
 func NewHashcatExecutor(dataDirectory string) *HashcatExecutor {
 	// We don't use a work directory since we're capturing output from stdout
 	// with --potfile-disable and no output files
-	
+
 	executor := &HashcatExecutor{
 		dataDirectory:      dataDirectory,
 		activeProcesses:    make(map[string]*HashcatProcess),
@@ -259,12 +279,12 @@ func NewHashcatExecutor(dataDirectory string) *HashcatExecutor {
 		crackBatchTimers:   make(map[string]*time.Timer),
 		crackBatchInterval: 500 * time.Millisecond, // 500ms batching window (reduced frequency)
 	}
-	
+
 	// Clean up any orphaned processes on startup
 	if err := executor.cleanOrphanedProcesses(); err != nil {
 		debug.Warning("Failed to clean orphaned processes on startup: %v", err)
 	}
-	
+
 	return executor
 }
 
@@ -282,7 +302,7 @@ func (e *HashcatExecutor) checkAndKillExistingHashcat() error {
 		// Clean up the PID file
 		os.Remove(hashcatPIDFile)
 	}
-	
+
 	// Also check using pgrep for any hashcat processes
 	cmd := exec.Command("pgrep", "-f", "hashcat")
 	output, _ := cmd.Output()
@@ -299,7 +319,7 @@ func (e *HashcatExecutor) checkAndKillExistingHashcat() error {
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -328,7 +348,7 @@ func (e *HashcatExecutor) isProcessRunning(pid int) bool {
 	if err != nil {
 		return false
 	}
-	
+
 	// On Unix, FindProcess always succeeds, so we need to send signal 0 to check
 	err = process.Signal(syscall.Signal(0))
 	return err == nil
@@ -340,18 +360,18 @@ func (e *HashcatExecutor) killProcess(pid int) error {
 	if err != nil {
 		return err
 	}
-	
+
 	// Try graceful termination first
 	if err := process.Signal(syscall.SIGTERM); err == nil {
 		// Wait a bit for graceful shutdown
 		time.Sleep(2 * time.Second)
-		
+
 		// Check if still running
 		if !e.isProcessRunning(pid) {
 			return nil
 		}
 	}
-	
+
 	// Force kill if still running
 	return process.Kill()
 }
@@ -455,7 +475,7 @@ func (e *HashcatExecutor) executeTaskInternal(ctx context.Context, assignment *J
 	if _, exists := e.activeProcesses[assignment.TaskID]; exists {
 		return nil, fmt.Errorf("task %s is already running", assignment.TaskID)
 	}
-	
+
 	// Don't kill existing processes - we'll let hashcat gracefully shut down
 	// and retry if needed
 
@@ -478,21 +498,21 @@ func (e *HashcatExecutor) executeTaskInternal(ctx context.Context, assignment *J
 
 	// Set command context - no specific directory needed
 	command.Env = os.Environ()
-	
+
 	// Set up stdin pipe for sending commands to hashcat
 	stdinPipe, err := command.StdinPipe()
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("failed to create stdin pipe: %w", err)
 	}
-	
+
 	// Set up stdout pipe for capturing output
 	stdoutPipe, err := command.StdoutPipe()
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("failed to create stdout pipe: %w", err)
 	}
-	
+
 	// Set up stderr pipe for error messages
 	stderrPipe, err := command.StderrPipe()
 	if err != nil {
@@ -525,10 +545,10 @@ func (e *HashcatExecutor) executeTaskInternal(ctx context.Context, assignment *J
 		StartTime:         time.Now(),
 		KeyspaceRatio:     keyspaceRatio, // For reverse conversion of restore_point
 		HashlistContent:   hashlistContent,
-		HashlistMap:       hashlistMap, // O(1) lookup map for crack parsing
-		OutfilePath:       outputFile, // Set outfile path for monitoring
+		HashlistMap:       hashlistMap,           // O(1) lookup map for crack parsing
+		OutfilePath:       outputFile,            // Set outfile path for monitoring
 		OutfileSentHashes: make(map[string]bool), // Initialize deduplication map
-		OutfileOffset:     0, // Start reading from beginning
+		OutfileOffset:     0,                     // Start reading from beginning
 	}
 
 	// Store process
@@ -557,7 +577,7 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 	debug.Info("Data directory: %s", e.dataDirectory)
 	debug.Info("Binary path from assignment: %s", assignment.BinaryPath)
 	debug.Info("Hashlist path from assignment: %s", assignment.HashlistPath)
-	
+
 	// Since we're running distributed with --potfile-disable and capturing output from stdout,
 	// we don't need to create any work files. Just return empty paths.
 	statusFile := ""
@@ -566,16 +586,16 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 
 	// Base arguments
 	args := []string{
-		"-m", strconv.Itoa(assignment.HashType),     // Hash type
+		"-m", strconv.Itoa(assignment.HashType), // Hash type
 		"-a", strconv.Itoa(int(assignment.AttackMode)), // Attack mode
-		"--status",                                   // Enable status output
-		"--status-json",                              // Output status in JSON format
+		"--status",                                                // Enable status output
+		"--status-json",                                           // Output status in JSON format
 		"--status-timer", strconv.Itoa(assignment.ReportInterval), // Status update interval
-		"--quiet",                                    // Reduce verbose output
-		"--potfile-disable",                          // Disable potfile
-		"--restore-disable",                          // Disable restore files (we handle restore via keyspace)
+		"--quiet",           // Reduce verbose output
+		"--potfile-disable", // Disable potfile
+		"--restore-disable", // Disable restore files (we handle restore via keyspace)
 	}
-	
+
 	// Add device flags if specified
 	// Only add -d flag if some devices are disabled (i.e., we have a specific list)
 	if len(assignment.EnabledDevices) > 0 {
@@ -589,7 +609,7 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 		args = append(args, "-d", deviceFlags)
 	}
 	// If no devices specified, hashcat will use all available devices
-	
+
 	// Merge job-level args with agent-level args (agent wins on conflicts)
 	agentArgs := assignment.ExtraParameters
 	if agentArgs == "" {
@@ -635,7 +655,7 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 		outfilePath := filepath.Join(outfileDir, fmt.Sprintf("%s.txt", assignment.TaskID))
 		args = append(args, "--outfile", outfilePath)
 		args = append(args, "--outfile-format", "1,2") // Format 1,2: hash:plain (colon-separated)
-		outputFile = outfilePath // Store for return value
+		outputFile = outfilePath                       // Store for return value
 		debug.Info("Outfile configured: %s", outfilePath)
 	}
 
@@ -820,13 +840,13 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 	if err != nil {
 		return nil, "", "", "", 0, fmt.Errorf("failed to resolve hashcat binary: %w", err)
 	}
-	
+
 	debug.Info("Using hashcat binary: %s", hashcatBinary)
 	debug.Info("Full hashcat command: %s %s", hashcatBinary, strings.Join(args, " "))
-	
+
 	// Create command
 	cmd := exec.Command(hashcatBinary, args...)
-	
+
 	// Set working directory to the hashcat binary directory so it can find relative dependencies like OpenCL
 	cmd.Dir = filepath.Dir(hashcatBinary)
 	debug.Info("Setting working directory to: %s", cmd.Dir)
@@ -991,7 +1011,7 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 
 	// Start output readers before starting the process
 	outputDone := make(chan bool, 2)
-	
+
 	// Read stdout for JSON status and cracked hashes
 	go func() {
 		defer func() {
@@ -1005,10 +1025,10 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 		scanner := bufio.NewScanner(stdoutPipe)
 		// Increase buffer size to 1MB to handle large JSON status outputs
 		scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
-		
+
 		debug.Info("[Hashcat stdout reader] Starting for task %s", process.TaskID)
 		lineCount := 0
-		
+
 		for scanner.Scan() {
 			line := scanner.Text()
 			lineCount++
@@ -1061,7 +1081,7 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 			if e.outputCallback != nil {
 				e.outputCallback(process.TaskID, originalLine, false)
 			}
-			
+
 			// Check if this is a JSON status line
 			if strings.HasPrefix(line, "{") && strings.Contains(line, "\"status\"") {
 				// This is a JSON status update
@@ -1069,7 +1089,7 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 				fixedLine := line
 				re := regexp.MustCompile(`"device_id":\s*0+(\d+)`)
 				fixedLine = re.ReplaceAllString(fixedLine, `"device_id": $1`)
-				
+
 				var status map[string]interface{}
 				if err := json.Unmarshal([]byte(fixedLine), &status); err == nil {
 					// Check if this is a final status update and detect if all hashes are cracked
@@ -1096,10 +1116,18 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 						var keyspaceProcessed int64
 						if restorePoint, ok := status["restore_point"].(float64); ok {
 							keyspaceProcessed = int64(restorePoint)
-							// Convert restore_point from agent coordinates back to server coordinates
-							// when -O changes the kernel split (ratio > 1). Without this, the backend
-							// would see agent-space values and prematurely complete the task.
-							if process.KeyspaceRatio > 1.0 {
+							// Convert restore_point from agent base coords back to server
+							// base coords whenever the two differ. The previous guard
+							// `ratio > 1.0` only handled the -O kernel-split case (server
+							// space larger than agent's); it missed ratio < 1.0 which
+							// happened on increment-mode jobs pre-Step-11h (server sent
+							// the JOB's combined base ~245M while agent's hashcat reported
+							// per-layer base ~81M → ratio 0.33). Conversion math
+							// `hashcat_value / ratio` is correct in both directions.
+							// Step 11h normalizes ratio to 1.0 for increment dispatches,
+							// but this conversion stays robust against any future
+							// ratio != 1.0 case.
+							if process.KeyspaceRatio > 0 && process.KeyspaceRatio != 1.0 {
 								keyspaceProcessed = int64(float64(keyspaceProcessed) / process.KeyspaceRatio)
 							}
 						}
@@ -1107,15 +1135,38 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 						// Extract progress values for percentage calculation
 						var currentProgress, totalProgress int64
 						if current, ok := progressArr[0].(float64); ok {
-							currentProgress = int64(current)  // Current position (words * rules processed)
+							currentProgress = int64(current) // Current position (words * rules processed)
 						}
 						if total, ok := progressArr[1].(float64); ok {
-							totalProgress = int64(total)  // Total to process (total words * total rules) - this is progress[1]
+							totalProgress = int64(total) // Total to process (total words * total rules) - this is progress[1]
 						}
 
-						// Calculate progress percentage
+						// Step 11s: capture baseline on first non-zero progress reading.
+						// For chunks with --skip > 0, hashcat's progress[0] starts at
+						// the skip-equivalent position (not 0). The terminal progress
+						// bar should display chunk-local % (0 → 100 over this chunk's
+						// run), not the absolute hashcat ratio (which would start at
+						// e.g. 51% baseline for a chunk dispatched at job midpoint).
+						if !process.InitialProgressCaptured && currentProgress > 0 {
+							process.InitialEffectiveProgress = currentProgress
+							process.InitialProgressCaptured = true
+						}
+
+						// Calculate chunk-local progress percentage by subtracting
+						// the baseline from both numerator and denominator.
 						var progressPercent float64
-						if totalProgress > 0 {
+						if totalProgress > process.InitialEffectiveProgress {
+							progressPercent = (float64(currentProgress-process.InitialEffectiveProgress) /
+								float64(totalProgress-process.InitialEffectiveProgress)) * 100
+							if progressPercent < 0 {
+								progressPercent = 0
+							}
+							if progressPercent > 100 {
+								progressPercent = 100
+							}
+						} else if totalProgress > 0 {
+							// Fallback when baseline wasn't captured (e.g., first status
+							// arrived before any work was done with currentProgress=0).
 							progressPercent = (float64(currentProgress) / float64(totalProgress)) * 100
 						}
 
@@ -1134,19 +1185,19 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 
 						progress := &JobProgress{
 							TaskID:            process.TaskID,
-							KeyspaceProcessed: keyspaceProcessed,  // Restore point (word position)
-							EffectiveProgress: currentProgress,     // Actual effective progress
-							ProgressPercent:   progressPercent,     // Actual progress percentage
-							IsFirstUpdate:     isFirstUpdate,       // Flag indicating first update
-							AllHashesCracked:  allHashesCracked,    // Flag when status code 6 detected
-							CrackedCount:      crackedCount,        // Number of hashes cracked (from recovered_hashes)
+							KeyspaceProcessed: keyspaceProcessed, // Restore point (word position)
+							EffectiveProgress: currentProgress,   // Actual effective progress
+							ProgressPercent:   progressPercent,   // Actual progress percentage
+							IsFirstUpdate:     isFirstUpdate,     // Flag indicating first update
+							AllHashesCracked:  allHashesCracked,  // Flag when status code 6 detected
+							CrackedCount:      crackedCount,      // Number of hashes cracked (from recovered_hashes)
 						}
 
 						// Always include total effective keyspace from hashcat
 						if totalProgress > 0 {
-							progress.TotalEffectiveKeyspace = &totalProgress  // Hashcat's progress[1]
+							progress.TotalEffectiveKeyspace = &totalProgress // Hashcat's progress[1]
 						}
-						
+
 						// Extract metrics from all devices
 						var totalSpeed int64
 						var deviceMetrics []DeviceMetric
@@ -1154,23 +1205,23 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 							for i, dev := range devices {
 								if device, ok := dev.(map[string]interface{}); ok {
 									metric := DeviceMetric{}
-									
+
 									// Extract device ID
 									if deviceID, ok := device["device_id"].(float64); ok {
 										metric.DeviceID = int(deviceID)
 									}
-									
+
 									// Extract device name
 									if deviceName, ok := device["device_name"].(string); ok {
 										metric.DeviceName = deviceName
 									}
-									
+
 									// Extract speed
 									if speed, ok := device["speed"].(float64); ok {
 										metric.Speed = int64(speed)
 										totalSpeed += int64(speed)
 									}
-									
+
 									// Extract temperature
 									if temp, ok := device["temp"].(float64); ok {
 										metric.Temp = temp
@@ -1179,7 +1230,7 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 											progress.Temperature = &temp
 										}
 									}
-									
+
 									// Extract utilization
 									if util, ok := device["util"].(float64); ok {
 										metric.Util = util
@@ -1188,19 +1239,19 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 											progress.Utilization = &util
 										}
 									}
-									
+
 									// Extract fan speed
 									if fanspeed, ok := device["fanspeed"].(float64); ok {
 										metric.FanSpeed = fanspeed
 									}
-									
+
 									deviceMetrics = append(deviceMetrics, metric)
 								}
 							}
 						}
 						progress.HashRate = totalSpeed
 						progress.DeviceMetrics = deviceMetrics
-						
+
 						// Calculate time remaining based on actual progress
 						if totalProgress > 0 && currentProgress < totalProgress && progress.HashRate > 0 {
 							remaining := totalProgress - currentProgress
@@ -1209,7 +1260,7 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 								progress.TimeRemaining = &timeRemaining
 							}
 						}
-						
+
 						// When hashcat reports status code 6 (all hashes cracked),
 						// mark task as completed immediately
 						status := "running"
@@ -1230,7 +1281,7 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 				debug.Debug("[Hashcat stdout] %s", line)
 			}
 		}
-		
+
 		// Check for scanner errors
 		if err := scanner.Err(); err != nil {
 			debug.Error("[Hashcat stdout reader] Scanner error after %d lines: %v", lineCount, err)
@@ -1239,7 +1290,7 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 			debug.Info("[Hashcat stdout reader] Finished reading %d lines without error", lineCount)
 		}
 	}()
-	
+
 	// Read stderr for errors and warnings
 	go func() {
 		defer func() {
@@ -1253,22 +1304,36 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 		scanner := bufio.NewScanner(stderrPipe)
 		// Increase buffer size to 1MB
 		scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
-		
+
 		debug.Info("[Hashcat stderr reader] Starting for task %s", process.TaskID)
 		lineCount := 0
-		
+
 		alreadyRunningDetected := false
 		var alreadyRunningPID string
 		for scanner.Scan() {
 			line := scanner.Text()
 			lineCount++
 			debug.Debug("[Hashcat stderr] %s", line)
-			
+
+			// Detect "no usable hashes" patterns so the backend can
+			// fast-fail the job instead of cycling through the per-tuple
+			// retry cap. Same patterns the benchmark path watches. When
+			// any of these fire, the task's exit-code handler tags the
+			// error message with BENCHMARK_NO_HASHES_LOADED, which the
+			// backend's AttributeBenchmarkFailure recognizes as the
+			// fast-fail sentinel.
+			if strings.Contains(line, "No hashes loaded") ||
+				strings.Contains(line, "Hash parsing error") ||
+				strings.Contains(line, "Token length exception") ||
+				strings.Contains(line, "Separator unmatched") {
+				process.HashcatRejectedHashlist.Store(true)
+			}
+
 			// Check for "Already an instance" error
 			// Example: "Already an instance C:\Users\Aaron Sullivan\Desktop\KrakenHashes\data\binaries\2\hashcat.exe running on pid 50444"
 			if strings.Contains(line, "Already an instance") && strings.Contains(line, "running on pid") {
 				alreadyRunningDetected = true
-				
+
 				// Try to extract the PID
 				pidMatch := regexp.MustCompile(`running on pid (\d+)`).FindStringSubmatch(line)
 				if len(pidMatch) > 1 {
@@ -1278,13 +1343,13 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 					debug.Error("Detected 'Already an instance' error for task %s", process.TaskID)
 				}
 			}
-			
+
 			// Send error output via websocket if callback is set
 			if e.outputCallback != nil {
 				e.outputCallback(process.TaskID, line, true)
 			}
 		}
-		
+
 		// If we detected the "already running" error, store it and try to
 		// reconcile. reconcileOrphanHashcat distinguishes a self-collision
 		// (legitimate race against one of our own running tasks) from an
@@ -1303,7 +1368,7 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 				}
 			}
 		}
-		
+
 		// Check for scanner errors
 		if err := scanner.Err(); err != nil {
 			debug.Error("[Hashcat stderr reader] Scanner error after %d lines: %v", lineCount, err)
@@ -1312,7 +1377,6 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 		}
 	}()
 
-
 	// Mark as running
 	process.IsRunning = true
 
@@ -1320,14 +1384,14 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 	debug.Info("Starting hashcat process for task %s", process.TaskID)
 	debug.Info("Command: %s", process.Cmd.Path)
 	debug.Info("Args: %v", process.Cmd.Args)
-	
+
 	err := process.Cmd.Start()
 	if err != nil {
 		debug.Error("Failed to start hashcat process: %v", err)
 		e.sendErrorProgress(process, fmt.Sprintf("Failed to start hashcat: %v", err))
 		return
 	}
-	
+
 	debug.Info("Hashcat process started successfully with PID: %d", process.Cmd.Process.Pid)
 
 	// Start outfile monitoring goroutine with completion tracking
@@ -1361,20 +1425,40 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 	debug.Info("Entering main select loop for task %s", process.TaskID)
 	select {
 	case <-ctx.Done():
-		// Context cancelled, kill the process
+		// Context cancelled (operator Ctrl+C, StopJob, agent shutdown).
+		// Kill hashcat and send a final status that PRESERVES the
+		// last-known progress. The previous code sent an empty
+		// JobProgress (all zeros), which the backend then wrote on
+		// top of the real progress, displaying 0.00% / N/A speed for
+		// a task that was actually 88% done.
+		//
+		// New behavior: status="stopped" (distinct from "completed"
+		// or "failed") carries the last KeyspaceProcessed and
+		// EffectiveProgress so the backend can truncate the
+		// task/interval at that point and the remaining range gets
+		// re-dispatched, with no loss of completed work.
 		debug.Info("Context cancelled for task %s, killing process", process.TaskID)
 		if process.Cmd.Process != nil {
 			process.Cmd.Process.Kill()
 		}
-		e.sendProgressUpdate(process, &JobProgress{
+		stoppedProgress := &JobProgress{
 			TaskID: process.TaskID,
-		}, "cancelled")
+		}
+		if process.LastProgress != nil {
+			stoppedProgress.KeyspaceProcessed = process.LastProgress.KeyspaceProcessed
+			stoppedProgress.EffectiveProgress = process.LastProgress.EffectiveProgress
+			stoppedProgress.ProgressPercent = process.LastProgress.ProgressPercent
+			stoppedProgress.HashRate = process.LastProgress.HashRate
+			stoppedProgress.TotalEffectiveKeyspace = process.LastProgress.TotalEffectiveKeyspace
+			stoppedProgress.CrackedCount = process.LastProgress.CrackedCount
+		}
+		e.sendProgressUpdate(process, stoppedProgress, "stopped")
 
 	case err := <-done:
 		// Process completed
 		debug.Info("Process completed for task %s, error: %v", process.TaskID, err)
 		process.IsRunning = false
-		
+
 		// Wait for output goroutines to complete with increased timeout
 		debug.Info("Waiting for output goroutines to complete for task %s", process.TaskID)
 		for i := 0; i < 2; i++ {
@@ -1404,11 +1488,39 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 		}
 
 		if err != nil {
-			// Check if it's just a non-zero exit code (hashcat uses different exit codes)
-			if exitErr, ok := err.(*exec.ExitError); ok {
+			// Step 11t: detect signal-killed hashcat (SIGINT from Ctrl+C
+			// propagating through the process group, SIGTERM/SIGKILL from
+			// graceful kill) and report as "stopped" instead of "failed".
+			// Without this, the user's Ctrl+C produces "Hashcat failed
+			// with exit code -1" — the work hashcat actually did is lost
+			// because the failed-status path doesn't truncate-and-complete.
+			//
+			// This check fires BEFORE the exit-code switch because Go's
+			// exec.ExitError.ExitCode() returns -1 for signal kills, which
+			// would otherwise fall into the "unknown error" branch below.
+			// The cached LastProgress is valid; the backend's status="stopped"
+			// handler (Step 10c-2) calls IngestProgressV2 + RecoverTaskByID
+			// to truncate the interval at the last known progress.
+			errStr := err.Error()
+			if strings.Contains(errStr, "signal: interrupt") ||
+				strings.Contains(errStr, "signal: terminated") ||
+				strings.Contains(errStr, "signal: killed") {
+				debug.Info("Hashcat process killed by signal (%s) for task %s — treating as stopped, preserving progress", errStr, process.TaskID)
+				stoppedProgress := &JobProgress{TaskID: process.TaskID}
+				if process.LastProgress != nil {
+					stoppedProgress.KeyspaceProcessed = process.LastProgress.KeyspaceProcessed
+					stoppedProgress.EffectiveProgress = process.LastProgress.EffectiveProgress
+					stoppedProgress.ProgressPercent = process.LastProgress.ProgressPercent
+					stoppedProgress.HashRate = process.LastProgress.HashRate
+					stoppedProgress.TotalEffectiveKeyspace = process.LastProgress.TotalEffectiveKeyspace
+					stoppedProgress.CrackedCount = process.LastProgress.CrackedCount
+				}
+				e.sendProgressUpdate(process, stoppedProgress, "stopped")
+				// Skip the exit-code switch — signal-kill is fully handled here.
+			} else if exitErr, ok := err.(*exec.ExitError); ok {
 				exitCode := exitErr.ExitCode()
 				debug.Info("Hashcat exited with code: %d for task %s", exitCode, process.TaskID)
-				
+
 				// Hashcat exit codes:
 				// 0 = OK/cracked
 				// 1 = exhausted (normal completion, no more work)
@@ -1419,7 +1531,7 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 				// -1 = error
 				// -2 = gpu-watchdog alarm
 				// ... other negative codes are backend errors
-				
+
 				switch exitCode {
 				case 0:
 					// OK/cracked - normal completion
@@ -1447,7 +1559,7 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 						TotalEffectiveKeyspace: totalEffectiveKeyspace, // Always include for backend adjustment
 					}
 					e.sendProgressUpdate(process, finalProgress, "completed")
-					
+
 				case 1:
 					// Exhausted - normal completion, keyspace fully processed
 					debug.Info("Hashcat exhausted keyspace for task %s", process.TaskID)
@@ -1466,7 +1578,7 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 						TaskID:                 process.TaskID,
 						KeyspaceProcessed:      process.Assignment.KeyspaceEnd - process.Assignment.KeyspaceStart,
 						EffectiveProgress:      effectiveProgress,
-						ProgressPercent:        100.0, // Keyspace exhausted = 100% complete
+						ProgressPercent:        100.0,                  // Keyspace exhausted = 100% complete
 						TotalEffectiveKeyspace: totalEffectiveKeyspace, // Always include for backend adjustment
 					}
 					e.sendProgressUpdate(process, finalProgress, "completed")
@@ -1475,26 +1587,36 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 					// Various abort conditions
 					debug.Warning("Hashcat was aborted (exit code %d) for task %s", exitCode, process.TaskID)
 					e.sendErrorProgress(process, fmt.Sprintf("Hashcat aborted with exit code %d", exitCode))
-					
+
 				case -2:
 					// GPU watchdog alarm
 					debug.Error("GPU watchdog alarm triggered for task %s", process.TaskID)
 					e.sendErrorProgress(process, "GPU watchdog alarm - possible GPU hang or temperature issue")
-					
+
 				case 255, -1:
 					// Exit code 255 or -1 (4294967295 as unsigned) often means another instance is running
 					process.mutex.Lock()
 					alreadyRunning := process.AlreadyRunningError
 					process.mutex.Unlock()
-					
+
 					if alreadyRunning {
 						debug.Error("Hashcat exit code %d for task %s - confirmed another instance is running", exitCode, process.TaskID)
 						e.sendErrorProgress(process, "Hashcat failed to start - another instance is already running")
+					} else if process.HashcatRejectedHashlist.Load() {
+						// Hashcat parsed the hashlist and rejected every line — wrong
+						// hash type for these hashes, or the file is corrupt. Tag the
+						// error with the BENCHMARK_NO_HASHES_LOADED sentinel so the
+						// backend's AttributeBenchmarkFailure fast-fails the job
+						// (no point retrying — every agent will hit the same
+						// rejection).
+						msg := fmt.Sprintf("BENCHMARK_NO_HASHES_LOADED: hashcat rejected all hashes (exit %d) — verify the hashlist contains valid hashes for hash type %d", exitCode, process.Assignment.HashType)
+						debug.Error("[Task %s] %s", process.TaskID, msg)
+						e.sendErrorProgress(process, msg)
 					} else {
 						debug.Error("Hashcat exit code %d for task %s - unknown error", exitCode, process.TaskID)
 						e.sendErrorProgress(process, fmt.Sprintf("Hashcat failed with exit code %d", exitCode))
 					}
-					
+
 				default:
 					// Other errors
 					if exitCode < 0 {
@@ -1542,7 +1664,7 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 func (e *HashcatExecutor) sendProgressUpdate(process *HashcatProcess, progress *JobProgress, status string) {
 	// Set the status in the progress update
 	progress.Status = status
-	
+
 	select {
 	case process.ProgressChannel <- progress:
 		// Progress sent successfully
@@ -1719,7 +1841,7 @@ func (e *HashcatExecutor) GetActiveTaskIDs() []string {
 // ForceCleanup forces cleanup of all hashcat processes
 func (e *HashcatExecutor) ForceCleanup() error {
 	debug.Info("Forcing cleanup of all hashcat processes")
-	
+
 	// First, stop all tracked processes
 	e.mutex.Lock()
 	for taskID, process := range e.activeProcesses {
@@ -1729,16 +1851,16 @@ func (e *HashcatExecutor) ForceCleanup() error {
 	// Clear the map
 	e.activeProcesses = make(map[string]*HashcatProcess)
 	e.mutex.Unlock()
-	
+
 	// Then kill any remaining hashcat processes
 	if err := e.checkAndKillExistingHashcat(); err != nil {
 		debug.Warning("Error during force cleanup: %v", err)
 		return err
 	}
-	
+
 	// Clean up PID file
 	os.Remove(hashcatPIDFile)
-	
+
 	debug.Info("Force cleanup completed")
 	return nil
 }
@@ -1807,16 +1929,16 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 	if err := e.waitForActiveProcesses(ctx); err != nil {
 		return 0, nil, 0, 0, fmt.Errorf("failed waiting for active processes: %w", err)
 	}
-	
+
 	// Build command similar to real job but without skip/limit and without --remove
 	cmd, _, _, _, _, err := e.buildHashcatCommandWithOptions(assignment, true)
 	if err != nil {
 		return 0, nil, 0, 0, fmt.Errorf("failed to build command: %w", err)
 	}
-	
+
 	// Get the original args
 	originalArgs := cmd.Args[1:] // Skip the command itself
-	
+
 	// Remove --skip and --limit arguments for speed test
 	filteredArgs := []string{}
 	skipNext := false
@@ -1838,14 +1960,14 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 	filteredArgs = append(filteredArgs, "--outfile", benchmarkOutfile)
 
 	debug.Info("Starting speed test with command: %s %s", cmd.Path, strings.Join(filteredArgs, " "))
-	
+
 	// Create new command with filtered args
 	cmd = exec.CommandContext(ctx, cmd.Path, filteredArgs...)
-	
+
 	// Set working directory to the hashcat binary directory so it can find relative dependencies like OpenCL
 	cmd.Dir = filepath.Dir(cmd.Path)
 	debug.Info("Setting speed test working directory to: %s", cmd.Dir)
-	
+
 	// Set up pipes for stdout/stderr
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -1861,7 +1983,7 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 	if err := cmd.Start(); err != nil {
 		return 0, nil, 0, 0, fmt.Errorf("failed to start hashcat: %w", err)
 	}
-	
+
 	// Channel to collect status updates
 	statusChan := make(chan string, 10)
 	stopReading := make(chan bool)
@@ -1870,6 +1992,13 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 	// can safely tear down the process without leaking goroutines.
 	var readersWG sync.WaitGroup
 	readersWG.Add(2)
+
+	// hashcatRejectedHashlist flips true when either reader sees one of the
+	// known "no usable hashes in this file" stderr/stdout patterns. The
+	// timeout path consults it to return a typed ErrBenchmarkNoHashesLoaded
+	// instead of the generic ErrBenchmarkTimeout, which lets the backend
+	// fast-fail the job instead of cycling through the per-tuple retry cap.
+	var hashcatRejectedHashlist atomic.Bool
 
 	// Read stdout in goroutine. The scanner unblocks when cleanup closes stdout
 	// (defer below), which makes Scan() return false; sends to statusChan are
@@ -1883,6 +2012,16 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 				continue
 			}
 			debug.Debug("[Speed test stdout raw] %s", line)
+			// Hashcat reports per-line parsing failures on stdout
+			// ("Hash parsing error in hashfile: ...") followed by a
+			// summary ("* Token length exception: N/M hashes"). Any
+			// of these means the hashlist contents are wrong for
+			// the chosen hash mode; flag the run for fast-fail.
+			if strings.Contains(line, "Hash parsing error") ||
+				strings.Contains(line, "Token length exception") ||
+				strings.Contains(line, "Separator unmatched") {
+				hashcatRejectedHashlist.Store(true)
+			}
 			var jsonPart string
 			if strings.Contains(line, ":") && strings.Contains(line, "{") && strings.Contains(line, "\"status\"") {
 				jsonStart := strings.Index(line, "{")
@@ -1909,6 +2048,13 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 		for scanner.Scan() {
 			line := scanner.Text()
 			debug.Debug("[Hashcat stderr] %s", line)
+			// "No hashes loaded." is hashcat's final verdict when
+			// every input line was rejected. Same signal as the
+			// per-line errors on stdout; both flip the flag so the
+			// timeout path returns the typed sentinel.
+			if strings.Contains(line, "No hashes loaded") {
+				hashcatRejectedHashlist.Store(true)
+			}
 		}
 	}()
 
@@ -1965,7 +2111,7 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 		readersWG.Wait()
 	}
 	defer cleanup()
-	
+
 	// Stop collecting after testDuration seconds, but never longer than the
 	// context deadline (the agent caller wraps us in a context with a slightly
 	// larger TimeoutDuration for belt-and-suspenders).
@@ -1976,7 +2122,7 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 		}
 	}
 	timer := time.NewTimer(collectFor)
-	
+
 	// Collect status updates
 	var statusUpdates []string
 	var lastValidSpeed int64
@@ -1999,9 +2145,9 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 				} else if err != nil {
 					debug.Warning("[Speed test] Failed to parse update %d: %v", len(statusUpdates)+1, err)
 				}
-				
+
 				statusUpdates = append(statusUpdates, status)
-				
+
 				// Check if hashcat has completed.
 				// Hashcat status codes (from upstream inc_types.h): 0=init, 1=autotune,
 				// 2=selftest, 3=running, 4=paused, 5=exhausted, 6=cracked, 7=aborted,
@@ -2020,7 +2166,7 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 						return
 					}
 				}
-				
+
 				// We want at least minStatusUpdates updates for stability.
 				if len(statusUpdates) >= minStatusUpdates {
 					debug.Info("[Speed test] Collected %d updates (min=%d), stopping collection", len(statusUpdates), minStatusUpdates)
@@ -2035,7 +2181,7 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 			}
 		}
 	}()
-	
+
 	// Wait for status collection to complete, then run cleanup synchronously
 	// so the process is reaped before we evaluate the result. The deferred
 	// cleanup remains as a safety net for error paths.
@@ -2051,6 +2197,15 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 	if lastValidSpeed == 0 {
 		debug.Warning("[Speed test] No valid speed parsed during collection, checking stored updates")
 		if len(statusUpdates) == 0 {
+			// If stderr/stdout flagged that hashcat rejected the
+			// hashlist content, surface the actionable failure mode
+			// instead of the generic timeout. The backend uses this
+			// code to fail the job immediately rather than cycling
+			// through the per-tuple retry cap — retries are pointless
+			// when the hashlist itself is wrong for the chosen mode.
+			if hashcatRejectedHashlist.Load() {
+				return 0, nil, 0, 0, fmt.Errorf("%w: hashcat rejected all hashes in the hashlist for hash type %d", ErrBenchmarkNoHashesLoaded, assignment.HashType)
+			}
 			// No JSON ever arrived: hashcat is still in autotune/init/decompress
 			// when the timer fired. Backend reads this code as
 			// BENCHMARK_TIMEOUT and asks the admin to bump the timeout.
@@ -2141,18 +2296,17 @@ func (e *HashcatExecutor) parseSpeedFromJSON(jsonStr string) (int64, []DeviceSpe
 	return totalSpeed, deviceSpeeds, totalEffectiveKeyspace, nil
 }
 
-
 // resolveHashcatBinary resolves the hashcat binary path from the assignment
 func (e *HashcatExecutor) resolveHashcatBinary(binaryPath string) (string, error) {
 	debug.Info("Resolving hashcat binary from path: %s", binaryPath)
-	
+
 	// The binaryPath might come in different formats:
 	// - "binaries/hashcat_2" (old format)
 	// - "binaries/8" (new format, just the ID)
 	// We need to resolve this to the actual executable
-	
+
 	var binaryDir string
-	
+
 	// Check if it's the old format
 	if strings.HasPrefix(binaryPath, "binaries/hashcat_") {
 		binaryID := strings.TrimPrefix(binaryPath, "binaries/hashcat_")
@@ -2174,42 +2328,42 @@ func (e *HashcatExecutor) resolveHashcatBinary(binaryPath string) (string, error
 		}
 		return "", fmt.Errorf("invalid binary path format: %s", binaryPath)
 	}
-	
+
 	if binaryDir != "" {
-		
+
 		// Look for hashcat executable in the binary directory
 		// The binary should have been extracted from the .7z archive
 		var possiblePaths []string
-		
+
 		// Prioritize OS-specific binaries
 		switch runtime.GOOS {
 		case "windows":
 			possiblePaths = []string{
-				filepath.Join(binaryDir, "hashcat.exe"),  // Windows primary
-				filepath.Join(binaryDir, "hashcat"),      // Windows fallback
+				filepath.Join(binaryDir, "hashcat.exe"), // Windows primary
+				filepath.Join(binaryDir, "hashcat"),     // Windows fallback
 			}
 		case "linux":
 			possiblePaths = []string{
-				filepath.Join(binaryDir, "hashcat.bin"),  // Linux primary
-				filepath.Join(binaryDir, "hashcat"),      // Linux fallback
+				filepath.Join(binaryDir, "hashcat.bin"), // Linux primary
+				filepath.Join(binaryDir, "hashcat"),     // Linux fallback
 			}
 		case "darwin":
 			possiblePaths = []string{
-				filepath.Join(binaryDir, "hashcat"),      // macOS primary
-				filepath.Join(binaryDir, "hashcat.bin"),  // macOS fallback
+				filepath.Join(binaryDir, "hashcat"),     // macOS primary
+				filepath.Join(binaryDir, "hashcat.bin"), // macOS fallback
 			}
 		default:
 			possiblePaths = []string{
-				filepath.Join(binaryDir, "hashcat"),      // Default Unix-like
-				filepath.Join(binaryDir, "hashcat.bin"),  // Alternative
+				filepath.Join(binaryDir, "hashcat"),     // Default Unix-like
+				filepath.Join(binaryDir, "hashcat.bin"), // Alternative
 			}
 		}
-		
+
 		for _, path := range possiblePaths {
 			if fileInfo, err := os.Stat(path); err == nil {
 				// Check if it's the right type of executable for this OS
 				isExecutable := false
-				
+
 				if runtime.GOOS == "windows" {
 					// On Windows, .exe files are executable
 					isExecutable = strings.HasSuffix(path, ".exe") || fileInfo.Mode()&0111 != 0
@@ -2217,34 +2371,34 @@ func (e *HashcatExecutor) resolveHashcatBinary(binaryPath string) (string, error
 					// On Unix-like systems, check execute permission and skip .exe files
 					isExecutable = !strings.HasSuffix(path, ".exe") && fileInfo.Mode()&0111 != 0
 				}
-				
+
 				if isExecutable {
 					debug.Info("Found hashcat binary for %s at: %s", runtime.GOOS, path)
 					return path, nil
 				}
 			}
 		}
-		
+
 		// Check if the .7z archive exists but hasn't been extracted
 		archivePath := filepath.Join(binaryDir, "hashcat-6.2.6+1017.7z")
 		if _, err := os.Stat(archivePath); err == nil {
 			return "", fmt.Errorf("hashcat archive found at %s but not extracted. Please ensure file sync extracts binaries", archivePath)
 		}
-		
+
 		return "", fmt.Errorf("hashcat binary not found in directory %s. Checked paths: %v", binaryDir, possiblePaths)
 	}
-	
+
 	// If it's a direct path, check if it exists
 	if _, err := os.Stat(binaryPath); err == nil {
 		return binaryPath, nil
 	}
-	
+
 	// Try in data directory
 	fullPath := filepath.Join(e.dataDirectory, binaryPath)
 	if _, err := os.Stat(fullPath); err == nil {
 		return fullPath, nil
 	}
-	
+
 	return "", fmt.Errorf("hashcat binary not found: %s", binaryPath)
 }
 
@@ -2293,11 +2447,11 @@ func (e *HashcatExecutor) parseWPAHash(line string, hashlistContent []string) *C
 	}
 
 	// Extract components from outfile
-	pmk := strings.ToLower(parts[0])          // PMK hash (e.g., 4d4fe7aac3a2cecab195321ceb99a7d0)
-	macAP := strings.ToLower(parts[1])        // MAC AP (e.g., fc690c158264)
-	macSTA := strings.ToLower(parts[2])       // MAC STA (e.g., f4747f87f9f4)
+	pmk := strings.ToLower(parts[0])    // PMK hash (e.g., 4d4fe7aac3a2cecab195321ceb99a7d0)
+	macAP := strings.ToLower(parts[1])  // MAC AP (e.g., fc690c158264)
+	macSTA := strings.ToLower(parts[2]) // MAC STA (e.g., f4747f87f9f4)
 	// parts[3] is ESSID (decoded from hex in original)
-	password := parts[len(parts)-1]           // Last part is always the password
+	password := parts[len(parts)-1] // Last part is always the password
 
 	debug.Debug("[WPA Parser] Parsed outfile - PMK: %s, MAC_AP: %s, MAC_STA: %s, Password: %s",
 		pmk, macAP, macSTA, password)
@@ -2309,12 +2463,12 @@ func (e *HashcatExecutor) parseWPAHash(line string, hashlistContent []string) *C
 		// WPA hash format: WPA*01*PMK*MAC_AP*MAC_STA*ESSID_HEX***
 		// Check if this hash contains the PMK and MAC addresses
 		if strings.Contains(knownHashLower, pmk) &&
-		   strings.Contains(knownHashLower, macAP) &&
-		   strings.Contains(knownHashLower, macSTA) {
+			strings.Contains(knownHashLower, macAP) &&
+			strings.Contains(knownHashLower, macSTA) {
 
 			debug.Info("[WPA Parser] Matched WPA hash via PMK+MAC matching")
 			return &CrackedHash{
-				Hash:     knownHash,  // Return original full format
+				Hash:     knownHash, // Return original full format
 				Plain:    password,
 				FullLine: line,
 			}
@@ -2363,15 +2517,15 @@ func (e *HashcatExecutor) parseCrackedHash(line string, hashlistContent []string
 	// First, try hash-type-specific parsers for known problematic types
 	// These need special parsing because output format differs from input
 	switch hashType {
-	case 22000, 22001:  // WPA-PBKDF2-PMKID+EAPOL, WPA-PMK-PMKID+EAPOL
+	case 22000, 22001: // WPA-PBKDF2-PMKID+EAPOL, WPA-PMK-PMKID+EAPOL
 		if cracked := e.parseWPAHash(line, hashlistContent); cracked != nil {
 			return cracked
 		}
-	case 2500:  // WPA-EAPOL-PBKDF2 (deprecated but may still be used)
+	case 2500: // WPA-EAPOL-PBKDF2 (deprecated but may still be used)
 		if cracked := e.parseWPAHash(line, hashlistContent); cracked != nil {
 			return cracked
 		}
-	case 5600:  // NetNTLMv2
+	case 5600: // NetNTLMv2
 		if cracked := e.parseNetNTLMv2Hash(line, hashlistContent); cracked != nil {
 			return cracked
 		}
@@ -2392,9 +2546,9 @@ func (e *HashcatExecutor) parseCrackedHash(line string, hashlistContent []string
 	// O(1) lookup in the pre-built map
 	if originalHash, exists := hashlistMap[hashPartLower]; exists {
 		return &CrackedHash{
-			Hash:     originalHash,  // Use original hash from hashlist (preserving case as stored in DB)
-			Plain:    password,      // Password with original case
-			FullLine: line,          // Keep the full line for reference
+			Hash:     originalHash, // Use original hash from hashlist (preserving case as stored in DB)
+			Plain:    password,     // Password with original case
+			FullLine: line,         // Keep the full line for reference
 		}
 	}
 

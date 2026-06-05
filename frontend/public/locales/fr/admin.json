@@ -1169,11 +1169,18 @@
     },
     "agentOverflow": {
       "title": "Allocation du dépassement d'Agents",
-      "tooltip": "Configure la manière dont les Agents au-delà des limites `max_agents` sont alloués lorsque plusieurs Jobs ont la même priorité",
-      "roundRobinMode": "Mode Round-Robin",
-      "fifoMode": "Mode FIFO",
-      "fifoDescription": "Quand plusieurs Jobs de même priorité dépassent leur limite `max_agents`, le Job le plus ancien (créé en premier) reçoit tous les Agents supplémentaires.",
-      "roundRobinDescription": "Les Agents supplémentaires sont répartis équitablement entre tous les Jobs de même priorité, un Agent à la fois."
+      "tooltip": "Configurez la distribution des Agents libres une fois que chaque Job de chaque priorité a atteint sa limite `max_agents`.",
+      "modeLabel": "Mode d'allocation du dépassement",
+      "priorityFifoMode": "Priorité - FIFO",
+      "priorityRoundRobinMode": "Priorité - Round Robin",
+      "enforceMaxAgentsMode": "Imposer max_agents",
+      "maxAgentsFifoMode": "Max Agents - FIFO",
+      "maxAgentsRoundRobinMode": "Max Agents - Round Robin",
+      "priorityFifoDescription": "Quand plusieurs Jobs de même priorité dépassent leur limite `max_agents`, le Job le plus ancien (créé en premier) reçoit tous les Agents supplémentaires.",
+      "priorityRoundRobinDescription": "Les Agents supplémentaires sont répartis équitablement entre tous les Jobs de même priorité, un Agent à la fois.",
+      "enforceMaxAgentsDescription": "Strictly cap each job at its max_agents limit — no overflow. Surplus agents stay idle. Most predictable; can waste capacity.",
+      "maxAgentsFifoDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then pile on the OLDEST job overall — bypassing priority. Maximizes throughput while still giving every job its baseline.",
+      "maxAgentsRoundRobinDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then rotate evenly across ALL jobs — bypassing priority. Maximizes throughput with fair distribution beyond the baseline."
     },
     "hashlist": {
       "title": "Paramètres des Hashlists",

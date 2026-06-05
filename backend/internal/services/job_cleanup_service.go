@@ -635,16 +635,28 @@ func (s *JobCleanupService) reconcileStuckJobs(ctx context.Context) {
 				continue
 			}
 
-			// Sync keyspace before completing
-			actualKeyspace, err := s.jobTaskRepo.GetSumChunkActualKeyspace(ctx, job.ID)
-			if err == nil && actualKeyspace > 0 {
-				if job.EffectiveKeyspace == nil || *job.EffectiveKeyspace != actualKeyspace {
-					s.jobExecutionRepo.UpdateEffectiveKeyspace(ctx, job.ID, actualKeyspace)
-					s.jobExecutionRepo.UpdateDispatchedKeyspace(ctx, job.ID, actualKeyspace)
-					debug.Log("Synced keyspace for stuck job before completion", map[string]interface{}{
-						"job_id":          job.ID,
-						"actual_keyspace": actualKeyspace,
-					})
+			// Sync keyspace before completing — LEGACY path. Reads
+			// chunk_actual_keyspace which the v2 dispatcher doesn't
+			// populate, so for v2 jobs the SUM either lies or picks up
+			// stale legacy values and overwrites the job's
+			// effective_keyspace with a wrong (base-units) value.
+			// Skip the sync entirely for v2-owned jobs — v2's cycle
+			// and progress path own those keyspace fields.
+			isV2Job, v2Err := s.jobExecutionRepo.IsSchedulerV2Job(ctx, job.ID)
+			if v2Err != nil {
+				debug.Warning("cleanup-service: v2 detection failed for job %s: %v (defaulting to legacy keyspace sync)", job.ID, v2Err)
+			}
+			if !isV2Job {
+				actualKeyspace, err := s.jobTaskRepo.GetSumChunkActualKeyspace(ctx, job.ID)
+				if err == nil && actualKeyspace > 0 {
+					if job.EffectiveKeyspace == nil || *job.EffectiveKeyspace != actualKeyspace {
+						s.jobExecutionRepo.UpdateEffectiveKeyspace(ctx, job.ID, actualKeyspace)
+						s.jobExecutionRepo.UpdateDispatchedKeyspace(ctx, job.ID, actualKeyspace)
+						debug.Log("Synced keyspace for stuck job before completion", map[string]interface{}{
+							"job_id":          job.ID,
+							"actual_keyspace": actualKeyspace,
+						})
+					}
 				}
 			}
 

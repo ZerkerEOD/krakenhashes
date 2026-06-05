@@ -65,26 +65,26 @@ type Config struct {
 
 // FileInfo represents information about a file for synchronization
 type FileInfo struct {
-	Name       string `json:"name"`
-	MD5Hash    string `json:"md5_hash"` // MD5 hash used for synchronization
-	Size       int64  `json:"size"`
-	FileType   string `json:"file_type"`          // "wordlist", "rule", "binary", "hashlist"
-	Category   string `json:"category,omitempty"` // For wordlists: "general", "specialized", "targeted", "custom"
+	Name     string `json:"name"`
+	MD5Hash  string `json:"md5_hash"` // MD5 hash used for synchronization
+	Size     int64  `json:"size"`
+	FileType string `json:"file_type"`          // "wordlist", "rule", "binary", "hashlist"
+	Category string `json:"category,omitempty"` // For wordlists: "general", "specialized", "targeted", "custom"
 	// For rules: "hashcat", "john", "custom"
-	ID         int   `json:"id,omitempty"`         // ID in the backend database
-	Timestamp  int64 `json:"timestamp,omitempty"`  // Last modified time
+	ID         int   `json:"id,omitempty"`          // ID in the backend database
+	Timestamp  int64 `json:"timestamp,omitempty"`   // Last modified time
 	AttackMode int   `json:"attack_mode,omitempty"` // For hashlists: determines download endpoint (9=original file)
 }
 
 // progressReader wraps an io.Reader and reports progress
 type progressReader struct {
-	reader       io.Reader
-	fileName     string
-	bytesRead    int64
-	totalBytes   int64
-	lastReported int64
-	lastTime     time.Time
-	callback     func(fileName string, bytesReceived, totalBytes int64)
+	reader        io.Reader
+	fileName      string
+	bytesRead     int64
+	totalBytes    int64
+	lastReported  int64
+	lastTime      time.Time
+	callback      func(fileName string, bytesReceived, totalBytes int64)
 	multiProgress *console.MultiProgress
 }
 
@@ -173,9 +173,9 @@ func NewFileSync(urlConfig *config.URLConfig, dataDirs *config.DataDirs, apiKey,
 		MaxIdleConnsPerHost: 2,
 		MaxConnsPerHost:     5,
 		// Timeout settings - these are for connection establishment, not transfer
-		IdleConnTimeout:       90 * time.Second,  // How long idle connections are kept
-		TLSHandshakeTimeout:   10 * time.Second,  // TLS handshake timeout
-		ExpectContinueTimeout: 1 * time.Second,   // Timeout for 100-continue response
+		IdleConnTimeout:       90 * time.Second, // How long idle connections are kept
+		TLSHandshakeTimeout:   10 * time.Second, // TLS handshake timeout
+		ExpectContinueTimeout: 1 * time.Second,  // Timeout for 100-continue response
 		// Disable HTTP/2 to avoid potential protocol issues with large downloads
 		ForceAttemptHTTP2: false,
 		// Keep-alive settings
@@ -591,7 +591,7 @@ func (fs *FileSync) DownloadFileWithInfoRetry(ctx context.Context, fileInfo *Fil
 		// The backend includes the category in the Name field (e.g., "general/file.txt")
 		// We need to preserve this structure for proper organization
 		targetDir = fs.dataDirs.Wordlists
-		
+
 		// Check if the name includes a category path
 		if strings.Contains(fileInfo.Name, "/") {
 			// Name includes category, use it as-is
@@ -610,7 +610,7 @@ func (fs *FileSync) DownloadFileWithInfoRetry(ctx context.Context, fileInfo *Fil
 		// The backend includes the category in the Name field (e.g., "hashcat/file.rule")
 		// We need to preserve this structure for proper organization
 		targetDir = fs.dataDirs.Rules
-		
+
 		// If we have an explicit category field, it takes precedence
 		if fileInfo.Category != "" {
 			// Check if the name already starts with the category to avoid double directories
@@ -729,15 +729,13 @@ func (fs *FileSync) DownloadFileWithInfoRetry(ctx context.Context, fileInfo *Fil
 		// may not match the actual directory path in the filesystem.
 		// We prioritize the path information in Name over the Category enum to avoid mismatches.
 		//
-		// SPECIAL CASE: Rule chunks are different - they MUST include the "chunks" category
-		// in the URL even though Name contains "/" (e.g., "job_<ID>/chunk_<N>.rule").
-		// This is because they're temporary files sent only during task assignments, not file sync.
-		if fileInfo.FileType == "rule" && fileInfo.Category == "chunks" {
-			// Rule chunks: /api/files/rule/chunks/{job_id}/{chunk_file}
-			// Name contains the job directory and chunk filename (e.g., "job_<ID>/chunk_<N>.rule")
-			// Category "chunks" MUST be in the URL path
-			url = fmt.Sprintf("%s/api/files/%s/%s/%s", fs.urlConfig.BaseURL, fileInfo.FileType, fileInfo.Category, fileInfo.Name)
-		} else if strings.Contains(fileInfo.Name, "/") {
+		// The "rule chunks" special case from the old scheduler is gone. The
+		// rewrite stacks whole rule files (-r r1.txt -r r2.txt) but never
+		// splits one file. If a Category=="chunks" rule path arrives here
+		// it's a legacy artifact and will fall through the normal name/path
+		// dispatch below — likely 404'ing, which is the right signal that
+		// something on the backend is sending stale data.
+		if strings.Contains(fileInfo.Name, "/") {
 			// Name contains path separator - use fallback route which extracts category from path
 			// This handles cases where Category enum may not match the directory path
 			// Example: file_name="general/file.txt", wordlist_type="custom" -> use path from Name
@@ -1107,14 +1105,14 @@ func (fs *FileSync) ExtractBinary7z(archivePath, targetDir string) error {
 		if hasCommonPrefix {
 			// Normalize the file name to use forward slashes for consistent prefix stripping
 			normalizedName := strings.ReplaceAll(file.Name, "\\", "/")
-			
+
 			// Strip the common directory prefix if present
 			relativePath := normalizedName
 			if strings.HasPrefix(relativePath, commonPrefix+"/") {
 				relativePath = relativePath[len(commonPrefix)+1:]
 				debug.Info("Stripping prefix from %s: result is %s", file.Name, relativePath)
 			}
-			
+
 			// Convert back to platform-specific path separators
 			relativePath = filepath.FromSlash(relativePath)
 			outPath = filepath.Join(targetDir, relativePath)
@@ -1158,11 +1156,11 @@ func (fs *FileSync) ExtractBinary7z(archivePath, targetDir string) error {
 		// Set executable permissions for binary files
 		// Check if this is likely an executable (hashcat, hashcat.exe, hashcat.bin, etc.)
 		baseName := filepath.Base(file.Name)
-		isExecutable := strings.HasPrefix(baseName, "hashcat") || 
-			strings.HasSuffix(file.Name, ".bin") || 
+		isExecutable := strings.HasPrefix(baseName, "hashcat") ||
+			strings.HasSuffix(file.Name, ".bin") ||
 			strings.HasSuffix(file.Name, ".exe") ||
 			(!strings.Contains(baseName, ".") && !file.FileInfo().IsDir())
-		
+
 		if isExecutable {
 			debug.Info("Setting executable permissions for %s", outPath)
 			if err := os.Chmod(outPath, 0755); err != nil {

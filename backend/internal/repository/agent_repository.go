@@ -695,7 +695,7 @@ func (r *AgentRepository) UpdateAgentSettings(ctx context.Context, agentID int, 
 // UpdateVersion updates the version field for an agent
 func (r *AgentRepository) UpdateVersion(ctx context.Context, id int, version string) error {
 	query := `UPDATE agents SET version = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`
-	
+
 	result, err := r.db.ExecContext(ctx, query, id, version)
 	if err != nil {
 		return fmt.Errorf("failed to update agent version: %w", err)
@@ -845,4 +845,28 @@ func (r *AgentRepository) GetAgentsForTeam(ctx context.Context, teamID uuid.UUID
 	}
 
 	return agents, nil
+}
+
+// SetDisconnectGrace sets or clears the agent's disconnect_grace_expires_at
+// timestamp. The scheduler-v2 sweeper uses it to decide when a hard-
+// disconnected agent's tasks should be evicted and their keyspace ranges
+// returned to the gap pool.
+//
+// Pass a non-nil expiresAt when an agent's WebSocket connection drops
+// (typically NOW() + network_grace_seconds). Pass nil to clear the grace
+// after the agent reconnects. This method is additive — it does not
+// touch any other agent fields, so it composes cleanly with the existing
+// disconnect / reconnect handling.
+//
+// Returns nil if the agent does not exist (treated as a no-op; the
+// caller's context — agent reconnect or disconnect — usually means the
+// row exists, but a missing row should not break the surrounding flow).
+func (r *AgentRepository) SetDisconnectGrace(ctx context.Context, agentID int, expiresAt *time.Time) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE agents SET disconnect_grace_expires_at = $1 WHERE id = $2`,
+		expiresAt, agentID)
+	if err != nil {
+		return fmt.Errorf("failed to update agent disconnect_grace_expires_at: %w", err)
+	}
+	return nil
 }

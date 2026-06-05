@@ -1153,11 +1153,18 @@
     },
     "agentOverflow": {
       "title": "Распределение избыточных агентов",
-      "tooltip": "Настройте, как агенты сверх лимита max_agents распределяются между заданиями с одинаковым приоритетом",
-      "roundRobinMode": "Режим Round-Robin",
-      "fifoMode": "Режим FIFO",
-      "fifoDescription": "Когда несколько заданий с одинаковым приоритетом превышают лимиты max_agents, самое старое задание (созданное первым) получает всех дополнительных агентов.",
-      "roundRobinDescription": "Дополнительные агенты распределяются равномерно между всеми заданиями с одинаковым приоритетом, по одному агенту за раз, обеспечивая справедливое распределение."
+      "tooltip": "Настройте, как свободные агенты распределяются после того, как каждое задание на каждом уровне приоритета достигло своего лимита max_agents.",
+      "modeLabel": "Режим распределения избытка",
+      "priorityFifoMode": "Приоритет - FIFO",
+      "priorityRoundRobinMode": "Приоритет - Round Robin",
+      "enforceMaxAgentsMode": "Принудительный max_agents",
+      "maxAgentsFifoMode": "Max Agents - FIFO",
+      "maxAgentsRoundRobinMode": "Max Agents - Round Robin",
+      "priorityFifoDescription": "Когда несколько заданий с одинаковым приоритетом превышают лимиты max_agents, самое старое задание (созданное первым) получает всех дополнительных агентов.",
+      "priorityRoundRobinDescription": "Дополнительные агенты распределяются равномерно между всеми заданиями с одинаковым приоритетом, по одному агенту за раз, обеспечивая справедливое распределение.",
+      "enforceMaxAgentsDescription": "Strictly cap each job at its max_agents limit — no overflow. Surplus agents stay idle. Most predictable; can waste capacity.",
+      "maxAgentsFifoDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then pile on the OLDEST job overall — bypassing priority. Maximizes throughput while still giving every job its baseline.",
+      "maxAgentsRoundRobinDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then rotate evenly across ALL jobs — bypassing priority. Maximizes throughput with fair distribution beyond the baseline."
     },
     "hashlist": {
       "title": "Настройки списков хешей",

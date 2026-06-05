@@ -3,8 +3,10 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
@@ -137,6 +139,36 @@ func (r *SystemSettingsRepository) SetMaxJobPriority(ctx context.Context, maxPri
 // UpdateSetting updates a specific setting's value by its key (alias for SetSetting with string value).
 func (r *SystemSettingsRepository) UpdateSetting(ctx context.Context, key string, value string) error {
 	return r.SetSetting(ctx, key, &value)
+}
+
+// GetSettingBool returns the setting's value parsed as a bool. Missing
+// row, NULL value, or unparseable value all fall back to defaultValue.
+// Only a non-nil DB error (other than ErrNotFound) is returned to the
+// caller; everything else is handled silently with the default so that
+// boot-time setting reads never break the calling code path.
+//
+// Accepts "true"/"false"/"1"/"0" (case-insensitive). Anything else
+// falls through to defaultValue.
+func (r *SystemSettingsRepository) GetSettingBool(ctx context.Context, key string, defaultValue bool) (bool, error) {
+	setting, err := r.GetSetting(ctx, key)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return defaultValue, nil
+		}
+		return defaultValue, err
+	}
+	if setting.Value == nil {
+		return defaultValue, nil
+	}
+	switch strings.ToLower(strings.TrimSpace(*setting.Value)) {
+	case "true", "1":
+		return true, nil
+	case "false", "0":
+		return false, nil
+	default:
+		debug.Warning("system setting %q has unparseable bool value %q; using default %v", key, *setting.Value, defaultValue)
+		return defaultValue, nil
+	}
 }
 
 // GetAgentDownloadSettings retrieves all agent download settings

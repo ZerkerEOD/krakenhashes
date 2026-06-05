@@ -52,17 +52,17 @@ const (
 	WSTypeFileSyncStatus   WSMessageType = "file_sync_status"
 
 	// Job execution message types
-	WSTypeTaskAssignment        WSMessageType = "task_assignment"
-	WSTypeJobProgress           WSMessageType = "job_progress"
-	WSTypeJobStatus             WSMessageType = "job_status"              // Status-only (synchronous)
-	WSTypeCrackBatch            WSMessageType = "crack_batch"             // Cracks-only (asynchronous)
-	WSTypeCrackBatchesComplete  WSMessageType = "crack_batches_complete" // Signal all batches sent
-	WSTypeJobStop               WSMessageType = "job_stop"
-	WSTypeBenchmarkRequest      WSMessageType = "benchmark_request"
-	WSTypeBenchmarkResult       WSMessageType = "benchmark_result"
-	WSTypeHashcatOutput         WSMessageType = "hashcat_output"
-	WSTypeForceCleanup          WSMessageType = "force_cleanup"
-	WSTypeCurrentTaskStatus     WSMessageType = "current_task_status"
+	WSTypeTaskAssignment       WSMessageType = "task_assignment"
+	WSTypeJobProgress          WSMessageType = "job_progress"
+	WSTypeJobStatus            WSMessageType = "job_status"             // Status-only (synchronous)
+	WSTypeCrackBatch           WSMessageType = "crack_batch"            // Cracks-only (asynchronous)
+	WSTypeCrackBatchesComplete WSMessageType = "crack_batches_complete" // Signal all batches sent
+	WSTypeJobStop              WSMessageType = "job_stop"
+	WSTypeBenchmarkRequest     WSMessageType = "benchmark_request"
+	WSTypeBenchmarkResult      WSMessageType = "benchmark_result"
+	WSTypeHashcatOutput        WSMessageType = "hashcat_output"
+	WSTypeForceCleanup         WSMessageType = "force_cleanup"
+	WSTypeCurrentTaskStatus    WSMessageType = "current_task_status"
 
 	// Device detection message types
 	WSTypeDeviceDetection         WSMessageType = "device_detection"
@@ -75,6 +75,12 @@ const (
 
 	// Shutdown message type
 	WSTypeAgentShutdown WSMessageType = "agent_shutdown"
+
+	// WSTypeTaskAssignmentRejected is sent when the agent refuses an
+	// inbound task_assignment (e.g., graceful shutdown in progress).
+	// The backend handler runs RecoverTaskByID so the chunk is freed
+	// for re-dispatch without waiting for the heartbeat timeout.
+	WSTypeTaskAssignmentRejected WSMessageType = "task_assignment_rejected"
 
 	// Outfile acknowledgment protocol message types
 	WSTypePendingOutfiles        WSMessageType = "pending_outfiles"         // Agent -> Server: report tasks with pending outfiles
@@ -108,10 +114,10 @@ const (
 
 // WSMessage represents a WebSocket message
 type WSMessage struct {
-	Type         WSMessageType   `json:"type"`
-	Payload      json.RawMessage `json:"payload,omitempty"`
-	Metrics      *MetricsData    `json:"metrics,omitempty"`
-	Timestamp    time.Time       `json:"timestamp"`
+	Type      WSMessageType   `json:"type"`
+	Payload   json.RawMessage `json:"payload,omitempty"`
+	Metrics   *MetricsData    `json:"metrics,omitempty"`
+	Timestamp time.Time       `json:"timestamp"`
 }
 
 // FileSyncRequestPayload represents a request for the agent to report its current files
@@ -153,38 +159,38 @@ type CurrentTaskStatusPayload struct {
 
 // BenchmarkRequest represents a request to test speed for a specific job configuration
 type BenchmarkRequest struct {
-	RequestID       string             `json:"request_id"`
-	JobExecutionID  string             `json:"job_execution_id"` // Job execution ID for tracking results
-	TaskID          string             `json:"task_id"`
-	HashlistID      int64              `json:"hashlist_id"`
-	HashlistPath    string             `json:"hashlist_path"`
-	AttackMode      int                `json:"attack_mode"`
-	HashType        int                `json:"hash_type"`
-	WordlistPaths   []string           `json:"wordlist_paths"`
-	RulePaths       []string           `json:"rule_paths"`
-	Mask            string             `json:"mask,omitempty"`
-	BinaryPath      string             `json:"binary_path"`
-	TestDuration     int                `json:"test_duration"`               // Maximum seconds the agent should spend collecting status updates before giving up
-	TimeoutDuration  int                `json:"timeout_duration"`            // Hard wall-clock cap on the entire speed-test (context deadline); should be >= TestDuration
-	MinStatusUpdates int                `json:"min_status_updates,omitempty"` // Minimum hashcat --status-json ticks the agent must collect before returning a result. <=0 means use the agent's default.
-	ExtraParameters         string            `json:"extra_parameters,omitempty"`          // Agent-specific hashcat parameters
-	EnabledDevices          []int             `json:"enabled_devices,omitempty"`           // List of enabled device IDs
-	AssociationWordlistPath string            `json:"association_wordlist_path,omitempty"` // For mode 9 association attacks
-	CustomCharsets          map[string]string            `json:"custom_charsets,omitempty"`           // Custom charset definitions (-1 through -4)
-	CharsetFiles           map[string]jobs.CharsetFileInfo `json:"charset_files,omitempty"`          // File-based charset references
-	HexCharset             bool                           `json:"hex_charset,omitempty"`             // Hex-encoded inline charsets
-	JobAdditionalArgs      string                         `json:"job_additional_args,omitempty"`     // Job-level additional hashcat args
+	RequestID               string                          `json:"request_id"`
+	JobExecutionID          string                          `json:"job_execution_id"` // Job execution ID for tracking results
+	TaskID                  string                          `json:"task_id"`
+	HashlistID              int64                           `json:"hashlist_id"`
+	HashlistPath            string                          `json:"hashlist_path"`
+	AttackMode              int                             `json:"attack_mode"`
+	HashType                int                             `json:"hash_type"`
+	WordlistPaths           []string                        `json:"wordlist_paths"`
+	RulePaths               []string                        `json:"rule_paths"`
+	Mask                    string                          `json:"mask,omitempty"`
+	BinaryPath              string                          `json:"binary_path"`
+	TestDuration            int                             `json:"test_duration"`                       // Maximum seconds the agent should spend collecting status updates before giving up
+	TimeoutDuration         int                             `json:"timeout_duration"`                    // Hard wall-clock cap on the entire speed-test (context deadline); should be >= TestDuration
+	MinStatusUpdates        int                             `json:"min_status_updates,omitempty"`        // Minimum hashcat --status-json ticks the agent must collect before returning a result. <=0 means use the agent's default.
+	ExtraParameters         string                          `json:"extra_parameters,omitempty"`          // Agent-specific hashcat parameters
+	EnabledDevices          []int                           `json:"enabled_devices,omitempty"`           // List of enabled device IDs
+	AssociationWordlistPath string                          `json:"association_wordlist_path,omitempty"` // For mode 9 association attacks
+	CustomCharsets          map[string]string               `json:"custom_charsets,omitempty"`           // Custom charset definitions (-1 through -4)
+	CharsetFiles            map[string]jobs.CharsetFileInfo `json:"charset_files,omitempty"`             // File-based charset references
+	HexCharset              bool                            `json:"hex_charset,omitempty"`               // Hex-encoded inline charsets
+	JobAdditionalArgs       string                          `json:"job_additional_args,omitempty"`       // Job-level additional hashcat args
 }
 
 // BenchmarkResult represents the result of a speed test
 type BenchmarkResult struct {
-	RequestID      string              `json:"request_id"`
-	JobExecutionID string              `json:"job_execution_id"`  // Job execution ID to match with request
-	TaskID         string              `json:"task_id"`
-	TotalSpeed     int64               `json:"total_speed"` // Total H/s across all devices
-	DeviceSpeeds   []jobs.DeviceSpeed  `json:"device_speeds"`
-	Success        bool                `json:"success"`
-	ErrorMessage   string              `json:"error_message,omitempty"`
+	RequestID      string             `json:"request_id"`
+	JobExecutionID string             `json:"job_execution_id"` // Job execution ID to match with request
+	TaskID         string             `json:"task_id"`
+	TotalSpeed     int64              `json:"total_speed"` // Total H/s across all devices
+	DeviceSpeeds   []jobs.DeviceSpeed `json:"device_speeds"`
+	Success        bool               `json:"success"`
+	ErrorMessage   string             `json:"error_message,omitempty"`
 }
 
 // TaskCompleteAckPayload is received from backend acknowledging task completion (GH Issue #12)
@@ -269,13 +275,13 @@ type LogRequestPayload struct {
 
 // LogDataPayload is sent to deliver log data (GH Issue #23)
 type LogDataPayload struct {
-	RequestID   string                `json:"request_id"`
-	AgentID     int                   `json:"agent_id"`
-	Entries     []LogEntryPayload     `json:"entries,omitempty"`
-	FileContent string                `json:"file_content,omitempty"` // Raw log file content if available
-	TotalCount  int                   `json:"total_count"`
-	Truncated   bool                  `json:"truncated"`
-	Error       string                `json:"error,omitempty"`
+	RequestID   string            `json:"request_id"`
+	AgentID     int               `json:"agent_id"`
+	Entries     []LogEntryPayload `json:"entries,omitempty"`
+	FileContent string            `json:"file_content,omitempty"` // Raw log file content if available
+	TotalCount  int               `json:"total_count"`
+	Truncated   bool              `json:"truncated"`
+	Error       string            `json:"error,omitempty"`
 }
 
 // LogEntryPayload represents a single log entry for transmission (GH Issue #23)
@@ -435,11 +441,11 @@ func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
 // fetchBackendConfig fetches WebSocket configuration from the backend
 func fetchBackendConfig(urlConfig *config.URLConfig) (*BackendConfig, error) {
 	debug.Info("Fetching backend configuration from %s", urlConfig.GetAPIBaseURL())
-	
+
 	// Create the request
 	url := fmt.Sprintf("%s/agent/config", urlConfig.GetAPIBaseURL())
 	debug.Debug("Fetching config from: %s", url)
-	
+
 	// Create HTTP client with TLS configuration
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{
@@ -450,39 +456,39 @@ func fetchBackendConfig(urlConfig *config.URLConfig) (*BackendConfig, error) {
 		Transport: tr,
 		Timeout:   10 * time.Second,
 	}
-	
+
 	resp, err := client.Get(url)
 	if err != nil {
 		debug.Error("Failed to fetch backend configuration: %v", err)
 		return nil, fmt.Errorf("failed to fetch backend configuration: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		debug.Error("Backend returned non-OK status: %d", resp.StatusCode)
 		return nil, fmt.Errorf("backend returned status %d", resp.StatusCode)
 	}
-	
+
 	var config BackendConfig
 	if err := json.NewDecoder(resp.Body).Decode(&config); err != nil {
 		debug.Error("Failed to decode backend configuration: %v", err)
 		return nil, fmt.Errorf("failed to decode backend configuration: %w", err)
 	}
-	
+
 	debug.Info("Successfully fetched backend configuration:")
 	debug.Info("- WebSocket WriteWait: %s", config.WebSocket.WriteWait)
 	debug.Info("- WebSocket PongWait: %s", config.WebSocket.PongWait)
 	debug.Info("- WebSocket PingPeriod: %s", config.WebSocket.PingPeriod)
 	debug.Info("- Heartbeat Interval: %d", config.HeartbeatInterval)
 	debug.Info("- Server Version: %s", config.ServerVersion)
-	
+
 	return &config, nil
 }
 
 // initTimingConfig initializes the timing configuration from backend config or defaults
 func initTimingConfig(backendConfig *BackendConfig) {
 	debug.Info("Initializing WebSocket timing configuration")
-	
+
 	if backendConfig != nil {
 		// Parse timing from backend config
 		var err error
@@ -491,19 +497,19 @@ func initTimingConfig(backendConfig *BackendConfig) {
 			debug.Warning("Failed to parse WriteWait from backend: %v, using default", err)
 			writeWait = defaultWriteWait
 		}
-		
+
 		pongWait, err = time.ParseDuration(backendConfig.WebSocket.PongWait)
 		if err != nil {
 			debug.Warning("Failed to parse PongWait from backend: %v, using default", err)
 			pongWait = defaultPongWait
 		}
-		
+
 		pingPeriod, err = time.ParseDuration(backendConfig.WebSocket.PingPeriod)
 		if err != nil {
 			debug.Warning("Failed to parse PingPeriod from backend: %v, using default", err)
 			pingPeriod = defaultPingPeriod
 		}
-		
+
 		debug.Info("Using backend WebSocket configuration")
 	} else {
 		// Fall back to defaults if no backend config
@@ -512,7 +518,7 @@ func initTimingConfig(backendConfig *BackendConfig) {
 		pongWait = defaultPongWait
 		pingPeriod = defaultPingPeriod
 	}
-	
+
 	debug.Info("WebSocket timing configuration initialized:")
 	debug.Info("- Write Wait: %v", writeWait)
 	debug.Info("- Pong Wait: %v", pongWait)
@@ -549,8 +555,8 @@ type Connection struct {
 	downloadManager *filesync.DownloadManager
 
 	// Sync status tracking
-	syncStatus      string
-	syncMutex       sync.RWMutex
+	syncStatus string
+	syncMutex  sync.RWMutex
 	// Note: File download tracking now handled by downloadManager.GetDownloadStats()
 
 	// Job manager - initialized externally and set via SetJobManager
@@ -571,14 +577,14 @@ type Connection struct {
 
 	// Message buffer for handling disconnections
 	messageBuffer *buffer.MessageBuffer
-	
+
 	// Agent ID for buffer identification
 	agentID int
 
 	// Device detection tracking
-	devicesDetected       bool
-	detectionInProgress   bool
-	deviceMutex           sync.Mutex
+	devicesDetected     bool
+	detectionInProgress bool
+	deviceMutex         sync.Mutex
 
 	// Task completion ACK tracking (GH Issue #12)
 	completionAckChan   chan *TaskCompleteAckPayload
@@ -603,7 +609,7 @@ func isCertificateError(err error) bool {
 	if err == nil {
 		return false
 	}
-	
+
 	errStr := err.Error()
 	certErrorPatterns := []string{
 		"x509:",
@@ -617,18 +623,18 @@ func isCertificateError(err error) bool {
 		"certificate has expired",
 		"certificate is not valid",
 	}
-	
+
 	for _, pattern := range certErrorPatterns {
 		if strings.Contains(strings.ToLower(errStr), pattern) {
 			return true
 		}
 	}
-	
+
 	// Check nested errors
 	if urlErr, ok := err.(*url.Error); ok && urlErr.Err != nil {
 		return isCertificateError(urlErr.Err)
 	}
-	
+
 	return false
 }
 
@@ -637,7 +643,7 @@ func certificatesExist() bool {
 	caPath := filepath.Join(config.GetConfigDir(), "ca.crt")
 	clientCertPath := filepath.Join(config.GetConfigDir(), "client.crt")
 	clientKeyPath := filepath.Join(config.GetConfigDir(), "client.key")
-	
+
 	if _, err := os.Stat(caPath); os.IsNotExist(err) {
 		debug.Info("CA certificate not found")
 		return false
@@ -650,27 +656,26 @@ func certificatesExist() bool {
 		debug.Info("Client key not found")
 		return false
 	}
-	
+
 	return true
 }
-
 
 // RenewCertificates downloads new certificates using the API key
 func RenewCertificates(urlConfig *config.URLConfig) error {
 	debug.Info("Starting certificate renewal process")
-	
+
 	// First, download the latest CA certificate
 	if err := downloadCACertificate(urlConfig); err != nil {
 		return fmt.Errorf("failed to download CA certificate: %w", err)
 	}
-	
+
 	// Load API key and agent ID
 	apiKey, agentID, err := auth.LoadAgentKey(config.GetConfigDir())
 	if err != nil {
 		debug.Error("Failed to load API key for certificate renewal: %v", err)
 		return fmt.Errorf("failed to load API key: %w", err)
 	}
-	
+
 	// Request new client certificates
 	// Parse base URL to get host
 	parsedURL, err := url.Parse(urlConfig.BaseURL)
@@ -679,62 +684,62 @@ func RenewCertificates(urlConfig *config.URLConfig) error {
 		return fmt.Errorf("failed to parse base URL: %w", err)
 	}
 	host := parsedURL.Hostname()
-	
+
 	renewURL := fmt.Sprintf("http://%s:%s/api/agent/renew-certificates", host, urlConfig.HTTPPort)
 	debug.Info("Requesting new client certificates from: %s", renewURL)
-	
+
 	req, err := http.NewRequest("POST", renewURL, nil)
 	if err != nil {
 		debug.Error("Failed to create certificate renewal request: %v", err)
 		return fmt.Errorf("failed to create request: %w", err)
 	}
-	
+
 	req.Header.Set("X-API-Key", apiKey)
 	req.Header.Set("X-Agent-ID", agentID)
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 	}
-	
+
 	resp, err := client.Do(req)
 	if err != nil {
 		debug.Error("Failed to request certificate renewal: %v", err)
 		return fmt.Errorf("failed to request certificate renewal: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		debug.Error("Certificate renewal failed: status %d, body: %s", resp.StatusCode, string(body))
 		return fmt.Errorf("certificate renewal failed: status %d", resp.StatusCode)
 	}
-	
+
 	// Parse response
 	var renewalResp struct {
 		ClientCertificate string `json:"client_certificate"`
 		ClientKey         string `json:"client_key"`
 	}
-	
+
 	if err := json.NewDecoder(resp.Body).Decode(&renewalResp); err != nil {
 		debug.Error("Failed to decode certificate renewal response: %v", err)
 		return fmt.Errorf("failed to decode response: %w", err)
 	}
-	
+
 	// Save client certificate
 	clientCertPath := filepath.Join(config.GetConfigDir(), "client.crt")
 	if err := os.WriteFile(clientCertPath, []byte(renewalResp.ClientCertificate), 0644); err != nil {
 		debug.Error("Failed to save client certificate: %v", err)
 		return fmt.Errorf("failed to save client certificate: %w", err)
 	}
-	
+
 	// Save client key
 	clientKeyPath := filepath.Join(config.GetConfigDir(), "client.key")
 	if err := os.WriteFile(clientKeyPath, []byte(renewalResp.ClientKey), 0600); err != nil {
 		debug.Error("Failed to save client key: %v", err)
 		return fmt.Errorf("failed to save client key: %w", err)
 	}
-	
+
 	debug.Info("Successfully renewed and saved certificates")
 	return nil
 }
@@ -887,7 +892,7 @@ func (c *Connection) connect() error {
 		return fmt.Errorf("failed to load API key: %w", err)
 	}
 	debug.Info("Successfully loaded API key")
-	
+
 	// Convert agent ID to int for internal use
 	agentIDInt := 0
 	if agentIDStr != "" {
@@ -896,7 +901,7 @@ func (c *Connection) connect() error {
 		}
 	}
 	c.agentID = agentIDInt
-	
+
 	// Initialize message buffer if not already initialized
 	if c.messageBuffer == nil && c.agentID > 0 {
 		cfg := config.NewConfig()
@@ -905,7 +910,7 @@ func (c *Connection) connect() error {
 		} else {
 			c.messageBuffer = mb
 			debug.Info("Message buffer initialized for agent %d", c.agentID)
-			
+
 			// Send any buffered messages from previous sessions
 			c.sendBufferedMessages()
 		}
@@ -964,7 +969,7 @@ func (c *Connection) connect() error {
 		} else {
 			debug.Error("WebSocket connection failed with no response: %v", err)
 			debug.Debug("Error type: %T", err)
-			
+
 			// Check if this is a certificate verification error
 			if isCertificateError(err) {
 				debug.Info("Certificate verification error detected, attempting to renew certificates")
@@ -972,7 +977,7 @@ func (c *Connection) connect() error {
 					debug.Error("Failed to renew certificates: %v", renewErr)
 					return fmt.Errorf("certificate renewal failed: %w", renewErr)
 				}
-				
+
 				// Reload certificates after renewal
 				debug.Info("Reloading certificates after renewal")
 				certPool, loadErr := loadCACertificate(c.urlConfig)
@@ -980,20 +985,20 @@ func (c *Connection) connect() error {
 					debug.Error("Failed to reload CA certificate: %v", loadErr)
 					return fmt.Errorf("failed to reload CA certificate: %w", loadErr)
 				}
-				
+
 				clientCert, loadErr := loadClientCertificate()
 				if loadErr != nil {
 					debug.Error("Failed to reload client certificate: %v", loadErr)
 					return fmt.Errorf("failed to reload client certificate: %w", loadErr)
 				}
-				
+
 				// Update TLS configuration
 				c.tlsConfig.RootCAs = certPool
 				c.tlsConfig.Certificates = []tls.Certificate{clientCert}
-				
+
 				// Update dialer with new TLS config
 				dialer.TLSClientConfig = c.tlsConfig
-				
+
 				// Retry connection with new certificates
 				debug.Info("Retrying connection with renewed certificates")
 				ws, resp, err = dialer.Dial(u.String(), header)
@@ -1013,7 +1018,7 @@ func (c *Connection) connect() error {
 				return fmt.Errorf("failed to connect to WebSocket server: %w", err)
 			}
 		}
-		
+
 		if err != nil {
 			return fmt.Errorf("failed to connect to WebSocket server: %w", err)
 		}
@@ -1023,10 +1028,10 @@ func (c *Connection) connect() error {
 	debug.Info("Successfully established WebSocket connection")
 	console.Success("WebSocket connection established")
 	c.isConnected.Store(true)
-	
+
 	// Device detection is done at agent startup, not after connection
 	// This prevents running hashcat -I during active jobs after reconnections
-	
+
 	return nil
 }
 
@@ -1050,7 +1055,7 @@ func (c *Connection) maintainConnection() {
 				debug.Info("Reconnection attempt %d - Waiting %v before retry", attempt, backoff)
 				if attempt == 1 {
 					console.Warning("Connection lost, reconnecting...")
-				} else if attempt % 5 == 0 {
+				} else if attempt%5 == 0 {
 					console.Warning("Still trying to reconnect (attempt %d)...", attempt)
 				}
 				time.Sleep(backoff)
@@ -1069,10 +1074,10 @@ func (c *Connection) maintainConnection() {
 					console.Success("Reconnected to backend successfully")
 					backoff = 1 * time.Second
 					attempt = 1
-					
+
 					// Reinitialize channels before starting pumps
 					c.reinitializeChannels()
-					
+
 					debug.Info("Starting read and write pumps")
 					go c.readPump()
 					go c.writePump()
@@ -1297,7 +1302,7 @@ func (c *Connection) readPump() {
 					break
 				}
 			}
-			
+
 			// Send sync started message
 			c.sendSyncStarted(len(commandPayload.Files))
 
@@ -1411,16 +1416,30 @@ func (c *Connection) readPump() {
 						TaskID string `json:"task_id"`
 					}
 					if unmarshalErr := json.Unmarshal(payload, &assignment); unmarshalErr == nil && assignment.TaskID != "" {
-						// Send failure status to backend so it can update task state
-						failureStatus := &jobs.JobStatus{
-							TaskID:       assignment.TaskID,
-							Status:       "failed",
-							ErrorMessage: fmt.Sprintf("Failed to prepare task: %v", err),
-						}
-						if sendErr := c.SendJobStatus(failureStatus); sendErr != nil {
-							debug.Error("Failed to send task failure status to backend: %v", sendErr)
+						// Special case: graceful-shutdown refusal. The error
+						// string is set by JobManager.ProcessJobAssignment when
+						// BeginShutdown() has been called. Send a dedicated
+						// task_assignment_rejected frame so the backend can run
+						// RecoverTaskByID and re-dispatch immediately instead of
+						// waiting for the heartbeat timeout.
+						if strings.Contains(err.Error(), "shutting down") {
+							if sendErr := c.SendTaskAssignmentRejected(assignment.TaskID, err.Error()); sendErr != nil {
+								debug.Error("Failed to send task_assignment_rejected for task %s: %v", assignment.TaskID, sendErr)
+							} else {
+								debug.Info("Sent task_assignment_rejected (shutdown) for task %s", assignment.TaskID)
+							}
 						} else {
-							debug.Info("Sent task failure status to backend for task %s", assignment.TaskID)
+							// Generic failure: existing path — report task failed.
+							failureStatus := &jobs.JobStatus{
+								TaskID:       assignment.TaskID,
+								Status:       "failed",
+								ErrorMessage: fmt.Sprintf("Failed to prepare task: %v", err),
+							}
+							if sendErr := c.SendJobStatus(failureStatus); sendErr != nil {
+								debug.Error("Failed to send task failure status to backend: %v", sendErr)
+							} else {
+								debug.Info("Sent task failure status to backend for task %s", assignment.TaskID)
+							}
 						}
 					} else {
 						debug.Error("Could not extract task ID from failed assignment to report failure")
@@ -1502,12 +1521,12 @@ func (c *Connection) readPump() {
 		case WSTypeForceCleanup:
 			// Server requested to force cleanup all hashcat processes
 			debug.Info("Received force cleanup command")
-			
+
 			if c.jobManager == nil {
 				debug.Error("Job manager not initialized, cannot process force cleanup")
 				continue
 			}
-			
+
 			// Force cleanup all hashcat processes
 			if err := c.jobManager.ForceCleanup(); err != nil {
 				debug.Error("Failed to force cleanup: %v", err)
@@ -1532,7 +1551,7 @@ func (c *Connection) readPump() {
 
 			// Run benchmark in a goroutine to not block message processing
 			go func() {
-				debug.Info("Running speed test for task %s, hash type %d, attack mode %d", 
+				debug.Info("Running speed test for task %s, hash type %d, attack mode %d",
 					benchmarkPayload.TaskID, benchmarkPayload.HashType, benchmarkPayload.AttackMode)
 
 				// Ensure file sync is initialized before processing benchmark
@@ -1646,56 +1665,56 @@ func (c *Connection) readPump() {
 					defer downloadCancel()
 
 					if err := c.fileSync.DownloadFileFromInfo(downloadCtx, fileInfo); err != nil {
-					debug.Error("Failed to download hashlist for benchmark: %v", err)
-					// Send failure result
-					resultPayload := map[string]interface{}{
-						"job_execution_id": benchmarkPayload.JobExecutionID,
-						"attack_mode":      benchmarkPayload.AttackMode,
-						"hash_type":        benchmarkPayload.HashType,
-						"speed":            int64(0),
-						"device_speeds":    []jobs.DeviceSpeed{},
-						"success":          false,
-						"error":            fmt.Sprintf("Failed to download hashlist: %v", err),
-					}
-					payloadBytes, _ := json.Marshal(resultPayload)
-					response := WSMessage{
-						Type:      WSTypeBenchmarkResult,
-						Payload:   payloadBytes,
-						Timestamp: time.Now(),
-					}
-					if err := c.ws.WriteJSON(response); err != nil {
-						debug.Error("Failed to send benchmark failure result: %v", err)
-					}
-					return
+						debug.Error("Failed to download hashlist for benchmark: %v", err)
+						// Send failure result
+						resultPayload := map[string]interface{}{
+							"job_execution_id": benchmarkPayload.JobExecutionID,
+							"attack_mode":      benchmarkPayload.AttackMode,
+							"hash_type":        benchmarkPayload.HashType,
+							"speed":            int64(0),
+							"device_speeds":    []jobs.DeviceSpeed{},
+							"success":          false,
+							"error":            fmt.Sprintf("Failed to download hashlist: %v", err),
 						}
-						
-						// Verify the file was downloaded
-						if _, err := os.Stat(localPath); err != nil {
-					debug.Error("Hashlist file not found after download: %s", localPath)
-					// Send failure result
-					resultPayload := map[string]interface{}{
-						"job_execution_id": benchmarkPayload.JobExecutionID,
-						"attack_mode":      benchmarkPayload.AttackMode,
-						"hash_type":        benchmarkPayload.HashType,
-						"speed":            int64(0),
-						"device_speeds":    []jobs.DeviceSpeed{},
-						"success":          false,
-						"error":            "Hashlist file not found after download",
-					}
-					payloadBytes, _ := json.Marshal(resultPayload)
-					response := WSMessage{
-						Type:      WSTypeBenchmarkResult,
-						Payload:   payloadBytes,
-						Timestamp: time.Now(),
-					}
-					if err := c.ws.WriteJSON(response); err != nil {
-						debug.Error("Failed to send benchmark failure result: %v", err)
-					}
-					return
+						payloadBytes, _ := json.Marshal(resultPayload)
+						response := WSMessage{
+							Type:      WSTypeBenchmarkResult,
+							Payload:   payloadBytes,
+							Timestamp: time.Now(),
 						}
-						
-						debug.Info("Successfully downloaded hashlist %d for benchmark", benchmarkPayload.HashlistID)
+						if err := c.ws.WriteJSON(response); err != nil {
+							debug.Error("Failed to send benchmark failure result: %v", err)
+						}
+						return
 					}
+
+					// Verify the file was downloaded
+					if _, err := os.Stat(localPath); err != nil {
+						debug.Error("Hashlist file not found after download: %s", localPath)
+						// Send failure result
+						resultPayload := map[string]interface{}{
+							"job_execution_id": benchmarkPayload.JobExecutionID,
+							"attack_mode":      benchmarkPayload.AttackMode,
+							"hash_type":        benchmarkPayload.HashType,
+							"speed":            int64(0),
+							"device_speeds":    []jobs.DeviceSpeed{},
+							"success":          false,
+							"error":            "Hashlist file not found after download",
+						}
+						payloadBytes, _ := json.Marshal(resultPayload)
+						response := WSMessage{
+							Type:      WSTypeBenchmarkResult,
+							Payload:   payloadBytes,
+							Timestamp: time.Now(),
+						}
+						if err := c.ws.WriteJSON(response); err != nil {
+							debug.Error("Failed to send benchmark failure result: %v", err)
+						}
+						return
+					}
+
+					debug.Info("Successfully downloaded hashlist %d for benchmark", benchmarkPayload.HashlistID)
+				}
 
 				// Ensure charset files are available before benchmark
 				for slot, charsetFile := range benchmarkPayload.CharsetFiles {
@@ -1764,14 +1783,14 @@ func (c *Connection) readPump() {
 					RulePaths:               benchmarkPayload.RulePaths,
 					Mask:                    benchmarkPayload.Mask,
 					BinaryPath:              benchmarkPayload.BinaryPath,
-					ReportInterval:          5, // Default status interval
+					ReportInterval:          5,                                        // Default status interval
 					ExtraParameters:         benchmarkPayload.ExtraParameters,         // Agent-specific parameters
-					EnabledDevices:          benchmarkPayload.EnabledDevices,           // Device list
+					EnabledDevices:          benchmarkPayload.EnabledDevices,          // Device list
 					AssociationWordlistPath: benchmarkPayload.AssociationWordlistPath, // For mode 9
 					CustomCharsets:          benchmarkPayload.CustomCharsets,          // Custom charset definitions
-					CharsetFiles:           benchmarkPayload.CharsetFiles,            // File-based charset references
-					HexCharset:             benchmarkPayload.HexCharset,              // Hex charset flag
-					JobAdditionalArgs:      benchmarkPayload.JobAdditionalArgs,       // Job-level additional args
+					CharsetFiles:            benchmarkPayload.CharsetFiles,            // File-based charset references
+					HexCharset:              benchmarkPayload.HexCharset,              // Hex charset flag
+					JobAdditionalArgs:       benchmarkPayload.JobAdditionalArgs,       // Job-level additional args
 				}
 
 				// Default test duration to 120s if backend didn't supply one
@@ -1807,22 +1826,24 @@ func (c *Connection) readPump() {
 					// uses to format admin-friendly messages on the job.
 					errorCode := ""
 					switch {
+					case errors.Is(err, jobs.ErrBenchmarkNoHashesLoaded):
+						errorCode = "BENCHMARK_NO_HASHES_LOADED"
 					case errors.Is(err, jobs.ErrBenchmarkTimeout):
 						errorCode = "BENCHMARK_TIMEOUT"
 					case errors.Is(err, jobs.ErrBenchmarkZeroSpeed):
 						errorCode = "BENCHMARK_ZERO_SPEED"
 					}
 					resultPayload := map[string]interface{}{
-						"job_execution_id":          benchmarkPayload.JobExecutionID,
-						"attack_mode":               benchmarkPayload.AttackMode,
-						"hash_type":                 benchmarkPayload.HashType,
-						"speed":                     int64(0),
-						"device_speeds":             []jobs.DeviceSpeed{},
-						"total_effective_keyspace":  int64(0),
-						"agent_base_keyspace":       int64(0),
-						"success":                   false,
-						"error":                     err.Error(), // Backend expects "error" not "error_message"
-						"error_code":                errorCode,
+						"job_execution_id":         benchmarkPayload.JobExecutionID,
+						"attack_mode":              benchmarkPayload.AttackMode,
+						"hash_type":                benchmarkPayload.HashType,
+						"speed":                    int64(0),
+						"device_speeds":            []jobs.DeviceSpeed{},
+						"total_effective_keyspace": int64(0),
+						"agent_base_keyspace":      int64(0),
+						"success":                  false,
+						"error":                    err.Error(), // Backend expects "error" not "error_message"
+						"error_code":               errorCode,
 					}
 
 					payloadBytes, _ := json.Marshal(resultPayload)
@@ -1840,14 +1861,14 @@ func (c *Connection) readPump() {
 				// Send success result in the format the backend expects
 				// The backend expects BenchmarkResultPayload which has different field names
 				resultPayload := map[string]interface{}{
-					"job_execution_id":          benchmarkPayload.JobExecutionID, // Include job ID for tracking
-					"attack_mode":               benchmarkPayload.AttackMode,
-					"hash_type":                 benchmarkPayload.HashType,
-					"speed":                     totalSpeed, // Backend expects "speed" not "total_speed"
-					"device_speeds":             deviceSpeeds,
-					"total_effective_keyspace":  totalEffectiveKeyspace, // Hashcat's progress[1]
-					"agent_base_keyspace":       agentBaseKeyspace,      // Agent's hashcat --keyspace with its flags
-					"success":                   true,
+					"job_execution_id":         benchmarkPayload.JobExecutionID, // Include job ID for tracking
+					"attack_mode":              benchmarkPayload.AttackMode,
+					"hash_type":                benchmarkPayload.HashType,
+					"speed":                    totalSpeed, // Backend expects "speed" not "total_speed"
+					"device_speeds":            deviceSpeeds,
+					"total_effective_keyspace": totalEffectiveKeyspace, // Hashcat's progress[1]
+					"agent_base_keyspace":      agentBaseKeyspace,      // Agent's hashcat --keyspace with its flags
+					"success":                  true,
 				}
 
 				payloadBytes, _ := json.Marshal(resultPayload)
@@ -1862,25 +1883,25 @@ func (c *Connection) readPump() {
 					debug.Info("Successfully sent benchmark result: %d H/s total, effective keyspace: %d", totalSpeed, totalEffectiveKeyspace)
 				}
 			}()
-			
+
 		case WSTypeDeviceUpdate:
 			// Server requested device update (enable/disable)
 			debug.Info("Received device update request")
-			
+
 			var updatePayload types.DeviceUpdate
 			if err := json.Unmarshal(msg.Payload, &updatePayload); err != nil {
 				debug.Error("Failed to parse device update: %v", err)
 				continue
 			}
-			
+
 			// Update device status
 			if err := c.hwMonitor.UpdateDeviceStatus(updatePayload.DeviceID, updatePayload.Enabled); err != nil {
 				debug.Error("Failed to update device status: %v", err)
 				// Send error response
 				errorPayload := map[string]interface{}{
 					"device_id": updatePayload.DeviceID,
-					"error": err.Error(),
-					"success": false,
+					"error":     err.Error(),
+					"success":   false,
 				}
 				errorJSON, _ := json.Marshal(errorPayload)
 				response := WSMessage{
@@ -1893,12 +1914,12 @@ func (c *Connection) readPump() {
 				}
 				continue
 			}
-			
+
 			// Send success response
 			successPayload := map[string]interface{}{
 				"device_id": updatePayload.DeviceID,
-				"enabled": updatePayload.Enabled,
-				"success": true,
+				"enabled":   updatePayload.Enabled,
+				"success":   true,
 			}
 			successJSON, _ := json.Marshal(successPayload)
 			response := WSMessage{
@@ -2001,12 +2022,12 @@ func (c *Connection) handleFileSyncAsync(requestPayload FileSyncRequestPayload) 
 	// Scan directories for files
 	filesByType := make(map[string][]filesync.FileInfo)
 	totalFiles := 0
-	
+
 	for i, fileType := range requestPayload.FileTypes {
 		// Send progress for each directory
 		progressData := map[string]interface{}{
-			"status": "scanning",
-			"message": fmt.Sprintf("Scanning %s directory (%d/%d)...", fileType, i+1, len(requestPayload.FileTypes)),
+			"status":   "scanning",
+			"message":  fmt.Sprintf("Scanning %s directory (%d/%d)...", fileType, i+1, len(requestPayload.FileTypes)),
 			"progress": float64(i) / float64(len(requestPayload.FileTypes)) * 100,
 		}
 		progressBytes, _ := json.Marshal(progressData)
@@ -2132,7 +2153,7 @@ func (c *Connection) writePump() {
 			if err := c.ws.WriteJSON(message); err != nil {
 				debug.Error("Failed to send message type %s: %v", message.Type, err)
 				c.writeMux.Unlock()
-				
+
 				// Buffer critical messages on send failure
 				if c.messageBuffer != nil && c.shouldBufferMessage(message) {
 					if bufferErr := c.bufferMessage(message); bufferErr != nil {
@@ -2141,7 +2162,7 @@ func (c *Connection) writePump() {
 						debug.Info("Buffered message type %s for later delivery", message.Type)
 					}
 				}
-				
+
 				c.isConnected.Store(false)
 				return
 			}
@@ -2528,9 +2549,9 @@ func (c *Connection) SendHashcatOutput(taskID string, output string, isError boo
 
 	// Create output payload
 	outputPayload := map[string]interface{}{
-		"task_id":  taskID,
-		"output":   output,
-		"is_error": isError,
+		"task_id":   taskID,
+		"output":    output,
+		"is_error":  isError,
 		"timestamp": time.Now(),
 	}
 
@@ -2575,7 +2596,7 @@ func getDetailedOSInfo() map[string]interface{} {
 				if len(parts) == 2 {
 					key := strings.TrimSpace(parts[0])
 					value := strings.Trim(strings.TrimSpace(parts[1]), "\"")
-					
+
 					switch key {
 					case "NAME":
 						osInfo["os_name"] = value
@@ -2591,16 +2612,16 @@ func getDetailedOSInfo() map[string]interface{} {
 				}
 			}
 		}
-		
+
 		// Try to get kernel version
 		if data, err := os.ReadFile("/proc/version"); err == nil {
 			osInfo["kernel_version"] = strings.TrimSpace(string(data))
 		}
 	}
-	
+
 	// Add Go version
 	osInfo["go_version"] = runtime.Version()
-	
+
 	return osInfo
 }
 
@@ -2608,15 +2629,15 @@ func getDetailedOSInfo() map[string]interface{} {
 func (c *Connection) createAgentStatusMessage() (*WSMessage, error) {
 	// Get hostname
 	hostname, _ := os.Hostname()
-	
+
 	// Get detailed OS information
 	osInfo := getDetailedOSInfo()
-	
+
 	// Create status payload
 	statusPayload := map[string]interface{}{
-		"status":      "active",
-		"version":     version.GetVersion(),
-		"updated_at":  time.Now(),
+		"status":     "active",
+		"version":    version.GetVersion(),
+		"updated_at": time.Now(),
 		"environment": map[string]string{
 			"os":       runtime.GOOS,
 			"arch":     runtime.GOARCH,
@@ -2685,9 +2706,9 @@ func (c *Connection) Stop() {
 func (c *Connection) reinitializeChannels() {
 	c.writeMux.Lock()
 	defer c.writeMux.Unlock()
-	
+
 	debug.Info("Reinitializing connection channels")
-	
+
 	// Check if outbound channel needs to be recreated
 	// A closed channel will immediately return from a receive operation
 	select {
@@ -2718,18 +2739,18 @@ func (c *Connection) safeSendMessage(msg *WSMessage, timeoutMs int) (sent bool) 
 			sent = false
 		}
 	}()
-	
+
 	// Check if connected
 	if !c.isConnected.Load() {
 		debug.Debug("Not connected, skipping message send")
 		return false
 	}
-	
+
 	// Create timeout if specified
 	if timeoutMs > 0 {
 		timer := time.NewTimer(time.Duration(timeoutMs) * time.Millisecond)
 		defer timer.Stop()
-		
+
 		select {
 		case c.outbound <- msg:
 			return true
@@ -2779,7 +2800,7 @@ func (c *Connection) Start() error {
 	go c.maintainConnection()
 	go c.readPump()
 	go c.writePump()
-	
+
 	// Send current task status after initial connection
 	// This ensures the backend knows if we have any running tasks
 	// Important for crash recovery: if agent restarts, it will report no tasks
@@ -2806,6 +2827,33 @@ func (c *Connection) SetJobManager(jm JobManager) {
 }
 
 // SendShutdownNotification sends a notification to the backend that the agent is shutting down gracefully
+// SendTaskAssignmentRejected tells the backend the agent refused an
+// inbound task_assignment. The backend's HandleTaskAssignmentRejected
+// runs RecoverTaskByID on the task so the chunk is immediately freed
+// for re-dispatch — closes the agent-shutdown race window without
+// waiting for the heartbeat sweep.
+func (c *Connection) SendTaskAssignmentRejected(taskID, reason string) error {
+	if !c.isConnected.Load() {
+		return fmt.Errorf("not connected")
+	}
+	payloadBytes, err := json.Marshal(struct {
+		TaskID string `json:"task_id"`
+		Reason string `json:"reason"`
+	}{TaskID: taskID, Reason: reason})
+	if err != nil {
+		return fmt.Errorf("marshal task_assignment_rejected: %w", err)
+	}
+	msg := &WSMessage{
+		Type:      WSTypeTaskAssignmentRejected,
+		Payload:   payloadBytes,
+		Timestamp: time.Now(),
+	}
+	if !c.safeSendMessage(msg, 2000) {
+		return fmt.Errorf("send timeout / channel blocked")
+	}
+	return nil
+}
+
 func (c *Connection) SendShutdownNotification(hasTask bool, taskID string, jobID string) {
 	debug.Info("Sending shutdown notification to backend")
 
@@ -2839,24 +2887,24 @@ func (c *Connection) SendShutdownNotification(hasTask bool, taskID string, jobID
 			shutdownPayload.AgentID = agentID
 		}
 	}
-	
+
 	// Marshal the payload
 	payloadBytes, err := json.Marshal(shutdownPayload)
 	if err != nil {
 		debug.Error("Failed to marshal shutdown payload: %v", err)
 		return
 	}
-	
+
 	// Create the message
 	msg := &WSMessage{
 		Type:      WSTypeAgentShutdown,
 		Payload:   payloadBytes,
 		Timestamp: time.Now(),
 	}
-	
+
 	// Send with a short timeout since we're shutting down
 	if c.safeSendMessage(msg, 2000) {
-		debug.Info("Successfully sent shutdown notification - HasTask: %v, TaskID: %s", 
+		debug.Info("Successfully sent shutdown notification - HasTask: %v, TaskID: %s",
 			shutdownPayload.HasRunningTask, shutdownPayload.TaskID)
 	} else {
 		debug.Warning("Failed to send shutdown notification (timeout or channel blocked)")
@@ -2866,14 +2914,14 @@ func (c *Connection) SendShutdownNotification(hasTask bool, taskID string, jobID
 // sendCurrentTaskStatus sends the current task status to the backend
 func (c *Connection) sendCurrentTaskStatus() {
 	debug.Info("Sending current task status to backend")
-	
+
 	// Check if we have a job manager
 	if c.jobManager == nil {
 		debug.Warning("No job manager available, sending empty task status")
 		// Send empty status to indicate no running tasks
 		// This is important for crash recovery
 		var statusPayload CurrentTaskStatusPayload
-		
+
 		// Try to get agent ID from config
 		configDir := config.GetConfigDir()
 		agentIDPath := filepath.Join(configDir, "agent_id")
@@ -2884,24 +2932,24 @@ func (c *Connection) sendCurrentTaskStatus() {
 				statusPayload.AgentID = agentID
 			}
 		}
-		
+
 		statusPayload.HasRunningTask = false
 		statusPayload.Status = "idle"
-		
+
 		// Marshal the payload
 		payloadBytes, err := json.Marshal(statusPayload)
 		if err != nil {
 			debug.Error("Failed to marshal empty task status payload: %v", err)
 			return
 		}
-		
+
 		// Create and send the message
 		msg := &WSMessage{
 			Type:      WSTypeCurrentTaskStatus,
 			Payload:   payloadBytes,
 			Timestamp: time.Now(),
 		}
-		
+
 		if c.safeSendMessage(msg, 5000) {
 			debug.Info("Successfully sent empty task status (no job manager)")
 		} else {
@@ -2909,10 +2957,10 @@ func (c *Connection) sendCurrentTaskStatus() {
 		}
 		return
 	}
-	
+
 	// Get current task status from job manager
 	var statusPayload CurrentTaskStatusPayload
-	
+
 	// Try to get agent ID from config
 	configDir := config.GetConfigDir()
 	agentIDPath := filepath.Join(configDir, "agent_id")
@@ -2923,7 +2971,7 @@ func (c *Connection) sendCurrentTaskStatus() {
 			statusPayload.AgentID = agentID
 		}
 	}
-	
+
 	// Get task status from job manager if it's the concrete type
 	if jm, ok := c.jobManager.(*jobs.JobManager); ok {
 		taskInfo := jm.GetCurrentTaskStatus()
@@ -2953,21 +3001,21 @@ func (c *Connection) sendCurrentTaskStatus() {
 			statusPayload.Status = "idle"
 		}
 	}
-	
+
 	// Marshal the payload
 	payloadBytes, err := json.Marshal(statusPayload)
 	if err != nil {
 		debug.Error("Failed to marshal task status payload: %v", err)
 		return
 	}
-	
+
 	// Create the message
 	msg := &WSMessage{
 		Type:      WSTypeCurrentTaskStatus,
 		Payload:   payloadBytes,
 		Timestamp: time.Now(),
 	}
-	
+
 	// Send the message
 	if c.safeSendMessage(msg, 5000) {
 		debug.Info("Successfully sent current task status - HasTask: %v, TaskID: %s, JobID: %s",
@@ -3224,7 +3272,7 @@ func (c *Connection) DetectAndSendDevices() error {
 		debug.Error("Failed to detect physical devices: %v", err)
 		// Send error status to server
 		errorPayload := map[string]interface{}{
-			"error": err.Error(),
+			"error":  err.Error(),
 			"status": "error",
 		}
 		errorJSON, _ := json.Marshal(errorPayload)
@@ -3335,7 +3383,7 @@ func (c *Connection) bufferMessage(msg *WSMessage) error {
 	if c.messageBuffer == nil {
 		return fmt.Errorf("message buffer not initialized")
 	}
-	
+
 	return c.messageBuffer.Add(buffer.MessageType(msg.Type), msg.Payload)
 }
 
@@ -3344,12 +3392,12 @@ func (c *Connection) sendBufferedMessages() {
 	if c.messageBuffer == nil || c.messageBuffer.Count() == 0 {
 		return
 	}
-	
+
 	debug.Info("Sending %d buffered messages", c.messageBuffer.Count())
-	
+
 	// Get all buffered messages
 	messages := c.messageBuffer.GetAll()
-	
+
 	// Create payload with all buffered messages
 	payload, err := json.Marshal(map[string]interface{}{
 		"messages": messages,
@@ -3359,14 +3407,14 @@ func (c *Connection) sendBufferedMessages() {
 		debug.Error("Failed to marshal buffered messages: %v", err)
 		return
 	}
-	
+
 	// Send buffered messages
 	msg := WSMessage{
 		Type:      WSTypeBufferedMessages,
 		Payload:   payload,
 		Timestamp: time.Now(),
 	}
-	
+
 	// Use safeSendMessage to avoid blocking
 	if c.safeSendMessage(&msg, 10000) { // 10 second timeout for buffered messages
 		debug.Info("Successfully sent buffered messages, waiting for ACK")
