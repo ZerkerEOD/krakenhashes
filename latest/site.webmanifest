@@ -1,0 +1,22 @@
+{
+    "name": "KrakenHashes Documentation",
+    "short_name": "KrakenHashes",
+    "description": "Distributed password cracking system for security professionals",
+    "icons": [
+        {
+            "src": "/krakenhashes/assets/favicon-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/krakenhashes/assets/favicon-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ],
+    "theme_color": "#b71c1c",
+    "background_color": "#1e1e1e",
+    "display": "standalone",
+    "start_url": "/krakenhashes/",
+    "scope": "/krakenhashes/"
+}
