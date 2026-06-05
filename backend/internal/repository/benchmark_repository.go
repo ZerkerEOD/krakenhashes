@@ -290,14 +290,14 @@ func (r *BenchmarkRepository) GetAgentDeviceMetrics(ctx context.Context, agentID
 	placeholders := make([]string, len(metricTypes))
 	args := make([]interface{}, 0, len(metricTypes)+3)
 	args = append(args, agentID)
-	
+
 	for i, mt := range metricTypes {
 		placeholders[i] = fmt.Sprintf("$%d", i+2)
 		args = append(args, mt)
 	}
-	
+
 	args = append(args, start, end)
-	
+
 	query := fmt.Sprintf(`
 		SELECT id, agent_id, metric_type, value, timestamp, aggregation_level, period_start, period_end,
 		       device_id, device_name, task_id, attack_mode
@@ -894,6 +894,37 @@ func (r *BenchmarkRepository) ClearBlocklistEntry(
 		return sql.ErrNoRows
 	}
 	return nil
+}
+
+// ClearBlocklistForJob clears every active (cleared_at IS NULL) job-scoped
+// blocklist entry for the given job and deletes the job's failure-attempt
+// counters, so a subsequent scheduler cycle re-benchmarks the previously
+// blocklisted agents immediately instead of waiting out the 24h cooldown.
+// Global entries (job_execution_id IS NULL) are intentionally left untouched —
+// they protect other jobs from a known-bad combo. Returns the number of
+// blocklist rows cleared.
+func (r *BenchmarkRepository) ClearBlocklistForJob(
+	ctx context.Context,
+	jobExecutionID uuid.UUID,
+	clearedBy uuid.UUID,
+) (int64, error) {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE agent_benchmark_blocklist
+		SET cleared_at = CURRENT_TIMESTAMP, cleared_by = $2
+		WHERE job_execution_id = $1 AND cleared_at IS NULL`, jobExecutionID, clearedBy)
+	if err != nil {
+		return 0, fmt.Errorf("clear blocklist for job: %w", err)
+	}
+	n, _ := res.RowsAffected()
+
+	// Reset the per-tuple failure counters for this job so the threshold/
+	// hard-cap logic starts fresh on retry.
+	if _, err := r.db.ExecContext(ctx, `
+		DELETE FROM benchmark_failure_attempts
+		WHERE job_execution_id = $1`, jobExecutionID); err != nil {
+		return n, fmt.Errorf("reset failure attempts for job: %w", err)
+	}
+	return n, nil
 }
 
 // ListBlocklistForJob returns all active blocklist entries whose

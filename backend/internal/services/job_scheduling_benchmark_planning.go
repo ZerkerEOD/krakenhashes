@@ -1532,6 +1532,17 @@ func (s *JobSchedulingService) AttributeBenchmarkFailure(
 		return nil
 	}
 
+	// Transient-timeout classification. A BENCHMARK_TIMEOUT means the speed
+	// test ran but produced no usable status update inside the window — almost
+	// always cold-cache / kernel-compilation slowness or an under-provisioned
+	// timeout, NOT proof the agent can't run this hash. We therefore record the
+	// failure but refuse to treat it as "agent-specific": no auto-quarantine
+	// and no otherAgentsSucceeded/hasRunningTasksOnOthers blocklist (which used
+	// to sideline a perfectly good agent for 24h after a SINGLE timeout). The
+	// per-tuple threshold/hard-cap safety valves still apply so a combo that
+	// keeps timing out can't loop forever.
+	isTransientTimeout := strings.Contains(errMsg, "BENCHMARK_TIMEOUT")
+
 	benchmarkRepo := s.jobExecutionService.benchmarkRepo
 
 	// 4. Upsert failure counter.
@@ -1577,6 +1588,14 @@ func (s *JobSchedulingService) AttributeBenchmarkFailure(
 		thresholdTripped := (streakCap > 0 && health.Streak >= streakCap) ||
 			(distinctCap > 0 && health.DistinctCombosFailed >= distinctCap)
 		switch {
+		case thresholdTripped && isTransientTimeout:
+			// Thresholds tripped but the failures are transient timeouts —
+			// don't quarantine a likely-healthy agent. Cooldown/threshold
+			// blocklist (step 7) still gives the job a way to make progress.
+			debug.Warning(
+				"agent %d benchmark thresholds tripped (streak=%d/%d, distinct=%d/%d within %s) but failures are transient BENCHMARK_TIMEOUTs (likely cold kernels / short timeout); not quarantining",
+				agentID, health.Streak, streakCap, health.DistinctCombosFailed, distinctCap, streakReset,
+			)
 		case thresholdTripped && otherAgentsSucceeded > 0:
 			reason := fmt.Sprintf(
 				"auto-quarantine: benchmark streak=%d (cap=%d), distinct_combos=%d (cap=%d) within %s; %d other agent(s) succeeded on (attack_mode=%d, hash_type=%d)",
@@ -1653,6 +1672,23 @@ func (s *JobSchedulingService) AttributeBenchmarkFailure(
 	blocklistNow := false
 	blockReason := ""
 	switch {
+	case isTransientTimeout && attempt.FailureCount >= threshold:
+		// Repeated timeouts on the same combo: blocklist with a cooldown so the
+		// job can progress on other agents, but DON'T treat it as agent-specific
+		// (no quarantine — see step 5). A single timeout never reaches here.
+		blocklistNow = true
+		blockReason = fmt.Sprintf(
+			"benchmark TIMED OUT %d times on agent %d for (hash_type=%d, attack_mode=%d); threshold=%d — transient, cooldown only",
+			attempt.FailureCount, agentID, hashType, int(attackMode), threshold,
+		)
+	case isTransientTimeout:
+		// Below threshold: a transient timeout is not evidence the agent is
+		// broken. Skip the agent-specific blocklist branches entirely so a good
+		// agent isn't sidelined for 24h after one cold-cache timeout.
+		debug.Info(
+			"agent %d benchmark timed out (failure %d/%d) for hash_type=%d attack_mode=%d; transient — not blocklisting",
+			agentID, attempt.FailureCount, threshold, hashType, int(attackMode),
+		)
 	case otherAgentsSucceeded > 0:
 		blocklistNow = true
 		blockReason = fmt.Sprintf(

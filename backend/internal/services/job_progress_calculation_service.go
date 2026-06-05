@@ -290,6 +290,14 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 
 	var processedKeyspace int64
 	var dispatchedKeyspace int64
+	// processedBaseKeyspace tracks progress in BASE (wordlist) units. For
+	// non-rule-split jobs the displayed percentage is driven off this, not off
+	// effective keyspace: effective_keyspace = base × rules but does NOT track
+	// the salt count, while hashcat's effective_keyspace_processed DOES — so on
+	// salted modes (e.g. NetNTLMv2/5600) the effective ratio runs well past 100%
+	// (584% was observed). Base coverage is immune to salt/rule drift and is
+	// structurally bounded by base_keyspace.
+	var processedBaseKeyspace int64
 
 	// Determine if this is a keyspace-split job and get the multiplier
 	// For keyspace-split jobs, we need to use consistent calculations for both
@@ -304,6 +312,34 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 	}
 
 	for _, task := range tasks {
+		// Accumulate BASE-unit progress (used for the drift-free percentage of
+		// non-rule-split jobs). Completed tasks count their full chunk; active
+		// tasks count their partial restore_point (converted from absolute to
+		// relative when needed), clamped to the chunk size; failed/cancelled
+		// ranges reopened as gaps count for nothing.
+		if task.Status != models.JobTaskStatusFailed && task.Status != models.JobTaskStatusCancelled {
+			chunkSize := task.KeyspaceEnd - task.KeyspaceStart
+			if task.Status == models.JobTaskStatusCompleted {
+				if chunkSize > 0 {
+					processedBaseKeyspace += chunkSize
+				}
+			} else {
+				var baseProc int64
+				if task.KeyspaceStart > 0 && task.KeyspaceProcessed >= task.KeyspaceStart {
+					baseProc = task.KeyspaceProcessed - task.KeyspaceStart
+				} else {
+					baseProc = task.KeyspaceProcessed
+				}
+				if baseProc < 0 {
+					baseProc = 0
+				}
+				if chunkSize > 0 && baseProc > chunkSize {
+					baseProc = chunkSize
+				}
+				processedBaseKeyspace += baseProc
+			}
+		}
+
 		// Calculate processed keyspace
 		// PRIORITY: Use effective_keyspace_processed when available (most accurate from hashcat)
 		// FALLBACK: For keyspace-split jobs without effective values, estimate using multiplier
@@ -360,12 +396,20 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 		}
 	}
 
-	// Calculate overall progress percentage
+	// Calculate overall progress percentage.
 	progressPercent := 0.0
-	if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
+	if !job.UsesRuleSplitting && job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
+		// Base-driven: immune to salt/rule drift and structurally <= 100%.
+		progressPercent = float64(processedBaseKeyspace) / float64(*job.BaseKeyspace) * 100
+		if progressPercent > 100 {
+			// Can still nudge over 100 from a transient in-flight restore_point
+			// overshoot; clamp quietly (no over-count warning — base coverage
+			// can't genuinely exceed the wordlist).
+			progressPercent = 100
+		}
+	} else if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
+		// Rule-split / no-base-keyspace fallback (effective units).
 		progressPercent = float64(processedKeyspace) / float64(*job.EffectiveKeyspace) * 100
-
-		// Cap at 100% but log if it exceeds (indicates a calculation issue)
 		if progressPercent > 100 {
 			debug.Warning("Job %s progress exceeds 100%% (%.3f%%), capping at 100%%. Processed: %d, Effective: %d",
 				job.ID, progressPercent, processedKeyspace, *job.EffectiveKeyspace)

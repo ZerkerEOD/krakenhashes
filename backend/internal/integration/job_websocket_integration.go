@@ -1303,89 +1303,19 @@ func (s *JobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, age
 	return nil
 }
 
-// compressedWordlistExts are the wordlist file suffixes we treat as compressed
-// when picking a benchmark timeout. Hashcat needs significantly more time to
-// dictstat-preprocess these before the GPUs start crunching, so they get the
-// larger configured timeout. Match is case-insensitive against the trailing
-// suffix of the wordlist path.
-//
-// This set must mirror the formats hashcat itself recognises in
-// src/filehandling.c (magic-byte detection at hc_fopen):
-//   - .gz  → gzip (magic 1F 8B 08), opened via gzdopen
-//   - .zip → zip  (magic PK\x03\x04), opened via unzOpen64 (first file in archive)
-//   - .xz  → xz   (magic FD 37 7A 58 5A 00), opened via the LZMA-SDK xz unpacker
-//
-// Hashcat does not support bzip2, zstd, or 7z wordlists — adding those
-// extensions would just hand them the longer timeout and then surface a
-// typed read failure, with no chance of success.
-var compressedWordlistExts = []string{".gz", ".zip", ".xz"}
-
-// hasCompressedWordlist returns true if any of the supplied wordlist paths
-// looks compressed by extension. Used by resolveSpeedTestParameters.
-func hasCompressedWordlist(paths []string) bool {
-	for _, p := range paths {
-		lower := strings.ToLower(p)
-		for _, ext := range compressedWordlistExts {
-			if strings.HasSuffix(lower, ext) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // resolveSpeedTestParameters reads the speed-test admin settings live and
 // returns the (testDuration, timeoutDuration, minStatusUpdates) triple to put
-// in the BenchmarkRequestPayload. If a compressed wordlist is in the request,
-// the larger compressed timeout wins. The wall-clock TimeoutDuration is set
-// slightly larger than TestDuration so the agent's outer context never fires
-// before the inner status-collection deadline. Falls back to the previous
-// `speedtest_timeout_seconds` setting (and conservative defaults) if any of
-// the new keys are missing or invalid, so an upgrade with a partial DB still
-// runs.
+// in the BenchmarkRequestPayload. The actual logic lives in the shared
+// scheduler.ResolveSpeedTestParameters so this legacy path and the scheduler-v2
+// benchmark dispatch stay in lockstep (single source of truth).
 func (s *JobWebSocketIntegration) resolveSpeedTestParameters(ctx context.Context, wordlistPaths []string) (testDuration, timeoutDuration, minStatusUpdates int) {
-	// Conservative defaults that match the migration seeds.
-	const (
-		defaultUncompressed = 120
-		defaultCompressed   = 300
-		defaultMinUpdates   = 3
-		timeoutGraceSeconds = 60
-	)
-
-	uncompressed := defaultUncompressed
-	compressed := defaultCompressed
-	minStatusUpdates = defaultMinUpdates
-
-	if s.systemSettingsRepo != nil {
-		if v, ok := s.readIntSetting(ctx, "speed_test_timeout_seconds_uncompressed"); ok && v > 0 {
-			uncompressed = v
+	getInt := func(key string) (int, bool) {
+		if s.systemSettingsRepo == nil {
+			return 0, false
 		}
-		if v, ok := s.readIntSetting(ctx, "speed_test_timeout_seconds_compressed"); ok && v > 0 {
-			compressed = v
-		}
-		if v, ok := s.readIntSetting(ctx, "speed_test_min_status_updates"); ok && v >= 1 {
-			minStatusUpdates = v
-		}
+		return s.readIntSetting(ctx, key)
 	}
-
-	if hasCompressedWordlist(wordlistPaths) {
-		testDuration = compressed
-	} else {
-		testDuration = uncompressed
-	}
-
-	// Honour the legacy `speedtest_timeout_seconds` knob as a hard outer cap so
-	// existing deployments that bumped it for slow agents don't regress. The
-	// wall-clock TimeoutDuration must be at least TestDuration plus a grace
-	// period for hashcat init/teardown.
-	timeoutDuration = testDuration + timeoutGraceSeconds
-	if s.systemSettingsRepo != nil {
-		if v, ok := s.readIntSetting(ctx, "speedtest_timeout_seconds"); ok && v > timeoutDuration {
-			timeoutDuration = v
-		}
-	}
-
-	return testDuration, timeoutDuration, minStatusUpdates
+	return scheduler.ResolveSpeedTestParameters(getInt, wordlistPaths)
 }
 
 // readIntSetting fetches a system setting and parses it as int. Returns

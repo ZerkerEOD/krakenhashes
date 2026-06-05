@@ -114,6 +114,67 @@ func (r *JobTaskRepository) GetSumChunkActualKeyspace(ctx context.Context, jobEx
 	return totalKeyspace, nil
 }
 
+// HasUndispatchedBaseKeyspace reports whether a (non-rule-split) job still has
+// BASE keyspace left to dispatch. It is the authoritative completion signal for
+// regular jobs and is computed from the SAME source the scheduler-v2 dispatcher
+// chunks from — job_keyspace_intervals against scheduling_units.base_keyspace —
+// so the completion gate can never disagree with the dispatcher about whether
+// work remains.
+//
+// Semantics mirror dispatcher.firstGap exactly: half-open [range_start,
+// range_end) coverage, failed intervals excluded (their range reopens as a
+// gap), tail bound = base_keyspace. Work remains when ANY unit of the job has a
+// mid-gap or its coverage stops short of base_keyspace. We also return true
+// when the job has no scheduling_units with a usable base_keyspace yet — we
+// can't prove completion, so don't.
+//
+// This deliberately replaces the older effective_keyspace counter comparison,
+// which drifted (float scaling + salt counts) and stranded finished jobs a
+// fraction of a percent short forever.
+func (r *JobTaskRepository) HasUndispatchedBaseKeyspace(ctx context.Context, jobExecutionID uuid.UUID) (bool, error) {
+	const query = `
+		WITH units AS (
+			SELECT id, base_keyspace
+			FROM scheduling_units
+			WHERE parent_job_id = $1
+			  AND base_keyspace IS NOT NULL
+			  AND base_keyspace > 0
+		),
+		ordered AS (
+			SELECT i.scheduling_unit_id AS uid, i.range_start AS rs, i.range_end AS re
+			FROM job_keyspace_intervals i
+			JOIN units u ON u.id = i.scheduling_unit_id
+			WHERE i.status <> 'failed'
+		),
+		with_prev AS (
+			SELECT uid, rs, re,
+			       LAG(re, 1, 0::BIGINT) OVER (PARTITION BY uid ORDER BY rs) AS prev_end
+			FROM ordered
+		),
+		mid_gaps AS (
+			SELECT 1 FROM with_prev WHERE rs > prev_end
+		),
+		tail_gaps AS (
+			SELECT 1 FROM units u
+			WHERE COALESCE((SELECT MAX(o.re) FROM ordered o WHERE o.uid = u.id), 0) < u.base_keyspace
+		)
+		SELECT
+			(SELECT COUNT(*) FROM units) AS unit_count,
+			EXISTS (SELECT 1 FROM mid_gaps UNION ALL SELECT 1 FROM tail_gaps) AS has_gap`
+
+	var unitCount int64
+	var hasGap bool
+	err := r.db.QueryRowContext(ctx, query, jobExecutionID).Scan(&unitCount, &hasGap)
+	if err != nil {
+		return false, fmt.Errorf("failed to check undispatched base keyspace: %w", err)
+	}
+	// No usable units → can't confirm completion; be conservative.
+	if unitCount == 0 {
+		return true, nil
+	}
+	return hasGap, nil
+}
+
 // Create creates a new job task
 func (r *JobTaskRepository) Create(ctx context.Context, task *models.JobTask) error {
 	query := `
@@ -470,7 +531,7 @@ func (r *JobTaskRepository) MarkTaskFailedPermanently(ctx context.Context, taskI
 	var effectiveKeyspaceEnd sql.NullInt64
 	err := r.db.QueryRowContext(ctx,
 		"SELECT job_execution_id, keyspace_processed, keyspace_start, keyspace_end, "+
-		"effective_keyspace_start, effective_keyspace_end FROM job_tasks WHERE id = $1",
+			"effective_keyspace_start, effective_keyspace_end FROM job_tasks WHERE id = $1",
 		taskID).Scan(&jobExecutionID, &keyspaceProcessed, &keyspaceStart, &keyspaceEnd,
 		&effectiveKeyspaceStart, &effectiveKeyspaceEnd)
 	if err != nil {

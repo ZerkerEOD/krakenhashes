@@ -387,6 +387,14 @@ func buildBenchmarkRequest(
 
 	hashlistPath := fmt.Sprintf("hashlists/%d.hash", hashlistID)
 
+	// Resolve the speed-test timeouts from admin settings (compression-aware)
+	// using the shared resolver — the SAME logic the legacy integration path
+	// uses. Previously these were hardcoded to 10s/30s/2 here, which is far too
+	// short for a "cold" agent to compile kernels and emit status updates,
+	// causing spurious BENCHMARK_TIMEOUT failures and 24h blocklists.
+	testDuration, timeoutDuration, minStatusUpdates := ResolveSpeedTestParameters(
+		dbIntSettingReader(ctx, database), taskPayload.WordlistPaths)
+
 	req := &wsservice.BenchmarkRequestPayload{
 		RequestID:               uuid.New().String(),
 		JobExecutionID:          unit.ParentJobID.String(),
@@ -404,9 +412,9 @@ func buildBenchmarkRequest(
 		AssociationWordlistPath: taskPayload.AssociationWordlistPath,
 		ExtraParameters:         agentExtraParams,
 		JobAdditionalArgs:       jobAdditionalArgs,
-		TestDuration:            10,
-		TimeoutDuration:         30,
-		MinStatusUpdates:        2,
+		TestDuration:            testDuration,
+		TimeoutDuration:         timeoutDuration,
+		MinStatusUpdates:        minStatusUpdates,
 	}
 	// NOTE: EnabledDevices is intentionally not set here — the benchmark runs
 	// on all of the agent's devices. Deriving the enabled subset needs the

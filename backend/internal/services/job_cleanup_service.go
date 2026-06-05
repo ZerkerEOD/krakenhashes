@@ -62,7 +62,7 @@ func (s *JobCleanupService) CleanupStaleTasksOnStartup(ctx context.Context) erro
 	}
 
 	debug.Info("Found %d stale tasks - marking as reconnect_pending with 2-minute grace period", len(staleTasks))
-	
+
 	// Mark each stale task as reconnect_pending instead of failed
 	for _, task := range staleTasks {
 		agentID := 0
@@ -71,14 +71,14 @@ func (s *JobCleanupService) CleanupStaleTasksOnStartup(ctx context.Context) erro
 		}
 		debug.Info("Marking task as reconnect_pending - ID: %s, Status: %s, Agent: %d, Job: %s",
 			task.ID, task.Status, agentID, task.JobExecutionID)
-		
+
 		// Update task status to reconnect_pending
 		err := s.jobTaskRepo.UpdateStatus(ctx, task.ID, models.JobTaskStatusReconnectPending)
 		if err != nil {
 			debug.Error("Failed to update task %s to reconnect_pending: %v", task.ID, err)
 			continue
 		}
-		
+
 		debug.Info("Successfully marked task as reconnect_pending - Task ID: %s, Agent: %d, Job: %s",
 			task.ID, agentID, task.JobExecutionID)
 	}
@@ -88,7 +88,7 @@ func (s *JobCleanupService) CleanupStaleTasksOnStartup(ctx context.Context) erro
 	for i := range staleTasks {
 		taskPointers[i] = &staleTasks[i]
 	}
-	
+
 	// Start a goroutine to handle the grace period expiration
 	go s.handleGracePeriodExpiration(ctx, taskPointers)
 
@@ -218,13 +218,13 @@ func (s *JobCleanupService) handleGracePeriodExpiration(ctx context.Context, tas
 			gracePeriod = time.Duration(minutes) * time.Minute
 		}
 	}
-	
+
 	debug.Info("Starting grace period timer for %d tasks - duration: %v", len(tasks), gracePeriod)
-	
+
 	time.Sleep(gracePeriod)
-	
+
 	debug.Info("Grace period expired - checking for tasks that didn't reconnect")
-	
+
 	// Get max retry attempts from settings
 	maxRetries := 3
 	retrySetting, err := s.systemSettingsRepo.GetSetting(ctx, "max_chunk_retry_attempts")
@@ -233,10 +233,10 @@ func (s *JobCleanupService) handleGracePeriodExpiration(ctx context.Context, tas
 			maxRetries = retries
 		}
 	}
-	
+
 	// Group tasks by job for efficient job status updates
 	jobTaskMap := make(map[uuid.UUID][]*models.JobTask)
-	
+
 	for _, task := range tasks {
 		// Check if task is still in reconnect_pending state
 		currentTask, err := s.jobTaskRepo.GetByID(ctx, task.ID)
@@ -244,14 +244,14 @@ func (s *JobCleanupService) handleGracePeriodExpiration(ctx context.Context, tas
 			debug.Error("Failed to get task %s status: %v", task.ID, err)
 			continue
 		}
-		
+
 		// If task is still reconnect_pending, handle based on retry count
 		if currentTask.Status == models.JobTaskStatusReconnectPending {
 			agentID := 0
 			if currentTask.AgentID != nil {
 				agentID = *currentTask.AgentID
 			}
-			
+
 			// Check if task can be retried
 			if currentTask.RetryCount < maxRetries {
 				// Reset task for retry
@@ -259,11 +259,11 @@ func (s *JobCleanupService) handleGracePeriodExpiration(ctx context.Context, tas
 				if err != nil {
 					debug.Error("Failed to reset task %s for retry: %v", currentTask.ID, err)
 					// Fall back to marking as failed
-					errorMsg := fmt.Sprintf("Agent failed to reconnect within grace period (attempt %d/%d)", 
+					errorMsg := fmt.Sprintf("Agent failed to reconnect within grace period (attempt %d/%d)",
 						currentTask.RetryCount+1, maxRetries)
 					s.jobTaskRepo.MarkTaskFailedPermanently(ctx, currentTask.ID, errorMsg)
 				} else {
-					debug.Info("Task reset for retry after grace period - Task ID: %s, Agent: %d, Retry: %d/%d", 
+					debug.Info("Task reset for retry after grace period - Task ID: %s, Agent: %d, Retry: %d/%d",
 						currentTask.ID, agentID, currentTask.RetryCount+1, maxRetries)
 				}
 			} else {
@@ -274,9 +274,9 @@ func (s *JobCleanupService) handleGracePeriodExpiration(ctx context.Context, tas
 					debug.Error("Failed to mark task %s as failed: %v", currentTask.ID, err)
 					continue
 				}
-				debug.Info("Task permanently failed after %d retries - Task ID: %s, Agent: %d", 
+				debug.Info("Task permanently failed after %d retries - Task ID: %s, Agent: %d",
 					currentTask.RetryCount, currentTask.ID, agentID)
-				
+
 				// Track tasks by job for status update
 				jobTaskMap[currentTask.JobExecutionID] = append(jobTaskMap[currentTask.JobExecutionID], currentTask)
 			}
@@ -284,29 +284,29 @@ func (s *JobCleanupService) handleGracePeriodExpiration(ctx context.Context, tas
 			debug.Info("Task %s reconnected successfully - status: %s", currentTask.ID, currentTask.Status)
 		}
 	}
-	
+
 	// Check each affected job to see if it should be marked as pending
 	for jobID, failedTasks := range jobTaskMap {
 		debug.Info("Checking job %s status after grace period - %d tasks failed to reconnect", jobID, len(failedTasks))
-		
+
 		// Get all tasks for this job
 		allTasks, err := s.jobTaskRepo.GetTasksByJobExecution(ctx, jobID)
 		if err != nil {
 			debug.Error("Failed to get tasks for job %s: %v", jobID, err)
 			continue
 		}
-		
+
 		// Check if any tasks are still running or reconnect_pending
 		hasActiveTasks := false
 		for _, task := range allTasks {
-			if task.Status == models.JobTaskStatusRunning || 
-			   task.Status == models.JobTaskStatusReconnectPending ||
-			   task.Status == models.JobTaskStatusAssigned {
+			if task.Status == models.JobTaskStatusRunning ||
+				task.Status == models.JobTaskStatusReconnectPending ||
+				task.Status == models.JobTaskStatusAssigned {
 				hasActiveTasks = true
 				break
 			}
 		}
-		
+
 		// If no active tasks remain, mark job as pending for rescheduling
 		if !hasActiveTasks {
 			err := s.jobExecutionRepo.UpdateStatus(ctx, jobID, models.JobExecutionStatusPending)
@@ -319,7 +319,7 @@ func (s *JobCleanupService) handleGracePeriodExpiration(ctx context.Context, tas
 			debug.Info("Job %s remains running - has active tasks", jobID)
 		}
 	}
-	
+
 	debug.Info("Grace period expiration handling completed")
 }
 
@@ -471,9 +471,9 @@ func (s *JobCleanupService) checkJobForPendingTransition(ctx context.Context, jo
 	activeTaskCount := 0
 	for _, task := range allTasks {
 		if task.Status == models.JobTaskStatusRunning ||
-		   task.Status == models.JobTaskStatusAssigned ||
-		   task.Status == models.JobTaskStatusPending ||
-		   task.Status == models.JobTaskStatusReconnectPending {
+			task.Status == models.JobTaskStatusAssigned ||
+			task.Status == models.JobTaskStatusPending ||
+			task.Status == models.JobTaskStatusReconnectPending {
 			activeTaskCount++
 		}
 	}
@@ -486,13 +486,32 @@ func (s *JobCleanupService) checkJobForPendingTransition(ctx context.Context, jo
 		}
 
 		if job.Status == models.JobExecutionStatusRunning {
-			// Check if job has remaining keyspace to process
+			// Check if job has remaining keyspace to process. This MUST stay
+			// consistent with the completion gate in ProcessJobCompletion,
+			// otherwise the two fight: cleanup re-pends a job that completion
+			// considers done, looping forever. For non-rule-split jobs that means
+			// a BASE-keyspace check — max(keyspace_end) over non-failed tasks vs
+			// base_keyspace — not the drift-prone effective comparison that left
+			// jobs stuck a fraction short.
 			hasRemainingWork := false
 
-			// Check if all work has been dispatched using effective_keyspace comparison
-			// Note: base_keyspace is wordlist size (different dimension) and should NOT
-			// be compared with dispatched_keyspace (which is in effective units)
-			if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
+			if !job.UsesRuleSplitting && job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
+				// Authoritative base-keyspace coverage check (same source the
+				// dispatcher chunks from). On a transient error, default to "work
+				// remains" so we don't wrongly settle the job into a terminal-ish
+				// state from the cleanup path.
+				hw, hwErr := s.jobTaskRepo.HasUndispatchedBaseKeyspace(ctx, jobID)
+				if hwErr != nil {
+					debug.Log("HasUndispatchedBaseKeyspace failed in pending check", map[string]interface{}{
+						"job_id": jobID,
+						"error":  hwErr.Error(),
+					})
+					hasRemainingWork = true
+				} else {
+					hasRemainingWork = hw
+				}
+			} else if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
+				// Rule-split / no-base-keyspace fallback (effective units).
 				hasRemainingWork = job.DispatchedKeyspace < *job.EffectiveKeyspace
 			}
 
@@ -507,9 +526,9 @@ func (s *JobCleanupService) checkJobForPendingTransition(ctx context.Context, jo
 				}
 
 				debug.Log("Updated job status to pending - no active tasks but work remains", map[string]interface{}{
-					"job_id": jobID,
+					"job_id":     jobID,
 					"dispatched": job.DispatchedKeyspace,
-					"effective": job.EffectiveKeyspace,
+					"effective":  job.EffectiveKeyspace,
 				})
 			} else {
 				// Check if ALL tasks failed (no completed tasks at all)
@@ -671,10 +690,10 @@ func (s *JobCleanupService) reconcileStuckJobs(ctx context.Context) {
 			}
 
 			debug.Log("Reconciliation completed stuck job via structural check", map[string]interface{}{
-				"job_id":            job.ID,
-				"name":              job.Name,
-				"uses_rule_split":   job.UsesRuleSplitting,
-				"base_keyspace":     job.BaseKeyspace,
+				"job_id":             job.ID,
+				"name":               job.Name,
+				"uses_rule_split":    job.UsesRuleSplitting,
+				"base_keyspace":      job.BaseKeyspace,
 				"effective_keyspace": job.EffectiveKeyspace,
 			})
 		} else {
@@ -685,10 +704,10 @@ func (s *JobCleanupService) reconcileStuckJobs(ctx context.Context) {
 				if err == nil {
 					debug.Warning("Stuck job has all tasks complete but structural check failed - transitioned to pending for investigation",
 						map[string]interface{}{
-							"job_id":          job.ID,
-							"name":            job.Name,
-							"base_keyspace":   job.BaseKeyspace,
-							"dispatched":      job.DispatchedKeyspace,
+							"job_id":        job.ID,
+							"name":          job.Name,
+							"base_keyspace": job.BaseKeyspace,
+							"dispatched":    job.DispatchedKeyspace,
 						})
 				}
 			}
@@ -758,8 +777,8 @@ func (s *JobCleanupService) checkForOrphanedRunningJobs(ctx context.Context) {
 		pendingCount := 0
 		for _, task := range allTasks {
 			if task.Status == models.JobTaskStatusRunning ||
-			   task.Status == models.JobTaskStatusAssigned ||
-			   task.Status == models.JobTaskStatusReconnectPending {
+				task.Status == models.JobTaskStatusAssigned ||
+				task.Status == models.JobTaskStatusReconnectPending {
 				runningOrAssignedCount++
 			} else if task.Status == models.JobTaskStatusPending {
 				pendingCount++
@@ -773,9 +792,9 @@ func (s *JobCleanupService) checkForOrphanedRunningJobs(ctx context.Context) {
 			timeSinceUpdate := time.Since(job.UpdatedAt)
 			if timeSinceUpdate > 5*time.Minute {
 				debug.Log("Found orphaned running job stuck with only pending tasks", map[string]interface{}{
-					"job_id": job.ID,
-					"name": job.Name,
-					"pending_tasks": pendingCount,
+					"job_id":            job.ID,
+					"name":              job.Name,
+					"pending_tasks":     pendingCount,
 					"time_since_update": timeSinceUpdate.String(),
 				})
 
@@ -791,14 +810,14 @@ func (s *JobCleanupService) checkForOrphanedRunningJobs(ctx context.Context) {
 
 				debug.Log("Successfully marked orphaned job as pending for rescheduling", map[string]interface{}{
 					"job_id": job.ID,
-					"name": job.Name,
+					"name":   job.Name,
 				})
 			}
 		} else if runningOrAssignedCount == 0 && pendingCount == 0 {
 			// No active tasks at all - completely orphaned
 			debug.Log("Found orphaned running job with no active tasks", map[string]interface{}{
-				"job_id": job.ID,
-				"name": job.Name,
+				"job_id":      job.ID,
+				"name":        job.Name,
 				"total_tasks": len(allTasks),
 			})
 

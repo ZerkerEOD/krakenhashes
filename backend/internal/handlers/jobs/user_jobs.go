@@ -1579,6 +1579,19 @@ func (h *UserJobsHandler) RetryJob(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Clear this job's benchmark blocklist + failure counters so agents that
+	// were sidelined (e.g. by a transient speed-test timeout) are re-benchmarked
+	// immediately on retry instead of waiting out the 24h cooldown. This is the
+	// "one click to unblock the agents" path. Global blocklist entries are left
+	// intact. Best-effort: don't fail the retry if this errors.
+	if userID, ok := middleware.GetUserIDFromContext(ctx); ok {
+		if cleared, clErr := h.benchmarkRepo.ClearBlocklistForJob(ctx, jobID, userID); clErr != nil {
+			debug.Warning("RetryJob: failed to clear benchmark blocklist for job %s: %v", jobID, clErr)
+		} else if cleared > 0 {
+			debug.Info("RetryJob: cleared %d benchmark blocklist entr(ies) for job %s on retry", cleared, jobID)
+		}
+	}
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
 		"message": "Job retry initiated successfully",

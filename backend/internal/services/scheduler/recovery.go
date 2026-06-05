@@ -163,6 +163,7 @@ func applyRecovery(
 					UPDATE job_tasks
 					SET status = 'completed',
 					    range_end = $3,
+					    keyspace_end = $3,
 					    restore_point = $3,
 					    keyspace_processed = $3 - range_start,
 					    progress_percent = 100.0,
