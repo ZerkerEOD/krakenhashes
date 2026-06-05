@@ -1,8 +1,8 @@
 {
-    "release": "2.0.0",
-    "backend": "2.0.0",
-    "frontend": "2.0.0",
-    "agent": "2.0.0",
-    "api": "2.0.0",
-    "database": "2.0.0"
+    "release": "2.1.0",
+    "backend": "2.1.0",
+    "frontend": "2.1.0",
+    "agent": "2.1.0",
+    "api": "2.1.0",
+    "database": "2.1.0"
 }
