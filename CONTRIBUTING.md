@@ -16,6 +16,16 @@ decision — CodeRabbit never merges or approves on its own.
 
 ---
 
+## Before you start
+
+- **For anything non-trivial, open an issue first** (or find an existing one) and describe what
+  you plan to do. This avoids duplicated effort and lets us flag design concerns early. Small,
+  obvious changes — typos, docs tweaks, small bug fixes — can go straight to a pull request.
+- **Claiming an issue:** GitHub doesn't let non-collaborators assign issues to themselves, so
+  just **comment on the issue** to say you're working on it and a maintainer will assign it to
+  you. Please check the issue first to make sure someone else hasn't already claimed it.
+- Reference the issue from your PR with `Closes #123` so it closes automatically on merge.
+
 ## Project layout
 
 | Directory   | Component | Stack |
