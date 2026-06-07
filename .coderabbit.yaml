@@ -2,9 +2,10 @@
 # Reference: https://docs.coderabbit.ai/reference/configuration
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 #
-# NOTE: This repo's CLAUDE.md is gitignored, so CodeRabbit can't read it. The repo
-# conventions that contributors and reviewers need are carried here (path_instructions)
-# and in CONTRIBUTING.md (registered as a code-guidelines source below).
+# NOTE: CLAUDE.md is committed and is auto-read by CodeRabbit as a code guideline
+# (the default **/CLAUDE.md pattern). CONTRIBUTING.md is registered explicitly below
+# (it is not a default pattern). The path_instructions add path-scoped review guidance
+# on top of both.
 
 language: "en-US"
 early_access: false

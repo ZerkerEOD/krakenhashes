@@ -31,11 +31,11 @@ Before beginning any update, complete the following checklist:
 docker-compose exec postgres pg_dump -U krakenhashes krakenhashes > backup_$(date +%Y%m%d_%H%M%S).sql
 
 # Backup configuration files
-cp -r /home/zerkereod/Programming/passwordCracking/krakenhashes/.env backup/.env.$(date +%Y%m%d_%H%M%S)
-cp -r /home/zerkereod/Programming/passwordCracking/kh-backend/config backup/config_$(date +%Y%m%d_%H%M%S)
+cp -r /opt/krakenhashes/.env backup/.env.$(date +%Y%m%d_%H%M%S)
+cp -r /opt/kh-backend/config backup/config_$(date +%Y%m%d_%H%M%S)
 
 # Backup data directory
-tar -czf backup/data_$(date +%Y%m%d_%H%M%S).tar.gz /home/zerkereod/Programming/passwordCracking/kh-backend/data
+tar -czf backup/data_$(date +%Y%m%d_%H%M%S).tar.gz /opt/kh-backend/data
 ```
 
 ### 3. Check System Health
@@ -69,7 +69,7 @@ docker-compose exec postgres psql -U krakenhashes -c "SELECT version FROM schema
 
 1. **Stop Current Services**
 ```bash
-cd /home/zerkereod/Programming/passwordCracking/krakenhashes
+cd /opt/krakenhashes
 docker-compose down
 ```
 
@@ -379,7 +379,7 @@ docker-compose logs backend
 docker-compose logs postgres
 
 # Verify file permissions
-ls -la /home/zerkereod/Programming/passwordCracking/kh-backend/data
+ls -la /opt/kh-backend/data
 
 # Check disk space
 df -h

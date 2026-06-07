@@ -81,8 +81,7 @@ backend/**/*.cover
 backend/certs/
 .krakenhashes/
 
-# Claude configuration
-CLAUDE.md
+# Claude Code local settings (CLAUDE.md is committed; local .claude/ stays ignored)
 .claude/
 
 # Agent specific

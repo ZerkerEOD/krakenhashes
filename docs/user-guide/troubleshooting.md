@@ -303,9 +303,9 @@ docker-compose logs backend > backend.log
 ```
 
 #### Log File Locations
-- Backend: `/home/zerkereod/Programming/passwordCracking/kh-backend/logs/krakenhashes/backend/`
-- PostgreSQL: `/home/zerkereod/Programming/passwordCracking/kh-backend/logs/krakenhashes/postgres/`
-- Nginx: `/home/zerkereod/Programming/passwordCracking/kh-backend/logs/krakenhashes/nginx/`
+- Backend: `/opt/kh-backend/logs/krakenhashes/backend/`
+- PostgreSQL: `/opt/kh-backend/logs/krakenhashes/postgres/`
+- Nginx: `/opt/kh-backend/logs/krakenhashes/nginx/`
 
 #### Agent Logs
 ```bash

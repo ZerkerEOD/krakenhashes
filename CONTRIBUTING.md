@@ -39,9 +39,6 @@ docker-compose -f docker-compose.dev-local.yml up -d --build
 docker-compose -f docker-compose.dev-local.yml logs -f backend
 ```
 
-> ⚠️ Never run `docker-compose down -v` — the `-v` flag deletes Docker volumes, including your
-> PostgreSQL data. Use `docker-compose down` without `-v`.
-
 Run Go tests with the backend Makefile:
 
 ```bash
@@ -62,7 +59,8 @@ make lint && make vet && make fmt
 ```
 
 You can run an agent without GPU hardware using mock mode (`--test-mode`) for testing the
-scheduler — see `CLAUDE.md`/`README.md` for the mock-agent environment variables.
+scheduler — see [`docs/developer/agent.md`](docs/developer/agent.md) for the mock-agent
+environment variables.
 
 ### Frontend (npm)
 
