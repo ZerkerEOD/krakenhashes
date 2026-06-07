@@ -12,6 +12,8 @@ import {
   Description as DocsIcon,
   GitHub as GitHubIcon,
   BugReport as BugIcon,
+  X as XIcon,
+  LinkedIn as LinkedInIcon,
 } from '@mui/icons-material';
 import DiscordIcon from './icons/DiscordIcon';
 import { getVersionInfo } from '../api/version';
@@ -90,6 +92,8 @@ const Footer: React.FC<FooterProps> = ({ drawerOpen }) => {
         sx={{
           display: 'flex',
           alignItems: 'center',
+          justifyContent: 'center',
+          flexWrap: 'wrap',
           gap: 3,
         }}
       >
@@ -171,6 +175,46 @@ const Footer: React.FC<FooterProps> = ({ drawerOpen }) => {
         >
           <BugIcon sx={{ fontSize: 16 }} />
           {t('footer.issues')}
+        </Link>
+
+        <Link
+          href="https://x.com/ZerkerEOD"
+          target="_blank"
+          rel="noopener noreferrer"
+          color="text.secondary"
+          underline="hover"
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.5,
+            fontSize: '0.75rem',
+            '&:hover': {
+              color: 'primary.main',
+            },
+          }}
+        >
+          <XIcon sx={{ fontSize: 16 }} />
+          X
+        </Link>
+
+        <Link
+          href="https://www.linkedin.com/in/zerkereod/"
+          target="_blank"
+          rel="noopener noreferrer"
+          color="text.secondary"
+          underline="hover"
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.5,
+            fontSize: '0.75rem',
+            '&:hover': {
+              color: 'primary.main',
+            },
+          }}
+        >
+          <LinkedInIcon sx={{ fontSize: 16 }} />
+          LinkedIn
         </Link>
       </Box>
 
