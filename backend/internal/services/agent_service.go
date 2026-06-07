@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -27,8 +28,15 @@ type AgentService struct {
 	deviceRepo       *repository.AgentDeviceRepository
 	jobTaskRepo      *repository.JobTaskRepository
 	jobExecutionRepo *repository.JobExecutionRepository
-	tokens           map[string]downloadToken
-	tokenMutex       sync.RWMutex
+	diagnosticsRepo  *repository.DiagnosticsRepository
+	// compatInvalidator, when set, forces the scheduler's binary-version
+	// compatibility cache to re-evaluate one agent immediately (instead of
+	// waiting for the next periodic re-warm). Wired to the job integration
+	// manager so an admin binary_version change takes effect in scheduling
+	// at once rather than after a stale window.
+	compatInvalidator func(ctx context.Context, agentID int)
+	tokens            map[string]downloadToken
+	tokenMutex        sync.RWMutex
 }
 
 type downloadToken struct {
@@ -47,6 +55,54 @@ func NewAgentService(agentRepo *repository.AgentRepository, voucherRepo *reposit
 		jobExecutionRepo: jobExecutionRepo,
 		tokens:           make(map[string]downloadToken),
 	}
+}
+
+// SetDiagnosticsRepo wires the diagnostics repository so GetAgentRuntime can
+// report why an agent is idle. Optional — when unset, diagnostics are omitted.
+func (s *AgentService) SetDiagnosticsRepo(repo *repository.DiagnosticsRepository) {
+	s.diagnosticsRepo = repo
+}
+
+// SetCompatInvalidator wires the scheduler compatibility-cache invalidator so a
+// binary_version change made through UpdateAgent re-evaluates that agent's
+// compatibility at once. Optional — when unset, changes still take effect on
+// the next periodic re-warm (≤30s).
+func (s *AgentService) SetCompatInvalidator(fn func(ctx context.Context, agentID int)) {
+	s.compatInvalidator = fn
+}
+
+// GetAgentRuntime returns the agent's current task + parent job (if it's
+// running one) and the active scheduler diagnostics explaining idleness. This
+// powers the "Current work" and "Why isn't this agent working" cards on the
+// agent detail page. Diagnostics are filtered to those refreshed recently, so a
+// reason the scheduler stopped recording ages out on its own.
+func (s *AgentService) GetAgentRuntime(ctx context.Context, agentID int) (*models.AgentRuntimeInfo, error) {
+	info := &models.AgentRuntimeInfo{Diagnostics: []models.SchedulingDiagnostic{}}
+
+	activeTasks, err := s.jobTaskRepo.GetActiveTasksByAgent(ctx, agentID)
+	if err != nil {
+		debug.Warning("GetAgentRuntime: active tasks for agent %d: %v", agentID, err)
+	} else if len(activeTasks) > 0 {
+		task := activeTasks[0]
+		info.CurrentTask = &task
+		if je, jErr := s.jobExecutionRepo.GetByID(ctx, task.JobExecutionID); jErr == nil {
+			info.JobExecution = je
+		} else {
+			debug.Warning("GetAgentRuntime: job %s for task %s: %v", task.JobExecutionID, task.ID, jErr)
+		}
+	}
+
+	if s.diagnosticsRepo != nil {
+		diags, dErr := s.diagnosticsRepo.ListActiveByScope(ctx, models.DiagScopeAgent,
+			strconv.Itoa(agentID), time.Now().Add(-5*time.Minute))
+		if dErr != nil {
+			debug.Warning("GetAgentRuntime: diagnostics for agent %d: %v", agentID, dErr)
+		} else if diags != nil {
+			info.Diagnostics = diags
+		}
+	}
+
+	return info, nil
 }
 
 // ValidateClaimCode validates a claim code
@@ -868,6 +924,16 @@ func (s *AgentService) UpdateAgent(ctx context.Context, agentID int, isEnabled b
 		if rErr := benchmarkRepo.ResetAgentBenchmarkHealth(ctx, agentID); rErr != nil {
 			debug.Warning("ResetAgentBenchmarkHealth after manual re-enable (agent=%d): %v", agentID, rErr)
 		}
+	}
+
+	// Force the scheduler compat cache to re-evaluate this agent now. The
+	// binary_version may have changed, and without this the change wouldn't
+	// affect scheduling until the next periodic re-warm (≤30s), during which
+	// the agent could be dispatched to (or wrongly withheld from) a job under
+	// the stale version. Best-effort: a nil invalidator just defers to the
+	// periodic re-warm.
+	if s.compatInvalidator != nil {
+		s.compatInvalidator(ctx, agentID)
 	}
 
 	return nil

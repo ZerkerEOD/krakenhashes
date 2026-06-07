@@ -437,6 +437,63 @@ func (r *JobExecutionRepository) FailExecution(ctx context.Context, id uuid.UUID
 	return nil
 }
 
+// FailJobsByHashlistID marks every non-terminal job execution on a hashlist as
+// failed with the given reason and returns the number of jobs affected. Used by
+// the HASHLIST_FATAL cascade: when hashcat rejects a hashlist for its hash type,
+// every job on it would fail identically, so we fail them together. Terminal
+// jobs (completed/failed/cancelled) are left untouched. Recovery is to change
+// the hashlist's hash type, which re-queues these failed jobs.
+func (r *JobExecutionRepository) FailJobsByHashlistID(ctx context.Context, hashlistID int64, errorMessage string) (int64, error) {
+	now := time.Now()
+	query := `
+		UPDATE job_executions
+		SET status = $1, completed_at = $2, error_message = $3
+		WHERE hashlist_id = $4
+		  AND status NOT IN ('completed', 'failed', 'cancelled')`
+	result, err := r.db.ExecContext(ctx, query, models.JobExecutionStatusFailed, now, errorMessage, hashlistID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to fail jobs by hashlist %d: %w", hashlistID, err)
+	}
+	n, _ := result.RowsAffected()
+	return n, nil
+}
+
+// RequeueFailedJobsByHashlist resets every FAILED job on a hashlist back to
+// pending under a new hash type and returns their IDs. Used by the hash-type
+// recovery flow after a HASHLIST_FATAL cascade: the operator picks the correct
+// type, and the previously-failed jobs resume. Keyspace columns
+// (base/effective/dispatched/total) are intentionally left untouched —
+// --skip/--limit and --total-candidates are hash-type-independent for the same
+// wordlist/mask, so the jobs resume from where they were. Failed tasks/intervals
+// are left 'failed' for audit; their ranges already reopen as gaps for redispatch.
+func (r *JobExecutionRepository) RequeueFailedJobsByHashlist(ctx context.Context, hashlistID int64, newHashType int) ([]uuid.UUID, error) {
+	query := `
+		UPDATE job_executions
+		SET status = $1,
+		    hash_type = $2,
+		    error_message = NULL,
+		    completed_at = NULL,
+		    interrupted_by = NULL
+		WHERE hashlist_id = $3
+		  AND status = 'failed'
+		RETURNING id`
+	rows, err := r.db.QueryContext(ctx, query, models.JobExecutionStatusPending, newHashType, hashlistID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to requeue failed jobs for hashlist %d: %w", hashlistID, err)
+	}
+	defer rows.Close()
+
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan requeued job id: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 // InterruptExecution marks a job as interrupted by another job
 func (r *JobExecutionRepository) InterruptExecution(ctx context.Context, id uuid.UUID, interruptingJobID uuid.UUID) error {
 	query := `UPDATE job_executions SET status = $1, interrupted_by = $2 WHERE id = $3 AND status = 'running'`

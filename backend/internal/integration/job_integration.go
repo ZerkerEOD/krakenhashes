@@ -44,6 +44,10 @@ type JobIntegrationManager struct {
 	// Warmed at StartScheduler and refreshed periodically; misses
 	// fall through to lazy single-pair evaluation.
 	compatCache *scheduler.CompatCache
+
+	// diagnosticsService buffers + batches per-agent "why idle" reasons
+	// the cycle records, and serves them (force-flushed) to the agent UI.
+	diagnosticsService *services.DiagnosticsService
 }
 
 // NewJobIntegrationManager creates a new job integration manager
@@ -141,6 +145,10 @@ func NewJobIntegrationManager(
 	// scheduleRepo enable the agent-scheduling check in getIdleAgents
 	// (mirror of legacy filterAvailableAgents).
 	cycle := scheduler.NewCycle(database, unitRepo, intervalRepo, systemSettingsRepo, deviceRepo, agentRepo, scheduleRepo, wsHandler, jobExecutionService, jobExecutionService, mgr.compatCache)
+	// Diagnostics: the cycle records per-agent idle reasons; the service
+	// buffers/dedups them and the agent UI reads them back force-flushed.
+	mgr.diagnosticsService = services.NewDiagnosticsService(repository.NewDiagnosticsRepository(database))
+	cycle.SetDiagnostics(mgr.diagnosticsService)
 	mgr.schedulerV2Runner = scheduler.NewRunner(cycle, 3*time.Second)
 	mgr.sweeperRunner = scheduler.NewSweeperRunner(database, systemSettingsRepo, 10*time.Second)
 	debug.Info("scheduler-v2: runners constructed (start deferred)")
@@ -203,8 +211,25 @@ func (m *JobIntegrationManager) RecoverTask(ctx context.Context, taskID string, 
 	return m.wsIntegration.RecoverTask(ctx, taskID, agentID, keyspaceProcessed)
 }
 
+// InvalidateAgentCompat forces the binary-version compatibility cache to
+// re-evaluate one agent immediately rather than waiting for the next periodic
+// re-warm (≤30s). Called when an agent's binary_version changes (admin settings
+// update) and on connect/disconnect so a freshly online agent — possibly with a
+// version changed while it was offline — is scheduled against current data.
+// Safe to call with a nil manager or cache (no-op).
+func (m *JobIntegrationManager) InvalidateAgentCompat(ctx context.Context, agentID int) {
+	if m == nil || m.compatCache == nil {
+		return
+	}
+	m.compatCache.OnAgentChanged(ctx, agentID)
+}
+
 // HandleAgentReconnectionWithNoTask handles when an agent reconnects without a running task (implements interfaces.JobHandler)
 func (m *JobIntegrationManager) HandleAgentReconnectionWithNoTask(ctx context.Context, agentID int) (int, error) {
+	// Refresh this agent's compatibility row up front: it may have come back
+	// online with a binary_version changed while it was disconnected, and the
+	// scheduler should route it correctly on the very next cycle.
+	m.InvalidateAgentCompat(ctx, agentID)
 	return m.wsIntegration.HandleAgentReconnectionWithNoTask(ctx, agentID)
 }
 
@@ -219,6 +244,10 @@ func (m *JobIntegrationManager) ClearStoppedTaskAgent(ctx context.Context, taskI
 // this manager (not wsIntegration) and emits
 // "Job handler does not support disconnection handling".
 func (m *JobIntegrationManager) HandleAgentDisconnection(ctx context.Context, agentID int) error {
+	// Refresh this agent's compat row from current DB state on the way out so
+	// it never lingers stale (a disconnected agent is filtered from scheduling
+	// anyway; this keeps the cache honest if its version was just changed).
+	m.InvalidateAgentCompat(ctx, agentID)
 	return m.wsIntegration.HandleAgentDisconnection(ctx, agentID)
 }
 
@@ -257,6 +286,9 @@ func (m *JobIntegrationManager) RepairPendingJobKeyspaces(ctx context.Context) (
 func (m *JobIntegrationManager) StartScheduler(ctx context.Context) {
 	debug.Info("scheduler-v2: starting runner, sweeper, and compat cache refresh")
 
+	if m.diagnosticsService != nil {
+		m.diagnosticsService.Start(ctx)
+	}
 	if m.schedulerV2Runner != nil {
 		m.schedulerV2Runner.Start(ctx)
 	}
@@ -294,6 +326,12 @@ func (m *JobIntegrationManager) runCompatCacheRefresh(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// DiagnosticsService exposes the buffered diagnostics store so HTTP handlers
+// (e.g. the agent detail page) can read force-flushed "why idle" reasons.
+func (m *JobIntegrationManager) DiagnosticsService() *services.DiagnosticsService {
+	return m.diagnosticsService
 }
 
 // StopJob stops a running job

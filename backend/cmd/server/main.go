@@ -190,6 +190,10 @@ func main() {
 
 	// Initialize services with dependencies
 	agentService := services.NewAgentService(agentRepo, repository.NewClaimVoucherRepository(dbWrapper), repository.NewFileRepository(dbWrapper, appConfig.DataDir), deviceRepo, jobTaskRepo, jobExecutionRepo)
+	// Wire the scheduling-diagnostics repo so the agent detail page can show
+	// why an agent is idle (binary mismatch, blocklisted, etc.). The scheduler
+	// writes these reasons via its buffered DiagnosticsService; here we only read.
+	agentService.SetDiagnosticsRepo(repository.NewDiagnosticsRepository(dbWrapper))
 
 	analyticsRepo := repository.NewAnalyticsRepository(dbWrapper)
 	retentionService := retentionsvc.NewRetentionService(dbWrapper, hashlistRepo, hashRepo, clientRepo, clientSettingsRepo, analyticsRepo)
@@ -214,9 +218,9 @@ func main() {
 		0,                                       // No file size limit
 		[]string{"rule", "rules", "txt", "lst"}, // Allowed formats
 		[]string{"text/plain"},                  // Allowed MIME types
-		jobExecutionRepo, // Pass job execution repository for dependency checking
-		presetJobRepo,    // Pass preset job repository for cascade deletion
-		workflowRepo,     // Pass workflow repository for cascade deletion
+		jobExecutionRepo,                        // Pass job execution repository for dependency checking
+		presetJobRepo,                           // Pass preset job repository for cascade deletion
+		workflowRepo,                            // Pass workflow repository for cascade deletion
 	)
 
 	// Initialize binary manager
@@ -444,6 +448,14 @@ func main() {
 	// Setup routes
 	debug.Info("Setting up routes")
 	routes.SetupRoutes(httpsRouter, sqlDB, tlsProvider, agentService, wordlistManager, ruleManager, binaryManager, potfileService, clientPotfileService, analyticsQueueService)
+
+	// Wire the scheduler compat-cache invalidator into the agent service now
+	// that SetupRoutes has constructed the job integration manager. This makes
+	// an admin binary_version change re-evaluate the agent's scheduling
+	// compatibility immediately instead of after the next periodic re-warm.
+	if routes.JobIntegrationManager != nil {
+		agentService.SetCompatInvalidator(routes.JobIntegrationManager.InvalidateAgentCompat)
+	}
 
 	// Setup CA certificate route on HTTP router
 	debug.Info("Setting up CA certificate route")

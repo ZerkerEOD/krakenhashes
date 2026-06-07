@@ -41,6 +41,7 @@ func SetupAgentRoutes(jwtRouter *mux.Router, agentService *services.AgentService
 	jwtRouter.HandleFunc("/agents/{id}/devices/{deviceId}", agentHandler.UpdateDeviceStatus).Methods("PUT", "OPTIONS")
 	jwtRouter.HandleFunc("/agents/{id}/devices/{deviceId}/runtime", agentHandler.UpdateDeviceRuntime).Methods("PATCH", "OPTIONS")
 	jwtRouter.HandleFunc("/agents/{id}/with-devices", agentHandler.GetAgentWithDevices).Methods("GET", "OPTIONS")
+	jwtRouter.HandleFunc("/agents/{id}/activity", agentHandler.GetAgentRuntime).Methods("GET", "OPTIONS")
 	jwtRouter.HandleFunc("/agents/{id}/metrics", agentHandler.GetAgentMetrics).Methods("GET", "OPTIONS")
 
 	// Clear busy status route - manual override for stuck agents
@@ -61,7 +62,7 @@ func SetupAgentRoutes(jwtRouter *mux.Router, agentService *services.AgentService
 	agentRepo := repository.NewAgentRepository(database)
 	scheduleRepo := repository.NewAgentScheduleRepository(database)
 	schedulingHandler := agent.NewSchedulingHandler(scheduleRepo, agentRepo)
-	
+
 	jwtRouter.HandleFunc("/agents/{id}/schedules", schedulingHandler.GetAgentSchedules).Methods("GET", "OPTIONS")
 	jwtRouter.HandleFunc("/agents/{id}/schedules", schedulingHandler.UpdateAgentSchedule).Methods("POST", "OPTIONS")
 	jwtRouter.HandleFunc("/agents/{id}/schedules/{day}", schedulingHandler.DeleteAgentSchedule).Methods("DELETE", "OPTIONS")
@@ -83,7 +84,7 @@ func SetupVoucherRoutes(jwtRouter *mux.Router, voucherService *services.ClaimVou
 // SetupPotRoutes configures pot (cracked hashes) routes
 func SetupPotRoutes(jwtRouter *mux.Router, hashRepo *repository.HashRepository, hashlistRepo *repository.HashListRepository, clientRepo *repository.ClientRepository, jobRepo *repository.JobExecutionRepository, teamService *services.TeamService) {
 	potHandler := pot.NewHandler(hashRepo, hashlistRepo, clientRepo, jobRepo, teamService)
-	
+
 	// List routes
 	jwtRouter.HandleFunc("/pot", potHandler.HandleListCrackedHashes).Methods("GET", "OPTIONS")
 	jwtRouter.HandleFunc("/pot/hashlist/{id}", potHandler.HandleListCrackedHashesByHashlist).Methods("GET", "OPTIONS")

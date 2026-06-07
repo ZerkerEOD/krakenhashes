@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/gorilla/mux"
 )
@@ -246,6 +247,112 @@ func (h *hashlistHandler) handleRevalidate(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(body2)
+}
+
+// handleChangeHashlistHashType changes a hashlist's hash type AFTER it has
+// already been processed, and recovers any jobs that failed because the previous
+// type was wrong (the HASHLIST_FATAL cascade in AttributeBenchmarkFailure). This
+// is the post-failure sibling of handleRevalidate (which only runs during the
+// upload-time awaiting_validation_decision pause). NOTE: distinct from
+// handleUpdateHashType, which is admin CRUD on hash-type *definitions*.
+//
+// Flow: validate the new type → re-validate the source file against it (so the
+// invalid-hash counters refresh) → flip the hashlist back to ready → re-queue
+// every FAILED job on the hashlist under the new type (keyspace untouched;
+// --skip/--limit and --total-candidates are type-independent) → clear those
+// jobs' benchmark blocklist + failure counters so they resume immediately
+// instead of waiting out the 24h cooldown.
+func (h *hashlistHandler) handleChangeHashlistHashType(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID, err := getUserIDFromContext(ctx)
+	if err != nil {
+		jsonError(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	id, err := getInt64FromPath(r, "id")
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var body struct {
+		HashTypeID int `json:"hash_type_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		jsonError(w, "Invalid JSON body", http.StatusBadRequest)
+		return
+	}
+
+	hashlist, err := h.hashlistRepo.GetByID(ctx, id)
+	if err != nil {
+		jsonError(w, "Hashlist not found", http.StatusNotFound)
+		return
+	}
+
+	// Verify the new hash type is real and enabled.
+	hashType, err := h.hashTypeRepo.GetByID(ctx, body.HashTypeID)
+	if err != nil || hashType == nil || !hashType.IsEnabled {
+		jsonError(w, "Invalid or disabled hash type", http.StatusBadRequest)
+		return
+	}
+
+	// Re-validate against the source file when it's still on disk so the
+	// invalid-hash counters reflect the new type. A missing file is non-fatal
+	// here — the hashlist is already processed; the scheduler will re-benchmark
+	// and re-classify if the new type is also wrong.
+	if path := findUploadFile(h.dataDir, id); path != "" {
+		if err := h.invalidHashRepo.DeleteByHashlist(ctx, id); err != nil {
+			debug.Warning("hash-type change: clear invalid_hashes for hashlist %d: %v", id, err)
+		}
+		if err := h.hashlistRepo.UpdateHashType(ctx, id, body.HashTypeID); err != nil {
+			jsonError(w, "Failed to update hash type", http.StatusInternalServerError)
+			return
+		}
+		if _, vErr := h.validationService.ValidateUpload(ctx, id, path, body.HashTypeID); vErr != nil {
+			debug.Warning("hash-type change: revalidation for hashlist %d failed: %v", id, vErr)
+		}
+	} else if err := h.hashlistRepo.UpdateHashType(ctx, id, body.HashTypeID); err != nil {
+		jsonError(w, "Failed to update hash type", http.StatusInternalServerError)
+		return
+	}
+
+	// Clear the cascade error state and mark the hashlist usable again.
+	if err := h.hashlistRepo.UpdateStatus(ctx, id, models.HashListStatusReady, ""); err != nil {
+		debug.Warning("hash-type change: reset status for hashlist %d: %v", id, err)
+	}
+
+	// Re-queue failed jobs under the new type and clear their blocklists so the
+	// scheduler re-benchmarks them immediately.
+	jobExecRepo := repository.NewJobExecutionRepository(h.db)
+	benchmarkRepo := repository.NewBenchmarkRepository(h.db)
+	requeued, rErr := jobExecRepo.RequeueFailedJobsByHashlist(ctx, id, body.HashTypeID)
+	if rErr != nil {
+		debug.Error("hash-type change: requeue failed jobs for hashlist %d: %v", id, rErr)
+		jsonError(w, "Hash type updated but failed to requeue jobs", http.StatusInternalServerError)
+		return
+	}
+	for _, jid := range requeued {
+		if _, cErr := benchmarkRepo.ClearBlocklistForJob(ctx, jid, userID); cErr != nil {
+			debug.Warning("hash-type change: clear blocklist for job %s: %v", jid, cErr)
+		}
+	}
+	debug.Info("hash-type change: hashlist %d -> type %d, requeued %d failed job(s)", id, body.HashTypeID, len(requeued))
+
+	if fresh, ferr := h.hashlistRepo.GetByID(ctx, id); ferr == nil && fresh != nil {
+		hashlist = fresh
+	}
+	resp, err := flattenHashlistResponse(hashlist, map[string]interface{}{
+		"requeued_jobs": len(requeued),
+		"new_hash_type": body.HashTypeID,
+	})
+	if err != nil {
+		jsonError(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(resp)
 }
 
 // handleListInvalidHashes returns paginated invalid-line entries for a

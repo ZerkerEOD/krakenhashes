@@ -18,14 +18,19 @@ import (
 //     max_agents = 0), in unit creation order (FIFO among siblings).
 //     Parent caps are enforced across sibling units of increment jobs.
 //  2. If agents remain, drain the tier's overflow per the mode:
-//        - fifo:        oldest unit at the tier eats all surplus.
-//        - round_robin: rotate one agent at a time across the tier's
-//                       units (skipping units that won't accept more).
+//     - fifo:        oldest unit at the tier eats all surplus.
+//     - round_robin: rotate one agent at a time across the tier's
+//     units (skipping units that won't accept more).
 //     Overflow deliberately exceeds caps within the tier.
 //  3. Any agents still free descend to the next priority tier.
 //
-// Top-priority tiers can monopolize spare agents under these modes —
-// lower-priority tiers may receive nothing.
+// Top-priority tiers monopolize the agents they can USE: a tier's
+// fill+overflow consumes every agent COMPATIBLE with it before any
+// lower tier is reached, so capable agents never leak downward while
+// the top tier still wants them. Agents that remain free after a tier
+// are incompatible with it (or it is keyspace-saturated this cycle) and
+// descend — this upholds the core invariant that a compatible agent is
+// never idle while a compatible job has dispatchable work.
 //
 // **Strict / Max-Agents modes** (enforce_max_agents, max_agents_fifo,
 // max_agents_round_robin) — all-tiers-then-overflow. Phase 1 walks
@@ -35,19 +40,21 @@ import (
 //
 //   - enforce_max_agents:       surplus idles (no overflow).
 //   - max_agents_fifo:          surplus piles on the highest-priority
-//                               unit with remaining work (FIFO within
-//                               tier); descends only when the higher
-//                               tier has no schedulable gap left.
+//     unit with remaining work (FIFO within
+//     tier); descends only when the higher
+//     tier has no schedulable gap left.
 //   - max_agents_round_robin:   surplus rotates across all units in
-//                               priority-DESC then created_at-ASC
-//                               order — each pass visits higher
-//                               priorities first.
+//     priority-DESC then created_at-ASC
+//     order — each pass visits higher
+//     priorities first.
 //
 // The Max-Agents family guarantees every job's baseline cap (Phase 1
 // fills all tiers without starvation) AND uses extras to accelerate
 // higher-priority work first. The Priority family (fifo, round_robin)
-// instead starves lower tiers entirely whenever the top tier could
-// absorb more agents.
+// concentrates agents on the highest tier that can use them, descending
+// only with agents that tier can't use — so lower tiers still receive
+// agents that are exclusively compatible with them, but never agents the
+// top tier could have used.
 //
 // Inputs:
 //   - units: schedulable units, in any order. The function sorts.
@@ -119,8 +126,10 @@ func AllocateAgentsByPriority(
 	//
 	//   * Priority modes (fifo, round_robin): walk tier-by-tier; for
 	//     each tier, fill to cap THEN drain overflow into the tier
-	//     before descending. The top tier monopolizes spare agents —
-	//     lower tiers may starve. This is the historical semantic.
+	//     before descending. The top tier monopolizes every agent it can
+	//     USE; only agents it can't use (incompatible, or it's saturated
+	//     this cycle) descend to lower tiers — they're never frozen idle
+	//     while a compatible lower-priority job has work.
 	//
 	//   * Strict / Max-Agents modes (enforce_max_agents,
 	//     max_agents_fifo, max_agents_round_robin): fill every tier to
@@ -155,28 +164,33 @@ func AllocateAgentsByPriority(
 
 	switch mode {
 	case OverflowFIFO, OverflowRoundRobin:
-		// Priority flow: STRICT highest-tier monopoly. Process only the
-		// highest-priority tier with schedulable units. Surplus agents
-		// that can't fit this cycle stay idle and try again next cycle
-		// — they do NOT cascade to lower tiers. Per Priority FIFO/RR
-		// contract: lower-priority work waits until the higher tier has
-		// NO more schedulable units (i.e., every unit there has been
-		// fully covered and dropped from SelectSchedulableUnits). Even
-		// a single unit at p5 that's keyspace-saturated this cycle
-		// keeps p4 starved; that unit's pending chunks need to complete
-		// before its sibling/lower-tier work can advance.
+		// Priority flow: highest-priority tier monopolizes the agents it
+		// can USE. For each tier (highest first): fill units to cap, then
+		// drain the tier's overflow (exceeding caps within the tier per the
+		// mode). Both phases give the tier first claim on every agent that
+		// is COMPATIBLE with it. Whatever agents remain free after that are,
+		// by construction, incompatible with this tier (or it's
+		// keyspace-saturated this cycle and genuinely can't take more) — so
+		// they descend to the highest-priority lower tier they CAN serve
+		// rather than sit idle.
 		//
-		// `tiers` only contains non-empty tiers, so the first iteration
-		// is always THE highest-priority tier with work. We break
-		// unconditionally after processing it — the loop is structured
-		// this way (rather than `tier := tiers[0]`) to make the
-		// "no-descend" rule visible at the loop boundary.
+		// This preserves strict priority for contention (a capable agent is
+		// always consumed by the highest tier that can use it before any
+		// lower tier is reached) while honoring the core invariant: a
+		// compatible agent is never left idle when a compatible job has
+		// dispatchable work. The previous unconditional `break` violated
+		// that — it stranded an agent whose only runnable job lived in a
+		// lower tier (e.g. a binary-6.x agent under an all-7.x top tier).
 		for _, tier := range tiers {
 			fillTier(tier, &allocations, &free, parentAllocated, unitAllocated, compatible)
 			if len(free) > 0 {
 				allocations = appendTierOverflow(allocations, tier, &free, mode, parentAllocated, unitAllocated, canAcceptMore, compatible)
 			}
-			break // strict priority — never descend to lower tiers
+			if len(free) == 0 {
+				break // nothing left to place
+			}
+			// Agents still free here couldn't be used by this tier; let
+			// them descend to the next (lower-priority) tier.
 		}
 
 	default:
@@ -193,7 +207,7 @@ func AllocateAgentsByPriority(
 			case OverflowMaxAgentsRoundRobin:
 				byPriorityThenFIFO := sortUnitsByPriorityThenCreatedAt(sortedUnits)
 				allocations = appendGlobalRoundRobinOverflow(allocations, byPriorityThenFIFO, &free, parentAllocated, unitAllocated, canAcceptMore, compatible)
-			// OverflowEnforceMaxAgents: surplus idles. No-op.
+				// OverflowEnforceMaxAgents: surplus idles. No-op.
 			}
 		}
 	}

@@ -102,6 +102,56 @@ interface User {
   role: string;
 }
 
+interface DiagnosticReason {
+  id: number;
+  reason_code: string;
+  severity: string;
+  detail: string;
+  count: number;
+  first_seen: string;
+  last_seen: string;
+}
+
+interface AgentActivity {
+  currentTask?: {
+    id: string;
+    job_execution_id: string;
+    status: string;
+    keyspace_start?: number;
+    keyspace_end?: number;
+    keyspace_processed?: number;
+    progress_percent?: number;
+    assigned_at?: string;
+    started_at?: string;
+    last_checkpoint?: string;
+  };
+  jobExecution?: {
+    id: string;
+    name: string;
+    status: string;
+    overall_progress_percent?: number;
+    hash_type?: number;
+    priority?: number;
+  };
+  diagnostics: DiagnosticReason[];
+}
+
+// Formats an optional 0-100 percentage for display, or an em dash when absent.
+const formatPct = (v?: number): string => (v != null ? `${v.toFixed(2)}%` : '—');
+
+// Maps a diagnostic reason_code to a human-readable label for the agent page.
+const DIAG_REASON_LABELS: Record<string, string> = {
+  no_compatible_job: 'No compatible job',
+  blocklisted: 'Benchmark blocklisted',
+  benchmarking: 'Running a benchmark',
+  outside_schedule: 'Outside scheduled hours',
+  agent_disabled: 'Agent disabled',
+  shutting_down: 'Shutting down',
+  rejection_cooldown: 'Task-rejection cooldown',
+  no_schedulable_work: 'No jobs have work to dispatch',
+  at_capacity: 'Compatible jobs at capacity',
+};
+
 interface DeviceData {
   deviceId: number;
   deviceName: string;
@@ -155,12 +205,24 @@ const AgentDetails: React.FC = () => {
   const [debugStatus, setDebugStatus] = useState<AgentDebugStatus | null>(null);
   const [debugLoading, setDebugLoading] = useState(false);
 
+  // Runtime activity: current task/job + "why idle" diagnostics.
+  const [activity, setActivity] = useState<AgentActivity | null>(null);
+
   useEffect(() => {
     fetchAgentDetails();
     if (canChangeOwner) {
       fetchUsers();
     }
   }, [id, canChangeOwner]);
+
+  // Poll the agent's runtime activity (current work + idle reasons).
+  useEffect(() => {
+    if (!id) return;
+    fetchActivity();
+    const interval = setInterval(fetchActivity, 10000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
   
   // Fetch device metrics periodically
   useEffect(() => {
@@ -188,6 +250,16 @@ const AgentDetails: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent, devices, timeRange]);
+
+  const fetchActivity = async () => {
+    try {
+      const res = await api.get(`/api/agents/${id}/activity`);
+      setActivity(res.data);
+    } catch (err) {
+      // Non-fatal: the activity card just won't render. Don't disrupt the page.
+      console.error('Failed to fetch agent activity:', err);
+    }
+  };
 
   const fetchAgentDetails = async () => {
     try {
@@ -557,6 +629,91 @@ const AgentDetails: React.FC = () => {
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+
+      {/* Current work / Why-idle: live view of what the agent is doing or why it isn't */}
+      {activity && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            {activity.currentTask ? (
+              <>
+                <Typography variant="h6" gutterBottom>Current Work</Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="body2" color="text.secondary">Job</Typography>
+                    <Typography variant="body1">
+                      {activity.jobExecution?.name || activity.currentTask.job_execution_id}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6} md={3}>
+                    <Typography variant="body2" color="text.secondary">Task status</Typography>
+                    <Chip size="small" label={activity.currentTask.status} color="primary" />
+                  </Grid>
+                  <Grid item xs={6} md={3}>
+                    <Typography variant="body2" color="text.secondary">Job progress</Typography>
+                    <Typography variant="body1">{formatPct(activity.jobExecution?.overall_progress_percent)}</Typography>
+                  </Grid>
+                  <Grid item xs={6} md={3}>
+                    <Typography variant="body2" color="text.secondary">Task progress</Typography>
+                    <Typography variant="body1">{formatPct(activity.currentTask.progress_percent)}</Typography>
+                  </Grid>
+                  <Grid item xs={6} md={3}>
+                    <Typography variant="body2" color="text.secondary">Keyspace range</Typography>
+                    <Typography variant="body1">
+                      {activity.currentTask.keyspace_start != null && activity.currentTask.keyspace_end != null
+                        ? `${activity.currentTask.keyspace_start.toLocaleString()} – ${activity.currentTask.keyspace_end.toLocaleString()}`
+                        : '—'}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6} md={3}>
+                    <Typography variant="body2" color="text.secondary">Started</Typography>
+                    <Typography variant="body1">
+                      {activity.currentTask.started_at
+                        ? formatDistanceToNow(new Date(activity.currentTask.started_at), { addSuffix: true })
+                        : '—'}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6} md={3}>
+                    <Typography variant="body2" color="text.secondary">Last checkpoint</Typography>
+                    <Typography variant="body1">
+                      {activity.currentTask.last_checkpoint
+                        ? formatDistanceToNow(new Date(activity.currentTask.last_checkpoint), { addSuffix: true })
+                        : '—'}
+                    </Typography>
+                  </Grid>
+                </Grid>
+              </>
+            ) : activity.diagnostics && activity.diagnostics.length > 0 ? (
+              <>
+                <Typography variant="h6" gutterBottom>Why this agent isn't working</Typography>
+                {activity.diagnostics.map((d) => (
+                  <Alert
+                    key={d.id}
+                    severity={d.severity === 'error' ? 'error' : d.severity === 'warning' ? 'warning' : 'info'}
+                    sx={{ mb: 1 }}
+                  >
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {DIAG_REASON_LABELS[d.reason_code] || d.reason_code}
+                    </Typography>
+                    {d.detail && <Typography variant="body2">{d.detail}</Typography>}
+                    <Typography variant="caption" color="text.secondary">
+                      last seen {formatDistanceToNow(new Date(d.last_seen), { addSuffix: true })}
+                      {d.count > 1 ? ` · ${d.count.toLocaleString()} occurrences` : ''}
+                    </Typography>
+                  </Alert>
+                ))}
+              </>
+            ) : (
+              <>
+                <Typography variant="h6" gutterBottom>Current Work</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  This agent is idle. No scheduling diagnostics in the last few minutes — it may be offline,
+                  disabled, or simply waiting for work.
+                </Typography>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Grid container spacing={3}>
         {/* Basic Information */}

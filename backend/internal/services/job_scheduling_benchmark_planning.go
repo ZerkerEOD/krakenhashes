@@ -12,6 +12,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary/version"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/errorclass"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 )
@@ -1496,52 +1497,87 @@ func (s *JobSchedulingService) AttributeBenchmarkFailure(
 			parsedID, jobExecutionID)
 	}
 
-	// Fast-fail: hashcat reported the hashlist itself is wrong for
-	// this hash mode ("No hashes loaded" / "Token length exception"
-	// / "Separator unmatched" on every line). Retrying doesn't help
-	// — the hashlist content is the problem and would fail on every
-	// agent. Mark the job failed immediately with an admin-actionable
-	// message and skip the per-tuple-cap retry loop.
-	if strings.Contains(errMsg, "BENCHMARK_NO_HASHES_LOADED") {
+	// Classify the failure once; every downstream decision branches on this.
+	// Shared with the task-failure path (job_websocket_integration.go), so the
+	// taxonomy is consistent for benchmark and task failures alike.
+	category := errorclass.Classify(errMsg)
+
+	// HASHLIST_FATAL: hashcat rejected the hashlist for this hash type — every
+	// line is wrong, so no agent can run it. Retrying doesn't help. Fail the job
+	// and every other non-terminal job on the same hashlist (cascade), set the
+	// hashlist to needs-attention, and add a global blocklist so the benchmark
+	// phase doesn't immediately re-fire. Recovery is to change the hash type
+	// (PATCH /hashlists/{id}/hash-type), which re-queues the failed jobs.
+	if category == errorclass.CategoryHashlistFatal {
 		reason := fmt.Sprintf(
-			"hashlist content invalid for hash type %d: hashcat rejected every line (agent %d reported BENCHMARK_NO_HASHES_LOADED). Verify the hashlist contains valid hashes for the selected mode.",
+			"hashlist content invalid for hash type %d: hashcat rejected every line (agent %d). Verify the hashlist contains valid hashes for the selected mode, or change the hash type.",
 			hashType, agentID,
 		)
-		debug.Warning("Fast-failing job %s: %s", jobExecutionID, reason)
+		debug.Warning("Fast-failing job %s (hashlist_fatal): %s", jobExecutionID, reason)
 		jobExecRepo := repository.NewJobExecutionRepository(s.jobExecutionService.db)
-		if err := jobExecRepo.UpdateErrorMessage(ctx, jobExecutionID, reason); err != nil {
-			debug.Warning("UpdateErrorMessage(no-hashes) for job %s: %v", jobExecutionID, err)
-		}
-		if err := jobExecRepo.UpdateStatus(ctx, jobExecutionID, models.JobExecutionStatusFailed); err != nil {
-			debug.Warning("UpdateStatus(no-hashes) for job %s: %v", jobExecutionID, err)
-		}
+		// Cascade: fail every non-terminal job on this hashlist, not just the
+		// reporting one — they would all fail for the same reason. Best-effort.
 		if jobExec, err := s.jobExecutionService.GetJobExecutionByID(ctx, jobExecutionID); err == nil && jobExec != nil {
+			if n, cErr := jobExecRepo.FailJobsByHashlistID(ctx, jobExec.HashlistID, reason); cErr != nil {
+				debug.Warning("FailJobsByHashlistID(%d) for hashlist_fatal: %v", jobExec.HashlistID, cErr)
+				// Fall back to failing just the reporting job.
+				_ = jobExecRepo.UpdateErrorMessage(ctx, jobExecutionID, reason)
+				_ = jobExecRepo.UpdateStatus(ctx, jobExecutionID, models.JobExecutionStatusFailed)
+			} else {
+				debug.Info("hashlist_fatal: failed %d job(s) on hashlist %d", n, jobExec.HashlistID)
+			}
+			// Mark the hashlist itself as in error so the user sees the problem
+			// on the hashlist view (not only on the failed jobs), and so the
+			// recovery endpoint's "clear the cascade error state" is meaningful.
+			// Recovery (PATCH /hashlists/{id}/hash-type) resets this to ready.
+			if uErr := s.jobExecutionService.hashlistRepo.UpdateStatus(ctx, jobExec.HashlistID, models.HashListStatusError, reason); uErr != nil {
+				debug.Warning("hashlist_fatal: set hashlist %d status=error: %v", jobExec.HashlistID, uErr)
+			}
 			s.jobExecutionService.dispatchJobFailedNotification(ctx, jobExec, reason)
+		} else {
+			_ = jobExecRepo.UpdateErrorMessage(ctx, jobExecutionID, reason)
+			_ = jobExecRepo.UpdateStatus(ctx, jobExecutionID, models.JobExecutionStatusFailed)
 		}
-		// Also add a global blocklist entry so the scheduler-v2
-		// benchmark phase doesn't immediately re-fire for this combo
-		// against any other job using the same hashlist content.
-		// 24h is plenty — the underlying hashlist would have to be
-		// fixed for the situation to resolve.
 		expiresAt := time.Now().Add(24 * time.Hour)
 		if _, err := s.jobExecutionService.benchmarkRepo.AddBlocklistEntry(
-			ctx, agentID, nil, attackMode, hashType, "BENCHMARK_NO_HASHES_LOADED", expiresAt,
+			ctx, agentID, nil, attackMode, hashType, "HASHLIST_FATAL", expiresAt,
 		); err != nil {
-			debug.Warning("AddBlocklistEntry(no-hashes, global) for agent %d: %v", agentID, err)
+			debug.Warning("AddBlocklistEntry(hashlist_fatal, global) for agent %d: %v", agentID, err)
 		}
 		return nil
 	}
 
-	// Transient-timeout classification. A BENCHMARK_TIMEOUT means the speed
-	// test ran but produced no usable status update inside the window — almost
-	// always cold-cache / kernel-compilation slowness or an under-provisioned
-	// timeout, NOT proof the agent can't run this hash. We therefore record the
-	// failure but refuse to treat it as "agent-specific": no auto-quarantine
-	// and no otherAgentsSucceeded/hasRunningTasksOnOthers blocklist (which used
-	// to sideline a perfectly good agent for 24h after a SINGLE timeout). The
-	// per-tuple threshold/hard-cap safety valves still apply so a combo that
-	// keeps timing out can't loop forever.
-	isTransientTimeout := strings.Contains(errMsg, "BENCHMARK_TIMEOUT")
+	// JOB_CONFIG: the job's own attack config is invalid (bad mask/charset/rule).
+	// No agent can run it as configured, but it is NOT the agent's fault and NOT
+	// a hashlist problem — fail just this job with an actionable reason; do not
+	// blocklist the agent or touch sibling jobs.
+	if category == errorclass.CategoryJobConfig {
+		reason := fmt.Sprintf(
+			"job configuration rejected by hashcat (agent %d): %s. Fix the mask/charset/rules and recreate the job.",
+			agentID, errMsg,
+		)
+		debug.Warning("Fast-failing job %s (job_config): %s", jobExecutionID, reason)
+		jobExecRepo := repository.NewJobExecutionRepository(s.jobExecutionService.db)
+		if err := jobExecRepo.UpdateErrorMessage(ctx, jobExecutionID, reason); err != nil {
+			debug.Warning("UpdateErrorMessage(job_config) for job %s: %v", jobExecutionID, err)
+		}
+		if err := jobExecRepo.UpdateStatus(ctx, jobExecutionID, models.JobExecutionStatusFailed); err != nil {
+			debug.Warning("UpdateStatus(job_config) for job %s: %v", jobExecutionID, err)
+		}
+		if jobExec, err := s.jobExecutionService.GetJobExecutionByID(ctx, jobExecutionID); err == nil && jobExec != nil {
+			s.jobExecutionService.dispatchJobFailedNotification(ctx, jobExec, reason)
+		}
+		return nil
+	}
+
+	// Transient (or unknown) failures must NOT be treated as agent-specific
+	// evidence: no auto-quarantine and no otherAgentsSucceeded/runningTasks
+	// blocklist after a single hit (a single cold-cache BENCHMARK_TIMEOUT, OOM,
+	// or watchdog blip should never sideline a healthy agent). The per-tuple
+	// threshold/hard-cap valves still apply so a combo that keeps failing can't
+	// loop forever. Persistent agent faults (driver/no-device/self-test) fall
+	// through to the corroborated quarantine/blocklist path below.
+	isTransient := category.IsTransient()
 
 	benchmarkRepo := s.jobExecutionService.benchmarkRepo
 
@@ -1588,12 +1624,13 @@ func (s *JobSchedulingService) AttributeBenchmarkFailure(
 		thresholdTripped := (streakCap > 0 && health.Streak >= streakCap) ||
 			(distinctCap > 0 && health.DistinctCombosFailed >= distinctCap)
 		switch {
-		case thresholdTripped && isTransientTimeout:
-			// Thresholds tripped but the failures are transient timeouts —
-			// don't quarantine a likely-healthy agent. Cooldown/threshold
-			// blocklist (step 7) still gives the job a way to make progress.
+		case thresholdTripped && isTransient:
+			// Thresholds tripped but the failures are transient (timeout, OOM,
+			// watchdog, disk, network) or unknown — don't quarantine a
+			// likely-healthy agent. Cooldown/threshold blocklist (step 7) still
+			// gives the job a way to make progress.
 			debug.Warning(
-				"agent %d benchmark thresholds tripped (streak=%d/%d, distinct=%d/%d within %s) but failures are transient BENCHMARK_TIMEOUTs (likely cold kernels / short timeout); not quarantining",
+				"agent %d benchmark thresholds tripped (streak=%d/%d, distinct=%d/%d within %s) but failures are transient/unknown (likely cold kernels, OOM, watchdog, or short timeout); not quarantining",
 				agentID, health.Streak, streakCap, health.DistinctCombosFailed, distinctCap, streakReset,
 			)
 		case thresholdTripped && otherAgentsSucceeded > 0:
@@ -1672,21 +1709,22 @@ func (s *JobSchedulingService) AttributeBenchmarkFailure(
 	blocklistNow := false
 	blockReason := ""
 	switch {
-	case isTransientTimeout && attempt.FailureCount >= threshold:
-		// Repeated timeouts on the same combo: blocklist with a cooldown so the
-		// job can progress on other agents, but DON'T treat it as agent-specific
-		// (no quarantine — see step 5). A single timeout never reaches here.
+	case isTransient && attempt.FailureCount >= threshold:
+		// Repeated transient/unknown failures on the same combo: blocklist with a
+		// cooldown so the job can progress on other agents, but DON'T treat it as
+		// agent-specific (no quarantine — see step 5). A single blip never reaches
+		// here.
 		blocklistNow = true
 		blockReason = fmt.Sprintf(
-			"benchmark TIMED OUT %d times on agent %d for (hash_type=%d, attack_mode=%d); threshold=%d — transient, cooldown only",
+			"benchmark failed (transient) %d times on agent %d for (hash_type=%d, attack_mode=%d); threshold=%d — cooldown only",
 			attempt.FailureCount, agentID, hashType, int(attackMode), threshold,
 		)
-	case isTransientTimeout:
-		// Below threshold: a transient timeout is not evidence the agent is
-		// broken. Skip the agent-specific blocklist branches entirely so a good
-		// agent isn't sidelined for 24h after one cold-cache timeout.
+	case isTransient:
+		// Below threshold: a transient/unknown failure is not evidence the agent
+		// is broken. Skip the agent-specific blocklist branches entirely so a good
+		// agent isn't sidelined for 24h after one cold-cache timeout/OOM/watchdog.
 		debug.Info(
-			"agent %d benchmark timed out (failure %d/%d) for hash_type=%d attack_mode=%d; transient — not blocklisting",
+			"agent %d benchmark transient failure (%d/%d) for hash_type=%d attack_mode=%d; not blocklisting",
 			agentID, attempt.FailureCount, threshold, hashType, int(attackMode),
 		)
 	case otherAgentsSucceeded > 0:

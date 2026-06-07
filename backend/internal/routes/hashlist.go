@@ -40,26 +40,26 @@ func SetupHashlistRoutes(jwtRouter *mux.Router) {
 
 // hashlistHandler handles HTTP requests for hashlist-related operations
 type hashlistHandler struct {
-	db                          *db.DB
-	hashlistRepo                *repository.HashListRepository
-	hashTypeRepo                *repository.HashTypeRepository
-	clientRepo                  *repository.ClientRepository
-	hashRepo                    *repository.HashRepository
-	fileRepo                    *repository.FileRepository
-	clientSettingsRepo          *repository.ClientSettingsRepository
-	systemSettingsRepo          *repository.SystemSettingsRepository
-	invalidHashRepo             *repository.InvalidHashRepository
-	deletionProgressService     *services.DeletionProgressService
-	processingProgressService   *services.ProcessingProgressService
-	associationWordlistManager  *services.AssociationWordlistManager
-	clientWordlistManager       *services.ClientWordlistManager
-	clientPotfileService        *services.ClientPotfileService
-	potfileService              *services.PotfileService
-	validationService           *services.HashlistValidationService
-	dataDir                     string // Base directory for storing hashlist files
-	cfg                         *config.Config
-	agentService                *services.AgentService
-	processor                   *processor.HashlistDBProcessor
+	db                         *db.DB
+	hashlistRepo               *repository.HashListRepository
+	hashTypeRepo               *repository.HashTypeRepository
+	clientRepo                 *repository.ClientRepository
+	hashRepo                   *repository.HashRepository
+	fileRepo                   *repository.FileRepository
+	clientSettingsRepo         *repository.ClientSettingsRepository
+	systemSettingsRepo         *repository.SystemSettingsRepository
+	invalidHashRepo            *repository.InvalidHashRepository
+	deletionProgressService    *services.DeletionProgressService
+	processingProgressService  *services.ProcessingProgressService
+	associationWordlistManager *services.AssociationWordlistManager
+	clientWordlistManager      *services.ClientWordlistManager
+	clientPotfileService       *services.ClientPotfileService
+	potfileService             *services.PotfileService
+	validationService          *services.HashlistValidationService
+	dataDir                    string // Base directory for storing hashlist files
+	cfg                        *config.Config
+	agentService               *services.AgentService
+	processor                  *processor.HashlistDBProcessor
 	// Job-related dependencies
 	jobsHandler interface {
 		GetAvailablePresetJobs(w http.ResponseWriter, r *http.Request)
@@ -198,6 +198,7 @@ func registerHashlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, ag
 	// Hash validator workflow endpoints (GitHub issue #38)
 	hashlistRouter.HandleFunc("/{id}/confirm", h.handleConfirmValidation).Methods(http.MethodPost, http.MethodOptions)
 	hashlistRouter.HandleFunc("/{id}/revalidate", h.handleRevalidate).Methods(http.MethodPut, http.MethodOptions)
+	hashlistRouter.HandleFunc("/{id}/hash-type", h.handleChangeHashlistHashType).Methods(http.MethodPatch, http.MethodOptions)
 	hashlistRouter.HandleFunc("/{id}/invalid-hashes", h.handleListInvalidHashes).Methods(http.MethodGet, http.MethodOptions)
 
 	// Association wordlist routes (for association attacks -a 9)
@@ -1001,7 +1002,7 @@ func (h *hashlistHandler) handleListHashlists(w http.ResponseWriter, r *http.Req
 
 	// Compute potfile removal eligibility for each hashlist
 	// Eligibility requires: system potfile enabled AND client NOT opted out
-	potfileEnabled := true // default
+	potfileEnabled := true        // default
 	clientPotfilesEnabled := true // default
 
 	if setting, err := h.systemSettingsRepo.GetSetting(ctx, "potfile_enabled"); err == nil && setting != nil && setting.Value != nil {
@@ -1155,7 +1156,7 @@ func (h *hashlistHandler) handleGetHashlist(w http.ResponseWriter, r *http.Reque
 
 	// Compute potfile removal eligibility
 	// Eligibility requires: system potfile enabled AND client NOT opted out
-	potfileEnabled := true // default
+	potfileEnabled := true        // default
 	clientPotfilesEnabled := true // default
 
 	if setting, err := h.systemSettingsRepo.GetSetting(ctx, "potfile_enabled"); err == nil && setting != nil && setting.Value != nil {
@@ -1183,30 +1184,30 @@ func (h *hashlistHandler) handleGetHashlist(w http.ResponseWriter, r *http.Reque
 
 	// Create enriched response
 	response := map[string]interface{}{
-		"id":                            hashlist.ID,
-		"name":                          hashlist.Name,
-		"user_id":                       hashlist.UserID,
-		"client_id":                     hashlist.ClientID,
-		"client_name":                   hashlist.ClientName,
-		"hash_type_id":                  hashlist.HashTypeID,
-		"total_hashes":                  hashlist.TotalHashes,
-		"cracked_hashes":                hashlist.CrackedHashes,
-		"status":                        hashlist.Status,
-		"error_message":                 hashlist.ErrorMessage,
-		"exclude_from_potfile":          hashlist.ExcludeFromPotfile,
-		"exclude_from_client_potfile":   hashlist.ExcludeFromClientPotfile,
-		"client_exclude_from_client_potfile":            hashlist.ClientExcludeFromClientPotfile,
-		"client_exclude_from_potfile":                   hashlist.ClientExcludeFromGlobalPotfile,
-		"client_remove_from_global_on_delete":           hashlist.ClientRemoveFromGlobalOnDelete,
-		"client_remove_from_client_on_delete":           hashlist.ClientRemoveFromClientOnDelete,
-		"can_remove_from_global_potfile":                hashlist.CanRemoveFromGlobalPotfile,
-		"can_remove_from_client_potfile":                hashlist.CanRemoveFromClientPotfile,
+		"id":                                  hashlist.ID,
+		"name":                                hashlist.Name,
+		"user_id":                             hashlist.UserID,
+		"client_id":                           hashlist.ClientID,
+		"client_name":                         hashlist.ClientName,
+		"hash_type_id":                        hashlist.HashTypeID,
+		"total_hashes":                        hashlist.TotalHashes,
+		"cracked_hashes":                      hashlist.CrackedHashes,
+		"status":                              hashlist.Status,
+		"error_message":                       hashlist.ErrorMessage,
+		"exclude_from_potfile":                hashlist.ExcludeFromPotfile,
+		"exclude_from_client_potfile":         hashlist.ExcludeFromClientPotfile,
+		"client_exclude_from_client_potfile":  hashlist.ClientExcludeFromClientPotfile,
+		"client_exclude_from_potfile":         hashlist.ClientExcludeFromGlobalPotfile,
+		"client_remove_from_global_on_delete": hashlist.ClientRemoveFromGlobalOnDelete,
+		"client_remove_from_client_on_delete": hashlist.ClientRemoveFromClientOnDelete,
+		"can_remove_from_global_potfile":      hashlist.CanRemoveFromGlobalPotfile,
+		"can_remove_from_client_potfile":      hashlist.CanRemoveFromClientPotfile,
 		// Validator workflow (GitHub issue #38)
 		"invalid_count":     hashlist.InvalidCount,
 		"total_input_lines": hashlist.TotalInputLines,
 		"validation_notice": pointerString(hashlist.ValidationNotice),
-		"createdAt":                     hashlist.CreatedAt,
-		"updatedAt":                     hashlist.UpdatedAt,
+		"createdAt":         hashlist.CreatedAt,
+		"updatedAt":         hashlist.UpdatedAt,
 	}
 
 	// Add enriched hash type field if available

@@ -33,6 +33,84 @@ var (
 	ErrBenchmarkNoHashesLoaded = fmt.Errorf("BENCHMARK_NO_HASHES_LOADED")
 )
 
+// Task runtime error codes. When hashcat fails mid-task, the agent prefixes the
+// failure ErrorMessage with one of these so the backend's errorclass.Classify
+// maps it to the right category (agent-persistent vs transient) WITHOUT having
+// to parse hashcat's English. Keep these strings in sync with the markers in
+// backend/internal/services/errorclass/classify.go.
+const (
+	taskErrNoDevice = "AGENT_NO_DEVICE" // no GPU/accelerator visible
+	taskErrDriver   = "AGENT_DRIVER"    // missing/incompatible CUDA/HIP/OpenCL runtime
+	taskErrOOM      = "AGENT_OOM"       // out of (GPU) memory
+	taskErrDiskFull = "AGENT_DISK_FULL" // no space left on device
+	taskErrWatchdog = "GPU_WATCHDOG"    // GPU watchdog / thermal alarm
+)
+
+// classifyHashcatStderr maps a single hashcat stderr/stdout line to a task error
+// code, or "" if the line carries no recognized fault. Checked most-specific
+// first so e.g. an allocation failure isn't mistaken for a generic device error.
+// Mirrors the agent-side markers in the backend classifier.
+func classifyHashcatStderr(line string) string {
+	l := strings.ToLower(line)
+	switch {
+	case strings.Contains(l, "no space left on device") || strings.Contains(l, "enospc"):
+		return taskErrDiskFull
+	case strings.Contains(l, "out of memory") ||
+		strings.Contains(l, "cl_out_of_resources") ||
+		strings.Contains(l, "cl_mem_object_allocation_failure") ||
+		strings.Contains(l, "cudaerrormemoryallocation") ||
+		strings.Contains(l, "out_of_memory"):
+		return taskErrOOM
+	case strings.Contains(l, "no devices found") ||
+		strings.Contains(l, "no devices left") ||
+		strings.Contains(l, "cl_device_not_found") ||
+		strings.Contains(l, "clgetdeviceids"):
+		return taskErrNoDevice
+	case strings.Contains(l, "no opencl") ||
+		strings.Contains(l, "compatible platform found") ||
+		strings.Contains(l, "clgetplatformids") ||
+		strings.Contains(l, "cuinit") ||
+		strings.Contains(l, "no cuda-capable device"):
+		return taskErrDriver
+	case strings.Contains(l, "watchdog"):
+		return taskErrWatchdog
+	}
+	return ""
+}
+
+// noteStderr classifies one hashcat output line and, on the first recognized
+// agent-local fault, records the typed code + line so the exit handler can tag
+// the failure. First match wins (the earliest fault is usually the root cause).
+func (p *HashcatProcess) noteStderr(line string) {
+	code := classifyHashcatStderr(line)
+	if code == "" {
+		return
+	}
+	p.mutex.Lock()
+	if p.detectedErrorCode == "" {
+		p.detectedErrorCode = code
+		p.detectedErrorLine = strings.TrimSpace(line)
+	}
+	p.mutex.Unlock()
+}
+
+// taskFailureMessage builds the failure ErrorMessage for a non-completion exit.
+// If the stderr scanner classified an agent-local fault, the message is prefixed
+// with the typed code (AGENT_OOM, AGENT_NO_DEVICE, ...) so the backend routes it
+// correctly without parsing hashcat's English; otherwise `generic` is used.
+func (p *HashcatProcess) taskFailureMessage(exitCode int, generic string) string {
+	p.mutex.Lock()
+	code, line := p.detectedErrorCode, p.detectedErrorLine
+	p.mutex.Unlock()
+	if code == "" {
+		return generic
+	}
+	if line != "" {
+		return fmt.Sprintf("%s: %s (hashcat exit %d)", code, line, exitCode)
+	}
+	return fmt.Sprintf("%s (hashcat exit %d)", code, exitCode)
+}
+
 // AttackMode represents hashcat attack modes
 type AttackMode int
 
@@ -259,9 +337,15 @@ type HashcatProcess struct {
 	InitialProgressCaptured  bool
 
 	// Error tracking
-	AlreadyRunningError    bool
+	AlreadyRunningError     bool
 	HashcatRejectedHashlist atomic.Bool // set when stderr/stdout indicates "No hashes loaded" / "Hash parsing error" / etc. → fast-fail the job
-	mutex                  sync.Mutex
+	// detectedErrorCode/Line capture the first recognized agent-local fault
+	// (OOM, no-device, driver, disk, watchdog) seen in hashcat output, so the
+	// exit-code handler can tag the failure with a typed code for the backend.
+	// Guarded by mutex.
+	detectedErrorCode string
+	detectedErrorLine string
+	mutex             sync.Mutex
 
 	// Cleanup coordination
 	CleanupInProgress atomic.Bool // Flag to prevent timer creation during cleanup
@@ -1329,6 +1413,11 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 				process.HashcatRejectedHashlist.Store(true)
 			}
 
+			// Classify agent-local runtime faults (OOM, no-device, driver,
+			// disk-full, watchdog) so the exit handler can tag the failure with
+			// a typed code the backend routes correctly. First match wins.
+			process.noteStderr(line)
+
 			// Check for "Already an instance" error
 			// Example: "Already an instance C:\Users\Aaron Sullivan\Desktop\KrakenHashes\data\binaries\2\hashcat.exe running on pid 50444"
 			if strings.Contains(line, "Already an instance") && strings.Contains(line, "running on pid") {
@@ -1584,14 +1673,17 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 					e.sendProgressUpdate(process, finalProgress, "completed")
 
 				case 2, 3, 4, 5:
-					// Various abort conditions
+					// Various abort conditions. A detected agent-local fault
+					// (e.g. OOM forcing an abort) takes precedence over the
+					// generic "aborted" message.
 					debug.Warning("Hashcat was aborted (exit code %d) for task %s", exitCode, process.TaskID)
-					e.sendErrorProgress(process, fmt.Sprintf("Hashcat aborted with exit code %d", exitCode))
+					e.sendErrorProgress(process, process.taskFailureMessage(exitCode, fmt.Sprintf("Hashcat aborted with exit code %d", exitCode)))
 
 				case -2:
-					// GPU watchdog alarm
+					// GPU watchdog alarm (thermal/hang). Tag with GPU_WATCHDOG so
+					// the backend treats it as transient (retry/cooldown).
 					debug.Error("GPU watchdog alarm triggered for task %s", process.TaskID)
-					e.sendErrorProgress(process, "GPU watchdog alarm - possible GPU hang or temperature issue")
+					e.sendErrorProgress(process, process.taskFailureMessage(exitCode, taskErrWatchdog+": GPU watchdog alarm - possible GPU hang or temperature issue"))
 
 				case 255, -1:
 					// Exit code 255 or -1 (4294967295 as unsigned) often means another instance is running
@@ -1613,18 +1705,21 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 						debug.Error("[Task %s] %s", process.TaskID, msg)
 						e.sendErrorProgress(process, msg)
 					} else {
+						// Unknown error — prefer a typed code if the stderr
+						// scanner classified an agent-local fault (OOM, driver,
+						// no-device, disk), which commonly surface as exit -1/255.
 						debug.Error("Hashcat exit code %d for task %s - unknown error", exitCode, process.TaskID)
-						e.sendErrorProgress(process, fmt.Sprintf("Hashcat failed with exit code %d", exitCode))
+						e.sendErrorProgress(process, process.taskFailureMessage(exitCode, fmt.Sprintf("Hashcat failed with exit code %d", exitCode)))
 					}
 
 				default:
 					// Other errors
 					if exitCode < 0 {
 						debug.Error("Hashcat backend error (exit code %d) for task %s", exitCode, process.TaskID)
-						e.sendErrorProgress(process, fmt.Sprintf("Hashcat backend error with exit code %d", exitCode))
+						e.sendErrorProgress(process, process.taskFailureMessage(exitCode, fmt.Sprintf("Hashcat backend error with exit code %d", exitCode)))
 					} else {
 						debug.Warning("Hashcat unexpected exit code %d for task %s", exitCode, process.TaskID)
-						e.sendErrorProgress(process, fmt.Sprintf("Hashcat exited with unexpected code %d", exitCode))
+						e.sendErrorProgress(process, process.taskFailureMessage(exitCode, fmt.Sprintf("Hashcat exited with unexpected code %d", exitCode)))
 					}
 				}
 			} else {

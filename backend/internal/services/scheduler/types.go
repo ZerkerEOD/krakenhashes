@@ -169,3 +169,14 @@ type BinaryResolver interface {
 type JobExecutionStarter interface {
 	StartJobExecution(ctx context.Context, jobExecutionID uuid.UUID) error
 }
+
+// DiagnosticsRecorder records deduplicated "why isn't this agent working"
+// reasons so the UI can explain idleness without the scheduler spamming the DB.
+// Record coalesces recurrences; ClearScope resolves a scope's reasons (e.g. the
+// agent picked up work). Production implementation is
+// services.DiagnosticsService. The interface keeps the scheduler package free of
+// a circular import; a nil recorder disables capture.
+type DiagnosticsRecorder interface {
+	Record(scope, scopeID, reason, severity, detail string)
+	ClearScope(scope, scopeID string)
+}

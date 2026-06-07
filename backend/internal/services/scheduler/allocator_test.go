@@ -287,6 +287,95 @@ func TestAllocator_CompatibilityFilter(t *testing.T) {
 	}
 }
 
+// An agent compatible ONLY with a lower-priority unit must be assigned to
+// that unit rather than left idle while higher-priority (incompatible) units
+// hold the top tier. Regression for the binary-6.x-vs-all-7.x starvation:
+// the agent literally cannot run the top tier, so freezing it wastes capacity.
+// The core invariant: no compatible agent idles while a compatible job has work.
+func TestAllocator_CompatibilityDescent(t *testing.T) {
+	p1000a, p1000b, p1000c := uuid.New(), uuid.New(), uuid.New()
+	p900, p850, p700 := uuid.New(), uuid.New(), uuid.New()
+	p300 := uuid.New()
+	units := []UnitInfo{
+		unit(p1000a, 1000, 0, 0, 1),
+		unit(p1000b, 1000, 0, 0, 2),
+		unit(p1000c, 1000, 0, 0, 3),
+		unit(p900, 900, 0, 0, 4),
+		unit(p850, 850, 0, 0, 5),
+		unit(p700, 700, 0, 0, 6),
+		unit(p300, 300, 0, 0, 7),
+	}
+	// The single agent (a "binary 6.x" agent) is compatible only with p300.
+	agents := []AgentInfo{agentN(1)}
+	compat := func(uid uuid.UUID, _ int) bool { return uid == p300 }
+
+	for _, mode := range []OverflowMode{
+		OverflowFIFO, OverflowRoundRobin,
+		OverflowEnforceMaxAgents, OverflowMaxAgentsFIFO, OverflowMaxAgentsRoundRobin,
+	} {
+		t.Run(string(mode), func(t *testing.T) {
+			out := AllocateAgentsByPriority(units, agents, mode, compat)
+			set := allocationSet(out)
+			if len(set[p300]) != 1 || (len(set[p300]) == 1 && set[p300][0] != 1) {
+				t.Fatalf("%s: expected agent 1 on the only compatible (p300) unit, got %v", mode, out)
+			}
+		})
+	}
+}
+
+// Conversely, a capable agent is consumed by the highest tier it can run and
+// does NOT leak down to lower-priority work while that tier still wants agents.
+// This guards that the descent fix did not weaken strict priority for contention.
+func TestAllocator_CapableAgentStaysOnTopTier(t *testing.T) {
+	high := uuid.New()
+	low := uuid.New()
+	units := []UnitInfo{
+		unit(high, 1000, 0, 0, 1), // unlimited capacity, always wants agents
+		unit(low, 300, 0, 0, 2),
+	}
+	agents := []AgentInfo{agentN(1), agentN(2)}
+
+	for _, mode := range []OverflowMode{OverflowFIFO, OverflowRoundRobin} {
+		t.Run(string(mode), func(t *testing.T) {
+			out := AllocateAgentsByPriority(units, agents, mode, alwaysCompatible)
+			set := allocationSet(out)
+			if len(set[high]) != 2 {
+				t.Fatalf("%s: expected both agents monopolized by the high tier, got high=%d low=%d",
+					mode, len(set[high]), len(set[low]))
+			}
+			if len(set[low]) != 0 {
+				t.Fatalf("%s: low tier must get nothing while the high tier wants agents, got %d", mode, len(set[low]))
+			}
+		})
+	}
+}
+
+// 20 compatible agents, 3 same-priority jobs with max_agents 3/2/2 under
+// max_agents_round_robin: baseline fills 3/2/2, then surplus overflows so NO
+// compatible agent idles while those jobs have dispatchable work (the user's
+// "they hit the 3,2,2 then filter the rest in round-robin" scenario).
+func TestAllocator_MaxAgentsRoundRobin_NoIdleWhenWorkExists(t *testing.T) {
+	a, b, c := uuid.New(), uuid.New(), uuid.New()
+	units := []UnitInfo{
+		unit(a, 1000, 3, 0, 1),
+		unit(b, 1000, 2, 0, 2),
+		unit(c, 1000, 2, 0, 3),
+	}
+	agents := make([]AgentInfo, 20)
+	for i := range agents {
+		agents[i] = agentN(i + 1)
+	}
+	out := AllocateAgentsByPriority(units, agents, OverflowMaxAgentsRoundRobin, alwaysCompatible)
+	if len(out) != 20 {
+		t.Fatalf("expected all 20 agents allocated (none idle while work exists), got %d", len(out))
+	}
+	set := allocationSet(out)
+	if len(set[a]) < 3 || len(set[b]) < 2 || len(set[c]) < 2 {
+		t.Fatalf("expected baseline caps filled (a>=3,b>=2,c>=2), got a=%d b=%d c=%d",
+			len(set[a]), len(set[b]), len(set[c]))
+	}
+}
+
 // If no compatible agents exist for a unit, it gets nothing — even under
 // round_robin, the round-robin loop terminates after marking the unit
 // exhausted.
@@ -416,7 +505,6 @@ func TestAllocator_IncrementJob_ParentCapDistributesAcrossLayers(t *testing.T) {
 		}
 	}
 }
-
 
 // ---------------------------------------------------------------------------
 // Max-Agents overflow modes (priority-agnostic overflow)

@@ -34,6 +34,15 @@ type AgentWithTask struct {
 	JobExecution *JobExecution `json:"jobExecution,omitempty"`
 }
 
+// AgentRuntimeInfo is the live "what is this agent doing / why isn't it doing
+// anything" view for the agent detail page: its current task + parent job (if
+// running) and the active scheduler diagnostics explaining idleness.
+type AgentRuntimeInfo struct {
+	CurrentTask  *JobTask               `json:"currentTask,omitempty"`
+	JobExecution *JobExecution          `json:"jobExecution,omitempty"`
+	Diagnostics  []SchedulingDiagnostic `json:"diagnostics"`
+}
+
 // MarshalJSON implements custom JSON marshalling for AgentWithTask.
 // This is necessary because Agent has a custom MarshalJSON that would otherwise
 // shadow the AgentWithTask's additional fields (CurrentTask, JobExecution).
@@ -94,19 +103,19 @@ type Agent struct {
 	ConsecutiveFailures int               `json:"consecutiveFailures"` // Track consecutive task failures
 	// Per-agent benchmark health — distinct from ConsecutiveFailures (which is
 	// task-execution-scoped). Used by AttributeBenchmarkFailure → quarantine.
-	BenchmarkFailureStreak        int          `json:"benchmarkFailureStreak"`
-	BenchmarkDistinctCombosFailed int          `json:"benchmarkDistinctCombosFailed"`
-	BenchmarkLastFailureAt        sql.NullTime `json:"benchmarkLastFailureAt"`
-	SchedulingEnabled             bool         `json:"schedulingEnabled"`
-	ScheduleTimezone    string            `json:"scheduleTimezone"`
-	SyncStatus          string            `json:"syncStatus"`
-	SyncCompletedAt     sql.NullTime      `json:"syncCompletedAt"`
-	SyncStartedAt       sql.NullTime      `json:"syncStartedAt"`
-	SyncError           sql.NullString    `json:"syncError"`
-	FilesToSync         int               `json:"filesToSync"`
-	FilesSynced         int               `json:"filesSynced"`
-	BinaryVersion       string            `json:"binaryVersion"`        // Version pattern specifying compatible binaries (e.g., "default", "7.x", "7.1.2")
-	AdminOverrideTeams  bool              `json:"adminOverrideTeams"`   // When TRUE, uses explicit agent_teams; when FALSE, inherits from owner teams
+	BenchmarkFailureStreak        int            `json:"benchmarkFailureStreak"`
+	BenchmarkDistinctCombosFailed int            `json:"benchmarkDistinctCombosFailed"`
+	BenchmarkLastFailureAt        sql.NullTime   `json:"benchmarkLastFailureAt"`
+	SchedulingEnabled             bool           `json:"schedulingEnabled"`
+	ScheduleTimezone              string         `json:"scheduleTimezone"`
+	SyncStatus                    string         `json:"syncStatus"`
+	SyncCompletedAt               sql.NullTime   `json:"syncCompletedAt"`
+	SyncStartedAt                 sql.NullTime   `json:"syncStartedAt"`
+	SyncError                     sql.NullString `json:"syncError"`
+	FilesToSync                   int            `json:"filesToSync"`
+	FilesSynced                   int            `json:"filesSynced"`
+	BinaryVersion                 string         `json:"binaryVersion"`      // Version pattern specifying compatible binaries (e.g., "default", "7.x", "7.1.2")
+	AdminOverrideTeams            bool           `json:"adminOverrideTeams"` // When TRUE, uses explicit agent_teams; when FALSE, inherits from owner teams
 }
 
 // IsSystemAgent returns true if the agent is owned by the system user (universal agent)
@@ -185,75 +194,75 @@ func (h Hardware) Value() (driver.Value, error) {
 func (a Agent) MarshalJSON() ([]byte, error) {
 	// Create a struct with explicit fields to avoid embedding issues
 	type AgentJSON struct {
-		ID                  int               `json:"id"`
-		Name                string            `json:"name"`
-		Status              string            `json:"status"`
-		LastError           sql.NullString    `json:"lastError"`
-		LastSeen            time.Time         `json:"lastSeen"`
-		LastHeartbeat       time.Time         `json:"lastHeartbeat"`
-		Version             string            `json:"version"`
-		Hardware            Hardware          `json:"hardware"`
-		OSInfo              json.RawMessage   `json:"os_info"`
-		CreatedByID         uuid.UUID         `json:"createdById"`
-		CreatedBy           *User             `json:"createdBy,omitempty"`
-		Teams               []Team            `json:"teams,omitempty"`
-		CreatedAt           time.Time         `json:"createdAt"`
-		UpdatedAt           time.Time         `json:"updatedAt"`
-		Metadata            map[string]string `json:"metadata,omitempty"`
-		OwnerID             *uuid.UUID        `json:"ownerId,omitempty"`
-		ExtraParameters     string            `json:"extraParameters"`
-		IsEnabled                     bool         `json:"isEnabled"`
-		IsSystemAgent                 bool         `json:"isSystemAgent"`
-		ConsecutiveFailures           int          `json:"consecutiveFailures"`
-		BenchmarkFailureStreak        int          `json:"benchmarkFailureStreak"`
-		BenchmarkDistinctCombosFailed int          `json:"benchmarkDistinctCombosFailed"`
-		BenchmarkLastFailureAt        sql.NullTime `json:"benchmarkLastFailureAt"`
-		SchedulingEnabled             bool         `json:"schedulingEnabled"`
-		ScheduleTimezone    string            `json:"scheduleTimezone"`
-		SyncStatus          string            `json:"syncStatus"`
-		SyncCompletedAt     sql.NullTime      `json:"syncCompletedAt"`
-		SyncStartedAt       sql.NullTime      `json:"syncStartedAt"`
-		SyncError           sql.NullString    `json:"syncError"`
-		FilesToSync         int               `json:"filesToSync"`
-		FilesSynced         int               `json:"filesSynced"`
-		BinaryVersion       string            `json:"binaryVersion"`
-		AdminOverrideTeams  bool              `json:"adminOverrideTeams"`
+		ID                            int               `json:"id"`
+		Name                          string            `json:"name"`
+		Status                        string            `json:"status"`
+		LastError                     sql.NullString    `json:"lastError"`
+		LastSeen                      time.Time         `json:"lastSeen"`
+		LastHeartbeat                 time.Time         `json:"lastHeartbeat"`
+		Version                       string            `json:"version"`
+		Hardware                      Hardware          `json:"hardware"`
+		OSInfo                        json.RawMessage   `json:"os_info"`
+		CreatedByID                   uuid.UUID         `json:"createdById"`
+		CreatedBy                     *User             `json:"createdBy,omitempty"`
+		Teams                         []Team            `json:"teams,omitempty"`
+		CreatedAt                     time.Time         `json:"createdAt"`
+		UpdatedAt                     time.Time         `json:"updatedAt"`
+		Metadata                      map[string]string `json:"metadata,omitempty"`
+		OwnerID                       *uuid.UUID        `json:"ownerId,omitempty"`
+		ExtraParameters               string            `json:"extraParameters"`
+		IsEnabled                     bool              `json:"isEnabled"`
+		IsSystemAgent                 bool              `json:"isSystemAgent"`
+		ConsecutiveFailures           int               `json:"consecutiveFailures"`
+		BenchmarkFailureStreak        int               `json:"benchmarkFailureStreak"`
+		BenchmarkDistinctCombosFailed int               `json:"benchmarkDistinctCombosFailed"`
+		BenchmarkLastFailureAt        sql.NullTime      `json:"benchmarkLastFailureAt"`
+		SchedulingEnabled             bool              `json:"schedulingEnabled"`
+		ScheduleTimezone              string            `json:"scheduleTimezone"`
+		SyncStatus                    string            `json:"syncStatus"`
+		SyncCompletedAt               sql.NullTime      `json:"syncCompletedAt"`
+		SyncStartedAt                 sql.NullTime      `json:"syncStartedAt"`
+		SyncError                     sql.NullString    `json:"syncError"`
+		FilesToSync                   int               `json:"filesToSync"`
+		FilesSynced                   int               `json:"filesSynced"`
+		BinaryVersion                 string            `json:"binaryVersion"`
+		AdminOverrideTeams            bool              `json:"adminOverrideTeams"`
 	}
 
 	temp := AgentJSON{
-		ID:                  a.ID,
-		Name:                a.Name,
-		Status:              a.Status,
-		LastError:           a.LastError,
-		LastSeen:            a.LastSeen,
-		LastHeartbeat:       a.LastHeartbeat,
-		Version:             a.Version,
-		Hardware:            a.Hardware,
-		OSInfo:              a.OSInfo,
-		CreatedByID:         a.CreatedByID,
-		CreatedBy:           a.CreatedBy,
-		Teams:               a.Teams,
-		CreatedAt:           a.CreatedAt,
-		UpdatedAt:           a.UpdatedAt,
-		Metadata:            a.Metadata,
-		OwnerID:             a.OwnerID,
-		ExtraParameters:     a.ExtraParameters,
-		IsEnabled:           a.IsEnabled,
-		IsSystemAgent:       a.IsSystemAgent(),
+		ID:                            a.ID,
+		Name:                          a.Name,
+		Status:                        a.Status,
+		LastError:                     a.LastError,
+		LastSeen:                      a.LastSeen,
+		LastHeartbeat:                 a.LastHeartbeat,
+		Version:                       a.Version,
+		Hardware:                      a.Hardware,
+		OSInfo:                        a.OSInfo,
+		CreatedByID:                   a.CreatedByID,
+		CreatedBy:                     a.CreatedBy,
+		Teams:                         a.Teams,
+		CreatedAt:                     a.CreatedAt,
+		UpdatedAt:                     a.UpdatedAt,
+		Metadata:                      a.Metadata,
+		OwnerID:                       a.OwnerID,
+		ExtraParameters:               a.ExtraParameters,
+		IsEnabled:                     a.IsEnabled,
+		IsSystemAgent:                 a.IsSystemAgent(),
 		ConsecutiveFailures:           a.ConsecutiveFailures,
 		BenchmarkFailureStreak:        a.BenchmarkFailureStreak,
 		BenchmarkDistinctCombosFailed: a.BenchmarkDistinctCombosFailed,
 		BenchmarkLastFailureAt:        a.BenchmarkLastFailureAt,
 		SchedulingEnabled:             a.SchedulingEnabled,
-		ScheduleTimezone:    a.ScheduleTimezone,
-		SyncStatus:          a.SyncStatus,
-		SyncCompletedAt:     a.SyncCompletedAt,
-		SyncStartedAt:       a.SyncStartedAt,
-		SyncError:           a.SyncError,
-		FilesToSync:         a.FilesToSync,
-		FilesSynced:         a.FilesSynced,
-		BinaryVersion:       a.BinaryVersion,
-		AdminOverrideTeams:  a.AdminOverrideTeams,
+		ScheduleTimezone:              a.ScheduleTimezone,
+		SyncStatus:                    a.SyncStatus,
+		SyncCompletedAt:               a.SyncCompletedAt,
+		SyncStartedAt:                 a.SyncStartedAt,
+		SyncError:                     a.SyncError,
+		FilesToSync:                   a.FilesToSync,
+		FilesSynced:                   a.FilesSynced,
+		BinaryVersion:                 a.BinaryVersion,
+		AdminOverrideTeams:            a.AdminOverrideTeams,
 	}
 
 	return json.Marshal(temp)

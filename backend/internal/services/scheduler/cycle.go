@@ -68,6 +68,10 @@ type Cycle struct {
 	// version.IsCompatibleStr call (correct but slower).
 	compatCache *CompatCache
 
+	// diag records per-agent "why idle" diagnostics for the UI. May be
+	// nil (capture disabled). Set via SetDiagnostics after construction.
+	diag DiagnosticsRecorder
+
 	// running is the single-flight guard. Today, the runner's
 	// single-goroutine ticker pattern guarantees no overlap, but a
 	// future refactor that adds a manual cycle trigger (e.g., on agent
@@ -115,6 +119,62 @@ func NewCycle(
 		binaryResolver:     binaryResolver,
 		jobStarter:         jobStarter,
 		compatCache:        compatCache,
+	}
+}
+
+// SetDiagnostics wires the diagnostics recorder used to explain agent idleness.
+// Optional; if never set, idle-reason capture is disabled.
+func (c *Cycle) SetDiagnostics(d DiagnosticsRecorder) { c.diag = d }
+
+// recordIdleReasons captures, for each idle-eligible agent that did NOT get a
+// task or benchmark this cycle, the reason it's sitting idle — so the agent page
+// can explain it. Agents that DID get work have their stale reasons cleared.
+// Recording is deduped/buffered by the recorder, so calling this every cycle is
+// cheap. compatFn is the same binary-compatibility check the allocator used.
+func (c *Cycle) recordIdleReasons(agentInfos []AgentInfo, unitInfos []UnitInfo, allocations []Allocation, benchGaps []BenchmarkGap, compatFn CompatibilityFn) {
+	if c.diag == nil {
+		return
+	}
+	busy := make(map[int]bool, len(allocations)+len(benchGaps))
+	for _, a := range allocations {
+		busy[a.AgentID] = true
+	}
+	for _, g := range benchGaps {
+		busy[g.AgentID] = true
+	}
+	for _, ag := range agentInfos {
+		sid := strconv.Itoa(ag.ID)
+		if busy[ag.ID] {
+			// Got a task or benchmark this cycle → no longer idle.
+			c.diag.ClearScope(models.DiagScopeAgent, sid)
+			continue
+		}
+		if len(unitInfos) == 0 {
+			c.diag.Record(models.DiagScopeAgent, sid, models.DiagReasonNoSchedulableWork,
+				models.DiagSeverityInfo, "no jobs have dispatchable work right now")
+			continue
+		}
+		compatibleAny := false
+		for _, u := range unitInfos {
+			if compatFn(u.ID, ag.ID) {
+				compatibleAny = true
+				break
+			}
+		}
+		if !compatibleAny {
+			bin := ag.BinaryVersion
+			if bin == "" {
+				bin = "default"
+			}
+			detail := fmt.Sprintf("agent provides binary %q; no schedulable job targets a compatible version", bin)
+			c.diag.Record(models.DiagScopeAgent, sid, models.DiagReasonNoCompatibleJob,
+				models.DiagSeverityWarning, detail)
+			continue
+		}
+		// Compatible with at least one unit but still unallocated: caps reached
+		// or keyspace-saturated this cycle (e.g. enforce_max_agents surplus).
+		c.diag.Record(models.DiagScopeAgent, sid, models.DiagReasonAtCapacity,
+			models.DiagSeverityInfo, "compatible jobs are at their agent cap or fully dispatched this cycle")
 	}
 }
 
@@ -251,6 +311,9 @@ func (c *Cycle) RunOnce(ctx context.Context) (CycleResult, error) {
 	allocations := AllocateAgentsByPriority(unitInfos, agentInfos, mode, compatFn)
 	res.Allocations = len(allocations)
 	if len(allocations) == 0 {
+		// Every idle-eligible agent is unallocated this cycle — record why
+		// (no compatible job, no schedulable work) for the agent page.
+		c.recordIdleReasons(agentInfos, unitInfos, allocations, nil, compatFn)
 		return res, nil
 	}
 
@@ -431,6 +494,11 @@ func (c *Cycle) RunOnce(ctx context.Context) (CycleResult, error) {
 			debug.Info("scheduler-v2: issued %d preemption(s)", len(preempted))
 		}
 	}
+
+	// Step 8: record why any idle-eligible agent ended up with neither a task
+	// nor a benchmark this cycle (binary mismatch, caps, etc.), and clear the
+	// reasons for agents that did get work. Buffered + deduped by the recorder.
+	c.recordIdleReasons(agentInfos, unitInfos, allocations, benchGaps, compatFn)
 
 	return res, nil
 }

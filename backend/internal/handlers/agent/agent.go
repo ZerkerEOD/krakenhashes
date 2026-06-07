@@ -419,6 +419,47 @@ func (h *AgentHandler) GetAgentWithDevices(w http.ResponseWriter, r *http.Reques
 	}
 }
 
+// GetAgentRuntime returns the agent's current task + parent job (if running)
+// and the active scheduler diagnostics explaining why it's idle. Powers the
+// "Current work" and "Why isn't this agent working" cards on the detail page.
+func (h *AgentHandler) GetAgentRuntime(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	agentID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid agent ID", http.StatusBadRequest)
+		return
+	}
+
+	agent, err := h.service.GetAgent(r.Context(), agentID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Agent not found", http.StatusNotFound)
+			return
+		}
+		debug.Error("Failed to get agent: %v", err)
+		http.Error(w, "Failed to get agent", http.StatusInternalServerError)
+		return
+	}
+	if err := checkAgentOwnership(r.Context(), agent.OwnerID); err != nil {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	info, err := h.service.GetAgentRuntime(r.Context(), agentID)
+	if err != nil {
+		debug.Error("Failed to get agent runtime info: %v", err)
+		http.Error(w, "Failed to get agent runtime info", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(info); err != nil {
+		debug.Error("Failed to encode runtime response: %v", err)
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
+}
+
 // GetAgentMetrics retrieves performance metrics for an agent
 func (h *AgentHandler) GetAgentMetrics(w http.ResponseWriter, r *http.Request) {
 	debug.Info("Getting agent metrics")

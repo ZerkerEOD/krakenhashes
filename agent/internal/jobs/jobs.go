@@ -320,6 +320,12 @@ func (jm *JobManager) BeginShutdown() {
 	jm.shuttingDown.Store(true)
 }
 
+// minTaskFreeDiskBytes is the headroom the agent requires on its data volume
+// before accepting a task. Hashcat streams cracks to stdout (potfile disabled),
+// but session/restore/temp files and any just-in-time file sync still need
+// room; refusing below this avoids a mid-run "no space left on device".
+const minTaskFreeDiskBytes = 512 * 1024 * 1024 // 512 MiB
+
 // ProcessJobAssignment processes a job assignment from the backend
 func (jm *JobManager) ProcessJobAssignment(ctx context.Context, assignmentData []byte) error {
 	// Refuse new work once shutdown has begun. The caller in
@@ -404,6 +410,16 @@ func (jm *JobManager) ProcessJobAssignment(ctx context.Context, assignmentData [
 	if err != nil {
 		console.Warning("Benchmark failed for task %s: %v", assignment.TaskID, err)
 		// Continue without benchmark - use estimated values
+	}
+
+	// Disk pre-flight: refuse the task if the data volume is critically low,
+	// failing fast with a typed AGENT_DISK_FULL (the backend treats it as
+	// transient → retry/cooldown, and the connection layer reports it as the
+	// task failure) instead of letting hashcat crash mid-run and strand a
+	// partial chunk. Skipped on platforms where free space can't be read.
+	if free, ok := availableDiskBytes(jm.config.DataDirectory); ok && free < minTaskFreeDiskBytes {
+		return fmt.Errorf("AGENT_DISK_FULL: only %d MB free on the agent data volume %q (need >= %d MB) — refusing task to avoid a mid-run failure",
+			free/(1<<20), jm.config.DataDirectory, minTaskFreeDiskBytes/(1<<20))
 	}
 
 	// Start job execution
