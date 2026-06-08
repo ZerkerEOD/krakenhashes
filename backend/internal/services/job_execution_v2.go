@@ -233,13 +233,13 @@ func (s *JobExecutionService) populateSingleUnit(
 	wordlistRefs []string,
 	ruleFileRefs []string,
 ) error {
-	effective := int64(0)
+	effective := models.NewBigInt(0)
 	if jobExec.EffectiveKeyspace != nil {
 		effective = *jobExec.EffectiveKeyspace
 	} else if jobExec.BaseKeyspace != nil {
 		// Fallback to base when effective wasn't computed (mostly for
 		// dict-only attacks where they're identical).
-		effective = *jobExec.BaseKeyspace
+		effective = models.NewBigInt(*jobExec.BaseKeyspace)
 	}
 
 	var maskPtr *string
@@ -276,8 +276,8 @@ func (s *JobExecutionService) populateSingleUnit(
 	if unit.BaseKeyspace != nil {
 		baseLog = *unit.BaseKeyspace
 	}
-	debug.Info("scheduler-v2: created scheduling_unit %s for job %s (eff_keyspace=%d, base_keyspace=%d, accurate=%v)",
-		unit.ID, jobExec.ID, unit.EffectiveKeyspace, baseLog, unit.IsAccurateKeyspace)
+	debug.Info("scheduler-v2: created scheduling_unit %s for job %s (eff_keyspace=%s, base_keyspace=%d, accurate=%v)",
+		unit.ID, jobExec.ID, unit.EffectiveKeyspace.String(), baseLog, unit.IsAccurateKeyspace)
 	return nil
 }
 
@@ -297,11 +297,11 @@ func (s *JobExecutionService) populateIncrementUnits(
 	}
 
 	for _, layer := range layers {
-		effective := int64(0)
+		effective := models.NewBigInt(0)
 		if layer.EffectiveKeyspace != nil {
 			effective = *layer.EffectiveKeyspace
 		} else if layer.BaseKeyspace != nil {
-			effective = *layer.BaseKeyspace
+			effective = models.NewBigInt(*layer.BaseKeyspace)
 		}
 
 		mask := layer.Mask
@@ -332,8 +332,8 @@ func (s *JobExecutionService) populateIncrementUnits(
 		if unit.BaseKeyspace != nil {
 			baseLog = *unit.BaseKeyspace
 		}
-		debug.Info("scheduler-v2: created scheduling_unit %s for job %s layer %d (mask=%q, eff=%d, base=%d)",
-			unit.ID, jobExec.ID, layer.LayerIndex, mask, effective, baseLog)
+		debug.Info("scheduler-v2: created scheduling_unit %s for job %s layer %d (mask=%q, eff=%s, base=%d)",
+			unit.ID, jobExec.ID, layer.LayerIndex, mask, effective.String(), baseLog)
 	}
 	return nil
 }

@@ -150,16 +150,16 @@ func (r *PresetIncrementLayerRepository) GetByID(ctx context.Context, id uuid.UU
 }
 
 // GetTotalEffectiveKeyspace returns the sum of all layers' effective keyspaces for a preset
-func (r *PresetIncrementLayerRepository) GetTotalEffectiveKeyspace(ctx context.Context, presetJobID uuid.UUID) (int64, error) {
+func (r *PresetIncrementLayerRepository) GetTotalEffectiveKeyspace(ctx context.Context, presetJobID uuid.UUID) (models.BigInt, error) {
 	query := `
 		SELECT COALESCE(SUM(COALESCE(effective_keyspace, base_keyspace)), 0)
 		FROM preset_increment_layers
 		WHERE preset_job_id = $1`
 
-	var total int64
+	var total models.BigInt
 	err := r.db.QueryRowContext(ctx, query, presetJobID).Scan(&total)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get total effective keyspace: %w", err)
+		return models.BigInt{}, fmt.Errorf("failed to get total effective keyspace: %w", err)
 	}
 
 	return total, nil

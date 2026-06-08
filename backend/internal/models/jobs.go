@@ -145,7 +145,7 @@ type PresetJob struct {
 	HexCharset                bool               `json:"hex_charset" db:"hex_charset"`                                 // True if inline charsets use hex encoding (auto-injects --hex-charset)
 	AdditionalArgs            *string            `json:"additional_args,omitempty" db:"additional_args"`                // Additional hashcat arguments
 	Keyspace                  *int64             `json:"keyspace,omitempty" db:"keyspace"`                              // Pre-calculated base keyspace from --keyspace
-	EffectiveKeyspace         *int64     `json:"effective_keyspace,omitempty" db:"effective_keyspace"` // Actual effective keyspace from --total-candidates
+	EffectiveKeyspace         *BigInt    `json:"effective_keyspace,omitempty" db:"effective_keyspace"` // Actual effective keyspace from --total-candidates (NUMERIC: base × rules × salts can exceed int64)
 	IsAccurateKeyspace        bool       `json:"is_accurate_keyspace" db:"is_accurate_keyspace"` // TRUE if effective_keyspace from --total-candidates
 	UseRuleSplitting          bool       `json:"use_rule_splitting" db:"use_rule_splitting"`    // TRUE if jobs should use rule splitting
 	MultiplicationFactor      int64      `json:"multiplication_factor" db:"multiplication_factor"` // Rule multiplier (effective/base) for rule splitting
@@ -228,7 +228,7 @@ type JobExecution struct {
 	Status                 JobExecutionStatus `json:"status" db:"status"`
 	Priority               int                `json:"priority" db:"priority"`
 	MaxAgents              int                `json:"max_agents" db:"max_agents"`
-	ProcessedKeyspace      int64              `json:"processed_keyspace" db:"processed_keyspace"`
+	ProcessedKeyspace      BigInt             `json:"processed_keyspace" db:"processed_keyspace"`
 	AttackMode             AttackMode         `json:"attack_mode" db:"attack_mode"`
 	CreatedBy              *uuid.UUID         `json:"created_by" db:"created_by"`
 	CreatedAt              time.Time          `json:"created_at" db:"created_at"`
@@ -261,7 +261,7 @@ type JobExecution struct {
 
 	// Enhanced chunking fields
 	BaseKeyspace         *int64   `json:"base_keyspace" db:"base_keyspace"`                 // Wordlist-only keyspace
-	EffectiveKeyspace    *int64   `json:"effective_keyspace" db:"effective_keyspace"`       // Base × multiplication factor (or from hashcat progress[1])
+	EffectiveKeyspace    *BigInt  `json:"effective_keyspace" db:"effective_keyspace"`       // Base × multiplication factor (NUMERIC; can exceed int64)
 	MultiplicationFactor int64    `json:"multiplication_factor" db:"multiplication_factor"` // Rules count or second wordlist size
 	AvgRuleMultiplier    *float64 `json:"avg_rule_multiplier" db:"avg_rule_multiplier"`     // Actual effectiveness from hashcat: effective/base/rules
 	IsAccurateKeyspace   bool     `json:"is_accurate_keyspace" db:"is_accurate_keyspace"`   // TRUE if effective_keyspace from hashcat progress[1]
@@ -271,7 +271,7 @@ type JobExecution struct {
 	// Progress tracking
 	OverallProgressPercent float64    `json:"overall_progress_percent" db:"overall_progress_percent"` // Overall job progress (0-100)
 	LastProgressUpdate     *time.Time `json:"last_progress_update" db:"last_progress_update"`         // Last time progress was updated
-	DispatchedKeyspace     int64      `json:"dispatched_keyspace" db:"dispatched_keyspace"`           // Total keyspace dispatched to tasks
+	DispatchedKeyspace     BigInt     `json:"dispatched_keyspace" db:"dispatched_keyspace"`           // Total keyspace dispatched to tasks (NUMERIC; effective units)
 
 	// Email notification tracking
 	CompletionEmailSent   bool       `json:"completion_email_sent" db:"completion_email_sent"`
@@ -307,11 +307,11 @@ type JobTask struct {
 	KeyspaceStart           int64   `json:"keyspace_start" db:"keyspace_start"`
 	KeyspaceEnd             int64   `json:"keyspace_end" db:"keyspace_end"`
 	KeyspaceProcessed       int64   `json:"keyspace_processed" db:"keyspace_processed"`
-	EffectiveKeyspaceStart     *int64  `json:"effective_keyspace_start" db:"effective_keyspace_start"`         // For rule splitting: base_keyspace * rule_start_index (estimate or actual)
-	EffectiveKeyspaceEnd       *int64  `json:"effective_keyspace_end" db:"effective_keyspace_end"`             // For rule splitting: base_keyspace * rule_end_index (estimate or actual)
-	EffectiveKeyspaceProcessed *int64  `json:"effective_keyspace_processed" db:"effective_keyspace_processed"` // Actual effective progress
+	EffectiveKeyspaceStart     *BigInt `json:"effective_keyspace_start" db:"effective_keyspace_start"`         // For rule splitting: base_keyspace * rule_start_index (NUMERIC; can exceed int64)
+	EffectiveKeyspaceEnd       *BigInt `json:"effective_keyspace_end" db:"effective_keyspace_end"`             // For rule splitting: base_keyspace * rule_end_index (NUMERIC; can exceed int64)
+	EffectiveKeyspaceProcessed *BigInt `json:"effective_keyspace_processed" db:"effective_keyspace_processed"` // Actual effective progress (NUMERIC)
 	IsActualKeyspace           bool    `json:"is_actual_keyspace" db:"is_actual_keyspace"`                     // TRUE if effective ranges from hashcat progress[1]
-	ChunkActualKeyspace        *int64  `json:"chunk_actual_keyspace" db:"chunk_actual_keyspace"`               // Actual keyspace SIZE for this chunk from hashcat progress[1]
+	ChunkActualKeyspace        *BigInt `json:"chunk_actual_keyspace" db:"chunk_actual_keyspace"`               // Actual keyspace SIZE for this chunk from hashcat progress[1] (NUMERIC)
 	ProgressPercent            float64 `json:"progress_percent" db:"progress_percent"`                         // Task progress percentage (0-100)
 	BenchmarkSpeed    *int64        `json:"benchmark_speed" db:"benchmark_speed"`   // hashes per second (current/last reported)
 	AverageSpeed      *int64        `json:"average_speed" db:"average_speed"`       // time-weighted average hashes per second
@@ -532,7 +532,7 @@ type JobProgress struct {
 	KeyspaceProcessed      int64          `json:"keyspace_processed"`                   // Restore point (position in wordlist)
 	EffectiveProgress      int64          `json:"effective_progress"`                   // Actual effective progress (words × rules processed)
 	ProgressPercent        float64        `json:"progress_percent"`                     // Actual progress percentage (0-100)
-	TotalEffectiveKeyspace *int64         `json:"total_effective_keyspace,omitempty"`   // Only sent on first update - hashcat progress[1]
+	TotalEffectiveKeyspace *BigInt        `json:"total_effective_keyspace,omitempty"`   // Only sent on first update - hashcat progress[1] (NUMERIC; UnmarshalJSON accepts agent's number)
 	IsFirstUpdate          bool           `json:"is_first_update"`                      // Flag indicating this is the first progress update
 	HashRate               int64          `json:"hash_rate"`                            // Current hashes per second
 	Temperature            *float64       `json:"temperature"`                          // GPU temperature (deprecated, use DeviceMetrics)
@@ -634,9 +634,9 @@ type JobIncrementLayer struct {
 
 	// Keyspace tracking
 	BaseKeyspace         *int64  `json:"base_keyspace" db:"base_keyspace"`                 // From --keyspace command
-	EffectiveKeyspace    *int64  `json:"effective_keyspace" db:"effective_keyspace"`       // From benchmark progress[1]
-	ProcessedKeyspace    int64   `json:"processed_keyspace" db:"processed_keyspace"`       // Sum from tasks
-	DispatchedKeyspace   int64   `json:"dispatched_keyspace" db:"dispatched_keyspace"`     // Total keyspace dispatched
+	EffectiveKeyspace    *BigInt `json:"effective_keyspace" db:"effective_keyspace"`       // From benchmark progress[1] (NUMERIC; can exceed int64)
+	ProcessedKeyspace    BigInt  `json:"processed_keyspace" db:"processed_keyspace"`       // Sum from tasks (NUMERIC)
+	DispatchedKeyspace   BigInt  `json:"dispatched_keyspace" db:"dispatched_keyspace"`     // Total keyspace dispatched (NUMERIC)
 	IsAccurateKeyspace   bool    `json:"is_accurate_keyspace" db:"is_accurate_keyspace"`   // TRUE after benchmark
 
 	// Progress tracking
@@ -674,7 +674,7 @@ type PresetIncrementLayer struct {
 
 	// Keyspace tracking (pre-calculated at preset creation time)
 	BaseKeyspace       *int64 `json:"base_keyspace,omitempty" db:"base_keyspace"`           // From --keyspace command
-	EffectiveKeyspace  *int64 `json:"effective_keyspace,omitempty" db:"effective_keyspace"` // Total candidate count
+	EffectiveKeyspace  *BigInt `json:"effective_keyspace,omitempty" db:"effective_keyspace"` // Total candidate count (NUMERIC; can exceed int64)
 	IsAccurateKeyspace bool   `json:"is_accurate_keyspace" db:"is_accurate_keyspace"`       // TRUE if effective_keyspace was set from hashcat --total-candidates, FALSE if from the mask-math fallback estimator
 
 	// Timing

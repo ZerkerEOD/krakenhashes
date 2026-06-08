@@ -16,10 +16,12 @@ import (
 	"github.com/google/uuid"
 )
 
-// JobProgressUpdate represents calculated progress values for a job
+// JobProgressUpdate represents calculated progress values for a job.
+// ProcessedKeyspace/DispatchedKeyspace are EFFECTIVE-keyspace values (base × rules × salts
+// can exceed int64), so they are tracked as models.BigInt.
 type JobProgressUpdate struct {
-	ProcessedKeyspace      int64
-	DispatchedKeyspace     int64
+	ProcessedKeyspace      models.BigInt
+	DispatchedKeyspace     models.BigInt
 	OverallProgressPercent float64
 }
 
@@ -225,27 +227,27 @@ func (s *JobProgressCalculationService) calculateIncrementJobProgress(ctx contex
 	}
 
 	// Then aggregate layer progress to job level
-	var totalProcessedKeyspace int64
-	var totalDispatchedKeyspace int64
-	var totalEffectiveKeyspace int64
+	var totalProcessedKeyspace models.BigInt
+	var totalDispatchedKeyspace models.BigInt
+	var totalEffectiveKeyspace models.BigInt
 
 	for _, layer := range layers {
-		totalProcessedKeyspace += layer.ProcessedKeyspace
-		totalDispatchedKeyspace += layer.DispatchedKeyspace
+		totalProcessedKeyspace = totalProcessedKeyspace.Add(layer.ProcessedKeyspace)
+		totalDispatchedKeyspace = totalDispatchedKeyspace.Add(layer.DispatchedKeyspace)
 		if layer.EffectiveKeyspace != nil {
-			totalEffectiveKeyspace += *layer.EffectiveKeyspace
+			totalEffectiveKeyspace = totalEffectiveKeyspace.Add(*layer.EffectiveKeyspace)
 		} else if layer.BaseKeyspace != nil {
-			totalEffectiveKeyspace += *layer.BaseKeyspace
+			totalEffectiveKeyspace = totalEffectiveKeyspace.AddInt64(*layer.BaseKeyspace)
 		}
 	}
 
 	// Calculate overall progress percentage
 	progressPercent := 0.0
-	if totalEffectiveKeyspace > 0 {
-		progressPercent = float64(totalProcessedKeyspace) / float64(totalEffectiveKeyspace) * 100
+	if totalEffectiveKeyspace.IsPositive() {
+		progressPercent = float64(totalProcessedKeyspace.Int64()) / float64(totalEffectiveKeyspace.Int64()) * 100
 		if progressPercent > 100 {
-			debug.Warning("Job %s progress exceeds 100%% (%.3f%%), capping at 100%%. Processed: %d, Effective: %d",
-				job.ID, progressPercent, totalProcessedKeyspace, totalEffectiveKeyspace)
+			debug.Warning("Job %s progress exceeds 100%% (%.3f%%), capping at 100%%. Processed: %s, Effective: %s",
+				job.ID, progressPercent, totalProcessedKeyspace.String(), totalEffectiveKeyspace.String())
 			progressPercent = 100
 		}
 	}
@@ -288,8 +290,8 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 		}
 	}
 
-	var processedKeyspace int64
-	var dispatchedKeyspace int64
+	var processedKeyspace models.BigInt
+	var dispatchedKeyspace models.BigInt
 	// processedBaseKeyspace tracks progress in BASE (wordlist) units. For
 	// non-rule-split jobs the displayed percentage is driven off this, not off
 	// effective keyspace: effective_keyspace = base × rules but does NOT track
@@ -343,9 +345,9 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 		// Calculate processed keyspace
 		// PRIORITY: Use effective_keyspace_processed when available (most accurate from hashcat)
 		// FALLBACK: For keyspace-split jobs without effective values, estimate using multiplier
-		if task.EffectiveKeyspaceProcessed != nil && *task.EffectiveKeyspaceProcessed > 0 {
+		if task.EffectiveKeyspaceProcessed != nil && task.EffectiveKeyspaceProcessed.IsPositive() {
 			// Use effective keyspace directly - this is the actual value reported by hashcat
-			processedKeyspace += *task.EffectiveKeyspaceProcessed
+			processedKeyspace = processedKeyspace.Add(*task.EffectiveKeyspaceProcessed)
 		} else if isKeyspaceSplitJob {
 			// Fallback for keyspace-split tasks without effective values
 			// For keyspace-split tasks, KeyspaceProcessed storage is INCONSISTENT:
@@ -362,10 +364,10 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 				// keyspace_processed is already relative (or KeyspaceStart=0)
 				relativeProcessed = task.KeyspaceProcessed
 			}
-			processedKeyspace += int64(float64(relativeProcessed) * multiplier)
+			processedKeyspace = processedKeyspace.AddInt64(int64(float64(relativeProcessed) * multiplier))
 		} else {
 			// Fallback to regular keyspace processed
-			processedKeyspace += task.KeyspaceProcessed
+			processedKeyspace = processedKeyspace.AddInt64(task.KeyspaceProcessed)
 		}
 
 		// Calculate dispatched keyspace ONLY for tasks whose ranges are
@@ -382,17 +384,17 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 		// FALLBACK: For keyspace-split jobs, estimate using multiplier
 		if task.EffectiveKeyspaceStart != nil && task.EffectiveKeyspaceEnd != nil {
 			// Use effective keyspace range if available (from hashcat or estimates)
-			dispatchedKeyspace += (*task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart)
+			dispatchedKeyspace = dispatchedKeyspace.Add(task.EffectiveKeyspaceEnd.Sub(*task.EffectiveKeyspaceStart))
 		} else if isKeyspaceSplitJob {
 			// Fallback: Keyspace-split task without effective values
 			// Calculate base chunk × multiplier for consistency
 			chunkSize := task.KeyspaceEnd - task.KeyspaceStart
 			if chunkSize > 0 {
-				dispatchedKeyspace += int64(float64(chunkSize) * multiplier)
+				dispatchedKeyspace = dispatchedKeyspace.AddInt64(int64(float64(chunkSize) * multiplier))
 			}
 		} else if task.KeyspaceEnd > task.KeyspaceStart {
 			// Fallback to regular keyspace range for tasks without effective keyspace
-			dispatchedKeyspace += (task.KeyspaceEnd - task.KeyspaceStart)
+			dispatchedKeyspace = dispatchedKeyspace.AddInt64(task.KeyspaceEnd - task.KeyspaceStart)
 		}
 	}
 
@@ -407,12 +409,12 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 			// can't genuinely exceed the wordlist).
 			progressPercent = 100
 		}
-	} else if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
+	} else if job.EffectiveKeyspace != nil && job.EffectiveKeyspace.IsPositive() {
 		// Rule-split / no-base-keyspace fallback (effective units).
-		progressPercent = float64(processedKeyspace) / float64(*job.EffectiveKeyspace) * 100
+		progressPercent = float64(processedKeyspace.Int64()) / float64(job.EffectiveKeyspace.Int64()) * 100
 		if progressPercent > 100 {
-			debug.Warning("Job %s progress exceeds 100%% (%.3f%%), capping at 100%%. Processed: %d, Effective: %d",
-				job.ID, progressPercent, processedKeyspace, *job.EffectiveKeyspace)
+			debug.Warning("Job %s progress exceeds 100%% (%.3f%%), capping at 100%%. Processed: %s, Effective: %s",
+				job.ID, progressPercent, processedKeyspace.String(), job.EffectiveKeyspace.String())
 			progressPercent = 100
 		}
 	}
@@ -462,8 +464,8 @@ func (s *JobProgressCalculationService) calculateAndUpdateLayerProgress(ctx cont
 	// Multiplier = EffectiveKeyspace / BaseKeyspace for the layer
 	multiplier := float64(1)
 	isKeyspaceSplitLayer := false
-	if layer.BaseKeyspace != nil && *layer.BaseKeyspace > 0 && layer.EffectiveKeyspace != nil && *layer.EffectiveKeyspace > 0 {
-		multiplier = float64(*layer.EffectiveKeyspace) / float64(*layer.BaseKeyspace)
+	if layer.BaseKeyspace != nil && *layer.BaseKeyspace > 0 && layer.EffectiveKeyspace != nil && layer.EffectiveKeyspace.IsPositive() {
+		multiplier = float64(layer.EffectiveKeyspace.Int64()) / float64(*layer.BaseKeyspace)
 		// Consider it a keyspace-split layer if multiplier is significantly different from 1
 		isKeyspaceSplitLayer = multiplier > 1.01 || multiplier < 0.99
 	}
@@ -480,21 +482,21 @@ func (s *JobProgressCalculationService) calculateAndUpdateLayerProgress(ctx cont
 	// 1) Use EffectiveKeyspaceProcessed/EffectiveKeyspaceEnd when available (most accurate)
 	// 2) Fall back to KeyspaceProcessed × multiplier ONLY for keyspace-split layers (legacy data)
 	// 3) Fall back to raw KeyspaceProcessed for non-split layers
-	var processedKeyspace int64
-	var dispatchedKeyspace int64
+	var processedKeyspace models.BigInt
+	var dispatchedKeyspace models.BigInt
 	for _, task := range layerTasks {
 		chunkSize := task.KeyspaceEnd - task.KeyspaceStart
 
-		if task.EffectiveKeyspaceProcessed != nil && *task.EffectiveKeyspaceProcessed > 0 {
+		if task.EffectiveKeyspaceProcessed != nil && task.EffectiveKeyspaceProcessed.IsPositive() {
 			// Preferred path — agent reported effective progress (unambiguous candidate count).
-			processedKeyspace += *task.EffectiveKeyspaceProcessed
+			processedKeyspace = processedKeyspace.Add(*task.EffectiveKeyspaceProcessed)
 
 			if task.EffectiveKeyspaceStart != nil && task.EffectiveKeyspaceEnd != nil {
-				dispatchedKeyspace += (*task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart)
+				dispatchedKeyspace = dispatchedKeyspace.Add(task.EffectiveKeyspaceEnd.Sub(*task.EffectiveKeyspaceStart))
 			} else if isKeyspaceSplitLayer && chunkSize > 0 {
-				dispatchedKeyspace += int64(float64(chunkSize) * multiplier)
+				dispatchedKeyspace = dispatchedKeyspace.AddInt64(int64(float64(chunkSize) * multiplier))
 			} else if chunkSize > 0 {
-				dispatchedKeyspace += chunkSize
+				dispatchedKeyspace = dispatchedKeyspace.AddInt64(chunkSize)
 			}
 		} else if isKeyspaceSplitLayer {
 			// Legacy / pre-effective-tracking fallback. KeyspaceProcessed storage is INCONSISTENT:
@@ -506,25 +508,25 @@ func (s *JobProgressCalculationService) calculateAndUpdateLayerProgress(ctx cont
 			} else {
 				relativeProcessed = task.KeyspaceProcessed
 			}
-			processedKeyspace += int64(float64(relativeProcessed) * multiplier)
+			processedKeyspace = processedKeyspace.AddInt64(int64(float64(relativeProcessed) * multiplier))
 			if chunkSize > 0 {
-				dispatchedKeyspace += int64(float64(chunkSize) * multiplier)
+				dispatchedKeyspace = dispatchedKeyspace.AddInt64(int64(float64(chunkSize) * multiplier))
 			}
 		} else {
-			processedKeyspace += task.KeyspaceProcessed
-			dispatchedKeyspace += chunkSize
+			processedKeyspace = processedKeyspace.AddInt64(task.KeyspaceProcessed)
+			dispatchedKeyspace = dispatchedKeyspace.AddInt64(chunkSize)
 		}
 	}
 
 	// Calculate layer progress percentage
 	progressPercent := 0.0
-	if layer.EffectiveKeyspace != nil && *layer.EffectiveKeyspace > 0 {
-		progressPercent = float64(processedKeyspace) / float64(*layer.EffectiveKeyspace) * 100
+	if layer.EffectiveKeyspace != nil && layer.EffectiveKeyspace.IsPositive() {
+		progressPercent = float64(processedKeyspace.Int64()) / float64(layer.EffectiveKeyspace.Int64()) * 100
 		if progressPercent > 100 {
 			progressPercent = 100
 		}
 	} else if layer.BaseKeyspace != nil && *layer.BaseKeyspace > 0 {
-		progressPercent = float64(processedKeyspace) / float64(*layer.BaseKeyspace) * 100
+		progressPercent = float64(processedKeyspace.Int64()) / float64(*layer.BaseKeyspace) * 100
 		if progressPercent > 100 {
 			progressPercent = 100
 		}
@@ -550,8 +552,8 @@ func (s *JobProgressCalculationService) calculateAndUpdateLayerProgress(ctx cont
 // hasChanged checks if the calculated values differ from stored values
 func (s *JobProgressCalculationService) hasChanged(job models.JobExecution, update *JobProgressUpdate) bool {
 	// Check if any value has changed
-	processedChanged := job.ProcessedKeyspace != update.ProcessedKeyspace
-	dispatchedChanged := job.DispatchedKeyspace != update.DispatchedKeyspace
+	processedChanged := job.ProcessedKeyspace.Cmp(update.ProcessedKeyspace) != 0
+	dispatchedChanged := job.DispatchedKeyspace.Cmp(update.DispatchedKeyspace) != 0
 
 	// Use a small threshold for percentage to avoid floating point precision issues
 	percentChanged := math.Abs(job.OverallProgressPercent-update.OverallProgressPercent) > 0.01
@@ -678,13 +680,13 @@ func (s *JobProgressCalculationService) checkJobsForCompletion(ctx context.Conte
 				// Sync effective_keyspace to processed_keyspace to ensure 100% display
 				// This prevents >100% progress when effective_keyspace from benchmark was lower
 				// (similar to the AllHashesCracked handler in job_websocket_integration.go)
-				if job.ProcessedKeyspace > 0 {
-					if job.EffectiveKeyspace == nil || *job.EffectiveKeyspace < job.ProcessedKeyspace {
+				if job.ProcessedKeyspace.IsPositive() {
+					if job.EffectiveKeyspace == nil || job.EffectiveKeyspace.Cmp(job.ProcessedKeyspace) < 0 {
 						syncErr := s.jobExecRepo.UpdateEffectiveKeyspace(ctx, jobID, job.ProcessedKeyspace)
 						if syncErr != nil {
 							debug.Warning("Failed to sync effective_keyspace on completion for job %s: %v", jobID, syncErr)
 						} else {
-							debug.Info("Synced effective_keyspace to %d on job %s completion", job.ProcessedKeyspace, jobID)
+							debug.Info("Synced effective_keyspace to %s on job %s completion", job.ProcessedKeyspace.String(), jobID)
 						}
 					}
 				}

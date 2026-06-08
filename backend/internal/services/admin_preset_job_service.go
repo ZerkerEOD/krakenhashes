@@ -883,7 +883,7 @@ func (s *adminPresetJobService) CalculateKeyspaceForPresetJob(ctx context.Contex
 
 	if isAccurate && effectiveKeyspace > 0 {
 		// Use accurate value from --total-candidates
-		presetJob.EffectiveKeyspace = &effectiveKeyspace
+		presetJob.EffectiveKeyspace = models.NewBigIntPtr(effectiveKeyspace)
 		presetJob.IsAccurateKeyspace = true
 
 		// Calculate multiplication factor from accurate keyspace
@@ -917,7 +917,7 @@ func (s *adminPresetJobService) CalculateKeyspaceForPresetJob(ctx context.Contex
 		} else {
 			presetJob.MultiplicationFactor = 1
 		}
-		presetJob.EffectiveKeyspace = &estimatedEffective
+		presetJob.EffectiveKeyspace = models.NewBigIntPtr(estimatedEffective)
 		presetJob.IsAccurateKeyspace = false
 
 		debug.Log("Using estimated effective keyspace (--total-candidates failed or unavailable)", map[string]interface{}{
@@ -1444,7 +1444,7 @@ func (s *adminPresetJobService) initializePresetIncrementLayers(ctx context.Cont
 			LayerIndex:         i + 1, // 1-indexed
 			Mask:               layerMask,
 			BaseKeyspace:       &baseKeyspace,
-			EffectiveKeyspace:  &effectiveKeyspace,
+			EffectiveKeyspace:  models.NewBigIntPtr(effectiveKeyspace),
 			IsAccurateKeyspace: isAccurate,
 		}
 

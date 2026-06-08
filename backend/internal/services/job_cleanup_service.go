@@ -535,9 +535,9 @@ func (s *JobCleanupService) checkJobForPendingTransition(ctx context.Context, jo
 				} else {
 					hasRemainingWork = hw
 				}
-			} else if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
+			} else if job.EffectiveKeyspace != nil && job.EffectiveKeyspace.IsPositive() {
 				// Rule-split / no-base-keyspace fallback (effective units).
-				hasRemainingWork = job.DispatchedKeyspace < *job.EffectiveKeyspace
+				hasRemainingWork = job.DispatchedKeyspace.Cmp(*job.EffectiveKeyspace) < 0
 			}
 
 			if hasRemainingWork {
@@ -692,8 +692,8 @@ func (s *JobCleanupService) reconcileStuckJobs(ctx context.Context) {
 			}
 			if !isV2Job {
 				actualKeyspace, err := s.jobTaskRepo.GetSumChunkActualKeyspace(ctx, job.ID)
-				if err == nil && actualKeyspace > 0 {
-					if job.EffectiveKeyspace == nil || *job.EffectiveKeyspace != actualKeyspace {
+				if err == nil && actualKeyspace.IsPositive() {
+					if job.EffectiveKeyspace == nil || job.EffectiveKeyspace.Cmp(actualKeyspace) != 0 {
 						s.jobExecutionRepo.UpdateEffectiveKeyspace(ctx, job.ID, actualKeyspace)
 						s.jobExecutionRepo.UpdateDispatchedKeyspace(ctx, job.ID, actualKeyspace)
 						debug.Log("Synced keyspace for stuck job before completion", map[string]interface{}{

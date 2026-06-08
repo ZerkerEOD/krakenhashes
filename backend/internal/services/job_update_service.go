@@ -145,10 +145,11 @@ func (s *JobUpdateService) HandleWordlistUpdate(ctx context.Context, wordlistID 
 
 		// For rule-splitting jobs, recalculate effective keyspace accounting for missed work
 		if job.UsesRuleSplitting && job.MultiplicationFactor > 0 {
-			// Calculate the theoretical new effective keyspace
-			theoreticalNewEffective := newLines * job.MultiplicationFactor
+			// Calculate the theoretical new effective keyspace (base × rules → effective,
+			// computed in BigInt: the product can exceed int64).
+			theoreticalNewEffective := models.NewBigInt(newLines).MulInt64(job.MultiplicationFactor)
 
-			// Calculate how many words were added
+			// Calculate how many words were added (base-unit delta, stays int64)
 			wordsDifference := newLines - oldLines
 
 			// Get the highest rule chunk that's been dispatched
@@ -163,14 +164,15 @@ func (s *JobUpdateService) HandleWordlistUpdate(ctx context.Context, wordlistID 
 				continue
 			}
 
-			// Calculate the "missed" keyspace (words added × rules already dispatched)
-			missedKeyspace := int64(0)
+			// Calculate the "missed" keyspace (words added × rules already dispatched →
+			// effective, computed in BigInt to avoid overflow).
+			missedKeyspace := models.NewBigInt(0)
 			if maxRuleEnd != nil && *maxRuleEnd > 0 {
-				missedKeyspace = wordsDifference * int64(*maxRuleEnd)
+				missedKeyspace = models.NewBigInt(wordsDifference).MulInt64(int64(*maxRuleEnd))
 			}
 
 			// Actual effective keyspace = theoretical - missed
-			actualEffective := theoreticalNewEffective - missedKeyspace
+			actualEffective := theoreticalNewEffective.Sub(missedKeyspace)
 
 			err = s.jobExecRepo.UpdateEffectiveKeyspace(ctx, job.ID, actualEffective)
 			if err != nil {
@@ -189,14 +191,14 @@ func (s *JobUpdateService) HandleWordlistUpdate(ctx context.Context, wordlistID 
 				"actual_effective":      actualEffective,
 			})
 		} else {
-			// Non-rule-splitting job
-			var newEffective int64
+			// Non-rule-splitting job. effective = base × rules → BigInt (product can exceed int64).
+			var newEffective models.BigInt
 			if job.MultiplicationFactor > 0 {
 				// Job has rules but doesn't use rule splitting
-				newEffective = newLines * job.MultiplicationFactor
+				newEffective = models.NewBigInt(newLines).MulInt64(job.MultiplicationFactor)
 			} else {
 				// Pure wordlist job without rules
-				newEffective = newLines
+				newEffective = models.NewBigInt(newLines)
 			}
 
 			err = s.jobExecRepo.UpdateEffectiveKeyspace(ctx, job.ID, newEffective)
@@ -224,7 +226,8 @@ func (s *JobUpdateService) recalculateJobKeyspace(ctx context.Context, job *mode
 	}
 
 	newMultFactor := newRuleCount
-	newEffective := *job.BaseKeyspace * newMultFactor
+	// effective = base × rules → BigInt (product can exceed int64).
+	newEffective := models.NewBigInt(*job.BaseKeyspace).MulInt64(newMultFactor)
 
 	updates := map[string]interface{}{
 		"multiplication_factor": newMultFactor,
@@ -277,9 +280,9 @@ func (s *JobUpdateService) adjustRemainingKeyspace(ctx context.Context, job *mod
 			return
 		}
 
-		// Recalculate effective keyspace
+		// Recalculate effective keyspace (base × rules → BigInt; product can exceed int64).
 		if job.BaseKeyspace != nil {
-			newEffective := *job.BaseKeyspace * newRules
+			newEffective := models.NewBigInt(*job.BaseKeyspace).MulInt64(newRules)
 			err = s.jobExecRepo.UpdateEffectiveKeyspace(ctx, job.ID, newEffective)
 			if err != nil {
 				debug.Error("Failed to update effective keyspace for job %s: %v", job.ID, err)

@@ -272,9 +272,13 @@ func (s *JobSchedulingService) expandIncrementJobsIntoLayers(
 				if layer.BaseKeyspace != nil {
 					layerBaseKeyspace = layer.BaseKeyspace
 				} else if layer.EffectiveKeyspace != nil {
-					layerBaseKeyspace = layer.EffectiveKeyspace
+					// Degenerate fallback (shouldn't normally happen): EffectiveKeyspace is
+					// EFFECTIVE/BigInt but is used here as a BASE proxy → coerce to int64.
+					effAsBase := layer.EffectiveKeyspace.Int64()
+					layerBaseKeyspace = &effAsBase
 				}
-				if layerBaseKeyspace != nil && layer.DispatchedKeyspace < *layerBaseKeyspace {
+				// layer.DispatchedKeyspace is BigInt (effective units); compare against the int64 base proxy.
+				if layerBaseKeyspace != nil && layer.DispatchedKeyspace.CmpInt64(*layerBaseKeyspace) < 0 {
 					// Create virtual job entry for this layer
 					layerJob := job // Copy parent job
 
@@ -544,7 +548,7 @@ func (s *JobSchedulingService) hasUndispatchedWork(ctx context.Context, job *mod
 	if job.UsesRuleSplitting && job.EffectiveKeyspace != nil {
 		// For rule chunking: check if dispatched keyspace < effective keyspace
 		// This indicates more rule chunks need to be created
-		return job.DispatchedKeyspace < *job.EffectiveKeyspace
+		return job.DispatchedKeyspace.Cmp(*job.EffectiveKeyspace) < 0
 	}
 
 	// For keyspace splitting (--skip/--limit): query actual BASE keyspace dispatched from tasks
@@ -568,7 +572,7 @@ func (s *JobSchedulingService) hasUndispatchedWork(ctx context.Context, job *mod
 		return hasWork
 	} else if job.EffectiveKeyspace != nil {
 		// Fallback to EffectiveKeyspace for jobs without BaseKeyspace
-		return job.DispatchedKeyspace < *job.EffectiveKeyspace
+		return job.DispatchedKeyspace.Cmp(*job.EffectiveKeyspace) < 0
 	}
 
 	return false
@@ -625,7 +629,8 @@ func (s *JobSchedulingService) isJobStructurallyComplete(ctx context.Context, jo
 		if totalRules == 0 {
 			totalRules = job.MultiplicationFactor
 			if totalRules == 0 && job.EffectiveKeyspace != nil && job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
-				totalRules = *job.EffectiveKeyspace / *job.BaseKeyspace
+				// effective(BigInt) / base(int64) → int64 sink (rule count)
+				totalRules = job.EffectiveKeyspace.DivInt64(*job.BaseKeyspace).Int64()
 			}
 		}
 
@@ -690,8 +695,8 @@ func (s *JobSchedulingService) completeExhaustedJobs(ctx context.Context, jobsWi
 					"uses_rule_splitting":   job.UsesRuleSplitting,
 					"multiplication_factor": job.MultiplicationFactor,
 					"max_rule_end_index":    maxRuleEnd,
-					"dispatched_keyspace":   job.DispatchedKeyspace,
-					"effective_keyspace":    job.EffectiveKeyspace,
+					"dispatched_keyspace":   job.DispatchedKeyspace.String(),
+					"effective_keyspace":    bigIntPtrLog(job.EffectiveKeyspace),
 					"hint":                  "if max_rule_end_index >= the rule file's CountRules result, the rule file is probably unreadable; otherwise structural check is conservative and waiting for more rules to be dispatched",
 				})
 			}
@@ -701,8 +706,8 @@ func (s *JobSchedulingService) completeExhaustedJobs(ctx context.Context, jobsWi
 		debug.Info("Scheduler detected structurally complete job with keyspace drift - completing", map[string]interface{}{
 			"job_id":              job.ID,
 			"name":                job.Name,
-			"dispatched_keyspace": job.DispatchedKeyspace,
-			"effective_keyspace":  job.EffectiveKeyspace,
+			"dispatched_keyspace": job.DispatchedKeyspace.String(),
+			"effective_keyspace":  bigIntPtrLog(job.EffectiveKeyspace),
 			"uses_rule_splitting": job.UsesRuleSplitting,
 		})
 
@@ -1828,7 +1833,8 @@ func (s *JobSchedulingService) ProcessJobCompletion(ctx context.Context, jobExec
 		// Get total rules from the job's effective keyspace and base keyspace
 		totalRules := job.MultiplicationFactor
 		if totalRules == 0 && job.EffectiveKeyspace != nil && job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
-			totalRules = *job.EffectiveKeyspace / *job.BaseKeyspace
+			// effective(BigInt) / base(int64) → int64 sink (rule count)
+			totalRules = job.EffectiveKeyspace.DivInt64(*job.BaseKeyspace).Int64()
 		}
 
 		// Get the maximum rule end index from all tasks
@@ -1894,13 +1900,13 @@ func (s *JobSchedulingService) ProcessJobCompletion(ctx context.Context, jobExec
 					})
 					return nil // Don't complete yet
 				}
-			} else if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 && job.DispatchedKeyspace < *job.EffectiveKeyspace {
+			} else if job.EffectiveKeyspace != nil && job.EffectiveKeyspace.IsPositive() && job.DispatchedKeyspace.Cmp(*job.EffectiveKeyspace) < 0 {
 				// Legacy fallback for jobs that never recorded a base keyspace.
 				debug.Log("Job not complete - effective_keyspace check (no base keyspace)", map[string]interface{}{
 					"job_id":              jobExecutionID,
-					"effective_keyspace":  *job.EffectiveKeyspace,
-					"dispatched_keyspace": job.DispatchedKeyspace,
-					"remaining":           *job.EffectiveKeyspace - job.DispatchedKeyspace,
+					"effective_keyspace":  job.EffectiveKeyspace.String(),
+					"dispatched_keyspace": job.DispatchedKeyspace.String(),
+					"remaining":           job.EffectiveKeyspace.Sub(job.DispatchedKeyspace).String(),
 				})
 				return nil // Don't complete yet
 			}
@@ -1914,8 +1920,8 @@ func (s *JobSchedulingService) ProcessJobCompletion(ctx context.Context, jobExec
 
 		debug.Log("Job execution completed - all tasks done and keyspace fully dispatched", map[string]interface{}{
 			"job_execution_id":    jobExecutionID,
-			"effective_keyspace":  job.EffectiveKeyspace,
-			"dispatched_keyspace": job.DispatchedKeyspace,
+			"effective_keyspace":  bigIntPtrLog(job.EffectiveKeyspace),
+			"dispatched_keyspace": job.DispatchedKeyspace.String(),
 			"incomplete_tasks":    incompleteTasks,
 		})
 	} else {

@@ -214,8 +214,8 @@ func (r *SchedulingUnitRepository) UpdateStatus(ctx context.Context, id uuid.UUI
 // by the agent-progress path when hashcat's first chunk's progress[1]
 // reveals the actual keyspace and we want to upgrade is_accurate_keyspace
 // to true.
-func (r *SchedulingUnitRepository) UpdateEffectiveKeyspace(ctx context.Context, id uuid.UUID, effective int64, isAccurate bool) error {
-	if effective < 0 {
+func (r *SchedulingUnitRepository) UpdateEffectiveKeyspace(ctx context.Context, id uuid.UUID, effective models.BigInt, isAccurate bool) error {
+	if effective.Sign() < 0 {
 		return errors.New("effective keyspace must be non-negative")
 	}
 	const query = `

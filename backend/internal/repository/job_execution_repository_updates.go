@@ -165,7 +165,7 @@ func (r *JobExecutionRepository) IsSchedulerV2Job(ctx context.Context, jobID uui
 }
 
 // UpdateEffectiveKeyspace updates the effective keyspace for a job execution
-func (r *JobExecutionRepository) UpdateEffectiveKeyspace(ctx context.Context, jobID uuid.UUID, effectiveKeyspace int64) error {
+func (r *JobExecutionRepository) UpdateEffectiveKeyspace(ctx context.Context, jobID uuid.UUID, effectiveKeyspace models.BigInt) error {
 	query := `
 		UPDATE job_executions
 		SET effective_keyspace = $1, updated_at = CURRENT_TIMESTAMP

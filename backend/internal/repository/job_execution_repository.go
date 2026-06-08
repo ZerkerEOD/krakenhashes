@@ -738,7 +738,7 @@ func (r *JobExecutionRepository) UpdateConsecutiveFailures(ctx context.Context, 
 }
 
 // UpdateDispatchedKeyspace updates the dispatched keyspace for a job execution
-func (r *JobExecutionRepository) UpdateDispatchedKeyspace(ctx context.Context, id uuid.UUID, dispatchedKeyspace int64) error {
+func (r *JobExecutionRepository) UpdateDispatchedKeyspace(ctx context.Context, id uuid.UUID, dispatchedKeyspace models.BigInt) error {
 	query := `
 		UPDATE job_executions 
 		SET dispatched_keyspace = $1,

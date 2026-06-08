@@ -186,10 +186,10 @@ func (s *HashlistCompletionService) stopJobTasks(ctx context.Context, jobID uuid
 			}
 
 			// Also check effective keyspace for brute-force tasks
-			if task.EffectiveKeyspaceEnd != nil && *task.EffectiveKeyspaceEnd > 0 &&
-				task.EffectiveKeyspaceProcessed != nil && *task.EffectiveKeyspaceProcessed >= *task.EffectiveKeyspaceEnd {
-				debug.Info("Task %s has completed its effective keyspace (%d/%d), marking as completed instead of cancelled",
-					task.ID, *task.EffectiveKeyspaceProcessed, *task.EffectiveKeyspaceEnd)
+			if task.EffectiveKeyspaceEnd != nil && task.EffectiveKeyspaceEnd.IsPositive() &&
+				task.EffectiveKeyspaceProcessed != nil && task.EffectiveKeyspaceProcessed.Cmp(*task.EffectiveKeyspaceEnd) >= 0 {
+				debug.Info("Task %s has completed its effective keyspace (%s/%s), marking as completed instead of cancelled",
+					task.ID, task.EffectiveKeyspaceProcessed.String(), task.EffectiveKeyspaceEnd.String())
 
 				if err := s.jobTaskRepo.UpdateStatus(ctx, task.ID, models.JobTaskStatusCompleted); err != nil {
 					debug.Error("Failed to mark task %s as completed: %v", task.ID, err)
@@ -285,9 +285,9 @@ func (s *HashlistCompletionService) stopJobTasks(ctx context.Context, jobID uuid
 func (s *HashlistCompletionService) markTaskComplete100Percent(ctx context.Context, task *models.JobTask) error {
 	// Calculate full keyspace for this task
 	fullKeyspaceProcessed := task.KeyspaceEnd - task.KeyspaceStart
-	effectiveProcessed := fullKeyspaceProcessed
+	effectiveProcessed := models.NewBigInt(fullKeyspaceProcessed)
 	if task.EffectiveKeyspaceEnd != nil && task.EffectiveKeyspaceStart != nil {
-		effectiveProcessed = *task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart
+		effectiveProcessed = task.EffectiveKeyspaceEnd.Sub(*task.EffectiveKeyspaceStart)
 	}
 
 	// Update task progress to 100%
@@ -305,7 +305,7 @@ func (s *HashlistCompletionService) completeJob(ctx context.Context, job *models
 			for _, layer := range layers {
 				if layer.Status != models.JobIncrementLayerStatusCompleted {
 					// Update layer to 100% progress
-					if layer.EffectiveKeyspace != nil && *layer.EffectiveKeyspace > 0 {
+					if layer.EffectiveKeyspace != nil && layer.EffectiveKeyspace.IsPositive() {
 						if err := s.jobIncrementLayerRepo.UpdateProgress(ctx, layer.ID, *layer.EffectiveKeyspace, 100.0); err != nil {
 							debug.Warning("Failed to update layer %s progress: %v", layer.ID, err)
 						}

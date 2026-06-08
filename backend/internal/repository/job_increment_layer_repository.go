@@ -337,7 +337,7 @@ func (r *JobIncrementLayerRepository) GetLayersWithPendingWork(ctx context.Conte
 }
 
 // UpdateKeyspace updates the keyspace fields for a layer
-func (r *JobIncrementLayerRepository) UpdateKeyspace(ctx context.Context, layerID uuid.UUID, effectiveKeyspace int64, isAccurate bool) error {
+func (r *JobIncrementLayerRepository) UpdateKeyspace(ctx context.Context, layerID uuid.UUID, effectiveKeyspace models.BigInt, isAccurate bool) error {
 	query := `
 		UPDATE job_increment_layers
 		SET effective_keyspace = $2,
@@ -399,7 +399,7 @@ func (r *JobIncrementLayerRepository) UpdateStatus(ctx context.Context, layerID 
 }
 
 // UpdateProgress updates progress fields for a layer
-func (r *JobIncrementLayerRepository) UpdateProgress(ctx context.Context, layerID uuid.UUID, processedKeyspace int64, progressPercent float64) error {
+func (r *JobIncrementLayerRepository) UpdateProgress(ctx context.Context, layerID uuid.UUID, processedKeyspace models.BigInt, progressPercent float64) error {
 	query := `
 		UPDATE job_increment_layers
 		SET processed_keyspace = $2,
@@ -426,7 +426,7 @@ func (r *JobIncrementLayerRepository) UpdateProgress(ctx context.Context, layerI
 }
 
 // UpdateDispatchedKeyspace updates the dispatched_keyspace field for a layer
-func (r *JobIncrementLayerRepository) UpdateDispatchedKeyspace(ctx context.Context, layerID uuid.UUID, dispatchedKeyspace int64) error {
+func (r *JobIncrementLayerRepository) UpdateDispatchedKeyspace(ctx context.Context, layerID uuid.UUID, dispatchedKeyspace models.BigInt) error {
 	query := `
 		UPDATE job_increment_layers
 		SET dispatched_keyspace = $2,
@@ -451,7 +451,7 @@ func (r *JobIncrementLayerRepository) UpdateDispatchedKeyspace(ctx context.Conte
 }
 
 // IncrementDispatchedKeyspace increments the dispatched_keyspace field for a layer
-func (r *JobIncrementLayerRepository) IncrementDispatchedKeyspace(ctx context.Context, layerID uuid.UUID, amount int64) error {
+func (r *JobIncrementLayerRepository) IncrementDispatchedKeyspace(ctx context.Context, layerID uuid.UUID, amount models.BigInt) error {
 	query := `
 		UPDATE job_increment_layers
 		SET dispatched_keyspace = dispatched_keyspace + $2,
@@ -494,7 +494,7 @@ func (r *JobIncrementLayerRepository) HasPendingLayers(ctx context.Context, jobE
 }
 
 // UpdateEffectiveKeyspace updates a layer's effective keyspace and marks it as accurate
-func (r *JobIncrementLayerRepository) UpdateEffectiveKeyspace(ctx context.Context, layerID uuid.UUID, effectiveKeyspace int64) error {
+func (r *JobIncrementLayerRepository) UpdateEffectiveKeyspace(ctx context.Context, layerID uuid.UUID, effectiveKeyspace models.BigInt) error {
 	query := `
 		UPDATE job_increment_layers
 		SET effective_keyspace = $2,
@@ -525,16 +525,16 @@ func (r *JobIncrementLayerRepository) UpdateEffectiveKeyspace(ctx context.Contex
 }
 
 // GetTotalEffectiveKeyspace returns the sum of all layers' effective keyspaces for a job
-func (r *JobIncrementLayerRepository) GetTotalEffectiveKeyspace(ctx context.Context, jobExecutionID uuid.UUID) (int64, error) {
+func (r *JobIncrementLayerRepository) GetTotalEffectiveKeyspace(ctx context.Context, jobExecutionID uuid.UUID) (models.BigInt, error) {
 	query := `
 		SELECT COALESCE(SUM(COALESCE(effective_keyspace, base_keyspace)), 0)
 		FROM job_increment_layers
 		WHERE job_execution_id = $1`
 
-	var total int64
+	var total models.BigInt
 	err := r.db.QueryRowContext(ctx, query, jobExecutionID).Scan(&total)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get total effective keyspace: %w", err)
+		return models.BigInt{}, fmt.Errorf("failed to get total effective keyspace: %w", err)
 	}
 
 	return total, nil
@@ -543,16 +543,16 @@ func (r *JobIncrementLayerRepository) GetTotalEffectiveKeyspace(ctx context.Cont
 // GetCumulativeEffectiveKeyspace returns the sum of effective_keyspace for all layers
 // with layer_index less than the specified index. This is used to calculate the
 // global effective keyspace offset for keysplit tasks within a layer.
-func (r *JobIncrementLayerRepository) GetCumulativeEffectiveKeyspace(ctx context.Context, jobExecutionID uuid.UUID, layerIndex int) (int64, error) {
+func (r *JobIncrementLayerRepository) GetCumulativeEffectiveKeyspace(ctx context.Context, jobExecutionID uuid.UUID, layerIndex int) (models.BigInt, error) {
 	query := `
 		SELECT COALESCE(SUM(COALESCE(effective_keyspace, 0)), 0)
 		FROM job_increment_layers
 		WHERE job_execution_id = $1 AND layer_index < $2`
 
-	var cumulative int64
+	var cumulative models.BigInt
 	err := r.db.QueryRowContext(ctx, query, jobExecutionID, layerIndex).Scan(&cumulative)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get cumulative effective keyspace: %w", err)
+		return models.BigInt{}, fmt.Errorf("failed to get cumulative effective keyspace: %w", err)
 	}
 
 	return cumulative, nil

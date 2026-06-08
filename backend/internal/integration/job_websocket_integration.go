@@ -1468,19 +1468,19 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 	// ENTIRE job's effective keyspace, not the chunk's. We should NOT update effective keyspace for
 	// keyspace-split tasks because we already calculated proportional values during task creation.
 	// Only update for rule-split tasks where progress[1] correctly reflects the chunk's rule range.
-	if progress.TotalEffectiveKeyspace != nil && *progress.TotalEffectiveKeyspace > 0 && !task.IsActualKeyspace && !task.IsKeyspaceSplit {
+	if progress.TotalEffectiveKeyspace != nil && progress.TotalEffectiveKeyspace.IsPositive() && !task.IsActualKeyspace && !task.IsKeyspaceSplit {
 		// IMPORTANT: progress.TotalEffectiveKeyspace is the CHUNK's actual keyspace size (not cumulative!)
 		// It represents the total keyspace for this specific chunk's rules (only valid for rule-split tasks)
 		chunkActualKeyspace := *progress.TotalEffectiveKeyspace
 
 		// Get the current start position (where this chunk begins in the cumulative keyspace)
-		effectiveStart := int64(0)
+		effectiveStart := models.NewBigInt(0)
 		if task.EffectiveKeyspaceStart != nil {
 			effectiveStart = *task.EffectiveKeyspaceStart
 		}
 
 		// Calculate new end = start + chunk's actual size
-		actualEffectiveEnd := effectiveStart + chunkActualKeyspace
+		actualEffectiveEnd := effectiveStart.Add(chunkActualKeyspace)
 
 		// Update task with actual values AND store chunk size for cascade calculations
 		err = s.jobTaskRepo.UpdateTaskEffectiveKeyspaceWithChunkSize(ctx, progress.TaskID,
@@ -1488,8 +1488,8 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 		if err != nil {
 			debug.Error("Failed to update task effective keyspace from progress[1]: %v", err)
 		} else {
-			debug.Info("Updated task %s: start=%d, end=%d, chunk_size=%d (is_actual_keyspace=true)",
-				progress.TaskID, effectiveStart, actualEffectiveEnd, chunkActualKeyspace)
+			debug.Info("Updated task %s: start=%s, end=%s, chunk_size=%s (is_actual_keyspace=true)",
+				progress.TaskID, effectiveStart.String(), actualEffectiveEnd.String(), chunkActualKeyspace.String())
 
 			// Get job execution repository for effective keyspace updates
 			database := &db.DB{DB: s.db}
@@ -1521,8 +1521,8 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 						if err != nil {
 							debug.Error("Failed to update layer effective keyspace: %v", err)
 						} else {
-							debug.Info("Updated layer %s effective_keyspace to %d (actual from hashcat)",
-								*task.IncrementLayerID, chunkActualKeyspace)
+							debug.Info("Updated layer %s effective_keyspace to %s (actual from hashcat)",
+								*task.IncrementLayerID, chunkActualKeyspace.String())
 
 							// Recalculate job's total effective keyspace as sum of all layers
 							totalKeyspace, err := s.jobIncrementLayerRepo.GetTotalEffectiveKeyspace(ctx, task.JobExecutionID)
@@ -1533,12 +1533,12 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 								if err != nil {
 									debug.Error("Failed to update job effective keyspace from layer sum: %v", err)
 								} else {
-									oldEffective := int64(0)
+									oldEffective := models.NewBigInt(0)
 									if job.EffectiveKeyspace != nil {
 										oldEffective = *job.EffectiveKeyspace
 									}
-									debug.Info("Updated increment job %s effective_keyspace from %d to %d (sum of all layers)",
-										task.JobExecutionID, oldEffective, totalKeyspace)
+									debug.Info("Updated increment job %s effective_keyspace from %s to %s (sum of all layers)",
+										task.JobExecutionID, oldEffective.String(), totalKeyspace.String())
 								}
 							}
 						}
@@ -1552,13 +1552,13 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 						// Single task job - update effective_keyspace to match actual total
 						if job.EffectiveKeyspace != nil {
 							newEffectiveKeyspace := chunkActualKeyspace
-							if *job.EffectiveKeyspace != newEffectiveKeyspace {
+							if job.EffectiveKeyspace.Cmp(newEffectiveKeyspace) != 0 {
 								err = jobExecRepo.UpdateEffectiveKeyspace(ctx, task.JobExecutionID, newEffectiveKeyspace)
 								if err != nil {
 									debug.Error("Failed to update job effective keyspace to actual: %v", err)
 								} else {
-									debug.Info("Updated job %s effective_keyspace from %d (estimated) to %d (actual from hashcat)",
-										task.JobExecutionID, *job.EffectiveKeyspace, newEffectiveKeyspace)
+									debug.Info("Updated job %s effective_keyspace from %s (estimated) to %s (actual from hashcat)",
+										task.JobExecutionID, job.EffectiveKeyspace.String(), newEffectiveKeyspace.String())
 								}
 							}
 						}
@@ -1571,20 +1571,20 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			// Reuse job variable from above
 			// IMPORTANT: Only refine if we have a valid baseline from benchmark
 			// Progressive refinement should ENHANCE accuracy, not replace initial benchmark value
-			if job != nil && job.UsesRuleSplitting && job.IsAccurateKeyspace && job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
+			if job != nil && job.UsesRuleSplitting && job.IsAccurateKeyspace && job.EffectiveKeyspace != nil && job.EffectiveKeyspace.IsPositive() {
 				// Get all tasks for this job
 				allTasks, err := s.jobTaskRepo.GetTasksByJobExecution(ctx, task.JobExecutionID)
 				if err == nil && len(allTasks) > 0 {
 					// Calculate: sum of actuals + smart estimate for remaining
-					totalActualKeyspace := int64(0)
+					totalActualKeyspace := models.NewBigInt(0)
 					totalActualRules := 0
 					totalRemainingRules := 0
 					pendingTaskCount := 0
 
 					for _, t := range allTasks {
 						// Include tasks that have reported actual keyspace (completed OR running with actual)
-						if t.ChunkActualKeyspace != nil && *t.ChunkActualKeyspace > 0 {
-							totalActualKeyspace += *t.ChunkActualKeyspace
+						if t.ChunkActualKeyspace != nil && t.ChunkActualKeyspace.IsPositive() {
+							totalActualKeyspace = totalActualKeyspace.Add(*t.ChunkActualKeyspace)
 							if t.RuleStartIndex != nil && t.RuleEndIndex != nil {
 								totalActualRules += (*t.RuleEndIndex - *t.RuleStartIndex)
 							}
@@ -1607,34 +1607,40 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 						currentHashCount, err := hashlistRepo.GetUncrackedHashCount(ctx, job.HashlistID)
 						if err == nil && currentHashCount > 0 {
 							// Average actual keyspace per rule from completed tasks
-							avgKeyspacePerRule := float64(totalActualKeyspace) / float64(totalActualRules)
+							// (heuristic float; truncation of large keyspaces is acceptable here)
+							avgKeyspacePerRule := float64(totalActualKeyspace.Int64()) / float64(totalActualRules)
 
 							// Estimate for remaining tasks using CURRENT hashlist size
 							estimatedRemaining := int64(avgKeyspacePerRule * float64(totalRemainingRules))
 
-							newEffectiveKeyspace = totalActualKeyspace + estimatedRemaining
+							newEffectiveKeyspace = totalActualKeyspace.AddInt64(estimatedRemaining)
 
-							debug.Info("Progressive refinement for job %s: actual=%d (from %d rules), estimated=%d (for %d rules with %d hashes), total=%d",
-								task.JobExecutionID, totalActualKeyspace, totalActualRules, estimatedRemaining, totalRemainingRules, currentHashCount, newEffectiveKeyspace)
+							debug.Info("Progressive refinement for job %s: actual=%s (from %d rules), estimated=%d (for %d rules with %d hashes), total=%s",
+								task.JobExecutionID, totalActualKeyspace.String(), totalActualRules, estimatedRemaining, totalRemainingRules, currentHashCount, newEffectiveKeyspace.String())
 						}
 					}
 
-					// Update if changed significantly (avoid tiny fluctuations)
-					if job.EffectiveKeyspace == nil || absInt64(*job.EffectiveKeyspace-newEffectiveKeyspace) > 1000 {
+					// Update if changed significantly (avoid tiny fluctuations).
+					// Compute |current - new| using BigInt arithmetic.
+					diffBig := job.EffectiveKeyspace.Sub(newEffectiveKeyspace)
+					if diffBig.Sign() < 0 {
+						diffBig = newEffectiveKeyspace.Sub(*job.EffectiveKeyspace)
+					}
+					if job.EffectiveKeyspace == nil || diffBig.CmpInt64(1000) > 0 {
 						// SAFETY: Never reduce effective_keyspace to 0 or a tiny value for rule-split jobs
 						// This prevents overwriting benchmark results with incomplete chunk data
-						if newEffectiveKeyspace == 0 {
+						if newEffectiveKeyspace.IsZero() {
 							debug.Log("Skipping progressive refinement - calculated keyspace is 0", map[string]interface{}{
 								"job_id":            task.JobExecutionID,
-								"current_effective": *job.EffectiveKeyspace,
+								"current_effective": job.EffectiveKeyspace.String(),
 							})
-						} else if job.EffectiveKeyspace != nil && newEffectiveKeyspace < (*job.EffectiveKeyspace/10) {
+						} else if job.EffectiveKeyspace != nil && newEffectiveKeyspace.Cmp(job.EffectiveKeyspace.DivInt64(10)) < 0 {
 							// New value is less than 10% of current - suspicious, log warning
 							debug.Warning("Skipping progressive refinement - new value too low", map[string]interface{}{
 								"job_id":            task.JobExecutionID,
-								"current":           *job.EffectiveKeyspace,
-								"new":               newEffectiveKeyspace,
-								"reduction_percent": (1.0 - float64(newEffectiveKeyspace)/float64(*job.EffectiveKeyspace)) * 100,
+								"current":           job.EffectiveKeyspace.String(),
+								"new":               newEffectiveKeyspace.String(),
+								"reduction_percent": (1.0 - float64(newEffectiveKeyspace.Int64())/float64(job.EffectiveKeyspace.Int64())) * 100,
 							})
 						} else {
 							// Safe to update
@@ -1642,12 +1648,12 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 							if err != nil {
 								debug.Error("Failed to update progressive effective keyspace: %v", err)
 							} else {
-								oldValue := int64(0)
+								oldValue := models.NewBigInt(0)
 								if job.EffectiveKeyspace != nil {
 									oldValue = *job.EffectiveKeyspace
 								}
-								debug.Info("Updated job %s effective_keyspace from %d to %d (progressive refinement)",
-									task.JobExecutionID, oldValue, newEffectiveKeyspace)
+								debug.Info("Updated job %s effective_keyspace from %s to %s (progressive refinement)",
+									task.JobExecutionID, oldValue.String(), newEffectiveKeyspace.String())
 							}
 						}
 					}
@@ -1846,9 +1852,9 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 		// Part 18a: When all hashes are cracked, the task has fully processed its keyspace
 		// Set keyspace_processed to the full chunk size (even if restore_point is 0 due to instant completion)
 		fullKeyspaceProcessed := task.KeyspaceEnd - task.KeyspaceStart
-		effectiveProcessed := fullKeyspaceProcessed
+		effectiveProcessed := models.NewBigInt(fullKeyspaceProcessed)
 		if task.EffectiveKeyspaceEnd != nil && task.EffectiveKeyspaceStart != nil {
-			effectiveProcessed = *task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart
+			effectiveProcessed = task.EffectiveKeyspaceEnd.Sub(*task.EffectiveKeyspaceStart)
 		}
 
 		// Update task progress to 100% so the task shows correct completion status
@@ -1859,8 +1865,8 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 		if err := s.jobTaskRepo.UpdateProgress(ctx, progress.TaskID, fullKeyspaceProcessed, effectiveProcessed, hashRatePtr, 100.0); err != nil {
 			debug.Error("Failed to update task progress for all-hashes-cracked: %v", err)
 		} else {
-			debug.Info("Updated task %s progress to 100%% for all-hashes-cracked (keyspace_processed=%d, effective=%d)",
-				progress.TaskID, fullKeyspaceProcessed, effectiveProcessed)
+			debug.Info("Updated task %s progress to 100%% for all-hashes-cracked (keyspace_processed=%d, effective=%s)",
+				progress.TaskID, fullKeyspaceProcessed, effectiveProcessed.String())
 		}
 
 		// Store device-level performance metrics so CalculateAndStoreAverageSpeed() has data
@@ -1907,12 +1913,12 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			// When all hashes are cracked early, the job didn't process the full keyspace.
 			// To ensure progress shows 100%, set effective_keyspace = processed_keyspace.
 			currentJob, jobErr := jobExecRepo.GetByID(ctx, task.JobExecutionID)
-			if jobErr == nil && currentJob.ProcessedKeyspace > 0 {
+			if jobErr == nil && currentJob.ProcessedKeyspace.IsPositive() {
 				if err := jobExecRepo.UpdateEffectiveKeyspace(ctx, task.JobExecutionID, currentJob.ProcessedKeyspace); err != nil {
 					debug.Warning("Failed to sync effective_keyspace on AllHashesCracked: %v", err)
 				} else {
-					debug.Info("Synced effective_keyspace to processed_keyspace (%d) for 100%% display on AllHashesCracked",
-						currentJob.ProcessedKeyspace)
+					debug.Info("Synced effective_keyspace to processed_keyspace (%s) for 100%% display on AllHashesCracked",
+						currentJob.ProcessedKeyspace.String())
 				}
 				// Also sync dispatched_keyspace
 				if err := jobExecRepo.UpdateDispatchedKeyspace(ctx, task.JobExecutionID, currentJob.ProcessedKeyspace); err != nil {
@@ -2823,8 +2829,19 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 		return fmt.Errorf("failed to get agent: %w", err)
 	}
 
-	// Determine salt count for salted hash types
-	// For salted hashes, salt count = remaining (uncracked) hash count at benchmark time
+	// Determine salt count for salted hash types.
+	//
+	// IMPORTANT: salt_count is the benchmark CACHE KEY. It must match exactly what
+	// the scheduler looks the benchmark up with, otherwise the benchmark is treated
+	// as missing every cycle and re-dispatched forever (endless benchmark loop).
+	// The lookup side keys on hashlist.total_hashes (scheduler/benchmark.go
+	// agentHasBenchmarkFor + scheduler/cycle.go lookupHashTypeAndSalt, and the legacy
+	// readAgentSpeed helper below). Job creation's salt adjustment also uses
+	// total_hashes. So store total_hashes here too — NOT the uncracked count, which
+	// shrinks as hashes crack and would never match the lookup.
+	// (Effective-keyspace ETA accuracy is handled separately by IngestProgressV2,
+	// which shrinks effective_keyspace as salts are removed; that is a different
+	// concern from this stable cache key.)
 	var saltCount *int
 	if result.JobExecutionID != "" {
 		entityID, parseErr := uuid.Parse(result.JobExecutionID)
@@ -2849,13 +2866,15 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 				if hashlist, hlErr := s.hashlistRepo.GetByID(ctx, hashlistID); hlErr == nil && hashlist != nil {
 					hashType, htErr := s.jobExecutionService.GetHashTypeByID(ctx, hashlist.HashTypeID)
 					if htErr == nil && hashType != nil && hashType.IsSalted {
-						// For salted hash types, get remaining hash count as salt count
-						uncrackedCount, countErr := s.hashlistRepo.GetUncrackedHashCount(ctx, hashlistID)
-						if countErr == nil && uncrackedCount > 0 {
-							saltCount = &uncrackedCount
+						// Salt count = hashlist.total_hashes (stable cache key that
+						// matches the scheduler's benchmark lookup). Do NOT use the
+						// uncracked count here.
+						if hashlist.TotalHashes > 0 {
+							tc := hashlist.TotalHashes
+							saltCount = &tc
 							debug.Log("Benchmark for salted hash type", map[string]interface{}{
 								"hash_type":  result.HashType,
-								"salt_count": uncrackedCount,
+								"salt_count": tc,
 							})
 						}
 					}
@@ -2957,7 +2976,7 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 			debug.Info("Benchmark result is for increment layer %s (mask: %s)", entityID, layer.Mask)
 
 			// Update LAYER's effective keyspace using the specialized method
-			err = s.jobIncrementLayerRepo.UpdateKeyspace(ctx, layer.ID, result.TotalEffectiveKeyspace, true)
+			err = s.jobIncrementLayerRepo.UpdateKeyspace(ctx, layer.ID, models.NewBigInt(result.TotalEffectiveKeyspace), true)
 			if err != nil {
 				debug.Error("Failed to update layer keyspace: %v", err)
 				return fmt.Errorf("failed to update layer keyspace: %w", err)
@@ -3011,7 +3030,7 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 		// First benchmark for this job?
 		if jobExec.EffectiveKeyspace == nil || !jobExec.IsAccurateKeyspace {
 			// Set job-level effective keyspace from hashcat progress[1]
-			jobExec.EffectiveKeyspace = &result.TotalEffectiveKeyspace
+			jobExec.EffectiveKeyspace = models.NewBigIntPtr(result.TotalEffectiveKeyspace)
 			jobExec.IsAccurateKeyspace = true
 
 			// Calculate avg_rule_multiplier for future task estimates
@@ -3077,18 +3096,22 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 			// layerIndex=-1 updates all of the job's units.
 			s.propagateUnitKeyspaceAccuracy(ctx, jobExec.ID, -1, result.TotalEffectiveKeyspace)
 		} else {
-			// Subsequent benchmark - validate consistency (should match job total)
-			diff := result.TotalEffectiveKeyspace - *jobExec.EffectiveKeyspace
-			if diff < 0 {
-				diff = -diff // abs value
+			// Subsequent benchmark - validate consistency (should match job total).
+			// observed comes from the agent's int64 progress[1]; expected is the
+			// job's NUMERIC effective keyspace. Compare with BigInt arithmetic.
+			observed := models.NewBigInt(result.TotalEffectiveKeyspace)
+			expected := *jobExec.EffectiveKeyspace
+			diff := observed.Sub(expected)
+			if diff.Sign() < 0 {
+				diff = expected.Sub(observed) // abs value
 			}
-			threshold := *jobExec.EffectiveKeyspace / 1000 // 0.1%
+			threshold := expected.DivInt64(1000) // 0.1%
 
-			if diff > threshold {
-				debug.Warning("Agent %d benchmark differs from job total: observed=%d, expected=%d, diff=%d",
-					agentID, result.TotalEffectiveKeyspace, *jobExec.EffectiveKeyspace, diff)
+			if diff.Cmp(threshold) > 0 {
+				debug.Warning("Agent %d benchmark differs from job total: observed=%s, expected=%s, diff=%s",
+					agentID, observed.String(), expected.String(), diff.String())
 			} else {
-				debug.Info("Agent %d benchmark validates job effective keyspace (diff=%d)", agentID, diff)
+				debug.Info("Agent %d benchmark validates job effective keyspace (diff=%s)", agentID, diff.String())
 			}
 		}
 
@@ -3158,7 +3181,7 @@ func (s *JobWebSocketIntegration) propagateUnitKeyspaceAccuracy(ctx context.Cont
 		if layerIndex >= 0 && u.LayerIndex != layerIndex {
 			continue
 		}
-		if err := unitRepo.UpdateEffectiveKeyspace(ctx, u.ID, effective, true); err != nil {
+		if err := unitRepo.UpdateEffectiveKeyspace(ctx, u.ID, models.NewBigInt(effective), true); err != nil {
 			debug.Warning("scheduler-v2: set unit %s accurate keyspace: %v", u.ID, err)
 		} else {
 			debug.Info("scheduler-v2: unit %s effective_keyspace=%d is_accurate=true (from benchmark)", u.ID, effective)
@@ -4315,9 +4338,9 @@ func (s *JobWebSocketIntegration) recalculateSubsequentChunks(ctx context.Contex
 	type taskInfo struct {
 		id                     uuid.UUID
 		chunkNumber            int
-		chunkActualKeyspace    *int64
-		effectiveKeyspaceStart *int64
-		effectiveKeyspaceEnd   *int64
+		chunkActualKeyspace    *models.BigInt
+		effectiveKeyspaceStart *models.BigInt
+		effectiveKeyspaceEnd   *models.BigInt
 	}
 
 	var tasks []taskInfo
@@ -4331,23 +4354,23 @@ func (s *JobWebSocketIntegration) recalculateSubsequentChunks(ctx context.Contex
 	}
 
 	// Calculate cumulative positions
-	cumulativeEnd := int64(0)
+	cumulativeEnd := models.NewBigInt(0)
 	needsUpdate := false
 
 	for _, t := range tasks {
 		expectedStart := cumulativeEnd
 
 		// Calculate expected end based on actual or estimated chunk size
-		var expectedEnd int64
+		var expectedEnd models.BigInt
 		if t.chunkActualKeyspace != nil {
 			// Use actual chunk size
-			expectedEnd = expectedStart + *t.chunkActualKeyspace
+			expectedEnd = expectedStart.Add(*t.chunkActualKeyspace)
 			cumulativeEnd = expectedEnd
 		} else {
 			// Use estimated chunk size
 			if t.effectiveKeyspaceStart != nil && t.effectiveKeyspaceEnd != nil {
-				chunkSize := *t.effectiveKeyspaceEnd - *t.effectiveKeyspaceStart
-				expectedEnd = expectedStart + chunkSize
+				chunkSize := t.effectiveKeyspaceEnd.Sub(*t.effectiveKeyspaceStart)
+				expectedEnd = expectedStart.Add(chunkSize)
 				cumulativeEnd = expectedEnd
 			} else {
 				// Can't calculate without start/end
@@ -4356,19 +4379,19 @@ func (s *JobWebSocketIntegration) recalculateSubsequentChunks(ctx context.Contex
 		}
 
 		// Check if this task needs correction
-		currentStart := int64(0)
+		currentStart := models.NewBigInt(0)
 		if t.effectiveKeyspaceStart != nil {
 			currentStart = *t.effectiveKeyspaceStart
 		}
-		currentEnd := int64(0)
+		currentEnd := models.NewBigInt(0)
 		if t.effectiveKeyspaceEnd != nil {
 			currentEnd = *t.effectiveKeyspaceEnd
 		}
 
-		if currentStart != expectedStart || currentEnd != expectedEnd {
+		if currentStart.Cmp(expectedStart) != 0 || currentEnd.Cmp(expectedEnd) != 0 {
 			// Task needs update
-			debug.Info("Recalculating chunk %d: old[%d-%d] -> new[%d-%d]",
-				t.chunkNumber, currentStart, currentEnd, expectedStart, expectedEnd)
+			debug.Info("Recalculating chunk %d: old[%s-%s] -> new[%s-%s]",
+				t.chunkNumber, currentStart.String(), currentEnd.String(), expectedStart.String(), expectedEnd.String())
 
 			updateQuery := `
 				UPDATE job_tasks

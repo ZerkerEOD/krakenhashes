@@ -53,7 +53,7 @@ func (s *JobExecutionService) copyPresetIncrementLayers(ctx context.Context, job
 	// background refresh so the NEXT job creation hits the fast path.
 	stale := false
 	for _, pl := range presetLayers {
-		if !pl.IsAccurateKeyspace || pl.EffectiveKeyspace == nil || *pl.EffectiveKeyspace <= 0 {
+		if !pl.IsAccurateKeyspace || pl.EffectiveKeyspace == nil || !pl.EffectiveKeyspace.IsPositive() {
 			stale = true
 			break
 		}
@@ -90,7 +90,7 @@ func (s *JobExecutionService) copyPresetIncrementLayers(ctx context.Context, job
 
 	// Fast path: every preset layer is accurate. Clone into job_increment_layers verbatim.
 	var totalBaseKeyspace int64 = 0
-	var totalEffectiveKeyspace int64 = 0
+	var totalEffectiveKeyspace models.BigInt // effective: base × rules × salts can exceed int64
 	allAccurate := true
 	for _, presetLayer := range presetLayers {
 		jobLayer := &models.JobIncrementLayer{
@@ -100,8 +100,8 @@ func (s *JobExecutionService) copyPresetIncrementLayers(ctx context.Context, job
 			Status:                 models.JobIncrementLayerStatusPending,
 			BaseKeyspace:           presetLayer.BaseKeyspace,
 			EffectiveKeyspace:      presetLayer.EffectiveKeyspace,
-			ProcessedKeyspace:      0,
-			DispatchedKeyspace:     0,
+			ProcessedKeyspace:      models.NewBigInt(0),
+			DispatchedKeyspace:     models.NewBigInt(0),
 			IsAccurateKeyspace:     presetLayer.IsAccurateKeyspace,
 			OverallProgressPercent: 0.0,
 		}
@@ -112,7 +112,7 @@ func (s *JobExecutionService) copyPresetIncrementLayers(ctx context.Context, job
 			totalBaseKeyspace += *presetLayer.BaseKeyspace
 		}
 		if presetLayer.EffectiveKeyspace != nil {
-			totalEffectiveKeyspace += *presetLayer.EffectiveKeyspace
+			totalEffectiveKeyspace = totalEffectiveKeyspace.Add(*presetLayer.EffectiveKeyspace)
 		}
 		if !presetLayer.IsAccurateKeyspace {
 			allAccurate = false
@@ -120,7 +120,7 @@ func (s *JobExecutionService) copyPresetIncrementLayers(ctx context.Context, job
 	}
 
 	jobExecution.BaseKeyspace = &totalBaseKeyspace
-	jobExecution.EffectiveKeyspace = &totalEffectiveKeyspace
+	jobExecution.EffectiveKeyspace = models.BigIntPtrFromBig(totalEffectiveKeyspace.Big())
 	jobExecution.IsAccurateKeyspace = allAccurate
 
 	if err := s.jobExecRepo.UpdateEffectiveKeyspace(ctx, jobExecution.ID, totalEffectiveKeyspace); err != nil {
@@ -262,7 +262,7 @@ func (s *JobExecutionService) refreshPresetIncrementLayerCache(ctx context.Conte
 			LayerIndex:         i + 1,
 			Mask:               p.mask,
 			BaseKeyspace:       &p.baseKeyspace,
-			EffectiveKeyspace:  &p.effectiveKeyspace,
+			EffectiveKeyspace:  models.NewBigIntPtr(p.effectiveKeyspace),
 			IsAccurateKeyspace: p.isAccurate,
 		}
 		if err := s.presetIncrementLayerRepo.Create(ctx, layer); err != nil {
@@ -387,9 +387,10 @@ func (s *JobExecutionService) initializeIncrementLayers(ctx context.Context, job
 	}
 
 	// Create layers with base_keyspace calculation
-	// Track both base (from hashcat --keyspace) and effective (calculated) totals
+	// Track both base (from hashcat --keyspace) and effective (calculated) totals.
+	// effective sum is BigInt: base × rules × salts can exceed int64.
 	var totalBaseKeyspace int64 = 0
-	var totalEffectiveKeyspace int64 = 0
+	var totalEffectiveKeyspace models.BigInt
 	allLayersAccurate := true
 	for i, layerMask := range layerMasks {
 		// Calculate base_keyspace using hashcat --keyspace
@@ -434,9 +435,9 @@ func (s *JobExecutionService) initializeIncrementLayers(ctx context.Context, job
 			Mask:                   layerMask,
 			Status:                 models.JobIncrementLayerStatusPending,
 			BaseKeyspace:           &baseKeyspace,
-			EffectiveKeyspace:      &effectiveKeyspace,
-			ProcessedKeyspace:      0,
-			DispatchedKeyspace:     0,
+			EffectiveKeyspace:      models.NewBigIntPtr(effectiveKeyspace),
+			ProcessedKeyspace:      models.NewBigInt(0),
+			DispatchedKeyspace:     models.NewBigInt(0),
 			IsAccurateKeyspace:     isAccurate,
 			OverallProgressPercent: 0.0,
 		}
@@ -448,7 +449,7 @@ func (s *JobExecutionService) initializeIncrementLayers(ctx context.Context, job
 
 		// Track both totals for the job
 		totalBaseKeyspace += baseKeyspace
-		totalEffectiveKeyspace += effectiveKeyspace
+		totalEffectiveKeyspace = totalEffectiveKeyspace.AddInt64(effectiveKeyspace)
 
 		debug.Log("Created increment layer", map[string]interface{}{
 			"job_execution_id":     jobExecution.ID,
@@ -467,7 +468,7 @@ func (s *JobExecutionService) initializeIncrementLayers(ctx context.Context, job
 	// base_keyspace = sum of layer base_keyspaces (from hashcat --keyspace)
 	// effective_keyspace = sum of layer effective_keyspaces (calculated)
 	jobExecution.BaseKeyspace = &totalBaseKeyspace
-	jobExecution.EffectiveKeyspace = &totalEffectiveKeyspace
+	jobExecution.EffectiveKeyspace = models.BigIntPtrFromBig(totalEffectiveKeyspace.Big())
 
 	// Update effective_keyspace
 	err = s.jobExecRepo.UpdateEffectiveKeyspace(ctx, jobExecution.ID, totalEffectiveKeyspace)

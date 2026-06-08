@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/google/uuid"
 )
 
@@ -44,7 +45,7 @@ func IngestProgressV2(
 	database *db.DB,
 	taskID uuid.UUID,
 	keyspaceProcessed int64,
-	totalEffectiveKeyspace *int64,
+	totalEffectiveKeyspace *models.BigInt,
 ) error {
 
 	// First lookup: is this a v2 task? Get the unit ID and the

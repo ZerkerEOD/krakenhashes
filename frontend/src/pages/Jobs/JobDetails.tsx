@@ -341,13 +341,17 @@ const JobDetails: React.FC = () => {
     return new Date(dateString).toLocaleString();
   };
 
-  const formatKeyspace = (value?: number): string => {
-    if (!value) return t('common.notAvailable');
-    if (value >= 1e12) return `${(value / 1e12).toFixed(2)}T`;
-    if (value >= 1e9) return `${(value / 1e9).toFixed(2)}B`;
-    if (value >= 1e6) return `${(value / 1e6).toFixed(2)}M`;
-    if (value >= 1e3) return `${(value / 1e3).toFixed(2)}K`;
-    return value.toString();
+  const formatKeyspace = (value?: number | string): string => {
+    // Effective keyspace fields arrive as decimal strings (NUMERIC, can exceed
+    // 2^53); base keyspace stays a number. Coerce either to Number for the
+    // abbreviated K/M/B/T display.
+    const v = value === undefined || value === null ? 0 : Number(value);
+    if (!v || !isFinite(v)) return t('common.notAvailable');
+    if (v >= 1e12) return `${(v / 1e12).toFixed(2)}T`;
+    if (v >= 1e9) return `${(v / 1e9).toFixed(2)}B`;
+    if (v >= 1e6) return `${(v / 1e6).toFixed(2)}M`;
+    if (v >= 1e3) return `${(v / 1e3).toFixed(2)}K`;
+    return v.toString();
   };
 
   const formatSpeed = (speed?: number): string => {
@@ -460,8 +464,9 @@ const JobDetails: React.FC = () => {
 
     // MODE 1: Job is running - use keyspace-based calculation
     // Calculate remaining keyspace
-    const effectiveKeyspace = jobData?.effective_keyspace || 0;
-    const processedKeyspace = jobData?.processed_keyspace || 0;
+    // effective_keyspace / processed_keyspace are decimal strings (NUMERIC) — coerce.
+    const effectiveKeyspace = Number(jobData?.effective_keyspace || 0);
+    const processedKeyspace = Number(jobData?.processed_keyspace || 0);
     const remainingKeyspace = effectiveKeyspace - processedKeyspace;
 
     // If nothing left to process
@@ -832,7 +837,7 @@ const JobDetails: React.FC = () => {
     (completedTasksPage + 1) * completedTasksPageSize
   );
 
-  const totalKeyspace = jobData.effective_keyspace || 0;
+  const totalKeyspace = Number(jobData.effective_keyspace || 0);
 
   // Calculate estimated completion once for efficiency
   const estimatedCompletion = jobData ? calculateEstimatedCompletion() : { timeRemaining: '', estimatedDate: '' };

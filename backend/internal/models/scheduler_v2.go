@@ -30,7 +30,7 @@ type SchedulingUnit struct {
 	// Updated continuously by IngestProgressV2 as agent reports — DECREASES as
 	// salts get removed during salted-hashlist jobs. Used as input to chunk-size
 	// math, NOT for coverage tracking. Frontend reads this for "total work" display.
-	EffectiveKeyspace    int64           `json:"effective_keyspace" db:"effective_keyspace"`
+	EffectiveKeyspace    BigInt          `json:"effective_keyspace" db:"effective_keyspace"`
 	// BaseKeyspace is the chunkable dimension (wordlist size for -a 0, etc.).
 	// Set once at unit creation from job_executions.base_keyspace (or
 	// job_increment_layers.base_keyspace for layer units). INVARIANT after

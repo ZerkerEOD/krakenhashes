@@ -129,13 +129,13 @@ type JobSummary struct {
 	UpdatedAt              string  `json:"updated_at"`
 	CompletedAt            *string `json:"completed_at,omitempty"`
 	CreatedByUsername      *string `json:"created_by_username,omitempty"`
-	ErrorMessage           *string `json:"error_message,omitempty"`
-	EffectiveKeyspace      *int64  `json:"effective_keyspace,omitempty"`
-	MultiplicationFactor   int64   `json:"multiplication_factor,omitempty"`
-	UsesRuleSplitting      bool    `json:"uses_rule_splitting"`
-	ProcessedKeyspace      *int64  `json:"processed_keyspace,omitempty"`
-	DispatchedKeyspace     *int64  `json:"dispatched_keyspace,omitempty"`
-	OverallProgressPercent float64 `json:"overall_progress_percent"`
+	ErrorMessage           *string        `json:"error_message,omitempty"`
+	EffectiveKeyspace      *models.BigInt `json:"effective_keyspace,omitempty"`
+	MultiplicationFactor   int64          `json:"multiplication_factor,omitempty"`
+	UsesRuleSplitting      bool           `json:"uses_rule_splitting"`
+	ProcessedKeyspace      *models.BigInt `json:"processed_keyspace,omitempty"`
+	DispatchedKeyspace     *models.BigInt `json:"dispatched_keyspace,omitempty"`
+	OverallProgressPercent float64        `json:"overall_progress_percent"`
 }
 
 // ListJobs handles GET /api/jobs with pagination and filtering
@@ -273,10 +273,11 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 		searchedPercent := 0.0
 		overallProgressPercent := 0.0
 
-		// Use effective keyspace if available, otherwise fall back to total keyspace
+		// Use effective keyspace if available, otherwise fall back to total keyspace.
+		// keyspaceForProgress is used only as a float divisor below, so reduce to int64.
 		var keyspaceForProgress int64
-		if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
-			keyspaceForProgress = *job.EffectiveKeyspace
+		if job.EffectiveKeyspace != nil && job.EffectiveKeyspace.IsPositive() {
+			keyspaceForProgress = job.EffectiveKeyspace.Int64()
 		} else {
 			keyspaceForProgress = 0
 		}
@@ -285,34 +286,34 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 			// For dispatched percentage, we need to consider rule splitting
 			if job.UsesRuleSplitting {
 				// For rule split jobs, calculate based on effective keyspace
-				var totalEffectiveDispatched int64 = 0
-				var totalEffectiveSearched int64 = 0
+				totalEffectiveDispatched := models.NewBigInt(0)
+				totalEffectiveSearched := models.NewBigInt(0)
 
 				for _, task := range tasks {
 					// Calculate dispatched effective keyspace for non-pending tasks
 					if task.Status != models.JobTaskStatusPending {
 						if task.EffectiveKeyspaceStart != nil && task.EffectiveKeyspaceEnd != nil {
-							totalEffectiveDispatched += (*task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart)
+							totalEffectiveDispatched = totalEffectiveDispatched.Add(task.EffectiveKeyspaceEnd.Sub(*task.EffectiveKeyspaceStart))
 						}
 					}
 
 					// Calculate searched effective keyspace from all tasks
 					if task.EffectiveKeyspaceProcessed != nil {
-						totalEffectiveSearched += *task.EffectiveKeyspaceProcessed
+						totalEffectiveSearched = totalEffectiveSearched.Add(*task.EffectiveKeyspaceProcessed)
 					}
 				}
 
 				// Both percentages are relative to total effective keyspace
 				if keyspaceForProgress > 0 {
-					searchedPercent = float64(totalEffectiveSearched) / float64(keyspaceForProgress) * 100
-					dispatchedPercent = float64(totalEffectiveDispatched) / float64(keyspaceForProgress) * 100
+					searchedPercent = float64(totalEffectiveSearched.Int64()) / float64(keyspaceForProgress) * 100
+					dispatchedPercent = float64(totalEffectiveDispatched.Int64()) / float64(keyspaceForProgress) * 100
 				}
 			} else {
 				// For keyspace-based jobs (including keyspace-split jobs)
 				// Use the pre-calculated dispatched_keyspace from job_progress_calculation_service
 				// which correctly handles effective keyspace for keyspace-split jobs
-				searchedPercent = float64(job.ProcessedKeyspace) / float64(keyspaceForProgress) * 100
-				dispatchedPercent = float64(job.DispatchedKeyspace) / float64(keyspaceForProgress) * 100
+				searchedPercent = float64(job.ProcessedKeyspace.Int64()) / float64(keyspaceForProgress) * 100
+				dispatchedPercent = float64(job.DispatchedKeyspace.Int64()) / float64(keyspaceForProgress) * 100
 			}
 
 			// Cap percentages at 100%
@@ -334,6 +335,8 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 			searchedPercent = overallProgressPercent
 		}
 
+		processedKeyspace := job.ProcessedKeyspace
+		dispatchedKeyspace := job.DispatchedKeyspace
 		summary := JobSummary{
 			ID:                     job.ID.String(),
 			Name:                   getJobName(job, hashlist),
@@ -353,8 +356,8 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 			EffectiveKeyspace:      job.EffectiveKeyspace,
 			MultiplicationFactor:   job.MultiplicationFactor,
 			UsesRuleSplitting:      job.UsesRuleSplitting,
-			ProcessedKeyspace:      &job.ProcessedKeyspace,
-			DispatchedKeyspace:     &job.DispatchedKeyspace,
+			ProcessedKeyspace:      &processedKeyspace,
+			DispatchedKeyspace:     &dispatchedKeyspace,
 			OverallProgressPercent: overallProgressPercent,
 		}
 
@@ -1258,11 +1261,12 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 	searchedPercent := 0.0
 
 	// Use effective keyspace as the denominator for progress calculations
-	if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
+	if job.EffectiveKeyspace != nil && job.EffectiveKeyspace.IsPositive() {
+		effectiveKeyspaceF := float64(job.EffectiveKeyspace.Int64())
 		// Dispatched: Use the tracked dispatched_keyspace field
-		dispatchedPercent = float64(job.DispatchedKeyspace) / float64(*job.EffectiveKeyspace) * 100
+		dispatchedPercent = float64(job.DispatchedKeyspace.Int64()) / effectiveKeyspaceF * 100
 		// Searched: Use the processed_keyspace from the job execution
-		searchedPercent = float64(job.ProcessedKeyspace) / float64(*job.EffectiveKeyspace) * 100
+		searchedPercent = float64(job.ProcessedKeyspace.Int64()) / effectiveKeyspaceF * 100
 
 		// Validation: Log if searched exceeds dispatched
 		if searchedPercent > dispatchedPercent {
@@ -1291,9 +1295,9 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 		if taskProgressPercent == 0 {
 			// Fallback calculation if not set in database
 			if task.EffectiveKeyspaceStart != nil && task.EffectiveKeyspaceEnd != nil && task.EffectiveKeyspaceProcessed != nil {
-				effectiveSize := *task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart
-				if effectiveSize > 0 {
-					taskProgressPercent = float64(*task.EffectiveKeyspaceProcessed) / float64(effectiveSize) * 100
+				effectiveSize := task.EffectiveKeyspaceEnd.Sub(*task.EffectiveKeyspaceStart)
+				if effectiveSize.IsPositive() {
+					taskProgressPercent = float64(task.EffectiveKeyspaceProcessed.Int64()) / float64(effectiveSize.Int64()) * 100
 				}
 			} else {
 				taskKeyspaceSize := task.KeyspaceEnd - task.KeyspaceStart
@@ -1352,8 +1356,8 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 
 	// Calculate overall progress percentage
 	overallProgressPercent := 0.0
-	if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
-		overallProgressPercent = float64(job.ProcessedKeyspace) / float64(*job.EffectiveKeyspace) * 100
+	if job.EffectiveKeyspace != nil && job.EffectiveKeyspace.IsPositive() {
+		overallProgressPercent = float64(job.ProcessedKeyspace.Int64()) / float64(job.EffectiveKeyspace.Int64()) * 100
 		if overallProgressPercent > 100 {
 			overallProgressPercent = 100
 		}
@@ -2266,10 +2270,11 @@ func (h *UserJobsHandler) ListUserJobs(w http.ResponseWriter, r *http.Request) {
 		searchedPercent := 0.0
 		overallProgressPercent := 0.0
 
-		// Use effective keyspace if available, otherwise fall back to total keyspace
+		// Use effective keyspace if available, otherwise fall back to total keyspace.
+		// keyspaceForProgress is used only as a float divisor below, so reduce to int64.
 		var keyspaceForProgress int64
-		if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
-			keyspaceForProgress = *job.EffectiveKeyspace
+		if job.EffectiveKeyspace != nil && job.EffectiveKeyspace.IsPositive() {
+			keyspaceForProgress = job.EffectiveKeyspace.Int64()
 		} else {
 			keyspaceForProgress = 0
 		}
@@ -2278,34 +2283,34 @@ func (h *UserJobsHandler) ListUserJobs(w http.ResponseWriter, r *http.Request) {
 			// For dispatched percentage, we need to consider rule splitting
 			if job.UsesRuleSplitting {
 				// For rule split jobs, calculate based on effective keyspace
-				var totalEffectiveDispatched int64 = 0
-				var totalEffectiveSearched int64 = 0
+				totalEffectiveDispatched := models.NewBigInt(0)
+				totalEffectiveSearched := models.NewBigInt(0)
 
 				for _, task := range tasks {
 					// Calculate dispatched effective keyspace for non-pending tasks
 					if task.Status != models.JobTaskStatusPending {
 						if task.EffectiveKeyspaceStart != nil && task.EffectiveKeyspaceEnd != nil {
-							totalEffectiveDispatched += (*task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart)
+							totalEffectiveDispatched = totalEffectiveDispatched.Add(task.EffectiveKeyspaceEnd.Sub(*task.EffectiveKeyspaceStart))
 						}
 					}
 
 					// Calculate searched effective keyspace from all tasks
 					if task.EffectiveKeyspaceProcessed != nil {
-						totalEffectiveSearched += *task.EffectiveKeyspaceProcessed
+						totalEffectiveSearched = totalEffectiveSearched.Add(*task.EffectiveKeyspaceProcessed)
 					}
 				}
 
 				// Both percentages are relative to total effective keyspace
 				if keyspaceForProgress > 0 {
-					searchedPercent = float64(totalEffectiveSearched) / float64(keyspaceForProgress) * 100
-					dispatchedPercent = float64(totalEffectiveDispatched) / float64(keyspaceForProgress) * 100
+					searchedPercent = float64(totalEffectiveSearched.Int64()) / float64(keyspaceForProgress) * 100
+					dispatchedPercent = float64(totalEffectiveDispatched.Int64()) / float64(keyspaceForProgress) * 100
 				}
 			} else {
 				// For keyspace-based jobs (including keyspace-split jobs)
 				// Use the pre-calculated dispatched_keyspace from job_progress_calculation_service
 				// which correctly handles effective keyspace for keyspace-split jobs
-				searchedPercent = float64(job.ProcessedKeyspace) / float64(keyspaceForProgress) * 100
-				dispatchedPercent = float64(job.DispatchedKeyspace) / float64(keyspaceForProgress) * 100
+				searchedPercent = float64(job.ProcessedKeyspace.Int64()) / float64(keyspaceForProgress) * 100
+				dispatchedPercent = float64(job.DispatchedKeyspace.Int64()) / float64(keyspaceForProgress) * 100
 			}
 
 			// Cap percentages at 100%
@@ -2327,6 +2332,8 @@ func (h *UserJobsHandler) ListUserJobs(w http.ResponseWriter, r *http.Request) {
 			searchedPercent = overallProgressPercent
 		}
 
+		processedKeyspace := job.ProcessedKeyspace
+		dispatchedKeyspace := job.DispatchedKeyspace
 		summary := JobSummary{
 			ID:                     job.ID.String(),
 			Name:                   getJobName(job, hashlist),
@@ -2347,8 +2354,8 @@ func (h *UserJobsHandler) ListUserJobs(w http.ResponseWriter, r *http.Request) {
 			EffectiveKeyspace:      job.EffectiveKeyspace,
 			MultiplicationFactor:   job.MultiplicationFactor,
 			UsesRuleSplitting:      job.UsesRuleSplitting,
-			ProcessedKeyspace:      &job.ProcessedKeyspace,
-			DispatchedKeyspace:     &job.DispatchedKeyspace,
+			ProcessedKeyspace:      &processedKeyspace,
+			DispatchedKeyspace:     &dispatchedKeyspace,
 			OverallProgressPercent: overallProgressPercent,
 		}
 

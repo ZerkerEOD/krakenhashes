@@ -653,30 +653,30 @@ func (c *Cycle) buildUnitInfos(ctx context.Context, units []*models.SchedulingUn
 			if remainingBase < 0 {
 				remainingBase = 0
 			}
-			multiplier := int64(1)
+			multiplier := models.NewBigInt(1)
 			if *u.BaseKeyspace > 0 {
-				multiplier = u.EffectiveKeyspace / *u.BaseKeyspace
-				if multiplier < 1 {
-					multiplier = 1
+				multiplier = u.EffectiveKeyspace.DivInt64(*u.BaseKeyspace)
+				if multiplier.CmpInt64(1) < 0 {
+					multiplier = models.NewBigInt(1)
 				}
 			}
-			// Overflow guard: remainingBase × multiplier can exceed
-			// int64 max (~9.2e18) for very large jobs (e.g., base 1e10
-			// × multiplier 1e9 = 1e19). If the multiply would wrap,
-			// fall back to a huge sentinel (math.MaxInt64) so the cap
-			// becomes "effectively unlimited" — the unit is so large
-			// that any reasonable per-cycle overflow allocation is
-			// safe. Detect by checking if remainingBase > MaxInt64 /
-			// multiplier BEFORE multiplying.
-			var remainingEffective int64
-			if multiplier > 0 && remainingBase > math.MaxInt64/multiplier {
-				remainingEffective = math.MaxInt64
-			} else {
-				remainingEffective = remainingBase * multiplier
-			}
-			chunksFit := int(remainingEffective / chunkEstimateEffective)
-			if remainingEffective > 0 && chunksFit < 1 {
-				chunksFit = 1
+			// remainingBase × multiplier can exceed int64 max (~9.2e18) for
+			// very large jobs (e.g. base 1e10 × multiplier 1e9 = 1e19), so
+			// compute it in big.Int (effective_keyspace is NUMERIC). chunksFit
+			// only needs to be an int per-cycle cap; clamp anything past
+			// MaxInt32 to "effectively unlimited."
+			remainingEffective := multiplier.MulInt64(remainingBase)
+			chunksFit := 0
+			if remainingEffective.IsPositive() {
+				fit := remainingEffective.DivInt64(chunkEstimateEffective)
+				if v, ok := fit.Int64Checked(); ok && v <= int64(math.MaxInt32) {
+					chunksFit = int(v)
+				} else {
+					chunksFit = math.MaxInt32
+				}
+				if chunksFit < 1 {
+					chunksFit = 1
+				}
 			}
 			// Floor at MaxAgents so the Phase 1 baseline cap always
 			// fits even when the estimate would otherwise round to 0.

@@ -53,15 +53,17 @@ const JobProgressBar: React.FC<JobProgressBarProps> = ({
     let cumulative = 0;
     for (const layer of sortedLayers) {
       layerOffsetById[layer.id] = cumulative;
-      cumulative += layer.effective_keyspace ?? 0;
+      // effective_keyspace is a decimal string (NUMERIC) — coerce before summing.
+      cumulative += Number(layer.effective_keyspace ?? 0);
     }
   }
 
   // Calculate segments for visualization
   const segments: TaskSegment[] = tasks.map(task => {
-    // Use effective keyspace if available, otherwise use regular keyspace
-    const rawStart = task.effective_keyspace_start ?? task.keyspace_start;
-    const rawEnd = task.effective_keyspace_end ?? task.keyspace_end;
+    // Use effective keyspace if available, otherwise use regular keyspace.
+    // effective_keyspace_start/end are decimal strings (NUMERIC) — coerce to Number.
+    const rawStart = Number(task.effective_keyspace_start ?? task.keyspace_start);
+    const rawEnd = Number(task.effective_keyspace_end ?? task.keyspace_end);
 
     const offset = task.increment_layer_id ? (layerOffsetById[task.increment_layer_id] ?? 0) : 0;
     const start = rawStart + offset;
@@ -102,19 +104,21 @@ const JobProgressBar: React.FC<JobProgressBarProps> = ({
     if (task.status === 'failed' || task.status === 'cancelled') {
       return sum;
     }
-    const processed = task.effective_keyspace_processed ?? task.keyspace_processed;
+    const processed = Number(task.effective_keyspace_processed ?? task.keyspace_processed);
     return sum + processed;
   }, 0);
   // Cap at 100% to prevent display issues when effective_keyspace from benchmark was lower than actual
   const rawProgress = totalKeyspace > 0 ? (totalProcessed / totalKeyspace) * 100 : 0;
   const overallProgress = Math.min(rawProgress, 100);
 
-  const formatKeyspace = (value: number): string => {
-    if (value >= 1e12) return `${(value / 1e12).toFixed(2)}T`;
-    if (value >= 1e9) return `${(value / 1e9).toFixed(2)}B`;
-    if (value >= 1e6) return `${(value / 1e6).toFixed(2)}M`;
-    if (value >= 1e3) return `${(value / 1e3).toFixed(2)}K`;
-    return value.toString();
+  const formatKeyspace = (value: number | string): string => {
+    const v = Number(value);
+    if (!isFinite(v)) return '0';
+    if (v >= 1e12) return `${(v / 1e12).toFixed(2)}T`;
+    if (v >= 1e9) return `${(v / 1e9).toFixed(2)}B`;
+    if (v >= 1e6) return `${(v / 1e6).toFixed(2)}M`;
+    if (v >= 1e3) return `${(v / 1e3).toFixed(2)}K`;
+    return v.toString();
   };
 
   const formatSpeed = (speed?: number): string => {

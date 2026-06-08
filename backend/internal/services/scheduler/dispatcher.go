@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
@@ -180,7 +181,7 @@ func dispatchOne(
 	chunkSize := sizeChunk(
 		gap.End-gap.Start,
 		baseKeyspace,
-		unit.EffectiveKeyspace,
+		unit.EffectiveKeyspace.Big(),
 		speed,
 		chunkDurationSec,
 		in.MinChunkSeconds,
@@ -204,7 +205,10 @@ func dispatchOne(
 	// task at base [0, X) gets eff [0, X×multiplier). The frontend
 	// computes the per-layer display offset for increment-mode bar
 	// rendering (Step 11d) — the math doesn't live in the backend.
-	multiplier := unit.EffectiveKeyspace / baseKeyspace
+	// effective_keyspace is NUMERIC (base × rules × salts can exceed int64),
+	// so the multiplier and effective coords are computed in big.Int and
+	// stored into the NUMERIC effective_keyspace_start/end columns.
+	multiplier := unit.EffectiveKeyspace.DivInt64(baseKeyspace)
 	// Tripwire (Step 11f): a multi-character mask or rule-bearing wordlist
 	// should always produce multiplier > 1. multiplier <= 1 on a layer
 	// with base > 1 indicates that something has shrunk
@@ -212,19 +216,19 @@ func dispatchOne(
 	// Step 7h2, a future bug, or stale data). Log loudly so the next
 	// dispatch makes it visible instead of silently producing broken
 	// bar coords.
-	if multiplier <= 1 && baseKeyspace > 1 {
-		debug.Warning("scheduler-v2: suspicious multiplier=%d for unit %s (base=%d, eff=%d) — effective coords may be wrong; check that no code path is shrinking scheduling_units.effective_keyspace post-creation",
-			multiplier, unit.ID, baseKeyspace, unit.EffectiveKeyspace)
+	if multiplier.CmpInt64(1) <= 0 && baseKeyspace > 1 {
+		debug.Warning("scheduler-v2: suspicious multiplier=%s for unit %s (base=%d, eff=%s) — effective coords may be wrong; check that no code path is shrinking scheduling_units.effective_keyspace post-creation",
+			multiplier.String(), unit.ID, baseKeyspace, unit.EffectiveKeyspace.String())
 	}
-	effStart := rangeStart * multiplier
-	effEnd := rangeEnd * multiplier
-	// Overflow guard: int64 multiply can wrap silently. If we see
-	// negatives, fall back to NULL effective coords (the bar's
+	effStart := multiplier.MulInt64(rangeStart)
+	effEnd := multiplier.MulInt64(rangeEnd)
+	// big.Int can't overflow; a reversed ordering would only come from bad
+	// inputs. Fall back to NULL effective coords in that case (the bar's
 	// frontend has a fallback to base coords).
 	var effStartArg, effEndArg interface{} = effStart, effEnd
-	if effStart < 0 || effEnd < 0 || effEnd < effStart {
-		debug.Warning("scheduler-v2: effective coord overflow for unit %s (rangeEnd=%d, multiplier=%d); leaving NULL",
-			unit.ID, rangeEnd, multiplier)
+	if effEnd.Cmp(effStart) < 0 {
+		debug.Warning("scheduler-v2: effective coord ordering invalid for unit %s (rangeEnd=%d, multiplier=%s); leaving NULL",
+			unit.ID, rangeEnd, multiplier.String())
 		effStartArg = nil
 		effEndArg = nil
 	}
@@ -361,9 +365,14 @@ func dispatchOne(
 	// the cycle can forward them to the agent. Skipped when the overflow
 	// guard above zeroed effStartArg/effEndArg — leaving the dispatched
 	// task's effective fields zero signals "unknown" to the agent.
+	//
+	// The agent payload keeps these as int64 (mock executors use them only
+	// for effective-progress display; the full-precision values live in the
+	// NUMERIC effective_keyspace_start/end columns). .Int64() truncates only
+	// in the extreme >9.2e18 case, which is acceptable for that display.
 	if effStartArg != nil && effEndArg != nil {
-		dt.EffectiveKeyspaceStart = effStart
-		dt.EffectiveKeyspaceEnd = effEnd
+		dt.EffectiveKeyspaceStart = effStart.Int64()
+		dt.EffectiveKeyspaceEnd = effEnd.Int64()
 	}
 	return dt, nil
 }
@@ -444,33 +453,41 @@ func firstGap(ctx context.Context, database *db.DB, unitID uuid.UUID) (models.Un
 // If baseKeyspace or effectiveKeyspace is missing/zero we can't compute a
 // multiplier; fall back to taking the whole gap so we make progress while
 // the next agent benchmark / first-progress refines the unit.
-func sizeChunk(gapBase int64, baseKeyspace, effectiveKeyspace, speed int64, targetSec, minSec int) int64 {
+func sizeChunk(gapBase int64, baseKeyspace int64, effectiveKeyspace *big.Int, speed int64, targetSec, minSec int) int64 {
 	if gapBase <= 0 {
 		return 0
 	}
-	if baseKeyspace <= 0 || effectiveKeyspace <= 0 || speed <= 0 {
+	if baseKeyspace <= 0 || effectiveKeyspace == nil || effectiveKeyspace.Sign() <= 0 || speed <= 0 {
 		// No multiplier signal yet — take the whole gap so progress
 		// can begin and the agent's first-progress report can refine
 		// effective_keyspace for future cycles.
 		return gapBase
 	}
 
-	// basePerSec = speed × baseKeyspace / effectiveKeyspace, computed in
-	// that order so the intermediate doesn't underflow when
-	// baseKeyspace ≪ effectiveKeyspace (264K× ratio in the live case).
-	// Worst case: speed = 1 GH/s, baseKeyspace = 23M → product = 2.3e16,
-	// fits in int64 (~9.2e18).
-	basePerSec := speed * baseKeyspace / effectiveKeyspace
+	// basePerSec = speed × baseKeyspace / effectiveKeyspace.
+	//
+	// The intermediate speed × baseKeyspace overflows int64 for large
+	// wordlists + fast hashes: e.g. ~70 GH/s × a 1.47e9-word wordlist
+	// ≈ 1.0e20, far past int64's ~9.2e18 ceiling. That wraps negative and
+	// collapses basePerSec to the <=0 fallback, producing degenerate
+	// 1-word chunks (the chunk-timer bug). uint64 doesn't help — its
+	// 1.8e19 max overflows too. effectiveKeyspace is itself a big.Int
+	// (NUMERIC; can exceed int64). Compute the whole expression in big.Int so
+	// any wordlist/rule/salt magnitude is safe; the result (base words/sec)
+	// is ~1e6 here and always fits int64.
+	bp := new(big.Int).Mul(big.NewInt(speed), big.NewInt(baseKeyspace))
+	bp.Div(bp, effectiveKeyspace)
+	basePerSec := bp.Int64()
 	if basePerSec <= 0 {
 		basePerSec = 1
 	}
 
 	target := basePerSec * int64(targetSec)
 	if target <= 0 {
-		// Overflow guard — fall back to a single base word so we still
-		// make some progress; subsequent passes will fix the math when
-		// the multiplier shrinks.
-		return 1
+		// Overflow guard — basePerSec × targetSec exceeded int64. Take the
+		// whole remaining gap so we still make progress rather than
+		// emitting a degenerate 1-word chunk.
+		return gapBase
 	}
 	if target > gapBase {
 		return gapBase

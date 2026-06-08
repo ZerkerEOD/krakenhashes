@@ -111,28 +111,28 @@ func NewJobExecutionService(
 
 // GetFreshEffectiveKeyspace fetches the current effective_keyspace from the database.
 // This is needed because in-memory JobExecution objects may be stale after benchmark updates.
-func (s *JobExecutionService) GetFreshEffectiveKeyspace(ctx context.Context, jobID uuid.UUID, layerID *uuid.UUID) (int64, error) {
+func (s *JobExecutionService) GetFreshEffectiveKeyspace(ctx context.Context, jobID uuid.UUID, layerID *uuid.UUID) (models.BigInt, error) {
 	if layerID != nil {
 		// For increment layers, fetch from job_increment_layers table
 		layer, err := s.jobIncrementLayerRepo.GetByID(ctx, *layerID)
 		if err != nil {
-			return 0, fmt.Errorf("failed to fetch increment layer: %w", err)
+			return models.BigInt{}, fmt.Errorf("failed to fetch increment layer: %w", err)
 		}
 		if layer != nil && layer.EffectiveKeyspace != nil {
 			return *layer.EffectiveKeyspace, nil
 		}
-		return 0, nil
+		return models.BigInt{}, nil
 	}
 
 	// For regular jobs, fetch from job_executions table
 	job, err := s.jobExecRepo.GetByID(ctx, jobID)
 	if err != nil {
-		return 0, fmt.Errorf("failed to fetch job execution: %w", err)
+		return models.BigInt{}, fmt.Errorf("failed to fetch job execution: %w", err)
 	}
 	if job != nil && job.EffectiveKeyspace != nil {
 		return *job.EffectiveKeyspace, nil
 	}
-	return 0, nil
+	return models.BigInt{}, nil
 }
 
 // GetHashTypeByID retrieves a hash type by its ID.
@@ -315,7 +315,7 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 
 	// Use pre-calculated keyspace from preset job if available
 	var totalKeyspace *int64
-	var effectiveKeyspace *int64
+	var effectiveKeyspace *models.BigInt
 	var isAccurateKeyspace bool
 	var useRuleSplitting bool
 	var multiplicationFactor int64 = 1
@@ -345,8 +345,8 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		// NOTE: useRuleSplitting is determined at creation time for accurate keyspace jobs,
 		// or at first task dispatch (after benchmark) for estimate-based jobs as fallback
 		// Calculate multiplication factor from returned values
-		if isAccurateKeyspace && totalKeyspace != nil && *totalKeyspace > 0 && effectiveKeyspace != nil && *effectiveKeyspace > 0 {
-			multiplicationFactor = *effectiveKeyspace / *totalKeyspace
+		if isAccurateKeyspace && totalKeyspace != nil && *totalKeyspace > 0 && effectiveKeyspace != nil && effectiveKeyspace.IsPositive() {
+			multiplicationFactor = effectiveKeyspace.DivInt64(*totalKeyspace).Int64()
 			if multiplicationFactor < 1 {
 				multiplicationFactor = 1
 			}
@@ -356,25 +356,25 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 	// For salted hash types, adjust effective_keyspace by salt count
 	// Preset's --total-candidates = base × rules (no hashlist, no salts)
 	// Job's effective_keyspace = base × rules × salts (to match progress[1])
-	if effectiveKeyspace != nil && *effectiveKeyspace > 0 {
+	if effectiveKeyspace != nil && effectiveKeyspace.IsPositive() {
 		hashType, htErr := s.hashTypeRepo.GetByID(ctx, hashlist.HashTypeID)
 		if htErr == nil && hashType != nil && hashType.IsSalted {
 			saltCount := int64(hashlist.TotalHashes)
 			if saltCount > 0 {
 				originalEffective := *effectiveKeyspace
-				adjustedEffective := originalEffective * saltCount
+				adjustedEffective := originalEffective.MulInt64(saltCount)
 				effectiveKeyspace = &adjustedEffective
 				// Also adjust multiplication factor
 				if totalKeyspace != nil && *totalKeyspace > 0 {
-					multiplicationFactor = adjustedEffective / *totalKeyspace
+					multiplicationFactor = adjustedEffective.DivInt64(*totalKeyspace).Int64()
 				}
 				debug.Log("Applied salt adjustment to effective keyspace at job creation", map[string]interface{}{
 					"preset_job_id":      presetJobID,
 					"hash_type_id":       hashlist.HashTypeID,
 					"is_salted":          true,
 					"salt_count":         saltCount,
-					"original_effective": originalEffective,
-					"adjusted_effective": adjustedEffective,
+					"original_effective": originalEffective.String(),
+					"adjusted_effective": adjustedEffective.String(),
 				})
 			}
 		}
@@ -431,7 +431,7 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		HashlistID:        hashlistID,
 		Status:            models.JobExecutionStatusPending,
 		Priority:          presetJob.Priority,
-		ProcessedKeyspace: 0,
+		ProcessedKeyspace: models.NewBigInt(0),
 		AttackMode:        presetJob.AttackMode,
 		MaxAgents:         presetJob.MaxAgents,
 		CreatedBy:         createdBy,
@@ -598,7 +598,7 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		AssociationWordlistID: config.AssociationWordlistID, // For association attacks (-a 9)
 		Status:                models.JobExecutionStatusPending,
 		Priority:              config.Priority,
-		ProcessedKeyspace:     0,
+		ProcessedKeyspace:     models.NewBigInt(0),
 		AttackMode:            config.AttackMode,
 		MaxAgents:             config.MaxAgents,
 		CreatedBy:             createdBy,
@@ -677,7 +677,7 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 // custom job, shared by CreateCustomJobExecution and FinalizeFilterJob (GH #40).
 type keyspaceStrategy struct {
 	base                 *int64
-	effective            *int64
+	effective            *models.BigInt
 	isAccurate           bool
 	multiplicationFactor int64
 	useRuleSplitting     bool
@@ -702,8 +702,8 @@ func (s *JobExecutionService) computeKeyspaceStrategy(ctx context.Context, tempP
 
 	// Calculate multiplication factor from keyspace values
 	var multiplicationFactor int64 = 1
-	if isAccurateKeyspace && totalKeyspace != nil && *totalKeyspace > 0 && effectiveKeyspace != nil && *effectiveKeyspace > 0 {
-		multiplicationFactor = *effectiveKeyspace / *totalKeyspace
+	if isAccurateKeyspace && totalKeyspace != nil && *totalKeyspace > 0 && effectiveKeyspace != nil && effectiveKeyspace.IsPositive() {
+		multiplicationFactor = effectiveKeyspace.DivInt64(*totalKeyspace).Int64()
 		if multiplicationFactor < 1 {
 			multiplicationFactor = 1
 		}
@@ -712,25 +712,25 @@ func (s *JobExecutionService) computeKeyspaceStrategy(ctx context.Context, tempP
 	// For salted hash types, adjust effective_keyspace by salt count
 	// calculateKeyspace's --total-candidates = base × rules (no hashlist when run)
 	// Job's effective_keyspace = base × rules × salts (to match progress[1])
-	if effectiveKeyspace != nil && *effectiveKeyspace > 0 {
+	if effectiveKeyspace != nil && effectiveKeyspace.IsPositive() {
 		hashType, htErr := s.hashTypeRepo.GetByID(ctx, hashlist.HashTypeID)
 		if htErr == nil && hashType != nil && hashType.IsSalted {
 			saltCount := int64(hashlist.TotalHashes)
 			if saltCount > 0 {
 				originalEffective := *effectiveKeyspace
-				adjustedEffective := originalEffective * saltCount
+				adjustedEffective := originalEffective.MulInt64(saltCount)
 				effectiveKeyspace = &adjustedEffective
 				// Also adjust multiplication factor
 				if totalKeyspace != nil && *totalKeyspace > 0 {
-					multiplicationFactor = adjustedEffective / *totalKeyspace
+					multiplicationFactor = adjustedEffective.DivInt64(*totalKeyspace).Int64()
 				}
 				debug.Log("Applied salt adjustment to effective keyspace at custom job creation", map[string]interface{}{
 					"custom_job_name":    tempPreset.Name,
 					"hash_type_id":       hashlist.HashTypeID,
 					"is_salted":          true,
 					"salt_count":         saltCount,
-					"original_effective": originalEffective,
-					"adjusted_effective": adjustedEffective,
+					"original_effective": originalEffective.String(),
+					"adjusted_effective": adjustedEffective.String(),
 				})
 			}
 		}
@@ -954,7 +954,7 @@ func (s *JobExecutionService) FailJob(ctx context.Context, jobID uuid.UUID, reas
 // Returns: baseKeyspace, effectiveKeyspace, isAccurateKeyspace, error
 // If --total-candidates succeeds, effectiveKeyspace will be accurate and isAccurateKeyspace=true
 // Otherwise, effectiveKeyspace will be an estimate and isAccurateKeyspace=false
-func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *models.PresetJob, hashlist *models.HashList) (*int64, *int64, bool, error) {
+func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *models.PresetJob, hashlist *models.HashList) (*int64, *models.BigInt, bool, error) {
 	debug.Log("Starting keyspace calculation for job execution", map[string]interface{}{
 		"preset_job_id":  presetJob.ID,
 		"binary_version": presetJob.BinaryVersion,
@@ -1079,13 +1079,15 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 		}
 
 		baseKeyspace := lineCount
-		effectiveKeyspace := lineCount * ruleCount
+		// Effective keyspace (base × rules) can exceed int64 for large wordlists,
+		// so compute it in big.Int.
+		effectiveKeyspace := models.NewBigInt(lineCount).MulInt64(ruleCount)
 
 		debug.Log("Mode 9 keyspace estimation", map[string]interface{}{
 			"wordlist_line_count": lineCount,
 			"rule_count":          ruleCount,
 			"base_keyspace":       baseKeyspace,
-			"effective_keyspace":  effectiveKeyspace,
+			"effective_keyspace":  effectiveKeyspace.String(),
 		})
 
 		// Return early - don't run hashcat --keyspace (not supported for mode 9)
@@ -1237,10 +1239,10 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 		isAccurate = false
 	}
 
-	var effectiveKeyspacePtr *int64
+	var effectiveKeyspacePtr *models.BigInt
 	if isAccurate && effectiveKeyspace > 0 {
 		// Use accurate value from --total-candidates
-		effectiveKeyspacePtr = &effectiveKeyspace
+		effectiveKeyspacePtr = models.NewBigIntPtr(effectiveKeyspace)
 
 		debug.Log("Using accurate effective keyspace from --total-candidates", map[string]interface{}{
 			"hashlist_id":        hashlist.ID,
@@ -1248,14 +1250,15 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 			"effective_keyspace": effectiveKeyspace,
 		})
 	} else {
-		// Fall back to estimation: base * rule_count
-		estimatedEffective := keyspace
+		// Fall back to estimation: base * rule_count.
+		// base × rules can exceed int64 for large wordlists, so use big.Int.
+		estimatedEffective := models.NewBigInt(keyspace)
 		if len(presetJob.RuleIDs) > 0 {
 			// For estimation, assume each rule file has approximately 1 rule on average
 			// This is conservative - actual count may vary significantly
 			ruleCount := int64(len(presetJob.RuleIDs))
 			if ruleCount > 0 {
-				estimatedEffective = keyspace * ruleCount
+				estimatedEffective = models.NewBigInt(keyspace).MulInt64(ruleCount)
 			}
 		}
 		effectiveKeyspacePtr = &estimatedEffective
@@ -1263,7 +1266,7 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 		debug.Log("Using estimated effective keyspace (--total-candidates failed or unavailable)", map[string]interface{}{
 			"hashlist_id":         hashlist.ID,
 			"base_keyspace":       keyspace,
-			"estimated_effective": estimatedEffective,
+			"estimated_effective": estimatedEffective.String(),
 			"rule_count":          len(presetJob.RuleIDs),
 		})
 	}
@@ -1541,19 +1544,20 @@ func (s *JobExecutionService) calculateEffectiveKeyspace(ctx context.Context, jo
 			// Formula: base_keyspace × rule_count
 			// NOTE: hash_count is NOT part of keyspace - keyspace is about candidates to try,
 			// not targets. This is an estimate; --total-candidates or benchmark provides accurate values.
-			estimatedEffective := baseKeyspace * totalRuleCount
+			// base × rules can exceed int64 for large wordlists, so use big.Int.
+			estimatedEffective := models.NewBigInt(baseKeyspace).MulInt64(totalRuleCount)
 			job.EffectiveKeyspace = &estimatedEffective
 
 			debug.Log("Straight attack with rules - estimated effective keyspace", map[string]interface{}{
 				"rule_count":          totalRuleCount,
 				"base_keyspace":       baseKeyspace,
-				"estimated_effective": estimatedEffective,
+				"estimated_effective": estimatedEffective.String(),
 			})
 		} else {
 			// No rules, effective = base
 			job.BaseKeyspace = &baseKeyspace
 			job.MultiplicationFactor = 1
-			job.EffectiveKeyspace = &baseKeyspace
+			job.EffectiveKeyspace = models.NewBigIntPtr(baseKeyspace)
 		}
 
 	case models.AttackModeCombination: // Combination attack
@@ -1585,20 +1589,21 @@ func (s *JobExecutionService) calculateEffectiveKeyspace(ctx context.Context, jo
 
 			job.IsAccurateKeyspace = false // Will be set by first agent benchmark
 
-			// Estimate effective keyspace (will be updated to actual from hashcat benchmark)
-			estimatedEffective := keyspace1 * keyspace2
+			// Estimate effective keyspace (will be updated to actual from hashcat benchmark).
+			// keyspace1 × keyspace2 can exceed int64, so use big.Int.
+			estimatedEffective := models.NewBigInt(keyspace1).MulInt64(keyspace2)
 			job.EffectiveKeyspace = &estimatedEffective
 
 			debug.Log("Combination attack - using estimated effective keyspace", map[string]interface{}{
 				"wordlist1_keyspace":  keyspace1,
 				"wordlist2_keyspace":  keyspace2,
-				"estimated_effective": estimatedEffective,
+				"estimated_effective": estimatedEffective.String(),
 			})
 		} else {
 			// Not enough wordlists for combination
 			job.BaseKeyspace = &baseKeyspace
 			job.MultiplicationFactor = 1
-			job.EffectiveKeyspace = &baseKeyspace
+			job.EffectiveKeyspace = models.NewBigIntPtr(baseKeyspace)
 		}
 
 	case models.AttackModeAssociation: // Association attack
@@ -1611,7 +1616,7 @@ func (s *JobExecutionService) calculateEffectiveKeyspace(ctx context.Context, jo
 				// Fall back to using baseKeyspace
 				job.BaseKeyspace = &baseKeyspace
 				job.MultiplicationFactor = 1
-				job.EffectiveKeyspace = &baseKeyspace
+				job.EffectiveKeyspace = models.NewBigIntPtr(baseKeyspace)
 			} else {
 				ruleCount, err := s.GetTotalRuleCount(ctx, presetJob.RuleIDs)
 				if err != nil {
@@ -1624,13 +1629,14 @@ func (s *JobExecutionService) calculateEffectiveKeyspace(ctx context.Context, jo
 				// IsAccurateKeyspace = false triggers forced benchmark for speed measurement
 				job.IsAccurateKeyspace = false
 
-				effectiveKeyspace := lineCount * ruleCount
+				// lineCount × ruleCount can exceed int64, so use big.Int.
+				effectiveKeyspace := models.NewBigInt(lineCount).MulInt64(ruleCount)
 				job.EffectiveKeyspace = &effectiveKeyspace
 
 				debug.Log("Association attack keyspace calculated", map[string]interface{}{
 					"wordlist_line_count": lineCount,
 					"rule_count":          ruleCount,
-					"effective_keyspace":  effectiveKeyspace,
+					"effective_keyspace":  effectiveKeyspace.String(),
 					"is_accurate":         false,
 				})
 			}
@@ -1638,13 +1644,13 @@ func (s *JobExecutionService) calculateEffectiveKeyspace(ctx context.Context, jo
 			// No association wordlist - shouldn't happen but handle gracefully
 			job.BaseKeyspace = &baseKeyspace
 			job.MultiplicationFactor = 1
-			job.EffectiveKeyspace = &baseKeyspace
+			job.EffectiveKeyspace = models.NewBigIntPtr(baseKeyspace)
 		}
 
 	default: // Attacks 3, 6, 7 - hashcat calculates correctly
 		job.BaseKeyspace = &baseKeyspace
 		job.MultiplicationFactor = 1
-		job.EffectiveKeyspace = &baseKeyspace
+		job.EffectiveKeyspace = models.NewBigIntPtr(baseKeyspace)
 
 		debug.Log("Standard attack mode", map[string]interface{}{
 			"attack_mode": attackMode,
@@ -1654,7 +1660,7 @@ func (s *JobExecutionService) calculateEffectiveKeyspace(ctx context.Context, jo
 
 	// Apply salt adjustment for salted hash types (same pattern as CreateCustomJobExecution:542-567)
 	// calculateEffectiveKeyspace calculates base × rules, but for salted hashes we need base × rules × salts
-	if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
+	if job.EffectiveKeyspace != nil && job.EffectiveKeyspace.IsPositive() {
 		hashlist, hlErr := s.hashlistRepo.GetByID(ctx, job.HashlistID)
 		if hlErr == nil && hashlist != nil {
 			hashType, htErr := s.hashTypeRepo.GetByID(ctx, hashlist.HashTypeID)
@@ -1662,19 +1668,19 @@ func (s *JobExecutionService) calculateEffectiveKeyspace(ctx context.Context, jo
 				saltCount := int64(hashlist.TotalHashes)
 				if saltCount > 0 {
 					originalEffective := *job.EffectiveKeyspace
-					adjustedEffective := originalEffective * saltCount
+					adjustedEffective := originalEffective.MulInt64(saltCount)
 					job.EffectiveKeyspace = &adjustedEffective
 					// Also adjust multiplication factor to reflect salts
 					if job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
-						job.MultiplicationFactor = adjustedEffective / *job.BaseKeyspace
+						job.MultiplicationFactor = adjustedEffective.DivInt64(*job.BaseKeyspace).Int64()
 					}
 					debug.Log("Applied salt adjustment in calculateEffectiveKeyspace", map[string]interface{}{
 						"job_id":             job.ID,
 						"hash_type_id":       hashlist.HashTypeID,
 						"is_salted":          true,
 						"salt_count":         saltCount,
-						"original_effective": originalEffective,
-						"adjusted_effective": adjustedEffective,
+						"original_effective": originalEffective.String(),
+						"adjusted_effective": adjustedEffective.String(),
 					})
 				}
 			}
@@ -1963,14 +1969,14 @@ func (s *JobExecutionService) GetAvailableAgents(ctx context.Context) ([]models.
 func (s *JobExecutionService) CreateJobTask(ctx context.Context, jobExecution *models.JobExecution, agent *models.Agent, keyspaceStart, keyspaceEnd int64, benchmarkSpeed *int64, chunkDuration int) (*models.JobTask, error) {
 
 	// Estimate effective keyspace for this task (will be updated to actual from hashcat progress[1])
-	var effectiveStart, effectiveEnd int64
+	var effectiveStart, effectiveEnd models.BigInt
 
 	if jobExecution.UsesRuleSplitting && jobExecution.BaseKeyspace != nil && *jobExecution.BaseKeyspace > 0 {
 		// Rule-split task: estimate based on rule range for this chunk
 		// This will be populated later when we have the actual rule indices
 		// For now, use a placeholder that will be updated
-		effectiveStart = 0
-		effectiveEnd = keyspaceEnd - keyspaceStart // Just the chunk size for now
+		effectiveStart = models.NewBigInt(0)
+		effectiveEnd = models.NewBigInt(keyspaceEnd - keyspaceStart) // Just the chunk size for now
 
 		debug.Log("Rule-split task - will calculate effective from rule indices", map[string]interface{}{
 			"job_id":         jobExecution.ID,
@@ -1978,20 +1984,21 @@ func (s *JobExecutionService) CreateJobTask(ctx context.Context, jobExecution *m
 			"keyspace_end":   keyspaceEnd,
 		})
 	} else if jobExecution.MultiplicationFactor > 1 && jobExecution.BaseKeyspace != nil && *jobExecution.BaseKeyspace > 0 {
-		// Non-split task with rules: estimate total effective keyspace
-		effectiveStart = 0
-		effectiveEnd = *jobExecution.BaseKeyspace * jobExecution.MultiplicationFactor
+		// Non-split task with rules: estimate total effective keyspace.
+		// base × rules can exceed int64, so use big.Int.
+		effectiveStart = models.NewBigInt(0)
+		effectiveEnd = models.NewBigInt(*jobExecution.BaseKeyspace).MulInt64(jobExecution.MultiplicationFactor)
 
 		debug.Log("Non-split task with rules - estimated effective keyspace", map[string]interface{}{
 			"job_id":                jobExecution.ID,
 			"base_keyspace":         *jobExecution.BaseKeyspace,
 			"multiplication_factor": jobExecution.MultiplicationFactor,
-			"estimated_effective":   effectiveEnd,
+			"estimated_effective":   effectiveEnd.String(),
 		})
 	} else {
 		// No rules: effective = base keyspace range
-		effectiveStart = keyspaceStart
-		effectiveEnd = keyspaceEnd
+		effectiveStart = models.NewBigInt(keyspaceStart)
+		effectiveEnd = models.NewBigInt(keyspaceEnd)
 
 		debug.Log("No rules - effective equals base keyspace", map[string]interface{}{
 			"job_id":         jobExecution.ID,
@@ -2001,12 +2008,15 @@ func (s *JobExecutionService) CreateJobTask(ctx context.Context, jobExecution *m
 	}
 
 	// Data integrity check: validate that task's effective keyspace doesn't exceed job total (with 10% tolerance for estimates)
-	if jobExecution.EffectiveKeyspace != nil && effectiveEnd > (*jobExecution.EffectiveKeyspace+(*jobExecution.EffectiveKeyspace/10)) {
-		debug.Warning("Task effective_keyspace_end exceeds job total (with tolerance): job_id=%s, task_effective_end=%d, job_effective_total=%d",
-			jobExecution.ID, effectiveEnd, *jobExecution.EffectiveKeyspace)
+	if jobExecution.EffectiveKeyspace != nil {
+		tolerance := jobExecution.EffectiveKeyspace.Add(jobExecution.EffectiveKeyspace.DivInt64(10))
+		if effectiveEnd.Cmp(tolerance) > 0 {
+			debug.Warning("Task effective_keyspace_end exceeds job total (with tolerance): job_id=%s, task_effective_end=%s, job_effective_total=%s",
+				jobExecution.ID, effectiveEnd.String(), jobExecution.EffectiveKeyspace.String())
+		}
 	}
 
-	effectiveProcessed := int64(0)
+	effectiveProcessed := models.NewBigInt(0)
 	jobTask := &models.JobTask{
 		JobExecutionID:             jobExecution.ID,
 		AgentID:                    &agent.ID,
@@ -2030,12 +2040,12 @@ func (s *JobExecutionService) CreateJobTask(ctx context.Context, jobExecution *m
 	// Update dispatched keyspace for the job execution
 	// Use the EFFECTIVE keyspace estimate that we calculated and stored in the task
 	// This ensures the adjustment logic has the correct baseline to work from
-	effectiveChunkSize := effectiveEnd - effectiveStart
+	effectiveChunkSize := effectiveEnd.Sub(effectiveStart)
 	baseChunkSize := keyspaceEnd - keyspaceStart
 
 	debug.Log("Incrementing dispatched keyspace", map[string]interface{}{
 		"job_id":               jobExecution.ID,
-		"effective_chunk_size": effectiveChunkSize,
+		"effective_chunk_size": effectiveChunkSize.String(),
 		"base_chunk_size":      baseChunkSize,
 	})
 
@@ -2046,7 +2056,7 @@ func (s *JobExecutionService) CreateJobTask(ctx context.Context, jobExecution *m
 		"keyspace_end":         keyspaceEnd,
 		"chunk_duration":       chunkDuration,
 		"base_chunk_size":      baseChunkSize,
-		"effective_chunk_size": effectiveChunkSize,
+		"effective_chunk_size": effectiveChunkSize.String(),
 	})
 
 	return jobTask, nil
@@ -2107,17 +2117,17 @@ func (s *JobExecutionService) CompleteJobExecution(ctx context.Context, jobExecu
 	if err != nil {
 		debug.Warning("Failed to get sum of chunk actual keyspace: %v", err)
 		// Continue with completion even if we can't get actual keyspace
-	} else if actualKeyspace > 0 {
+	} else if actualKeyspace.IsPositive() {
 		job, err := s.jobExecRepo.GetByID(ctx, jobExecutionID)
 		if err == nil {
 			needsUpdate := false
-			oldEffective := int64(0)
+			oldEffective := models.NewBigInt(0)
 			if job.EffectiveKeyspace != nil {
 				oldEffective = *job.EffectiveKeyspace
 			}
 
 			// Update if effective_keyspace differs from actual
-			if job.EffectiveKeyspace == nil || *job.EffectiveKeyspace != actualKeyspace {
+			if job.EffectiveKeyspace == nil || job.EffectiveKeyspace.Cmp(actualKeyspace) != 0 {
 				needsUpdate = true
 			}
 
@@ -2126,7 +2136,7 @@ func (s *JobExecutionService) CompleteJobExecution(ctx context.Context, jobExecu
 				if updateErr := s.jobExecRepo.UpdateEffectiveKeyspace(ctx, jobExecutionID, actualKeyspace); updateErr != nil {
 					debug.Error("Failed to update effective keyspace at completion: %v", updateErr)
 				} else {
-					debug.Info("Synced effective_keyspace at completion: %d -> %d (actual from tasks)", oldEffective, actualKeyspace)
+					debug.Info("Synced effective_keyspace at completion: %s -> %s (actual from tasks)", oldEffective.String(), actualKeyspace.String())
 				}
 
 				// Also sync dispatched_keyspace to match (ensures 100% progress display)
@@ -2138,7 +2148,7 @@ func (s *JobExecutionService) CompleteJobExecution(ctx context.Context, jobExecu
 	}
 
 	// Legacy check: If no chunk_actual_keyspace data, fall back to old method
-	if actualKeyspace == 0 {
+	if actualKeyspace.IsZero() {
 		tasks, err := s.jobTaskRepo.GetTasksByJobExecution(ctx, jobExecutionID)
 		if err == nil {
 			// Check if all tasks have actual keyspace values from hashcat
@@ -2153,13 +2163,13 @@ func (s *JobExecutionService) CompleteJobExecution(ctx context.Context, jobExecu
 			// If all tasks reported actual keyspace, update job's effective_keyspace to match processed
 			if allTasksHaveActualKeyspace {
 				job, err := s.jobExecRepo.GetByID(ctx, jobExecutionID)
-				if err == nil && job.ProcessedKeyspace > 0 {
-					if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace != job.ProcessedKeyspace {
+				if err == nil && job.ProcessedKeyspace.IsPositive() {
+					if job.EffectiveKeyspace != nil && job.EffectiveKeyspace.Cmp(job.ProcessedKeyspace) != 0 {
 						oldEffective := *job.EffectiveKeyspace
 						if updateErr := s.jobExecRepo.UpdateEffectiveKeyspace(ctx, jobExecutionID, job.ProcessedKeyspace); updateErr != nil {
 							debug.Error("Failed to update effective keyspace (legacy): %v", updateErr)
 						} else {
-							debug.Info("Updated effective_keyspace from %d to %d (legacy method)", oldEffective, job.ProcessedKeyspace)
+							debug.Info("Updated effective_keyspace from %s to %s (legacy method)", oldEffective.String(), job.ProcessedKeyspace.String())
 						}
 					}
 				}
@@ -2174,30 +2184,30 @@ func (s *JobExecutionService) CompleteJobExecution(ctx context.Context, jobExecu
 	// This runs AFTER the above task sync to ensure we capture the final state.
 	{
 		job, err := s.jobExecRepo.GetByID(ctx, jobExecutionID)
-		if err == nil && job.ProcessedKeyspace > 0 {
-			if job.EffectiveKeyspace != nil && job.ProcessedKeyspace < *job.EffectiveKeyspace {
+		if err == nil && job.ProcessedKeyspace.IsPositive() {
+			if job.EffectiveKeyspace != nil && job.ProcessedKeyspace.Cmp(*job.EffectiveKeyspace) < 0 {
 				// Case 1: Early completion - sync effective DOWN to processed
 				oldEffective := *job.EffectiveKeyspace
 				if updateErr := s.jobExecRepo.UpdateEffectiveKeyspace(ctx, jobExecutionID, job.ProcessedKeyspace); updateErr != nil {
 					debug.Error("Failed to sync effective_keyspace for early completion: %v", updateErr)
 				} else {
-					debug.Info("Synced effective_keyspace for early completion: %d -> %d", oldEffective, job.ProcessedKeyspace)
+					debug.Info("Synced effective_keyspace for early completion: %s -> %s", oldEffective.String(), job.ProcessedKeyspace.String())
 				}
 				// Also sync dispatched_keyspace to match
 				if updateErr := s.jobExecRepo.UpdateDispatchedKeyspace(ctx, jobExecutionID, job.ProcessedKeyspace); updateErr != nil {
 					debug.Error("Failed to sync dispatched_keyspace for early completion: %v", updateErr)
 				}
-			} else if job.EffectiveKeyspace == nil || *job.EffectiveKeyspace < job.ProcessedKeyspace {
+			} else if job.EffectiveKeyspace == nil || job.EffectiveKeyspace.Cmp(job.ProcessedKeyspace) < 0 {
 				// Case 2: Over-completion - benchmark gave lower estimate than actual work
 				// Sync effective UP to processed to prevent >100% progress display
-				oldEffective := int64(0)
+				oldEffective := models.NewBigInt(0)
 				if job.EffectiveKeyspace != nil {
 					oldEffective = *job.EffectiveKeyspace
 				}
 				if updateErr := s.jobExecRepo.UpdateEffectiveKeyspace(ctx, jobExecutionID, job.ProcessedKeyspace); updateErr != nil {
 					debug.Error("Failed to sync effective_keyspace for over-completion: %v", updateErr)
 				} else {
-					debug.Info("Synced effective_keyspace for over-completion: %d -> %d", oldEffective, job.ProcessedKeyspace)
+					debug.Info("Synced effective_keyspace for over-completion: %s -> %s", oldEffective.String(), job.ProcessedKeyspace.String())
 				}
 			}
 		}
@@ -2569,13 +2579,13 @@ func (s *JobExecutionService) UpdateTaskProgress(ctx context.Context, taskID uui
 	// Example: Task 2 with effective_keyspace_start=492B reports progress[0]=735B at completion
 	//          We should store 735B - 492B = 243B as the task's contribution
 	effectiveKeyspaceProcessed := effectiveProgress
-	if task.IsKeyspaceSplit && task.EffectiveKeyspaceStart != nil && *task.EffectiveKeyspaceStart > 0 {
-		if effectiveProgress >= *task.EffectiveKeyspaceStart {
-			effectiveKeyspaceProcessed = effectiveProgress - *task.EffectiveKeyspaceStart
+	if task.IsKeyspaceSplit && task.EffectiveKeyspaceStart != nil && task.EffectiveKeyspaceStart.IsPositive() {
+		if task.EffectiveKeyspaceStart.CmpInt64(effectiveProgress) <= 0 {
+			effectiveKeyspaceProcessed = effectiveProgress - task.EffectiveKeyspaceStart.Int64()
 			debug.Log("Converted absolute to relative effective keyspace for keysplit task", map[string]interface{}{
 				"task_id":                      taskID,
 				"effective_progress_raw":       effectiveProgress,
-				"effective_keyspace_start":     *task.EffectiveKeyspaceStart,
+				"effective_keyspace_start":     task.EffectiveKeyspaceStart.String(),
 				"effective_keyspace_processed": effectiveKeyspaceProcessed,
 			})
 		}
@@ -2593,9 +2603,9 @@ func (s *JobExecutionService) UpdateTaskProgress(ctx context.Context, taskID uui
 	// own lifetime. Use the chunk-relative values we just computed
 	// above: chunk_percent = effective_processed / chunk_effective_size × 100.
 	if task.EffectiveKeyspaceStart != nil && task.EffectiveKeyspaceEnd != nil {
-		chunkEff := *task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart
-		if chunkEff > 0 {
-			localPercent := float64(effectiveKeyspaceProcessed) / float64(chunkEff) * 100.0
+		chunkEff := task.EffectiveKeyspaceEnd.Sub(*task.EffectiveKeyspaceStart)
+		if chunkEff.IsPositive() {
+			localPercent := float64(effectiveKeyspaceProcessed) / float64(chunkEff.Int64()) * 100.0
 			if localPercent > 100.0 {
 				localPercent = 100.0
 			}
@@ -2606,7 +2616,7 @@ func (s *JobExecutionService) UpdateTaskProgress(ctx context.Context, taskID uui
 	// Update the task progress
 	// Note: Job-level progress is now calculated by the polling service (JobProgressCalculationService)
 	// which runs every 2 seconds and recalculates from task data
-	err = s.jobTaskRepo.UpdateProgress(ctx, taskID, keyspaceProcessed, effectiveKeyspaceProcessed, hashRate, progressPercent)
+	err = s.jobTaskRepo.UpdateProgress(ctx, taskID, keyspaceProcessed, models.NewBigInt(effectiveKeyspaceProcessed), hashRate, progressPercent)
 	if err != nil {
 		return fmt.Errorf("failed to update task progress: %w", err)
 	}
@@ -2660,7 +2670,7 @@ func (s *JobExecutionService) RepairPendingJobKeyspaces(ctx context.Context) (in
 		if job.IsAccurateKeyspace {
 			continue
 		}
-		if job.ProcessedKeyspace > 0 || job.DispatchedKeyspace > 0 {
+		if job.ProcessedKeyspace.IsPositive() || job.DispatchedKeyspace.IsPositive() {
 			continue // already started — don't disturb in-flight accounting
 		}
 		if job.AttackMode == models.AttackModeAssociation {
@@ -2696,7 +2706,7 @@ func (s *JobExecutionService) RepairPendingJobKeyspaces(ctx context.Context) (in
 			debug.Warning("RepairPendingJobKeyspaces: job %s keyspace calc failed: %v", job.ID, kErr)
 			continue
 		}
-		if !accurate || base == nil || effective == nil || *base <= 0 || *effective <= 0 {
+		if !accurate || base == nil || effective == nil || *base <= 0 || !effective.IsPositive() {
 			continue // couldn't measure accurately; leave for the agent benchmark
 		}
 
@@ -2706,10 +2716,10 @@ func (s *JobExecutionService) RepairPendingJobKeyspaces(ctx context.Context) (in
 		eff := *effective
 		if ht, htErr := s.hashTypeRepo.GetByID(ctx, hashlist.HashTypeID); htErr == nil && ht != nil && ht.IsSalted {
 			if salt := int64(hashlist.TotalHashes); salt > 0 {
-				eff = eff * salt
+				eff = eff.MulInt64(salt)
 			}
 		}
-		mf := eff / *base
+		mf := eff.DivInt64(*base).Int64()
 		if mf < 1 {
 			mf = 1
 		}
@@ -2736,7 +2746,7 @@ func (s *JobExecutionService) RepairPendingJobKeyspaces(ctx context.Context) (in
 		}
 
 		repaired++
-		debug.Info("RepairPendingJobKeyspaces: job %s now accurate (base=%d effective=%d)", job.ID, *base, eff)
+		debug.Info("RepairPendingJobKeyspaces: job %s now accurate (base=%d effective=%s)", job.ID, *base, eff.String())
 	}
 	if repaired > 0 {
 		debug.Info("RepairPendingJobKeyspaces: repaired %d pending job(s)", repaired)
@@ -3285,7 +3295,7 @@ func (s *JobExecutionService) analyzeForRuleSplitting(ctx context.Context, job *
 		return &RuleSplitDecision{ShouldSplit: false}, nil
 	}
 
-	estimatedTimeSeconds := float64(*effectiveKeyspace) / benchmarkSpeed
+	estimatedTimeSeconds := float64(effectiveKeyspace.Int64()) / benchmarkSpeed
 
 	chunkDurationSetting, err := s.systemSettingsRepo.GetSetting(ctx, "default_chunk_duration")
 	if err != nil {
@@ -3379,7 +3389,7 @@ func (s *JobExecutionService) createSplitDecision(ctx context.Context, job *mode
 	if job.BaseKeyspace != nil {
 		baseKeyspace = *job.BaseKeyspace
 	} else if job.EffectiveKeyspace != nil {
-		baseKeyspace = *job.EffectiveKeyspace
+		baseKeyspace = job.EffectiveKeyspace.Int64()
 	} else {
 		baseKeyspace = 1000000 // Default fallback
 	}
@@ -4127,7 +4137,7 @@ func parseIntValueFromString(value string) (int, error) {
 
 // GetPreviousChunksActualKeyspace returns the cumulative actual keyspace size from all previous chunks
 // This is used when creating new chunks to ensure correct starting positions
-func (s *JobExecutionService) GetPreviousChunksActualKeyspace(ctx context.Context, jobExecutionID uuid.UUID, currentChunkNumber int) (int64, error) {
+func (s *JobExecutionService) GetPreviousChunksActualKeyspace(ctx context.Context, jobExecutionID uuid.UUID, currentChunkNumber int) (models.BigInt, error) {
 	return s.jobTaskRepo.GetPreviousChunksActualKeyspace(ctx, jobExecutionID, currentChunkNumber)
 }
 
@@ -4272,7 +4282,7 @@ func (s *JobExecutionService) updateBenchmarkFromTaskCompletion(
 	} else {
 		effective := task.KeyspaceEnd - task.KeyspaceStart
 		if task.EffectiveKeyspaceEnd != nil && task.EffectiveKeyspaceStart != nil {
-			effective = *task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart
+			effective = task.EffectiveKeyspaceEnd.Sub(*task.EffectiveKeyspaceStart).Int64()
 		}
 		if effective <= 0 {
 			return nil

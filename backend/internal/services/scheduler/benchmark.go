@@ -29,6 +29,18 @@ import (
 // longer, lift this to a system setting in a follow-up.
 const benchmarkInFlightWindow = 5 * time.Minute
 
+// benchmarkRedispatchCooldown is a defense-in-depth backstop against
+// endless benchmark loops. If a SUCCESSFUL benchmark for an
+// (agent, attack_mode, hash_type) was recorded within this window yet the
+// salt-aware agent_benchmarks lookup still reports the combo missing, the
+// stored salt_count almost certainly disagrees with the lookup's salt_count
+// (the historic loop: benchmark succeeds every cycle but is never accepted).
+// Rather than re-dispatch every cycle (~seconds apart) we throttle to at most
+// once per cooldown and log loudly. Fix for that root cause lives in
+// HandleBenchmarkResult (salt_count = hashlist.total_hashes); this is the
+// belt-and-suspenders bound so a future regression can't storm the agents.
+const benchmarkRedispatchCooldown = 5 * time.Minute
+
 // BenchmarkGap describes one (agent, unit-combo) tuple that lacks a
 // cached speed in agent_benchmarks.
 type BenchmarkGap struct {
@@ -159,6 +171,23 @@ func IdentifyMissingBenchmarks(
 			if blocked {
 				continue
 			}
+			// Safety cap (defense in depth): a SUCCESSFUL benchmark recorded
+			// for this (agent, attack_mode, hash_type) within the cooldown
+			// window, while agentHasBenchmarkFor() still reports the combo
+			// missing, means the stored salt_count disagrees with the
+			// lookup's salt_count — the exact shape of the historic endless
+			// benchmark loop. Fix 2 (HandleBenchmarkResult stores
+			// salt_count = total_hashes) keeps them in sync so this should
+			// never trigger; if it does, throttle the re-dispatch to once
+			// per cooldown and log loudly instead of storming the agent.
+			recently, err := agentBenchmarkedSuccessfullyRecently(ctx, database, agentID, int(u.AttackMode), c.hashType, benchmarkRedispatchCooldown)
+			if err != nil {
+				debug.Warning("benchmark: recent-success check (agent=%d unit=%s): %v", agentID, u.ID, err)
+			} else if recently {
+				debug.Warning("benchmark: SUPPRESSING re-dispatch for agent=%d combo=mode%d/type%d/salts=%v — a successful benchmark exists within %s but the salt-aware cache lookup still reports it missing (likely a salt_count cache-key mismatch in HandleBenchmarkResult). Throttling to avoid a benchmark storm; investigate the mismatch.",
+					agentID, u.AttackMode, c.hashType, c.saltCount, benchmarkRedispatchCooldown)
+				continue
+			}
 			gaps = append(gaps, BenchmarkGap{
 				AgentID:    agentID,
 				UnitID:     u.ID,
@@ -237,6 +266,25 @@ func agentHasBenchmarkFor(ctx context.Context, database *db.DB, agentID, attackM
 			  AND salt_count IS NOT DISTINCT FROM $4
 		)
 	`, agentID, attackMode, hashType, sc).Scan(&exists)
+	return exists, err
+}
+
+// agentBenchmarkedSuccessfullyRecently reports whether agent_benchmark_history
+// has a successful row for (agent, attack_mode, hash_type) within the given
+// window, IGNORING salt_count. Used as the endless-loop safety cap: a recent
+// success that the salt-aware agent_benchmarks lookup nonetheless misses
+// signals a cache-key mismatch, which we throttle rather than re-dispatch every
+// cycle. See benchmarkRedispatchCooldown.
+func agentBenchmarkedSuccessfullyRecently(ctx context.Context, database *db.DB, agentID, attackMode, hashType int, within time.Duration) (bool, error) {
+	var exists bool
+	err := database.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM agent_benchmark_history
+			WHERE agent_id = $1 AND attack_mode = $2 AND hash_type = $3
+			  AND success = true
+			  AND recorded_at > NOW() - ($4::text || ' seconds')::interval
+		)
+	`, agentID, attackMode, hashType, strconv.Itoa(int(within.Seconds()))).Scan(&exists)
 	return exists, err
 }
 

@@ -62,7 +62,7 @@ func intPtrToArg(i *int) interface{} {
 }
 
 // GetPreviousChunksActualKeyspace returns the cumulative actual keyspace size from all previous chunks
-func (r *JobTaskRepository) GetPreviousChunksActualKeyspace(ctx context.Context, jobExecutionID uuid.UUID, currentChunkNumber int) (int64, error) {
+func (r *JobTaskRepository) GetPreviousChunksActualKeyspace(ctx context.Context, jobExecutionID uuid.UUID, currentChunkNumber int) (models.BigInt, error) {
 	query := `
 		SELECT COALESCE(SUM(chunk_actual_keyspace), 0)
 		FROM job_tasks
@@ -70,10 +70,10 @@ func (r *JobTaskRepository) GetPreviousChunksActualKeyspace(ctx context.Context,
 		  AND chunk_number < $2
 		  AND chunk_actual_keyspace IS NOT NULL`
 
-	var cumulativeKeyspace int64
+	var cumulativeKeyspace models.BigInt
 	err := r.db.QueryRowContext(ctx, query, jobExecutionID, currentChunkNumber).Scan(&cumulativeKeyspace)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get previous chunks' actual keyspace: %w", err)
+		return models.BigInt{}, fmt.Errorf("failed to get previous chunks' actual keyspace: %w", err)
 	}
 
 	return cumulativeKeyspace, nil
@@ -97,7 +97,7 @@ func (r *JobTaskRepository) GetTotalCracksForJob(ctx context.Context, jobExecuti
 // GetSumChunkActualKeyspace returns the sum of chunk_actual_keyspace for completed/processing tasks.
 // This represents the actual work performed by completed tasks, used for keyspace reconciliation
 // at job completion to ensure effective_keyspace matches actual work done.
-func (r *JobTaskRepository) GetSumChunkActualKeyspace(ctx context.Context, jobExecutionID uuid.UUID) (int64, error) {
+func (r *JobTaskRepository) GetSumChunkActualKeyspace(ctx context.Context, jobExecutionID uuid.UUID) (models.BigInt, error) {
 	query := `
 		SELECT COALESCE(SUM(chunk_actual_keyspace), 0)
 		FROM job_tasks
@@ -105,10 +105,10 @@ func (r *JobTaskRepository) GetSumChunkActualKeyspace(ctx context.Context, jobEx
 		  AND chunk_actual_keyspace IS NOT NULL
 		  AND status IN ('completed', 'processing')`
 
-	var totalKeyspace int64
+	var totalKeyspace models.BigInt
 	err := r.db.QueryRowContext(ctx, query, jobExecutionID).Scan(&totalKeyspace)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get sum of chunk actual keyspace: %w", err)
+		return models.BigInt{}, fmt.Errorf("failed to get sum of chunk actual keyspace: %w", err)
 	}
 
 	return totalKeyspace, nil
@@ -728,7 +728,7 @@ func (r *JobTaskRepository) StartTask(ctx context.Context, id uuid.UUID) error {
 }
 
 // UpdateProgress updates the progress of a task
-func (r *JobTaskRepository) UpdateProgress(ctx context.Context, id uuid.UUID, keyspaceProcessed int64, effectiveKeyspaceProcessed int64, benchmarkSpeed *int64, progressPercent float64) error {
+func (r *JobTaskRepository) UpdateProgress(ctx context.Context, id uuid.UUID, keyspaceProcessed int64, effectiveKeyspaceProcessed models.BigInt, benchmarkSpeed *int64, progressPercent float64) error {
 	now := time.Now()
 	// Monotonic-progress guard: reject UPDATEs that would decrease
 	// progress_percent or keyspace_processed. Real work is monotonic;
@@ -2108,7 +2108,7 @@ func (r *JobTaskRepository) GetTasksByAgentAndStatus(ctx context.Context, agentI
 }
 
 // UpdateTaskEffectiveKeyspace updates the effective keyspace for a task with actual values from hashcat
-func (r *JobTaskRepository) UpdateTaskEffectiveKeyspace(ctx context.Context, taskID uuid.UUID, effectiveKeyspaceStart, effectiveKeyspaceEnd int64) error {
+func (r *JobTaskRepository) UpdateTaskEffectiveKeyspace(ctx context.Context, taskID uuid.UUID, effectiveKeyspaceStart, effectiveKeyspaceEnd models.BigInt) error {
 	query := `
 		UPDATE job_tasks
 		SET effective_keyspace_start = $2,
@@ -2136,7 +2136,7 @@ func (r *JobTaskRepository) UpdateTaskEffectiveKeyspace(ctx context.Context, tas
 
 // UpdateTaskEffectiveKeyspaceWithChunkSize updates effective keyspace values and stores the actual chunk size
 // This enables self-correcting cascade updates for subsequent chunks
-func (r *JobTaskRepository) UpdateTaskEffectiveKeyspaceWithChunkSize(ctx context.Context, taskID uuid.UUID, effectiveKeyspaceStart, effectiveKeyspaceEnd, chunkActualKeyspace int64) error {
+func (r *JobTaskRepository) UpdateTaskEffectiveKeyspaceWithChunkSize(ctx context.Context, taskID uuid.UUID, effectiveKeyspaceStart, effectiveKeyspaceEnd, chunkActualKeyspace models.BigInt) error {
 	query := `
 		UPDATE job_tasks
 		SET effective_keyspace_start = $2,

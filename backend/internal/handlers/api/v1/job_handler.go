@@ -97,11 +97,11 @@ type JobStatusResponse struct {
 	CreatedAt              time.Time  `json:"created_at"`
 	StartedAt              *time.Time `json:"started_at,omitempty"`
 	CompletedAt            *time.Time `json:"completed_at,omitempty"`
-	ErrorMessage           *string    `json:"error_message,omitempty"`
-	EffectiveKeyspace      *int64     `json:"effective_keyspace,omitempty"`
-	ProcessedKeyspace      int64      `json:"processed_keyspace"`
-	DispatchedKeyspace     int64      `json:"dispatched_keyspace"`
-	OverallProgressPercent float64    `json:"overall_progress_percent"`
+	ErrorMessage           *string          `json:"error_message,omitempty"`
+	EffectiveKeyspace      *models.BigInt   `json:"effective_keyspace,omitempty"`
+	ProcessedKeyspace      models.BigInt    `json:"processed_keyspace"`
+	DispatchedKeyspace     models.BigInt    `json:"dispatched_keyspace"`
+	OverallProgressPercent float64          `json:"overall_progress_percent"`
 	// Increment mode fields
 	IncrementMode string `json:"increment_mode,omitempty"`
 	IncrementMin  *int   `json:"increment_min,omitempty"`
@@ -425,8 +425,8 @@ func (h *JobHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 		dispatchedPercent := 0.0
 		searchedPercent := 0.0
 
-		if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
-			dispatchedPercent = float64(job.DispatchedKeyspace) / float64(*job.EffectiveKeyspace) * 100
+		if job.EffectiveKeyspace != nil && job.EffectiveKeyspace.IsPositive() {
+			dispatchedPercent = float64(job.DispatchedKeyspace.Int64()) / float64(job.EffectiveKeyspace.Int64()) * 100
 			searchedPercent = job.OverallProgressPercent
 		}
 
@@ -522,8 +522,8 @@ func (h *JobHandler) GetJob(w http.ResponseWriter, r *http.Request) {
 	dispatchedPercent := 0.0
 	searchedPercent := 0.0
 
-	if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
-		dispatchedPercent = float64(job.DispatchedKeyspace) / float64(*job.EffectiveKeyspace) * 100
+	if job.EffectiveKeyspace != nil && job.EffectiveKeyspace.IsPositive() {
+		dispatchedPercent = float64(job.DispatchedKeyspace.Int64()) / float64(job.EffectiveKeyspace.Int64()) * 100
 		searchedPercent = job.OverallProgressPercent
 	}
 
