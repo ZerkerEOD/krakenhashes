@@ -421,6 +421,50 @@ func (r *JobTaskRepository) GetActiveTasksByAgent(ctx context.Context, agentID i
 	return tasks, nil
 }
 
+// GetRecentFailedTasksByAgent retrieves the agent's most recently failed tasks
+// within the given window. Failed tasks retain agent_id (the failure path clears
+// only the agents-table busy status, not job_tasks.agent_id), so this attributes
+// failures to the agent for the detail page's "why isn't this agent working"
+// view. It covers the case where an agent loops through failing tasks and so
+// appears momentarily idle with no scheduling diagnostic between failures.
+func (r *JobTaskRepository) GetRecentFailedTasksByAgent(ctx context.Context, agentID int, since time.Time, limit int) ([]models.JobTask, error) {
+	query := `
+		SELECT
+			id, job_execution_id, agent_id, status,
+			keyspace_start, keyspace_end, COALESCE(keyspace_processed, 0),
+			benchmark_speed, chunk_duration, assigned_at,
+			started_at, completed_at, last_checkpoint, error_message
+		FROM job_tasks
+		WHERE agent_id = $1 AND status = 'failed'
+		  AND COALESCE(completed_at, updated_at) > $2
+		ORDER BY COALESCE(completed_at, updated_at) DESC
+		LIMIT $3`
+
+	rows, err := r.db.QueryContext(ctx, query, agentID, since, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get recent failed tasks by agent: %w", err)
+	}
+	defer rows.Close()
+
+	var tasks []models.JobTask
+	for rows.Next() {
+		var task models.JobTask
+		if err := rows.Scan(
+			&task.ID, &task.JobExecutionID, &task.AgentID, &task.Status,
+			&task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
+			&task.BenchmarkSpeed, &task.ChunkDuration, &task.AssignedAt,
+			&task.StartedAt, &task.CompletedAt, &task.LastCheckpoint, &task.ErrorMessage,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan failed task: %w", err)
+		}
+		tasks = append(tasks, task)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating failed tasks: %w", err)
+	}
+	return tasks, nil
+}
+
 // GetStaleTasks retrieves tasks that are in assigned or running state
 func (r *JobTaskRepository) GetStaleTasks(ctx context.Context) ([]models.JobTask, error) {
 	query := `

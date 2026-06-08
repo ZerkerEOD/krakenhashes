@@ -77,7 +77,10 @@ func (s *AgentService) SetCompatInvalidator(fn func(ctx context.Context, agentID
 // agent detail page. Diagnostics are filtered to those refreshed recently, so a
 // reason the scheduler stopped recording ages out on its own.
 func (s *AgentService) GetAgentRuntime(ctx context.Context, agentID int) (*models.AgentRuntimeInfo, error) {
-	info := &models.AgentRuntimeInfo{Diagnostics: []models.SchedulingDiagnostic{}}
+	info := &models.AgentRuntimeInfo{
+		Diagnostics:    []models.SchedulingDiagnostic{},
+		RecentFailures: []models.JobTask{},
+	}
 
 	activeTasks, err := s.jobTaskRepo.GetActiveTasksByAgent(ctx, agentID)
 	if err != nil {
@@ -90,6 +93,17 @@ func (s *AgentService) GetAgentRuntime(ctx context.Context, agentID int) (*model
 		} else {
 			debug.Warning("GetAgentRuntime: job %s for task %s: %v", task.JobExecutionID, task.ID, jErr)
 		}
+	}
+
+	// Recent failed tasks surface the "agent is looping through failing tasks"
+	// state. Without this the page shows "idle" between rapid failures: there's
+	// no active task, and the scheduler clears idle diagnostics because the
+	// agent keeps getting allocations (it just fails them). 5-minute window
+	// matches the diagnostics recency window below.
+	if failed, fErr := s.jobTaskRepo.GetRecentFailedTasksByAgent(ctx, agentID, time.Now().Add(-5*time.Minute), 10); fErr != nil {
+		debug.Warning("GetAgentRuntime: recent failed tasks for agent %d: %v", agentID, fErr)
+	} else if failed != nil {
+		info.RecentFailures = failed
 	}
 
 	if s.diagnosticsRepo != nil {

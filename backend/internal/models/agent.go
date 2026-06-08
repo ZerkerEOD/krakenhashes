@@ -41,6 +41,11 @@ type AgentRuntimeInfo struct {
 	CurrentTask  *JobTask               `json:"currentTask,omitempty"`
 	JobExecution *JobExecution          `json:"jobExecution,omitempty"`
 	Diagnostics  []SchedulingDiagnostic `json:"diagnostics"`
+	// RecentFailures holds the agent's recently failed tasks (with their error
+	// messages) so the detail page can show that an agent is looping through
+	// failing tasks — a state that otherwise reads as "idle" because the agent
+	// has no active task between rapid failures and gets no idle diagnostic.
+	RecentFailures []JobTask `json:"recentFailures"`
 }
 
 // MarshalJSON implements custom JSON marshalling for AgentWithTask.

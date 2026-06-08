@@ -134,6 +134,13 @@ interface AgentActivity {
     priority?: number;
   };
   diagnostics: DiagnosticReason[];
+  recentFailures?: Array<{
+    id: string;
+    job_execution_id: string;
+    status: string;
+    error_message?: string;
+    completed_at?: string;
+  }>;
 }
 
 // Formats an optional 0-100 percentage for display, or an em dash when absent.
@@ -682,9 +689,27 @@ const AgentDetails: React.FC = () => {
                   </Grid>
                 </Grid>
               </>
-            ) : activity.diagnostics && activity.diagnostics.length > 0 ? (
+            ) : (activity.recentFailures && activity.recentFailures.length > 0) ||
+                (activity.diagnostics && activity.diagnostics.length > 0) ? (
               <>
                 <Typography variant="h6" gutterBottom>Why this agent isn't working</Typography>
+                {activity.recentFailures && activity.recentFailures.length > 0 && (
+                  <Alert severity="error" sx={{ mb: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      Recent tasks are failing ({activity.recentFailures.length} in the last few minutes)
+                    </Typography>
+                    {activity.recentFailures[0].error_message && (
+                      <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                        {activity.recentFailures[0].error_message}
+                      </Typography>
+                    )}
+                    {activity.recentFailures[0].completed_at && (
+                      <Typography variant="caption" color="text.secondary">
+                        last failure {formatDistanceToNow(new Date(activity.recentFailures[0].completed_at), { addSuffix: true })}
+                      </Typography>
+                    )}
+                  </Alert>
+                )}
                 {activity.diagnostics.map((d) => (
                   <Alert
                     key={d.id}
