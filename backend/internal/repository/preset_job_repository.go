@@ -277,8 +277,8 @@ func (r *presetJobRepository) ListFormData(ctx context.Context) (*PresetJobFormD
 	var err error
 	var rows *sql.Rows
 
-	// Fetch Wordlists
-	wordlistQuery := `SELECT id, name FROM wordlists ORDER BY name`
+	// Fetch Wordlists (exclude ephemeral __eph__ job-scoped filtered wordlists, GH #40)
+	wordlistQuery := `SELECT id, name FROM wordlists WHERE is_ephemeral = false ORDER BY name`
 	rows, err = r.db.QueryContext(ctx, wordlistQuery)
 	if err != nil {
 		debug.Error("Error fetching wordlists for form data: %v", err)

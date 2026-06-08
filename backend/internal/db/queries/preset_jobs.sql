@@ -46,7 +46,8 @@ DELETE FROM preset_jobs
 WHERE id = $1;
 
 -- name: ListWordlistsForForm :many
-SELECT id, name FROM wordlists ORDER BY name;
+-- Exclude ephemeral __eph__ job-scoped filtered wordlists (GH #40).
+SELECT id, name FROM wordlists WHERE is_ephemeral = false ORDER BY name;
 
 -- name: ListRulesForForm :many
 SELECT id, name FROM rules ORDER BY name;

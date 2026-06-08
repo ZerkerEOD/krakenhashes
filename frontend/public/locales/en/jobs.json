@@ -19,6 +19,7 @@
     "createdAt": "Created At"
   },
   "status": {
+    "preparing": "Preparing",
     "pending": "Pending",
     "running": "Running",
     "completed": "Completed",

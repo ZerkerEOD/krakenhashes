@@ -387,6 +387,15 @@ func (jm *JobManager) ProcessJobAssignment(ctx context.Context, assignmentData [
 		return fmt.Errorf("failed to ensure association files: %w", err)
 	}
 
+	// Ensure regular wordlists are available locally. Wordlists normally arrive
+	// via the periodic inventory sync, but freshly-created lists (e.g. ephemeral
+	// filtered wordlists generated moments before dispatch) race that sync, so we
+	// download any missing ones on demand here (GH #40).
+	err = jm.ensureWordlists(ctx, &assignment)
+	if err != nil {
+		return fmt.Errorf("failed to ensure wordlists: %w", err)
+	}
+
 	// Ensure client potfile is available if specified
 	err = jm.ensureClientPotfile(ctx, &assignment)
 	if err != nil {
@@ -508,6 +517,84 @@ func (jm *JobManager) ensureHashlist(ctx context.Context, assignment *JobTaskAss
 	}
 
 	return nil
+}
+
+// ephemeralWordlistPrefix marks job-scoped (ephemeral) filtered wordlists so the
+// agent can delete them once its task for the job finishes (GH #40).
+const ephemeralWordlistPrefix = "__eph__"
+
+// isEphemeralWordlistPath reports whether a wordlist path is an ephemeral
+// (job-scoped) filtered wordlist that should be removed after the task.
+func isEphemeralWordlistPath(wordlistPath string) bool {
+	return strings.HasPrefix(filepath.Base(wordlistPath), ephemeralWordlistPrefix)
+}
+
+// ensureWordlists downloads any regular wordlists referenced by the task that are
+// not already present locally. Big shared wordlists synced via the inventory are
+// left untouched; only missing files (e.g. just-created ephemeral filtered lists)
+// are fetched. Association wordlists (mode 9) are handled by ensureAssociationFiles.
+func (jm *JobManager) ensureWordlists(ctx context.Context, assignment *JobTaskAssignment) error {
+	if assignment.AttackMode == int(AttackModeAssociation) {
+		return nil
+	}
+	if len(assignment.WordlistPaths) == 0 {
+		return nil
+	}
+	if jm.fileSync == nil {
+		debug.Error("File sync is not initialized in job manager")
+		return fmt.Errorf("file sync not initialized")
+	}
+
+	for _, wordlistPath := range assignment.WordlistPaths {
+		localPath := filepath.Join(jm.config.DataDirectory, wordlistPath)
+
+		// Skip if already present (don't re-download large shared wordlists).
+		if _, err := os.Stat(localPath); err == nil {
+			continue
+		}
+
+		// FileInfo.Name is the path relative to the wordlists directory (it keeps
+		// the category subdir, e.g. "custom/foo.txt"), which the download path and
+		// URL builder both handle for names containing a slash.
+		name := strings.TrimPrefix(wordlistPath, "wordlists/")
+		debug.Info("Wordlist missing locally, downloading on demand: %s", wordlistPath)
+
+		fileInfo := &filesync.FileInfo{
+			Name:     name,
+			FileType: "wordlist",
+		}
+		if err := jm.fileSync.DownloadFileFromInfo(ctx, fileInfo); err != nil {
+			debug.Error("Failed to download wordlist %s: %v", wordlistPath, err)
+			return fmt.Errorf("failed to download wordlist %s: %w", wordlistPath, err)
+		}
+
+		if info, err := os.Stat(localPath); err == nil {
+			debug.Info("Successfully downloaded wordlist: %s (size: %d bytes)", wordlistPath, info.Size())
+		} else {
+			debug.Error("Wordlist not found after download: %s", localPath)
+			return fmt.Errorf("wordlist not found after download: %s", localPath)
+		}
+	}
+
+	return nil
+}
+
+// cleanupEphemeralWordlists removes job-scoped (ephemeral) filtered wordlists
+// after the agent's task completes so they don't linger locally (GH #40). The
+// backend deletes the server-side copy when the whole job finishes; if another
+// chunk of the same job arrives, ensureWordlists re-downloads it.
+func (jm *JobManager) cleanupEphemeralWordlists(assignment *JobTaskAssignment) {
+	for _, wordlistPath := range assignment.WordlistPaths {
+		if !isEphemeralWordlistPath(wordlistPath) {
+			continue
+		}
+		localPath := filepath.Join(jm.config.DataDirectory, wordlistPath)
+		if err := os.Remove(localPath); err != nil && !os.IsNotExist(err) {
+			debug.Warning("Failed to remove ephemeral wordlist %s: %v", localPath, err)
+		} else if err == nil {
+			debug.Info("Removed ephemeral wordlist: %s", localPath)
+		}
+	}
 }
 
 // ensureAssociationFiles downloads the association wordlist for mode 9 attacks
@@ -901,6 +988,9 @@ func (jm *JobManager) cleanupCompletedTask(jobExecution *JobExecution, finalStat
 
 		// Clean up sensitive files immediately after task completion
 		jm.cleanupSensitiveFiles(exec.Assignment)
+
+		// Clean up ephemeral (job-scoped) filtered wordlists after task completion
+		jm.cleanupEphemeralWordlists(exec.Assignment)
 	}
 
 	// Remove from activeJobs - this MUST happen synchronously before logging

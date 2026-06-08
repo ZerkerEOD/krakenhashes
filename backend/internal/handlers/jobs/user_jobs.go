@@ -1010,13 +1010,25 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			}
 
 			filter := *req.CustomJob.Filter
-			go h.prepareAndCreateFilteredCustomJob(config, filter, hashlistID, userID, jobName)
+
+			// Create the job row immediately in "preparing" so it shows in the jobs
+			// table while the filtered wordlist generates; the scheduler ignores it
+			// until it's finalized to "pending" (GH #40).
+			preparingJob, err := h.jobExecutionService.CreatePreparingFilterJob(ctx, config, hashlistID, &userID, jobName)
+			if err != nil {
+				debug.Error("Failed to create preparing job: %v", err)
+				http.Error(w, fmt.Sprintf("Failed to create job: %v", err), http.StatusInternalServerError)
+				return
+			}
+			go h.prepareAndCreateFilteredCustomJob(preparingJob.ID, config, filter, userID)
 
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusAccepted)
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"status":  "preparing",
-				"message": "Generating filtered wordlist; the job will start automatically once it's ready.",
+				"job_id":  preparingJob.ID.String(),
+				"ids":     []string{preparingJob.ID.String()},
+				"message": "Preparing — generating the filtered wordlist; the job will start automatically once it's ready.",
 			})
 			return
 		}
@@ -1061,13 +1073,13 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 	json.NewEncoder(w).Encode(response)
 }
 
-// prepareAndCreateFilteredCustomJob generates ephemeral filtered wordlists from
-// the job's selected wordlists, then creates the custom job referencing them
-// (GH #40). It runs in the background; the keyspace is computed on the filtered
-// files inside CreateCustomJobExecution, so the scheduler never sees the job
-// until it is fully ready. Any failure (including a full disk during generation)
-// aborts cleanly and removes the partial filtered wordlists.
-func (h *UserJobsHandler) prepareAndCreateFilteredCustomJob(config services.CustomJobConfig, filter models.WordlistFilter, hashlistID int64, userID uuid.UUID, jobName string) {
+// prepareAndCreateFilteredCustomJob runs in the background for a job already
+// created in the "preparing" state (GH #40). It generates the ephemeral filtered
+// wordlist(s) from the user's selected wordlists, then finalizes the job
+// (computes keyspace, creates scheduling units, flips to "pending") so the
+// scheduler picks it up. Any failure (0-match filter, full disk, etc.) marks the
+// job failed with the reason and removes the partial filtered wordlists.
+func (h *UserJobsHandler) prepareAndCreateFilteredCustomJob(jobID uuid.UUID, config services.CustomJobConfig, filter models.WordlistFilter, userID uuid.UUID) {
 	ctx := context.Background()
 
 	var filteredIDs models.IDArray
@@ -1081,6 +1093,16 @@ func (h *UserJobsHandler) prepareAndCreateFilteredCustomJob(config services.Cust
 		}
 	}
 
+	// failJob surfaces a preparation failure (0-match filter, disk full, etc.) to
+	// the user: it removes any partial ephemeral wordlists and marks the existing
+	// preparing job failed (with the reason) so it shows in the table (GH #40).
+	failJob := func(reason string) {
+		cleanup()
+		if err := h.jobExecutionService.FailJob(ctx, jobID, reason); err != nil {
+			debug.Error("Failed to fail preparing job %s: %v", jobID, err)
+		}
+	}
+
 	for _, wlIDStr := range config.WordlistIDs {
 		// Only filter global numeric wordlists. Client/potfile special IDs
 		// (e.g. "client:1", "potfile:2") are passed through unfiltered.
@@ -1090,17 +1112,18 @@ func (h *UserJobsHandler) prepareAndCreateFilteredCustomJob(config services.Cust
 			continue
 		}
 
-		wl, err := h.wordlistManager.CreateFilteredWordlistRecord(ctx, parentID, "", "", filter, true, nil, userID)
+		// Own the ephemeral wordlist by the job from creation so the sweep can find it.
+		wl, err := h.wordlistManager.CreateFilteredWordlistRecord(ctx, parentID, "", "", filter, true, &jobID, userID)
 		if err != nil {
 			debug.Error("Failed to create ephemeral filtered wordlist from %d: %v", parentID, err)
-			cleanup()
+			failJob(fmt.Sprintf("could not create filtered wordlist: %v", err))
 			return
 		}
 		createdWordlistIDs = append(createdWordlistIDs, wl.ID)
 
 		if err := h.wordlistManager.GenerateFilteredWordlist(ctx, wl.ID); err != nil {
-			debug.Error("Failed to generate ephemeral filtered wordlist %d (job %q): %v", wl.ID, jobName, err)
-			cleanup()
+			debug.Error("Failed to generate ephemeral filtered wordlist %d (job %s): %v", wl.ID, jobID, err)
+			failJob(err.Error())
 			return
 		}
 
@@ -1109,21 +1132,13 @@ func (h *UserJobsHandler) prepareAndCreateFilteredCustomJob(config services.Cust
 
 	config.WordlistIDs = filteredIDs
 
-	jobExecution, err := h.jobExecutionService.CreateCustomJobExecution(ctx, config, hashlistID, &userID, jobName)
-	if err != nil {
-		debug.Error("Failed to create filtered custom job %q: %v", jobName, err)
-		cleanup()
+	if err := h.jobExecutionService.FinalizeFilterJob(ctx, jobID, config); err != nil {
+		debug.Error("Failed to finalize filtered custom job %s: %v", jobID, err)
+		failJob(fmt.Sprintf("could not finalize job: %v", err))
 		return
 	}
 
-	// Attach the ephemeral wordlists to the job so they are swept when it ends.
-	for _, id := range createdWordlistIDs {
-		if err := h.wordlistManager.SetWordlistOwnerJob(ctx, id, jobExecution.ID); err != nil {
-			debug.Error("Failed to attach ephemeral wordlist %d to job %s: %v", id, jobExecution.ID, err)
-		}
-	}
-
-	debug.Info("Created filtered custom job %s with %d ephemeral wordlist(s)", jobExecution.ID, len(createdWordlistIDs))
+	debug.Info("Finalized filtered custom job %s with %d ephemeral wordlist(s)", jobID, len(createdWordlistIDs))
 }
 
 // GetJobDetail handles GET /api/jobs/{id}
@@ -1788,10 +1803,19 @@ func (h *UserJobsHandler) DeleteJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Stop all agents working on this job's tasks
+	// Stop all agents working on this job's tasks. Each agent's StopJob runs
+	// cleanupEphemeralWordlists, so agent-local __eph__ copies are removed here (GH #40).
 	if err := h.stopAgentTasks(ctx, jobID); err != nil {
 		debug.Error("Failed to stop agent tasks for job %s: %v", jobID, err)
 		// Continue with deletion even if we couldn't stop all tasks
+	}
+
+	// Remove any ephemeral (__eph__) filtered wordlists owned by this job BEFORE deleting
+	// the job row. The wordlists.owner_job_id FK is ON DELETE CASCADE, so deleting the job
+	// first would drop the wordlist row and orphan its file on disk (GH #40).
+	if err := h.jobExecutionService.CleanupEphemeralWordlistsForJob(ctx, jobID); err != nil {
+		debug.Error("Failed to clean up ephemeral wordlists for job %s: %v", jobID, err)
+		// Continue with deletion; this is best-effort cleanup
 	}
 
 	// Delete job execution record (cascade deletes tasks)
@@ -1811,6 +1835,13 @@ func (h *UserJobsHandler) DeleteJob(w http.ResponseWriter, r *http.Request) {
 // DeleteFinishedJobs handles DELETE /api/jobs/finished
 func (h *UserJobsHandler) DeleteFinishedJobs(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+
+	// Sweep ephemeral (__eph__) filtered wordlists owned by terminal jobs first, so the
+	// bulk cascade delete below doesn't orphan their files on disk (GH #40).
+	if err := h.jobExecutionService.SweepEphemeralWordlists(ctx); err != nil {
+		debug.Error("Failed to sweep ephemeral wordlists before deleting finished jobs: %v", err)
+		// Continue; best-effort cleanup
+	}
 
 	// Delete all completed jobs
 	deletedCount, err := h.jobExecRepo.DeleteFinished(ctx)

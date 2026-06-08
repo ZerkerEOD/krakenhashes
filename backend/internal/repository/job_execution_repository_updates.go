@@ -120,6 +120,31 @@ func (r *JobExecutionRepository) UpdateBaseKeyspace(ctx context.Context, jobID u
 	return nil
 }
 
+// UpdateWordlistIDs replaces a job's wordlist_ids (e.g. swapping the user's
+// selection for the generated ephemeral filtered wordlists at finalize, GH #40).
+func (r *JobExecutionRepository) UpdateWordlistIDs(ctx context.Context, jobID uuid.UUID, wordlistIDs models.IDArray) error {
+	query := `
+		UPDATE job_executions
+		SET wordlist_ids = $1, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $2`
+
+	result, err := r.db.ExecContext(ctx, query, wordlistIDs, jobID)
+	if err != nil {
+		return fmt.Errorf("failed to update wordlist ids: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
 // IsSchedulerV2Job reports whether the given job execution is owned
 // by scheduler-v2 — i.e., whether it has any scheduling_units rows.
 // Legacy code paths that mutate keyspace / status fields should

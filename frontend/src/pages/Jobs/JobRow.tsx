@@ -125,6 +125,8 @@ const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isC
     switch (status.toLowerCase()) {
       case 'running':
         return 'success';
+      case 'preparing':
+        return 'default';
       case 'pending':
         return 'warning';
       case 'completed':

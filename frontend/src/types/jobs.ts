@@ -3,7 +3,7 @@
  */
 
 // Job status enum
-export type JobStatus = 'pending' | 'running' | 'processing' | 'completed' | 'failed' | 'cancelled';
+export type JobStatus = 'preparing' | 'pending' | 'running' | 'processing' | 'completed' | 'failed' | 'cancelled';
 
 // Job summary for list views
 export interface JobSummary {

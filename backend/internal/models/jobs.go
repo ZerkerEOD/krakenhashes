@@ -205,6 +205,11 @@ type PresetJobBasic struct {
 type JobExecutionStatus string
 
 const (
+	// JobExecutionStatusPreparing is a pre-pending state for jobs whose inputs are
+	// still being prepared (e.g. an ephemeral filtered wordlist is generating, GH #40).
+	// The scheduler never dispatches a preparing job; it transitions to pending once
+	// ready, or failed on error.
+	JobExecutionStatusPreparing  JobExecutionStatus = "preparing"
 	JobExecutionStatusPending    JobExecutionStatus = "pending"
 	JobExecutionStatusRunning    JobExecutionStatus = "running"
 	JobExecutionStatusPaused     JobExecutionStatus = "paused"

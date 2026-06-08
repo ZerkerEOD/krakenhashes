@@ -27,6 +27,12 @@ import (
 	"github.com/google/uuid"
 )
 
+// EphemeralFilenamePrefix marks the filename of a job-scoped (ephemeral) filtered
+// wordlist (GH #40). Agents delete their local copy by this prefix once the owning job
+// finishes, and the DirectoryMonitor must skip these files so an orphaned ephemeral file
+// is never re-imported as a standalone regular wordlist.
+const EphemeralFilenamePrefix = "__eph__"
+
 // Manager handles wordlist operations
 type Manager interface {
 	ListWordlists(ctx context.Context, filters map[string]interface{}) ([]*models.Wordlist, error)
@@ -859,7 +865,11 @@ func (m *manager) FilterWordlist(ctx context.Context, srcPath, dstPath string, f
 	}
 	defer reader.Close()
 
-	tmpPath := dstPath + ".tmp"
+	// Stage to a hidden dotfile (".<name>.tmp") in the same directory so the
+	// directory monitor's hidden-file skip ignores the in-progress file and
+	// doesn't register it as an orphan wordlist mid-generation (GH #40). Same
+	// directory keeps the final os.Rename atomic.
+	tmpPath := filepath.Join(filepath.Dir(dstPath), "."+filepath.Base(dstPath)+".tmp")
 	out, err := os.Create(tmpPath)
 	if err != nil {
 		return 0, "", err
@@ -1011,7 +1021,14 @@ func (m *manager) CreateFilteredWordlistRecord(ctx context.Context, parentID int
 	if base == "" {
 		base = "filtered"
 	}
-	fileName := filepath.Join("custom", fmt.Sprintf("%s_%s.txt", base, uuid.New().String()[:8]))
+	// Ephemeral (job-scoped) filtered wordlists carry a recognizable filename
+	// prefix so agents can delete their local copy once the job finishes (GH #40).
+	// Keep them under custom/ so existing file-serving/sync routing is unchanged.
+	namePrefix := ""
+	if ephemeral {
+		namePrefix = EphemeralFilenamePrefix
+	}
+	fileName := filepath.Join("custom", fmt.Sprintf("%s%s_%s.txt", namePrefix, base, uuid.New().String()[:8]))
 
 	filterCopy := filter
 	wl := &models.Wordlist{
@@ -1076,7 +1093,7 @@ func (m *manager) GenerateFilteredWordlist(ctx context.Context, wordlistID int) 
 	if count == 0 {
 		os.Remove(dstPath)
 		_ = m.store.UpdateWordlistVerification(ctx, wordlistID, "failed", nil)
-		return fmt.Errorf("filter matched 0 candidates")
+		return fmt.Errorf("filter matched 0 candidates: no word in %q satisfied all criteria (length/character-class/regex are combined with AND) — loosen the filter and try again", parent.Name)
 	}
 
 	var size int64

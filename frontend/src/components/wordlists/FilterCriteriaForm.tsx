@@ -8,6 +8,7 @@ import {
   Typography,
   Chip,
   CircularProgress,
+  Tooltip,
 } from '@mui/material';
 import { WordlistFilter } from '../../types/wordlists';
 import { previewFilter } from '../../services/wordlists';
@@ -55,10 +56,16 @@ const FilterCriteriaForm: React.FC<FilterCriteriaFormProps> = ({
     return isNaN(n) ? null : n;
   };
 
-  // Validate regex client-side for immediate feedback.
+  // Validate regex client-side for immediate feedback. The backend uses Go RE2,
+  // which (unlike JS RegExp) does NOT support lookaround — so we flag those here
+  // to avoid a confusing accept-then-reject on preview/create.
   useEffect(() => {
     if (!value.regex) {
       setRegexError(null);
+      return;
+    }
+    if (/\(\?(=|!|<=|<!)/.test(value.regex)) {
+      setRegexError('Lookarounds ((?=…), (?!…), (?<=…), (?<!…)) are not supported by the backend regex engine (RE2). Use length/class filters instead.');
       return;
     }
     try {
@@ -102,6 +109,11 @@ const FilterCriteriaForm: React.FC<FilterCriteriaFormProps> = ({
 
   return (
     <Box>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+        All criteria are combined (AND) — a word must satisfy every one you set. If your
+        regex is stricter than the length fields (e.g. min length 8 but regex requires 12+),
+        the stricter rule wins. The estimate below reflects the combined result.
+      </Typography>
       <Grid container spacing={2}>
         <Grid item xs={6}>
           <TextField
@@ -188,12 +200,14 @@ const FilterCriteriaForm: React.FC<FilterCriteriaFormProps> = ({
               </Typography>
             </>
           ) : preview ? (
-            <Chip
-              size="small"
-              color="primary"
-              variant="outlined"
-              label={`~${preview.count.toLocaleString()} candidates (${(preview.rate * 100).toFixed(1)}% of sample)`}
-            />
+            <Tooltip title="Estimated by sampling the start of the source wordlist. For sorted lists the true total may differ.">
+              <Chip
+                size="small"
+                color="primary"
+                variant="outlined"
+                label={`~${preview.count.toLocaleString()} candidates (${(preview.rate * 100).toFixed(1)}% of sample)`}
+              />
+            </Tooltip>
           ) : (
             <Typography variant="body2" color="text.secondary">
               Preview unavailable

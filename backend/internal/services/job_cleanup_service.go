@@ -49,6 +49,10 @@ func (s *JobCleanupService) CleanupStaleTasksOnStartup(ctx context.Context) erro
 	// retransmit for tasks not yet completed.
 	s.logProcessingTasksOnStartup(ctx)
 
+	// THIRD: Fail jobs stuck in "preparing" — their background wordlist-generation
+	// goroutine did not survive the restart, so they will never progress (GH #40).
+	s.failStalePreparingJobs(ctx)
+
 	// Get all tasks that are in assigned or running state
 	staleTasks, err := s.jobTaskRepo.GetStaleTasks(ctx)
 	if err != nil {
@@ -143,6 +147,27 @@ func (s *JobCleanupService) logProcessingTasksOnStartup(ctx context.Context) {
 		debug.Info("Found %d jobs in processing state on startup - awaiting task completion", len(processingJobs))
 		for _, job := range processingJobs {
 			debug.Info("Processing job - ID: %s", job.ID)
+		}
+	}
+}
+
+// failStalePreparingJobs fails any jobs left in the "preparing" state across a
+// restart. Preparation (ephemeral filtered-wordlist generation) runs in an
+// in-memory goroutine that does not survive a restart, so such jobs would
+// otherwise be stuck forever (GH #40).
+func (s *JobCleanupService) failStalePreparingJobs(ctx context.Context) {
+	preparingJobs, err := s.jobExecutionRepo.GetJobsByStatus(ctx, models.JobExecutionStatusPreparing)
+	if err != nil {
+		debug.Error("Failed to get preparing jobs on startup: %v", err)
+		return
+	}
+	if len(preparingJobs) == 0 {
+		return
+	}
+	debug.Warning("Found %d job(s) stuck in 'preparing' on startup - marking failed (generation did not survive restart)", len(preparingJobs))
+	for _, job := range preparingJobs {
+		if err := s.jobExecutionRepo.FailExecution(ctx, job.ID, "Job preparation was interrupted by a server restart"); err != nil {
+			debug.Error("Failed to fail stuck preparing job %s: %v", job.ID, err)
 		}
 	}
 }

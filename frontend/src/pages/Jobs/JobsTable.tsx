@@ -80,12 +80,12 @@ const JobsTable: React.FC<JobsTableProps> = ({
     );
   }
 
-  // Separate active and completed jobs
-  const activeJobs = jobs.filter(job => 
-    ['pending', 'running', 'paused'].includes(job.status.toLowerCase())
+  // Separate active and completed jobs ('preparing' = filtered wordlist generating, GH #40)
+  const activeJobs = jobs.filter(job =>
+    ['preparing', 'pending', 'running', 'paused'].includes(job.status.toLowerCase())
   );
-  const completedJobs = jobs.filter(job => 
-    !['pending', 'running', 'paused'].includes(job.status.toLowerCase())
+  const completedJobs = jobs.filter(job =>
+    !['preparing', 'pending', 'running', 'paused'].includes(job.status.toLowerCase())
   );
 
   return (

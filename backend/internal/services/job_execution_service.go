@@ -583,96 +583,13 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		tempPreset.AssociationWordlistID = &assocIDStr
 	}
 
-	// Use the same keyspace calculation as preset jobs
-	totalKeyspace, effectiveKeyspace, isAccurateKeyspace, err := s.calculateKeyspace(ctx, tempPreset, hashlist)
+	// Compute keyspace + dispatch strategy (shared with the preparing/finalize path).
+	ks, err := s.computeKeyspaceStrategy(ctx, tempPreset, hashlist)
 	if err != nil {
-		debug.Error("Failed to calculate keyspace for custom job: %v", err)
-		return nil, fmt.Errorf("keyspace calculation is required for job execution: %w", err)
+		return nil, err
 	}
-
-	// NOTE: useRuleSplitting is determined at creation time for accurate keyspace jobs,
-	// or at first task dispatch (after benchmark) for estimate-based jobs as fallback
-	useRuleSplitting := false
-
-	// Calculate multiplication factor from keyspace values
-	var multiplicationFactor int64 = 1
-	if isAccurateKeyspace && totalKeyspace != nil && *totalKeyspace > 0 && effectiveKeyspace != nil && *effectiveKeyspace > 0 {
-		multiplicationFactor = *effectiveKeyspace / *totalKeyspace
-		if multiplicationFactor < 1 {
-			multiplicationFactor = 1
-		}
-	}
-
-	// For salted hash types, adjust effective_keyspace by salt count
-	// calculateKeyspace's --total-candidates = base × rules (no hashlist when run)
-	// Job's effective_keyspace = base × rules × salts (to match progress[1])
-	if effectiveKeyspace != nil && *effectiveKeyspace > 0 {
-		hashType, htErr := s.hashTypeRepo.GetByID(ctx, hashlist.HashTypeID)
-		if htErr == nil && hashType != nil && hashType.IsSalted {
-			saltCount := int64(hashlist.TotalHashes)
-			if saltCount > 0 {
-				originalEffective := *effectiveKeyspace
-				adjustedEffective := originalEffective * saltCount
-				effectiveKeyspace = &adjustedEffective
-				// Also adjust multiplication factor
-				if totalKeyspace != nil && *totalKeyspace > 0 {
-					multiplicationFactor = adjustedEffective / *totalKeyspace
-				}
-				debug.Log("Applied salt adjustment to effective keyspace at custom job creation", map[string]interface{}{
-					"custom_job_name":    config.Name,
-					"hash_type_id":       hashlist.HashTypeID,
-					"is_salted":          true,
-					"salt_count":         saltCount,
-					"original_effective": originalEffective,
-					"adjusted_effective": adjustedEffective,
-				})
-			}
-		}
-	}
-
-	// Determine rule splitting at creation time for accurate keyspace jobs
-	// This avoids race conditions and mid-job switching issues - can't change strategy after tasks are dispatched
-	if isAccurateKeyspace &&
-		(config.AttackMode == models.AttackModeStraight || config.AttackMode == models.AttackModeAssociation) &&
-		len(config.RuleIDs) > 0 {
-
-		// Check if rule splitting is enabled
-		ruleSplitEnabled, err := s.systemSettingsRepo.GetSetting(ctx, "rule_split_enabled")
-		if err == nil && ruleSplitEnabled != nil && ruleSplitEnabled.Value != nil && *ruleSplitEnabled.Value == "true" {
-			// Get minimum rules threshold
-			minRulesSetting, _ := s.systemSettingsRepo.GetSetting(ctx, "rule_split_min_rules")
-			minRules := 100 // default
-			if minRulesSetting != nil && minRulesSetting.Value != nil {
-				if parsed, parseErr := strconv.Atoi(*minRulesSetting.Value); parseErr == nil {
-					minRules = parsed
-				}
-			}
-
-			// Enable rule splitting if we have enough rules
-			// Use actual rule count (not salt-adjusted multiplicationFactor) for minRules comparison
-			actualRuleCount, ruleErr := s.GetTotalRuleCount(ctx, config.RuleIDs)
-			if ruleErr != nil {
-				actualRuleCount = int64(multiplicationFactor) // Fallback to multiplicationFactor
-			}
-			if int(actualRuleCount) >= minRules {
-				useRuleSplitting = true
-				debug.Log("Rule splitting enabled at custom job creation", map[string]interface{}{
-					"custom_job_name":       config.Name,
-					"actual_rule_count":     actualRuleCount,
-					"multiplication_factor": multiplicationFactor,
-					"min_rules":             minRules,
-					"is_accurate_keyspace":  isAccurateKeyspace,
-				})
-			}
-		}
-	}
-
-	// Set avg_rule_multiplier for accurate keyspace jobs (used in progress calculations)
-	var avgRuleMultiplier *float64
-	if isAccurateKeyspace && multiplicationFactor > 0 {
-		v := float64(multiplicationFactor)
-		avgRuleMultiplier = &v
-	}
+	totalKeyspace, effectiveKeyspace, isAccurateKeyspace := ks.base, ks.effective, ks.isAccurate
+	multiplicationFactor, useRuleSplitting, avgRuleMultiplier := ks.multiplicationFactor, ks.useRuleSplitting, ks.avgRuleMultiplier
 
 	// Create self-contained job execution
 	jobExecution := &models.JobExecution{
@@ -754,6 +671,283 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 	s.populateSchedulingUnitsIfEnabled(ctx, jobExecution)
 
 	return jobExecution, nil
+}
+
+// keyspaceStrategy holds the keyspace + dispatch-strategy values computed for a
+// custom job, shared by CreateCustomJobExecution and FinalizeFilterJob (GH #40).
+type keyspaceStrategy struct {
+	base                 *int64
+	effective            *int64
+	isAccurate           bool
+	multiplicationFactor int64
+	useRuleSplitting     bool
+	avgRuleMultiplier    *float64
+}
+
+// computeKeyspaceStrategy runs hashcat keyspace calculation and derives the
+// salt-adjusted effective keyspace, multiplication factor, rule-splitting
+// decision, and avg rule multiplier. Extracted verbatim from the original inline
+// block in CreateCustomJobExecution so both the synchronous and preparing/finalize
+// paths stay consistent.
+func (s *JobExecutionService) computeKeyspaceStrategy(ctx context.Context, tempPreset *models.PresetJob, hashlist *models.HashList) (keyspaceStrategy, error) {
+	totalKeyspace, effectiveKeyspace, isAccurateKeyspace, err := s.calculateKeyspace(ctx, tempPreset, hashlist)
+	if err != nil {
+		debug.Error("Failed to calculate keyspace for custom job: %v", err)
+		return keyspaceStrategy{}, fmt.Errorf("keyspace calculation is required for job execution: %w", err)
+	}
+
+	// NOTE: useRuleSplitting is determined at creation time for accurate keyspace jobs,
+	// or at first task dispatch (after benchmark) for estimate-based jobs as fallback
+	useRuleSplitting := false
+
+	// Calculate multiplication factor from keyspace values
+	var multiplicationFactor int64 = 1
+	if isAccurateKeyspace && totalKeyspace != nil && *totalKeyspace > 0 && effectiveKeyspace != nil && *effectiveKeyspace > 0 {
+		multiplicationFactor = *effectiveKeyspace / *totalKeyspace
+		if multiplicationFactor < 1 {
+			multiplicationFactor = 1
+		}
+	}
+
+	// For salted hash types, adjust effective_keyspace by salt count
+	// calculateKeyspace's --total-candidates = base × rules (no hashlist when run)
+	// Job's effective_keyspace = base × rules × salts (to match progress[1])
+	if effectiveKeyspace != nil && *effectiveKeyspace > 0 {
+		hashType, htErr := s.hashTypeRepo.GetByID(ctx, hashlist.HashTypeID)
+		if htErr == nil && hashType != nil && hashType.IsSalted {
+			saltCount := int64(hashlist.TotalHashes)
+			if saltCount > 0 {
+				originalEffective := *effectiveKeyspace
+				adjustedEffective := originalEffective * saltCount
+				effectiveKeyspace = &adjustedEffective
+				// Also adjust multiplication factor
+				if totalKeyspace != nil && *totalKeyspace > 0 {
+					multiplicationFactor = adjustedEffective / *totalKeyspace
+				}
+				debug.Log("Applied salt adjustment to effective keyspace at custom job creation", map[string]interface{}{
+					"custom_job_name":    tempPreset.Name,
+					"hash_type_id":       hashlist.HashTypeID,
+					"is_salted":          true,
+					"salt_count":         saltCount,
+					"original_effective": originalEffective,
+					"adjusted_effective": adjustedEffective,
+				})
+			}
+		}
+	}
+
+	// Determine rule splitting at creation time for accurate keyspace jobs
+	// This avoids race conditions and mid-job switching issues - can't change strategy after tasks are dispatched
+	if isAccurateKeyspace &&
+		(tempPreset.AttackMode == models.AttackModeStraight || tempPreset.AttackMode == models.AttackModeAssociation) &&
+		len(tempPreset.RuleIDs) > 0 {
+
+		// Check if rule splitting is enabled
+		ruleSplitEnabled, err := s.systemSettingsRepo.GetSetting(ctx, "rule_split_enabled")
+		if err == nil && ruleSplitEnabled != nil && ruleSplitEnabled.Value != nil && *ruleSplitEnabled.Value == "true" {
+			// Get minimum rules threshold
+			minRulesSetting, _ := s.systemSettingsRepo.GetSetting(ctx, "rule_split_min_rules")
+			minRules := 100 // default
+			if minRulesSetting != nil && minRulesSetting.Value != nil {
+				if parsed, parseErr := strconv.Atoi(*minRulesSetting.Value); parseErr == nil {
+					minRules = parsed
+				}
+			}
+
+			// Enable rule splitting if we have enough rules
+			// Use actual rule count (not salt-adjusted multiplicationFactor) for minRules comparison
+			actualRuleCount, ruleErr := s.GetTotalRuleCount(ctx, tempPreset.RuleIDs)
+			if ruleErr != nil {
+				actualRuleCount = int64(multiplicationFactor) // Fallback to multiplicationFactor
+			}
+			if int(actualRuleCount) >= minRules {
+				useRuleSplitting = true
+				debug.Log("Rule splitting enabled at custom job creation", map[string]interface{}{
+					"custom_job_name":       tempPreset.Name,
+					"actual_rule_count":     actualRuleCount,
+					"multiplication_factor": multiplicationFactor,
+					"min_rules":             minRules,
+					"is_accurate_keyspace":  isAccurateKeyspace,
+				})
+			}
+		}
+	}
+
+	// Set avg_rule_multiplier for accurate keyspace jobs (used in progress calculations)
+	var avgRuleMultiplier *float64
+	if isAccurateKeyspace && multiplicationFactor > 0 {
+		v := float64(multiplicationFactor)
+		avgRuleMultiplier = &v
+	}
+
+	return keyspaceStrategy{
+		base:                 totalKeyspace,
+		effective:            effectiveKeyspace,
+		isAccurate:           isAccurateKeyspace,
+		multiplicationFactor: multiplicationFactor,
+		useRuleSplitting:     useRuleSplitting,
+		avgRuleMultiplier:    avgRuleMultiplier,
+	}, nil
+}
+
+// resolveChunkSize resolves the chunk duration from the request or system settings.
+func (s *JobExecutionService) resolveChunkSize(ctx context.Context, requested int) int {
+	chunkSize := requested
+	if chunkSize <= 0 {
+		if setting, err := s.systemSettingsRepo.GetSetting(ctx, "default_chunk_duration"); err == nil && setting != nil && setting.Value != nil {
+			if parsed, parseErr := parseIntValueFromString(*setting.Value); parseErr == nil {
+				chunkSize = parsed
+			}
+		}
+		if chunkSize <= 0 {
+			chunkSize = 900
+		}
+	}
+	return chunkSize
+}
+
+// buildTempPresetFromConfig builds the preset-shaped struct used for keyspace
+// calculation from a custom-job config.
+func buildTempPresetFromConfig(config CustomJobConfig, hashTypeID, chunkSize int) *models.PresetJob {
+	tempPreset := &models.PresetJob{
+		Name:                      config.Name,
+		WordlistIDs:               config.WordlistIDs,
+		RuleIDs:                   config.RuleIDs,
+		AttackMode:                config.AttackMode,
+		HashType:                  hashTypeID,
+		BinaryVersion:             config.BinaryVersion,
+		Mask:                      config.Mask,
+		CustomCharsets:            config.CustomCharsets,
+		CustomCharsetFiles:        config.CustomCharsetFiles,
+		HexCharset:                config.HexCharset,
+		Priority:                  config.Priority,
+		MaxAgents:                 config.MaxAgents,
+		AllowHighPriorityOverride: config.AllowHighPriorityOverride,
+		ChunkSizeSeconds:          chunkSize,
+		StatusUpdatesEnabled:      true,
+		IncrementMode:             config.IncrementMode,
+		IncrementMin:              config.IncrementMin,
+		IncrementMax:              config.IncrementMax,
+	}
+	if config.AssociationWordlistID != nil {
+		assocIDStr := config.AssociationWordlistID.String()
+		tempPreset.AssociationWordlistID = &assocIDStr
+	}
+	return tempPreset
+}
+
+// CreatePreparingFilterJob creates a job_executions row in the "preparing" state
+// for a custom job whose ephemeral filtered wordlist is still generating (GH #40).
+// It carries the user's chosen config (so the jobs table shows real details) but
+// no keyspace and no scheduling_units, so the scheduler ignores it. Call
+// FinalizeFilterJob once the wordlist is ready, or FailJob on error.
+func (s *JobExecutionService) CreatePreparingFilterJob(ctx context.Context, config CustomJobConfig, hashlistID int64, createdBy *uuid.UUID, name string) (*models.JobExecution, error) {
+	hashlist, err := s.hashlistRepo.GetByID(ctx, hashlistID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get hashlist: %w", err)
+	}
+	chunkSize := s.resolveChunkSize(ctx, config.ChunkSizeSeconds)
+
+	jobExecution := &models.JobExecution{
+		PresetJobID:               nil,
+		HashlistID:                hashlistID,
+		AssociationWordlistID:     config.AssociationWordlistID,
+		Status:                    models.JobExecutionStatusPreparing,
+		Priority:                  config.Priority,
+		AttackMode:                config.AttackMode,
+		MaxAgents:                 config.MaxAgents,
+		CreatedBy:                 createdBy,
+		Name:                      name,
+		WordlistIDs:               config.WordlistIDs, // user's selection (display only until finalize)
+		RuleIDs:                   config.RuleIDs,
+		HashType:                  hashlist.HashTypeID,
+		ChunkSizeSeconds:          chunkSize,
+		StatusUpdatesEnabled:      true,
+		AllowHighPriorityOverride: config.AllowHighPriorityOverride,
+		BinaryVersion:             config.BinaryVersion,
+		Mask:                      config.Mask,
+		CustomCharsets:            config.CustomCharsets,
+		CustomCharsetFiles:        config.CustomCharsetFiles,
+		HexCharset:                config.HexCharset,
+		AdditionalArgs:            config.AdditionalArgs,
+		IncrementMode:             config.IncrementMode,
+		IncrementMin:              config.IncrementMin,
+		IncrementMax:              config.IncrementMax,
+		MultiplicationFactor:      1,
+	}
+	if err := s.jobExecRepo.Create(ctx, jobExecution); err != nil {
+		return nil, fmt.Errorf("failed to create preparing job: %w", err)
+	}
+	return jobExecution, nil
+}
+
+// FinalizeFilterJob completes a preparing job once its filtered wordlist(s) exist:
+// config.WordlistIDs must already point at the generated (filtered) wordlists. It
+// computes keyspace, persists the swapped wordlist IDs + keyspace, creates
+// scheduling units, and flips the job to pending so the scheduler can dispatch it.
+func (s *JobExecutionService) FinalizeFilterJob(ctx context.Context, jobID uuid.UUID, config CustomJobConfig) error {
+	job, err := s.jobExecRepo.GetByID(ctx, jobID)
+	if err != nil {
+		return fmt.Errorf("failed to load preparing job: %w", err)
+	}
+	hashlist, err := s.hashlistRepo.GetByID(ctx, job.HashlistID)
+	if err != nil {
+		return fmt.Errorf("failed to get hashlist: %w", err)
+	}
+
+	tempPreset := buildTempPresetFromConfig(config, hashlist.HashTypeID, job.ChunkSizeSeconds)
+
+	ks, err := s.computeKeyspaceStrategy(ctx, tempPreset, hashlist)
+	if err != nil {
+		return err
+	}
+
+	// Persist the swapped (filtered) wordlist IDs and keyspace onto the existing row.
+	job.WordlistIDs = config.WordlistIDs
+	job.BaseKeyspace = ks.base
+	job.EffectiveKeyspace = ks.effective
+	job.MultiplicationFactor = ks.multiplicationFactor
+	job.IsAccurateKeyspace = ks.isAccurate
+	job.UsesRuleSplitting = ks.useRuleSplitting
+	job.AvgRuleMultiplier = ks.avgRuleMultiplier
+
+	if err := s.jobExecRepo.UpdateWordlistIDs(ctx, jobID, config.WordlistIDs); err != nil {
+		return fmt.Errorf("failed to update wordlist ids: %w", err)
+	}
+	if err := s.jobExecRepo.UpdateKeyspaceInfo(ctx, job); err != nil {
+		return fmt.Errorf("failed to update keyspace info: %w", err)
+	}
+
+	// Mirror CreateCustomJobExecution's post-keyspace steps.
+	if err := s.initializeIncrementLayers(ctx, job, tempPreset); err != nil {
+		return fmt.Errorf("failed to initialize increment layers: %w", err)
+	}
+	if (job.IncrementMode == "" || job.IncrementMode == "off") && !job.IsAccurateKeyspace {
+		if err := s.calculateEffectiveKeyspace(ctx, job, tempPreset); err != nil {
+			debug.Error("Failed to calculate effective keyspace for finalized job %s: %v", jobID, err)
+		}
+	}
+	s.populateSchedulingUnitsIfEnabled(ctx, job)
+
+	// Open the dispatch gate.
+	if err := s.jobExecRepo.UpdateStatus(ctx, jobID, models.JobExecutionStatusPending); err != nil {
+		return fmt.Errorf("failed to set job pending: %w", err)
+	}
+	debug.Info("Finalized filtered custom job %s (preparing -> pending)", jobID)
+	return nil
+}
+
+// FailJob marks a job failed with a reason and dispatches the job-failed
+// notification. Used to surface preparation failures (e.g. a 0-match filter or a
+// full disk) to the user as a failed job in the table (GH #40).
+func (s *JobExecutionService) FailJob(ctx context.Context, jobID uuid.UUID, reason string) error {
+	if err := s.jobExecRepo.FailExecution(ctx, jobID, reason); err != nil {
+		return fmt.Errorf("failed to mark job %s failed: %w", jobID, err)
+	}
+	if jobExec, err := s.jobExecRepo.GetByID(ctx, jobID); err == nil && jobExec.CreatedBy != nil {
+		s.dispatchJobFailedNotification(ctx, jobExec, reason)
+	}
+	return nil
 }
 
 // calculateKeyspace calculates the total keyspace for a job using hashcat --keyspace
@@ -1896,6 +2090,12 @@ func (s *JobExecutionService) CompleteJobExecution(ctx context.Context, jobExecu
 		jobExec, getErr := s.jobExecRepo.GetByID(ctx, jobExecutionID)
 		if getErr == nil && jobExec.CreatedBy != nil {
 			s.dispatchJobFailedNotification(ctx, jobExec, "One or more tasks failed")
+		}
+		// This branch returns before the completion path's CleanupJobResources, so
+		// sweep ephemeral filtered wordlists here too — otherwise a failed ephemeral
+		// job's __eph__ wordlist lingers until the next completed job (GH #40).
+		if err := s.sweepEphemeralWordlists(ctx); err != nil {
+			debug.Error("Failed to sweep ephemeral filtered wordlists on job failure: %v", err)
 		}
 		return nil
 	}
@@ -3510,6 +3710,63 @@ func (s *JobExecutionService) sweepEphemeralWordlists(ctx context.Context) error
 			continue
 		}
 		debug.Info("Swept ephemeral filtered wordlist %d (%s)", e.id, e.fileName)
+	}
+	return nil
+}
+
+// SweepEphemeralWordlists is the exported wrapper around sweepEphemeralWordlists so
+// other callers (e.g. bulk job deletion) can clear stragglers owned by terminal jobs.
+func (s *JobExecutionService) SweepEphemeralWordlists(ctx context.Context) error {
+	return s.sweepEphemeralWordlists(ctx)
+}
+
+// CleanupEphemeralWordlistsForJob removes the file and DB row for every ephemeral
+// (job-scoped) filtered wordlist owned by jobID, regardless of the job's status
+// (GH #40). This must run on explicit job DELETE *before* the job row is removed:
+// the wordlists.owner_job_id FK is ON DELETE CASCADE, so deleting the job first drops
+// the wordlist row and leaves its file orphaned on disk with nothing pointing at it
+// (sweepEphemeralWordlists keys off owner_job_id and could never find it again).
+// Best-effort and safe to call for jobs that own no ephemeral wordlists.
+func (s *JobExecutionService) CleanupEphemeralWordlistsForJob(ctx context.Context, jobID uuid.UUID) error {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, file_name
+		FROM wordlists
+		WHERE is_ephemeral = true AND owner_job_id = $1`, jobID)
+	if err != nil {
+		return fmt.Errorf("query ephemeral wordlists for job %s: %w", jobID, err)
+	}
+	defer rows.Close()
+
+	type ephemeral struct {
+		id       int
+		fileName string
+	}
+	var toDelete []ephemeral
+	for rows.Next() {
+		var e ephemeral
+		if err := rows.Scan(&e.id, &e.fileName); err != nil {
+			debug.Error("Failed to scan ephemeral wordlist row for job %s: %v", jobID, err)
+			continue
+		}
+		toDelete = append(toDelete, e)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for _, e := range toDelete {
+		filePath := filepath.Join(s.dataDirectory, "wordlists", e.fileName)
+		if rmErr := os.Remove(filePath); rmErr != nil && !os.IsNotExist(rmErr) {
+			debug.Error("Failed to remove ephemeral wordlist file %s: %v", filePath, rmErr)
+		}
+		if _, delErr := s.db.ExecContext(ctx, "DELETE FROM wordlist_tags WHERE wordlist_id = $1", e.id); delErr != nil {
+			debug.Error("Failed to delete tags for ephemeral wordlist %d: %v", e.id, delErr)
+		}
+		if _, delErr := s.db.ExecContext(ctx, "DELETE FROM wordlists WHERE id = $1", e.id); delErr != nil {
+			debug.Error("Failed to delete ephemeral wordlist row %d: %v", e.id, delErr)
+			continue
+		}
+		debug.Info("Deleted ephemeral filtered wordlist %d (%s) on job %s deletion", e.id, e.fileName, jobID)
 	}
 	return nil
 }

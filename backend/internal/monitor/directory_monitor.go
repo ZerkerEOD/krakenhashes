@@ -190,6 +190,22 @@ func (m *DirectoryMonitor) checkWordlistDirectory() {
 			return nil
 		}
 
+		// Skip transient temp files (partial writes / in-progress generation,
+		// e.g. filtered-wordlist staging). They are renamed into place when ready.
+		if strings.HasSuffix(info.Name(), ".tmp") || strings.HasSuffix(info.Name(), ".part") {
+			return nil
+		}
+
+		// Skip ephemeral (__eph__) job-scoped filtered wordlists (GH #40). They belong to a
+		// single job and are managed by the filter flow + job cleanup, never the monitor. If
+		// one is ever orphaned on disk, the monitor must NOT re-import it as a standalone
+		// regular wordlist (which would make it is_ephemeral=false, owner_job_id=NULL and leak
+		// it into other jobs' pickers permanently).
+		if strings.HasPrefix(info.Name(), wordlist.EphemeralFilenamePrefix) {
+			debug.Debug("Skipping ephemeral filtered wordlist from directory monitoring: %s", info.Name())
+			return nil
+		}
+
 		// Get relative path
 		relPath, err := filepath.Rel(m.wordlistDir, path)
 		if err != nil {
@@ -538,6 +554,11 @@ func (m *DirectoryMonitor) checkRuleDirectory() {
 
 		// Skip directories and hidden files
 		if info.IsDir() || strings.HasPrefix(info.Name(), ".") {
+			return nil
+		}
+
+		// Skip transient temp files (partial writes / in-progress generation).
+		if strings.HasSuffix(info.Name(), ".tmp") || strings.HasSuffix(info.Name(), ".part") {
 			return nil
 		}
 
