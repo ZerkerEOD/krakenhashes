@@ -100,8 +100,10 @@ func (h *Handler) HandleCreateFilteredWordlist(w http.ResponseWriter, r *http.Re
 	httputil.RespondWithJSON(w, http.StatusAccepted, wl)
 }
 
-// HandleRegenerateFilteredWordlist re-runs generation for a filtered wordlist
-// (e.g. after its parent changed). Returns 202.
+// HandleRegenerateFilteredWordlist runs a manual FULL regeneration of a filtered
+// wordlist. Automatic regeneration on parent change is incremental; this manual
+// action forces a full rebuild (the escape hatch for non-append parent edits or a
+// failed prior regeneration). Returns 202.
 func (h *Handler) HandleRegenerateFilteredWordlist(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -127,8 +129,8 @@ func (h *Handler) HandleRegenerateFilteredWordlist(w http.ResponseWriter, r *htt
 	}
 
 	go func(id int) {
-		if err := h.manager.RegenerateFilteredWordlist(context.Background(), id); err != nil {
-			debug.Error("Background regeneration of filtered wordlist %d failed: %v", id, err)
+		if err := h.manager.RegenerateFilteredWordlistFull(context.Background(), id); err != nil {
+			debug.Error("Background full regeneration of filtered wordlist %d failed: %v", id, err)
 		}
 	}(id)
 

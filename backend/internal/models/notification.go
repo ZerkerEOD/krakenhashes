@@ -27,6 +27,7 @@ const (
 	NotificationTypeSecurityMFADisabled    NotificationType = "security_mfa_disabled"
 	NotificationTypeSecurityPasswordChanged NotificationType = "security_password_changed"
 	NotificationTypeWebhookFailure         NotificationType = "webhook_failure"
+	NotificationTypeWordlistRegenFailed    NotificationType = "wordlist_regen_failed"
 )
 
 // AllNotificationTypes returns all valid notification types
@@ -45,6 +46,7 @@ func AllNotificationTypes() []NotificationType {
 		NotificationTypeSecurityMFADisabled,
 		NotificationTypeSecurityPasswordChanged,
 		NotificationTypeWebhookFailure,
+		NotificationTypeWordlistRegenFailed,
 	}
 }
 
@@ -63,7 +65,8 @@ func (t NotificationType) IsValid() bool {
 		NotificationTypeSecuritySuspiciousLogin,
 		NotificationTypeSecurityMFADisabled,
 		NotificationTypeSecurityPasswordChanged,
-		NotificationTypeWebhookFailure:
+		NotificationTypeWebhookFailure,
+		NotificationTypeWordlistRegenFailed:
 		return true
 	}
 	return false

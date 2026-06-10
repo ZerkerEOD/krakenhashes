@@ -58,6 +58,13 @@ type Wordlist struct {
 	IsEphemeral      bool            `json:"is_ephemeral"`
 	OwnerJobID       *uuid.UUID      `json:"owner_job_id,omitempty"`
 	IsStale          bool            `json:"is_stale"`
+
+	// Incremental-regeneration index (GH #40 follow-up). Populated only for
+	// derived/filtered wordlists, and only when an incremental append is possible
+	// (NULL for compressed parents / before the first generation). See migration
+	// 000160 for semantics.
+	ParentOffset    *int64  `json:"parent_offset,omitempty"`
+	ParentAnchorMD5 *string `json:"parent_anchor_md5,omitempty"`
 }
 
 // WordlistFilter describes the criteria used to derive a filtered wordlist from

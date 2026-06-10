@@ -26,17 +26,28 @@ type JobUpdateHandler interface {
 	HandleRuleUpdate(ctx context.Context, ruleID int, oldCount, newCount int64) error
 }
 
+// RegenFailureNotifier is notified when automatic regeneration of a filtered
+// wordlist (after its parent changed) fails, so the failure reaches admins + the
+// audit log (GH #40 follow-up). The monitor package cannot import services (that
+// would be an import cycle), so this is injected, mirroring JobUpdateHandler.
+type RegenFailureNotifier interface {
+	NotifyFilteredRegenFailed(ctx context.Context, child *models.Wordlist, cause error)
+}
+
 // DirectoryMonitor watches directories for file changes
 type DirectoryMonitor struct {
 	wordlistManager  wordlist.Manager
 	ruleManager      rule.Manager
 	jobUpdateHandler JobUpdateHandler
+	regenNotifier    RegenFailureNotifier
 	hashCache        *filehash.Cache
 	wordlistDir      string
 	ruleDir          string
 	interval         time.Duration
 	systemUserID     uuid.UUID
 	stopChan         chan struct{}
+	ctx              context.Context
+	cancel           context.CancelFunc
 	wg               sync.WaitGroup
 
 	// Worker pool control
@@ -46,6 +57,13 @@ type DirectoryMonitor struct {
 	// Track files being processed
 	processingFiles sync.Map
 	fileStatuses    sync.Map
+
+	// Serialized auto-regeneration of stale filtered children (GH #40 follow-up).
+	// A single worker drains regenQueue so large (25GB+) rebuilds run one at a time
+	// and never consume the file-import worker pool; regenInFlight dedupes a child
+	// across poll cycles.
+	regenQueue    chan int
+	regenInFlight sync.Map
 }
 
 // NewDirectoryMonitor creates a new directory monitor
@@ -56,29 +74,43 @@ func NewDirectoryMonitor(
 	interval time.Duration,
 	systemUserID uuid.UUID,
 	jobUpdateHandler JobUpdateHandler,
+	regenNotifier RegenFailureNotifier,
 	hashCache *filehash.Cache,
 ) *DirectoryMonitor {
 	// Default to 4 concurrent workers
 	maxWorkers := 4
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	return &DirectoryMonitor{
 		wordlistManager:  wordlistManager,
 		ruleManager:      ruleManager,
 		jobUpdateHandler: jobUpdateHandler,
+		regenNotifier:    regenNotifier,
 		hashCache:        hashCache,
 		wordlistDir:      wordlistDir,
 		ruleDir:          ruleDir,
 		interval:         interval,
 		systemUserID:     systemUserID,
 		stopChan:         make(chan struct{}),
+		ctx:              ctx,
+		cancel:           cancel,
 		maxWorkers:       maxWorkers,
 		workerSem:        make(chan struct{}, maxWorkers),
+		regenQueue:       make(chan int, 256),
 	}
 }
 
 // Start begins monitoring directories
 func (m *DirectoryMonitor) Start() {
 	debug.Info("Starting directory monitor")
+
+	// Serialized filtered-wordlist auto-regeneration worker (GH #40 follow-up).
+	// Started before the initial checks so any children flagged stale on the first
+	// scan are picked up.
+	m.wg.Add(1)
+	go m.regenWorker()
+
 	m.wg.Add(2)
 
 	// Perform initial checks immediately
@@ -124,8 +156,71 @@ func (m *DirectoryMonitor) Start() {
 // Stop stops monitoring directories
 func (m *DirectoryMonitor) Stop() {
 	debug.Info("Stopping directory monitor")
+	m.cancel() // abort any in-flight filtered-wordlist regeneration promptly
 	close(m.stopChan)
 	m.wg.Wait()
+}
+
+// regenWorker serially drains the auto-regeneration queue (GH #40 follow-up).
+func (m *DirectoryMonitor) regenWorker() {
+	defer m.wg.Done()
+	for {
+		select {
+		case id := <-m.regenQueue:
+			m.processRegen(id)
+		case <-m.stopChan:
+			return
+		}
+	}
+}
+
+// processRegen regenerates one filtered child (incremental when possible) and
+// surfaces failures to admins + the audit log via the injected notifier.
+func (m *DirectoryMonitor) processRegen(id int) {
+	defer m.regenInFlight.Delete(id)
+
+	if err := m.wordlistManager.RegenerateFilteredWordlist(m.ctx, id); err != nil {
+		if m.ctx.Err() != nil {
+			// Shutdown/cancellation, not a real failure — let it retry next time.
+			return
+		}
+		debug.Error("Auto-regeneration of filtered wordlist %d failed: %v", id, err)
+		if m.regenNotifier != nil {
+			if child, gerr := m.wordlistManager.GetWordlist(m.ctx, id); gerr == nil && child != nil {
+				m.regenNotifier.NotifyFilteredRegenFailed(m.ctx, child, err)
+			}
+		}
+		return
+	}
+	debug.Info("Auto-regenerated filtered wordlist %d", id)
+}
+
+// enqueueStaleChildrenRegen queues this parent's stale, permanent filtered children
+// for serialized auto-regeneration (GH #40 follow-up). Ephemeral (__eph__) children
+// are job-scoped and never regenerated here. Called after a parent's on-disk change
+// is recorded (which already flagged the children stale via MarkChildrenStale).
+func (m *DirectoryMonitor) enqueueStaleChildrenRegen(ctx context.Context, parentID int) {
+	children, err := m.wordlistManager.GetFilteredChildren(ctx, parentID)
+	if err != nil {
+		debug.Error("Failed to list filtered children of wordlist %d for auto-regeneration: %v", parentID, err)
+		return
+	}
+	for _, child := range children {
+		if child.IsEphemeral || !child.IsStale {
+			continue
+		}
+		if _, loaded := m.regenInFlight.LoadOrStore(child.ID, true); loaded {
+			continue // already queued or regenerating
+		}
+		select {
+		case m.regenQueue <- child.ID:
+			debug.Info("Queued filtered wordlist %d (%s) for auto-regeneration (parent %d changed)", child.ID, child.Name, parentID)
+		default:
+			// Queue full; release the in-flight marker so a later trigger can retry.
+			m.regenInFlight.Delete(child.ID)
+			debug.Warning("Regeneration queue full; deferring auto-regeneration of filtered wordlist %d", child.ID)
+		}
+	}
 }
 
 // isFileStable checks if a file has not been modified for the given duration
@@ -448,6 +543,11 @@ func (m *DirectoryMonitor) updateExistingWordlist(ctx context.Context, fullPath,
 		debug.Error("Failed to update wordlist file info: %v", err)
 		return
 	}
+
+	// The parent's new MD5 is now recorded and its permanent filtered children were
+	// flagged stale (inside UpdateWordlistFileInfo → MarkChildrenStale). Queue them
+	// for serialized auto-regeneration against the new parent content (GH #40 follow-up).
+	m.enqueueStaleChildrenRegen(ctx, wordlistID)
 
 	// Determine wordlist type based on directory structure
 	wordlistType := determineWordlistType(relPath)

@@ -56,6 +56,7 @@ type Manager interface {
 	CreateFilteredWordlistRecord(ctx context.Context, parentID int, name, description string, filter models.WordlistFilter, ephemeral bool, ownerJobID *uuid.UUID, userID uuid.UUID) (*models.Wordlist, error)
 	GenerateFilteredWordlist(ctx context.Context, wordlistID int) error
 	RegenerateFilteredWordlist(ctx context.Context, wordlistID int) error
+	RegenerateFilteredWordlistFull(ctx context.Context, wordlistID int) error
 	PreviewFilter(ctx context.Context, parentID int, filter models.WordlistFilter, sampleLines int64) (*models.FilterPreviewResponse, error)
 	GetFilteredChildren(ctx context.Context, parentID int) ([]*models.Wordlist, error)
 	GetEphemeralWordlistsByJob(ctx context.Context, jobID uuid.UUID) ([]*models.Wordlist, error)
@@ -81,7 +82,9 @@ type WordlistStore interface {
 	GetEphemeralByJob(ctx context.Context, jobID uuid.UUID) ([]*models.Wordlist, error)
 	MarkChildrenStale(ctx context.Context, parentID int, currentParentMD5 string) error
 	ClearStale(ctx context.Context, id int) error
+	ClearFilteredIndex(ctx context.Context, id int) error
 	UpdateFilteredParentMD5(ctx context.Context, id int, parentMD5 string) error
+	UpdateFilteredIndex(ctx context.Context, id int, parentMD5 string, parentOffset *int64, anchorMD5 *string) error
 	SetWordlistOwnerJob(ctx context.Context, wordlistID int, jobID uuid.UUID) error
 
 	// Tag operations
@@ -838,30 +841,49 @@ func isNoSpaceErr(err error) bool {
 	return errors.Is(err, syscall.ENOSPC)
 }
 
+// anchorWindow is the size of the parent tail window whose MD5 is stored as the
+// incremental-regeneration anchor (GH #40 follow-up). On a later parent change we
+// re-hash the new parent's bytes in this same window; if it still matches and the
+// file only grew, the change is an append and we can filter just the new tail.
+const anchorWindow int64 = 1 << 20 // 1 MiB
+
+// isCompressedPath reports whether a wordlist file is a compressed archive whose
+// decompressed byte offsets are not seekable — such parents always full-rebuild.
+func isCompressedPath(p string) bool {
+	switch strings.ToLower(path.Ext(p)) {
+	case ".gz", ".zip":
+		return true
+	default:
+		return false
+	}
+}
+
 // FilterWordlist streams srcPath through the filter and materializes matching
 // lines (normalized to '\n' line endings) at dstPath. It returns the number of
-// matching lines and the MD5 of the produced file. A partial .tmp is removed on
-// any error, including running out of disk space.
-func (m *manager) FilterWordlist(ctx context.Context, srcPath, dstPath string, f models.WordlistFilter) (int64, string, error) {
+// matching lines, the MD5 of the produced file, and the source byte offset up to
+// the last COMPLETE line consumed (used as the incremental-regeneration index for
+// plaintext parents). A partial .tmp is removed on any error, including running
+// out of disk space.
+func (m *manager) FilterWordlist(ctx context.Context, srcPath, dstPath string, f models.WordlistFilter) (int64, string, int64, error) {
 	cf, err := compileFilter(f)
 	if err != nil {
-		return 0, "", err
+		return 0, "", 0, err
 	}
 
 	if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
-		return 0, "", err
+		return 0, "", 0, err
 	}
 
 	// Best-effort free-space pre-check: require at least the source size free.
 	if info, statErr := os.Stat(srcPath); statErr == nil {
 		if free, derr := freeDiskSpace(filepath.Dir(dstPath)); derr == nil && free < uint64(info.Size()) {
-			return 0, "", fmt.Errorf("insufficient disk space to filter wordlist: need ~%d bytes free, have %d", info.Size(), free)
+			return 0, "", 0, fmt.Errorf("insufficient disk space to filter wordlist: need ~%d bytes free, have %d", info.Size(), free)
 		}
 	}
 
 	reader, err := openWordlistReader(srcPath)
 	if err != nil {
-		return 0, "", err
+		return 0, "", 0, err
 	}
 	defer reader.Close()
 
@@ -872,7 +894,7 @@ func (m *manager) FilterWordlist(ctx context.Context, srcPath, dstPath string, f
 	tmpPath := filepath.Join(filepath.Dir(dstPath), "."+filepath.Base(dstPath)+".tmp")
 	out, err := os.Create(tmpPath)
 	if err != nil {
-		return 0, "", err
+		return 0, "", 0, err
 	}
 
 	hash := md5.New()
@@ -880,6 +902,13 @@ func (m *manager) FilterWordlist(ctx context.Context, srcPath, dstPath string, f
 	br := bufio.NewReaderSize(reader, 16*1024*1024)
 
 	var count int64
+	// srcBytes tracks every byte consumed from the source. Because the parent is
+	// stable when we filter it, the consumed offset is the full byte count (every
+	// line read — including a final line with no trailing '\n' — is written), so the
+	// child holds exactly the matches for source bytes [0, srcBytes) and the next
+	// append resumes cleanly at srcBytes. For plaintext sources this is a file
+	// offset; for compressed sources the caller ignores it.
+	var srcBytes int64
 	var genErr error
 	for {
 		if ctx.Err() != nil {
@@ -888,6 +917,7 @@ func (m *manager) FilterWordlist(ctx context.Context, srcPath, dstPath string, f
 		}
 		line, rerr := br.ReadString('\n')
 		if len(line) > 0 {
+			srcBytes += int64(len(line))
 			trimmed := strings.TrimRight(line, "\r\n")
 			if cf.match(trimmed) {
 				if _, werr := writer.WriteString(trimmed); werr != nil {
@@ -922,17 +952,148 @@ func (m *manager) FilterWordlist(ctx context.Context, srcPath, dstPath string, f
 	if genErr != nil {
 		os.Remove(tmpPath)
 		if isNoSpaceErr(genErr) {
-			return 0, "", fmt.Errorf("ran out of disk space while filtering wordlist: %w", genErr)
+			return 0, "", 0, fmt.Errorf("ran out of disk space while filtering wordlist: %w", genErr)
 		}
-		return 0, "", genErr
+		return 0, "", 0, genErr
 	}
 
 	if err := os.Rename(tmpPath, dstPath); err != nil {
 		os.Remove(tmpPath)
-		return 0, "", err
+		return 0, "", 0, err
 	}
 
-	return count, hex.EncodeToString(hash.Sum(nil)), nil
+	return count, hex.EncodeToString(hash.Sum(nil)), srcBytes, nil
+}
+
+// appendFilterWordlist filters only the parent's tail starting at startOffset and
+// APPENDS matching lines to the existing child file (GH #40 follow-up). It is the
+// fast path for append-only parent growth: order is preserved (existing matches
+// stay, new matches are appended) so dispatch/keyspace ordering is unaffected.
+// Returns the number of newly appended matches and the new source offset up to the
+// last complete line. Only valid for plaintext parents (byte-seekable).
+func (m *manager) appendFilterWordlist(ctx context.Context, srcPath, dstPath string, f models.WordlistFilter, startOffset int64) (int64, int64, error) {
+	cf, err := compileFilter(f)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	src, err := os.Open(srcPath)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer src.Close()
+	if _, err := src.Seek(startOffset, io.SeekStart); err != nil {
+		return 0, 0, err
+	}
+
+	out, err := os.OpenFile(dstPath, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	writer := bufio.NewWriterSize(out, 4*1024*1024)
+	br := bufio.NewReaderSize(src, 16*1024*1024)
+
+	var newCount int64
+	var srcBytes int64
+	var genErr error
+	for {
+		if ctx.Err() != nil {
+			genErr = ctx.Err()
+			break
+		}
+		line, rerr := br.ReadString('\n')
+		if len(line) > 0 {
+			srcBytes += int64(len(line))
+			trimmed := strings.TrimRight(line, "\r\n")
+			if cf.match(trimmed) {
+				if _, werr := writer.WriteString(trimmed); werr != nil {
+					genErr = werr
+					break
+				}
+				if werr := writer.WriteByte('\n'); werr != nil {
+					genErr = werr
+					break
+				}
+				newCount++
+			}
+		}
+		if rerr == io.EOF {
+			break
+		}
+		if rerr != nil {
+			genErr = rerr
+			break
+		}
+	}
+	consumed := startOffset + srcBytes
+
+	if genErr == nil {
+		if ferr := writer.Flush(); ferr != nil {
+			genErr = ferr
+		}
+	}
+	// fsync the appended bytes before the caller updates the DB so a crash can't
+	// leave the on-disk file ahead of the recorded word_count/offset undetected.
+	if genErr == nil {
+		if serr := out.Sync(); serr != nil {
+			genErr = serr
+		}
+	}
+	if cerr := out.Close(); cerr != nil && genErr == nil {
+		genErr = cerr
+	}
+
+	if genErr != nil {
+		if isNoSpaceErr(genErr) {
+			return 0, 0, fmt.Errorf("ran out of disk space while appending to filtered wordlist: %w", genErr)
+		}
+		return 0, 0, genErr
+	}
+	return newCount, consumed, nil
+}
+
+// computeAnchorMD5 returns the MD5 of the file bytes in the window
+// [offset-anchorWindow, offset). It is the cheap "did the prefix shift?" probe for
+// incremental regeneration. Returns nil when offset is 0 (no window).
+func computeAnchorMD5(filePath string, offset int64) (*string, error) {
+	if offset <= 0 {
+		return nil, nil
+	}
+	start := offset - anchorWindow
+	if start < 0 {
+		start = 0
+	}
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	if _, err := file.Seek(start, io.SeekStart); err != nil {
+		return nil, err
+	}
+	h := md5.New()
+	if _, err := io.CopyN(h, file, offset-start); err != nil {
+		return nil, err
+	}
+	s := hex.EncodeToString(h.Sum(nil))
+	return &s, nil
+}
+
+// hashFileMD5 returns the MD5 and size of a file (used to refresh a child's
+// md5_hash/file_size after an incremental append).
+func hashFileMD5(filePath string) (string, int64, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", 0, err
+	}
+	defer file.Close()
+	h := md5.New()
+	n, err := io.Copy(h, file)
+	if err != nil {
+		return "", 0, err
+	}
+	return hex.EncodeToString(h.Sum(nil)), n, nil
 }
 
 // PreviewFilter estimates how many candidates a filter keeps by sampling the
@@ -1058,8 +1219,12 @@ func (m *manager) SetWordlistOwnerJob(ctx context.Context, wordlistID int, jobID
 	return m.store.SetWordlistOwnerJob(ctx, wordlistID, jobID)
 }
 
-// GenerateFilteredWordlist runs the materialization pass for a filtered wordlist
-// and updates its status to verified (with counts) or failed.
+// GenerateFilteredWordlist (re)materializes a filtered wordlist from its parent
+// and updates its status to verified (with counts) or failed. When the parent only
+// grew append-only since the last generation (verified via the stored
+// offset/anchor index), it filters and appends just the new tail (incremental);
+// otherwise it does a full rebuild. Both paths refresh the index. Used by both the
+// manual Regenerate button and the monitor's auto-regeneration.
 func (m *manager) GenerateFilteredWordlist(ctx context.Context, wordlistID int) error {
 	wl, err := m.store.GetWordlist(ctx, wordlistID)
 	if err != nil {
@@ -1084,15 +1249,57 @@ func (m *manager) GenerateFilteredWordlist(ctx context.Context, wordlistID int) 
 	srcPath := m.GetWordlistPath(parent.FileName, parent.WordlistType)
 	dstPath := m.GetWordlistPath(wl.FileName, wl.WordlistType)
 
-	count, md5hex, ferr := m.FilterWordlist(ctx, srcPath, dstPath, *wl.FilterSpec)
+	if m.canAppendRegenerate(wl, srcPath, dstPath) {
+		if err := m.generateIncremental(ctx, wl, parent, srcPath, dstPath); err != nil {
+			// An incremental append failed (and may have written partial bytes); a
+			// full rebuild writes a fresh file via tmp+rename and self-corrects.
+			debug.Warning("Incremental regeneration of filtered wordlist %d failed (%v); falling back to full rebuild", wordlistID, err)
+		} else {
+			return nil
+		}
+	}
+	return m.generateFull(ctx, wl, parent, srcPath, dstPath)
+}
+
+// canAppendRegenerate reports whether the parent changed in an append-only way that
+// lets us regenerate the child by filtering just the new tail (GH #40 follow-up).
+func (m *manager) canAppendRegenerate(wl *models.Wordlist, srcPath, dstPath string) bool {
+	// Require a prior plaintext index and a seekable (non-compressed) parent.
+	if wl.ParentOffset == nil || wl.ParentAnchorMD5 == nil || isCompressedPath(srcPath) {
+		return false
+	}
+	// The child must exist and match the recorded size; a mismatch means it was
+	// modified out-of-band or a prior append crashed mid-write → full rebuild.
+	childInfo, err := os.Stat(dstPath)
+	if err != nil || childInfo.Size() != wl.FileSize {
+		return false
+	}
+	// The parent must have grown (append-only). Equal or smaller size with a
+	// changed MD5 means content within the prefix changed → full rebuild.
+	parentInfo, err := os.Stat(srcPath)
+	if err != nil || parentInfo.Size() <= *wl.ParentOffset {
+		return false
+	}
+	// Cheap prefix-shift probe: the parent's window ending at the old offset must
+	// still hash to the stored anchor.
+	anchor, err := computeAnchorMD5(srcPath, *wl.ParentOffset)
+	if err != nil || anchor == nil || *anchor != *wl.ParentAnchorMD5 {
+		return false
+	}
+	return true
+}
+
+// generateFull rebuilds the whole filtered child from the parent.
+func (m *manager) generateFull(ctx context.Context, wl, parent *models.Wordlist, srcPath, dstPath string) error {
+	count, md5hex, consumed, ferr := m.FilterWordlist(ctx, srcPath, dstPath, *wl.FilterSpec)
 	if ferr != nil {
-		debug.Error("Failed to generate filtered wordlist %d: %v", wordlistID, ferr)
-		_ = m.store.UpdateWordlistVerification(ctx, wordlistID, "failed", nil)
+		debug.Error("Failed to generate filtered wordlist %d: %v", wl.ID, ferr)
+		_ = m.store.UpdateWordlistVerification(ctx, wl.ID, "failed", nil)
 		return ferr
 	}
 	if count == 0 {
 		os.Remove(dstPath)
-		_ = m.store.UpdateWordlistVerification(ctx, wordlistID, "failed", nil)
+		_ = m.store.UpdateWordlistVerification(ctx, wl.ID, "failed", nil)
 		return fmt.Errorf("filter matched 0 candidates: no word in %q satisfied all criteria (length/character-class/regex are combined with AND) — loosen the filter and try again", parent.Name)
 	}
 
@@ -1100,17 +1307,57 @@ func (m *manager) GenerateFilteredWordlist(ctx context.Context, wordlistID int) 
 	if info, statErr := os.Stat(dstPath); statErr == nil {
 		size = info.Size()
 	}
-	if err := m.store.UpdateWordlistComplete(ctx, wordlistID, md5hex, size, count); err != nil {
+	if err := m.store.UpdateWordlistComplete(ctx, wl.ID, md5hex, size, count); err != nil {
 		return err
 	}
-	if err := m.store.UpdateFilteredParentMD5(ctx, wordlistID, parent.MD5Hash); err != nil {
-		debug.Warning("Failed to record parent MD5 for filtered wordlist %d: %v", wordlistID, err)
+
+	// Capture the incremental index (plaintext parents only; compressed parents
+	// store NULL offset/anchor, forcing a full rebuild next time).
+	var offsetPtr *int64
+	var anchorPtr *string
+	if !isCompressedPath(srcPath) {
+		offsetPtr = &consumed
+		if a, aerr := computeAnchorMD5(srcPath, consumed); aerr == nil {
+			anchorPtr = a
+		}
 	}
-	if err := m.store.ClearStale(ctx, wordlistID); err != nil {
-		debug.Warning("Failed to clear stale flag for filtered wordlist %d: %v", wordlistID, err)
+	if err := m.store.UpdateFilteredIndex(ctx, wl.ID, parent.MD5Hash, offsetPtr, anchorPtr); err != nil {
+		debug.Warning("Failed to record filtered index for wordlist %d: %v", wl.ID, err)
 	}
-	debug.Info("Generated filtered wordlist %d: %d candidates", wordlistID, count)
-	return m.store.UpdateWordlistVerification(ctx, wordlistID, "verified", &count)
+	if err := m.store.ClearStale(ctx, wl.ID); err != nil {
+		debug.Warning("Failed to clear stale flag for filtered wordlist %d: %v", wl.ID, err)
+	}
+	debug.Info("Generated filtered wordlist %d (full): %d candidates", wl.ID, count)
+	return m.store.UpdateWordlistVerification(ctx, wl.ID, "verified", &count)
+}
+
+// generateIncremental filters only the parent's new tail and appends matches to the
+// existing child, preserving order so keyspace/dispatch ordering is unaffected.
+func (m *manager) generateIncremental(ctx context.Context, wl, parent *models.Wordlist, srcPath, dstPath string) error {
+	newCount, consumed, aerr := m.appendFilterWordlist(ctx, srcPath, dstPath, *wl.FilterSpec, *wl.ParentOffset)
+	if aerr != nil {
+		return aerr
+	}
+
+	// Refresh md5/size from the (now larger) child file. A zero-new-match append is
+	// NOT a failure — the child still holds every prior match.
+	md5hex, size, herr := hashFileMD5(dstPath)
+	if herr != nil {
+		return herr
+	}
+	total := wl.WordCount + newCount
+	if err := m.store.UpdateWordlistComplete(ctx, wl.ID, md5hex, size, total); err != nil {
+		return err
+	}
+	anchorPtr, _ := computeAnchorMD5(srcPath, consumed)
+	if err := m.store.UpdateFilteredIndex(ctx, wl.ID, parent.MD5Hash, &consumed, anchorPtr); err != nil {
+		debug.Warning("Failed to record filtered index for wordlist %d: %v", wl.ID, err)
+	}
+	if err := m.store.ClearStale(ctx, wl.ID); err != nil {
+		debug.Warning("Failed to clear stale flag for filtered wordlist %d: %v", wl.ID, err)
+	}
+	debug.Info("Regenerated filtered wordlist %d (incremental): +%d candidates (total %d)", wl.ID, newCount, total)
+	return m.store.UpdateWordlistVerification(ctx, wl.ID, "verified", &total)
 }
 
 // RegenerateFilteredWordlist re-runs generation for an existing filtered
@@ -1125,6 +1372,32 @@ func (m *manager) RegenerateFilteredWordlist(ctx context.Context, wordlistID int
 	}
 	if wl.ParentWordlistID == nil {
 		return fmt.Errorf("wordlist %d is not a filtered wordlist", wordlistID)
+	}
+	if err := m.store.UpdateWordlistVerification(ctx, wordlistID, "pending", nil); err != nil {
+		return err
+	}
+	return m.GenerateFilteredWordlist(ctx, wordlistID)
+}
+
+// RegenerateFilteredWordlistFull forces a FULL rebuild of a filtered wordlist,
+// bypassing the incremental append fast-path (GH #40 follow-up). It drops the
+// incremental index first so the next generation re-streams the entire parent. This
+// is the manual "Regenerate" action — the escape hatch for when the parent changed
+// in a non-append way (reorder/rewrite) or a prior regeneration failed; automatic
+// regeneration on parent change stays incremental.
+func (m *manager) RegenerateFilteredWordlistFull(ctx context.Context, wordlistID int) error {
+	wl, err := m.store.GetWordlist(ctx, wordlistID)
+	if err != nil {
+		return err
+	}
+	if wl == nil {
+		return fmt.Errorf("wordlist not found")
+	}
+	if wl.ParentWordlistID == nil {
+		return fmt.Errorf("wordlist %d is not a filtered wordlist", wordlistID)
+	}
+	if err := m.store.ClearFilteredIndex(ctx, wordlistID); err != nil {
+		debug.Warning("Failed to clear filtered index for wordlist %d: %v", wordlistID, err)
 	}
 	if err := m.store.UpdateWordlistVerification(ctx, wordlistID, "pending", nil); err != nil {
 		return err
