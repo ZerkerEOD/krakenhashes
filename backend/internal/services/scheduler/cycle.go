@@ -862,6 +862,7 @@ func (c *Cycle) getIdleAgents(ctx context.Context) ([]AgentInfo, error) {
 		FROM agents a
 		WHERE a.id = ANY($1::bigint[])
 		  AND a.is_enabled = true
+		  AND a.status <> 'updating'
 		  AND NOT EXISTS (
 			  SELECT 1 FROM job_tasks t
 			  WHERE t.agent_id = a.id

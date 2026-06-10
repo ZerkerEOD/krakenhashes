@@ -98,6 +98,10 @@ func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.S
 	adminRouter.HandleFunc("/settings/agent-download", agentSettingsHandler.GetAgentDownloadSettings).Methods(http.MethodGet, http.MethodOptions)
 	adminRouter.HandleFunc("/settings/agent-download", agentSettingsHandler.UpdateAgentDownloadSettings).Methods(http.MethodPut, http.MethodOptions)
 
+	// Agent auto-update settings routes - Must be before generic {key} route
+	adminRouter.HandleFunc("/settings/agent-update", agentSettingsHandler.GetAgentUpdateSettings).Methods(http.MethodGet, http.MethodOptions)
+	adminRouter.HandleFunc("/settings/agent-update", agentSettingsHandler.UpdateAgentUpdateSettings).Methods(http.MethodPut, http.MethodOptions)
+
 	// Team settings routes - Must be before generic {key} route
 	SetupAdminTeamRoutes(adminRouter, teamService)
 

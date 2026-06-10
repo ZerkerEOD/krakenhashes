@@ -671,3 +671,50 @@ func (h *AgentHandler) ClearBusyStatus(w http.ResponseWriter, r *http.Request) {
 		"message": "Agent busy status cleared successfully",
 	})
 }
+
+// RetryUpdate clears an agent's auto-update error/attempt counters and re-queues
+// it for update. Used to recover an agent left in error after exhausting its
+// update attempts. Handles POST /api/agents/{id}/retry-update.
+func (h *AgentHandler) RetryUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid agent ID", http.StatusBadRequest)
+		return
+	}
+
+	// Check ownership (mirrors ClearBusyStatus).
+	if middleware.IsTeamsEnabledFromContext(r.Context()) && !middleware.IsAdminFromContext(r.Context()) {
+		agent, err := h.service.GetAgent(r.Context(), id)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				http.Error(w, "Agent not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+		if err := checkAgentOwnership(r.Context(), agent.OwnerID); err != nil {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+	}
+
+	debug.Info("Resetting auto-update state for agent %d", id)
+
+	if err := h.service.ResetAgentUpdateState(r.Context(), id); err != nil {
+		debug.Error("Failed to reset agent update state: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Agent update state reset; it will be retried when idle",
+	})
+}

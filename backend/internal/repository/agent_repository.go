@@ -104,6 +104,12 @@ func (r *AgentRepository) GetByID(ctx context.Context, id int) (*models.Agent, e
 		&agent.FilesSynced,
 		&agent.SyncError,
 		&agent.BinaryVersion,
+		&agent.UpdatePending,
+		&agent.TargetVersion,
+		&agent.UpdateStartedAt,
+		&agent.UpdateAttempts,
+		&agent.UpdateError,
+		&agent.UpdateLastAttemptAt,
 		&createdByUser.ID,
 		&createdByUser.Username,
 		&createdByUser.Email,
@@ -351,6 +357,12 @@ func (r *AgentRepository) List(ctx context.Context, filters map[string]interface
 			&agent.FilesSynced,
 			&agent.SyncError,
 			&agent.BinaryVersion,
+			&agent.UpdatePending,
+			&agent.TargetVersion,
+			&agent.UpdateStartedAt,
+			&agent.UpdateAttempts,
+			&agent.UpdateError,
+			&agent.UpdateLastAttemptAt,
 			&createdByUser.ID,
 			&createdByUser.Username,
 			&createdByUser.Email,
@@ -513,6 +525,27 @@ func (r *AgentRepository) UpdateStatus(ctx context.Context, id int, status strin
 		return fmt.Errorf("agent not found: %d", id)
 	}
 
+	return nil
+}
+
+// UpdateStatusUnlessUpdating updates an agent's status only when it is not
+// currently mid auto-update. The heartbeat / periodic agent_status handlers use
+// this so an agent's "active" report (sent just before it exits to update)
+// cannot clobber the 'updating' marker that the scheduler and health-check
+// sweeper rely on. A no-op (no error) when the agent is 'updating' or missing.
+func (r *AgentRepository) UpdateStatusUnlessUpdating(ctx context.Context, id int, status string, lastError *string) error {
+	var nullLastError sql.NullString
+	if lastError != nil {
+		nullLastError = sql.NullString{String: *lastError, Valid: true}
+	}
+
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE agents SET status = $2, last_error = $3, updated_at = CURRENT_TIMESTAMP
+		 WHERE id = $1 AND status <> 'updating'`,
+		id, status, nullLastError)
+	if err != nil {
+		return fmt.Errorf("failed to update agent status: %w", err)
+	}
 	return nil
 }
 
@@ -869,4 +902,250 @@ func (r *AgentRepository) SetDisconnectGrace(ctx context.Context, agentID int, e
 		return fmt.Errorf("failed to update agent disconnect_grace_expires_at: %w", err)
 	}
 	return nil
+}
+
+// MarkUpdatePending flags a version-stale agent that is currently busy so it
+// gets updated the moment it goes idle. The status='active' guard avoids
+// stomping a disabled/error/already-updating agent. Idempotent.
+func (r *AgentRepository) MarkUpdatePending(ctx context.Context, agentID int, targetVersion string) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE agents SET update_pending = true, target_version = $2 WHERE id = $1 AND status = 'active'`,
+		agentID, targetVersion)
+	if err != nil {
+		return fmt.Errorf("failed to mark agent update pending: %w", err)
+	}
+	return nil
+}
+
+// ClearUpdatePending clears a stale update_pending flag (e.g. the agent is no
+// longer version-stale, or auto-update was disabled). Leaves status untouched.
+func (r *AgentRepository) ClearUpdatePending(ctx context.Context, agentID int) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE agents SET update_pending = false, target_version = NULL WHERE id = $1 AND status <> 'updating'`,
+		agentID)
+	if err != nil {
+		return fmt.Errorf("failed to clear agent update pending: %w", err)
+	}
+	return nil
+}
+
+// BeginUpdate atomically transitions an idle, active agent into the 'updating'
+// state. The NOT EXISTS clause is the race guard: if the scheduler dispatched a
+// task to this agent in the same window, the in-flight job_tasks row makes the
+// update fail (0 rows affected) and the caller must abort sending the update
+// command — honoring "never interrupt a running job". Returns true only when
+// exactly one row was updated (the caller now owns the in-flight update).
+func (r *AgentRepository) BeginUpdate(ctx context.Context, agentID int, targetVersion string) (bool, error) {
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE agents SET
+			status = 'updating',
+			update_pending = false,
+			target_version = $2,
+			update_started_at = NOW(),
+			update_attempts = update_attempts + 1,
+			update_last_attempt_at = NOW(),
+			update_error = NULL,
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1
+		  AND status = 'active'
+		  AND NOT EXISTS (
+			  SELECT 1 FROM job_tasks t
+			  WHERE t.agent_id = $1
+				AND t.status IN ('assigned', 'running')
+				AND t.scheduling_unit_id IS NOT NULL
+		  )`,
+		agentID, targetVersion)
+	if err != nil {
+		return false, fmt.Errorf("failed to begin agent update: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	return rows == 1, nil
+}
+
+// CompleteUpdate clears the 'updating' state once the agent has reconnected on
+// the target version. Returns to 'active' and resets the attempt counter so a
+// future version bump starts from a clean slate.
+func (r *AgentRepository) CompleteUpdate(ctx context.Context, agentID int) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE agents SET
+			status = 'active',
+			update_pending = false,
+			target_version = NULL,
+			update_started_at = NULL,
+			update_attempts = 0,
+			update_last_attempt_at = NULL,
+			update_error = NULL,
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1 AND status = 'updating'`,
+		agentID)
+	if err != nil {
+		return fmt.Errorf("failed to complete agent update: %w", err)
+	}
+	return nil
+}
+
+// FailUpdate moves an agent out of 'updating' into 'error' with a message,
+// preserving update_attempts (for the give-up policy) and target_version (for
+// the UI). It sets update_pending so the sweeper's promote pass resumes the
+// retry once the agent is active again (the promote pass gives up on its own
+// when attempts are exhausted). Called by the health-timeout sweeper or on a
+// send failure.
+func (r *AgentRepository) FailUpdate(ctx context.Context, agentID int, errMsg string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE agents SET
+			status = 'error',
+			update_pending = true,
+			update_started_at = NULL,
+			update_error = $2,
+			last_error = $2,
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`,
+		agentID, errMsg)
+	if err != nil {
+		return fmt.Errorf("failed to fail agent update: %w", err)
+	}
+	return nil
+}
+
+// ResetUpdateState clears all update tracking for an agent (manual retry or
+// post-success cleanup). Used by the admin retry-update action.
+func (r *AgentRepository) ResetUpdateState(ctx context.Context, agentID int, pending bool) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE agents SET
+			update_pending = $2,
+			update_attempts = 0,
+			update_error = NULL,
+			update_started_at = NULL,
+			update_last_attempt_at = NULL,
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`,
+		agentID, pending)
+	if err != nil {
+		return fmt.Errorf("failed to reset agent update state: %w", err)
+	}
+	return nil
+}
+
+// ResetStrandedUpdates clears agents left in the 'updating' state by a backend
+// crash/restart: their WebSocket is gone so the update can't proceed. They drop
+// to 'inactive' (the scheduler ignores them until they reconnect) but keep
+// update_pending/update_attempts so the update resumes once they reconnect.
+func (r *AgentRepository) ResetStrandedUpdates(ctx context.Context) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE agents SET
+			status = 'inactive',
+			update_pending = true,
+			update_started_at = NULL,
+			updated_at = CURRENT_TIMESTAMP
+		WHERE status = 'updating'`)
+	if err != nil {
+		return fmt.Errorf("failed to reset stranded updates: %w", err)
+	}
+	return nil
+}
+
+// CountUpdating returns how many agents are currently in the 'updating' state,
+// used to enforce agent_update_max_concurrent.
+func (r *AgentRepository) CountUpdating(ctx context.Context) (int, error) {
+	var count int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM agents WHERE status = 'updating'`).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count updating agents: %w", err)
+	}
+	return count, nil
+}
+
+// ListTimedOutUpdates returns the IDs of agents that have been 'updating' for
+// longer than timeoutSeconds without reconnecting on the target version — the
+// health-check sweeper fails these.
+func (r *AgentRepository) ListTimedOutUpdates(ctx context.Context, timeoutSeconds int) ([]int, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id FROM agents
+		WHERE status = 'updating'
+		  AND update_started_at IS NOT NULL
+		  AND update_started_at < NOW() - ($1 || ' seconds')::INTERVAL`,
+		timeoutSeconds)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list timed-out updates: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []int
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("failed to scan timed-out update id: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// ListIdleActiveAgentVersions returns the version of every active, enabled
+// agent that has no in-flight scheduler-v2 task — the sweeper checks each
+// against the expected version to decide whether to update it. Returning the
+// version inline lets the sweeper pre-filter stale agents cheaply before
+// loading the full row. Mirrors the scheduler's idle predicate.
+func (r *AgentRepository) ListIdleActiveAgentVersions(ctx context.Context) (map[int]string, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT a.id, COALESCE(a.version, '') FROM agents a
+		WHERE a.status = 'active'
+		  AND a.is_enabled = true
+		  AND NOT EXISTS (
+			  SELECT 1 FROM job_tasks t
+			  WHERE t.agent_id = a.id
+				AND t.status IN ('assigned', 'running')
+				AND t.scheduling_unit_id IS NOT NULL
+		  )`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list idle active agents: %w", err)
+	}
+	defer rows.Close()
+
+	out := make(map[int]string)
+	for rows.Next() {
+		var id int
+		var version string
+		if err := rows.Scan(&id, &version); err != nil {
+			return nil, fmt.Errorf("failed to scan idle active agent: %w", err)
+		}
+		out[id] = version
+	}
+	return out, rows.Err()
+}
+
+// ListIdleUpdatePending returns IDs of agents flagged update_pending that are
+// now idle and schedulable — the sweeper's "promote pending" pass transitions
+// these into 'updating'. Mirrors the scheduler's idle predicate so a pending
+// agent is only promoted when it genuinely has no in-flight scheduler-v2 work.
+func (r *AgentRepository) ListIdleUpdatePending(ctx context.Context) ([]int, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT a.id FROM agents a
+		WHERE a.update_pending = true
+		  AND a.status = 'active'
+		  AND a.is_enabled = true
+		  AND NOT EXISTS (
+			  SELECT 1 FROM job_tasks t
+			  WHERE t.agent_id = a.id
+				AND t.status IN ('assigned', 'running')
+				AND t.scheduling_unit_id IS NOT NULL
+		  )`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list idle update-pending agents: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []int
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("failed to scan idle update-pending id: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }

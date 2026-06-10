@@ -89,3 +89,58 @@ func (h *AgentSettingsHandler) UpdateAgentDownloadSettings(w http.ResponseWriter
 		"settings": settings,
 	})
 }
+
+// GetAgentUpdateSettings retrieves the current agent auto-update settings
+func (h *AgentSettingsHandler) GetAgentUpdateSettings(w http.ResponseWriter, r *http.Request) {
+	debug.Debug("Getting agent update settings")
+
+	settings, err := h.systemSettingsRepo.GetAgentUpdateSettings(r.Context())
+	if err != nil {
+		debug.Error("Failed to get agent update settings: %v", err)
+		http.Error(w, "Failed to get agent update settings", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(settings)
+}
+
+// UpdateAgentUpdateSettings updates the agent auto-update settings with validation
+func (h *AgentSettingsHandler) UpdateAgentUpdateSettings(w http.ResponseWriter, r *http.Request) {
+	debug.Info("Received request to update agent update settings")
+
+	var settings models.AgentUpdateSettings
+	if err := json.NewDecoder(r.Body).Decode(&settings); err != nil {
+		debug.Error("Failed to decode agent update settings request: %v", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if settings.MaxConcurrent < 1 || settings.MaxConcurrent > 10 {
+		http.Error(w, "Maximum concurrent updates must be between 1 and 10", http.StatusBadRequest)
+		return
+	}
+	if settings.HealthTimeoutSeconds < 60 || settings.HealthTimeoutSeconds > 3600 {
+		http.Error(w, "Health timeout must be between 60 and 3600 seconds", http.StatusBadRequest)
+		return
+	}
+	if settings.MaxAttempts < 1 || settings.MaxAttempts > 10 {
+		http.Error(w, "Max attempts must be between 1 and 10", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.systemSettingsRepo.UpdateAgentUpdateSettings(r.Context(), &settings); err != nil {
+		debug.Error("Failed to update agent update settings: %v", err)
+		http.Error(w, "Failed to update agent update settings", http.StatusInternalServerError)
+		return
+	}
+
+	debug.Info("Successfully updated agent update settings")
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":  true,
+		"message":  "Agent update settings updated successfully",
+		"settings": settings,
+	})
+}

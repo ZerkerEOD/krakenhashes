@@ -107,6 +107,11 @@ type Handler struct {
 	database       *db.DB
 	potfileHistory *filehash.PotfileHistory
 	tlsConfig      *tls.Config
+	// updateService drives agent auto-updates. When set, the status->active
+	// paths consult it to (re)direct a version-stale idle agent into the
+	// 'updating' state, and it uses this handler as the command sender. May be
+	// nil (auto-update disabled / legacy routes).
+	updateService  *services.AgentUpdateService
 	clients        map[int]*Client
 	mu             sync.RWMutex
 
@@ -378,8 +383,11 @@ func (c *Client) readPump() {
 			}
 		}
 
-		// Update agent status to inactive when connection is closed
-		if err := c.handler.agentService.UpdateAgentStatus(c.ctx, c.agent.ID, models.AgentStatusInactive, nil); err != nil {
+		// Update agent status to inactive when connection is closed. Guarded so
+		// an agent that disconnected to apply an auto-update keeps its 'updating'
+		// status — otherwise the returning agent's version report can't complete
+		// the update (it would already read 'active'/'inactive').
+		if err := c.handler.agentService.UpdateAgentStatusUnlessUpdating(c.ctx, c.agent.ID, models.AgentStatusInactive, nil); err != nil {
 			debug.Error("Failed to update agent status to inactive: %v", err)
 		} else {
 			debug.Info("Successfully updated agent %d status to inactive", c.agent.ID)
@@ -623,6 +631,33 @@ func (h *Handler) SendMessage(agentID int, msg *wsservice.Message) error {
 	default:
 		return fmt.Errorf("agent %d send buffer full", agentID)
 	}
+}
+
+// SetUpdateService wires the auto-update service and registers this handler as
+// its WebSocket command sender (resolves the construction-order cycle).
+func (h *Handler) SetUpdateService(updateService *services.AgentUpdateService) {
+	h.updateService = updateService
+	if updateService != nil {
+		updateService.SetSender(h)
+	}
+}
+
+// SendAgentUpdateCommand implements services.AgentUpdateSender. It builds the
+// agent_update_command WebSocket frame and sends it to the agent.
+func (h *Handler) SendAgentUpdateCommand(agentID int, targetVersion, downloadURL, checksum string) error {
+	payload, err := json.Marshal(wsservice.AgentUpdateCommandPayload{
+		TargetVersion:           targetVersion,
+		DownloadURL:             downloadURL,
+		Checksum:                checksum,
+		LauncherProtocolVersion: 1,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal agent update command: %w", err)
+	}
+	return h.SendMessage(agentID, &wsservice.Message{
+		Type:    wsservice.TypeAgentUpdateCommand,
+		Payload: payload,
+	})
 }
 
 // Broadcast sends a message to all connected agents
@@ -985,10 +1020,15 @@ func (h *Handler) handleSyncResponse(client *Client, msg *wsservice.Message) {
 				debug.Info("Agent %d sync status updated to completed", client.agent.ID)
 
 				// Now that sync is complete (no files needed), mark agent as active and available for work
-				if err := h.agentService.UpdateAgentStatus(client.ctx, client.agent.ID, models.AgentStatusActive, nil); err != nil {
+				if err := h.agentService.UpdateAgentStatusUnlessUpdating(client.ctx, client.agent.ID, models.AgentStatusActive, nil); err != nil {
 					debug.Error("Failed to update agent status to active: %v", err)
 				} else {
 					debug.Info("Agent %d marked as active and available for work (no sync needed)", client.agent.ID)
+					// Auto-update interception: a version-stale idle agent is
+					// redirected into 'updating' here instead of taking work.
+					if h.updateService != nil {
+						h.updateService.ResolveIdleState(client.ctx, client.agent.ID)
+					}
 				}
 			}
 		}
@@ -1050,10 +1090,14 @@ func (h *Handler) handleSyncStatus(client *Client, msg *wsservice.Message) {
 				debug.Info("Agent %d sync status updated to completed after file downloads", client.agent.ID)
 
 				// Now that sync is complete, mark agent as active and available for work
-				if err := h.agentService.UpdateAgentStatus(client.ctx, client.agent.ID, models.AgentStatusActive, nil); err != nil {
+				if err := h.agentService.UpdateAgentStatusUnlessUpdating(client.ctx, client.agent.ID, models.AgentStatusActive, nil); err != nil {
 					debug.Error("Failed to update agent status to active after sync: %v", err)
 				} else {
 					debug.Info("Agent %d marked as active and available for work (sync complete)", client.agent.ID)
+					// Auto-update interception (see handleSyncResponse).
+					if h.updateService != nil {
+						h.updateService.ResolveIdleState(client.ctx, client.agent.ID)
+					}
 				}
 			}
 		}
@@ -1580,10 +1624,17 @@ func (h *Handler) handleCurrentTaskStatus(client *Client, msg *wsservice.Message
 		if err != nil {
 			debug.Error("Failed to get agent %d for sync status check: %v", client.agent.ID, err)
 		} else if agent.SyncStatus == models.AgentSyncStatusCompleted {
-			if err := h.agentService.UpdateAgentStatus(client.ctx, client.agent.ID, models.AgentStatusActive, nil); err != nil {
+			// Guarded so a just-updated agent reconnecting here (still flagged
+			// 'updating' until its version report lands) isn't flipped to
+			// active prematurely; OnVersionReported completes the update.
+			if err := h.agentService.UpdateAgentStatusUnlessUpdating(client.ctx, client.agent.ID, models.AgentStatusActive, nil); err != nil {
 				debug.Error("Failed to update agent status to active: %v", err)
 			} else {
 				debug.Info("Agent %d marked as active and available for work", client.agent.ID)
+				// Auto-update interception (see handleSyncResponse).
+				if h.updateService != nil {
+					h.updateService.ResolveIdleState(client.ctx, client.agent.ID)
+				}
 			}
 		} else {
 			debug.Info("Agent %d not yet available (sync_status=%s), waiting for sync to complete",
@@ -1848,8 +1899,10 @@ func (h *Handler) handleAgentShutdown(client *Client, msg *wsservice.Message) {
 	}
 
 afterTaskHandling:
-	// Mark agent as inactive
-	if err := h.agentService.UpdateAgentStatus(client.ctx, client.agent.ID, models.AgentStatusInactive, nil); err != nil {
+	// Mark agent as inactive. Guarded so an agent that sent a graceful-shutdown
+	// notification to apply an auto-update keeps its 'updating' status (the
+	// returning agent's version report completes the update).
+	if err := h.agentService.UpdateAgentStatusUnlessUpdating(client.ctx, client.agent.ID, models.AgentStatusInactive, nil); err != nil {
 		debug.Error("Agent %d: Failed to update status to inactive: %v", client.agent.ID, err)
 	} else {
 		debug.Info("Agent %d: Marked as inactive due to graceful shutdown", client.agent.ID)

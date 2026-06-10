@@ -20,6 +20,7 @@ const (
 			a.consecutive_failures, a.scheduling_enabled, a.schedule_timezone,
 			a.sync_status, a.sync_started_at, a.sync_completed_at, a.files_to_sync, a.files_synced, a.sync_error,
 			a.binary_version,
+			a.update_pending, a.target_version, a.update_started_at, a.update_attempts, a.update_error, a.update_last_attempt_at,
 			u.id, u.username, u.email, u.role
 		FROM agents a
 		LEFT JOIN users u ON a.created_by_id = u.id
@@ -34,6 +35,7 @@ const (
 			a.consecutive_failures, a.scheduling_enabled, a.schedule_timezone,
 			a.sync_status, a.sync_started_at, a.sync_completed_at, a.files_to_sync, a.files_synced, a.sync_error,
 			a.binary_version,
+			a.update_pending, a.target_version, a.update_started_at, a.update_attempts, a.update_error, a.update_last_attempt_at,
 			u.id, u.username, u.email, u.role
 		FROM agents a
 		LEFT JOIN users u ON a.created_by_id = u.id

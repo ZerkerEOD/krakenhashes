@@ -76,6 +76,11 @@ const (
 	// Shutdown message type
 	WSTypeAgentShutdown WSMessageType = "agent_shutdown"
 
+	// Auto-update message types. The server tells an idle agent to update; the
+	// agent hands off to its launcher (writes an instruction + exits 75).
+	WSTypeAgentUpdateCommand WSMessageType = "agent_update_command" // Server -> Agent
+	WSTypeAgentUpdateAck     WSMessageType = "agent_update_ack"     // Agent -> Server
+
 	// WSTypeTaskAssignmentRejected is sent when the agent refuses an
 	// inbound task_assignment (e.g., graceful shutdown in progress).
 	// The backend handler runs RecoverTaskByID so the chunk is freed
@@ -118,6 +123,23 @@ type WSMessage struct {
 	Payload   json.RawMessage `json:"payload,omitempty"`
 	Metrics   *MetricsData    `json:"metrics,omitempty"`
 	Timestamp time.Time       `json:"timestamp"`
+}
+
+// AgentUpdateCommandPayload is the server's instruction to self-update (matches
+// the backend wsservice.AgentUpdateCommandPayload wire format).
+type AgentUpdateCommandPayload struct {
+	TargetVersion           string `json:"target_version"`
+	DownloadURL             string `json:"download_url"`
+	Checksum                string `json:"checksum"`
+	LauncherProtocolVersion int    `json:"launcher_protocol_version"`
+}
+
+// AgentUpdateAckPayload acknowledges an update command. Status is one of
+// "accepted", "deferred_busy", or "rejected".
+type AgentUpdateAckPayload struct {
+	TargetVersion string `json:"target_version"`
+	Status        string `json:"status"`
+	Detail        string `json:"detail,omitempty"`
 }
 
 // FileSyncRequestPayload represents a request for the agent to report its current files
@@ -562,6 +584,12 @@ type Connection struct {
 	// Job manager - initialized externally and set via SetJobManager
 	jobManager JobManager
 
+	// updateExit is closed when the agent receives an update command it
+	// accepts; main() selects on it to exit with ExitCodeUpdateRequested so
+	// the launcher performs the binary swap. updateExitOnce guards single-close.
+	updateExit     chan struct{}
+	updateExitOnce sync.Once
+
 	// Preferred binary version for device detection and operations
 	preferredBinaryVersion int64
 	binaryMutex            sync.RWMutex
@@ -860,6 +888,7 @@ func NewConnection(urlConfig *config.URLConfig) (*Connection, error) {
 		hwMonitor:         hwMonitor,
 		outbound:          make(chan *WSMessage, 4096),
 		done:              make(chan struct{}),
+		updateExit:        make(chan struct{}),
 		tlsConfig:         tlsConfig,
 		syncStatus:        "pending",
 		completionAckChan: make(chan *TaskCompleteAckPayload, 1), // Buffer 1 ACK (GH Issue #12)
@@ -1517,6 +1546,12 @@ func (c *Connection) readPump() {
 			} else {
 				debug.Debug("Received ACK for task %s but waiting for %s (or not waiting)", ackPayload.TaskID, pendingID)
 			}
+
+		case WSTypeAgentUpdateCommand:
+			// Server instructs us to self-update. Handle off the read loop so
+			// the dispatch keeps draining; the handler gates on idleness and,
+			// if accepted, signals main() to exit with the update code.
+			go c.handleAgentUpdateCommand(msg.Payload)
 
 		case WSTypeForceCleanup:
 			// Server requested to force cleanup all hashcat processes

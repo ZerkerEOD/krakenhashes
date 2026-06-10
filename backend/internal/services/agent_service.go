@@ -527,6 +527,19 @@ func (s *AgentService) UpdateAgentStatus(ctx context.Context, id int, status str
 	return s.agentRepo.UpdateStatus(ctx, id, status, lastError)
 }
 
+// UpdateAgentStatusUnlessUpdating updates status only when the agent is not
+// mid auto-update, so a stale "active" report can't clobber the 'updating'
+// marker. Used by the heartbeat / periodic agent_status handlers.
+func (s *AgentService) UpdateAgentStatusUnlessUpdating(ctx context.Context, id int, status string, lastError *string) error {
+	return s.agentRepo.UpdateStatusUnlessUpdating(ctx, id, status, lastError)
+}
+
+// ResetAgentUpdateState clears an agent's auto-update error/attempt counters and
+// re-queues it for update (admin manual recovery after the give-up threshold).
+func (s *AgentService) ResetAgentUpdateState(ctx context.Context, id int) error {
+	return s.agentRepo.ResetUpdateState(ctx, id, true)
+}
+
 // UpdateAgentVersion updates an agent's version
 func (s *AgentService) UpdateAgentVersion(ctx context.Context, id int, version string) error {
 	// Don't update if version is empty

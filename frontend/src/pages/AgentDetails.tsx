@@ -39,6 +39,7 @@ import {
   Chip,
   Card,
   CardContent,
+  LinearProgress,
 } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
@@ -93,6 +94,12 @@ interface Agent {
   isEnabled?: boolean;
   /** Binary version pattern (e.g., "default", "7.x", "7.1.x", "7.1.2") */
   binaryVersion?: string;
+  /** Auto-update: version-stale but busy; updates when it goes idle */
+  updatePending?: boolean;
+  /** Auto-update: the version this agent is being updated to */
+  targetVersion?: string;
+  /** Auto-update: last update failure message */
+  updateError?: string;
 }
 
 interface User {
@@ -853,6 +860,70 @@ const AgentDetails: React.FC = () => {
                 </Typography>
               </Grid>
             </Grid>
+          </Paper>
+        </Grid>
+
+        {/* Update Status */}
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>{t('status.updateStatus') as string}</Typography>
+
+            <Box sx={{ mb: 2 }}>
+              <Chip
+                label={t(`labels.${agent.status}`, { ns: 'common' }) as string}
+                color={
+                  agent.status === 'active'
+                    ? 'success'
+                    : agent.status === 'error'
+                      ? 'error'
+                      : agent.status === 'updating'
+                        ? 'info'
+                        : 'default'
+                }
+                size="small"
+              />
+            </Box>
+
+            <Typography variant="body2" color="text.secondary">{t('status.currentVersion') as string}</Typography>
+            <Typography variant="body1" sx={{ mb: 1 }}>{agent.version || (t('common.unknown') as string)}</Typography>
+
+            {agent.status === 'updating' && agent.targetVersion && (
+              <Box sx={{ mb: 1 }}>
+                <Typography variant="body2" color="text.secondary">
+                  {t('status.targetVersion') as string} {agent.targetVersion}
+                </Typography>
+                <LinearProgress sx={{ mt: 1 }} />
+              </Box>
+            )}
+
+            {agent.updatePending && agent.status !== 'updating' && (
+              <Chip label={t('status.updatePending') as string} color="warning" size="small" variant="outlined" sx={{ mt: 1 }} />
+            )}
+
+            {agent.updateError && (
+              <Alert
+                severity="error"
+                sx={{ mt: 1 }}
+                action={
+                  <Button
+                    color="inherit"
+                    size="small"
+                    onClick={async () => {
+                      try {
+                        await api.post(`/api/agents/${id}/retry-update`);
+                        await fetchAgentDetails();
+                      } catch (err) {
+                        console.error('Failed to retry update:', err);
+                      }
+                    }}
+                  >
+                    {t('actions.retry', 'Retry') as string}
+                  </Button>
+                }
+              >
+                {agent.updateError}
+              </Alert>
+            )}
           </Paper>
         </Grid>
 

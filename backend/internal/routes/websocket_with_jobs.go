@@ -69,6 +69,7 @@ func SetupWebSocketWithJobRoutes(
 	potfileService *services.PotfileService,
 	clientPotfileService *services.ClientPotfileService,
 	teamService *services.TeamService,
+	binaryService *services.AgentBinaryService,
 ) {
 	debug.Debug("Setting up WebSocket routes with job integration")
 
@@ -174,6 +175,14 @@ func SetupWebSocketWithJobRoutes(
 	// Store WebSocket handler globally for access by other handlers
 	WSHandler = wsHandler
 
+	// Agent auto-update: the service decides when a version-stale idle agent
+	// updates and uses the WebSocket handler to deliver the command. Wire it
+	// into both the handler (status->active interception + command sender) and
+	// the WS service (heartbeat/agent_status guards + version-report hook).
+	agentUpdateService := services.NewAgentUpdateService(agentRepo, systemSettingsRepo, binaryService)
+	wsHandler.SetUpdateService(agentUpdateService)
+	wsService.SetUpdateService(agentUpdateService)
+
 	// Set the WebSocket handler in the UserJobsHandler if it was already created
 	if UserJobsHandlerInstance != nil {
 		debug.Info("Setting WebSocket handler in UserJobsHandler")
@@ -224,6 +233,10 @@ func SetupWebSocketWithJobRoutes(
 
 	// Set the job handler in the WebSocket service
 	wsService.SetJobHandler(jobIntegration)
+
+	// Start the agent auto-update sweeper alongside the scheduler (promote
+	// idle update-pending agents + fail timed-out updates).
+	jobIntegration.SetAgentUpdateSweeper(services.NewAgentUpdateSweeper(agentUpdateService, 0))
 
 	// Launch periodic agent sync recovery. Covers the case where an agent is
 	// connected and heartbeating but stuck at sync_status='pending' — usually

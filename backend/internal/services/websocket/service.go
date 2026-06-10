@@ -73,6 +73,7 @@ const (
 	TypeOutfileDeleteApproved  MessageType = "outfile_delete_approved"  // Backend confirms safe to delete outfile
 	TypeTaskCompleteAck        MessageType = "task_complete_ack"        // Backend acknowledges task completion (GH Issue #12)
 	TypeStateSyncRequest       MessageType = "state_sync_request"       // Backend requests agent state sync (GH Issue #12)
+	TypeAgentUpdateCommand     MessageType = "agent_update_command"     // Backend instructs an agent (via its launcher) to self-update
 
 	// Download progress messages
 	TypeDownloadProgress MessageType = "download_progress"
@@ -137,6 +138,17 @@ type AgentStatusPayload struct {
 	UpdatedAt   time.Time              `json:"updated_at"`
 	Environment map[string]string      `json:"environment"`
 	OSInfo      map[string]interface{} `json:"os_info,omitempty"`
+}
+
+// AgentUpdateCommandPayload instructs an agent (via its launcher) to
+// self-update to TargetVersion. The agent only acts on this while idle; its
+// launcher downloads DownloadURL, verifies it against Checksum (hex SHA-256),
+// then swaps + restarts the agent binary.
+type AgentUpdateCommandPayload struct {
+	TargetVersion           string `json:"target_version"`
+	DownloadURL             string `json:"download_url"` // e.g. /api/public/agent/download/{os}/{arch}
+	Checksum                string `json:"checksum"`     // hex SHA-256, matches X-Checksum-SHA256
+	LauncherProtocolVersion int    `json:"launcher_protocol_version"`
 }
 
 // ErrorReportPayload represents detailed error report from agent
@@ -479,10 +491,11 @@ type LogPurgeAckPayload struct {
 
 // Service handles WebSocket business logic
 type Service struct {
-	agentService *services.AgentService
-	clients      map[int]*Client
-	mu           sync.RWMutex
-	jobHandler   JobHandler // Interface for handling job-related messages
+	agentService  *services.AgentService
+	updateService *services.AgentUpdateService // auto-update readiness/version hooks (may be nil)
+	clients       map[int]*Client
+	mu            sync.RWMutex
+	jobHandler    JobHandler // Interface for handling job-related messages
 
 	// Semaphore for limiting concurrent crack batch processing
 	crackBatchSem chan struct{}
@@ -506,6 +519,13 @@ func NewService(agentService *services.AgentService) *Service {
 // SetJobHandler sets the job handler for processing job-related messages
 func (s *Service) SetJobHandler(handler JobHandler) {
 	s.jobHandler = handler
+}
+
+// SetUpdateService wires the agent auto-update service so heartbeat/agent_status
+// handlers can preserve the 'updating' state and complete updates on version
+// re-report. Safe to leave unset (auto-update simply does nothing).
+func (s *Service) SetUpdateService(updateService *services.AgentUpdateService) {
+	s.updateService = updateService
 }
 
 // GetJobHandler returns the job handler for processing job-related messages
@@ -637,8 +657,9 @@ func (s *Service) handleHeartbeat(ctx context.Context, agent *models.Agent, msg 
 		return fmt.Errorf("failed to unmarshal heartbeat: %w", err)
 	}
 
-	// Update agent status in database
-	if err := s.agentService.UpdateAgentStatus(ctx, agent.ID, models.AgentStatusActive, nil); err != nil {
+	// Update agent status in database. Guarded so a heartbeat arriving in the
+	// brief window before an agent exits to update cannot clobber 'updating'.
+	if err := s.agentService.UpdateAgentStatusUnlessUpdating(ctx, agent.ID, models.AgentStatusActive, nil); err != nil {
 		return fmt.Errorf("failed to update agent status: %w", err)
 	}
 
@@ -670,7 +691,9 @@ func (s *Service) handleAgentStatus(ctx context.Context, agent *models.Agent, ms
 		lastError = &payload.LastError
 	}
 
-	if err := s.agentService.UpdateAgentStatus(ctx, agent.ID, payload.Status, lastError); err != nil {
+	// Guarded so the agent's periodic "active" report can't clobber an
+	// in-flight auto-update; completion happens via OnVersionReported below.
+	if err := s.agentService.UpdateAgentStatusUnlessUpdating(ctx, agent.ID, payload.Status, lastError); err != nil {
 		return fmt.Errorf("failed to update agent status: %w", err)
 	}
 
@@ -681,6 +704,10 @@ func (s *Service) handleAgentStatus(ctx context.Context, agent *models.Agent, ms
 			debug.Error("Failed to update agent version: %v", err)
 		} else {
 			debug.Info("Updated agent %d version to %s", agent.ID, payload.Version)
+		}
+		// A relaunched agent reporting the target version completes its update.
+		if s.updateService != nil {
+			s.updateService.OnVersionReported(ctx, agent.ID, payload.Version)
 		}
 	}
 

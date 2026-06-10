@@ -46,6 +46,8 @@ func SetupAgentRoutes(jwtRouter *mux.Router, agentService *services.AgentService
 
 	// Clear busy status route - manual override for stuck agents
 	jwtRouter.HandleFunc("/agents/{id}/clear-busy-status", agentHandler.ClearBusyStatus).Methods("POST", "OPTIONS")
+	// Retry auto-update route - recover an agent stuck after exhausting attempts
+	jwtRouter.HandleFunc("/agents/{id}/retry-update", agentHandler.RetryUpdate).Methods("POST", "OPTIONS")
 
 	// Force cleanup route - note: this requires admin role middleware to be added separately
 	jwtRouter.HandleFunc("/agents/{id}/force-cleanup", func(w http.ResponseWriter, r *http.Request) {

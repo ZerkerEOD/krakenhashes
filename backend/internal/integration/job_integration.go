@@ -48,6 +48,17 @@ type JobIntegrationManager struct {
 	// diagnosticsService buffers + batches per-agent "why idle" reasons
 	// the cycle records, and serves them (force-flushed) to the agent UI.
 	diagnosticsService *services.DiagnosticsService
+
+	// agentUpdateSweeper drives the agent auto-update promote/timeout loop.
+	// Set via SetAgentUpdateSweeper and started in StartScheduler so it
+	// shares the scheduler's lifecycle. May be nil (auto-update unwired).
+	agentUpdateSweeper *services.AgentUpdateSweeper
+}
+
+// SetAgentUpdateSweeper wires the agent auto-update sweeper so it starts and
+// stops with the scheduler.
+func (m *JobIntegrationManager) SetAgentUpdateSweeper(sweeper *services.AgentUpdateSweeper) {
+	m.agentUpdateSweeper = sweeper
 }
 
 // NewJobIntegrationManager creates a new job integration manager
@@ -294,6 +305,9 @@ func (m *JobIntegrationManager) StartScheduler(ctx context.Context) {
 	}
 	if m.sweeperRunner != nil {
 		go m.sweeperRunner.Run(ctx)
+	}
+	if m.agentUpdateSweeper != nil {
+		go m.agentUpdateSweeper.Run(ctx)
 	}
 
 	// Warm the compatibility cache and start a periodic refresh
