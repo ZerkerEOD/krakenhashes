@@ -423,17 +423,15 @@ func commentOutClaimCode() error {
 	return nil
 }
 
-/*
- * main is the entry point for the KrakenHashes agent.
- *
- * It performs the following operations:
- * 1. Loads and validates configuration
- * 2. Establishes connection with the backend
- * 3. Starts the heartbeat mechanism
- * 4. Begins processing jobs
- *
- * The agent will continue running until terminated or a fatal error occurs.
- */
+// main is the program entry point for the KrakenHashes agent.
+// It initializes configuration (flags and .env), logging, data directories and metrics,
+// ensures credentials (registering or renewing when required), and establishes a WebSocket
+// connection to the backend (up to three attempts). After connecting it writes a readiness
+// breadcrumb, configures the job manager callbacks, and starts background services
+// (cleanup and stuck-detection). main then waits for SIGINT, SIGTERM or an accepted
+// auto-update request, performs an ordered graceful shutdown (stop detection, stop cleanup,
+// notify backend, shutdown job manager, close connection) and exits. If shutdown was due
+// to an auto-update handoff, the process exits with the launcher-directed update exit code.
 func main() {
 	// Parse command-line flags FIRST before anything else
 	// This ensures debug flag is processed before any logging

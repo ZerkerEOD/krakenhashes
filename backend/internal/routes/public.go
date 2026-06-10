@@ -19,7 +19,9 @@ import (
 )
 
 // SetupPublicRoutes configures all public routes that don't require authentication
-// Returns the SSO manager for use by admin routes
+// SetupPublicRoutes registers all public (unauthenticated) HTTP routes on the provided Gorilla mux router.
+// It configures authentication endpoints, SSO routes, health and version checks, agent registration and configuration,
+// the password policy endpoint, and public agent/launcher download endpoints. It returns the initialized SSO manager for use by admin routes.
 func SetupPublicRoutes(apiRouter *mux.Router, database *db.DB, agentService *services.AgentService, binaryService *services.AgentBinaryService, appConfig *config.Config, tlsProvider tls.Provider) *sso.Manager {
 	debug.Debug("Setting up public routes")
 

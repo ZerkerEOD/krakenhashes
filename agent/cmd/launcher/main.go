@@ -35,6 +35,11 @@ import (
 // Version is injected at build time via -ldflags.
 var Version = "dev"
 
+// main parses command-line arguments to select a subcommand and dispatches to the appropriate handler.
+// It supports the subcommands `run` (default), `install`, `uninstall`, and `version`/`--version`/`-v`.
+// `version` prints the launcher version and exits. `install` and `uninstall` invoke doInstall/doUninstall
+// and will log a fatal error and exit on failure. The default `run` path calls doRun with a logger and
+// the remaining arguments.
 func main() {
 	logger := log.New(os.Stderr, "[launcher] ", log.LstdFlags)
 
@@ -74,6 +79,15 @@ type launcherFlags struct {
 	healthTimeout time.Duration
 }
 
+// parseLauncherFlags parses command-line tokens and extracts launcher-specific options,
+// returning the populated launcherFlags and the remaining arguments to pass through to the agent.
+//
+// Recognized flags (left-to-right):
+// - --agent-binary <path>, -agent-binary <path>, --agent-binary=<path>
+//   -> sets agentBinary.
+// - --health-timeout <seconds>, -health-timeout <seconds>, --health-timeout=<seconds>
+//   -> parses seconds as an integer and sets healthTimeout accordingly; leaves the default if parsing fails.
+// Any tokens not matching the above forms are appended, in order, to the returned passthrough slice.
 func parseLauncherFlags(args []string) (launcherFlags, []string) {
 	var lf launcherFlags
 	var passthrough []string
@@ -113,6 +127,14 @@ func parseLauncherFlags(args []string) (launcherFlags, []string) {
 	return lf, passthrough
 }
 
+// doRun parses launcher-specific flags from args, resolves the agent and
+// directory paths, constructs a launcher.Config, starts the launcher
+// supervisor, and blocks until the service shuts down or an unrecoverable
+// error occurs.
+//
+// It logs fatal and exits on unrecoverable startup or runtime errors. The
+// provided logger is used for all startup and shutdown messages; args are the
+// command-line tokens forwarded to the agent.
 func doRun(logger *log.Logger, args []string) {
 	lf, agentArgs := parseLauncherFlags(args)
 
@@ -170,6 +192,19 @@ func doRun(logger *log.Logger, args []string) {
 	}
 }
 
+// doInstall parses install-related flags from args, builds a launcher.InstallOptions
+// (setting LauncherPath, Host, System, ClaimCode, ConfigDir, DataDir and any extra
+// args), applies defaults for config/data to "<exeDir>/config" and "<exeDir>/data",
+// and invokes launcher.Install returning any resulting error.
+//
+// Recognized flags:
+//   --system / -system         (no value) mark system-wide installation
+//   --host / -host <host>      host for the agent/service
+//   --claim / -claim <code>    claim code to provision the agent
+//   --config-dir / -config-dir <path>  custom configuration directory
+//   --data-dir / -data-dir <path>      custom data directory
+//
+// Any unknown tokens are forwarded to the agent as ExtraArgs.
 func doInstall(args []string) error {
 	exe, err := os.Executable()
 	if err != nil {
@@ -223,7 +258,15 @@ func doInstall(args []string) error {
 // doUninstall removes the launcher service. With --purge it also deletes the
 // installed binaries and the config/data directories (default to the launcher's
 // sibling config/ and data/, or the dirs given via --config-dir / --data-dir,
-// which should match what was passed at install time).
+// doUninstall parses uninstall subcommand arguments, constructs a launcher.UninstallOptions value, and invokes launcher.Uninstall with the resolved options.
+// 
+// Supported flags in args are:
+//   --system / -system       : mark uninstall as system-wide
+//   --purge  / -purge        : remove service, binaries, config and data (including agent credentials)
+//   --config-dir / -config-dir <path> : path to configuration directory
+//   --data-dir   / -data-dir   <path> : path to data directory
+//
+// When --purge is specified and config/data paths are not provided, defaults are set to "<exeDir>/config" and "<exeDir>/data" where exeDir is the directory containing the launcher executable. The function returns any error produced by launcher.Uninstall.
 func doUninstall(args []string) error {
 	exe, err := os.Executable()
 	if err != nil {
@@ -274,6 +317,8 @@ func doUninstall(args []string) error {
 	return launcher.Uninstall(opts)
 }
 
+// defaultAgentBinaryPath returns the expected path of the krakenhashes-agent binary located in exeDir.
+// On Windows the filename includes the ".exe" extension.
 func defaultAgentBinaryPath(exeDir string) string {
 	name := "krakenhashes-agent"
 	if os.PathSeparator == '\\' { // windows
@@ -283,7 +328,7 @@ func defaultAgentBinaryPath(exeDir string) string {
 }
 
 // resolveDir resolves a directory from (in order) the --flag in agentArgs, the
-// env var, or the default; returns an absolute path.
+// resolveDir returns the absolute path selected from, in order: the flag value for flagName in agentArgs, the environment variable envName, or the provided default def.
 func resolveDir(agentArgs []string, flagName, envName, def string) string {
 	if v := peekFlag(agentArgs, flagName); v != "" {
 		return abs(v)
@@ -294,6 +339,7 @@ func resolveDir(agentArgs []string, flagName, envName, def string) string {
 	return abs(def)
 }
 
+// abs returns the absolute form of p; if the absolute path cannot be determined it returns p unchanged.
 func abs(p string) string {
 	if a, err := filepath.Abs(p); err == nil {
 		return a
@@ -301,7 +347,9 @@ func abs(p string) string {
 	return p
 }
 
-// peekFlag returns the value of --name / -name / --name=value in args, or "".
+// peekFlag searches args for a flag named `name` in the forms `--name value`, `-name value`,
+// `--name=value`, or `-name=value` and returns the associated value. If the flag is not present
+// or no value is available, it returns the empty string.
 func peekFlag(args []string, name string) string {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
@@ -322,7 +370,17 @@ func peekFlag(args []string, name string) string {
 }
 
 // deriveBaseURL builds the server base URL (scheme://host[:port]) for first-run
-// bootstrap, from --host/--tls flags or the KH_HOST/KH_PORT/USE_TLS env.
+// deriveBaseURL determines the bootstrap base URL (scheme and host) for the agent
+// from provided agent arguments or environment variables.
+//
+// It selects the host in this order: the `--host`/`-host` flag from agentArgs, then
+// the `KH_HOST` environment variable. If `KH_PORT` is set and the chosen host is
+// non-empty and has no existing port, `:<KH_PORT>` is appended. TLS is enabled
+// when the `--tls` flag is present with a value other than `"false"` or `"0"`,
+// otherwise when the `USE_TLS` environment variable equals `"true"` (case-insensitive)
+// or `"1"`. The returned string is `<scheme>://<host>` where `scheme` is
+// `"https"` when TLS is enabled and `"http"` otherwise. If no host can be
+// determined, an empty string is returned.
 func deriveBaseURL(agentArgs []string) string {
 	host := peekFlag(agentArgs, "host")
 	if host == "" {

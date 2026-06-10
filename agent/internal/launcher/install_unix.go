@@ -22,7 +22,13 @@ const (
 // installs a USER service (systemd --user on Linux, a per-user LaunchAgent on
 // macOS) that runs as the invoking user from the launcher's own directory — no
 // root required, matching the documented agent install model. With opts.System
-// it installs a root/system service instead (the documented "advanced" path).
+// Install installs the launcher as either a system-wide service or a per-user service.
+//
+// Install selects system or user mode based on opts.System. In system mode it requires
+// root privileges and installs a system service (Linux: systemd, macOS: launchd); in
+// user mode it requires a non-root caller and installs a per-user service (Linux:
+// systemd user unit, macOS: LaunchAgent). It returns an error for unsupported
+// platforms or when the privilege requirements are not met.
 func Install(opts InstallOptions) error {
 	if opts.System {
 		if os.Geteuid() != 0 {
@@ -54,7 +60,14 @@ func Install(opts InstallOptions) error {
 
 // Uninstall removes the launcher service (the user service by default, or the
 // system service with opts.System) and, when opts.Purge is set, deletes the
-// installed binaries and config/data directories.
+// Uninstall removes the installed service/agent and optionally purges installed binaries and data.
+// 
+// Uninstall removes either the system-scoped or user-scoped service depending on opts.System.
+// For system-scoped uninstalls it requires root privileges and supports Linux (systemd) and macOS (launchd).
+// For user-scoped uninstalls it supports Linux (per-user systemd unit) and macOS (LaunchAgent).
+// If an uninstall step fails and opts.Purge is false the error is returned. If opts.Purge is true
+// the function prints a warning for the uninstall error, continues to attempt cleanup, and calls
+// purgeFiles(opts) to remove installed binaries and config/data directories.
 func Uninstall(opts UninstallOptions) error {
 	var err error
 	if opts.System {
@@ -95,7 +108,10 @@ func Uninstall(opts UninstallOptions) error {
 
 // systemdUnit renders the unit file. wantedBy/user vary between the user and
 // system variants; workdir is the launcher's directory so config/data land
-// alongside the binary.
+// systemdUnit constructs the textual contents of a systemd unit file for the KrakenHashes agent.
+// It sets WorkingDirectory from opts.LauncherPath, builds ExecStart from the launcher path and agent arguments,
+// and injects `Environment=` directives for KH_CONFIG_DIR and KH_DATA_DIR when those options are set.
+// The provided userDirective is placed into the [Service] section (e.g. a `User=` line) and wantedBy is used in the [Install] section.
 func systemdUnit(opts InstallOptions, userDirective, wantedBy string) string {
 	var env strings.Builder
 	if opts.ConfigDir != "" {
@@ -125,6 +141,10 @@ WantedBy=%s
 `, workdir, execStart, userDirective, env.String(), wantedBy)
 }
 
+// installSystemdUser creates a per-user systemd unit for the launcher, reloads the user systemd daemon,
+// enables and starts the service, and performs a best-effort enablement of systemd lingering for the user.
+// It returns an error if the user unit directory cannot be resolved or created, if writing the unit file fails,
+// or if the required systemctl operations fail.
 func installSystemdUser(opts InstallOptions) error {
 	unitDir, err := userSystemdDir()
 	if err != nil {
@@ -148,6 +168,8 @@ func installSystemdUser(opts InstallOptions) error {
 	return nil
 }
 
+// uninstallSystemdUser disables the per-user systemd service, removes its unit file, reloads the user daemon, and prints a confirmation message.
+// It attempts to disable the service (best-effort), removes the unit file in the user's systemd directory if that directory can be resolved (ignoring a missing file), runs `systemctl --user daemon-reload`, and returns an error only if removing the unit file fails for reasons other than non-existence.
 func uninstallSystemdUser() error {
 	_ = run("systemctl", "--user", "disable", "--now", "krakenhashes-agent")
 	if unitDir, err := userSystemdDir(); err == nil {
@@ -160,6 +182,9 @@ func uninstallSystemdUser() error {
 	return nil
 }
 
+// installSystemdSystem writes the system-level systemd unit for the agent, reloads systemd, and enables & starts the service.
+// If SUDO_USER is set and not "root", the unit will include a `User=` directive to run the service as that user.
+// Returns an error if writing the unit file, reloading systemd, or enabling/starting the service fails.
 func installSystemdSystem(opts InstallOptions) error {
 	// Scope the system service to the invoking (sudo) user when known, so the
 	// agent runs as them rather than root.
@@ -180,6 +205,8 @@ func installSystemdSystem(opts InstallOptions) error {
 	return nil
 }
 
+// uninstallSystemdSystem removes the system-wide systemd unit for the agent and attempts to disable it.
+// It best-effort disables the service, removes the unit file at systemdUnitPath (ignoring if it does not exist), reloads the systemd daemon, prints "Removed system service", and returns an error only if unit file removal fails for reasons other than non-existence.
 func uninstallSystemdSystem() error {
 	_ = run("systemctl", "disable", "--now", "krakenhashes-agent")
 	if err := os.Remove(systemdUnitPath); err != nil && !os.IsNotExist(err) {
@@ -191,7 +218,10 @@ func uninstallSystemdSystem() error {
 }
 
 // userSystemdDir returns the per-user systemd unit directory
-// ($XDG_CONFIG_HOME/systemd/user or ~/.config/systemd/user).
+// userSystemdDir returns the per-user systemd unit directory path for the current user.
+// If the XDG_CONFIG_HOME environment variable is set, its value is used as the base;
+// otherwise the function falls back to $HOME/.config/systemd/user.
+// It returns the resolved directory path, or an error if the home directory cannot be determined.
 func userSystemdDir() (string, error) {
 	if x := os.Getenv("XDG_CONFIG_HOME"); x != "" {
 		return filepath.Join(x, "systemd", "user"), nil
@@ -205,7 +235,9 @@ func userSystemdDir() (string, error) {
 
 // enableLinger best-effort enables systemd lingering so the user service starts
 // at boot before login. Linger needs privilege, so on failure we just tell the
-// user how to enable it (the service still runs while they're logged in).
+// enableLinger attempts to enable systemd "linger" for the current user so user services can start at boot.
+// If the current username cannot be determined the function does nothing.
+// On success it prints a confirmation; on failure it prints a note with a suggested `sudo loginctl enable-linger <user>` command.
 func enableLinger() {
 	user := os.Getenv("USER")
 	if user == "" {
@@ -223,7 +255,12 @@ func enableLinger() {
 }
 
 // launchdPlist renders a LaunchAgent/LaunchDaemon plist. workdir is the
-// launcher's directory so config/data land alongside the binary.
+// launchdPlist builds a launchd plist XML string for the agent using the provided install options and working directory.
+// 
+// The plist's ProgramArguments array contains opts.LauncherPath followed by agentArgsFromOptions(opts).
+// If opts.ConfigDir or opts.DataDir are non-empty they are added to EnvironmentVariables as KH_CONFIG_DIR and KH_DATA_DIR.
+// The plist sets Label to "com.krakenhashes.agent", WorkingDirectory to workdir, and enables RunAtLoad and KeepAlive.
+// It returns the complete plist XML as a string.
 func launchdPlist(opts InstallOptions, workdir string) string {
 	var args strings.Builder
 	args.WriteString(fmt.Sprintf("        <string>%s</string>\n", opts.LauncherPath))
@@ -263,6 +300,8 @@ func launchdPlist(opts InstallOptions, workdir string) string {
 `, args.String(), env.String(), workdir)
 }
 
+// installLaunchdUser installs and loads a per-user launchd agent plist for the launcher.
+// It ensures ~/Library/LaunchAgents exists, writes the agent plist into that directory, attempts to unload any existing agent, and then loads the plist with `launchctl load -w`; it returns an error if the home directory cannot be resolved, the directory or plist cannot be written, or the load command fails.
 func installLaunchdUser(opts InstallOptions) error {
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
@@ -286,6 +325,10 @@ func installLaunchdUser(opts InstallOptions) error {
 	return nil
 }
 
+// uninstallLaunchdUser removes the current user's LaunchAgent plist for the agent and attempts to unload it.
+// It resolves the user's home directory, performs a best-effort `launchctl unload -w <plist>`, and then removes
+// ~/Library/LaunchAgents/<launchdAgentFileName>. If the home directory cannot be resolved or removal fails for
+// reasons other than the file not existing, an error is returned. On success it prints "Removed user agent".
 func uninstallLaunchdUser() error {
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
@@ -300,6 +343,9 @@ func uninstallLaunchdUser() error {
 	return nil
 }
 
+// installLaunchdSystem writes the agent plist to the system LaunchDaemons path and loads it with launchctl.
+// The plist's WorkingDirectory is set to the directory containing opts.LauncherPath. It returns an error if
+// writing the plist or invoking `launchctl load -w` fails.
 func installLaunchdSystem(opts InstallOptions) error {
 	workdir := filepath.Dir(opts.LauncherPath)
 	if err := os.WriteFile(launchdDaemonPath, []byte(launchdPlist(opts, workdir)), 0o644); err != nil {
@@ -312,6 +358,8 @@ func installLaunchdSystem(opts InstallOptions) error {
 	return nil
 }
 
+// uninstallLaunchdSystem removes the system LaunchDaemon plist at launchdDaemonPath and attempts to unload it from launchd.
+// Unload failures are ignored; a missing plist is treated as success. It returns an error only if removing the plist fails for reasons other than non-existence.
 func uninstallLaunchdSystem() error {
 	_ = run("launchctl", "unload", "-w", launchdDaemonPath)
 	if err := os.Remove(launchdDaemonPath); err != nil && !os.IsNotExist(err) {
@@ -321,6 +369,10 @@ func uninstallLaunchdSystem() error {
 	return nil
 }
 
+// run executes the named program with the provided arguments and connects the subprocess's
+// stdout and stderr to the current process's stdout and stderr. It returns nil on success;
+// on failure it returns an error that includes the full invoked command and the underlying error
+// (formatted as "<name> <args...>: <err>").
 func run(name string, args ...string) error {
 	cmd := exec.Command(name, args...)
 	cmd.Stdout = os.Stdout

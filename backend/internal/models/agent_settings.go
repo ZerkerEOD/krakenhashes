@@ -9,7 +9,8 @@ type AgentDownloadSettings struct {
 	ChunkSizeMB                 int `json:"chunk_size_mb"`
 }
 
-// GetDefaultAgentDownloadSettings returns the default download settings
+// GetDefaultAgentDownloadSettings provides an AgentDownloadSettings populated with sensible defaults for agent file downloads.
+// The returned value has MaxConcurrentDownloads=3, DownloadTimeoutMinutes=60, DownloadRetryAttempts=3, ProgressIntervalSeconds=10 and ChunkSizeMB=10.
 func GetDefaultAgentDownloadSettings() AgentDownloadSettings {
 	return AgentDownloadSettings{
 		MaxConcurrentDownloads:      3,
@@ -29,7 +30,8 @@ type AgentUpdateSettings struct {
 }
 
 // GetDefaultAgentUpdateSettings returns the default auto-update settings
-// (mirrors migration 000163).
+// GetDefaultAgentUpdateSettings returns AgentUpdateSettings populated with the project's default agent auto-update configuration.
+// The defaults are: AutoUpdateEnabled true, MaxConcurrent 2, HealthTimeoutSeconds 300, and MaxAttempts 3 (mirrors migration 000163).
 func GetDefaultAgentUpdateSettings() AgentUpdateSettings {
 	return AgentUpdateSettings{
 		AutoUpdateEnabled:    true,

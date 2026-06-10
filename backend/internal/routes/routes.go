@@ -126,23 +126,8 @@ func CORSMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-/*
- * SetupRoutes configures all application routes and middleware.
- *
- * Route Groups:
- *   - Public Routes (/api/login, /api/logout, /api/check-auth)
- *   - Protected Routes (requires authentication)
- *     - Dashboard (/api/dashboard)
- *     - Hashlists (/api/hashlists)
- *     - Jobs (/api/jobs)
- *     - API endpoints (/api/api/...)
- *     - Agent endpoints (/api/agent/...)
- *
- * Middleware Applied:
- *   - CORS middleware (all routes)
- *   - JWT authentication (protected routes)
- *   - API Key authentication (agent routes)
- */
+// SetupRoutes configures the application's HTTP routers, middleware, background maintenance, and all route handlers.
+// It applies global CORS and logging middleware, initializes repositories and services, starts the preset-job sweep goroutine, seeds required data, and registers public, authenticated (JWT-protected), admin, agent, WebSocket, binary, analytics, file-download and v1 API routes; initialization errors are logged but not returned.
 func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentService *services.AgentService, wordlistManager wordlist.Manager, ruleManager rule.Manager, binaryManager binary.Manager, potfileService *services.PotfileService, clientPotfileService *services.ClientPotfileService, analyticsQueueService *services.AnalyticsQueueService) {
 	debug.Info("Initializing route configuration")
 

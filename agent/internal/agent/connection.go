@@ -816,7 +816,13 @@ func loadClientCertificate() (tls.Certificate, error) {
 	return cert, nil
 }
 
-// NewConnection creates a new WebSocket connection instance
+// NewConnection creates and configures a Connection for the agent's WebSocket lifecycle.
+// It initializes timing from the backend configuration (falling back to defaults), prepares
+// the hardware monitor (uses a mock when TEST_MODE is "true"), ensures TLS certificates are
+// present (attempting renewal if missing), loads CA and client certificates, and builds the
+// initial TLS configuration and internal channels used by the connection.
+// The returned error indicates failures creating the hardware monitor, renewing certificates,
+// or loading the CA/client certificates.
 func NewConnection(urlConfig *config.URLConfig) (*Connection, error) {
 	debug.Info("Creating new WebSocket connection")
 

@@ -25,7 +25,9 @@ type InstallOptions struct {
 }
 
 // agentArgsFromOptions builds the launcher "run" argument list embedded in the
-// service (these are forwarded to the agent child).
+// agentArgsFromOptions builds the command-line arguments for the launcher `run` subcommand from InstallOptions.
+// It starts with "run", appends `--host <host>` and `--claim <code>` only when those options are non-empty, and then appends any ExtraArgs.
+// It returns the assembled slice of argument strings.
 func agentArgsFromOptions(opts InstallOptions) []string {
 	args := []string{"run"}
 	if opts.Host != "" {
@@ -53,7 +55,10 @@ type UninstallOptions struct {
 // purgeFiles deletes the launcher/agent binaries and the config/data dirs.
 // Best-effort: it logs but never fails the uninstall. On Windows the launcher's
 // own running .exe is locked by the OS and cannot be deleted in-place; that is
-// reported so the operator can remove it after the process exits.
+// purgeFiles removes files and directories specified by UninstallOptions on a best‑effort basis.
+// It deletes the agent binary (and its `.bak` and `.new` variants) if provided, then the sanitized
+// config and data directories, and finally the launcher binary. Failures are reported as warnings
+// and do not abort the overall uninstall; empty or otherwise unsafe paths are skipped.
 func purgeFiles(opts UninstallOptions) {
 	remove := func(kind, path string) {
 		if path == "" {
@@ -79,7 +84,11 @@ func purgeFiles(opts UninstallOptions) {
 
 // safeDir resolves p to an absolute path and refuses obviously-dangerous
 // targets (the filesystem/volume root or an empty/relative-only path), returning
-// "" to mean "skip" so a misconfigured purge can never delete a root directory.
+// safeDir returns an absolute, cleaned path suitable for deletion, or an empty
+// string to indicate the path should be skipped. It returns an empty string if
+// the input is empty, cannot be resolved to an absolute path, or refers to the
+// current directory or a filesystem/volume root (e.g. "/" or "C:\") to avoid
+// accidental removal of critical locations.
 func safeDir(p string) string {
 	if p == "" {
 		return ""
@@ -122,7 +131,9 @@ func (m RunMode) String() string {
 
 // DetectRunMode infers how the launcher was started. systemd sets INVOCATION_ID
 // (and JOURNAL_STREAM); launchd sets XPC_SERVICE_NAME; Windows SCM is detected
-// via the service API.
+// DetectRunMode inspects the process environment and returns the RunMode that best describes how the launcher was started.
+// It reports ModeWindowsService when running under the Windows service manager, ModeSystemd when systemd-specific
+// environment variables are present, ModeLaunchd when launched by launchd, and ModeForeground otherwise.
 func DetectRunMode() RunMode {
 	if isWindowsService() {
 		return ModeWindowsService
@@ -138,7 +149,8 @@ func DetectRunMode() RunMode {
 
 // RunService runs the supervisor. Under the Windows Service Control Manager it
 // runs via the SCM dispatcher (so Start/Stop are honored); otherwise it runs
-// the supervisor directly until ctx is cancelled.
+// RunService runs the Supervisor according to the detected execution environment.
+// On Windows it runs via the Service Control Manager so service start/stop are handled by the SCM; otherwise it runs the supervisor directly until the context is canceled.
 func RunService(ctx context.Context, sup *Supervisor) error {
 	if isWindowsService() {
 		return runUnderSCM(ctx, sup)

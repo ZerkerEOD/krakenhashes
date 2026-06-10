@@ -63,7 +63,8 @@ type AgentUpdateService struct {
 }
 
 // NewAgentUpdateService constructs the service. Call SetSender once the
-// WebSocket handler exists to enable command delivery.
+// NewAgentUpdateService creates an AgentUpdateService configured with the provided repositories and binary service.
+// The returned service has its sender unset; call SetSender to inject an AgentUpdateSender before initiating update operations.
 func NewAgentUpdateService(agentRepo *repository.AgentRepository, settingsRepo *repository.SystemSettingsRepository, binaryService *AgentBinaryService) *AgentUpdateService {
 	return &AgentUpdateService{
 		agentRepo:     agentRepo,
@@ -305,6 +306,8 @@ func (s *AgentUpdateService) binaryForAgent(agent *models.Agent) (*BinaryInfo, e
 	return s.binaryService.GetBinary(osName, arch)
 }
 
+// agentPlatform extracts the operating system name and architecture from an Agent's OSInfo JSON.
+// It returns the `platform` and `arch` string fields, or two empty strings if OSInfo is empty or cannot be parsed.
 func agentPlatform(agent *models.Agent) (string, string) {
 	if len(agent.OSInfo) == 0 {
 		return "", ""
@@ -319,7 +322,13 @@ func agentPlatform(agent *models.Agent) (string, string) {
 }
 
 // eligibleForRetry enforces the give-up threshold and an exponential backoff
-// window between attempts (30s, 60s, 120s, ... capped at 1h).
+// eligibleForRetry reports whether an agent is eligible for another update attempt.
+// It returns false when the agent has reached or exceeded maxAttempts. It returns
+// true immediately if the agent has no previous attempts or its last-attempt
+// timestamp is not set. Otherwise it applies an exponential backoff window that
+// starts at 30s and doubles for each prior attempt (30s, 60s, 120s, ...)
+// capped at 1 hour; the function returns true when the time since the last
+// attempt is greater than or equal to the computed backoff.
 func eligibleForRetry(agent *models.Agent, maxAttempts int) bool {
 	if agent.UpdateAttempts >= maxAttempts {
 		return false
@@ -339,7 +348,7 @@ func eligibleForRetry(agent *models.Agent, maxAttempts int) bool {
 }
 
 // normalizeVersion trims a leading 'v' and surrounding whitespace for equality
-// comparison.
+// normalizeVersion trims surrounding whitespace and removes a leading "v" prefix from v, returning the resulting string.
 func normalizeVersion(v string) string {
 	return strings.TrimPrefix(strings.TrimSpace(v), "v")
 }
@@ -347,7 +356,9 @@ func normalizeVersion(v string) string {
 // semverLess reports whether version a is strictly older than b using a
 // component-wise numeric comparison. Tolerates a leading 'v' and
 // pre-release/build suffixes. If either version doesn't parse to at least one
-// numeric component, returns false (treat as not-older).
+// semverLess reports whether version a is older than version b by comparing up to the first three numeric components.
+// It accepts a leading 'v' and ignores any pre-release or build suffixes. If either version cannot be parsed
+// into at least one numeric component, it is treated as not older and the function returns false.
 func semverLess(a, b string) bool {
 	pa, oka := parseSemver(a)
 	pb, okb := parseSemver(b)
@@ -362,6 +373,12 @@ func semverLess(a, b string) bool {
 	return false
 }
 
+// parseSemver parses a version string into up to three numeric components.
+// It trims surrounding whitespace and a leading "v", and ignores any suffix starting
+// at the first '-' or '+' (pre-release/build metadata). The string is split on '.'
+// and up to three components are parsed as integers into the returned array (missing
+// components remain zero). The boolean is true if at least one numeric component
+// was successfully parsed; it is false if parsing fails for any examined component.
 func parseSemver(v string) ([3]int, bool) {
 	v = strings.TrimPrefix(strings.TrimSpace(v), "v")
 	if i := strings.IndexAny(v, "-+"); i >= 0 {

@@ -56,7 +56,13 @@ func (a *wsHandlerAdapter) SendMessage(agentID int, msg interface{}) error {
 	return a.handler.SendMessage(agentID, wsMsg)
 }
 
-// SetupWebSocketWithJobRoutes configures WebSocket routes with job execution integration
+// SetupWebSocketWithJobRoutes sets up WebSocket endpoints and wires job execution, scheduling, sync, and agent update integration.
+//
+// It constructs repositories and services, creates the WebSocket handler and service, registers the /ws/agent route (with API key and logging middleware),
+// and attaches the job integration manager to the WebSocket service. The function stores WSHandler and JobIntegrationManager in package globals,
+// starts background tasks (agent sync recovery and metrics cleanup), and integrates agent auto-update behavior.
+//
+// If TLS configuration cannot be obtained from the provided tlsProvider the setup aborts early and no routes are registered.
 func SetupWebSocketWithJobRoutes(
 	r *mux.Router,
 	agentService *services.AgentService,

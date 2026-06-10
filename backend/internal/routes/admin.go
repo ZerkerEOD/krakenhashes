@@ -22,7 +22,15 @@ import (
 )
 
 // SetupAdminRoutes configures all admin-related routes
-// It now accepts an AdminJobsHandler to set up job and workflow routes.
+// SetupAdminRoutes registers all /admin/* HTTP routes on the provided router and returns the configured admin subrouter.
+// 
+// The registered endpoints include authentication settings, SSO administration, retention, system/job/monitoring/agent settings,
+// team and user management (including API key and session operations), email configuration/templates/usage, optional binary management,
+// global custom charset management, preset job/workflow routes (via the provided AdminJobsHandler), and job analytics.
+// The returned router has admin-only middleware applied.
+//
+// If binaryManager is nil, binary management routes are not registered. Specific settings routes (job-execution, monitoring,
+// agent-download, agent-update, team) are registered before the generic /settings/{key} routes to avoid route conflicts.
 func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.Service, jobHandler *AdminJobsHandler, binaryManager binary.Manager, ssoManager *sso.Manager, teamService *services.TeamService) *mux.Router {
 	debug.Debug("Setting up admin routes")
 

@@ -210,7 +210,7 @@ func (h Hardware) Value() (driver.Value, error) {
 }
 
 // nullStr flattens a sql.NullString to *string (nil when not Valid) so it
-// marshals as a JSON string or null — never the raw {String,Valid} object.
+// nullStr returns a pointer to ns.String when ns.Valid is true, otherwise nil.
 func nullStr(ns sql.NullString) *string {
 	if !ns.Valid {
 		return nil
@@ -220,7 +220,8 @@ func nullStr(ns sql.NullString) *string {
 }
 
 // nullTime flattens a sql.NullTime to *time.Time (nil when not Valid) so it
-// marshals as a JSON timestamp or null — never the raw {Time,Valid} object.
+// nullTime converts an sql.NullTime to a *time.Time, returning nil when nt.Valid is false.
+// This ensures nullable times are emitted as JSON timestamps or null instead of Go's {Time, Valid} object.
 func nullTime(nt sql.NullTime) *time.Time {
 	if !nt.Valid {
 		return nil

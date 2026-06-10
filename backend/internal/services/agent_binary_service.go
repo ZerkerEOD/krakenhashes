@@ -40,7 +40,9 @@ type AgentBinaryService struct {
 	launchers       map[string]BinaryInfo // "os_arch" -> BinaryInfo (launcher)
 }
 
-// NewAgentBinaryService creates a new agent binary service
+// NewAgentBinaryService creates an AgentBinaryService configured with root paths for agent and launcher binaries and initialized in-memory indexes.
+// It prefers fixed container-installation paths (/usr/share/krakenhashes/agents and /usr/share/krakenhashes/launcher) and falls back to the provided dataDir (dataDir/agents and dataDir/launcher) when those fixed paths do not exist.
+// The returned service has empty checksum, binaries, and launchers maps ready for population.
 func NewAgentBinaryService(dataDir string) *AgentBinaryService {
 	// Use a fixed path for agents that's not in the volume-mounted data directory
 	// This ensures agents built into the Docker image are accessible

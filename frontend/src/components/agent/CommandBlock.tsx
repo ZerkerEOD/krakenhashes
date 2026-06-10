@@ -11,8 +11,17 @@ interface CommandBlockProps {
 }
 
 /**
- * CommandBlock renders a monospace, copy-to-clipboard command snippet styled
- * like a code card (header bar + body). Shared by the agent install wizard.
+ * Render a monospace "code card" showing a command with a copy-to-clipboard button.
+ *
+ * Displays an optional header caption and the provided `command` in a scrollable,
+ * monospace `pre` block that preserves whitespace and newlines.
+ *
+ * Clicking the copy button attempts to write `command` to the clipboard; on success
+ * the button shows a check icon, changes to a success color and the tooltip text
+ * updates for 2 seconds. Copy failures are logged to the console.
+ *
+ * @param label - Optional uppercase caption shown in the header (renders a blank if omitted)
+ * @param command - The command text to display and copy; may be multi-line
  */
 export default function CommandBlock({ label, command }: CommandBlockProps) {
   const { t } = useTranslation('agents');

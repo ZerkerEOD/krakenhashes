@@ -49,18 +49,11 @@ import { api } from '../services/api';
 import AgentInstall from '../components/agent/AgentInstall';
 
 /**
- * AgentManagement component handles the display and management of KrakenHashes agents.
- * 
- * Features:
- *   - Register new agents
- *   - Generate claim codes
- *   - View agent status
- *   - Monitor agent health
- * 
- * @returns {JSX.Element} The rendered agent management page
- * 
- * @example
- * <AgentManagement />
+ * Render the Agent Management page for viewing and managing agents, active claim vouchers, and device/status details.
+ *
+ * The component provides UI and controls to generate and deactivate claim vouchers, remove agents, clear stuck/busy agent status, and launch the per-OS installation wizard.
+ *
+ * @returns The Agent Management page as a JSX element
  */
 export default function AgentManagement() {
   const { t } = useTranslation('agents');
