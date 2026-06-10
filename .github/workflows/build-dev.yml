@@ -94,11 +94,32 @@ jobs:
           go build -v -ldflags="-s -w -X github.com/ZerkerEOD/krakenhashes/agent/internal/version.Version=${VERSION}-${COMMIT}-dev" \
             -o ${BINARY_NAME} ./cmd/agent
 
+      - name: Build launcher binary
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+          GOARM: ${{ matrix.goarm }}
+          CGO_ENABLED: 0
+        working-directory: ./agent
+        run: |
+          LAUNCHER_VERSION=$(jq -r '.launcher // .agent' ../versions.json)
+          COMMIT=${{ steps.commit_agent.outputs.short }}
+          BINARY_NAME=krakenhashes-launcher${{ matrix.ext }}
+          go build -v -ldflags="-s -w -X main.Version=${LAUNCHER_VERSION}-${COMMIT}-dev" \
+            -o ${BINARY_NAME} ./cmd/launcher
+
       - name: Upload binary for Docker build
         uses: actions/upload-artifact@v4
         with:
           name: binary-${{ matrix.os }}-${{ matrix.arch }}
           path: ./agent/krakenhashes-agent${{ matrix.ext }}
+          retention-days: 1
+
+      - name: Upload launcher for Docker build
+        uses: actions/upload-artifact@v4
+        with:
+          name: launcher-${{ matrix.os }}-${{ matrix.arch }}
+          path: ./agent/krakenhashes-launcher${{ matrix.ext }}
           retention-days: 1
 
   # Build and push Docker images (after agent binaries are built)
@@ -119,6 +140,12 @@ jobs:
         with:
           pattern: binary-*
           path: ./agent-binaries
+
+      - name: Download all launcher binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: launcher-*
+          path: ./launcher-binaries
 
       - name: Organize binaries for Docker build
         run: |
@@ -146,9 +173,30 @@ jobs:
             fi
           done
 
+          # Move launcher binaries into bin/launcher/{os}/{arch}/ (Dockerfile.prod COPYs this)
+          mkdir -p ./bin/launcher
+          for launcher_dir in ./launcher-binaries/launcher-*; do
+            if [ -d "$launcher_dir" ]; then
+              dir_name=$(basename "$launcher_dir")
+              os_arch="${dir_name#launcher-}"
+              os="${os_arch%-*}"
+              arch="${os_arch##*-}"
+
+              mkdir -p "./bin/launcher/$os/$arch"
+
+              if [ -f "$launcher_dir/krakenhashes-launcher.exe" ]; then
+                mv "$launcher_dir/krakenhashes-launcher.exe" "./bin/launcher/$os/$arch/"
+              elif [ -f "$launcher_dir/krakenhashes-launcher" ]; then
+                mv "$launcher_dir/krakenhashes-launcher" "./bin/launcher/$os/$arch/"
+              fi
+            fi
+          done
+
           # List the structure for debugging
           echo "Agent binary structure:"
           ls -lR ./bin/agent
+          echo "Launcher binary structure:"
+          ls -lR ./bin/launcher
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

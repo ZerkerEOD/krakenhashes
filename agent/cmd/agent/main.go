@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/agent/internal/agent"
@@ -19,6 +20,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/agent/internal/config"
 	"github.com/ZerkerEOD/krakenhashes/agent/internal/jobs"
 	"github.com/ZerkerEOD/krakenhashes/agent/internal/metrics"
+	"github.com/ZerkerEOD/krakenhashes/agent/internal/updateipc"
 	"github.com/ZerkerEOD/krakenhashes/agent/internal/version"
 	"github.com/ZerkerEOD/krakenhashes/agent/pkg/console"
 	"github.com/ZerkerEOD/krakenhashes/agent/pkg/debug"
@@ -763,6 +765,17 @@ func main() {
 		debug.Info("Connection attempt %d successful", i+1)
 		console.Success("Connected to backend successfully")
 
+		// Write the readiness breadcrumb so a launcher that just swapped this
+		// binary can confirm the new agent actually came online (and on which
+		// version) within its health-check window.
+		if err := updateipc.WriteReady(config.GetConfigDir(), updateipc.ReadyInfo{
+			Version:     version.GetVersion(),
+			PID:         os.Getpid(),
+			ConnectedAt: time.Now().UTC().Format(time.RFC3339),
+		}); err != nil {
+			debug.Warning("Failed to write readiness breadcrumb: %v", err)
+		}
+
 		// Device detection is triggered by config_update message from backend
 		// This ensures the preferred binary version is set before detection runs
 		// Running detection here would cause a race condition with config_update
@@ -854,13 +867,23 @@ func main() {
 	console.Info("Agent running, press Ctrl+C to exit")
 	debug.Info("Agent running, press Ctrl+C to exit")
 
-	// Wait for interrupt signal
+	// Wait for an interrupt/terminate signal OR an accepted auto-update
+	// request. SIGTERM is included so a service manager's graceful stop runs
+	// the same shutdown path. (os.Kill/SIGKILL is uncatchable, so there's no
+	// point listening for it.)
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, os.Kill)
-	<-sigChan
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-	console.Info("Shutting down agent...")
-	debug.Info("Shutting down agent...")
+	updateRequested := false
+	select {
+	case <-sigChan:
+		console.Info("Shutting down agent...")
+		debug.Info("Shutting down agent...")
+	case <-conn.UpdateExitChan():
+		updateRequested = true
+		console.Info("Update accepted; shutting down to hand off to launcher...")
+		debug.Info("Update accepted; shutting down for launcher to apply update")
+	}
 
 	// Stop stuck detection (GH Issue #12)
 	debug.Info("Stopping stuck detection...")
@@ -930,4 +953,13 @@ func main() {
 
 	console.Success("Agent shutdown complete")
 	debug.Info("Agent shutdown complete")
+
+	// If this shutdown was for an auto-update, exit with the distinguished
+	// code so the launcher reads the instruction and applies the update. The
+	// same graceful-shutdown sequence above ran first, so the backend has
+	// already freed our work and marked us shutting-down.
+	if updateRequested {
+		debug.Info("Exiting with update-requested code %d for launcher", updateipc.ExitCodeUpdateRequested)
+		os.Exit(updateipc.ExitCodeUpdateRequested)
+	}
 }

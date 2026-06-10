@@ -17,6 +17,10 @@ const (
 	AgentStatusInactive = "inactive"
 	AgentStatusError    = "error"
 	AgentStatusDisabled = "disabled"
+	// AgentStatusUpdating means the agent is applying a binary auto-update.
+	// The scheduler excludes agents in this state so no work is dispatched
+	// while the agent is being swapped + restarted by its launcher.
+	AgentStatusUpdating = "updating"
 )
 
 // Agent sync status constants
@@ -121,6 +125,16 @@ type Agent struct {
 	FilesSynced                   int            `json:"filesSynced"`
 	BinaryVersion                 string         `json:"binaryVersion"`      // Version pattern specifying compatible binaries (e.g., "default", "7.x", "7.1.2")
 	AdminOverrideTeams            bool           `json:"adminOverrideTeams"` // When TRUE, uses explicit agent_teams; when FALSE, inherits from owner teams
+	// Auto-update lifecycle (see migration 000162). UpdatePending marks a
+	// version-stale but busy agent; Status flips to AgentStatusUpdating once
+	// it goes idle. TargetVersion/UpdateStartedAt bound the in-flight update;
+	// UpdateAttempts/UpdateError/UpdateLastAttemptAt drive retry + give-up.
+	UpdatePending       bool           `json:"updatePending"`
+	TargetVersion       sql.NullString `json:"targetVersion"`
+	UpdateStartedAt     sql.NullTime   `json:"updateStartedAt"`
+	UpdateAttempts      int            `json:"updateAttempts"`
+	UpdateError         sql.NullString `json:"updateError"`
+	UpdateLastAttemptAt sql.NullTime   `json:"updateLastAttemptAt"`
 }
 
 // IsSystemAgent returns true if the agent is owned by the system user (universal agent)
@@ -195,14 +209,36 @@ func (h Hardware) Value() (driver.Value, error) {
 	return json.Marshal(h)
 }
 
-// MarshalJSON implements custom JSON marshalling for Agent to handle sql.NullInt64
+// nullStr flattens a sql.NullString to *string (nil when not Valid) so it
+// marshals as a JSON string or null — never the raw {String,Valid} object.
+func nullStr(ns sql.NullString) *string {
+	if !ns.Valid {
+		return nil
+	}
+	s := ns.String
+	return &s
+}
+
+// nullTime flattens a sql.NullTime to *time.Time (nil when not Valid) so it
+// marshals as a JSON timestamp or null — never the raw {Time,Valid} object.
+func nullTime(nt sql.NullTime) *time.Time {
+	if !nt.Valid {
+		return nil
+	}
+	t := nt.Time
+	return &t
+}
+
+// MarshalJSON implements custom JSON marshalling for Agent, flattening its
+// nullable (sql.NullString/sql.NullTime) fields to string/null or timestamp/null
+// so the API never leaks Go's raw {String,Valid}/{Time,Valid} shapes.
 func (a Agent) MarshalJSON() ([]byte, error) {
 	// Create a struct with explicit fields to avoid embedding issues
 	type AgentJSON struct {
 		ID                            int               `json:"id"`
 		Name                          string            `json:"name"`
 		Status                        string            `json:"status"`
-		LastError                     sql.NullString    `json:"lastError"`
+		LastError                     *string           `json:"lastError"`
 		LastSeen                      time.Time         `json:"lastSeen"`
 		LastHeartbeat                 time.Time         `json:"lastHeartbeat"`
 		Version                       string            `json:"version"`
@@ -221,24 +257,30 @@ func (a Agent) MarshalJSON() ([]byte, error) {
 		ConsecutiveFailures           int               `json:"consecutiveFailures"`
 		BenchmarkFailureStreak        int               `json:"benchmarkFailureStreak"`
 		BenchmarkDistinctCombosFailed int               `json:"benchmarkDistinctCombosFailed"`
-		BenchmarkLastFailureAt        sql.NullTime      `json:"benchmarkLastFailureAt"`
+		BenchmarkLastFailureAt        *time.Time        `json:"benchmarkLastFailureAt"`
 		SchedulingEnabled             bool              `json:"schedulingEnabled"`
 		ScheduleTimezone              string            `json:"scheduleTimezone"`
 		SyncStatus                    string            `json:"syncStatus"`
-		SyncCompletedAt               sql.NullTime      `json:"syncCompletedAt"`
-		SyncStartedAt                 sql.NullTime      `json:"syncStartedAt"`
-		SyncError                     sql.NullString    `json:"syncError"`
+		SyncCompletedAt               *time.Time        `json:"syncCompletedAt"`
+		SyncStartedAt                 *time.Time        `json:"syncStartedAt"`
+		SyncError                     *string           `json:"syncError"`
 		FilesToSync                   int               `json:"filesToSync"`
 		FilesSynced                   int               `json:"filesSynced"`
 		BinaryVersion                 string            `json:"binaryVersion"`
 		AdminOverrideTeams            bool              `json:"adminOverrideTeams"`
+		UpdatePending                 bool              `json:"updatePending"`
+		TargetVersion                 *string           `json:"targetVersion"`
+		UpdateStartedAt               *time.Time        `json:"updateStartedAt"`
+		UpdateAttempts                int               `json:"updateAttempts"`
+		UpdateError                   *string           `json:"updateError"`
+		UpdateLastAttemptAt           *time.Time        `json:"updateLastAttemptAt"`
 	}
 
 	temp := AgentJSON{
 		ID:                            a.ID,
 		Name:                          a.Name,
 		Status:                        a.Status,
-		LastError:                     a.LastError,
+		LastError:                     nullStr(a.LastError),
 		LastSeen:                      a.LastSeen,
 		LastHeartbeat:                 a.LastHeartbeat,
 		Version:                       a.Version,
@@ -257,17 +299,23 @@ func (a Agent) MarshalJSON() ([]byte, error) {
 		ConsecutiveFailures:           a.ConsecutiveFailures,
 		BenchmarkFailureStreak:        a.BenchmarkFailureStreak,
 		BenchmarkDistinctCombosFailed: a.BenchmarkDistinctCombosFailed,
-		BenchmarkLastFailureAt:        a.BenchmarkLastFailureAt,
+		BenchmarkLastFailureAt:        nullTime(a.BenchmarkLastFailureAt),
 		SchedulingEnabled:             a.SchedulingEnabled,
 		ScheduleTimezone:              a.ScheduleTimezone,
 		SyncStatus:                    a.SyncStatus,
-		SyncCompletedAt:               a.SyncCompletedAt,
-		SyncStartedAt:                 a.SyncStartedAt,
-		SyncError:                     a.SyncError,
+		SyncCompletedAt:               nullTime(a.SyncCompletedAt),
+		SyncStartedAt:                 nullTime(a.SyncStartedAt),
+		SyncError:                     nullStr(a.SyncError),
 		FilesToSync:                   a.FilesToSync,
 		FilesSynced:                   a.FilesSynced,
 		BinaryVersion:                 a.BinaryVersion,
 		AdminOverrideTeams:            a.AdminOverrideTeams,
+		UpdatePending:                 a.UpdatePending,
+		TargetVersion:                 nullStr(a.TargetVersion),
+		UpdateStartedAt:               nullTime(a.UpdateStartedAt),
+		UpdateAttempts:                a.UpdateAttempts,
+		UpdateError:                   nullStr(a.UpdateError),
+		UpdateLastAttemptAt:           nullTime(a.UpdateLastAttemptAt),
 	}
 
 	return json.Marshal(temp)

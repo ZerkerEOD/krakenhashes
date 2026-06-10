@@ -19,3 +19,22 @@ func GetDefaultAgentDownloadSettings() AgentDownloadSettings {
 		ChunkSizeMB:                 10,
 	}
 }
+
+// AgentUpdateSettings represents the configuration for agent binary auto-updates.
+type AgentUpdateSettings struct {
+	AutoUpdateEnabled    bool `json:"agent_auto_update_enabled"`
+	MaxConcurrent        int  `json:"agent_update_max_concurrent"`
+	HealthTimeoutSeconds int  `json:"agent_update_health_timeout_seconds"`
+	MaxAttempts          int  `json:"agent_update_max_attempts"`
+}
+
+// GetDefaultAgentUpdateSettings returns the default auto-update settings
+// (mirrors migration 000163).
+func GetDefaultAgentUpdateSettings() AgentUpdateSettings {
+	return AgentUpdateSettings{
+		AutoUpdateEnabled:    true,
+		MaxConcurrent:        2,
+		HealthTimeoutSeconds: 300,
+		MaxAttempts:          3,
+	}
+}

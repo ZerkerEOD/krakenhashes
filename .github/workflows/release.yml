@@ -79,6 +79,19 @@ jobs:
           BINARY_NAME=krakenhashes-agent${{ matrix.ext }}
           go build -v -ldflags="-s -w -X github.com/ZerkerEOD/krakenhashes/agent/internal/version.Version=${VERSION}" \
             -o ${BINARY_NAME} ./cmd/agent
+
+      - name: Build launcher binary
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+          GOARM: ${{ matrix.goarm }}
+          CGO_ENABLED: 0
+        working-directory: ./agent
+        run: |
+          LAUNCHER_VERSION=$(jq -r '.launcher // .agent' ../versions.json)
+          BINARY_NAME=krakenhashes-launcher${{ matrix.ext }}
+          go build -v -ldflags="-s -w -X main.Version=${LAUNCHER_VERSION}" \
+            -o ${BINARY_NAME} ./cmd/launcher
       
       - name: Create archive
         working-directory: ./agent
@@ -108,6 +121,35 @@ jobs:
           path: ./agent/${{ env.ARCHIVE_PATH }}
           retention-days: 1
 
+      - name: Create launcher archive
+        working-directory: ./agent
+        run: |
+          LAUNCHER_VERSION=$(jq -r '.launcher // .agent' ../versions.json)
+          BINARY_NAME=krakenhashes-launcher${{ matrix.ext }}
+          ARCHIVE_NAME=krakenhashes-launcher-${LAUNCHER_VERSION}-${{ matrix.os }}-${{ matrix.arch }}
+
+          if [ "${{ matrix.os }}" = "windows" ]; then
+            zip -q ${ARCHIVE_NAME}.zip ${BINARY_NAME}
+            echo "LAUNCHER_ARCHIVE_PATH=${ARCHIVE_NAME}.zip" >> $GITHUB_ENV
+          else
+            tar czf ${ARCHIVE_NAME}.tar.gz ${BINARY_NAME}
+            echo "LAUNCHER_ARCHIVE_PATH=${ARCHIVE_NAME}.tar.gz" >> $GITHUB_ENV
+          fi
+
+      - name: Upload launcher for Docker build
+        uses: actions/upload-artifact@v4
+        with:
+          name: launcherbin-${{ matrix.os }}-${{ matrix.arch }}
+          path: ./agent/krakenhashes-launcher${{ matrix.ext }}
+          retention-days: 1
+
+      - name: Upload launcher archive for release
+        uses: actions/upload-artifact@v4
+        with:
+          name: launcher-${{ matrix.os }}-${{ matrix.arch }}
+          path: ./agent/${{ env.LAUNCHER_ARCHIVE_PATH }}
+          retention-days: 1
+
   # Build and push Docker images (after agent binaries are built)
   docker:
     name: Build Docker Images
@@ -126,6 +168,12 @@ jobs:
         with:
           pattern: binary-*
           path: ./agent-binaries
+
+      - name: Download all launcher binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: launcherbin-*
+          path: ./launcher-binaries
 
       - name: Organize binaries for Docker build
         run: |
@@ -153,9 +201,30 @@ jobs:
             fi
           done
 
+          # Move launcher binaries into bin/launcher/{os}/{arch}/ (Dockerfile.prod COPYs this)
+          mkdir -p ./bin/launcher
+          for launcher_dir in ./launcher-binaries/launcherbin-*; do
+            if [ -d "$launcher_dir" ]; then
+              dir_name=$(basename "$launcher_dir")
+              os_arch="${dir_name#launcherbin-}"
+              os="${os_arch%-*}"
+              arch="${os_arch##*-}"
+
+              mkdir -p "./bin/launcher/$os/$arch"
+
+              if [ -f "$launcher_dir/krakenhashes-launcher.exe" ]; then
+                mv "$launcher_dir/krakenhashes-launcher.exe" "./bin/launcher/$os/$arch/"
+              elif [ -f "$launcher_dir/krakenhashes-launcher" ]; then
+                mv "$launcher_dir/krakenhashes-launcher" "./bin/launcher/$os/$arch/"
+              fi
+            fi
+          done
+
           # List the structure for debugging
           echo "Agent binary structure:"
           ls -lR ./bin/agent
+          echo "Launcher binary structure:"
+          ls -lR ./bin/launcher
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -247,7 +316,9 @@ jobs:
           - \`docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest\`
           
           ## Agent Binaries
-          Download the appropriate agent binary for your platform from the assets below.
+          Download the appropriate binary for your platform from the assets below.
+          - **krakenhashes-launcher-…** — auto-updating supervisor (recommended). Install it and it fetches + self-updates the agent.
+          - **krakenhashes-agent-…** — standalone agent (managed/updated manually).
           
           ---
           

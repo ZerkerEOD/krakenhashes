@@ -83,6 +83,87 @@ func (h *AgentDownloadHandler) GetChecksums(w http.ResponseWriter, r *http.Reque
 	json.NewEncoder(w).Encode(response)
 }
 
+// DownloadLauncher serves a launcher (auto-updating supervisor) binary.
+func (h *AgentDownloadHandler) DownloadLauncher(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	os := vars["os"]
+	arch := vars["arch"]
+
+	debug.Info("Launcher download requested for %s/%s", os, arch)
+
+	binary, err := h.binaryService.GetLauncherBinary(os, arch)
+	if err != nil {
+		debug.Warning("Launcher binary not found for %s/%s: %v", os, arch, err)
+		http.Error(w, "Launcher binary not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", binary.Size))
+
+	filename := "krakenhashes-launcher"
+	if os == "windows" {
+		filename += ".exe"
+	}
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+	w.Header().Set("X-Checksum-SHA256", binary.Checksum)
+
+	http.ServeFile(w, r, binary.Path)
+
+	debug.Info("Served launcher binary %s/%s (size: %d bytes)", os, arch, binary.Size)
+}
+
+// GetLauncherVersion returns the current launcher version.
+func (h *AgentDownloadHandler) GetLauncherVersion(w http.ResponseWriter, r *http.Request) {
+	response := map[string]string{
+		"version": h.binaryService.GetLauncherVersion(),
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// GetLauncherPlatforms returns info about all available launcher binaries.
+func (h *AgentDownloadHandler) GetLauncherPlatforms(w http.ResponseWriter, r *http.Request) {
+	binaries := h.binaryService.GetAllLauncherBinaries()
+
+	scheme := "https"
+	if r.TLS == nil {
+		scheme = "http"
+	}
+	if forwardedProto := r.Header.Get("X-Forwarded-Proto"); forwardedProto != "" {
+		scheme = forwardedProto
+	}
+	host := r.Host
+	if forwardedHost := r.Header.Get("X-Forwarded-Host"); forwardedHost != "" {
+		host = forwardedHost
+	}
+	baseURL := fmt.Sprintf("%s://%s", scheme, host)
+
+	var platforms []Platform
+	for _, binary := range binaries {
+		platform := Platform{
+			OS:          binary.OS,
+			Arch:        binary.Arch,
+			DisplayName: binary.DisplayName,
+			DownloadURL: binary.DownloadURL,
+			FileName:    binary.FileName,
+			FileSize:    binary.Size,
+			Checksum:    binary.Checksum,
+		}
+		if r.URL.Query().Get("absolute") == "true" {
+			platform.DownloadURL = baseURL + platform.DownloadURL
+		}
+		platforms = append(platforms, platform)
+	}
+
+	response := map[string]interface{}{
+		"version":   h.binaryService.GetLauncherVersion(),
+		"platforms": platforms,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
 // Platform represents a downloadable platform
 type Platform struct {
 	OS          string `json:"os"`

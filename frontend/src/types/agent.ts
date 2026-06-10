@@ -22,7 +22,7 @@ import { JobTask, JobExecution } from './jobs';
 export interface Agent {
     id: string;
     name: string;
-    status: 'inactive' | 'active' | 'error';
+    status: 'inactive' | 'active' | 'error' | 'updating';
     lastHeartbeat: string;
     createdBy: {
         id: string;
@@ -42,6 +42,12 @@ export interface Agent {
     extraParameters?: string;
     /** Binary version pattern (e.g., "default", "7.x", "7.1.x", "7.1.2") */
     binaryVersion?: string;
+    /** Auto-update: agent is version-stale but busy; updates when it goes idle */
+    updatePending?: boolean;
+    /** Auto-update: the version this agent is being updated to */
+    targetVersion?: string;
+    /** Auto-update: last update failure message (e.g. health-check timeout) */
+    updateError?: string;
     metadata?: {
         busy_status?: string;
         current_task_id?: string;

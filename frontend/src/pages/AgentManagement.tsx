@@ -10,9 +10,10 @@
  * @packageDocumentation
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   Box,
   Button,
@@ -35,6 +36,7 @@ import {
   CircularProgress,
   Alert,
   Link,
+  Tooltip,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
@@ -44,7 +46,7 @@ import {
 } from '@mui/icons-material';
 import { Agent, ClaimVoucher, AgentDevice } from '../types/agent';
 import { api } from '../services/api';
-import AgentDownloads from '../components/agent/AgentDownloads';
+import AgentInstall from '../components/agent/AgentInstall';
 
 /**
  * AgentManagement component handles the display and management of KrakenHashes agents.
@@ -62,126 +64,116 @@ import AgentDownloads from '../components/agent/AgentDownloads';
  */
 export default function AgentManagement() {
   const { t } = useTranslation('agents');
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [agentDevices, setAgentDevices] = useState<{ [key: string]: AgentDevice[] }>({});
-  const [claimVouchers, setClaimVouchers] = useState<ClaimVoucher[]>([]);
+  const queryClient = useQueryClient();
   const [openDialog, setOpenDialog] = useState(false);
   const [isContinuous, setIsContinuous] = useState(false);
   const [isSystemVoucher, setIsSystemVoucher] = useState(false);
   const [claimCode, setClaimCode] = useState<string>('');
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [clearBusyDialogOpen, setClearBusyDialogOpen] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Fetch data
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      console.log('Fetching agents and vouchers...');
-      const [agentsRes, vouchersRes] = await Promise.all([
-        api.get<Agent[]>('/api/agents'),
-        api.get<ClaimVoucher[]>('/api/vouchers')
-      ]);
-      
-      console.log('Received agents:', agentsRes.data);
-      console.log('Received vouchers:', vouchersRes.data);
-      
-      setAgents(agentsRes.data || []);
-      setClaimVouchers((vouchersRes.data || []).filter(v => v.is_active));
-      
-      // Fetch devices for each agent
-      const devicePromises = (agentsRes.data || []).map(agent => 
+  // --- Queries (React Query keeps previous data on refetch, so background
+  // polling updates the tables in place without blanking the page) ---
+  const { data: agents = [], isLoading } = useQuery({
+    queryKey: ['agents'],
+    queryFn: async () => (await api.get<Agent[]>('/api/agents')).data || [],
+    refetchInterval: 15000,
+    placeholderData: keepPreviousData,
+  });
+
+  const { data: vouchersRaw = [] } = useQuery({
+    queryKey: ['vouchers'],
+    queryFn: async () => (await api.get<ClaimVoucher[]>('/api/vouchers')).data || [],
+    refetchInterval: 15000,
+    placeholderData: keepPreviousData,
+  });
+  const claimVouchers = vouchersRaw.filter(v => v.is_active);
+
+  // Devices keyed on the agent-id SET (only refetches when agents are
+  // added/removed, not on every status poll).
+  const agentIdsKey = agents.map(a => a.id).sort().join(',');
+  const { data: agentDevices = {} } = useQuery({
+    queryKey: ['agent-devices', agentIdsKey],
+    enabled: agents.length > 0,
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const results = await Promise.all(agents.map(agent =>
         api.get<AgentDevice[]>(`/api/agents/${agent.id}/devices`)
-          .then(res => ({ agentId: agent.id, devices: res.data || [] }))
-          .catch(() => ({ agentId: agent.id, devices: [] }))
-      );
-      
-      const deviceResults = await Promise.all(devicePromises);
-      const devicesMap: { [key: string]: AgentDevice[] } = {};
-      deviceResults.forEach(result => {
-        devicesMap[result.agentId] = result.devices;
-      });
-      setAgentDevices(devicesMap);
-      
-    } catch (error) {
-      console.error('Failed to fetch data:', error);
-      setError(t('errors.loadFailed') as string);
-      setAgents([]);
-      setClaimVouchers([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+          .then(res => ({ id: agent.id, devices: res.data || [] }))
+          .catch(() => ({ id: agent.id, devices: [] as AgentDevice[] }))
+      ));
+      const map: { [key: string]: AgentDevice[] } = {};
+      results.forEach(r => { map[r.id] = r.devices; });
+      return map;
+    },
+  });
 
-  useEffect(() => {
-    fetchData();
-    
-    // Set up polling for updates
-    const interval = setInterval(fetchData, 30000); // Poll every 30 seconds
-    
-    return () => clearInterval(interval);
-  }, []);
+  // --- Mutations (invalidate the affected query; no full-page refetch) ---
+  const generateCodeMutation = useMutation({
+    mutationFn: (vars: { isContinuous: boolean; isSystem: boolean }) =>
+      api.post<{ code: string }>('/api/vouchers/temp', { isContinuous: vars.isContinuous, isSystem: vars.isSystem })
+        .then(r => r.data),
+    onSuccess: (data) => {
+      setClaimCode(data.code);
+      queryClient.invalidateQueries({ queryKey: ['vouchers'] });
+    },
+    onError: () => setError(t('errors.generateFailed') as string),
+  });
 
-  // Handle claim code generation
-  const handleCreateClaimCode = async () => {
-    try {
-      setError(null);
-      const response = await api.post<{ code: string }>('/api/vouchers/temp', {
-        isContinuous: isContinuous,
-        isSystem: isSystemVoucher,
-      });
-      setClaimCode(response.data.code);
-      await fetchData(); // Refresh the vouchers list
-    } catch (error) {
-      console.error('Failed to create claim code:', error);
-      setError(t('errors.generateFailed') as string);
-    }
-  };
+  const deactivateVoucherMutation = useMutation({
+    mutationFn: (code: string) => api.delete(`/api/vouchers/${code}/disable`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['vouchers'] }),
+    onError: () => setError(t('errors.deactivateFailed') as string),
+  });
 
-  // Handle voucher deactivation
-  const handleDeactivateVoucher = async (code: string) => {
-    try {
-      setError(null);
-      await api.delete(`/api/vouchers/${code}/disable`);
-      await fetchData();
-    } catch (error) {
-      console.error('Failed to deactivate voucher:', error);
-      setError(t('errors.deactivateFailed') as string);
-    }
-  };
+  const removeAgentMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/api/agents/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['agents'] }),
+    onError: () => setError(t('errors.removeFailed') as string),
+  });
 
-  // Handle agent removal
-  const handleRemoveAgent = async (agentId: string) => {
-    try {
-      setError(null);
-      await api.delete(`/api/agents/${agentId}`);
-      await fetchData();
-    } catch (error) {
-      console.error('Failed to remove agent:', error);
-      setError(t('errors.removeFailed') as string);
-    }
-  };
-
-  // Handle clear busy status
-  const handleClearBusyStatus = async () => {
-    if (!selectedAgentId) return;
-
-    try {
-      setError(null);
-      setSuccessMessage(null);
-      await api.post(`/api/agents/${selectedAgentId}/clear-busy-status`);
+  const clearBusyMutation = useMutation({
+    mutationFn: (id: string) => api.post(`/api/agents/${id}/clear-busy-status`),
+    onSuccess: () => {
       setSuccessMessage(t('messages.busyStatusCleared') as string);
-      setClearBusyDialogOpen(false);
-      setSelectedAgentId(null);
-      await fetchData();
-    } catch (error) {
-      console.error('Failed to clear busy status:', error);
-      setError(t('errors.clearBusyFailed') as string);
-      setClearBusyDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['agents'] });
+    },
+    onError: () => setError(t('errors.clearBusyFailed') as string),
+  });
+
+  const handleCreateClaimCode = () => {
+    setError(null);
+    generateCodeMutation.mutate({ isContinuous, isSystem: isSystemVoucher });
+  };
+
+  const handleDeactivateVoucher = (code: string) => {
+    setError(null);
+    deactivateVoucherMutation.mutate(code);
+  };
+
+  const handleRemoveAgent = (agentId: string) => {
+    setError(null);
+    removeAgentMutation.mutate(agentId);
+  };
+
+  const handleClearBusyStatus = () => {
+    if (!selectedAgentId) return;
+    setError(null);
+    setSuccessMessage(null);
+    clearBusyMutation.mutate(selectedAgentId);
+    setClearBusyDialogOpen(false);
+    setSelectedAgentId(null);
+  };
+
+  // Generate a code for the install wizard; returns the new code.
+  const handleWizardGenerateCode = async (): Promise<string | null> => {
+    try {
+      const data = await generateCodeMutation.mutateAsync({ isContinuous: false, isSystem: false });
+      return data.code;
+    } catch {
+      return null;
     }
   };
 
@@ -192,7 +184,8 @@ export default function AgentManagement() {
     return busyStatus === 'true' && !currentTaskId;
   };
 
-  if (loading) {
+  // Spinner only on the very first load (RQ keeps data on background refetch).
+  if (isLoading) {
     return (
       <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
         <CircularProgress />
@@ -232,8 +225,12 @@ export default function AgentManagement() {
           </Alert>
         )}
 
-        {/* Agent Downloads Section */}
-        <AgentDownloads />
+        {/* Agent Install Section (collapsed accordion + per-OS wizard) */}
+        <AgentInstall
+          vouchers={claimVouchers}
+          defaultCode={claimCode || undefined}
+          onGenerateCode={handleWizardGenerateCode}
+        />
 
         {/* Active Claim Vouchers Table */}
         <Typography variant="h5" sx={{ mt: 4, mb: 2 }}>
@@ -345,7 +342,14 @@ export default function AgentManagement() {
                         agent.createdBy?.username || (t('common.unknown') as string)
                       )}
                     </TableCell>
-                    <TableCell>{agent.version}</TableCell>
+                    <TableCell>
+                      {agent.version}
+                      {agent.status === 'updating' && agent.targetVersion && (
+                        <Typography variant="caption" color="info.main" sx={{ display: 'block' }}>
+                          → {agent.targetVersion}
+                        </Typography>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {agentDevices[agent.id]?.length > 0 ? (
                         agentDevices[agent.id].map((device) => (
@@ -367,11 +371,30 @@ export default function AgentManagement() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Chip
-                        label={t(`labels.${agent.status}`, { ns: 'common' }) as string}
-                        color={agent.status === 'active' ? 'success' : agent.status === 'error' ? 'error' : 'default'}
-                        size="small"
-                      />
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-start' }}>
+                        <Chip
+                          label={t(`labels.${agent.status}`, { ns: 'common' }) as string}
+                          color={
+                            agent.status === 'active'
+                              ? 'success'
+                              : agent.status === 'error'
+                                ? 'error'
+                                : agent.status === 'updating'
+                                  ? 'info'
+                                  : 'default'
+                          }
+                          icon={agent.status === 'updating' ? <CircularProgress size={12} color="inherit" /> : undefined}
+                          size="small"
+                        />
+                        {agent.updatePending && agent.status !== 'updating' && (
+                          <Chip label={t('status.updatePending') as string} color="warning" size="small" variant="outlined" />
+                        )}
+                        {agent.updateError && (
+                          <Tooltip title={agent.updateError}>
+                            <Chip label={t('status.updateFailed') as string} color="error" size="small" variant="outlined" />
+                          </Tooltip>
+                        )}
+                      </Box>
                     </TableCell>
                     <TableCell>
                       {isAgentStuck(agent) && (

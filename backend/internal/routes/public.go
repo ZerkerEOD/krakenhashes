@@ -92,7 +92,13 @@ func SetupPublicRoutes(apiRouter *mux.Router, database *db.DB, agentService *ser
 	agentDownloadHandler := public.NewAgentDownloadHandler(binaryService)
 	apiRouter.HandleFunc("/public/agent/platforms", agentDownloadHandler.GetAvailablePlatforms).Methods("GET", "OPTIONS")
 	apiRouter.HandleFunc("/public/agent/download/{os}/{arch}", agentDownloadHandler.DownloadAgent).Methods("GET", "OPTIONS")
-	debug.Info("Configured agent download endpoints: /public/agent/platforms, /public/agent/download/{os}/{arch}")
+	apiRouter.HandleFunc("/public/agent/version", agentDownloadHandler.GetAgentVersion).Methods("GET", "OPTIONS")
+	apiRouter.HandleFunc("/public/agent/checksums", agentDownloadHandler.GetChecksums).Methods("GET", "OPTIONS")
+	// Launcher (auto-updating supervisor) download endpoints
+	apiRouter.HandleFunc("/public/agent/launcher/platforms", agentDownloadHandler.GetLauncherPlatforms).Methods("GET", "OPTIONS")
+	apiRouter.HandleFunc("/public/agent/launcher/download/{os}/{arch}", agentDownloadHandler.DownloadLauncher).Methods("GET", "OPTIONS")
+	apiRouter.HandleFunc("/public/agent/launcher/version", agentDownloadHandler.GetLauncherVersion).Methods("GET", "OPTIONS")
+	debug.Info("Configured agent + launcher download endpoints")
 
 	return ssoManager
 }

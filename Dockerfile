@@ -121,6 +121,9 @@ COPY backend/db/migrations /usr/local/share/krakenhashes/migrations
 # Copy built agents from agent-builder stage
 COPY --from=agent-builder /app/bin/agent /usr/share/krakenhashes/agents
 
+# Copy built launchers (auto-updating supervisor) from agent-builder stage
+COPY --from=agent-builder /app/bin/launcher /usr/share/krakenhashes/launcher
+
 # Create data directory with proper ownership
 RUN mkdir -p /var/lib/krakenhashes && \
     chown -R krakenhashes:krakenhashes /var/lib/krakenhashes && \

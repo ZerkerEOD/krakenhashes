@@ -13,6 +13,7 @@ import { HashTypeManager } from '../../components/admin/HashTypeManager';
 import JobExecutionSettings from '../../components/admin/JobExecutionSettings';
 import MonitoringSettings from '../../components/admin/MonitoringSettings';
 import AgentDownloadSettings from '../../components/admin/AgentDownloadSettings';
+import AgentAutoUpdateSettings from '../../components/admin/AgentAutoUpdateSettings';
 import NotificationSettings from '../../components/admin/NotificationSettings';
 import { useSnackbar } from 'notistack';
 import { getDefaultClientRetentionSetting, updateDefaultClientRetentionSetting } from '../../services/api';
@@ -235,6 +236,7 @@ export const AdminSettings = () => {
         </TabPanel>
         <TabPanel value={currentTab} index={9}>
           <AgentDownloadSettings />
+          <AgentAutoUpdateSettings />
         </TabPanel>
         <TabPanel value={currentTab} index={10}>
           <NotificationSettings />
