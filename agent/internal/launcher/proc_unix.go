@@ -10,6 +10,7 @@ import (
 // setSysProcAttr puts the agent in its own process group so the launcher can
 // setSysProcAttr sets cmd.SysProcAttr to run the child in its own process group
 // (Setpgid=true), enabling signals to be delivered to the whole process group.
+// signal the whole tree (agent + any hashcat children) at once.
 func setSysProcAttr(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 }
@@ -27,6 +28,7 @@ func gracefulStop(cmd *exec.Cmd) error {
 
 // killProcess sends SIGKILL to the command's process group; it is a no-op if cmd.Process is nil.
 // If sending SIGKILL to the group fails, it falls back to killing the individual process.
+// killProcess hard-kills the agent's process group.
 func killProcess(cmd *exec.Cmd) error {
 	if cmd.Process == nil {
 		return nil

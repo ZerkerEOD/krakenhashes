@@ -252,6 +252,7 @@ func verifyChecksum(path, want string) error {
 // replaceFile replaces the file at dst with src, attempting an atomic rename and retrying after removing dst if necessary.
 // If the initial rename fails, it removes dst (unless it does not exist) and retries the rename.
 // Returns any error encountered while installing src to dst.
+// dst first. Safe here because the agent is stopped during a swap.
 func replaceFile(dst, src string) error {
 	if err := os.Rename(src, dst); err == nil {
 		return nil
@@ -265,6 +266,7 @@ func replaceFile(dst, src string) error {
 // copyFile copies the file at src to dst, preserving the source file mode (including the executable bit) when possible.
 // It writes the contents to a temporary file alongside dst and then atomically replaces dst with the temporary file.
 // The temporary file is removed if an error occurs during copy or close.
+// copyFile copies src to dst (preserving the executable bit on Unix).
 func copyFile(src, dst string) error {
 	in, err := os.Open(src)
 	if err != nil {

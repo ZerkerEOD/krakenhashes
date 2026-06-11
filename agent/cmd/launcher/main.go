@@ -328,7 +328,7 @@ func defaultAgentBinaryPath(exeDir string) string {
 }
 
 // resolveDir resolves a directory from (in order) the --flag in agentArgs, the
-// resolveDir returns the absolute path selected from, in order: the flag value for flagName in agentArgs, the environment variable envName, or the provided default def.
+// env var, or the default; returns an absolute path.
 func resolveDir(agentArgs []string, flagName, envName, def string) string {
 	if v := peekFlag(agentArgs, flagName); v != "" {
 		return abs(v)
@@ -350,6 +350,7 @@ func abs(p string) string {
 // peekFlag searches args for a flag named `name` in the forms `--name value`, `-name value`,
 // `--name=value`, or `-name=value` and returns the associated value. If the flag is not present
 // or no value is available, it returns the empty string.
+// peekFlag returns the value of --name / -name / --name=value in args, or "".
 func peekFlag(args []string, name string) string {
 	for i := 0; i < len(args); i++ {
 		a := args[i]

@@ -151,6 +151,7 @@ func DetectRunMode() RunMode {
 // runs via the SCM dispatcher (so Start/Stop are honored); otherwise it runs
 // RunService runs the Supervisor according to the detected execution environment.
 // On Windows it runs via the Service Control Manager so service start/stop are handled by the SCM; otherwise it runs the supervisor directly until the context is canceled.
+// the supervisor directly until ctx is cancelled.
 func RunService(ctx context.Context, sup *Supervisor) error {
 	if isWindowsService() {
 		return runUnderSCM(ctx, sup)

@@ -68,7 +68,7 @@ const (
 	outcomeUnhealthy
 )
 
-// for internal logging.
+// New creates a Supervisor, filling in defaults.
 func New(cfg Config) *Supervisor {
 	if cfg.Logger == nil {
 		cfg.Logger = log.New(os.Stderr, "[launcher] ", log.LstdFlags)
@@ -301,7 +301,7 @@ func nextBackoff(d time.Duration) time.Duration {
 }
 
 // exitCodeFromCmd returns the child's exit code (-1 if unknown / signaled).
-// exitCodeFromCmd returns the exit code of the provided command's process, or -1 if the process state is not available.
+// ProcessState.ExitCode() is cross-platform.
 func exitCodeFromCmd(cmd *exec.Cmd) int {
 	if cmd.ProcessState == nil {
 		return -1
