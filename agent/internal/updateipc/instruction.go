@@ -61,18 +61,23 @@ type ReadyInfo struct {
 	ConnectedAt string `json:"connected_at"`
 }
 
-// InstructionPath returns the absolute path to the instruction file.
+// InstructionPath returns the absolute path to the agent's update instruction file
+// located inside the provided configDir (filename "update.json").
 func InstructionPath(configDir string) string {
 	return filepath.Join(configDir, instructionFile)
 }
 
-// ReadyPath returns the absolute path to the readiness breadcrumb.
+// ReadyPath returns the absolute path to the readiness breadcrumb file inside configDir.
 func ReadyPath(configDir string) string {
 	return filepath.Join(configDir, readyFile)
 }
 
 // WriteInstruction atomically writes the instruction (tmp + rename) so a crash
-// mid-write never leaves a torn file.
+// WriteInstruction writes instr to the package's instruction file (update.json) inside configDir.
+// If instr.SchemaVersion is zero it will be set to CurrentSchemaVersion.
+// The instruction is encoded as indented JSON and written with permissions 0600 to a temporary
+// file which is atomically renamed into place, ensuring a reader never observes a torn file.
+// It returns an error if JSON marshaling or any filesystem step (write/rename) fails.
 func WriteInstruction(configDir string, instr UpdateInstruction) error {
 	if instr.SchemaVersion == 0 {
 		instr.SchemaVersion = CurrentSchemaVersion
@@ -91,7 +96,12 @@ func WriteInstruction(configDir string, instr UpdateInstruction) error {
 	return nil
 }
 
-// ReadInstruction returns the instruction, or (nil, nil) if none is present.
+// ReadInstruction reads and parses the update instruction file from the given
+// config directory and returns the instruction structure.
+//
+// If the instruction file does not exist, ReadInstruction returns (nil, nil).
+// If the file is present but cannot be read or parsed, it returns a wrapped
+// error describing the failure.
 func ReadInstruction(configDir string) (*UpdateInstruction, error) {
 	data, err := os.ReadFile(InstructionPath(configDir))
 	if err != nil {
@@ -107,7 +117,8 @@ func ReadInstruction(configDir string) (*UpdateInstruction, error) {
 	return &instr, nil
 }
 
-// ClearInstruction removes the instruction file (no error if absent).
+// ClearInstruction removes the update instruction file from the given config directory.
+// It ignores a missing file and returns a wrapped error for any other removal failure.
 func ClearInstruction(configDir string) error {
 	if err := os.Remove(InstructionPath(configDir)); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("clear update instruction: %w", err)
@@ -115,7 +126,11 @@ func ClearInstruction(configDir string) error {
 	return nil
 }
 
-// WriteReady atomically writes the readiness breadcrumb.
+// WriteReady atomically writes the readiness breadcrumb for the agent into the
+// ready.json file inside configDir.
+// It serializes info to JSON, writes it to ready.json.tmp with permissions 0600,
+// and atomically renames the temp file into place; an error is returned if any
+// step fails.
 func WriteReady(configDir string, info ReadyInfo) error {
 	data, err := json.Marshal(info)
 	if err != nil {
@@ -131,7 +146,9 @@ func WriteReady(configDir string, info ReadyInfo) error {
 	return nil
 }
 
-// ReadReady returns the readiness breadcrumb, or (nil, nil) if absent.
+// ReadReady loads the readiness breadcrumb from the config directory's ready.json.
+// If the file does not exist it returns (nil, nil). On success it returns a pointer to the parsed ReadyInfo.
+// I/O and JSON parsing errors are returned.
 func ReadReady(configDir string) (*ReadyInfo, error) {
 	data, err := os.ReadFile(ReadyPath(configDir))
 	if err != nil {
@@ -147,7 +164,8 @@ func ReadReady(configDir string) (*ReadyInfo, error) {
 	return &info, nil
 }
 
-// ClearReady removes the readiness breadcrumb (no error if absent).
+// ClearReady removes the readiness breadcrumb file from the given config directory.
+// If the file does not exist the call succeeds without error; other filesystem errors are returned.
 func ClearReady(configDir string) error {
 	if err := os.Remove(ReadyPath(configDir)); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("clear ready info: %w", err)

@@ -24,7 +24,8 @@ type AgentUpdateSweeper struct {
 	interval      time.Duration
 }
 
-// NewAgentUpdateSweeper creates a sweeper with the given cadence (default 15s).
+// NewAgentUpdateSweeper creates an AgentUpdateSweeper that runs periodic maintenance for agent auto-updates at the specified cadence.
+// If interval is less than or equal to zero the cadence defaults to 15 seconds.
 func NewAgentUpdateSweeper(updateService *AgentUpdateService, interval time.Duration) *AgentUpdateSweeper {
 	if interval <= 0 {
 		interval = 15 * time.Second

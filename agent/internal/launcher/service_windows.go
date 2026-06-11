@@ -9,7 +9,8 @@ import (
 )
 
 // isWindowsService reports whether the process is running under the Windows
-// Service Control Manager.
+// isWindowsService reports whether the current process is running under the
+// Windows Service Control Manager (SCM). If detection fails, it returns false.
 func isWindowsService() bool {
 	is, err := svc.IsWindowsService()
 	if err != nil {
@@ -58,7 +59,9 @@ func (h *scmHandler) Execute(args []string, r <-chan svc.ChangeRequest, status c
 	}
 }
 
-// runUnderSCM runs the supervisor under the SCM dispatcher.
+// runUnderSCM runs the Supervisor under the Windows Service Control Manager (SCM).
+// It starts the SCM dispatcher with an scmHandler bound to the given context and
+// supervisor, and returns any error returned by svc.Run.
 func runUnderSCM(ctx context.Context, sup *Supervisor) error {
 	return svc.Run(serviceName, &scmHandler{ctx: ctx, sup: sup})
 }

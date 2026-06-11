@@ -291,6 +291,7 @@ func (s *Supervisor) sleep(ctx context.Context, d time.Duration) bool {
 	}
 }
 
+// nextBackoff computes the next exponential backoff by doubling d and capping the result at 30 seconds.
 func nextBackoff(d time.Duration) time.Duration {
 	d *= 2
 	if d > 30*time.Second {

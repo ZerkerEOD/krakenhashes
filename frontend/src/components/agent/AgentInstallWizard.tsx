@@ -61,6 +61,13 @@ interface Props {
 
 const REGISTER_LATER = '__register_later__';
 
+/**
+ * Renders a compact section header with an icon on the left and a bold subtitle-style title.
+ *
+ * @param icon - Icon or element displayed to the left of the title
+ * @param title - Text displayed as the header title
+ * @returns The header element containing the icon and title
+ */
 function SectionHeader({ icon, title }: { icon: React.ReactNode; title: string }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -70,6 +77,19 @@ function SectionHeader({ icon, title }: { icon: React.ReactNode; title: string }
   );
 }
 
+/**
+ * Render a modal dialog that guides users through selecting installation mode, target architecture, claim key, and server host, and presents platform-specific download links and command snippets.
+ *
+ * @param open - Whether the dialog is visible
+ * @param os - Selected operating system identifier (e.g. `'linux' | 'windows' | 'darwin'`); when `null` the component renders `null`
+ * @param agentPlatforms - Available standalone agent binaries for all OS/architectures
+ * @param launcherPlatforms - Available launcher binaries for all OS/architectures
+ * @param vouchers - List of claim voucher objects available for selection
+ * @param defaultCode - Optional default claim code to preselect when the dialog opens
+ * @param onGenerateCode - Async callback that creates a new claim code and returns it (may return `null`/`undefined` if none)
+ * @param onClose - Callback invoked to close the dialog
+ * @returns The install wizard dialog element, or `null` when `os` is `null`
+ */
 export default function AgentInstallWizard({
   open, os, agentPlatforms, launcherPlatforms, vouchers, defaultCode, onGenerateCode, onClose,
 }: Props) {

@@ -110,6 +110,10 @@ func (s *Supervisor) bootstrapAgent() error {
 }
 
 // resolveDownloadURL builds an absolute download URL from the instruction.
+// If Instr.DownloadURL is an absolute http(s) URL it is returned unchanged.
+// Otherwise, when Instr.DownloadURL is empty the function constructs the path
+// "/api/public/agent/download/{OS}/{Arch}" and joins it to Instr.ServerBaseURL.
+// Returns an empty string when there is not enough information to produce a URL.
 func resolveDownloadURL(instr updateipc.UpdateInstruction) string {
 	path := instr.DownloadURL
 	if path == "" {
@@ -210,7 +214,9 @@ func (s *Supervisor) tlsClientConfig(insecure bool) *tls.Config {
 }
 
 // isCertError reports whether err looks like a TLS certificate verification
-// failure (used to decide whether an insecure bootstrap retry is warranted).
+// isCertError reports whether err likely indicates a TLS or certificate validation error.
+// It returns false for nil and otherwise inspects the error text for the substrings
+// "x509", "certificate", or "tls:".
 func isCertError(err error) bool {
 	if err == nil {
 		return false
@@ -219,7 +225,8 @@ func isCertError(err error) bool {
 	return strings.Contains(e, "x509") || strings.Contains(e, "certificate") || strings.Contains(e, "tls:")
 }
 
-// verifyChecksum compares the SHA-256 of path against want (hex, case-insensitive).
+// verifyChecksum computes the SHA-256 hash of the file at path and compares it case-insensitively to want.
+// It returns nil when the computed hash matches want, or an error if want is empty, the file cannot be read, or the hashes do not match.
 func verifyChecksum(path, want string) error {
 	if want == "" {
 		return fmt.Errorf("no expected checksum provided")
@@ -242,6 +249,9 @@ func verifyChecksum(path, want string) error {
 
 // replaceFile moves src onto dst atomically where possible. os.Rename overwrites
 // on Unix; on Windows (and when rename onto an existing file fails) it removes
+// replaceFile replaces the file at dst with src, attempting an atomic rename and retrying after removing dst if necessary.
+// If the initial rename fails, it removes dst (unless it does not exist) and retries the rename.
+// Returns any error encountered while installing src to dst.
 // dst first. Safe here because the agent is stopped during a swap.
 func replaceFile(dst, src string) error {
 	if err := os.Rename(src, dst); err == nil {
@@ -253,6 +263,9 @@ func replaceFile(dst, src string) error {
 	return os.Rename(src, dst)
 }
 
+// copyFile copies the file at src to dst, preserving the source file mode (including the executable bit) when possible.
+// It writes the contents to a temporary file alongside dst and then atomically replaces dst with the temporary file.
+// The temporary file is removed if an error occurs during copy or close.
 // copyFile copies src to dst (preserving the executable bit on Unix).
 func copyFile(src, dst string) error {
 	in, err := os.Open(src)
@@ -283,9 +296,10 @@ func copyFile(src, dst string) error {
 	return replaceFile(dst, tmp)
 }
 
+// isWindows reports whether the current operating system is Windows.
 func isWindows() bool { return runtime.GOOS == "windows" }
 
-// normalizeVersion trims a leading 'v' and whitespace for equality comparison.
+// normalizeVersion trims surrounding whitespace and removes a single leading 'v' from the version string.
 func normalizeVersion(v string) string {
 	return strings.TrimPrefix(strings.TrimSpace(v), "v")
 }

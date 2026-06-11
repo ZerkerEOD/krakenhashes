@@ -32,9 +32,16 @@ interface Props {
 }
 
 /**
- * AgentInstall renders a collapsed "Install an Agent" accordion with per-OS
- * buttons that open the install wizard. Keeps the heavy install detail off the
- * always-visible page.
+ * Render a compact "Install an Agent" section with per-OS install buttons that open a platform-specific wizard.
+ *
+ * Fetches available agent and launcher platforms, shows an "expected version" chip when provided by the agent data,
+ * and displays buttons only for OSes that have a corresponding binary. Clicking an OS button opens the AgentInstallWizard
+ * with the resolved `agentPlatforms`, `launcherPlatforms`, `vouchers`, and optional `defaultCode`.
+ *
+ * @param vouchers - Claim vouchers passed through to the install wizard
+ * @param defaultCode - Optional default enrollment code to prefill the wizard
+ * @param onGenerateCode - Async callback to generate a new enrollment code for the wizard
+ * @returns The outlined Paper containing the install section header, optional expected-version chip, blurb, per-OS buttons, and the AgentInstallWizard
  */
 export default function AgentInstall({ vouchers, defaultCode, onGenerateCode }: Props) {
   const { t } = useTranslation('agents');

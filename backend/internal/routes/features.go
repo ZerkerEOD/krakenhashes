@@ -28,7 +28,8 @@ func SetupJobRoutes(jwtRouter *mux.Router) {
 	debug.Info("Configured jobs endpoint: /jobs")
 }
 
-// SetupAgentRoutes configures agent management routes
+// SetupAgentRoutes registers HTTP routes on the provided jwtRouter for agent management, device and runtime operations, manual overrides (clear-busy-status, retry-update), force-cleanup, and agent scheduling.
+// It constructs handlers from the supplied agentService and database to handle the registered endpoints.
 func SetupAgentRoutes(jwtRouter *mux.Router, agentService *services.AgentService, database *db.DB) {
 	agentHandler := agent.NewAgentHandler(agentService)
 	jwtRouter.HandleFunc("/agents", agentHandler.ListAgents).Methods("GET", "OPTIONS")

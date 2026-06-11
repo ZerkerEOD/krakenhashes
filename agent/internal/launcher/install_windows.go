@@ -14,7 +14,10 @@ import (
 // Install registers the launcher to auto-start. By default it creates a per-user
 // Scheduled Task that runs the launcher at logon as the current user (no
 // Administrator required), matching the no-root model used on Linux/macOS. With
-// opts.System it creates an elevated Windows service via the SCM instead.
+// Install installs the launcher as an autostart entry on Windows.
+// When opts.System is true it creates an elevated Windows service via the Service Control Manager;
+// otherwise it creates a per-user scheduled task that runs at logon.
+// It returns an error if the requested installation fails.
 func Install(opts InstallOptions) error {
 	if opts.System {
 		return installWindowsService(opts)
@@ -24,7 +27,10 @@ func Install(opts InstallOptions) error {
 
 // Uninstall removes the launcher autostart (the logon task by default, or the
 // system service with opts.System) and, when opts.Purge is set, deletes the
-// installed binaries and config/data directories.
+// Uninstall removes the launcher's autostart entry and optionally purges installed files.
+// 
+// Uninstall removes either the system service or the per-user scheduled task depending on opts.System.
+// If removal fails and opts.Purge is false the error is returned; if opts.Purge is true removal errors are reported as a warning and purge proceeds.
 func Uninstall(opts UninstallOptions) error {
 	var err error
 	if opts.System {
@@ -47,7 +53,9 @@ func Uninstall(opts UninstallOptions) error {
 // installScheduledTask creates a logon-triggered scheduled task that runs the
 // launcher at limited (non-elevated) integrity. The launcher resolves its
 // config/data dirs from its own executable path, so no working directory needs
-// to be set on the task.
+// installScheduledTask creates a per-user Windows scheduled task named by serviceName that runs the launcher with arguments from opts at user logon, sets the task to limited integrity, and attempts to start it immediately.
+// 
+// If creating the scheduled task fails the function returns an error containing the command output. If the task is created but the immediate start fails, a warning is printed and the function returns nil.
 func installScheduledTask(opts InstallOptions) error {
 	tr := fmt.Sprintf(`"%s" %s`, opts.LauncherPath, strings.Join(agentArgsFromOptions(opts), " "))
 	create := exec.Command("schtasks", "/Create",
@@ -68,6 +76,8 @@ func installScheduledTask(opts InstallOptions) error {
 	return nil
 }
 
+// removeScheduledTask ends any running instance of the launcher scheduled task (best-effort) and deletes the scheduled task.
+// It returns an error containing the command output if task deletion fails.
 func removeScheduledTask() error {
 	_ = exec.Command("schtasks", "/End", "/TN", serviceName).Run()
 	out, err := exec.Command("schtasks", "/Delete", "/TN", serviceName, "/F").CombinedOutput()
@@ -80,7 +90,14 @@ func removeScheduledTask() error {
 
 // installWindowsService registers the launcher as a Windows service via the SCM
 // so it auto-starts and self-updates. Requires an elevated (Administrator)
-// prompt.
+// installWindowsService creates a Windows service for the launcher and attempts to start it.
+//
+// installWindowsService registers a service named by serviceName that runs the provided launcher
+// executable with arguments derived from opts, configures it for automatic start, and attempts to
+// start the service immediately. It returns an error if the service control manager cannot be
+// contacted, if a service with the same name already exists, or if service creation fails.
+// Installing the event-log source and starting the service are best-effort operations: failures for
+// those steps are printed as warnings but do not cause this function to return an error.
 func installWindowsService(opts InstallOptions) error {
 	m, err := mgr.Connect()
 	if err != nil {
@@ -116,7 +133,9 @@ func installWindowsService(opts InstallOptions) error {
 	return nil
 }
 
-// removeWindowsService deletes the SCM service and its event-log source.
+// removeWindowsService deletes the Windows service registered under serviceName and removes its event-log source.
+// It returns an error if connecting to the Service Control Manager fails, if the service is not installed, or if deleting the service fails.
+// On success it prints a confirmation message and returns nil.
 func removeWindowsService() error {
 	m, err := mgr.Connect()
 	if err != nil {
