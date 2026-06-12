@@ -464,36 +464,45 @@ func sizeChunk(gapBase int64, baseKeyspace int64, effectiveKeyspace *big.Int, sp
 		return gapBase
 	}
 
-	// basePerSec = speed × baseKeyspace / effectiveKeyspace.
-	//
-	// The intermediate speed × baseKeyspace overflows int64 for large
-	// wordlists + fast hashes: e.g. ~70 GH/s × a 1.47e9-word wordlist
-	// ≈ 1.0e20, far past int64's ~9.2e18 ceiling. That wraps negative and
-	// collapses basePerSec to the <=0 fallback, producing degenerate
-	// 1-word chunks (the chunk-timer bug). uint64 doesn't help — its
-	// 1.8e19 max overflows too. effectiveKeyspace is itself a big.Int
-	// (NUMERIC; can exceed int64). Compute the whole expression in big.Int so
-	// any wordlist/rule/salt magnitude is safe; the result (base words/sec)
-	// is ~1e6 here and always fits int64.
-	bp := new(big.Int).Mul(big.NewInt(speed), big.NewInt(baseKeyspace))
-	bp.Div(bp, effectiveKeyspace)
-	basePerSec := bp.Int64()
-	if basePerSec <= 0 {
-		basePerSec = 1
-	}
+	// chunkBase = speed × baseKeyspace × targetSec / effectiveKeyspace, computed
+	// ENTIRELY in big.Int. The key is folding targetSec INTO the division rather
+	// than first truncating speed×baseKeyspace/effectiveKeyspace to an int64
+	// "base words/sec": when one base word already costs more than a second of
+	// budget (effectiveKeyspace ≫ speed×baseKeyspace — e.g. a heavily-salted
+	// WPA list with a ~264k multiplier), that intermediate rate floors to 0, the
+	// old code clamped it to 1, and emitted a 1×targetSec chunk that ran for
+	// HOURS. Folding targetSec in keeps the fractional rate, yielding the right
+	// (small) base-word count. big.Int also makes the intermediate
+	// speed×baseKeyspace (which overflows int64 for huge wordlists + fast hashes)
+	// safe regardless of magnitude.
+	speedBase := new(big.Int).Mul(big.NewInt(speed), big.NewInt(baseKeyspace))
 
-	target := basePerSec * int64(targetSec)
-	if target <= 0 {
-		// Overflow guard — basePerSec × targetSec exceeded int64. Take the
-		// whole remaining gap so we still make progress rather than
-		// emitting a degenerate 1-word chunk.
+	targetBig := new(big.Int).Mul(speedBase, big.NewInt(int64(targetSec)))
+	targetBig.Div(targetBig, effectiveKeyspace)
+	if !targetBig.IsInt64() {
+		// Even speed×baseKeyspace×targetSec/effectiveKeyspace exceeds int64
+		// (huge unsalted wordlist + fast hash, tiny multiplier): the chunk
+		// would be larger than any realistic gap, so take the whole gap.
 		return gapBase
+	}
+	target := targetBig.Int64()
+	if target < 1 {
+		// Sub-1 base word for the whole target window (extreme multiplier):
+		// dispatch the smallest indivisible unit; the chunk-overrun guard
+		// stops it if it runs long.
+		target = 1
 	}
 	if target > gapBase {
 		return gapBase
 	}
 
-	floor := basePerSec * int64(minSec)
+	// minSec floor — same fold-in-big.Int treatment so it never collapses to 0.
+	floorBig := new(big.Int).Mul(speedBase, big.NewInt(int64(minSec)))
+	floorBig.Div(floorBig, effectiveKeyspace)
+	floor := int64(1)
+	if floorBig.IsInt64() && floorBig.Int64() > 1 {
+		floor = floorBig.Int64()
+	}
 	if floor > gapBase {
 		return gapBase
 	}

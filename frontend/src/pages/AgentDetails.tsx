@@ -62,6 +62,7 @@ import {
 } from '../services/api';
 import { AgentSchedule, AgentScheduleDTO } from '../types/scheduling';
 import { AgentDevice } from '../types/agent';
+import { formatAgentVersion } from '../utils/agentVersion';
 import { AgentDebugStatus } from '../types/diagnostics';
 import { getAgentDebugStatus, toggleAgentDebug } from '../services/diagnostics';
 
@@ -856,7 +857,7 @@ const AgentDetails: React.FC = () => {
               <Grid item xs={12}>
                 <Typography variant="body2" color="text.secondary">{t('fields.agentVersion') as string}</Typography>
                 <Typography variant="body1">
-                  {agent.version || (t('common.unknown') as string)}
+                  {agent.version ? formatAgentVersion(agent.version) : (t('common.unknown') as string)}
                 </Typography>
               </Grid>
             </Grid>
@@ -885,12 +886,12 @@ const AgentDetails: React.FC = () => {
             </Box>
 
             <Typography variant="body2" color="text.secondary">{t('status.currentVersion') as string}</Typography>
-            <Typography variant="body1" sx={{ mb: 1 }}>{agent.version || (t('common.unknown') as string)}</Typography>
+            <Typography variant="body1" sx={{ mb: 1 }}>{agent.version ? formatAgentVersion(agent.version) : (t('common.unknown') as string)}</Typography>
 
             {agent.status === 'updating' && agent.targetVersion && (
               <Box sx={{ mb: 1 }}>
                 <Typography variant="body2" color="text.secondary">
-                  {t('status.targetVersion') as string} {agent.targetVersion}
+                  {t('status.targetVersion') as string} {formatAgentVersion(agent.targetVersion)}
                 </Typography>
                 <LinearProgress sx={{ mt: 1 }} />
               </Box>
@@ -1040,13 +1041,22 @@ const AgentDetails: React.FC = () => {
                           </FormControl>
                         </TableCell>
                         <TableCell>
-                          {device.runtime_options?.find(opt => opt.backend === device.selected_runtime) && (
-                            <Typography variant="caption" display="block">
-                              {device.runtime_options.find(opt => opt.backend === device.selected_runtime)!.processors} cores,
-                              {' '}{device.runtime_options.find(opt => opt.backend === device.selected_runtime)!.clock} MHz,
-                              {' '}{device.runtime_options.find(opt => opt.backend === device.selected_runtime)!.memory_total} MB
-                            </Typography>
-                          )}
+                          {(() => {
+                            const opt = device.runtime_options?.find(o => o.backend === device.selected_runtime);
+                            if (!opt) return null;
+                            return (
+                              <>
+                                <Typography variant="caption" display="block">
+                                  {opt.processors} cores, {opt.clock} MHz, {opt.memory_total} MB
+                                </Typography>
+                                {opt.pci_address && (
+                                  <Typography variant="caption" display="block" color="text.secondary">
+                                    PCI {opt.pci_address}
+                                  </Typography>
+                                )}
+                              </>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell>
                           <Switch

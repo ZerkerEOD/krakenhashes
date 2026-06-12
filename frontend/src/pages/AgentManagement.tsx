@@ -47,6 +47,7 @@ import {
 import { Agent, ClaimVoucher, AgentDevice } from '../types/agent';
 import { api } from '../services/api';
 import AgentInstall from '../components/agent/AgentInstall';
+import { formatAgentVersion, agentVersionStatus } from '../utils/agentVersion';
 
 /**
  * Render the Agent Management page for viewing and managing agents, active claim vouchers, and device/status details.
@@ -102,6 +103,15 @@ export default function AgentManagement() {
       return map;
     },
   });
+
+  // Expected cluster agent version (clean release, e.g. "2.1.0"). Shared cache
+  // key with the install panel. Used to badge agents that are behind.
+  const { data: agentPlatforms } = useQuery({
+    queryKey: ['agent-platforms'],
+    queryFn: async () => (await api.get<{ version: string }>('/api/public/agent/platforms')).data,
+    staleTime: 5 * 60 * 1000,
+  });
+  const expectedVersion = agentPlatforms?.version || '';
 
   // --- Mutations (invalidate the affected query; no full-page refetch) ---
   const generateCodeMutation = useMutation({
@@ -336,10 +346,15 @@ export default function AgentManagement() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {agent.version}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                        <Typography variant="body2">{formatAgentVersion(agent.version)}</Typography>
+                        {agentVersionStatus(agent.version, expectedVersion) === 'update-available' && (
+                          <Chip label={t('version.updateAvailable') as string} color="warning" size="small" variant="outlined" />
+                        )}
+                      </Box>
                       {agent.status === 'updating' && agent.targetVersion && (
                         <Typography variant="caption" color="info.main" sx={{ display: 'block' }}>
-                          → {agent.targetVersion}
+                          → {formatAgentVersion(agent.targetVersion)}
                         </Typography>
                       )}
                     </TableCell>

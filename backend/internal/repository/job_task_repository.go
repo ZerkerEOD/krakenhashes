@@ -23,6 +23,48 @@ func NewJobTaskRepository(db *db.DB) *JobTaskRepository {
 	return &JobTaskRepository{db: db}
 }
 
+// OverrunTask identifies a running task that has exceeded its chunk-time budget.
+type OverrunTask struct {
+	TaskID         uuid.UUID
+	AgentID        int
+	ChunkDuration  int
+	ElapsedSeconds int64
+}
+
+// ListOverrunRunningTasks returns scheduler-v2 tasks still assigned/running
+// whose wall time since started_at exceeds chunk_duration × toleranceFactor
+// (e.g. 1.2 for a 20% grace window). Used by the chunk-overrun guard. Tasks
+// without a chunk_duration, agent, or started_at are excluded.
+func (r *JobTaskRepository) ListOverrunRunningTasks(ctx context.Context, toleranceFactor float64) ([]OverrunTask, error) {
+	const query = `
+		SELECT id, agent_id, chunk_duration,
+		       EXTRACT(EPOCH FROM (NOW() - started_at))::bigint
+		FROM job_tasks
+		WHERE status IN ('assigned', 'running')
+		  AND scheduling_unit_id IS NOT NULL
+		  AND agent_id IS NOT NULL
+		  AND started_at IS NOT NULL
+		  AND chunk_duration IS NOT NULL
+		  AND chunk_duration > 0
+		  AND started_at < NOW() - (INTERVAL '1 second' * (chunk_duration * $1::double precision))
+	`
+	rows, err := r.db.QueryContext(ctx, query, toleranceFactor)
+	if err != nil {
+		return nil, fmt.Errorf("list overrun tasks: %w", err)
+	}
+	defer rows.Close()
+
+	var out []OverrunTask
+	for rows.Next() {
+		var t OverrunTask
+		if err := rows.Scan(&t.TaskID, &t.AgentID, &t.ChunkDuration, &t.ElapsedSeconds); err != nil {
+			return nil, fmt.Errorf("scan overrun task: %w", err)
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
 // nullStringToPtr converts a sql.NullString to *string for our model fields.
 // Returns nil for NULL; otherwise a pointer to the string value.
 func nullStringToPtr(ns sql.NullString) *string {

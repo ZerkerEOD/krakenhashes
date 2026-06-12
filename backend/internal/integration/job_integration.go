@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary"
@@ -53,6 +54,16 @@ type JobIntegrationManager struct {
 	// Set via SetAgentUpdateSweeper and started in StartScheduler so it
 	// shares the scheduler's lifecycle. May be nil (auto-update unwired).
 	agentUpdateSweeper *services.AgentUpdateSweeper
+
+	// Chunk-overrun guard: stops tasks running past chunk_duration × tolerance
+	// and feeds the measured speed back so the re-dispatched remainder is sized
+	// correctly. Recovery (truncate/re-gap) is left to the stop + heartbeat
+	// sweeper path. overrunSignaled debounces repeat stops until the agent
+	// actually goes silent.
+	jobTaskRepo        *repository.JobTaskRepository
+	systemSettingsRepo *repository.SystemSettingsRepository
+	overrunSignaled    map[uuid.UUID]time.Time
+	overrunMu          sync.Mutex
 }
 
 // SetAgentUpdateSweeper wires the agent auto-update sweeper so it starts and
@@ -135,6 +146,9 @@ func NewJobIntegrationManager(
 		jobExecutionService:  jobExecutionService,
 		jobSchedulingService: jobSchedulingService,
 		wsHandler:            wsHandler,
+		jobTaskRepo:          jobTaskRepo,
+		systemSettingsRepo:   systemSettingsRepo,
+		overrunSignaled:      make(map[uuid.UUID]time.Time),
 	}
 
 	// Scheduler-v2 owns all jobs. The legacy scheduler runner is no
@@ -309,6 +323,8 @@ func (m *JobIntegrationManager) StartScheduler(ctx context.Context) {
 	if m.agentUpdateSweeper != nil {
 		go m.agentUpdateSweeper.Run(ctx)
 	}
+	// Chunk-overrun guard: stop tasks running well past their chunk-time target.
+	go m.runOverrunGuard(ctx)
 
 	// Warm the compatibility cache and start a periodic refresh
 	// goroutine that re-evaluates everything every 30 seconds.

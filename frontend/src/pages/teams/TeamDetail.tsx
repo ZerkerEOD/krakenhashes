@@ -41,6 +41,7 @@ import { Client } from '../../types/client';
 import { teamsService } from '../../services/teams';
 import { listClients } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
+import { formatAgentVersion } from '../../utils/agentVersion';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -613,7 +614,7 @@ export const TeamDetail: React.FC = () => {
                       size="small"
                     />
                   </TableCell>
-                  <TableCell>{agent.version || '-'}</TableCell>
+                  <TableCell>{agent.version ? formatAgentVersion(agent.version) : '-'}</TableCell>
                   <TableCell>{agent.owner_username || 'System'}</TableCell>
                   <TableCell>
                     <Chip

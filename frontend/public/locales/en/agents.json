@@ -68,6 +68,10 @@
   "downloads": {
     "expectedVersion": "Expected: v{{version}}"
   },
+  "version": {
+    "updateAvailable": "Update available",
+    "upToDate": "Up to date"
+  },
   "install": {
     "sectionTitle": "Install an Agent",
     "sectionBlurb": "Pick your operating system to get the exact install commands. The auto-updating launcher keeps your agent on the latest version; the standalone binary is managed manually.",
