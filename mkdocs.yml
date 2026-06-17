@@ -109,9 +109,12 @@ nav:
   - User Guide:
     - user-guide/index.md
     - Core Concepts: user-guide/core-concepts.md
+    - Teams: user-guide/teams.md
     - Managing Hashlists: user-guide/hashlists.md
     - Jobs & Workflows: user-guide/jobs-workflows.md
     - Wordlists & Rules: user-guide/wordlists-rules.md
+    - Wordlist Filtering: user-guide/wordlist-filtering.md
+    - Custom Charsets & Arguments: user-guide/custom-charsets-arguments.md
     - Analyzing Results: user-guide/analyzing-results.md
     - Analytics Reports: user-guide/analytics-reports.md
     - Notifications: user-guide/notifications.md
@@ -138,6 +141,7 @@ nav:
     - Operations:
       - User Management: admin-guide/operations/users.md
       - Client Management: admin-guide/operations/clients.md
+      - Team Management: admin-guide/operations/team-management.md
       - Agent Management: admin-guide/operations/agents.md
       - Agent Scheduling: admin-guide/operations/scheduling.md
       - Job Settings: admin-guide/operations/job-settings.md
@@ -157,6 +161,7 @@ nav:
   - Agent Guide:
     - agent-guide/index.md
     - Installation: agent-guide/installation.md
+    - Auto-Update: agent-guide/auto-update.md
     - Docker Deployment: agent-guide/docker-deployment.md
     - Configuration: agent-guide/configuration.md
     - Systemd Setup: agent-guide/systemd-setup.md
@@ -183,6 +188,7 @@ nav:
     - System Requirements: reference/system-requirements.md
     - PostgreSQL Tuning: reference/postgresql-tuning.md
     - Architecture:
+      - Scheduler v2 Overview: reference/architecture/scheduler-v2-overview.md
       - Association Attack: reference/architecture/association-attack.md
       - Benchmark Workflow: reference/architecture/benchmark-workflow.md
       - Binary Version Patterns: reference/architecture/binary-version-patterns.md

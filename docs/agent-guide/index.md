@@ -21,6 +21,7 @@ Agents are the computational workhorses of KrakenHashes, responsible for executi
 
 ### Setup and Configuration
 - [Installation](installation.md) - Installing and setting up agents
+- [Auto-Update](auto-update.md) - Self-updating agents and the launcher
 - [Configuration](configuration.md) - Agent configuration options
 - [Systemd Service Setup](systemd-setup.md) - Running agents as systemd services
 - [File Synchronization](file-sync.md) - How agents sync files with the backend

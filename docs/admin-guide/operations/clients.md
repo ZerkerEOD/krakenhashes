@@ -14,6 +14,12 @@ KrakenHashes allows associating hashlists with specific clients or engagements. 
 ![Client Management Interface](../../assets/images/screenshots/client_management.png)
 *Client Management page showing the data table with columns for Name, Description, Contact, Retention period, Creation date, and available Actions*
 
+!!! note "Clients and teams"
+    When **Multi-Team Mode** is enabled, clients are the unit of access control: a team is granted
+    access to specific clients, and team members can then see those clients' hashlists, jobs, and
+    cracked data. The Client Management page lets administrators assign a client to a team (and
+    bulk-assign many clients at once). See [Team Management](team-management.md) for the full model.
+
 ## Managing Clients via API
 
 Administrators use the following API endpoints to manage clients:

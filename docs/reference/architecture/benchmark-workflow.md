@@ -4,6 +4,12 @@
 
 The job scheduling service now implements a benchmark-first approach for job assignment. Before assigning work to an agent, the system verifies that the agent has a valid benchmark for the specific attack mode and hash type combination.
 
+!!! note "Part of scheduler v2"
+    Benchmark planning runs as part of the scheduler's cycle: the scheduler benchmarks new jobs (for
+    accurate keyspace) and agents (for chunk-sizing speed) before they're allocated, rather than
+    allocating first and benchmarking after. See the [Scheduler v2 Overview](scheduler-v2-overview.md)
+    for where this fits in the overall flow.
+
 ## Workflow
 
 1. **Job Assignment Request**

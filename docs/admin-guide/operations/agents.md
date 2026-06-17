@@ -18,6 +18,20 @@ This guide covers the comprehensive management of KrakenHashes agents, including
 
 Agents are distributed compute nodes that execute password cracking tasks using hashcat. They connect to the KrakenHashes backend server via WebSocket and receive job assignments based on their availability and capabilities.
 
+!!! note "Agents and teams"
+    When **Multi-Team Mode** is enabled, an agent's owner determines which teams may run jobs on it.
+    Agents owned by a team's members are **direct** agents for that team; **system-owned** agents
+    belong to the Default Team; and teams can borrow each other's agents through one-way **trust**
+    relationships. Changing an agent's owner is restricted to administrators while teams are on.
+    See [Team Management — Agent visibility and ownership](team-management.md#agent-visibility-and-ownership).
+
+!!! note "Agent auto-update"
+    Agents installed via the launcher keep themselves up to date automatically — updating only while
+    idle, with checksum verification and automatic rollback. Administrators control the fleet-wide
+    rollout (enable/disable, max agents updating at once, health-check timeout, retry count) under
+    Admin Settings, and failed updates surface on this page with a manual retry. See
+    [Agent Auto-Update](../../agent-guide/auto-update.md).
+
 ### Agent Architecture
 
 Each agent consists of:

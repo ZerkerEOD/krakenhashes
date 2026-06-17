@@ -9,6 +9,11 @@ KrakenHashes uses a two-tier system to organize password cracking attacks:
 
 This system ensures consistent, efficient password auditing across your organization.
 
+!!! note "Jobs and teams"
+    When **Multi-Team Mode** is enabled, the jobs, hashlists, and agents you can work with are
+    scoped to your teams, and a **Team** filter appears at the top of the Jobs page so you can
+    narrow the view to a single team. See [Teams](teams.md).
+
 ## How It Works
 
 ### The Password Cracking Process
@@ -71,6 +76,9 @@ Combines dictionaries with patterns:
 Tries all possible combinations for a pattern:
 - All 4-digit PINs (0000-9999)
 - All 6-character lowercase (aaaaaa-zzzzzz)
+
+Masks can also reference your own **custom character sets** (`?1`–`?4`), and you can append extra
+hashcat flags per job. See [Custom Charsets & Arguments](custom-charsets-arguments.md).
 
 ### Increment Mode Attacks
 Systematically tests patterns of increasing (or decreasing) length:

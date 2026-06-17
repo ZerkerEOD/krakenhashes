@@ -13,6 +13,11 @@ Analytics Reports provide comprehensive statistical analysis of cracked password
 - **Client-Specific Reports**: Generate reports for specific clients or across multiple engagements
 - **Time-Based Filtering**: Analyze trends over specific time periods
 
+!!! note "Analytics and teams"
+    When **Multi-Team Mode** is enabled, analytics follow the same access rules as the rest of the
+    system: you can only generate and view reports for clients belonging to teams you are a member
+    of. See [Teams](teams.md).
+
 ### When to Use Analytics Reports
 
 - **Client Reporting**: Generate comprehensive password analysis for security assessments

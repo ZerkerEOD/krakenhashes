@@ -31,6 +31,15 @@ The wordlists page displays all available wordlists with the following informati
 
 You can sort and filter the list by any of these attributes.
 
+### Deriving a Filtered Wordlist
+
+Beyond uploading, you can derive a smaller, targeted wordlist from an existing one by keeping only
+words that match criteria such as length, character classes, or a regular expression. Use the
+**Filtered Wordlist** button on the Wordlists page to create a reusable filtered wordlist, or apply
+a filter on the fly while creating a job. See the dedicated
+[Wordlist Filtering](wordlist-filtering.md) guide for criteria, live preview, and automatic
+regeneration.
+
 ### Uploading a Wordlist
 
 To upload a new wordlist:

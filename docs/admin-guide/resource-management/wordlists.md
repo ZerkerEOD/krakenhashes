@@ -34,6 +34,23 @@ rules/
 └── custom/        # User-created or modified rules
 ```
 
+## Filtered (Derived) Wordlists
+
+Users can derive **filtered wordlists** from existing wordlists — copies that keep only the words
+matching length, character-class, or regex criteria. These are first-class wordlists with a few
+admin-relevant properties:
+
+- They store a reference to their **parent** wordlist and the filter that produced them.
+- They regenerate **automatically** when the parent changes — incrementally (appending only the
+  newly added lines) when the parent was append-only, or via a full rebuild otherwise. A manual
+  full **Regenerate** action is also available.
+- They can be **permanent** (created from the Wordlists page, managed like any wordlist) or
+  **ephemeral** (created on the fly for a single job and cleaned up afterward). Ephemeral filtered
+  wordlists are surfaced to agents so they sync correctly and are not treated as orphaned files.
+
+For the end-user workflow, criteria, and states, see the
+[Wordlist Filtering](../../user-guide/wordlist-filtering.md) user guide.
+
 ## File Formats
 
 ### Wordlists

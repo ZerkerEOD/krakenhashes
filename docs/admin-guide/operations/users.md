@@ -53,7 +53,11 @@ KrakenHashes implements a role-based access control (RBAC) system with the follo
 | System settings | ✗ | ✓ | ✗ |
 | Manage preset jobs and workflows | ✗ | ✓ | ✗ |
 
-> **Note:** Currently, all authenticated users share visibility of jobs, hashlists, clients, and agents. When the teams feature is implemented, resource visibility will be scoped to team membership — users will only see resources belonging to teams they are part of.
+> **Note:** The permission matrix above reflects the default mode, where all authenticated users
+> share visibility of jobs, hashlists, clients, and agents. When **Multi-Team Mode** is enabled,
+> resource visibility is scoped to team membership — non-admin users only see resources belonging
+> to teams they are part of. Team membership carries its own per-team roles (Member / Team Admin)
+> that are separate from the system roles above. See [Team Management](team-management.md).
 
 ## Creating and Managing Users
 

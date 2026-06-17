@@ -21,6 +21,13 @@ This guide covers installing and setting up KrakenHashes agents on various platf
 
 The agent is distributed as a standalone binary that runs from your home directory. No root access is required for basic installation.
 
+!!! tip "Recommended: install via the launcher for automatic updates"
+    The fastest way to install — and the way to get **automatic updates** — is the **Install an
+    Agent** panel on the Agent Management page, which generates ready-to-copy commands for your
+    platform (install as a service, run in a terminal, or download the binary). Service installs use
+    the **launcher**, which keeps the agent up to date on its own. The manual steps below set up a
+    standalone agent that you update yourself. See [Auto-Update](auto-update.md) for the full model.
+
 ### Step 1: Create Agent Directory
 
 ```bash

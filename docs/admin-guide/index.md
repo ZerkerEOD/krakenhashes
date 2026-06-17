@@ -68,6 +68,7 @@ When setting up KrakenHashes for the first time, follow this sequence:
 
 ### :material-account-cog: **Daily Operations**
 - [User Management](operations/users.md)
+- [Team Management](operations/team-management.md)
 - [Agent Management](operations/agents.md)
 - [Job Execution Settings](operations/job-settings.md)
 - [System Monitoring](operations/monitoring.md)
