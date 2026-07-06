@@ -342,6 +342,11 @@ func (r *JobExecutionRepository) GetStatusCountsFiltered(ctx context.Context, fi
 		args = append(args, *filter.UserID)
 	}
 
+	// Teams enabled but no teams — fail-closed: no results (mirror GetFilteredCount).
+	if filter.TeamsEnabled && len(filter.TeamIDs) == 0 {
+		return map[string]int{}, nil
+	}
+
 	// Apply team filter
 	if len(filter.TeamIDs) > 0 {
 		teamIDStrs := make([]string, len(filter.TeamIDs))

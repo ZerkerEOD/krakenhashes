@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -33,6 +34,29 @@ func NewClientHandler(cr *repository.ClientRepository, cs *clientsvc.ClientServi
 		teamService:    ts,
 		clientTeamRepo: ctr,
 	}
+}
+
+// checkClientAccess returns an HTTP status and message when the caller may not access the
+// given client (teams enabled, non-admin, and the client is not assigned to one of the
+// user's teams), or (0, "") when access is allowed. A client the user cannot see is reported
+// as 404 to avoid confirming its existence. When teams are disabled it always allows.
+func (h *ClientHandler) checkClientAccess(ctx context.Context, clientID uuid.UUID) (int, string) {
+	if h.teamService == nil || !h.teamService.IsTeamsEnabled(ctx) || middleware.IsAdminFromContext(ctx) {
+		return 0, ""
+	}
+	userID, ok := middleware.GetUserIDFromContext(ctx)
+	if !ok {
+		return http.StatusUnauthorized, "Unauthorized"
+	}
+	canAccess, err := h.teamService.CanUserAccessClient(ctx, userID, clientID, false)
+	if err != nil {
+		debug.Error("Failed to check client access for %s: %v", clientID, err)
+		return http.StatusInternalServerError, "Failed to verify client access"
+	}
+	if !canAccess {
+		return http.StatusNotFound, "Client not found"
+	}
+	return 0, ""
 }
 
 // ListClients godoc
@@ -207,6 +231,11 @@ func (h *ClientHandler) GetClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if status, msg := h.checkClientAccess(r.Context(), clientID); status != 0 {
+		httputil.RespondWithError(w, status, msg)
+		return
+	}
+
 	client, err := h.clientRepo.GetByID(r.Context(), clientID)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
@@ -241,6 +270,11 @@ func (h *ClientHandler) UpdateClient(w http.ResponseWriter, r *http.Request) {
 	clientID, err := uuid.Parse(vars["id"])
 	if err != nil {
 		httputil.RespondWithError(w, http.StatusBadRequest, "Invalid client ID format")
+		return
+	}
+
+	if status, msg := h.checkClientAccess(r.Context(), clientID); status != 0 {
+		httputil.RespondWithError(w, status, msg)
 		return
 	}
 
@@ -324,6 +358,11 @@ func (h *ClientHandler) DeleteClient(w http.ResponseWriter, r *http.Request) {
 	clientID, err := uuid.Parse(vars["id"])
 	if err != nil {
 		httputil.RespondWithError(w, http.StatusBadRequest, "Invalid client ID format")
+		return
+	}
+
+	if status, msg := h.checkClientAccess(r.Context(), clientID); status != 0 {
+		httputil.RespondWithError(w, status, msg)
 		return
 	}
 
