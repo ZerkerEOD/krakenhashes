@@ -208,23 +208,18 @@ export default function HashlistHashesTable({
         </Box>
 
         <TableContainer sx={{ overflowX: 'auto' }}>
-          <Table size="small" aria-label="hashlist hashes table">
+          {/* tableLayout: 'fixed' bounds each column so a long Original Hash wraps within
+              its own column (wordBreak on the cell) instead of overflowing into the
+              Username/Domain columns (#50). */}
+          <Table size="small" aria-label="hashlist hashes table" sx={{ tableLayout: 'fixed' }}>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ minWidth: 300, maxWidth: 600 }}>
-                  Original Hash
-                </TableCell>
-                <TableCell sx={{ minWidth: 120, width: 150 }}>
-                  Username
-                </TableCell>
-                <TableCell sx={{ minWidth: 120, width: 150 }}>
-                  Domain
-                </TableCell>
-                <TableCell sx={{ minWidth: 120, width: 150 }}>
-                  Password
-                </TableCell>
-                <TableCell sx={{ width: 100 }}>Status</TableCell>
-                <TableCell sx={{ width: 80 }} align="center">
+                <TableCell sx={{ width: '40%' }}>Original Hash</TableCell>
+                <TableCell sx={{ width: '15%' }}>Username</TableCell>
+                <TableCell sx={{ width: '15%' }}>Domain</TableCell>
+                <TableCell sx={{ width: '16%' }}>Password</TableCell>
+                <TableCell sx={{ width: '8%' }}>Status</TableCell>
+                <TableCell sx={{ width: '6%' }} align="center">
                   Actions
                 </TableCell>
               </TableRow>
@@ -237,7 +232,6 @@ export default function HashlistHashesTable({
                       fontFamily: 'monospace',
                       fontSize: '0.875rem',
                       wordBreak: 'break-all',
-                      maxWidth: 600,
                     }}
                   >
                     {hash.original_hash}
