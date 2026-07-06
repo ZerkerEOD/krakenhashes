@@ -2,6 +2,7 @@ package routes
 
 import (
 	"bufio"
+	"context"
 	"database/sql"
 	"fmt"
 	"net"
@@ -14,6 +15,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/email"
 	adminsettings "github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/admin/settings"
+	v1handlers "github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/api/v1"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/auth"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/middleware"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
@@ -124,24 +126,9 @@ func CORSMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-/*
- * SetupRoutes configures all application routes and middleware.
- *
- * Route Groups:
- *   - Public Routes (/api/login, /api/logout, /api/check-auth)
- *   - Protected Routes (requires authentication)
- *     - Dashboard (/api/dashboard)
- *     - Hashlists (/api/hashlists)
- *     - Jobs (/api/jobs)
- *     - API endpoints (/api/api/...)
- *     - Agent endpoints (/api/agent/...)
- *
- * Middleware Applied:
- *   - CORS middleware (all routes)
- *   - JWT authentication (protected routes)
- *   - API Key authentication (agent routes)
- */
-func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentService *services.AgentService, wordlistManager wordlist.Manager, ruleManager rule.Manager, binaryManager binary.Manager, potfileService *services.PotfileService, analyticsQueueService *services.AnalyticsQueueService) {
+// SetupRoutes configures the application's HTTP routers, middleware, background maintenance, and all route handlers.
+// It applies global CORS and logging middleware, initializes repositories and services, starts the preset-job sweep goroutine, seeds required data, and registers public, authenticated (JWT-protected), admin, agent, WebSocket, binary, analytics, file-download and v1 API routes; initialization errors are logged but not returned.
+func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentService *services.AgentService, wordlistManager wordlist.Manager, ruleManager rule.Manager, binaryManager binary.Manager, potfileService *services.PotfileService, clientPotfileService *services.ClientPotfileService, analyticsQueueService *services.AnalyticsQueueService) {
 	debug.Info("Initializing route configuration")
 
 	// Create our custom DB wrapper
@@ -181,15 +168,54 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	clientRepo := repository.NewClientRepository(database)
 	clientSettingsRepo := repository.NewClientSettingsRepository(database)
 	jobExecutionRepo := repository.NewJobExecutionRepository(database)
-	debug.Info("Initialized PresetJob, PresetIncrementLayer, SystemSettings, JobWorkflow, File, Hash, Hashlist, Client, and ClientSettings repositories")
+	debug.Info("Initialized PresetJob, PresetIncrementLayer, SystemSettings, JobWorkflow, File, Hash, Hashlist, Client, ClientSettings, and JobExecution repositories")
+
+	// Initialize Team-related repositories
+	agentRepo := repository.NewAgentRepository(database)
+	teamRepo := repository.NewTeamRepository(database)
+
+	clientTeamRepo := repository.NewClientTeamRepository(database)
+	debug.Info("Initialized Agent, Team, and ClientTeam repositories")
 
 	// Initialize Services for preset jobs and workflows
 	presetJobService := services.NewAdminPresetJobService(presetJobRepo, presetIncrementLayerRepo, systemSettingsRepo, binaryManager, fileRepository, appConfig.DataDir)
 	workflowService := services.NewAdminJobWorkflowService(sqlDB, workflowRepo, presetJobRepo) // Pass db, workflowRepo, presetJobRepo
 	debug.Info("Initialized AdminPresetJobService and AdminJobWorkflowService")
 
+	// Background sweep: periodically recompute stale preset-job keyspaces — a
+	// referenced wordlist/rule changed since the preset was last computed, or
+	// the --total-candidates value was never captured (is_accurate=false /
+	// effective_keyspace NULL). Keeping presets accurate means jobs created from
+	// them inherit an accurate keyspace and dispatch immediately, without the
+	// scheduler-v2 agent-benchmark round-trip. Best-effort; logs and continues.
+	go func() {
+		sweepCtx := context.Background()
+		// Small initial delay so long-stale presets self-heal soon after boot
+		// (once the hashcat binary is available) without waiting a full interval.
+		time.Sleep(30 * time.Second)
+		runSweep := func(phase string) {
+			if n, err := presetJobService.RefreshStalePresetKeyspaces(sweepCtx); err != nil {
+				debug.Warning("preset keyspace sweep (%s): %v", phase, err)
+			} else if n > 0 {
+				debug.Info("preset keyspace sweep (%s): refreshed %d presets", phase, n)
+			}
+		}
+		runSweep("initial")
+		ticker := time.NewTicker(10 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			runSweep("periodic")
+		}
+	}()
+
+	// Initialize trust repository and TeamService for multi-team functionality
+	trustRepo := repository.NewTeamAgentTrustRepository(database)
+	teamService := services.NewTeamService(database, teamRepo, clientTeamRepo, hashlistRepo, jobExecutionRepo, agentRepo, systemSettingsRepo, trustRepo)
+	debug.Info("Initialized TeamService with trust repository")
+
 	// Initialize Handler for new admin job routes
-	adminJobsHandler := NewAdminJobsHandler(presetJobService, workflowService)
+	adminCharsetRepo := repository.NewCustomCharsetRepository(sqlDB)
+	adminJobsHandler := NewAdminJobsHandler(presetJobService, workflowService, adminCharsetRepo)
 	debug.Info("Initialized AdminJobsHandler")
 
 	// Initialize binary service for agent downloads
@@ -211,6 +237,7 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	// Setup JWT protected routes
 	jwtRouter := apiRouter.PathPrefix("").Subrouter()
 	jwtRouter.Use(middleware.RequireAuth(database))
+	jwtRouter.Use(middleware.TeamAccessMiddleware(teamService))
 	jwtRouter.Use(loggingMiddleware)
 
 	// Add token refresh endpoint (requires authentication)
@@ -223,26 +250,49 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	// Create retention settings handler for users (read-only access to default retention)
 	userRetentionSettingsHandler := adminsettings.NewRetentionSettingsHandler(clientSettingsRepo)
 
+	// Create job settings handler for users (read-only access to job defaults)
+	userJobSettingsHandler := adminsettings.NewJobSettingsHandler(systemSettingsRepo, clientSettingsRepo)
+
 	// Setup feature-specific routes
 	SetupDashboardRoutes(jwtRouter)
 	SetupHashlistRoutes(jwtRouter)
 	// Note: Skipping SetupJobRoutes(jwtRouter) as it conflicts with SetupUserRoutes - the real job routes are in SetupUserRoutes
 	SetupAgentRoutes(jwtRouter, agentService, database)
 	SetupVoucherRoutes(jwtRouter, services.NewClaimVoucherService(repository.NewClaimVoucherRepository(database)))
-	SetupPotRoutes(jwtRouter, hashRepo, hashlistRepo, clientRepo, jobExecutionRepo)
+	SetupPotRoutes(jwtRouter, hashRepo, hashlistRepo, clientRepo, jobExecutionRepo, teamService)
 
 	// Add user accessible routes for settings (read-only)
 	jwtRouter.HandleFunc("/settings/max-priority", userSystemSettingsHandler.GetMaxPriorityForUsers).Methods(http.MethodGet, http.MethodOptions)
 	jwtRouter.HandleFunc("/settings/retention", userRetentionSettingsHandler.GetDefaultRetention).Methods(http.MethodGet, http.MethodOptions)
+	jwtRouter.HandleFunc("/settings/job-defaults", userJobSettingsHandler.GetJobDefaultsForUsers).Methods(http.MethodGet, http.MethodOptions)
 
-	SetupAdminRoutes(jwtRouter, database, emailService, adminJobsHandler, binaryManager, ssoManager) // Pass adminJobsHandler, binaryManager, and ssoManager
-	SetupUserRoutes(jwtRouter, database, appConfig.DataDir, binaryManager, agentService)
-	SetupNotificationRoutes(jwtRouter, database, emailService) // Enhanced notification system
+	// Setup team routes (must be before admin routes to register non-admin endpoints first)
+	SetupTeamRoutes(jwtRouter, teamService, database)
+
+	// User-facing custom charset routes (accessible to all authenticated users)
+	userCharsetRepo := repository.NewCustomCharsetRepository(sqlDB)
+	userCharsetService := services.NewCustomCharsetService(userCharsetRepo, appConfig.DataDir)
+	userCharsetHandler := v1handlers.NewCustomCharsetHandler(userCharsetService)
+	jwtRouter.HandleFunc("/custom-charsets", userCharsetHandler.ListAccessibleCharsets).Methods(http.MethodGet, http.MethodOptions)
+	jwtRouter.HandleFunc("/custom-charsets", userCharsetHandler.CreateUserCharset).Methods(http.MethodPost, http.MethodOptions)
+	jwtRouter.HandleFunc("/custom-charsets/upload", userCharsetHandler.UploadUserCharsetFile).Methods(http.MethodPost, http.MethodOptions)
+	jwtRouter.HandleFunc("/custom-charsets/{id:[0-9a-fA-F-]+}", userCharsetHandler.UpdateOwnCharset).Methods(http.MethodPut, http.MethodOptions)
+	jwtRouter.HandleFunc("/custom-charsets/{id:[0-9a-fA-F-]+}", userCharsetHandler.DeleteOwnCharset).Methods(http.MethodDelete, http.MethodOptions)
+	debug.Info("Configured user custom charset routes: /api/custom-charsets/*")
+
+	// Seed DES charset file on startup
+	if err := userCharsetService.SeedDESCharset(context.Background()); err != nil {
+		debug.Warning("Failed to seed DES charset: %v", err)
+	}
+
+	SetupAdminRoutes(jwtRouter, database, emailService, adminJobsHandler, binaryManager, ssoManager, teamService) // Pass adminJobsHandler, binaryManager, ssoManager, and teamService
+	SetupUserRoutes(jwtRouter, database, appConfig.DataDir, binaryManager, agentService, teamService)
+	SetupNotificationRoutes(jwtRouter, database, emailService, teamService) // Enhanced notification system with team filtering
 	SetupMFARoutes(jwtRouter, mfaHandler, database, emailService)
 	SetupPasskeyRoutes(jwtRouter, authHandler, database)
 	SetupAdminPasskeyRoutes(jwtRouter, authHandler, database)
 	// Use the enhanced WebSocket setup with job integration
-	SetupWebSocketWithJobRoutes(r, agentService, tlsProvider, sqlDB, appConfig, wordlistManager, ruleManager, binaryManager, potfileService)
+	SetupWebSocketWithJobRoutes(r, agentService, tlsProvider, sqlDB, appConfig, wordlistManager, ruleManager, binaryManager, potfileService, clientPotfileService, teamService, binaryService)
 	SetupBinaryRoutes(jwtRouter, sqlDB, appConfig, agentService)
 
 	// Setup wordlist and rule routes
@@ -250,22 +300,22 @@ func SetupRoutes(r *mux.Router, sqlDB *sql.DB, tlsProvider tls.Provider, agentSe
 	SetupRuleRoutes(jwtRouter, sqlDB, appConfig, agentService, presetJobService)
 
 	// Setup analytics routes
-	SetupAnalyticsRoutes(jwtRouter, database, analyticsQueueService)
+	SetupAnalyticsRoutes(jwtRouter, database, analyticsQueueService, teamService, clientTeamRepo)
 
 	// Setup file download routes for agents
 	SetupFileDownloadRoutes(r, sqlDB, appConfig, agentService)
 
 	// Create jobs handler for hashlist routes
-	jobsHandler := CreateJobsHandler(database, appConfig.DataDir, binaryManager)
+	jobsHandler := CreateJobsHandler(database, appConfig.DataDir, binaryManager, teamService)
 
 	// Register Hashlist Management Routes (includes user/agent hashlist, clients, hash types, hash search)
-	registerHashlistRoutes(jwtRouter, sqlDB, appConfig, agentService, jobsHandler)
+	registerHashlistRoutes(jwtRouter, sqlDB, appConfig, agentService, clientPotfileService, potfileService, jobsHandler, teamService)
 
 	// Setup WebSocket Routes
 	debug.Info("Setting up WebSocket routes...")
 
 	// Setup User API v1 routes
-	SetupV1Routes(r, database, appConfig.DataDir, binaryManager)
+	SetupV1Routes(r, database, appConfig.DataDir, binaryManager, teamService)
 
 	debug.Info("Route configuration completed successfully")
 	logRegisteredRoutes(r)

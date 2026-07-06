@@ -864,6 +864,14 @@
   "ssoSettings": {
     "pageTitle": "Настройки SSO",
     "pageDescription": "Настройка провайдеров единого входа и параметров аутентификации",
+    "warnings": {
+      "ephemeralKeyTitle": "SSO Encryption Key Not Configured",
+      "ephemeralKeyDescription": "SSO provider secrets (client secrets, bind passwords, private keys) are currently encrypted with a temporary key that will be lost when the server restarts. Any configured SSO providers will stop working after a restart.",
+      "ephemeralKeyInstructions": "To fix this, generate a persistent encryption key by running:",
+      "ephemeralKeyAddToEnv": "Then add the following to your .env file and restart the server:",
+      "ephemeralKeyEnvExample": "SSO_ENCRYPTION_KEY=<paste_generated_key_here>",
+      "ephemeralKeyCopied": "Command copied to clipboard"
+    },
     "authMethods": {
       "title": "Методы аутентификации",
       "description": "Включение или отключение методов аутентификации глобально",
@@ -1145,11 +1153,18 @@
     },
     "agentOverflow": {
       "title": "Распределение избыточных агентов",
-      "tooltip": "Настройте, как агенты сверх лимита max_agents распределяются между заданиями с одинаковым приоритетом",
-      "roundRobinMode": "Режим Round-Robin",
-      "fifoMode": "Режим FIFO",
-      "fifoDescription": "Когда несколько заданий с одинаковым приоритетом превышают лимиты max_agents, самое старое задание (созданное первым) получает всех дополнительных агентов.",
-      "roundRobinDescription": "Дополнительные агенты распределяются равномерно между всеми заданиями с одинаковым приоритетом, по одному агенту за раз, обеспечивая справедливое распределение."
+      "tooltip": "Настройте, как свободные агенты распределяются после того, как каждое задание на каждом уровне приоритета достигло своего лимита max_agents.",
+      "modeLabel": "Режим распределения избытка",
+      "priorityFifoMode": "Приоритет - FIFO",
+      "priorityRoundRobinMode": "Приоритет - Round Robin",
+      "enforceMaxAgentsMode": "Принудительный max_agents",
+      "maxAgentsFifoMode": "Max Agents - FIFO",
+      "maxAgentsRoundRobinMode": "Max Agents - Round Robin",
+      "priorityFifoDescription": "Когда несколько заданий с одинаковым приоритетом превышают лимиты max_agents, самое старое задание (созданное первым) получает всех дополнительных агентов.",
+      "priorityRoundRobinDescription": "Дополнительные агенты распределяются равномерно между всеми заданиями с одинаковым приоритетом, по одному агенту за раз, обеспечивая справедливое распределение.",
+      "enforceMaxAgentsDescription": "Strictly cap each job at its max_agents limit — no overflow. Surplus agents stay idle. Most predictable; can waste capacity.",
+      "maxAgentsFifoDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then pile on the OLDEST job overall — bypassing priority. Maximizes throughput while still giving every job its baseline.",
+      "maxAgentsRoundRobinDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then rotate evenly across ALL jobs — bypassing priority. Maximizes throughput with fair distribution beyond the baseline."
     },
     "hashlist": {
       "title": "Настройки списков хешей",
@@ -1220,6 +1235,8 @@
       "progressReportingHelper": "Как часто агенты отправляют отчёты о прогрессе",
       "benchmarkCache": "Срок хранения бенчмарков",
       "benchmarkCacheHelper": "Как долго кэшировать бенчмарки агентов",
+      "benchmarkHistoryRetention": "Хранение истории бенчмарков",
+      "benchmarkHistoryRetentionHelper": "Дней хранения записей истории бенчмарков (0 = без ограничений)",
       "speedtestTimeout": "Тайм-аут теста скорости",
       "speedtestTimeoutHelper": "Максимальное время ожидания завершения теста скорости",
       "reconnectGrace": "Льготный период переподключения",
@@ -1239,7 +1256,9 @@
       "maxRetryAttempts": "Макс. попыток повтора части",
       "maxRetryAttemptsHelper": "Количество попыток повтора неудачных частей",
       "jobsPerPage": "Заданий на странице",
-      "jobsPerPageHelper": "Размер пагинации по умолчанию для списков заданий"
+      "jobsPerPageHelper": "Размер пагинации по умолчанию для списков заданий",
+      "keyspaceTimeout": "Тайм-аут расчёта keyspace",
+      "keyspaceTimeoutHelper": "Максимальное время для команд hashcat --keyspace и --total-candidates. Увеличьте для больших словарей/правил."
     },
     "potfile": {
       "title": "Настройки Potfile",

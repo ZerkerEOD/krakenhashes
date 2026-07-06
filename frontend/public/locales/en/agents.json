@@ -16,7 +16,14 @@
     "idle": "Idle",
     "error": "Error",
     "enabled": "Enabled",
-    "disabled": "Disabled"
+    "disabled": "Disabled",
+    "updatePending": "Update pending",
+    "updateFailed": "Update failed",
+    "updating": "Updating",
+    "updateStatus": "Update Status",
+    "currentVersion": "Current version",
+    "targetVersion": "Updating to",
+    "standaloneNotice": "This is a standalone agent and does not auto-update."
   },
   "details": {
     "title": "Agent Details",
@@ -59,12 +66,35 @@
     "singleUse": "Single Use"
   },
   "downloads": {
-    "title": "Agent Downloads",
-    "selectPlatform": "Select Platform",
-    "downloadAgent": "Download Agent",
-    "version": "Version {{version}}",
-    "download": "Download",
-    "copyUrl": "Copy URL",
+    "expectedVersion": "Expected: v{{version}}"
+  },
+  "version": {
+    "updateAvailable": "Update available",
+    "upToDate": "Up to date"
+  },
+  "install": {
+    "sectionTitle": "Install an Agent",
+    "sectionBlurb": "Pick your operating system to get the exact install commands. The auto-updating launcher keeps your agent on the latest version; the standalone binary is managed manually.",
+    "dialogTitle": "Install Agent on {{os}}",
+    "mode": "Mode",
+    "modeAutoUpdate": "Auto-updating (recommended)",
+    "modeStandalone": "Standalone",
+    "architecture": "Architecture",
+    "key": "Claim code (key)",
+    "registerLater": "Register later (no code)",
+    "registerLaterNote": "No claim code selected — the agent will need a code to register. Generate one above or register it later.",
+    "generateCode": "Generate new code",
+    "serverUrl": "Server URL",
+    "noBinaries": "No binaries are available for this platform yet.",
+    "serviceTitle": "Install as a service (starts at login)",
+    "serviceRootUnix": "Runs as your user from this folder and starts at login — no root needed. For a system-wide service that starts before login, add --system (requires sudo).",
+    "serviceRootWindows": "Runs as your user at logon via a Scheduled Task — no Administrator needed. For a system service, add --system in an elevated PowerShell.",
+    "runTitle": "Run in a terminal",
+    "downloadTitle": "Download directly",
+    "downloadButton": "Download",
+    "launcherBlurb": "The launcher supervises the agent and auto-updates its binary when a new version is released.",
+    "standaloneBlurb": "The standalone agent does not auto-update — re-download to upgrade.",
+    "copy": "Copy",
     "copied": "Copied!"
   },
   "errors": {

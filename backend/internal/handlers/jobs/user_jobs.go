@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/middleware"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/rule"
@@ -31,11 +32,17 @@ type UserJobsHandler struct {
 	workflowRepo          repository.JobWorkflowRepository
 	hashTypeRepo          *repository.HashTypeRepository
 	wordlistStore         *wordlist.Store
+	wordlistManager       wordlist.Manager
 	ruleStore             *rule.Store
 	binaryStore           binary.Store
 	jobExecutionService   *services.JobExecutionService
 	systemSettingsRepo    *repository.SystemSettingsRepository
 	assocWordlistRepo     *repository.AssociationWordlistRepository
+	clientPotfileRepo     *repository.ClientPotfileRepository
+	clientWordlistManager *services.ClientWordlistManager
+	teamService           *services.TeamService
+	charsetRepo           repository.CustomCharsetRepository
+	benchmarkRepo         *repository.BenchmarkRepository
 	wsHandler             WSHandler
 }
 
@@ -60,11 +67,17 @@ func NewUserJobsHandler(
 	workflowRepo repository.JobWorkflowRepository,
 	hashTypeRepo *repository.HashTypeRepository,
 	wordlistStore *wordlist.Store,
+	wordlistManager wordlist.Manager,
 	ruleStore *rule.Store,
 	binaryStore binary.Store,
 	jobExecutionService *services.JobExecutionService,
 	systemSettingsRepo *repository.SystemSettingsRepository,
 	assocWordlistRepo *repository.AssociationWordlistRepository,
+	clientPotfileRepo *repository.ClientPotfileRepository,
+	clientWordlistManager *services.ClientWordlistManager,
+	teamService *services.TeamService,
+	charsetRepo repository.CustomCharsetRepository,
+	benchmarkRepo *repository.BenchmarkRepository,
 ) *UserJobsHandler {
 	return &UserJobsHandler{
 		jobExecRepo:           jobExecRepo,
@@ -76,13 +89,26 @@ func NewUserJobsHandler(
 		workflowRepo:          workflowRepo,
 		hashTypeRepo:          hashTypeRepo,
 		wordlistStore:         wordlistStore,
+		wordlistManager:       wordlistManager,
 		ruleStore:             ruleStore,
 		binaryStore:           binaryStore,
 		jobExecutionService:   jobExecutionService,
 		systemSettingsRepo:    systemSettingsRepo,
 		assocWordlistRepo:     assocWordlistRepo,
+		clientPotfileRepo:     clientPotfileRepo,
+		clientWordlistManager: clientWordlistManager,
+		teamService:           teamService,
+		charsetRepo:           charsetRepo,
+		benchmarkRepo:         benchmarkRepo,
 		wsHandler:             nil, // Will be set later via SetWSHandler
 	}
+}
+
+// JobExecutionService exposes the embedded service. Used by adjacent route
+// wiring (e.g. hashlist routes) that need access to dispatchers attached to
+// the service without re-constructing it.
+func (h *UserJobsHandler) JobExecutionService() *services.JobExecutionService {
+	return h.jobExecutionService
 }
 
 // JobSummary represents a job summary for the UI
@@ -103,13 +129,13 @@ type JobSummary struct {
 	UpdatedAt              string  `json:"updated_at"`
 	CompletedAt            *string `json:"completed_at,omitempty"`
 	CreatedByUsername      *string `json:"created_by_username,omitempty"`
-	ErrorMessage           *string `json:"error_message,omitempty"`
-	EffectiveKeyspace      *int64  `json:"effective_keyspace,omitempty"`
-	MultiplicationFactor   int     `json:"multiplication_factor,omitempty"`
-	UsesRuleSplitting      bool    `json:"uses_rule_splitting"`
-	ProcessedKeyspace      *int64  `json:"processed_keyspace,omitempty"`
-	DispatchedKeyspace     *int64  `json:"dispatched_keyspace,omitempty"`
-	OverallProgressPercent float64 `json:"overall_progress_percent"`
+	ErrorMessage           *string        `json:"error_message,omitempty"`
+	EffectiveKeyspace      *models.BigInt `json:"effective_keyspace,omitempty"`
+	MultiplicationFactor   int64          `json:"multiplication_factor,omitempty"`
+	UsesRuleSplitting      bool           `json:"uses_rule_splitting"`
+	ProcessedKeyspace      *models.BigInt `json:"processed_keyspace,omitempty"`
+	DispatchedKeyspace     *models.BigInt `json:"dispatched_keyspace,omitempty"`
+	OverallProgressPercent float64        `json:"overall_progress_percent"`
 }
 
 // ListJobs handles GET /api/jobs with pagination and filtering
@@ -140,11 +166,41 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Parse archive filter
+	includeArchived := r.URL.Query().Get("include_archived") == "true"
+
 	// Create filter
 	filter := repository.JobFilter{
-		Status:   &status,
-		Priority: priority,
-		Search:   &search,
+		Status:          &status,
+		Priority:        priority,
+		Search:          &search,
+		IncludeArchived: includeArchived,
+	}
+
+	// Apply team filter when teams are enabled
+	if middleware.IsTeamsEnabledFromContext(ctx) {
+		isAdmin := middleware.IsAdminFromContext(ctx)
+		teamIDParam := r.URL.Query().Get("team_id")
+
+		if teamIDParam != "" {
+			// Specific team selected in dropdown
+			teamID, err := uuid.Parse(teamIDParam)
+			if err == nil {
+				if isAdmin || middleware.IsUserInTeamFromContext(ctx, teamID) {
+					filter.TeamsEnabled = true
+					filter.TeamIDs = []uuid.UUID{teamID}
+				}
+			}
+		} else if !isAdmin {
+			// No specific team — non-admins get all their teams
+			filter.TeamsEnabled = true
+			teamIDs := middleware.GetUserTeamIDsFromContext(ctx)
+			if teamIDs == nil {
+				teamIDs = []uuid.UUID{} // fail-closed: empty = no access
+			}
+			filter.TeamIDs = teamIDs
+		}
+		// Admin with no team_id → sees all jobs (TeamsEnabled stays false)
 	}
 
 	// Get jobs with filters and user information
@@ -163,8 +219,13 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get status counts
-	statusCounts, err := h.jobExecRepo.GetStatusCounts(ctx)
+	// Get status counts (filtered by team when applicable)
+	var statusCounts map[string]int
+	if len(filter.TeamIDs) > 0 {
+		statusCounts, err = h.jobExecRepo.GetStatusCountsFiltered(ctx, filter)
+	} else {
+		statusCounts, err = h.jobExecRepo.GetStatusCounts(ctx)
+	}
 	if err != nil {
 		debug.Error("Failed to get status counts: %v", err)
 		// Don't fail the request, just log the error
@@ -212,10 +273,11 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 		searchedPercent := 0.0
 		overallProgressPercent := 0.0
 
-		// Use effective keyspace if available, otherwise fall back to total keyspace
+		// Use effective keyspace if available, otherwise fall back to total keyspace.
+		// keyspaceForProgress is used only as a float divisor below, so reduce to int64.
 		var keyspaceForProgress int64
-		if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
-			keyspaceForProgress = *job.EffectiveKeyspace
+		if job.EffectiveKeyspace != nil && job.EffectiveKeyspace.IsPositive() {
+			keyspaceForProgress = job.EffectiveKeyspace.Int64()
 		} else {
 			keyspaceForProgress = 0
 		}
@@ -224,34 +286,34 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 			// For dispatched percentage, we need to consider rule splitting
 			if job.UsesRuleSplitting {
 				// For rule split jobs, calculate based on effective keyspace
-				var totalEffectiveDispatched int64 = 0
-				var totalEffectiveSearched int64 = 0
+				totalEffectiveDispatched := models.NewBigInt(0)
+				totalEffectiveSearched := models.NewBigInt(0)
 
 				for _, task := range tasks {
 					// Calculate dispatched effective keyspace for non-pending tasks
 					if task.Status != models.JobTaskStatusPending {
 						if task.EffectiveKeyspaceStart != nil && task.EffectiveKeyspaceEnd != nil {
-							totalEffectiveDispatched += (*task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart)
+							totalEffectiveDispatched = totalEffectiveDispatched.Add(task.EffectiveKeyspaceEnd.Sub(*task.EffectiveKeyspaceStart))
 						}
 					}
-					
+
 					// Calculate searched effective keyspace from all tasks
 					if task.EffectiveKeyspaceProcessed != nil {
-						totalEffectiveSearched += *task.EffectiveKeyspaceProcessed
+						totalEffectiveSearched = totalEffectiveSearched.Add(*task.EffectiveKeyspaceProcessed)
 					}
 				}
 
 				// Both percentages are relative to total effective keyspace
 				if keyspaceForProgress > 0 {
-					searchedPercent = float64(totalEffectiveSearched) / float64(keyspaceForProgress) * 100
-					dispatchedPercent = float64(totalEffectiveDispatched) / float64(keyspaceForProgress) * 100
+					searchedPercent = float64(totalEffectiveSearched.Int64()) / float64(keyspaceForProgress) * 100
+					dispatchedPercent = float64(totalEffectiveDispatched.Int64()) / float64(keyspaceForProgress) * 100
 				}
 			} else {
 				// For keyspace-based jobs (including keyspace-split jobs)
 				// Use the pre-calculated dispatched_keyspace from job_progress_calculation_service
 				// which correctly handles effective keyspace for keyspace-split jobs
-				searchedPercent = float64(job.ProcessedKeyspace) / float64(keyspaceForProgress) * 100
-				dispatchedPercent = float64(job.DispatchedKeyspace) / float64(keyspaceForProgress) * 100
+				searchedPercent = float64(job.ProcessedKeyspace.Int64()) / float64(keyspaceForProgress) * 100
+				dispatchedPercent = float64(job.DispatchedKeyspace.Int64()) / float64(keyspaceForProgress) * 100
 			}
 
 			// Cap percentages at 100%
@@ -273,6 +335,8 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 			searchedPercent = overallProgressPercent
 		}
 
+		processedKeyspace := job.ProcessedKeyspace
+		dispatchedKeyspace := job.DispatchedKeyspace
 		summary := JobSummary{
 			ID:                     job.ID.String(),
 			Name:                   getJobName(job, hashlist),
@@ -292,8 +356,8 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 			EffectiveKeyspace:      job.EffectiveKeyspace,
 			MultiplicationFactor:   job.MultiplicationFactor,
 			UsesRuleSplitting:      job.UsesRuleSplitting,
-			ProcessedKeyspace:      &job.ProcessedKeyspace,
-			DispatchedKeyspace:     &job.DispatchedKeyspace,
+			ProcessedKeyspace:      &processedKeyspace,
+			DispatchedKeyspace:     &dispatchedKeyspace,
 			OverallProgressPercent: overallProgressPercent,
 		}
 
@@ -342,21 +406,54 @@ func getJobName(job models.JobExecution, hashlist *models.HashList) string {
 
 // JobNameConfig holds all data needed to generate a job name
 type JobNameConfig struct {
-	Client                   *models.Client
-	AttackMode               models.AttackMode
-	WordlistNames            []string
-	RuleNames                []string
-	Mask                     string
-	IncrementMode            string // "off", "increment", "increment_inverse"
-	HashTypeID               int
-	CustomName               string
-	AssociationWordlistName  string // For association attack (mode 9)
+	Client                  *models.Client
+	AttackMode              models.AttackMode
+	WordlistNames           []string
+	RuleNames               []string
+	Mask                    string
+	IncrementMode           string // "off", "increment", "increment_inverse"
+	HashTypeID              int
+	CustomName              string
+	AssociationWordlistName string // For association attack (mode 9)
 }
 
 // resolveWordlistNames converts wordlist IDs to their names
 func (h *UserJobsHandler) resolveWordlistNames(ctx context.Context, wordlistIDs []string) []string {
 	names := make([]string, 0, len(wordlistIDs))
 	for _, idStr := range wordlistIDs {
+		// Check for client-specific wordlist prefix "client:UUID"
+		if strings.HasPrefix(idStr, "client:") {
+			uuidStr := strings.TrimPrefix(idStr, "client:")
+			clientWordlistID, err := uuid.Parse(uuidStr)
+			if err != nil {
+				continue
+			}
+			if h.clientWordlistManager != nil {
+				wl, err := h.clientWordlistManager.Get(ctx, clientWordlistID)
+				if err == nil && wl != nil {
+					names = append(names, wl.FileName)
+				}
+			}
+			continue
+		}
+
+		// Check for client potfile prefix "potfile:ID"
+		if strings.HasPrefix(idStr, "potfile:") {
+			potfileIDStr := strings.TrimPrefix(idStr, "potfile:")
+			potfileID, err := strconv.Atoi(potfileIDStr)
+			if err != nil {
+				continue
+			}
+			if h.clientPotfileRepo != nil {
+				pf, err := h.clientPotfileRepo.GetByID(ctx, potfileID)
+				if err == nil && pf != nil {
+					names = append(names, "Client Potfile")
+				}
+			}
+			continue
+		}
+
+		// Global wordlist - numeric ID
 		id, err := strconv.Atoi(idStr)
 		if err != nil {
 			continue
@@ -555,7 +652,7 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 		http.Error(w, "Hashlist not found", http.StatusNotFound)
 		return
 	}
-	
+
 	// Get client info if available
 	var client *models.Client
 	if hashlist.ClientID != uuid.Nil {
@@ -691,21 +788,28 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 		var req struct {
 			Type          string `json:"type"`
 			CustomJobName string `json:"custom_job_name"`
-			CustomJob struct {
-				Name                      string   `json:"name"`
-				AttackMode                int      `json:"attack_mode"`
-				WordlistIDs               []string `json:"wordlist_ids"`
-				RuleIDs                   []string `json:"rule_ids"`
-				Mask                      string   `json:"mask"`
-				Priority                  int      `json:"priority"`
-				MaxAgents                 int      `json:"max_agents"`
-				BinaryVersion             string   `json:"binary_version"`
-				AllowHighPriorityOverride bool     `json:"allow_high_priority_override"`
-				ChunkSizeSeconds          int      `json:"chunk_size_seconds"`
-				IncrementMode             string   `json:"increment_mode"`
-				IncrementMin              *int     `json:"increment_min"`
-				IncrementMax              *int     `json:"increment_max"`
-				AssociationWordlistID     *string  `json:"association_wordlist_id"`
+			CustomJob     struct {
+				Name                      string            `json:"name"`
+				AttackMode                int               `json:"attack_mode"`
+				WordlistIDs               []string          `json:"wordlist_ids"`
+				RuleIDs                   []string          `json:"rule_ids"`
+				Mask                      string            `json:"mask"`
+				CustomCharsets            map[string]string `json:"custom_charsets"`
+				CustomCharsetFileIDs      map[string]string `json:"custom_charset_file_ids"`
+				Priority                  int               `json:"priority"`
+				MaxAgents                 int               `json:"max_agents"`
+				BinaryVersion             string            `json:"binary_version"`
+				AllowHighPriorityOverride bool              `json:"allow_high_priority_override"`
+				ChunkSizeSeconds          int               `json:"chunk_size_seconds"`
+				IncrementMode             string            `json:"increment_mode"`
+				IncrementMin              *int              `json:"increment_min"`
+				IncrementMax              *int              `json:"increment_max"`
+				AssociationWordlistID     *string           `json:"association_wordlist_id"`
+				HexCharset                bool              `json:"hex_charset"`
+				AdditionalArgs            *string           `json:"additional_args"`
+				// Filter, when present, generates an ephemeral filtered wordlist
+				// from the selected wordlist(s) for this job only (GH #40).
+				Filter *models.WordlistFilter `json:"filter"`
 			} `json:"custom_job"`
 		}
 		if err := json.Unmarshal(rawReq, &req); err != nil {
@@ -755,6 +859,14 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			}
 		}
 
+		// Validate additional args if provided
+		if req.CustomJob.AdditionalArgs != nil && *req.CustomJob.AdditionalArgs != "" {
+			if err := services.ValidateAdditionalArgs(*req.CustomJob.AdditionalArgs); err != nil {
+				http.Error(w, fmt.Sprintf("Invalid additional arguments: %v", err), http.StatusBadRequest)
+				return
+			}
+		}
+
 		// Debug logging for increment mode
 		debug.Info("Received custom job request with increment settings", map[string]interface{}{
 			"increment_mode": req.CustomJob.IncrementMode,
@@ -764,6 +876,63 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			"attack_mode":    req.CustomJob.AttackMode,
 		})
 
+		// Resolve file charset references (slot → charset UUID → CharsetFileRef)
+		var charsetFiles models.CustomCharsetFiles
+		if len(req.CustomJob.CustomCharsetFileIDs) > 0 {
+			charsetFiles = make(models.CustomCharsetFiles)
+			for slot, charsetIDStr := range req.CustomJob.CustomCharsetFileIDs {
+				// Validate slot is 1-4
+				if slot != "1" && slot != "2" && slot != "3" && slot != "4" {
+					http.Error(w, fmt.Sprintf("Invalid charset file slot: %s (must be 1-4)", slot), http.StatusBadRequest)
+					return
+				}
+				// Check no overlap with inline charsets
+				if _, exists := req.CustomJob.CustomCharsets[slot]; exists {
+					http.Error(w, fmt.Sprintf("Slot %s has both an inline charset and a file charset — only one allowed per slot", slot), http.StatusBadRequest)
+					return
+				}
+				charsetID, err := uuid.Parse(charsetIDStr)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("Invalid charset file ID for slot %s: %s", slot, charsetIDStr), http.StatusBadRequest)
+					return
+				}
+				charset, err := h.charsetRepo.GetByID(ctx, charsetID)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("Charset file not found for slot %s: %s", slot, charsetIDStr), http.StatusNotFound)
+					return
+				}
+				if charset.CharsetType != models.CustomCharsetTypeFile {
+					http.Error(w, fmt.Sprintf("Charset %s is not a file charset", charsetIDStr), http.StatusBadRequest)
+					return
+				}
+				charsetFiles[slot] = models.CharsetFileRef{
+					ID:        charset.ID.String(),
+					FilePath:  *charset.FilePath,
+					MD5:       *charset.FileMD5,
+					ByteCount: *charset.ByteCount,
+				}
+			}
+		}
+
+		// Validate hex charset consistency
+		if req.CustomJob.HexCharset && len(req.CustomJob.CustomCharsets) > 0 {
+			for slot, def := range req.CustomJob.CustomCharsets {
+				if def == "" {
+					continue
+				}
+				if len(def)%2 != 0 {
+					http.Error(w, fmt.Sprintf("Hex charset mode is enabled but charset in slot %s has odd length (%d chars) — hex charsets must be even-length byte pairs", slot, len(def)), http.StatusBadRequest)
+					return
+				}
+				for i, c := range def {
+					if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+						http.Error(w, fmt.Sprintf("Hex charset mode is enabled but charset in slot %s contains non-hex character %q at position %d", slot, string(c), i), http.StatusBadRequest)
+						return
+					}
+				}
+			}
+		}
+
 		// Create custom job configuration (NO preset job creation)
 		config := services.CustomJobConfig{
 			Name:                      req.CustomJob.Name,
@@ -771,6 +940,9 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			WordlistIDs:               models.IDArray(req.CustomJob.WordlistIDs),
 			RuleIDs:                   models.IDArray(req.CustomJob.RuleIDs),
 			Mask:                      req.CustomJob.Mask,
+			CustomCharsets:            models.CustomCharsets(req.CustomJob.CustomCharsets),
+			CustomCharsetFiles:        charsetFiles,
+			HexCharset:                req.CustomJob.HexCharset,
 			Priority:                  req.CustomJob.Priority,
 			MaxAgents:                 req.CustomJob.MaxAgents,
 			BinaryVersion:             req.CustomJob.BinaryVersion,
@@ -779,6 +951,7 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			IncrementMode:             req.CustomJob.IncrementMode,
 			IncrementMin:              req.CustomJob.IncrementMin,
 			IncrementMax:              req.CustomJob.IncrementMax,
+			AdditionalArgs:            req.CustomJob.AdditionalArgs,
 		}
 
 		// Add association wordlist ID for mode 9
@@ -814,7 +987,55 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			CustomName:              req.CustomJobName,
 			AssociationWordlistName: assocWordlistName,
 		})
-		
+
+		// Ephemeral wordlist pre-filtering (GH #40): when a filter is supplied on a
+		// wordlist-based attack, generate a job-scoped filtered wordlist from the
+		// selected wordlist(s) before creating the job. Generation can take a while
+		// for very large wordlists, so it runs in the background and the request
+		// returns 202; the job is created (and becomes schedulable) only once the
+		// filtered wordlist exists and its keyspace is known.
+		if req.CustomJob.Filter != nil && !req.CustomJob.Filter.IsEmpty() {
+			if err := req.CustomJob.Filter.Validate(); err != nil {
+				http.Error(w, fmt.Sprintf("Invalid wordlist filter: %v", err), http.StatusBadRequest)
+				return
+			}
+			switch config.AttackMode {
+			case models.AttackModeStraight, models.AttackModeCombination,
+				models.AttackModeHybridWordlistMask, models.AttackModeHybridMaskWordlist:
+				// supported
+			default:
+				http.Error(w, "Wordlist filtering is only supported for wordlist-based attack modes", http.StatusBadRequest)
+				return
+			}
+			if len(config.WordlistIDs) == 0 {
+				http.Error(w, "Wordlist filtering requires at least one wordlist", http.StatusBadRequest)
+				return
+			}
+
+			filter := *req.CustomJob.Filter
+
+			// Create the job row immediately in "preparing" so it shows in the jobs
+			// table while the filtered wordlist generates; the scheduler ignores it
+			// until it's finalized to "pending" (GH #40).
+			preparingJob, err := h.jobExecutionService.CreatePreparingFilterJob(ctx, config, hashlistID, &userID, jobName)
+			if err != nil {
+				debug.Error("Failed to create preparing job: %v", err)
+				http.Error(w, fmt.Sprintf("Failed to create job: %v", err), http.StatusInternalServerError)
+				return
+			}
+			go h.prepareAndCreateFilteredCustomJob(preparingJob.ID, config, filter, userID)
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusAccepted)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"status":  "preparing",
+				"job_id":  preparingJob.ID.String(),
+				"ids":     []string{preparingJob.ID.String()},
+				"message": "Preparing — generating the filtered wordlist; the job will start automatically once it's ready.",
+			})
+			return
+		}
+
 		// Create job execution directly without saving preset
 		jobExecution, err := h.jobExecutionService.CreateCustomJobExecution(ctx, config, hashlistID, &userID, jobName)
 		if err != nil {
@@ -855,6 +1076,74 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 	json.NewEncoder(w).Encode(response)
 }
 
+// prepareAndCreateFilteredCustomJob runs in the background for a job already
+// created in the "preparing" state (GH #40). It generates the ephemeral filtered
+// wordlist(s) from the user's selected wordlists, then finalizes the job
+// (computes keyspace, creates scheduling units, flips to "pending") so the
+// scheduler picks it up. Any failure (0-match filter, full disk, etc.) marks the
+// job failed with the reason and removes the partial filtered wordlists.
+func (h *UserJobsHandler) prepareAndCreateFilteredCustomJob(jobID uuid.UUID, config services.CustomJobConfig, filter models.WordlistFilter, userID uuid.UUID) {
+	ctx := context.Background()
+
+	var filteredIDs models.IDArray
+	var createdWordlistIDs []int
+
+	cleanup := func() {
+		for _, id := range createdWordlistIDs {
+			if err := h.wordlistManager.DeleteWordlist(ctx, id, nil); err != nil {
+				debug.Error("Failed to clean up ephemeral filtered wordlist %d: %v", id, err)
+			}
+		}
+	}
+
+	// failJob surfaces a preparation failure (0-match filter, disk full, etc.) to
+	// the user: it removes any partial ephemeral wordlists and marks the existing
+	// preparing job failed (with the reason) so it shows in the table (GH #40).
+	failJob := func(reason string) {
+		cleanup()
+		if err := h.jobExecutionService.FailJob(ctx, jobID, reason); err != nil {
+			debug.Error("Failed to fail preparing job %s: %v", jobID, err)
+		}
+	}
+
+	for _, wlIDStr := range config.WordlistIDs {
+		// Only filter global numeric wordlists. Client/potfile special IDs
+		// (e.g. "client:1", "potfile:2") are passed through unfiltered.
+		parentID, err := strconv.Atoi(wlIDStr)
+		if err != nil {
+			filteredIDs = append(filteredIDs, wlIDStr)
+			continue
+		}
+
+		// Own the ephemeral wordlist by the job from creation so the sweep can find it.
+		wl, err := h.wordlistManager.CreateFilteredWordlistRecord(ctx, parentID, "", "", filter, true, &jobID, userID)
+		if err != nil {
+			debug.Error("Failed to create ephemeral filtered wordlist from %d: %v", parentID, err)
+			failJob(fmt.Sprintf("could not create filtered wordlist: %v", err))
+			return
+		}
+		createdWordlistIDs = append(createdWordlistIDs, wl.ID)
+
+		if err := h.wordlistManager.GenerateFilteredWordlist(ctx, wl.ID); err != nil {
+			debug.Error("Failed to generate ephemeral filtered wordlist %d (job %s): %v", wl.ID, jobID, err)
+			failJob(err.Error())
+			return
+		}
+
+		filteredIDs = append(filteredIDs, strconv.Itoa(wl.ID))
+	}
+
+	config.WordlistIDs = filteredIDs
+
+	if err := h.jobExecutionService.FinalizeFilterJob(ctx, jobID, config); err != nil {
+		debug.Error("Failed to finalize filtered custom job %s: %v", jobID, err)
+		failJob(fmt.Sprintf("could not finalize job: %v", err))
+		return
+	}
+
+	debug.Info("Finalized filtered custom job %s with %d ephemeral wordlist(s)", jobID, len(createdWordlistIDs))
+}
+
 // GetJobDetail handles GET /api/jobs/{id}
 func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -871,6 +1160,11 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		debug.Error("Failed to get job %s: %v", jobID, err)
 		http.Error(w, "Job not found", http.StatusNotFound)
+		return
+	}
+
+	// Team access check
+	if !h.checkJobTeamAccess(w, ctx, jobID) {
 		return
 	}
 
@@ -967,18 +1261,19 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 	searchedPercent := 0.0
 
 	// Use effective keyspace as the denominator for progress calculations
-	if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
+	if job.EffectiveKeyspace != nil && job.EffectiveKeyspace.IsPositive() {
+		effectiveKeyspaceF := float64(job.EffectiveKeyspace.Int64())
 		// Dispatched: Use the tracked dispatched_keyspace field
-		dispatchedPercent = float64(job.DispatchedKeyspace) / float64(*job.EffectiveKeyspace) * 100
+		dispatchedPercent = float64(job.DispatchedKeyspace.Int64()) / effectiveKeyspaceF * 100
 		// Searched: Use the processed_keyspace from the job execution
-		searchedPercent = float64(job.ProcessedKeyspace) / float64(*job.EffectiveKeyspace) * 100
-		
+		searchedPercent = float64(job.ProcessedKeyspace.Int64()) / effectiveKeyspaceF * 100
+
 		// Validation: Log if searched exceeds dispatched
 		if searchedPercent > dispatchedPercent {
 			debug.Warning("Searched percentage (%.3f%%) exceeds dispatched percentage (%.3f%%) for job %s",
 				searchedPercent, dispatchedPercent, job.ID)
 		}
-		
+
 		// Cap percentages at 100%
 		if dispatchedPercent > 100 {
 			debug.Warning("Dispatched percentage exceeds 100%% (%.3f%%) for job %s, capping at 100%%",
@@ -986,7 +1281,7 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 			dispatchedPercent = 100
 		}
 		if searchedPercent > 100 {
-			debug.Warning("Searched percentage exceeds 100%% (%.3f%%) for job %s, capping at 100%%", 
+			debug.Warning("Searched percentage exceeds 100%% (%.3f%%) for job %s, capping at 100%%",
 				searchedPercent, job.ID)
 			searchedPercent = 100
 		}
@@ -1000,9 +1295,9 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 		if taskProgressPercent == 0 {
 			// Fallback calculation if not set in database
 			if task.EffectiveKeyspaceStart != nil && task.EffectiveKeyspaceEnd != nil && task.EffectiveKeyspaceProcessed != nil {
-				effectiveSize := *task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart
-				if effectiveSize > 0 {
-					taskProgressPercent = float64(*task.EffectiveKeyspaceProcessed) / float64(effectiveSize) * 100
+				effectiveSize := task.EffectiveKeyspaceEnd.Sub(*task.EffectiveKeyspaceStart)
+				if effectiveSize.IsPositive() {
+					taskProgressPercent = float64(task.EffectiveKeyspaceProcessed.Int64()) / float64(effectiveSize.Int64()) * 100
 				}
 			} else {
 				taskKeyspaceSize := task.KeyspaceEnd - task.KeyspaceStart
@@ -1061,8 +1356,8 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 
 	// Calculate overall progress percentage
 	overallProgressPercent := 0.0
-	if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
-		overallProgressPercent = float64(job.ProcessedKeyspace) / float64(*job.EffectiveKeyspace) * 100
+	if job.EffectiveKeyspace != nil && job.EffectiveKeyspace.IsPositive() {
+		overallProgressPercent = float64(job.ProcessedKeyspace.Int64()) / float64(job.EffectiveKeyspace.Int64()) * 100
 		if overallProgressPercent > 100 {
 			overallProgressPercent = 100
 		}
@@ -1070,40 +1365,40 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 
 	// Prepare response
 	response := map[string]interface{}{
-		"id":                        jobID.String(),
-		"name":                      getJobName(*job, hashlist),
-		"hashlist_id":               job.HashlistID,
-		"hashlist_name":             hashlist.Name,
-		"status":                    string(job.Status),
-		"priority":                  job.Priority,
-		"max_agents":                job.MaxAgents,
-		"chunk_size_seconds":        job.ChunkSizeSeconds,
-		"attack_mode":               job.AttackMode,
-		"hash_type":                 formattedHashType,
-		"effective_keyspace":        job.EffectiveKeyspace,
-		"base_keyspace":             job.BaseKeyspace,
-		"processed_keyspace":        job.ProcessedKeyspace,
-		"dispatched_keyspace":       job.DispatchedKeyspace,
-		"dispatched_percent":        dispatchedPercent,
-		"searched_percent":          searchedPercent,
-		"overall_progress_percent":  overallProgressPercent,
-		"multiplication_factor":     job.MultiplicationFactor,
-		"uses_rule_splitting":       job.UsesRuleSplitting,
-		"increment_mode":            job.IncrementMode,
-		"increment_min":             job.IncrementMin,
-		"increment_max":             job.IncrementMax,
-		"cracked_count":             crackedCount,
-		"agent_count":               agentCount,
-		"total_speed":               totalSpeed,
-		"created_at":                job.CreatedAt.Format(time.RFC3339),
-		"updated_at":                job.UpdatedAt.Format(time.RFC3339),
-		"tasks":                     taskSummaries,
-		"total_tasks":               totalTasks,
-		"wordlist_ids":              job.WordlistIDs,
-		"wordlist_names":            wordlistNames,
-		"rule_ids":                  job.RuleIDs,
-		"rule_names":                ruleNames,
-		"mask":                      job.Mask,
+		"id":                       jobID.String(),
+		"name":                     getJobName(*job, hashlist),
+		"hashlist_id":              job.HashlistID,
+		"hashlist_name":            hashlist.Name,
+		"status":                   string(job.Status),
+		"priority":                 job.Priority,
+		"max_agents":               job.MaxAgents,
+		"chunk_size_seconds":       job.ChunkSizeSeconds,
+		"attack_mode":              job.AttackMode,
+		"hash_type":                formattedHashType,
+		"effective_keyspace":       job.EffectiveKeyspace,
+		"base_keyspace":            job.BaseKeyspace,
+		"processed_keyspace":       job.ProcessedKeyspace,
+		"dispatched_keyspace":      job.DispatchedKeyspace,
+		"dispatched_percent":       dispatchedPercent,
+		"searched_percent":         searchedPercent,
+		"overall_progress_percent": overallProgressPercent,
+		"multiplication_factor":    job.MultiplicationFactor,
+		"uses_rule_splitting":      job.UsesRuleSplitting,
+		"increment_mode":           job.IncrementMode,
+		"increment_min":            job.IncrementMin,
+		"increment_max":            job.IncrementMax,
+		"cracked_count":            crackedCount,
+		"agent_count":              agentCount,
+		"total_speed":              totalSpeed,
+		"created_at":               job.CreatedAt.Format(time.RFC3339),
+		"updated_at":               job.UpdatedAt.Format(time.RFC3339),
+		"tasks":                    taskSummaries,
+		"total_tasks":              totalTasks,
+		"wordlist_ids":             job.WordlistIDs,
+		"wordlist_names":           wordlistNames,
+		"rule_ids":                 job.RuleIDs,
+		"rule_names":               ruleNames,
+		"mask":                     job.Mask,
 	}
 
 	if job.StartedAt != nil {
@@ -1137,6 +1432,24 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// checkJobTeamAccess verifies the user has team access to the specified job.
+// Returns true if access is granted. Writes an HTTP error and returns false if denied.
+func (h *UserJobsHandler) checkJobTeamAccess(w http.ResponseWriter, ctx context.Context, jobID uuid.UUID) bool {
+	if middleware.IsTeamsEnabledFromContext(ctx) && !middleware.IsAdminFromContext(ctx) {
+		userID, ok := middleware.GetUserIDFromContext(ctx)
+		if !ok {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return false
+		}
+		canAccess, err := h.teamService.CanUserAccessJob(ctx, userID, jobID, false)
+		if err != nil || !canAccess {
+			http.Error(w, "Job not found", http.StatusNotFound)
+			return false
+		}
+	}
+	return true
+}
+
 // UpdateJob handles PATCH /api/jobs/{id}
 func (h *UserJobsHandler) UpdateJob(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -1145,6 +1458,11 @@ func (h *UserJobsHandler) UpdateJob(w http.ResponseWriter, r *http.Request) {
 	jobID, err := uuid.Parse(vars["id"])
 	if err != nil {
 		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	// Team access check
+	if !h.checkJobTeamAccess(w, ctx, jobID) {
 		return
 	}
 
@@ -1235,6 +1553,11 @@ func (h *UserJobsHandler) RetryJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Team access check
+	if !h.checkJobTeamAccess(w, ctx, jobID) {
+		return
+	}
+
 	// Get the job
 	job, err := h.jobExecRepo.GetByID(ctx, jobID)
 	if err != nil {
@@ -1275,6 +1598,19 @@ func (h *UserJobsHandler) RetryJob(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Clear this job's benchmark blocklist + failure counters so agents that
+	// were sidelined (e.g. by a transient speed-test timeout) are re-benchmarked
+	// immediately on retry instead of waiting out the 24h cooldown. This is the
+	// "one click to unblock the agents" path. Global blocklist entries are left
+	// intact. Best-effort: don't fail the retry if this errors.
+	if userID, ok := middleware.GetUserIDFromContext(ctx); ok {
+		if cleared, clErr := h.benchmarkRepo.ClearBlocklistForJob(ctx, jobID, userID); clErr != nil {
+			debug.Warning("RetryJob: failed to clear benchmark blocklist for job %s: %v", jobID, clErr)
+		} else if cleared > 0 {
+			debug.Info("RetryJob: cleared %d benchmark blocklist entr(ies) for job %s on retry", cleared, jobID)
+		}
+	}
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
 		"message": "Job retry initiated successfully",
@@ -1289,6 +1625,11 @@ func (h *UserJobsHandler) RetryTask(w http.ResponseWriter, r *http.Request) {
 	jobID, err := uuid.Parse(vars["id"])
 	if err != nil {
 		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	// Team access check
+	if !h.checkJobTeamAccess(w, ctx, jobID) {
 		return
 	}
 
@@ -1345,6 +1686,11 @@ func (h *UserJobsHandler) ForceCompleteJob(w http.ResponseWriter, r *http.Reques
 	jobID, err := uuid.Parse(vars["id"])
 	if err != nil {
 		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	// Team access check
+	if !h.checkJobTeamAccess(w, ctx, jobID) {
 		return
 	}
 
@@ -1456,10 +1802,24 @@ func (h *UserJobsHandler) DeleteJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Stop all agents working on this job's tasks
+	// Team access check
+	if !h.checkJobTeamAccess(w, ctx, jobID) {
+		return
+	}
+
+	// Stop all agents working on this job's tasks. Each agent's StopJob runs
+	// cleanupEphemeralWordlists, so agent-local __eph__ copies are removed here (GH #40).
 	if err := h.stopAgentTasks(ctx, jobID); err != nil {
 		debug.Error("Failed to stop agent tasks for job %s: %v", jobID, err)
 		// Continue with deletion even if we couldn't stop all tasks
+	}
+
+	// Remove any ephemeral (__eph__) filtered wordlists owned by this job BEFORE deleting
+	// the job row. The wordlists.owner_job_id FK is ON DELETE CASCADE, so deleting the job
+	// first would drop the wordlist row and orphan its file on disk (GH #40).
+	if err := h.jobExecutionService.CleanupEphemeralWordlistsForJob(ctx, jobID); err != nil {
+		debug.Error("Failed to clean up ephemeral wordlists for job %s: %v", jobID, err)
+		// Continue with deletion; this is best-effort cleanup
 	}
 
 	// Delete job execution record (cascade deletes tasks)
@@ -1480,6 +1840,13 @@ func (h *UserJobsHandler) DeleteJob(w http.ResponseWriter, r *http.Request) {
 func (h *UserJobsHandler) DeleteFinishedJobs(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	// Sweep ephemeral (__eph__) filtered wordlists owned by terminal jobs first, so the
+	// bulk cascade delete below doesn't orphan their files on disk (GH #40).
+	if err := h.jobExecutionService.SweepEphemeralWordlists(ctx); err != nil {
+		debug.Error("Failed to sweep ephemeral wordlists before deleting finished jobs: %v", err)
+		// Continue; best-effort cleanup
+	}
+
 	// Delete all completed jobs
 	deletedCount, err := h.jobExecRepo.DeleteFinished(ctx)
 	if err != nil {
@@ -1492,6 +1859,71 @@ func (h *UserJobsHandler) DeleteFinishedJobs(w http.ResponseWriter, r *http.Requ
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"message":       "Finished jobs deleted successfully",
 		"deleted_count": deletedCount,
+	})
+}
+
+// ArchiveJob handles POST /api/jobs/{id}/archive
+func (h *UserJobsHandler) ArchiveJob(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+
+	jobID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	// Check if job has active tasks
+	hasActive, err := h.jobExecRepo.HasActiveTasks(ctx, jobID)
+	if err != nil {
+		debug.Error("Failed to check active tasks for job %s: %v", jobID, err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	if hasActive {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Cannot archive job with active tasks",
+		})
+		return
+	}
+
+	err = h.jobExecRepo.ArchiveJob(ctx, jobID)
+	if err != nil {
+		debug.Error("Failed to archive job %s: %v", jobID, err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Job archived successfully",
+	})
+}
+
+// UnarchiveJob handles POST /api/jobs/{id}/unarchive
+func (h *UserJobsHandler) UnarchiveJob(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+
+	jobID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	err = h.jobExecRepo.UnarchiveJob(ctx, jobID)
+	if err != nil {
+		debug.Error("Failed to unarchive job %s: %v", jobID, err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Job unarchived successfully",
 	})
 }
 
@@ -1597,9 +2029,9 @@ func (h *UserJobsHandler) GetAvailablePresetJobs(w http.ResponseWriter, r *http.
 		}
 
 		formattedWorkflows = append(formattedWorkflows, map[string]interface{}{
-			"id":                        workflow.ID.String(),
-			"name":                      workflow.Name,
-			"steps":                     formattedSteps,
+			"id":                         workflow.ID.String(),
+			"name":                       workflow.Name,
+			"steps":                      formattedSteps,
 			"has_high_priority_override": hasHighPriorityOverride,
 		})
 	}
@@ -1609,6 +2041,46 @@ func (h *UserJobsHandler) GetAvailablePresetJobs(w http.ResponseWriter, r *http.
 		"wordlists":       formatWordlists(wordlists),
 		"rules":           formatRules(rules),
 		"binary_versions": formatBinaries(binaries),
+	}
+
+	// Get hashlist to check for client
+	hashlist, err := h.hashlistRepo.GetByID(ctx, hashlistID)
+	if err != nil {
+		debug.Warning("Failed to get hashlist for client resources: %v", err)
+	}
+
+	// Add client resources if hashlist has a client
+	if hashlist != nil && hashlist.ClientID != uuid.Nil {
+		// Get client potfile if enabled
+		if h.clientPotfileRepo != nil {
+			potfile, err := h.clientPotfileRepo.GetByClientID(ctx, hashlist.ClientID)
+			if err == nil && potfile != nil && potfile.LineCount > 0 {
+				formData["client_potfile"] = map[string]interface{}{
+					"id":         potfile.ID,
+					"client_id":  potfile.ClientID.String(),
+					"file_size":  potfile.FileSize,
+					"line_count": potfile.LineCount,
+				}
+			}
+		}
+
+		// Get client wordlists
+		if h.clientWordlistManager != nil {
+			clientWordlists, err := h.clientWordlistManager.List(ctx, hashlist.ClientID)
+			if err == nil && len(clientWordlists) > 0 {
+				formattedClientWordlists := make([]map[string]interface{}, 0, len(clientWordlists))
+				for _, wl := range clientWordlists {
+					formattedClientWordlists = append(formattedClientWordlists, map[string]interface{}{
+						"id":         wl.ID.String(),
+						"client_id":  wl.ClientID.String(),
+						"file_name":  wl.FileName,
+						"file_size":  wl.FileSize,
+						"line_count": wl.LineCount,
+					})
+				}
+				formData["client_wordlists"] = formattedClientWordlists
+			}
+		}
 	}
 
 	// Return the expected structure
@@ -1702,6 +2174,32 @@ func (h *UserJobsHandler) ListUserJobs(w http.ResponseWriter, r *http.Request) {
 		UserID:   &userID,
 	}
 
+	// Apply team filter when teams are enabled
+	if middleware.IsTeamsEnabledFromContext(ctx) {
+		isAdmin := middleware.IsAdminFromContext(ctx)
+		teamIDParam := r.URL.Query().Get("team_id")
+
+		if teamIDParam != "" {
+			// Specific team selected in dropdown
+			teamID, err := uuid.Parse(teamIDParam)
+			if err == nil {
+				if isAdmin || middleware.IsUserInTeamFromContext(ctx, teamID) {
+					filter.TeamsEnabled = true
+					filter.TeamIDs = []uuid.UUID{teamID}
+				}
+			}
+		} else if !isAdmin {
+			// No specific team — non-admins get all their teams
+			filter.TeamsEnabled = true
+			teamIDs := middleware.GetUserTeamIDsFromContext(ctx)
+			if teamIDs == nil {
+				teamIDs = []uuid.UUID{} // fail-closed: empty = no access
+			}
+			filter.TeamIDs = teamIDs
+		}
+		// Admin with no team_id → sees all jobs (TeamsEnabled stays false)
+	}
+
 	// Get jobs with filters and user information
 	jobsWithUser, err := h.jobExecRepo.ListWithFiltersAndUser(ctx, pageSize, (page-1)*pageSize, filter)
 	if err != nil {
@@ -1718,8 +2216,13 @@ func (h *UserJobsHandler) ListUserJobs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get status counts for this user
-	statusCounts, err := h.jobExecRepo.GetStatusCountsForUser(ctx, userID)
+	// Get status counts for this user (filtered by team when applicable)
+	var statusCounts map[string]int
+	if len(filter.TeamIDs) > 0 {
+		statusCounts, err = h.jobExecRepo.GetStatusCountsFiltered(ctx, filter)
+	} else {
+		statusCounts, err = h.jobExecRepo.GetStatusCountsForUser(ctx, userID)
+	}
 	if err != nil {
 		debug.Error("Failed to get user status counts: %v", err)
 		// Don't fail the request, just log the error
@@ -1767,10 +2270,11 @@ func (h *UserJobsHandler) ListUserJobs(w http.ResponseWriter, r *http.Request) {
 		searchedPercent := 0.0
 		overallProgressPercent := 0.0
 
-		// Use effective keyspace if available, otherwise fall back to total keyspace
+		// Use effective keyspace if available, otherwise fall back to total keyspace.
+		// keyspaceForProgress is used only as a float divisor below, so reduce to int64.
 		var keyspaceForProgress int64
-		if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
-			keyspaceForProgress = *job.EffectiveKeyspace
+		if job.EffectiveKeyspace != nil && job.EffectiveKeyspace.IsPositive() {
+			keyspaceForProgress = job.EffectiveKeyspace.Int64()
 		} else {
 			keyspaceForProgress = 0
 		}
@@ -1779,34 +2283,34 @@ func (h *UserJobsHandler) ListUserJobs(w http.ResponseWriter, r *http.Request) {
 			// For dispatched percentage, we need to consider rule splitting
 			if job.UsesRuleSplitting {
 				// For rule split jobs, calculate based on effective keyspace
-				var totalEffectiveDispatched int64 = 0
-				var totalEffectiveSearched int64 = 0
+				totalEffectiveDispatched := models.NewBigInt(0)
+				totalEffectiveSearched := models.NewBigInt(0)
 
 				for _, task := range tasks {
 					// Calculate dispatched effective keyspace for non-pending tasks
 					if task.Status != models.JobTaskStatusPending {
 						if task.EffectiveKeyspaceStart != nil && task.EffectiveKeyspaceEnd != nil {
-							totalEffectiveDispatched += (*task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart)
+							totalEffectiveDispatched = totalEffectiveDispatched.Add(task.EffectiveKeyspaceEnd.Sub(*task.EffectiveKeyspaceStart))
 						}
 					}
-					
+
 					// Calculate searched effective keyspace from all tasks
 					if task.EffectiveKeyspaceProcessed != nil {
-						totalEffectiveSearched += *task.EffectiveKeyspaceProcessed
+						totalEffectiveSearched = totalEffectiveSearched.Add(*task.EffectiveKeyspaceProcessed)
 					}
 				}
 
 				// Both percentages are relative to total effective keyspace
 				if keyspaceForProgress > 0 {
-					searchedPercent = float64(totalEffectiveSearched) / float64(keyspaceForProgress) * 100
-					dispatchedPercent = float64(totalEffectiveDispatched) / float64(keyspaceForProgress) * 100
+					searchedPercent = float64(totalEffectiveSearched.Int64()) / float64(keyspaceForProgress) * 100
+					dispatchedPercent = float64(totalEffectiveDispatched.Int64()) / float64(keyspaceForProgress) * 100
 				}
 			} else {
 				// For keyspace-based jobs (including keyspace-split jobs)
 				// Use the pre-calculated dispatched_keyspace from job_progress_calculation_service
 				// which correctly handles effective keyspace for keyspace-split jobs
-				searchedPercent = float64(job.ProcessedKeyspace) / float64(keyspaceForProgress) * 100
-				dispatchedPercent = float64(job.DispatchedKeyspace) / float64(keyspaceForProgress) * 100
+				searchedPercent = float64(job.ProcessedKeyspace.Int64()) / float64(keyspaceForProgress) * 100
+				dispatchedPercent = float64(job.DispatchedKeyspace.Int64()) / float64(keyspaceForProgress) * 100
 			}
 
 			// Cap percentages at 100%
@@ -1828,6 +2332,8 @@ func (h *UserJobsHandler) ListUserJobs(w http.ResponseWriter, r *http.Request) {
 			searchedPercent = overallProgressPercent
 		}
 
+		processedKeyspace := job.ProcessedKeyspace
+		dispatchedKeyspace := job.DispatchedKeyspace
 		summary := JobSummary{
 			ID:                     job.ID.String(),
 			Name:                   getJobName(job, hashlist),
@@ -1848,8 +2354,8 @@ func (h *UserJobsHandler) ListUserJobs(w http.ResponseWriter, r *http.Request) {
 			EffectiveKeyspace:      job.EffectiveKeyspace,
 			MultiplicationFactor:   job.MultiplicationFactor,
 			UsesRuleSplitting:      job.UsesRuleSplitting,
-			ProcessedKeyspace:      &job.ProcessedKeyspace,
-			DispatchedKeyspace:     &job.DispatchedKeyspace,
+			ProcessedKeyspace:      &processedKeyspace,
+			DispatchedKeyspace:     &dispatchedKeyspace,
 			OverallProgressPercent: overallProgressPercent,
 		}
 
@@ -1887,6 +2393,11 @@ func (h *UserJobsHandler) GetJobLayers(w http.ResponseWriter, r *http.Request) {
 	jobID, err := uuid.Parse(jobIDStr)
 	if err != nil {
 		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	// Team access check
+	if !h.checkJobTeamAccess(w, r.Context(), jobID) {
 		return
 	}
 
@@ -1931,6 +2442,11 @@ func (h *UserJobsHandler) GetJobLayerTasks(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Team access check
+	if !h.checkJobTeamAccess(w, r.Context(), jobID) {
+		return
+	}
+
 	layerID, err := uuid.Parse(layerIDStr)
 	if err != nil {
 		http.Error(w, "Invalid layer ID", http.StatusBadRequest)
@@ -1971,4 +2487,113 @@ func (h *UserJobsHandler) GetJobLayerTasks(w http.ResponseWriter, r *http.Reques
 		debug.Error("Failed to encode response: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
+}
+
+// blocklistEntryDTO is the shape returned to the /jobs/{id} UI panel. Includes
+// joined agent name and failure-attempt details for at-a-glance triage.
+type blocklistEntryDTO struct {
+	ID             string     `json:"id"`
+	AgentID        int        `json:"agent_id"`
+	AgentName      *string    `json:"agent_name,omitempty"`
+	JobExecutionID *string    `json:"job_execution_id,omitempty"`
+	AttackMode     int        `json:"attack_mode"`
+	HashType       int        `json:"hash_type"`
+	Reason         string     `json:"reason"`
+	ExpiresAt      time.Time  `json:"expires_at"`
+	CreatedAt      time.Time  `json:"created_at"`
+	FailureCount   *int       `json:"failure_count,omitempty"`
+	LastError      *string    `json:"last_error,omitempty"`
+	ClearedAt      *time.Time `json:"cleared_at,omitempty"`
+}
+
+// GetBenchmarkBlocklist handles GET /api/jobs/{id}/benchmark-blocklist.
+// Returns every active blocklist entry whose scope covers this job — either
+// job-scoped entries for this job OR global entries matching the same
+// (hash_type, attack_mode). The panel lists these so the operator can see why
+// a job is stalled and which agents are in cooldown.
+func (h *UserJobsHandler) GetBenchmarkBlocklist(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	jobID, err := uuid.Parse(mux.Vars(r)["id"])
+	if err != nil {
+		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+	if !h.checkJobTeamAccess(w, ctx, jobID) {
+		return
+	}
+
+	entries, err := h.benchmarkRepo.ListBlocklistForJob(ctx, jobID)
+	if err != nil {
+		debug.Error("ListBlocklistForJob(%s): %v", jobID, err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	out := make([]blocklistEntryDTO, 0, len(entries))
+	for _, e := range entries {
+		var jobIDStr *string
+		if e.JobExecutionID != nil {
+			s := e.JobExecutionID.String()
+			jobIDStr = &s
+		}
+		out = append(out, blocklistEntryDTO{
+			ID:             e.ID.String(),
+			AgentID:        e.AgentID,
+			AgentName:      e.AgentName,
+			JobExecutionID: jobIDStr,
+			AttackMode:     int(e.AttackMode),
+			HashType:       e.HashType,
+			Reason:         e.Reason,
+			ExpiresAt:      e.ExpiresAt,
+			CreatedAt:      e.CreatedAt,
+			FailureCount:   e.FailureCount,
+			LastError:      e.LastError,
+			ClearedAt:      e.ClearedAt,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(out); err != nil {
+		debug.Error("encode blocklist response: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
+// ClearBenchmarkBlocklistEntry handles
+// POST /api/jobs/{id}/benchmark-blocklist/{entryID}/clear.
+// Marks the entry as cleared by the calling user so the scheduler can retry
+// the (agent, hash_type, attack_mode) combination on the next cycle.
+func (h *UserJobsHandler) ClearBenchmarkBlocklistEntry(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+	jobID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+	if !h.checkJobTeamAccess(w, ctx, jobID) {
+		return
+	}
+	entryID, err := uuid.Parse(vars["entryID"])
+	if err != nil {
+		http.Error(w, "Invalid entry ID", http.StatusBadRequest)
+		return
+	}
+
+	userID, ok := middleware.GetUserIDFromContext(ctx)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if err := h.benchmarkRepo.ClearBlocklistEntry(ctx, entryID, userID); err != nil {
+		// ClearBlocklistEntry returns sql.ErrNoRows when the entry is already
+		// cleared or doesn't exist — treat both as 404 so the UI can refresh
+		// the list.
+		debug.Warning("ClearBlocklistEntry(%s): %v", entryID, err)
+		http.Error(w, "Entry not found or already cleared", http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

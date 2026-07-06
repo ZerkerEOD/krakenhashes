@@ -60,13 +60,21 @@ func formatClaimCode(code string) string {
 		code[15:20])
 }
 
-// CreateTempVoucher creates a temporary claim voucher
-func (s *ClaimVoucherService) CreateTempVoucher(ctx context.Context, userID string, expiresIn time.Duration, isContinuous bool) (*models.ClaimVoucher, error) {
-	// Parse user ID to UUID
-	userUUID, err := uuid.Parse(userID)
-	if err != nil {
-		debug.Error("failed to parse user ID: %v", err)
-		return nil, fmt.Errorf("invalid user ID: %w", err)
+// CreateTempVoucher creates a temporary claim voucher.
+// When isSystem is true, the voucher is created with the system user as owner,
+// making any agent registered with it a system agent (universal, serves all teams).
+func (s *ClaimVoucherService) CreateTempVoucher(ctx context.Context, userID string, expiresIn time.Duration, isContinuous bool, isSystem bool) (*models.ClaimVoucher, error) {
+	// Determine the creator ID
+	var creatorID uuid.UUID
+	if isSystem {
+		creatorID = models.SystemUserID
+	} else {
+		var err error
+		creatorID, err = uuid.Parse(userID)
+		if err != nil {
+			debug.Error("failed to parse user ID: %v", err)
+			return nil, fmt.Errorf("invalid user ID: %w", err)
+		}
 	}
 
 	// Create voucher with normalized code for storage
@@ -75,7 +83,7 @@ func (s *ClaimVoucherService) CreateTempVoucher(ctx context.Context, userID stri
 		Code:         normalizeClaimCode(code),
 		IsActive:     true,
 		IsContinuous: isContinuous,
-		CreatedByID:  userUUID,
+		CreatedByID:  creatorID,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -94,6 +102,20 @@ func (s *ClaimVoucherService) CreateTempVoucher(ctx context.Context, userID stri
 // ListVouchers retrieves all active vouchers
 func (s *ClaimVoucherService) ListVouchers(ctx context.Context) ([]models.ClaimVoucher, error) {
 	vouchers, err := s.repo.ListActive(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Format codes for display
+	for i := range vouchers {
+		vouchers[i].Code = formatClaimCode(vouchers[i].Code)
+	}
+	return vouchers, nil
+}
+
+// ListVouchersByUser retrieves active vouchers created by a specific user
+func (s *ClaimVoucherService) ListVouchersByUser(ctx context.Context, userID uuid.UUID) ([]models.ClaimVoucher, error) {
+	vouchers, err := s.repo.ListActiveByUser(ctx, userID)
 	if err != nil {
 		return nil, err
 	}

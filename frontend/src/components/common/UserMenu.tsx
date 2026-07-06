@@ -15,6 +15,7 @@ import {
     Settings as SettingsIcon,
     Logout as LogoutIcon,
     Person as PersonIcon,
+    TextFields as TextFieldsIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { logout } from '../../services/auth';
@@ -57,6 +58,13 @@ const UserMenu: React.FC = () => {
         // Small delay to ensure menu animation completes before navigation
         setTimeout(() => {
             navigate('/settings/profile');
+        }, 100);
+    };
+
+    const handleSavedCharsets = () => {
+        setAnchorEl(null);
+        setTimeout(() => {
+            navigate('/settings/charsets');
         }, 100);
     };
 
@@ -108,6 +116,12 @@ const UserMenu: React.FC = () => {
                         <SettingsIcon fontSize="small" />
                     </ListItemIcon>
                     {t('userMenu.userSettings') as string}
+                </MenuItem>
+                <MenuItem onClick={handleSavedCharsets}>
+                    <ListItemIcon>
+                        <TextFieldsIcon fontSize="small" />
+                    </ListItemIcon>
+                    {t('userMenu.savedCharsets') as string}
                 </MenuItem>
                 <MenuItem onClick={handleLogout}>
                     <ListItemIcon>

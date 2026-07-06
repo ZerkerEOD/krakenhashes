@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/agent/internal/agent"
@@ -19,6 +20,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/agent/internal/config"
 	"github.com/ZerkerEOD/krakenhashes/agent/internal/jobs"
 	"github.com/ZerkerEOD/krakenhashes/agent/internal/metrics"
+	"github.com/ZerkerEOD/krakenhashes/agent/internal/updateipc"
 	"github.com/ZerkerEOD/krakenhashes/agent/internal/version"
 	"github.com/ZerkerEOD/krakenhashes/agent/pkg/console"
 	"github.com/ZerkerEOD/krakenhashes/agent/pkg/debug"
@@ -421,17 +423,15 @@ func commentOutClaimCode() error {
 	return nil
 }
 
-/*
- * main is the entry point for the KrakenHashes agent.
- *
- * It performs the following operations:
- * 1. Loads and validates configuration
- * 2. Establishes connection with the backend
- * 3. Starts the heartbeat mechanism
- * 4. Begins processing jobs
- *
- * The agent will continue running until terminated or a fatal error occurs.
- */
+// main is the program entry point for the KrakenHashes agent.
+// It initializes configuration (flags and .env), logging, data directories and metrics,
+// ensures credentials (registering or renewing when required), and establishes a WebSocket
+// connection to the backend (up to three attempts). After connecting it writes a readiness
+// breadcrumb, configures the job manager callbacks, and starts background services
+// (cleanup and stuck-detection). main then waits for SIGINT, SIGTERM or an accepted
+// auto-update request, performs an ordered graceful shutdown (stop detection, stop cleanup,
+// notify backend, shutdown job manager, close connection) and exits. If shutdown was due
+// to an auto-update handoff, the process exits with the launcher-directed update exit code.
 func main() {
 	// Parse command-line flags FIRST before anything else
 	// This ensures debug flag is processed before any logging
@@ -763,6 +763,17 @@ func main() {
 		debug.Info("Connection attempt %d successful", i+1)
 		console.Success("Connected to backend successfully")
 
+		// Write the readiness breadcrumb so a launcher that just swapped this
+		// binary can confirm the new agent actually came online (and on which
+		// version) within its health-check window.
+		if err := updateipc.WriteReady(config.GetConfigDir(), updateipc.ReadyInfo{
+			Version:     version.GetVersion(),
+			PID:         os.Getpid(),
+			ConnectedAt: time.Now().UTC().Format(time.RFC3339),
+		}); err != nil {
+			debug.Warning("Failed to write readiness breadcrumb: %v", err)
+		}
+
 		// Device detection is triggered by config_update message from backend
 		// This ensures the preferred binary version is set before detection runs
 		// Running detection here would cause a race condition with config_update
@@ -820,6 +831,14 @@ func main() {
 		jobManager.SetOutputCallback(outputCallback)
 		debug.Info("Output callback configured to send hashcat output to backend")
 
+		// Wire orphan reconciliation: on "Already an instance" detections the
+		// executor reconciles locally (kills foreign PIDs, leaves our own
+		// alone) and asks us to audit-notify the backend.
+		jobManager.SetOrphanCallback(func(pid int, attemptedTaskID string, fromOurAgent bool) {
+			conn.SendAgentOrphanReport(pid, attemptedTaskID, fromOurAgent)
+		})
+		debug.Info("Orphan callback configured for hashcat reconciliation")
+
 		lastError = nil
 		break
 	}
@@ -846,13 +865,23 @@ func main() {
 	console.Info("Agent running, press Ctrl+C to exit")
 	debug.Info("Agent running, press Ctrl+C to exit")
 
-	// Wait for interrupt signal
+	// Wait for an interrupt/terminate signal OR an accepted auto-update
+	// request. SIGTERM is included so a service manager's graceful stop runs
+	// the same shutdown path. (os.Kill/SIGKILL is uncatchable, so there's no
+	// point listening for it.)
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, os.Kill)
-	<-sigChan
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-	console.Info("Shutting down agent...")
-	debug.Info("Shutting down agent...")
+	updateRequested := false
+	select {
+	case <-sigChan:
+		console.Info("Shutting down agent...")
+		debug.Info("Shutting down agent...")
+	case <-conn.UpdateExitChan():
+		updateRequested = true
+		console.Info("Update accepted; shutting down to hand off to launcher...")
+		debug.Info("Update accepted; shutting down for launcher to apply update")
+	}
 
 	// Stop stuck detection (GH Issue #12)
 	debug.Info("Stopping stuck detection...")
@@ -877,7 +906,29 @@ func main() {
 		}
 	}
 
-	// Now stop the job manager to cleanly stop all running jobs
+	// Mark the job manager as shutting down BEFORE anything else. From
+	// this instant, any inbound task_assignment from the backend is
+	// refused locally — closes the race where a v2 cycle dispatches into
+	// us during the 5s shutdown window. ProcessJobAssignment returns an
+	// error that the connection translates into a task_assignment_rejected
+	// WS frame so the backend can re-dispatch elsewhere immediately.
+	if jobManager != nil {
+		jobManager.BeginShutdown()
+	}
+
+	// THEN send the shutdown notification to the backend. The backend's
+	// handleAgentShutdown runs RecoverTaskByID on the captured task ID,
+	// freeing the gap for re-dispatch elsewhere, and marks the agent
+	// shutting-down so its scheduler cycle stops considering us idle.
+	if conn != nil {
+		debug.Info("Sending shutdown notification to server...")
+		conn.SendShutdownNotification(hasTask, taskID, jobID)
+		time.Sleep(500 * time.Millisecond) // Give time for the message to be sent
+	}
+
+	// Now stop the job manager to cleanly stop all running jobs.
+	// Once shutdownCtx (passed to the JobManager constructor) is
+	// cancelled, ProcessJobAssignment refuses any inbound assignments.
 	if jobManager != nil {
 		debug.Info("Stopping job manager and all running tasks...")
 		console.Status("Stopping active tasks...")
@@ -890,12 +941,8 @@ func main() {
 		}
 	}
 
-	// Send shutdown notification to server before closing connection
+	// Close the connection last.
 	if conn != nil {
-		debug.Info("Sending shutdown notification to server...")
-		conn.SendShutdownNotification(hasTask, taskID, jobID)
-		time.Sleep(500 * time.Millisecond) // Give time for the message to be sent
-
 		debug.Info("Stopping connection...")
 		console.Status("Disconnecting from backend...")
 		conn.Stop() // Stop the active connection and maintenance routines
@@ -904,4 +951,13 @@ func main() {
 
 	console.Success("Agent shutdown complete")
 	debug.Info("Agent shutdown complete")
+
+	// If this shutdown was for an auto-update, exit with the distinguished
+	// code so the launcher reads the instruction and applies the update. The
+	// same graceful-shutdown sequence above ran first, so the backend has
+	// already freed our work and marked us shutting-down.
+	if updateRequested {
+		debug.Info("Exiting with update-requested code %d for launcher", updateipc.ExitCodeUpdateRequested)
+		os.Exit(updateipc.ExitCodeUpdateRequested)
+	}
 }

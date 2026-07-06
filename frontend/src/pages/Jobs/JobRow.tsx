@@ -21,12 +21,15 @@ import {
   ExpandLess as ExpandLessIcon,
   Error as ErrorIcon,
   Info as InfoIcon,
+  Archive as ArchiveIcon,
+  Unarchive as UnarchiveIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import Checkbox from '@mui/material/Checkbox';
 import EditableCell from './EditableCell';
 import DeleteConfirm from './DeleteConfirm';
 import { JobSummary } from '../../types/jobs';
-import { api } from '../../services/api';
+import { api, archiveJob, unarchiveJob } from '../../services/api';
 import { formatters } from '../../utils/formatters';
 import { calculateJobProgress, formatKeyspace, getKeyspaceTooltip } from '../../utils/jobProgress';
 import LinearProgress from '@mui/material/LinearProgress';
@@ -37,14 +40,18 @@ interface JobRowProps {
   isLastActiveJob?: boolean;
   isCompletedSection?: boolean;
   maxPriority?: number;
+  selected?: boolean;
+  onSelect?: (id: string) => void;
+  showArchived?: boolean;
 }
 
-const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isCompletedSection, maxPriority = 10 }) => {
+const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isCompletedSection, maxPriority = 10, selected, onSelect, showArchived }) => {
   const { t } = useTranslation('jobs');
   const navigate = useNavigate();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
   const [showError, setShowError] = useState(false);
 
   const handleJobNameClick = () => {
@@ -96,10 +103,30 @@ const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isC
     }
   };
 
+  const handleArchiveToggle = async () => {
+    setIsArchiving(true);
+    try {
+      if (job.archived_at) {
+        await unarchiveJob(job.id);
+      } else {
+        await archiveJob(job.id);
+      }
+      onJobUpdated?.();
+    } catch (error) {
+      console.error('Failed to archive/unarchive job:', error);
+    } finally {
+      setIsArchiving(false);
+    }
+  };
+
+  const isActiveJob = ['pending', 'running', 'paused'].includes(job.status.toLowerCase());
+
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'running':
         return 'success';
+      case 'preparing':
+        return 'default';
       case 'pending':
         return 'warning';
       case 'completed':
@@ -123,13 +150,24 @@ const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isC
 
   return (
     <>
-      <TableRow 
+      <TableRow
         hover
-        sx={{ 
+        sx={{
           bgcolor: isCompletedSection ? 'action.selected' : 'inherit',
           borderBottom: isLastActiveJob ? '2px solid' : undefined,
-          borderBottomColor: isLastActiveJob ? 'divider' : undefined
+          borderBottomColor: isLastActiveJob ? 'divider' : undefined,
+          opacity: job.archived_at ? 0.7 : 1,
         }}>
+        {/* Selection checkbox */}
+        {onSelect && (
+          <TableCell padding="checkbox">
+            <Checkbox
+              checked={!!selected}
+              onChange={() => onSelect(job.id)}
+              size="small"
+            />
+          </TableCell>
+        )}
         {/* Job Name with expand button for errors */}
         <TableCell>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -157,6 +195,15 @@ const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isC
               variant="outlined"
               icon={hasError ? <ErrorIcon /> : undefined}
             />
+            {job.archived_at && (
+              <Chip
+                label={t('archive.archived')}
+                size="small"
+                variant="outlined"
+                icon={<ArchiveIcon />}
+                color="default"
+              />
+            )}
           </Box>
         </TableCell>
 
@@ -251,9 +298,9 @@ const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isC
                 <Typography variant="body2">
                   {formatKeyspace(job.effective_keyspace)}
                 </Typography>
-                {job.multiplication_factor && job.multiplication_factor > 1 && (
+                {job.uses_rule_splitting && job.multiplication_factor && job.multiplication_factor > 1 && (
                   <Chip
-                    label={`×${job.multiplication_factor}${job.uses_rule_splitting ? ' (rules)' : ''}`}
+                    label={`×${job.multiplication_factor} (rules)`}
                     size="small"
                     color="error"
                     variant="filled"
@@ -301,6 +348,41 @@ const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isC
             <Typography variant="body2">
               {job.agent_count}
             </Typography>
+            {/* Overflow indicator: when the scheduler has placed more
+                agents on this job than its max_agents baseline, it's
+                because a Priority/Max-Agents overflow phase cascaded
+                spare agents here (typically because higher-priority
+                or older-FIFO jobs were already saturated). Shown as a
+                small chip so operators can tell at a glance why this
+                job is over its configured cap. */}
+            {job.max_agents > 0 && job.agent_count > job.max_agents && (
+              <Tooltip title={`+${job.agent_count - job.max_agents} from overflow — higher-priority or older jobs are at keyspace or parent-cap saturation, so spare agents cascaded here`}>
+                <Chip
+                  label={`+${job.agent_count - job.max_agents}`}
+                  size="small"
+                  color="warning"
+                  variant="outlined"
+                  sx={{ height: 18, fontSize: '0.65rem', ml: 0.5 }}
+                />
+              </Tooltip>
+            )}
+            {/* Under-cap indicator: agent_count < max_agents AND job
+                is active means the scheduler couldn't (or chose not
+                to) fill this job to its cap this cycle. Common causes:
+                keyspace fully tiled by in-flight chunks, parent cap
+                reached for increment jobs, or all eligible agents
+                already claimed by higher-priority jobs. */}
+            {(job.status === 'running' || job.status === 'pending') && job.max_agents > 0 && job.agent_count < job.max_agents && (
+              <Tooltip title={`${job.max_agents - job.agent_count} short of max_agents — waiting on agents to free up, or this job's remaining keyspace is fully tiled by current chunks`}>
+                <Chip
+                  label={`-${job.max_agents - job.agent_count}`}
+                  size="small"
+                  color="info"
+                  variant="outlined"
+                  sx={{ height: 18, fontSize: '0.65rem', ml: 0.5 }}
+                />
+              </Tooltip>
+            )}
             {job.total_speed > 0 && (
               <Tooltip title={t('tooltips.combinedHashRate')}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 1 }}>
@@ -373,6 +455,17 @@ const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isC
                 </IconButton>
               </Tooltip>
             )}
+            <Tooltip title={job.archived_at ? t('archive.unarchive') : t('archive.archive')}>
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={handleArchiveToggle}
+                  disabled={isArchiving || isActiveJob}
+                >
+                  {job.archived_at ? <UnarchiveIcon /> : <ArchiveIcon />}
+                </IconButton>
+              </span>
+            </Tooltip>
             <Tooltip title={t('tooltips.delete')}>
               <IconButton
                 size="small"
@@ -389,7 +482,7 @@ const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isC
       {/* Error message row */}
       {hasError && (
         <TableRow>
-          <TableCell colSpan={10} sx={{ py: 0 }}>
+          <TableCell colSpan={onSelect ? 11 : 10} sx={{ py: 0 }}>
             <Collapse in={showError} timeout="auto" unmountOnExit>
               <Alert severity="error" sx={{ m: 2 }}>
                 <Typography variant="body2">

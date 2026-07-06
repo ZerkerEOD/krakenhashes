@@ -9,6 +9,7 @@
     "wordlists": "Wordlists",
     "rules": "Rules",
     "clientManagement": "Client Management",
+    "teams": "Teams",
     "analytics": "Analytics",
     "about": "About",
     "logout": "Logout"
@@ -17,13 +18,17 @@
     "title": "Admin",
     "settings": "Admin Settings",
     "userManagement": "User Management",
+    "customCharsets": "Custom Charsets",
     "presetJobs": "Preset Jobs",
     "jobWorkflows": "Job Workflows",
     "diagnostics": "Diagnostics",
-    "auditLog": "Audit Log"
+    "auditLog": "Audit Log",
+    "jobAnalytics": "Job Analytics",
+    "teamManagement": "Team Management"
   },
   "userMenu": {
     "userSettings": "User Settings",
+    "savedCharsets": "Saved Charsets",
     "logout": "Logout",
     "user": "User"
   },

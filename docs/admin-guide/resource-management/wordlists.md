@@ -17,8 +17,14 @@ wordlists/
 ├── general/       # Common wordlists for general use
 ├── specialized/   # Domain-specific wordlists
 ├── targeted/      # Target-specific wordlists
-└── custom/        # User-created or modified wordlists
+├── custom/        # User-created or modified wordlists
+└── clients/       # Auto-managed client potfiles & wordlists (NOT monitored)
+    └── {uuid}/
+        ├── potfile.txt     # Auto-generated client potfile
+        └── *.txt           # Uploaded client wordlists
 ```
+
+> **Important**: The `wordlists/clients/` subdirectory is **auto-managed** by the client potfile and client wordlist systems. It is explicitly **excluded from directory monitoring** — the monitor performs a prefix check and skips any file path starting with `clients/`. Files placed here manually will NOT be detected, imported, or counted. Client wordlists must be uploaded through the Client Management UI (Admin → Clients → Wordlists action) or the `POST /api/clients/{id}/wordlists` API endpoint. Client potfiles are generated automatically from cracked passwords. See the [Client Management](../operations/clients.md) guide for details.
 
 **Rules:**
 ```
@@ -27,6 +33,23 @@ rules/
 ├── john/          # John the Ripper rules
 └── custom/        # User-created or modified rules
 ```
+
+## Filtered (Derived) Wordlists
+
+Users can derive **filtered wordlists** from existing wordlists — copies that keep only the words
+matching length, character-class, or regex criteria. These are first-class wordlists with a few
+admin-relevant properties:
+
+- They store a reference to their **parent** wordlist and the filter that produced them.
+- They regenerate **automatically** when the parent changes — incrementally (appending only the
+  newly added lines) when the parent was append-only, or via a full rebuild otherwise. A manual
+  full **Regenerate** action is also available.
+- They can be **permanent** (created from the Wordlists page, managed like any wordlist) or
+  **ephemeral** (created on the fly for a single job and cleaned up afterward). Ephemeral filtered
+  wordlists are surfaced to agents so they sync correctly and are not treated as orphaned files.
+
+For the end-user workflow, criteria, and states, see the
+[Wordlist Filtering](../../user-guide/wordlist-filtering.md) user guide.
 
 ## File Formats
 

@@ -51,6 +51,7 @@ type DataDirs struct {
 	Wordlists string
 	Rules     string
 	Hashlists string
+	Charsets  string
 
 	// Wordlist type subdirectories
 	WordlistGeneral     string
@@ -138,6 +139,7 @@ func GetDataDirs() (*DataDirs, error) {
 		Wordlists: filepath.Join(baseDataDir, "wordlists"),
 		Rules:     filepath.Join(baseDataDir, "rules"),
 		Hashlists: filepath.Join(baseDataDir, "hashlists"),
+		Charsets:  filepath.Join(baseDataDir, "charsets"),
 
 		// Wordlist type subdirectories
 		WordlistGeneral:     filepath.Join(baseDataDir, "wordlists", "general"),
@@ -157,6 +159,7 @@ func GetDataDirs() (*DataDirs, error) {
 		"wordlists": dirs.Wordlists,
 		"rules":     dirs.Rules,
 		"hashlists": dirs.Hashlists,
+		"charsets":  dirs.Charsets,
 	} {
 		if err := os.MkdirAll(dir, 0750); err != nil {
 			debug.Error("Failed to create %s directory %s: %v", name, dir, err)

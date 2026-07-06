@@ -48,6 +48,7 @@ func SetupNotificationRoutes(
 	router *mux.Router,
 	database *db.DB,
 	emailService *email.Service,
+	teamService *services.TeamService,
 ) *NotificationServices {
 	debug.Info("Setting up notification routes")
 
@@ -61,6 +62,7 @@ func SetupNotificationRoutes(
 		emailService,
 		webhookService,
 		hub,
+		teamService,
 	)
 
 	// Set global dispatcher for access from packages that can't import routes (e.g., handlers/auth)

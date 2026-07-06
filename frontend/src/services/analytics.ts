@@ -2,6 +2,7 @@ import { api } from './api';
 import {
   AnalyticsReport,
   CreateAnalyticsReportRequest,
+  HashlistSummary,
   QueueStatus,
 } from '../types/analytics';
 
@@ -38,6 +39,14 @@ export const analyticsService = {
   // Get queue status
   getQueueStatus: async (): Promise<QueueStatus> => {
     const response = await api.get('/api/analytics/queue-status');
+    return response.data;
+  },
+
+  // Get hashlists available for analytics report (filtered by client + date range)
+  getHashlistsForReport: async (clientId: string, startDate: string, endDate: string): Promise<HashlistSummary[]> => {
+    const response = await api.get('/api/analytics/hashlists', {
+      params: { client_id: clientId, start_date: startDate, end_date: endDate },
+    });
     return response.data;
   },
 };

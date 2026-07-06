@@ -2,7 +2,9 @@
   "title": "Geknackte Hashes",
   "page": {
     "title": "Geknackte Hashes (Pot)",
-    "description": "Alle erfolgreich geknackten Passwort-Hashes über alle Hashlisten und Kunden anzeigen."
+    "description": "Alle erfolgreich geknackten Passwort-Hashes über alle Hashlisten und Kunden anzeigen.",
+    "filterByHashlist": "Zur Hashliste springen",
+    "hashlistPlaceholder": "Hashliste auswählen..."
   },
   "table": {
     "allCrackedHashes": "Alle geknackten Hashes"
@@ -12,12 +14,12 @@
   },
   "client": {
     "title": "Geknackte Hashes - Kundenansicht",
-    "description": "Geknackte Hashes für Kunde anzeigen: <1>{{clientName}}</1>",
+    "description": "Geknackte Hashes für Kunde anzeigen: {{clientName}}",
     "tableTitle": "Geknackte Hashes für \"{{clientName}}\""
   },
   "hashlist": {
     "title": "Geknackte Hashes - Hashlistenansicht",
-    "description": "Geknackte Hashes für Hashliste anzeigen: <1>{{hashlistName}}</1>",
+    "description": "Geknackte Hashes für Hashliste anzeigen: {{hashlistName}}",
     "tableTitle": "Geknackte Hashes für \"{{hashlistName}}\""
   },
   "job": {
@@ -50,6 +52,7 @@
     "password": "Passwort",
     "domainUser": "Domäne\\\\Benutzer",
     "domainUserPass": "Domäne\\\\Benutzer:Pass",
+    "potfile": "Potfile (Hashcat)",
     "exportVisible": "Sichtbare Ergebnisse exportieren",
     "downloaded": "{{filename}} heruntergeladen",
     "downloadFailed": "Datei-Download fehlgeschlagen"

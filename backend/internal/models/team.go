@@ -5,11 +5,29 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/google/uuid"
 )
+
+// TeamAgentTrust represents a directional trust relationship between teams.
+// Row (TeamID=Audit, TrustedTeamID=IT) means "Audit trusts IT's agents to run Audit's jobs"
+type TeamAgentTrust struct {
+	TeamID        uuid.UUID  `json:"team_id"`
+	TrustedTeamID uuid.UUID  `json:"trusted_team_id"`
+	CreatedAt     time.Time  `json:"created_at"`
+	CreatedBy     *uuid.UUID `json:"created_by,omitempty"`
+}
+
+// TeamNameOnly is a lightweight team reference for UI pickers
+type TeamNameOnly struct {
+	ID         uuid.UUID `json:"id"`
+	Name       string    `json:"name"`
+	AgentCount int       `json:"agent_count"`
+}
 
 // Team represents a team in the system
 type Team struct {
-	ID          string    `json:"id"`
+	ID          uuid.UUID `json:"id"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
 	Users       []User    `json:"users,omitempty"`

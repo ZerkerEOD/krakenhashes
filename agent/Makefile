@@ -3,14 +3,17 @@
 
 # Variables
 BINARY_NAME = krakenhashes-agent
+LAUNCHER_BINARY = krakenhashes-launcher
 BUILD_DIR = ../bin
 AGENT_BUILD_DIR = $(BUILD_DIR)/agent
+LAUNCHER_BUILD_DIR = $(BUILD_DIR)/launcher
 GO = go
 GOFLAGS = -v
 CGO_ENABLED = 0
 
 # Version information
 VERSION = $(shell jq -r .agent ../versions.json 2>/dev/null || echo "dev")
+LAUNCHER_VERSION = $(shell jq -r '.launcher // .agent' ../versions.json 2>/dev/null || echo "dev")
 BUILD_TIME = $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 COMMIT = $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 
@@ -19,6 +22,10 @@ LDFLAGS = -ldflags "-s -w \
 	-X github.com/ZerkerEOD/krakenhashes/agent/internal/version.Version=$(VERSION) \
 	-X main.BuildTime=$(BUILD_TIME) \
 	-X main.Commit=$(COMMIT)"
+
+# Launcher build flags (version injected into cmd/launcher main.Version)
+LAUNCHER_LDFLAGS = -ldflags "-s -w \
+	-X main.Version=$(LAUNCHER_VERSION)"
 
 # Default target
 .PHONY: all
@@ -32,9 +39,31 @@ build:
 	CGO_ENABLED=$(CGO_ENABLED) $(GO) build $(GOFLAGS) $(LDFLAGS) -o $(AGENT_BUILD_DIR)/$(BINARY_NAME) ./cmd/agent
 	@echo "✅ Build complete: $(AGENT_BUILD_DIR)/$(BINARY_NAME)"
 
-# Build for all platforms
+# Build for all platforms (agent + launcher)
 .PHONY: build-all
-build-all: windows linux darwin darwin-arm64
+build-all: windows linux darwin darwin-arm64 launchers
+
+# Launcher (auto-updating supervisor) — current platform
+.PHONY: launcher
+launcher:
+	@echo "Building $(LAUNCHER_BINARY) for current platform..."
+	@mkdir -p $(LAUNCHER_BUILD_DIR)
+	CGO_ENABLED=$(CGO_ENABLED) $(GO) build $(GOFLAGS) $(LAUNCHER_LDFLAGS) -o $(LAUNCHER_BUILD_DIR)/$(LAUNCHER_BINARY) ./cmd/launcher
+	@echo "✅ Build complete: $(LAUNCHER_BUILD_DIR)/$(LAUNCHER_BINARY)"
+
+# Launcher — all platforms (mirrors the agent platform matrix)
+.PHONY: launchers
+launchers:
+	@echo "Building $(LAUNCHER_BINARY) for all platforms..."
+	@for plat in windows/amd64 windows/386 windows/arm64 linux/amd64 linux/386 linux/arm64 linux/arm darwin/amd64 darwin/arm64; do \
+		os=$${plat%/*}; arch=$${plat#*/}; ext=""; \
+		if [ "$$os" = "windows" ]; then ext=".exe"; fi; \
+		mkdir -p $(LAUNCHER_BUILD_DIR)/$$os/$$arch; \
+		echo "Building launcher $$os/$$arch..."; \
+		GOOS=$$os GOARCH=$$arch CGO_ENABLED=$(CGO_ENABLED) $(GO) build $(GOFLAGS) $(LAUNCHER_LDFLAGS) \
+			-o $(LAUNCHER_BUILD_DIR)/$$os/$$arch/$(LAUNCHER_BINARY)$$ext ./cmd/launcher || exit 1; \
+	done
+	@echo "✅ Launcher builds complete: $(LAUNCHER_BUILD_DIR)/<os>/<arch>/$(LAUNCHER_BINARY)"
 
 # Windows builds
 .PHONY: windows

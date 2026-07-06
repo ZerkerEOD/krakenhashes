@@ -1,38 +1,65 @@
 package analytics
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/middleware"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/lib/pq"
 )
 
 // Handler handles analytics-related requests
 type Handler struct {
-	db           *db.DB
-	repo         *repository.AnalyticsRepository
-	service      *services.AnalyticsService
-	queueService *services.AnalyticsQueueService
+	db             *db.DB
+	repo           *repository.AnalyticsRepository
+	service        *services.AnalyticsService
+	queueService   *services.AnalyticsQueueService
+	teamService    *services.TeamService
+	clientTeamRepo *repository.ClientTeamRepository
 }
 
 // NewHandler creates a new analytics handler
-func NewHandler(database *db.DB, queueService *services.AnalyticsQueueService) *Handler {
+func NewHandler(database *db.DB, queueService *services.AnalyticsQueueService, teamService *services.TeamService, clientTeamRepo *repository.ClientTeamRepository) *Handler {
 	repo := repository.NewAnalyticsRepository(database)
 	service := services.NewAnalyticsService(repo)
 
 	return &Handler{
-		db:           database,
-		repo:         repo,
-		service:      service,
-		queueService: queueService,
+		db:             database,
+		repo:           repo,
+		service:        service,
+		queueService:   queueService,
+		teamService:    teamService,
+		clientTeamRepo: clientTeamRepo,
 	}
+}
+
+// checkClientAccess validates the user can access the given client via team membership.
+func (h *Handler) checkClientAccess(ctx context.Context, clientID uuid.UUID) bool {
+	if h.teamService == nil || !middleware.IsTeamsEnabledFromContext(ctx) {
+		return true
+	}
+	if middleware.IsAdminFromContext(ctx) {
+		return true
+	}
+	userID, ok := middleware.GetUserIDFromContext(ctx)
+	if !ok {
+		return false
+	}
+	canAccess, err := h.teamService.CanUserAccessClient(ctx, userID, clientID, false)
+	if err != nil {
+		debug.Error("Failed to check client access: %v", err)
+		return false
+	}
+	return canAccess
 }
 
 // CreateReport creates a new analytics report and queues it for processing
@@ -66,6 +93,12 @@ func (h *Handler) CreateReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate team access to client
+	if !h.checkClientAccess(r.Context(), req.ClientID) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
 	// Get next queue position
 	queuePos, err := h.repo.GetNextQueuePosition(r.Context())
 	if err != nil {
@@ -83,6 +116,7 @@ func (h *Handler) CreateReport(w http.ResponseWriter, r *http.Request) {
 		EndDate:        req.EndDate,
 		Status:         "queued",
 		CustomPatterns: req.CustomPatterns,
+		HashlistIDs:    pq.Int64Array(req.HashlistIDs),
 		QueuePosition:  &queuePos,
 		CreatedAt:      time.Now(),
 	}
@@ -121,6 +155,12 @@ func (h *Handler) GetReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate team access to report's client
+	if !h.checkClientAccess(r.Context(), report.ClientID) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
 	// Return different responses based on status
 	response := map[string]interface{}{
 		"report": report,
@@ -154,6 +194,12 @@ func (h *Handler) GetClientReports(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate team access to client
+	if !h.checkClientAccess(r.Context(), clientID) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
 	reports, err := h.repo.GetByClient(r.Context(), clientID)
 	if err != nil {
 		debug.Error("Failed to get reports for client: %v", err)
@@ -172,6 +218,24 @@ func (h *Handler) DeleteReport(w http.ResponseWriter, r *http.Request) {
 	reportID, err := uuid.Parse(vars["id"])
 	if err != nil {
 		http.Error(w, "Invalid report ID", http.StatusBadRequest)
+		return
+	}
+
+	// Fetch report first to validate access
+	report, err := h.repo.GetByID(r.Context(), reportID)
+	if err != nil {
+		debug.Error("Failed to get report: %v", err)
+		if err.Error() == "not found" {
+			http.Error(w, "Report not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "Failed to retrieve report", http.StatusInternalServerError)
+		return
+	}
+
+	// Validate team access to report's client
+	if !h.checkClientAccess(r.Context(), report.ClientID) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
@@ -205,6 +269,12 @@ func (h *Handler) RetryReport(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		debug.Error("Failed to get report: %v", err)
 		http.Error(w, "Report not found", http.StatusNotFound)
+		return
+	}
+
+	// Validate team access to report's client
+	if !h.checkClientAccess(r.Context(), report.ClientID) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
@@ -259,25 +329,102 @@ func (h *Handler) GetQueueStatus(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(status)
 }
 
-// GetClients retrieves all clients for analytics dropdown
-// GET /api/analytics/clients
-func (h *Handler) GetClients(w http.ResponseWriter, r *http.Request) {
-	clientRepo := repository.NewClientRepository(h.db)
-	clients, err := clientRepo.List(r.Context())
-	if err != nil {
-		debug.Error("Failed to list clients: %v", err)
-		http.Error(w, "Failed to retrieve clients", http.StatusInternalServerError)
+// GetHashlistsForReport returns hashlist summaries for the analytics selection UI
+// GET /api/analytics/hashlists?client_id=X&start_date=Y&end_date=Z
+func (h *Handler) GetHashlistsForReport(w http.ResponseWriter, r *http.Request) {
+	clientIDStr := r.URL.Query().Get("client_id")
+	startDateStr := r.URL.Query().Get("start_date")
+	endDateStr := r.URL.Query().Get("end_date")
+
+	if clientIDStr == "" || startDateStr == "" || endDateStr == "" {
+		http.Error(w, "client_id, start_date, and end_date are required", http.StatusBadRequest)
 		return
 	}
 
-	// Return simple array of clients with just id and name
+	clientID, err := uuid.Parse(clientIDStr)
+	if err != nil {
+		http.Error(w, "Invalid client_id", http.StatusBadRequest)
+		return
+	}
+
+	// Validate team access to client
+	if !h.checkClientAccess(r.Context(), clientID) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	startDate, err := time.Parse(time.RFC3339, startDateStr)
+	if err != nil {
+		http.Error(w, "Invalid start_date format (use RFC3339)", http.StatusBadRequest)
+		return
+	}
+
+	endDate, err := time.Parse(time.RFC3339, endDateStr)
+	if err != nil {
+		http.Error(w, "Invalid end_date format (use RFC3339)", http.StatusBadRequest)
+		return
+	}
+
+	if endDate.Before(startDate) {
+		http.Error(w, "end_date must be after start_date", http.StatusBadRequest)
+		return
+	}
+
+	summaries, err := h.repo.GetHashlistSummariesByClientAndDateRange(r.Context(), clientID, startDate, endDate)
+	if err != nil {
+		debug.Error("Failed to get hashlist summaries: %v", err)
+		http.Error(w, "Failed to retrieve hashlists", http.StatusInternalServerError)
+		return
+	}
+
+	if summaries == nil {
+		summaries = []models.HashlistSummary{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(summaries)
+}
+
+// GetClients retrieves clients for analytics dropdown, filtered by team access
+// GET /api/analytics/clients
+func (h *Handler) GetClients(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	type ClientSummary struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
 	}
 
-	summaries := make([]ClientSummary, len(clients))
-	for i, client := range clients {
+	var clientList []models.Client
+
+	// Filter by team access when teams enabled and user is not admin
+	if h.teamService != nil && middleware.IsTeamsEnabledFromContext(ctx) && !middleware.IsAdminFromContext(ctx) {
+		teamIDs := middleware.GetUserTeamIDsFromContext(ctx)
+		if teamIDs != nil && len(teamIDs) > 0 && h.clientTeamRepo != nil {
+			var err error
+			clientList, err = h.clientTeamRepo.GetClientsForTeams(ctx, teamIDs)
+			if err != nil {
+				debug.Error("Failed to list clients for teams: %v", err)
+				http.Error(w, "Failed to retrieve clients", http.StatusInternalServerError)
+				return
+			}
+		} else {
+			// Fail closed: no teams = empty result
+			clientList = []models.Client{}
+		}
+	} else {
+		clientRepo := repository.NewClientRepository(h.db)
+		var err error
+		clientList, err = clientRepo.List(ctx)
+		if err != nil {
+			debug.Error("Failed to list clients: %v", err)
+			http.Error(w, "Failed to retrieve clients", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	summaries := make([]ClientSummary, len(clientList))
+	for i, client := range clientList {
 		summaries[i] = ClientSummary{
 			ID:   client.ID.String(),
 			Name: client.Name,

@@ -46,7 +46,9 @@ import theme from './styles/theme';
 import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { TeamFilterProvider } from './contexts/TeamFilterContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { DeletionProgressProvider } from './contexts/DeletionProgressContext';
 import { SnackbarProvider, useSnackbar } from 'notistack';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -76,6 +78,10 @@ const NotificationCenterPage = lazy(() => import('./pages/Notifications/Notifica
 // Lazy load pages - Clients page moved to regular auth section
 const ClientsPage = lazy(() => import('./pages/AdminClients').then(module => ({ default: module.AdminClients })));
 
+// Lazy load Team Pages
+const TeamListPage = lazy(() => import('./pages/teams/TeamList'));
+const TeamDetailPage = lazy(() => import('./pages/teams/TeamDetail'));
+
 // Lazy load Admin Pages
 const PresetJobListPage = lazy(() => import('./pages/admin/PresetJobList'));
 const PresetJobFormPage = lazy(() => import('./pages/admin/PresetJobForm'));
@@ -89,8 +95,11 @@ const AdminSettingsIndexPage = lazy(() => import('./pages/AdminSettings').then(m
 const AdminEmailSettingsIndexPage = lazy(() => import('./pages/AdminSettings/EmailSettings').then(module => ({ default: module.EmailSettings })));
 const AdminEmailProviderConfigPage = lazy(() => import('./pages/AdminSettings/EmailSettings/ProviderConfig').then(module => ({ default: module.ProviderConfig })));
 const AdminEmailTemplateEditorPage = lazy(() => import('./pages/AdminSettings/EmailSettings/TemplateEditor').then(module => ({ default: module.TemplateEditor })));
+const CustomCharsetListPage = lazy(() => import('./pages/admin/CustomCharsetList'));
 const DiagnosticsPage = lazy(() => import('./pages/admin/Diagnostics'));
 const AdminAuditLogPage = lazy(() => import('./pages/AdminAuditLog'));
+const JobAnalyticsPage = lazy(() => import('./pages/admin/JobAnalytics'));
+const SavedCharsetsPage = lazy(() => import('./pages/settings/SavedCharsets'));
 
 const App: React.FC = () => {
   // Use snackbar for notifications
@@ -102,11 +111,13 @@ const App: React.FC = () => {
 
   return (
     <AuthProvider>
+      <TeamFilterProvider>
         <QueryClientProvider client={queryClient}>
           <ThemeProvider theme={theme}>
             <CssBaseline />
             <SnackbarProvider maxSnack={3}>
               <NotificationProvider>
+              <DeletionProgressProvider>
               <Router>
                 <Suspense fallback={
                   <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
@@ -133,13 +144,17 @@ const App: React.FC = () => {
                     <Route path="/pot/hashlist/:id" element={<PotHashlistPage />} />
                     <Route path="/pot/client/:id" element={<PotClientPage />} />
                     <Route path="/pot/job/:id" element={<PotJobPage />} />
+                    <Route path="/teams" element={<TeamListPage />} />
+                    <Route path="/teams/:teamId" element={<TeamDetailPage />} />
                     <Route path="/about" element={<AboutPage />} />
                     <Route path="/settings/profile" element={<ProfileSettingsPage />} />
+                    <Route path="/settings/charsets" element={<SavedCharsetsPage />} />
                     <Route path="/notifications" element={<NotificationCenterPage />} />
 
                     {/* Admin Section Routes */}
                     <Route path="/admin" element={<RequireAdmin><Outlet /></RequireAdmin>}>
                       <Route index element={<Navigate to="auth-settings" replace />} />
+                      <Route path="custom-charsets" element={<CustomCharsetListPage />} />
                       <Route path="preset-jobs" element={<PresetJobListPage />} />
                       <Route path="preset-jobs/new" element={<PresetJobFormPage />} />
                       <Route path="preset-jobs/:presetJobId/edit" element={<PresetJobFormPage />} />
@@ -162,6 +177,7 @@ const App: React.FC = () => {
                       />
                       <Route path="diagnostics" element={<DiagnosticsPage />} />
                       <Route path="audit-log" element={<AdminAuditLogPage />} />
+                      <Route path="job-analytics" element={<JobAnalyticsPage />} />
                     </Route>
 
                     {/* Catch-all for authenticated users */}
@@ -173,10 +189,12 @@ const App: React.FC = () => {
                 </Routes>
                 </Suspense>
               </Router>
+              </DeletionProgressProvider>
               </NotificationProvider>
             </SnackbarProvider>
           </ThemeProvider>
         </QueryClientProvider>
+      </TeamFilterProvider>
     </AuthProvider>
   );
 };

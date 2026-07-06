@@ -15,18 +15,27 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import { Clear as ClearIcon } from '@mui/icons-material';
-import ClientAutocomplete from './ClientAutocomplete';
+import ClientAutocomplete, { NewClientData } from './ClientAutocomplete';
 import HashTypeSelect from './HashTypeSelect';
+import ValidationPreviewDialog, { ValidationInvalidEntry } from './ValidationPreviewDialog';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
-import { getJobExecutionSettings } from '../../services/jobSettings';
+import { useSnackbar } from 'notistack';
+import { useTranslation } from 'react-i18next';
+import { getJobDefaultsForUsers } from '../../services/jobSettings';
+import { teamsService } from '../../services/teams';
+import { Team } from '../../types/team';
 
 // Create schema function to dynamically set client requirement
 const createSchema = (requireClient: boolean) => {
@@ -36,6 +45,7 @@ const createSchema = (requireClient: boolean) => {
     hashTypeId: z.number().min(0, 'Hash type is required'),
     clientName: z.string().nullish(),
     excludeFromPotfile: z.boolean().optional(),
+    excludeFromClientPotfile: z.boolean().optional(),
   });
 
   if (requireClient) {
@@ -57,6 +67,7 @@ type FormData = {
   hashTypeId: number;
   clientName?: string | null;
   excludeFromPotfile?: boolean;
+  excludeFromClientPotfile?: boolean;
 };
 
 interface HashlistUploadFormProps {
@@ -69,12 +80,31 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
   const [uploadMode, setUploadMode] = useState<'file' | 'paste'>('file');
   const [pastedHashes, setPastedHashes] = useState('');
   const [potfileGloballyEnabled, setPotfileGloballyEnabled] = useState(true);
-  const [clientPotfileEnabled, setClientPotfileEnabled] = useState(true);
+  const [clientPotfilesSystemEnabled, setClientPotfilesSystemEnabled] = useState(true);
   const [requireClient, setRequireClient] = useState(false);
+  const [teamsEnabled, setTeamsEnabled] = useState(false);
+  const [userTeams, setUserTeams] = useState<Team[]>([]);
+  const [selectedTeamId, setSelectedTeamId] = useState<string>('');
   const [detectionResult, setDetectionResult] = useState<any>(null);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [isDetecting, setIsDetecting] = useState(false);
   const [createLinked, setCreateLinked] = useState(false);
+  const [defaultRetention, setDefaultRetention] = useState<number | null>(null);
+  const [newClientData, setNewClientData] = useState<NewClientData | null>(null);
+
+  // Validation preview dialog state (GitHub issue #38). Populated when the
+  // backend pauses the upload at the awaiting_validation_decision state.
+  const [validationPreview, setValidationPreview] = useState<{
+    hashlistId: number;
+    hashlistName: string;
+    currentHashTypeId: number;
+    totalInputLines: number;
+    validCount: number;
+    invalidCount: number;
+    truncated: boolean;
+    initialSample: ValidationInvalidEntry[];
+  } | null>(null);
+
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -86,6 +116,7 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
       hashTypeId: undefined,
       clientName: null,
       excludeFromPotfile: false,
+      excludeFromClientPotfile: false,
     }
   });
 
@@ -95,9 +126,44 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
     .filter(line => line.trim().length > 0)
     .length;
 
+  const { enqueueSnackbar } = useSnackbar();
+  const { t } = useTranslation('hashlists');
+
+  // Detect executable files by reading magic bytes (file signatures)
+  // MIME types are unreliable — browsers often report application/octet-stream for binaries
+  const isExecutableFile = async (file: File): Promise<boolean> => {
+    const header = await file.slice(0, 8).arrayBuffer();
+    const bytes = new Uint8Array(header);
+    if (bytes.length < 2) return false;
+
+    // ELF binary (Linux, including Go binaries): \x7fELF
+    if (bytes[0] === 0x7f && bytes[1] === 0x45 && bytes[2] === 0x4c && bytes[3] === 0x46) return true;
+    // Windows PE/EXE: MZ
+    if (bytes[0] === 0x4d && bytes[1] === 0x5a) return true;
+    // macOS Mach-O (32-bit): \xfe\xed\xfa\xce
+    if (bytes[0] === 0xfe && bytes[1] === 0xed && bytes[2] === 0xfa && bytes[3] === 0xce) return true;
+    // macOS Mach-O (64-bit): \xfe\xed\xfa\xcf
+    if (bytes[0] === 0xfe && bytes[1] === 0xed && bytes[2] === 0xfa && bytes[3] === 0xcf) return true;
+    // macOS Mach-O (reverse byte order 32-bit): \xce\xfa\xed\xfe
+    if (bytes[0] === 0xce && bytes[1] === 0xfa && bytes[2] === 0xed && bytes[3] === 0xfe) return true;
+    // macOS Mach-O (reverse byte order 64-bit): \xcf\xfa\xed\xfe
+    if (bytes[0] === 0xcf && bytes[1] === 0xfa && bytes[2] === 0xed && bytes[3] === 0xfe) return true;
+    // macOS Universal binary (fat binary): \xca\xfe\xba\xbe
+    if (bytes[0] === 0xca && bytes[1] === 0xfe && bytes[2] === 0xba && bytes[3] === 0xbe) return true;
+
+    return false;
+  };
+
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
       const selectedFile = acceptedFiles[0];
+
+      // Block executable files using magic bytes detection
+      if (await isExecutableFile(selectedFile)) {
+        enqueueSnackbar(t('upload.executableBlocked'), { variant: 'error' });
+        return;
+      }
+
       setFile(selectedFile);
       setPastedHashes('');
 
@@ -123,11 +189,6 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
-      'text/plain': ['.txt', '.hash', '.hashes', '.lst', '.pot'],
-      'text/csv': ['.csv'],
-      'application/octet-stream': ['.hash', '.hashes'],
-    },
     maxFiles: 1
   });
 
@@ -135,56 +196,68 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const settings = await getJobExecutionSettings();
-        setPotfileGloballyEnabled(settings.potfile_enabled);
+        const defaults = await getJobDefaultsForUsers();
+        setPotfileGloballyEnabled(defaults.potfile_enabled);
+        if (defaults.default_data_retention_months !== undefined) {
+          setDefaultRetention(defaults.default_data_retention_months);
+        }
       } catch (error) {
         console.error('Failed to fetch potfile setting:', error);
         // Default to true if fetch fails
         setPotfileGloballyEnabled(true);
       }
 
-      // Fetch require client setting
+      // Fetch require client setting or check if teams are enabled
       try {
-        const response = await api.get('/api/admin/settings/require_client_for_hashlist');
-        const requireClientValue = response.data?.value === 'true';
-        setRequireClient(requireClientValue);
+        // Check if teams are enabled first (takes precedence)
+        let teamsEnabled = false;
+        try {
+          const teamsResponse = await api.get('/api/settings/teams_enabled');
+          teamsEnabled = teamsResponse.data?.teams_enabled === true;
+        } catch (err) {
+          console.error('Failed to fetch teams_enabled setting:', err);
+        }
+
+        if (teamsEnabled) {
+          // If teams are enabled, client is always required
+          setRequireClient(true);
+          setTeamsEnabled(true);
+          // Fetch user's teams for the team selector
+          try {
+            const teams = await teamsService.listUserTeams();
+            setUserTeams(teams);
+            // Auto-select if user has exactly one team
+            if (teams.length === 1) {
+              setSelectedTeamId(teams[0].id);
+            }
+          } catch (teamErr) {
+            console.error('Failed to fetch user teams:', teamErr);
+          }
+        } else {
+          // Otherwise, check the require_client_for_hashlist setting
+          const response = await api.get('/api/admin/settings/require_client_for_hashlist');
+          const requireClientValue = response.data?.value === 'true';
+          setRequireClient(requireClientValue);
+        }
       } catch (error) {
         console.error('Failed to fetch require client setting:', error);
         // Default to false if fetch fails
         setRequireClient(false);
       }
+
+      // Fetch client potfiles system setting
+      try {
+        const response = await api.get('/api/admin/settings/client_potfiles_enabled');
+        const clientPotfilesEnabled = response.data?.value === 'true';
+        setClientPotfilesSystemEnabled(clientPotfilesEnabled);
+      } catch (error) {
+        console.error('Failed to fetch client potfiles setting:', error);
+        // Default to true if fetch fails
+        setClientPotfilesSystemEnabled(true);
+      }
     };
     fetchSettings();
   }, []);
-
-  // Fetch client potfile setting when client changes
-  useEffect(() => {
-    const fetchClientPotfileSetting = async () => {
-      const clientName = control._formValues.clientName;
-      if (!clientName) {
-        setClientPotfileEnabled(true); // Default when no client
-        return;
-      }
-
-      try {
-        // Search for the client to get the full client object
-        const response = await api.get(`/api/clients/search?q=${clientName}`);
-        const clients = Array.isArray(response.data) ? response.data : [];
-        const matchingClient = clients.find((c: any) => c.name === clientName);
-
-        if (matchingClient) {
-          setClientPotfileEnabled(!matchingClient.exclude_from_potfile);
-        } else {
-          setClientPotfileEnabled(true); // Default if client not found
-        }
-      } catch (error) {
-        console.error('Failed to fetch client potfile setting:', error);
-        setClientPotfileEnabled(true); // Default on error
-      }
-    };
-
-    fetchClientPotfileSetting();
-  }, [control._formValues.clientName]);
 
   // Clear the other input when mode changes
   useEffect(() => {
@@ -218,8 +291,33 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
       if (data.excludeFromPotfile !== undefined) {
         formData.append('exclude_from_potfile', data.excludeFromPotfile.toString());
       }
+      if (data.excludeFromClientPotfile !== undefined) {
+        formData.append('exclude_from_client_potfile', data.excludeFromClientPotfile.toString());
+      }
       if (createLinked) {
         formData.append('create_linked', 'true');
+      }
+      if (selectedTeamId) {
+        formData.append('team_id', selectedTeamId);
+      }
+
+      // Append new client override fields when creating a new client
+      if (newClientData) {
+        if (newClientData.description) {
+          formData.append('client_description', newClientData.description);
+        }
+        if (newClientData.contactInfo) {
+          formData.append('client_contact_info', newClientData.contactInfo);
+        }
+        if (newClientData.dataRetentionMonths !== undefined && newClientData.dataRetentionMonths !== null) {
+          formData.append('client_data_retention_months', newClientData.dataRetentionMonths.toString());
+        }
+        if (newClientData.excludeFromPotfile) {
+          formData.append('client_exclude_from_potfile', 'true');
+        }
+        if (newClientData.excludeFromClientPotfile) {
+          formData.append('client_exclude_from_client_potfile', 'true');
+        }
       }
 
       return api.post('/api/hashlists', formData, {
@@ -232,6 +330,29 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
       });
     },
     onSuccess: (response) => {
+      // Validation paused for user decision (GitHub issue #38). Show the
+      // preview dialog instead of navigating — the user picks proceed/cancel
+      // before the hashlist starts processing.
+      if (response.data?.validation_status === 'awaiting_decision' && response.data?.id) {
+        setValidationPreview({
+          hashlistId: response.data.id,
+          hashlistName: response.data.name || 'Hashlist',
+          currentHashTypeId: response.data.hash_type_id ?? 0,
+          totalInputLines: response.data.total_input_lines ?? 0,
+          validCount: response.data.valid_count ?? 0,
+          invalidCount: response.data.invalid_count ?? 0,
+          truncated: !!response.data.truncated,
+          initialSample: response.data.sample_invalid ?? [],
+        });
+        setUploadProgress(0);
+        return;
+      }
+
+      // Non-blocking notice for hash types with no validator coverage.
+      if (response.data?.validation_notice) {
+        enqueueSnackbar(response.data.validation_notice, { variant: 'info', persist: false });
+      }
+
       // The backend returns the created hashlist data
       const hashlistId = response.data?.id || response.data?.data?.id;
 
@@ -248,8 +369,21 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
       setPastedHashes('');
       setUploadProgress(0);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("Upload failed:", error);
+      const data = error?.response?.data;
+      const status = error?.response?.status;
+      let msg: string;
+      if (data?.error) {
+        msg = data.error;
+      } else if (status) {
+        msg = `Upload failed (HTTP ${status})`;
+      } else if (error?.message) {
+        msg = `Upload failed: ${error.message}`;
+      } else {
+        msg = 'Upload failed (unknown error)';
+      }
+      enqueueSnackbar(msg, { variant: 'error', persist: true });
       setUploadProgress(0);
     }
   });
@@ -303,6 +437,29 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
         )}
       />
 
+      {/* Team Selector — shown when teams enabled and user has multiple teams */}
+      {teamsEnabled && userTeams.length > 1 && (
+        <FormControl fullWidth margin="normal">
+          <InputLabel id="team-select-label">Team</InputLabel>
+          <Select
+            labelId="team-select-label"
+            value={selectedTeamId}
+            label="Team"
+            onChange={(e) => {
+              setSelectedTeamId(e.target.value);
+              // Clear client when team changes (clients are team-scoped)
+              setValue('clientName', null);
+            }}
+          >
+            {userTeams.map((team) => (
+              <MenuItem key={team.id} value={team.id}>
+                {team.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      )}
+
       <Controller
         name="clientName"
         control={control}
@@ -311,6 +468,9 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
             <ClientAutocomplete
               value={field.value ?? null}
               onChange={field.onChange}
+              teamId={selectedTeamId || undefined}
+              defaultRetention={defaultRetention}
+              onNewClientDataChange={setNewClientData}
             />
             {errors.clientName && (
               <Box sx={{ color: 'error.main', fontSize: '0.75rem', mt: 0.5, ml: 1.75 }}>
@@ -372,7 +532,7 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
               <>
                 <Typography>Drag and drop a hashlist file, or click to select</Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                  Supported: .txt, .hash, .hashes, .csv, .lst, .pot
+                  All file types accepted except executables
                 </Typography>
               </>
             )}
@@ -420,7 +580,8 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
         </Box>
       )}
 
-      {potfileGloballyEnabled && clientPotfileEnabled && (
+      {/* Global Potfile Exclusion Checkbox - shown when global potfile enabled by admin */}
+      {potfileGloballyEnabled && (
         <>
           <Controller
             name="excludeFromPotfile"
@@ -433,26 +594,51 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
                     onChange={(e) => field.onChange(e.target.checked)}
                   />
                 }
-                label="Exclude from potfile (don't save cracked passwords)"
+                label="Exclude from global potfile"
                 sx={{ mt: 2 }}
               />
             )}
           />
-          <Typography variant="caption" color="textSecondary" display="block" sx={{ ml: 4, mt: -1, mb: 2 }}>
-            Enable this for clients with strict data retention requirements
+          <Typography variant="caption" color="textSecondary" display="block" sx={{ ml: 4, mt: -1 }}>
+            Cracked passwords from this hashlist won't be saved to the global potfile
           </Typography>
         </>
       )}
 
-      {potfileGloballyEnabled && !clientPotfileEnabled && (
-        <Typography variant="caption" color="textSecondary" display="block" sx={{ mt: 2, mb: 2 }}>
-          Note: Potfile is disabled for this client. No cracked passwords will be saved.
+      {!potfileGloballyEnabled && (
+        <Typography variant="caption" color="textSecondary" display="block" sx={{ mt: 2 }}>
+          Note: Global potfile is currently disabled by admin settings.
         </Typography>
       )}
 
-      {!potfileGloballyEnabled && (
-        <Typography variant="caption" color="textSecondary" display="block" sx={{ mt: 2, mb: 2 }}>
-          Note: Potfile is currently disabled by admin settings. No cracked passwords will be saved.
+      {/* Client Potfile Exclusion Checkbox - shown when client potfiles enabled by admin */}
+      {clientPotfilesSystemEnabled && (
+        <>
+          <Controller
+            name="excludeFromClientPotfile"
+            control={control}
+            render={({ field }) => (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={field.value || false}
+                    onChange={(e) => field.onChange(e.target.checked)}
+                  />
+                }
+                label="Exclude from client potfile"
+                sx={{ mt: 1 }}
+              />
+            )}
+          />
+          <Typography variant="caption" color="textSecondary" display="block" sx={{ ml: 4, mt: -1, mb: 2 }}>
+            Cracked passwords from this hashlist won't be saved to the client-specific potfile
+          </Typography>
+        </>
+      )}
+
+      {!clientPotfilesSystemEnabled && (
+        <Typography variant="caption" color="textSecondary" display="block" sx={{ mt: 1, mb: 2 }}>
+          Note: Client potfiles are disabled by admin settings.
         </Typography>
       )}
 
@@ -505,6 +691,36 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Hash validator preview (GitHub issue #38) */}
+      <ValidationPreviewDialog
+        open={!!validationPreview}
+        hashlistId={validationPreview?.hashlistId ?? null}
+        hashlistName={validationPreview?.hashlistName ?? ''}
+        currentHashTypeId={validationPreview?.currentHashTypeId ?? 0}
+        totalInputLines={validationPreview?.totalInputLines ?? 0}
+        validCount={validationPreview?.validCount ?? 0}
+        invalidCount={validationPreview?.invalidCount ?? 0}
+        truncated={validationPreview?.truncated ?? false}
+        initialSample={validationPreview?.initialSample ?? []}
+        onProceed={() => {
+          const id = validationPreview?.hashlistId;
+          setValidationPreview(null);
+          reset();
+          setFile(null);
+          setPastedHashes('');
+          queryClient.invalidateQueries({ queryKey: ['hashlists'] });
+          if (id) {
+            navigate(`/hashlists/${id}`);
+          } else if (onSuccess) {
+            onSuccess();
+          }
+        }}
+        onCancel={() => {
+          setValidationPreview(null);
+          enqueueSnackbar('Upload cancelled. Fix the file and try again.', { variant: 'info' });
+        }}
+      />
     </Box>
   );
 }

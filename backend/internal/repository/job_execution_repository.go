@@ -4,10 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
+	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 )
 
@@ -26,13 +28,13 @@ func (r *JobExecutionRepository) Create(ctx context.Context, exec *models.JobExe
 	query := `
 		INSERT INTO job_executions (
 			preset_job_id, hashlist_id, association_wordlist_id, status, priority, max_agents, attack_mode, created_by,
-			name, wordlist_ids, rule_ids, mask, binary_version, hash_type,
+			name, wordlist_ids, rule_ids, mask, custom_charsets, custom_charset_files, hex_charset, binary_version, hash_type,
 			chunk_size_seconds, status_updates_enabled, allow_high_priority_override, additional_args,
 			increment_mode, increment_min, increment_max,
 			base_keyspace, effective_keyspace, multiplication_factor, is_accurate_keyspace, uses_rule_splitting,
 			avg_rule_multiplier
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)
 		RETURNING id, created_at`
 
 	err := r.db.QueryRowContext(ctx, query,
@@ -48,6 +50,9 @@ func (r *JobExecutionRepository) Create(ctx context.Context, exec *models.JobExe
 		exec.WordlistIDs,
 		exec.RuleIDs,
 		exec.Mask,
+		exec.CustomCharsets,
+		exec.CustomCharsetFiles,
+		exec.HexCharset,
 		exec.BinaryVersion,
 		exec.HashType,
 		exec.ChunkSizeSeconds,
@@ -85,7 +90,7 @@ func (r *JobExecutionRepository) GetByID(ctx context.Context, id uuid.UUID) (*mo
 			je.overall_progress_percent, je.last_progress_update,
 			je.dispatched_keyspace,
 			je.completion_email_sent, je.completion_email_sent_at, je.completion_email_error,
-			je.wordlist_ids, je.rule_ids, je.mask, je.binary_version,
+			je.wordlist_ids, je.rule_ids, je.mask, je.custom_charsets, je.custom_charset_files, je.hex_charset, je.binary_version,
 			je.chunk_size_seconds, je.status_updates_enabled, je.allow_high_priority_override,
 			je.additional_args, je.hash_type, je.updated_at,
 			je.avg_rule_multiplier, je.is_accurate_keyspace,
@@ -104,7 +109,7 @@ func (r *JobExecutionRepository) GetByID(ctx context.Context, id uuid.UUID) (*mo
 		&exec.OverallProgressPercent, &exec.LastProgressUpdate,
 		&exec.DispatchedKeyspace,
 		&exec.CompletionEmailSent, &exec.CompletionEmailSentAt, &exec.CompletionEmailError,
-		&exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.BinaryVersion,
+		&exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.CustomCharsets, &exec.CustomCharsetFiles, &exec.HexCharset, &exec.BinaryVersion,
 		&exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled, &exec.AllowHighPriorityOverride,
 		&exec.AdditionalArgs, &exec.HashType, &exec.UpdatedAt,
 		&exec.AvgRuleMultiplier, &exec.IsAccurateKeyspace,
@@ -135,8 +140,8 @@ func (r *JobExecutionRepository) GetPendingJobs(ctx context.Context) ([]models.J
 			je.uses_rule_splitting, je.rule_split_count,
 			je.overall_progress_percent, je.last_progress_update,
 			je.dispatched_keyspace,
-			je.name, je.wordlist_ids, je.rule_ids, je.mask,
-			je.binary_version, je.chunk_size_seconds, je.status_updates_enabled,
+			je.name, je.wordlist_ids, je.rule_ids, je.mask, je.custom_charsets, je.custom_charset_files,
+			je.hex_charset, je.binary_version, je.chunk_size_seconds, je.status_updates_enabled,
 			je.allow_high_priority_override, je.additional_args,
 			je.hash_type,
 			je.increment_mode, je.increment_min, je.increment_max
@@ -164,8 +169,8 @@ func (r *JobExecutionRepository) GetPendingJobs(ctx context.Context) ([]models.J
 			&exec.UsesRuleSplitting, &exec.RuleSplitCount,
 			&exec.OverallProgressPercent, &exec.LastProgressUpdate,
 			&exec.DispatchedKeyspace,
-			&exec.Name, &exec.WordlistIDs, &exec.RuleIDs, &exec.Mask,
-			&exec.BinaryVersion, &exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled,
+			&exec.Name, &exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.CustomCharsets, &exec.CustomCharsetFiles,
+			&exec.HexCharset, &exec.BinaryVersion, &exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled,
 			&exec.AllowHighPriorityOverride, &exec.AdditionalArgs,
 			&exec.HashType,
 			&exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
@@ -248,9 +253,24 @@ func (r *JobExecutionRepository) GetJobsByStatus(ctx context.Context, status mod
 	return jobs, nil
 }
 
-// UpdateStatus updates the status of a job execution
-// For terminal states (completed, failed, cancelled), it also sets completed_at
-// For non-terminal states, it clears completed_at (supports retry functionality)
+// UpdateStatus updates the status of a job execution.
+//
+// Terminal-state guard: once a job is in completed/failed/cancelled, this
+// method REFUSES to flip it to a different status. The runaway-dispatch bug
+// we hit on 2026-05-17 was caused by HandleHashlistFullyCracked correctly
+// marking a job 'completed' at 13:13:52, then the per-tuple hard-cap blindly
+// re-marking it 'failed' at 13:18:36 after empty-hashlist tasks accumulated
+// failures. The fix: enforce that terminal is terminal at the repository
+// layer so no caller can accidentally overwrite a closed job's status.
+//
+// For terminal targets (completed, failed, cancelled), sets completed_at.
+// For non-terminal targets (pending, running, paused), clears completed_at
+// (supports an explicit retry workflow where the caller resets the job).
+// The non-terminal path is ALSO gated by the terminal guard — to retry a
+// terminal job, the caller must first explicitly clear the terminal state
+// (via a different repository method designed for retry). This is the
+// trade-off for safety; in practice no current code retries from a terminal
+// state via this method.
 func (r *JobExecutionRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status models.JobExecutionStatus) error {
 	var query string
 	var args []interface{}
@@ -259,12 +279,13 @@ func (r *JobExecutionRepository) UpdateStatus(ctx context.Context, id uuid.UUID,
 	if status == models.JobExecutionStatusCompleted ||
 		status == models.JobExecutionStatusFailed ||
 		status == models.JobExecutionStatusCancelled {
-		query = `UPDATE job_executions SET status = $1, completed_at = $2 WHERE id = $3`
+		query = `UPDATE job_executions SET status = $1, completed_at = $2 WHERE id = $3
+		         AND status NOT IN ('completed', 'failed', 'cancelled')`
 		args = []interface{}{status, time.Now(), id}
 	} else {
 		// For non-terminal states (pending, running, paused), clear completed_at
-		// This supports retry functionality - retried jobs should not have completed_at set
-		query = `UPDATE job_executions SET status = $1, completed_at = NULL WHERE id = $2`
+		query = `UPDATE job_executions SET status = $1, completed_at = NULL WHERE id = $2
+		         AND status NOT IN ('completed', 'failed', 'cancelled')`
 		args = []interface{}{status, id}
 	}
 
@@ -279,7 +300,24 @@ func (r *JobExecutionRepository) UpdateStatus(ctx context.Context, id uuid.UUID,
 	}
 
 	if rowsAffected == 0 {
-		return ErrNotFound
+		// Either: (a) the row doesn't exist, or (b) the job is already in
+		// a terminal state and the guard refused the update. Distinguish
+		// by a quick read. The two cases need different reactions: (a) is
+		// a genuine "not found" (ErrNotFound), (b) is a no-op that the
+		// caller should ignore.
+		var currentStatus string
+		err := r.db.QueryRowContext(ctx, `SELECT status FROM job_executions WHERE id = $1`, id).Scan(&currentStatus)
+		if err != nil {
+			// Row really doesn't exist, or some other read error — preserve
+			// ErrNotFound semantics for the no-row case.
+			return ErrNotFound
+		}
+		// Row exists; guard refused the write. Debug-log only — this is
+		// expected when e.g. the hard-cap fires on a job that
+		// HandleHashlistFullyCracked already marked completed.
+		debug.Debug("UpdateStatus(%s -> %s) skipped: job already in terminal state %s",
+			id, status, currentStatus)
+		return nil
 	}
 
 	return nil
@@ -399,6 +437,63 @@ func (r *JobExecutionRepository) FailExecution(ctx context.Context, id uuid.UUID
 	return nil
 }
 
+// FailJobsByHashlistID marks every non-terminal job execution on a hashlist as
+// failed with the given reason and returns the number of jobs affected. Used by
+// the HASHLIST_FATAL cascade: when hashcat rejects a hashlist for its hash type,
+// every job on it would fail identically, so we fail them together. Terminal
+// jobs (completed/failed/cancelled) are left untouched. Recovery is to change
+// the hashlist's hash type, which re-queues these failed jobs.
+func (r *JobExecutionRepository) FailJobsByHashlistID(ctx context.Context, hashlistID int64, errorMessage string) (int64, error) {
+	now := time.Now()
+	query := `
+		UPDATE job_executions
+		SET status = $1, completed_at = $2, error_message = $3
+		WHERE hashlist_id = $4
+		  AND status NOT IN ('completed', 'failed', 'cancelled')`
+	result, err := r.db.ExecContext(ctx, query, models.JobExecutionStatusFailed, now, errorMessage, hashlistID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to fail jobs by hashlist %d: %w", hashlistID, err)
+	}
+	n, _ := result.RowsAffected()
+	return n, nil
+}
+
+// RequeueFailedJobsByHashlist resets every FAILED job on a hashlist back to
+// pending under a new hash type and returns their IDs. Used by the hash-type
+// recovery flow after a HASHLIST_FATAL cascade: the operator picks the correct
+// type, and the previously-failed jobs resume. Keyspace columns
+// (base/effective/dispatched/total) are intentionally left untouched —
+// --skip/--limit and --total-candidates are hash-type-independent for the same
+// wordlist/mask, so the jobs resume from where they were. Failed tasks/intervals
+// are left 'failed' for audit; their ranges already reopen as gaps for redispatch.
+func (r *JobExecutionRepository) RequeueFailedJobsByHashlist(ctx context.Context, hashlistID int64, newHashType int) ([]uuid.UUID, error) {
+	query := `
+		UPDATE job_executions
+		SET status = $1,
+		    hash_type = $2,
+		    error_message = NULL,
+		    completed_at = NULL,
+		    interrupted_by = NULL
+		WHERE hashlist_id = $3
+		  AND status = 'failed'
+		RETURNING id`
+	rows, err := r.db.QueryContext(ctx, query, models.JobExecutionStatusPending, newHashType, hashlistID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to requeue failed jobs for hashlist %d: %w", hashlistID, err)
+	}
+	defer rows.Close()
+
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan requeued job id: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 // InterruptExecution marks a job as interrupted by another job
 func (r *JobExecutionRepository) InterruptExecution(ctx context.Context, id uuid.UUID, interruptingJobID uuid.UUID) error {
 	query := `UPDATE job_executions SET status = $1, interrupted_by = $2 WHERE id = $3 AND status = 'running'`
@@ -434,8 +529,8 @@ func (r *JobExecutionRepository) GetPendingJobsWithHighPriorityOverride(ctx cont
 			uses_rule_splitting, rule_split_count,
 			overall_progress_percent, last_progress_update,
 			dispatched_keyspace,
-			name, wordlist_ids, rule_ids, mask,
-			binary_version, chunk_size_seconds, status_updates_enabled,
+			name, wordlist_ids, rule_ids, mask, custom_charsets, custom_charset_files,
+			hex_charset, binary_version, chunk_size_seconds, status_updates_enabled,
 			allow_high_priority_override, additional_args,
 			hash_type
 		FROM job_executions
@@ -463,8 +558,8 @@ func (r *JobExecutionRepository) GetPendingJobsWithHighPriorityOverride(ctx cont
 			&exec.UsesRuleSplitting, &exec.RuleSplitCount,
 			&exec.OverallProgressPercent, &exec.LastProgressUpdate,
 			&exec.DispatchedKeyspace,
-			&exec.Name, &exec.WordlistIDs, &exec.RuleIDs, &exec.Mask,
-			&exec.BinaryVersion, &exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled,
+			&exec.Name, &exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.CustomCharsets, &exec.CustomCharsetFiles,
+			&exec.HexCharset, &exec.BinaryVersion, &exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled,
 			&exec.AllowHighPriorityOverride, &exec.AdditionalArgs,
 			&exec.HashType,
 		)
@@ -527,21 +622,21 @@ func (r *JobExecutionRepository) UpdateEmailStatus(ctx context.Context, id uuid.
 			completion_email_error = $4,
 			updated_at = NOW()
 		WHERE id = $1`
-		
+
 	result, err := r.db.ExecContext(ctx, query, id, sent, sentAt, errorMsg)
 	if err != nil {
 		return fmt.Errorf("failed to update email status: %w", err)
 	}
-	
+
 	rows, err := result.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("failed to get rows affected: %w", err)
 	}
-	
+
 	if rows == 0 {
 		return fmt.Errorf("job execution not found: %s", id)
 	}
-	
+
 	return nil
 }
 
@@ -643,13 +738,13 @@ func (r *JobExecutionRepository) UpdateConsecutiveFailures(ctx context.Context, 
 }
 
 // UpdateDispatchedKeyspace updates the dispatched keyspace for a job execution
-func (r *JobExecutionRepository) UpdateDispatchedKeyspace(ctx context.Context, id uuid.UUID, dispatchedKeyspace int64) error {
+func (r *JobExecutionRepository) UpdateDispatchedKeyspace(ctx context.Context, id uuid.UUID, dispatchedKeyspace models.BigInt) error {
 	query := `
 		UPDATE job_executions 
 		SET dispatched_keyspace = $1,
 		    updated_at = CURRENT_TIMESTAMP
 		WHERE id = $2`
-	
+
 	result, err := r.db.ExecContext(ctx, query, dispatchedKeyspace, id)
 	if err != nil {
 		return fmt.Errorf("failed to update job execution dispatched keyspace: %w", err)
@@ -693,8 +788,8 @@ func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]
 			je.uses_rule_splitting, je.rule_split_count,
 			je.overall_progress_percent, je.last_progress_update,
 			je.dispatched_keyspace,
-			je.name, je.wordlist_ids, je.rule_ids, je.mask,
-			je.binary_version, je.chunk_size_seconds, je.status_updates_enabled,
+			je.name, je.wordlist_ids, je.rule_ids, je.mask, je.custom_charsets, je.custom_charset_files,
+			je.hex_charset, je.binary_version, je.chunk_size_seconds, je.status_updates_enabled,
 			je.allow_high_priority_override, je.additional_args,
 			je.hash_type,
 			je.increment_mode, je.increment_min, je.increment_max,
@@ -752,8 +847,8 @@ func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]
 			&exec.UsesRuleSplitting, &exec.RuleSplitCount,
 			&exec.OverallProgressPercent, &exec.LastProgressUpdate,
 			&exec.DispatchedKeyspace,
-			&exec.Name, &exec.WordlistIDs, &exec.RuleIDs, &exec.Mask,
-			&exec.BinaryVersion, &exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled,
+			&exec.Name, &exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.CustomCharsets, &exec.CustomCharsetFiles,
+			&exec.HexCharset, &exec.BinaryVersion, &exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled,
 			&exec.AllowHighPriorityOverride, &exec.AdditionalArgs,
 			&exec.HashType,
 			&exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
@@ -775,8 +870,8 @@ func (r *JobExecutionRepository) GetNonCompletedJobsByHashlistID(ctx context.Con
 			id, name, preset_job_id, hashlist_id, status, priority, max_agents, attack_mode,
 			hash_type, effective_keyspace, base_keyspace, processed_keyspace,
 			dispatched_keyspace, multiplication_factor, uses_rule_splitting, overall_progress_percent,
-			chunk_size_seconds, allow_high_priority_override, wordlist_ids, rule_ids, mask,
-			additional_args, binary_version, started_at, completed_at, error_message, created_by,
+			chunk_size_seconds, allow_high_priority_override, wordlist_ids, rule_ids, mask, custom_charsets, custom_charset_files,
+			hex_charset, additional_args, binary_version, started_at, completed_at, error_message, created_by,
 			created_at, updated_at, increment_mode, increment_min, increment_max
 		FROM job_executions
 		WHERE hashlist_id = $1 AND status != 'completed'
@@ -797,7 +892,7 @@ func (r *JobExecutionRepository) GetNonCompletedJobsByHashlistID(ctx context.Con
 			&exec.AttackMode, &exec.HashType, &exec.EffectiveKeyspace, &exec.BaseKeyspace,
 			&exec.ProcessedKeyspace, &exec.DispatchedKeyspace, &exec.MultiplicationFactor, &exec.UsesRuleSplitting,
 			&exec.OverallProgressPercent, &exec.ChunkSizeSeconds, &exec.AllowHighPriorityOverride,
-			&exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.AdditionalArgs, &exec.BinaryVersion,
+			&exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.CustomCharsets, &exec.CustomCharsetFiles, &exec.HexCharset, &exec.AdditionalArgs, &exec.BinaryVersion,
 			&exec.StartedAt, &exec.CompletedAt, &exec.ErrorMessage, &exec.CreatedBy,
 			&exec.CreatedAt, &exec.UpdatedAt, &exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
 		)
@@ -867,7 +962,6 @@ func (r *JobExecutionRepository) SetCrackingCompleted(ctx context.Context, id uu
 	return nil
 }
 
-
 // GetPotentiallyStuckJobs finds jobs that may be stuck: in pending/running status with no active tasks
 // and haven't been updated in minMinutes. These are candidates for structural completion checks.
 func (r *JobExecutionRepository) GetPotentiallyStuckJobs(ctx context.Context, minMinutes int) ([]models.JobExecution, error) {
@@ -882,7 +976,7 @@ func (r *JobExecutionRepository) GetPotentiallyStuckJobs(ctx context.Context, mi
 			je.overall_progress_percent, je.last_progress_update,
 			je.dispatched_keyspace,
 			je.completion_email_sent, je.completion_email_sent_at, je.completion_email_error,
-			je.wordlist_ids, je.rule_ids, je.mask, je.binary_version,
+			je.wordlist_ids, je.rule_ids, je.mask, je.custom_charsets, je.custom_charset_files, je.hex_charset, je.binary_version,
 			je.chunk_size_seconds, je.status_updates_enabled, je.allow_high_priority_override,
 			je.additional_args, je.hash_type, je.updated_at,
 			je.avg_rule_multiplier, je.is_accurate_keyspace,
@@ -916,7 +1010,7 @@ func (r *JobExecutionRepository) GetPotentiallyStuckJobs(ctx context.Context, mi
 			&exec.OverallProgressPercent, &exec.LastProgressUpdate,
 			&exec.DispatchedKeyspace,
 			&exec.CompletionEmailSent, &exec.CompletionEmailSentAt, &exec.CompletionEmailError,
-			&exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.BinaryVersion,
+			&exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.CustomCharsets, &exec.CustomCharsetFiles, &exec.HexCharset, &exec.BinaryVersion,
 			&exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled, &exec.AllowHighPriorityOverride,
 			&exec.AdditionalArgs, &exec.HashType, &exec.UpdatedAt,
 			&exec.AvgRuleMultiplier, &exec.IsAccurateKeyspace,
@@ -956,4 +1050,107 @@ func (r *JobExecutionRepository) UpdateIncrementSettings(ctx context.Context, id
 	}
 
 	return nil
+}
+
+// JobListFilters contains filters for job listing
+type JobListFilters struct {
+	Status     string
+	HashlistID *int64
+	Limit      int
+	Offset     int
+}
+
+// ListJobsWithTeamFilter returns jobs filtered by team access
+// Access is determined by: job → hashlist → client → client_teams
+func (r *JobExecutionRepository) ListJobsWithTeamFilter(ctx context.Context, teamIDs []uuid.UUID, userID uuid.UUID, teamsEnabled bool, filters *JobListFilters) ([]models.JobExecution, int64, error) {
+	if !teamsEnabled || len(teamIDs) == 0 {
+		// Teams not enabled - return empty for now (would need to implement ListWithFilters first)
+		return []models.JobExecution{}, 0, nil
+	}
+
+	var args []interface{}
+	argIndex := 1
+
+	// Build team placeholders
+	teamPlaceholders := make([]string, len(teamIDs))
+	for i, id := range teamIDs {
+		teamPlaceholders[i] = fmt.Sprintf("$%d", argIndex)
+		args = append(args, id)
+		argIndex++
+	}
+
+	// Add userID for legacy hashlist check
+	args = append(args, userID)
+	userIDIndex := argIndex
+	argIndex++
+
+	baseQuery := fmt.Sprintf(`
+		SELECT DISTINCT j.id, j.hashlist_id, j.preset_job_id, j.status, j.priority,
+		       j.processed_keyspace, j.created_at, j.updated_at, j.started_at, j.completed_at
+		FROM job_executions j
+		INNER JOIN hashlists h ON j.hashlist_id = h.id
+		LEFT JOIN client_teams ct ON h.client_id = ct.client_id
+		WHERE (
+			ct.team_id IN (%s)
+			OR (h.client_id IS NULL AND h.user_id = $%d)
+		)`, strings.Join(teamPlaceholders, ", "), userIDIndex)
+
+	// Apply additional filters
+	if filters != nil {
+		if filters.Status != "" {
+			baseQuery += fmt.Sprintf(` AND j.status = $%d`, argIndex)
+			args = append(args, filters.Status)
+			argIndex++
+		}
+
+		if filters.HashlistID != nil {
+			baseQuery += fmt.Sprintf(` AND j.hashlist_id = $%d`, argIndex)
+			args = append(args, *filters.HashlistID)
+			argIndex++
+		}
+	}
+
+	// Count query
+	countQuery := `SELECT COUNT(*) FROM (` + baseQuery + `) AS filtered`
+
+	var total int64
+	err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count jobs: %w", err)
+	}
+
+	// Add ordering and pagination
+	baseQuery += ` ORDER BY j.created_at DESC`
+
+	if filters != nil && filters.Limit > 0 {
+		baseQuery += fmt.Sprintf(` LIMIT $%d`, argIndex)
+		args = append(args, filters.Limit)
+		argIndex++
+
+		if filters.Offset > 0 {
+			baseQuery += fmt.Sprintf(` OFFSET $%d`, argIndex)
+			args = append(args, filters.Offset)
+		}
+	}
+
+	rows, err := r.db.QueryContext(ctx, baseQuery, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query jobs: %w", err)
+	}
+	defer rows.Close()
+
+	var jobs []models.JobExecution
+	for rows.Next() {
+		var j models.JobExecution
+		err := rows.Scan(
+			&j.ID, &j.HashlistID, &j.PresetJobID, &j.Status, &j.Priority,
+			&j.ProcessedKeyspace, &j.CreatedAt, &j.UpdatedAt, &j.StartedAt, &j.CompletedAt,
+		)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan job: %w", err)
+		}
+		jobs = append(jobs, j)
+	}
+
+	return jobs, total, rows.Err()
 }

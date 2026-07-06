@@ -94,6 +94,7 @@
     "timeRemaining": "Resterende tijd",
     "estimatedCompletion": "Geschatte voltooiing",
     "crackingCompletedAt": "Kraken voltooid op",
+    "totalRunningTime": "Totale looptijd",
     "chunkSizeDefault": "Niet ingesteld (standaard gebruiken)",
     "noActiveTasksEstimate": "Kan niet schatten - geen taken momenteel actief",
     "lessThanOneMinute": "Minder dan 1 minuut",
@@ -301,5 +302,26 @@
   },
   "lastUpdated": "Laatst bijgewerkt: {{time}}",
   "filtered": "(gefilterd)",
-  "loading": "Taken laden..."
+  "loading": "Taken laden...",
+  "archive": {
+    "showArchived": "Gearchiveerde tonen",
+    "archive": "Archiveren",
+    "unarchive": "Dearchiveren",
+    "archived": "Gearchiveerd",
+    "archiveSelected": "Geselecteerde archiveren",
+    "unarchiveSelected": "Geselecteerde dearchiveren",
+    "deleteSelected": "Geselecteerde verwijderen",
+    "selectedCount": "{{count}} geselecteerd",
+    "confirmBulkDelete": {
+      "title": "Massaverwijdering bevestigen",
+      "message": "Weet u zeker dat u {{count}} ta(a)k(en) wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.",
+      "warning": "Dit verwijdert de geselecteerde taken en alle bijbehorende gegevens permanent.",
+      "cancel": "Annuleren",
+      "delete": "Verwijderen",
+      "deleting": "Verwijderen..."
+    },
+    "bulkArchiveSuccess": "{{count}} ta(a)k(en) succesvol gearchiveerd",
+    "bulkUnarchiveSuccess": "{{count}} ta(a)k(en) succesvol gedearchiveerd",
+    "bulkDeleteSuccess": "{{count}} ta(a)k(en) succesvol verwijderd"
+  }
 }

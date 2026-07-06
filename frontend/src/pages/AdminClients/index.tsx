@@ -1,18 +1,26 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Box, Typography, Button, Paper, CircularProgress, Alert,
-    Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, TextField, FormControlLabel, Checkbox
+    Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, TextField, FormControlLabel, Checkbox,
+    FormControl, InputLabel, Select, MenuItem, Divider, SelectChangeEvent
 } from '@mui/material';
-import { DataGrid, GridColDef, GridRowParams, GridActionsCellItem } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridRowParams, GridActionsCellItem, GridRowSelectionModel } from '@mui/x-data-grid';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import FolderIcon from '@mui/icons-material/Folder';
+import GroupAddIcon from '@mui/icons-material/GroupAdd';
 import { useSnackbar } from 'notistack';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 import { Client } from '../../types/client';
-import { listClients, createClient, updateClient, deleteClient, getDefaultClientRetentionSetting } from '../../services/api';
+import { Team } from '../../types/team';
+import { listClients, createClient, updateClient, deleteClient, getDefaultClientRetentionSetting, bulkAssignClientsToTeam } from '../../services/api';
+import { teamsService, adminTeamsService } from '../../services/teams';
+import { useTeamFilter } from '../../contexts/TeamFilterContext';
+import { useAuth } from '../../contexts/AuthContext';
+import ClientWordlistManagementDialog from '../../components/admin/ClientWordlistManagementDialog';
 
 export const AdminClients: React.FC = () => {
     const { t } = useTranslation('admin');
@@ -22,14 +30,33 @@ export const AdminClients: React.FC = () => {
     const [isAddEditDialogOpen, setIsAddEditDialogOpen] = useState<boolean>(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-    const [clientFormData, setClientFormData] = useState<Partial<Client>>({ name: '', description: '', contactInfo: '', dataRetentionMonths: null, exclude_from_potfile: false });
+    const [clientFormData, setClientFormData] = useState<Partial<Client>>({
+        name: '',
+        description: '',
+        contactInfo: '',
+        dataRetentionMonths: null,
+        exclude_from_potfile: false,
+        exclude_from_client_potfile: false,
+        remove_from_global_potfile_on_hashlist_delete: null,
+        remove_from_client_potfile_on_hashlist_delete: null
+    });
     const [formError, setFormError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState<boolean>(false);
     const [defaultRetention, setDefaultRetention] = useState<string | null>(null);
     const [isDefaultRetentionLoading, setIsDefaultRetentionLoading] = useState(true);
+    const [isWordlistDialogOpen, setIsWordlistDialogOpen] = useState<boolean>(false);
+    const [wordlistClient, setWordlistClient] = useState<Client | null>(null);
+    const [selectedTeamId, setSelectedTeamId] = useState<string>('');
+    const [availableTeams, setAvailableTeams] = useState<Team[]>([]);
+    const [selectedClientIds, setSelectedClientIds] = useState<GridRowSelectionModel>([]);
+    const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false);
+    const [bulkAssignTeamId, setBulkAssignTeamId] = useState<string>('');
+    const [isBulkAssigning, setIsBulkAssigning] = useState(false);
 
     const { enqueueSnackbar } = useSnackbar();
     const navigate = useNavigate();
+    const { teamsEnabled } = useTeamFilter();
+    const { userRole } = useAuth();
 
     const fetchClients = useCallback(async () => {
         setLoading(true);
@@ -117,6 +144,17 @@ export const AdminClients: React.FC = () => {
             },
         },
         {
+            field: 'wordlist_count',
+            headerName: t('clients.columns.wordlists', 'Wordlists') as string,
+            width: 100,
+            align: 'center',
+            headerAlign: 'center',
+            renderCell: (params) => {
+                const count = params.value || 0;
+                return <span>{count}</span>;
+            },
+        },
+        {
             field: 'dataRetentionMonths',
             headerName: t('clients.columns.retention') as string,
             flex: 1,
@@ -132,9 +170,15 @@ export const AdminClients: React.FC = () => {
             field: 'actions',
             type: 'actions',
             headerName: t('clients.columns.actions') as string,
-            width: 100,
+            width: 130,
             cellClassName: 'actions',
             getActions: (params: GridRowParams<Client>) => [
+                <GridActionsCellItem
+                    icon={<FolderIcon />}
+                    label={t('clients.columns.wordlists', 'Wordlists') as string}
+                    onClick={() => handleWordlistClick(params.row)}
+                    color="inherit"
+                />,
                 <GridActionsCellItem
                     icon={<EditIcon />}
                     label={t('common.edit') as string}
@@ -151,16 +195,32 @@ export const AdminClients: React.FC = () => {
         },
     ];
     
-    const handleAddClick = () => {
+    const handleAddClick = async () => {
         setSelectedClient(null);
         setFormError(null);
+        setSelectedTeamId('');
         setClientFormData({
           name: '',
           description: '',
           contactInfo: '',
           dataRetentionMonths: defaultRetention ? parseInt(defaultRetention, 10) : null,
-          exclude_from_potfile: false
+          exclude_from_potfile: false,
+          exclude_from_client_potfile: false,
+          remove_from_global_potfile_on_hashlist_delete: null,
+          remove_from_client_potfile_on_hashlist_delete: null
         });
+        // Load available teams when teams are enabled
+        if (teamsEnabled) {
+            try {
+                const teams = userRole === 'admin'
+                    ? await adminTeamsService.listAllTeams()
+                    : await teamsService.listUserTeams();
+                setAvailableTeams(teams || []);
+            } catch (err) {
+                console.error('Failed to load teams:', err);
+                setAvailableTeams([]);
+            }
+        }
         setIsAddEditDialogOpen(true);
     };
 
@@ -171,7 +231,10 @@ export const AdminClients: React.FC = () => {
             description: client.description || '',
             contactInfo: client.contactInfo || '',
             dataRetentionMonths: client.dataRetentionMonths === undefined ? null : client.dataRetentionMonths,
-            exclude_from_potfile: client.exclude_from_potfile || false
+            exclude_from_potfile: client.exclude_from_potfile || false,
+            exclude_from_client_potfile: client.exclude_from_client_potfile || false,
+            remove_from_global_potfile_on_hashlist_delete: client.remove_from_global_potfile_on_hashlist_delete,
+            remove_from_client_potfile_on_hashlist_delete: client.remove_from_client_potfile_on_hashlist_delete
         });
         setFormError(null);
         setIsAddEditDialogOpen(true);
@@ -180,6 +243,17 @@ export const AdminClients: React.FC = () => {
     const handleDeleteClick = (client: Client) => {
         setSelectedClient(client);
         setIsDeleteDialogOpen(true);
+    };
+
+    const handleWordlistClick = (client: Client) => {
+        setWordlistClient(client);
+        setIsWordlistDialogOpen(true);
+    };
+
+    const handleWordlistDialogClose = () => {
+        setIsWordlistDialogOpen(false);
+        setWordlistClient(null);
+        fetchClients(); // Refresh counts after potential changes
     };
 
     const handleCloseDialog = () => {
@@ -197,12 +271,29 @@ export const AdminClients: React.FC = () => {
         }));
     };
 
+    const handleSelectChange = (event: SelectChangeEvent<string>) => {
+        const { name, value } = event.target;
+        if (name === 'remove_from_global_potfile_on_hashlist_delete' ||
+            name === 'remove_from_client_potfile_on_hashlist_delete') {
+            setClientFormData(prev => ({
+                ...prev,
+                [name]: value === 'system' ? null : value === 'true'
+            }));
+        }
+    };
+
     const handleSaveClient = async () => {
         setFormError(null);
         setIsSaving(true);
 
         if (!clientFormData.name?.trim()) {
             setFormError(t('clients.validation.nameRequired') as string);
+            setIsSaving(false);
+            return;
+        }
+        // When creating and teams are enabled, require team selection
+        if (!selectedClient && teamsEnabled && !selectedTeamId) {
+            setFormError('Team selection is required when teams are enabled');
             setIsSaving(false);
             return;
         }
@@ -213,13 +304,21 @@ export const AdminClients: React.FC = () => {
             return;
         }
 
-        const payload: Partial<Client> = {
+        const payload: Record<string, any> = {
             name: clientFormData.name,
             description: clientFormData.description || undefined,
             contactInfo: clientFormData.contactInfo || undefined,
             dataRetentionMonths: clientFormData.dataRetentionMonths,
-            exclude_from_potfile: clientFormData.exclude_from_potfile
+            exclude_from_potfile: clientFormData.exclude_from_potfile,
+            exclude_from_client_potfile: clientFormData.exclude_from_client_potfile,
+            remove_from_global_potfile_on_hashlist_delete: clientFormData.remove_from_global_potfile_on_hashlist_delete,
+            remove_from_client_potfile_on_hashlist_delete: clientFormData.remove_from_client_potfile_on_hashlist_delete
         };
+
+        // Include team_id when creating with teams enabled
+        if (!selectedClient && teamsEnabled && selectedTeamId) {
+            payload.team_id = selectedTeamId;
+        }
 
         try {
             if (selectedClient) {
@@ -255,10 +354,53 @@ export const AdminClients: React.FC = () => {
             enqueueSnackbar(message, { variant: 'error' });
         } finally {
             setIsSaving(false);
-            setIsDeleteDialogOpen(false); 
+            setIsDeleteDialogOpen(false);
         }
     };
-    
+
+    const handleBulkAssignOpen = async () => {
+        setBulkAssignTeamId('');
+        // Load teams if not already loaded
+        if (availableTeams.length === 0) {
+            try {
+                const teams = userRole === 'admin'
+                    ? await adminTeamsService.listAllTeams()
+                    : await teamsService.listUserTeams();
+                setAvailableTeams(teams || []);
+            } catch (err) {
+                console.error('Failed to load teams:', err);
+                setAvailableTeams([]);
+            }
+        }
+        setIsBulkAssignDialogOpen(true);
+    };
+
+    const handleBulkAssignConfirm = async () => {
+        if (!bulkAssignTeamId || selectedClientIds.length === 0) return;
+        setIsBulkAssigning(true);
+        try {
+            const response = await bulkAssignClientsToTeam(
+                selectedClientIds.map(id => String(id)),
+                bulkAssignTeamId,
+            );
+            const data = response.data;
+            const teamName = availableTeams.find(t => t.id === bulkAssignTeamId)?.name || 'team';
+            enqueueSnackbar(
+                `Assigned ${data.assigned} client(s) to ${teamName}` +
+                (data.already_assigned > 0 ? ` (${data.already_assigned} already assigned)` : ''),
+                { variant: 'success' }
+            );
+            setIsBulkAssignDialogOpen(false);
+            setSelectedClientIds([]);
+            fetchClients();
+        } catch (err: any) {
+            const message = err.response?.data?.error || 'Failed to assign clients to team';
+            enqueueSnackbar(message, { variant: 'error' });
+        } finally {
+            setIsBulkAssigning(false);
+        }
+    };
+
     return (
         <Box sx={{ width: '100%', p: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -276,6 +418,22 @@ export const AdminClients: React.FC = () => {
 
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
+            {teamsEnabled && userRole === 'admin' && selectedClientIds.length > 0 && (
+                <Paper sx={{ p: 1.5, mb: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Typography variant="body2">
+                        {selectedClientIds.length} client{selectedClientIds.length !== 1 ? 's' : ''} selected
+                    </Typography>
+                    <Button
+                        variant="contained"
+                        size="small"
+                        startIcon={<GroupAddIcon />}
+                        onClick={handleBulkAssignOpen}
+                    >
+                        Assign to Team
+                    </Button>
+                </Paper>
+            )}
+
             <Paper sx={{ height: '70vh', width: '100%' }}>
                 {loading ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
@@ -291,8 +449,10 @@ export const AdminClients: React.FC = () => {
                               paginationModel: { pageSize: 10 },
                             },
                           }}
-                        checkboxSelection={false}
+                        checkboxSelection={teamsEnabled && userRole === 'admin'}
                         disableRowSelectionOnClick
+                        onRowSelectionModelChange={(newSelection) => setSelectedClientIds(newSelection)}
+                        rowSelectionModel={selectedClientIds}
                     />
                 )}
             </Paper>
@@ -313,6 +473,27 @@ export const AdminClients: React.FC = () => {
                         onChange={handleFormChange}
                         required
                     />
+                    {/* Team selection - only shown when creating a new client and teams are enabled */}
+                    {!selectedClient && teamsEnabled && (
+                        <FormControl fullWidth margin="dense" required>
+                            <InputLabel id="team-select-label">Assign to Team</InputLabel>
+                            <Select
+                                labelId="team-select-label"
+                                value={selectedTeamId}
+                                label="Assign to Team"
+                                onChange={(e) => setSelectedTeamId(e.target.value)}
+                            >
+                                {availableTeams.map((team) => (
+                                    <MenuItem key={team.id} value={team.id}>
+                                        {team.name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                            <Typography variant="caption" color="textSecondary" sx={{ mt: 0.5 }}>
+                                The new client will be assigned to this team. Existing client reassignment is managed via Admin Team Management.
+                            </Typography>
+                        </FormControl>
+                    )}
                     <TextField
                         margin="dense"
                         name="description"
@@ -359,12 +540,96 @@ export const AdminClients: React.FC = () => {
                                 name="exclude_from_potfile"
                             />
                         }
-                        label={t('clients.form.excludeFromPotfile')}
+                        label={t('clients.form.excludeFromPotfile', 'Exclude from global potfile')}
                         sx={{ mt: 2 }}
                     />
                     <Typography variant="caption" color="textSecondary" display="block" sx={{ ml: 4, mt: -1, mb: 2 }}>
-                        {t('clients.form.excludeFromPotfileHelperText')}
+                        {t('clients.form.excludeFromPotfileHelperText', 'When enabled, cracked passwords from this client will not be added to the global potfile.')}
                     </Typography>
+
+                    <FormControlLabel
+                        control={
+                            <Checkbox
+                                checked={clientFormData.exclude_from_client_potfile || false}
+                                onChange={handleFormChange}
+                                name="exclude_from_client_potfile"
+                            />
+                        }
+                        label={t('clients.form.excludeFromClientPotfile', 'Exclude from client potfile')}
+                        sx={{ mt: 1 }}
+                    />
+                    <Typography variant="caption" color="textSecondary" display="block" sx={{ ml: 4, mt: -1, mb: 2 }}>
+                        {t('clients.form.excludeFromClientPotfileHelperText', 'When checked, cracked passwords for this client are NOT added to their client-specific potfile.')}
+                    </Typography>
+
+                    <Divider sx={{ my: 2 }} />
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                        {t('clients.form.clientPotfileSettings', 'Potfile Deletion Settings')}
+                    </Typography>
+
+                    <FormControl fullWidth sx={{ mt: 1 }}>
+                        <InputLabel id="remove-global-potfile-label">
+                            Remove from global potfile on delete
+                        </InputLabel>
+                        <Select
+                            labelId="remove-global-potfile-label"
+                            name="remove_from_global_potfile_on_hashlist_delete"
+                            value={
+                                clientFormData.remove_from_global_potfile_on_hashlist_delete === null
+                                    ? 'system'
+                                    : clientFormData.remove_from_global_potfile_on_hashlist_delete
+                                    ? 'true'
+                                    : 'false'
+                            }
+                            label="Remove from global potfile on delete"
+                            onChange={handleSelectChange}
+                        >
+                            <MenuItem value="system">
+                                {t('clients.form.useSystemDefault', 'Use system default')}
+                            </MenuItem>
+                            <MenuItem value="true">
+                                {t('clients.form.alwaysRemove', 'Always remove')}
+                            </MenuItem>
+                            <MenuItem value="false">
+                                {t('clients.form.neverRemove', 'Never remove')}
+                            </MenuItem>
+                        </Select>
+                        <Typography variant="caption" color="textSecondary" sx={{ mt: 1 }}>
+                            Controls whether passwords are removed from the global potfile when a hashlist is deleted.
+                        </Typography>
+                    </FormControl>
+
+                    <FormControl fullWidth sx={{ mt: 2 }}>
+                        <InputLabel id="remove-client-potfile-label">
+                            Remove from client potfile on delete
+                        </InputLabel>
+                        <Select
+                            labelId="remove-client-potfile-label"
+                            name="remove_from_client_potfile_on_hashlist_delete"
+                            value={
+                                clientFormData.remove_from_client_potfile_on_hashlist_delete === null
+                                    ? 'system'
+                                    : clientFormData.remove_from_client_potfile_on_hashlist_delete
+                                    ? 'true'
+                                    : 'false'
+                            }
+                            label="Remove from client potfile on delete"
+                            onChange={handleSelectChange}
+                        >
+                            <MenuItem value="system">
+                                {t('clients.form.useSystemDefault', 'Use system default')}
+                            </MenuItem>
+                            <MenuItem value="true">
+                                {t('clients.form.alwaysRemove', 'Always remove')}
+                            </MenuItem>
+                            <MenuItem value="false">
+                                {t('clients.form.neverRemove', 'Never remove')}
+                            </MenuItem>
+                        </Select>
+                        <Typography variant="caption" color="textSecondary" sx={{ mt: 1 }}>
+                            Controls whether passwords are removed from the client potfile when a hashlist is deleted.
+                        </Typography>
+                    </FormControl>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleCloseDialog} disabled={isSaving}>{t('common.cancel')}</Button>
@@ -395,6 +660,42 @@ export const AdminClients: React.FC = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            <ClientWordlistManagementDialog
+                open={isWordlistDialogOpen}
+                client={wordlistClient}
+                onClose={handleWordlistDialogClose}
+            />
+
+            {/* Bulk Assign to Team Dialog */}
+            <Dialog open={isBulkAssignDialogOpen} onClose={() => setIsBulkAssignDialogOpen(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>Assign Clients to Team</DialogTitle>
+                <DialogContent>
+                    <DialogContentText sx={{ mb: 2 }}>
+                        Assign {selectedClientIds.length} selected client{selectedClientIds.length !== 1 ? 's' : ''} to a team.
+                        Clients already in the selected team will be skipped.
+                    </DialogContentText>
+                    <FormControl fullWidth required sx={{ mt: 1 }}>
+                        <InputLabel id="bulk-team-select-label">Select Team</InputLabel>
+                        <Select
+                            labelId="bulk-team-select-label"
+                            value={bulkAssignTeamId}
+                            label="Select Team"
+                            onChange={(e) => setBulkAssignTeamId(e.target.value)}
+                        >
+                            {availableTeams.map((team) => (
+                                <MenuItem key={team.id} value={team.id}>{team.name}</MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setIsBulkAssignDialogOpen(false)} disabled={isBulkAssigning}>Cancel</Button>
+                    <Button onClick={handleBulkAssignConfirm} variant="contained" disabled={!bulkAssignTeamId || isBulkAssigning}>
+                        {isBulkAssigning ? <CircularProgress size={24} /> : 'Assign'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
-}; 
+};

@@ -69,6 +69,7 @@ services:
             - DB_NAME=${DB_NAME:-krakenhashes}
             - DB_USER=${DB_USER:-krakenhashes}
             - DB_PASSWORD=${DB_PASSWORD:-krakenhashes}
+            - DB_ARGUMENTS=${DB_ARGUMENTS:-sslmode=disable}
         restart: unless-stopped
         networks:
             - krakenhashes-net

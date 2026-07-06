@@ -108,6 +108,24 @@ func (s *HashlistCompletionService) HandleHashlistFullyCracked(ctx context.Conte
 				continue
 			}
 
+			// Scheduler-v2 cascade: also mark this job's scheduling_units
+			// completed so the v2 cycle stops considering them. Without
+			// this, the unit stays 'pending' and the v2 selector (which
+			// joins on parent job status as of Step 7a) catches the
+			// completed job — but defense in depth: if Step 7a is ever
+			// loosened, this cascade still prevents the runaway-dispatch
+			// scenario where every subsequent task fails on an empty
+			// hashlist with exit 255. Best-effort: log on error, don't
+			// fail the whole completion path.
+			if _, uErr := s.db.ExecContext(ctx, `
+				UPDATE scheduling_units
+				SET status = 'completed', updated_at = NOW()
+				WHERE parent_job_id = $1
+				  AND status IN ('pending', 'running')
+			`, job.ID); uErr != nil {
+				debug.Warning("Failed to cascade scheduling_units completed for job %s: %v", job.ID, uErr)
+			}
+
 			jobsCompleted++
 			debug.Info("Job %s marked as completed (all hashes cracked)", job.ID)
 
@@ -168,10 +186,10 @@ func (s *HashlistCompletionService) stopJobTasks(ctx context.Context, jobID uuid
 			}
 
 			// Also check effective keyspace for brute-force tasks
-			if task.EffectiveKeyspaceEnd != nil && *task.EffectiveKeyspaceEnd > 0 &&
-				task.EffectiveKeyspaceProcessed != nil && *task.EffectiveKeyspaceProcessed >= *task.EffectiveKeyspaceEnd {
-				debug.Info("Task %s has completed its effective keyspace (%d/%d), marking as completed instead of cancelled",
-					task.ID, *task.EffectiveKeyspaceProcessed, *task.EffectiveKeyspaceEnd)
+			if task.EffectiveKeyspaceEnd != nil && task.EffectiveKeyspaceEnd.IsPositive() &&
+				task.EffectiveKeyspaceProcessed != nil && task.EffectiveKeyspaceProcessed.Cmp(*task.EffectiveKeyspaceEnd) >= 0 {
+				debug.Info("Task %s has completed its effective keyspace (%s/%s), marking as completed instead of cancelled",
+					task.ID, task.EffectiveKeyspaceProcessed.String(), task.EffectiveKeyspaceEnd.String())
 
 				if err := s.jobTaskRepo.UpdateStatus(ctx, task.ID, models.JobTaskStatusCompleted); err != nil {
 					debug.Error("Failed to mark task %s as completed: %v", task.ID, err)
@@ -219,7 +237,40 @@ func (s *HashlistCompletionService) stopJobTasks(ctx context.Context, jobID uuid
 			if err := s.jobTaskRepo.UpdateStatus(ctx, task.ID, models.JobTaskStatusProcessing); err != nil {
 				debug.Error("Failed to update task %s status to processing: %v", task.ID, err)
 			}
+			continue
 		}
+
+		// Tasks WITHOUT an agent (pending, or v2-rejected before the race
+		// recovery wired up) have no hashcat to stop and no agent to ack.
+		// They are still listed in JobDetails' "Active Tasks" and render
+		// as gray segments in the per-task progress bar, polluting the
+		// "this job is done" view. Mark them cancelled so they fall out
+		// of the active set; their keyspace ranges have intervals that
+		// are released by the v2 cascade below.
+		if task.AgentID == nil &&
+			(task.Status == models.JobTaskStatusPending || task.Status == models.JobTaskStatusAssigned) {
+			if err := s.jobTaskRepo.UpdateStatus(ctx, task.ID, models.JobTaskStatusCancelled); err != nil {
+				debug.Error("Failed to cancel orphan task %s (no agent, hashlist fully cracked): %v", task.ID, err)
+			}
+		}
+	}
+
+	// Scheduler-v2 cascade: also mark every non-terminal interval for
+	// this job's units as 'cancelled'. Without this, the per-task bar's
+	// "pending" gray space (= undispatched gaps) persists visually even
+	// after the hashlist is fully cracked, because the bar's universe is
+	// the full effective keyspace. Cancelling open intervals doesn't
+	// affect the gap query (it already ignores 'failed'/'cancelled') —
+	// it's purely a UI honesty fix.
+	if _, err := s.db.ExecContext(ctx, `
+		UPDATE job_keyspace_intervals jki
+		SET status = 'cancelled'
+		FROM scheduling_units su
+		WHERE jki.scheduling_unit_id = su.id
+		  AND su.parent_job_id = $1
+		  AND jki.status IN ('assigned', 'running')
+	`, jobID); err != nil {
+		debug.Warning("Failed to cascade intervals cancelled for job %s: %v", jobID, err)
 	}
 
 	if stoppedCount > 0 {
@@ -234,9 +285,9 @@ func (s *HashlistCompletionService) stopJobTasks(ctx context.Context, jobID uuid
 func (s *HashlistCompletionService) markTaskComplete100Percent(ctx context.Context, task *models.JobTask) error {
 	// Calculate full keyspace for this task
 	fullKeyspaceProcessed := task.KeyspaceEnd - task.KeyspaceStart
-	effectiveProcessed := fullKeyspaceProcessed
+	effectiveProcessed := models.NewBigInt(fullKeyspaceProcessed)
 	if task.EffectiveKeyspaceEnd != nil && task.EffectiveKeyspaceStart != nil {
-		effectiveProcessed = *task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart
+		effectiveProcessed = task.EffectiveKeyspaceEnd.Sub(*task.EffectiveKeyspaceStart)
 	}
 
 	// Update task progress to 100%
@@ -254,7 +305,7 @@ func (s *HashlistCompletionService) completeJob(ctx context.Context, job *models
 			for _, layer := range layers {
 				if layer.Status != models.JobIncrementLayerStatusCompleted {
 					// Update layer to 100% progress
-					if layer.EffectiveKeyspace != nil && *layer.EffectiveKeyspace > 0 {
+					if layer.EffectiveKeyspace != nil && layer.EffectiveKeyspace.IsPositive() {
 						if err := s.jobIncrementLayerRepo.UpdateProgress(ctx, layer.ID, *layer.EffectiveKeyspace, 100.0); err != nil {
 							debug.Warning("Failed to update layer %s progress: %v", layer.ID, err)
 						}

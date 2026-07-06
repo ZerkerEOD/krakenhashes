@@ -38,6 +38,7 @@
     "disabled": "Disabled",
     "active": "Active",
     "inactive": "Inactive",
+    "updating": "Updating",
     "pending": "Pending",
     "completed": "Completed",
     "failed": "Failed",

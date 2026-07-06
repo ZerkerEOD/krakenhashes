@@ -135,12 +135,26 @@ func (h *MonitoringSettingsHandler) UpdateMonitoringSettings(w http.ResponseWrit
 		"aggregation_interval":             settings.AggregationInterval,
 	}
 
+	var failedKeys []string
+	failedErrors := make(map[string]string)
+
 	for key, value := range updates {
 		if err := h.systemSettingsRepo.SetSetting(ctx, key, &value); err != nil {
 			debug.Error("Failed to update setting %s: %v", key, err)
-			httputil.RespondWithError(w, http.StatusInternalServerError, "Failed to update settings")
-			return
+			failedKeys = append(failedKeys, key)
+			failedErrors[key] = err.Error()
 		}
+	}
+
+	if len(failedKeys) > 0 {
+		debug.Warning("Partial settings update: %d of %d settings failed", len(failedKeys), len(updates))
+		httputil.RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"success":     false,
+			"message":     "Some settings failed to update",
+			"failed_keys": failedKeys,
+			"errors":      failedErrors,
+		})
+		return
 	}
 
 	httputil.RespondWithJSON(w, http.StatusOK, map[string]interface{}{

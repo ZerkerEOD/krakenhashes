@@ -596,7 +596,7 @@ The system now includes automatic protections:
 1. **Crack Batching System**
    - Cracks are batched in 500ms windows or 10,000-crack groups
    - Reduces message volume by 100x (8,000 messages → 80 messages)
-   - See [Crack Batching System](../../reference/architecture/crack-batching-system.md) for details
+   - See [Crack Batching System](../reference/architecture/crack-batching-system.md) for details
 
 2. **Increased Channel Buffers**
    ```go

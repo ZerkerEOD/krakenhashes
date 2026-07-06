@@ -45,7 +45,8 @@
     "file": "哈希文件",
     "selectFile": "选择文件",
     "uploading": "上传中...",
-    "cancel": "取消"
+    "cancel": "取消",
+    "executableBlocked": "此文件似乎是可执行二进制文件，无法作为哈希列表上传。"
   },
   "actions": {
     "viewDetails": "查看详情",
@@ -90,12 +91,32 @@
   "notifications": {
     "deleteSuccess": "哈希列表删除成功",
     "uploadSuccess": "哈希列表上传成功",
-    "downloaded": "已下载 {{filename}}"
+    "downloaded": "已下载 {{filename}}",
+    "archiveSuccess": "哈希列表归档成功",
+    "unarchiveSuccess": "哈希列表取消归档成功",
+    "bulkArchiveSuccess": "{{count}} 个哈希列表归档成功",
+    "bulkUnarchiveSuccess": "{{count}} 个哈希列表取消归档成功"
   },
   "errors": {
     "loadFailed": "获取哈希列表时出错。",
     "uploadFailed": "上传哈希列表失败",
     "deleteFailed": "删除失败：{{error}}"
+  },
+  "archive": {
+    "showArchived": "显示已归档",
+    "archive": "归档",
+    "unarchive": "取消归档",
+    "archived": "已归档",
+    "selectedCount": "已选择 {{count}} 项",
+    "archiveSelected": "归档所选",
+    "unarchiveSelected": "取消归档所选",
+    "deleteSelected": "删除所选",
+    "confirmBulkDelete": {
+      "title": "确认批量删除",
+      "message": "确定要删除 {{count}} 个哈希列表吗？此操作无法撤销。",
+      "warning": "这将永久删除所选哈希列表及所有相关数据。"
+    },
+    "bulkDeleteSuccess": "{{count}} 个哈希列表删除成功"
   },
   "hashDetails": {
     "title": "哈希详情",

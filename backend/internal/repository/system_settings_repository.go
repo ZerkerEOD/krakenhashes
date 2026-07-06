@@ -3,8 +3,10 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
@@ -139,6 +141,36 @@ func (r *SystemSettingsRepository) UpdateSetting(ctx context.Context, key string
 	return r.SetSetting(ctx, key, &value)
 }
 
+// GetSettingBool returns the setting's value parsed as a bool. Missing
+// row, NULL value, or unparseable value all fall back to defaultValue.
+// Only a non-nil DB error (other than ErrNotFound) is returned to the
+// caller; everything else is handled silently with the default so that
+// boot-time setting reads never break the calling code path.
+//
+// Accepts "true"/"false"/"1"/"0" (case-insensitive). Anything else
+// falls through to defaultValue.
+func (r *SystemSettingsRepository) GetSettingBool(ctx context.Context, key string, defaultValue bool) (bool, error) {
+	setting, err := r.GetSetting(ctx, key)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return defaultValue, nil
+		}
+		return defaultValue, err
+	}
+	if setting.Value == nil {
+		return defaultValue, nil
+	}
+	switch strings.ToLower(strings.TrimSpace(*setting.Value)) {
+	case "true", "1":
+		return true, nil
+	case "false", "0":
+		return false, nil
+	default:
+		debug.Warning("system setting %q has unparseable bool value %q; using default %v", key, *setting.Value, defaultValue)
+		return defaultValue, nil
+	}
+}
+
 // GetAgentDownloadSettings retrieves all agent download settings
 func (r *SystemSettingsRepository) GetAgentDownloadSettings(ctx context.Context) (*models.AgentDownloadSettings, error) {
 	query := `
@@ -245,6 +277,92 @@ func (r *SystemSettingsRepository) UpdateAgentDownloadSettings(ctx context.Conte
 	for key, value := range settingMap {
 		if _, err := tx.ExecContext(ctx, query, value, now, key); err != nil {
 			return fmt.Errorf("failed to update setting %s: %w", key, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+// GetAgentUpdateSettings reads the agent auto-update settings, falling back to
+// defaults for any missing/NULL/unparseable value.
+func (r *SystemSettingsRepository) GetAgentUpdateSettings(ctx context.Context) (*models.AgentUpdateSettings, error) {
+	query := `
+		SELECT key, value
+		FROM system_settings
+		WHERE key IN (
+			'agent_auto_update_enabled',
+			'agent_update_max_concurrent',
+			'agent_update_health_timeout_seconds',
+			'agent_update_max_attempts'
+		)`
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get agent update settings: %w", err)
+	}
+	defer rows.Close()
+
+	settings := models.GetDefaultAgentUpdateSettings()
+	for rows.Next() {
+		var key string
+		var value *string
+		if err := rows.Scan(&key, &value); err != nil {
+			return nil, fmt.Errorf("failed to scan agent update setting row: %w", err)
+		}
+		if value == nil {
+			continue
+		}
+		switch key {
+		case "agent_auto_update_enabled":
+			settings.AutoUpdateEnabled = strings.EqualFold(strings.TrimSpace(*value), "true") || strings.TrimSpace(*value) == "1"
+		case "agent_update_max_concurrent":
+			if val, err := strconv.Atoi(strings.TrimSpace(*value)); err == nil {
+				settings.MaxConcurrent = val
+			}
+		case "agent_update_health_timeout_seconds":
+			if val, err := strconv.Atoi(strings.TrimSpace(*value)); err == nil {
+				settings.HealthTimeoutSeconds = val
+			}
+		case "agent_update_max_attempts":
+			if val, err := strconv.Atoi(strings.TrimSpace(*value)); err == nil {
+				settings.MaxAttempts = val
+			}
+		}
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating agent update setting rows: %w", err)
+	}
+	return &settings, nil
+}
+
+// UpdateAgentUpdateSettings writes the agent auto-update settings transactionally.
+func (r *SystemSettingsRepository) UpdateAgentUpdateSettings(ctx context.Context, settings *models.AgentUpdateSettings) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	settingMap := map[string]string{
+		"agent_auto_update_enabled":            strconv.FormatBool(settings.AutoUpdateEnabled),
+		"agent_update_max_concurrent":          strconv.Itoa(settings.MaxConcurrent),
+		"agent_update_health_timeout_seconds":  strconv.Itoa(settings.HealthTimeoutSeconds),
+		"agent_update_max_attempts":            strconv.Itoa(settings.MaxAttempts),
+	}
+
+	now := time.Now()
+	query := `
+		UPDATE system_settings
+		SET value = $1, updated_at = $2
+		WHERE key = $3`
+
+	for key, value := range settingMap {
+		if _, err := tx.ExecContext(ctx, query, value, now, key); err != nil {
+			return fmt.Errorf("failed to update agent update setting %s: %w", key, err)
 		}
 	}
 

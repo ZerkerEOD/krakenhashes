@@ -87,6 +87,10 @@ A **pot file** (short for "potfile") is hashcat's database of cracked hashes. In
 - Results are shared across all agents and jobs
 - The system maintains a centralized view of all cracked hashes
 - Previously cracked hashes are automatically filtered from new jobs
+- KrakenHashes maintains two types of potfiles:
+  - **Global Potfile**: A system-wide potfile containing cracked passwords from all clients (default behavior)
+  - **Client Potfiles**: Per-client potfiles containing only passwords cracked from that client's hashlists, usable as targeted wordlists for client-specific dictionary attacks
+- A three-level cascade system (System → Client → Hashlist) controls which potfiles receive cracked passwords
 
 ## System Architecture
 
@@ -301,7 +305,11 @@ Instead of processing all rules at once:
 ├── wordlists/         # Dictionary files
 │   ├── general/       # Common password lists
 │   ├── specialized/   # Domain-specific lists
-│   └── custom/        # User-uploaded lists
+│   ├── custom/        # User-uploaded lists (includes global potfile.txt)
+│   └── clients/       # Client-specific potfiles and wordlists
+│       └── {client_uuid}/
+│           ├── potfile.txt    # Auto-generated client potfile
+│           └── *.txt          # Uploaded client wordlists
 ├── rules/             # Rule files for mutations
 │   ├── hashcat/       # Hashcat-format rules
 │   └── custom/        # User-created rules
@@ -348,6 +356,9 @@ Each cracked hash stores:
 - **Deduplication by Line**: Each unique input line preserved; duplicates by hash value automatically updated when cracked
 - **Cross-Hashlist**: Cracks are automatically applied to all hashlists containing that hash value
 - **Username Preservation**: Multiple users with same password (e.g., "Administrator", "Administrator1") tracked separately
+- **Client Potfiles**: Per-client potfiles that accumulate only passwords cracked from that client's hashlists
+- **Client Wordlists**: Dedicated wordlists uploaded for specific clients, available in the job creation wordlist dropdown under "Client Specific" category
+- **Cascade Control**: A three-level exclusion cascade (System, Client, Hashlist) determines which potfiles receive each cracked password
 
 ### Result Access
 

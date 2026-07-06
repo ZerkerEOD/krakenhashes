@@ -1,0 +1,188 @@
+# CodeRabbit configuration for KrakenHashes
+# Reference: https://docs.coderabbit.ai/reference/configuration
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# NOTE: CLAUDE.md is committed and is auto-read by CodeRabbit as a code guideline
+# (the default **/CLAUDE.md pattern). CONTRIBUTING.md is registered explicitly below
+# (it is not a default pattern). The path_instructions add path-scoped review guidance
+# on top of both.
+
+language: "en-US"
+early_access: false
+
+# Friendly-but-direct tone (max 250 chars) — many contributors are community/first-timers.
+tone_instructions: >-
+  Be direct and thorough but constructive and welcoming; many contributors are
+  community volunteers or first-time contributors. Explain the reasoning behind
+  each suggestion and link relevant docs when useful.
+
+reviews:
+  profile: assertive
+  request_changes_workflow: false      # CodeRabbit never auto-approves; a maintainer always merges
+  high_level_summary: true
+  high_level_summary_instructions: >-
+    Write a concise high-level summary: one short paragraph, then a bullet list of
+    key changes grouped by component (backend, agent, frontend, docs). Call out any
+    database migrations, API/contract changes, or breaking changes prominently.
+  changed_files_summary: true
+  sequence_diagrams: true
+  estimate_code_review_effort: true
+  assess_linked_issues: true
+  related_issues: true
+  related_prs: true
+  suggested_labels: true
+  auto_apply_labels: false             # suggest only; maintainer applies
+  suggested_reviewers: true
+  auto_assign_reviewers: false
+  collapse_walkthrough: true           # keep the PR thread tidy
+  review_status: true
+  poem: false                          # drop cosmetic noise for a security tool
+  in_progress_fortune: false
+  enable_prompt_for_ai_agents: true    # emit codegen prompts (useful since AI-assisted code is welcome)
+
+  auto_title_instructions: >-
+    Use Conventional Commits: type(scope): summary. type in
+    feat|fix|docs|chore|refactor|test|perf; scope in backend|frontend|agent|docs|db.
+    Imperative mood, <= 72 chars.
+
+  labeling_instructions:
+    - label: backend
+      instructions: Apply when files under backend/ change.
+    - label: frontend
+      instructions: Apply when files under frontend/ change.
+    - label: agent
+      instructions: Apply when files under agent/ change.
+    - label: database
+      instructions: Apply when files under backend/db/migrations/ change.
+    - label: documentation
+      instructions: Apply when only docs/ or *.md files change.
+    - label: security
+      instructions: Apply when auth, crypto, TLS, secrets, or input validation change.
+    - label: dependencies
+      instructions: Apply when go.mod or package.json dependencies change.
+
+  # Slop detection: flag low-quality PRs with a label; never blocks merges (public repos only).
+  slop_detection:
+    enabled: true
+    label: "slop"
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true      # re-review on each push
+    drafts: false                      # skip draft PRs
+
+  pre_merge_checks:
+    # Non-blocking nudges (warning = comment, never fails the merge).
+    title:
+      mode: warning
+      requirements: "Conventional Commit format: type(scope): summary."
+    description:
+      mode: warning                    # nudge contributors to fill out the PR template
+    custom_checks:
+      # BLOCKER: user-facing changes must update docs/ (the MkDocs site is built from docs/).
+      # 'error' reports a failing pre-merge status. To make it a HARD merge gate, add a branch
+      # protection rule on master that requires the CodeRabbit pre-merge status check.
+      - name: "Documentation updated"
+        mode: error
+        instructions: >-
+          PASS if the PR does not change user-facing behavior, OR if it does and includes
+          corresponding changes under docs/. FAIL if the PR changes user-facing behavior —
+          new/changed REST API endpoints, request/response fields, configuration or
+          environment variables, CLI flags, agent behavior, installation/setup steps, or
+          user-visible frontend features — without any accompanying change under docs/.
+          Always PASS if the PR is labeled `no-docs-needed`. Pure refactors, test-only
+          changes, dependency bumps, and typo fixes do not require docs.
+      # NOTIFICATION: frontend text changes should update the English locale source.
+      - name: "Frontend translations (i18n)"
+        mode: warning
+        instructions: >-
+          If the PR adds or modifies user-facing strings in frontend/src (JSX text, button
+          labels, toasts, menu items, error messages), the English source locale files under
+          frontend/public/locales/en/*.json should have matching key additions/changes.
+          Report as a NON-BLOCKING warning listing the strings/keys that appear missing from
+          the en locale. Do NOT require other languages (de, es, etc.) — those are translated
+          after merge.
+
+  # Exclusions only — generated, vendored, lockfiles, binaries, and test data.
+  # (Migrations stay reviewable: only files changed in a PR are reviewed anyway.)
+  path_filters:
+    - "!**/node_modules/**"
+    - "!**/vendor/**"
+    - "!**/bin/**"
+    - "!**/dist/**"
+    - "!frontend/build/**"
+    - "!**/*.min.js"
+    - "!**/*.min.css"
+    - "!**/go.sum"
+    - "!**/package-lock.json"
+    - "!**/*.pb.go"
+    - "!tests/**"
+    - "!**/*.exe"
+    - "!**/*.dll"
+    - "!**/*.so"
+    - "!**/*.dylib"
+    - "!**/coverage.out"
+
+  # Repo knowledge CodeRabbit can't get from the (gitignored) CLAUDE.md.
+  path_instructions:
+    - path: "backend/**/*.go"
+      instructions: >-
+        Go REST API + services. Enforce the repository pattern: all DB access goes through
+        repositories using the *db.DB wrapper and standard database/sql
+        (Query/QueryRow/Exec with manual rows.Scan), NOT sqlx struct tags; transactions use
+        db.Begin(). Business logic lives in services, not handlers. Router is gorilla/mux
+        (mux.Vars). The model is HashList (capital L). Verify JWT + role authorization on any
+        new endpoint. Flag SQL injection (string-concatenated queries), unhandled errors,
+        unclosed rows, and leaked goroutines. Don't flag formatting handled by gofmt.
+    - path: "agent/**/*.go"
+      instructions: >-
+        Go agent for distributed hashcat execution. Communicates with the backend over
+        WebSocket with a heartbeat; messages are JSON routed by a "type" field. Flag command
+        injection in hashcat invocation, unsafe file-path handling, and unbounded resource
+        use. Cross-platform (Linux/Windows/macOS): watch for OS-specific assumptions and make
+        sure build-tagged pairs (e.g. *_unix.go / *_windows.go) stay in sync.
+    - path: "frontend/src/**/*.{ts,tsx}"
+      instructions: >-
+        React 18 + TypeScript + Material-UI. Pages use <Box sx={{ p: 3 }}>, never Container
+        with maxWidth. Data fetching uses React Query; API calls go through the services layer
+        (services/api.ts), not direct fetch/axios in components. Auth state is in context (the
+        field is isAuth). Management page titles are singular ("Agent Management"). User-facing
+        strings must go through the i18n system (react-i18next) with keys in
+        frontend/public/locales/en/*.json — flag hardcoded user-facing text that bypasses i18n.
+        Flag missing loading/error states, dangerouslySetInnerHTML/XSS, any secrets or tokens
+        in client code, and avoid the `any` type.
+    - path: "frontend/public/locales/**/*.json"
+      instructions: >-
+        Translation files; en/ is the source of truth. Check JSON validity and key consistency
+        across namespaces. Don't critique the wording of non-English translations, and don't
+        require non-English locales to be complete within a PR.
+    - path: "backend/db/migrations/**/*.sql"
+      instructions: >-
+        Every migration must ship BOTH an .up.sql and a matching .down.sql, and the down must
+        cleanly reverse the up. Flag destructive operations (DROP/DELETE without guards),
+        missing indexes on new foreign keys, and non-idempotent DDL. Never modify an
+        already-released migration — add a new one.
+    - path: "**/*_test.go"
+      instructions: >-
+        Go tests. Prefer table-driven tests, use mock repositories for service tests, and
+        check that error paths and edge cases are covered, not just the happy path.
+    - path: ".github/workflows/**"
+      instructions: >-
+        GitHub Actions. Flag unpinned third-party actions (pin to a commit SHA), use of
+        pull_request_target that checks out untrusted fork code, and secrets exposed to
+        fork-originated PRs.
+    - path: "docs/**/*.md"
+      instructions: >-
+        Documentation. Check technical accuracy and that examples match current behavior; do
+        not nitpick prose style.
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "CONTRIBUTING.md"   # not a default pattern; register it so it's used as guidelines
+  web_search:
+    enabled: true
+
+chat:
+  auto_reply: true

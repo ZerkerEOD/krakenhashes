@@ -2,7 +2,9 @@
   "title": "Взломанные хеши",
   "page": {
     "title": "Взломанные хеши (Pot)",
-    "description": "Просмотр всех успешно взломанных хешей паролей по всем спискам хешей и клиентам."
+    "description": "Просмотр всех успешно взломанных хешей паролей по всем спискам хешей и клиентам.",
+    "filterByHashlist": "Перейти к списку хешей",
+    "hashlistPlaceholder": "Выберите список хешей..."
   },
   "table": {
     "allCrackedHashes": "Все взломанные хеши"
@@ -12,12 +14,12 @@
   },
   "client": {
     "title": "Взломанные хеши — по клиенту",
-    "description": "Просмотр взломанных хешей для клиента: <1>{{clientName}}</1>",
+    "description": "Просмотр взломанных хешей для клиента: {{clientName}}",
     "tableTitle": "Взломанные хеши для \"{{clientName}}\""
   },
   "hashlist": {
     "title": "Взломанные хеши — по списку хешей",
-    "description": "Просмотр взломанных хешей для списка: <1>{{hashlistName}}</1>",
+    "description": "Просмотр взломанных хешей для списка: {{hashlistName}}",
     "tableTitle": "Взломанные хеши для \"{{hashlistName}}\""
   },
   "job": {
@@ -50,6 +52,7 @@
     "password": "Пароль",
     "domainUser": "Домен\\Пользователь",
     "domainUserPass": "Домен\\Пользователь:Пароль",
+    "potfile": "Potfile (Hashcat)",
     "exportVisible": "Экспорт видимых результатов",
     "downloaded": "Скачан {{filename}}",
     "downloadFailed": "Не удалось скачать файл"

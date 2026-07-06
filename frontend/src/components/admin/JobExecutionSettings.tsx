@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
   TextField,
-  Button,
   Alert,
   CircularProgress,
   Grid,
@@ -24,10 +23,16 @@ const JobExecutionSettingsComponent: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { enqueueSnackbar } = useSnackbar();
+  const settingsRef = useRef<JobExecutionSettings | null>(null);
 
   useEffect(() => {
     fetchSettings();
   }, []);
+
+  // Keep ref in sync with state for blur handlers
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
 
   const fetchSettings = async () => {
     setLoading(true);
@@ -44,39 +49,76 @@ const JobExecutionSettingsComponent: React.FC = () => {
     }
   };
 
-  const handleSave = async () => {
-    if (!settings) return;
-    
-    setError(null);
+  const saveSettings = useCallback(async (updatedSettings: JobExecutionSettings) => {
     setSaving(true);
-    
+    setError(null);
     try {
-      await updateJobExecutionSettings(settings);
-      enqueueSnackbar(t('jobExecution.messages.updateSuccess') as string, { variant: 'success' });
+      const result = await updateJobExecutionSettings(updatedSettings);
+      if (result.success) {
+        enqueueSnackbar(t('jobExecution.messages.updateSuccess') as string, { variant: 'success' });
+      } else {
+        // Partial failure - some settings saved, some failed
+        const failedList = result.failed_keys?.join(', ') || 'unknown';
+        enqueueSnackbar(`Some settings failed to save: ${failedList}`, { variant: 'warning' });
+        setError(`Failed to update: ${failedList}`);
+      }
     } catch (err: any) {
       console.error('Failed to update job execution settings:', err);
       const message = err.response?.data?.error || t('jobExecution.messages.saveFailed') as string;
       setError(message);
       enqueueSnackbar(message, { variant: 'error' });
+      // Reload settings to revert to server state
+      await fetchSettings();
     } finally {
       setSaving(false);
     }
-  };
+  }, [t, enqueueSnackbar]);
 
-  const handleChange = (field: keyof JobExecutionSettings) => (
+  // Auto-save handler for switches - saves immediately
+  const handleSwitchChange = useCallback((field: keyof JobExecutionSettings) => async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     if (!settings) return;
-    
-    const value = event.target.type === 'checkbox' 
-      ? event.target.checked 
-      : parseInt(event.target.value, 10);
-    
-    setSettings({
-      ...settings,
-      [field]: value,
-    });
-  };
+    const previousSettings = { ...settings };
+    const updatedSettings = { ...settings, [field]: event.target.checked };
+    setSettings(updatedSettings);
+    setSaving(true);
+    setError(null);
+    try {
+      const result = await updateJobExecutionSettings(updatedSettings);
+      if (result.success) {
+        enqueueSnackbar(t('jobExecution.messages.updateSuccess') as string, { variant: 'success' });
+      } else {
+        const failedList = result.failed_keys?.join(', ') || 'unknown';
+        enqueueSnackbar(`Some settings failed to save: ${failedList}`, { variant: 'warning' });
+        setError(`Failed to update: ${failedList}`);
+      }
+    } catch (err: any) {
+      console.error('Failed to update setting:', err);
+      setSettings(previousSettings); // Revert on error
+      const message = err.response?.data?.error || t('jobExecution.messages.saveFailed') as string;
+      enqueueSnackbar(message, { variant: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  }, [settings, t, enqueueSnackbar]);
+
+  // Change handler for number fields - only updates local state
+  const handleNumberChange = useCallback((field: keyof JobExecutionSettings) => (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    if (!settings) return;
+    const value = parseInt(event.target.value, 10);
+    if (!isNaN(value)) {
+      setSettings({ ...settings, [field]: value });
+    }
+  }, [settings]);
+
+  // Blur handler for number/text fields - triggers save
+  const handleBlurSave = useCallback(async () => {
+    if (!settingsRef.current) return;
+    await saveSettings(settingsRef.current);
+  }, [saveSettings]);
 
   if (loading) {
     return (
@@ -125,11 +167,15 @@ const JobExecutionSettingsComponent: React.FC = () => {
                   value={convertSecondsToMinutes(settings.default_chunk_duration)}
                   onChange={(e) => {
                     const minutes = parseInt(e.target.value, 10);
-                    setSettings({
-                      ...settings,
-                      default_chunk_duration: convertMinutesToSeconds(minutes),
-                    });
+                    if (!isNaN(minutes)) {
+                      setSettings({
+                        ...settings,
+                        default_chunk_duration: convertMinutesToSeconds(minutes),
+                      });
+                    }
                   }}
+                  onBlur={handleBlurSave}
+                  disabled={saving}
                   helperText={t('jobExecution.chunking.defaultChunkDurationHelper')}
                   InputProps={{
                     inputProps: { min: 1 },
@@ -143,7 +189,9 @@ const JobExecutionSettingsComponent: React.FC = () => {
                   type="number"
                   label={t('jobExecution.chunking.chunkFluctuation') as string}
                   value={settings.chunk_fluctuation_percentage}
-                  onChange={handleChange('chunk_fluctuation_percentage')}
+                  onChange={handleNumberChange('chunk_fluctuation_percentage')}
+                  onBlur={handleBlurSave}
+                  disabled={saving}
                   helperText={t('jobExecution.chunking.chunkFluctuationHelper')}
                   InputProps={{
                     inputProps: { min: 0, max: 100 },
@@ -171,11 +219,15 @@ const JobExecutionSettingsComponent: React.FC = () => {
                   value={convertHoursToDays(settings.agent_hashlist_retention_hours)}
                   onChange={(e) => {
                     const days = parseInt(e.target.value, 10);
-                    setSettings({
-                      ...settings,
-                      agent_hashlist_retention_hours: convertDaysToHours(days),
-                    });
+                    if (!isNaN(days)) {
+                      setSettings({
+                        ...settings,
+                        agent_hashlist_retention_hours: convertDaysToHours(days),
+                      });
+                    }
                   }}
+                  onBlur={handleBlurSave}
+                  disabled={saving}
                   helperText={t('jobExecution.agentConfig.hashlistRetentionHelper')}
                   InputProps={{
                     inputProps: { min: 1 },
@@ -189,7 +241,9 @@ const JobExecutionSettingsComponent: React.FC = () => {
                   type="number"
                   label={t('jobExecution.agentConfig.maxConcurrentJobs') as string}
                   value={settings.max_concurrent_jobs_per_agent}
-                  onChange={handleChange('max_concurrent_jobs_per_agent')}
+                  onChange={handleNumberChange('max_concurrent_jobs_per_agent')}
+                  onBlur={handleBlurSave}
+                  disabled={saving}
                   helperText={t('jobExecution.agentConfig.maxConcurrentJobsHelper')}
                   InputProps={{
                     inputProps: { min: 1 },
@@ -202,7 +256,9 @@ const JobExecutionSettingsComponent: React.FC = () => {
                   type="number"
                   label={t('jobExecution.agentConfig.progressReporting') as string}
                   value={settings.progress_reporting_interval}
-                  onChange={handleChange('progress_reporting_interval')}
+                  onChange={handleNumberChange('progress_reporting_interval')}
+                  onBlur={handleBlurSave}
+                  disabled={saving}
                   helperText={t('jobExecution.agentConfig.progressReportingHelper')}
                   InputProps={{
                     inputProps: { min: 1 },
@@ -218,11 +274,15 @@ const JobExecutionSettingsComponent: React.FC = () => {
                   value={convertHoursToDays(settings.benchmark_cache_duration_hours)}
                   onChange={(e) => {
                     const days = parseInt(e.target.value, 10);
-                    setSettings({
-                      ...settings,
-                      benchmark_cache_duration_hours: convertDaysToHours(days),
-                    });
+                    if (!isNaN(days)) {
+                      setSettings({
+                        ...settings,
+                        benchmark_cache_duration_hours: convertDaysToHours(days),
+                      });
+                    }
                   }}
+                  onBlur={handleBlurSave}
+                  disabled={saving}
                   helperText={t('jobExecution.agentConfig.benchmarkCacheHelper')}
                   InputProps={{
                     inputProps: { min: 1 },
@@ -234,9 +294,27 @@ const JobExecutionSettingsComponent: React.FC = () => {
                 <TextField
                   fullWidth
                   type="number"
+                  label={t('jobExecution.agentConfig.benchmarkHistoryRetention') as string}
+                  value={settings.benchmark_history_retention_days}
+                  onChange={handleNumberChange('benchmark_history_retention_days')}
+                  onBlur={handleBlurSave}
+                  disabled={saving}
+                  helperText={t('jobExecution.agentConfig.benchmarkHistoryRetentionHelper')}
+                  InputProps={{
+                    inputProps: { min: 0 },
+                    endAdornment: <InputAdornment position="end">{t('jobExecution.agentConfig.days')}</InputAdornment>,
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  type="number"
                   label={t('jobExecution.agentConfig.speedtestTimeout') as string}
                   value={settings.speedtest_timeout_seconds}
-                  onChange={handleChange('speedtest_timeout_seconds')}
+                  onChange={handleNumberChange('speedtest_timeout_seconds')}
+                  onBlur={handleBlurSave}
+                  disabled={saving}
                   helperText={t('jobExecution.agentConfig.speedtestTimeoutHelper')}
                   InputProps={{
                     inputProps: { min: 60, max: 600 },
@@ -250,11 +328,29 @@ const JobExecutionSettingsComponent: React.FC = () => {
                   type="number"
                   label={t('jobExecution.agentConfig.reconnectGrace') as string}
                   value={settings.reconnect_grace_period_minutes}
-                  onChange={handleChange('reconnect_grace_period_minutes')}
+                  onChange={handleNumberChange('reconnect_grace_period_minutes')}
+                  onBlur={handleBlurSave}
+                  disabled={saving}
                   helperText={t('jobExecution.agentConfig.reconnectGraceHelper')}
                   InputProps={{
                     inputProps: { min: 1, max: 60 },
                     endAdornment: <InputAdornment position="end">{t('jobExecution.agentConfig.minutes')}</InputAdornment>,
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Analytics Default Date Range"
+                  value={settings.analytics_default_date_range_months}
+                  onChange={handleNumberChange('analytics_default_date_range_months')}
+                  onBlur={handleBlurSave}
+                  disabled={saving}
+                  helperText="Default date range for analytics reports (in months). Users can override this per-report."
+                  InputProps={{
+                    inputProps: { min: 1, max: 120 },
+                    endAdornment: <InputAdornment position="end">months</InputAdornment>,
                   }}
                 />
               </Grid>
@@ -275,7 +371,8 @@ const JobExecutionSettingsComponent: React.FC = () => {
                   control={
                     <Switch
                       checked={settings.job_interruption_enabled}
-                      onChange={handleChange('job_interruption_enabled')}
+                      onChange={handleSwitchChange('job_interruption_enabled')}
+                      disabled={saving}
                     />
                   }
                   label={t('jobExecution.jobControl.allowInterruption') as string}
@@ -289,7 +386,8 @@ const JobExecutionSettingsComponent: React.FC = () => {
                   control={
                     <Switch
                       checked={settings.enable_realtime_crack_notifications}
-                      onChange={handleChange('enable_realtime_crack_notifications')}
+                      onChange={handleSwitchChange('enable_realtime_crack_notifications')}
+                      disabled={saving}
                     />
                   }
                   label={t('jobExecution.jobControl.realtimeNotifications') as string}
@@ -304,7 +402,9 @@ const JobExecutionSettingsComponent: React.FC = () => {
                   type="number"
                   label={t('jobExecution.jobControl.refreshInterval') as string}
                   value={settings.job_refresh_interval_seconds}
-                  onChange={handleChange('job_refresh_interval_seconds')}
+                  onChange={handleNumberChange('job_refresh_interval_seconds')}
+                  onBlur={handleBlurSave}
+                  disabled={saving}
                   helperText={t('jobExecution.jobControl.refreshIntervalHelper')}
                   InputProps={{
                     inputProps: { min: 1, max: 60 },
@@ -318,7 +418,9 @@ const JobExecutionSettingsComponent: React.FC = () => {
                   type="number"
                   label={t('jobExecution.jobControl.maxRetryAttempts') as string}
                   value={settings.max_chunk_retry_attempts}
-                  onChange={handleChange('max_chunk_retry_attempts')}
+                  onChange={handleNumberChange('max_chunk_retry_attempts')}
+                  onBlur={handleBlurSave}
+                  disabled={saving}
                   helperText={t('jobExecution.jobControl.maxRetryAttemptsHelper')}
                   InputProps={{
                     inputProps: { min: 0, max: 10 },
@@ -331,10 +433,28 @@ const JobExecutionSettingsComponent: React.FC = () => {
                   type="number"
                   label={t('jobExecution.jobControl.jobsPerPage') as string}
                   value={settings.jobs_per_page_default}
-                  onChange={handleChange('jobs_per_page_default')}
+                  onChange={handleNumberChange('jobs_per_page_default')}
+                  onBlur={handleBlurSave}
+                  disabled={saving}
                   helperText={t('jobExecution.jobControl.jobsPerPageHelper')}
                   InputProps={{
                     inputProps: { min: 5, max: 100 },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label={t('jobExecution.jobControl.keyspaceTimeout') as string}
+                  value={settings.keyspace_calculation_timeout_minutes}
+                  onChange={handleNumberChange('keyspace_calculation_timeout_minutes')}
+                  onBlur={handleBlurSave}
+                  disabled={saving}
+                  helperText={t('jobExecution.jobControl.keyspaceTimeoutHelper')}
+                  InputProps={{
+                    inputProps: { min: 1, max: 60 },
+                    endAdornment: <InputAdornment position="end">{t('jobExecution.agentConfig.minutes')}</InputAdornment>,
                   }}
                 />
               </Grid>
@@ -350,18 +470,77 @@ const JobExecutionSettingsComponent: React.FC = () => {
             </Typography>
             <Divider sx={{ mb: 2 }} />
             <Grid container spacing={2}>
-              <Grid item xs={12}>
+              {/* Global Potfile Settings */}
+              <Grid item xs={12} md={6}>
                 <FormControlLabel
                   control={
                     <Switch
                       checked={settings.potfile_enabled}
-                      onChange={handleChange('potfile_enabled')}
+                      onChange={handleSwitchChange('potfile_enabled')}
+                      disabled={saving}
                     />
                   }
-                  label={t('jobExecution.potfile.enablePotfile') as string}
+                  label="Enable global pot-file"
                 />
                 <Typography variant="caption" color="textSecondary" display="block">
                   {t('jobExecution.potfile.enablePotfileHelper')}
+                </Typography>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.remove_from_global_potfile_on_hashlist_delete_default ?? false}
+                      onChange={handleSwitchChange('remove_from_global_potfile_on_hashlist_delete_default')}
+                      disabled={saving}
+                    />
+                  }
+                  label="Remove from global potfile when hashlist deleted"
+                />
+                <Typography variant="caption" color="textSecondary" display="block">
+                  System default. Can be overridden per-client or at deletion time.
+                </Typography>
+              </Grid>
+
+              {/* Client Potfiles Section */}
+              <Grid item xs={12}>
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'medium' }}>
+                  Client Potfiles
+                </Typography>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.client_potfiles_enabled ?? true}
+                      onChange={handleSwitchChange('client_potfiles_enabled')}
+                      disabled={saving}
+                    />
+                  }
+                  label="Enable client-specific potfiles"
+                />
+                <Typography variant="caption" color="textSecondary" display="block">
+                  When enabled, cracked passwords can be stored in client-specific potfiles
+                  in addition to the global potfile. This enables data isolation between clients.
+                </Typography>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.remove_from_client_potfile_on_hashlist_delete_default ?? false}
+                      onChange={handleSwitchChange('remove_from_client_potfile_on_hashlist_delete_default')}
+                      disabled={saving}
+                    />
+                  }
+                  label="Remove from client potfile when hashlist deleted"
+                />
+                <Typography variant="caption" color="textSecondary" display="block">
+                  System default. Can be overridden per-client or at deletion time.
                 </Typography>
               </Grid>
             </Grid>
@@ -381,7 +560,8 @@ const JobExecutionSettingsComponent: React.FC = () => {
                   control={
                     <Switch
                       checked={settings.rule_split_enabled}
-                      onChange={handleChange('rule_split_enabled')}
+                      onChange={handleSwitchChange('rule_split_enabled')}
+                      disabled={saving}
                     />
                   }
                   label={t('jobExecution.ruleSplitting.enableRuleSplitting') as string}
@@ -398,12 +578,15 @@ const JobExecutionSettingsComponent: React.FC = () => {
                   value={settings.rule_split_threshold}
                   onChange={(e) => {
                     const value = parseFloat(e.target.value);
-                    setSettings({
-                      ...settings,
-                      rule_split_threshold: value,
-                    });
+                    if (!isNaN(value)) {
+                      setSettings({
+                        ...settings,
+                        rule_split_threshold: value,
+                      });
+                    }
                   }}
-                  disabled={!settings.rule_split_enabled}
+                  onBlur={handleBlurSave}
+                  disabled={!settings.rule_split_enabled || saving}
                   helperText={t('jobExecution.ruleSplitting.thresholdHelper')}
                   InputProps={{
                     inputProps: { min: 1.1, max: 10, step: 0.1 },
@@ -417,8 +600,9 @@ const JobExecutionSettingsComponent: React.FC = () => {
                   type="number"
                   label={t('jobExecution.ruleSplitting.minRules') as string}
                   value={settings.rule_split_min_rules}
-                  onChange={handleChange('rule_split_min_rules')}
-                  disabled={!settings.rule_split_enabled}
+                  onChange={handleNumberChange('rule_split_min_rules')}
+                  onBlur={handleBlurSave}
+                  disabled={!settings.rule_split_enabled || saving}
                   helperText={t('jobExecution.ruleSplitting.minRulesHelper')}
                   InputProps={{
                     inputProps: { min: 10 },
@@ -431,8 +615,9 @@ const JobExecutionSettingsComponent: React.FC = () => {
                   type="number"
                   label={t('jobExecution.ruleSplitting.maxChunks') as string}
                   value={settings.rule_split_max_chunks}
-                  onChange={handleChange('rule_split_max_chunks')}
-                  disabled={!settings.rule_split_enabled}
+                  onChange={handleNumberChange('rule_split_max_chunks')}
+                  onBlur={handleBlurSave}
+                  disabled={!settings.rule_split_enabled || saving}
                   helperText={t('jobExecution.ruleSplitting.maxChunksHelper')}
                   InputProps={{
                     inputProps: { min: 2, max: 10000 },
@@ -450,29 +635,13 @@ const JobExecutionSettingsComponent: React.FC = () => {
                       rule_chunk_temp_dir: e.target.value,
                     });
                   }}
-                  disabled={!settings.rule_split_enabled}
+                  onBlur={handleBlurSave}
+                  disabled={!settings.rule_split_enabled || saving}
                   helperText={t('jobExecution.ruleSplitting.chunkDirectoryHelper')}
                 />
               </Grid>
             </Grid>
           </Paper>
-        </Grid>
-
-        {/* Metrics Retention Settings */}
-
-        {/* Save Button */}
-        <Grid item xs={12}>
-          <Box display="flex" justifyContent="flex-end">
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleSave}
-              disabled={saving || loading}
-              size="large"
-            >
-              {saving ? <CircularProgress size={24} /> : t('jobExecution.buttons.save')}
-            </Button>
-          </Box>
         </Grid>
       </Grid>
     </Box>

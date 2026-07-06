@@ -44,6 +44,25 @@ type JobSchedulingService struct {
 	// Agent reservation system
 	reservedAgents   map[int]uuid.UUID // agentID -> jobID
 	reservationMutex sync.RWMutex
+
+	// Forced-benchmark rotation memory: maps a (jobID, attackMode, hashType)
+	// key to the last agent we asked to benchmark that combo. Used purely as
+	// a hint to push that agent to the back of the candidate list next cycle,
+	// so multi-agent fleets don't pound the same box repeatedly. In-memory
+	// only — survives only as long as the scheduler is up, which is fine
+	// because the failure_attempts table is the durable record.
+	lastForcedBenchmarkAgent sync.Map // map[string]int
+
+	// Rule-split keyspace-drift warning gate: keyed by job_execution_id.
+	// `calculateRuleSplitChunk` logs a warning the first time it has to sync
+	// dispatched_keyspace to effective_keyspace, then silently re-syncs on
+	// subsequent cycles to avoid flooding the log (the underlying sync is
+	// idempotent and cheap). In-memory only; on backend restart the warning
+	// will fire once more per job, which is what we want.
+	ruleSplitSyncWarned sync.Map // map[uuid.UUID]struct{}
+
+	// NEW: Team-aware scheduling
+	teamService *TeamService
 }
 
 // NewJobSchedulingService creates a new job scheduling service
@@ -54,6 +73,7 @@ func NewJobSchedulingService(
 	agentRepo *repository.AgentRepository,
 	jobTaskRepo *repository.JobTaskRepository,
 	systemSettingsRepo *repository.SystemSettingsRepository,
+	teamService *TeamService, // NEW
 ) *JobSchedulingService {
 	return &JobSchedulingService{
 		jobExecutionService: jobExecutionService,
@@ -62,6 +82,7 @@ func NewJobSchedulingService(
 		agentRepo:           agentRepo,
 		jobTaskRepo:         jobTaskRepo,
 		systemSettingsRepo:  systemSettingsRepo,
+		teamService:         teamService, // NEW
 		reservedAgents:      make(map[int]uuid.UUID),
 	}
 }
@@ -251,9 +272,13 @@ func (s *JobSchedulingService) expandIncrementJobsIntoLayers(
 				if layer.BaseKeyspace != nil {
 					layerBaseKeyspace = layer.BaseKeyspace
 				} else if layer.EffectiveKeyspace != nil {
-					layerBaseKeyspace = layer.EffectiveKeyspace
+					// Degenerate fallback (shouldn't normally happen): EffectiveKeyspace is
+					// EFFECTIVE/BigInt but is used here as a BASE proxy → coerce to int64.
+					effAsBase := layer.EffectiveKeyspace.Int64()
+					layerBaseKeyspace = &effAsBase
 				}
-				if layerBaseKeyspace != nil && layer.DispatchedKeyspace < *layerBaseKeyspace {
+				// layer.DispatchedKeyspace is BigInt (effective units); compare against the int64 base proxy.
+				if layerBaseKeyspace != nil && layer.DispatchedKeyspace.CmpInt64(*layerBaseKeyspace) < 0 {
 					// Create virtual job entry for this layer
 					layerJob := job // Copy parent job
 
@@ -523,7 +548,7 @@ func (s *JobSchedulingService) hasUndispatchedWork(ctx context.Context, job *mod
 	if job.UsesRuleSplitting && job.EffectiveKeyspace != nil {
 		// For rule chunking: check if dispatched keyspace < effective keyspace
 		// This indicates more rule chunks need to be created
-		return job.DispatchedKeyspace < *job.EffectiveKeyspace
+		return job.DispatchedKeyspace.Cmp(*job.EffectiveKeyspace) < 0
 	}
 
 	// For keyspace splitting (--skip/--limit): query actual BASE keyspace dispatched from tasks
@@ -547,10 +572,155 @@ func (s *JobSchedulingService) hasUndispatchedWork(ctx context.Context, job *mod
 		return hasWork
 	} else if job.EffectiveKeyspace != nil {
 		// Fallback to EffectiveKeyspace for jobs without BaseKeyspace
-		return job.DispatchedKeyspace < *job.EffectiveKeyspace
+		return job.DispatchedKeyspace.Cmp(*job.EffectiveKeyspace) < 0
 	}
 
 	return false
+}
+
+// isJobStructurallyComplete checks if a job has dispatched all its work based on
+// structural indicators (rules dispatched, base keyspace covered, increment layers done)
+// rather than potentially-drifted effective_keyspace arithmetic.
+// This is used to detect jobs that are stuck due to keyspace drift from potfile/wordlist updates.
+func (s *JobSchedulingService) isJobStructurallyComplete(ctx context.Context, job *models.JobExecution) bool {
+	// Increment mode: check if all layers are complete
+	if job.IncrementMode != "" && job.IncrementMode != "off" {
+		layers, err := s.jobExecutionService.jobIncrementLayerRepo.GetByJobExecutionID(ctx, job.ID)
+		if err != nil {
+			return false
+		}
+		for _, layer := range layers {
+			if layer.Status != models.JobIncrementLayerStatusCompleted {
+				return false
+			}
+		}
+		return true
+	}
+
+	// Rule-split: check if all rule chunks have been dispatched.
+	//
+	// The comparison must be in the *raw rule-file* unit — `max_rule_end_index`
+	// from job_tasks is a rule-file index (≤ rule_count). `MultiplicationFactor`
+	// is NOT in that unit for salted hash types: it's stored as
+	// `rule_count × salt_count` so that `effective_keyspace = base_keyspace ×
+	// multiplication_factor` arithmetic works out. Comparing the two directly
+	// makes salted rule-split jobs invisible to the structural check — they
+	// stay zombie-pending forever, starving lower-priority jobs.
+	//
+	// Use the same source the chunker uses
+	// (`ruleSplitManager.CountRules(rulePath)`, called at
+	// job_scheduling_task_assignment.go:246 to initialize state.TotalRules)
+	// so the completion-detector and the chunker agree on what "all rules
+	// dispatched" means.
+	if job.UsesRuleSplitting {
+		var totalRules int64
+
+		if len(job.RuleIDs) > 0 {
+			if rulePath, err := s.jobExecutionService.resolveRulePath(ctx, job.RuleIDs[0]); err == nil {
+				if n, err := s.jobExecutionService.ruleSplitManager.CountRules(ctx, rulePath); err == nil {
+					totalRules = int64(n)
+				}
+			}
+		}
+
+		// Fallback only when the rule file is unreadable. MultiplicationFactor
+		// and effective/base both OVERESTIMATE for salted hash types, so the
+		// check stays conservative (no false-positive completion).
+		if totalRules == 0 {
+			totalRules = job.MultiplicationFactor
+			if totalRules == 0 && job.EffectiveKeyspace != nil && job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
+				// effective(BigInt) / base(int64) → int64 sink (rule count)
+				totalRules = job.EffectiveKeyspace.DivInt64(*job.BaseKeyspace).Int64()
+			}
+		}
+
+		if totalRules <= 0 {
+			return false // Can't determine without totalRules
+		}
+		maxRuleEnd, err := s.jobExecutionService.jobTaskRepo.GetMaxRuleEndIndex(ctx, job.ID)
+		if err != nil {
+			return false
+		}
+		return maxRuleEnd != nil && int64(*maxRuleEnd) >= totalRules
+	}
+
+	// Keyspace-split: check if all base keyspace has been covered
+	if job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
+		maxBase, err := s.jobExecutionService.jobTaskRepo.GetMaxKeyspaceEnd(ctx, job.ID)
+		if err != nil {
+			return false
+		}
+		return maxBase >= *job.BaseKeyspace
+	}
+
+	// No structural check available — return true (caller has other guards)
+	return true
+}
+
+// completeExhaustedJobs detects jobs that are structurally complete (all rules/keyspace dispatched)
+// but stuck due to keyspace drift from potfile/wordlist updates, and triggers their completion.
+// This breaks the stuck loop where dispatched_keyspace < effective_keyspace but no more work
+// can actually be created (all rule chunks or base keyspace chunks have been dispatched).
+func (s *JobSchedulingService) completeExhaustedJobs(ctx context.Context, jobsWithWork []models.JobExecutionWithWork) {
+	for i := range jobsWithWork {
+		job := &jobsWithWork[i]
+
+		// Guard 1: Must have no incomplete tasks.
+		// NOTE: GetIncompleteTasksCount treats 'failed' as incomplete (NOT IN completed/cancelled).
+		// This is intentional — jobs with failed tasks go through reconcileStuckJobs instead.
+		incompleteTasks, err := s.jobExecutionService.jobTaskRepo.GetIncompleteTasksCount(ctx, job.ID)
+		if err != nil || incompleteTasks > 0 {
+			continue
+		}
+
+		// Guard 2: Must have at least one completed task (not a brand-new job with no tasks)
+		completedCount, err := s.jobExecutionService.jobTaskRepo.GetCompletedTaskCount(ctx, job.ID)
+		if err != nil || completedCount == 0 {
+			continue
+		}
+
+		// Guard 3: Must be structurally complete (all rules dispatched, all base keyspace covered, etc.)
+		if !s.isJobStructurallyComplete(ctx, &job.JobExecution) {
+			// Defensive diagnostic: at this point the job has no incomplete
+			// tasks and at least one completed task, but isJobStructurallyComplete
+			// disagrees. Either the rule file is unreadable, or there's a unit
+			// mismatch between max_rule_end_index and whatever totalRules
+			// source the check used. Logging the triple makes future "stuck job"
+			// reports diagnosable from the backend log alone.
+			if job.UsesRuleSplitting {
+				maxRuleEnd, _ := s.jobExecutionService.jobTaskRepo.GetMaxRuleEndIndex(ctx, job.ID)
+				debug.Info("Job has zero incomplete tasks but is not structurally complete", map[string]interface{}{
+					"job_id":                job.ID,
+					"name":                  job.Name,
+					"uses_rule_splitting":   job.UsesRuleSplitting,
+					"multiplication_factor": job.MultiplicationFactor,
+					"max_rule_end_index":    maxRuleEnd,
+					"dispatched_keyspace":   job.DispatchedKeyspace.String(),
+					"effective_keyspace":    bigIntPtrLog(job.EffectiveKeyspace),
+					"hint":                  "if max_rule_end_index >= the rule file's CountRules result, the rule file is probably unreadable; otherwise structural check is conservative and waiting for more rules to be dispatched",
+				})
+			}
+			continue
+		}
+
+		debug.Info("Scheduler detected structurally complete job with keyspace drift - completing", map[string]interface{}{
+			"job_id":              job.ID,
+			"name":                job.Name,
+			"dispatched_keyspace": job.DispatchedKeyspace.String(),
+			"effective_keyspace":  bigIntPtrLog(job.EffectiveKeyspace),
+			"uses_rule_splitting": job.UsesRuleSplitting,
+		})
+
+		// Use CompleteJobExecution directly (NOT ProcessJobCompletion) because:
+		// - ProcessJobCompletion has a hard dispatched < effective check for non-rule-split jobs
+		//   that would block completion even when all base keyspace is covered
+		// - CompleteJobExecution handles keyspace sync from actual task data
+		// - CompleteJobExecution checks HasFailedTasks and marks as FAILED if needed
+		// - isJobStructurallyComplete already validated dispatch completeness
+		if err := s.jobExecutionService.CompleteJobExecution(ctx, job.ID); err != nil {
+			debug.Error("Failed to complete structurally exhausted job %s: %v", job.ID, err)
+		}
+	}
 }
 
 // distributeOverflowAgents distributes extra agents beyond max_agents at the same priority level
@@ -608,10 +778,10 @@ func (s *JobSchedulingService) distributeOverflowAgents(
 					allocatedThisRound = true
 
 					debug.Log("Round-robin overflow: allocated agent", map[string]interface{}{
-						"job_id":         job.ID,
-						"job_name":       job.Name,
+						"job_id":          job.ID,
+						"job_name":        job.Name,
 						"total_allocated": allocation[job.ID],
-						"remaining":      remaining,
+						"remaining":       remaining,
 					})
 
 					if remaining == 0 {
@@ -655,8 +825,8 @@ func (s *JobSchedulingService) distributeOverflowAgentsWithCompatibility(
 	}
 
 	debug.Log("Distributing overflow agents with compatibility", map[string]interface{}{
-		"mode":           overflowMode,
-		"overflow_count": overflowCount,
+		"mode":             overflowMode,
+		"overflow_count":   overflowCount,
 		"jobs_at_priority": len(jobs),
 	})
 
@@ -740,6 +910,113 @@ func (s *JobSchedulingService) distributeOverflowAgentsWithCompatibility(
 	}
 }
 
+// filterAgentsByTeamAccess filters agents based on team access for a set of jobs.
+// Called at the start of ScheduleJobs, BEFORE CalculateAgentAllocation.
+// Returns a filtered agent list containing only agents that have team access to
+// at least one of the provided jobs.
+//
+// Trust model (all agents go through same logic, including system agents):
+//  1. Agent teams ∩ any job team ≠ ∅ → ALLOW (direct match)
+//  2. For each job team T: if T trusts any of agent's teams → ALLOW (trust match)
+//  3. Otherwise → DENY
+//
+// System agents belong to Default Team. Teams must trust Default Team to use them.
+func (s *JobSchedulingService) filterAgentsByTeamAccess(
+	ctx context.Context,
+	agents []models.Agent,
+	jobsWithWork []models.JobExecutionWithWork,
+) ([]models.Agent, error) {
+	// If teamService is not configured or teams not enabled, all agents are eligible (no filtering)
+	if s.teamService == nil || !s.teamService.IsTeamsEnabled(ctx) {
+		return agents, nil
+	}
+
+	// Build team context: batch-load all agent and job team memberships
+	agentTeamMap := make(map[int][]uuid.UUID) // agent ID (int) → team IDs
+	for _, agent := range agents {
+		teams, err := s.teamService.GetAgentEffectiveTeams(ctx, agent.ID)
+		if err != nil {
+			debug.Warning("Failed to get teams for agent %d: %v", agent.ID, err)
+			continue // Log error, skip agent
+		}
+		agentTeamMap[agent.ID] = teams
+	}
+
+	jobTeamMap := make(map[uuid.UUID][]uuid.UUID) // job ID → team IDs
+	for _, job := range jobsWithWork {
+		teams, err := s.teamService.GetJobTeamIDs(ctx, job.ID)
+		if err != nil {
+			debug.Warning("Failed to get teams for job %s: %v", job.ID, err)
+			continue
+		}
+		jobTeamMap[job.ID] = teams
+	}
+
+	// Collect all unique job team IDs
+	allJobTeamIDs := make(map[uuid.UUID]struct{})
+	for _, teams := range jobTeamMap {
+		for _, t := range teams {
+			allJobTeamIDs[t] = struct{}{}
+		}
+	}
+
+	// Bulk-load trust relationships for efficient lookup
+	trustMap, err := s.teamService.GetAllTrustRelationships(ctx)
+	if err != nil {
+		debug.Warning("Failed to load trust relationships: %v", err)
+		trustMap = make(map[uuid.UUID][]uuid.UUID) // Continue without trust on error
+	}
+
+	// Filter agents using trust model — all agents (including system) go through same logic
+	var filteredAgents []models.Agent
+	for _, agent := range agents {
+		agentTeams := agentTeamMap[agent.ID]
+		if len(agentTeams) == 0 {
+			continue // Agent had an error loading teams or has no teams, skip
+		}
+
+		// Build set of agent's teams for fast lookup
+		agentTeamSet := make(map[uuid.UUID]struct{}, len(agentTeams))
+		for _, t := range agentTeams {
+			agentTeamSet[t] = struct{}{}
+		}
+
+		canAccess := false
+
+		for jobTeamID := range allJobTeamIDs {
+			// Rule 1: Direct match — agent is in same team as job
+			if _, exists := agentTeamSet[jobTeamID]; exists {
+				canAccess = true
+				break
+			}
+
+			// Rule 2: Trust match — job's team trusts one of agent's teams
+			trustedTeams := trustMap[jobTeamID]
+			for _, trustedID := range trustedTeams {
+				if _, exists := agentTeamSet[trustedID]; exists {
+					canAccess = true
+					break
+				}
+			}
+			if canAccess {
+				break
+			}
+		}
+
+		if canAccess {
+			filteredAgents = append(filteredAgents, agent)
+		}
+	}
+
+	debug.Log("Team-based agent filtering complete", map[string]interface{}{
+		"original_agents": len(agents),
+		"filtered_agents": len(filteredAgents),
+		"trust_rules":     len(trustMap),
+	})
+
+	return filteredAgents, nil
+}
+
 // ScheduleJobs performs the main job scheduling logic
 func (s *JobSchedulingService) ScheduleJobs(ctx context.Context) (*ScheduleJobsResult, error) {
 	s.schedulingMutex.Lock()
@@ -819,6 +1096,22 @@ func (s *JobSchedulingService) ScheduleJobs(ctx context.Context) (*ScheduleJobsR
 
 	if len(jobsWithWork) == 0 {
 		debug.Log("No jobs with pending work", nil)
+		return result, nil
+	}
+
+	// NEW: Team-based filtering
+	availableAgents, err = s.filterAgentsByTeamAccess(ctx, availableAgents, jobsWithWork)
+	if err != nil {
+		debug.Warning("Failed to filter agents by team access: %v", err)
+		// Continue with unfiltered agents on error
+	}
+
+	debug.Log("Agents after team filtering", map[string]interface{}{
+		"agent_count": len(availableAgents),
+	})
+
+	if len(availableAgents) == 0 {
+		debug.Log("No agents available after team filtering", nil)
 		return result, nil
 	}
 
@@ -922,7 +1215,7 @@ func (s *JobSchedulingService) ScheduleJobs(ctx context.Context) (*ScheduleJobsR
 	}
 
 	debug.Info("Task planning complete", map[string]interface{}{
-		"total_plans":   len(taskPlans),
+		"total_plans":     len(taskPlans),
 		"planning_errors": len(planErrors),
 	})
 
@@ -970,6 +1263,11 @@ func (s *JobSchedulingService) ScheduleJobs(ctx context.Context) (*ScheduleJobsR
 	} else {
 		debug.Info("No task plans to execute", nil)
 	}
+
+	// Detect and complete jobs that are structurally done but stuck due to keyspace drift
+	// from potfile/wordlist updates (dispatched_keyspace < effective_keyspace but all rules
+	// or base keyspace fully dispatched)
+	s.completeExhaustedJobs(ctx, jobsWithWork)
 
 	// Release any unused reservations
 	s.releaseUnusedReservations()
@@ -1063,8 +1361,8 @@ func (s *JobSchedulingService) reserveAgentsForJobs(
 		})
 
 		debug.Log("Processing priority level for reservation", map[string]interface{}{
-			"priority":   priority,
-			"job_count":  len(jobs),
+			"priority":  priority,
+			"job_count": len(jobs),
 		})
 
 		// Assign agents to jobs in constrained-first order
@@ -1078,12 +1376,12 @@ func (s *JobSchedulingService) reserveAgentsForJobs(
 			compatibleAgents := matrix.getCompatibleAgents(job.ID, remainingAgents)
 
 			debug.Log("Reserving agents for job (constrained-first)", map[string]interface{}{
-				"job_id":            job.ID,
-				"job_name":          job.Name,
-				"priority":          job.Priority,
-				"requested_count":   agentCount,
-				"compatible_count":  len(compatibleAgents),
-				"constraint_score":  matrix.JobInfo[job.ID].ConstraintScore,
+				"job_id":           job.ID,
+				"job_name":         job.Name,
+				"priority":         job.Priority,
+				"requested_count":  agentCount,
+				"compatible_count": len(compatibleAgents),
+				"constraint_score": matrix.JobInfo[job.ID].ConstraintScore,
 			})
 
 			// Reserve up to agentCount compatible agents
@@ -1098,8 +1396,8 @@ func (s *JobSchedulingService) reserveAgentsForJobs(
 				reserved++
 
 				debug.Log("Reserved agent for job", map[string]interface{}{
-					"agent_id":         agentID,
-					"job_id":           job.ID,
+					"agent_id":          agentID,
+					"job_id":            job.ID,
 					"flexibility_score": matrix.AgentInfo[agentID].FlexibilityScore,
 				})
 			}
@@ -1134,7 +1432,6 @@ func (s *JobSchedulingService) releaseUnusedReservations() {
 		s.reservedAgents = make(map[int]uuid.UUID)
 	}
 }
-
 
 // getChunkDuration gets the chunk duration for a job from preset job or settings
 func (s *JobSchedulingService) getChunkDuration(ctx context.Context, jobExecution *models.JobExecution) (int, error) {
@@ -1288,7 +1585,7 @@ func (s *JobSchedulingService) checkAndInterruptForHighPriority(ctx context.Cont
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current tasks for high-priority job: %w", err)
 	}
-	
+
 	// Count active agents for this job
 	activeAgentCount := 0
 	for _, task := range currentTasks {
@@ -1296,19 +1593,19 @@ func (s *JobSchedulingService) checkAndInterruptForHighPriority(ctx context.Cont
 			activeAgentCount++
 		}
 	}
-	
+
 	// Use the job's own max_agents setting (0 means unlimited)
 	maxAgents := highPriorityJob.MaxAgents
 	if maxAgents == 0 {
 		maxAgents = 999 // Treat 0 as unlimited
 	}
-	
+
 	// Don't interrupt if already at max agents
 	if activeAgentCount >= maxAgents {
 		debug.Log("High-priority job already at max agents, skipping interruption", map[string]interface{}{
-			"job_id": highPriorityJob.ID,
+			"job_id":        highPriorityJob.ID,
 			"active_agents": activeAgentCount,
-			"max_agents": maxAgents,
+			"max_agents":    maxAgents,
 		})
 		return nil, nil
 	}
@@ -1536,9 +1833,10 @@ func (s *JobSchedulingService) ProcessJobCompletion(ctx context.Context, jobExec
 		// Get total rules from the job's effective keyspace and base keyspace
 		totalRules := job.MultiplicationFactor
 		if totalRules == 0 && job.EffectiveKeyspace != nil && job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
-			totalRules = int(*job.EffectiveKeyspace / *job.BaseKeyspace)
+			// effective(BigInt) / base(int64) → int64 sink (rule count)
+			totalRules = job.EffectiveKeyspace.DivInt64(*job.BaseKeyspace).Int64()
 		}
-		
+
 		// Get the maximum rule end index from all tasks
 		maxRuleEnd, err := s.jobExecutionService.jobTaskRepo.GetMaxRuleEndIndex(ctx, jobExecutionID)
 		if err != nil {
@@ -1547,21 +1845,21 @@ func (s *JobSchedulingService) ProcessJobCompletion(ctx context.Context, jobExec
 				"error":            err.Error(),
 			})
 		}
-		
+
 		// Check if all rules have been processed
 		allRulesProcessed := false
 		if maxRuleEnd != nil && totalRules > 0 {
-			allRulesProcessed = *maxRuleEnd >= totalRules
+			allRulesProcessed = int64(*maxRuleEnd) >= totalRules
 		}
-		
+
 		debug.Log("Rule-split job completion check", map[string]interface{}{
-			"job_execution_id":   jobExecutionID,
-			"incomplete_tasks":   incompleteTasks,
-			"total_rules":        totalRules,
-			"max_rule_end":       maxRuleEnd,
+			"job_execution_id":    jobExecutionID,
+			"incomplete_tasks":    incompleteTasks,
+			"total_rules":         totalRules,
+			"max_rule_end":        maxRuleEnd,
 			"all_rules_processed": allRulesProcessed,
 		})
-		
+
 		// Only complete if all tasks are done AND all rules have been dispatched
 		if !allRulesProcessed {
 			debug.Log("Rule-split job has completed tasks but not all rules dispatched", map[string]interface{}{
@@ -1574,56 +1872,43 @@ func (s *JobSchedulingService) ProcessJobCompletion(ctx context.Context, jobExec
 	}
 
 	if incompleteTasks == 0 {
-		// For non-rule-splitting jobs, check if all work has been dispatched
-		// using counter comparison. We use effective_keyspace as the target
-		// since that represents the actual total candidates to process.
-		// Note: base_keyspace is the wordlist size (different dimension) and
-		// should NOT be used for completion comparison.
+		// For non-rule-splitting jobs, completion is driven by BASE keyspace, not
+		// effective. We dispatch every chunk via hashcat --skip/--limit over the
+		// base wordlist, so max(keyspace_end) across non-failed tasks is exactly
+		// how much base keyspace has been dispatched — a value that never drifts.
+		// effective_keyspace, by contrast, is an estimate (base × multiplier, or a
+		// float-scaled proportion) that drifts with salts and mid-job wordlist
+		// growth and was leaving jobs stuck a fraction of a percent short forever.
+		// We settle effective_keyspace from the tasks' actual results at
+		// completion (see CompleteJobExecution), so the final progress still
+		// reads 100%.
 		if !job.UsesRuleSplitting {
-			if job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 && job.DispatchedKeyspace < *job.EffectiveKeyspace {
-				// More effective keyspace needs to be dispatched
-				debug.Log("Job not complete - effective_keyspace check", map[string]interface{}{
+			if job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
+				hasWork, hwErr := s.jobExecutionService.jobTaskRepo.HasUndispatchedBaseKeyspace(ctx, jobExecutionID)
+				if hwErr != nil {
+					// Be conservative: if we can't read the base coverage, don't
+					// complete (a transient DB error shouldn't finalize a job).
+					debug.Warning("HasUndispatchedBaseKeyspace(job=%s): %v — deferring completion", jobExecutionID, hwErr)
+					return nil
+				}
+				if hasWork {
+					// Base keyspace not fully dispatched yet (mid-gap or tail) —
+					// real work remains, possibly a reopened failed interval.
+					debug.Log("Job not complete - base_keyspace gap remains", map[string]interface{}{
+						"job_id":        jobExecutionID,
+						"base_keyspace": *job.BaseKeyspace,
+					})
+					return nil // Don't complete yet
+				}
+			} else if job.EffectiveKeyspace != nil && job.EffectiveKeyspace.IsPositive() && job.DispatchedKeyspace.Cmp(*job.EffectiveKeyspace) < 0 {
+				// Legacy fallback for jobs that never recorded a base keyspace.
+				debug.Log("Job not complete - effective_keyspace check (no base keyspace)", map[string]interface{}{
 					"job_id":              jobExecutionID,
-					"effective_keyspace":  *job.EffectiveKeyspace,
-					"dispatched_keyspace": job.DispatchedKeyspace,
-					"remaining":           *job.EffectiveKeyspace - job.DispatchedKeyspace,
-					"percentage":          float64(job.DispatchedKeyspace) / float64(*job.EffectiveKeyspace) * 100,
+					"effective_keyspace":  job.EffectiveKeyspace.String(),
+					"dispatched_keyspace": job.DispatchedKeyspace.String(),
+					"remaining":           job.EffectiveKeyspace.Sub(job.DispatchedKeyspace).String(),
 				})
 				return nil // Don't complete yet
-			}
-		}
-
-		// CRITICAL SAFETY: Don't complete rule-split jobs if not all rules dispatched
-		// This is a final safety net in case effective_keyspace was set incorrectly
-		if job.UsesRuleSplitting {
-			// Get actual rule count from file(s)
-			totalRulesNeeded := 0
-			for _, ruleID := range job.RuleIDs {
-				rulePath, err := s.jobExecutionService.resolveRulePath(ctx, ruleID)
-				if err == nil {
-					ruleCount, err := s.jobExecutionService.ruleSplitManager.CountRules(ctx, rulePath)
-					if err == nil {
-						totalRulesNeeded += ruleCount
-					}
-				}
-			}
-
-			if totalRulesNeeded > 0 {
-				maxRuleEnd, _ := s.jobExecutionService.jobTaskRepo.GetMaxRuleEndIndex(ctx, jobExecutionID)
-				rulesDispatched := 0
-				if maxRuleEnd != nil {
-					rulesDispatched = *maxRuleEnd
-				}
-
-				if rulesDispatched < totalRulesNeeded {
-					debug.Log("Rule-split job incomplete - safety check prevented premature completion", map[string]interface{}{
-						"job_id": jobExecutionID,
-						"rules_dispatched": rulesDispatched,
-						"total_rules": totalRulesNeeded,
-						"percent_complete": float64(rulesDispatched) / float64(totalRulesNeeded) * 100,
-					})
-					return nil // NOT DONE - more rules to dispatch
-				}
 			}
 		}
 
@@ -1634,10 +1919,10 @@ func (s *JobSchedulingService) ProcessJobCompletion(ctx context.Context, jobExec
 		}
 
 		debug.Log("Job execution completed - all tasks done and keyspace fully dispatched", map[string]interface{}{
-			"job_execution_id": jobExecutionID,
-			"effective_keyspace": job.EffectiveKeyspace,
-			"dispatched_keyspace": job.DispatchedKeyspace,
-			"incomplete_tasks": incompleteTasks,
+			"job_execution_id":    jobExecutionID,
+			"effective_keyspace":  bigIntPtrLog(job.EffectiveKeyspace),
+			"dispatched_keyspace": job.DispatchedKeyspace.String(),
+			"incomplete_tasks":    incompleteTasks,
 		})
 	} else {
 		debug.Log("Job has incomplete tasks", map[string]interface{}{
@@ -1691,11 +1976,11 @@ func (s *JobSchedulingService) ProcessTaskProgress(ctx context.Context, taskID u
 			})
 		} else {
 			attackMode := int(jobExec.AttackMode)
-			
+
 			// Store metrics for each device
 			for _, device := range progress.DeviceMetrics {
 				timestamp := time.Now()
-				
+
 				// Store temperature metric
 				if device.Temp > 0 {
 					tempMetric := &models.AgentPerformanceMetric{

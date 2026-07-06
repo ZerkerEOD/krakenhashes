@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -35,7 +35,6 @@ import {
   getAllUserWebhooks,
 } from '../../services/notifications';
 import type {
-  GlobalWebhookSettings,
   AgentOfflineSettings,
   AdminWebhookView,
 } from '../../types/notifications';
@@ -62,21 +61,25 @@ const NotificationSettings: React.FC = () => {
     has_secret: false,
   });
   const [globalLoading, setGlobalLoading] = useState(true);
-  const [globalSaving, setGlobalSaving] = useState(false);
   const [globalTesting, setGlobalTesting] = useState(false);
+  const globalSettingsRef = useRef(globalSettings);
 
   // Agent offline buffer state
   const [agentOfflineSettings, setAgentOfflineSettings] = useState<AgentOfflineSettings>({
     buffer_minutes: 10,
   });
   const [agentOfflineLoading, setAgentOfflineLoading] = useState(true);
-  const [agentOfflineSaving, setAgentOfflineSaving] = useState(false);
+  const agentOfflineRef = useRef(agentOfflineSettings);
 
   // User webhooks state (read-only)
   const [userWebhooks, setUserWebhooks] = useState<AdminWebhookView[]>([]);
   const [userWebhooksLoading, setUserWebhooksLoading] = useState(true);
 
   const [error, setError] = useState<string | null>(null);
+
+  // Keep refs in sync
+  useEffect(() => { globalSettingsRef.current = globalSettings; }, [globalSettings]);
+  useEffect(() => { agentOfflineRef.current = agentOfflineSettings; }, [agentOfflineSettings]);
 
   useEffect(() => {
     fetchAllSettings();
@@ -132,36 +135,39 @@ const NotificationSettings: React.FC = () => {
     }
   };
 
-  const handleSaveGlobalSettings = async () => {
-    setError(null);
+  const saveGlobalSettings = useCallback(async (settingsOverride?: Partial<GlobalWebhookFormState>) => {
+    const current = globalSettingsRef.current;
+    const toSave = { ...current, ...settingsOverride };
 
     // Validate JSON
-    if (!isValidJson(globalSettings.custom_headers)) {
+    if (!isValidJson(toSave.custom_headers)) {
       setError(t('webhooks.invalidJson', 'Invalid JSON format for custom headers'));
       return;
     }
 
-    setGlobalSaving(true);
+    setError(null);
     try {
       await updateGlobalWebhookSettings({
-        enabled: globalSettings.enabled,
-        url: globalSettings.url,
+        enabled: toSave.enabled,
+        url: toSave.url,
         // Only send secret if user entered a new one
-        ...(globalSettings.secret ? { secret: globalSettings.secret } : {}),
-        custom_headers: globalSettings.custom_headers,
+        ...(toSave.secret ? { secret: toSave.secret } : {}),
+        custom_headers: toSave.custom_headers,
       });
       // Clear the secret input after successful save
-      setGlobalSettings(prev => ({ ...prev, secret: '', has_secret: prev.has_secret || !!globalSettings.secret }));
+      setGlobalSettings(prev => ({ ...prev, secret: '', has_secret: prev.has_secret || !!toSave.secret }));
       enqueueSnackbar(t('admin.globalWebhook.saved', 'Global webhook settings saved'), { variant: 'success' });
     } catch (err: any) {
       console.error('Failed to save global webhook settings:', err);
       const message = err.response?.data?.error || t('errors.saveFailed', 'Failed to save settings');
       setError(message);
       enqueueSnackbar(message, { variant: 'error' });
-    } finally {
-      setGlobalSaving(false);
+      // Revert switch on error
+      if (settingsOverride?.enabled !== undefined) {
+        setGlobalSettings(prev => ({ ...prev, enabled: !settingsOverride.enabled }));
+      }
     }
-  };
+  }, [enqueueSnackbar, t]);
 
   const handleTestGlobalWebhook = async () => {
     setGlobalTesting(true);
@@ -180,26 +186,19 @@ const NotificationSettings: React.FC = () => {
     }
   };
 
-  const handleSaveAgentOfflineSettings = async () => {
+  const saveAgentOfflineSettings = useCallback(async () => {
+    const current = agentOfflineRef.current;
     setError(null);
-    setAgentOfflineSaving(true);
     try {
-      await updateAgentOfflineSettings(agentOfflineSettings.buffer_minutes);
+      await updateAgentOfflineSettings(current.buffer_minutes);
       enqueueSnackbar(t('admin.agentOffline.saved', 'Agent offline settings saved'), { variant: 'success' });
     } catch (err: any) {
       console.error('Failed to save agent offline settings:', err);
       const message = err.response?.data?.error || t('errors.saveFailed', 'Failed to save settings');
       setError(message);
       enqueueSnackbar(message, { variant: 'error' });
-    } finally {
-      setAgentOfflineSaving(false);
     }
-  };
-
-  const handleCustomHeadersChange = (value: string) => {
-    // Store raw string, validate on save
-    setGlobalSettings({ ...globalSettings, custom_headers: value });
-  };
+  }, [enqueueSnackbar, t]);
 
   const isValidJson = (str: string): boolean => {
     try {
@@ -241,7 +240,11 @@ const NotificationSettings: React.FC = () => {
                 control={
                   <Switch
                     checked={globalSettings.enabled}
-                    onChange={(e) => setGlobalSettings({ ...globalSettings, enabled: e.target.checked })}
+                    onChange={(e) => {
+                      const newEnabled = e.target.checked;
+                      setGlobalSettings(prev => ({ ...prev, enabled: newEnabled }));
+                      saveGlobalSettings({ enabled: newEnabled });
+                    }}
                   />
                 }
                 label={t('admin.globalWebhook.enabled', 'Enable global webhook')}
@@ -252,6 +255,7 @@ const NotificationSettings: React.FC = () => {
                 label={t('admin.globalWebhook.url', 'Webhook URL')}
                 value={globalSettings.url || ''}
                 onChange={(e) => setGlobalSettings({ ...globalSettings, url: e.target.value })}
+                onBlur={() => saveGlobalSettings()}
                 margin="normal"
                 disabled={!globalSettings.enabled}
               />
@@ -261,6 +265,7 @@ const NotificationSettings: React.FC = () => {
                 label={t('admin.globalWebhook.secret', 'Webhook Secret')}
                 value={globalSettings.secret}
                 onChange={(e) => setGlobalSettings({ ...globalSettings, secret: e.target.value })}
+                onBlur={() => { if (globalSettingsRef.current.secret) saveGlobalSettings(); }}
                 margin="normal"
                 type="password"
                 disabled={!globalSettings.enabled}
@@ -275,7 +280,8 @@ const NotificationSettings: React.FC = () => {
                 fullWidth
                 label={t('admin.globalWebhook.customHeaders', 'Custom Headers (JSON)')}
                 value={globalSettings.custom_headers}
-                onChange={(e) => handleCustomHeadersChange(e.target.value)}
+                onChange={(e) => setGlobalSettings({ ...globalSettings, custom_headers: e.target.value })}
+                onBlur={() => saveGlobalSettings()}
                 margin="normal"
                 multiline
                 rows={3}
@@ -284,14 +290,7 @@ const NotificationSettings: React.FC = () => {
                 helperText={!isValidJson(globalSettings.custom_headers) ? t('webhooks.invalidJson', 'Invalid JSON format') : ''}
               />
 
-              <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
-                <Button
-                  variant="contained"
-                  onClick={handleSaveGlobalSettings}
-                  disabled={globalSaving}
-                >
-                  {globalSaving ? <CircularProgress size={24} /> : t('common:save', 'Save')}
-                </Button>
+              <Box sx={{ mt: 2 }}>
                 <Button
                   variant="outlined"
                   onClick={handleTestGlobalWebhook}
@@ -332,21 +331,12 @@ const NotificationSettings: React.FC = () => {
                   ...agentOfflineSettings,
                   buffer_minutes: Math.max(0, parseInt(e.target.value, 10) || 0),
                 })}
+                onBlur={() => saveAgentOfflineSettings()}
                 margin="normal"
                 helperText={t('admin.agentOffline.bufferHelp', 'Wait this many minutes before notifying about offline agents')}
                 InputProps={{ inputProps: { min: 0 } }}
                 sx={{ width: 200 }}
               />
-
-              <Box sx={{ mt: 2 }}>
-                <Button
-                  variant="contained"
-                  onClick={handleSaveAgentOfflineSettings}
-                  disabled={agentOfflineSaving}
-                >
-                  {agentOfflineSaving ? <CircularProgress size={24} /> : t('common:save', 'Save')}
-                </Button>
-              </Box>
             </Box>
           )}
         </AccordionDetails>

@@ -215,6 +215,19 @@ func (s *JobChunkingService) CalculateNextChunk(ctx context.Context, req ChunkCa
 		}
 	}
 
+	// Guard against degenerate 1-candidate (or smaller) chunks. We've seen this
+	// happen historically when an agent reports 0 H/s and the chunking math
+	// degenerates; the resulting `--limit 1` task completes instantly and
+	// loops forever. The rest of the pipeline now rejects 0 H/s benchmarks at
+	// receive time, but keep this hard floor so a future regression can't
+	// silently dispatch a useless chunk.
+	chunkSize := keyspaceEnd - keyspaceStart
+	if chunkSize <= 1 {
+		debug.Warning("Refusing to dispatch degenerate chunk (size=%d) for job %s: keyspace_start=%d, keyspace_end=%d, base_keyspace=%d, benchmark_speed=%d",
+			chunkSize, req.JobExecution.ID, keyspaceStart, keyspaceEnd, baseKeyspace, benchmarkSpeed)
+		return nil, fmt.Errorf("calculated chunk size %d is too small to dispatch (start=%d, end=%d). The agent's benchmark may be stale or zero; check benchmark history for agent %d.", chunkSize, keyspaceStart, keyspaceEnd, req.Agent.ID)
+	}
+
 	result := &ChunkCalculationResult{
 		KeyspaceStart:  keyspaceStart,
 		KeyspaceEnd:    keyspaceEnd,
@@ -353,14 +366,14 @@ type JobCompletionEstimateRequest struct {
 // EstimateJobCompletion estimates when a job will complete based on current progress
 func (s *JobChunkingService) EstimateJobCompletion(ctx context.Context, req JobCompletionEstimateRequest) (*time.Time, error) {
 	// Use EffectiveKeyspace for completion estimation (total candidates including rules and salts)
-	if req.JobExecution.EffectiveKeyspace == nil || *req.JobExecution.EffectiveKeyspace == 0 {
+	if req.JobExecution.EffectiveKeyspace == nil || req.JobExecution.EffectiveKeyspace.IsZero() {
 		return nil, fmt.Errorf("cannot estimate completion without effective keyspace")
 	}
 
 	effectiveKeyspace := *req.JobExecution.EffectiveKeyspace
-	remainingKeyspace := effectiveKeyspace - req.JobExecution.ProcessedKeyspace
+	remainingKeyspace := effectiveKeyspace.Sub(req.JobExecution.ProcessedKeyspace)
 
-	if remainingKeyspace <= 0 {
+	if remainingKeyspace.Sign() <= 0 {
 		// Job is already complete
 		now := time.Now()
 		return &now, nil
@@ -405,8 +418,8 @@ func (s *JobChunkingService) EstimateJobCompletion(ctx context.Context, req JobC
 	}
 
 	// Calculate estimated completion time
-	estimatedSeconds := remainingKeyspace / candidateSpeed
-	estimatedCompletion := time.Now().Add(time.Duration(estimatedSeconds) * time.Second)
+	estimatedSeconds := remainingKeyspace.DivInt64(candidateSpeed)
+	estimatedCompletion := time.Now().Add(time.Duration(estimatedSeconds.Int64()) * time.Second)
 
 	debug.Log("Job completion estimated", map[string]interface{}{
 		"job_execution_id":     req.JobExecution.ID,

@@ -54,11 +54,16 @@ export interface PresetJob {
   updated_at: string; // ISO 8601 date string
   binary_version_name?: string; // Optional, resolved display name from pattern
   mask?: string; // Mask pattern for mask-based attack modes
+  custom_charsets?: Record<string, string> | null; // Custom charsets: {"1": "?u?d", "3": "?s"}
+  custom_charset_file_ids?: Record<string, string> | null; // File charset references: {"1": "uuid", "2": "uuid"}
+  custom_charset_files?: Record<string, { id: string; file_path: string; md5: string; byte_count: number }> | null; // Full file charset refs from API
+  hex_charset?: boolean; // True if inline charsets use hex encoding
   keyspace?: number | null; // Pre-calculated keyspace
   max_agents: number; // Max agents allowed (0 = unlimited)
   increment_mode?: string; // Mask increment mode: off, increment, increment_inverse
   increment_min?: number | null; // Starting mask length
   increment_max?: number | null; // Maximum mask length
+  additional_args?: string | null; // Additional hashcat arguments
 }
 
 // Internal form state type for use in the UI - keeps IDs as numbers
@@ -72,11 +77,15 @@ export interface PresetJobFormData {
   /** Binary version pattern (e.g., "default", "7.x", "7.1.x", "7.1.2") */
   binary_version: string;
   mask?: string; // Mask pattern for mask-based attack modes
+  custom_charsets?: Record<string, string> | null; // Custom charsets: {"1": "?u?d", "3": "?s"}
+  custom_charset_file_ids?: Record<string, string> | null; // File charset references: {"1": "uuid", "2": "uuid"}
+  hex_charset?: boolean; // True if inline charsets use hex encoding
   allow_high_priority_override: boolean;
   max_agents: number;
   increment_mode: string; // Mask increment mode
   increment_min: number | undefined; // Optional, backend applies defaults
   increment_max: number | undefined; // Optional, backend applies defaults
+  additional_args: string; // Additional hashcat arguments
 }
 
 // API type for create/update operations - using string UUIDs

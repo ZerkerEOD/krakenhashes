@@ -864,6 +864,14 @@
   "ssoSettings": {
     "pageTitle": "SSO-Einstellungen",
     "pageDescription": "Single Sign-On-Anbieter und Authentifizierungsoptionen konfigurieren",
+    "warnings": {
+      "ephemeralKeyTitle": "SSO Encryption Key Not Configured",
+      "ephemeralKeyDescription": "SSO provider secrets (client secrets, bind passwords, private keys) are currently encrypted with a temporary key that will be lost when the server restarts. Any configured SSO providers will stop working after a restart.",
+      "ephemeralKeyInstructions": "To fix this, generate a persistent encryption key by running:",
+      "ephemeralKeyAddToEnv": "Then add the following to your .env file and restart the server:",
+      "ephemeralKeyEnvExample": "SSO_ENCRYPTION_KEY=<paste_generated_key_here>",
+      "ephemeralKeyCopied": "Command copied to clipboard"
+    },
     "authMethods": {
       "title": "Authentifizierungsmethoden",
       "description": "Authentifizierungsmethoden global aktivieren oder deaktivieren",
@@ -1145,11 +1153,18 @@
     },
     "agentOverflow": {
       "title": "Agenten-Überlauf-Zuweisung",
-      "tooltip": "Konfigurieren Sie, wie Agenten über die max_agents-Grenzen hinaus zugewiesen werden, wenn Aufträge die gleiche Priorität haben",
-      "roundRobinMode": "Round-Robin-Modus",
-      "fifoMode": "FIFO-Modus",
-      "fifoDescription": "Wenn mehrere Aufträge mit gleicher Priorität ihre max_agents-Grenzen überschreiten, erhält der älteste Auftrag (zuerst erstellt) alle zusätzlichen Agenten.",
-      "roundRobinDescription": "Zusätzliche Agenten werden gleichmäßig auf alle Aufträge mit gleicher Priorität verteilt, einen Agenten nach dem anderen, um eine faire Zuweisung zu gewährleisten."
+      "tooltip": "Konfigurieren Sie, wie freie Agenten verteilt werden, sobald jeder Auftrag auf jeder Prioritätsstufe seine max_agents-Grenze erreicht hat.",
+      "modeLabel": "Überlauf-Zuweisungsmodus",
+      "priorityFifoMode": "Priorität - FIFO",
+      "priorityRoundRobinMode": "Priorität - Round Robin",
+      "enforceMaxAgentsMode": "max_agents erzwingen",
+      "maxAgentsFifoMode": "Max Agenten - FIFO",
+      "maxAgentsRoundRobinMode": "Max Agenten - Round Robin",
+      "priorityFifoDescription": "Wenn mehrere Aufträge mit gleicher Priorität ihre max_agents-Grenzen überschreiten, erhält der älteste Auftrag (zuerst erstellt) alle zusätzlichen Agenten.",
+      "priorityRoundRobinDescription": "Zusätzliche Agenten werden gleichmäßig auf alle Aufträge mit gleicher Priorität verteilt, einen Agenten nach dem anderen, um eine faire Zuweisung zu gewährleisten.",
+      "enforceMaxAgentsDescription": "Strictly cap each job at its max_agents limit — no overflow. Surplus agents stay idle. Most predictable; can waste capacity.",
+      "maxAgentsFifoDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then pile on the OLDEST job overall — bypassing priority. Maximizes throughput while still giving every job its baseline.",
+      "maxAgentsRoundRobinDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then rotate evenly across ALL jobs — bypassing priority. Maximizes throughput with fair distribution beyond the baseline."
     },
     "hashlist": {
       "title": "Hashlisten-Einstellungen",
@@ -1220,6 +1235,8 @@
       "progressReportingHelper": "Wie oft Agenten Fortschritt melden",
       "benchmarkCache": "Benchmark-Cache-Dauer",
       "benchmarkCacheHelper": "Wie lange Agenten-Benchmarks gecacht werden",
+      "benchmarkHistoryRetention": "Benchmark-Verlauf Aufbewahrung",
+      "benchmarkHistoryRetentionHelper": "Tage, die Benchmark-Verlaufsdaten aufbewahrt werden (0 = unbegrenzt)",
       "speedtestTimeout": "Speedtest-Timeout",
       "speedtestTimeoutHelper": "Maximale Wartezeit für Speedtest-Abschluss",
       "reconnectGrace": "Wiederverbindungs-Karenzzeit",
@@ -1239,7 +1256,9 @@
       "maxRetryAttempts": "Max. Chunk-Wiederholungsversuche",
       "maxRetryAttemptsHelper": "Anzahl der Wiederholungsversuche für fehlgeschlagene Chunks",
       "jobsPerPage": "Aufträge pro Seite",
-      "jobsPerPageHelper": "Standard-Paginierungsgröße für Auftragslisten"
+      "jobsPerPageHelper": "Standard-Paginierungsgröße für Auftragslisten",
+      "keyspaceTimeout": "Keyspace-Berechnungs-Timeout",
+      "keyspaceTimeoutHelper": "Maximale Zeit für hashcat --keyspace und --total-candidates Befehle. Erhöhen für große Wortlisten/Regeln."
     },
     "potfile": {
       "title": "Potfile-Einstellungen",

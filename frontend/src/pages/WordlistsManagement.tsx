@@ -27,6 +27,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogContentText,
   DialogActions,
   TextField,
   MenuItem,
@@ -45,7 +46,8 @@ import {
   Checkbox,
   FormControl,
   InputLabel,
-  Select
+  Select,
+  Autocomplete
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
@@ -56,11 +58,14 @@ import {
   Add as AddIcon,
   Check as CheckIcon,
   Clear as ClearIcon,
-  Verified as VerifiedIcon
+  Verified as VerifiedIcon,
+  FilterAlt as FilterAltIcon,
+  Autorenew as AutorenewIcon
 } from '@mui/icons-material';
 import FileUpload from '../components/common/FileUpload';
-import { Wordlist, WordlistStatus, WordlistType, DeletionImpact } from '../types/wordlists';
+import { Wordlist, WordlistStatus, WordlistType, DeletionImpact, WordlistFilter } from '../types/wordlists';
 import * as wordlistService from '../services/wordlists';
+import FilterCriteriaForm, { isFilterEmpty } from '../components/wordlists/FilterCriteriaForm';
 import { useSnackbar } from 'notistack';
 import { formatFileSize, formatAttackMode } from '../utils/formatters';
 
@@ -89,6 +94,73 @@ export default function WordlistsManagement() {
   const [deletionImpact, setDeletionImpact] = useState<DeletionImpact | null>(null);
   const [confirmationId, setConfirmationId] = useState('');
   const [isCheckingImpact, setIsCheckingImpact] = useState(false);
+
+  // Filtered (derived) wordlist creation (GH #40)
+  const [filterDialogOpen, setFilterDialogOpen] = useState(false);
+  // Manual full-regeneration confirmation (GH #40 follow-up)
+  const [regenConfirm, setRegenConfirm] = useState<Wordlist | null>(null);
+  const [filterParent, setFilterParent] = useState<Wordlist | null>(null);
+  const [filterName, setFilterName] = useState('');
+  const [filterCriteria, setFilterCriteria] = useState<WordlistFilter>({});
+  const [creatingFilter, setCreatingFilter] = useState(false);
+
+  const openFilterDialog = () => {
+    setFilterParent(null);
+    setFilterName('');
+    setFilterCriteria({});
+    setFilterDialogOpen(true);
+  };
+
+  const handleCreateFilteredWordlist = async () => {
+    if (!filterParent || isFilterEmpty(filterCriteria)) {
+      return;
+    }
+    try {
+      setCreatingFilter(true);
+      await wordlistService.createFilteredWordlist({
+        parent_wordlist_id: parseInt(filterParent.id, 10),
+        name: filterName.trim() || `${filterParent.name} (filtered)`,
+        filter: filterCriteria,
+      });
+      enqueueSnackbar('Filtered wordlist is being generated', { variant: 'success' });
+      setFilterDialogOpen(false);
+      fetchWordlists();
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || 'Failed to create filtered wordlist';
+      enqueueSnackbar(msg, { variant: 'error' });
+    } finally {
+      setCreatingFilter(false);
+    }
+  };
+
+  // Describe a wordlist's on-disk format for the source picker so otherwise
+  // identical-looking lists (same word count) can be told apart (GH #40).
+  const wordlistExtension = (w: Wordlist): string => {
+    const base = (w.file_name || w.name).split('/').pop() || '';
+    const dot = base.lastIndexOf('.');
+    return dot >= 0 ? base.slice(dot + 1).toLowerCase() : '';
+  };
+  const isCompressedWordlist = (w: Wordlist): boolean => {
+    return w.format === 'compressed' || ['gz', 'zip', '7z', 'bz2', 'xz'].includes(wordlistExtension(w));
+  };
+
+  const handleRegenerateFiltered = async (id: string) => {
+    try {
+      await wordlistService.regenerateFilteredWordlist(id);
+      enqueueSnackbar('Started full regeneration of filtered wordlist', { variant: 'info' });
+      fetchWordlists();
+    } catch (err) {
+      enqueueSnackbar('Failed to regenerate filtered wordlist', { variant: 'error' });
+    }
+  };
+
+  // The manual Regenerate button forces a FULL rebuild, so confirm intent first.
+  const confirmRegenerateFiltered = async () => {
+    if (!regenConfirm) return;
+    const id = regenConfirm.id;
+    setRegenConfirm(null);
+    await handleRegenerateFiltered(id);
+  };
 
   // Fetch wordlists
   const fetchWordlists = useCallback(async () => {
@@ -410,6 +482,15 @@ export default function WordlistsManagement() {
             </Button>
             <Button
               variant="outlined"
+              startIcon={<FilterAltIcon />}
+              onClick={openFilterDialog}
+              sx={{ mr: 1 }}
+              disabled={isLoading}
+            >
+              Filtered Wordlist
+            </Button>
+            <Button
+              variant="outlined"
               startIcon={<RefreshIcon />}
               onClick={() => fetchWordlists()}
             >
@@ -526,6 +607,19 @@ export default function WordlistsManagement() {
                         <Box>
                           <Typography variant="body2" fontWeight="medium">
                             {wordlist.name}
+                            {wordlist.parent_wordlist_id && (
+                              <Chip label="Filtered" size="small" color="info" variant="outlined" sx={{ ml: 1 }} />
+                            )}
+                            {wordlist.parent_wordlist_id && wordlist.verification_status === 'pending' && (
+                              <Tooltip title="The parent changed; this filtered wordlist is regenerating (only the new entries are re-filtered when possible).">
+                                <Chip label="Regenerating…" size="small" color="info" sx={{ ml: 1 }} />
+                              </Tooltip>
+                            )}
+                            {wordlist.is_stale && wordlist.verification_status !== 'pending' && (
+                              <Tooltip title="Parent wordlist changed since this was generated. Filtered wordlists regenerate automatically when their parent changes; you can also regenerate now.">
+                                <Chip label="Stale" size="small" color="warning" sx={{ ml: 1 }} />
+                              </Tooltip>
+                            )}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
                             {wordlist.description || t('wordlists.noDescription') as string}
@@ -564,6 +658,19 @@ export default function WordlistsManagement() {
                             </IconButton>
                           </Tooltip>
                         )}
+                        {wordlist.parent_wordlist_id && (
+                          <Tooltip title="Force a full regenerate from the parent wordlist. Filtered wordlists already regenerate automatically when their parent changes.">
+                            <span>
+                              <IconButton
+                                color={wordlist.is_stale ? 'warning' : 'default'}
+                                onClick={() => setRegenConfirm(wordlist)}
+                                disabled={wordlist.verification_status === 'pending'}
+                              >
+                                <AutorenewIcon />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        )}
                         <Tooltip title={t('wordlists.tooltips.download') as string}>
                           <IconButton
                             onClick={() => handleDownload(wordlist.id, wordlist.name)}
@@ -595,6 +702,113 @@ export default function WordlistsManagement() {
             </Table>
           </TableContainer>
         </Paper>
+
+      {/* Create Filtered Wordlist Dialog (GH #40) */}
+      <Dialog
+        open={filterDialogOpen}
+        onClose={() => !creatingFilter && setFilterDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Create Filtered Wordlist</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Generate a new wordlist containing only the lines of a source wordlist
+            that match your criteria. The result is reusable across jobs and is
+            tracked against its parent.
+          </Typography>
+          <Autocomplete
+            options={wordlists.filter((w) => !w.parent_wordlist_id && !w.is_potfile && w.verification_status === 'verified')}
+            getOptionLabel={(w) => {
+              const ext = wordlistExtension(w);
+              return `${w.name} — ${w.word_count.toLocaleString()} words${ext ? ` · .${ext}` : ''}`;
+            }}
+            value={filterParent}
+            onChange={(_, v) => setFilterParent(v)}
+            renderOption={(props, w) => (
+              <li {...props} key={w.id}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                  <Box>
+                    <Typography variant="body2">{w.name}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {w.word_count.toLocaleString()} words · {formatFileSize(w.file_size)}
+                    </Typography>
+                  </Box>
+                  {isCompressedWordlist(w) ? (
+                    <Chip size="small" color="warning" variant="outlined" label={`compressed${wordlistExtension(w) ? ` (.${wordlistExtension(w)})` : ''}`} />
+                  ) : (
+                    <Chip size="small" variant="outlined" label="plaintext" />
+                  )}
+                </Box>
+              </li>
+            )}
+            renderInput={(params) => (
+              <TextField {...params} label="Source wordlist" margin="normal" required />
+            )}
+          />
+          <TextField
+            label="Name"
+            fullWidth
+            margin="normal"
+            value={filterName}
+            onChange={(e) => setFilterName(e.target.value)}
+            placeholder={filterParent ? `${filterParent.name} (filtered)` : ''}
+          />
+          <Box sx={{ mt: 1 }}>
+            <FilterCriteriaForm
+              parentWordlistId={filterParent ? parseInt(filterParent.id, 10) : undefined}
+              value={filterCriteria}
+              onChange={setFilterCriteria}
+              showPreview
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setFilterDialogOpen(false)} disabled={creatingFilter}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleCreateFilteredWordlist}
+            disabled={creatingFilter || !filterParent || isFilterEmpty(filterCriteria)}
+            startIcon={creatingFilter ? <CircularProgress size={16} /> : <FilterAltIcon />}
+          >
+            Create
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Manual full-regeneration confirmation (GH #40 follow-up) */}
+      <Dialog
+        open={regenConfirm !== null}
+        onClose={() => setRegenConfirm(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Regenerate filtered wordlist?</DialogTitle>
+        <DialogContent>
+          <DialogContentText component="div">
+            <Typography variant="body2" gutterBottom>
+              Filtered wordlists are normally regenerated <strong>automatically on the backend</strong> whenever
+              their parent wordlist changes — you don't need to do this by hand.
+            </Typography>
+            <Typography variant="body2" gutterBottom>
+              Only regenerate manually if you know the <strong>order of words in the parent changed</strong> (words
+              were edited, removed, or reordered rather than simply appended to the end).
+            </Typography>
+            <Typography variant="body2" color="warning.main">
+              This runs a <strong>full regeneration</strong> — the entire parent is re-filtered, which can take a
+              while for large wordlists{regenConfirm ? ` (e.g. “${regenConfirm.name}”)` : ''}.
+            </Typography>
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRegenConfirm(null)}>Cancel</Button>
+          <Button variant="contained" color="warning" startIcon={<AutorenewIcon />} onClick={confirmRegenerateFiltered}>
+            Regenerate fully
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Upload Dialog */}
       <Dialog

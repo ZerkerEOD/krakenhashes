@@ -51,8 +51,18 @@ func (h *SSOAdminHandler) GetSSOSettings(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	response := map[string]interface{}{
+		"local_auth_enabled":       settings.LocalAuthEnabled,
+		"ldap_auth_enabled":        settings.LDAPAuthEnabled,
+		"saml_auth_enabled":        settings.SAMLAuthEnabled,
+		"oauth_auth_enabled":       settings.OAuthAuthEnabled,
+		"sso_auto_create_users":    settings.SSOAutoCreateUsers,
+		"sso_auto_enable_users":    settings.SSOAutoEnableUsers,
+		"encryption_key_ephemeral": sso.GetEncryptionService().IsEphemeral(),
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(settings)
+	json.NewEncoder(w).Encode(response)
 }
 
 // UpdateSSOSettingsRequest represents the update SSO settings request body

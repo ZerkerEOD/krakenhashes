@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -31,7 +32,7 @@ import (
 var UserJobsHandlerInstance *jobs.UserJobsHandler
 
 // CreateJobsHandler creates and returns the jobs handler
-func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Manager) *jobs.UserJobsHandler {
+func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Manager, teamService *services.TeamService) *jobs.UserJobsHandler {
 	// Create repositories
 	dbWrapper := &db.DB{DB: database.DB}
 	jobExecRepo := repository.NewJobExecutionRepository(dbWrapper)
@@ -57,11 +58,28 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 	// Create additional repositories for job creation
 	workflowRepo := repository.NewJobWorkflowRepository(database.DB)
 	wordlistStore := wordlist.NewStore(database.DB)
+	wordlistManager := wordlist.NewManager(
+		wordlistStore,
+		filepath.Join(dataDir, "wordlists"),
+		0,
+		[]string{"txt", "dict", "lst", "gz", "zip"},
+		[]string{"text/plain", "application/gzip", "application/zip"},
+		jobExecRepo,
+		presetJobRepo,
+		workflowRepo,
+	)
 	ruleStore := rule.NewStore(database.DB)
 	binaryStore := binary.NewStore(database.DB)
 	jobIncrementLayerRepo := repository.NewJobIncrementLayerRepository(dbWrapper)
 	presetIncrementLayerRepo := repository.NewPresetIncrementLayerRepository(dbWrapper)
 	assocWordlistRepo := repository.NewAssociationWordlistRepository(dbWrapper)
+	charsetRepo := repository.NewCustomCharsetRepository(database.DB)
+
+	// Create client potfile and wordlist dependencies
+	clientPotfileRepo := repository.NewClientPotfileRepository(dbWrapper)
+	clientWordlistRepo := repository.NewClientWordlistRepository(dbWrapper)
+	clientWordlistBasePath := filepath.Join(dataDir, "wordlists", "clients")
+	clientWordlistManager := services.NewClientWordlistManager(clientWordlistRepo, clientRepo, clientWordlistBasePath)
 
 	// Create job execution service
 	jobExecutionService := services.NewJobExecutionService(
@@ -82,6 +100,8 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 		scheduleRepo,
 		binaryManager,
 		assocWordlistRepo,
+		clientWordlistRepo,
+		clientPotfileRepo,
 		"", // hashcatBinaryPath - not needed for keyspace calculation
 		dataDir,
 	)
@@ -97,20 +117,26 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 		workflowRepo,
 		hashTypeRepo,
 		wordlistStore,
+		wordlistManager,
 		ruleStore,
 		binaryStore,
 		jobExecutionService,
 		systemSettingsRepo,
 		assocWordlistRepo,
+		clientPotfileRepo,
+		clientWordlistManager,
+		teamService,
+		charsetRepo,
+		benchmarkRepo,
 	)
 }
 
 // SetupUserRoutes configures all user-related routes
-func SetupUserRoutes(router *mux.Router, database *db.DB, dataDir string, binaryManager binary.Manager, agentService *services.AgentService) {
+func SetupUserRoutes(router *mux.Router, database *db.DB, dataDir string, binaryManager binary.Manager, agentService *services.AgentService, teamService *services.TeamService) {
 	debug.Info("Setting up user routes")
 
 	// Create handlers
-	jobsHandler := CreateJobsHandler(database, dataDir, binaryManager)
+	jobsHandler := CreateJobsHandler(database, dataDir, binaryManager, teamService)
 
 	// Store the handler globally so we can set the WebSocket handler later
 	UserJobsHandlerInstance = jobsHandler
@@ -126,7 +152,7 @@ func SetupUserRoutes(router *mux.Router, database *db.DB, dataDir string, binary
 
 	// User-specific jobs route
 	router.HandleFunc("/user/jobs", jobsHandler.ListUserJobs).Methods("GET", "OPTIONS")
-	
+
 	// User-specific agents route with current task info
 	router.HandleFunc("/user/agents", agentHandler.GetUserAgents).Methods("GET", "OPTIONS")
 
@@ -134,6 +160,10 @@ func SetupUserRoutes(router *mux.Router, database *db.DB, dataDir string, binary
 
 	// Other specific job routes (before generic {id} pattern)
 	router.HandleFunc("/jobs/finished", jobsHandler.DeleteFinishedJobs).Methods("DELETE", "OPTIONS")
+
+	// Job archive routes (before generic {id} pattern)
+	router.HandleFunc("/jobs/{id}/archive", jobsHandler.ArchiveJob).Methods("POST", "OPTIONS")
+	router.HandleFunc("/jobs/{id}/unarchive", jobsHandler.UnarchiveJob).Methods("POST", "OPTIONS")
 
 	// Generic job routes (MUST come after specific routes)
 	router.HandleFunc("/jobs", jobsHandler.ListJobs).Methods("GET", "OPTIONS")
@@ -147,6 +177,12 @@ func SetupUserRoutes(router *mux.Router, database *db.DB, dataDir string, binary
 	// Increment layer routes
 	router.HandleFunc("/jobs/{id}/layers", jobsHandler.GetJobLayers).Methods("GET", "OPTIONS")
 	router.HandleFunc("/jobs/{id}/layers/{layer_id}/tasks", jobsHandler.GetJobLayerTasks).Methods("GET", "OPTIONS")
+
+	// Benchmark blocklist (per-job cooldown entries) — surfaces why the
+	// scheduler is skipping agents for this job and lets operators clear
+	// cooldowns early.
+	router.HandleFunc("/jobs/{id}/benchmark-blocklist", jobsHandler.GetBenchmarkBlocklist).Methods("GET", "OPTIONS")
+	router.HandleFunc("/jobs/{id}/benchmark-blocklist/{entryID}/clear", jobsHandler.ClearBenchmarkBlocklistEntry).Methods("POST", "OPTIONS")
 
 	// Get user profile
 	router.HandleFunc("/user/profile", func(w http.ResponseWriter, r *http.Request) {

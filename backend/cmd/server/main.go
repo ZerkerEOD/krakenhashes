@@ -190,6 +190,10 @@ func main() {
 
 	// Initialize services with dependencies
 	agentService := services.NewAgentService(agentRepo, repository.NewClaimVoucherRepository(dbWrapper), repository.NewFileRepository(dbWrapper, appConfig.DataDir), deviceRepo, jobTaskRepo, jobExecutionRepo)
+	// Wire the scheduling-diagnostics repo so the agent detail page can show
+	// why an agent is idle (binary mismatch, blocklisted, etc.). The scheduler
+	// writes these reasons via its buffered DiagnosticsService; here we only read.
+	agentService.SetDiagnosticsRepo(repository.NewDiagnosticsRepository(dbWrapper))
 
 	analyticsRepo := repository.NewAnalyticsRepository(dbWrapper)
 	retentionService := retentionsvc.NewRetentionService(dbWrapper, hashlistRepo, hashRepo, clientRepo, clientSettingsRepo, analyticsRepo)
@@ -214,9 +218,9 @@ func main() {
 		0,                                       // No file size limit
 		[]string{"rule", "rules", "txt", "lst"}, // Allowed formats
 		[]string{"text/plain"},                  // Allowed MIME types
-		jobExecutionRepo, // Pass job execution repository for dependency checking
-		presetJobRepo,    // Pass preset job repository for cascade deletion
-		workflowRepo,     // Pass workflow repository for cascade deletion
+		jobExecutionRepo,                        // Pass job execution repository for dependency checking
+		presetJobRepo,                           // Pass preset job repository for cascade deletion
+		workflowRepo,                            // Pass workflow repository for cascade deletion
 	)
 
 	// Initialize binary manager
@@ -372,7 +376,10 @@ func main() {
 	defer tokenCleanupService.Stop()
 	debug.Info("Token cleanup service started")
 
-	// Initialize pot-file service
+	// Initialize client potfile repository (needed by both services)
+	clientPotfileRepo := repository.NewClientPotfileRepository(dbWrapper)
+
+	// Initialize pot-file service (unified: handles both global and client potfiles)
 	debug.Info("=== POT-FILE SERVICE INITIALIZATION STARTING ===")
 	debug.Info("About to initialize pot-file service")
 	debug.Info("Initializing pot-file service...")
@@ -385,8 +392,10 @@ func main() {
 		hashRepo,
 		jobUpdateService,
 		potfileHistory,
+		clientRepo,        // For client potfile settings lookup
+		clientPotfileRepo, // For client potfile metadata
 	)
-	
+
 	// Start pot-file service
 	if err := potfileService.Start(context.Background()); err != nil {
 		debug.Error("Failed to start pot-file service: %v", err)
@@ -394,6 +403,23 @@ func main() {
 	} else {
 		debug.Info("Pot-file service started successfully")
 		defer potfileService.Stop()
+	}
+
+	// Initialize client-specific potfile service (thin wrapper, delegates to PotfileService)
+	debug.Info("Initializing client potfile service...")
+	clientPotfileService := services.NewClientPotfileService(
+		appConfig.DataDir,
+		clientPotfileRepo,
+		potfileService, // Delegate to unified PotfileService
+	)
+
+	// Start client potfile service
+	if err := clientPotfileService.Start(context.Background()); err != nil {
+		debug.Error("Failed to start client potfile service: %v", err)
+		// Continue without client potfile service - not fatal
+	} else {
+		debug.Info("Client potfile service started successfully")
+		defer clientPotfileService.Stop()
 	}
 
 	// Initialize analytics queue service
@@ -421,7 +447,15 @@ func main() {
 
 	// Setup routes
 	debug.Info("Setting up routes")
-	routes.SetupRoutes(httpsRouter, sqlDB, tlsProvider, agentService, wordlistManager, ruleManager, binaryManager, potfileService, analyticsQueueService)
+	routes.SetupRoutes(httpsRouter, sqlDB, tlsProvider, agentService, wordlistManager, ruleManager, binaryManager, potfileService, clientPotfileService, analyticsQueueService)
+
+	// Wire the scheduler compat-cache invalidator into the agent service now
+	// that SetupRoutes has constructed the job integration manager. This makes
+	// an admin binary_version change re-evaluate the agent's scheduling
+	// compatibility immediately instead of after the next periodic re-warm.
+	if routes.JobIntegrationManager != nil {
+		agentService.SetCompatInvalidator(routes.JobIntegrationManager.InvalidateAgentCompat)
+	}
 
 	// Setup CA certificate route on HTTP router
 	debug.Info("Setting up CA certificate route")
@@ -480,11 +514,39 @@ func main() {
 
 	// Start the job scheduler if it was initialized
 	if routes.JobIntegrationManager != nil {
+		// One-shot converter: migrate any pre-existing v1 jobs into v2
+		// units before the scheduler runs. Jobs whose wordlist or rule
+		// refs no longer resolve are deleted. Must run before
+		// StartScheduler so the cycle sees a fully-v2 world.
+		convCtx, convCancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		if err := routes.JobIntegrationManager.ConvertLegacyJobsToV2(convCtx); err != nil {
+			debug.Error("Legacy job converter failed: %v", err)
+			convCancel()
+			os.Exit(1)
+		}
+		convCancel()
+
 		debug.Info("Starting job scheduler")
 		jobSchedulerCtx, jobSchedulerCancel := context.WithCancel(context.Background())
 		defer jobSchedulerCancel()
 		routes.JobIntegrationManager.StartScheduler(jobSchedulerCtx)
 		debug.Info("Job scheduler started successfully")
+
+		// One-time safety sweep: repair pending jobs that never started and have
+		// an inaccurate keyspace (e.g. stranded by the older scheduler-v2
+		// bootstrap deadlock) by recomputing it via hashcat
+		// --keyspace/--total-candidates. Runs in the background so per-job
+		// hashcat execs don't delay boot; the scheduler picks up repaired jobs
+		// on its next cycle. Best-effort — failures are logged, not fatal.
+		go func() {
+			repairCtx, repairCancel := context.WithTimeout(context.Background(), 30*time.Minute)
+			defer repairCancel()
+			if n, err := routes.JobIntegrationManager.RepairPendingJobKeyspaces(repairCtx); err != nil {
+				debug.Warning("Pending-job keyspace repair sweep failed: %v", err)
+			} else if n > 0 {
+				debug.Info("Pending-job keyspace repair sweep: repaired %d job(s)", n)
+			}
+		}()
 	} else {
 		debug.Warning("Job integration manager not initialized, job scheduler will not start")
 	}

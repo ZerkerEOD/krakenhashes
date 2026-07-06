@@ -55,8 +55,8 @@ func (m *RuleSplitManager) CountRules(ctx context.Context, rulePath string) (int
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		// Skip empty lines and comments
-		if line != "" && !strings.HasPrefix(line, "#") {
+		// Skip only # comments — empty lines are valid passthrough rules in hashcat
+		if !strings.HasPrefix(line, "#") {
 			count++
 		}
 	}
@@ -265,27 +265,27 @@ func (m *RuleSplitManager) CreateSingleRuleChunk(ctx context.Context, jobID uuid
 	writer := bufio.NewWriter(chunkFile)
 	scanner := bufio.NewScanner(file)
 
-	// Skip to startIndex (counting only actual rules, not empty lines/comments)
+	// Skip to startIndex (counting all lines except # comments)
 	ruleIndex := 0
 	for ruleIndex < startIndex {
 		if !scanner.Scan() {
 			break // End of file reached before startIndex
 		}
 		line := strings.TrimSpace(scanner.Text())
-		// Only count non-empty, non-comment lines
-		if line != "" && !strings.HasPrefix(line, "#") {
+		// Count all lines except # comments — empty lines are valid passthrough rules
+		if !strings.HasPrefix(line, "#") {
 			ruleIndex++
 		}
 	}
 
-	// Write numRules actual rules to chunk file (skipping empty lines and comments)
+	// Write numRules rules to chunk file (skipping only # comments)
 	rulesWritten := 0
 	for scanner.Scan() && rulesWritten < numRules {
 		line := scanner.Text()
 		trimmed := strings.TrimSpace(line)
 
-		// Skip empty lines and comments
-		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+		// Skip only # comments — empty lines are valid passthrough rules in hashcat
+		if strings.HasPrefix(trimmed, "#") {
 			continue
 		}
 

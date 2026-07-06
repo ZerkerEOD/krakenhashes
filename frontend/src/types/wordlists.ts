@@ -35,6 +35,44 @@ export interface Wordlist {
   tags?: string[];
   is_enabled: boolean;
   is_potfile?: boolean;
+  // Filtering (GH #40) — present only on derived/filtered wordlists
+  parent_wordlist_id?: number;
+  filter_spec?: WordlistFilter;
+  is_ephemeral?: boolean;
+  is_stale?: boolean;
+}
+
+// WordlistFilter describes the criteria used to derive a filtered wordlist.
+// Length is measured as a character (rune) count.
+export interface WordlistFilter {
+  min_length?: number | null;
+  max_length?: number | null;
+  require_upper?: boolean;
+  require_lower?: boolean;
+  require_digit?: boolean;
+  require_special?: boolean;
+  min_classes?: number | null;
+  regex?: string;
+}
+
+export interface CreateFilteredWordlistRequest {
+  parent_wordlist_id: number;
+  name: string;
+  description?: string;
+  filter: WordlistFilter;
+}
+
+export interface FilterPreviewRequest {
+  parent_wordlist_id: number;
+  filter: WordlistFilter;
+}
+
+export interface FilterPreviewResponse {
+  estimated_count: number;
+  sampled_lines: number;
+  matched_in_sample: number;
+  match_rate: number;
+  parent_count: number;
 }
 
 export interface WordlistUploadResponse {

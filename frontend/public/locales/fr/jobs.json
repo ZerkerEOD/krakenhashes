@@ -1,0 +1,333 @@
+{
+  "title": "Jobs",
+  "createJob": "Créer un Job",
+  "page": {
+    "title": "Jobs"
+  },
+  "columns": {
+    "name": "Nom du Job",
+    "hashlist": "Hashlist",
+    "createdBy": "Créé par",
+    "progress": "Progression",
+    "keyspace": "Keyspace",
+    "cracked": "Cassés",
+    "agents": "Agents",
+    "priority": "Priorité",
+    "maxAgents": "Agents max.",
+    "actions": "Actions",
+    "status": "Statut",
+    "createdAt": "Créé le"
+  },
+  "status": {
+    "pending": "En attente",
+    "running": "En cours",
+    "completed": "Terminé",
+    "failed": "Échec",
+    "stopped": "Arrêté",
+    "paused": "En pause",
+    "active": "Actif",
+    "cancelled": "Annulé"
+  },
+  "actions": {
+    "delete": "Supprimer le Job",
+    "retry": "Relancer le Job",
+    "stop": "Arrêter le Job",
+    "pause": "Mettre le Job en pause",
+    "resume": "Reprendre le Job",
+    "viewDetails": "Voir les détails"
+  },
+  "sections": {
+    "activeJobs": "Jobs actifs",
+    "completedJobs": "Jobs terminés"
+  },
+  "confirmDelete": {
+    "title": "Supprimer le Job",
+    "message": "Voulez-vous vraiment supprimer ce job ? Cette action est irréversible.",
+    "messageNamed": "Voulez-vous vraiment supprimer le job \"{{name}}\" ? Cette action est irréversible."
+  },
+  "row": {
+    "completed": "Terminé :",
+    "unknown": "Inconnu",
+    "error": "Erreur :",
+    "rulesLabel": "(règles)"
+  },
+  "tooltips": {
+    "combinedHashRate": "Hash rate cumulé",
+    "retry": "Relancer le job",
+    "delete": "Supprimer le job",
+    "save": "Enregistrer",
+    "cancel": "Annuler"
+  },
+  "validation": {
+    "priorityRange": "La priorité doit être comprise entre 0 et {{max}}",
+    "maxAgentsRange": "Le nombre d'agents doit être compris entre 1 et 100",
+    "maxAgentsPositive": "Le nombre d'agents doit être égal à 0 (illimité) ou positif",
+    "chunkSizeMin": "La taille des chunks doit être d'au moins 5 secondes",
+    "chunkSizeMax": "La taille des chunks ne peut pas dépasser 24 heures (86400 secondes)",
+    "invalidNumber": "Saisissez un nombre valide",
+    "minValue": "La valeur doit être au moins égale à {{min}}",
+    "maxValue": "La valeur doit être au plus égale à {{max}}"
+  },
+  "errors": {
+    "loadFailed": "Impossible de charger les jobs",
+    "loadDetailsFailed": "Impossible de charger les détails du job",
+    "deleteFailed": "Impossible de supprimer le job",
+    "updateFailed": "Impossible de mettre à jour le job",
+    "fetchFailed": "Impossible de récupérer les jobs : {{message}}",
+    "willRetry": "Nouvelle tentative automatique.",
+    "notFound": "Job introuvable",
+    "saveFailed": "Impossible d'enregistrer les modifications",
+    "updatePriorityFailed": "Impossible de mettre à jour la priorité",
+    "updateMaxAgentsFailed": "Impossible de mettre à jour le nombre maximal d'agents",
+    "updateChunkSizeFailed": "Impossible de mettre à jour la taille des chunks",
+    "retryTaskFailed": "Impossible de relancer la tâche",
+    "forceCompleteFailed": "Impossible de forcer la finalisation du job"
+  },
+  "details": {
+    "title": "Détails du Job",
+    "pageTitle": "Détails du Job",
+    "overview": "Vue d'ensemble",
+    "tasks": "Tâches",
+    "results": "Résultats",
+    "logs": "Logs",
+    "jobInformation": "Informations du Job",
+    "timeRemaining": "Temps restant",
+    "estimatedCompletion": "Fin estimée",
+    "crackingCompletedAt": "Cassage terminé le",
+    "totalRunningTime": "Durée totale d'exécution",
+    "chunkSizeDefault": "Non défini (valeur par défaut utilisée)",
+    "noActiveTasksEstimate": "Estimation impossible : aucune tâche en cours",
+    "lessThanOneMinute": "Moins d'une minute",
+    "jobCompleted": "Job terminé",
+    "finishingUp": "Finalisation...",
+    "completingShortly": "Fin imminente",
+    "processingDuration": "Traitement : {{duration}}",
+    "wordlists": "Wordlists",
+    "rules": "Règles",
+    "splittingMode": "Mode de découpage",
+    "ruleSplitting": "Découpage des règles",
+    "firstWordlist": "Première Wordlist",
+    "secondWordlist": "Deuxième Wordlist",
+    "wordlist": "Wordlist",
+    "mask": "Masque",
+    "incrementMode": "Mode incrémental",
+    "incrementRange": "Plage d'incrément",
+    "maskSuffix": "Masque (suffixe)",
+    "maskPrefix": "Masque (préfixe)",
+    "associationHints": "Indices d'association",
+    "autoRefreshOn": "Auto-actualisation : ACTIVE",
+    "autoRefreshPaused": "Auto-actualisation : EN PAUSE",
+    "forceComplete": "Forcer la finalisation",
+    "refreshNow": "Actualiser",
+    "priorityRange": "0-{{max}}",
+    "maxAgentsHint": "0=illimité",
+    "chunkSizeHint": "Secondes (5-86400)",
+    "incrementLayers": "Couches d'incrément ({{count}} au total)",
+    "estimatedKeyspace": "Estimée",
+    "taskProgressVisualization": "Visualisation de la progression des tâches",
+    "activeTasks": "Tâches actives ({{count}} en cours)",
+    "noActiveTasks": "Aucune tâche active",
+    "failedTasks": "Tâches en échec ({{count}} au total)",
+    "completedTasks": "Tâches terminées ({{count}} au total)",
+    "noCompletedTasks": "Aucune tâche terminée",
+    "increment": "Incrément",
+    "incrementInverse": "Incrément inverse",
+    "jobNotFound": "Job introuvable",
+    "priority": "Priorité",
+    "timeUnits": {
+      "year": "an",
+      "years": "ans",
+      "month": "mois",
+      "months": "mois",
+      "day": "jour",
+      "days": "jours",
+      "hour": "heure",
+      "hours": "heures",
+      "minute": "minute",
+      "minutes": "minutes",
+      "second": "seconde",
+      "seconds": "secondes"
+    },
+    "layerTable": {
+      "layer": "Couche",
+      "mask": "Masque",
+      "minLength": "Long. min.",
+      "maxLength": "Long. max.",
+      "keyspace": "Keyspace",
+      "effectiveKeyspace": "Keyspace effective",
+      "progress": "Progression",
+      "tasks": "Tâches",
+      "cracks": "Cassages",
+      "status": "Statut",
+      "running": "en cours",
+      "total": "total",
+      "failed": "{{count}} en échec"
+    },
+    "activeTasksTable": {
+      "agentId": "ID de l'agent",
+      "taskId": "ID de la tâche",
+      "agent": "Agent",
+      "skip": "Décalage",
+      "limit": "Limite",
+      "keyspaceRange": "Plage de keyspace",
+      "progress": "Progression",
+      "speed": "Vitesse",
+      "currentSpeed": "Vitesse actuelle",
+      "cracks": "Cassages",
+      "startedAt": "Démarrée le"
+    },
+    "failedTasksTable": {
+      "agentId": "ID de l'agent",
+      "taskId": "ID de la tâche",
+      "agent": "Agent",
+      "status": "Statut",
+      "retryCount": "Nb. de tentatives",
+      "error": "Erreur",
+      "errorMessage": "Message d'erreur",
+      "lastUpdated": "Dernière mise à jour",
+      "failedAt": "Échec le",
+      "actions": "Actions"
+    },
+    "completedTasksTable": {
+      "agentId": "ID de l'agent",
+      "taskId": "ID de la tâche",
+      "agent": "Agent",
+      "completedAt": "Terminée le",
+      "keyspaceRange": "Plage de keyspace",
+      "finalProgress": "Progression finale",
+      "averageSpeed": "Vitesse moyenne",
+      "cracks": "Cassages",
+      "cracksFound": "Cassages trouvés"
+    },
+    "additionalArgs": "Arguments supplémentaires",
+    "attackModes": {
+      "dictionary": "Dictionnaire",
+      "combination": "Combinaison",
+      "bruteforce": "Brute-force",
+      "hybridWordlistMask": "Hybride Wordlist + Masque",
+      "hybridMaskWordlist": "Hybride Masque + Wordlist",
+      "association": "Association",
+      "modeNumber": "Mode {{mode}}"
+    }
+  },
+  "common": {
+    "id": "ID",
+    "name": "Nom",
+    "status": "Statut",
+    "hashlist": "Hashlist",
+    "hashType": "Type de hash",
+    "attackMode": "Mode d'attaque",
+    "keyspace": "Keyspace",
+    "effectiveKeyspace": "Keyspace effective",
+    "processedKeyspace": "Keyspace parcourue",
+    "dispatchedKeyspace": "Keyspace distribuée",
+    "progress": "Progression",
+    "cracksFound": "Cassages trouvés",
+    "createdAt": "Créé le",
+    "startedAt": "Démarré le",
+    "completedAt": "Terminé le",
+    "error": "Erreur",
+    "warning": "Alerte",
+    "maxAgents": "Agents max.",
+    "chunkSize": "Taille des chunks",
+    "unassigned": "Non assigné",
+    "noErrorMessage": "Aucun message d'erreur",
+    "notAvailable": "N/A",
+    "back": "Retour",
+    "rulesMultiplier": "(règles)"
+  },
+  "editableCell": {
+    "clickToEdit": "Cliquer pour modifier"
+  },
+  "dialogs": {
+    "deleteFinished": {
+      "title": "Supprimer les Jobs terminés",
+      "message": "Voulez-vous vraiment supprimer tous les jobs terminés ? Cette action est irréversible."
+    },
+    "forceComplete": {
+      "title": "Forcer la finalisation du Job",
+      "warning": "Toutes les tâches incomplètes seront marquées comme terminées et le statut du job passera à terminé.",
+      "onlyUseIf": "À utiliser uniquement si :",
+      "reason1": "Le job a réellement terminé tout le traitement",
+      "reason2": "Le job reste bloqué au statut en cours / en attente",
+      "reason3": "Vous avez vérifié que toute la keyspace a été parcourue",
+      "note": "Note : nous travaillons sur de meilleures méthodes pour gérer les calculs de keyspace et détecter la fin des jobs selon les cas.",
+      "confirmation": "Voulez-vous vraiment forcer la finalisation de ce job ?",
+      "completing": "Finalisation...",
+      "button": "Forcer la finalisation"
+    },
+    "deleteConfirm": {
+      "deleting": "Suppression..."
+    }
+  },
+  "buttons": {
+    "refresh": "Actualiser",
+    "deleteFinished": "Supprimer les jobs terminés",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "save": "Enregistrer",
+    "retry": "Relancer"
+  },
+  "success": {
+    "chunkSizeUpdated": "La taille des chunks a bien été mise à jour. Les changements prendront effet lors de la prochaine création de tâche.",
+    "forceCompleted": "Le job a bien été finalisé de force"
+  },
+  "form": {
+    "name": "Nom du Job",
+    "hashlist": "Sélectionner une Hashlist",
+    "attackMode": "Mode d'attaque",
+    "wordlist": "Wordlist",
+    "rules": "Règles",
+    "priority": "Priorité",
+    "maxAgents": "Nombre maximal d'agents"
+  },
+  "autoRefresh": {
+    "on": "Auto-actualisation active",
+    "off": "Auto-actualisation désactivée"
+  },
+  "pagination": {
+    "jobsPerPage": "Jobs par page"
+  },
+  "filters": {
+    "searchPlaceholder": "Rechercher des jobs...",
+    "priority": "Priorité",
+    "status": "Statut",
+    "all": "Tous"
+  },
+  "priority": {
+    "low": "Basse",
+    "medium": "Moyenne",
+    "high": "Haute",
+    "critical": "Critique",
+    "maximum": "Maximale"
+  },
+  "lastUpdated": "Dernière mise à jour : {{time}}",
+  "filtered": "(filtré)",
+  "loading": "Chargement des jobs...",
+  "archive": {
+    "showArchived": "Afficher les archivés",
+    "archive": "Archiver",
+    "unarchive": "Désarchiver",
+    "archived": "Archivé",
+    "archiveSelected": "Archiver la sélection",
+    "unarchiveSelected": "Désarchiver la sélection",
+    "deleteSelected": "Supprimer la sélection",
+    "selectedCount": "{{count}} sélectionné",
+    "selectedCount_plural": "{{count}} sélectionnés",
+    "confirmBulkDelete": {
+      "title": "Confirmer la suppression multiple",
+      "message": "Voulez-vous vraiment supprimer {{count}} job ? Cette action est irréversible.",
+      "message_plural": "Voulez-vous vraiment supprimer {{count}} jobs ? Cette action est irréversible.",
+      "warning": "Les jobs sélectionnés et toutes leurs données associées seront supprimés définitivement.",
+      "cancel": "Annuler",
+      "delete": "Supprimer",
+      "deleting": "Suppression..."
+    },
+    "bulkArchiveSuccess": "{{count}} job archivé avec succès",
+    "bulkArchiveSuccess_plural": "{{count}} jobs archivés avec succès",
+    "bulkUnarchiveSuccess": "{{count}} job désarchivé avec succès",
+    "bulkUnarchiveSuccess_plural": "{{count}} jobs désarchivés avec succès",
+    "bulkDeleteSuccess": "{{count}} job supprimé avec succès",
+    "bulkDeleteSuccess_plural": "{{count}} jobs supprimés avec succès"
+  }
+}

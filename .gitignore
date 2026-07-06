@@ -23,6 +23,9 @@ test_*.txt
 .cursorrules
 .cursor/
 
+# Claude Code
+.claude/
+
 # Frontend specific
 # Node.js dependencies and build artifacts
 node_modules/
@@ -78,8 +81,8 @@ backend/**/*.cover
 backend/certs/
 .krakenhashes/
 
-# Claude configuration
-CLAUDE.md
+# Claude Code local settings (CLAUDE.md is committed; local .claude/ stays ignored)
+.claude/
 
 # Agent specific
 # Go binaries

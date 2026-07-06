@@ -25,6 +25,15 @@ func NewAgentCleanupService(agentRepo *repository.AgentRepository) *AgentCleanup
 func (s *AgentCleanupService) MarkAllAgentsInactive(ctx context.Context) error {
 	debug.Log("Marking all agents as inactive on startup", nil)
 
+	// Reset agents stranded mid auto-update by the restart. They become
+	// 'inactive' (so the scheduler's status<>'updating' exclusion no longer
+	// hides them once they reconnect) while keeping update_pending so the
+	// update resumes. Done in one statement before the per-agent pass below.
+	if err := s.agentRepo.ResetStrandedUpdates(ctx); err != nil {
+		debug.Error("Failed to reset stranded agent updates on startup: %v", err)
+		// Non-fatal: continue with the normal inactive sweep.
+	}
+
 	// Get all agents
 	agents, err := s.agentRepo.List(ctx, nil)
 	if err != nil {

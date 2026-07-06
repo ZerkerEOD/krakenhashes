@@ -4,6 +4,13 @@
 
 KrakenHashes uses an intelligent chunking system to distribute password cracking workloads across multiple agents. This document explains how chunks are created, distributed, and tracked for different attack types.
 
+!!! note "Chunking is part of the scheduler"
+    Chunking is the dispatch step of the scheduler's cycle. Chunks are carved from a job's uncovered
+    **base-keyspace** intervals (the positions in the base wordlist/mask, before rules), which is how
+    work is tracked and completion is measured. For the surrounding model — cycle, agent allocation,
+    benchmark bootstrap, and completion — see the
+    [Scheduler v2 Overview](scheduler-v2-overview.md).
+
 ## What is Chunking?
 
 Chunking divides large password cracking jobs into smaller, manageable pieces that can be:

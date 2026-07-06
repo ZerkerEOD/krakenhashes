@@ -20,7 +20,8 @@
     "presetJobs": "Шаблоны заданий",
     "jobWorkflows": "Рабочие процессы",
     "diagnostics": "Диагностика",
-    "auditLog": "Журнал аудита"
+    "auditLog": "Журнал аудита",
+    "jobAnalytics": "Аналитика заданий"
   },
   "userMenu": {
     "userSettings": "Настройки пользователя",

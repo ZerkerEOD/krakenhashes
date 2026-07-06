@@ -28,7 +28,8 @@ func SetupJobRoutes(jwtRouter *mux.Router) {
 	debug.Info("Configured jobs endpoint: /jobs")
 }
 
-// SetupAgentRoutes configures agent management routes
+// SetupAgentRoutes registers HTTP routes on the provided jwtRouter for agent management, device and runtime operations, manual overrides (clear-busy-status, retry-update), force-cleanup, and agent scheduling.
+// It constructs handlers from the supplied agentService and database to handle the registered endpoints.
 func SetupAgentRoutes(jwtRouter *mux.Router, agentService *services.AgentService, database *db.DB) {
 	agentHandler := agent.NewAgentHandler(agentService)
 	jwtRouter.HandleFunc("/agents", agentHandler.ListAgents).Methods("GET", "OPTIONS")
@@ -41,10 +42,13 @@ func SetupAgentRoutes(jwtRouter *mux.Router, agentService *services.AgentService
 	jwtRouter.HandleFunc("/agents/{id}/devices/{deviceId}", agentHandler.UpdateDeviceStatus).Methods("PUT", "OPTIONS")
 	jwtRouter.HandleFunc("/agents/{id}/devices/{deviceId}/runtime", agentHandler.UpdateDeviceRuntime).Methods("PATCH", "OPTIONS")
 	jwtRouter.HandleFunc("/agents/{id}/with-devices", agentHandler.GetAgentWithDevices).Methods("GET", "OPTIONS")
+	jwtRouter.HandleFunc("/agents/{id}/activity", agentHandler.GetAgentRuntime).Methods("GET", "OPTIONS")
 	jwtRouter.HandleFunc("/agents/{id}/metrics", agentHandler.GetAgentMetrics).Methods("GET", "OPTIONS")
 
 	// Clear busy status route - manual override for stuck agents
 	jwtRouter.HandleFunc("/agents/{id}/clear-busy-status", agentHandler.ClearBusyStatus).Methods("POST", "OPTIONS")
+	// Retry auto-update route - recover an agent stuck after exhausting attempts
+	jwtRouter.HandleFunc("/agents/{id}/retry-update", agentHandler.RetryUpdate).Methods("POST", "OPTIONS")
 
 	// Force cleanup route - note: this requires admin role middleware to be added separately
 	jwtRouter.HandleFunc("/agents/{id}/force-cleanup", func(w http.ResponseWriter, r *http.Request) {
@@ -61,7 +65,7 @@ func SetupAgentRoutes(jwtRouter *mux.Router, agentService *services.AgentService
 	agentRepo := repository.NewAgentRepository(database)
 	scheduleRepo := repository.NewAgentScheduleRepository(database)
 	schedulingHandler := agent.NewSchedulingHandler(scheduleRepo, agentRepo)
-	
+
 	jwtRouter.HandleFunc("/agents/{id}/schedules", schedulingHandler.GetAgentSchedules).Methods("GET", "OPTIONS")
 	jwtRouter.HandleFunc("/agents/{id}/schedules", schedulingHandler.UpdateAgentSchedule).Methods("POST", "OPTIONS")
 	jwtRouter.HandleFunc("/agents/{id}/schedules/{day}", schedulingHandler.DeleteAgentSchedule).Methods("DELETE", "OPTIONS")
@@ -81,9 +85,9 @@ func SetupVoucherRoutes(jwtRouter *mux.Router, voucherService *services.ClaimVou
 }
 
 // SetupPotRoutes configures pot (cracked hashes) routes
-func SetupPotRoutes(jwtRouter *mux.Router, hashRepo *repository.HashRepository, hashlistRepo *repository.HashListRepository, clientRepo *repository.ClientRepository, jobRepo *repository.JobExecutionRepository) {
-	potHandler := pot.NewHandler(hashRepo, hashlistRepo, clientRepo, jobRepo)
-	
+func SetupPotRoutes(jwtRouter *mux.Router, hashRepo *repository.HashRepository, hashlistRepo *repository.HashListRepository, clientRepo *repository.ClientRepository, jobRepo *repository.JobExecutionRepository, teamService *services.TeamService) {
+	potHandler := pot.NewHandler(hashRepo, hashlistRepo, clientRepo, jobRepo, teamService)
+
 	// List routes
 	jwtRouter.HandleFunc("/pot", potHandler.HandleListCrackedHashes).Methods("GET", "OPTIONS")
 	jwtRouter.HandleFunc("/pot/hashlist/{id}", potHandler.HandleListCrackedHashesByHashlist).Methods("GET", "OPTIONS")
@@ -121,6 +125,12 @@ func SetupPotRoutes(jwtRouter *mux.Router, hashRepo *repository.HashRepository, 
 	jwtRouter.HandleFunc("/pot/job/{id}/download/pass", potHandler.HandleDownloadPassByJob).Methods("GET", "OPTIONS")
 	jwtRouter.HandleFunc("/pot/job/{id}/download/domain-user", potHandler.HandleDownloadDomainUserByJob).Methods("GET", "OPTIONS")
 	jwtRouter.HandleFunc("/pot/job/{id}/download/domain-user-pass", potHandler.HandleDownloadDomainUserPassByJob).Methods("GET", "OPTIONS")
+
+	// Potfile (hashcat format) download routes
+	jwtRouter.HandleFunc("/pot/download/potfile", potHandler.HandleDownloadPotfile).Methods("GET", "OPTIONS")
+	jwtRouter.HandleFunc("/pot/hashlist/{id}/download/potfile", potHandler.HandleDownloadPotfileByHashlist).Methods("GET", "OPTIONS")
+	jwtRouter.HandleFunc("/pot/client/{id}/download/potfile", potHandler.HandleDownloadPotfileByClient).Methods("GET", "OPTIONS")
+	jwtRouter.HandleFunc("/pot/job/{id}/download/potfile", potHandler.HandleDownloadPotfileByJob).Methods("GET", "OPTIONS")
 
 	debug.Info("Configured pot endpoints: list and download routes for all/hashlist/client/job contexts")
 }

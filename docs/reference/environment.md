@@ -10,6 +10,7 @@ This document provides a comprehensive reference for all environment variables u
 - [Docker & Deployment](#docker--deployment)
 - [Database](#database)
 - [Authentication & Security](#authentication--security)
+- [SSO Configuration](#sso-configuration)
 - [TLS/SSL Configuration](#tlsssl-configuration)
 - [Logging & Debugging](#logging--debugging)
 - [WebSocket Configuration](#websocket-configuration)
@@ -122,16 +123,14 @@ The agent creates the same directory structure as the backend under its data dir
 
 | Variable | Type | Default | Required | Description |
 |----------|------|---------|----------|-------------|
-| `DATABASE_URL` | string | - | Yes* | Full PostgreSQL connection string |
-| `DB_CONNECTION_STRING` | string | - | Yes* | Alternative to DATABASE_URL |
-| `DB_HOST` | string | `localhost` | Yes** | Database host |
-| `DB_PORT` | integer | `5432` | Yes** | Database port |
-| `DB_NAME` | string | `krakenhashes` | Yes** | Database name |
-| `DB_USER` | string | `krakenhashes` | Yes** | Database username |
-| `DB_PASSWORD` | string | `krakenhashes` | Yes** | Database password |
+| `DB_HOST` | string | `localhost` | Yes | Database host |
+| `DB_PORT` | integer | `5432` | Yes | Database port |
+| `DB_NAME` | string | `krakenhashes` | Yes | Database name |
+| `DB_USER` | string | `krakenhashes` | Yes | Database username |
+| `DB_PASSWORD` | string | `krakenhashes` | Yes | Database password |
+| `DB_ARGUMENTS` | string | `sslmode=disable` | No | Additional connection arguments (e.g., `sslmode=require&connect_timeout=5`) |
 
-\* Either `DATABASE_URL` or individual DB_* variables must be set
-\** Required if `DATABASE_URL` is not provided
+The backend builds the connection string dynamically from these variables.
 
 ## Authentication & Security
 
@@ -149,6 +148,15 @@ The agent creates the same directory structure as the backend under its data dir
 |----------|------|---------|----------|-------------|
 | `CORS_ALLOWED_ORIGIN` | string | `https://localhost:443` | No | Allowed CORS origin |
 | `ALLOWED_ORIGINS` | string | `*` | No | Comma-separated list of allowed origins |
+
+### SSO Configuration
+
+| Variable | Type | Default | Required | Description |
+|----------|------|---------|----------|-------------|
+| `SSO_ENCRYPTION_KEY` | string | - | Yes* | AES-256-GCM key for encrypting SSO secrets. Generate with `openssl rand -base64 32` |
+| `KH_EXTERNAL_URL` | string | - | No | External URL for SSO redirect callbacks (e.g., `https://krakenhashes.local:8443`). Required when behind a reverse proxy on a nonstandard port. Falls back to request Host header if unset |
+
+\* Required in production for SSO secrets to persist across restarts
 
 ## TLS/SSL Configuration
 
@@ -264,7 +272,12 @@ Duration format: `10s`, `5m`, `1h`, etc.
 
 ```bash
 # .env
-DB_CONNECTION_STRING=postgres://krakenhashes:krakenhashes@localhost:5432/krakenhashes?sslmode=disable
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=krakenhashes
+DB_USER=krakenhashes
+DB_PASSWORD=krakenhashes
+DB_ARGUMENTS=sslmode=disable
 JWT_SECRET=dev-secret-change-in-production
 DEBUG=true
 ```

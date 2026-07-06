@@ -1234,6 +1234,114 @@ func (r *HashRepository) GetCrackedHashesByClient(ctx context.Context, clientID 
 	return hashes, totalCount, nil
 }
 
+// GetCrackedHashesByClientIDs retrieves cracked hashes filtered to multiple client IDs with pagination and optional search.
+// Used to scope the master pot view to clients accessible by a team member.
+func (r *HashRepository) GetCrackedHashesByClientIDs(ctx context.Context, clientIDs []uuid.UUID, params CrackedHashParams) ([]*models.Hash, int64, error) {
+	if len(clientIDs) == 0 {
+		return []*models.Hash{}, 0, nil
+	}
+
+	// Convert UUIDs to strings for pq.Array
+	idStrs := make([]string, len(clientIDs))
+	for i, id := range clientIDs {
+		idStrs[i] = id.String()
+	}
+
+	var countQuery, query string
+	var countArgs, queryArgs []interface{}
+
+	if params.Search != "" {
+		searchPattern := "%" + escapeILIKE(params.Search) + "%"
+
+		countQuery = `
+			SELECT COUNT(DISTINCT h.id)
+			FROM hashes h
+			JOIN hashlist_hashes hh ON h.id = hh.hash_id
+			JOIN hashlists hl ON hh.hashlist_id = hl.id
+			WHERE hl.client_id = ANY($1) AND h.is_cracked = true AND (
+				h.original_hash ILIKE $2 OR
+				h.password ILIKE $2 OR
+				h.username ILIKE $2 OR
+				h.domain ILIKE $2
+			)
+		`
+		countArgs = []interface{}{pq.Array(idStrs), searchPattern}
+
+		query = `
+			SELECT DISTINCT ON (h.id) h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated
+			FROM hashes h
+			JOIN hashlist_hashes hh ON h.id = hh.hash_id
+			JOIN hashlists hl ON hh.hashlist_id = hl.id
+			WHERE hl.client_id = ANY($1) AND h.is_cracked = true AND (
+				h.original_hash ILIKE $2 OR
+				h.password ILIKE $2 OR
+				h.username ILIKE $2 OR
+				h.domain ILIKE $2
+			)
+			ORDER BY h.id, h.last_updated DESC
+			LIMIT $3 OFFSET $4
+		`
+		queryArgs = []interface{}{pq.Array(idStrs), searchPattern, params.Limit, params.Offset}
+	} else {
+		countQuery = `
+			SELECT COUNT(DISTINCT h.id)
+			FROM hashes h
+			JOIN hashlist_hashes hh ON h.id = hh.hash_id
+			JOIN hashlists hl ON hh.hashlist_id = hl.id
+			WHERE hl.client_id = ANY($1) AND h.is_cracked = true
+		`
+		countArgs = []interface{}{pq.Array(idStrs)}
+
+		query = `
+			SELECT DISTINCT ON (h.id) h.id, h.hash_value, h.original_hash, h.username, h.domain, h.hash_type_id, h.is_cracked, h.password, h.last_updated
+			FROM hashes h
+			JOIN hashlist_hashes hh ON h.id = hh.hash_id
+			JOIN hashlists hl ON hh.hashlist_id = hl.id
+			WHERE hl.client_id = ANY($1) AND h.is_cracked = true
+			ORDER BY h.id, h.last_updated DESC
+			LIMIT $2 OFFSET $3
+		`
+		queryArgs = []interface{}{pq.Array(idStrs), params.Limit, params.Offset}
+	}
+
+	var totalCount int64
+	err := r.db.QueryRowContext(ctx, countQuery, countArgs...).Scan(&totalCount)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count cracked hashes for client IDs: %w", err)
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, queryArgs...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query cracked hashes for client IDs: %w", err)
+	}
+	defer rows.Close()
+
+	var hashes []*models.Hash
+	for rows.Next() {
+		var hash models.Hash
+		if err := rows.Scan(
+			&hash.ID,
+			&hash.HashValue,
+			&hash.OriginalHash,
+			&hash.Username,
+			&hash.Domain,
+			&hash.HashTypeID,
+			&hash.IsCracked,
+			&hash.Password,
+			&hash.LastUpdated,
+		); err != nil {
+			return nil, 0, fmt.Errorf("failed to scan cracked hash row for client IDs: %w", err)
+		}
+		hashes = append(hashes, &hash)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("error iterating cracked hash rows for client IDs: %w", err)
+	}
+
+	return hashes, totalCount, nil
+}
+
 // GetCrackedHashesByJob retrieves cracked hashes for a specific job execution with optional search
 func (r *HashRepository) GetCrackedHashesByJob(ctx context.Context, jobID uuid.UUID, params CrackedHashParams) ([]*models.Hash, int64, error) {
 	// Build query with optional search

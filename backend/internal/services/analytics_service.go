@@ -52,10 +52,16 @@ func (s *AnalyticsService) GenerateAnalytics(ctx context.Context, reportID uuid.
 		return fmt.Errorf("failed to get report: %w", err)
 	}
 
-	// Get hashlists for the client and date range
-	hashlistIDs, err := s.repo.GetHashlistsByClientAndDateRange(ctx, report.ClientID, report.StartDate, report.EndDate)
-	if err != nil {
-		return fmt.Errorf("failed to get hashlists: %w", err)
+	// Use stored hashlist IDs if available, otherwise fall back to date range query
+	var hashlistIDs []int64
+	if len(report.HashlistIDs) > 0 {
+		hashlistIDs = []int64(report.HashlistIDs)
+	} else {
+		// Backward compatibility: legacy reports without stored hashlist IDs
+		hashlistIDs, err = s.repo.GetHashlistsByClientAndDateRange(ctx, report.ClientID, report.StartDate, report.EndDate)
+		if err != nil {
+			return fmt.Errorf("failed to get hashlists: %w", err)
+		}
 	}
 
 	if len(hashlistIDs) == 0 {

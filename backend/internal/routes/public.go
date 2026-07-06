@@ -19,7 +19,9 @@ import (
 )
 
 // SetupPublicRoutes configures all public routes that don't require authentication
-// Returns the SSO manager for use by admin routes
+// SetupPublicRoutes registers all public (unauthenticated) HTTP routes on the provided Gorilla mux router.
+// It configures authentication endpoints, SSO routes, health and version checks, agent registration and configuration,
+// the password policy endpoint, and public agent/launcher download endpoints. It returns the initialized SSO manager for use by admin routes.
 func SetupPublicRoutes(apiRouter *mux.Router, database *db.DB, agentService *services.AgentService, binaryService *services.AgentBinaryService, appConfig *config.Config, tlsProvider tls.Provider) *sso.Manager {
 	debug.Debug("Setting up public routes")
 
@@ -33,7 +35,7 @@ func SetupPublicRoutes(apiRouter *mux.Router, database *db.DB, agentService *ser
 	debug.Info("Configured authentication endpoints: /login, /logout, /check-auth, /verify-mfa")
 
 	// Setup SSO routes (LDAP, SAML, OAuth/OIDC)
-	ssoManager := SetupSSORoutes(apiRouter, database.DB)
+	ssoManager := SetupSSORoutes(apiRouter, database.DB, appConfig)
 
 	// Health check endpoint - publicly accessible
 	publicRouter := apiRouter.PathPrefix("").Subrouter()
@@ -92,7 +94,13 @@ func SetupPublicRoutes(apiRouter *mux.Router, database *db.DB, agentService *ser
 	agentDownloadHandler := public.NewAgentDownloadHandler(binaryService)
 	apiRouter.HandleFunc("/public/agent/platforms", agentDownloadHandler.GetAvailablePlatforms).Methods("GET", "OPTIONS")
 	apiRouter.HandleFunc("/public/agent/download/{os}/{arch}", agentDownloadHandler.DownloadAgent).Methods("GET", "OPTIONS")
-	debug.Info("Configured agent download endpoints: /public/agent/platforms, /public/agent/download/{os}/{arch}")
+	apiRouter.HandleFunc("/public/agent/version", agentDownloadHandler.GetAgentVersion).Methods("GET", "OPTIONS")
+	apiRouter.HandleFunc("/public/agent/checksums", agentDownloadHandler.GetChecksums).Methods("GET", "OPTIONS")
+	// Launcher (auto-updating supervisor) download endpoints
+	apiRouter.HandleFunc("/public/agent/launcher/platforms", agentDownloadHandler.GetLauncherPlatforms).Methods("GET", "OPTIONS")
+	apiRouter.HandleFunc("/public/agent/launcher/download/{os}/{arch}", agentDownloadHandler.DownloadLauncher).Methods("GET", "OPTIONS")
+	apiRouter.HandleFunc("/public/agent/launcher/version", agentDownloadHandler.GetLauncherVersion).Methods("GET", "OPTIONS")
+	debug.Info("Configured agent + launcher download endpoints")
 
 	return ssoManager
 }

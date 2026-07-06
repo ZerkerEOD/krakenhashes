@@ -113,7 +113,8 @@ func IsAuditableEventType(t NotificationType) bool {
 	case NotificationTypeJobFailed,
 		NotificationTypeAgentError,
 		NotificationTypeAgentOffline,
-		NotificationTypeWebhookFailure:
+		NotificationTypeWebhookFailure,
+		NotificationTypeWordlistRegenFailed:
 		return true
 	}
 	return false
@@ -131,7 +132,8 @@ func GetAuditSeverity(t NotificationType) AuditLogSeverity {
 	case NotificationTypeJobFailed,
 		NotificationTypeAgentError,
 		NotificationTypeAgentOffline,
-		NotificationTypeWebhookFailure:
+		NotificationTypeWebhookFailure,
+		NotificationTypeWordlistRegenFailed:
 		return AuditSeverityWarning
 	}
 	return AuditSeverityInfo

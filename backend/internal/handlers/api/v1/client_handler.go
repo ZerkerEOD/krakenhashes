@@ -12,6 +12,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -22,15 +23,19 @@ type ClientHandler struct {
 	clientRepo         *repository.ClientRepository
 	hashlistRepo       *repository.HashListRepository
 	clientSettingsRepo *repository.ClientSettingsRepository
+	clientTeamRepo     *repository.ClientTeamRepository
+	teamService        *services.TeamService
 	db                 *db.DB
 }
 
 // NewClientHandler creates a new client handler instance
-func NewClientHandler(clientRepo *repository.ClientRepository, hashlistRepo *repository.HashListRepository, clientSettingsRepo *repository.ClientSettingsRepository, database *db.DB) *ClientHandler {
+func NewClientHandler(clientRepo *repository.ClientRepository, hashlistRepo *repository.HashListRepository, clientSettingsRepo *repository.ClientSettingsRepository, clientTeamRepo *repository.ClientTeamRepository, teamService *services.TeamService, database *db.DB) *ClientHandler {
 	return &ClientHandler{
 		clientRepo:         clientRepo,
 		hashlistRepo:       hashlistRepo,
 		clientSettingsRepo: clientSettingsRepo,
+		clientTeamRepo:     clientTeamRepo,
+		teamService:        teamService,
 		db:                 database,
 	}
 }
@@ -60,6 +65,7 @@ type CreateClientRequest struct {
 	Description         *string `json:"description,omitempty"`
 	Domain              *string `json:"domain,omitempty"`
 	DataRetentionMonths *int    `json:"data_retention_months,omitempty"`
+	TeamID              *string `json:"team_id,omitempty"` // Team to auto-assign when teams are enabled
 }
 
 // UpdateClientRequest represents the request body for updating a client
@@ -160,6 +166,33 @@ func (h *ClientHandler) CreateClient(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt:           time.Now(),
 	}
 
+	// When teams are enabled, validate and parse team_id
+	teamsEnabled := h.teamService != nil && h.teamService.IsTeamsEnabled(r.Context())
+	var teamID uuid.UUID
+	if teamsEnabled {
+		if req.TeamID == nil || *req.TeamID == "" {
+			sendAPIError(w, "Team selection is required when teams are enabled", "VALIDATION_ERROR", http.StatusBadRequest)
+			return
+		}
+		var parseErr error
+		teamID, parseErr = uuid.Parse(*req.TeamID)
+		if parseErr != nil {
+			sendAPIError(w, "Invalid team ID", "VALIDATION_ERROR", http.StatusBadRequest)
+			return
+		}
+		// Verify user is a member of this team
+		isMember, memberErr := h.teamService.IsUserInTeam(r.Context(), userID, teamID)
+		if memberErr != nil {
+			debug.Error("Failed to check team membership: %v", memberErr)
+			sendAPIError(w, "Failed to verify team membership", "INTERNAL_ERROR", http.StatusInternalServerError)
+			return
+		}
+		if !isMember {
+			sendAPIError(w, "You are not a member of the selected team", "FORBIDDEN", http.StatusForbidden)
+			return
+		}
+	}
+
 	err = h.clientRepo.Create(r.Context(), client)
 	if err != nil {
 		if errors.Is(err, repository.ErrDuplicateRecord) {
@@ -169,6 +202,15 @@ func (h *ClientHandler) CreateClient(w http.ResponseWriter, r *http.Request) {
 			sendAPIError(w, "Failed to create client", "INTERNAL_ERROR", http.StatusInternalServerError)
 		}
 		return
+	}
+
+	// Auto-assign to team when teams are enabled
+	if teamsEnabled && h.clientTeamRepo != nil {
+		if assignErr := h.clientTeamRepo.AssignClientToTeam(r.Context(), client.ID, teamID, &userID); assignErr != nil {
+			debug.Error("Failed to assign client to team: %v", assignErr)
+			// Client was created but team assignment failed — don't fail the whole request,
+			// but log the error. Admin can assign manually.
+		}
 	}
 
 	debug.Info("User %s created new client with ID: %s", userID.String(), client.ID.String())

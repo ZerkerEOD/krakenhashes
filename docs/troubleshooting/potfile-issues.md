@@ -67,6 +67,7 @@ The potfile system initializes in two stages:
 
 3. **Staging Table Processing Issues**
    - Check staging count: `SELECT COUNT(*) FROM potfile_staging;`
+   - Check staging by destination: `SELECT client_id, exclude_from_global, exclude_from_client, COUNT(*) FROM potfile_staging GROUP BY client_id, exclude_from_global, exclude_from_client;`
    - Check for old entries: `SELECT COUNT(*) FROM potfile_staging WHERE created_at < NOW() - INTERVAL '1 hour';`
    - If stuck, manually clear: `DELETE FROM potfile_staging WHERE created_at < NOW() - INTERVAL '1 hour';`
 
@@ -205,6 +206,71 @@ SET value = (SELECT id::text FROM preset_jobs WHERE name = 'Potfile Run')
 WHERE key = 'potfile_preset_job_id';
 ```
 
+## Client Potfile Issues
+
+### Client Potfile Not Being Created
+
+**Symptoms**:
+- Client has cracked hashes but no potfile exists
+- `wordlists/clients/{uuid}/` directory doesn't exist
+- `client_potfiles` table has no entry for the client
+
+**Common Causes and Solutions**:
+
+1. **Client potfiles disabled system-wide**
+   - Check: `SELECT value FROM system_settings WHERE key = 'client_potfiles_enabled';`
+   - Fix: `UPDATE system_settings SET value = 'true' WHERE key = 'client_potfiles_enabled';`
+   - Restart backend service
+
+2. **Client excluded from client potfile**
+   - Check: `SELECT exclude_from_client_potfile FROM clients WHERE id = 'client-uuid';`
+   - Fix: `UPDATE clients SET exclude_from_client_potfile = false WHERE id = 'client-uuid';`
+
+3. **All hashlists excluded from client potfile**
+   - Check: `SELECT name, exclude_from_client_potfile FROM hashlists WHERE client_id = 'client-uuid';`
+   - Fix: `UPDATE hashlists SET exclude_from_client_potfile = false WHERE id = 'hashlist-id';`
+
+4. **File permission issues**
+   - Check: `ls -la /data/krakenhashes/wordlists/clients/`
+   - Fix: Ensure the backend process can create directories and files in the `wordlists/clients/` path
+
+### Client Potfile Shows Wrong Count
+
+**Symptoms**:
+- `client_potfiles.line_count` doesn't match actual file line count
+- Job using client potfile has incorrect keyspace
+
+**Solution**:
+```sql
+-- Check metadata vs actual file
+SELECT client_id, line_count, file_size, updated_at FROM client_potfiles;
+```
+
+Restart the backend to force bloom filter reload and metadata refresh.
+
+### Passwords Not Removed on Hashlist Delete
+
+**Symptoms**:
+- Deleted a hashlist with "remove from client potfile" checked
+- Client potfile still contains the passwords
+
+**Debugging Steps**:
+1. Check backend logs for regeneration errors: `docker logs krakenhashes 2>&1 | grep -i "regenerat"`
+2. Verify client setting: `SELECT remove_from_client_potfile_on_hashlist_delete FROM clients WHERE id = 'uuid';`
+3. Check system default: `SELECT value FROM system_settings WHERE key = 'remove_from_client_potfile_on_hashlist_delete_default';`
+4. Verify the deletion request included the removal flag in the JSON body
+
+### Bloom Filter Memory Issues
+
+**Symptoms**:
+- High memory usage from backend process
+- Many active clients with large potfiles
+
+**Solution**:
+- The system limits client bloom filters to 50 (`maxClientBlooms`). Each uses approximately 1.2 MB.
+- Restart the backend to clear all cached bloom filters
+- Consider reducing the number of active clients with potfiles if memory is constrained
+
 ## Best Practices
 
 1. **Always upload a binary first** during initial setup
@@ -217,4 +283,5 @@ WHERE key = 'potfile_preset_job_id';
 ## Related Documentation
 
 - [Potfile Management Guide](../admin-guide/operations/potfile.md)
+- [Client Management Guide](../admin-guide/operations/clients.md)
 - [Binary Management](../admin-guide/resource-management/binaries.md)

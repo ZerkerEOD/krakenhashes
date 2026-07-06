@@ -534,7 +534,8 @@
         "ruleOptional": "Rule (Optional)",
         "firstWordlist": "First Wordlist",
         "secondWordlist": "Second Wordlist",
-        "allowHighPriorityOverride": "Allow High Priority Override (can interrupt running jobs)"
+        "allowHighPriorityOverride": "Allow High Priority Override (can interrupt running jobs)",
+        "additionalArgs": "Additional Hashcat Arguments"
       },
       "incrementModes": {
         "off": "Off (use full mask)",
@@ -557,7 +558,8 @@
         "rulesNotUsed": "Rules not used for this attack mode",
         "selectRule": "Optionally select a rule file to apply transformations",
         "firstWordlist": "Words from this list will be used as the first part",
-        "secondWordlist": "Words from this list will be appended to the first"
+        "secondWordlist": "Words from this list will be appended to the first",
+        "additionalArgs": "Extra hashcat flags for this job. Agent-level flags take priority on conflicts."
       },
       "errors": {
         "nameRequired": "Job name is required",
@@ -865,6 +867,14 @@
   "ssoSettings": {
     "pageTitle": "SSO Settings",
     "pageDescription": "Configure Single Sign-On providers and authentication options",
+    "warnings": {
+      "ephemeralKeyTitle": "SSO Encryption Key Not Configured",
+      "ephemeralKeyDescription": "SSO provider secrets (client secrets, bind passwords, private keys) are currently encrypted with a temporary key that will be lost when the server restarts. Any configured SSO providers will stop working after a restart.",
+      "ephemeralKeyInstructions": "To fix this, generate a persistent encryption key by running:",
+      "ephemeralKeyAddToEnv": "Then add the following to your .env file and restart the server:",
+      "ephemeralKeyEnvExample": "SSO_ENCRYPTION_KEY=<paste_generated_key_here>",
+      "ephemeralKeyCopied": "Command copied to clipboard"
+    },
     "authMethods": {
       "title": "Authentication Methods",
       "description": "Enable or disable authentication methods globally",
@@ -1146,11 +1156,18 @@
     },
     "agentOverflow": {
       "title": "Agent Overflow Allocation",
-      "tooltip": "Configure how agents beyond max_agents limits are allocated when jobs have the same priority",
-      "roundRobinMode": "Round-Robin Mode",
-      "fifoMode": "FIFO Mode",
-      "fifoDescription": "When multiple jobs at the same priority exceed their max_agents limits, the oldest job (created first) receives all extra agents.",
-      "roundRobinDescription": "Extra agents are distributed evenly across all jobs at the same priority, one agent at a time, ensuring fair allocation."
+      "tooltip": "Configure how free agents are distributed once every job at every priority tier has filled to its max_agents cap.",
+      "modeLabel": "Overflow allocation mode",
+      "priorityFifoMode": "Priority - FIFO",
+      "priorityRoundRobinMode": "Priority - Round Robin",
+      "enforceMaxAgentsMode": "Enforce Max Agents",
+      "maxAgentsFifoMode": "Max Agents - FIFO",
+      "maxAgentsRoundRobinMode": "Max Agents - Round Robin",
+      "priorityFifoDescription": "Tiers fill highest-priority first. Once a tier hits max_agents, remaining agents pile on the OLDEST job in that tier — exceeding its cap. Lower-priority jobs may starve until higher tiers are exhausted.",
+      "priorityRoundRobinDescription": "Tiers fill highest-priority first. Once a tier hits max_agents, remaining agents rotate evenly across that tier's jobs — exceeding caps. Lower-priority jobs may starve.",
+      "enforceMaxAgentsDescription": "Strictly cap each job at its max_agents limit — no overflow. Surplus agents stay idle. Most predictable; can waste capacity.",
+      "maxAgentsFifoDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then pile on the OLDEST job overall — bypassing priority. Maximizes throughput while still giving every job its baseline.",
+      "maxAgentsRoundRobinDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then rotate evenly across ALL jobs — bypassing priority. Maximizes throughput with fair distribution beyond the baseline."
     },
     "hashlist": {
       "title": "Hashlist Settings",
@@ -1178,6 +1195,18 @@
       "passwordsEvery": "passwords every",
       "seconds": "seconds"
     },
+    "speedTest": {
+      "title": "Speed Test (Benchmark)",
+      "tooltip": "Tune how long agents wait for hashcat to produce a usable benchmark before failing the speed test. Compressed wordlists need significantly more time to dictstat-preprocess.",
+      "timeoutUncompressed": "Timeout: plain-text wordlists (seconds)",
+      "timeoutUncompressedHelper": "Maximum seconds the agent will wait for a valid speed reading on plain-text wordlists. Default: 120.",
+      "timeoutCompressed": "Timeout: compressed wordlists (seconds)",
+      "timeoutCompressedHelper": "Maximum seconds for .gz / .zip / .xz wordlists — the three formats hashcat reads natively. These need longer to decompress and dictstat-preprocess. Default: 300.",
+      "minStatusUpdates": "Minimum status updates",
+      "minStatusUpdatesHelper": "Minimum number of hashcat --status-json ticks the agent must collect before returning a result. Default: 3.",
+      "minUpdatesLowWarning": "Values below 3 may produce inaccurate readings: GPUs may not have finished spinning up.",
+      "description": "If the agent times out without producing a non-zero speed, the benchmark is reported as failed and the job surfaces an admin-actionable error. The chunking pipeline also refuses to dispatch a 1-candidate task, so a stale 0 H/s benchmark cannot loop forever."
+    },
     "errors": {
       "loadFailed": "Failed to load system settings",
       "maxPriorityRequired": "Maximum priority is required",
@@ -1185,7 +1214,9 @@
       "maxPriorityMax": "Maximum priority cannot exceed 1,000,000",
       "saveFailed": "Failed to save system settings",
       "batchSizeRange": "Batch size must be between {{min}} and {{max}}",
-      "intervalRange": "Interval must be between {{min}} and {{max}} seconds"
+      "intervalRange": "Interval must be between {{min}} and {{max}} seconds",
+      "speedTestTimeoutRange": "Speed-test timeout must be between {{min}} and {{max}} seconds",
+      "minStatusUpdatesRange": "Minimum status updates must be between {{min}} and {{max}}"
     },
     "messages": {
       "updateSuccess": "System settings updated successfully",
@@ -1197,6 +1228,8 @@
       "hashlistBatchUpdated": "Hashlist batch size updated",
       "potfileBatchUpdated": "Potfile batch size updated",
       "potfileIntervalUpdated": "Potfile batch interval updated",
+      "speedTestTimeoutUpdated": "Speed-test timeout updated",
+      "speedTestMinUpdatesUpdated": "Speed-test minimum status updates updated",
       "updateFailed": "Failed to update setting"
     }
   },
@@ -1221,6 +1254,8 @@
       "progressReportingHelper": "How often agents report progress",
       "benchmarkCache": "Benchmark Cache Duration",
       "benchmarkCacheHelper": "How long to cache agent benchmarks",
+      "benchmarkHistoryRetention": "Benchmark History Retention",
+      "benchmarkHistoryRetentionHelper": "Days to retain benchmark history records (0 = unlimited)",
       "speedtestTimeout": "Speedtest Timeout",
       "speedtestTimeoutHelper": "Maximum time to wait for speedtest completion",
       "reconnectGrace": "Reconnect Grace Period",
@@ -1240,7 +1275,9 @@
       "maxRetryAttempts": "Max Chunk Retry Attempts",
       "maxRetryAttemptsHelper": "Number of times to retry failed chunks",
       "jobsPerPage": "Jobs Per Page",
-      "jobsPerPageHelper": "Default pagination size for job lists"
+      "jobsPerPageHelper": "Default pagination size for job lists",
+      "keyspaceTimeout": "Keyspace Calculation Timeout",
+      "keyspaceTimeoutHelper": "Maximum time for hashcat --keyspace and --total-candidates commands. Increase for large wordlists/rules."
     },
     "potfile": {
       "title": "Potfile Settings",

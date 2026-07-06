@@ -19,6 +19,7 @@
     "createdAt": "Created At"
   },
   "status": {
+    "preparing": "Preparing",
     "pending": "Pending",
     "running": "Running",
     "completed": "Completed",
@@ -94,6 +95,7 @@
     "timeRemaining": "Time Remaining",
     "estimatedCompletion": "Estimated Completion",
     "crackingCompletedAt": "Cracking Completed At",
+    "totalRunningTime": "Total Running Time",
     "chunkSizeDefault": "Not set (using default)",
     "noActiveTasksEstimate": "Cannot estimate - no tasks currently running",
     "lessThanOneMinute": "Less than 1 minute",
@@ -198,6 +200,7 @@
       "cracks": "Cracks",
       "cracksFound": "Cracks Found"
     },
+    "additionalArgs": "Additional Arguments",
     "attackModes": {
       "dictionary": "Dictionary",
       "combination": "Combination",
@@ -301,5 +304,26 @@
   },
   "lastUpdated": "Last updated: {{time}}",
   "filtered": "(filtered)",
-  "loading": "Loading jobs..."
+  "loading": "Loading jobs...",
+  "archive": {
+    "showArchived": "Show Archived",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "archived": "Archived",
+    "archiveSelected": "Archive Selected",
+    "unarchiveSelected": "Unarchive Selected",
+    "deleteSelected": "Delete Selected",
+    "selectedCount": "{{count}} selected",
+    "confirmBulkDelete": {
+      "title": "Confirm Bulk Delete",
+      "message": "Are you sure you want to delete {{count}} job(s)? This action cannot be undone.",
+      "warning": "This will permanently delete the selected jobs and all associated data.",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "deleting": "Deleting..."
+    },
+    "bulkArchiveSuccess": "{{count}} job(s) archived successfully",
+    "bulkUnarchiveSuccess": "{{count}} job(s) unarchived successfully",
+    "bulkDeleteSuccess": "{{count}} job(s) deleted successfully"
+  }
 }

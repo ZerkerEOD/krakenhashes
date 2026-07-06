@@ -23,7 +23,15 @@ type JobUpdateHandler interface {
 	FinishUpdate(ctx context.Context)
 	IsUpdating() bool
 	HandleWordlistUpdate(ctx context.Context, wordlistID int, oldLines, newLines int64) error
-	HandleRuleUpdate(ctx context.Context, ruleID int, oldCount, newCount int) error
+	HandleRuleUpdate(ctx context.Context, ruleID int, oldCount, newCount int64) error
+}
+
+// RegenFailureNotifier is notified when automatic regeneration of a filtered
+// wordlist (after its parent changed) fails, so the failure reaches admins + the
+// audit log (GH #40 follow-up). The monitor package cannot import services (that
+// would be an import cycle), so this is injected, mirroring JobUpdateHandler.
+type RegenFailureNotifier interface {
+	NotifyFilteredRegenFailed(ctx context.Context, child *models.Wordlist, cause error)
 }
 
 // DirectoryMonitor watches directories for file changes
@@ -31,12 +39,15 @@ type DirectoryMonitor struct {
 	wordlistManager  wordlist.Manager
 	ruleManager      rule.Manager
 	jobUpdateHandler JobUpdateHandler
+	regenNotifier    RegenFailureNotifier
 	hashCache        *filehash.Cache
 	wordlistDir      string
 	ruleDir          string
 	interval         time.Duration
 	systemUserID     uuid.UUID
 	stopChan         chan struct{}
+	ctx              context.Context
+	cancel           context.CancelFunc
 	wg               sync.WaitGroup
 
 	// Worker pool control
@@ -46,6 +57,13 @@ type DirectoryMonitor struct {
 	// Track files being processed
 	processingFiles sync.Map
 	fileStatuses    sync.Map
+
+	// Serialized auto-regeneration of stale filtered children (GH #40 follow-up).
+	// A single worker drains regenQueue so large (25GB+) rebuilds run one at a time
+	// and never consume the file-import worker pool; regenInFlight dedupes a child
+	// across poll cycles.
+	regenQueue    chan int
+	regenInFlight sync.Map
 }
 
 // NewDirectoryMonitor creates a new directory monitor
@@ -56,29 +74,43 @@ func NewDirectoryMonitor(
 	interval time.Duration,
 	systemUserID uuid.UUID,
 	jobUpdateHandler JobUpdateHandler,
+	regenNotifier RegenFailureNotifier,
 	hashCache *filehash.Cache,
 ) *DirectoryMonitor {
 	// Default to 4 concurrent workers
 	maxWorkers := 4
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	return &DirectoryMonitor{
 		wordlistManager:  wordlistManager,
 		ruleManager:      ruleManager,
 		jobUpdateHandler: jobUpdateHandler,
+		regenNotifier:    regenNotifier,
 		hashCache:        hashCache,
 		wordlistDir:      wordlistDir,
 		ruleDir:          ruleDir,
 		interval:         interval,
 		systemUserID:     systemUserID,
 		stopChan:         make(chan struct{}),
+		ctx:              ctx,
+		cancel:           cancel,
 		maxWorkers:       maxWorkers,
 		workerSem:        make(chan struct{}, maxWorkers),
+		regenQueue:       make(chan int, 256),
 	}
 }
 
 // Start begins monitoring directories
 func (m *DirectoryMonitor) Start() {
 	debug.Info("Starting directory monitor")
+
+	// Serialized filtered-wordlist auto-regeneration worker (GH #40 follow-up).
+	// Started before the initial checks so any children flagged stale on the first
+	// scan are picked up.
+	m.wg.Add(1)
+	go m.regenWorker()
+
 	m.wg.Add(2)
 
 	// Perform initial checks immediately
@@ -124,8 +156,71 @@ func (m *DirectoryMonitor) Start() {
 // Stop stops monitoring directories
 func (m *DirectoryMonitor) Stop() {
 	debug.Info("Stopping directory monitor")
+	m.cancel() // abort any in-flight filtered-wordlist regeneration promptly
 	close(m.stopChan)
 	m.wg.Wait()
+}
+
+// regenWorker serially drains the auto-regeneration queue (GH #40 follow-up).
+func (m *DirectoryMonitor) regenWorker() {
+	defer m.wg.Done()
+	for {
+		select {
+		case id := <-m.regenQueue:
+			m.processRegen(id)
+		case <-m.stopChan:
+			return
+		}
+	}
+}
+
+// processRegen regenerates one filtered child (incremental when possible) and
+// surfaces failures to admins + the audit log via the injected notifier.
+func (m *DirectoryMonitor) processRegen(id int) {
+	defer m.regenInFlight.Delete(id)
+
+	if err := m.wordlistManager.RegenerateFilteredWordlist(m.ctx, id); err != nil {
+		if m.ctx.Err() != nil {
+			// Shutdown/cancellation, not a real failure — let it retry next time.
+			return
+		}
+		debug.Error("Auto-regeneration of filtered wordlist %d failed: %v", id, err)
+		if m.regenNotifier != nil {
+			if child, gerr := m.wordlistManager.GetWordlist(m.ctx, id); gerr == nil && child != nil {
+				m.regenNotifier.NotifyFilteredRegenFailed(m.ctx, child, err)
+			}
+		}
+		return
+	}
+	debug.Info("Auto-regenerated filtered wordlist %d", id)
+}
+
+// enqueueStaleChildrenRegen queues this parent's stale, permanent filtered children
+// for serialized auto-regeneration (GH #40 follow-up). Ephemeral (__eph__) children
+// are job-scoped and never regenerated here. Called after a parent's on-disk change
+// is recorded (which already flagged the children stale via MarkChildrenStale).
+func (m *DirectoryMonitor) enqueueStaleChildrenRegen(ctx context.Context, parentID int) {
+	children, err := m.wordlistManager.GetFilteredChildren(ctx, parentID)
+	if err != nil {
+		debug.Error("Failed to list filtered children of wordlist %d for auto-regeneration: %v", parentID, err)
+		return
+	}
+	for _, child := range children {
+		if child.IsEphemeral || !child.IsStale {
+			continue
+		}
+		if _, loaded := m.regenInFlight.LoadOrStore(child.ID, true); loaded {
+			continue // already queued or regenerating
+		}
+		select {
+		case m.regenQueue <- child.ID:
+			debug.Info("Queued filtered wordlist %d (%s) for auto-regeneration (parent %d changed)", child.ID, child.Name, parentID)
+		default:
+			// Queue full; release the in-flight marker so a later trigger can retry.
+			m.regenInFlight.Delete(child.ID)
+			debug.Warning("Regeneration queue full; deferring auto-regeneration of filtered wordlist %d", child.ID)
+		}
+	}
 }
 
 // isFileStable checks if a file has not been modified for the given duration
@@ -190,6 +285,22 @@ func (m *DirectoryMonitor) checkWordlistDirectory() {
 			return nil
 		}
 
+		// Skip transient temp files (partial writes / in-progress generation,
+		// e.g. filtered-wordlist staging). They are renamed into place when ready.
+		if strings.HasSuffix(info.Name(), ".tmp") || strings.HasSuffix(info.Name(), ".part") {
+			return nil
+		}
+
+		// Skip ephemeral (__eph__) job-scoped filtered wordlists (GH #40). They belong to a
+		// single job and are managed by the filter flow + job cleanup, never the monitor. If
+		// one is ever orphaned on disk, the monitor must NOT re-import it as a standalone
+		// regular wordlist (which would make it is_ephemeral=false, owner_job_id=NULL and leak
+		// it into other jobs' pickers permanently).
+		if strings.HasPrefix(info.Name(), wordlist.EphemeralFilenamePrefix) {
+			debug.Debug("Skipping ephemeral filtered wordlist from directory monitoring: %s", info.Name())
+			return nil
+		}
+
 		// Get relative path
 		relPath, err := filepath.Rel(m.wordlistDir, path)
 		if err != nil {
@@ -206,6 +317,12 @@ func (m *DirectoryMonitor) checkWordlistDirectory() {
 		// Skip association wordlists - they are managed separately in the association_wordlists table
 		if strings.HasPrefix(relPath, "association/") || strings.HasPrefix(relPath, "association"+string(filepath.Separator)) {
 			debug.Debug("Skipping association wordlist from directory monitoring: %s", relPath)
+			return nil
+		}
+
+		// Skip client wordlists - they are managed separately in the client_wordlists table
+		if strings.HasPrefix(relPath, "clients/") || strings.HasPrefix(relPath, "clients"+string(filepath.Separator)) {
+			debug.Debug("Skipping client wordlist from directory monitoring: %s", relPath)
 			return nil
 		}
 
@@ -427,6 +544,11 @@ func (m *DirectoryMonitor) updateExistingWordlist(ctx context.Context, fullPath,
 		return
 	}
 
+	// The parent's new MD5 is now recorded and its permanent filtered children were
+	// flagged stale (inside UpdateWordlistFileInfo → MarkChildrenStale). Queue them
+	// for serialized auto-regeneration against the new parent content (GH #40 follow-up).
+	m.enqueueStaleChildrenRegen(ctx, wordlistID)
+
 	// Determine wordlist type based on directory structure
 	wordlistType := determineWordlistType(relPath)
 
@@ -535,6 +657,11 @@ func (m *DirectoryMonitor) checkRuleDirectory() {
 			return nil
 		}
 
+		// Skip transient temp files (partial writes / in-progress generation).
+		if strings.HasSuffix(info.Name(), ".tmp") || strings.HasSuffix(info.Name(), ".part") {
+			return nil
+		}
+
 		// Get relative path
 		relPath, err := filepath.Rel(m.ruleDir, path)
 		if err != nil {
@@ -579,14 +706,39 @@ func (m *DirectoryMonitor) checkRuleDirectory() {
 
 			ctx := context.Background()
 
-			// Calculate MD5 hash first (faster than counting lines)
-			// Uses cache to avoid recalculating unchanged files
+			// Normalize rule file — strip duplicate empty lines.
+			// hashcat treats empty lines as passthrough rules (:); multiples are redundant.
+			// This must happen BEFORE hash calculation so existing files get their
+			// normalized hash stored, preventing infinite re-processing.
+			m.fileStatuses.Store(relPath, "normalizing")
+			normalized, normErr := fsutil.NormalizeRuleFile(fullPath)
+			if normErr != nil {
+				debug.Warning("Failed to normalize rule file %s: %v", relPath, normErr)
+			} else if normalized {
+				debug.Info("Normalized rule file %s (stripped duplicate empty lines)", relPath)
+			}
+
+			// Calculate MD5 hash (of normalized file if changed)
 			m.fileStatuses.Store(relPath, "calculating hash")
-			md5Hash, err := m.hashCache.GetOrCalculate(fullPath)
-			if err != nil {
-				debug.Error("Failed to calculate MD5 hash for %s: %v", fullPath, err)
-				m.fileStatuses.Store(relPath, "error: "+err.Error())
-				return
+			var md5Hash string
+			if normalized {
+				// File was modified by normalization — bypass cache and calculate directly
+				newHash, err := m.ruleManager.CalculateFileMD5(fullPath)
+				if err != nil {
+					debug.Error("Failed to calculate MD5 after normalization for %s: %v", fullPath, err)
+					m.fileStatuses.Store(relPath, "error: "+err.Error())
+					return
+				}
+				md5Hash = newHash
+			} else {
+				// Use cache for unmodified files
+				hash, err := m.hashCache.GetOrCalculate(fullPath)
+				if err != nil {
+					debug.Error("Failed to calculate MD5 hash for %s: %v", fullPath, err)
+					m.fileStatuses.Store(relPath, "error: "+err.Error())
+					return
+				}
+				md5Hash = hash
 			}
 
 			// Check if file exists in database
@@ -779,9 +931,9 @@ func (m *DirectoryMonitor) updateExistingRule(ctx context.Context, fullPath, rel
 
 		// Get the old rule count before updating
 		oldRule, err := m.ruleManager.GetRule(ctx, ruleID)
-		oldCount := 0
+		var oldCount int64
 		if err == nil && oldRule != nil {
-			oldCount = int(oldRule.RuleCount)
+			oldCount = int64(oldRule.RuleCount)
 		}
 
 		// Verify rule with updated count
@@ -800,7 +952,7 @@ func (m *DirectoryMonitor) updateExistingRule(ctx context.Context, fullPath, rel
 			m.jobUpdateHandler.StartUpdate(ctx)
 			defer m.jobUpdateHandler.FinishUpdate(ctx)
 
-			newCount := int(ruleCount)
+			newCount := int64(ruleCount)
 			if err := m.jobUpdateHandler.HandleRuleUpdate(ctx, ruleID, oldCount, newCount); err != nil {
 				debug.Error("Failed to update jobs for rule change: %v", err)
 			}

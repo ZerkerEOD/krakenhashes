@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -21,14 +22,21 @@ import (
 
 // AgentService handles agent-related operations
 type AgentService struct {
-	agentRepo       *repository.AgentRepository
-	voucherRepo     *repository.ClaimVoucherRepository
-	fileRepo        *repository.FileRepository
-	deviceRepo      *repository.AgentDeviceRepository
-	jobTaskRepo     *repository.JobTaskRepository
+	agentRepo        *repository.AgentRepository
+	voucherRepo      *repository.ClaimVoucherRepository
+	fileRepo         *repository.FileRepository
+	deviceRepo       *repository.AgentDeviceRepository
+	jobTaskRepo      *repository.JobTaskRepository
 	jobExecutionRepo *repository.JobExecutionRepository
-	tokens          map[string]downloadToken
-	tokenMutex      sync.RWMutex
+	diagnosticsRepo  *repository.DiagnosticsRepository
+	// compatInvalidator, when set, forces the scheduler's binary-version
+	// compatibility cache to re-evaluate one agent immediately (instead of
+	// waiting for the next periodic re-warm). Wired to the job integration
+	// manager so an admin binary_version change takes effect in scheduling
+	// at once rather than after a stale window.
+	compatInvalidator func(ctx context.Context, agentID int)
+	tokens            map[string]downloadToken
+	tokenMutex        sync.RWMutex
 }
 
 type downloadToken struct {
@@ -47,6 +55,68 @@ func NewAgentService(agentRepo *repository.AgentRepository, voucherRepo *reposit
 		jobExecutionRepo: jobExecutionRepo,
 		tokens:           make(map[string]downloadToken),
 	}
+}
+
+// SetDiagnosticsRepo wires the diagnostics repository so GetAgentRuntime can
+// report why an agent is idle. Optional — when unset, diagnostics are omitted.
+func (s *AgentService) SetDiagnosticsRepo(repo *repository.DiagnosticsRepository) {
+	s.diagnosticsRepo = repo
+}
+
+// SetCompatInvalidator wires the scheduler compatibility-cache invalidator so a
+// binary_version change made through UpdateAgent re-evaluates that agent's
+// compatibility at once. Optional — when unset, changes still take effect on
+// the next periodic re-warm (≤30s).
+func (s *AgentService) SetCompatInvalidator(fn func(ctx context.Context, agentID int)) {
+	s.compatInvalidator = fn
+}
+
+// GetAgentRuntime returns the agent's current task + parent job (if it's
+// running one) and the active scheduler diagnostics explaining idleness. This
+// powers the "Current work" and "Why isn't this agent working" cards on the
+// agent detail page. Diagnostics are filtered to those refreshed recently, so a
+// reason the scheduler stopped recording ages out on its own.
+func (s *AgentService) GetAgentRuntime(ctx context.Context, agentID int) (*models.AgentRuntimeInfo, error) {
+	info := &models.AgentRuntimeInfo{
+		Diagnostics:    []models.SchedulingDiagnostic{},
+		RecentFailures: []models.JobTask{},
+	}
+
+	activeTasks, err := s.jobTaskRepo.GetActiveTasksByAgent(ctx, agentID)
+	if err != nil {
+		debug.Warning("GetAgentRuntime: active tasks for agent %d: %v", agentID, err)
+	} else if len(activeTasks) > 0 {
+		task := activeTasks[0]
+		info.CurrentTask = &task
+		if je, jErr := s.jobExecutionRepo.GetByID(ctx, task.JobExecutionID); jErr == nil {
+			info.JobExecution = je
+		} else {
+			debug.Warning("GetAgentRuntime: job %s for task %s: %v", task.JobExecutionID, task.ID, jErr)
+		}
+	}
+
+	// Recent failed tasks surface the "agent is looping through failing tasks"
+	// state. Without this the page shows "idle" between rapid failures: there's
+	// no active task, and the scheduler clears idle diagnostics because the
+	// agent keeps getting allocations (it just fails them). 5-minute window
+	// matches the diagnostics recency window below.
+	if failed, fErr := s.jobTaskRepo.GetRecentFailedTasksByAgent(ctx, agentID, time.Now().Add(-5*time.Minute), 10); fErr != nil {
+		debug.Warning("GetAgentRuntime: recent failed tasks for agent %d: %v", agentID, fErr)
+	} else if failed != nil {
+		info.RecentFailures = failed
+	}
+
+	if s.diagnosticsRepo != nil {
+		diags, dErr := s.diagnosticsRepo.ListActiveByScope(ctx, models.DiagScopeAgent,
+			strconv.Itoa(agentID), time.Now().Add(-5*time.Minute))
+		if dErr != nil {
+			debug.Warning("GetAgentRuntime: diagnostics for agent %d: %v", agentID, dErr)
+		} else if diags != nil {
+			info.Diagnostics = diags
+		}
+	}
+
+	return info, nil
 }
 
 // ValidateClaimCode validates a claim code
@@ -355,6 +425,12 @@ func (s *AgentService) ListAgents(ctx context.Context, filters map[string]interf
 	return s.agentRepo.List(ctx, filters)
 }
 
+// GetAgentsByOwner retrieves agents owned by a specific user
+func (s *AgentService) GetAgentsByOwner(ctx context.Context, ownerID uuid.UUID) ([]models.Agent, error) {
+	debug.Info("Listing agents for owner: %s", ownerID)
+	return s.agentRepo.GetByOwnerID(ctx, ownerID)
+}
+
 // DeleteAgent deletes an agent by ID
 func (s *AgentService) DeleteAgent(ctx context.Context, id int) error {
 	debug.Info("Deleting agent: %d", id)
@@ -451,6 +527,19 @@ func (s *AgentService) UpdateAgentStatus(ctx context.Context, id int, status str
 	return s.agentRepo.UpdateStatus(ctx, id, status, lastError)
 }
 
+// UpdateAgentStatusUnlessUpdating updates status only when the agent is not
+// mid auto-update, so a stale "active" report can't clobber the 'updating'
+// marker. Used by the heartbeat / periodic agent_status handlers.
+func (s *AgentService) UpdateAgentStatusUnlessUpdating(ctx context.Context, id int, status string, lastError *string) error {
+	return s.agentRepo.UpdateStatusUnlessUpdating(ctx, id, status, lastError)
+}
+
+// ResetAgentUpdateState clears an agent's auto-update error/attempt counters and
+// re-queues it for update (admin manual recovery after the give-up threshold).
+func (s *AgentService) ResetAgentUpdateState(ctx context.Context, id int) error {
+	return s.agentRepo.ResetUpdateState(ctx, id, true)
+}
+
 // UpdateAgentVersion updates an agent's version
 func (s *AgentService) UpdateAgentVersion(ctx context.Context, id int, version string) error {
 	// Don't update if version is empty
@@ -466,6 +555,17 @@ func (s *AgentService) UpdateAgentVersion(ctx context.Context, id int, version s
 // UpdateAgentMetadata updates an agent's metadata
 func (s *AgentService) UpdateAgentMetadata(ctx context.Context, id int, metadata map[string]string) error {
 	return s.agentRepo.UpdateMetadata(ctx, id, metadata)
+}
+
+// SetDisconnectGrace sets or clears the disconnect_grace_expires_at
+// timestamp on an agent. The scheduler-v2 sweeper reads this column to
+// decide when a hard-disconnected agent's tasks should be evicted.
+//
+// Pass a non-nil expiresAt (typically NOW() + network_grace_seconds) when
+// the agent's WebSocket disconnects. Pass nil to clear on reconnect.
+// Additive to the existing legacy disconnect handling.
+func (s *AgentService) SetDisconnectGrace(ctx context.Context, id int, expiresAt *time.Time) error {
+	return s.agentRepo.SetDisconnectGrace(ctx, id, expiresAt)
 }
 
 // UpdateAgentSyncStatus updates the sync status for an agent
@@ -722,10 +822,10 @@ func (s *AgentService) GetAgentDeviceMetrics(ctx context.Context, agentID int, t
 	default:
 		duration = 10 * time.Minute
 	}
-	
+
 	endTime := time.Now()
 	startTime := endTime.Add(-duration)
-	
+
 	// Parse metrics types
 	metricTypeMap := map[string]models.MetricType{
 		"temperature": models.MetricTypeTemperature,
@@ -733,7 +833,7 @@ func (s *AgentService) GetAgentDeviceMetrics(ctx context.Context, agentID int, t
 		"fanspeed":    models.MetricTypePowerUsage, // Using power_usage as placeholder for fan speed
 		"hashrate":    models.MetricTypeHashRate,
 	}
-	
+
 	var requestedMetrics []models.MetricType
 	for _, metric := range strings.Split(metricsParam, ",") {
 		metric = strings.TrimSpace(metric)
@@ -741,37 +841,37 @@ func (s *AgentService) GetAgentDeviceMetrics(ctx context.Context, agentID int, t
 			requestedMetrics = append(requestedMetrics, metricType)
 		}
 	}
-	
+
 	// Get benchmark repository for metrics
 	// Create a db.DB wrapper from the agent repository's database
 	dbWrapper := &db.DB{DB: s.agentRepo.GetDB()}
 	benchmarkRepo := repository.NewBenchmarkRepository(dbWrapper)
-	
+
 	// Fetch metrics from database
 	metrics, err := benchmarkRepo.GetAgentDeviceMetrics(ctx, agentID, requestedMetrics, startTime, endTime)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get device metrics: %w", err)
 	}
-	
+
 	// Transform metrics for frontend consumption
 	// Group by device and metric type
 	deviceMetrics := make(map[int]map[string][]map[string]interface{})
 	deviceNames := make(map[int]string)
-	
+
 	for _, metric := range metrics {
 		if metric.DeviceID == nil {
 			continue
 		}
-		
+
 		deviceID := *metric.DeviceID
 		if metric.DeviceName != nil {
 			deviceNames[deviceID] = *metric.DeviceName
 		}
-		
+
 		if _, ok := deviceMetrics[deviceID]; !ok {
 			deviceMetrics[deviceID] = make(map[string][]map[string]interface{})
 		}
-		
+
 		// Map metric type to frontend name
 		var metricName string
 		switch metric.MetricType {
@@ -784,15 +884,15 @@ func (s *AgentService) GetAgentDeviceMetrics(ctx context.Context, agentID int, t
 		case models.MetricTypeHashRate:
 			metricName = "hashrate"
 		}
-		
+
 		dataPoint := map[string]interface{}{
 			"timestamp": metric.Timestamp.Unix() * 1000, // Convert to milliseconds for JavaScript
 			"value":     metric.Value,
 		}
-		
+
 		deviceMetrics[deviceID][metricName] = append(deviceMetrics[deviceID][metricName], dataPoint)
 	}
-	
+
 	// Build response structure
 	response := map[string]interface{}{
 		"timeRange": timeRange,
@@ -800,7 +900,7 @@ func (s *AgentService) GetAgentDeviceMetrics(ctx context.Context, agentID int, t
 		"endTime":   endTime.Unix() * 1000,
 		"devices":   []map[string]interface{}{},
 	}
-	
+
 	// Convert to array format for frontend
 	for deviceID, metrics := range deviceMetrics {
 		deviceData := map[string]interface{}{
@@ -810,7 +910,7 @@ func (s *AgentService) GetAgentDeviceMetrics(ctx context.Context, agentID int, t
 		}
 		response["devices"] = append(response["devices"].([]map[string]interface{}), deviceData)
 	}
-	
+
 	return response, nil
 }
 
@@ -821,11 +921,16 @@ func (s *AgentService) HasEnabledDevices(agentID int) (bool, error) {
 
 // UpdateAgent updates agent settings including owner and extra parameters
 func (s *AgentService) UpdateAgent(ctx context.Context, agentID int, isEnabled bool, ownerID *string, extraParameters string, binaryVersion string) error {
-	// First check if agent exists
-	_, err := s.agentRepo.GetByID(ctx, agentID)
+	// First check if agent exists; capture prior IsEnabled so a false→true
+	// transition can reset the benchmark health counters. Without this
+	// reset, manually re-enabling an auto-quarantined agent leaves its
+	// streak/distinct counters in place, so the very next failure re-trips
+	// the quarantine threshold instantly.
+	existing, err := s.agentRepo.GetByID(ctx, agentID)
 	if err != nil {
 		return err
 	}
+	wasDisabled := !existing.IsEnabled
 
 	// Default to "default" if empty
 	if binaryVersion == "" {
@@ -833,7 +938,32 @@ func (s *AgentService) UpdateAgent(ctx context.Context, agentID int, isEnabled b
 	}
 
 	// Update agent in database
-	return s.agentRepo.UpdateAgentSettings(ctx, agentID, isEnabled, ownerID, extraParameters, binaryVersion)
+	if err := s.agentRepo.UpdateAgentSettings(ctx, agentID, isEnabled, ownerID, extraParameters, binaryVersion); err != nil {
+		return err
+	}
+
+	// Reset benchmark health on manual re-enable. Best-effort: the update
+	// itself already succeeded — failure to reset is a courtesy log only.
+	// Inline-create the benchmark repo (matches the pattern at line 765).
+	if wasDisabled && isEnabled {
+		dbWrapper := &db.DB{DB: s.agentRepo.GetDB()}
+		benchmarkRepo := repository.NewBenchmarkRepository(dbWrapper)
+		if rErr := benchmarkRepo.ResetAgentBenchmarkHealth(ctx, agentID); rErr != nil {
+			debug.Warning("ResetAgentBenchmarkHealth after manual re-enable (agent=%d): %v", agentID, rErr)
+		}
+	}
+
+	// Force the scheduler compat cache to re-evaluate this agent now. The
+	// binary_version may have changed, and without this the change wouldn't
+	// affect scheduling until the next periodic re-warm (≤30s), during which
+	// the agent could be dispatched to (or wrongly withheld from) a job under
+	// the stale version. Best-effort: a nil invalidator just defers to the
+	// periodic re-warm.
+	if s.compatInvalidator != nil {
+		s.compatInvalidator(ctx, agentID)
+	}
+
+	return nil
 }
 
 // UpdateAgentOSInfo updates an agent's OS information

@@ -18,24 +18,28 @@ export interface ProgressInfo {
  * @param keyspace The keyspace value to format
  * @returns Formatted string (e.g., "1.2M" instead of "1200000")
  */
-export const formatKeyspace = (keyspace: number): string => {
-  if (keyspace === 0) return '0';
+export const formatKeyspace = (keyspace: number | string | null | undefined): string => {
+  // Effective keyspace fields arrive as decimal STRINGS from the backend (NUMERIC,
+  // can exceed 2^53). Coerce to Number for the abbreviated K/M/B/T display — only
+  // ~3 significant figures are shown, so float precision is irrelevant here.
+  const n = typeof keyspace === 'string' ? Number(keyspace) : (keyspace ?? 0);
+  if (!n || !isFinite(n) || n <= 0) return '0';
 
   const units = ['', 'K', 'M', 'B', 'T', 'Q', 'Qi', 'S'];
   const k = 1000;
 
   // Find the appropriate unit
-  const i = Math.floor(Math.log(keyspace) / Math.log(k));
+  const i = Math.floor(Math.log(n) / Math.log(k));
 
   if (i === 0) {
-    return keyspace.toString();
+    return n.toString();
   }
 
   // Cap at the highest unit we support
   const unitIndex = Math.min(i, units.length - 1);
 
   // Format with appropriate precision
-  const value = keyspace / Math.pow(k, unitIndex);
+  const value = n / Math.pow(k, unitIndex);
   const precision = value < 10 ? 2 : value < 100 ? 1 : 0;
 
   return `${value.toFixed(precision)}${units[unitIndex]}`;
@@ -47,10 +51,11 @@ export const formatKeyspace = (keyspace: number): string => {
  * @returns Progress information including percentage and display text
  */
 export const calculateJobProgress = (job: JobSummary | JobDetail): ProgressInfo => {
-  // Get the effective keyspace for calculations
-  const total = job.effective_keyspace || 0;
-  const processed = job.processed_keyspace || 0;
-  const dispatched = job.dispatched_keyspace || 0;
+  // Get the effective keyspace for calculations. These arrive as decimal strings
+  // (NUMERIC) from the backend; coerce to Number for display/comparison.
+  const total = Number(job.effective_keyspace || 0);
+  const processed = Number(job.processed_keyspace || 0);
+  const dispatched = Number(job.dispatched_keyspace || 0);
   
   // Use backend-calculated overall progress if available
   const percentage = job.overall_progress_percent || 0;
@@ -99,7 +104,7 @@ export const calculateJobProgress = (job: JobSummary | JobDetail): ProgressInfo 
  * @returns Tooltip text or undefined if not applicable
  */
 export const getKeyspaceTooltip = (job: JobSummary | JobDetail): string | undefined => {
-  if (!job.effective_keyspace) {
+  if (!job.effective_keyspace || Number(job.effective_keyspace) === 0) {
     return undefined;
   }
   

@@ -20,8 +20,25 @@ export interface JobExecutionSettings {
   rule_split_min_rules: number;
   rule_split_max_chunks: number;
   rule_chunk_temp_dir: string;
+  // Keyspace calculation settings
+  keyspace_calculation_timeout_minutes: number;
   // Potfile settings
   potfile_enabled: boolean;
+  // Client potfile settings
+  client_potfiles_enabled: boolean;
+  remove_from_global_potfile_on_hashlist_delete_default: boolean;
+  remove_from_client_potfile_on_hashlist_delete_default: boolean;
+  // Benchmark history settings
+  benchmark_history_retention_days: number;
+  // Analytics settings
+  analytics_default_date_range_months: number;
+}
+
+export interface SettingsUpdateResponse {
+  success: boolean;
+  message: string;
+  failed_keys?: string[];
+  errors?: Record<string, string>;
 }
 
 export const getJobExecutionSettings = async (): Promise<JobExecutionSettings> => {
@@ -29,6 +46,20 @@ export const getJobExecutionSettings = async (): Promise<JobExecutionSettings> =
   return response.data;
 };
 
-export const updateJobExecutionSettings = async (settings: JobExecutionSettings): Promise<void> => {
-  await api.put('/api/admin/settings/job-execution', settings);
+// User-accessible job defaults (non-admin, read-only)
+export interface UserJobDefaults {
+  default_chunk_duration: number;
+  potfile_enabled: boolean;
+  default_data_retention_months: number | null;
+  analytics_default_date_range_months: number;
+}
+
+export const getJobDefaultsForUsers = async (): Promise<UserJobDefaults> => {
+  const response = await api.get<UserJobDefaults>('/api/settings/job-defaults');
+  return response.data;
+};
+
+export const updateJobExecutionSettings = async (settings: JobExecutionSettings): Promise<SettingsUpdateResponse> => {
+  const response = await api.put('/api/admin/settings/job-execution', settings);
+  return response.data;
 };

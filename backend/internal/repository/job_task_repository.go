@@ -23,8 +23,88 @@ func NewJobTaskRepository(db *db.DB) *JobTaskRepository {
 	return &JobTaskRepository{db: db}
 }
 
+// OverrunTask identifies a running task that has exceeded its chunk-time budget.
+type OverrunTask struct {
+	TaskID         uuid.UUID
+	AgentID        int
+	ChunkDuration  int
+	ElapsedSeconds int64
+}
+
+// ListOverrunRunningTasks returns scheduler-v2 tasks still assigned/running
+// whose wall time since started_at exceeds chunk_duration × toleranceFactor
+// (e.g. 1.2 for a 20% grace window). Used by the chunk-overrun guard. Tasks
+// without a chunk_duration, agent, or started_at are excluded.
+func (r *JobTaskRepository) ListOverrunRunningTasks(ctx context.Context, toleranceFactor float64) ([]OverrunTask, error) {
+	const query = `
+		SELECT id, agent_id, chunk_duration,
+		       EXTRACT(EPOCH FROM (NOW() - started_at))::bigint
+		FROM job_tasks
+		WHERE status IN ('assigned', 'running')
+		  AND scheduling_unit_id IS NOT NULL
+		  AND agent_id IS NOT NULL
+		  AND started_at IS NOT NULL
+		  AND chunk_duration IS NOT NULL
+		  AND chunk_duration > 0
+		  AND started_at < NOW() - (INTERVAL '1 second' * (chunk_duration * $1::double precision))
+	`
+	rows, err := r.db.QueryContext(ctx, query, toleranceFactor)
+	if err != nil {
+		return nil, fmt.Errorf("list overrun tasks: %w", err)
+	}
+	defer rows.Close()
+
+	var out []OverrunTask
+	for rows.Next() {
+		var t OverrunTask
+		if err := rows.Scan(&t.TaskID, &t.AgentID, &t.ChunkDuration, &t.ElapsedSeconds); err != nil {
+			return nil, fmt.Errorf("scan overrun task: %w", err)
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+// nullStringToPtr converts a sql.NullString to *string for our model fields.
+// Returns nil for NULL; otherwise a pointer to the string value.
+func nullStringToPtr(ns sql.NullString) *string {
+	if !ns.Valid {
+		return nil
+	}
+	s := ns.String
+	return &s
+}
+
+// nullInt32ToIntPtr converts a sql.NullInt32 to *int for our model fields.
+// Returns nil for NULL; otherwise a pointer to the int value.
+func nullInt32ToIntPtr(ni sql.NullInt32) *int {
+	if !ni.Valid {
+		return nil
+	}
+	n := int(ni.Int32)
+	return &n
+}
+
+// stringPtrToArg converts a *string into the value to pass to ExecContext /
+// QueryContext. nil → nil (SQL NULL); non-nil → the string value.
+func stringPtrToArg(s *string) interface{} {
+	if s == nil {
+		return nil
+	}
+	return *s
+}
+
+// intPtrToArg converts a *int into the value to pass to ExecContext /
+// QueryContext. nil → nil (SQL NULL); non-nil → the int value.
+func intPtrToArg(i *int) interface{} {
+	if i == nil {
+		return nil
+	}
+	return *i
+}
+
 // GetPreviousChunksActualKeyspace returns the cumulative actual keyspace size from all previous chunks
-func (r *JobTaskRepository) GetPreviousChunksActualKeyspace(ctx context.Context, jobExecutionID uuid.UUID, currentChunkNumber int) (int64, error) {
+func (r *JobTaskRepository) GetPreviousChunksActualKeyspace(ctx context.Context, jobExecutionID uuid.UUID, currentChunkNumber int) (models.BigInt, error) {
 	query := `
 		SELECT COALESCE(SUM(chunk_actual_keyspace), 0)
 		FROM job_tasks
@@ -32,10 +112,10 @@ func (r *JobTaskRepository) GetPreviousChunksActualKeyspace(ctx context.Context,
 		  AND chunk_number < $2
 		  AND chunk_actual_keyspace IS NOT NULL`
 
-	var cumulativeKeyspace int64
+	var cumulativeKeyspace models.BigInt
 	err := r.db.QueryRowContext(ctx, query, jobExecutionID, currentChunkNumber).Scan(&cumulativeKeyspace)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get previous chunks' actual keyspace: %w", err)
+		return models.BigInt{}, fmt.Errorf("failed to get previous chunks' actual keyspace: %w", err)
 	}
 
 	return cumulativeKeyspace, nil
@@ -59,7 +139,7 @@ func (r *JobTaskRepository) GetTotalCracksForJob(ctx context.Context, jobExecuti
 // GetSumChunkActualKeyspace returns the sum of chunk_actual_keyspace for completed/processing tasks.
 // This represents the actual work performed by completed tasks, used for keyspace reconciliation
 // at job completion to ensure effective_keyspace matches actual work done.
-func (r *JobTaskRepository) GetSumChunkActualKeyspace(ctx context.Context, jobExecutionID uuid.UUID) (int64, error) {
+func (r *JobTaskRepository) GetSumChunkActualKeyspace(ctx context.Context, jobExecutionID uuid.UUID) (models.BigInt, error) {
 	query := `
 		SELECT COALESCE(SUM(chunk_actual_keyspace), 0)
 		FROM job_tasks
@@ -67,13 +147,74 @@ func (r *JobTaskRepository) GetSumChunkActualKeyspace(ctx context.Context, jobEx
 		  AND chunk_actual_keyspace IS NOT NULL
 		  AND status IN ('completed', 'processing')`
 
-	var totalKeyspace int64
+	var totalKeyspace models.BigInt
 	err := r.db.QueryRowContext(ctx, query, jobExecutionID).Scan(&totalKeyspace)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get sum of chunk actual keyspace: %w", err)
+		return models.BigInt{}, fmt.Errorf("failed to get sum of chunk actual keyspace: %w", err)
 	}
 
 	return totalKeyspace, nil
+}
+
+// HasUndispatchedBaseKeyspace reports whether a (non-rule-split) job still has
+// BASE keyspace left to dispatch. It is the authoritative completion signal for
+// regular jobs and is computed from the SAME source the scheduler-v2 dispatcher
+// chunks from — job_keyspace_intervals against scheduling_units.base_keyspace —
+// so the completion gate can never disagree with the dispatcher about whether
+// work remains.
+//
+// Semantics mirror dispatcher.firstGap exactly: half-open [range_start,
+// range_end) coverage, failed intervals excluded (their range reopens as a
+// gap), tail bound = base_keyspace. Work remains when ANY unit of the job has a
+// mid-gap or its coverage stops short of base_keyspace. We also return true
+// when the job has no scheduling_units with a usable base_keyspace yet — we
+// can't prove completion, so don't.
+//
+// This deliberately replaces the older effective_keyspace counter comparison,
+// which drifted (float scaling + salt counts) and stranded finished jobs a
+// fraction of a percent short forever.
+func (r *JobTaskRepository) HasUndispatchedBaseKeyspace(ctx context.Context, jobExecutionID uuid.UUID) (bool, error) {
+	const query = `
+		WITH units AS (
+			SELECT id, base_keyspace
+			FROM scheduling_units
+			WHERE parent_job_id = $1
+			  AND base_keyspace IS NOT NULL
+			  AND base_keyspace > 0
+		),
+		ordered AS (
+			SELECT i.scheduling_unit_id AS uid, i.range_start AS rs, i.range_end AS re
+			FROM job_keyspace_intervals i
+			JOIN units u ON u.id = i.scheduling_unit_id
+			WHERE i.status <> 'failed'
+		),
+		with_prev AS (
+			SELECT uid, rs, re,
+			       LAG(re, 1, 0::BIGINT) OVER (PARTITION BY uid ORDER BY rs) AS prev_end
+			FROM ordered
+		),
+		mid_gaps AS (
+			SELECT 1 FROM with_prev WHERE rs > prev_end
+		),
+		tail_gaps AS (
+			SELECT 1 FROM units u
+			WHERE COALESCE((SELECT MAX(o.re) FROM ordered o WHERE o.uid = u.id), 0) < u.base_keyspace
+		)
+		SELECT
+			(SELECT COUNT(*) FROM units) AS unit_count,
+			EXISTS (SELECT 1 FROM mid_gaps UNION ALL SELECT 1 FROM tail_gaps) AS has_gap`
+
+	var unitCount int64
+	var hasGap bool
+	err := r.db.QueryRowContext(ctx, query, jobExecutionID).Scan(&unitCount, &hasGap)
+	if err != nil {
+		return false, fmt.Errorf("failed to check undispatched base keyspace: %w", err)
+	}
+	// No usable units → can't confirm completion; be conservative.
+	if unitCount == 0 {
+		return true, nil
+	}
+	return hasGap, nil
 }
 
 // Create creates a new job task
@@ -96,7 +237,7 @@ func (r *JobTaskRepository) Create(ctx context.Context, task *models.JobTask) er
 		task.AgentID,
 		task.Status,
 		task.Priority,
-		task.AttackCmd,
+		stringPtrToArg(task.AttackCmd),
 		task.KeyspaceStart,
 		task.KeyspaceEnd,
 		task.KeyspaceProcessed,
@@ -109,7 +250,7 @@ func (r *JobTaskRepository) Create(ctx context.Context, task *models.JobTask) er
 		task.RuleEndIndex,
 		task.RuleChunkPath,
 		task.IsRuleSplitTask,
-		task.ChunkNumber,
+		intPtrToArg(task.ChunkNumber),
 		task.IsActualKeyspace,
 		task.IsKeyspaceSplit,
 	).Scan(&task.ID, &task.AssignedAt, &task.CreatedAt, &task.UpdatedAt)
@@ -150,7 +291,7 @@ func (r *JobTaskRepository) CreateWithRuleSplitting(ctx context.Context, task *m
 		task.AgentID,
 		task.Status,
 		task.Priority,
-		task.AttackCmd,
+		stringPtrToArg(task.AttackCmd),
 		task.KeyspaceStart,
 		task.KeyspaceEnd,
 		task.KeyspaceProcessed,
@@ -163,7 +304,7 @@ func (r *JobTaskRepository) CreateWithRuleSplitting(ctx context.Context, task *m
 		task.RuleEndIndex,
 		task.RuleChunkPath,
 		task.IsRuleSplitTask,
-		task.ChunkNumber,
+		intPtrToArg(task.ChunkNumber),
 		task.IsActualKeyspace,
 		task.IsKeyspaceSplit,
 	).Scan(&task.ID, &task.AssignedAt, &task.CreatedAt, &task.UpdatedAt)
@@ -196,9 +337,11 @@ func (r *JobTaskRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.
 		WHERE jt.id = $1`
 
 	var task models.JobTask
+	var attackCmd sql.NullString
+	var chunkNumber sql.NullInt32
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&task.ID, &task.JobExecutionID, &task.IncrementLayerID, &task.AgentID, &task.Status,
-		&task.Priority, &task.AttackCmd,
+		&task.Priority, &attackCmd,
 		&task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
 		&task.EffectiveKeyspaceStart, &task.EffectiveKeyspaceEnd, &task.EffectiveKeyspaceProcessed,
 		&task.BenchmarkSpeed, &task.AverageSpeed, &task.ChunkDuration, &task.AssignedAt,
@@ -206,7 +349,7 @@ func (r *JobTaskRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.
 		&task.CrackCount, &task.DetailedStatus, &task.RetryCount,
 		&task.ExpectedCrackCount, &task.ReceivedCrackCount, &task.BatchesCompleteSignaled,
 		&task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath, &task.IsRuleSplitTask,
-		&task.ChunkNumber, &task.IsActualKeyspace, &task.ChunkActualKeyspace, &task.IsKeyspaceSplit,
+		&chunkNumber, &task.IsActualKeyspace, &task.ChunkActualKeyspace, &task.IsKeyspaceSplit,
 		&task.ProgressPercent, &task.CreatedAt, &task.UpdatedAt,
 		&task.AgentName,
 	)
@@ -217,6 +360,8 @@ func (r *JobTaskRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.
 	if err != nil {
 		return nil, fmt.Errorf("failed to get job task: %w", err)
 	}
+	task.AttackCmd = nullStringToPtr(attackCmd)
+	task.ChunkNumber = nullInt32ToIntPtr(chunkNumber)
 
 	return &task, nil
 }
@@ -315,6 +460,50 @@ func (r *JobTaskRepository) GetActiveTasksByAgent(ctx context.Context, agentID i
 	}
 
 	debug.Info("GetActiveTasksByAgent returning %d tasks for agent %d", len(tasks), agentID)
+	return tasks, nil
+}
+
+// GetRecentFailedTasksByAgent retrieves the agent's most recently failed tasks
+// within the given window. Failed tasks retain agent_id (the failure path clears
+// only the agents-table busy status, not job_tasks.agent_id), so this attributes
+// failures to the agent for the detail page's "why isn't this agent working"
+// view. It covers the case where an agent loops through failing tasks and so
+// appears momentarily idle with no scheduling diagnostic between failures.
+func (r *JobTaskRepository) GetRecentFailedTasksByAgent(ctx context.Context, agentID int, since time.Time, limit int) ([]models.JobTask, error) {
+	query := `
+		SELECT
+			id, job_execution_id, agent_id, status,
+			keyspace_start, keyspace_end, COALESCE(keyspace_processed, 0),
+			benchmark_speed, chunk_duration, assigned_at,
+			started_at, completed_at, last_checkpoint, error_message
+		FROM job_tasks
+		WHERE agent_id = $1 AND status = 'failed'
+		  AND COALESCE(completed_at, updated_at) > $2
+		ORDER BY COALESCE(completed_at, updated_at) DESC
+		LIMIT $3`
+
+	rows, err := r.db.QueryContext(ctx, query, agentID, since, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get recent failed tasks by agent: %w", err)
+	}
+	defer rows.Close()
+
+	var tasks []models.JobTask
+	for rows.Next() {
+		var task models.JobTask
+		if err := rows.Scan(
+			&task.ID, &task.JobExecutionID, &task.AgentID, &task.Status,
+			&task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
+			&task.BenchmarkSpeed, &task.ChunkDuration, &task.AssignedAt,
+			&task.StartedAt, &task.CompletedAt, &task.LastCheckpoint, &task.ErrorMessage,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan failed task: %w", err)
+		}
+		tasks = append(tasks, task)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating failed tasks: %w", err)
+	}
 	return tasks, nil
 }
 
@@ -428,7 +617,7 @@ func (r *JobTaskRepository) MarkTaskFailedPermanently(ctx context.Context, taskI
 	var effectiveKeyspaceEnd sql.NullInt64
 	err := r.db.QueryRowContext(ctx,
 		"SELECT job_execution_id, keyspace_processed, keyspace_start, keyspace_end, "+
-		"effective_keyspace_start, effective_keyspace_end FROM job_tasks WHERE id = $1",
+			"effective_keyspace_start, effective_keyspace_end FROM job_tasks WHERE id = $1",
 		taskID).Scan(&jobExecutionID, &keyspaceProcessed, &keyspaceStart, &keyspaceEnd,
 		&effectiveKeyspaceStart, &effectiveKeyspaceEnd)
 	if err != nil {
@@ -442,17 +631,28 @@ func (r *JobTaskRepository) MarkTaskFailedPermanently(ctx context.Context, taskI
 	}
 	defer tx.Rollback()
 
-	// Mark task as failed
+	// Mark task as failed.
+	// Step 11q: same status guard as MarkTaskFailedPermanentlyAndClearAgentStatus
+	// — don't clobber a task that recovery already truncated-and-completed.
 	query := `
 		UPDATE job_tasks
 		SET status = $2,
 		    error_message = $3,
 		    completed_at = NOW(),
 		    updated_at = NOW()
-		WHERE id = $1`
-	_, err = tx.ExecContext(ctx, query, taskID, models.JobTaskStatusFailed, errorMessage)
+		WHERE id = $1
+		  AND status NOT IN ('completed', 'cancelled')`
+	res, err := tx.ExecContext(ctx, query, taskID, models.JobTaskStatusFailed, errorMessage)
 	if err != nil {
 		return fmt.Errorf("failed to mark task as failed: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		// Already terminal — skip keyspace subtraction.
+		debug.Info("MarkTaskFailedPermanently no-op for task %s (already terminal)", taskID)
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("failed to commit transaction (no-op path): %w", err)
+		}
+		return nil
 	}
 
 	// Subtract any processed keyspace from the job execution
@@ -570,12 +770,27 @@ func (r *JobTaskRepository) StartTask(ctx context.Context, id uuid.UUID) error {
 }
 
 // UpdateProgress updates the progress of a task
-func (r *JobTaskRepository) UpdateProgress(ctx context.Context, id uuid.UUID, keyspaceProcessed int64, effectiveKeyspaceProcessed int64, benchmarkSpeed *int64, progressPercent float64) error {
+func (r *JobTaskRepository) UpdateProgress(ctx context.Context, id uuid.UUID, keyspaceProcessed int64, effectiveKeyspaceProcessed models.BigInt, benchmarkSpeed *int64, progressPercent float64) error {
 	now := time.Now()
+	// Monotonic-progress guard: reject UPDATEs that would decrease
+	// progress_percent or keyspace_processed. Real work is monotonic;
+	// any backward write is a buggy agent message (e.g., the empty
+	// 0%/0H/s message previously sent on Ctrl+C cancellation —
+	// Step 10c-1 fixed the agent, this guard prevents future
+	// regressions of the same class).
+	//
+	// COALESCE so a row with NULL progress_percent (just dispatched,
+	// no progress yet) accepts the first write.
+	//
+	// We do NOT return ErrNotFound when rowsAffected=0, because that
+	// can mean "guard rejected" rather than "row missing." To
+	// distinguish, we read the existence separately on miss.
 	query := `
-		UPDATE job_tasks 
+		UPDATE job_tasks
 		SET keyspace_processed = $1, effective_keyspace_processed = $2, benchmark_speed = $3, last_checkpoint = $4, progress_percent = $5
-		WHERE id = $6`
+		WHERE id = $6
+		  AND COALESCE(progress_percent, 0) <= $5
+		  AND COALESCE(keyspace_processed, 0) <= $1`
 
 	result, err := r.db.ExecContext(ctx, query, keyspaceProcessed, effectiveKeyspaceProcessed, benchmarkSpeed, now, progressPercent, id)
 	if err != nil {
@@ -588,6 +803,12 @@ func (r *JobTaskRepository) UpdateProgress(ctx context.Context, id uuid.UUID, ke
 	}
 
 	if rowsAffected == 0 {
+		// Disambiguate: row missing vs. guard rejected. Cheap one-shot SELECT.
+		var exists bool
+		if checkErr := r.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM job_tasks WHERE id = $1)`, id).Scan(&exists); checkErr == nil && exists {
+			// Row exists; guard rejected a backward write. Not an error — just a no-op.
+			return nil
+		}
 		return ErrNotFound
 	}
 
@@ -873,17 +1094,37 @@ func (r *JobTaskRepository) MarkTaskFailedPermanentlyAndClearAgentStatus(ctx con
 	}
 	defer tx.Rollback()
 
-	// Step 1: Mark task as failed
+	// Step 1: Mark task as failed.
+	// Step 11q: status guard — don't downgrade a terminal task. This
+	// prevents the shutdown race where:
+	//   1. handleAgentShutdown runs RecoverTaskByID → truncate-and-complete → task='completed'
+	//   2. ~170ms later, agent's status='failed' message arrives (hashcat killed)
+	//   3. This UPDATE used to clobber the completed task back to failed
+	// With the guard, rowsAffected=0 on race-loss and we early-return
+	// (the recovery path already handled everything correctly).
 	taskQuery := `
 		UPDATE job_tasks
 		SET status = $2,
 		    error_message = $3,
 		    completed_at = NOW(),
 		    updated_at = NOW()
-		WHERE id = $1`
-	_, err = tx.ExecContext(ctx, taskQuery, taskID, models.JobTaskStatusFailed, errorMessage)
+		WHERE id = $1
+		  AND status NOT IN ('completed', 'cancelled')`
+	res, err := tx.ExecContext(ctx, taskQuery, taskID, models.JobTaskStatusFailed, errorMessage)
 	if err != nil {
 		return fmt.Errorf("failed to mark task as failed: %w", err)
+	}
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
+		// Task was already in a terminal-success state (raced with
+		// recovery's truncate-and-complete). Skip the downstream
+		// keyspace-subtract and agent-clear logic — recovery already
+		// did the right thing.
+		debug.Info("MarkTaskFailedPermanently no-op for task %s (already terminal; shutdown race won by recovery)", taskID)
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("failed to commit transaction (no-op path): %w", err)
+		}
+		return nil
 	}
 
 	// Step 2: Subtract any processed keyspace from the job execution
@@ -949,12 +1190,15 @@ func (r *JobTaskRepository) CancelTask(ctx context.Context, id uuid.UUID) error 
 	return nil
 }
 
-// SetTaskPending sets a task back to pending status for reassignment
-// This is used when interrupting a task for a higher priority job
-func (r *JobTaskRepository) SetTaskPending(ctx context.Context, id uuid.UUID) error {
+// SetTaskPending sets a task back to pending status for reassignment.
+// This is used when interrupting a task for a higher priority job, or when an agent
+// shuts down with a running task.
+// Returns the task's increment_layer_id (nil for non-increment-mode jobs) so the caller
+// can cascade the reset to the parent layer when no other tasks for that layer are active.
+func (r *JobTaskRepository) SetTaskPending(ctx context.Context, id uuid.UUID) (*uuid.UUID, error) {
 	query := `
-		UPDATE job_tasks 
-		SET 
+		UPDATE job_tasks
+		SET
 			status = 'pending',
 			detailed_status = 'pending',
 			agent_id = NULL,
@@ -962,23 +1206,22 @@ func (r *JobTaskRepository) SetTaskPending(ctx context.Context, id uuid.UUID) er
 			started_at = NULL,
 			last_checkpoint = CURRENT_TIMESTAMP,
 			updated_at = CURRENT_TIMESTAMP
-		WHERE id = $1 AND status IN ('assigned', 'running')`
-	
-	result, err := r.db.ExecContext(ctx, query, id)
+		WHERE id = $1 AND status IN ('assigned', 'running')
+		RETURNING increment_layer_id`
+
+	var layerID uuid.NullUUID
+	err := r.db.QueryRowContext(ctx, query, id).Scan(&layerID)
 	if err != nil {
-		return fmt.Errorf("failed to set task to pending: %w", err)
+		if err == sql.ErrNoRows {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("failed to set task to pending: %w", err)
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
+	if layerID.Valid {
+		return &layerID.UUID, nil
 	}
-
-	if rowsAffected == 0 {
-		return ErrNotFound
-	}
-
-	return nil
+	return nil, nil
 }
 
 // SetTaskStopping marks a task as stopping but preserves agent_id
@@ -1175,20 +1418,25 @@ func (r *JobTaskRepository) UpdateTaskStatus(ctx context.Context, id uuid.UUID, 
 	return nil
 }
 
-// ResetTaskForRetry resets a task for retry by incrementing retry count and resetting status
+// ResetTaskForRetry resets a task for retry by incrementing retry count and resetting status.
+// When the task belongs to an increment layer and no other tasks for that layer remain
+// active, the layer's status is also cascaded back to 'pending' inside the same transaction
+// so the scheduler treats it as having available work.
 func (r *JobTaskRepository) ResetTaskForRetry(ctx context.Context, id uuid.UUID) error {
 	// First, get the current task details including both base and effective keyspace ranges
+	// plus the increment_layer_id for the layer-cascade decision.
 	var jobExecutionID uuid.UUID
 	var keyspaceProcessed int64
 	var keyspaceStart int64
 	var keyspaceEnd int64
 	var effectiveKeyspaceStart sql.NullInt64
 	var effectiveKeyspaceEnd sql.NullInt64
+	var incrementLayerID uuid.NullUUID
 	err := r.db.QueryRowContext(ctx,
 		"SELECT job_execution_id, keyspace_processed, keyspace_start, keyspace_end, "+
-		"effective_keyspace_start, effective_keyspace_end FROM job_tasks WHERE id = $1",
+			"effective_keyspace_start, effective_keyspace_end, increment_layer_id FROM job_tasks WHERE id = $1",
 		id).Scan(&jobExecutionID, &keyspaceProcessed, &keyspaceStart, &keyspaceEnd,
-		&effectiveKeyspaceStart, &effectiveKeyspaceEnd)
+		&effectiveKeyspaceStart, &effectiveKeyspaceEnd, &incrementLayerID)
 	if err != nil {
 		return fmt.Errorf("failed to get task details: %w", err)
 	}
@@ -1232,6 +1480,29 @@ func (r *JobTaskRepository) ResetTaskForRetry(ctx context.Context, id uuid.UUID)
 		_, err = tx.ExecContext(ctx, updateJobQuery, keyspaceProcessed, jobExecutionID)
 		if err != nil {
 			return fmt.Errorf("failed to update job processed keyspace: %w", err)
+		}
+	}
+
+	// Cascade: if this was an increment-layer task and no other tasks for the same layer
+	// remain active (running/assigned), reset the layer's status back to 'pending'.
+	// The `status = 'running'` guard on the layer UPDATE ensures completed/failed/cancelled
+	// layers are left untouched. The task we just reset is excluded from the active count
+	// since its row in this transaction is already 'pending'.
+	if incrementLayerID.Valid {
+		var activeCount int
+		err = tx.QueryRowContext(ctx,
+			"SELECT COUNT(*) FROM job_tasks WHERE increment_layer_id = $1 AND status IN ('running', 'assigned') AND id != $2",
+			incrementLayerID.UUID, id).Scan(&activeCount)
+		if err != nil {
+			return fmt.Errorf("failed to count active tasks for layer cascade: %w", err)
+		}
+		if activeCount == 0 {
+			_, err = tx.ExecContext(ctx,
+				"UPDATE job_increment_layers SET status = 'pending', updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND status = 'running'",
+				incrementLayerID.UUID)
+			if err != nil {
+				return fmt.Errorf("failed to cascade layer reset to pending: %w", err)
+			}
 		}
 	}
 
@@ -1360,9 +1631,10 @@ func (r *JobTaskRepository) GetActiveTaskForAgentAndHashlist(ctx context.Context
 		LIMIT 1`
 
 	var task models.JobTask
+	var attackCmd sql.NullString
 	err := r.db.QueryRowContext(ctx, query, agentID, hashlistID).Scan(
 		&task.ID, &task.JobExecutionID, &task.AgentID, &task.Status, &task.Priority,
-		&task.AttackCmd, &task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
+		&attackCmd, &task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
 		&task.ProgressPercent, &task.BenchmarkSpeed, &task.AverageSpeed, &task.ChunkDuration,
 		&task.CreatedAt, &task.AssignedAt, &task.StartedAt, &task.CompletedAt, &task.UpdatedAt,
 		&task.LastCheckpoint, &task.ErrorMessage, &task.CrackCount, &task.DetailedStatus,
@@ -1376,6 +1648,7 @@ func (r *JobTaskRepository) GetActiveTaskForAgentAndHashlist(ctx context.Context
 	if err != nil {
 		return nil, fmt.Errorf("failed to get active task: %w", err)
 	}
+	task.AttackCmd = nullStringToPtr(attackCmd)
 
 	return &task, nil
 }
@@ -1400,9 +1673,10 @@ func (r *JobTaskRepository) GetActiveTaskForAgentAndHashlistTx(tx *sql.Tx, agent
 		LIMIT 1`
 
 	var task models.JobTask
+	var attackCmd sql.NullString
 	err := tx.QueryRowContext(context.Background(), query, agentID, hashlistID).Scan(
 		&task.ID, &task.JobExecutionID, &task.AgentID, &task.Status, &task.Priority,
-		&task.AttackCmd, &task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
+		&attackCmd, &task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
 		&task.ProgressPercent, &task.BenchmarkSpeed, &task.AverageSpeed, &task.ChunkDuration,
 		&task.CreatedAt, &task.AssignedAt, &task.StartedAt, &task.CompletedAt, &task.UpdatedAt,
 		&task.LastCheckpoint, &task.ErrorMessage, &task.CrackCount, &task.DetailedStatus,
@@ -1416,6 +1690,7 @@ func (r *JobTaskRepository) GetActiveTaskForAgentAndHashlistTx(tx *sql.Tx, agent
 	if err != nil {
 		return nil, fmt.Errorf("failed to get active task: %w", err)
 	}
+	task.AttackCmd = nullStringToPtr(attackCmd)
 
 	return &task, nil
 }
@@ -1466,6 +1741,28 @@ func (r *JobTaskRepository) GetActiveTasksCount(ctx context.Context, jobExecutio
 	err := r.db.QueryRowContext(ctx, query, jobExecutionID).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get active tasks count: %w", err)
+	}
+
+	return count, nil
+}
+
+// GetActiveTaskCountByLayer returns the number of active tasks (running or assigned) for an
+// increment layer. Used by the cascade in handleAgentShutdown / ResetTaskForRetry to decide
+// whether resetting one task should also reset the parent layer's status.
+// "Active" matches GetActiveTasksCount (job-level) — running and assigned only. Tasks in
+// reconnect_pending are NOT counted; when they transition (back to running on reconnect, or
+// to pending after grace expires), the appropriate cascade re-evaluates layer status.
+func (r *JobTaskRepository) GetActiveTaskCountByLayer(ctx context.Context, layerID uuid.UUID) (int, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM job_tasks
+		WHERE increment_layer_id = $1
+		  AND status IN ('running', 'assigned')`
+
+	var count int
+	err := r.db.QueryRowContext(ctx, query, layerID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get active task count for layer: %w", err)
 	}
 
 	return count, nil
@@ -1602,19 +1899,23 @@ func (r *JobTaskRepository) GetReconnectPendingTasksByAgent(ctx context.Context,
 	var tasks []models.JobTask
 	for rows.Next() {
 		var task models.JobTask
+		var attackCmd sql.NullString
+		var chunkNumber sql.NullInt32
 		err := rows.Scan(
 			&task.ID, &task.JobExecutionID, &task.AgentID, &task.Status, &task.Priority,
-			&task.AttackCmd, &task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
+			&attackCmd, &task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
 			&task.ProgressPercent, &task.BenchmarkSpeed, &task.ChunkDuration,
 			&task.CreatedAt, &task.AssignedAt, &task.StartedAt, &task.CompletedAt, &task.UpdatedAt,
 			&task.LastCheckpoint, &task.ErrorMessage, &task.CrackCount, &task.DetailedStatus,
 			&task.RetryCount, &task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath,
-			&task.IsRuleSplitTask, &task.ChunkNumber,
+			&task.IsRuleSplitTask, &chunkNumber,
 			&task.EffectiveKeyspaceStart, &task.EffectiveKeyspaceEnd, &task.EffectiveKeyspaceProcessed,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan job task: %w", err)
 		}
+		task.AttackCmd = nullStringToPtr(attackCmd)
+		task.ChunkNumber = nullInt32ToIntPtr(chunkNumber)
 		tasks = append(tasks, task)
 	}
 
@@ -1646,18 +1947,22 @@ func (r *JobTaskRepository) GetTasksByChunkNumber(ctx context.Context, jobExecut
 	var tasks []models.JobTask
 	for rows.Next() {
 		var task models.JobTask
+		var attackCmd sql.NullString
+		var chunkNumber sql.NullInt32
 		err := rows.Scan(
 			&task.ID, &task.JobExecutionID, &task.AgentID, &task.Status, &task.Priority,
-			&task.AttackCmd, &task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
+			&attackCmd, &task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
 			&task.ProgressPercent, &task.BenchmarkSpeed, &task.ChunkDuration,
 			&task.CreatedAt, &task.AssignedAt, &task.StartedAt, &task.CompletedAt, &task.UpdatedAt,
 			&task.LastCheckpoint, &task.ErrorMessage, &task.CrackCount, &task.DetailedStatus,
 			&task.RetryCount, &task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath,
-			&task.IsRuleSplitTask, &task.ChunkNumber,
+			&task.IsRuleSplitTask, &chunkNumber,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan task: %w", err)
 		}
+		task.AttackCmd = nullStringToPtr(attackCmd)
+		task.ChunkNumber = nullInt32ToIntPtr(chunkNumber)
 		tasks = append(tasks, task)
 	}
 
@@ -1681,14 +1986,16 @@ func (r *JobTaskRepository) GetRetriableErrorTask(ctx context.Context, jobExecut
 		LIMIT 1`
 
 	var task models.JobTask
+	var attackCmd sql.NullString
+	var chunkNumber sql.NullInt32
 	err := r.db.QueryRowContext(ctx, query, jobExecutionID, maxRetries).Scan(
 		&task.ID, &task.JobExecutionID, &task.AgentID, &task.Status, &task.Priority,
-		&task.AttackCmd, &task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
+		&attackCmd, &task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
 		&task.ProgressPercent, &task.BenchmarkSpeed, &task.ChunkDuration,
 		&task.CreatedAt, &task.AssignedAt, &task.StartedAt, &task.CompletedAt, &task.UpdatedAt,
 		&task.LastCheckpoint, &task.ErrorMessage, &task.CrackCount, &task.DetailedStatus,
 		&task.RetryCount, &task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath,
-		&task.IsRuleSplitTask, &task.ChunkNumber,
+		&task.IsRuleSplitTask, &chunkNumber,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -1696,6 +2003,8 @@ func (r *JobTaskRepository) GetRetriableErrorTask(ctx context.Context, jobExecut
 	if err != nil {
 		return nil, fmt.Errorf("failed to get retriable error task: %w", err)
 	}
+	task.AttackCmd = nullStringToPtr(attackCmd)
+	task.ChunkNumber = nullInt32ToIntPtr(chunkNumber)
 
 	return &task, nil
 }
@@ -1720,14 +2029,16 @@ func (r *JobTaskRepository) GetStalePendingTask(ctx context.Context, jobExecutio
 		LIMIT 1`
 
 	var task models.JobTask
+	var attackCmd sql.NullString
+	var chunkNumber sql.NullInt32
 	err := r.db.QueryRowContext(ctx, query, jobExecutionID, cutoffTime).Scan(
 		&task.ID, &task.JobExecutionID, &task.AgentID, &task.Status, &task.Priority,
-		&task.AttackCmd, &task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
+		&attackCmd, &task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
 		&task.ProgressPercent, &task.BenchmarkSpeed, &task.ChunkDuration,
 		&task.CreatedAt, &task.AssignedAt, &task.StartedAt, &task.CompletedAt, &task.UpdatedAt,
 		&task.LastCheckpoint, &task.ErrorMessage, &task.CrackCount, &task.DetailedStatus,
 		&task.RetryCount, &task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath,
-		&task.IsRuleSplitTask, &task.ChunkNumber,
+		&task.IsRuleSplitTask, &chunkNumber,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -1735,6 +2046,8 @@ func (r *JobTaskRepository) GetStalePendingTask(ctx context.Context, jobExecutio
 	if err != nil {
 		return nil, fmt.Errorf("failed to get stale pending task: %w", err)
 	}
+	task.AttackCmd = nullStringToPtr(attackCmd)
+	task.ChunkNumber = nullInt32ToIntPtr(chunkNumber)
 
 	return &task, nil
 }
@@ -1756,14 +2069,16 @@ func (r *JobTaskRepository) GetUnassignedPendingTask(ctx context.Context, jobExe
 		LIMIT 1`
 
 	var task models.JobTask
+	var attackCmd sql.NullString
+	var chunkNumber sql.NullInt32
 	err := r.db.QueryRowContext(ctx, query, jobExecutionID).Scan(
 		&task.ID, &task.JobExecutionID, &task.AgentID, &task.Status, &task.Priority,
-		&task.AttackCmd, &task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
+		&attackCmd, &task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
 		&task.ProgressPercent, &task.BenchmarkSpeed, &task.ChunkDuration,
 		&task.CreatedAt, &task.AssignedAt, &task.StartedAt, &task.CompletedAt, &task.UpdatedAt,
 		&task.LastCheckpoint, &task.ErrorMessage, &task.CrackCount, &task.DetailedStatus,
 		&task.RetryCount, &task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath,
-		&task.IsRuleSplitTask, &task.ChunkNumber,
+		&task.IsRuleSplitTask, &chunkNumber,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -1771,6 +2086,8 @@ func (r *JobTaskRepository) GetUnassignedPendingTask(ctx context.Context, jobExe
 	if err != nil {
 		return nil, fmt.Errorf("failed to get unassigned pending task: %w", err)
 	}
+	task.AttackCmd = nullStringToPtr(attackCmd)
+	task.ChunkNumber = nullInt32ToIntPtr(chunkNumber)
 
 	return &task, nil
 }
@@ -1833,7 +2150,7 @@ func (r *JobTaskRepository) GetTasksByAgentAndStatus(ctx context.Context, agentI
 }
 
 // UpdateTaskEffectiveKeyspace updates the effective keyspace for a task with actual values from hashcat
-func (r *JobTaskRepository) UpdateTaskEffectiveKeyspace(ctx context.Context, taskID uuid.UUID, effectiveKeyspaceStart, effectiveKeyspaceEnd int64) error {
+func (r *JobTaskRepository) UpdateTaskEffectiveKeyspace(ctx context.Context, taskID uuid.UUID, effectiveKeyspaceStart, effectiveKeyspaceEnd models.BigInt) error {
 	query := `
 		UPDATE job_tasks
 		SET effective_keyspace_start = $2,
@@ -1861,7 +2178,7 @@ func (r *JobTaskRepository) UpdateTaskEffectiveKeyspace(ctx context.Context, tas
 
 // UpdateTaskEffectiveKeyspaceWithChunkSize updates effective keyspace values and stores the actual chunk size
 // This enables self-correcting cascade updates for subsequent chunks
-func (r *JobTaskRepository) UpdateTaskEffectiveKeyspaceWithChunkSize(ctx context.Context, taskID uuid.UUID, effectiveKeyspaceStart, effectiveKeyspaceEnd, chunkActualKeyspace int64) error {
+func (r *JobTaskRepository) UpdateTaskEffectiveKeyspaceWithChunkSize(ctx context.Context, taskID uuid.UUID, effectiveKeyspaceStart, effectiveKeyspaceEnd, chunkActualKeyspace models.BigInt) error {
 	query := `
 		UPDATE job_tasks
 		SET effective_keyspace_start = $2,
@@ -2191,9 +2508,10 @@ func (r *JobTaskRepository) GetProcessingTasksForJob(ctx context.Context, jobExe
 	var tasks []*models.JobTask
 	for rows.Next() {
 		var task models.JobTask
+		var attackCmd sql.NullString
 		err := rows.Scan(
 			&task.ID, &task.JobExecutionID, &task.AgentID, &task.Status, &task.Priority,
-			&task.AttackCmd, &task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
+			&attackCmd, &task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
 			&task.ProgressPercent, &task.BenchmarkSpeed, &task.ChunkDuration,
 			&task.CreatedAt, &task.AssignedAt, &task.StartedAt, &task.CompletedAt, &task.UpdatedAt,
 			&task.LastCheckpoint, &task.ErrorMessage, &task.CrackCount, &task.DetailedStatus,
@@ -2202,6 +2520,7 @@ func (r *JobTaskRepository) GetProcessingTasksForJob(ctx context.Context, jobExe
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan processing task: %w", err)
 		}
+		task.AttackCmd = nullStringToPtr(attackCmd)
 		tasks = append(tasks, &task)
 	}
 

@@ -124,6 +124,29 @@ func (r *HashTypeRepository) List(ctx context.Context, enabledOnly bool) ([]mode
 	return hashTypes, nil
 }
 
+// GetAllExamples returns a map of hashcat_mode → example string for every
+// enabled hash type that has a non-null, non-empty example field. Used by
+// the upload validator to derive example-based regex fallbacks for modes the
+// vendored Name-That-Hash data doesn't cover (GitHub issue #38).
+func (r *HashTypeRepository) GetAllExamples(ctx context.Context) (map[int]string, error) {
+	const query = `SELECT id, example FROM hash_types WHERE is_enabled = TRUE AND example IS NOT NULL AND example <> ''`
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load hash type examples: %w", err)
+	}
+	defer rows.Close()
+	out := make(map[int]string)
+	for rows.Next() {
+		var id int
+		var example string
+		if err := rows.Scan(&id, &example); err != nil {
+			return nil, fmt.Errorf("failed to scan hash type example row: %w", err)
+		}
+		out[id] = example
+	}
+	return out, rows.Err()
+}
+
 // Update modifies an existing hash type record.
 // Note: Typically managed via migrations.
 func (r *HashTypeRepository) Update(ctx context.Context, hashType *models.HashType) error {

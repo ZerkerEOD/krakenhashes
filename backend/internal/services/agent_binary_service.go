@@ -28,30 +28,41 @@ type BinaryInfo struct {
 	DownloadURL string `json:"download_url"`
 }
 
-// AgentBinaryService manages agent binaries
+// AgentBinaryService manages agent and launcher binaries
 type AgentBinaryService struct {
-	mu           sync.RWMutex
-	binaryPath   string                // /var/lib/krakenhashes/agents
-	agentVersion string                // From versions.json
-	checksums    map[string]string     // "os_arch" -> SHA-256
-	binaries     map[string]BinaryInfo // "os_arch" -> BinaryInfo
+	mu              sync.RWMutex
+	binaryPath      string                // /usr/share/krakenhashes/agents
+	launcherPath    string                // /usr/share/krakenhashes/launcher
+	agentVersion    string                // From versions.json ("agent")
+	launcherVersion string                // From versions.json ("launcher")
+	checksums       map[string]string     // "os_arch" -> SHA-256 (agent)
+	binaries        map[string]BinaryInfo // "os_arch" -> BinaryInfo (agent)
+	launchers       map[string]BinaryInfo // "os_arch" -> BinaryInfo (launcher)
 }
 
-// NewAgentBinaryService creates a new agent binary service
+// NewAgentBinaryService creates an AgentBinaryService configured with root paths for agent and launcher binaries and initialized in-memory indexes.
+// It prefers fixed container-installation paths (/usr/share/krakenhashes/agents and /usr/share/krakenhashes/launcher) and falls back to the provided dataDir (dataDir/agents and dataDir/launcher) when those fixed paths do not exist.
+// The returned service has empty checksum, binaries, and launchers maps ready for population.
 func NewAgentBinaryService(dataDir string) *AgentBinaryService {
 	// Use a fixed path for agents that's not in the volume-mounted data directory
 	// This ensures agents built into the Docker image are accessible
 	binaryPath := "/usr/share/krakenhashes/agents"
+	launcherPath := "/usr/share/krakenhashes/launcher"
 
 	// In development (non-Docker), fall back to data directory
 	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
 		binaryPath = filepath.Join(dataDir, "agents")
 	}
+	if _, err := os.Stat(launcherPath); os.IsNotExist(err) {
+		launcherPath = filepath.Join(dataDir, "launcher")
+	}
 
 	return &AgentBinaryService{
-		binaryPath: binaryPath,
-		checksums:  make(map[string]string),
-		binaries:   make(map[string]BinaryInfo),
+		binaryPath:   binaryPath,
+		launcherPath: launcherPath,
+		checksums:    make(map[string]string),
+		binaries:     make(map[string]BinaryInfo),
+		launchers:    make(map[string]BinaryInfo),
 	}
 }
 
@@ -59,7 +70,7 @@ func NewAgentBinaryService(dataDir string) *AgentBinaryService {
 func (s *AgentBinaryService) Initialize() error {
 	debug.Info("Initializing agent binary service")
 
-	// Read agent version from versions.json
+	// Read agent + launcher versions from versions.json
 	if err := s.readAgentVersion(); err != nil {
 		return fmt.Errorf("failed to read agent version: %w", err)
 	}
@@ -69,8 +80,14 @@ func (s *AgentBinaryService) Initialize() error {
 		return fmt.Errorf("failed to scan binaries: %w", err)
 	}
 
-	debug.Info("Agent binary service initialized with version %s, found %d binaries",
-		s.agentVersion, len(s.binaries))
+	// Scan launcher directory (absence is not an error — launcher binaries may
+	// not be built/baked yet in development).
+	if err := s.scanLaunchers(); err != nil {
+		debug.Warning("failed to scan launcher binaries: %v", err)
+	}
+
+	debug.Info("Agent binary service initialized with agent version %s (%d binaries), launcher version %s (%d binaries)",
+		s.agentVersion, len(s.binaries), s.launcherVersion, len(s.launchers))
 	return nil
 }
 
@@ -100,6 +117,82 @@ func (s *AgentBinaryService) readAgentVersion() error {
 	}
 
 	s.agentVersion = agentVersion
+	// Launcher version is optional (it may not be tracked yet); default to the
+	// agent version so downloads still advertise something sensible.
+	if launcherVersion, ok := versions["launcher"]; ok {
+		s.launcherVersion = launcherVersion
+	} else {
+		s.launcherVersion = agentVersion
+	}
+	return nil
+}
+
+// scanLaunchers indexes launcher binaries under launcherPath/{os}/{arch}/.
+func (s *AgentBinaryService) scanLaunchers() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, err := os.Stat(s.launcherPath); os.IsNotExist(err) {
+		debug.Warning("Launcher binary directory does not exist: %s", s.launcherPath)
+		return nil
+	}
+
+	osDirs, err := os.ReadDir(s.launcherPath)
+	if err != nil {
+		return fmt.Errorf("failed to read launcher directory: %w", err)
+	}
+
+	for _, osDir := range osDirs {
+		if !osDir.IsDir() {
+			continue
+		}
+		osName := osDir.Name()
+		osPath := filepath.Join(s.launcherPath, osName)
+
+		archDirs, err := os.ReadDir(osPath)
+		if err != nil {
+			debug.Error("Failed to read launcher OS directory %s: %v", osPath, err)
+			continue
+		}
+
+		for _, archDir := range archDirs {
+			if !archDir.IsDir() {
+				continue
+			}
+			arch := archDir.Name()
+
+			binaryName := "krakenhashes-launcher"
+			if osName == "windows" {
+				binaryName += ".exe"
+			}
+
+			binaryPath := filepath.Join(osPath, arch, binaryName)
+			info, err := os.Stat(binaryPath)
+			if err != nil {
+				continue
+			}
+			checksum, err := s.calculateChecksum(binaryPath)
+			if err != nil {
+				debug.Error("Failed to calculate launcher checksum for %s: %v", binaryPath, err)
+				continue
+			}
+
+			key := fmt.Sprintf("%s_%s", osName, arch)
+			s.launchers[key] = BinaryInfo{
+				OS:          osName,
+				Arch:        arch,
+				Path:        binaryPath,
+				Checksum:    checksum,
+				Size:        info.Size(),
+				Version:     s.launcherVersion,
+				DisplayName: s.getDisplayName(osName, arch),
+				FileName:    binaryName,
+				DownloadURL: fmt.Sprintf("/api/public/agent/launcher/download/%s/%s", osName, arch),
+			}
+			debug.Info("Indexed launcher: %s/%s (size: %d)", osName, arch, info.Size())
+		}
+	}
+
 	return nil
 }
 
@@ -247,6 +340,35 @@ func (s *AgentBinaryService) GetAllBinaries() []BinaryInfo {
 // GetVersion returns the current agent version
 func (s *AgentBinaryService) GetVersion() string {
 	return s.agentVersion
+}
+
+// GetLauncherVersion returns the current launcher version.
+func (s *AgentBinaryService) GetLauncherVersion() string {
+	return s.launcherVersion
+}
+
+// GetLauncherBinary returns info about a specific launcher binary.
+func (s *AgentBinaryService) GetLauncherBinary(os, arch string) (*BinaryInfo, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	key := fmt.Sprintf("%s_%s", os, arch)
+	if binary, ok := s.launchers[key]; ok {
+		return &binary, nil
+	}
+	return nil, fmt.Errorf("launcher binary not found for %s/%s", os, arch)
+}
+
+// GetAllLauncherBinaries returns info about all available launcher binaries.
+func (s *AgentBinaryService) GetAllLauncherBinaries() []BinaryInfo {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	result := make([]BinaryInfo, 0)
+	for _, binary := range s.launchers {
+		result = append(result, binary)
+	}
+	return result
 }
 
 // GetChecksums returns all checksums

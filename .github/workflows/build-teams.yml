@@ -1,0 +1,195 @@
+name: Build Teams Feature Image
+
+on:
+  push:
+    branches:
+      - feature/teams-implementation
+    paths-ignore:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - 'requirements-docs.txt'
+      - '**.md'
+      - '.github/workflows/deploy-docs*.yml'
+      - '.github/workflows/fix-gh-pages.yml'
+      - '.github/workflows/validate-translations.yml'
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Build agent binaries for all platforms FIRST
+  agent-binaries:
+    name: Build Agent - ${{ matrix.os }}-${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Windows
+          - os: windows
+            arch: amd64
+            ext: .exe
+          - os: windows
+            arch: 386
+            ext: .exe
+          - os: windows
+            arch: arm64
+            ext: .exe
+          # Linux
+          - os: linux
+            arch: amd64
+            ext: ""
+          - os: linux
+            arch: 386
+            ext: ""
+          - os: linux
+            arch: arm64
+            ext: ""
+          - os: linux
+            arch: arm
+            goarm: 7
+            ext: ""
+          # macOS
+          - os: darwin
+            arch: amd64
+            ext: ""
+          - os: darwin
+            arch: arm64
+            ext: ""
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: agent/go.sum
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Get agent version
+        id: agent_version
+        run: echo "VERSION=$(jq -r .agent versions.json)" >> $GITHUB_OUTPUT
+
+      - name: Get short commit SHA
+        id: commit_agent
+        run: echo "short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Build agent binary
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+          GOARM: ${{ matrix.goarm }}
+          CGO_ENABLED: 0
+        working-directory: ./agent
+        run: |
+          VERSION=${{ steps.agent_version.outputs.VERSION }}
+          COMMIT=${{ steps.commit_agent.outputs.short }}
+          BINARY_NAME=krakenhashes-agent${{ matrix.ext }}
+          go build -v -ldflags="-s -w -X github.com/ZerkerEOD/krakenhashes/agent/internal/version.Version=${VERSION}-${COMMIT}-teams" \
+            -o ${BINARY_NAME} ./cmd/agent
+
+      - name: Upload binary for Docker build
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.os }}-${{ matrix.arch }}
+          path: ./agent/krakenhashes-agent${{ matrix.ext }}
+          retention-days: 1
+
+  # Build and push Docker images (after agent binaries are built)
+  docker:
+    name: Build Teams Docker Image
+    needs: [agent-binaries]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all agent binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: binary-*
+          path: ./agent-binaries
+
+      - name: Organize binaries for Docker build
+        run: |
+          # Create the directory structure expected by the Dockerfile
+          mkdir -p ./bin/agent
+
+          # Move binaries to organized structure
+          for binary_dir in ./agent-binaries/binary-*; do
+            if [ -d "$binary_dir" ]; then
+              # Extract os and arch from directory name (e.g., binary-linux-amd64)
+              dir_name=$(basename "$binary_dir")
+              os_arch="${dir_name#binary-}"
+              os="${os_arch%-*}"
+              arch="${os_arch##*-}"
+
+              # Create destination directory
+              mkdir -p "./bin/agent/$os/$arch"
+
+              # Move binary to destination
+              if [ -f "$binary_dir/krakenhashes-agent.exe" ]; then
+                mv "$binary_dir/krakenhashes-agent.exe" "./bin/agent/$os/$arch/"
+              elif [ -f "$binary_dir/krakenhashes-agent" ]; then
+                mv "$binary_dir/krakenhashes-agent" "./bin/agent/$os/$arch/"
+              fi
+            fi
+          done
+
+          # List the structure for debugging
+          echo "Agent binary structure:"
+          ls -lR ./bin/agent
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Generate lowercase image name
+        id: image
+        run: echo "name=$(echo ${{ env.IMAGE_NAME }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Get short commit SHA
+        id: commit
+        run: echo "short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Build and push teams Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.prod
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}:teams
+          build-args: |
+            COMMIT_SHA=${{ steps.commit.outputs.short }}
+            BUILD_TYPE=dev
+          labels: |
+            org.opencontainers.image.description=KrakenHashes - Password Cracking Management System (Teams Feature Build)
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=teams
+          cache-to: type=gha,mode=max,scope=teams
+
+      - name: Image information
+        run: |
+          IMAGE_NAME=$(echo ${{ env.IMAGE_NAME }} | tr '[:upper:]' '[:lower:]')
+          echo "✅ Teams feature image built and pushed successfully!"
+          echo ""
+          echo "Docker image: ${{ env.REGISTRY }}/${IMAGE_NAME}:teams"
+          echo "Pull with: docker pull ${{ env.REGISTRY }}/${IMAGE_NAME}:teams"
+          echo ""
+          echo "Commit: ${{ github.sha }}"
+          echo "Branch: ${{ github.ref_name }}"

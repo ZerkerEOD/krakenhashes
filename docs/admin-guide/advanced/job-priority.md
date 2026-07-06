@@ -23,6 +23,13 @@ Jobs in KrakenHashes use a priority scale from 0 to 100:
 3. **Queue Position**: Within the same priority level, jobs follow FIFO (First-In-First-Out)
 4. **Interruption Rights**: Jobs with high priority override can interrupt lower priority running jobs
 
+!!! note "How allocation works under the hood"
+    The exact way surplus agents are distributed across same-priority jobs is governed by the
+    `agent_overflow_allocation_mode` setting, which offers five modes (Priority FIFO/Round-Robin and
+    Max-Agents FIFO/Round-Robin/strict). See
+    [Scheduler v2 Overview — Agent allocation and overflow modes](../../reference/architecture/scheduler-v2-overview.md#agent-allocation-and-overflow-modes)
+    for the full model.
+
 ## High Priority Override Feature
 
 ### What is High Priority Override?

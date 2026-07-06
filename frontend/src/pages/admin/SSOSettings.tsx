@@ -28,7 +28,8 @@ import {
   Grid,
   Card,
   CardContent,
-  CardActions
+  CardActions,
+  AlertTitle
 } from '@mui/material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import AddIcon from '@mui/icons-material/Add';
@@ -42,6 +43,7 @@ import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import DownloadIcon from '@mui/icons-material/Download';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { useSnackbar } from 'notistack';
 import { useTranslation } from 'react-i18next';
 
@@ -262,6 +264,43 @@ const SSOSettingsPage: React.FC = () => {
           </Typography>
         </Box>
       </Box>
+
+      {/* Ephemeral Encryption Key Warning */}
+      {settings?.encryption_key_ephemeral && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          <AlertTitle>{t('ssoSettings.warnings.ephemeralKeyTitle') as string}</AlertTitle>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            {t('ssoSettings.warnings.ephemeralKeyDescription') as string}
+          </Typography>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            {t('ssoSettings.warnings.ephemeralKeyInstructions') as string}
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <code style={{ padding: '4px 8px', backgroundColor: 'rgba(0,0,0,0.08)', borderRadius: 4 }}>
+              openssl rand -base64 32
+            </code>
+            <Tooltip title={t('ssoSettings.warnings.ephemeralKeyCopied') as string}>
+              <IconButton
+                size="small"
+                onClick={() => {
+                  navigator.clipboard.writeText('openssl rand -base64 32');
+                  enqueueSnackbar(t('ssoSettings.warnings.ephemeralKeyCopied') as string, { variant: 'success' });
+                }}
+              >
+                <ContentCopyIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+          <Typography variant="body2">
+            {t('ssoSettings.warnings.ephemeralKeyAddToEnv') as string}
+          </Typography>
+          <Box sx={{ mt: 0.5 }}>
+            <code style={{ padding: '4px 8px', backgroundColor: 'rgba(0,0,0,0.08)', borderRadius: 4 }}>
+              {t('ssoSettings.warnings.ephemeralKeyEnvExample') as string}
+            </code>
+          </Box>
+        </Alert>
+      )}
 
       {/* Global Settings */}
       <Paper sx={{ p: 3, mb: 3 }}>

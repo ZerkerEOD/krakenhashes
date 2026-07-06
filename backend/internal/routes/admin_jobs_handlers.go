@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,23 +21,103 @@ import (
 type AdminJobsHandler struct {
 	presetJobService services.AdminPresetJobService
 	workflowService  services.AdminJobWorkflowService
+	charsetRepo      repository.CustomCharsetRepository
 }
 
 // NewAdminJobsHandler creates a new handler for admin job routes.
-func NewAdminJobsHandler(presetJobService services.AdminPresetJobService, workflowService services.AdminJobWorkflowService) *AdminJobsHandler {
+func NewAdminJobsHandler(presetJobService services.AdminPresetJobService, workflowService services.AdminJobWorkflowService, charsetRepo repository.CustomCharsetRepository) *AdminJobsHandler {
 	return &AdminJobsHandler{
 		presetJobService: presetJobService,
 		workflowService:  workflowService,
+		charsetRepo:      charsetRepo,
 	}
 }
 
 // --- Preset Job Handlers ---
 
+// presetJobRequest wraps a PresetJob with optional file charset IDs for resolution.
+type presetJobRequest struct {
+	models.PresetJob
+	CustomCharsetFileIDs map[string]string `json:"custom_charset_file_ids,omitempty"`
+}
+
+// resolveCharsetFileIDs looks up charset file IDs and converts them to CustomCharsetFiles refs.
+func (h *AdminJobsHandler) resolveCharsetFileIDs(ctx context.Context, fileIDs map[string]string) (models.CustomCharsetFiles, error) {
+	if len(fileIDs) == 0 {
+		return nil, nil
+	}
+	charsetFiles := make(models.CustomCharsetFiles)
+	for slot, charsetIDStr := range fileIDs {
+		if slot != "1" && slot != "2" && slot != "3" && slot != "4" {
+			return nil, fmt.Errorf("invalid charset slot %q (must be 1-4)", slot)
+		}
+		charsetID, err := uuid.Parse(charsetIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid charset ID for slot %s: %v", slot, err)
+		}
+		charset, err := h.charsetRepo.GetByID(ctx, charsetID)
+		if err != nil {
+			return nil, fmt.Errorf("charset not found for slot %s: %v", slot, err)
+		}
+		if charset.CharsetType != models.CustomCharsetTypeFile {
+			return nil, fmt.Errorf("charset %s (slot %s) is not a file charset", charset.Name, slot)
+		}
+		charsetFiles[slot] = models.CharsetFileRef{
+			ID:        charset.ID.String(),
+			FilePath:  *charset.FilePath,
+			MD5:       *charset.FileMD5,
+			ByteCount: *charset.ByteCount,
+		}
+	}
+	return charsetFiles, nil
+}
+
 func (h *AdminJobsHandler) CreatePresetJob(w http.ResponseWriter, r *http.Request) {
-	var job models.PresetJob
-	if err := json.NewDecoder(r.Body).Decode(&job); err != nil {
+	var req presetJobRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httputil.RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
 		return
+	}
+
+	job := req.PresetJob
+
+	// Validate additional args if provided
+	if job.AdditionalArgs != nil && *job.AdditionalArgs != "" {
+		if err := services.ValidateAdditionalArgs(*job.AdditionalArgs); err != nil {
+			httputil.RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Invalid additional arguments: %v", err))
+			return
+		}
+	}
+
+	// Resolve file charset IDs to full references
+	if len(req.CustomCharsetFileIDs) > 0 {
+		charsetFiles, err := h.resolveCharsetFileIDs(r.Context(), req.CustomCharsetFileIDs)
+		if err != nil {
+			httputil.RespondWithError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		job.CustomCharsetFiles = charsetFiles
+	}
+
+	// Validate hex charset consistency
+	if job.HexCharset && len(job.CustomCharsets) > 0 {
+		for slot, def := range job.CustomCharsets {
+			if def == "" {
+				continue
+			}
+			if len(def)%2 != 0 {
+				httputil.RespondWithError(w, http.StatusBadRequest,
+					fmt.Sprintf("Hex charset mode is enabled but charset in slot %s has odd length (%d chars) — hex charsets must be even-length byte pairs", slot, len(def)))
+				return
+			}
+			for i, c := range def {
+				if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+					httputil.RespondWithError(w, http.StatusBadRequest,
+						fmt.Sprintf("Hex charset mode is enabled but charset in slot %s contains non-hex character %q at position %d", slot, string(c), i))
+					return
+				}
+			}
+		}
 	}
 
 	createdJob, err := h.presetJobService.CreatePresetJob(r.Context(), job)
@@ -113,10 +194,51 @@ func (h *AdminJobsHandler) UpdatePresetJob(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var job models.PresetJob
-	if err := json.NewDecoder(r.Body).Decode(&job); err != nil {
+	var req presetJobRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httputil.RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
 		return
+	}
+
+	job := req.PresetJob
+
+	// Validate additional args if provided
+	if job.AdditionalArgs != nil && *job.AdditionalArgs != "" {
+		if err := services.ValidateAdditionalArgs(*job.AdditionalArgs); err != nil {
+			httputil.RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Invalid additional arguments: %v", err))
+			return
+		}
+	}
+
+	// Resolve file charset IDs to full references
+	if len(req.CustomCharsetFileIDs) > 0 {
+		charsetFiles, err := h.resolveCharsetFileIDs(r.Context(), req.CustomCharsetFileIDs)
+		if err != nil {
+			httputil.RespondWithError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		job.CustomCharsetFiles = charsetFiles
+	}
+
+	// Validate hex charset consistency
+	if job.HexCharset && len(job.CustomCharsets) > 0 {
+		for slot, def := range job.CustomCharsets {
+			if def == "" {
+				continue
+			}
+			if len(def)%2 != 0 {
+				httputil.RespondWithError(w, http.StatusBadRequest,
+					fmt.Sprintf("Hex charset mode is enabled but charset in slot %s has odd length (%d chars) — hex charsets must be even-length byte pairs", slot, len(def)))
+				return
+			}
+			for i, c := range def {
+				if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+					httputil.RespondWithError(w, http.StatusBadRequest,
+						fmt.Sprintf("Hex charset mode is enabled but charset in slot %s contains non-hex character %q at position %d", slot, string(c), i))
+					return
+				}
+			}
+		}
 	}
 
 	updatedJob, err := h.presetJobService.UpdatePresetJob(r.Context(), id, job)

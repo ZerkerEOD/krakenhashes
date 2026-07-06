@@ -2,6 +2,7 @@ package fsutil
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -145,6 +146,101 @@ func GetFileSize(filePath string) (int64, error) {
 		return 0, err
 	}
 	return info.Size(), nil
+}
+
+// NormalizeRuleFile strips duplicate empty/whitespace-only lines from a hashcat rule file.
+// hashcat treats empty lines as passthrough rules (:). Multiple empty lines produce
+// redundant duplicate work. This keeps at most one empty line (the first encountered).
+// Returns true if the file was modified, false if no changes were needed.
+func NormalizeRuleFile(filePath string) (bool, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return false, fmt.Errorf("failed to open rule file: %w", err)
+	}
+
+	var lines []string
+	seenEmpty := false
+	changed := false
+
+	scanner := bufio.NewScanner(file)
+	// Use large buffer for rule files with long lines
+	buf := make([]byte, 1024*1024)
+	scanner.Buffer(buf, 1024*1024)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		trimmed := strings.TrimSpace(line)
+
+		if trimmed == "" {
+			if seenEmpty {
+				// Skip duplicate empty line
+				changed = true
+				continue
+			}
+			seenEmpty = true
+		}
+
+		lines = append(lines, line)
+	}
+
+	if err := scanner.Err(); err != nil {
+		file.Close()
+		return false, fmt.Errorf("failed to read rule file: %w", err)
+	}
+	file.Close()
+
+	if !changed {
+		return false, nil
+	}
+
+	// Write back the normalized content
+	outFile, err := os.Create(filePath)
+	if err != nil {
+		return false, fmt.Errorf("failed to write normalized rule file: %w", err)
+	}
+	defer outFile.Close()
+
+	writer := bufio.NewWriter(outFile)
+	for _, line := range lines {
+		if _, err := writer.WriteString(line + "\n"); err != nil {
+			return false, fmt.Errorf("failed to write line: %w", err)
+		}
+	}
+
+	if err := writer.Flush(); err != nil {
+		return false, fmt.Errorf("failed to flush writer: %w", err)
+	}
+
+	return true, nil
+}
+
+// CountHashcatRules counts the number of rules in a hashcat rule file.
+// It counts all lines except those starting with # (comments).
+// Empty lines are counted as they are valid passthrough rules in hashcat.
+func CountHashcatRules(filePath string) (int64, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return 0, err
+	}
+	defer file.Close()
+
+	var count int64
+	scanner := bufio.NewScanner(file)
+	buf := make([]byte, 1024*1024)
+	scanner.Buffer(buf, 1024*1024)
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if !strings.HasPrefix(line, "#") {
+			count++
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return 0, err
+	}
+
+	return count, nil
 }
 
 // SanitizeFilename sanitizes a filename for safe storage

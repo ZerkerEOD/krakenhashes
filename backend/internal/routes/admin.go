@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/config"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/email"
 	adminhandlers "github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/admin"
@@ -21,8 +22,16 @@ import (
 )
 
 // SetupAdminRoutes configures all admin-related routes
-// It now accepts an AdminJobsHandler to set up job and workflow routes.
-func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.Service, jobHandler *AdminJobsHandler, binaryManager binary.Manager, ssoManager *sso.Manager) *mux.Router {
+// SetupAdminRoutes registers all /admin/* HTTP routes on the provided router and returns the configured admin subrouter.
+// 
+// The registered endpoints include authentication settings, SSO administration, retention, system/job/monitoring/agent settings,
+// team and user management (including API key and session operations), email configuration/templates/usage, optional binary management,
+// global custom charset management, preset job/workflow routes (via the provided AdminJobsHandler), and job analytics.
+// The returned router has admin-only middleware applied.
+//
+// If binaryManager is nil, binary management routes are not registered. Specific settings routes (job-execution, monitoring,
+// agent-download, agent-update, team) are registered before the generic /settings/{key} routes to avoid route conflicts.
+func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.Service, jobHandler *AdminJobsHandler, binaryManager binary.Manager, ssoManager *sso.Manager, teamService *services.TeamService) *mux.Router {
 	debug.Debug("Setting up admin routes")
 
 	// Create Repositories needed by handlers/services
@@ -43,7 +52,7 @@ func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.S
 	emailHandler := emailhandler.NewHandler(emailService)
 	retentionSettingsHandler := adminsettings.NewRetentionSettingsHandler(clientSettingsRepo)
 	systemSettingsHandler := adminsettings.NewSystemSettingsHandler(systemSettingsRepo, presetJobRepo)
-	jobSettingsHandler := adminsettings.NewJobSettingsHandler(systemSettingsRepo)
+	jobSettingsHandler := adminsettings.NewJobSettingsHandler(systemSettingsRepo, clientSettingsRepo)
 	monitoringSettingsHandler := adminsettings.NewMonitoringSettingsHandler(systemSettingsRepo)
 	// clientHandler removed - client management moved to regular authenticated users
 	userHandler := adminuser.NewUserHandler(userRepo, database)
@@ -96,6 +105,13 @@ func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.S
 	agentSettingsHandler := adminsettings.NewAgentSettingsHandler(systemSettingsRepo)
 	adminRouter.HandleFunc("/settings/agent-download", agentSettingsHandler.GetAgentDownloadSettings).Methods(http.MethodGet, http.MethodOptions)
 	adminRouter.HandleFunc("/settings/agent-download", agentSettingsHandler.UpdateAgentDownloadSettings).Methods(http.MethodPut, http.MethodOptions)
+
+	// Agent auto-update settings routes - Must be before generic {key} route
+	adminRouter.HandleFunc("/settings/agent-update", agentSettingsHandler.GetAgentUpdateSettings).Methods(http.MethodGet, http.MethodOptions)
+	adminRouter.HandleFunc("/settings/agent-update", agentSettingsHandler.UpdateAgentUpdateSettings).Methods(http.MethodPut, http.MethodOptions)
+
+	// Team settings routes - Must be before generic {key} route
+	SetupAdminTeamRoutes(adminRouter, teamService)
 
 	// General system settings routes for listing and updating individual settings - Must be after specific routes
 	adminRouter.HandleFunc("/settings", systemSettingsHandler.ListSettings).Methods(http.MethodGet, http.MethodOptions)
@@ -159,14 +175,30 @@ func SetupAdminRoutes(router *mux.Router, database *db.DB, emailService *email.S
 		debug.Error("Binary manager not provided to SetupAdminRoutes")
 	}
 
+	// Custom charset routes (global scope - admin managed)
+	adminCfg := config.NewConfig()
+	charsetRepo := repository.NewCustomCharsetRepository(database.DB)
+	charsetService := services.NewCustomCharsetService(charsetRepo, adminCfg.DataDir)
+	charsetHandler := adminhandlers.NewCustomCharsetHandler(charsetService)
+	adminRouter.HandleFunc("/custom-charsets", charsetHandler.ListGlobalCharsets).Methods(http.MethodGet, http.MethodOptions)
+	adminRouter.HandleFunc("/custom-charsets", charsetHandler.CreateGlobalCharset).Methods(http.MethodPost, http.MethodOptions)
+	adminRouter.HandleFunc("/custom-charsets/upload", charsetHandler.UploadGlobalCharsetFile).Methods(http.MethodPost, http.MethodOptions)
+	adminRouter.HandleFunc("/custom-charsets/{id:[0-9a-fA-F-]+}", charsetHandler.UpdateGlobalCharset).Methods(http.MethodPut, http.MethodOptions)
+	adminRouter.HandleFunc("/custom-charsets/{id:[0-9a-fA-F-]+}", charsetHandler.DeleteGlobalCharset).Methods(http.MethodDelete, http.MethodOptions)
+	debug.Info("Configured admin custom charset routes: /admin/custom-charsets/*")
+
 	// Setup Preset Job and Job Workflow routes using the passed handler
 	SetupAdminJobRoutes(adminRouter, jobHandler)
 	debug.Info("Configured admin preset job and workflow routes: /admin/preset-jobs/*, /admin/job-workflows/*")
 
+	// Job Performance Analytics routes
+	SetupJobAnalyticsRoutes(adminRouter, database)
+	debug.Info("Configured admin job analytics routes: /admin/job-analytics/*")
+
 	// Note: Diagnostics routes (GH Issue #23) are configured separately via SetupDiagnosticsRoutes
 	// after WebSocket handler is initialized
 
-	debug.Info("Configured admin routes: /admin/* (including user management at /admin/users/*)")
+	debug.Info("Configured admin routes: /admin/* (including user management at /admin/users/*, team management at /admin/teams/*)")
 
 	return adminRouter
 }

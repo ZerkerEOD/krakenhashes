@@ -1,6 +1,10 @@
 package models
 
 import (
+	"database/sql/driver"
+	"encoding/json"
+	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/google/uuid"
@@ -46,6 +50,120 @@ type Wordlist struct {
 	VerificationStatus string    `json:"verification_status"` // e.g., "pending", "verified", "failed"
 	IsPotfile          bool      `json:"is_potfile" db:"is_potfile"`
 	Tags               []string  `json:"tags,omitempty"`
+
+	// Filtering (GH #40). Populated only for derived/filtered wordlists.
+	ParentWordlistID *int            `json:"parent_wordlist_id,omitempty"`
+	FilterSpec       *WordlistFilter `json:"filter_spec,omitempty"`
+	ParentMD5        string          `json:"parent_md5,omitempty"`
+	IsEphemeral      bool            `json:"is_ephemeral"`
+	OwnerJobID       *uuid.UUID      `json:"owner_job_id,omitempty"`
+	IsStale          bool            `json:"is_stale"`
+
+	// Incremental-regeneration index (GH #40 follow-up). Populated only for
+	// derived/filtered wordlists, and only when an incremental append is possible
+	// (NULL for compressed parents / before the first generation). See migration
+	// 000160 for semantics.
+	ParentOffset    *int64  `json:"parent_offset,omitempty"`
+	ParentAnchorMD5 *string `json:"parent_anchor_md5,omitempty"`
+}
+
+// WordlistFilter describes the criteria used to derive a filtered wordlist from
+// a parent wordlist (GH #40). A candidate line is kept only if it satisfies
+// every non-empty criterion. Length is measured as a UTF-8 rune count
+// (character-based password policy), not bytes.
+type WordlistFilter struct {
+	MinLength      *int   `json:"min_length,omitempty"`
+	MaxLength      *int   `json:"max_length,omitempty"`
+	RequireUpper   bool   `json:"require_upper,omitempty"`
+	RequireLower   bool   `json:"require_lower,omitempty"`
+	RequireDigit   bool   `json:"require_digit,omitempty"`
+	RequireSpecial bool   `json:"require_special,omitempty"` // printable ASCII non-alphanumeric
+	MinClasses     *int   `json:"min_classes,omitempty"`     // require at least N of the 4 classes
+	Regex          string `json:"regex,omitempty"`           // Go RE2 (linear-time, ReDoS-safe)
+}
+
+// Validate ensures the filter is well-formed and non-empty. It compiles the
+// regex (if any) so callers reject invalid input before generation begins.
+func (f *WordlistFilter) Validate() error {
+	if f == nil {
+		return fmt.Errorf("filter is required")
+	}
+	if f.MinLength != nil && *f.MinLength < 0 {
+		return fmt.Errorf("min_length must be >= 0")
+	}
+	if f.MaxLength != nil && *f.MaxLength < 0 {
+		return fmt.Errorf("max_length must be >= 0")
+	}
+	if f.MinLength != nil && f.MaxLength != nil && *f.MinLength > *f.MaxLength {
+		return fmt.Errorf("min_length cannot be greater than max_length")
+	}
+	if f.MinClasses != nil && (*f.MinClasses < 1 || *f.MinClasses > 4) {
+		return fmt.Errorf("min_classes must be between 1 and 4")
+	}
+	if f.Regex != "" {
+		if _, err := regexp.Compile(f.Regex); err != nil {
+			return fmt.Errorf("invalid regex: %w", err)
+		}
+	}
+	if f.IsEmpty() {
+		return fmt.Errorf("filter must specify at least one criterion")
+	}
+	return nil
+}
+
+// IsEmpty reports whether the filter would keep every line (no-op filter).
+func (f *WordlistFilter) IsEmpty() bool {
+	if f == nil {
+		return true
+	}
+	return f.MinLength == nil && f.MaxLength == nil &&
+		!f.RequireUpper && !f.RequireLower && !f.RequireDigit && !f.RequireSpecial &&
+		f.MinClasses == nil && f.Regex == ""
+}
+
+// Value implements driver.Valuer so a filter can be stored directly in a JSONB column.
+func (f WordlistFilter) Value() (driver.Value, error) {
+	return json.Marshal(f)
+}
+
+// Scan implements sql.Scanner so a JSONB column can populate a WordlistFilter.
+func (f *WordlistFilter) Scan(src interface{}) error {
+	if src == nil {
+		return nil
+	}
+	switch v := src.(type) {
+	case []byte:
+		return json.Unmarshal(v, f)
+	case string:
+		return json.Unmarshal([]byte(v), f)
+	default:
+		return fmt.Errorf("unsupported type for WordlistFilter: %T", src)
+	}
+}
+
+// CreateFilteredWordlistRequest is the request body for creating a permanent
+// filtered wordlist via Wordlist Management.
+type CreateFilteredWordlistRequest struct {
+	ParentWordlistID int            `json:"parent_wordlist_id" validate:"required"`
+	Name             string         `json:"name" validate:"required"`
+	Description      string         `json:"description"`
+	Filter           WordlistFilter `json:"filter" validate:"required"`
+}
+
+// FilterPreviewRequest asks the backend to estimate how many candidates a
+// filter would keep by sampling the start of the parent wordlist.
+type FilterPreviewRequest struct {
+	ParentWordlistID int            `json:"parent_wordlist_id" validate:"required"`
+	Filter           WordlistFilter `json:"filter" validate:"required"`
+}
+
+// FilterPreviewResponse reports the sampled estimate.
+type FilterPreviewResponse struct {
+	EstimatedCount  int64   `json:"estimated_count"` // extrapolated to the full parent
+	SampledLines    int64   `json:"sampled_lines"`   // how many lines were inspected
+	MatchedInSample int64   `json:"matched_in_sample"`
+	MatchRate       float64 `json:"match_rate"` // matched/sampled
+	ParentCount     int64   `json:"parent_count"`
 }
 
 // WordlistBasic is a subset of Wordlist used for simple listings (e.g., form data).
@@ -108,12 +226,12 @@ type WordlistAuditLog struct {
 
 // DeletionImpact represents the impact of deleting a resource (wordlist or rule)
 type DeletionImpact struct {
-	ResourceID          int                      `json:"resource_id"`
-	ResourceType        string                   `json:"resource_type"` // "wordlist" or "rule"
-	CanDelete           bool                     `json:"can_delete"`
-	HasCascadingImpact  bool                     `json:"has_cascading_impact"`
-	Impact              DeletionImpactDetails    `json:"impact"`
-	Summary             DeletionImpactSummary    `json:"summary"`
+	ResourceID         int                   `json:"resource_id"`
+	ResourceType       string                `json:"resource_type"` // "wordlist" or "rule"
+	CanDelete          bool                  `json:"can_delete"`
+	HasCascadingImpact bool                  `json:"has_cascading_impact"`
+	Impact             DeletionImpactDetails `json:"impact"`
+	Summary            DeletionImpactSummary `json:"summary"`
 }
 
 // DeletionImpactDetails contains the detailed lists of affected entities

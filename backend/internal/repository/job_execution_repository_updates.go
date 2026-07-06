@@ -120,8 +120,52 @@ func (r *JobExecutionRepository) UpdateBaseKeyspace(ctx context.Context, jobID u
 	return nil
 }
 
+// UpdateWordlistIDs replaces a job's wordlist_ids (e.g. swapping the user's
+// selection for the generated ephemeral filtered wordlists at finalize, GH #40).
+func (r *JobExecutionRepository) UpdateWordlistIDs(ctx context.Context, jobID uuid.UUID, wordlistIDs models.IDArray) error {
+	query := `
+		UPDATE job_executions
+		SET wordlist_ids = $1, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $2`
+
+	result, err := r.db.ExecContext(ctx, query, wordlistIDs, jobID)
+	if err != nil {
+		return fmt.Errorf("failed to update wordlist ids: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
+// IsSchedulerV2Job reports whether the given job execution is owned
+// by scheduler-v2 — i.e., whether it has any scheduling_units rows.
+// Legacy code paths that mutate keyspace / status fields should
+// consult this first and short-circuit, because v2 owns those fields
+// for its own jobs (and the legacy aggregation columns like
+// chunk_actual_keyspace aren't populated by the v2 dispatcher, so
+// any legacy SUM produces wrong values).
+func (r *JobExecutionRepository) IsSchedulerV2Job(ctx context.Context, jobID uuid.UUID) (bool, error) {
+	var exists bool
+	err := r.db.QueryRowContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM scheduling_units WHERE parent_job_id = $1)`,
+		jobID,
+	).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check scheduler-v2 ownership for job %s: %w", jobID, err)
+	}
+	return exists, nil
+}
+
 // UpdateEffectiveKeyspace updates the effective keyspace for a job execution
-func (r *JobExecutionRepository) UpdateEffectiveKeyspace(ctx context.Context, jobID uuid.UUID, effectiveKeyspace int64) error {
+func (r *JobExecutionRepository) UpdateEffectiveKeyspace(ctx context.Context, jobID uuid.UUID, effectiveKeyspace models.BigInt) error {
 	query := `
 		UPDATE job_executions
 		SET effective_keyspace = $1, updated_at = CURRENT_TIMESTAMP
@@ -145,7 +189,7 @@ func (r *JobExecutionRepository) UpdateEffectiveKeyspace(ctx context.Context, jo
 }
 
 // UpdateMultiplicationFactor updates the multiplication factor for a job execution
-func (r *JobExecutionRepository) UpdateMultiplicationFactor(ctx context.Context, jobID uuid.UUID, multiplicationFactor int) error {
+func (r *JobExecutionRepository) UpdateMultiplicationFactor(ctx context.Context, jobID uuid.UUID, multiplicationFactor int64) error {
 	query := `
 		UPDATE job_executions
 		SET multiplication_factor = $1, updated_at = CURRENT_TIMESTAMP

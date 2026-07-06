@@ -21,6 +21,19 @@
     "customPatternsPlaceholder": "например, goog, ggl, micro, soft",
     "customPatternsHelper": "Добавьте пользовательские варианты названий организаций для проверки"
   },
+  "hashlistSelection": {
+    "title": "Хеш-листы",
+    "selectAll": "Выбрать все",
+    "deselectAll": "Снять выбор",
+    "noHashlists": "Хеш-листы не найдены для выбранного клиента и диапазона дат",
+    "name": "Название",
+    "hashType": "Тип хеша",
+    "hashes": "Хеши",
+    "cracked": "Взломано",
+    "status": "Статус",
+    "active": "Активный",
+    "archived": "Архивный"
+  },
   "table": {
     "dateRange": "Диапазон дат",
     "generatedOn": "Дата создания",
@@ -49,6 +62,7 @@
   },
   "messages": {
     "selectClient": "Пожалуйста, выберите клиента",
+    "selectHashlists": "Пожалуйста, выберите хотя бы один хеш-лист",
     "reportQueued": "Отчёт добавлен в очередь (Позиция: {{position}})",
     "reportQueuedRetry": "Отчёт добавлен в очередь для повтора (Позиция: {{position}})",
     "reportDeleted": "Отчёт успешно удалён",

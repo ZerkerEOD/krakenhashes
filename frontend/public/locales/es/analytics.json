@@ -21,6 +21,19 @@
     "customPatternsPlaceholder": "ej., goog, ggl, micro, soft",
     "customPatternsHelper": "Agrega variaciones personalizadas del nombre de la organizacion para verificar"
   },
+  "hashlistSelection": {
+    "title": "Listas de hashes",
+    "selectAll": "Seleccionar todo",
+    "deselectAll": "Deseleccionar todo",
+    "noHashlists": "No se encontraron listas de hashes para el cliente y rango de fechas seleccionados",
+    "name": "Nombre",
+    "hashType": "Tipo de hash",
+    "hashes": "Hashes",
+    "cracked": "Descifrados",
+    "status": "Estado",
+    "active": "Activo",
+    "archived": "Archivado"
+  },
   "table": {
     "dateRange": "Rango de fechas",
     "generatedOn": "Generado el",
@@ -49,6 +62,7 @@
   },
   "messages": {
     "selectClient": "Por favor selecciona un cliente",
+    "selectHashlists": "Por favor seleccione al menos una lista de hashes",
     "reportQueued": "Informe en cola (Posicion: {{position}})",
     "reportQueuedRetry": "Informe en cola para reintento (Posicion: {{position}})",
     "reportDeleted": "Informe eliminado exitosamente",

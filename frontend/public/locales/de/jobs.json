@@ -94,6 +94,7 @@
     "timeRemaining": "Verbleibende Zeit",
     "estimatedCompletion": "Geschätzte Fertigstellung",
     "crackingCompletedAt": "Knacken abgeschlossen am",
+    "totalRunningTime": "Gesamtlaufzeit",
     "chunkSizeDefault": "Nicht gesetzt (Standard wird verwendet)",
     "noActiveTasksEstimate": "Kann nicht schätzen - keine Aufgaben laufen derzeit",
     "lessThanOneMinute": "Weniger als 1 Minute",
@@ -301,5 +302,26 @@
   },
   "lastUpdated": "Zuletzt aktualisiert: {{time}}",
   "filtered": "(gefiltert)",
-  "loading": "Aufträge werden geladen..."
+  "loading": "Aufträge werden geladen...",
+  "archive": {
+    "showArchived": "Archivierte anzeigen",
+    "archive": "Archivieren",
+    "unarchive": "Dearchivieren",
+    "archived": "Archiviert",
+    "archiveSelected": "Ausgewählte archivieren",
+    "unarchiveSelected": "Ausgewählte dearchivieren",
+    "deleteSelected": "Ausgewählte löschen",
+    "selectedCount": "{{count}} ausgewählt",
+    "confirmBulkDelete": {
+      "title": "Massenlöschung bestätigen",
+      "message": "Sind Sie sicher, dass Sie {{count}} Auftrag/Aufträge löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "warning": "Dies löscht die ausgewählten Aufträge und alle zugehörigen Daten dauerhaft.",
+      "cancel": "Abbrechen",
+      "delete": "Löschen",
+      "deleting": "Wird gelöscht..."
+    },
+    "bulkArchiveSuccess": "{{count}} Auftrag/Aufträge erfolgreich archiviert",
+    "bulkUnarchiveSuccess": "{{count}} Auftrag/Aufträge erfolgreich dearchiviert",
+    "bulkDeleteSuccess": "{{count}} Auftrag/Aufträge erfolgreich gelöscht"
+  }
 }

@@ -58,6 +58,12 @@ func SetupWordlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, agent
 	userRouter.HandleFunc("/{id:[0-9]+}/download", handler.HandleDownloadWordlist).Methods(http.MethodGet)
 	userRouter.HandleFunc("/{id:[0-9]+}/deletion-impact", handler.HandleGetDeletionImpact).Methods(http.MethodGet)
 
+	// Filtered (derived) wordlists (GH #40)
+	userRouter.HandleFunc("/filtered/preview", handler.HandlePreviewFilter).Methods(http.MethodPost)
+	userRouter.HandleFunc("/filtered", handler.HandleCreateFilteredWordlist).Methods(http.MethodPost)
+	userRouter.HandleFunc("/{id:[0-9]+}/filtered", handler.HandleListFilteredChildren).Methods(http.MethodGet)
+	userRouter.HandleFunc("/{id:[0-9]+}/regenerate", handler.HandleRegenerateFilteredWordlist).Methods(http.MethodPost)
+
 	// Add upload endpoint with special handling
 	uploadHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		debug.Info("Handling wordlist upload request: %s %s", r.Method, r.URL.Path)
@@ -112,7 +118,7 @@ func SetupWordlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, agent
 
 		// Call the handler with the updated context
 		handler.HandleAddWordlist(w, r.WithContext(ctx))
-		
+
 		// After successful upload, trigger keyspace recalculation for affected preset jobs
 		// Get the wordlist ID from the response (this is a bit hacky but works for now)
 		// In a production system, we'd modify the handler to return the wordlist ID
@@ -171,7 +177,8 @@ func SetupWordlistRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, agent
 	agentRouter := r.PathPrefix("/agent/wordlists").Subrouter()
 	agentRouter.Use(api.APIKeyMiddleware(agentService))
 
-	agentRouter.HandleFunc("", handler.HandleListWordlists).Methods(http.MethodGet)
+	// Agents see ephemeral filtered wordlists too (GH #40) so they can sync them.
+	agentRouter.HandleFunc("", handler.HandleListWordlistsForAgent).Methods(http.MethodGet)
 	agentRouter.HandleFunc("/{id:[0-9]+}/download", handler.HandleDownloadWordlist).Methods(http.MethodGet)
 
 	debug.Info("Registered wordlist management routes")

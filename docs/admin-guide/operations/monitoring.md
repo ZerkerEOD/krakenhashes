@@ -430,7 +430,7 @@ export LOG_LEVEL=INFO
 When running with Docker, logs are stored in:
 
 ```
-/home/zerkereod/Programming/passwordCracking/kh-backend/logs/krakenhashes/
+/opt/kh-backend/logs/krakenhashes/
 ├── backend/      # Backend application logs
 ├── postgres/     # PostgreSQL logs
 └── nginx/        # Nginx/frontend logs
@@ -453,7 +453,7 @@ Example:
 1. **Error Patterns**
    ```bash
    # Find all errors across logs
-   grep -i "error" /home/zerkereod/Programming/passwordCracking/kh-backend/logs/krakenhashes/*/*.log
+   grep -i "error" /opt/kh-backend/logs/krakenhashes/*/*.log
    
    # Find database connection errors
    grep -i "database.*error\|connection.*failed" logs/backend/*.log

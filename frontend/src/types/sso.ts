@@ -28,6 +28,7 @@ export interface SSOSettings {
   oauth_auth_enabled: boolean;
   sso_auto_create_users: boolean;
   sso_auto_enable_users: boolean;
+  encryption_key_ephemeral?: boolean;
 }
 
 export interface SSOSettingsUpdate {

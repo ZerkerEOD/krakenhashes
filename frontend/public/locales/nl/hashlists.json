@@ -45,7 +45,8 @@
     "file": "Hashbestand",
     "selectFile": "Bestand selecteren",
     "uploading": "Uploaden...",
-    "cancel": "Annuleren"
+    "cancel": "Annuleren",
+    "executableBlocked": "Dit bestand lijkt een uitvoerbaar binair bestand te zijn en kan niet worden geüpload als hashlijst."
   },
   "actions": {
     "viewDetails": "Details bekijken",
@@ -90,12 +91,32 @@
   "notifications": {
     "deleteSuccess": "Hashlijst succesvol verwijderd",
     "uploadSuccess": "Hashlijst succesvol geüpload",
-    "downloaded": "{{filename}} gedownload"
+    "downloaded": "{{filename}} gedownload",
+    "archiveSuccess": "Hashlijst succesvol gearchiveerd",
+    "unarchiveSuccess": "Hashlijst succesvol hersteld",
+    "bulkArchiveSuccess": "{{count}} hashlijst(en) succesvol gearchiveerd",
+    "bulkUnarchiveSuccess": "{{count}} hashlijst(en) succesvol hersteld"
   },
   "errors": {
     "loadFailed": "Fout bij ophalen van hashlijsten.",
     "uploadFailed": "Uploaden van hashlijst mislukt",
     "deleteFailed": "Verwijdering mislukt: {{error}}"
+  },
+  "archive": {
+    "showArchived": "Gearchiveerd tonen",
+    "archive": "Archiveren",
+    "unarchive": "Herstellen",
+    "archived": "Gearchiveerd",
+    "selectedCount": "{{count}} geselecteerd",
+    "archiveSelected": "Geselecteerde archiveren",
+    "unarchiveSelected": "Geselecteerde herstellen",
+    "deleteSelected": "Geselecteerde verwijderen",
+    "confirmBulkDelete": {
+      "title": "Massaverwijdering bevestigen",
+      "message": "Weet u zeker dat u {{count}} hashlijst(en) wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.",
+      "warning": "Dit verwijdert de geselecteerde hashlijsten en alle bijbehorende gegevens permanent."
+    },
+    "bulkDeleteSuccess": "{{count}} hashlijst(en) succesvol verwijderd"
   },
   "hashDetails": {
     "title": "Hash-details",

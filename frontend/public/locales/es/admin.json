@@ -864,6 +864,14 @@
   "ssoSettings": {
     "pageTitle": "Configuracion de SSO",
     "pageDescription": "Configura proveedores de Single Sign-On y opciones de autenticacion",
+    "warnings": {
+      "ephemeralKeyTitle": "SSO Encryption Key Not Configured",
+      "ephemeralKeyDescription": "SSO provider secrets (client secrets, bind passwords, private keys) are currently encrypted with a temporary key that will be lost when the server restarts. Any configured SSO providers will stop working after a restart.",
+      "ephemeralKeyInstructions": "To fix this, generate a persistent encryption key by running:",
+      "ephemeralKeyAddToEnv": "Then add the following to your .env file and restart the server:",
+      "ephemeralKeyEnvExample": "SSO_ENCRYPTION_KEY=<paste_generated_key_here>",
+      "ephemeralKeyCopied": "Command copied to clipboard"
+    },
     "authMethods": {
       "title": "Metodos de autenticacion",
       "description": "Habilita o deshabilita metodos de autenticacion globalmente",
@@ -1145,11 +1153,18 @@
     },
     "agentOverflow": {
       "title": "Asignacion de desbordamiento de agentes",
-      "tooltip": "Configura como se asignan los agentes mas alla de los limites de max_agents cuando los trabajos tienen la misma prioridad",
-      "roundRobinMode": "Modo Round-Robin",
-      "fifoMode": "Modo FIFO",
-      "fifoDescription": "Cuando multiples trabajos con la misma prioridad exceden sus limites de max_agents, el trabajo mas antiguo (creado primero) recibe todos los agentes adicionales.",
-      "roundRobinDescription": "Los agentes adicionales se distribuyen equitativamente entre todos los trabajos con la misma prioridad, un agente a la vez, asegurando una asignacion justa."
+      "tooltip": "Configura como se distribuyen los agentes libres una vez que cada trabajo en cada nivel de prioridad ha alcanzado su limite de max_agents.",
+      "modeLabel": "Modo de asignacion de desbordamiento",
+      "priorityFifoMode": "Prioridad - FIFO",
+      "priorityRoundRobinMode": "Prioridad - Round Robin",
+      "enforceMaxAgentsMode": "Forzar max_agents",
+      "maxAgentsFifoMode": "Max Agentes - FIFO",
+      "maxAgentsRoundRobinMode": "Max Agentes - Round Robin",
+      "priorityFifoDescription": "Cuando multiples trabajos con la misma prioridad exceden sus limites de max_agents, el trabajo mas antiguo (creado primero) recibe todos los agentes adicionales.",
+      "priorityRoundRobinDescription": "Los agentes adicionales se distribuyen equitativamente entre todos los trabajos con la misma prioridad, un agente a la vez, asegurando una asignacion justa.",
+      "enforceMaxAgentsDescription": "Strictly cap each job at its max_agents limit — no overflow. Surplus agents stay idle. Most predictable; can waste capacity.",
+      "maxAgentsFifoDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then pile on the OLDEST job overall — bypassing priority. Maximizes throughput while still giving every job its baseline.",
+      "maxAgentsRoundRobinDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then rotate evenly across ALL jobs — bypassing priority. Maximizes throughput with fair distribution beyond the baseline."
     },
     "hashlist": {
       "title": "Configuracion de listas de hashes",
@@ -1220,6 +1235,8 @@
       "progressReportingHelper": "Con que frecuencia los agentes reportan el progreso",
       "benchmarkCache": "Duracion de cache de benchmark",
       "benchmarkCacheHelper": "Cuanto tiempo almacenar en cache los benchmarks de agentes",
+      "benchmarkHistoryRetention": "Retención del historial de benchmarks",
+      "benchmarkHistoryRetentionHelper": "Días para retener registros del historial de benchmarks (0 = ilimitado)",
       "speedtestTimeout": "Tiempo de espera de prueba de velocidad",
       "speedtestTimeoutHelper": "Tiempo maximo de espera para completar la prueba de velocidad",
       "reconnectGrace": "Periodo de gracia de reconexion",
@@ -1239,7 +1256,9 @@
       "maxRetryAttempts": "Maximo de intentos de reintento de fragmento",
       "maxRetryAttemptsHelper": "Numero de veces a reintentar fragmentos fallidos",
       "jobsPerPage": "Trabajos por pagina",
-      "jobsPerPageHelper": "Tamano de paginacion predeterminado para listas de trabajos"
+      "jobsPerPageHelper": "Tamano de paginacion predeterminado para listas de trabajos",
+      "keyspaceTimeout": "Tiempo limite de calculo de keyspace",
+      "keyspaceTimeoutHelper": "Tiempo maximo para comandos hashcat --keyspace y --total-candidates. Aumentar para listas de palabras/reglas grandes."
     },
     "potfile": {
       "title": "Configuracion de potfile",

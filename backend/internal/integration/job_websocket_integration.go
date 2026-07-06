@@ -15,6 +15,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/rule"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/scheduler"
 	wsservice "github.com/ZerkerEOD/krakenhashes/backend/internal/services/websocket"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/wordlist"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
@@ -22,6 +23,23 @@ import (
 	"strconv"
 	"strings"
 )
+
+// convertCharsetFiles converts model CustomCharsetFiles to websocket CharsetFileInfo map.
+func convertCharsetFiles(files models.CustomCharsetFiles) map[string]wsservice.CharsetFileInfo {
+	if len(files) == 0 {
+		return nil
+	}
+	result := make(map[string]wsservice.CharsetFileInfo, len(files))
+	for slot, ref := range files {
+		result[slot] = wsservice.CharsetFileInfo{
+			Name:      filepath.Base(ref.FilePath),
+			MD5Hash:   ref.MD5,
+			Size:      0, // Size not stored in CharsetFileRef; agent uses MD5 for verification
+			ByteCount: ref.ByteCount,
+		}
+	}
+	return result
+}
 
 // retransmitCollectionState collects all retransmit batches before processing
 // This allows us to:
@@ -46,28 +64,32 @@ type JobWebSocketIntegration struct {
 		SendMessage(agentID int, msg *wsservice.Message) error
 		RegisterInventoryCallback(agentID int) <-chan *wsservice.FileSyncResponsePayload
 		UnregisterInventoryCallback(agentID int)
+		MarkRejected(agentID int)
 	}
-	jobSchedulingService *services.JobSchedulingService
-	jobExecutionService  *services.JobExecutionService
-	hashlistSyncService  *services.HashlistSyncService
-	benchmarkRepo        *repository.BenchmarkRepository
-	presetJobRepo        repository.PresetJobRepository
-	hashlistRepo         *repository.HashListRepository
-	hashRepo             *repository.HashRepository
-	lmHashRepo           *repository.LMHashRepository
-	jobTaskRepo           *repository.JobTaskRepository
-	jobIncrementLayerRepo *repository.JobIncrementLayerRepository
-	agentRepo             *repository.AgentRepository
-	deviceRepo            *repository.AgentDeviceRepository
-	clientRepo            *repository.ClientRepository
-	systemSettingsRepo    *repository.SystemSettingsRepository
-	assocWordlistRepo     *repository.AssociationWordlistRepository
-	potfileService          *services.PotfileService
+	jobSchedulingService      *services.JobSchedulingService
+	jobExecutionService       *services.JobExecutionService
+	hashlistSyncService       *services.HashlistSyncService
+	benchmarkRepo             *repository.BenchmarkRepository
+	presetJobRepo             repository.PresetJobRepository
+	hashlistRepo              *repository.HashListRepository
+	hashRepo                  *repository.HashRepository
+	lmHashRepo                *repository.LMHashRepository
+	jobTaskRepo               *repository.JobTaskRepository
+	jobIncrementLayerRepo     *repository.JobIncrementLayerRepository
+	agentRepo                 *repository.AgentRepository
+	deviceRepo                *repository.AgentDeviceRepository
+	clientRepo                *repository.ClientRepository
+	systemSettingsRepo        *repository.SystemSettingsRepository
+	assocWordlistRepo         *repository.AssociationWordlistRepository
+	potfileService            *services.PotfileService
+	clientPotfileService      *services.ClientPotfileService
+	clientWordlistRepo        *repository.ClientWordlistRepository
+	clientPotfileRepo         *repository.ClientPotfileRepository
 	hashlistCompletionService *services.HashlistCompletionService
-	db                      *sql.DB
-	wordlistManager         wordlist.Manager
-	ruleManager             rule.Manager
-	binaryManager           binary.Manager
+	db                        *sql.DB
+	wordlistManager           wordlist.Manager
+	ruleManager               rule.Manager
+	binaryManager             binary.Manager
 
 	// Progress tracking
 	progressMutex   sync.RWMutex
@@ -84,6 +106,7 @@ func NewJobWebSocketIntegration(
 		SendMessage(agentID int, msg *wsservice.Message) error
 		RegisterInventoryCallback(agentID int) <-chan *wsservice.FileSyncResponsePayload
 		UnregisterInventoryCallback(agentID int)
+		MarkRejected(agentID int)
 	},
 	jobSchedulingService *services.JobSchedulingService,
 	jobExecutionService *services.JobExecutionService,
@@ -101,6 +124,9 @@ func NewJobWebSocketIntegration(
 	systemSettingsRepo *repository.SystemSettingsRepository,
 	assocWordlistRepo *repository.AssociationWordlistRepository,
 	potfileService *services.PotfileService,
+	clientPotfileService *services.ClientPotfileService,
+	clientWordlistRepo *repository.ClientWordlistRepository,
+	clientPotfileRepo *repository.ClientPotfileRepository,
 	hashlistCompletionService *services.HashlistCompletionService,
 	db *sql.DB,
 	wordlistManager wordlist.Manager,
@@ -125,6 +151,9 @@ func NewJobWebSocketIntegration(
 		systemSettingsRepo:        systemSettingsRepo,
 		assocWordlistRepo:         assocWordlistRepo,
 		potfileService:            potfileService,
+		clientPotfileService:      clientPotfileService,
+		clientWordlistRepo:        clientWordlistRepo,
+		clientPotfileRepo:         clientPotfileRepo,
 		hashlistCompletionService: hashlistCompletionService,
 		db:                        db,
 		wordlistManager:           wordlistManager,
@@ -225,7 +254,7 @@ func (s *JobWebSocketIntegration) SyncAgentFiles(ctx context.Context, agentID in
 	// Create file sync request payload
 	payload := map[string]interface{}{
 		"request_id": fmt.Sprintf("sync-%d-%d", agentID, time.Now().UnixNano()),
-		"file_types": []string{"wordlist", "rule", "binary"},
+		"file_types": []string{"wordlist", "rule", "binary", "charset"},
 	}
 
 	payloadBytes, _ := json.Marshal(payload)
@@ -312,7 +341,7 @@ func (s *JobWebSocketIntegration) CheckAndSyncAgentFiles(ctx context.Context, ag
 	defer s.wsHandler.UnregisterInventoryCallback(agentID)
 
 	payload := wsservice.FileSyncRequestPayload{
-		FileTypes: []string{"wordlist", "rule", "binary"},
+		FileTypes: []string{"wordlist", "rule", "binary", "charset"},
 	}
 	payloadBytes, _ := json.Marshal(payload)
 	msg := &wsservice.Message{
@@ -422,6 +451,21 @@ func (s *JobWebSocketIntegration) CheckAgentFilesForJob(ctx context.Context, age
 
 	// Add wordlists
 	for _, wlIDStr := range jobExecution.WordlistIDs {
+		// Skip client-specific wordlists - they're downloaded by agent during task execution
+		// via ensureClientWordlists(), not during pre-benchmark sync
+		if strings.HasPrefix(wlIDStr, "client:") {
+			debug.Debug("Skipping client wordlist %s from file check - handled by agent during task execution", wlIDStr)
+			continue
+		}
+
+		// Skip client potfiles - they're downloaded by agent during task execution
+		// via ensureClientPotfile(), not during pre-benchmark sync
+		if strings.HasPrefix(wlIDStr, "potfile:") {
+			debug.Debug("Skipping client potfile %s from file check - handled by agent during task execution", wlIDStr)
+			continue
+		}
+
+		// Global wordlist - numeric ID
 		wlID, err := strconv.Atoi(wlIDStr)
 		if err != nil {
 			debug.Warning("Invalid wordlist ID %s for file check: %v", wlIDStr, err)
@@ -487,6 +531,16 @@ func (s *JobWebSocketIntegration) CheckAgentFilesForJob(ctx context.Context, age
 		}
 	}
 
+	// Add charset files (file-based charsets used in mask attacks)
+	for _, charsetRef := range jobExecution.CustomCharsetFiles {
+		if charsetRef.FilePath != "" {
+			requiredFiles = append(requiredFiles, FileRequirement{
+				Name:     filepath.Base(charsetRef.FilePath),
+				FileType: "charset",
+			})
+		}
+	}
+
 	debug.Info("Checking %d required files for agent %d (job %s, mode %d)",
 		len(requiredFiles), agentID, jobExecution.ID.String(), jobExecution.AttackMode)
 
@@ -519,6 +573,7 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 
 	// Check if this task belongs to an increment layer
 	var maskToUse string
+	var taskBaseKeyspace int64 // Server's base keyspace for agent-side coordinate conversion
 	if task.IncrementLayerID != nil {
 		// This task belongs to a layer - fetch the layer to get its mask
 		layer, err := s.jobIncrementLayerRepo.GetByID(ctx, *task.IncrementLayerID)
@@ -527,6 +582,9 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 		}
 
 		maskToUse = layer.Mask
+		if layer.BaseKeyspace != nil {
+			taskBaseKeyspace = *layer.BaseKeyspace
+		}
 
 		debug.Log("Using layer-specific mask for task", map[string]interface{}{
 			"task_id":    task.ID,
@@ -537,6 +595,9 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 	} else {
 		// Regular job - use job's mask
 		maskToUse = jobExecution.Mask
+		if jobExecution.BaseKeyspace != nil {
+			taskBaseKeyspace = *jobExecution.BaseKeyspace
+		}
 	}
 
 	// Hashlist path is always the same - agent's download function picks the right endpoint
@@ -545,6 +606,10 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 
 	// Build wordlist paths based on attack mode
 	var wordlistPaths []string
+	var clientWordlistPaths []string
+	var clientWordlistIDs []string
+	var clientPotfilePath string
+
 	if jobExecution.AttackMode == models.AttackModeAssociation {
 		// Mode 9: use association wordlist as the wordlist
 		if jobExecution.AssociationWordlistID != nil {
@@ -563,7 +628,67 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 	} else {
 		// Regular wordlist processing for other attack modes
 		for _, wordlistIDStr := range jobExecution.WordlistIDs {
-			// Convert string ID to int
+			// Check for client-specific wordlist prefix "client:UUID"
+			if strings.HasPrefix(wordlistIDStr, "client:") {
+				uuidStr := strings.TrimPrefix(wordlistIDStr, "client:")
+				clientWordlistUUID, err := uuid.Parse(uuidStr)
+				if err != nil {
+					return fmt.Errorf("invalid client wordlist ID %s: %w", wordlistIDStr, err)
+				}
+
+				if s.clientWordlistRepo == nil {
+					return fmt.Errorf("client wordlist repository not configured")
+				}
+
+				clientWordlist, err := s.clientWordlistRepo.GetByID(ctx, clientWordlistUUID)
+				if err != nil {
+					return fmt.Errorf("client wordlist %s not found: %w", uuidStr, err)
+				}
+
+				// Build path relative to agent's data directory
+				clientPath := fmt.Sprintf("wordlists/clients/%s/%s",
+					clientWordlist.ClientID.String(), clientWordlist.FileName)
+				clientWordlistPaths = append(clientWordlistPaths, clientPath)
+				clientWordlistIDs = append(clientWordlistIDs, clientWordlistUUID.String())
+
+				debug.Log("Added client wordlist to task assignment", map[string]interface{}{
+					"wordlist_id": clientWordlistUUID,
+					"client_id":   clientWordlist.ClientID,
+					"path":        clientPath,
+				})
+				continue
+			}
+
+			// Check for client potfile prefix "potfile:ID"
+			if strings.HasPrefix(wordlistIDStr, "potfile:") {
+				potfileIDStr := strings.TrimPrefix(wordlistIDStr, "potfile:")
+				potfileID, err := strconv.Atoi(potfileIDStr)
+				if err != nil {
+					return fmt.Errorf("invalid potfile ID %s: %w", wordlistIDStr, err)
+				}
+
+				if s.clientPotfileRepo == nil {
+					return fmt.Errorf("client potfile repository not configured")
+				}
+
+				potfile, err := s.clientPotfileRepo.GetByID(ctx, potfileID)
+				if err != nil {
+					return fmt.Errorf("client potfile %d not found: %w", potfileID, err)
+				}
+
+				// Set the client potfile path
+				clientPotfilePath = fmt.Sprintf("wordlists/clients/%s/potfile.txt",
+					potfile.ClientID.String())
+
+				debug.Log("Added client potfile to task assignment", map[string]interface{}{
+					"potfile_id": potfileID,
+					"client_id":  potfile.ClientID,
+					"path":       clientPotfilePath,
+				})
+				continue
+			}
+
+			// Global wordlist - convert string ID to int
 			wordlistID, err := strconv.Atoi(wordlistIDStr)
 			if err != nil {
 				return fmt.Errorf("invalid wordlist ID %s: %w", wordlistIDStr, err)
@@ -701,13 +826,26 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 		WordlistPaths:   wordlistPaths,
 		RulePaths:       rulePaths,
 		Mask:            maskToUse, // Layer mask or job mask
+		CustomCharsets:  map[string]string(jobExecution.CustomCharsets),
+		CharsetFiles:    convertCharsetFiles(jobExecution.CustomCharsetFiles),
+		HexCharset:      jobExecution.HexCharset,
 		BinaryPath:      binaryPath,
 		ChunkDuration:   task.ChunkDuration,
 		ReportInterval:  reportInterval,
 		OutputFormat:    "3",                   // hash:plain format
 		ExtraParameters: agent.ExtraParameters, // Agent-specific hashcat parameters
-		EnabledDevices:  enabledDeviceIDs,      // Only populated if some devices are disabled
-		IsKeyspaceSplit: task.IsKeyspaceSplit,
+		JobAdditionalArgs: func() string {
+			if jobExecution.AdditionalArgs != nil {
+				return *jobExecution.AdditionalArgs
+			}
+			return ""
+		}(),
+		EnabledDevices:      enabledDeviceIDs, // Only populated if some devices are disabled
+		IsKeyspaceSplit:     task.IsKeyspaceSplit,
+		ClientWordlistPaths: clientWordlistPaths,
+		ClientWordlistIDs:   clientWordlistIDs,
+		ClientPotfilePath:   clientPotfilePath,
+		BaseKeyspace:        taskBaseKeyspace,
 	}
 
 	// Log mode 9 task assignment for debugging
@@ -717,6 +855,11 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 			"hashlist_path": hashlistPath,
 			"wordlist_path": wordlistPaths,
 		})
+	}
+
+	// Set ClientID for tracking purposes (client wordlists/potfiles are set above from explicit selection)
+	if hashlist.ClientID != uuid.Nil {
+		assignment.ClientID = hashlist.ClientID.String()
 	}
 
 	// Only add increment fields for regular jobs (NOT for layer tasks)
@@ -1099,33 +1242,39 @@ func (s *JobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, age
 		"enabled_devices": enabledDeviceIDs,
 	})
 
-	// Get speedtest timeout from system settings
-	speedtestTimeout := 180 // Default to 3 minutes
-	if s.systemSettingsRepo != nil {
-		if setting, err := s.systemSettingsRepo.GetSetting(ctx, "speedtest_timeout_seconds"); err == nil && setting.Value != nil {
-			if timeout, err := strconv.Atoi(*setting.Value); err == nil && timeout > 0 {
-				speedtestTimeout = timeout
-			}
-		}
-	}
+	// Pick the speed-test parameters from system_settings. These are read live
+	// (no restart needed). The TestDuration is split by wordlist compression
+	// because compressed wordlists need significantly longer to dictstat-
+	// preprocess before hashcat starts producing valid status updates.
+	testDuration, speedtestTimeout, minStatusUpdates := s.resolveSpeedTestParameters(ctx, wordlistPaths)
 
 	// Create enhanced benchmark request payload with job-specific configuration
 	benchmarkReq := wsservice.BenchmarkRequestPayload{
-		RequestID:       requestID,
-		JobExecutionID:  benchmarkEntityID,                                                    // LAYER ID for layer benchmarks, JOB ID for regular
-		TaskID:          fmt.Sprintf("benchmark-%s-%d", benchmarkEntityID, time.Now().Unix()), // Generate a task ID for the benchmark
-		HashType:        hashlist.HashTypeID,
-		AttackMode:      int(jobExecution.AttackMode),
-		BinaryPath:      binaryPath,
-		HashlistID:      jobExecution.HashlistID,
-		HashlistPath:    hashlistPath, // Original hashlist for mode 9, processed for others
-		WordlistPaths:   wordlistPaths,
-		RulePaths:       rulePaths,
-		Mask:            maskToUse,        // LAYER MASK for layer benchmarks, JOB MASK for regular
-		TestDuration:    30,               // 30-second benchmark for accuracy
-		TimeoutDuration: speedtestTimeout, // Configurable timeout for speedtest
-		ExtraParameters: agent.ExtraParameters,
-		EnabledDevices:  enabledDeviceIDs,
+		RequestID:        requestID,
+		JobExecutionID:   benchmarkEntityID,                                                    // LAYER ID for layer benchmarks, JOB ID for regular
+		TaskID:           fmt.Sprintf("benchmark-%s-%d", benchmarkEntityID, time.Now().Unix()), // Generate a task ID for the benchmark
+		HashType:         hashlist.HashTypeID,
+		AttackMode:       int(jobExecution.AttackMode),
+		BinaryPath:       binaryPath,
+		HashlistID:       jobExecution.HashlistID,
+		HashlistPath:     hashlistPath, // Original hashlist for mode 9, processed for others
+		WordlistPaths:    wordlistPaths,
+		RulePaths:        rulePaths,
+		Mask:             maskToUse, // LAYER MASK for layer benchmarks, JOB MASK for regular
+		CustomCharsets:   map[string]string(jobExecution.CustomCharsets),
+		CharsetFiles:     convertCharsetFiles(jobExecution.CustomCharsetFiles),
+		HexCharset:       jobExecution.HexCharset,
+		TestDuration:     testDuration,
+		TimeoutDuration:  speedtestTimeout,
+		MinStatusUpdates: minStatusUpdates,
+		ExtraParameters:  agent.ExtraParameters,
+		JobAdditionalArgs: func() string {
+			if jobExecution.AdditionalArgs != nil {
+				return *jobExecution.AdditionalArgs
+			}
+			return ""
+		}(),
+		EnabledDevices: enabledDeviceIDs,
 	}
 
 	// Marshal payload
@@ -1154,6 +1303,58 @@ func (s *JobWebSocketIntegration) RequestAgentBenchmark(ctx context.Context, age
 	return nil
 }
 
+// resolveSpeedTestParameters reads the speed-test admin settings live and
+// returns the (testDuration, timeoutDuration, minStatusUpdates) triple to put
+// in the BenchmarkRequestPayload. The actual logic lives in the shared
+// scheduler.ResolveSpeedTestParameters so this legacy path and the scheduler-v2
+// benchmark dispatch stay in lockstep (single source of truth).
+func (s *JobWebSocketIntegration) resolveSpeedTestParameters(ctx context.Context, wordlistPaths []string) (testDuration, timeoutDuration, minStatusUpdates int) {
+	getInt := func(key string) (int, bool) {
+		if s.systemSettingsRepo == nil {
+			return 0, false
+		}
+		return s.readIntSetting(ctx, key)
+	}
+	return scheduler.ResolveSpeedTestParameters(getInt, wordlistPaths)
+}
+
+// readIntSetting fetches a system setting and parses it as int. Returns
+// (value, true) on success, (0, false) on any error or non-integer value.
+func (s *JobWebSocketIntegration) readIntSetting(ctx context.Context, key string) (int, bool) {
+	setting, err := s.systemSettingsRepo.GetSetting(ctx, key)
+	if err != nil || setting == nil || setting.Value == nil {
+		return 0, false
+	}
+	v, err := strconv.Atoi(*setting.Value)
+	if err != nil {
+		return 0, false
+	}
+	return v, true
+}
+
+// formatBenchmarkErrorMessage turns the agent's typed ErrorCode + raw Error
+// into an admin-friendly message that surfaces on the job. Falls back to the
+// raw error for unknown codes so older agents still produce useful output.
+func formatBenchmarkErrorMessage(errorCode, rawError string) string {
+	switch errorCode {
+	case wsservice.BenchmarkErrorTimeout:
+		if rawError != "" {
+			return fmt.Sprintf("Speed test timed out before producing a usable result (%s). An admin should increase the speed-test timeout in admin settings (compressed / uncompressed).", rawError)
+		}
+		return "Speed test timed out before producing a usable result. An admin should increase the speed-test timeout in admin settings (compressed / uncompressed)."
+	case wsservice.BenchmarkErrorZeroSpeed:
+		if rawError != "" {
+			return fmt.Sprintf("Speed test ran but every device reported 0 H/s (%s). The hashcat process likely never finished initialisation; check the agent logs.", rawError)
+		}
+		return "Speed test ran but every device reported 0 H/s. The hashcat process likely never finished initialisation; check the agent logs."
+	default:
+		if rawError != "" {
+			return rawError
+		}
+		return "benchmark failed: unknown error"
+	}
+}
+
 // HandleJobProgress processes job progress updates from agents
 func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID int, progress *models.JobProgress) error {
 	debug.Log("Processing job progress from agent", map[string]interface{}{
@@ -1172,6 +1373,25 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 		debug.Warning("Received progress for non-existent task %d (ignoring): agent=%d, error=%v", progress.TaskID, agentID, err)
 		// Don't return error - just ignore the update
 		return nil
+	}
+
+	// Scheduler-v2 progress ingestion. No-op for legacy tasks (no
+	// scheduling_unit_id). Updates restore_point, last_activity_at,
+	// and on first-progress, scheduling_units.effective_keyspace +
+	// is_accurate_keyspace. Errors are logged and ignored — the
+	// legacy update path below handles all user-visible state.
+	if v2Err := scheduler.IngestProgressV2(ctx, &db.DB{DB: s.db}, progress.TaskID, progress.KeyspaceProcessed, progress.TotalEffectiveKeyspace); v2Err != nil {
+		debug.Warning("scheduler-v2 progress ingestion for task %s failed (legacy path continues): %v", progress.TaskID, v2Err)
+	}
+
+	// Refresh agent_benchmarks.speed from the observed hash rate.
+	// Without this the dispatcher keeps using the stale benchmark for
+	// chunk sizing (1.07 GH/s in the live bug report) even when the
+	// agent is actually running at 3.71 GH/s, so chunks under-shoot
+	// the configured target. Best-effort; failure does not break
+	// progress handling.
+	if benchErr := s.refreshBenchmarkFromObserved(ctx, agentID, task.JobExecutionID, progress); benchErr != nil {
+		debug.Warning("benchmark refresh from observed speed (agent=%d, task=%s): %v", agentID, progress.TaskID, benchErr)
 	}
 
 	// Verify the task is assigned to this agent
@@ -1227,8 +1447,8 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 				debug.Error("Failed to get layer for status update: %v", err)
 			} else if layer.Status == models.JobIncrementLayerStatusPending {
 				debug.Log("Updating layer status from pending to running", map[string]interface{}{
-					"layer_id":   task.IncrementLayerID,
-					"task_id":    progress.TaskID,
+					"layer_id": task.IncrementLayerID,
+					"task_id":  progress.TaskID,
 				})
 
 				err = s.jobIncrementLayerRepo.UpdateStatus(ctx, *task.IncrementLayerID, models.JobIncrementLayerStatusRunning)
@@ -1248,19 +1468,19 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 	// ENTIRE job's effective keyspace, not the chunk's. We should NOT update effective keyspace for
 	// keyspace-split tasks because we already calculated proportional values during task creation.
 	// Only update for rule-split tasks where progress[1] correctly reflects the chunk's rule range.
-	if progress.TotalEffectiveKeyspace != nil && *progress.TotalEffectiveKeyspace > 0 && !task.IsActualKeyspace && !task.IsKeyspaceSplit {
+	if progress.TotalEffectiveKeyspace != nil && progress.TotalEffectiveKeyspace.IsPositive() && !task.IsActualKeyspace && !task.IsKeyspaceSplit {
 		// IMPORTANT: progress.TotalEffectiveKeyspace is the CHUNK's actual keyspace size (not cumulative!)
 		// It represents the total keyspace for this specific chunk's rules (only valid for rule-split tasks)
 		chunkActualKeyspace := *progress.TotalEffectiveKeyspace
 
 		// Get the current start position (where this chunk begins in the cumulative keyspace)
-		effectiveStart := int64(0)
+		effectiveStart := models.NewBigInt(0)
 		if task.EffectiveKeyspaceStart != nil {
 			effectiveStart = *task.EffectiveKeyspaceStart
 		}
 
 		// Calculate new end = start + chunk's actual size
-		actualEffectiveEnd := effectiveStart + chunkActualKeyspace
+		actualEffectiveEnd := effectiveStart.Add(chunkActualKeyspace)
 
 		// Update task with actual values AND store chunk size for cascade calculations
 		err = s.jobTaskRepo.UpdateTaskEffectiveKeyspaceWithChunkSize(ctx, progress.TaskID,
@@ -1268,8 +1488,8 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 		if err != nil {
 			debug.Error("Failed to update task effective keyspace from progress[1]: %v", err)
 		} else {
-			debug.Info("Updated task %s: start=%d, end=%d, chunk_size=%d (is_actual_keyspace=true)",
-				progress.TaskID, effectiveStart, actualEffectiveEnd, chunkActualKeyspace)
+			debug.Info("Updated task %s: start=%s, end=%s, chunk_size=%s (is_actual_keyspace=true)",
+				progress.TaskID, effectiveStart.String(), actualEffectiveEnd.String(), chunkActualKeyspace.String())
 
 			// Get job execution repository for effective keyspace updates
 			database := &db.DB{DB: s.db}
@@ -1280,36 +1500,50 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			if err != nil {
 				debug.Error("Failed to get job for keyspace update: %v", err)
 			} else {
-				// Handle increment mode jobs differently - update layer, then recalc job total
+				// Handle increment mode jobs differently - update layer, then recalc job total.
+				// Skip the cascade if the layer already has an accurate effective_keyspace
+				// (set by --total-candidates at layer init), since the chunk's progress[1] only
+				// represents one chunk's keyspace and would clobber the layer total for
+				// multi-chunk layers.
 				if job.IncrementMode != "" && job.IncrementMode != "off" && task.IncrementLayerID != nil {
-					// Update the layer's effective keyspace
-					err = s.jobIncrementLayerRepo.UpdateEffectiveKeyspace(ctx, *task.IncrementLayerID, chunkActualKeyspace)
-					if err != nil {
-						debug.Error("Failed to update layer effective keyspace: %v", err)
+					existingLayer, layerErr := s.jobIncrementLayerRepo.GetByID(ctx, *task.IncrementLayerID)
+					if layerErr != nil {
+						debug.Warning("Failed to fetch layer for accuracy check, proceeding with overwrite: %v", layerErr)
+					}
+					if existingLayer != nil && existingLayer.IsAccurateKeyspace {
+						debug.Info("Skipping layer %s effective_keyspace overwrite: already accurate from --total-candidates",
+							*task.IncrementLayerID)
 					} else {
-						debug.Info("Updated layer %s effective_keyspace to %d (actual from hashcat)",
-							*task.IncrementLayerID, chunkActualKeyspace)
-
-						// Recalculate job's total effective keyspace as sum of all layers
-						totalKeyspace, err := s.jobIncrementLayerRepo.GetTotalEffectiveKeyspace(ctx, task.JobExecutionID)
+						// Layer is still using an estimate — replace it with the chunk's actual value.
+						// Note: this is correct for single-chunk layers; for multi-chunk layers it remains a
+						// pre-existing limitation that Step 3 (--total-candidates at init) sidesteps.
+						err = s.jobIncrementLayerRepo.UpdateEffectiveKeyspace(ctx, *task.IncrementLayerID, chunkActualKeyspace)
 						if err != nil {
-							debug.Error("Failed to get total effective keyspace from layers: %v", err)
+							debug.Error("Failed to update layer effective keyspace: %v", err)
 						} else {
-							// Update job's effective keyspace to the sum of all layers
-							err = jobExecRepo.UpdateEffectiveKeyspace(ctx, task.JobExecutionID, totalKeyspace)
+							debug.Info("Updated layer %s effective_keyspace to %s (actual from hashcat)",
+								*task.IncrementLayerID, chunkActualKeyspace.String())
+
+							// Recalculate job's total effective keyspace as sum of all layers
+							totalKeyspace, err := s.jobIncrementLayerRepo.GetTotalEffectiveKeyspace(ctx, task.JobExecutionID)
 							if err != nil {
-								debug.Error("Failed to update job effective keyspace from layer sum: %v", err)
+								debug.Error("Failed to get total effective keyspace from layers: %v", err)
 							} else {
-								oldEffective := int64(0)
-								if job.EffectiveKeyspace != nil {
-									oldEffective = *job.EffectiveKeyspace
+								err = jobExecRepo.UpdateEffectiveKeyspace(ctx, task.JobExecutionID, totalKeyspace)
+								if err != nil {
+									debug.Error("Failed to update job effective keyspace from layer sum: %v", err)
+								} else {
+									oldEffective := models.NewBigInt(0)
+									if job.EffectiveKeyspace != nil {
+										oldEffective = *job.EffectiveKeyspace
+									}
+									debug.Info("Updated increment job %s effective_keyspace from %s to %s (sum of all layers)",
+										task.JobExecutionID, oldEffective.String(), totalKeyspace.String())
 								}
-								debug.Info("Updated increment job %s effective_keyspace from %d to %d (sum of all layers)",
-									task.JobExecutionID, oldEffective, totalKeyspace)
 							}
 						}
 					}
-				} else if !job.UsesRuleSplitting && task.ChunkNumber == 1 {
+				} else if !job.UsesRuleSplitting && task.ChunkNumber != nil && *task.ChunkNumber == 1 {
 					// Regular (non-increment) single-task jobs - update effective_keyspace to match actual
 					// This ensures progress calculations use actual keyspace, not estimates
 					// Check if this is the only task for this job
@@ -1318,13 +1552,13 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 						// Single task job - update effective_keyspace to match actual total
 						if job.EffectiveKeyspace != nil {
 							newEffectiveKeyspace := chunkActualKeyspace
-							if *job.EffectiveKeyspace != newEffectiveKeyspace {
+							if job.EffectiveKeyspace.Cmp(newEffectiveKeyspace) != 0 {
 								err = jobExecRepo.UpdateEffectiveKeyspace(ctx, task.JobExecutionID, newEffectiveKeyspace)
 								if err != nil {
 									debug.Error("Failed to update job effective keyspace to actual: %v", err)
 								} else {
-									debug.Info("Updated job %s effective_keyspace from %d (estimated) to %d (actual from hashcat)",
-										task.JobExecutionID, *job.EffectiveKeyspace, newEffectiveKeyspace)
+									debug.Info("Updated job %s effective_keyspace from %s (estimated) to %s (actual from hashcat)",
+										task.JobExecutionID, job.EffectiveKeyspace.String(), newEffectiveKeyspace.String())
 								}
 							}
 						}
@@ -1337,20 +1571,20 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			// Reuse job variable from above
 			// IMPORTANT: Only refine if we have a valid baseline from benchmark
 			// Progressive refinement should ENHANCE accuracy, not replace initial benchmark value
-			if job != nil && job.UsesRuleSplitting && job.IsAccurateKeyspace && job.EffectiveKeyspace != nil && *job.EffectiveKeyspace > 0 {
+			if job != nil && job.UsesRuleSplitting && job.IsAccurateKeyspace && job.EffectiveKeyspace != nil && job.EffectiveKeyspace.IsPositive() {
 				// Get all tasks for this job
 				allTasks, err := s.jobTaskRepo.GetTasksByJobExecution(ctx, task.JobExecutionID)
 				if err == nil && len(allTasks) > 0 {
 					// Calculate: sum of actuals + smart estimate for remaining
-					totalActualKeyspace := int64(0)
+					totalActualKeyspace := models.NewBigInt(0)
 					totalActualRules := 0
 					totalRemainingRules := 0
 					pendingTaskCount := 0
 
 					for _, t := range allTasks {
 						// Include tasks that have reported actual keyspace (completed OR running with actual)
-						if t.ChunkActualKeyspace != nil && *t.ChunkActualKeyspace > 0 {
-							totalActualKeyspace += *t.ChunkActualKeyspace
+						if t.ChunkActualKeyspace != nil && t.ChunkActualKeyspace.IsPositive() {
+							totalActualKeyspace = totalActualKeyspace.Add(*t.ChunkActualKeyspace)
 							if t.RuleStartIndex != nil && t.RuleEndIndex != nil {
 								totalActualRules += (*t.RuleEndIndex - *t.RuleStartIndex)
 							}
@@ -1373,34 +1607,40 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 						currentHashCount, err := hashlistRepo.GetUncrackedHashCount(ctx, job.HashlistID)
 						if err == nil && currentHashCount > 0 {
 							// Average actual keyspace per rule from completed tasks
-							avgKeyspacePerRule := float64(totalActualKeyspace) / float64(totalActualRules)
+							// (heuristic float; truncation of large keyspaces is acceptable here)
+							avgKeyspacePerRule := float64(totalActualKeyspace.Int64()) / float64(totalActualRules)
 
 							// Estimate for remaining tasks using CURRENT hashlist size
 							estimatedRemaining := int64(avgKeyspacePerRule * float64(totalRemainingRules))
 
-							newEffectiveKeyspace = totalActualKeyspace + estimatedRemaining
+							newEffectiveKeyspace = totalActualKeyspace.AddInt64(estimatedRemaining)
 
-							debug.Info("Progressive refinement for job %s: actual=%d (from %d rules), estimated=%d (for %d rules with %d hashes), total=%d",
-								task.JobExecutionID, totalActualKeyspace, totalActualRules, estimatedRemaining, totalRemainingRules, currentHashCount, newEffectiveKeyspace)
+							debug.Info("Progressive refinement for job %s: actual=%s (from %d rules), estimated=%d (for %d rules with %d hashes), total=%s",
+								task.JobExecutionID, totalActualKeyspace.String(), totalActualRules, estimatedRemaining, totalRemainingRules, currentHashCount, newEffectiveKeyspace.String())
 						}
 					}
 
-					// Update if changed significantly (avoid tiny fluctuations)
-					if job.EffectiveKeyspace == nil || absInt64(*job.EffectiveKeyspace-newEffectiveKeyspace) > 1000 {
+					// Update if changed significantly (avoid tiny fluctuations).
+					// Compute |current - new| using BigInt arithmetic.
+					diffBig := job.EffectiveKeyspace.Sub(newEffectiveKeyspace)
+					if diffBig.Sign() < 0 {
+						diffBig = newEffectiveKeyspace.Sub(*job.EffectiveKeyspace)
+					}
+					if job.EffectiveKeyspace == nil || diffBig.CmpInt64(1000) > 0 {
 						// SAFETY: Never reduce effective_keyspace to 0 or a tiny value for rule-split jobs
 						// This prevents overwriting benchmark results with incomplete chunk data
-						if newEffectiveKeyspace == 0 {
+						if newEffectiveKeyspace.IsZero() {
 							debug.Log("Skipping progressive refinement - calculated keyspace is 0", map[string]interface{}{
-								"job_id": task.JobExecutionID,
-								"current_effective": *job.EffectiveKeyspace,
+								"job_id":            task.JobExecutionID,
+								"current_effective": job.EffectiveKeyspace.String(),
 							})
-						} else if job.EffectiveKeyspace != nil && newEffectiveKeyspace < (*job.EffectiveKeyspace / 10) {
+						} else if job.EffectiveKeyspace != nil && newEffectiveKeyspace.Cmp(job.EffectiveKeyspace.DivInt64(10)) < 0 {
 							// New value is less than 10% of current - suspicious, log warning
 							debug.Warning("Skipping progressive refinement - new value too low", map[string]interface{}{
-								"job_id": task.JobExecutionID,
-								"current": *job.EffectiveKeyspace,
-								"new": newEffectiveKeyspace,
-								"reduction_percent": (1.0 - float64(newEffectiveKeyspace)/float64(*job.EffectiveKeyspace)) * 100,
+								"job_id":            task.JobExecutionID,
+								"current":           job.EffectiveKeyspace.String(),
+								"new":               newEffectiveKeyspace.String(),
+								"reduction_percent": (1.0 - float64(newEffectiveKeyspace.Int64())/float64(job.EffectiveKeyspace.Int64())) * 100,
 							})
 						} else {
 							// Safe to update
@@ -1408,12 +1648,12 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 							if err != nil {
 								debug.Error("Failed to update progressive effective keyspace: %v", err)
 							} else {
-								oldValue := int64(0)
+								oldValue := models.NewBigInt(0)
 								if job.EffectiveKeyspace != nil {
 									oldValue = *job.EffectiveKeyspace
 								}
-								debug.Info("Updated job %s effective_keyspace from %d to %d (progressive refinement)",
-									task.JobExecutionID, oldValue, newEffectiveKeyspace)
+								debug.Info("Updated job %s effective_keyspace from %s to %s (progressive refinement)",
+									task.JobExecutionID, oldValue.String(), newEffectiveKeyspace.String())
 							}
 						}
 					}
@@ -1425,12 +1665,16 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			// the chunk's portion of work. For keyspace-split tasks, hashcat's progress[1] reports the
 			// ENTIRE job's effective keyspace (not just the chunk's), so cascade recalculation would corrupt
 			// the effective keyspace chain with incorrect values.
-			if task.ChunkNumber > 0 && !task.IsKeyspaceSplit {
-				err = s.recalculateSubsequentChunks(ctx, task.JobExecutionID, task.ChunkNumber)
+			// task.ChunkNumber may be nil for scheduler-v2 tasks (which are
+			// interval-based, not sequence-numbered). Skip the cascade
+			// recalculation in that case — v2 tracks coverage via
+			// job_keyspace_intervals, not chunk_number ordering.
+			if task.ChunkNumber != nil && *task.ChunkNumber > 0 && !task.IsKeyspaceSplit {
+				err = s.recalculateSubsequentChunks(ctx, task.JobExecutionID, *task.ChunkNumber)
 				if err != nil {
 					debug.Error("Failed to cascade update subsequent chunks: %v", err)
 				} else {
-					debug.Info("Cascaded effective keyspace updates to chunks after chunk %d", task.ChunkNumber)
+					debug.Info("Cascaded effective keyspace updates to chunks after chunk %d", *task.ChunkNumber)
 				}
 			}
 		}
@@ -1441,6 +1685,29 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 	s.taskProgressMap[progress.TaskID.String()] = progress
 	s.progressMutex.Unlock()
 
+	// Operator-initiated stop (agent Ctrl+C / agent shutdown / explicit
+	// StopJob). The agent now sends status="stopped" with the last-known
+	// KeyspaceProcessed (Step 10c-1) instead of empty zeros. Treat this
+	// as truncate-and-preserve: ingest the final restore_point, then
+	// RecoverTaskByID truncates the interval at that point and marks
+	// task+interval 'completed'. The unprocessed portion of the original
+	// range automatically becomes a gap, re-dispatchable to a different
+	// agent. NO progress overwrite to 0%.
+	if progress.Status == "stopped" {
+		database := &db.DB{DB: s.db}
+		if ierr := scheduler.IngestProgressV2(ctx, database, progress.TaskID, progress.KeyspaceProcessed, progress.TotalEffectiveKeyspace); ierr != nil {
+			debug.Warning("IngestProgressV2 on stopped task %s: %v", progress.TaskID, ierr)
+		}
+		if _, rerr := scheduler.RecoverTaskByID(ctx, database, progress.TaskID, "agent stopped by operator"); rerr != nil {
+			debug.Warning("RecoverTaskByID on stopped task %s: %v", progress.TaskID, rerr)
+		}
+		// ACK so the agent doesn't retry.
+		taskIDStr := progress.TaskID.String()
+		s.cacheCompletion(taskIDStr)
+		s.sendTaskCompleteAck(agentID, taskIDStr, true, "task stopped by operator")
+		return nil
+	}
+
 	// Check if this is a failure update
 	if progress.Status == "failed" && progress.ErrorMessage != "" {
 		// Check if this is an agent-side rejection (not an execution failure)
@@ -1449,17 +1716,50 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			strings.Contains(progress.ErrorMessage, "already running task")
 
 		if isAgentRejection {
-			// Agent rejected the task - return it to pending for reassignment
-			debug.Warning("Agent rejected task assignment (will be reassigned): task=%s, agent=%d, reason=%s",
+			// Agent rejected because it's still mid-cleanup of its prior
+			// task — scheduler-side race against the agent's local
+			// activeJobs map. NOT an agent fault.
+			//
+			// Per user-stated principle: "A rejected task isn't a failed
+			// task — it gets redone." Marking the row 'failed' (the
+			// previous approach) polluted the task list and triggered
+			// per-tuple failure attribution against a healthy agent.
+			// Better: DELETE the just-inserted task+interval rows. The
+			// dispatcher's gap query naturally reopens the range; the
+			// next cycle (after the 5s MarkRejected cooldown) re-issues.
+			//
+			// Recovery steps:
+			//  1. MarkRejected so the next scheduler-v2 cycles skip this
+			//     agent for `rejectionCooldown` (5s) and the race quiets
+			//     down instead of looping a rejection storm.
+			//  2. DELETE the rejected task and its interval row. Safe
+			//     because the rows were just inserted milliseconds ago;
+			//     no downstream references (no progress updates, no
+			//     completion handlers, no benchmark writes).
+			//  3. ACK the agent so it doesn't retry.
+			debug.Warning("Agent rejected task assignment (race — deleting and re-dispatching after cooldown): task=%s, agent=%d, reason=%s",
 				progress.TaskID, agentID, progress.ErrorMessage)
 
-			// Revert task to pending (NOT failed) - SetTaskPending clears agent_id and assigned_at
-			err := s.jobTaskRepo.SetTaskPending(ctx, progress.TaskID)
-			if err != nil {
-				debug.Error("Failed to revert rejected task to pending: %v", err)
+			s.wsHandler.MarkRejected(agentID)
+
+			// Delete interval first (it has FK to task_id), then task.
+			// Best-effort: log on error, continue. If the rows are
+			// somehow already gone, the DELETEs are safe no-ops.
+			if _, delErr := s.db.ExecContext(ctx, `
+				DELETE FROM job_keyspace_intervals WHERE task_id = $1
+			`, progress.TaskID); delErr != nil {
+				debug.Warning("delete interval for rejected task %s: %v", progress.TaskID, delErr)
+			}
+			if _, delErr := s.db.ExecContext(ctx, `
+				DELETE FROM job_tasks WHERE id = $1
+			`, progress.TaskID); delErr != nil {
+				debug.Warning("delete rejected task %s: %v", progress.TaskID, delErr)
 			}
 
-			// Don't mark job as failed - the task will be reassigned
+			taskIDStr := progress.TaskID.String()
+			s.cacheCompletion(taskIDStr)
+			s.sendTaskCompleteAck(agentID, taskIDStr, true, "task rejected (race): "+progress.ErrorMessage)
+
 			return nil
 		}
 
@@ -1468,43 +1768,74 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			"error":   progress.ErrorMessage,
 		})
 
-		// Mark task as permanently failed, decrement dispatched keyspace, AND clear agent status atomically
-		// Agent-reported failures are considered permanent and the job will be marked as failed
+		// Mark the task row as failed (clears agent_id atomically when known
+		// so the agent is freed for new work). This is local-to-the-task
+		// bookkeeping; the JOB-level decision is delegated to the
+		// attribution machinery below.
 		if task.AgentID != nil {
-			err := s.jobTaskRepo.MarkTaskFailedPermanentlyAndClearAgentStatus(ctx, progress.TaskID, *task.AgentID, progress.ErrorMessage)
-			if err != nil {
+			if err := s.jobTaskRepo.MarkTaskFailedPermanentlyAndClearAgentStatus(ctx, progress.TaskID, *task.AgentID, progress.ErrorMessage); err != nil {
 				debug.Error("Failed to atomically fail task and clear agent status: %v", err)
 			}
 		} else {
-			// No agent ID - just mark task as failed
-			err := s.jobTaskRepo.MarkTaskFailedPermanently(ctx, progress.TaskID, progress.ErrorMessage)
-			if err != nil {
+			if err := s.jobTaskRepo.MarkTaskFailedPermanently(ctx, progress.TaskID, progress.ErrorMessage); err != nil {
 				debug.Error("Failed to mark task as permanently failed: %v", err)
 			}
 		}
 
-		// Update job execution status to failed
-		// Wrap sql.DB in custom DB type
+		// Scheduler-v2 recovery: mark the interval failed so its keyspace
+		// range becomes a gap again. The next cycle will re-issue it to
+		// the same agent (if other_agents_failed=0) or, post-attribution,
+		// to a different agent if this agent has been blocklisted for
+		// this job. RecoverTaskByID is a no-op for legacy tasks
+		// (Handled=false), so this is safe to call unconditionally.
 		database := &db.DB{DB: s.db}
-		jobExecRepo := repository.NewJobExecutionRepository(database)
-		if err := jobExecRepo.UpdateStatus(ctx, task.JobExecutionID, models.JobExecutionStatusFailed); err != nil {
-			debug.Error("Failed to update job execution status: %v", err)
-		}
-		if err := jobExecRepo.UpdateErrorMessage(ctx, task.JobExecutionID, progress.ErrorMessage); err != nil {
-			debug.Error("Failed to update job execution error message: %v", err)
+		if _, recErr := scheduler.RecoverTaskByID(ctx, database, progress.TaskID, "agent-reported failure: "+progress.ErrorMessage); recErr != nil {
+			debug.Warning("scheduler-v2 recovery for failed task %s: %v", progress.TaskID, recErr)
 		}
 
-		// Handle task failure cleanup
-		err = s.jobExecutionService.HandleTaskCompletion(ctx, progress.TaskID)
-		if err != nil {
+		// Delegate the JOB-level decision (blocklist, fail job after N,
+		// multi-agent failover, etc.) to the existing attribution
+		// machinery — the same code path that runs on benchmark failures.
+		// AttributeBenchmarkFailure is misnamed (it handles task failures
+		// too) but its body is generic agent/job/mode/hash_type policy.
+		// Without this delegation we'd hit the runaway-dispatch
+		// pathology of 2026-05-17: every task failure blindly flipped the
+		// job to 'failed', no per-tuple thresholds, no cross-agent
+		// failover, no all-agents-blocklisted protection.
+		//
+		// Look up the attack_mode + hash_type from the parent job since
+		// they aren't carried on the progress message.
+		jobExec, jeErr := s.jobExecutionService.GetJobExecutionByID(ctx, task.JobExecutionID)
+		if jeErr != nil {
+			debug.Warning("Failed to load job %s for task-failure attribution: %v", task.JobExecutionID, jeErr)
+		} else {
+			hashlist, hlErr := s.hashlistRepo.GetByID(ctx, jobExec.HashlistID)
+			if hlErr != nil {
+				debug.Warning("Failed to load hashlist %d for task-failure attribution: %v", jobExec.HashlistID, hlErr)
+			} else {
+				entityID := task.JobExecutionID.String()
+				if task.IncrementLayerID != nil {
+					entityID = task.IncrementLayerID.String()
+				}
+				if attrErr := s.jobSchedulingService.AttributeBenchmarkFailure(
+					ctx, agentID, jobExec.AttackMode, hashlist.HashTypeID, entityID, progress.ErrorMessage,
+				); attrErr != nil {
+					debug.Warning("Task-failure attribution for task %s (agent=%d, job=%s): %v",
+						progress.TaskID, agentID, task.JobExecutionID, attrErr)
+				}
+			}
+		}
+
+		// Bookkeeping cleanup (release reservations, etc.) — separate from
+		// the policy decision above.
+		if err = s.jobExecutionService.HandleTaskCompletion(ctx, progress.TaskID); err != nil {
 			debug.Log("Failed to handle failed task cleanup", map[string]interface{}{
 				"task_id": progress.TaskID,
 				"error":   err.Error(),
 			})
 		}
 
-		// Cache and send ACK for failure (GH Issue #12)
-		// Failures also need ACK so agent knows backend received the status
+		// ACK so the agent stops retrying.
 		taskIDStr := progress.TaskID.String()
 		s.cacheCompletion(taskIDStr)
 		s.sendTaskCompleteAck(agentID, taskIDStr, true, "task failed: "+progress.ErrorMessage)
@@ -1521,9 +1852,9 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 		// Part 18a: When all hashes are cracked, the task has fully processed its keyspace
 		// Set keyspace_processed to the full chunk size (even if restore_point is 0 due to instant completion)
 		fullKeyspaceProcessed := task.KeyspaceEnd - task.KeyspaceStart
-		effectiveProcessed := fullKeyspaceProcessed
+		effectiveProcessed := models.NewBigInt(fullKeyspaceProcessed)
 		if task.EffectiveKeyspaceEnd != nil && task.EffectiveKeyspaceStart != nil {
-			effectiveProcessed = *task.EffectiveKeyspaceEnd - *task.EffectiveKeyspaceStart
+			effectiveProcessed = task.EffectiveKeyspaceEnd.Sub(*task.EffectiveKeyspaceStart)
 		}
 
 		// Update task progress to 100% so the task shows correct completion status
@@ -1534,8 +1865,14 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 		if err := s.jobTaskRepo.UpdateProgress(ctx, progress.TaskID, fullKeyspaceProcessed, effectiveProcessed, hashRatePtr, 100.0); err != nil {
 			debug.Error("Failed to update task progress for all-hashes-cracked: %v", err)
 		} else {
-			debug.Info("Updated task %s progress to 100%% for all-hashes-cracked (keyspace_processed=%d, effective=%d)",
-				progress.TaskID, fullKeyspaceProcessed, effectiveProcessed)
+			debug.Info("Updated task %s progress to 100%% for all-hashes-cracked (keyspace_processed=%d, effective=%s)",
+				progress.TaskID, fullKeyspaceProcessed, effectiveProcessed.String())
+		}
+
+		// Store device-level performance metrics so CalculateAndStoreAverageSpeed() has data
+		// For fast-completing jobs (status 6), this is the only progress update we get
+		if err := s.jobSchedulingService.ProcessTaskProgress(ctx, progress.TaskID, progress); err != nil {
+			debug.Warning("Failed to store task metrics for all-hashes-cracked: %v", err)
 		}
 
 		// Determine expected crack count for processing status
@@ -1576,12 +1913,12 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			// When all hashes are cracked early, the job didn't process the full keyspace.
 			// To ensure progress shows 100%, set effective_keyspace = processed_keyspace.
 			currentJob, jobErr := jobExecRepo.GetByID(ctx, task.JobExecutionID)
-			if jobErr == nil && currentJob.ProcessedKeyspace > 0 {
+			if jobErr == nil && currentJob.ProcessedKeyspace.IsPositive() {
 				if err := jobExecRepo.UpdateEffectiveKeyspace(ctx, task.JobExecutionID, currentJob.ProcessedKeyspace); err != nil {
 					debug.Warning("Failed to sync effective_keyspace on AllHashesCracked: %v", err)
 				} else {
-					debug.Info("Synced effective_keyspace to processed_keyspace (%d) for 100%% display on AllHashesCracked",
-						currentJob.ProcessedKeyspace)
+					debug.Info("Synced effective_keyspace to processed_keyspace (%s) for 100%% display on AllHashesCracked",
+						currentJob.ProcessedKeyspace.String())
 				}
 				// Also sync dispatched_keyspace
 				if err := jobExecRepo.UpdateDispatchedKeyspace(ctx, task.JobExecutionID, currentJob.ProcessedKeyspace); err != nil {
@@ -1646,6 +1983,15 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 
 	// Check if this is a completion update
 	if progress.Status == "completed" {
+		// Post-completion cooldown: the agent told us "completed" but its
+		// local activeJobs map stays populated for ~1-2s while crack
+		// batches drain and hashcat process cleanup finishes. During that
+		// window any new dispatch gets rejected with "already running
+		// task X". MarkRejected (semantically "agent is in a state-change
+		// cleanup window") makes the next ~5s of scheduler-v2 cycles
+		// skip this agent, preventing the doomed dispatch.
+		s.wsHandler.MarkRejected(agentID)
+
 		taskIDStr := progress.TaskID.String()
 
 		// Idempotent handling: check if this completion was already processed (GH Issue #12)
@@ -1672,10 +2018,10 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 		// Ignore this completion message to prevent premature completion with wrong crack count
 		if dbTask.Status == models.JobTaskStatusProcessing {
 			debug.Log("Task is in processing state, ignoring duplicate completion message", map[string]interface{}{
-				"task_id":           progress.TaskID,
-				"expected_cracks":   dbTask.ExpectedCrackCount,
-				"received_cracks":   dbTask.ReceivedCrackCount,
-				"progress_cracks":   progress.CrackedCount,
+				"task_id":         progress.TaskID,
+				"expected_cracks": dbTask.ExpectedCrackCount,
+				"received_cracks": dbTask.ReceivedCrackCount,
+				"progress_cracks": progress.CrackedCount,
 			})
 			// Send ACK so agent doesn't retry, but don't complete the task
 			s.sendTaskCompleteAck(agentID, taskIDStr, true, "task processing, awaiting crack batches")
@@ -1932,8 +2278,8 @@ func (s *JobWebSocketIntegration) HandleCrackBatch(ctx context.Context, agentID 
 			// Don't fail the whole operation - cracks are already processed
 		} else {
 			debug.Log("Incremented received crack count", map[string]interface{}{
-				"task_id":     crackBatch.TaskID,
-				"batch_size":  len(crackBatch.CrackedHashes),
+				"task_id":    crackBatch.TaskID,
+				"batch_size": len(crackBatch.CrackedHashes),
 			})
 
 			// Check if task is ready to complete (only if in processing status)
@@ -2178,7 +2524,16 @@ func (s *JobWebSocketIntegration) HandleCrackBatchesComplete(ctx context.Context
 }
 
 // checkJobProcessingStatus checks if a job should transition to processing status
-// This happens when the last task with no remaining work enters processing status
+// This happens when the last task with no remaining work enters processing status.
+//
+// CRITICAL: For scheduler-v2 jobs (those with scheduling_units rows), the legacy
+// GetJobsWithPendingWork query DELIBERATELY excludes them via its NOT EXISTS
+// clause — that's how the two schedulers self-partition in transition mode.
+// Without the v2-aware check below, every v2 job appears to have "no remaining
+// work" the moment any task hits processing status, and the job gets prematurely
+// flipped to 'processing' even though its scheduling_units still have gaps to
+// dispatch. Once flipped, the Step 11n cascade in HandleTaskCompletion (which
+// only handles running→pending) cannot recover it.
 func (s *JobWebSocketIntegration) checkJobProcessingStatus(ctx context.Context, jobExecutionID uuid.UUID) {
 	// Wrap sql.DB in custom DB type
 	database := &db.DB{DB: s.db}
@@ -2196,7 +2551,45 @@ func (s *JobWebSocketIntegration) checkJobProcessingStatus(ctx context.Context, 
 		return
 	}
 
-	// Check if there's any remaining work
+	// v2-aware remaining-work check: a job has remaining work if ANY of its
+	// scheduling_units is non-terminal AND has gaps left. The legacy
+	// GetJobsWithPendingWork can't answer this because it filters v2 jobs
+	// out by design. Check this BEFORE falling through to the legacy query
+	// so v2 jobs short-circuit correctly.
+	var v2RemainingUnits int
+	v2Err := s.db.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM scheduling_units su
+		WHERE su.parent_job_id = $1
+		  AND su.status NOT IN ('completed', 'cancelled', 'failed')
+		  AND (
+		      su.base_keyspace IS NULL
+		      OR (
+		          SELECT COALESCE(SUM(jki.range_end - jki.range_start), 0)
+		          FROM job_keyspace_intervals jki
+		          WHERE jki.scheduling_unit_id = su.id
+		            AND jki.status NOT IN ('failed', 'cancelled')
+		      ) < su.base_keyspace
+		  )
+	`, jobExecutionID).Scan(&v2RemainingUnits)
+	if v2Err != nil {
+		debug.Warning("checkJobProcessingStatus: v2 remaining-work check failed for job %s: %v", jobExecutionID, v2Err)
+		// Fall through to legacy logic; safer to risk a false processing
+		// flip than to silently swallow the error.
+	} else if v2RemainingUnits > 0 {
+		// v2 job still has units with gaps — do NOT flip to processing.
+		// The unit's next chunk gets dispatched on the next scheduler-v2
+		// cycle and the job stays running.
+		debug.Debug("checkJobProcessingStatus: job %s has %d v2 units with remaining work; not flipping to processing",
+			jobExecutionID, v2RemainingUnits)
+		return
+	}
+
+	// Legacy path: check GetJobsWithPendingWork. For v2 jobs that reach
+	// here it means scheduling_units exist but none have gaps left — the
+	// job is genuinely done with its keyspace and any processing tasks are
+	// just waiting for crack batches to drain. Same behavior as the
+	// non-v2 path.
 	jobsWithWork, err := jobExecRepo.GetJobsWithPendingWork(ctx)
 	if err != nil {
 		debug.Error("Failed to check jobs with pending work: %v", err)
@@ -2336,8 +2729,8 @@ func (s *JobWebSocketIntegration) dispatchTaskCompletedNotification(ctx context.
 	crackCount := int64(actualNewCracks)
 
 	debug.Log("Task notification crack counts", map[string]interface{}{
-		"task_id":          task.ID,
-		"received_cracks":  task.ReceivedCrackCount,
+		"task_id":           task.ID,
+		"received_cracks":   task.ReceivedCrackCount,
 		"actual_new_cracks": actualNewCracks,
 	})
 
@@ -2395,12 +2788,39 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 		"success":     result.Success,
 	})
 
+	// A reported speed of 0 H/s with success=true is never useful: the chunk
+	// math would either fall back to a default estimate or produce a degenerate
+	// 1-candidate task. Treat it as a failure so the scheduler attributes the
+	// failure and the admin gets an actionable error on the job. This also
+	// catches older agents that don't yet emit ErrorCode.
+	if result.Success && result.Speed <= 0 {
+		debug.Warning("Benchmark reported success=true with speed<=0; treating as a zero-speed failure (agent %d, hash_type %d, attack_mode %d)",
+			agentID, result.HashType, result.AttackMode)
+		result.Success = false
+		if result.ErrorCode == "" {
+			result.ErrorCode = wsservice.BenchmarkErrorZeroSpeed
+		}
+		if result.Error == "" {
+			result.Error = "speed test reported 0 H/s"
+		}
+	}
+
 	if !result.Success {
+		errorMessage := formatBenchmarkErrorMessage(result.ErrorCode, result.Error)
 		debug.Log("Benchmark failed", map[string]interface{}{
-			"agent_id": agentID,
-			"error":    result.Error,
+			"agent_id":   agentID,
+			"error":      result.Error,
+			"error_code": result.ErrorCode,
 		})
-		return fmt.Errorf("benchmark failed: %s", result.Error)
+		if err := s.jobSchedulingService.AttributeBenchmarkFailure(
+			ctx, agentID,
+			models.AttackMode(result.AttackMode), result.HashType,
+			result.JobExecutionID, errorMessage,
+		); err != nil {
+			// Attribution failure should not mask the original error; log and continue.
+			debug.Warning("Failed to record benchmark failure attribution for agent %d: %v", agentID, err)
+		}
+		return fmt.Errorf("benchmark failed: %s", errorMessage)
 	}
 
 	// Get agent
@@ -2409,8 +2829,19 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 		return fmt.Errorf("failed to get agent: %w", err)
 	}
 
-	// Determine salt count for salted hash types
-	// For salted hashes, salt count = remaining (uncracked) hash count at benchmark time
+	// Determine salt count for salted hash types.
+	//
+	// IMPORTANT: salt_count is the benchmark CACHE KEY. It must match exactly what
+	// the scheduler looks the benchmark up with, otherwise the benchmark is treated
+	// as missing every cycle and re-dispatched forever (endless benchmark loop).
+	// The lookup side keys on hashlist.total_hashes (scheduler/benchmark.go
+	// agentHasBenchmarkFor + scheduler/cycle.go lookupHashTypeAndSalt, and the legacy
+	// readAgentSpeed helper below). Job creation's salt adjustment also uses
+	// total_hashes. So store total_hashes here too — NOT the uncracked count, which
+	// shrinks as hashes crack and would never match the lookup.
+	// (Effective-keyspace ETA accuracy is handled separately by IngestProgressV2,
+	// which shrinks effective_keyspace as salts are removed; that is a different
+	// concern from this stable cache key.)
 	var saltCount *int
 	if result.JobExecutionID != "" {
 		entityID, parseErr := uuid.Parse(result.JobExecutionID)
@@ -2435,13 +2866,15 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 				if hashlist, hlErr := s.hashlistRepo.GetByID(ctx, hashlistID); hlErr == nil && hashlist != nil {
 					hashType, htErr := s.jobExecutionService.GetHashTypeByID(ctx, hashlist.HashTypeID)
 					if htErr == nil && hashType != nil && hashType.IsSalted {
-						// For salted hash types, get remaining hash count as salt count
-						uncrackedCount, countErr := s.hashlistRepo.GetUncrackedHashCount(ctx, hashlistID)
-						if countErr == nil && uncrackedCount > 0 {
-							saltCount = &uncrackedCount
+						// Salt count = hashlist.total_hashes (stable cache key that
+						// matches the scheduler's benchmark lookup). Do NOT use the
+						// uncracked count here.
+						if hashlist.TotalHashes > 0 {
+							tc := hashlist.TotalHashes
+							saltCount = &tc
 							debug.Log("Benchmark for salted hash type", map[string]interface{}{
 								"hash_type":  result.HashType,
-								"salt_count": uncrackedCount,
+								"salt_count": tc,
 							})
 						}
 					}
@@ -2495,6 +2928,33 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 		})
 	}
 
+	// A successful benchmark is the canonical signal that this (agent, combo)
+	// is healthy. Reset both the per-tuple failure counter and the per-agent
+	// benchmark health counters so prior failures don't keep influencing
+	// scheduling. Both helpers are idempotent.
+	if result.JobExecutionID != "" {
+		if entityID, parseErr := uuid.Parse(result.JobExecutionID); parseErr == nil {
+			jobExecutionID := entityID
+			if layer, lErr := s.jobIncrementLayerRepo.GetByID(ctx, entityID); lErr == nil && layer != nil {
+				jobExecutionID = layer.JobExecutionID
+			}
+			if err := s.benchmarkRepo.ResetFailureAttempts(
+				ctx, agentID, jobExecutionID, models.AttackMode(result.AttackMode), result.HashType,
+			); err != nil {
+				debug.Warning("ResetFailureAttempts on benchmark success (agent=%d, job=%s): %v", agentID, jobExecutionID, err)
+			}
+		}
+	}
+	if err := s.benchmarkRepo.ResetAgentBenchmarkHealth(ctx, agentID); err != nil {
+		debug.Warning("ResetAgentBenchmarkHealth on benchmark success (agent=%d): %v", agentID, err)
+	}
+
+	// Log agent's base keyspace for debugging coordinate conversion
+	if result.AgentBaseKeyspace > 0 {
+		debug.Info("Agent %d reported base_keyspace=%d for benchmark (job/layer %s, hash_type %d, attack_mode %d)",
+			agentID, result.AgentBaseKeyspace, result.JobExecutionID, result.HashType, result.AttackMode)
+	}
+
 	// Handle total effective keyspace from hashcat progress[1]
 	if result.TotalEffectiveKeyspace > 0 {
 		// Parse the ID from the result - could be a layer or a job
@@ -2516,7 +2976,7 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 			debug.Info("Benchmark result is for increment layer %s (mask: %s)", entityID, layer.Mask)
 
 			// Update LAYER's effective keyspace using the specialized method
-			err = s.jobIncrementLayerRepo.UpdateKeyspace(ctx, layer.ID, result.TotalEffectiveKeyspace, true)
+			err = s.jobIncrementLayerRepo.UpdateKeyspace(ctx, layer.ID, models.NewBigInt(result.TotalEffectiveKeyspace), true)
 			if err != nil {
 				debug.Error("Failed to update layer keyspace: %v", err)
 				return fmt.Errorf("failed to update layer keyspace: %w", err)
@@ -2534,6 +2994,10 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 			} else {
 				debug.Info("Set job %s is_accurate_keyspace=true after layer benchmark", layer.JobExecutionID)
 			}
+
+			// Propagate accuracy to the scheduler-v2 unit for THIS layer so the
+			// dispatch gate (unit.is_accurate_keyspace=true) opens for it.
+			s.propagateUnitKeyspaceAccuracy(ctx, layer.JobExecutionID, layer.LayerIndex, result.TotalEffectiveKeyspace)
 
 			// Update metadata for forced benchmark completion
 			if agent.Metadata != nil {
@@ -2566,7 +3030,7 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 		// First benchmark for this job?
 		if jobExec.EffectiveKeyspace == nil || !jobExec.IsAccurateKeyspace {
 			// Set job-level effective keyspace from hashcat progress[1]
-			jobExec.EffectiveKeyspace = &result.TotalEffectiveKeyspace
+			jobExec.EffectiveKeyspace = models.NewBigIntPtr(result.TotalEffectiveKeyspace)
 			jobExec.IsAccurateKeyspace = true
 
 			// Calculate avg_rule_multiplier for future task estimates
@@ -2604,7 +3068,7 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 					// Get actual rule count (not salt-adjusted multiplicationFactor)
 					actualRuleCount, ruleErr := s.jobExecutionService.GetTotalRuleCount(ctx, jobExec.RuleIDs)
 					if ruleErr != nil {
-						actualRuleCount = int64(jobExec.MultiplicationFactor)
+						actualRuleCount = jobExec.MultiplicationFactor
 					}
 
 					if int(actualRuleCount) >= minRules {
@@ -2625,19 +3089,29 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 				debug.Error("Failed to update job keyspace info: %v", err)
 				return fmt.Errorf("failed to update job keyspace info: %w", err)
 			}
-		} else {
-			// Subsequent benchmark - validate consistency (should match job total)
-			diff := result.TotalEffectiveKeyspace - *jobExec.EffectiveKeyspace
-			if diff < 0 {
-				diff = -diff // abs value
-			}
-			threshold := *jobExec.EffectiveKeyspace / 1000 // 0.1%
 
-			if diff > threshold {
-				debug.Warning("Agent %d benchmark differs from job total: observed=%d, expected=%d, diff=%d",
-					agentID, result.TotalEffectiveKeyspace, *jobExec.EffectiveKeyspace, diff)
+			// Propagate accuracy to the scheduler-v2 unit(s) for this job so the
+			// dispatch gate (unit.is_accurate_keyspace=true) opens. A
+			// non-increment job has exactly one unit (layer_index 0); passing
+			// layerIndex=-1 updates all of the job's units.
+			s.propagateUnitKeyspaceAccuracy(ctx, jobExec.ID, -1, result.TotalEffectiveKeyspace)
+		} else {
+			// Subsequent benchmark - validate consistency (should match job total).
+			// observed comes from the agent's int64 progress[1]; expected is the
+			// job's NUMERIC effective keyspace. Compare with BigInt arithmetic.
+			observed := models.NewBigInt(result.TotalEffectiveKeyspace)
+			expected := *jobExec.EffectiveKeyspace
+			diff := observed.Sub(expected)
+			if diff.Sign() < 0 {
+				diff = expected.Sub(observed) // abs value
+			}
+			threshold := expected.DivInt64(1000) // 0.1%
+
+			if diff.Cmp(threshold) > 0 {
+				debug.Warning("Agent %d benchmark differs from job total: observed=%s, expected=%s, diff=%s",
+					agentID, observed.String(), expected.String(), diff.String())
 			} else {
-				debug.Info("Agent %d benchmark validates job effective keyspace (diff=%d)", agentID, diff)
+				debug.Info("Agent %d benchmark validates job effective keyspace (diff=%s)", agentID, diff.String())
 			}
 		}
 
@@ -2681,6 +3155,53 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 	}
 
 	return nil
+}
+
+// propagateUnitKeyspaceAccuracy upgrades scheduler-v2 scheduling_units for a
+// parent job to an accurate effective keyspace after a benchmark reports the
+// real value from hashcat's progress[1]. The v2 dispatch gate requires a
+// unit's is_accurate_keyspace=true; without this propagation a job that
+// bootstraps its keyspace via an agent benchmark would have its job/layer rows
+// flipped accurate but its scheduling_unit left inaccurate forever, so it would
+// never dispatch. If layerIndex >= 0 only the unit for that increment layer is
+// updated; layerIndex < 0 updates every unit of the job (a non-increment job
+// has exactly one, layer_index 0). Best-effort: failures are logged, not fatal.
+func (s *JobWebSocketIntegration) propagateUnitKeyspaceAccuracy(ctx context.Context, parentJobID uuid.UUID, layerIndex int, effective int64) {
+	if effective <= 0 {
+		return
+	}
+	database := &db.DB{DB: s.db}
+	unitRepo := repository.NewSchedulingUnitRepository(database)
+	units, err := unitRepo.GetByParentJobID(ctx, parentJobID)
+	if err != nil {
+		debug.Warning("scheduler-v2: get units for job %s to set accurate keyspace: %v", parentJobID, err)
+		return
+	}
+	for _, u := range units {
+		if layerIndex >= 0 && u.LayerIndex != layerIndex {
+			continue
+		}
+		if err := unitRepo.UpdateEffectiveKeyspace(ctx, u.ID, models.NewBigInt(effective), true); err != nil {
+			debug.Warning("scheduler-v2: set unit %s accurate keyspace: %v", u.ID, err)
+		} else {
+			debug.Info("scheduler-v2: unit %s effective_keyspace=%d is_accurate=true (from benchmark)", u.ID, effective)
+		}
+	}
+}
+
+// HandleBenchmarkFailure is retained as a thin delegator for external callers
+// (tests, future integrations). All attribution logic lives in
+// JobSchedulingService.AttributeBenchmarkFailure so the agent-reported path
+// and the server-timeout path stay identical.
+func (s *JobWebSocketIntegration) HandleBenchmarkFailure(
+	ctx context.Context,
+	agentID int,
+	attackMode models.AttackMode,
+	hashType int,
+	entityID string,
+	errMsg string,
+) error {
+	return s.jobSchedulingService.AttributeBenchmarkFailure(ctx, agentID, attackMode, hashType, entityID, errMsg)
 }
 
 // processCrackedHashes processes cracked hashes from a job progress update
@@ -2752,42 +3273,52 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 
 	// Pre-load potfile settings ONCE instead of querying for every crack
 	// This eliminates millions of redundant database queries (N+1 problem)
+	// UNIFIED APPROACH: Stage to potfile_staging with exclusion flags, let PotfileService handle cascade
 	var shouldStagePotfile bool
+	var clientIDForPotfile *uuid.UUID // nil = no client, non-nil = include client_id in staging
+	var excludeFromGlobalPotfile bool // Hashlist-level exclusion from global potfile
+	var excludeFromClientPotfile bool // Hashlist-level exclusion from client potfile
 
-	if s.potfileService != nil && s.systemSettingsRepo != nil && s.hashlistRepo != nil && s.clientRepo != nil {
+	if s.potfileService != nil && s.systemSettingsRepo != nil && s.hashlistRepo != nil {
 		// Check if potfile is globally enabled
 		potfileSetting, err := s.systemSettingsRepo.GetSetting(ctx, "potfile_enabled")
-		if err == nil && potfileSetting != nil && potfileSetting.Value != nil && *potfileSetting.Value == "true" {
+		globalPotfileEnabled := err == nil && potfileSetting != nil && potfileSetting.Value != nil && *potfileSetting.Value == "true"
+
+		// Check if client potfiles are enabled system-wide
+		clientPotfileSetting, err := s.systemSettingsRepo.GetSetting(ctx, "client_potfiles_enabled")
+		clientPotfilesEnabled := err == nil && clientPotfileSetting != nil && clientPotfileSetting.Value != nil && *clientPotfileSetting.Value == "true"
+
+		if globalPotfileEnabled || clientPotfilesEnabled {
 			// Get hashlist ONCE to check exclusions
 			hashlist, err := s.hashlistRepo.GetByID(ctx, jobExecution.HashlistID)
 			if err != nil {
 				debug.Warning("Failed to get hashlist for potfile check: %v", err)
 				shouldStagePotfile = false
 			} else {
-				// Check if client has potfile excluded
-				clientExcluded := false
-				if hashlist.ClientID != uuid.Nil {
-					clientExcluded, err = s.clientRepo.IsExcludedFromPotfile(ctx, hashlist.ClientID)
-					if err != nil {
-						debug.Warning("Failed to check client potfile exclusion: %v", err)
-					}
-				}
+				// Get hashlist-level exclusion flags
+				excludeFromGlobalPotfile = hashlist.ExcludeFromPotfile
+				excludeFromClientPotfile = hashlist.ExcludeFromClientPotfile
 
-				if clientExcluded {
-					debug.Info("Client %s is excluded from potfile", hashlist.ClientID)
-					shouldStagePotfile = false
-				} else {
-					// Check if hashlist is excluded
-					hashlistExcluded, err := s.hashlistRepo.IsExcludedFromPotfile(ctx, jobExecution.HashlistID)
-					if err != nil {
-						debug.Warning("Failed to check hashlist potfile exclusion: %v", err)
-						shouldStagePotfile = false
-					} else {
-						shouldStagePotfile = !hashlistExcluded
-						if shouldStagePotfile {
-							debug.Info("Potfile staging enabled for hashlist %d", jobExecution.HashlistID)
-						}
+				// Stage if EITHER potfile could receive entries
+				// PotfileService will handle the cascade logic (System → Client → Hashlist)
+				canWriteGlobal := globalPotfileEnabled && !excludeFromGlobalPotfile
+				canWriteClient := clientPotfilesEnabled && hashlist.ClientID != uuid.Nil && !excludeFromClientPotfile
+
+				shouldStagePotfile = canWriteGlobal || canWriteClient
+
+				if shouldStagePotfile {
+					debug.Info("Potfile staging enabled for hashlist %d (global=%v, client=%v)",
+						jobExecution.HashlistID, canWriteGlobal, canWriteClient)
+
+					// Include client_id if hashlist has a client
+					// The PotfileService will look up client settings during processing
+					// and decide whether to write to global, client, or both potfiles
+					if hashlist.ClientID != uuid.Nil {
+						clientIDForPotfile = &hashlist.ClientID
+						debug.Info("Staging with client_id %s for routing decisions", hashlist.ClientID)
 					}
+				} else {
+					debug.Info("Potfile staging disabled for hashlist %d (excluded from both global and client)", jobExecution.HashlistID)
 				}
 			}
 		}
@@ -2873,7 +3404,7 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 
 		// Process each LM half-hash crack
 		for _, crackedEntry := range crackedHashes {
-			halfHash := crackedEntry.Hash  // This is a 16-char half
+			halfHash := crackedEntry.Hash // This is a 16-char half
 			password := crackedEntry.Plain
 
 			matches, found := lmHashMatches[halfHash]
@@ -2884,7 +3415,7 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 
 			for _, match := range matches {
 				hash := match.Hash
-				halfPosition := match.MatchedHalf  // "first" or "second"
+				halfPosition := match.MatchedHalf // "first" or "second"
 
 				// Get or create LM metadata
 				metadata := lmMetadataMap[hash.ID]
@@ -2900,7 +3431,7 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 
 				// Check if this half already cracked
 				if (halfPosition == "first" && metadata.FirstHalfCracked) ||
-				   (halfPosition == "second" && metadata.SecondHalfCracked) {
+					(halfPosition == "second" && metadata.SecondHalfCracked) {
 					debug.Info("LM %s half already cracked, skipping [hash_id=%s]", halfPosition, hash.ID)
 					continue
 				}
@@ -2994,8 +3525,11 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 					// Stage for potfile if enabled
 					if shouldStagePotfile {
 						potfileBatch = append(potfileBatch, services.PotfileStagingEntry{
-							Password:  fullPassword,
-							HashValue: hash.HashValue,
+							Password:          fullPassword,
+							HashValue:         hash.HashValue,
+							ClientID:          clientIDForPotfile,
+							ExcludeFromGlobal: excludeFromGlobalPotfile,
+							ExcludeFromClient: excludeFromClientPotfile,
 						})
 					}
 				}
@@ -3044,121 +3578,125 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 			// Update ALL hashes with this hash_value (e.g., multiple users with same password)
 			// This ensures that Administrator, Administrator1, Administrator2 all get marked as cracked
 			for _, hash := range hashes {
-			// Check if hash is already cracked to prevent double counting
-			if hash.IsCracked {
-				debug.Warning("Skipping already-cracked hash in crack batch [hash_id=%s, hash_value=%s, current_password=%s, new_password=%s, last_updated=%v, hashlist_id=%d]",
-					hash.ID, hashValue, hash.Password, password, hash.LastUpdated, jobExecution.HashlistID)
-				continue
-			}
-
-			// Start new transaction if needed
-			if tx == nil {
-				tx, err = s.db.Begin()
-				if err != nil {
-					return fmt.Errorf("failed to start transaction: %w", err)
+				// Check if hash is already cracked to prevent double counting
+				if hash.IsCracked {
+					debug.Warning("Skipping already-cracked hash in crack batch [hash_id=%s, hash_value=%s, current_password=%s, new_password=%s, last_updated=%v, hashlist_id=%d]",
+						hash.ID, hashValue, hash.Password, password, hash.LastUpdated, jobExecution.HashlistID)
+					continue
 				}
-				txHashCount = 0
-			}
 
-			// Collect hash update for batch processing
-			hashUpdateBatch = append(hashUpdateBatch, repository.HashUpdate{
-				HashID:    hash.ID,
-				Password:  password,
-				Username:  nil,
-				CrackedAt: crackedAt,
-				TaskID:    &taskID,
-			})
-
-			// Increment BATCH counters (not global) - will be applied after batch update
-			batchCrackedCount++
-			txHashCount++
-
-			// Query which hashlists contain this hash and increment BATCH counters
-			hashlistIDs, err := s.hashRepo.GetHashlistIDsForHash(ctx, hash.ID)
-			if err != nil {
-				debug.Warning("Failed to get hashlist IDs for hash %s: %v", hash.ID, err)
-			} else {
-				for _, hashlistID := range hashlistIDs {
-					batchAffectedHashlists[hashlistID]++
+				// Start new transaction if needed
+				if tx == nil {
+					tx, err = s.db.Begin()
+					if err != nil {
+						return fmt.Errorf("failed to start transaction: %w", err)
+					}
+					txHashCount = 0
 				}
-			}
 
-			debug.Log("Queued hash for batch update", map[string]interface{}{
-				"hash_id":     hash.ID,
-				"hash_value":  hashValue,
-				"username":    hash.Username,
-				"hashlist_id": jobExecution.HashlistID,
-				"crack_pos":   crackPos,
-				"password":    password,
-			})
+				// Collect hash update for batch processing
+				hashUpdateBatch = append(hashUpdateBatch, repository.HashUpdate{
+					HashID:    hash.ID,
+					Password:  password,
+					Username:  nil,
+					CrackedAt: crackedAt,
+					TaskID:    &taskID,
+				})
 
-			// Check if this NTLM hash has a linked LM hash and propagate crack
-			if jobExecution.HashType == 1000 { // NTLM
-				linkedLMHash, err := s.hashRepo.GetLinkedHash(ctx, hash.ID, "lm_ntlm")
+				// Increment BATCH counters (not global) - will be applied after batch update
+				batchCrackedCount++
+				txHashCount++
+
+				// Query which hashlists contain this hash and increment BATCH counters
+				hashlistIDs, err := s.hashRepo.GetHashlistIDsForHash(ctx, hash.ID)
 				if err != nil {
-					debug.Warning("Failed to check for linked LM hash: %v", err)
-				} else if linkedLMHash != nil && linkedLMHash.HashTypeID == 3000 {
-					// Check if LM hash is already cracked
-					if !linkedLMHash.IsCracked {
-						// Uppercase the NTLM password for LM
-						lmPassword := strings.ToUpper(password)
+					debug.Warning("Failed to get hashlist IDs for hash %s: %v", hash.ID, err)
+				} else {
+					for _, hashlistID := range hashlistIDs {
+						batchAffectedHashlists[hashlistID]++
+					}
+				}
 
-						debug.Info("Propagating crack from NTLM hash %s to linked LM hash %s (password: %s -> %s)",
-							hash.ID, linkedLMHash.ID, password, lmPassword)
+				debug.Log("Queued hash for batch update", map[string]interface{}{
+					"hash_id":     hash.ID,
+					"hash_value":  hashValue,
+					"username":    hash.Username,
+					"hashlist_id": jobExecution.HashlistID,
+					"crack_pos":   crackPos,
+					"password":    password,
+				})
 
-						// Add LM hash to update batch
-						hashUpdateBatch = append(hashUpdateBatch, repository.HashUpdate{
-							HashID:    linkedLMHash.ID,
-							Password:  lmPassword,
-							Username:  nil,
-							CrackedAt: crackedAt,
-							TaskID:    &taskID,
-						})
-						txHashCount++
+				// Check if this NTLM hash has a linked LM hash and propagate crack
+				if jobExecution.HashType == 1000 { // NTLM
+					linkedLMHash, err := s.hashRepo.GetLinkedHash(ctx, hash.ID, "lm_ntlm")
+					if err != nil {
+						debug.Warning("Failed to check for linked LM hash: %v", err)
+					} else if linkedLMHash != nil && linkedLMHash.HashTypeID == 3000 {
+						// Check if LM hash is already cracked
+						if !linkedLMHash.IsCracked {
+							// Uppercase the NTLM password for LM
+							lmPassword := strings.ToUpper(password)
 
-						// Track affected hashlists for the linked LM hash (use BATCH counters)
-						lmHashlistIDs, err := s.hashRepo.GetHashlistIDsForHash(ctx, linkedLMHash.ID)
-						if err != nil {
-							debug.Warning("Failed to get hashlist IDs for linked LM hash %s: %v", linkedLMHash.ID, err)
-						} else {
-							for _, hashlistID := range lmHashlistIDs {
-								batchAffectedHashlists[hashlistID]++
+							debug.Info("Propagating crack from NTLM hash %s to linked LM hash %s (password: %s -> %s)",
+								hash.ID, linkedLMHash.ID, password, lmPassword)
+
+							// Add LM hash to update batch
+							hashUpdateBatch = append(hashUpdateBatch, repository.HashUpdate{
+								HashID:    linkedLMHash.ID,
+								Password:  lmPassword,
+								Username:  nil,
+								CrackedAt: crackedAt,
+								TaskID:    &taskID,
+							})
+							txHashCount++
+
+							// Track affected hashlists for the linked LM hash (use BATCH counters)
+							lmHashlistIDs, err := s.hashRepo.GetHashlistIDsForHash(ctx, linkedLMHash.ID)
+							if err != nil {
+								debug.Warning("Failed to get hashlist IDs for linked LM hash %s: %v", linkedLMHash.ID, err)
+							} else {
+								for _, hashlistID := range lmHashlistIDs {
+									batchAffectedHashlists[hashlistID]++
+								}
 							}
+						} else {
+							debug.Debug("Linked LM hash %s is already cracked, skipping propagation", linkedLMHash.ID)
 						}
-					} else {
-						debug.Debug("Linked LM hash %s is already cracked, skipping propagation", linkedLMHash.ID)
+					}
+				}
+
+				// Execute batched updates and commit when batch is full
+				if txHashCount >= batchSize {
+					// Execute the batched updates in one query
+					batchLen := len(hashUpdateBatch)
+					rowsAffected, err := s.hashRepo.UpdateCrackStatusBatch(tx, hashUpdateBatch)
+					if err != nil {
+						return fmt.Errorf("failed to batch update hashes: %w", err)
+					}
+					debug.Info("Batch updated %d hashes out of %d queued", rowsAffected, batchLen)
+
+					// Apply batch counters to global counters based on actual rows affected
+					// This prevents over-counting when some hashes were already cracked
+					applyBatchCounters(rowsAffected, batchLen)
+
+					hashUpdateBatch = nil // Reset batch
+
+					if err := commitTx(); err != nil {
+						return err
 					}
 				}
 			}
 
-			// Execute batched updates and commit when batch is full
-			if txHashCount >= batchSize {
-				// Execute the batched updates in one query
-				batchLen := len(hashUpdateBatch)
-				rowsAffected, err := s.hashRepo.UpdateCrackStatusBatch(tx, hashUpdateBatch)
-				if err != nil {
-					return fmt.Errorf("failed to batch update hashes: %w", err)
-				}
-				debug.Info("Batch updated %d hashes out of %d queued", rowsAffected, batchLen)
-
-				// Apply batch counters to global counters based on actual rows affected
-				// This prevents over-counting when some hashes were already cracked
-				applyBatchCounters(rowsAffected, batchLen)
-
-				hashUpdateBatch = nil // Reset batch
-
-				if err := commitTx(); err != nil {
-					return err
-				}
-			}
-		}
-
 			// Stage password for pot-file (batched, done once per unique hash value)
+			// UNIFIED APPROACH: Stage with client_id and exclusion flags, PotfileService handles cascade
 			// All checks pre-loaded before loop to avoid millions of redundant queries
 			if shouldStagePotfile {
 				potfileBatch = append(potfileBatch, services.PotfileStagingEntry{
-					Password:  password,
-					HashValue: hashValue,
+					Password:          password,
+					HashValue:         hashValue,
+					ClientID:          clientIDForPotfile,       // nil or pointer to client UUID
+					ExcludeFromGlobal: excludeFromGlobalPotfile, // Hashlist-level exclusion from global
+					ExcludeFromClient: excludeFromClientPotfile, // Hashlist-level exclusion from client
 				})
 
 				// Flush batch when it reaches size limit
@@ -3191,6 +3729,7 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 	}
 
 	// Flush any remaining potfile staging entries
+	// UNIFIED APPROACH: Single batch with client_id, PotfileService handles routing
 	if len(potfileBatch) > 0 {
 		if err := s.potfileService.StageBatch(ctx, potfileBatch); err != nil {
 			debug.Warning("Failed to stage final password batch for pot-file: %v", err)
@@ -3310,23 +3849,23 @@ func (s *JobWebSocketIntegration) RecoverTask(ctx context.Context, taskID string
 		"agent_id":           agentID,
 		"keyspace_processed": keyspaceProcessed,
 	})
-	
+
 	// Parse task ID as UUID
 	taskUUID, err := uuid.Parse(taskID)
 	if err != nil {
 		return fmt.Errorf("invalid task ID format: %w", err)
 	}
-	
+
 	// Get the task from database
 	task, err := s.jobTaskRepo.GetByID(ctx, taskUUID)
 	if err != nil {
 		return fmt.Errorf("failed to get task: %w", err)
 	}
-	
+
 	if task == nil {
 		return fmt.Errorf("task not found: %s", taskID)
 	}
-	
+
 	// Check task status and handle recovery appropriately
 	switch task.Status {
 	case models.JobTaskStatusRunning:
@@ -3336,7 +3875,7 @@ func (s *JobWebSocketIntegration) RecoverTask(ctx context.Context, taskID string
 			"status":  task.Status,
 		})
 		return nil
-		
+
 	case models.JobTaskStatusCompleted:
 		// Task is already completed, agent shouldn't be running it
 		debug.Log("Task already completed, agent should stop", map[string]interface{}{
@@ -3345,7 +3884,7 @@ func (s *JobWebSocketIntegration) RecoverTask(ctx context.Context, taskID string
 		})
 		// Return an error to trigger job_stop on the agent
 		return fmt.Errorf("task %s is already completed", taskID)
-		
+
 	case models.JobTaskStatusAssigned, models.JobTaskStatusReconnectPending, models.JobTaskStatusPending:
 		// These states can be recovered
 		// "assigned" = task dispatched but agent may still be downloading files
@@ -3354,7 +3893,7 @@ func (s *JobWebSocketIntegration) RecoverTask(ctx context.Context, taskID string
 			"status":  task.Status,
 		})
 		// Continue with recovery below
-		
+
 	case models.JobTaskStatusFailed:
 		// Check if task can be retried
 		maxRetries := 3 // Get from settings
@@ -3369,18 +3908,18 @@ func (s *JobWebSocketIntegration) RecoverTask(ctx context.Context, taskID string
 		} else {
 			return fmt.Errorf("task %s has exceeded maximum retries (%d)", taskID, maxRetries)
 		}
-		
+
 	default:
 		// Other states (cancelled, etc.) cannot be recovered
 		return fmt.Errorf("task %s cannot be recovered from state: %s", taskID, task.Status)
 	}
-	
+
 	// Update task status back to running and reassign to the agent
 	err = s.jobTaskRepo.UpdateStatus(ctx, taskUUID, models.JobTaskStatusRunning)
 	if err != nil {
 		return fmt.Errorf("failed to update task status: %w", err)
 	}
-	
+
 	// Update task assignment to the reconnected agent
 	task.AgentID = &agentID
 	task.Status = models.JobTaskStatusRunning
@@ -3388,18 +3927,18 @@ func (s *JobWebSocketIntegration) RecoverTask(ctx context.Context, taskID string
 	if keyspaceProcessed > 0 {
 		task.KeyspaceProcessed = keyspaceProcessed
 	}
-	
+
 	err = s.jobTaskRepo.Update(ctx, task)
 	if err != nil {
 		return fmt.Errorf("failed to update task assignment: %w", err)
 	}
-	
+
 	debug.Log("Successfully recovered task", map[string]interface{}{
 		"task_id":  taskID,
 		"agent_id": agentID,
 		"job_id":   task.JobExecutionID,
 	})
-	
+
 	// Ensure the job remains in running state
 	// Wrap sql.DB in custom DB type
 	database := &db.DB{DB: s.db}
@@ -3412,97 +3951,143 @@ func (s *JobWebSocketIntegration) RecoverTask(ctx context.Context, taskID string
 			"error":  err.Error(),
 		})
 	}
-	
+
 	return nil
 }
 
-// HandleAgentDisconnection marks tasks as reconnect_pending when an agent disconnects
+// HandleAgentDisconnection routes each affected task through the proper
+// recovery path the instant the WebSocket closes.
+//
+// For SCHEDULER-V2 tasks (scheduling_unit_id IS NOT NULL): we call
+// scheduler.RecoverTaskByID directly. That truncates the interval at
+// restore_point (preserving any progress reported pre-disconnect),
+// marks the task completed-or-failed, and cascades unit/layer/job
+// back to 'pending' so the next scheduler tick (≤3s) can redispatch
+// the freed range. The 120s heartbeat-timeout sweeper remains, but
+// only as last resort for crashes that miss this hook.
+//
+// For LEGACY tasks (no scheduling_unit_id): we keep the historical
+// reconnect_pending + 2-minute grace flow. Legacy has no equivalent
+// of applyRecovery's interval truncation, so the slower path is
+// correct there.
+//
+// Uses context.Background() because the caller's ctx is the WS request
+// context, canceled the moment the agent's WebSocket closes.
 func (s *JobWebSocketIntegration) HandleAgentDisconnection(ctx context.Context, agentID int) error {
+	_ = ctx // intentionally unused — see context.Background() rationale above
+	recoverCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	debug.Log("Handling agent disconnection", map[string]interface{}{
 		"agent_id": agentID,
 	})
-	
-	// Find all running or assigned tasks for this agent
-	// Wrap sql.DB in custom DB type
+
 	database := &db.DB{DB: s.db}
 	taskRepo := repository.NewJobTaskRepository(database)
-	
-	// Get task IDs that are currently running or assigned to this agent
-	taskIDs, err := taskRepo.GetTasksByAgentAndStatus(ctx, agentID, models.JobTaskStatusRunning)
+
+	// Get task IDs that are currently running or assigned to this agent.
+	taskIDs, err := taskRepo.GetTasksByAgentAndStatus(recoverCtx, agentID, models.JobTaskStatusRunning)
 	if err != nil {
 		debug.Log("Failed to get running tasks for disconnected agent", map[string]interface{}{
 			"agent_id": agentID,
 			"error":    err.Error(),
 		})
 	}
-	
-	// Also get assigned tasks
-	assignedTaskIDs, err := taskRepo.GetTasksByAgentAndStatus(ctx, agentID, models.JobTaskStatusAssigned)
+
+	assignedTaskIDs, err := taskRepo.GetTasksByAgentAndStatus(recoverCtx, agentID, models.JobTaskStatusAssigned)
 	if err != nil {
 		debug.Log("Failed to get assigned tasks for disconnected agent", map[string]interface{}{
 			"agent_id": agentID,
 			"error":    err.Error(),
 		})
 	}
-	
-	// Combine both lists
+
 	if assignedTaskIDs != nil {
 		taskIDs = append(taskIDs, assignedTaskIDs...)
 	}
-	
-	// Get full task objects and mark each as reconnect_pending
-	var tasks []models.JobTask
+
+	// Partition into v2 and legacy as we go. Legacy tasks queue up for
+	// the grace-period goroutine; v2 tasks are recovered inline.
+	var legacyTasks []models.JobTask
+	v2Recovered := 0
+	v2Failed := 0
 	for _, taskID := range taskIDs {
-		// Get the full task object
-		task, err := taskRepo.GetByID(ctx, taskID)
+		task, err := taskRepo.GetByID(recoverCtx, taskID)
 		if err != nil || task == nil {
-			debug.Log("Failed to get task details", map[string]interface{}{
+			debug.Log("Failed to get task details on disconnect", map[string]interface{}{
 				"task_id": taskID,
 				"error":   err,
 			})
 			continue
 		}
-		
-		debug.Log("Marking task as reconnect_pending due to agent disconnection", map[string]interface{}{
+
+		// v2 probe: scheduling_unit_id is on the DB row but not on the
+		// JobTask model. RecoverTaskByID returns Handled=false for legacy
+		// (no scheduling_unit_id), so we use its return as the partition
+		// signal AND the recovery primitive in one call.
+		res, rerr := scheduler.RecoverTaskByID(recoverCtx, database, taskID, "agent disconnect")
+		if rerr != nil {
+			debug.Log("v2 recovery failed on agent disconnect; will retry via sweeper", map[string]interface{}{
+				"task_id":  taskID,
+				"agent_id": agentID,
+				"error":    rerr.Error(),
+			})
+			v2Failed++
+			continue
+		}
+		if res.Handled {
+			v2Recovered++
+			debug.Log("Recovered v2 task on agent disconnect", map[string]interface{}{
+				"task_id":   taskID,
+				"agent_id":  agentID,
+				"job_id":    task.JobExecutionID,
+				"truncated": res.Truncated,
+			})
+			continue
+		}
+
+		// Legacy: existing reconnect_pending + grace flow.
+		debug.Log("Marking legacy task as reconnect_pending on disconnect", map[string]interface{}{
 			"task_id":  taskID,
 			"agent_id": agentID,
 			"job_id":   task.JobExecutionID,
 		})
-		
-		// Update task status to reconnect_pending
-		err = taskRepo.UpdateStatus(ctx, taskID, models.JobTaskStatusReconnectPending)
-		if err != nil {
-			debug.Log("Failed to mark task as reconnect_pending", map[string]interface{}{
+		if err := taskRepo.UpdateStatus(recoverCtx, taskID, models.JobTaskStatusReconnectPending); err != nil {
+			debug.Log("Failed to mark legacy task as reconnect_pending", map[string]interface{}{
 				"task_id": taskID,
 				"error":   err.Error(),
 			})
 			continue
 		}
-		
-		// Clear the agent_id from the task so it can be reassigned
 		task.AgentID = nil
 		task.Status = models.JobTaskStatusReconnectPending
-		err = taskRepo.Update(ctx, task)
-		if err != nil {
-			debug.Log("Failed to clear agent_id from task", map[string]interface{}{
+		if err := taskRepo.Update(recoverCtx, task); err != nil {
+			debug.Log("Failed to clear agent_id from legacy task", map[string]interface{}{
 				"task_id": taskID,
 				"error":   err.Error(),
 			})
 		}
-		
-		tasks = append(tasks, *task)
+		legacyTasks = append(legacyTasks, *task)
 	}
-	
-	if len(tasks) > 0 {
-		debug.Log("Successfully marked tasks as reconnect_pending", map[string]interface{}{
-			"agent_id":    agentID,
-			"task_count":  len(tasks),
+
+	if v2Recovered > 0 || v2Failed > 0 {
+		debug.Log("v2 task recovery on disconnect", map[string]interface{}{
+			"agent_id":  agentID,
+			"recovered": v2Recovered,
+			"failed":    v2Failed,
 		})
-		
-		// Start a timer to handle grace period expiration (2 minutes)
-		go s.handleReconnectGracePeriod(ctx, tasks, agentID)
 	}
-	
+
+	if len(legacyTasks) > 0 {
+		debug.Log("Scheduling grace timer for legacy tasks", map[string]interface{}{
+			"agent_id":   agentID,
+			"task_count": len(legacyTasks),
+		})
+		// context.Background() (not recoverCtx) because the goroutine
+		// outlives this function's 30s timeout.
+		go s.handleReconnectGracePeriod(context.Background(), legacyTasks, agentID)
+	}
+
 	return nil
 }
 
@@ -3512,7 +4097,7 @@ func (s *JobWebSocketIntegration) HandleAgentReconnectionWithNoTask(ctx context.
 	debug.Log("Handling agent reconnection with no running task", map[string]interface{}{
 		"agent_id": agentID,
 	})
-	
+
 	// Get all reconnect_pending tasks for this agent
 	reconnectTasks, err := s.jobTaskRepo.GetReconnectPendingTasksByAgent(ctx, agentID)
 	if err != nil {
@@ -3522,19 +4107,19 @@ func (s *JobWebSocketIntegration) HandleAgentReconnectionWithNoTask(ctx context.
 		})
 		return 0, fmt.Errorf("failed to get reconnect_pending tasks: %w", err)
 	}
-	
+
 	if len(reconnectTasks) == 0 {
 		debug.Log("No reconnect_pending tasks found for agent", map[string]interface{}{
 			"agent_id": agentID,
 		})
 		return 0, nil
 	}
-	
+
 	debug.Log("Found reconnect_pending tasks to reset", map[string]interface{}{
 		"agent_id":   agentID,
 		"task_count": len(reconnectTasks),
 	})
-	
+
 	// Get max retry attempts from settings
 	maxRetries := 3
 	retrySetting, err := s.systemSettingsRepo.GetSetting(ctx, "max_chunk_retry_attempts")
@@ -3543,10 +4128,10 @@ func (s *JobWebSocketIntegration) HandleAgentReconnectionWithNoTask(ctx context.
 			maxRetries = retries
 		}
 	}
-	
+
 	resetCount := 0
 	failedCount := 0
-	
+
 	for _, task := range reconnectTasks {
 		// Check if task can be retried
 		if task.RetryCount < maxRetries {
@@ -3560,12 +4145,12 @@ func (s *JobWebSocketIntegration) HandleAgentReconnectionWithNoTask(ctx context.
 				})
 				continue
 			}
-			
+
 			debug.Log("Task reset for retry after agent reconnection", map[string]interface{}{
-				"task_id":      task.ID,
-				"agent_id":     agentID,
-				"retry_count":  task.RetryCount + 1,
-				"max_retries":  maxRetries,
+				"task_id":     task.ID,
+				"agent_id":    agentID,
+				"retry_count": task.RetryCount + 1,
+				"max_retries": maxRetries,
 			})
 			resetCount++
 		} else {
@@ -3589,20 +4174,20 @@ func (s *JobWebSocketIntegration) HandleAgentReconnectionWithNoTask(ctx context.
 			failedCount++
 		}
 	}
-	
+
 	debug.Log("Completed processing reconnect_pending tasks for agent", map[string]interface{}{
 		"agent_id":     agentID,
 		"total_tasks":  len(reconnectTasks),
 		"reset_count":  resetCount,
 		"failed_count": failedCount,
 	})
-	
+
 	// Check if affected jobs need status update
 	jobIDs := make(map[uuid.UUID]bool)
 	for _, task := range reconnectTasks {
 		jobIDs[task.JobExecutionID] = true
 	}
-	
+
 	for jobID := range jobIDs {
 		// Check if any tasks are still active for this job
 		allTasks, err := s.jobTaskRepo.GetTasksByJobExecution(ctx, jobID)
@@ -3613,17 +4198,17 @@ func (s *JobWebSocketIntegration) HandleAgentReconnectionWithNoTask(ctx context.
 			})
 			continue
 		}
-		
+
 		hasActiveTasks := false
 		for _, task := range allTasks {
-			if task.Status == models.JobTaskStatusRunning || 
-			   task.Status == models.JobTaskStatusReconnectPending ||
-			   task.Status == models.JobTaskStatusAssigned {
+			if task.Status == models.JobTaskStatusRunning ||
+				task.Status == models.JobTaskStatusReconnectPending ||
+				task.Status == models.JobTaskStatusAssigned {
 				hasActiveTasks = true
 				break
 			}
 		}
-		
+
 		// If no active tasks remain and we have pending tasks, ensure job is in pending state
 		if !hasActiveTasks {
 			hasPendingTasks := false
@@ -3633,7 +4218,7 @@ func (s *JobWebSocketIntegration) HandleAgentReconnectionWithNoTask(ctx context.
 					break
 				}
 			}
-			
+
 			if hasPendingTasks {
 				// Ensure job is in pending state for rescheduling
 				// Use jobExecutionRepo from the service
@@ -3653,7 +4238,7 @@ func (s *JobWebSocketIntegration) HandleAgentReconnectionWithNoTask(ctx context.
 			}
 		}
 	}
-	
+
 	return resetCount, nil
 }
 
@@ -3661,21 +4246,21 @@ func (s *JobWebSocketIntegration) HandleAgentReconnectionWithNoTask(ctx context.
 func (s *JobWebSocketIntegration) handleReconnectGracePeriod(ctx context.Context, tasks []models.JobTask, agentID int) {
 	gracePeriod := 2 * time.Minute
 	debug.Log("Starting reconnect grace period timer", map[string]interface{}{
-		"agent_id":      agentID,
-		"task_count":    len(tasks),
-		"grace_period":  gracePeriod.String(),
+		"agent_id":     agentID,
+		"task_count":   len(tasks),
+		"grace_period": gracePeriod.String(),
 	})
-	
+
 	time.Sleep(gracePeriod)
-	
+
 	debug.Log("Grace period expired, checking tasks", map[string]interface{}{
 		"agent_id": agentID,
 	})
-	
+
 	// Wrap sql.DB in custom DB type
 	database := &db.DB{DB: s.db}
 	taskRepo := repository.NewJobTaskRepository(database)
-	
+
 	for _, task := range tasks {
 		// Check if task is still in reconnect_pending state
 		currentTask, err := taskRepo.GetByID(ctx, task.ID)
@@ -3686,12 +4271,41 @@ func (s *JobWebSocketIntegration) handleReconnectGracePeriod(ctx context.Context
 			})
 			continue
 		}
-		
+
 		if currentTask != nil && currentTask.Status == models.JobTaskStatusReconnectPending {
+			// Skip scheduler-v2 tasks. For v2, this legacy handler would
+			// flip status → 'pending' WITHOUT touching the interval row,
+			// leaving the interval stuck in 'assigned'/'running'. The v2
+			// gap query excludes only 'failed' intervals, so an orphan
+			// interval here makes the dispatcher think the range is
+			// already covered and the work is never redispatched. The v2
+			// sweeper (sweeper.go) now handles reconnect_pending tasks
+			// with the canonical applyRecovery path, which correctly
+			// truncates or fails the interval AND cascades the job back
+			// to 'pending'. The JobTask model doesn't expose
+			// scheduling_unit_id, so we probe directly.
+			var isV2 bool
+			if err := s.db.QueryRowContext(ctx,
+				`SELECT scheduling_unit_id IS NOT NULL FROM job_tasks WHERE id = $1`,
+				task.ID,
+			).Scan(&isV2); err != nil {
+				debug.Log("Failed to probe v2 ownership for grace task", map[string]interface{}{
+					"task_id": task.ID,
+					"error":   err.Error(),
+				})
+				continue
+			}
+			if isV2 {
+				debug.Log("Skipping v2 task in legacy grace handler — v2 sweeper owns this path", map[string]interface{}{
+					"task_id": task.ID,
+				})
+				continue
+			}
+
 			debug.Log("Task still in reconnect_pending after grace period, marking as pending for reassignment", map[string]interface{}{
 				"task_id": task.ID,
 			})
-			
+
 			// Mark task as pending so it can be reassigned to another agent
 			err = taskRepo.UpdateStatus(ctx, task.ID, models.JobTaskStatusPending)
 			if err != nil {
@@ -3724,9 +4338,9 @@ func (s *JobWebSocketIntegration) recalculateSubsequentChunks(ctx context.Contex
 	type taskInfo struct {
 		id                     uuid.UUID
 		chunkNumber            int
-		chunkActualKeyspace    *int64
-		effectiveKeyspaceStart *int64
-		effectiveKeyspaceEnd   *int64
+		chunkActualKeyspace    *models.BigInt
+		effectiveKeyspaceStart *models.BigInt
+		effectiveKeyspaceEnd   *models.BigInt
 	}
 
 	var tasks []taskInfo
@@ -3740,23 +4354,23 @@ func (s *JobWebSocketIntegration) recalculateSubsequentChunks(ctx context.Contex
 	}
 
 	// Calculate cumulative positions
-	cumulativeEnd := int64(0)
+	cumulativeEnd := models.NewBigInt(0)
 	needsUpdate := false
 
 	for _, t := range tasks {
 		expectedStart := cumulativeEnd
 
 		// Calculate expected end based on actual or estimated chunk size
-		var expectedEnd int64
+		var expectedEnd models.BigInt
 		if t.chunkActualKeyspace != nil {
 			// Use actual chunk size
-			expectedEnd = expectedStart + *t.chunkActualKeyspace
+			expectedEnd = expectedStart.Add(*t.chunkActualKeyspace)
 			cumulativeEnd = expectedEnd
 		} else {
 			// Use estimated chunk size
 			if t.effectiveKeyspaceStart != nil && t.effectiveKeyspaceEnd != nil {
-				chunkSize := *t.effectiveKeyspaceEnd - *t.effectiveKeyspaceStart
-				expectedEnd = expectedStart + chunkSize
+				chunkSize := t.effectiveKeyspaceEnd.Sub(*t.effectiveKeyspaceStart)
+				expectedEnd = expectedStart.Add(chunkSize)
 				cumulativeEnd = expectedEnd
 			} else {
 				// Can't calculate without start/end
@@ -3765,19 +4379,19 @@ func (s *JobWebSocketIntegration) recalculateSubsequentChunks(ctx context.Contex
 		}
 
 		// Check if this task needs correction
-		currentStart := int64(0)
+		currentStart := models.NewBigInt(0)
 		if t.effectiveKeyspaceStart != nil {
 			currentStart = *t.effectiveKeyspaceStart
 		}
-		currentEnd := int64(0)
+		currentEnd := models.NewBigInt(0)
 		if t.effectiveKeyspaceEnd != nil {
 			currentEnd = *t.effectiveKeyspaceEnd
 		}
 
-		if currentStart != expectedStart || currentEnd != expectedEnd {
+		if currentStart.Cmp(expectedStart) != 0 || currentEnd.Cmp(expectedEnd) != 0 {
 			// Task needs update
-			debug.Info("Recalculating chunk %d: old[%d-%d] -> new[%d-%d]",
-				t.chunkNumber, currentStart, currentEnd, expectedStart, expectedEnd)
+			debug.Info("Recalculating chunk %d: old[%s-%s] -> new[%s-%s]",
+				t.chunkNumber, currentStart.String(), currentEnd.String(), expectedStart.String(), expectedEnd.String())
 
 			updateQuery := `
 				UPDATE job_tasks
@@ -4094,6 +4708,127 @@ func (s *JobWebSocketIntegration) cleanupStaleRetransmitCollection() {
 		}
 		state.mu.Unlock()
 	}
+}
+
+// refreshBenchmarkFromObserved updates agent_benchmarks.speed using the
+// hash rate the agent is actually reporting from a live task. The
+// dispatcher reads agent_benchmarks.speed for chunk sizing; if that
+// value is stale (last benchmark ran on a colder GPU, on a smaller
+// hashlist, etc.), chunks will under- or over-shoot the configured
+// target. Continuous refresh from observed reality converges the
+// estimate toward what the agent actually does on THIS job.
+//
+// Skip rules:
+//   - HashRate == 0 (no signal yet, warm-up)
+//   - ProgressPercent < 5% (early-task volatility; hashcat reports
+//     spiky speeds before the kernel settles)
+//
+// Update rule:
+//   - EWMA: new = α * observed + (1-α) * old, α = 0.3
+//   - Cap: new ≤ 3 × old (anti-spike runaway)
+//   - If no existing row, use observed verbatim (no smoothing yet)
+//
+// salt_count semantics match the dispatcher / readAgentSpeeds:
+//   - salted hash type: salt_count = hashlist.total_hashes
+//   - non-salted: salt_count = NULL
+func (s *JobWebSocketIntegration) refreshBenchmarkFromObserved(
+	ctx context.Context,
+	agentID int,
+	jobExecutionID uuid.UUID,
+	progress *models.JobProgress,
+) error {
+	if progress.HashRate <= 0 {
+		return nil
+	}
+	if progress.ProgressPercent < 5.0 {
+		// Warm-up period — let hashcat settle before sampling.
+		return nil
+	}
+
+	// One query for everything the EWMA needs: attack_mode, hash_type,
+	// is_salted, total_hashes.
+	var attackMode int
+	var hashType int
+	var isSalted bool
+	var totalHashes int
+	err := s.db.QueryRowContext(ctx, `
+		SELECT je.attack_mode, h.hash_type_id, ht.is_salted, h.total_hashes
+		FROM job_executions je
+		JOIN hashlists h ON h.id = je.hashlist_id
+		JOIN hash_types ht ON ht.id = h.hash_type_id
+		WHERE je.id = $1
+	`, jobExecutionID).Scan(&attackMode, &hashType, &isSalted, &totalHashes)
+	if err != nil {
+		return fmt.Errorf("lookup job for benchmark refresh: %w", err)
+	}
+
+	var saltCount sql.NullInt32
+	if isSalted && totalHashes > 0 {
+		saltCount = sql.NullInt32{Int32: int32(totalHashes), Valid: true}
+	}
+
+	// Read the freshest existing benchmark for this (agent, mode, hash,
+	// salt) so we can smooth. IS NOT DISTINCT FROM is NULL-safe.
+	var oldSpeed sql.NullInt64
+	err = s.db.QueryRowContext(ctx, `
+		SELECT speed FROM agent_benchmarks
+		WHERE agent_id = $1 AND attack_mode = $2 AND hash_type = $3
+		  AND salt_count IS NOT DISTINCT FROM $4
+		ORDER BY updated_at DESC
+		LIMIT 1
+	`, agentID, attackMode, hashType, saltCount).Scan(&oldSpeed)
+	if err != nil && err != sql.ErrNoRows {
+		return fmt.Errorf("lookup existing benchmark: %w", err)
+	}
+
+	// Compute the smoothed/capped new speed.
+	var newSpeed int64
+	if !oldSpeed.Valid || oldSpeed.Int64 <= 0 {
+		// No existing benchmark — use observed verbatim.
+		newSpeed = progress.HashRate
+	} else {
+		// EWMA: 30% new, 70% old. Cap at 3× old to absorb spikes.
+		const alphaNum, alphaDen = 3, 10
+		smoothed := (progress.HashRate*alphaNum + oldSpeed.Int64*(alphaDen-alphaNum)) / alphaDen
+		maxAllowed := oldSpeed.Int64 * 3
+		if smoothed > maxAllowed {
+			smoothed = maxAllowed
+		}
+		newSpeed = smoothed
+	}
+
+	if newSpeed <= 0 {
+		return nil
+	}
+
+	// Skip the write if the change is trivially small (< 5%); avoids
+	// hammering the DB with no-op updates every 5s.
+	if oldSpeed.Valid && oldSpeed.Int64 > 0 {
+		delta := newSpeed - oldSpeed.Int64
+		if delta < 0 {
+			delta = -delta
+		}
+		if delta*20 < oldSpeed.Int64 { // < 5%
+			return nil
+		}
+	}
+
+	benchmark := &models.AgentBenchmark{
+		AgentID:    agentID,
+		AttackMode: models.AttackMode(attackMode),
+		HashType:   hashType,
+		Speed:      newSpeed,
+	}
+	if saltCount.Valid {
+		sc := int(saltCount.Int32)
+		benchmark.SaltCount = &sc
+	}
+	if err := s.benchmarkRepo.CreateOrUpdateAgentBenchmark(ctx, benchmark); err != nil {
+		return fmt.Errorf("upsert benchmark: %w", err)
+	}
+	debug.Debug("benchmark refresh: agent=%d mode=%d hash=%d salt=%v old=%d observed=%d new=%d",
+		agentID, attackMode, hashType, saltCount, oldSpeed.Int64, progress.HashRate, newSpeed)
+	return nil
 }
 
 // ProcessPendingOutfiles handles the pending_outfiles message from agents on reconnect

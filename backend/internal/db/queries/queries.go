@@ -20,6 +20,7 @@ const (
 			a.consecutive_failures, a.scheduling_enabled, a.schedule_timezone,
 			a.sync_status, a.sync_started_at, a.sync_completed_at, a.files_to_sync, a.files_synced, a.sync_error,
 			a.binary_version,
+			a.update_pending, a.target_version, a.update_started_at, a.update_attempts, a.update_error, a.update_last_attempt_at,
 			u.id, u.username, u.email, u.role
 		FROM agents a
 		LEFT JOIN users u ON a.created_by_id = u.id
@@ -34,6 +35,7 @@ const (
 			a.consecutive_failures, a.scheduling_enabled, a.schedule_timezone,
 			a.sync_status, a.sync_started_at, a.sync_completed_at, a.files_to_sync, a.files_synced, a.sync_error,
 			a.binary_version,
+			a.update_pending, a.target_version, a.update_started_at, a.update_attempts, a.update_error, a.update_last_attempt_at,
 			u.id, u.username, u.email, u.role
 		FROM agents a
 		LEFT JOIN users u ON a.created_by_id = u.id
@@ -161,8 +163,9 @@ const (
 	DeleteTeam = `DELETE FROM teams WHERE id = $1`
 
 	AddUserToTeam = `
-		INSERT INTO user_teams (user_id, team_id)
-		VALUES ($1, $2)`
+		INSERT INTO user_teams (user_id, team_id, role, joined_at)
+		VALUES ($1, $2, $3, NOW())
+		ON CONFLICT (user_id, team_id) DO NOTHING`
 
 	RemoveUserFromTeam = `
 		DELETE FROM user_teams
@@ -199,7 +202,7 @@ const (
 		WHERE v.code = $1`
 
 	ListActiveVouchers = `
-		SELECT 
+		SELECT
 			v.code, v.is_active, v.is_continuous,
 			v.created_by_id, v.used_by_agent_id, v.used_at, v.created_at, v.updated_at,
 			u1.id, u1.username, u1.email, u1.role,
@@ -208,6 +211,18 @@ const (
 		LEFT JOIN users u1 ON v.created_by_id = u1.id
 		LEFT JOIN agents a ON v.used_by_agent_id = a.id
 		WHERE v.is_active = true
+		ORDER BY v.created_at DESC`
+
+	ListActiveVouchersByUser = `
+		SELECT
+			v.code, v.is_active, v.is_continuous,
+			v.created_by_id, v.used_by_agent_id, v.used_at, v.created_at, v.updated_at,
+			u1.id, u1.username, u1.email, u1.role,
+			a.id, a.name, a.status
+		FROM claim_vouchers v
+		LEFT JOIN users u1 ON v.created_by_id = u1.id
+		LEFT JOIN agents a ON v.used_by_agent_id = a.id
+		WHERE v.is_active = true AND v.created_by_id = $1
 		ORDER BY v.created_at DESC`
 
 	UseClaimVoucherByAgent = `

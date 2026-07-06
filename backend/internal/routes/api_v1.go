@@ -18,7 +18,7 @@ import (
 )
 
 // SetupV1Routes configures all /api/v1 routes for the User API
-func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager binary.Manager) {
+func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager binary.Manager, teamService *services.TeamService) {
 	debug.Info("Setting up /api/v1 User API routes")
 
 	// Use provided data directory
@@ -66,7 +66,8 @@ func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager
 	}).Methods("GET", "OPTIONS")
 
 	// Client endpoints
-	clientHandler := v1handlers.NewClientHandler(clientRepo, hashlistRepo, clientSettingsRepo, database)
+	clientTeamRepo := repository.NewClientTeamRepository(database)
+	clientHandler := v1handlers.NewClientHandler(clientRepo, hashlistRepo, clientSettingsRepo, clientTeamRepo, teamService, database)
 	v1Router.HandleFunc("/clients", clientHandler.CreateClient).Methods("POST", "OPTIONS")
 	v1Router.HandleFunc("/clients", clientHandler.ListClients).Methods("GET", "OPTIONS")
 	v1Router.HandleFunc("/clients/{id}", clientHandler.GetClient).Methods("GET", "OPTIONS")
@@ -80,8 +81,17 @@ func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager
 	v1Router.HandleFunc("/hashlists/{id:[0-9]+}", hashlistHandler.GetHashlist).Methods("GET", "OPTIONS")
 	v1Router.HandleFunc("/hashlists/{id:[0-9]+}", hashlistHandler.DeleteHashlist).Methods("DELETE", "OPTIONS")
 
+	// Job endpoints - create necessary repositories and services
+	// (declared before /agents so the agent handler can hold a
+	// benchmarkRepo reference for the manual re-enable reset path)
+	jobExecRepo := repository.NewJobExecutionRepository(database)
+	jobTaskRepo := repository.NewJobTaskRepository(database)
+	jobIncrementLayerRepo := repository.NewJobIncrementLayerRepository(database)
+	presetIncrementLayerRepo := repository.NewPresetIncrementLayerRepository(database)
+	benchmarkRepo := repository.NewBenchmarkRepository(database)
+
 	// Agent endpoints
-	agentHandler := v1handlers.NewAgentHandler(agentRepo, voucherService)
+	agentHandler := v1handlers.NewAgentHandler(agentRepo, benchmarkRepo, voucherService)
 	v1Router.HandleFunc("/agents/vouchers", agentHandler.GenerateVoucher).Methods("POST", "OPTIONS")
 	v1Router.HandleFunc("/agents", agentHandler.ListAgents).Methods("GET", "OPTIONS")
 	v1Router.HandleFunc("/agents/{id:[0-9]+}", agentHandler.GetAgent).Methods("GET", "OPTIONS")
@@ -93,13 +103,6 @@ func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager
 	v1Router.HandleFunc("/hash-types", helperHandler.ListHashTypes).Methods("GET", "OPTIONS")
 	v1Router.HandleFunc("/workflows", helperHandler.ListWorkflows).Methods("GET", "OPTIONS")
 	v1Router.HandleFunc("/preset-jobs", helperHandler.ListPresetJobs).Methods("GET", "OPTIONS")
-
-	// Job endpoints - create necessary repositories and services
-	jobExecRepo := repository.NewJobExecutionRepository(database)
-	jobTaskRepo := repository.NewJobTaskRepository(database)
-	jobIncrementLayerRepo := repository.NewJobIncrementLayerRepository(database)
-	presetIncrementLayerRepo := repository.NewPresetIncrementLayerRepository(database)
-	benchmarkRepo := repository.NewBenchmarkRepository(database)
 	agentHashlistRepo := repository.NewAgentHashlistRepository(database)
 	deviceRepo := repository.NewAgentDeviceRepository(database)
 	scheduleRepo := repository.NewAgentScheduleRepository(database)
@@ -124,9 +127,16 @@ func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager
 		scheduleRepo,
 		binaryManager,
 		nil, // assocWordlistRepo - not needed, API v1 only supports preset jobs (not association attacks)
+		nil, // clientWordlistRepo - not needed, API v1 only supports preset jobs
+		nil, // clientPotfileRepo - not needed, API v1 only supports preset jobs
 		"",  // hashcatBinaryPath - not needed for keyspace calculation
 		dataDirectory,
 	)
+
+	// Wire the malformed-hashlist notifier now that jobExecutionService exists.
+	// Safe to set after construction — the processor only invokes it on errors,
+	// and no hashlist has yet been submitted via this router.
+	hashlistProcessor.SetMalformedNotifier(jobExecutionService.DispatchHashlistMalformedNotification)
 
 	// Create job handler (schedulingService is nil as it's only needed for Delete/Stop operations)
 	jobHandler := v1handlers.NewJobHandler(

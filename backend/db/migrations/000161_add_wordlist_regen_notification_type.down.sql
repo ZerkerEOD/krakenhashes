@@ -1,0 +1,4 @@
+-- No-op: PostgreSQL does not support removing a value from an enum type without
+-- recreating the type and rewriting every dependent column (notifications.notification_type,
+-- audit_log.event_type, notification_preferences.notification_type). The leftover
+-- 'wordlist_regen_failed' enum value is harmless if this migration is rolled back.

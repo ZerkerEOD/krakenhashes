@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
@@ -139,6 +140,7 @@ func (r *JobTaskRepository) GetActiveTasksByJobExecution(ctx context.Context, jo
 	var tasks []models.JobTask
 	for rows.Next() {
 		var task models.JobTask
+		var chunkNumber sql.NullInt32
 		err := rows.Scan(
 			&task.ID, &task.JobExecutionID, &task.AgentID, &task.Status,
 			&task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
@@ -148,11 +150,12 @@ func (r *JobTaskRepository) GetActiveTasksByJobExecution(ctx context.Context, jo
 			&task.CreatedAt, &task.StartedAt, &task.CompletedAt, &task.UpdatedAt,
 			&task.EffectiveKeyspaceStart, &task.EffectiveKeyspaceEnd, &task.EffectiveKeyspaceProcessed,
 			&task.RuleStartIndex, &task.RuleEndIndex, &task.IsRuleSplitTask,
-			&task.ProgressPercent, &task.AssignedAt, &task.LastCheckpoint, &task.ChunkNumber,
+			&task.ProgressPercent, &task.AssignedAt, &task.LastCheckpoint, &chunkNumber,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan job task: %w", err)
 		}
+		task.ChunkNumber = nullInt32ToIntPtr(chunkNumber)
 		tasks = append(tasks, task)
 	}
 
@@ -301,7 +304,7 @@ func (r *JobTaskRepository) AreAllTasksComplete(ctx context.Context, jobExecutio
 		WHERE id = $1`
 
 	var usesRuleSplitting bool
-	var multiplicationFactor int
+	var multiplicationFactor int64
 	var effectiveKeyspace, baseKeyspace *int64
 	var dispatchedKeyspace int64
 
@@ -335,7 +338,7 @@ func (r *JobTaskRepository) AreAllTasksComplete(ctx context.Context, jobExecutio
 		// Calculate total rules from multiplication factor or effective/base keyspace
 		totalRules := multiplicationFactor
 		if totalRules == 0 && effectiveKeyspace != nil && baseKeyspace != nil && *baseKeyspace > 0 {
-			totalRules = int(*effectiveKeyspace / *baseKeyspace)
+			totalRules = *effectiveKeyspace / *baseKeyspace
 		}
 
 		if totalRules > 0 {
@@ -346,7 +349,7 @@ func (r *JobTaskRepository) AreAllTasksComplete(ctx context.Context, jobExecutio
 			}
 
 			// Check if all rules have been dispatched
-			if maxRuleEnd == nil || *maxRuleEnd < totalRules {
+			if maxRuleEnd == nil || int64(*maxRuleEnd) < totalRules {
 				// More rules need to be dispatched
 				return false, nil
 			}
@@ -448,19 +451,23 @@ func (r *JobTaskRepository) GetPendingTasksByJobExecution(ctx context.Context, j
 	var tasks []models.JobTask
 	for rows.Next() {
 		var task models.JobTask
+		var attackCmd sql.NullString
+		var chunkNumber sql.NullInt32
 		err := rows.Scan(
 			&task.ID, &task.JobExecutionID, &task.AgentID, &task.Status, &task.Priority,
-			&task.AttackCmd, &task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
+			&attackCmd, &task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
 			&task.BenchmarkSpeed, &task.ChunkDuration, &task.CreatedAt, &task.AssignedAt,
 			&task.StartedAt, &task.CompletedAt, &task.UpdatedAt, &task.LastCheckpoint,
 			&task.ErrorMessage, &task.CrackCount, &task.DetailedStatus, &task.RetryCount,
 			&task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath, &task.IsRuleSplitTask,
 			&task.IsKeyspaceSplit, &task.EffectiveKeyspaceStart, &task.EffectiveKeyspaceEnd,
-			&task.ChunkNumber, &task.IncrementLayerID,
+			&chunkNumber, &task.IncrementLayerID,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan task: %w", err)
 		}
+		task.AttackCmd = nullStringToPtr(attackCmd)
+		task.ChunkNumber = nullInt32ToIntPtr(chunkNumber)
 		tasks = append(tasks, task)
 	}
 
@@ -481,7 +488,7 @@ func (r *JobTaskRepository) Update(ctx context.Context, task *models.JobTask) er
 		WHERE id = $22`
 
 	_, err := r.db.ExecContext(ctx, query,
-		task.AgentID, task.Status, task.Priority, task.AttackCmd,
+		task.AgentID, task.Status, task.Priority, stringPtrToArg(task.AttackCmd),
 		task.KeyspaceStart, task.KeyspaceEnd, task.KeyspaceProcessed,
 		task.BenchmarkSpeed, task.ChunkDuration, task.AssignedAt,
 		task.StartedAt, task.CompletedAt, task.UpdatedAt,

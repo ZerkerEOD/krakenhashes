@@ -72,6 +72,11 @@ func NewMockHashcatExecutor(dataDirectory string) *MockHashcatExecutor {
 }
 
 // SetOutputCallback sets the callback for hashcat output
+// SetOrphanCallback is a no-op for the mock: the mock executor never spawns
+// real hashcat, so there are no orphaned processes to reconcile.
+func (e *MockHashcatExecutor) SetOrphanCallback(callback func(pid int, attemptedTaskID string, fromOurAgent bool)) {
+}
+
 func (e *MockHashcatExecutor) SetOutputCallback(callback func(taskID string, output string, isError bool)) {
 	e.outputCallback = callback
 }
@@ -111,8 +116,21 @@ func (e *MockHashcatExecutor) ExecuteTask(ctx context.Context, assignment *JobTa
 	// Create context for this task
 	taskCtx, cancel := context.WithCancel(ctx)
 
-	// Calculate keyspace
+	// Calculate keyspace. Two distinct values matter:
+	//   - totalKeyspace (BASE):       words to consume; restore-point coords
+	//   - effectiveKeyspace (EFFECTIVE): base × rule/salt multipliers; what
+	//                                    the backend's progress bar measures
+	//
+	// Real hashcat exposes both directly (progress[0]/[1]). The mock has no
+	// hashcat, so it relies on the backend pre-computing the effective range
+	// and shipping it on the assignment. If the assignment lacks effective
+	// bounds (older backend / overflow guard), fall back to base — that
+	// matches the historical mock behavior and won't blow up downstream.
 	totalKeyspace := assignment.KeyspaceEnd - assignment.KeyspaceStart
+	effectiveKeyspace := assignment.EffectiveKeyspaceEnd - assignment.EffectiveKeyspaceStart
+	if effectiveKeyspace <= 0 {
+		effectiveKeyspace = totalKeyspace
+	}
 
 	// Create mock task
 	task := &MockTask{
@@ -127,13 +145,17 @@ func (e *MockHashcatExecutor) ExecuteTask(ctx context.Context, assignment *JobTa
 	e.activeTasks[assignment.TaskID] = task
 
 	// Start simulation goroutine
-	go e.simulateTask(task, totalKeyspace)
+	go e.simulateTask(task, totalKeyspace, effectiveKeyspace)
 
 	return process, nil
 }
 
-// simulateTask runs the task simulation
-func (e *MockHashcatExecutor) simulateTask(task *MockTask, totalKeyspace int64) {
+// simulateTask runs the task simulation. totalKeyspace is BASE units
+// (restore-point coords), effectiveKeyspace is BASE × rule/salt
+// multipliers (what the backend's progress bar tracks). Real hashcat
+// gets both from progress[0]/[1] directly; the mock uses the values the
+// backend pre-computed and shipped on the assignment.
+func (e *MockHashcatExecutor) simulateTask(task *MockTask, totalKeyspace, effectiveKeyspace int64) {
 	defer func() {
 		e.mutex.Lock()
 		delete(e.activeTasks, task.assignment.TaskID)
@@ -152,7 +174,7 @@ func (e *MockHashcatExecutor) simulateTask(task *MockTask, totalKeyspace int64) 
 	debug.Info("Mock task %s: will complete in %v with %d ticks", task.assignment.TaskID, e.progressSpeed, numTicks)
 
 	// Send initial progress with TotalEffectiveKeyspace
-	e.sendProgress(task, 0, totalKeyspace, false, true)
+	e.sendProgress(task, 0, totalKeyspace, effectiveKeyspace, false, true)
 
 	// Generate some cracks if crack rate > 0
 	var crackedHashCount int
@@ -202,7 +224,7 @@ func (e *MockHashcatExecutor) simulateTask(task *MockTask, totalKeyspace int64) 
 
 			// Send progress update
 			isComplete := currentProgress >= 100.0
-			e.sendProgress(task, currentProgress, totalKeyspace, isComplete, false)
+			e.sendProgress(task, currentProgress, totalKeyspace, effectiveKeyspace, isComplete, false)
 
 			if isComplete {
 				debug.Info("Mock task %s: completed successfully", task.assignment.TaskID)
@@ -214,11 +236,17 @@ func (e *MockHashcatExecutor) simulateTask(task *MockTask, totalKeyspace int64) 
 					e.sendCrackBatch(task, cracks)
 				}
 
-				// Send completion message
+				// Send completion message. KeyspaceProcessed reports the
+				// BASE units consumed (restore point); EffectiveProgress
+				// reports the EFFECTIVE units (base × multiplier) so the
+				// backend's progress bar lands at 100%. Sending base in
+				// both fields was the original mock bug — backend treated
+				// the small base value as effective and the bar stayed
+				// near 0.
 				task.process.ProgressChannel <- &JobProgress{
 					TaskID:            task.assignment.TaskID,
 					KeyspaceProcessed: totalKeyspace,
-					EffectiveProgress: totalKeyspace,
+					EffectiveProgress: effectiveKeyspace,
 					ProgressPercent:   100.0,
 					HashRate:          e.hashRate,
 					Status:            "completed",
@@ -230,14 +258,19 @@ func (e *MockHashcatExecutor) simulateTask(task *MockTask, totalKeyspace int64) 
 	}
 }
 
-// sendProgress sends a progress update
-func (e *MockHashcatExecutor) sendProgress(task *MockTask, progressPercent float64, totalKeyspace int64, isComplete bool, isFirstUpdate bool) {
+// sendProgress sends a progress update. totalKeyspace is BASE units
+// (restore-point coords); effectiveKeyspace is BASE × multiplier (what
+// the backend bar measures). The two values diverge for any job with
+// rules or salts; sending base where effective was expected is the bug
+// this signature change fixes.
+func (e *MockHashcatExecutor) sendProgress(task *MockTask, progressPercent float64, totalKeyspace, effectiveKeyspace int64, isComplete bool, isFirstUpdate bool) {
 	keyspaceProcessed := int64(float64(totalKeyspace) * progressPercent / 100.0)
+	effectiveProcessed := int64(float64(effectiveKeyspace) * progressPercent / 100.0)
 
 	progress := &JobProgress{
 		TaskID:            task.assignment.TaskID,
 		KeyspaceProcessed: keyspaceProcessed,
-		EffectiveProgress: keyspaceProcessed,
+		EffectiveProgress: effectiveProcessed,
 		ProgressPercent:   progressPercent,
 		HashRate:          e.hashRate,
 		Status:            "running",
@@ -246,10 +279,10 @@ func (e *MockHashcatExecutor) sendProgress(task *MockTask, progressPercent float
 
 	// On first update, include total effective keyspace (chunk keyspace, not job keyspace)
 	if isFirstUpdate && !task.firstUpdateSent {
-		progress.TotalEffectiveKeyspace = &totalKeyspace
+		progress.TotalEffectiveKeyspace = &effectiveKeyspace
 		progress.IsFirstUpdate = true
 		task.firstUpdateSent = true
-		debug.Info("Mock task %s: First update with total effective keyspace %d", task.assignment.TaskID, totalKeyspace)
+		debug.Info("Mock task %s: First update with total effective keyspace %d (base %d)", task.assignment.TaskID, effectiveKeyspace, totalKeyspace)
 	}
 
 	// Calculate time remaining
@@ -499,8 +532,9 @@ func countFileLines(filepath string) (int64, error) {
 	return count, nil
 }
 
-// RunSpeedTest simulates a speed test
-func (e *MockHashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskAssignment, testDuration int) (int64, []DeviceSpeed, int64, error) {
+// RunSpeedTest simulates a speed test. minStatusUpdates is accepted to satisfy
+// ExecutorInterface but ignored: the mock returns a synthetic result instantly.
+func (e *MockHashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskAssignment, testDuration int, minStatusUpdates int) (int64, []DeviceSpeed, int64, int64, error) {
 	debug.Info("Mock executor running speed test for hash type %d", assignment.HashType)
 
 	// Simulate benchmark time (much faster than real)
@@ -519,8 +553,8 @@ func (e *MockHashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobT
 	effectiveKeyspace := e.calculateKeyspace(assignment)
 	debug.Info("Mock benchmark: calculated effective keyspace = %d", effectiveKeyspace)
 
-	// Return total speed, device speeds, and effective keyspace
-	return e.hashRate, deviceSpeeds, effectiveKeyspace, nil
+	// Return total speed, device speeds, effective keyspace, and 0 for agent base keyspace (mock)
+	return e.hashRate, deviceSpeeds, effectiveKeyspace, 0, nil
 }
 
 // Helper functions to load configuration from environment

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
@@ -28,8 +29,8 @@ func NewHashListRepository(database *db.DB) *HashListRepository {
 // It updates the hashlist.ID field with the newly generated serial ID.
 func (r *HashListRepository) Create(ctx context.Context, hashlist *models.HashList) error {
 	query := `
-		INSERT INTO hashlists (name, user_id, client_id, hash_type_id, status, exclude_from_potfile, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO hashlists (name, user_id, client_id, hash_type_id, status, exclude_from_potfile, exclude_from_client_potfile, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING id
 	`
 	var clientIDArg interface{} // Handle NULL client_id
@@ -46,6 +47,7 @@ func (r *HashListRepository) Create(ctx context.Context, hashlist *models.HashLi
 		hashlist.HashTypeID,
 		hashlist.Status,
 		hashlist.ExcludeFromPotfile,
+		hashlist.ExcludeFromClientPotfile,
 		hashlist.CreatedAt,
 		hashlist.UpdatedAt,
 	)
@@ -73,6 +75,47 @@ func (r *HashListRepository) UpdateStatus(ctx context.Context, id int64, status 
 		// Log warning
 	} else if rowsAffected == 0 {
 		return fmt.Errorf("hashlist %d not found for status update: %w", id, ErrNotFound)
+	}
+	return nil
+}
+
+// UpdateHashType changes the declared hashcat mode for a hashlist. Used by
+// the revalidate flow (GitHub issue #38) when the user realises they picked
+// the wrong type and wants to re-run validation against the same file.
+func (r *HashListRepository) UpdateHashType(ctx context.Context, id int64, hashTypeID int) error {
+	query := `UPDATE hashlists SET hash_type_id = $1, updated_at = $2 WHERE id = $3`
+	result, err := r.db.ExecContext(ctx, query, hashTypeID, time.Now(), id)
+	if err != nil {
+		return fmt.Errorf("failed to update hash type for hashlist %d: %w", id, err)
+	}
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("hashlist %d not found for hash type update: %w", id, ErrNotFound)
+	}
+	return nil
+}
+
+// UpdateValidationFields records the outcome of upload-time hash validation
+// (GitHub issue #38): the line counts, the number of invalid lines, and an
+// optional notice when the hash type had no validator coverage. Caller is
+// responsible for any accompanying status transition (use UpdateStatus).
+func (r *HashListRepository) UpdateValidationFields(ctx context.Context, id int64, invalidCount, totalInputLines int, validationNotice *string) error {
+	query := `
+		UPDATE hashlists
+		SET invalid_count = $1, total_input_lines = $2, validation_notice = $3, updated_at = $4
+		WHERE id = $5
+	`
+	var noticeArg interface{}
+	if validationNotice != nil {
+		noticeArg = *validationNotice
+	}
+	result, err := r.db.ExecContext(ctx, query, invalidCount, totalInputLines, noticeArg, time.Now(), id)
+	if err != nil {
+		return fmt.Errorf("failed to update validation fields for hashlist %d: %w", id, err)
+	}
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("hashlist %d not found for validation update: %w", id, ErrNotFound)
 	}
 	return nil
 }
@@ -153,9 +196,14 @@ func (r *HashListRepository) GetByID(ctx context.Context, id int64) (*models.Has
 		SELECT
 			h.id, h.name, h.user_id, h.client_id, h.hash_type_id,
 			h.total_hashes, h.cracked_hashes, h.status, h.error_message,
-			h.exclude_from_potfile, h.original_file_path, h.has_mixed_work_factors,
-			h.created_at, h.updated_at,
-			c.name AS client_name
+			h.exclude_from_potfile, h.exclude_from_client_potfile, h.original_file_path, h.has_mixed_work_factors,
+			h.invalid_count, h.total_input_lines, h.validation_notice,
+			h.created_at, h.updated_at, h.archived_at,
+			c.name AS client_name,
+			c.exclude_from_potfile AS client_exclude_from_global,
+			c.exclude_from_client_potfile AS client_exclude_from_client,
+			c.remove_from_global_potfile_on_hashlist_delete,
+			c.remove_from_client_potfile_on_hashlist_delete
 		FROM hashlists h
 		LEFT JOIN clients c ON h.client_id = c.id
 		WHERE h.id = $1
@@ -164,6 +212,12 @@ func (r *HashListRepository) GetByID(ctx context.Context, id int64) (*models.Has
 	var clientID sql.Null[uuid.UUID]    // Handle nullable client_id
 	var clientName sql.NullString       // Handle nullable client_name
 	var originalFilePath sql.NullString // Handle nullable original_file_path
+	var archivedAt sql.NullTime         // Handle nullable archived_at
+	var clientExcludeFromGlobal sql.NullBool
+	var clientExcludeFromClient sql.NullBool
+	var clientRemoveFromGlobalOnDelete sql.NullBool
+	var clientRemoveFromClientOnDelete sql.NullBool
+	var validationNoticeNS sql.NullString
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&hashlist.ID,
 		&hashlist.Name,
@@ -175,11 +229,20 @@ func (r *HashListRepository) GetByID(ctx context.Context, id int64) (*models.Has
 		&hashlist.Status,
 		&hashlist.ErrorMessage,
 		&hashlist.ExcludeFromPotfile,
+		&hashlist.ExcludeFromClientPotfile,
 		&originalFilePath,
 		&hashlist.HasMixedWorkFactors,
+		&hashlist.InvalidCount,
+		&hashlist.TotalInputLines,
+		&validationNoticeNS,
 		&hashlist.CreatedAt,
 		&hashlist.UpdatedAt,
+		&archivedAt,
 		&clientName,
+		&clientExcludeFromGlobal,
+		&clientExcludeFromClient,
+		&clientRemoveFromGlobalOnDelete,
+		&clientRemoveFromClientOnDelete,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -196,6 +259,24 @@ func (r *HashListRepository) GetByID(ctx context.Context, id int64) (*models.Has
 	if originalFilePath.Valid {
 		hashlist.OriginalFilePath = &originalFilePath.String
 	}
+	if archivedAt.Valid {
+		hashlist.ArchivedAt = &archivedAt.Time
+	}
+	if clientExcludeFromGlobal.Valid {
+		hashlist.ClientExcludeFromGlobalPotfile = &clientExcludeFromGlobal.Bool
+	}
+	if clientExcludeFromClient.Valid {
+		hashlist.ClientExcludeFromClientPotfile = &clientExcludeFromClient.Bool
+	}
+	if clientRemoveFromGlobalOnDelete.Valid {
+		hashlist.ClientRemoveFromGlobalOnDelete = &clientRemoveFromGlobalOnDelete.Bool
+	}
+	if clientRemoveFromClientOnDelete.Valid {
+		hashlist.ClientRemoveFromClientOnDelete = &clientRemoveFromClientOnDelete.Bool
+	}
+	if validationNoticeNS.Valid {
+		hashlist.ValidationNotice = &validationNoticeNS.String
+	}
 	return &hashlist, nil
 }
 
@@ -207,18 +288,32 @@ type ListHashlistsParams struct {
 	NameLike *string // For searching by name pattern
 	Limit    int
 	Offset   int
+
+	// New fields for team filtering
+	TeamIDs      []uuid.UUID // Filter by these teams (via client)
+	TeamsEnabled bool        // Whether team filtering is active
+	IncludeOwned bool        // Include hashlists owned by user (for legacy)
+
+	// Archive filtering
+	IncludeArchived bool // If false (default), exclude archived hashlists
 }
 
 func (r *HashListRepository) List(ctx context.Context, params ListHashlistsParams) ([]models.HashList, int, error) {
 	debug.Info("[HashlistRepo.List] Called with params: %+v", params)
-	// Select hashlist columns prefixed with 'h.' and client name prefixed with 'c.'
+	// Select hashlist columns prefixed with 'h.' and client name/settings prefixed with 'c.'
 	baseQuery := `
 		SELECT
 			h.id, h.name, h.user_id, h.client_id, h.hash_type_id,
 			h.total_hashes, h.cracked_hashes, h.status,
-			h.error_message, h.exclude_from_potfile, h.original_file_path, h.has_mixed_work_factors,
-			h.created_at, h.updated_at,
-			c.name AS client_name
+			h.error_message, h.exclude_from_potfile, h.exclude_from_client_potfile,
+			h.original_file_path, h.has_mixed_work_factors,
+			h.invalid_count, h.total_input_lines, h.validation_notice,
+			h.created_at, h.updated_at, h.archived_at,
+			c.name AS client_name,
+			c.exclude_from_potfile AS client_exclude_from_global,
+			c.exclude_from_client_potfile AS client_exclude_from_client,
+			c.remove_from_global_potfile_on_hashlist_delete,
+			c.remove_from_client_potfile_on_hashlist_delete
 		FROM hashlists h
 		LEFT JOIN clients c ON h.client_id = c.id
 	`
@@ -253,8 +348,9 @@ func (r *HashListRepository) List(ctx context.Context, params ListHashlistsParam
 		args = append(args, "%"+*params.NameLike+"%") // Add wildcards for ILIKE
 		argID++
 	}
-	// TODO: Add filtering by client_name if needed in the future?
-	// if params.ClientNameLike != nil { ... }
+	if !params.IncludeArchived {
+		conditions = append(conditions, "h.archived_at IS NULL")
+	}
 
 	whereClause := ""
 	if len(conditions) > 0 {
@@ -307,9 +403,15 @@ func (r *HashListRepository) List(ctx context.Context, params ListHashlistsParam
 	var hashlists []models.HashList
 	for rows.Next() {
 		var hashlist models.HashList
-		var clientID sql.Null[uuid.UUID]    // Use sql.Null for nullable UUID
-		var clientName sql.NullString       // Use sql.NullString for nullable client name from LEFT JOIN
-		var originalFilePath sql.NullString // Handle nullable original_file_path
+		var clientID sql.Null[uuid.UUID]                    // Use sql.Null for nullable UUID
+		var clientName sql.NullString                       // Use sql.NullString for nullable client name from LEFT JOIN
+		var originalFilePath sql.NullString                 // Handle nullable original_file_path
+		var archivedAt sql.NullTime                         // Handle nullable archived_at
+		var clientExcludeFromGlobalPotfile sql.NullBool     // Client's exclude_from_potfile setting (for global)
+		var clientExcludeFromClientPotfile sql.NullBool     // Client's exclude_from_client_potfile setting
+		var clientRemoveFromGlobalOnDelete sql.NullBool     // Client's remove_from_global_potfile_on_hashlist_delete setting
+		var clientRemoveFromClientOnDelete sql.NullBool     // Client's remove_from_client_potfile_on_hashlist_delete setting
+		var validationNoticeNS sql.NullString
 
 		if err := rows.Scan(
 			&hashlist.ID,
@@ -322,11 +424,20 @@ func (r *HashListRepository) List(ctx context.Context, params ListHashlistsParam
 			&hashlist.Status,
 			&hashlist.ErrorMessage,
 			&hashlist.ExcludeFromPotfile,
+			&hashlist.ExcludeFromClientPotfile,
 			&originalFilePath,
 			&hashlist.HasMixedWorkFactors,
+			&hashlist.InvalidCount,
+			&hashlist.TotalInputLines,
+			&validationNoticeNS,
 			&hashlist.CreatedAt,
 			&hashlist.UpdatedAt,
+			&archivedAt,
 			&clientName, // Scan into nullable string
+			&clientExcludeFromGlobalPotfile,
+			&clientExcludeFromClientPotfile,
+			&clientRemoveFromGlobalOnDelete,
+			&clientRemoveFromClientOnDelete,
 		); err != nil {
 			debug.Error("[HashlistRepo.List] Error scanning row: %v", err)
 			return nil, 0, fmt.Errorf("failed to scan hashlist row: %w", err)
@@ -347,6 +458,26 @@ func (r *HashListRepository) List(ctx context.Context, params ListHashlistsParam
 			hashlist.OriginalFilePath = &originalFilePath.String
 		}
 
+		// Assign client potfile settings if valid
+		if clientExcludeFromGlobalPotfile.Valid {
+			hashlist.ClientExcludeFromGlobalPotfile = &clientExcludeFromGlobalPotfile.Bool
+		}
+		if clientExcludeFromClientPotfile.Valid {
+			hashlist.ClientExcludeFromClientPotfile = &clientExcludeFromClientPotfile.Bool
+		}
+		if clientRemoveFromGlobalOnDelete.Valid {
+			hashlist.ClientRemoveFromGlobalOnDelete = &clientRemoveFromGlobalOnDelete.Bool
+		}
+		if clientRemoveFromClientOnDelete.Valid {
+			hashlist.ClientRemoveFromClientOnDelete = &clientRemoveFromClientOnDelete.Bool
+		}
+		if archivedAt.Valid {
+			hashlist.ArchivedAt = &archivedAt.Time
+		}
+		if validationNoticeNS.Valid {
+			hashlist.ValidationNotice = &validationNoticeNS.String
+		}
+
 		hashlists = append(hashlists, hashlist)
 	}
 	if err = rows.Err(); err != nil {
@@ -365,7 +496,8 @@ func (r *HashListRepository) List(ctx context.Context, params ListHashlistsParam
 // GetByClientID retrieves all hashlists associated with a specific client ID.
 func (r *HashListRepository) GetByClientID(ctx context.Context, clientID uuid.UUID) ([]models.HashList, error) {
 	query := `
-		SELECT id, name, user_id, client_id, hash_type_id, total_hashes, cracked_hashes, status, error_message, created_at, updated_at
+		SELECT id, name, user_id, client_id, hash_type_id, total_hashes, cracked_hashes, status, error_message,
+		       exclude_from_potfile, exclude_from_client_potfile, created_at, updated_at
 		FROM hashlists
 		WHERE client_id = $1
 		ORDER BY created_at DESC
@@ -391,6 +523,8 @@ func (r *HashListRepository) GetByClientID(ctx context.Context, clientID uuid.UU
 			&hashlist.CrackedHashes,
 			&hashlist.Status,
 			&hashlist.ErrorMessage,
+			&hashlist.ExcludeFromPotfile,
+			&hashlist.ExcludeFromClientPotfile,
 			&hashlist.CreatedAt,
 			&hashlist.UpdatedAt,
 		); err != nil {
@@ -1231,7 +1365,7 @@ func (r *HashListRepository) GetHashlistsContainingHashes(ctx context.Context, h
 	query := `
 		SELECT DISTINCT hl.id, hl.name, hl.hash_type_id, hl.total_hashes,
 		       hl.cracked_hashes, hl.user_id, hl.client_id, hl.created_at, hl.updated_at,
-		       hl.status, hl.exclude_from_potfile
+		       hl.status, hl.exclude_from_potfile, hl.exclude_from_client_potfile
 		FROM hashlists hl
 		JOIN hashlist_hashes hh ON hl.id = hh.hashlist_id
 		JOIN hashes h ON hh.hash_id = h.id
@@ -1250,7 +1384,7 @@ func (r *HashListRepository) GetHashlistsContainingHashes(ctx context.Context, h
 		var clientID sql.NullString
 		err := rows.Scan(&hl.ID, &hl.Name, &hl.HashTypeID, &hl.TotalHashes,
 			&hl.CrackedHashes, &hl.UserID, &clientID, &hl.CreatedAt, &hl.UpdatedAt,
-			&hl.Status, &hl.ExcludeFromPotfile)
+			&hl.Status, &hl.ExcludeFromPotfile, &hl.ExcludeFromClientPotfile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan hashlist: %w", err)
 		}
@@ -1319,7 +1453,7 @@ func (r *HashListRepository) GetLinkedHashlist(ctx context.Context, hashlistID i
 	query := `
 		SELECT hl.id, hl.name, hl.user_id, hl.client_id, hl.hash_type_id,
 		       hl.total_hashes, hl.cracked_hashes, hl.status, hl.error_message,
-		       hl.exclude_from_potfile, hl.created_at, hl.updated_at
+		       hl.exclude_from_potfile, hl.exclude_from_client_potfile, hl.created_at, hl.updated_at
 		FROM hashlists hl
 		INNER JOIN linked_hashlists lhl ON (
 			(lhl.hashlist_id_1 = $1 AND lhl.hashlist_id_2 = hl.id) OR
@@ -1344,6 +1478,7 @@ func (r *HashListRepository) GetLinkedHashlist(ctx context.Context, hashlistID i
 		&hl.Status,
 		&errorMessage,
 		&hl.ExcludeFromPotfile,
+		&hl.ExcludeFromClientPotfile,
 		&hl.CreatedAt,
 		&hl.UpdatedAt,
 	)
@@ -1364,4 +1499,173 @@ func (r *HashListRepository) GetLinkedHashlist(ctx context.Context, hashlistID i
 	hl.ErrorMessage = errorMessage
 
 	return &hl, nil
+}
+
+// ListWithTeamFilter returns hashlists filtered by team access
+func (r *HashListRepository) ListWithTeamFilter(ctx context.Context, params ListHashlistsParams) ([]models.HashList, int64, error) {
+	var baseQuery, countQuery string
+	var args []interface{}
+	argIndex := 1
+
+	if !params.TeamsEnabled {
+		// Teams not enabled — use normal unfiltered list
+		hashlists, count, err := r.List(ctx, params)
+		return hashlists, int64(count), err
+	}
+	if len(params.TeamIDs) == 0 {
+		// Teams enabled but user has no teams — return empty (fail-closed)
+		return []models.HashList{}, 0, nil
+	}
+
+	// Build team-filtered query
+	teamPlaceholders := make([]string, len(params.TeamIDs))
+	for i, id := range params.TeamIDs {
+		teamPlaceholders[i] = fmt.Sprintf("$%d", argIndex)
+		args = append(args, id)
+		argIndex++
+	}
+
+	// Filter via client_teams join
+	baseQuery = fmt.Sprintf(`
+		SELECT DISTINCT h.id, h.name, h.hash_type_id, h.total_hashes, h.cracked_hashes,
+		       h.user_id, h.client_id, h.status, h.created_at, h.updated_at, h.archived_at,
+		       h.invalid_count, h.total_input_lines, h.validation_notice
+		FROM hashlists h
+		LEFT JOIN client_teams ct ON h.client_id = ct.client_id
+		WHERE (
+			ct.team_id IN (%s)`, strings.Join(teamPlaceholders, ", "))
+
+	// Optionally include hashlists owned by user (for legacy hashlists without clients)
+	if params.IncludeOwned && params.UserID != nil {
+		baseQuery += fmt.Sprintf(` OR (h.client_id IS NULL AND h.user_id = $%d)`, argIndex)
+		args = append(args, *params.UserID)
+		argIndex++
+	}
+
+	baseQuery += `)`
+
+	// Apply additional filters
+	if params.ClientID != nil {
+		baseQuery += fmt.Sprintf(` AND h.client_id = $%d`, argIndex)
+		args = append(args, *params.ClientID)
+		argIndex++
+	}
+
+	if params.Status != nil {
+		baseQuery += fmt.Sprintf(` AND h.status = $%d`, argIndex)
+		args = append(args, *params.Status)
+		argIndex++
+	}
+
+	if params.NameLike != nil && *params.NameLike != "" {
+		baseQuery += fmt.Sprintf(` AND LOWER(h.name) LIKE LOWER($%d)`, argIndex)
+		args = append(args, "%"+*params.NameLike+"%")
+		argIndex++
+	}
+
+	if !params.IncludeArchived {
+		baseQuery += ` AND h.archived_at IS NULL`
+	}
+
+	// Count query
+	countQuery = `SELECT COUNT(*) FROM (` + baseQuery + `) AS filtered`
+
+	var total int64
+	err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count hashlists: %w", err)
+	}
+
+	// Add ordering and pagination
+	baseQuery += ` ORDER BY h.created_at DESC`
+
+	if params.Limit > 0 {
+		baseQuery += fmt.Sprintf(` LIMIT $%d`, argIndex)
+		args = append(args, params.Limit)
+		argIndex++
+
+		if params.Offset > 0 {
+			baseQuery += fmt.Sprintf(` OFFSET $%d`, argIndex)
+			args = append(args, params.Offset)
+		}
+	}
+
+	rows, err := r.db.QueryContext(ctx, baseQuery, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query hashlists: %w", err)
+	}
+	defer rows.Close()
+
+	var hashlists []models.HashList
+	for rows.Next() {
+		var h models.HashList
+		var clientID sql.Null[uuid.UUID]
+		var archivedAt sql.NullTime
+		var validationNoticeNS sql.NullString
+		err := rows.Scan(
+			&h.ID, &h.Name, &h.HashTypeID, &h.TotalHashes, &h.CrackedHashes,
+			&h.UserID, &clientID, &h.Status, &h.CreatedAt, &h.UpdatedAt, &archivedAt,
+			&h.InvalidCount, &h.TotalInputLines, &validationNoticeNS,
+		)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan hashlist: %w", err)
+		}
+
+		if clientID.Valid {
+			h.ClientID = clientID.V
+		}
+		if archivedAt.Valid {
+			h.ArchivedAt = &archivedAt.Time
+		}
+		if validationNoticeNS.Valid {
+			h.ValidationNotice = &validationNoticeNS.String
+		}
+
+		hashlists = append(hashlists, h)
+	}
+
+	return hashlists, total, rows.Err()
+}
+
+// Archive sets the archived_at timestamp on a hashlist, hiding it from default views.
+func (r *HashListRepository) Archive(ctx context.Context, id int64) error {
+	query := `UPDATE hashlists SET archived_at = NOW(), updated_at = NOW() WHERE id = $1 AND archived_at IS NULL`
+	result, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to archive hashlist %d: %w", id, err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		debug.Warning("Could not get rows affected after archiving hashlist %d: %v", id, err)
+	} else if rowsAffected == 0 {
+		return fmt.Errorf("hashlist %d not found or already archived: %w", id, ErrNotFound)
+	}
+	return nil
+}
+
+// Unarchive clears the archived_at timestamp on a hashlist, making it visible in default views.
+func (r *HashListRepository) Unarchive(ctx context.Context, id int64) error {
+	query := `UPDATE hashlists SET archived_at = NULL, updated_at = NOW() WHERE id = $1 AND archived_at IS NOT NULL`
+	result, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to unarchive hashlist %d: %w", id, err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		debug.Warning("Could not get rows affected after unarchiving hashlist %d: %v", id, err)
+	} else if rowsAffected == 0 {
+		return fmt.Errorf("hashlist %d not found or not archived: %w", id, ErrNotFound)
+	}
+	return nil
+}
+
+// HasActiveJobs checks if a hashlist has any pending or running job executions.
+func (r *HashListRepository) HasActiveJobs(ctx context.Context, hashlistID int64) (bool, error) {
+	query := `SELECT EXISTS(SELECT 1 FROM job_executions WHERE hashlist_id = $1 AND status IN ('pending', 'running'))`
+	var exists bool
+	err := r.db.QueryRowContext(ctx, query, hashlistID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check active jobs for hashlist %d: %w", hashlistID, err)
+	}
+	return exists, nil
 }

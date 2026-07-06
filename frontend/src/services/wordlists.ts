@@ -2,7 +2,15 @@
  * API services for wordlist management
  */
 import { api } from './api';
-import { Wordlist, WordlistFilters, WordlistUploadResponse, DeletionImpact } from '../types/wordlists';
+import {
+  Wordlist,
+  WordlistFilters,
+  WordlistUploadResponse,
+  DeletionImpact,
+  WordlistFilter,
+  CreateFilteredWordlistRequest,
+  FilterPreviewResponse,
+} from '../types/wordlists';
 
 // Get all wordlists with optional filtering
 export const getWordlists = (filters?: WordlistFilters) => 
@@ -88,4 +96,25 @@ export const downloadWordlist = (id: string) =>
 
 // Refresh wordlist metadata (MD5, word count, file size)
 export const refreshWordlist = (id: string) =>
-  api.post(`/api/wordlists/${id}/refresh`, {}, { withCredentials: true }); 
+  api.post(`/api/wordlists/${id}/refresh`, {}, { withCredentials: true });
+
+// --- Filtered (derived) wordlists (GH #40) ---
+
+// Estimate how many candidates a filter keeps by sampling the parent wordlist.
+export const previewFilter = (parentWordlistId: number, filter: WordlistFilter) =>
+  api.post<FilterPreviewResponse>('/api/wordlists/filtered/preview', {
+    parent_wordlist_id: parentWordlistId,
+    filter,
+  }, { withCredentials: true });
+
+// Create a permanent filtered wordlist (generation runs in the background).
+export const createFilteredWordlist = (req: CreateFilteredWordlistRequest) =>
+  api.post<Wordlist>('/api/wordlists/filtered', req, { withCredentials: true });
+
+// Re-run generation for a filtered wordlist (e.g. after its parent changed).
+export const regenerateFilteredWordlist = (id: string) =>
+  api.post(`/api/wordlists/${id}/regenerate`, {}, { withCredentials: true });
+
+// List the filtered wordlists derived from a parent wordlist.
+export const getFilteredChildren = (parentId: string) =>
+  api.get<Wordlist[]>(`/api/wordlists/${parentId}/filtered`, { withCredentials: true });

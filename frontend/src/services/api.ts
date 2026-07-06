@@ -240,12 +240,66 @@ export const updateClient = (id: string, clientData: Partial<Omit<Client, 'id' |
 // Delete a client
 export const deleteClient = (id: string) => api.delete<any>(`/api/clients/${id}`);
 
+// Bulk assign clients to a team
+export interface BulkAssignTeamResponse {
+  assigned: number;
+  already_assigned: number;
+  total: number;
+}
+
+export const bulkAssignClientsToTeam = (clientIds: string[], teamId: string) =>
+  api.post<BulkAssignTeamResponse>('/api/clients/bulk-assign-team', {
+    client_ids: clientIds,
+    team_id: teamId,
+  });
+
 // Legacy admin client APIs (deprecated - use the above instead)
 export const listAdminClients = listClients;
 export const getAdminClient = getClient;
 export const createAdminClient = createClient;
 export const updateAdminClient = updateClient;
-export const deleteAdminClient = deleteClient; 
+export const deleteAdminClient = deleteClient;
+
+// --- Client Wordlist Management ---
+
+// List all wordlists for a client
+export const listClientWordlists = (clientId: string) =>
+  api.get(`/api/clients/${clientId}/wordlists`);
+
+// Upload a wordlist for a client
+export const uploadClientWordlist = (clientId: string, formData: FormData, onUploadProgress?: (event: any) => void) =>
+  api.post(`/api/clients/${clientId}/wordlists`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress,
+  });
+
+// Delete a client wordlist
+export const deleteClientWordlist = (clientId: string, wordlistId: string) =>
+  api.delete(`/api/clients/${clientId}/wordlists/${wordlistId}`);
+
+// Download a client wordlist file
+export const downloadClientWordlist = (clientId: string, wordlistId: string) =>
+  api.get(`/api/clients/${clientId}/wordlists/${wordlistId}/download`, { responseType: 'blob' });
+
+// Get client potfile metadata
+export const getClientPotfile = (clientId: string) =>
+  api.get(`/api/clients/${clientId}/potfile`);
+
+// Download client potfile
+export const downloadClientPotfile = (clientId: string) =>
+  api.get(`/api/clients/${clientId}/potfile/download`, { responseType: 'blob' });
+
+// List association wordlists for a client (across all hashlists)
+export const listClientAssociationWordlists = (clientId: string) =>
+  api.get(`/api/clients/${clientId}/association-wordlists`);
+
+// Download an association wordlist file
+export const downloadAssociationWordlist = (wordlistId: string) =>
+  api.get(`/api/association-wordlists/${wordlistId}/download`, { responseType: 'blob' });
+
+// Delete an association wordlist
+export const deleteAssociationWordlist = (wordlistId: string) =>
+  api.delete(`/api/association-wordlists/${wordlistId}`);
 
 // --- User Management (Admin) ---
 
@@ -437,6 +491,8 @@ export const createPresetJob = async (data: PresetJobInput): Promise<PresetJob> 
     // Convert undefined to null for backend (backend applies defaults for null values)
     increment_min: data.increment_min ?? null,
     increment_max: data.increment_max ?? null,
+    // Convert empty string to null for backend
+    additional_args: data.additional_args || null,
   };
 
   console.log('Converted API data:', JSON.stringify(apiData, null, 2));
@@ -467,6 +523,8 @@ export const updatePresetJob = async (id: string, data: PresetJobInput): Promise
     // Convert undefined to null for backend (backend applies defaults for null values)
     increment_min: data.increment_min ?? null,
     increment_max: data.increment_max ?? null,
+    // Convert empty string to null for backend
+    additional_args: data.additional_args || null,
   };
 
   console.log('Converted update API data:', JSON.stringify(apiData, null, 2));
@@ -629,10 +687,27 @@ export interface DeleteHashlistResponse {
 }
 
 // Delete a hashlist - returns 204 for sync delete, 202 for async with progress
-export const deleteHashlist = async (hashlistId: string): Promise<{ async: boolean; data?: DeleteHashlistResponse }> => {
+// Optional parameters to remove cracked passwords from potfiles
+export const deleteHashlist = async (
+  hashlistId: string,
+  removeFromGlobalPotfile?: boolean,
+  removeFromClientPotfile?: boolean
+): Promise<{ async: boolean; data?: DeleteHashlistResponse }> => {
   const url = `/api/hashlists/${hashlistId}`;
   logApiCall('DELETE', url);
-  const response = await api.delete(url);
+
+  // Prepare request body if potfile removal options are specified
+  const data: Record<string, boolean> = {};
+  if (removeFromGlobalPotfile !== undefined) {
+    data.remove_from_global_potfile = removeFromGlobalPotfile;
+  }
+  if (removeFromClientPotfile !== undefined) {
+    data.remove_from_client_potfile = removeFromClientPotfile;
+  }
+
+  const response = await api.delete(url, {
+    data: Object.keys(data).length > 0 ? data : undefined
+  });
 
   // 202 means async deletion started
   if (response.status === 202) {
@@ -650,6 +725,33 @@ export const getDeletionProgress = async (hashlistId: string): Promise<DeletionP
   const response = await api.get<DeletionProgressResponse>(url);
   logApiResponse('GET', url, response.data);
   return response.data;
+};
+
+// Archive a hashlist
+export const archiveHashlist = async (hashlistId: string): Promise<void> => {
+  const url = `/api/hashlists/${hashlistId}/archive`;
+  logApiCall('POST', url);
+  await api.post(url);
+};
+
+// Unarchive a hashlist
+export const unarchiveHashlist = async (hashlistId: string): Promise<void> => {
+  const url = `/api/hashlists/${hashlistId}/unarchive`;
+  logApiCall('POST', url);
+  await api.post(url);
+};
+
+// Job archive functions
+export const archiveJob = async (jobId: string): Promise<void> => {
+  const url = `/api/jobs/${jobId}/archive`;
+  logApiCall('POST', url);
+  await api.post(url);
+};
+
+export const unarchiveJob = async (jobId: string): Promise<void> => {
+  const url = `/api/jobs/${jobId}/unarchive`;
+  logApiCall('POST', url);
+  await api.post(url);
 };
 
 // Processing progress response type

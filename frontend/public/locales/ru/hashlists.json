@@ -45,7 +45,8 @@
     "file": "Файл с хешами",
     "selectFile": "Выбрать файл",
     "uploading": "Загрузка...",
-    "cancel": "Отмена"
+    "cancel": "Отмена",
+    "executableBlocked": "Этот файл является исполняемым бинарным файлом и не может быть загружен как список хешей."
   },
   "actions": {
     "viewDetails": "Подробности",
@@ -90,12 +91,32 @@
   "notifications": {
     "deleteSuccess": "Список хешей успешно удалён",
     "uploadSuccess": "Список хешей успешно загружен",
-    "downloaded": "Скачан {{filename}}"
+    "downloaded": "Скачан {{filename}}",
+    "archiveSuccess": "Список хешей успешно архивирован",
+    "unarchiveSuccess": "Список хешей успешно разархивирован",
+    "bulkArchiveSuccess": "{{count}} список(ов) хешей успешно архивировано",
+    "bulkUnarchiveSuccess": "{{count}} список(ов) хешей успешно разархивировано"
   },
   "errors": {
     "loadFailed": "Ошибка при загрузке списков хешей.",
     "uploadFailed": "Не удалось загрузить список хешей",
     "deleteFailed": "Удаление не удалось: {{error}}"
+  },
+  "archive": {
+    "showArchived": "Показать архивные",
+    "archive": "Архивировать",
+    "unarchive": "Разархивировать",
+    "archived": "Архивировано",
+    "selectedCount": "{{count}} выбрано",
+    "archiveSelected": "Архивировать выбранные",
+    "unarchiveSelected": "Разархивировать выбранные",
+    "deleteSelected": "Удалить выбранные",
+    "confirmBulkDelete": {
+      "title": "Подтверждение массового удаления",
+      "message": "Вы уверены, что хотите удалить {{count}} список(ов) хешей? Это действие нельзя отменить.",
+      "warning": "Это навсегда удалит выбранные списки хешей и все связанные данные."
+    },
+    "bulkDeleteSuccess": "{{count}} список(ов) хешей успешно удалено"
   },
   "hashDetails": {
     "title": "Детали хеша",

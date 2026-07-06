@@ -32,12 +32,12 @@ import {
   Save as SaveIcon,
   Cancel as CancelIcon,
   Refresh as RefreshIcon,
-  Replay as ReplayIcon,
   CheckCircle as CheckCircleIcon
 } from '@mui/icons-material';
 import { getJobDetails, getJobLayers, api } from '../../services/api';
 import { JobDetailsResponse, JobTask, JobIncrementLayerWithStats } from '../../types/jobs';
 import JobProgressBar from '../../components/JobProgressBar';
+import BenchmarkBlocklistPanel from '../../components/jobs/BenchmarkBlocklistPanel';
 import { useSnackbar } from 'notistack';
 import { getMaxPriorityForUsers } from '../../services/systemSettings';
 
@@ -316,19 +316,6 @@ const JobDetails: React.FC = () => {
     setAutoRefreshEnabled(true); // Resume auto-refresh after cancel
   };
 
-  // Handle retry task
-  const handleRetryTask = async (taskId: string) => {
-    if (!id) return;
-
-    try {
-      await api.post(`/api/jobs/${id}/tasks/${taskId}/retry`);
-      await fetchJobDetails();
-    } catch (err) {
-      console.error('Failed to retry task:', err);
-      setError(t('errors.retryTaskFailed'));
-    }
-  };
-
   // Handle force complete job
   const handleForceComplete = async () => {
     if (!id) return;
@@ -354,13 +341,17 @@ const JobDetails: React.FC = () => {
     return new Date(dateString).toLocaleString();
   };
 
-  const formatKeyspace = (value?: number): string => {
-    if (!value) return t('common.notAvailable');
-    if (value >= 1e12) return `${(value / 1e12).toFixed(2)}T`;
-    if (value >= 1e9) return `${(value / 1e9).toFixed(2)}B`;
-    if (value >= 1e6) return `${(value / 1e6).toFixed(2)}M`;
-    if (value >= 1e3) return `${(value / 1e3).toFixed(2)}K`;
-    return value.toString();
+  const formatKeyspace = (value?: number | string): string => {
+    // Effective keyspace fields arrive as decimal strings (NUMERIC, can exceed
+    // 2^53); base keyspace stays a number. Coerce either to Number for the
+    // abbreviated K/M/B/T display.
+    const v = value === undefined || value === null ? 0 : Number(value);
+    if (!v || !isFinite(v)) return t('common.notAvailable');
+    if (v >= 1e12) return `${(v / 1e12).toFixed(2)}T`;
+    if (v >= 1e9) return `${(v / 1e9).toFixed(2)}B`;
+    if (v >= 1e6) return `${(v / 1e6).toFixed(2)}M`;
+    if (v >= 1e3) return `${(v / 1e3).toFixed(2)}K`;
+    return v.toString();
   };
 
   const formatSpeed = (speed?: number): string => {
@@ -440,6 +431,23 @@ const JobDetails: React.FC = () => {
     return `~${displayParts.join(' ')}`;
   };
 
+  const calculateTotalRunningTime = (): string => {
+    if (!jobData?.started_at) return t('common.notAvailable');
+
+    const startTime = new Date(jobData.started_at).getTime();
+    const endTime = jobData.completed_at
+      ? new Date(jobData.completed_at).getTime()
+      : Date.now();
+
+    const totalSeconds = Math.floor((endTime - startTime) / 1000);
+
+    if (totalSeconds <= 0) return t('details.lessThanOneMinute');
+
+    const duration = formatDuration(totalSeconds);
+    // formatDuration prepends "~" for estimates; strip it for actual elapsed time
+    return duration.startsWith('~') ? duration.substring(1).trim() : duration;
+  };
+
   const calculateEstimatedCompletion = (): { timeRemaining: string; estimatedDate: string } => {
     // Check if job is completed
     if (jobData?.status === 'completed') {
@@ -456,8 +464,9 @@ const JobDetails: React.FC = () => {
 
     // MODE 1: Job is running - use keyspace-based calculation
     // Calculate remaining keyspace
-    const effectiveKeyspace = jobData?.effective_keyspace || 0;
-    const processedKeyspace = jobData?.processed_keyspace || 0;
+    // effective_keyspace / processed_keyspace are decimal strings (NUMERIC) — coerce.
+    const effectiveKeyspace = Number(jobData?.effective_keyspace || 0);
+    const processedKeyspace = Number(jobData?.processed_keyspace || 0);
     const remainingKeyspace = effectiveKeyspace - processedKeyspace;
 
     // If nothing left to process
@@ -828,7 +837,7 @@ const JobDetails: React.FC = () => {
     (completedTasksPage + 1) * completedTasksPageSize
   );
 
-  const totalKeyspace = jobData.effective_keyspace || 0;
+  const totalKeyspace = Number(jobData.effective_keyspace || 0);
 
   // Calculate estimated completion once for efficiency
   const estimatedCompletion = jobData ? calculateEstimatedCompletion() : { timeRemaining: '', estimatedDate: '' };
@@ -1020,7 +1029,7 @@ const JobDetails: React.FC = () => {
               </TableRow>
               <TableRow>
                 <TableCell sx={{ fontWeight: 'bold' }}>{t('common.hashType')}</TableCell>
-                <TableCell>{jobData.hash_type || t('common.notAvailable')}</TableCell>
+                <TableCell>{jobData.hash_type != null ? jobData.hash_type : t('common.notAvailable')}</TableCell>
               </TableRow>
               <TableRow>
                 <TableCell sx={{ fontWeight: 'bold' }}>{t('common.attackMode')}</TableCell>
@@ -1028,6 +1037,12 @@ const JobDetails: React.FC = () => {
               </TableRow>
               {/* Attack configuration rows based on attack mode */}
               {renderAttackConfigRows()}
+              {jobData.additional_args && (
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold' }}>{t('jobs:details.additionalArgs', 'Additional Arguments')}</TableCell>
+                  <TableCell sx={{ fontFamily: 'monospace' }}>{jobData.additional_args}</TableCell>
+                </TableRow>
+              )}
               <TableRow>
                 <TableCell sx={{ fontWeight: 'bold' }}>{t('common.keyspace')}</TableCell>
                 <TableCell>{formatKeyspace(jobData.base_keyspace)}</TableCell>
@@ -1036,9 +1051,9 @@ const JobDetails: React.FC = () => {
                 <TableCell sx={{ fontWeight: 'bold' }}>{t('common.effectiveKeyspace')}</TableCell>
                 <TableCell>
                   {formatKeyspace(jobData.effective_keyspace)}
-                  {jobData.multiplication_factor && jobData.multiplication_factor > 1 && (
+                  {jobData.uses_rule_splitting && jobData.multiplication_factor && jobData.multiplication_factor > 1 && (
                     <Chip
-                      label={`×${jobData.multiplication_factor}${jobData.uses_rule_splitting ? ` ${t('common.rulesMultiplier')}` : ''}`}
+                      label={`×${jobData.multiplication_factor} ${t('common.rulesMultiplier')}`}
                       size="small"
                       color="error"
                       variant="filled"
@@ -1100,6 +1115,12 @@ const JobDetails: React.FC = () => {
                 <TableCell sx={{ fontWeight: 'bold' }}>{t('common.completedAt')}</TableCell>
                 <TableCell>{formatDate(jobData.completed_at)}</TableCell>
               </TableRow>
+              {jobData.started_at && (
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold' }}>{t('details.totalRunningTime')}</TableCell>
+                  <TableCell>{calculateTotalRunningTime()}</TableCell>
+                </TableRow>
+              )}
               {jobData.error_message && (
                 <TableRow>
                   <TableCell sx={{ fontWeight: 'bold' }}>{t('common.error')}</TableCell>
@@ -1205,6 +1226,7 @@ const JobDetails: React.FC = () => {
           tasks={allTasks}
           totalKeyspace={totalKeyspace}
           height={50}
+          layers={layers}
         />
       </Paper>
 
@@ -1294,7 +1316,10 @@ const JobDetails: React.FC = () => {
                   <TableCell>{t('details.failedTasksTable.retryCount')}</TableCell>
                   <TableCell>{t('details.failedTasksTable.errorMessage')}</TableCell>
                   <TableCell>{t('details.failedTasksTable.lastUpdated')}</TableCell>
-                  <TableCell align="center">{t('details.failedTasksTable.actions')}</TableCell>
+                  {/* Actions column removed: per-task Retry no longer applies in scheduler-v2.
+                      Every dispatch is a fresh task with a new UUID; "retrying" a failed task
+                      can't reuse the same task ID — it would just create another orphan.
+                      Job-level retry (clone/recreate the job) is the v2 primitive. */}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -1320,17 +1345,6 @@ const JobDetails: React.FC = () => {
                       </Typography>
                     </TableCell>
                     <TableCell>{formatDate(task.updated_at)}</TableCell>
-                    <TableCell align="center">
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<ReplayIcon />}
-                        onClick={() => handleRetryTask(task.id)}
-                        sx={{ textTransform: 'none' }}
-                      >
-                        {t('buttons.retry')}
-                      </Button>
-                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -1419,6 +1433,9 @@ const JobDetails: React.FC = () => {
           )}
         </Paper>
       )}
+
+      {/* Benchmark blocklist — only renders when entries exist */}
+      <BenchmarkBlocklistPanel jobId={jobData.id} />
 
       {/* Force Complete Warning Dialog */}
       <Dialog

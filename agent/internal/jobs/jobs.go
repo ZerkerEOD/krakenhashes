@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/agent/internal/config"
@@ -21,10 +22,10 @@ import (
 type JobManager struct {
 	executor                     ExecutorInterface
 	config                       *config.Config
-	statusCallback               func(*JobStatus)             // Callback for status updates (synchronous)
-	crackCallback                func(*CrackBatch)            // Callback for crack batches (asynchronous)
-	crackBatchesCompleteCallback func(*CrackBatchesComplete)  // Callback to signal all crack batches sent
-	progressCallback             func(*JobProgress)           // Legacy callback (deprecated, use statusCallback/crackCallback)
+	statusCallback               func(*JobStatus)                                 // Callback for status updates (synchronous)
+	crackCallback                func(*CrackBatch)                                // Callback for crack batches (asynchronous)
+	crackBatchesCompleteCallback func(*CrackBatchesComplete)                      // Callback to signal all crack batches sent
+	progressCallback             func(*JobProgress)                               // Legacy callback (deprecated, use statusCallback/crackCallback)
 	outputCallback               func(taskID string, output string, isError bool) // Callback for sending output via websocket
 	fileSync                     *filesync.FileSync
 	hwMonitor                    HardwareMonitor // Interface for hardware monitor
@@ -43,6 +44,15 @@ type JobManager struct {
 	// Explicit state machine for reliable state tracking
 	// This prevents race conditions from deferred cleanup
 	stateManager *TaskStateManager
+
+	// shuttingDown is set to true the instant graceful shutdown
+	// begins, so any new task_assignment messages arriving on the WS
+	// after this point are refused. Without this gate, the backend's
+	// scheduler-v2 cycle (3s tick) can race the shutdown sequence and
+	// push a new task into the window between "we told the backend we're
+	// going down" and "our WS actually closed." The agent would happily
+	// start hashcat on the new task and then leave it orphaned.
+	shuttingDown atomic.Bool
 }
 
 // HardwareMonitor interface for device management
@@ -53,26 +63,26 @@ type HardwareMonitor interface {
 
 // JobExecution represents an active job execution
 type JobExecution struct {
-	Assignment      *JobTaskAssignment
-	Process         *HashcatProcess
-	StartTime       time.Time
-	LastProgress    *JobProgress
-	Status          string
+	Assignment   *JobTaskAssignment
+	Process      *HashcatProcess
+	StartTime    time.Time
+	LastProgress *JobProgress
+	Status       string
 }
 
 // BenchmarkResult stores benchmark results
 type BenchmarkResult struct {
-	HashType    int
-	AttackMode  int
-	Speed       int64
-	Timestamp   time.Time
+	HashType   int
+	AttackMode int
+	Speed      int64
+	Timestamp  time.Time
 }
 
 // CompletedTaskInfo stores all progress data needed for reconnection
 // Used to report completion status if agent reconnects after task finished
 type CompletedTaskInfo struct {
-	TaskID                 string
-	JobID                  string
+	TaskID string
+	JobID  string
 	// Progress fields - copy from LastProgress
 	KeyspaceProcessed      int64
 	EffectiveProgress      int64
@@ -82,14 +92,15 @@ type CompletedTaskInfo struct {
 	CrackedCount           int
 	AllHashesCracked       bool
 	// Status fields
-	Status                 string // "completed", "failed", or "running"
-	ErrorMessage           string
-	CompletedAt            time.Time
+	Status       string // "completed", "failed", or "running"
+	ErrorMessage string
+	CompletedAt  time.Time
 }
 
 // ExecutorInterface defines the methods needed by JobManager
 type ExecutorInterface interface {
 	SetOutputCallback(callback func(taskID string, output string, isError bool))
+	SetOrphanCallback(callback func(pid int, attemptedTaskID string, fromOurAgent bool))
 	SetDeviceFlagsCallback(callback func() string)
 	SetAgentExtraParams(params string)
 	ExecuteTask(ctx context.Context, assignment *JobTaskAssignment) (*HashcatProcess, error)
@@ -97,7 +108,7 @@ type ExecutorInterface interface {
 	GetTaskProgress(taskID string) (*JobProgress, error)
 	GetActiveTaskIDs() []string
 	ForceCleanup() error
-	RunSpeedTest(ctx context.Context, assignment *JobTaskAssignment, testDuration int) (int64, []DeviceSpeed, int64, error)
+	RunSpeedTest(ctx context.Context, assignment *JobTaskAssignment, testDuration int, minStatusUpdates int) (int64, []DeviceSpeed, int64, int64, error)
 	// Outfile acknowledgment protocol methods
 	RetransmitOutfile(taskID string) ([]CrackedHash, error)
 	DeleteOutfile(taskID string) error
@@ -161,6 +172,13 @@ func (jm *JobManager) SetOutputCallback(callback func(taskID string, output stri
 	jm.outputCallback = callback
 	// Pass it through to the executor
 	jm.executor.SetOutputCallback(callback)
+}
+
+// SetOrphanCallback sets the callback fired when an orphaned hashcat PID is
+// detected and reconciled by the executor. The callback is expected to send
+// an audit notification to the backend.
+func (jm *JobManager) SetOrphanCallback(callback func(pid int, attemptedTaskID string, fromOurAgent bool)) {
+	jm.executor.SetOrphanCallback(callback)
 }
 
 // GetCurrentTaskStatus returns information about the currently running or completed task
@@ -294,8 +312,31 @@ func (jm *JobManager) SetAckWaitCallback(callback func(taskID string, resendFunc
 	jm.ackWaitCallback = callback
 }
 
+// BeginShutdown flips the shutting-down flag so any subsequent
+// ProcessJobAssignment calls refuse the assignment. Idempotent.
+// Called from main.go's shutdown sequence BEFORE the WS notification
+// fires, so we don't accept work we have no intention of running.
+func (jm *JobManager) BeginShutdown() {
+	jm.shuttingDown.Store(true)
+}
+
+// minTaskFreeDiskBytes is the headroom the agent requires on its data volume
+// before accepting a task. Hashcat streams cracks to stdout (potfile disabled),
+// but session/restore/temp files and any just-in-time file sync still need
+// room; refusing below this avoids a mid-run "no space left on device".
+const minTaskFreeDiskBytes = 512 * 1024 * 1024 // 512 MiB
+
 // ProcessJobAssignment processes a job assignment from the backend
 func (jm *JobManager) ProcessJobAssignment(ctx context.Context, assignmentData []byte) error {
+	// Refuse new work once shutdown has begun. The caller in
+	// connection.readPump translates this error into a
+	// task_assignment_rejected WS frame so the backend can re-dispatch
+	// the chunk to a different agent instead of waiting for the heartbeat
+	// timeout to kick in.
+	if jm.shuttingDown.Load() {
+		return fmt.Errorf("agent is shutting down — refusing task assignment")
+	}
+
 	// DEBUG: Log raw JSON received
 	debug.Info("Received task assignment JSON: %s", string(assignmentData))
 
@@ -335,12 +376,10 @@ func (jm *JobManager) ProcessJobAssignment(ctx context.Context, assignmentData [
 	if err != nil {
 		return fmt.Errorf("failed to ensure hashlist: %w", err)
 	}
-	
-	// Ensure rule chunks are available if this job uses rule chunks
-	err = jm.ensureRuleChunks(ctx, &assignment)
-	if err != nil {
-		return fmt.Errorf("failed to ensure rule chunks: %w", err)
-	}
+
+	// Rule chunks are gone in the scheduler rewrite — rules are stacked
+	// (multiple -r flags) but never split. Whole rule files arrive via
+	// the regular rule sync path; nothing to pre-flight here.
 
 	// Ensure association files are available if this is an association attack (mode 9)
 	err = jm.ensureAssociationFiles(ctx, &assignment)
@@ -348,11 +387,48 @@ func (jm *JobManager) ProcessJobAssignment(ctx context.Context, assignmentData [
 		return fmt.Errorf("failed to ensure association files: %w", err)
 	}
 
+	// Ensure regular wordlists are available locally. Wordlists normally arrive
+	// via the periodic inventory sync, but freshly-created lists (e.g. ephemeral
+	// filtered wordlists generated moments before dispatch) race that sync, so we
+	// download any missing ones on demand here (GH #40).
+	err = jm.ensureWordlists(ctx, &assignment)
+	if err != nil {
+		return fmt.Errorf("failed to ensure wordlists: %w", err)
+	}
+
+	// Ensure client potfile is available if specified
+	err = jm.ensureClientPotfile(ctx, &assignment)
+	if err != nil {
+		return fmt.Errorf("failed to ensure client potfile: %w", err)
+	}
+
+	// Ensure client wordlists are available if specified
+	err = jm.ensureClientWordlists(ctx, &assignment)
+	if err != nil {
+		return fmt.Errorf("failed to ensure client wordlists: %w", err)
+	}
+
+	// Ensure charset files are available if job uses file-based charsets
+	err = jm.ensureCharsetFiles(ctx, &assignment)
+	if err != nil {
+		return fmt.Errorf("failed to ensure charset files: %w", err)
+	}
+
 	// Run benchmark if needed
 	err = jm.ensureBenchmark(ctx, &assignment)
 	if err != nil {
 		console.Warning("Benchmark failed for task %s: %v", assignment.TaskID, err)
 		// Continue without benchmark - use estimated values
+	}
+
+	// Disk pre-flight: refuse the task if the data volume is critically low,
+	// failing fast with a typed AGENT_DISK_FULL (the backend treats it as
+	// transient → retry/cooldown, and the connection layer reports it as the
+	// task failure) instead of letting hashcat crash mid-run and strand a
+	// partial chunk. Skipped on platforms where free space can't be read.
+	if free, ok := availableDiskBytes(jm.config.DataDirectory); ok && free < minTaskFreeDiskBytes {
+		return fmt.Errorf("AGENT_DISK_FULL: only %d MB free on the agent data volume %q (need >= %d MB) — refusing task to avoid a mid-run failure",
+			free/(1<<20), jm.config.DataDirectory, minTaskFreeDiskBytes/(1<<20))
 	}
 
 	// Start job execution
@@ -363,10 +439,10 @@ func (jm *JobManager) ProcessJobAssignment(ctx context.Context, assignmentData [
 
 	// Create job execution record
 	jobExecution := &JobExecution{
-		Assignment:   &assignment,
-		Process:      process,
-		StartTime:    time.Now(),
-		Status:       "running",
+		Assignment: &assignment,
+		Process:    process,
+		StartTime:  time.Now(),
+		Status:     "running",
 	}
 
 	jm.mutex.Lock()
@@ -400,7 +476,7 @@ func (jm *JobManager) ensureHashlist(ctx context.Context, assignment *JobTaskAss
 	debug.Info("Expected local path: %s", localPath)
 
 	// Create directory if needed
-	if err := os.MkdirAll(filepath.Dir(localPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(localPath), 0700); err != nil {
 		return fmt.Errorf("failed to create hashlist directory: %w", err)
 	}
 
@@ -443,103 +519,82 @@ func (jm *JobManager) ensureHashlist(ctx context.Context, assignment *JobTaskAss
 	return nil
 }
 
-// ensureRuleChunks downloads rule chunk files if the job uses rule splitting
-func (jm *JobManager) ensureRuleChunks(ctx context.Context, assignment *JobTaskAssignment) error {
+// ephemeralWordlistPrefix marks job-scoped (ephemeral) filtered wordlists so the
+// agent can delete them once its task for the job finishes (GH #40).
+const ephemeralWordlistPrefix = "__eph__"
+
+// isEphemeralWordlistPath reports whether a wordlist path is an ephemeral
+// (job-scoped) filtered wordlist that should be removed after the task.
+func isEphemeralWordlistPath(wordlistPath string) bool {
+	return strings.HasPrefix(filepath.Base(wordlistPath), ephemeralWordlistPrefix)
+}
+
+// ensureWordlists downloads any regular wordlists referenced by the task that are
+// not already present locally. Big shared wordlists synced via the inventory are
+// left untouched; only missing files (e.g. just-created ephemeral filtered lists)
+// are fetched. Association wordlists (mode 9) are handled by ensureAssociationFiles.
+func (jm *JobManager) ensureWordlists(ctx context.Context, assignment *JobTaskAssignment) error {
+	if assignment.AttackMode == int(AttackModeAssociation) {
+		return nil
+	}
+	if len(assignment.WordlistPaths) == 0 {
+		return nil
+	}
 	if jm.fileSync == nil {
-		debug.Warning("File sync not initialized, skipping rule chunk download")
-		return nil
+		debug.Error("File sync is not initialized in job manager")
+		return fmt.Errorf("file sync not initialized")
 	}
-	
-	// Check if this job has rule chunks (rule paths that contain "chunks/")
-	hasRuleChunks := false
-	for _, rulePath := range assignment.RulePaths {
-		if strings.Contains(rulePath, "rules/chunks/") {
-			hasRuleChunks = true
-			break
-		}
-	}
-	
-	if !hasRuleChunks {
-		// No rule chunks to download
-		return nil
-	}
-	
-	debug.Info("Job uses rule chunks, ensuring they are downloaded")
-	
-	// Process each rule chunk
-	for _, rulePath := range assignment.RulePaths {
-		if !strings.HasPrefix(rulePath, "rules/chunks/") {
-			continue // Skip non-chunk rules
-		}
-		
-		// Extract the chunk filename and job directory
-		// Format: rules/chunks/job_<ID>/chunk_<N>.rule
-		parts := strings.Split(rulePath, "/")
-		if len(parts) < 3 {
-			debug.Error("Invalid rule chunk path format: %s", rulePath)
-			continue
-		}
-		
-		var jobDir string
-		var chunkFile string
-		
-		// Check if path includes job directory
-		if len(parts) == 4 && strings.HasPrefix(parts[2], "job_") {
-			// Format: rules/chunks/job_<ID>/chunk_<N>.rule
-			jobDir = parts[2]
-			chunkFile = parts[3]
-		} else if len(parts) == 3 {
-			// Format: rules/chunks/chunk_<N>.rule (legacy)
-			chunkFile = parts[2]
-		}
-		
-		// Check if chunk already exists locally
-		localPath := filepath.Join(jm.config.DataDirectory, rulePath)
+
+	for _, wordlistPath := range assignment.WordlistPaths {
+		localPath := filepath.Join(jm.config.DataDirectory, wordlistPath)
+
+		// Skip if already present (don't re-download large shared wordlists).
 		if _, err := os.Stat(localPath); err == nil {
-			debug.Info("Rule chunk already exists locally: %s", localPath)
 			continue
 		}
-		
-		// Create directory structure if needed
-		localDir := filepath.Dir(localPath)
-		if err := os.MkdirAll(localDir, 0755); err != nil {
-			debug.Error("Failed to create rule chunk directory %s: %v", localDir, err)
-			return fmt.Errorf("failed to create rule chunk directory: %w", err)
+
+		// FileInfo.Name is the path relative to the wordlists directory (it keeps
+		// the category subdir, e.g. "custom/foo.txt"), which the download path and
+		// URL builder both handle for names containing a slash.
+		name := strings.TrimPrefix(wordlistPath, "wordlists/")
+		debug.Info("Wordlist missing locally, downloading on demand: %s", wordlistPath)
+
+		fileInfo := &filesync.FileInfo{
+			Name:     name,
+			FileType: "wordlist",
 		}
-		
-		// Prepare file info for download
-		// The backend serves chunks at /api/files/rule/chunks/<filename> or /api/files/rule/chunks/<jobDir>/<filename>
-		var fileInfo *filesync.FileInfo
-		if jobDir != "" {
-			fileInfo = &filesync.FileInfo{
-				Name:     fmt.Sprintf("%s/%s", jobDir, chunkFile),
-				FileType: "rule",
-				Category: "chunks",
-			}
-		} else {
-			fileInfo = &filesync.FileInfo{
-				Name:     chunkFile,
-				FileType: "rule",
-				Category: "chunks",
-			}
-		}
-		
-		debug.Info("Downloading rule chunk: %s", fileInfo.Name)
 		if err := jm.fileSync.DownloadFileFromInfo(ctx, fileInfo); err != nil {
-			debug.Error("Failed to download rule chunk %s: %v", fileInfo.Name, err)
-			return fmt.Errorf("failed to download rule chunk %s: %w", fileInfo.Name, err)
+			debug.Error("Failed to download wordlist %s: %v", wordlistPath, err)
+			return fmt.Errorf("failed to download wordlist %s: %w", wordlistPath, err)
 		}
-		
-		// Verify the file was created
-		if fileInfo, err := os.Stat(localPath); err == nil {
-			debug.Info("Successfully downloaded rule chunk: %s (size: %d bytes)", chunkFile, fileInfo.Size())
+
+		if info, err := os.Stat(localPath); err == nil {
+			debug.Info("Successfully downloaded wordlist: %s (size: %d bytes)", wordlistPath, info.Size())
 		} else {
-			debug.Error("Rule chunk file not found after download: %s", localPath)
-			return fmt.Errorf("rule chunk file not found after download")
+			debug.Error("Wordlist not found after download: %s", localPath)
+			return fmt.Errorf("wordlist not found after download: %s", localPath)
 		}
 	}
-	
+
 	return nil
+}
+
+// cleanupEphemeralWordlists removes job-scoped (ephemeral) filtered wordlists
+// after the agent's task completes so they don't linger locally (GH #40). The
+// backend deletes the server-side copy when the whole job finishes; if another
+// chunk of the same job arrives, ensureWordlists re-downloads it.
+func (jm *JobManager) cleanupEphemeralWordlists(assignment *JobTaskAssignment) {
+	for _, wordlistPath := range assignment.WordlistPaths {
+		if !isEphemeralWordlistPath(wordlistPath) {
+			continue
+		}
+		localPath := filepath.Join(jm.config.DataDirectory, wordlistPath)
+		if err := os.Remove(localPath); err != nil && !os.IsNotExist(err) {
+			debug.Warning("Failed to remove ephemeral wordlist %s: %v", localPath, err)
+		} else if err == nil {
+			debug.Info("Removed ephemeral wordlist: %s", localPath)
+		}
+	}
 }
 
 // ensureAssociationFiles downloads the association wordlist for mode 9 attacks
@@ -568,7 +623,7 @@ func (jm *JobManager) ensureAssociationFiles(ctx context.Context, assignment *Jo
 	debug.Info("Ensuring association wordlist is available: %s", assocWordlistPath)
 
 	// Create directory if needed
-	if err := os.MkdirAll(filepath.Dir(localPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(localPath), 0700); err != nil {
 		return fmt.Errorf("failed to create directory for association wordlist: %w", err)
 	}
 
@@ -632,6 +687,261 @@ func (jm *JobManager) cleanupAssociationFiles(assignment *JobTaskAssignment) {
 	}
 }
 
+// cleanupSensitiveFiles removes sensitive team data immediately after task completion.
+// This minimizes the exposure window of hashlists, client potfiles, and client wordlists
+// on agents that may serve multiple teams.
+func (jm *JobManager) cleanupSensitiveFiles(assignment *JobTaskAssignment) {
+	deleted := 0
+
+	// Remove hashlist file
+	if assignment.HashlistPath != "" {
+		localPath := filepath.Join(jm.config.DataDirectory, assignment.HashlistPath)
+		if err := os.Remove(localPath); err != nil && !os.IsNotExist(err) {
+			debug.Warning("Failed to remove hashlist file %s: %v", localPath, err)
+		} else if err == nil {
+			debug.Debug("Removed sensitive hashlist: %s", localPath)
+			deleted++
+		}
+	}
+
+	// Remove original hashlist (mode 9 association attacks)
+	if assignment.OriginalHashlistPath != "" {
+		localPath := filepath.Join(jm.config.DataDirectory, assignment.OriginalHashlistPath)
+		if err := os.Remove(localPath); err != nil && !os.IsNotExist(err) {
+			debug.Warning("Failed to remove original hashlist file %s: %v", localPath, err)
+		} else if err == nil {
+			debug.Debug("Removed sensitive original hashlist: %s", localPath)
+			deleted++
+		}
+	}
+
+	// Remove client potfile
+	if assignment.ClientPotfilePath != "" {
+		localPath := filepath.Join(jm.config.DataDirectory, assignment.ClientPotfilePath)
+		if err := os.Remove(localPath); err != nil && !os.IsNotExist(err) {
+			debug.Warning("Failed to remove client potfile %s: %v", localPath, err)
+		} else if err == nil {
+			debug.Debug("Removed sensitive client potfile: %s", localPath)
+			deleted++
+		}
+		// Try to remove empty client directory
+		clientDir := filepath.Dir(localPath)
+		os.Remove(clientDir) // Ignore error — only succeeds if empty
+	}
+
+	// Remove client wordlists
+	for _, wordlistPath := range assignment.ClientWordlistPaths {
+		localPath := filepath.Join(jm.config.DataDirectory, wordlistPath)
+		if err := os.Remove(localPath); err != nil && !os.IsNotExist(err) {
+			debug.Warning("Failed to remove client wordlist %s: %v", localPath, err)
+		} else if err == nil {
+			debug.Debug("Removed sensitive client wordlist: %s", localPath)
+			deleted++
+		}
+		// Try to remove empty client directory
+		clientDir := filepath.Dir(localPath)
+		os.Remove(clientDir) // Ignore error — only succeeds if empty
+	}
+
+	if deleted > 0 {
+		debug.Info("Post-task cleanup: removed %d sensitive files", deleted)
+	}
+}
+
+// ensureClientPotfile downloads the client potfile if specified
+// Client potfiles are wordlists of previously cracked passwords for dictionary attacks
+func (jm *JobManager) ensureClientPotfile(ctx context.Context, assignment *JobTaskAssignment) error {
+	// Skip if no client potfile path specified
+	if assignment.ClientPotfilePath == "" {
+		return nil
+	}
+
+	if jm.fileSync == nil {
+		debug.Error("File sync is not initialized in job manager")
+		return fmt.Errorf("file sync not initialized")
+	}
+
+	// Client potfile path format: wordlists/clients/{clientID}/potfile.txt
+	localPath := filepath.Join(jm.config.DataDirectory, assignment.ClientPotfilePath)
+
+	debug.Info("Ensuring client potfile is available: %s (client: %s)", assignment.ClientPotfilePath, assignment.ClientID)
+
+	// Create directory if needed
+	if err := os.MkdirAll(filepath.Dir(localPath), 0700); err != nil {
+		return fmt.Errorf("failed to create directory for client potfile: %w", err)
+	}
+
+	// Always re-download client potfile to ensure fresh copy
+	// Client potfiles can be updated between tasks
+	if _, err := os.Stat(localPath); err == nil {
+		debug.Info("Removing existing client potfile to download fresh copy: %s", localPath)
+		if err := os.Remove(localPath); err != nil {
+			debug.Warning("Failed to remove existing client potfile (will overwrite): %v", err)
+		}
+	}
+
+	debug.Info("Downloading client potfile for client: %s", assignment.ClientID)
+
+	// Create FileInfo for download
+	// Category contains the client UUID for URL routing
+	fileInfo := &filesync.FileInfo{
+		Name:     "potfile.txt",
+		FileType: "client_potfile",
+		Category: assignment.ClientID,
+	}
+
+	if err := jm.fileSync.DownloadFileFromInfo(ctx, fileInfo); err != nil {
+		debug.Error("Failed to download client potfile: %v", err)
+		return fmt.Errorf("failed to download client potfile: %w", err)
+	}
+
+	// Verify the file was created
+	if info, err := os.Stat(localPath); err == nil {
+		debug.Info("Successfully downloaded client potfile: %s (size: %d bytes)", localPath, info.Size())
+	} else {
+		debug.Error("Client potfile not found after download: %s", localPath)
+		return fmt.Errorf("client potfile not found after download")
+	}
+
+	return nil
+}
+
+// ensureClientWordlists downloads client-specific wordlists if specified
+// These are general-purpose wordlists uploaded for a specific client
+func (jm *JobManager) ensureClientWordlists(ctx context.Context, assignment *JobTaskAssignment) error {
+	// Skip if no client wordlists specified
+	if len(assignment.ClientWordlistPaths) == 0 {
+		return nil
+	}
+
+	if jm.fileSync == nil {
+		debug.Error("File sync is not initialized in job manager")
+		return fmt.Errorf("file sync not initialized")
+	}
+
+	debug.Info("Ensuring %d client wordlists are available", len(assignment.ClientWordlistPaths))
+
+	for i, wordlistPath := range assignment.ClientWordlistPaths {
+		localPath := filepath.Join(jm.config.DataDirectory, wordlistPath)
+
+		// Create directory if needed
+		if err := os.MkdirAll(filepath.Dir(localPath), 0700); err != nil {
+			return fmt.Errorf("failed to create directory for client wordlist: %w", err)
+		}
+
+		// Always re-download to ensure fresh copy (matching hashlist/potfile pattern)
+		if _, err := os.Stat(localPath); err == nil {
+			debug.Info("Removing existing client wordlist to download fresh copy: %s", localPath)
+			if err := os.Remove(localPath); err != nil {
+				debug.Warning("Failed to remove existing client wordlist (will overwrite): %v", err)
+			}
+		}
+
+		// Get the wordlist ID for this path
+		var wordlistID string
+		if i < len(assignment.ClientWordlistIDs) {
+			wordlistID = assignment.ClientWordlistIDs[i]
+		} else {
+			debug.Error("Missing wordlist ID for client wordlist path: %s", wordlistPath)
+			return fmt.Errorf("missing wordlist ID for client wordlist")
+		}
+
+		debug.Info("Downloading client wordlist: %s (ID: %s)", wordlistPath, wordlistID)
+
+		// Create FileInfo for download
+		// Category contains the wordlist UUID for URL routing
+		fileInfo := &filesync.FileInfo{
+			Name:     filepath.Base(wordlistPath),
+			FileType: "client_wordlist",
+			Category: wordlistID,
+		}
+
+		if err := jm.fileSync.DownloadFileFromInfo(ctx, fileInfo); err != nil {
+			debug.Error("Failed to download client wordlist: %v", err)
+			return fmt.Errorf("failed to download client wordlist: %w", err)
+		}
+
+		// The download function saves to wordlists/clients/{wordlistID}/{filename}
+		// but we need it at wordlists/clients/{clientID}/{filename} (from wordlistPath)
+		// Move the file to the correct location if paths differ
+		downloadedPath := filepath.Join(jm.config.DataDirectory, "wordlists", "clients", wordlistID, filepath.Base(wordlistPath))
+		if downloadedPath != localPath {
+			debug.Info("Moving client wordlist from %s to %s", downloadedPath, localPath)
+			if err := os.Rename(downloadedPath, localPath); err != nil {
+				debug.Error("Failed to move client wordlist: %v", err)
+				return fmt.Errorf("failed to move client wordlist to correct path: %w", err)
+			}
+		}
+
+		// Verify the file was created at the correct location
+		if info, err := os.Stat(localPath); err == nil {
+			debug.Info("Successfully downloaded client wordlist: %s (size: %d bytes)", wordlistPath, info.Size())
+		} else {
+			debug.Error("Client wordlist not found after download: %s", localPath)
+			return fmt.Errorf("client wordlist not found after download")
+		}
+	}
+
+	return nil
+}
+
+// ensureCharsetFiles ensures file-based charset files are available locally
+func (jm *JobManager) ensureCharsetFiles(ctx context.Context, assignment *JobTaskAssignment) error {
+	if len(assignment.CharsetFiles) == 0 {
+		return nil
+	}
+
+	if jm.fileSync == nil {
+		return fmt.Errorf("file sync not initialized")
+	}
+
+	dataDirs, err := config.GetDataDirs()
+	if err != nil {
+		return fmt.Errorf("failed to get data dirs: %w", err)
+	}
+
+	// Ensure charsets directory exists
+	if err := os.MkdirAll(dataDirs.Charsets, 0700); err != nil {
+		return fmt.Errorf("failed to create charsets directory: %w", err)
+	}
+
+	for slot, charsetFile := range assignment.CharsetFiles {
+		if charsetFile.Name == "" {
+			continue
+		}
+
+		localPath := filepath.Join(dataDirs.Charsets, charsetFile.Name)
+
+		// Check if file already exists with correct MD5
+		if info, statErr := os.Stat(localPath); statErr == nil && info.Size() > 0 {
+			if charsetFile.MD5Hash != "" {
+				if hash, hashErr := jm.fileSync.CalculateFileHash(localPath); hashErr == nil && hash == charsetFile.MD5Hash {
+					debug.Info("Charset file %s for slot %s already exists with correct MD5", charsetFile.Name, slot)
+					continue
+				}
+			} else {
+				debug.Info("Charset file %s for slot %s already exists", charsetFile.Name, slot)
+				continue
+			}
+		}
+
+		debug.Info("Downloading charset file %s for slot %s...", charsetFile.Name, slot)
+		fileInfo := &filesync.FileInfo{
+			Name:     charsetFile.Name,
+			FileType: "charset",
+			MD5Hash:  charsetFile.MD5Hash,
+		}
+
+		if err := jm.fileSync.DownloadFileFromInfo(ctx, fileInfo); err != nil {
+			return fmt.Errorf("failed to download charset file %s for slot %s: %w", charsetFile.Name, slot, err)
+		}
+
+		debug.Info("Successfully downloaded charset file %s for slot %s", charsetFile.Name, slot)
+	}
+
+	return nil
+}
+
 // ensureBenchmark runs a benchmark if needed for the job
 func (jm *JobManager) ensureBenchmark(ctx context.Context, assignment *JobTaskAssignment) error {
 	// We no longer run benchmarks here - the backend will request speed tests
@@ -675,6 +985,12 @@ func (jm *JobManager) cleanupCompletedTask(jobExecution *JobExecution, finalStat
 
 		// Clean up association attack files after task completion
 		jm.cleanupAssociationFiles(exec.Assignment)
+
+		// Clean up sensitive files immediately after task completion
+		jm.cleanupSensitiveFiles(exec.Assignment)
+
+		// Clean up ephemeral (job-scoped) filtered wordlists after task completion
+		jm.cleanupEphemeralWordlists(exec.Assignment)
 	}
 
 	// Remove from activeJobs - this MUST happen synchronously before logging
@@ -739,6 +1055,7 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 						Status:            "running",
 						KeyspaceProcessed: effectiveProgress,
 						TotalKeyspace:     totalEffective,
+						CrackedCount:      progress.CrackedCount,
 					}
 					if progress.TimeRemaining != nil {
 						taskProgress.TimeRemaining = *progress.TimeRemaining
@@ -756,12 +1073,12 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 					retryCount++
 					debug.Info("Task %s failed with 'already running' error, attempting retry %d/%d",
 						progress.TaskID, retryCount, MaxHashcatRetries)
-					
+
 					// Remove from active jobs
 					jm.mutex.Lock()
 					delete(jm.activeJobs, jobExecution.Assignment.TaskID)
 					jm.mutex.Unlock()
-					
+
 					// Wait before retry
 					select {
 					case <-ctx.Done():
@@ -792,19 +1109,19 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 						debug.Info("State transition: running -> failed (task: %s, retry failed)", jobExecution.Assignment.TaskID)
 						return
 					}
-					
+
 					// Update the job execution with new process
 					jobExecution.Process = newProcess
-					
+
 					// Re-add to active jobs
 					jm.mutex.Lock()
 					jm.activeJobs[jobExecution.Assignment.TaskID] = jobExecution
 					jm.mutex.Unlock()
-					
+
 					// Continue monitoring the new process
 					continue
 				}
-				
+
 				// Send to backend via dual callbacks (new approach)
 				jm.mutex.RLock()
 				hasStatusCallback := jm.statusCallback != nil
@@ -849,11 +1166,6 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 					jm.progressCallback(progress)
 				}
 
-				// Log any cracked hashes with console output
-				if progress.CrackedCount > 0 {
-					console.Info("Found %d cracked hashes", progress.CrackedCount)
-				}
-
 				// If this was a final status (completed or failed), drain remaining messages then exit
 				if progress.Status == "completed" || progress.Status == "failed" {
 					// Drain any remaining crack batches from the channel before exiting
@@ -886,8 +1198,6 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 									}
 									jm.crackCallback(batch)
 								}
-
-								console.Info("Found %d cracked hashes", remaining.CrackedCount)
 							}
 						case <-time.After(30 * time.Second):
 							// No more messages after 30s, safe to exit
@@ -1043,7 +1353,7 @@ func (jm *JobManager) GetActiveJobs() map[string]*JobExecution {
 // ForceCleanup forces cleanup of all active jobs and hashcat processes
 func (jm *JobManager) ForceCleanup() error {
 	console.Status("Forcing cleanup of all active jobs")
-	
+
 	// Stop all active jobs
 	jm.mutex.Lock()
 	for taskID := range jm.activeJobs {
@@ -1052,7 +1362,7 @@ func (jm *JobManager) ForceCleanup() error {
 	// Clear the active jobs map
 	jm.activeJobs = make(map[string]*JobExecution)
 	jm.mutex.Unlock()
-	
+
 	// Force cleanup in the executor
 	return jm.executor.ForceCleanup()
 }

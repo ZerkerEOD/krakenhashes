@@ -29,7 +29,7 @@ import {
   updatePresetJob 
 } from '../../services/api';
 import { getMaxPriorityForUsers } from '../../services/systemSettings';
-import { getJobExecutionSettings } from '../../services/jobSettings';
+import { getJobDefaultsForUsers } from '../../services/jobSettings';
 import {
   PresetJob,
   PresetJobInput,
@@ -40,6 +40,9 @@ import {
   RuleBasic
 } from '../../types/adminJobs';
 import BinaryVersionSelector from '../../components/common/BinaryVersionSelector';
+import CharsetInputs from '../../components/common/CharsetInputs';
+import { CustomCharset } from '../../types/customCharsets';
+import { listGlobalCharsets } from '../../services/customCharsetService';
 
 const ITEM_HEIGHT = 48;
 const ITEM_PADDING_TOP = 8;
@@ -66,7 +69,11 @@ const getInitialFormState = (defaultChunkDuration: number = 300): PresetJobFormD
   max_agents: 0,
   increment_mode: 'off',
   increment_min: undefined as number | undefined,
-  increment_max: undefined as number | undefined
+  increment_max: undefined as number | undefined,
+  custom_charsets: null as Record<string, string> | null,
+  custom_charset_file_ids: null as Record<string, string> | null,
+  hex_charset: false,
+  additional_args: ''
 });
 
 // Attack mode descriptions and requirements
@@ -135,6 +142,7 @@ const PresetJobFormPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [maxPriority, setMaxPriority] = useState<number>(1000);
+  const [savedCharsets, setSavedCharsets] = useState<CustomCharset[]>([]);
 
   // Get current attack mode info
   const currentModeInfo = attackModeInfo[formData.attack_mode];
@@ -151,18 +159,21 @@ const PresetJobFormPage: React.FC = () => {
         setError(null);
         
         // Fetch form options (wordlists, rules, binary versions), max priority, and job execution settings
-        const [formDataResponse, maxPriorityResponse, jobExecutionSettings] = await Promise.all([
+        const [formDataResponse, maxPriorityResponse, jobDefaults, globalCharsets] = await Promise.all([
           getPresetJobFormData(),
           getMaxPriorityForUsers(),
-          getJobExecutionSettings().catch(() => null) // Gracefully handle if settings fetch fails
+          getJobDefaultsForUsers().catch(() => null), // Gracefully handle if settings fetch fails
+          listGlobalCharsets().catch(() => [])
         ]);
+
+        setSavedCharsets(globalCharsets);
         
         setMaxPriority(maxPriorityResponse.max_priority);
         
         // Set default chunk duration from system settings
         let systemDefaultChunkDuration = 1200; // fallback to 20 minutes
-        if (jobExecutionSettings?.default_chunk_duration) {
-          systemDefaultChunkDuration = jobExecutionSettings.default_chunk_duration;
+        if (jobDefaults?.default_chunk_duration) {
+          systemDefaultChunkDuration = jobDefaults.default_chunk_duration;
         }
         setDefaultChunkDuration(systemDefaultChunkDuration);
 
@@ -193,7 +204,13 @@ const PresetJobFormPage: React.FC = () => {
               max_agents: presetJob.max_agents || 0,
               increment_mode: presetJob.increment_mode || 'off',
               increment_min: presetJob.increment_min ?? undefined,
-              increment_max: presetJob.increment_max ?? undefined
+              increment_max: presetJob.increment_max ?? undefined,
+              custom_charsets: presetJob.custom_charsets || null,
+              custom_charset_file_ids: presetJob.custom_charset_files
+                ? Object.fromEntries(Object.entries(presetJob.custom_charset_files).map(([slot, ref]) => [slot, ref.id]))
+                : null,
+              hex_charset: presetJob.hex_charset || false,
+              additional_args: presetJob.additional_args || ''
             });
 
             // Initialize combination wordlists if in combination mode
@@ -506,7 +523,11 @@ const PresetJobFormPage: React.FC = () => {
       }
     } catch (err) {
       console.error('Error submitting form:', err);
-      setError(t('presetJobs.form.errors.saveFailed') as string);
+      setError(
+        (err as any).response?.data?.error ||
+        (typeof (err as any).response?.data === 'string' ? (err as any).response.data : null) ||
+        t('presetJobs.form.errors.saveFailed') as string
+      );
     } finally {
       setSubmitting(false);
     }
@@ -665,6 +686,25 @@ const PresetJobFormPage: React.FC = () => {
                   </Tooltip>
                 </span>
               }
+            />
+          </Grid>
+        )}
+
+        {/* Custom Charsets - only show for mask-based attack modes */}
+        {showMaskInput && (
+          <Grid item xs={12}>
+            <CharsetInputs
+              customCharsets={formData.custom_charsets || {}}
+              charsetFileIds={formData.custom_charset_file_ids || {}}
+              onChange={(charsets, fileIds) => setFormData(prev => ({
+                ...prev,
+                custom_charsets: Object.keys(charsets).length > 0 ? charsets : null,
+                custom_charset_file_ids: fileIds && Object.keys(fileIds).length > 0 ? fileIds : null
+              }))}
+              mask={formData.mask || ''}
+              savedCharsets={savedCharsets}
+              hexCharset={formData.hex_charset}
+              onHexCharsetChange={(hex) => setFormData(prev => ({ ...prev, hex_charset: hex }))}
             />
           </Grid>
         )}
@@ -835,6 +875,13 @@ const PresetJobFormPage: React.FC = () => {
                 }
               </FormHelperText>
             </FormControl>
+            {!isWordlistsDisabled && (
+              <Alert severity="info" sx={{ mt: 1 }}>
+                To use a pre-filtered wordlist in a preset job, create it first in Wordlist
+                Management — it will then appear in this list. Inline ephemeral filtering is
+                available only on one-off custom jobs.
+              </Alert>
+            )}
           </Grid>
         )}
 
@@ -920,6 +967,20 @@ const PresetJobFormPage: React.FC = () => {
           <FormHelperText>
             {t('presetJobs.form.helperText.allowHighPriorityOverride') as string}
           </FormHelperText>
+        </Grid>
+
+        {/* Additional Hashcat Arguments */}
+        <Grid item xs={12}>
+          <TextField
+            name="additional_args"
+            label={t('presetJobs.form.fields.additionalArgs', 'Additional Hashcat Arguments')}
+            value={formData.additional_args || ''}
+            onChange={handleChange}
+            fullWidth
+            margin="normal"
+            placeholder="e.g., -w 4 -O --force"
+            helperText={t('presetJobs.form.helperText.additionalArgs', 'Extra hashcat flags for this job. Agent-level flags take priority on conflicts.')}
+          />
         </Grid>
 
         {/* Submit Button */}

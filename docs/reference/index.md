@@ -48,6 +48,12 @@ Quick reference guides and technical specifications for KrakenHashes.
 
     System architecture and implementation details
 
+-   :material-calendar-clock:{ .lg .middle } **[Scheduler v2 Overview](architecture/scheduler-v2-overview.md)**
+
+    ---
+
+    How jobs are scheduled, allocated, and dispatched (and what changed from v1)
+
 </div>
 
 ## Quick Links

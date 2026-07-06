@@ -13,12 +13,14 @@ import (
 // JobSettingsHandler handles job execution settings for admin
 type JobSettingsHandler struct {
 	systemSettingsRepo *repository.SystemSettingsRepository
+	clientSettingsRepo *repository.ClientSettingsRepository
 }
 
 // NewJobSettingsHandler creates a new job settings handler
-func NewJobSettingsHandler(systemSettingsRepo *repository.SystemSettingsRepository) *JobSettingsHandler {
+func NewJobSettingsHandler(systemSettingsRepo *repository.SystemSettingsRepository, clientSettingsRepo *repository.ClientSettingsRepository) *JobSettingsHandler {
 	return &JobSettingsHandler{
 		systemSettingsRepo: systemSettingsRepo,
+		clientSettingsRepo: clientSettingsRepo,
 	}
 }
 
@@ -43,8 +45,18 @@ type JobExecutionSettings struct {
 	RuleSplitMinRules  int     `json:"rule_split_min_rules"`
 	RuleSplitMaxChunks int     `json:"rule_split_max_chunks"`
 	RuleChunkTempDir   string  `json:"rule_chunk_temp_dir"`
+	// Keyspace calculation settings
+	KeyspaceCalculationTimeoutMinutes int `json:"keyspace_calculation_timeout_minutes"`
 	// Potfile settings
 	PotfileEnabled bool `json:"potfile_enabled"`
+	// Client potfile settings
+	ClientPotfilesEnabled                          bool `json:"client_potfiles_enabled"`
+	RemoveFromGlobalPotfileOnHashlistDeleteDefault bool `json:"remove_from_global_potfile_on_hashlist_delete_default"`
+	RemoveFromClientPotfileOnHashlistDeleteDefault bool `json:"remove_from_client_potfile_on_hashlist_delete_default"`
+	// Benchmark history settings
+	BenchmarkHistoryRetentionDays int `json:"benchmark_history_retention_days"`
+	// Analytics settings
+	AnalyticsDefaultDateRangeMonths int `json:"analytics_default_date_range_months"`
 }
 
 // GetJobExecutionSettings returns all job execution settings
@@ -73,8 +85,18 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 		"rule_split_min_rules",
 		"rule_split_max_chunks",
 		"rule_chunk_temp_dir",
+		// Keyspace calculation settings
+		"keyspace_calculation_timeout_minutes",
 		// Potfile settings
 		"potfile_enabled",
+		// Client potfile settings
+		"client_potfiles_enabled",
+		"remove_from_global_potfile_on_hashlist_delete_default",
+		"remove_from_client_potfile_on_hashlist_delete_default",
+		// Benchmark history settings
+		"benchmark_history_retention_days",
+		// Analytics settings
+		"analytics_default_date_range_months",
 	}
 
 	settings := JobExecutionSettings{
@@ -98,8 +120,18 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 		RuleSplitMinRules:  100,
 		RuleSplitMaxChunks: 1000,
 		RuleChunkTempDir:   "/data/krakenhashes/temp/rule_chunks",
+		// Keyspace calculation defaults
+		KeyspaceCalculationTimeoutMinutes: 4, // 4 minutes
 		// Potfile defaults
 		PotfileEnabled: true,
+		// Client potfile defaults
+		ClientPotfilesEnabled:                          true,
+		RemoveFromGlobalPotfileOnHashlistDeleteDefault: false,
+		RemoveFromClientPotfileOnHashlistDeleteDefault: false,
+		// Benchmark history defaults
+		BenchmarkHistoryRetentionDays: 365,
+		// Analytics defaults
+		AnalyticsDefaultDateRangeMonths: 12,
 	}
 
 	// Retrieve each setting
@@ -180,13 +212,80 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 				}
 			case "rule_chunk_temp_dir":
 				settings.RuleChunkTempDir = *setting.Value
+			case "keyspace_calculation_timeout_minutes":
+				if val, err := strconv.Atoi(*setting.Value); err == nil {
+					settings.KeyspaceCalculationTimeoutMinutes = val
+				}
 			case "potfile_enabled":
 				settings.PotfileEnabled = *setting.Value == "true"
+			case "client_potfiles_enabled":
+				settings.ClientPotfilesEnabled = *setting.Value == "true"
+			case "remove_from_global_potfile_on_hashlist_delete_default":
+				settings.RemoveFromGlobalPotfileOnHashlistDeleteDefault = *setting.Value == "true"
+			case "remove_from_client_potfile_on_hashlist_delete_default":
+				settings.RemoveFromClientPotfileOnHashlistDeleteDefault = *setting.Value == "true"
+			case "benchmark_history_retention_days":
+				if val, err := strconv.Atoi(*setting.Value); err == nil {
+					settings.BenchmarkHistoryRetentionDays = val
+				}
+			case "analytics_default_date_range_months":
+				if val, err := strconv.Atoi(*setting.Value); err == nil {
+					settings.AnalyticsDefaultDateRangeMonths = val
+				}
 			}
 		}
 	}
 
 	httputil.RespondWithJSON(w, http.StatusOK, settings)
+}
+
+// UserJobDefaults represents the subset of job execution settings
+// that non-admin authenticated users need for job creation forms.
+type UserJobDefaults struct {
+	DefaultChunkDuration            int  `json:"default_chunk_duration"`
+	PotfileEnabled                  bool `json:"potfile_enabled"`
+	DefaultDataRetentionMonths      *int `json:"default_data_retention_months"`
+	AnalyticsDefaultDateRangeMonths int  `json:"analytics_default_date_range_months"`
+}
+
+// GetJobDefaultsForUsers returns user-relevant job defaults (non-admin, read-only).
+func (h *JobSettingsHandler) GetJobDefaultsForUsers(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	debug.Log("Getting job defaults for users", nil)
+
+	defaults := UserJobDefaults{
+		DefaultChunkDuration:            1200, // fallback: 20 minutes
+		PotfileEnabled:                  true, // fallback: enabled
+		AnalyticsDefaultDateRangeMonths: 12,   // fallback: 12 months
+	}
+
+	if setting, err := h.systemSettingsRepo.GetSetting(ctx, "default_chunk_duration"); err == nil && setting.Value != nil {
+		if val, parseErr := strconv.Atoi(*setting.Value); parseErr == nil {
+			defaults.DefaultChunkDuration = val
+		}
+	}
+
+	if setting, err := h.systemSettingsRepo.GetSetting(ctx, "potfile_enabled"); err == nil && setting.Value != nil {
+		defaults.PotfileEnabled = *setting.Value == "true"
+	}
+
+	// Fetch default data retention from client_settings
+	if h.clientSettingsRepo != nil {
+		if setting, err := h.clientSettingsRepo.GetSetting(ctx, "default_data_retention_months"); err == nil && setting.Value != nil {
+			if val, parseErr := strconv.Atoi(*setting.Value); parseErr == nil {
+				defaults.DefaultDataRetentionMonths = &val
+			}
+		}
+	}
+
+	// Fetch analytics default date range
+	if setting, err := h.systemSettingsRepo.GetSetting(ctx, "analytics_default_date_range_months"); err == nil && setting.Value != nil {
+		if val, parseErr := strconv.Atoi(*setting.Value); parseErr == nil {
+			defaults.AnalyticsDefaultDateRangeMonths = val
+		}
+	}
+
+	httputil.RespondWithJSON(w, http.StatusOK, defaults)
 }
 
 // UpdateJobExecutionSettings updates job execution settings
@@ -221,16 +320,40 @@ func (h *JobSettingsHandler) UpdateJobExecutionSettings(w http.ResponseWriter, r
 		"rule_split_min_rules":  strconv.Itoa(settings.RuleSplitMinRules),
 		"rule_split_max_chunks": strconv.Itoa(settings.RuleSplitMaxChunks),
 		"rule_chunk_temp_dir":   settings.RuleChunkTempDir,
+		// Keyspace calculation settings
+		"keyspace_calculation_timeout_minutes": strconv.Itoa(settings.KeyspaceCalculationTimeoutMinutes),
 		// Potfile settings
 		"potfile_enabled": strconv.FormatBool(settings.PotfileEnabled),
+		// Client potfile settings
+		"client_potfiles_enabled":                              strconv.FormatBool(settings.ClientPotfilesEnabled),
+		"remove_from_global_potfile_on_hashlist_delete_default": strconv.FormatBool(settings.RemoveFromGlobalPotfileOnHashlistDeleteDefault),
+		"remove_from_client_potfile_on_hashlist_delete_default": strconv.FormatBool(settings.RemoveFromClientPotfileOnHashlistDeleteDefault),
+		// Benchmark history settings
+		"benchmark_history_retention_days": strconv.Itoa(settings.BenchmarkHistoryRetentionDays),
+		// Analytics settings
+		"analytics_default_date_range_months": strconv.Itoa(settings.AnalyticsDefaultDateRangeMonths),
 	}
+
+	var failedKeys []string
+	failedErrors := make(map[string]string)
 
 	for key, value := range updates {
 		if err := h.systemSettingsRepo.SetSetting(ctx, key, &value); err != nil {
 			debug.Error("Failed to update setting %s: %v", key, err)
-			httputil.RespondWithError(w, http.StatusInternalServerError, "Failed to update settings")
-			return
+			failedKeys = append(failedKeys, key)
+			failedErrors[key] = err.Error()
 		}
+	}
+
+	if len(failedKeys) > 0 {
+		debug.Warning("Partial settings update: %d of %d settings failed", len(failedKeys), len(updates))
+		httputil.RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"success":     false,
+			"message":     "Some settings failed to update",
+			"failed_keys": failedKeys,
+			"errors":      failedErrors,
+		})
+		return
 	}
 
 	httputil.RespondWithJSON(w, http.StatusOK, map[string]interface{}{

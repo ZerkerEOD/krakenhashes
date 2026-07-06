@@ -39,6 +39,7 @@ import {
   Chip,
   Card,
   CardContent,
+  LinearProgress,
 } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
@@ -48,6 +49,8 @@ import {
 } from '@mui/icons-material';
 import { api } from '../services/api';
 import { formatDistanceToNow } from 'date-fns';
+import { useAuth } from '../contexts/AuthContext';
+import { useTeamFilter } from '../contexts/TeamFilterContext';
 import DeviceMetricsChart from '../components/agent/DeviceMetricsChart';
 import BinaryVersionSelector from '../components/common/BinaryVersionSelector';
 import AgentScheduling from '../components/agent/AgentScheduling';
@@ -59,6 +62,7 @@ import {
 } from '../services/api';
 import { AgentSchedule, AgentScheduleDTO } from '../types/scheduling';
 import { AgentDevice } from '../types/agent';
+import { formatAgentVersion } from '../utils/agentVersion';
 import { AgentDebugStatus } from '../types/diagnostics';
 import { getAgentDebugStatus, toggleAgentDebug } from '../services/diagnostics';
 
@@ -91,6 +95,12 @@ interface Agent {
   isEnabled?: boolean;
   /** Binary version pattern (e.g., "default", "7.x", "7.1.x", "7.1.2") */
   binaryVersion?: string;
+  /** Auto-update: version-stale but busy; updates when it goes idle */
+  updatePending?: boolean;
+  /** Auto-update: the version this agent is being updated to */
+  targetVersion?: string;
+  /** Auto-update: last update failure message */
+  updateError?: string;
 }
 
 interface User {
@@ -99,6 +109,63 @@ interface User {
   email: string;
   role: string;
 }
+
+interface DiagnosticReason {
+  id: number;
+  reason_code: string;
+  severity: string;
+  detail: string;
+  count: number;
+  first_seen: string;
+  last_seen: string;
+}
+
+interface AgentActivity {
+  currentTask?: {
+    id: string;
+    job_execution_id: string;
+    status: string;
+    keyspace_start?: number;
+    keyspace_end?: number;
+    keyspace_processed?: number;
+    progress_percent?: number;
+    assigned_at?: string;
+    started_at?: string;
+    last_checkpoint?: string;
+  };
+  jobExecution?: {
+    id: string;
+    name: string;
+    status: string;
+    overall_progress_percent?: number;
+    hash_type?: number;
+    priority?: number;
+  };
+  diagnostics: DiagnosticReason[];
+  recentFailures?: Array<{
+    id: string;
+    job_execution_id: string;
+    status: string;
+    error_message?: string;
+    completed_at?: string;
+  }>;
+}
+
+// Formats an optional 0-100 percentage for display, or an em dash when absent.
+const formatPct = (v?: number): string => (v != null ? `${v.toFixed(2)}%` : '—');
+
+// Maps a diagnostic reason_code to a human-readable label for the agent page.
+const DIAG_REASON_LABELS: Record<string, string> = {
+  no_compatible_job: 'No compatible job',
+  blocklisted: 'Benchmark blocklisted',
+  benchmarking: 'Running a benchmark',
+  outside_schedule: 'Outside scheduled hours',
+  agent_disabled: 'Agent disabled',
+  shutting_down: 'Shutting down',
+  rejection_cooldown: 'Task-rejection cooldown',
+  no_schedulable_work: 'No jobs have work to dispatch',
+  at_capacity: 'Compatible jobs at capacity',
+};
 
 interface DeviceData {
   deviceId: number;
@@ -115,6 +182,9 @@ const AgentDetails: React.FC = () => {
   const { t } = useTranslation('agents');
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { userRole } = useAuth();
+  const { teamsEnabled } = useTeamFilter();
+  const canChangeOwner = !teamsEnabled || userRole === 'admin';
   const [agent, setAgent] = useState<Agent | null>(null);
   const [devices, setDevices] = useState<AgentDevice[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -150,9 +220,23 @@ const AgentDetails: React.FC = () => {
   const [debugStatus, setDebugStatus] = useState<AgentDebugStatus | null>(null);
   const [debugLoading, setDebugLoading] = useState(false);
 
+  // Runtime activity: current task/job + "why idle" diagnostics.
+  const [activity, setActivity] = useState<AgentActivity | null>(null);
+
   useEffect(() => {
     fetchAgentDetails();
-    fetchUsers();
+    if (canChangeOwner) {
+      fetchUsers();
+    }
+  }, [id, canChangeOwner]);
+
+  // Poll the agent's runtime activity (current work + idle reasons).
+  useEffect(() => {
+    if (!id) return;
+    fetchActivity();
+    const interval = setInterval(fetchActivity, 10000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
   
   // Fetch device metrics periodically
@@ -181,6 +265,16 @@ const AgentDetails: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent, devices, timeRange]);
+
+  const fetchActivity = async () => {
+    try {
+      const res = await api.get(`/api/agents/${id}/activity`);
+      setActivity(res.data);
+    } catch (err) {
+      // Non-fatal: the activity card just won't render. Don't disrupt the page.
+      console.error('Failed to fetch agent activity:', err);
+    }
+  };
 
   const fetchAgentDetails = async () => {
     try {
@@ -551,6 +645,109 @@ const AgentDetails: React.FC = () => {
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
 
+      {/* Current work / Why-idle: live view of what the agent is doing or why it isn't */}
+      {activity && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            {activity.currentTask ? (
+              <>
+                <Typography variant="h6" gutterBottom>Current Work</Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="body2" color="text.secondary">Job</Typography>
+                    <Typography variant="body1">
+                      {activity.jobExecution?.name || activity.currentTask.job_execution_id}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6} md={3}>
+                    <Typography variant="body2" color="text.secondary">Task status</Typography>
+                    <Chip size="small" label={activity.currentTask.status} color="primary" />
+                  </Grid>
+                  <Grid item xs={6} md={3}>
+                    <Typography variant="body2" color="text.secondary">Job progress</Typography>
+                    <Typography variant="body1">{formatPct(activity.jobExecution?.overall_progress_percent)}</Typography>
+                  </Grid>
+                  <Grid item xs={6} md={3}>
+                    <Typography variant="body2" color="text.secondary">Task progress</Typography>
+                    <Typography variant="body1">{formatPct(activity.currentTask.progress_percent)}</Typography>
+                  </Grid>
+                  <Grid item xs={6} md={3}>
+                    <Typography variant="body2" color="text.secondary">Keyspace range</Typography>
+                    <Typography variant="body1">
+                      {activity.currentTask.keyspace_start != null && activity.currentTask.keyspace_end != null
+                        ? `${activity.currentTask.keyspace_start.toLocaleString()} – ${activity.currentTask.keyspace_end.toLocaleString()}`
+                        : '—'}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6} md={3}>
+                    <Typography variant="body2" color="text.secondary">Started</Typography>
+                    <Typography variant="body1">
+                      {activity.currentTask.started_at
+                        ? formatDistanceToNow(new Date(activity.currentTask.started_at), { addSuffix: true })
+                        : '—'}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6} md={3}>
+                    <Typography variant="body2" color="text.secondary">Last checkpoint</Typography>
+                    <Typography variant="body1">
+                      {activity.currentTask.last_checkpoint
+                        ? formatDistanceToNow(new Date(activity.currentTask.last_checkpoint), { addSuffix: true })
+                        : '—'}
+                    </Typography>
+                  </Grid>
+                </Grid>
+              </>
+            ) : (activity.recentFailures && activity.recentFailures.length > 0) ||
+                (activity.diagnostics && activity.diagnostics.length > 0) ? (
+              <>
+                <Typography variant="h6" gutterBottom>Why this agent isn't working</Typography>
+                {activity.recentFailures && activity.recentFailures.length > 0 && (
+                  <Alert severity="error" sx={{ mb: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      Recent tasks are failing ({activity.recentFailures.length} in the last few minutes)
+                    </Typography>
+                    {activity.recentFailures[0].error_message && (
+                      <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                        {activity.recentFailures[0].error_message}
+                      </Typography>
+                    )}
+                    {activity.recentFailures[0].completed_at && (
+                      <Typography variant="caption" color="text.secondary">
+                        last failure {formatDistanceToNow(new Date(activity.recentFailures[0].completed_at), { addSuffix: true })}
+                      </Typography>
+                    )}
+                  </Alert>
+                )}
+                {activity.diagnostics.map((d) => (
+                  <Alert
+                    key={d.id}
+                    severity={d.severity === 'error' ? 'error' : d.severity === 'warning' ? 'warning' : 'info'}
+                    sx={{ mb: 1 }}
+                  >
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {DIAG_REASON_LABELS[d.reason_code] || d.reason_code}
+                    </Typography>
+                    {d.detail && <Typography variant="body2">{d.detail}</Typography>}
+                    <Typography variant="caption" color="text.secondary">
+                      last seen {formatDistanceToNow(new Date(d.last_seen), { addSuffix: true })}
+                      {d.count > 1 ? ` · ${d.count.toLocaleString()} occurrences` : ''}
+                    </Typography>
+                  </Alert>
+                ))}
+              </>
+            ) : (
+              <>
+                <Typography variant="h6" gutterBottom>Current Work</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  This agent is idle. No scheduling diagnostics in the last few minutes — it may be offline,
+                  disabled, or simply waiting for work.
+                </Typography>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Grid container spacing={3}>
         {/* Basic Information */}
         <Grid item xs={12} md={6}>
@@ -608,23 +805,32 @@ const AgentDetails: React.FC = () => {
               </Grid>
 
               <Grid item xs={12}>
-                <FormControl fullWidth>
-                  <InputLabel>{t('fields.owner') as string}</InputLabel>
-                  <Select
-                    value={ownerId}
-                    onChange={(e) => handleOwnerChange(e.target.value)}
-                    label={t('fields.owner') as string}
-                  >
-                    <MenuItem value="">
-                      <em>{t('common.none') as string}</em>
-                    </MenuItem>
-                    {users.map((user) => (
-                      <MenuItem key={user.id} value={user.id}>
-                        {user.username}
+                {canChangeOwner ? (
+                  <FormControl fullWidth>
+                    <InputLabel>{t('fields.owner') as string}</InputLabel>
+                    <Select
+                      value={ownerId}
+                      onChange={(e) => handleOwnerChange(e.target.value)}
+                      label={t('fields.owner') as string}
+                    >
+                      <MenuItem value="">
+                        <em>{t('common.none') as string}</em>
                       </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                      {users.map((user) => (
+                        <MenuItem key={user.id} value={user.id}>
+                          {user.username}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                ) : (
+                  <>
+                    <Typography variant="body2" color="text.secondary">{t('fields.owner') as string}</Typography>
+                    <Typography variant="body1">
+                      {agent?.createdBy?.username || t('common.none') as string}
+                    </Typography>
+                  </>
+                )}
               </Grid>
             </Grid>
           </Paper>
@@ -651,10 +857,74 @@ const AgentDetails: React.FC = () => {
               <Grid item xs={12}>
                 <Typography variant="body2" color="text.secondary">{t('fields.agentVersion') as string}</Typography>
                 <Typography variant="body1">
-                  {agent.version || (t('common.unknown') as string)}
+                  {agent.version ? formatAgentVersion(agent.version) : (t('common.unknown') as string)}
                 </Typography>
               </Grid>
             </Grid>
+          </Paper>
+        </Grid>
+
+        {/* Update Status */}
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>{t('status.updateStatus') as string}</Typography>
+
+            <Box sx={{ mb: 2 }}>
+              <Chip
+                label={t(`labels.${agent.status}`, { ns: 'common' }) as string}
+                color={
+                  agent.status === 'active'
+                    ? 'success'
+                    : agent.status === 'error'
+                      ? 'error'
+                      : agent.status === 'updating'
+                        ? 'info'
+                        : 'default'
+                }
+                size="small"
+              />
+            </Box>
+
+            <Typography variant="body2" color="text.secondary">{t('status.currentVersion') as string}</Typography>
+            <Typography variant="body1" sx={{ mb: 1 }}>{agent.version ? formatAgentVersion(agent.version) : (t('common.unknown') as string)}</Typography>
+
+            {agent.status === 'updating' && agent.targetVersion && (
+              <Box sx={{ mb: 1 }}>
+                <Typography variant="body2" color="text.secondary">
+                  {t('status.targetVersion') as string} {formatAgentVersion(agent.targetVersion)}
+                </Typography>
+                <LinearProgress sx={{ mt: 1 }} />
+              </Box>
+            )}
+
+            {agent.updatePending && agent.status !== 'updating' && (
+              <Chip label={t('status.updatePending') as string} color="warning" size="small" variant="outlined" sx={{ mt: 1 }} />
+            )}
+
+            {agent.updateError && (
+              <Alert
+                severity="error"
+                sx={{ mt: 1 }}
+                action={
+                  <Button
+                    color="inherit"
+                    size="small"
+                    onClick={async () => {
+                      try {
+                        await api.post(`/api/agents/${id}/retry-update`);
+                        await fetchAgentDetails();
+                      } catch (err) {
+                        console.error('Failed to retry update:', err);
+                      }
+                    }}
+                  >
+                    {t('actions.retry', 'Retry') as string}
+                  </Button>
+                }
+              >
+                {agent.updateError}
+              </Alert>
+            )}
           </Paper>
         </Grid>
 
@@ -771,13 +1041,22 @@ const AgentDetails: React.FC = () => {
                           </FormControl>
                         </TableCell>
                         <TableCell>
-                          {device.runtime_options?.find(opt => opt.backend === device.selected_runtime) && (
-                            <Typography variant="caption" display="block">
-                              {device.runtime_options.find(opt => opt.backend === device.selected_runtime)!.processors} cores,
-                              {' '}{device.runtime_options.find(opt => opt.backend === device.selected_runtime)!.clock} MHz,
-                              {' '}{device.runtime_options.find(opt => opt.backend === device.selected_runtime)!.memory_total} MB
-                            </Typography>
-                          )}
+                          {(() => {
+                            const opt = device.runtime_options?.find(o => o.backend === device.selected_runtime);
+                            if (!opt) return null;
+                            return (
+                              <>
+                                <Typography variant="caption" display="block">
+                                  {opt.processors} cores, {opt.clock} MHz, {opt.memory_total} MB
+                                </Typography>
+                                {opt.pci_address && (
+                                  <Typography variant="caption" display="block" color="text.secondary">
+                                    PCI {opt.pci_address}
+                                  </Typography>
+                                )}
+                              </>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell>
                           <Switch

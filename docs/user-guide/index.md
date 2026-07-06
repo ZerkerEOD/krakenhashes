@@ -12,6 +12,12 @@ Learn how to effectively use KrakenHashes for your password auditing needs.
 
     Understand the fundamental concepts and terminology
 
+-   :material-account-group:{ .lg .middle } **[Teams](teams.md)**
+
+    ---
+
+    Work within teams and understand what data you can access
+
 -   :material-file-document-multiple:{ .lg .middle } **[Managing Hashlists](hashlists.md)**
 
     ---
@@ -29,6 +35,18 @@ Learn how to effectively use KrakenHashes for your password auditing needs.
     ---
 
     Work with wordlists and transformation rules
+
+-   :material-filter:{ .lg .middle } **[Wordlist Filtering](wordlist-filtering.md)**
+
+    ---
+
+    Derive targeted wordlists by length, character class, or regex
+
+-   :material-application-braces:{ .lg .middle } **[Custom Charsets & Arguments](custom-charsets-arguments.md)**
+
+    ---
+
+    Define custom mask charsets and pass extra hashcat flags per job
 
 -   :material-chart-line:{ .lg .middle } **[Analyzing Results](analyzing-results.md)**
 

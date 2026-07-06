@@ -185,7 +185,8 @@ func (rc *ruleCounter) Write(p []byte) (n int, err error) {
 		}
 
 		line := bytes.TrimSpace(rc.buf[:idx])
-		if len(line) > 0 && !bytes.HasPrefix(line, []byte("#")) {
+		// Count all lines except # comments — empty lines are valid passthrough rules in hashcat
+		if !bytes.HasPrefix(line, []byte("#")) {
 			rc.count++
 		}
 
@@ -337,6 +338,34 @@ func (h *Handler) HandleAddRule(w http.ResponseWriter, r *http.Request) {
 		debug.Error("HandleAddRule: No file provided in multipart form")
 		httputil.RespondWithError(w, http.StatusBadRequest, "No file provided")
 		return
+	}
+
+	// Normalize rule file — strip duplicate empty lines.
+	// hashcat treats empty lines as passthrough rules (:); multiples are redundant.
+	if destPath != "" {
+		normalized, normErr := fsutil.NormalizeRuleFile(destPath)
+		if normErr != nil {
+			debug.Warning("HandleAddRule: Failed to normalize rule file: %v", normErr)
+		} else if normalized {
+			debug.Info("HandleAddRule: Normalized rule file, recalculating metadata")
+			// Recalculate MD5 hash from normalized file
+			f, openErr := os.Open(destPath)
+			if openErr == nil {
+				hasher := md5.New()
+				bytesWritten, copyErr := io.Copy(hasher, f)
+				f.Close()
+				if copyErr == nil {
+					md5Hash = fmt.Sprintf("%x", hasher.Sum(nil))
+					fileSize = bytesWritten
+				}
+			}
+			// Recount rules from normalized file
+			newCount, countErr := fsutil.CountHashcatRules(destPath)
+			if countErr == nil {
+				ruleCount = newCount
+			}
+			debug.Info("HandleAddRule: Post-normalization: %d bytes, MD5: %s, Rules: %d", fileSize, md5Hash, ruleCount)
+		}
 	}
 
 	// Check if rule_type was provided

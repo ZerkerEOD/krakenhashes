@@ -29,7 +29,7 @@ type CleanupService struct {
 func NewCleanupService(dataDirs *config.DataDirs) *CleanupService {
 	return &CleanupService{
 		dataDirs:      dataDirs,
-		retentionDays: 3, // 3-day retention policy
+		retentionDays: 1, // 24-hour retention policy for sensitive data
 		stop:          make(chan struct{}),
 	}
 }
@@ -115,6 +115,11 @@ func (cs *CleanupService) performCleanup(ctx context.Context) {
 
 	// Clean orphaned outfiles
 	deleted, size = cs.cleanupOutfiles()
+	totalDeleted += deleted
+	totalSize += size
+
+	// Clean client data (potfiles, wordlists)
+	deleted, size = cs.cleanupClientData()
 	totalDeleted += deleted
 	totalSize += size
 
@@ -361,6 +366,74 @@ func (cs *CleanupService) GetLastCleanupTime() time.Time {
 // ForceCleanup triggers an immediate cleanup
 func (cs *CleanupService) ForceCleanup(ctx context.Context) {
 	go cs.performCleanup(ctx)
+}
+
+// cleanupClientData removes orphaned client potfiles and wordlists older than 24 hours.
+// These files should be deleted immediately after task completion (by cleanupSensitiveFiles
+// in the job manager), but this periodic cleanup catches anything that was missed.
+func (cs *CleanupService) cleanupClientData() (int, int64) {
+	// Client data is stored under wordlists/clients/ directory
+	baseDir := filepath.Dir(cs.dataDirs.Binaries)
+	clientsDir := filepath.Join(baseDir, "wordlists", "clients")
+	if _, err := os.Stat(clientsDir); os.IsNotExist(err) {
+		return 0, 0
+	}
+
+	deleted := 0
+	totalSize := int64(0)
+	cutoffTime := time.Now().Add(-24 * time.Hour)
+
+	err := filepath.Walk(clientsDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			debug.Debug("Error accessing path %s: %v", path, err)
+			return nil
+		}
+
+		// Skip the root clients directory itself
+		if path == clientsDir {
+			return nil
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		// Check if older than 24 hours
+		if info.ModTime().After(cutoffTime) {
+			return nil
+		}
+
+		// Delete old client file
+		size := info.Size()
+		if err := os.Remove(path); err != nil {
+			debug.Error("Failed to delete client data file %s: %v", path, err)
+		} else {
+			debug.Debug("Deleted old client data: %s (age: %s, size: %d bytes)",
+				path, time.Since(info.ModTime()), size)
+			deleted++
+			totalSize += size
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		debug.Error("Error walking clients directory for cleanup: %v", err)
+	}
+
+	// Clean up empty client directories
+	entries, err := os.ReadDir(clientsDir)
+	if err == nil {
+		for _, entry := range entries {
+			if entry.IsDir() {
+				dirPath := filepath.Join(clientsDir, entry.Name())
+				// os.Remove only succeeds on empty directories
+				os.Remove(dirPath)
+			}
+		}
+	}
+
+	return deleted, totalSize
 }
 
 // cleanupOutfiles removes orphaned hashcat outfiles older than 24 hours

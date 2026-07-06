@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
@@ -34,15 +35,21 @@ func Connect() (*sql.DB, error) {
 	dbUser := os.Getenv("DB_USER")
 	dbPassword := os.Getenv("DB_PASSWORD")
 	dbName := os.Getenv("DB_NAME")
+	dbArguments := os.Getenv("DB_ARGUMENTS")
+	if dbArguments == "" {
+		dbArguments = "sslmode=disable"
+	}
 
 	debug.Debug("Database configuration - Host: %s, Port: %s, User: %s, Database: %s",
 		dbHost, dbPort, dbUser, dbName)
 
-	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		dbHost, dbPort, dbUser, dbPassword, dbName)
+	// Convert URL-style arguments (key=val&key2=val2) to libpq space-separated format
+	argParts := strings.Split(dbArguments, "&")
+	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s %s",
+		dbHost, dbPort, dbUser, dbPassword, dbName, strings.Join(argParts, " "))
 
-	debug.Debug("Connection string created (without password): host=%s port=%s user=%s dbname=%s sslmode=disable",
-		dbHost, dbPort, dbUser, dbName)
+	debug.Debug("Connection string created (without password): host=%s port=%s user=%s dbname=%s %s",
+		dbHost, dbPort, dbUser, dbName, strings.Join(argParts, " "))
 
 	var err error
 	db, err = sql.Open("postgres", connStr)
@@ -77,9 +84,13 @@ func RunMigrations() error {
 	dbUser := os.Getenv("DB_USER")
 	dbPassword := os.Getenv("DB_PASSWORD")
 	dbName := os.Getenv("DB_NAME")
+	dbArguments := os.Getenv("DB_ARGUMENTS")
+	if dbArguments == "" {
+		dbArguments = "sslmode=disable"
+	}
 
-	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
-		dbUser, dbPassword, dbHost, dbPort, dbName)
+	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?%s",
+		dbUser, dbPassword, dbHost, dbPort, dbName, dbArguments)
 
 	// Try different migration paths
 	migrationPaths := []string{

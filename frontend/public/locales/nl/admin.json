@@ -864,6 +864,14 @@
   "ssoSettings": {
     "pageTitle": "SSO-instellingen",
     "pageDescription": "Configureer Single Sign-On providers en authenticatie-opties",
+    "warnings": {
+      "ephemeralKeyTitle": "SSO Encryption Key Not Configured",
+      "ephemeralKeyDescription": "SSO provider secrets (client secrets, bind passwords, private keys) are currently encrypted with a temporary key that will be lost when the server restarts. Any configured SSO providers will stop working after a restart.",
+      "ephemeralKeyInstructions": "To fix this, generate a persistent encryption key by running:",
+      "ephemeralKeyAddToEnv": "Then add the following to your .env file and restart the server:",
+      "ephemeralKeyEnvExample": "SSO_ENCRYPTION_KEY=<paste_generated_key_here>",
+      "ephemeralKeyCopied": "Command copied to clipboard"
+    },
     "authMethods": {
       "title": "Authenticatiemethoden",
       "description": "Schakel authenticatiemethoden globaal in of uit",
@@ -1145,11 +1153,18 @@
     },
     "agentOverflow": {
       "title": "Agent-overflowtoewijzing",
-      "tooltip": "Configureer hoe agents boven max_agents-limieten worden toegewezen wanneer taken dezelfde prioriteit hebben",
-      "roundRobinMode": "Round-Robin-modus",
-      "fifoMode": "FIFO-modus",
-      "fifoDescription": "Wanneer meerdere taken met dezelfde prioriteit hun max_agents-limieten overschrijden, ontvangt de oudste taak (eerst aangemaakt) alle extra agents.",
-      "roundRobinDescription": "Extra agents worden gelijkmatig verdeeld over alle taken met dezelfde prioriteit, één agent per keer, voor eerlijke toewijzing."
+      "tooltip": "Configureer hoe vrije agents worden verdeeld zodra elke taak op elke prioriteitsniveau zijn max_agents-limiet heeft bereikt.",
+      "modeLabel": "Overflow-toewijzingsmodus",
+      "priorityFifoMode": "Prioriteit - FIFO",
+      "priorityRoundRobinMode": "Prioriteit - Round Robin",
+      "enforceMaxAgentsMode": "max_agents afdwingen",
+      "maxAgentsFifoMode": "Max Agents - FIFO",
+      "maxAgentsRoundRobinMode": "Max Agents - Round Robin",
+      "priorityFifoDescription": "Wanneer meerdere taken met dezelfde prioriteit hun max_agents-limieten overschrijden, ontvangt de oudste taak (eerst aangemaakt) alle extra agents.",
+      "priorityRoundRobinDescription": "Extra agents worden gelijkmatig verdeeld over alle taken met dezelfde prioriteit, één agent per keer, voor eerlijke toewijzing.",
+      "enforceMaxAgentsDescription": "Strictly cap each job at its max_agents limit — no overflow. Surplus agents stay idle. Most predictable; can waste capacity.",
+      "maxAgentsFifoDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then pile on the OLDEST job overall — bypassing priority. Maximizes throughput while still giving every job its baseline.",
+      "maxAgentsRoundRobinDescription": "All jobs at all priorities fill to max_agents first (strict caps). Any remaining agents then rotate evenly across ALL jobs — bypassing priority. Maximizes throughput with fair distribution beyond the baseline."
     },
     "hashlist": {
       "title": "Hashlijstinstellingen",
@@ -1220,6 +1235,8 @@
       "progressReportingHelper": "Hoe vaak agents voortgang rapporteren",
       "benchmarkCache": "Benchmark cacheduur",
       "benchmarkCacheHelper": "Hoe lang agent-benchmarks worden gecached",
+      "benchmarkHistoryRetention": "Benchmarkgeschiedenis bewaren",
+      "benchmarkHistoryRetentionHelper": "Dagen om benchmarkgeschiedenis te bewaren (0 = onbeperkt)",
       "speedtestTimeout": "Speedtest-timeout",
       "speedtestTimeoutHelper": "Maximale wachttijd voor voltooiing van speedtest",
       "reconnectGrace": "Herverbindingsrespijtperiode",
@@ -1239,7 +1256,9 @@
       "maxRetryAttempts": "Max. chunk-herpogingen",
       "maxRetryAttemptsHelper": "Aantal keren dat mislukte chunks opnieuw worden geprobeerd",
       "jobsPerPage": "Taken per pagina",
-      "jobsPerPageHelper": "Standaard paginagrootte voor takenlijsten"
+      "jobsPerPageHelper": "Standaard paginagrootte voor takenlijsten",
+      "keyspaceTimeout": "Keyspace-berekening timeout",
+      "keyspaceTimeoutHelper": "Maximale tijd voor hashcat --keyspace en --total-candidates commando's. Verhoog voor grote woordenlijsten/regels."
     },
     "potfile": {
       "title": "Potfile-instellingen",

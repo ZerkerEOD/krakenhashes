@@ -25,6 +25,7 @@ type FileInfo struct {
 	ID        int    `json:"id,omitempty"`
 	Timestamp int64  `json:"timestamp,omitempty"`
 	RuleCount int64  `json:"rule_count,omitempty"` // For rules: number of rules in file
+	WordCount int64  `json:"word_count,omitempty"` // For wordlists: number of words in file (post-verification)
 }
 
 // FileRepository handles database operations for files (wordlists, rules, binaries)
@@ -50,16 +51,16 @@ func (r *FileRepository) GetWordlists(ctx context.Context, category string) ([]F
 	if category == "" {
 		// If category is empty, return all verified wordlists
 		query = `
-			SELECT id, name, file_name, md5_hash, file_size, wordlist_type, updated_at 
-			FROM wordlists 
+			SELECT id, name, file_name, md5_hash, file_size, wordlist_type, updated_at, COALESCE(word_count, 0)
+			FROM wordlists
 			WHERE verification_status = 'verified'
 		`
 		rows, err = r.db.QueryContext(ctx, query)
 	} else if category == "general" || category == "specialized" || category == "targeted" || category == "custom" {
 		// Category is a valid enum value, use it for filtering
 		query = `
-			SELECT id, name, file_name, md5_hash, file_size, wordlist_type, updated_at 
-			FROM wordlists 
+			SELECT id, name, file_name, md5_hash, file_size, wordlist_type, updated_at, COALESCE(word_count, 0)
+			FROM wordlists
 			WHERE wordlist_type = $1::wordlist_type
 			AND verification_status = 'verified'
 		`
@@ -80,10 +81,10 @@ func (r *FileRepository) GetWordlists(ctx context.Context, category string) ([]F
 	for rows.Next() {
 		var id int
 		var name, fileName, md5Hash, wordlistType string
-		var size int64
+		var size, wordCount int64
 		var updatedAt time.Time
 
-		if err := rows.Scan(&id, &name, &fileName, &md5Hash, &size, &wordlistType, &updatedAt); err != nil {
+		if err := rows.Scan(&id, &name, &fileName, &md5Hash, &size, &wordlistType, &updatedAt, &wordCount); err != nil {
 			debug.Error("Error scanning wordlist row: %v", err)
 			continue
 		}
@@ -98,6 +99,7 @@ func (r *FileRepository) GetWordlists(ctx context.Context, category string) ([]F
 			Category:  wordlistType,
 			ID:        id,
 			Timestamp: updatedAt.Unix(),
+			WordCount: wordCount,
 		})
 	}
 

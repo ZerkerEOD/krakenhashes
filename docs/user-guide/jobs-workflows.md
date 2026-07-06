@@ -9,6 +9,11 @@ KrakenHashes uses a two-tier system to organize password cracking attacks:
 
 This system ensures consistent, efficient password auditing across your organization.
 
+!!! note "Jobs and teams"
+    When **Multi-Team Mode** is enabled, the jobs, hashlists, and agents you can work with are
+    scoped to your teams, and a **Team** filter appears at the top of the Jobs page so you can
+    narrow the view to a single team. See [Teams](teams.md).
+
 ## How It Works
 
 ### The Password Cracking Process
@@ -72,6 +77,9 @@ Tries all possible combinations for a pattern:
 - All 4-digit PINs (0000-9999)
 - All 6-character lowercase (aaaaaa-zzzzzz)
 
+Masks can also reference your own **custom character sets** (`?1`–`?4`), and you can append extra
+hashcat flags per job. See [Custom Charsets & Arguments](custom-charsets-arguments.md).
+
 ### Increment Mode Attacks
 Systematically tests patterns of increasing (or decreasing) length:
 - Starts with shortest pattern, progresses to longest
@@ -86,6 +94,29 @@ Systematically tests patterns of increasing (or decreasing) length:
 3. `?d?d?d?d?d?d` (6 digits: 000000-999999)
 
 This is more efficient than creating three separate preset jobs!
+
+### Client-Specific Resources in Job Creation
+
+When creating a custom job for a hashlist that is associated with a client, the wordlist selection dropdown is organized into two categories:
+
+**Client Specific** (appears at the top):
+- **Client Potfile**: The client's automatically generated potfile containing passwords cracked from their previous hashlists. Shows as "Client Potfile (X passwords)" with file size.
+- **Client Wordlists**: Any wordlists uploaded specifically for this client through the Client Wordlist Management dialog.
+
+**Global** (appears below):
+- All system-wide wordlists available to all jobs (the standard wordlist selection).
+
+You can select resources from both categories simultaneously. For example, you might select the client potfile plus a global common-passwords wordlist in the same job.
+
+This categorization also applies to:
+- **Combination attacks**: Both the first and second wordlist dropdowns show the Client Specific and Global categories
+- **Hybrid attacks**: The dictionary portion shows the categorized dropdown
+
+**Agent behavior with client resources**:
+- **Client potfiles**: Agents download a fresh copy before each task (ensuring the latest cracked passwords are used)
+- **Client wordlists**: Agents cache these locally like regular wordlists (downloaded once, reused until changed)
+
+For details on managing client wordlists and potfiles, see the [Client Management](../admin-guide/operations/clients.md) guide.
 
 ### Association Attacks (v1.4.0+)
 

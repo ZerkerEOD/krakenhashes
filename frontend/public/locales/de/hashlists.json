@@ -45,7 +45,8 @@
     "file": "Hash-Datei",
     "selectFile": "Datei auswählen",
     "uploading": "Wird hochgeladen...",
-    "cancel": "Abbrechen"
+    "cancel": "Abbrechen",
+    "executableBlocked": "Diese Datei scheint eine ausführbare Binärdatei zu sein und kann nicht als Hashliste hochgeladen werden."
   },
   "actions": {
     "viewDetails": "Details anzeigen",
@@ -90,12 +91,32 @@
   "notifications": {
     "deleteSuccess": "Hashliste erfolgreich gelöscht",
     "uploadSuccess": "Hashliste erfolgreich hochgeladen",
-    "downloaded": "{{filename}} heruntergeladen"
+    "downloaded": "{{filename}} heruntergeladen",
+    "archiveSuccess": "Hashliste erfolgreich archiviert",
+    "unarchiveSuccess": "Hashliste erfolgreich wiederhergestellt",
+    "bulkArchiveSuccess": "{{count}} Hashliste(n) erfolgreich archiviert",
+    "bulkUnarchiveSuccess": "{{count}} Hashliste(n) erfolgreich wiederhergestellt"
   },
   "errors": {
     "loadFailed": "Fehler beim Abrufen der Hashlisten.",
     "uploadFailed": "Fehler beim Hochladen der Hashliste",
     "deleteFailed": "Löschung fehlgeschlagen: {{error}}"
+  },
+  "archive": {
+    "showArchived": "Archivierte anzeigen",
+    "archive": "Archivieren",
+    "unarchive": "Wiederherstellen",
+    "archived": "Archiviert",
+    "selectedCount": "{{count}} ausgewählt",
+    "archiveSelected": "Ausgewählte archivieren",
+    "unarchiveSelected": "Ausgewählte wiederherstellen",
+    "deleteSelected": "Ausgewählte löschen",
+    "confirmBulkDelete": {
+      "title": "Massenlöschung bestätigen",
+      "message": "Sind Sie sicher, dass Sie {{count}} Hashliste(n) löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "warning": "Dies löscht die ausgewählten Hashlisten und alle zugehörigen Daten dauerhaft."
+    },
+    "bulkDeleteSuccess": "{{count}} Hashliste(n) erfolgreich gelöscht"
   },
   "hashDetails": {
     "title": "Hash-Details",

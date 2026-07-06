@@ -478,9 +478,10 @@ func (m *manager) GetRulePath(filename string, ruleType string) string {
 	return filepath.Join(m.rulesDir, ruleType, filename)
 }
 
-// CountRulesInFile counts the number of rules in a file
+// CountRulesInFile counts the number of rules in a hashcat rule file.
+// Counts all lines except # comments. Empty lines are counted as valid passthrough rules.
 func (m *manager) CountRulesInFile(filepath string) (int64, error) {
-	return fsutil.CountLinesInFile(filepath)
+	return fsutil.CountHashcatRules(filepath)
 }
 
 // CalculateFileMD5 calculates the MD5 hash of a file

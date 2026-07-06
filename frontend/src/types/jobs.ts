@@ -3,7 +3,7 @@
  */
 
 // Job status enum
-export type JobStatus = 'pending' | 'running' | 'processing' | 'completed' | 'failed' | 'cancelled';
+export type JobStatus = 'preparing' | 'pending' | 'running' | 'processing' | 'completed' | 'failed' | 'cancelled';
 
 // Job summary for list views
 export interface JobSummary {
@@ -22,15 +22,16 @@ export interface JobSummary {
   created_at: string;
   updated_at: string;
   completed_at?: string;
+  archived_at?: string;
   created_by_username?: string;
   error_message?: string;
   // Enhanced chunking fields
-  effective_keyspace?: number;
+  effective_keyspace?: string; // NUMERIC on the backend (base × rules × salts can exceed 2^53); sent as a decimal string
   multiplication_factor?: number;
   uses_rule_splitting?: boolean;
   base_keyspace?: number;
-  processed_keyspace?: number;
-  dispatched_keyspace?: number;
+  processed_keyspace?: string;
+  dispatched_keyspace?: string;
   overall_progress_percent: number;
 }
 
@@ -65,7 +66,7 @@ export interface JobExecution {
   status: string;
   priority: number;
   max_agents: number;
-  processed_keyspace: number;
+  processed_keyspace: string;
   attack_mode: number;
   created_by?: string;
   created_at: string;
@@ -92,9 +93,9 @@ export interface JobTask {
   keyspace_start: number;
   keyspace_end: number;
   keyspace_processed: number;
-  effective_keyspace_start?: number;
-  effective_keyspace_end?: number;
-  effective_keyspace_processed?: number;
+  effective_keyspace_start?: string;
+  effective_keyspace_end?: string;
+  effective_keyspace_processed?: string;
   benchmark_speed?: number;
   average_speed?: number;
   chunk_duration?: number;
@@ -132,9 +133,9 @@ export interface JobIncrementLayer {
   mask: string;
   status: JobIncrementLayerStatus;
   base_keyspace?: number;
-  effective_keyspace?: number;
-  processed_keyspace: number;
-  dispatched_keyspace: number;
+  effective_keyspace?: string; // NUMERIC on the backend (base × rules × salts can exceed 2^53); sent as a decimal string
+  processed_keyspace: string;
+  dispatched_keyspace: string;
   is_accurate_keyspace: boolean;
   overall_progress_percent: number;
   created_at: string;
@@ -176,10 +177,10 @@ export interface JobDetailsResponse {
   priority: number;
   max_agents: number;
   attack_mode: number;
-  effective_keyspace?: number;
+  effective_keyspace?: string; // NUMERIC on the backend (base × rules × salts can exceed 2^53); sent as a decimal string
   base_keyspace?: number;
-  processed_keyspace?: number;
-  dispatched_keyspace?: number;
+  processed_keyspace?: string;
+  dispatched_keyspace?: string;
   dispatched_percent: number;
   searched_percent: number;
   cracked_count: number;
@@ -205,6 +206,7 @@ export interface JobDetailsResponse {
   rule_ids?: string[];
   rule_names?: string[];
   mask?: string;
+  custom_charsets?: Record<string, string> | null;
   /** Binary version pattern (e.g., "default", "7.x", "7.1.x", "7.1.2") */
   binary_version?: string;
   chunk_size_seconds?: number;

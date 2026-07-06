@@ -9,20 +9,27 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
+	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
 // AgentHandler handles User API requests for agent management
 type AgentHandler struct {
-	agentRepo         *repository.AgentRepository
-	voucherService    *services.ClaimVoucherService
+	agentRepo      *repository.AgentRepository
+	benchmarkRepo  *repository.BenchmarkRepository
+	voucherService *services.ClaimVoucherService
 }
 
 // NewAgentHandler creates a new agent handler
-func NewAgentHandler(agentRepo *repository.AgentRepository, voucherService *services.ClaimVoucherService) *AgentHandler {
+func NewAgentHandler(
+	agentRepo *repository.AgentRepository,
+	benchmarkRepo *repository.BenchmarkRepository,
+	voucherService *services.ClaimVoucherService,
+) *AgentHandler {
 	return &AgentHandler{
 		agentRepo:      agentRepo,
+		benchmarkRepo:  benchmarkRepo,
 		voucherService: voucherService,
 	}
 }
@@ -66,7 +73,7 @@ func (h *AgentHandler) GenerateVoucher(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create the voucher
-	voucher, err := h.voucherService.CreateTempVoucher(r.Context(), userID.String(), time.Duration(req.ExpiresIn)*time.Second, req.IsContinuous)
+	voucher, err := h.voucherService.CreateTempVoucher(r.Context(), userID.String(), time.Duration(req.ExpiresIn)*time.Second, req.IsContinuous, false)
 	if err != nil {
 		sendAPIError(w, "Failed to generate voucher", "VOUCHER_GENERATION_FAILED", http.StatusInternalServerError)
 		return
@@ -209,6 +216,12 @@ func (h *AgentHandler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Capture prior enabled state so a false→true transition can reset the
+	// benchmark health counters. Without this reset, manually re-enabling an
+	// auto-quarantined agent leaves its streak/distinct counters in place,
+	// so the very next failure re-trips the quarantine threshold instantly.
+	wasDisabled := !agent.IsEnabled
+
 	// Parse update request
 	var req UpdateAgentRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -231,6 +244,14 @@ func (h *AgentHandler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 	if err := h.agentRepo.Update(r.Context(), agent); err != nil {
 		sendAPIError(w, "Failed to update agent", "AGENT_UPDATE_FAILED", http.StatusInternalServerError)
 		return
+	}
+
+	// Reset benchmark health on manual re-enable. Best-effort: the request
+	// itself already succeeded — failure to reset is a courtesy log only.
+	if wasDisabled && agent.IsEnabled && h.benchmarkRepo != nil {
+		if rErr := h.benchmarkRepo.ResetAgentBenchmarkHealth(r.Context(), agentID); rErr != nil {
+			debug.Warning("ResetAgentBenchmarkHealth after manual re-enable (agent=%d): %v", agentID, rErr)
+		}
 	}
 
 	// Fetch updated agent to return

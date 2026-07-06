@@ -56,7 +56,13 @@ func (a *wsHandlerAdapter) SendMessage(agentID int, msg interface{}) error {
 	return a.handler.SendMessage(agentID, wsMsg)
 }
 
-// SetupWebSocketWithJobRoutes configures WebSocket routes with job execution integration
+// SetupWebSocketWithJobRoutes sets up WebSocket endpoints and wires job execution, scheduling, sync, and agent update integration.
+//
+// It constructs repositories and services, creates the WebSocket handler and service, registers the /ws/agent route (with API key and logging middleware),
+// and attaches the job integration manager to the WebSocket service. The function stores WSHandler and JobIntegrationManager in package globals,
+// starts background tasks (agent sync recovery and metrics cleanup), and integrates agent auto-update behavior.
+//
+// If TLS configuration cannot be obtained from the provided tlsProvider the setup aborts early and no routes are registered.
 func SetupWebSocketWithJobRoutes(
 	r *mux.Router,
 	agentService *services.AgentService,
@@ -67,6 +73,9 @@ func SetupWebSocketWithJobRoutes(
 	ruleManager rule.Manager,
 	binaryManager binary.Manager,
 	potfileService *services.PotfileService,
+	clientPotfileService *services.ClientPotfileService,
+	teamService *services.TeamService,
+	binaryService *services.AgentBinaryService,
 ) {
 	debug.Debug("Setting up WebSocket routes with job integration")
 
@@ -92,6 +101,8 @@ func SetupWebSocketWithJobRoutes(
 	presetIncrementLayerRepo := repository.NewPresetIncrementLayerRepository(database)
 	assocWordlistRepo := repository.NewAssociationWordlistRepository(database)
 	hashTypeRepo := repository.NewHashTypeRepository(database)
+	clientWordlistRepo := repository.NewClientWordlistRepository(database)
+	clientPotfileRepo := repository.NewClientPotfileRepository(database)
 
 	// Create services
 	jobExecutionService := services.NewJobExecutionService(
@@ -112,6 +123,8 @@ func SetupWebSocketWithJobRoutes(
 		scheduleRepo,
 		binaryManager,
 		assocWordlistRepo,
+		clientWordlistRepo,
+		clientPotfileRepo,
 		"/usr/bin/hashcat", // hashcat binary path (deprecated, using binary manager now)
 		appConfig.DataDir,
 	)
@@ -138,6 +151,7 @@ func SetupWebSocketWithJobRoutes(
 		agentRepo,
 		jobTaskRepo,
 		systemSettingsRepo,
+		teamService, // TeamService for team-aware agent filtering
 	)
 
 	// Create WebSocket service
@@ -162,10 +176,18 @@ func SetupWebSocketWithJobRoutes(
 
 	// Create WebSocket handler
 	// Pass potfileHistory for handling potfile sync race conditions during heavy ingestion
-	wsHandler := wshandler.NewHandler(wsService, agentService, jobExecutionService, systemSettingsRepo, jobTaskRepo, jobExecutionRepo, agentTLSConfig, potfileService.GetPotfileHistory())
+	wsHandler := wshandler.NewHandler(wsService, agentService, jobExecutionService, systemSettingsRepo, jobTaskRepo, jobExecutionRepo, jobIncrementLayerRepo, database, agentTLSConfig, potfileService.GetPotfileHistory())
 
 	// Store WebSocket handler globally for access by other handlers
 	WSHandler = wsHandler
+
+	// Agent auto-update: the service decides when a version-stale idle agent
+	// updates and uses the WebSocket handler to deliver the command. Wire it
+	// into both the handler (status->active interception + command sender) and
+	// the WS service (heartbeat/agent_status guards + version-report hook).
+	agentUpdateService := services.NewAgentUpdateService(agentRepo, systemSettingsRepo, binaryService)
+	wsHandler.SetUpdateService(agentUpdateService)
+	wsService.SetUpdateService(agentUpdateService)
 
 	// Set the WebSocket handler in the UserJobsHandler if it was already created
 	if UserJobsHandlerInstance != nil {
@@ -200,10 +222,14 @@ func SetupWebSocketWithJobRoutes(
 		jobIncrementLayerRepo,
 		agentRepo,
 		deviceRepo,
+		scheduleRepo,
 		clientRepo,
 		systemSettingsRepo,
 		assocWordlistRepo,
 		potfileService,
+		clientPotfileService,
+		clientWordlistRepo,
+		clientPotfileRepo,
 		hashlistCompletionService,
 		sqlDB,
 		wordlistManager,
@@ -213,6 +239,20 @@ func SetupWebSocketWithJobRoutes(
 
 	// Set the job handler in the WebSocket service
 	wsService.SetJobHandler(jobIntegration)
+
+	// Start the agent auto-update sweeper alongside the scheduler (promote
+	// idle update-pending agents + fail timed-out updates).
+	jobIntegration.SetAgentUpdateSweeper(services.NewAgentUpdateSweeper(agentUpdateService, 0))
+
+	// Launch periodic agent sync recovery. Covers the case where an agent is
+	// connected and heartbeating but stuck at sync_status='pending' — usually
+	// because a forced-benchmark flow reset the status and the subsequent
+	// sync never completed. Without this loop those agents stay locked out of
+	// scheduling until the next fresh connect.
+	syncRecovery := services.NewAgentSyncRecovery(database, wsHandler)
+	if err := syncRecovery.Start(context.Background()); err != nil {
+		debug.Warning("Failed to start agent sync recovery: %v", err)
+	}
 
 	// Setup WebSocket routes
 	wsRouter := r.PathPrefix("/ws").Subrouter()
