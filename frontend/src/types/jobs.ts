@@ -11,6 +11,7 @@ export interface JobSummary {
   name: string;
   hashlist_id: number;
   hashlist_name: string;
+  preset_job_name?: string; // undefined for custom jobs (no preset)
   status: JobStatus;
   priority: number;
   max_agents: number;

@@ -79,6 +79,7 @@ type JobFilter struct {
 type JobExecutionWithUser struct {
 	models.JobExecution
 	CreatedByUsername *string `db:"created_by_username"`
+	PresetJobName     *string `db:"preset_job_name"` // nil for custom jobs (no preset)
 }
 
 // ListWithFilters retrieves job executions with pagination and filters
@@ -558,7 +559,8 @@ func (r *JobExecutionRepository) ListWithFiltersAndUser(ctx context.Context, lim
 			je.base_keyspace, je.effective_keyspace, je.multiplication_factor, je.uses_rule_splitting,
 			je.rule_split_count, je.overall_progress_percent, je.dispatched_keyspace,
 			je.name, je.archived_at,
-			u.username as created_by_username
+			u.username as created_by_username,
+			pj.name as preset_job_name
 		FROM job_executions je
 		LEFT JOIN preset_jobs pj ON je.preset_job_id = pj.id
 		JOIN hashlists h ON je.hashlist_id = h.id
@@ -667,6 +669,7 @@ func (r *JobExecutionRepository) ListWithFiltersAndUser(ctx context.Context, lim
 			&exec.RuleSplitCount, &exec.OverallProgressPercent, &exec.DispatchedKeyspace,
 			&exec.Name, &exec.ArchivedAt,
 			&exec.CreatedByUsername,
+			&exec.PresetJobName,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan job execution with user: %w", err)

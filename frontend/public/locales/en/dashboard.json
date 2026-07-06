@@ -102,7 +102,7 @@
     "completedJobs": "Completed Jobs",
     "columns": {
       "jobName": "Job Name",
-      "hashlist": "Hashlist",
+      "hashlist": "Hashlist / Preset",
       "createdBy": "Created By",
       "progress": "Progress",
       "keyspace": "Keyspace",
