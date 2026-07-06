@@ -219,9 +219,10 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get status counts (filtered by team when applicable)
+	// Get status counts (team-scoped whenever teams are enabled, so a non-admin with no
+	// teams gets scoped/empty counts rather than the global tally).
 	var statusCounts map[string]int
-	if len(filter.TeamIDs) > 0 {
+	if filter.TeamsEnabled {
 		statusCounts, err = h.jobExecRepo.GetStatusCountsFiltered(ctx, filter)
 	} else {
 		statusCounts, err = h.jobExecRepo.GetStatusCounts(ctx)

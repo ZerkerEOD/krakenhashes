@@ -94,6 +94,31 @@ func getUserID(r *http.Request) (uuid.UUID, error) {
 	return userID, nil
 }
 
+// checkClientAccess returns (status, code, message) when the caller may not access the given
+// client (teams enabled and the client is not assigned to one of the caller's teams), or
+// (0, "", "") when allowed. A client the caller cannot see is reported as 404 to avoid
+// confirming its existence. When teams are disabled, clients are shared and access is allowed.
+func (h *ClientHandler) checkClientAccess(r *http.Request, clientID uuid.UUID) (int, string, string) {
+	ctx := r.Context()
+	if h.teamService == nil || !h.teamService.IsTeamsEnabled(ctx) {
+		return 0, "", ""
+	}
+	userID, err := getUserID(r)
+	if err != nil {
+		return http.StatusUnauthorized, "AUTH_REQUIRED", "Authentication required"
+	}
+	// User API keys are user-scoped (no admin bypass, mirroring CreateClient here).
+	canAccess, err := h.teamService.CanUserAccessClient(ctx, userID, clientID, false)
+	if err != nil {
+		debug.Error("Failed to check client access for %s: %v", clientID, err)
+		return http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to verify client access"
+	}
+	if !canAccess {
+		return http.StatusNotFound, "RESOURCE_NOT_FOUND", "Client not found"
+	}
+	return 0, "", ""
+}
+
 // hasHashlists checks if a client has any associated hashlists
 func (h *ClientHandler) hasHashlists(ctx context.Context, clientID uuid.UUID) (bool, error) {
 	query := `SELECT EXISTS(SELECT 1 FROM hashlists WHERE client_id = $1)`
@@ -240,8 +265,25 @@ func (h *ClientHandler) ListClients(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Get all clients (clients are global resources)
-	allClients, err := h.clientRepo.List(r.Context())
+	// Scope clients to the caller's teams when teams are enabled; otherwise clients are shared.
+	ctx := r.Context()
+	var allClients []models.Client
+	var err error
+	if h.teamService != nil && h.teamService.IsTeamsEnabled(ctx) {
+		userID, uerr := getUserID(r)
+		if uerr != nil {
+			sendAPIError(w, "Authentication required", "AUTH_REQUIRED", http.StatusUnauthorized)
+			return
+		}
+		teamIDs, terr := h.teamService.GetUserTeamIDs(ctx, userID)
+		if terr != nil || len(teamIDs) == 0 {
+			allClients = []models.Client{} // fail closed: no accessible clients
+		} else {
+			allClients, err = h.clientTeamRepo.GetClientsForTeams(ctx, teamIDs)
+		}
+	} else {
+		allClients, err = h.clientRepo.List(ctx)
+	}
 	if err != nil {
 		debug.Error("Failed to list clients: %v", err)
 		sendAPIError(w, "Failed to retrieve clients", "INTERNAL_ERROR", http.StatusInternalServerError)
@@ -288,7 +330,11 @@ func (h *ClientHandler) GetClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get client (clients are global resources - no ownership check needed)
+	if status, code, msg := h.checkClientAccess(r, clientID); status != 0 {
+		sendAPIError(w, msg, code, status)
+		return
+	}
+
 	client, err := h.clientRepo.GetByID(r.Context(), clientID)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
@@ -312,6 +358,11 @@ func (h *ClientHandler) UpdateClient(w http.ResponseWriter, r *http.Request) {
 	clientID, err := uuid.Parse(vars["id"])
 	if err != nil {
 		sendAPIError(w, "Invalid client ID format", "VALIDATION_ERROR", http.StatusBadRequest)
+		return
+	}
+
+	if status, code, msg := h.checkClientAccess(r, clientID); status != 0 {
+		sendAPIError(w, msg, code, status)
 		return
 	}
 
@@ -376,6 +427,11 @@ func (h *ClientHandler) DeleteClient(w http.ResponseWriter, r *http.Request) {
 	clientID, err := uuid.Parse(vars["id"])
 	if err != nil {
 		sendAPIError(w, "Invalid client ID format", "VALIDATION_ERROR", http.StatusBadRequest)
+		return
+	}
+
+	if status, code, msg := h.checkClientAccess(r, clientID); status != 0 {
+		sendAPIError(w, msg, code, status)
 		return
 	}
 

@@ -1526,12 +1526,21 @@ func (r *HashListRepository) ListWithTeamFilter(ctx context.Context, params List
 	}
 
 	// Filter via client_teams join
+	// NOTE: joins clients (c) so the team-scoped path returns the client name and the
+	// client potfile-policy flags at parity with List(); without this, non-admin team
+	// members see "-" for the client and the potfile-removal actions are disabled (#48).
 	baseQuery = fmt.Sprintf(`
 		SELECT DISTINCT h.id, h.name, h.hash_type_id, h.total_hashes, h.cracked_hashes,
 		       h.user_id, h.client_id, h.status, h.created_at, h.updated_at, h.archived_at,
-		       h.invalid_count, h.total_input_lines, h.validation_notice
+		       h.invalid_count, h.total_input_lines, h.validation_notice,
+		       c.name AS client_name,
+		       c.exclude_from_potfile AS client_exclude_from_global,
+		       c.exclude_from_client_potfile AS client_exclude_from_client,
+		       c.remove_from_global_potfile_on_hashlist_delete,
+		       c.remove_from_client_potfile_on_hashlist_delete
 		FROM hashlists h
 		LEFT JOIN client_teams ct ON h.client_id = ct.client_id
+		LEFT JOIN clients c ON h.client_id = c.id
 		WHERE (
 			ct.team_id IN (%s)`, strings.Join(teamPlaceholders, ", "))
 
@@ -1602,10 +1611,18 @@ func (r *HashListRepository) ListWithTeamFilter(ctx context.Context, params List
 		var clientID sql.Null[uuid.UUID]
 		var archivedAt sql.NullTime
 		var validationNoticeNS sql.NullString
+		var clientName sql.NullString
+		var clientExcludeFromGlobalPotfile sql.NullBool
+		var clientExcludeFromClientPotfile sql.NullBool
+		var clientRemoveFromGlobalOnDelete sql.NullBool
+		var clientRemoveFromClientOnDelete sql.NullBool
 		err := rows.Scan(
 			&h.ID, &h.Name, &h.HashTypeID, &h.TotalHashes, &h.CrackedHashes,
 			&h.UserID, &clientID, &h.Status, &h.CreatedAt, &h.UpdatedAt, &archivedAt,
 			&h.InvalidCount, &h.TotalInputLines, &validationNoticeNS,
+			&clientName,
+			&clientExcludeFromGlobalPotfile, &clientExcludeFromClientPotfile,
+			&clientRemoveFromGlobalOnDelete, &clientRemoveFromClientOnDelete,
 		)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to scan hashlist: %w", err)
@@ -1619,6 +1636,21 @@ func (r *HashListRepository) ListWithTeamFilter(ctx context.Context, params List
 		}
 		if validationNoticeNS.Valid {
 			h.ValidationNotice = &validationNoticeNS.String
+		}
+		if clientName.Valid {
+			h.ClientName = &clientName.String
+		}
+		if clientExcludeFromGlobalPotfile.Valid {
+			h.ClientExcludeFromGlobalPotfile = &clientExcludeFromGlobalPotfile.Bool
+		}
+		if clientExcludeFromClientPotfile.Valid {
+			h.ClientExcludeFromClientPotfile = &clientExcludeFromClientPotfile.Bool
+		}
+		if clientRemoveFromGlobalOnDelete.Valid {
+			h.ClientRemoveFromGlobalOnDelete = &clientRemoveFromGlobalOnDelete.Bool
+		}
+		if clientRemoveFromClientOnDelete.Valid {
+			h.ClientRemoveFromClientOnDelete = &clientRemoveFromClientOnDelete.Bool
 		}
 
 		hashlists = append(hashlists, h)
