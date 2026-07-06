@@ -207,12 +207,22 @@ const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isC
           </Box>
         </TableCell>
 
-        {/* Hashlist */}
+        {/* Hashlist / Preset */}
         <TableCell>
           <Box>
-            <Typography variant="body2">{job.hashlist_name}</Typography>
+            <Link
+              component="button"
+              variant="body2"
+              onClick={() => navigate(`/hashlists/${job.hashlist_id}`)}
+              sx={{ textAlign: 'left', display: 'block' }}
+            >
+              {job.hashlist_name}
+            </Link>
+            <Typography variant="caption" color="text.secondary" display="block">
+              {job.preset_job_name || 'N/A'}
+            </Typography>
             {completionTime && (
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" color="text.secondary" display="block">
                 {t('row.completed')} {completionTime}
               </Typography>
             )}

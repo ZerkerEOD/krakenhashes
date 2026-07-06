@@ -117,6 +117,7 @@ type JobSummary struct {
 	Name                   string  `json:"name"`
 	HashlistID             int64   `json:"hashlist_id"`
 	HashlistName           string  `json:"hashlist_name"`
+	PresetJobName          *string `json:"preset_job_name,omitempty"`
 	Status                 string  `json:"status"`
 	Priority               int     `json:"priority"`
 	MaxAgents              int     `json:"max_agents"`
@@ -358,6 +359,7 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 			Name:                   getJobName(job, hashlist),
 			HashlistID:             job.HashlistID,
 			HashlistName:           hashlist.Name,
+			PresetJobName:          jobWithUser.PresetJobName,
 			Status:                 string(job.Status),
 			Priority:               job.Priority,
 			MaxAgents:              job.MaxAgents,
@@ -430,6 +432,8 @@ type JobNameConfig struct {
 	IncrementMode           string // "off", "increment", "increment_inverse"
 	HashTypeID              int
 	CustomName              string
+	HashlistName            string // Hashlist name, used for preset/workflow job names (#49)
+	PresetJobName           string // Preset name; when set, the job is named Client-Hashlist-Preset (#49)
 	AssociationWordlistName string // For association attack (mode 9)
 }
 
@@ -505,6 +509,24 @@ func generateJobName(config JobNameConfig) string {
 	// User-provided custom name takes priority
 	if config.CustomName != "" {
 		return config.CustomName
+	}
+
+	// Preset and workflow jobs are named "Client (if present) - Hashlist - Preset" (#49),
+	// keeping the previous attack-config style only for custom jobs (below).
+	if config.PresetJobName != "" {
+		var presetParts []string
+		if config.Client != nil && config.Client.Name != "" {
+			presetParts = append(presetParts, config.Client.Name)
+		}
+		if config.HashlistName != "" {
+			presetParts = append(presetParts, config.HashlistName)
+		}
+		presetParts = append(presetParts, config.PresetJobName)
+		name := strings.Join(presetParts, "-")
+		if len(name) > 255 {
+			name = truncateJobName(name, config.PresetJobName, 255)
+		}
+		return name
 	}
 
 	var parts []string
@@ -714,9 +736,11 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			wordlistNames := h.resolveWordlistNames(ctx, presetJob.WordlistIDs)
 			ruleNames := h.resolveRuleNames(ctx, presetJob.RuleIDs)
 
-			// Generate job name based on attack configuration
+			// Generate job name based on attack configuration (preset job: Client-Hashlist-Preset, #49)
 			jobName := generateJobName(JobNameConfig{
 				Client:        client,
+				HashlistName:  hashlist.Name,
+				PresetJobName: presetJob.Name,
 				AttackMode:    presetJob.AttackMode,
 				WordlistNames: wordlistNames,
 				RuleNames:     ruleNames,
@@ -776,9 +800,11 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 				wordlistNames := h.resolveWordlistNames(ctx, presetJob.WordlistIDs)
 				ruleNames := h.resolveRuleNames(ctx, presetJob.RuleIDs)
 
-				// Generate job name for workflow step based on attack configuration
+				// Generate job name for workflow step based on attack configuration (preset job: Client-Hashlist-Preset, #49)
 				jobName := generateJobName(JobNameConfig{
 					Client:        client,
+					HashlistName:  hashlist.Name,
+					PresetJobName: presetJob.Name,
 					AttackMode:    presetJob.AttackMode,
 					WordlistNames: wordlistNames,
 					RuleNames:     ruleNames,
@@ -2370,6 +2396,7 @@ func (h *UserJobsHandler) ListUserJobs(w http.ResponseWriter, r *http.Request) {
 			Name:                   getJobName(job, hashlist),
 			HashlistID:             job.HashlistID,
 			HashlistName:           hashlist.Name,
+			PresetJobName:          jobWithUser.PresetJobName,
 			Status:                 string(job.Status),
 			Priority:               job.Priority,
 			MaxAgents:              job.MaxAgents,
