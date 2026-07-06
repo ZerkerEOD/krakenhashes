@@ -276,8 +276,12 @@ func (s *AnalyticsService) GenerateAnalytics(ctx context.Context, reportID uuid.
 	}
 
 	// Update summary fields (total_hashlists, total_hashes, total_cracked)
-	// Linked hashlists count as ONE, so subtract the number of pairs
+	// Linked hashlists count as ONE, so subtract the number of pairs.
+	// Floor at 0 to guard against a pair count exceeding the selected list count.
 	effectiveHashlistCount := len(hashlistIDs) - linkedPairCount
+	if effectiveHashlistCount < 0 {
+		effectiveHashlistCount = 0
+	}
 	if err := s.repo.UpdateSummaryFields(ctx, reportID, effectiveHashlistCount, totalHashes, totalCracked); err != nil {
 		return fmt.Errorf("failed to update summary fields: %w", err)
 	}
@@ -1000,7 +1004,7 @@ func (s *AnalyticsService) calculateStrengthMetrics(passwords []*models.Hash, sp
 		if pwd.Password == nil {
 			continue // Skip entries without passwords
 		}
-		entropy := s.calculateEntropy(*pwd.Password)
+		entropy := s.estimateKeyspaceBits(*pwd.Password)
 
 		if entropy < 78 {
 			lowEntropy++
@@ -1036,8 +1040,16 @@ func (s *AnalyticsService) calculateStrengthMetrics(passwords []*models.Hash, sp
 	}
 }
 
-// calculateEntropy calculates Shannon entropy for a password
-func (s *AnalyticsService) calculateEntropy(password string) float64 {
+// estimateKeyspaceBits estimates a password's strength as log2 of its brute-force
+// keyspace: length * log2(charsetSize), where charsetSize is the size of every
+// character class present.
+//
+// NOTE: This is intentionally a keyspace/brute-force estimate, NOT true Shannon
+// entropy. It deliberately matches the keyspace model used by estimateCrackTime
+// so the two stay consistent. It therefore overstates the strength of repetitive
+// or dictionary passwords (e.g. "aaaaaaaa" scores the same as a random 8-char
+// lowercase string). Do not treat the result as information-theoretic entropy.
+func (s *AnalyticsService) estimateKeyspaceBits(password string) float64 {
 	charTypes := s.detectCharacterTypes(password)
 	charsetSize := charTypes.GetCharsetSize()
 
@@ -1124,7 +1136,13 @@ func (s *AnalyticsService) estimateCrackTime(password string, speedHPS int64) in
 	// Average case is half the keyspace
 	avgKeyspace := keyspace / 2
 
-	return int64(avgKeyspace / float64(speedHPS))
+	// For long passwords keyspace overflows float64 to +Inf; converting +Inf to
+	// int64 is undefined in Go. Clamp to MaxInt64 (the "over 1 year" bucket).
+	seconds := avgKeyspace / float64(speedHPS)
+	if seconds >= float64(math.MaxInt64) {
+		return math.MaxInt64
+	}
+	return int64(seconds)
 }
 
 // getTopPasswords returns the most common passwords (only those used 2+ times)
@@ -1274,7 +1292,7 @@ func (s *AnalyticsService) generateRecommendations(data *models.AnalyticsData) [
 			recs = append(recs, models.Recommendation{
 				Severity:   "CRITICAL",
 				Count:      data.WindowsHashes.LM.Total,
-				Percentage: float64(data.WindowsHashes.LM.Total) / float64(data.Overview.TotalHashes) * 100,
+				Percentage: safePercentage(data.WindowsHashes.LM.Total, data.Overview.TotalHashes),
 				Message:    fmt.Sprintf("%d LM hashes detected in the environment. LM hashing is a legacy authentication protocol with severe security weaknesses: passwords are converted to uppercase (reducing complexity), split into 7-character halves (enabling independent cracking), and use weak DES encryption. Organizations must immediately disable LM hash storage in Active Directory by configuring the 'Network security: Do not store LAN Manager hash value on next password change' Group Policy setting. All affected accounts should perform a password reset after this policy is applied to remove existing LM hashes from the domain.", data.WindowsHashes.LM.Total),
 			})
 		}
@@ -1284,7 +1302,7 @@ func (s *AnalyticsService) generateRecommendations(data *models.AnalyticsData) [
 			recs = append(recs, models.Recommendation{
 				Severity:   "HIGH",
 				Count:      data.WindowsHashes.NetNTLMv1.Total,
-				Percentage: float64(data.WindowsHashes.NetNTLMv1.Total) / float64(data.Overview.TotalHashes) * 100,
+				Percentage: safePercentage(data.WindowsHashes.NetNTLMv1.Total, data.Overview.TotalHashes),
 				Message:    fmt.Sprintf("%d NetNTLMv1 hashes detected. NetNTLMv1 is vulnerable to relay attacks and should be disabled in favor of NetNTLMv2. Configure the 'Network security: LAN Manager authentication level' Group Policy setting to 'Send NTLMv2 response only' or higher.", data.WindowsHashes.NetNTLMv1.Total),
 			})
 		}
@@ -1294,7 +1312,7 @@ func (s *AnalyticsService) generateRecommendations(data *models.AnalyticsData) [
 			recs = append(recs, models.Recommendation{
 				Severity:   "MEDIUM",
 				Count:      kerberosEtype23.Total,
-				Percentage: float64(kerberosEtype23.Total) / float64(data.Overview.TotalHashes) * 100,
+				Percentage: safePercentage(kerberosEtype23.Total, data.Overview.TotalHashes),
 				Message:    fmt.Sprintf("%d Kerberos hashes using RC4 encryption (etype 23) detected. RC4 is considered weak and vulnerable to brute-force attacks. Enable AES encryption (etype 17/18) in Active Directory by configuring the 'Network security: Configure encryption types allowed for Kerberos' Group Policy setting to prefer AES256 and AES128.", kerberosEtype23.Total),
 			})
 		}
@@ -1555,12 +1573,26 @@ func (s *AnalyticsService) detectHashReuse(ctx context.Context, hashlistIDs []in
 		}
 	}
 
+	return s.computeHashReuse(hashesWithHashlists, hashTypes)
+}
+
+// computeHashReuse is the single source of truth for hash-reuse semantics, shared
+// by both the global (detectHashReuse) and per-domain (detectHashReuseDomain)
+// paths so their numbers stay consistent.
+//
+// Occurrence counting: each (hash value, username) combination contributes one
+// occurrence per DISTINCT hashlist it appears in. A nil username is bucketed as
+// "NULL" (rather than dropped). A hash whose total occurrences are >= 2 is
+// "reused"; otherwise its occurrences count toward "unique".
+// PercentageReused = totalReused / (totalReused + totalUnique). The detail list
+// is sorted by total occurrences (desc) and capped at the top 50.
+func (s *AnalyticsService) computeHashReuse(hashes []repository.HashWithHashlist, hashTypes map[int]string) models.HashReuseStats {
 	// Build map: hash_value -> username -> set of hashlist IDs
 	hashValueUserHashlists := make(map[string]map[string]map[int64]bool)
 	hashValueToType := make(map[string]int)
 	hashValueToPassword := make(map[string]string)
 
-	for _, hwh := range hashesWithHashlists {
+	for _, hwh := range hashes {
 		hashValue := hwh.Hash.HashValue
 		username := "NULL"
 		if hwh.Hash.Username != nil {
@@ -2095,12 +2127,9 @@ func (s *AnalyticsService) calculateWindowsHashStatsDomain(ctx context.Context, 
 // detectHashReuseDomain analyzes hash value reuse across users for a specific domain (for NTLM/LM)
 func (s *AnalyticsService) detectHashReuseDomain(ctx context.Context, hashlistIDs []int64, hashTypes map[int]string, domain string) models.HashReuseStats {
 	// Only analyze NTLM (1000) and LM (3000) for hash reuse
-	windowsHashTypes := []int{1000, 3000}
-
-	// Get hashes grouped by hash_value for this domain
-	hashes, err := s.repo.GetHashesGroupedByHashValueDomain(ctx, hashlistIDs, windowsHashTypes, domain)
-	if err != nil {
-		// Return empty stats on error
+	hashes, err := s.repo.GetHashesGroupedByHashValueDomain(ctx, hashlistIDs, []int{1000, 3000}, domain)
+	if err != nil || len(hashes) == 0 {
+		// Return empty stats on error or no data
 		return models.HashReuseStats{
 			TotalReused:      0,
 			PercentageReused: 0,
@@ -2109,87 +2138,13 @@ func (s *AnalyticsService) detectHashReuseDomain(ctx context.Context, hashlistID
 		}
 	}
 
-	// Group hashes by hash_value
-	hashValueMap := make(map[string][]repository.HashWithHashlist)
-	for _, h := range hashes {
-		hashValueMap[h.Hash.HashValue] = append(hashValueMap[h.Hash.HashValue], h)
-	}
-
-	// Find reused hashes (appearing 2+ times)
-	var reuseInfo []models.HashReuseInfo
-	totalReused := 0
-	totalUnique := len(hashValueMap)
-
-	for hashValue, hashList := range hashValueMap {
-		if len(hashList) < 2 {
-			continue // Not reused
-		}
-
-		totalReused += len(hashList)
-
-		// Group users by hashlist
-		userOccurrences := make(map[string]int) // username -> count
-		for _, h := range hashList {
-			if h.Hash.Username != nil {
-				userOccurrences[*h.Hash.Username]++
-			}
-		}
-
-		// Convert to UserOccurrence slice
-		var users []models.UserOccurrence
-		for username, count := range userOccurrences {
-			users = append(users, models.UserOccurrence{
-				Username:      username,
-				HashlistCount: count,
-			})
-		}
-
-		// Sort users by username
-		sort.Slice(users, func(i, j int) bool {
-			return users[i].Username < users[j].Username
-		})
-
-		// Get hash type name
-		hashTypeName := fmt.Sprintf("Mode %d", hashList[0].Hash.HashTypeID)
-		if name, exists := hashTypes[hashList[0].Hash.HashTypeID]; exists {
-			hashTypeName = name
-		}
-
-		var password *string
-		if hashList[0].Hash.Password != nil {
-			pwd := *hashList[0].Hash.Password
-			password = &pwd
-		}
-
-		reuseInfo = append(reuseInfo, models.HashReuseInfo{
-			HashValue:        hashValue,
-			HashType:         hashTypeName,
-			Password:         password,
-			Users:            users,
-			TotalOccurrences: len(hashList),
-			UserCount:        len(userOccurrences),
-		})
-	}
-
-	// Sort by user count (most reused first), limit to 50
-	sort.Slice(reuseInfo, func(i, j int) bool {
-		return reuseInfo[i].UserCount > reuseInfo[j].UserCount
-	})
-	if len(reuseInfo) > 50 {
-		reuseInfo = reuseInfo[:50]
-	}
-
-	percentageReused := 0.0
-	if len(hashes) > 0 {
-		percentageReused = float64(totalReused) / float64(len(hashes)) * 100
-	}
-
-	return models.HashReuseStats{
-		TotalReused:      totalReused,
-		PercentageReused: percentageReused,
-		TotalUnique:      totalUnique,
-		HashReuseInfo:    reuseInfo,
-	}
+	// Delegate to the shared helper so per-domain reuse stats use identical
+	// semantics to the global path (occurrence = distinct hashlist per user,
+	// "NULL" bucket for missing usernames, percentage over total occurrences,
+	// sorted by total occurrences). Previously this path used divergent
+	// definitions (totalUnique = distinct hash values, percentage over record
+	// count, nil usernames dropped), producing inconsistent numbers.
+	return s.computeHashReuse(hashes, hashTypes)
 }
 
 // calculateLMPartialCracksDomain generates LM partial crack statistics for a specific domain

@@ -13,8 +13,15 @@ type UsernameAndDomain struct {
 	Domain   *string
 }
 
-// ParseDomainUsername attempts to parse domain from username
-// Supports formats: DOMAIN\username and username@domain
+// ParseDomainUsername parses a domain from a username that may use either the
+// DOMAIN\username form OR the username@domain form.
+//
+// WARNING: The username@domain branch treats the text after '@' as a domain.
+// This is ONLY safe for formats where an '@' authoritatively denotes a realm
+// (e.g. Kerberos AS-REP user@REALM). For generic/heuristic extraction an '@'
+// almost always indicates an email address, not a network/AD domain, and using
+// this function there manufactures one bogus "domain" per distinct email suffix.
+// For those paths use ParseDomainFromBackslash instead.
 func ParseDomainUsername(rawUsername string) (username string, domain *string) {
 	// Check for DOMAIN\username format
 	if idx := strings.Index(rawUsername, `\`); idx != -1 {
@@ -23,7 +30,7 @@ func ParseDomainUsername(rawUsername string) (username string, domain *string) {
 		return usernamePart, &domainPart
 	}
 
-	// Check for username@domain format
+	// Check for username@domain format (realm-bearing formats only — see warning)
 	if idx := strings.Index(rawUsername, "@"); idx != -1 {
 		usernamePart := rawUsername[:idx]
 		domainPart := rawUsername[idx+1:]
@@ -32,6 +39,37 @@ func ParseDomainUsername(rawUsername string) (username string, domain *string) {
 
 	// No domain found
 	return rawUsername, nil
+}
+
+// ParseDomainFromBackslash parses ONLY the authoritative DOMAIN\username form.
+// Unlike ParseDomainUsername it deliberately does NOT treat '@' as a domain
+// separator, because in generic usernames an '@' is almost always an email
+// address rather than a network/AD domain. Use this for every extraction path
+// that is not guaranteed by its hash format to carry a realm after '@'.
+func ParseDomainFromBackslash(rawUsername string) (username string, domain *string) {
+	if idx := strings.Index(rawUsername, `\`); idx != -1 {
+		domainPart := rawUsername[:idx]
+		usernamePart := rawUsername[idx+1:]
+		return usernamePart, &domainPart
+	}
+	return rawUsername, nil
+}
+
+// NormalizeDomain trims and lowercases an extracted domain (domains are
+// case-insensitive). It returns nil for empty/whitespace-only input so a blank
+// domain is never stored. It intentionally performs NO content-based filtering
+// (e.g. "looks like an email"): AD domains are legitimately dotted FQDNs, so any
+// such heuristic would discard real domains. The structural backslash-only
+// extraction above is what prevents email suffixes from becoming domains.
+func NormalizeDomain(domain *string) *string {
+	if domain == nil {
+		return nil
+	}
+	normalized := strings.ToLower(strings.TrimSpace(*domain))
+	if normalized == "" {
+		return nil
+	}
+	return &normalized
 }
 
 // --- Username Extraction ---
@@ -68,7 +106,9 @@ func extractNTLM(rawHash string) *UsernameAndDomain {
 	// Only extract from pwdump format with 4+ parts
 	if len(parts) >= 4 && len(parts[3]) == 32 && isHexString(parts[3]) {
 		rawUsername := parts[0]
-		username, domain := ParseDomainUsername(rawUsername)
+		// pwdump usernames use the DOMAIN\user form; an '@' here is never a
+		// legitimate network domain, so use the backslash-only parser.
+		username, domain := ParseDomainFromBackslash(rawUsername)
 		return &UsernameAndDomain{
 			Username: &username,
 			Domain:   domain,
@@ -160,7 +200,9 @@ func extractKerberos(rawHash string) *UsernameAndDomain {
 		userDomainPart = userDomainPart[:colonIdx]
 	}
 
-	// Parse username@domain (handles @ separator)
+	// Parse username@domain. Kerberos AS-REP is the ONLY place where an '@' in
+	// the principal authoritatively denotes a realm, so ParseDomainUsername
+	// (which splits on '@') is intentionally correct here.
 	username, domain := ParseDomainUsername(userDomainPart)
 	return &UsernameAndDomain{
 		Username: &username,
@@ -229,9 +271,13 @@ func ExtractUsernameAndDomain(rawHash string, hashTypeID int) *UsernameAndDomain
 	// 1. Check for custom extractors first (highest priority)
 	if extractor, exists := customUsernameExtractors[hashTypeID]; exists {
 		result := extractor(rawHash)
-		// If extractor found username, parse domain from it if not already extracted
+		// Custom extractors are authoritative for the domain. If one deliberately
+		// returned Domain==nil (e.g. LastPass/DCC, whose usernames are emails),
+		// only honor a backslash-style DOMAIN\user still embedded in the username.
+		// Never split on '@' here — that is what manufactured a bogus domain per
+		// email suffix.
 		if result != nil && result.Username != nil && result.Domain == nil {
-			username, domain := ParseDomainUsername(*result.Username)
+			username, domain := ParseDomainFromBackslash(*result.Username)
 			result.Username = &username
 			result.Domain = domain
 		}
@@ -257,8 +303,9 @@ func ExtractUsernameAndDomain(rawHash string, hashTypeID int) *UsernameAndDomain
 
 		// If rule existed and we extracted based on index, return it
 		if isValidIndex {
-			// Parse domain from username if present
-			finalUsername, domain := ParseDomainUsername(username)
+			// Generic rule-based types carry no realm guarantee; only a
+			// DOMAIN\user backslash denotes a real domain here.
+			finalUsername, domain := ParseDomainFromBackslash(username)
 			return &UsernameAndDomain{
 				Username: &finalUsername,
 				Domain:   domain,
@@ -276,8 +323,9 @@ func ExtractUsernameAndDomain(rawHash string, hashTypeID int) *UsernameAndDomain
 	if firstColon > 0 {
 		potentialUsername := rawHash[0:firstColon]
 		if isValidUsernameCandidate(potentialUsername) {
-			// Parse domain from username if present
-			finalUsername, domain := ParseDomainUsername(potentialUsername)
+			// Heuristic path: unknown hash type, no realm guarantee — only a
+			// DOMAIN\user backslash denotes a real domain.
+			finalUsername, domain := ParseDomainFromBackslash(potentialUsername)
 			return &UsernameAndDomain{
 				Username: &finalUsername,
 				Domain:   domain,

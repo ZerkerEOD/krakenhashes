@@ -12,9 +12,21 @@ import {
   AlertTitle,
   Button,
   LinearProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  CircularProgress,
+  Snackbar,
 } from '@mui/material';
-import { Replay as RetryIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import {
+  Replay as RetryIcon,
+  Delete as DeleteIcon,
+  Download as DownloadIcon,
+} from '@mui/icons-material';
 import { AnalyticsReport } from '../../types/analytics';
+import analyticsService from '../../services/analytics';
 import OverviewSection from './OverviewSection';
 import WindowsHashSection from './WindowsHashSection';
 import LengthDistributionSection from './LengthDistributionSection';
@@ -48,6 +60,21 @@ export default function AnalyticsReportDisplay({
 }: AnalyticsReportDisplayProps) {
   const { t } = useTranslation('analytics');
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
+  const [exporting, setExporting] = useState<null | 'internal' | 'external'>(null);
+  const [confirmInternalOpen, setConfirmInternalOpen] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  const runExport = async (type: 'internal' | 'external') => {
+    setExporting(type);
+    setExportError(null);
+    try {
+      await analyticsService.exportReportPdf(report.id, type);
+    } catch (err) {
+      setExportError(t('pdfExport.error'));
+    } finally {
+      setExporting(null);
+    }
+  };
   // Render status-specific UI
   const renderStatusUI = () => {
     switch (status) {
@@ -155,10 +182,74 @@ export default function AnalyticsReportDisplay({
       {/* Status indicator */}
       {renderStatusUI()}
 
-      {/* Report ID for debugging */}
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {t('labels.reportId')} {report.id}
-      </Typography>
+      {/* Report ID + export actions */}
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 1,
+          mb: 2,
+        }}
+      >
+        <Typography variant="body2" color="text.secondary">
+          {t('labels.reportId')} {report.id}
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={exporting === 'external' ? <CircularProgress size={16} /> : <DownloadIcon />}
+            disabled={exporting !== null}
+            onClick={() => runExport('external')}
+          >
+            {t('actions.exportExternalPdf')}
+          </Button>
+          <Button
+            variant="contained"
+            color="warning"
+            size="small"
+            startIcon={exporting === 'internal' ? <CircularProgress size={16} /> : <DownloadIcon />}
+            disabled={exporting !== null}
+            onClick={() => setConfirmInternalOpen(true)}
+          >
+            {t('actions.exportInternalPdf')}
+          </Button>
+        </Box>
+      </Box>
+
+      {/* Internal export confirmation (contains plaintext credentials) */}
+      <Dialog open={confirmInternalOpen} onClose={() => setConfirmInternalOpen(false)}>
+        <DialogTitle>{t('pdfExport.internalConfirmTitle')}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>{t('pdfExport.internalConfirmBody')}</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmInternalOpen(false)}>{t('pdfExport.cancel')}</Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={() => {
+              setConfirmInternalOpen(false);
+              runExport('internal');
+            }}
+          >
+            {t('pdfExport.confirm')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={exportError !== null}
+        autoHideDuration={6000}
+        onClose={() => setExportError(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="error" onClose={() => setExportError(null)}>
+          {exportError}
+        </Alert>
+      </Snackbar>
 
       {/* Overview Section - Full Width */}
       <OverviewSection

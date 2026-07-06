@@ -49,6 +49,34 @@ export const analyticsService = {
     });
     return response.data;
   },
+
+  // Export a completed report as a PDF and trigger a browser download.
+  // type 'internal' contains plaintext passwords/usernames; 'external' is an
+  // aggregate-only summary redacted server-side.
+  exportReportPdf: async (id: string, type: 'internal' | 'external'): Promise<void> => {
+    const response = await api.get(`/api/analytics/reports/${id}/export`, {
+      params: { type, format: 'pdf' },
+      responseType: 'blob',
+    });
+
+    // Prefer the server-provided filename from Content-Disposition.
+    let filename = `analytics_${type}_${id.slice(0, 8)}.pdf`;
+    const disposition = response.headers?.['content-disposition'];
+    if (disposition) {
+      const match = /filename="?([^"]+)"?/.exec(disposition);
+      if (match && match[1]) {
+        filename = match[1];
+      }
+    }
+
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    window.URL.revokeObjectURL(url);
+  },
 };
 
 export default analyticsService;

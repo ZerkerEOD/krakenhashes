@@ -28,6 +28,7 @@ const (
 	NotificationTypeSecurityPasswordChanged NotificationType = "security_password_changed"
 	NotificationTypeWebhookFailure         NotificationType = "webhook_failure"
 	NotificationTypeWordlistRegenFailed    NotificationType = "wordlist_regen_failed"
+	NotificationTypeAnalyticsExport        NotificationType = "analytics_export"
 )
 
 // AllNotificationTypes returns all valid notification types

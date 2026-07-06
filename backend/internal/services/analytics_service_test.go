@@ -472,8 +472,8 @@ func TestCheckCustomPatterns(t *testing.T) {
 	assert.Equal(t, 1, result.PatternsDetected["corp"].Count)  // corp2024
 }
 
-// TestCalculateEntropy tests Shannon entropy calculation
-func TestCalculateEntropy(t *testing.T) {
+// TestEstimateKeyspaceBits tests the brute-force keyspace strength estimate
+func TestEstimateKeyspaceBits(t *testing.T) {
 	service := &AnalyticsService{}
 
 	tests := []struct {
@@ -504,7 +504,7 @@ func TestCalculateEntropy(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := service.calculateEntropy(tt.password)
+			result := service.estimateKeyspaceBits(tt.password)
 			assert.GreaterOrEqual(t, result, tt.minBits)
 			assert.LessOrEqual(t, result, tt.maxBits)
 		})
