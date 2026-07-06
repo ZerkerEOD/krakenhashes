@@ -688,16 +688,22 @@ Automated security recommendations based on analysis:
 
 ### Exporting Analytics Data
 
-**Export Options:**
-- **PDF Export**: Generate printable client reports (Coming Soon)
+**PDF Export** — from a completed report, use the **Internal PDF** / **External PDF** buttons:
+
+- **External PDF**: an aggregate-only summary safe to share with clients and stakeholders. Recovered plaintext passwords, usernames, hash values, mask examples, password/hash-reuse detail, and common base words are **redacted server-side** — they never leave the server for this document. Use this for anything that leaves your team.
+- **Internal PDF**: the full report, including recovered plaintext passwords, usernames, and hash values. Intended for internal handling only — generating one requires a confirmation and is recorded in the **audit log**. Handle and store it only through approved secure channels.
+
+Both variants are styled with KrakenHashes branding (kraken emblem, cover page, and an `INTERNAL - CONFIDENTIAL` / `EXTERNAL - SUMMARY` classification banner). The downloaded filename encodes the client, classification, and report ID.
+
+**Other export options:**
 - **CSV Export**: Export raw analytics data for further analysis (Coming Soon)
 - **Screenshots**: Capture charts and tables for presentations
 
 **Privacy Considerations:**
-- Never include actual passwords in client reports
-- Anonymize usernames if required by engagement scope
-- Use password examples only with explicit permission
-- Aggregate sensitive findings to prevent individual identification
+- Share only the **External PDF** outside your team — redaction is enforced server-side, not in the browser.
+- The **Internal PDF** contains recovered credentials; treat it as sensitive and keep it on approved secure channels.
+- Anonymize usernames if required by engagement scope.
+- Aggregate sensitive findings to prevent individual identification.
 
 ### Presentation Tips
 
