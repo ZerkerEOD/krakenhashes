@@ -173,10 +173,11 @@ const Jobs: React.FC = () => {
       clearInterval(pollingTimer.current);
     }
 
-    // Set up new polling timer
+    // Set up new polling timer (2s — the jobs list is cheap to serve after the N+1 fix, so
+    // the UI reflects task changes faster without extra DB load).
     pollingTimer.current = setInterval(() => {
       fetchJobs(false); // Don't show loading indicator for polling updates
-    }, 5000);
+    }, 2000);
 
     // Cleanup on unmount or when polling is disabled
     return () => {

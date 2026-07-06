@@ -415,6 +415,66 @@ func (r *JobTaskRepository) GetTasksByJobExecution(ctx context.Context, jobExecu
 	return tasks, nil
 }
 
+// GetTasksByJobExecutions returns the tasks for each of the given job executions in a single
+// query, grouped by job_execution_id. Used to avoid an N+1 when listing jobs. Mirrors the
+// columns of GetTasksByJobExecution.
+func (r *JobTaskRepository) GetTasksByJobExecutions(ctx context.Context, jobExecutionIDs []uuid.UUID) (map[uuid.UUID][]models.JobTask, error) {
+	result := make(map[uuid.UUID][]models.JobTask, len(jobExecutionIDs))
+	if len(jobExecutionIDs) == 0 {
+		return result, nil
+	}
+
+	placeholders := make([]string, len(jobExecutionIDs))
+	args := make([]interface{}, len(jobExecutionIDs))
+	for i, id := range jobExecutionIDs {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		args[i] = id
+	}
+
+	query := fmt.Sprintf(`
+		SELECT
+			jt.id, jt.job_execution_id, jt.agent_id, jt.status,
+			jt.keyspace_start, jt.keyspace_end, jt.keyspace_processed,
+			jt.effective_keyspace_start, jt.effective_keyspace_end, jt.effective_keyspace_processed,
+			jt.benchmark_speed, jt.average_speed, jt.chunk_duration, jt.assigned_at,
+			jt.started_at, jt.completed_at, jt.cracking_completed_at, jt.last_checkpoint, jt.error_message,
+			jt.crack_count,
+			jt.increment_layer_id,
+			jt.rule_start_index, jt.rule_end_index, jt.rule_chunk_path, jt.is_rule_split_task,
+			jt.progress_percent,
+			a.name as agent_name
+		FROM job_tasks jt
+		LEFT JOIN agents a ON jt.agent_id = a.id
+		WHERE jt.job_execution_id IN (%s)
+		ORDER BY jt.job_execution_id, jt.keyspace_start ASC`, strings.Join(placeholders, ", "))
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tasks by job executions: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var task models.JobTask
+		if err := rows.Scan(
+			&task.ID, &task.JobExecutionID, &task.AgentID, &task.Status,
+			&task.KeyspaceStart, &task.KeyspaceEnd, &task.KeyspaceProcessed,
+			&task.EffectiveKeyspaceStart, &task.EffectiveKeyspaceEnd, &task.EffectiveKeyspaceProcessed,
+			&task.BenchmarkSpeed, &task.AverageSpeed, &task.ChunkDuration, &task.AssignedAt,
+			&task.StartedAt, &task.CompletedAt, &task.CrackingCompletedAt, &task.LastCheckpoint, &task.ErrorMessage,
+			&task.CrackCount,
+			&task.IncrementLayerID,
+			&task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath, &task.IsRuleSplitTask,
+			&task.ProgressPercent,
+			&task.AgentName,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan job task: %w", err)
+		}
+		result[task.JobExecutionID] = append(result[task.JobExecutionID], task)
+	}
+	return result, rows.Err()
+}
+
 // GetActiveTasksByAgent retrieves active tasks for an agent
 func (r *JobTaskRepository) GetActiveTasksByAgent(ctx context.Context, agentID int) ([]models.JobTask, error) {
 	debug.Info("GetActiveTasksByAgent called for agent %d", agentID)

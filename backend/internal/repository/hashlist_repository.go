@@ -280,6 +280,107 @@ func (r *HashListRepository) GetByID(ctx context.Context, id int64) (*models.Has
 	return &hashlist, nil
 }
 
+// GetByIDs returns the given hashlists keyed by ID in a single query, to avoid an N+1 when
+// listing jobs. Missing IDs are simply absent from the returned map. Mirrors GetByID's columns.
+func (r *HashListRepository) GetByIDs(ctx context.Context, ids []int64) (map[int64]*models.HashList, error) {
+	result := make(map[int64]*models.HashList, len(ids))
+	if len(ids) == 0 {
+		return result, nil
+	}
+	query := `
+		SELECT
+			h.id, h.name, h.user_id, h.client_id, h.hash_type_id,
+			h.total_hashes, h.cracked_hashes, h.status, h.error_message,
+			h.exclude_from_potfile, h.exclude_from_client_potfile, h.original_file_path, h.has_mixed_work_factors,
+			h.invalid_count, h.total_input_lines, h.validation_notice,
+			h.created_at, h.updated_at, h.archived_at,
+			c.name AS client_name,
+			c.exclude_from_potfile AS client_exclude_from_global,
+			c.exclude_from_client_potfile AS client_exclude_from_client,
+			c.remove_from_global_potfile_on_hashlist_delete,
+			c.remove_from_client_potfile_on_hashlist_delete
+		FROM hashlists h
+		LEFT JOIN clients c ON h.client_id = c.id
+		WHERE h.id = ANY($1)`
+
+	rows, err := r.db.QueryContext(ctx, query, pq.Array(ids))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get hashlists by IDs: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var hashlist models.HashList
+		var clientID sql.Null[uuid.UUID]
+		var clientName sql.NullString
+		var originalFilePath sql.NullString
+		var archivedAt sql.NullTime
+		var clientExcludeFromGlobal sql.NullBool
+		var clientExcludeFromClient sql.NullBool
+		var clientRemoveFromGlobalOnDelete sql.NullBool
+		var clientRemoveFromClientOnDelete sql.NullBool
+		var validationNoticeNS sql.NullString
+		if err := rows.Scan(
+			&hashlist.ID,
+			&hashlist.Name,
+			&hashlist.UserID,
+			&clientID,
+			&hashlist.HashTypeID,
+			&hashlist.TotalHashes,
+			&hashlist.CrackedHashes,
+			&hashlist.Status,
+			&hashlist.ErrorMessage,
+			&hashlist.ExcludeFromPotfile,
+			&hashlist.ExcludeFromClientPotfile,
+			&originalFilePath,
+			&hashlist.HasMixedWorkFactors,
+			&hashlist.InvalidCount,
+			&hashlist.TotalInputLines,
+			&validationNoticeNS,
+			&hashlist.CreatedAt,
+			&hashlist.UpdatedAt,
+			&archivedAt,
+			&clientName,
+			&clientExcludeFromGlobal,
+			&clientExcludeFromClient,
+			&clientRemoveFromGlobalOnDelete,
+			&clientRemoveFromClientOnDelete,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan hashlist: %w", err)
+		}
+		if clientID.Valid {
+			hashlist.ClientID = clientID.V
+		}
+		if clientName.Valid {
+			hashlist.ClientName = &clientName.String
+		}
+		if originalFilePath.Valid {
+			hashlist.OriginalFilePath = &originalFilePath.String
+		}
+		if archivedAt.Valid {
+			hashlist.ArchivedAt = &archivedAt.Time
+		}
+		if clientExcludeFromGlobal.Valid {
+			hashlist.ClientExcludeFromGlobalPotfile = &clientExcludeFromGlobal.Bool
+		}
+		if clientExcludeFromClient.Valid {
+			hashlist.ClientExcludeFromClientPotfile = &clientExcludeFromClient.Bool
+		}
+		if clientRemoveFromGlobalOnDelete.Valid {
+			hashlist.ClientRemoveFromGlobalOnDelete = &clientRemoveFromGlobalOnDelete.Bool
+		}
+		if clientRemoveFromClientOnDelete.Valid {
+			hashlist.ClientRemoveFromClientOnDelete = &clientRemoveFromClientOnDelete.Bool
+		}
+		if validationNoticeNS.Valid {
+			hashlist.ValidationNotice = &validationNoticeNS.String
+		}
+		hl := hashlist
+		result[hashlist.ID] = &hl
+	}
+	return result, rows.Err()
+}
+
 // List retrieves hashlists, optionally filtered and paginated.
 type ListHashlistsParams struct {
 	UserID   *uuid.UUID
