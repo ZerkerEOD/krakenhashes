@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -126,6 +127,21 @@ func RunMigrations() error {
 			debug.Error("Check the logs from the *first* time migration %d failed for the specific SQL error.", e.Version)
 			debug.Error("You may need to manually clean the database and reset the migration version. Original error: %v", err)
 			return fmt.Errorf("dirty migration version %d: %w", e.Version, err)
+		} else if isDBAheadOfMigrations(err) && migrateAllowAhead() {
+			// The database records a schema version that has no migration file in this
+			// build — i.e. the DB is AHEAD of the migrations bundled here. This happens in
+			// development when switching to a branch that lacks a migration another branch
+			// already applied to the shared dev database. Tolerate it (dev only) instead of
+			// refusing to start; production keeps this fatal (DEBUG off, flag unset).
+			if version, dirty, verr := m.Version(); verr == nil {
+				debug.Warning("Database schema version %d (dirty=%t) is AHEAD of the migrations bundled in this build; "+
+					"continuing WITHOUT applying migrations (dev tolerance). This is expected when switching between "+
+					"feature branches on a shared dev database. Set KH_MIGRATE_ALLOW_AHEAD=false (or DEBUG=false) to make "+
+					"it fatal. Underlying error: %v", version, dirty, err)
+			} else {
+				debug.Warning("Database is AHEAD of the migrations bundled in this build; continuing without applying "+
+					"migrations (dev tolerance). Underlying error: %v", err)
+			}
 		} else {
 			// Handle other migration errors
 			debug.Error("Migration failed with unexpected error: %v", err)
@@ -136,6 +152,28 @@ func RunMigrations() error {
 	}
 
 	return nil
+}
+
+// migrateAllowAhead reports whether RunMigrations should tolerate a database that is
+// ahead of the migrations bundled in this build. Enabled explicitly with
+// KH_MIGRATE_ALLOW_AHEAD=true, and implicitly in debug/dev mode (DEBUG=true) so that
+// switching between feature branches on a shared dev database does not brick startup.
+// Production (DEBUG=false, flag unset) keeps migrations strict.
+func migrateAllowAhead() bool {
+	switch strings.ToLower(os.Getenv("KH_MIGRATE_ALLOW_AHEAD")) {
+	case "true", "1", "yes":
+		return true
+	case "false", "0", "no":
+		return false
+	}
+	return strings.ToLower(os.Getenv("DEBUG")) == "true"
+}
+
+// isDBAheadOfMigrations reports whether a migrate error indicates the database's recorded
+// version has no corresponding migration file in this build (the file source returns
+// os.ErrNotExist for the missing version).
+func isDBAheadOfMigrations(err error) bool {
+	return errors.Is(err, os.ErrNotExist) || strings.Contains(err.Error(), "file does not exist")
 }
 
 /*
