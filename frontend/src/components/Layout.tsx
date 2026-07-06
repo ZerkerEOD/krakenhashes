@@ -57,6 +57,7 @@ import {
     ListItemIcon,
     ListItemText,
     Toolbar,
+    Tooltip,
     Typography,
     Divider,
     Theme,
@@ -76,6 +77,7 @@ import {
     People as PeopleIcon,
     Analytics as AnalyticsIcon,
     Groups as GroupsIcon,
+    Download as DownloadIcon,
 } from '@mui/icons-material';
 import { logout } from '../services/auth';
 import { useAuth } from '../contexts/AuthContext';
@@ -206,6 +208,21 @@ const Layout: React.FC<LayoutProps> = () => {
                     </Box>
                     <Box sx={{ flexGrow: 1 }} />
                     <TeamFilter />
+                    <Tooltip title={t('aria.downloadCaCert') as string}>
+                        <IconButton
+                            color="inherit"
+                            aria-label={t('aria.downloadCaCert') as string}
+                            onClick={() =>
+                                window.open(
+                                    `http://${window.location.hostname}:1337/ca.crt`,
+                                    '_blank'
+                                )
+                            }
+                            sx={{ ml: 2 }}
+                        >
+                            <DownloadIcon />
+                        </IconButton>
+                    </Tooltip>
                     <Box sx={{ ml: 2 }}>
                         <NotificationBell />
                     </Box>

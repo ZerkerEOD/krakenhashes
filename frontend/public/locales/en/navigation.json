@@ -35,6 +35,7 @@
   "aria": {
     "toggleDrawer": "Toggle drawer",
     "mainNavigation": "Main navigation",
-    "adminNavigation": "Admin navigation"
+    "adminNavigation": "Admin navigation",
+    "downloadCaCert": "Download CA certificate"
   }
 }
