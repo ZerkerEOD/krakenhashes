@@ -233,22 +233,37 @@ func (h *UserJobsHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert to job summaries
+	// Batch-load the page's hashlists and tasks in one query each to avoid an N+1
+	// (previously two queries per job, which is why the UI poll was throttled to 5s).
+	hashlistIDs := make([]int64, 0, len(jobsWithUser))
+	jobIDs := make([]uuid.UUID, 0, len(jobsWithUser))
+	for _, jw := range jobsWithUser {
+		hashlistIDs = append(hashlistIDs, jw.JobExecution.HashlistID)
+		jobIDs = append(jobIDs, jw.JobExecution.ID)
+	}
+	hashlistsByID, err := h.hashlistRepo.GetByIDs(ctx, hashlistIDs)
+	if err != nil {
+		debug.Error("Failed to batch-load hashlists: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	tasksByJob, err := h.jobTaskRepo.GetTasksByJobExecutions(ctx, jobIDs)
+	if err != nil {
+		debug.Error("Failed to batch-load tasks: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
 	summaries := make([]JobSummary, 0, len(jobsWithUser))
 	for _, jobWithUser := range jobsWithUser {
 		job := jobWithUser.JobExecution
-		// Get hashlist details including cracked count
-		hashlist, err := h.hashlistRepo.GetByID(ctx, job.HashlistID)
-		if err != nil {
-			debug.Error("Failed to get hashlist %d: %v", job.HashlistID, err)
+		// Hashlist + tasks from the batch loads above (nil-safe: absent = skip / no tasks).
+		hashlist, ok := hashlistsByID[job.HashlistID]
+		if !ok {
+			debug.Error("Hashlist %d not found for job %s", job.HashlistID, job.ID)
 			continue
 		}
-
-		// Get task statistics
-		tasks, err := h.jobTaskRepo.GetTasksByJobExecution(ctx, job.ID)
-		if err != nil {
-			debug.Error("Failed to get tasks for job %s: %v", job.ID, err)
-			tasks = []models.JobTask{}
-		}
+		tasks := tasksByJob[job.ID]
 
 		// Calculate metrics
 		var agentCount int
@@ -2230,22 +2245,37 @@ func (h *UserJobsHandler) ListUserJobs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert to job summaries (reuse the same logic as ListJobs)
+	// Batch-load the page's hashlists and tasks in one query each to avoid an N+1
+	// (previously two queries per job, which is why the UI poll was throttled to 5s).
+	hashlistIDs := make([]int64, 0, len(jobsWithUser))
+	jobIDs := make([]uuid.UUID, 0, len(jobsWithUser))
+	for _, jw := range jobsWithUser {
+		hashlistIDs = append(hashlistIDs, jw.JobExecution.HashlistID)
+		jobIDs = append(jobIDs, jw.JobExecution.ID)
+	}
+	hashlistsByID, err := h.hashlistRepo.GetByIDs(ctx, hashlistIDs)
+	if err != nil {
+		debug.Error("Failed to batch-load hashlists: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	tasksByJob, err := h.jobTaskRepo.GetTasksByJobExecutions(ctx, jobIDs)
+	if err != nil {
+		debug.Error("Failed to batch-load tasks: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
 	summaries := make([]JobSummary, 0, len(jobsWithUser))
 	for _, jobWithUser := range jobsWithUser {
 		job := jobWithUser.JobExecution
-		// Get hashlist details including cracked count
-		hashlist, err := h.hashlistRepo.GetByID(ctx, job.HashlistID)
-		if err != nil {
-			debug.Error("Failed to get hashlist %d: %v", job.HashlistID, err)
+		// Hashlist + tasks from the batch loads above (nil-safe: absent = skip / no tasks).
+		hashlist, ok := hashlistsByID[job.HashlistID]
+		if !ok {
+			debug.Error("Hashlist %d not found for job %s", job.HashlistID, job.ID)
 			continue
 		}
-
-		// Get task statistics
-		tasks, err := h.jobTaskRepo.GetTasksByJobExecution(ctx, job.ID)
-		if err != nil {
-			debug.Error("Failed to get tasks for job %s: %v", job.ID, err)
-			tasks = []models.JobTask{}
-		}
+		tasks := tasksByJob[job.ID]
 
 		// Calculate metrics
 		var agentCount int

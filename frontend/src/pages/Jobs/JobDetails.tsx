@@ -166,12 +166,12 @@ const JobDetails: React.FC = () => {
       const interval = setInterval(() => {
         // Check conditions again inside the interval
         const activeStatuses = ['pending', 'running', 'paused'];
-        if (activeStatuses.includes(currentStatusRef.current) && 
+        if (activeStatuses.includes(currentStatusRef.current) &&
             !isEditingRef.current &&
             autoRefreshEnabled) {
           fetchJobDetails();
         }
-      }, 5000);
+      }, 2000);
       
       pollingIntervalRef.current = interval;
     }
