@@ -3,14 +3,18 @@ package analytics
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/auth"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/middleware"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/analytics/pdf"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -25,6 +29,10 @@ type Handler struct {
 	queueService   *services.AnalyticsQueueService
 	teamService    *services.TeamService
 	clientTeamRepo *repository.ClientTeamRepository
+	clientRepo     *repository.ClientRepository
+	userRepo       *repository.UserRepository
+	auditRepo      *repository.AuditLogRepository
+	pdfGen         *pdf.Generator
 }
 
 // NewHandler creates a new analytics handler
@@ -39,6 +47,10 @@ func NewHandler(database *db.DB, queueService *services.AnalyticsQueueService, t
 		queueService:   queueService,
 		teamService:    teamService,
 		clientTeamRepo: clientTeamRepo,
+		clientRepo:     repository.NewClientRepository(database),
+		userRepo:       repository.NewUserRepository(database),
+		auditRepo:      repository.NewAuditLogRepository(database),
+		pdfGen:         pdf.NewGenerator(),
 	}
 }
 
@@ -182,6 +194,175 @@ func (h *Handler) GetReport(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+// ExportReport renders a completed analytics report as a PDF.
+// GET /api/analytics/reports/{id}/export?type=internal|external&format=pdf
+//
+//   - internal: full report including plaintext passwords, usernames, hash values.
+//   - external: aggregate-only summary, redacted server-side via BuildExternalAnalytics.
+func (h *Handler) ExportReport(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	reportID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid report ID", http.StatusBadRequest)
+		return
+	}
+
+	// Fail-closed parameter validation: never silently default to internal.
+	var class pdf.Classification
+	switch strings.ToLower(r.URL.Query().Get("type")) {
+	case "internal":
+		class = pdf.Internal
+	case "external":
+		class = pdf.External
+	default:
+		http.Error(w, "Query parameter 'type' must be 'internal' or 'external'", http.StatusBadRequest)
+		return
+	}
+	if format := strings.ToLower(r.URL.Query().Get("format")); format != "" && format != "pdf" {
+		http.Error(w, "Query parameter 'format' must be 'pdf'", http.StatusBadRequest)
+		return
+	}
+
+	report, err := h.repo.GetByID(r.Context(), reportID)
+	if err != nil {
+		debug.Error("Failed to get report for export: %v", err)
+		if err.Error() == "not found" {
+			http.Error(w, "Report not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "Failed to retrieve report", http.StatusInternalServerError)
+		return
+	}
+
+	// Same access gate as viewing the report on screen.
+	if !h.checkClientAccess(r.Context(), report.ClientID) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	if report.Status != "completed" || report.AnalyticsData == nil {
+		http.Error(w, "Only completed reports can be exported", http.StatusBadRequest)
+		return
+	}
+
+	// Resolve the client for the cover page (best-effort; cover tolerates nil).
+	client, err := h.clientRepo.GetByID(r.Context(), report.ClientID)
+	if err != nil {
+		debug.Warning("Export: failed to load client %s: %v", report.ClientID, err)
+		client = nil
+	}
+
+	// Build the data view. For external, redact server-side BEFORE rendering so
+	// sensitive data never reaches the renderer (or the client) for that document.
+	data := report.AnalyticsData
+	if class == pdf.External {
+		data = pdf.BuildExternalAnalytics(report.AnalyticsData)
+	}
+
+	pdfBytes, err := h.pdfGen.Generate(report, client, data, class)
+	if err != nil {
+		debug.Error("Failed to generate analytics PDF: %v", err)
+		http.Error(w, "Failed to generate PDF", http.StatusInternalServerError)
+		return
+	}
+
+	// Accountability trail for sensitive-data distribution.
+	h.auditExport(r, report, client, class)
+
+	// Sensitive bytes: never cache to disk in browser/proxy.
+	filename := buildExportFilename(client, class, report.ID)
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write(pdfBytes); err != nil {
+		debug.Error("Failed to write analytics PDF response: %v", err)
+	}
+}
+
+// auditExport records an audit-log entry for a report export. Internal exports
+// (plaintext credentials) are logged at warning severity, external at info.
+// The entry carries only metadata — never the report contents.
+func (h *Handler) auditExport(r *http.Request, report *models.AnalyticsReport, client *models.Client, class pdf.Classification) {
+	severity := models.AuditSeverityInfo
+	if class == pdf.Internal {
+		severity = models.AuditSeverityWarning
+	}
+
+	var userID *uuid.UUID
+	username, email := "", ""
+	if uidStr, ok := r.Context().Value("user_id").(string); ok {
+		if uid, perr := uuid.Parse(uidStr); perr == nil {
+			userID = &uid
+			if u, uerr := h.userRepo.GetByID(r.Context(), uid); uerr == nil && u != nil {
+				username = u.Username
+				email = u.Email
+			}
+		}
+	}
+
+	clientName := report.ClientID.String()
+	if client != nil && client.Name != "" {
+		clientName = client.Name
+	}
+
+	title := fmt.Sprintf("Analytics report exported (%s)", class)
+	message := fmt.Sprintf("Exported the %s analytics PDF for client %q (report %s).", class, clientName, report.ID)
+
+	log := models.NewAuditLog(models.NotificationTypeAnalyticsExport, severity, title, message).
+		WithSource("analytics_report", report.ID.String()).
+		WithData(map[string]interface{}{
+			"export_type": string(class),
+			"client_id":   report.ClientID.String(),
+		})
+	if userID != nil {
+		log.WithUser(*userID, username, email)
+	}
+	ip, ua := auth.GetClientInfo(r)
+	log.WithRequestContext(ip, ua)
+
+	if err := h.auditRepo.Create(r.Context(), log); err != nil {
+		debug.Error("Failed to write audit log for analytics export: %v", err)
+	}
+}
+
+// buildExportFilename builds a safe Content-Disposition filename.
+func buildExportFilename(client *models.Client, class pdf.Classification, reportID uuid.UUID) string {
+	name := "client"
+	if client != nil && client.Name != "" {
+		name = client.Name
+	}
+	short := reportID.String()
+	if len(short) > 8 {
+		short = short[:8]
+	}
+	return fmt.Sprintf("analytics_%s_%s_%s.pdf", sanitizeFilenamePart(name), class, short)
+}
+
+// sanitizeFilenamePart keeps only filename-safe characters, dropping anything
+// that could break the HTTP header (CR/LF, quotes, slashes, control chars).
+func sanitizeFilenamePart(s string) string {
+	var b strings.Builder
+	for _, ch := range s {
+		switch {
+		case ch >= 'a' && ch <= 'z', ch >= 'A' && ch <= 'Z', ch >= '0' && ch <= '9', ch == '-', ch == '_':
+			b.WriteRune(ch)
+		case ch == ' ' || ch == '.':
+			b.WriteRune('_')
+		}
+	}
+	out := b.String()
+	if len(out) > 40 {
+		out = out[:40]
+	}
+	if out == "" {
+		out = "client"
+	}
+	return out
 }
 
 // GetClientReports retrieves all reports for a specific client

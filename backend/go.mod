@@ -9,6 +9,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/crewjam/saml v0.5.1
 	github.com/go-ldap/ldap/v3 v3.4.12
+	github.com/go-pdf/fpdf v0.9.0
 	github.com/go-webauthn/webauthn v0.15.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/golang-migrate/migrate/v4 v4.18.1
@@ -31,7 +32,7 @@ require (
 require (
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
 	github.com/bits-and-blooms/bitset v1.10.0 // indirect
-	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
+	github.com/boombuler/barcode v1.0.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.8-0.20250403174932-29230038a667 // indirect

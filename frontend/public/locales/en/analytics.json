@@ -58,7 +58,16 @@
     "retry": "Retry",
     "delete": "Delete",
     "exportHcmask": "Export .hcmask",
-    "exportTxt": "Export .txt"
+    "exportTxt": "Export .txt",
+    "exportInternalPdf": "Internal PDF",
+    "exportExternalPdf": "External PDF"
+  },
+  "pdfExport": {
+    "internalConfirmTitle": "Export internal report?",
+    "internalConfirmBody": "The internal PDF contains recovered plaintext passwords, usernames, and hash values. Handle and store it only through approved secure channels. This export is recorded in the audit log.",
+    "confirm": "Download internal PDF",
+    "cancel": "Cancel",
+    "error": "Failed to generate the PDF. Please try again."
   },
   "messages": {
     "selectClient": "Please select a client",

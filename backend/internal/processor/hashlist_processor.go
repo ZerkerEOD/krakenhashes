@@ -271,7 +271,9 @@ func (p *HashlistDBProcessor) processHashlist(hashlistID int64, filePath string)
 		var domain *string
 		if usernameAndDomain != nil {
 			username = usernameAndDomain.Username
-			domain = usernameAndDomain.Domain
+			// Normalize (trim + lowercase, drop empty) at this single write
+			// chokepoint so every extraction path stores a consistent domain.
+			domain = hashutils.NormalizeDomain(usernameAndDomain.Domain)
 		}
 
 		// --- End New Processing Logic ---
