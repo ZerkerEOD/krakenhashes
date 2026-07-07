@@ -1534,13 +1534,11 @@ func (h *hashlistHandler) handleGetProcessingProgress(w http.ResponseWriter, r *
 
 func (h *hashlistHandler) handleUpdateHashlistClient(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	_, err := getUserIDFromContext(ctx)
+	userID, err := getUserIDFromContext(ctx)
 	if err != nil {
 		jsonError(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	// Note: All authenticated users can update hashlist clients
-	// This will change when teams are implemented
 
 	id, err := getInt64FromPath(r, "id")
 	if err != nil {
@@ -1591,6 +1589,47 @@ func (h *hashlistHandler) handleUpdateHashlistClient(w http.ResponseWriter, r *h
 			jsonError(w, "Failed to retrieve hashlist", http.StatusInternalServerError)
 		}
 		return
+	}
+
+	// Verify team-based access when teams are enabled (server-side defense —
+	// never trust the client_id the caller supplied). No-op when teams are
+	// disabled or the caller is an admin.
+	if middleware.IsTeamsEnabledFromContext(ctx) && !middleware.IsAdminFromContext(ctx) {
+		// The user must be able to access the hashlist being modified (via its
+		// current client). Hashlists with no client fall back to ownership.
+		if hashlist.ClientID != uuid.Nil {
+			canAccess, accessErr := h.teamService.CanUserAccessClient(ctx, userID, hashlist.ClientID, false)
+			if accessErr != nil {
+				debug.Error("Error checking hashlist access for user %s, hashlist %d: %v", userID, id, accessErr)
+				jsonError(w, "Failed to verify hashlist access", http.StatusInternalServerError)
+				return
+			}
+			if !canAccess {
+				debug.Warning("User %s attempted to reassign inaccessible hashlist %d", userID, id)
+				jsonError(w, "You do not have access to this hashlist", http.StatusForbidden)
+				return
+			}
+		} else if hashlist.UserID != userID {
+			debug.Warning("User %s attempted to reassign hashlist %d owned by %s", userID, id, hashlist.UserID)
+			jsonError(w, "You do not have access to this hashlist", http.StatusForbidden)
+			return
+		}
+
+		// The user must be able to access the client the hashlist is being
+		// assigned to.
+		if clientID != uuid.Nil {
+			canAccess, accessErr := h.teamService.CanUserAccessClient(ctx, userID, clientID, false)
+			if accessErr != nil {
+				debug.Error("Error checking client access for user %s, client %s: %v", userID, clientID, accessErr)
+				jsonError(w, "Failed to verify client access", http.StatusInternalServerError)
+				return
+			}
+			if !canAccess {
+				debug.Warning("User %s attempted to reassign hashlist %d to inaccessible client %s", userID, id, clientID)
+				jsonError(w, "You do not have access to this client", http.StatusForbidden)
+				return
+			}
+		}
 	}
 
 	// Update the client
