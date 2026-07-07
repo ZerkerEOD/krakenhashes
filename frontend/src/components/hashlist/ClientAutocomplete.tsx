@@ -10,10 +10,15 @@ import {
   Checkbox,
   Collapse,
   Divider,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import { listClients } from '../../services/api';
 import { Client } from '../../types/client';
+import { Team } from '../../types/team';
 
 // Option type for the Autocomplete dropdown
 interface ClientOption {
@@ -36,12 +41,19 @@ export interface NewClientData {
   dataRetentionMonths?: number | null;
   excludeFromPotfile?: boolean;
   excludeFromClientPotfile?: boolean;
+  // Team to file the new client under. Only meaningful when the user belongs
+  // to more than one team (existing clients derive their team from client_teams).
+  teamId?: string;
 }
 
 interface ClientAutocompleteProps {
   value: string | null;
   onChange: (clientName: string | null) => void;
-  teamId?: string;
+  // The user's teams. When creating a NEW client and the user belongs to more
+  // than one team, a required Team picker is shown so the client is filed under
+  // the intended team. Not used for selecting existing clients — the client list
+  // is already scoped to the user's teams server-side.
+  teams?: Team[];
   defaultRetention?: number | null;
   onNewClientDataChange?: (data: NewClientData | null) => void;
 }
@@ -49,7 +61,7 @@ interface ClientAutocompleteProps {
 export default function ClientAutocomplete({
   value,
   onChange,
-  teamId,
+  teams,
   defaultRetention,
   onNewClientDataChange,
 }: ClientAutocompleteProps) {
@@ -66,11 +78,13 @@ export default function ClientAutocomplete({
   const [newClientRetention, setNewClientRetention] = useState<string>('');
   const [newClientExcludePotfile, setNewClientExcludePotfile] = useState(false);
   const [newClientExcludeClientPotfile, setNewClientExcludeClientPotfile] = useState(false);
+  const [newClientTeamId, setNewClientTeamId] = useState<string>('');
 
-  // Fetch clients on mount and when teamId changes
+  // Fetch clients on mount. The list is already scoped to the user's teams
+  // server-side (GET /api/clients), so no client-side team filtering is needed.
   useEffect(() => {
     fetchClients();
-  }, [teamId]);
+  }, []);
 
   const fetchClients = async () => {
     setLoading(true);
@@ -79,9 +93,6 @@ export default function ClientAutocomplete({
       const response = await listClients();
       let clients: Client[] = response.data?.data || [];
 
-      // Filter by team if teamId is provided (client-side filter for team-scoped view)
-      // The backend listClients returns all accessible clients; team filtering
-      // is typically handled by backend middleware, but we add client-side filter as safety
       const clientOptions: ClientOption[] = clients.map((c) => ({
         id: c.id,
         name: c.name,
@@ -132,6 +143,7 @@ export default function ClientAutocomplete({
           : undefined,
         excludeFromPotfile: newClientExcludePotfile,
         excludeFromClientPotfile: newClientExcludeClientPotfile,
+        teamId: newClientTeamId || undefined,
       });
     } else if (isCreateMode) {
       onNewClientDataChange?.(null);
@@ -144,6 +156,7 @@ export default function ClientAutocomplete({
     newClientRetention,
     newClientExcludePotfile,
     newClientExcludeClientPotfile,
+    newClientTeamId,
   ]);
 
   const handleOptionChange = (_event: React.SyntheticEvent, newValue: ClientOption | null) => {
@@ -156,6 +169,9 @@ export default function ClientAutocomplete({
       setNewClientRetention('');
       setNewClientExcludePotfile(false);
       setNewClientExcludeClientPotfile(false);
+      // Default to the sole team when the user has exactly one; otherwise force
+      // an explicit choice (empty) so a multi-team user can't silently misfile.
+      setNewClientTeamId(teams && teams.length === 1 ? teams[0].id : '');
       onChange(null); // Clear until user types a name
     } else {
       setSelectedOption(newValue);
@@ -224,6 +240,29 @@ export default function ClientAutocomplete({
             New Client Details
           </Typography>
           <Divider sx={{ mb: 2 }} />
+
+          {/* Team picker — only needed when the user belongs to more than one
+              team, so the new client is filed under the intended team. */}
+          {teams && teams.length > 1 && (
+            <FormControl fullWidth required={isCreateMode} sx={{ mb: 2 }}>
+              <InputLabel id="new-client-team-label">Team</InputLabel>
+              <Select
+                labelId="new-client-team-label"
+                value={newClientTeamId}
+                label="Team"
+                onChange={(e) => setNewClientTeamId(e.target.value)}
+              >
+                {teams.map((team) => (
+                  <MenuItem key={team.id} value={team.id}>
+                    {team.name}
+                  </MenuItem>
+                ))}
+              </Select>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, ml: 1.75 }}>
+                The new client will be assigned to this team.
+              </Typography>
+            </FormControl>
+          )}
 
           <TextField
             fullWidth

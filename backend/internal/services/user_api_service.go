@@ -102,6 +102,20 @@ func (s *UserAPIService) ValidateAPIKey(ctx context.Context, email, apiKey strin
 	return user.ID, nil
 }
 
+// GetUserRole returns a user's role. Used by the API-key middleware to populate
+// the request context so team-aware handlers can honor the admin bypass (the
+// API-key auth path has no session role like the web auth middleware does).
+func (s *UserAPIService) GetUserRole(ctx context.Context, userID uuid.UUID) (string, error) {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get user: %w", err)
+	}
+	if user == nil {
+		return "", fmt.Errorf("user not found")
+	}
+	return user.Role, nil
+}
+
 // RevokeAPIKey revokes (nullifies) the API key for a user
 func (s *UserAPIService) RevokeAPIKey(ctx context.Context, userID uuid.UUID) error {
 	debug.Info("Revoking API key for user %s", userID.String())

@@ -75,7 +75,7 @@ func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager
 	v1Router.HandleFunc("/clients/{id}", clientHandler.DeleteClient).Methods("DELETE", "OPTIONS")
 
 	// Hashlist endpoints
-	hashlistHandler := v1handlers.NewHashlistHandler(hashlistRepo, clientRepo, hashTypeRepo, systemSettingsRepo, hashlistProcessor, hashlistDataDir)
+	hashlistHandler := v1handlers.NewHashlistHandler(hashlistRepo, clientRepo, hashTypeRepo, systemSettingsRepo, hashlistProcessor, hashlistDataDir, teamService)
 	v1Router.HandleFunc("/hashlists", hashlistHandler.CreateHashlist).Methods("POST", "OPTIONS")
 	v1Router.HandleFunc("/hashlists", hashlistHandler.ListHashlists).Methods("GET", "OPTIONS")
 	v1Router.HandleFunc("/hashlists/{id:[0-9]+}", hashlistHandler.GetHashlist).Methods("GET", "OPTIONS")

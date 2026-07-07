@@ -16,10 +16,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
 } from '@mui/material';
 import { Clear as ClearIcon } from '@mui/icons-material';
 import ClientAutocomplete, { NewClientData } from './ClientAutocomplete';
@@ -82,9 +78,7 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
   const [potfileGloballyEnabled, setPotfileGloballyEnabled] = useState(true);
   const [clientPotfilesSystemEnabled, setClientPotfilesSystemEnabled] = useState(true);
   const [requireClient, setRequireClient] = useState(false);
-  const [teamsEnabled, setTeamsEnabled] = useState(false);
   const [userTeams, setUserTeams] = useState<Team[]>([]);
-  const [selectedTeamId, setSelectedTeamId] = useState<string>('');
   const [detectionResult, setDetectionResult] = useState<any>(null);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [isDetecting, setIsDetecting] = useState(false);
@@ -108,7 +102,7 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  const { control, handleSubmit, reset, setValue, formState: { errors } } = useForm<FormData>({
+  const { control, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(createSchema(requireClient)),
     defaultValues: {
       name: '',
@@ -221,15 +215,11 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
         if (teamsEnabled) {
           // If teams are enabled, client is always required
           setRequireClient(true);
-          setTeamsEnabled(true);
-          // Fetch user's teams for the team selector
+          // Fetch the user's teams so a NEW client can be filed under the
+          // right team (only prompted when the user belongs to >1 team).
           try {
             const teams = await teamsService.listUserTeams();
             setUserTeams(teams);
-            // Auto-select if user has exactly one team
-            if (teams.length === 1) {
-              setSelectedTeamId(teams[0].id);
-            }
           } catch (teamErr) {
             console.error('Failed to fetch user teams:', teamErr);
           }
@@ -297,12 +287,14 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
       if (createLinked) {
         formData.append('create_linked', 'true');
       }
-      if (selectedTeamId) {
-        formData.append('team_id', selectedTeamId);
-      }
 
       // Append new client override fields when creating a new client
       if (newClientData) {
+        // Only a NEW client needs an explicit team — existing clients derive
+        // their team from client_teams server-side.
+        if (newClientData.teamId) {
+          formData.append('team_id', newClientData.teamId);
+        }
         if (newClientData.description) {
           formData.append('client_description', newClientData.description);
         }
@@ -389,6 +381,12 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
   });
 
   const onSubmit = (data: FormData): void => {
+    // Creating a new client while the user belongs to more than one team
+    // requires an explicit team so it isn't silently filed under the wrong one.
+    if (newClientData && userTeams.length > 1 && !newClientData.teamId) {
+      enqueueSnackbar('Please select a team for the new client.', { variant: 'error' });
+      return;
+    }
     uploadMutation.mutate(data);
   };
 
@@ -437,29 +435,6 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
         )}
       />
 
-      {/* Team Selector — shown when teams enabled and user has multiple teams */}
-      {teamsEnabled && userTeams.length > 1 && (
-        <FormControl fullWidth margin="normal">
-          <InputLabel id="team-select-label">Team</InputLabel>
-          <Select
-            labelId="team-select-label"
-            value={selectedTeamId}
-            label="Team"
-            onChange={(e) => {
-              setSelectedTeamId(e.target.value);
-              // Clear client when team changes (clients are team-scoped)
-              setValue('clientName', null);
-            }}
-          >
-            {userTeams.map((team) => (
-              <MenuItem key={team.id} value={team.id}>
-                {team.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      )}
-
       <Controller
         name="clientName"
         control={control}
@@ -468,7 +443,7 @@ export default function HashlistUploadForm({ onSuccess }: HashlistUploadFormProp
             <ClientAutocomplete
               value={field.value ?? null}
               onChange={field.onChange}
-              teamId={selectedTeamId || undefined}
+              teams={userTeams}
               defaultRetention={defaultRetention}
               onNewClientDataChange={setNewClientData}
             />

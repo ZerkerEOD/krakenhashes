@@ -11,9 +11,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/middleware"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/processor"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/httputil"
 	"github.com/google/uuid"
@@ -27,6 +29,7 @@ type HashlistHandler struct {
 	hashTypeRepo       *repository.HashTypeRepository
 	systemSettingsRepo *repository.SystemSettingsRepository
 	processor          *processor.HashlistDBProcessor
+	teamService        *services.TeamService
 	dataDir            string
 }
 
@@ -38,6 +41,7 @@ func NewHashlistHandler(
 	systemSettingsRepo *repository.SystemSettingsRepository,
 	processor *processor.HashlistDBProcessor,
 	dataDir string,
+	teamService *services.TeamService,
 ) *HashlistHandler {
 	return &HashlistHandler{
 		hashlistRepo:       hashlistRepo,
@@ -45,6 +49,7 @@ func NewHashlistHandler(
 		hashTypeRepo:       hashTypeRepo,
 		systemSettingsRepo: systemSettingsRepo,
 		processor:          processor,
+		teamService:        teamService,
 		dataDir:            dataDir,
 	}
 }
@@ -120,8 +125,26 @@ func (h *HashlistHandler) CreateHashlist(w http.ResponseWriter, r *http.Request)
 			sendError(w, "Client not found", "RESOURCE_NOT_FOUND", http.StatusNotFound)
 			return
 		}
+
+		// Verify the caller can access this client when teams are enabled
+		// (server-side defense — never trust the client_id supplied by the API
+		// caller). CanUserAccessClient is a no-op when teams are disabled or the
+		// caller is an admin.
+		if h.teamService != nil {
+			isAdmin := middleware.IsAdminFromContext(ctx)
+			canAccess, accessErr := h.teamService.CanUserAccessClient(ctx, userID, clientID, isAdmin)
+			if accessErr != nil {
+				debug.Error("Error checking client access for user %s, client %s: %v", userID.String(), clientID.String(), accessErr)
+				sendError(w, "Failed to verify client access", "INTERNAL_ERROR", http.StatusInternalServerError)
+				return
+			}
+			if !canAccess {
+				debug.Warning("User %s attempted to create hashlist for inaccessible client %s", userID.String(), clientID.String())
+				sendError(w, "You do not have access to this client", "ACCESS_DENIED", http.StatusForbidden)
+				return
+			}
+		}
 	}
-	// Note: Clients are global (no user ownership), all authenticated users can use any client
 
 	// Parse and validate hash_type_id
 	hashTypeID, err := strconv.Atoi(hashTypeIDStr)

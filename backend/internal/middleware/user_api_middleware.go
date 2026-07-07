@@ -38,9 +38,19 @@ func UserAPIKeyMiddleware(userAPIService *services.UserAPIService) func(http.Han
 				return
 			}
 
-			// Store user ID in context for handlers
+			// Look up the user's role so team-aware handlers can honor the admin
+			// bypass (mirrors the web auth middleware). A lookup failure is
+			// non-fatal — default to an empty role, which fails closed (non-admin).
+			role, roleErr := userAPIService.GetUserRole(r.Context(), userID)
+			if roleErr != nil {
+				debug.Warning("Failed to load role for user %s: %v", userID.String(), roleErr)
+				role = ""
+			}
+
+			// Store user ID and role in context for handlers
 			ctx := context.WithValue(r.Context(), "user_id", userID.String())
 			ctx = context.WithValue(ctx, "user_uuid", userID)
+			ctx = context.WithValue(ctx, "user_role", role)
 			r = r.WithContext(ctx)
 
 			debug.Info("User API key authentication successful for user %s", userID.String())
