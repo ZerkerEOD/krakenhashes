@@ -53,14 +53,6 @@ type JobSchedulingService struct {
 	// because the failure_attempts table is the durable record.
 	lastForcedBenchmarkAgent sync.Map // map[string]int
 
-	// Rule-split keyspace-drift warning gate: keyed by job_execution_id.
-	// `calculateRuleSplitChunk` logs a warning the first time it has to sync
-	// dispatched_keyspace to effective_keyspace, then silently re-syncs on
-	// subsequent cycles to avoid flooding the log (the underlying sync is
-	// idempotent and cheap). In-memory only; on backend restart the warning
-	// will fire once more per job, which is what we want.
-	ruleSplitSyncWarned sync.Map // map[uuid.UUID]struct{}
-
 	// NEW: Team-aware scheduling
 	teamService *TeamService
 }
@@ -545,12 +537,6 @@ func (s *JobSchedulingService) hasUndispatchedWork(ctx context.Context, job *mod
 		return true
 	}
 
-	if job.UsesRuleSplitting && job.EffectiveKeyspace != nil {
-		// For rule chunking: check if dispatched keyspace < effective keyspace
-		// This indicates more rule chunks need to be created
-		return job.DispatchedKeyspace.Cmp(*job.EffectiveKeyspace) < 0
-	}
-
 	// For keyspace splitting (--skip/--limit): query actual BASE keyspace dispatched from tasks
 	// We can't use job.DispatchedKeyspace because it's tracked in EFFECTIVE units
 	// which doesn't match the BASE keyspace units used for hashcat --skip/--limit
@@ -597,53 +583,6 @@ func (s *JobSchedulingService) isJobStructurallyComplete(ctx context.Context, jo
 		return true
 	}
 
-	// Rule-split: check if all rule chunks have been dispatched.
-	//
-	// The comparison must be in the *raw rule-file* unit — `max_rule_end_index`
-	// from job_tasks is a rule-file index (≤ rule_count). `MultiplicationFactor`
-	// is NOT in that unit for salted hash types: it's stored as
-	// `rule_count × salt_count` so that `effective_keyspace = base_keyspace ×
-	// multiplication_factor` arithmetic works out. Comparing the two directly
-	// makes salted rule-split jobs invisible to the structural check — they
-	// stay zombie-pending forever, starving lower-priority jobs.
-	//
-	// Use the same source the chunker uses
-	// (`ruleSplitManager.CountRules(rulePath)`, called at
-	// job_scheduling_task_assignment.go:246 to initialize state.TotalRules)
-	// so the completion-detector and the chunker agree on what "all rules
-	// dispatched" means.
-	if job.UsesRuleSplitting {
-		var totalRules int64
-
-		if len(job.RuleIDs) > 0 {
-			if rulePath, err := s.jobExecutionService.resolveRulePath(ctx, job.RuleIDs[0]); err == nil {
-				if n, err := s.jobExecutionService.ruleSplitManager.CountRules(ctx, rulePath); err == nil {
-					totalRules = int64(n)
-				}
-			}
-		}
-
-		// Fallback only when the rule file is unreadable. MultiplicationFactor
-		// and effective/base both OVERESTIMATE for salted hash types, so the
-		// check stays conservative (no false-positive completion).
-		if totalRules == 0 {
-			totalRules = job.MultiplicationFactor
-			if totalRules == 0 && job.EffectiveKeyspace != nil && job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
-				// effective(BigInt) / base(int64) → int64 sink (rule count)
-				totalRules = job.EffectiveKeyspace.DivInt64(*job.BaseKeyspace).Int64()
-			}
-		}
-
-		if totalRules <= 0 {
-			return false // Can't determine without totalRules
-		}
-		maxRuleEnd, err := s.jobExecutionService.jobTaskRepo.GetMaxRuleEndIndex(ctx, job.ID)
-		if err != nil {
-			return false
-		}
-		return maxRuleEnd != nil && int64(*maxRuleEnd) >= totalRules
-	}
-
 	// Keyspace-split: check if all base keyspace has been covered
 	if job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
 		maxBase, err := s.jobExecutionService.jobTaskRepo.GetMaxKeyspaceEnd(ctx, job.ID)
@@ -679,27 +618,8 @@ func (s *JobSchedulingService) completeExhaustedJobs(ctx context.Context, jobsWi
 			continue
 		}
 
-		// Guard 3: Must be structurally complete (all rules dispatched, all base keyspace covered, etc.)
+		// Guard 3: Must be structurally complete (all base keyspace covered, increment layers done, etc.)
 		if !s.isJobStructurallyComplete(ctx, &job.JobExecution) {
-			// Defensive diagnostic: at this point the job has no incomplete
-			// tasks and at least one completed task, but isJobStructurallyComplete
-			// disagrees. Either the rule file is unreadable, or there's a unit
-			// mismatch between max_rule_end_index and whatever totalRules
-			// source the check used. Logging the triple makes future "stuck job"
-			// reports diagnosable from the backend log alone.
-			if job.UsesRuleSplitting {
-				maxRuleEnd, _ := s.jobExecutionService.jobTaskRepo.GetMaxRuleEndIndex(ctx, job.ID)
-				debug.Info("Job has zero incomplete tasks but is not structurally complete", map[string]interface{}{
-					"job_id":                job.ID,
-					"name":                  job.Name,
-					"uses_rule_splitting":   job.UsesRuleSplitting,
-					"multiplication_factor": job.MultiplicationFactor,
-					"max_rule_end_index":    maxRuleEnd,
-					"dispatched_keyspace":   job.DispatchedKeyspace.String(),
-					"effective_keyspace":    bigIntPtrLog(job.EffectiveKeyspace),
-					"hint":                  "if max_rule_end_index >= the rule file's CountRules result, the rule file is probably unreadable; otherwise structural check is conservative and waiting for more rules to be dispatched",
-				})
-			}
 			continue
 		}
 
@@ -708,7 +628,6 @@ func (s *JobSchedulingService) completeExhaustedJobs(ctx context.Context, jobsWi
 			"name":                job.Name,
 			"dispatched_keyspace": job.DispatchedKeyspace.String(),
 			"effective_keyspace":  bigIntPtrLog(job.EffectiveKeyspace),
-			"uses_rule_splitting": job.UsesRuleSplitting,
 		})
 
 		// Use CompleteJobExecution directly (NOT ProcessJobCompletion) because:
@@ -1828,49 +1747,6 @@ func (s *JobSchedulingService) ProcessJobCompletion(ctx context.Context, jobExec
 		return nil // Don't fall through to regular keyspace comparison for increment jobs
 	}
 
-	// For rule-split jobs, also check if all rules have been dispatched
-	if job.UsesRuleSplitting && incompleteTasks == 0 {
-		// Get total rules from the job's effective keyspace and base keyspace
-		totalRules := job.MultiplicationFactor
-		if totalRules == 0 && job.EffectiveKeyspace != nil && job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
-			// effective(BigInt) / base(int64) → int64 sink (rule count)
-			totalRules = job.EffectiveKeyspace.DivInt64(*job.BaseKeyspace).Int64()
-		}
-
-		// Get the maximum rule end index from all tasks
-		maxRuleEnd, err := s.jobExecutionService.jobTaskRepo.GetMaxRuleEndIndex(ctx, jobExecutionID)
-		if err != nil {
-			debug.Log("Failed to get max rule end index", map[string]interface{}{
-				"job_execution_id": jobExecutionID,
-				"error":            err.Error(),
-			})
-		}
-
-		// Check if all rules have been processed
-		allRulesProcessed := false
-		if maxRuleEnd != nil && totalRules > 0 {
-			allRulesProcessed = int64(*maxRuleEnd) >= totalRules
-		}
-
-		debug.Log("Rule-split job completion check", map[string]interface{}{
-			"job_execution_id":    jobExecutionID,
-			"incomplete_tasks":    incompleteTasks,
-			"total_rules":         totalRules,
-			"max_rule_end":        maxRuleEnd,
-			"all_rules_processed": allRulesProcessed,
-		})
-
-		// Only complete if all tasks are done AND all rules have been dispatched
-		if !allRulesProcessed {
-			debug.Log("Rule-split job has completed tasks but not all rules dispatched", map[string]interface{}{
-				"job_execution_id": jobExecutionID,
-				"total_rules":      totalRules,
-				"max_rule_end":     maxRuleEnd,
-			})
-			return nil
-		}
-	}
-
 	if incompleteTasks == 0 {
 		// For non-rule-splitting jobs, completion is driven by BASE keyspace, not
 		// effective. We dispatch every chunk via hashcat --skip/--limit over the
@@ -1882,7 +1758,7 @@ func (s *JobSchedulingService) ProcessJobCompletion(ctx context.Context, jobExec
 		// We settle effective_keyspace from the tasks' actual results at
 		// completion (see CompleteJobExecution), so the final progress still
 		// reads 100%.
-		if !job.UsesRuleSplitting {
+		{
 			if job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
 				hasWork, hwErr := s.jobExecutionService.jobTaskRepo.HasUndispatchedBaseKeyspace(ctx, jobExecutionID)
 				if hwErr != nil {

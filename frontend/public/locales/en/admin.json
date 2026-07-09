@@ -1239,9 +1239,9 @@
     "chunking": {
       "title": "Job Chunking",
       "defaultChunkDuration": "Default Chunk Duration",
-      "defaultChunkDurationHelper": "Duration for each job chunk",
-      "chunkFluctuation": "Chunk Fluctuation Percentage",
-      "chunkFluctuationHelper": "Allowed fluctuation for final chunks",
+      "defaultChunkDurationHelper": "Target wall-clock time per chunk (scheduler-v2 sizes each agent's chunk to hit this)",
+      "minChunkSeconds": "Minimum Chunk Duration",
+      "minChunkSecondsHelper": "Floor for a single chunk's wall time; prevents tiny orphan chunks",
       "minutes": "minutes"
     },
     "agentConfig": {
@@ -1256,8 +1256,6 @@
       "benchmarkCacheHelper": "How long to cache agent benchmarks",
       "benchmarkHistoryRetention": "Benchmark History Retention",
       "benchmarkHistoryRetentionHelper": "Days to retain benchmark history records (0 = unlimited)",
-      "speedtestTimeout": "Speedtest Timeout",
-      "speedtestTimeoutHelper": "Maximum time to wait for speedtest completion",
       "reconnectGrace": "Reconnect Grace Period",
       "reconnectGraceHelper": "Time to wait for agents to reconnect after server restart",
       "days": "days",
@@ -1282,20 +1280,25 @@
     "potfile": {
       "title": "Potfile Settings",
       "enablePotfile": "Enable Potfile",
-      "enablePotfileHelper": "Automatically store cracked passwords for use in future jobs. Individual hashlists can still be excluded."
+      "enablePotfileHelper": "Automatically store cracked passwords for use in future jobs. Individual hashlists can still be excluded.",
+      "maxBatchSize": "Maximum Batch Size",
+      "maxBatchSizeHelper": "Number of staged passwords to process in each batch cycle (1,000 - 500,000)",
+      "batchInterval": "Batch Interval",
+      "batchIntervalHelper": "Seconds between pot-file batch processing cycles (10 - 600)"
     },
-    "ruleSplitting": {
-      "title": "Rule Splitting",
-      "enableRuleSplitting": "Enable Rule Splitting",
-      "enableRuleSplittingHelper": "Automatically split large rule files for distributed processing",
-      "threshold": "Rule Split Threshold",
-      "thresholdHelper": "Split when job time exceeds chunk time by this factor",
-      "minRules": "Minimum Rules to Split",
-      "minRulesHelper": "Don't split files with fewer rules",
-      "maxChunks": "Maximum Rule Chunks",
-      "maxChunksHelper": "Maximum chunks to create per file",
-      "chunkDirectory": "Rule Chunk Directory",
-      "chunkDirectoryHelper": "Directory for temporary rule chunks"
+    "scheduler": {
+      "title": "Scheduler (v2)",
+      "description": "Advanced tuning for the v2 scheduler's task liveness and overrun handling. Defaults are safe for most deployments.",
+      "taskHeartbeatTimeout": "Task Heartbeat Timeout",
+      "taskHeartbeatTimeoutHelper": "Seconds without a liveness signal before a running task is marked lost and recovered",
+      "taskStartupGrace": "Task Startup Grace",
+      "taskStartupGraceHelper": "Extra grace before first progress (file download, decompression, autotune)",
+      "networkGrace": "Network Grace",
+      "networkGraceHelper": "WebSocket reconnect tolerance before recovery fires on a disconnect",
+      "overrunGuardEnabled": "Chunk Overrun Guard",
+      "overrunGuardEnabledHelper": "Stop tasks that run past their chunk target beyond the tolerance below",
+      "overrunTolerance": "Overrun Tolerance",
+      "overrunToleranceHelper": "Grace window: stop when wall time exceeds chunk target by this percentage"
     },
     "buttons": {
       "save": "Save Settings"

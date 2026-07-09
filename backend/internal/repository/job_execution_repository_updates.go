@@ -18,7 +18,7 @@ func (r *JobExecutionRepository) GetJobsByRuleID(ctx context.Context, ruleID int
 			created_at, started_at, completed_at, error_message,
 			interrupted_by, updated_at, name,
 			base_keyspace, effective_keyspace, multiplication_factor,
-			uses_rule_splitting, rule_split_count, overall_progress_percent,
+			overall_progress_percent,
 			dispatched_keyspace, chunk_size_seconds, rule_ids,
 			wordlist_ids
 		FROM job_executions
@@ -39,7 +39,7 @@ func (r *JobExecutionRepository) GetJobsByRuleID(ctx context.Context, ruleID int
 			&job.CreatedBy, &job.CreatedAt, &job.StartedAt, &job.CompletedAt,
 			&job.ErrorMessage, &job.InterruptedBy, &job.UpdatedAt, &job.Name,
 			&job.BaseKeyspace, &job.EffectiveKeyspace,
-			&job.MultiplicationFactor, &job.UsesRuleSplitting, &job.RuleSplitCount,
+			&job.MultiplicationFactor,
 			&job.OverallProgressPercent, &job.DispatchedKeyspace, &job.ChunkSizeSeconds,
 			&job.RuleIDs, &job.WordlistIDs,
 		)
@@ -62,7 +62,7 @@ func (r *JobExecutionRepository) GetJobsByWordlistID(ctx context.Context, wordli
 			created_at, started_at, completed_at, error_message,
 			interrupted_by, updated_at, name,
 			base_keyspace, effective_keyspace, multiplication_factor,
-			uses_rule_splitting, rule_split_count, overall_progress_percent,
+			overall_progress_percent,
 			dispatched_keyspace, chunk_size_seconds, rule_ids,
 			wordlist_ids
 		FROM job_executions
@@ -83,7 +83,7 @@ func (r *JobExecutionRepository) GetJobsByWordlistID(ctx context.Context, wordli
 			&job.CreatedBy, &job.CreatedAt, &job.StartedAt, &job.CompletedAt,
 			&job.ErrorMessage, &job.InterruptedBy, &job.UpdatedAt, &job.Name,
 			&job.BaseKeyspace, &job.EffectiveKeyspace,
-			&job.MultiplicationFactor, &job.UsesRuleSplitting, &job.RuleSplitCount,
+			&job.MultiplicationFactor,
 			&job.OverallProgressPercent, &job.DispatchedKeyspace, &job.ChunkSizeSeconds,
 			&job.RuleIDs, &job.WordlistIDs,
 		)

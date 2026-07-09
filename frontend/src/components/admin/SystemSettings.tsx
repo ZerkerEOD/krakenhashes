@@ -36,8 +36,6 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
   const [agentSchedulingEnabled, setAgentSchedulingEnabled] = useState(false);
   const [requireClientForHashlist, setRequireClientForHashlist] = useState(false);
   const [hashlistBatchSize, setHashlistBatchSize] = useState<number>(100000);
-  const [potfileBatchSize, setPotfileBatchSize] = useState<number>(100000);
-  const [potfileBatchInterval, setPotfileBatchInterval] = useState<number>(60);
   const [agentOverflowMode, setAgentOverflowMode] = useState<string>('fifo');
   const [speedTestTimeoutUncompressed, setSpeedTestTimeoutUncompressed] = useState<number>(120);
   const [speedTestTimeoutCompressed, setSpeedTestTimeoutCompressed] = useState<number>(300);
@@ -73,14 +71,6 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
         const hashlistBatchSizeSetting = settings.data?.find((s: any) => s.key === 'hashlist_bulk_batch_size');
         if (hashlistBatchSizeSetting) {
           setHashlistBatchSize(parseInt(hashlistBatchSizeSetting.value) || 100000);
-        }
-        const potfileBatchSizeSetting = settings.data?.find((s: any) => s.key === 'potfile_max_batch_size');
-        if (potfileBatchSizeSetting) {
-          setPotfileBatchSize(parseInt(potfileBatchSizeSetting.value) || 100000);
-        }
-        const potfileBatchIntervalSetting = settings.data?.find((s: any) => s.key === 'potfile_batch_interval');
-        if (potfileBatchIntervalSetting) {
-          setPotfileBatchInterval(parseInt(potfileBatchIntervalSetting.value) || 60);
         }
         const agentOverflowModeSetting = settings.data?.find((s: any) => s.key === 'agent_overflow_allocation_mode');
         if (agentOverflowModeSetting) {
@@ -432,101 +422,6 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onSave, loading = false
                 <br />• {t('systemSettings.hashlist.performance100k')}
                 <br />• {t('systemSettings.hashlist.performance500k')}
                 <br />• {t('systemSettings.hashlist.performance1m')}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Box display="flex" alignItems="center" mb={2}>
-                <Typography variant="h6" component="h3">
-                  {t('systemSettings.potfile.title')}
-                </Typography>
-                <Tooltip title={t('systemSettings.potfile.tooltip') as string}>
-                  <IconButton size="small" sx={{ ml: 1 }}>
-                    <InfoIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-
-              <TextField
-                fullWidth
-                label={t('systemSettings.potfile.maxBatchSize')}
-                type="number"
-                value={potfileBatchSize}
-                onChange={async (e) => {
-                  const newValue = parseInt(e.target.value) || 100000;
-                  setPotfileBatchSize(newValue);
-                }}
-                onBlur={async (e) => {
-                  const newValue = parseInt(e.target.value) || 100000;
-                  if (newValue < 1000 || newValue > 500000) {
-                    enqueueSnackbar(t('systemSettings.errors.batchSizeRange', { min: '1,000', max: '500,000' }) as string, { variant: 'warning' });
-                    setPotfileBatchSize(100000);
-                    return;
-                  }
-                  try {
-                    await updateSystemSetting('potfile_max_batch_size', newValue.toString());
-                    enqueueSnackbar(t('systemSettings.messages.potfileBatchUpdated') as string, { variant: 'success' });
-                  } catch (error) {
-                    console.error('Failed to update batch size:', error);
-                    enqueueSnackbar(t('systemSettings.messages.updateFailed') as string, { variant: 'error' });
-                    await loadSettings(); // Reload to revert
-                  }
-                }}
-                disabled={loading || saving || loadingData}
-                inputProps={{
-                  min: 1000,
-                  max: 500000,
-                }}
-                helperText={t('systemSettings.potfile.maxBatchSizeHelper')}
-                sx={{ mb: 2 }}
-              />
-
-              <TextField
-                fullWidth
-                label={t('systemSettings.potfile.batchInterval')}
-                type="number"
-                value={potfileBatchInterval}
-                onChange={async (e) => {
-                  const newValue = parseInt(e.target.value) || 60;
-                  setPotfileBatchInterval(newValue);
-                }}
-                onBlur={async (e) => {
-                  const newValue = parseInt(e.target.value) || 60;
-                  if (newValue < 5 || newValue > 600) {
-                    enqueueSnackbar(t('systemSettings.errors.intervalRange', { min: 5, max: 600 }) as string, { variant: 'warning' });
-                    setPotfileBatchInterval(60);
-                    return;
-                  }
-                  try {
-                    await updateSystemSetting('potfile_batch_interval', newValue.toString());
-                    enqueueSnackbar(t('systemSettings.messages.potfileIntervalUpdated') as string, { variant: 'success' });
-                  } catch (error) {
-                    console.error('Failed to update batch interval:', error);
-                    enqueueSnackbar(t('systemSettings.messages.updateFailed') as string, { variant: 'error' });
-                    await loadSettings(); // Reload to revert
-                  }
-                }}
-                disabled={loading || saving || loadingData}
-                inputProps={{
-                  min: 10,
-                  max: 600,
-                }}
-                helperText={t('systemSettings.potfile.batchIntervalHelper')}
-                sx={{ mb: 2 }}
-              />
-
-              <Typography variant="body2" color="text.secondary" paragraph>
-                {t('systemSettings.potfile.description')}
-              </Typography>
-
-              <Typography variant="body2" color="text.secondary">
-                <strong>{t('systemSettings.potfile.processingRate')}:</strong> {(potfileBatchSize / potfileBatchInterval).toLocaleString()} {t('systemSettings.potfile.passwordsPerSecond')}
-                <br />
-                <strong>{t('systemSettings.potfile.currentSettings')}:</strong> {potfileBatchSize.toLocaleString()} {t('systemSettings.potfile.passwordsEvery')} {potfileBatchInterval} {t('systemSettings.potfile.seconds')}
               </Typography>
             </CardContent>
           </Card>

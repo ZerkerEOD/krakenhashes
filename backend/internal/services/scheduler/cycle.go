@@ -653,19 +653,21 @@ func (c *Cycle) buildUnitInfos(ctx context.Context, units []*models.SchedulingUn
 			if remainingBase < 0 {
 				remainingBase = 0
 			}
-			multiplier := models.NewBigInt(1)
-			if *u.BaseKeyspace > 0 {
-				multiplier = u.EffectiveKeyspace.DivInt64(*u.BaseKeyspace)
-				if multiplier.CmpInt64(1) < 0 {
-					multiplier = models.NewBigInt(1)
-				}
+			// remainingEffective = effective × remainingBase / base, an EXACT
+			// big.Int multiply-then-divide (effective_keyspace is NUMERIC and the
+			// product can exceed int64, e.g. base 1e10 × multiplier 1e9 = 1e19).
+			// Using the exact ratio rather than a pre-divided/truncated multiplier
+			// keeps this per-cycle chunk cap from under-counting on non-integer
+			// ratios (base×2.9999 would have truncated to ×2). chunksFit only needs
+			// to be an int per-cycle cap; clamp anything past MaxInt32 to
+			// "effectively unlimited."
+			remainingEffective := u.EffectiveKeyspace.MulInt64(remainingBase).DivInt64(*u.BaseKeyspace)
+			if remainingEffective.CmpInt64(remainingBase) < 0 {
+				// effective should be >= base; guard a shrunk/zero effective by
+				// falling back to at least the base remainder (mirrors the old
+				// multiplier>=1 clamp).
+				remainingEffective = models.NewBigInt(remainingBase)
 			}
-			// remainingBase × multiplier can exceed int64 max (~9.2e18) for
-			// very large jobs (e.g. base 1e10 × multiplier 1e9 = 1e19), so
-			// compute it in big.Int (effective_keyspace is NUMERIC). chunksFit
-			// only needs to be an int per-cycle cap; clamp anything past
-			// MaxInt32 to "effectively unlimited."
-			remainingEffective := multiplier.MulInt64(remainingBase)
 			chunksFit := 0
 			if remainingEffective.IsPositive() {
 				fit := remainingEffective.DivInt64(chunkEstimateEffective)

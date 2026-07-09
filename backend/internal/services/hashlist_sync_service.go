@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
@@ -312,9 +311,8 @@ func (s *HashlistSyncService) calculateFileHash(filePath string) (string, error)
 // SyncJobFiles synchronizes all required files for a job task to an agent
 func (s *HashlistSyncService) SyncJobFiles(ctx context.Context, agentID int, task *models.JobTask) error {
 	debug.Log("Syncing job files to agent", map[string]interface{}{
-		"agent_id":           agentID,
-		"task_id":            task.ID,
-		"is_rule_split_task": task.IsRuleSplitTask,
+		"agent_id": agentID,
+		"task_id":  task.ID,
 	})
 
 	// First sync the hashlist
@@ -327,100 +325,6 @@ func (s *HashlistSyncService) SyncJobFiles(ctx context.Context, agentID int, tas
 	if err != nil {
 		return fmt.Errorf("failed to sync hashlist: %w", err)
 	}
-
-	// If this is a rule split task, sync the rule chunk
-	if task.IsRuleSplitTask && task.RuleChunkPath != nil && *task.RuleChunkPath != "" {
-		err = s.syncRuleChunk(ctx, agentID, task)
-		if err != nil {
-			return fmt.Errorf("failed to sync rule chunk: %w", err)
-		}
-	}
-
-	return nil
-}
-
-// syncRuleChunk synchronizes a rule chunk file to an agent
-func (s *HashlistSyncService) syncRuleChunk(ctx context.Context, agentID int, task *models.JobTask) error {
-	if task.RuleChunkPath == nil || *task.RuleChunkPath == "" {
-		return nil
-	}
-
-	debug.Log("Syncing rule chunk to agent", map[string]interface{}{
-		"agent_id":        agentID,
-		"task_id":         task.ID,
-		"rule_chunk_path": *task.RuleChunkPath,
-	})
-
-	// Extract job ID from the rule chunk path
-	// Path format: /path/to/temp/rule_chunks/job_<ID>/chunk_<N>.rule
-	pathParts := strings.Split(*task.RuleChunkPath, string(filepath.Separator))
-	var jobDirName string
-	chunkFilename := filepath.Base(*task.RuleChunkPath)
-
-	// Find the job directory name
-	for i, part := range pathParts {
-		if strings.HasPrefix(part, "job_") && i < len(pathParts)-1 {
-			jobDirName = part
-			break
-		}
-	}
-
-	// Create target path with job directory to avoid conflicts
-	var targetPath string
-	if jobDirName != "" {
-		targetPath = fmt.Sprintf("rules/chunks/%s/%s", jobDirName, chunkFilename)
-	} else {
-		// Fallback to just chunk filename
-		targetPath = fmt.Sprintf("rules/chunks/%s", chunkFilename)
-	}
-
-	// Calculate file hash
-	fileHash, err := s.calculateFileHash(*task.RuleChunkPath)
-	if err != nil {
-		return fmt.Errorf("failed to calculate rule chunk hash: %w", err)
-	}
-
-	// Get file info
-	fileInfo, err := os.Stat(*task.RuleChunkPath)
-	if err != nil {
-		return fmt.Errorf("failed to get rule chunk file info: %w", err)
-	}
-
-	debug.Log("Rule chunk sync info", map[string]interface{}{
-		"agent_id":    agentID,
-		"source_path": *task.RuleChunkPath,
-		"target_path": targetPath,
-		"file_size":   fileInfo.Size(),
-		"file_hash":   fileHash,
-		"job_dir":     jobDirName,
-	})
-
-	// The actual file transfer will be notified through the job assignment
-	// The agent will download the chunk when it receives the task with the chunk path
-	// We've already updated the task.RuleChunkPath to include the proper path for download
-
-	return nil
-}
-
-// CleanupTaskRuleChunks removes rule chunk files for a completed/failed task
-func (s *HashlistSyncService) CleanupTaskRuleChunks(ctx context.Context, task *models.JobTask, agentID int) error {
-	if !task.IsRuleSplitTask || task.RuleChunkPath == nil || *task.RuleChunkPath == "" {
-		return nil
-	}
-
-	debug.Log("Cleaning up rule chunks for task", map[string]interface{}{
-		"task_id":         task.ID,
-		"agent_id":        agentID,
-		"rule_chunk_path": *task.RuleChunkPath,
-	})
-
-	// Remove chunk file from server
-	if err := os.Remove(*task.RuleChunkPath); err != nil && !os.IsNotExist(err) {
-		debug.Error("Failed to remove rule chunk from server: %v", err)
-	}
-
-	// Note: Agent cleanup would need to be handled via WebSocket message
-	// to instruct the agent to remove the file
 
 	return nil
 }

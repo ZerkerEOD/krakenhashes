@@ -160,6 +160,23 @@ func (b BigInt) DivInt64(i int64) BigInt {
 	return BigInt{v: new(big.Int).Quo(b.big(), big.NewInt(i))}
 }
 
+// DivRoundInt64 returns round(b / i) using round-half-up, computed entirely in
+// big.Int so no precision is lost for large keyspaces. Used to derive the
+// display-only multiplication_factor from effective_keyspace / base_keyspace
+// (e.g. 70923768 / 23641330 = 2.9999… → 3, not the truncated 2). Both operands
+// are assumed non-negative (keyspace/multiplier values always are); dividing by
+// zero returns zero.
+func (b BigInt) DivRoundInt64(i int64) BigInt {
+	if i == 0 {
+		return BigInt{}
+	}
+	d := big.NewInt(i)
+	// (b + i/2) / i  → round-half-up for non-negative operands.
+	half := new(big.Int).Rsh(d, 1) // i / 2
+	num := new(big.Int).Add(b.big(), half)
+	return BigInt{v: num.Quo(num, d)}
+}
+
 // Value implements driver.Valuer, emitting a decimal string for NUMERIC.
 // Implemented on the value receiver so both BigInt and *BigInt satisfy
 // driver.Valuer; database/sql converts a nil *BigInt to NULL before calling.

@@ -147,8 +147,8 @@ func (s *JobProgressCalculationService) getJobsNeedingUpdate(ctx context.Context
 	query := `
 		SELECT
 			id, effective_keyspace, processed_keyspace, dispatched_keyspace,
-			overall_progress_percent, uses_rule_splitting, status, completed_at,
-			avg_rule_multiplier, base_keyspace, increment_mode
+			overall_progress_percent, status, completed_at,
+			base_keyspace, increment_mode
 		FROM job_executions
 		WHERE
 			-- Active jobs that may have changing progress
@@ -176,10 +176,8 @@ func (s *JobProgressCalculationService) getJobsNeedingUpdate(ctx context.Context
 			&job.ProcessedKeyspace,
 			&job.DispatchedKeyspace,
 			&job.OverallProgressPercent,
-			&job.UsesRuleSplitting,
 			&job.Status,
 			&completedAt,
-			&job.AvgRuleMultiplier,
 			&job.BaseKeyspace,
 			&job.IncrementMode,
 		)
@@ -270,7 +268,7 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 
 	// OVERLAP DETECTION: Sort tasks by KeyspaceStart and detect overlapping ranges
 	// This is a safety net to catch keyspace assignment bugs
-	if len(tasks) > 1 && !job.UsesRuleSplitting {
+	if len(tasks) > 1 {
 		// Make a copy for sorting to avoid modifying original slice
 		sortedTasks := make([]models.JobTask, len(tasks))
 		copy(sortedTasks, tasks)
@@ -301,16 +299,19 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 	// structurally bounded by base_keyspace.
 	var processedBaseKeyspace int64
 
-	// Determine if this is a keyspace-split job and get the multiplier
-	// For keyspace-split jobs, we need to use consistent calculations for both
-	// processed and dispatched to avoid drift
-	multiplier := float64(1)
+	// Determine if this is a keyspace-split job and get the effective/base ratio.
+	// The ratio is applied as a big.Int multiply-then-divide (effStart × N / base)
+	// — never a pre-divided float — so it's overflow- and precision-safe. It is
+	// used ONLY to estimate a task's effective span when hashcat hasn't reported
+	// one yet (legacy tasks with NULL effective coords). A job "splits" the
+	// keyspace when effective > base (rules/salts multiply the base wordlist).
 	isKeyspaceSplitJob := false
-	if job.AvgRuleMultiplier != nil && *job.AvgRuleMultiplier > 0 {
-		multiplier = *job.AvgRuleMultiplier
-		// A job is a keyspace-split job if it has a multiplier AND is NOT a rule-splitting job
-		// Rule-splitting jobs have multiplier but use different tracking
-		isKeyspaceSplitJob = !job.UsesRuleSplitting && multiplier > 0
+	var effKS, baseKS models.BigInt
+	if job.EffectiveKeyspace != nil && job.EffectiveKeyspace.IsPositive() &&
+		job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
+		effKS = *job.EffectiveKeyspace
+		baseKS = models.NewBigInt(*job.BaseKeyspace)
+		isKeyspaceSplitJob = effKS.Cmp(baseKS) > 0
 	}
 
 	for _, task := range tasks {
@@ -364,7 +365,7 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 				// keyspace_processed is already relative (or KeyspaceStart=0)
 				relativeProcessed = task.KeyspaceProcessed
 			}
-			processedKeyspace = processedKeyspace.AddInt64(int64(float64(relativeProcessed) * multiplier))
+			processedKeyspace = processedKeyspace.Add(models.NewBigInt(relativeProcessed).Mul(effKS).Div(baseKS))
 		} else {
 			// Fallback to regular keyspace processed
 			processedKeyspace = processedKeyspace.AddInt64(task.KeyspaceProcessed)
@@ -387,10 +388,10 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 			dispatchedKeyspace = dispatchedKeyspace.Add(task.EffectiveKeyspaceEnd.Sub(*task.EffectiveKeyspaceStart))
 		} else if isKeyspaceSplitJob {
 			// Fallback: Keyspace-split task without effective values
-			// Calculate base chunk × multiplier for consistency
+			// Calculate base chunk × (effective/base) for consistency
 			chunkSize := task.KeyspaceEnd - task.KeyspaceStart
 			if chunkSize > 0 {
-				dispatchedKeyspace = dispatchedKeyspace.AddInt64(int64(float64(chunkSize) * multiplier))
+				dispatchedKeyspace = dispatchedKeyspace.Add(models.NewBigInt(chunkSize).Mul(effKS).Div(baseKS))
 			}
 		} else if task.KeyspaceEnd > task.KeyspaceStart {
 			// Fallback to regular keyspace range for tasks without effective keyspace
@@ -400,7 +401,7 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 
 	// Calculate overall progress percentage.
 	progressPercent := 0.0
-	if !job.UsesRuleSplitting && job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
+	if job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
 		// Base-driven: immune to salt/rule drift and structurally <= 100%.
 		progressPercent = float64(processedBaseKeyspace) / float64(*job.BaseKeyspace) * 100
 		if progressPercent > 100 {
@@ -410,7 +411,7 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 			progressPercent = 100
 		}
 	} else if job.EffectiveKeyspace != nil && job.EffectiveKeyspace.IsPositive() {
-		// Rule-split / no-base-keyspace fallback (effective units).
+		// No-base-keyspace fallback (effective units).
 		progressPercent = float64(processedKeyspace.Int64()) / float64(job.EffectiveKeyspace.Int64()) * 100
 		if progressPercent > 100 {
 			debug.Warning("Job %s progress exceeds 100%% (%.3f%%), capping at 100%%. Processed: %s, Effective: %s",
@@ -460,14 +461,16 @@ func (s *JobProgressCalculationService) calculateAndUpdateLayerProgress(ctx cont
 		}
 	}
 
-	// Calculate multiplier for keyspace-split tasks
-	// Multiplier = EffectiveKeyspace / BaseKeyspace for the layer
-	multiplier := float64(1)
+	// effective/base ratio for the layer, applied as a big.Int multiply-then-
+	// divide (chunk × effective / base) so a large effective keyspace neither
+	// overflows int64 nor loses float precision. A layer "splits" the keyspace
+	// when effective differs from base (rules/salts multiply the base).
 	isKeyspaceSplitLayer := false
+	var effKS, baseKS models.BigInt
 	if layer.BaseKeyspace != nil && *layer.BaseKeyspace > 0 && layer.EffectiveKeyspace != nil && layer.EffectiveKeyspace.IsPositive() {
-		multiplier = float64(layer.EffectiveKeyspace.Int64()) / float64(*layer.BaseKeyspace)
-		// Consider it a keyspace-split layer if multiplier is significantly different from 1
-		isKeyspaceSplitLayer = multiplier > 1.01 || multiplier < 0.99
+		effKS = *layer.EffectiveKeyspace
+		baseKS = models.NewBigInt(*layer.BaseKeyspace)
+		isKeyspaceSplitLayer = effKS.Cmp(baseKS) != 0
 	}
 
 	// Aggregate processed and dispatched keyspace from layer tasks.
@@ -494,7 +497,7 @@ func (s *JobProgressCalculationService) calculateAndUpdateLayerProgress(ctx cont
 			if task.EffectiveKeyspaceStart != nil && task.EffectiveKeyspaceEnd != nil {
 				dispatchedKeyspace = dispatchedKeyspace.Add(task.EffectiveKeyspaceEnd.Sub(*task.EffectiveKeyspaceStart))
 			} else if isKeyspaceSplitLayer && chunkSize > 0 {
-				dispatchedKeyspace = dispatchedKeyspace.AddInt64(int64(float64(chunkSize) * multiplier))
+				dispatchedKeyspace = dispatchedKeyspace.Add(models.NewBigInt(chunkSize).Mul(effKS).Div(baseKS))
 			} else if chunkSize > 0 {
 				dispatchedKeyspace = dispatchedKeyspace.AddInt64(chunkSize)
 			}
@@ -508,9 +511,9 @@ func (s *JobProgressCalculationService) calculateAndUpdateLayerProgress(ctx cont
 			} else {
 				relativeProcessed = task.KeyspaceProcessed
 			}
-			processedKeyspace = processedKeyspace.AddInt64(int64(float64(relativeProcessed) * multiplier))
+			processedKeyspace = processedKeyspace.Add(models.NewBigInt(relativeProcessed).Mul(effKS).Div(baseKS))
 			if chunkSize > 0 {
-				dispatchedKeyspace = dispatchedKeyspace.AddInt64(int64(float64(chunkSize) * multiplier))
+				dispatchedKeyspace = dispatchedKeyspace.Add(models.NewBigInt(chunkSize).Mul(effKS).Div(baseKS))
 			}
 		} else {
 			processedKeyspace = processedKeyspace.AddInt64(task.KeyspaceProcessed)
@@ -747,15 +750,6 @@ func (s *JobProgressCalculationService) shouldJobComplete(ctx context.Context, j
 		return true
 	}
 
-	// For rule-split jobs, check max rule index
-	if job.UsesRuleSplitting {
-		maxRuleEnd, err := s.jobTaskRepo.GetMaxRuleEndIndex(ctx, job.ID)
-		if err != nil {
-			return false
-		}
-		return maxRuleEnd != nil && int64(*maxRuleEnd) >= job.MultiplicationFactor
-	}
-
-	// For non-rule-split jobs without gap remaining, completion is valid.
+	// Without gap remaining, completion is valid.
 	return true
 }

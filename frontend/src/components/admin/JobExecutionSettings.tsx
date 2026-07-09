@@ -187,15 +187,15 @@ const JobExecutionSettingsComponent: React.FC = () => {
                 <TextField
                   fullWidth
                   type="number"
-                  label={t('jobExecution.chunking.chunkFluctuation') as string}
-                  value={settings.chunk_fluctuation_percentage}
-                  onChange={handleNumberChange('chunk_fluctuation_percentage')}
+                  label={t('jobExecution.chunking.minChunkSeconds') as string}
+                  value={settings.min_chunk_seconds}
+                  onChange={handleNumberChange('min_chunk_seconds')}
                   onBlur={handleBlurSave}
                   disabled={saving}
-                  helperText={t('jobExecution.chunking.chunkFluctuationHelper')}
+                  helperText={t('jobExecution.chunking.minChunkSecondsHelper')}
                   InputProps={{
-                    inputProps: { min: 0, max: 100 },
-                    endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                    inputProps: { min: 1, max: 300 },
+                    endAdornment: <InputAdornment position="end">{t('jobExecution.agentConfig.seconds')}</InputAdornment>,
                   }}
                 />
               </Grid>
@@ -303,22 +303,6 @@ const JobExecutionSettingsComponent: React.FC = () => {
                   InputProps={{
                     inputProps: { min: 0 },
                     endAdornment: <InputAdornment position="end">{t('jobExecution.agentConfig.days')}</InputAdornment>,
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  type="number"
-                  label={t('jobExecution.agentConfig.speedtestTimeout') as string}
-                  value={settings.speedtest_timeout_seconds}
-                  onChange={handleNumberChange('speedtest_timeout_seconds')}
-                  onBlur={handleBlurSave}
-                  disabled={saving}
-                  helperText={t('jobExecution.agentConfig.speedtestTimeoutHelper')}
-                  InputProps={{
-                    inputProps: { min: 60, max: 600 },
-                    endAdornment: <InputAdornment position="end">{t('jobExecution.agentConfig.seconds')}</InputAdornment>,
                   }}
                 />
               </Grid>
@@ -503,6 +487,39 @@ const JobExecutionSettingsComponent: React.FC = () => {
                 </Typography>
               </Grid>
 
+              {/* Potfile batch processing */}
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label={t('jobExecution.potfile.maxBatchSize') as string}
+                  value={settings.potfile_max_batch_size}
+                  onChange={handleNumberChange('potfile_max_batch_size')}
+                  onBlur={handleBlurSave}
+                  disabled={saving}
+                  helperText={t('jobExecution.potfile.maxBatchSizeHelper')}
+                  InputProps={{
+                    inputProps: { min: 1000, max: 500000 },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label={t('jobExecution.potfile.batchInterval') as string}
+                  value={settings.potfile_batch_interval}
+                  onChange={handleNumberChange('potfile_batch_interval')}
+                  onBlur={handleBlurSave}
+                  disabled={saving}
+                  helperText={t('jobExecution.potfile.batchIntervalHelper')}
+                  InputProps={{
+                    inputProps: { min: 10, max: 600 },
+                    endAdornment: <InputAdornment position="end">{t('jobExecution.agentConfig.seconds')}</InputAdornment>,
+                  }}
+                />
+              </Grid>
+
               {/* Client Potfiles Section */}
               <Grid item xs={12}>
                 <Divider sx={{ my: 2 }} />
@@ -547,97 +564,94 @@ const JobExecutionSettingsComponent: React.FC = () => {
           </Paper>
         </Grid>
 
-        {/* Rule Splitting Settings */}
+        {/* Scheduler (v2) Settings */}
         <Grid item xs={12}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="subtitle1" gutterBottom fontWeight="bold">
-              {t('jobExecution.ruleSplitting.title')}
+              {t('jobExecution.scheduler.title')}
+            </Typography>
+            <Typography variant="body2" color="textSecondary" gutterBottom>
+              {t('jobExecution.scheduler.description')}
             </Typography>
             <Divider sx={{ mb: 2 }} />
             <Grid container spacing={2}>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label={t('jobExecution.scheduler.taskHeartbeatTimeout') as string}
+                  value={settings.task_heartbeat_timeout_seconds}
+                  onChange={handleNumberChange('task_heartbeat_timeout_seconds')}
+                  onBlur={handleBlurSave}
+                  disabled={saving}
+                  helperText={t('jobExecution.scheduler.taskHeartbeatTimeoutHelper')}
+                  InputProps={{
+                    inputProps: { min: 10, max: 3600 },
+                    endAdornment: <InputAdornment position="end">{t('jobExecution.agentConfig.seconds')}</InputAdornment>,
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label={t('jobExecution.scheduler.taskStartupGrace') as string}
+                  value={settings.task_startup_grace_seconds}
+                  onChange={handleNumberChange('task_startup_grace_seconds')}
+                  onBlur={handleBlurSave}
+                  disabled={saving}
+                  helperText={t('jobExecution.scheduler.taskStartupGraceHelper')}
+                  InputProps={{
+                    inputProps: { min: 30, max: 7200 },
+                    endAdornment: <InputAdornment position="end">{t('jobExecution.agentConfig.seconds')}</InputAdornment>,
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label={t('jobExecution.scheduler.networkGrace') as string}
+                  value={settings.network_grace_seconds}
+                  onChange={handleNumberChange('network_grace_seconds')}
+                  onBlur={handleBlurSave}
+                  disabled={saving}
+                  helperText={t('jobExecution.scheduler.networkGraceHelper')}
+                  InputProps={{
+                    inputProps: { min: 5, max: 600 },
+                    endAdornment: <InputAdornment position="end">{t('jobExecution.agentConfig.seconds')}</InputAdornment>,
+                  }}
+                />
+              </Grid>
               <Grid item xs={12} md={6}>
                 <FormControlLabel
                   control={
                     <Switch
-                      checked={settings.rule_split_enabled}
-                      onChange={handleSwitchChange('rule_split_enabled')}
+                      checked={settings.chunk_overrun_guard_enabled}
+                      onChange={handleSwitchChange('chunk_overrun_guard_enabled')}
                       disabled={saving}
                     />
                   }
-                  label={t('jobExecution.ruleSplitting.enableRuleSplitting') as string}
+                  label={t('jobExecution.scheduler.overrunGuardEnabled') as string}
                 />
                 <Typography variant="caption" color="textSecondary" display="block">
-                  {t('jobExecution.ruleSplitting.enableRuleSplittingHelper')}
+                  {t('jobExecution.scheduler.overrunGuardEnabledHelper')}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
                   type="number"
-                  label={t('jobExecution.ruleSplitting.threshold') as string}
-                  value={settings.rule_split_threshold}
-                  onChange={(e) => {
-                    const value = parseFloat(e.target.value);
-                    if (!isNaN(value)) {
-                      setSettings({
-                        ...settings,
-                        rule_split_threshold: value,
-                      });
-                    }
-                  }}
+                  label={t('jobExecution.scheduler.overrunTolerance') as string}
+                  value={settings.chunk_overrun_tolerance_percent}
+                  onChange={handleNumberChange('chunk_overrun_tolerance_percent')}
                   onBlur={handleBlurSave}
-                  disabled={!settings.rule_split_enabled || saving}
-                  helperText={t('jobExecution.ruleSplitting.thresholdHelper')}
+                  disabled={!settings.chunk_overrun_guard_enabled || saving}
+                  helperText={t('jobExecution.scheduler.overrunToleranceHelper')}
                   InputProps={{
-                    inputProps: { min: 1.1, max: 10, step: 0.1 },
-                    endAdornment: <InputAdornment position="end">×</InputAdornment>,
+                    inputProps: { min: 0, max: 200 },
+                    endAdornment: <InputAdornment position="end">%</InputAdornment>,
                   }}
-                />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  type="number"
-                  label={t('jobExecution.ruleSplitting.minRules') as string}
-                  value={settings.rule_split_min_rules}
-                  onChange={handleNumberChange('rule_split_min_rules')}
-                  onBlur={handleBlurSave}
-                  disabled={!settings.rule_split_enabled || saving}
-                  helperText={t('jobExecution.ruleSplitting.minRulesHelper')}
-                  InputProps={{
-                    inputProps: { min: 10 },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  type="number"
-                  label={t('jobExecution.ruleSplitting.maxChunks') as string}
-                  value={settings.rule_split_max_chunks}
-                  onChange={handleNumberChange('rule_split_max_chunks')}
-                  onBlur={handleBlurSave}
-                  disabled={!settings.rule_split_enabled || saving}
-                  helperText={t('jobExecution.ruleSplitting.maxChunksHelper')}
-                  InputProps={{
-                    inputProps: { min: 2, max: 10000 },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  label={t('jobExecution.ruleSplitting.chunkDirectory') as string}
-                  value={settings.rule_chunk_temp_dir}
-                  onChange={(e) => {
-                    setSettings({
-                      ...settings,
-                      rule_chunk_temp_dir: e.target.value,
-                    });
-                  }}
-                  onBlur={handleBlurSave}
-                  disabled={!settings.rule_split_enabled || saving}
-                  helperText={t('jobExecution.ruleSplitting.chunkDirectoryHelper')}
                 />
               </Grid>
             </Grid>

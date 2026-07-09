@@ -20,7 +20,6 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   Error as ErrorIcon,
-  Info as InfoIcon,
   Archive as ArchiveIcon,
   Unarchive as UnarchiveIcon,
 } from '@mui/icons-material';
@@ -308,15 +307,6 @@ const JobRow: React.FC<JobRowProps> = ({ job, onJobUpdated, isLastActiveJob, isC
                 <Typography variant="body2">
                   {formatKeyspace(job.effective_keyspace)}
                 </Typography>
-                {job.uses_rule_splitting && job.multiplication_factor && job.multiplication_factor > 1 && (
-                  <Chip
-                    label={`×${job.multiplication_factor} (rules)`}
-                    size="small"
-                    color="error"
-                    variant="filled"
-                    icon={<InfoIcon fontSize="small" />}
-                  />
-                )}
               </Box>
             </Tooltip>
           ) : (

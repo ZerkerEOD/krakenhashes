@@ -195,40 +195,43 @@ func dispatchOne(
 		rangeEnd = baseKeyspace
 	}
 
-	// Effective-coordinate snapshot for the bar visualization. Uses the
-	// ORIGINAL multiplier (= unit.EffectiveKeyspace / unit.BaseKeyspace
-	// at unit creation; the Step 7h2 mid-job refresh was reverted in
-	// Step 9j-revised).
+	// Effective-coordinate snapshot for the bar visualization. Computed as an
+	// EXACT big.Int multiply-then-divide from the unit's authoritative
+	// effective/base pair (effective × range / base) — NOT a pre-divided
+	// multiplier. The old EffectiveKeyspace.DivInt64(base) truncated the ratio
+	// to an integer first (base×2.9999 → 2), so effEnd came out at base×2 instead
+	// of base×3. Multiply-then-divide floors only at the end, so an exact base×k
+	// unit yields exactly k×range.
 	//
 	// Step 11c correction: coords are LAYER-LOCAL (no cumulative offset).
 	// Each layer is conceptually its own self-contained job; layer-N's
-	// task at base [0, X) gets eff [0, X×multiplier). The frontend
+	// task at base [0, X) gets eff [0, X×effective/base). The frontend
 	// computes the per-layer display offset for increment-mode bar
 	// rendering (Step 11d) — the math doesn't live in the backend.
 	// effective_keyspace is NUMERIC (base × rules × salts can exceed int64),
-	// so the multiplier and effective coords are computed in big.Int and
-	// stored into the NUMERIC effective_keyspace_start/end columns.
-	multiplier := unit.EffectiveKeyspace.DivInt64(baseKeyspace)
+	// so the effective coords are computed in big.Int and stored into the
+	// NUMERIC effective_keyspace_start/end columns.
+	//
 	// Tripwire (Step 11f): a multi-character mask or rule-bearing wordlist
-	// should always produce multiplier > 1. multiplier <= 1 on a layer
+	// should always produce effective > base. effective <= base on a layer
 	// with base > 1 indicates that something has shrunk
 	// scheduling_units.effective_keyspace post-creation (regression of
 	// Step 7h2, a future bug, or stale data). Log loudly so the next
 	// dispatch makes it visible instead of silently producing broken
 	// bar coords.
-	if multiplier.CmpInt64(1) <= 0 && baseKeyspace > 1 {
-		debug.Warning("scheduler-v2: suspicious multiplier=%s for unit %s (base=%d, eff=%s) — effective coords may be wrong; check that no code path is shrinking scheduling_units.effective_keyspace post-creation",
-			multiplier.String(), unit.ID, baseKeyspace, unit.EffectiveKeyspace.String())
+	if unit.EffectiveKeyspace.CmpInt64(baseKeyspace) <= 0 && baseKeyspace > 1 {
+		debug.Warning("scheduler-v2: suspicious effective<=base (eff=%s, base=%d) for unit %s — effective coords may be wrong; check that no code path is shrinking scheduling_units.effective_keyspace post-creation",
+			unit.EffectiveKeyspace.String(), baseKeyspace, unit.ID)
 	}
-	effStart := multiplier.MulInt64(rangeStart)
-	effEnd := multiplier.MulInt64(rangeEnd)
+	effStart := unit.EffectiveKeyspace.MulInt64(rangeStart).DivInt64(baseKeyspace)
+	effEnd := unit.EffectiveKeyspace.MulInt64(rangeEnd).DivInt64(baseKeyspace)
 	// big.Int can't overflow; a reversed ordering would only come from bad
 	// inputs. Fall back to NULL effective coords in that case (the bar's
 	// frontend has a fallback to base coords).
 	var effStartArg, effEndArg interface{} = effStart, effEnd
 	if effEnd.Cmp(effStart) < 0 {
-		debug.Warning("scheduler-v2: effective coord ordering invalid for unit %s (rangeEnd=%d, multiplier=%s); leaving NULL",
-			unit.ID, rangeEnd, multiplier.String())
+		debug.Warning("scheduler-v2: effective coord ordering invalid for unit %s (rangeEnd=%d, eff=%s); leaving NULL",
+			unit.ID, rangeEnd, unit.EffectiveKeyspace.String())
 		effStartArg = nil
 		effEndArg = nil
 	}

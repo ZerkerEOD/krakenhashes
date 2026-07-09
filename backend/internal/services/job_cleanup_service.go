@@ -520,7 +520,7 @@ func (s *JobCleanupService) checkJobForPendingTransition(ctx context.Context, jo
 			// jobs stuck a fraction short.
 			hasRemainingWork := false
 
-			if !job.UsesRuleSplitting && job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
+			if job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
 				// Authoritative base-keyspace coverage check (same source the
 				// dispatcher chunks from). On a transient error, default to "work
 				// remains" so we don't wrongly settle the job into a terminal-ish
@@ -717,7 +717,6 @@ func (s *JobCleanupService) reconcileStuckJobs(ctx context.Context) {
 			debug.Log("Reconciliation completed stuck job via structural check", map[string]interface{}{
 				"job_id":             job.ID,
 				"name":               job.Name,
-				"uses_rule_split":    job.UsesRuleSplitting,
 				"base_keyspace":      job.BaseKeyspace,
 				"effective_keyspace": job.EffectiveKeyspace,
 			})
@@ -749,26 +748,7 @@ func (s *JobCleanupService) shouldJobCompleteStructural(ctx context.Context, job
 		return true
 	}
 
-	// For rule-split jobs, check if all rule chunks have been processed
-	if job.UsesRuleSplitting {
-		maxRuleEnd, err := s.jobTaskRepo.GetMaxRuleEndIndex(ctx, job.ID)
-		if err != nil {
-			debug.Log("Failed to get max rule end index", map[string]interface{}{
-				"job_id": job.ID,
-				"error":  err.Error(),
-			})
-			return false
-		}
-
-		if job.MultiplicationFactor > 0 {
-			if maxRuleEnd == nil || int64(*maxRuleEnd) < job.MultiplicationFactor {
-				return false // More rule chunks needed
-			}
-		}
-		return true
-	}
-
-	// For non-rule-split jobs, AreAllTasksComplete() already validates dispatch
+	// AreAllTasksComplete() already validates dispatch
 	// using effective_keyspace comparison. No additional structural check needed.
 	// Note: We intentionally do NOT compare base_keyspace here because base_keyspace
 	// (wordlist size) and effective_keyspace (total candidates) are different dimensions.

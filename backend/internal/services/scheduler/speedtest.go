@@ -49,8 +49,7 @@ func HasCompressedWordlist(paths []string) bool {
 // If a compressed wordlist is in the request the larger compressed timeout
 // wins. The wall-clock TimeoutDuration is set slightly larger than TestDuration
 // so the agent's outer context never fires before the inner status-collection
-// deadline. Falls back to the legacy `speedtest_timeout_seconds` knob as a hard
-// outer cap and to conservative defaults if any new key is missing, so a
+// deadline. Falls back to conservative defaults if any key is missing, so a
 // partial DB still runs.
 //
 // This is the single source of truth: both
@@ -88,11 +87,6 @@ func ResolveSpeedTestParameters(getInt func(key string) (int, bool), wordlistPat
 	}
 
 	timeoutDuration = testDuration + timeoutGraceSeconds
-	if getInt != nil {
-		if v, ok := getInt("speedtest_timeout_seconds"); ok && v > timeoutDuration {
-			timeoutDuration = v
-		}
-	}
 
 	return testDuration, timeoutDuration, minStatusUpdates
 }

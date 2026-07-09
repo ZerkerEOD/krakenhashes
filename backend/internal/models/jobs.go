@@ -147,8 +147,7 @@ type PresetJob struct {
 	Keyspace                  *int64             `json:"keyspace,omitempty" db:"keyspace"`                              // Pre-calculated base keyspace from --keyspace
 	EffectiveKeyspace         *BigInt    `json:"effective_keyspace,omitempty" db:"effective_keyspace"` // Actual effective keyspace from --total-candidates (NUMERIC: base × rules × salts can exceed int64)
 	IsAccurateKeyspace        bool       `json:"is_accurate_keyspace" db:"is_accurate_keyspace"` // TRUE if effective_keyspace from --total-candidates
-	UseRuleSplitting          bool       `json:"use_rule_splitting" db:"use_rule_splitting"`    // TRUE if jobs should use rule splitting
-	MultiplicationFactor      int64      `json:"multiplication_factor" db:"multiplication_factor"` // Rule multiplier (effective/base) for rule splitting
+	MultiplicationFactor      int64      `json:"multiplication_factor" db:"multiplication_factor"` // Rule multiplier (effective/base)
 	MaxAgents                 int        `json:"max_agents" db:"max_agents"`                     // Max agents allowed (0 = unlimited)
 	IncrementMode             string     `json:"increment_mode,omitempty" db:"increment_mode"`   // Mask increment mode: off, increment, increment_inverse
 	IncrementMin              *int       `json:"increment_min,omitempty" db:"increment_min"`     // Starting mask length for increment mode
@@ -260,13 +259,10 @@ type JobExecution struct {
 	IncrementMax              *int    `json:"increment_max,omitempty" db:"increment_max"`   // Maximum mask length for increment mode
 
 	// Enhanced chunking fields
-	BaseKeyspace         *int64   `json:"base_keyspace" db:"base_keyspace"`                 // Wordlist-only keyspace
-	EffectiveKeyspace    *BigInt  `json:"effective_keyspace" db:"effective_keyspace"`       // Base × multiplication factor (NUMERIC; can exceed int64)
-	MultiplicationFactor int64    `json:"multiplication_factor" db:"multiplication_factor"` // Rules count or second wordlist size
-	AvgRuleMultiplier    *float64 `json:"avg_rule_multiplier" db:"avg_rule_multiplier"`     // Actual effectiveness from hashcat: effective/base/rules
-	IsAccurateKeyspace   bool     `json:"is_accurate_keyspace" db:"is_accurate_keyspace"`   // TRUE if effective_keyspace from hashcat progress[1]
-	UsesRuleSplitting    bool     `json:"uses_rule_splitting" db:"uses_rule_splitting"`     // Whether this job uses rule splitting
-	RuleSplitCount       int      `json:"rule_split_count" db:"rule_split_count"`           // Number of rule chunks created
+	BaseKeyspace         *int64  `json:"base_keyspace" db:"base_keyspace"`                 // Wordlist-only keyspace
+	EffectiveKeyspace    *BigInt `json:"effective_keyspace" db:"effective_keyspace"`       // Base × rules × salts (NUMERIC; can exceed int64). Single source of truth for keyspace math.
+	MultiplicationFactor int64   `json:"multiplication_factor" db:"multiplication_factor"` // Display-only rounded multiplier = round(effective/base). Never read by correctness paths; derive real ratios from effective/base in big.Int.
+	IsAccurateKeyspace   bool    `json:"is_accurate_keyspace" db:"is_accurate_keyspace"`   // TRUE if effective_keyspace from hashcat progress[1]
 
 	// Progress tracking
 	OverallProgressPercent float64    `json:"overall_progress_percent" db:"overall_progress_percent"` // Overall job progress (0-100)
@@ -307,8 +303,8 @@ type JobTask struct {
 	KeyspaceStart           int64   `json:"keyspace_start" db:"keyspace_start"`
 	KeyspaceEnd             int64   `json:"keyspace_end" db:"keyspace_end"`
 	KeyspaceProcessed       int64   `json:"keyspace_processed" db:"keyspace_processed"`
-	EffectiveKeyspaceStart     *BigInt `json:"effective_keyspace_start" db:"effective_keyspace_start"`         // For rule splitting: base_keyspace * rule_start_index (NUMERIC; can exceed int64)
-	EffectiveKeyspaceEnd       *BigInt `json:"effective_keyspace_end" db:"effective_keyspace_end"`             // For rule splitting: base_keyspace * rule_end_index (NUMERIC; can exceed int64)
+	EffectiveKeyspaceStart     *BigInt `json:"effective_keyspace_start" db:"effective_keyspace_start"`         // Effective-unit start of this task's range (base × multiplier; NUMERIC, can exceed int64)
+	EffectiveKeyspaceEnd       *BigInt `json:"effective_keyspace_end" db:"effective_keyspace_end"`             // Effective-unit end of this task's range (base × multiplier; NUMERIC, can exceed int64)
 	EffectiveKeyspaceProcessed *BigInt `json:"effective_keyspace_processed" db:"effective_keyspace_processed"` // Actual effective progress (NUMERIC)
 	IsActualKeyspace           bool    `json:"is_actual_keyspace" db:"is_actual_keyspace"`                     // TRUE if effective ranges from hashcat progress[1]
 	ChunkActualKeyspace        *BigInt `json:"chunk_actual_keyspace" db:"chunk_actual_keyspace"`               // Actual keyspace SIZE for this chunk from hashcat progress[1] (NUMERIC)
@@ -337,12 +333,7 @@ type JobTask struct {
 	RetransmitCount    *int       `json:"retransmit_count" db:"retransmit_count"`
 	LastRetransmitAt   *time.Time `json:"last_retransmit_at" db:"last_retransmit_at"`
 
-	// Rule splitting fields
-	RuleStartIndex  *int    `json:"rule_start_index" db:"rule_start_index"`     // Starting rule index for this chunk
-	RuleEndIndex    *int    `json:"rule_end_index" db:"rule_end_index"`         // Ending rule index for this chunk
-	RuleChunkPath   *string `json:"rule_chunk_path" db:"rule_chunk_path"`       // Path to temporary rule chunk file
-	IsRuleSplitTask bool    `json:"is_rule_split_task" db:"is_rule_split_task"` // Whether this is a rule-split task
-	IsKeyspaceSplit bool    `json:"is_keyspace_split" db:"is_keyspace_split"`   // Whether this task uses keyspace splitting (--skip/--limit)
+	IsKeyspaceSplit bool `json:"is_keyspace_split" db:"is_keyspace_split"` // Whether this task uses keyspace splitting (--skip/--limit)
 
 	// Chunk tracking
 	ChunkNumber *int `json:"chunk_number,omitempty" db:"chunk_number"` // Sequential chunk number within this job (1, 2, 3...). Nullable: scheduler-v2 tasks are interval-based, not sequence-numbered. Legacy scheduler set this for display/cascade. Treat nil as "not set" — most v2 callsites should check `if t.ChunkNumber != nil`.

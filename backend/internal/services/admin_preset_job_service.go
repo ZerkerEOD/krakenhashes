@@ -483,9 +483,6 @@ func (s *adminPresetJobService) UpdatePresetJob(ctx context.Context, id uuid.UUI
 		if !params.IsAccurateKeyspace && existingJob.IsAccurateKeyspace {
 			params.IsAccurateKeyspace = existingJob.IsAccurateKeyspace
 		}
-		if !params.UseRuleSplitting && existingJob.UseRuleSplitting {
-			params.UseRuleSplitting = existingJob.UseRuleSplitting
-		}
 		if params.MultiplicationFactor == 0 {
 			params.MultiplicationFactor = existingJob.MultiplicationFactor
 		}
@@ -503,7 +500,6 @@ func (s *adminPresetJobService) UpdatePresetJob(ctx context.Context, id uuid.UUI
 		params.Keyspace = existingJob.Keyspace
 		params.EffectiveKeyspace = existingJob.EffectiveKeyspace
 		params.IsAccurateKeyspace = existingJob.IsAccurateKeyspace
-		params.UseRuleSplitting = existingJob.UseRuleSplitting
 		params.MultiplicationFactor = existingJob.MultiplicationFactor
 	}
 
@@ -886,9 +882,11 @@ func (s *adminPresetJobService) CalculateKeyspaceForPresetJob(ctx context.Contex
 		presetJob.EffectiveKeyspace = models.NewBigIntPtr(effectiveKeyspace)
 		presetJob.IsAccurateKeyspace = true
 
-		// Calculate multiplication factor from accurate keyspace
+		// Calculate multiplication factor from accurate keyspace (rounded, not
+		// truncated: base×2.9999 → 3, not 2). Display-only; correctness paths
+		// derive ratios from effective/base directly.
 		if keyspace > 0 {
-			presetJob.MultiplicationFactor = effectiveKeyspace / keyspace
+			presetJob.MultiplicationFactor = models.NewBigInt(effectiveKeyspace).DivRoundInt64(keyspace).Int64()
 			if presetJob.MultiplicationFactor < 1 {
 				presetJob.MultiplicationFactor = 1
 			}
@@ -929,19 +927,11 @@ func (s *adminPresetJobService) CalculateKeyspaceForPresetJob(ctx context.Contex
 		})
 	}
 
-	// Step 3: Determine if rule splitting should be used
-	// Rule splitting is beneficial when:
-	// 1. We have rules (attack mode 0 with rules)
-	// 2. The effective keyspace is large enough to benefit from splitting
-	// For now, set to true if we have rules and accurate keyspace
-	presetJob.UseRuleSplitting = len(presetJob.RuleIDs) > 0 && presetJob.IsAccurateKeyspace
-
 	debug.Log("Keyspace calculation complete", map[string]interface{}{
 		"preset_job_id":         presetJob.ID,
 		"base_keyspace":         keyspace,
 		"effective_keyspace":    presetJob.EffectiveKeyspace,
 		"is_accurate_keyspace":  presetJob.IsAccurateKeyspace,
-		"use_rule_splitting":    presetJob.UseRuleSplitting,
 		"multiplication_factor": presetJob.MultiplicationFactor,
 	})
 

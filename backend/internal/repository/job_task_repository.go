@@ -225,10 +225,9 @@ func (r *JobTaskRepository) Create(ctx context.Context, task *models.JobTask) er
 			keyspace_start, keyspace_end, keyspace_processed,
 			effective_keyspace_start, effective_keyspace_end, effective_keyspace_processed,
 			benchmark_speed, chunk_duration,
-			rule_start_index, rule_end_index, rule_chunk_path, is_rule_split_task,
 			chunk_number, is_actual_keyspace, is_keyspace_split
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 		RETURNING id, assigned_at, created_at, updated_at`
 
 	err := r.db.QueryRowContext(ctx, query,
@@ -246,10 +245,6 @@ func (r *JobTaskRepository) Create(ctx context.Context, task *models.JobTask) er
 		task.EffectiveKeyspaceProcessed,
 		task.BenchmarkSpeed,
 		task.ChunkDuration,
-		task.RuleStartIndex,
-		task.RuleEndIndex,
-		task.RuleChunkPath,
-		task.IsRuleSplitTask,
 		intPtrToArg(task.ChunkNumber),
 		task.IsActualKeyspace,
 		task.IsKeyspaceSplit,
@@ -260,58 +255,11 @@ func (r *JobTaskRepository) Create(ctx context.Context, task *models.JobTask) er
 	}
 
 	debug.Log("Created job task", map[string]interface{}{
-		"task_id":            task.ID,
-		"job_execution_id":   task.JobExecutionID,
-		"status":             task.Status,
-		"is_rule_split_task": task.IsRuleSplitTask,
-		"is_keyspace_split":  task.IsKeyspaceSplit,
+		"task_id":           task.ID,
+		"job_execution_id":  task.JobExecutionID,
+		"status":            task.Status,
+		"is_keyspace_split": task.IsKeyspaceSplit,
 	})
-
-	return nil
-}
-
-// CreateWithRuleSplitting creates a new job task with rule splitting support
-// This method should be used once migration 34 is applied
-func (r *JobTaskRepository) CreateWithRuleSplitting(ctx context.Context, task *models.JobTask) error {
-	query := `
-		INSERT INTO job_tasks (
-			job_execution_id, increment_layer_id, agent_id, status, priority, attack_cmd,
-			keyspace_start, keyspace_end, keyspace_processed,
-			effective_keyspace_start, effective_keyspace_end, effective_keyspace_processed,
-			benchmark_speed, chunk_duration,
-			rule_start_index, rule_end_index, rule_chunk_path, is_rule_split_task,
-			chunk_number, is_actual_keyspace, is_keyspace_split
-		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
-		RETURNING id, assigned_at, created_at, updated_at`
-
-	err := r.db.QueryRowContext(ctx, query,
-		task.JobExecutionID,
-		task.IncrementLayerID,
-		task.AgentID,
-		task.Status,
-		task.Priority,
-		stringPtrToArg(task.AttackCmd),
-		task.KeyspaceStart,
-		task.KeyspaceEnd,
-		task.KeyspaceProcessed,
-		task.EffectiveKeyspaceStart,
-		task.EffectiveKeyspaceEnd,
-		task.EffectiveKeyspaceProcessed,
-		task.BenchmarkSpeed,
-		task.ChunkDuration,
-		task.RuleStartIndex,
-		task.RuleEndIndex,
-		task.RuleChunkPath,
-		task.IsRuleSplitTask,
-		intPtrToArg(task.ChunkNumber),
-		task.IsActualKeyspace,
-		task.IsKeyspaceSplit,
-	).Scan(&task.ID, &task.AssignedAt, &task.CreatedAt, &task.UpdatedAt)
-
-	if err != nil {
-		return fmt.Errorf("failed to create job task with rule splitting: %w", err)
-	}
 
 	return nil
 }
@@ -328,7 +276,6 @@ func (r *JobTaskRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.
 			jt.started_at, jt.completed_at, jt.cracking_completed_at, jt.last_checkpoint, jt.error_message,
 			jt.crack_count, jt.detailed_status, jt.retry_count,
 			jt.expected_crack_count, jt.received_crack_count, jt.batches_complete_signaled,
-			jt.rule_start_index, jt.rule_end_index, jt.rule_chunk_path, jt.is_rule_split_task,
 			jt.chunk_number, jt.is_actual_keyspace, jt.chunk_actual_keyspace, jt.is_keyspace_split,
 			jt.progress_percent, jt.created_at, jt.updated_at,
 			a.name as agent_name
@@ -348,7 +295,6 @@ func (r *JobTaskRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.
 		&task.StartedAt, &task.CompletedAt, &task.CrackingCompletedAt, &task.LastCheckpoint, &task.ErrorMessage,
 		&task.CrackCount, &task.DetailedStatus, &task.RetryCount,
 		&task.ExpectedCrackCount, &task.ReceivedCrackCount, &task.BatchesCompleteSignaled,
-		&task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath, &task.IsRuleSplitTask,
 		&chunkNumber, &task.IsActualKeyspace, &task.ChunkActualKeyspace, &task.IsKeyspaceSplit,
 		&task.ProgressPercent, &task.CreatedAt, &task.UpdatedAt,
 		&task.AgentName,
@@ -377,7 +323,6 @@ func (r *JobTaskRepository) GetTasksByJobExecution(ctx context.Context, jobExecu
 			jt.started_at, jt.completed_at, jt.cracking_completed_at, jt.last_checkpoint, jt.error_message,
 			jt.crack_count,
 			jt.increment_layer_id,
-			jt.rule_start_index, jt.rule_end_index, jt.rule_chunk_path, jt.is_rule_split_task,
 			jt.progress_percent,
 			a.name as agent_name
 		FROM job_tasks jt
@@ -402,7 +347,6 @@ func (r *JobTaskRepository) GetTasksByJobExecution(ctx context.Context, jobExecu
 			&task.StartedAt, &task.CompletedAt, &task.CrackingCompletedAt, &task.LastCheckpoint, &task.ErrorMessage,
 			&task.CrackCount,
 			&task.IncrementLayerID,
-			&task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath, &task.IsRuleSplitTask,
 			&task.ProgressPercent,
 			&task.AgentName,
 		)
@@ -440,7 +384,6 @@ func (r *JobTaskRepository) GetTasksByJobExecutions(ctx context.Context, jobExec
 			jt.started_at, jt.completed_at, jt.cracking_completed_at, jt.last_checkpoint, jt.error_message,
 			jt.crack_count,
 			jt.increment_layer_id,
-			jt.rule_start_index, jt.rule_end_index, jt.rule_chunk_path, jt.is_rule_split_task,
 			jt.progress_percent,
 			a.name as agent_name
 		FROM job_tasks jt
@@ -464,7 +407,6 @@ func (r *JobTaskRepository) GetTasksByJobExecutions(ctx context.Context, jobExec
 			&task.StartedAt, &task.CompletedAt, &task.CrackingCompletedAt, &task.LastCheckpoint, &task.ErrorMessage,
 			&task.CrackCount,
 			&task.IncrementLayerID,
-			&task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath, &task.IsRuleSplitTask,
 			&task.ProgressPercent,
 			&task.AgentName,
 		); err != nil {
@@ -1680,8 +1622,7 @@ func (r *JobTaskRepository) GetActiveTaskForAgentAndHashlist(ctx context.Context
 			jt.progress_percent, jt.benchmark_speed, jt.average_speed, jt.chunk_duration,
 			jt.created_at, jt.assigned_at, jt.started_at, jt.completed_at, jt.updated_at,
 			jt.last_checkpoint, jt.error_message, jt.crack_count, jt.detailed_status,
-			jt.retry_count, jt.rule_start_index, jt.rule_end_index, jt.rule_chunk_path,
-			jt.is_rule_split_task
+			jt.retry_count
 		FROM job_tasks jt
 		JOIN job_executions je ON jt.job_execution_id = je.id
 		WHERE jt.agent_id = $1
@@ -1698,8 +1639,7 @@ func (r *JobTaskRepository) GetActiveTaskForAgentAndHashlist(ctx context.Context
 		&task.ProgressPercent, &task.BenchmarkSpeed, &task.AverageSpeed, &task.ChunkDuration,
 		&task.CreatedAt, &task.AssignedAt, &task.StartedAt, &task.CompletedAt, &task.UpdatedAt,
 		&task.LastCheckpoint, &task.ErrorMessage, &task.CrackCount, &task.DetailedStatus,
-		&task.RetryCount, &task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath,
-		&task.IsRuleSplitTask,
+		&task.RetryCount,
 	)
 
 	if err == sql.ErrNoRows {
@@ -1722,8 +1662,7 @@ func (r *JobTaskRepository) GetActiveTaskForAgentAndHashlistTx(tx *sql.Tx, agent
 			jt.progress_percent, jt.benchmark_speed, jt.average_speed, jt.chunk_duration,
 			jt.created_at, jt.assigned_at, jt.started_at, jt.completed_at, jt.updated_at,
 			jt.last_checkpoint, jt.error_message, jt.crack_count, jt.detailed_status,
-			jt.retry_count, jt.rule_start_index, jt.rule_end_index, jt.rule_chunk_path,
-			jt.is_rule_split_task
+			jt.retry_count
 		FROM job_tasks jt
 		JOIN job_executions je ON jt.job_execution_id = je.id
 		WHERE jt.agent_id = $1
@@ -1740,8 +1679,7 @@ func (r *JobTaskRepository) GetActiveTaskForAgentAndHashlistTx(tx *sql.Tx, agent
 		&task.ProgressPercent, &task.BenchmarkSpeed, &task.AverageSpeed, &task.ChunkDuration,
 		&task.CreatedAt, &task.AssignedAt, &task.StartedAt, &task.CompletedAt, &task.UpdatedAt,
 		&task.LastCheckpoint, &task.ErrorMessage, &task.CrackCount, &task.DetailedStatus,
-		&task.RetryCount, &task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath,
-		&task.IsRuleSplitTask,
+		&task.RetryCount,
 	)
 
 	if err == sql.ErrNoRows {
@@ -1895,28 +1833,6 @@ func (r *JobTaskRepository) GetTasksByStatuses(ctx context.Context, statuses []s
 	return tasks, nil
 }
 
-// GetMaxRuleEndIndex returns the maximum rule_end_index for a job execution
-// This is used to determine where to start the next rule chunk
-func (r *JobTaskRepository) GetMaxRuleEndIndex(ctx context.Context, jobExecutionID uuid.UUID) (*int, error) {
-	query := `
-		SELECT MAX(rule_end_index)
-		FROM job_tasks
-		WHERE job_execution_id = $1 AND is_rule_split_task = true`
-
-	var maxEnd sql.NullInt64
-	err := r.db.QueryRowContext(ctx, query, jobExecutionID).Scan(&maxEnd)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get max rule end index: %w", err)
-	}
-
-	if !maxEnd.Valid {
-		return nil, nil // No rule split tasks exist yet
-	}
-
-	result := int(maxEnd.Int64)
-	return &result, nil
-}
-
 // GetNextChunkNumber returns the next chunk number for a job execution
 // Chunk numbers are sequential per job (1, 2, 3, ...)
 func (r *JobTaskRepository) GetNextChunkNumber(ctx context.Context, jobExecutionID uuid.UUID) (int, error) {
@@ -1943,8 +1859,7 @@ func (r *JobTaskRepository) GetReconnectPendingTasksByAgent(ctx context.Context,
 			progress_percent, benchmark_speed, chunk_duration,
 			created_at, assigned_at, started_at, completed_at, updated_at,
 			last_checkpoint, error_message, crack_count, detailed_status,
-			retry_count, rule_start_index, rule_end_index, rule_chunk_path,
-			is_rule_split_task, chunk_number,
+			retry_count, chunk_number,
 			effective_keyspace_start, effective_keyspace_end, effective_keyspace_processed
 		FROM job_tasks
 		WHERE agent_id = $1 AND status = $2
@@ -1967,8 +1882,7 @@ func (r *JobTaskRepository) GetReconnectPendingTasksByAgent(ctx context.Context,
 			&task.ProgressPercent, &task.BenchmarkSpeed, &task.ChunkDuration,
 			&task.CreatedAt, &task.AssignedAt, &task.StartedAt, &task.CompletedAt, &task.UpdatedAt,
 			&task.LastCheckpoint, &task.ErrorMessage, &task.CrackCount, &task.DetailedStatus,
-			&task.RetryCount, &task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath,
-			&task.IsRuleSplitTask, &chunkNumber,
+			&task.RetryCount, &chunkNumber,
 			&task.EffectiveKeyspaceStart, &task.EffectiveKeyspaceEnd, &task.EffectiveKeyspaceProcessed,
 		)
 		if err != nil {
@@ -1992,8 +1906,7 @@ func (r *JobTaskRepository) GetTasksByChunkNumber(ctx context.Context, jobExecut
 			progress_percent, benchmark_speed, chunk_duration,
 			created_at, assigned_at, started_at, completed_at, updated_at,
 			last_checkpoint, error_message, crack_count, detailed_status,
-			retry_count, rule_start_index, rule_end_index, rule_chunk_path,
-			is_rule_split_task, chunk_number
+			retry_count, chunk_number
 		FROM job_tasks
 		WHERE job_execution_id = $1 AND chunk_number = $2
 		ORDER BY created_at ASC`
@@ -2015,8 +1928,7 @@ func (r *JobTaskRepository) GetTasksByChunkNumber(ctx context.Context, jobExecut
 			&task.ProgressPercent, &task.BenchmarkSpeed, &task.ChunkDuration,
 			&task.CreatedAt, &task.AssignedAt, &task.StartedAt, &task.CompletedAt, &task.UpdatedAt,
 			&task.LastCheckpoint, &task.ErrorMessage, &task.CrackCount, &task.DetailedStatus,
-			&task.RetryCount, &task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath,
-			&task.IsRuleSplitTask, &chunkNumber,
+			&task.RetryCount, &chunkNumber,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan task: %w", err)
@@ -2036,8 +1948,7 @@ func (r *JobTaskRepository) GetRetriableErrorTask(ctx context.Context, jobExecut
 			keyspace_start, keyspace_end, keyspace_processed, progress_percent,
 			benchmark_speed, chunk_duration, created_at, assigned_at, started_at, 
 			completed_at, updated_at, last_checkpoint, error_message, crack_count, 
-			detailed_status, retry_count, rule_start_index, rule_end_index, 
-			rule_chunk_path, is_rule_split_task, chunk_number
+			detailed_status, retry_count, chunk_number
 		FROM job_tasks
 		WHERE job_execution_id = $1 
 			AND status = 'error' 
@@ -2054,8 +1965,7 @@ func (r *JobTaskRepository) GetRetriableErrorTask(ctx context.Context, jobExecut
 		&task.ProgressPercent, &task.BenchmarkSpeed, &task.ChunkDuration,
 		&task.CreatedAt, &task.AssignedAt, &task.StartedAt, &task.CompletedAt, &task.UpdatedAt,
 		&task.LastCheckpoint, &task.ErrorMessage, &task.CrackCount, &task.DetailedStatus,
-		&task.RetryCount, &task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath,
-		&task.IsRuleSplitTask, &chunkNumber,
+		&task.RetryCount, &chunkNumber,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -2077,8 +1987,7 @@ func (r *JobTaskRepository) GetStalePendingTask(ctx context.Context, jobExecutio
 			keyspace_start, keyspace_end, keyspace_processed, progress_percent,
 			benchmark_speed, chunk_duration, created_at, assigned_at, started_at, 
 			completed_at, updated_at, last_checkpoint, error_message, crack_count, 
-			detailed_status, retry_count, rule_start_index, rule_end_index, 
-			rule_chunk_path, is_rule_split_task, chunk_number
+			detailed_status, retry_count, chunk_number
 		FROM job_tasks
 		WHERE job_execution_id = $1 
 			AND status IN ('pending', 'running')
@@ -2097,8 +2006,7 @@ func (r *JobTaskRepository) GetStalePendingTask(ctx context.Context, jobExecutio
 		&task.ProgressPercent, &task.BenchmarkSpeed, &task.ChunkDuration,
 		&task.CreatedAt, &task.AssignedAt, &task.StartedAt, &task.CompletedAt, &task.UpdatedAt,
 		&task.LastCheckpoint, &task.ErrorMessage, &task.CrackCount, &task.DetailedStatus,
-		&task.RetryCount, &task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath,
-		&task.IsRuleSplitTask, &chunkNumber,
+		&task.RetryCount, &chunkNumber,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -2119,8 +2027,7 @@ func (r *JobTaskRepository) GetUnassignedPendingTask(ctx context.Context, jobExe
 			keyspace_start, keyspace_end, keyspace_processed, progress_percent,
 			benchmark_speed, chunk_duration, created_at, assigned_at, started_at, 
 			completed_at, updated_at, last_checkpoint, error_message, crack_count, 
-			detailed_status, retry_count, rule_start_index, rule_end_index, 
-			rule_chunk_path, is_rule_split_task, chunk_number
+			detailed_status, retry_count, chunk_number
 		FROM job_tasks
 		WHERE job_execution_id = $1 
 			AND status = 'pending'
@@ -2137,8 +2044,7 @@ func (r *JobTaskRepository) GetUnassignedPendingTask(ctx context.Context, jobExe
 		&task.ProgressPercent, &task.BenchmarkSpeed, &task.ChunkDuration,
 		&task.CreatedAt, &task.AssignedAt, &task.StartedAt, &task.CompletedAt, &task.UpdatedAt,
 		&task.LastCheckpoint, &task.ErrorMessage, &task.CrackCount, &task.DetailedStatus,
-		&task.RetryCount, &task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath,
-		&task.IsRuleSplitTask, &chunkNumber,
+		&task.RetryCount, &chunkNumber,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil

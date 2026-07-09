@@ -1133,13 +1133,10 @@ func (s *JobSchedulingService) executeAgentBenchmark(ctx context.Context, task A
 
 // WaitForBenchmarks blocks until all benchmarks complete or timeout is reached
 func (s *JobSchedulingService) WaitForBenchmarks(ctx context.Context) bool {
-	// Get timeout from system settings
-	baseTimeout := 180 * time.Second // Default 3 minutes
-	if setting, err := s.systemSettingsRepo.GetSetting(ctx, "speedtest_timeout_seconds"); err == nil && setting.Value != nil {
-		if seconds, err := strconv.Atoi(*setting.Value); err == nil {
-			baseTimeout = time.Duration(seconds) * time.Second
-		}
-	}
+	// Fixed base timeout: the removed speedtest_timeout_seconds setting no longer
+	// configures this. The scheduler-v2 speed-test path uses the compressed /
+	// uncompressed timeouts (see scheduler/speedtest.go) instead.
+	baseTimeout := 180 * time.Second // 3 minutes
 
 	// Add 5 second buffer to ensure agents time out before we do
 	timeout := baseTimeout + (5 * time.Second)

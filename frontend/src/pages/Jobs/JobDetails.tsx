@@ -636,9 +636,9 @@ const JobDetails: React.FC = () => {
             <TableCell sx={{ fontWeight: 'bold' }}>{t('details.splittingMode')}</TableCell>
             <TableCell>
               <Chip
-                label={jobData.uses_rule_splitting ? t('details.ruleSplitting') : t('common.keyspace')}
+                label={t('common.keyspace')}
                 size="small"
-                color={jobData.uses_rule_splitting ? "primary" : "default"}
+                color="default"
                 variant="outlined"
               />
             </TableCell>
@@ -674,9 +674,9 @@ const JobDetails: React.FC = () => {
             <TableCell sx={{ fontWeight: 'bold' }}>{t('details.splittingMode')}</TableCell>
             <TableCell>
               <Chip
-                label={jobData.uses_rule_splitting ? t('details.ruleSplitting') : t('common.keyspace')}
+                label={t('common.keyspace')}
                 size="small"
-                color={jobData.uses_rule_splitting ? "primary" : "default"}
+                color="default"
                 variant="outlined"
               />
             </TableCell>
@@ -1051,15 +1051,6 @@ const JobDetails: React.FC = () => {
                 <TableCell sx={{ fontWeight: 'bold' }}>{t('common.effectiveKeyspace')}</TableCell>
                 <TableCell>
                   {formatKeyspace(jobData.effective_keyspace)}
-                  {jobData.uses_rule_splitting && jobData.multiplication_factor && jobData.multiplication_factor > 1 && (
-                    <Chip
-                      label={`×${jobData.multiplication_factor} ${t('common.rulesMultiplier')}`}
-                      size="small"
-                      color="error"
-                      variant="filled"
-                      sx={{ ml: 1 }}
-                    />
-                  )}
                 </TableCell>
               </TableRow>
               <TableRow>
