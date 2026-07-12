@@ -21,7 +21,6 @@ func (r *JobTaskRepository) GetAllTasksByJobExecution(ctx context.Context, jobEx
 			error_message,
 			created_at, started_at, completed_at, updated_at,
 			effective_keyspace_start, effective_keyspace_end, effective_keyspace_processed,
-			rule_start_index, rule_end_index, is_rule_split_task,
 			progress_percent, average_speed
 		FROM job_tasks
 		WHERE job_execution_id = $1
@@ -48,7 +47,6 @@ func (r *JobTaskRepository) GetAllTasksByJobExecution(ctx context.Context, jobEx
 			&task.ErrorMessage,
 			&task.CreatedAt, &task.StartedAt, &task.CompletedAt, &task.UpdatedAt,
 			&task.EffectiveKeyspaceStart, &task.EffectiveKeyspaceEnd, &task.EffectiveKeyspaceProcessed,
-			&task.RuleStartIndex, &task.RuleEndIndex, &task.IsRuleSplitTask,
 			&task.ProgressPercent, &task.AverageSpeed,
 		)
 		if err != nil {
@@ -72,7 +70,6 @@ func (r *JobTaskRepository) GetTasksByJobExecutionWithPagination(ctx context.Con
 			error_message,
 			created_at, started_at, completed_at, updated_at,
 			effective_keyspace_start, effective_keyspace_end, effective_keyspace_processed,
-			rule_start_index, rule_end_index, is_rule_split_task,
 			progress_percent
 		FROM job_tasks
 		WHERE job_execution_id = $1
@@ -100,7 +97,6 @@ func (r *JobTaskRepository) GetTasksByJobExecutionWithPagination(ctx context.Con
 			&task.ErrorMessage,
 			&task.CreatedAt, &task.StartedAt, &task.CompletedAt, &task.UpdatedAt,
 			&task.EffectiveKeyspaceStart, &task.EffectiveKeyspaceEnd, &task.EffectiveKeyspaceProcessed,
-			&task.RuleStartIndex, &task.RuleEndIndex, &task.IsRuleSplitTask,
 			&task.ProgressPercent,
 		)
 		if err != nil {
@@ -124,7 +120,6 @@ func (r *JobTaskRepository) GetActiveTasksByJobExecution(ctx context.Context, jo
 			error_message,
 			created_at, started_at, completed_at, updated_at,
 			effective_keyspace_start, effective_keyspace_end, effective_keyspace_processed,
-			rule_start_index, rule_end_index, is_rule_split_task,
 			progress_percent, assigned_at, last_checkpoint, chunk_number
 		FROM job_tasks
 		WHERE job_execution_id = $1
@@ -149,7 +144,6 @@ func (r *JobTaskRepository) GetActiveTasksByJobExecution(ctx context.Context, jo
 			&task.ErrorMessage,
 			&task.CreatedAt, &task.StartedAt, &task.CompletedAt, &task.UpdatedAt,
 			&task.EffectiveKeyspaceStart, &task.EffectiveKeyspaceEnd, &task.EffectiveKeyspaceProcessed,
-			&task.RuleStartIndex, &task.RuleEndIndex, &task.IsRuleSplitTask,
 			&task.ProgressPercent, &task.AssignedAt, &task.LastCheckpoint, &chunkNumber,
 		)
 		if err != nil {
@@ -298,21 +292,15 @@ func (r *JobTaskRepository) AreAllTasksComplete(ctx context.Context, jobExecutio
 	// All existing tasks are complete - now check if all work has been dispatched
 	// Get job details to check dispatch status
 	jobQuery := `
-		SELECT uses_rule_splitting, multiplication_factor, effective_keyspace,
-		       base_keyspace, dispatched_keyspace
+		SELECT effective_keyspace, dispatched_keyspace
 		FROM job_executions
 		WHERE id = $1`
 
-	var usesRuleSplitting bool
-	var multiplicationFactor int64
-	var effectiveKeyspace, baseKeyspace *int64
+	var effectiveKeyspace *int64
 	var dispatchedKeyspace int64
 
 	err = r.db.QueryRowContext(ctx, jobQuery, jobExecutionID).Scan(
-		&usesRuleSplitting,
-		&multiplicationFactor,
 		&effectiveKeyspace,
-		&baseKeyspace,
 		&dispatchedKeyspace,
 	)
 	if err != nil {
@@ -322,48 +310,23 @@ func (r *JobTaskRepository) AreAllTasksComplete(ctx context.Context, jobExecutio
 	// DEFENSIVE CHECK 2: Valid keyspace must be defined
 	// Cannot determine completion without knowing total work to be done
 	hasValidKeyspace := effectiveKeyspace != nil && *effectiveKeyspace > 0
-	if !hasValidKeyspace && !usesRuleSplitting {
-		// For non-rule-splitting jobs without keyspace, we cannot verify completion
+	if !hasValidKeyspace {
 		return false, nil
 	}
 
-	// DEFENSIVE CHECK 3: Work must have been dispatched (for keyspace jobs)
+	// DEFENSIVE CHECK 3: Work must have been dispatched
 	// Prevents premature completion when dispatched_keyspace hasn't been updated yet
-	if !usesRuleSplitting && hasValidKeyspace && dispatchedKeyspace == 0 {
+	if dispatchedKeyspace == 0 {
 		return false, nil
 	}
 
-	// For rule-splitting jobs, check if all rules have been dispatched
-	if usesRuleSplitting {
-		// Calculate total rules from multiplication factor or effective/base keyspace
-		totalRules := multiplicationFactor
-		if totalRules == 0 && effectiveKeyspace != nil && baseKeyspace != nil && *baseKeyspace > 0 {
-			totalRules = *effectiveKeyspace / *baseKeyspace
-		}
-
-		if totalRules > 0 {
-			// Get maximum rule end index from all tasks
-			maxRuleEnd, err := r.GetMaxRuleEndIndex(ctx, jobExecutionID)
-			if err != nil {
-				return false, fmt.Errorf("failed to get max rule end index: %w", err)
-			}
-
-			// Check if all rules have been dispatched
-			if maxRuleEnd == nil || int64(*maxRuleEnd) < totalRules {
-				// More rules need to be dispatched
-				return false, nil
-			}
-		}
-	} else {
-		// For non-rule-splitting jobs, check if all work has been dispatched
-		// using counter comparison. We use effective_keyspace as the target
-		// since that represents the actual total candidates to process.
-		// Note: base_keyspace is the wordlist size (different dimension) and
-		// should NOT be used for completion comparison.
-		if effectiveKeyspace != nil && *effectiveKeyspace > 0 && dispatchedKeyspace < *effectiveKeyspace {
-			// More effective keyspace needs to be dispatched
-			return false, nil
-		}
+	// Check if all work has been dispatched using counter comparison. We use
+	// effective_keyspace as the target since that represents the actual total
+	// candidates to process. Note: base_keyspace is the wordlist size (different
+	// dimension) and should NOT be used for completion comparison.
+	if dispatchedKeyspace < *effectiveKeyspace {
+		// More effective keyspace needs to be dispatched
+		return false, nil
 	}
 
 	// All tasks are complete AND all work has been dispatched
@@ -434,8 +397,7 @@ func (r *JobTaskRepository) GetPendingTasksByJobExecution(ctx context.Context, j
 			keyspace_start, keyspace_end, keyspace_processed, benchmark_speed,
 			chunk_duration, created_at, assigned_at, started_at, completed_at,
 			updated_at, last_checkpoint, error_message, crack_count,
-			detailed_status, retry_count, rule_start_index, rule_end_index,
-			rule_chunk_path, is_rule_split_task, is_keyspace_split,
+			detailed_status, retry_count, is_keyspace_split,
 			effective_keyspace_start, effective_keyspace_end, chunk_number,
 			increment_layer_id
 		FROM job_tasks
@@ -459,7 +421,6 @@ func (r *JobTaskRepository) GetPendingTasksByJobExecution(ctx context.Context, j
 			&task.BenchmarkSpeed, &task.ChunkDuration, &task.CreatedAt, &task.AssignedAt,
 			&task.StartedAt, &task.CompletedAt, &task.UpdatedAt, &task.LastCheckpoint,
 			&task.ErrorMessage, &task.CrackCount, &task.DetailedStatus, &task.RetryCount,
-			&task.RuleStartIndex, &task.RuleEndIndex, &task.RuleChunkPath, &task.IsRuleSplitTask,
 			&task.IsKeyspaceSplit, &task.EffectiveKeyspaceStart, &task.EffectiveKeyspaceEnd,
 			&chunkNumber, &task.IncrementLayerID,
 		)

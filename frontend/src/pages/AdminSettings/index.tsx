@@ -153,7 +153,7 @@ export const AdminSettings = () => {
   const [currentTab, setCurrentTab] = useState(() => {
     const savedTab = localStorage.getItem('adminSettingsTab');
     const initialTab = savedTab ? parseInt(savedTab, 10) : 0;
-    return initialTab >= 0 && initialTab < 11 ? initialTab : 0;
+    return initialTab >= 0 && initialTab < 10 ? initialTab : 0;
   });
 
   const { userRole } = useAuth();
@@ -196,7 +196,6 @@ export const AdminSettings = () => {
             <Tab label={t('tabs.ssoSettings') as string} />
             <Tab label={t('tabs.binaryManagement') as string} />
             <Tab label={t('tabs.systemSettings') as string} />
-            <Tab label={t('tabs.clientSettings') as string} />
             <Tab label={t('tabs.hashTypes') as string} />
             <Tab label={t('tabs.jobExecution') as string} />
             <Tab label={t('tabs.monitoring') as string} />
@@ -221,24 +220,24 @@ export const AdminSettings = () => {
         </TabPanel>
         <TabPanel value={currentTab} index={4}>
           <SystemSettings />
+          <Box sx={{ mt: 4 }}>
+            <ClientSettingsTab />
+          </Box>
         </TabPanel>
         <TabPanel value={currentTab} index={5}>
-          <ClientSettingsTab />
-        </TabPanel>
-        <TabPanel value={currentTab} index={6}>
           <HashTypeManager />
         </TabPanel>
-        <TabPanel value={currentTab} index={7}>
+        <TabPanel value={currentTab} index={6}>
           <JobExecutionSettings />
         </TabPanel>
-        <TabPanel value={currentTab} index={8}>
+        <TabPanel value={currentTab} index={7}>
           <MonitoringSettings />
         </TabPanel>
-        <TabPanel value={currentTab} index={9}>
+        <TabPanel value={currentTab} index={8}>
           <AgentDownloadSettings />
           <AgentAutoUpdateSettings />
         </TabPanel>
-        <TabPanel value={currentTab} index={10}>
+        <TabPanel value={currentTab} index={9}>
           <NotificationSettings />
         </TabPanel>
       </Paper>

@@ -62,38 +62,10 @@ func (s *JobUpdateService) HandleRuleUpdate(ctx context.Context, ruleID int, old
 		"new_count": newCount,
 	})
 
-	// Get all jobs that use this rule
-	jobs, err := s.jobExecRepo.GetJobsByRuleID(ctx, ruleID)
-	if err != nil {
-		return fmt.Errorf("failed to get jobs by rule ID: %w", err)
-	}
-
-	for _, job := range jobs {
-		// Skip non-rule-splitting jobs
-		if !job.UsesRuleSplitting {
-			continue
-		}
-
-		// Lock this specific job
-		s.lockJob(job.ID.String())
-		defer s.unlockJob(job.ID.String())
-
-		// Check if job has any tasks
-		taskCount, err := s.jobTaskRepo.GetTaskCountByJobExecution(ctx, job.ID)
-		if err != nil {
-			debug.Error("Failed to get task count for job %s: %v", job.ID, err)
-			continue
-		}
-
-		if taskCount == 0 {
-			// No tasks yet - simple recalculation
-			s.recalculateJobKeyspace(ctx, &job, newCount)
-		} else {
-			// Has tasks - adjust for remaining work only
-			s.adjustRemainingKeyspace(ctx, &job, oldCount, newCount)
-		}
-	}
-
+	// Rule splitting has been removed. Scheduler-v2 keyspace-splits every job and
+	// derives keyspace from the job's own attack params, so a rule-file line-count
+	// change no longer drives a per-job keyspace adjustment from this path
+	// (matching the prior behavior for non-rule-split jobs, which were skipped).
 	return nil
 }
 
@@ -116,16 +88,13 @@ func (s *JobUpdateService) HandleWordlistUpdate(ctx context.Context, wordlistID 
 		s.lockJob(job.ID.String())
 		defer s.unlockJob(job.ID.String())
 
-		// Forward-only guard: for non-rule-split jobs, if every word of the
-		// CURRENT base keyspace has already been dispatched (max(keyspace_end)
-		// across non-failed tasks >= base_keyspace), the job has no undispatched
-		// work left. Appending to the wordlist must NOT resurrect a finished
-		// job — growing its keyspace here is exactly what stranded a completed
-		// job in 'pending' forever (the manufactured remainder never got a
-		// chunk). Skip it entirely. (Rule-split jobs dispatch the full base per
-		// rule chunk, so this base-frontier test doesn't apply to them; their
-		// missed-keyspace logic below already accounts for dispatched work.)
-		if !job.UsesRuleSplitting && job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
+		// Forward-only guard: if every word of the CURRENT base keyspace has
+		// already been dispatched (max(keyspace_end) across non-failed tasks >=
+		// base_keyspace), the job has no undispatched work left. Appending to the
+		// wordlist must NOT resurrect a finished job — growing its keyspace here is
+		// exactly what stranded a completed job in 'pending' forever (the
+		// manufactured remainder never got a chunk). Skip it entirely.
+		if job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
 			hasWork, hwErr := s.jobTaskRepo.HasUndispatchedBaseKeyspace(ctx, job.ID)
 			if hwErr != nil {
 				debug.Warning("Wordlist update: HasUndispatchedBaseKeyspace(job=%s): %v — proceeding with update", job.ID, hwErr)
@@ -143,159 +112,41 @@ func (s *JobUpdateService) HandleWordlistUpdate(ctx context.Context, wordlistID 
 			continue
 		}
 
-		// For rule-splitting jobs, recalculate effective keyspace accounting for missed work
-		if job.UsesRuleSplitting && job.MultiplicationFactor > 0 {
-			// Calculate the theoretical new effective keyspace (base × rules → effective,
-			// computed in BigInt: the product can exceed int64).
-			theoreticalNewEffective := models.NewBigInt(newLines).MulInt64(job.MultiplicationFactor)
-
-			// Calculate how many words were added (base-unit delta, stays int64)
-			wordsDifference := newLines - oldLines
-
-			// Get the highest rule chunk that's been dispatched
-			maxRuleEnd, err := s.jobTaskRepo.GetMaxRuleEndIndex(ctx, job.ID)
-			if err != nil {
-				debug.Error("Failed to get max rule end for job %s: %v", job.ID, err)
-				// Fall back to simple update if we can't determine dispatched rules
-				err = s.jobExecRepo.UpdateEffectiveKeyspace(ctx, job.ID, theoreticalNewEffective)
-				if err != nil {
-					debug.Error("Failed to update effective keyspace for job %s: %v", job.ID, err)
-				}
-				continue
-			}
-
-			// Calculate the "missed" keyspace (words added × rules already dispatched →
-			// effective, computed in BigInt to avoid overflow).
-			missedKeyspace := models.NewBigInt(0)
-			if maxRuleEnd != nil && *maxRuleEnd > 0 {
-				missedKeyspace = models.NewBigInt(wordsDifference).MulInt64(int64(*maxRuleEnd))
-			}
-
-			// Actual effective keyspace = theoretical - missed
-			actualEffective := theoreticalNewEffective.Sub(missedKeyspace)
-
-			err = s.jobExecRepo.UpdateEffectiveKeyspace(ctx, job.ID, actualEffective)
-			if err != nil {
-				debug.Error("Failed to update effective keyspace for job %s: %v", job.ID, err)
-			}
-
-			debug.Log("Updated job keyspace for wordlist change", map[string]interface{}{
-				"job_id":                job.ID,
-				"new_base_keyspace":     newLines,
-				"old_base_keyspace":     oldLines,
-				"words_added":           wordsDifference,
-				"multiplication_factor": job.MultiplicationFactor,
-				"rules_dispatched":      maxRuleEnd,
-				"missed_keyspace":       missedKeyspace,
-				"theoretical_effective": theoreticalNewEffective,
-				"actual_effective":      actualEffective,
-			})
-		} else {
-			// Non-rule-splitting job. effective = base × rules → BigInt (product can exceed int64).
-			var newEffective models.BigInt
-			if job.MultiplicationFactor > 0 {
-				// Job has rules but doesn't use rule splitting
-				newEffective = models.NewBigInt(newLines).MulInt64(job.MultiplicationFactor)
-			} else {
-				// Pure wordlist job without rules
-				newEffective = models.NewBigInt(newLines)
-			}
-
-			err = s.jobExecRepo.UpdateEffectiveKeyspace(ctx, job.ID, newEffective)
-			if err != nil {
-				debug.Error("Failed to update effective keyspace for job %s: %v", job.ID, err)
-			}
-
-			debug.Log("Updated job keyspace for wordlist change", map[string]interface{}{
-				"job_id":                job.ID,
-				"new_base_keyspace":     newLines,
-				"new_effective":         newEffective,
-				"multiplication_factor": job.MultiplicationFactor,
-			})
+		// Recalculate effective keyspace preserving the ACTUAL effective/base
+		// ratio: newEffective = oldEffective × newBase / oldBase (big.Int,
+		// overflow-safe). Using the exact ratio rather than the rounded,
+		// display-only multiplication_factor keeps rule/salt keyspaces precise
+		// across a wordlist change (a rounded ×2 vs a true ×2.9999 would strand
+		// or over-dispatch work). job.EffectiveKeyspace/BaseKeyspace still hold
+		// the pre-update values here (UpdateBaseKeyspace only touched the row).
+		var newEffective models.BigInt
+		switch {
+		case job.EffectiveKeyspace != nil && job.EffectiveKeyspace.IsPositive() &&
+			job.BaseKeyspace != nil && *job.BaseKeyspace > 0:
+			newEffective = job.EffectiveKeyspace.MulInt64(newLines).DivInt64(*job.BaseKeyspace)
+		case job.MultiplicationFactor > 0:
+			// No prior effective/base pair to scale; fall back to base × rounded
+			// multiplier (product can exceed int64).
+			newEffective = models.NewBigInt(newLines).MulInt64(job.MultiplicationFactor)
+		default:
+			// Pure wordlist job without rules
+			newEffective = models.NewBigInt(newLines)
 		}
+
+		err = s.jobExecRepo.UpdateEffectiveKeyspace(ctx, job.ID, newEffective)
+		if err != nil {
+			debug.Error("Failed to update effective keyspace for job %s: %v", job.ID, err)
+		}
+
+		debug.Log("Updated job keyspace for wordlist change", map[string]interface{}{
+			"job_id":                job.ID,
+			"new_base_keyspace":     newLines,
+			"new_effective":         newEffective,
+			"multiplication_factor": job.MultiplicationFactor,
+		})
 	}
 
 	return nil
-}
-
-// recalculateJobKeyspace recalculates keyspace for jobs with no tasks
-func (s *JobUpdateService) recalculateJobKeyspace(ctx context.Context, job *models.JobExecution, newRuleCount int64) {
-	if job.BaseKeyspace == nil {
-		debug.Warning("Job %s has no base keyspace, skipping recalculation", job.ID)
-		return
-	}
-
-	newMultFactor := newRuleCount
-	// effective = base × rules → BigInt (product can exceed int64).
-	newEffective := models.NewBigInt(*job.BaseKeyspace).MulInt64(newMultFactor)
-
-	updates := map[string]interface{}{
-		"multiplication_factor": newMultFactor,
-		"effective_keyspace":    newEffective,
-	}
-
-	err := s.jobExecRepo.UpdateKeyspaceMetrics(ctx, job.ID, updates)
-	if err != nil {
-		debug.Error("Failed to update keyspace metrics for job %s: %v", job.ID, err)
-		return
-	}
-
-	debug.Log("Recalculated job keyspace (no tasks)", map[string]interface{}{
-		"job_id":             job.ID,
-		"new_multiplication": newMultFactor,
-		"new_effective":      newEffective,
-	})
-}
-
-// adjustRemainingKeyspace adjusts keyspace for jobs with existing tasks
-func (s *JobUpdateService) adjustRemainingKeyspace(ctx context.Context, job *models.JobExecution, oldRules, newRules int64) {
-	// Get the highest rule that's been dispatched
-	maxRuleEnd, err := s.jobTaskRepo.GetMaxRuleEndIndex(ctx, job.ID)
-	if err != nil {
-		debug.Error("Failed to get max rule end for job %s: %v", job.ID, err)
-		return
-	}
-
-	var maxRuleEndVal int64
-	if maxRuleEnd != nil {
-		maxRuleEndVal = int64(*maxRuleEnd)
-	}
-
-	if newRules <= maxRuleEndVal {
-		// All new rules already covered - update to reflect reality
-		err = s.jobExecRepo.UpdateMultiplicationFactor(ctx, job.ID, maxRuleEndVal)
-		if err != nil {
-			debug.Error("Failed to update multiplication factor for job %s: %v", job.ID, err)
-		}
-		debug.Log("Rules shrunk below dispatched range, job effectively complete", map[string]interface{}{
-			"job_id":    job.ID,
-			"max_rule":  maxRuleEndVal,
-			"new_rules": newRules,
-		})
-	} else {
-		// Update total to reflect current reality
-		err = s.jobExecRepo.UpdateMultiplicationFactor(ctx, job.ID, newRules)
-		if err != nil {
-			debug.Error("Failed to update multiplication factor for job %s: %v", job.ID, err)
-			return
-		}
-
-		// Recalculate effective keyspace (base × rules → BigInt; product can exceed int64).
-		if job.BaseKeyspace != nil {
-			newEffective := models.NewBigInt(*job.BaseKeyspace).MulInt64(newRules)
-			err = s.jobExecRepo.UpdateEffectiveKeyspace(ctx, job.ID, newEffective)
-			if err != nil {
-				debug.Error("Failed to update effective keyspace for job %s: %v", job.ID, err)
-			}
-		}
-
-		debug.Log("Adjusted remaining keyspace for job with tasks", map[string]interface{}{
-			"job_id":           job.ID,
-			"max_dispatched":   maxRuleEndVal,
-			"new_total_rules":  newRules,
-			"rules_to_process": newRules - maxRuleEndVal,
-		})
-	}
 }
 
 // lockJob locks a specific job for updates

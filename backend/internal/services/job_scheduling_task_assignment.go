@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -67,13 +66,8 @@ type TaskAssignmentPlan struct {
 	KeyspaceStart int64
 	KeyspaceEnd   int64
 
-	// Rule splitting (calculated ranges, file created in Phase 2)
-	IsRuleSplit      bool
-	IsKeyspaceSplit  bool   // Whether task uses keyspace splitting (--skip/--limit)
-	RuleStartIndex   int
-	RuleEndIndex     int
-	RuleFilePath     string // Source rule file path
-	ChunkNumber      int
+	IsKeyspaceSplit bool // Whether task uses keyspace splitting (--skip/--limit)
+	ChunkNumber     int
 
 	// Increment layer support
 	IncrementLayerID *uuid.UUID // If set, task belongs to this increment layer
@@ -110,12 +104,8 @@ type TaskAssignmentResult struct {
 type JobPlanningState struct {
 	JobExecution        *models.JobExecution
 	DispatchedKeyspace  models.BigInt // EFFECTIVE units (base × rules × salts can exceed int64)
-	NextRuleIndex       int
-	TotalRules          int
-	RuleFilePath        string
 	IsExhausted         bool
 	ChunkNumber         int
-	BaseKeyspace        int64
 
 	// BASE keyspace tracking for --skip/--limit (in password candidate units, not EFFECTIVE hash operations)
 	// This is initialized once from DB at the start of planning and updated in-memory after each chunk.
@@ -229,26 +219,19 @@ func (s *JobSchedulingService) CreateTaskAssignmentPlans(
 			LayerDispatchedBaseKeyspace: make(map[uuid.UUID]int64),
 		}
 
-		// Get base keyspace for rule splitting calculations
-		if job.BaseKeyspace != nil {
-			state.BaseKeyspace = *job.BaseKeyspace
-		}
-
 		// Initialize BASE keyspace tracking from DB ONCE per job (not per agent)
 		// This prevents the race condition where all agents get the same starting value
 		// because they all query DB before any tasks are created.
-		if !job.UsesRuleSplitting {
-			maxBaseEnd, err := s.jobExecutionService.jobTaskRepo.GetMaxKeyspaceEnd(ctx, actualJobID)
-			if err != nil {
-				debug.Warning("Failed to get max keyspace end for job %s: %v, starting from 0", actualJobID, err)
-				maxBaseEnd = 0
-			}
-			state.DispatchedBaseKeyspace = maxBaseEnd
-			debug.Log("Initialized BASE keyspace tracking for job", map[string]interface{}{
-				"job_id":                   actualJobID,
-				"dispatched_base_keyspace": maxBaseEnd,
-			})
+		maxBaseEnd, err := s.jobExecutionService.jobTaskRepo.GetMaxKeyspaceEnd(ctx, actualJobID)
+		if err != nil {
+			debug.Warning("Failed to get max keyspace end for job %s: %v, starting from 0", actualJobID, err)
+			maxBaseEnd = 0
 		}
+		state.DispatchedBaseKeyspace = maxBaseEnd
+		debug.Log("Initialized BASE keyspace tracking for job", map[string]interface{}{
+			"job_id":                   actualJobID,
+			"dispatched_base_keyspace": maxBaseEnd,
+		})
 
 		// If this is a specific layer entry, set it as the current layer
 		if specificLayer != nil {
@@ -274,26 +257,6 @@ func (s *JobSchedulingService) CreateTaskAssignmentPlans(
 			})
 		}
 
-		// Get next rule index for rule splitting jobs
-		if job.UsesRuleSplitting {
-			maxRuleEnd, err := s.jobExecutionService.jobTaskRepo.GetMaxRuleEndIndex(ctx, job.ID)
-			if err == nil && maxRuleEnd != nil {
-				state.NextRuleIndex = *maxRuleEnd
-			}
-
-			// Get total rules
-			if len(job.RuleIDs) > 0 {
-				rulePath, err := s.jobExecutionService.resolveRulePath(ctx, job.RuleIDs[0])
-				if err == nil {
-					totalRules, err := s.jobExecutionService.ruleSplitManager.CountRules(ctx, rulePath)
-					if err == nil {
-						state.TotalRules = totalRules
-						state.RuleFilePath = rulePath
-					}
-				}
-			}
-		}
-
 		// Get next chunk number
 		chunkNum, err := s.jobExecutionService.jobTaskRepo.GetNextChunkNumber(ctx, job.ID)
 		if err != nil {
@@ -310,8 +273,6 @@ func (s *JobSchedulingService) CreateTaskAssignmentPlans(
 			"entry_id":            originalID,
 			"job_execution_id":    job.JobExecution.ID,
 			"dispatched_keyspace": state.DispatchedKeyspace.String(),
-			"next_rule_index":     state.NextRuleIndex,
-			"total_rules":         state.TotalRules,
 			"chunk_number":        state.ChunkNumber,
 		})
 	}
@@ -526,45 +487,10 @@ func (s *JobSchedulingService) createSingleTaskPlan(
 				CrackedHashes: hashlist.CrackedHashes,
 			}
 
-			// For rule-split tasks, copy rule fields and get source rule path
-			if pendingTask.IsRuleSplitTask {
-				plan.IsRuleSplit = true
-
-				// Handle nullable RuleIndex fields - should always be set for rule-split tasks
-				if pendingTask.RuleStartIndex != nil && pendingTask.RuleEndIndex != nil {
-					plan.RuleStartIndex = *pendingTask.RuleStartIndex
-					plan.RuleEndIndex = *pendingTask.RuleEndIndex
-				} else {
-					debug.Warning("Pending rule-split task missing rule index fields", map[string]interface{}{
-						"task_id": pendingTask.ID,
-					})
-					// Skip this task - it's corrupted
-					// Fall through to new chunk logic
-					goto createNewChunk
-				}
-
-				// Get source rule file path from job
-				if len(currentState.JobExecution.RuleIDs) > 0 {
-					rulePath, err := s.jobExecutionService.resolveRulePath(ctx, currentState.JobExecution.RuleIDs[0])
-					if err == nil {
-						plan.RuleFilePath = rulePath
-					} else {
-						debug.Warning("Failed to resolve rule path for pending task: %v", err)
-					}
-				}
-
-				debug.Info("Reassigning pending rule-split task", map[string]interface{}{
-					"task_id":    pendingTask.ID,
-					"rule_start": plan.RuleStartIndex,
-					"rule_end":   plan.RuleEndIndex,
-				})
-			}
-
 			return plan, nil
 		}
 	}
 
-createNewChunk:
 	// PRIORITY 2: No pending tasks OR agent lacks benchmark - create NEW chunk
 	// Check if agent has valid benchmark for this job (salt-aware lookup)
 	benchmark, err := s.jobExecutionService.benchmarkRepo.GetAgentBenchmark(
@@ -632,18 +558,10 @@ createNewChunk:
 		})
 	}
 
-	if currentState.JobExecution.UsesRuleSplitting {
-		// Rule splitting chunk calculation
-		err = s.calculateRuleSplitChunk(ctx, plan, currentState, hashlist)
-		if err != nil {
-			return nil, fmt.Errorf("failed to calculate rule split chunk: %w", err)
-		}
-	} else {
-		// Regular keyspace chunking
-		err = s.calculateKeyspaceChunk(ctx, plan, currentState)
-		if err != nil {
-			return nil, fmt.Errorf("failed to calculate keyspace chunk: %w", err)
-		}
+	// Regular keyspace chunking
+	err = s.calculateKeyspaceChunk(ctx, plan, currentState)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate keyspace chunk: %w", err)
 	}
 
 	return plan, nil
@@ -737,33 +655,6 @@ func (s *JobSchedulingService) executeTaskAssignment(
 		"job_id":   plan.JobExecution.ID,
 	})
 
-	// Step 1: Create rule chunk file if needed (BEFORE file sync)
-	var ruleChunkPath string
-	if plan.IsRuleSplit {
-		chunk, err := s.jobExecutionService.ruleSplitManager.CreateSingleRuleChunk(
-			ctx,
-			plan.JobExecution.ID,
-			plan.RuleFilePath,
-			plan.RuleStartIndex,
-			plan.RuleEndIndex-plan.RuleStartIndex,
-		)
-		if err != nil {
-			result.Error = fmt.Errorf("failed to create rule chunk: %w", err)
-			return result
-		}
-		ruleChunkPath = chunk.Path
-
-		// Replace rule path in attack command
-		plan.AttackCmd = replaceRulePath(plan.AttackCmd, plan.RuleFilePath, ruleChunkPath)
-
-		debug.Log("Created rule chunk file", map[string]interface{}{
-			"agent_id":    plan.AgentID,
-			"chunk_path":  ruleChunkPath,
-			"rule_start":  plan.RuleStartIndex,
-			"rule_end":    plan.RuleEndIndex,
-		})
-	}
-
 	// Step 2: Sync hashlist (includes latest cracks)
 	err := s.hashlistSyncService.EnsureHashlistOnAgent(ctx, plan.AgentID, plan.JobExecution.HashlistID)
 	if err != nil {
@@ -800,11 +691,6 @@ func (s *JobSchedulingService) executeTaskAssignment(
 		task.EffectiveKeyspaceStart = &plan.EffectiveKeyspaceStart
 		task.EffectiveKeyspaceEnd = &plan.EffectiveKeyspaceEnd
 
-		// Update rule chunk path if this is a rule-split task
-		if plan.IsRuleSplit && ruleChunkPath != "" {
-			task.RuleChunkPath = &ruleChunkPath
-		}
-
 		err = s.jobExecutionService.jobTaskRepo.Update(ctx, task)
 		if err != nil {
 			result.Error = fmt.Errorf("failed to update pending task: %w", err)
@@ -834,14 +720,6 @@ func (s *JobSchedulingService) executeTaskAssignment(
 			ChunkDuration:          plan.ChunkDuration,
 			BenchmarkSpeed:         &plan.BenchmarkSpeed,
 			IncrementLayerID:       plan.IncrementLayerID, // Set layer ID for increment mode tasks
-		}
-
-		// Add rule splitting fields if applicable
-		if plan.IsRuleSplit {
-			task.IsRuleSplitTask = true
-			task.RuleStartIndex = &plan.RuleStartIndex
-			task.RuleEndIndex = &plan.RuleEndIndex
-			task.RuleChunkPath = &ruleChunkPath
 		}
 
 		// Set keyspace split flag
@@ -914,197 +792,6 @@ func (s *JobSchedulingService) executeTaskAssignment(
 	result.TaskID = task.ID
 	result.Success = true
 	return result
-}
-
-// replaceRulePath replaces the rule file path in the attack command with the chunk path
-func replaceRulePath(attackCmd, oldPath, newPath string) string {
-	// Replace first occurrence only (attack command should only have one rule file)
-	return strings.Replace(attackCmd, oldPath, newPath, 1)
-}
-
-// calculateRuleSplitChunk calculates rule range for a rule splitting job
-func (s *JobSchedulingService) calculateRuleSplitChunk(
-	ctx context.Context,
-	plan *TaskAssignmentPlan,
-	state *JobPlanningState,
-	hashlist interface{},
-) error {
-	// Check if all rules have been dispatched
-	if state.TotalRules > 0 && state.NextRuleIndex >= state.TotalRules {
-		state.IsExhausted = true
-		plan.SkipAssignment = true
-		plan.SkipReason = fmt.Sprintf("All rules dispatched for job %s", plan.JobExecution.ID)
-
-		// Safety net: sync dispatched_keyspace to effective_keyspace to prevent
-		// GetJobsWithPendingWork from returning this job in an infinite loop.
-		// This can happen if estimation gaps cause dispatched < effective even
-		// though all rules are fully dispatched.
-		//
-		// state.DispatchedKeyspace is recomputed from job_tasks every cycle
-		// (not read from the synced column), so without gating the warning
-		// would fire every ~3 s for the lifetime of a zombie job — 800+ times
-		// per dump on the prod incident. completeExhaustedJobs (the proper
-		// long-term fix) should now retire the zombie within one cycle, but
-		// log-once defensively so a regression doesn't go quiet either.
-		if state.JobExecution.EffectiveKeyspace != nil && state.JobExecution.EffectiveKeyspace.IsPositive() {
-			if state.DispatchedKeyspace.Cmp(*state.JobExecution.EffectiveKeyspace) < 0 {
-				if _, alreadyWarned := s.ruleSplitSyncWarned.LoadOrStore(plan.JobExecution.ID, struct{}{}); !alreadyWarned {
-					debug.Warning("Rule-split job %s: all rules dispatched but dispatched(%s) < effective(%s), syncing",
-						plan.JobExecution.ID, state.DispatchedKeyspace.String(), state.JobExecution.EffectiveKeyspace.String())
-				}
-				_ = s.jobExecutionService.jobExecRepo.UpdateDispatchedKeyspace(
-					ctx, plan.JobExecution.ID, *state.JobExecution.EffectiveKeyspace)
-			}
-		}
-
-		return nil
-	}
-
-	// Calculate how many rules this agent can process in the chunk duration
-	// Using effective_keyspace (which includes salt multiplication from benchmark) for accurate timing
-	// keyspacePerRule = effective_keyspace / total_rules
-	// chunkKeyspace = benchmarkSpeed * chunkDuration
-	// rulesPerChunk = chunkKeyspace / keyspacePerRule
-	rulesPerChunk := 100 // Default if calculation fails
-	if state.JobExecution.EffectiveKeyspace != nil && state.JobExecution.EffectiveKeyspace.IsPositive() && plan.BenchmarkSpeed > 0 {
-		totalRules := state.JobExecution.MultiplicationFactor
-		if totalRules == 0 {
-			totalRules = 1
-		}
-
-		// Keyspace per rule (base calculation without salts)
-		keyspacePerRule := float64(state.JobExecution.EffectiveKeyspace.Int64()) / float64(totalRules)
-
-		// For salted hash types, multiply keyspace by remaining hashes (each hash = 1 salt)
-		// This aligns with the salt-aware benchmark speed which already accounts for salt count
-		if plan.IsSalted {
-			remainingHashes := plan.TotalHashes - plan.CrackedHashes
-			if remainingHashes > 0 {
-				originalKeyspacePerRule := keyspacePerRule
-				keyspacePerRule *= float64(remainingHashes)
-				debug.Log("Adjusted keyspace_per_rule for salted hash type", map[string]interface{}{
-					"original_keyspace_per_rule": originalKeyspacePerRule,
-					"salt_count":                 remainingHashes,
-					"adjusted_keyspace_per_rule": keyspacePerRule,
-				})
-			}
-		}
-
-		// Keyspace we can process in target duration
-		chunkKeyspace := float64(plan.BenchmarkSpeed) * float64(plan.ChunkDuration)
-
-		// Rules per chunk
-		rulesPerChunk = int(chunkKeyspace / keyspacePerRule)
-		if rulesPerChunk < 1 {
-			rulesPerChunk = 1 // At least one rule per chunk
-		}
-
-		debug.Log("Rule chunk calculation", map[string]interface{}{
-			"effective_keyspace": state.JobExecution.EffectiveKeyspace.String(),
-			"total_rules":        totalRules,
-			"keyspace_per_rule":  keyspacePerRule,
-			"benchmark_speed":    plan.BenchmarkSpeed,
-			"chunk_duration":     plan.ChunkDuration,
-			"rules_per_chunk":    rulesPerChunk,
-		})
-	}
-
-	// Get fluctuation settings
-	fluctuationSetting, _ := s.systemSettingsRepo.GetSetting(ctx, "chunk_fluctuation_percentage")
-	fluctuationPercent := 20 // Default 20%
-	if fluctuationSetting != nil && fluctuationSetting.Value != nil {
-		var parsed int
-		_, err := fmt.Sscanf(*fluctuationSetting.Value, "%d", &parsed)
-		if err == nil {
-			fluctuationPercent = parsed
-		}
-	}
-
-	fluctuationThreshold := int(float64(rulesPerChunk) * float64(fluctuationPercent) / 100.0)
-	ruleStart := state.NextRuleIndex
-	ruleEnd := ruleStart + rulesPerChunk
-
-	if ruleEnd >= state.TotalRules {
-		ruleEnd = state.TotalRules
-	} else {
-		// Check if remaining rules would be too small
-		remainingAfterChunk := state.TotalRules - ruleEnd
-		if remainingAfterChunk <= fluctuationThreshold {
-			// Merge the final small chunk
-			ruleEnd = state.TotalRules
-			debug.Log("Merging final rule chunk to avoid small remainder", map[string]interface{}{
-				"normal_chunk_size":   rulesPerChunk,
-				"remaining_rules":     remainingAfterChunk,
-				"threshold":           fluctuationThreshold,
-				"merged_chunk_size":   ruleEnd - ruleStart,
-				"percent_over_normal": float64(ruleEnd-ruleStart-rulesPerChunk) / float64(rulesPerChunk) * 100,
-			})
-		}
-	}
-
-	// Build attack command (use plan.LayerMask if this is an increment layer task)
-	attackCmd, err := s.jobExecutionService.buildAttackCommand(ctx, nil, plan.JobExecution, plan.LayerMask)
-	if err != nil {
-		return fmt.Errorf("failed to build attack command: %w", err)
-	}
-
-	// Calculate effective keyspace (EFFECTIVE units → BigInt)
-	effectiveKeyspaceStart := models.NewBigInt(0)
-	// previousChunksActual is the cumulative actual effective keyspace of prior chunks (BigInt).
-	previousChunksActual, err := s.jobExecutionService.GetPreviousChunksActualKeyspace(ctx, plan.JobExecution.ID, state.ChunkNumber)
-	if err == nil && previousChunksActual.IsPositive() {
-		effectiveKeyspaceStart = previousChunksActual
-	} else {
-		// Fall back to estimated based on base keyspace: base × ruleStart (computed in big.Int)
-		effectiveKeyspaceStart = models.NewBigInt(state.BaseKeyspace).MulInt64(int64(ruleStart))
-	}
-
-	rulesInChunk := ruleEnd - ruleStart
-	estimatedChunkKeyspace := models.NewBigInt(state.BaseKeyspace).MulInt64(int64(rulesInChunk))
-	effectiveKeyspaceEnd := effectiveKeyspaceStart.Add(estimatedChunkKeyspace)
-
-	// When this is the final chunk (all rules dispatched), snap to the job's actual
-	// effective_keyspace. This eliminates estimation gaps from avg_rule_multiplier
-	// or float precision that would cause dispatched_keyspace < effective_keyspace.
-	if ruleEnd == state.TotalRules && state.JobExecution.EffectiveKeyspace != nil && state.JobExecution.EffectiveKeyspace.IsPositive() {
-		effectiveKeyspaceEnd = *state.JobExecution.EffectiveKeyspace
-		debug.Log("Snapped final rule chunk effective_keyspace_end to job total", map[string]interface{}{
-			"job_id":             plan.JobExecution.ID,
-			"estimated_end":      effectiveKeyspaceStart.Add(estimatedChunkKeyspace).String(),
-			"snapped_end":        effectiveKeyspaceEnd.String(),
-			"effective_keyspace": state.JobExecution.EffectiveKeyspace.String(),
-		})
-	}
-
-	// Update plan
-	plan.IsRuleSplit = true
-	plan.RuleStartIndex = ruleStart
-	plan.RuleEndIndex = ruleEnd
-	plan.RuleFilePath = state.RuleFilePath
-	plan.ChunkNumber = state.ChunkNumber
-	plan.KeyspaceStart = 0
-	plan.KeyspaceEnd = state.BaseKeyspace
-	plan.EffectiveKeyspaceStart = effectiveKeyspaceStart
-	plan.EffectiveKeyspaceEnd = effectiveKeyspaceEnd
-	plan.AttackCmd = attackCmd // Will replace rule path during execution
-
-	// Update state for next agent
-	state.NextRuleIndex = ruleEnd
-	state.ChunkNumber++
-	state.DispatchedKeyspace = state.DispatchedKeyspace.Add(estimatedChunkKeyspace)
-
-	debug.Log("Calculated rule split chunk", map[string]interface{}{
-		"agent_id":        plan.AgentID,
-		"job_id":          plan.JobExecution.ID,
-		"chunk_number":    plan.ChunkNumber,
-		"rule_start":      ruleStart,
-		"rule_end":        ruleEnd,
-		"rules_in_chunk":  rulesInChunk,
-		"effective_start": effectiveKeyspaceStart.String(),
-		"effective_end":   effectiveKeyspaceEnd.String(),
-	})
-
-	return nil
 }
 
 // calculateKeyspaceChunk calculates keyspace range for a regular job
@@ -1266,16 +953,8 @@ func (s *JobSchedulingService) calculateKeyspaceChunk(
 		desiredChunkSize = 1
 	}
 
-	// Get fluctuation percentage setting
-	fluctuationSetting, _ := s.systemSettingsRepo.GetSetting(ctx, "chunk_fluctuation_percentage")
+	// Fluctuation percentage for merging small final chunks (previously a system setting)
 	fluctuationPercentage := 20 // Default
-	if fluctuationSetting != nil && fluctuationSetting.Value != nil {
-		var parsed int
-		_, err := fmt.Sscanf(*fluctuationSetting.Value, "%d", &parsed)
-		if err == nil {
-			fluctuationPercentage = parsed
-		}
-	}
 
 	keyspaceStart := dispatchedKeyspace
 	keyspaceEnd := keyspaceStart + desiredChunkSize

@@ -31,10 +31,9 @@ func (r *JobExecutionRepository) Create(ctx context.Context, exec *models.JobExe
 			name, wordlist_ids, rule_ids, mask, custom_charsets, custom_charset_files, hex_charset, binary_version, hash_type,
 			chunk_size_seconds, status_updates_enabled, allow_high_priority_override, additional_args,
 			increment_mode, increment_min, increment_max,
-			base_keyspace, effective_keyspace, multiplication_factor, is_accurate_keyspace, uses_rule_splitting,
-			avg_rule_multiplier
+			base_keyspace, effective_keyspace, multiplication_factor, is_accurate_keyspace
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
 		RETURNING id, created_at`
 
 	err := r.db.QueryRowContext(ctx, query,
@@ -66,8 +65,6 @@ func (r *JobExecutionRepository) Create(ctx context.Context, exec *models.JobExe
 		exec.EffectiveKeyspace,
 		exec.MultiplicationFactor,
 		exec.IsAccurateKeyspace,
-		exec.UsesRuleSplitting,
-		exec.AvgRuleMultiplier,
 	).Scan(&exec.ID, &exec.CreatedAt)
 
 	if err != nil {
@@ -86,14 +83,13 @@ func (r *JobExecutionRepository) GetByID(ctx context.Context, id uuid.UUID) (*mo
 			je.created_at, je.started_at, je.completed_at, je.cracking_completed_at, je.error_message, je.interrupted_by,
 			je.consecutive_failures,
 			je.base_keyspace, je.effective_keyspace, je.multiplication_factor,
-			je.uses_rule_splitting, je.rule_split_count,
 			je.overall_progress_percent, je.last_progress_update,
 			je.dispatched_keyspace,
 			je.completion_email_sent, je.completion_email_sent_at, je.completion_email_error,
 			je.wordlist_ids, je.rule_ids, je.mask, je.custom_charsets, je.custom_charset_files, je.hex_charset, je.binary_version,
 			je.chunk_size_seconds, je.status_updates_enabled, je.allow_high_priority_override,
 			je.additional_args, je.hash_type, je.updated_at,
-			je.avg_rule_multiplier, je.is_accurate_keyspace,
+			je.is_accurate_keyspace,
 			je.increment_mode, je.increment_min, je.increment_max
 		FROM job_executions je
 		WHERE je.id = $1`
@@ -105,14 +101,13 @@ func (r *JobExecutionRepository) GetByID(ctx context.Context, id uuid.UUID) (*mo
 		&exec.CreatedAt, &exec.StartedAt, &exec.CompletedAt, &exec.CrackingCompletedAt, &exec.ErrorMessage, &exec.InterruptedBy,
 		&exec.ConsecutiveFailures,
 		&exec.BaseKeyspace, &exec.EffectiveKeyspace, &exec.MultiplicationFactor,
-		&exec.UsesRuleSplitting, &exec.RuleSplitCount,
 		&exec.OverallProgressPercent, &exec.LastProgressUpdate,
 		&exec.DispatchedKeyspace,
 		&exec.CompletionEmailSent, &exec.CompletionEmailSentAt, &exec.CompletionEmailError,
 		&exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.CustomCharsets, &exec.CustomCharsetFiles, &exec.HexCharset, &exec.BinaryVersion,
 		&exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled, &exec.AllowHighPriorityOverride,
 		&exec.AdditionalArgs, &exec.HashType, &exec.UpdatedAt,
-		&exec.AvgRuleMultiplier, &exec.IsAccurateKeyspace,
+		&exec.IsAccurateKeyspace,
 		&exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
 	)
 
@@ -136,8 +131,7 @@ func (r *JobExecutionRepository) GetPendingJobs(ctx context.Context) ([]models.J
 			je.consecutive_failures,
 			je.max_agents, je.updated_at,
 			je.base_keyspace, je.effective_keyspace, je.multiplication_factor,
-			je.is_accurate_keyspace, je.avg_rule_multiplier,
-			je.uses_rule_splitting, je.rule_split_count,
+			je.is_accurate_keyspace,
 			je.overall_progress_percent, je.last_progress_update,
 			je.dispatched_keyspace,
 			je.name, je.wordlist_ids, je.rule_ids, je.mask, je.custom_charsets, je.custom_charset_files,
@@ -165,8 +159,7 @@ func (r *JobExecutionRepository) GetPendingJobs(ctx context.Context) ([]models.J
 			&exec.ConsecutiveFailures,
 			&exec.MaxAgents, &exec.UpdatedAt,
 			&exec.BaseKeyspace, &exec.EffectiveKeyspace, &exec.MultiplicationFactor,
-			&exec.IsAccurateKeyspace, &exec.AvgRuleMultiplier,
-			&exec.UsesRuleSplitting, &exec.RuleSplitCount,
+			&exec.IsAccurateKeyspace,
 			&exec.OverallProgressPercent, &exec.LastProgressUpdate,
 			&exec.DispatchedKeyspace,
 			&exec.Name, &exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.CustomCharsets, &exec.CustomCharsetFiles,
@@ -525,8 +518,7 @@ func (r *JobExecutionRepository) GetPendingJobsWithHighPriorityOverride(ctx cont
 			consecutive_failures,
 			max_agents, updated_at,
 			base_keyspace, effective_keyspace, multiplication_factor,
-			is_accurate_keyspace, avg_rule_multiplier,
-			uses_rule_splitting, rule_split_count,
+			is_accurate_keyspace,
 			overall_progress_percent, last_progress_update,
 			dispatched_keyspace,
 			name, wordlist_ids, rule_ids, mask, custom_charsets, custom_charset_files,
@@ -554,8 +546,7 @@ func (r *JobExecutionRepository) GetPendingJobsWithHighPriorityOverride(ctx cont
 			&exec.ConsecutiveFailures,
 			&exec.MaxAgents, &exec.UpdatedAt,
 			&exec.BaseKeyspace, &exec.EffectiveKeyspace, &exec.MultiplicationFactor,
-			&exec.IsAccurateKeyspace, &exec.AvgRuleMultiplier,
-			&exec.UsesRuleSplitting, &exec.RuleSplitCount,
+			&exec.IsAccurateKeyspace,
 			&exec.OverallProgressPercent, &exec.LastProgressUpdate,
 			&exec.DispatchedKeyspace,
 			&exec.Name, &exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.CustomCharsets, &exec.CustomCharsetFiles,
@@ -667,20 +658,14 @@ func (r *JobExecutionRepository) UpdateKeyspaceInfo(ctx context.Context, job *mo
 		SET base_keyspace = $1,
 		    effective_keyspace = $2,
 		    multiplication_factor = $3,
-		    uses_rule_splitting = $4,
-		    rule_split_count = $5,
-		    avg_rule_multiplier = $6,
-		    is_accurate_keyspace = $7,
+		    is_accurate_keyspace = $4,
 		    updated_at = CURRENT_TIMESTAMP
-		WHERE id = $8`
+		WHERE id = $5`
 
 	result, err := r.db.ExecContext(ctx, query,
 		job.BaseKeyspace,
 		job.EffectiveKeyspace,
 		job.MultiplicationFactor,
-		job.UsesRuleSplitting,
-		job.RuleSplitCount,
-		job.AvgRuleMultiplier,
 		job.IsAccurateKeyspace,
 		job.ID,
 	)
@@ -784,8 +769,7 @@ func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]
 			je.consecutive_failures,
 			COALESCE(je.max_agents, 999) as max_agents, je.updated_at,
 			je.base_keyspace, je.effective_keyspace, je.multiplication_factor,
-			je.is_accurate_keyspace, je.avg_rule_multiplier,
-			je.uses_rule_splitting, je.rule_split_count,
+			je.is_accurate_keyspace,
 			je.overall_progress_percent, je.last_progress_update,
 			je.dispatched_keyspace,
 			je.name, je.wordlist_ids, je.rule_ids, je.mask, je.custom_charsets, je.custom_charset_files,
@@ -815,13 +799,8 @@ func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]
 					       OR jil.dispatched_keyspace < jil.effective_keyspace)
 				 ))
 				OR
-				-- Rule-split job with more keyspace to dispatch
-				(je.uses_rule_splitting = true
-				 AND je.dispatched_keyspace < je.effective_keyspace)
-				OR
 				-- Regular keyspace chunking job with more keyspace to dispatch
-				(je.uses_rule_splitting = false
-				 AND (je.increment_mode IS NULL OR je.increment_mode = 'off')
+				((je.increment_mode IS NULL OR je.increment_mode = 'off')
 				 AND je.effective_keyspace IS NOT NULL
 				 AND je.dispatched_keyspace < je.effective_keyspace)
 			)
@@ -843,8 +822,7 @@ func (r *JobExecutionRepository) GetJobsWithPendingWork(ctx context.Context) ([]
 			&exec.ConsecutiveFailures,
 			&exec.MaxAgents, &exec.UpdatedAt,
 			&exec.BaseKeyspace, &exec.EffectiveKeyspace, &exec.MultiplicationFactor,
-			&exec.IsAccurateKeyspace, &exec.AvgRuleMultiplier,
-			&exec.UsesRuleSplitting, &exec.RuleSplitCount,
+			&exec.IsAccurateKeyspace,
 			&exec.OverallProgressPercent, &exec.LastProgressUpdate,
 			&exec.DispatchedKeyspace,
 			&exec.Name, &exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.CustomCharsets, &exec.CustomCharsetFiles,
@@ -869,7 +847,7 @@ func (r *JobExecutionRepository) GetNonCompletedJobsByHashlistID(ctx context.Con
 		SELECT
 			id, name, preset_job_id, hashlist_id, status, priority, max_agents, attack_mode,
 			hash_type, effective_keyspace, base_keyspace, processed_keyspace,
-			dispatched_keyspace, multiplication_factor, uses_rule_splitting, overall_progress_percent,
+			dispatched_keyspace, multiplication_factor, overall_progress_percent,
 			chunk_size_seconds, allow_high_priority_override, wordlist_ids, rule_ids, mask, custom_charsets, custom_charset_files,
 			hex_charset, additional_args, binary_version, started_at, completed_at, error_message, created_by,
 			created_at, updated_at, increment_mode, increment_min, increment_max
@@ -890,7 +868,7 @@ func (r *JobExecutionRepository) GetNonCompletedJobsByHashlistID(ctx context.Con
 		err := rows.Scan(
 			&exec.ID, &exec.Name, &exec.PresetJobID, &exec.HashlistID, &exec.Status, &exec.Priority, &exec.MaxAgents,
 			&exec.AttackMode, &exec.HashType, &exec.EffectiveKeyspace, &exec.BaseKeyspace,
-			&exec.ProcessedKeyspace, &exec.DispatchedKeyspace, &exec.MultiplicationFactor, &exec.UsesRuleSplitting,
+			&exec.ProcessedKeyspace, &exec.DispatchedKeyspace, &exec.MultiplicationFactor,
 			&exec.OverallProgressPercent, &exec.ChunkSizeSeconds, &exec.AllowHighPriorityOverride,
 			&exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.CustomCharsets, &exec.CustomCharsetFiles, &exec.HexCharset, &exec.AdditionalArgs, &exec.BinaryVersion,
 			&exec.StartedAt, &exec.CompletedAt, &exec.ErrorMessage, &exec.CreatedBy,
@@ -972,14 +950,13 @@ func (r *JobExecutionRepository) GetPotentiallyStuckJobs(ctx context.Context, mi
 			je.created_at, je.started_at, je.completed_at, je.error_message, je.interrupted_by,
 			je.consecutive_failures,
 			je.base_keyspace, je.effective_keyspace, je.multiplication_factor,
-			je.uses_rule_splitting, je.rule_split_count,
 			je.overall_progress_percent, je.last_progress_update,
 			je.dispatched_keyspace,
 			je.completion_email_sent, je.completion_email_sent_at, je.completion_email_error,
 			je.wordlist_ids, je.rule_ids, je.mask, je.custom_charsets, je.custom_charset_files, je.hex_charset, je.binary_version,
 			je.chunk_size_seconds, je.status_updates_enabled, je.allow_high_priority_override,
 			je.additional_args, je.hash_type, je.updated_at,
-			je.avg_rule_multiplier, je.is_accurate_keyspace,
+			je.is_accurate_keyspace,
 			je.increment_mode, je.increment_min, je.increment_max
 		FROM job_executions je
 		WHERE je.status IN ('pending', 'running')
@@ -1006,14 +983,13 @@ func (r *JobExecutionRepository) GetPotentiallyStuckJobs(ctx context.Context, mi
 			&exec.CreatedAt, &exec.StartedAt, &exec.CompletedAt, &exec.ErrorMessage, &exec.InterruptedBy,
 			&exec.ConsecutiveFailures,
 			&exec.BaseKeyspace, &exec.EffectiveKeyspace, &exec.MultiplicationFactor,
-			&exec.UsesRuleSplitting, &exec.RuleSplitCount,
 			&exec.OverallProgressPercent, &exec.LastProgressUpdate,
 			&exec.DispatchedKeyspace,
 			&exec.CompletionEmailSent, &exec.CompletionEmailSentAt, &exec.CompletionEmailError,
 			&exec.WordlistIDs, &exec.RuleIDs, &exec.Mask, &exec.CustomCharsets, &exec.CustomCharsetFiles, &exec.HexCharset, &exec.BinaryVersion,
 			&exec.ChunkSizeSeconds, &exec.StatusUpdatesEnabled, &exec.AllowHighPriorityOverride,
 			&exec.AdditionalArgs, &exec.HashType, &exec.UpdatedAt,
-			&exec.AvgRuleMultiplier, &exec.IsAccurateKeyspace,
+			&exec.IsAccurateKeyspace,
 			&exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
 		)
 		if err != nil {

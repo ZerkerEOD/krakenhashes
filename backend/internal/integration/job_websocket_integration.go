@@ -710,59 +710,25 @@ func (s *JobWebSocketIntegration) SendJobAssignment(ctx context.Context, task *m
 	}
 
 	var rulePaths []string
-	// Check if this is a rule split task with a chunk file
-	if task.IsRuleSplitTask && task.RuleChunkPath != nil && *task.RuleChunkPath != "" {
-		// Extract job directory from the chunk path
-		pathParts := strings.Split(*task.RuleChunkPath, string(filepath.Separator))
-		var jobDirName string
-		chunkFilename := filepath.Base(*task.RuleChunkPath)
-
-		// Find the job directory name
-		for i, part := range pathParts {
-			if strings.HasPrefix(part, "job_") && i < len(pathParts)-1 {
-				jobDirName = part
-				break
-			}
+	for _, ruleIDStr := range jobExecution.RuleIDs {
+		// Convert string ID to int
+		ruleID, err := strconv.Atoi(ruleIDStr)
+		if err != nil {
+			return fmt.Errorf("invalid rule ID %s: %w", ruleIDStr, err)
 		}
 
-		// Create the rule path with job directory
-		var rulePath string
-		if jobDirName != "" {
-			rulePath = fmt.Sprintf("rules/chunks/%s/%s", jobDirName, chunkFilename)
-		} else {
-			// Fallback to just chunk filename
-			rulePath = fmt.Sprintf("rules/chunks/%s", chunkFilename)
+		// Look up the actual rule file path
+		rule, err := s.ruleManager.GetRule(ctx, ruleID)
+		if err != nil {
+			return fmt.Errorf("failed to get rule %d: %w", ruleID, err)
 		}
+		if rule == nil {
+			return fmt.Errorf("rule %d not found", ruleID)
+		}
+
+		// Use the actual file path from the database
+		rulePath := fmt.Sprintf("rules/%s", rule.FileName)
 		rulePaths = append(rulePaths, rulePath)
-
-		debug.Log("Using rule chunk for task", map[string]interface{}{
-			"task_id":    task.ID,
-			"chunk_path": *task.RuleChunkPath,
-			"agent_path": rulePath,
-			"job_dir":    jobDirName,
-		})
-	} else {
-		// Standard rule processing
-		for _, ruleIDStr := range jobExecution.RuleIDs {
-			// Convert string ID to int
-			ruleID, err := strconv.Atoi(ruleIDStr)
-			if err != nil {
-				return fmt.Errorf("invalid rule ID %s: %w", ruleIDStr, err)
-			}
-
-			// Look up the actual rule file path
-			rule, err := s.ruleManager.GetRule(ctx, ruleID)
-			if err != nil {
-				return fmt.Errorf("failed to get rule %d: %w", ruleID, err)
-			}
-			if rule == nil {
-				return fmt.Errorf("rule %d not found", ruleID)
-			}
-
-			// Use the actual file path from the database
-			rulePath := fmt.Sprintf("rules/%s", rule.FileName)
-			rulePaths = append(rulePaths, rulePath)
-		}
 	}
 
 	// Determine which binary to use: Agent → Job → Default
@@ -1543,7 +1509,7 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 							}
 						}
 					}
-				} else if !job.UsesRuleSplitting && task.ChunkNumber != nil && *task.ChunkNumber == 1 {
+				} else if task.ChunkNumber != nil && *task.ChunkNumber == 1 {
 					// Regular (non-increment) single-task jobs - update effective_keyspace to match actual
 					// This ensures progress calculations use actual keyspace, not estimates
 					// Check if this is the only task for this job
@@ -1560,100 +1526,6 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 									debug.Info("Updated job %s effective_keyspace from %s (estimated) to %s (actual from hashcat)",
 										task.JobExecutionID, job.EffectiveKeyspace.String(), newEffectiveKeyspace.String())
 								}
-							}
-						}
-					}
-				}
-			}
-
-			// PROGRESSIVE REFINEMENT: Recalculate job's effective_keyspace based on completed actuals + estimate for remaining
-			// This handles multi-task jobs where hashlist changes between tasks
-			// Reuse job variable from above
-			// IMPORTANT: Only refine if we have a valid baseline from benchmark
-			// Progressive refinement should ENHANCE accuracy, not replace initial benchmark value
-			if job != nil && job.UsesRuleSplitting && job.IsAccurateKeyspace && job.EffectiveKeyspace != nil && job.EffectiveKeyspace.IsPositive() {
-				// Get all tasks for this job
-				allTasks, err := s.jobTaskRepo.GetTasksByJobExecution(ctx, task.JobExecutionID)
-				if err == nil && len(allTasks) > 0 {
-					// Calculate: sum of actuals + smart estimate for remaining
-					totalActualKeyspace := models.NewBigInt(0)
-					totalActualRules := 0
-					totalRemainingRules := 0
-					pendingTaskCount := 0
-
-					for _, t := range allTasks {
-						// Include tasks that have reported actual keyspace (completed OR running with actual)
-						if t.ChunkActualKeyspace != nil && t.ChunkActualKeyspace.IsPositive() {
-							totalActualKeyspace = totalActualKeyspace.Add(*t.ChunkActualKeyspace)
-							if t.RuleStartIndex != nil && t.RuleEndIndex != nil {
-								totalActualRules += (*t.RuleEndIndex - *t.RuleStartIndex)
-							}
-						} else if t.Status == "pending" {
-							// Only count truly pending tasks (not running)
-							pendingTaskCount++
-							if t.RuleStartIndex != nil && t.RuleEndIndex != nil {
-								totalRemainingRules += (*t.RuleEndIndex - *t.RuleStartIndex)
-							}
-						}
-					}
-
-					// Calculate new effective_keyspace
-					newEffectiveKeyspace := totalActualKeyspace
-
-					if pendingTaskCount > 0 && totalActualRules > 0 {
-						// Estimate remaining based on: (avg keyspace per rule from completed) × (remaining rules)
-						// Use current hashlist size for estimate
-						hashlistRepo := repository.NewHashListRepository(database)
-						currentHashCount, err := hashlistRepo.GetUncrackedHashCount(ctx, job.HashlistID)
-						if err == nil && currentHashCount > 0 {
-							// Average actual keyspace per rule from completed tasks
-							// (heuristic float; truncation of large keyspaces is acceptable here)
-							avgKeyspacePerRule := float64(totalActualKeyspace.Int64()) / float64(totalActualRules)
-
-							// Estimate for remaining tasks using CURRENT hashlist size
-							estimatedRemaining := int64(avgKeyspacePerRule * float64(totalRemainingRules))
-
-							newEffectiveKeyspace = totalActualKeyspace.AddInt64(estimatedRemaining)
-
-							debug.Info("Progressive refinement for job %s: actual=%s (from %d rules), estimated=%d (for %d rules with %d hashes), total=%s",
-								task.JobExecutionID, totalActualKeyspace.String(), totalActualRules, estimatedRemaining, totalRemainingRules, currentHashCount, newEffectiveKeyspace.String())
-						}
-					}
-
-					// Update if changed significantly (avoid tiny fluctuations).
-					// Compute |current - new| using BigInt arithmetic.
-					diffBig := job.EffectiveKeyspace.Sub(newEffectiveKeyspace)
-					if diffBig.Sign() < 0 {
-						diffBig = newEffectiveKeyspace.Sub(*job.EffectiveKeyspace)
-					}
-					if job.EffectiveKeyspace == nil || diffBig.CmpInt64(1000) > 0 {
-						// SAFETY: Never reduce effective_keyspace to 0 or a tiny value for rule-split jobs
-						// This prevents overwriting benchmark results with incomplete chunk data
-						if newEffectiveKeyspace.IsZero() {
-							debug.Log("Skipping progressive refinement - calculated keyspace is 0", map[string]interface{}{
-								"job_id":            task.JobExecutionID,
-								"current_effective": job.EffectiveKeyspace.String(),
-							})
-						} else if job.EffectiveKeyspace != nil && newEffectiveKeyspace.Cmp(job.EffectiveKeyspace.DivInt64(10)) < 0 {
-							// New value is less than 10% of current - suspicious, log warning
-							debug.Warning("Skipping progressive refinement - new value too low", map[string]interface{}{
-								"job_id":            task.JobExecutionID,
-								"current":           job.EffectiveKeyspace.String(),
-								"new":               newEffectiveKeyspace.String(),
-								"reduction_percent": (1.0 - float64(newEffectiveKeyspace.Int64())/float64(job.EffectiveKeyspace.Int64())) * 100,
-							})
-						} else {
-							// Safe to update
-							err = jobExecRepo.UpdateEffectiveKeyspace(ctx, task.JobExecutionID, newEffectiveKeyspace)
-							if err != nil {
-								debug.Error("Failed to update progressive effective keyspace: %v", err)
-							} else {
-								oldValue := models.NewBigInt(0)
-								if job.EffectiveKeyspace != nil {
-									oldValue = *job.EffectiveKeyspace
-								}
-								debug.Info("Updated job %s effective_keyspace from %s to %s (progressive refinement)",
-									task.JobExecutionID, oldValue.String(), newEffectiveKeyspace.String())
 							}
 						}
 					}
@@ -3033,56 +2905,19 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 			jobExec.EffectiveKeyspace = models.NewBigIntPtr(result.TotalEffectiveKeyspace)
 			jobExec.IsAccurateKeyspace = true
 
-			// Calculate avg_rule_multiplier for future task estimates
-			if jobExec.BaseKeyspace != nil && *jobExec.BaseKeyspace > 0 && jobExec.MultiplicationFactor > 0 {
-				multiplier := float64(result.TotalEffectiveKeyspace) /
-					float64(*jobExec.BaseKeyspace) /
-					float64(jobExec.MultiplicationFactor)
-				jobExec.AvgRuleMultiplier = &multiplier
-
-				debug.Info("Job %s: Set accurate effective keyspace from hashcat: %d (avg_rule_multiplier: %.5f)",
-					jobExec.ID, result.TotalEffectiveKeyspace, multiplier)
-			} else {
-				debug.Info("Job %s: Set accurate effective keyspace from hashcat: %d",
-					jobExec.ID, result.TotalEffectiveKeyspace)
-			}
-
-			// Make rule splitting decision (same as creation time in job_execution_service.go:569-603)
-			// This is for jobs that relied on forced benchmark (isAccurateKeyspace was false at creation)
-			if !jobExec.UsesRuleSplitting &&
-				(jobExec.AttackMode == models.AttackModeStraight || jobExec.AttackMode == models.AttackModeAssociation) &&
-				len(jobExec.RuleIDs) > 0 {
-
-				// Check if rule splitting is enabled
-				ruleSplitEnabled, settingErr := s.systemSettingsRepo.GetSetting(ctx, "rule_split_enabled")
-				if settingErr == nil && ruleSplitEnabled != nil && ruleSplitEnabled.Value != nil && *ruleSplitEnabled.Value == "true" {
-					// Get minimum rules threshold
-					minRulesSetting, _ := s.systemSettingsRepo.GetSetting(ctx, "rule_split_min_rules")
-					minRules := 100 // default
-					if minRulesSetting != nil && minRulesSetting.Value != nil {
-						if parsed, parseErr := strconv.Atoi(*minRulesSetting.Value); parseErr == nil {
-							minRules = parsed
-						}
-					}
-
-					// Get actual rule count (not salt-adjusted multiplicationFactor)
-					actualRuleCount, ruleErr := s.jobExecutionService.GetTotalRuleCount(ctx, jobExec.RuleIDs)
-					if ruleErr != nil {
-						actualRuleCount = jobExec.MultiplicationFactor
-					}
-
-					if int(actualRuleCount) >= minRules {
-						jobExec.UsesRuleSplitting = true
-						jobExec.RuleSplitCount = 0
-
-						debug.Log("Rule splitting enabled after forced benchmark", map[string]interface{}{
-							"job_id":            jobExec.ID,
-							"actual_rule_count": actualRuleCount,
-							"min_rules":         minRules,
-						})
-					}
+			// The refined effective keyspace supersedes the pre-benchmark estimate.
+			// Recompute the display-only multiplication_factor = round(effective/base)
+			// so the ×N chip stays consistent with the new effective value (no float,
+			// no truncation). Correctness paths derive ratios from effective/base
+			// directly, so this value is cosmetic.
+			if jobExec.BaseKeyspace != nil && *jobExec.BaseKeyspace > 0 {
+				jobExec.MultiplicationFactor = jobExec.EffectiveKeyspace.DivRoundInt64(*jobExec.BaseKeyspace).Int64()
+				if jobExec.MultiplicationFactor < 1 {
+					jobExec.MultiplicationFactor = 1
 				}
 			}
+			debug.Info("Job %s: Set accurate effective keyspace from hashcat: %d (multiplication_factor: %d)",
+				jobExec.ID, result.TotalEffectiveKeyspace, jobExec.MultiplicationFactor)
 
 			// Update job in database
 			if err := s.jobExecutionService.UpdateKeyspaceInfo(ctx, jobExec); err != nil {

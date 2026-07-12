@@ -82,9 +82,6 @@ export const calculateJobProgress = (job: JobSummary | JobDetail): ProgressInfo 
   
   if (hasMultiplier) {
     multiplierText = `×${job.multiplication_factor}`;
-    if (job.uses_rule_splitting) {
-      multiplierText += ' (rules)';
-    }
     // Don't add multiplier to display text - it will be shown in keyspace column
   }
   
@@ -117,11 +114,7 @@ export const getKeyspaceTooltip = (job: JobSummary | JobDetail): string | undefi
   if (job.multiplication_factor && job.multiplication_factor > 1) {
     parts.push(`Multiplication factor: ×${job.multiplication_factor}`);
   }
-  
-  if (job.uses_rule_splitting) {
-    parts.push('Using rule splitting for efficient processing');
-  }
-  
+
   if (parts.length === 0) {
     return undefined;
   }

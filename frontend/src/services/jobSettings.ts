@@ -2,28 +2,29 @@ import { api } from './api';
 
 export interface JobExecutionSettings {
   default_chunk_duration: number;
-  chunk_fluctuation_percentage: number;
   agent_hashlist_retention_hours: number;
   progress_reporting_interval: number;
   max_concurrent_jobs_per_agent: number;
   job_interruption_enabled: boolean;
   benchmark_cache_duration_hours: number;
-  speedtest_timeout_seconds: number;
   enable_realtime_crack_notifications: boolean;
   job_refresh_interval_seconds: number;
   max_chunk_retry_attempts: number;
   jobs_per_page_default: number;
   reconnect_grace_period_minutes: number;
-  // Rule splitting settings
-  rule_split_enabled: boolean;
-  rule_split_threshold: number;
-  rule_split_min_rules: number;
-  rule_split_max_chunks: number;
-  rule_chunk_temp_dir: string;
+  // Scheduler-v2 tuning knobs
+  min_chunk_seconds: number;
+  task_heartbeat_timeout_seconds: number;
+  task_startup_grace_seconds: number;
+  network_grace_seconds: number;
+  chunk_overrun_guard_enabled: boolean;
+  chunk_overrun_tolerance_percent: number;
   // Keyspace calculation settings
   keyspace_calculation_timeout_minutes: number;
   // Potfile settings
   potfile_enabled: boolean;
+  potfile_max_batch_size: number;
+  potfile_batch_interval: number;
   // Client potfile settings
   client_potfiles_enabled: boolean;
   remove_from_global_potfile_on_hashlist_delete_default: boolean;

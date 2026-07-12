@@ -40,7 +40,6 @@ type JobExecutionService struct {
 	fileRepo                 *repository.FileRepository
 	scheduleRepo             *repository.AgentScheduleRepository
 	binaryManager            binary.Manager
-	ruleSplitManager         *RuleSplitManager
 	assocWordlistRepo        *repository.AssociationWordlistRepository
 	clientWordlistRepo       *repository.ClientWordlistRepository
 	clientPotfileRepo        *repository.ClientPotfileRepository
@@ -79,10 +78,6 @@ func NewJobExecutionService(
 		"is_absolute":    filepath.IsAbs(dataDirectory),
 	})
 
-	// Create rule split manager with temp directory
-	ruleSplitDir := filepath.Join(dataDirectory, "temp", "rule_chunks")
-	ruleSplitManager := NewRuleSplitManager(ruleSplitDir, fileRepo)
-
 	return &JobExecutionService{
 		db:                       database,
 		jobExecRepo:              jobExecRepo,
@@ -100,7 +95,6 @@ func NewJobExecutionService(
 		fileRepo:                 fileRepo,
 		scheduleRepo:             scheduleRepo,
 		binaryManager:            binaryManager,
-		ruleSplitManager:         ruleSplitManager,
 		assocWordlistRepo:        assocWordlistRepo,
 		clientWordlistRepo:       clientWordlistRepo,
 		clientPotfileRepo:        clientPotfileRepo,
@@ -317,15 +311,12 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 	var totalKeyspace *int64
 	var effectiveKeyspace *models.BigInt
 	var isAccurateKeyspace bool
-	var useRuleSplitting bool
 	var multiplicationFactor int64 = 1
 
 	if presetJob.Keyspace != nil && *presetJob.Keyspace > 0 {
 		totalKeyspace = presetJob.Keyspace
 		effectiveKeyspace = presetJob.EffectiveKeyspace
 		isAccurateKeyspace = presetJob.IsAccurateKeyspace
-		// NOTE: useRuleSplitting is determined at creation time for accurate keyspace jobs,
-		// or at first task dispatch (after benchmark) for estimate-based jobs as fallback
 		multiplicationFactor = presetJob.MultiplicationFactor
 		debug.Log("Using pre-calculated keyspace from preset job", map[string]interface{}{
 			"preset_job_id":         presetJobID,
@@ -342,11 +333,12 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 			debug.Error("Failed to calculate keyspace: %v", err)
 			return nil, fmt.Errorf("keyspace calculation is required for job execution: %w", err)
 		}
-		// NOTE: useRuleSplitting is determined at creation time for accurate keyspace jobs,
-		// or at first task dispatch (after benchmark) for estimate-based jobs as fallback
-		// Calculate multiplication factor from returned values
+		// Calculate multiplication factor from returned values.
+		// Rounded (not truncated) so 70923768/23641330 = 2.9999… → 3, not 2.
+		// This is a display-only value; correctness paths derive the ratio from
+		// effective/base directly in big.Int (see dispatcher / progress calc).
 		if isAccurateKeyspace && totalKeyspace != nil && *totalKeyspace > 0 && effectiveKeyspace != nil && effectiveKeyspace.IsPositive() {
-			multiplicationFactor = effectiveKeyspace.DivInt64(*totalKeyspace).Int64()
+			multiplicationFactor = effectiveKeyspace.DivRoundInt64(*totalKeyspace).Int64()
 			if multiplicationFactor < 1 {
 				multiplicationFactor = 1
 			}
@@ -364,9 +356,9 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 				originalEffective := *effectiveKeyspace
 				adjustedEffective := originalEffective.MulInt64(saltCount)
 				effectiveKeyspace = &adjustedEffective
-				// Also adjust multiplication factor
+				// Also adjust multiplication factor (rounded, display-only).
 				if totalKeyspace != nil && *totalKeyspace > 0 {
-					multiplicationFactor = adjustedEffective.DivInt64(*totalKeyspace).Int64()
+					multiplicationFactor = adjustedEffective.DivRoundInt64(*totalKeyspace).Int64()
 				}
 				debug.Log("Applied salt adjustment to effective keyspace at job creation", map[string]interface{}{
 					"preset_job_id":      presetJobID,
@@ -378,51 +370,6 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 				})
 			}
 		}
-	}
-
-	// Determine rule splitting at creation time for accurate keyspace jobs
-	// This avoids race conditions and mid-job switching issues - can't change strategy after tasks are dispatched
-	if isAccurateKeyspace &&
-		(presetJob.AttackMode == models.AttackModeStraight || presetJob.AttackMode == models.AttackModeAssociation) &&
-		len(presetJob.RuleIDs) > 0 {
-
-		// Check if rule splitting is enabled
-		ruleSplitEnabled, err := s.systemSettingsRepo.GetSetting(ctx, "rule_split_enabled")
-		if err == nil && ruleSplitEnabled != nil && ruleSplitEnabled.Value != nil && *ruleSplitEnabled.Value == "true" {
-			// Get minimum rules threshold
-			minRulesSetting, _ := s.systemSettingsRepo.GetSetting(ctx, "rule_split_min_rules")
-			minRules := 100 // default
-			if minRulesSetting != nil && minRulesSetting.Value != nil {
-				if parsed, parseErr := strconv.Atoi(*minRulesSetting.Value); parseErr == nil {
-					minRules = parsed
-				}
-			}
-
-			// Enable rule splitting if we have enough rules
-			// Use actual rule count (not salt-adjusted multiplicationFactor) for minRules comparison
-			actualRuleCount, ruleErr := s.GetTotalRuleCount(ctx, presetJob.RuleIDs)
-			if ruleErr != nil {
-				actualRuleCount = int64(multiplicationFactor) // Fallback to multiplicationFactor
-			}
-			if int(actualRuleCount) >= minRules {
-				useRuleSplitting = true
-				debug.Log("Rule splitting enabled at preset job creation", map[string]interface{}{
-					"preset_job_id":         presetJobID,
-					"actual_rule_count":     actualRuleCount,
-					"multiplication_factor": multiplicationFactor,
-					"min_rules":             minRules,
-					"is_accurate_keyspace":  isAccurateKeyspace,
-				})
-			}
-		}
-	}
-
-	// Set avg_rule_multiplier for accurate keyspace jobs (used in progress calculations)
-	// For accurate keyspace jobs, this is the same as multiplication_factor but as float64
-	var avgRuleMultiplier *float64
-	if isAccurateKeyspace && multiplicationFactor > 0 {
-		v := float64(multiplicationFactor)
-		avgRuleMultiplier = &v
 	}
 
 	// Create job execution with all configuration copied from preset
@@ -459,8 +406,6 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		EffectiveKeyspace:    effectiveKeyspace,
 		MultiplicationFactor: multiplicationFactor,
 		IsAccurateKeyspace:   isAccurateKeyspace,
-		UsesRuleSplitting:    useRuleSplitting,
-		AvgRuleMultiplier:    avgRuleMultiplier, // For progress calculations
 	}
 
 	err = s.jobExecRepo.Create(ctx, jobExecution)
@@ -589,7 +534,7 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		return nil, err
 	}
 	totalKeyspace, effectiveKeyspace, isAccurateKeyspace := ks.base, ks.effective, ks.isAccurate
-	multiplicationFactor, useRuleSplitting, avgRuleMultiplier := ks.multiplicationFactor, ks.useRuleSplitting, ks.avgRuleMultiplier
+	multiplicationFactor := ks.multiplicationFactor
 
 	// Create self-contained job execution
 	jobExecution := &models.JobExecution{
@@ -626,8 +571,6 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		EffectiveKeyspace:    effectiveKeyspace,
 		MultiplicationFactor: multiplicationFactor,
 		IsAccurateKeyspace:   isAccurateKeyspace,
-		UsesRuleSplitting:    useRuleSplitting,
-		AvgRuleMultiplier:    avgRuleMultiplier, // For progress calculations
 	}
 
 	err = s.jobExecRepo.Create(ctx, jobExecution)
@@ -680,15 +623,12 @@ type keyspaceStrategy struct {
 	effective            *models.BigInt
 	isAccurate           bool
 	multiplicationFactor int64
-	useRuleSplitting     bool
-	avgRuleMultiplier    *float64
 }
 
 // computeKeyspaceStrategy runs hashcat keyspace calculation and derives the
-// salt-adjusted effective keyspace, multiplication factor, rule-splitting
-// decision, and avg rule multiplier. Extracted verbatim from the original inline
-// block in CreateCustomJobExecution so both the synchronous and preparing/finalize
-// paths stay consistent.
+// salt-adjusted effective keyspace and (display-only) multiplication factor.
+// Extracted verbatim from the original inline block in CreateCustomJobExecution
+// so both the synchronous and preparing/finalize paths stay consistent.
 func (s *JobExecutionService) computeKeyspaceStrategy(ctx context.Context, tempPreset *models.PresetJob, hashlist *models.HashList) (keyspaceStrategy, error) {
 	totalKeyspace, effectiveKeyspace, isAccurateKeyspace, err := s.calculateKeyspace(ctx, tempPreset, hashlist)
 	if err != nil {
@@ -696,14 +636,10 @@ func (s *JobExecutionService) computeKeyspaceStrategy(ctx context.Context, tempP
 		return keyspaceStrategy{}, fmt.Errorf("keyspace calculation is required for job execution: %w", err)
 	}
 
-	// NOTE: useRuleSplitting is determined at creation time for accurate keyspace jobs,
-	// or at first task dispatch (after benchmark) for estimate-based jobs as fallback
-	useRuleSplitting := false
-
-	// Calculate multiplication factor from keyspace values
+	// Calculate multiplication factor from keyspace values (rounded, display-only).
 	var multiplicationFactor int64 = 1
 	if isAccurateKeyspace && totalKeyspace != nil && *totalKeyspace > 0 && effectiveKeyspace != nil && effectiveKeyspace.IsPositive() {
-		multiplicationFactor = effectiveKeyspace.DivInt64(*totalKeyspace).Int64()
+		multiplicationFactor = effectiveKeyspace.DivRoundInt64(*totalKeyspace).Int64()
 		if multiplicationFactor < 1 {
 			multiplicationFactor = 1
 		}
@@ -720,9 +656,9 @@ func (s *JobExecutionService) computeKeyspaceStrategy(ctx context.Context, tempP
 				originalEffective := *effectiveKeyspace
 				adjustedEffective := originalEffective.MulInt64(saltCount)
 				effectiveKeyspace = &adjustedEffective
-				// Also adjust multiplication factor
+				// Also adjust multiplication factor (rounded, display-only).
 				if totalKeyspace != nil && *totalKeyspace > 0 {
-					multiplicationFactor = adjustedEffective.DivInt64(*totalKeyspace).Int64()
+					multiplicationFactor = adjustedEffective.DivRoundInt64(*totalKeyspace).Int64()
 				}
 				debug.Log("Applied salt adjustment to effective keyspace at custom job creation", map[string]interface{}{
 					"custom_job_name":    tempPreset.Name,
@@ -736,57 +672,11 @@ func (s *JobExecutionService) computeKeyspaceStrategy(ctx context.Context, tempP
 		}
 	}
 
-	// Determine rule splitting at creation time for accurate keyspace jobs
-	// This avoids race conditions and mid-job switching issues - can't change strategy after tasks are dispatched
-	if isAccurateKeyspace &&
-		(tempPreset.AttackMode == models.AttackModeStraight || tempPreset.AttackMode == models.AttackModeAssociation) &&
-		len(tempPreset.RuleIDs) > 0 {
-
-		// Check if rule splitting is enabled
-		ruleSplitEnabled, err := s.systemSettingsRepo.GetSetting(ctx, "rule_split_enabled")
-		if err == nil && ruleSplitEnabled != nil && ruleSplitEnabled.Value != nil && *ruleSplitEnabled.Value == "true" {
-			// Get minimum rules threshold
-			minRulesSetting, _ := s.systemSettingsRepo.GetSetting(ctx, "rule_split_min_rules")
-			minRules := 100 // default
-			if minRulesSetting != nil && minRulesSetting.Value != nil {
-				if parsed, parseErr := strconv.Atoi(*minRulesSetting.Value); parseErr == nil {
-					minRules = parsed
-				}
-			}
-
-			// Enable rule splitting if we have enough rules
-			// Use actual rule count (not salt-adjusted multiplicationFactor) for minRules comparison
-			actualRuleCount, ruleErr := s.GetTotalRuleCount(ctx, tempPreset.RuleIDs)
-			if ruleErr != nil {
-				actualRuleCount = int64(multiplicationFactor) // Fallback to multiplicationFactor
-			}
-			if int(actualRuleCount) >= minRules {
-				useRuleSplitting = true
-				debug.Log("Rule splitting enabled at custom job creation", map[string]interface{}{
-					"custom_job_name":       tempPreset.Name,
-					"actual_rule_count":     actualRuleCount,
-					"multiplication_factor": multiplicationFactor,
-					"min_rules":             minRules,
-					"is_accurate_keyspace":  isAccurateKeyspace,
-				})
-			}
-		}
-	}
-
-	// Set avg_rule_multiplier for accurate keyspace jobs (used in progress calculations)
-	var avgRuleMultiplier *float64
-	if isAccurateKeyspace && multiplicationFactor > 0 {
-		v := float64(multiplicationFactor)
-		avgRuleMultiplier = &v
-	}
-
 	return keyspaceStrategy{
 		base:                 totalKeyspace,
 		effective:            effectiveKeyspace,
 		isAccurate:           isAccurateKeyspace,
 		multiplicationFactor: multiplicationFactor,
-		useRuleSplitting:     useRuleSplitting,
-		avgRuleMultiplier:    avgRuleMultiplier,
 	}, nil
 }
 
@@ -908,8 +798,6 @@ func (s *JobExecutionService) FinalizeFilterJob(ctx context.Context, jobID uuid.
 	job.EffectiveKeyspace = ks.effective
 	job.MultiplicationFactor = ks.multiplicationFactor
 	job.IsAccurateKeyspace = ks.isAccurate
-	job.UsesRuleSplitting = ks.useRuleSplitting
-	job.AvgRuleMultiplier = ks.avgRuleMultiplier
 
 	if err := s.jobExecRepo.UpdateWordlistIDs(ctx, jobID, config.WordlistIDs); err != nil {
 		return fmt.Errorf("failed to update wordlist ids: %w", err)
@@ -1394,23 +1282,6 @@ func (s *JobExecutionService) parseAttackMode(presetJob *models.PresetJob) int {
 	return int(presetJob.AttackMode)
 }
 
-// extractRuleFiles returns the rule file paths from a preset job
-func (s *JobExecutionService) extractRuleFiles(ctx context.Context, presetJob *models.PresetJob) ([]string, error) {
-	var rulePaths []string
-	for _, ruleIDStr := range presetJob.RuleIDs {
-		rulePath, err := s.resolveRulePath(ctx, ruleIDStr)
-		if err != nil {
-			debug.Log("Failed to resolve rule path", map[string]interface{}{
-				"rule_id": ruleIDStr,
-				"error":   err.Error(),
-			})
-			continue // Skip invalid rules
-		}
-		rulePaths = append(rulePaths, rulePath)
-	}
-	return rulePaths, nil
-}
-
 // extractWordlists returns the wordlist file paths from a preset job
 func (s *JobExecutionService) extractWordlists(ctx context.Context, presetJob *models.PresetJob) ([]string, error) {
 	var wordlistPaths []string
@@ -1426,33 +1297,6 @@ func (s *JobExecutionService) extractWordlists(ctx context.Context, presetJob *m
 		wordlistPaths = append(wordlistPaths, wordlistPath)
 	}
 	return wordlistPaths, nil
-}
-
-// countRulesInFile counts the number of rules in a rule file
-func (s *JobExecutionService) countRulesInFile(ctx context.Context, rulePath string) (int, error) {
-	// For now, we'll use a simple line count
-	// In a real implementation, this might use a rule manager or more sophisticated parsing
-	file, err := os.Open(rulePath)
-	if err != nil {
-		return 0, fmt.Errorf("failed to open rule file: %w", err)
-	}
-	defer file.Close()
-
-	count := 0
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		// Skip empty lines and comments
-		if line != "" && !strings.HasPrefix(line, "#") {
-			count++
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return 0, fmt.Errorf("failed to read rule file: %w", err)
-	}
-
-	return count, nil
 }
 
 // calculateWordlistKeyspace calculates the keyspace for a single wordlist
@@ -1670,9 +1514,9 @@ func (s *JobExecutionService) calculateEffectiveKeyspace(ctx context.Context, jo
 					originalEffective := *job.EffectiveKeyspace
 					adjustedEffective := originalEffective.MulInt64(saltCount)
 					job.EffectiveKeyspace = &adjustedEffective
-					// Also adjust multiplication factor to reflect salts
+					// Also adjust multiplication factor to reflect salts (rounded, display-only).
 					if job.BaseKeyspace != nil && *job.BaseKeyspace > 0 {
-						job.MultiplicationFactor = adjustedEffective.DivInt64(*job.BaseKeyspace).Int64()
+						job.MultiplicationFactor = adjustedEffective.DivRoundInt64(*job.BaseKeyspace).Int64()
 					}
 					debug.Log("Applied salt adjustment in calculateEffectiveKeyspace", map[string]interface{}{
 						"job_id":             job.ID,
@@ -1971,20 +1815,8 @@ func (s *JobExecutionService) CreateJobTask(ctx context.Context, jobExecution *m
 	// Estimate effective keyspace for this task (will be updated to actual from hashcat progress[1])
 	var effectiveStart, effectiveEnd models.BigInt
 
-	if jobExecution.UsesRuleSplitting && jobExecution.BaseKeyspace != nil && *jobExecution.BaseKeyspace > 0 {
-		// Rule-split task: estimate based on rule range for this chunk
-		// This will be populated later when we have the actual rule indices
-		// For now, use a placeholder that will be updated
-		effectiveStart = models.NewBigInt(0)
-		effectiveEnd = models.NewBigInt(keyspaceEnd - keyspaceStart) // Just the chunk size for now
-
-		debug.Log("Rule-split task - will calculate effective from rule indices", map[string]interface{}{
-			"job_id":         jobExecution.ID,
-			"keyspace_start": keyspaceStart,
-			"keyspace_end":   keyspaceEnd,
-		})
-	} else if jobExecution.MultiplicationFactor > 1 && jobExecution.BaseKeyspace != nil && *jobExecution.BaseKeyspace > 0 {
-		// Non-split task with rules: estimate total effective keyspace.
+	if jobExecution.MultiplicationFactor > 1 && jobExecution.BaseKeyspace != nil && *jobExecution.BaseKeyspace > 0 {
+		// Task with rules: estimate total effective keyspace.
 		// base × rules can exceed int64, so use big.Int.
 		effectiveStart = models.NewBigInt(0)
 		effectiveEnd = models.NewBigInt(*jobExecution.BaseKeyspace).MulInt64(jobExecution.MultiplicationFactor)
@@ -2624,17 +2456,6 @@ func (s *JobExecutionService) UpdateTaskProgress(ctx context.Context, taskID uui
 	return nil
 }
 
-// UpdateRuleSplitting updates the rule splitting flag for a job execution
-func (s *JobExecutionService) UpdateRuleSplitting(ctx context.Context, jobID uuid.UUID, usesRuleSplitting bool) error {
-	job, err := s.jobExecRepo.GetByID(ctx, jobID)
-	if err != nil {
-		return fmt.Errorf("failed to get job execution: %w", err)
-	}
-
-	job.UsesRuleSplitting = usesRuleSplitting
-	return s.jobExecRepo.UpdateKeyspaceInfo(ctx, job)
-}
-
 // UpdateKeyspaceInfo updates the keyspace information for a job execution
 func (s *JobExecutionService) UpdateKeyspaceInfo(ctx context.Context, job *models.JobExecution) error {
 	return s.jobExecRepo.UpdateKeyspaceInfo(ctx, job)
@@ -2719,7 +2540,7 @@ func (s *JobExecutionService) RepairPendingJobKeyspaces(ctx context.Context) (in
 				eff = eff.MulInt64(salt)
 			}
 		}
-		mf := eff.DivInt64(*base).Int64()
+		mf := eff.DivRoundInt64(*base).Int64() // rounded, display-only
 		if mf < 1 {
 			mf = 1
 		}
@@ -3234,229 +3055,6 @@ func (s *JobExecutionService) GetTotalRuleCount(ctx context.Context, ruleIDs []s
 	return totalCount, nil
 }
 
-// RuleSplitDecision contains the decision information for rule splitting
-type RuleSplitDecision struct {
-	ShouldSplit     bool
-	NumSplits       int
-	RuleFileToSplit string
-	RulesPerChunk   int
-	TotalRules      int
-}
-
-// analyzeForRuleSplitting determines if rule splitting should be used for a job
-func (s *JobExecutionService) analyzeForRuleSplitting(ctx context.Context, job *models.JobExecution, presetJob *models.PresetJob, benchmarkSpeed float64) (*RuleSplitDecision, error) {
-	// Check if rule splitting is enabled
-	ruleSplitEnabled, err := s.systemSettingsRepo.GetSetting(ctx, "rule_split_enabled")
-	if err != nil || ruleSplitEnabled.Value == nil || *ruleSplitEnabled.Value != "true" {
-		return &RuleSplitDecision{ShouldSplit: false}, nil
-	}
-
-	// Only applicable for attacks 0 and 9 with rules
-	if job.AttackMode != models.AttackModeStraight && job.AttackMode != models.AttackModeAssociation {
-		return &RuleSplitDecision{ShouldSplit: false}, nil
-	}
-
-	if job.MultiplicationFactor <= 1 {
-		return &RuleSplitDecision{ShouldSplit: false}, nil
-	}
-
-	// For both attack modes 0 (straight) and 9 (association), check thresholds
-	// Association attacks use the same threshold-based logic to respect system settings
-	thresholdSetting, err := s.systemSettingsRepo.GetSetting(ctx, "rule_split_threshold")
-	if err != nil {
-		debug.Log("Failed to get rule split threshold, using default", map[string]interface{}{
-			"error": err.Error(),
-		})
-	}
-	threshold := 2.0 // Default
-	if thresholdSetting != nil && thresholdSetting.Value != nil {
-		if parsed, parseErr := strconv.ParseFloat(*thresholdSetting.Value, 64); parseErr == nil {
-			threshold = parsed
-		}
-	}
-
-	minRulesSetting, err := s.systemSettingsRepo.GetSetting(ctx, "rule_split_min_rules")
-	if err != nil {
-		debug.Log("Failed to get min rules setting, using default", map[string]interface{}{
-			"error": err.Error(),
-		})
-	}
-	minRules := 100 // Default
-	if minRulesSetting != nil && minRulesSetting.Value != nil {
-		if parsed, parseErr := strconv.Atoi(*minRulesSetting.Value); parseErr == nil {
-			minRules = parsed
-		}
-	}
-
-	// Calculate estimated time
-	effectiveKeyspace := job.EffectiveKeyspace
-	if effectiveKeyspace == nil {
-		// Can't make rule split decision without effective keyspace
-		return &RuleSplitDecision{ShouldSplit: false}, nil
-	}
-
-	estimatedTimeSeconds := float64(effectiveKeyspace.Int64()) / benchmarkSpeed
-
-	chunkDurationSetting, err := s.systemSettingsRepo.GetSetting(ctx, "default_chunk_duration")
-	if err != nil {
-		debug.Log("Failed to get chunk duration, using default", map[string]interface{}{
-			"error": err.Error(),
-		})
-	}
-	chunkDuration := 1200.0 // Default 20 minutes
-	if chunkDurationSetting != nil && chunkDurationSetting.Value != nil {
-		if parsed, parseErr := strconv.ParseFloat(*chunkDurationSetting.Value, 64); parseErr == nil {
-			chunkDuration = parsed
-		}
-	}
-
-	// Get actual rule count (not salt-adjusted) for minRules comparison
-	actualRuleCount, ruleErr := s.GetTotalRuleCount(ctx, presetJob.RuleIDs)
-	if ruleErr != nil {
-		actualRuleCount = job.MultiplicationFactor // Fallback to multiplicationFactor
-	}
-
-	debug.Log("Analyzing for rule splitting", map[string]interface{}{
-		"job_id":                job.ID,
-		"attack_mode":           job.AttackMode,
-		"actual_rule_count":     actualRuleCount,
-		"multiplication_factor": job.MultiplicationFactor,
-		"estimated_time":        estimatedTimeSeconds,
-		"chunk_duration":        chunkDuration,
-		"threshold":             threshold,
-		"min_rules":             minRules,
-	})
-
-	if estimatedTimeSeconds > chunkDuration*threshold && int(actualRuleCount) >= minRules {
-		return s.createSplitDecision(ctx, job, presetJob, benchmarkSpeed)
-	}
-
-	return &RuleSplitDecision{ShouldSplit: false}, nil
-}
-
-// createSplitDecision creates a rule split decision for a job
-func (s *JobExecutionService) createSplitDecision(ctx context.Context, job *models.JobExecution, presetJob *models.PresetJob, benchmarkSpeed float64) (*RuleSplitDecision, error) {
-	// Get rule files
-	ruleFiles, err := s.extractRuleFiles(ctx, presetJob)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract rule files: %w", err)
-	}
-
-	if len(ruleFiles) == 0 {
-		return &RuleSplitDecision{ShouldSplit: false}, nil
-	}
-
-	// For simplicity, we'll split the first rule file
-	// In a more advanced implementation, we might split multiple files
-	ruleFileToSplit := ruleFiles[0]
-
-	// Count rules in the file
-	totalRules, err := s.ruleSplitManager.CountRules(ctx, ruleFileToSplit)
-	if err != nil {
-		return nil, fmt.Errorf("failed to count rules: %w", err)
-	}
-
-	// Get max chunks setting
-	maxChunksSetting, err := s.systemSettingsRepo.GetSetting(ctx, "rule_split_max_chunks")
-	if err != nil {
-		debug.Log("Failed to get max chunks setting, using default", map[string]interface{}{
-			"error": err.Error(),
-		})
-	}
-	maxChunks := 1000 // Default
-	if maxChunksSetting != nil && maxChunksSetting.Value != nil {
-		if parsed, parseErr := strconv.Atoi(*maxChunksSetting.Value); parseErr == nil {
-			maxChunks = parsed
-		}
-	}
-
-	// Calculate optimal number of splits
-	chunkDurationSetting, err := s.systemSettingsRepo.GetSetting(ctx, "default_chunk_duration")
-	if err != nil {
-		debug.Log("Failed to get chunk duration, using default", map[string]interface{}{
-			"error": err.Error(),
-		})
-	}
-	chunkDuration := 1200.0 // Default 20 minutes in seconds
-	if chunkDurationSetting != nil && chunkDurationSetting.Value != nil {
-		if parsed, parseErr := strconv.ParseFloat(*chunkDurationSetting.Value, 64); parseErr == nil {
-			chunkDuration = parsed
-		}
-	}
-
-	// Calculate how many rules we can process in chunk duration
-	var baseKeyspace int64
-	if job.BaseKeyspace != nil {
-		baseKeyspace = *job.BaseKeyspace
-	} else if job.EffectiveKeyspace != nil {
-		baseKeyspace = job.EffectiveKeyspace.Int64()
-	} else {
-		baseKeyspace = 1000000 // Default fallback
-	}
-
-	// Rules we can process in chunk duration = (benchmark_speed * chunk_duration) / base_keyspace
-	rulesPerChunkIdeal := int((benchmarkSpeed * chunkDuration) / float64(baseKeyspace))
-	if rulesPerChunkIdeal < 1 {
-		rulesPerChunkIdeal = 1
-	}
-
-	// Calculate number of splits needed
-	numSplits := (totalRules + rulesPerChunkIdeal - 1) / rulesPerChunkIdeal
-	if numSplits > maxChunks {
-		numSplits = maxChunks
-	}
-	if numSplits < 1 {
-		numSplits = 1
-	}
-
-	rulesPerChunk := (totalRules + numSplits - 1) / numSplits
-
-	debug.Log("Created split decision", map[string]interface{}{
-		"job_id":                job.ID,
-		"rule_file":             ruleFileToSplit,
-		"total_rules":           totalRules,
-		"num_splits":            numSplits,
-		"rules_per_chunk":       rulesPerChunk,
-		"rules_per_chunk_ideal": rulesPerChunkIdeal,
-		"base_keyspace":         baseKeyspace,
-		"benchmark_speed":       benchmarkSpeed,
-	})
-
-	return &RuleSplitDecision{
-		ShouldSplit:     true,
-		NumSplits:       numSplits,
-		RuleFileToSplit: ruleFileToSplit,
-		RulesPerChunk:   rulesPerChunk,
-		TotalRules:      totalRules,
-	}, nil
-}
-
-// createJobTasksWithRuleSplitting creates job tasks with rule splitting if needed
-func (s *JobExecutionService) createJobTasksWithRuleSplitting(ctx context.Context, job *models.JobExecution, presetJob *models.PresetJob, decision *RuleSplitDecision) error {
-	if !decision.ShouldSplit {
-		// Standard single task creation - this will be handled by JobChunkingService
-		return nil
-	}
-
-	// Update job metadata to indicate rule splitting will be used
-	job.UsesRuleSplitting = true
-	job.RuleSplitCount = decision.TotalRules // Store total rules for progress tracking
-	if err := s.jobExecRepo.UpdateKeyspaceInfo(ctx, job); err != nil {
-		return fmt.Errorf("failed to update job metadata: %w", err)
-	}
-
-	debug.Log("Enabled rule splitting for job", map[string]interface{}{
-		"job_id":         job.ID,
-		"total_rules":    decision.TotalRules,
-		"rule_file":      decision.RuleFileToSplit,
-		"uses_splitting": true,
-	})
-
-	// Tasks will be created dynamically by the scheduler as agents become available
-	// No pre-chunking needed!
-	return nil
-}
-
 // buildAttackCommand builds the hashcat attack command from a job execution
 // Job executions are self-contained and no longer require preset lookups
 // The presetJob parameter is deprecated and should always be nil
@@ -3606,64 +3204,11 @@ func (s *JobExecutionService) buildAttackCommand(ctx context.Context, presetJob 
 	return fullCmd, nil
 }
 
-// cleanupTaskResources cleans up resources associated with a completed or failed task
-func (s *JobExecutionService) cleanupTaskResources(ctx context.Context, task *models.JobTask) error {
-	if !task.IsRuleSplitTask || task.RuleChunkPath == nil || *task.RuleChunkPath == "" {
-		return nil
-	}
-
-	debug.Log("Cleaning up task resources", map[string]interface{}{
-		"task_id":         task.ID,
-		"rule_chunk_path": *task.RuleChunkPath,
-	})
-
-	// Remove rule chunk file from server
-	if err := os.Remove(*task.RuleChunkPath); err != nil && !os.IsNotExist(err) {
-		debug.Error("Failed to remove rule chunk file: %v", err)
-		// Don't return error - continue with cleanup
-	}
-
-	// TODO: Send cleanup message to agent via WebSocket to remove the chunk file
-
-	return nil
-}
-
 // CleanupJobResources cleans up all resources for a completed/failed/cancelled job
 func (s *JobExecutionService) CleanupJobResources(ctx context.Context, jobID uuid.UUID) error {
 	debug.Log("Cleaning up job resources", map[string]interface{}{
 		"job_id": jobID,
 	})
-
-	// Get job execution
-	job, err := s.jobExecRepo.GetByID(ctx, jobID)
-	if err != nil {
-		return fmt.Errorf("failed to get job execution: %w", err)
-	}
-
-	// If this job uses rule splitting, clean up all chunks
-	if job.UsesRuleSplitting {
-		// Use the new UUID-based cleanup method
-		err = s.ruleSplitManager.CleanupJobChunksUUID(jobID)
-		if err != nil {
-			debug.Error("Failed to cleanup rule chunks for job: %v", err)
-			// Don't return error - continue with other cleanup
-		}
-	}
-
-	// Get all tasks for this job
-	tasks, err := s.jobTaskRepo.GetTasksByJobExecution(ctx, jobID)
-	if err != nil {
-		debug.Error("Failed to get tasks for cleanup: %v", err)
-		return nil // Don't fail the entire cleanup
-	}
-
-	// Cleanup each task's resources
-	for _, task := range tasks {
-		if err := s.cleanupTaskResources(ctx, &task); err != nil {
-			debug.Error("Failed to cleanup task resources: %v", err)
-			// Continue with other tasks
-		}
-	}
 
 	// Self-healing sweep of ephemeral filtered wordlists (GH #40) owned by any
 	// terminal job. Running it here means every completed job also clears
@@ -3924,12 +3469,6 @@ func (s *JobExecutionService) HandleTaskCompletion(ctx context.Context, taskID u
 		debug.Warning("Benchmark EMA update from task %s failed: %v", taskID, err)
 	}
 
-	// Cleanup task resources
-	if err := s.cleanupTaskResources(ctx, task); err != nil {
-		debug.Error("Failed to cleanup task resources on completion: %v", err)
-		// Don't fail the task completion
-	}
-
 	// If this task belongs to an increment layer, check if layer is complete
 	if task.IncrementLayerID != nil {
 		debug.Log("Task belongs to increment layer, checking completion status", map[string]interface{}{
@@ -4075,50 +3614,6 @@ func (s *JobExecutionService) HandleTaskCompletion(ctx context.Context, taskID u
 	return nil
 }
 
-// buildRuleSplitAttackCommand builds the hashcat command for a rule split task
-func (s *JobExecutionService) buildRuleSplitAttackCommand(ctx context.Context, job *models.JobExecution, task *models.JobTask) (string, error) {
-	// Get the preset job (if this job was created from a preset)
-	if job.PresetJobID == nil {
-		return "", fmt.Errorf("job was not created from a preset job")
-	}
-	presetJob, err := s.presetJobRepo.GetByID(ctx, *job.PresetJobID)
-	if err != nil {
-		return "", fmt.Errorf("failed to get preset job: %w", err)
-	}
-
-	// Get hashlist
-	hashlist, err := s.hashlistRepo.GetByID(ctx, job.HashlistID)
-	if err != nil {
-		return "", fmt.Errorf("failed to get hashlist: %w", err)
-	}
-
-	// Build base command
-	var cmdParts []string
-	cmdParts = append(cmdParts, fmt.Sprintf("-m %d", hashlist.HashTypeID))
-	cmdParts = append(cmdParts, "-a 0") // Attack mode 0
-
-	// Add wordlists
-	for _, wordlistIDStr := range presetJob.WordlistIDs {
-		wordlistPath, err := s.resolveWordlistPath(ctx, wordlistIDStr)
-		if err != nil {
-			return "", fmt.Errorf("failed to resolve wordlist path: %w", err)
-		}
-		cmdParts = append(cmdParts, wordlistPath)
-	}
-
-	// Add the rule chunk file
-	if task.RuleChunkPath != nil {
-		cmdParts = append(cmdParts, "-r", *task.RuleChunkPath)
-	}
-
-	// Add limit to match the base keyspace
-	if job.BaseKeyspace != nil {
-		cmdParts = append(cmdParts, "--limit", fmt.Sprintf("%d", *job.BaseKeyspace))
-	}
-
-	return strings.Join(cmdParts, " "), nil
-}
-
 // parseIntValueFromString safely parses an integer value with error handling
 func parseIntValueFromString(value string) (int, error) {
 	if value == "" {
@@ -4222,17 +3717,15 @@ func (s *JobExecutionService) DetermineBinaryForTask(ctx context.Context, agentI
 // Guardrails:
 //   - Task must have an assigned agent and a wall time >= 30s.
 //   - We derive the observation from task.AverageSpeed when hashcat reported it;
-//     otherwise compute from effective keyspace / wall_time / avg_rule_multiplier.
+//     otherwise compute base_span (effective_span × base/effective) / wall_time.
 //   - Salted hash types are keyed on salt_count = hashlist.total_hashes (the
 //     same key the dispatcher's lookupHashTypeAndSalt/readAgentSpeeds uses), so
 //     the EMA updates the exact cache row a future dispatch will read. A salted
 //     task without a hashcat-reported average speed is skipped (the derived
-//     fallback's /avg_rule_multiplier term is wrong-unit for salts).
+//     base-span fallback is wrong-unit for salts).
 //   - Skip if observed speed is >10x or <0.1x of the cached speed — that
 //     indicates a bug or a very short sample, not drift; the huge delta would
 //     poison the cache.
-//   - Skip rule-splitting tasks until avg_rule_multiplier is known, otherwise
-//     the raw observation would be biased by the split boundary.
 func (s *JobExecutionService) updateBenchmarkFromTaskCompletion(
 	ctx context.Context,
 	task *models.JobTask,
@@ -4245,11 +3738,6 @@ func (s *JobExecutionService) updateBenchmarkFromTaskCompletion(
 	}
 	wallTime := task.CompletedAt.Sub(*task.StartedAt).Seconds()
 	if wallTime < 30 {
-		return nil
-	}
-	if task.IsRuleSplitTask {
-		// Rule-split chunks report a biased slice of work; let the standard
-		// benchmark path drive speed for these.
 		return nil
 	}
 
@@ -4278,26 +3766,32 @@ func (s *JobExecutionService) updateBenchmarkFromTaskCompletion(
 	}
 
 	// Prefer the task's hashcat-reported average speed (same effective-h/s unit
-	// as agent_benchmarks.speed). The derived fallback divides by
-	// avg_rule_multiplier, which matches the cache semantics for rules but NOT
-	// for salts, so use it only for non-salted types; a salted task with no
-	// reported average is skipped rather than risk a wrong-unit write.
+	// as agent_benchmarks.speed). The derived fallback converts the effective
+	// span back to a base candidate rate (effective→base via the keyspace ratio),
+	// which matches the cache semantics for rules but NOT for salts, so use it
+	// only for non-salted types; a salted task with no reported average is
+	// skipped rather than risk a wrong-unit write.
 	var observedSpeed int64
 	if task.AverageSpeed != nil && *task.AverageSpeed > 0 {
 		observedSpeed = *task.AverageSpeed
 	} else if !hashType.IsSalted {
-		effective := task.KeyspaceEnd - task.KeyspaceStart
+		// Derive the agent's base candidate rate from this task's effective span.
+		// base_span = effective_span × base_keyspace / effective_keyspace divides
+		// out the rule multiplier, computed in big.Int (overflow/precision-safe)
+		// rather than via a stored float ratio.
+		effSpan := models.NewBigInt(task.KeyspaceEnd - task.KeyspaceStart)
 		if task.EffectiveKeyspaceEnd != nil && task.EffectiveKeyspaceStart != nil {
-			effective = task.EffectiveKeyspaceEnd.Sub(*task.EffectiveKeyspaceStart).Int64()
+			effSpan = task.EffectiveKeyspaceEnd.Sub(*task.EffectiveKeyspaceStart)
 		}
-		if effective <= 0 {
+		if !effSpan.IsPositive() {
 			return nil
 		}
-		multiplier := 1.0
-		if jobExec.AvgRuleMultiplier != nil && *jobExec.AvgRuleMultiplier > 0 {
-			multiplier = *jobExec.AvgRuleMultiplier
+		baseSpan := effSpan
+		if jobExec.EffectiveKeyspace != nil && jobExec.EffectiveKeyspace.IsPositive() &&
+			jobExec.BaseKeyspace != nil && *jobExec.BaseKeyspace > 0 {
+			baseSpan = effSpan.MulInt64(*jobExec.BaseKeyspace).Div(*jobExec.EffectiveKeyspace)
 		}
-		observedSpeed = int64(float64(effective) / wallTime / multiplier)
+		observedSpeed = int64(float64(baseSpan.Int64()) / wallTime)
 	} else {
 		return nil
 	}

@@ -50,19 +50,19 @@ func (r *presetJobRepository) Create(ctx context.Context, params models.PresetJo
 			name, wordlist_ids, rule_ids, attack_mode, priority,
 			chunk_size_seconds, status_updates_enabled,
 			allow_high_priority_override, binary_version, mask, custom_charsets, custom_charset_files, hex_charset, keyspace,
-			effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
+			effective_keyspace, is_accurate_keyspace, multiplication_factor,
 			max_agents, increment_mode, increment_min, increment_max
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
 		RETURNING id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
 				  status_updates_enabled, allow_high_priority_override,
-				  binary_version, mask, custom_charsets, custom_charset_files, hex_charset, keyspace, effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
+				  binary_version, mask, custom_charsets, custom_charset_files, hex_charset, keyspace, effective_keyspace, is_accurate_keyspace, multiplication_factor,
 				  max_agents, increment_mode, increment_min, increment_max, created_at, updated_at`
 
 	row := r.db.QueryRowContext(ctx, query,
 		params.Name, params.WordlistIDs, params.RuleIDs, params.AttackMode, params.Priority,
 		params.ChunkSizeSeconds, params.StatusUpdatesEnabled,
 		params.AllowHighPriorityOverride, params.BinaryVersion, params.Mask, params.CustomCharsets, params.CustomCharsetFiles, params.HexCharset, params.Keyspace,
-		params.EffectiveKeyspace, params.IsAccurateKeyspace, params.UseRuleSplitting, params.MultiplicationFactor,
+		params.EffectiveKeyspace, params.IsAccurateKeyspace, params.MultiplicationFactor,
 		params.MaxAgents, params.IncrementMode, params.IncrementMin, params.IncrementMax,
 	)
 
@@ -71,7 +71,7 @@ func (r *presetJobRepository) Create(ctx context.Context, params models.PresetJo
 		&created.ID, &created.Name, &created.WordlistIDs, &created.RuleIDs, &created.AttackMode, &created.Priority,
 		&created.ChunkSizeSeconds, &created.StatusUpdatesEnabled,
 		&created.AllowHighPriorityOverride, &created.BinaryVersion, &created.Mask, &created.CustomCharsets, &created.CustomCharsetFiles, &created.HexCharset, &created.Keyspace,
-		&created.EffectiveKeyspace, &created.IsAccurateKeyspace, &created.UseRuleSplitting, &created.MultiplicationFactor,
+		&created.EffectiveKeyspace, &created.IsAccurateKeyspace, &created.MultiplicationFactor,
 		&created.MaxAgents, &created.IncrementMode, &created.IncrementMin, &created.IncrementMax,
 		&created.CreatedAt, &created.UpdatedAt,
 	)
@@ -88,7 +88,7 @@ func (r *presetJobRepository) GetByID(ctx context.Context, id uuid.UUID) (*model
 		SELECT
 			id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
 			status_updates_enabled, allow_high_priority_override,
-			binary_version, mask, custom_charsets, custom_charset_files, hex_charset, keyspace, effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
+			binary_version, mask, custom_charsets, custom_charset_files, hex_charset, keyspace, effective_keyspace, is_accurate_keyspace, multiplication_factor,
 			max_agents, increment_mode, increment_min, increment_max, created_at, updated_at
 		FROM preset_jobs WHERE id = $1 LIMIT 1`
 
@@ -98,7 +98,7 @@ func (r *presetJobRepository) GetByID(ctx context.Context, id uuid.UUID) (*model
 		&job.ID, &job.Name, &job.WordlistIDs, &job.RuleIDs, &job.AttackMode, &job.Priority,
 		&job.ChunkSizeSeconds, &job.StatusUpdatesEnabled,
 		&job.AllowHighPriorityOverride, &job.BinaryVersion, &job.Mask, &job.CustomCharsets, &job.CustomCharsetFiles, &job.HexCharset, &job.Keyspace,
-		&job.EffectiveKeyspace, &job.IsAccurateKeyspace, &job.UseRuleSplitting, &job.MultiplicationFactor,
+		&job.EffectiveKeyspace, &job.IsAccurateKeyspace, &job.MultiplicationFactor,
 		&job.MaxAgents, &job.IncrementMode, &job.IncrementMin, &job.IncrementMax,
 		&job.CreatedAt, &job.UpdatedAt,
 	)
@@ -118,7 +118,7 @@ func (r *presetJobRepository) GetByName(ctx context.Context, name string) (*mode
 		SELECT
 			id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
 			status_updates_enabled, allow_high_priority_override,
-			binary_version, mask, custom_charsets, custom_charset_files, hex_charset, keyspace, effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
+			binary_version, mask, custom_charsets, custom_charset_files, hex_charset, keyspace, effective_keyspace, is_accurate_keyspace, multiplication_factor,
 			max_agents, increment_mode, increment_min, increment_max, created_at, updated_at
 		FROM preset_jobs WHERE name = $1 LIMIT 1`
 
@@ -128,7 +128,7 @@ func (r *presetJobRepository) GetByName(ctx context.Context, name string) (*mode
 		&job.ID, &job.Name, &job.WordlistIDs, &job.RuleIDs, &job.AttackMode, &job.Priority,
 		&job.ChunkSizeSeconds, &job.StatusUpdatesEnabled,
 		&job.AllowHighPriorityOverride, &job.BinaryVersion, &job.Mask, &job.CustomCharsets, &job.CustomCharsetFiles, &job.HexCharset, &job.Keyspace,
-		&job.EffectiveKeyspace, &job.IsAccurateKeyspace, &job.UseRuleSplitting, &job.MultiplicationFactor,
+		&job.EffectiveKeyspace, &job.IsAccurateKeyspace, &job.MultiplicationFactor,
 		&job.MaxAgents, &job.IncrementMode, &job.IncrementMin, &job.IncrementMax,
 		&job.CreatedAt, &job.UpdatedAt,
 	)
@@ -149,7 +149,7 @@ func (r *presetJobRepository) List(ctx context.Context) ([]models.PresetJob, err
 			pj.id, pj.name, pj.wordlist_ids, pj.rule_ids, pj.attack_mode, pj.priority,
 			pj.chunk_size_seconds, pj.status_updates_enabled,
 			pj.allow_high_priority_override, pj.binary_version, pj.mask, pj.custom_charsets, pj.custom_charset_files, pj.hex_charset, pj.keyspace,
-			pj.effective_keyspace, pj.is_accurate_keyspace, pj.use_rule_splitting, pj.multiplication_factor,
+			pj.effective_keyspace, pj.is_accurate_keyspace, pj.multiplication_factor,
 			pj.max_agents, pj.increment_mode, pj.increment_min, pj.increment_max,
 			pj.created_at, pj.updated_at,
 			pj.binary_version as binary_version_name
@@ -171,7 +171,7 @@ func (r *presetJobRepository) List(ctx context.Context) ([]models.PresetJob, err
 			&job.ID, &job.Name, &job.WordlistIDs, &job.RuleIDs, &job.AttackMode, &job.Priority,
 			&job.ChunkSizeSeconds, &job.StatusUpdatesEnabled,
 			&job.AllowHighPriorityOverride, &job.BinaryVersion, &job.Mask, &job.CustomCharsets, &job.CustomCharsetFiles, &job.HexCharset, &job.Keyspace,
-			&job.EffectiveKeyspace, &job.IsAccurateKeyspace, &job.UseRuleSplitting, &job.MultiplicationFactor,
+			&job.EffectiveKeyspace, &job.IsAccurateKeyspace, &job.MultiplicationFactor,
 			&job.MaxAgents, &job.IncrementMode, &job.IncrementMin, &job.IncrementMax,
 			&job.CreatedAt, &job.UpdatedAt,
 			&binaryVersionName,
@@ -214,24 +214,23 @@ func (r *presetJobRepository) Update(ctx context.Context, id uuid.UUID, params m
 			keyspace = $15,
 			effective_keyspace = $16,
 			is_accurate_keyspace = $17,
-			use_rule_splitting = $18,
-			multiplication_factor = $19,
-			max_agents = $20,
-			increment_mode = $21,
-			increment_min = $22,
-			increment_max = $23,
+			multiplication_factor = $18,
+			max_agents = $19,
+			increment_mode = $20,
+			increment_min = $21,
+			increment_max = $22,
 			updated_at = NOW()
 		WHERE id = $1
 		RETURNING id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
 				  status_updates_enabled, allow_high_priority_override,
-				  binary_version, mask, custom_charsets, custom_charset_files, hex_charset, keyspace, effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
+				  binary_version, mask, custom_charsets, custom_charset_files, hex_charset, keyspace, effective_keyspace, is_accurate_keyspace, multiplication_factor,
 				  max_agents, increment_mode, increment_min, increment_max, created_at, updated_at`
 
 	row := r.db.QueryRowContext(ctx, query,
 		id, params.Name, params.WordlistIDs, params.RuleIDs, params.AttackMode, params.Priority,
 		params.ChunkSizeSeconds, params.StatusUpdatesEnabled,
 		params.AllowHighPriorityOverride, params.BinaryVersion, params.Mask, params.CustomCharsets, params.CustomCharsetFiles, params.HexCharset, params.Keyspace,
-		params.EffectiveKeyspace, params.IsAccurateKeyspace, params.UseRuleSplitting, params.MultiplicationFactor,
+		params.EffectiveKeyspace, params.IsAccurateKeyspace, params.MultiplicationFactor,
 		params.MaxAgents, params.IncrementMode, params.IncrementMin, params.IncrementMax,
 	)
 
@@ -240,7 +239,7 @@ func (r *presetJobRepository) Update(ctx context.Context, id uuid.UUID, params m
 		&updated.ID, &updated.Name, &updated.WordlistIDs, &updated.RuleIDs, &updated.AttackMode, &updated.Priority,
 		&updated.ChunkSizeSeconds, &updated.StatusUpdatesEnabled,
 		&updated.AllowHighPriorityOverride, &updated.BinaryVersion, &updated.Mask, &updated.CustomCharsets, &updated.CustomCharsetFiles, &updated.HexCharset, &updated.Keyspace,
-		&updated.EffectiveKeyspace, &updated.IsAccurateKeyspace, &updated.UseRuleSplitting, &updated.MultiplicationFactor,
+		&updated.EffectiveKeyspace, &updated.IsAccurateKeyspace, &updated.MultiplicationFactor,
 		&updated.MaxAgents, &updated.IncrementMode, &updated.IncrementMin, &updated.IncrementMax,
 		&updated.CreatedAt, &updated.UpdatedAt,
 	)
@@ -355,7 +354,7 @@ func (r *presetJobRepository) GetByWordlistID(ctx context.Context, wordlistID st
 		SELECT
 			id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
 			status_updates_enabled, allow_high_priority_override,
-			binary_version, mask, custom_charsets, custom_charset_files, hex_charset, keyspace, effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
+			binary_version, mask, custom_charsets, custom_charset_files, hex_charset, keyspace, effective_keyspace, is_accurate_keyspace, multiplication_factor,
 			max_agents, increment_mode, increment_min, increment_max, created_at, updated_at
 		FROM preset_jobs
 		WHERE wordlist_ids ? $1`
@@ -374,7 +373,7 @@ func (r *presetJobRepository) GetByWordlistID(ctx context.Context, wordlistID st
 			&job.ID, &job.Name, &job.WordlistIDs, &job.RuleIDs, &job.AttackMode, &job.Priority,
 			&job.ChunkSizeSeconds, &job.StatusUpdatesEnabled,
 			&job.AllowHighPriorityOverride, &job.BinaryVersion, &job.Mask, &job.CustomCharsets, &job.CustomCharsetFiles, &job.HexCharset, &job.Keyspace,
-			&job.EffectiveKeyspace, &job.IsAccurateKeyspace, &job.UseRuleSplitting, &job.MultiplicationFactor,
+			&job.EffectiveKeyspace, &job.IsAccurateKeyspace, &job.MultiplicationFactor,
 			&job.MaxAgents, &job.IncrementMode, &job.IncrementMin, &job.IncrementMax,
 			&job.CreatedAt, &job.UpdatedAt,
 		); err != nil {
@@ -398,7 +397,7 @@ func (r *presetJobRepository) GetByRuleID(ctx context.Context, ruleID string) ([
 		SELECT
 			id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
 			status_updates_enabled, allow_high_priority_override,
-			binary_version, mask, custom_charsets, custom_charset_files, hex_charset, keyspace, effective_keyspace, is_accurate_keyspace, use_rule_splitting, multiplication_factor,
+			binary_version, mask, custom_charsets, custom_charset_files, hex_charset, keyspace, effective_keyspace, is_accurate_keyspace, multiplication_factor,
 			max_agents, increment_mode, increment_min, increment_max, created_at, updated_at
 		FROM preset_jobs
 		WHERE rule_ids ? $1`
@@ -417,7 +416,7 @@ func (r *presetJobRepository) GetByRuleID(ctx context.Context, ruleID string) ([
 			&job.ID, &job.Name, &job.WordlistIDs, &job.RuleIDs, &job.AttackMode, &job.Priority,
 			&job.ChunkSizeSeconds, &job.StatusUpdatesEnabled,
 			&job.AllowHighPriorityOverride, &job.BinaryVersion, &job.Mask, &job.CustomCharsets, &job.CustomCharsetFiles, &job.HexCharset, &job.Keyspace,
-			&job.EffectiveKeyspace, &job.IsAccurateKeyspace, &job.UseRuleSplitting, &job.MultiplicationFactor,
+			&job.EffectiveKeyspace, &job.IsAccurateKeyspace, &job.MultiplicationFactor,
 			&job.MaxAgents, &job.IncrementMode, &job.IncrementMin, &job.IncrementMax,
 			&job.CreatedAt, &job.UpdatedAt,
 		); err != nil {

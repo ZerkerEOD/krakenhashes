@@ -27,7 +27,6 @@ func NewJobSettingsHandler(systemSettingsRepo *repository.SystemSettingsReposito
 // JobExecutionSettings represents all job execution related settings
 type JobExecutionSettings struct {
 	DefaultChunkDuration             int    `json:"default_chunk_duration"`
-	ChunkFluctuationPercentage       int    `json:"chunk_fluctuation_percentage"`
 	AgentHashlistRetentionHours      int    `json:"agent_hashlist_retention_hours"`
 	ProgressReportingInterval        int    `json:"progress_reporting_interval"`
 	MaxConcurrentJobsPerAgent        int    `json:"max_concurrent_jobs_per_agent"`
@@ -37,18 +36,20 @@ type JobExecutionSettings struct {
 	JobRefreshIntervalSeconds        int    `json:"job_refresh_interval_seconds"`
 	MaxChunkRetryAttempts            int    `json:"max_chunk_retry_attempts"`
 	JobsPerPageDefault               int    `json:"jobs_per_page_default"`
-	SpeedtestTimeoutSeconds          int    `json:"speedtest_timeout_seconds"`
 	ReconnectGracePeriodMinutes      int    `json:"reconnect_grace_period_minutes"`
-	// Rule splitting settings
-	RuleSplitEnabled   bool    `json:"rule_split_enabled"`
-	RuleSplitThreshold float64 `json:"rule_split_threshold"`
-	RuleSplitMinRules  int     `json:"rule_split_min_rules"`
-	RuleSplitMaxChunks int     `json:"rule_split_max_chunks"`
-	RuleChunkTempDir   string  `json:"rule_chunk_temp_dir"`
+	// Scheduler-v2 tuning knobs
+	MinChunkSeconds              int  `json:"min_chunk_seconds"`
+	TaskHeartbeatTimeoutSeconds  int  `json:"task_heartbeat_timeout_seconds"`
+	TaskStartupGraceSeconds      int  `json:"task_startup_grace_seconds"`
+	NetworkGraceSeconds          int  `json:"network_grace_seconds"`
+	ChunkOverrunGuardEnabled     bool `json:"chunk_overrun_guard_enabled"`
+	ChunkOverrunTolerancePercent int  `json:"chunk_overrun_tolerance_percent"`
 	// Keyspace calculation settings
 	KeyspaceCalculationTimeoutMinutes int `json:"keyspace_calculation_timeout_minutes"`
 	// Potfile settings
-	PotfileEnabled bool `json:"potfile_enabled"`
+	PotfileEnabled       bool `json:"potfile_enabled"`
+	PotfileMaxBatchSize  int  `json:"potfile_max_batch_size"`
+	PotfileBatchInterval int  `json:"potfile_batch_interval"`
 	// Client potfile settings
 	ClientPotfilesEnabled                          bool `json:"client_potfiles_enabled"`
 	RemoveFromGlobalPotfileOnHashlistDeleteDefault bool `json:"remove_from_global_potfile_on_hashlist_delete_default"`
@@ -67,7 +68,6 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 	// Define all setting keys we need to retrieve
 	settingKeys := []string{
 		"default_chunk_duration",
-		"chunk_fluctuation_percentage",
 		"agent_hashlist_retention_hours",
 		"progress_reporting_interval",
 		"max_concurrent_jobs_per_agent",
@@ -77,18 +77,20 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 		"job_refresh_interval_seconds",
 		"max_chunk_retry_attempts",
 		"jobs_per_page_default",
-		"speedtest_timeout_seconds",
 		"reconnect_grace_period_minutes",
-		// Rule splitting settings
-		"rule_split_enabled",
-		"rule_split_threshold",
-		"rule_split_min_rules",
-		"rule_split_max_chunks",
-		"rule_chunk_temp_dir",
+		// Scheduler-v2 tuning knobs
+		"min_chunk_seconds",
+		"task_heartbeat_timeout_seconds",
+		"task_startup_grace_seconds",
+		"network_grace_seconds",
+		"chunk_overrun_guard_enabled",
+		"chunk_overrun_tolerance_percent",
 		// Keyspace calculation settings
 		"keyspace_calculation_timeout_minutes",
 		// Potfile settings
 		"potfile_enabled",
+		"potfile_max_batch_size",
+		"potfile_batch_interval",
 		// Client potfile settings
 		"client_potfiles_enabled",
 		"remove_from_global_potfile_on_hashlist_delete_default",
@@ -102,7 +104,6 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 	settings := JobExecutionSettings{
 		// Set defaults in case settings don't exist
 		DefaultChunkDuration:             1200, // 20 minutes
-		ChunkFluctuationPercentage:       20,
 		AgentHashlistRetentionHours:      24,
 		ProgressReportingInterval:        5,
 		MaxConcurrentJobsPerAgent:        1,
@@ -112,18 +113,20 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 		JobRefreshIntervalSeconds:        5,
 		MaxChunkRetryAttempts:            3,
 		JobsPerPageDefault:               25,
-		SpeedtestTimeoutSeconds:          30,
 		ReconnectGracePeriodMinutes:      5, // 5 minutes default
-		// Rule splitting defaults
-		RuleSplitEnabled:   true,
-		RuleSplitThreshold: 2.0,
-		RuleSplitMinRules:  100,
-		RuleSplitMaxChunks: 1000,
-		RuleChunkTempDir:   "/data/krakenhashes/temp/rule_chunks",
+		// Scheduler-v2 tuning defaults (mirror migrations 000149 / 000164)
+		MinChunkSeconds:              5,
+		TaskHeartbeatTimeoutSeconds:  120,
+		TaskStartupGraceSeconds:      600,
+		NetworkGraceSeconds:          30,
+		ChunkOverrunGuardEnabled:     true,
+		ChunkOverrunTolerancePercent: 20,
 		// Keyspace calculation defaults
 		KeyspaceCalculationTimeoutMinutes: 4, // 4 minutes
 		// Potfile defaults
-		PotfileEnabled: true,
+		PotfileEnabled:       true,
+		PotfileMaxBatchSize:  1000,
+		PotfileBatchInterval: 60,
 		// Client potfile defaults
 		ClientPotfilesEnabled:                          true,
 		RemoveFromGlobalPotfileOnHashlistDeleteDefault: false,
@@ -151,10 +154,6 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 			case "default_chunk_duration":
 				if val, err := strconv.Atoi(*setting.Value); err == nil {
 					settings.DefaultChunkDuration = val
-				}
-			case "chunk_fluctuation_percentage":
-				if val, err := strconv.Atoi(*setting.Value); err == nil {
-					settings.ChunkFluctuationPercentage = val
 				}
 			case "agent_hashlist_retention_hours":
 				if val, err := strconv.Atoi(*setting.Value); err == nil {
@@ -188,36 +187,46 @@ func (h *JobSettingsHandler) GetJobExecutionSettings(w http.ResponseWriter, r *h
 				if val, err := strconv.Atoi(*setting.Value); err == nil {
 					settings.JobsPerPageDefault = val
 				}
-			case "speedtest_timeout_seconds":
-				if val, err := strconv.Atoi(*setting.Value); err == nil {
-					settings.SpeedtestTimeoutSeconds = val
-				}
 			case "reconnect_grace_period_minutes":
 				if val, err := strconv.Atoi(*setting.Value); err == nil {
 					settings.ReconnectGracePeriodMinutes = val
 				}
-			case "rule_split_enabled":
-				settings.RuleSplitEnabled = *setting.Value == "true"
-			case "rule_split_threshold":
-				if val, err := strconv.ParseFloat(*setting.Value, 64); err == nil {
-					settings.RuleSplitThreshold = val
-				}
-			case "rule_split_min_rules":
+			case "min_chunk_seconds":
 				if val, err := strconv.Atoi(*setting.Value); err == nil {
-					settings.RuleSplitMinRules = val
+					settings.MinChunkSeconds = val
 				}
-			case "rule_split_max_chunks":
+			case "task_heartbeat_timeout_seconds":
 				if val, err := strconv.Atoi(*setting.Value); err == nil {
-					settings.RuleSplitMaxChunks = val
+					settings.TaskHeartbeatTimeoutSeconds = val
 				}
-			case "rule_chunk_temp_dir":
-				settings.RuleChunkTempDir = *setting.Value
+			case "task_startup_grace_seconds":
+				if val, err := strconv.Atoi(*setting.Value); err == nil {
+					settings.TaskStartupGraceSeconds = val
+				}
+			case "network_grace_seconds":
+				if val, err := strconv.Atoi(*setting.Value); err == nil {
+					settings.NetworkGraceSeconds = val
+				}
+			case "chunk_overrun_guard_enabled":
+				settings.ChunkOverrunGuardEnabled = *setting.Value == "true"
+			case "chunk_overrun_tolerance_percent":
+				if val, err := strconv.Atoi(*setting.Value); err == nil {
+					settings.ChunkOverrunTolerancePercent = val
+				}
 			case "keyspace_calculation_timeout_minutes":
 				if val, err := strconv.Atoi(*setting.Value); err == nil {
 					settings.KeyspaceCalculationTimeoutMinutes = val
 				}
 			case "potfile_enabled":
 				settings.PotfileEnabled = *setting.Value == "true"
+			case "potfile_max_batch_size":
+				if val, err := strconv.Atoi(*setting.Value); err == nil {
+					settings.PotfileMaxBatchSize = val
+				}
+			case "potfile_batch_interval":
+				if val, err := strconv.Atoi(*setting.Value); err == nil {
+					settings.PotfileBatchInterval = val
+				}
 			case "client_potfiles_enabled":
 				settings.ClientPotfilesEnabled = *setting.Value == "true"
 			case "remove_from_global_potfile_on_hashlist_delete_default":
@@ -302,7 +311,6 @@ func (h *JobSettingsHandler) UpdateJobExecutionSettings(w http.ResponseWriter, r
 	// Update each setting
 	updates := map[string]string{
 		"default_chunk_duration":              strconv.Itoa(settings.DefaultChunkDuration),
-		"chunk_fluctuation_percentage":        strconv.Itoa(settings.ChunkFluctuationPercentage),
 		"agent_hashlist_retention_hours":      strconv.Itoa(settings.AgentHashlistRetentionHours),
 		"progress_reporting_interval":         strconv.Itoa(settings.ProgressReportingInterval),
 		"max_concurrent_jobs_per_agent":       strconv.Itoa(settings.MaxConcurrentJobsPerAgent),
@@ -312,18 +320,20 @@ func (h *JobSettingsHandler) UpdateJobExecutionSettings(w http.ResponseWriter, r
 		"job_refresh_interval_seconds":        strconv.Itoa(settings.JobRefreshIntervalSeconds),
 		"max_chunk_retry_attempts":            strconv.Itoa(settings.MaxChunkRetryAttempts),
 		"jobs_per_page_default":               strconv.Itoa(settings.JobsPerPageDefault),
-		"speedtest_timeout_seconds":           strconv.Itoa(settings.SpeedtestTimeoutSeconds),
 		"reconnect_grace_period_minutes":      strconv.Itoa(settings.ReconnectGracePeriodMinutes),
-		// Rule splitting settings
-		"rule_split_enabled":    strconv.FormatBool(settings.RuleSplitEnabled),
-		"rule_split_threshold":  strconv.FormatFloat(settings.RuleSplitThreshold, 'f', 1, 64),
-		"rule_split_min_rules":  strconv.Itoa(settings.RuleSplitMinRules),
-		"rule_split_max_chunks": strconv.Itoa(settings.RuleSplitMaxChunks),
-		"rule_chunk_temp_dir":   settings.RuleChunkTempDir,
+		// Scheduler-v2 tuning knobs
+		"min_chunk_seconds":               strconv.Itoa(settings.MinChunkSeconds),
+		"task_heartbeat_timeout_seconds":  strconv.Itoa(settings.TaskHeartbeatTimeoutSeconds),
+		"task_startup_grace_seconds":      strconv.Itoa(settings.TaskStartupGraceSeconds),
+		"network_grace_seconds":           strconv.Itoa(settings.NetworkGraceSeconds),
+		"chunk_overrun_guard_enabled":     strconv.FormatBool(settings.ChunkOverrunGuardEnabled),
+		"chunk_overrun_tolerance_percent": strconv.Itoa(settings.ChunkOverrunTolerancePercent),
 		// Keyspace calculation settings
 		"keyspace_calculation_timeout_minutes": strconv.Itoa(settings.KeyspaceCalculationTimeoutMinutes),
 		// Potfile settings
-		"potfile_enabled": strconv.FormatBool(settings.PotfileEnabled),
+		"potfile_enabled":        strconv.FormatBool(settings.PotfileEnabled),
+		"potfile_max_batch_size": strconv.Itoa(settings.PotfileMaxBatchSize),
+		"potfile_batch_interval": strconv.Itoa(settings.PotfileBatchInterval),
 		// Client potfile settings
 		"client_potfiles_enabled":                              strconv.FormatBool(settings.ClientPotfilesEnabled),
 		"remove_from_global_potfile_on_hashlist_delete_default": strconv.FormatBool(settings.RemoveFromGlobalPotfileOnHashlistDeleteDefault),

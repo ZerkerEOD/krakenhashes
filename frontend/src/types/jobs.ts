@@ -29,7 +29,6 @@ export interface JobSummary {
   // Enhanced chunking fields
   effective_keyspace?: string; // NUMERIC on the backend (base × rules × salts can exceed 2^53); sent as a decimal string
   multiplication_factor?: number;
-  uses_rule_splitting?: boolean;
   base_keyspace?: number;
   processed_keyspace?: string;
   dispatched_keyspace?: string;
@@ -198,8 +197,6 @@ export interface JobDetailsResponse {
   tasks_per_page?: number;
   total_tasks?: number;
   multiplication_factor?: number;
-  uses_rule_splitting?: boolean;
-  rule_split_count?: number;
   overall_progress_percent?: number;
   consecutive_failures?: number;
   wordlist_ids?: string[];
