@@ -571,6 +571,19 @@ func isEphemeralWordlistPath(wordlistPath string) bool {
 	return strings.HasPrefix(filepath.Base(wordlistPath), ephemeralWordlistPrefix)
 }
 
+// resolveDataPath joins a backend-provided relative path onto the agent data
+// directory and rejects anything that would escape it. Wordlist/rule paths
+// arrive in the task assignment from the server, so a crafted or compromised
+// assignment could otherwise use ".." or an absolute path to read/write outside
+// the data dir (path traversal). filepath.IsLocal is the guard: it rejects
+// absolute paths and any path that climbs out of the current directory.
+func resolveDataPath(dataDir, relPath string) (string, error) {
+	if !filepath.IsLocal(relPath) {
+		return "", fmt.Errorf("refusing non-local path %q from task assignment", relPath)
+	}
+	return filepath.Join(dataDir, relPath), nil
+}
+
 // ensureWordlists downloads any regular wordlists referenced by the task that are
 // not already present locally. Big shared wordlists synced via the inventory are
 // left untouched; only missing files (e.g. just-created ephemeral filtered lists)
@@ -588,7 +601,11 @@ func (jm *JobManager) ensureWordlists(ctx context.Context, assignment *JobTaskAs
 	}
 
 	for _, wordlistPath := range assignment.WordlistPaths {
-		localPath := filepath.Join(jm.config.DataDirectory, wordlistPath)
+		localPath, err := resolveDataPath(jm.config.DataDirectory, wordlistPath)
+		if err != nil {
+			debug.Error("Rejecting wordlist path: %v", err)
+			return err
+		}
 		expectedMD5 := assignment.WordlistMD5s[wordlistPath]
 
 		// Skip if present and, when we know the server's expected hash, still
@@ -653,7 +670,11 @@ func (jm *JobManager) ensureRules(ctx context.Context, assignment *JobTaskAssign
 	}
 
 	for _, rulePath := range assignment.RulePaths {
-		localPath := filepath.Join(jm.config.DataDirectory, rulePath)
+		localPath, err := resolveDataPath(jm.config.DataDirectory, rulePath)
+		if err != nil {
+			debug.Error("Rejecting rule path: %v", err)
+			return err
+		}
 		expectedMD5 := assignment.RuleMD5s[rulePath]
 
 		// Skip if present and (when the hash is known) up to date.
