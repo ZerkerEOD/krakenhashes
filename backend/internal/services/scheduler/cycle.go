@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -1139,6 +1140,13 @@ func (c *Cycle) sendAssignment(ctx context.Context, dt DispatchedTask, unit *mod
 		}
 	}
 
+	// Attach the current on-server MD5 for every wordlist/rule/binary this
+	// task references so the agent can verify each file and re-download any
+	// that are missing or stale before running hashcat (GH #61). Without
+	// this, a running agent never learns about a rule/wordlist changed after
+	// it connected and the job fails until the agent restarts.
+	c.attachFileMD5s(ctx, payload)
+
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("marshal payload: %w", err)
@@ -1151,6 +1159,68 @@ func (c *Cycle) sendAssignment(ctx context.Context, dt DispatchedTask, unit *mod
 	debug.Info("scheduler-v2 dispatched task %s to agent %d (range [%d, %d))",
 		dt.TaskID, dt.AgentID, dt.RangeStart, dt.RangeEnd)
 	return nil
+}
+
+// attachFileMD5s looks up the current on-server MD5 for each wordlist, rule,
+// and binary the task references and stores them on the payload keyed by the
+// exact wire path (e.g. "rules/hashcat/best64.rule"). The agent verifies each
+// referenced file against these hashes at dispatch time and re-downloads any
+// that are missing or stale — this is how a running agent picks up files
+// changed on the server after it connected (GH #61). The DB md5 is kept current
+// by the upload handlers, the directory monitor (direct-on-disk edits), and the
+// potfile writers, so a dispatch-time lookup reflects the freshest file.
+//
+// Best-effort by design: a path with no matching verified DB row (an ephemeral
+// filtered wordlist, or a client potfile served from a different table) is
+// simply omitted, and the agent falls back to its existence check for that file.
+// Lookup failures never block a dispatch.
+func (c *Cycle) attachFileMD5s(ctx context.Context, payload *wsservice.TaskAssignmentPayload) {
+	if len(payload.WordlistPaths) > 0 {
+		m := make(map[string]string, len(payload.WordlistPaths))
+		for _, p := range payload.WordlistPaths {
+			name := strings.TrimPrefix(p, "wordlists/")
+			var md5 string
+			if err := c.db.QueryRowContext(ctx,
+				`SELECT md5_hash FROM wordlists WHERE file_name = $1 AND verification_status = 'verified' LIMIT 1`,
+				name).Scan(&md5); err == nil && md5 != "" {
+				m[p] = md5
+			}
+		}
+		if len(m) > 0 {
+			payload.WordlistMD5s = m
+		}
+	}
+
+	if len(payload.RulePaths) > 0 {
+		m := make(map[string]string, len(payload.RulePaths))
+		for _, p := range payload.RulePaths {
+			name := strings.TrimPrefix(p, "rules/")
+			var md5 string
+			if err := c.db.QueryRowContext(ctx,
+				`SELECT md5_hash FROM rules WHERE file_name = $1 AND verification_status = 'verified' LIMIT 1`,
+				name).Scan(&md5); err == nil && md5 != "" {
+				m[p] = md5
+			}
+		}
+		if len(m) > 0 {
+			payload.RuleMD5s = m
+		}
+	}
+
+	// BinaryPath format: "binaries/<binary_version_id>". Sent for completeness;
+	// binary versions are immutable (a new binary gets a new id and path), so
+	// the agent treats the binary directory as present-or-absent rather than
+	// re-verifying this hash.
+	if payload.BinaryPath != "" {
+		idStr := strings.TrimPrefix(payload.BinaryPath, "binaries/")
+		if id, convErr := strconv.Atoi(idStr); convErr == nil {
+			var md5 string
+			if err := c.db.QueryRowContext(ctx,
+				`SELECT md5_hash FROM binary_versions WHERE id = $1`, id).Scan(&md5); err == nil {
+				payload.BinaryMD5 = md5
+			}
+		}
+	}
 }
 
 // readOverflowMode reads the agent_overflow_allocation_mode setting,

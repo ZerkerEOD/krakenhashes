@@ -849,6 +849,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Build the local MD5 file map up front so the first job's per-file
+	// verification is a warm-cache check rather than a cold multi-GB re-hash.
+	// Runs in the background; ProcessJobAssignment refuses (and the backend
+	// re-dispatches) tasks until it finishes, so job acceptance is gated on the
+	// map being ready without stalling heartbeats (GH #61).
+	go conn.BuildFileMap()
+
 	// Start the cleanup service for automatic file cleanup
 	cleanupService := cleanup.NewCleanupService(dataDirs)
 	cleanupCtx, cleanupCancel := context.WithCancel(context.Background())

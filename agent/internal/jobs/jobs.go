@@ -53,6 +53,14 @@ type JobManager struct {
 	// going down" and "our WS actually closed." The agent would happily
 	// start hashcat on the new task and then leave it orphaned.
 	shuttingDown atomic.Bool
+
+	// mapReady flips true once the startup MD5 file map (PopulateHashCache)
+	// has finished. ProcessJobAssignment refuses work until then so a job's
+	// per-file MD5 pre-flight (ensureRules/ensureWordlists) is a warm-cache
+	// check instead of a cold multi-GB re-hash on the critical path. The
+	// refusal is reported as a rejection (not a failure) so the backend
+	// re-dispatches the chunk once the map is ready (GH #61).
+	mapReady atomic.Bool
 }
 
 // HardwareMonitor interface for device management
@@ -320,6 +328,24 @@ func (jm *JobManager) BeginShutdown() {
 	jm.shuttingDown.Store(true)
 }
 
+// mapNotReadyMarker is embedded in the ProcessJobAssignment error when a task
+// arrives before the startup MD5 map is built. connection.readPump matches on
+// it to send a task_assignment_rejected (re-dispatch) frame rather than failing
+// the task. Keep in sync with the check in connection.go.
+const mapNotReadyMarker = "file map not ready"
+
+// MarkFileMapReady lets ProcessJobAssignment start accepting work. Called once
+// the startup MD5 map has been built (or its build has been abandoned, so the
+// agent still fails open to the per-task sync rather than locking up).
+func (jm *JobManager) MarkFileMapReady() {
+	jm.mapReady.Store(true)
+}
+
+// FileMapReady reports whether the startup MD5 map has been built.
+func (jm *JobManager) FileMapReady() bool {
+	return jm.mapReady.Load()
+}
+
 // minTaskFreeDiskBytes is the headroom the agent requires on its data volume
 // before accepting a task. Hashcat streams cracks to stdout (potfile disabled),
 // but session/restore/temp files and any just-in-time file sync still need
@@ -335,6 +361,15 @@ func (jm *JobManager) ProcessJobAssignment(ctx context.Context, assignmentData [
 	// timeout to kick in.
 	if jm.shuttingDown.Load() {
 		return fmt.Errorf("agent is shutting down — refusing task assignment")
+	}
+
+	// Refuse work until the startup MD5 map is built. This is a short window
+	// right after connect; refusing (rather than running the pre-flight against
+	// a cold cache) keeps the first job's file verification off the multi-GB
+	// hashing path. The connection layer turns this specific error into a
+	// task_assignment_rejected so the backend re-dispatches (GH #61).
+	if !jm.mapReady.Load() {
+		return fmt.Errorf("agent %s — refusing task assignment until the startup file sync completes", mapNotReadyMarker)
 	}
 
 	// DEBUG: Log raw JSON received
@@ -377,9 +412,16 @@ func (jm *JobManager) ProcessJobAssignment(ctx context.Context, assignmentData [
 		return fmt.Errorf("failed to ensure hashlist: %w", err)
 	}
 
-	// Rule chunks are gone in the scheduler rewrite — rules are stacked
-	// (multiple -r flags) but never split. Whole rule files arrive via
-	// the regular rule sync path; nothing to pre-flight here.
+	// Ensure rule files are available. Rules are stacked (multiple -r flags)
+	// but never split. They used to be assumed present via the connect-time
+	// inventory sync, but that only fires on (re)connect — so a rule uploaded
+	// or edited while the agent is running was invisible until restart and the
+	// job failed (GH #61). Verify each against the server's expected MD5 and
+	// download anything missing or stale, here at dispatch time.
+	err = jm.ensureRules(ctx, &assignment)
+	if err != nil {
+		return fmt.Errorf("failed to ensure rules: %w", err)
+	}
 
 	// Ensure association files are available if this is an association attack (mode 9)
 	err = jm.ensureAssociationFiles(ctx, &assignment)
@@ -529,6 +571,19 @@ func isEphemeralWordlistPath(wordlistPath string) bool {
 	return strings.HasPrefix(filepath.Base(wordlistPath), ephemeralWordlistPrefix)
 }
 
+// resolveDataPath joins a backend-provided relative path onto the agent data
+// directory and rejects anything that would escape it. Wordlist/rule paths
+// arrive in the task assignment from the server, so a crafted or compromised
+// assignment could otherwise use ".." or an absolute path to read/write outside
+// the data dir (path traversal). filepath.IsLocal is the guard: it rejects
+// absolute paths and any path that climbs out of the current directory.
+func resolveDataPath(dataDir, relPath string) (string, error) {
+	if !filepath.IsLocal(relPath) {
+		return "", fmt.Errorf("refusing non-local path %q from task assignment", relPath)
+	}
+	return filepath.Join(dataDir, relPath), nil
+}
+
 // ensureWordlists downloads any regular wordlists referenced by the task that are
 // not already present locally. Big shared wordlists synced via the inventory are
 // left untouched; only missing files (e.g. just-created ephemeral filtered lists)
@@ -546,22 +601,41 @@ func (jm *JobManager) ensureWordlists(ctx context.Context, assignment *JobTaskAs
 	}
 
 	for _, wordlistPath := range assignment.WordlistPaths {
-		localPath := filepath.Join(jm.config.DataDirectory, wordlistPath)
+		localPath, err := resolveDataPath(jm.config.DataDirectory, wordlistPath)
+		if err != nil {
+			debug.Error("Rejecting wordlist path: %v", err)
+			return err
+		}
+		expectedMD5 := assignment.WordlistMD5s[wordlistPath]
 
-		// Skip if already present (don't re-download large shared wordlists).
-		if _, err := os.Stat(localPath); err == nil {
-			continue
+		// Skip if present and, when we know the server's expected hash, still
+		// up to date. When no expected hash is supplied we keep the old
+		// "present == good" behavior so big shared wordlists aren't re-hashed
+		// or re-downloaded every job. The MD5 check re-pulls a wordlist (or a
+		// potfile, which rides this same path) that changed on the server after
+		// the agent connected (GH #61). CalculateFileHash is a cache hit for
+		// files already in the startup MD5 map, so this stays cheap.
+		if info, err := os.Stat(localPath); err == nil && info.Size() > 0 {
+			if expectedMD5 == "" {
+				continue
+			}
+			if hash, hErr := jm.fileSync.CalculateFileHash(localPath); hErr == nil && hash == expectedMD5 {
+				continue
+			}
+			debug.Info("Wordlist %s stale locally (expected md5 %s), re-downloading", wordlistPath, expectedMD5)
+		} else {
+			debug.Info("Wordlist missing locally, downloading on demand: %s", wordlistPath)
 		}
 
 		// FileInfo.Name is the path relative to the wordlists directory (it keeps
 		// the category subdir, e.g. "custom/foo.txt"), which the download path and
 		// URL builder both handle for names containing a slash.
 		name := strings.TrimPrefix(wordlistPath, "wordlists/")
-		debug.Info("Wordlist missing locally, downloading on demand: %s", wordlistPath)
 
 		fileInfo := &filesync.FileInfo{
 			Name:     name,
 			FileType: "wordlist",
+			MD5Hash:  expectedMD5,
 		}
 		if err := jm.fileSync.DownloadFileFromInfo(ctx, fileInfo); err != nil {
 			debug.Error("Failed to download wordlist %s: %v", wordlistPath, err)
@@ -573,6 +647,69 @@ func (jm *JobManager) ensureWordlists(ctx context.Context, assignment *JobTaskAs
 		} else {
 			debug.Error("Wordlist not found after download: %s", localPath)
 			return fmt.Errorf("wordlist not found after download: %s", localPath)
+		}
+	}
+
+	return nil
+}
+
+// ensureRules downloads any rule files referenced by the task that are missing
+// locally or whose on-disk content no longer matches the server's expected MD5.
+// Rules are never split — whole files arrive via the -r stack — so before this
+// existed a running agent that missed a rule uploaded/edited after it connected
+// would fail the job until it was restarted (GH #61). Mirrors ensureWordlists /
+// ensureCharsetFiles: when no expected hash is supplied we fall back to a plain
+// existence check.
+func (jm *JobManager) ensureRules(ctx context.Context, assignment *JobTaskAssignment) error {
+	if len(assignment.RulePaths) == 0 {
+		return nil
+	}
+	if jm.fileSync == nil {
+		debug.Error("File sync is not initialized in job manager")
+		return fmt.Errorf("file sync not initialized")
+	}
+
+	for _, rulePath := range assignment.RulePaths {
+		localPath, err := resolveDataPath(jm.config.DataDirectory, rulePath)
+		if err != nil {
+			debug.Error("Rejecting rule path: %v", err)
+			return err
+		}
+		expectedMD5 := assignment.RuleMD5s[rulePath]
+
+		// Skip if present and (when the hash is known) up to date.
+		if info, err := os.Stat(localPath); err == nil && info.Size() > 0 {
+			if expectedMD5 == "" {
+				continue
+			}
+			if hash, hErr := jm.fileSync.CalculateFileHash(localPath); hErr == nil && hash == expectedMD5 {
+				continue
+			}
+			debug.Info("Rule %s stale locally (expected md5 %s), re-downloading", rulePath, expectedMD5)
+		} else {
+			debug.Info("Rule missing locally, downloading on demand: %s", rulePath)
+		}
+
+		// Name is the path relative to the rules directory (keeps the category
+		// subdir, e.g. "hashcat/best64.rule"); the URL builder and local-path
+		// logic both handle names containing a slash.
+		name := strings.TrimPrefix(rulePath, "rules/")
+
+		fileInfo := &filesync.FileInfo{
+			Name:     name,
+			FileType: "rule",
+			MD5Hash:  expectedMD5,
+		}
+		if err := jm.fileSync.DownloadFileFromInfo(ctx, fileInfo); err != nil {
+			debug.Error("Failed to download rule %s: %v", rulePath, err)
+			return fmt.Errorf("failed to download rule %s: %w", rulePath, err)
+		}
+
+		if info, err := os.Stat(localPath); err == nil {
+			debug.Info("Successfully downloaded rule: %s (size: %d bytes)", rulePath, info.Size())
+		} else {
+			debug.Error("Rule not found after download: %s", localPath)
+			return fmt.Errorf("rule not found after download: %s", localPath)
 		}
 	}
 

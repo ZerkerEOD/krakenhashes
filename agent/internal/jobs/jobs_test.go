@@ -44,6 +44,9 @@ func TestJobManager_JobAssignmentParsing(t *testing.T) {
 	}
 
 	jobManager := NewJobManager(cfg, nil, nil)
+	// The startup MD5 map gate defaults closed; mark it ready so this test
+	// exercises the assignment flow rather than the "map not ready" refusal.
+	jobManager.MarkFileMapReady()
 
 	// Create test job assignment
 	assignment := JobTaskAssignment{

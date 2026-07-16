@@ -572,6 +572,12 @@ type Connection struct {
 
 	// File synchronization
 	fileSync *filesync.FileSync
+	// fileSyncMutex serializes lazy initialization of fileSync/downloadManager.
+	// Init fires from several goroutines that can overlap at startup — the
+	// background MD5-map build (BuildFileMap), the connect-time file-sync
+	// handler, and the task/benchmark/command handlers — so without this they
+	// could double-init and race on the fileSync field (GH #61).
+	fileSyncMutex sync.Mutex
 
 	// Download manager for file downloads
 	downloadManager *filesync.DownloadManager
@@ -1200,8 +1206,11 @@ func (c *Connection) readPump() {
 				Type:      WSTypeHeartbeat,
 				Timestamp: time.Now(),
 			}
-			if err := c.ws.WriteJSON(response); err != nil {
-				debug.Error("Failed to send heartbeat response: %v", err)
+			// Route through the outbound channel, not c.ws directly: readPump and
+			// writePump are separate goroutines and concurrent writes to the same
+			// gorilla/websocket connection are illegal (GH #61 follow-up).
+			if !c.safeSendMessage(&response, 5000) {
+				debug.Error("Failed to queue heartbeat response")
 			}
 		case WSTypeMetrics:
 			// Server requested metrics update
@@ -1229,8 +1238,8 @@ func (c *Connection) readPump() {
 				Payload:   hwInfoJSON,
 				Timestamp: time.Now(),
 			}
-			if err := c.ws.WriteJSON(response); err != nil {
-				debug.Error("Failed to send hardware info: %v", err)
+			if !c.safeSendMessage(&response, 5000) {
+				debug.Error("Failed to queue hardware info")
 			}
 		case WSTypeConfigUpdate:
 			// Server sent configuration update
@@ -1451,13 +1460,15 @@ func (c *Connection) readPump() {
 						TaskID string `json:"task_id"`
 					}
 					if unmarshalErr := json.Unmarshal(payload, &assignment); unmarshalErr == nil && assignment.TaskID != "" {
-						// Special case: graceful-shutdown refusal. The error
-						// string is set by JobManager.ProcessJobAssignment when
-						// BeginShutdown() has been called. Send a dedicated
-						// task_assignment_rejected frame so the backend can run
-						// RecoverTaskByID and re-dispatch immediately instead of
-						// waiting for the heartbeat timeout.
-						if strings.Contains(err.Error(), "shutting down") {
+						// Special case: refusals the agent expects to recover from
+						// on its own — graceful-shutdown (BeginShutdown) and the
+						// brief startup window before the MD5 file map is built
+						// (GH #61). Send a dedicated task_assignment_rejected frame
+						// so the backend runs RecoverTaskByID and re-dispatches
+						// immediately instead of failing the task or waiting for
+						// the heartbeat timeout.
+						if strings.Contains(err.Error(), "shutting down") ||
+							strings.Contains(err.Error(), "file map not ready") {
 							if sendErr := c.SendTaskAssignmentRejected(assignment.TaskID, err.Error()); sendErr != nil {
 								debug.Error("Failed to send task_assignment_rejected for task %s: %v", assignment.TaskID, sendErr)
 							} else {
@@ -1595,81 +1606,21 @@ func (c *Connection) readPump() {
 				debug.Info("Running speed test for task %s, hash type %d, attack mode %d",
 					benchmarkPayload.TaskID, benchmarkPayload.HashType, benchmarkPayload.AttackMode)
 
-				// Ensure file sync is initialized before processing benchmark
+				// Ensure file sync is initialized before processing benchmark.
+				// Routed through the locked, idempotent initializeFileSync so it
+				// can't race the startup MD5-map build or other handlers (GH #61).
 				if c.fileSync == nil {
-					dataDirs, err := config.GetDataDirs()
-					if err != nil {
-						debug.Error("Failed to get data directories: %v", err)
-						// Send failure result
-						resultPayload := map[string]interface{}{
-							"job_execution_id": benchmarkPayload.JobExecutionID,
-							"attack_mode":      benchmarkPayload.AttackMode,
-							"hash_type":        benchmarkPayload.HashType,
-							"speed":            int64(0),
-							"device_speeds":    []jobs.DeviceSpeed{},
-							"success":          false,
-							"error":            fmt.Sprintf("Failed to get data directories: %v", err),
-						}
-						payloadBytes, _ := json.Marshal(resultPayload)
-						response := WSMessage{
-							Type:      WSTypeBenchmarkResult,
-							Payload:   payloadBytes,
-							Timestamp: time.Now(),
-						}
-						if err := c.ws.WriteJSON(response); err != nil {
-							debug.Error("Failed to send benchmark failure result: %v", err)
-						}
-						return
-					}
-
 					// Get credentials from the same place we use for WebSocket connection
 					apiKey, agentID, err := auth.LoadAgentKey(config.GetConfigDir())
 					if err != nil {
 						debug.Error("Failed to load agent credentials: %v", err)
-						// Send failure result
-						resultPayload := map[string]interface{}{
-							"job_execution_id": benchmarkPayload.JobExecutionID,
-							"attack_mode":      benchmarkPayload.AttackMode,
-							"hash_type":        benchmarkPayload.HashType,
-							"speed":            int64(0),
-							"device_speeds":    []jobs.DeviceSpeed{},
-							"success":          false,
-							"error":            fmt.Sprintf("Failed to load agent credentials: %v", err),
-						}
-						payloadBytes, _ := json.Marshal(resultPayload)
-						response := WSMessage{
-							Type:      WSTypeBenchmarkResult,
-							Payload:   payloadBytes,
-							Timestamp: time.Now(),
-						}
-						if err := c.ws.WriteJSON(response); err != nil {
-							debug.Error("Failed to send benchmark failure result: %v", err)
-						}
+						c.sendBenchmarkFailure(benchmarkPayload, fmt.Sprintf("Failed to load agent credentials: %v", err), "")
 						return
 					}
 
-					c.fileSync, err = filesync.NewFileSync(c.urlConfig, dataDirs, apiKey, agentID)
-					if err != nil {
+					if err := c.initializeFileSync(apiKey, agentID); err != nil {
 						debug.Error("Failed to initialize file sync: %v", err)
-						// Send failure result
-						resultPayload := map[string]interface{}{
-							"job_execution_id": benchmarkPayload.JobExecutionID,
-							"attack_mode":      benchmarkPayload.AttackMode,
-							"hash_type":        benchmarkPayload.HashType,
-							"speed":            int64(0),
-							"device_speeds":    []jobs.DeviceSpeed{},
-							"success":          false,
-							"error":            fmt.Sprintf("Failed to initialize file sync: %v", err),
-						}
-						payloadBytes, _ := json.Marshal(resultPayload)
-						response := WSMessage{
-							Type:      WSTypeBenchmarkResult,
-							Payload:   payloadBytes,
-							Timestamp: time.Now(),
-						}
-						if err := c.ws.WriteJSON(response); err != nil {
-							debug.Error("Failed to send benchmark failure result: %v", err)
-						}
+						c.sendBenchmarkFailure(benchmarkPayload, fmt.Sprintf("Failed to initialize file sync: %v", err), "")
 						return
 					}
 				}
@@ -1707,50 +1658,14 @@ func (c *Connection) readPump() {
 
 					if err := c.fileSync.DownloadFileFromInfo(downloadCtx, fileInfo); err != nil {
 						debug.Error("Failed to download hashlist for benchmark: %v", err)
-						// Send failure result
-						resultPayload := map[string]interface{}{
-							"job_execution_id": benchmarkPayload.JobExecutionID,
-							"attack_mode":      benchmarkPayload.AttackMode,
-							"hash_type":        benchmarkPayload.HashType,
-							"speed":            int64(0),
-							"device_speeds":    []jobs.DeviceSpeed{},
-							"success":          false,
-							"error":            fmt.Sprintf("Failed to download hashlist: %v", err),
-						}
-						payloadBytes, _ := json.Marshal(resultPayload)
-						response := WSMessage{
-							Type:      WSTypeBenchmarkResult,
-							Payload:   payloadBytes,
-							Timestamp: time.Now(),
-						}
-						if err := c.ws.WriteJSON(response); err != nil {
-							debug.Error("Failed to send benchmark failure result: %v", err)
-						}
+						c.sendBenchmarkFailure(benchmarkPayload, fmt.Sprintf("Failed to download hashlist: %v", err), "")
 						return
 					}
 
 					// Verify the file was downloaded
 					if _, err := os.Stat(localPath); err != nil {
 						debug.Error("Hashlist file not found after download: %s", localPath)
-						// Send failure result
-						resultPayload := map[string]interface{}{
-							"job_execution_id": benchmarkPayload.JobExecutionID,
-							"attack_mode":      benchmarkPayload.AttackMode,
-							"hash_type":        benchmarkPayload.HashType,
-							"speed":            int64(0),
-							"device_speeds":    []jobs.DeviceSpeed{},
-							"success":          false,
-							"error":            "Hashlist file not found after download",
-						}
-						payloadBytes, _ := json.Marshal(resultPayload)
-						response := WSMessage{
-							Type:      WSTypeBenchmarkResult,
-							Payload:   payloadBytes,
-							Timestamp: time.Now(),
-						}
-						if err := c.ws.WriteJSON(response); err != nil {
-							debug.Error("Failed to send benchmark failure result: %v", err)
-						}
+						c.sendBenchmarkFailure(benchmarkPayload, "Hashlist file not found after download", "")
 						return
 					}
 
@@ -1789,24 +1704,7 @@ func (c *Connection) readPump() {
 					if err := c.fileSync.DownloadFileFromInfo(downloadCtx, fileInfo); err != nil {
 						downloadCancel()
 						debug.Error("Failed to download charset file %s for benchmark: %v", charsetFile.Name, err)
-						resultPayload := map[string]interface{}{
-							"job_execution_id": benchmarkPayload.JobExecutionID,
-							"attack_mode":      benchmarkPayload.AttackMode,
-							"hash_type":        benchmarkPayload.HashType,
-							"speed":            int64(0),
-							"device_speeds":    []jobs.DeviceSpeed{},
-							"success":          false,
-							"error":            fmt.Sprintf("Failed to download charset file %s: %v", charsetFile.Name, err),
-						}
-						payloadBytes, _ := json.Marshal(resultPayload)
-						response := WSMessage{
-							Type:      WSTypeBenchmarkResult,
-							Payload:   payloadBytes,
-							Timestamp: time.Now(),
-						}
-						if err := c.ws.WriteJSON(response); err != nil {
-							debug.Error("Failed to send benchmark failure result: %v", err)
-						}
+						c.sendBenchmarkFailure(benchmarkPayload, fmt.Sprintf("Failed to download charset file %s: %v", charsetFile.Name, err), "")
 						return
 					}
 					downloadCancel()
@@ -1874,34 +1772,13 @@ func (c *Connection) readPump() {
 					case errors.Is(err, jobs.ErrBenchmarkZeroSpeed):
 						errorCode = "BENCHMARK_ZERO_SPEED"
 					}
-					resultPayload := map[string]interface{}{
-						"job_execution_id":         benchmarkPayload.JobExecutionID,
-						"attack_mode":              benchmarkPayload.AttackMode,
-						"hash_type":                benchmarkPayload.HashType,
-						"speed":                    int64(0),
-						"device_speeds":            []jobs.DeviceSpeed{},
-						"total_effective_keyspace": int64(0),
-						"agent_base_keyspace":      int64(0),
-						"success":                  false,
-						"error":                    err.Error(), // Backend expects "error" not "error_message"
-						"error_code":               errorCode,
-					}
-
-					payloadBytes, _ := json.Marshal(resultPayload)
-					response := WSMessage{
-						Type:      WSTypeBenchmarkResult,
-						Payload:   payloadBytes,
-						Timestamp: time.Now(),
-					}
-					if err := c.ws.WriteJSON(response); err != nil {
-						debug.Error("Failed to send benchmark failure result: %v", err)
-					}
+					c.sendBenchmarkFailure(benchmarkPayload, err.Error(), errorCode)
 					return
 				}
 
 				// Send success result in the format the backend expects
 				// The backend expects BenchmarkResultPayload which has different field names
-				resultPayload := map[string]interface{}{
+				c.sendBenchmarkResult(map[string]interface{}{
 					"job_execution_id":         benchmarkPayload.JobExecutionID, // Include job ID for tracking
 					"attack_mode":              benchmarkPayload.AttackMode,
 					"hash_type":                benchmarkPayload.HashType,
@@ -1910,19 +1787,8 @@ func (c *Connection) readPump() {
 					"total_effective_keyspace": totalEffectiveKeyspace, // Hashcat's progress[1]
 					"agent_base_keyspace":      agentBaseKeyspace,      // Agent's hashcat --keyspace with its flags
 					"success":                  true,
-				}
-
-				payloadBytes, _ := json.Marshal(resultPayload)
-				response := WSMessage{
-					Type:      WSTypeBenchmarkResult,
-					Payload:   payloadBytes,
-					Timestamp: time.Now(),
-				}
-				if err := c.ws.WriteJSON(response); err != nil {
-					debug.Error("Failed to send benchmark result: %v", err)
-				} else {
-					debug.Info("Successfully sent benchmark result: %d H/s total, effective keyspace: %d", totalSpeed, totalEffectiveKeyspace)
-				}
+				})
+				debug.Info("Queued benchmark result: %d H/s total, effective keyspace: %d", totalSpeed, totalEffectiveKeyspace)
 			}()
 
 		case WSTypeDeviceUpdate:
@@ -1950,8 +1816,8 @@ func (c *Connection) readPump() {
 					Payload:   errorJSON,
 					Timestamp: time.Now(),
 				}
-				if writeErr := c.ws.WriteJSON(response); writeErr != nil {
-					debug.Error("Failed to send device update error: %v", writeErr)
+				if !c.safeSendMessage(&response, 5000) {
+					debug.Error("Failed to queue device update error")
 				}
 				continue
 			}
@@ -1968,8 +1834,8 @@ func (c *Connection) readPump() {
 				Payload:   successJSON,
 				Timestamp: time.Now(),
 			}
-			if err := c.ws.WriteJSON(response); err != nil {
-				debug.Error("Failed to send device update success: %v", err)
+			if !c.safeSendMessage(&response, 5000) {
+				debug.Error("Failed to queue device update success")
 			} else {
 				debug.Info("Successfully updated device %d to enabled=%v", updatePayload.DeviceID, updatePayload.Enabled)
 			}
@@ -2027,23 +1893,16 @@ func (c *Connection) handleFileSyncAsync(requestPayload FileSyncRequestPayload) 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	// Initialize file sync if not already done
+	// Initialize file sync if not already done. Routed through the locked,
+	// idempotent initializeFileSync so it can't race the startup MD5-map build
+	// or the task/benchmark handlers (GH #61).
 	if c.fileSync == nil {
-		dataDirs, err := config.GetDataDirs()
-		if err != nil {
-			debug.Error("Failed to get data directories: %v", err)
-			return
-		}
-
-		// Get credentials from the same place we use for WebSocket connection
 		apiKey, agentID, err := auth.LoadAgentKey(config.GetConfigDir())
 		if err != nil {
 			debug.Error("Failed to load agent credentials: %v", err)
 			return
 		}
-
-		c.fileSync, err = filesync.NewFileSync(c.urlConfig, dataDirs, apiKey, agentID)
-		if err != nil {
+		if err := c.initializeFileSync(apiKey, agentID); err != nil {
 			debug.Error("Failed to initialize file sync: %v", err)
 			return
 		}
@@ -2143,6 +2002,48 @@ func (c *Connection) handleFileSyncAsync(requestPayload FileSyncRequestPayload) 
 	} else {
 		debug.Info("File sync completed in %v, sent response with %d files", time.Since(startTime), len(allFiles))
 	}
+}
+
+// sendBenchmarkResult queues a benchmark_result message through the outbound
+// channel so the single writePump goroutine performs the socket write (under
+// writeMux). The speed test runs in its own goroutine; writing to c.ws directly
+// from there races writePump's ping/message writes, which gorilla/websocket
+// forbids — the corruption surfaced as "Failed to send benchmark result: i/o
+// timeout" and dropped the agent mid-job (GH #61 follow-up). Never write the
+// result with c.ws.WriteJSON.
+func (c *Connection) sendBenchmarkResult(payload map[string]interface{}) {
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		debug.Error("Failed to marshal benchmark result: %v", err)
+		return
+	}
+	msg := &WSMessage{
+		Type:      WSTypeBenchmarkResult,
+		Payload:   payloadBytes,
+		Timestamp: time.Now(),
+	}
+	if !c.safeSendMessage(msg, 5000) {
+		debug.Error("Failed to queue benchmark result (not connected or outbound full)")
+	}
+}
+
+// sendBenchmarkFailure reports a zero-speed benchmark failure for the given
+// request. errorCode may be "" to omit the typed code the backend uses for
+// admin-facing messages (BENCHMARK_TIMEOUT, etc.).
+func (c *Connection) sendBenchmarkFailure(p BenchmarkRequest, reason, errorCode string) {
+	payload := map[string]interface{}{
+		"job_execution_id": p.JobExecutionID,
+		"attack_mode":      p.AttackMode,
+		"hash_type":        p.HashType,
+		"speed":            int64(0),
+		"device_speeds":    []jobs.DeviceSpeed{},
+		"success":          false,
+		"error":            reason,
+	}
+	if errorCode != "" {
+		payload["error_code"] = errorCode
+	}
+	c.sendBenchmarkResult(payload)
 }
 
 // writePump pumps messages from the hub to the WebSocket connection
@@ -3090,7 +2991,26 @@ func (c *Connection) GetPreferredBinaryVersion() int64 {
 
 // checkAndExtractBinaryArchives checks all binary directories for .7z files without extracted executables
 // initializeFileSync initializes the file sync and download manager
+// initializeFileSync idempotently initializes the file sync + download manager.
+// Serialized by fileSyncMutex and safe to call from any goroutine: the first
+// caller constructs them, the rest are no-ops. This is the single init path so
+// the overlapping startup callers (BuildFileMap, the connect-time file-sync
+// handler, and the task/benchmark handlers) can't double-init or race on the
+// fileSync field (GH #61).
 func (c *Connection) initializeFileSync(apiKey, agentID string) error {
+	c.fileSyncMutex.Lock()
+	defer c.fileSyncMutex.Unlock()
+
+	if c.fileSync != nil {
+		// Already initialized by another goroutine; make sure the download
+		// manager exists too, then reuse.
+		if c.downloadManager == nil {
+			c.downloadManager = filesync.NewDownloadManager(c.fileSync, 3)
+			go c.monitorDownloadProgress()
+		}
+		return nil
+	}
+
 	// Get data directory paths
 	dataDirs, err := config.GetDataDirs()
 	if err != nil {
@@ -3098,10 +3018,11 @@ func (c *Connection) initializeFileSync(apiKey, agentID string) error {
 	}
 
 	// Initialize file sync
-	c.fileSync, err = filesync.NewFileSync(c.urlConfig, dataDirs, apiKey, agentID)
+	fs, err := filesync.NewFileSync(c.urlConfig, dataDirs, apiKey, agentID)
 	if err != nil {
 		return fmt.Errorf("failed to initialize file sync: %w", err)
 	}
+	c.fileSync = fs
 
 	// Initialize download manager with file sync
 	c.downloadManager = filesync.NewDownloadManager(c.fileSync, 3)
@@ -3110,6 +3031,75 @@ func (c *Connection) initializeFileSync(apiKey, agentID string) error {
 	go c.monitorDownloadProgress()
 
 	return nil
+}
+
+// markFileMapReady tells the job manager it may start accepting work. Safe to
+// call even if the job manager isn't a *jobs.JobManager (no-op then).
+func (c *Connection) markFileMapReady() {
+	if jm, ok := c.jobManager.(*jobs.JobManager); ok {
+		jm.MarkFileMapReady()
+	}
+}
+
+// BuildFileMap builds the local MD5 map of every synced wordlist/rule/binary/
+// charset up front, then unblocks the job manager (GH #61). Verifying a job's
+// files against a warm map is cheap; doing it cold on the first job would
+// re-hash multi-GB wordlists inline on the dispatch path. Run once at startup,
+// in its own goroutine — while it runs, ProcessJobAssignment rejects tasks
+// (they're re-dispatched), so job acceptance is gated on the map being ready.
+//
+// Fails open: on any setup error we still mark the map ready so the agent falls
+// back to the per-task sync rather than being permanently locked out of work.
+func (c *Connection) BuildFileMap() {
+	if c.jobManager == nil {
+		debug.Warning("BuildFileMap: no job manager; skipping startup file map")
+		return
+	}
+
+	if c.fileSync == nil {
+		apiKey, agentID, err := auth.LoadAgentKey(config.GetConfigDir())
+		if err != nil {
+			debug.Error("BuildFileMap: failed to load agent credentials: %v", err)
+			c.markFileMapReady()
+			return
+		}
+		c.agentID = auth.ParseAgentID(agentID)
+		if err := c.initializeFileSync(apiKey, agentID); err != nil {
+			debug.Error("BuildFileMap: failed to initialize file sync: %v", err)
+			c.markFileMapReady()
+			return
+		}
+	}
+
+	// Wire the file sync into the job manager so per-task ensure* calls have it.
+	if jm, ok := c.jobManager.(*jobs.JobManager); ok {
+		jm.SetFileSync(c.fileSync)
+	}
+
+	debug.Info("Building startup MD5 file map...")
+	done := make(chan struct{})
+	go func() {
+		if err := c.fileSync.PopulateHashCache(); err != nil {
+			// Non-fatal: a partial map just means some files get hashed lazily
+			// on their first pre-flight. Don't lock the agent out over it.
+			debug.Warning("BuildFileMap: PopulateHashCache returned an error (continuing): %v", err)
+		}
+		close(done)
+	}()
+
+	// Fail open after a generous cap so a pathologically slow scan (huge
+	// wordlists on slow storage) never permanently blocks job acceptance — the
+	// per-task pre-flight still verifies each file, it just runs against a cold
+	// cache. Job acceptance is gated on mapReady, so this is the ceiling on how
+	// long we hold jobs at startup.
+	select {
+	case <-done:
+		debug.Info("Startup MD5 file map ready; agent will now accept jobs")
+	case <-time.After(10 * time.Minute):
+		debug.Warning("BuildFileMap: map build exceeded 10m; accepting jobs anyway (files hash lazily on first use)")
+	}
+
+	c.markFileMapReady()
 }
 
 // monitorDownloadProgress monitors download progress and sends updates
