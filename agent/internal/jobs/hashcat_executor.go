@@ -184,6 +184,17 @@ type JobTaskAssignment struct {
 	ClientPotfilePath   string   `json:"client_potfile_path,omitempty"`   // Path to client potfile (treated as wordlist)
 	ClientWordlistPaths []string `json:"client_wordlist_paths,omitempty"` // Paths to client-specific wordlists
 	ClientWordlistIDs   []string `json:"client_wordlist_ids,omitempty"`   // IDs for downloading client wordlists
+
+	// Expected on-server MD5s for the files this task references, keyed by the
+	// exact wire path above (e.g. "rules/hashcat/best64.rule"). ensureRules /
+	// ensureWordlists verify each referenced file against these and re-download
+	// any that are missing or stale, so a running agent picks up files changed
+	// on the server after it connected (GH #61). A path absent from the map
+	// falls back to a plain existence check. BinaryMD5 is informational only —
+	// binaries are immutable by version id.
+	WordlistMD5s map[string]string `json:"wordlist_md5s,omitempty"`
+	RuleMD5s     map[string]string `json:"rule_md5s,omitempty"`
+	BinaryMD5    string            `json:"binary_md5,omitempty"`
 }
 
 // DeviceMetric represents metrics for a single device

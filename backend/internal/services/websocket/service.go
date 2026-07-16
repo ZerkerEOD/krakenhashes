@@ -280,6 +280,18 @@ type TaskAssignmentPayload struct {
 	ClientWordlistPaths []string `json:"client_wordlist_paths,omitempty"` // Paths to client-specific wordlists
 	ClientWordlistIDs   []string `json:"client_wordlist_ids,omitempty"`   // IDs for downloading client wordlists
 
+	// Expected MD5s for the files this task references, keyed by the exact wire
+	// path sent above (e.g. "rules/hashcat/best64.rule", "wordlists/general/x.txt").
+	// The agent verifies each referenced file against these at dispatch time and
+	// re-downloads any that are missing or stale — this is how a running agent
+	// picks up rules/wordlists/potfiles changed on the server after it connected
+	// (GH #61). Looked up fresh in sendAssignment so the hash reflects the current
+	// on-server file (upload handler / directory monitor / potfile writes all keep
+	// the DB md5 current).
+	WordlistMD5s map[string]string `json:"wordlist_md5s,omitempty"` // wire path -> md5
+	RuleMD5s     map[string]string `json:"rule_md5s,omitempty"`     // wire path -> md5
+	BinaryMD5    string            `json:"binary_md5,omitempty"`    // md5 for BinaryPath
+
 	// Server's base keyspace for agent-side coordinate conversion
 	// Agents with -O may have a different outer-loop keyspace; this lets them convert --skip/--limit
 	BaseKeyspace int64 `json:"base_keyspace,omitempty"`
