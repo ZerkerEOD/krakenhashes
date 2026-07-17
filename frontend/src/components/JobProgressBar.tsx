@@ -161,7 +161,11 @@ const JobProgressBar: React.FC<JobProgressBarProps> = ({
                   Keyspace: {formatKeyspace(segment.task.effective_keyspace_start ?? segment.task.keyspace_start)} - {formatKeyspace(segment.task.effective_keyspace_end ?? segment.task.keyspace_end)}
                 </Typography>
                 <Typography variant="body2">
-                  Progress: {segment.task.progress_percent?.toFixed(2) || 0}%
+                  Progress: {(() => {
+                    const p = segment.task.progress_percent ?? 0;
+                    const shown = segment.task.status === 'running' ? Math.min(p, 99.99) : p;
+                    return shown.toFixed(2);
+                  })()}%
                 </Typography>
                 {segment.task.benchmark_speed && (
                   <Typography variant="body2">
@@ -211,7 +215,7 @@ const JobProgressBar: React.FC<JobProgressBarProps> = ({
                   sx={{
                     position: 'absolute',
                     left: 0,
-                    width: `${segment.task.progress_percent}%`,
+                    width: `${Math.min(segment.task.progress_percent ?? 0, 99.99)}%`,
                     height: '100%',
                     backgroundColor: 'rgba(255, 255, 255, 0.3)',
                     transition: 'width 0.3s ease'
