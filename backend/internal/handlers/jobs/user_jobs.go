@@ -1337,6 +1337,7 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 			"retry_count":                  task.RetryCount,
 			"detailed_status":              task.DetailedStatus,
 			"error_message":                task.ErrorMessage,
+			"failure_reason":               task.FailureReason,
 			"created_at":                   task.CreatedAt.Format(time.RFC3339),
 		}
 

@@ -1265,7 +1265,11 @@ const JobDetails: React.FC = () => {
                     <TableCell>
                       {formatKeyspace(task.effective_keyspace_start || task.keyspace_start)} - {formatKeyspace(task.effective_keyspace_end || task.keyspace_end)}
                     </TableCell>
-                    <TableCell>{task.progress_percent?.toFixed(2) || 0}%</TableCell>
+                    <TableCell>{(() => {
+                      const p = task.progress_percent ?? 0;
+                      const shown = task.status === 'running' ? Math.min(p, 99.99) : p;
+                      return shown.toFixed(2);
+                    })()}%</TableCell>
                     <TableCell>{formatSpeed(task.benchmark_speed)}</TableCell>
                     <TableCell>
                       {task.crack_count > 0 ? (
@@ -1332,7 +1336,7 @@ const JobDetails: React.FC = () => {
                     <TableCell>{task.retry_count || 0}</TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ maxWidth: 300 }}>
-                        {task.error_message || t('common.noErrorMessage')}
+                        {task.error_message || task.failure_reason || t('common.noErrorMessage')}
                       </Typography>
                     </TableCell>
                     <TableCell>{formatDate(task.updated_at)}</TableCell>

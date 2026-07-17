@@ -2023,67 +2023,14 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 		}
 	}
 
-	// Check if task is complete based on keyspace
-	// KeyspaceProcessed is the restore_point from hashcat, which is ABSOLUTE (not relative to KeyspaceStart)
-	// Compare against KeyspaceEnd directly, not (KeyspaceEnd - KeyspaceStart)
-	if task.KeyspaceEnd > 0 && progress.KeyspaceProcessed >= task.KeyspaceEnd {
-		// Keyspace complete - but if there are cracks, wait for crack_batches_complete
-		// to ensure all cracks are confirmed in the database before marking complete
-		if progress.CrackedCount > 0 {
-			// Set to processing status - will be completed when crack_batches_complete is received
-			// and all cracks are verified in the database
-			err = s.jobTaskRepo.SetTaskProcessing(ctx, progress.TaskID, progress.CrackedCount)
-			if err != nil {
-				debug.Error("Failed to set task to processing status: %v", err)
-			} else {
-				debug.Info("Task %s keyspace complete with %d cracks - set to processing, waiting for crack_batches_complete",
-					progress.TaskID, progress.CrackedCount)
-			}
-			// Don't complete yet - HandleCrackBatchesComplete will complete the task
-			// after verifying all cracks are in the database
-			return nil
-		}
-
-		// No cracks - can complete immediately since there's nothing to verify
-		debug.Info("Task %s keyspace complete with 0 cracks - completing immediately", progress.TaskID)
-
-		// Mark task as complete AND clear agent busy status atomically
-		if task.AgentID != nil {
-			err = s.jobTaskRepo.CompleteTaskAndClearAgentStatus(ctx, progress.TaskID, *task.AgentID)
-			if err != nil {
-				debug.Error("Failed to atomically complete task and clear agent status (keyspace): %v", err)
-			}
-		} else {
-			// No agent ID - just complete the task
-			err = s.jobTaskRepo.CompleteTask(ctx, progress.TaskID)
-			if err != nil {
-				debug.Error("Failed to mark task as complete: %v", err)
-			}
-		}
-
-		// Handle task completion cleanup
-		err = s.jobExecutionService.HandleTaskCompletion(ctx, progress.TaskID)
-		if err != nil {
-			debug.Log("Failed to handle task completion", map[string]interface{}{
-				"task_id": progress.TaskID,
-				"error":   err.Error(),
-			})
-		}
-
-		// Check if job is complete
-		err = s.jobSchedulingService.ProcessJobCompletion(ctx, task.JobExecutionID)
-		if err != nil {
-			debug.Log("Failed to process job completion", map[string]interface{}{
-				"job_execution_id": task.JobExecutionID,
-				"error":            err.Error(),
-			})
-		}
-
-		// Cache completion and send ACK to agent (GH Issue #12)
-		taskIDStr := progress.TaskID.String()
-		s.cacheCompletion(taskIDStr)
-		s.sendTaskCompleteAck(agentID, taskIDStr, true, "")
-	}
+	// GH #62: The former "task complete based on keyspace" auto-completion
+	// block was removed here. In distributed (keyspace-split) jobs with slow
+	// salted/rule modes, the reported/estimated keyspace could cross the
+	// chunk's estimated boundary while hashcat was still running, causing the
+	// task (and job) to complete prematurely and freezing the displayed
+	// percent at 100. Completion now flows ONLY through the explicit
+	// progress.Status == "completed" handler (hashcat exit) earlier in this
+	// function and the all-cracked (code-6) path.
 
 	return nil
 }

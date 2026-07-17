@@ -73,6 +73,23 @@ func main() {
 }
 ```
 
+### Startup File Map and Job-Acceptance Gate (GH #61)
+
+Right after the WebSocket connection is established, the agent kicks off `conn.BuildFileMap()` in
+the background (`cmd/agent/main.go`). This walks the local wordlist, rule, and binary directories
+and builds an MD5 map of what's on disk (`PopulateHashCache`), then calls `MarkFileMapReady()`.
+Building the map up front makes the first job's per-file MD5 pre-flight a warm-cache check instead
+of a cold multi-GB re-hash on the critical path.
+
+Until the map is ready, `ProcessJobAssignment` **rejects** any task assignment with a `file map
+not ready` error. On its own a rejection is not free — the backend records the rejected assignment
+as a failed task row. To avoid that, the agent advertises its readiness through the `file_map_ready`
+field on its periodic `agent_status` message, and the scheduler-v2 dispatcher **skips any agent that
+hasn't reported ready**, holding dispatch until the map is built rather than dispatching, getting
+rejected, and stranding a failed row. The agent-side rejection remains as a backstop for any
+assignment that races through before the gate sees the agent as not-ready. Building the map is
+non-blocking, so heartbeats and status reporting continue normally while it runs.
+
 ## Hardware Detection System
 
 The agent uses hashcat's built-in device detection to identify available compute devices (GPUs and CPUs).
@@ -186,7 +203,15 @@ type JobManager struct {
 func (jm *JobManager) ProcessJobAssignment(ctx context.Context, assignmentData []byte) error {
     var assignment JobTaskAssignment
     err := json.Unmarshal(assignmentData, &assignment)
-    
+
+    // 0. Reject if the startup file map isn't built yet (GH #61).
+    //    The scheduler-v2 readiness gate normally prevents dispatch to a
+    //    not-ready agent (it waits for file_map_ready); this is the
+    //    agent-side backstop for an assignment that slips through.
+    if !jm.FileMapReady() {
+        return fmt.Errorf("file map not ready")
+    }
+
     // 1. Ensure hashlist is available
     err = jm.ensureHashlist(ctx, &assignment)
     
@@ -543,6 +568,14 @@ func (jm *JobManager) calculateProgress(hashcatStatus map[string]interface{}) fl
 }
 ```
 
+!!! note "Backend recomputes this for display"
+    `calculateProgress` returns hashcat's **absolute** ratio over the whole job. For a chunk
+    dispatched with `--skip > 0` that starts high — a chunk at the job's midpoint reports ~50% on
+    its very first update. The backend therefore **recomputes** the reported percent as a
+    *chunk-local* fraction — `effective_processed / chunk_effective_size × 100` — and **caps a
+    running chunk at 99.99%**, reserving 100% for a terminal completion write, so each chunk reads
+    0% → 100% over its own lifetime (`backend/internal/services/job_execution_service.go`, "Step 11r").
+
 ## WebSocket Communication
 
 The agent maintains a persistent WebSocket connection with the backend for real-time communication.
@@ -570,7 +603,7 @@ const (
     WSTypeHardwareInfo         WSMessageType = "hardware_info"
     WSTypeMetrics              WSMessageType = "metrics"
     WSTypeHeartbeat            WSMessageType = "heartbeat"
-    WSTypeAgentStatus          WSMessageType = "agent_status"
+    WSTypeAgentStatus          WSMessageType = "agent_status"  // payload carries file_map_ready (startup MD5-map readiness)
     WSTypeFileSyncRequest      WSMessageType = "file_sync_request"
     WSTypeFileSyncResponse     WSMessageType = "file_sync_response"
     WSTypeTaskAssignment       WSMessageType = "task_assignment"

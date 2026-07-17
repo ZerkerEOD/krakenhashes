@@ -728,7 +728,7 @@ KrakenHashes uses JSON-based WebSocket messages with a `type` field for routing.
 type JobProgress struct {
     TaskID            uuid.UUID `json:"task_id"`
     KeyspaceProcessed int64     `json:"keyspace_processed"`
-    ProgressPercent   float64   `json:"progress_percent"`
+    ProgressPercent   float64   `json:"progress_percent"`     // For running tasks the backend recomputes this chunk-locally and caps it at 99.99% (100% reserved for terminal completion)
     HashRate          int64     `json:"hash_rate"`
     CrackedCount      int       `json:"cracked_count"`        // Expected cracks when Status="completed"
     Status            string    `json:"status"`               // "running" or "completed"

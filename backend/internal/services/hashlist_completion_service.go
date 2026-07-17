@@ -173,31 +173,19 @@ func (s *HashlistCompletionService) stopJobTasks(ctx context.Context, jobID uuid
 
 		// Only send stop signals for running or assigned tasks
 		if task.AgentID != nil && (task.Status == models.JobTaskStatusRunning || task.Status == models.JobTaskStatusAssigned) {
-			// Check if task has completed its keyspace (race condition: task finished but status not updated yet)
-			// If keyspace is complete, mark as completed instead of cancelling
-			if task.KeyspaceEnd > 0 && task.KeyspaceProcessed >= task.KeyspaceEnd {
-				debug.Info("Task %s has completed its keyspace (%d/%d), marking as completed instead of cancelled",
-					task.ID, task.KeyspaceProcessed, task.KeyspaceEnd)
+			// GH #62: Terminalize this sibling as 'cancelled'. Previously we
+			// tried to detect "keyspace already crossed" and mark completed,
+			// or marked the task 'processing' and forced its progress to 100%
+			// — both interacted with the buggy keyspace-crossing completion
+			// path and could leave the task non-terminal while hashcat was
+			// still running. All hashes are already cracked, so this chunk's
+			// remaining keyspace is moot: send the stop signal so the agent
+			// kills hashcat, then mark the task TERMINAL as 'cancelled'.
+			//
+			// Invariant: the DB must NEVER be job=completed with a task in
+			// {running,assigned,processing,pending}. 'cancelled' (NOT 'failed')
+			// is used so HasFailedTasks does not flip the job to 'failed'.
 
-				if err := s.jobTaskRepo.UpdateStatus(ctx, task.ID, models.JobTaskStatusCompleted); err != nil {
-					debug.Error("Failed to mark task %s as completed: %v", task.ID, err)
-				}
-				continue
-			}
-
-			// Also check effective keyspace for brute-force tasks
-			if task.EffectiveKeyspaceEnd != nil && task.EffectiveKeyspaceEnd.IsPositive() &&
-				task.EffectiveKeyspaceProcessed != nil && task.EffectiveKeyspaceProcessed.Cmp(*task.EffectiveKeyspaceEnd) >= 0 {
-				debug.Info("Task %s has completed its effective keyspace (%s/%s), marking as completed instead of cancelled",
-					task.ID, task.EffectiveKeyspaceProcessed.String(), task.EffectiveKeyspaceEnd.String())
-
-				if err := s.jobTaskRepo.UpdateStatus(ctx, task.ID, models.JobTaskStatusCompleted); err != nil {
-					debug.Error("Failed to mark task %s as completed: %v", task.ID, err)
-				}
-				continue
-			}
-
-			// Task hasn't finished - send stop signal and mark as processing
 			// Create stop message payload
 			stopPayload := map[string]string{
 				"task_id": task.ID.String(),
@@ -214,7 +202,7 @@ func (s *HashlistCompletionService) stopJobTasks(ctx context.Context, jobID uuid
 				"payload": json.RawMessage(payloadJSON),
 			}
 
-			// Send stop signal to the agent
+			// Send stop signal to the agent FIRST so it kills hashcat
 			if s.wsHandler != nil {
 				if err := s.wsHandler.SendMessage(*task.AgentID, stopMsg); err != nil {
 					debug.Error("Failed to send stop signal to agent %d for task %s: %v", *task.AgentID, task.ID, err)
@@ -226,16 +214,12 @@ func (s *HashlistCompletionService) stopJobTasks(ctx context.Context, jobID uuid
 				debug.Warning("WebSocket handler not available, cannot send stop signal to agent %d", *task.AgentID)
 			}
 
-			// Part 18c: Update task keyspace to 100% before marking as processing
-			// This ensures progress displays correctly even though task was interrupted
-			if err := s.markTaskComplete100Percent(ctx, &task); err != nil {
-				debug.Error("Failed to update task %s keyspace to 100%%: %v", task.ID, err)
-			}
-
-			// Part 18b: Mark as "processing" instead of "cancelled" so remaining cracks can be recorded
-			// The task will complete normally once all pending crack batches are processed
-			if err := s.jobTaskRepo.UpdateStatus(ctx, task.ID, models.JobTaskStatusProcessing); err != nil {
-				debug.Error("Failed to update task %s status to processing: %v", task.ID, err)
+			// Mark the sibling TERMINAL as 'cancelled' and clear the agent's
+			// busy status atomically. Do NOT force progress_percent=100 — the
+			// chunk did not finish; it was stopped because the hashlist is
+			// already fully cracked.
+			if err := s.jobTaskRepo.CancelTaskAndClearAgentStatus(ctx, task.ID, *task.AgentID); err != nil {
+				debug.Error("Failed to cancel task %s and clear agent status: %v", task.ID, err)
 			}
 			continue
 		}
@@ -327,6 +311,23 @@ func (s *HashlistCompletionService) completeJob(ctx context.Context, job *models
 	if err := s.jobExecRepo.UpdateProgressPercent(ctx, job.ID, 100.0); err != nil {
 		debug.Warning("Failed to set job %s progress to 100%%: %v", job.ID, err)
 		// Not fatal - continue with completion
+	}
+
+	// GH #62 defense-in-depth: reconcile any still-non-terminal task for this
+	// job to 'cancelled' before completing. stopJobTasks should already have
+	// terminalized every sibling, but a lost WS stop message could leave a
+	// task running/assigned/processing/pending — and the invariant is that the
+	// DB is NEVER job=completed with a non-terminal task. Best-effort: log on
+	// error, don't abort completion.
+	if res, reconErr := s.db.ExecContext(ctx, `
+		UPDATE job_tasks
+		SET status = 'cancelled', completed_at = NOW()
+		WHERE job_execution_id = $1
+		  AND status IN ('assigned', 'running', 'processing', 'pending')
+	`, job.ID); reconErr != nil {
+		debug.Error("Failed to reconcile non-terminal tasks to cancelled for job %s: %v", job.ID, reconErr)
+	} else if affected, _ := res.RowsAffected(); affected > 0 {
+		debug.Warning("Reconciled %d non-terminal task(s) to 'cancelled' for job %s before completion — a WS stop signal was likely lost", affected, job.ID)
 	}
 
 	// Mark job as completed (this also sets completed_at)

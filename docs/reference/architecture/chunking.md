@@ -88,6 +88,9 @@ The system tracks progress through the virtual keyspace while hashcat processes 
 - Updates in real-time via WebSocket
 - Accurate percentage completion
 
+### Running Chunk Progress
+While a chunk is running, its `progress_percent` is recomputed chunk-locally (0% at start, capped at 99.99%), with exactly 100% reserved for terminal completion so an in-flight chunk never displays as finished. The per-task monotonic guard applies only to `keyspace_processed` (which never moves backward), not to `progress_percent`, which is a derived display value (see `backend/internal/repository/job_task_repository.go` ~783-806).
+
 ### With Rule Multiplication
 - Display format: "X / Y (×Z)" where Z is the multiplication factor
 - Accounts for all rules across all chunks

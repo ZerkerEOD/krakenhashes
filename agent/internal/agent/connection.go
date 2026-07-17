@@ -2580,6 +2580,14 @@ func (c *Connection) createAgentStatusMessage() (*WSMessage, error) {
 		"status":     "active",
 		"version":    version.GetVersion(),
 		"updated_at": time.Now(),
+		// file_map_ready surfaces the agent's startup MD5-map readiness so the
+		// scheduler-v2 dispatcher can avoid handing tasks to an agent that would
+		// only reject them (which the backend would then record as failed rows,
+		// GH #61). Sent on every agent_status (initial + periodic + on-flip), so
+		// it self-heals across a backend restart and re-establishes on reconnect.
+		// An older agent simply omits this key; the backend treats absence as
+		// "ready" (fail-open) so this never gates existing agents out.
+		"file_map_ready": c.fileMapReady(),
 		"environment": map[string]string{
 			"os":       runtime.GOOS,
 			"arch":     runtime.GOARCH,
@@ -3038,6 +3046,39 @@ func (c *Connection) initializeFileSync(apiKey, agentID string) error {
 func (c *Connection) markFileMapReady() {
 	if jm, ok := c.jobManager.(*jobs.JobManager); ok {
 		jm.MarkFileMapReady()
+	}
+	// Push an agent_status immediately so the backend learns readiness now
+	// rather than up to a full status-ticker interval later — otherwise the
+	// agent sits idle for as much as a minute after its map is built (GH #61).
+	// The periodic ticker keeps re-reporting it for self-healing.
+	c.sendAgentStatusUpdate()
+}
+
+// fileMapReady reports whether the job manager has finished building its
+// startup MD5 map. Reported to the backend on every agent_status so the
+// scheduler can gate dispatch (GH #61). Returns true when the job manager
+// isn't a *jobs.JobManager (e.g. not yet wired) — there is no map to gate on,
+// so fail open rather than pinning the agent as perpetually not-ready.
+func (c *Connection) fileMapReady() bool {
+	if jm, ok := c.jobManager.(*jobs.JobManager); ok {
+		return jm.FileMapReady()
+	}
+	return true
+}
+
+// sendAgentStatusUpdate builds and queues an agent_status message immediately,
+// outside the periodic status ticker. Used to promptly surface a readiness
+// change (file_map_ready) to the backend. Best-effort: logs and returns on any
+// failure. safeSendMessage drops the message if the outbound channel is closed,
+// so this is safe to call regardless of connection state.
+func (c *Connection) sendAgentStatusUpdate() {
+	statusMsg, err := c.createAgentStatusMessage()
+	if err != nil {
+		debug.Error("Failed to create agent status update: %v", err)
+		return
+	}
+	if !c.safeSendMessage(statusMsg, 1000) {
+		debug.Warning("Failed to queue agent status update (channel blocked or closed)")
 	}
 }
 

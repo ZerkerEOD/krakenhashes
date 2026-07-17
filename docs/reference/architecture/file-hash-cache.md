@@ -4,6 +4,9 @@
 
 The File Hash Cache is an in-memory caching system that optimizes the directory monitor service by eliminating redundant MD5 hash calculations for unchanged files. This dramatically reduces disk I/O and prevents SSD wear in deployments with large wordlists and rule files.
 
+!!! note "Scope: backend cache only"
+    This document covers the **backend** file hash cache used by the directory monitor. The **agent** maintains a separate startup MD5 file-map, built at boot via `BuildFileMap` → `PopulateHashCache` (GH #61), which gates job acceptance and dispatch until the agent's local wordlist/rule/binary hashes are known. See [Agent Development](../../developer/agent.md) and the [Scheduler v2 Overview](scheduler-v2-overview.md) for that agent-side flow.
+
 ## Problem Statement
 
 The directory monitor service runs every 30 seconds to detect changes in wordlist and rule files. Before the cache implementation:

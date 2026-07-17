@@ -35,6 +35,7 @@ When status code 6 is received:
 1. **Identify All Affected Jobs**: Query for ALL jobs (any status) targeting the same hashlist
 2. **Running Jobs**:
    - Send WebSocket stop signals to active agents
+   - Terminalize each active sibling task as `'cancelled'` (not left `processing`, not forced to 100%) before the job is completed
    - Mark jobs as "completed" at 100% progress
    - Send completion email notifications
 3. **Pending Jobs**:
@@ -97,9 +98,12 @@ In `backend/internal/routes/websocket_with_jobs.go`:
 2. **Process Running Jobs**:
    - Find active tasks for each running job
    - Send stop signals via WebSocket
+   - Terminalize each active sibling task as `'cancelled'` — `'cancelled'` (not `'failed'`) keeps the job from flipping to failed, and the task's progress is **not** forced to 100% because the chunk was stopped, not finished
    - Update job status to 'completed'
    - Set progress to 100%
    - Trigger email notifications
+
+   **Invariant:** The job is never marked completed while a sibling task is still `running`, `processing`, or `pending` — each active sibling is terminalized to `'cancelled'` first (via `CancelTaskAndClearAgentStatus`).
 
 3. **Process Pending Jobs**:
    - Delete jobs that haven't started

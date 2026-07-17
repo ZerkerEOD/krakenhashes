@@ -377,6 +377,10 @@ The completed tasks history helps with:
 !!! tip "Performance Insights"
     Use the completed tasks table to identify your most efficient agents and optimize task distribution in future jobs.
 
+#### Failed Tasks
+
+The Job Details page also includes a Failed Tasks table listing any tasks that did not complete successfully. Alongside the agent, task ID, status, and retry count, each row now shows the failure reason inline, so you can usually see why a task failed without opening the logs. If no reason was recorded, the table displays "No error message".
+
 ### Interactive Controls
 
 While monitoring your job, you can:

@@ -133,6 +133,7 @@ This guide helps you resolve common issues when using KrakenHashes. If your issu
 
 **Error**: `Hashcat execution failed`
 - **Solution**:
+  - Check the failed-tasks table on the Job Details page, which now shows the failure reason inline (you often won't need the logs just to see why it failed)
   - Check job logs for specific hashcat errors
   - Verify hash format matches selected type
   - Ensure wordlists/rules are accessible

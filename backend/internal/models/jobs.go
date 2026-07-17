@@ -320,6 +320,7 @@ type JobTask struct {
 	UpdatedAt           time.Time     `json:"updated_at" db:"updated_at"`
 	LastCheckpoint      *time.Time    `json:"last_checkpoint" db:"last_checkpoint"`
 	ErrorMessage        *string       `json:"error_message" db:"error_message"`
+	FailureReason       *string       `json:"failure_reason,omitempty" db:"failure_reason"` // Populated by scheduler recovery/sweeper when a task is marked terminal; surfaced to the UI
 
 	// Enhanced fields for detailed chunk tracking
 	CrackCount              int  `json:"crack_count" db:"crack_count"`

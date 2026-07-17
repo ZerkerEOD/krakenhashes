@@ -106,6 +106,7 @@ export interface JobTask {
   completed_at?: string;
   last_checkpoint?: string;
   error_message?: string;
+  failure_reason?: string;
   crack_count: number;
   expected_crack_count?: number;
   received_crack_count?: number;
