@@ -39,7 +39,9 @@ performs these steps and commits its own work:
 3. **Select schedulable units** — find the jobs (and increment-mode layers) that have uncovered
    keyspace and are otherwise ready to run.
 4. **Allocate agents by priority** — assign idle, compatible agents to those units (see
-   [Agent allocation](#agent-allocation-and-overflow-modes)).
+   [Agent allocation](#agent-allocation-and-overflow-modes)). An agent is only considered
+   dispatchable once it reports its startup file map is ready (`file_map_ready`); an agent still
+   building that map is skipped for the cycle so it isn't handed a chunk it would only reject.
 5. **Dispatch one chunk per agent** — create the next chunk for each allocated agent from its job's
    first uncovered coverage gap.
 6. **Commit** — persist the cycle's intervals and tasks.
@@ -100,7 +102,9 @@ modes are available:
 The "Priority" family concentrates agents on the highest tier that can use them; the "Max Agents"
 family guarantees every job its baseline cap first and then accelerates higher-priority work with the
 extras. A core invariant holds in all modes: **a compatible agent is never left idle while a
-compatible job still has dispatchable work.** Higher-priority running tasks can also interrupt
+compatible job still has dispatchable work** — except that an agent still building its startup file
+map is intentionally skipped until it reports `file_map_ready` (fail-open: an agent that never
+reports readiness stays eligible). Higher-priority running tasks can also interrupt
 lower-priority ones when interruption is enabled — see [Job Priority](../../admin-guide/advanced/job-priority.md).
 
 ## Chunking and dispatch

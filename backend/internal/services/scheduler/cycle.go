@@ -39,6 +39,15 @@ type WSSender interface {
 	// in the DB). Implementations should return false for unknown
 	// agent IDs.
 	WasRecentlyRejected(agentID int) bool
+	// IsFileMapReady reports whether the agent has finished its startup
+	// file-map build and is safe to dispatch to (GH #61). Returns true
+	// unless the agent has EXPLICITLY reported file_map_ready=false on its
+	// periodic agent_status message. Fail-open: unknown agents (older
+	// versions that never report the field, or agents whose first status
+	// hasn't arrived) are treated as ready, mirroring the semantics of
+	// IsShuttingDown/WasRecentlyRejected. Implementations should return
+	// true for unknown agent IDs.
+	IsFileMapReady(agentID int) bool
 }
 
 // Cycle is the scheduler-v2 dispatch pipeline. Holds long-lived
@@ -839,6 +848,15 @@ func (c *Cycle) getIdleAgents(ctx context.Context) ([]AgentInfo, error) {
 		}
 		if c.wsSender.WasRecentlyRejected(agentID) {
 			debug.Debug("scheduler-v2: agent %d in rejection cooldown; skipping this cycle", agentID)
+			continue
+		}
+		// Skip agents that EXPLICITLY reported their startup file map isn't
+		// built yet. Dispatching to one would only earn a rejection that the
+		// backend records as a permanent failed task row (GH #61). Fail-open:
+		// agents that never report readiness (older versions) return true here
+		// and stay eligible.
+		if !c.wsSender.IsFileMapReady(agentID) {
+			debug.Debug("scheduler-v2: agent %d file map not ready; skipping this cycle", agentID)
 			continue
 		}
 		live = append(live, agentID)

@@ -1356,13 +1356,15 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 							}
 						}
 
-						// When hashcat reports status code 6 (all hashes cracked),
-						// mark task as completed immediately
-						status := "running"
-						if progress.AllHashesCracked {
-							status = "completed"
-						}
-						e.sendProgressUpdate(process, progress, status)
+						// Streaming status updates are always sent as "running".
+						// Even when hashcat reports status code 6 (all hashes
+						// cracked), the task is NOT completed until the hashcat
+						// process actually exits — the AllHashesCracked flag is
+						// still propagated so the backend can trigger
+						// hashlist-completion handling and 100% display, but the
+						// real "completed" status is emitted from the process-exit
+						// handler below.
+						e.sendProgressUpdate(process, progress, "running")
 						// Update last progress and checkpoint on the process
 						process.LastProgress = progress
 						process.LastCheckpoint = time.Now()

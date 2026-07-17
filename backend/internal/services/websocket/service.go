@@ -138,6 +138,13 @@ type AgentStatusPayload struct {
 	UpdatedAt   time.Time              `json:"updated_at"`
 	Environment map[string]string      `json:"environment"`
 	OSInfo      map[string]interface{} `json:"os_info,omitempty"`
+	// FileMapReady is the agent's startup MD5-map readiness (GH #61). It is a
+	// pointer on purpose: nil means the agent never reported it (an older agent,
+	// or a status emitted before the field existed) and MUST stay dispatch
+	// eligible; only an explicit false gates the agent out of scheduler-v2
+	// dispatch. The readiness is tracked in the handler layer and read by the
+	// scheduler via Handler.IsFileMapReady.
+	FileMapReady *bool `json:"file_map_ready,omitempty"`
 }
 
 // AgentUpdateCommandPayload instructs an agent (via its launcher) to

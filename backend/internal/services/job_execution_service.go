@@ -2045,6 +2045,25 @@ func (s *JobExecutionService) CompleteJobExecution(ctx context.Context, jobExecu
 		}
 	}
 
+	// GH #62 defense-in-depth: reconcile any still-non-terminal task for this
+	// job to 'cancelled' before completing. This covers the code-6 bypass in
+	// ProcessJobCompletion (job_scheduling_service.go), which races the async
+	// HandleHashlistFullyCracked goroutine and can reach here while a sibling
+	// task is still running/assigned/processing/pending. Invariant: the DB is
+	// NEVER job=completed with a non-terminal task. 'cancelled' (NOT 'failed')
+	// keeps HasFailedTasks from flipping the job to 'failed'. Best-effort:
+	// log on error, don't abort completion.
+	if res, reconErr := s.db.ExecContext(ctx, `
+		UPDATE job_tasks
+		SET status = 'cancelled', completed_at = NOW()
+		WHERE job_execution_id = $1
+		  AND status IN ('assigned', 'running', 'processing', 'pending')
+	`, jobExecutionID); reconErr != nil {
+		debug.Error("Failed to reconcile non-terminal tasks to cancelled for job %s: %v", jobExecutionID, reconErr)
+	} else if affected, _ := res.RowsAffected(); affected > 0 {
+		debug.Warning("Reconciled %d non-terminal task(s) to 'cancelled' for job %s before completion — a WS stop signal was likely lost", affected, jobExecutionID)
+	}
+
 	// Mark the job as completed
 	err = s.jobExecRepo.CompleteExecution(ctx, jobExecutionID)
 	if err != nil {
@@ -2438,8 +2457,11 @@ func (s *JobExecutionService) UpdateTaskProgress(ctx context.Context, taskID uui
 		chunkEff := task.EffectiveKeyspaceEnd.Sub(*task.EffectiveKeyspaceStart)
 		if chunkEff.IsPositive() {
 			localPercent := float64(effectiveKeyspaceProcessed) / float64(chunkEff.Int64()) * 100.0
-			if localPercent > 100.0 {
-				localPercent = 100.0
+			if localPercent >= 100.0 {
+				localPercent = 99.99 // reserve 100.0 for terminal completion writes (CompleteTask / code-6 path)
+			}
+			if localPercent < 0 {
+				localPercent = 0
 			}
 			progressPercent = localPercent
 		}

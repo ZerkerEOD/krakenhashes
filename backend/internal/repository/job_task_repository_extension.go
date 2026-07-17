@@ -19,6 +19,7 @@ func (r *JobTaskRepository) GetAllTasksByJobExecution(ctx context.Context, jobEx
 			COALESCE(detailed_status, 'pending') as detailed_status,
 			COALESCE(retry_count, 0) as retry_count,
 			error_message,
+			failure_reason,
 			created_at, started_at, completed_at, updated_at,
 			effective_keyspace_start, effective_keyspace_end, effective_keyspace_processed,
 			progress_percent, average_speed
@@ -45,6 +46,7 @@ func (r *JobTaskRepository) GetAllTasksByJobExecution(ctx context.Context, jobEx
 			&task.BenchmarkSpeed, &task.ChunkDuration,
 			&task.CrackCount, &task.DetailedStatus, &task.RetryCount,
 			&task.ErrorMessage,
+			&task.FailureReason,
 			&task.CreatedAt, &task.StartedAt, &task.CompletedAt, &task.UpdatedAt,
 			&task.EffectiveKeyspaceStart, &task.EffectiveKeyspaceEnd, &task.EffectiveKeyspaceProcessed,
 			&task.ProgressPercent, &task.AverageSpeed,

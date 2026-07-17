@@ -128,6 +128,16 @@ type Handler struct {
 	// "currently running" state doesn't loop into a rejection storm.
 	// Keys are agentID (int); values are time.Time.
 	recentRejections sync.Map
+
+	// fileMapReady tracks the last-known startup-file-map readiness each agent
+	// reported on its periodic agent_status message (GH #61). Keys are agentID
+	// (int); values are bool. ABSENCE of a key means "unknown" and is treated
+	// as READY (fail-open) by IsFileMapReady, so an older agent that never
+	// reports the field — or one whose first status hasn't arrived yet — stays
+	// dispatch-eligible, mirroring the absence-of-bad-signal semantics of
+	// recentRejections/shuttingDown. Only an explicit false gates dispatch.
+	// The entry is cleared on disconnect so a fresh connection must re-report.
+	fileMapReady sync.Map
 }
 
 // Client represents a connected agent
@@ -499,6 +509,9 @@ func (c *Client) readPump() {
 		case wsservice.TypeAgentShutdown:
 			c.handler.handleAgentShutdown(c, &msg)
 
+		case wsservice.TypeAgentStatus:
+			c.handler.handleAgentStatusReadiness(c, &msg)
+
 		case wsservice.TypeTaskAssignmentRejected:
 			c.handler.handleTaskAssignmentRejected(c, &msg)
 
@@ -680,6 +693,11 @@ func (h *Handler) unregisterClient(c *Client) {
 	if client, ok := h.clients[c.agent.ID]; ok {
 		if client == c {
 			delete(h.clients, c.agent.ID)
+			// Forget file-map readiness only when removing the CURRENT
+			// connection, so a stale readPump's teardown can't wipe the state
+			// a newer connection just reported. A fresh connection then starts
+			// clean and must re-report before it can be gated (GH #61).
+			h.fileMapReady.Delete(c.agent.ID)
 		}
 	}
 	h.mu.Unlock()
@@ -807,6 +825,55 @@ func (h *Handler) WasRecentlyRejected(agentID int) bool {
 		return false
 	}
 	return true
+}
+
+// handleAgentStatusReadiness records the agent's startup-file-map readiness
+// (GH #61) from its periodic agent_status message. The full status (DB
+// status/version/OS info) is processed separately in the service layer
+// (websocket.Service.handleAgentStatus); here we only extract file_map_ready
+// so the scheduler-v2 cycle can gate dispatch on it via IsFileMapReady.
+//
+// file_map_ready is a pointer on the wire: nil means the agent didn't report it
+// (an older agent version, or a status emitted before the field existed). We
+// only store an explicit value, so a nil field never flips an agent to
+// not-ready — preserving fail-open dispatch for agents that never report.
+func (h *Handler) handleAgentStatusReadiness(client *Client, msg *wsservice.Message) {
+	var payload wsservice.AgentStatusPayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		debug.Error("Agent %d: Failed to unmarshal agent status for readiness: %v", client.agent.ID, err)
+		return
+	}
+	if payload.FileMapReady == nil {
+		// Old agent / field absent — leave the last-known state untouched so
+		// absence never gates the agent out.
+		return
+	}
+	h.fileMapReady.Store(client.agent.ID, *payload.FileMapReady)
+	debug.Debug("Agent %d: reported file_map_ready=%t", client.agent.ID, *payload.FileMapReady)
+}
+
+// IsFileMapReady reports whether the agent is eligible for scheduler-v2
+// dispatch with respect to its startup file-map build (GH #61). It returns
+// true UNLESS the agent's last-known agent_status explicitly reported
+// file_map_ready=false.
+//
+// Fail-open by design, mirroring IsShuttingDown/WasRecentlyRejected: an agent
+// we have never heard a readiness signal from — an older agent that doesn't
+// send the field, or a freshly connected agent whose first status hasn't
+// arrived — is treated as READY so we don't regress dispatch for existing
+// deployments. Only an EXPLICIT not-ready report gates the agent out, and only
+// until it reports ready (or disconnects, which clears the entry).
+func (h *Handler) IsFileMapReady(agentID int) bool {
+	v, ok := h.fileMapReady.Load(agentID)
+	if !ok {
+		return true // unknown → fail open (eligible)
+	}
+	ready, ok := v.(bool)
+	if !ok {
+		h.fileMapReady.Delete(agentID)
+		return true
+	}
+	return ready
 }
 
 // sendInitialConfiguration sends initial configuration to the agent including download settings

@@ -31,6 +31,7 @@ type JobIntegrationManager struct {
 		GetConnectedAgents() []int
 		IsShuttingDown(agentID int) bool
 		WasRecentlyRejected(agentID int) bool
+		IsFileMapReady(agentID int) bool
 		MarkRejected(agentID int)
 		RegisterInventoryCallback(agentID int) <-chan *wsservice.FileSyncResponsePayload
 		UnregisterInventoryCallback(agentID int)
@@ -79,6 +80,7 @@ func NewJobIntegrationManager(
 		GetConnectedAgents() []int
 		IsShuttingDown(agentID int) bool
 		WasRecentlyRejected(agentID int) bool
+		IsFileMapReady(agentID int) bool
 		MarkRejected(agentID int)
 		RegisterInventoryCallback(agentID int) <-chan *wsservice.FileSyncResponsePayload
 		UnregisterInventoryCallback(agentID int)

@@ -274,6 +274,7 @@ func (r *JobTaskRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.
 			jt.effective_keyspace_start, jt.effective_keyspace_end, jt.effective_keyspace_processed,
 			jt.benchmark_speed, jt.average_speed, jt.chunk_duration, jt.assigned_at,
 			jt.started_at, jt.completed_at, jt.cracking_completed_at, jt.last_checkpoint, jt.error_message,
+			jt.failure_reason,
 			jt.crack_count, jt.detailed_status, jt.retry_count,
 			jt.expected_crack_count, jt.received_crack_count, jt.batches_complete_signaled,
 			jt.chunk_number, jt.is_actual_keyspace, jt.chunk_actual_keyspace, jt.is_keyspace_split,
@@ -293,6 +294,7 @@ func (r *JobTaskRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.
 		&task.EffectiveKeyspaceStart, &task.EffectiveKeyspaceEnd, &task.EffectiveKeyspaceProcessed,
 		&task.BenchmarkSpeed, &task.AverageSpeed, &task.ChunkDuration, &task.AssignedAt,
 		&task.StartedAt, &task.CompletedAt, &task.CrackingCompletedAt, &task.LastCheckpoint, &task.ErrorMessage,
+		&task.FailureReason,
 		&task.CrackCount, &task.DetailedStatus, &task.RetryCount,
 		&task.ExpectedCrackCount, &task.ReceivedCrackCount, &task.BatchesCompleteSignaled,
 		&chunkNumber, &task.IsActualKeyspace, &task.ChunkActualKeyspace, &task.IsKeyspaceSplit,
@@ -321,6 +323,7 @@ func (r *JobTaskRepository) GetTasksByJobExecution(ctx context.Context, jobExecu
 			jt.effective_keyspace_start, jt.effective_keyspace_end, jt.effective_keyspace_processed,
 			jt.benchmark_speed, jt.average_speed, jt.chunk_duration, jt.assigned_at,
 			jt.started_at, jt.completed_at, jt.cracking_completed_at, jt.last_checkpoint, jt.error_message,
+			jt.failure_reason,
 			jt.crack_count,
 			jt.increment_layer_id,
 			jt.progress_percent,
@@ -345,6 +348,7 @@ func (r *JobTaskRepository) GetTasksByJobExecution(ctx context.Context, jobExecu
 			&task.EffectiveKeyspaceStart, &task.EffectiveKeyspaceEnd, &task.EffectiveKeyspaceProcessed,
 			&task.BenchmarkSpeed, &task.AverageSpeed, &task.ChunkDuration, &task.AssignedAt,
 			&task.StartedAt, &task.CompletedAt, &task.CrackingCompletedAt, &task.LastCheckpoint, &task.ErrorMessage,
+			&task.FailureReason,
 			&task.CrackCount,
 			&task.IncrementLayerID,
 			&task.ProgressPercent,
@@ -382,6 +386,7 @@ func (r *JobTaskRepository) GetTasksByJobExecutions(ctx context.Context, jobExec
 			jt.effective_keyspace_start, jt.effective_keyspace_end, jt.effective_keyspace_processed,
 			jt.benchmark_speed, jt.average_speed, jt.chunk_duration, jt.assigned_at,
 			jt.started_at, jt.completed_at, jt.cracking_completed_at, jt.last_checkpoint, jt.error_message,
+			jt.failure_reason,
 			jt.crack_count,
 			jt.increment_layer_id,
 			jt.progress_percent,
@@ -405,6 +410,7 @@ func (r *JobTaskRepository) GetTasksByJobExecutions(ctx context.Context, jobExec
 			&task.EffectiveKeyspaceStart, &task.EffectiveKeyspaceEnd, &task.EffectiveKeyspaceProcessed,
 			&task.BenchmarkSpeed, &task.AverageSpeed, &task.ChunkDuration, &task.AssignedAt,
 			&task.StartedAt, &task.CompletedAt, &task.CrackingCompletedAt, &task.LastCheckpoint, &task.ErrorMessage,
+			&task.FailureReason,
 			&task.CrackCount,
 			&task.IncrementLayerID,
 			&task.ProgressPercent,
@@ -775,13 +781,19 @@ func (r *JobTaskRepository) StartTask(ctx context.Context, id uuid.UUID) error {
 func (r *JobTaskRepository) UpdateProgress(ctx context.Context, id uuid.UUID, keyspaceProcessed int64, effectiveKeyspaceProcessed models.BigInt, benchmarkSpeed *int64, progressPercent float64) error {
 	now := time.Now()
 	// Monotonic-progress guard: reject UPDATEs that would decrease
-	// progress_percent or keyspace_processed. Real work is monotonic;
-	// any backward write is a buggy agent message (e.g., the empty
-	// 0%/0H/s message previously sent on Ctrl+C cancellation —
-	// Step 10c-1 fixed the agent, this guard prevents future
-	// regressions of the same class).
+	// keyspace_processed. Real work is monotonic; any backward write is
+	// a buggy agent message (e.g., the empty 0%/0H/s message previously
+	// sent on Ctrl+C cancellation — Step 10c-1 fixed the agent, this
+	// guard prevents future regressions of the same class).
 	//
-	// COALESCE so a row with NULL progress_percent (just dispatched,
+	// progress_percent is NO LONGER part of the monotonic guard: it is a
+	// derived display value recomputed from the chunk-local keyspace on
+	// every call (see UpdateTaskProgress Step 11r) and is capped below
+	// 100 for in-flight tasks. keyspace_processed remains the sole
+	// monotonic signal; guarding on it alone still rejects the buggy
+	// backward keyspace_processed=0 Ctrl+C message this guard exists for.
+	//
+	// COALESCE so a row with NULL keyspace_processed (just dispatched,
 	// no progress yet) accepts the first write.
 	//
 	// We do NOT return ErrNotFound when rowsAffected=0, because that
@@ -791,7 +803,6 @@ func (r *JobTaskRepository) UpdateProgress(ctx context.Context, id uuid.UUID, ke
 		UPDATE job_tasks
 		SET keyspace_processed = $1, effective_keyspace_processed = $2, benchmark_speed = $3, last_checkpoint = $4, progress_percent = $5
 		WHERE id = $6
-		  AND COALESCE(progress_percent, 0) <= $5
 		  AND COALESCE(keyspace_processed, 0) <= $1`
 
 	result, err := r.db.ExecContext(ctx, query, keyspaceProcessed, effectiveKeyspaceProcessed, benchmarkSpeed, now, progressPercent, id)
@@ -966,6 +977,73 @@ func (r *JobTaskRepository) CompleteTaskAndClearAgentStatus(ctx context.Context,
 	}
 
 	debug.Log("Atomically completed task and cleared agent status", map[string]interface{}{
+		"task_id":  taskID,
+		"agent_id": agentID,
+	})
+
+	return nil
+}
+
+// CancelTaskAndClearAgentStatus atomically marks a task as cancelled AND clears the agent's busy status.
+// Mirrors CompleteTaskAndClearAgentStatus but uses a 'cancelled' terminal state instead of 'completed'.
+// Used by the all-hashes-cracked flow to terminalize sibling tasks that are being stopped (GH #62):
+// the DB must NEVER be in state job=completed with a task still in {running,assigned,processing,pending}.
+// We deliberately do NOT force progress_percent=100 here — the chunk did not finish its keyspace; it was
+// stopped early because the hashlist is already fully cracked. 'cancelled' (NOT 'failed') is used so
+// HasFailedTasks does not flip the job to 'failed'.
+func (r *JobTaskRepository) CancelTaskAndClearAgentStatus(ctx context.Context, taskID uuid.UUID, agentID int) error {
+	// Begin transaction for atomicity
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	now := time.Now()
+
+	// Step 1: Mark task as cancelled (terminal)
+	taskQuery := `
+		UPDATE job_tasks
+		SET status = $1,
+		    detailed_status = $2,
+		    completed_at = $3
+		WHERE id = $4`
+
+	result, err := tx.ExecContext(ctx, taskQuery, models.JobTaskStatusCancelled, "cancelled", now, taskID)
+	if err != nil {
+		return fmt.Errorf("failed to cancel task: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected for task: %w", err)
+	}
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	// Step 2: Clear agent busy status atomically with task cancellation
+	// Use JSONB operators to update metadata
+	agentQuery := `
+		UPDATE agents
+		SET metadata = COALESCE(metadata, '{}'::jsonb)
+		              || '{"busy_status": "false"}'::jsonb
+		              - 'current_task_id'
+		              - 'current_job_id',
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`
+
+	_, err = tx.ExecContext(ctx, agentQuery, agentID)
+	if err != nil {
+		return fmt.Errorf("failed to clear agent busy status: %w", err)
+	}
+
+	// Commit the transaction
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	debug.Log("Atomically cancelled task and cleared agent status", map[string]interface{}{
 		"task_id":  taskID,
 		"agent_id": agentID,
 	})
@@ -1254,7 +1332,13 @@ func (r *JobTaskRepository) SetTaskStopping(ctx context.Context, id uuid.UUID) e
 }
 
 // ClearTaskAgentAndSetPending clears agent_id and sets task to pending after stop ack received
-// This should only be called after the agent has acknowledged stopping the task
+// This should only be called after the agent has acknowledged stopping the task.
+//
+// It must NOT resurrect a task whose recovery already finished: a stop-ack can arrive AFTER
+// the heartbeat sweeper's recovery marked a truncated/overrun chunk terminal ('completed',
+// 'cancelled' or 'failed'). The terminal-state guard in the WHERE clause makes that a safe
+// no-op (rowsAffected == 0) instead of clobbering the terminal row back to 'pending', which
+// would strand an orphaned pending-at-100% task that blocks job completion forever.
 func (r *JobTaskRepository) ClearTaskAgentAndSetPending(ctx context.Context, id uuid.UUID, agentID int) error {
 	query := `
 		UPDATE job_tasks
@@ -1266,7 +1350,8 @@ func (r *JobTaskRepository) ClearTaskAgentAndSetPending(ctx context.Context, id 
 			started_at = NULL,
 			last_checkpoint = CURRENT_TIMESTAMP,
 			updated_at = CURRENT_TIMESTAMP
-		WHERE id = $1 AND agent_id = $2`
+		WHERE id = $1 AND agent_id = $2
+		  AND status NOT IN ('completed', 'cancelled', 'failed')`
 
 	result, err := r.db.ExecContext(ctx, query, id, agentID)
 	if err != nil {
