@@ -241,6 +241,31 @@ WHERE key = 'hashlist_bulk_batch_size';
 - **Memory Usage**: Roughly linear with batch size (~10MB per 100,000 hashes)
 - **Database Load**: Larger batches create fewer but larger transactions
 
+#### Loopback Round Cap
+
+The `loopback_max_rounds` setting caps how many delta rounds a [loopback](../../user-guide/loopback.md) session runs before it stops, even if new cracks keep appearing. It is a safety bound — most sessions go "dry" (a round finds nothing new) well before the cap.
+
+| Setting | Description | Default | Notes |
+|---------|-------------|---------|-------|
+| **`loopback_max_rounds`** | Maximum delta rounds per loopback session | 10 | Applied when a session is created |
+
+The value is read when a session starts; changing it affects **new** sessions, not ones already in flight. If the setting is missing, the backend falls back to 10.
+
+```sql
+-- View current setting
+SELECT key, value, description
+FROM system_settings
+WHERE key = 'loopback_max_rounds';
+
+-- Raise the cap (example: allow up to 25 rounds)
+UPDATE system_settings
+SET value = '25'
+WHERE key = 'loopback_max_rounds';
+```
+
+See [Loopback](../../user-guide/loopback.md) for how sessions work and the
+[Loopback Sessions architecture](../../reference/architecture/loopback.md) reference for internals.
+
 ### Rule Splitting
 
 Rule splitting automatically divides large rule files to improve distribution across agents. This is especially useful for rule files that would otherwise exceed the chunk duration.

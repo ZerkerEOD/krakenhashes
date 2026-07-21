@@ -93,6 +93,9 @@ var agentPersistentMarkers = []string{
 	"compatible platform found",
 	"self-test failed",
 	"selftest failed",
+	// Bare "autotune" wording from agents that don't emit the typed code stays
+	// persistent. The typed AGENT_AUTOTUNE code is intercepted earlier in
+	// Classify and treated as transient (the agent already retried with --force).
 	"autotune",
 }
 
@@ -127,6 +130,16 @@ func Classify(message string) Category {
 		return CategoryUnknown
 	}
 	m := strings.ToLower(message)
+	// Typed-code precedence: AGENT_AUTOTUNE reaches the backend only after the
+	// agent already retried the task locally with --force (which bypasses
+	// autotune) and it still failed. That's a per-job/per-agent quirk on this
+	// hardware, not a broken agent, so classify it transient (retry / fail over,
+	// never quarantine) — overriding the generic "autotune" persistent marker
+	// below. AGENT_NO_WORK (clean exit that processed nothing) is likewise a
+	// re-dispatch, not an agent fault.
+	if strings.Contains(m, "agent_autotune") || strings.Contains(m, "agent_no_work") {
+		return CategoryAgentTransient
+	}
 	if containsAny(m, hashlistFatalMarkers) {
 		return CategoryHashlistFatal
 	}
