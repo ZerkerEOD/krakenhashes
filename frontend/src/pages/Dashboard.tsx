@@ -80,6 +80,7 @@ import { calculateJobProgress, formatKeyspace } from '../utils/jobProgress';
 import { formatHashRate } from '../utils/formatters';
 import { useNavigate } from 'react-router-dom';
 import HashlistOverview from '../components/dashboard/HashlistOverview';
+import LoopbackSessionsPanel from '../components/jobs/LoopbackSessionsPanel';
 // import JobStatusMonitor from '../components/JobStatusMonitor'; // Removed to improve page load performance
 
 /**
@@ -482,7 +483,12 @@ const Dashboard: React.FC = () => {
             </Typography>
           </Grid>
           {gridItems}
-          
+
+          {/* Loopback sessions (GH #64) — renders nothing when there are none */}
+          <Grid item xs={12}>
+            <LoopbackSessionsPanel />
+          </Grid>
+
           <Grid item xs={12}>
             <Divider sx={{ my: 2 }} />
             <Typography variant="h5" component="h2" gutterBottom>

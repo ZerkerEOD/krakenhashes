@@ -13,14 +13,14 @@ import (
 
 // JobWorkflowRepository defines the interface for interacting with job workflows and steps.
 type JobWorkflowRepository interface {
-	CreateWorkflow(ctx context.Context, name string) (*models.JobWorkflow, error)
+	CreateWorkflow(ctx context.Context, name string, loopbackAllEligible bool) (*models.JobWorkflow, error)
 	GetWorkflowByID(ctx context.Context, id uuid.UUID) (*models.JobWorkflow, error)
 	GetWorkflowByName(ctx context.Context, name string) (*models.JobWorkflow, error)
 	ListWorkflows(ctx context.Context) ([]models.JobWorkflow, error)
-	UpdateWorkflow(ctx context.Context, id uuid.UUID, name string) (*models.JobWorkflow, error)
+	UpdateWorkflow(ctx context.Context, id uuid.UUID, name string, loopbackAllEligible bool) (*models.JobWorkflow, error)
 	DeleteWorkflow(ctx context.Context, id uuid.UUID) error
 
-	CreateWorkflowStep(ctx context.Context, workflowID, presetJobID uuid.UUID, stepOrder int) (*models.JobWorkflowStep, error)
+	CreateWorkflowStep(ctx context.Context, workflowID, presetJobID uuid.UUID, stepOrder int, loopbackEnabled bool) (*models.JobWorkflowStep, error)
 	GetWorkflowSteps(ctx context.Context, workflowID uuid.UUID) ([]models.JobWorkflowStep, error)
 	DeleteWorkflowSteps(ctx context.Context, workflowID uuid.UUID) error
 	CheckPresetJobsExist(ctx context.Context, ids []uuid.UUID) ([]uuid.UUID, error)
@@ -47,12 +47,12 @@ func NewJobWorkflowRepository(db *sql.DB) JobWorkflowRepository {
 }
 
 // CreateWorkflow inserts a new job workflow.
-func (r *jobWorkflowRepository) CreateWorkflow(ctx context.Context, name string) (*models.JobWorkflow, error) {
-	query := `INSERT INTO job_workflows (name) VALUES ($1) RETURNING id, name, created_at, updated_at`
-	row := r.db.QueryRowContext(ctx, query, name)
+func (r *jobWorkflowRepository) CreateWorkflow(ctx context.Context, name string, loopbackAllEligible bool) (*models.JobWorkflow, error) {
+	query := `INSERT INTO job_workflows (name, loopback_all_eligible) VALUES ($1, $2) RETURNING id, name, loopback_all_eligible, created_at, updated_at`
+	row := r.db.QueryRowContext(ctx, query, name, loopbackAllEligible)
 
 	var wf models.JobWorkflow
-	err := row.Scan(&wf.ID, &wf.Name, &wf.CreatedAt, &wf.UpdatedAt)
+	err := row.Scan(&wf.ID, &wf.Name, &wf.LoopbackAllEligible, &wf.CreatedAt, &wf.UpdatedAt)
 	if err != nil {
 		// TODO: Handle potential unique constraint violation error (e.g., convert pq error)
 		debug.Error("Error creating job workflow: %v", err)
@@ -63,11 +63,11 @@ func (r *jobWorkflowRepository) CreateWorkflow(ctx context.Context, name string)
 
 // GetWorkflowByID retrieves a job workflow by ID, including its steps.
 func (r *jobWorkflowRepository) GetWorkflowByID(ctx context.Context, id uuid.UUID) (*models.JobWorkflow, error) {
-	query := `SELECT id, name, created_at, updated_at FROM job_workflows WHERE id = $1 LIMIT 1`
+	query := `SELECT id, name, loopback_all_eligible, created_at, updated_at FROM job_workflows WHERE id = $1 LIMIT 1`
 	row := r.db.QueryRowContext(ctx, query, id)
 
 	var wf models.JobWorkflow
-	err := row.Scan(&wf.ID, &wf.Name, &wf.CreatedAt, &wf.UpdatedAt)
+	err := row.Scan(&wf.ID, &wf.Name, &wf.LoopbackAllEligible, &wf.CreatedAt, &wf.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("job workflow not found: %w", ErrNotFound)
@@ -90,11 +90,11 @@ func (r *jobWorkflowRepository) GetWorkflowByID(ctx context.Context, id uuid.UUI
 
 // GetWorkflowByName retrieves a job workflow by name.
 func (r *jobWorkflowRepository) GetWorkflowByName(ctx context.Context, name string) (*models.JobWorkflow, error) {
-	query := `SELECT id, name, created_at, updated_at FROM job_workflows WHERE name = $1 LIMIT 1`
+	query := `SELECT id, name, loopback_all_eligible, created_at, updated_at FROM job_workflows WHERE name = $1 LIMIT 1`
 	row := r.db.QueryRowContext(ctx, query, name)
 
 	var wf models.JobWorkflow
-	err := row.Scan(&wf.ID, &wf.Name, &wf.CreatedAt, &wf.UpdatedAt)
+	err := row.Scan(&wf.ID, &wf.Name, &wf.LoopbackAllEligible, &wf.CreatedAt, &wf.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("job workflow not found: %w", ErrNotFound)
@@ -109,10 +109,10 @@ func (r *jobWorkflowRepository) GetWorkflowByName(ctx context.Context, name stri
 // ListWorkflows retrieves all job workflows.
 func (r *jobWorkflowRepository) ListWorkflows(ctx context.Context) ([]models.JobWorkflow, error) {
 	query := `
-		SELECT w.id, w.name, w.created_at, w.updated_at, COUNT(s.id) as step_count
+		SELECT w.id, w.name, w.loopback_all_eligible, w.created_at, w.updated_at, COUNT(s.id) as step_count
 		FROM job_workflows w
 		LEFT JOIN job_workflow_steps s ON w.id = s.job_workflow_id
-		GROUP BY w.id, w.name, w.created_at, w.updated_at
+		GROUP BY w.id, w.name, w.loopback_all_eligible, w.created_at, w.updated_at
 		ORDER BY w.name
 	` // TODO: Pagination
 	rows, err := r.db.QueryContext(ctx, query)
@@ -126,7 +126,7 @@ func (r *jobWorkflowRepository) ListWorkflows(ctx context.Context) ([]models.Job
 	for rows.Next() {
 		var wf models.JobWorkflow
 		var stepCount int
-		if err := rows.Scan(&wf.ID, &wf.Name, &wf.CreatedAt, &wf.UpdatedAt, &stepCount); err != nil {
+		if err := rows.Scan(&wf.ID, &wf.Name, &wf.LoopbackAllEligible, &wf.CreatedAt, &wf.UpdatedAt, &stepCount); err != nil {
 			debug.Error("Error scanning job workflow row: %v", err)
 			return nil, fmt.Errorf("error scanning job workflow row: %w", err)
 		}
@@ -146,12 +146,12 @@ func (r *jobWorkflowRepository) ListWorkflows(ctx context.Context) ([]models.Job
 }
 
 // UpdateWorkflow updates a job workflow's name.
-func (r *jobWorkflowRepository) UpdateWorkflow(ctx context.Context, id uuid.UUID, name string) (*models.JobWorkflow, error) {
-	query := `UPDATE job_workflows SET name = $2, updated_at = NOW() WHERE id = $1 RETURNING id, name, created_at, updated_at`
-	row := r.db.QueryRowContext(ctx, query, id, name)
+func (r *jobWorkflowRepository) UpdateWorkflow(ctx context.Context, id uuid.UUID, name string, loopbackAllEligible bool) (*models.JobWorkflow, error) {
+	query := `UPDATE job_workflows SET name = $2, loopback_all_eligible = $3, updated_at = NOW() WHERE id = $1 RETURNING id, name, loopback_all_eligible, created_at, updated_at`
+	row := r.db.QueryRowContext(ctx, query, id, name, loopbackAllEligible)
 
 	var wf models.JobWorkflow
-	err := row.Scan(&wf.ID, &wf.Name, &wf.CreatedAt, &wf.UpdatedAt)
+	err := row.Scan(&wf.ID, &wf.Name, &wf.LoopbackAllEligible, &wf.CreatedAt, &wf.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("job workflow not found for update: %w", ErrNotFound)
@@ -183,15 +183,15 @@ func (r *jobWorkflowRepository) DeleteWorkflow(ctx context.Context, id uuid.UUID
 // --- Workflow Step Methods ---
 
 // CreateWorkflowStep inserts a single step for a workflow.
-func (r *jobWorkflowRepository) CreateWorkflowStep(ctx context.Context, workflowID, presetJobID uuid.UUID, stepOrder int) (*models.JobWorkflowStep, error) {
+func (r *jobWorkflowRepository) CreateWorkflowStep(ctx context.Context, workflowID, presetJobID uuid.UUID, stepOrder int, loopbackEnabled bool) (*models.JobWorkflowStep, error) {
 	query := `
-		INSERT INTO job_workflow_steps (job_workflow_id, preset_job_id, step_order)
-		VALUES ($1, $2, $3)
-		RETURNING id, job_workflow_id, preset_job_id, step_order`
-	row := r.db.QueryRowContext(ctx, query, workflowID, presetJobID, stepOrder)
+		INSERT INTO job_workflow_steps (job_workflow_id, preset_job_id, step_order, loopback_enabled)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, job_workflow_id, preset_job_id, step_order, loopback_enabled`
+	row := r.db.QueryRowContext(ctx, query, workflowID, presetJobID, stepOrder, loopbackEnabled)
 
 	var step models.JobWorkflowStep
-	err := row.Scan(&step.ID, &step.JobWorkflowID, &step.PresetJobID, &step.StepOrder)
+	err := row.Scan(&step.ID, &step.JobWorkflowID, &step.PresetJobID, &step.StepOrder, &step.LoopbackEnabled)
 	if err != nil {
 		// TODO: Handle potential unique constraint (workflowID, stepOrder) violation
 		// TODO: Handle potential foreign key constraint violation (presetJobID)
@@ -205,7 +205,7 @@ func (r *jobWorkflowRepository) CreateWorkflowStep(ctx context.Context, workflow
 func (r *jobWorkflowRepository) GetWorkflowSteps(ctx context.Context, workflowID uuid.UUID) ([]models.JobWorkflowStep, error) {
 	query := `
 		SELECT
-			jws.id, jws.job_workflow_id, jws.preset_job_id, jws.step_order,
+			jws.id, jws.job_workflow_id, jws.preset_job_id, jws.step_order, jws.loopback_enabled,
 			pj.name as preset_job_name,
 			pj.attack_mode as preset_job_attack_mode,
 			pj.priority as preset_job_priority,
@@ -229,7 +229,7 @@ func (r *jobWorkflowRepository) GetWorkflowSteps(ctx context.Context, workflowID
 	for rows.Next() {
 		var step models.JobWorkflowStep
 		if err := rows.Scan(
-			&step.ID, &step.JobWorkflowID, &step.PresetJobID, &step.StepOrder,
+			&step.ID, &step.JobWorkflowID, &step.PresetJobID, &step.StepOrder, &step.LoopbackEnabled,
 			&step.PresetJobName, &step.PresetJobAttackMode, &step.PresetJobPriority,
 			&step.PresetJobBinaryVersion, &step.PresetJobBinaryName, &step.PresetJobWordlistIDs, &step.PresetJobRuleIDs,
 		); err != nil {

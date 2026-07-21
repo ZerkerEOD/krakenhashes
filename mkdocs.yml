@@ -112,6 +112,7 @@ nav:
     - Teams: user-guide/teams.md
     - Managing Hashlists: user-guide/hashlists.md
     - Jobs & Workflows: user-guide/jobs-workflows.md
+    - Loopback: user-guide/loopback.md
     - Wordlists & Rules: user-guide/wordlists-rules.md
     - Wordlist Filtering: user-guide/wordlist-filtering.md
     - Custom Charsets & Arguments: user-guide/custom-charsets-arguments.md
@@ -197,6 +198,7 @@ nav:
       - Increment Mode: reference/architecture/increment-mode.md
       - Job Completion System: reference/architecture/job-completion-system.md
       - Job Update System: reference/architecture/job-update-system.md
+      - Loopback Sessions: reference/architecture/loopback.md
       - Notification System: reference/architecture/notification-system.md
       - Rule Splitting: reference/architecture/rule-splitting.md
       - File Hash Cache: reference/architecture/file-hash-cache.md

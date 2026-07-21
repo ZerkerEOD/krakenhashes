@@ -61,6 +61,9 @@ type Manager interface {
 	GetFilteredChildren(ctx context.Context, parentID int) ([]*models.Wordlist, error)
 	GetEphemeralWordlistsByJob(ctx context.Context, jobID uuid.UUID) ([]*models.Wordlist, error)
 	SetWordlistOwnerJob(ctx context.Context, wordlistID int, jobID uuid.UUID) error
+
+	// Loopback (GH #64)
+	MaterializeEphemeralWordlist(ctx context.Context, words []string, name string, ownerJobID uuid.UUID, userID uuid.UUID) (*models.Wordlist, error)
 }
 
 // Store defines the interface for wordlist data storage operations
@@ -1217,6 +1220,109 @@ func (m *manager) CreateFilteredWordlistRecord(ctx context.Context, parentID int
 // (used for cleanup once the job ends).
 func (m *manager) SetWordlistOwnerJob(ctx context.Context, wordlistID int, jobID uuid.UUID) error {
 	return m.store.SetWordlistOwnerJob(ctx, wordlistID, jobID)
+}
+
+// MaterializeEphemeralWordlist writes an in-memory set of words to a new ephemeral
+// wordlist file and registers it verified with its final word count (GH #64 loopback).
+// Unlike CreateFilteredWordlistRecord it has no parent and no filter — the words are
+// provided directly (a loopback delta of freshly-cracked plaintexts). The wordlist is
+// job-scoped (is_ephemeral + owner_job_id) so it inherits the ephemeral cleanup and the
+// DirectoryMonitor __eph__ skip. The file is staged to a hidden dotfile and atomically
+// renamed into place, mirroring FilterWordlist.
+func (m *manager) MaterializeEphemeralWordlist(ctx context.Context, words []string, name string, ownerJobID uuid.UUID, userID uuid.UUID) (*models.Wordlist, error) {
+	if len(words) == 0 {
+		return nil, fmt.Errorf("cannot materialize an empty wordlist")
+	}
+
+	base := fsutil.SanitizeFilename(name)
+	if base == "" {
+		base = "loopback"
+	}
+	fileName := filepath.Join("custom", fmt.Sprintf("%s%s_%s.txt", EphemeralFilenamePrefix, base, uuid.New().String()[:8]))
+	dstPath := m.GetWordlistPath(fileName, "custom")
+
+	if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
+		return nil, err
+	}
+
+	tmpPath := filepath.Join(filepath.Dir(dstPath), "."+filepath.Base(dstPath)+".tmp")
+	out, err := os.Create(tmpPath)
+	if err != nil {
+		return nil, err
+	}
+	hash := md5.New()
+	writer := bufio.NewWriterSize(io.MultiWriter(out, hash), 1*1024*1024)
+
+	var count int64
+	var genErr error
+	for _, w := range words {
+		if ctx.Err() != nil {
+			genErr = ctx.Err()
+			break
+		}
+		if w == "" {
+			continue
+		}
+		// One candidate per line, normalized to '\n' endings.
+		if _, werr := writer.WriteString(w); werr != nil {
+			genErr = werr
+			break
+		}
+		if werr := writer.WriteByte('\n'); werr != nil {
+			genErr = werr
+			break
+		}
+		count++
+	}
+	if genErr == nil {
+		if ferr := writer.Flush(); ferr != nil {
+			genErr = ferr
+		}
+	}
+	if cerr := out.Close(); cerr != nil && genErr == nil {
+		genErr = cerr
+	}
+	if genErr != nil {
+		os.Remove(tmpPath)
+		if isNoSpaceErr(genErr) {
+			return nil, fmt.Errorf("ran out of disk space while materializing loopback wordlist: %w", genErr)
+		}
+		return nil, genErr
+	}
+	if count == 0 {
+		os.Remove(tmpPath)
+		return nil, fmt.Errorf("cannot materialize an empty wordlist (all words were blank)")
+	}
+	if err := os.Rename(tmpPath, dstPath); err != nil {
+		os.Remove(tmpPath)
+		return nil, err
+	}
+
+	var size int64
+	if info, statErr := os.Stat(dstPath); statErr == nil {
+		size = info.Size()
+	}
+
+	owner := ownerJobID
+	wl := &models.Wordlist{
+		Name:               name,
+		WordlistType:       "custom",
+		Format:             string(models.WordlistFormatPlaintext),
+		FileName:           fileName,
+		MD5Hash:            hex.EncodeToString(hash.Sum(nil)),
+		FileSize:           size,
+		WordCount:          count,
+		CreatedBy:          userID,
+		VerificationStatus: "verified",
+		IsEphemeral:        true,
+		OwnerJobID:         &owner,
+	}
+	if err := m.store.CreateWordlist(ctx, wl); err != nil {
+		os.Remove(dstPath)
+		return nil, err
+	}
+	debug.Info("Materialized ephemeral loopback wordlist %d (%s): %d words", wl.ID, fileName, count)
+	return wl, nil
 }
 
 // GenerateFilteredWordlist (re)materializes a filtered wordlist from its parent

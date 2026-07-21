@@ -23,7 +23,7 @@ func (r *JobExecutionRepository) ListWithPagination(ctx context.Context, limit, 
 				WHEN status IN ('preparing', 'pending', 'running', 'paused') THEN 0
 				ELSE 1
 			END,
-			-- Within active jobs: by priority DESC, created_at DESC (newest first within tier)
+			-- Within active jobs: by priority DESC, created_at ASC (FIFO: oldest first, matching scheduler run order)
 			CASE
 				WHEN status IN ('preparing', 'pending', 'running', 'paused') THEN priority
 				ELSE NULL
@@ -31,7 +31,7 @@ func (r *JobExecutionRepository) ListWithPagination(ctx context.Context, limit, 
 			CASE
 				WHEN status IN ('preparing', 'pending', 'running', 'paused') THEN created_at
 				ELSE NULL
-			END DESC,
+			END ASC,
 			-- Within completed jobs: by completed_at DESC (most recent first)
 			-- Use COALESCE to handle NULL completed_at (fallback to updated_at, then created_at)
 			CASE
@@ -140,7 +140,7 @@ func (r *JobExecutionRepository) ListWithFilters(ctx context.Context, limit, off
 			WHEN je.status IN ('preparing', 'pending', 'running', 'paused') THEN 0
 			ELSE 1
 		END,
-		-- Within active jobs: by priority DESC, created_at DESC (newest first within tier)
+		-- Within active jobs: by priority DESC, created_at ASC (FIFO: oldest first, matching scheduler run order)
 		CASE
 			WHEN je.status IN ('preparing', 'pending', 'running', 'paused') THEN je.priority
 			ELSE NULL
@@ -148,7 +148,7 @@ func (r *JobExecutionRepository) ListWithFilters(ctx context.Context, limit, off
 		CASE
 			WHEN je.status IN ('preparing', 'pending', 'running', 'paused') THEN je.created_at
 			ELSE NULL
-		END DESC,
+		END ASC,
 		-- Within completed jobs: by completed_at DESC (most recent first)
 		-- Use COALESCE to handle NULL completed_at (fallback to updated_at, then created_at)
 		CASE
@@ -631,7 +631,7 @@ func (r *JobExecutionRepository) ListWithFiltersAndUser(ctx context.Context, lim
 			WHEN je.status IN ('preparing', 'pending', 'running', 'paused') THEN 0
 			ELSE 1
 		END,
-		-- Within active jobs: by priority DESC, created_at DESC (newest first within tier)
+		-- Within active jobs: by priority DESC, created_at ASC (FIFO: oldest first, matching scheduler run order)
 		CASE
 			WHEN je.status IN ('preparing', 'pending', 'running', 'paused') THEN je.priority
 			ELSE NULL
@@ -639,7 +639,7 @@ func (r *JobExecutionRepository) ListWithFiltersAndUser(ctx context.Context, lim
 		CASE
 			WHEN je.status IN ('preparing', 'pending', 'running', 'paused') THEN je.created_at
 			ELSE NULL
-		END DESC,
+		END ASC,
 		-- Within completed jobs: by completed_at DESC (most recent first)
 		-- Use COALESCE to handle NULL completed_at (fallback to updated_at, then created_at)
 		CASE

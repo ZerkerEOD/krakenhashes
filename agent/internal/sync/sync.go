@@ -600,6 +600,19 @@ func (fs *FileSync) DownloadFileWithInfoRetry(ctx context.Context, fileInfo *Fil
 	var targetDir string
 	var finalPath string
 
+	// Acquire a download slot BEFORE any retryOrFailInfo can run, so that helper
+	// can always safely release/re-acquire the slot around its backoff (a
+	// repeatedly-failing or slow download must not pin a slot and starve
+	// task-critical downloads like the hashlist). Held for the whole attempt and
+	// released on every return by the defer below.
+	select {
+	case fs.sem <- struct{}{}:
+		defer func() { <-fs.sem }()
+	case <-ctx.Done():
+		debug.Error("Context cancelled while waiting for download slot: %v", ctx.Err())
+		return ctx.Err()
+	}
+
 	switch fileInfo.FileType {
 	case "wordlist":
 		// The backend includes the category in the Name field (e.g., "general/file.txt")
@@ -690,15 +703,6 @@ func (fs *FileSync) DownloadFileWithInfoRetry(ctx context.Context, fileInfo *Fil
 		return fmt.Errorf("unsupported file type: %s", fileInfo.FileType)
 	}
 
-	// Acquire semaphore slot
-	select {
-	case fs.sem <- struct{}{}:
-		defer func() { <-fs.sem }()
-	case <-ctx.Done():
-		debug.Error("Context cancelled while waiting for download slot: %v", ctx.Err())
-		return ctx.Err()
-	}
-
 	// Create parent directory for the final file path
 	parentDir := filepath.Dir(finalPath)
 	if err := os.MkdirAll(parentDir, 0750); err != nil {
@@ -776,6 +780,20 @@ func (fs *FileSync) DownloadFileWithInfoRetry(ctx context.Context, fileInfo *Fil
 			url = fmt.Sprintf("%s/api/files/%s/%s", fs.urlConfig.BaseURL, fileInfo.FileType, fileInfo.Name)
 		}
 	}
+	// The global potfile is continuously appended, so its recorded md5 only covers
+	// the prefix [0, Size). Ask the server for exactly that prefix (?bytes=N) so the
+	// downloaded bytes verify against fileInfo.MD5Hash (see the backend's bounded
+	// serve) instead of the larger current file — keeping verification meaningful
+	// without ever accepting a stale copy. Immutable files set Size == on-disk size,
+	// so bounding them is a harmless no-op.
+	if fileInfo.FileType == "wordlist" && strings.HasSuffix(fileInfo.Name, "potfile.txt") && fileInfo.Size > 0 {
+		sep := "?"
+		if strings.Contains(url, "?") {
+			sep = "&"
+		}
+		url = fmt.Sprintf("%s%sbytes=%d", url, sep, fileInfo.Size)
+	}
+
 	debug.Info("Downloading file from %s", url)
 
 	// Create request
@@ -910,11 +928,24 @@ func (fs *FileSync) retryOrFailInfo(ctx context.Context, fileInfo *FileInfo, ret
 	debug.Warning("Retrying download of %s in %v (attempt %d/%d): %v",
 		fileInfo.Name, delay, retryCount+2, fs.maxRetries+1, err)
 
+	// Release the download slot for the duration of the backoff + next attempt.
+	// This function is always reached while the caller (DownloadFileWithInfoRetry)
+	// holds one fs.sem slot; without this, a repeatedly-failing or slow download
+	// would pin that slot across every backoff sleep and nested retry, starving
+	// task-critical downloads (e.g. the hashlist) that share the same pool. The
+	// recursive DownloadFileWithInfoRetry re-acquires its own slot for the retry;
+	// we then re-acquire one here so the caller's deferred `<-fs.sem` stays balanced.
+	<-fs.sem
+	reacquire := func() { fs.sem <- struct{}{} }
+
 	select {
 	case <-time.After(delay):
-		return fs.DownloadFileWithInfoRetry(ctx, fileInfo, retryCount+1)
+		err := fs.DownloadFileWithInfoRetry(ctx, fileInfo, retryCount+1)
+		reacquire()
+		return err
 	case <-ctx.Done():
 		debug.Error("Context cancelled while waiting for retry: %v", ctx.Err())
+		reacquire()
 		return ctx.Err()
 	}
 }
@@ -964,9 +995,13 @@ func (fs *FileSync) SyncDirectory(ctx context.Context, fileType string) error {
 		go func(file FileListEntry) {
 			defer wg.Done()
 
-			// Acquire semaphore slot
-			fs.sem <- struct{}{}
-			defer func() { <-fs.sem }()
+			// NOTE: do NOT acquire fs.sem here. DownloadFileFromInfo ->
+			// DownloadFileWithInfoRetry already acquires a slot for the actual
+			// transfer. Acquiring here too made every download hold TWO slots,
+			// which both halved effective concurrency and could deadlock (with a
+			// pool of N, N goroutines holding the outer slot would all block
+			// forever on the inner acquire). The inner semaphore is the real
+			// concurrency bound; excess goroutines simply park on it.
 
 			debug.Info("Starting download for file: %s", file.Name)
 			fileInfo := &FileInfo{

@@ -99,6 +99,7 @@ export interface JobWorkflow {
   updated_at: string; // ISO 8601 date string
   steps?: JobWorkflowStep[]; // Optional, included in GetByID
   has_high_priority_override?: boolean; // True if any step has high priority override
+  loopback_all_eligible?: boolean; // Master loopback toggle (GH #64)
 }
 
 // Corresponds to models.JobWorkflowStep with PresetJobName always populated
@@ -114,6 +115,21 @@ export interface JobWorkflowStep {
   preset_job_binary_name?: string; // Resolved binary version name for display
   preset_job_wordlist_ids?: string[]; // Wordlist IDs as strings
   preset_job_rule_ids?: string[]; // Rule IDs as strings
+  loopback_enabled?: boolean; // Per-step loopback toggle (GH #64)
+}
+
+// A loopback step's attack is re-run against the delta only when its mutation is
+// separable from the wordlist: straight (0) WITH rules, or a hybrid (6/7) with a mask.
+export function isLoopbackEligible(attackMode?: AttackMode, ruleIds?: string[]): boolean {
+  switch (attackMode) {
+    case AttackMode.Straight:
+      return !!ruleIds && ruleIds.length > 0;
+    case AttackMode.HybridWordlistMask:
+    case AttackMode.HybridMaskWordlist:
+      return true;
+    default:
+      return false;
+  }
 }
 
 // Corresponds to models.PresetJobBasic - for selection in forms
@@ -121,6 +137,8 @@ export interface PresetJobBasic {
   id: string; // uuid.UUID
   name: string;
   allow_high_priority_override?: boolean;
+  attack_mode?: AttackMode; // For loopback eligibility (GH #64)
+  rule_ids?: string[]; // For loopback eligibility (GH #64)
 }
 
 // Form data response for job workflow forms
@@ -133,16 +151,58 @@ export interface JobWorkflowFormData {
   name: string;
   preset_job_ids: string[]; // Array of preset job UUIDs
   orderedJobs: PresetJobBasic[]; // For UI to manage order
+  loopback_all_eligible: boolean; // Master loopback toggle (GH #64)
+  loopback_preset_job_ids: string[]; // Preset IDs with per-step loopback enabled
 }
 
 // Request type for creating/updating job workflows
 export interface CreateWorkflowRequest {
   name: string;
   preset_job_ids: string[]; // Array of preset job UUIDs
+  loopback_all_eligible: boolean; // Master loopback toggle (GH #64)
+  loopback_preset_job_ids: string[]; // Subset of preset_job_ids with per-step loopback
 }
 
 // Alias for update, same structure
 export type UpdateWorkflowRequest = CreateWorkflowRequest;
+
+// --- Loopback sessions (GH #64) ---
+export type LoopbackSessionStatus =
+  | 'waiting'
+  | 'active'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+export type LoopbackSourceType = 'workflow' | 'preset' | 'custom';
+
+export interface LoopbackSessionJob {
+  id: number;
+  session_id: string;
+  job_execution_id: string;
+  round: number;
+  role: 'original' | 'rerun';
+  is_mutatable: boolean;
+  origin_job_id?: string;
+  created_at: string;
+  job_name?: string;
+  job_status?: string;
+}
+
+export interface LoopbackSession {
+  id: string;
+  hashlist_id: number;
+  source_type: LoopbackSourceType;
+  source_workflow_id?: string;
+  name: string;
+  status: LoopbackSessionStatus;
+  current_round: number;
+  max_rounds: number;
+  error_message?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+  jobs?: LoopbackSessionJob[];
+}
 
 // Corresponds to repository.PresetJobFormData
 export interface PresetJobFormDataResponse {

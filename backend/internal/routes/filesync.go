@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -131,13 +132,26 @@ func SetupFileDownloadRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, a
 		}
 		defer file.Close()
 
+		// A mutable, append-only file (the global potfile) may be requested as its
+		// first N bytes via ?bytes=N so the delivered bytes match the md5 recorded
+		// over that same prefix [0,N). Absent/invalid → serve the whole file (for
+		// immutable files N == fileSize, so this is a harmless no-op).
+		serveSize := fileSize
+		if b := r.URL.Query().Get("bytes"); b != "" {
+			if n, perr := strconv.ParseInt(b, 10, 64); perr == nil && n >= 0 && n <= fileSize {
+				serveSize = n
+			} else {
+				debug.Warning("Ignoring invalid ?bytes=%q for %s (file size %d)", b, filename, fileSize)
+			}
+		}
+
 		// Set headers
 		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(filename)))
 		w.Header().Set("Content-Type", contentType)
-		w.Header().Set("Content-Length", fmt.Sprintf("%d", fileSize))
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", serveSize))
 
-		// Stream file to response
-		if _, err := io.Copy(w, file); err != nil {
+		// Stream file to response (bounded to serveSize)
+		if _, err := io.CopyN(w, file, serveSize); err != nil && err != io.EOF {
 			debug.Error("Failed to stream file: %v", err)
 			// Can't send error response here as headers are already sent
 		}
@@ -256,13 +270,26 @@ func SetupFileDownloadRoutes(r *mux.Router, sqlDB *sql.DB, cfg *config.Config, a
 		}
 		defer file.Close()
 
+		// A mutable, append-only file (the global potfile) may be requested as its
+		// first N bytes via ?bytes=N so the delivered bytes match the md5 recorded
+		// over that same prefix [0,N). Absent/invalid → serve the whole file (for
+		// immutable files N == fileSize, so this is a harmless no-op).
+		serveSize := fileSize
+		if b := r.URL.Query().Get("bytes"); b != "" {
+			if n, perr := strconv.ParseInt(b, 10, 64); perr == nil && n >= 0 && n <= fileSize {
+				serveSize = n
+			} else {
+				debug.Warning("Ignoring invalid ?bytes=%q for %s (file size %d)", b, filename, fileSize)
+			}
+		}
+
 		// Set headers
 		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(filename)))
 		w.Header().Set("Content-Type", contentType)
-		w.Header().Set("Content-Length", fmt.Sprintf("%d", fileSize))
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", serveSize))
 
-		// Stream file to response
-		if _, err := io.Copy(w, file); err != nil {
+		// Stream file to response (bounded to serveSize)
+		if _, err := io.CopyN(w, file, serveSize); err != nil && err != io.EOF {
 			debug.Error("Failed to stream file: %v", err)
 			// Can't send error response here as headers are already sent
 		}

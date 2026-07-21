@@ -21,6 +21,9 @@ func TestClassify(t *testing.T) {
 		{"no platform", "ATTENTION! No OpenCL, HIP or CUDA compatible platform found", CategoryAgentPersistent},
 		{"cuda init", "cuInit(): no CUDA-capable device is detected", CategoryAgentPersistent},
 		{"zero speed", "BENCHMARK_ZERO_SPEED: every device reported 0 H/s", CategoryAgentPersistent},
+		{"typed autotune retryable", "AGENT_AUTOTUNE: kernel autotune failure skipped the device before any candidates were tested (hashcat exit 0)", CategoryAgentTransient},
+		{"typed no work", "AGENT_NO_WORK: hashcat exited 0 without processing any candidates (no status ever reported)", CategoryAgentTransient},
+		{"bare autotune stays persistent", "Aborting session due to kernel autotune failures, for all active devices", CategoryAgentPersistent},
 		{"invalid mask", "Invalid mask '?z' in mask-file", CategoryJobConfig},
 		{"unknown", "something totally unexpected happened", CategoryUnknown},
 	}

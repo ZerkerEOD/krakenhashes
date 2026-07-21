@@ -155,6 +155,18 @@ Hash 1 is tested against "user1birthday2020", hash 2 against "user2petname!", et
 
 See [Association Wordlists](hashlists.md#association-wordlists-v140) for how to upload and manage association wordlists.
 
+## Loopback: Re-run Against New Cracks
+
+For rule-based and hybrid attacks, KrakenHashes can automatically feed the passwords an
+attack just cracked back into its mutation — applying your rules or hybrid mask to only the
+**newly-cracked** plaintexts, round after round, until nothing new turns up. It's a cheap way
+to catch pattern reuse (`Summer2024` → `Summer2024!`) without re-running the whole wordlist.
+
+Enable it with the **"Loopback until dry"** toggle when launching a preset or custom job, or
+configure it on a workflow so eligible steps loop automatically.
+
+See [Loopback](loopback.md) for the full guide.
+
 ## Understanding Priorities
 
 Jobs within workflows run in priority order:

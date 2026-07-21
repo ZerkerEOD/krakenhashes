@@ -64,7 +64,7 @@ func (r *JobExecutionRepository) GetJobsByWordlistID(ctx context.Context, wordli
 			base_keyspace, effective_keyspace, multiplication_factor,
 			overall_progress_percent,
 			dispatched_keyspace, chunk_size_seconds, rule_ids,
-			wordlist_ids
+			wordlist_ids, COALESCE(increment_mode, '')
 		FROM job_executions
 		WHERE wordlist_ids @> to_jsonb(ARRAY[$1::text]) AND status IN ('pending', 'running', 'paused')`
 
@@ -85,7 +85,7 @@ func (r *JobExecutionRepository) GetJobsByWordlistID(ctx context.Context, wordli
 			&job.BaseKeyspace, &job.EffectiveKeyspace,
 			&job.MultiplicationFactor,
 			&job.OverallProgressPercent, &job.DispatchedKeyspace, &job.ChunkSizeSeconds,
-			&job.RuleIDs, &job.WordlistIDs,
+			&job.RuleIDs, &job.WordlistIDs, &job.IncrementMode,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan job execution: %w", err)

@@ -65,14 +65,24 @@ interface JobWorkflow {
   name: string;
   description?: string;
   has_high_priority_override?: boolean;
+  loopback_all_eligible?: boolean; // GH #64
   steps?: Array<{
     id: number;
     preset_job_id: string;
     step_order: number;
     preset_job_name?: string;
     allow_high_priority_override?: boolean;
+    loopback_enabled?: boolean; // GH #64
   }>;
 }
+
+// A loopback re-runs an attack's mutation against only the newly-cracked plaintexts.
+// Eligible: straight (0) WITH rules, or a hybrid (6/7) with a mask. Everything else
+// (wordlist-only, brute-force, combinator, association) is not re-run (GH #64).
+const isLoopbackEligibleMode = (attackMode: number, ruleIds?: string[]): boolean => {
+  if (attackMode === 0) return !!ruleIds && ruleIds.length > 0;
+  return attackMode === 6 || attackMode === 7;
+};
 
 interface ClientWordlist {
   id: string;
@@ -176,6 +186,10 @@ export default function CreateJobDialog({
   // Ephemeral wordlist filtering (GH #40) — applies to wordlist-based attacks only.
   const [filterEnabled, setFilterEnabled] = useState(false);
   const [customFilter, setCustomFilter] = useState<WordlistFilter>({});
+
+  // Loopback (GH #64) — per-run toggle for preset and custom jobs.
+  const [presetLoopback, setPresetLoopback] = useState(false);
+  const [customLoopback, setCustomLoopback] = useState(false);
 
   // Saved charsets for picker
   const [savedCharsets, setSavedCharsets] = useState<CustomCharset[]>([]);
@@ -304,7 +318,8 @@ export default function CreateJobDialog({
         payload = {
           type: 'preset',
           preset_job_ids: selectedPresetJobs,
-          custom_job_name: customJobName
+          custom_job_name: customJobName,
+          loopback: presetLoopback
         };
       } else if (tabValue === 2) {
         // Custom job
@@ -370,6 +385,13 @@ export default function CreateJobDialog({
         // Attach an ephemeral wordlist filter for wordlist-based attacks (GH #40).
         if (filterEnabled && [0, 1, 6, 7].includes(customJob.attack_mode) && !isFilterEmpty(customFilter)) {
           customJobPayload.filter = customFilter;
+        }
+
+        // Loopback (GH #64): re-run the mutation against newly-cracked plaintexts until
+        // dry. Not combined with the ephemeral filter (the filter path is a no-op for
+        // loopback), and only meaningful for mutatable attacks.
+        if (customLoopback && !filterEnabled && isLoopbackEligibleMode(customJob.attack_mode, customJob.rule_ids)) {
+          customJobPayload.loopback = true;
         }
 
         payload = {
@@ -450,6 +472,9 @@ export default function CreateJobDialog({
       // Reset ephemeral filter state
       setFilterEnabled(false);
       setCustomFilter({});
+      // Reset loopback state (GH #64)
+      setPresetLoopback(false);
+      setCustomLoopback(false);
       // Reset combination wordlist state
       setCombWordlist1('');
       setCombWordlist2('');
@@ -526,6 +551,7 @@ export default function CreateJobDialog({
                     />
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                       Select one or more workflows to run. You can select multiple workflows - each will create its own sequence of job executions.
+                      Loopback settings are configured in the workflow itself — a workflow tagged “Loopback” will automatically re-run its eligible steps against newly-cracked passwords.
                     </Typography>
                     <List>
                       {workflows.map((workflow) => (
@@ -561,6 +587,15 @@ export default function CreateJobDialog({
                                     label={`${workflow.steps?.length || 0} jobs`}
                                     sx={{ mr: 1 }}
                                   />
+                                  {workflow.loopback_all_eligible && (
+                                    <Chip
+                                      size="small"
+                                      color="secondary"
+                                      variant="outlined"
+                                      label="Loopback: all eligible"
+                                      sx={{ mr: 1 }}
+                                    />
+                                  )}
                                   {workflow.has_high_priority_override && (
                                     <Chip
                                       size="small"
@@ -610,6 +645,35 @@ export default function CreateJobDialog({
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                       Select one or more preset jobs to run. You can select multiple jobs - they will be created as separate job executions.
                     </Typography>
+                    {/* Loopback toggle (GH #64) kept ABOVE the preset list so it's visible
+                        without scrolling past a long list. Enables once an eligible preset
+                        (straight + rules, or a hybrid) is selected. */}
+                    {(() => {
+                      const anyEligible = selectedPresetJobs.some(id => {
+                        const p = presetJobs.find(j => j.id === id);
+                        return p ? isLoopbackEligibleMode(p.attack_mode, p.rule_ids) : false;
+                      });
+                      const helper = anyEligible
+                        ? 'Runs the selected job(s), then re-runs the mutatable ones (straight + rules, or a hybrid attack) against only the newly-cracked passwords — repeating until no new cracks are found.'
+                        : selectedPresetJobs.length === 0
+                          ? 'Select an eligible preset (straight + rules, or a hybrid attack) below to enable loopback.'
+                          : 'None of the selected jobs have a mutation to loop back (they are wordlist-only, brute-force or association).';
+                      return (
+                        <Box sx={{ mb: 2, p: 2, borderRadius: 1, bgcolor: 'action.hover' }}>
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                checked={presetLoopback && anyEligible}
+                                disabled={!anyEligible}
+                                onChange={(e) => setPresetLoopback(e.target.checked)}
+                              />
+                            }
+                            label="Loopback until dry"
+                          />
+                          <FormHelperText>{helper}</FormHelperText>
+                        </Box>
+                      );
+                    })()}
                     <List>
                       {presetJobs.map((job) => (
                         <ListItem
@@ -1121,6 +1185,27 @@ export default function CreateJobDialog({
                           />
                         </Box>
                       )}
+                    </Grid>
+                  )}
+
+                  {/* Loopback (GH #64) - mutatable attacks only */}
+                  {isLoopbackEligibleMode(customJob.attack_mode, customJob.rule_ids) && (
+                    <Grid item xs={12}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={customLoopback && !filterEnabled}
+                            disabled={filterEnabled}
+                            onChange={(e) => setCustomLoopback(e.target.checked)}
+                          />
+                        }
+                        label="Loopback until dry"
+                      />
+                      <FormHelperText>
+                        {filterEnabled
+                          ? 'Loopback is unavailable while pre-filtering is enabled for this job.'
+                          : 'Runs this attack, then re-runs its mutation (rules or mask) against only the newly-cracked passwords — repeating until no new cracks are found.'}
+                      </FormHelperText>
                     </Grid>
                   )}
 

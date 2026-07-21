@@ -88,6 +88,18 @@ func (s *JobUpdateService) HandleWordlistUpdate(ctx context.Context, wordlistID 
 		s.lockJob(job.ID.String())
 		defer s.unlockJob(job.ID.String())
 
+		// Increment-mode jobs track keyspace PER LAYER; the job-level
+		// base_keyspace/effective_keyspace are a derived sum maintained by the
+		// progress calculator (calculateIncrementJobProgress). Rewriting them here
+		// with a single wordlist line-count would clobber the layer sums with a
+		// single-mask value and never touch the layers — exactly the drift that
+		// made an increment job's effective_keyspace (denominator) diverge from
+		// Σ layer effective. Leave increment jobs to their per-layer accounting.
+		if job.IncrementMode != "" && job.IncrementMode != "off" {
+			debug.Info("Wordlist update: job %s is increment-mode; keyspace is tracked per layer — skipping job-level keyspace rewrite", job.ID)
+			continue
+		}
+
 		// Forward-only guard: if every word of the CURRENT base keyspace has
 		// already been dispatched (max(keyspace_end) across non-failed tasks >=
 		// base_keyspace), the job has no undispatched work left. Appending to the

@@ -15,6 +15,7 @@ import {
   PresetJobInput,
   PresetJobApiData,
   JobWorkflowFormDataResponse,
+  LoopbackSession,
 } from '../types/adminJobs';
 import { AgentSchedule, AgentScheduleDTO, AgentSchedulingInfo } from '../types/scheduling';
 import { AgentWithTask } from '../types/agent';
@@ -569,6 +570,13 @@ export const updateJobWorkflow = async (id: string, data: UpdateWorkflowRequest)
 
 export const deleteJobWorkflow = async (id: string): Promise<void> => {
   await api.delete(`/api/admin/job-workflows/${id}`);
+};
+
+// --- Loopback sessions (GH #64) ---
+
+export const getLoopbackSessions = async (): Promise<LoopbackSession[]> => {
+  const response = await api.get<LoopbackSession[]>('/api/loopback-sessions');
+  return response.data || [];
 };
 
 // --- Agent Management ---

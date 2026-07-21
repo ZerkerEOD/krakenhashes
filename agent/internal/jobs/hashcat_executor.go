@@ -44,7 +44,23 @@ const (
 	taskErrOOM      = "AGENT_OOM"       // out of (GPU) memory
 	taskErrDiskFull = "AGENT_DISK_FULL" // no space left on device
 	taskErrWatchdog = "GPU_WATCHDOG"    // GPU watchdog / thermal alarm
+	taskErrAutotune = "AGENT_AUTOTUNE"  // kernel autotune failed → device skipped, nothing ran (retryable with --force)
+	taskErrNoWork   = "AGENT_NO_WORK"   // hashcat exited 0 but never processed any candidates
 )
+
+// isAutotuneSkip reports whether a hashcat output line indicates a kernel
+// autotune failure that skips the device. On some GPUs a tiny job trips
+// "Kernel minimum runtime larger than default TDR" → "Aborting session due to
+// kernel autotune failures, for all active devices." → "Device #N: skipped, due
+// to kernel autotune failure (-4)", after which hashcat exits 0 having tested
+// nothing. We detect this to avoid mis-reporting the task completed and to retry
+// with --force (which bypasses autotune). Checked on both stdout and stderr
+// because hashcat may route these lines to either.
+func isAutotuneSkip(line string) bool {
+	l := strings.ToLower(line)
+	return strings.Contains(l, "kernel autotune failure") ||
+		strings.Contains(l, "aborting session due to kernel autotune failures")
+}
 
 // classifyHashcatStderr maps a single hashcat stderr/stdout line to a task error
 // code, or "" if the line carries no recognized fault. Checked most-specific
@@ -72,8 +88,27 @@ func classifyHashcatStderr(line string) string {
 		strings.Contains(l, "cuinit") ||
 		strings.Contains(l, "no cuda-capable device"):
 		return taskErrDriver
-	case strings.Contains(l, "watchdog"):
+	case strings.Contains(l, "watchdog") ||
+		strings.Contains(l, "temperature limit"):
+		// GPU watchdog alarm or a thermal-limit abort ("Temperature limit on GPU
+		// #N reached, aborting"). Both stop the device mid-run; hashcat may then
+		// exit 1 ("exhausted") despite not finishing — see DeviceAbort handling.
 		return taskErrWatchdog
+	case strings.Contains(l, "memory access fault") ||
+		strings.Contains(l, "page not present or supervisor privilege"):
+		// A hard GPU driver crash mid-run — e.g. AMD ROCm/amdgpu "Memory access
+		// fault by GPU node-N (...) on address (nil). Reason: Page not present or
+		// supervisor privilege." This is a device crash, not thermal, but it's
+		// still a device abort: the GPU stops and hashcat may exit 1 ("exhausted")
+		// with progress[0] < progress[1]. Reuse taskErrWatchdog so it (a) sets
+		// DeviceAbort → the exit handler fails-not-completes and the unsearched
+		// remainder re-dispatches from the recovery point instead of counting as
+		// done, and (b) classifies transient so the agent is re-dispatched, not
+		// quarantined. NB "memory access fault" is distinct from OOM ("out of
+		// memory") above, so it lands here, not there.
+		return taskErrWatchdog
+	case isAutotuneSkip(line):
+		return taskErrAutotune
 	}
 	return ""
 }
@@ -85,6 +120,19 @@ func (p *HashcatProcess) noteStderr(line string) {
 	code := classifyHashcatStderr(line)
 	if code == "" {
 		return
+	}
+	if code == taskErrAutotune {
+		// Separate, dedicated signal: the exit-code handler consults this to
+		// avoid fake-completing a run where the device was skipped, and the
+		// executor uses it to add --force to subsequent runs.
+		p.AutotuneSkipped.Store(true)
+	}
+	if code == taskErrWatchdog {
+		// A thermal/watchdog abort stops the device mid-run; hashcat can still
+		// exit 1 ("exhausted") with progress[0] < progress[1]. The exit-code
+		// handler consults this to fail-not-complete so the unsearched remainder
+		// re-dispatches from the recovery point instead of counting as complete.
+		p.DeviceAbort.Store(true)
 	}
 	p.mutex.Lock()
 	if p.detectedErrorCode == "" {
@@ -109,6 +157,22 @@ func (p *HashcatProcess) taskFailureMessage(exitCode int, generic string) string
 		return fmt.Sprintf("%s: %s (hashcat exit %d)", code, line, exitCode)
 	}
 	return fmt.Sprintf("%s (hashcat exit %d)", code, exitCode)
+}
+
+// keyspaceExhausted reports whether the last captured hashcat status confirms the
+// task processed its ENTIRE assigned keyspace — progress[0] reached progress[1].
+// A genuine "exhausted" exit has them equal; a device that aborted mid-run
+// (thermal/watchdog) leaves progress[0] < progress[1]. Returns false when no
+// status carrying the total was ever captured (nothing is confirmed). Read
+// without a lock: the exit-code handler runs only after the output-reader
+// goroutines have joined, so LastProgress is stable by then (same as the other
+// LastProgress reads in that handler).
+func (p *HashcatProcess) keyspaceExhausted() bool {
+	lp := p.LastProgress
+	if lp == nil || lp.TotalEffectiveKeyspace == nil {
+		return false
+	}
+	return lp.EffectiveProgress >= *lp.TotalEffectiveKeyspace
 }
 
 // AttackMode represents hashcat attack modes
@@ -299,6 +363,14 @@ type HashcatExecutor struct {
 	// Agent's default extra parameters for hashcat
 	agentExtraParams string
 
+	// forceKernel is set true (sticky, agent-session-wide) the first time any
+	// task is skipped by a kernel autotune failure. Once set, every subsequent
+	// hashcat run (tasks and speed tests, which share the command builder) is
+	// launched with --force to bypass autotune, so tiny jobs stop re-failing.
+	// --force also suppresses hashcat's self-test, so we only enable it AFTER an
+	// observed autotune failure — never speculatively.
+	forceKernel atomic.Bool
+
 	// Crack batching - reduces message flood when many hashes crack simultaneously
 	crackBatchMutex    sync.Mutex
 	crackBatchBuffers  map[string][]CrackedHash // Buffer per task ID
@@ -349,7 +421,10 @@ type HashcatProcess struct {
 
 	// Error tracking
 	AlreadyRunningError     bool
-	HashcatRejectedHashlist atomic.Bool // set when stderr/stdout indicates "No hashes loaded" / "Hash parsing error" / etc. → fast-fail the job
+	HashcatRejectedHashlist atomic.Bool  // set when stderr/stdout indicates "No hashes loaded" / "Hash parsing error" / etc. → fast-fail the job
+	AutotuneSkipped         atomic.Bool  // set when hashcat skipped the device on kernel autotune failure (session aborted, nothing ran) → fail-not-complete + retry with --force
+	DeviceAbort             atomic.Bool  // set when a device aborted mid-run (thermal/watchdog). hashcat may then exit 1 ("exhausted") with progress[0] < progress[1]; treat as a failure (not completion) so the unsearched remainder re-dispatches from the recovery point
+	cracksReported          atomic.Int64 // cumulative cracks captured for this task; a nonzero count proves the run did real work even if no final status JSON was captured
 	// detectedErrorCode/Line capture the first recognized agent-local fault
 	// (OOM, no-device, driver, disk, watchdog) seen in hashcat output, so the
 	// exit-code handler can tag the failure with a typed code for the backend.
@@ -714,6 +789,26 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 	if mergedArgs != "" {
 		debug.Info("Adding merged extra parameters: %s (job: %s, agent: %s)", mergedArgs, assignment.JobAdditionalArgs, agentArgs)
 		args = append(args, strings.Fields(mergedArgs)...)
+	}
+
+	// Surgical autotune remediation: once any task on this agent has been
+	// skipped by a kernel autotune failure, carry --force on every subsequent
+	// hashcat run so tiny jobs stop autotune-aborting. Only added after such a
+	// failure is observed (forceKernel is set in the exit handler), never
+	// speculatively, because --force also disables hashcat's correctness
+	// self-test. Skip if the user already supplied --force to avoid a duplicate.
+	if e.forceKernel.Load() {
+		hasForce := false
+		for _, a := range args {
+			if a == "--force" {
+				hasForce = true
+				break
+			}
+		}
+		if !hasForce {
+			args = append(args, "--force")
+			debug.Info("Adding --force (agent previously detected a kernel autotune skip)")
+		}
 	}
 
 	// Add increment flags for mask-based attacks
@@ -1128,6 +1223,13 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 			line := scanner.Text()
 			lineCount++
 			debug.Debug("[Hashcat stdout raw] %s", line)
+
+			// Autotune-skip can surface on stdout (the stderr reader also watches
+			// for it). Setting this flag lets the exit handler avoid mis-reporting
+			// a skipped run as completed and trips the --force retry.
+			if isAutotuneSkip(line) {
+				process.AutotuneSkipped.Store(true)
+			}
 
 			// Store original line for outputCallback
 			originalLine := line
@@ -1589,6 +1691,18 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 			e.flushCrackBatch(process)
 		}
 
+		// If any device was skipped by a kernel autotune failure this run, switch
+		// the agent to --force for every subsequent run (and this task's retry).
+		// Centralized here so it fires no matter which exit path we take —
+		// autotune can surface as exit 0 (handled by reportNoWorkIfIdle) or as an
+		// abort exit code (2-5), and both must set the flag for the monitor's
+		// --force retry to actually help.
+		if process.AutotuneSkipped.Load() {
+			if e.forceKernel.CompareAndSwap(false, true) {
+				debug.Warning("Kernel autotune skip detected for task %s — enabling --force for all subsequent hashcat runs on this agent", process.TaskID)
+			}
+		}
+
 		if err != nil {
 			// Step 11t: detect signal-killed hashcat (SIGINT from Ctrl+C
 			// propagating through the process group, SIGTERM/SIGKILL from
@@ -1636,7 +1750,13 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 
 				switch exitCode {
 				case 0:
-					// OK/cracked - normal completion
+					// OK/cracked - normal completion. But a clean exit with no
+					// status ever captured means no device processed candidates
+					// (e.g. a kernel autotune abort that still exits 0). Fail
+					// instead of fake-completing so the work isn't lost.
+					if e.reportNoWorkIfIdle(process, exitCode) {
+						break
+					}
 					debug.Info("Hashcat completed with OK/cracked status for task %s", process.TaskID)
 					// Use the last progress percentage if available, otherwise 100%
 					progressPercent := 100.0
@@ -1663,6 +1783,19 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 					e.sendProgressUpdate(process, finalProgress, "completed")
 
 				case 1:
+					// Exit 1 = "exhausted". But a device that aborted mid-run
+					// (thermal/watchdog) also exits 1 while its restore_point /
+					// progress[0] never reached progress[1]. Do NOT fake-complete
+					// that — it would count unsearched keyspace as done and lose
+					// work (and cracks). Fail it (transient) instead so the backend
+					// closes out coverage up to the last recovery point and
+					// re-dispatches the remainder from there. A genuine exhaustion
+					// (progress[0] == progress[1]) still completes below.
+					if process.DeviceAbort.Load() && !process.keyspaceExhausted() {
+						debug.Warning("Task %s: hashcat exit 1 (exhausted) after a device abort but the keyspace was NOT confirmed complete — failing so the unsearched remainder re-dispatches from the recovery point", process.TaskID)
+						e.sendErrorProgress(process, process.taskFailureMessage(exitCode, taskErrWatchdog+": device aborted before exhausting keyspace (thermal/watchdog)"))
+						break
+					}
 					// Exhausted - normal completion, keyspace fully processed
 					debug.Info("Hashcat exhausted keyspace for task %s", process.TaskID)
 					// Exhausted means 100% complete
@@ -1738,8 +1871,11 @@ func (e *HashcatExecutor) runHashcatProcess(ctx context.Context, process *Hashca
 			} else {
 				e.sendErrorProgress(process, fmt.Sprintf("Hashcat process failed: %v", err))
 			}
-		} else {
-			// Process completed successfully with exit code 0
+		} else if !e.reportNoWorkIfIdle(process, 0) {
+			// Process completed successfully with exit code 0.
+			// reportNoWorkIfIdle returned false, so a device actually ran and
+			// reported progress — report the genuine completion. (A clean exit
+			// with no status ever captured is failed there, not fake-completed.)
 			debug.Info("Hashcat completed successfully with exit code 0 (OK/cracked) for task %s", process.TaskID)
 			// Use the last progress values if available
 			progressPercent := 100.0
@@ -1793,6 +1929,41 @@ func (e *HashcatExecutor) sendErrorProgress(process *HashcatProcess, errorMsg st
 	e.sendProgressUpdate(process, progress, "failed")
 }
 
+// reportNoWorkIfIdle guards the "hashcat exited cleanly but no device processed
+// any candidates" case. hashcat can exit 0 (OK/cracked) yet never emit a single
+// status line when the session was aborted before running — most commonly a
+// kernel autotune failure that skips the device. Reporting such a run as
+// completed would silently under-crack the job (this truncated a loopback chain
+// one hash short during testing). When LastProgress is nil we therefore fail the
+// task instead: if an autotune skip was detected we flag the executor to add
+// --force to future runs and tag AGENT_AUTOTUNE so the monitor retries with
+// --force; otherwise we tag AGENT_NO_WORK so the backend re-dispatches.
+//
+// Returns true if it handled (failed) the task; false if the run actually
+// produced progress and the caller should report it completed. On a multi-GPU
+// agent where one device autotune-skipped but another ran to completion,
+// LastProgress is non-nil (real work happened) so the task completes normally,
+// but forceKernel is still set so the skipped device participates next time.
+func (e *HashcatExecutor) reportNoWorkIfIdle(process *HashcatProcess, exitCode int) bool {
+	if process.LastProgress != nil || process.cracksReported.Load() > 0 {
+		// A device ran and reported at least one status, or the run captured
+		// cracks — either way it did real work, so let the caller complete it.
+		return false
+	}
+	// forceKernel was already set upstream (centralized autotune check) if this
+	// run tripped autotune; here we only choose the failure message.
+	if process.AutotuneSkipped.Load() {
+		msg := process.taskFailureMessage(exitCode, taskErrAutotune+": kernel autotune failure skipped the device before any candidates were tested")
+		debug.Error("[Task %s] %s — failing task; subsequent runs on this agent will use --force", process.TaskID, msg)
+		e.sendErrorProgress(process, msg)
+		return true
+	}
+	msg := fmt.Sprintf("%s: hashcat exited %d without processing any candidates (no status ever reported)", taskErrNoWork, exitCode)
+	debug.Error("[Task %s] %s — failing task instead of reporting a no-op completion", process.TaskID, msg)
+	e.sendErrorProgress(process, msg)
+	return true
+}
+
 // addCrackToBatch adds a cracked hash to the batch buffer for the given task.
 // Batches are flushed after 500ms timer OR when buffer reaches 10k cracks (WebSocket limit).
 // This balances efficiency with WebSocket message size constraints.
@@ -1809,6 +1980,11 @@ func (e *HashcatExecutor) addCrackToBatch(process *HashcatProcess, cracked *Crac
 
 	// Add crack to buffer
 	e.crackBatchBuffers[taskID] = append(e.crackBatchBuffers[taskID], *cracked)
+
+	// Count it: a nonzero total proves this task did real work, so the exit
+	// handler won't mistake a fast crack-then-exit (that raced past its final
+	// status line) for a no-op run.
+	process.cracksReported.Add(1)
 
 	// Flush immediately if buffer reaches 10k cracks (WebSocket message size limit)
 	// Otherwise let the timer handle batching naturally
@@ -2130,6 +2306,12 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 				strings.Contains(line, "Separator unmatched") {
 				hashcatRejectedHashlist.Store(true)
 			}
+			// A benchmark can also trip a kernel autotune skip on tiny/flaky
+			// devices. Set the sticky force flag so a retry of this benchmark —
+			// and every subsequent run — is launched with --force to bypass it.
+			if isAutotuneSkip(line) {
+				e.forceKernel.Store(true)
+			}
 			var jsonPart string
 			if strings.Contains(line, ":") && strings.Contains(line, "{") && strings.Contains(line, "\"status\"") {
 				jsonStart := strings.Index(line, "{")
@@ -2162,6 +2344,11 @@ func (e *HashcatExecutor) RunSpeedTest(ctx context.Context, assignment *JobTaskA
 			// timeout path returns the typed sentinel.
 			if strings.Contains(line, "No hashes loaded") {
 				hashcatRejectedHashlist.Store(true)
+			}
+			// See the stdout reader: a kernel autotune skip during the benchmark
+			// sets the sticky force flag so the retry uses --force.
+			if isAutotuneSkip(line) {
+				e.forceKernel.Store(true)
 			}
 		}
 	}()

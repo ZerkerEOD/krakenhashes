@@ -228,10 +228,16 @@ func (s *JobProgressCalculationService) calculateIncrementJobProgress(ctx contex
 	var totalProcessedKeyspace models.BigInt
 	var totalDispatchedKeyspace models.BigInt
 	var totalEffectiveKeyspace models.BigInt
+	var totalProcessedBaseKeyspace int64
+	var totalBaseKeyspace int64
 
 	for _, layer := range layers {
 		totalProcessedKeyspace = totalProcessedKeyspace.Add(layer.ProcessedKeyspace)
 		totalDispatchedKeyspace = totalDispatchedKeyspace.Add(layer.DispatchedKeyspace)
+		totalProcessedBaseKeyspace += layer.ProcessedBaseKeyspace
+		if layer.BaseKeyspace != nil {
+			totalBaseKeyspace += *layer.BaseKeyspace
+		}
 		if layer.EffectiveKeyspace != nil {
 			totalEffectiveKeyspace = totalEffectiveKeyspace.Add(*layer.EffectiveKeyspace)
 		} else if layer.BaseKeyspace != nil {
@@ -239,13 +245,49 @@ func (s *JobProgressCalculationService) calculateIncrementJobProgress(ctx contex
 		}
 	}
 
-	// Calculate overall progress percentage
+	// Self-heal: while the job is ACTIVE, keep the JOB row's base/effective keyspace
+	// equal to the sum of its layers. For increment jobs the layers are the source of
+	// truth; the job-level values are a derived aggregate the frontend keyspace bar
+	// uses as its denominator. Other writers can clobber these single columns with
+	// single-mask values without touching the layers (e.g. HandleWordlistUpdate on a
+	// growing potfile, or a job-targeted benchmark) — recompute them from Σ layer every
+	// cycle so the bar and progress % stay consistent. Conditional writes avoid churn.
+	//
+	// Skip once completed: CompleteJobExecution owns the terminal effective_keyspace
+	// (it syncs effective DOWN to processed on an all-cracked early completion so the
+	// job reads 100%). Re-asserting Σ layer here in the 15s post-completion poll window
+	// would fight that and make a done job read <100%.
+	if job.Status != models.JobExecutionStatusCompleted {
+		if totalBaseKeyspace > 0 && (job.BaseKeyspace == nil || *job.BaseKeyspace != totalBaseKeyspace) {
+			if err := s.jobExecRepo.UpdateBaseKeyspace(ctx, job.ID, totalBaseKeyspace); err != nil {
+				debug.Warning("Failed to sync increment job %s base_keyspace to layer sum %d: %v", job.ID, totalBaseKeyspace, err)
+			}
+		}
+		if totalEffectiveKeyspace.IsPositive() && (job.EffectiveKeyspace == nil || job.EffectiveKeyspace.Cmp(totalEffectiveKeyspace) != 0) {
+			if err := s.jobExecRepo.UpdateEffectiveKeyspace(ctx, job.ID, totalEffectiveKeyspace); err != nil {
+				debug.Warning("Failed to sync increment job %s effective_keyspace to layer sum %s: %v", job.ID, totalEffectiveKeyspace.String(), err)
+			}
+		}
+	}
+
+	// Overall progress percentage — base-driven, matching calculateRegularJobProgress.
+	// Base keyspace is the invariant coverage dimension (Σ layer base_keyspace ==
+	// job.BaseKeyspace) and is structurally <= 100%, so the increment display no longer
+	// drifts past 100% when hashcat's real effective candidate count exceeds the
+	// init-time --total-candidates / mask-math estimate. The effective sums are kept
+	// only for the processed/dispatched candidate-count display.
 	progressPercent := 0.0
-	if totalEffectiveKeyspace.IsPositive() {
+	if totalBaseKeyspace > 0 {
+		progressPercent = float64(totalProcessedBaseKeyspace) / float64(totalBaseKeyspace) * 100
+		if progressPercent > 100 {
+			// Transient in-flight restore_point overshoot; clamp quietly (base
+			// coverage can't genuinely exceed the summed layer keyspace).
+			progressPercent = 100
+		}
+	} else if totalEffectiveKeyspace.IsPositive() {
+		// No base keyspace (should not happen post-init) — fall back to effective.
 		progressPercent = float64(totalProcessedKeyspace.Int64()) / float64(totalEffectiveKeyspace.Int64()) * 100
 		if progressPercent > 100 {
-			debug.Warning("Job %s progress exceeds 100%% (%.3f%%), capping at 100%%. Processed: %s, Effective: %s",
-				job.ID, progressPercent, totalProcessedKeyspace.String(), totalEffectiveKeyspace.String())
 			progressPercent = 100
 		}
 	}
@@ -278,6 +320,13 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 
 		var lastEnd int64 = 0
 		for _, task := range sortedTasks {
+			// Failed/cancelled tasks have their keyspace interval reopened as a gap
+			// and re-dispatched, so a stale [start,end) row must NOT count as an
+			// overlap against the fresh task covering the same range. Skip them,
+			// matching the coverage math below which also excludes these.
+			if task.Status == models.JobTaskStatusFailed || task.Status == models.JobTaskStatusCancelled {
+				continue
+			}
 			if task.KeyspaceStart < lastEnd && task.KeyspaceEnd > 0 {
 				debug.Error("OVERLAP DETECTED in job %s: task %s starts at %d but previous task ended at %d (overlap: %d)",
 					job.ID, task.ID, task.KeyspaceStart, lastEnd, lastEnd-task.KeyspaceStart)
@@ -451,6 +500,11 @@ func (s *JobProgressCalculationService) calculateAndUpdateLayerProgress(ctx cont
 
 		var lastEnd int64 = 0
 		for _, task := range layerTasks {
+			// Skip failed/cancelled tasks: their interval is reopened and
+			// re-dispatched, so a stale row must not trip a false overlap.
+			if task.Status == models.JobTaskStatusFailed || task.Status == models.JobTaskStatusCancelled {
+				continue
+			}
 			if task.KeyspaceStart < lastEnd && task.KeyspaceEnd > 0 {
 				debug.Error("OVERLAP DETECTED in layer %s (job %s): task %s starts at %d but previous task ended at %d (overlap: %d)",
 					layer.ID, layer.JobExecutionID, task.ID, task.KeyspaceStart, lastEnd, lastEnd-task.KeyspaceStart)
@@ -487,8 +541,35 @@ func (s *JobProgressCalculationService) calculateAndUpdateLayerProgress(ctx cont
 	// 3) Fall back to raw KeyspaceProcessed for non-split layers
 	var processedKeyspace models.BigInt
 	var dispatchedKeyspace models.BigInt
+	var processedBaseKeyspace int64
 	for _, task := range layerTasks {
 		chunkSize := task.KeyspaceEnd - task.KeyspaceStart
+
+		// BASE-unit progress for this layer (drift-free percentage numerator).
+		// Mirrors calculateRegularJobProgress: completed tasks count their full
+		// chunk; active tasks count their clamped restore_point; failed/cancelled
+		// ranges (reopened as gaps) count for nothing.
+		if task.Status != models.JobTaskStatusFailed && task.Status != models.JobTaskStatusCancelled {
+			if task.Status == models.JobTaskStatusCompleted {
+				if chunkSize > 0 {
+					processedBaseKeyspace += chunkSize
+				}
+			} else {
+				var baseProc int64
+				if task.KeyspaceStart > 0 && task.KeyspaceProcessed >= task.KeyspaceStart {
+					baseProc = task.KeyspaceProcessed - task.KeyspaceStart
+				} else {
+					baseProc = task.KeyspaceProcessed
+				}
+				if baseProc < 0 {
+					baseProc = 0
+				}
+				if chunkSize > 0 && baseProc > chunkSize {
+					baseProc = chunkSize
+				}
+				processedBaseKeyspace += baseProc
+			}
+		}
 
 		if task.EffectiveKeyspaceProcessed != nil && task.EffectiveKeyspaceProcessed.IsPositive() {
 			// Preferred path — agent reported effective progress (unambiguous candidate count).
@@ -521,15 +602,22 @@ func (s *JobProgressCalculationService) calculateAndUpdateLayerProgress(ctx cont
 		}
 	}
 
-	// Calculate layer progress percentage
+	// Calculate layer progress percentage.
+	// Base-driven (matches calculateRegularJobProgress): both numerator and
+	// denominator are BASE units — the invariant chunkable dimension (hashcat
+	// --skip/--limit) — so the value is immune to effective-keyspace estimate
+	// drift and structurally <= 100%. Effective keyspace is retained only for the
+	// candidate-count display (processed_keyspace), never as the % denominator.
 	progressPercent := 0.0
-	if layer.EffectiveKeyspace != nil && layer.EffectiveKeyspace.IsPositive() {
-		progressPercent = float64(processedKeyspace.Int64()) / float64(layer.EffectiveKeyspace.Int64()) * 100
+	if layer.BaseKeyspace != nil && *layer.BaseKeyspace > 0 {
+		progressPercent = float64(processedBaseKeyspace) / float64(*layer.BaseKeyspace) * 100
 		if progressPercent > 100 {
+			// Transient in-flight restore_point overshoot; clamp quietly.
 			progressPercent = 100
 		}
-	} else if layer.BaseKeyspace != nil && *layer.BaseKeyspace > 0 {
-		progressPercent = float64(processedKeyspace.Int64()) / float64(*layer.BaseKeyspace) * 100
+	} else if layer.EffectiveKeyspace != nil && layer.EffectiveKeyspace.IsPositive() {
+		// No base keyspace (should not happen post-init) — fall back to effective.
+		progressPercent = float64(processedKeyspace.Int64()) / float64(layer.EffectiveKeyspace.Int64()) * 100
 		if progressPercent > 100 {
 			progressPercent = 100
 		}
@@ -548,6 +636,29 @@ func (s *JobProgressCalculationService) calculateAndUpdateLayerProgress(ctx cont
 	layer.ProcessedKeyspace = processedKeyspace
 	layer.DispatchedKeyspace = dispatchedKeyspace
 	layer.OverallProgressPercent = progressPercent
+	// ProcessedBaseKeyspace feeds the base-driven job-level percentage (in-memory only).
+	layer.ProcessedBaseKeyspace = processedBaseKeyspace
+
+	// Reconcile the layer's stored effective keyspace UP toward the REAL value hashcat
+	// reported. Mirrors the job-level self-heal (job_execution_service completion sync
+	// and the completion feedback loop, which sync effective UP to processed): when
+	// actual processed exceeds the init-time estimate (--total-candidates / mask-math),
+	// the estimate was low, so raise effective to the real candidate count. This keeps
+	// Σ layer.effective_keyspace equal to the job's effective (which the completion sync
+	// pins to actual processed) so the frontend keyspace bar tiles [0, job.effective)
+	// with no trailing non-green gap. Grows only, never shrinks (mid-run progress never
+	// jumps), and writes only when the value actually changes.
+	if processedKeyspace.IsPositive() &&
+		(layer.EffectiveKeyspace == nil || processedKeyspace.Cmp(*layer.EffectiveKeyspace) > 0) {
+		reconciled := models.BigIntPtrFromBig(processedKeyspace.Big())
+		if err := s.jobIncrementLayerRepo.UpdateEffectiveKeyspace(ctx, layer.ID, *reconciled); err != nil {
+			debug.Warning("Failed to reconcile layer %s effective keyspace to actual (%s): %v",
+				layer.ID, processedKeyspace.String(), err)
+		} else {
+			layer.EffectiveKeyspace = reconciled
+			layer.IsAccurateKeyspace = true
+		}
+	}
 
 	return nil
 }

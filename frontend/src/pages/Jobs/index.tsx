@@ -36,6 +36,7 @@ import {
 import { useSnackbar } from 'notistack';
 import JobsTable from './JobsTable';
 import DeleteConfirm from './DeleteConfirm';
+import LoopbackSessionsPanel from '../../components/jobs/LoopbackSessionsPanel';
 import { api, archiveJob, unarchiveJob } from '../../services/api';
 import { JobSummary, PaginationInfo } from '../../types/jobs';
 import { useTeamFilter } from '../../contexts/TeamFilterContext';
@@ -536,6 +537,9 @@ const Jobs: React.FC = () => {
           {filters.status || filters.priority !== null || filters.search ? ` ${t('filtered') as string}` : ''}
         </Typography>
       )}
+
+      {/* Loopback sessions (GH #64) — renders nothing when there are none */}
+      <LoopbackSessionsPanel />
 
       {/* Jobs Table */}
       <Paper sx={{ width: '100%', overflow: 'hidden' }}>

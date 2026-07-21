@@ -23,7 +23,11 @@ import {
   Grid,
   Autocomplete,
   Chip,
-  Stack
+  Stack,
+  Switch,
+  Checkbox,
+  FormControlLabel,
+  Tooltip
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
@@ -37,12 +41,13 @@ import {
   createJobWorkflow, 
   updateJobWorkflow 
 } from '../../services/api';
-import { 
-  PresetJobBasic, 
-  JobWorkflowFormData, 
+import {
+  PresetJobBasic,
+  JobWorkflowFormData,
   CreateWorkflowRequest,
   AttackMode,
-  JobWorkflowStep
+  JobWorkflowStep,
+  isLoopbackEligible
 } from '../../types/adminJobs';
 
 // Helper function to get attack mode display name
@@ -68,7 +73,9 @@ const JobWorkflowFormPage: React.FC = () => {
   const [formData, setFormData] = useState<JobWorkflowFormData>({
     name: '',
     preset_job_ids: [],
-    orderedJobs: []
+    orderedJobs: [],
+    loopback_all_eligible: false,
+    loopback_preset_job_ids: []
   });
 
   // Store detailed workflow steps separately
@@ -123,22 +130,31 @@ const JobWorkflowFormPage: React.FC = () => {
               
               setWorkflowSteps(sortedSteps);
               
-              // Create mapping of IDs to names for rendering
+              // Create mapping of IDs to names for rendering (carrying attack mode +
+              // rules so loopback eligibility can be computed client-side).
               const orderedJobs: PresetJobBasic[] = sortedSteps.map(step => ({
                 id: step.preset_job_id,
-                name: step.preset_job_name
+                name: step.preset_job_name,
+                attack_mode: step.preset_job_attack_mode,
+                rule_ids: step.preset_job_rule_ids
               }));
-              
+
               setFormData({
                 name: workflow.name,
                 preset_job_ids: sortedSteps.map(step => step.preset_job_id),
-                orderedJobs
+                orderedJobs,
+                loopback_all_eligible: workflow.loopback_all_eligible ?? false,
+                loopback_preset_job_ids: sortedSteps
+                  .filter(step => step.loopback_enabled)
+                  .map(step => step.preset_job_id)
               });
             } else {
               setFormData({
                 name: workflow.name,
                 preset_job_ids: [],
-                orderedJobs: []
+                orderedJobs: [],
+                loopback_all_eligible: workflow.loopback_all_eligible ?? false,
+                loopback_preset_job_ids: []
               });
             }
           } catch (err) {
@@ -202,9 +218,26 @@ const JobWorkflowFormPage: React.FC = () => {
       return {
         ...prev,
         preset_job_ids: newPresetJobIds,
-        orderedJobs: newOrderedJobs
+        orderedJobs: newOrderedJobs,
+        loopback_preset_job_ids: prev.loopback_preset_job_ids.filter(id => id !== jobId)
       };
     });
+  };
+
+  // Toggle the workflow-level master loopback (GH #64). Mutually exclusive with the
+  // per-step toggles: while this is on, per-step checkboxes are disabled.
+  const handleToggleMasterLoopback = (checked: boolean) => {
+    setFormData(prev => ({ ...prev, loopback_all_eligible: checked }));
+  };
+
+  // Toggle per-step loopback for a preset (only used while the master toggle is off).
+  const handleToggleStepLoopback = (presetId: string, checked: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      loopback_preset_job_ids: checked
+        ? [...prev.loopback_preset_job_ids, presetId]
+        : prev.loopback_preset_job_ids.filter(id => id !== presetId)
+    }));
   };
 
   // Handle drag end for reordering workflow steps
@@ -256,10 +289,16 @@ const JobWorkflowFormPage: React.FC = () => {
     setError(null);
     setSuccessMessage(null);
     
-    // Create request payload (only need name and preset_job_ids)
+    // Create request payload
     const payload: CreateWorkflowRequest = {
       name: formData.name,
-      preset_job_ids: formData.preset_job_ids
+      preset_job_ids: formData.preset_job_ids,
+      loopback_all_eligible: formData.loopback_all_eligible,
+      // Only send per-step loopback selections when the master toggle is off (they are
+      // ignored otherwise); keep only IDs still present in the workflow.
+      loopback_preset_job_ids: formData.loopback_all_eligible
+        ? []
+        : formData.loopback_preset_job_ids.filter(id => formData.preset_job_ids.includes(id))
     };
     
     try {
@@ -330,6 +369,26 @@ const JobWorkflowFormPage: React.FC = () => {
             disabled={submitting}
           />
 
+          <Box mt={3} sx={{ p: 2, borderRadius: 1, bgcolor: 'action.hover' }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={formData.loopback_all_eligible}
+                  onChange={(e) => handleToggleMasterLoopback(e.target.checked)}
+                  disabled={submitting}
+                />
+              }
+              label="Enable loopback for all eligible steps"
+            />
+            <FormHelperText sx={{ mt: 0 }}>
+              When on, the whole workflow runs, then every eligible step (straight&nbsp;+&nbsp;rules,
+              or a hybrid&nbsp;wordlist&nbsp;±&nbsp;mask attack) re-runs against only the newly-cracked
+              passwords — repeating intelligently until no new cracks are found. Non-mutating steps
+              (wordlist-only, brute-force, association) still feed their new cracks into the loop.
+              The per-step toggles below are disabled while this is on.
+            </FormHelperText>
+          </Box>
+
           <Box mt={3}>
             <Autocomplete
               options={availablePresetJobs.filter(job => !formData.preset_job_ids.includes(job.id))}
@@ -365,6 +424,17 @@ const JobWorkflowFormPage: React.FC = () => {
                       {formData.orderedJobs.map((job, index) => {
                         // Find the corresponding workflow step for detailed info
                         const workflowStep = workflowSteps.find(step => step.preset_job_id === job.id);
+
+                        // Loopback eligibility + state (GH #64)
+                        const eligible = isLoopbackEligible(job.attack_mode, job.rule_ids);
+                        const masterOn = formData.loopback_all_eligible;
+                        const loopbackChecked = masterOn ? eligible : formData.loopback_preset_job_ids.includes(job.id);
+                        const loopbackDisabled = masterOn || !eligible || submitting;
+                        const loopbackTooltip = !eligible
+                          ? 'Nothing to mutate (wordlist-only, brute-force, association or combinator). This step still feeds its new cracks into the loop, but is not re-run.'
+                          : masterOn
+                            ? 'Workflow-level loopback is on, so every eligible step loops back.'
+                            : 'Re-run this step against only newly-cracked passwords until no new cracks are found.';
 
                         return (
                           <Draggable key={job.id} draggableId={job.id} index={index} isDragDisabled={submitting}>
@@ -415,6 +485,22 @@ const JobWorkflowFormPage: React.FC = () => {
                                             variant="filled"
                                           />
                                         )}
+                                        <Tooltip title={loopbackTooltip}>
+                                          <span>
+                                            <FormControlLabel
+                                              sx={{ ml: 0.5, mr: 0 }}
+                                              control={
+                                                <Checkbox
+                                                  size="small"
+                                                  checked={loopbackChecked}
+                                                  disabled={loopbackDisabled}
+                                                  onChange={(e) => handleToggleStepLoopback(job.id, e.target.checked)}
+                                                />
+                                              }
+                                              label={<Typography variant="caption">Loopback</Typography>}
+                                            />
+                                          </span>
+                                        </Tooltip>
                                       </Box>
                                     }
                                     secondary={

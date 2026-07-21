@@ -727,20 +727,33 @@ func (s *PotfileService) deleteProcessedEntriesInternal(ctx context.Context, ids
 	return nil
 }
 
-// calculatePotfileMD5 calculates the MD5 hash of the potfile
-func (s *PotfileService) calculatePotfileMD5() (string, error) {
+// calculatePotfileMD5 hashes the potfile over a fixed prefix [0, N) and returns
+// that hash together with N. The potfile is continuously appended, so the size is
+// captured FIRST and exactly that many bytes are hashed — the returned (hash,
+// size) therefore always describe the identical prefix. Callers store both so the
+// agent can verify a bounded [0,N) download (via ?bytes=N) instead of chasing the
+// ever-growing tail, which is what caused the permanent MD5-mismatch sync loop.
+func (s *PotfileService) calculatePotfileMD5() (string, int64, error) {
 	file, err := os.Open(s.potfilePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to open potfile for MD5 calculation: %w", err)
+		return "", 0, fmt.Errorf("failed to open potfile for MD5 calculation: %w", err)
 	}
 	defer file.Close()
-	
-	hash := md5.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return "", fmt.Errorf("failed to calculate MD5: %w", err)
+
+	// Capture the size first, then hash exactly that many bytes so an append
+	// landing mid-hash can't make the hash and size describe different prefixes.
+	info, err := file.Stat()
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to stat potfile for MD5 calculation: %w", err)
 	}
-	
-	return hex.EncodeToString(hash.Sum(nil)), nil
+	size := info.Size()
+
+	hash := md5.New()
+	if _, err := io.CopyN(hash, file, size); err != nil && err != io.EOF {
+		return "", 0, fmt.Errorf("failed to calculate MD5: %w", err)
+	}
+
+	return hex.EncodeToString(hash.Sum(nil)), size, nil
 }
 
 // getOrCreatePotfileWordlist gets or creates the pot-file wordlist entry
@@ -753,20 +766,15 @@ func (s *PotfileService) getOrCreatePotfileWordlist(ctx context.Context) (int, e
 	if err == nil {
 		debug.Info("Found existing pot-file wordlist with ID: %d", wordlistID)
 		
-		// Update the MD5 hash and file size for the existing wordlist
-		md5Hash, err := s.calculatePotfileMD5()
+		// Update the MD5 hash and file size for the existing wordlist. Hash and size
+		// describe the same prefix (see calculatePotfileMD5).
+		md5Hash, fileSize, err := s.calculatePotfileMD5()
 		if err != nil {
 			debug.Warning("Failed to calculate potfile MD5 for update: %v", err)
 			md5Hash = "68b329da9893e34099c7d8ad5cb9c940" // MD5 of "\n"
+			fileSize = 0
 		}
-		
-		// Get file size
-		fileInfo, err := os.Stat(s.potfilePath)
-		fileSize := int64(0)
-		if err == nil {
-			fileSize = fileInfo.Size()
-		}
-		
+
 		// Update the wordlist with correct MD5 and file size
 		debug.Info("Updating existing pot-file wordlist MD5: %s, size: %d", md5Hash, fileSize)
 		if err := s.wordlistStore.UpdateWordlistFileInfo(ctx, wordlistID, md5Hash, fileSize); err != nil {
@@ -787,21 +795,15 @@ func (s *PotfileService) getOrCreatePotfileWordlist(ctx context.Context) (int, e
 		return 0, fmt.Errorf("failed to get system user ID: %w", err)
 	}
 
-	// Calculate the actual MD5 hash of the potfile
-	md5Hash, err := s.calculatePotfileMD5()
+	// Calculate the actual MD5 hash of the potfile (hash + matching prefix size)
+	md5Hash, fileSize, err := s.calculatePotfileMD5()
 	if err != nil {
 		// If we can't calculate MD5 (file might not exist yet), use a fallback
 		debug.Warning("Failed to calculate potfile MD5, using default: %v", err)
 		md5Hash = "68b329da9893e34099c7d8ad5cb9c940" // MD5 of "\n"
+		fileSize = 0
 	}
-	
-	// Get file size
-	fileInfo, err := os.Stat(s.potfilePath)
-	fileSize := int64(0)
-	if err == nil {
-		fileSize = fileInfo.Size()
-	}
-	
+
 	// Create new wordlist entry
 	wordlist := &models.Wordlist{
 		Name:               "Pot-file",
@@ -1091,19 +1093,15 @@ func (s *PotfileService) monitorForBinaryAndCreatePresetJob(ctx context.Context,
 
 // UpdatePotfileMetadata updates the MD5 hash and file size of the potfile in the database
 func (s *PotfileService) UpdatePotfileMetadata(ctx context.Context) error {
-	// Calculate the current MD5 hash of the potfile
-	md5Hash, err := s.calculatePotfileMD5()
+	// Calculate the current MD5 hash of the potfile AND the size of the exact
+	// prefix it covers. Do not re-stat for size — an append landing between the
+	// hash and a separate stat would make the stored size describe a larger range
+	// than the hash, which is what broke agent verification.
+	md5Hash, fileSize, err := s.calculatePotfileMD5()
 	if err != nil {
 		return fmt.Errorf("failed to calculate potfile MD5: %w", err)
 	}
-	
-	// Get the current file size
-	fileInfo, err := os.Stat(s.potfilePath)
-	if err != nil {
-		return fmt.Errorf("failed to get potfile info: %w", err)
-	}
-	fileSize := fileInfo.Size()
-	
+
 	// Count the actual lines in the potfile
 	lineCount, err := s.countPotfileLines()
 	if err != nil {

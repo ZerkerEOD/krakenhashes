@@ -170,6 +170,11 @@ type JobWorkflow struct {
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 
+	// LoopbackAllEligible is the workflow-level master loopback toggle (GH #64). When
+	// true, every eligible step is looped back against the delta and the per-step
+	// LoopbackEnabled flags are ignored.
+	LoopbackAllEligible bool `json:"loopback_all_eligible" db:"loopback_all_eligible"`
+
 	// Populated field holding the ordered steps
 	Steps []JobWorkflowStep `json:"steps,omitempty"`
 }
@@ -181,6 +186,11 @@ type JobWorkflowStep struct {
 	JobWorkflowID uuid.UUID `json:"job_workflow_id" db:"job_workflow_id"`
 	PresetJobID   uuid.UUID `json:"preset_job_id" db:"preset_job_id"`
 	StepOrder     int       `json:"step_order" db:"step_order"`
+
+	// LoopbackEnabled is the per-step loopback toggle (GH #64). Used only when the
+	// workflow's LoopbackAllEligible master toggle is off. A step is only actually
+	// looped back if its preset's attack is eligible (see IsMutatableAttack).
+	LoopbackEnabled bool `json:"loopback_enabled" db:"loopback_enabled"`
 
 	// Fields potentially populated by JOINs with preset_jobs
 	PresetJobName          string     `json:"preset_job_name,omitempty" db:"preset_job_name"`
@@ -195,9 +205,11 @@ type JobWorkflowStep struct {
 // PresetJobBasic represents minimal information about a preset job
 // Used for dropdowns and selection interfaces
 type PresetJobBasic struct {
-	ID                        uuid.UUID `json:"id" db:"id"`
-	Name                      string    `json:"name" db:"name"`
-	AllowHighPriorityOverride bool      `json:"allow_high_priority_override" db:"allow_high_priority_override"`
+	ID                        uuid.UUID  `json:"id" db:"id"`
+	Name                      string     `json:"name" db:"name"`
+	AllowHighPriorityOverride bool       `json:"allow_high_priority_override" db:"allow_high_priority_override"`
+	AttackMode                AttackMode `json:"attack_mode" db:"attack_mode"` // For loopback eligibility (GH #64)
+	RuleIDs                   IDArray    `json:"rule_ids" db:"rule_ids"`       // For loopback eligibility (GH #64)
 }
 
 // JobExecutionStatus represents the status of a job execution
@@ -630,6 +642,12 @@ type JobIncrementLayer struct {
 	ProcessedKeyspace    BigInt  `json:"processed_keyspace" db:"processed_keyspace"`       // Sum from tasks (NUMERIC)
 	DispatchedKeyspace   BigInt  `json:"dispatched_keyspace" db:"dispatched_keyspace"`     // Total keyspace dispatched (NUMERIC)
 	IsAccurateKeyspace   bool    `json:"is_accurate_keyspace" db:"is_accurate_keyspace"`   // TRUE after benchmark
+
+	// ProcessedBaseKeyspace is an in-memory, per-calculation aggregate of BASE-unit
+	// keyspace processed across this layer's tasks. It is NOT persisted (db:"-") — it
+	// exists so calculateIncrementJobProgress can compute a base-driven, structurally
+	// <=100% progress percentage that matches the regular (non-increment) job path.
+	ProcessedBaseKeyspace int64 `json:"-" db:"-"`
 
 	// Progress tracking
 	OverallProgressPercent float64    `json:"overall_progress_percent" db:"overall_progress_percent"`

@@ -43,6 +43,7 @@ type UserJobsHandler struct {
 	teamService           *services.TeamService
 	charsetRepo           repository.CustomCharsetRepository
 	benchmarkRepo         *repository.BenchmarkRepository
+	loopbackService       *services.LoopbackService
 	wsHandler             WSHandler
 }
 
@@ -78,6 +79,7 @@ func NewUserJobsHandler(
 	teamService *services.TeamService,
 	charsetRepo repository.CustomCharsetRepository,
 	benchmarkRepo *repository.BenchmarkRepository,
+	loopbackService *services.LoopbackService,
 ) *UserJobsHandler {
 	return &UserJobsHandler{
 		jobExecRepo:           jobExecRepo,
@@ -100,6 +102,7 @@ func NewUserJobsHandler(
 		teamService:           teamService,
 		charsetRepo:           charsetRepo,
 		benchmarkRepo:         benchmarkRepo,
+		loopbackService:       loopbackService,
 		wsHandler:             nil, // Will be set later via SetWSHandler
 	}
 }
@@ -113,23 +116,23 @@ func (h *UserJobsHandler) JobExecutionService() *services.JobExecutionService {
 
 // JobSummary represents a job summary for the UI
 type JobSummary struct {
-	ID                     string  `json:"id"`
-	Name                   string  `json:"name"`
-	HashlistID             int64   `json:"hashlist_id"`
-	HashlistName           string  `json:"hashlist_name"`
-	PresetJobName          *string `json:"preset_job_name,omitempty"`
-	Status                 string  `json:"status"`
-	Priority               int     `json:"priority"`
-	MaxAgents              int     `json:"max_agents"`
-	DispatchedPercent      float64 `json:"dispatched_percent"`
-	SearchedPercent        float64 `json:"searched_percent"`
-	CrackedCount           int     `json:"cracked_count"`
-	AgentCount             int     `json:"agent_count"`
-	TotalSpeed             int64   `json:"total_speed"`
-	CreatedAt              string  `json:"created_at"`
-	UpdatedAt              string  `json:"updated_at"`
-	CompletedAt            *string `json:"completed_at,omitempty"`
-	CreatedByUsername      *string `json:"created_by_username,omitempty"`
+	ID                     string         `json:"id"`
+	Name                   string         `json:"name"`
+	HashlistID             int64          `json:"hashlist_id"`
+	HashlistName           string         `json:"hashlist_name"`
+	PresetJobName          *string        `json:"preset_job_name,omitempty"`
+	Status                 string         `json:"status"`
+	Priority               int            `json:"priority"`
+	MaxAgents              int            `json:"max_agents"`
+	DispatchedPercent      float64        `json:"dispatched_percent"`
+	SearchedPercent        float64        `json:"searched_percent"`
+	CrackedCount           int            `json:"cracked_count"`
+	AgentCount             int            `json:"agent_count"`
+	TotalSpeed             int64          `json:"total_speed"`
+	CreatedAt              string         `json:"created_at"`
+	UpdatedAt              string         `json:"updated_at"`
+	CompletedAt            *string        `json:"completed_at,omitempty"`
+	CreatedByUsername      *string        `json:"created_by_username,omitempty"`
 	ErrorMessage           *string        `json:"error_message,omitempty"`
 	EffectiveKeyspace      *models.BigInt `json:"effective_keyspace,omitempty"`
 	MultiplicationFactor   int64          `json:"multiplication_factor,omitempty"`
@@ -612,6 +615,67 @@ func truncateJobName(name string, hashMode string, maxLen int) string {
 	return prefix + suffix
 }
 
+// startLoopbackSession registers a loopback session for a batch of just-created jobs
+// (GH #64). It is a no-op unless at least one origin is a mutatable attack, so callers
+// can invoke it unconditionally. Failures are logged, never fatal — the jobs themselves
+// were already created.
+func (h *UserJobsHandler) startLoopbackSession(ctx context.Context, hashlistID int64, sourceType models.LoopbackSourceType, workflowID *uuid.UUID, name string, createdBy *uuid.UUID, origins []services.LoopbackOrigin) {
+	if h.loopbackService == nil || len(origins) == 0 {
+		return
+	}
+	hasMutatable := false
+	for _, o := range origins {
+		if o.IsMutatable {
+			hasMutatable = true
+			break
+		}
+	}
+	if !hasMutatable {
+		debug.Info("Loopback requested for hashlist %d but no mutatable jobs in the submission; skipping session", hashlistID)
+		return
+	}
+	if name == "" {
+		name = string(sourceType) + " loopback"
+	}
+	if _, err := h.loopbackService.CreateSession(ctx, hashlistID, sourceType, workflowID, name, createdBy, origins); err != nil {
+		debug.Error("Failed to create loopback session for hashlist %d: %v", hashlistID, err)
+	}
+}
+
+// ListLoopbackSessions handles GET /loopback-sessions — the "Pending Loopback" list
+// (GH #64). Non-admins see only their own sessions; admins see all.
+func (h *UserJobsHandler) ListLoopbackSessions(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	w.Header().Set("Content-Type", "application/json")
+	if h.loopbackService == nil {
+		json.NewEncoder(w).Encode([]interface{}{})
+		return
+	}
+
+	userRole, _ := ctx.Value("user_role").(string)
+	var createdBy *uuid.UUID
+	if userRole != "admin" {
+		userIDStr, _ := ctx.Value("user_id").(string)
+		uid, err := uuid.Parse(userIDStr)
+		if err != nil {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		createdBy = &uid
+	}
+
+	sessions, err := h.loopbackService.ListSessions(ctx, createdBy)
+	if err != nil {
+		debug.Error("Failed to list loopback sessions: %v", err)
+		http.Error(w, "Failed to list loopback sessions", http.StatusInternalServerError)
+		return
+	}
+	if sessions == nil {
+		sessions = []*models.LoopbackSession{}
+	}
+	json.NewEncoder(w).Encode(sessions)
+}
+
 // CreateJobFromHashlist handles POST /api/hashlists/{id}/create-job
 func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -681,11 +745,16 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			Type          string   `json:"type"`
 			PresetJobIDs  []string `json:"preset_job_ids"`
 			CustomJobName string   `json:"custom_job_name"`
+			// Loopback, when true, runs the selected preset job(s) then re-runs the
+			// mutatable ones against only the newly-cracked plaintexts until dry (GH #64).
+			Loopback bool `json:"loopback"`
 		}
 		if err := json.Unmarshal(rawReq, &req); err != nil {
 			http.Error(w, "Invalid preset job request", http.StatusBadRequest)
 			return
 		}
+
+		var loopbackOrigins []services.LoopbackOrigin
 
 		// Create a job execution for each selected preset job
 		for _, presetJobIDStr := range req.PresetJobIDs {
@@ -728,6 +797,16 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			}
 
 			createdJobs = append(createdJobs, jobExecution.ID.String())
+			if req.Loopback {
+				loopbackOrigins = append(loopbackOrigins, services.LoopbackOrigin{
+					JobExecutionID: jobExecution.ID,
+					IsMutatable:    models.IsMutatableAttack(presetJob.AttackMode, presetJob.RuleIDs),
+				})
+			}
+		}
+
+		if req.Loopback {
+			h.startLoopbackSession(ctx, hashlistID, models.LoopbackSourcePreset, nil, req.CustomJobName, &userID, loopbackOrigins)
 		}
 
 	case "workflow":
@@ -750,12 +829,17 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 				continue
 			}
 
-			// Get workflow steps
-			steps, err := h.workflowRepo.GetWorkflowSteps(ctx, workflowID)
+			// Get the workflow (loopback config) and its steps.
+			workflow, err := h.workflowRepo.GetWorkflowByID(ctx, workflowID)
 			if err != nil {
-				debug.Error("Failed to get workflow steps for %s: %v", workflowID, err)
+				debug.Error("Failed to get workflow %s: %v", workflowID, err)
 				continue
 			}
+			steps := workflow.Steps
+
+			// Loopback origins: every step's job is a member (so its cracks feed the
+			// delta pool), but only loopback-configured eligible steps are re-run (GH #64).
+			var loopbackOrigins []services.LoopbackOrigin
 
 			// Create a job for each step in order
 			for _, step := range steps {
@@ -792,7 +876,18 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 				}
 
 				createdJobs = append(createdJobs, jobExecution.ID.String())
+
+				stepLoopback := workflow.LoopbackAllEligible || step.LoopbackEnabled
+				loopbackOrigins = append(loopbackOrigins, services.LoopbackOrigin{
+					JobExecutionID: jobExecution.ID,
+					IsMutatable:    stepLoopback && models.IsMutatableAttack(presetJob.AttackMode, presetJob.RuleIDs),
+				})
 			}
+
+			// startLoopbackSession is a no-op unless at least one step is a mutatable
+			// loopback participant, so non-loopback workflows create no session.
+			wfID := workflowID
+			h.startLoopbackSession(ctx, hashlistID, models.LoopbackSourceWorkflow, &wfID, workflow.Name, &userID, loopbackOrigins)
 		}
 
 	case "custom":
@@ -822,6 +917,9 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 				// Filter, when present, generates an ephemeral filtered wordlist
 				// from the selected wordlist(s) for this job only (GH #40).
 				Filter *models.WordlistFilter `json:"filter"`
+				// Loopback, when true, re-runs this attack's mutation against only the
+				// newly-cracked plaintexts until dry (GH #64). Not combined with Filter.
+				Loopback bool `json:"loopback"`
 			} `json:"custom_job"`
 		}
 		if err := json.Unmarshal(rawReq, &req); err != nil {
@@ -1066,6 +1164,13 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 		}
 
 		createdJobs = append(createdJobs, jobExecution.ID.String())
+
+		if req.CustomJob.Loopback {
+			h.startLoopbackSession(ctx, hashlistID, models.LoopbackSourceCustom, nil, req.CustomJobName, &userID, []services.LoopbackOrigin{{
+				JobExecutionID: jobExecution.ID,
+				IsMutatable:    models.IsMutatableAttack(config.AttackMode, config.RuleIDs),
+			}})
+		}
 
 	default:
 		http.Error(w, "Invalid job type", http.StatusBadRequest)
