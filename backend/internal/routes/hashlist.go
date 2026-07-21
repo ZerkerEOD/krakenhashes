@@ -1448,6 +1448,18 @@ func (h *hashlistHandler) performPotfileRemoval(client *models.Client, globalRem
 			} else {
 				debug.Info("Removed %d plaintexts from global potfile after hashlist %d deletion",
 					removed, hashlistID)
+				// Refresh the global potfile's DB hash+size after the rewrite.
+				// RemovePlaintextsFromPotfile rewrites the file to a NEW inode
+				// (removing plaintexts + collapsing blank lines), which shifts the
+				// [0,N) prefix. Without this the DB metadata stays stale against the
+				// rewritten file, so agents fail MD5 verification (expected=old-prefix
+				// hash, got=new-inode prefix) until the next batch append happens to
+				// recompute it — a 10+ minute window under slow ingestion. Mirrors the
+				// client branch below (UpdateClientPotfileMetadata).
+				if err := h.potfileService.UpdatePotfileMetadata(context.Background()); err != nil {
+					debug.Error("Failed to update global potfile metadata after hashlist %d deletion: %v",
+						hashlistID, err)
+				}
 			}
 		}()
 	}

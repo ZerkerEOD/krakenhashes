@@ -14,10 +14,10 @@ import (
 
 // AdminJobWorkflowService defines the interface for managing job workflows.
 type AdminJobWorkflowService interface {
-	CreateJobWorkflow(ctx context.Context, name string, presetJobIDs []uuid.UUID) (*models.JobWorkflow, error)
+	CreateJobWorkflow(ctx context.Context, name string, presetJobIDs []uuid.UUID, loopbackAllEligible bool, loopbackPresetJobIDs []uuid.UUID) (*models.JobWorkflow, error)
 	GetJobWorkflowByID(ctx context.Context, id uuid.UUID) (*models.JobWorkflow, error)
 	ListJobWorkflows(ctx context.Context) ([]models.JobWorkflow, error)
-	UpdateJobWorkflow(ctx context.Context, id uuid.UUID, name string, presetJobIDs []uuid.UUID) (*models.JobWorkflow, error)
+	UpdateJobWorkflow(ctx context.Context, id uuid.UUID, name string, presetJobIDs []uuid.UUID, loopbackAllEligible bool, loopbackPresetJobIDs []uuid.UUID) (*models.JobWorkflow, error)
 	DeleteJobWorkflow(ctx context.Context, id uuid.UUID) error
 	GetJobWorkflowFormData(ctx context.Context) ([]models.PresetJobBasic, error)
 }
@@ -36,6 +36,15 @@ func NewAdminJobWorkflowService(db *sql.DB, workflowRepo repository.JobWorkflowR
 		workflowRepo:  workflowRepo,
 		presetJobRepo: presetJobRepo, // Inject PresetJobRepository
 	}
+}
+
+// toUUIDSet builds a lookup set from a slice of UUIDs.
+func toUUIDSet(ids []uuid.UUID) map[uuid.UUID]bool {
+	set := make(map[uuid.UUID]bool, len(ids))
+	for _, id := range ids {
+		set[id] = true
+	}
+	return set
 }
 
 // validateWorkflowInput performs input validation for create/update operations.
@@ -82,13 +91,14 @@ func (s *adminJobWorkflowService) validateWorkflowInput(ctx context.Context, nam
 }
 
 // CreateJobWorkflow creates a new workflow and its steps transactionally.
-func (s *adminJobWorkflowService) CreateJobWorkflow(ctx context.Context, name string, presetJobIDs []uuid.UUID) (*models.JobWorkflow, error) {
+func (s *adminJobWorkflowService) CreateJobWorkflow(ctx context.Context, name string, presetJobIDs []uuid.UUID, loopbackAllEligible bool, loopbackPresetJobIDs []uuid.UUID) (*models.JobWorkflow, error) {
 	if err := s.validateWorkflowInput(ctx, name, presetJobIDs, false, uuid.Nil); err != nil {
 		return nil, fmt.Errorf("validation failed: %w", err)
 	}
 
 	debug.Info("Attempting to create job workflow: %s", name)
 
+	loopbackSet := toUUIDSet(loopbackPresetJobIDs)
 	var createdWorkflow *models.JobWorkflow
 	createdSteps := make([]models.JobWorkflowStep, 0, len(presetJobIDs))
 
@@ -98,7 +108,7 @@ func (s *adminJobWorkflowService) CreateJobWorkflow(ctx context.Context, name st
 		// 1. Create the workflow record
 		// Assuming repo methods are modified to accept *sql.Tx (or we pass ctx and repo uses internal DB handle)
 		// For now, let's assume repo methods don't take Tx and work directly on s.db within the transaction context
-		createdWorkflow, err = s.workflowRepo.CreateWorkflow(ctx, name) // Need repo to work with Tx or handle context
+		createdWorkflow, err = s.workflowRepo.CreateWorkflow(ctx, name, loopbackAllEligible) // Need repo to work with Tx or handle context
 		if err != nil {
 			return fmt.Errorf("failed to create workflow record in transaction: %w", err)
 		}
@@ -106,7 +116,7 @@ func (s *adminJobWorkflowService) CreateJobWorkflow(ctx context.Context, name st
 		// 2. Create the steps
 		for i, presetID := range presetJobIDs {
 			stepOrder := i + 1 // Steps are 1-indexed
-			step, stepErr := s.workflowRepo.CreateWorkflowStep(ctx, createdWorkflow.ID, presetID, stepOrder)
+			step, stepErr := s.workflowRepo.CreateWorkflowStep(ctx, createdWorkflow.ID, presetID, stepOrder, loopbackSet[presetID])
 			if stepErr != nil {
 				return fmt.Errorf("failed to create workflow step %d in transaction: %w", stepOrder, stepErr)
 			}
@@ -159,7 +169,7 @@ func (s *adminJobWorkflowService) ListJobWorkflows(ctx context.Context) ([]model
 }
 
 // UpdateJobWorkflow updates a workflow name and replaces its steps transactionally.
-func (s *adminJobWorkflowService) UpdateJobWorkflow(ctx context.Context, id uuid.UUID, name string, presetJobIDs []uuid.UUID) (*models.JobWorkflow, error) {
+func (s *adminJobWorkflowService) UpdateJobWorkflow(ctx context.Context, id uuid.UUID, name string, presetJobIDs []uuid.UUID, loopbackAllEligible bool, loopbackPresetJobIDs []uuid.UUID) (*models.JobWorkflow, error) {
 	// 1. Check if workflow exists first
 	_, err := s.GetJobWorkflowByID(ctx, id)
 	if err != nil {
@@ -173,6 +183,7 @@ func (s *adminJobWorkflowService) UpdateJobWorkflow(ctx context.Context, id uuid
 
 	debug.Info("Attempting to update job workflow ID: %s", id)
 
+	loopbackSet := toUUIDSet(loopbackPresetJobIDs)
 	var updatedWorkflow *models.JobWorkflow
 	createdSteps := make([]models.JobWorkflowStep, 0, len(presetJobIDs))
 
@@ -180,7 +191,7 @@ func (s *adminJobWorkflowService) UpdateJobWorkflow(ctx context.Context, id uuid
 	err = s.executeTransaction(ctx, func(tx *sql.Tx) error {
 		var err error
 		// 3. Update workflow name
-		updatedWorkflow, err = s.workflowRepo.UpdateWorkflow(ctx, id, name)
+		updatedWorkflow, err = s.workflowRepo.UpdateWorkflow(ctx, id, name, loopbackAllEligible)
 		if err != nil {
 			return fmt.Errorf("failed to update workflow name in transaction: %w", err)
 		}
@@ -194,7 +205,7 @@ func (s *adminJobWorkflowService) UpdateJobWorkflow(ctx context.Context, id uuid
 		// 5. Create new steps
 		for i, presetID := range presetJobIDs {
 			stepOrder := i + 1
-			step, stepErr := s.workflowRepo.CreateWorkflowStep(ctx, id, presetID, stepOrder)
+			step, stepErr := s.workflowRepo.CreateWorkflowStep(ctx, id, presetID, stepOrder, loopbackSet[presetID])
 			if stepErr != nil {
 				return fmt.Errorf("failed to create workflow step %d in transaction: %w", stepOrder, stepErr)
 			}
@@ -287,6 +298,8 @@ func (s *adminJobWorkflowService) GetJobWorkflowFormData(ctx context.Context) ([
 			ID:                        job.ID,
 			Name:                      job.Name,
 			AllowHighPriorityOverride: job.AllowHighPriorityOverride,
+			AttackMode:                job.AttackMode,
+			RuleIDs:                   job.RuleIDs,
 		}
 	}
 

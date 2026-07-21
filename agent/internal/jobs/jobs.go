@@ -1259,6 +1259,16 @@ func (jm *JobManager) monitorJobProgress(ctx context.Context, jobExecution *JobE
 					continue
 				}
 
+				// A kernel-autotune skip surfaces here as a normal "failed" progress
+				// tagged AGENT_AUTOTUNE (see hashcat_executor.reportNoWorkIfIdle). We
+				// do NOT retry it in-agent: the executor already set its sticky
+				// forceKernel flag on detection, so we let the failure flow to the
+				// backend (via statusCallback below), which classifies AGENT_AUTOTUNE
+				// as transient and re-dispatches a fresh task — that re-run builds
+				// with --force and runs. (An in-agent retry reusing the same TaskID
+				// races ExecuteTask's "already running" guard and would be silently
+				// dropped, since the legacy progressCallback is nil in production.)
+
 				// Send to backend via dual callbacks (new approach)
 				jm.mutex.RLock()
 				hasStatusCallback := jm.statusCallback != nil

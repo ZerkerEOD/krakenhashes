@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary"
@@ -106,6 +107,14 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 		dataDir,
 	)
 
+	// Create the loopback controller (GH #64) and start its monitor exactly once
+	// (CreateJobsHandler is invoked more than once during route setup).
+	loopbackRepo := repository.NewLoopbackRepository(dbWrapper)
+	loopbackService := services.NewLoopbackService(loopbackRepo, jobExecutionService, jobExecRepo, wordlistManager, systemSettingsRepo)
+	loopbackMonitorOnce.Do(func() {
+		go loopbackService.Start(context.Background())
+	})
+
 	// Create jobs handler
 	return jobs.NewUserJobsHandler(
 		jobExecRepo,
@@ -128,8 +137,12 @@ func CreateJobsHandler(database *db.DB, dataDir string, binaryManager binary.Man
 		teamService,
 		charsetRepo,
 		benchmarkRepo,
+		loopbackService,
 	)
 }
+
+// loopbackMonitorOnce guards the single loopback monitor goroutine.
+var loopbackMonitorOnce sync.Once
 
 // SetupUserRoutes configures all user-related routes
 func SetupUserRoutes(router *mux.Router, database *db.DB, dataDir string, binaryManager binary.Manager, agentService *services.AgentService, teamService *services.TeamService) {
@@ -152,6 +165,9 @@ func SetupUserRoutes(router *mux.Router, database *db.DB, dataDir string, binary
 
 	// User-specific jobs route
 	router.HandleFunc("/user/jobs", jobsHandler.ListUserJobs).Methods("GET", "OPTIONS")
+
+	// Loopback sessions ("Pending Loopback" list, GH #64)
+	router.HandleFunc("/loopback-sessions", jobsHandler.ListLoopbackSessions).Methods("GET", "OPTIONS")
 
 	// User-specific agents route with current task info
 	router.HandleFunc("/user/agents", agentHandler.GetUserAgents).Methods("GET", "OPTIONS")
