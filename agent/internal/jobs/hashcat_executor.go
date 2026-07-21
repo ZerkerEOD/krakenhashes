@@ -229,6 +229,7 @@ type JobTaskAssignment struct {
 	IncrementMin      *int                       `json:"increment_min,omitempty"`       // Starting mask length for increment mode
 	IncrementMax      *int                       `json:"increment_max,omitempty"`       // Maximum mask length for increment mode
 	IsKeyspaceSplit   bool                       `json:"is_keyspace_split"`             // Whether this task uses keyspace splitting (--skip/--limit)
+	Slow              bool                       `json:"slow,omitempty"`                // Hash type is slow (iterated) — add hashcat -S for wordlist attacks so host-side candidate generation keeps the GPU saturated under small --limit chunks
 	BaseKeyspace      int64                      `json:"base_keyspace,omitempty"`       // Server's base keyspace for --skip/--limit coordinate conversion
 	// Effective-keyspace range (base × rule/salt multipliers) for this
 	// task. The real hashcat executor reads effective progress from
@@ -734,6 +735,37 @@ func (e *HashcatExecutor) executeTaskInternal(ctx context.Context, assignment *J
 	return process, nil
 }
 
+// wantsSlowCandidates reports whether hashcat -S (--slow-candidates) should be added for
+// this assignment: a slow (iterated) hash type running a wordlist attack that carries an
+// amplifier — rules on -a 0, or a hybrid mask on -a 6/-a 7. -S moves candidate generation
+// to the host so the GPU stays saturated when a keyspace-split --limit makes the base
+// wordlist small. It is deliberately NOT applied to fast hashes (host generation would
+// starve the GPU) or to modes without an amplifier (nothing to relocate).
+func (a *JobTaskAssignment) wantsSlowCandidates() bool {
+	if !a.Slow {
+		return false
+	}
+	switch a.AttackMode {
+	case int(AttackModeStraight):
+		return len(a.RulePaths) > 0
+	case int(AttackModeHybridWordlistMask), int(AttackModeHybridMaskWordlist):
+		return true
+	default:
+		return false
+	}
+}
+
+// hasSlowCandidatesFlag reports whether -S / --slow-candidates is already present in args
+// (e.g. supplied via the job's or agent's extra parameters), so we don't add it twice.
+func hasSlowCandidatesFlag(args []string) bool {
+	for _, a := range args {
+		if a == "-S" || a == "--slow-candidates" {
+			return true
+		}
+	}
+	return false
+}
+
 // buildHashcatCommand builds the hashcat command line arguments
 func (e *HashcatExecutor) buildHashcatCommand(assignment *JobTaskAssignment) (*exec.Cmd, string, string, string, float64, error) {
 	return e.buildHashcatCommandWithOptions(assignment, false)
@@ -789,6 +821,20 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 	if mergedArgs != "" {
 		debug.Info("Adding merged extra parameters: %s (job: %s, agent: %s)", mergedArgs, assignment.JobAdditionalArgs, agentArgs)
 		args = append(args, strings.Fields(mergedArgs)...)
+	}
+
+	// Slow-hash candidate mode: add hashcat -S (--slow-candidates) so host-side candidate
+	// generation keeps the GPU saturated for a slow hash whose keyspace-split --limit
+	// makes the per-chunk base wordlist small (otherwise the fast-candidate GPU path
+	// starves on a slow hash + few base words — observed: phpass + a 610k-rule file
+	// collapsing a 5090 from ~16 MH/s to ~131 KH/s as chunks shrank). Applied to
+	// benchmarks too so the measured speed matches the run. See wantsSlowCandidates for
+	// the (slow AND amplified) gate. MUST be mirrored in getAgentKeyspace so the
+	// --keyspace probe matches the run and the --skip/--limit coordinate conversion stays
+	// correct (-S can change the keyspace unit hashcat reports).
+	if assignment.wantsSlowCandidates() && !hasSlowCandidatesFlag(args) {
+		args = append(args, "-S")
+		debug.Info("Adding -S (--slow-candidates): slow hash type %d, attack mode %d — keeps the GPU fed under small --limit chunks", assignment.HashType, assignment.AttackMode)
 	}
 
 	// Surgical autotune remediation: once any task on this agent has been
@@ -1071,6 +1117,15 @@ func (e *HashcatExecutor) getAgentKeyspace(assignment *JobTaskAssignment) (int64
 	mergedArgs := MergeHashcatArgs(assignment.JobAdditionalArgs, agentArgs)
 	if mergedArgs != "" {
 		args = append(args, strings.Fields(mergedArgs)...)
+	}
+
+	// Mirror the run's -S (--slow-candidates): the --keyspace probe must measure the SAME
+	// outer-loop keyspace hashcat will use for --skip/--limit, because -S can change that
+	// unit (base words vs base×amplifier). If the probe and the run disagree, the
+	// skip/limit coordinate conversion in buildHashcatCommandWithOptions uses the wrong
+	// ratio. (This is the same reason -O is already reflected here via the merged args.)
+	if assignment.wantsSlowCandidates() && !hasSlowCandidatesFlag(args) {
+		args = append(args, "-S")
 	}
 
 	// Auto-inject --hex-charset ONLY when the job has hex mode AND inline charset definitions

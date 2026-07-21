@@ -1064,20 +1064,25 @@ func (c *Cycle) sendAssignment(ctx context.Context, dt DispatchedTask, unit *mod
 	var jobAdditionalArgs sql.NullString
 	var baseKeyspace sql.NullInt64
 	var hashlistClientID uuid.NullUUID
+	var slow bool
+	// LEFT JOIN hash_types so a missing/unknown hash type can never break dispatch —
+	// slow just defaults to FALSE (no -S) via COALESCE.
 	err = c.db.QueryRowContext(ctx, `
 		SELECT je.hashlist_id, h.hash_type_id, COALESCE(h.original_file_path, ''),
-		       je.additional_args, je.base_keyspace, h.client_id
+		       je.additional_args, je.base_keyspace, h.client_id, COALESCE(ht.slow, FALSE)
 		FROM job_executions je
 		JOIN hashlists h ON h.id = je.hashlist_id
+		LEFT JOIN hash_types ht ON ht.id = h.hash_type_id
 		WHERE je.id = $1
 	`, unit.ParentJobID).Scan(&hashlistID, &hashType, &originalFilePath,
-		&jobAdditionalArgs, &baseKeyspace, &hashlistClientID)
+		&jobAdditionalArgs, &baseKeyspace, &hashlistClientID, &slow)
 	if err != nil {
 		return fmt.Errorf("lookup parent + hashlist: %w", err)
 	}
 
 	payload.HashlistID = hashlistID
 	payload.HashType = hashType
+	payload.Slow = slow
 	payload.HashlistPath = fmt.Sprintf("hashlists/%d.hash", hashlistID)
 	payload.ChunkDuration = chunkDuration
 	payload.ReportInterval = 5

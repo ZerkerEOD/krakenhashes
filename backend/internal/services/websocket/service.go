@@ -277,6 +277,11 @@ type TaskAssignmentPayload struct {
 	JobAdditionalArgs string                     `json:"job_additional_args,omitempty"` // Job-level hashcat parameters (merged with agent params on agent side)
 	EnabledDevices    []int                      `json:"enabled_devices,omitempty"`
 	IsKeyspaceSplit   bool                       `json:"is_keyspace_split"`
+	// Slow marks a computationally-expensive (iterated) hash type. The agent adds
+	// hashcat -S (--slow-candidates) for wordlist attacks so host-side candidate
+	// generation keeps the GPU saturated when a keyspace-split --limit makes the
+	// per-chunk base wordlist small.
+	Slow bool `json:"slow,omitempty"`
 	// Association attack fields (mode 9)
 	AssociationWordlistPath string `json:"association_wordlist_path,omitempty"` // Path to the association wordlist
 	OriginalHashlistPath    string `json:"original_hashlist_path,omitempty"`    // Path to the original hashlist file (preserves order)
