@@ -7,6 +7,9 @@ export interface VersionInfo {
     agent: string;
     api: string;
     database: string;
+    // build is the backend's build-stamped version: "<backend>-<commit>-dev" on dev
+    // builds, bare "<backend>" on release. Present when the backend exposes it.
+    build?: string;
 }
 
 export const getVersionInfo = async (): Promise<VersionInfo> => {
