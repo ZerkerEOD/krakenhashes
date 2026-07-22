@@ -153,51 +153,51 @@ func (h *Handler) HandleAddWordlist(w http.ResponseWriter, r *http.Request) {
 
 	// Register handlers for form fields
 	parser.Register("name", func(r io.Reader, header formstream.Header) error {
-		data, err := io.ReadAll(r)
+		v, err := httputil.ReadFormField(r)
 		if err != nil {
 			return err
 		}
-		name = string(data)
+		name = v
 		debug.Info("HandleAddWordlist: Received name: %s", name)
 		return nil
 	})
 
 	parser.Register("description", func(r io.Reader, header formstream.Header) error {
-		data, err := io.ReadAll(r)
+		v, err := httputil.ReadFormField(r)
 		if err != nil {
 			return err
 		}
-		description = string(data)
+		description = v
 		debug.Info("HandleAddWordlist: Received description: %s", description)
 		return nil
 	})
 
 	parser.Register("wordlist_type", func(r io.Reader, header formstream.Header) error {
-		data, err := io.ReadAll(r)
+		v, err := httputil.ReadFormField(r)
 		if err != nil {
 			return err
 		}
-		wordlistType = string(data)
+		wordlistType = v
 		debug.Info("HandleAddWordlist: Received wordlist_type: %s", wordlistType)
 		return nil
 	})
 
 	parser.Register("format", func(r io.Reader, header formstream.Header) error {
-		data, err := io.ReadAll(r)
+		v, err := httputil.ReadFormField(r)
 		if err != nil {
 			return err
 		}
-		format = string(data)
+		format = v
 		debug.Info("HandleAddWordlist: Received format: %s", format)
 		return nil
 	})
 
 	parser.Register("tags", func(r io.Reader, header formstream.Header) error {
-		data, err := io.ReadAll(r)
+		v, err := httputil.ReadFormField(r)
 		if err != nil {
 			return err
 		}
-		tagsStr = string(data)
+		tagsStr = v
 		debug.Info("HandleAddWordlist: Received tags: %s", tagsStr)
 		return nil
 	})

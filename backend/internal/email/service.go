@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"text/template"
 	"time"
 
@@ -487,6 +488,9 @@ func (s *Service) SendTemplatedEmail(ctx context.Context, to string, templateID 
 	if err != nil {
 		return fmt.Errorf("failed to parse subject template: %w", err)
 	}
+	// A subject occupies a single RFC 5322 header line; strip any CR/LF so a
+	// template variable cannot smuggle in additional headers (header injection).
+	subject = strings.ReplaceAll(strings.ReplaceAll(subject, "\r", ""), "\n", "")
 
 	// Convert data to string map
 	variables := make(map[string]string)
