@@ -245,41 +245,41 @@ func (h *Handler) HandleAddRule(w http.ResponseWriter, r *http.Request) {
 
 	// Register handlers for form fields
 	parser.Register("name", func(r io.Reader, header formstream.Header) error {
-		data, err := io.ReadAll(r)
+		v, err := httputil.ReadFormField(r)
 		if err != nil {
 			return err
 		}
-		ruleName = string(data)
+		ruleName = v
 		debug.Info("HandleAddRule: Received name: %s", ruleName)
 		return nil
 	})
 
 	parser.Register("description", func(r io.Reader, header formstream.Header) error {
-		data, err := io.ReadAll(r)
+		v, err := httputil.ReadFormField(r)
 		if err != nil {
 			return err
 		}
-		description = string(data)
+		description = v
 		debug.Info("HandleAddRule: Received description: %s", description)
 		return nil
 	})
 
 	parser.Register("rule_type", func(r io.Reader, header formstream.Header) error {
-		data, err := io.ReadAll(r)
+		v, err := httputil.ReadFormField(r)
 		if err != nil {
 			return err
 		}
-		ruleType = string(data)
+		ruleType = v
 		debug.Info("HandleAddRule: Received rule_type: %s", ruleType)
 		return nil
 	})
 
 	parser.Register("tags", func(r io.Reader, header formstream.Header) error {
-		data, err := io.ReadAll(r)
+		v, err := httputil.ReadFormField(r)
 		if err != nil {
 			return err
 		}
-		tagsStr = string(data)
+		tagsStr = v
 		debug.Info("HandleAddRule: Received tags: %s", tagsStr)
 		return nil
 	})

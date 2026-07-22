@@ -229,13 +229,20 @@ func decodeSAMLResponse(samlResponse string, isRedirectBinding bool) ([]byte, er
 			}
 		}
 
-		// DEFLATE decompress
+		// DEFLATE decompress. Cap the inflated size: SAMLResponse arrives on an
+		// unauthenticated public endpoint and is decompressed BEFORE signature
+		// verification, so an unbounded io.ReadAll here is a decompression-bomb DoS
+		// (DEFLATE can amplify ~1000:1). 5 MiB is far above any legitimate SAML request.
+		const maxDecompressedSAML = 5 << 20 // 5 MiB
 		reader := flate.NewReader(bytes.NewReader(compressed))
 		defer reader.Close()
 
-		decompressed, err := io.ReadAll(reader)
+		decompressed, err := io.ReadAll(io.LimitReader(reader, maxDecompressedSAML+1))
 		if err != nil {
 			return nil, fmt.Errorf("deflate decompress failed: %w", err)
+		}
+		if len(decompressed) > maxDecompressedSAML {
+			return nil, fmt.Errorf("SAML request exceeds maximum decompressed size of %d bytes", maxDecompressedSAML)
 		}
 
 		return decompressed, nil
