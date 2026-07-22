@@ -74,7 +74,7 @@ jobs:
           echo "Setting version ${VERSION} as default"
           mike set-default --push "${VERSION}"
           
-          # Deploy current main branch as dev
+          # Deploy current master branch as dev
           echo "Deploying current branch as dev"
           mike deploy --push --update-aliases dev
           
@@ -114,7 +114,7 @@ jobs:
           echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
           echo "1. Visit https://zerkereod.github.io/krakenhashes/ to see the versioned documentation" >> $GITHUB_STEP_SUMMARY
           echo "2. The version selector will appear in the header" >> $GITHUB_STEP_SUMMARY
-          echo "3. Future pushes to main/master will update the 'dev' version" >> $GITHUB_STEP_SUMMARY
+          echo "3. Future pushes to master will update the 'dev' version" >> $GITHUB_STEP_SUMMARY
           echo "4. Future version tags will create new versioned documentation" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Available Versions:" >> $GITHUB_STEP_SUMMARY

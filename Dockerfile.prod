@@ -45,7 +45,7 @@ RUN BASE_VERSION=$(jq -r .backend versions.json) && \
     else \
       VERSION="${BASE_VERSION}"; \
     fi && \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags="-X main.Version=$VERSION" -o krakenhashes ./cmd/server
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-X github.com/ZerkerEOD/krakenhashes/backend/internal/version.Version=$VERSION" -o krakenhashes ./cmd/server
 
 # Final stage - Debian without PostgreSQL
 FROM debian:12-slim

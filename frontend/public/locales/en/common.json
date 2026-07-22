@@ -139,7 +139,8 @@
       "frontend": "Frontend",
       "agent": "Agent Version",
       "api": "API Version",
-      "database": "Database"
+      "database": "Database",
+      "build": "Build"
     },
     "projectInfo": {
       "title": "Project Information",

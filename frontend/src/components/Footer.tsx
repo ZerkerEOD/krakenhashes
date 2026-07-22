@@ -35,7 +35,10 @@ const Footer: React.FC<FooterProps> = ({ drawerOpen }) => {
     const fetchVersion = async () => {
       try {
         const versionInfo = await getVersionInfo();
-        setVersion(versionInfo.release || versionInfo.backend || '');
+        // On dev builds the backend stamps build as "<backend>-<commit>-dev"; show it
+        // so the running commit is identifiable. Release builds keep the bare version.
+        const isDevBuild = !!versionInfo.build && versionInfo.build.includes('-dev');
+        setVersion(isDevBuild ? versionInfo.build! : (versionInfo.release || versionInfo.backend || ''));
       } catch (error) {
         console.error('Failed to fetch version:', error);
         setVersion('');

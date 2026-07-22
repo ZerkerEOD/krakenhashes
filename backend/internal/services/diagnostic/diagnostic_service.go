@@ -16,6 +16,7 @@ import (
 	"time"
 
 	wshandler "github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/websocket"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/version"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 )
@@ -150,6 +151,10 @@ func (s *DiagnosticService) collectSystemInfo(ctx context.Context) (map[string]i
 	info := make(map[string]interface{})
 
 	// Runtime info
+	// backend_version is the build-stamped version: "<backend>-<commit>-dev" on dev
+	// builds, bare "<backend>" on release — so a diagnostic dump identifies the exact
+	// deployed commit (falls back to versions.json when built without the ldflag).
+	info["backend_version"] = version.BackendVersion()
 	info["go_version"] = runtime.Version()
 	info["go_os"] = runtime.GOOS
 	info["go_arch"] = runtime.GOARCH

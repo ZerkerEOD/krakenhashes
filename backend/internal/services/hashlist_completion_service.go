@@ -239,22 +239,29 @@ func (s *HashlistCompletionService) stopJobTasks(ctx context.Context, jobID uuid
 		}
 	}
 
-	// Scheduler-v2 cascade: also mark every non-terminal interval for
-	// this job's units as 'cancelled'. Without this, the per-task bar's
-	// "pending" gray space (= undispatched gaps) persists visually even
-	// after the hashlist is fully cracked, because the bar's universe is
-	// the full effective keyspace. Cancelling open intervals doesn't
-	// affect the gap query (it already ignores 'failed'/'cancelled') —
-	// it's purely a UI honesty fix.
+	// Scheduler-v2 cascade: also mark every still-open interval for this
+	// job's units terminal. Without this, the per-task bar's "pending" gray
+	// space (= dispatched-but-not-finished chunks) persists visually even
+	// after the hashlist is fully cracked, because the bar's universe is the
+	// full effective keyspace. We use 'completed' (NOT 'cancelled'): the
+	// interval CHECK constraint (valid_interval_status, migration 000147)
+	// permits only assigned/running/completed/failed, so an earlier
+	// 'cancelled' write always failed the constraint and this cascade was a
+	// silent no-op. 'completed' is coverage-neutral here — the gap/coverage
+	// gates already count any interval with status <> 'failed' as covered
+	// (keyspace_interval_repository.go, job_progress_calculation_service.go) —
+	// so promoting assigned/running → completed changes no coverage total; it
+	// only gives the bar a terminal state. Purely a UI-honesty fix on an
+	// all-cracked completion.
 	if _, err := s.db.ExecContext(ctx, `
 		UPDATE job_keyspace_intervals jki
-		SET status = 'cancelled'
+		SET status = 'completed'
 		FROM scheduling_units su
 		WHERE jki.scheduling_unit_id = su.id
 		  AND su.parent_job_id = $1
 		  AND jki.status IN ('assigned', 'running')
 	`, jobID); err != nil {
-		debug.Warning("Failed to cascade intervals cancelled for job %s: %v", jobID, err)
+		debug.Warning("Failed to cascade open intervals to completed for job %s: %v", jobID, err)
 	}
 
 	if stoppedCount > 0 {

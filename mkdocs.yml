@@ -5,7 +5,7 @@ site_author: ZerkerEOD
 
 repo_name: ZerkerEOD/krakenhashes
 repo_url: https://github.com/ZerkerEOD/krakenhashes
-edit_uri: edit/main/docs/
+edit_uri: edit/master/docs/
 
 theme:
   name: material
