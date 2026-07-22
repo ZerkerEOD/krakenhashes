@@ -50,7 +50,22 @@ func LoadVersions(path string) error {
 	return nil
 }
 
-// GetVersionInfo returns all version information
+// BackendVersion returns the build-stamped backend version for display/diagnostics.
+// The linker sets Version via -ldflags at build time (see Dockerfile.prod): on a dev
+// build it is "<backend>-<commit>-dev", on a release-tagged build it is the bare
+// "<backend>". When built without the ldflag (e.g. a plain local `go build`), Version
+// is empty and we fall back to the backend value from versions.json so the string is
+// never blank.
+func BackendVersion() string {
+	if Version != "" {
+		return Version
+	}
+	return Versions.Backend
+}
+
+// GetVersionInfo returns all version information. "build" carries the build-stamped
+// backend version (with the commit + -dev suffix on dev builds); the component keys
+// remain the bare semver values from versions.json for any consumer that parses them.
 func GetVersionInfo() map[string]string {
 	debug.Debug("Retrieving version information")
 	return map[string]string{
@@ -60,5 +75,6 @@ func GetVersionInfo() map[string]string {
 		"agent":    Versions.Agent,
 		"api":      Versions.API,
 		"database": Versions.Database,
+		"build":    BackendVersion(),
 	}
 }

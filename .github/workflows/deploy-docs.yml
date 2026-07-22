@@ -3,7 +3,6 @@ name: Deploy Documentation
 on:
   push:
     branches:
-      - main
       - master
     paths:
       - 'docs/**'
@@ -27,7 +26,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -121,7 +120,7 @@ jobs:
 
       - name: Build preview with mike
         run: |
-          mike deploy --no-push pr-${{ github.event.pull_request.number }}
+          mike deploy pr-${{ github.event.pull_request.number }}
           mike serve &
           sleep 5
           mkdir -p ./site

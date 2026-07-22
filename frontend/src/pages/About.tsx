@@ -69,6 +69,13 @@ const About: React.FC = () => {
 
                     <Typography><strong>{t('about.versionInfo.database') as string}:</strong></Typography>
                     <Typography>{versions.database}</Typography>
+
+                    {versions.build && versions.build.includes('-dev') && (
+                        <>
+                            <Typography><strong>{t('about.versionInfo.build') as string}:</strong></Typography>
+                            <Typography sx={{ fontFamily: 'monospace' }}>{versions.build}</Typography>
+                        </>
+                    )}
                 </Box>
             </Paper>
 

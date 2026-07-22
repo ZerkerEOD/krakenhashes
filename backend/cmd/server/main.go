@@ -127,7 +127,7 @@ func main() {
 		debug.Error("Failed to load version information: %v", err)
 		os.Exit(1)
 	}
-	debug.Info("KrakenHashes Backend v%s starting up", version.Version)
+	debug.Info("KrakenHashes Backend v%s starting up", version.BackendVersion())
 	debug.Info("Component versions - Frontend: %s, Agent: %s, API: %s, Database: %s",
 		version.Versions.Frontend,
 		version.Versions.Agent,
