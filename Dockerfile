@@ -9,9 +9,9 @@ COPY versions.json ./
 COPY frontend/package*.json ./
 RUN npm install --force
 COPY frontend/ ./
-RUN VERSION=$(jq -r .frontend versions.json) && \
-    echo "REACT_APP_VERSION=$VERSION" >> .env && \
-    CI=false npm run build
+# Vite build -> frontend/build (outDir set in vite.config.ts). The UI reads its
+# version from the backend at runtime, so no build-time version injection.
+RUN npm run build
 
 # Build stage for agents (all platforms)
 FROM golang:1.24-alpine AS agent-builder

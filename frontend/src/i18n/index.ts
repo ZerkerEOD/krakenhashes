@@ -55,7 +55,7 @@ i18n
         fallbackLng: 'en',
 
         // Debug mode only in development
-        debug: process.env.NODE_ENV === 'development',
+        debug: import.meta.env.DEV,
 
         // Namespaces configuration
         ns: [...namespaces],
@@ -92,9 +92,9 @@ i18n
         },
 
         // Missing key handling - log warnings in development
-        saveMissing: process.env.NODE_ENV === 'development',
+        saveMissing: import.meta.env.DEV,
         missingKeyHandler: (lngs, ns, key) => {
-            if (process.env.NODE_ENV === 'development') {
+            if (import.meta.env.DEV) {
                 console.warn(
                     `[i18n] Missing translation key: ${ns}:${key} for languages: ${lngs.join(', ')}`
                 );
