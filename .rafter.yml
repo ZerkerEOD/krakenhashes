@@ -1,0 +1,18 @@
+# Rafter policy — https://docs.rafter.so/suppression
+#
+# Suppress only vetted false positives, each with written evidence in `reason`.
+# Rule matching is case-insensitive against the finding's rule name or rule id;
+# remote SAST/SCA findings are matched by id (R-XXXXX). Suppressed findings move
+# to a `_suppressed[]` array and do not affect the scan exit code.
+ignore:
+  - paths:
+      - "backend/db/migrations/000016_add_hashcat_hash_types.up.sql"
+    rules:
+      - "R-FC93C" # "Exposed secret" — remote secret detector
+    reason: >-
+      False positive. This migration seeds the hashcat_hash_types reference table
+      with hashcat's public, canonical EXAMPLE hashes — one row per hash-mode
+      (DPAPI, GPG, Ansible Vault, JWT, WPA, etc.). The flagged string on line 286
+      is hashcat's documented example hash for mode 16500 (JWT). It is published by
+      the hashcat project as sample data and carries no secret value — not a live
+      credential.
