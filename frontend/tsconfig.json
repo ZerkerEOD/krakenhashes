@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "es5",
+    "target": "es2020",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
@@ -16,7 +16,7 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "baseUrl": "src",
-    "types": ["react/jsx-runtime", "node", "jest"]
+    "types": ["react/jsx-runtime", "node", "vite/client"]
   },
   "include": ["src"]
 } 
