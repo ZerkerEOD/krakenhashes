@@ -1,14 +1,15 @@
 # Rafter policy — https://docs.rafter.so/suppression
 #
 # Suppress only vetted false positives, each with written evidence in `reason`.
-# Rule matching is case-insensitive against the finding's rule name or rule id;
-# remote SAST/SCA findings are matched by id (R-XXXXX). Suppressed findings move
-# to a `_suppressed[]` array and do not affect the scan exit code.
+# Rule matching is case-insensitive against the finding's rule name or rule id.
+# The remote scan reports this secret finding with rule_id "jwt" (confirmed via
+# `rafter run -f json`), so match on that. Suppressed findings move to a
+# `_suppressed[]` array and do not affect the scan exit code.
 ignore:
   - paths:
       - "backend/db/migrations/000016_add_hashcat_hash_types.up.sql"
     rules:
-      - "R-FC93C" # "Exposed secret" — remote secret detector
+      - "jwt" # rule_id of the JWT secret-detector finding on this file
     reason: >-
       False positive. This migration seeds the hashcat_hash_types reference table
       with hashcat's public, canonical EXAMPLE hashes — one row per hash-mode
