@@ -98,3 +98,5 @@ docker-compose.dev-local.yml
 
 # Test files and directories
 tests/ 
+# Local Rafter false-positive suppression policy (not consumed by CI)
+.rafter.yml
