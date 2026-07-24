@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -1111,19 +1112,13 @@ func (c *Cycle) sendAssignment(ctx context.Context, dt DispatchedTask, unit *mod
 		payload.ClientID = hashlistClientID.UUID.String()
 	}
 
-	// TODO (separate v2 gap): ClientPotfilePath is intentionally NOT
-	// set here. The legacy dispatcher set it only when the user
-	// referenced a "potfile:ID" prefix in their job's wordlist list,
-	// and the resolution happened at dispatch time. The v2 unit
-	// creation (populateSchedulingUnits in job_execution_v2.go) does
-	// NOT yet handle "potfile:ID" or "client:UUID" wordlist prefixes,
-	// so by the time we get here the prefix has either been stripped
-	// or stored as a raw ref the agent can't resolve. Fixing this is
-	// scoped to job_execution_v2.go, not this dispatch site. Until
-	// then, jobs that reference a client potfile as a wordlist will
-	// silently degrade (the agent will fail to find the file).
-	// The crack-save path is unaffected — hashes.client_id routing
-	// happens server-side in processCrackedHashes regardless.
+	// Client wordlists and the client potfile arrive flattened into the
+	// generic payload.WordlistPaths as "wordlists/clients/{clientID}/{file}"
+	// relative paths. The agent can't download those from the generic
+	// wordlist endpoint — it needs the dedicated UUID/client-keyed fields
+	// (ClientWordlistPaths/ClientWordlistIDs/ClientPotfilePath). routeClientLists
+	// (called just before attachFileMD5s below) pulls those refs out of
+	// WordlistPaths and into the dedicated fields.
 
 	// Agent-level fields: extra_parameters + enabled device list.
 	// Matches the legacy lookup at job_websocket_integration.go:561
@@ -1162,6 +1157,15 @@ func (c *Cycle) sendAssignment(ctx context.Context, dt DispatchedTask, unit *mod
 			payload.BinaryPath = fmt.Sprintf("binaries/%d", binaryID)
 		}
 	}
+
+	// Route client-specific wordlists and the client potfile out of the
+	// generic WordlistPaths and into their dedicated payload fields
+	// (ClientWordlistPaths/ClientWordlistIDs/ClientPotfilePath) so the agent
+	// can download them from the client-keyed endpoints. This MUST run before
+	// attachFileMD5s so the MD5 lookup below only sees the remaining global
+	// wordlist paths (client files live in a separate table with their own
+	// verification/serving path).
+	c.routeClientLists(ctx, payload)
 
 	// Attach the current on-server MD5 for every wordlist/rule/binary this
 	// task references so the agent can verify each file and re-download any
@@ -1244,6 +1248,155 @@ func (c *Cycle) attachFileMD5s(ctx context.Context, payload *wsservice.TaskAssig
 			}
 		}
 	}
+}
+
+// classifyClientWordlistPath reports whether a wire path refers to a
+// client-specific file and, if so, extracts the owning client UUID and the
+// filename. Client refs have the exact shape
+// "wordlists/clients/{clientID}/{filename}" (4 slash-separated segments). Any
+// other shape — global ("wordlists/general/x.txt"), custom
+// ("wordlists/custom/x.txt"), association ("wordlists/association/5_x.txt"), a
+// malformed UUID, the wrong prefix, or a missing/empty filename — returns
+// (false, uuid.Nil, "").
+//
+// Pure and package-level so it's unit-testable without a DB.
+func classifyClientWordlistPath(p string) (isClient bool, clientID uuid.UUID, filename string) {
+	segments := strings.Split(p, "/")
+	if len(segments) != 4 {
+		return false, uuid.Nil, ""
+	}
+	if segments[0] != "wordlists" || segments[1] != "clients" || segments[3] == "" {
+		return false, uuid.Nil, ""
+	}
+	id, err := uuid.Parse(segments[2])
+	if err != nil {
+		return false, uuid.Nil, ""
+	}
+	return true, id, segments[3]
+}
+
+// routeClientLists reclassifies client-specific wordlists and the client
+// potfile out of the generic payload.WordlistPaths and into their dedicated
+// payload fields so the agent can download them from the client-keyed
+// endpoints (the generic wordlist endpoint can't serve them). Client refs are
+// flattened into WordlistPaths as "wordlists/clients/{clientID}/{filename}"
+// during unit resolution; here we pull them back out:
+//
+//   - "…/potfile.txt"    → ClientPotfilePath (agent downloads it by ClientID,
+//     which is already set from hashlists.client_id).
+//   - any other filename → ClientWordlistPaths + ClientWordlistIDs, with the
+//     wordlist UUID recovered from client_wordlists by matching
+//     filepath.Base(file_path) (the on-disk/wire name is sanitized, whereas
+//     file_name is the raw original — so we must NOT match on file_name).
+//
+// The two client-wordlist slices are appended in lockstep so index i of
+// ClientWordlistPaths corresponds to index i of ClientWordlistIDs — the agent
+// relies on this pairing to download each file by its ID.
+//
+// Combinator exception (-a 1): for single-wordlist modes (0/6/7) a routed
+// client ref is REMOVED from WordlistPaths entirely — the agent only needs it
+// in the dedicated fields. But combinator uses exactly two wordlists read
+// positionally from WordlistPaths[0] and WordlistPaths[1], so pulling a client
+// ref out would lose both the count and the left/right order. When
+// payload.AttackMode == AttackModeCombinator we therefore ALSO keep the ref in
+// remaining (at its original position) while still populating the dedicated
+// fields — the agent downloads/cleans it via the client endpoint and skips it
+// in ensureWordlists, so no double-download results. Ordering is preserved
+// because we iterate WordlistPaths in order and append to remaining in order.
+//
+// Best-effort by design (mirrors attachFileMD5s): a client wordlist whose UUID
+// can't be recovered — or any query/scan error — is logged and left in the
+// remaining WordlistPaths rather than dropped, and nothing here ever returns an
+// error or panics. That degrades gracefully (the agent's existence check kicks
+// in) instead of blocking dispatch.
+func (c *Cycle) routeClientLists(ctx context.Context, payload *wsservice.TaskAssignmentPayload) {
+	if len(payload.WordlistPaths) == 0 {
+		return
+	}
+
+	remaining := make([]string, 0, len(payload.WordlistPaths))
+	for _, p := range payload.WordlistPaths {
+		isClient, clientID, filename := classifyClientWordlistPath(p)
+		if !isClient {
+			remaining = append(remaining, p)
+			continue
+		}
+
+		// The client potfile is served by ClientID (already set from
+		// hashlists.client_id), not by a wordlist UUID, so it never needs a
+		// client_wordlists lookup.
+		if filename == "potfile.txt" {
+			if payload.ClientID != "" && clientID.String() != payload.ClientID {
+				debug.Warning("scheduler-v2: client potfile ref %q client %s != hashlist client %s; using ref anyway",
+					p, clientID, payload.ClientID)
+			}
+			payload.ClientPotfilePath = p
+			// Combinator (-a 1) reads two wordlists positionally, so the ref
+			// must also stay in WordlistPaths at its slot; other modes don't.
+			if payload.AttackMode == AttackModeCombinator {
+				remaining = append(remaining, p)
+				debug.Info("scheduler-v2: routed client potfile %q to ClientPotfilePath (kept in WordlistPaths for combinator)", p)
+			} else {
+				debug.Info("scheduler-v2: routed client potfile %q to ClientPotfilePath", p)
+			}
+			continue
+		}
+
+		// Recover the wordlist UUID by matching the sanitized on-disk basename.
+		wordlistID, found := c.lookupClientWordlistID(ctx, clientID, filename)
+		if !found {
+			debug.Warning("scheduler-v2: could not resolve client wordlist %q (client %s); leaving in generic wordlist paths",
+				p, clientID)
+			remaining = append(remaining, p)
+			continue
+		}
+
+		// Append path + ID together so indices stay aligned (the agent pairs
+		// ClientWordlistPaths[i] with ClientWordlistIDs[i]).
+		payload.ClientWordlistPaths = append(payload.ClientWordlistPaths, p)
+		payload.ClientWordlistIDs = append(payload.ClientWordlistIDs, wordlistID)
+		// Combinator (-a 1) reads two wordlists positionally, so the ref must
+		// also stay in WordlistPaths at its slot; other modes don't.
+		if payload.AttackMode == AttackModeCombinator {
+			remaining = append(remaining, p)
+			debug.Info("scheduler-v2: routed client wordlist %q (id %s) to ClientWordlistPaths (kept in WordlistPaths for combinator)", p, wordlistID)
+		} else {
+			debug.Info("scheduler-v2: routed client wordlist %q (id %s) to ClientWordlistPaths", p, wordlistID)
+		}
+	}
+
+	payload.WordlistPaths = remaining
+}
+
+// lookupClientWordlistID finds the client_wordlists row for the given client
+// whose on-disk basename matches filename, returning its ID as a string. We
+// match on filepath.Base(file_path) rather than file_name because file_path is
+// the sanitized on-disk path the wire name derives from, whereas file_name is
+// the raw original upload name (they can differ). Returns found=false on no
+// match or any query/scan error — the caller treats that as a best-effort miss.
+func (c *Cycle) lookupClientWordlistID(ctx context.Context, clientID uuid.UUID, filename string) (string, bool) {
+	rows, err := c.db.QueryContext(ctx,
+		`SELECT id, file_path FROM client_wordlists WHERE client_id = $1`, clientID)
+	if err != nil {
+		debug.Warning("scheduler-v2: query client_wordlists for client %s failed: %v", clientID, err)
+		return "", false
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id, filePath string
+		if err := rows.Scan(&id, &filePath); err != nil {
+			debug.Warning("scheduler-v2: scan client_wordlists row for client %s failed: %v", clientID, err)
+			return "", false
+		}
+		if filepath.Base(filePath) == filename {
+			return id, true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		debug.Warning("scheduler-v2: iterate client_wordlists for client %s failed: %v", clientID, err)
+	}
+	return "", false
 }
 
 // readOverflowMode reads the agent_overflow_allocation_mode setting,

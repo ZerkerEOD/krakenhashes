@@ -601,6 +601,16 @@ func (jm *JobManager) ensureWordlists(ctx context.Context, assignment *JobTaskAs
 	}
 
 	for _, wordlistPath := range assignment.WordlistPaths {
+		// Client wordlists/potfiles (wordlists/clients/{clientID}/...) are delivered by
+		// ensureClientWordlists / ensureClientPotfile via the dedicated authenticated
+		// endpoints (+ post-task cleanup). They appear in WordlistPaths only for
+		// combinator (-a 1), where they must stay positional for ordering. Skip them
+		// here so we don't hit the generic file endpoint, which 404s on the
+		// clients/{uuid}/ subpath.
+		if strings.HasPrefix(wordlistPath, "wordlists/clients/") {
+			continue
+		}
+
 		localPath, err := resolveDataPath(jm.config.DataDirectory, wordlistPath)
 		if err != nil {
 			debug.Error("Rejecting wordlist path: %v", err)

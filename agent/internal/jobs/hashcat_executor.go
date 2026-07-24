@@ -766,6 +766,47 @@ func hasSlowCandidatesFlag(args []string) bool {
 	return false
 }
 
+// selectHybridWordlist returns the full local path of the single wordlist for a
+// hybrid attack, preferring WordlistPaths[0] and falling back to a client-specific
+// wordlist (then the client potfile) when the generic list is empty — mirroring the
+// mode-0 handling so hybrid jobs that use a client wordlist aren't silently dropped.
+// Returns "" if none is available or the chosen client file is missing on disk.
+func (e *HashcatExecutor) selectHybridWordlist(assignment *JobTaskAssignment) string {
+	// Prefer the generic wordlist list (existing behavior — no os.Stat so we
+	// don't change current semantics for global-wordlist hybrid jobs).
+	if len(assignment.WordlistPaths) > 0 {
+		return filepath.Join(e.dataDirectory, assignment.WordlistPaths[0])
+	}
+
+	// Fall back to a client-specific wordlist, then the client potfile. These
+	// paths come straight off the task assignment, so validate each with
+	// resolveDataPath (rejects absolute paths and "../" traversal) before
+	// pointing hashcat at it — existence-guarded like the mode-0 handling.
+	if len(assignment.ClientWordlistPaths) > 0 {
+		if fullPath, err := resolveDataPath(e.dataDirectory, assignment.ClientWordlistPaths[0]); err != nil {
+			debug.Warning("Refusing non-local client wordlist path %q: %v", assignment.ClientWordlistPaths[0], err)
+		} else if _, statErr := os.Stat(fullPath); statErr == nil {
+			debug.Info("Using client wordlist for hybrid attack: %s", fullPath)
+			return fullPath
+		} else {
+			debug.Warning("Client wordlist not found, skipping: %s", fullPath)
+		}
+	}
+
+	if assignment.ClientPotfilePath != "" {
+		if fullPath, err := resolveDataPath(e.dataDirectory, assignment.ClientPotfilePath); err != nil {
+			debug.Warning("Refusing non-local client potfile path %q: %v", assignment.ClientPotfilePath, err)
+		} else if _, statErr := os.Stat(fullPath); statErr == nil {
+			debug.Info("Using client potfile as wordlist for hybrid attack: %s", fullPath)
+			return fullPath
+		} else {
+			debug.Warning("Client potfile not found, skipping: %s", fullPath)
+		}
+	}
+
+	return ""
+}
+
 // buildHashcatCommand builds the hashcat command line arguments
 func (e *HashcatExecutor) buildHashcatCommand(assignment *JobTaskAssignment) (*exec.Cmd, string, string, string, float64, error) {
 	return e.buildHashcatCommandWithOptions(assignment, false)
@@ -982,11 +1023,14 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 			args = append(args, fullPath)
 		}
 
-		// Add client potfile as a wordlist if specified
-		// Client potfile is a wordlist of previously cracked passwords for this client
+		// Add client potfile as a wordlist if specified (a wordlist of previously
+		// cracked passwords for this client). The path comes off the task
+		// assignment, so validate it with resolveDataPath (rejects absolute
+		// paths / "../" traversal) before use.
 		if assignment.ClientPotfilePath != "" {
-			fullPath := filepath.Join(e.dataDirectory, assignment.ClientPotfilePath)
-			if _, err := os.Stat(fullPath); err == nil {
+			if fullPath, err := resolveDataPath(e.dataDirectory, assignment.ClientPotfilePath); err != nil {
+				debug.Warning("Refusing non-local client potfile path %q: %v", assignment.ClientPotfilePath, err)
+			} else if _, statErr := os.Stat(fullPath); statErr == nil {
 				debug.Info("Adding client potfile as wordlist: %s", fullPath)
 				args = append(args, fullPath)
 			} else {
@@ -994,12 +1038,16 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 			}
 		}
 
-		// Add client-specific wordlists if specified
+		// Add client-specific wordlists if specified (same path validation).
 		if len(assignment.ClientWordlistPaths) > 0 {
 			debug.Info("Adding client wordlists to hashcat command: %v", assignment.ClientWordlistPaths)
 			for _, wordlistPath := range assignment.ClientWordlistPaths {
-				fullPath := filepath.Join(e.dataDirectory, wordlistPath)
-				if _, err := os.Stat(fullPath); err == nil {
+				fullPath, err := resolveDataPath(e.dataDirectory, wordlistPath)
+				if err != nil {
+					debug.Warning("Refusing non-local client wordlist path %q: %v", wordlistPath, err)
+					continue
+				}
+				if _, statErr := os.Stat(fullPath); statErr == nil {
 					debug.Info("Adding client wordlist: %s", fullPath)
 					args = append(args, fullPath)
 				} else {
@@ -1029,14 +1077,18 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 		}
 
 	case int(AttackModeHybridWordlistMask): // Hybrid Wordlist + Mask
-		if len(assignment.WordlistPaths) > 0 && assignment.Mask != "" {
-			wordlistPath := filepath.Join(e.dataDirectory, assignment.WordlistPaths[0])
+		// Prefer the generic wordlist, falling back to client wordlist/potfile
+		// so a client wordlist routed via ClientWordlistPaths isn't dropped.
+		wordlistPath := e.selectHybridWordlist(assignment)
+		if wordlistPath != "" && assignment.Mask != "" {
 			args = append(args, wordlistPath, assignment.Mask)
 		}
 
 	case int(AttackModeHybridMaskWordlist): // Hybrid Mask + Wordlist
-		if assignment.Mask != "" && len(assignment.WordlistPaths) > 0 {
-			wordlistPath := filepath.Join(e.dataDirectory, assignment.WordlistPaths[0])
+		// Prefer the generic wordlist, falling back to client wordlist/potfile
+		// so a client wordlist routed via ClientWordlistPaths isn't dropped.
+		wordlistPath := e.selectHybridWordlist(assignment)
+		if assignment.Mask != "" && wordlistPath != "" {
 			args = append(args, assignment.Mask, wordlistPath)
 		}
 

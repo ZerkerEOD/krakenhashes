@@ -410,52 +410,65 @@ type JobNameConfig struct {
 	AssociationWordlistName string // For association attack (mode 9)
 }
 
-// resolveWordlistNames converts wordlist IDs to their names
+// resolveWordlistName resolves a single wordlist ID — a global integer ID, a
+// "client:UUID" client wordlist, or a "potfile:ID" client potfile — to its
+// display name. Returns ok=false when the ID can't be resolved (bad format,
+// missing row, or an unconfigured repo) so callers can choose whether to skip
+// it or substitute a placeholder.
+func (h *UserJobsHandler) resolveWordlistName(ctx context.Context, idStr string) (string, bool) {
+	// Client-specific wordlist: "client:UUID"
+	if strings.HasPrefix(idStr, "client:") {
+		if h.clientWordlistManager == nil {
+			return "", false
+		}
+		clientWordlistID, err := uuid.Parse(strings.TrimPrefix(idStr, "client:"))
+		if err != nil {
+			return "", false
+		}
+		wl, err := h.clientWordlistManager.Get(ctx, clientWordlistID)
+		if err != nil || wl == nil {
+			return "", false
+		}
+		return wl.FileName, true
+	}
+
+	// Client potfile: "potfile:ID"
+	if strings.HasPrefix(idStr, "potfile:") {
+		if h.clientPotfileRepo == nil {
+			return "", false
+		}
+		potfileID, err := strconv.Atoi(strings.TrimPrefix(idStr, "potfile:"))
+		if err != nil {
+			return "", false
+		}
+		pf, err := h.clientPotfileRepo.GetByID(ctx, potfileID)
+		if err != nil || pf == nil {
+			return "", false
+		}
+		return "Client Potfile", true
+	}
+
+	// Global wordlist: numeric ID
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		return "", false
+	}
+	wl, err := h.wordlistStore.GetWordlist(ctx, id)
+	if err != nil || wl == nil {
+		return "", false
+	}
+	return wl.Name, true
+}
+
+// resolveWordlistNames converts wordlist IDs to their names, skipping any that
+// can't be resolved (used for building job names, where an "Unknown" placeholder
+// would be noise).
 func (h *UserJobsHandler) resolveWordlistNames(ctx context.Context, wordlistIDs []string) []string {
 	names := make([]string, 0, len(wordlistIDs))
 	for _, idStr := range wordlistIDs {
-		// Check for client-specific wordlist prefix "client:UUID"
-		if strings.HasPrefix(idStr, "client:") {
-			uuidStr := strings.TrimPrefix(idStr, "client:")
-			clientWordlistID, err := uuid.Parse(uuidStr)
-			if err != nil {
-				continue
-			}
-			if h.clientWordlistManager != nil {
-				wl, err := h.clientWordlistManager.Get(ctx, clientWordlistID)
-				if err == nil && wl != nil {
-					names = append(names, wl.FileName)
-				}
-			}
-			continue
+		if name, ok := h.resolveWordlistName(ctx, idStr); ok {
+			names = append(names, name)
 		}
-
-		// Check for client potfile prefix "potfile:ID"
-		if strings.HasPrefix(idStr, "potfile:") {
-			potfileIDStr := strings.TrimPrefix(idStr, "potfile:")
-			potfileID, err := strconv.Atoi(potfileIDStr)
-			if err != nil {
-				continue
-			}
-			if h.clientPotfileRepo != nil {
-				pf, err := h.clientPotfileRepo.GetByID(ctx, potfileID)
-				if err == nil && pf != nil {
-					names = append(names, "Client Potfile")
-				}
-			}
-			continue
-		}
-
-		// Global wordlist - numeric ID
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			continue
-		}
-		wl, err := h.wordlistStore.GetWordlist(ctx, id)
-		if err != nil || wl == nil {
-			continue
-		}
-		names = append(names, wl.Name)
 	}
 	return names
 }
@@ -1305,22 +1318,17 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Resolve wordlist IDs to names
+	// Resolve wordlist IDs to names. Handles global integer IDs as well as
+	// "client:UUID" and "potfile:ID" IDs. Keeps one entry per ID (with an
+	// "Unknown" placeholder for genuinely-unresolvable IDs) so the frontend's
+	// positional combinator display (wordlist_names[0]/[1]) stays aligned.
 	wordlistNames := make([]string, 0, len(job.WordlistIDs))
 	for _, idStr := range job.WordlistIDs {
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			debug.Warning("Invalid wordlist ID %s for job %s: %v", idStr, jobID, err)
+		if name, ok := h.resolveWordlistName(ctx, idStr); ok {
+			wordlistNames = append(wordlistNames, name)
+		} else {
 			wordlistNames = append(wordlistNames, fmt.Sprintf("Unknown (ID: %s)", idStr))
-			continue
 		}
-		wl, err := h.wordlistStore.GetWordlist(ctx, id)
-		if err != nil || wl == nil {
-			debug.Warning("Failed to get wordlist %d for job %s: %v", id, jobID, err)
-			wordlistNames = append(wordlistNames, fmt.Sprintf("Unknown (ID: %d)", id))
-			continue
-		}
-		wordlistNames = append(wordlistNames, wl.Name)
 	}
 
 	// Resolve rule IDs to names
