@@ -766,6 +766,41 @@ func hasSlowCandidatesFlag(args []string) bool {
 	return false
 }
 
+// selectHybridWordlist returns the full local path of the single wordlist for a
+// hybrid attack, preferring WordlistPaths[0] and falling back to a client-specific
+// wordlist (then the client potfile) when the generic list is empty — mirroring the
+// mode-0 handling so hybrid jobs that use a client wordlist aren't silently dropped.
+// Returns "" if none is available or the chosen client file is missing on disk.
+func (e *HashcatExecutor) selectHybridWordlist(assignment *JobTaskAssignment) string {
+	// Prefer the generic wordlist list (existing behavior — no os.Stat so we
+	// don't change current semantics for global-wordlist hybrid jobs).
+	if len(assignment.WordlistPaths) > 0 {
+		return filepath.Join(e.dataDirectory, assignment.WordlistPaths[0])
+	}
+
+	// Fall back to a client-specific wordlist (existence-guarded like mode 0).
+	if len(assignment.ClientWordlistPaths) > 0 {
+		fullPath := filepath.Join(e.dataDirectory, assignment.ClientWordlistPaths[0])
+		if _, err := os.Stat(fullPath); err == nil {
+			debug.Info("Using client wordlist for hybrid attack: %s", fullPath)
+			return fullPath
+		}
+		debug.Warning("Client wordlist not found, skipping: %s", fullPath)
+	}
+
+	// Finally fall back to the client potfile (a wordlist of previously cracked passwords).
+	if assignment.ClientPotfilePath != "" {
+		fullPath := filepath.Join(e.dataDirectory, assignment.ClientPotfilePath)
+		if _, err := os.Stat(fullPath); err == nil {
+			debug.Info("Using client potfile as wordlist for hybrid attack: %s", fullPath)
+			return fullPath
+		}
+		debug.Warning("Client potfile not found, skipping: %s", fullPath)
+	}
+
+	return ""
+}
+
 // buildHashcatCommand builds the hashcat command line arguments
 func (e *HashcatExecutor) buildHashcatCommand(assignment *JobTaskAssignment) (*exec.Cmd, string, string, string, float64, error) {
 	return e.buildHashcatCommandWithOptions(assignment, false)
@@ -1029,14 +1064,18 @@ func (e *HashcatExecutor) buildHashcatCommandWithOptions(assignment *JobTaskAssi
 		}
 
 	case int(AttackModeHybridWordlistMask): // Hybrid Wordlist + Mask
-		if len(assignment.WordlistPaths) > 0 && assignment.Mask != "" {
-			wordlistPath := filepath.Join(e.dataDirectory, assignment.WordlistPaths[0])
+		// Prefer the generic wordlist, falling back to client wordlist/potfile
+		// so a client wordlist routed via ClientWordlistPaths isn't dropped.
+		wordlistPath := e.selectHybridWordlist(assignment)
+		if wordlistPath != "" && assignment.Mask != "" {
 			args = append(args, wordlistPath, assignment.Mask)
 		}
 
 	case int(AttackModeHybridMaskWordlist): // Hybrid Mask + Wordlist
-		if assignment.Mask != "" && len(assignment.WordlistPaths) > 0 {
-			wordlistPath := filepath.Join(e.dataDirectory, assignment.WordlistPaths[0])
+		// Prefer the generic wordlist, falling back to client wordlist/potfile
+		// so a client wordlist routed via ClientWordlistPaths isn't dropped.
+		wordlistPath := e.selectHybridWordlist(assignment)
+		if assignment.Mask != "" && wordlistPath != "" {
 			args = append(args, assignment.Mask, wordlistPath)
 		}
 
