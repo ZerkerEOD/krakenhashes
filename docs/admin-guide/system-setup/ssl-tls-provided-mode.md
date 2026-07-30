@@ -482,4 +482,4 @@ If you want to manage Let's Encrypt certificates externally:
 
 - [Custom ACME Server Guide](ssl-tls-custom-acme.md) - Use internal ACME servers with certbot mode
 - [Main SSL/TLS Setup Guide](ssl-tls.md) - Overview of all TLS modes
-- [Agent Configuration](../agent-setup.md) - How agents handle certificates
+- [Agent Configuration](../../agent-guide/configuration.md) - How agents handle certificates
