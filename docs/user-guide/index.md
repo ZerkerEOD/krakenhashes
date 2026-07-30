@@ -58,7 +58,7 @@ Learn how to effectively use KrakenHashes for your password auditing needs.
 
     ---
 
-    Generate comprehensive analytics reports with domain-based filtering
+    Generate comprehensive analytics reports with domain-based filtering and optional BloodHound-enriched Active Directory privilege analysis
 
 -   :material-bell:{ .lg .middle } **[Notifications](notifications.md)**
 

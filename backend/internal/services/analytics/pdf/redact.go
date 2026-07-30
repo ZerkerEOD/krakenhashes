@@ -56,6 +56,34 @@ func redactAnalytics(a *models.AnalyticsData) {
 	redactMasks(&a.MaskAnalysis)
 	redactLMPartial(a.LMPartialCracks)
 	redactLMToNTLM(a.LMToNTLMMasks)
+	redactBloodhound(a)
+}
+
+// redactBloodhound drops the per-account leaves of the BloodHound-enriched sections (usernames,
+// SIDs, privileged-group names) while keeping every aggregate count/percentage. Individual
+// compromised identities must never appear in an externally-distributed document.
+func redactBloodhound(a *models.AnalyticsData) {
+	if a.ADPrivilege != nil {
+		a.ADPrivilege.Accounts = nil
+	}
+	if a.PathToDA != nil {
+		a.PathToDA.Accounts = nil
+	}
+	if a.KerberoastCracked != nil {
+		a.KerberoastCracked.Accounts = nil
+	}
+	if a.ASREPRoastCracked != nil {
+		a.ASREPRoastCracked.Accounts = nil
+	}
+	if a.AdminCountCracked != nil {
+		a.AdminCountCracked.Accounts = nil
+	}
+	if a.LocalAdminBlast != nil {
+		a.LocalAdminBlast.TopAccounts = nil
+	}
+	if a.DCSyncCracked != nil {
+		a.DCSyncCracked.Accounts = nil
+	}
 }
 
 // redactDomainAnalytics applies the same stripping to a per-domain section.

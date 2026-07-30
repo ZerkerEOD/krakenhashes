@@ -3,6 +3,7 @@ package pdf
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 )
@@ -45,6 +46,7 @@ func (r *renderer) renderAll(report *models.AnalyticsReport, data *models.Analyt
 	if data.LMToNTLMMasks != nil {
 		r.renderLMToNTLMSection(data.LMToNTLMMasks)
 	}
+	r.renderBloodhoundSection(data)
 	r.renderRecommendationsSection(data.Recommendations)
 
 	// Bound the number of per-domain sections rendered. Reports created before the
@@ -465,6 +467,233 @@ func (r *renderer) renderRecommendationsSection(recs []models.Recommendation) {
 		r.pdf.MultiCell(contentWidth-30, 5, r.tr(rec.Message), "", "L", false)
 		r.pdf.Ln(1)
 	}
+}
+
+// renderBloodhoundSection renders the AD-privilege enrichment on its own page. Per-account detail
+// (usernames/SIDs/groups) is Internal-only; External shows aggregate counts only (the account
+// slices are already nil after redaction, so the Internal gate is defense-in-depth).
+func (r *renderer) renderBloodhoundSection(data *models.AnalyticsData) {
+	if data.ADPrivilege == nil && data.PathToDA == nil && data.KerberoastCracked == nil &&
+		data.ASREPRoastCracked == nil && data.AdminCountCracked == nil &&
+		data.LocalAdminBlast == nil && data.DCSyncCracked == nil {
+		return
+	}
+	r.pdf.AddPage()
+	// The external (client-facing) edition omits the tooling name from the heading; the internal
+	// edition keeps "(BloodHound)" for the assessors' reference.
+	adTitle := "Active Directory Privilege Exposure"
+	if r.class == Internal {
+		adTitle += " (BloodHound)"
+	}
+	r.sectionTitle(adTitle)
+	r.paragraph("Cracked accounts cross-referenced against the uploaded BloodHound collection. This " +
+		"identifies which recovered credentials confer privileged access — from effective Domain Admin " +
+		"down to local-admin reach and graph attack paths to Domain Admin.")
+
+	if a := data.ADPrivilege; a != nil {
+		r.subTitle("Privileged Account Compromise")
+		r.keyValues([][2]string{
+			{"Cracked privileged accounts", intStr(a.CrackedPrivileged)},
+			{"Cracked effective Domain Admins", intStr(a.CrackedEffectiveDA)},
+			{"Cracked tier-0 accounts", intStr(a.CrackedTierZero)},
+			{"Privileged accounts in scope", intStr(a.InScopePrivileged)},
+			{"Privileged cracked rate", pctStr(a.PercentPrivilegedCracked)},
+			{"Privileged in domain (dump)", totalOrUnknown(a.DomainPrivilegedTotal)},
+		})
+		if r.class == Internal {
+			r.renderCompromisedTable(a.Accounts)
+		}
+	}
+	if p := data.PathToDA; p != nil {
+		r.subTitle("Path to Domain Admin")
+		if p.Skipped {
+			r.note("Attack-path analysis was skipped because the collection's graph exceeded the analysis limit.")
+		} else {
+			r.keyValues([][2]string{
+				{"Cracked accounts with a path to DA", intStr(p.CrackedWithPath)},
+				{"In-scope accounts with a path to DA", intStr(p.InScopeWithPath)},
+				{"Shortest path (hops)", intStr(p.ShortestHops)},
+			})
+			if r.class == Internal && len(p.Accounts) > 0 {
+				rows := make([][]string, 0, len(p.Accounts))
+				for _, ac := range p.Accounts {
+					rows = append(rows, []string{ac.Username, ac.Domain, intStr(ac.Hops)})
+				}
+				r.dataTable([]string{"Username", "Domain", "Hops"}, []float64{80, 60, 30}, rows)
+			}
+		}
+	}
+	if k := data.KerberoastCracked; k != nil && (k.Cracked > 0 || k.InScopeTotal > 0) {
+		r.subTitle("Kerberoastable Cracked")
+		r.keyValues([][2]string{
+			{"Cracked", intStr(k.Cracked)},
+			{"Cracked (privileged)", intStr(k.CrackedPrivileged)},
+			{"In scope", intStr(k.InScopeTotal)},
+			{"In domain (dump)", totalOrUnknown(k.DomainTotal)},
+			{"Cracked rate", pctStr(k.PercentCracked)},
+		})
+		if r.class == Internal {
+			r.renderCompromisedTable(k.Accounts)
+		}
+	}
+	if a := data.ASREPRoastCracked; a != nil && (a.Cracked > 0 || a.InScopeTotal > 0) {
+		r.subTitle("AS-REP Roastable Cracked")
+		r.keyValues([][2]string{
+			{"Cracked", intStr(a.Cracked)},
+			{"Cracked (privileged)", intStr(a.CrackedPrivileged)},
+			{"In scope", intStr(a.InScopeTotal)},
+			{"In domain (dump)", totalOrUnknown(a.DomainTotal)},
+			{"Cracked rate", pctStr(a.PercentCracked)},
+		})
+		if r.class == Internal {
+			r.renderCompromisedTable(a.Accounts)
+		}
+	}
+	if a := data.AdminCountCracked; a != nil && (a.Cracked > 0 || a.InScopeTotal > 0) {
+		r.subTitle("AdminCount (AdminSDHolder) Cracked")
+		r.keyValues([][2]string{
+			{"Cracked", intStr(a.Cracked)},
+			{"In scope", intStr(a.InScopeTotal)},
+			{"In domain (dump)", totalOrUnknown(a.DomainTotal)},
+			{"Cracked rate", pctStr(a.PercentCracked)},
+		})
+		if r.class == Internal {
+			r.renderCompromisedTable(a.Accounts)
+		}
+	}
+	if d := data.DCSyncCracked; d != nil {
+		r.subTitle("DCSync-Capable Cracked")
+		r.keyValues([][2]string{
+			{"Cracked with DCSync rights", intStr(d.Cracked)},
+			{"DCSync principals in domain (dump)", totalOrUnknown(d.DomainPrincipals)},
+		})
+		if r.class == Internal {
+			r.renderCompromisedTable(d.Accounts)
+		}
+	}
+	if l := data.LocalAdminBlast; l != nil && l.CrackedWithLocalAdmin > 0 {
+		r.subTitle("Local-Admin Blast Radius")
+		r.keyValues([][2]string{
+			{"Cracked accounts with local admin", intStr(l.CrackedWithLocalAdmin)},
+			{"Total admin relationships", intStr(l.TotalAdminRelationships)},
+			{"Largest single-account reach", intStr(l.MaxComputersSingle)},
+		})
+		if r.class == Internal && len(l.TopAccounts) > 0 {
+			rows := make([][]string, 0, len(l.TopAccounts))
+			for _, ac := range l.TopAccounts {
+				rows = append(rows, []string{ac.Username, ac.Domain, intStr(ac.ComputerCount)})
+			}
+			r.dataTable([]string{"Username", "Domain", "Computers"}, []float64{80, 60, 30}, rows)
+		}
+	}
+}
+
+// renderCompromisedTable renders an Internal-only per-account table. It is a no-op for an empty list.
+// Full group names (including "@DOMAIN", which disambiguates same-named groups across domains) are
+// preserved and word-wrapped onto as many lines as needed, so nothing runs off the page.
+func (r *renderer) renderCompromisedTable(accts []models.CompromisedAccount) {
+	if len(accts) == 0 {
+		return
+	}
+	rows := make([][]string, 0, len(accts))
+	for _, ac := range accts {
+		rows = append(rows, []string{ac.Username, ac.Domain, strings.Join(ac.PrivilegedGroups, ", ")})
+	}
+	r.wrappedTable([]string{"Username", "Domain", "Privileged Groups"}, []float64{40, 40, 100}, rows, 2)
+}
+
+// wrappedTable renders a bordered table where the column at wrapCol word-wraps onto multiple lines;
+// each row grows to fit the wrapped content. All other columns are single-line and vertically
+// centered. SplitLines and MultiCell both subtract the cell margin, so the measured line count
+// matches what MultiCell renders exactly.
+func (r *renderer) wrappedTable(headers []string, widths []float64, rows [][]string, wrapCol int) {
+	if len(rows) == 0 {
+		r.note("No data for this section.")
+		return
+	}
+	const lineH = 4.6
+	const minRowH = 6.5
+	const cellMargin = 1.0
+
+	r.resetDrawColor()
+	oldMargin := r.pdf.GetCellMargin()
+	r.pdf.SetCellMargin(cellMargin)
+	defer r.pdf.SetCellMargin(oldMargin)
+
+	wrapX := pageMarginLeft
+	for i := 0; i < wrapCol && i < len(widths); i++ {
+		wrapX += widths[i]
+	}
+
+	drawHeader := func() {
+		r.headerRowFill()
+		r.darkText()
+		r.pdf.SetFont("Helvetica", "B", 9)
+		r.pdf.SetX(pageMarginLeft)
+		for i, h := range headers {
+			r.pdf.CellFormat(widths[i], 7, r.s(h), "1", 0, "L", true, 0, "")
+		}
+		r.pdf.Ln(-1)
+	}
+
+	r.ensureSpace(14)
+	drawHeader()
+	r.pdf.SetFont("Helvetica", "", 9)
+
+	for ri, row := range rows {
+		wrapTxt := ""
+		if wrapCol < len(row) {
+			wrapTxt = r.tr(row[wrapCol])
+		}
+		nLines := len(r.pdf.SplitLines([]byte(wrapTxt), widths[wrapCol]))
+		if nLines < 1 {
+			nLines = 1
+		}
+		rowH := float64(nLines) * lineH
+		if rowH < minRowH {
+			rowH = minRowH
+		}
+
+		if r.pdf.GetY()+rowH > pageBreakTrigger {
+			r.pdf.AddPage()
+			drawHeader()
+			r.pdf.SetFont("Helvetica", "", 9)
+		}
+
+		if ri%2 == 1 {
+			r.zebraFill()
+		} else {
+			r.pdf.SetFillColor(255, 255, 255)
+		}
+		y0 := r.pdf.GetY()
+
+		// Cell backgrounds + borders. The wrap cell gets an empty box; its text is drawn after.
+		x := pageMarginLeft
+		for i := range headers {
+			cell := ""
+			if i != wrapCol && i < len(row) {
+				cell = r.s(row[i])
+			}
+			r.pdf.SetXY(x, y0)
+			r.pdf.CellFormat(widths[i], rowH, cell, "1", 0, "L", true, 0, "")
+			x += widths[i]
+		}
+
+		// Wrapped text, vertically centered within the (possibly taller) row.
+		r.pdf.SetXY(wrapX, y0+(rowH-float64(nLines)*lineH)/2)
+		r.pdf.MultiCell(widths[wrapCol], lineH, wrapTxt, "", "L", false)
+
+		r.pdf.SetXY(pageMarginLeft, y0+rowH)
+	}
+	r.pdf.Ln(2)
+}
+
+// totalOrUnknown renders a domain-wide total, showing "n/a" when it was skipped (-1).
+func totalOrUnknown(v int) string {
+	if v < 0 {
+		return "n/a"
+	}
+	return intStr(v)
 }
 
 func (r *renderer) severityFill(sev string) {

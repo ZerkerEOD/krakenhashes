@@ -37,8 +37,82 @@ export interface AnalyticsData {
   top_passwords: TopPassword[];
   lm_partial_cracks?: LMPartialCrackStats;
   lm_to_ntlm_masks?: LMToNTLMMaskStats;
+  // BloodHound-enriched sections (present only when an AD collection dump was uploaded).
+  ad_privilege?: ADPrivilegeStats;
+  path_to_domain_admin?: PathToDAStats;
+  kerberoast_cracked?: RoastableCrackStats;
+  asrep_roast_cracked?: RoastableCrackStats;
+  admin_count_cracked?: AdminCountCrackStats;
+  local_admin_blast_radius?: LocalAdminBlastStats;
+  dcsync_cracked?: DCSyncCrackStats;
   recommendations: Recommendation[];
   domain_analytics?: DomainAnalytics[];
+}
+
+// --- BloodHound-enriched section types ---
+
+export interface CompromisedAccount {
+  username: string;
+  domain?: string;
+  sid?: string;
+  privileged_groups?: string[];
+  enabled: boolean;
+}
+
+export interface ADPrivilegeStats {
+  in_scope_privileged: number;
+  cracked_privileged: number;
+  cracked_effective_domain_admin: number;
+  cracked_tier_zero: number;
+  domain_privileged_total: number; // -1 = not computed (dump too large)
+  percent_privileged_cracked: number;
+  accounts?: CompromisedAccount[];
+}
+
+export interface RoastableCrackStats {
+  domain_total: number;
+  in_scope_total: number;
+  cracked: number;
+  cracked_privileged: number;
+  percent_cracked: number;
+  accounts?: CompromisedAccount[];
+}
+
+export interface AdminCountCrackStats {
+  domain_total: number;
+  in_scope_total: number;
+  cracked: number;
+  percent_cracked: number;
+  accounts?: CompromisedAccount[];
+}
+
+export interface BlastAccount extends CompromisedAccount {
+  computer_count: number;
+}
+
+export interface LocalAdminBlastStats {
+  cracked_with_local_admin: number;
+  total_admin_relationships: number;
+  max_computers_single: number;
+  top_accounts?: BlastAccount[];
+}
+
+export interface DCSyncCrackStats {
+  domain_principals: number; // -1 = not computed
+  cracked: number;
+  accounts?: CompromisedAccount[];
+}
+
+export interface PathAccount extends CompromisedAccount {
+  hops: number;
+}
+
+export interface PathToDAStats {
+  skipped: boolean;
+  in_scope_with_path: number;
+  cracked_with_path: number;
+  shortest_hops: number;
+  accounts?: PathAccount[];
 }
 
 export interface DomainAnalytics {

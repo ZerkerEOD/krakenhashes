@@ -51,6 +51,8 @@ tags:
     description: Manage compute agents and registration vouchers
   - name: Metadata
     description: Helper endpoints for hash types, workflows, and presets
+  - name: Analytics
+    description: Generate and retrieve password analytics & reporting, including BloodHound-enriched AD-privilege analysis
 
 components:
   securitySchemes:
@@ -96,6 +98,237 @@ components:
       example:
         error: "Client not found"
         code: "CLIENT_NOT_FOUND"
+
+    AnalyticsReport:
+      type: object
+      description: |
+        A password analytics report. `status` transitions queued → processing → completed | failed.
+        `analytics_data` is populated once `status` is `completed` and contains all analysis sections,
+        including the BloodHound-enriched AD-privilege sections (`ad_privilege`, `path_to_domain_admin`,
+        `kerberoast_cracked`, `asrep_roast_cracked`, `admin_count_cracked`, `local_admin_blast_radius`,
+        `dcsync_cracked`) when a dump was uploaded.
+      properties:
+        id:
+          type: string
+          format: uuid
+        client_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued, processing, completed, failed]
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+        total_hashlists:
+          type: integer
+        total_hashes:
+          type: integer
+        total_cracked:
+          type: integer
+        queue_position:
+          type: integer
+          nullable: true
+        hashlist_ids:
+          type: array
+          items:
+            type: integer
+            format: int64
+        custom_patterns:
+          type: array
+          items:
+            type: string
+        analytics_data:
+          nullable: true
+          description: Full analysis payload (present when completed). Its shape mirrors the in-app report.
+          allOf:
+            - $ref: '#/components/schemas/AnalyticsData'
+        error_message:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    AnalyticsData:
+      type: object
+      additionalProperties: true
+      description: |
+        Full analysis payload, present once the report is `completed`. Contains the core analysis
+        sections (overview, length_distribution, complexity_analysis, pattern_detection, mask_analysis,
+        strength_metrics, top_passwords, etc. — free-form here) plus, when a BloodHound dump was
+        uploaded, the typed Active Directory privilege-exposure sections below. Each AD section is
+        omitted unless a dump was provided.
+      properties:
+        ad_privilege:
+          $ref: '#/components/schemas/ADPrivilegeStats'
+        path_to_domain_admin:
+          $ref: '#/components/schemas/PathToDAStats'
+        kerberoast_cracked:
+          $ref: '#/components/schemas/RoastableCrackStats'
+        asrep_roast_cracked:
+          $ref: '#/components/schemas/RoastableCrackStats'
+        admin_count_cracked:
+          $ref: '#/components/schemas/AdminCountCrackStats'
+        local_admin_blast_radius:
+          $ref: '#/components/schemas/LocalAdminBlastStats'
+        dcsync_cracked:
+          $ref: '#/components/schemas/DCSyncCrackStats'
+
+    CompromisedAccount:
+      type: object
+      description: |
+        A single cracked AD account and its privilege standing. Present in INTERNAL exports and API
+        responses; stripped from external (redacted) PDF exports.
+      properties:
+        username:
+          type: string
+        domain:
+          type: string
+        sid:
+          type: string
+        privileged_groups:
+          type: array
+          items:
+            type: string
+          description: Names of privileged/tier-0 groups the account is (transitively) a member of.
+        enabled:
+          type: boolean
+
+    ADPrivilegeStats:
+      type: object
+      description: Headline privileged-account compromise. Aggregate counts survive external redaction; `accounts` is stripped.
+      properties:
+        in_scope_privileged:
+          type: integer
+          description: Privileged accounts present in the report's hashlists.
+        cracked_privileged:
+          type: integer
+        cracked_effective_domain_admin:
+          type: integer
+        cracked_tier_zero:
+          type: integer
+        domain_privileged_total:
+          type: integer
+          description: Privileged accounts across the whole dump; -1 if skipped (dump too large).
+        percent_privileged_cracked:
+          type: number
+          format: float
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompromisedAccount'
+
+    PathToDAStats:
+      type: object
+      description: Cracked accounts with a graph attack path to Domain Admin.
+      properties:
+        skipped:
+          type: boolean
+          description: True if path analysis was skipped because the graph exceeded the analysis limit.
+        in_scope_with_path:
+          type: integer
+        cracked_with_path:
+          type: integer
+        shortest_hops:
+          type: integer
+          description: Minimum hops among cracked accounts; 0 if none.
+        accounts:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/CompromisedAccount'
+              - type: object
+                properties:
+                  hops:
+                    type: integer
+
+    RoastableCrackStats:
+      type: object
+      description: Kerberoastable or AS-REP-roastable cracked accounts (same shape for both sections).
+      properties:
+        domain_total:
+          type: integer
+          description: Enabled roastable accounts across the dump.
+        in_scope_total:
+          type: integer
+        cracked:
+          type: integer
+        cracked_privileged:
+          type: integer
+        percent_cracked:
+          type: number
+          format: float
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompromisedAccount'
+
+    AdminCountCrackStats:
+      type: object
+      description: Cracked AdminSDHolder-protected (admincount=1) accounts.
+      properties:
+        domain_total:
+          type: integer
+        in_scope_total:
+          type: integer
+        cracked:
+          type: integer
+        percent_cracked:
+          type: number
+          format: float
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompromisedAccount'
+
+    LocalAdminBlastStats:
+      type: object
+      description: Local-admin reach of cracked accounts across computers.
+      properties:
+        cracked_with_local_admin:
+          type: integer
+        total_admin_relationships:
+          type: integer
+        max_computers_single:
+          type: integer
+        top_accounts:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/CompromisedAccount'
+              - type: object
+                properties:
+                  computer_count:
+                    type: integer
+
+    DCSyncCrackStats:
+      type: object
+      description: Cracked accounts holding DCSync (domain replication) rights.
+      properties:
+        domain_principals:
+          type: integer
+          description: DCSync-capable principals in the dump; -1 if skipped.
+        cracked:
+          type: integer
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompromisedAccount'
 
     Client:
       type: object
@@ -1300,3 +1533,267 @@ paths:
                       $ref: '#/components/schemas/PresetJob'
                   total:
                     type: integer
+
+  /analytics/reports:
+    post:
+      tags: [Analytics]
+      summary: Queue a new analytics report
+      description: Creates a password analytics report for a client and queues it for background generation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [client_id]
+              properties:
+                client_id:
+                  type: string
+                  format: uuid
+                hashlist_ids:
+                  type: array
+                  items:
+                    type: integer
+                    format: int64
+                  description: Hashlists to analyze. If omitted, falls back to the client's hashlists in the date range.
+                start_date:
+                  type: string
+                  format: date-time
+                end_date:
+                  type: string
+                  format: date-time
+                custom_patterns:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Report queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsReport'
+        '400': { description: Validation error }
+        '401': { description: Authentication required }
+        '404': { description: Client not found (or not accessible) }
+    get:
+      tags: [Analytics]
+      summary: List analytics reports for a client
+      parameters:
+        - name: client_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Reports for the client
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reports:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AnalyticsReport'
+                  total:
+                    type: integer
+        '400': { description: client_id is required or invalid }
+        '404': { description: Client not found (or not accessible) }
+
+  /analytics/reports/bloodhound:
+    post:
+      tags: [Analytics]
+      summary: Queue a report enriched with a BloodHound dump
+      description: |
+        Creates an analytics report enriched with an uploaded BloodHound / SharpHound Active Directory
+        collection dump. The dump (a SharpHound `.zip` or one or more BloodHound `.json` files) is parsed
+        **in memory only** — the raw dump is never written to disk, and the compact derived AD-privilege
+        context is deleted after the report finishes generating. Re-analysis requires re-uploading the dump.
+
+        The enrichment cross-references CRACKED accounts against their AD standing: privileged/tier-0
+        membership, Kerberoastable/AS-REP roastable, admincount, DCSync rights, local-admin blast radius,
+        and graph attack paths to Domain Admin.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [client_id, hashlist_ids, file]
+              properties:
+                client_id:
+                  type: string
+                  format: uuid
+                hashlist_ids:
+                  type: string
+                  description: JSON array (e.g. "[1,2,3]") or CSV (e.g. "1,2,3") of hashlist IDs.
+                start_date:
+                  type: string
+                  description: RFC3339; defaults to now.
+                end_date:
+                  type: string
+                  description: RFC3339; defaults to now.
+                custom_patterns:
+                  type: string
+                  description: JSON array or CSV of custom patterns.
+                file:
+                  type: string
+                  format: binary
+                  description: SharpHound .zip or a BloodHound .json file (repeatable).
+      responses:
+        '201':
+          description: Report queued with derived AD context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsReport'
+        '400': { description: Validation error / invalid or oversized upload }
+        '401': { description: Authentication required }
+        '404': { description: Client not found (or not accessible) }
+        '413': { description: Upload exceeds configured size limits }
+
+  /analytics/reports/{id}:
+    get:
+      tags: [Analytics]
+      summary: Get an analytics report (including its metrics)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The report, including analytics_data when completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsReport'
+        '404': { description: Report not found }
+    delete:
+      tags: [Analytics]
+      summary: Delete an analytics report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204': { description: Deleted }
+        '404': { description: Report not found }
+
+  /analytics/reports/{id}/retry:
+    post:
+      tags: [Analytics]
+      summary: Retry a failed report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Re-queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsReport'
+        '400': { description: Only failed reports can be retried }
+        '404': { description: Report not found }
+
+  /analytics/reports/{id}/export:
+    get:
+      tags: [Analytics]
+      summary: Export a completed report as a PDF
+      description: |
+        Renders a completed report as a PDF. `type=internal` contains full detail (plaintext passwords,
+        usernames, hash values, per-account AD detail); `type=external` is an aggregate-only summary with
+        identifying detail redacted server-side.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [internal, external]
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pdf]
+      responses:
+        '200':
+          description: PDF document
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400': { description: Invalid type, or report not completed }
+        '404': { description: Report not found }
+
+  /analytics/hashlists:
+    get:
+      tags: [Analytics]
+      summary: List hashlists selectable for a report
+      parameters:
+        - name: client_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: start_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: end_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Hashlist summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        '400': { description: client_id is required or invalid }
+
+  /analytics/queue-status:
+    get:
+      tags: [Analytics]
+      summary: Get the analytics generation queue status
+      responses:
+        '200':
+          description: Queue status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queue_length:
+                    type: integer
+                  is_processing:
+                    type: boolean

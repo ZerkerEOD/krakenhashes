@@ -13,26 +13,32 @@ import (
 
 // AnalyticsQueueService processes analytics reports in the background
 type AnalyticsQueueService struct {
-	analyticsService *AnalyticsService
-	repo             *repository.AnalyticsRepository
-	stopChan         chan struct{}
-	running          bool
-	processing       bool
-	mu               sync.Mutex
-	pollInterval     time.Duration
+	analyticsService  *AnalyticsService
+	repo              *repository.AnalyticsRepository
+	stopChan          chan struct{}
+	running           bool
+	processing        bool
+	mu                sync.Mutex
+	pollInterval      time.Duration
 	processingTimeout time.Duration
+	// BloodHound staged-context deletion backstop.
+	bloodhoundContextTTL time.Duration // how long a failed report's context may linger before the sweep clears it
+	sweepInterval        time.Duration // minimum time between sweeps
+	lastSweep            time.Time
 }
 
 // NewAnalyticsQueueService creates a new AnalyticsQueueService
 func NewAnalyticsQueueService(analyticsService *AnalyticsService, repo *repository.AnalyticsRepository) *AnalyticsQueueService {
 	return &AnalyticsQueueService{
-		analyticsService:  analyticsService,
-		repo:              repo,
-		stopChan:          make(chan struct{}),
-		running:           false,
-		processing:        false,
-		pollInterval:      10 * time.Second,        // Check for queued reports every 10 seconds
-		processingTimeout: 60 * time.Minute,        // Max 1 hour per report
+		analyticsService:     analyticsService,
+		repo:                 repo,
+		stopChan:             make(chan struct{}),
+		running:              false,
+		processing:           false,
+		pollInterval:         10 * time.Second, // Check for queued reports every 10 seconds
+		processingTimeout:    60 * time.Minute, // Max 1 hour per report
+		bloodhoundContextTTL: 30 * time.Minute, // Failed reports keep their context this long (for retry), then it's swept
+		sweepInterval:        5 * time.Minute,  // Run the staged-context sweep at most this often
 	}
 }
 
@@ -93,6 +99,9 @@ func (s *AnalyticsQueueService) processQueue() {
 
 // checkAndProcessNext checks for queued reports and processes the next one
 func (s *AnalyticsQueueService) checkAndProcessNext() {
+	// Backstop deletion of stale BloodHound-derived contexts (runs regardless of queue state).
+	s.maybeSweepBloodhound()
+
 	s.mu.Lock()
 	if s.processing {
 		s.mu.Unlock()
@@ -169,6 +178,32 @@ func (s *AnalyticsQueueService) processReport(ctx context.Context, report *model
 	return nil
 }
 
+// maybeSweepBloodhound runs the staged-context deletion backstop at most once per sweepInterval. It
+// clears BloodHound-derived context for completed reports (in case a per-report clear was missed or
+// the process crashed) and for failed reports older than bloodhoundContextTTL.
+func (s *AnalyticsQueueService) maybeSweepBloodhound() {
+	s.mu.Lock()
+	due := time.Since(s.lastSweep) >= s.sweepInterval
+	if due {
+		s.lastSweep = time.Now()
+	}
+	s.mu.Unlock()
+	if !due {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	n, err := s.repo.SweepStaleBloodhoundContexts(ctx, s.bloodhoundContextTTL)
+	if err != nil {
+		debug.Warning("BloodHound context sweep failed: %v", err)
+		return
+	}
+	if n > 0 {
+		debug.Info("BloodHound context sweep cleared %d stale staged context(s)", n)
+	}
+}
+
 // GetQueueStatus returns information about the current queue status
 func (s *AnalyticsQueueService) GetQueueStatus(ctx context.Context) (map[string]interface{}, error) {
 	queuedReports, err := s.repo.GetQueuedReports(ctx)
@@ -181,7 +216,7 @@ func (s *AnalyticsQueueService) GetQueueStatus(ctx context.Context) (map[string]
 	s.mu.Unlock()
 
 	return map[string]interface{}{
-		"queue_length": len(queuedReports),
+		"queue_length":  len(queuedReports),
 		"is_processing": processing,
 	}, nil
 }
