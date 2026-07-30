@@ -129,7 +129,8 @@ jobs:
           mike serve &
           sleep 5
           mkdir -p ./site
-          wget -r -np -k -E -p -erobots=off -P ./site http://localhost:8000/pr-${{ github.event.pull_request.number }}/
+          # -nH drops the "localhost:8000/" host directory; upload-artifact@v4 rejects paths with ':'
+          wget -r -np -nH -k -E -p -erobots=off -P ./site http://localhost:8000/pr-${{ github.event.pull_request.number }}/
           pkill -f "mike serve" || true
 
       - name: Upload preview artifact
@@ -141,6 +142,7 @@ jobs:
 
       - name: Comment PR
         uses: actions/github-script@v7
+        continue-on-error: true  # commenting needs pull-requests: write; don't fail the check if denied
         with:
           script: |
             github.rest.issues.createComment({
