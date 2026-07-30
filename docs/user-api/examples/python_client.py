@@ -331,6 +331,164 @@ class KrakenHashesClient:
         response = self._request('GET', '/preset-jobs')
         return response.json()
 
+    # Analytics & Reporting
+    def get_report_hashlists(self, client_id: str,
+                             start_date: Optional[str] = None,
+                             end_date: Optional[str] = None) -> Dict:
+        """
+        List hashlists selectable for an analytics report.
+
+        Args:
+            client_id: Client UUID (required)
+            start_date: Optional RFC3339 lower bound (e.g. "2025-01-01T00:00:00Z")
+            end_date: Optional RFC3339 upper bound
+        """
+        params = {'client_id': client_id}
+        if start_date:
+            params['start_date'] = start_date
+        if end_date:
+            params['end_date'] = end_date
+        response = self._request('GET', '/analytics/hashlists', params=params)
+        return response.json()
+
+    def create_report(self, client_id: str, hashlist_ids: List[int],
+                      start_date: str, end_date: str,
+                      custom_patterns: Optional[List[str]] = None) -> Dict:
+        """
+        Queue an analytics report (no BloodHound enrichment).
+
+        The report is generated asynchronously; poll get_report() / wait_for_report()
+        until its status is "completed".
+
+        Args:
+            client_id: Client UUID (required)
+            hashlist_ids: Hashlist IDs to include (required)
+            start_date: RFC3339 window start (e.g. "2025-01-01T00:00:00Z")
+            end_date: RFC3339 window end
+            custom_patterns: Optional organization-name patterns to search for
+        """
+        data = {
+            'client_id': client_id,
+            'hashlist_ids': hashlist_ids,
+            'start_date': start_date,
+            'end_date': end_date,
+        }
+        if custom_patterns:
+            data['custom_patterns'] = custom_patterns
+        response = self._request('POST', '/analytics/reports', json=data)
+        return response.json()
+
+    def create_report_with_bloodhound(self, client_id: str, hashlist_ids: List[int],
+                                      dump_path: str, start_date: str, end_date: str,
+                                      custom_patterns: Optional[List[str]] = None) -> Dict:
+        """
+        Queue an analytics report enriched with a BloodHound collection dump.
+
+        The dump (SharpHound .zip or BloodHound .json) is parsed in memory and NEVER
+        written to disk. Only compact derived AD-privilege facts are staged, and they
+        are deleted once the report finishes generating -- re-analysis requires
+        re-uploading the dump.
+
+        Args:
+            client_id: Client UUID (required)
+            hashlist_ids: Hashlist IDs to include (required)
+            dump_path: Path to the BloodHound .zip or .json dump (required)
+            start_date: RFC3339 window start
+            end_date: RFC3339 window end
+            custom_patterns: Optional organization-name patterns
+        """
+        # Multipart upload: drop the JSON Content-Type so requests sets the boundary.
+        headers = {k: v for k, v in self.session.headers.items()
+                   if k.lower() != 'content-type'}
+        data = {
+            'client_id': client_id,
+            'hashlist_ids': json.dumps(hashlist_ids),
+            'start_date': start_date,
+            'end_date': end_date,
+        }
+        if custom_patterns:
+            data['custom_patterns'] = json.dumps(custom_patterns)
+
+        with open(dump_path, 'rb') as f:
+            files = {'file': (Path(dump_path).name, f, 'application/octet-stream')}
+            url = f"{self.base_url}/analytics/reports/bloodhound"
+            response = requests.post(url, headers=headers, files=files, data=data)
+
+            if not response.ok:
+                try:
+                    error_data = response.json()
+                    print(f"API Error: {error_data.get('error', 'Unknown error')}",
+                         file=sys.stderr)
+                except:
+                    print(f"HTTP {response.status_code}: {response.text}",
+                         file=sys.stderr)
+                response.raise_for_status()
+
+            return response.json()
+
+    def list_reports(self, client_id: str) -> Dict:
+        """List analytics reports for a client (client_id is required, team-scoped)."""
+        response = self._request('GET', '/analytics/reports',
+                                 params={'client_id': client_id})
+        return response.json()
+
+    def get_report(self, report_id: str) -> Dict:
+        """Get an analytics report, including its analytics_data metrics once completed."""
+        response = self._request('GET', f'/analytics/reports/{report_id}')
+        return response.json()
+
+    def wait_for_report(self, report_id: str, poll_interval: int = 5,
+                       timeout: int = 3600) -> Dict:
+        """
+        Poll a report until it reaches a terminal state ("completed" or "failed").
+
+        Returns the final report dict. Raises TimeoutError if it does not finish
+        within `timeout` seconds.
+        """
+        import time
+        deadline = time.time() + timeout
+        while True:
+            report = self.get_report(report_id)
+            status = report.get('status')
+            if status in ('completed', 'failed'):
+                return report
+            if time.time() > deadline:
+                raise TimeoutError(f"report {report_id} still {status} after {timeout}s")
+            time.sleep(poll_interval)
+
+    def export_report(self, report_id: str, output_path: str,
+                     report_type: str = 'internal') -> str:
+        """
+        Download a report as a PDF.
+
+        Args:
+            report_id: Report UUID
+            output_path: Where to write the PDF
+            report_type: "internal" (full detail incl. per-account identities) or
+                         "external" (client-facing; account usernames/SIDs redacted)
+
+        Returns the output path written.
+        """
+        response = self._request('GET', f'/analytics/reports/{report_id}/export',
+                                 params={'type': report_type})
+        with open(output_path, 'wb') as f:
+            f.write(response.content)
+        return output_path
+
+    def retry_report(self, report_id: str) -> Dict:
+        """Re-queue a failed report."""
+        response = self._request('POST', f'/analytics/reports/{report_id}/retry')
+        return response.json()
+
+    def delete_report(self, report_id: str) -> None:
+        """Delete an analytics report."""
+        self._request('DELETE', f'/analytics/reports/{report_id}')
+
+    def get_queue_status(self) -> Dict:
+        """Get the analytics queue depth and whether a report is currently processing."""
+        response = self._request('GET', '/analytics/queue-status')
+        return response.json()
+
 
 def example_workflow():
     """Example workflow demonstrating common API operations"""
@@ -479,11 +637,77 @@ def job_monitoring_example():
     print(f"Cracked: {job_status.get('cracked_count', 0)}/{job_status.get('total_hashes', 0)}")
 
 
+def analytics_workflow_example():
+    """Example: create an analytics report, wait for it, read metrics, and export PDFs."""
+
+    client = KrakenHashesClient(
+        base_url='http://localhost:31337/api/v1',
+        email='user@example.com',
+        api_key='your-64-character-api-key-here'
+    )
+
+    print("KrakenHashes - Analytics & Reporting Example\n")
+
+    # A client and its hashlists must already exist. Replace with real values.
+    client_id = "00000000-0000-0000-0000-000000000000"
+    start_date = "2025-01-01T00:00:00Z"
+    end_date = "2025-12-31T23:59:59Z"
+
+    # 1. Which hashlists can go into a report for this client/window?
+    print("1. Listing selectable hashlists...")
+    hashlists = client.get_report_hashlists(client_id, start_date, end_date)
+    hashlist_ids = [hl['id'] for hl in hashlists][:3]
+    print(f"   Using hashlist IDs: {hashlist_ids}")
+    if not hashlist_ids:
+        print("   No hashlists available for this client/window; aborting.")
+        return
+
+    # 2. Queue a report. To enrich with Active Directory context, use
+    #    create_report_with_bloodhound(..., dump_path="/path/to/BloodHound.zip") instead
+    #    -- the dump is parsed in memory and never written to disk.
+    print("\n2. Queueing an analytics report...")
+    report = client.create_report(client_id, hashlist_ids, start_date, end_date)
+    report_id = report['id']
+    print(f"   Report {report_id} queued (status: {report['status']})")
+
+    # 3. Wait for generation to complete.
+    print("\n3. Waiting for generation to complete...")
+    report = client.wait_for_report(report_id)
+    print(f"   Final status: {report['status']}")
+    if report['status'] != 'completed':
+        print(f"   Report failed: {report.get('error_message')}")
+        return
+
+    # 4. Read a few metrics. BloodHound sections are present only if a dump was uploaded.
+    data = report.get('analytics_data') or {}
+    overview = data.get('overview', {})
+    print(f"\n4. Overview: {overview.get('total_cracked', 0)}/"
+          f"{overview.get('total_hashes', 0)} cracked")
+    adp = data.get('ad_privilege')
+    if adp:
+        print(f"   Cracked privileged accounts: {adp.get('cracked_privileged', 0)} "
+              f"({adp.get('cracked_effective_domain_admin', 0)} effective Domain Admins)")
+
+    # 5. Export both PDF classes.
+    print("\n5. Exporting PDFs...")
+    client.export_report(report_id, "report-internal.pdf", "internal")
+    client.export_report(report_id, "report-external.pdf", "external")
+    print("   Wrote report-internal.pdf (full) and report-external.pdf (redacted)")
+
+    # 6. Queue status.
+    q = client.get_queue_status()
+    print(f"\n6. Queue: length={q.get('queue_length')}, processing={q.get('is_processing')}")
+
+    print("\n✓ Analytics workflow completed!")
+
+
 if __name__ == '__main__':
     try:
         example_workflow()
         # Uncomment to run job monitoring example:
         # job_monitoring_example()
+        # Uncomment to run the analytics & reporting example:
+        # analytics_workflow_example()
     except requests.RequestException as e:
         print(f"\n✗ Error: {e}", file=sys.stderr)
         sys.exit(1)

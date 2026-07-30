@@ -69,4 +69,4 @@ Instructions for setting up and running each component can be found in their res
 ### Version 3.0.0 Considerations
 
 -   [ ] Better file syncing to agents
--   [ ] Use bloodhound data for client password analytics
+-   [x] Use bloodhound data for client password analytics
