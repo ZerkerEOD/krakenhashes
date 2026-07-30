@@ -82,6 +82,7 @@ export default function Analytics() {
   const [availableHashlists, setAvailableHashlists] = useState<HashlistSummary[]>([]);
   const [selectedHashlistIds, setSelectedHashlistIds] = useState<Set<number>>(new Set());
   const [hashlistsLoading, setHashlistsLoading] = useState(false);
+  const [bloodhoundFiles, setBloodhoundFiles] = useState<File[]>([]);
   const { enqueueSnackbar } = useSnackbar();
 
   // Helper function to format dates
@@ -352,7 +353,21 @@ export default function Analytics() {
         hashlist_ids: selectedHashlistIds.size > 0 ? Array.from(selectedHashlistIds) : undefined,
       };
 
-      const report = await analyticsService.createReport(request);
+      // When a BloodHound collection dump is attached, use the multipart endpoint so the report is
+      // enriched with AD-privilege context. The dump is parsed in memory only and never persisted.
+      const report = bloodhoundFiles.length > 0
+        ? await analyticsService.createReportWithBloodhound(
+            {
+              clientId: selectedClient,
+              hashlistIds: selectedHashlistIds.size > 0 ? Array.from(selectedHashlistIds) : [],
+              startDate: request.start_date,
+              endDate: request.end_date,
+              customPatterns: patterns,
+            },
+            bloodhoundFiles,
+          )
+        : await analyticsService.createReport(request);
+      setBloodhoundFiles([]);
       setCurrentReport(report);
       setReportStatus('queued');
       enqueueSnackbar(t('messages.reportQueued', { position: report.queue_position }) as string, { variant: 'success' });
@@ -644,6 +659,39 @@ export default function Analytics() {
                       onChange={(e) => setCustomPatterns(e.target.value)}
                       helperText={t('form.customPatternsHelper') as string}
                     />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                      <Button variant="outlined" component="label">
+                        Attach BloodHound Dump (optional)
+                        <input
+                          type="file"
+                          hidden
+                          multiple
+                          accept=".zip,.json"
+                          onChange={(e) =>
+                            setBloodhoundFiles(e.target.files ? Array.from(e.target.files) : [])
+                          }
+                        />
+                      </Button>
+                      {bloodhoundFiles.length > 0 && (
+                        <>
+                          <Typography variant="body2" color="text.secondary">
+                            {bloodhoundFiles.length === 1
+                              ? bloodhoundFiles[0].name
+                              : `${bloodhoundFiles.length} files selected`}
+                          </Typography>
+                          <Button size="small" color="inherit" onClick={() => setBloodhoundFiles([])}>
+                            Clear
+                          </Button>
+                        </>
+                      )}
+                    </Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                      Upload a SharpHound .zip (or BloodHound .json files) to enrich the report with
+                      AD-privilege analysis. The dump is processed in memory and never stored — re-upload
+                      to re-analyze.
+                    </Typography>
                   </Grid>
                   <Grid item xs={12}>
                     <Button
