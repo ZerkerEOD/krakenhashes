@@ -105,7 +105,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # full history for the git-revision-date-localized plugin
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -118,14 +118,10 @@ jobs:
         run: |
           pip install -r requirements-docs.txt
 
-      - name: Build preview with mike
-        run: |
-          mike deploy pr-${{ github.event.pull_request.number }}
-          mike serve &
-          sleep 5
-          mkdir -p ./site
-          wget -r -np -k -E -p -erobots=off -P ./site http://localhost:8000/pr-${{ github.event.pull_request.number }}/
-          pkill -f "mike serve" || true
+      - name: Build preview
+        # Plain static build for the PR preview artifact -- no mike/serve/wget, so no git
+        # commit, no host-prefixed ':' paths, and no crawl to hard-fail on a stray link.
+        run: mkdocs build --site-dir ./site
 
       - name: Upload preview artifact
         uses: actions/upload-artifact@v4
@@ -136,11 +132,12 @@ jobs:
 
       - name: Comment PR
         uses: actions/github-script@v7
+        continue-on-error: true  # commenting needs pull-requests: write; don't fail the check if denied
         with:
           script: |
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '📚 Documentation preview has been built! Download the artifact from the Actions tab to review changes.'
+              body: '📚 Documentation preview built. Download the **docs-preview** artifact from the Actions tab and open index.html to review changes.'
             })

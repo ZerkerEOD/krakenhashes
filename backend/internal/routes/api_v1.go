@@ -18,7 +18,7 @@ import (
 )
 
 // SetupV1Routes configures all /api/v1 routes for the User API
-func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager binary.Manager, teamService *services.TeamService) {
+func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager binary.Manager, teamService *services.TeamService, analyticsQueueService *services.AnalyticsQueueService) {
 	debug.Info("Setting up /api/v1 User API routes")
 
 	// Use provided data directory
@@ -158,6 +158,19 @@ func SetupV1Routes(r *mux.Router, database *db.DB, dataDir string, binaryManager
 	v1Router.HandleFunc("/jobs/{id}", jobHandler.UpdateJob).Methods("PATCH", "OPTIONS")
 	v1Router.HandleFunc("/jobs/{id}/layers", jobHandler.GetJobLayers).Methods("GET", "OPTIONS")
 	v1Router.HandleFunc("/jobs/{id}/layers/{layer_id}", jobHandler.GetJobLayerTasks).Methods("GET", "OPTIONS")
+
+	// Analytics & Reporting endpoints (GH #66). Shares the singleton analytics queue poller.
+	analyticsHandler := v1handlers.NewAnalyticsHandler(database, analyticsQueueService, teamService)
+	// Register the specific /bloodhound path before the {id} pattern so it is matched first.
+	v1Router.HandleFunc("/analytics/reports/bloodhound", analyticsHandler.CreateReportWithBloodhound).Methods("POST", "OPTIONS")
+	v1Router.HandleFunc("/analytics/reports", analyticsHandler.CreateReport).Methods("POST", "OPTIONS")
+	v1Router.HandleFunc("/analytics/reports", analyticsHandler.ListReports).Methods("GET", "OPTIONS")
+	v1Router.HandleFunc("/analytics/reports/{id}", analyticsHandler.GetReport).Methods("GET", "OPTIONS")
+	v1Router.HandleFunc("/analytics/reports/{id}", analyticsHandler.DeleteReport).Methods("DELETE", "OPTIONS")
+	v1Router.HandleFunc("/analytics/reports/{id}/retry", analyticsHandler.RetryReport).Methods("POST", "OPTIONS")
+	v1Router.HandleFunc("/analytics/reports/{id}/export", analyticsHandler.ExportReport).Methods("GET", "OPTIONS")
+	v1Router.HandleFunc("/analytics/hashlists", analyticsHandler.GetHashlistsForReport).Methods("GET", "OPTIONS")
+	v1Router.HandleFunc("/analytics/queue-status", analyticsHandler.GetQueueStatus).Methods("GET", "OPTIONS")
 
 	debug.Info("/api/v1 User API routes configured successfully")
 	debug.Info("User API authentication requires X-User-Email and X-API-Key headers")

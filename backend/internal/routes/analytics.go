@@ -20,6 +20,7 @@ func SetupAnalyticsRoutes(router *mux.Router, database *db.DB, queueService *ser
 	router.HandleFunc("/analytics/clients", handler.GetClients).Methods("GET", "OPTIONS")
 	router.HandleFunc("/analytics/hashlists", handler.GetHashlistsForReport).Methods("GET", "OPTIONS")
 	router.HandleFunc("/analytics/reports", handler.CreateReport).Methods("POST", "OPTIONS")
+	router.HandleFunc("/analytics/reports/bloodhound", handler.CreateReportWithBloodhound).Methods("POST", "OPTIONS")
 	router.HandleFunc("/analytics/reports/{id}", handler.GetReport).Methods("GET", "OPTIONS")
 	router.HandleFunc("/analytics/reports/{id}/export", handler.ExportReport).Methods("GET", "OPTIONS")
 	router.HandleFunc("/analytics/reports/client/{clientId}", handler.GetClientReports).Methods("GET", "OPTIONS")

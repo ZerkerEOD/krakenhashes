@@ -1,0 +1,12 @@
+-- Add a transient staging column for BloodHound-derived AD privilege context on analytics reports.
+--
+-- The raw BloodHound collection dump is parsed in-memory at upload time and is NEVER written to
+-- disk. Only the compact DERIVED per-account privilege facts (who is a Domain Admin, Kerberoastable,
+-- has DCSync, has a path to DA, etc.) are persisted here as JSONB, so the async analytics generator
+-- can enrich the report on its next poll without holding the raw graph in memory across the queue.
+--
+-- The column is cleared (SET NULL) as soon as the report finishes generating, and a TTL sweep
+-- backstops deletion, so BloodHound-derived data does not linger after a report has run (re-analysis
+-- requires re-uploading the dump). It is intentionally excluded from all general report SELECTs and
+-- is never serialized to API responses (model field tagged json:"-").
+ALTER TABLE analytics_reports ADD COLUMN bloodhound_context JSONB;

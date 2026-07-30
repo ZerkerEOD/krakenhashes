@@ -13,6 +13,34 @@ export const analyticsService = {
     return response.data;
   },
 
+  // Create a report enriched with an uploaded BloodHound collection dump. The dump (a SharpHound
+  // .zip or one/more BloodHound .json files) is sent as multipart/form-data; the server parses it in
+  // memory only and never persists the raw dump. Re-analysis requires re-uploading.
+  createReportWithBloodhound: async (
+    params: {
+      clientId: string;
+      hashlistIds: number[];
+      startDate?: string;
+      endDate?: string;
+      customPatterns?: string[];
+    },
+    files: File[],
+  ): Promise<AnalyticsReport> => {
+    const form = new FormData();
+    form.append('client_id', params.clientId);
+    form.append('hashlist_ids', JSON.stringify(params.hashlistIds));
+    if (params.startDate) form.append('start_date', params.startDate);
+    if (params.endDate) form.append('end_date', params.endDate);
+    if (params.customPatterns && params.customPatterns.length > 0) {
+      form.append('custom_patterns', JSON.stringify(params.customPatterns));
+    }
+    files.forEach((f) => form.append('file', f));
+    const response = await api.post('/api/analytics/reports/bloodhound', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
   // Get a specific report by ID
   getReport: async (id: string): Promise<{ status: string; message?: string; report: AnalyticsReport }> => {
     const response = await api.get(`/api/analytics/reports/${id}`);

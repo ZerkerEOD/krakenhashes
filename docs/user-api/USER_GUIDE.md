@@ -244,6 +244,58 @@ for hash_file in glob.glob('hashes/*.txt'):
 print("Batch upload complete!")
 ```
 
+### Workflow 5: Analytics & Reporting
+
+Generate password-analytics reports for a client and retrieve the metrics or a PDF. Reports are
+generated asynchronously: create one, then poll `GET /analytics/reports/{id}` until `status` is
+`completed`.
+
+```bash
+# 1. (optional) discover which hashlists you can analyze for a client
+curl -s "$BASE_URL/analytics/hashlists?client_id=$CLIENT_ID" \
+  -H "X-User-Email: $EMAIL" -H "X-API-Key: $API_KEY"
+
+# 2. queue a report
+REPORT=$(curl -s -X POST "$BASE_URL/analytics/reports" \
+  -H "X-User-Email: $EMAIL" -H "X-API-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"client_id":"'"$CLIENT_ID"'","hashlist_ids":[1,2,3]}')
+REPORT_ID=$(echo "$REPORT" | jq -r '.id')
+
+# 3. poll until completed
+curl -s "$BASE_URL/analytics/reports/$REPORT_ID" \
+  -H "X-User-Email: $EMAIL" -H "X-API-Key: $API_KEY" | jq '.status'
+
+# 4. export a PDF (internal = full detail, external = redacted summary)
+curl -s "$BASE_URL/analytics/reports/$REPORT_ID/export?type=external" \
+  -H "X-User-Email: $EMAIL" -H "X-API-Key: $API_KEY" -o report.pdf
+```
+
+#### BloodHound-enriched analysis
+
+Attach a BloodHound / SharpHound Active Directory collection to enrich the report with AD-privilege
+context — which **cracked** accounts are Domain Admins, Kerberoastable, hold DCSync rights, are local
+admin on many machines, or have a graph attack path to Domain Admin.
+
+Use the multipart endpoint and send the SharpHound `.zip` (or one or more BloodHound `.json` files)
+as `file`:
+
+```bash
+curl -s -X POST "$BASE_URL/analytics/reports/bloodhound" \
+  -H "X-User-Email: $EMAIL" -H "X-API-Key: $API_KEY" \
+  -F "client_id=$CLIENT_ID" \
+  -F "hashlist_ids=[1,2,3]" \
+  -F "file=@BloodHound.zip"
+```
+
+**Privacy:** the raw BloodHound dump is parsed **in memory only** and is **never written to disk**.
+Only the compact derived per-account privilege facts are staged, and they are **deleted once the
+report finishes generating**. There is no way to re-run the AD analysis without re-uploading the dump.
+The enriched sections appear in `analytics_data` (`ad_privilege`, `path_to_domain_admin`,
+`kerberoast_cracked`, `asrep_roast_cracked`, `admin_count_cracked`, `local_admin_blast_radius`,
+`dcsync_cracked`) and in the PDF export. Per-account identities are included in the `internal` PDF and
+omitted from the `external` (redacted) PDF.
+
 ## API Reference
 
 ### Pagination
@@ -550,7 +602,6 @@ The following features are planned for future releases:
 - **WebSocket Support**: Real-time job progress updates
 - **Bulk Operations**: Batch create/update/delete endpoints
 - **Export Endpoints**: Download cracked passwords
-- **Statistics API**: Aggregate cracking statistics
 - **Webhook Support**: Event notifications for job completion
 
 Stay tuned for updates!

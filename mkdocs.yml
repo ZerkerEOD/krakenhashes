@@ -193,6 +193,7 @@ nav:
       - Association Attack: reference/architecture/association-attack.md
       - Benchmark Workflow: reference/architecture/benchmark-workflow.md
       - Binary Version Patterns: reference/architecture/binary-version-patterns.md
+      - BloodHound Enrichment: reference/architecture/bloodhound-enrichment.md
       - Chunking System: reference/architecture/chunking.md
       - Crack Batching System: reference/architecture/crack-batching-system.md
       - Increment Mode: reference/architecture/increment-mode.md

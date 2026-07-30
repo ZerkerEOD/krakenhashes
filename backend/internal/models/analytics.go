@@ -32,45 +32,55 @@ type AnalyticsReport struct {
 
 // AnalyticsData contains all calculated analytics metrics
 type AnalyticsData struct {
-	Overview            OverviewStats       `json:"overview"`
-	WindowsHashes       *WindowsHashStats   `json:"windows_hashes,omitempty"`
-	LengthDistribution  LengthStats         `json:"length_distribution"`
-	ComplexityAnalysis  ComplexityStats     `json:"complexity_analysis"`
-	PositionalAnalysis  PositionalStats     `json:"positional_analysis"`
-	PatternDetection    PatternStats        `json:"pattern_detection"`
-	UsernameCorrelation UsernameStats       `json:"username_correlation"`
-	PasswordReuse       ReuseStats          `json:"password_reuse"`
-	HashReuse           HashReuseStats      `json:"hash_reuse"`
-	TemporalPatterns    TemporalStats       `json:"temporal_patterns"`
-	MaskAnalysis        MaskStats           `json:"mask_analysis"`
-	CustomPatterns      CustomPatternStats  `json:"custom_patterns"`
-	StrengthMetrics     StrengthStats       `json:"strength_metrics"`
-	TopPasswords        []TopPassword       `json:"top_passwords"`
+	Overview            OverviewStats        `json:"overview"`
+	WindowsHashes       *WindowsHashStats    `json:"windows_hashes,omitempty"`
+	LengthDistribution  LengthStats          `json:"length_distribution"`
+	ComplexityAnalysis  ComplexityStats      `json:"complexity_analysis"`
+	PositionalAnalysis  PositionalStats      `json:"positional_analysis"`
+	PatternDetection    PatternStats         `json:"pattern_detection"`
+	UsernameCorrelation UsernameStats        `json:"username_correlation"`
+	PasswordReuse       ReuseStats           `json:"password_reuse"`
+	HashReuse           HashReuseStats       `json:"hash_reuse"`
+	TemporalPatterns    TemporalStats        `json:"temporal_patterns"`
+	MaskAnalysis        MaskStats            `json:"mask_analysis"`
+	CustomPatterns      CustomPatternStats   `json:"custom_patterns"`
+	StrengthMetrics     StrengthStats        `json:"strength_metrics"`
+	TopPasswords        []TopPassword        `json:"top_passwords"`
 	LMPartialCracks     *LMPartialCrackStats `json:"lm_partial_cracks,omitempty"`
 	LMToNTLMMasks       *LMToNTLMMaskStats   `json:"lm_to_ntlm_masks,omitempty"`
-	Recommendations     []Recommendation    `json:"recommendations"`
-	DomainAnalytics     []DomainAnalytics   `json:"domain_analytics"`
+	// BloodHound-enriched sections. All nil unless an Active Directory collection dump was uploaded
+	// with the report. The Accounts/TopAccounts leaves carry usernames/SIDs and are stripped from
+	// external (redacted) exports; the aggregate counts/percentages survive redaction.
+	ADPrivilege       *ADPrivilegeStats     `json:"ad_privilege,omitempty"`
+	PathToDA          *PathToDAStats        `json:"path_to_domain_admin,omitempty"`
+	KerberoastCracked *RoastableCrackStats  `json:"kerberoast_cracked,omitempty"`
+	ASREPRoastCracked *RoastableCrackStats  `json:"asrep_roast_cracked,omitempty"`
+	AdminCountCracked *AdminCountCrackStats `json:"admin_count_cracked,omitempty"`
+	LocalAdminBlast   *LocalAdminBlastStats `json:"local_admin_blast_radius,omitempty"`
+	DCSyncCracked     *DCSyncCrackStats     `json:"dcsync_cracked,omitempty"`
+	Recommendations   []Recommendation      `json:"recommendations"`
+	DomainAnalytics   []DomainAnalytics     `json:"domain_analytics"`
 }
 
 // DomainAnalytics contains complete analytics for a specific domain
 type DomainAnalytics struct {
-	Domain              string                `json:"domain"`
-	Overview            OverviewStats         `json:"overview"`
-	WindowsHashes       *WindowsHashStats     `json:"windows_hashes,omitempty"`
-	LengthDistribution  LengthStats           `json:"length_distribution"`
-	ComplexityAnalysis  ComplexityStats       `json:"complexity_analysis"`
-	PositionalAnalysis  PositionalStats       `json:"positional_analysis"`
-	PatternDetection    PatternStats          `json:"pattern_detection"`
-	UsernameCorrelation UsernameStats         `json:"username_correlation"`
-	PasswordReuse       ReuseStats            `json:"password_reuse"`
-	HashReuse           *HashReuseStats       `json:"hash_reuse,omitempty"`
-	TemporalPatterns    TemporalStats         `json:"temporal_patterns"`
-	MaskAnalysis        MaskStats             `json:"mask_analysis"`
-	CustomPatterns      CustomPatternStats    `json:"custom_patterns"`
-	StrengthMetrics     StrengthStats         `json:"strength_metrics"`
-	TopPasswords        []TopPassword         `json:"top_passwords"`
-	LMPartialCracks     *LMPartialCrackStats  `json:"lm_partial_cracks,omitempty"`
-	LMToNTLMMasks       *LMToNTLMMaskStats    `json:"lm_to_ntlm_masks,omitempty"`
+	Domain              string               `json:"domain"`
+	Overview            OverviewStats        `json:"overview"`
+	WindowsHashes       *WindowsHashStats    `json:"windows_hashes,omitempty"`
+	LengthDistribution  LengthStats          `json:"length_distribution"`
+	ComplexityAnalysis  ComplexityStats      `json:"complexity_analysis"`
+	PositionalAnalysis  PositionalStats      `json:"positional_analysis"`
+	PatternDetection    PatternStats         `json:"pattern_detection"`
+	UsernameCorrelation UsernameStats        `json:"username_correlation"`
+	PasswordReuse       ReuseStats           `json:"password_reuse"`
+	HashReuse           *HashReuseStats      `json:"hash_reuse,omitempty"`
+	TemporalPatterns    TemporalStats        `json:"temporal_patterns"`
+	MaskAnalysis        MaskStats            `json:"mask_analysis"`
+	CustomPatterns      CustomPatternStats   `json:"custom_patterns"`
+	StrengthMetrics     StrengthStats        `json:"strength_metrics"`
+	TopPasswords        []TopPassword        `json:"top_passwords"`
+	LMPartialCracks     *LMPartialCrackStats `json:"lm_partial_cracks,omitempty"`
+	LMToNTLMMasks       *LMToNTLMMaskStats   `json:"lm_to_ntlm_masks,omitempty"`
 }
 
 // Scan implements sql.Scanner for AnalyticsData
@@ -92,11 +102,11 @@ func (a AnalyticsData) Value() (driver.Value, error) {
 
 // OverviewStats contains high-level statistics
 type OverviewStats struct {
-	TotalHashes     int              `json:"total_hashes"`
-	TotalCracked    int              `json:"total_cracked"`
-	CrackPercentage float64          `json:"crack_percentage"`
-	HashModes       []HashModeStats  `json:"hash_modes"`
-	DomainBreakdown []DomainStats    `json:"domain_breakdown"`
+	TotalHashes     int             `json:"total_hashes"`
+	TotalCracked    int             `json:"total_cracked"`
+	CrackPercentage float64         `json:"crack_percentage"`
+	HashModes       []HashModeStats `json:"hash_modes"`
+	DomainBreakdown []DomainStats   `json:"domain_breakdown"`
 }
 
 // HashModeStats contains statistics for a specific hash type
@@ -118,13 +128,13 @@ type DomainStats struct {
 
 // LengthStats contains password length distribution
 type LengthStats struct {
-	Distribution       map[string]CategoryCount `json:"distribution"` // "8": {count, percentage}
-	AverageLength      float64                  `json:"average_length"`
-	AverageLengthUnder15 float64                `json:"average_length_under_15"` // Average for passwords <15 chars
-	MostCommonLengths  []int                    `json:"most_common_lengths"`
-	CountUnder8        int                      `json:"count_under_8"`
-	Count8to11         int                      `json:"count_8_to_11"`
-	CountUnder15       int                      `json:"count_under_15"`
+	Distribution         map[string]CategoryCount `json:"distribution"` // "8": {count, percentage}
+	AverageLength        float64                  `json:"average_length"`
+	AverageLengthUnder15 float64                  `json:"average_length_under_15"` // Average for passwords <15 chars
+	MostCommonLengths    []int                    `json:"most_common_lengths"`
+	CountUnder8          int                      `json:"count_under_8"`
+	Count8to11           int                      `json:"count_8_to_11"`
+	CountUnder15         int                      `json:"count_under_15"`
 }
 
 // ComplexityStats contains character complexity analysis
@@ -160,18 +170,18 @@ type PatternStats struct {
 
 // UsernameStats contains username correlation analysis
 type UsernameStats struct {
-	EqualsUsername       CategoryCount `json:"equals_username"`
-	ContainsUsername     CategoryCount `json:"contains_username"`
-	UsernamePlusSuffix   CategoryCount `json:"username_plus_suffix"`
-	ReversedUsername     CategoryCount `json:"reversed_username"`
+	EqualsUsername     CategoryCount `json:"equals_username"`
+	ContainsUsername   CategoryCount `json:"contains_username"`
+	UsernamePlusSuffix CategoryCount `json:"username_plus_suffix"`
+	ReversedUsername   CategoryCount `json:"reversed_username"`
 }
 
 // ReuseStats contains password reuse analysis
 type ReuseStats struct {
-	TotalReused       int                  `json:"total_reused"`
-	PercentageReused  float64              `json:"percentage_reused"`
-	TotalUnique       int                  `json:"total_unique"`
-	PasswordReuseInfo []PasswordReuseInfo  `json:"password_reuse_info"` // List of reused passwords with user info
+	TotalReused       int                 `json:"total_reused"`
+	PercentageReused  float64             `json:"percentage_reused"`
+	TotalUnique       int                 `json:"total_unique"`
+	PasswordReuseInfo []PasswordReuseInfo `json:"password_reuse_info"` // List of reused passwords with user info
 }
 
 // PasswordReuseInfo contains information about a reused password and its users
@@ -184,8 +194,8 @@ type PasswordReuseInfo struct {
 
 // UserOccurrence tracks a user and how many hashlists they appear in with a specific password
 type UserOccurrence struct {
-	Username      string `json:"username"`        // Username
-	HashlistCount int    `json:"hashlist_count"`  // How many different hashlists this user-password combo appears in
+	Username      string `json:"username"`       // Username
+	HashlistCount int    `json:"hashlist_count"` // How many different hashlists this user-password combo appears in
 }
 
 // TemporalStats contains temporal pattern analysis
@@ -203,7 +213,7 @@ type MaskStats struct {
 
 // MaskInfo contains information about a password mask pattern
 type MaskInfo struct {
-	Mask       string  `json:"mask"`       // e.g., "?u?l?l?l?l?l?l?d?d"
+	Mask       string  `json:"mask"` // e.g., "?u?l?l?l?l?l?l?d?d"
 	Count      int     `json:"count"`
 	Percentage float64 `json:"percentage"`
 	Example    string  `json:"example"` // Example password matching this mask
@@ -315,24 +325,24 @@ func (ct CharacterTypes) GetCharsetSize() int {
 
 // WindowsHashStats contains statistics for all Windows-related hash types
 type WindowsHashStats struct {
-	Overview          WindowsOverviewStats        `json:"overview"`
-	NTLM              WindowsHashTypeStats        `json:"ntlm"`
-	LM                LMHashStats                 `json:"lm"`
-	NetNTLMv1         WindowsHashTypeStats        `json:"netntlmv1"`
-	NetNTLMv2         WindowsHashTypeStats        `json:"netntlmv2"`
-	DCC               WindowsHashTypeStats        `json:"dcc"`        // MS Cache
-	DCC2              WindowsHashTypeStats        `json:"dcc2"`       // MS Cache 2
-	Kerberos          KerberosStats               `json:"kerberos"`
-	LinkedCorrelation LinkedHashCorrelationStats  `json:"linked_correlation"`
+	Overview          WindowsOverviewStats       `json:"overview"`
+	NTLM              WindowsHashTypeStats       `json:"ntlm"`
+	LM                LMHashStats                `json:"lm"`
+	NetNTLMv1         WindowsHashTypeStats       `json:"netntlmv1"`
+	NetNTLMv2         WindowsHashTypeStats       `json:"netntlmv2"`
+	DCC               WindowsHashTypeStats       `json:"dcc"`  // MS Cache
+	DCC2              WindowsHashTypeStats       `json:"dcc2"` // MS Cache 2
+	Kerberos          KerberosStats              `json:"kerberos"`
+	LinkedCorrelation LinkedHashCorrelationStats `json:"linked_correlation"`
 }
 
 // WindowsOverviewStats contains high-level Windows hash statistics
 type WindowsOverviewStats struct {
-	TotalWindows      int     `json:"total_windows"`      // Total Windows hash records (NTLM + LM + others)
+	TotalWindows      int     `json:"total_windows"` // Total Windows hash records (NTLM + LM + others)
 	CrackedWindows    int     `json:"cracked_windows"`
 	PercentageWindows float64 `json:"percentage_windows"`
-	UniqueUsers       int     `json:"unique_users"`       // Distinct usernames across all Windows hashes
-	LinkedPairs       int     `json:"linked_pairs"`       // Number of LM/NTLM linked pairs
+	UniqueUsers       int     `json:"unique_users"` // Distinct usernames across all Windows hashes
+	LinkedPairs       int     `json:"linked_pairs"` // Number of LM/NTLM linked pairs
 }
 
 // WindowsHashTypeStats contains statistics for a specific Windows hash type
@@ -352,7 +362,7 @@ type LMHashStats struct {
 
 // KerberosStats contains Kerberos statistics with type breakdown
 type KerberosStats struct {
-	Total      int                             `json:"total"`   // All Kerberos types combined
+	Total      int                             `json:"total"` // All Kerberos types combined
 	Cracked    int                             `json:"cracked"`
 	Percentage float64                         `json:"percentage"`
 	ByType     map[string]WindowsHashTypeStats `json:"by_type"` // Breakdown by etype
@@ -370,29 +380,29 @@ type LinkedHashCorrelationStats struct {
 
 // HashReuseStats contains hash-based password reuse analysis
 type HashReuseStats struct {
-	TotalReused      int             `json:"total_reused"`       // Hashes appearing 2+ times
+	TotalReused      int             `json:"total_reused"` // Hashes appearing 2+ times
 	PercentageReused float64         `json:"percentage_reused"`
 	TotalUnique      int             `json:"total_unique"`
-	HashReuseInfo    []HashReuseInfo `json:"hash_reuse_info"`    // Top 50, paginated
+	HashReuseInfo    []HashReuseInfo `json:"hash_reuse_info"` // Top 50, paginated
 }
 
 // HashReuseInfo contains information about a reused hash value
 type HashReuseInfo struct {
-	HashValue        string            `json:"hash_value"`         // The actual hash
-	HashType         string            `json:"hash_type"`          // e.g., "NTLM", "LM"
-	Password         *string           `json:"password,omitempty"` // Cracked password if available
-	Users            []UserOccurrence  `json:"users"`              // All users with this hash
-	TotalOccurrences int               `json:"total_occurrences"`  // Total count across hashlists
-	UserCount        int               `json:"user_count"`         // Unique user count
+	HashValue        string           `json:"hash_value"`         // The actual hash
+	HashType         string           `json:"hash_type"`          // e.g., "NTLM", "LM"
+	Password         *string          `json:"password,omitempty"` // Cracked password if available
+	Users            []UserOccurrence `json:"users"`              // All users with this hash
+	TotalOccurrences int              `json:"total_occurrences"`  // Total count across hashlists
+	UserCount        int              `json:"user_count"`         // Unique user count
 }
 
 // LMPartialCrackStats contains LM partial crack statistics
 type LMPartialCrackStats struct {
-	TotalPartial        int                     `json:"total_partial"`
-	FirstHalfOnly       int                     `json:"first_half_only"`
-	SecondHalfOnly      int                     `json:"second_half_only"`
-	PercentagePartial   float64                 `json:"percentage_partial"`     // Of total LM hashes
-	PartialCrackDetails []LMPartialCrackDetail  `json:"partial_crack_details"`  // Top 50, paginated
+	TotalPartial        int                    `json:"total_partial"`
+	FirstHalfOnly       int                    `json:"first_half_only"`
+	SecondHalfOnly      int                    `json:"second_half_only"`
+	PercentagePartial   float64                `json:"percentage_partial"`    // Of total LM hashes
+	PartialCrackDetails []LMPartialCrackDetail `json:"partial_crack_details"` // Top 50, paginated
 }
 
 // LMPartialCrackDetail contains details about a partially cracked LM hash
@@ -408,10 +418,10 @@ type LMPartialCrackDetail struct {
 
 // LMToNTLMMaskStats contains LM-to-NTLM mask generation statistics
 type LMToNTLMMaskStats struct {
-	TotalLMCracked        int              `json:"total_lm_cracked"`
-	TotalMasksGenerated   int              `json:"total_masks_generated"`
-	Masks                 []LMNTLMMaskInfo `json:"masks"`                      // Top 50
-	TotalEstimatedKeyspace int64           `json:"total_estimated_keyspace"`   // Total combinations
+	TotalLMCracked         int              `json:"total_lm_cracked"`
+	TotalMasksGenerated    int              `json:"total_masks_generated"`
+	Masks                  []LMNTLMMaskInfo `json:"masks"`                    // Top 50
+	TotalEstimatedKeyspace int64            `json:"total_estimated_keyspace"` // Total combinations
 }
 
 // LMNTLMMaskInfo contains information about a generated mask for NTLM cracking
@@ -425,6 +435,95 @@ type LMNTLMMaskInfo struct {
 	ExampleLM         string  `json:"example_lm"`         // Example LM password
 }
 
+// -----------------------------------------------------------------------------
+// BloodHound-enriched analytics sections
+//
+// These are populated only when an Active Directory collection dump is uploaded with a report.
+// They cross-reference CRACKED accounts against their AD privilege state. Every `Accounts` /
+// `TopAccounts` slice is an internal-only leaf (usernames/SIDs/group names) and is stripped from
+// external redacted exports; all scalar counts and percentages survive redaction.
+// -----------------------------------------------------------------------------
+
+// CompromisedAccount identifies a cracked account together with its AD privilege context.
+type CompromisedAccount struct {
+	Username         string   `json:"username"`
+	Domain           string   `json:"domain,omitempty"`
+	SID              string   `json:"sid,omitempty"`
+	PrivilegedGroups []string `json:"privileged_groups,omitempty"`
+	Enabled          bool     `json:"enabled"`
+}
+
+// ADPrivilegeStats reports cracked accounts holding privileged / tier-0 standing — the headline
+// "who did we actually compromise" finding.
+type ADPrivilegeStats struct {
+	InScopePrivileged        int                  `json:"in_scope_privileged"` // privileged accounts present in the hashlists
+	CrackedPrivileged        int                  `json:"cracked_privileged"`
+	CrackedEffectiveDA       int                  `json:"cracked_effective_domain_admin"`
+	CrackedTierZero          int                  `json:"cracked_tier_zero"`
+	DomainPrivilegedTotal    int                  `json:"domain_privileged_total"`    // across the whole dump; -1 if skipped (dump too large)
+	PercentPrivilegedCracked float64              `json:"percent_privileged_cracked"` // cracked / in-scope privileged
+	Accounts                 []CompromisedAccount `json:"accounts,omitempty"`
+}
+
+// RoastableCrackStats is shared by the Kerberoastable and AS-REP-roastable sections.
+type RoastableCrackStats struct {
+	DomainTotal       int                  `json:"domain_total"` // enabled roastable accounts across the dump
+	InScopeTotal      int                  `json:"in_scope_total"`
+	Cracked           int                  `json:"cracked"`
+	CrackedPrivileged int                  `json:"cracked_privileged"`
+	PercentCracked    float64              `json:"percent_cracked"` // cracked / in-scope
+	Accounts          []CompromisedAccount `json:"accounts,omitempty"`
+}
+
+// AdminCountCrackStats reports cracked accounts flagged admincount=true (currently or historically
+// in a protected/admin group via AdminSDHolder).
+type AdminCountCrackStats struct {
+	DomainTotal    int                  `json:"domain_total"`
+	InScopeTotal   int                  `json:"in_scope_total"`
+	Cracked        int                  `json:"cracked"`
+	PercentCracked float64              `json:"percent_cracked"`
+	Accounts       []CompromisedAccount `json:"accounts,omitempty"`
+}
+
+// BlastAccount pairs a compromised account with the number of computers it is local admin on.
+type BlastAccount struct {
+	CompromisedAccount
+	ComputerCount int `json:"computer_count"`
+}
+
+// LocalAdminBlastStats reports the local-admin reach of cracked accounts. TotalAdminRelationships
+// sums per-account admin-to counts (a machine may recur across accounts) rather than a distinct
+// union, which is not derivable from the compact context.
+type LocalAdminBlastStats struct {
+	CrackedWithLocalAdmin   int            `json:"cracked_with_local_admin"`
+	TotalAdminRelationships int            `json:"total_admin_relationships"`
+	MaxComputersSingle      int            `json:"max_computers_single"`
+	TopAccounts             []BlastAccount `json:"top_accounts,omitempty"`
+}
+
+// DCSyncCrackStats reports cracked accounts holding domain replication (DCSync) rights.
+type DCSyncCrackStats struct {
+	DomainPrincipals int                  `json:"domain_principals"` // DCSync-capable principals in the dump; -1 if skipped
+	Cracked          int                  `json:"cracked"`
+	Accounts         []CompromisedAccount `json:"accounts,omitempty"`
+}
+
+// PathAccount pairs a compromised account with its shortest attack-path length to Domain Admin.
+type PathAccount struct {
+	CompromisedAccount
+	Hops int `json:"hops"`
+}
+
+// PathToDAStats reports cracked accounts with a graph attack-path to Domain Admin (transitive
+// control/session/ACL edges). Skipped is true when the dump's attack graph exceeded the edge budget.
+type PathToDAStats struct {
+	Skipped         bool          `json:"skipped"`
+	InScopeWithPath int           `json:"in_scope_with_path"`
+	CrackedWithPath int           `json:"cracked_with_path"`
+	ShortestHops    int           `json:"shortest_hops"` // min hops among cracked accounts; 0 if none
+	Accounts        []PathAccount `json:"accounts,omitempty"`
+}
+
 // CreateAnalyticsReportRequest represents the request to create a new analytics report
 type CreateAnalyticsReportRequest struct {
 	ClientID       uuid.UUID `json:"client_id" binding:"required"`
@@ -432,6 +531,13 @@ type CreateAnalyticsReportRequest struct {
 	EndDate        time.Time `json:"end_date" binding:"required"`
 	CustomPatterns []string  `json:"custom_patterns"`
 	HashlistIDs    []int64   `json:"hashlist_ids"`
+}
+
+// AccountRef is a lightweight (username, domain) identity pulled from hashes for BloodHound
+// enrichment matching. Domain is nil when the hash format carried no domain component.
+type AccountRef struct {
+	Username string
+	Domain   *string
 }
 
 // HashlistSummary provides lightweight hashlist info for the analytics selection UI

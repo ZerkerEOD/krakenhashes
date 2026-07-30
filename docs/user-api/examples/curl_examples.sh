@@ -269,18 +269,111 @@ if [ -n "$AGENT_ID" ]; then
 fi
 
 # ============================================
+# ANALYTICS & REPORTING
+# ============================================
+# Analytics reports are generated ASYNCHRONOUSLY: create one (status "queued"), then poll
+# GET /analytics/reports/{id} until status is "completed". A report needs a client_id, one or
+# more hashlist_ids, and an RFC3339 start_date/end_date window.
+
+# 27. List Hashlists Selectable for a Report
+echo -e "\n27. List Hashlists for a Report"
+echo "Command: api_request GET /analytics/hashlists?client_id=$CLIENT_ID"
+api_request GET "/analytics/hashlists?client_id=$CLIENT_ID" | jq .
+
+# 28. Create an Analytics Report (no BloodHound dump)
+echo -e "\n28. Create Analytics Report"
+echo "Note: requires a client_id and at least one hashlist_id (RFC3339 dates)."
+cat << 'EOF'
+api_request POST /analytics/reports -d '{
+  "client_id": "<CLIENT_ID>",
+  "hashlist_ids": [1, 2, 3],
+  "start_date": "2025-01-01T00:00:00Z",
+  "end_date": "2025-12-31T23:59:59Z"
+}'
+EOF
+# Uncomment when you have hashlists:
+# REPORT_RESPONSE=$(api_request POST /analytics/reports -d "{
+#   \"client_id\": \"$CLIENT_ID\",
+#   \"hashlist_ids\": [1],
+#   \"start_date\": \"2025-01-01T00:00:00Z\",
+#   \"end_date\": \"2025-12-31T23:59:59Z\"
+# }")
+# echo "$REPORT_RESPONSE" | jq .
+# REPORT_ID=$(echo "$REPORT_RESPONSE" | jq -r .id)
+
+# 29. Create an Analytics Report WITH a BloodHound Dump (multipart; dump never persisted)
+echo -e "\n29. Create Analytics Report with BloodHound Enrichment"
+echo "The dump is parsed in memory and NEVER written to disk; only compact derived AD-privilege"
+echo "facts are staged, and they are deleted once the report finishes. Re-analysis = re-upload."
+cat << 'EOF'
+curl -X POST \
+  -H "X-User-Email: $USER_EMAIL" \
+  -H "X-API-Key: $API_KEY" \
+  -F "file=@/path/to/BloodHound.zip" \
+  -F "client_id=$CLIENT_ID" \
+  -F "hashlist_ids=[1,2,3]" \
+  -F "start_date=2025-01-01T00:00:00Z" \
+  -F "end_date=2025-12-31T23:59:59Z" \
+  "${BASE_URL}/analytics/reports/bloodhound"
+EOF
+
+# 30. List Analytics Reports for a Client
+echo -e "\n30. List Analytics Reports"
+echo "Command: api_request GET /analytics/reports?client_id=$CLIENT_ID"
+api_request GET "/analytics/reports?client_id=$CLIENT_ID" | jq .
+
+# 31. Get a Report and Poll Until Completed
+echo -e "\n31. Get / Poll a Report"
+cat << 'EOF'
+# Poll every 5s until the report is done, then print the AD-privilege section:
+while true; do
+  STATUS=$(api_request GET "/analytics/reports/$REPORT_ID" | jq -r .status)
+  echo "status: $STATUS"
+  { [ "$STATUS" = "completed" ] || [ "$STATUS" = "failed" ]; } && break
+  sleep 5
+done
+api_request GET "/analytics/reports/$REPORT_ID" | jq '.analytics_data.ad_privilege'
+EOF
+
+# 32. Export a Report as PDF (internal = full detail, external = redacted)
+echo -e "\n32. Export Report PDF"
+cat << 'EOF'
+# Internal (full detail, includes per-account usernames/SIDs):
+curl -s -H "X-User-Email: $USER_EMAIL" -H "X-API-Key: $API_KEY" \
+  "${BASE_URL}/analytics/reports/$REPORT_ID/export?type=internal" -o report-internal.pdf
+# External (client-facing, account identities redacted):
+curl -s -H "X-User-Email: $USER_EMAIL" -H "X-API-Key: $API_KEY" \
+  "${BASE_URL}/analytics/reports/$REPORT_ID/export?type=external" -o report-external.pdf
+EOF
+
+# 33. Analytics Queue Status
+echo -e "\n33. Analytics Queue Status"
+echo "Command: api_request GET /analytics/queue-status"
+api_request GET "/analytics/queue-status" | jq .
+
+# 34. Retry a Failed Report
+echo -e "\n34. Retry a Failed Report (commented out)"
+echo "Command: api_request POST /analytics/reports/\$REPORT_ID/retry"
+# api_request POST "/analytics/reports/$REPORT_ID/retry" | jq .
+
+# 35. Delete a Report
+echo -e "\n35. Delete a Report (commented out)"
+echo "Command: api_request DELETE /analytics/reports/\$REPORT_ID"
+# api_request DELETE "/analytics/reports/$REPORT_ID"
+
+# ============================================
 # CLEANUP
 # ============================================
 
-# 27. Delete Hashlist
+# 36. Delete Hashlist
 echo -e "\n27. Delete Hashlist (commented out)"
 echo "Command: api_request DELETE /hashlists/\$HASHLIST_ID"
 # Uncomment when you have a hashlist to delete:
 # api_request DELETE "/hashlists/$HASHLIST_ID"
 # echo "Hashlist deleted (if no active jobs)"
 
-# 28. Delete Client
-echo -e "\n28. Delete Client (commented out)"
+# 37. Delete Client
+echo -e "\n37. Delete Client (commented out)"
 echo "Command: api_request DELETE /clients/$CLIENT_ID"
 # Uncomment to actually delete:
 # api_request DELETE "/clients/$CLIENT_ID"
@@ -297,3 +390,6 @@ echo "  - Hashlist uploads use 'hash_type_id' (not 'hash_type')"
 echo "  - Vouchers use 'is_continuous' (no 'expires_in' field)"
 echo "  - Job priority max is configurable (default: 1000)"
 echo "  - Client 'client_id' may be required based on system settings"
+echo "  - Analytics reports are async: create, then poll GET /analytics/reports/{id} until 'completed'"
+echo "  - Analytics dates are RFC3339 (e.g. 2025-01-01T00:00:00Z)"
+echo "  - BloodHound dumps are parsed in memory and never written to disk"

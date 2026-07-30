@@ -6,7 +6,7 @@ Analytics Reports provide comprehensive statistical analysis of cracked password
 
 ### Key Features
 
-- **13 Analytics Sections**: From length distribution to strength metrics
+- **13 Core Analytics Sections**: From length distribution to strength metrics, plus an optional BloodHound-enriched Active Directory privilege section when a collection dump is uploaded
 - **Domain-Based Filtering**: Analyze password patterns by domain in multi-domain environments
 - **Custom Pattern Detection**: Define and track organization-specific password patterns
 - **Pre-Calculated Analytics**: Fast report generation with no performance impact during analysis
@@ -664,6 +664,48 @@ Automated security recommendations based on analysis:
 - "Prohibit use of company name in passwords (found in 34% of passwords)"
 - "Deploy password manager to reduce reuse (45% reuse rate detected)"
 
+## BloodHound-Enriched AD Privilege Analysis
+
+When generating a report you can optionally attach a **BloodHound** / SharpHound Active Directory
+collection dump. KrakenHashes cross-references your **cracked** accounts against their AD standing to
+answer the question a raw crack rate cannot: *which of the accounts we compromised actually matter?*
+
+### How to use it
+
+1. On the **Generate Report** form, select the client and hashlists as usual.
+2. Click **Attach BloodHound Dump (optional)** and choose either the SharpHound `.zip` or one or more
+   BloodHound `.json` files.
+3. Generate the report. The new **Active Directory Privilege Exposure (BloodHound)** section appears
+   in the report (and in the PDF export) alongside the standard analytics.
+
+### What it adds
+
+Enrichment runs only when a dump is provided. It reports, for the cracked accounts in scope:
+
+- **Privileged Account Compromise** — cracked accounts that are (transitively) Domain/Enterprise/Schema
+  Admins, tier-0, or in other privileged groups, with a cracked-vs-total breakdown.
+- **Path to Domain Admin** — cracked accounts that have a graph attack path to Domain Admin (via group
+  membership, ACL control edges, sessions, and delegation), with the shortest hop count.
+- **Kerberoastable / AS-REP Roastable Cracked** — cracked accounts with an SPN or with Kerberos
+  pre-authentication disabled, flagged when also privileged.
+- **AdminCount Cracked** — cracked accounts protected by AdminSDHolder (`admincount=1`).
+- **DCSync-Capable Cracked** — cracked accounts holding domain replication rights (full credential theft).
+- **Local-Admin Blast Radius** — how many machines each cracked account is local admin on.
+
+### Privacy: the dump is never stored
+
+The raw BloodHound dump is parsed **in memory only** and is **never written to disk**. Only the compact
+derived per-account privilege facts are staged so the background generator can finish the report, and
+those are **deleted as soon as the report completes**. Because nothing is retained, **re-running the AD
+analysis requires re-uploading the dump** — editing or regenerating an existing report will not
+re-enrich it.
+
+### External vs internal export
+
+Individual compromised identities (usernames, SIDs, group names) appear in the **internal** PDF export.
+The **external** (redacted) export keeps only the aggregate counts and percentages — no usernames or
+SIDs — so it is safe to share outside the engagement.
+
 ## Using Analytics in Client Reports
 
 ### Best Practices for Client Reporting
@@ -847,7 +889,7 @@ CREATE TABLE analytics_reports (
 
 ## Summary
 
-Analytics Reports provide comprehensive password analysis across 13 metrics with domain-based filtering for multi-domain environments. By pre-calculating analytics during report generation, the system delivers instant results while enabling detailed security assessments for client reporting and organizational security improvement.
+Analytics Reports provide comprehensive password analysis across 13 core metrics (plus optional BloodHound-enriched Active Directory privilege analysis when a collection dump is uploaded) with domain-based filtering for multi-domain environments. By pre-calculating analytics during report generation, the system delivers instant results while enabling detailed security assessments for client reporting and organizational security improvement.
 
 For additional analysis capabilities, see:
 - [Analyzing Results](analyzing-results.md) - POT file analysis and export

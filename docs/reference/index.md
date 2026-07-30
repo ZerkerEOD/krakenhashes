@@ -42,7 +42,7 @@ Quick reference guides and technical specifications for KrakenHashes.
 
     Technical terms and concepts explained
 
--   :material-sitemap:{ .lg .middle } **[Architecture](architecture/)**
+-   :material-sitemap:{ .lg .middle } **[Architecture](architecture/scheduler-v2-overview.md)**
 
     ---
 

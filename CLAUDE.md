@@ -254,7 +254,10 @@ make migrate-down      # Rollback one migration
    - Domain-based filtering for multi-domain environments
    - Automatic domain extraction from NetNTLMv2, NTLM, Kerberos hashes
    - Pre-calculated analytics stored as JSONB for instant access
-   - See `docs/user-guide/analytics-reports.md` for full details
+   - Optional BloodHound AD-privilege enrichment: an uploaded collection dump is parsed in memory
+     (never persisted), staged as compact derived facts, and auto-cleared after the report runs
+   - See `docs/user-guide/analytics-reports.md` for full details and
+     `docs/reference/architecture/bloodhound-enrichment.md` for the parser + never-persist lifecycle
 9. **Priority-Based Scheduling**: Intelligent agent allocation with priority-aware max_agents
    - Higher priority jobs override max_agents limits and take ALL available agents
    - Same priority jobs respect max_agents up to their configured limits

@@ -48,6 +48,15 @@ All endpoints require `X-User-Email` and `X-API-Key` headers.
 | **Metadata** | `GET /hash-types` | List hash types |
 | | `GET /workflows` | List workflows |
 | | `GET /preset-jobs` | List preset jobs |
+| **Analytics** | `POST /analytics/reports` | Queue a new analytics report |
+| | `POST /analytics/reports/bloodhound` | Queue a report enriched with a BloodHound dump (multipart) |
+| | `GET /analytics/reports?client_id=` | List reports for a client |
+| | `GET /analytics/reports/{id}` | Get a report (incl. metrics/analysis) |
+| | `DELETE /analytics/reports/{id}` | Delete a report |
+| | `POST /analytics/reports/{id}/retry` | Retry a failed report |
+| | `GET /analytics/reports/{id}/export?type=internal\|external` | Export a report as PDF |
+| | `GET /analytics/hashlists?client_id=` | List hashlists selectable for a report |
+| | `GET /analytics/queue-status` | Get the analytics queue status |
 
 ## Dynamic Validation
 
@@ -138,6 +147,7 @@ Open: http://localhost:8080
 - Agent management (vouchers, list, update, delete)
 - Job management (create, list, update, layers)
 - Metadata endpoints (hash types, workflows, preset jobs)
+- Analytics & Reporting (queue/list/get/delete/retry reports, PDF export, BloodHound-enriched AD-privilege analysis)
 
 **Planned Enhancements:**
 - WebSocket support for real-time job status updates
@@ -152,4 +162,4 @@ Open: http://localhost:8080
 
 Current API Version: **v1.0.0**
 
-Last Updated: November 2025
+Last Updated: July 2026

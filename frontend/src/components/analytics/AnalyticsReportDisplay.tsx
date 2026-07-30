@@ -36,6 +36,7 @@ import PatternDetectionSection from './PatternDetectionSection';
 import UsernameCorrelationSection from './UsernameCorrelationSection';
 import PasswordReuseSection from './PasswordReuseSection';
 import HashReuseSection from './HashReuseSection';
+import BloodhoundSection from './BloodhoundSection';
 import TemporalPatternsSection from './TemporalPatternsSection';
 import MaskAnalysisSection from './MaskAnalysisSection';
 import CustomPatternsSection from './CustomPatternsSection';
@@ -262,6 +263,9 @@ export default function AnalyticsReportDisplay({
 
       {/* Windows Hash Analytics - Full Width */}
       {filteredData.windows_hashes && <WindowsHashSection data={filteredData.windows_hashes} />}
+
+      {/* BloodHound AD privilege exposure - forest-wide, rendered from top-level data (not domain-filtered) */}
+      <BloodhoundSection data={data} />
 
       {/* Masonry-style layout using CSS columns - cards flow vertically to fill space */}
       <Box
