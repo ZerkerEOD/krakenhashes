@@ -11,6 +11,7 @@ import (
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
+	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 )
@@ -264,9 +265,27 @@ func (s *AnalyticsService) GenerateAnalytics(ctx context.Context, reportID uuid.
 	// Generate recommendations based on all analytics
 	analyticsData.Recommendations = s.generateRecommendations(analyticsData)
 
+	// BloodHound enrichment: if a collection dump was staged for this report, cross-reference the
+	// derived AD-privilege context against the cracked accounts to populate the enriched sections
+	// (and high-severity recommendations). No-op when no dump was uploaded, so the normal path is
+	// unchanged.
+	hadBloodhound, bhErr := s.enrichReportWithBloodhound(ctx, reportID, hashlistIDs, analyticsData)
+	if bhErr != nil {
+		debug.Warning("BloodHound enrichment failed for report %s (continuing without it): %v", reportID, bhErr)
+	}
+
 	// Update the report with analytics data
 	if err := s.repo.UpdateAnalyticsData(ctx, reportID, analyticsData); err != nil {
 		return fmt.Errorf("failed to update analytics data: %w", err)
+	}
+
+	// Once the report is persisted, remove the staged BloodHound context so derived AD data does not
+	// linger on the server. Re-analysis requires re-uploading the dump. Non-fatal on error; the TTL
+	// sweep in the queue service is a backstop.
+	if hadBloodhound {
+		if err := s.repo.ClearBloodhoundContext(ctx, reportID); err != nil {
+			debug.Warning("failed to clear BloodHound context for report %s: %v", reportID, err)
+		}
 	}
 
 	// Calculate effective hashlist count (treating linked pairs as ONE hashlist)
@@ -1730,9 +1749,9 @@ func (s *AnalyticsService) generateLMToNTLMMasks(lmPasswords []*models.Hash) *mo
 
 	// Pattern analysis: map LM pattern to count and examples
 	type PatternInfo struct {
-		Count     int
-		Examples  []string
-		Masks     []string
+		Count    int
+		Examples []string
+		Masks    []string
 	}
 	patterns := make(map[string]*PatternInfo)
 
@@ -1800,9 +1819,9 @@ func (s *AnalyticsService) generateLMToNTLMMasks(lmPasswords []*models.Hash) *mo
 	}
 
 	return &models.LMToNTLMMaskStats{
-		TotalLMCracked:        totalLM,
-		TotalMasksGenerated:   len(maskInfos),
-		Masks:                 maskInfos,
+		TotalLMCracked:         totalLM,
+		TotalMasksGenerated:    len(maskInfos),
+		Masks:                  maskInfos,
 		TotalEstimatedKeyspace: totalKeyspace,
 	}
 }
