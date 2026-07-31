@@ -165,3 +165,107 @@ func TestJobExecutionService_CanInterruptJob(t *testing.T) {
 func TestJobExecutionService_CanInterruptJob_Disabled(t *testing.T) {
 	t.Skip("Skipping due to architecture limitation: service requires concrete repository types")
 }
+
+// TestChunkLocalProgressPercent covers the base-unit per-task progress
+// calculation. It is a regression guard for the bug where running tasks on
+// salted hash types all displayed a static 99.99%: the old calc divided the
+// agent's salt-free progress[0] by a salt-adjusted (base x rules x salts) chunk
+// span, so the ratio exceeded 100% for every running chunk and was clamped to
+// the reserved 99.99. Computing in BASE units removes the salt/rule drift.
+func TestChunkLocalProgressPercent(t *testing.T) {
+	const (
+		b       = int64(1_000_000_000) // 1B
+		epsilon = 0.01
+	)
+
+	cases := []struct {
+		name              string
+		keyspaceProcessed int64
+		keyspaceStart     int64
+		keyspaceEnd       int64
+		agentPercent      float64
+		wantPercent       float64
+		wantBaseProc      int64
+	}{
+		{
+			// The reported bug: a salted mid-keyspace chunk 25% into its own
+			// span. Pre-fix this rendered 99.99; it must now read ~25%.
+			// restore_point is ABSOLUTE while running: 140B + 25%*(30B) = 147.5B.
+			name:              "salted mid-keyspace chunk reads real progress",
+			keyspaceProcessed: 147_500 * (b / 1000), // 147.5B
+			keyspaceStart:     140 * b,
+			keyspaceEnd:       170 * b,
+			wantPercent:       25.0,
+			wantBaseProc:      7_500 * (b / 1000), // 7.5B
+		},
+		{
+			// First chunk: KeyspaceStart == 0, restore point is already
+			// chunk-relative (absolute == relative).
+			name:              "first chunk (start=0) halfway",
+			keyspaceProcessed: 16 * b,
+			keyspaceStart:     0,
+			keyspaceEnd:       32 * b,
+			wantPercent:       50.0,
+			wantBaseProc:      16 * b,
+		},
+		{
+			// A chunk that has processed its entire span reads 99.99, not 100
+			// (100 is reserved for terminal completion writes).
+			name:              "full chunk caps at 99.99",
+			keyspaceProcessed: 170 * b,
+			keyspaceStart:     140 * b,
+			keyspaceEnd:       170 * b,
+			wantPercent:       99.99,
+			wantBaseProc:      30 * b,
+		},
+		{
+			// Restore point overshoots the chunk end: baseProc clamps to the
+			// chunk size, percent caps at 99.99.
+			name:              "overshoot clamps to chunk size",
+			keyspaceProcessed: 175 * b,
+			keyspaceStart:     140 * b,
+			keyspaceEnd:       170 * b,
+			wantPercent:       99.99,
+			wantBaseProc:      30 * b,
+		},
+		{
+			// Degenerate task without a base chunk span falls back to the
+			// agent's already chunk-local ratio.
+			name:              "no base span falls back to agent percent",
+			keyspaceProcessed: 5 * b,
+			keyspaceStart:     100 * b,
+			keyspaceEnd:       100 * b,
+			agentPercent:      42.5,
+			wantPercent:       42.5,
+			wantBaseProc:      5 * b,
+		},
+		{
+			// Fallback still honors the terminal-write cap.
+			name:              "no base span with >=100 agent percent caps at 99.99",
+			keyspaceProcessed: 0,
+			keyspaceStart:     100 * b,
+			keyspaceEnd:       100 * b,
+			agentPercent:      100.0,
+			wantPercent:       99.99,
+			wantBaseProc:      0,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotPercent, gotBaseProc := chunkLocalProgressPercent(
+				tc.keyspaceProcessed, tc.keyspaceStart, tc.keyspaceEnd, tc.agentPercent)
+
+			diff := gotPercent - tc.wantPercent
+			if diff < 0 {
+				diff = -diff
+			}
+			if diff > epsilon {
+				t.Errorf("percent = %.4f, want %.4f", gotPercent, tc.wantPercent)
+			}
+			if gotBaseProc != tc.wantBaseProc {
+				t.Errorf("baseProc = %d, want %d", gotBaseProc, tc.wantBaseProc)
+			}
+		})
+	}
+}

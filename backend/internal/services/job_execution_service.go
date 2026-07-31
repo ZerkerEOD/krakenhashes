@@ -2416,6 +2416,48 @@ func (s *JobExecutionService) DispatchBenchmarkStormNotification(
 	})
 }
 
+// chunkLocalProgressPercent computes a task's chunk-local progress percentage
+// in BASE (wordlist) units, which is immune to salt/rule drift and never
+// overflows int64 -- the same basis the job/layer calc uses in
+// job_progress_calculation_service.go.
+//
+// keyspaceProcessed is the base restore point (stored ABSOLUTELY while a
+// keyspace-split task runs, RELATIVELY once complete); keyspaceStart/keyspaceEnd
+// are the task's base chunk bounds. agentPercent is the agent's already
+// chunk-local ratio, used only as a fallback when the task has no usable base
+// chunk span. The returned percent is capped at 99.99 (100.0 is reserved for
+// terminal completion writes). baseProc is the chunk-relative base progress,
+// returned so the caller can scale it into effective units.
+func chunkLocalProgressPercent(keyspaceProcessed, keyspaceStart, keyspaceEnd int64, agentPercent float64) (percent float64, baseProc int64) {
+	chunkSize := keyspaceEnd - keyspaceStart // base words
+	if keyspaceStart > 0 && keyspaceProcessed >= keyspaceStart {
+		baseProc = keyspaceProcessed - keyspaceStart // absolute -> chunk-relative
+	} else {
+		baseProc = keyspaceProcessed // already relative, or keyspaceStart == 0
+	}
+	if baseProc < 0 {
+		baseProc = 0
+	}
+	if chunkSize > 0 && baseProc > chunkSize {
+		baseProc = chunkSize
+	}
+
+	if chunkSize > 0 {
+		percent = float64(baseProc) / float64(chunkSize) * 100.0
+	} else {
+		// Degenerate/legacy task without a base chunk span: fall back to the
+		// agent's already chunk-local ratio.
+		percent = agentPercent
+	}
+	if percent >= 100.0 {
+		percent = 99.99 // reserve 100.0 for terminal completion writes (CompleteTask / code-6 path)
+	}
+	if percent < 0 {
+		percent = 0
+	}
+	return percent, baseProc
+}
+
 // UpdateTaskProgress updates the progress of a task accounting for rule splitting and keysplit tasks
 func (s *JobExecutionService) UpdateTaskProgress(ctx context.Context, taskID uuid.UUID, keyspaceProcessed int64, effectiveProgress int64, hashRate *int64, progressPercent float64) error {
 	// Get the task to check for keysplit
@@ -2424,53 +2466,41 @@ func (s *JobExecutionService) UpdateTaskProgress(ctx context.Context, taskID uui
 		return fmt.Errorf("failed to get task for progress update: %w", err)
 	}
 
-	// For keysplit tasks with EffectiveKeyspaceStart > 0, convert absolute to relative
-	// Hashcat reports progress[0] as cumulative absolute position in the keyspace
-	// For continuation tasks (keyspace_start > 0), we need to store the RELATIVE contribution
-	// Example: Task 2 with effective_keyspace_start=492B reports progress[0]=735B at completion
-	//          We should store 735B - 492B = 243B as the task's contribution
-	effectiveKeyspaceProcessed := effectiveProgress
-	if task.IsKeyspaceSplit && task.EffectiveKeyspaceStart != nil && task.EffectiveKeyspaceStart.IsPositive() {
-		if task.EffectiveKeyspaceStart.CmpInt64(effectiveProgress) <= 0 {
-			effectiveKeyspaceProcessed = effectiveProgress - task.EffectiveKeyspaceStart.Int64()
-			debug.Log("Converted absolute to relative effective keyspace for keysplit task", map[string]interface{}{
-				"task_id":                      taskID,
-				"effective_progress_raw":       effectiveProgress,
-				"effective_keyspace_start":     task.EffectiveKeyspaceStart.String(),
-				"effective_keyspace_processed": effectiveKeyspaceProcessed,
-			})
-		}
-		// If effectiveProgress < EffectiveKeyspaceStart, keep original (shouldn't happen but be safe)
-	}
-
-	// Step 11r: recalculate progress_percent as a CHUNK-local fraction.
-	// The agent sends progress_percent as hashcat's absolute ratio
-	// (progress[0]/progress[1]). For chunks dispatched at --skip > 0,
-	// this starts high (e.g., 51% baseline for a chunk at job midpoint)
-	// — confusing display because the chunk hasn't done that much
-	// work; it's just sitting at a high absolute coordinate.
+	// Step 11r: recalculate progress_percent as a CHUNK-local fraction in
+	// BASE (wordlist) units. A single chunk should read 0% -> 100% over its
+	// own lifetime.
 	//
-	// User-expected behavior: a single chunk reads 0% → 100% over its
-	// own lifetime. Use the chunk-relative values we just computed
-	// above: chunk_percent = effective_processed / chunk_effective_size × 100.
-	if task.EffectiveKeyspaceStart != nil && task.EffectiveKeyspaceEnd != nil {
+	// Why BASE and not effective units: the agent's hashcat progress[0]
+	// (effectiveProgress) is in base x rules units -- it does NOT include the
+	// salt count. But the task's effective_keyspace_* fields are salt-adjusted
+	// (base x rules x salts, set at job creation "to match progress[1]"). On a
+	// salted hash type those two operands live in different unit systems, so
+	// dividing the salt-free numerator by the salt-inflated chunk span pushed
+	// the ratio past 100% for every running chunk and pinned the display at the
+	// reserved 99.99. Base units are immune to salt/rule drift and never
+	// overflow int64, which is exactly why the job/layer calc in
+	// job_progress_calculation_service.go was moved to base units too.
+	chunkSize := task.KeyspaceEnd - task.KeyspaceStart
+	progressPercent, baseProc := chunkLocalProgressPercent(keyspaceProcessed, task.KeyspaceStart, task.KeyspaceEnd, progressPercent)
+
+	// Store effective_keyspace_processed consistent with the task's
+	// salt-adjusted effective chunk span: scale the chunk-relative base
+	// progress by (effective_chunk / base_chunk). big.Int multiply-then-divide
+	// keeps this overflow-safe with no int64 truncation (the old code stored
+	// the salt-free absolute progress[0] here, which the job-level calc then
+	// preferred, understating effective processed on salted jobs).
+	effProc := models.NewBigInt(baseProc)
+	if task.EffectiveKeyspaceStart != nil && task.EffectiveKeyspaceEnd != nil && chunkSize > 0 {
 		chunkEff := task.EffectiveKeyspaceEnd.Sub(*task.EffectiveKeyspaceStart)
 		if chunkEff.IsPositive() {
-			localPercent := float64(effectiveKeyspaceProcessed) / float64(chunkEff.Int64()) * 100.0
-			if localPercent >= 100.0 {
-				localPercent = 99.99 // reserve 100.0 for terminal completion writes (CompleteTask / code-6 path)
-			}
-			if localPercent < 0 {
-				localPercent = 0
-			}
-			progressPercent = localPercent
+			effProc = models.NewBigInt(baseProc).Mul(chunkEff).DivInt64(chunkSize)
 		}
 	}
 
 	// Update the task progress
 	// Note: Job-level progress is now calculated by the polling service (JobProgressCalculationService)
 	// which runs every 2 seconds and recalculates from task data
-	err = s.jobTaskRepo.UpdateProgress(ctx, taskID, keyspaceProcessed, models.NewBigInt(effectiveKeyspaceProcessed), hashRate, progressPercent)
+	err = s.jobTaskRepo.UpdateProgress(ctx, taskID, keyspaceProcessed, effProc, hashRate, progressPercent)
 	if err != nil {
 		return fmt.Errorf("failed to update task progress: %w", err)
 	}

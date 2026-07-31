@@ -572,9 +572,14 @@ func (jm *JobManager) calculateProgress(hashcatStatus map[string]interface{}) fl
     `calculateProgress` returns hashcat's **absolute** ratio over the whole job. For a chunk
     dispatched with `--skip > 0` that starts high — a chunk at the job's midpoint reports ~50% on
     its very first update. The backend therefore **recomputes** the reported percent as a
-    *chunk-local* fraction — `effective_processed / chunk_effective_size × 100` — and **caps a
+    *chunk-local* fraction in **base (wordlist) units** —
+    `(keyspace_processed − keyspace_start) / (keyspace_end − keyspace_start) × 100` — and **caps a
     running chunk at 99.99%**, reserving 100% for a terminal completion write, so each chunk reads
     0% → 100% over its own lifetime (`backend/internal/services/job_execution_service.go`, "Step 11r").
+    Base units are used rather than effective (`base × rules × salts`) units because hashcat's
+    `progress[0]` excludes the salt count; dividing that salt-free value by a salt-adjusted chunk span
+    made salted jobs (e.g. NetNTLMv2) report a static 99.99%. This mirrors the drift-free base-unit
+    basis the job/layer calc uses in `job_progress_calculation_service.go`.
 
 ## WebSocket Communication
 
