@@ -631,21 +631,16 @@ components:
         name:
           type: string
           description: Workflow name
-        steps:
-          type: array
-          description: Ordered workflow steps
-          items:
-            type: object
-            properties:
-              id:
-                type: integer
-              preset_job_id:
-                type: string
-                format: uuid
-              step_order:
-                type: integer
-              preset_job_name:
-                type: string
+        step_count:
+          type: integer
+          description: >-
+            Number of steps in the workflow. This listing does not expand the steps
+            themselves; launch the workflow by ID via POST /api/v1/jobs.
+        loopback_all_eligible:
+          type: boolean
+          description: >-
+            Whether the workflow's master loopback toggle is on. Note that loopback
+            sessions are currently only created by the web UI, not by POST /api/v1/jobs.
         created_at:
           type: string
           format: date-time
