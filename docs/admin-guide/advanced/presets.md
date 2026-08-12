@@ -81,8 +81,9 @@ Enable high priority override for jobs that:
    "pending"), and the unfinished remainder returns to the job's queue as undispatched work
 4. **Or Release Outright**: If it made no progress at all, there is nothing to keep — the task row is
    **deleted** and its whole range re-opens, unless it had already produced cracks, in which case it
-   ends **`cancelled`** so the crack attribution survives. A stopped task is never marked `failed`;
-   that status is reserved for failures the agent itself reports
+   ends **`cancelled`** so the crack attribution survives. No scheduler-v2 stop recovery marks a task
+   `failed` — that status is mostly for failures the agent itself reports, plus the one server-side
+   case where an unreliable agent burns through `max_chunk_retry_attempts`
 5. **Automatic Resumption**: The re-opened range is dispatched again — often to a different agent — as
    soon as one is free
 6. **No Work Lost**: Completed keyspace is permanently recorded, so nothing is re-run

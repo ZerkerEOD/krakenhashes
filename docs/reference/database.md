@@ -811,7 +811,8 @@ Individual chunks assigned to agents.
 **Notes on `status`:**
 
 - `processing_error` is **not** a valid value. It was never permitted by the CHECK constraint, so every attempt to write it failed; the code that tried has been removed. The eight values listed above are the complete set.
-- A task row may be **deleted** outright rather than moved to a terminal status. A benign stop (operator stop, preemption, chunk-overrun guard, agent shutdown, disconnect, heartbeat eviction) of a task that had made no progress and cracked nothing removes both the row and its `job_keyspace_intervals` row, re-opening the range for re-dispatch. A job's `job_tasks` rows are therefore **not** a complete audit trail of every chunk ever dispatched. See [Task Lifecycle and Statuses](../troubleshooting/task-lifecycle.md).
+- A task row may be **deleted** outright rather than moved to a terminal status. A benign stop (preemption, chunk-overrun guard, agent shutdown, disconnect, heartbeat eviction) of a task that had made no progress and cracked nothing removes both the row and its `job_keyspace_intervals` row, re-opening the range for re-dispatch. A job's `job_tasks` rows are therefore **not** a complete audit trail of every chunk ever dispatched. See [Task Lifecycle and Statuses](../troubleshooting/task-lifecycle.md).
+- A **job stop** never reaches that path: it sets every running and assigned task to `cancelled` before the stop is sent to the agents, so the later acknowledgement finds a terminal row and the recovery branches no-op. Those rows always read `cancelled`, though their intervals are still truncated at the restore point.
 
 **Indexes:**
 - idx_job_tasks_agent_status (agent_id, status)

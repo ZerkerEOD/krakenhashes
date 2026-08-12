@@ -294,7 +294,7 @@ func (s *HashlistCompletionService) stopJobTasks(ctx context.Context, jobID uuid
 		  AND NOT EXISTS (
 		      SELECT 1 FROM job_tasks t
 		      WHERE t.id = jki.task_id
-		        AND t.status IN ('assigned', 'running', 'processing', 'pending')
+		        AND t.status IN ('assigned', 'running', 'reconnect_pending', 'processing', 'pending')
 		  )
 	`, jobID); err != nil {
 		debug.Warning("Failed to cascade open intervals to completed for job %s: %v", jobID, err)
@@ -407,7 +407,7 @@ func (s *HashlistCompletionService) completeJob(ctx context.Context, job *models
 		    detailed_status = 'cancelled',
 		    completed_at = NOW()
 		WHERE job_execution_id = $1
-		  AND status IN ('assigned', 'running', 'processing', 'pending')
+		  AND status IN ('assigned', 'running', 'reconnect_pending', 'processing', 'pending')
 		  AND ($2::uuid IS NULL OR id <> $2::uuid)
 	`, job.ID, triggeringTaskID); reconErr != nil {
 		debug.Error("Failed to reconcile non-terminal tasks to cancelled for job %s: %v", job.ID, reconErr)
@@ -442,7 +442,7 @@ func (s *HashlistCompletionService) completeJob(ctx context.Context, job *models
 		  AND NOT EXISTS (
 		      SELECT 1 FROM job_tasks t
 		      WHERE t.id = jki.task_id
-		        AND t.status IN ('assigned', 'running', 'processing', 'pending')
+		        AND t.status IN ('assigned', 'running', 'reconnect_pending', 'processing', 'pending')
 		  )
 	`, job.ID); err != nil {
 		debug.Warning("Failed to close intervals of reconciled tasks for job %s: %v", job.ID, err)

@@ -6,9 +6,8 @@ in an unexpected status, and how to confirm what happened.
 
 The short version: **a task being stopped is normal and costs you nothing.** Work is
 tracked by keyspace interval, not by task row, so any range a stopped task did not
-finish simply re-opens and is re-issued on the next dispatch cycle. Only an
-agent-*reported* failure produces a `failed` task, and only a `failed` task fails the
-job.
+finish simply re-opens and is re-issued on the next dispatch cycle. No stop recovery
+ever produces a `failed` task, and only a `failed` task fails the job.
 
 ## Common Questions
 
@@ -22,7 +21,6 @@ trail entry for a deleted task.
 
 Any of these can stop a task:
 
-- An operator pressing **Stop Job**
 - A higher-priority job preempting it
 - The chunk-overrun guard cutting short a chunk that was running far longer than its
   target duration
@@ -30,24 +28,37 @@ Any of these can stop a task:
 - The agent disconnecting
 - The agent missing heartbeats long enough to be evicted
 
-All six take the same path and have the same three possible outcomes — see
+All five take the same path and have the same three possible outcomes — see
 [What Happens When a Task Is Stopped](#what-happens-when-a-task-is-stopped).
+
+Stopping a whole job is the exception: it cancels every running and assigned task up
+front, before the stop even reaches the agent, so those tasks always end `cancelled`
+however much progress they had made. Their keyspace intervals are still truncated at the
+restore point, so the work already done is preserved as coverage.
 
 If a job's task list looks shorter than the number of chunks you expected, this is
 why. The task rows are not a complete record of every chunk ever dispatched.
 
 ### Why does this task say "cancelled"?
 
-A `cancelled` task is a stopped task whose row had to be kept. There are two ways to
-get one:
+A `cancelled` task is usually a stopped task whose row had to be kept. There are a few
+ways to get one:
 
+- **The hashlist was fully cracked while the task was still running.** This is by far
+  the most common cause, and it shows up on **successfully completed** jobs, not
+  cancelled ones. When the last hash falls, every still-active sibling task is stopped
+  and marked `cancelled` — their remaining keyspace is moot — and a final reconcile
+  cancels anything still non-terminal just before the job is marked `completed`. Nobody
+  cancelled anything; the job finished early because there was nothing left to crack.
 - **The job or task was cancelled by an operator**, or the whole job was cancelled.
+  Stopping a job cancels its running and assigned tasks outright, so an operator stop
+  always ends `cancelled`.
 - **The task was stopped with no usable progress, but it had already cracked
   hashes.** The row survives so the crack attribution survives with it — cracked
   hashes point back at the task that found them, and features such as loopback
   delta runs join on that link. Deleting the row would orphan those cracks.
 
-In the second case nothing went wrong and no work was lost. The task's keyspace
+In that last case nothing went wrong and no work was lost. The task's keyspace
 interval is released and the range is re-dispatched.
 
 ### Why did my whole job fail when only one chunk had a problem?
@@ -57,10 +68,20 @@ Because one `failed` task fails the entire job, permanently. The check is a
 failed, and it stays failed even after the re-opened range has been redone
 successfully by another agent.
 
-This is exactly why benign stops no longer produce a `failed` task. `failed` is
-reserved for failures the **agent reported**: hashcat could not run, a required
-wordlist or rule file was missing, the binary was unusable, and so on. A disconnect,
-a preemption, or an operator stop never lands here.
+This is exactly why benign stops no longer produce a `failed` task. `failed` is mostly
+for failures the **agent reported**: hashcat could not run, a required wordlist or rule
+file was missing, the binary was unusable, and so on. **No scheduler-v2 stop recovery
+writes `failed`** — not a preemption, not the chunk-overrun guard, not a disconnect, not
+a heartbeat eviction, not an operator stop.
+
+There is one server-side exception. A task whose agent keeps vanishing is retried, and
+once it has burned through `max_chunk_retry_attempts` (3 by default) the cleanup service
+terminalises it as `failed` on its own, with no agent report at all. Three paths do this:
+an `assigned`/`running` task that has gone quiet past the timeout, an agent that never
+reconnects before its grace period expires, and an agent that reconnects without the task
+it was given. Their `error_message` reads like "Agent failed to reconnect after N
+attempts" or "Task failed after N retry attempts" — there is no hashcat error to hunt
+for, and the fix is the agent's stability or connectivity, not the job.
 
 If a job is failed, find the one task that caused it and read its `error_message` —
 see [Checking a job's tasks](#checking-a-jobs-tasks).
@@ -95,17 +116,22 @@ completing the task too early. A task with a large number of cracks legitimately
 spends time here.
 
 A background sweep runs every 5 minutes and guarantees a task always leaves this
-state:
+state. It applies two gates with very different timings:
 
-- If the crack handshake is already satisfied, the sweep completes the task
-  immediately.
-- If the agent is gone and the remaining cracks are never coming, the sweep
-  terminalises the task as `completed` or `cancelled` and releases its keyspace for
-  re-dispatch.
+- If the crack handshake is already satisfied in the database, the sweep completes the
+  task immediately, at any age. Only this gate is bounded by the sweep interval, so a
+  task that is really finished leaves `processing` within 5 minutes.
+- If the remaining cracks are never coming, the sweep terminalises the task as
+  `completed` or `cancelled` and releases its keyspace for re-dispatch. This gate is
+  age-gated: the row must have sat untouched for 30 minutes (hardcoded, not a setting),
+  and while its agent is still heartbeating the gate is deferred further — up to a hard
+  cutoff of three times that timeout, or 90 minutes.
 
 The sweep never marks such a task `failed` — deliberately, because that would fail
-the whole job over an agent that merely went away. Worst case, a task sits in
-`processing` for one sweep interval.
+the whole job over an agent that merely went away. Worst case, a task waiting on cracks
+that never arrive sits in `processing` for 90 minutes before the backstop gives up on it.
+For the full mechanism see
+[Job Completion System — Stale Processing Backstop](../reference/architecture/job-completion-system.md#stale-processing-backstop).
 
 ## What Happens When a Task Is Stopped
 
@@ -125,6 +151,12 @@ There is one further case: if the task's range was **already accounted for** —
 example, the hashlist was fully cracked while the task was still draining its crack
 batches — the task ends `completed` and its interval is left untouched.
 
+Stopping the whole job does not go through this branch at all. Every running and assigned
+task is cancelled first and only then is the stop sent to the agents, so when the agents'
+acknowledgements arrive the recovery path finds terminal rows and leaves them alone. The
+interval is still truncated at the restore point, so the work is preserved as coverage —
+but the task row reads `cancelled`, never `completed`.
+
 ## Task Status Reference
 
 These are the only values `job_tasks.status` can hold; they are enforced by a
@@ -136,10 +168,10 @@ database CHECK constraint.
 | `assigned` | Task has been assigned to an agent that has not started it yet. |
 | `reconnect_pending` | The task's agent disconnected and the server is waiting out the grace period. The task is not handed to another agent — it is closed out under one of the three stop outcomes above, and its *range* is re-dispatched as a new task. |
 | `running` | hashcat is actively processing the task's range on the agent. |
-| `processing` | hashcat has finished and the agent is streaming its cracked hashes. Transient; a 5-minute sweep guarantees the task leaves this state. |
+| `processing` | hashcat has finished and the agent is streaming its cracked hashes. Transient; a sweep running every 5 minutes guarantees the task leaves this state, within 90 minutes at the very worst. |
 | `completed` | The task finished its range and all crack batches were received. **Also** the outcome of a stopped task that kept its progress, in which case it is 100% of a **truncated** range — `completed` does not imply the task ran its full original range. |
-| `failed` | **The agent reported a failure** (hashcat could not run, a required file was missing, and so on). One `failed` task permanently fails its entire job. Benign stops never produce this. |
-| `cancelled` | Operator cancellation, or a benign stop of a task that had cracks but no usable progress. Not an error. |
+| `failed` | Usually **a failure the agent reported** (hashcat could not run, a required file was missing, and so on). Also written server-side when a task exhausts `max_chunk_retry_attempts` reconnect/heartbeat retries — those rows carry a retry-exhaustion `error_message`, not a hashcat one. One `failed` task permanently fails its entire job. Stop recovery never produces this. |
+| `cancelled` | Most often a sibling stopped because the hashlist was fully cracked (on a *completed* job). Also operator cancellation or a job stop, or a benign stop of a task that had cracks but no usable progress. Not an error. |
 | *(no row)* | Not a status. A benign stop with nothing to preserve deletes the task row outright, so the task simply is not listed. See [Why did my task disappear?](#why-did-my-task-disappear-from-the-jobs-task-list) |
 
 `processing_error` is **not** a valid status. It was never permitted by the CHECK
@@ -217,8 +249,9 @@ WHERE job_execution_id = 'JOB_UUID'
 ```
 
 If `received_crack_count` is still climbing, the agent is transmitting normally and
-the task will complete on its own. If it is static and the agent is offline, the
-sweep will terminalise the task within its next interval.
+the task will complete on its own. If it is static, the sweep will terminalise the task
+once `updated_at` is 30 minutes old — later still, up to 90 minutes, if the agent is
+online and heartbeating.
 
 ### Backend logs
 

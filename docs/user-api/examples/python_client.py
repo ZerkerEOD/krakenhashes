@@ -294,9 +294,10 @@ class KrakenHashesClient:
         """
         Get job layers (for increment mode jobs)
 
-        Returns a LIST of layers, each with layer_index, status,
-        dispatched_percent and searched_percent. Note this endpoint returns a
-        bare JSON array, not an object wrapping one.
+        Returns a LIST of layers, each with layer_index, mask, status and
+        overall_progress_percent (layers do NOT carry the job-level
+        searched_percent/dispatched_percent fields). Note this endpoint
+        returns a bare JSON array, not an object wrapping one.
         """
         response = self._request('GET', f'/jobs/{job_id}/layers')
         return response.json()
@@ -642,7 +643,7 @@ def job_monitoring_example():
             layers = client.get_job_layers(job['id'])
             for layer in layers:
                 print(f"  Layer {layer['layer_index']}: {layer['status']} "
-                      f"({layer.get('searched_percent', 0):.1f}% searched)")
+                      f"({layer.get('overall_progress_percent', 0):.1f}%)")
 
         time.sleep(10)
 

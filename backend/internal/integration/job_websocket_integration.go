@@ -5094,35 +5094,40 @@ func (s *JobWebSocketIntegration) ProcessPendingOutfiles(ctx context.Context, ag
 			continue
 		}
 
-		// Check if task is completed (all cracks processed)
-		if task.Status == models.JobTaskStatusCompleted {
-			// Task is complete, safe to delete the outfile
-			// Use task.ExpectedCrackCount instead of CountCrackedByTaskID
-			// CountCrackedByTaskID returns 0 when cracks were originally from a different task
-			expectedCount := task.ExpectedCrackCount
-			debug.Info("Agent %d: task %s is completed, sending delete approval (expected_line_count=%d)", agentID, taskID, expectedCount)
-			s.sendOutfileDeleteApproval(ctx, agentID, taskID, expectedCount, true)
-		} else if task.Status == models.JobTaskStatusCancelled ||
+		// Terminal task. The outfile is only safe to delete once the DATABASE
+		// actually holds the cracks it contains — terminal status alone is not
+		// enough, and conflating the two loses plaintexts permanently.
+		//
+		// Why the received-count guard is load-bearing: expected_crack_count is
+		// hashcat's own count for the chunk, i.e. exactly the outfile's line
+		// count. The agent's only safety check is
+		// `actualCount != approval.ExpectedLineCount` (agent connection.go), so
+		// approving with expected_crack_count ALWAYS matches and the agent
+		// always deletes. If received_crack_count is lower — the handshake was
+		// abandoned mid-transfer and the stale-processing backstop terminalised
+		// the task, or recovery completed it at a restore point — the cracks the
+		// DB never got are destroyed with the file. Worse, if recovery booked the
+		// range as covered, they are never re-found either.
+		//
+		// So: counts satisfied → approve. Counts short → ask for the outfile
+		// again. The retransmit path works fine against a terminal task
+		// (HandleCrackBatch and HandleCrackBatchesComplete both skip the
+		// agent-ownership check for retransmits, processCrackedHashes does not
+		// gate on task status, and processRetransmitCompletion sends its own
+		// delete approval once it has verified), so this terminates rather than
+		// looping.
+		if task.Status == models.JobTaskStatusCompleted ||
+			task.Status == models.JobTaskStatusCancelled ||
 			task.Status == models.JobTaskStatusFailed ||
 			task.Status == models.JobTaskStatusProcessingError {
-			// Any OTHER terminal status: nobody is waiting for these cracks any
-			// more, so approve the delete rather than asking for them again.
-			//
-			// This used to test only 'processing_error', which was the status
-			// handleCrackCountMismatch wrote when retransmit retries ran out.
-			// Nothing writes that status any more (it is not even in the
-			// valid_task_status CHECK constraint, so the write always failed),
-			// and the stale-processing backstop now terminalises an abandoned
-			// task as 'cancelled' — or 'completed', caught by the arm above.
-			//
-			// Without this widening, an abandoned task would fall into the
-			// retransmit branch below on every agent reconnect: the batches
-			// would land on a terminal task, TryFinalizeTask would decline
-			// (status is not 'processing'), no delete approval would ever be
-			// sent, and the agent would keep the outfile and repeat the whole
-			// cycle forever, bumping retransmit_count each time.
 			expectedCount := task.ExpectedCrackCount
-			debug.Info("Agent %d: task %s is terminal (%s), sending delete approval (expected_line_count=%d)",
+			if task.ReceivedCrackCount < expectedCount {
+				debug.Warning("Agent %d: task %s is terminal (%s) but the database is short of its cracks (expected %d, received %d) - requesting retransmit before approving outfile deletion",
+					agentID, taskID, task.Status, expectedCount, task.ReceivedCrackCount)
+				s.requestCrackRetransmit(ctx, agentID, taskID, expectedCount)
+				continue
+			}
+			debug.Info("Agent %d: task %s is terminal (%s) and its cracks are persisted, sending delete approval (expected_line_count=%d)",
 				agentID, taskID, task.Status, expectedCount)
 			s.sendOutfileDeleteApproval(ctx, agentID, taskID, expectedCount, true)
 		} else {

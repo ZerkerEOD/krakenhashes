@@ -126,8 +126,8 @@ chunking model, including salted-hash adjustments, see [Chunking System](chunkin
 ### Stopping a task: truncate, release, or complete
 
 Every server-initiated stop takes the same path, no matter why it fired — the chunk-overrun guard, a
-preemption, an agent disconnect, a heartbeat eviction, an agent's graceful shutdown, or an operator
-pressing stop. Recovery locks the task row, then reads its keyspace interval under the same lock and
+preemption, an agent disconnect, a heartbeat eviction, or an agent's graceful shutdown. Recovery
+locks the task row, then reads its keyspace interval under the same lock and
 branches on what the **coverage ledger** says, because the interval is the ledger and the task row is
 only the work record. The invariant: a task may end `completed` only when its range is, and stays,
 accounted for by an interval — if the range is going to be handed to somebody else, a `completed`
@@ -158,11 +158,20 @@ still draining crack batches — the task is marked `completed` at its restore p
 it has none) and the interval is left strictly alone. Deleting coverage for a range that really was
 searched would make the dispatcher re-issue finished work; that mistake is what GH #79 was.
 
+A **job stop** is not one of these paths. `JobSchedulingService.StopJob` cancels every running and
+assigned task *before* `job_stop` goes on the wire, so by the time the agent's stop acknowledgement
+reaches recovery the row is already terminal — and both the discard `DELETE` and
+`completeTaskAtRecoveryPoint` are guarded `AND status NOT IN ('completed','cancelled')`, so both
+no-op. The interval is still truncated at the restore point, so the work survives as coverage, but
+the task itself always ends `cancelled` regardless of how far it got.
+
 !!! important "`failed` now means the agent *reported* a failure"
     None of the stops above produce a `failed` task. That is deliberate: `HasFailedTasks` is a
     `COUNT(*) > 0`, not a threshold, so one `failed` row permanently fails its entire job — even
-    after the re-opened range has been redone successfully by another agent. A `failed` task
-    therefore carries exactly one meaning: the agent reported that the task failed.
+    after the re-opened range has been redone successfully by another agent. The one server-side
+    exception lives outside stop recovery: `JobCleanupService` / `MarkTaskFailedPermanently`
+    terminalises a task as `failed` once it has exhausted `max_chunk_retry_attempts` reconnect or
+    heartbeat retries. Every other `failed` row means the agent reported that the task failed.
 
 Because coverage is an interval set rather than a single watermark, a stop in the middle of a unit
 leaves a **hole**, not a shortened tail. The gap query returns the lowest-start gap first, so a

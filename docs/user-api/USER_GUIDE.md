@@ -73,6 +73,7 @@ Jobs define cracking tasks using preset configurations.
 - Priority maximum is configurable via `max_job_priority` system setting (default: 1000)
 
 **Job Status Values:**
+- `preparing` - The job's inputs are still being generated (for example an ephemeral filtered wordlist); the scheduler never dispatches a preparing job. **Not** terminal — it moves to `pending` once ready, or to `failed` if preparation breaks
 - `pending` - Job created, waiting to be scheduled
 - `running` - Job is actively being processed
 - `paused` - Job manually paused
@@ -81,7 +82,7 @@ Jobs define cracking tasks using preset configurations.
 - `failed` - Job failed due to error
 - `cancelled` - Job was cancelled; terminal, and it will never reach `completed`
 
-These seven values are the complete set permitted by the `job_executions` status constraint.
+These eight values are the complete set permitted by the `job_executions` status constraint.
 
 **Polling for completion:** treat `completed`, `failed` **and** `cancelled` as terminal. Waiting
 only on `completed`/`failed` leaves a poller spinning forever on a cancelled job. Do not treat

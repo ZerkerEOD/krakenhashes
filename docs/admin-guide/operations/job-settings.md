@@ -307,25 +307,30 @@ through the same truncate-and-re-open recovery as every other stop — see
 
 | Setting | Description | Default | Range | Notes |
 |---------|-------------|---------|-------|-------|
-| **Task Heartbeat Timeout** (`task_heartbeat_timeout_seconds`) | Seconds without any liveness signal before a running task is considered lost and gap-recovered | 120 | 10-3600 | "Liveness" is broader than progress: a progress update, a liveness ping, a `task_loading` message, or a new outfile crack all count |
-| **Task Startup Grace** (`task_startup_grace_seconds`) | Pre-first-progress grace window after a task is started | 600 | 30-7200 | The heartbeat timer does not start until either the first progress update arrives or this window expires |
-| **Network Grace** (`network_grace_seconds`) | WebSocket reconnect tolerance for a running task whose agent drops | 30 | 5-600 | Recovery only fires if the agent fails to reconnect within it — a brief network blip costs nothing |
+| **Task Heartbeat Timeout** (`task_heartbeat_timeout_seconds`) | Seconds without a **progress update** before a running task is considered lost and gap-recovered | 120 | 10-3600 | Only progress counts. `last_activity_at` is stamped once at dispatch and thereafter written only by the v2 progress ingest, so the broader signal set named in the setting's database description (liveness ping, `task_loading`, a new outfile crack) is aspirational and **not implemented** |
+| **Task Startup Grace** (`task_startup_grace_seconds`) | Pre-first-progress grace window after a task is started | 600 | 30-7200 | **Not consumed by any scheduler code path today.** The row is real, persisted and editable in the UI, but nothing reads it: eviction is decided entirely by `task_heartbeat_timeout_seconds`. Changing this value has no effect |
+| **Network Grace** (`network_grace_seconds`) | How long after an agent's WebSocket drops the sweeper will still evict that agent's leftover tasks | 30 | 5-600 | Does **not** delay recovery. A running task is recovered the moment its socket closes; this window only arms the sweeper's backstop pass for tasks the immediate disconnect handler missed |
 | **Target Chunk Seconds** (`target_chunk_seconds`) | Fallback target wall time per chunk | 60 seconds | 1+ seconds | Consulted **only** when `default_chunk_duration` is missing or zero. Not exposed in the UI; set it in SQL if you need it |
 | **Minimum Chunk Duration** (`min_chunk_seconds`) | Floor on chunk wall time | 5 seconds | 1-300 | Shown in the **Job Chunking** panel, not here. See [Job Chunking](#job-chunking) |
 
-#### Task Startup Grace
+#### Startup Stalls Count Against the Heartbeat Timeout
 
-`task_startup_grace_seconds` is the one operators most often need to raise. It covers everything that
-happens between "task assigned" and "hashcat emits its first progress line": downloading wordlists,
-rules and the hashlist, decompressing them, and hashcat's own kernel autotune. None of that produces
-progress, so without the grace window a large first-time download on a slow link would be evicted as
-a dead task and re-dispatched to another agent that would face the same download.
+Everything between "task assigned" and "hashcat emits its first progress line" — downloading
+wordlists, rules and the hashlist, decompressing them, and hashcat's own kernel autotune — produces
+no progress. Since `last_activity_at` is stamped once at dispatch and refreshed only by progress
+updates, that entire startup window is counted against `task_heartbeat_timeout_seconds`: a
+first-time sync of a large wordlist over a slow link can be evicted as a dead task and re-dispatched
+to another agent that then faces the same download.
 
-It is also the knob that governs the `--slow-candidates` startup stall described under
-[Zero-Progress Overruns](#zero-progress-overruns-count-against-the-agent) below: a healthy agent on a
-slow hash type legitimately reports nothing for the first several minutes of a chunk. Raise the grace
-window if your fleet syncs large resources over slow links or works slow hash types; lower it only if
-you would rather reclaim a wedged agent faster than tolerate a long, legitimate startup.
+The same applies to the `--slow-candidates` startup stall described under
+[Zero-Progress Overruns](#zero-progress-overruns-count-against-the-agent) below — a healthy agent on
+a slow hash type legitimately reports nothing for the first several minutes of a chunk.
+
+`task_heartbeat_timeout_seconds` is therefore the knob to raise if your fleet syncs large resources
+over slow links or works slow hash types. `task_startup_grace_seconds` reads like the setting for
+exactly this, but no scheduler code path consumes it, so raising it changes nothing. Lower the
+heartbeat timeout only if you would rather reclaim a wedged agent quickly than tolerate a long but
+legitimate startup.
 
 ### Chunk Overrun Guard
 
@@ -375,7 +380,8 @@ that never finishes.
     `chunk_duration × (1 + tolerance)` is by definition past any legitimate startup stall, because
     its chunk duration was sized from that agent's own measured speed in the first place. The
     window that protects such a task *before* the overrun threshold is
-    [`task_startup_grace_seconds`](#task-startup-grace).
+    [`task_heartbeat_timeout_seconds`](#startup-stalls-count-against-the-heartbeat-timeout) — not
+    `task_startup_grace_seconds`, which nothing reads.
 
 Lower the tolerance if you want tighter turnaround on mis-sized chunks; raise it (or disable the
 guard) if your workload has legitimately variable chunk times and you would rather let long chunks

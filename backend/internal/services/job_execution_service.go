@@ -3713,6 +3713,25 @@ func (s *JobExecutionService) HandleTaskCompletion(ctx context.Context, taskID u
 				"job_id": task.JobExecutionID,
 				"status": job.Status,
 			})
+
+			// Returning early must not swallow the job-completed notification.
+			// dispatchJobCompletedNotification has exactly one caller —
+			// CompleteJobExecution — and on the all-hashes-cracked path that call
+			// is now unreachable: HashlistCompletionService.completeJob marks the
+			// job completed directly and deliberately does not notify (it defers
+			// to this service), and JobSchedulingService.ProcessJobCompletion
+			// returns early once the job is 'completed'. So without this, a job
+			// whose hashlist was fully cracked — the most important completion
+			// event there is — would silently notify nobody.
+			//
+			// Safe to call here: NotificationDispatcher.Dispatch dedups on
+			// (source_type='job', source_id, notification_type), so a job that
+			// did reach CompleteJobExecution by some other route is not notified
+			// twice.
+			if job.Status == models.JobExecutionStatusCompleted {
+				s.dispatchJobCompletedNotification(ctx, job)
+			}
+
 			// Still run cleanup for resources
 			if err := s.CleanupJobResources(ctx, task.JobExecutionID); err != nil {
 				debug.Error("Failed to cleanup job resources: %v", err)

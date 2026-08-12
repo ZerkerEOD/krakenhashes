@@ -522,10 +522,10 @@ new task.
 
 ### Task State Transitions
 
-A server-initiated stop always takes the same path, whatever triggered it — operator **Stop Job**,
-preemption by a higher-priority job, the chunk-overrun guard, graceful agent shutdown, an
-unexpected disconnect, or heartbeat eviction. Which of three outcomes you get depends only on what
-the task had produced by the time it was stopped:
+A server-initiated stop always takes the same path, whatever triggered it — preemption by a
+higher-priority job, the chunk-overrun guard, graceful agent shutdown, an unexpected disconnect, or
+heartbeat eviction. Which of three outcomes you get depends only on what the task had produced by
+the time it was stopped:
 
 | Outcome | Condition | Task row | Keyspace |
 |---------|-----------|----------|----------|
@@ -537,6 +537,11 @@ There is a fourth, narrower case: if the task's range was **already accounted fo
 `completed` interval — for example the hashlist was fully cracked while the task was still draining
 crack batches — the task ends `completed` and its interval is left untouched.
 
+Stopping a whole job is deliberately *not* one of these paths: it cancels every running and
+assigned task before the stop message is sent, so the agent's later acknowledgement finds a
+terminal row and both recovery branches no-op. Such a task always ends `cancelled`, though its
+interval is still truncated at the restore point so the work counts as coverage.
+
 ```
 running → reconnect_pending → running     (agent reconnects still running the task)
 running → reconnect_pending → completed   (restore point present: interval truncated, remainder re-opens)
@@ -547,12 +552,19 @@ running → (row gone) | cancelled          (graceful shutdown without one)
 processing → (untouched)                  (server ignores the shutdown notice; handshake finishes)
 ```
 
-!!! warning "None of these paths writes `failed`"
-    `failed` is reserved for failures the **agent reported** — hashcat could not run, a required
+!!! warning "No stop-recovery path writes `failed`"
+    `failed` is mostly for failures the **agent reported** — hashcat could not run, a required
     wordlist or rule file was missing, and so on. This matters because `HasFailedTasks` is a
     `COUNT(*) > 0`: a single `failed` task permanently fails its entire job, even after the
-    re-opened range has been redone successfully by another agent. A disconnect, a preemption, or
-    an operator stop must never land there.
+    re-opened range has been redone successfully by another agent. A disconnect, a preemption or a
+    job stop must never land there, and none of them does.
+
+    The exception is **retry exhaustion**, which is not a stop recovery. A task that has burned
+    through `max_chunk_retry_attempts` (3 by default) is terminalised as `failed` by the cleanup
+    service with no agent report at all — when the grace period expires with the agent still gone,
+    when the agent reconnects without the task, or when an `assigned`/`running` task simply goes
+    quiet. Their `error_message` names the retry exhaustion, not a hashcat error; the thing to fix
+    is the agent's stability, not the job.
 
 For the full user-facing explanation of these statuses — including why tasks sometimes disappear
 from the task list entirely — see

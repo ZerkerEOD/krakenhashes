@@ -130,8 +130,11 @@ see [Task Lifecycle & Statuses](../../troubleshooting/task-lifecycle.md).
    job on the next cycle.
 
 This is the same mechanism used for every other stop reason — the
-[chunk overrun guard](../operations/job-settings.md#chunk-overrun-guard), agent disconnects,
-heartbeat timeouts, and operator stops all truncate-and-re-open in exactly this way.
+[chunk overrun guard](../operations/job-settings.md#chunk-overrun-guard), agent disconnects and
+heartbeat timeouts all truncate-and-re-open in exactly this way. Stopping a whole job is the
+exception: it cancels its running and assigned tasks up front, before the stop reaches the agent,
+so those tasks always end `cancelled` — though their intervals are still truncated, so the work
+already done is preserved as coverage.
 
 ### System-Wide Interruption Control
 
