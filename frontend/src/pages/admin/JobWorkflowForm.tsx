@@ -118,26 +118,39 @@ const JobWorkflowFormPage: React.FC = () => {
             
             // Store the detailed workflow steps
             if (workflow.steps?.length) {
-              // Sort by priority (descending) then by step order
+              // Sort by priority (descending) then by step order. Missing priorities
+              // coalesce to 0 so the comparator stays consistent (a partially-defined
+              // comparator makes Array.prototype.sort implementation-defined).
               const sortedSteps = [...workflow.steps].sort((a, b) => {
-                if (a.preset_job_priority !== undefined && b.preset_job_priority !== undefined) {
-                  if (a.preset_job_priority !== b.preset_job_priority) {
-                    return b.preset_job_priority - a.preset_job_priority; // Descending priority
-                  }
+                const aPriority = a.preset_job_priority ?? 0;
+                const bPriority = b.preset_job_priority ?? 0;
+                if (aPriority !== bPriority) {
+                  return bPriority - aPriority; // Descending priority
                 }
                 return a.step_order - b.step_order; // Fallback to step order
               });
-              
+
               setWorkflowSteps(sortedSteps);
-              
-              // Create mapping of IDs to names for rendering (carrying attack mode +
-              // rules so loopback eligibility can be computed client-side).
-              const orderedJobs: PresetJobBasic[] = sortedSteps.map(step => ({
-                id: step.preset_job_id,
-                name: step.preset_job_name,
-                attack_mode: step.preset_job_attack_mode,
-                rule_ids: step.preset_job_rule_ids
-              }));
+
+              // Create mapping of IDs to names for rendering. Prefer the preset records
+              // from the form-data response: they always carry attack_mode, rule_ids and
+              // allow_high_priority_override, whereas the JOINed step fields can be absent.
+              // Fall back to the step fields for presets no longer in the available list.
+              const presetsById = new Map<string, PresetJobBasic>();
+              formDataResponse.preset_jobs.forEach(preset => {
+                presetsById.set(preset.id, preset);
+              });
+
+              const orderedJobs: PresetJobBasic[] = sortedSteps.map(step => {
+                const preset = presetsById.get(step.preset_job_id);
+                return {
+                  id: step.preset_job_id,
+                  name: preset?.name ?? step.preset_job_name,
+                  allow_high_priority_override: preset?.allow_high_priority_override,
+                  attack_mode: preset?.attack_mode ?? step.preset_job_attack_mode,
+                  rule_ids: preset?.rule_ids ?? step.preset_job_rule_ids
+                };
+              });
 
               setFormData({
                 name: workflow.name,
@@ -378,14 +391,10 @@ const JobWorkflowFormPage: React.FC = () => {
                   disabled={submitting}
                 />
               }
-              label="Enable loopback for all eligible steps"
+              label={t('workflows.form.loopback.masterToggle') as string}
             />
             <FormHelperText sx={{ mt: 0 }}>
-              When on, the whole workflow runs, then every eligible step (straight&nbsp;+&nbsp;rules,
-              or a hybrid&nbsp;wordlist&nbsp;±&nbsp;mask attack) re-runs against only the newly-cracked
-              passwords — repeating intelligently until no new cracks are found. Non-mutating steps
-              (wordlist-only, brute-force, association) still feed their new cracks into the loop.
-              The per-step toggles below are disabled while this is on.
+              {t('workflows.form.loopback.masterHelperText') as string}
             </FormHelperText>
           </Box>
 
@@ -431,10 +440,10 @@ const JobWorkflowFormPage: React.FC = () => {
                         const loopbackChecked = masterOn ? eligible : formData.loopback_preset_job_ids.includes(job.id);
                         const loopbackDisabled = masterOn || !eligible || submitting;
                         const loopbackTooltip = !eligible
-                          ? 'Nothing to mutate (wordlist-only, brute-force, association or combinator). This step still feeds its new cracks into the loop, but is not re-run.'
+                          ? t('workflows.form.loopback.tooltipIneligible') as string
                           : masterOn
-                            ? 'Workflow-level loopback is on, so every eligible step loops back.'
-                            : 'Re-run this step against only newly-cracked passwords until no new cracks are found.';
+                            ? t('workflows.form.loopback.tooltipMasterOn') as string
+                            : t('workflows.form.loopback.tooltipStep') as string;
 
                         return (
                           <Draggable key={job.id} draggableId={job.id} index={index} isDragDisabled={submitting}>
@@ -497,7 +506,7 @@ const JobWorkflowFormPage: React.FC = () => {
                                                   onChange={(e) => handleToggleStepLoopback(job.id, e.target.checked)}
                                                 />
                                               }
-                                              label={<Typography variant="caption">Loopback</Typography>}
+                                              label={<Typography variant="caption">{t('workflows.form.loopback.stepLabel') as string}</Typography>}
                                             />
                                           </span>
                                         </Tooltip>

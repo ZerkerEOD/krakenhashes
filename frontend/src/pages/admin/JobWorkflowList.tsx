@@ -22,8 +22,15 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useTranslation } from 'react-i18next';
 import { listJobWorkflows, deleteJobWorkflow } from '../../services/api';
-import { JobWorkflow } from '../../types/adminJobs';
+import { JobWorkflow, isLoopbackEligible } from '../../types/adminJobs';
 import { useConfirm } from '../../hooks';
+
+// Number of steps that actually loop back when the workflow-level master toggle is off:
+// the step must be flagged AND its attack must have a separable mutation (GH #64/#78).
+const countLoopbackSteps = (workflow: JobWorkflow): number =>
+  (workflow.steps || []).filter(
+    step => step.loopback_enabled && isLoopbackEligible(step.preset_job_attack_mode, step.preset_job_rule_ids)
+  ).length;
 
 const JobWorkflowListPage: React.FC = () => {
   const { t } = useTranslation('admin');
@@ -119,6 +126,7 @@ const JobWorkflowListPage: React.FC = () => {
                 <TableCell>{t('workflows.columns.name') as string}</TableCell>
                 <TableCell>{t('workflows.columns.jobCount') as string}</TableCell>
                 <TableCell>{t('workflows.columns.highPriority') as string}</TableCell>
+                <TableCell>{t('workflows.columns.loopback') as string}</TableCell>
                 <TableCell>{t('workflows.columns.created') as string}</TableCell>
                 <TableCell>{t('workflows.columns.lastUpdated') as string}</TableCell>
                 <TableCell align="right">{t('workflows.columns.actions') as string}</TableCell>
@@ -127,7 +135,7 @@ const JobWorkflowListPage: React.FC = () => {
             <TableBody>
               {workflows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center">
+                  <TableCell colSpan={7} align="center">
                     <Typography variant="body1" py={2}>
                       {t('workflows.noWorkflowsFound') as string}
                     </Typography>
@@ -149,7 +157,7 @@ const JobWorkflowListPage: React.FC = () => {
                         {workflow.name}
                       </RouterLink>
                     </TableCell>
-                    <TableCell>{workflow.steps?.length || 0}</TableCell>
+                    <TableCell>{workflow.step_count ?? workflow.steps?.length ?? 0}</TableCell>
                     <TableCell>
                       {workflow.has_high_priority_override ? (
                         <Chip
@@ -164,6 +172,25 @@ const JobWorkflowListPage: React.FC = () => {
                           size="small"
                           variant="outlined"
                         />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {workflow.loopback_all_eligible ? (
+                        <Chip
+                          label={t('workflows.loopbackAllEligible') as string}
+                          color="secondary"
+                          size="small"
+                          variant="outlined"
+                        />
+                      ) : countLoopbackSteps(workflow) > 0 ? (
+                        <Chip
+                          label={t('workflows.loopbackStepCount', { count: countLoopbackSteps(workflow) }) as string}
+                          color="secondary"
+                          size="small"
+                          variant="outlined"
+                        />
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">—</Typography>
                       )}
                     </TableCell>
                     <TableCell>{new Date(workflow.created_at).toLocaleString()}</TableCell>

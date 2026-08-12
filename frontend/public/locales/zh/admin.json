@@ -587,12 +587,15 @@
     "noWorkflowsFound": "未找到工作流。创建一个以开始使用。",
     "canInterrupt": "可中断",
     "normal": "普通",
+    "loopbackAllEligible": "全部符合条件的步骤",
+    "loopbackStepCount": "{{count}} 个步骤",
     "columns": {
       "name": "名称",
       "description": "描述",
       "steps": "步骤",
       "jobCount": "任务数",
       "highPriority": "优先级模式",
+      "loopback": "回环",
       "created": "创建时间",
       "lastUpdated": "最后更新",
       "actions": "操作"
@@ -612,6 +615,14 @@
       "binary": "二进制：{{name}}",
       "wordlistCount": "{{count}} 个字典",
       "ruleCount": "{{count}} 个规则",
+      "loopback": {
+        "masterToggle": "为所有符合条件的步骤启用回环",
+        "masterHelperText": "启用后，先运行整个工作流，然后每个符合条件的步骤（直接攻击 + 规则，或字典 ± 掩码的混合攻击）仅针对新破解出的密码重新运行，并智能重复，直到不再有新的破解结果。不产生变形的步骤（仅字典、暴力破解、关联攻击）仍会将其新破解结果送入循环。启用此项时，下方的单个步骤开关将被禁用。",
+        "stepLabel": "回环",
+        "tooltipIneligible": "没有可变形的内容（仅字典、暴力破解、关联攻击或组合攻击）。此步骤仍会将其新破解结果送入循环，但不会重新运行。",
+        "tooltipMasterOn": "工作流级别的回环已启用，因此每个符合条件的步骤都会回环。",
+        "tooltipStep": "仅针对新破解出的密码重新运行此步骤，直到不再有新的破解结果。"
+      },
       "fields": {
         "workflowName": "工作流名称",
         "searchPresetJobs": "搜索预设任务"

@@ -65,9 +65,17 @@ When building or editing a **Job Workflow** (Admin → Preset Jobs & Workflows):
 - **Per-step "Loopback"** — a checkbox on each step, used only while the master toggle is
   **off**. It's disabled (with an explanatory tooltip) for ineligible steps.
 
-A workflow that has loopback configured shows a **"Loopback: all eligible"** badge in the
-create-job dialog so operators know it will loop automatically — there's nothing extra to
-turn on at run time.
+A workflow that has loopback configured shows a **Loopback** badge in the create-job dialog
+so operators know it will loop automatically — there's nothing extra to turn on at run time.
+The badge reflects how the workflow was configured:
+
+- **"Loopback: all eligible"** — the master toggle is on, so every eligible step loops back.
+- **"Loopback: N step(s)"** — the master toggle is off and N individual steps are set to
+  loop back.
+
+The count only includes steps that will *actually* loop: a step whose checkbox is ticked but
+whose attack is ineligible (for example straight with no rules) is not counted, because it
+only feeds the delta pool with its cracks.
 
 ### 2. On a Preset Job run
 

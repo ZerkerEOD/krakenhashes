@@ -590,12 +590,15 @@
     "noWorkflowsFound": "No workflows found. Create one to get started.",
     "canInterrupt": "Can Interrupt",
     "normal": "Normal",
+    "loopbackAllEligible": "All eligible",
+    "loopbackStepCount": "{{count}} step(s)",
     "columns": {
       "name": "Name",
       "description": "Description",
       "steps": "Steps",
       "jobCount": "Jobs",
       "highPriority": "Priority Mode",
+      "loopback": "Loopback",
       "created": "Created",
       "lastUpdated": "Last Updated",
       "actions": "Actions"
@@ -615,6 +618,14 @@
       "binary": "Binary: {{name}}",
       "wordlistCount": "{{count}} wordlist(s)",
       "ruleCount": "{{count}} rule(s)",
+      "loopback": {
+        "masterToggle": "Enable loopback for all eligible steps",
+        "masterHelperText": "When on, the whole workflow runs, then every eligible step (straight + rules, or a hybrid wordlist ± mask attack) re-runs against only the newly-cracked passwords — repeating intelligently until no new cracks are found. Non-mutating steps (wordlist-only, brute-force, association) still feed their new cracks into the loop. The per-step toggles below are disabled while this is on.",
+        "stepLabel": "Loopback",
+        "tooltipIneligible": "Nothing to mutate (wordlist-only, brute-force, association or combinator). This step still feeds its new cracks into the loop, but is not re-run.",
+        "tooltipMasterOn": "Workflow-level loopback is on, so every eligible step loops back.",
+        "tooltipStep": "Re-run this step against only newly-cracked passwords until no new cracks are found."
+      },
       "fields": {
         "workflowName": "Workflow Name",
         "searchPresetJobs": "Search Preset Jobs"

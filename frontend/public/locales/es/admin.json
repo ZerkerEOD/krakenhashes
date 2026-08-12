@@ -587,12 +587,15 @@
     "noWorkflowsFound": "No se encontraron flujos de trabajo. Crea uno para comenzar.",
     "canInterrupt": "Puede interrumpir",
     "normal": "Normal",
+    "loopbackAllEligible": "Todos los elegibles",
+    "loopbackStepCount": "{{count}} paso(s)",
     "columns": {
       "name": "Nombre",
       "description": "Descripcion",
       "steps": "Pasos",
       "jobCount": "Trabajos",
       "highPriority": "Modo de prioridad",
+      "loopback": "Loopback",
       "created": "Creado",
       "lastUpdated": "Ultima actualizacion",
       "actions": "Acciones"
@@ -612,6 +615,14 @@
       "binary": "Binario: {{name}}",
       "wordlistCount": "{{count}} diccionario(s)",
       "ruleCount": "{{count}} regla(s)",
+      "loopback": {
+        "masterToggle": "Habilitar loopback para todos los pasos elegibles",
+        "masterHelperText": "Cuando esta activado, primero se ejecuta todo el flujo de trabajo y despues cada paso elegible (straight + reglas, o un ataque hibrido de diccionario ± mascara) se vuelve a ejecutar solo contra las contrasenas recien descifradas, repitiendose de forma inteligente hasta que no se encuentren nuevos resultados. Los pasos que no mutan (solo diccionario, fuerza bruta, asociacion) siguen aportando sus nuevos resultados al ciclo. Los interruptores por paso de abajo se desactivan mientras esta opcion este activada.",
+        "stepLabel": "Loopback",
+        "tooltipIneligible": "No hay nada que mutar (solo diccionario, fuerza bruta, asociacion o combinacion). Este paso sigue aportando sus nuevos resultados al ciclo, pero no se vuelve a ejecutar.",
+        "tooltipMasterOn": "El loopback esta activado a nivel del flujo de trabajo, por lo que todos los pasos elegibles se repiten.",
+        "tooltipStep": "Volver a ejecutar este paso solo contra las contrasenas recien descifradas hasta que no se encuentren nuevos resultados."
+      },
       "fields": {
         "workflowName": "Nombre del flujo de trabajo",
         "searchPresetJobs": "Buscar trabajos predefinidos"

@@ -478,11 +478,13 @@ func (h *AdminJobsHandler) ListJobWorkflows(w http.ResponseWriter, r *http.Reque
 			"updated_at":                 workflow.UpdatedAt,
 			"has_high_priority_override": hasHighPriorityOverride,
 			"loopback_all_eligible":      workflow.LoopbackAllEligible,
+			"step_count":                 workflow.StepCount,
 		}
 
-		// Include steps if they exist
-		if workflow.Steps != nil {
-			enhancedWorkflow["steps"] = workflow.Steps
+		// Emit the JOIN-populated steps fetched above rather than workflow.Steps, which
+		// ListJobWorkflows leaves nil (it only counts steps). No extra query (GH #78).
+		if steps != nil && steps.Steps != nil {
+			enhancedWorkflow["steps"] = steps.Steps
 		}
 
 		enhancedWorkflows = append(enhancedWorkflows, enhancedWorkflow)
