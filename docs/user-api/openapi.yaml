@@ -644,6 +644,10 @@ components:
         created_at:
           type: string
           format: date-time
+        updated_at:
+          type: string
+          format: date-time
+          description: When the workflow was last modified.
 
     PresetJob:
       type: object

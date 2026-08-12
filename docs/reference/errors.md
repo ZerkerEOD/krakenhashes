@@ -210,8 +210,8 @@ The WebSocket protocol uses typed messages for communication between agents and 
 
 2. **Job Execution**
    - No available agents → 503 Service Unavailable
-   - Agent disconnected → Job marked as failed
-   - Hashcat execution error → Job error status
+   - Agent disconnected → Task is truncated-and-completed, deleted, or cancelled, and its keyspace range is re-dispatched. The job is **not** failed. See [Task Lifecycle and Statuses](../troubleshooting/task-lifecycle.md#what-happens-when-a-task-is-stopped)
+   - Hashcat execution error → Agent-reported task failure (`failed`), which fails the whole job
 
 ### Database Errors
 

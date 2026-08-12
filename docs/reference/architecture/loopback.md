@@ -147,6 +147,15 @@ The panel's endpoint (`ListLoopbackSessions`) is a **live view**, not a history:
 - **`?scope=mine|visible`.** Default `mine` adds a `created_by` restriction; `visible` drops
   it so the caller sees every session they are allowed to see. `visible` can never widen
   past the team filter. The Jobs page requests `visible`; the Dashboard uses the default.
+
+    **The `created_by` restriction applies to admins too.** The admin check in
+    `ListLoopbackSessions` governs only the *team* filter (admins skip it, as in `ListJobs`); it
+    does not exempt anyone from the scope filter, which is applied afterwards and unconditionally
+    for any scope other than `visible`. So an admin's Dashboard panel lists only the sessions that
+    admin personally started. That is intended — the Dashboard answers "what did **I** start" and
+    the Jobs page answers "everything I can see" — but it is a visible behaviour change for admins
+    who previously saw every in-flight session on the Dashboard. An admin who wants the old view
+    can use the Jobs page panel, or request `?scope=visible` directly.
 - Capped at 100 rows, newest first. The service hydrates each session's jobs with a
   per-session `GetSessionJobs` query — an N+1 that is acceptable only because the filter
   bounds the result set to in-flight sessions.

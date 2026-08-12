@@ -139,6 +139,18 @@ This guide helps you resolve common issues when using KrakenHashes. If your issu
   - Ensure wordlists/rules are accessible
   - Check agent has sufficient disk space
 
+### A Task Disappeared from the Task List
+
+**Issue**: A task that was in the job's task list is no longer there
+- **Cause**: The task was stopped (operator stop, preemption, chunk-overrun guard, agent shutdown, disconnect, or heartbeat eviction) before it made any progress and before it cracked anything. With nothing to preserve, the task row and its keyspace interval are deleted and the whole range re-opens for re-dispatch.
+- **Solution**: No action needed. No work is lost — the range is re-issued on the next dispatch cycle, usually to a different agent. See [Task Lifecycle and Statuses](../troubleshooting/task-lifecycle.md) for the full set of stop outcomes, including why a stopped task may instead show as `completed` or `cancelled`.
+
+### Job Failed but Only One Task Had a Problem
+
+**Issue**: The whole job is marked failed even though other tasks finished fine
+- **Cause**: A single task in `failed` state fails its entire job, permanently, and the job stays failed even after the re-opened range is redone successfully. `failed` is reserved for failures the agent reported (hashcat could not run, a required file was missing).
+- **Solution**: Find the one failed task and read its `error_message` — the failed-tasks table on the Job Details page shows it inline. Fix the underlying cause and re-run the job. See [Task Lifecycle and Statuses](../troubleshooting/task-lifecycle.md#why-did-my-whole-job-fail-when-only-one-chunk-had-a-problem).
+
 ## Agent Connection Problems
 
 ### Agent Won't Connect

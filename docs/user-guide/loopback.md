@@ -129,6 +129,13 @@ with **Delete Finished Jobs**.
     The panel respects the same team scoping as the Jobs list: you only see loopback
     sessions whose hashlist belongs to a client in one of your teams.
 
+!!! note "Dashboard shows your runs; the Jobs page shows everything"
+    The two panels are scoped differently on purpose. The **Dashboard** panel lists only the
+    loopback sessions **you** started, so it stays a view of your own work. The **Jobs** page
+    panel lists every in-flight session you have access to. This applies to administrators as
+    well — an admin's Dashboard shows their own runs, not everyone's. To see all in-flight
+    sessions, use the panel on the Jobs page.
+
 !!! note "Sessions survive a restart"
     The loopback controller is durable: if the backend restarts while a session is waiting on
     a long round, the session resumes rather than being lost.

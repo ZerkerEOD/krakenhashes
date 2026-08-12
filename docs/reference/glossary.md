@@ -218,17 +218,19 @@ This glossary provides definitions for terms used throughout the KrakenHashes sy
 
 **Assigned**: Task has been assigned to a specific agent but the agent hasn't started executing it yet.
 
-**Reconnect Pending**: Task was assigned to an agent that disconnected. Waiting for agent to reconnect or task to be reassigned.
+**Reconnect Pending**: Task was assigned to an agent that disconnected. Waiting out the reconnection grace period. The task itself is not reassigned — it is closed out (truncated and completed, deleted, or cancelled) and its *keyspace range* is re-dispatched as a new task. See [Task Lifecycle and Statuses](../troubleshooting/task-lifecycle.md).
 
 **Running**: Task is actively executing on an agent. Hashcat is processing the assigned keyspace.
 
-**Processing**: Task has completed hashcat execution but is waiting for all crack batches to be transmitted to the backend. Agent has signaled completion but crack data is still being sent.
+**Processing**: Task has completed hashcat execution but is waiting for all crack batches to be transmitted to the backend. Agent has signaled completion but crack data is still being sent. Transient — a background sweep runs every 5 minutes and guarantees a task always leaves this state, terminalising it as Completed or Cancelled (never Failed) if the agent is gone. See [Task Lifecycle and Statuses](../troubleshooting/task-lifecycle.md#my-task-has-been-in-processing-for-a-while).
 
-**Completed**: Task has finished execution, all crack batches have been received, and the task is fully complete.
+**Completed**: Task has finished execution, all crack batches have been received, and the task is fully complete. **Also** the outcome of a task that was stopped after making progress: its keyspace interval is truncated at hashcat's restore point and the task is marked completed at 100% of that smaller range, so Completed does not imply the task ran its full original range. See [Task Lifecycle and Statuses](../troubleshooting/task-lifecycle.md#what-happens-when-a-task-is-stopped).
 
-**Failed**: Task encountered an error during execution and could not complete successfully.
+**Failed**: Reserved for failures the agent *reported* — hashcat could not run, a required wordlist or rule file was missing, and so on. One failed task permanently fails its entire job, even after the re-opened range has been redone successfully, which is why benign stops (operator stop, preemption, disconnect, heartbeat eviction) never produce this status. See [Task Lifecycle and Statuses](../troubleshooting/task-lifecycle.md#why-did-my-whole-job-fail-when-only-one-chunk-had-a-problem).
 
-**Cancelled**: Task was manually cancelled before completion, either by user action or due to job cancellation.
+**Cancelled**: Task was manually cancelled before completion, either by user action or due to job cancellation. Also the benign outcome of a task that was stopped with no usable progress but had already cracked hashes: the row is preserved so crack attribution survives, and its keyspace range is re-dispatched. See [Task Lifecycle and Statuses](../troubleshooting/task-lifecycle.md#why-does-this-task-say-cancelled).
+
+**Not Listed (task deleted)**: Not a status. A task stopped with no progress and no cracks has nothing worth preserving, so its row and keyspace interval are both deleted and the task disappears from the job's task list. The whole range re-opens and is re-dispatched. Job task rows are therefore not a complete audit trail of every chunk dispatched. See [Task Lifecycle and Statuses](../troubleshooting/task-lifecycle.md#why-did-my-task-disappear-from-the-jobs-task-list).
 
 ## Common Abbreviations
 

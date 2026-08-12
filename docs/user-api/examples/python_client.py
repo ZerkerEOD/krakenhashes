@@ -290,11 +290,13 @@ class KrakenHashesClient:
         response = self._request('PATCH', f'/jobs/{job_id}', json=data)
         return response.json()
 
-    def get_job_layers(self, job_id: int) -> Dict:
+    def get_job_layers(self, job_id: str) -> List[Dict]:
         """
         Get job layers (for increment mode jobs)
 
-        Returns layer information including status and progress.
+        Returns a LIST of layers, each with layer_index, status,
+        dispatched_percent and searched_percent. Note this endpoint returns a
+        bare JSON array, not an object wrapping one.
         """
         response = self._request('GET', f'/jobs/{job_id}/layers')
         return response.json()
@@ -571,14 +573,17 @@ def example_workflow():
     jobs = client.list_jobs()
     print(f"   Total jobs: {jobs['total']}")
     for job in jobs.get('jobs', [])[:5]:
-        print(f"   - {job['name']}: {job['status']} ({job.get('progress', 0):.1f}%)")
+        # Job listings report searched_percent / dispatched_percent, not "progress".
+        print(f"   - {job['name']}: {job['status']} "
+              f"({job.get('searched_percent', 0):.1f}% searched)")
 
     # 9. List workflows
     print("\n9. Listing workflows...")
     workflows = client.list_workflows()
     print(f"   Total workflows: {workflows['total']}")
     for wf in workflows['workflows']:
-        print(f"   - {wf['name']} ({len(wf.get('steps', []))} steps)")
+        # The listing reports step_count; it does not expand the steps themselves.
+        print(f"   - {wf['name']} ({wf.get('step_count', 0)} steps)")
 
     print("\n✓ Example workflow completed successfully!")
 
@@ -616,25 +621,33 @@ def job_monitoring_example():
     )
     print(f"Created job ID: {job['id']}")
 
-    # Monitor job progress
+    # Monitor job progress.
+    #
+    # Poll for a TERMINAL status. 'processing' is NOT terminal -- the job has finished
+    # cracking but is still receiving crack data -- and 'cancelled' is terminal but is
+    # easy to forget, which leaves a naive poller spinning forever.
     import time
+    terminal_states = ('completed', 'failed', 'cancelled')
     while True:
         job_status = client.get_job(job['id'])
-        print(f"Status: {job_status['status']}, Progress: {job_status.get('progress', 0):.1f}%")
+        print(f"Status: {job_status['status']}, "
+              f"Searched: {job_status.get('searched_percent', 0):.1f}%")
 
-        if job_status['status'] in ('completed', 'failed'):
+        if job_status['status'] in terminal_states:
             break
 
-        # Check layers for increment mode jobs
-        if job_status.get('increment_mode') != 'off':
+        # Check layers for increment mode jobs.
+        # This endpoint returns a bare JSON array of layers, not an object.
+        if job_status.get('increment_mode') not in (None, '', 'off'):
             layers = client.get_job_layers(job['id'])
-            for layer in layers.get('layers', []):
-                print(f"  Layer {layer['id']}: {layer['status']} ({layer.get('progress', 0):.1f}%)")
+            for layer in layers:
+                print(f"  Layer {layer['layer_index']}: {layer['status']} "
+                      f"({layer.get('searched_percent', 0):.1f}% searched)")
 
         time.sleep(10)
 
-    print(f"\nJob completed with status: {job_status['status']}")
-    print(f"Cracked: {job_status.get('cracked_count', 0)}/{job_status.get('total_hashes', 0)}")
+    print(f"\nJob finished with status: {job_status['status']}")
+    print(f"Cracked: {job_status.get('cracked_count', 0)}")
 
 
 def analytics_workflow_example():

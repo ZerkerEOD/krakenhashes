@@ -1,6 +1,29 @@
 # Rule Splitting Implementation Summary
 
-## Current Status
+!!! warning "Removed feature — historical reference only"
+    **Rule splitting no longer exists.** It belonged to the v1 scheduler, which is no longer
+    started, and migration `20260707151802_remove_rule_splitting` dropped everything it used:
+    the `uses_rule_splitting` / `rule_split_count` columns on `job_executions`, the
+    `is_rule_split_task` / `rule_chunk_path` / `rule_start_index` / `rule_end_index` columns on
+    `job_tasks`, `preset_jobs.use_rule_splitting`, the `idx_job_executions_rule_splitting` and
+    `idx_job_tasks_rule_split` indexes, and every one of its settings — `rule_split_enabled`,
+    `rule_split_threshold`, `rule_split_min_rules`, `rule_split_max_chunks` and
+    `rule_chunk_temp_dir`. (The same migration also removed two unrelated knobs it had outlived:
+    `chunk_fluctuation_percentage` and `speedtest_timeout_seconds`.)
+
+    **What replaced it:** scheduler-v2 keyspace-splits *every* job with hashcat
+    `--skip`/`--limit`, and derives keyspace from the job's own attack parameters rather than from
+    physically split rule files. A heavy rule set is accounted for through the job's
+    multiplication factor, so it simply produces smaller base-word chunks. See
+    [Chunking System](chunking.md) and
+    [Scheduler v2 Overview](scheduler-v2-overview.md).
+
+    **Everything below this banner is retained as a historical record** of how the feature worked
+    and is no longer accurate as a description of the running system. No code path reads any of
+    it, and the Job Execution Settings page no longer shows these controls — see
+    [Job Settings](../../admin-guide/operations/job-settings.md#rule-splitting-removed).
+
+## Current Status (historical)
 
 The rule splitting feature has been fully implemented but requires testing with a fresh job. The implementation includes:
 

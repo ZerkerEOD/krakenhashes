@@ -61,7 +61,8 @@ The **Allow High Priority Override** option gives a preset job special privilege
 #### What It Does
 When enabled, this preset job can interrupt lower priority jobs that are currently running, but only when:
 1. No agents are available for assignment
-2. This job has a higher priority than running jobs
+2. This job has a higher priority than running jobs — and a priority above 0, since a priority-0 job
+   never preempts anything
 3. The system-wide "Job Interruption Enabled" setting is active
 
 #### When to Use It
@@ -75,12 +76,16 @@ Enable high priority override for jobs that:
 1. **Automatic Process**: The system picks the newest running task at the lowest priority — the one
    with the least invested progress to give up
 2. **Graceful Interruption**: The agent receives a stop command and reports its final position
-3. **Truncate and Re-queue**: The stopped task is closed out as **completed** for the keyspace it
-   actually finished (it does *not* go back to "pending"), and the unfinished remainder returns to
-   the job's queue as undispatched work
-4. **Automatic Resumption**: That remainder is dispatched again — often to a different agent — as
+3. **Truncate and Re-queue**: If the agent got far enough to report a restore point, the stopped task
+   is closed out as **completed** for the keyspace it actually finished (it does *not* go back to
+   "pending"), and the unfinished remainder returns to the job's queue as undispatched work
+4. **Or Release Outright**: If it made no progress at all, there is nothing to keep — the task row is
+   **deleted** and its whole range re-opens, unless it had already produced cracks, in which case it
+   ends **`cancelled`** so the crack attribution survives. A stopped task is never marked `failed`;
+   that status is reserved for failures the agent itself reports
+5. **Automatic Resumption**: The re-opened range is dispatched again — often to a different agent — as
    soon as one is free
-5. **No Work Lost**: Completed keyspace is permanently recorded, so nothing is re-run
+6. **No Work Lost**: Completed keyspace is permanently recorded, so nothing is re-run
 
 See [Job Priority — Job Interruption Behavior](job-priority.md#job-interruption-behavior) for the
 full model.

@@ -453,13 +453,61 @@ The crack batching system integrates with the processing status workflow to ensu
 
 3. **Batch Completion Signal**:
    - Agent sends `crack_batches_complete` WebSocket message
-   - Backend sets `batches_complete_signaled` to true
+   - Backend waits for that agent's already-read batches to land (see
+     [Batch and Completion-Signal Ordering](#batch-and-completion-signal-ordering)), then sets
+     `batches_complete_signaled` to true
    - Agent is free to accept new work
 
 4. **Task Completion Check**:
    - Backend checks: `received_crack_count >= expected_crack_count AND batches_complete_signaled == true`
    - When conditions met: Task transitions from `processing` to `completed`
    - Job completion check triggered
+   - The check (`TryFinalizeTask`) is idempotent and re-reads both counters from the database, and
+     it runs at the end of **every** crack batch as well as on the completion signal — so whichever
+     of the two lands last is the one that finalizes the task
+
+#### Batch and Completion-Signal Ordering
+
+`crack_batch` and `crack_batches_complete` arrive in order on a single WebSocket connection, but
+they were not *processed* in order, and the completion signal's whole job is to vouch for batches
+that must already have been processed for its verification to mean anything.
+
+**The old shape:** `crack_batch` was handed to a goroutine behind a 10-slot semaphore, while
+`crack_batches_complete` was processed **synchronously on the readPump**. The signal therefore
+routinely overtook the very batch it was signalling completion for. In one production trace the
+signal was processed at t+27.782 and its own batch at t+27.789; the check saw `expected=1,
+received=0`, declared a mismatch, and requested a full retransmit of the entire outfile — pure
+wasted transfer plus a `retransmit_count` bump.
+
+**The fix** is a per-agent in-flight crack-batch counter, in
+`backend/internal/services/websocket/service.go`:
+
+| Piece | Role |
+|-------|------|
+| `crackBatchStarted(agentID)` | Increments the counter **synchronously on the readPump**, before the worker goroutine is spawned. This placement is the entire ordering guarantee and must not move into the goroutine: because the readPump dispatches one message at a time per connection, every batch ahead of a completion signal is already counted by the time that signal is read |
+| `crackBatchFinished(agentID)` | Decrements in a `defer`, so the count is released on every exit path including a panic. The map key is deleted at zero so it cannot accumulate one entry per agent that ever connected |
+| `waitForCrackBatchDrain(agentID, cap)` | Blocks until the agent's in-flight count reaches zero, or the cap (`crackDrainWaitCap`, 30 s) expires |
+| `handleCrackBatchesComplete` | Now **asynchronous** too, and drains the counter before doing anything else |
+
+`crack_batches_complete` was moved off the readPump rather than draining inline because that pump
+also carries heartbeats and every other message from the agent; blocking it behind a drain — or
+behind a large retransmit's processing — is exactly what must not happen.
+
+!!! note "Why the drain cannot deadlock"
+    The dependency is strictly one-way: a completion-signal waiter waits on crack-batch workers,
+    and no crack-batch worker ever waits on a completion signal, so there is no cycle to close.
+    The waiter deliberately does **not** acquire a semaphore slot, and must never be changed to —
+    with 10 slots, 10 waiters each holding one would starve the very workers they are waiting for.
+    Waiting is not database work and must not be charged against the database-concurrency budget.
+    The cap makes the worst case a degradation rather than a hang: on expiry the handler simply
+    proceeds and behaves exactly as it did before the fix. An agent disconnecting mid-drain does
+    not strand the waiter either — the in-flight goroutines run against their own context and
+    decrement in a `defer`, so the count reaches zero regardless of what the socket does.
+
+!!! warning "Scope: this is not a correctness fix"
+    `HandleCrackBatch` calls the idempotent `TryFinalizeTask` at the end of **every** batch, so a
+    late batch finalizes the task regardless of ordering. What draining first removes is the
+    wasted retransmit and the misleading "count mismatch" warning it logs. Nothing more.
 
 **New WebSocket Message:**
 
@@ -485,15 +533,21 @@ func (s *JobWebSocketIntegration) HandleCrackBatchesComplete(
     agentID int,
     message *models.CrackBatchesComplete,
 ) error {
+    // (Retransmit completions short-circuit here into
+    // processRetransmitCompletionAsync — see the Outfile Acknowledgment Protocol.)
+
     // Mark batches complete
     err := s.jobTaskRepo.MarkBatchesComplete(ctx, message.TaskID)
 
-    // Check if task ready to complete
-    ready, err := s.jobTaskRepo.CheckTaskReadyToComplete(ctx, message.TaskID)
-    if ready {
-        // Complete the task
-        s.checkTaskCompletion(ctx, message.TaskID)
-    }
+    // Verify counts, then send outfile delete approval or request a retransmit
+    // ...
+
+    // Re-evaluate completion FROM THE DATABASE. The removed version gated on an
+    // in-memory task.Status snapshot and did nothing when that snapshot was not
+    // 'processing' — even though this signal is frequently the one that completes
+    // the handshake. It races both the job_progress message that sets 'processing'
+    // and the crack batches themselves, so the snapshot was routinely wrong.
+    s.TryFinalizeTask(ctx, message.TaskID)
 
     return nil
 }
@@ -541,12 +595,16 @@ sequenceDiagram
     loop For each outfile
         Backend->>Agent: request_crack_retransmit (task_id, outfile_path)
         Agent->>Backend: crack_batch (is_retransmit=true)
+        Note over Backend: Batches are collected in memory,<br/>not processed per message
         Agent->>Backend: crack_batches_complete (is_retransmit=true)
+        Note over Backend: Wait for in-flight crack batches to drain,<br/>then process asynchronously
 
-        alt Retransmit successful
+        alt Retransmit verified
+            Note over Backend: Reconcile counters<br/>(SetReceivedCrackCount + MarkBatchesComplete)
             Backend->>Agent: outfile_delete_approved (task_id, outfile_path)
             Note over Agent: Agent deletes outfile
-        else Retransmit failed
+            Note over Backend: TryFinalizeTask →<br/>task leaves 'processing'
+        else Retransmit incomplete
             Backend->>Agent: outfile_delete_rejected (task_id, reason)
             Note over Agent: Agent retains outfile for retry
         end
@@ -633,6 +691,47 @@ if crackBatch.IsRetransmit {
     // Duplicate cracks are silently ignored
 }
 ```
+
+#### Terminalizing a Task Recovered by Retransmit
+
+A verified retransmit has to do more than approve the outfile's deletion: it has to **finish the
+task**. `processRetransmitCompletion` previously verified the cracks, sent the delete approval and
+returned, leaving the task sitting in `processing` — and it could never leave, by any path:
+
+- `handleRetransmitBatch` **collects** batches in memory instead of processing them per message,
+  so it never calls `IncrementReceivedCrackCount`; and
+- the `crack_batches_complete` that drove the processing carried `is_retransmit=true`, so
+  `HandleCrackBatchesComplete` short-circuited before its own `MarkBatchesComplete` and completion
+  logic, and is never re-entered for that task.
+
+Both handshake counters therefore still claimed the handshake was unsatisfied, even though the
+retransmit had just *proven* every crack was accounted for. The success path now reconciles them
+explicitly and then finalizes:
+
+1. `SetReceivedCrackCount(taskID, totalVerified)` — set, not incremented, to the verified total
+2. `MarkBatchesComplete(taskID)` — the signal the short-circuit skipped
+3. `sendOutfileDeleteApproval(...)`
+4. `TryFinalizeTask(taskID)` — **the only thing that can finish a task recovered by retransmit**
+
+Steps 1 and 2 are best-effort: a failure is logged rather than returned, because the cracks are
+already safely persisted, returning early would skip the delete approval and strand the agent's
+outfile, and the stale-processing backstop can still terminalise the task.
+
+#### When Retransmits Are Exhausted
+
+After `retransmitMaxRetries` (6) the backend gives up on the handshake, sends a delete approval so
+the agent is not left holding the outfile, and **writes no task status at all**. The task is
+handed to the [stale-processing backstop](./job-completion-system.md#stale-processing-backstop) in
+`backend/internal/services/job_cleanup_service.go`, which terminalises it as `completed` or
+`cancelled` and releases its keyspace.
+
+!!! warning "The old `processing_error` branch was doubly broken"
+    This branch used to call `SetTaskProcessingError`, writing `status = 'processing_error'` —
+    a value **not** permitted by the `valid_task_status` CHECK constraint on `job_tasks`, so the
+    UPDATE always failed with a constraint violation and the task never moved at all. Had it
+    worked it would have been worse: `HasFailedTasks` counted `processing_error`, so
+    `CompleteJobExecution` would have called `FailExecution` and permanently failed a job over a
+    keyspace range that is perfectly recoverable. The repository method has been removed.
 
 #### Safety Checks
 
@@ -853,7 +952,8 @@ Potential improvements under consideration:
 
 ## Related Documentation
 
-- [Job Completion System](./job-completion-system.md) - Hashlist completion detection
+- [Job Completion System](./job-completion-system.md) - Hashlist completion detection and the stale-processing backstop
+- [Task Lifecycle and Statuses](../../troubleshooting/task-lifecycle.md) - What a task in `processing` means and how it always leaves that state
 - [Potfile Management](../../admin-guide/operations/potfile.md) - Crack storage and reuse
 - [Agent Troubleshooting](../../agent-guide/troubleshooting.md) - Connection and stability issues
 - [System Monitoring](../../admin-guide/operations/monitoring.md) - Performance tracking

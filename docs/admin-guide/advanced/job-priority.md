@@ -8,7 +8,13 @@ KrakenHashes implements a sophisticated priority system that ensures critical pa
 
 ### Priority Scale
 
-Jobs in KrakenHashes use a priority scale from 0 to 100:
+Job priority is an integer from **0** up to the `max_job_priority` system setting, which **defaults
+to 1000**. Admins can raise or lower that ceiling (values above 1,000,000 are rejected outright), and
+job and preset-job creation validates against whatever it is currently set to.
+
+Priority is a pure ordering key — a higher number is served first — so only the bands *your*
+deployment agrees on matter, not the absolute numbers. The convention below fits a 0-100 working
+range; scale it if you raise the ceiling:
 
 - **Critical Priority (90-100)**: Emergency response, security incidents
 - **High Priority (70-89)**: Time-sensitive audits, compliance deadlines
@@ -50,6 +56,9 @@ Enable this feature for jobs that:
    - The system-wide **Job Interruption Enabled** setting is on
    - The waiting job has **Allow High Priority Override** enabled — this is a per-job opt-in, so a
      job without it never stops anyone's work no matter how high its priority
+   - The waiting job's priority is **greater than 0**. A priority-0 job is never counted as starving
+     and so never preempts anything — it sits at the bottom of the queue, where by definition there
+     is nothing lower to take an agent from
    - The waiting job got no agents this scheduling cycle and is not already at its own `max_agents`
      cap (a job blocked by its own cap is not starving — freeing agents wouldn't help it)
    - A compatible lower-priority task is currently running
@@ -59,7 +68,8 @@ Enable this feature for jobs that:
      invested progress to give up
    - Sends a stop command to the agent working that task
    - When the agent responds, the stopped task's keyspace range is **truncated at its last restore
-     point** and the task is closed out as completed for the work it actually did (see
+     point** and the task is closed out as completed for the work it actually did — or, if it never
+     got that far, released entirely (see [Status Transitions](#status-transitions) and
      [What happens to interrupted jobs](#what-happens-to-interrupted-jobs) below)
    - Assigns the freed agent to the high-priority job on the next cycle
 
@@ -85,15 +95,32 @@ To enable high priority override for a preset job:
 Interruption happens at the **task** level, not the job level. The job keeps running as a queue
 entry; only the specific chunk on the freed agent is stopped.
 
-- **The stopped task**: `running` → `completed` (for the portion it finished) or `failed` (if it had
-  made no progress at all). It is **not** returned to `pending`.
-- **The job**: stays `running` if it still has other tasks in flight; otherwise it goes back to
-  `pending` and is re-dispatched as soon as an agent is free.
+**The stopped task** ends in one of three states, decided by how far it got and whether it cracked
+anything — never `failed`:
+
+| What the task had | Where it ends up | What happens to its keyspace |
+|---|---|---|
+| A restore point past its range start | `completed`, with its range **truncated** to the point actually reached (so it reads 100% of a smaller range) | The processed part stays recorded as coverage; the remainder re-opens as a gap |
+| No progress, no cracks | **Deleted** — the task row disappears from the job's task list | The whole original range re-opens |
+| No progress, but it produced cracks | `cancelled` — the row survives so its crack attribution does too | The whole original range re-opens |
+
+A stopped task is **never** returned to `pending`, and never marked `failed`. `failed` is reserved
+for failures the *agent reports*: `HasFailedTasks` is a `COUNT(*) > 0`, so a single `failed` row
+permanently fails the entire job — which is exactly why a job that stopped as designed must not leave
+one behind.
+
+**The job** stays `running` if it still has other tasks in flight; otherwise it goes back to
+`pending` and is re-dispatched as soon as an agent is free.
+
+For the complete task-status picture, including the states that have nothing to do with preemption,
+see [Task Lifecycle & Statuses](../../troubleshooting/task-lifecycle.md).
 
 ### What Happens to Interrupted Jobs?
 
 1. **Progress Preserved**: The stopped chunk is truncated at the last restore point the agent
-   reported. Everything up to that point is permanently recorded as completed keyspace.
+   reported. Everything up to that point is permanently recorded as completed keyspace. If there was
+   no restore point, nothing was preserved because nothing had been searched — the range simply
+   re-opens whole.
 2. **Remainder Re-queued**: The unfinished part of the chunk becomes an undispatched gap in the
    job's keyspace and is handed out again on a later cycle — often to a different agent.
 3. **No Work Repeated**: Because the range is tracked as an interval set rather than a single
@@ -108,17 +135,23 @@ heartbeat timeouts, and operator stops all truncate-and-re-open in exactly this 
 
 ### System-Wide Interruption Control
 
-Interruption is gated **twice**, and both gates must be open:
+Interruption is gated in **three** places, and all three must be open:
 
-| Gate | Where | Effect when off |
-|------|-------|-----------------|
+| Gate | Where | Effect when closed |
+|------|-------|--------------------|
 | **Job Interruption Enabled** (`job_interruption_enabled`) | Admin Panel → Settings → Job Execution Settings | No job interrupts anything, regardless of priority |
 | **Allow High Priority Override** | Per preset job (Advanced Settings) | *That* job never interrupts anything, regardless of its priority |
+| **Priority > 0** | Per job/preset job | A priority-0 job is never counted as starving, so it never preempts |
 
-The global setting ships **enabled**. If it is missing or unreadable, the scheduler treats it as
-**off** — a fail-safe, so a configuration problem can never cause running work to be stopped.
+**Check the global toggle rather than assuming it.** The database migration seeds the
+`job_interruption_enabled` row `true`, but the scheduler's own fallback is the opposite: if the
+setting is missing or unreadable, it treats it as **off** — a fail-safe, so a configuration problem
+can never cause running work to be stopped. Anything that leaves preemption disabled is silent by
+design: the job simply waits, exactly as it would if no lower-priority work existed. If a
+high-priority job is not interrupting anything, confirm the toggle's current value in **Admin Panel →
+Settings → Job Execution Settings** before looking anywhere else.
 
-When interruption is off (either gate):
+When interruption is off (any gate):
 - No running tasks are stopped to make room
 - High priority jobs still get first claim on every agent that becomes free — priority always
   decides *allocation*, the gates only control *preemption*
@@ -249,19 +282,34 @@ For critical incidents requiring immediate resources:
 
 ### Job Not Interrupting Lower Priority Work
 
-Check:
-1. Is "Job Interruption Enabled" in system settings?
-2. Does the job have "Allow High Priority Override" enabled?
-3. Are there actually lower priority jobs running?
-4. Do the running jobs allow interruption?
+Check, in this order — the first two are silent when off, so they account for most reports:
+
+1. Is **Job Interruption Enabled** actually on right now in Admin Panel → Settings → Job Execution
+   Settings? Read the toggle; don't infer it from the shipped default
+2. Does the job have **Allow High Priority Override** enabled? It is a per-job opt-in
+3. Is the job's priority **greater than 0**? A priority-0 job never preempts
+4. Is the job already at its own `max_agents` cap? A job capped by its own limit is not treated as
+   starving, because freeing an agent would not let it take one
+5. Are there actually lower-priority tasks running, on agents **compatible** with this job's binary
+   version? An incompatible victim is not a candidate — see
+   [Binary Version Patterns](../../reference/architecture/binary-version-patterns.md)
+6. Was a victim already told to stop on an earlier cycle? Tasks with a stop in flight are excluded,
+   so preemption can look like it did nothing for a cycle or two
+
+For what the stopped task should look like afterwards, and every other status a task can end in, see
+[Task Lifecycle & Statuses](../../troubleshooting/task-lifecycle.md).
 
 ### Interrupted Job Not Resuming
 
-Verify:
-1. Job status is "pending" not "failed"
-2. Agents are available and online
-3. No higher priority jobs in queue
-4. Job hasn't exceeded retry limits
+Interruption is task-level, so the job itself usually stays `running`; "resuming" means its re-opened
+gap gets dispatched again. Verify:
+
+1. The stopped task ended as expected — `completed` on a truncated range, `cancelled`, or gone
+   entirely. A `failed` task is a different problem: it means the *agent* reported a failure, and one
+   such row fails the whole job
+2. The job's remaining keyspace shows as uncovered work (a gap), not as fully covered
+3. Agents are available, online, and compatible with the job's binary version
+4. No higher-priority job is consuming every agent
 
 ### Excessive Interruptions
 

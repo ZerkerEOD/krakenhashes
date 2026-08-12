@@ -35,7 +35,7 @@ When status code 6 is received:
 1. **Identify All Affected Jobs**: Query for ALL jobs (any status) targeting the same hashlist
 2. **Running Jobs**:
    - Send WebSocket stop signals to active agents
-   - Terminalize each active sibling task as `'cancelled'` (not left `processing`, not forced to 100%) before the job is completed
+   - Terminalize each active sibling task as `'cancelled'` (not left `processing`, not forced to 100%) before the job is completed — with one deliberate exception, the **triggering** task, which is mid crack-handshake and is allowed to finish (see [The Completion Invariant](#the-completion-invariant))
    - Mark jobs as "completed" at 100% progress
    - Send completion email notifications
 3. **Pending Jobs**:
@@ -98,12 +98,10 @@ In `backend/internal/routes/websocket_with_jobs.go`:
 2. **Process Running Jobs**:
    - Find active tasks for each running job
    - Send stop signals via WebSocket
-   - Terminalize each active sibling task as `'cancelled'` — `'cancelled'` (not `'failed'`) keeps the job from flipping to failed, and the task's progress is **not** forced to 100% because the chunk was stopped, not finished
+   - Terminalize each active sibling task as `'cancelled'` — `'cancelled'` (not `'failed'`) keeps the job from flipping to failed, and the task's progress is **not** forced to 100% because the chunk was stopped, not finished. The **triggering** task is skipped; see [The Completion Invariant](#the-completion-invariant)
    - Update job status to 'completed'
    - Set progress to 100%
    - Trigger email notifications
-
-   **Invariant:** The job is never marked completed while a sibling task is still `running`, `processing`, or `pending` — each active sibling is terminalized to `'cancelled'` first (via `CancelTaskAndClearAgentStatus`).
 
 3. **Process Pending Jobs**:
    - Delete jobs that haven't started
@@ -113,6 +111,75 @@ In `backend/internal/routes/websocket_with_jobs.go`:
 4. **Update Job Priority**:
    - Comprehensive processing regardless of priority
    - Handles all affected jobs in single operation
+
+### The Completion Invariant
+
+**Invariant:** the job is completed with **at most the triggering task** non-terminal, and that
+task is **eventually** terminal — within the crack handshake, or within one backstop sweep.
+
+This is a deliberate, explicit downgrade of the earlier GH #62 invariant ("the DB is never
+`job=completed` with a task in `{running, assigned, processing, pending}`"). The reason is the
+**triggering task**: the one whose hashcat status-6 report started this completion in the first
+place. By the time `completeJob` runs, `HandleJobProgress` has already moved that task to
+`processing` with an `expected_crack_count` — it is mid crack-handshake, streaming the server the
+very cracks that prove the hashlist is done.
+
+Cancelling it out from under its own handshake is what produced the incident this rework fixes:
+the row went `processing` → `cancelled`, a subsequent `SetTaskProcessing` resurrected it to
+`processing`, nothing was left to move it out, and it sat there until its agent disconnected and
+was mislabelled `failed`. `stopJobTasks` had always skipped that task for exactly this reason, so
+cancelling it in `completeJob` merely undid that skip. `completeJob`'s reconcile therefore now
+carries `AND ($2::uuid IS NULL OR id <> $2::uuid)` and excludes it too.
+
+Every **other** non-terminal sibling is still reconciled to `'cancelled'` before completion, with
+`detailed_status` written alongside `status` — leaving `detailed_status` untouched is precisely
+why the incident row read `status='failed'` with `detailed_status='running'`, a task the UI showed
+as running long after it was over. `'cancelled'` and never `'failed'`, because `HasFailedTasks` is
+a `COUNT(*) > 0`: a single `failed` row would permanently fail a job whose keyspace is entirely
+recoverable.
+
+**What enforces the "eventually":**
+
+- **`TryFinalizeTask`** (`backend/internal/integration/job_websocket_integration.go`) — an
+  idempotent re-evaluation of the handshake read **from the database**, not from an in-memory
+  status snapshot. It is called from every point where the handshake may have just become
+  satisfied: the job-progress path, every crack batch, `crack_batches_complete`, and after a
+  verified retransmit. It completes the task the moment
+  `batches_complete_signaled && received_crack_count >= expected_crack_count`. The three signals
+  arrive on independently-scheduled paths and nothing orders them, so the rule is simply that
+  whoever runs last wins.
+- **The stale-processing backstop** (`backend/internal/services/job_cleanup_service.go`) — if the
+  agent dies mid-handshake and the outstanding batches are never coming, the 5-minute sweep
+  terminalises the task. See [Stale Processing Backstop](#stale-processing-backstop).
+
+Job completion itself is **not** held up waiting for either: the job completes immediately.
+
+#### Keyspace interval cascade
+
+Both `stopJobTasks` and `completeJob` cascade the job's still-open keyspace intervals
+(`assigned`/`running`) to `'completed'`, which is what removes the leftover gray "dispatched but
+unfinished" space from the per-task progress bar. `'completed'` is used rather than `'cancelled'`
+because the interval CHECK constraint (`valid_interval_status`, migration `000147`) permits only
+`assigned`/`running`/`completed`/`failed` — an earlier `'cancelled'` write always failed the
+constraint and the cascade was a silent no-op. It is coverage-neutral: the gap and coverage gates
+already count any interval with `status <> 'failed'` as covered.
+
+Two scoping rules make the cascade consistent with the invariant above:
+
+- **`stopJobTasks` skips intervals whose task is still non-terminal.** This preserves the
+  invariant "an interval is only `'completed'` when its task is terminal". The earlier job-wide,
+  task-status-blind form also promoted the *triggering* task's own interval while that task was
+  still `processing`, and `applyRecovery` uses interval status as its progress oracle — a live
+  task whose interval already reads `'completed'` has no open interval left to truncate or
+  re-open, which is what made agent-disconnect recovery mislabel the incident task. Filtering on
+  task status rather than excluding the triggering task by ID is deliberate: it also covers a
+  sibling whose cancellation errored and was left non-terminal.
+- **`completeJob` re-runs the same cascade after its reconcile.** The tasks the reconcile has just
+  cancelled were, at `stopJobTasks` time, still non-terminal and therefore skipped. Without the
+  second pass their intervals would remain `assigned` under a `cancelled` task — the GH #77
+  stranding signature. The triggering task, still `processing`, keeps its open interval; that is
+  the one interval a completed job may leave open, and it is transient by construction (closed by
+  `HandleTaskCompletion` on the happy path, or by recovery on the backstop path).
 
 ## Processing Status Workflow
 
@@ -166,6 +233,10 @@ Task Running → Final Progress Received → Task Processing → All Batches Rec
    - **`completed_at` timestamp set to current time** (all batches received)
    - Agent busy status cleared
    - Job completion check triggered
+   - This check is `TryFinalizeTask`, and it runs from **every** path that could have just
+     satisfied the handshake — not only from `crack_batches_complete`. It re-reads the counters
+     from the database rather than trusting an in-memory snapshot taken before ~1 s of DB work,
+     which is what made the old ordering-dependent gates lose the race
 
 **Job Processing Workflow:**
 
@@ -185,6 +256,68 @@ Job Running → All Tasks Processing → Job Processing → All Tasks Completed 
    - Job status changes from `processing` to `completed`
    - **`completed_at` timestamp set** (job fully finished)
    - Completion email notification sent with accurate crack count
+
+### Stale Processing Backstop
+
+The workflows above are the happy path, and they are not sufficient on their own: the agent can
+die mid-handshake, or the last batch and the completion signal can race in a way that leaves
+nobody to notice the task is done. A backstop sweep in
+`backend/internal/services/job_cleanup_service.go` (`checkForStaleProcessingTasks`) guarantees no
+task sits in `processing` indefinitely, however the handshake breaks next.
+
+It runs **every 5 minutes** — `MonitorStaleTasksPeriodically(ctx, 5*time.Minute)`, wired in
+`backend/cmd/server/main.go` — and applies two gates with very different costs.
+
+**Gate 1 — age-independent, for every task in `processing`.** The sweep calls `TryFinalizeTask`,
+which re-reads the handshake state from the database and completes the task if it is already
+satisfied (`batches_complete_signaled && received_crack_count >= expected_crack_count`). It is two
+indexed reads and can only fire when the DB already says the task is done, so it is safe at any
+age — there is no reason to make a finished task wait out a staleness timeout for a status it has
+already earned. **This is what shortens the worst-case stuck window from 30 minutes to one sweep
+interval.**
+
+**Gate 2 — only for rows past the staleness cutoff.** These are handed to
+`AbandonProcessingTask`, which routes through the scheduler's `PolicyCancelOnNoProgress`:
+
+- With a usable restore point (including one that reaches the end of the dispatched range, and
+  including an interval another path already promoted to `'completed'`), it **truncates** the
+  interval and **completes** the task, preserving every unit of work the agent actually did. Only
+  the unprocessed remainder re-opens as a gap.
+- With no usable restore point it **cancels** the task rather than deleting the row. A task in
+  `processing` had cracks in flight by definition — that is the only way it left `running` — and
+  deleting the row would NULL `hashes.cracked_by_task_id` (`ON DELETE SET NULL`, migration
+  `000098`), silently dropping those plaintexts from the loopback delta, which INNER JOINs
+  `job_tasks` on that column. The interval is released either way, so the range re-opens
+  regardless.
+- It **never writes `'failed'`, on any branch**, by design. Abandoning a crack handshake is a
+  bookkeeping give-up, not a job failure, and `HasFailedTasks` is a `COUNT(*) > 0`.
+
+Gate 2 is **deferred while the task's agent is still reachable** (its cracks are worth a few extra
+minutes of a stale row), but the deferral is **bounded** so a permanently-connected agent that
+never retransmits cannot defer it forever — which would recreate the indefinitely-stuck row the
+backstop exists to eliminate.
+
+Two constants govern that deferral. They are **hardcoded and not tunable** by an administrator:
+
+| Constant | Value | Meaning |
+|----------|-------|---------|
+| `staleProcessingAgentHeartbeatWindow` | 90 s | How fresh an agent's heartbeat must be for "this agent could still retransmit" to be accepted. Matches the heartbeat timeout used by `AgentCleanupService.CleanupStaleAgents`. The heartbeat is checked as well as the agent's `status` so a wedged status-flipping sweeper cannot leave a dead agent's row `active` forever and block the gate with it |
+| `staleProcessingHardCutoffFactor` | ×3 | Multiple of the staleness timeout past which the agent's reachability stops buying it patience. Every write in the handshake touches `updated_at`, so a row that has not moved for this long is not waiting on anything |
+
+!!! note "What this replaced"
+    The previous version only acted at `retransmit_count >= 6`, and that counter is incremented in
+    exactly one place — `requestCrackRetransmit`, reachable only via a crack-count mismatch. Once
+    a retransmit has been verified and the outfile deletion approved, no further mismatch can
+    occur, so the counter stays pinned and the branch was unreachable; below the threshold it
+    logged "may still recover" every 5 minutes, forever. The branch it guarded wrote
+    `status = 'processing_error'`, which is **not** a value permitted by the `valid_task_status`
+    CHECK constraint on `job_tasks`, so every call it ever made died on a constraint violation and
+    the task was never terminalised at all. Had it worked it would have been worse:
+    `HasFailedTasks` counted `processing_error`, so it would have permanently failed a job whose
+    keyspace was fully recoverable. Both the branch and the repository method are gone.
+
+For the user-facing view of these statuses and outcomes, see
+[Task Lifecycle and Statuses](../../troubleshooting/task-lifecycle.md).
 
 ### Email Notification Integration
 
@@ -496,6 +629,7 @@ Track in monitoring:
 
 ## Related Documentation
 
+- [Task Lifecycle and Statuses](../../troubleshooting/task-lifecycle.md) - User-facing view of task statuses, the three stop outcomes, and why `failed` is reserved for agent-reported failures
 - [Crack Batching System](./crack-batching-system.md) - How crack batches are transmitted and the processing status integration
 - [Chunking System](./chunking.md) - How jobs are divided into chunks
 - [Job Update System](./job-update-system.md) - How keyspace updates work
