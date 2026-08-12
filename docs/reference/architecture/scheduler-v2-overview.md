@@ -107,7 +107,9 @@ map is intentionally skipped until it reports `file_map_ready` (fail-open: an ag
 reports readiness stays eligible). A waiting higher-priority job can also **preempt** a running
 lower-priority task to free an agent, but only when **both** gates are open: the system-wide
 `job_interruption_enabled` setting is on **and** the waiting job itself has **Allow High Priority
-Override** enabled. With either gate closed the job simply waits for an agent to free up naturally —
+Override** enabled. A third condition is structural rather than configurable — a job at **priority 0**
+is never treated as starving, so it never preempts anything (there is nothing below it to take an
+agent from). With any of those closed the job simply waits for an agent to free up naturally —
 priority still decides who gets the next idle agent, it just never stops anyone's running work. See
 [Job Priority](../../admin-guide/advanced/job-priority.md).
 
@@ -115,24 +117,61 @@ priority still decides who gets the next idle agent, it just never stops anyone'
 
 Each allocated agent receives **one chunk per cycle**, sized so it runs for roughly the target chunk
 duration at the agent's benchmarked speed. Chunks are computed over the **base keyspace** (using
-hashcat `--skip`/`--limit`), and when a job's rules would make a single chunk run too long, the rules
-are split so each chunk still fits the target. For the full chunking model — including salted-hash
-adjustments and rule splitting — see [Chunking System](chunking.md) and
-[Rule Splitting](rule-splitting.md).
+hashcat `--skip`/`--limit`), and a job's rule multiplier is folded into the sizing — a heavy rule set
+makes each chunk cover *fewer base words* rather than splitting the rule file. (v1 split rule files
+physically; that mechanism, its columns and all five of its settings were removed with the v1
+scheduler — [Rule Splitting](rule-splitting.md) documents the historical design only.) For the full
+chunking model, including salted-hash adjustments, see [Chunking System](chunking.md).
 
-### Stopping a task: truncate, complete, re-open the gap
+### Stopping a task: truncate, release, or complete
 
-Every server-initiated stop takes the same path, no matter why it fired — the chunk-overrun guard,
-a preemption, an agent disconnect or heartbeat timeout, or an operator pressing stop:
+Every server-initiated stop takes the same path, no matter why it fired — the chunk-overrun guard, a
+preemption, an agent disconnect, a heartbeat eviction, or an agent's graceful shutdown. Recovery
+locks the task row, then reads its keyspace interval under the same lock and
+branches on what the **coverage ledger** says, because the interval is the ledger and the task row is
+only the work record. The invariant: a task may end `completed` only when its range is, and stays,
+accounted for by an interval — if the range is going to be handed to somebody else, a `completed`
+task sitting on top of it would double-count in every coverage, progress and completion query.
 
-1. The task's keyspace interval is **truncated at the last restore point** the agent reported. The
-   work that was actually done stays recorded as coverage.
-2. The task row is **completed at 100%** — 100% of its new, smaller range. It is not reported as a
-   partial failure, and it is *not* put back to `pending`. A stop where the agent never advanced
-   past its own range start has nothing to keep, so the task and its interval are both marked
-   `failed` instead and the whole original range re-opens.
-3. The unprocessed remainder becomes a **gap** automatically, because no interval row covers it any
-   more. The next dispatch cycle re-issues it — usually to a different agent.
+That produces three outcomes, not two:
+
+1. **There is progress to keep** — the agent reported a restore point past the task's own range
+   start and its interval is still open. The interval is **truncated** to
+   `[range_start, restore_point)` and the task row is **completed at 100% of its new, smaller
+   range**. It is not reported as a partial failure and it is *not* put back to `pending`. The
+   unprocessed remainder becomes a **gap** automatically, because no interval row covers it any more,
+   and the next dispatch cycle re-issues it — usually to a different agent. A chunk that happened to
+   process its whole range is not a special case: the same branch matches when the restore point
+   equals the range end, and simply closes the interval without shrinking it.
+2. **No progress and no cracks** — there is nothing to keep, so the task row **and** its interval are
+   **deleted**. The task disappears from the job's task list entirely and the whole original range
+   re-opens.
+3. **No progress, but the task produced cracks** — the task is marked **`cancelled`** and only the
+   interval is released. The row has to survive: `hashes.cracked_by_task_id` is `ON DELETE SET NULL`,
+   and the [loopback](loopback.md) delta INNER JOINs on it, so deleting the row would silently drop
+   those plaintexts from the delta. Cancellation is also the fallback whenever the delete is blocked
+   — cracks already counted, or a crack batch still in flight behind the stop message.
+
+A fourth, quieter case exists for tasks whose range was **already accounted for**: if the interval
+already reads `completed` — most often because the hashlist was fully cracked while the task was
+still draining crack batches — the task is marked `completed` at its restore point (or `cancelled` if
+it has none) and the interval is left strictly alone. Deleting coverage for a range that really was
+searched would make the dispatcher re-issue finished work; that mistake is what GH #79 was.
+
+A **job stop** is not one of these paths. `JobSchedulingService.StopJob` cancels every running and
+assigned task *before* `job_stop` goes on the wire, so by the time the agent's stop acknowledgement
+reaches recovery the row is already terminal — and both the discard `DELETE` and
+`completeTaskAtRecoveryPoint` are guarded `AND status NOT IN ('completed','cancelled')`, so both
+no-op. The interval is still truncated at the restore point, so the work survives as coverage, but
+the task itself always ends `cancelled` regardless of how far it got.
+
+!!! important "`failed` now means the agent *reported* a failure"
+    None of the stops above produce a `failed` task. That is deliberate: `HasFailedTasks` is a
+    `COUNT(*) > 0`, not a threshold, so one `failed` row permanently fails its entire job — even
+    after the re-opened range has been redone successfully by another agent. The one server-side
+    exception lives outside stop recovery: `JobCleanupService` / `MarkTaskFailedPermanently`
+    terminalises a task as `failed` once it has exhausted `max_chunk_retry_attempts` reconnect or
+    heartbeat retries. Every other `failed` row means the agent reported that the task failed.
 
 Because coverage is an interval set rather than a single watermark, a stop in the middle of a unit
 leaves a **hole**, not a shortened tail. The gap query returns the lowest-start gap first, so a
@@ -166,13 +205,14 @@ The scheduler reads several system settings (Admin → Settings). The most relev
 | Setting | Controls |
 |---------|----------|
 | `agent_overflow_allocation_mode` | Surplus-agent policy (the five modes above). |
-| `job_interruption_enabled` | Global gate for preemption. Preemption additionally requires the waiting job's own **Allow High Priority Override** flag — both must be on. Ships enabled; if the setting is missing or unreadable the scheduler treats it as **off** so it can never start stopping running work by accident. |
+| `job_interruption_enabled` | Global gate for preemption. Preemption additionally requires the waiting job's own **Allow High Priority Override** flag *and* a non-zero job priority. **Do not assume its state — read the toggle.** The initial migration seeds the row `true`, but the scheduler's own fallback is the opposite: if the setting is missing or unreadable it is treated as **off**, so a configuration problem can never start stopping running work by accident. |
 | `chunk_overrun_guard_enabled`, `chunk_overrun_tolerance_percent` | Stop a task that runs past `chunk_duration × (1 + tolerance)` and re-dispatch the remainder. |
-| `default_chunk_duration` | Target running time per chunk (drives chunk sizing). |
-| `benchmark_cache_duration_hours` | How long a benchmark stays valid before re-benchmarking. |
-| `speedtest_timeout_seconds` | Timeout for an agent speed benchmark. |
+| `default_chunk_duration` | Target running time per chunk (drives chunk sizing). Falls back to `target_chunk_seconds` only when unset or zero; a per-job `chunk_size_seconds` override beats both. |
+| `min_chunk_seconds` | Floor on chunk wall time — a gap smaller than this many seconds of work is dispatched whole rather than sliced, which prevents one-candidate orphan chunks. |
+| `task_heartbeat_timeout_seconds`, `task_startup_grace_seconds`, `network_grace_seconds` | Liveness windows that decide when a running task is considered lost and gap-recovered (see [Scheduler (v2) Timing](../../admin-guide/operations/job-settings.md#scheduler-v2-timing)). |
+| `benchmark_cache_duration_hours` | How long a benchmark stays valid before re-benchmarking (default 168 = 7 days). |
+| `speed_test_timeout_seconds_uncompressed`, `speed_test_timeout_seconds_compressed` | Timeouts for an agent speed benchmark; compressed wordlists get the longer window because they must be decompressed first. (These replaced the single `speedtest_timeout_seconds`, which was deleted with the v1 scheduler.) |
 | `keyspace_calculation_timeout_minutes` | Timeout for hashcat keyspace queries on large attacks. |
-| `rule_split_enabled`, `rule_split_threshold`, `rule_split_min_rules` | Automatic rule splitting. |
 
 See [Job Settings](../../admin-guide/operations/job-settings.md), [Job Priority](../../admin-guide/advanced/job-priority.md),
 and [Job Chunking System](../../admin-guide/advanced/chunking.md) for operator-facing detail.

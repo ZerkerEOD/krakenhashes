@@ -574,8 +574,17 @@ export const deleteJobWorkflow = async (id: string): Promise<void> => {
 
 // --- Loopback sessions (GH #64) ---
 
-export const getLoopbackSessions = async (): Promise<LoopbackSession[]> => {
-  const response = await api.get<LoopbackSession[]>('/api/loopback-sessions');
+/**
+ * Returns the loopback sessions that are still in flight (waiting/active) — the backend
+ * never returns finished ones, because the Loopback panel is a live view (GH #79).
+ *
+ * scope='mine' (the default) returns only sessions the caller created; scope='visible'
+ * returns every session the caller is allowed to see, which is still bounded by the same
+ * team scoping as the Jobs list.
+ */
+export const getLoopbackSessions = async (scope?: 'mine' | 'visible'): Promise<LoopbackSession[]> => {
+  const url = scope ? `/api/loopback-sessions?scope=${scope}` : '/api/loopback-sessions';
+  const response = await api.get<LoopbackSession[]>(url);
   return response.data || [];
 };
 

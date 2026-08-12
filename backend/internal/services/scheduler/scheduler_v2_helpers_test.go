@@ -158,6 +158,16 @@ type testTask struct {
 	// CrackCount drives which completed_* detailed_status the truncate branch
 	// writes.
 	CrackCount int
+	// ExpectedCrackCount, ReceivedCrackCount and BatchesCompleteSignaled are
+	// the crack-handshake counters. Recovery never reads them — which is the
+	// whole point of setting them in the GH #79 replay: a task caught mid
+	// handshake must be recovered on the evidence of its interval and restore
+	// point alone, and must not be mistaken for a task that did nothing. They
+	// do gate the no-progress branch's delete guard (a task with any crack
+	// evidence is never DELETEd).
+	ExpectedCrackCount      int
+	ReceivedCrackCount      int
+	BatchesCompleteSignaled bool
 	// AgentID nil is the unassigned shape — what ClearTaskAgentAndSetPending
 	// left behind and what the stranded-task sweep looks for.
 	AgentID *int
@@ -191,18 +201,21 @@ func insertTestTask(t *testing.T, database *db.DB, jobID, unitID uuid.UUID, spec
 			keyspace_start, keyspace_end, chunk_duration,
 			range_start, range_end, restore_point,
 			effective_keyspace_start, effective_keyspace_end,
-			crack_count, is_keyspace_split, created_at, updated_at
+			crack_count, is_keyspace_split, created_at, updated_at,
+			expected_crack_count, received_crack_count, batches_complete_signaled
 		) VALUES (
 			$1, $2, $3, $4, $5,
 			$6, $7, 60,
 			$6, $7, $8,
 			$9, $10,
-			$11, true, $12, $12
+			$11, true, $12, $12,
+			$13, $14, $15
 		)
 	`, taskID, jobID, unitID, spec.AgentID, status,
 		spec.RangeStart, spec.RangeEnd, spec.RestorePoint,
 		spec.RangeStart, spec.RangeEnd,
-		spec.CrackCount, updatedAt)
+		spec.CrackCount, updatedAt,
+		spec.ExpectedCrackCount, spec.ReceivedCrackCount, spec.BatchesCompleteSignaled)
 	if err != nil {
 		t.Fatalf("failed to create test job_task [%d,%d) %s: %v", spec.RangeStart, spec.RangeEnd, status, err)
 	}
@@ -241,11 +254,38 @@ func readTaskState(t *testing.T, database *db.DB, taskID uuid.UUID) taskState {
 	return st
 }
 
+// taskRowCount reports how many job_tasks rows carry this ID (0 or 1).
+//
+// "Did the row survive?" is a first-class assertion, not a detail. The
+// no-progress branch DELETEs the row under PolicyDiscardOnNoProgress, and the
+// covered branch must never let that happen: hashes.cracked_by_task_id is ON
+// DELETE SET NULL (migration 000098) and LoopbackRepository.GetNewDeltaPlaintexts
+// INNER JOINs job_tasks on it, so a deleted task silently drops its plaintexts
+// out of the loopback delta.
+func taskRowCount(t *testing.T, database *db.DB, taskID uuid.UUID) int {
+	t.Helper()
+
+	var n int
+	if err := database.QueryRowContext(context.Background(),
+		`SELECT count(*) FROM job_tasks WHERE id = $1`, taskID).Scan(&n); err != nil {
+		t.Fatalf("failed to count task %s: %v", taskID, err)
+	}
+	return n
+}
+
 // intervalState is the subset of job_keyspace_intervals the assertions read.
+//
+// UpdatedAt is carried so a test can assert an interval was not merely left
+// with the same VALUES but was never written at all: job_keyspace_intervals
+// has a BEFORE UPDATE trigger (update_intervals_updated_at, migration 000147)
+// that stamps NOW() on every UPDATE, so an unmoved updated_at is proof no
+// statement touched the row. That is the GH #79 assertion — the covered
+// branch must leave an already-'completed' interval completely alone.
 type intervalState struct {
 	RangeStart int64
 	RangeEnd   int64
 	Status     string
+	UpdatedAt  time.Time
 }
 
 func readIntervalState(t *testing.T, database *db.DB, intervalID uuid.UUID) intervalState {
@@ -253,8 +293,8 @@ func readIntervalState(t *testing.T, database *db.DB, intervalID uuid.UUID) inte
 
 	var iv intervalState
 	err := database.QueryRowContext(context.Background(), `
-		SELECT range_start, range_end, status FROM job_keyspace_intervals WHERE id = $1
-	`, intervalID).Scan(&iv.RangeStart, &iv.RangeEnd, &iv.Status)
+		SELECT range_start, range_end, status, updated_at FROM job_keyspace_intervals WHERE id = $1
+	`, intervalID).Scan(&iv.RangeStart, &iv.RangeEnd, &iv.Status, &iv.UpdatedAt)
 	if err != nil {
 		t.Fatalf("failed to read interval %s: %v", intervalID, err)
 	}

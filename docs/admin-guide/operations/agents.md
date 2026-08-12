@@ -485,15 +485,22 @@ When the backend server restarts while agents have running tasks:
 When an agent is properly stopped (SIGTERM, Ctrl+C, or service stop):
 
 **What Happens:**
-- Agent sends `agent_shutdown` notification to backend
-- Backend immediately marks task as `pending` for reassignment
+- Agent sends `agent_shutdown` notification to backend, naming the task it believes it was running
+- Backend consults **its own** row for that task and only recovers it if the server still considers
+  it in flight — `assigned`, `running`, or `reconnect_pending`
+- If the server has already moved the task on (most importantly to `processing`, where it is
+  draining crack batches, or to a terminal status), the shutdown notice is **ignored** and the task
+  is left alone for its crack handshake to finish
+- Recovered tasks are closed out under the three outcomes below — the task is **not** simply reset
+  to `pending`
 - No retry count increment (not a failure)
-- Task becomes available for other agents
 
-**Recovery Process:**
-- Task is immediately available for reassignment
-- No grace period applies
-- Original agent can claim new tasks upon restart
+**Why the server-side gate exists:** the agent's assertion is not server truth. Its active-jobs map
+stays populated for a second or two after hashcat exits while the final crack batches drain, so a
+task the server has already moved to `processing` still appears in the shutdown payload.
+Recovering it then is what cancelled finished, hash-cracking tasks with "agent disconnect".
+Skipping is safe: a task that genuinely needs recovery and is missed here is picked up when the
+WebSocket closes, and by the heartbeat sweeper after `task_heartbeat_timeout_seconds`.
 
 #### 3. Agent Crash or Network Failure
 When an agent disconnects unexpectedly (crash, network loss, power failure):
@@ -505,24 +512,63 @@ When an agent disconnects unexpectedly (crash, network loss, power failure):
 
 **Recovery Process:**
 
-If agent reconnects within grace period:
-- Agent reports it has no running task
-- Backend marks task as `pending` for reassignment
-- Agent becomes available for new tasks
+If the agent reconnects within the grace period **still running the task**, the task returns to
+`running` and nothing is lost.
 
-If grace period expires:
-- Task automatically transitions to `pending`
-- Available for any agent to claim
-- Retry count may increment based on configuration
+Otherwise — the agent reconnects with no task, or the grace period expires, or the heartbeat
+sweeper evicts it — the task is closed out under the three outcomes below. A `reconnect_pending`
+task is never handed to a different agent; it is terminalised and its *range* is re-dispatched as a
+new task.
 
 ### Task State Transitions
 
+A server-initiated stop always takes the same path, whatever triggered it — preemption by a
+higher-priority job, the chunk-overrun guard, graceful agent shutdown, an unexpected disconnect, or
+heartbeat eviction. Which of three outcomes you get depends only on what the task had produced by
+the time it was stopped:
+
+| Outcome | Condition | Task row | Keyspace |
+|---------|-----------|----------|----------|
+| **Truncated and completed** | hashcat left a restore point past the task's range start | Marked `completed` at 100% of its new, smaller range | Interval truncated at the restore point; the unprocessed remainder becomes a gap the next dispatch cycle re-issues |
+| **Deleted** | No progress and no cracks | **Row and interval both deleted** — the task vanishes from the task list | Whole original range re-opens |
+| **Cancelled** | No progress, but the task produced cracks | Marked `cancelled`; the row is kept so `hashes.cracked_by_task_id` attribution survives (the loopback delta INNER JOINs it) | Interval released; range re-opens |
+
+There is a fourth, narrower case: if the task's range was **already accounted for** by a
+`completed` interval — for example the hashlist was fully cracked while the task was still draining
+crack batches — the task ends `completed` and its interval is left untouched.
+
+Stopping a whole job is deliberately *not* one of these paths: it cancels every running and
+assigned task before the stop message is sent, so the agent's later acknowledgement finds a
+terminal row and both recovery branches no-op. Such a task always ends `cancelled`, though its
+interval is still truncated at the restore point so the work counts as coverage.
+
 ```
-running → reconnect_pending → running (agent reconnects with task)
-running → reconnect_pending → pending (agent reconnects without task)
-running → reconnect_pending → pending (grace period expires)
-running → pending (graceful shutdown)
+running → reconnect_pending → running     (agent reconnects still running the task)
+running → reconnect_pending → completed   (restore point present: interval truncated, remainder re-opens)
+running → reconnect_pending → (row gone)  (no progress, no cracks: task and interval deleted)
+running → reconnect_pending → cancelled   (no progress but cracks present: row kept for attribution)
+running → completed                       (graceful shutdown with a restore point)
+running → (row gone) | cancelled          (graceful shutdown without one)
+processing → (untouched)                  (server ignores the shutdown notice; handshake finishes)
 ```
+
+!!! warning "No stop-recovery path writes `failed`"
+    `failed` is mostly for failures the **agent reported** — hashcat could not run, a required
+    wordlist or rule file was missing, and so on. This matters because `HasFailedTasks` is a
+    `COUNT(*) > 0`: a single `failed` task permanently fails its entire job, even after the
+    re-opened range has been redone successfully by another agent. A disconnect, a preemption or a
+    job stop must never land there, and none of them does.
+
+    The exception is **retry exhaustion**, which is not a stop recovery. A task that has burned
+    through `max_chunk_retry_attempts` (3 by default) is terminalised as `failed` by the cleanup
+    service with no agent report at all — when the grace period expires with the agent still gone,
+    when the agent reconnects without the task, or when an `assigned`/`running` task simply goes
+    quiet. Their `error_message` names the retry exhaustion, not a hashcat error; the thing to fix
+    is the agent's stability, not the job.
+
+For the full user-facing explanation of these statuses — including why tasks sometimes disappear
+from the task list entirely — see
+[Task Lifecycle and Statuses](../../troubleshooting/task-lifecycle.md).
 
 ### Monitoring Disconnection Events
 
@@ -604,15 +650,36 @@ Adjust based on your environment:
 - Incorrect grace period configuration
 
 **Solutions**:
-1. Verify job cleanup service is running
-2. Check database for locks on job_tasks table
-3. Manually transition stuck tasks if needed:
+1. Verify the job cleanup service and the heartbeat sweeper are running
+2. Check the database for locks on the `job_tasks` table
+3. Wait for a sweep. The heartbeat sweeper heals these automatically on **every** pass:
+   `EvictTimedOutTasks` closes out tasks whose grace period has expired, and
+   `RecoverStrandedPendingTasks` reclaims tasks parked in `pending` whose keyspace interval is
+   still `assigned`/`running`. Both are idempotent — a recovered row is either gone or `completed`
+   with a `completed` interval, so it stops matching on the next tick.
+4. A **read-only** diagnostic query is fine while you wait:
    ```sql
-   UPDATE job_tasks 
-   SET status = 'pending', updated_at = NOW() 
-   WHERE status = 'reconnect_pending' 
-   AND updated_at < NOW() - INTERVAL '10 minutes';
+   -- Diagnostic only. Do NOT write to these rows.
+   SELECT t.id, t.status, t.agent_id, t.restore_point,
+          t.range_start, t.range_end, t.updated_at,
+          i.id AS interval_id, i.status AS interval_status
+   FROM job_tasks t
+   LEFT JOIN job_keyspace_intervals i ON i.task_id = t.id
+   WHERE t.status IN ('reconnect_pending', 'pending')
+     AND t.updated_at < NOW() - INTERVAL '10 minutes';
    ```
+
+!!! danger "Never manually UPDATE a stuck task to `pending`"
+    Earlier revisions of this page suggested an `UPDATE job_tasks SET status = 'pending' …`
+    one-liner for `reconnect_pending` rows. **Do not do this, and do not re-add it.** Parking a
+    task in `pending` while its keyspace interval is still `assigned` produces exactly the
+    covered-but-never-complete shape that caused GH #77: the gap query counts any interval whose
+    status is not `failed` as **covered**, so the range is never re-issued, no agent ever works it,
+    and the job wedges at "covered but never complete" forever. The dispatcher does not reclaim
+    `pending` tasks either, so nothing else notices.
+
+    A status change is never the whole fix — the task row and its keyspace interval have to move
+    together. Let `RecoverStrandedPendingTasks` do it; that is precisely what it exists for.
 
 #### Excessive Task Reassignments
 **Symptoms**: Tasks frequently moving between agents

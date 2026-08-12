@@ -192,8 +192,11 @@ When enabled:
 In preset job settings:
 ```
 Allow High Priority Override: [Toggle]
-Priority: [0-100]
+Priority: [0 .. max_job_priority]
 ```
+
+`max_job_priority` is a system setting and **defaults to 1000**; a job at priority 0 never preempts
+anything. See [Job Priority](../advanced/job-priority.md#priority-scale).
 
 ### Best Practices for Interruption with Scheduling
 

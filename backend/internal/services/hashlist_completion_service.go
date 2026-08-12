@@ -100,8 +100,11 @@ func (s *HashlistCompletionService) HandleHashlistFullyCracked(ctx context.Conte
 				debug.Info("Stopped %d active tasks for job %s", stoppedCount, job.ID)
 			}
 
-			// Mark job as completed with 100% progress
-			err = s.completeJob(ctx, &job)
+			// Mark job as completed with 100% progress. The triggering task ID
+			// is threaded through so completeJob's reconcile can skip it for
+			// the same reason stopJobTasks skips its stop signal — see the
+			// comment on completeJob.
+			err = s.completeJob(ctx, &job, triggeringTaskID)
 			if err != nil {
 				debug.Error("Failed to complete job %s: %v", job.ID, err)
 				jobsFailed++
@@ -253,6 +256,34 @@ func (s *HashlistCompletionService) stopJobTasks(ctx context.Context, jobID uuid
 	// so promoting assigned/running → completed changes no coverage total; it
 	// only gives the bar a terminal state. Purely a UI-honesty fix on an
 	// all-cracked completion.
+	//
+	// SCOPE (this is load-bearing, not a micro-optimisation): only intervals
+	// whose task is ALREADY TERMINAL are closed. The previous job-wide,
+	// task-status-blind form also promoted the TRIGGERING task's own interval
+	// to 'completed' while that task was still 'processing' (mid crack
+	// handshake — stopJobTasks deliberately skips it, and completeJob's
+	// reconcile now skips it too). applyRecovery in services/scheduler uses
+	// interval status as its progress oracle: a live task whose interval
+	// already reads 'completed' has no open interval left to truncate or
+	// re-open, which is precisely the inconsistency that made agent-disconnect
+	// recovery mislabel the incident task. This restores the invariant "an
+	// interval is only 'completed' when its task is terminal".
+	//
+	// Filtering on task status rather than excluding the triggering task by ID
+	// is deliberate: it also covers a sibling whose
+	// CancelTaskAndClearAgentStatus above returned an error (that loop logs and
+	// continues, leaving the task non-terminal), which an ID-based exclusion
+	// would miss.
+	//
+	// The UI-honesty purpose survives with roughly a second of lag rather than
+	// being given up: when the triggering task finishes its crack handshake,
+	// JobExecutionService.HandleTaskCompletion runs
+	//   UPDATE job_keyspace_intervals SET status = 'completed'
+	//   WHERE task_id = $1 AND status IN ('assigned', 'running')
+	// (services/job_execution_service.go) and closes exactly this interval; if
+	// the agent dies mid-handshake instead, the stale-'processing' backstop in
+	// services/job_cleanup_service.go drives recovery, which releases it.
+	// Either way the per-task bar converges to no gray gaps.
 	if _, err := s.db.ExecContext(ctx, `
 		UPDATE job_keyspace_intervals jki
 		SET status = 'completed'
@@ -260,6 +291,11 @@ func (s *HashlistCompletionService) stopJobTasks(ctx context.Context, jobID uuid
 		WHERE jki.scheduling_unit_id = su.id
 		  AND su.parent_job_id = $1
 		  AND jki.status IN ('assigned', 'running')
+		  AND NOT EXISTS (
+		      SELECT 1 FROM job_tasks t
+		      WHERE t.id = jki.task_id
+		        AND t.status IN ('assigned', 'running', 'reconnect_pending', 'processing', 'pending')
+		  )
 	`, jobID); err != nil {
 		debug.Warning("Failed to cascade open intervals to completed for job %s: %v", jobID, err)
 	}
@@ -285,8 +321,18 @@ func (s *HashlistCompletionService) markTaskComplete100Percent(ctx context.Conte
 	return s.jobTaskRepo.UpdateProgress(ctx, task.ID, fullKeyspaceProcessed, effectiveProcessed, nil, 100.0)
 }
 
-// completeJob marks a job as completed with 100% progress
-func (s *HashlistCompletionService) completeJob(ctx context.Context, job *models.JobExecution) error {
+// completeJob marks a job as completed with 100% progress.
+//
+// triggeringTaskID is the task whose hashcat status-6 ("all hashes cracked")
+// report started this path. It is EXCLUDED from the non-terminal-task reconcile
+// below — see the comment on the reconcile for why. Everything else about job
+// completion is unchanged and, in particular, is NOT delayed by it.
+//
+// The parameter is nil-able so the reconcile's `$2::uuid IS NULL` arm stays
+// meaningful for a future caller, but the only call site today
+// (HandleHashlistFullyCracked) always passes a real task ID. The public
+// StopJobTasks entry point never reaches this function.
+func (s *HashlistCompletionService) completeJob(ctx context.Context, job *models.JobExecution, triggeringTaskID *uuid.UUID) error {
 	// Part 18d: For increment mode jobs, mark all layers as completed with 100% progress
 	if job.IncrementMode != "" && job.IncrementMode != "off" && s.jobIncrementLayerRepo != nil {
 		layers, err := s.jobIncrementLayerRepo.GetByJobExecutionID(ctx, job.ID)
@@ -323,18 +369,83 @@ func (s *HashlistCompletionService) completeJob(ctx context.Context, job *models
 	// GH #62 defense-in-depth: reconcile any still-non-terminal task for this
 	// job to 'cancelled' before completing. stopJobTasks should already have
 	// terminalized every sibling, but a lost WS stop message could leave a
-	// task running/assigned/processing/pending — and the invariant is that the
-	// DB is NEVER job=completed with a non-terminal task. Best-effort: log on
-	// error, don't abort completion.
+	// task running/assigned/processing/pending.
+	//
+	// EXCEPT the triggering task. By the time we run, HandleJobProgress has put
+	// that task in 'processing' with an expected_crack_count: it is mid crack
+	// handshake, streaming us the very cracks that prove the hashlist is done.
+	// Cancelling it out from under the handshake is what produced the incident:
+	// the row went 'processing' → 'cancelled' here, an (then unguarded)
+	// SetTaskProcessing resurrected it to 'processing', nothing was left to move
+	// it out, and it sat there until the agent disconnected and was mislabelled
+	// 'failed'. stopJobTasks already skips this task for exactly this reason —
+	// skipping it there and cancelling it here just undoes that. Owner decision:
+	// let the handshake finish.
+	//
+	// The GH #62 invariant is therefore DOWNGRADED, deliberately and explicitly.
+	// It is no longer "the DB is NEVER job=completed with a non-terminal task";
+	// it is "job=completed with at most the triggering task non-terminal, and
+	// that task is EVENTUALLY terminal — within the crack handshake, or within
+	// one backstop sweep". What enforces the "eventually":
+	//   - the handshake paths in internal/integration/job_websocket_integration.go
+	//     (TryFinalizeTask, called from every point where the handshake may have
+	//     just become satisfied — it completes the task the moment
+	//     received_crack_count >= expected_crack_count);
+	//   - failing that (agent dies mid-handshake and the batches never arrive),
+	//     the stale-'processing' backstop in services/job_cleanup_service.go.
+	// Job completion itself is NOT held up waiting for either: we complete now.
+	//
+	// detailed_status is written alongside status because leaving it untouched
+	// is exactly why the incident row read status='failed' with
+	// detailed_status='running' — a task the UI showed as still running long
+	// after it was over.
+	//
+	// Best-effort: log on error, don't abort completion.
 	if res, reconErr := s.db.ExecContext(ctx, `
 		UPDATE job_tasks
-		SET status = 'cancelled', completed_at = NOW()
+		SET status = 'cancelled',
+		    detailed_status = 'cancelled',
+		    completed_at = NOW()
 		WHERE job_execution_id = $1
-		  AND status IN ('assigned', 'running', 'processing', 'pending')
-	`, job.ID); reconErr != nil {
+		  AND status IN ('assigned', 'running', 'reconnect_pending', 'processing', 'pending')
+		  AND ($2::uuid IS NULL OR id <> $2::uuid)
+	`, job.ID, triggeringTaskID); reconErr != nil {
 		debug.Error("Failed to reconcile non-terminal tasks to cancelled for job %s: %v", job.ID, reconErr)
 	} else if affected, _ := res.RowsAffected(); affected > 0 {
 		debug.Warning("Reconciled %d non-terminal task(s) to 'cancelled' for job %s before completion — a WS stop signal was likely lost", affected, job.ID)
+	}
+
+	// Close the intervals of the tasks the reconcile just terminalised.
+	//
+	// stopJobTasks ran its own copy of this cascade a moment ago, but it
+	// deliberately skips intervals whose task is still non-terminal — which, at
+	// that point, includes every task the reconcile above was about to cancel
+	// (a sibling sitting in 'processing' is skipped by stopJobTasks' per-task
+	// loop too, since that loop only handles 'running'/'assigned'). Without this
+	// second pass those intervals would stay 'assigned' under a 'cancelled'
+	// task: the GH #77 stranding signature, and a direct violation of the
+	// invariant that no interval in ('assigned','running') sits under a task in
+	// ('pending','failed','cancelled').
+	//
+	// The NOT EXISTS is identical to stopJobTasks', so the triggering task —
+	// still 'processing', still mid-handshake — keeps its open interval and its
+	// coverage is booked by whoever terminalises it (HandleTaskCompletion on the
+	// happy path, recovery on the backstop path). That is the one interval this
+	// job is allowed to leave open, and it is transient by construction.
+	if _, err := s.db.ExecContext(ctx, `
+		UPDATE job_keyspace_intervals jki
+		SET status = 'completed'
+		FROM scheduling_units su
+		WHERE jki.scheduling_unit_id = su.id
+		  AND su.parent_job_id = $1
+		  AND jki.status IN ('assigned', 'running')
+		  AND NOT EXISTS (
+		      SELECT 1 FROM job_tasks t
+		      WHERE t.id = jki.task_id
+		        AND t.status IN ('assigned', 'running', 'reconnect_pending', 'processing', 'pending')
+		  )
+	`, job.ID); err != nil {
+		debug.Warning("Failed to close intervals of reconciled tasks for job %s: %v", job.ID, err)
 	}
 
 	// Mark job as completed (this also sets completed_at)
