@@ -587,12 +587,15 @@
     "noWorkflowsFound": "Geen workflows gevonden. Maak er een aan om te beginnen.",
     "canInterrupt": "Kan onderbreken",
     "normal": "Normaal",
+    "loopbackAllEligible": "Alle geschikte stappen",
+    "loopbackStepCount": "{{count}} stap(pen)",
     "columns": {
       "name": "Naam",
       "description": "Beschrijving",
       "steps": "Stappen",
       "jobCount": "Taken",
       "highPriority": "Prioriteitsmodus",
+      "loopback": "Loopback",
       "created": "Aangemaakt",
       "lastUpdated": "Laatst bijgewerkt",
       "actions": "Acties"
@@ -612,6 +615,14 @@
       "binary": "Binair: {{name}}",
       "wordlistCount": "{{count}} woordenlijst(en)",
       "ruleCount": "{{count}} regel(s)",
+      "loopback": {
+        "masterToggle": "Loopback inschakelen voor alle geschikte stappen",
+        "masterHelperText": "Wanneer dit aanstaat, wordt eerst de volledige workflow uitgevoerd en daarna elke geschikte stap (straight + regels, of een hybride aanval met woordenlijst ± masker) opnieuw uitgevoerd tegen uitsluitend de nieuw gekraakte wachtwoorden — dit wordt intelligent herhaald totdat er geen nieuwe kraken meer worden gevonden. Niet-muterende stappen (alleen woordenlijst, brute force, associatie) voeden hun nieuwe kraken nog steeds terug in de lus. De schakelaars per stap hieronder zijn uitgeschakeld zolang dit aanstaat.",
+        "stepLabel": "Loopback",
+        "tooltipIneligible": "Niets om te muteren (alleen woordenlijst, brute force, associatie of combinator). Deze stap voedt zijn nieuwe kraken nog steeds terug in de lus, maar wordt niet opnieuw uitgevoerd.",
+        "tooltipMasterOn": "Loopback staat aan op workflowniveau, dus elke geschikte stap wordt opnieuw uitgevoerd.",
+        "tooltipStep": "Deze stap opnieuw uitvoeren tegen uitsluitend nieuw gekraakte wachtwoorden totdat er geen nieuwe kraken meer worden gevonden."
+      },
       "fields": {
         "workflowName": "Workflownaam",
         "searchPresetJobs": "Vooringestelde taken zoeken"

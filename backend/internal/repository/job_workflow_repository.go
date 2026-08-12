@@ -125,15 +125,14 @@ func (r *jobWorkflowRepository) ListWorkflows(ctx context.Context) ([]models.Job
 	workflows := []models.JobWorkflow{}
 	for rows.Next() {
 		var wf models.JobWorkflow
-		var stepCount int
-		if err := rows.Scan(&wf.ID, &wf.Name, &wf.LoopbackAllEligible, &wf.CreatedAt, &wf.UpdatedAt, &stepCount); err != nil {
+		if err := rows.Scan(&wf.ID, &wf.Name, &wf.LoopbackAllEligible, &wf.CreatedAt, &wf.UpdatedAt, &wf.StepCount); err != nil {
 			debug.Error("Error scanning job workflow row: %v", err)
 			return nil, fmt.Errorf("error scanning job workflow row: %w", err)
 		}
 
-		// Create empty steps slice with the correct count
-		wf.Steps = make([]models.JobWorkflowStep, stepCount)
-
+		// Steps are deliberately left nil: this query only counts them. Filling Steps with
+		// stepCount zero-value structs used to ship arrays of nil-UUID ghost steps to API
+		// clients; callers that need real steps fetch them separately (GH #78).
 		workflows = append(workflows, wf)
 	}
 

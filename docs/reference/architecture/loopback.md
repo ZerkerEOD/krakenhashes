@@ -121,6 +121,14 @@ aware), `CreateJobDialog.tsx` (per-run toggle on the Preset and Custom tabs; a "
 badge on the Workflow tab), and `components/jobs/LoopbackSessionsPanel.tsx` (the monitoring
 panel on the Jobs page and Dashboard, backed by `GET /api/loopback-sessions`).
 
+!!! note "The public API does not start loopback sessions"
+    Only the UI path creates loopback sessions. `POST /api/v1/jobs`
+    (`handlers/api/v1/job_handler.go`) launches a workflow's steps as plain jobs and never
+    calls `startLoopbackSession`, so a workflow with `loopback_all_eligible` set will *not*
+    loop when launched through the public API. This is a known gap: the blocker is wiring,
+    not semantics — `SetupV1Routes` has no `wordlist.Manager`, and the live `LoopbackService`
+    is currently a local inside `CreateJobsHandler` behind `loopbackMonitorOnce`.
+
 ### `loopback_max_rounds`
 
 A `system_settings` row (`loopback_max_rounds`, default `10`, integer) caps how many delta

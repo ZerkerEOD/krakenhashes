@@ -587,12 +587,15 @@
     "noWorkflowsFound": "Keine Workflows gefunden. Erstellen Sie einen, um zu beginnen.",
     "canInterrupt": "Kann unterbrechen",
     "normal": "Normal",
+    "loopbackAllEligible": "Alle geeigneten",
+    "loopbackStepCount": "{{count}} Schritt(e)",
     "columns": {
       "name": "Name",
       "description": "Beschreibung",
       "steps": "Schritte",
       "jobCount": "Aufträge",
       "highPriority": "Prioritätsmodus",
+      "loopback": "Loopback",
       "created": "Erstellt",
       "lastUpdated": "Zuletzt aktualisiert",
       "actions": "Aktionen"
@@ -612,6 +615,14 @@
       "binary": "Binär: {{name}}",
       "wordlistCount": "{{count}} Wortliste(n)",
       "ruleCount": "{{count}} Regel(n)",
+      "loopback": {
+        "masterToggle": "Loopback für alle geeigneten Schritte aktivieren",
+        "masterHelperText": "Wenn aktiviert, läuft zuerst der gesamte Workflow, danach wird jeder geeignete Schritt (Straight + Regeln oder ein Hybrid-Angriff Wortliste ± Maske) erneut ausgeführt – jedoch nur gegen die neu geknackten Passwörter – und so lange intelligent wiederholt, bis keine neuen Treffer mehr gefunden werden. Nicht mutierende Schritte (nur Wortliste, Brute-Force, Association) speisen ihre neuen Treffer weiterhin in die Schleife ein. Die Schalter der einzelnen Schritte unten sind deaktiviert, solange diese Option aktiv ist.",
+        "stepLabel": "Loopback",
+        "tooltipIneligible": "Nichts zu mutieren (nur Wortliste, Brute-Force, Association oder Combinator). Dieser Schritt speist seine neuen Treffer weiterhin in die Schleife ein, wird aber nicht erneut ausgeführt.",
+        "tooltipMasterOn": "Loopback ist auf Workflow-Ebene aktiviert, daher wird jeder geeignete Schritt wiederholt.",
+        "tooltipStep": "Diesen Schritt nur gegen neu geknackte Passwörter erneut ausführen, bis keine neuen Treffer mehr gefunden werden."
+      },
       "fields": {
         "workflowName": "Workflow-Name",
         "searchPresetJobs": "Vorlagen-Aufträge suchen"

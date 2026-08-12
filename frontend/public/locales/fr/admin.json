@@ -601,12 +601,15 @@
     "noWorkflowsFound": "Aucun workflow trouvé. Créez-en un pour commencer.",
     "canInterrupt": "Peut interrompre",
     "normal": "Normal",
+    "loopbackAllEligible": "Toutes les étapes éligibles",
+    "loopbackStepCount": "{{count}} étape(s)",
     "columns": {
       "name": "Nom",
       "description": "Description",
       "steps": "Étapes",
       "jobCount": "Jobs",
       "highPriority": "Mode de priorité",
+      "loopback": "Loopback",
       "created": "Créé le",
       "lastUpdated": "Dernière mise à jour",
       "actions": "Actions"
@@ -628,6 +631,14 @@
         "wordlistCount_plural": "{{count}} wordlists",
         "ruleCount": "{{count}} règle",
         "ruleCount_plural": "{{count}} règles",
+      "loopback": {
+        "masterToggle": "Activer le loopback pour toutes les étapes éligibles",
+        "masterHelperText": "Lorsque cette option est activée, le workflow complet s'exécute, puis chaque étape éligible (straight + règles, ou une attaque hybride wordlist ± masque) est relancée uniquement sur les mots de passe nouvellement cassés — en se répétant intelligemment jusqu'à ce qu'aucun nouveau résultat ne soit trouvé. Les étapes sans mutation (wordlist seule, brute-force, association) alimentent malgré tout la boucle avec leurs nouveaux résultats. Les interrupteurs par étape ci-dessous sont désactivés tant que cette option est active.",
+        "stepLabel": "Loopback",
+        "tooltipIneligible": "Rien à muter (wordlist seule, brute-force, association ou combinator). Cette étape alimente toujours la boucle avec ses nouveaux résultats, mais n'est pas relancée.",
+        "tooltipMasterOn": "Le loopback est activé au niveau du workflow : toutes les étapes éligibles sont donc relancées.",
+        "tooltipStep": "Relancer cette étape uniquement sur les mots de passe nouvellement cassés, jusqu'à ce qu'aucun nouveau résultat ne soit trouvé."
+      },
       "fields": {
         "workflowName": "Nom du workflow",
         "searchPresetJobs": "Rechercher des Jobs prédéfinis"

@@ -66,6 +66,7 @@ interface JobWorkflow {
   description?: string;
   has_high_priority_override?: boolean;
   loopback_all_eligible?: boolean; // GH #64
+  loopback_step_count?: number; // Steps that actually loop back, computed server-side (GH #78)
   steps?: Array<{
     id: number;
     preset_job_id: string;
@@ -73,6 +74,7 @@ interface JobWorkflow {
     preset_job_name?: string;
     allow_high_priority_override?: boolean;
     loopback_enabled?: boolean; // GH #64
+    loopback_effective?: boolean; // Server-computed eligibility - do not recompute here (GH #78)
   }>;
 }
 
@@ -587,12 +589,16 @@ export default function CreateJobDialog({
                                     label={`${workflow.steps?.length || 0} jobs`}
                                     sx={{ mr: 1 }}
                                   />
-                                  {workflow.loopback_all_eligible && (
+                                  {(workflow.loopback_all_eligible || (workflow.loopback_step_count ?? 0) > 0) && (
                                     <Chip
                                       size="small"
                                       color="secondary"
                                       variant="outlined"
-                                      label="Loopback: all eligible"
+                                      label={
+                                        workflow.loopback_all_eligible
+                                          ? 'Loopback: all eligible'
+                                          : `Loopback: ${workflow.loopback_step_count} step(s)`
+                                      }
                                       sx={{ mr: 1 }}
                                     />
                                   )}

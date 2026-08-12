@@ -2131,13 +2131,15 @@ func (h *UserJobsHandler) GetAvailablePresetJobs(w http.ResponseWriter, r *http.
 		// Format steps with preset job names and check for high priority override
 		formattedSteps := make([]map[string]interface{}, 0)
 		hasHighPriorityOverride := false
+		loopbackStepCount := 0
 		for _, step := range steps {
 			// Get preset job for this step
 			presetJob, err := h.presetJobRepo.GetByID(ctx, step.PresetJobID)
 			stepData := map[string]interface{}{
-				"id":            step.ID,
-				"preset_job_id": step.PresetJobID.String(),
-				"step_order":    step.StepOrder,
+				"id":               step.ID,
+				"preset_job_id":    step.PresetJobID.String(),
+				"step_order":       step.StepOrder,
+				"loopback_enabled": step.LoopbackEnabled,
 			}
 			if err == nil && presetJob != nil {
 				stepData["preset_job_name"] = presetJob.Name
@@ -2145,6 +2147,16 @@ func (h *UserJobsHandler) GetAvailablePresetJobs(w http.ResponseWriter, r *http.
 				// Check if this preset job has high priority override
 				if presetJob.AllowHighPriorityOverride {
 					hasHighPriorityOverride = true
+				}
+
+				// Resolve loopback eligibility server-side (GH #78) rather than shipping raw
+				// attack_mode/rule_ids for the dialog to re-derive: IsMutatableAttack stays
+				// the single source of truth for the rule.
+				loopbackEffective := (workflow.LoopbackAllEligible || step.LoopbackEnabled) &&
+					models.IsMutatableAttack(presetJob.AttackMode, presetJob.RuleIDs)
+				stepData["loopback_effective"] = loopbackEffective
+				if loopbackEffective {
+					loopbackStepCount++
 				}
 			}
 			formattedSteps = append(formattedSteps, stepData)
@@ -2155,6 +2167,8 @@ func (h *UserJobsHandler) GetAvailablePresetJobs(w http.ResponseWriter, r *http.
 			"name":                       workflow.Name,
 			"steps":                      formattedSteps,
 			"has_high_priority_override": hasHighPriorityOverride,
+			"loopback_all_eligible":      workflow.LoopbackAllEligible,
+			"loopback_step_count":        loopbackStepCount,
 		})
 	}
 

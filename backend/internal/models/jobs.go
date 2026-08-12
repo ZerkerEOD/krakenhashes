@@ -175,8 +175,13 @@ type JobWorkflow struct {
 	// LoopbackEnabled flags are ignored.
 	LoopbackAllEligible bool `json:"loopback_all_eligible" db:"loopback_all_eligible"`
 
-	// Populated field holding the ordered steps
+	// Populated field holding the ordered steps. Only list endpoints that actually JOIN
+	// the steps populate this; ListWorkflows leaves it nil and reports StepCount instead.
 	Steps []JobWorkflowStep `json:"steps,omitempty"`
+
+	// StepCount is the number of steps in the workflow, populated by ListWorkflows so
+	// callers can show "N steps" without the steps themselves being fetched (GH #78).
+	StepCount int `json:"step_count"`
 }
 
 // JobWorkflowStep mirrors the job_workflow_steps table structure.
@@ -192,10 +197,22 @@ type JobWorkflowStep struct {
 	// looped back if its preset's attack is eligible (see IsMutatableAttack).
 	LoopbackEnabled bool `json:"loopback_enabled" db:"loopback_enabled"`
 
-	// Fields potentially populated by JOINs with preset_jobs
+	// Fields potentially populated by JOINs with preset_jobs.
+	//
+	// PresetJobAttackMode and PresetJobPriority deliberately carry no `omitempty`: 0 is a
+	// meaningful value for both (AttackModeStraight, and the lowest priority), and
+	// encoding/json drops zero ints, so omitempty erased the field from every
+	// straight-mode step. The workflow editor keys per-step loopback eligibility off
+	// preset_job_attack_mode, and straight+rules is the primary loopback-eligible attack,
+	// so the per-step Loopback checkbox rendered permanently disabled once a saved
+	// workflow was reloaded (GH #78).
+	//
+	// The string and IDArray fields below keep omitempty on purpose: for those, absent
+	// and empty are semantically identical to every consumer, and emitting empty ID
+	// arrays would newly render "0 rule(s)" chips in the workflow editor.
 	PresetJobName          string     `json:"preset_job_name,omitempty" db:"preset_job_name"`
-	PresetJobAttackMode    AttackMode `json:"preset_job_attack_mode,omitempty" db:"preset_job_attack_mode"`
-	PresetJobPriority      int        `json:"preset_job_priority,omitempty" db:"preset_job_priority"`
+	PresetJobAttackMode    AttackMode `json:"preset_job_attack_mode" db:"preset_job_attack_mode"`
+	PresetJobPriority      int        `json:"preset_job_priority" db:"preset_job_priority"`
 	PresetJobBinaryVersion string     `json:"preset_job_binary_version,omitempty" db:"preset_job_binary_version"`
 	PresetJobBinaryName    string     `json:"preset_job_binary_name,omitempty" db:"preset_job_binary_name"`
 	PresetJobWordlistIDs   IDArray    `json:"preset_job_wordlist_ids,omitempty" db:"preset_job_wordlist_ids"`
