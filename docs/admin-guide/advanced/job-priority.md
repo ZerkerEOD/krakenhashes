@@ -46,20 +46,27 @@ Enable this feature for jobs that:
 
 ### How It Works
 
-1. **Trigger Condition**: Interruption only occurs when:
-   - No agents are available for assignment
-   - A high-priority job with override enabled is waiting
-   - Lower priority jobs are currently running
+1. **Trigger Condition**: Interruption only occurs when **all** of the following hold:
+   - The system-wide **Job Interruption Enabled** setting is on
+   - The waiting job has **Allow High Priority Override** enabled — this is a per-job opt-in, so a
+     job without it never stops anyone's work no matter how high its priority
+   - The waiting job got no agents this scheduling cycle and is not already at its own `max_agents`
+     cap (a job blocked by its own cap is not starving — freeing agents wouldn't help it)
+   - A compatible lower-priority task is currently running
 
 2. **Interruption Process**:
-   - System identifies the lowest priority running job
-   - Sends stop command to agents working on that job
-   - Moves interrupted job to "pending" status (not paused)
-   - Assigns freed agents to the high-priority job
+   - The system picks the *newest* running task at the *lowest* priority — the one with the least
+     invested progress to give up
+   - Sends a stop command to the agent working that task
+   - When the agent responds, the stopped task's keyspace range is **truncated at its last restore
+     point** and the task is closed out as completed for the work it actually did (see
+     [What happens to interrupted jobs](#what-happens-to-interrupted-jobs) below)
+   - Assigns the freed agent to the high-priority job on the next cycle
 
 3. **Automatic Resumption**:
-   - Interrupted jobs automatically resume when agents become available
-   - Jobs maintain their progress and continue from where they stopped
+   - The interrupted job's unfinished range returns to the queue as undispatched work and is picked
+     up again as soon as an agent is free
+   - No progress is lost and no keyspace is re-run
    - No manual intervention required
 
 ### Configuration
@@ -75,30 +82,47 @@ To enable high priority override for a preset job:
 
 ### Status Transitions
 
-When a job is interrupted:
-- **Before**: Status = "running"
-- **During Interruption**: Status changes to "pending"
-- **After Resumption**: Status returns to "running"
+Interruption happens at the **task** level, not the job level. The job keeps running as a queue
+entry; only the specific chunk on the freed agent is stopped.
+
+- **The stopped task**: `running` → `completed` (for the portion it finished) or `failed` (if it had
+  made no progress at all). It is **not** returned to `pending`.
+- **The job**: stays `running` if it still has other tasks in flight; otherwise it goes back to
+  `pending` and is re-dispatched as soon as an agent is free.
 
 ### What Happens to Interrupted Jobs?
 
-1. **Progress Preserved**: All completed work is saved
-2. **Automatic Queue Return**: Job returns to pending queue with same priority
-3. **Smart Resumption**: Job continues from last checkpoint, no work repeated
-4. **Agent Cleanup**: Agents properly release resources and become available
+1. **Progress Preserved**: The stopped chunk is truncated at the last restore point the agent
+   reported. Everything up to that point is permanently recorded as completed keyspace.
+2. **Remainder Re-queued**: The unfinished part of the chunk becomes an undispatched gap in the
+   job's keyspace and is handed out again on a later cycle — often to a different agent.
+3. **No Work Repeated**: Because the range is tracked as an interval set rather than a single
+   progress watermark, only the untouched remainder is re-run. A hole left in the middle of the
+   keyspace is re-issued **before** the untouched tail.
+4. **Agent Cleanup**: The agent releases its resources and becomes available for the high-priority
+   job on the next cycle.
+
+This is the same mechanism used for every other stop reason — the
+[chunk overrun guard](../operations/job-settings.md#chunk-overrun-guard), agent disconnects,
+heartbeat timeouts, and operator stops all truncate-and-re-open in exactly this way.
 
 ### System-Wide Interruption Control
 
-Administrators can enable or disable job interruption globally:
+Interruption is gated **twice**, and both gates must be open:
 
-1. Navigate to **Admin Panel → System Settings**
-2. Find **"Job Interruption Enabled"** setting
-3. Toggle to enable/disable interruption system-wide
+| Gate | Where | Effect when off |
+|------|-------|-----------------|
+| **Job Interruption Enabled** (`job_interruption_enabled`) | Admin Panel → Settings → Job Execution Settings | No job interrupts anything, regardless of priority |
+| **Allow High Priority Override** | Per preset job (Advanced Settings) | *That* job never interrupts anything, regardless of its priority |
 
-When disabled:
-- No jobs will be interrupted regardless of priority
-- High priority jobs wait in queue normally
-- System operates in strict FIFO mode within priority levels
+The global setting ships **enabled**. If it is missing or unreadable, the scheduler treats it as
+**off** — a fail-safe, so a configuration problem can never cause running work to be stopped.
+
+When interruption is off (either gate):
+- No running tasks are stopped to make room
+- High priority jobs still get first claim on every agent that becomes free — priority always
+  decides *allocation*, the gates only control *preemption*
+- Effectively, jobs wait their turn instead of taking a turn away from someone else
 
 ## Best Practices
 

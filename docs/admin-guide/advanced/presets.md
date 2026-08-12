@@ -72,11 +72,18 @@ Enable high priority override for jobs that:
 - Require immediate results for critical business decisions
 
 #### How Interruption Works
-1. **Automatic Process**: The system automatically identifies the lowest priority running job
-2. **Graceful Interruption**: Agents receive stop commands and save their progress
-3. **Status Change**: Interrupted jobs change from "running" to "pending" status
-4. **Automatic Resumption**: Interrupted jobs resume automatically when agents become available
-5. **No Work Lost**: All completed work is preserved and jobs continue from their last checkpoint
+1. **Automatic Process**: The system picks the newest running task at the lowest priority — the one
+   with the least invested progress to give up
+2. **Graceful Interruption**: The agent receives a stop command and reports its final position
+3. **Truncate and Re-queue**: The stopped task is closed out as **completed** for the keyspace it
+   actually finished (it does *not* go back to "pending"), and the unfinished remainder returns to
+   the job's queue as undispatched work
+4. **Automatic Resumption**: That remainder is dispatched again — often to a different agent — as
+   soon as one is free
+5. **No Work Lost**: Completed keyspace is permanently recorded, so nothing is re-run
+
+See [Job Priority — Job Interruption Behavior](job-priority.md#job-interruption-behavior) for the
+full model.
 
 #### Best Practices
 - **Use Sparingly**: Reserve this feature for truly critical jobs

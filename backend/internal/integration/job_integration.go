@@ -58,9 +58,9 @@ type JobIntegrationManager struct {
 
 	// Chunk-overrun guard: stops tasks running past chunk_duration × tolerance
 	// and feeds the measured speed back so the re-dispatched remainder is sized
-	// correctly. Recovery (truncate/re-gap) is left to the stop + heartbeat
-	// sweeper path. overrunSignaled debounces repeat stops until the agent
-	// actually goes silent.
+	// correctly. The agent's stop response (stopped-progress or stop-ack)
+	// drives the truncate/re-gap recovery. overrunSignaled debounces repeat
+	// stops until the agent actually goes silent.
 	jobTaskRepo        *repository.JobTaskRepository
 	systemSettingsRepo *repository.SystemSettingsRepository
 	overrunSignaled    map[uuid.UUID]time.Time

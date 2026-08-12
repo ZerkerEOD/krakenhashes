@@ -130,6 +130,17 @@ type UnitInfo struct {
 	// A negative or unset value means "no hint available" — allocator
 	// falls back to unbounded (current behavior).
 	MaxNewChunksThisCycle int
+
+	// AllowHighPriorityOverride is the PARENT JOB's
+	// allow_high_priority_override flag: may this job stop someone else's
+	// running task to get an agent? Only computeStarvingUnits reads it —
+	// a unit whose parent has the flag off is never offered to
+	// FindAndPreempt, so it waits for an agent to free up naturally. This
+	// matches v1, where GetPendingJobsWithHighPriorityOverride filtered
+	// the INTERRUPTING job on this column and GetInterruptibleJobs did
+	// not check it on the victim. Defaults to false (migration 000049),
+	// so preemption is opt-in per job. Allocation is unaffected.
+	AllowHighPriorityOverride bool
 }
 
 // AgentInfo is what the allocator needs to know about an agent.

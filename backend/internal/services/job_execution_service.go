@@ -2458,8 +2458,19 @@ func chunkLocalProgressPercent(keyspaceProcessed, keyspaceStart, keyspaceEnd int
 	return percent, baseProc
 }
 
-// UpdateTaskProgress updates the progress of a task accounting for rule splitting and keysplit tasks
-func (s *JobExecutionService) UpdateTaskProgress(ctx context.Context, taskID uuid.UUID, keyspaceProcessed int64, effectiveProgress int64, hashRate *int64, progressPercent float64) error {
+// derivedFractionScale is the fixed-point denominator used by the Step 11s
+// derived-position path to turn a big.Int ratio into a float percent without
+// ever dividing in float. The ratio is clamped to [0,1] first, so the scaled
+// numerator is at most derivedFractionScale and always fits an int64.
+const derivedFractionScale = 1_000_000_000
+
+// UpdateTaskProgress updates the progress of a task accounting for rule splitting and keysplit tasks.
+//
+// keyspaceProcessed is hashcat's restore_point (base words), effectiveProgress
+// its progress[0] and totalEffectiveKeyspace its progress[1] — the latter two
+// are the absolute (skip-inclusive) candidate counters used by the Step 11s
+// fallback below.
+func (s *JobExecutionService) UpdateTaskProgress(ctx context.Context, taskID uuid.UUID, keyspaceProcessed int64, effectiveProgress int64, totalEffectiveKeyspace *models.BigInt, hashRate *int64, progressPercent float64) error {
 	// Get the task to check for keysplit
 	task, err := s.jobTaskRepo.GetByID(ctx, taskID)
 	if err != nil {
@@ -2483,6 +2494,16 @@ func (s *JobExecutionService) UpdateTaskProgress(ctx context.Context, taskID uui
 	chunkSize := task.KeyspaceEnd - task.KeyspaceStart
 	progressPercent, baseProc := chunkLocalProgressPercent(keyspaceProcessed, task.KeyspaceStart, task.KeyspaceEnd, progressPercent)
 
+	// The task's salt-adjusted effective chunk span, when one was recorded
+	// (dispatch pre-computes it for scheduler-v2 tasks; legacy tasks may have
+	// NULL coords).
+	var chunkEff models.BigInt
+	hasChunkEff := false
+	if task.EffectiveKeyspaceStart != nil && task.EffectiveKeyspaceEnd != nil {
+		chunkEff = task.EffectiveKeyspaceEnd.Sub(*task.EffectiveKeyspaceStart)
+		hasChunkEff = chunkEff.IsPositive()
+	}
+
 	// Store effective_keyspace_processed consistent with the task's
 	// salt-adjusted effective chunk span: scale the chunk-relative base
 	// progress by (effective_chunk / base_chunk). big.Int multiply-then-divide
@@ -2490,10 +2511,57 @@ func (s *JobExecutionService) UpdateTaskProgress(ctx context.Context, taskID uui
 	// the salt-free absolute progress[0] here, which the job-level calc then
 	// preferred, understating effective processed on salted jobs).
 	effProc := models.NewBigInt(baseProc)
-	if task.EffectiveKeyspaceStart != nil && task.EffectiveKeyspaceEnd != nil && chunkSize > 0 {
-		chunkEff := task.EffectiveKeyspaceEnd.Sub(*task.EffectiveKeyspaceStart)
-		if chunkEff.IsPositive() {
-			effProc = models.NewBigInt(baseProc).Mul(chunkEff).DivInt64(chunkSize)
+	if hasChunkEff && chunkSize > 0 {
+		effProc = models.NewBigInt(baseProc).Mul(chunkEff).DivInt64(chunkSize)
+	}
+
+	// Step 11s: derived-position fallback for a frozen restore_point.
+	//
+	// hashcat can leave restore_point pinned at 0 for an entire run while
+	// progress[0] climbs (observed on a 263,950-rule -a 0 job: progress[0]
+	// 2.38e9 -> 18.78e9 of progress[1] 245,684,534,996 at 98% GPU util, with
+	// restore_point 0 at every sample). The base-unit path above then reads
+	// nothing and the task displays 0.000% while genuinely working.
+	//
+	// Both hashcat counters are absolute and skip-inclusive, and the task was
+	// dispatched with --skip = keyspace_start / --limit = chunk size, so
+	// progress[1] is the candidate count at keyspace_end. That makes the
+	// chunk-local fraction
+	//
+	//   f = (p0 × keyspace_end − p1 × keyspace_start) / (p1 × chunk size)
+	//
+	// exact: both operands come from hashcat, so salt/rule bookkeeping and the
+	// -S kernel's keyspace ratio cancel out of the ratio.
+	//
+	// Taken ONLY when the base path yielded nothing, so the base-unit
+	// computation stays primary. f is DISPLAY ONLY — it is never written back
+	// into restore_point, which stays hashcat's authoritative resume
+	// coordinate: rule chunks are iterated outermost, so base words are NOT
+	// consumed in order and a derived base offset would resume at the wrong
+	// place.
+	if baseProc == 0 && chunkSize > 0 && totalEffectiveKeyspace != nil && totalEffectiveKeyspace.IsPositive() {
+		p1 := *totalEffectiveKeyspace
+		num := models.NewBigInt(effectiveProgress).MulInt64(task.KeyspaceEnd).Sub(p1.MulInt64(task.KeyspaceStart))
+		den := p1.MulInt64(chunkSize)
+		if den.IsPositive() {
+			// Clamp f into [0,1]: progress[1] moves mid-run when salts drop
+			// out as hashes crack, which can push the raw ratio out of range.
+			if !num.IsPositive() {
+				num = models.NewBigInt(0)
+			} else if num.Cmp(den) > 0 {
+				num = den
+			}
+			// Scale f into the same unit basis the base path writes: the
+			// effective chunk span when known, base units otherwise.
+			span := models.NewBigInt(chunkSize)
+			if hasChunkEff {
+				span = chunkEff
+			}
+			effProc = num.Mul(span).Div(den)
+			progressPercent = float64(num.MulInt64(derivedFractionScale).Div(den).Int64()) / float64(derivedFractionScale) * 100.0
+			if progressPercent >= 100.0 {
+				progressPercent = 99.99 // reserve 100.0 for terminal completion writes
+			}
 		}
 	}
 

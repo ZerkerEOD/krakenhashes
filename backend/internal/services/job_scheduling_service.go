@@ -1813,7 +1813,7 @@ func (s *JobSchedulingService) ProcessJobCompletion(ctx context.Context, jobExec
 // ProcessTaskProgress handles task progress updates and job aggregation
 func (s *JobSchedulingService) ProcessTaskProgress(ctx context.Context, taskID uuid.UUID, progress *models.JobProgress) error {
 	// Use the enhanced progress tracking method from job execution service
-	err := s.jobExecutionService.UpdateTaskProgress(ctx, taskID, progress.KeyspaceProcessed, progress.EffectiveProgress, &progress.HashRate, progress.ProgressPercent)
+	err := s.jobExecutionService.UpdateTaskProgress(ctx, taskID, progress.KeyspaceProcessed, progress.EffectiveProgress, progress.TotalEffectiveKeyspace, &progress.HashRate, progress.ProgressPercent)
 	if err != nil {
 		return fmt.Errorf("failed to update task progress: %w", err)
 	}

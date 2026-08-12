@@ -21,6 +21,13 @@ type EvictedTask struct {
 	RangeEnd     int64
 	RestorePoint sql.NullInt64
 	Reason       string
+
+	// Truncated: progress was preserved and the remainder re-opened as a
+	// gap. Discarded: no resumable progress, so the task and interval
+	// rows were deleted outright. Both false means the rows were left
+	// behind in a terminal state (cancelled by a delete guard).
+	Truncated bool
+	Discarded bool
 }
 
 // EvictTimedOutTasks scans for job_tasks whose last_activity_at is older
@@ -30,12 +37,15 @@ type EvictedTask struct {
 //     interval to [range_start, restore_point) and mark it completed.
 //     The remaining range [restore_point, range_end) is automatically a
 //     gap, which the next dispatch cycle picks up.
-//   - Otherwise (no progress reported), mark the interval as failed.
-//     The exclusion constraint excludes failed intervals, so the full
-//     [range_start, range_end) range becomes available for redispatch.
+//   - Otherwise (no progress reported), DELETE the task and interval
+//     rows so the full [range_start, range_end) range becomes available
+//     for redispatch. A heartbeat/grace timeout is a benign stop — the
+//     same physical disconnect the graceful-shutdown handler already
+//     classifies benign — so this uses PolicyDiscardOnNoProgress rather
+//     than leaving a 'failed' row that would permanently fail the job.
 //
-// Either way, the task itself is marked failed with a reason of
-// "heartbeat timeout".
+// Either way the eviction reason ("heartbeat timeout") is recorded on
+// the task while it still exists; only the truncate branch keeps a row.
 //
 // heartbeatTimeoutSeconds is passed in by the caller; in production it
 // reads system_settings.task_heartbeat_timeout_seconds once per cycle.
@@ -153,18 +163,125 @@ func EvictTimedOutTasks(
 			ev.IntervalID = s.IntervalID.UUID
 		}
 
-		if err := evictOne(ctx, database, s.TaskID, s.IntervalID, s.RangeStart, s.RestorePoint); err != nil {
+		truncated, discarded, err := evictOne(ctx, database, s.TaskID, s.IntervalID, s.RangeStart, s.RestorePoint)
+		if err != nil {
 			errs = append(errs, fmt.Errorf("sweeper: evict task %s: %w", s.TaskID, err))
 			continue
 		}
+		ev.Truncated = truncated
+		ev.Discarded = discarded
 		evicted = append(evicted, ev)
 	}
 	return evicted, errs
 }
 
+// RecoverStrandedPendingTasks heals scheduler-v2 tasks that were parked
+// in 'pending' with their agent link cleared while their keyspace
+// interval stayed 'assigned'/'running' — the GH #77 stranding. That
+// combination is invisible to every other recovery path: the dispatcher
+// never reclaims a 'pending' task, and firstGap counts a non-failed
+// interval as covered, so the unit looks fully tiled while no agent is
+// working the range. The job then hangs at "covered but never complete"
+// forever.
+//
+// The fix that stops NEW strandings is in ClearStoppedTaskAgent; this
+// function exists to heal rows that were already stranded before that
+// fix (and any future path that reintroduces the pattern). Each row goes
+// through the same applyRecovery helper as evictOne: restore_point >
+// range_start truncates the interval and completes the task, otherwise
+// both rows are deleted and the whole range re-opens. Deleted, not
+// failed — a stranded row is a bookkeeping accident, not an agent
+// failure, and a 'failed' task would permanently fail the job.
+//
+// Why this is safe to run on every sweep:
+//   - Idempotent: a recovered row is either gone entirely or 'completed'
+//     with a 'completed' interval, so it stops matching the predicate.
+//     There is nothing to re-recover on the next tick.
+//   - Race-safe against in-flight stops: minAgeSeconds (the heartbeat
+//     timeout) means a task must have sat untouched that long before we
+//     touch it, which is far longer than the stopped-progress /
+//     stop-ack round trip. And shrinking an interval can never violate
+//     the keyspace exclusion constraint — the new range is a strict
+//     subset of a range that was already exclusive.
+//   - The JOIN is INNER on purpose: a v2 task sitting 'pending' with NO
+//     live interval is NOT stranded — its range is already a gap the
+//     dispatcher will re-issue, and failing the task would only add
+//     noise to the job's task list.
+//
+// This deliberately does not widen EvictTimedOutTasks: that sweep's
+// statuses mean "in flight" and its reason is hardcoded to
+// "heartbeat timeout" in evictOne.
+//
+// Returns the number of rows recovered. Per-row errors accumulate in
+// errs so one bad row can't abort the pass.
+func RecoverStrandedPendingTasks(
+	ctx context.Context,
+	database *db.DB,
+	minAgeSeconds int,
+) (recovered int, errs []error) {
+	if minAgeSeconds <= 0 {
+		minAgeSeconds = 120
+	}
+
+	const query = `
+		SELECT t.id, t.range_start, t.restore_point, i.id
+		FROM job_tasks t
+		JOIN job_keyspace_intervals i ON i.task_id = t.id
+		WHERE t.scheduling_unit_id IS NOT NULL
+		  AND t.status = 'pending'
+		  AND t.agent_id IS NULL
+		  AND t.range_start IS NOT NULL AND t.range_end IS NOT NULL
+		  AND i.status IN ('assigned', 'running')
+		  AND t.updated_at < NOW() - ($1 || ' seconds')::INTERVAL
+	`
+	rows, err := database.QueryContext(ctx, query, minAgeSeconds)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("sweeper: query stranded pending tasks: %w", err))
+		return 0, errs
+	}
+
+	// Collect first so the rows are closed before applyRecovery opens its
+	// own transactions (mirrors EvictTimedOutTasks).
+	type stranded struct {
+		TaskID       uuid.UUID
+		RangeStart   int64
+		RestorePoint sql.NullInt64
+		IntervalID   uuid.NullUUID
+	}
+	var strandedTasks []stranded
+	for rows.Next() {
+		var s stranded
+		if err := rows.Scan(&s.TaskID, &s.RangeStart, &s.RestorePoint, &s.IntervalID); err != nil {
+			errs = append(errs, fmt.Errorf("sweeper: scan stranded task: %w", err))
+			continue
+		}
+		strandedTasks = append(strandedTasks, s)
+	}
+	if err := rows.Err(); err != nil {
+		errs = append(errs, fmt.Errorf("sweeper: stranded row iteration: %w", err))
+	}
+	rows.Close()
+
+	for _, s := range strandedTasks {
+		if _, _, err := applyRecovery(ctx, database, s.TaskID, s.IntervalID, s.RangeStart, s.RestorePoint,
+			"stranded pending task reclaimed", PolicyDiscardOnNoProgress); err != nil {
+			errs = append(errs, fmt.Errorf("sweeper: recover stranded task %s: %w", s.TaskID, err))
+			continue
+		}
+		recovered++
+	}
+	return recovered, errs
+}
+
 // evictOne runs the per-task eviction by delegating to applyRecovery
 // (recovery.go), which is the canonical split-and-gap implementation
 // shared with the graceful-shutdown path.
+//
+// PolicyDiscardOnNoProgress is deliberate: this sweep's predicate
+// includes disconnect_grace_expires_at, i.e. exactly the physical
+// disconnect that HandleAgentDisconnection already treats as benign.
+// Leaving a 'failed' row here would make the job's terminal state depend
+// on which handler wins that race.
 func evictOne(
 	ctx context.Context,
 	database *db.DB,
@@ -172,7 +289,7 @@ func evictOne(
 	intervalID uuid.NullUUID,
 	rangeStart int64,
 	restorePoint sql.NullInt64,
-) error {
-	_, err := applyRecovery(ctx, database, taskID, intervalID, rangeStart, restorePoint, "heartbeat timeout")
-	return err
+) (truncated bool, discarded bool, err error) {
+	return applyRecovery(ctx, database, taskID, intervalID, rangeStart, restorePoint,
+		"heartbeat timeout", PolicyDiscardOnNoProgress)
 }

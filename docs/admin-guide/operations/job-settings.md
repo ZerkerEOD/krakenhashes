@@ -71,11 +71,21 @@ Control job execution behavior and user interface settings.
 | **Hashlist Bulk Batch Size** | Number of hashes processed per batch during import | 100,000 | 1,000-1,000,000 | Affects memory usage and import speed |
 
 #### Job Interruption Behavior
-When enabled, the system will:
-1. Pause lower priority jobs when higher priority jobs arrive
-2. Save the state of interrupted jobs
-3. Resume interrupted jobs once higher priority jobs complete
-4. Maintain crack progress for all interrupted jobs
+
+This is the **global** gate. A job also needs its own **Allow High Priority Override** flag before it
+can interrupt anything — both must be on. If the setting is missing or unreadable, the scheduler
+treats it as **off** so a configuration problem can never cause running work to be stopped.
+
+When both gates are open, the system will:
+1. Stop the newest running task at the lowest priority when a higher-priority job is waiting with no
+   agent available
+2. Truncate that task's keyspace at its last restore point and close it out as completed for the work
+   it finished — the task is **not** returned to `pending`
+3. Return the unfinished remainder to the queue as undispatched work, re-dispatched as soon as an
+   agent is free
+4. Preserve all crack progress; no keyspace is ever re-run
+
+See [Job Priority](../advanced/job-priority.md) for the full model.
 
 #### Agent Overflow Allocation Mode
 
@@ -265,6 +275,58 @@ WHERE key = 'loopback_max_rounds';
 
 See [Loopback](../../user-guide/loopback.md) for how sessions work and the
 [Loopback Sessions architecture](../../reference/architecture/loopback.md) reference for internals.
+
+### Chunk Overrun Guard
+
+Found in the **Scheduler (v2)** panel of the Job Execution Settings page.
+
+Chunks are sized from an agent's benchmarked speed so that each one runs for roughly the target
+chunk duration. When that estimate is badly wrong — the agent is slower than benchmarked, or the
+work is heavier than expected — a chunk can run for hours instead of minutes, holding an agent
+hostage and blocking higher-priority work. The chunk overrun guard stops such a task, re-dispatches
+the unfinished remainder, and feeds the *measured* speed back so the next chunk for that agent is
+sized correctly.
+
+| Setting | Description | Default | Range | Notes |
+|---------|-------------|---------|-------|-------|
+| **Chunk Overrun Guard** (`chunk_overrun_guard_enabled`) | Stop tasks that run past their chunk target | Enabled | On/Off | When off, a long-running chunk is left to finish on its own |
+| **Overrun Tolerance** (`chunk_overrun_tolerance_percent`) | Grace window before the guard fires | 20% | 0-200% | The guard fires once wall time exceeds `chunk_duration × (1 + tolerance/100)` |
+
+#### What Happens When It Fires
+
+1. The agent is sent a stop for that task.
+2. The task's keyspace range is truncated at its last restore point and closed out as completed for
+   the work it actually did; the remainder returns to the queue as an undispatched gap. This is the
+   same truncate-and-re-open path used by preemption and agent disconnects — see
+   [Job Priority — Job Interruption Behavior](../advanced/job-priority.md#job-interruption-behavior).
+3. The speed actually observed on that chunk is recorded, so the re-dispatched remainder (and future
+   chunks for that agent, attack mode and hash type) are sized from reality instead of the stale
+   benchmark.
+
+#### Zero-Progress Overruns Count Against the Agent
+
+If an overrunning chunk had made **no keyspace progress at all** — its restore point never advanced
+past its own range start — the guard additionally charges a failure against that agent, through the
+same per-(agent, attack mode, hash type) policy engine that handles ordinary task failures. Its
+cooldown and blocklist machinery then routes the re-opened range to a *different* agent.
+
+This closes a livelock: the speed feedback above can't help a task that reported nothing, because
+there is no speed to record. Without the failure attribution the wedged agent keeps its optimistic
+benchmark, gets handed the very same re-opened range on the next cycle, wedges again, and the job
+never advances. Typical causes are hashcat stuck in autotune, a hung GPU driver, or a file download
+that never finishes.
+
+!!! note "Why this check only applies at the overrun threshold"
+    Under hashcat's `--slow-candidates` (`-S`) mode — used for slow hash types — a perfectly healthy
+    agent legitimately reports zero progress for the first several minutes of a chunk while the
+    host-side candidate generator spins up. Treating "no progress yet" as a fault at any earlier
+    point would punish healthy agents on every slow-hash job. A task that is past
+    `chunk_duration × (1 + tolerance)` is by definition past any legitimate startup stall, because
+    its chunk duration was sized from that agent's own measured speed in the first place.
+
+Lower the tolerance if you want tighter turnaround on mis-sized chunks; raise it (or disable the
+guard) if your workload has legitimately variable chunk times and you would rather let long chunks
+run to completion.
 
 ### Rule Splitting
 

@@ -46,13 +46,18 @@ type runningTaskSnapshot struct {
 //     unit.
 //  4. Pick the NEWEST such task (highest created_at) at the LOWEST
 //     priority — minimizes wasted invested progress.
-//  5. Send job_stop with reason="preempted" to the agent.
+//  5. Record the stop reason on the task, then send job_stop to the
+//     agent.
 //  6. The agent's existing stop handler triggers SIGTERM to
-//     hashcat. Hashcat exits and the agent sends a final
-//     job_progress, which the existing graceful-shutdown handler
-//     routes to RecoverTaskByID. RecoverTaskByID truncates the
-//     interval (preserving progress as a gap) and marks the task
-//     completed. The freed agent shows up idle in the next cycle.
+//     hashcat. Hashcat exits and the agent sends BOTH a final
+//     job_progress{status:"stopped"} AND a task_stop_ack. Backend
+//     handling is serialised per client, so whichever lands first
+//     wins: HandleJobProgress recovers on the stopped-progress,
+//     ClearStoppedTaskAgent recovers on the ack. Both call
+//     RecoverTaskByID, which truncates the interval (preserving
+//     progress, re-opening the remainder as a gap) and marks the task
+//     completed; its terminal-status guards make the second call a
+//     no-op. The freed agent shows up idle in the next cycle.
 //
 // Returns the list of preemptions issued. Per-task errors accumulate
 // in errs so a single bad agent doesn't abort the loop.
@@ -108,6 +113,20 @@ func FindAndPreempt(
 			continue
 		}
 
+		// Persist the stop reason. This path marshals its own payload and
+		// bypasses SendJobStop, so it has to do SendJobStop's bookkeeping
+		// itself: whichever recovery path wins the stopped-progress /
+		// stop-ack race reads failure_reason back and hands it to
+		// RecoverTaskByID. Best-effort — the stop is already on the wire
+		// and a failed write only costs us the specific reason string.
+		if _, uErr := database.ExecContext(ctx, `
+			UPDATE job_tasks
+			SET failure_reason = $2, detailed_status = 'stopping', updated_at = NOW()
+			WHERE id = $1 AND status IN ('assigned', 'running')
+		`, victim.TaskID, "preempted by higher priority"); uErr != nil {
+			debug.Warning("preemption: record stop reason for task %s: %v", victim.TaskID, uErr)
+		}
+
 		preempted = append(preempted, PreemptionCandidate{
 			TaskID:  victim.TaskID,
 			AgentID: victim.AgentID,
@@ -129,6 +148,15 @@ func loadRunningTaskSnapshots(ctx context.Context, database *db.DB) ([]runningTa
 	// the denormalized scheduling_units.priority column). The double
 	// JOIN here is unavoidable: tasks → scheduling_units gives the
 	// parent_job_id, which then resolves to the job's current priority.
+	//
+	// Tasks already told to stop are excluded (detailed_status='stopping',
+	// stamped by SendJobStop / this file when the stop goes out). A task
+	// stays 'assigned'/'running' until the agent winds hashcat down and
+	// the recovery lands, which is seconds — many scheduler cycles. Without
+	// this filter a starving unit would pick a NEW victim on every cycle
+	// while its first one was still stopping, so a single waiting job could
+	// stop every lower-priority task in the fleet instead of freeing the one
+	// agent it needs.
 	rows, err := database.QueryContext(ctx, `
 		SELECT t.id, t.scheduling_unit_id, t.agent_id, je.priority,
 		       EXTRACT(EPOCH FROM t.created_at) * 1000000000, u.parent_job_id
@@ -138,6 +166,7 @@ func loadRunningTaskSnapshots(ctx context.Context, database *db.DB) ([]runningTa
 		WHERE t.status IN ('assigned', 'running')
 		  AND t.scheduling_unit_id IS NOT NULL
 		  AND t.agent_id IS NOT NULL
+		  AND COALESCE(t.detailed_status, '') <> 'stopping'
 	`)
 	if err != nil {
 		return nil, err

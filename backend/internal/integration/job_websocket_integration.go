@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sync"
@@ -943,6 +944,31 @@ func (s *JobWebSocketIntegration) SendJobStop(ctx context.Context, taskID uuid.U
 		return fmt.Errorf("failed to send job stop via WebSocket: %w", err)
 	}
 
+	// Persist WHY we stopped so the recovery that follows can record it.
+	// Both racing recovery paths (the agent's final stopped-progress and
+	// its task_stop_ack) read this back and hand it to RecoverTaskByID,
+	// which writes it to job_tasks.failure_reason — so diagnostics show
+	// "chunk time limit exceeded: ..." instead of a generic string.
+	// detailed_status='stopping' mirrors SetTaskStopping so the UI and the
+	// progress handler agree the task is winding down — but only for a task
+	// that is still in flight. The operator-stop path (JobSchedulingService
+	// .StopJob) CANCELS the task before sending, so gating the whole write on
+	// 'assigned'/'running' would silently drop the reason for exactly the
+	// stop a human initiated; the CASE records the reason without mislabelling
+	// an already-cancelled row as "stopping".
+	// Best-effort: the stop is already on the wire, a failed write only costs
+	// us the specific reason.
+	if _, uErr := s.db.ExecContext(ctx, `
+		UPDATE job_tasks
+		SET failure_reason = $2,
+		    detailed_status = CASE WHEN status IN ('assigned', 'running')
+		        THEN 'stopping' ELSE detailed_status END,
+		    updated_at = NOW()
+		WHERE id = $1 AND status NOT IN ('completed', 'failed')
+	`, taskID, reason); uErr != nil {
+		debug.Warning("Failed to record stop reason for task %s: %v", taskID, uErr)
+	}
+
 	debug.Log("Job stop command sent successfully", map[string]interface{}{
 		"task_id":  taskID,
 		"agent_id": agent.ID,
@@ -951,21 +977,83 @@ func (s *JobWebSocketIntegration) SendJobStop(ctx context.Context, taskID uuid.U
 	return nil
 }
 
-// ClearStoppedTaskAgent clears agent_id and sets task to pending after stop ack received
-// This should be called when an agent acknowledges that it has stopped a task
+// stopReasonForTask reads back the reason a stop was issued for (persisted by
+// SendJobStop / FindAndPreempt into job_tasks.failure_reason). Returns def when
+// nothing was recorded — a stop the server never initiated (agent Ctrl+C) or a
+// row that vanished.
+func (s *JobWebSocketIntegration) stopReasonForTask(ctx context.Context, taskID uuid.UUID, def string) string {
+	var reason string
+	if err := s.db.QueryRowContext(ctx, `
+		SELECT COALESCE(failure_reason, '') FROM job_tasks WHERE id = $1
+	`, taskID).Scan(&reason); err != nil {
+		return def
+	}
+	if strings.TrimSpace(reason) == "" {
+		return def
+	}
+	return reason
+}
+
+// ClearStoppedTaskAgent finalises a task once the agent acknowledges a stop.
+//
+// Scheduler-v2 tasks go through RecoverStoppedTaskByID (the canonical §8.2
+// split-and-gap primitive, benign-stop flavour): progress made → truncate the
+// interval at restore_point and complete the task; no progress → DELETE both so
+// the whole range re-opens without leaving a 'failed' row behind. A stop that
+// beat hashcat to its first restore point is not a failure, and HasFailedTasks
+// is a COUNT(*) > 0 — one such row would fail the job permanently. The legacy
+// ClearTaskAgentAndSetPending path runs ONLY for legacy tasks (NULL
+// scheduling_unit_id), signalled by Handled == false.
+//
+// GH #77: the fallback is gated on Handled, NOT on the error being nil.
+// Handled is true even when recovery errored part-way through, and running
+// ClearTaskAgentAndSetPending on a v2 task is exactly what stranded chunks:
+// it NULLs agent_id and parks the task 'pending' while its
+// job_keyspace_intervals row stays 'assigned', so firstGap counts the range as
+// covered forever and the job can never complete.
+//
+// This races the agent's final job_progress{status:"stopped"}, which recovers
+// the same task. Whichever lands first wins; the second call is a no-op
+// thanks to RecoverTaskByID's terminal-status guards.
 func (s *JobWebSocketIntegration) ClearStoppedTaskAgent(ctx context.Context, taskID uuid.UUID, agentID int) error {
 	debug.Log("Clearing task agent after stop ack", map[string]interface{}{
 		"task_id":  taskID,
 		"agent_id": agentID,
 	})
 
-	// Clear the agent assignment and set task back to pending
-	err := s.jobTaskRepo.ClearTaskAgentAndSetPending(ctx, taskID, agentID)
-	if err != nil {
-		return fmt.Errorf("failed to clear task agent: %w", err)
+	res, rerr := scheduler.RecoverStoppedTaskByID(ctx, &db.DB{DB: s.db}, taskID,
+		s.stopReasonForTask(ctx, taskID, "stopped by server"))
+	if rerr != nil {
+		if errors.Is(rerr, scheduler.ErrTaskGone) {
+			// The stopped-progress message won the race and already
+			// discarded the row. Expected, not a fault.
+			debug.Info("stop ack for task %s (agent %d): already recovered and discarded", taskID, agentID)
+		} else {
+			// Logged, not returned: the agent has already stopped, and the
+			// heartbeat sweeper re-runs the same recovery if this one only
+			// partially applied.
+			debug.Warning("scheduler-v2 recovery on stop ack for task %s (agent %d): %v", taskID, agentID, rerr)
+		}
 	}
 
-	// Also clear the agent's busy status
+	if rerr == nil && !res.Handled {
+		// Legacy task — clear the agent assignment and set it back to
+		// pending so the legacy re-dispatch picks it up.
+		//
+		// `rerr == nil` matters: RecoverTaskByID reports Handled == false
+		// both for a genuine legacy task (err nil) AND when its lookup
+		// failed — a missing row, or a transient DB error. Falling through
+		// on the error cases would park a scheduler-v2 task in 'pending'
+		// with a live interval, re-creating the exact stranding this change
+		// exists to remove. On an error we do nothing; the sweeper's
+		// RecoverStrandedPendingTasks pass is the backstop.
+		if err := s.jobTaskRepo.ClearTaskAgentAndSetPending(ctx, taskID, agentID); err != nil {
+			return fmt.Errorf("failed to clear task agent: %w", err)
+		}
+	}
+
+	// Also clear the agent's busy status (both branches — the agent is
+	// idle either way once it has ack'd the stop).
 	agent, err := s.agentRepo.GetByID(ctx, agentID)
 	if err == nil && agent.Metadata != nil {
 		agent.Metadata["busy_status"] = "false"
@@ -1360,6 +1448,65 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 		debug.Warning("benchmark refresh from observed speed (agent=%d, task=%s): %v", agentID, progress.TaskID, benchErr)
 	}
 
+	// Operator-initiated stop (agent Ctrl+C / agent shutdown / explicit
+	// StopJob / preemption / chunk-overrun guard). The agent sends
+	// status="stopped" with the last-known KeyspaceProcessed (Step 10c-1)
+	// instead of empty zeros. Treat this as truncate-and-preserve: ingest
+	// the final restore_point, then RecoverTaskByID truncates the interval
+	// at that point and marks task+interval 'completed'. The unprocessed
+	// portion of the original range automatically becomes a gap,
+	// re-dispatchable to a different agent. NO progress overwrite to 0%.
+	//
+	// This MUST run before the ownership check below (GH #77). Any
+	// server-initiated stop makes the agent send BOTH this stopped-progress
+	// AND a task_stop_ack, and whichever lands first wins. When the ack
+	// wins, ClearStoppedTaskAgent has already NULLed agent_id, so the
+	// ownership check would reject this message and the recovery would
+	// never run — leaving the task 'pending' with its keyspace interval
+	// still 'assigned', i.e. a range that firstGap treats as covered
+	// forever. Hence the guard is "owned by this agent OR the link was
+	// already cleared". Running twice is harmless: RecoverTaskByID's
+	// terminal-status guards make the second call a no-op, and
+	// IngestProgressV2 clamps restore_point to range_end so the
+	// new_restore_within_range CHECK can't fire.
+	if progress.Status == "stopped" && (task.AgentID == nil || *task.AgentID == agentID) {
+		// No IngestProgressV2 call here: the unconditional one above already
+		// ran with these exact arguments, so the final restore_point is
+		// persisted before we recover against it.
+		database := &db.DB{DB: s.db}
+		// A stop is benign, so when hashcat left no resumable restore
+		// point the task and interval rows are DELETED instead of marked
+		// 'failed' — HasFailedTasks is a COUNT(*) > 0, so one such row
+		// would permanently fail a job that stopped exactly as designed.
+		//
+		// The CrackedCount gate closes the one window the DB-side delete
+		// guard can't see: a crack batch still in flight behind this
+		// status message has not yet bumped the task's crack counters, so
+		// the guard would let the delete through and
+		// hashes.cracked_by_task_id (ON DELETE SET NULL) would lose the
+		// attribution the loopback delta INNER JOINs on. When this
+		// message itself carries cracks, keep the row as 'cancelled'
+		// instead — NOT 'failed', which would re-introduce exactly the
+		// job-poisoning this whole change exists to remove.
+		recoverFn := scheduler.RecoverStoppedTaskByID
+		if progress.CrackedCount != 0 {
+			recoverFn = scheduler.RecoverStoppedTaskWithCracksByID
+		}
+		if _, rerr := recoverFn(ctx, database, progress.TaskID, s.stopReasonForTask(ctx, progress.TaskID, "agent stopped by operator")); rerr != nil {
+			if errors.Is(rerr, scheduler.ErrTaskGone) {
+				// The stop-ack won the race and already discarded the row.
+				debug.Info("stopped-progress for task %s: already recovered and discarded", progress.TaskID)
+			} else {
+				debug.Warning("recovery on stopped task %s: %v", progress.TaskID, rerr)
+			}
+		}
+		// ACK so the agent doesn't retry.
+		taskIDStr := progress.TaskID.String()
+		s.cacheCompletion(taskIDStr)
+		s.sendTaskCompleteAck(agentID, taskIDStr, true, "task stopped by operator")
+		return nil
+	}
+
 	// Verify the task is assigned to this agent
 	if task.AgentID == nil || *task.AgentID != agentID {
 		// Check if this task is stopping (agent was told to stop but hasn't ack'd yet)
@@ -1556,29 +1703,6 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 	s.progressMutex.Lock()
 	s.taskProgressMap[progress.TaskID.String()] = progress
 	s.progressMutex.Unlock()
-
-	// Operator-initiated stop (agent Ctrl+C / agent shutdown / explicit
-	// StopJob). The agent now sends status="stopped" with the last-known
-	// KeyspaceProcessed (Step 10c-1) instead of empty zeros. Treat this
-	// as truncate-and-preserve: ingest the final restore_point, then
-	// RecoverTaskByID truncates the interval at that point and marks
-	// task+interval 'completed'. The unprocessed portion of the original
-	// range automatically becomes a gap, re-dispatchable to a different
-	// agent. NO progress overwrite to 0%.
-	if progress.Status == "stopped" {
-		database := &db.DB{DB: s.db}
-		if ierr := scheduler.IngestProgressV2(ctx, database, progress.TaskID, progress.KeyspaceProcessed, progress.TotalEffectiveKeyspace); ierr != nil {
-			debug.Warning("IngestProgressV2 on stopped task %s: %v", progress.TaskID, ierr)
-		}
-		if _, rerr := scheduler.RecoverTaskByID(ctx, database, progress.TaskID, "agent stopped by operator"); rerr != nil {
-			debug.Warning("RecoverTaskByID on stopped task %s: %v", progress.TaskID, rerr)
-		}
-		// ACK so the agent doesn't retry.
-		taskIDStr := progress.TaskID.String()
-		s.cacheCompletion(taskIDStr)
-		s.sendTaskCompleteAck(agentID, taskIDStr, true, "task stopped by operator")
-		return nil
-	}
 
 	// Check if this is a failure update
 	if progress.Status == "failed" && progress.ErrorMessage != "" {
@@ -3741,12 +3865,16 @@ func (s *JobWebSocketIntegration) RecoverTask(ctx context.Context, taskID string
 // recovery path the instant the WebSocket closes.
 //
 // For SCHEDULER-V2 tasks (scheduling_unit_id IS NOT NULL): we call
-// scheduler.RecoverTaskByID directly. That truncates the interval at
-// restore_point (preserving any progress reported pre-disconnect),
-// marks the task completed-or-failed, and cascades unit/layer/job
-// back to 'pending' so the next scheduler tick (≤3s) can redispatch
-// the freed range. The 120s heartbeat-timeout sweeper remains, but
-// only as last resort for crashes that miss this hook.
+// scheduler.RecoverStoppedTaskByID directly. That truncates the interval
+// at restore_point (preserving any progress reported pre-disconnect) and
+// completes the task; with no restore point it DELETES the task and
+// interval rows instead of failing them — a disconnect is not an agent
+// fault, and one 'failed' row permanently fails the job. Either way it
+// cascades unit/layer/job back to 'pending' so the next scheduler tick
+// (≤3s) can redispatch the freed range. The 120s heartbeat-timeout
+// sweeper remains, but only as last resort for crashes that miss this
+// hook — and it now uses the same discard policy, so the job's terminal
+// state doesn't depend on which of the two wins the race.
 //
 // For LEGACY tasks (no scheduling_unit_id): we keep the historical
 // reconnect_pending + 2-minute grace flow. Legacy has no equivalent
@@ -3804,11 +3932,21 @@ func (s *JobWebSocketIntegration) HandleAgentDisconnection(ctx context.Context, 
 		}
 
 		// v2 probe: scheduling_unit_id is on the DB row but not on the
-		// JobTask model. RecoverTaskByID returns Handled=false for legacy
-		// (no scheduling_unit_id), so we use its return as the partition
-		// signal AND the recovery primitive in one call.
-		res, rerr := scheduler.RecoverTaskByID(recoverCtx, database, taskID, "agent disconnect")
+		// JobTask model. RecoverStoppedTaskByID returns Handled=false for
+		// legacy (no scheduling_unit_id), so we use its return as the
+		// partition signal AND the recovery primitive in one call.
+		res, rerr := scheduler.RecoverStoppedTaskByID(recoverCtx, database, taskID, "agent disconnect")
 		if rerr != nil {
+			if errors.Is(rerr, scheduler.ErrTaskGone) {
+				// Another benign-stop handler already discarded the row —
+				// the range is free, which is all we wanted.
+				debug.Log("v2 task already recovered before disconnect handling", map[string]interface{}{
+					"task_id":  taskID,
+					"agent_id": agentID,
+				})
+				v2Recovered++
+				continue
+			}
 			debug.Log("v2 recovery failed on agent disconnect; will retry via sweeper", map[string]interface{}{
 				"task_id":  taskID,
 				"agent_id": agentID,
@@ -3824,6 +3962,7 @@ func (s *JobWebSocketIntegration) HandleAgentDisconnection(ctx context.Context, 
 				"agent_id":  agentID,
 				"job_id":    task.JobExecutionID,
 				"truncated": res.Truncated,
+				"discarded": res.Discarded,
 			})
 			continue
 		}

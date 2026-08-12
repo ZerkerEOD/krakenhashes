@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 )
@@ -40,9 +41,12 @@ func (m *JobIntegrationManager) runOverrunGuard(ctx context.Context) {
 
 // capOverrunTasks finds running tasks past chunk_duration × (1 + tolerance),
 // sends each agent a stop, and records the agent's measured speed so the
-// re-dispatched remainder is sized correctly. Recovery (truncate/re-gap) is
-// handled by the existing stop + heartbeat-sweeper path — this guard only stops
-// and self-heals. Errors are logged and never propagate.
+// re-dispatched remainder is sized correctly. This guard only stops and
+// self-heals; the truncate/re-gap recovery runs when the agent responds to the
+// stop — its final job_progress{status:"stopped"} and its task_stop_ack both
+// route to RecoverTaskByID, whichever lands first (GH #77). The heartbeat
+// sweeper is the backstop for an agent that answers neither. Errors are logged
+// and never propagate.
 func (m *JobIntegrationManager) capOverrunTasks(ctx context.Context) {
 	if m.jobTaskRepo == nil || m.wsIntegration == nil {
 		return
@@ -82,8 +86,69 @@ func (m *JobIntegrationManager) capOverrunTasks(ctx context.Context) {
 			if serr := m.jobExecutionService.RecordRunningTaskObservedSpeed(ctx, task); serr != nil {
 				debug.Warning("overrun guard: record speed for task %s: %v", t.TaskID, serr)
 			}
+			// GH #77: a chunk that blew its whole time budget without any
+			// evidence of work — no restore_point advance past its own range
+			// start, no effective keyspace processed, nothing cracked (see
+			// OverrunTask.MadeProgress) — did nothing at all: the agent is
+			// wedged (hashcat stuck in autotune, a driver hang, a download
+			// that never finishes). The speed self-heal above cannot
+			// help: it early-returns on a zero observation, so the agent keeps
+			// its optimistic benchmark and the next cycle hands it the very same
+			// re-opened gap, forever.
+			//
+			// Charge the failure to the agent instead, through the same
+			// per-(agent, attack_mode, hash_type) policy engine task failures
+			// use, so its cooldown/blocklist machinery routes the gap elsewhere.
+			//
+			// Zero progress is only meaningful AT the overrun threshold, never
+			// earlier: with hashcat's --slow-candidates (-S) a perfectly healthy
+			// agent legitimately reports restore_point == range_start and 0 H/s
+			// for the first ~12 minutes of every chunk while the host-side
+			// candidate generator spins up. A chunk that is past
+			// chunk_duration x tolerance is by definition past any legitimate
+			// startup stall, because chunk_duration was sized from that agent's
+			// own measured speed.
+			if !t.MadeProgress {
+				m.attributeStalledTask(ctx, task, reason)
+			}
 		}
 	}
+}
+
+// attributeStalledTask charges a zero-progress overrun to the agent via
+// AttributeBenchmarkFailure — the same generic agent/job/mode/hash_type policy
+// engine the task-failure path in HandleJobProgress uses (it is misnamed; its
+// body is not benchmark-specific). Attack mode and hash type are not carried on
+// the task row, so they come from the parent job and its hashlist.
+// Best-effort: every step logs and returns.
+func (m *JobIntegrationManager) attributeStalledTask(ctx context.Context, task *models.JobTask, reason string) {
+	if m.jobSchedulingService == nil || m.jobExecutionService == nil || m.wsIntegration == nil || task.AgentID == nil {
+		return
+	}
+	jobExec, jeErr := m.jobExecutionService.GetJobExecutionByID(ctx, task.JobExecutionID)
+	if jeErr != nil || jobExec == nil {
+		debug.Warning("overrun guard: load job %s for stalled-task attribution: %v", task.JobExecutionID, jeErr)
+		return
+	}
+	hashlist, hlErr := m.wsIntegration.hashlistRepo.GetByID(ctx, jobExec.HashlistID)
+	if hlErr != nil || hashlist == nil {
+		debug.Warning("overrun guard: load hashlist %d for stalled-task attribution: %v", jobExec.HashlistID, hlErr)
+		return
+	}
+	entityID := task.JobExecutionID.String()
+	if task.IncrementLayerID != nil {
+		entityID = task.IncrementLayerID.String()
+	}
+	msg := "no keyspace progress before chunk time limit: " + reason
+	if attrErr := m.jobSchedulingService.AttributeBenchmarkFailure(
+		ctx, *task.AgentID, jobExec.AttackMode, hashlist.HashTypeID, entityID, msg,
+	); attrErr != nil {
+		debug.Warning("overrun guard: stalled-task attribution for task %s (agent=%d, job=%s): %v",
+			task.ID, *task.AgentID, task.JobExecutionID, attrErr)
+		return
+	}
+	debug.Info("overrun guard: charged agent %d a failure for zero-progress task %s (job %s)",
+		*task.AgentID, task.ID, task.JobExecutionID)
 }
 
 // --- debounce bookkeeping ---
