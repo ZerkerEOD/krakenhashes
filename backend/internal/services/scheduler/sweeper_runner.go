@@ -71,14 +71,24 @@ func (r *SweeperRunner) sweepOnce(ctx context.Context) {
 		debug.Info("sweeper: evicted %d stale tasks", len(evicted))
 		for _, ev := range evicted {
 			// Spell out the outcome: a truncated task kept its progress
-			// and re-opened the remainder; a discarded one had no
-			// resumable restore point, so its rows were deleted rather
-			// than failed. "cancelled" is the residual case where a
-			// delete guard (cracks present) held the row back.
+			// and re-opened the remainder; a completed one found its
+			// range already booked by a 'completed' interval, so the
+			// interval was left untouched and only the task was
+			// terminalised; a discarded one had no resumable restore
+			// point, so its rows were deleted rather than failed.
+			// "cancelled" is the residual case where a guard (cracks
+			// present, coverage already booked but no restore point) held
+			// the row back.
+			//
+			// The completed arm must NOT say "no progress to preserve" —
+			// that phrasing on a task that had processed its entire range
+			// is what made the GH #79 incident log actively misleading.
 			outcome := "cancelled"
 			switch {
 			case ev.Truncated:
 				outcome = "truncated (progress preserved)"
+			case ev.Completed:
+				outcome = "completed (range already accounted for by a completed interval)"
 			case ev.Discarded:
 				outcome = "discarded (no progress to preserve)"
 			}

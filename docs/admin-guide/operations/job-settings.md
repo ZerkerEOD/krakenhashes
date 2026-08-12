@@ -10,7 +10,9 @@ The Job Execution Settings page allows administrators to configure how KrakenHas
 2. Click on **Settings** in the navigation menu
 3. Select **Job Execution Settings**
 
-The settings are organized into four main categories for easier management.
+The settings are grouped into panels for easier management — chunking, agent behavior, job control,
+the scheduler's own timing and guards, and so on. Each `###` section below corresponds to a panel on
+that page.
 
 ## Settings Categories
 
@@ -20,8 +22,13 @@ Job chunking divides large password cracking tasks into smaller, manageable piec
 
 | Setting | Description | Default | Range | Notes |
 |---------|-------------|---------|--------|-------|
-| **Default Chunk Duration** | How long each job chunk should run | 15 minutes | 1+ minutes | Shorter chunks provide more flexibility but increase overhead |
-| **Chunk Fluctuation Percentage** | Allowed variance for the final chunk | 10% | 0-100% | Prevents creating very small final chunks |
+| **Default Chunk Duration** (`default_chunk_duration`) | Target running time for each job chunk | 20 minutes | 1+ minutes | Shorter chunks provide more flexibility but increase overhead. A per-job `chunk_size_seconds` override wins over this; if this setting is missing or zero the scheduler falls back to `target_chunk_seconds` (60s) |
+| **Minimum Chunk Duration** (`min_chunk_seconds`) | Floor on chunk wall time | 5 seconds | 1-300 seconds | A gap worth less than this much work is dispatched whole instead of being sliced, which prevents one-candidate orphan chunks |
+
+!!! note "`chunk_fluctuation_percentage` no longer exists"
+    The old final-chunk variance knob was dropped along with the v1 scheduler
+    (migration `20260707151802`). Scheduler-v2 has no look-ahead remainder merge — its tail guard is
+    `min_chunk_seconds` above.
 
 #### Best Practices for Chunking
 - **Short jobs (< 1 hour)**: Use 5-10 minute chunks for better distribution
@@ -34,12 +41,17 @@ These settings control how agents behave and interact with the backend server.
 
 | Setting | Description | Default | Range | Notes |
 |---------|-------------|---------|--------|-------|
-| **Hashlist Retention** | How long agents keep hashlists after job completion | 7 days | 1+ days | Reduces re-download for recurring jobs |
-| **Max Concurrent Jobs per Agent** | Maximum jobs an agent can run simultaneously | 1 | 1-10 | Higher values for powerful multi-GPU systems |
-| **Progress Reporting Interval** | How often agents send progress updates | 30 seconds | 1+ seconds | Lower values increase server load |
-| **Benchmark Cache Duration** | How long to cache agent performance benchmarks | 30 days | 1+ days | Reduces benchmark frequency |
-| **Speedtest Timeout** | Maximum time to wait for speedtest completion | 30 seconds | 60-600 seconds | Increase for slower systems |
-| **Reconnect Grace Period** | Time to wait for agents to reconnect after server restart | 5 minutes | 1-60 minutes | Prevents unnecessary task reassignment |
+| **Hashlist Retention** (`agent_hashlist_retention_hours`) | How long agents keep hashlists after job completion | 24 hours | 1+ hours | Reduces re-download for recurring jobs |
+| **Max Concurrent Jobs per Agent** (`max_concurrent_jobs_per_agent`) | Maximum jobs an agent can run simultaneously | 1 | 1-10 | Higher values for powerful multi-GPU systems |
+| **Progress Reporting Interval** (`progress_reporting_interval`) | How often agents send progress updates | 5 seconds | 1+ seconds | Lower values increase server load |
+| **Benchmark Cache Duration** (`benchmark_cache_duration_hours`) | How long to cache agent performance benchmarks | 168 hours (7 days) | 1+ hours | Reduces benchmark frequency |
+| **Reconnect Grace Period** (`reconnect_grace_period_minutes`) | Time to wait for agents to reconnect after server restart | 5 minutes | 1-60 minutes | Prevents unnecessary task reassignment |
+
+!!! note "`speedtest_timeout_seconds` was replaced"
+    The single speedtest timeout was dropped by migration `20260707151802`. Scheduler-v2 uses
+    `speed_test_timeout_seconds_uncompressed` and `speed_test_timeout_seconds_compressed` instead
+    (plus a fixed grace), because a compressed wordlist has to be decompressed before hashcat can
+    measure anything and needs a much longer window.
 
 #### Reconnect Grace Period Details
 
@@ -62,8 +74,8 @@ Control job execution behavior and user interface settings.
 
 | Setting | Description | Default | Range | Notes |
 |---------|-------------|---------|--------|-------|
-| **Allow Job Interruption** | Higher priority jobs can interrupt running jobs | Enabled | On/Off | Ensures critical jobs run immediately |
-| **Agent Overflow Allocation Mode** | How to distribute extra agents when jobs hit max_agents limit | `fifo` | `fifo`, `round_robin` | Controls fairness vs speed tradeoff |
+| **Allow Job Interruption** (`job_interruption_enabled`) | Global gate: higher priority jobs may interrupt running work | Seeded enabled — but read the toggle, see below | On/Off | Only one of three gates; on its own it interrupts nothing |
+| **Agent Overflow Allocation Mode** (`agent_overflow_allocation_mode`) | How to distribute agents left over once jobs hit their `max_agents` limit | `fifo` | `fifo`, `round_robin`, `enforce_max_agents`, `max_agents_fifo`, `max_agents_round_robin` | Controls fairness vs speed tradeoff |
 | **Real-time Crack Notifications** | Send notifications when hashes are cracked | Enabled | On/Off | Can increase server load for large jobs |
 | **Job Refresh Interval** | How often the UI refreshes job status | 5 seconds | 1-60 seconds | Lower values increase server load |
 | **Max Chunk Retry Attempts** | Number of times to retry failed chunks | 3 | 0-10 | Set to 0 to disable retries |
@@ -72,15 +84,23 @@ Control job execution behavior and user interface settings.
 
 #### Job Interruption Behavior
 
-This is the **global** gate. A job also needs its own **Allow High Priority Override** flag before it
-can interrupt anything — both must be on. If the setting is missing or unreadable, the scheduler
-treats it as **off** so a configuration problem can never cause running work to be stopped.
+This is the **global** gate, and it is only one of three conditions. A job also needs its own
+**Allow High Priority Override** flag, and a priority above 0 — a priority-0 job never preempts
+anything. All three must hold before a single task is stopped.
 
-When both gates are open, the system will:
+**Read the toggle rather than assuming its state.** The database migration seeds this row `true`, but
+the scheduler's own fallback is the opposite: if the setting is missing or unreadable it is treated
+as **off**, so a configuration problem can never cause running work to be stopped. Preemption being
+disabled is silent by design — the waiting job simply waits — so "my high-priority job never
+interrupted anything" starts here.
+
+When all three conditions hold, the system will:
 1. Stop the newest running task at the lowest priority when a higher-priority job is waiting with no
    agent available
 2. Truncate that task's keyspace at its last restore point and close it out as completed for the work
-   it finished — the task is **not** returned to `pending`
+   it finished — the task is **not** returned to `pending`. If it never reached a restore point there
+   is nothing to keep, so the task is deleted outright (or marked `cancelled` if it had already
+   produced cracks, which preserves the crack attribution). A stopped task is never marked `failed`
 3. Return the unfinished remainder to the queue as undispatched work, re-dispatched as soon as an
    agent is free
 4. Preserve all crack progress; no keyspace is ever re-run
@@ -89,22 +109,27 @@ See [Job Priority](../advanced/job-priority.md) for the full model.
 
 #### Agent Overflow Allocation Mode
 
-This setting controls how "overflow" agents (agents beyond max_agents limits) are distributed among jobs at the **same priority level**.
+This setting controls what happens to **surplus** agents — the ones still idle once every job at a
+priority tier has been filled to its `max_agents` cap.
 
-**Important**: This setting **only applies** to overflow agents when multiple jobs exist at the same priority. Higher priority jobs always override max_agents limits and take ALL available agents.
+**Five modes are available**, in two families. The table below is a summary; see
+[Scheduler v2 Overview — Agent allocation and overflow modes](../../reference/architecture/scheduler-v2-overview.md#agent-allocation-and-overflow-modes)
+for the full model rather than a second copy of it here.
 
-**Available Modes:**
+| Value | UI label | Surplus behavior |
+|-------|----------|------------------|
+| `fifo` (default) | Priority – FIFO | All surplus at a tier goes to the **oldest** job at that tier |
+| `round_robin` | Priority – Round Robin | Surplus is spread one agent at a time across the tier's jobs |
+| `enforce_max_agents` | (strict) | No overflow at all — surplus agents descend to the next priority tier, and stay idle if every job everywhere is at its cap |
+| `max_agents_fifo` | Max Agents – FIFO | Fill **every** job at every tier to its cap first (no tier starves), then pile the surplus on the highest-priority job with work left |
+| `max_agents_round_robin` | Max Agents – Round Robin | Same first phase, then rotate the surplus across units highest-priority-first |
+
+The "Priority" family concentrates surplus on the highest tier that can use it; the "Max Agents"
+family guarantees every job its baseline cap before accelerating anything.
 
 ##### FIFO Mode (Default)
 
 **Behavior**: Oldest job gets all overflow agents
-
-```sql
--- Set FIFO mode
-UPDATE system_settings
-SET value = 'fifo'
-WHERE key = 'agent_overflow_allocation_mode';
-```
 
 **Use Cases:**
 - **Default mode**: Best for most scenarios
@@ -128,13 +153,6 @@ Final: Job A = 11 agents, Job B = 2 agents, Job C = 2 agents
 ##### Round-Robin Mode
 
 **Behavior**: Distribute overflow agents evenly across all jobs at same priority
-
-```sql
--- Set round-robin mode
-UPDATE system_settings
-SET value = 'round_robin'
-WHERE key = 'agent_overflow_allocation_mode';
-```
 
 **Use Cases:**
 - **Parallel progress**: Want all jobs to progress simultaneously
@@ -165,7 +183,8 @@ Final: Job A = 5 agents, Job B = 5 agents, Job C = 5 agents
 
 ##### Priority-Based Behavior
 
-**Critical**: The overflow allocation mode **does not affect** priority-based allocation:
+The mode governs *surplus* agents; **priority still decides who is filled first**, and in the two
+"Priority" modes a higher tier is filled to exhaustion before a lower tier sees an agent:
 
 ```
 Scenario: 2 jobs, 10 agents available
@@ -173,9 +192,10 @@ Scenario: 2 jobs, 10 agents available
 Job A: Priority 100, max_agents = 3
 Job B: Priority 50,  max_agents = 5
 
-Result (regardless of overflow mode):
-- Job A gets ALL 10 agents (higher priority overrides max_agents)
-- Job B gets 0 agents (lower priority, waits for Job A to finish)
+fifo / round_robin:      Job A takes all 10 (surplus concentrates on the top tier)
+enforce_max_agents:      Job A gets 3, Job B gets 5, 2 agents stay idle
+max_agents_*:            Job A gets 3 and Job B gets 5 first, then the 2 surplus
+                         agents go to Job A (highest priority with work left)
 ```
 
 ##### Configuration via SQL
@@ -186,14 +206,10 @@ SELECT key, value, description
 FROM system_settings
 WHERE key = 'agent_overflow_allocation_mode';
 
--- Change to FIFO mode (default)
+-- Valid values: 'fifo', 'round_robin', 'enforce_max_agents',
+--               'max_agents_fifo', 'max_agents_round_robin'
 UPDATE system_settings
 SET value = 'fifo'
-WHERE key = 'agent_overflow_allocation_mode';
-
--- Change to round-robin mode
-UPDATE system_settings
-SET value = 'round_robin'
 WHERE key = 'agent_overflow_allocation_mode';
 ```
 
@@ -201,12 +217,14 @@ WHERE key = 'agent_overflow_allocation_mode';
 
 | Scenario | Recommended Mode | Reason |
 |----------|------------------|--------|
-| Production cracking (default) | FIFO | Finish jobs faster by concentrating resources |
-| Multiple test jobs | Round-robin | See results from all tests simultaneously |
-| Multi-client environment | Round-robin | Fair distribution across clients |
-| Single large job | Either | No difference (only one job) |
-| Time-critical job | FIFO | Ensures oldest/most important finishes first |
-| Parallel research | Round-robin | Compare multiple approaches simultaneously |
+| Production cracking (default) | `fifo` | Finish jobs faster by concentrating resources |
+| Multiple test jobs | `round_robin` | See results from all tests simultaneously |
+| Multi-client environment | `round_robin` | Fair distribution across clients |
+| Single large job | Either Priority mode | No difference (only one job) |
+| Time-critical job | `fifo` | Ensures oldest/most important finishes first |
+| Parallel research | `round_robin` | Compare multiple approaches simultaneously |
+| Hard per-job agent budgets (chargeback, licensing) | `enforce_max_agents` | Caps are never exceeded, even if agents go idle |
+| Every job must make some progress, but urgent work should still finish first | `max_agents_fifo` / `max_agents_round_robin` | Baseline cap for all tiers first, surplus to the highest priority |
 
 #### Hashlist Bulk Batch Size
 
@@ -276,6 +294,44 @@ WHERE key = 'loopback_max_rounds';
 See [Loopback](../../user-guide/loopback.md) for how sessions work and the
 [Loopback Sessions architecture](../../reference/architecture/loopback.md) reference for internals.
 
+### Scheduler (v2) Timing
+
+Found in the **Scheduler (v2)** panel of the Job Execution Settings page, alongside the chunk overrun
+guard below.
+
+These knobs decide when the scheduler stops believing an agent is still working. Getting them wrong
+in one direction leaves a dead task holding keyspace for hours; in the other it evicts a healthy
+agent that was merely busy decompressing a 40 GB wordlist. When a task *is* declared lost, it goes
+through the same truncate-and-re-open recovery as every other stop — see
+[Job Priority — Job Interruption Behavior](../advanced/job-priority.md#job-interruption-behavior).
+
+| Setting | Description | Default | Range | Notes |
+|---------|-------------|---------|-------|-------|
+| **Task Heartbeat Timeout** (`task_heartbeat_timeout_seconds`) | Seconds without a **progress update** before a running task is considered lost and gap-recovered | 120 | 10-3600 | Only progress counts. `last_activity_at` is stamped once at dispatch and thereafter written only by the v2 progress ingest, so the broader signal set named in the setting's database description (liveness ping, `task_loading`, a new outfile crack) is aspirational and **not implemented** |
+| **Task Startup Grace** (`task_startup_grace_seconds`) | Pre-first-progress grace window after a task is started | 600 | 30-7200 | **Not consumed by any scheduler code path today.** The row is real, persisted and editable in the UI, but nothing reads it: eviction is decided entirely by `task_heartbeat_timeout_seconds`. Changing this value has no effect |
+| **Network Grace** (`network_grace_seconds`) | How long after an agent's WebSocket drops the sweeper will still evict that agent's leftover tasks | 30 | 5-600 | Does **not** delay recovery. A running task is recovered the moment its socket closes; this window only arms the sweeper's backstop pass for tasks the immediate disconnect handler missed |
+| **Target Chunk Seconds** (`target_chunk_seconds`) | Fallback target wall time per chunk | 60 seconds | 1+ seconds | Consulted **only** when `default_chunk_duration` is missing or zero. Not exposed in the UI; set it in SQL if you need it |
+| **Minimum Chunk Duration** (`min_chunk_seconds`) | Floor on chunk wall time | 5 seconds | 1-300 | Shown in the **Job Chunking** panel, not here. See [Job Chunking](#job-chunking) |
+
+#### Startup Stalls Count Against the Heartbeat Timeout
+
+Everything between "task assigned" and "hashcat emits its first progress line" — downloading
+wordlists, rules and the hashlist, decompressing them, and hashcat's own kernel autotune — produces
+no progress. Since `last_activity_at` is stamped once at dispatch and refreshed only by progress
+updates, that entire startup window is counted against `task_heartbeat_timeout_seconds`: a
+first-time sync of a large wordlist over a slow link can be evicted as a dead task and re-dispatched
+to another agent that then faces the same download.
+
+The same applies to the `--slow-candidates` startup stall described under
+[Zero-Progress Overruns](#zero-progress-overruns-count-against-the-agent) below — a healthy agent on
+a slow hash type legitimately reports nothing for the first several minutes of a chunk.
+
+`task_heartbeat_timeout_seconds` is therefore the knob to raise if your fleet syncs large resources
+over slow links or works slow hash types. `task_startup_grace_seconds` reads like the setting for
+exactly this, but no scheduler code path consumes it, so raising it changes nothing. Lower the
+heartbeat timeout only if you would rather reclaim a wedged agent quickly than tolerate a long but
+legitimate startup.
+
 ### Chunk Overrun Guard
 
 Found in the **Scheduler (v2)** panel of the Job Execution Settings page.
@@ -322,31 +378,28 @@ that never finishes.
     host-side candidate generator spins up. Treating "no progress yet" as a fault at any earlier
     point would punish healthy agents on every slow-hash job. A task that is past
     `chunk_duration × (1 + tolerance)` is by definition past any legitimate startup stall, because
-    its chunk duration was sized from that agent's own measured speed in the first place.
+    its chunk duration was sized from that agent's own measured speed in the first place. The
+    window that protects such a task *before* the overrun threshold is
+    [`task_heartbeat_timeout_seconds`](#startup-stalls-count-against-the-heartbeat-timeout) — not
+    `task_startup_grace_seconds`, which nothing reads.
 
 Lower the tolerance if you want tighter turnaround on mis-sized chunks; raise it (or disable the
 guard) if your workload has legitimately variable chunk times and you would rather let long chunks
 run to completion.
 
-### Rule Splitting
+### Rule Splitting (removed)
 
-Rule splitting automatically divides large rule files to improve distribution across agents. This is especially useful for rule files that would otherwise exceed the chunk duration.
+!!! warning "These settings no longer exist"
+    Rule splitting belonged to the v1 scheduler. Migration `20260707151802_remove_rule_splitting`
+    dropped its columns and deleted every one of its settings — `rule_split_enabled`,
+    `rule_split_threshold`, `rule_split_min_rules`, `rule_split_max_chunks` and
+    `rule_chunk_temp_dir`. No code path reads them, and the Job Execution Settings page no longer
+    shows them.
 
-| Setting | Description | Default | Range | Notes |
-|---------|-------------|---------|--------|-------|
-| **Enable Rule Splitting** | Automatically split large rule files | Enabled | On/Off | Improves distribution for large rule sets |
-| **Rule Split Threshold** | Split when estimated time exceeds chunk duration by this factor | 2.0× | 1.1-10× | Lower values create more chunks |
-| **Minimum Rules to Split** | Don't split files with fewer rules than this | 100 | 10+ | Prevents splitting small files |
-| **Maximum Rule Chunks** | Maximum chunks to create per rule file | 100 | 2-10000 | Limits memory usage |
-| **Rule Chunk Directory** | Directory for temporary rule chunks | `/tmp/rule_chunks` | Any valid path | Must be writable by backend |
-
-#### Rule Splitting Algorithm
-The system automatically:
-1. Estimates job duration based on hashlist size and rule count
-2. Compares estimated duration to chunk duration × threshold
-3. If exceeding threshold, splits rules into appropriate chunks
-4. Distributes chunks across available agents
-5. Cleans up temporary chunks after job completion
+Scheduler-v2 needs none of it: it splits every job over the **base keyspace** with hashcat
+`--skip`/`--limit` and accounts for a rule file's cost through the job's multiplication factor, so a
+heavy rule set produces smaller base-word chunks instead of physically split rule files. See
+[Chunking System](../../reference/architecture/chunking.md).
 
 ## Performance Considerations
 
@@ -356,8 +409,8 @@ The system automatically:
 - Calculate: `(Number of Agents × Active Jobs) / Reporting Interval = Updates per second`
 
 ### Storage Requirements
-- **Hashlist Retention**: `Average Hashlist Size × Number of Unique Jobs × Retention Days`
-- **Rule Chunks**: `Original Rule File Size × Active Jobs using that rule`
+- **Hashlist Retention**: `Average Hashlist Size × Number of Unique Jobs` held for the retention
+  window (`agent_hashlist_retention_hours`, 24 hours by default)
 - **Benchmark Cache**: Minimal, typically < 1MB per agent
 
 ### Optimal Settings by Environment
@@ -391,8 +444,9 @@ The system automatically:
 
 #### Poor Job Distribution
 - Reduce **Default Chunk Duration** for better granularity
-- Enable **Rule Splitting** for large rule files
-- Adjust **Chunk Fluctuation Percentage** to avoid tiny chunks
+- Raise **Minimum Chunk Duration** if agents are being handed uselessly small gaps
+- Check **Agent Overflow Allocation Mode** — a "Priority" mode concentrates surplus agents on one job
+  by design
 
 #### High Server Load
 - Increase **Progress Reporting Interval**

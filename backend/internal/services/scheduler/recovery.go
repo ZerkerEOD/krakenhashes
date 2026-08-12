@@ -66,12 +66,29 @@ type RecoverResult struct {
 	// remainder becoming a gap.
 	Truncated bool
 
+	// Completed is true when the task's whole dispatched range was
+	// already accounted for by a 'completed' interval, so the task was
+	// completed WITHOUT touching the interval.
+	//
+	// Deliberately not folded into Truncated: nothing was shortened, and
+	// Truncated's contract ("the interval was shortened to [range_start,
+	// restore_point)") would become a lie.
+	//
+	// This is the GH #79 case. HashlistCompletionService.stopJobTasks
+	// promotes every open interval of a fully-cracked job to 'completed'
+	// in one job-wide, task-status-blind UPDATE, so a task still
+	// 'processing' when its agent disconnects finds its coverage already
+	// booked. The range IS searched; the task that searched it has to say
+	// so, or it lands in the terminal state of a task that did nothing.
+	Completed bool
+
 	// Discarded is true when the no-progress branch ran under
 	// PolicyDiscardOnNoProgress and actually removed the task row (and
-	// its interval). Truncated and Discarded are mutually exclusive;
-	// both false with Handled=true means the rows were marked failed —
-	// or that a delete guard (cracks present, terminal status) held the
-	// task back and it was cancelled instead.
+	// its interval). Truncated, Completed and Discarded are mutually
+	// exclusive; all three false with Handled=true means the rows were
+	// marked failed — or that a guard (cracks present, terminal status,
+	// coverage already booked) held the task back and it was cancelled
+	// instead.
 	Discarded bool
 }
 
@@ -83,10 +100,15 @@ type RecoverResult struct {
 //   - If the task has no scheduling_unit_id (legacy task), returns
 //     {Handled: false} with no DB writes. The caller should run its
 //     legacy recovery path.
-//   - If restore_point > range_start, truncates the interval to
-//     [range_start, restore_point) and marks the task completed. The
-//     remainder [restore_point, range_end) becomes a gap automatically
-//     because no row covers it.
+//   - If the interval already reads 'completed' (its range is accounted
+//     for — see RecoverResult.Completed), leaves the interval alone and
+//     marks the task completed at its restore point, or cancelled when it
+//     has none. Never failed, never deleted: the coverage is booked and
+//     the task row is its only remaining owner.
+//   - If restore_point > range_start on a still-open interval, truncates
+//     the interval to [range_start, restore_point) and marks the task
+//     completed. The remainder [restore_point, range_end) becomes a gap
+//     automatically because no row covers it.
 //   - Otherwise marks the interval failed and the task failed. The
 //     full [range_start, range_end) range becomes available for the
 //     next dispatch cycle because the exclusion constraint ignores
@@ -170,28 +192,63 @@ func recoverTaskByID(ctx context.Context, database *db.DB, taskID uuid.UUID, rea
 		return RecoverResult{Handled: true, Truncated: false}, err
 	}
 
-	truncated, discarded, err := applyRecovery(ctx, database, taskID, intervalID, rangeStart.Int64, restorePoint, reason, policy)
+	truncated, completed, discarded, err := applyRecovery(ctx, database, taskID, intervalID,
+		rangeStart.Int64, rangeEnd.Int64, restorePoint, reason, policy)
 	if err != nil {
 		return RecoverResult{Handled: true}, err
 	}
-	return RecoverResult{Handled: true, Truncated: truncated, Discarded: discarded}, nil
+	return RecoverResult{Handled: true, Truncated: truncated, Completed: completed, Discarded: discarded}, nil
 }
 
-// applyRecovery executes the truncate-or-discard-or-fail decision in a
-// transaction. Returns truncated=true if the interval was shortened at
-// restore_point (progress was made), discarded=true if the no-progress
-// branch deleted the rows under PolicyDiscardOnNoProgress.
+// applyRecovery executes the complete-or-truncate-or-discard-or-fail
+// decision in a single transaction.
+//
+// Every branch below is an application of ONE invariant — the invariant
+// the GH #79 incident broke:
+//
+//	The interval is the coverage ledger; the task is the work record. A
+//	task may end 'completed' only when its range is, and stays, accounted
+//	for. If the interval says covered ('completed'), the task that
+//	produced that coverage must be 'completed' (it made progress) or
+//	'cancelled' (it did not) — never 'failed', never deleted. If the
+//	interval says NOT covered ('failed', deleted, never there), the task
+//	must NOT be 'completed', because that range is going to be redone by
+//	another task and a 'completed' task sitting on top of it double-counts
+//	in every coverage / progress / AreAllTasksComplete query.
+//
+// The three outcome bools are mutually exclusive:
+//   - truncated: the interval was open, so it was shortened to
+//     [range_start, endPoint) and the task completed there; the remainder
+//     re-opens as a gap.
+//   - completed: the interval ALREADY said 'completed', so the range is
+//     accounted for and the task was completed WITHOUT touching the
+//     interval.
+//   - discarded: the no-progress branch ran under
+//     PolicyDiscardOnNoProgress and actually deleted the task row (and its
+//     interval).
+//
+// All three false means the rows were marked 'failed' (fail policy), or a
+// guard held the task back and it was 'cancelled' instead.
+//
+// rangeStart / rangeEnd are the task's DISPATCHED range. rangeEnd is a
+// parameter — it was not one before GH #79, which is precisely why this
+// function was structurally incapable of recognising a chunk that had
+// processed its whole range — and it is used to clamp a restore_point that
+// overshoots the dispatched range, which would otherwise inflate the
+// task's keyspace accounting (see endPoint below).
 func applyRecovery(
 	ctx context.Context,
 	database *db.DB,
 	taskID uuid.UUID,
 	intervalID uuid.NullUUID,
 	rangeStart int64,
+	rangeEnd int64,
 	restorePoint sql.NullInt64,
 	reason string,
 	policy RecoverPolicy,
-) (bool, bool, error) {
+) (bool, bool, bool, error) {
 	truncated := false
+	completed := false
 	discarded := false
 
 	err := database.WithTx(ctx, func(tx *sql.Tx) error {
@@ -228,121 +285,212 @@ func applyRecovery(
 		// left one behind, a live interval outliving its task is exactly
 		// the GH #77 stranding (firstGap counts it as covered forever).
 
-		// Decide: truncate (progress) or fail (no progress).
-		if intervalID.Valid && restorePoint.Valid && restorePoint.Int64 > rangeStart {
-			res, err := tx.ExecContext(ctx, `
+		// Read the interval ONCE, right here, and branch on what it
+		// actually says. Before GH #79 the interval's state was never
+		// read: the truncate branch simply fired an UPDATE carrying
+		// `AND status IN ('assigned','running')` and used "0 rows matched"
+		// as its only signal, which conflates three completely different
+		// situations — interval already 'completed' (range IS covered),
+		// interval 'failed'/gone (range is NOT covered), and a genuine
+		// window mismatch. Conflating them is what marked a task that had
+		// processed its entire range, and cracked the last hash, as
+		// 'cancelled ... no progress to preserve'.
+		//
+		// FOR UPDATE, and taken AFTER the task lock above: that is the same
+		// task -> interval lock order this file already documents and every
+		// other path takes, so it adds no new deadlock edge.
+		//
+		// sql.ErrNoRows is "no interval" (a concurrent recovery deleted it),
+		// not an error — the same treatment as intervalID being NULL.
+		var (
+			haveInterval   bool
+			intervalStatus string
+			intervalStart  int64
+			intervalEnd    int64
+		)
+		if intervalID.Valid {
+			ierr := tx.QueryRowContext(ctx, `
+				SELECT status, range_start, range_end
+				FROM job_keyspace_intervals
+				WHERE id = $1
+				FOR UPDATE
+			`, intervalID.UUID).Scan(&intervalStatus, &intervalStart, &intervalEnd)
+			switch {
+			case ierr == nil:
+				haveInterval = true
+			case errors.Is(ierr, sql.ErrNoRows):
+				// Interval gone — treat exactly like "task had no interval".
+			default:
+				return fmt.Errorf("lock interval %s: %w", intervalID.UUID, ierr)
+			}
+		}
+
+		// endPoint is the honest completion point: the restore point,
+		// clamped to the ranges that actually bound it.
+		//
+		// Clamping is right where branching would be wrong. A restore_point
+		// past the INTERVAL's end means an earlier recovery already
+		// truncated that interval; the range beyond it has since been handed
+		// to somebody else, so the honest thing this task can claim is the
+		// interval's end — not a mismatch, and certainly not "no progress".
+		// A restore_point past the TASK's dispatched range_end should be
+		// impossible, but if it ever happens it must not be written through:
+		// the task UPDATE stores keyspace_processed = endPoint - range_start
+		// and scales effective_keyspace_end by
+		// (endPoint - range_start) / (range_end - range_start), so an
+		// overshoot would extrapolate the task past 100% of keyspace it was
+		// never given.
+		endPoint := restorePoint.Int64
+		if endPoint > rangeEnd {
+			endPoint = rangeEnd
+		}
+		if haveInterval && endPoint > intervalEnd {
+			endPoint = intervalEnd
+		}
+
+		switch {
+		// COVERED. The interval already says this range is accounted for.
+		//
+		// How a task gets here: several paths book coverage for a range
+		// independently of the task that searched it —
+		// JobExecutionService.HandleTaskCompletion's per-task cascade,
+		// HashlistCompletionService's job-wide promote when a hashlist is
+		// fully cracked, and a previous recovery's own truncate. A task
+		// that is still non-terminal when one of those runs (most often
+		// 'processing', draining crack batches) therefore arrives here with
+		// its coverage already booked by somebody else.
+		//
+		// The hashlist-completion promote is the one that produced the
+		// incident, and it has since been narrowed to skip intervals whose
+		// task is still non-terminal — so this branch is now defence in
+		// depth rather than the primary consumer. Keep it: the invariant it
+		// enforces has to hold no matter which of those paths booked the
+		// coverage, and 'no progress' is the wrong answer for all of them.
+		//
+		// The interval MUST NOT be touched here — not updated, not deleted:
+		//   - deleting a 'completed' interval permanently un-covers a range
+		//     that really was searched, so firstGap re-issues finished work;
+		//   - deleting the TASK would orphan that coverage (nothing left to
+		//     say which task produced it) and NULL hashes.cracked_by_task_id
+		//     (ON DELETE SET NULL, migration 000098), which
+		//     LoopbackRepository.GetNewDeltaPlaintexts INNER JOINs on —
+		//     silently dropping the plaintext from the loopback delta.
+		//
+		// So the only open question is what the TASK should say, and the
+		// invariant answers it: 'completed' when it made progress,
+		// 'cancelled' when it did not.
+		//
+		// `policy` is deliberately NOT consulted in this branch. Even
+		// PolicyFailOnNoProgress must not leave a 'failed' row over a range
+		// that IS accounted for: HasFailedTasks is a COUNT(*) > 0, so that
+		// one row would permanently fail a job whose keyspace was fully
+		// searched.
+		case haveInterval && intervalStatus == "completed":
+			if restorePoint.Valid && endPoint > rangeStart {
+				if terr := completeTaskAtRecoveryPoint(ctx, tx, taskID, reason, endPoint); terr != nil {
+					return terr
+				}
+				completed = true
+			} else if cerr := cancelTaskKeepingRow(ctx, tx, taskID, reason); cerr != nil {
+				return cerr
+			}
+
+			// Step 11p: cascade unit/layer/job status pending when work
+			// remains and no other tasks are in flight. The task row
+			// survives both sub-paths above and is terminal by the time the
+			// cascade's NOT EXISTS (status IN ('assigned','running',
+			// 'processing')) runs, so the taskID resolver is fine here —
+			// same as the truncate branch below.
+			cascadePendingFromRecovery(ctx, tx, taskID)
+
+			return nil
+
+		// TRUNCATE. The interval is still open and hashcat left a usable
+		// restore point inside it: the §8.2 split-and-gap. The interval
+		// shrinks to [range_start, endPoint) and the remainder
+		// [endPoint, range_end) becomes a gap automatically, because no row
+		// covers it any more.
+		//
+		// endPoint == range_end is NOT a special case: the UPDATE's
+		// predicates are `range_start < $1 AND $1 <= range_end`, so a chunk
+		// that processed its entire range matches here too and simply flips
+		// the interval to 'completed' without shrinking it. That is the
+		// whole fully-processed-chunk story — see the no-progress branch for
+		// why it is deliberately NOT generalised to intervals that are
+		// failed or gone.
+		//
+		// endPoint > intervalStart is required because the UPDATE's
+		// `range_start < $1` demands it; it can only fail if an earlier
+		// recovery moved the interval's start past our restore point, in
+		// which case there is nothing of ours left to preserve and the
+		// no-progress branch is the correct destination.
+		case haveInterval &&
+			(intervalStatus == "assigned" || intervalStatus == "running") &&
+			restorePoint.Valid && endPoint > rangeStart && endPoint > intervalStart:
+			res, uerr := tx.ExecContext(ctx, `
 				UPDATE job_keyspace_intervals
 				SET range_end = $1, status = 'completed'
 				WHERE id = $2
 				  AND status IN ('assigned', 'running')
 				  AND range_start < $1
 				  AND $1 <= range_end
-			`, restorePoint.Int64, intervalID.UUID)
-			if err != nil {
-				return fmt.Errorf("truncate interval: %w", err)
+			`, endPoint, intervalID.UUID)
+			if uerr != nil {
+				return fmt.Errorf("truncate interval: %w", uerr)
 			}
-			n, _ := res.RowsAffected()
-			if n == 1 {
-				truncated = true
-				// Step 11o: truncate the TASK row to reflect what was
-				// actually completed — not the originally dispatched range.
-				// Update range_end to restore_point, scale
-				// effective_keyspace_end proportionally, set
-				// progress_percent = 100 (the task is fully done for its
-				// new smaller range), and update keyspace_processed to
-				// match. Frontend will then display "X.XXT - Y.YYT |
-				// 100%" honestly instead of the misleading "5.96T - 8.01T
-				// | 79.82%" of the original range.
+			if n, _ := res.RowsAffected(); n != 1 {
+				// Unreachable by construction: status, range_start and
+				// range_end were all read above under FOR UPDATE in this
+				// same transaction, and every predicate of the UPDATE was
+				// re-checked against those values in the case guard. Nobody
+				// else can have changed the row since — that is what the
+				// lock is for.
 				//
-				// The unprocessed remainder (restore_point → old range_end)
-				// becomes a gap automatically because the interval's
-				// range_end was also truncated above.
-				//
-				// The proportional eff_end / eff_processed math uses
-				// existing columns on the task row, so we can do it in
-				// SQL without re-querying.
-				// Proportional-eff math runs in NUMERIC to avoid int64
-				// overflow. Without the cast, ($3 - range_start) ×
-				// (effective_keyspace_end - effective_keyspace_start)
-				// can exceed int64 max (~9.2e18) easily: a 600M base
-				// chunk on a job with a 77× rule multiplier produces
-				// 600M × 46B = 2.8e19, well past the limit. The
-				// overflow surfaces as `pq: bigint out of range` and
-				// leaves the task stuck in 'running' forever because
-				// the sweeper retries the same overflowing SQL.
-				// NUMERIC handles arbitrary precision; we cast the
-				// final value back to bigint for storage.
-				//
-				// Status guard: mirrors the no-progress branch below.
-				// The operator-stop path CANCELS the task first
-				// (JobSchedulingService.StopJob) and only then sends
-				// job_stop; the agent's stop-ack then lands here. Without
-				// the guard that ack would resurrect a 'cancelled' task as
-				// 'completed'. The interval UPDATE above is already
-				// guarded the same way, so a terminal task simply keeps
-				// its status while its interval is still truncated (the
-				// unprocessed remainder correctly re-opens as a gap).
-				//
-				// detailed_status is rewritten too (here and in the
-				// fail branch below): SendJobStop stamps 'stopping' on
-				// the row when it issues the stop, so leaving it alone
-				// would strand a finished task displaying "stopping"
-				// forever. Values match the vocabulary the normal
-				// completion paths use in job_task_repository.go.
-				if _, terr := tx.ExecContext(ctx, `
-					UPDATE job_tasks
-					SET status = 'completed',
-					    range_end = $3,
-					    keyspace_end = $3,
-					    restore_point = $3,
-					    keyspace_processed = $3 - range_start,
-					    progress_percent = 100.0,
-					    effective_keyspace_end = CASE
-					        WHEN effective_keyspace_start IS NOT NULL
-					         AND effective_keyspace_end IS NOT NULL
-					         AND range_end > range_start
-					        THEN effective_keyspace_start +
-					             ( (($3 - range_start)::numeric * (effective_keyspace_end - effective_keyspace_start)::numeric)
-					               / NULLIF((range_end - range_start)::numeric, 0)
-					             )::bigint
-					        ELSE effective_keyspace_end
-					    END,
-					    effective_keyspace_processed = CASE
-					        WHEN effective_keyspace_start IS NOT NULL
-					         AND effective_keyspace_end IS NOT NULL
-					         AND range_end > range_start
-					        THEN ( (($3 - range_start)::numeric * (effective_keyspace_end - effective_keyspace_start)::numeric)
-					               / NULLIF((range_end - range_start)::numeric, 0)
-					             )::bigint
-					        ELSE effective_keyspace_processed
-					    END,
-					    failure_reason = $2,
-					    completed_at = NOW(),
-					    detailed_status = CASE WHEN crack_count > 0
-					        THEN 'completed_with_cracks' ELSE 'completed_no_cracks' END
-					WHERE id = $1
-					  AND status NOT IN ('completed', 'cancelled')
-				`, taskID, reason, restorePoint.Int64); terr != nil {
-					return fmt.Errorf("complete task: %w", terr)
-				}
-
-				// Step 11p: cascade unit/layer/job status pending when work
-				// remains and no other tasks are in flight. Run inside the
-				// same transaction so all updates atomically commit. The
-				// task row survives this branch, so the taskID resolver is
-				// fine here (the no-progress branch below can't use it).
-				cascadePendingFromRecovery(ctx, tx, taskID)
-
-				return nil
+				// This used to be a silent fall-through to the no-progress
+				// path ("truncate-window mismatch (race or already-completed
+				// interval)"), and that fall-through is exactly how GH #79
+				// cancelled a fully-processed task and logged "no progress to
+				// preserve" about it. Do not restore it: if this ever fires,
+				// an assumption above is wrong and rolling the transaction
+				// back is strictly safer than guessing. The task stays
+				// in-flight and the sweeper retries it, loudly, every cycle.
+				debug.Error("recovery: truncate of interval %s for task %s at %d matched %d rows (expected 1) — interval state changed under FOR UPDATE",
+					intervalID.UUID, taskID, endPoint, n)
+				return fmt.Errorf("truncate interval %s: matched %d rows, expected 1", intervalID.UUID, n)
 			}
-			// Truncate-window mismatch (race or already-completed
-			// interval): fall through to the no-progress path.
+			truncated = true
+
+			if terr := completeTaskAtRecoveryPoint(ctx, tx, taskID, reason, endPoint); terr != nil {
+				return terr
+			}
+
+			// Step 11p: cascade unit/layer/job status pending when work
+			// remains and no other tasks are in flight. Run inside the
+			// same transaction so all updates atomically commit. The
+			// task row survives this branch, so the taskID resolver is
+			// fine here (the no-progress branch below can't use it).
+			cascadePendingFromRecovery(ctx, tx, taskID)
+
+			return nil
 		}
 
-		// No-progress branch. hashcat left no resumable restore point, so
-		// the whole [range_start, range_end) range is discarded and
-		// re-opens for the next dispatch cycle. Only the bookkeeping
-		// differs by policy.
+		// No-progress branch. Either hashcat left no resumable restore
+		// point, or the interval that would have carried it is 'failed',
+		// deleted, or was never created. Either way the whole
+		// [range_start, range_end) range is discarded and re-opens for the
+		// next dispatch cycle. Only the bookkeeping differs by policy.
+		//
+		// Deliberately NOT done here: treating restore_point >= range_end as
+		// "the chunk finished, so complete the task" when the interval is
+		// 'failed' or gone. It is tempting — the agent really did process
+		// the range — but the coverage ledger says that range is NOT
+		// covered, so the dispatcher is going to hand it to another task. A
+		// 'completed' task sitting on a range that is about to be redone
+		// double-counts in every coverage / progress / AreAllTasksComplete
+		// query: the mirror image of the bug the covered branch above
+		// exists to fix. The legitimate fully-processed-chunk case needs no
+		// special rule, because with a live interval the truncate branch
+		// already matches at endPoint == range_end.
 		if policy != PolicyFailOnNoProgress {
 			// A zero restore point means the task never got far enough to
 			// produce one — that is not an error, so don't leave a
@@ -354,10 +502,15 @@ func applyRecovery(
 			// delete in job_websocket_integration.go, and keeps the
 			// task -> interval lock order the FOR UPDATE above started.
 			//
-			// The status guard is load-bearing. On a second recovery call
-			// the truncate branch above is re-entered and falls through to
-			// here once its UPDATE matches nothing (the interval is
-			// already 'completed'). Deleting a 'completed' interval would
+			// The status guard is load-bearing. It used to be the last line
+			// of defence for a fall-through that no longer exists (the old
+			// truncate branch dropped into this branch whenever its UPDATE
+			// matched nothing, including when the interval was already
+			// 'completed'), and a 'completed' interval now cannot reach this
+			// DELETE at all — the covered branch above returns first. The
+			// guard stays regardless: this DELETE is by task_id, so it also
+			// sweeps any SIBLING interval the lookup's LEFT JOIN didn't
+			// return, and deleting a 'completed' one of those would
 			// permanently un-cover a range that was already searched.
 			//
 			// Deleting by task_id rather than by intervalID is deliberate:
@@ -409,16 +562,8 @@ func applyRecovery(
 			// regardless.
 			if deletedRows > 0 {
 				discarded = true
-			} else if _, uerr := tx.ExecContext(ctx, `
-				UPDATE job_tasks
-				SET status = 'cancelled',
-				    detailed_status = 'cancelled',
-				    failure_reason = $2,
-				    completed_at = NOW()
-				WHERE id = $1
-				  AND status NOT IN ('completed', 'cancelled')
-			`, taskID, reason); uerr != nil {
-				return fmt.Errorf("cancel task: %w", uerr)
+			} else if cerr := cancelTaskKeepingRow(ctx, tx, taskID, reason); cerr != nil {
+				return cerr
 			}
 		} else {
 			// Fail-both: the caller classified this stop as a real
@@ -465,7 +610,117 @@ func applyRecovery(
 		return nil
 	})
 
-	return truncated, discarded, err
+	return truncated, completed, discarded, err
+}
+
+// completeTaskAtRecoveryPoint is the Step 11o task-completion UPDATE,
+// shared by both branches of applyRecovery that end a task 'completed':
+// the truncate branch (which shortens the interval to endPoint first) and
+// the covered branch (which must not touch the interval at all). It exists
+// as one statement on purpose — every clause below carries a hard-won
+// comment, and a second, drifting copy is how those get lost.
+//
+// endPoint is the CLAMPED completion point computed by applyRecovery, not
+// the raw restore_point.
+//
+// It truncates the TASK row to reflect what was actually completed — not
+// the originally dispatched range. Update range_end to endPoint, scale
+// effective_keyspace_end proportionally, set progress_percent = 100 (the
+// task is fully done for its new smaller range), and update
+// keyspace_processed to match. Frontend will then display
+// "X.XXT - Y.YYT | 100%" honestly instead of the misleading
+// "5.96T - 8.01T | 79.82%" of the original range.
+//
+// In the truncate case the unprocessed remainder (endPoint → old
+// range_end) becomes a gap automatically because the interval's range_end
+// was also truncated by the caller.
+//
+// The proportional eff_end / eff_processed math uses existing columns on
+// the task row, so we can do it in SQL without re-querying.
+// Proportional-eff math runs in NUMERIC to avoid int64 overflow. Without
+// the cast, ($3 - range_start) × (effective_keyspace_end -
+// effective_keyspace_start) can exceed int64 max (~9.2e18) easily: a 600M
+// base chunk on a job with a 77× rule multiplier produces 600M × 46B =
+// 2.8e19, well past the limit. The overflow surfaces as
+// `pq: bigint out of range` and leaves the task stuck in 'running' forever
+// because the sweeper retries the same overflowing SQL. NUMERIC handles
+// arbitrary precision; we cast the final value back to bigint for storage.
+//
+// Status guard: mirrors the no-progress branch's cancel. The operator-stop
+// path CANCELS the task first (JobSchedulingService.StopJob) and only then
+// sends job_stop; the agent's stop-ack then lands here. Without the guard
+// that ack would resurrect a 'cancelled' task as 'completed'. The truncate
+// branch's interval UPDATE is guarded the same way, so a terminal task
+// simply keeps its status while its interval is still truncated (the
+// unprocessed remainder correctly re-opens as a gap).
+//
+// detailed_status is rewritten too (here and in the fail branch):
+// SendJobStop stamps 'stopping' on the row when it issues the stop, so
+// leaving it alone would strand a finished task displaying "stopping"
+// forever. Values match the vocabulary the normal completion paths use in
+// job_task_repository.go.
+func completeTaskAtRecoveryPoint(ctx context.Context, tx *sql.Tx, taskID uuid.UUID, reason string, endPoint int64) error {
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE job_tasks
+		SET status = 'completed',
+		    range_end = $3,
+		    keyspace_end = $3,
+		    restore_point = $3,
+		    keyspace_processed = $3 - range_start,
+		    progress_percent = 100.0,
+		    effective_keyspace_end = CASE
+		        WHEN effective_keyspace_start IS NOT NULL
+		         AND effective_keyspace_end IS NOT NULL
+		         AND range_end > range_start
+		        THEN effective_keyspace_start +
+		             ( (($3 - range_start)::numeric * (effective_keyspace_end - effective_keyspace_start)::numeric)
+		               / NULLIF((range_end - range_start)::numeric, 0)
+		             )::bigint
+		        ELSE effective_keyspace_end
+		    END,
+		    effective_keyspace_processed = CASE
+		        WHEN effective_keyspace_start IS NOT NULL
+		         AND effective_keyspace_end IS NOT NULL
+		         AND range_end > range_start
+		        THEN ( (($3 - range_start)::numeric * (effective_keyspace_end - effective_keyspace_start)::numeric)
+		               / NULLIF((range_end - range_start)::numeric, 0)
+		             )::bigint
+		        ELSE effective_keyspace_processed
+		    END,
+		    failure_reason = $2,
+		    completed_at = NOW(),
+		    detailed_status = CASE WHEN crack_count > 0
+		        THEN 'completed_with_cracks' ELSE 'completed_no_cracks' END
+		WHERE id = $1
+		  AND status NOT IN ('completed', 'cancelled')
+	`, taskID, reason, endPoint); err != nil {
+		return fmt.Errorf("complete task: %w", err)
+	}
+	return nil
+}
+
+// cancelTaskKeepingRow is the 'cancelled' fallback UPDATE, shared by the
+// no-progress branch (where a delete guard blocked or skipped the DELETE)
+// and the covered branch (where deleting the task would orphan coverage
+// that is already booked, so the row must survive whatever happens).
+//
+// 'cancelled' is the codebase's "not an error, don't poison the job"
+// terminal status — never 'failed', which HasFailedTasks (a COUNT(*) > 0)
+// would turn into a permanent job failure. The status guard keeps an
+// already-terminal row exactly as it is.
+func cancelTaskKeepingRow(ctx context.Context, tx *sql.Tx, taskID uuid.UUID, reason string) error {
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE job_tasks
+		SET status = 'cancelled',
+		    detailed_status = 'cancelled',
+		    failure_reason = $2,
+		    completed_at = NOW()
+		WHERE id = $1
+		  AND status NOT IN ('completed', 'cancelled')
+	`, taskID, reason); err != nil {
+		return fmt.Errorf("cancel task: %w", err)
+	}
+	return nil
 }
 
 // cascadePendingFromRecovery mirrors the Step 11n cascades from

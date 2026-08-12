@@ -427,7 +427,7 @@ components:
           description: Job name
         status:
           type: string
-          enum: [pending, running, paused, completed, failed, canceled]
+          enum: [preparing, pending, running, paused, processing, completed, failed, cancelled]
           description: Job status
         priority:
           type: integer
@@ -494,31 +494,91 @@ components:
 
     JobLayer:
       type: object
+      description: >-
+        One increment layer of a job, with its aggregated task statistics. Each layer is a
+        single mask in the increment sequence.
       properties:
         id:
-          type: integer
+          type: string
+          format: uuid
           description: Layer ID
-        job_id:
+        job_execution_id:
           type: string
           format: uuid
           description: Parent job ID
-        min_length:
+        layer_index:
           type: integer
-          description: Minimum password length for this layer
-        max_length:
-          type: integer
-          description: Maximum password length for this layer
+          description: Position of this layer in the increment sequence
+        mask:
+          type: string
+          description: The hashcat mask for this layer (for example `?l?l?l`)
         status:
           type: string
+          enum: [pending, running, paused, completed, failed, cancelled]
           description: Layer status
-        dispatched_percent:
+        base_keyspace:
+          type: integer
+          format: int64
+          nullable: true
+          description: Base keyspace from hashcat `--keyspace`. Null until known
+        effective_keyspace:
+          type: string
+          nullable: true
+          description: >-
+            Keyspace including the rule multiplier, taken from the benchmark's progress[1].
+            Serialized as a decimal string because the value can exceed a 64-bit integer.
+            Null until the layer has been benchmarked
+        processed_keyspace:
+          type: string
+          description: Effective keyspace processed so far, summed over the layer's tasks (decimal string)
+        dispatched_keyspace:
+          type: string
+          description: Effective keyspace dispatched to agents so far (decimal string)
+        is_accurate_keyspace:
+          type: boolean
+          description: True once the layer's keyspace comes from a benchmark rather than an estimate
+        overall_progress_percent:
           type: number
           format: float
-          description: Percentage of layer work dispatched
-        searched_percent:
-          type: number
-          format: float
-          description: Percentage of layer keyspace searched
+          description: Layer progress, 0-100
+        last_progress_update:
+          type: string
+          format: date-time
+          nullable: true
+          description: When this layer last received a progress update
+        total_tasks:
+          type: integer
+          description: Total tasks created for this layer
+        running_tasks:
+          type: integer
+          description: Tasks currently running, assigned or processing
+        completed_tasks:
+          type: integer
+          description: Tasks that completed successfully
+        failed_tasks:
+          type: integer
+          description: Tasks that failed
+        crack_count:
+          type: integer
+          description: Hashes cracked by this layer's tasks
+        error_message:
+          type: string
+          nullable: true
+          description: Failure detail when the layer's status is `failed`
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
 
     Agent:
       type: object
@@ -644,6 +704,10 @@ components:
         created_at:
           type: string
           format: date-time
+        updated_at:
+          type: string
+          format: date-time
+          description: When the workflow was last modified.
 
     PresetJob:
       type: object
@@ -1043,7 +1107,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [pending, running, paused, completed, failed, canceled]
+            enum: [preparing, pending, running, paused, processing, completed, failed, cancelled]
           description: Filter by job status
       responses:
         '200':
@@ -1282,7 +1346,8 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          type: string
+          format: uuid
         description: Layer ID
 
     get:

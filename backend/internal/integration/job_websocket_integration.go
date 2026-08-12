@@ -1922,22 +1922,41 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 				}
 			}
 
-			// Part 18f: ALWAYS trigger HandleHashlistFullyCracked BEFORE the early return
-			// This ensures all jobs on the hashlist are handled even when we return early
-			// for processing mode (waiting for crack batches)
-			if s.hashlistCompletionService != nil {
-				go func() {
-					// Use a background context with timeout to avoid hanging
-					bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-					defer cancel()
-
-					// Pass the triggering task ID to prevent sending stop signal to it
-					taskID := progress.TaskID
-					if err := s.hashlistCompletionService.HandleHashlistFullyCracked(bgCtx, job.HashlistID, &taskID); err != nil {
-						debug.Error("Failed to handle hashlist fully cracked: %v", err)
-					}
-				}()
-			}
+			// Part 18f, contract preserved and ordering fixed: the
+			// hashlist-fully-cracked handler must fire on EVERY path out of this
+			// branch — that is the contract the old "ALWAYS trigger BEFORE the
+			// early return" comment was protecting, and several arms below do
+			// return early. What it must NOT do is fire FIRST.
+			//
+			// It used to be spawned right here, above the SetTaskProcessing call
+			// below. That goroutine reaches
+			// HashlistCompletionService.completeJob, whose reconcile terminalises
+			// this job's non-terminal tasks, while this function still had ~1.1s
+			// of processCrackedHashes work to do before recording the triggering
+			// task as 'processing'. Whether the reconcile observed this task as
+			// 'processing' (with its expected_crack_count set) or still as
+			// 'running' was therefore a coin flip — and losing that flip is how a
+			// task that had finished its whole range and cracked the last hash
+			// got cancelled out from under its own crack handshake, resurrected
+			// to 'processing' by the then-unguarded SetTaskProcessing, and left
+			// sitting there until the agent disconnected and it was mislabelled
+			// as failed.
+			//
+			// A deferred call fixes both halves at once, which is why this is a
+			// defer and not a call duplicated at each exit: registering it here
+			// means no `return` below can skip it (the "always" the old comment
+			// wanted), and running it at function exit means it is strictly AFTER
+			// the SetTaskProcessing handling on every arm, including the arms
+			// that return early (the ordering we need). One registration is
+			// exactly one invocation, so there is no double-fire to guard
+			// against — and a second invocation would mean two concurrent
+			// completion passes over the same hashlist, each stopping the
+			// other's tasks.
+			//
+			// This stays inside the branch where the job lookup succeeded:
+			// without the job we have no HashlistID to hand the handler, exactly
+			// as before.
+			defer s.triggerHashlistFullyCracked(job.HashlistID, progress.TaskID)
 
 			// Set task to processing if we have expected cracks
 			if expectedCracks > 0 {
@@ -1958,12 +1977,53 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 
 				// Set task to processing with expected crack count
 				err = s.jobTaskRepo.SetTaskProcessing(ctx, progress.TaskID, expectedCracks)
-				if err != nil {
+				switch {
+				case errors.Is(err, repository.ErrTaskTerminal):
+					// The task was already finalised by someone else: an
+					// operator stop, a recovery, or another agent's
+					// all-hashes-cracked pass over the same hashlist reaching
+					// HashlistCompletionService.completeJob, whose reconcile
+					// terminalises this job's other non-terminal tasks. (Its
+					// OWN trigger can no longer land here — the spawn is
+					// deferred to after this switch precisely so the reconcile
+					// observes this task as 'processing', and it skips the
+					// triggering task anyway.)
+					//
+					// Before the repository guard existed, this call silently
+					// resurrected such a 'cancelled' row into 'processing',
+					// where nothing was left to move it out; the task sat
+					// there until the agent disconnected and it was
+					// mislabelled as failed. Do NOT resurrect and do NOT fall
+					// through to the completion block below — just ACK so the
+					// agent stops retrying.
+					debug.Info("Task %s already terminal on all-hashes-cracked, not resurrecting to processing: %v",
+						progress.TaskID, err)
+					allCrackedTaskIDStr := progress.TaskID.String()
+					s.cacheCompletion(allCrackedTaskIDStr)
+					s.sendTaskCompleteAck(agentID, allCrackedTaskIDStr, true, "task already terminal")
+					return nil
+				case err != nil:
 					debug.Error("Failed to set task processing for all-hashes-cracked: %v", err)
 					// Continue anyway - hashlist completion will still proceed
-				} else {
+				default:
 					debug.Info("Task set to processing for all-hashes-cracked, waiting for crack batches [task_id=%s, expected_cracks=%d]",
 						progress.TaskID, expectedCracks)
+
+					// The crack batches for this task may already have landed
+					// and been counted while we were doing the ~1s of DB work
+					// above (they arrive on their own goroutines with no
+					// ordering against this message). In that case the
+					// handshake is already satisfied and nobody else will look
+					// again, so re-evaluate from the DB right now.
+					if finalized, ferr := s.TryFinalizeTask(ctx, progress.TaskID); ferr != nil {
+						debug.Warning("Finalization re-check after all-hashes-cracked failed for task %s: %v", progress.TaskID, ferr)
+					} else if finalized {
+						debug.Info("Task %s finalized immediately after all-hashes-cracked (batches had already arrived)", progress.TaskID)
+						// The task is no longer 'processing', so the
+						// job-processing check below would be reasoning about
+						// state that no longer exists.
+						return nil
+					}
 
 					// Check if this was the last task with pending work for the job
 					// If so, set job to processing status as well
@@ -2034,6 +2094,24 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			return nil
 		}
 
+		// Any OTHER terminal status is equally final and must short-circuit
+		// here. 'cancelled' in particular is a deliberate decision made
+		// elsewhere (all-hashes-cracked sibling reconciliation, operator stop),
+		// and this message frequently arrives after it. Without this arm such
+		// a task falls straight through to CompleteTaskAndClearAgentStatus:
+		// the repository's terminal-status guard makes that UPDATE a harmless
+		// no-op, but HandleTaskSuccess, HandleTaskCompletion (which folds an
+		// EMA into the agent's benchmark) and ProcessJobCompletion would all
+		// still run against a row that was finished minutes ago.
+		if dbTask.Status == models.JobTaskStatusCancelled ||
+			dbTask.Status == models.JobTaskStatusFailed ||
+			dbTask.Status == models.JobTaskStatusProcessingError {
+			debug.Info("Task %s is terminal (%s), ignoring completion message and sending ACK", progress.TaskID, dbTask.Status)
+			s.cacheCompletion(taskIDStr)
+			s.sendTaskCompleteAck(agentID, taskIDStr, true, "task already terminal")
+			return nil
+		}
+
 		debug.Log("Task completed", map[string]interface{}{
 			"task_id":          progress.TaskID,
 			"progress_percent": progress.ProgressPercent,
@@ -2055,16 +2133,46 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 
 			// Set task to processing with expected crack count
 			err = s.jobTaskRepo.SetTaskProcessing(ctx, progress.TaskID, progress.CrackedCount)
-			if err != nil {
+			switch {
+			case errors.Is(err, repository.ErrTaskTerminal):
+				// Another path already finalised this task (sibling
+				// reconciliation to 'cancelled', operator stop, an earlier
+				// completion). The old code's "// Fall through to complete
+				// anyway on error" comment treated every failure here as a
+				// reason to complete the task — which, now that the guard
+				// makes this call fail on terminal rows, would mean running
+				// the whole completion block against a task that was
+				// deliberately cancelled. This arm is exactly what prevents
+				// that: ACK the agent and stop.
+				debug.Info("Task %s already terminal, not resurrecting to processing: %v", progress.TaskID, err)
+				s.cacheCompletion(taskIDStr)
+				s.sendTaskCompleteAck(agentID, taskIDStr, true, "task already terminal")
+				return nil
+			case err != nil:
 				debug.Error("Failed to set task processing: %v", err)
 				// Fall through to complete anyway on error
-			} else {
+			default:
 				// Don't clear agent busy status yet - agent will send crack_batches_complete signal
 				// Agent is free to take new work after sending completion signal
 				debug.Log("Task set to processing, waiting for crack batches", map[string]interface{}{
 					"task_id":         progress.TaskID,
 					"expected_cracks": progress.CrackedCount,
 				})
+
+				// The crack batches and the crack_batches_complete signal for
+				// this task may already have arrived and satisfied the
+				// handshake while this message was doing DB work — they run on
+				// unordered goroutines, and the complete-signal path is
+				// synchronous on the readPump so it routinely overtakes us.
+				// Whoever runs last must finish the task; right now that is us.
+				if finalized, ferr := s.TryFinalizeTask(ctx, progress.TaskID); ferr != nil {
+					debug.Warning("Finalization re-check after set-processing failed for task %s: %v", progress.TaskID, ferr)
+				} else if finalized {
+					debug.Info("Task %s finalized immediately after being set to processing (handshake already satisfied)", progress.TaskID)
+					// No longer 'processing' — skip the job-processing check,
+					// which exists to describe tasks still awaiting batches.
+					return nil
+				}
 
 				// Check if this was the last task with pending work for the job
 				// If so, set job to processing status as well
@@ -2082,15 +2190,28 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 		// Mark task as complete AND clear agent busy status atomically
 		if task.AgentID != nil {
 			err = s.jobTaskRepo.CompleteTaskAndClearAgentStatus(ctx, progress.TaskID, *task.AgentID)
-			if err != nil {
-				debug.Error("Failed to atomically complete task and clear agent status: %v", err)
-			}
 		} else {
 			// No agent ID - just complete the task
 			err = s.jobTaskRepo.CompleteTask(ctx, progress.TaskID)
-			if err != nil {
-				debug.Error("Failed to mark task as complete: %v", err)
-			}
+		}
+		// The dbTask status pre-check above already short-circuits on a task
+		// that was terminal when we looked, but it is a snapshot: a
+		// cancellation or a concurrent handshake completion can land in the
+		// window between that read and this UPDATE. The repository guard
+		// turns that into ErrTaskTerminal instead of silently overwriting the
+		// row — and if it fires we must NOT continue into the once-only side
+		// effects below (HandleTaskCompletion folds an EMA into the agent's
+		// benchmark; the completion notification would fire a second time).
+		// ACK the agent so it stops retrying and stop here.
+		if errors.Is(err, repository.ErrTaskTerminal) {
+			debug.Info("Task %s became terminal before the zero-crack completion landed, skipping duplicate side effects: %v",
+				progress.TaskID, err)
+			s.cacheCompletion(taskIDStr)
+			s.sendTaskCompleteAck(agentID, taskIDStr, true, "task already terminal")
+			return nil
+		}
+		if err != nil {
+			debug.Error("Failed to complete task %s: %v", progress.TaskID, err)
 		}
 
 		// Reset consecutive failure counters on success
@@ -2159,6 +2280,40 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 	return nil
 }
 
+// triggerHashlistFullyCracked kicks off the hashlist-completion pass (stop
+// sibling tasks, complete or delete every job on the hashlist) on its own
+// goroutine.
+//
+// Split out of HandleJobProgress's all-hashes-cracked branch purely so that
+// branch can `defer` it: the handler must run on every path out of that branch,
+// but it must not run before the triggering task has been recorded as
+// 'processing'. See the call site for the race that ordering closes.
+//
+// taskID is passed through as the triggering task so the completion service
+// leaves it alone — no stop signal, and no reconcile to 'cancelled' — while its
+// crack handshake finishes.
+//
+// The goroutine deliberately uses a fresh background context with its own
+// timeout rather than the caller's: the caller is a WebSocket message handler
+// whose context is cancelled the moment it returns, while this pass touches
+// every job on the hashlist and can outlive it.
+func (s *JobWebSocketIntegration) triggerHashlistFullyCracked(hashlistID int64, taskID uuid.UUID) {
+	if s.hashlistCompletionService == nil {
+		return
+	}
+
+	go func() {
+		// Use a background context with timeout to avoid hanging
+		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+
+		// Pass the triggering task ID to prevent sending stop signal to it
+		if err := s.hashlistCompletionService.HandleHashlistFullyCracked(bgCtx, hashlistID, &taskID); err != nil {
+			debug.Error("Failed to handle hashlist fully cracked: %v", err)
+		}
+	}()
+}
+
 // absInt64 returns the absolute value of an int64
 func absInt64(x int64) int64 {
 	if x < 0 {
@@ -2224,19 +2379,31 @@ func (s *JobWebSocketIntegration) HandleCrackBatch(ctx context.Context, agentID 
 				"task_id":    crackBatch.TaskID,
 				"batch_size": len(crackBatch.CrackedHashes),
 			})
-
-			// Check if task is ready to complete (only if in processing status)
-			if task.Status == models.JobTaskStatusProcessing {
-				ready, err := s.jobTaskRepo.CheckTaskReadyToComplete(ctx, crackBatch.TaskID)
-				if err != nil {
-					debug.Error("Failed to check if task ready to complete: %v", err)
-				} else if ready {
-					debug.Info("Task %s has received all expected crack batches and agent signaled complete - completing task",
-						crackBatch.TaskID)
-					s.checkTaskCompletion(ctx, crackBatch.TaskID)
-				}
-			}
 		}
+	}
+
+	// Re-evaluate completion from the DATABASE, unconditionally.
+	//
+	// This is the call that would have saved the incident task. The old code
+	// gated this on the in-memory `task.Status == processing` snapshot taken by
+	// the GetByID at the top of this function — before roughly a second of hash
+	// persistence work. In the incident the crack_batches_complete signal
+	// (handled synchronously on the readPump) overtook this batch (handled on a
+	// goroutine behind a semaphore), so the task only became 'processing'
+	// AFTER our snapshot said 'running'. The batch that finally satisfied
+	// expected==received therefore never triggered a completion check, and the
+	// task stayed in 'processing' until the agent disconnected.
+	//
+	// It is also deliberately OUTSIDE the len(CrackedHashes) > 0 block and
+	// outside the increment-succeeded branch: an empty batch, or a batch whose
+	// counter increment failed, can still be the last message that arrives
+	// after the handshake became satisfied by other means, and it must still
+	// force a re-evaluation. TryFinalizeTask is idempotent and cheap when the
+	// task is not ready.
+	if finalized, ferr := s.TryFinalizeTask(ctx, crackBatch.TaskID); ferr != nil {
+		debug.Warning("Finalization re-check after crack batch failed for task %s: %v", crackBatch.TaskID, ferr)
+	} else if finalized {
+		debug.Info("Task %s completed by crack batch arrival (handshake satisfied)", crackBatch.TaskID)
 	}
 
 	return nil
@@ -2440,27 +2607,19 @@ func (s *JobWebSocketIntegration) HandleCrackBatchesComplete(ctx context.Context
 		}
 	}
 
-	// Check if task is ready to complete
-	if task.Status == models.JobTaskStatusProcessing {
-		ready, err := s.jobTaskRepo.CheckTaskReadyToComplete(ctx, message.TaskID)
-		if err != nil {
-			debug.Error("Failed to check if task ready to complete: %v", err)
-			return err
-		}
-
-		if ready {
-			debug.Info("Task %s ready to complete after crack_batches_complete signal", message.TaskID)
-			s.checkTaskCompletion(ctx, message.TaskID)
-		} else {
-			debug.Log("Task %s not ready to complete yet (waiting for more crack batches)", map[string]interface{}{
-				"task_id": message.TaskID,
-			})
-		}
+	// Re-evaluate completion from the DATABASE.
+	//
+	// The removed version gated on the in-memory task.Status snapshot and, when
+	// that snapshot was anything other than 'processing', logged a warning and
+	// did nothing — even though this signal is frequently the one that
+	// completes the handshake. It races the job_progress message that sets the
+	// task to 'processing' (separate goroutine) as well as the crack batches
+	// themselves (goroutine + semaphore), so the snapshot is routinely wrong.
+	// TryFinalizeTask re-reads the authoritative state instead.
+	if finalized, ferr := s.TryFinalizeTask(ctx, message.TaskID); ferr != nil {
+		debug.Warning("Finalization re-check after crack_batches_complete failed for task %s: %v", message.TaskID, ferr)
 	} else {
-		debug.Warning("Received crack_batches_complete for task not in processing status", map[string]interface{}{
-			"task_id": message.TaskID,
-			"status":  task.Status,
-		})
+		debug.Debug("Finalization re-check after crack_batches_complete for task %s: finalized=%v", message.TaskID, finalized)
 	}
 
 	return nil
@@ -2568,13 +2727,33 @@ func (s *JobWebSocketIntegration) checkJobProcessingStatus(ctx context.Context, 
 	}
 }
 
-// checkTaskCompletion completes a task that has received all crack batches
-func (s *JobWebSocketIntegration) checkTaskCompletion(ctx context.Context, taskID uuid.UUID) {
+// checkTaskCompletion completes a task that has received all crack batches.
+//
+// Returns true ONLY when THIS call performed the terminal transition, i.e. when
+// its guarded UPDATE actually moved the row. Every other outcome — task gone,
+// DB error, or another path having already finalised the task
+// (repository.ErrTaskTerminal) — returns false BEFORE any side effect runs.
+//
+// The return value is load-bearing, not cosmetic. Everything below the
+// completion UPDATE must run exactly once per task:
+//   - jobExecutionService.HandleTaskCompletion folds this task's observed speed
+//     into the agent's benchmark with an EMA. Applying it twice silently skews
+//     the cached benchmark, which then mis-sizes every future chunk for that
+//     agent — a corruption with no error and no log to trace it back to.
+//   - dispatchTaskCompletedNotification would fire a second "task complete"
+//     notification to the user.
+//   - ProcessJobCompletion / HandleTaskSuccess would re-run job-level cascades
+//     against an already-finished job.
+//
+// Since multiple crack-handshake paths can now legitimately call this
+// concurrently (see TryFinalizeTask), the ErrTaskTerminal arm is the thing that
+// keeps "whoever runs last wins" from becoming "everyone runs".
+func (s *JobWebSocketIntegration) checkTaskCompletion(ctx context.Context, taskID uuid.UUID) bool {
 	// Get task
 	task, err := s.jobTaskRepo.GetByID(ctx, taskID)
 	if err != nil {
 		debug.Error("Failed to get task for completion: %v", err)
-		return
+		return false
 	}
 
 	// Mark task as complete AND ensure agent busy status is cleared atomically
@@ -2582,15 +2761,26 @@ func (s *JobWebSocketIntegration) checkTaskCompletion(ctx context.Context, taskI
 	// atomic operation is idempotent and ensures consistency
 	if task.AgentID != nil {
 		err = s.jobTaskRepo.CompleteTaskAndClearAgentStatus(ctx, taskID, *task.AgentID)
+		if errors.Is(err, repository.ErrTaskTerminal) {
+			// Lost the race: another handshake path (or a deliberate
+			// cancellation) already terminalised this task. Not an error —
+			// bail out before the once-only side effects below.
+			debug.Info("Task %s already terminal, skipping duplicate completion side effects: %v", taskID, err)
+			return false
+		}
 		if err != nil {
 			debug.Error("Failed to atomically complete task and clear agent status: %v", err)
-			return
+			return false
 		}
 	} else {
 		err = s.jobTaskRepo.CompleteTask(ctx, taskID)
+		if errors.Is(err, repository.ErrTaskTerminal) {
+			debug.Info("Task %s already terminal, skipping duplicate completion side effects: %v", taskID, err)
+			return false
+		}
 		if err != nil {
 			debug.Error("Failed to mark task as complete: %v", err)
-			return
+			return false
 		}
 	}
 
@@ -2637,6 +2827,58 @@ func (s *JobWebSocketIntegration) checkTaskCompletion(ctx context.Context, taskI
 	if task.AgentID != nil {
 		s.sendTaskCompleteAck(*task.AgentID, taskIDStr, true, "")
 	}
+
+	return true
+}
+
+// TryFinalizeTask re-evaluates, from the DATABASE, whether a task has
+// satisfied its crack handshake, and completes it if so.
+//
+// The three signals that satisfy a task's crack handshake arrive on three
+// independently-scheduled paths — job_progress (bare goroutine), crack_batch
+// (goroutine + semaphore), crack_batches_complete (synchronous on the
+// readPump). Nothing orders them. Every gate that used to guard completion
+// read an in-memory task.Status snapshot taken before ~1s of DB work and lost
+// that race: the "complete" signal could beat its own final batch, the batch
+// could then arrive and satisfy the counters, and no one would be left to
+// notice. Replace ordering assumptions with an idempotent, DB-driven
+// re-evaluation called from every point where the handshake might have just
+// become satisfied. Whoever runs last wins.
+//
+// The two pre-checks below (status == processing, CheckTaskReadyToComplete)
+// are ADVISORY ONLY. They exist to avoid the expensive completion path on the
+// overwhelmingly common not-yet-ready call; both read possibly-stale state and
+// both may be wrong under concurrency. Correctness does not depend on them —
+// it rests entirely on the terminal-status guard in the repository's
+// completion UPDATE, which lets exactly one racing caller move the row.
+//
+// Returns true only when this call performed the completion.
+//
+// Exported because JobCleanupService calls it across a package boundary when
+// sweeping tasks that have been stuck in 'processing'.
+func (s *JobWebSocketIntegration) TryFinalizeTask(ctx context.Context, taskID uuid.UUID) (bool, error) {
+	task, err := s.jobTaskRepo.GetByID(ctx, taskID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get task %s for finalization: %w", taskID, err)
+	}
+
+	// Advisory: only a task awaiting crack batches can be finalized by the
+	// handshake. Anything else (still running, already terminal) is not ours
+	// to complete.
+	if task.Status != models.JobTaskStatusProcessing {
+		return false, nil
+	}
+
+	// Advisory: signaled && received >= expected.
+	ready, err := s.jobTaskRepo.CheckTaskReadyToComplete(ctx, taskID)
+	if err != nil {
+		return false, fmt.Errorf("failed to check task %s ready to complete: %w", taskID, err)
+	}
+	if !ready {
+		return false, nil
+	}
+
+	return s.checkTaskCompletion(ctx, taskID), nil
 }
 
 // dispatchTaskCompletedNotification sends a task completion notification if applicable
@@ -3962,6 +4204,7 @@ func (s *JobWebSocketIntegration) HandleAgentDisconnection(ctx context.Context, 
 				"agent_id":  agentID,
 				"job_id":    task.JobExecutionID,
 				"truncated": res.Truncated,
+				"completed": res.Completed,
 				"discarded": res.Discarded,
 			})
 			continue
@@ -4407,8 +4650,11 @@ const (
 	retransmitMaxRetries = 6 // 6 retries total = ~3 minutes with 30 second intervals
 )
 
-// handleCrackCountMismatch handles when received crack count doesn't match expected
-// It implements retry logic with exponential backoff before marking task as processing_error
+// handleCrackCountMismatch handles when received crack count doesn't match expected.
+// It implements retry logic with exponential backoff; once the retries are
+// exhausted it writes no status at all and hands the task to the
+// stale-processing backstop in services/job_cleanup_service.go (see the
+// retransmitMaxRetries branch below for why).
 func (s *JobWebSocketIntegration) handleCrackCountMismatch(ctx context.Context, agentID int, taskID uuid.UUID, expected, received int) error {
 	// Get current retransmit count from task
 	task, err := s.jobTaskRepo.GetByID(ctx, taskID)
@@ -4423,19 +4669,30 @@ func (s *JobWebSocketIntegration) handleCrackCountMismatch(ctx context.Context, 
 	}
 
 	if retransmitCount >= retransmitMaxRetries {
-		// Exhausted retries - mark task as processing_error
-		errorMsg := fmt.Sprintf("crack count mismatch after %d retries: expected %d, received %d",
-			retransmitMaxRetries, expected, received)
-
-		debug.Error("Task %s: exhausted %d retries, %s - marking as processing_error",
-			taskID, retransmitMaxRetries, errorMsg)
+		// Exhausted retries - abandon the crack handshake for this task.
+		//
+		// We deliberately write NO status here. The previous code called
+		// SetTaskProcessingError, which was broken twice over:
+		//  1. 'processing_error' is not in the valid_task_status CHECK
+		//     constraint on job_tasks, so the UPDATE always failed with a
+		//     constraint violation and the task never moved at all; and
+		//  2. had it worked, HasFailedTasks counts processing_error, so
+		//     FailExecution would have permanently failed the whole job over a
+		//     keyspace range that is perfectly recoverable — the cracks we do
+		//     have are already persisted, and the range can simply be re-run.
+		//
+		// The task is now owned by the stale-processing backstop in
+		// services/job_cleanup_service.go, which terminalises tasks stuck in
+		// 'processing' without poisoning their job.
+		debug.Error("Task %s: exhausted %d retransmit retries (expected %d, received %d) - abandoning crack handshake; leaving task for the stale-processing backstop",
+			taskID, retransmitMaxRetries, expected, received)
 
 		// Send delete approval to the agent that sent the message (they have the outfile)
 		// Use agentID (sender) instead of task.AgentID which may be NULL
 		// Use received count as expected - agent should have at least this many in outfile
 		s.sendOutfileDeleteApproval(ctx, agentID, taskID, received, true)
 
-		return s.jobTaskRepo.SetTaskProcessingError(ctx, taskID, errorMsg)
+		return nil
 	}
 
 	debug.Warning("Task %s: retry %d/%d for crack retransmission (expected %d, received %d)",
@@ -4605,11 +4862,43 @@ func (s *JobWebSocketIntegration) processRetransmitCompletion(ctx context.Contex
 	debug.Info("Retransmit verification PASSED: %d duplicates + %d new = %d total (expected %d) [task=%s]",
 		duplicateCount, len(newCracks), totalVerified, task.ExpectedCrackCount, taskID)
 
+	// handleRetransmitBatch collects batches instead of processing them per
+	// message, so it never calls IncrementReceivedCrackCount; and the
+	// crack_batches_complete that drove us here short-circuited on
+	// IsRetransmit before MarkBatchesComplete. Both counters therefore still
+	// claim the handshake is unsatisfied even though we have just PROVEN
+	// every crack is accounted for. Without this reconciliation the task can
+	// never leave 'processing' by any path.
+	if err := s.jobTaskRepo.SetReceivedCrackCount(ctx, taskID, totalVerified); err != nil {
+		// Log, don't return: the cracks are safely persisted, and the
+		// stale-processing backstop can still terminalise the task. Returning
+		// here would also skip the delete approval and strand the agent's
+		// outfile.
+		debug.Error("Failed to reconcile received crack count to %d after verified retransmit [task=%s]: %v",
+			totalVerified, taskID, err)
+	}
+	if err := s.jobTaskRepo.MarkBatchesComplete(ctx, taskID); err != nil {
+		debug.Error("Failed to mark batches complete after verified retransmit [task=%s]: %v", taskID, err)
+	}
+
 	// Use task.ExpectedCrackCount directly - we already verified totalVerified matches it
 	// Don't use CountCrackedByTaskID as it returns 0 when the crack was originally from a different task
 	if err := s.sendOutfileDeleteApproval(ctx, agentID, taskID, task.ExpectedCrackCount, true); err != nil {
 		debug.Warning("Failed to send outfile delete approval: %v", err)
 		// Don't fail - cracks are already processed
+	}
+
+	// No exit path in this function used to perform ANY terminal transition,
+	// and the post-retransmit crack_batches_complete carries IsRetransmit=true
+	// so HandleCrackBatchesComplete short-circuits before its own completion
+	// logic and is never re-entered for this task. This call is therefore the
+	// ONLY thing that can finish a task recovered by retransmit.
+	if finalized, ferr := s.TryFinalizeTask(ctx, taskID); ferr != nil {
+		debug.Warning("Finalization re-check after verified retransmit failed for task %s: %v", taskID, ferr)
+	} else if finalized {
+		debug.Info("Task %s completed after verified retransmit recovery", taskID)
+	} else {
+		debug.Debug("Task %s not finalized after verified retransmit (not in processing or handshake still unsatisfied)", taskID)
 	}
 
 	return nil
@@ -4805,19 +5094,41 @@ func (s *JobWebSocketIntegration) ProcessPendingOutfiles(ctx context.Context, ag
 			continue
 		}
 
-		// Check if task is completed (all cracks processed)
-		if task.Status == models.JobTaskStatusCompleted {
-			// Task is complete, safe to delete the outfile
-			// Use task.ExpectedCrackCount instead of CountCrackedByTaskID
-			// CountCrackedByTaskID returns 0 when cracks were originally from a different task
+		// Terminal task. The outfile is only safe to delete once the DATABASE
+		// actually holds the cracks it contains — terminal status alone is not
+		// enough, and conflating the two loses plaintexts permanently.
+		//
+		// Why the received-count guard is load-bearing: expected_crack_count is
+		// hashcat's own count for the chunk, i.e. exactly the outfile's line
+		// count. The agent's only safety check is
+		// `actualCount != approval.ExpectedLineCount` (agent connection.go), so
+		// approving with expected_crack_count ALWAYS matches and the agent
+		// always deletes. If received_crack_count is lower — the handshake was
+		// abandoned mid-transfer and the stale-processing backstop terminalised
+		// the task, or recovery completed it at a restore point — the cracks the
+		// DB never got are destroyed with the file. Worse, if recovery booked the
+		// range as covered, they are never re-found either.
+		//
+		// So: counts satisfied → approve. Counts short → ask for the outfile
+		// again. The retransmit path works fine against a terminal task
+		// (HandleCrackBatch and HandleCrackBatchesComplete both skip the
+		// agent-ownership check for retransmits, processCrackedHashes does not
+		// gate on task status, and processRetransmitCompletion sends its own
+		// delete approval once it has verified), so this terminates rather than
+		// looping.
+		if task.Status == models.JobTaskStatusCompleted ||
+			task.Status == models.JobTaskStatusCancelled ||
+			task.Status == models.JobTaskStatusFailed ||
+			task.Status == models.JobTaskStatusProcessingError {
 			expectedCount := task.ExpectedCrackCount
-			debug.Info("Agent %d: task %s is completed, sending delete approval (expected_line_count=%d)", agentID, taskID, expectedCount)
-			s.sendOutfileDeleteApproval(ctx, agentID, taskID, expectedCount, true)
-		} else if task.Status == models.JobTaskStatusProcessingError {
-			// Task had a processing error, but we've exhausted retries - delete the outfile
-			// Use task.ExpectedCrackCount instead of CountCrackedByTaskID
-			expectedCount := task.ExpectedCrackCount
-			debug.Info("Agent %d: task %s has processing_error status, sending delete approval (expected_line_count=%d)", agentID, taskID, expectedCount)
+			if task.ReceivedCrackCount < expectedCount {
+				debug.Warning("Agent %d: task %s is terminal (%s) but the database is short of its cracks (expected %d, received %d) - requesting retransmit before approving outfile deletion",
+					agentID, taskID, task.Status, expectedCount, task.ReceivedCrackCount)
+				s.requestCrackRetransmit(ctx, agentID, taskID, expectedCount)
+				continue
+			}
+			debug.Info("Agent %d: task %s is terminal (%s) and its cracks are persisted, sending delete approval (expected_line_count=%d)",
+				agentID, taskID, task.Status, expectedCount)
 			s.sendOutfileDeleteApproval(ctx, agentID, taskID, expectedCount, true)
 		} else {
 			// Task is not complete - request retransmit
@@ -4872,5 +5183,101 @@ func (s *JobWebSocketIntegration) ProcessOutfileDeleteRejected(ctx context.Conte
 	// Use the actual count as the expected count for the new retransmit
 	s.requestCrackRetransmit(ctx, agentID, taskID, int(rejection.ActualLineCount))
 
+	return nil
+}
+
+// AbandonProcessingTask gives up on a task's crack handshake and releases its
+// keyspace. Routed through scheduler.RecoverStoppedTaskWithCracksByID
+// (PolicyCancelOnNoProgress) deliberately:
+//
+//   - With a usable restore point — including a restore point that reaches the
+//     end of the dispatched range, and including an interval another path
+//     already promoted to 'completed' — the policy TRUNCATES the interval and
+//     COMPLETES the task, preserving every unit of work the agent actually did.
+//     Only the unprocessed remainder re-opens as a gap.
+//
+//   - With no usable restore point it CANCELS the task rather than deleting it.
+//     A task in 'processing' had, by definition, cracks in flight: that is the
+//     only way it left 'running'. Deleting the row would NULL
+//     hashes.cracked_by_task_id (ON DELETE SET NULL, migration 000098), and
+//     LoopbackRepository.GetNewDeltaPlaintexts INNER JOINs job_tasks on that
+//     column — so the plaintext would silently vanish from the loopback delta
+//     even though the hash stays cracked. PolicyCancelOnNoProgress skips the
+//     delete for exactly this reason (see its doc comment in
+//     services/scheduler/recovery.go); the interval is discarded either way, so
+//     the range re-opens regardless.
+//
+//   - It NEVER writes 'failed', on any branch. HasFailedTasks is a COUNT(*) > 0,
+//     not a threshold, so a single 'failed' row makes CompleteJobExecution call
+//     FailExecution and permanently fails a job whose keyspace is entirely
+//     recoverable. Abandoning a crack handshake is a bookkeeping give-up, not a
+//     job failure — that conflation is exactly what the deleted
+//     SetTaskProcessingError would have caused had its status value been legal.
+//
+// Called by JobCleanupService's stale-processing backstop across a package
+// boundary (services cannot import services/scheduler without an import cycle),
+// via the StuckProcessingHandler interface.
+func (s *JobWebSocketIntegration) AbandonProcessingTask(ctx context.Context, taskID uuid.UUID, reason string) error {
+	debug.Warning("Abandoning crack handshake for task %s: %s", taskID, reason)
+
+	// Same handle construction as every other scheduler.Recover*ByID call site
+	// in this file (see ClearStoppedTaskAgent and HandleAgentDisconnection):
+	// s.db is a *sql.DB, the scheduler wants the project's *db.DB wrapper.
+	database := &db.DB{DB: s.db}
+
+	res, rerr := scheduler.RecoverStoppedTaskWithCracksByID(ctx, database, taskID, reason)
+	if rerr != nil {
+		if errors.Is(rerr, scheduler.ErrTaskGone) {
+			// Some other benign-stop path discarded the row between the
+			// sweep's read and this call. The range is free, which is all we
+			// wanted — not a fault.
+			debug.Info("Abandon of processing task %s: task already recovered and discarded", taskID)
+			return nil
+		}
+		return fmt.Errorf("failed to abandon processing task %s: %w", taskID, rerr)
+	}
+
+	if !res.Handled {
+		// LEGACY task (no scheduling_unit_id): there is no keyspace interval to
+		// release and the scheduler wrote nothing at all. Left alone, the task
+		// would stay 'processing' and the backstop would rediscover it every
+		// tick forever — the same non-termination in a different costume. Mark
+		// it 'cancelled' directly, matching the status the v2 no-progress
+		// branch would have chosen, and clear the agent's busy flag so the
+		// agent isn't stranded as occupied by a task nobody is waiting on.
+		// (ClearStoppedTaskAgent takes the same Handled == false fallback
+		// shape for legacy rows.)
+		//
+		// CancelTask is NOT usable here: its WHERE clause is
+		// `status IN ('pending','assigned','running')`, which excludes the very
+		// status we are trying to leave.
+		task, terr := s.jobTaskRepo.GetByID(ctx, taskID)
+		if terr != nil || task == nil {
+			return fmt.Errorf("failed to re-read legacy processing task %s before cancelling: %w", taskID, terr)
+		}
+		// Re-checked here because CancelTaskAndClearAgentStatus has no
+		// terminal-status guard of its own: if a crack batch landed and
+		// completed this task between the sweep's listing and this call,
+		// cancelling would overwrite a legitimate 'completed'.
+		if task.Status != models.JobTaskStatusProcessing {
+			debug.Info("Abandon of legacy processing task %s: already terminal (%s), nothing to do", taskID, task.Status)
+			return nil
+		}
+		agentID := 0
+		if task.AgentID != nil {
+			agentID = *task.AgentID
+		}
+		// agentID 0 when the link was already cleared: the agent-side UPDATE
+		// then matches no row, which is the correct outcome — the task-side
+		// UPDATE is the part that has to land.
+		if cerr := s.jobTaskRepo.CancelTaskAndClearAgentStatus(ctx, taskID, agentID); cerr != nil {
+			return fmt.Errorf("failed to cancel legacy processing task %s: %w", taskID, cerr)
+		}
+		debug.Warning("Abandoned LEGACY processing task %s (no scheduling_unit_id) by cancelling it: %s", taskID, reason)
+		return nil
+	}
+
+	debug.Info("Abandoned processing task %s (truncated=%v, completed=%v, discarded=%v): %s",
+		taskID, res.Truncated, res.Completed, res.Discarded, reason)
 	return nil
 }

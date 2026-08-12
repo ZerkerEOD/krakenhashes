@@ -23,10 +23,14 @@ type EvictedTask struct {
 	Reason       string
 
 	// Truncated: progress was preserved and the remainder re-opened as a
-	// gap. Discarded: no resumable progress, so the task and interval
-	// rows were deleted outright. Both false means the rows were left
-	// behind in a terminal state (cancelled by a delete guard).
+	// gap. Completed: the interval already read 'completed', so the range
+	// was already accounted for and the task was completed without
+	// touching it (GH #79 — see RecoverResult.Completed). Discarded: no
+	// resumable progress, so the task and interval rows were deleted
+	// outright. All three false means the rows were left behind in a
+	// terminal state (cancelled by a guard).
 	Truncated bool
+	Completed bool
 	Discarded bool
 }
 
@@ -163,12 +167,13 @@ func EvictTimedOutTasks(
 			ev.IntervalID = s.IntervalID.UUID
 		}
 
-		truncated, discarded, err := evictOne(ctx, database, s.TaskID, s.IntervalID, s.RangeStart, s.RestorePoint)
+		truncated, completed, discarded, err := evictOne(ctx, database, s.TaskID, s.IntervalID, s.RangeStart, s.RangeEnd, s.RestorePoint)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("sweeper: evict task %s: %w", s.TaskID, err))
 			continue
 		}
 		ev.Truncated = truncated
+		ev.Completed = completed
 		ev.Discarded = discarded
 		evicted = append(evicted, ev)
 	}
@@ -223,8 +228,13 @@ func RecoverStrandedPendingTasks(
 		minAgeSeconds = 120
 	}
 
+	// range_end is selected (and NOT NULL-guarded, as range_start already
+	// was) because applyRecovery needs the task's dispatched end to clamp
+	// a restore_point that overshoots it and to tell a fully-processed
+	// chunk from a partial one. Scanning it into a plain int64 is only
+	// safe because of that IS NOT NULL predicate.
 	const query = `
-		SELECT t.id, t.range_start, t.restore_point, i.id
+		SELECT t.id, t.range_start, t.range_end, t.restore_point, i.id
 		FROM job_tasks t
 		JOIN job_keyspace_intervals i ON i.task_id = t.id
 		WHERE t.scheduling_unit_id IS NOT NULL
@@ -245,13 +255,14 @@ func RecoverStrandedPendingTasks(
 	type stranded struct {
 		TaskID       uuid.UUID
 		RangeStart   int64
+		RangeEnd     int64
 		RestorePoint sql.NullInt64
 		IntervalID   uuid.NullUUID
 	}
 	var strandedTasks []stranded
 	for rows.Next() {
 		var s stranded
-		if err := rows.Scan(&s.TaskID, &s.RangeStart, &s.RestorePoint, &s.IntervalID); err != nil {
+		if err := rows.Scan(&s.TaskID, &s.RangeStart, &s.RangeEnd, &s.RestorePoint, &s.IntervalID); err != nil {
 			errs = append(errs, fmt.Errorf("sweeper: scan stranded task: %w", err))
 			continue
 		}
@@ -263,7 +274,7 @@ func RecoverStrandedPendingTasks(
 	rows.Close()
 
 	for _, s := range strandedTasks {
-		if _, _, err := applyRecovery(ctx, database, s.TaskID, s.IntervalID, s.RangeStart, s.RestorePoint,
+		if _, _, _, err := applyRecovery(ctx, database, s.TaskID, s.IntervalID, s.RangeStart, s.RangeEnd, s.RestorePoint,
 			"stranded pending task reclaimed", PolicyDiscardOnNoProgress); err != nil {
 			errs = append(errs, fmt.Errorf("sweeper: recover stranded task %s: %w", s.TaskID, err))
 			continue
@@ -288,8 +299,9 @@ func evictOne(
 	taskID uuid.UUID,
 	intervalID uuid.NullUUID,
 	rangeStart int64,
+	rangeEnd int64,
 	restorePoint sql.NullInt64,
-) (truncated bool, discarded bool, err error) {
-	return applyRecovery(ctx, database, taskID, intervalID, rangeStart, restorePoint,
+) (truncated bool, completed bool, discarded bool, err error) {
+	return applyRecovery(ctx, database, taskID, intervalID, rangeStart, rangeEnd, restorePoint,
 		"heartbeat timeout", PolicyDiscardOnNoProgress)
 }

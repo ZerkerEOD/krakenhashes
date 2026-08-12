@@ -907,9 +907,43 @@ func (r *JobTaskRepository) CompleteTask(ctx context.Context, id uuid.UUID) erro
 	// Update both status and detailed_status to maintain database constraint consistency
 	// Use COALESCE to preserve cracking_completed_at if already set (cracks > 0 path),
 	// otherwise set it to completed_at (0 cracks path - hashcat finished at same time as completion)
-	query := `UPDATE job_tasks SET status = $1, detailed_status = $2, completed_at = $3, progress_percent = 100,
-		cracking_completed_at = COALESCE(cracking_completed_at, $3) WHERE id = $4`
-	result, err := r.db.ExecContext(ctx, query, models.JobTaskStatusCompleted, "completed_no_cracks", now, id)
+	//
+	// detailed_status is derived in SQL rather than passed in: the caller does
+	// not reliably know the final crack count (crack batches land on their own
+	// goroutines and may have bumped crack_count after the caller's snapshot),
+	// and the old hardcoded "completed_no_cracks" mislabelled every task that
+	// actually found cracks. Same CASE as the truncate branch in
+	// services/scheduler/recovery.go.
+	//
+	// Terminal-status guard: this is the EXACTLY-ONCE MECHANISM for
+	// TryFinalizeTask in internal/integration. Several independently scheduled
+	// crack-handshake paths may each conclude the task is finished and race
+	// here. Under READ COMMITTED the second UPDATE blocks on the first's row
+	// lock and then re-evaluates its WHERE against the newly committed tuple,
+	// so exactly one caller sees rowsAffected = 1 and everyone else gets
+	// ErrTaskTerminal. That is what stops the once-only side effects
+	// (benchmark EMA update, completion notification, job-completion cascade)
+	// from running twice.
+	//
+	// Deliberately NOT a SELECT ... FOR UPDATE: that would take a second lock
+	// on a very hot row and introduce a new ordering hazard against the
+	// documented task->interval lock order in services/scheduler/recovery.go.
+	// The guarded UPDATE alone is sufficient.
+	//
+	// Scope note: the side effects the guard protects are the CALLER's, in
+	// checkTaskCompletion — HandleTaskCompletion's benchmark EMA, the
+	// completion notification, the job-completion cascade. The average-speed
+	// and agent_benchmarks writes ABOVE this UPDATE are not covered by it and
+	// a losing racer will redo them; that is deliberate and harmless, because
+	// both recompute the same values from the same rows and neither
+	// accumulates.
+	query := `UPDATE job_tasks SET status = $1,
+		detailed_status = CASE WHEN COALESCE(crack_count, 0) > 0 THEN 'completed_with_cracks' ELSE 'completed_no_cracks' END,
+		completed_at = $2, progress_percent = 100,
+		cracking_completed_at = COALESCE(cracking_completed_at, $2)
+		WHERE id = $3
+		  AND status NOT IN ('completed', 'cancelled', 'failed')`
+	result, err := r.db.ExecContext(ctx, query, models.JobTaskStatusCompleted, now, id)
 	if err != nil {
 		return fmt.Errorf("failed to complete job task: %w", err)
 	}
@@ -920,7 +954,16 @@ func (r *JobTaskRepository) CompleteTask(ctx context.Context, id uuid.UUID) erro
 	}
 
 	if rowsAffected == 0 {
-		return ErrNotFound
+		// Disambiguate: row missing vs. guard rejected (see SetTaskProcessing).
+		var currentStatus string
+		checkErr := r.db.QueryRowContext(ctx, `SELECT status FROM job_tasks WHERE id = $1`, id).Scan(&currentStatus)
+		if checkErr == sql.ErrNoRows {
+			return ErrNotFound
+		}
+		if checkErr != nil {
+			return fmt.Errorf("failed to read task status after guarded update miss: %w", checkErr)
+		}
+		return fmt.Errorf("cannot complete task %s, status is %q: %w", id, currentStatus, ErrTaskTerminal)
 	}
 
 	return nil
@@ -969,16 +1012,36 @@ func (r *JobTaskRepository) CompleteTaskAndClearAgentStatus(ctx context.Context,
 	}
 
 	// Step 1: Mark task as complete
+	//
+	// detailed_status is derived in SQL for the same reason as CompleteTask:
+	// the caller cannot know the final crack count (crack batches land on
+	// their own goroutines), and the old hardcoded "completed_no_cracks"
+	// mislabelled every task that actually cracked something. Same CASE as
+	// the truncate branch in services/scheduler/recovery.go.
+	//
+	// Terminal-status guard: this is the EXACTLY-ONCE MECHANISM for
+	// TryFinalizeTask in internal/integration. The crack handshake is
+	// satisfied by three independently scheduled agent messages, any of which
+	// may re-evaluate completion; under READ COMMITTED the losers block on
+	// this row's lock, re-check the WHERE against the committed tuple, and
+	// come back with rowsAffected = 0 -> ErrTaskTerminal. Exactly one caller
+	// therefore proceeds to the once-only side effects (benchmark EMA update,
+	// completion notification, job-completion cascade).
+	//
+	// Deliberately NOT a SELECT ... FOR UPDATE: a second lock on this hot row
+	// would create a new ordering hazard against the documented task->interval
+	// lock order in services/scheduler/recovery.go.
 	taskQuery := `
 		UPDATE job_tasks
 		SET status = $1,
-		    detailed_status = $2,
-		    completed_at = $3,
+		    detailed_status = CASE WHEN COALESCE(crack_count, 0) > 0 THEN 'completed_with_cracks' ELSE 'completed_no_cracks' END,
+		    completed_at = $2,
 		    progress_percent = 100,
-		    cracking_completed_at = COALESCE(cracking_completed_at, $3)
-		WHERE id = $4`
+		    cracking_completed_at = COALESCE(cracking_completed_at, $2)
+		WHERE id = $3
+		  AND status NOT IN ('completed', 'cancelled', 'failed')`
 
-	result, err := tx.ExecContext(ctx, taskQuery, models.JobTaskStatusCompleted, "completed_no_cracks", now, taskID)
+	result, err := tx.ExecContext(ctx, taskQuery, models.JobTaskStatusCompleted, now, taskID)
 	if err != nil {
 		return fmt.Errorf("failed to complete task: %w", err)
 	}
@@ -988,7 +1051,20 @@ func (r *JobTaskRepository) CompleteTaskAndClearAgentStatus(ctx context.Context,
 		return fmt.Errorf("failed to get rows affected for task: %w", err)
 	}
 	if rowsAffected == 0 {
-		return ErrNotFound
+		// Disambiguate: row missing vs. guard rejected. This SELECT MUST run
+		// on tx, not on r.db: our own UPDATE already holds (or waited on) the
+		// row lock inside this transaction, and a read on a different pooled
+		// connection would see a different snapshot — or block behind our own
+		// uncommitted work and deadlock the request.
+		var currentStatus string
+		checkErr := tx.QueryRowContext(ctx, `SELECT status FROM job_tasks WHERE id = $1`, taskID).Scan(&currentStatus)
+		if checkErr == sql.ErrNoRows {
+			return ErrNotFound
+		}
+		if checkErr != nil {
+			return fmt.Errorf("failed to read task status after guarded update miss: %w", checkErr)
+		}
+		return fmt.Errorf("cannot complete task %s, status is %q: %w", taskID, currentStatus, ErrTaskTerminal)
 	}
 
 	// Step 2: Clear agent busy status atomically with task completion
@@ -1918,13 +1994,21 @@ func (r *JobTaskRepository) GetTasksByStatuses(ctx context.Context, statuses []s
 		args[i] = status
 	}
 
+	// The crack-handshake counters are selected because the stale-processing
+	// backstop (services/job_cleanup_service.go) reports them in the
+	// failure_reason it persists when it abandons a task. Omitting them left
+	// every abandoned task permanently labelled "expected 0, received 0" —
+	// exactly the kind of misleading persisted diagnostic this sweep exists to
+	// replace.
 	query := fmt.Sprintf(`
-		SELECT 
+		SELECT
 			id, job_execution_id, agent_id, status,
 			keyspace_start, keyspace_end, keyspace_processed,
 			benchmark_speed, chunk_duration, assigned_at,
 			started_at, completed_at, last_checkpoint, error_message,
-			created_at, updated_at, retry_count
+			created_at, updated_at, retry_count,
+			COALESCE(expected_crack_count, 0), COALESCE(received_crack_count, 0),
+			COALESCE(batches_complete_signaled, false)
 		FROM job_tasks
 		WHERE status IN (%s)
 		ORDER BY created_at ASC`, strings.Join(placeholders, ", "))
@@ -1944,6 +2028,7 @@ func (r *JobTaskRepository) GetTasksByStatuses(ctx context.Context, statuses []s
 			&task.BenchmarkSpeed, &task.ChunkDuration, &task.AssignedAt,
 			&task.StartedAt, &task.CompletedAt, &task.LastCheckpoint, &task.ErrorMessage,
 			&task.CreatedAt, &task.UpdatedAt, &task.RetryCount,
+			&task.ExpectedCrackCount, &task.ReceivedCrackCount, &task.BatchesCompleteSignaled,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan job task: %w", err)
@@ -2388,6 +2473,17 @@ func (r *JobTaskRepository) GetTaskCountForJob(ctx context.Context, jobExecution
 
 // SetTaskProcessing marks a task as processing with expected crack count from final progress message
 // Also sets cracking_completed_at to mark when hashcat finished for this task
+//
+// Terminal-status guard: this UPDATE must NEVER move a task backwards out of
+// 'completed'/'cancelled'/'failed'. Without the guard it resurrected tasks:
+// HashlistCompletionService.completeJob reconciles sibling tasks to 'cancelled'
+// when the hashlist is fully cracked, and a job_progress message carrying
+// hashcat status 6 (all hashes cracked) — delivered on its own goroutine, with
+// no ordering against that reconciliation — would land ~1s later and drag the
+// row back to 'processing'. Nothing ever moves it out again, so the task sits
+// in 'processing' until the agent disconnects and it is failed. (The live
+// incident row's cracking_completed_at timestamp, set only here, is the
+// fingerprint of exactly that resurrection.)
 func (r *JobTaskRepository) SetTaskProcessing(ctx context.Context, taskID uuid.UUID, expectedCracks int) error {
 	query := `
 		UPDATE job_tasks
@@ -2395,7 +2491,8 @@ func (r *JobTaskRepository) SetTaskProcessing(ctx context.Context, taskID uuid.U
 		    expected_crack_count = $3,
 		    cracking_completed_at = CURRENT_TIMESTAMP,
 		    updated_at = CURRENT_TIMESTAMP
-		WHERE id = $1`
+		WHERE id = $1
+		  AND status NOT IN ('completed', 'cancelled', 'failed')`
 
 	result, err := r.db.ExecContext(ctx, query, taskID, models.JobTaskStatusProcessing, expectedCracks)
 	if err != nil {
@@ -2408,7 +2505,19 @@ func (r *JobTaskRepository) SetTaskProcessing(ctx context.Context, taskID uuid.U
 	}
 
 	if rowsAffected == 0 {
-		return ErrNotFound
+		// Disambiguate: row missing vs. guard rejected. Same shape as
+		// UpdateProgress above. Callers must be able to tell "unknown task"
+		// (ignore it) from "this message lost a race" (ACK, do not resurrect),
+		// so we pay one cheap SELECT on the miss path only.
+		var currentStatus string
+		checkErr := r.db.QueryRowContext(ctx, `SELECT status FROM job_tasks WHERE id = $1`, taskID).Scan(&currentStatus)
+		if checkErr == sql.ErrNoRows {
+			return ErrNotFound
+		}
+		if checkErr != nil {
+			return fmt.Errorf("failed to read task status after guarded update miss: %w", checkErr)
+		}
+		return fmt.Errorf("cannot set task %s to processing, status is %q: %w", taskID, currentStatus, ErrTaskTerminal)
 	}
 
 	debug.Log("Set task to processing status", map[string]interface{}{
@@ -2501,6 +2610,54 @@ func (r *JobTaskRepository) IncrementReceivedCrackCount(ctx context.Context, tas
 	if rowsAffected == 0 {
 		return ErrNotFound
 	}
+
+	return nil
+}
+
+// SetReceivedCrackCount reconciles received_crack_count to an authoritative
+// absolute value instead of incrementing it.
+//
+// Why this exists: the retransmit path does NOT process crack batches per
+// message. handleRetransmitBatch merely COLLECTS each batch in memory so the
+// whole outfile can be deduped against the DB in one pass, so it never calls
+// IncrementReceivedCrackCount — received_crack_count stays at whatever the
+// original (failed) delivery left it at, usually 0. Once
+// processRetransmitCompletion has verified the entire outfile it holds the
+// only trustworthy count in the system, and it must write that count here.
+// Without this reconciliation CheckTaskReadyToComplete can never return true
+// for a task recovered by retransmit, and the task is stranded in 'processing'
+// until an agent disconnect fails it.
+//
+// GREATEST (not a plain assignment) because a normal-path crack batch may be
+// in flight on another goroutine and may already have incremented the counter
+// past our value; lowering it would re-open a handshake that is genuinely
+// satisfied. The counter is monotonic by construction, so taking the max is
+// always the safe merge.
+func (r *JobTaskRepository) SetReceivedCrackCount(ctx context.Context, taskID uuid.UUID, count int) error {
+	query := `
+		UPDATE job_tasks
+		SET received_crack_count = GREATEST(COALESCE(received_crack_count, 0), $2::int),
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`
+
+	result, err := r.db.ExecContext(ctx, query, taskID, count)
+	if err != nil {
+		return fmt.Errorf("failed to set received crack count: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	debug.Log("Reconciled received crack count", map[string]interface{}{
+		"task_id": taskID,
+		"count":   count,
+	})
 
 	return nil
 }
@@ -2614,32 +2771,14 @@ func (r *JobTaskRepository) GetProcessingTasksForJob(ctx context.Context, jobExe
 	return tasks, nil
 }
 
-// SetTaskProcessingError marks a task with processing_error status after crack count mismatch retries exhausted.
-func (r *JobTaskRepository) SetTaskProcessingError(ctx context.Context, taskID uuid.UUID, errorMsg string) error {
-	query := `
-		UPDATE job_tasks
-		SET status = 'processing_error',
-		    error_message = $2,
-		    updated_at = NOW()
-		WHERE id = $1`
-
-	result, err := r.db.ExecContext(ctx, query, taskID, errorMsg)
-	if err != nil {
-		return fmt.Errorf("failed to set task processing error: %w", err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-
-	if rowsAffected == 0 {
-		return fmt.Errorf("task %s not found", taskID)
-	}
-
-	debug.Info("Task %s marked as processing_error: %s", taskID, errorMsg)
-	return nil
-}
+// NOTE: SetTaskProcessingError was removed here. It wrote status =
+// 'processing_error', which is NOT one of the values permitted by the
+// valid_task_status CHECK constraint on job_tasks (pending, assigned,
+// reconnect_pending, running, processing, completed, failed, cancelled), so
+// every call it ever made failed with a CHECK violation and left the task in
+// 'processing'. Tasks whose crack handshake is abandoned are now left for the
+// stale-processing backstop in services/job_cleanup_service.go, which
+// terminalises them without poisoning the job.
 
 // IncrementRetransmitCount increments the retransmit counter for a task and updates the timestamp.
 func (r *JobTaskRepository) IncrementRetransmitCount(ctx context.Context, taskID uuid.UUID) error {

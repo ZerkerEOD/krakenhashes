@@ -484,7 +484,8 @@ const Dashboard: React.FC = () => {
           </Grid>
           {gridItems}
 
-          {/* Loopback sessions (GH #64) — renders nothing when there are none */}
+          {/* Loopback sessions (GH #64) — renders nothing when no loopback is in flight.
+              Default scope (the user's own sessions) keeps the Dashboard personal. */}
           <Grid item xs={12}>
             <LoopbackSessionsPanel />
           </Grid>

@@ -73,11 +73,20 @@ Jobs define cracking tasks using preset configurations.
 - Priority maximum is configurable via `max_job_priority` system setting (default: 1000)
 
 **Job Status Values:**
+- `preparing` - The job's inputs are still being generated (for example an ephemeral filtered wordlist); the scheduler never dispatches a preparing job. **Not** terminal — it moves to `pending` once ready, or to `failed` if preparation breaks
 - `pending` - Job created, waiting to be scheduled
 - `running` - Job is actively being processed
 - `paused` - Job manually paused
+- `processing` - Cracking has finished but the server is still receiving crack data from agents; **not** a terminal state, the job moves on to `completed` on its own
 - `completed` - All hashes cracked or exhausted
 - `failed` - Job failed due to error
+- `cancelled` - Job was cancelled; terminal, and it will never reach `completed`
+
+These eight values are the complete set permitted by the `job_executions` status constraint.
+
+**Polling for completion:** treat `completed`, `failed` **and** `cancelled` as terminal. Waiting
+only on `completed`/`failed` leaves a poller spinning forever on a cancelled job. Do not treat
+`processing` as terminal — the job is not finished and its final crack count is not yet accurate.
 
 **Increment Mode:**
 - `off` - Standard attack (single layer)

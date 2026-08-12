@@ -1842,8 +1842,8 @@ func (h *Handler) handleTaskAssignmentRejected(client *Client, msg *wsservice.Me
 		debug.Info("Agent %d: task_assignment_rejected for non-v2 task %s — nothing to do (legacy task)", client.agent.ID, taskID)
 		return
 	}
-	debug.Info("Agent %d: scheduler-v2 freed interval for rejected task %s (truncated=%v discarded=%v)",
-		client.agent.ID, taskID, result.Truncated, result.Discarded)
+	debug.Info("Agent %d: scheduler-v2 freed interval for rejected task %s (truncated=%v completed=%v discarded=%v)",
+		client.agent.ID, taskID, result.Truncated, result.Completed, result.Discarded)
 }
 
 // handleAgentShutdown processes graceful shutdown notification from an agent
@@ -1886,6 +1886,70 @@ func (h *Handler) handleAgentShutdown(client *Client, msg *wsservice.Message) {
 			goto afterTaskHandling
 		}
 
+		// Server-side status gate — GH #79.
+		//
+		// Everything below this point recovers a task on the strength of
+		// the AGENT's assertion (has_running_task + task_id) alone. That
+		// assertion is not server truth: the agent's activeJobs map stays
+		// populated for a second or two after hashcat exits while the
+		// final crack batches drain, so a task the server has already
+		// moved to 'processing' (or 'completed', by the crack-batch
+		// handler) still shows up in a shutdown payload. Recovering it
+		// then is what cancelled a finished, hash-cracking task with
+		// "agent disconnect".
+		//
+		// So consult the server's own row and only recover what the
+		// server still considers in flight. Both paths that already do
+		// this correctly agree on the shape:
+		//   - JobWebSocketIntegration.HandleAgentDisconnection queries
+		//     only JobTaskStatusRunning and JobTaskStatusAssigned;
+		//   - scheduler/sweeper.go's EvictTimedOutTasks predicate matches
+		//     status IN ('assigned','running') plus 'reconnect_pending'
+		//     for the legacy-disconnect orphans.
+		// We take the union: assigned / running / reconnect_pending.
+		//
+		// This gate covers the LEGACY SetTaskPending fallback below too,
+		// on purpose: resetting a 'processing' legacy task to 'pending'
+		// would re-dispatch its range while its cracks are still in
+		// flight.
+		//
+		// Skipping is safe. A task that genuinely needs recovery and is
+		// missed here is picked up by HandleAgentDisconnection when this
+		// WebSocket closes (seconds away) and by the heartbeat sweeper
+		// after task_heartbeat_timeout_seconds. Recovering a task the
+		// server does not consider in flight is NOT safe, which is why a
+		// failed lookup skips rather than proceeds.
+		//
+		// Declarations live in their own block because this function jumps
+		// to afterTaskHandling with goto; same shape as the legacy block
+		// below.
+		{
+			shutdownTask, terr := h.jobTaskRepo.GetByID(client.ctx, taskID)
+			switch {
+			case errors.Is(terr, repository.ErrNotFound) || (terr == nil && shutdownTask == nil):
+				// Routine since PR #80: a benign stop (stop-ack,
+				// stopped-progress) DELETEs the task row, so the loser of
+				// that race finds nothing left. Not a warning.
+				debug.Info("Agent %d: shutdown task %s no longer exists — nothing to recover",
+					client.agent.ID, taskID)
+				goto afterTaskHandling
+			case terr != nil:
+				debug.Warning("Agent %d: cannot verify status of shutdown task %s (%v) — skipping recovery; disconnect handling and the sweeper will cover it",
+					client.agent.ID, taskID, terr)
+				goto afterTaskHandling
+			}
+			switch shutdownTask.Status {
+			case models.JobTaskStatusAssigned,
+				models.JobTaskStatusRunning,
+				models.JobTaskStatusReconnectPending:
+				// Server agrees the task is in flight — recover it.
+			default:
+				debug.Info("Agent %d: shutdown reported task %s as running, but server status is %s — skipping recovery (crack batches may still be draining; a terminal task must not be reopened)",
+					client.agent.ID, taskID, shutdownTask.Status)
+				goto afterTaskHandling
+			}
+		}
+
 		// Scheduler-v2 routing: if the task has scheduling_unit_id, run
 		// the §8.2 split-and-gap recovery and skip the legacy
 		// SetTaskPending path. Recovery returns Handled=false for legacy
@@ -1911,15 +1975,24 @@ func (h *Handler) handleAgentShutdown(client *Client, msg *wsservice.Message) {
 				// stale-process a task with the wrong scheduler than
 				// to leave it stuck.
 			} else if result.Handled {
+				// The Completed arm must never claim "no progress to
+				// preserve": that is the GH #79 log line, printed about a
+				// task that had processed its whole range and cracked the
+				// last hash. Its range was already booked as covered by a
+				// 'completed' interval, so recovery completed the task and
+				// left the interval alone.
 				switch {
 				case result.Truncated:
 					debug.Info("Agent %d: scheduler-v2 truncated interval for task %s (progress preserved as gap)",
+						client.agent.ID, taskID)
+				case result.Completed:
+					debug.Info("Agent %d: scheduler-v2 completed task %s (its range was already accounted for by a completed interval; interval left untouched)",
 						client.agent.ID, taskID)
 				case result.Discarded:
 					debug.Info("Agent %d: scheduler-v2 discarded task %s and its interval (no progress to preserve)",
 						client.agent.ID, taskID)
 				default:
-					debug.Info("Agent %d: scheduler-v2 cancelled task %s (no progress to preserve, row kept)",
+					debug.Info("Agent %d: scheduler-v2 cancelled task %s (no resumable progress, row kept)",
 						client.agent.ID, taskID)
 				}
 				goto afterTaskHandling

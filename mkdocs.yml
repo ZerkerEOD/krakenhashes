@@ -212,6 +212,7 @@ nav:
     - Error Codes: reference/errors.md
     - Glossary: reference/glossary.md
   - Troubleshooting:
+    - Task Lifecycle and Statuses: troubleshooting/task-lifecycle.md
     - Potfile Issues: troubleshooting/potfile-issues.md
   - Contributing:
     - contributing/index.md

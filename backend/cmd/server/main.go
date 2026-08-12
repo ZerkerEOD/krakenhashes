@@ -313,8 +313,10 @@ func main() {
 		debug.Info("Stale task cleanup completed successfully")
 	}
 
-	// Start periodic stale task monitor
-	go jobCleanupService.MonitorStaleTasksPeriodically(context.Background(), 5*time.Minute)
+	// NOTE: the periodic stale-task monitor is NOT started here. Its
+	// stale-processing backstop needs the WebSocket integration, which
+	// routes.SetupRoutes has not built yet at this point in startup; see the
+	// SetStuckProcessingHandler call further down.
 
 	// Use the system user (uuid.Nil) for the monitor service
 	systemUserID := uuid.Nil
@@ -455,7 +457,27 @@ func main() {
 	// compatibility immediately instead of after the next periodic re-warm.
 	if routes.JobIntegrationManager != nil {
 		agentService.SetCompatInvalidator(routes.JobIntegrationManager.InvalidateAgentCompat)
+
+		// Wire the stale-processing backstop to the WebSocket integration. This
+		// is the first point in startup where that instance exists, which is
+		// why the periodic monitor below is started here rather than next to
+		// the cleanup service's construction: started earlier, its two gates
+		// (TryFinalizeTask / AbandonProcessingTask) would be nil for the whole
+		// first tick or more, and a task stuck in 'processing' would keep
+		// sitting there.
+		if wsIntegration := routes.JobIntegrationManager.GetWebSocketIntegration(); wsIntegration != nil {
+			jobCleanupService.SetStuckProcessingHandler(wsIntegration)
+		} else {
+			debug.Warning("WebSocket integration unavailable - stale-processing backstop will run inert (stuck 'processing' tasks will be logged, not recovered)")
+		}
+	} else {
+		debug.Warning("Job integration manager not initialized - stale-processing backstop will run inert (stuck 'processing' tasks will be logged, not recovered)")
 	}
+
+	// Start periodic stale task monitor. context.Background() preserved from
+	// the original call site: this sweep is meant to outlive every request
+	// context and stop only when the process does.
+	go jobCleanupService.MonitorStaleTasksPeriodically(context.Background(), 5*time.Minute)
 
 	// Setup CA certificate route on HTTP router
 	debug.Info("Setting up CA certificate route")
