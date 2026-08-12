@@ -279,14 +279,18 @@ func (c *Cycle) RunOnce(ctx context.Context) (CycleResult, error) {
 		return res, fmt.Errorf("cycle: get idle agents: %w", err)
 	}
 	res.IdleAgents = len(agentInfos)
-	if len(agentInfos) == 0 {
-		return res, nil
-	}
 
 	// Compatibility closure: prefer the cache when wired, fall back
 	// to the inline closure for tests / setups that didn't construct
 	// a CompatCache. Functionally identical; the cache just avoids
 	// the per-cycle O(units × agents) version-pattern parse.
+	//
+	// Built BEFORE the no-idle-agents return below because preemption
+	// needs it too. Note the fallback closure can only resolve agents in
+	// agentInfos (idle ones), while preemption asks about the agent
+	// holding the VICTIM task — which is by definition busy. That has
+	// always been true; production wires compatCache, which reads from
+	// the DB and answers for any agent.
 	var compatFn CompatibilityFn
 	if c.compatCache != nil {
 		compatFn = c.compatCache.CompatFn(ctx)
@@ -312,6 +316,18 @@ func (c *Cycle) RunOnce(ctx context.Context) (CycleResult, error) {
 		}
 	}
 
+	if len(agentInfos) == 0 {
+		// Every agent is busy. This used to return immediately, which made
+		// preemption (Step 7, far below) unreachable in precisely the
+		// situation it exists for: a high-priority job waiting while every
+		// agent grinds on lower-priority work. Nothing can be allocated
+		// this cycle, so pass no allocations — every eligible unit counts
+		// as starving — and let the preemption pass free an agent for the
+		// next cycle.
+		c.preemptStarvingUnits(ctx, &res, unitInfos, nil, compatFn)
+		return res, nil
+	}
+
 	// Step 4: allocate over ALL candidate units (accurate AND inaccurate).
 	// The allocator decides which (agent, unit) pairs would run this cycle
 	// per priority + max_agents + overflow + binary-compat. The next step
@@ -325,6 +341,10 @@ func (c *Cycle) RunOnce(ctx context.Context) (CycleResult, error) {
 		// Every idle-eligible agent is unallocated this cycle — record why
 		// (no compatible job, no schedulable work) for the agent page.
 		c.recordIdleReasons(agentInfos, unitInfos, allocations, nil, compatFn)
+		// Same reasoning as the no-idle-agents return above: a starving
+		// high-priority unit that the allocator couldn't place still
+		// deserves a preemption attempt before we give up on the cycle.
+		c.preemptStarvingUnits(ctx, &res, unitInfos, allocations, compatFn)
 		return res, nil
 	}
 
@@ -494,17 +514,18 @@ func (c *Cycle) RunOnce(ctx context.Context) (CycleResult, error) {
 	// Step 7: preemption. If any schedulable units got zero
 	// allocations this cycle, look for compatible lower-priority
 	// running tasks we can stop to free agents for them. The
-	// preempted tasks become gaps via the existing graceful-
-	// shutdown -> RecoverTaskByID flow, and the freed agents are
-	// picked up in the next cycle.
-	starving := computeStarvingUnits(unitInfos, allocations)
-	if len(starving) > 0 {
-		preempted, perrs := FindAndPreempt(ctx, c.db, c.wsSender, starving, compatFn)
-		res.Errors = append(res.Errors, perrs...)
-		if len(preempted) > 0 {
-			debug.Info("scheduler-v2: issued %d preemption(s)", len(preempted))
-		}
-	}
+	// preempted tasks become gaps via the existing stop ->
+	// RecoverTaskByID flow (stopped-progress or stop-ack, whichever
+	// lands first), and the freed agents are picked up in the next
+	// cycle.
+	//
+	// Gated on BOTH the global job_interruption_enabled switch and the
+	// per-job allow_high_priority_override flag (checked inside
+	// computeStarvingUnits). Default for the global switch is FALSE,
+	// matching v1's strict `*value != "true"` test in CanInterruptJob —
+	// an unreadable or missing setting must not silently start stopping
+	// running work.
+	c.preemptStarvingUnits(ctx, &res, unitInfos, allocations, compatFn)
 
 	// Step 8: record why any idle-eligible agent ended up with neither a task
 	// nor a benchmark this cycle (binary mismatch, caps, etc.), and clear the
@@ -514,12 +535,55 @@ func (c *Cycle) RunOnce(ctx context.Context) (CycleResult, error) {
 	return res, nil
 }
 
+// preemptStarvingUnits is Step 7: if any schedulable unit got zero
+// allocations this cycle, try to free an agent for it by stopping a
+// compatible lower-priority running task.
+//
+// Called from THREE places in RunOnce, all of which are "this cycle
+// could not place work": no idle agents at all, no allocations made, and
+// the normal end-of-cycle path. The first two used to return before ever
+// reaching Step 7, which meant preemption never ran in the one situation
+// that actually needs it — every agent busy on lower-priority work while
+// a high-priority job waits (GH #77).
+//
+// Preemption is gated on BOTH the global job_interruption_enabled switch
+// (checked here) and the per-job allow_high_priority_override flag
+// (checked inside computeStarvingUnits). The global switch defaults to
+// FALSE, matching v1's strict `*value != "true"` test in CanInterruptJob:
+// an unreadable or missing setting must never silently start stopping
+// running work.
+//
+// Errors accumulate into res.Errors; the freed agent is picked up on the
+// next cycle.
+func (c *Cycle) preemptStarvingUnits(
+	ctx context.Context,
+	res *CycleResult,
+	unitInfos []UnitInfo,
+	allocations []Allocation,
+	compatFn CompatibilityFn,
+) {
+	starving := computeStarvingUnits(unitInfos, allocations)
+	if len(starving) == 0 {
+		return
+	}
+	if !c.readBoolSetting(ctx, "job_interruption_enabled", false) {
+		debug.Info("scheduler-v2: %d unit(s) starving but preemption skipped (job_interruption_enabled is off)", len(starving))
+		return
+	}
+	preempted, perrs := FindAndPreempt(ctx, c.db, c.wsSender, starving, compatFn)
+	res.Errors = append(res.Errors, perrs...)
+	if len(preempted) > 0 {
+		debug.Info("scheduler-v2: issued %d preemption(s)", len(preempted))
+	}
+}
+
 // computeStarvingUnits returns the schedulable units (from the
 // allocator's input) that ended up with zero allocations this cycle
 // AND could legitimately benefit from a preemption. Only those at
 // non-zero priority are eligible — priority-0 jobs never preempt
 // anything (and at the bottom of the queue there's nothing lower to
-// preempt anyway).
+// preempt anyway) — and only those whose parent job opted in via
+// allow_high_priority_override.
 //
 // Parent-cap awareness: a unit whose parent job is already at its
 // MaxAgents cap (via in-flight tasks or via sibling units that took
@@ -551,6 +615,13 @@ func computeStarvingUnits(units []UnitInfo, allocations []Allocation) []UnitInfo
 	var starving []UnitInfo
 	for _, u := range units {
 		if u.Priority <= 0 {
+			continue
+		}
+		// Per-job opt-in: a job whose allow_high_priority_override is off
+		// never stops anyone else's work to get an agent, no matter how
+		// high its priority. Mirrors v1, where only pending jobs carrying
+		// this flag were considered as interrupters.
+		if !u.AllowHighPriorityOverride {
 			continue
 		}
 		if allocated[u.ID] {
@@ -590,14 +661,19 @@ func (c *Cycle) buildUnitInfos(ctx context.Context, units []*models.SchedulingUn
 
 	// Single query: parent_id -> (binary_version, priority, max_agents).
 	// ANY($1) with a UUID array; lib/pq handles the array marshalling.
+	// allow_high_priority_override is nullable (migration 000049 added it
+	// with DEFAULT false but no NOT NULL), so COALESCE it — a NULL would
+	// otherwise fail the bool scan on rows predating the default.
 	type parentRow struct {
-		binaryVersion string
-		priority      int
-		maxAgents     int
+		binaryVersion   string
+		priority        int
+		maxAgents       int
+		allowPreemption bool
 	}
 	parents := make(map[uuid.UUID]parentRow)
 	rows, err := c.db.QueryContext(ctx, `
-		SELECT id, COALESCE(binary_version, ''), priority, max_agents
+		SELECT id, COALESCE(binary_version, ''), priority, max_agents,
+		       COALESCE(allow_high_priority_override, false)
 		FROM job_executions
 		WHERE id = ANY($1::uuid[])
 	`, uuidSliceToTextArray(parentIDs))
@@ -608,7 +684,7 @@ func (c *Cycle) buildUnitInfos(ctx context.Context, units []*models.SchedulingUn
 	for rows.Next() {
 		var id uuid.UUID
 		var pr parentRow
-		if err := rows.Scan(&id, &pr.binaryVersion, &pr.priority, &pr.maxAgents); err != nil {
+		if err := rows.Scan(&id, &pr.binaryVersion, &pr.priority, &pr.maxAgents, &pr.allowPreemption); err != nil {
 			return nil, nil, fmt.Errorf("scan parent job row: %w", err)
 		}
 		parents[id] = pr
@@ -702,14 +778,15 @@ func (c *Cycle) buildUnitInfos(ctx context.Context, units []*models.SchedulingUn
 		}
 
 		infos = append(infos, UnitInfo{
-			ID:                    u.ID,
-			ParentJobID:           u.ParentJobID,
-			Priority:              p.priority,
-			MaxAgents:             p.maxAgents,
-			BinaryVersion:         p.binaryVersion,
-			ActiveAgentCount:      counts[u.ParentJobID],
-			CreatedAtNanos:        u.CreatedAt.UnixNano(),
-			MaxNewChunksThisCycle: maxNew,
+			ID:                        u.ID,
+			ParentJobID:               u.ParentJobID,
+			Priority:                  p.priority,
+			MaxAgents:                 p.maxAgents,
+			BinaryVersion:             p.binaryVersion,
+			ActiveAgentCount:          counts[u.ParentJobID],
+			CreatedAtNanos:            u.CreatedAt.UnixNano(),
+			MaxNewChunksThisCycle:     maxNew,
+			AllowHighPriorityOverride: p.allowPreemption,
 		})
 		byID[u.ID] = u
 	}
@@ -1433,6 +1510,24 @@ func (c *Cycle) readIntSetting(ctx context.Context, key string, def int) int {
 		return def
 	}
 	return n
+}
+
+// readBoolSetting reads a system_setting expected to be a boolean.
+// Returns def on any failure (missing repo, missing setting, NULL value).
+// Only the exact string "true" is truthy — same strict test v1 used for
+// job_interruption_enabled (job_execution_service.go CanInterruptJob), so a
+// typo'd value can never be read as "yes, interrupt running work".
+func (c *Cycle) readBoolSetting(ctx context.Context, key string, def bool) bool {
+	if c.systemSettingsRepo == nil {
+		return def
+	}
+	readCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	setting, err := c.systemSettingsRepo.GetSetting(readCtx, key)
+	if err != nil || setting == nil || setting.Value == nil {
+		return def
+	}
+	return strings.TrimSpace(strings.ToLower(*setting.Value)) == "true"
 }
 
 // uuidSliceToTextArray formats a UUID slice as a Postgres text[]

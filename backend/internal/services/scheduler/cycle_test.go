@@ -77,13 +77,13 @@ func TestComputeStarvingUnits_RespectsParentCap(t *testing.T) {
 
 	units := []UnitInfo{
 		// 4 sibling layers, parent_max=1, ActiveAgentCount=0 fresh
-		{ID: layer1, ParentJobID: parent, Priority: 5, MaxAgents: 1, ActiveAgentCount: 0},
-		{ID: layer2, ParentJobID: parent, Priority: 5, MaxAgents: 1, ActiveAgentCount: 0},
-		{ID: layer3, ParentJobID: parent, Priority: 5, MaxAgents: 1, ActiveAgentCount: 0},
-		{ID: layer4, ParentJobID: parent, Priority: 5, MaxAgents: 1, ActiveAgentCount: 0},
+		{ID: layer1, ParentJobID: parent, Priority: 5, MaxAgents: 1, ActiveAgentCount: 0, AllowHighPriorityOverride: true},
+		{ID: layer2, ParentJobID: parent, Priority: 5, MaxAgents: 1, ActiveAgentCount: 0, AllowHighPriorityOverride: true},
+		{ID: layer3, ParentJobID: parent, Priority: 5, MaxAgents: 1, ActiveAgentCount: 0, AllowHighPriorityOverride: true},
+		{ID: layer4, ParentJobID: parent, Priority: 5, MaxAgents: 1, ActiveAgentCount: 0, AllowHighPriorityOverride: true},
 		// An unrelated unit at priority 5 with no allocation — this
 		// IS truly starving and should remain in the result.
-		{ID: uuid.New(), ParentJobID: otherJob, Priority: 5, MaxAgents: 3, ActiveAgentCount: 0},
+		{ID: uuid.New(), ParentJobID: otherJob, Priority: 5, MaxAgents: 3, ActiveAgentCount: 0, AllowHighPriorityOverride: true},
 	}
 	// Layer 1 took the parent's only slot this cycle.
 	allocs := []Allocation{
@@ -111,8 +111,8 @@ func TestComputeStarvingUnits_RespectsActiveAgentCount(t *testing.T) {
 	layer2 := uuid.New()
 	units := []UnitInfo{
 		// parent_max=1, 1 task already running on parent (from prior cycle)
-		{ID: layer1, ParentJobID: parent, Priority: 5, MaxAgents: 1, ActiveAgentCount: 1},
-		{ID: layer2, ParentJobID: parent, Priority: 5, MaxAgents: 1, ActiveAgentCount: 1},
+		{ID: layer1, ParentJobID: parent, Priority: 5, MaxAgents: 1, ActiveAgentCount: 1, AllowHighPriorityOverride: true},
+		{ID: layer2, ParentJobID: parent, Priority: 5, MaxAgents: 1, ActiveAgentCount: 1, AllowHighPriorityOverride: true},
 	}
 	// No new allocations this cycle (everything blocked).
 	allocs := []Allocation{}
@@ -131,10 +131,47 @@ func TestComputeStarvingUnits_UnboundedMaxAgentsStillStarves(t *testing.T) {
 	parent := uuid.New()
 	u := uuid.New()
 	units := []UnitInfo{
-		{ID: u, ParentJobID: parent, Priority: 5, MaxAgents: 0, ActiveAgentCount: 0},
+		{ID: u, ParentJobID: parent, Priority: 5, MaxAgents: 0, ActiveAgentCount: 0, AllowHighPriorityOverride: true},
 	}
 	starving := computeStarvingUnits(units, []Allocation{})
 	if len(starving) != 1 {
 		t.Errorf("unbounded-max unit with 0 allocations should be starving, got %d", len(starving))
+	}
+}
+
+// TestComputeStarvingUnits_RequiresAllowHighPriorityOverride is the per-job
+// half of the preemption gate. A job whose allow_high_priority_override is off
+// must never stop someone else's running task to get an agent, no matter how
+// high its priority or how starved it is — it waits for an agent to free up
+// naturally. Mirrors v1, where only pending jobs carrying this flag were
+// considered as interrupters.
+func TestComputeStarvingUnits_RequiresAllowHighPriorityOverride(t *testing.T) {
+	units := []UnitInfo{
+		// Maximum starvation signal: high priority, unbounded max_agents,
+		// nothing in flight, no allocation this cycle. The only thing
+		// stopping it is the opt-in flag.
+		{ID: uuid.New(), ParentJobID: uuid.New(), Priority: 9, MaxAgents: 0, ActiveAgentCount: 0, AllowHighPriorityOverride: false},
+	}
+	starving := computeStarvingUnits(units, []Allocation{})
+	if len(starving) != 0 {
+		t.Errorf("unit whose parent job has allow_high_priority_override off must never be offered to preemption, got %d", len(starving))
+	}
+}
+
+// TestComputeStarvingUnits_AllowHighPriorityOverrideOptsIn is the inverted-gate
+// guard for the test above: the SAME unit with the flag on must still come back
+// as starving. Without this pair, a gate that returned only opted-OUT units
+// would pass the negative test.
+func TestComputeStarvingUnits_AllowHighPriorityOverrideOptsIn(t *testing.T) {
+	u := uuid.New()
+	units := []UnitInfo{
+		{ID: u, ParentJobID: uuid.New(), Priority: 9, MaxAgents: 0, ActiveAgentCount: 0, AllowHighPriorityOverride: true},
+	}
+	starving := computeStarvingUnits(units, []Allocation{})
+	if len(starving) != 1 {
+		t.Fatalf("opted-in starving unit should be offered to preemption, got %d", len(starving))
+	}
+	if starving[0].ID != u {
+		t.Errorf("wrong unit returned: got %s, want %s", starving[0].ID, u)
 	}
 }

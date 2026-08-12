@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -1821,8 +1822,19 @@ func (h *Handler) handleTaskAssignmentRejected(client *Client, msg *wsservice.Me
 	if payload.Reason != "" {
 		reason = "agent rejected assignment: " + payload.Reason
 	}
-	result, recErr := scheduler.RecoverTaskByID(client.ctx, h.database, taskID, reason)
+	// RecoverStoppedTaskByID, not RecoverTaskByID: a rejected assignment
+	// is a scheduling race, not an agent failure. With no restore point
+	// there is nothing to preserve, so the task and interval rows are
+	// deleted outright instead of leaving a 'failed' row that would
+	// permanently fail the job (HasFailedTasks is COUNT(*) > 0).
+	result, recErr := scheduler.RecoverStoppedTaskByID(client.ctx, h.database, taskID, reason)
 	if recErr != nil {
+		if errors.Is(recErr, scheduler.ErrTaskGone) {
+			// Lost the race against another benign-stop handler that
+			// already discarded the row. Nothing to recover, not a fault.
+			debug.Info("Agent %d: rejected task %s already recovered elsewhere", client.agent.ID, taskID)
+			return
+		}
 		debug.Warning("Agent %d: scheduler-v2 recovery for rejected task %s failed: %v", client.agent.ID, taskID, recErr)
 		return
 	}
@@ -1830,7 +1842,8 @@ func (h *Handler) handleTaskAssignmentRejected(client *Client, msg *wsservice.Me
 		debug.Info("Agent %d: task_assignment_rejected for non-v2 task %s — nothing to do (legacy task)", client.agent.ID, taskID)
 		return
 	}
-	debug.Info("Agent %d: scheduler-v2 freed interval for rejected task %s (truncated=%v)", client.agent.ID, taskID, result.Truncated)
+	debug.Info("Agent %d: scheduler-v2 freed interval for rejected task %s (truncated=%v discarded=%v)",
+		client.agent.ID, taskID, result.Truncated, result.Discarded)
 }
 
 // handleAgentShutdown processes graceful shutdown notification from an agent
@@ -1875,22 +1888,38 @@ func (h *Handler) handleAgentShutdown(client *Client, msg *wsservice.Message) {
 
 		// Scheduler-v2 routing: if the task has scheduling_unit_id, run
 		// the §8.2 split-and-gap recovery and skip the legacy
-		// SetTaskPending path. RecoverTaskByID returns Handled=false
-		// for legacy tasks, so the existing code below handles those.
+		// SetTaskPending path. Recovery returns Handled=false for legacy
+		// tasks, so the existing code below handles those.
 		if h.database != nil {
-			result, recErr := scheduler.RecoverTaskByID(client.ctx, h.database, taskID, "agent disconnect")
+			// A graceful agent shutdown is a benign stop, so
+			// RecoverStoppedTaskByID: with no restore point the task and
+			// interval rows are discarded rather than failed. The range
+			// re-opens either way; what changes is that the job doesn't
+			// inherit a permanent failure from an orderly shutdown.
+			result, recErr := scheduler.RecoverStoppedTaskByID(client.ctx, h.database, taskID, "agent disconnect")
 			if recErr != nil {
+				if errors.Is(recErr, scheduler.ErrTaskGone) {
+					// Another benign-stop handler (stop-ack or
+					// stopped-progress) already discarded the row.
+					debug.Info("Agent %d: task %s already recovered elsewhere on shutdown",
+						client.agent.ID, taskID)
+					goto afterTaskHandling
+				}
 				debug.Warning("Agent %d: scheduler-v2 recovery for task %s failed: %v",
 					client.agent.ID, taskID, recErr)
 				// Fall through to legacy SetTaskPending — better to
 				// stale-process a task with the wrong scheduler than
 				// to leave it stuck.
 			} else if result.Handled {
-				if result.Truncated {
+				switch {
+				case result.Truncated:
 					debug.Info("Agent %d: scheduler-v2 truncated interval for task %s (progress preserved as gap)",
 						client.agent.ID, taskID)
-				} else {
-					debug.Info("Agent %d: scheduler-v2 failed interval for task %s (no progress to preserve)",
+				case result.Discarded:
+					debug.Info("Agent %d: scheduler-v2 discarded task %s and its interval (no progress to preserve)",
+						client.agent.ID, taskID)
+				default:
+					debug.Info("Agent %d: scheduler-v2 cancelled task %s (no progress to preserve, row kept)",
 						client.agent.ID, taskID)
 				}
 				goto afterTaskHandling

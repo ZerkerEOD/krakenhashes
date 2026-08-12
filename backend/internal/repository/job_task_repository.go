@@ -29,6 +29,26 @@ type OverrunTask struct {
 	AgentID        int
 	ChunkDuration  int
 	ElapsedSeconds int64
+	// MadeProgress is false only when the task shows NO evidence of work at
+	// all: restore_point never advanced past its own range_start, no effective
+	// keyspace was processed, and nothing cracked. NULL columns (never
+	// reported) count as no progress.
+	//
+	// This is deliberately WIDER than the restore_point/range_start pair
+	// RecoverTaskByID uses for its truncate-or-fail decision, and the
+	// divergence is the point: restore_point is a BASE-word coordinate, and
+	// hashcat can leave it pinned at range_start for an entire run while
+	// progress[0] climbs (one base word spans billions of candidates under a
+	// large rule file). Recovery must stay on restore_point — it is the only
+	// safe resume coordinate — but charging a benchmark failure to an agent at
+	// 98% GPU utilization because of that is wrong. effective_keyspace_processed
+	// (written by UpdateTaskProgress, incl. the Step 11s derived path) sees
+	// sub-base-word work; crack_count sees a chunk that produced results.
+	//
+	// Nothing else works as a signal here: benchmark_speed is pre-seeded at
+	// dispatch so > 0 is meaningless, and average_speed stays NULL until
+	// CompleteTask.
+	MadeProgress bool
 }
 
 // ListOverrunRunningTasks returns scheduler-v2 tasks still assigned/running
@@ -38,7 +58,12 @@ type OverrunTask struct {
 func (r *JobTaskRepository) ListOverrunRunningTasks(ctx context.Context, toleranceFactor float64) ([]OverrunTask, error) {
 	const query = `
 		SELECT id, agent_id, chunk_duration,
-		       EXTRACT(EPOCH FROM (NOW() - started_at))::bigint
+		       EXTRACT(EPOCH FROM (NOW() - started_at))::bigint,
+		       COALESCE(
+		              COALESCE(restore_point, range_start) > range_start
+		           OR COALESCE(effective_keyspace_processed, 0) > 0
+		           OR COALESCE(crack_count, 0) > 0,
+		       FALSE) AS made_progress
 		FROM job_tasks
 		WHERE status IN ('assigned', 'running')
 		  AND scheduling_unit_id IS NOT NULL
@@ -57,7 +82,7 @@ func (r *JobTaskRepository) ListOverrunRunningTasks(ctx context.Context, toleran
 	var out []OverrunTask
 	for rows.Next() {
 		var t OverrunTask
-		if err := rows.Scan(&t.TaskID, &t.AgentID, &t.ChunkDuration, &t.ElapsedSeconds); err != nil {
+		if err := rows.Scan(&t.TaskID, &t.AgentID, &t.ChunkDuration, &t.ElapsedSeconds, &t.MadeProgress); err != nil {
 			return nil, fmt.Errorf("scan overrun task: %w", err)
 		}
 		out = append(out, t)
@@ -786,12 +811,19 @@ func (r *JobTaskRepository) UpdateProgress(ctx context.Context, id uuid.UUID, ke
 	// sent on Ctrl+C cancellation — Step 10c-1 fixed the agent, this
 	// guard prevents future regressions of the same class).
 	//
-	// progress_percent is NO LONGER part of the monotonic guard: it is a
-	// derived display value recomputed from the chunk-local keyspace on
-	// every call (see UpdateTaskProgress Step 11r) and is capped below
-	// 100 for in-flight tasks. keyspace_processed remains the sole
-	// monotonic signal; guarding on it alone still rejects the buggy
-	// backward keyspace_processed=0 Ctrl+C message this guard exists for.
+	// progress_percent is NOT part of the row-level guard: it is a derived
+	// display value recomputed from the chunk-local keyspace on every call
+	// (see UpdateTaskProgress Step 11r) and is capped below 100 for
+	// in-flight tasks. keyspace_processed remains the sole monotonic
+	// signal; guarding on it alone still rejects the buggy backward
+	// keyspace_processed=0 Ctrl+C message this guard exists for.
+	//
+	// effective_keyspace_processed and progress_percent are instead clamped
+	// per-column with GREATEST. Step 11s can derive both from hashcat's
+	// progress[0]/progress[1] pair, and progress[1] shrinks mid-run as salts
+	// drop out when hashes crack — without the clamp that moving denominator
+	// would walk the displayed position backwards. GREATEST keeps the display
+	// forward-only without blocking the keyspace_processed write.
 	//
 	// COALESCE so a row with NULL keyspace_processed (just dispatched,
 	// no progress yet) accepts the first write.
@@ -801,7 +833,11 @@ func (r *JobTaskRepository) UpdateProgress(ctx context.Context, id uuid.UUID, ke
 	// distinguish, we read the existence separately on miss.
 	query := `
 		UPDATE job_tasks
-		SET keyspace_processed = $1, effective_keyspace_processed = $2, benchmark_speed = $3, last_checkpoint = $4, progress_percent = $5
+		SET keyspace_processed = $1,
+		    effective_keyspace_processed = GREATEST(COALESCE(effective_keyspace_processed, 0), $2::numeric),
+		    benchmark_speed = $3,
+		    last_checkpoint = $4,
+		    progress_percent = GREATEST(COALESCE(progress_percent, 0), $5::numeric)
 		WHERE id = $6
 		  AND COALESCE(keyspace_processed, 0) <= $1`
 
