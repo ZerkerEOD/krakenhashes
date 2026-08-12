@@ -98,6 +98,7 @@ export interface JobWorkflow {
   created_at: string; // ISO 8601 date string
   updated_at: string; // ISO 8601 date string
   steps?: JobWorkflowStep[]; // Optional, included in GetByID
+  step_count?: number; // Number of steps, reported by list endpoints (GH #78)
   has_high_priority_override?: boolean; // True if any step has high priority override
   loopback_all_eligible?: boolean; // Master loopback toggle (GH #64)
 }
