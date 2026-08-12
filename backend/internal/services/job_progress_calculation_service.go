@@ -300,6 +300,59 @@ func (s *JobProgressCalculationService) calculateIncrementJobProgress(ctx contex
 	}, nil
 }
 
+// activeTaskBaseProgress returns an in-flight task's chunk-relative progress in
+// BASE (wordlist) units, clamped to [0, chunkSize] (chunkSize in base units).
+//
+// The primary source is keyspace_processed — hashcat's restore_point, stored
+// ABSOLUTELY while a keyspace-split task runs and RELATIVELY once complete.
+//
+// When that reads zero the task may still be working: hashcat can leave
+// restore_point pinned at 0 for an entire run while progress[0] climbs (with a
+// large rule file a single base word spans billions of candidates, so the
+// restore point never advances). Step 11s in UpdateTaskProgress records that
+// motion in effective_keyspace_processed instead, so invert its scaling to
+// recover a base-unit position:
+//
+//	base = effective_processed × base chunk size / effective chunk size
+//
+// as a big.Int multiply-then-divide — the intermediate product overflows both
+// int64 and float64's exact range on real keyspaces. Tasks without effective
+// chunk coords (legacy rows) keep the raw base reading.
+func activeTaskBaseProgress(task models.JobTask, chunkSize int64) int64 {
+	var baseProc int64
+	if task.KeyspaceStart > 0 && task.KeyspaceProcessed >= task.KeyspaceStart {
+		baseProc = task.KeyspaceProcessed - task.KeyspaceStart // absolute → chunk-relative
+	} else {
+		baseProc = task.KeyspaceProcessed
+	}
+	if baseProc < 0 {
+		baseProc = 0
+	}
+	if chunkSize > 0 && baseProc > chunkSize {
+		baseProc = chunkSize
+	}
+	if baseProc > 0 || chunkSize <= 0 {
+		return baseProc
+	}
+
+	if task.EffectiveKeyspaceProcessed == nil || !task.EffectiveKeyspaceProcessed.IsPositive() ||
+		task.EffectiveKeyspaceStart == nil || task.EffectiveKeyspaceEnd == nil {
+		return baseProc
+	}
+	chunkEff := task.EffectiveKeyspaceEnd.Sub(*task.EffectiveKeyspaceStart)
+	if !chunkEff.IsPositive() {
+		return baseProc
+	}
+	derived := task.EffectiveKeyspaceProcessed.MulInt64(chunkSize).Div(chunkEff)
+	if derived.CmpInt64(chunkSize) > 0 {
+		return chunkSize // clamp BEFORE Int64(): an out-of-range big.Int truncates
+	}
+	if !derived.IsPositive() {
+		return 0
+	}
+	return derived.Int64()
+}
+
 // calculateRegularJobProgress calculates progress for regular jobs (aggregate tasks → job)
 func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.Context, job models.JobExecution) (*JobProgressUpdate, error) {
 	// Get all tasks for this job
@@ -367,7 +420,8 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 		// Accumulate BASE-unit progress (used for the drift-free percentage of
 		// non-rule-split jobs). Completed tasks count their full chunk; active
 		// tasks count their partial restore_point (converted from absolute to
-		// relative when needed), clamped to the chunk size; failed/cancelled
+		// relative when needed, or derived from effective progress when the
+		// restore point is frozen), clamped to the chunk size; failed/cancelled
 		// ranges reopened as gaps count for nothing.
 		if task.Status != models.JobTaskStatusFailed && task.Status != models.JobTaskStatusCancelled {
 			chunkSize := task.KeyspaceEnd - task.KeyspaceStart
@@ -376,19 +430,7 @@ func (s *JobProgressCalculationService) calculateRegularJobProgress(ctx context.
 					processedBaseKeyspace += chunkSize
 				}
 			} else {
-				var baseProc int64
-				if task.KeyspaceStart > 0 && task.KeyspaceProcessed >= task.KeyspaceStart {
-					baseProc = task.KeyspaceProcessed - task.KeyspaceStart
-				} else {
-					baseProc = task.KeyspaceProcessed
-				}
-				if baseProc < 0 {
-					baseProc = 0
-				}
-				if chunkSize > 0 && baseProc > chunkSize {
-					baseProc = chunkSize
-				}
-				processedBaseKeyspace += baseProc
+				processedBaseKeyspace += activeTaskBaseProgress(task, chunkSize)
 			}
 		}
 
@@ -547,27 +589,16 @@ func (s *JobProgressCalculationService) calculateAndUpdateLayerProgress(ctx cont
 
 		// BASE-unit progress for this layer (drift-free percentage numerator).
 		// Mirrors calculateRegularJobProgress: completed tasks count their full
-		// chunk; active tasks count their clamped restore_point; failed/cancelled
-		// ranges (reopened as gaps) count for nothing.
+		// chunk; active tasks count their clamped restore_point (or, when that
+		// is frozen, the position derived from effective progress);
+		// failed/cancelled ranges (reopened as gaps) count for nothing.
 		if task.Status != models.JobTaskStatusFailed && task.Status != models.JobTaskStatusCancelled {
 			if task.Status == models.JobTaskStatusCompleted {
 				if chunkSize > 0 {
 					processedBaseKeyspace += chunkSize
 				}
 			} else {
-				var baseProc int64
-				if task.KeyspaceStart > 0 && task.KeyspaceProcessed >= task.KeyspaceStart {
-					baseProc = task.KeyspaceProcessed - task.KeyspaceStart
-				} else {
-					baseProc = task.KeyspaceProcessed
-				}
-				if baseProc < 0 {
-					baseProc = 0
-				}
-				if chunkSize > 0 && baseProc > chunkSize {
-					baseProc = chunkSize
-				}
-				processedBaseKeyspace += baseProc
+				processedBaseKeyspace += activeTaskBaseProgress(task, chunkSize)
 			}
 		}
 

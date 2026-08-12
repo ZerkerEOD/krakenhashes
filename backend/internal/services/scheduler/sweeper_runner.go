@@ -70,9 +70,32 @@ func (r *SweeperRunner) sweepOnce(ctx context.Context) {
 	if len(evicted) > 0 {
 		debug.Info("sweeper: evicted %d stale tasks", len(evicted))
 		for _, ev := range evicted {
-			debug.Debug("sweeper: task %s unit %s range [%d,%d) reason=%s",
-				ev.TaskID, ev.UnitID, ev.RangeStart, ev.RangeEnd, ev.Reason)
+			// Spell out the outcome: a truncated task kept its progress
+			// and re-opened the remainder; a discarded one had no
+			// resumable restore point, so its rows were deleted rather
+			// than failed. "cancelled" is the residual case where a
+			// delete guard (cracks present) held the row back.
+			outcome := "cancelled"
+			switch {
+			case ev.Truncated:
+				outcome = "truncated (progress preserved)"
+			case ev.Discarded:
+				outcome = "discarded (no progress to preserve)"
+			}
+			debug.Debug("sweeper: task %s unit %s range [%d,%d) reason=%s outcome=%s",
+				ev.TaskID, ev.UnitID, ev.RangeStart, ev.RangeEnd, ev.Reason, outcome)
 		}
+	}
+
+	// GH #77: reclaim tasks parked 'pending' with a still-'assigned'
+	// interval. Reuses the heartbeat timeout as the age guard so a stop
+	// that is still in flight is never touched.
+	strandedRecovered, strandedErrs := RecoverStrandedPendingTasks(ctx, r.db, timeout)
+	for _, e := range strandedErrs {
+		debug.Warning("sweeper: %v", e)
+	}
+	if strandedRecovered > 0 {
+		debug.Info("sweeper: recovered %d stranded pending tasks", strandedRecovered)
 	}
 }
 

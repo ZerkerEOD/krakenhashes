@@ -104,8 +104,12 @@ family guarantees every job its baseline cap first and then accelerates higher-p
 extras. A core invariant holds in all modes: **a compatible agent is never left idle while a
 compatible job still has dispatchable work** — except that an agent still building its startup file
 map is intentionally skipped until it reports `file_map_ready` (fail-open: an agent that never
-reports readiness stays eligible). Higher-priority running tasks can also interrupt
-lower-priority ones when interruption is enabled — see [Job Priority](../../admin-guide/advanced/job-priority.md).
+reports readiness stays eligible). A waiting higher-priority job can also **preempt** a running
+lower-priority task to free an agent, but only when **both** gates are open: the system-wide
+`job_interruption_enabled` setting is on **and** the waiting job itself has **Allow High Priority
+Override** enabled. With either gate closed the job simply waits for an agent to free up naturally —
+priority still decides who gets the next idle agent, it just never stops anyone's running work. See
+[Job Priority](../../admin-guide/advanced/job-priority.md).
 
 ## Chunking and dispatch
 
@@ -115,6 +119,31 @@ hashcat `--skip`/`--limit`), and when a job's rules would make a single chunk ru
 are split so each chunk still fits the target. For the full chunking model — including salted-hash
 adjustments and rule splitting — see [Chunking System](chunking.md) and
 [Rule Splitting](rule-splitting.md).
+
+### Stopping a task: truncate, complete, re-open the gap
+
+Every server-initiated stop takes the same path, no matter why it fired — the chunk-overrun guard,
+a preemption, an agent disconnect or heartbeat timeout, or an operator pressing stop:
+
+1. The task's keyspace interval is **truncated at the last restore point** the agent reported. The
+   work that was actually done stays recorded as coverage.
+2. The task row is **completed at 100%** — 100% of its new, smaller range. It is not reported as a
+   partial failure, and it is *not* put back to `pending`. A stop where the agent never advanced
+   past its own range start has nothing to keep, so the task and its interval are both marked
+   `failed` instead and the whole original range re-opens.
+3. The unprocessed remainder becomes a **gap** automatically, because no interval row covers it any
+   more. The next dispatch cycle re-issues it — usually to a different agent.
+
+Because coverage is an interval set rather than a single watermark, a stop in the middle of a unit
+leaves a **hole**, not a shortened tail. The gap query returns the lowest-start gap first, so a
+mid-keyspace hole is always re-dispatched **before** the untouched tail. Concretely: if `[0,100)` is
+complete, a task working `[100,150)` is stopped at 105, and another agent is already on `[150,200)`,
+the next chunk handed out is `[105,150)` — not `[200, …)`.
+
+This is why a stopped task must never be parked in `pending` with its interval left live: the gap
+query counts any non-`failed` interval as covered, so such a range would look permanently done while
+nobody was working it, and the job would sit at "fully covered but never complete" forever
+(GH #77). The heartbeat sweeper also re-checks for that shape on every pass and heals it.
 
 ## Validation, fast-fail, and diagnostics
 
@@ -137,7 +166,8 @@ The scheduler reads several system settings (Admin → Settings). The most relev
 | Setting | Controls |
 |---------|----------|
 | `agent_overflow_allocation_mode` | Surplus-agent policy (the five modes above). |
-| `job_interruption_enabled` | Whether higher-priority jobs may interrupt running lower-priority tasks. |
+| `job_interruption_enabled` | Global gate for preemption. Preemption additionally requires the waiting job's own **Allow High Priority Override** flag — both must be on. Ships enabled; if the setting is missing or unreadable the scheduler treats it as **off** so it can never start stopping running work by accident. |
+| `chunk_overrun_guard_enabled`, `chunk_overrun_tolerance_percent` | Stop a task that runs past `chunk_duration × (1 + tolerance)` and re-dispatch the remainder. |
 | `default_chunk_duration` | Target running time per chunk (drives chunk sizing). |
 | `benchmark_cache_duration_hours` | How long a benchmark stays valid before re-benchmarking. |
 | `speedtest_timeout_seconds` | Timeout for an agent speed benchmark. |

@@ -536,7 +536,7 @@ type JobProgress struct {
 	KeyspaceProcessed      int64          `json:"keyspace_processed"`                   // Restore point (position in wordlist)
 	EffectiveProgress      int64          `json:"effective_progress"`                   // Actual effective progress (words × rules processed)
 	ProgressPercent        float64        `json:"progress_percent"`                     // Actual progress percentage (0-100)
-	TotalEffectiveKeyspace *BigInt        `json:"total_effective_keyspace,omitempty"`   // Only sent on first update - hashcat progress[1] (NUMERIC; UnmarshalJSON accepts agent's number)
+	TotalEffectiveKeyspace *BigInt        `json:"total_effective_keyspace,omitempty"`   // hashcat progress[1] for this chunk, sent on EVERY update where it is > 0 (NUMERIC; UnmarshalJSON accepts agent's number)
 	IsFirstUpdate          bool           `json:"is_first_update"`                      // Flag indicating this is the first progress update
 	HashRate               int64          `json:"hash_rate"`                            // Current hashes per second
 	Temperature            *float64       `json:"temperature"`                          // GPU temperature (deprecated, use DeviceMetrics)
