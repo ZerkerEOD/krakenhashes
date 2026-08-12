@@ -3686,9 +3686,29 @@ func (s *JobExecutionService) HandleTaskCompletion(ctx context.Context, taskID u
 			return nil
 		}
 
-		// Don't overwrite failed/cancelled status with completed
-		// This preserves the failed status set when a task fails
-		if job.Status == models.JobExecutionStatusFailed || job.Status == models.JobExecutionStatusCancelled {
+		// Don't overwrite an already-terminal status.
+		//
+		// 'failed'/'cancelled' were always here, to preserve the status set
+		// when a task fails. 'completed' is new, and it is load-bearing:
+		// HashlistCompletionService.completeJob marks a fully-cracked job
+		// 'completed' directly (via jobExecRepo.CompleteExecution) while its
+		// triggering task is still draining crack batches. That task now
+		// finishes its handshake normally instead of being reconciled away,
+		// so it reaches this block with the job ALREADY completed — reliably,
+		// not as a race.
+		//
+		// Falling through from there would call CompleteJobExecution, which
+		// begins with HasFailedTasks (a COUNT(*) > 0 over 'failed' /
+		// 'processing_error'). One older failed task on the job would
+		// therefore flip a legitimately completed, fully-cracked job to
+		// 'failed' and dispatch a "Job Failed" notification — a different
+		// notification_type, so the dispatcher's source dedup does not
+		// suppress it. Returning here also stops CompleteExecution (which has
+		// no status guard of its own) from re-stamping completed_at and
+		// inflating the reported job duration.
+		if job.Status == models.JobExecutionStatusFailed ||
+			job.Status == models.JobExecutionStatusCancelled ||
+			job.Status == models.JobExecutionStatusCompleted {
 			debug.Log("Job already in terminal state - skipping completion", map[string]interface{}{
 				"job_id": task.JobExecutionID,
 				"status": job.Status,

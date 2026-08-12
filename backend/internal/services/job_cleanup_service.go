@@ -12,12 +12,41 @@ import (
 	"github.com/google/uuid"
 )
 
+// StuckProcessingHandler is the narrow slice of the WebSocket integration layer
+// that the stale-processing backstop needs.
+//
+// It is an interface rather than a direct dependency because this package
+// CANNOT import the packages that own the two operations. The recovery
+// primitive lives in services/scheduler, and services -> services/scheduler ->
+// services/websocket -> services is an import cycle; the implementation lives
+// in internal/integration, which itself imports services. Same shape and same
+// reason as WSHandler in hashlist_completion_service.go.
+//
+// Implemented by *integration.JobWebSocketIntegration and wired in
+// cmd/server/main.go once routes.SetupRoutes has built the job integration
+// manager.
+type StuckProcessingHandler interface {
+	// TryFinalizeTask completes a task whose crack handshake the DB already
+	// shows as satisfied. Returns true if it performed the completion.
+	TryFinalizeTask(ctx context.Context, taskID uuid.UUID) (bool, error)
+	// AbandonProcessingTask terminalises a task whose cracks are never
+	// arriving, releasing its keyspace. Never produces 'failed'.
+	AbandonProcessingTask(ctx context.Context, taskID uuid.UUID, reason string) error
+}
+
 // JobCleanupService handles cleanup of stale jobs and tasks
 type JobCleanupService struct {
 	jobExecutionRepo   *repository.JobExecutionRepository
 	jobTaskRepo        *repository.JobTaskRepository
 	systemSettingsRepo *repository.SystemSettingsRepository
 	agentRepo          *repository.AgentRepository
+
+	// stuckProcessingHandler may be nil: this service is constructed during
+	// early startup, long before the routes (and therefore the WebSocket
+	// integration) exist, and CleanupStaleTasksOnStartup runs immediately.
+	// Every use must be nil-guarded — a nil-pointer panic here would take down
+	// the periodic sweep that every stuck job depends on.
+	stuckProcessingHandler StuckProcessingHandler
 }
 
 // NewJobCleanupService creates a new job cleanup service
@@ -33,6 +62,18 @@ func NewJobCleanupService(
 		systemSettingsRepo: systemSettingsRepo,
 		agentRepo:          agentRepo,
 	}
+}
+
+// SetStuckProcessingHandler wires the WebSocket integration layer into the
+// stale-processing backstop (checkForStaleProcessingTasks).
+//
+// Deliberately a setter and not a constructor argument: main.go builds this
+// service and runs the startup cleanup before routes.SetupRoutes exists, so the
+// integration instance simply isn't available yet at construction time. Until
+// this is called the backstop is inert and says so in the log rather than
+// panicking.
+func (s *JobCleanupService) SetStuckProcessingHandler(handler StuckProcessingHandler) {
+	s.stuckProcessingHandler = handler
 }
 
 // CleanupStaleTasksOnStartup cleans up tasks that were left in an incomplete state
@@ -172,10 +213,66 @@ func (s *JobCleanupService) failStalePreparingJobs(ctx context.Context) {
 	}
 }
 
-// checkForStaleProcessingTasks checks for tasks stuck in processing state for too long.
-// If a task has been in processing for longer than the timeout without progress,
-// it's likely the agent disconnected and won't be sending the outfile.
-// These tasks are marked as processing_error to allow the job to continue.
+// staleProcessingAgentHeartbeatWindow is how fresh an agent's heartbeat must be
+// for the abandon gate to accept "this agent could still retransmit its cracks".
+//
+// It matches the 90s heartbeat timeout main.go passes to
+// AgentCleanupService.CleanupStaleAgents, which is what flips a silent 'active'
+// agent to 'inactive'. Checking the heartbeat as well as the status matters
+// because the status flip depends on that other sweeper getting a turn: if it
+// errors or is wedged, a dead agent's row stays 'active' forever and a
+// status-only predicate would block the abandon gate forever with it — turning
+// the backstop back into the "logs about it every 5 minutes and never acts"
+// non-fix this rework exists to remove.
+const staleProcessingAgentHeartbeatWindow = 90 * time.Second
+
+// staleProcessingHardCutoffFactor bounds how long a reachable agent can defer
+// Gate 2 of the stale-processing sweep. Past this multiple of the staleness
+// timeout the row is abandoned no matter how healthy its agent looks.
+//
+// The deferral exists because a live agent's outstanding cracks are worth a few
+// extra minutes of a stale row. But "the agent is up" is not evidence that this
+// task's handshake is still progressing — every write in that handshake (crack
+// batches, retransmit counter bumps) touches updated_at, so a row that has not
+// moved for this long is not waiting on anything. Without the bound, an agent
+// that stays connected forever and never retransmits would defer the abandon on
+// every single sweep, recreating the indefinitely-stuck 'processing' task this
+// backstop exists to eliminate.
+const staleProcessingHardCutoffFactor = 3
+
+// checkForStaleProcessingTasks is the backstop that guarantees no task sits in
+// 'processing' indefinitely, however the crack handshake breaks next.
+//
+// WHAT THIS REPLACED, and why it could never have worked: the previous version
+// only acted when retransmit_count >= 6, and that counter is incremented in
+// exactly one place — requestCrackRetransmit, reached only via
+// handleCrackCountMismatch. Once a retransmit has been verified and the agent
+// told to delete its outfile, no further mismatch can ever occur, so the
+// counter is pinned at whatever it reached (1, in the GH #79 incident) and the
+// >= 6 branch is unreachable. Below the threshold it logged "may still recover"
+// every 5 minutes, forever. And the branch it guarded called
+// SetTaskProcessingError, which wrote status = 'processing_error' — not a value
+// in the valid_task_status CHECK constraint on job_tasks (pending, assigned,
+// reconnect_pending, running, processing, completed, failed, cancelled) — so
+// every call it ever made died on a constraint violation. Had it worked it
+// would have been worse: HasFailedTasks counts processing_error, so
+// CompleteJobExecution would call FailExecution and permanently fail a job
+// whose keyspace is perfectly recoverable. The repository method is gone; see
+// the note where it used to live in job_task_repository.go.
+//
+// The rework is two gates with very different costs:
+//
+// GATE 1 runs for EVERY processing task regardless of age. TryFinalizeTask is
+// two indexed reads and can only fire when the DB already says the handshake is
+// satisfied (batches signaled AND received >= expected), so it is safe at any
+// age — and there is no reason to make a finished task wait out the staleness
+// timeout for a status it has already earned. This is what shortens the
+// worst-case stuck window from 30 minutes to one ticker period (5 minutes, per
+// MonitorStaleTasksPeriodically in cmd/server/main.go).
+//
+// GATE 2 runs only for rows older than the staleness cutoff, and terminalises
+// them via AbandonProcessingTask, which releases the keyspace without ever
+// writing 'failed'.
 func (s *JobCleanupService) checkForStaleProcessingTasks(ctx context.Context, timeout time.Duration) {
 	processingTasks, err := s.jobTaskRepo.GetTasksByStatuses(ctx, []string{
 		string(models.JobTaskStatusProcessing),
@@ -189,48 +286,127 @@ func (s *JobCleanupService) checkForStaleProcessingTasks(ctx context.Context, ti
 		return
 	}
 
+	// Read the handler once so a concurrent SetStuckProcessingHandler can't
+	// make it non-nil halfway through the loop and produce a sweep that used
+	// two different worlds.
+	handler := s.stuckProcessingHandler
+
 	cutoffTime := time.Now().Add(-timeout)
+	// Hard cutoff for the reachable-agent deferral below. Without it, an agent
+	// that stays connected and heartbeating but never retransmits would defer
+	// Gate 2 on every sweep, forever — which is the same indefinitely-stuck
+	// 'processing' row this backstop exists to eliminate, just reached by a
+	// different route. Past this point the agent's reachability stops buying it
+	// any more patience: the row has not moved in staleProcessingHardCutoffFactor
+	// × timeout, and every write in the handshake (crack batches, retransmit
+	// counter bumps) touches updated_at, so nothing is happening regardless of
+	// what the agent's heartbeat says.
+	hardCutoffTime := time.Now().Add(-staleProcessingHardCutoffFactor * timeout)
 	staleCount := 0
 
 	for _, task := range processingTasks {
-		// Check if task has been in processing for too long
-		if task.UpdatedAt.Before(cutoffTime) {
-			staleCount++
-			agentID := 0
-			if task.AgentID != nil {
-				agentID = *task.AgentID
-			}
+		agentID := 0
+		if task.AgentID != nil {
+			agentID = *task.AgentID
+		}
 
-			// Check retransmit count - if exhausted, mark as processing_error
-			retransmitCount := 0
-			if task.RetransmitCount != nil {
-				retransmitCount = *task.RetransmitCount
-			}
-
-			if retransmitCount >= 6 { // Match retransmitMaxRetries from job_websocket_integration
-				// Mark as processing_error - too many retransmit attempts
-				errorMsg := fmt.Sprintf("Task stuck in processing for %v with %d failed retransmit attempts",
-					timeout, retransmitCount)
-
-				err := s.jobTaskRepo.SetTaskProcessingError(ctx, task.ID, errorMsg)
-				if err != nil {
-					debug.Error("Failed to mark stale processing task as error: %v", err)
-					continue
-				}
-
-				debug.Warning("Marked stale processing task as processing_error - ID: %s, Job: %s, Agent: %d, Retransmits: %d",
-					task.ID, task.JobExecutionID, agentID, retransmitCount)
-			} else {
-				// Log but don't mark as error yet - agent may still reconnect
-				debug.Info("Processing task is stale but may still recover - ID: %s, Job: %s, Agent: %d, Updated: %v, Retransmits: %d",
-					task.ID, task.JobExecutionID, agentID, task.UpdatedAt, retransmitCount)
+		// GATE 1: cheap, age-independent, idempotent. TryFinalizeTask
+		// re-evaluates the handshake FROM THE DATABASE and completes the task
+		// if it is already satisfied — the GH #79 case, where the final crack
+		// batch and the batches-complete signal raced and neither was left to
+		// notice the task was done.
+		if handler != nil {
+			finalized, ferr := handler.TryFinalizeTask(ctx, task.ID)
+			if ferr != nil {
+				debug.Error("Stale-processing sweep: TryFinalizeTask failed for task %s (job %s, agent %d): %v",
+					task.ID, task.JobExecutionID, agentID, ferr)
+			} else if finalized {
+				debug.Info("Stale-processing sweep: completed task %s (job %s, agent %d) - crack handshake was already satisfied in the DB (expected %d, received %d)",
+					task.ID, task.JobExecutionID, agentID, task.ExpectedCrackCount, task.ReceivedCrackCount)
+				continue
 			}
 		}
+
+		// GATE 2: expensive and lossy (it gives up on cracks that may still be
+		// in flight), so it only applies once the row has genuinely gone quiet.
+		if !task.UpdatedAt.Before(cutoffTime) {
+			continue
+		}
+		staleCount++
+
+		if handler == nil {
+			debug.Warning("Stale-processing backstop is unwired (SetStuckProcessingHandler was never called) - task %s (job %s, agent %d) has been in 'processing' since %v and cannot be recovered automatically",
+				task.ID, task.JobExecutionID, agentID, task.UpdatedAt)
+			continue
+		}
+
+		// A reachable agent may still retransmit, and its cracks are worth more
+		// than a few extra minutes of a stale row. This check is an
+		// optimisation, not a correctness requirement: AbandonProcessingTask is
+		// safe against a live agent too, because a later crack batch simply
+		// loses the guarded-UPDATE race against the terminal status and is
+		// ignored.
+		//
+		// Bounded on purpose: the deferral stops at hardCutoffTime so a
+		// permanently-connected agent that never retransmits cannot hold a row
+		// in 'processing' indefinitely.
+		if task.UpdatedAt.After(hardCutoffTime) && s.agentMayStillRetransmit(ctx, task.AgentID) {
+			debug.Info("Processing task %s (job %s) is stale since %v but agent %d is still reachable - deferring abandonment until %v (expected %d, received %d)",
+				task.ID, task.JobExecutionID, task.UpdatedAt, agentID,
+				task.UpdatedAt.Add(staleProcessingHardCutoffFactor*timeout),
+				task.ExpectedCrackCount, task.ReceivedCrackCount)
+			continue
+		}
+
+		reason := fmt.Sprintf("crack handshake abandoned after %v (expected %d, received %d)",
+			timeout, task.ExpectedCrackCount, task.ReceivedCrackCount)
+
+		if aerr := handler.AbandonProcessingTask(ctx, task.ID, reason); aerr != nil {
+			debug.Error("Failed to abandon stale processing task %s (job %s, agent %d): %v",
+				task.ID, task.JobExecutionID, agentID, aerr)
+			continue
+		}
+
+		debug.Warning("Abandoned stale processing task %s (job %s, agent %d): %s - keyspace released for re-dispatch",
+			task.ID, task.JobExecutionID, agentID, reason)
 	}
 
 	if staleCount > 0 {
 		debug.Info("Found %d stale processing tasks (not updated in %v)", staleCount, timeout)
 	}
+}
+
+// agentMayStillRetransmit reports whether a stale processing task's agent is
+// reachable enough that its outstanding cracks could still arrive.
+//
+// One indexed primary-key read — the cheapest reachability predicate available
+// to this service, which holds an AgentRepository but no WebSocket hub.
+//
+// Every uncertain answer resolves to false (abandon). That direction is the
+// safe one: abandoning a task whose agent is in fact alive costs at most a
+// re-run of its keyspace and loses no crack that has already been persisted,
+// whereas deferring to an agent that is never coming back is precisely the
+// forever-stuck state this backstop exists to prevent.
+func (s *JobCleanupService) agentMayStillRetransmit(ctx context.Context, agentID *int) bool {
+	if agentID == nil {
+		// The task's agent link was already cleared, so nobody is left holding
+		// an outfile for it.
+		return false
+	}
+
+	agent, err := s.agentRepo.GetByID(ctx, *agentID)
+	if err != nil || agent == nil {
+		debug.Warning("Stale-processing sweep: could not read agent %d for reachability check (%v) - treating it as unreachable", *agentID, err)
+		return false
+	}
+
+	if agent.Status != models.AgentStatusActive {
+		return false
+	}
+
+	// See staleProcessingAgentHeartbeatWindow: 'active' alone is not proof of
+	// life, because the status only flips when the stale-agent sweeper runs.
+	return !agent.LastHeartbeat.IsZero() && time.Since(agent.LastHeartbeat) <= staleProcessingAgentHeartbeatWindow
 }
 
 // handleGracePeriodExpiration handles the expiration of the grace period for reconnect_pending tasks

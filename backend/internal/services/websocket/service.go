@@ -524,7 +524,48 @@ type Service struct {
 	// Semaphore for limiting concurrent crack batch processing
 	crackBatchSem chan struct{}
 	crackBatchWg  sync.WaitGroup
+
+	// crackInFlight counts, per agent ID, the crack_batch worker goroutines that
+	// have been spawned but have not yet finished. It exists so that the
+	// crack_batches_complete signal for a task can wait for that agent's already-read
+	// batches to land before the completion handshake is verified. See
+	// handleCrackBatch (increment site) and handleCrackBatchesComplete (waiter) for
+	// the full ordering argument; the short version is that the increment happens
+	// synchronously on the readPump, so a batch the readPump has already read is
+	// always counted by the time the readPump reads the complete-signal behind it.
+	//
+	// Keys are deleted when an agent's count reaches zero so the map cannot grow
+	// without bound across agent lifetimes (agents reconnect frequently, and a
+	// long-lived server would otherwise accumulate one dead entry per agent that
+	// ever sent a crack).
+	crackInFlightMu sync.Mutex
+	crackInFlight   map[int]int
 }
+
+const (
+	// crackDrainWaitCap bounds how long a crack_batches_complete waiter will wait for
+	// an agent's in-flight crack batches to drain. Blowing through the cap is not a
+	// failure: it degrades to exactly the pre-fix behaviour (the handshake may see
+	// received < expected and request a retransmit), which is wasteful but correct.
+	// A cap is mandatory so that a wedged or extremely slow batch can never turn into
+	// an unbounded goroutine leak.
+	//
+	// 30s is chosen to be comfortably longer than a realistic batch insert (a 10k-crack
+	// batch measured in the low seconds, plus queueing behind the 10-slot crackBatchSem)
+	// while leaving the bulk of the spawned goroutine's 5-minute context budget for
+	// ProcessCrackBatchesComplete itself, which is the work that actually matters.
+	crackDrainWaitCap = 30 * time.Second
+
+	// crackDrainPollInterval is the poll granularity of the drain wait. A poll loop was
+	// chosen over a sync.Cond deliberately: a Cond would need a Broadcast on every
+	// decrement plus a separate timer goroutine to implement the bound above, and the
+	// resulting wake-up/timeout interleaving is materially harder to audit than a loop
+	// whose entire termination argument is "either the count is zero or the deadline
+	// passed". The cost is bounded and trivial: at most 30s/25ms = 1200 mutex-protected
+	// map reads per complete-signal, and the common case (nothing in flight) returns on
+	// the first check without ever sleeping.
+	crackDrainPollInterval = 25 * time.Millisecond
+)
 
 // NewService creates a new WebSocket service
 func NewService(agentService *services.AgentService) *Service {
@@ -537,6 +578,7 @@ func NewService(agentService *services.AgentService) *Service {
 		agentService:  agentService,
 		clients:       make(map[int]*Client),
 		crackBatchSem: make(chan struct{}, maxConcurrentCrackBatches),
+		crackInFlight: make(map[int]int),
 	}
 }
 
@@ -918,6 +960,87 @@ func (s *Service) handleJobStatus(ctx context.Context, agent *models.Agent, msg 
 	return nil
 }
 
+// crackBatchStarted records that one more crack_batch worker is in flight for the
+// given agent. It MUST be called synchronously from HandleMessage (i.e. on the
+// readPump), never from inside the worker goroutine — see handleCrackBatch for why
+// that is the whole ordering guarantee.
+//
+// The nil-map check is defensive: every production Service comes from NewService,
+// which allocates the map, but a zero-value Service built by a future test would
+// otherwise panic here on the first write (reads and deletes on a nil map are
+// already safe in Go; only writes panic).
+func (s *Service) crackBatchStarted(agentID int) {
+	s.crackInFlightMu.Lock()
+	defer s.crackInFlightMu.Unlock()
+	if s.crackInFlight == nil {
+		s.crackInFlight = make(map[int]int)
+	}
+	s.crackInFlight[agentID]++
+}
+
+// crackBatchFinished records that one crack_batch worker for the given agent has
+// finished. The key is deleted at zero rather than left sitting at 0 so the map
+// tracks live work only and cannot accumulate one entry per agent that has ever
+// connected. Deleting from a nil map is a no-op, so this is safe even if the map
+// was never allocated.
+func (s *Service) crackBatchFinished(agentID int) {
+	s.crackInFlightMu.Lock()
+	defer s.crackInFlightMu.Unlock()
+	if remaining := s.crackInFlight[agentID] - 1; remaining > 0 {
+		s.crackInFlight[agentID] = remaining
+	} else {
+		delete(s.crackInFlight, agentID)
+	}
+}
+
+// crackBatchesInFlight reports how many crack_batch workers are still running for
+// the agent. Reading a missing key (or a nil map) yields 0, which is the correct
+// "nothing in flight" answer.
+func (s *Service) crackBatchesInFlight(agentID int) int {
+	s.crackInFlightMu.Lock()
+	defer s.crackInFlightMu.Unlock()
+	return s.crackInFlight[agentID]
+}
+
+// waitForCrackBatchDrain blocks until the agent has no crack_batch workers in flight
+// or until the cap expires, and reports whether it actually drained.
+//
+// Why this cannot deadlock, in full, because this is the one part of the change that
+// could plausibly hang a server:
+//
+//  1. The dependency is strictly one-way. A crack_batches_complete waiter waits on
+//     crack_batch workers; no crack_batch worker ever waits on a complete-signal.
+//     There is therefore no cycle to close.
+//
+//  2. The waiter deliberately does NOT acquire a crackBatchSem slot, and must never
+//     be changed to. That is the one real deadlock in this design: crackBatchSem has
+//     10 slots, so if 10 complete-signal waiters each held a slot while waiting, the
+//     very crack_batch workers they are waiting for could never acquire a slot to run,
+//     and every one of the waiters would spin until its cap expired (or forever, if
+//     someone also "improved" the cap away). Waiting is not database work and must not
+//     be charged against the database-concurrency budget.
+//
+//  3. The cap makes the worst case a degradation, never a hang: on expiry we simply
+//     proceed and the completion handshake behaves exactly as it did before this fix
+//     (possibly a spurious mismatch + retransmit request).
+//
+//  4. An agent disconnecting mid-drain does not strand the waiter. The in-flight
+//     goroutines are not tied to the connection — they run to completion against
+//     their own context and decrement in a defer — so the count reaches zero on its
+//     own regardless of what the socket does.
+func (s *Service) waitForCrackBatchDrain(agentID int, waitCap time.Duration) bool {
+	deadline := time.Now().Add(waitCap)
+	for {
+		if s.crackBatchesInFlight(agentID) == 0 {
+			return true
+		}
+		if !time.Now().Before(deadline) {
+			return false
+		}
+		time.Sleep(crackDrainPollInterval)
+	}
+}
+
 // handleCrackBatch processes crack batch messages from agents (cracks-only, asynchronous)
 func (s *Service) handleCrackBatch(ctx context.Context, agent *models.Agent, msg *Message) error {
 	// If no job handler is set, just log and ignore
@@ -926,6 +1049,23 @@ func (s *Service) handleCrackBatch(ctx context.Context, agent *models.Agent, msg
 		return nil
 	}
 
+	// Count this batch as in flight BEFORE spawning the worker, synchronously on the
+	// readPump. This placement is the entire ordering guarantee and must not move into
+	// the goroutine.
+	//
+	// HandleMessage is called from the readPump loop in
+	// internal/handlers/websocket/handler.go, which reads and dispatches one message at
+	// a time per connection. crack_batch and crack_batches_complete for a given task
+	// arrive in order on that single connection, so by the time the readPump reads a
+	// crack_batches_complete, every crack_batch ahead of it on the same connection has
+	// already been counted here. The waiter in handleCrackBatchesComplete can therefore
+	// observe a truthful count instead of racing the workers.
+	//
+	// If HandleMessage ever stops running on the readPump — e.g. someone dispatches
+	// messages to a worker pool — this guarantee evaporates silently and the fix
+	// becomes a no-op. Reconsider this code if that changes.
+	s.crackBatchStarted(agent.ID)
+
 	// Increment wait group before spawning goroutine
 	s.crackBatchWg.Add(1)
 
@@ -933,6 +1073,11 @@ func (s *Service) handleCrackBatch(ctx context.Context, agent *models.Agent, msg
 	// Use semaphore to limit concurrent processing and prevent database overload
 	go func() {
 		defer s.crackBatchWg.Done()
+		// Decrement in a defer so the count is released on every exit path, including
+		// a panic in the handler. Note this fires AFTER the semaphore release below
+		// (defers run LIFO), which is fine: the waiter cares about the work being done,
+		// not about the slot.
+		defer s.crackBatchFinished(agent.ID)
 
 		// Acquire semaphore (blocks if at capacity)
 		s.crackBatchSem <- struct{}{}
@@ -954,7 +1099,38 @@ func (s *Service) handleCrackBatch(ctx context.Context, agent *models.Agent, msg
 	return nil
 }
 
-// handleCrackBatchesComplete processes crack_batches_complete signal from agents
+// handleCrackBatchesComplete processes crack_batches_complete signal from agents.
+//
+// The signal means "I have sent you every crack for this task", and the handler on the
+// other side verifies received_crack_count >= expected_crack_count when it arrives.
+// That verification is only meaningful if the batches it is counting have actually been
+// processed. Previously this ran synchronously on the readPump while handleCrackBatch
+// handed its work to a goroutine behind a 10-slot semaphore, so the complete-signal
+// routinely overtook the very batch it was signalling completion for: in one production
+// trace the signal was processed at t+27.782 and its own batch at t+27.789, the check saw
+// expected=1 received=0, declared a mismatch, and requested a full retransmit of the
+// entire outfile — pure wasted transfer plus a retransmit_count bump.
+//
+// Scope, honestly: this is NOT a correctness fix any more. HandleCrackBatch now calls the
+// idempotent TryFinalizeTask unconditionally at the end of every batch (see
+// internal/integration/job_websocket_integration.go), so a late batch finalizes the task
+// regardless of ordering. What draining first removes is the wasted retransmit and the
+// misleading "count mismatch" warning it logs. Nothing more.
+//
+// Two design points:
+//
+// Async: the completion work is moved off the readPump rather than draining inline. The
+// readPump also carries heartbeats and every other message from this agent, so blocking it
+// behind a drain — or behind a large retransmit's processing — is exactly what we must not
+// do. There is precedent for going async from this exact signal: HandleCrackBatchesComplete
+// in internal/integration/job_websocket_integration.go already short-circuits IsRetransmit
+// into processRetransmitCompletionAsync for the same "don't block the message loop" reason.
+//
+// Safe to return nil early: verified at the call site rather than assumed. The readPump
+// (internal/handlers/websocket/handler.go, the ReadMessage loop) uses HandleMessage's return
+// value for a single debug log line — error vs. success — and then falls through to its own
+// type switch, which has no case for crack_batches_complete at all. No control flow, no ack,
+// no connection teardown depends on it.
 func (s *Service) handleCrackBatchesComplete(ctx context.Context, agent *models.Agent, msg *Message) error {
 	// If no job handler is set, just log and ignore
 	if s.jobHandler == nil {
@@ -962,8 +1138,45 @@ func (s *Service) handleCrackBatchesComplete(ctx context.Context, agent *models.
 		return nil
 	}
 
-	// Forward to job handler (which will parse and handle the message)
-	return s.jobHandler.ProcessCrackBatchesComplete(ctx, agent.ID, msg.Payload)
+	// Capture what the goroutine needs; msg is owned by the readPump loop and ctx is tied
+	// to the connection, neither of which we may rely on once we return.
+	agentID := agent.ID
+	payload := msg.Payload
+
+	// Tracked on crackBatchWg alongside the batch workers. That WaitGroup is currently
+	// only Add'ed and Done'd — nothing in the tree Waits on it, so it does not
+	// participate in graceful shutdown today — but registering here costs nothing and
+	// keeps a future shutdown Wait correct. It also cannot make such a Wait hang: this
+	// goroutine's drain is capped and its processing context has a timeout.
+	s.crackBatchWg.Add(1)
+
+	go func() {
+		defer s.crackBatchWg.Done()
+
+		// Let the batches this signal is vouching for land first. Bounded; see
+		// waitForCrackBatchDrain for the deadlock analysis (notably: this waiter must
+		// never take a crackBatchSem slot).
+		if !s.waitForCrackBatchDrain(agentID, crackDrainWaitCap) {
+			debug.Warning("crack_batches_complete for agent %d proceeding with %d crack batch(es) still in flight after %s; the completion check may see a stale received count and request an unnecessary retransmit",
+				agentID, s.crackBatchesInFlight(agentID), crackDrainWaitCap)
+		}
+
+		// Fresh context: the readPump's ctx dies with the connection, and this work must
+		// survive an agent that disconnects right after signalling completion. The
+		// 5-minute budget matches handleCrackBatch's async context above — the two handle
+		// the same task's data and there is no reason for the completion side to have a
+		// tighter deadline than the batches it follows.
+		asyncCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+
+		if err := s.jobHandler.ProcessCrackBatchesComplete(asyncCtx, agentID, payload); err != nil {
+			debug.Error("Failed to process crack_batches_complete from agent %d: %v", agentID, err)
+		} else {
+			debug.Debug("Successfully processed crack_batches_complete from agent %d", agentID)
+		}
+	}()
+
+	return nil
 }
 
 // handleBenchmarkResult processes benchmark result messages from agents
