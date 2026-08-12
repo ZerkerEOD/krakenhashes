@@ -98,6 +98,11 @@ eligible attacks (rules or a hybrid mask).
 While any loopback is in flight, a **Loopback** panel appears on both the **Jobs** page and
 the **Dashboard**. It hides itself when there's nothing running.
 
+The panel is a **live view, not a history**. It only ever lists sessions that are still in
+flight — the moment a session finishes (it goes dry, hits the round cap, fails, or is
+cancelled) it disappears from the panel. On the Jobs page the panel shows every in-flight
+session you can see; on the Dashboard it shows the ones you started.
+
 Each session shows:
 
 - Its **name** and a **source** chip — `workflow`, `preset`, or `custom`.
@@ -107,15 +112,22 @@ Each session shows:
     | --- | --- |
     | **Waiting for round to finish** | The current round's jobs are still running |
     | **Looping** | A delta round has been spawned and is being monitored |
-    | **Done** | A round came back dry (or the round cap was hit) — the loop finished |
-    | **Failed** | The session hit an error (see the tooltip) |
-    | **Cancelled** | The session was cancelled |
 
 - **Round X / Y** — the current round and the configured safety cap.
 - The number of jobs in the session, expandable to see each round's jobs and their status.
 
+### Where finished re-runs go
+
 Loopback re-runs are ordinary jobs, so they also appear in the normal Jobs list with their
-own progress bars, priority, and agent assignment — the panel just ties them together.
+own progress bars, priority, and agent assignment — the panel just ties them together while
+the loop is running. Once the loop is over, the Jobs list is where its history lives: each
+re-run is named `<origin job name> (loopback R<n>)`, where `<n>` is the round it belongs to.
+Those jobs behave like any other finished job — they can be filtered, archived, and removed
+with **Delete Finished Jobs**.
+
+!!! note "Team visibility"
+    The panel respects the same team scoping as the Jobs list: you only see loopback
+    sessions whose hashlist belongs to a client in one of your teams.
 
 !!! note "Sessions survive a restart"
     The loopback controller is durable: if the backend restarts while a session is waiting on

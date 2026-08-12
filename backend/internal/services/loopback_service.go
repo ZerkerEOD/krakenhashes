@@ -94,10 +94,18 @@ func (s *LoopbackService) CreateSession(ctx context.Context, hashlistID int64, s
 	return session, nil
 }
 
-// ListSessions returns loopback sessions (with their jobs populated) for the UI. Pass a
-// non-nil createdBy to scope to one user, or nil for all (admins).
-func (s *LoopbackService) ListSessions(ctx context.Context, createdBy *uuid.UUID) ([]*models.LoopbackSession, error) {
-	sessions, err := s.repo.ListSessions(ctx, createdBy, 100)
+// ListSessions returns loopback sessions (with their jobs populated) for the UI. The
+// caller supplies the scope — creator, team visibility and whether to restrict to
+// in-flight sessions (see repository.LoopbackSessionFilter).
+//
+// The per-session GetSessionJobs call below is an N+1, which is acceptable precisely
+// because the filter keeps the result set small: the panel asks for in-flight sessions
+// only, and the limit caps it regardless.
+func (s *LoopbackService) ListSessions(ctx context.Context, filter repository.LoopbackSessionFilter) ([]*models.LoopbackSession, error) {
+	if filter.Limit <= 0 {
+		filter.Limit = 100
+	}
+	sessions, err := s.repo.ListSessions(ctx, filter)
 	if err != nil {
 		return nil, err
 	}

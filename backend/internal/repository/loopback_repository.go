@@ -159,24 +159,79 @@ func (r *LoopbackRepository) ListSessionsByHashlist(ctx context.Context, hashlis
 	return sessions, rows.Err()
 }
 
-// ListSessions returns loopback sessions, optionally filtered to a single creator
-// (nil = all creators, for admins), most recent first, capped at limit.
-func (r *LoopbackRepository) ListSessions(ctx context.Context, createdBy *uuid.UUID, limit int) ([]*models.LoopbackSession, error) {
+// LoopbackSessionFilter scopes a ListSessions query. The zero value lists every session
+// (admin, no team restriction, default limit).
+type LoopbackSessionFilter struct {
+	// CreatedBy scopes to a single creator; nil means any creator (admin view).
+	CreatedBy *uuid.UUID
+	// InFlightOnly restricts the result to sessions still being monitored
+	// (status waiting/active). This is what the "Loopback" panel asks for: it is a live
+	// view, so a finished session must drop out of it (GH #79).
+	InFlightOnly bool
+	// TeamsEnabled mirrors JobFilter.TeamsEnabled: when true and TeamIDs is empty the
+	// query fails closed (no results) rather than returning everything.
+	TeamsEnabled bool
+	// TeamIDs restricts to sessions whose hashlist belongs to a client in one of these teams.
+	TeamIDs []uuid.UUID
+	// Limit caps the number of rows returned; <= 0 means 100.
+	Limit int
+}
+
+// ListSessions returns loopback sessions matching the filter, most recent first.
+//
+// Team scoping goes through the session's hashlist exactly like the Jobs list does
+// (hashlist -> client -> client_teams). Note hashlists.client_id is NULLABLE, and
+// `NULL IN (...)` is never true, so legacy client-less hashlists are excluded from
+// team-filtered results — identical to the Jobs list, and intentional.
+func (r *LoopbackRepository) ListSessions(ctx context.Context, filter LoopbackSessionFilter) ([]*models.LoopbackSession, error) {
+	limit := filter.Limit
 	if limit <= 0 {
 		limit = 100
 	}
+
 	query := `
-		SELECT id, hashlist_id, source_type, source_workflow_id, name, status, current_round, max_rounds, error_message, created_by, created_at, updated_at
-		FROM loopback_sessions`
-	var rows *sql.Rows
-	var err error
-	if createdBy != nil {
-		query += ` WHERE created_by = $1 ORDER BY created_at DESC LIMIT $2`
-		rows, err = r.db.QueryContext(ctx, query, *createdBy, limit)
-	} else {
-		query += ` ORDER BY created_at DESC LIMIT $1`
-		rows, err = r.db.QueryContext(ctx, query, limit)
+		SELECT ls.id, ls.hashlist_id, ls.source_type, ls.source_workflow_id, ls.name, ls.status,
+		       ls.current_round, ls.max_rounds, ls.error_message, ls.created_by, ls.created_at, ls.updated_at
+		FROM loopback_sessions ls
+		JOIN hashlists h ON h.id = ls.hashlist_id
+		WHERE 1=1`
+
+	args := []interface{}{}
+	argCount := 0
+
+	// In-flight filter — literal (not a bind param) so it lands on the partial index
+	// idx_loopback_sessions_active, matching the terminalJobStatusesSQL style above.
+	if filter.InFlightOnly {
+		query += ` AND ls.status IN ('waiting', 'active')`
 	}
+
+	// Creator filter
+	if filter.CreatedBy != nil {
+		argCount++
+		query += fmt.Sprintf(" AND ls.created_by = $%d", argCount)
+		args = append(args, *filter.CreatedBy)
+	}
+
+	// Team filter — via hashlist → client → client_teams
+	if filter.TeamsEnabled && len(filter.TeamIDs) == 0 {
+		// Teams enabled but no teams — fail-closed: no results
+		return nil, nil
+	}
+	if len(filter.TeamIDs) > 0 {
+		teamIDStrs := make([]string, len(filter.TeamIDs))
+		for i, id := range filter.TeamIDs {
+			teamIDStrs[i] = id.String()
+		}
+		argCount++
+		query += fmt.Sprintf(" AND h.client_id IN (SELECT ct.client_id FROM client_teams ct WHERE ct.team_id = ANY($%d::uuid[]))", argCount)
+		args = append(args, pq.Array(teamIDStrs))
+	}
+
+	argCount++
+	query += fmt.Sprintf(" ORDER BY ls.created_at DESC LIMIT $%d", argCount)
+	args = append(args, limit)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error listing loopback sessions: %w", err)
 	}

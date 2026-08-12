@@ -538,8 +538,10 @@ const Jobs: React.FC = () => {
         </Typography>
       )}
 
-      {/* Loopback sessions (GH #64) — renders nothing when there are none */}
-      <LoopbackSessionsPanel />
+      {/* Loopback sessions (GH #64) — renders nothing when no loopback is in flight.
+          scope="visible": this page lists everyone's jobs the user can see, so the panel
+          matches it (still team-scoped server-side). */}
+      <LoopbackSessionsPanel scope="visible" />
 
       {/* Jobs Table */}
       <Paper sx={{ width: '100%', overflow: 'hidden' }}>

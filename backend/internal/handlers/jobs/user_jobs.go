@@ -655,8 +655,15 @@ func (h *UserJobsHandler) startLoopbackSession(ctx context.Context, hashlistID i
 	}
 }
 
-// ListLoopbackSessions handles GET /loopback-sessions — the "Pending Loopback" list
-// (GH #64). Non-admins see only their own sessions; admins see all.
+// ListLoopbackSessions handles GET /loopback-sessions — the live "Loopback" panel
+// (GH #64). It returns only sessions that are still in flight (waiting/active): the panel
+// is a live view of what the next round is waiting on, not a history, so a finished
+// session drops out of it (GH #79). Finished re-runs remain in the normal Jobs list.
+//
+// Scoping mirrors ListJobs: non-admins are restricted to the teams they belong to (via
+// hashlist → client → client_teams), failing closed when they have none. `?scope=mine`
+// (the default) additionally restricts to sessions the caller created; `?scope=visible`
+// drops the creator restriction, which can never widen past the team filter.
 func (h *UserJobsHandler) ListLoopbackSessions(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
@@ -665,19 +672,35 @@ func (h *UserJobsHandler) ListLoopbackSessions(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	userRole, _ := ctx.Value("user_role").(string)
-	var createdBy *uuid.UUID
-	if userRole != "admin" {
-		userIDStr, _ := ctx.Value("user_id").(string)
-		uid, err := uuid.Parse(userIDStr)
-		if err != nil {
+	filter := repository.LoopbackSessionFilter{
+		InFlightOnly: true,
+		Limit:        100,
+	}
+
+	isAdmin := middleware.IsAdminFromContext(ctx)
+
+	// Team scoping for non-admins (admins see every team's sessions, as in ListJobs).
+	if !isAdmin && middleware.IsTeamsEnabledFromContext(ctx) {
+		filter.TeamsEnabled = true
+		teamIDs := middleware.GetUserTeamIDsFromContext(ctx)
+		if teamIDs == nil {
+			teamIDs = []uuid.UUID{} // fail-closed: empty = no access
+		}
+		filter.TeamIDs = teamIDs
+	}
+
+	// scope=mine (default) restricts to the caller's own sessions; scope=visible shows
+	// every session the caller is allowed to see.
+	if r.URL.Query().Get("scope") != "visible" {
+		userID, ok := middleware.GetUserIDFromContext(ctx)
+		if !ok {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
-		createdBy = &uid
+		filter.CreatedBy = &userID
 	}
 
-	sessions, err := h.loopbackService.ListSessions(ctx, createdBy)
+	sessions, err := h.loopbackService.ListSessions(ctx, filter)
 	if err != nil {
 		debug.Error("Failed to list loopback sessions: %v", err)
 		http.Error(w, "Failed to list loopback sessions", http.StatusInternalServerError)
