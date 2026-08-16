@@ -32,6 +32,8 @@ func (r *ClaimVoucherRepository) Create(ctx context.Context, voucher *models.Cla
 		voucher.CreatedByID,
 		voucher.CreatedAt,
 		voucher.UpdatedAt,
+		voucher.ExpiresAt,
+		voucher.CloudInstanceID,
 	).Scan(&voucher.Code)
 
 	if err != nil {
@@ -52,6 +54,7 @@ func (r *ClaimVoucherRepository) GetByCode(ctx context.Context, code string) (*m
 	var createdByUsername, createdByEmail, createdByRole sql.NullString
 	var agentID sql.NullInt64
 	var agentName, agentStatus sql.NullString
+	var cloudInstanceID uuid.NullUUID
 
 	err := r.db.QueryRowContext(ctx, queries.GetClaimVoucherByCode, code).Scan(
 		&voucher.Code,
@@ -62,6 +65,8 @@ func (r *ClaimVoucherRepository) GetByCode(ctx context.Context, code string) (*m
 		&usedAt,
 		&voucher.CreatedAt,
 		&voucher.UpdatedAt,
+		&voucher.ExpiresAt,
+		&cloudInstanceID,
 		&createdByUser.ID,
 		&createdByUsername,
 		&createdByEmail,
@@ -84,6 +89,10 @@ func (r *ClaimVoucherRepository) GetByCode(ctx context.Context, code string) (*m
 
 	voucher.UsedAt = usedAt
 	voucher.UsedByAgentID = usedByAgentID
+	if cloudInstanceID.Valid {
+		id := cloudInstanceID.UUID
+		voucher.CloudInstanceID = &id
+	}
 
 	// Only set the created by user if we have valid data
 	if createdByUsername.Valid {
@@ -176,6 +185,7 @@ func (r *ClaimVoucherRepository) ListActive(ctx context.Context) ([]models.Claim
 			&usedAt,
 			&voucher.CreatedAt,
 			&voucher.UpdatedAt,
+			&voucher.ExpiresAt,
 			&createdByUser.ID,
 			&createdByUsername,
 			&createdByEmail,
@@ -245,6 +255,7 @@ func (r *ClaimVoucherRepository) ListActiveByUser(ctx context.Context, userID uu
 			&usedAt,
 			&voucher.CreatedAt,
 			&voucher.UpdatedAt,
+			&voucher.ExpiresAt,
 			&createdByUser.ID,
 			&createdByUsername,
 			&createdByEmail,

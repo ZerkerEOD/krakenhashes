@@ -79,10 +79,12 @@ func (h *AgentHandler) GenerateVoucher(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Calculate expiration time
+	// Report the expiry the service actually persisted rather than
+	// recomputing it here, so the response can never drift from what
+	// ClaimVoucher.IsValid() enforces.
 	var expiresAt *time.Time
-	if req.ExpiresIn > 0 {
-		expiry := voucher.CreatedAt.Add(time.Duration(req.ExpiresIn) * time.Second)
+	if voucher.ExpiresAt.Valid {
+		expiry := voucher.ExpiresAt.Time
 		expiresAt = &expiry
 	}
 

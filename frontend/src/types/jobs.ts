@@ -216,6 +216,13 @@ export interface JobDetailsResponse {
   increment_mode?: string;
   increment_min?: number;
   increment_max?: number;
+  /** True when this job may rent paid GPU capacity. Off by default. */
+  cloud_burst_enabled?: boolean;
+  /**
+   * Cap on rented instances, separate from max_agents (which governs the
+   * shared on-prem pool). null lets the remaining budget decide.
+   */
+  cloud_max_instances?: number | null;
 }
 
 // Job detail response

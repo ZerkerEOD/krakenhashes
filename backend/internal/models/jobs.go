@@ -128,32 +128,42 @@ func (f *CustomCharsetFiles) Scan(value interface{}) error {
 // PresetJob mirrors the preset_jobs table structure.
 // It defines a pre-configured set of parameters for a cracking job.
 type PresetJob struct {
-	ID                        uuid.UUID  `json:"id" db:"id"`
-	Name                      string     `json:"name" db:"name"`
-	WordlistIDs               IDArray    `json:"wordlist_ids" db:"wordlist_ids"` // Stores numeric IDs as strings in JSONB
-	RuleIDs                   IDArray    `json:"rule_ids" db:"rule_ids"`         // Stores numeric IDs as strings in JSONB
-	AttackMode                AttackMode `json:"attack_mode" db:"attack_mode"`
-	HashType                  int        `json:"hash_type" db:"hash_type"` // Hashcat hash type number
-	Priority                  int        `json:"priority" db:"priority"`
-	ChunkSizeSeconds          int        `json:"chunk_size_seconds" db:"chunk_size_seconds"`
-	StatusUpdatesEnabled      bool       `json:"status_updates_enabled" db:"status_updates_enabled"`
-	AllowHighPriorityOverride bool       `json:"allow_high_priority_override" db:"allow_high_priority_override"`
-	BinaryVersion             string     `json:"binary_version" db:"binary_version"`             // Version pattern (e.g., "default", "7.x", "7.1.2")
-	Mask                      string             `json:"mask,omitempty" db:"mask"`                                       // For mask-based attack modes
-	CustomCharsets            CustomCharsets     `json:"custom_charsets,omitempty" db:"custom_charsets"`                 // Inline charset definitions {"1": "?u?d", ...}
-	CustomCharsetFiles        CustomCharsetFiles `json:"custom_charset_files,omitempty" db:"custom_charset_files"`      // File-based charset references {"2": {id, file_path, ...}}
-	HexCharset                bool               `json:"hex_charset" db:"hex_charset"`                                 // True if inline charsets use hex encoding (auto-injects --hex-charset)
-	AdditionalArgs            *string            `json:"additional_args,omitempty" db:"additional_args"`                // Additional hashcat arguments
-	Keyspace                  *int64             `json:"keyspace,omitempty" db:"keyspace"`                              // Pre-calculated base keyspace from --keyspace
-	EffectiveKeyspace         *BigInt    `json:"effective_keyspace,omitempty" db:"effective_keyspace"` // Actual effective keyspace from --total-candidates (NUMERIC: base × rules × salts can exceed int64)
-	IsAccurateKeyspace        bool       `json:"is_accurate_keyspace" db:"is_accurate_keyspace"` // TRUE if effective_keyspace from --total-candidates
-	MultiplicationFactor      int64      `json:"multiplication_factor" db:"multiplication_factor"` // Rule multiplier (effective/base)
-	MaxAgents                 int        `json:"max_agents" db:"max_agents"`                     // Max agents allowed (0 = unlimited)
-	IncrementMode             string     `json:"increment_mode,omitempty" db:"increment_mode"`   // Mask increment mode: off, increment, increment_inverse
-	IncrementMin              *int       `json:"increment_min,omitempty" db:"increment_min"`     // Starting mask length for increment mode
-	IncrementMax              *int       `json:"increment_max,omitempty" db:"increment_max"`     // Maximum mask length for increment mode
-	CreatedAt                 time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt                 time.Time  `json:"updated_at" db:"updated_at"`
+	ID                        uuid.UUID          `json:"id" db:"id"`
+	Name                      string             `json:"name" db:"name"`
+	WordlistIDs               IDArray            `json:"wordlist_ids" db:"wordlist_ids"` // Stores numeric IDs as strings in JSONB
+	RuleIDs                   IDArray            `json:"rule_ids" db:"rule_ids"`         // Stores numeric IDs as strings in JSONB
+	AttackMode                AttackMode         `json:"attack_mode" db:"attack_mode"`
+	HashType                  int                `json:"hash_type" db:"hash_type"` // Hashcat hash type number
+	Priority                  int                `json:"priority" db:"priority"`
+	ChunkSizeSeconds          int                `json:"chunk_size_seconds" db:"chunk_size_seconds"`
+	StatusUpdatesEnabled      bool               `json:"status_updates_enabled" db:"status_updates_enabled"`
+	AllowHighPriorityOverride bool               `json:"allow_high_priority_override" db:"allow_high_priority_override"`
+	BinaryVersion             string             `json:"binary_version" db:"binary_version"`                       // Version pattern (e.g., "default", "7.x", "7.1.2")
+	Mask                      string             `json:"mask,omitempty" db:"mask"`                                 // For mask-based attack modes
+	CustomCharsets            CustomCharsets     `json:"custom_charsets,omitempty" db:"custom_charsets"`           // Inline charset definitions {"1": "?u?d", ...}
+	CustomCharsetFiles        CustomCharsetFiles `json:"custom_charset_files,omitempty" db:"custom_charset_files"` // File-based charset references {"2": {id, file_path, ...}}
+	HexCharset                bool               `json:"hex_charset" db:"hex_charset"`                             // True if inline charsets use hex encoding (auto-injects --hex-charset)
+	AdditionalArgs            *string            `json:"additional_args,omitempty" db:"additional_args"`           // Additional hashcat arguments
+	Keyspace                  *int64             `json:"keyspace,omitempty" db:"keyspace"`                         // Pre-calculated base keyspace from --keyspace
+	EffectiveKeyspace         *BigInt            `json:"effective_keyspace,omitempty" db:"effective_keyspace"`     // Actual effective keyspace from --total-candidates (NUMERIC: base × rules × salts can exceed int64)
+	IsAccurateKeyspace        bool               `json:"is_accurate_keyspace" db:"is_accurate_keyspace"`           // TRUE if effective_keyspace from --total-candidates
+	MultiplicationFactor      int64              `json:"multiplication_factor" db:"multiplication_factor"`         // Rule multiplier (effective/base)
+	MaxAgents                 int                `json:"max_agents" db:"max_agents"`                               // Max agents allowed (0 = unlimited)
+	IncrementMode             string             `json:"increment_mode,omitempty" db:"increment_mode"`             // Mask increment mode: off, increment, increment_inverse
+	IncrementMin              *int               `json:"increment_min,omitempty" db:"increment_min"`               // Starting mask length for increment mode
+	IncrementMax              *int               `json:"increment_max,omitempty" db:"increment_max"`               // Maximum mask length for increment mode
+
+	// CloudBurstEnabled opts jobs created from this preset into renting paid
+	// GPU capacity. Off by default: nothing bursts to paid capacity by accident.
+	CloudBurstEnabled bool `json:"cloud_burst_enabled" db:"cloud_burst_enabled"`
+	// CloudMaxInstances caps rented instances, SEPARATE from MaxAgents.
+	// MaxAgents governs the shared on-prem pool (fleet fairness); a rented
+	// instance is dedicated to this job and paid for by its client, so it must
+	// not consume that budget. NULL derives the cap from remaining budget.
+	CloudMaxInstances *int `json:"cloud_max_instances,omitempty" db:"cloud_max_instances"`
+
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 
 	// Fields potentially populated by JOINs in specific queries
 	BinaryVersionName string `json:"binary_version_name,omitempty" db:"binary_version_name"` // Example: Populated when listing
@@ -174,6 +184,13 @@ type JobWorkflow struct {
 	// true, every eligible step is looped back against the delta and the per-step
 	// LoopbackEnabled flags are ignored.
 	LoopbackAllEligible bool `json:"loopback_all_eligible" db:"loopback_all_eligible"`
+
+	// CloudBurstEnabled opts every job created from this workflow into renting
+	// paid GPU capacity, regardless of the individual presets' own flags.
+	// Workflow-level only: a per-step cloud toggle would mean an instance is
+	// rented, torn down, and rented again between steps, paying the boot and
+	// file-sync cost each time.
+	CloudBurstEnabled bool `json:"cloud_burst_enabled" db:"cloud_burst_enabled"`
 
 	// Populated field holding the ordered steps. Only list endpoints that actually JOIN
 	// the steps populate this; ListWorkflows leaves it nil and reports StepCount instead.
@@ -249,43 +266,49 @@ const (
 
 // JobExecution represents an actual running instance of a preset job
 type JobExecution struct {
-	ID                     uuid.UUID          `json:"id" db:"id"`
-	PresetJobID            *uuid.UUID         `json:"preset_job_id" db:"preset_job_id"` // Nullable for custom jobs
-	HashlistID             int64              `json:"hashlist_id" db:"hashlist_id"`
-	AssociationWordlistID  *uuid.UUID         `json:"association_wordlist_id,omitempty" db:"association_wordlist_id"` // For association attacks (-a 9)
-	Status                 JobExecutionStatus `json:"status" db:"status"`
-	Priority               int                `json:"priority" db:"priority"`
-	MaxAgents              int                `json:"max_agents" db:"max_agents"`
-	ProcessedKeyspace      BigInt             `json:"processed_keyspace" db:"processed_keyspace"`
-	AttackMode             AttackMode         `json:"attack_mode" db:"attack_mode"`
-	CreatedBy              *uuid.UUID         `json:"created_by" db:"created_by"`
-	CreatedAt              time.Time          `json:"created_at" db:"created_at"`
-	StartedAt              *time.Time         `json:"started_at" db:"started_at"`
-	CrackingCompletedAt    *time.Time         `json:"cracking_completed_at" db:"cracking_completed_at"` // When all tasks finished hashcat work (job enters processing)
-	CompletedAt            *time.Time         `json:"completed_at" db:"completed_at"`
-	UpdatedAt              time.Time          `json:"updated_at" db:"updated_at"`
-	ErrorMessage           *string            `json:"error_message" db:"error_message"`
-	InterruptedBy          *uuid.UUID         `json:"interrupted_by" db:"interrupted_by"`
-	ConsecutiveFailures    int                `json:"consecutive_failures" db:"consecutive_failures"` // Track consecutive task failures
-	ArchivedAt             *time.Time         `json:"archived_at,omitempty" db:"archived_at"`
+	ID                    uuid.UUID          `json:"id" db:"id"`
+	PresetJobID           *uuid.UUID         `json:"preset_job_id" db:"preset_job_id"` // Nullable for custom jobs
+	HashlistID            int64              `json:"hashlist_id" db:"hashlist_id"`
+	AssociationWordlistID *uuid.UUID         `json:"association_wordlist_id,omitempty" db:"association_wordlist_id"` // For association attacks (-a 9)
+	Status                JobExecutionStatus `json:"status" db:"status"`
+	Priority              int                `json:"priority" db:"priority"`
+	MaxAgents             int                `json:"max_agents" db:"max_agents"`
+	// CloudBurstEnabled opts this job into renting paid GPU capacity.
+	// CloudMaxInstances caps that separately from MaxAgents, which governs only
+	// the shared on-prem pool — see the PresetJob fields for why they must not
+	// share one budget.
+	CloudBurstEnabled   bool       `json:"cloud_burst_enabled" db:"cloud_burst_enabled"`
+	CloudMaxInstances   *int       `json:"cloud_max_instances,omitempty" db:"cloud_max_instances"`
+	ProcessedKeyspace   BigInt     `json:"processed_keyspace" db:"processed_keyspace"`
+	AttackMode          AttackMode `json:"attack_mode" db:"attack_mode"`
+	CreatedBy           *uuid.UUID `json:"created_by" db:"created_by"`
+	CreatedAt           time.Time  `json:"created_at" db:"created_at"`
+	StartedAt           *time.Time `json:"started_at" db:"started_at"`
+	CrackingCompletedAt *time.Time `json:"cracking_completed_at" db:"cracking_completed_at"` // When all tasks finished hashcat work (job enters processing)
+	CompletedAt         *time.Time `json:"completed_at" db:"completed_at"`
+	UpdatedAt           time.Time  `json:"updated_at" db:"updated_at"`
+	ErrorMessage        *string    `json:"error_message" db:"error_message"`
+	InterruptedBy       *uuid.UUID `json:"interrupted_by" db:"interrupted_by"`
+	ConsecutiveFailures int        `json:"consecutive_failures" db:"consecutive_failures"` // Track consecutive task failures
+	ArchivedAt          *time.Time `json:"archived_at,omitempty" db:"archived_at"`
 
 	// Self-contained configuration fields (no need to look up preset)
-	Name                      string  `json:"name" db:"name"`
-	WordlistIDs               IDArray `json:"wordlist_ids" db:"wordlist_ids"`
-	RuleIDs                   IDArray `json:"rule_ids" db:"rule_ids"`
-	HashType                  int     `json:"hash_type" db:"hash_type"`
-	ChunkSizeSeconds          int     `json:"chunk_size_seconds" db:"chunk_size_seconds"`
-	StatusUpdatesEnabled      bool    `json:"status_updates_enabled" db:"status_updates_enabled"`
-	AllowHighPriorityOverride bool    `json:"allow_high_priority_override" db:"allow_high_priority_override"`
-	BinaryVersion             string  `json:"binary_version" db:"binary_version"` // Version pattern (e.g., "default", "7.x", "7.1.2")
+	Name                      string             `json:"name" db:"name"`
+	WordlistIDs               IDArray            `json:"wordlist_ids" db:"wordlist_ids"`
+	RuleIDs                   IDArray            `json:"rule_ids" db:"rule_ids"`
+	HashType                  int                `json:"hash_type" db:"hash_type"`
+	ChunkSizeSeconds          int                `json:"chunk_size_seconds" db:"chunk_size_seconds"`
+	StatusUpdatesEnabled      bool               `json:"status_updates_enabled" db:"status_updates_enabled"`
+	AllowHighPriorityOverride bool               `json:"allow_high_priority_override" db:"allow_high_priority_override"`
+	BinaryVersion             string             `json:"binary_version" db:"binary_version"` // Version pattern (e.g., "default", "7.x", "7.1.2")
 	Mask                      string             `json:"mask,omitempty" db:"mask"`
-	CustomCharsets            CustomCharsets     `json:"custom_charsets,omitempty" db:"custom_charsets"`            // Inline charset definitions {"1": "?u?d", ...}
+	CustomCharsets            CustomCharsets     `json:"custom_charsets,omitempty" db:"custom_charsets"`           // Inline charset definitions {"1": "?u?d", ...}
 	CustomCharsetFiles        CustomCharsetFiles `json:"custom_charset_files,omitempty" db:"custom_charset_files"` // File-based charset references {"2": {id, file_path, ...}}
-	HexCharset                bool               `json:"hex_charset" db:"hex_charset"`                            // True if inline charsets use hex encoding (auto-injects --hex-charset)
+	HexCharset                bool               `json:"hex_charset" db:"hex_charset"`                             // True if inline charsets use hex encoding (auto-injects --hex-charset)
 	AdditionalArgs            *string            `json:"additional_args,omitempty" db:"additional_args"`
 	IncrementMode             string             `json:"increment_mode,omitempty" db:"increment_mode"` // Mask increment mode: off, increment, increment_inverse
-	IncrementMin              *int    `json:"increment_min,omitempty" db:"increment_min"`   // Starting mask length for increment mode
-	IncrementMax              *int    `json:"increment_max,omitempty" db:"increment_max"`   // Maximum mask length for increment mode
+	IncrementMin              *int               `json:"increment_min,omitempty" db:"increment_min"`   // Starting mask length for increment mode
+	IncrementMax              *int               `json:"increment_max,omitempty" db:"increment_max"`   // Maximum mask length for increment mode
 
 	// Enhanced chunking fields
 	BaseKeyspace         *int64  `json:"base_keyspace" db:"base_keyspace"`                 // Wordlist-only keyspace
@@ -321,47 +344,47 @@ const (
 
 // JobTask represents a chunk of work assigned to an agent
 type JobTask struct {
-	ID                uuid.UUID     `json:"id" db:"id"`
-	JobExecutionID    uuid.UUID     `json:"job_execution_id" db:"job_execution_id"`
-	IncrementLayerID  *uuid.UUID    `json:"increment_layer_id" db:"increment_layer_id"` // References job_increment_layers if task belongs to a layer
-	AgentID           *int          `json:"agent_id" db:"agent_id"`
-	BinaryVersionID   *int64        `json:"binary_version_id,omitempty" db:"binary_version_id"` // Resolved binary version ID at task creation
-	Status            JobTaskStatus `json:"status" db:"status"`
-	Priority          int           `json:"priority" db:"priority"`               // Task priority (inherited from job)
-	AttackCmd         *string       `json:"attack_cmd,omitempty" db:"attack_cmd"` // Full hashcat command for this task. Nullable: scheduler-v2 tasks don't carry one (the agent builds the command from the task_assignment payload). Legacy scheduler always populated this. Treat nil as "not set" — do NOT default to empty string at write time.
-	KeyspaceStart           int64   `json:"keyspace_start" db:"keyspace_start"`
-	KeyspaceEnd             int64   `json:"keyspace_end" db:"keyspace_end"`
-	KeyspaceProcessed       int64   `json:"keyspace_processed" db:"keyspace_processed"`
-	EffectiveKeyspaceStart     *BigInt `json:"effective_keyspace_start" db:"effective_keyspace_start"`         // Effective-unit start of this task's range (base × multiplier; NUMERIC, can exceed int64)
-	EffectiveKeyspaceEnd       *BigInt `json:"effective_keyspace_end" db:"effective_keyspace_end"`             // Effective-unit end of this task's range (base × multiplier; NUMERIC, can exceed int64)
-	EffectiveKeyspaceProcessed *BigInt `json:"effective_keyspace_processed" db:"effective_keyspace_processed"` // Actual effective progress (NUMERIC)
-	IsActualKeyspace           bool    `json:"is_actual_keyspace" db:"is_actual_keyspace"`                     // TRUE if effective ranges from hashcat progress[1]
-	ChunkActualKeyspace        *BigInt `json:"chunk_actual_keyspace" db:"chunk_actual_keyspace"`               // Actual keyspace SIZE for this chunk from hashcat progress[1] (NUMERIC)
-	ProgressPercent            float64 `json:"progress_percent" db:"progress_percent"`                         // Task progress percentage (0-100)
-	BenchmarkSpeed    *int64        `json:"benchmark_speed" db:"benchmark_speed"`   // hashes per second (current/last reported)
-	AverageSpeed      *int64        `json:"average_speed" db:"average_speed"`       // time-weighted average hashes per second
-	ChunkDuration     int           `json:"chunk_duration" db:"chunk_duration"`     // seconds
-	CreatedAt           time.Time     `json:"created_at" db:"created_at"`
-	AssignedAt          *time.Time    `json:"assigned_at" db:"assigned_at"`
-	StartedAt           *time.Time    `json:"started_at" db:"started_at"`
-	CrackingCompletedAt *time.Time    `json:"cracking_completed_at" db:"cracking_completed_at"` // When hashcat finished for this task (enters processing)
-	CompletedAt         *time.Time    `json:"completed_at" db:"completed_at"`
-	UpdatedAt           time.Time     `json:"updated_at" db:"updated_at"`
-	LastCheckpoint      *time.Time    `json:"last_checkpoint" db:"last_checkpoint"`
-	ErrorMessage        *string       `json:"error_message" db:"error_message"`
-	FailureReason       *string       `json:"failure_reason,omitempty" db:"failure_reason"` // Populated by scheduler recovery/sweeper when a task is marked terminal; surfaced to the UI
+	ID                         uuid.UUID     `json:"id" db:"id"`
+	JobExecutionID             uuid.UUID     `json:"job_execution_id" db:"job_execution_id"`
+	IncrementLayerID           *uuid.UUID    `json:"increment_layer_id" db:"increment_layer_id"` // References job_increment_layers if task belongs to a layer
+	AgentID                    *int          `json:"agent_id" db:"agent_id"`
+	BinaryVersionID            *int64        `json:"binary_version_id,omitempty" db:"binary_version_id"` // Resolved binary version ID at task creation
+	Status                     JobTaskStatus `json:"status" db:"status"`
+	Priority                   int           `json:"priority" db:"priority"`               // Task priority (inherited from job)
+	AttackCmd                  *string       `json:"attack_cmd,omitempty" db:"attack_cmd"` // Full hashcat command for this task. Nullable: scheduler-v2 tasks don't carry one (the agent builds the command from the task_assignment payload). Legacy scheduler always populated this. Treat nil as "not set" — do NOT default to empty string at write time.
+	KeyspaceStart              int64         `json:"keyspace_start" db:"keyspace_start"`
+	KeyspaceEnd                int64         `json:"keyspace_end" db:"keyspace_end"`
+	KeyspaceProcessed          int64         `json:"keyspace_processed" db:"keyspace_processed"`
+	EffectiveKeyspaceStart     *BigInt       `json:"effective_keyspace_start" db:"effective_keyspace_start"`         // Effective-unit start of this task's range (base × multiplier; NUMERIC, can exceed int64)
+	EffectiveKeyspaceEnd       *BigInt       `json:"effective_keyspace_end" db:"effective_keyspace_end"`             // Effective-unit end of this task's range (base × multiplier; NUMERIC, can exceed int64)
+	EffectiveKeyspaceProcessed *BigInt       `json:"effective_keyspace_processed" db:"effective_keyspace_processed"` // Actual effective progress (NUMERIC)
+	IsActualKeyspace           bool          `json:"is_actual_keyspace" db:"is_actual_keyspace"`                     // TRUE if effective ranges from hashcat progress[1]
+	ChunkActualKeyspace        *BigInt       `json:"chunk_actual_keyspace" db:"chunk_actual_keyspace"`               // Actual keyspace SIZE for this chunk from hashcat progress[1] (NUMERIC)
+	ProgressPercent            float64       `json:"progress_percent" db:"progress_percent"`                         // Task progress percentage (0-100)
+	BenchmarkSpeed             *int64        `json:"benchmark_speed" db:"benchmark_speed"`                           // hashes per second (current/last reported)
+	AverageSpeed               *int64        `json:"average_speed" db:"average_speed"`                               // time-weighted average hashes per second
+	ChunkDuration              int           `json:"chunk_duration" db:"chunk_duration"`                             // seconds
+	CreatedAt                  time.Time     `json:"created_at" db:"created_at"`
+	AssignedAt                 *time.Time    `json:"assigned_at" db:"assigned_at"`
+	StartedAt                  *time.Time    `json:"started_at" db:"started_at"`
+	CrackingCompletedAt        *time.Time    `json:"cracking_completed_at" db:"cracking_completed_at"` // When hashcat finished for this task (enters processing)
+	CompletedAt                *time.Time    `json:"completed_at" db:"completed_at"`
+	UpdatedAt                  time.Time     `json:"updated_at" db:"updated_at"`
+	LastCheckpoint             *time.Time    `json:"last_checkpoint" db:"last_checkpoint"`
+	ErrorMessage               *string       `json:"error_message" db:"error_message"`
+	FailureReason              *string       `json:"failure_reason,omitempty" db:"failure_reason"` // Populated by scheduler recovery/sweeper when a task is marked terminal; surfaced to the UI
 
 	// Enhanced fields for detailed chunk tracking
-	CrackCount              int  `json:"crack_count" db:"crack_count"`
-	ExpectedCrackCount      int  `json:"expected_crack_count" db:"expected_crack_count"`           // Expected cracks from progress message
-	ReceivedCrackCount      int  `json:"received_crack_count" db:"received_crack_count"`           // Cracks received via batches
-	BatchesCompleteSignaled bool `json:"batches_complete_signaled" db:"batches_complete_signaled"` // Agent signaled batches done
+	CrackCount              int    `json:"crack_count" db:"crack_count"`
+	ExpectedCrackCount      int    `json:"expected_crack_count" db:"expected_crack_count"`           // Expected cracks from progress message
+	ReceivedCrackCount      int    `json:"received_crack_count" db:"received_crack_count"`           // Cracks received via batches
+	BatchesCompleteSignaled bool   `json:"batches_complete_signaled" db:"batches_complete_signaled"` // Agent signaled batches done
 	DetailedStatus          string `json:"detailed_status" db:"detailed_status"`
 	RetryCount              int    `json:"retry_count" db:"retry_count"`
 
 	// Retransmit tracking for crack transmission resilience
-	RetransmitCount    *int       `json:"retransmit_count" db:"retransmit_count"`
-	LastRetransmitAt   *time.Time `json:"last_retransmit_at" db:"last_retransmit_at"`
+	RetransmitCount  *int       `json:"retransmit_count" db:"retransmit_count"`
+	LastRetransmitAt *time.Time `json:"last_retransmit_at" db:"last_retransmit_at"`
 
 	IsKeyspaceSplit bool `json:"is_keyspace_split" db:"is_keyspace_split"` // Whether this task uses keyspace splitting (--skip/--limit)
 
@@ -422,7 +445,7 @@ type AgentPerformanceMetric struct {
 	AggregationLevel AggregationLevel `json:"aggregation_level" db:"aggregation_level"`
 	PeriodStart      *time.Time       `json:"period_start" db:"period_start"`
 	PeriodEnd        *time.Time       `json:"period_end" db:"period_end"`
-	
+
 	// Device tracking fields
 	DeviceID   *int       `json:"device_id" db:"device_id"`     // Device ID from hashcat
 	DeviceName *string    `json:"device_name" db:"device_name"` // Human-readable device name
@@ -458,23 +481,23 @@ type AgentBenchmarkHistory struct {
 
 // BenchmarkHistorySource values for AgentBenchmarkHistory.Source.
 const (
-	BenchmarkHistorySourceSpeedtest     = "speedtest"
-	BenchmarkHistorySourceObservedTask  = "observed_task"
+	BenchmarkHistorySourceSpeedtest    = "speedtest"
+	BenchmarkHistorySourceObservedTask = "observed_task"
 )
 
 // BenchmarkFailureAttempt tracks repeated benchmark failures for a
 // (agent, job_execution, attack_mode, hash_type) combination. Used by the
 // scheduler to decide when to blocklist an agent for a job.
 type BenchmarkFailureAttempt struct {
-	ID              uuid.UUID  `json:"id" db:"id"`
-	AgentID         int        `json:"agent_id" db:"agent_id"`
-	JobExecutionID  uuid.UUID  `json:"job_execution_id" db:"job_execution_id"`
-	AttackMode      AttackMode `json:"attack_mode" db:"attack_mode"`
-	HashType        int        `json:"hash_type" db:"hash_type"`
-	FailureCount    int        `json:"failure_count" db:"failure_count"`
-	FirstFailureAt  time.Time  `json:"first_failure_at" db:"first_failure_at"`
-	LastFailureAt   time.Time  `json:"last_failure_at" db:"last_failure_at"`
-	LastError       *string    `json:"last_error" db:"last_error"`
+	ID             uuid.UUID  `json:"id" db:"id"`
+	AgentID        int        `json:"agent_id" db:"agent_id"`
+	JobExecutionID uuid.UUID  `json:"job_execution_id" db:"job_execution_id"`
+	AttackMode     AttackMode `json:"attack_mode" db:"attack_mode"`
+	HashType       int        `json:"hash_type" db:"hash_type"`
+	FailureCount   int        `json:"failure_count" db:"failure_count"`
+	FirstFailureAt time.Time  `json:"first_failure_at" db:"first_failure_at"`
+	LastFailureAt  time.Time  `json:"last_failure_at" db:"last_failure_at"`
+	LastError      *string    `json:"last_error" db:"last_error"`
 }
 
 // AgentBenchmarkBlocklist prevents the scheduler from selecting an agent for
@@ -482,21 +505,21 @@ type BenchmarkFailureAttempt struct {
 // operator clears the entry via the /jobs/{id} UI. If JobExecutionID is nil
 // the entry applies to every job with the same (hash_type, attack_mode).
 type AgentBenchmarkBlocklist struct {
-	ID              uuid.UUID  `json:"id" db:"id"`
-	AgentID         int        `json:"agent_id" db:"agent_id"`
-	JobExecutionID  *uuid.UUID `json:"job_execution_id" db:"job_execution_id"`
-	AttackMode      AttackMode `json:"attack_mode" db:"attack_mode"`
-	HashType        int        `json:"hash_type" db:"hash_type"`
-	Reason          string     `json:"reason" db:"reason"`
-	ExpiresAt       time.Time  `json:"expires_at" db:"expires_at"`
-	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
-	ClearedAt       *time.Time `json:"cleared_at" db:"cleared_at"`
-	ClearedBy       *uuid.UUID `json:"cleared_by" db:"cleared_by"`
+	ID             uuid.UUID  `json:"id" db:"id"`
+	AgentID        int        `json:"agent_id" db:"agent_id"`
+	JobExecutionID *uuid.UUID `json:"job_execution_id" db:"job_execution_id"`
+	AttackMode     AttackMode `json:"attack_mode" db:"attack_mode"`
+	HashType       int        `json:"hash_type" db:"hash_type"`
+	Reason         string     `json:"reason" db:"reason"`
+	ExpiresAt      time.Time  `json:"expires_at" db:"expires_at"`
+	CreatedAt      time.Time  `json:"created_at" db:"created_at"`
+	ClearedAt      *time.Time `json:"cleared_at" db:"cleared_at"`
+	ClearedBy      *uuid.UUID `json:"cleared_by" db:"cleared_by"`
 
 	// Populated by JOINs for the /jobs/{id} panel.
-	AgentName       *string    `json:"agent_name,omitempty" db:"agent_name"`
-	FailureCount    *int       `json:"failure_count,omitempty" db:"failure_count"`
-	LastError       *string    `json:"last_error,omitempty" db:"last_error"`
+	AgentName    *string `json:"agent_name,omitempty" db:"agent_name"`
+	FailureCount *int    `json:"failure_count,omitempty" db:"failure_count"`
+	LastError    *string `json:"last_error,omitempty" db:"last_error"`
 }
 
 // AgentHashlist tracks hashlist distribution to agents
@@ -520,13 +543,13 @@ type JobTaskAssignment struct {
 	HashType       int        `json:"hash_type"`
 	KeyspaceStart  int64      `json:"keyspace_start"`
 	KeyspaceEnd    int64      `json:"keyspace_end"`
-	WordlistPaths  []string   `json:"wordlist_paths"`  // Local paths on agent
-	RulePaths      []string   `json:"rule_paths"`      // Local paths on agent
-	Mask           string     `json:"mask,omitempty"`  // For mask-based attacks
-	BinaryPath     string     `json:"binary_path"`     // Hashcat binary to use
-	ChunkDuration  int        `json:"chunk_duration"`  // Expected duration in seconds
-	ReportInterval int        `json:"report_interval"` // Progress reporting interval
-	OutputFormat   string     `json:"output_format"`   // Hashcat output format
+	WordlistPaths  []string   `json:"wordlist_paths"`           // Local paths on agent
+	RulePaths      []string   `json:"rule_paths"`               // Local paths on agent
+	Mask           string     `json:"mask,omitempty"`           // For mask-based attacks
+	BinaryPath     string     `json:"binary_path"`              // Hashcat binary to use
+	ChunkDuration  int        `json:"chunk_duration"`           // Expected duration in seconds
+	ReportInterval int        `json:"report_interval"`          // Progress reporting interval
+	OutputFormat   string     `json:"output_format"`            // Hashcat output format
 	IncrementMode  string     `json:"increment_mode,omitempty"` // Mask increment mode: off, increment, increment_inverse
 	IncrementMin   *int       `json:"increment_min,omitempty"`  // Starting mask length for increment mode
 	IncrementMax   *int       `json:"increment_max,omitempty"`  // Maximum mask length for increment mode
@@ -550,21 +573,21 @@ type DeviceMetric struct {
 // JobProgress represents a progress update from an agent
 type JobProgress struct {
 	TaskID                 uuid.UUID      `json:"task_id"`
-	KeyspaceProcessed      int64          `json:"keyspace_processed"`                   // Restore point (position in wordlist)
-	EffectiveProgress      int64          `json:"effective_progress"`                   // Actual effective progress (words × rules processed)
-	ProgressPercent        float64        `json:"progress_percent"`                     // Actual progress percentage (0-100)
-	TotalEffectiveKeyspace *BigInt        `json:"total_effective_keyspace,omitempty"`   // hashcat progress[1] for this chunk, sent on EVERY update where it is > 0 (NUMERIC; UnmarshalJSON accepts agent's number)
-	IsFirstUpdate          bool           `json:"is_first_update"`                      // Flag indicating this is the first progress update
-	HashRate               int64          `json:"hash_rate"`                            // Current hashes per second
-	Temperature            *float64       `json:"temperature"`                          // GPU temperature (deprecated, use DeviceMetrics)
-	Utilization            *float64       `json:"utilization"`                          // GPU utilization percentage (deprecated, use DeviceMetrics)
-	TimeRemaining          *int           `json:"time_remaining"`                       // Estimated seconds remaining
-	CrackedCount           int            `json:"cracked_count"`                        // Number of hashes cracked in this update
-	CrackedHashes          []CrackedHash  `json:"cracked_hashes"`                       // Detailed crack information
-	Status                 string         `json:"status,omitempty"`                     // Task status (running, completed, failed)
-	ErrorMessage           string         `json:"error_message,omitempty"`              // Error message if status is failed
-	DeviceMetrics          []DeviceMetric `json:"device_metrics,omitempty"`              // Per-device metrics
-	AllHashesCracked       bool           `json:"all_hashes_cracked,omitempty"`         // Flag indicating all hashes in hashlist were cracked (exit code 6)
+	KeyspaceProcessed      int64          `json:"keyspace_processed"`                 // Restore point (position in wordlist)
+	EffectiveProgress      int64          `json:"effective_progress"`                 // Actual effective progress (words × rules processed)
+	ProgressPercent        float64        `json:"progress_percent"`                   // Actual progress percentage (0-100)
+	TotalEffectiveKeyspace *BigInt        `json:"total_effective_keyspace,omitempty"` // hashcat progress[1] for this chunk, sent on EVERY update where it is > 0 (NUMERIC; UnmarshalJSON accepts agent's number)
+	IsFirstUpdate          bool           `json:"is_first_update"`                    // Flag indicating this is the first progress update
+	HashRate               int64          `json:"hash_rate"`                          // Current hashes per second
+	Temperature            *float64       `json:"temperature"`                        // GPU temperature (deprecated, use DeviceMetrics)
+	Utilization            *float64       `json:"utilization"`                        // GPU utilization percentage (deprecated, use DeviceMetrics)
+	TimeRemaining          *int           `json:"time_remaining"`                     // Estimated seconds remaining
+	CrackedCount           int            `json:"cracked_count"`                      // Number of hashes cracked in this update
+	CrackedHashes          []CrackedHash  `json:"cracked_hashes"`                     // Detailed crack information
+	Status                 string         `json:"status,omitempty"`                   // Task status (running, completed, failed)
+	ErrorMessage           string         `json:"error_message,omitempty"`            // Error message if status is failed
+	DeviceMetrics          []DeviceMetric `json:"device_metrics,omitempty"`           // Per-device metrics
+	AllHashesCracked       bool           `json:"all_hashes_cracked,omitempty"`       // Flag indicating all hashes in hashlist were cracked (exit code 6)
 }
 
 // CrackBatch represents crack-only message from agent (asynchronous, dual-channel)
@@ -647,18 +670,18 @@ const (
 // JobIncrementLayer represents a sub-layer for increment mode jobs
 // Each layer corresponds to one mask length (e.g., ?l?l for length 2)
 type JobIncrementLayer struct {
-	ID               uuid.UUID               `json:"id" db:"id"`
-	JobExecutionID   uuid.UUID               `json:"job_execution_id" db:"job_execution_id"`
-	LayerIndex       int                     `json:"layer_index" db:"layer_index"`             // Ordering based on increment mode
-	Mask             string                  `json:"mask" db:"mask"`                           // Specific mask for this layer
-	Status           JobIncrementLayerStatus `json:"status" db:"status"`
+	ID             uuid.UUID               `json:"id" db:"id"`
+	JobExecutionID uuid.UUID               `json:"job_execution_id" db:"job_execution_id"`
+	LayerIndex     int                     `json:"layer_index" db:"layer_index"` // Ordering based on increment mode
+	Mask           string                  `json:"mask" db:"mask"`               // Specific mask for this layer
+	Status         JobIncrementLayerStatus `json:"status" db:"status"`
 
 	// Keyspace tracking
-	BaseKeyspace         *int64  `json:"base_keyspace" db:"base_keyspace"`                 // From --keyspace command
-	EffectiveKeyspace    *BigInt `json:"effective_keyspace" db:"effective_keyspace"`       // From benchmark progress[1] (NUMERIC; can exceed int64)
-	ProcessedKeyspace    BigInt  `json:"processed_keyspace" db:"processed_keyspace"`       // Sum from tasks (NUMERIC)
-	DispatchedKeyspace   BigInt  `json:"dispatched_keyspace" db:"dispatched_keyspace"`     // Total keyspace dispatched (NUMERIC)
-	IsAccurateKeyspace   bool    `json:"is_accurate_keyspace" db:"is_accurate_keyspace"`   // TRUE after benchmark
+	BaseKeyspace       *int64  `json:"base_keyspace" db:"base_keyspace"`               // From --keyspace command
+	EffectiveKeyspace  *BigInt `json:"effective_keyspace" db:"effective_keyspace"`     // From benchmark progress[1] (NUMERIC; can exceed int64)
+	ProcessedKeyspace  BigInt  `json:"processed_keyspace" db:"processed_keyspace"`     // Sum from tasks (NUMERIC)
+	DispatchedKeyspace BigInt  `json:"dispatched_keyspace" db:"dispatched_keyspace"`   // Total keyspace dispatched (NUMERIC)
+	IsAccurateKeyspace bool    `json:"is_accurate_keyspace" db:"is_accurate_keyspace"` // TRUE after benchmark
 
 	// ProcessedBaseKeyspace is an in-memory, per-calculation aggregate of BASE-unit
 	// keyspace processed across this layer's tasks. It is NOT persisted (db:"-") — it
@@ -700,9 +723,9 @@ type PresetIncrementLayer struct {
 	Mask        string    `json:"mask" db:"mask"`               // Specific mask for this layer
 
 	// Keyspace tracking (pre-calculated at preset creation time)
-	BaseKeyspace       *int64 `json:"base_keyspace,omitempty" db:"base_keyspace"`           // From --keyspace command
+	BaseKeyspace       *int64  `json:"base_keyspace,omitempty" db:"base_keyspace"`           // From --keyspace command
 	EffectiveKeyspace  *BigInt `json:"effective_keyspace,omitempty" db:"effective_keyspace"` // Total candidate count (NUMERIC; can exceed int64)
-	IsAccurateKeyspace bool   `json:"is_accurate_keyspace" db:"is_accurate_keyspace"`       // TRUE if effective_keyspace was set from hashcat --total-candidates, FALSE if from the mask-math fallback estimator
+	IsAccurateKeyspace bool    `json:"is_accurate_keyspace" db:"is_accurate_keyspace"`       // TRUE if effective_keyspace was set from hashcat --total-candidates, FALSE if from the mask-math fallback estimator
 
 	// Timing
 	CreatedAt time.Time `json:"created_at" db:"created_at"`

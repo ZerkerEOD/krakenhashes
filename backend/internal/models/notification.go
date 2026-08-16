@@ -14,21 +14,33 @@ import (
 type NotificationType string
 
 const (
-	NotificationTypeJobStarted             NotificationType = "job_started"
-	NotificationTypeJobCompleted           NotificationType = "job_completed"
-	NotificationTypeJobFailed              NotificationType = "job_failed"
-	NotificationTypeFirstCrack             NotificationType = "first_crack"
+	NotificationTypeJobStarted              NotificationType = "job_started"
+	NotificationTypeJobCompleted            NotificationType = "job_completed"
+	NotificationTypeJobFailed               NotificationType = "job_failed"
+	NotificationTypeFirstCrack              NotificationType = "first_crack"
 	NotificationTypeTaskCompletedWithCracks NotificationType = "task_completed_with_cracks"
-	NotificationTypeAgentOffline           NotificationType = "agent_offline"
-	NotificationTypeAgentError             NotificationType = "agent_error"
-	NotificationTypeBenchmarkStorm         NotificationType = "benchmark_storm"
-	NotificationTypeHashlistMalformed      NotificationType = "hashlist_malformed"
+	NotificationTypeAgentOffline            NotificationType = "agent_offline"
+	NotificationTypeAgentError              NotificationType = "agent_error"
+	NotificationTypeBenchmarkStorm          NotificationType = "benchmark_storm"
+	NotificationTypeHashlistMalformed       NotificationType = "hashlist_malformed"
 	NotificationTypeSecuritySuspiciousLogin NotificationType = "security_suspicious_login"
-	NotificationTypeSecurityMFADisabled    NotificationType = "security_mfa_disabled"
+	NotificationTypeSecurityMFADisabled     NotificationType = "security_mfa_disabled"
 	NotificationTypeSecurityPasswordChanged NotificationType = "security_password_changed"
-	NotificationTypeWebhookFailure         NotificationType = "webhook_failure"
-	NotificationTypeWordlistRegenFailed    NotificationType = "wordlist_regen_failed"
-	NotificationTypeAnalyticsExport        NotificationType = "analytics_export"
+	NotificationTypeWebhookFailure          NotificationType = "webhook_failure"
+	NotificationTypeWordlistRegenFailed     NotificationType = "wordlist_regen_failed"
+	NotificationTypeAnalyticsExport         NotificationType = "analytics_export"
+
+	// Cloud GPU provisioning. The matching enum values are added by migration
+	// 20260813120100, which is deliberately separate from the migration that
+	// uses them: Postgres requires ALTER TYPE ... ADD VALUE to be committed
+	// before the new value can be referenced.
+	//
+	// CloudTeardownFailed is the important one: it means automation has lost
+	// control of an instance that is still billing.
+	NotificationTypeCloudBudgetThreshold       NotificationType = "cloud_budget_threshold"
+	NotificationTypeCloudProvisionFailed       NotificationType = "cloud_provision_failed"
+	NotificationTypeCloudTeardownFailed        NotificationType = "cloud_teardown_failed"
+	NotificationTypeCloudVPNCredentialExpiring NotificationType = "cloud_vpn_credential_expiring"
 )
 
 // AllNotificationTypes returns all valid notification types
@@ -48,6 +60,10 @@ func AllNotificationTypes() []NotificationType {
 		NotificationTypeSecurityPasswordChanged,
 		NotificationTypeWebhookFailure,
 		NotificationTypeWordlistRegenFailed,
+		NotificationTypeCloudBudgetThreshold,
+		NotificationTypeCloudProvisionFailed,
+		NotificationTypeCloudTeardownFailed,
+		NotificationTypeCloudVPNCredentialExpiring,
 	}
 }
 
@@ -67,7 +83,11 @@ func (t NotificationType) IsValid() bool {
 		NotificationTypeSecurityMFADisabled,
 		NotificationTypeSecurityPasswordChanged,
 		NotificationTypeWebhookFailure,
-		NotificationTypeWordlistRegenFailed:
+		NotificationTypeWordlistRegenFailed,
+		NotificationTypeCloudBudgetThreshold,
+		NotificationTypeCloudProvisionFailed,
+		NotificationTypeCloudTeardownFailed,
+		NotificationTypeCloudVPNCredentialExpiring:
 		return true
 	}
 	return false
@@ -104,6 +124,11 @@ func (t NotificationType) Category() string {
 		return "security"
 	case NotificationTypeWebhookFailure:
 		return "system"
+	case NotificationTypeCloudBudgetThreshold,
+		NotificationTypeCloudProvisionFailed,
+		NotificationTypeCloudTeardownFailed,
+		NotificationTypeCloudVPNCredentialExpiring:
+		return "cloud"
 	}
 	return "system"
 }
@@ -223,38 +248,38 @@ type UserNotificationPreferencesExtended struct {
 	TypePreferences map[NotificationType]TypeChannelPreference `json:"typePreferences"`
 
 	// Webhook configuration summary
-	WebhooksConfigured int  `json:"webhooksConfigured"`
-	WebhooksActive     int  `json:"webhooksActive"`
+	WebhooksConfigured int `json:"webhooksConfigured"`
+	WebhooksActive     int `json:"webhooksActive"`
 }
 
 // TypeChannelPreference represents channel settings for a notification type
 type TypeChannelPreference struct {
-	Enabled        bool           `json:"enabled"`
-	InAppEnabled   bool           `json:"inAppEnabled"`
-	EmailEnabled   bool           `json:"emailEnabled"`
-	WebhookEnabled bool           `json:"webhookEnabled"`
-	Settings       JSONMap        `json:"settings,omitempty"`
+	Enabled        bool    `json:"enabled"`
+	InAppEnabled   bool    `json:"inAppEnabled"`
+	EmailEnabled   bool    `json:"emailEnabled"`
+	WebhookEnabled bool    `json:"webhookEnabled"`
+	Settings       JSONMap `json:"settings,omitempty"`
 }
 
 // UserWebhook represents a user's webhook configuration
 type UserWebhook struct {
-	ID                uuid.UUID          `json:"id" db:"id"`
-	UserID            uuid.UUID          `json:"user_id" db:"user_id"`
-	Name              string             `json:"name" db:"name"`
-	URL               string             `json:"url" db:"url"`
-	Secret            *string            `json:"-" db:"secret"` // Never expose in JSON
-	IsActive          bool               `json:"is_active" db:"is_active"`
-	NotificationTypes pq.StringArray     `json:"notification_types" db:"notification_types"`
-	CustomHeaders     JSONMap            `json:"custom_headers" db:"custom_headers"`
-	RetryCount        int                `json:"retry_count" db:"retry_count"`
-	TimeoutSeconds    int                `json:"timeout_seconds" db:"timeout_seconds"`
-	LastTriggeredAt   *time.Time         `json:"last_triggered_at,omitempty" db:"last_triggered_at"`
-	LastSuccessAt     *time.Time         `json:"last_success_at,omitempty" db:"last_success_at"`
-	LastError         *string            `json:"last_error,omitempty" db:"last_error"`
-	TotalSent         int                `json:"total_sent" db:"total_sent"`
-	TotalFailed       int                `json:"total_failed" db:"total_failed"`
-	CreatedAt         time.Time          `json:"created_at" db:"created_at"`
-	UpdatedAt         time.Time          `json:"updated_at" db:"updated_at"`
+	ID                uuid.UUID      `json:"id" db:"id"`
+	UserID            uuid.UUID      `json:"user_id" db:"user_id"`
+	Name              string         `json:"name" db:"name"`
+	URL               string         `json:"url" db:"url"`
+	Secret            *string        `json:"-" db:"secret"` // Never expose in JSON
+	IsActive          bool           `json:"is_active" db:"is_active"`
+	NotificationTypes pq.StringArray `json:"notification_types" db:"notification_types"`
+	CustomHeaders     JSONMap        `json:"custom_headers" db:"custom_headers"`
+	RetryCount        int            `json:"retry_count" db:"retry_count"`
+	TimeoutSeconds    int            `json:"timeout_seconds" db:"timeout_seconds"`
+	LastTriggeredAt   *time.Time     `json:"last_triggered_at,omitempty" db:"last_triggered_at"`
+	LastSuccessAt     *time.Time     `json:"last_success_at,omitempty" db:"last_success_at"`
+	LastError         *string        `json:"last_error,omitempty" db:"last_error"`
+	TotalSent         int            `json:"total_sent" db:"total_sent"`
+	TotalFailed       int            `json:"total_failed" db:"total_failed"`
+	CreatedAt         time.Time      `json:"created_at" db:"created_at"`
+	UpdatedAt         time.Time      `json:"updated_at" db:"updated_at"`
 }
 
 // NewUserWebhook creates a new user webhook with defaults
@@ -362,12 +387,12 @@ func NewWebhookPayloadWithUser(notification *Notification, username, email strin
 
 // NotificationListParams represents query parameters for listing notifications
 type NotificationListParams struct {
-	UserID    uuid.UUID
-	Category  string           // Filter by category (job, agent, security, system)
-	Type      NotificationType // Filter by specific type
-	ReadOnly  *bool            // true = only read, false = only unread, nil = all
-	Limit     int
-	Offset    int
+	UserID   uuid.UUID
+	Category string           // Filter by category (job, agent, security, system)
+	Type     NotificationType // Filter by specific type
+	ReadOnly *bool            // true = only read, false = only unread, nil = all
+	Limit    int
+	Offset   int
 }
 
 // NotificationListResponse represents a paginated list of notifications

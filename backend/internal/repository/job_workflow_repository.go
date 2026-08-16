@@ -13,11 +13,11 @@ import (
 
 // JobWorkflowRepository defines the interface for interacting with job workflows and steps.
 type JobWorkflowRepository interface {
-	CreateWorkflow(ctx context.Context, name string, loopbackAllEligible bool) (*models.JobWorkflow, error)
+	CreateWorkflow(ctx context.Context, name string, loopbackAllEligible, cloudBurstEnabled bool) (*models.JobWorkflow, error)
 	GetWorkflowByID(ctx context.Context, id uuid.UUID) (*models.JobWorkflow, error)
 	GetWorkflowByName(ctx context.Context, name string) (*models.JobWorkflow, error)
 	ListWorkflows(ctx context.Context) ([]models.JobWorkflow, error)
-	UpdateWorkflow(ctx context.Context, id uuid.UUID, name string, loopbackAllEligible bool) (*models.JobWorkflow, error)
+	UpdateWorkflow(ctx context.Context, id uuid.UUID, name string, loopbackAllEligible, cloudBurstEnabled bool) (*models.JobWorkflow, error)
 	DeleteWorkflow(ctx context.Context, id uuid.UUID) error
 
 	CreateWorkflowStep(ctx context.Context, workflowID, presetJobID uuid.UUID, stepOrder int, loopbackEnabled bool) (*models.JobWorkflowStep, error)
@@ -47,12 +47,12 @@ func NewJobWorkflowRepository(db *sql.DB) JobWorkflowRepository {
 }
 
 // CreateWorkflow inserts a new job workflow.
-func (r *jobWorkflowRepository) CreateWorkflow(ctx context.Context, name string, loopbackAllEligible bool) (*models.JobWorkflow, error) {
-	query := `INSERT INTO job_workflows (name, loopback_all_eligible) VALUES ($1, $2) RETURNING id, name, loopback_all_eligible, created_at, updated_at`
-	row := r.db.QueryRowContext(ctx, query, name, loopbackAllEligible)
+func (r *jobWorkflowRepository) CreateWorkflow(ctx context.Context, name string, loopbackAllEligible, cloudBurstEnabled bool) (*models.JobWorkflow, error) {
+	query := `INSERT INTO job_workflows (name, loopback_all_eligible, cloud_burst_enabled) VALUES ($1, $2, $3) RETURNING id, name, loopback_all_eligible, cloud_burst_enabled, created_at, updated_at`
+	row := r.db.QueryRowContext(ctx, query, name, loopbackAllEligible, cloudBurstEnabled)
 
 	var wf models.JobWorkflow
-	err := row.Scan(&wf.ID, &wf.Name, &wf.LoopbackAllEligible, &wf.CreatedAt, &wf.UpdatedAt)
+	err := row.Scan(&wf.ID, &wf.Name, &wf.LoopbackAllEligible, &wf.CloudBurstEnabled, &wf.CreatedAt, &wf.UpdatedAt)
 	if err != nil {
 		// TODO: Handle potential unique constraint violation error (e.g., convert pq error)
 		debug.Error("Error creating job workflow: %v", err)
@@ -63,11 +63,11 @@ func (r *jobWorkflowRepository) CreateWorkflow(ctx context.Context, name string,
 
 // GetWorkflowByID retrieves a job workflow by ID, including its steps.
 func (r *jobWorkflowRepository) GetWorkflowByID(ctx context.Context, id uuid.UUID) (*models.JobWorkflow, error) {
-	query := `SELECT id, name, loopback_all_eligible, created_at, updated_at FROM job_workflows WHERE id = $1 LIMIT 1`
+	query := `SELECT id, name, loopback_all_eligible, cloud_burst_enabled, created_at, updated_at FROM job_workflows WHERE id = $1 LIMIT 1`
 	row := r.db.QueryRowContext(ctx, query, id)
 
 	var wf models.JobWorkflow
-	err := row.Scan(&wf.ID, &wf.Name, &wf.LoopbackAllEligible, &wf.CreatedAt, &wf.UpdatedAt)
+	err := row.Scan(&wf.ID, &wf.Name, &wf.LoopbackAllEligible, &wf.CloudBurstEnabled, &wf.CreatedAt, &wf.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("job workflow not found: %w", ErrNotFound)
@@ -90,11 +90,11 @@ func (r *jobWorkflowRepository) GetWorkflowByID(ctx context.Context, id uuid.UUI
 
 // GetWorkflowByName retrieves a job workflow by name.
 func (r *jobWorkflowRepository) GetWorkflowByName(ctx context.Context, name string) (*models.JobWorkflow, error) {
-	query := `SELECT id, name, loopback_all_eligible, created_at, updated_at FROM job_workflows WHERE name = $1 LIMIT 1`
+	query := `SELECT id, name, loopback_all_eligible, cloud_burst_enabled, created_at, updated_at FROM job_workflows WHERE name = $1 LIMIT 1`
 	row := r.db.QueryRowContext(ctx, query, name)
 
 	var wf models.JobWorkflow
-	err := row.Scan(&wf.ID, &wf.Name, &wf.LoopbackAllEligible, &wf.CreatedAt, &wf.UpdatedAt)
+	err := row.Scan(&wf.ID, &wf.Name, &wf.LoopbackAllEligible, &wf.CloudBurstEnabled, &wf.CreatedAt, &wf.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("job workflow not found: %w", ErrNotFound)
@@ -109,10 +109,10 @@ func (r *jobWorkflowRepository) GetWorkflowByName(ctx context.Context, name stri
 // ListWorkflows retrieves all job workflows.
 func (r *jobWorkflowRepository) ListWorkflows(ctx context.Context) ([]models.JobWorkflow, error) {
 	query := `
-		SELECT w.id, w.name, w.loopback_all_eligible, w.created_at, w.updated_at, COUNT(s.id) as step_count
+		SELECT w.id, w.name, w.loopback_all_eligible, w.cloud_burst_enabled, w.created_at, w.updated_at, COUNT(s.id) as step_count
 		FROM job_workflows w
 		LEFT JOIN job_workflow_steps s ON w.id = s.job_workflow_id
-		GROUP BY w.id, w.name, w.loopback_all_eligible, w.created_at, w.updated_at
+		GROUP BY w.id, w.name, w.loopback_all_eligible, w.cloud_burst_enabled, w.created_at, w.updated_at
 		ORDER BY w.name
 	` // TODO: Pagination
 	rows, err := r.db.QueryContext(ctx, query)
@@ -125,7 +125,7 @@ func (r *jobWorkflowRepository) ListWorkflows(ctx context.Context) ([]models.Job
 	workflows := []models.JobWorkflow{}
 	for rows.Next() {
 		var wf models.JobWorkflow
-		if err := rows.Scan(&wf.ID, &wf.Name, &wf.LoopbackAllEligible, &wf.CreatedAt, &wf.UpdatedAt, &wf.StepCount); err != nil {
+		if err := rows.Scan(&wf.ID, &wf.Name, &wf.LoopbackAllEligible, &wf.CloudBurstEnabled, &wf.CreatedAt, &wf.UpdatedAt, &wf.StepCount); err != nil {
 			debug.Error("Error scanning job workflow row: %v", err)
 			return nil, fmt.Errorf("error scanning job workflow row: %w", err)
 		}
@@ -145,12 +145,12 @@ func (r *jobWorkflowRepository) ListWorkflows(ctx context.Context) ([]models.Job
 }
 
 // UpdateWorkflow updates a job workflow's name.
-func (r *jobWorkflowRepository) UpdateWorkflow(ctx context.Context, id uuid.UUID, name string, loopbackAllEligible bool) (*models.JobWorkflow, error) {
-	query := `UPDATE job_workflows SET name = $2, loopback_all_eligible = $3, updated_at = NOW() WHERE id = $1 RETURNING id, name, loopback_all_eligible, created_at, updated_at`
-	row := r.db.QueryRowContext(ctx, query, id, name, loopbackAllEligible)
+func (r *jobWorkflowRepository) UpdateWorkflow(ctx context.Context, id uuid.UUID, name string, loopbackAllEligible, cloudBurstEnabled bool) (*models.JobWorkflow, error) {
+	query := `UPDATE job_workflows SET name = $2, loopback_all_eligible = $3, cloud_burst_enabled = $4, updated_at = NOW() WHERE id = $1 RETURNING id, name, loopback_all_eligible, cloud_burst_enabled, created_at, updated_at`
+	row := r.db.QueryRowContext(ctx, query, id, name, loopbackAllEligible, cloudBurstEnabled)
 
 	var wf models.JobWorkflow
-	err := row.Scan(&wf.ID, &wf.Name, &wf.LoopbackAllEligible, &wf.CreatedAt, &wf.UpdatedAt)
+	err := row.Scan(&wf.ID, &wf.Name, &wf.LoopbackAllEligible, &wf.CloudBurstEnabled, &wf.CreatedAt, &wf.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("job workflow not found for update: %w", ErrNotFound)

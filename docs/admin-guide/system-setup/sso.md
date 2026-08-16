@@ -45,9 +45,22 @@ Each provider can override global settings:
 
 ## SSO Encryption Key
 
+!!! note "`KH_ENCRYPTION_KEY` is now the preferred variable"
+    Secret encryption is shared across subsystems (SSO, cloud provider credentials,
+    VPN enrollment credentials), so the key is configured as **`KH_ENCRYPTION_KEY`**.
+    `SSO_ENCRYPTION_KEY` remains fully supported and is used whenever
+    `KH_ENCRYPTION_KEY` is unset, so existing deployments need no change.
+
+    To migrate, copy your existing `SSO_ENCRYPTION_KEY` value verbatim into
+    `KH_ENCRYPTION_KEY` and remove the old variable. Setting the two to *different*
+    values makes already-stored SSO secrets undecryptable until re-entered — the
+    server logs a warning if it detects this.
+
+    Everything below applies to both variable names.
+
 ### Purpose
 
-The `SSO_ENCRYPTION_KEY` environment variable protects sensitive SSO secrets stored in the database using AES-256-GCM encryption.
+The encryption key protects sensitive SSO secrets stored in the database using AES-256-GCM encryption.
 
 ### What Gets Encrypted
 

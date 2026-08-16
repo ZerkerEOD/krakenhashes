@@ -21,7 +21,8 @@
     "jobWorkflows": "Flujos de trabajo",
     "diagnostics": "Diagnósticos",
     "auditLog": "Registro de auditoría",
-    "jobAnalytics": "Analíticas de Trabajos"
+    "jobAnalytics": "Analíticas de Trabajos",
+    "cloudFleet": "Cloud Fleet"
   },
   "userMenu": {
     "userSettings": "Configuración de usuario",

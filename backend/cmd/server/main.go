@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -14,12 +15,15 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/config"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/database"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
+	admincloud "github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/admin/cloud"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/agent"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/tls"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/routes"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/rule"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
+	cloudsvc "github.com/ZerkerEOD/krakenhashes/backend/internal/services/cloud"
 	retentionsvc "github.com/ZerkerEOD/krakenhashes/backend/internal/services/retention"
 	tlsprovider "github.com/ZerkerEOD/krakenhashes/backend/internal/tls"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/version"
@@ -169,6 +173,23 @@ func main() {
 		os.Exit(1)
 	}
 	defer sqlDB.Close()
+
+	// Refuse to run a second backend against the same database.
+	//
+	// The scheduler's single-flight guard is process-local, so two backends
+	// both run the 3-second cycle and double-dispatch the same keyspace
+	// intervals. Acquired before migrations so two processes can't race those
+	// either. Waits briefly for an outgoing process during a rolling restart.
+	instanceLock, err := database.AcquireInstanceLock(context.Background(), sqlDB)
+	if err != nil {
+		debug.Error("%v", err)
+		os.Exit(1)
+	}
+	defer func() {
+		if relErr := instanceLock.Release(context.Background()); relErr != nil {
+			debug.Warning("Failed to release single-instance lock: %v", relErr)
+		}
+	}()
 
 	// Create DB wrapper for repositories
 	dbWrapper := &db.DB{DB: sqlDB}
@@ -492,6 +513,110 @@ func main() {
 	// Also add CA certificate route to HTTPS router for secure access
 	httpsRouter.HandleFunc("/ca.crt", tlsHandler.ServeCACertificate).Methods("GET", "HEAD", "OPTIONS")
 
+	// ---------------------------------------------------------------------
+	// Cloud GPU provisioning
+	// ---------------------------------------------------------------------
+	//
+	// Placed here, before the servers start and before StartScheduler below,
+	// for two reasons that are not stylistic:
+	//
+	//   - Registering routes on a mux.Router that is already serving is a data
+	//     race, so the admin API must be attached first.
+	//   - SetCloudAgentLocks must be wired before the scheduler's first cycle.
+	//     Without it the compat wrapper has no lock snapshot, and a rented
+	//     agent could be handed another client's job.
+	//
+	// The reaper starts even when no provider is configured: its first pass is
+	// the startup reconciliation that reclaims anything the previous process
+	// left running. Skipping it because "cloud is off right now" would strand
+	// instances rented before the feature was disabled.
+	debug.Info("Starting cloud provisioning services...")
+	claimVoucherService := services.NewClaimVoucherService(repository.NewClaimVoucherRepository(dbWrapper))
+	cloudProviderRepo := repository.NewCloudProviderRepository(dbWrapper)
+	cloudInstanceRepo := repository.NewCloudInstanceRepository(dbWrapper)
+	cloudBudgetRepo := repository.NewCloudBudgetRepository(dbWrapper)
+	cloudBudget := cloudsvc.NewBudgetEngine(cloudBudgetRepo)
+	cloudFileSets := cloudsvc.NewFileSetResolver(dbWrapper)
+	cloudService := cloudsvc.NewService(
+		dbWrapper, cloudProviderRepo, cloudInstanceRepo, cloudBudget,
+		cloudFileSets, claimVoucherService,
+	)
+	cloudService.AgentImage = getEnvOrDefault("KH_CLOUD_AGENT_IMAGE", "zerkereod/krakenhashes-agent-cloud:latest")
+	cloudService.SystemUserID = models.SystemUserID.String()
+
+	// The reaper's escalation path exists for one situation: automation has
+	// lost control of an instance that is still billing. Passing nil here made
+	// that alert dead code. GetGlobalDispatcher is set by SetupNotificationRoutes,
+	// which has already run; DispatchNotifier degrades to logging if it has not.
+	var cloudNotifier cloudsvc.Notifier
+	if dispatcher := services.GetGlobalDispatcher(); dispatcher != nil {
+		cloudNotifier = cloudsvc.NewDispatchNotifier(dispatcher)
+	} else {
+		debug.Warning("Notification dispatcher unavailable - cloud teardown failures will only be logged")
+		cloudNotifier = cloudsvc.NewDispatchNotifier(nil)
+	}
+
+	cloudReaper := cloudsvc.NewReaper(cloudInstanceRepo, cloudBudget, cloudService.ProviderFor, cloudNotifier)
+	cloudCtx, cloudCancel := context.WithCancel(context.Background())
+	defer cloudCancel()
+	go cloudReaper.Run(cloudCtx, time.Duration(getEnvIntOrDefault("KH_CLOUD_REAPER_INTERVAL", 60))*time.Second)
+
+	// Pin rented agents to the job that paid for them. Nil-safe: leaving this
+	// unset would silently allow a cloud agent to take another client's work.
+	if routes.JobIntegrationManager != nil {
+		routes.JobIntegrationManager.SetCloudAgentLocks(cloudService)
+	}
+
+	// Give rented agents their job's files on connect. Cloud agents are excluded
+	// from the full-corpus sync (which would ship every client's potfile to a
+	// machine the operator does not control); this is the replacement, not an
+	// optimisation.
+	if routes.WSHandler != nil {
+		routes.WSHandler.SetCloudFileSetResolver(cloudFileSets)
+	} else {
+		debug.Warning("WebSocket handler unavailable - cloud agents will download files lazily per task")
+	}
+
+	// Autoscaler: rents capacity for starving, cloud-eligible jobs.
+	//
+	// Two caps guard it, and the second is easy to get wrong. GlobalInstanceCap
+	// on its own does nothing: the check at Autoscaler.ScaleOnce is skipped
+	// unless LiveInstanceCount is also set, so a cap without a counter is
+	// silently unlimited. They are set together here for that reason.
+	//
+	// Runs only when the scheduler exists to feed it. Without the starvation
+	// publisher the snapshot never refreshes, every pass reads stale data, and
+	// the autoscaler would sit in a permanent no-op — starting it then would
+	// only produce log noise suggesting it was doing something.
+	if routes.JobIntegrationManager != nil {
+		starvation := cloudsvc.NewStarvationSnapshot()
+		routes.JobIntegrationManager.SetCloudStarvationPublisher(starvation)
+
+		autoscaler := cloudsvc.NewAutoscaler(starvation, cloudService)
+		autoscaler.GlobalInstanceCap = getEnvIntOrDefault("KH_CLOUD_MAX_INSTANCES", 0)
+		autoscaler.LiveInstanceCount = cloudInstanceRepo.CountLive
+
+		interval := time.Duration(getEnvIntOrDefault("KH_CLOUD_AUTOSCALE_INTERVAL", 60)) * time.Second
+		go autoscaler.Run(cloudCtx, interval)
+		debug.Info("Cloud autoscaler started (interval=%s, global instance cap=%d)",
+			interval, autoscaler.GlobalInstanceCap)
+	} else {
+		debug.Warning("Scheduler unavailable - cloud autoscaler not started")
+	}
+
+	// Admin API. AdminRouter already carries middleware.AdminOnly.
+	if routes.AdminRouter != nil {
+		admincloud.NewHandler(
+			cloudProviderRepo, cloudInstanceRepo, cloudBudgetRepo, cloudBudget,
+			cloudsvc.NewEstimator(dbWrapper), cloudService.ProviderFor,
+			cloudService.InvalidateProvider, cloudService.ProvisionForJob,
+		).RegisterRoutes(routes.AdminRouter)
+		debug.Info("Configured cloud admin routes: /api/admin/cloud/*")
+	} else {
+		debug.Warning("Admin router unavailable - cloud provisioning admin API not registered")
+	}
+	debug.Info("Cloud provisioning services started")
+
 	// Create HTTPS server
 	debug.Info("Creating HTTPS server")
 	httpsServer := &http.Server{
@@ -534,6 +659,11 @@ func main() {
 	monitorService.Start()
 	defer monitorService.Stop()
 
+	// Held at function scope so the ordered shutdown can stop dispatch before
+	// the HTTP servers drain, rather than relying on a defer that fires after
+	// the shutdown deadline has already been spent.
+	var jobSchedulerCancelFn context.CancelFunc
+
 	// Start the job scheduler if it was initialized
 	if routes.JobIntegrationManager != nil {
 		// One-shot converter: migrate any pre-existing v1 jobs into v2
@@ -551,6 +681,9 @@ func main() {
 		debug.Info("Starting job scheduler")
 		jobSchedulerCtx, jobSchedulerCancel := context.WithCancel(context.Background())
 		defer jobSchedulerCancel()
+		// Hoisted so the ordered shutdown path can stop dispatch before the
+		// HTTP servers drain.
+		jobSchedulerCancelFn = jobSchedulerCancel
 		routes.JobIntegrationManager.StartScheduler(jobSchedulerCtx)
 		debug.Info("Job scheduler started successfully")
 
@@ -595,6 +728,27 @@ func main() {
 		debug.Info("Received signal: %v", sig)
 		debug.Info("Shutting down server...")
 
+		// Ordered shutdown.
+		//
+		// Cloud teardown runs FIRST, with its own budget. Deferred cleanup
+		// would not do: defers fire after this select returns, by which point
+		// the 15s HTTP shutdown context below is already spent — leaving
+		// rented GPUs billing while we wait on connection draining.
+		//
+		// Best-effort by nature: SIGKILL and OOM bypass this entirely, which
+		// is exactly why the in-guest absolute deadline is the real guarantee
+		// and this is only an optimization to stop billing sooner.
+		drainCtx, drainCancel := context.WithTimeout(context.Background(), 60*time.Second)
+		cloudReaper.DrainAll(drainCtx)
+		drainCancel()
+		cloudCancel()
+
+		// Stop the scheduler before the servers so no new work is dispatched
+		// to agents that are about to lose their connection.
+		if jobSchedulerCancelFn != nil {
+			jobSchedulerCancelFn()
+		}
+
 		// Create a deadline for graceful shutdown
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
@@ -608,4 +762,26 @@ func main() {
 		}
 		debug.Info("Server shutdown complete")
 	}
+}
+
+// getEnvOrDefault returns an environment variable or a fallback.
+func getEnvOrDefault(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
+// getEnvIntOrDefault returns an integer environment variable or a fallback.
+func getEnvIntOrDefault(key string, fallback int) int {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n <= 0 {
+		debug.Warning("Invalid %s=%q; using default %d", key, v, fallback)
+		return fallback
+	}
+	return n
 }

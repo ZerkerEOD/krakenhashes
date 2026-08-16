@@ -1,0 +1,85 @@
+# KrakenHashes cloud agent.
+#
+# One image serves both providers. On Vast.ai it IS the instance; on AWS the
+# user-data script `docker run`s it on a stock Deep Learning Base AMI (which
+# already ships Docker and the NVIDIA container toolkit). A single artifact
+# means no per-region public AMIs to copy and re-publish every release — a real
+# consideration for a community project.
+#
+# Hashcat is deliberately NOT bundled, matching the existing agent images: it
+# syncs from the backend, so the image stays small and the hashcat version
+# stays under the operator's control.
+ARG CUDA_VERSION=13.1.1
+ARG UBUNTU_VERSION=22.04
+FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION}
+
+ARG TARGETARCH=amd64
+ARG TAILSCALE_VERSION=1.80.0
+ARG WIREPROXY_VERSION=1.0.9
+
+# ocl-icd-libopencl1 is the OpenCL ICD loader hashcat needs; the NVIDIA driver
+# supplies libnvidia-opencl but not the loader. p7zip-full unpacks the hashcat
+# archive the backend serves.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates curl iproute2 iptables pciutils \
+        ocl-icd-libopencl1 p7zip-full \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /etc/OpenCL/vendors && echo "libnvidia-opencl.so.1" > /etc/OpenCL/vendors/nvidia.icd
+
+# --- VPN clients, all used in USERSPACE mode -------------------------------
+#
+# Vast.ai containers are unprivileged: no /dev/net/tun, no NET_ADMIN, and the
+# create API silently drops --cap-add/--device. Only clients that can run a
+# userspace network stack and expose a local SOCKS5 proxy work there:
+#
+#   tailscale  --tun=userspace-networking   (gVisor netstack)
+#   netbird    NB_USE_NETSTACK_MODE=true    (gVisor netstack)
+#   wireproxy                               (userspace WireGuard -> SOCKS5)
+#
+# OpenVPN is absent on purpose: it requires a tun device, and the only
+# "userspace" path for it is unmaintained out-of-tree patches to a
+# security-critical binary.
+RUN set -eux; \
+    curl -fsSL "https://pkgs.tailscale.com/stable/tailscale_${TAILSCALE_VERSION}_${TARGETARCH}.tgz" \
+        -o /tmp/ts.tgz; \
+    tar -xzf /tmp/ts.tgz -C /tmp; \
+    mv /tmp/tailscale_${TAILSCALE_VERSION}_${TARGETARCH}/tailscale /usr/local/bin/; \
+    mv /tmp/tailscale_${TAILSCALE_VERSION}_${TARGETARCH}/tailscaled /usr/local/bin/; \
+    rm -rf /tmp/ts.tgz /tmp/tailscale_${TAILSCALE_VERSION}_${TARGETARCH}
+
+RUN set -eux; \
+    curl -fsSL https://pkgs.netbird.io/install.sh | sh || \
+        echo "netbird install failed; the netbird VPN option will be unavailable in this image"
+
+RUN set -eux; \
+    curl -fsSL "https://github.com/whyvl/wireproxy/releases/download/v${WIREPROXY_VERSION}/wireproxy_linux_${TARGETARCH}.tar.gz" \
+        -o /tmp/wp.tgz; \
+    tar -xzf /tmp/wp.tgz -C /usr/local/bin wireproxy; \
+    rm -f /tmp/wp.tgz; \
+    chmod +x /usr/local/bin/wireproxy
+
+# --- agent ------------------------------------------------------------------
+# Built outside Docker by CI, matching the existing agent image build.
+COPY krakenhashes-agent /app/krakenhashes-agent
+COPY docker-entrypoint-cloud.sh /app/docker-entrypoint-cloud.sh
+RUN chmod +x /app/krakenhashes-agent /app/docker-entrypoint-cloud.sh
+
+# Runs as root, unlike the on-prem agent image: the entrypoint's self-destruct
+# path calls poweroff on AWS, and the container is destroyed after a single job
+# on an instance dedicated to it.
+WORKDIR /app
+
+ENV KH_CONFIG_DIR=/app/config \
+    KH_DATA_DIR=/app/data \
+    KH_EPHEMERAL=true \
+    USE_TLS=true \
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+RUN mkdir -p /app/config /app/data
+
+# No HEALTHCHECK: liveness is the agent's own WebSocket heartbeat, and the
+# entrypoint's heartbeat watchdog already destroys the instance when that stops.
+
+ENTRYPOINT ["/app/docker-entrypoint-cloud.sh"]

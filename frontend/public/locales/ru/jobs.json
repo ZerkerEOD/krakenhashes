@@ -323,5 +323,32 @@
     "bulkArchiveSuccess": "{{count}} задание(й) успешно архивировано",
     "bulkUnarchiveSuccess": "{{count}} задание(й) успешно разархивировано",
     "bulkDeleteSuccess": "{{count}} задание(й) успешно удалено"
+  },
+  "cloud": {
+    "projection": {
+      "title": "Will this finish within budget?",
+      "loadFailed": "Failed to project this job",
+      "coverageLabel": "Budget coverage",
+      "coverageValue": "{{pct}}% of the remaining work is funded",
+      "timeToFinish": "Projected time to finish",
+      "projectedCost": "Projected cloud cost",
+      "availableBudget": "Available budget",
+      "onpremSpeed": "On-prem speed",
+      "cloudSpeed": "Cloud speed",
+      "unknown": "Unknown",
+      "confirm": "Launch",
+      "pessimistic": "This is a salted hash type, so real throughput will exceed this estimate as salts crack. Treat the projection as a worst case.",
+      "shortfallTitle": "The budget runs out before the work does",
+      "shortfallBody": "At the projected rate, the budget covers {{pct}}% of the remaining keyspace. The job will stop partway through. Partial progress may still be worth buying — but it should be a deliberate choice.",
+      "shortfallAcknowledge": "I understand this job will not finish within budget"
+    },
+    "cloudBurst": {
+      "label": "Allow cloud burst for this job",
+      "help": "Rent GPU instances when the on-prem fleet cannot keep up. Requires the client to be funded and opted in to a provider. Nothing is rented without this.",
+      "maxInstances": "Maximum rented instances",
+      "maxInstancesHelp": "Separate from max agents, which governs the shared on-prem pool. Leave blank to let the remaining budget decide.",
+      "badge": "Cloud burst",
+      "thirdPartyBadge": "Third-party host"
+    }
   }
 }

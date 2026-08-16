@@ -1,0 +1,353 @@
+package repository
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"time"
+
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
+	"github.com/google/uuid"
+)
+
+// CloudInstanceRepository owns the cloud_instances table.
+type CloudInstanceRepository struct {
+	db *db.DB
+}
+
+// NewCloudInstanceRepository creates a new cloud instance repository.
+func NewCloudInstanceRepository(database *db.DB) *CloudInstanceRepository {
+	return &CloudInstanceRepository{db: database}
+}
+
+const cloudInstanceColumns = `
+	id, provider_config_id, label, idempotency_key, provider_instance_id,
+	agent_id, job_execution_id, client_id, client_name_snapshot, state,
+	gpu_model, gpu_count, hourly_rate_cents, disk_gb, fileset_bytes,
+	reserved_cents, estimated_cost_cents, actual_cost_cents,
+	launch_deadline_at, ready_deadline_at, ttl_epoch,
+	launched_at, ready_at, terminated_at, termination_reason,
+	terminate_attempts, last_terminate_error, vpn_credential_ref,
+	provider_raw, created_at, updated_at`
+
+func scanCloudInstance(s interface{ Scan(...interface{}) error }) (*models.CloudInstance, error) {
+	var c models.CloudInstance
+	var providerInstanceID, clientName, terminationReason, lastTerminateErr, vpnRef sql.NullString
+	var gpuModel sql.NullString
+	var agentID sql.NullInt64
+	var gpuCount, diskGB sql.NullInt32
+	var filesetBytes, actualCost sql.NullInt64
+	var jobID, clientID uuid.NullUUID
+
+	err := s.Scan(
+		&c.ID, &c.ProviderConfigID, &c.Label, &c.IdempotencyKey, &providerInstanceID,
+		&agentID, &jobID, &clientID, &clientName, &c.State,
+		&gpuModel, &gpuCount, &c.HourlyRateCents, &diskGB, &filesetBytes,
+		&c.ReservedCents, &c.EstimatedCostCents, &actualCost,
+		&c.LaunchDeadlineAt, &c.ReadyDeadlineAt, &c.TTLEpoch,
+		&c.LaunchedAt, &c.ReadyAt, &c.TerminatedAt, &terminationReason,
+		&c.TerminateAttempts, &lastTerminateErr, &vpnRef,
+		&c.ProviderRaw, &c.CreatedAt, &c.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	c.ProviderInstanceID = providerInstanceID.String
+	c.ClientNameSnapshot = clientName.String
+	c.TerminationReason = terminationReason.String
+	c.LastTerminateError = lastTerminateErr.String
+	c.VPNCredentialRef = vpnRef.String
+	c.GPUModel = gpuModel.String
+	c.GPUCount = int(gpuCount.Int32)
+	c.DiskGB = int(diskGB.Int32)
+	c.FilesetBytes = filesetBytes.Int64
+	if agentID.Valid {
+		v := int(agentID.Int64)
+		c.AgentID = &v
+	}
+	if actualCost.Valid {
+		c.ActualCostCents = &actualCost.Int64
+	}
+	if jobID.Valid {
+		c.JobExecutionID = &jobID.UUID
+	}
+	if clientID.Valid {
+		c.ClientID = &clientID.UUID
+	}
+	return &c, nil
+}
+
+/*
+ * Create writes the instance row BEFORE the provider is called.
+ *
+ * This ordering is the whole recovery story. If the process dies between this
+ * INSERT and the provider call, we have a row with a label and no
+ * provider_instance_id, and the reaper reconciles it by label. If we wrote the
+ * row after the provider responded, a lost response would leave a running,
+ * billing instance that nothing in the system knows about.
+ */
+func (r *CloudInstanceRepository) Create(ctx context.Context, c *models.CloudInstance) error {
+	if c.ID == uuid.Nil {
+		c.ID = uuid.New()
+	}
+	raw := c.ProviderRaw
+	if raw == nil {
+		raw = models.JSONMap{}
+	}
+	err := r.db.QueryRowContext(ctx, `
+		INSERT INTO cloud_instances (
+			id, provider_config_id, label, idempotency_key, agent_id,
+			job_execution_id, client_id, client_name_snapshot, state,
+			gpu_model, gpu_count, hourly_rate_cents, disk_gb, fileset_bytes,
+			reserved_cents, launch_deadline_at, ready_deadline_at, ttl_epoch,
+			vpn_credential_ref, provider_raw
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+		RETURNING created_at, updated_at`,
+		c.ID, c.ProviderConfigID, c.Label, c.IdempotencyKey, c.AgentID,
+		c.JobExecutionID, c.ClientID, nullString(c.ClientNameSnapshot), c.State,
+		nullString(c.GPUModel), nullInt32(c.GPUCount), c.HourlyRateCents, nullInt32(c.DiskGB), nullInt64(c.FilesetBytes),
+		c.ReservedCents, c.LaunchDeadlineAt, c.ReadyDeadlineAt, c.TTLEpoch,
+		nullString(c.VPNCredentialRef), raw,
+	).Scan(&c.CreatedAt, &c.UpdatedAt)
+	if err != nil {
+		return fmt.Errorf("failed to create cloud instance: %w", err)
+	}
+	return nil
+}
+
+// GetByID retrieves one instance.
+func (r *CloudInstanceRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.CloudInstance, error) {
+	row := r.db.QueryRowContext(ctx, `SELECT `+cloudInstanceColumns+` FROM cloud_instances WHERE id = $1`, id)
+	c, err := scanCloudInstance(row)
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("cloud instance %s not found", id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cloud instance: %w", err)
+	}
+	return c, nil
+}
+
+// GetByLabel retrieves an instance by its provider-side label. This is the
+// reconciliation path for a launch whose response was lost.
+func (r *CloudInstanceRepository) GetByLabel(ctx context.Context, label string) (*models.CloudInstance, error) {
+	row := r.db.QueryRowContext(ctx, `SELECT `+cloudInstanceColumns+` FROM cloud_instances WHERE label = $1`, label)
+	c, err := scanCloudInstance(row)
+	if err == sql.ErrNoRows {
+		return nil, nil // not an error: an unknown label means an orphan
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cloud instance by label: %w", err)
+	}
+	return c, nil
+}
+
+// ListLive returns every instance that could still be costing money.
+func (r *CloudInstanceRepository) ListLive(ctx context.Context) ([]*models.CloudInstance, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT `+cloudInstanceColumns+`
+		FROM cloud_instances
+		WHERE state NOT IN ('terminated','failed')
+		ORDER BY created_at ASC`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list live cloud instances: %w", err)
+	}
+	defer rows.Close()
+
+	var out []*models.CloudInstance
+	for rows.Next() {
+		c, err := scanCloudInstance(rows)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan cloud instance: %w", err)
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// ListLiveForJob returns live instances provisioned for a specific job.
+func (r *CloudInstanceRepository) ListLiveForJob(ctx context.Context, jobID uuid.UUID) ([]*models.CloudInstance, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT `+cloudInstanceColumns+`
+		FROM cloud_instances
+		WHERE job_execution_id = $1 AND state NOT IN ('terminated','failed')
+		ORDER BY created_at ASC`, jobID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list cloud instances for job: %w", err)
+	}
+	defer rows.Close()
+
+	var out []*models.CloudInstance
+	for rows.Next() {
+		c, err := scanCloudInstance(rows)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan cloud instance: %w", err)
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// CountLive returns how many instances are live, for the global concurrency cap.
+func (r *CloudInstanceRepository) CountLive(ctx context.Context) (int, error) {
+	var n int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM cloud_instances WHERE state NOT IN ('terminated','failed')`).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count live cloud instances: %w", err)
+	}
+	return n, nil
+}
+
+// SetState transitions an instance, optionally recording why.
+func (r *CloudInstanceRepository) SetState(ctx context.Context, id uuid.UUID, state models.CloudInstanceState, reason string) error {
+	// $2 must be cast explicitly at BOTH use sites. Without the casts Postgres
+	// tries to deduce one type for a parameter used as a VARCHAR assignment
+	// target and as an IN operand, and rejects the statement with
+	// "inconsistent types deduced for parameter $2" — which the reaper logged
+	// and continued past, leaving every instance stuck in its pre-teardown
+	// state while being re-destroyed on every sweep.
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE cloud_instances
+		SET state = $2::varchar,
+		    termination_reason = COALESCE(NULLIF($3::text, ''), termination_reason),
+		    terminated_at = CASE WHEN $2::varchar IN ('terminated','failed')
+		                         THEN NOW() ELSE terminated_at END,
+		    updated_at = NOW()
+		WHERE id = $1`, id, string(state), reason)
+	if err != nil {
+		return fmt.Errorf("failed to set cloud instance state: %w", err)
+	}
+	return nil
+}
+
+// MarkLaunched records the provider's identifier and the TTL clock.
+func (r *CloudInstanceRepository) MarkLaunched(ctx context.Context, id uuid.UUID, providerInstanceID string, launchedAt time.Time, ttlEpoch time.Time, raw models.JSONMap) error {
+	if raw == nil {
+		raw = models.JSONMap{}
+	}
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE cloud_instances
+		SET provider_instance_id = $2, state = 'provisioning',
+		    launched_at = $3, ttl_epoch = $4, provider_raw = $5, updated_at = NOW()
+		WHERE id = $1`, id, providerInstanceID, launchedAt, ttlEpoch, raw)
+	if err != nil {
+		return fmt.Errorf("failed to mark cloud instance launched: %w", err)
+	}
+	return nil
+}
+
+/*
+ * NOTE: there is deliberately no AttachAgent method here.
+ *
+ * Linking an agent to its instance is not a standalone operation. Both
+ * directions of the link — agents.cloud_instance_id and
+ * cloud_instances.agent_id — have to become visible at the same moment, and
+ * the forward one has to be part of the registration INSERT rather than a
+ * follow-up write. Between an INSERT and a later UPDATE the row is a
+ * fully-registered on-prem agent, and the scheduler's next cycle (3 seconds)
+ * could hand it any client's job.
+ *
+ * Both writes therefore live in one transaction in
+ * AgentRepository.Create. A method here would only be useful for doing it the
+ * unsafe way.
+ */
+
+// AddIncurredCost advances the running cost estimate.
+func (r *CloudInstanceRepository) AddIncurredCost(ctx context.Context, id uuid.UUID, deltaCents int64) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE cloud_instances
+		SET estimated_cost_cents = estimated_cost_cents + $2, updated_at = NOW()
+		WHERE id = $1`, id, deltaCents)
+	if err != nil {
+		return fmt.Errorf("failed to add incurred cost: %w", err)
+	}
+	return nil
+}
+
+// RecordTerminateFailure counts a failed teardown. Past a threshold this
+// escalates to admins: an instance we cannot kill is money actively burning.
+func (r *CloudInstanceRepository) RecordTerminateFailure(ctx context.Context, id uuid.UUID, errMsg string) (int, error) {
+	var attempts int
+	err := r.db.QueryRowContext(ctx, `
+		UPDATE cloud_instances
+		SET terminate_attempts = terminate_attempts + 1,
+		    last_terminate_error = $2,
+		    updated_at = NOW()
+		WHERE id = $1
+		RETURNING terminate_attempts`, id, errMsg).Scan(&attempts)
+	if err != nil {
+		return 0, fmt.Errorf("failed to record terminate failure: %w", err)
+	}
+	return attempts, nil
+}
+
+// ExtendTTL pushes an instance's deadline out, for the case where a modest
+// extension completes the job and avoids paying a whole fresh boot elsewhere.
+func (r *CloudInstanceRepository) ExtendTTL(ctx context.Context, id uuid.UUID, newTTL time.Time, extraReservedCents int64) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE cloud_instances
+		SET ttl_epoch = $2, reserved_cents = reserved_cents + $3, updated_at = NOW()
+		WHERE id = $1`, id, newTTL, extraReservedCents)
+	if err != nil {
+		return fmt.Errorf("failed to extend cloud instance TTL: %w", err)
+	}
+	return nil
+}
+
+// Retarget points a still-useful instance at a different job of the same
+// client, so its already-paid-for boot and file sync are not wasted.
+func (r *CloudInstanceRepository) Retarget(ctx context.Context, id uuid.UUID, jobID uuid.UUID) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE cloud_instances SET job_execution_id = $2, updated_at = NOW() WHERE id = $1`, id, jobID)
+	if err != nil {
+		return fmt.Errorf("failed to retarget cloud instance: %w", err)
+	}
+	return nil
+}
+
+/*
+ * LoadAgentJobLocks returns agent_id -> job_execution_id for every cloud agent
+ * whose instance is still live.
+ *
+ * The scheduler calls this once per cycle to build its dispatch-isolation
+ * predicate. It deliberately covers ALL cloud agents, not just idle ones,
+ * because preemption asks whether a BUSY agent is compatible with a starving
+ * unit — and a paid instance must never be preempted away from the job that
+ * bought it.
+ */
+func (r *CloudInstanceRepository) LoadAgentJobLocks(ctx context.Context) (map[int]uuid.UUID, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT agent_id, job_execution_id
+		FROM cloud_instances
+		WHERE agent_id IS NOT NULL
+		  AND job_execution_id IS NOT NULL
+		  AND state NOT IN ('terminated','failed')`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load cloud agent job locks: %w", err)
+	}
+	defer rows.Close()
+
+	locks := make(map[int]uuid.UUID)
+	for rows.Next() {
+		var agentID int
+		var jobID uuid.UUID
+		if err := rows.Scan(&agentID, &jobID); err != nil {
+			return nil, fmt.Errorf("failed to scan cloud agent job lock: %w", err)
+		}
+		locks[agentID] = jobID
+	}
+	return locks, rows.Err()
+}
+
+// nullString is defined in sso_repository.go (same package).
+
+func nullInt32(i int) sql.NullInt32 {
+	return sql.NullInt32{Int32: int32(i), Valid: i != 0}
+}
+
+func nullInt64(i int64) sql.NullInt64 {
+	return sql.NullInt64{Int64: i, Valid: i != 0}
+}

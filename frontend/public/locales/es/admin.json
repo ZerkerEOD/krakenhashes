@@ -18,7 +18,8 @@
     "hashTypes": "Tipos de hash",
     "jobExecution": "Ejecucion de trabajos",
     "monitoring": "Monitoreo",
-    "agentDownloads": "Descargas de agentes"
+    "agentDownloads": "Descargas de agentes",
+    "cloudProvisioning": "Cloud Provisioning"
   },
   "common": {
     "cancel": "Cancelar",
@@ -533,7 +534,9 @@
         "ruleOptional": "Regla (Opcional)",
         "firstWordlist": "Primer diccionario",
         "secondWordlist": "Segundo diccionario",
-        "allowHighPriorityOverride": "Permitir anulacion de alta prioridad (puede interrumpir trabajos en ejecucion)"
+        "allowHighPriorityOverride": "Permitir anulacion de alta prioridad (puede interrumpir trabajos en ejecucion)",
+        "cloudBurstEnabled": "Allow cloud burst",
+        "cloudMaxInstances": "Max cloud instances"
       },
       "incrementModes": {
         "off": "Desactivado (usar mascara completa)",
@@ -556,7 +559,9 @@
         "rulesNotUsed": "Las reglas no se usan para este modo de ataque",
         "selectRule": "Opcionalmente selecciona un archivo de regla para aplicar transformaciones",
         "firstWordlist": "Las palabras de esta lista se usaran como la primera parte",
-        "secondWordlist": "Las palabras de esta lista se agregaran a la primera"
+        "secondWordlist": "Las palabras de esta lista se agregaran a la primera",
+        "cloudBurstEnabled": "Rent GPU instances for jobs created from this preset when the on-prem fleet cannot keep up. Requires the client to be funded and opted in to a provider.",
+        "cloudMaxInstances": "Separate from Max Agents, which governs the shared on-prem pool. Leave blank to let the remaining budget decide."
       },
       "errors": {
         "nameRequired": "El nombre del trabajo es requerido",
@@ -641,6 +646,10 @@
       "messages": {
         "createSuccess": "Flujo de trabajo creado exitosamente",
         "updateSuccess": "Flujo de trabajo actualizado exitosamente"
+      },
+      "cloudBurst": {
+        "toggle": "Allow cloud burst for every step",
+        "helperText": "Applies to all steps, overriding each preset's own setting. Set at the workflow level so one rented instance can carry the whole workflow instead of being torn down and re-rented between steps."
       }
     }
   },
@@ -1444,6 +1453,245 @@
       "deleteFailed": "Error al eliminar tipo de hash",
       "deleteInUse": "No se puede eliminar: Este tipo de hash esta en uso por listas de hashes existentes",
       "loadFailed": "Error al cargar tipos de hash. Por favor intenta actualizar la pagina."
+    }
+  },
+  "cloud": {
+    "intro": {
+      "title": "Cloud GPU provisioning",
+      "body": "Rent GPU instances on demand when the on-prem fleet cannot keep up. Instances join your existing VPN, receive only the files their job needs, and are torn down automatically. Spend is committed against a per-client budget before an instance boots, so a cap is a real limit rather than an after-the-fact measurement.",
+      "fleetLink": "View the live fleet"
+    },
+    "sections": {
+      "providers": "Providers",
+      "clients": "Client budgets",
+      "policy": "Threshold policy"
+    },
+    "providers": {
+      "title": "Cloud providers",
+      "description": "Where rented instances come from, and how they reach this server.",
+      "add": "Add provider",
+      "addTitle": "Add cloud provider",
+      "editTitle": "Edit cloud provider",
+      "edit": "Edit",
+      "delete": "Delete",
+      "save": "Save",
+      "saved": "Provider saved",
+      "saveFailed": "Failed to save provider",
+      "deleted": "Provider deleted",
+      "deleteFailed": "Failed to delete provider",
+      "deleteTitle": "Delete provider?",
+      "deleteBody": "Delete \"{{name}}\"? This fails while any rented instance still references it.",
+      "loadFailed": "Failed to load providers",
+      "empty": "No cloud providers configured. Nothing will be rented.",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "noCredentials": "No credentials",
+      "noVpn": "No VPN",
+      "credentialExpired": "Credential expired",
+      "credentialExpiresIn": "Expires in {{days}}d",
+      "limitsValue": "{{instances}} max, {{rate}}/hr cap",
+      "thirdPartyBadge": "Runs on third-party machines",
+      "preflight": "Preflight",
+      "preflightTitle": "Preflight report",
+      "preflightOk": "This provider can launch instances.",
+      "preflightFailed": "Preflight request failed",
+      "preflightFailedBody": "This provider cannot launch instances yet.",
+      "preflightIdentity": "Authenticated as {{identity}}",
+      "preflightQuota": "Quota: {{used}} of {{limit}} in use ({{source}})",
+      "preflightSections": {
+        "missing_permissions": "Missing permissions",
+        "inconclusive": "Could not be verified (treated as failure)",
+        "errors": "Errors",
+        "warnings": "Warnings"
+      },
+      "acknowledge": "Acknowledge",
+      "acknowledged": "Acknowledgement recorded",
+      "ackFailed": "Failed to record acknowledgement",
+      "ackTitle": "Acknowledge third-party data exposure",
+      "ackBody": "Vast.ai rents GPUs on individually-owned machines whose operators have root access to the container. Hashes, wordlists and cracked plaintexts placed there are visible to a third party. This is categorically different from AWS, where instances run inside your own account.",
+      "ackConfirm": "Do you accept this exposure for workloads sent to this provider?",
+      "ackAccept": "I understand and accept",
+      "vastWarningTitle": "Third-party hardware",
+      "vastWarningBody": "Vast.ai instances run on machines you do not control. Enable it only for clients whose data may be exposed to a third party, and acknowledge it per client as well.",
+      "ephemeralKeyTitle": "Encryption key is ephemeral",
+      "ephemeralKeyBody": "KH_ENCRYPTION_KEY is not set, so a random key was generated at startup. Every stored credential becomes unreadable after the next restart. Set KH_ENCRYPTION_KEY before saving provider credentials.",
+      "vpnSection": "VPN connectivity",
+      "vpnSectionHelp": "This server is never exposed to the internet, so rented instances join the VPN you already run. OpenVPN is not supported: it needs /dev/net/tun and CAP_NET_ADMIN, which Vast.ai's unprivileged containers do not provide.",
+      "reusableKeyWarning": "A reusable key is shared by every instance and expires (Tailscale caps auth keys at 90 days). Once it lapses, provisioning is refused rather than launching instances that cannot connect. An OAuth client or PAT lets KrakenHashes mint a single-use ephemeral key per instance instead.",
+      "staticConfigWarning": "WireGuard uses a static peer config: there is no per-instance credential and no automatic deregistration when an instance dies. Tailscale or NetBird is safer.",
+      "kinds": {
+        "aws": "AWS EC2 (your own account)",
+        "vastai": "Vast.ai (third-party machines)",
+        "mock": "Mock (local test agents, no cost)"
+      },
+      "credentialKinds": {
+        "oauth": "OAuth client — mint one ephemeral key per instance (recommended)",
+        "pat": "Access token — mint one ephemeral key per instance (recommended)",
+        "reusable_key": "Reusable key — shared by every instance, expires",
+        "static_config": "Static config — no per-instance credential"
+      },
+      "vpnCredentialHelp": {
+        "oauth": "Tailscale OAuth client as client_id:client_secret. Needs the auth_keys scope and the tag selected.",
+        "pat": "NetBird personal access token or service-user token.",
+        "reusable_key": "The pre-authorized key every instance will use.",
+        "static_config": "The full WireGuard peer configuration."
+      },
+      "columns": {
+        "name": "Name",
+        "provider": "Provider",
+        "status": "Status",
+        "vpn": "VPN",
+        "limits": "Limits",
+        "actions": "Actions"
+      },
+      "fields": {
+        "name": "Name",
+        "provider": "Provider",
+        "credentials": "Provider credentials",
+        "credentialsHelp": "API credentials for {{provider}}. Stored encrypted and never returned.",
+        "credentialsKeepHelp": "Leave blank to keep the stored credential unchanged.",
+        "maxConcurrent": "Maximum concurrent instances",
+        "maxHourlyCents": "Maximum hourly rate (cents)",
+        "maxHourlyHelp": "Offers above this rate are never rented, whatever the budget allows.",
+        "vpnProvider": "VPN provider",
+        "credentialKind": "Credential type",
+        "vpnCredential": "VPN credential",
+        "credentialExpiry": "Credential expires at",
+        "credentialExpiryHelp": "Provisioning is refused after this time. You will be warned as it approaches.",
+        "vpnTag": "Tag or group",
+        "vpnTagHelp": "e.g. tag:kraken-worker. Required for Tailscale OAuth; scopes what these nodes may reach.",
+        "backendVpnHost": "This server's address on the VPN",
+        "backendVpnHostHelp": "The KH_HOST value cloud agents use. It must already appear in KH_ADDITIONAL_DNS_NAMES or KH_ADDITIONAL_IP_ADDRESSES, or agents will fail TLS hostname verification.",
+        "enabled": "Enabled"
+      }
+    },
+    "budgets": {
+      "title": "Client budgets",
+      "description": "What each client may spend, and which providers their data may go to. Both are empty by default: no client bursts to paid capacity until it is funded and opted in.",
+      "loadFailed": "Failed to load client budgets",
+      "empty": "No client has cloud burst enabled or a funded budget.",
+      "edit": "Edit",
+      "editTitle": "Cloud settings — {{name}}",
+      "saved": "Client cloud settings saved",
+      "saveFailed": "Failed to save client cloud settings",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "unfunded": "No budget",
+      "noProviders": "No providers allowed",
+      "ttlValue": "{{minutes}} min",
+      "spendSummary": "{{used}} of {{cap}} committed ({{pct}}%)",
+      "acknowledged": "Acknowledgement recorded",
+      "acknowledgedChip": "Acknowledged",
+      "ackFailed": "Failed to record acknowledgement",
+      "ackTitle": "Acknowledge third-party exposure for this client",
+      "ackWarningTitle": "This client's data would leave your control",
+      "ackWarningBody": "Allowing Vast.ai for {{name}} means this client's hashes, wordlists and cracked plaintexts may be placed on machines owned by third parties who have root access to the container.",
+      "ackConfirm": "Do you accept this exposure for this client?",
+      "ackAccept": "I understand and accept",
+      "vastTooltip": "Runs on third-party machines whose owners have root access",
+      "actions": {
+        "none": "Within budget",
+        "notify": "Threshold reached",
+        "stop_provisioning": "Provisioning stopped",
+        "drain": "Draining",
+        "hard_stop": "Hard stop"
+      },
+      "columns": {
+        "client": "Client",
+        "status": "Status",
+        "providers": "Allowed providers",
+        "spend": "Spend",
+        "ttl": "Max TTL",
+        "actions": "Actions"
+      },
+      "fields": {
+        "budget": "Budget",
+        "budgetHelp": "Spend ceiling for the current month. Leave blank to leave this client unfunded, which forbids provisioning entirely.",
+        "ttl": "Maximum instance lifetime (minutes)",
+        "ttlHelp": "An instance is destroyed at this age regardless of progress. Leave blank to use the system default.",
+        "providers": "Allowed providers",
+        "providersHelp": "Empty means nothing may be rented for this client. Allowing AWS while forbidding Vast.ai is a normal configuration.",
+        "enabled": "Cloud burst enabled for this client"
+      },
+      "errors": {
+        "invalidBudget": "Budget must be a number, e.g. 25.00",
+        "negativeBudget": "Budget must not be negative",
+        "invalidTtl": "Maximum lifetime must be a positive number of minutes",
+        "enabledWithoutBudget": "Set a budget before enabling cloud burst — an unfunded client can never provision anything.",
+        "enabledWithoutProvider": "Allow at least one provider before enabling cloud burst."
+      }
+    },
+    "policy": {
+      "title": "Spend threshold policy",
+      "description": "What happens as a client approaches its cap. These thresholds decide how gracefully the cap is reached; what actually prevents an overrun is that an instance's whole lifetime cost is committed before it boots.",
+      "loadFailed": "Failed to load the threshold policy",
+      "saved": "Threshold policy saved",
+      "saveFailed": "Failed to save the threshold policy",
+      "overageWarning": "Overage is allowed: reservations may exceed the remaining budget. The cap becomes advisory rather than absolute.",
+      "hardStopAboveCapNote": "Hard stop is set to {{pct}}% but overage is off, so reservations still cannot exceed 100% of the budget. Enable overage if you intend to allow spending past the cap.",
+      "fields": {
+        "notifyEnabled": "Notify me as spend approaches the cap",
+        "notifyPct": "Notify at (% of budget)",
+        "notifyPctHelp": "Sends a notification once. Turn the checkbox off to never notify.",
+        "stopProvisionPct": "Stop provisioning at (%)",
+        "stopProvisionPctHelp": "No new instances are launched past this point. Running instances continue.",
+        "drainPct": "Start draining at (%)",
+        "drainPctHelp": "No new work is dispatched; in-flight chunks are allowed to finish.",
+        "hardStopPct": "Hard stop at (%)",
+        "hardStopPctHelp": "Instances are destroyed immediately, finishing or not.",
+        "drainTimeout": "Drain timeout (seconds)",
+        "drainTimeoutHelp": "How long an instance may keep finishing its chunk before it is destroyed anyway.",
+        "allowOverage": "Allow spending past the cap",
+        "allowOverageHelp": "Leave off to make the cap absolute. With it off, a $10 budget stops at $10."
+      },
+      "errors": {
+        "notifyRange": "The notify threshold must be between 1% and the stop-provisioning threshold.",
+        "stopBeforeDrain": "The stop-provisioning threshold must not exceed the drain threshold.",
+        "drainBeforeHardStop": "The drain threshold must not exceed the hard-stop threshold.",
+        "negativeTimeout": "The drain timeout must not be negative."
+      }
+    },
+    "fleet": {
+      "title": "Cloud Fleet",
+      "description": "Every rented instance that may still be costing money.",
+      "loadFailed": "Failed to load the fleet",
+      "empty": "No instances are running. Nothing is being billed.",
+      "summary": "{{count}} live instance(s), {{hourly}}/hr, {{reserved}} committed.",
+      "destroy": "Destroy",
+      "destroyed": "Instance destroyed",
+      "destroyFailed": "The provider refused to destroy this instance — it is still billing",
+      "destroyTitle": "Destroy instance?",
+      "destroyBody": "Destroy \"{{label}}\" now? Billing stops as soon as the provider confirms.",
+      "destroyJobWarning": "This instance is working a job. Its in-flight chunk is lost and will be re-dispatched elsewhere.",
+      "teardownFailingTitle": "Teardown is failing",
+      "teardownFailingBody": "{{count}} instance(s) could not be destroyed and are still accruing cost. Check the provider console.",
+      "teardownFailingTooltip": "Teardown failed; this instance is still billing",
+      "estimated": "est.",
+      "estimatedTooltip": "Estimated from elapsed time and rate; the provider's own figure lands later.",
+      "perHour": "{{rate}}/hr",
+      "ttlExpired": "Expired",
+      "states": {
+        "requested": "Requested",
+        "launching": "Launching",
+        "provisioning": "Provisioning",
+        "syncing": "Syncing files",
+        "running": "Running",
+        "draining": "Draining",
+        "terminating": "Terminating",
+        "terminated": "Terminated",
+        "failed": "Failed"
+      },
+      "columns": {
+        "label": "Instance",
+        "state": "State",
+        "client": "Client",
+        "gpu": "GPU",
+        "rate": "Rate",
+        "spend": "Spend",
+        "ttl": "TTL left",
+        "disk": "Disk",
+        "actions": "Actions"
+      }
     }
   }
 }

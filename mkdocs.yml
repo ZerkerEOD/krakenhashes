@@ -134,6 +134,7 @@ nav:
       - Email Configuration: admin-guide/system-setup/email.md
       - Authentication: admin-guide/system-setup/authentication.md
       - SSO Authentication: admin-guide/system-setup/sso.md
+      - Cloud GPU Providers: admin-guide/system-setup/cloud-providers.md
     - Resource Management:
       - Managing Binaries: admin-guide/resource-management/binaries.md
       - Wordlist Management: admin-guide/resource-management/wordlists.md
@@ -164,6 +165,7 @@ nav:
     - Installation: agent-guide/installation.md
     - Auto-Update: agent-guide/auto-update.md
     - Docker Deployment: agent-guide/docker-deployment.md
+    - Cloud Deployment: agent-guide/cloud-deployment.md
     - Configuration: agent-guide/configuration.md
     - Systemd Setup: agent-guide/systemd-setup.md
     - Device Management: agent-guide/device-management.md
@@ -190,6 +192,7 @@ nav:
     - PostgreSQL Tuning: reference/postgresql-tuning.md
     - Architecture:
       - Scheduler v2 Overview: reference/architecture/scheduler-v2-overview.md
+      - Cloud GPU Provisioning: reference/architecture/cloud-provisioning.md
       - Association Attack: reference/architecture/association-attack.md
       - Benchmark Workflow: reference/architecture/benchmark-workflow.md
       - Binary Version Patterns: reference/architecture/binary-version-patterns.md

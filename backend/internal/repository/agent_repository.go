@@ -43,7 +43,7 @@ func (r *AgentRepository) Create(ctx context.Context, agent *models.Agent) error
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
-	err = r.db.QueryRowContext(ctx, queries.CreateAgent,
+	args := []interface{}{
 		agent.Name,
 		agent.Status,
 		agent.LastHeartbeat,
@@ -59,12 +59,63 @@ func (r *AgentRepository) Create(ctx context.Context, agent *models.Agent) error
 		agent.LastError,
 		metadataJSON,
 		agent.OwnerID,
-	).Scan(&agent.ID)
-
-	if err != nil {
-		return fmt.Errorf("failed to create agent: %w", err)
+		agent.CloudInstanceID,
 	}
 
+	// On-prem registration keeps its single unwrapped INSERT.
+	if agent.CloudInstanceID == nil {
+		if err := r.db.QueryRowContext(ctx, queries.CreateAgent, args...).Scan(&agent.ID); err != nil {
+			return fmt.Errorf("failed to create agent: %w", err)
+		}
+		return nil
+	}
+
+	/*
+	 * A cloud agent needs BOTH directions of the link, and they must land
+	 * together.
+	 *
+	 * agents.cloud_instance_id is what suppresses the full-corpus file sync
+	 * and marks the agent ephemeral to the scheduler. cloud_instances.agent_id
+	 * is a different column read by different code: LoadAgentJobLocks builds
+	 * the entire dispatch-isolation map from it, and the reaper treats a NULL
+	 * as "this instance never registered" and destroys it at its ready
+	 * deadline.
+	 *
+	 * Written in one transaction because either half alone is a live defect.
+	 * With only the forward pointer, the lock map comes back empty, the
+	 * isolation wrapper degrades to a pass-through, and the rented agent can be
+	 * handed another client's job. With only the reverse pointer, the agent
+	 * receives a sync of every wordlist on the server — onto a machine the
+	 * operator does not control.
+	 */
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin cloud agent registration: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if err := tx.QueryRowContext(ctx, queries.CreateAgent, args...).Scan(&agent.ID); err != nil {
+		return fmt.Errorf("failed to create cloud agent: %w", err)
+	}
+
+	res, err := tx.ExecContext(ctx, `
+		UPDATE cloud_instances
+		SET agent_id = $2, ready_at = COALESCE(ready_at, NOW()), updated_at = NOW()
+		WHERE id = $1`, *agent.CloudInstanceID, agent.ID)
+	if err != nil {
+		return fmt.Errorf("failed to attach agent to cloud instance %s: %w", *agent.CloudInstanceID, err)
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		// The voucher's foreign key makes this near-impossible, but registering
+		// an agent as ephemeral while no instance claims it would produce an
+		// agent that is invisible to teardown and bills until its own watchdog
+		// fires. Refuse rather than half-register.
+		return fmt.Errorf("cloud instance %s does not exist; refusing to register an unattached cloud agent", *agent.CloudInstanceID)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit cloud agent registration: %w", err)
+	}
 	return nil
 }
 
@@ -276,10 +327,24 @@ func (r *AgentRepository) Delete(ctx context.Context, id int) error {
 		return fmt.Errorf("failed to update job tasks: %w", err)
 	}
 
-	// Update claim vouchers to remove reference to this agent
+	// Detach the deleted agent from any claim voucher that redeemed it.
+	//
+	// The foreign key forces used_by_agent_id to be cleared, but clearing it
+	// on a SINGLE-USE voucher silently re-arms a spent credential:
+	// ClaimVoucher.IsValid() reads a NULL used_by_agent_id as "never
+	// redeemed". Deleting an agent would therefore hand back a working claim
+	// code — and for a cloud agent that code was already exposed to whoever
+	// operates the rented machine. So retire single-use vouchers here.
+	// Continuous vouchers are reusable by design, so only the back-reference
+	// is cleared and they stay active.
+	//
+	// used_at is deliberately preserved in both cases: it is the redemption
+	// audit trail, and for continuous vouchers it is the last-used timestamp.
 	_, err = tx.ExecContext(ctx, `
-		UPDATE claim_vouchers 
-		SET used_by_agent_id = NULL, used_at = NULL 
+		UPDATE claim_vouchers
+		SET used_by_agent_id = NULL,
+		    is_active = CASE WHEN is_continuous THEN is_active ELSE false END,
+		    updated_at = NOW()
 		WHERE used_by_agent_id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to update claim vouchers: %w", err)
@@ -600,6 +665,10 @@ func (r *AgentRepository) GetByAPIKey(ctx context.Context, apiKey string) (*mode
 	var hardwareJSON, osInfoJSON, metadataJSON []byte
 	var createdByUser models.User
 	var ownerID sql.NullString
+	// Scanned here specifically because this is the query that builds the
+	// agent behind a live WebSocket connection, and the cloud marker gates
+	// file-sync suppression and offline-monitor exemption at connect time.
+	var cloudInstanceID uuid.NullUUID
 
 	err := r.db.QueryRowContext(ctx, queries.GetAgentByAPIKey, apiKey).Scan(
 		&agent.ID,
@@ -624,6 +693,8 @@ func (r *AgentRepository) GetByAPIKey(ctx context.Context, apiKey string) (*mode
 		&agent.SchedulingEnabled,
 		&agent.ScheduleTimezone,
 		&agent.BinaryVersion,
+		&cloudInstanceID,
+		&agent.RetiredAt,
 		&createdByUser.ID,
 		&createdByUser.Username,
 		&createdByUser.Email,
@@ -634,6 +705,10 @@ func (r *AgentRepository) GetByAPIKey(ctx context.Context, apiKey string) (*mode
 		return nil, fmt.Errorf("agent not found with API key")
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to get agent: %w", err)
+	}
+
+	if cloudInstanceID.Valid {
+		agent.CloudInstanceID = &cloudInstanceID.UUID
 	}
 
 	// Unmarshal hardware JSON

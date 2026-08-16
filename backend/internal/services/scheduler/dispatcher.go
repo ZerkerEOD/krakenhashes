@@ -32,6 +32,32 @@ type DispatchInputs struct {
 	// 'min_chunk_seconds'). The caller reads them once per cycle.
 	TargetChunkSeconds int
 	MinChunkSeconds    int
+
+	// CloudChunkSeconds is the target chunk duration for RENTED agents
+	// (system setting 'cloud_chunk_duration_seconds', default ~3x the on-prem
+	// value). Per-chunk overhead — hashcat startup, kernel autotune, wordlist
+	// load — is billed at rental rates, so cloud chunks are deliberately
+	// longer. Zero falls back to TargetChunkSeconds.
+	CloudChunkSeconds int
+
+	// CloudTTLRemaining is agent_id -> seconds of life left, for rented
+	// agents only. A chunk is NEVER planned past an instance's death: doing
+	// so claims a keyspace interval the instance cannot finish, and that
+	// interval stays claimed until the sweeper evicts it (network grace plus
+	// a sweep tick), during which nobody works it.
+	CloudTTLRemaining map[int]int
+
+	// CloudTeardownSlackSeconds is reserved at the end of a rented instance's
+	// TTL for drain and destroy.
+	CloudTeardownSlackSeconds int
+
+	// EndgameShares is unit_id -> agent_id -> chunk size in BASE units,
+	// precomputed by the caller when a unit has entered the endgame.
+	//
+	// Computed in the caller, not here, because tapering needs the SET of
+	// agents on a unit while dispatchOne only ever sees one allocation at a
+	// time inside its own transaction.
+	EndgameShares map[uuid.UUID]map[int]int64
 }
 
 // DispatchedTask is the output handed back to the scheduling cycle so it
@@ -171,11 +197,35 @@ func dispatchOne(
 	// can set this per job ("chunk size" field in the UI). NULL or 0 means
 	// fall back to the system setting passed in DispatchInputs.
 	chunkDurationSec := in.TargetChunkSeconds
+
+	// Rented agents get a longer target: hashcat startup and kernel autotune
+	// are paid for at $0.50-$22/hr here, so amortising them over a bigger
+	// chunk is worth real money.
+	ttlRemaining, isCloud := in.CloudTTLRemaining[alloc.AgentID]
+	if isCloud && in.CloudChunkSeconds > 0 {
+		chunkDurationSec = in.CloudChunkSeconds
+	}
+
 	var jobChunkSize sql.NullInt32
 	if qerr := database.QueryRowContext(ctx, `
 		SELECT chunk_size_seconds FROM job_executions WHERE id = $1
 	`, unit.ParentJobID).Scan(&jobChunkSize); qerr == nil && jobChunkSize.Valid && jobChunkSize.Int32 > 0 {
 		chunkDurationSec = int(jobChunkSize.Int32)
+	}
+
+	// TTL clamp. Applied AFTER the per-job override so an operator's chunk
+	// setting can never outlive the instance it would run on.
+	if isCloud {
+		affordable := ttlRemaining - in.CloudTeardownSlackSeconds
+		if affordable < in.MinChunkSeconds {
+			// Not enough life left to do anything useful. Dispatching here
+			// would claim an interval the instance cannot finish.
+			debug.Info("scheduler-v2: skipping dispatch to cloud agent %d — only %ds of TTL left", alloc.AgentID, ttlRemaining)
+			return nil, nil
+		}
+		if affordable < chunkDurationSec {
+			chunkDurationSec = affordable
+		}
 	}
 
 	chunkSize := sizeChunk(
@@ -186,6 +236,19 @@ func dispatchOne(
 		chunkDurationSec,
 		in.MinChunkSeconds,
 	)
+
+	// Endgame tapering overrides the time-boxed size so every agent on this
+	// unit converges on the same finish time. Without it, a fast rented GPU
+	// finishes the tail and then bills while a slow on-prem card grinds a
+	// chunk it started ten minutes earlier.
+	if shares, ok := in.EndgameShares[unit.ID]; ok {
+		if share, ok := shares[alloc.AgentID]; ok && share > 0 {
+			chunkSize = share
+			if avail := gap.End - gap.Start; chunkSize > avail {
+				chunkSize = avail
+			}
+		}
+	}
 	rangeStart := gap.Start
 	rangeEnd := gap.Start + chunkSize
 	// Defense in depth: never dispatch past the wordlist end. The gap

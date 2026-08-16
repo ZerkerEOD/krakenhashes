@@ -149,14 +149,39 @@ The backend builds the connection string dynamically from these variables.
 | `CORS_ALLOWED_ORIGIN` | string | `https://localhost:443` | No | Allowed CORS origin |
 | `ALLOWED_ORIGINS` | string | `*` | No | Comma-separated list of allowed origins |
 
+### Secret Encryption
+
+| Variable | Type | Default | Required | Description |
+|----------|------|---------|----------|-------------|
+| `KH_ENCRYPTION_KEY` | string | - | Yes* | AES-256-GCM key for every secret stored in the database (SSO secrets, cloud provider credentials, VPN enrollment credentials). Generate with `openssl rand -base64 32` |
+| `SSO_ENCRYPTION_KEY` | string | - | No | Legacy, SSO-scoped name for the same key. Still fully honored. Used only when `KH_ENCRYPTION_KEY` is unset |
+
+\* Required in production for encrypted secrets to persist across restarts. Without either
+variable the server generates an ephemeral key at startup and every secret written during
+that process becomes unrecoverable when it exits.
+
+!!! warning "Do not set both to different values"
+    If `KH_ENCRYPTION_KEY` and `SSO_ENCRYPTION_KEY` are both set to different values,
+    `KH_ENCRYPTION_KEY` wins and anything previously encrypted under the legacy key
+    (SSO bind passwords, SAML private keys, OAuth client secrets) will fail to decrypt
+    until re-entered. To migrate, copy the existing `SSO_ENCRYPTION_KEY` value into
+    `KH_ENCRYPTION_KEY` and remove the old variable.
+
 ### SSO Configuration
 
 | Variable | Type | Default | Required | Description |
 |----------|------|---------|----------|-------------|
-| `SSO_ENCRYPTION_KEY` | string | - | Yes* | AES-256-GCM key for encrypting SSO secrets. Generate with `openssl rand -base64 32` |
 | `KH_EXTERNAL_URL` | string | - | No | External URL for SSO redirect callbacks (e.g., `https://krakenhashes.local:8443`). Required when behind a reverse proxy on a nonstandard port. Falls back to request Host header if unset |
 
-\* Required in production for SSO secrets to persist across restarts
+### Single-Instance Guard
+
+Only one backend may run against a given database: the job scheduler's concurrency guard
+is process-local, so two backends dispatch the same keyspace intervals twice.
+
+| Variable | Type | Default | Required | Description |
+|----------|------|---------|----------|-------------|
+| `KH_INSTANCE_LOCK_WAIT` | int | `30` | No | Seconds to wait for an outgoing process to release the lock before giving up. Covers rolling restarts |
+| `KH_ALLOW_MULTIPLE_INSTANCES` | bool | `false` | No | Disable the guard entirely. Doing so double-dispatches job chunks and, with cloud provisioning enabled, can launch duplicate paid GPU instances |
 
 ## TLS/SSL Configuration
 

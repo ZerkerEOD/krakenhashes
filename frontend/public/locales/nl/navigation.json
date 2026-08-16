@@ -21,7 +21,8 @@
     "jobWorkflows": "Taakworkflows",
     "diagnostics": "Diagnostiek",
     "auditLog": "Auditlogboek",
-    "jobAnalytics": "Taakanalyse"
+    "jobAnalytics": "Taakanalyse",
+    "cloudFleet": "Cloud Fleet"
   },
   "userMenu": {
     "userSettings": "Gebruikersinstellingen",

@@ -53,6 +53,14 @@ type JobIntegrationManager struct {
 
 	// agentUpdateSweeper drives the agent auto-update promote/timeout loop.
 	// Set via SetAgentUpdateSweeper and started in StartScheduler so it
+	// schedulerCycle is retained so cloud dispatch isolation can be wired
+	// after construction, from cmd/server/main.go.
+	schedulerCycle  *scheduler.Cycle
+	cloudAgentLocks scheduler.CloudAgentLocks
+	// cloudStarvation is the autoscaler's input, published once per cycle.
+	// Nil for deployments without cloud provisioning.
+	cloudStarvation scheduler.StarvationPublisher
+
 	// shares the scheduler's lifecycle. May be nil (auto-update unwired).
 	agentUpdateSweeper *services.AgentUpdateSweeper
 
@@ -71,6 +79,32 @@ type JobIntegrationManager struct {
 // stops with the scheduler.
 func (m *JobIntegrationManager) SetAgentUpdateSweeper(sweeper *services.AgentUpdateSweeper) {
 	m.agentUpdateSweeper = sweeper
+}
+
+// SetCloudAgentLocks wires cloud dispatch isolation into the scheduler cycle,
+// pinning each rented agent to the job that paid for it.
+//
+// Safe to call before or after the cycle exists; if the cycle has not been
+// built yet the source is remembered and applied when it is. Leaving it unset
+// disables the predicate entirely, which is correct for deployments without
+// cloud provisioning but would be a data-isolation bug with it.
+func (m *JobIntegrationManager) SetCloudAgentLocks(locks scheduler.CloudAgentLocks) {
+	m.cloudAgentLocks = locks
+	if m.schedulerCycle != nil {
+		m.schedulerCycle.SetCloudLocks(locks)
+	}
+}
+
+// SetCloudStarvationPublisher wires the scheduler's per-cycle cloud-burst
+// signal to the autoscaler. Same before-or-after-construction contract as
+// SetCloudAgentLocks. Leaving it unset means the autoscaler's snapshot never
+// refreshes and every pass sees stale data — so it rents nothing, which is the
+// correct behaviour for a deployment without cloud provisioning.
+func (m *JobIntegrationManager) SetCloudStarvationPublisher(p scheduler.StarvationPublisher) {
+	m.cloudStarvation = p
+	if m.schedulerCycle != nil {
+		m.schedulerCycle.SetStarvationPublisher(p)
+	}
 }
 
 // NewJobIntegrationManager creates a new job integration manager
@@ -172,6 +206,13 @@ func NewJobIntegrationManager(
 	// scheduleRepo enable the agent-scheduling check in getIdleAgents
 	// (mirror of legacy filterAvailableAgents).
 	cycle := scheduler.NewCycle(database, unitRepo, intervalRepo, systemSettingsRepo, deviceRepo, agentRepo, scheduleRepo, wsHandler, jobExecutionService, jobExecutionService, mgr.compatCache)
+	mgr.schedulerCycle = cycle
+	if mgr.cloudAgentLocks != nil {
+		cycle.SetCloudLocks(mgr.cloudAgentLocks)
+	}
+	if mgr.cloudStarvation != nil {
+		cycle.SetStarvationPublisher(mgr.cloudStarvation)
+	}
 	// Diagnostics: the cycle records per-agent idle reasons; the service
 	// buffers/dedups them and the agent UI reads them back force-flushed.
 	mgr.diagnosticsService = services.NewDiagnosticsService(repository.NewDiagnosticsRepository(database))

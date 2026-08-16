@@ -13,12 +13,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// makeUnit creates one scheduling_unit with the given effective_keyspace
-// and returns its ID. Used by every test that needs intervals.
-func makeUnit(t *testing.T, repo *SchedulingUnitRepository, parentJobID uuid.UUID, effective int64) uuid.UUID {
+// makeUnit creates one scheduling_unit whose keyspace intervals tile
+// [0, keyspace) and returns its ID. Used by every test that needs intervals.
+//
+// Both base and effective are set to the same value: UndispatchedRanges tiles
+// against base_keyspace, so a unit with only effective_keyspace set reports no
+// gaps at all.
+func makeUnit(t *testing.T, repo *SchedulingUnitRepository, parentJobID uuid.UUID, keyspace int64) uuid.UUID {
 	t.Helper()
 	u := newTestSchedulingUnit(parentJobID)
-	u.EffectiveKeyspace = effective
+	u.EffectiveKeyspace = models.NewBigInt(keyspace)
+	base := keyspace
+	u.BaseKeyspace = &base
 	require.NoError(t, repo.Create(context.Background(), u))
 	return u.ID
 }
@@ -258,7 +264,11 @@ func TestKeyspaceIntervalRepository_Truncate_SplitsCorrectly(t *testing.T) {
 	unitRepo := NewSchedulingUnitRepository(database)
 	intRepo := NewKeyspaceIntervalRepository(database)
 	parentJobID := createSchedulerV2Prereqs(t, database)
-	unitID := makeUnit(t, unitRepo, parentJobID, 1000)
+	// Unit keyspace is exactly the interval's end so the post-split gap is
+	// bounded at 200. With a wider unit the trailing gap would run to the end
+	// of the keyspace and subsume [150,200), which proves nothing about the
+	// split itself.
+	unitID := makeUnit(t, unitRepo, parentJobID, 200)
 	ctx := context.Background()
 
 	iv := &models.KeyspaceInterval{
@@ -297,7 +307,11 @@ func TestKeyspaceIntervalRepository_Truncate_RejectsBadInputs(t *testing.T) {
 	unitRepo := NewSchedulingUnitRepository(database)
 	intRepo := NewKeyspaceIntervalRepository(database)
 	parentJobID := createSchedulerV2Prereqs(t, database)
-	unitID := makeUnit(t, unitRepo, parentJobID, 1000)
+	// Unit keyspace is exactly the interval's end so the post-split gap is
+	// bounded at 200. With a wider unit the trailing gap would run to the end
+	// of the keyspace and subsume [150,200), which proves nothing about the
+	// split itself.
+	unitID := makeUnit(t, unitRepo, parentJobID, 200)
 	ctx := context.Background()
 
 	iv := &models.KeyspaceInterval{

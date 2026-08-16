@@ -20,7 +20,7 @@ func TestSchedulingUnitRepository_Create(t *testing.T) {
 	ctx := context.Background()
 
 	unit := newTestSchedulingUnit(parentJobID)
-	unit.EffectiveKeyspace = 42_000
+	unit.EffectiveKeyspace = models.NewBigInt(42_000)
 
 	err := repo.Create(ctx, unit)
 	require.NoError(t, err)
@@ -34,7 +34,7 @@ func TestSchedulingUnitRepository_Create(t *testing.T) {
 	// priority / max_agents are no longer denormalized onto the unit
 	// (migration 000153) — they live on job_executions and are read live by
 	// the scheduler's buildUnitInfos.
-	assert.Equal(t, int64(42_000), retrieved.EffectiveKeyspace)
+	assert.Equal(t, models.NewBigInt(42_000), retrieved.EffectiveKeyspace)
 	assert.Equal(t, 5, retrieved.RetryBudgetRemaining, "default retry budget should be 5")
 }
 
@@ -56,7 +56,7 @@ func TestSchedulingUnitRepository_GetByParentJobID(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		u := newTestSchedulingUnit(parentJobID)
 		u.LayerIndex = i
-		u.EffectiveKeyspace = int64((i + 1) * 100)
+		u.EffectiveKeyspace = models.NewBigInt(int64((i + 1) * 100))
 		require.NoError(t, repo.Create(ctx, u))
 	}
 
@@ -169,13 +169,13 @@ func TestSchedulingUnitRepository_UpdateEffectiveKeyspace(t *testing.T) {
 
 	u := newTestSchedulingUnit(parentJobID)
 	u.IsAccurateKeyspace = false
-	u.EffectiveKeyspace = 1000
+	u.EffectiveKeyspace = models.NewBigInt(1000)
 	require.NoError(t, repo.Create(ctx, u))
 
-	require.NoError(t, repo.UpdateEffectiveKeyspace(ctx, u.ID, 1234, true))
+	require.NoError(t, repo.UpdateEffectiveKeyspace(ctx, u.ID, models.NewBigInt(1234), true))
 	got, err := repo.GetByID(ctx, u.ID)
 	require.NoError(t, err)
-	assert.Equal(t, int64(1234), got.EffectiveKeyspace)
+	assert.Equal(t, models.NewBigInt(1234), got.EffectiveKeyspace)
 	assert.True(t, got.IsAccurateKeyspace, "is_accurate flag should be upgraded")
 }
 

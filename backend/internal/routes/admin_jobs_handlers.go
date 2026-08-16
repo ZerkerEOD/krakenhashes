@@ -414,6 +414,10 @@ type CreateWorkflowRequest struct {
 	// LoopbackPresetJobIDs are the preset jobs whose step has per-step loopback enabled.
 	// Ignored when LoopbackAllEligible is true.
 	LoopbackPresetJobIDs []uuid.UUID `json:"loopback_preset_job_ids"`
+	// CloudBurstEnabled opts every job created from this workflow into renting
+	// paid GPU capacity. Workflow-level only: a per-step toggle would rent and
+	// tear down an instance between steps, paying boot and file sync each time.
+	CloudBurstEnabled bool `json:"cloud_burst_enabled"`
 }
 
 type UpdateWorkflowRequest struct {
@@ -421,6 +425,7 @@ type UpdateWorkflowRequest struct {
 	PresetJobIDs         []uuid.UUID `json:"preset_job_ids"`
 	LoopbackAllEligible  bool        `json:"loopback_all_eligible"`
 	LoopbackPresetJobIDs []uuid.UUID `json:"loopback_preset_job_ids"`
+	CloudBurstEnabled    bool        `json:"cloud_burst_enabled"`
 }
 
 func (h *AdminJobsHandler) CreateJobWorkflow(w http.ResponseWriter, r *http.Request) {
@@ -430,7 +435,7 @@ func (h *AdminJobsHandler) CreateJobWorkflow(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	createdWorkflow, err := h.workflowService.CreateJobWorkflow(r.Context(), req.Name, req.PresetJobIDs, req.LoopbackAllEligible, req.LoopbackPresetJobIDs)
+	createdWorkflow, err := h.workflowService.CreateJobWorkflow(r.Context(), req.Name, req.PresetJobIDs, req.LoopbackAllEligible, req.LoopbackPresetJobIDs, req.CloudBurstEnabled)
 	if err != nil {
 		debug.Error("Error creating job workflow: %v", err)
 		httputil.RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to create job workflow: %v", err))
@@ -478,6 +483,7 @@ func (h *AdminJobsHandler) ListJobWorkflows(w http.ResponseWriter, r *http.Reque
 			"updated_at":                 workflow.UpdatedAt,
 			"has_high_priority_override": hasHighPriorityOverride,
 			"loopback_all_eligible":      workflow.LoopbackAllEligible,
+			"cloud_burst_enabled":        workflow.CloudBurstEnabled,
 			"step_count":                 workflow.StepCount,
 		}
 
@@ -539,7 +545,7 @@ func (h *AdminJobsHandler) UpdateJobWorkflow(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	updatedWorkflow, err := h.workflowService.UpdateJobWorkflow(r.Context(), id, req.Name, req.PresetJobIDs, req.LoopbackAllEligible, req.LoopbackPresetJobIDs)
+	updatedWorkflow, err := h.workflowService.UpdateJobWorkflow(r.Context(), id, req.Name, req.PresetJobIDs, req.LoopbackAllEligible, req.LoopbackPresetJobIDs, req.CloudBurstEnabled)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			httputil.RespondWithError(w, http.StatusNotFound, "Job workflow not found")

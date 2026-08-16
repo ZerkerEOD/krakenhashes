@@ -218,6 +218,13 @@ func (s *AgentService) RegisterAgent(ctx context.Context, claimCode, hostname st
 		},
 	}
 
+	// Cloud identity is read off the VOUCHER, never off anything the agent
+	// reports about itself. Non-nil pins the agent to one job, exempts it from
+	// max_agents and exempts it from the offline monitor — three privileges an
+	// agent that could name its own instance would be granting itself. Nil for
+	// every ordinary registration, which leaves the on-prem path unchanged.
+	agent.CloudInstanceID = voucher.CloudInstanceID
+
 	// Create agent record
 	if err := s.agentRepo.Create(ctx, agent); err != nil {
 		debug.Error("Failed to create agent: %v", err)
@@ -322,6 +329,13 @@ func (s *AgentService) RegisterAgentWithVersion(ctx context.Context, claimCode, 
 			Valid: true,
 		},
 	}
+
+	// Cloud identity is read off the VOUCHER, never off anything the agent
+	// reports about itself. Non-nil pins the agent to one job, exempts it from
+	// max_agents and exempts it from the offline monitor — three privileges an
+	// agent that could name its own instance would be granting itself. Nil for
+	// every ordinary registration, which leaves the on-prem path unchanged.
+	agent.CloudInstanceID = voucher.CloudInstanceID
 
 	// Create agent record
 	if err := s.agentRepo.Create(ctx, agent); err != nil {

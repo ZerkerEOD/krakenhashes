@@ -182,6 +182,11 @@ func NewFileSync(urlConfig *config.URLConfig, dataDirs *config.DataDirs, apiKey,
 	// This configuration ensures large file downloads don't timeout prematurely
 	transport := &http.Transport{
 		TLSClientConfig: tlsConfig,
+		// Proxy is explicit because a custom Transport defaults to a nil
+		// Proxy. Cloud agents pull files through a userspace VPN's local
+		// SOCKS5 proxy; without this, bulk file transfer would bypass the
+		// tunnel while the WebSocket used it.
+		Proxy: http.ProxyFromEnvironment,
 		// Connection pool settings
 		MaxIdleConns:        10,
 		MaxIdleConnsPerHost: 2,

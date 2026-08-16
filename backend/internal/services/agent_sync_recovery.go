@@ -107,12 +107,18 @@ func (r *AgentSyncRecovery) runOnce(ctx context.Context) error {
 	// Heartbeating-but-stuck agents: sync_status=pending, last_heartbeat is
 	// fresh, AND sync either never started (sync_started_at IS NULL) or has
 	// been "in progress" longer than the stuck threshold.
+	//
+	// Cloud agents are excluded: they deliberately never run a full-corpus
+	// sync, so "stuck at pending" is their normal state. Re-triggering here
+	// would reintroduce exactly the corpus-wide download that suppressing
+	// initiateFileSync exists to prevent — and bill the ingress for it.
 	query := `
 		SELECT id
 		FROM agents
 		WHERE status = 'active'
 		  AND is_enabled = true
 		  AND sync_status = 'pending'
+		  AND cloud_instance_id IS NULL
 		  AND last_heartbeat > NOW() - ($1 * INTERVAL '1 second')
 		  AND (sync_started_at IS NULL OR sync_started_at < NOW() - ($2 * INTERVAL '1 second'))`
 

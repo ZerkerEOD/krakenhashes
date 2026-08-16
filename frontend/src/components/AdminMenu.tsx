@@ -11,6 +11,7 @@ import {
     History as HistoryIcon,
     TextFields as TextFieldsIcon,
     TrendingUp as TrendingUpIcon,
+    Cloud as CloudIcon,
 } from '@mui/icons-material';
 
 const AdminMenu: React.FC = () => {
@@ -139,6 +140,26 @@ const AdminMenu: React.FC = () => {
                     <TrendingUpIcon />
                 </ListItemIcon>
                 <ListItemText primary={t('admin.jobAnalytics') as string} />
+            </ListItemButton>
+
+            <ListItemButton
+                onClick={() => navigate('/admin/cloud/fleet')}
+                selected={location.pathname.startsWith('/admin/cloud')}
+                sx={{
+                    minHeight: 48,
+                    px: 2.5,
+                }}
+            >
+                <ListItemIcon
+                    sx={{
+                        minWidth: 0,
+                        mr: 3,
+                        justifyContent: 'center',
+                    }}
+                >
+                    <CloudIcon />
+                </ListItemIcon>
+                <ListItemText primary={t('admin.cloudFleet') as string} />
             </ListItemButton>
 
             <ListItemButton

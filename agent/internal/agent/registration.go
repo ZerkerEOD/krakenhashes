@@ -326,8 +326,12 @@ func sendRegistrationRequest(urlConfig *config.URLConfig, req *RegistrationReque
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	// Create HTTP client with TLS config
+	//
+	// Proxy is explicit because a custom Transport defaults to a nil Proxy.
+	// Cloud agents register through a userspace VPN's local SOCKS5 proxy.
 	client := &http.Client{
 		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
 			TLSClientConfig: &tls.Config{
 				RootCAs: certPool,
 			},

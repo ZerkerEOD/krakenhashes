@@ -21,7 +21,8 @@
     "jobWorkflows": "任务工作流",
     "diagnostics": "诊断",
     "auditLog": "审计日志",
-    "jobAnalytics": "任务分析"
+    "jobAnalytics": "任务分析",
+    "cloudFleet": "Cloud Fleet"
   },
   "userMenu": {
     "userSettings": "用户设置",

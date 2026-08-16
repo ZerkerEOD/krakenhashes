@@ -15,6 +15,7 @@ env:
   REGISTRY: docker.io
   NVIDIA_IMAGE: zerkereod/krakenhashes-agent-nvidia
   AMD_IMAGE: zerkereod/krakenhashes-agent-amd
+  CLOUD_IMAGE: zerkereod/krakenhashes-agent-cloud
 
 jobs:
   # Check if agent files actually changed (for releases)
@@ -236,10 +237,84 @@ jobs:
           cache-from: type=gha,scope=amd
           cache-to: type=gha,mode=max,scope=amd
 
+  # Cloud agent image.
+  #
+  # One artifact serves BOTH providers: on Vast.ai it is the instance, and on
+  # AWS the user-data script docker-runs it on a stock Deep Learning Base AMI.
+  # That avoids maintaining per-region public AMIs, which for a community
+  # project would mean copying and re-publishing an image to every enabled
+  # region on every release.
+  build-cloud:
+    name: Build Cloud Image
+    needs: build-binary
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download agent binary
+        uses: actions/download-artifact@v4
+        with:
+          name: agent-binary-linux-amd64
+          path: ./agent
+
+      - name: Make binary executable
+        run: chmod +x ./agent/krakenhashes-agent
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Get version info
+        id: version
+        run: |
+          echo "AGENT_VERSION=$(jq -r .agent versions.json)" >> $GITHUB_OUTPUT
+          echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "IS_RELEASE=true" >> $GITHUB_OUTPUT
+          else
+            echo "IS_RELEASE=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and push (dev)
+        if: steps.version.outputs.IS_RELEASE == 'false'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./agent
+          file: ./agent/Dockerfile.cloud
+          push: true
+          tags: ${{ env.CLOUD_IMAGE }}:dev
+          build-args: |
+            AGENT_VERSION=${{ steps.version.outputs.AGENT_VERSION }}-${{ steps.version.outputs.SHORT_SHA }}-dev
+          cache-from: type=gha,scope=cloud
+          cache-to: type=gha,mode=max,scope=cloud
+
+      - name: Build and push (release)
+        if: steps.version.outputs.IS_RELEASE == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./agent
+          file: ./agent/Dockerfile.cloud
+          push: true
+          tags: |
+            ${{ env.CLOUD_IMAGE }}:latest
+            ${{ env.CLOUD_IMAGE }}:${{ steps.version.outputs.AGENT_VERSION }}
+          build-args: |
+            AGENT_VERSION=${{ steps.version.outputs.AGENT_VERSION }}
+          cache-from: type=gha,scope=cloud
+          cache-to: type=gha,mode=max,scope=cloud
+
   # Summary
   summary:
     name: Build Summary
-    needs: [build-nvidia, build-amd]
+    needs: [build-nvidia, build-amd, build-cloud]
     runs-on: ubuntu-latest
     if: always()
     steps:
