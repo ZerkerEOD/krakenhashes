@@ -24,7 +24,8 @@
     "diagnostics": "Diagnostics",
     "auditLog": "Journal d'audit",
     "jobAnalytics": "Statistiques des jobs",
-    "teamManagement": "Gestion des équipes"
+    "teamManagement": "Gestion des équipes",
+    "cloudFleet": "Cloud Fleet"
   },
   "userMenu": {
     "userSettings": "Paramètres utilisateur",

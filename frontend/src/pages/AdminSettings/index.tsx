@@ -20,6 +20,8 @@ import { getDefaultClientRetentionSetting, updateDefaultClientRetentionSetting }
 
 // Lazy load SSO Settings to avoid circular dependency
 const SSOSettingsPage = lazy(() => import('../admin/SSOSettings'));
+// Lazy too: the cloud tab pulls in three sub-panels most admins never open.
+const CloudSettings = lazy(() => import('../../components/admin/cloud/CloudSettings'));
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -153,7 +155,7 @@ export const AdminSettings = () => {
   const [currentTab, setCurrentTab] = useState(() => {
     const savedTab = localStorage.getItem('adminSettingsTab');
     const initialTab = savedTab ? parseInt(savedTab, 10) : 0;
-    return initialTab >= 0 && initialTab < 10 ? initialTab : 0;
+    return initialTab >= 0 && initialTab < 11 ? initialTab : 0;
   });
 
   const { userRole } = useAuth();
@@ -201,6 +203,7 @@ export const AdminSettings = () => {
             <Tab label={t('tabs.monitoring') as string} />
             <Tab label={t('tabs.agentDownloads') as string} />
             <Tab label={t('tabs.notifications') as string} />
+            <Tab label={t('tabs.cloudProvisioning') as string} />
           </Tabs>
         </Box>
 
@@ -239,6 +242,11 @@ export const AdminSettings = () => {
         </TabPanel>
         <TabPanel value={currentTab} index={9}>
           <NotificationSettings />
+        </TabPanel>
+        <TabPanel value={currentTab} index={10}>
+          <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>}>
+            <CloudSettings />
+          </Suspense>
         </TabPanel>
       </Paper>
     </Box>

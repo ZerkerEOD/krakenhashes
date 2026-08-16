@@ -38,6 +38,7 @@ import { getJobDetails, getJobLayers, api } from '../../services/api';
 import { JobDetailsResponse, JobTask, JobIncrementLayerWithStats } from '../../types/jobs';
 import JobProgressBar from '../../components/JobProgressBar';
 import BenchmarkBlocklistPanel from '../../components/jobs/BenchmarkBlocklistPanel';
+import CloudProjectionDialog from '../../components/jobs/CloudProjectionDialog';
 import { useSnackbar } from 'notistack';
 import { getMaxPriorityForUsers } from '../../services/systemSettings';
 
@@ -48,6 +49,7 @@ const JobDetails: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
   
   const [jobData, setJobData] = useState<JobDetailsResponse | null>(null);
+  const [projectionOpen, setProjectionOpen] = useState(false);
   const [layers, setLayers] = useState<JobIncrementLayerWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -983,6 +985,24 @@ const JobDetails: React.FC = () => {
                   )}
                 </TableCell>
               </TableRow>
+              {jobData.cloud_burst_enabled && (
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold' }}>{t('cloud.cloudBurst.badge')}</TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Chip size="small" color="info" label={t('cloud.cloudBurst.badge')} />
+                      {jobData.cloud_max_instances
+                        ? t('cloud.cloudBurst.maxInstances') + ': ' + jobData.cloud_max_instances
+                        : null}
+                      {/* Answers "will this finish before the budget runs out?"
+                          before any money is spent. */}
+                      <Button size="small" onClick={() => setProjectionOpen(true)}>
+                        {t('cloud.projection.title')}
+                      </Button>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              )}
               <TableRow>
                 <TableCell sx={{ fontWeight: 'bold' }}>{t('common.chunkSize')}</TableCell>
                 <TableCell>
@@ -1471,6 +1491,17 @@ const JobDetails: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Read-only here: the operator is inspecting the projection, not
+          launching from this page, so confirming just closes the dialog. */}
+      {jobData?.cloud_burst_enabled && (
+        <CloudProjectionDialog
+          open={projectionOpen}
+          jobId={jobData.id}
+          onClose={() => setProjectionOpen(false)}
+          onConfirm={() => setProjectionOpen(false)}
+        />
+      )}
     </Box>
   );
 };

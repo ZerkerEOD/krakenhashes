@@ -148,6 +148,27 @@ type AgentInfo struct {
 	ID             int
 	BinaryVersion  string
 	BenchmarkSpeed int64 // hashes/sec, from agent_benchmarks cache
+
+	// IsCloud marks an ephemeral rented agent.
+	//
+	// Cloud agents are excluded from MaxAgents accounting. max_agents exists
+	// for FLEET FAIRNESS — stopping one job from monopolising the shared
+	// on-prem pool — but a rented instance is dedicated to a single job and
+	// paid for by that job's client, so it is not a shared resource and must
+	// not consume that budget. Without this exclusion the feature is a no-op
+	// in the common case: a job with the default max_agents=1 that already has
+	// one on-prem agent has zero capacity, so every rented instance is
+	// compatible but never allocated, and you pay for idlers.
+	//
+	// Cloud concurrency is bounded instead by budget and
+	// job_executions.cloud_max_instances.
+	IsCloud bool
+
+	// CloudTTLRemainingSec is how long a rented agent has left to live. Chunk
+	// sizing clamps to it so work is never planned past the instance's death,
+	// which would strand a claimed keyspace interval until the sweeper
+	// evicted it. Zero for on-prem agents.
+	CloudTTLRemainingSec int
 }
 
 // Allocation is one (unit, agent) pair the allocator decided on for this
@@ -162,6 +183,17 @@ type Allocation struct {
 // unit. The production implementation is backed by the compatibility cache
 // (binary-version match etc.); tests pass a synthetic closure.
 type CompatibilityFn func(unitID uuid.UUID, agentID int) bool
+
+// CloudAgentLocks reports which ephemeral agents are pinned to which job.
+//
+// Kept as a narrow interface so the scheduler does not depend on the cloud
+// service's construction order, and so tests can inject a fixed map.
+type CloudAgentLocks interface {
+	// LoadAgentJobLocks returns agent_id -> job_execution_id for every cloud
+	// agent whose instance is still live. Must include BUSY agents, not just
+	// idle ones: preemption asks about the holder of a victim task.
+	LoadAgentJobLocks(ctx context.Context) (map[int]uuid.UUID, error)
+}
 
 // BinaryResolver picks the hashcat binary version ID to use for a given
 // (agent, job_execution) pair. Production implementation is

@@ -31,9 +31,10 @@ func (r *JobExecutionRepository) Create(ctx context.Context, exec *models.JobExe
 			name, wordlist_ids, rule_ids, mask, custom_charsets, custom_charset_files, hex_charset, binary_version, hash_type,
 			chunk_size_seconds, status_updates_enabled, allow_high_priority_override, additional_args,
 			increment_mode, increment_min, increment_max,
-			base_keyspace, effective_keyspace, multiplication_factor, is_accurate_keyspace
+			base_keyspace, effective_keyspace, multiplication_factor, is_accurate_keyspace,
+			cloud_burst_enabled, cloud_max_instances
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)
 		RETURNING id, created_at`
 
 	err := r.db.QueryRowContext(ctx, query,
@@ -65,6 +66,8 @@ func (r *JobExecutionRepository) Create(ctx context.Context, exec *models.JobExe
 		exec.EffectiveKeyspace,
 		exec.MultiplicationFactor,
 		exec.IsAccurateKeyspace,
+		exec.CloudBurstEnabled,
+		exec.CloudMaxInstances,
 	).Scan(&exec.ID, &exec.CreatedAt)
 
 	if err != nil {
@@ -90,7 +93,8 @@ func (r *JobExecutionRepository) GetByID(ctx context.Context, id uuid.UUID) (*mo
 			je.chunk_size_seconds, je.status_updates_enabled, je.allow_high_priority_override,
 			je.additional_args, je.hash_type, je.updated_at,
 			je.is_accurate_keyspace,
-			je.increment_mode, je.increment_min, je.increment_max
+			je.increment_mode, je.increment_min, je.increment_max,
+			je.cloud_burst_enabled, je.cloud_max_instances
 		FROM job_executions je
 		WHERE je.id = $1`
 
@@ -109,6 +113,7 @@ func (r *JobExecutionRepository) GetByID(ctx context.Context, id uuid.UUID) (*mo
 		&exec.AdditionalArgs, &exec.HashType, &exec.UpdatedAt,
 		&exec.IsAccurateKeyspace,
 		&exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
+		&exec.CloudBurstEnabled, &exec.CloudMaxInstances,
 	)
 
 	if err == sql.ErrNoRows {
@@ -264,6 +269,25 @@ func (r *JobExecutionRepository) GetJobsByStatus(ctx context.Context, status mod
 // (via a different repository method designed for retry). This is the
 // trade-off for safety; in practice no current code retries from a terminal
 // state via this method.
+// SetCloudBurst overrides a job's cloud opt-in after creation.
+//
+// Used by the workflow path: a workflow-level opt-in applies to every step,
+// overriding whatever the individual presets say. Applying it after creation
+// rather than threading an override through CreateJobExecution's four call
+// sites is safe because the job is still `pending` and the autoscaler only
+// reads this flag when deciding to spend — a one-cycle delay can postpone a
+// rental, never cause an unwanted one.
+func (r *JobExecutionRepository) SetCloudBurst(ctx context.Context, id uuid.UUID, enabled bool, maxInstances *int) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE job_executions
+		SET cloud_burst_enabled = $2, cloud_max_instances = $3, updated_at = NOW()
+		WHERE id = $1`, id, enabled, maxInstances)
+	if err != nil {
+		return fmt.Errorf("failed to set cloud burst on job execution: %w", err)
+	}
+	return nil
+}
+
 func (r *JobExecutionRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status models.JobExecutionStatus) error {
 	var query string
 	var args []interface{}

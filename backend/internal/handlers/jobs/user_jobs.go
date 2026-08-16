@@ -911,6 +911,16 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 					continue
 				}
 
+				// A workflow-level cloud opt-in applies to every step, overriding
+				// the individual presets. Set only when the workflow asks for it,
+				// so a workflow that does not burst leaves each preset's own
+				// (already-copied) setting alone.
+				if workflow.CloudBurstEnabled {
+					if err := h.jobExecRepo.SetCloudBurst(ctx, jobExecution.ID, true, presetJob.CloudMaxInstances); err != nil {
+						debug.Error("Failed to apply workflow cloud burst to job %s: %v", jobExecution.ID, err)
+					}
+				}
+
 				createdJobs = append(createdJobs, jobExecution.ID.String())
 
 				stepLoopback := workflow.LoopbackAllEligible || step.LoopbackEnabled
@@ -956,6 +966,11 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 				// Loopback, when true, re-runs this attack's mutation against only the
 				// newly-cracked plaintexts until dry (GH #64). Not combined with Filter.
 				Loopback bool `json:"loopback"`
+				// CloudBurstEnabled opts this job into renting paid GPU capacity.
+				// CloudMaxInstances caps that separately from MaxAgents, which
+				// governs only the shared on-prem pool.
+				CloudBurstEnabled bool `json:"cloud_burst_enabled"`
+				CloudMaxInstances *int `json:"cloud_max_instances"`
 			} `json:"custom_job"`
 		}
 		if err := json.Unmarshal(rawReq, &req); err != nil {
@@ -1098,6 +1113,8 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			IncrementMin:              req.CustomJob.IncrementMin,
 			IncrementMax:              req.CustomJob.IncrementMax,
 			AdditionalArgs:            req.CustomJob.AdditionalArgs,
+			CloudBurstEnabled:         req.CustomJob.CloudBurstEnabled,
+			CloudMaxInstances:         req.CustomJob.CloudMaxInstances,
 		}
 
 		// Add association wordlist ID for mode 9
@@ -1518,6 +1535,8 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 		"status":                   string(job.Status),
 		"priority":                 job.Priority,
 		"max_agents":               job.MaxAgents,
+		"cloud_burst_enabled":      job.CloudBurstEnabled,
+		"cloud_max_instances":      job.CloudMaxInstances,
 		"chunk_size_seconds":       job.ChunkSizeSeconds,
 		"attack_mode":              job.AttackMode,
 		"hash_type":                formattedHashType,

@@ -112,7 +112,11 @@ type Handler struct {
 	// paths consult it to (re)direct a version-stale idle agent into the
 	// 'updating' state, and it uses this handler as the command sender. May be
 	// nil (auto-update disabled / legacy routes).
-	updateService  *services.AgentUpdateService
+	updateService *services.AgentUpdateService
+	// cloudFileSets resolves the job-scoped download list for a rented agent.
+	// Nil when cloud provisioning is not configured. Set via
+	// SetCloudFileSetResolver.
+	cloudFileSets  CloudFileSetResolver
 	clients        map[int]*Client
 	mu             sync.RWMutex
 
@@ -721,14 +725,119 @@ func (h *Handler) unregisterClient(c *Client) {
 		debug.Warning("Failed to set disconnect grace for agent %d: %v", c.agent.ID, err)
 	}
 
-	// Create agent offline buffer entry for delayed notification
-	if agentOfflineMonitorGetter != nil {
+	// Create agent offline buffer entry for delayed notification.
+	//
+	// Skipped for cloud agents: a rented instance disconnecting is the normal,
+	// intended end of its life, and the monitor would page the agent's owner
+	// ~10 minutes after every single teardown.
+	if c.agent.CloudInstanceID != nil {
+		debug.Info("Agent %d is a cloud agent; skipping offline notification (teardown is expected)", c.agent.ID)
+	} else if agentOfflineMonitorGetter != nil {
 		if monitor := agentOfflineMonitorGetter(); monitor != nil {
 			debug.Info("Agent %d: Creating offline buffer entry", c.agent.ID)
 			if err := monitor.OnAgentDisconnect(context.Background(), c.agent.ID); err != nil {
 				debug.Error("Agent %d: Failed to create offline buffer: %v", c.agent.ID, err)
 			}
 		}
+	}
+}
+
+/*
+ * CloudFileSetResolver produces the job-scoped download list for a rented agent.
+ *
+ * Declared here, in terms of an agent id, rather than imported from the cloud
+ * package: this handler is already imported by the routes package that the
+ * cloud service reaches through, and the mapping from agent to job lives behind
+ * the cloud instance row anyway.
+ */
+type CloudFileSetResolver interface {
+	// ResolveForAgent returns the files this agent's job needs. A nil slice
+	// with a nil error means the agent is not a cloud agent.
+	ResolveForAgent(ctx context.Context, agentID int) ([]wsservice.FileInfo, error)
+}
+
+// SetCloudFileSetResolver wires job-scoped file sync for rented agents. Leaving
+// it nil means a cloud agent downloads nothing up front and falls back to the
+// per-task ensure* chain — slower, but never wrong.
+func (h *Handler) SetCloudFileSetResolver(r CloudFileSetResolver) { h.cloudFileSets = r }
+
+/*
+ * sendCloudScopedSync gives a rented agent its job's files, replacing the
+ * full-corpus sync it is deliberately excluded from.
+ *
+ * Runs in its own goroutine on a detached context. The caller is on the
+ * connection's read path, and this does several database round trips; a slow
+ * query here would stall the agent's first heartbeat.
+ */
+func (h *Handler) sendCloudScopedSync(agentID int) {
+	if h.cloudFileSets == nil {
+		debug.Warning("Agent %d is a cloud agent but no file-set resolver is wired; "+
+			"it will download files lazily per task", agentID)
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		files, err := h.cloudFileSets.ResolveForAgent(ctx, agentID)
+		if err != nil {
+			debug.Error("Agent %d: could not resolve job-scoped file set: %v", agentID, err)
+			return
+		}
+		if len(files) == 0 {
+			return
+		}
+		if err := h.SendScopedFileSync(agentID, files); err != nil {
+			debug.Error("Agent %d: scoped file sync failed: %v", agentID, err)
+		}
+	}()
+}
+
+/*
+ * SendScopedFileSync pushes an explicit, job-scoped download list to an agent.
+ *
+ * This is the counterpart to suppressing initiateFileSync for cloud agents. It
+ * needs no new protocol: FileSyncCommandPayload already carries a file list and
+ * the agent downloads exactly what it is given without diffing against its own
+ * inventory (see the file_sync_command case in the agent's connection.go).
+ *
+ * Sent as soon as the agent registers rather than waiting for the first task
+ * assignment, so the download overlaps with startup instead of stalling a GPU
+ * that is already billing.
+ *
+ * Size and MD5Hash must be populated on every entry: the agent's disk
+ * pre-check only fires when Size > 0, and it only verifies a download when
+ * MD5Hash is non-empty.
+ */
+func (h *Handler) SendScopedFileSync(agentID int, files []wsservice.FileInfo) error {
+	h.mu.RLock()
+	client, ok := h.clients[agentID]
+	h.mu.RUnlock()
+	if !ok {
+		return fmt.Errorf("agent %d is not connected", agentID)
+	}
+	if len(files) == 0 {
+		debug.Info("Agent %d: scoped file sync has nothing to download", agentID)
+		return nil
+	}
+
+	payload := wsservice.FileSyncCommandPayload{
+		RequestID: fmt.Sprintf("scoped-sync-%d-%d", agentID, time.Now().UnixNano()),
+		Action:    "download",
+		Files:     files,
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal scoped file sync: %w", err)
+	}
+
+	msg := &wsservice.Message{Type: wsservice.TypeSyncCommand, Payload: payloadBytes}
+	select {
+	case client.send <- msg:
+		debug.Info("Agent %d: sent scoped file sync for %d files", agentID, len(files))
+		return nil
+	case <-client.ctx.Done():
+		return fmt.Errorf("agent %d disconnected before scoped file sync could be sent", agentID)
 	}
 }
 
@@ -957,8 +1066,34 @@ func (h *Handler) TriggerFileSync(agentID int) error {
 	return nil
 }
 
-// initiateFileSync starts the file synchronization process with an agent
+/*
+ * initiateFileSync starts the full-corpus file synchronization with an agent.
+ *
+ * NOT for cloud agents. This asks the agent for its whole inventory, which
+ * handleSyncResponse then diffs against getBackendFiles(ctx, ..., "") — the
+ * category is hard-coded empty, so it enumerates EVERY verified wordlist, rule
+ * and binary. A freshly rented instance owns none of them, so the diff is 100%
+ * and the entire corpus downloads while a $2-22/hr GPU idles, billing ingress
+ * the whole way.
+ *
+ * It is also an exfiltration path: client potfiles are served as file_type
+ * "wordlist" (see the potfile.txt suffix case in determineFilesToSync), so a
+ * full sync ships every client's cracked plaintexts to a machine whose
+ * operator has root over the container.
+ *
+ * Cloud agents instead receive an explicit, job-scoped download list. They
+ * lose nothing by skipping this: the per-task ensure* chain in
+ * agent/internal/jobs/jobs.go already fetches exactly what a task needs, with
+ * MD5 verification, which is the same reasoning behind getIdleAgents not
+ * gating on sync_status.
+ */
 func (h *Handler) initiateFileSync(client *Client) {
+	if client.agent != nil && client.agent.CloudInstanceID != nil {
+		debug.Info("Agent %d is a cloud agent; skipping full-corpus file sync", client.agent.ID)
+		h.sendCloudScopedSync(client.agent.ID)
+		return
+	}
+
 	debug.Info("Initiating file sync with agent %d", client.agent.ID)
 
 	// Create a unique request ID

@@ -73,7 +73,9 @@ const getInitialFormState = (defaultChunkDuration: number = 300): PresetJobFormD
   custom_charsets: null as Record<string, string> | null,
   custom_charset_file_ids: null as Record<string, string> | null,
   hex_charset: false,
-  additional_args: ''
+  additional_args: '',
+  cloud_burst_enabled: false,
+  cloud_max_instances: undefined as number | undefined
 });
 
 // Attack mode descriptions and requirements
@@ -210,7 +212,9 @@ const PresetJobFormPage: React.FC = () => {
                 ? Object.fromEntries(Object.entries(presetJob.custom_charset_files).map(([slot, ref]) => [slot, ref.id]))
                 : null,
               hex_charset: presetJob.hex_charset || false,
-              additional_args: presetJob.additional_args || ''
+              additional_args: presetJob.additional_args || '',
+              cloud_burst_enabled: presetJob.cloud_burst_enabled || false,
+              cloud_max_instances: presetJob.cloud_max_instances ?? undefined
             });
 
             // Initialize combination wordlists if in combination mode
@@ -255,6 +259,12 @@ const PresetJobFormPage: React.FC = () => {
     if (name === 'priority' || name === 'chunk_size_seconds' || name === 'max_agents') {
       // Allow empty string during editing, convert to number otherwise
       convertedValue = value === '' ? '' : parseInt(value) || 0;
+    }
+
+    // Blank means "let the remaining budget decide", which is a real setting
+    // rather than zero — so this cannot collapse to 0 the way max_agents does.
+    if (name === 'cloud_max_instances') {
+      convertedValue = value === '' ? undefined : Math.max(1, parseInt(value) || 1);
     }
     
     setFormData(prev => ({
@@ -951,6 +961,41 @@ const PresetJobFormPage: React.FC = () => {
             helperText={t('presetJobs.form.helperText.maxAgents') as string}
           />
         </Grid>
+
+        {/* Cloud burst. Deliberately capped separately from Max Agents: a rented
+            instance is dedicated to one job and paid for by its client, so it
+            must not consume the shared on-prem fairness budget. */}
+        <Grid item xs={12} sm={6}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                name="cloud_burst_enabled"
+                checked={formData.cloud_burst_enabled || false}
+                onChange={handleChange}
+              />
+            }
+            label={t('presetJobs.form.fields.cloudBurstEnabled') as string}
+          />
+          <FormHelperText>
+            {t('presetJobs.form.helperText.cloudBurstEnabled') as string}
+          </FormHelperText>
+        </Grid>
+
+        {formData.cloud_burst_enabled && (
+          <Grid item xs={12} sm={6}>
+            <TextField
+              name="cloud_max_instances"
+              label={t('presetJobs.form.fields.cloudMaxInstances') as string}
+              type="number"
+              value={formData.cloud_max_instances ?? ''}
+              onChange={handleChange}
+              fullWidth
+              margin="normal"
+              inputProps={{ min: 1 }}
+              helperText={t('presetJobs.form.helperText.cloudMaxInstances') as string}
+            />
+          </Grid>
+        )}
 
         {/* Checkboxes */}
         <Grid item xs={12}>

@@ -36,9 +36,9 @@ func createSchedulerV2PrereqsWithPriority(t *testing.T, database *db.DB, priorit
 	var hashlistID int64
 	err := database.QueryRowContext(ctx, `
 		INSERT INTO hashlists (name, user_id, hash_type_id, status)
-		VALUES ('scheduler-v2-test', $1, 0, $2)
+		VALUES ('scheduler-v2-test-'||$3, $1, 0, $2)
 		RETURNING id
-	`, user.ID, models.HashListStatusReady).Scan(&hashlistID)
+	`, user.ID, models.HashListStatusReady, suffix).Scan(&hashlistID)
 	if err != nil {
 		t.Fatalf("failed to create test hashlist: %v", err)
 	}
@@ -46,8 +46,8 @@ func createSchedulerV2PrereqsWithPriority(t *testing.T, database *db.DB, priorit
 	presetJobID := uuid.New()
 	_, err = database.ExecContext(ctx, `
 		INSERT INTO preset_jobs (id, name, attack_mode, priority, chunk_size_seconds)
-		VALUES ($1, 'scheduler-v2-test', 0, $2, 60)
-	`, presetJobID, priority)
+		VALUES ($1, $2, 0, $3, 60)
+	`, presetJobID, "scheduler-v2-test-"+suffix, priority)
 	if err != nil {
 		t.Fatalf("failed to create test preset_job: %v", err)
 	}
@@ -64,16 +64,22 @@ func createSchedulerV2PrereqsWithPriority(t *testing.T, database *db.DB, priorit
 	return jobExecutionID
 }
 
+// defaultTestBaseKeyspace backs the BaseKeyspace pointer on test units.
+var defaultTestBaseKeyspace int64 = 1000
+
 // newTestSchedulingUnit returns a SchedulingUnit struct with safe defaults
 // suitable for repository tests. Callers can override fields before
 // calling Create.
 func newTestSchedulingUnit(parentJobID uuid.UUID) *models.SchedulingUnit {
 	return &models.SchedulingUnit{
-		ParentJobID:        parentJobID,
-		LayerIndex:         0,
-		Status:             models.SchedulingUnitStatusPending,
-		AttackMode:         0,
-		EffectiveKeyspace:  1000,
+		ParentJobID:       parentJobID,
+		LayerIndex:        0,
+		Status:            models.SchedulingUnitStatusPending,
+		AttackMode:        0,
+		EffectiveKeyspace: models.NewBigInt(1000),
+		// BaseKeyspace is what keyspace intervals tile against; leaving it nil
+		// makes UndispatchedRanges return no gaps at all.
+		BaseKeyspace:       &defaultTestBaseKeyspace,
 		IsAccurateKeyspace: true,
 	}
 }

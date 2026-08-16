@@ -39,15 +39,49 @@ type agentConfig struct {
 	configDir          string // Configuration directory for certificates and credentials
 	dataDir            string // Data directory for binaries, wordlists, rules, and hashlists
 	testMode           bool   // Enable test mode (simulate GPU work without real hardware)
+	ephemeral          bool   // Disposable instance: read config from the environment, never touch .env
+}
+
+/*
+ * isEphemeral reports whether the agent is running as a disposable instance
+ * (a rented cloud GPU, a throwaway container). In that mode:
+ *
+ *   - configuration is read from the process environment as well as flags
+ *   - the agent never reads or writes a .env file
+ *
+ * Both halves matter for a rented box: there is no persistent filesystem to
+ * carry a .env, and writing KH_CLAIM_CODE to disk would hand a live
+ * registration credential to whoever owns the machine.
+ *
+ * This is deliberately opt-in rather than "fall back to the environment when
+ * no .env exists". An agent co-located with the backend would otherwise
+ * inherit the backend's KH_CONFIG_DIR/KH_DATA_DIR and write into the
+ * backend's data directory — which is exactly why loadConfig reads .env only.
+ */
+func isEphemeral(flagValue bool) bool {
+	if flagValue {
+		return true
+	}
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("KH_EPHEMERAL"))) {
+	case "true", "1", "yes":
+		return true
+	}
+	return false
 }
 
 /*
  * loadConfig processes configuration from multiple sources in the following order:
  * 1. Command line flags (already parsed in main)
- * 2. .env file values (NOT environment variables to avoid conflicts with backend)
+ * 2. .env file values, or — in ephemeral mode only — process environment variables
+ *
+ * Normal mode reads .env and NOT the environment, so an agent running on the
+ * same host as the backend can't inherit the backend's KH_* variables (most
+ * damagingly KH_CONFIG_DIR/KH_DATA_DIR). Ephemeral mode inverts that: a rented
+ * cloud instance has no .env to read and must not write one. See isEphemeral.
  *
  * If a required configuration value is not found, the function will exit with an error.
- * The function will create or update the .env file with any missing values.
+ * Outside ephemeral mode the function will create or update the .env file with
+ * any missing values.
  *
  * Parameters:
  *   - cfg: Pre-populated configuration from command-line flags
@@ -59,26 +93,46 @@ type agentConfig struct {
  *   - Backend Host
  */
 func loadConfig(cfg agentConfig) agentConfig {
-	// Load existing .env file values into a map
+	// Load existing .env file values into a map. Skipped entirely in
+	// ephemeral mode — a rented instance's filesystem is throwaway and any
+	// .env lying around in the image is not ours.
 	envMap := make(map[string]string)
 	envFileExists := false
-	
-	if _, err := os.Stat(".env"); err == nil {
-		envFileExists = true
-		// Read .env file
-		envFile, err := godotenv.Read(".env")
-		if err == nil {
-			envMap = envFile
+
+	if !cfg.ephemeral {
+		if _, err := os.Stat(".env"); err == nil {
+			envFileExists = true
+			// Read .env file
+			envFile, err := godotenv.Read(".env")
+			if err == nil {
+				envMap = envFile
+			}
 		}
 	}
 
-	// Apply values from .env file if command-line flags weren't provided
-	// Priority: command-line flags > .env file > defaults
-	
+	// lookup resolves a single configuration key from whichever source this
+	// mode trusts. Callers only consult it when the corresponding flag was
+	// empty, so the precedence stays: flags > .env|environment > defaults.
+	lookup := func(key string) string {
+		if cfg.ephemeral {
+			return strings.TrimSpace(os.Getenv(key))
+		}
+		if !envFileExists {
+			return ""
+		}
+		return envMap[key]
+	}
+	// configured reports whether a key has any value in the trusted source,
+	// for settings where "" is a meaningful value distinct from "unset".
+	configured := func(key string) bool { return lookup(key) != "" }
+
+	// Apply resolved values if command-line flags weren't provided
+	// Priority: command-line flags > .env file (or environment) > defaults
+
 	// Host configuration
-	if cfg.host == "" && envFileExists {
-		host := envMap["KH_HOST"]
-		port := envMap["KH_PORT"]
+	if cfg.host == "" {
+		host := lookup("KH_HOST")
+		port := lookup("KH_PORT")
 		if host != "" {
 			if port != "" {
 				cfg.host = fmt.Sprintf("%s:%s", host, port)
@@ -87,56 +141,54 @@ func loadConfig(cfg agentConfig) agentConfig {
 			}
 		}
 	}
-	
+
 	// TLS setting
-	if envFileExists && envMap["USE_TLS"] != "" {
+	if configured("USE_TLS") {
 		// Only override if not set by command line (check if it's still the default)
 		if cfg.useTLS == true && !isFlagPassed("tls") {
-			cfg.useTLS = envMap["USE_TLS"] == "true"
+			cfg.useTLS = lookup("USE_TLS") == "true"
 		}
 	}
-	
+
 	// Listen interface
-	if cfg.listenInterface == "" && envFileExists {
-		cfg.listenInterface = envMap["LISTEN_INTERFACE"]
+	if cfg.listenInterface == "" {
+		cfg.listenInterface = lookup("LISTEN_INTERFACE")
 	}
-	
+
 	// Heartbeat interval
-	if cfg.heartbeatInterval == 0 && envFileExists {
-		if i, err := strconv.Atoi(envMap["HEARTBEAT_INTERVAL"]); err == nil && i > 0 {
+	if cfg.heartbeatInterval == 0 {
+		if i, err := strconv.Atoi(lookup("HEARTBEAT_INTERVAL")); err == nil && i > 0 {
 			cfg.heartbeatInterval = i
 		} else {
 			cfg.heartbeatInterval = 5 // default to 5 seconds
 		}
-	} else if cfg.heartbeatInterval == 0 {
-		cfg.heartbeatInterval = 5
 	}
-	
+
 	// Claim code
-	if cfg.claimCode == "" && envFileExists {
-		cfg.claimCode = envMap["KH_CLAIM_CODE"]
+	if cfg.claimCode == "" {
+		cfg.claimCode = lookup("KH_CLAIM_CODE")
 	}
-	
+
 	// Debug setting
-	if !cfg.debug && envFileExists {
-		cfg.debug = envMap["DEBUG"] == "true"
+	if !cfg.debug {
+		cfg.debug = lookup("DEBUG") == "true"
 	}
 
 	// Test mode setting
-	if !cfg.testMode && envFileExists {
-		cfg.testMode = envMap["TEST_MODE"] == "true"
+	if !cfg.testMode {
+		cfg.testMode = lookup("TEST_MODE") == "true"
 	}
-	
+
 	// Hashcat extra params
-	if cfg.hashcatExtraParams == "" && envFileExists {
-		cfg.hashcatExtraParams = envMap["HASHCAT_EXTRA_PARAMS"]
+	if cfg.hashcatExtraParams == "" {
+		cfg.hashcatExtraParams = lookup("HASHCAT_EXTRA_PARAMS")
 		// Clean up any accidental comment that might have been included in the value
 		if strings.Contains(cfg.hashcatExtraParams, "#") {
 			parts := strings.Split(cfg.hashcatExtraParams, "#")
 			cfg.hashcatExtraParams = strings.TrimSpace(parts[0])
 		}
 	}
-	
+
 	// Directory configuration
 	cwd, _ := os.Getwd()
 
@@ -144,16 +196,16 @@ func loadConfig(cfg agentConfig) agentConfig {
 	debug.SetBasePath(cwd)
 
 	// Config directory
-	if cfg.configDir == "" && envFileExists {
-		cfg.configDir = envMap["KH_CONFIG_DIR"]
+	if cfg.configDir == "" {
+		cfg.configDir = lookup("KH_CONFIG_DIR")
 	}
 	if cfg.configDir == "" {
 		cfg.configDir = filepath.Join(cwd, "config")
 	}
-	
+
 	// Data directory
-	if cfg.dataDir == "" && envFileExists {
-		cfg.dataDir = envMap["KH_DATA_DIR"]
+	if cfg.dataDir == "" {
+		cfg.dataDir = lookup("KH_DATA_DIR")
 	}
 	if cfg.dataDir == "" {
 		cfg.dataDir = filepath.Join(cwd, "data")
@@ -168,12 +220,20 @@ func loadConfig(cfg agentConfig) agentConfig {
 
 	// Validate required configuration
 	if cfg.host == "" {
+		if cfg.ephemeral {
+			log.Fatal("Backend host must be provided via --host flag or the KH_HOST/KH_PORT environment variables")
+		}
 		log.Fatal("Backend host must be provided via --host flag or KH_HOST/KH_PORT in .env file")
 	}
 
-	// Update or create .env file with current configuration
-	updateEnvFile(cfg, envMap, envFileExists)
-	
+	// Update or create .env file with current configuration.
+	// Never in ephemeral mode: the filesystem is disposable, and writing
+	// KH_CLAIM_CODE to disk (mode 0644) would leak a live registration
+	// credential to whoever operates the rented machine.
+	if !cfg.ephemeral {
+		updateEnvFile(cfg, envMap, envFileExists)
+	}
+
 	// Set environment variables from resolved configuration
 	// This ensures the config package uses our values instead of system environment
 	os.Setenv("KH_CONFIG_DIR", cfg.configDir)
@@ -386,8 +446,15 @@ func isFlagPassed(name string) bool {
 }
 
 // commentOutClaimCode comments out the CLAIM_CODE line in the .env file
-// after successful registration
-func commentOutClaimCode() error {
+// after successful registration.
+//
+// No-op in ephemeral mode: there is no .env to rewrite, and the claim code
+// was never written to disk in the first place.
+func commentOutClaimCode(ephemeral bool) error {
+	if ephemeral {
+		return nil
+	}
+
 	envFile := ".env"
 
 	// Read the current .env file
@@ -446,7 +513,11 @@ func main() {
 	flag.StringVar(&cfg.hashcatExtraParams, "hashcat-params", "", "Extra parameters to pass to hashcat (e.g., '-O -w 3')")
 	flag.StringVar(&cfg.configDir, "config-dir", "", "Configuration directory for certificates and credentials")
 	flag.StringVar(&cfg.dataDir, "data-dir", "", "Data directory for binaries, wordlists, rules, and hashlists")
+	flag.BoolVar(&cfg.ephemeral, "ephemeral", false, "Disposable instance: read config from environment variables and never read or write .env (also settable via KH_EPHEMERAL)")
 	flag.Parse()
+
+	// Resolve ephemeral mode before anything reads or writes .env.
+	cfg.ephemeral = isEphemeral(cfg.ephemeral)
 
 	// Set debug environment variable if debug flag is set
 	if cfg.debug {
@@ -490,12 +561,21 @@ func main() {
 		debug.Info("Executable directory: %s", filepath.Dir(execPath))
 	}
 
-	// Flag to track if .env file was loaded successfully
-	envLoaded := false
+	// Flag to track if .env file was loaded successfully.
+	//
+	// Ephemeral instances never read one: configuration comes from the process
+	// environment, and any .env baked into the image is not ours. Seeding this
+	// true also short-circuits the fallback-location search below. Note
+	// godotenv.Load would otherwise *inject* file values into the environment,
+	// which is precisely what lookup() must not see in ephemeral mode.
+	envLoaded := cfg.ephemeral
+	if cfg.ephemeral {
+		debug.Info("Ephemeral mode: skipping .env discovery, configuration comes from the environment")
+	}
 
 	// Check if KH_ENV_FILE environment variable is set
 	envFilePath := os.Getenv("KH_ENV_FILE")
-	if envFilePath != "" {
+	if !cfg.ephemeral && envFilePath != "" {
 		debug.Info("KH_ENV_FILE environment variable is set to: %s", envFilePath)
 		absEnvFilePath, _ := filepath.Abs(envFilePath)
 		debug.Info("Attempting to load .env from specified path: %s (absolute: %s)", envFilePath, absEnvFilePath)
@@ -672,7 +752,7 @@ func main() {
 			}
 
 			// Comment out claim code after successful registration
-			if err := commentOutClaimCode(); err != nil {
+			if err := commentOutClaimCode(cfg.ephemeral); err != nil {
 				debug.Warning("Failed to comment out claim code: %v", err)
 			}
 			console.Success("Agent registered successfully (ID: %s)", agentID)
@@ -704,7 +784,7 @@ func main() {
 		}
 
 		// Comment out claim code after successful registration
-		if err := commentOutClaimCode(); err != nil {
+		if err := commentOutClaimCode(cfg.ephemeral); err != nil {
 			debug.Warning("Failed to comment out claim code: %v", err)
 		}
 		console.Success("Agent registered successfully (ID: %s)", agentID)

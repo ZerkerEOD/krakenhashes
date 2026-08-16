@@ -51,12 +51,13 @@ func (r *presetJobRepository) Create(ctx context.Context, params models.PresetJo
 			chunk_size_seconds, status_updates_enabled,
 			allow_high_priority_override, binary_version, mask, custom_charsets, custom_charset_files, hex_charset, keyspace,
 			effective_keyspace, is_accurate_keyspace, multiplication_factor,
-			max_agents, increment_mode, increment_min, increment_max
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+			max_agents, increment_mode, increment_min, increment_max,
+			cloud_burst_enabled, cloud_max_instances
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
 		RETURNING id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
 				  status_updates_enabled, allow_high_priority_override,
 				  binary_version, mask, custom_charsets, custom_charset_files, hex_charset, keyspace, effective_keyspace, is_accurate_keyspace, multiplication_factor,
-				  max_agents, increment_mode, increment_min, increment_max, created_at, updated_at`
+				  max_agents, increment_mode, increment_min, increment_max, cloud_burst_enabled, cloud_max_instances, created_at, updated_at`
 
 	row := r.db.QueryRowContext(ctx, query,
 		params.Name, params.WordlistIDs, params.RuleIDs, params.AttackMode, params.Priority,
@@ -64,6 +65,7 @@ func (r *presetJobRepository) Create(ctx context.Context, params models.PresetJo
 		params.AllowHighPriorityOverride, params.BinaryVersion, params.Mask, params.CustomCharsets, params.CustomCharsetFiles, params.HexCharset, params.Keyspace,
 		params.EffectiveKeyspace, params.IsAccurateKeyspace, params.MultiplicationFactor,
 		params.MaxAgents, params.IncrementMode, params.IncrementMin, params.IncrementMax,
+		params.CloudBurstEnabled, params.CloudMaxInstances,
 	)
 
 	var created models.PresetJob
@@ -73,6 +75,7 @@ func (r *presetJobRepository) Create(ctx context.Context, params models.PresetJo
 		&created.AllowHighPriorityOverride, &created.BinaryVersion, &created.Mask, &created.CustomCharsets, &created.CustomCharsetFiles, &created.HexCharset, &created.Keyspace,
 		&created.EffectiveKeyspace, &created.IsAccurateKeyspace, &created.MultiplicationFactor,
 		&created.MaxAgents, &created.IncrementMode, &created.IncrementMin, &created.IncrementMax,
+		&created.CloudBurstEnabled, &created.CloudMaxInstances,
 		&created.CreatedAt, &created.UpdatedAt,
 	)
 	if err != nil {
@@ -89,7 +92,7 @@ func (r *presetJobRepository) GetByID(ctx context.Context, id uuid.UUID) (*model
 			id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
 			status_updates_enabled, allow_high_priority_override,
 			binary_version, mask, custom_charsets, custom_charset_files, hex_charset, keyspace, effective_keyspace, is_accurate_keyspace, multiplication_factor,
-			max_agents, increment_mode, increment_min, increment_max, created_at, updated_at
+			max_agents, increment_mode, increment_min, increment_max, cloud_burst_enabled, cloud_max_instances, created_at, updated_at
 		FROM preset_jobs WHERE id = $1 LIMIT 1`
 
 	row := r.db.QueryRowContext(ctx, query, id)
@@ -100,6 +103,7 @@ func (r *presetJobRepository) GetByID(ctx context.Context, id uuid.UUID) (*model
 		&job.AllowHighPriorityOverride, &job.BinaryVersion, &job.Mask, &job.CustomCharsets, &job.CustomCharsetFiles, &job.HexCharset, &job.Keyspace,
 		&job.EffectiveKeyspace, &job.IsAccurateKeyspace, &job.MultiplicationFactor,
 		&job.MaxAgents, &job.IncrementMode, &job.IncrementMin, &job.IncrementMax,
+		&job.CloudBurstEnabled, &job.CloudMaxInstances,
 		&job.CreatedAt, &job.UpdatedAt,
 	)
 	if err != nil {
@@ -119,7 +123,7 @@ func (r *presetJobRepository) GetByName(ctx context.Context, name string) (*mode
 			id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
 			status_updates_enabled, allow_high_priority_override,
 			binary_version, mask, custom_charsets, custom_charset_files, hex_charset, keyspace, effective_keyspace, is_accurate_keyspace, multiplication_factor,
-			max_agents, increment_mode, increment_min, increment_max, created_at, updated_at
+			max_agents, increment_mode, increment_min, increment_max, cloud_burst_enabled, cloud_max_instances, created_at, updated_at
 		FROM preset_jobs WHERE name = $1 LIMIT 1`
 
 	row := r.db.QueryRowContext(ctx, query, name)
@@ -130,6 +134,7 @@ func (r *presetJobRepository) GetByName(ctx context.Context, name string) (*mode
 		&job.AllowHighPriorityOverride, &job.BinaryVersion, &job.Mask, &job.CustomCharsets, &job.CustomCharsetFiles, &job.HexCharset, &job.Keyspace,
 		&job.EffectiveKeyspace, &job.IsAccurateKeyspace, &job.MultiplicationFactor,
 		&job.MaxAgents, &job.IncrementMode, &job.IncrementMin, &job.IncrementMax,
+		&job.CloudBurstEnabled, &job.CloudMaxInstances,
 		&job.CreatedAt, &job.UpdatedAt,
 	)
 	if err != nil {
@@ -151,6 +156,7 @@ func (r *presetJobRepository) List(ctx context.Context) ([]models.PresetJob, err
 			pj.allow_high_priority_override, pj.binary_version, pj.mask, pj.custom_charsets, pj.custom_charset_files, pj.hex_charset, pj.keyspace,
 			pj.effective_keyspace, pj.is_accurate_keyspace, pj.multiplication_factor,
 			pj.max_agents, pj.increment_mode, pj.increment_min, pj.increment_max,
+			pj.cloud_burst_enabled, pj.cloud_max_instances,
 			pj.created_at, pj.updated_at,
 			pj.binary_version as binary_version_name
 		FROM preset_jobs pj
@@ -173,6 +179,7 @@ func (r *presetJobRepository) List(ctx context.Context) ([]models.PresetJob, err
 			&job.AllowHighPriorityOverride, &job.BinaryVersion, &job.Mask, &job.CustomCharsets, &job.CustomCharsetFiles, &job.HexCharset, &job.Keyspace,
 			&job.EffectiveKeyspace, &job.IsAccurateKeyspace, &job.MultiplicationFactor,
 			&job.MaxAgents, &job.IncrementMode, &job.IncrementMin, &job.IncrementMax,
+			&job.CloudBurstEnabled, &job.CloudMaxInstances,
 			&job.CreatedAt, &job.UpdatedAt,
 			&binaryVersionName,
 		); err != nil {
@@ -219,12 +226,14 @@ func (r *presetJobRepository) Update(ctx context.Context, id uuid.UUID, params m
 			increment_mode = $20,
 			increment_min = $21,
 			increment_max = $22,
+			cloud_burst_enabled = $23,
+			cloud_max_instances = $24,
 			updated_at = NOW()
 		WHERE id = $1
 		RETURNING id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
 				  status_updates_enabled, allow_high_priority_override,
 				  binary_version, mask, custom_charsets, custom_charset_files, hex_charset, keyspace, effective_keyspace, is_accurate_keyspace, multiplication_factor,
-				  max_agents, increment_mode, increment_min, increment_max, created_at, updated_at`
+				  max_agents, increment_mode, increment_min, increment_max, cloud_burst_enabled, cloud_max_instances, created_at, updated_at`
 
 	row := r.db.QueryRowContext(ctx, query,
 		id, params.Name, params.WordlistIDs, params.RuleIDs, params.AttackMode, params.Priority,
@@ -232,6 +241,7 @@ func (r *presetJobRepository) Update(ctx context.Context, id uuid.UUID, params m
 		params.AllowHighPriorityOverride, params.BinaryVersion, params.Mask, params.CustomCharsets, params.CustomCharsetFiles, params.HexCharset, params.Keyspace,
 		params.EffectiveKeyspace, params.IsAccurateKeyspace, params.MultiplicationFactor,
 		params.MaxAgents, params.IncrementMode, params.IncrementMin, params.IncrementMax,
+		params.CloudBurstEnabled, params.CloudMaxInstances,
 	)
 
 	var updated models.PresetJob
@@ -241,6 +251,7 @@ func (r *presetJobRepository) Update(ctx context.Context, id uuid.UUID, params m
 		&updated.AllowHighPriorityOverride, &updated.BinaryVersion, &updated.Mask, &updated.CustomCharsets, &updated.CustomCharsetFiles, &updated.HexCharset, &updated.Keyspace,
 		&updated.EffectiveKeyspace, &updated.IsAccurateKeyspace, &updated.MultiplicationFactor,
 		&updated.MaxAgents, &updated.IncrementMode, &updated.IncrementMin, &updated.IncrementMax,
+		&updated.CloudBurstEnabled, &updated.CloudMaxInstances,
 		&updated.CreatedAt, &updated.UpdatedAt,
 	)
 	if err != nil {
@@ -355,7 +366,7 @@ func (r *presetJobRepository) GetByWordlistID(ctx context.Context, wordlistID st
 			id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
 			status_updates_enabled, allow_high_priority_override,
 			binary_version, mask, custom_charsets, custom_charset_files, hex_charset, keyspace, effective_keyspace, is_accurate_keyspace, multiplication_factor,
-			max_agents, increment_mode, increment_min, increment_max, created_at, updated_at
+			max_agents, increment_mode, increment_min, increment_max, cloud_burst_enabled, cloud_max_instances, created_at, updated_at
 		FROM preset_jobs
 		WHERE wordlist_ids ? $1`
 
@@ -375,6 +386,7 @@ func (r *presetJobRepository) GetByWordlistID(ctx context.Context, wordlistID st
 			&job.AllowHighPriorityOverride, &job.BinaryVersion, &job.Mask, &job.CustomCharsets, &job.CustomCharsetFiles, &job.HexCharset, &job.Keyspace,
 			&job.EffectiveKeyspace, &job.IsAccurateKeyspace, &job.MultiplicationFactor,
 			&job.MaxAgents, &job.IncrementMode, &job.IncrementMin, &job.IncrementMax,
+			&job.CloudBurstEnabled, &job.CloudMaxInstances,
 			&job.CreatedAt, &job.UpdatedAt,
 		); err != nil {
 			debug.Error("Error scanning preset job row: %v", err)
@@ -398,7 +410,7 @@ func (r *presetJobRepository) GetByRuleID(ctx context.Context, ruleID string) ([
 			id, name, wordlist_ids, rule_ids, attack_mode, priority, chunk_size_seconds,
 			status_updates_enabled, allow_high_priority_override,
 			binary_version, mask, custom_charsets, custom_charset_files, hex_charset, keyspace, effective_keyspace, is_accurate_keyspace, multiplication_factor,
-			max_agents, increment_mode, increment_min, increment_max, created_at, updated_at
+			max_agents, increment_mode, increment_min, increment_max, cloud_burst_enabled, cloud_max_instances, created_at, updated_at
 		FROM preset_jobs
 		WHERE rule_ids ? $1`
 
@@ -418,6 +430,7 @@ func (r *presetJobRepository) GetByRuleID(ctx context.Context, ruleID string) ([
 			&job.AllowHighPriorityOverride, &job.BinaryVersion, &job.Mask, &job.CustomCharsets, &job.CustomCharsetFiles, &job.HexCharset, &job.Keyspace,
 			&job.EffectiveKeyspace, &job.IsAccurateKeyspace, &job.MultiplicationFactor,
 			&job.MaxAgents, &job.IncrementMode, &job.IncrementMin, &job.IncrementMax,
+			&job.CloudBurstEnabled, &job.CloudMaxInstances,
 			&job.CreatedAt, &job.UpdatedAt,
 		); err != nil {
 			debug.Error("Error scanning preset job row: %v", err)

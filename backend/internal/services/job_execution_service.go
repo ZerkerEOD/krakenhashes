@@ -270,6 +270,12 @@ type CustomJobConfig struct {
 	IncrementMax              *int
 	AssociationWordlistID     *uuid.UUID // For association attacks (-a 9)
 	AdditionalArgs            *string    // Additional hashcat arguments
+
+	// CloudBurstEnabled opts this job into renting paid GPU capacity, and
+	// CloudMaxInstances caps that concurrency separately from MaxAgents (which
+	// governs only the shared on-prem pool). Off by default.
+	CloudBurstEnabled bool
+	CloudMaxInstances *int
 }
 
 // CreateJobExecution creates a new job execution from a preset job and hashlist
@@ -381,6 +387,10 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		ProcessedKeyspace: models.NewBigInt(0),
 		AttackMode:        presetJob.AttackMode,
 		MaxAgents:         presetJob.MaxAgents,
+		// Carried from the preset so the opt-in survives into the job the
+		// scheduler actually reads.
+		CloudBurstEnabled: presetJob.CloudBurstEnabled,
+		CloudMaxInstances: presetJob.CloudMaxInstances,
 		CreatedBy:         createdBy,
 
 		// Copy all configuration from preset to make job self-contained
@@ -546,6 +556,8 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 		ProcessedKeyspace:     models.NewBigInt(0),
 		AttackMode:            config.AttackMode,
 		MaxAgents:             config.MaxAgents,
+		CloudBurstEnabled:     config.CloudBurstEnabled,
+		CloudMaxInstances:     config.CloudMaxInstances,
 		CreatedBy:             createdBy,
 
 		// Direct configuration (not from preset)
@@ -746,6 +758,8 @@ func (s *JobExecutionService) CreatePreparingFilterJob(ctx context.Context, conf
 		Priority:                  config.Priority,
 		AttackMode:                config.AttackMode,
 		MaxAgents:                 config.MaxAgents,
+		CloudBurstEnabled:         config.CloudBurstEnabled,
+		CloudMaxInstances:         config.CloudMaxInstances,
 		CreatedBy:                 createdBy,
 		Name:                      name,
 		WordlistIDs:               config.WordlistIDs, // user's selection (display only until finalize)

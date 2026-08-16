@@ -75,7 +75,8 @@ const JobWorkflowFormPage: React.FC = () => {
     preset_job_ids: [],
     orderedJobs: [],
     loopback_all_eligible: false,
-    loopback_preset_job_ids: []
+    loopback_preset_job_ids: [],
+    cloud_burst_enabled: false
   });
 
   // Store detailed workflow steps separately
@@ -159,7 +160,8 @@ const JobWorkflowFormPage: React.FC = () => {
                 loopback_all_eligible: workflow.loopback_all_eligible ?? false,
                 loopback_preset_job_ids: sortedSteps
                   .filter(step => step.loopback_enabled)
-                  .map(step => step.preset_job_id)
+                  .map(step => step.preset_job_id),
+                cloud_burst_enabled: workflow.cloud_burst_enabled ?? false
               });
             } else {
               setFormData({
@@ -167,7 +169,8 @@ const JobWorkflowFormPage: React.FC = () => {
                 preset_job_ids: [],
                 orderedJobs: [],
                 loopback_all_eligible: workflow.loopback_all_eligible ?? false,
-                loopback_preset_job_ids: []
+                loopback_preset_job_ids: [],
+                cloud_burst_enabled: workflow.cloud_burst_enabled ?? false
               });
             }
           } catch (err) {
@@ -311,7 +314,8 @@ const JobWorkflowFormPage: React.FC = () => {
       // ignored otherwise); keep only IDs still present in the workflow.
       loopback_preset_job_ids: formData.loopback_all_eligible
         ? []
-        : formData.loopback_preset_job_ids.filter(id => formData.preset_job_ids.includes(id))
+        : formData.loopback_preset_job_ids.filter(id => formData.preset_job_ids.includes(id)),
+      cloud_burst_enabled: formData.cloud_burst_enabled
     };
     
     try {
@@ -395,6 +399,24 @@ const JobWorkflowFormPage: React.FC = () => {
             />
             <FormHelperText sx={{ mt: 0 }}>
               {t('workflows.form.loopback.masterHelperText') as string}
+            </FormHelperText>
+          </Box>
+
+          {/* Workflow-level only: a per-step cloud toggle would rent and tear
+              down an instance between steps, paying boot and file sync each time. */}
+          <Box mt={2} sx={{ p: 2, borderRadius: 1, bgcolor: 'action.hover' }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={formData.cloud_burst_enabled}
+                  onChange={(e) => setFormData(prev => ({ ...prev, cloud_burst_enabled: e.target.checked }))}
+                  disabled={submitting}
+                />
+              }
+              label={t('workflows.form.cloudBurst.toggle') as string}
+            />
+            <FormHelperText sx={{ mt: 0 }}>
+              {t('workflows.form.cloudBurst.helperText') as string}
             </FormHelperText>
           </Box>
 

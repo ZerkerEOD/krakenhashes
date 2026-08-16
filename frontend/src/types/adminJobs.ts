@@ -64,6 +64,17 @@ export interface PresetJob {
   increment_min?: number | null; // Starting mask length
   increment_max?: number | null; // Maximum mask length
   additional_args?: string | null; // Additional hashcat arguments
+  /**
+   * Opts jobs created from this preset into renting paid GPU capacity. Off by
+   * default — nothing bursts to paid capacity by accident.
+   */
+  cloud_burst_enabled?: boolean;
+  /**
+   * Caps rented instances, separately from max_agents. max_agents governs the
+   * shared on-prem pool (fleet fairness); a rented instance is dedicated to one
+   * job and paid for by its client, so it must not consume that budget.
+   */
+  cloud_max_instances?: number | null;
 }
 
 // Internal form state type for use in the UI - keeps IDs as numbers
@@ -86,6 +97,8 @@ export interface PresetJobFormData {
   increment_min: number | undefined; // Optional, backend applies defaults
   increment_max: number | undefined; // Optional, backend applies defaults
   additional_args: string; // Additional hashcat arguments
+  cloud_burst_enabled: boolean;
+  cloud_max_instances: number | undefined;
 }
 
 // API type for create/update operations - using string UUIDs
@@ -101,6 +114,12 @@ export interface JobWorkflow {
   step_count?: number; // Number of steps, reported by list endpoints (GH #78)
   has_high_priority_override?: boolean; // True if any step has high priority override
   loopback_all_eligible?: boolean; // Master loopback toggle (GH #64)
+  /**
+   * Opts every job created from this workflow into cloud burst, overriding the
+   * individual presets. Workflow-level only: a per-step toggle would rent and
+   * tear down an instance between steps, paying boot and file sync each time.
+   */
+  cloud_burst_enabled?: boolean;
 }
 
 // Corresponds to models.JobWorkflowStep with PresetJobName always populated
@@ -154,6 +173,7 @@ export interface JobWorkflowFormData {
   orderedJobs: PresetJobBasic[]; // For UI to manage order
   loopback_all_eligible: boolean; // Master loopback toggle (GH #64)
   loopback_preset_job_ids: string[]; // Preset IDs with per-step loopback enabled
+  cloud_burst_enabled: boolean; // Workflow-level cloud burst opt-in
 }
 
 // Request type for creating/updating job workflows
@@ -162,6 +182,8 @@ export interface CreateWorkflowRequest {
   preset_job_ids: string[]; // Array of preset job UUIDs
   loopback_all_eligible: boolean; // Master loopback toggle (GH #64)
   loopback_preset_job_ids: string[]; // Subset of preset_job_ids with per-step loopback
+  // Applies to every step, overriding each preset's own setting.
+  cloud_burst_enabled: boolean;
 }
 
 // Alias for update, same structure

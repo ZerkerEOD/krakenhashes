@@ -469,10 +469,29 @@ func fetchBackendConfig(urlConfig *config.URLConfig) (*BackendConfig, error) {
 	debug.Debug("Fetching config from: %s", url)
 
 	// Create HTTP client with TLS configuration
+	//
+	// Proxy is set explicitly because a custom Transport defaults to a nil
+	// Proxy (only http.DefaultTransport carries ProxyFromEnvironment). Cloud
+	// agents reach the backend through a userspace VPN that exposes a local
+	// SOCKS5 proxy, so every outbound call must honor HTTPS_PROXY/NO_PROXY.
+	//
+	// TLS: verify against the downloaded CA whenever we have one. This used to
+	// be an unconditional InsecureSkipVerify, which is a MITM hole on any
+	// untrusted path — and a cloud agent's path is untrusted by definition.
+	// The insecure fallback survives only for the genuine first-run bootstrap,
+	// where the CA has not been fetched yet.
+	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
+	if certPool := caPoolFromDisk(); certPool != nil {
+		tlsConfig.RootCAs = certPool
+	} else {
+		debug.Warning("No CA certificate available yet; falling back to unverified TLS for the config fetch. " +
+			"This is expected only on first-run bootstrap.")
+		tlsConfig.InsecureSkipVerify = true // #nosec G402 -- pre-enrollment bootstrap only; see above
+	}
+
 	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true, // Skip verification for self-signed certs
-		},
+		Proxy:           http.ProxyFromEnvironment,
+		TLSClientConfig: tlsConfig,
 	}
 	client := &http.Client{
 		Transport: tr,
@@ -778,6 +797,27 @@ func RenewCertificates(urlConfig *config.URLConfig) error {
 	return nil
 }
 
+// caPoolFromDisk returns the trusted CA pool if one has already been fetched,
+// or nil if not.
+//
+// Deliberately side-effect free, unlike loadCACertificate: it must never
+// trigger a download, because its caller (fetchBackendConfig) runs on every
+// connect and a download there would both recurse and hide a missing CA.
+// A nil return means "not enrolled yet", not "error".
+func caPoolFromDisk() *x509.CertPool {
+	certPath := filepath.Join(config.GetConfigDir(), "ca.crt")
+	certData, err := os.ReadFile(certPath)
+	if err != nil {
+		return nil
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(certData) {
+		debug.Warning("CA certificate at %s could not be parsed", certPath)
+		return nil
+	}
+	return pool
+}
+
 // loadCACertificate loads the CA certificate from disk
 func loadCACertificate(urlConfig *config.URLConfig) (*x509.CertPool, error) {
 	debug.Info("Loading CA certificate")
@@ -981,7 +1021,15 @@ func (c *Connection) connect() error {
 	header.Set("X-Agent-ID", agentIDStr)
 
 	// Configure WebSocket dialer with TLS
+	//
+	// Proxy must be set explicitly: websocket.DefaultDialer carries
+	// ProxyFromEnvironment, but a Dialer struct literal leaves it nil and no
+	// proxy is consulted at all. gorilla bundles x/net/proxy (x_net_proxy.go),
+	// so this handles both HTTP CONNECT and socks5:// — and SOCKS5 sends the
+	// hostname rather than a resolved IP, which is what lets a VPN resolve the
+	// backend's private name for us.
 	dialer := websocket.Dialer{
+		Proxy:            http.ProxyFromEnvironment,
 		WriteBufferSize:  maxMessageSize,
 		ReadBufferSize:   maxMessageSize,
 		HandshakeTimeout: writeWait,

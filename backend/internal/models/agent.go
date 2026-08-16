@@ -125,6 +125,16 @@ type Agent struct {
 	FilesSynced                   int            `json:"filesSynced"`
 	BinaryVersion                 string         `json:"binaryVersion"`      // Version pattern specifying compatible binaries (e.g., "default", "7.x", "7.1.2")
 	AdminOverrideTeams            bool           `json:"adminOverrideTeams"` // When TRUE, uses explicit agent_teams; when FALSE, inherits from owner teams
+	// CloudInstanceID marks this agent as an ephemeral cloud worker. Set
+	// INSIDE the registration INSERT so no observable agents row ever lacks
+	// it. Non-nil changes several behaviors: the agent is locked to one job,
+	// skips the full-corpus file sync, is exempt from the offline monitor, and
+	// is excluded from the max_agents fairness budget.
+	CloudInstanceID *uuid.UUID `json:"cloudInstanceId,omitempty"`
+	// RetiredAt soft-retires a finished cloud agent. Preferred over deletion,
+	// which NULLs job_tasks.agent_id and destroys cost attribution, and over
+	// is_enabled=false, which the compat cache and offline monitor mishandle.
+	RetiredAt sql.NullTime `json:"retiredAt,omitempty"`
 	// Auto-update lifecycle (see migration 000162). UpdatePending marks a
 	// version-stale but busy agent; Status flips to AgentStatusUpdating once
 	// it goes idle. TargetVersion/UpdateStartedAt bound the in-flight update;
