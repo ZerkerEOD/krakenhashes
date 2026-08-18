@@ -13,7 +13,7 @@ import (
 )
 
 // populateSchedulingUnitsIfEnabled is called from CreateJobExecution /
-// CreateCustomJobExecution after the job_executions row is inserted. It
+// FinalizeJob after the job_executions row is inserted. It
 // creates the scheduling_units rows the scheduler-v2 cycle reads from.
 //
 // Errors are logged and swallowed: a partial failure means the unit
@@ -24,6 +24,22 @@ func (s *JobExecutionService) populateSchedulingUnitsIfEnabled(ctx context.Conte
 	if err := s.populateSchedulingUnits(ctx, jobExec); err != nil {
 		debug.Warning("scheduler-v2: populateSchedulingUnits for job %s failed: %v",
 			jobExec.ID, err)
+		return
+	}
+
+	// Carry base_keyspace_estimated from the job onto its unit(s). Done in SQL
+	// after the fact rather than as a denormalized struct field so it covers the
+	// single-unit and per-layer paths identically and adds nothing to the unit
+	// INSERT. Only matters for the rare job whose --keyspace pre-flight timed
+	// out; the dispatcher's overrun guard reads it to decide whether an
+	// AGENT_NO_WORK tail failure means "keyspace ended early" or a real fault.
+	if _, err := s.db.ExecContext(ctx, `
+		UPDATE scheduling_units su
+		SET base_keyspace_estimated = je.base_keyspace_estimated
+		FROM job_executions je
+		WHERE je.id = su.parent_job_id AND su.parent_job_id = $1
+	`, jobExec.ID); err != nil {
+		debug.Warning("scheduler-v2: propagate base_keyspace_estimated for job %s: %v", jobExec.ID, err)
 	}
 }
 
