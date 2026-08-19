@@ -132,7 +132,20 @@ func LogWithLevel(level LogLevel, format string, v ...interface{}) {
 	minLevel := currentLevel
 	mu.RUnlock()
 
-	if !enabled || level < minLevel {
+	// Warnings and errors are never gated on DEBUG — only on LOG_LEVEL.
+	//
+	// DEBUG=false used to silence every level, so a production server (the
+	// default configuration) emitted no application logs at all: a diagnostic
+	// dump from such a server contained nothing but hashcat status output, and
+	// real failures left no trace anywhere. That made LOG_LEVEL inert whenever
+	// DEBUG was off, which is the opposite of what an operator setting
+	// LOG_LEVEL=INFO expects. DEBUG now governs only the chatty levels
+	// (Debug/Info/Log); anything a human needs to see when something breaks
+	// gets through on its own.
+	if level < minLevel {
+		return
+	}
+	if !enabled && level < LevelWarning {
 		return
 	}
 

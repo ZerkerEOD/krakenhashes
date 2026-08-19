@@ -685,6 +685,24 @@ func (r *JobExecutionRepository) UpdateKeyspaceInfo(ctx context.Context, job *mo
 	return nil
 }
 
+// SetBaseKeyspaceEstimated flags a job whose base_keyspace came from stored word
+// counts because the hashcat --keyspace pre-flight timed out.
+//
+// Deliberately a targeted UPDATE rather than a column on the INSERT: the flag is
+// only ever written and then read back in SQL by the dispatcher's overrun guard,
+// so keeping it out of the wide INSERT/SELECT lists avoids any risk of shifting
+// an existing scan.
+//
+// Not to be confused with is_accurate_keyspace — see the keyspaceResult doc
+// comment in services/job_execution_service.go for why they are different.
+func (r *JobExecutionRepository) SetBaseKeyspaceEstimated(ctx context.Context, id uuid.UUID, estimated bool) error {
+	query := `UPDATE job_executions SET base_keyspace_estimated = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`
+	if _, err := r.db.ExecContext(ctx, query, estimated, id); err != nil {
+		return fmt.Errorf("failed to update job base_keyspace_estimated: %w", err)
+	}
+	return nil
+}
+
 // SetIsAccurateKeyspace updates only the is_accurate_keyspace flag for a job execution
 func (r *JobExecutionRepository) SetIsAccurateKeyspace(ctx context.Context, id uuid.UUID, isAccurate bool) error {
 	query := `UPDATE job_executions SET is_accurate_keyspace = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`

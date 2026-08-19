@@ -29,6 +29,9 @@ const (
 	NotificationTypeWebhookFailure         NotificationType = "webhook_failure"
 	NotificationTypeWordlistRegenFailed    NotificationType = "wordlist_regen_failed"
 	NotificationTypeAnalyticsExport        NotificationType = "analytics_export"
+	// Informational, not a failure: the job runs, but its base keyspace is an
+	// estimate because hashcat --keyspace exceeded keyspace_calculation_timeout_minutes.
+	NotificationTypeKeyspaceEstimateUsed   NotificationType = "keyspace_estimate_used"
 )
 
 // AllNotificationTypes returns all valid notification types
@@ -48,6 +51,7 @@ func AllNotificationTypes() []NotificationType {
 		NotificationTypeSecurityPasswordChanged,
 		NotificationTypeWebhookFailure,
 		NotificationTypeWordlistRegenFailed,
+		NotificationTypeKeyspaceEstimateUsed,
 	}
 }
 
@@ -67,7 +71,8 @@ func (t NotificationType) IsValid() bool {
 		NotificationTypeSecurityMFADisabled,
 		NotificationTypeSecurityPasswordChanged,
 		NotificationTypeWebhookFailure,
-		NotificationTypeWordlistRegenFailed:
+		NotificationTypeWordlistRegenFailed,
+		NotificationTypeKeyspaceEstimateUsed:
 		return true
 	}
 	return false

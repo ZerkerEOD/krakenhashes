@@ -250,12 +250,43 @@ When a high-priority job needs immediate attention:
 ![Jobs Management Interface](../assets/images/screenshots/job_management.png)
 *The Jobs Management interface showing active password cracking jobs with status filtering (ALL, PENDING, RUNNING, COMPLETED, FAILED). The table displays job details including name, hashlist, progress, keyspace, cracked count, agents assigned, priority level, and available actions.*
 
+- **Preparing**: Job has been created but is not schedulable yet — KrakenHashes is working
+  out how much there is to crack (and generating a filtered wordlist, if you asked for one).
+  It moves to **Pending** on its own. See [What "Preparing" means](#what-preparing-means).
 - **Pending**: Job is waiting for available agents
 - **Running**: Job is actively being processed by agents
 - **Processing**: Job execution has finished but system is receiving cracked passwords from agents
 - **Completed**: Job finished successfully and all results have been processed
 - **Failed**: Job encountered an error
 - **Paused**: Job was manually paused or interrupted for a higher priority task
+
+### What "Preparing" means
+
+When you create a job, KrakenHashes first has to measure the attack — how many candidate
+passwords it will produce. For a large wordlist that means reading the whole file, which
+can take anywhere from seconds to several minutes on a multi-gigabyte list.
+
+That measurement now happens in the background. Creating a job returns immediately and the
+job appears in the table as **Preparing**; you can close the dialog and carry on. Once the
+measurement finishes the job becomes **Pending** and the scheduler picks it up normally.
+Nothing is required from you in between.
+
+!!! tip "You don't need to wait on the page"
+    Earlier versions held the create-job request open until the measurement finished, so a
+    very large wordlist could leave the dialog spinning for minutes and then fail. That no
+    longer happens — the job is already created, and it will start on its own.
+
+A job can sit in **Preparing** for a while on a very large wordlist. That is expected. If
+it turns into **Failed** instead, the job's error message says why — a filter that matched
+no words, a wordlist that no longer exists, and so on.
+
+Occasionally KrakenHashes cannot finish the exact measurement within the time your
+administrator allows, in which case it estimates the size from the wordlist's stored word
+count and starts the job anyway. You will get a notification saying so. The job runs
+normally and the size is refined automatically when an agent runs its first benchmark, so
+the only visible difference is that the estimated total may shift slightly early on. If you
+see that notification often, ask your administrator to raise **Keyspace Calculation
+Timeout** under Admin → Job Execution.
 
 ### Priority Best Practices
 

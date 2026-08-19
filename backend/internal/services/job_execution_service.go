@@ -459,182 +459,33 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 	return jobExecution, nil
 }
 
-// CreateCustomJobExecution creates a new job execution directly from custom configuration
-func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, config CustomJobConfig, hashlistID int64, createdBy *uuid.UUID, customJobName string) (*models.JobExecution, error) {
-	debug.Log("Creating custom job execution", map[string]interface{}{
-		"name":        config.Name,
-		"hashlist_id": hashlistID,
-		"attack_mode": config.AttackMode,
-	})
-
-	// Get the hashlist
-	hashlist, err := s.hashlistRepo.GetByID(ctx, hashlistID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get hashlist: %w", err)
-	}
-
-	// Get chunk size from config or system settings
-	chunkSize := config.ChunkSizeSeconds
-	if chunkSize <= 0 {
-		// Fetch from system settings if not provided
-		defaultChunkSetting, err := s.systemSettingsRepo.GetSetting(ctx, "default_chunk_duration")
-		if err == nil && defaultChunkSetting != nil && defaultChunkSetting.Value != nil {
-			if parsed, parseErr := parseIntValueFromString(*defaultChunkSetting.Value); parseErr == nil {
-				chunkSize = parsed
-			}
-		}
-		// Final fallback
-		if chunkSize <= 0 {
-			chunkSize = 900
-		}
-	}
-
-	// Validate mask pattern for attack modes that use masks
-	if config.Mask != "" {
-		switch config.AttackMode {
-		case models.AttackModeBruteForce, models.AttackModeHybridWordlistMask, models.AttackModeHybridMaskWordlist:
-			if !validateMaskPattern(config.Mask) {
-				return nil, fmt.Errorf("invalid mask pattern format")
-			}
-		}
-	}
-
-	// Create a temporary preset job structure for keyspace calculation
-	// This ensures we use EXACTLY the same calculation logic as preset jobs
-	tempPreset := &models.PresetJob{
-		Name:                      config.Name,
-		WordlistIDs:               config.WordlistIDs,
-		RuleIDs:                   config.RuleIDs,
-		AttackMode:                config.AttackMode,
-		HashType:                  hashlist.HashTypeID,
-		BinaryVersion:             config.BinaryVersion,
-		Mask:                      config.Mask,
-		CustomCharsets:            config.CustomCharsets,
-		CustomCharsetFiles:        config.CustomCharsetFiles,
-		HexCharset:                config.HexCharset,
-		Priority:                  config.Priority,
-		MaxAgents:                 config.MaxAgents,
-		AllowHighPriorityOverride: config.AllowHighPriorityOverride,
-		ChunkSizeSeconds:          chunkSize,
-		StatusUpdatesEnabled:      true,
-		IncrementMode:             config.IncrementMode,
-		IncrementMin:              config.IncrementMin,
-		IncrementMax:              config.IncrementMax,
-	}
-
-	// Set association wordlist ID for keyspace calculation (convert UUID to string)
-	if config.AssociationWordlistID != nil {
-		assocIDStr := config.AssociationWordlistID.String()
-		tempPreset.AssociationWordlistID = &assocIDStr
-	}
-
-	// Compute keyspace + dispatch strategy (shared with the preparing/finalize path).
-	ks, err := s.computeKeyspaceStrategy(ctx, tempPreset, hashlist)
-	if err != nil {
-		return nil, err
-	}
-	totalKeyspace, effectiveKeyspace, isAccurateKeyspace := ks.base, ks.effective, ks.isAccurate
-	multiplicationFactor := ks.multiplicationFactor
-
-	// Create self-contained job execution
-	jobExecution := &models.JobExecution{
-		PresetJobID:           nil, // NULL for custom jobs
-		HashlistID:            hashlistID,
-		AssociationWordlistID: config.AssociationWordlistID, // For association attacks (-a 9)
-		Status:                models.JobExecutionStatusPending,
-		Priority:              config.Priority,
-		ProcessedKeyspace:     models.NewBigInt(0),
-		AttackMode:            config.AttackMode,
-		MaxAgents:             config.MaxAgents,
-		CreatedBy:             createdBy,
-
-		// Direct configuration (not from preset)
-		Name:                      customJobName, // Will be set with proper naming logic
-		WordlistIDs:               config.WordlistIDs,
-		RuleIDs:                   config.RuleIDs,
-		HashType:                  hashlist.HashTypeID,
-		ChunkSizeSeconds:          chunkSize,
-		StatusUpdatesEnabled:      true,
-		AllowHighPriorityOverride: config.AllowHighPriorityOverride,
-		BinaryVersion:             config.BinaryVersion,
-		Mask:                      config.Mask,
-		CustomCharsets:            config.CustomCharsets,
-		CustomCharsetFiles:        config.CustomCharsetFiles,
-		HexCharset:                config.HexCharset,
-		AdditionalArgs:            config.AdditionalArgs,
-		IncrementMode:             config.IncrementMode,
-		IncrementMin:              config.IncrementMin,
-		IncrementMax:              config.IncrementMax,
-
-		// Keyspace values from calculation
-		BaseKeyspace:         totalKeyspace,
-		EffectiveKeyspace:    effectiveKeyspace,
-		MultiplicationFactor: multiplicationFactor,
-		IsAccurateKeyspace:   isAccurateKeyspace,
-	}
-
-	err = s.jobExecRepo.Create(ctx, jobExecution)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create custom job execution: %w", err)
-	}
-
-	// Initialize increment layers if increment mode is enabled
-	// This must happen BEFORE calculateEffectiveKeyspace
-	err = s.initializeIncrementLayers(ctx, jobExecution, tempPreset)
-	if err != nil {
-		debug.Error("Failed to initialize increment layers: job_execution_id=%s, error=%v",
-			jobExecution.ID, err)
-		return nil, fmt.Errorf("failed to initialize increment layers: %w", err)
-	}
-
-	// Use the same effective keyspace calculation
-	// Skip for increment mode jobs - initializeIncrementLayers already sets both base_keyspace and effective_keyspace
-	// Skip if we already have accurate keyspace (--total-candidates succeeded)
-	// calculateEffectiveKeyspace would incorrectly overwrite base_keyspace with effective_keyspace value
-	if (jobExecution.IncrementMode == "" || jobExecution.IncrementMode == "off") && !jobExecution.IsAccurateKeyspace {
-		err = s.calculateEffectiveKeyspace(ctx, jobExecution, tempPreset)
-		if err != nil {
-			debug.Error("Failed to calculate effective keyspace: job_execution_id=%s, error=%v",
-				jobExecution.ID, err)
-			// Log the error but continue - we'll handle this in the scheduling logic
-		}
-	}
-
-	// NOTE: Rule splitting determination is DEFERRED until after forced benchmark
-	// The benchmark provides accurate effective keyspace from hashcat's progress[1]
-	// See HandleBenchmarkResult() in job_websocket_integration.go for the actual decision
-	debug.Log("Custom job execution created - rule split decision deferred to benchmark", map[string]interface{}{
-		"job_execution_id":      jobExecution.ID,
-		"base_keyspace":         totalKeyspace,
-		"effective_keyspace":    jobExecution.EffectiveKeyspace,
-		"multiplication_factor": jobExecution.MultiplicationFactor,
-	})
-
-	// Phase E hook — same as CreateJobExecution; see comment there.
-	s.populateSchedulingUnitsIfEnabled(ctx, jobExecution)
-
-	return jobExecution, nil
-}
-
 // keyspaceStrategy holds the keyspace + dispatch-strategy values computed for a
-// custom job, shared by CreateCustomJobExecution and FinalizeFilterJob (GH #40).
+// custom job, computed by FinalizeJob for a preparing row (GH #40).
 type keyspaceStrategy struct {
 	base                 *int64
 	effective            *models.BigInt
 	isAccurate           bool
 	multiplicationFactor int64
+
+	// baseEstimated is true when the hashcat --keyspace pre-flight timed out and
+	// base_keyspace came from stored word counts instead. The job is still
+	// perfectly runnable, but the operator should be told (their timeout is too
+	// low for this wordlist) and the dispatcher must not trust the tail.
+	baseEstimated    bool
+	preflightTimeout time.Duration
 }
 
 // computeKeyspaceStrategy runs hashcat keyspace calculation and derives the
 // salt-adjusted effective keyspace and (display-only) multiplication factor.
-// Extracted verbatim from the original inline block in CreateCustomJobExecution
+// Extracted from the original inline block in the synchronous custom-job creator
 // so both the synchronous and preparing/finalize paths stay consistent.
 func (s *JobExecutionService) computeKeyspaceStrategy(ctx context.Context, tempPreset *models.PresetJob, hashlist *models.HashList) (keyspaceStrategy, error) {
-	totalKeyspace, effectiveKeyspace, isAccurateKeyspace, err := s.calculateKeyspace(ctx, tempPreset, hashlist)
+	ks, err := s.calculateKeyspaceDetailed(ctx, tempPreset, hashlist)
 	if err != nil {
 		debug.Error("Failed to calculate keyspace for custom job: %v", err)
 		return keyspaceStrategy{}, fmt.Errorf("keyspace calculation is required for job execution: %w", err)
 	}
+	totalKeyspace, effectiveKeyspace, isAccurateKeyspace := ks.base, ks.effective, ks.isAccurate
 
 	// Calculate multiplication factor from keyspace values (rounded, display-only).
 	var multiplicationFactor int64 = 1
@@ -677,6 +528,8 @@ func (s *JobExecutionService) computeKeyspaceStrategy(ctx context.Context, tempP
 		effective:            effectiveKeyspace,
 		isAccurate:           isAccurateKeyspace,
 		multiplicationFactor: multiplicationFactor,
+		baseEstimated:        ks.baseEstimated,
+		preflightTimeout:     ks.preflightTimeout,
 	}, nil
 }
 
@@ -726,12 +579,13 @@ func buildTempPresetFromConfig(config CustomJobConfig, hashTypeID, chunkSize int
 	return tempPreset
 }
 
-// CreatePreparingFilterJob creates a job_executions row in the "preparing" state
-// for a custom job whose ephemeral filtered wordlist is still generating (GH #40).
-// It carries the user's chosen config (so the jobs table shows real details) but
-// no keyspace and no scheduling_units, so the scheduler ignores it. Call
-// FinalizeFilterJob once the wordlist is ready, or FailJob on error.
-func (s *JobExecutionService) CreatePreparingFilterJob(ctx context.Context, config CustomJobConfig, hashlistID int64, createdBy *uuid.UUID, name string) (*models.JobExecution, error) {
+// CreatePreparingJob creates a job_executions row in the "preparing" state for a
+// custom job whose inputs are not ready yet — either an ephemeral filtered
+// wordlist is still generating (GH #40) or the hashcat keyspace pre-flight has
+// not run. It carries the user's chosen config (so the jobs table shows real
+// details) but no keyspace and no scheduling_units, so the scheduler ignores it.
+// Call FinalizeJob once the inputs exist, or FailJob on error.
+func (s *JobExecutionService) CreatePreparingJob(ctx context.Context, config CustomJobConfig, hashlistID int64, createdBy *uuid.UUID, name string) (*models.JobExecution, error) {
 	hashlist, err := s.hashlistRepo.GetByID(ctx, hashlistID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get hashlist: %w", err)
@@ -771,11 +625,21 @@ func (s *JobExecutionService) CreatePreparingFilterJob(ctx context.Context, conf
 	return jobExecution, nil
 }
 
-// FinalizeFilterJob completes a preparing job once its filtered wordlist(s) exist:
-// config.WordlistIDs must already point at the generated (filtered) wordlists. It
-// computes keyspace, persists the swapped wordlist IDs + keyspace, creates
-// scheduling units, and flips the job to pending so the scheduler can dispatch it.
-func (s *JobExecutionService) FinalizeFilterJob(ctx context.Context, jobID uuid.UUID, config CustomJobConfig) error {
+// FinalizeJob completes a preparing job: it computes the keyspace, persists it
+// along with config.WordlistIDs, creates scheduling units, and flips the job to
+// pending so the scheduler can dispatch it.
+//
+// Two callers, both in the background:
+//   - the filtered path passes the generated (ephemeral) wordlist IDs, which
+//     replace the user's originals on the row;
+//   - the unfiltered path passes the user's own IDs, so the write is a no-op and
+//     this is purely the deferred keyspace pre-flight.
+//
+// This is where the expensive hashcat --keyspace/--total-candidates run happens
+// for a custom job. It is deliberately not on the request path: on a large
+// wordlist it can take minutes, and holding a POST open for that was what made a
+// slow keyspace look like a broken job creation.
+func (s *JobExecutionService) FinalizeJob(ctx context.Context, jobID uuid.UUID, config CustomJobConfig) error {
 	job, err := s.jobExecRepo.GetByID(ctx, jobID)
 	if err != nil {
 		return fmt.Errorf("failed to load preparing job: %w", err)
@@ -805,8 +669,16 @@ func (s *JobExecutionService) FinalizeFilterJob(ctx context.Context, jobID uuid.
 	if err := s.jobExecRepo.UpdateKeyspaceInfo(ctx, job); err != nil {
 		return fmt.Errorf("failed to update keyspace info: %w", err)
 	}
+	// Record an estimated base keyspace — must land before
+	// populateSchedulingUnitsIfEnabled below, which copies the flag onto the units.
+	if ks.baseEstimated {
+		if err := s.jobExecRepo.SetBaseKeyspaceEstimated(ctx, jobID, true); err != nil {
+			debug.Warning("Failed to flag job %s as base_keyspace_estimated: %v", jobID, err)
+		}
+		s.dispatchKeyspaceEstimateNotification(ctx, job, ks.preflightTimeout)
+	}
 
-	// Mirror CreateCustomJobExecution's post-keyspace steps.
+	// Post-keyspace steps: increment layers, effective keyspace, scheduling units.
 	if err := s.initializeIncrementLayers(ctx, job, tempPreset); err != nil {
 		return fmt.Errorf("failed to initialize increment layers: %w", err)
 	}
@@ -842,7 +714,37 @@ func (s *JobExecutionService) FailJob(ctx context.Context, jobID uuid.UUID, reas
 // Returns: baseKeyspace, effectiveKeyspace, isAccurateKeyspace, error
 // If --total-candidates succeeds, effectiveKeyspace will be accurate and isAccurateKeyspace=true
 // Otherwise, effectiveKeyspace will be an estimate and isAccurateKeyspace=false
+// keyspaceResult is the outcome of the hashcat keyspace pre-flight.
+//
+// isAccurate and baseEstimated are not the same thing and must not be conflated:
+//   - isAccurate=false means effective_keyspace is a placeholder, which is normal
+//     and self-correcting — the scheduler forces an agent benchmark and takes the
+//     real value from hashcat's progress[1].
+//   - baseEstimated=true means base_keyspace itself is an upper-bound guess from
+//     stored word counts. Nothing downstream corrects that, and base_keyspace is
+//     the coordinate space chunk ranges are expressed in, so it needs its own
+//     handling (see clampRangeToAcknowledged and the operator notification).
+type keyspaceResult struct {
+	base                   *int64
+	effective              *models.BigInt
+	isAccurate             bool
+	baseEstimated          bool
+	preflightTimeout       time.Duration
+	estimatedFromWordlists []string
+}
+
+// calculateKeyspace is the tuple-shaped wrapper kept for callers that only need
+// the three headline values. Use calculateKeyspaceDetailed when the caller has a
+// job row to annotate or an operator to notify.
 func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *models.PresetJob, hashlist *models.HashList) (*int64, *models.BigInt, bool, error) {
+	res, err := s.calculateKeyspaceDetailed(ctx, presetJob, hashlist)
+	if err != nil {
+		return nil, nil, false, err
+	}
+	return res.base, res.effective, res.isAccurate, nil
+}
+
+func (s *JobExecutionService) calculateKeyspaceDetailed(ctx context.Context, presetJob *models.PresetJob, hashlist *models.HashList) (keyspaceResult, error) {
 	debug.Log("Starting keyspace calculation for job execution", map[string]interface{}{
 		"preset_job_id":  presetJob.ID,
 		"binary_version": presetJob.BinaryVersion,
@@ -856,7 +758,7 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 	if err != nil {
 		debug.Error("Failed to resolve binary version pattern: pattern=%s, error=%v",
 			presetJob.BinaryVersion, err)
-		return nil, nil, false, fmt.Errorf("failed to resolve binary version pattern %q: %w", presetJob.BinaryVersion, err)
+		return keyspaceResult{}, fmt.Errorf("failed to resolve binary version pattern %q: %w", presetJob.BinaryVersion, err)
 	}
 
 	// Get the hashcat binary path from binary manager
@@ -864,14 +766,14 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 	if err != nil {
 		debug.Error("Failed to get hashcat binary path: binary_version_id=%d, error=%v",
 			binaryVersionID, err)
-		return nil, nil, false, fmt.Errorf("failed to get hashcat binary path for version %d: %w", binaryVersionID, err)
+		return keyspaceResult{}, fmt.Errorf("failed to get hashcat binary path for version %d: %w", binaryVersionID, err)
 	}
 
 	// Verify the binary exists and is executable
 	if fileInfo, err := os.Stat(hashcatPath); err != nil {
 		debug.Error("Hashcat binary not found: path=%s, error=%v",
 			hashcatPath, err)
-		return nil, nil, false, fmt.Errorf("hashcat binary not found at %s: %w", hashcatPath, err)
+		return keyspaceResult{}, fmt.Errorf("hashcat binary not found at %s: %w", hashcatPath, err)
 	} else {
 		debug.Log("Found hashcat binary", map[string]interface{}{
 			"path": hashcatPath,
@@ -896,7 +798,7 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 		for _, wordlistIDStr := range presetJob.WordlistIDs {
 			wordlistPath, err := s.resolveWordlistPath(ctx, wordlistIDStr)
 			if err != nil {
-				return nil, nil, false, fmt.Errorf("failed to resolve wordlist path: %w", err)
+				return keyspaceResult{}, fmt.Errorf("failed to resolve wordlist path: %w", err)
 			}
 			args = append(args, wordlistPath)
 		}
@@ -904,7 +806,7 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 		for _, ruleIDStr := range presetJob.RuleIDs {
 			rulePath, err := s.resolveRulePath(ctx, ruleIDStr)
 			if err != nil {
-				return nil, nil, false, fmt.Errorf("failed to resolve rule path: %w", err)
+				return keyspaceResult{}, fmt.Errorf("failed to resolve rule path: %w", err)
 			}
 			args = append(args, "-r", rulePath)
 		}
@@ -913,11 +815,11 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 		if len(presetJob.WordlistIDs) >= 2 {
 			wordlist1Path, err := s.resolveWordlistPath(ctx, presetJob.WordlistIDs[0])
 			if err != nil {
-				return nil, nil, false, fmt.Errorf("failed to resolve wordlist1 path: %w", err)
+				return keyspaceResult{}, fmt.Errorf("failed to resolve wordlist1 path: %w", err)
 			}
 			wordlist2Path, err := s.resolveWordlistPath(ctx, presetJob.WordlistIDs[1])
 			if err != nil {
-				return nil, nil, false, fmt.Errorf("failed to resolve wordlist2 path: %w", err)
+				return keyspaceResult{}, fmt.Errorf("failed to resolve wordlist2 path: %w", err)
 			}
 			args = append(args, wordlist1Path, wordlist2Path)
 		}
@@ -931,7 +833,7 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 		if len(presetJob.WordlistIDs) > 0 && presetJob.Mask != "" {
 			wordlistPath, err := s.resolveWordlistPath(ctx, presetJob.WordlistIDs[0])
 			if err != nil {
-				return nil, nil, false, fmt.Errorf("failed to resolve wordlist path: %w", err)
+				return keyspaceResult{}, fmt.Errorf("failed to resolve wordlist path: %w", err)
 			}
 			args = append(args, wordlistPath, presetJob.Mask)
 		}
@@ -940,7 +842,7 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 		if presetJob.Mask != "" && len(presetJob.WordlistIDs) > 0 {
 			wordlistPath, err := s.resolveWordlistPath(ctx, presetJob.WordlistIDs[0])
 			if err != nil {
-				return nil, nil, false, fmt.Errorf("failed to resolve wordlist path: %w", err)
+				return keyspaceResult{}, fmt.Errorf("failed to resolve wordlist path: %w", err)
 			}
 			args = append(args, presetJob.Mask, wordlistPath)
 		}
@@ -950,13 +852,13 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 		// Use estimation based on wordlist line count and rule count instead
 
 		if presetJob.AssociationWordlistID == nil || *presetJob.AssociationWordlistID == "" {
-			return nil, nil, false, fmt.Errorf("association wordlist ID is required for attack mode 9")
+			return keyspaceResult{}, fmt.Errorf("association wordlist ID is required for attack mode 9")
 		}
 
 		// Get wordlist line count from database
 		lineCount, err := s.getAssociationWordlistLineCount(ctx, *presetJob.AssociationWordlistID)
 		if err != nil {
-			return nil, nil, false, fmt.Errorf("failed to get association wordlist line count: %w", err)
+			return keyspaceResult{}, fmt.Errorf("failed to get association wordlist line count: %w", err)
 		}
 
 		// Get rule count for effective keyspace calculation
@@ -978,11 +880,13 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 			"effective_keyspace":  effectiveKeyspace.String(),
 		})
 
-		// Return early - don't run hashcat --keyspace (not supported for mode 9)
-		return &baseKeyspace, &effectiveKeyspace, false, nil // false = not accurate (estimation)
+		// Return early - don't run hashcat --keyspace (not supported for mode 9).
+		// base_keyspace here is the association wordlist's stored line count, which
+		// is what mode 9 dispatches against, so it is not a fallback estimate.
+		return keyspaceResult{base: &baseKeyspace, effective: &effectiveKeyspace, isAccurate: false}, nil
 
 	default:
-		return nil, nil, false, fmt.Errorf("unsupported attack mode for keyspace calculation: %d", presetJob.AttackMode)
+		return keyspaceResult{}, fmt.Errorf("unsupported attack mode for keyspace calculation: %d", presetJob.AttackMode)
 	}
 
 	// Add --hex-charset ONLY if job uses hex mode AND has inline charset definitions
@@ -1040,13 +944,19 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 		"session_id":  sessionID,
 	})
 
-	// Execute hashcat command with configurable timeout
+	// Execute hashcat command with configurable timeout.
+	//
+	// Deliberately scoped to its own variable rather than shadowing ctx: the
+	// --total-candidates run below must get the full configured budget, not
+	// whatever is left of this one. Shadowing meant a --keyspace call that used
+	// almost all of its deadline left --total-candidates a few seconds, so it
+	// timed out for reasons that had nothing to do with its own cost.
 	keyspaceTimeout := s.getKeyspaceTimeout(ctx)
-	ctx, cancel := context.WithTimeout(ctx, keyspaceTimeout)
+	keyspaceCtx, cancel := context.WithTimeout(ctx, keyspaceTimeout)
 	defer cancel()
 
 	startTime := time.Now()
-	cmd := exec.CommandContext(ctx, hashcatPath, args...)
+	cmd := exec.CommandContext(keyspaceCtx, hashcatPath, args...)
 
 	// Set working directory to data directory to ensure session files are created there
 	cmd.Dir = s.dataDirectory
@@ -1074,22 +984,48 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 	}
 
 	if err != nil {
-		// Check if the error was caused by a timeout
-		if ctx.Err() == context.DeadlineExceeded {
-			debug.Error("Hashcat keyspace calculation timed out after %v", keyspaceTimeout)
-			return nil, nil, false, fmt.Errorf("keyspace calculation timed out after %v — an administrator can increase this limit in Admin Settings > Job Execution > Keyspace Calculation Timeout", keyspaceTimeout)
+		// A timeout is not a reason to refuse the job. --keyspace is a pre-flight
+		// optimisation, and for a straight attack we already know the exact word
+		// count from upload-time verification, so fall back to it and let the
+		// forced agent benchmark refine the effective keyspace as it does for any
+		// other inaccurate job. Everything else here is a genuine failure and
+		// stays fatal — a job dispatched against a wrong base keyspace is worse
+		// than a job that refuses to start.
+		if keyspaceCtx.Err() == context.DeadlineExceeded {
+			estimated, ok := s.estimateBaseKeyspace(ctx, presetJob)
+			if !ok {
+				debug.Error("Hashcat keyspace calculation timed out after %v and no base-keyspace estimate is available for attack mode %d",
+					keyspaceTimeout, presetJob.AttackMode)
+				return keyspaceResult{}, fmt.Errorf(
+					"keyspace calculation timed out after %v and attack mode %d has no fallback estimate — an administrator can increase the limit in Admin Settings > Job Execution > Keyspace Calculation Timeout",
+					keyspaceTimeout, presetJob.AttackMode)
+			}
+
+			debug.Warning("Hashcat --keyspace timed out after %v; falling back to the stored word count (%d) as an ESTIMATED base keyspace. "+
+				"The job will run with is_accurate_keyspace=false and be refined by a forced agent benchmark. "+
+				"Increase Admin Settings > Job Execution > Keyspace Calculation Timeout to avoid this.",
+				keyspaceTimeout, estimated)
+
+			return keyspaceResult{
+				base:                   &estimated,
+				effective:              s.estimateEffectiveKeyspace(ctx, estimated, presetJob),
+				isAccurate:             false,
+				baseEstimated:          true,
+				preflightTimeout:       keyspaceTimeout,
+				estimatedFromWordlists: presetJob.WordlistIDs,
+			}, nil
 		}
 		// Log the full output for debugging
 		debug.Error("Hashcat keyspace calculation failed: error=%v, stdout=%s, stderr=%s, working_dir=%s, command=%s, args=%v",
 			err, stdout.String(), stderr.String(), s.dataDirectory, hashcatPath, args)
-		return nil, nil, false, fmt.Errorf("hashcat keyspace calculation failed: %w\nstdout: %s\nstderr: %s", err, stdout.String(), stderr.String())
+		return keyspaceResult{}, fmt.Errorf("hashcat keyspace calculation failed: %w%s", err, describeHashcatOutput(stdout.String(), stderr.String()))
 	}
 
 	// Parse keyspace from output
 	// The keyspace should be the last line of stdout (ignoring stderr warnings about invalid rules)
 	outputLines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
 	if len(outputLines) == 0 {
-		return nil, nil, false, fmt.Errorf("no output from hashcat keyspace calculation")
+		return keyspaceResult{}, fmt.Errorf("no output from hashcat keyspace calculation")
 	}
 
 	// Get the last non-empty line
@@ -1104,11 +1040,11 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 
 	keyspace, err := strconv.ParseInt(keyspaceStr, 10, 64)
 	if err != nil {
-		return nil, nil, false, fmt.Errorf("failed to parse keyspace '%s': %w", keyspaceStr, err)
+		return keyspaceResult{}, fmt.Errorf("failed to parse keyspace '%s': %w", keyspaceStr, err)
 	}
 
 	if keyspace <= 0 {
-		return nil, nil, false, fmt.Errorf("invalid keyspace: %d", keyspace)
+		return keyspaceResult{}, fmt.Errorf("invalid keyspace: %d", keyspace)
 	}
 
 	duration := time.Since(startTime)
@@ -1166,7 +1102,82 @@ func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *
 		"is_accurate_keyspace": isAccurate,
 	})
 
-	return &keyspace, effectiveKeyspacePtr, isAccurate, nil
+	return keyspaceResult{base: &keyspace, effective: effectiveKeyspacePtr, isAccurate: isAccurate}, nil
+}
+
+// describeHashcatOutput renders hashcat's captured streams for an error message.
+// Both are routinely empty because keyspace runs pass --quiet, and appending
+// "stdout: \nstderr: " to an error just buries the useful part (the exit status)
+// under two empty labels. Say so explicitly instead.
+func describeHashcatOutput(stdout, stderr string) string {
+	stdout = strings.TrimSpace(stdout)
+	stderr = strings.TrimSpace(stderr)
+	if stdout == "" && stderr == "" {
+		return " (hashcat produced no output; it runs with --quiet, so check the binary and the wordlist/rule paths)"
+	}
+	var b strings.Builder
+	if stdout != "" {
+		fmt.Fprintf(&b, "\nstdout: %s", stdout)
+	}
+	if stderr != "" {
+		fmt.Fprintf(&b, "\nstderr: %s", stderr)
+	}
+	return b.String()
+}
+
+// estimateBaseKeyspace returns a fallback base keyspace for jobs whose hashcat
+// --keyspace pre-flight timed out, and whether one could be produced.
+//
+// Only straight attacks (-a 0) qualify. There the base keyspace is the number of
+// words in the wordlist(s), which upload-time verification already counted and
+// stored (wordlists.word_count). Every other mode derives its base from hashcat's
+// own interpretation of masks/combinators, and guessing it would corrupt the
+// dispatch coordinate space — chunk ranges are expressed in base units — so those
+// modes keep failing loudly rather than running against a fabricated number.
+//
+// The result is an UPPER bound: hashcat skips words that exceed its maximum
+// password length, so its keyspace can be slightly below the raw line count.
+// Callers must therefore mark the job is_accurate_keyspace=false, and the
+// dispatcher must tolerate a short final gap (see clampRangeToAcknowledged).
+func (s *JobExecutionService) estimateBaseKeyspace(ctx context.Context, presetJob *models.PresetJob) (int64, bool) {
+	if presetJob.AttackMode != models.AttackModeStraight {
+		return 0, false
+	}
+	if len(presetJob.WordlistIDs) == 0 {
+		return 0, false
+	}
+
+	var total int64
+	for _, wordlistIDStr := range presetJob.WordlistIDs {
+		// Returns 0 for client:/potfile: refs and for anything it cannot resolve.
+		// A zero here means we do not actually know the size, so refuse rather
+		// than silently under-count the keyspace.
+		count := s.getWordlistWordCount(ctx, wordlistIDStr)
+		if count <= 0 {
+			debug.Warning("No stored word count for wordlist %q; cannot estimate base keyspace", wordlistIDStr)
+			return 0, false
+		}
+		total += count
+	}
+	return total, true
+}
+
+// estimateEffectiveKeyspace derives an effective keyspace from an estimated base
+// and the job's rule files. This is a placeholder value: the forced agent
+// benchmark replaces it with hashcat's own progress[1] before any chunk is sized,
+// which is exactly the path an is_accurate_keyspace=false job already takes.
+func (s *JobExecutionService) estimateEffectiveKeyspace(ctx context.Context, base int64, presetJob *models.PresetJob) *models.BigInt {
+	ruleCount := int64(1)
+	if len(presetJob.RuleIDs) > 0 {
+		if counted, err := s.GetTotalRuleCount(ctx, presetJob.RuleIDs); err == nil && counted > 0 {
+			ruleCount = counted
+		} else {
+			// Fall back to one rule per file — wrong, but the benchmark corrects it.
+			ruleCount = int64(len(presetJob.RuleIDs))
+		}
+	}
+	effective := models.NewBigInt(base).MulInt64(ruleCount)
+	return &effective
 }
 
 // calculateTotalCandidates runs hashcat --total-candidates with retry logic to get actual effective keyspace.
@@ -1502,7 +1513,7 @@ func (s *JobExecutionService) calculateEffectiveKeyspace(ctx context.Context, jo
 		})
 	}
 
-	// Apply salt adjustment for salted hash types (same pattern as CreateCustomJobExecution:542-567)
+	// Apply salt adjustment for salted hash types (same pattern as computeKeyspaceStrategy)
 	// calculateEffectiveKeyspace calculates base × rules, but for salted hashes we need base × rules × salts
 	if job.EffectiveKeyspace != nil && job.EffectiveKeyspace.IsPositive() {
 		hashlist, hlErr := s.hashlistRepo.GetByID(ctx, job.HashlistID)
@@ -2244,6 +2255,57 @@ func (s *JobExecutionService) dispatchJobFailedNotification(ctx context.Context,
 			"job_name":      jobExec.Name,
 			"error_message": errorMessage,
 		})
+	}
+}
+
+// dispatchKeyspaceEstimateNotification tells the operator that a job is running
+// on an estimated base keyspace because the hashcat --keyspace pre-flight timed
+// out, and names the setting to raise.
+//
+// This is informational, not a failure: the job runs normally and the forced
+// agent benchmark still supplies an accurate effective keyspace. It exists
+// because the alternative — silently running on an estimate — is how a wordlist
+// that outgrew the timeout stays invisible until someone reads the logs, and
+// with DEBUG off there are no logs to read.
+//
+// Deliberately does NOT write job_executions.error_message: that column drives
+// the failed-job UI, and this job has not failed.
+func (s *JobExecutionService) dispatchKeyspaceEstimateNotification(ctx context.Context, jobExec *models.JobExecution, timeout time.Duration) {
+	if jobExec.CreatedBy == nil {
+		return
+	}
+	dispatcher := GetGlobalDispatcher()
+	if dispatcher == nil {
+		debug.Warning("Notification dispatcher not available, skipping keyspace estimate notification")
+		return
+	}
+
+	message := fmt.Sprintf(
+		"Job '%s' is running on an estimated keyspace: hashcat --keyspace did not finish within %s, so the wordlist's stored word count was used instead. "+
+			"The job will run normally and its effective keyspace is refined by the first agent benchmark. "+
+			"To avoid this, raise Admin Settings > Job Execution > Keyspace Calculation Timeout (currently %s) — this wordlist needs longer.",
+		jobExec.Name, timeout, timeout,
+	)
+
+	params := models.NotificationDispatchParams{
+		UserID:  *jobExec.CreatedBy,
+		Type:    models.NotificationTypeKeyspaceEstimateUsed,
+		Title:   "Keyspace estimated",
+		Message: message,
+		Data: map[string]interface{}{
+			"job_id":                  jobExec.ID.String(),
+			"job_name":                jobExec.Name,
+			"keyspace_timeout":        timeout.String(),
+			"setting_key":             "keyspace_calculation_timeout_minutes",
+			"estimated_at":            time.Now().Format(time.RFC3339),
+			"estimated_base_keyspace": jobExec.BaseKeyspace,
+		},
+		SourceType: "job",
+		SourceID:   jobExec.ID.String(),
+	}
+
+	if err := dispatcher.Dispatch(ctx, params); err != nil {
+		debug.Error("Failed to dispatch keyspace estimate notification: %v", err)
 	}
 }
 

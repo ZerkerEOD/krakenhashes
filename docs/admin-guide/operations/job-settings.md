@@ -81,6 +81,37 @@ Control job execution behavior and user interface settings.
 | **Max Chunk Retry Attempts** | Number of times to retry failed chunks | 3 | 0-10 | Set to 0 to disable retries |
 | **Jobs Per Page** | Default pagination size for job lists | 25 | 5-100 | Adjust based on UI preferences |
 | **Hashlist Bulk Batch Size** | Number of hashes processed per batch during import | 100,000 | 1,000-1,000,000 | Affects memory usage and import speed |
+| **Keyspace Calculation Timeout** (`keyspace_calculation_timeout_minutes`) | How long the backend may spend measuring a job's keyspace with hashcat | 4 minutes | 1-60 | Raise it for multi-gigabyte wordlists. **Not** the Speed Test timeouts — see below |
+
+#### Keyspace Calculation
+
+Before a job can be scheduled, the backend measures it by running `hashcat --keyspace` and
+`--total-candidates`, both of which read the wordlist end to end. On a multi-gigabyte list that
+takes minutes, and this setting bounds it.
+
+This runs **in the background**. Creating a job returns immediately with the job in
+`preparing`; it becomes `pending` once the measurement finishes. Users are never left waiting
+on the request, so raising this timeout costs nothing in responsiveness — it only lets a large
+wordlist finish being measured.
+
+**If the timeout is exceeded**, the job is not rejected. For a straight (`-a 0`) attack the
+backend falls back to the wordlist's stored word count, starts the job anyway, and notifies the
+user with a `keyspace_estimate_used` notification naming this setting. The job runs normally and
+its size is refined by the first agent benchmark. Attack modes whose keyspace cannot be derived
+without hashcat still fail, with a message naming this setting.
+
+Frequent `keyspace_estimate_used` notifications are the signal to raise this value.
+
+!!! warning "Three different 'timeouts' apply to a large wordlist"
+    They are easy to confuse, and two of them live on different settings pages:
+
+    | Stage | Setting | Units | Page |
+    |-------|---------|-------|------|
+    | Word count at upload | *(none — always runs to completion)* | — | — |
+    | Keyspace measurement at job creation | `keyspace_calculation_timeout_minutes` | **minutes** | Job Execution → Job Control |
+    | Agent speed test / benchmark | `speed_test_timeout_seconds_uncompressed` / `_compressed` | **seconds** | System Settings → Speed Test |
+
+    Raising the Speed Test values does **not** affect keyspace measurement, and vice versa.
 
 #### Job Interruption Behavior
 
