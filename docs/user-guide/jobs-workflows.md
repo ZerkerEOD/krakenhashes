@@ -286,7 +286,7 @@ count and starts the job anyway. You will get a notification saying so. The job 
 normally and the size is refined automatically when an agent runs its first benchmark, so
 the only visible difference is that the estimated total may shift slightly early on. If you
 see that notification often, ask your administrator to raise **Keyspace Calculation
-Timeout** under Admin → Job Execution.
+Timeout** under Admin → Job Execution → Keyspace & Benchmark.
 
 ### Priority Best Practices
 

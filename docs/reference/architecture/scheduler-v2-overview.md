@@ -227,8 +227,8 @@ establish *which* one they changed before believing the symptom.
 | Stage | Runs on | Bounded by | Where in the UI |
 |-------|---------|-----------|-----------------|
 | Word count at upload | Backend, once per wordlist | none (streams the file) | — |
-| `--keyspace` / `--total-candidates` pre-flight | Backend, at job creation | `keyspace_calculation_timeout_minutes` (**minutes**) | Job Execution → Job Control |
-| Speed test / benchmark | Agent, before the first chunk | `speed_test_timeout_seconds_uncompressed` / `_compressed` (**seconds**) | System Settings → Speed Test |
+| `--keyspace` / `--total-candidates` pre-flight | Backend, at job creation | `keyspace_calculation_timeout_minutes` (**minutes**) | Job Execution → Keyspace & Benchmark |
+| Speed test / benchmark | Agent, before the first chunk | `speed_test_timeout_seconds_uncompressed` / `_compressed` (**seconds**) | Job Execution → Keyspace & Benchmark |
 
 The pre-flight runs in the background: creating a custom job returns `202` with the job
 in `preparing`, and it flips to `pending` once the keyspace is known. A slow wordlist
