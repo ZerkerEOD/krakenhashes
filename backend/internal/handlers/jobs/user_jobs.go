@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -712,6 +713,56 @@ func (h *UserJobsHandler) ListLoopbackSessions(w http.ResponseWriter, r *http.Re
 	json.NewEncoder(w).Encode(sessions)
 }
 
+// jobCreationFailure records one preset or workflow step that could not be
+// turned into a job, so the caller learns which item failed and why instead of
+// receiving a bare "No jobs were created".
+type jobCreationFailure struct {
+	// PresetJobID is empty for a custom job (there is only ever one).
+	PresetJobID string `json:"preset_job_id,omitempty"`
+	// Name is the preset/step name when known — more use to a human than a UUID.
+	Name  string `json:"name,omitempty"`
+	Error string `json:"error"`
+}
+
+// isKeyspaceError reports whether a job-creation error is about keyspace, and
+// should therefore be a 400 (the caller can act on it — usually by raising the
+// keyspace timeout or picking a smaller wordlist) rather than a 500.
+//
+// Shared by all three creation branches so a keyspace failure reads the same
+// whether the job came from a custom config, a preset, or a workflow step.
+func isKeyspaceError(err error) bool {
+	msg := strings.ToLower(err.Error())
+	for _, marker := range []string{"keyspace", "overflow", "exceeds", "too large"} {
+		if strings.Contains(msg, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+// writeJobCreationFailure sends the response for a request where nothing could
+// be created. It reports the first real error instead of a generic message, and
+// maps keyspace problems to 400 so the UI can show them as actionable.
+func writeJobCreationFailure(w http.ResponseWriter, failures []jobCreationFailure, firstErr error) {
+	if firstErr == nil {
+		http.Error(w, "No jobs were created", http.StatusInternalServerError)
+		return
+	}
+
+	status := http.StatusInternalServerError
+	prefix := "Failed to create job"
+	if isKeyspaceError(firstErr) {
+		status = http.StatusBadRequest
+		prefix = "Keyspace error"
+	}
+
+	msg := fmt.Sprintf("%s: %s", prefix, firstErr.Error())
+	if len(failures) > 1 {
+		msg = fmt.Sprintf("%s (%d of %d items failed; first error shown)", msg, len(failures), len(failures))
+	}
+	http.Error(w, msg, status)
+}
+
 // CreateJobFromHashlist handles POST /api/hashlists/{id}/create-job
 func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -773,6 +824,13 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 	}
 
 	var createdJobs []string
+	// Per-item failures, collected rather than discarded. A request can ask for
+	// several presets or a multi-step workflow; previously any that failed were
+	// logged and skipped, so the caller got either a bare "No jobs were created"
+	// with no reason, or — worse — a 201 that silently dropped the steps that
+	// failed. Both hid real problems (a keyspace timeout looked identical to a
+	// deleted preset), and with DEBUG off the log line did not exist either.
+	var failures []jobCreationFailure
 
 	switch jobType.Type {
 	case "preset":
@@ -804,6 +862,10 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			presetJob, err := h.presetJobRepo.GetByID(ctx, presetJobID)
 			if err != nil {
 				debug.Error("Failed to get preset job %s: %v", presetJobID, err)
+				failures = append(failures, jobCreationFailure{
+					PresetJobID: presetJobID.String(),
+					Error:       fmt.Sprintf("preset job could not be loaded: %v", err),
+				})
 				continue
 			}
 
@@ -829,6 +891,11 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			jobExecution, err := h.jobExecutionService.CreateJobExecution(ctx, presetJobID, hashlistID, &userID, jobName)
 			if err != nil {
 				debug.Error("Failed to create job execution for preset %s: %v", presetJobID, err)
+				failures = append(failures, jobCreationFailure{
+					PresetJobID: presetJobID.String(),
+					Name:        presetJob.Name,
+					Error:       err.Error(),
+				})
 				continue
 			}
 
@@ -862,6 +929,10 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			workflowID, err := uuid.Parse(workflowIDStr)
 			if err != nil {
 				debug.Error("Invalid workflow ID: %s", workflowIDStr)
+				failures = append(failures, jobCreationFailure{
+					Name:  workflowIDStr,
+					Error: fmt.Sprintf("invalid workflow ID %q", workflowIDStr),
+				})
 				continue
 			}
 
@@ -869,6 +940,10 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			workflow, err := h.workflowRepo.GetWorkflowByID(ctx, workflowID)
 			if err != nil {
 				debug.Error("Failed to get workflow %s: %v", workflowID, err)
+				failures = append(failures, jobCreationFailure{
+					Name:  workflowIDStr,
+					Error: fmt.Sprintf("workflow could not be loaded: %v", err),
+				})
 				continue
 			}
 			steps := workflow.Steps
@@ -883,6 +958,10 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 				presetJob, err := h.presetJobRepo.GetByID(ctx, step.PresetJobID)
 				if err != nil {
 					debug.Error("Failed to get preset job %s for workflow step: %v", step.PresetJobID, err)
+					failures = append(failures, jobCreationFailure{
+						PresetJobID: step.PresetJobID.String(),
+						Error:       fmt.Sprintf("workflow step preset could not be loaded: %v", err),
+					})
 					continue
 				}
 
@@ -908,6 +987,11 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 				jobExecution, err := h.jobExecutionService.CreateJobExecution(ctx, step.PresetJobID, hashlistID, &userID, jobName)
 				if err != nil {
 					debug.Error("Failed to create job execution for workflow step: %v", err)
+					failures = append(failures, jobCreationFailure{
+						PresetJobID: step.PresetJobID.String(),
+						Name:        presetJob.Name,
+						Error:       err.Error(),
+					})
 					continue
 				}
 
@@ -1134,12 +1218,22 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			AssociationWordlistName: assocWordlistName,
 		})
 
-		// Ephemeral wordlist pre-filtering (GH #40): when a filter is supplied on a
-		// wordlist-based attack, generate a job-scoped filtered wordlist from the
-		// selected wordlist(s) before creating the job. Generation can take a while
-		// for very large wordlists, so it runs in the background and the request
-		// returns 202; the job is created (and becomes schedulable) only once the
-		// filtered wordlist exists and its keyspace is known.
+		// Custom jobs are always prepared asynchronously.
+		//
+		// Both of the slow steps here are unbounded in the size of the user's
+		// inputs: generating an ephemeral filtered wordlist (GH #40), and the
+		// hashcat --keyspace/--total-candidates pre-flight, each of which reads
+		// the whole wordlist. On a 30 GB list the pre-flight alone can outlast
+		// any sensible request. Doing that inside the POST left the browser
+		// spinning for minutes and then, if the keyspace timeout fired, threw the
+		// work away entirely.
+		//
+		// So: create the row in "preparing" (visible in the jobs table, ignored
+		// by the scheduler), return 202 immediately, and let the background
+		// finalizer flip it to "pending" — or to "failed" with a real reason.
+		// The filtered-wordlist path already worked this way; the plain path now
+		// matches it instead of being the one case that blocks.
+		var filter *models.WordlistFilter
 		if req.CustomJob.Filter != nil && !req.CustomJob.Filter.IsEmpty() {
 			if err := req.CustomJob.Filter.Validate(); err != nil {
 				http.Error(w, fmt.Sprintf("Invalid wordlist filter: %v", err), http.StatusBadRequest)
@@ -1157,56 +1251,32 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 				http.Error(w, "Wordlist filtering requires at least one wordlist", http.StatusBadRequest)
 				return
 			}
-
-			filter := *req.CustomJob.Filter
-
-			// Create the job row immediately in "preparing" so it shows in the jobs
-			// table while the filtered wordlist generates; the scheduler ignores it
-			// until it's finalized to "pending" (GH #40).
-			preparingJob, err := h.jobExecutionService.CreatePreparingFilterJob(ctx, config, hashlistID, &userID, jobName)
-			if err != nil {
-				debug.Error("Failed to create preparing job: %v", err)
-				http.Error(w, fmt.Sprintf("Failed to create job: %v", err), http.StatusInternalServerError)
-				return
-			}
-			go h.prepareAndCreateFilteredCustomJob(preparingJob.ID, config, filter, userID)
-
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusAccepted)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"status":  "preparing",
-				"job_id":  preparingJob.ID.String(),
-				"ids":     []string{preparingJob.ID.String()},
-				"message": "Preparing — generating the filtered wordlist; the job will start automatically once it's ready.",
-			})
-			return
+			filter = req.CustomJob.Filter
 		}
 
-		// Create job execution directly without saving preset
-		jobExecution, err := h.jobExecutionService.CreateCustomJobExecution(ctx, config, hashlistID, &userID, jobName)
+		preparingJob, err := h.jobExecutionService.CreatePreparingJob(ctx, config, hashlistID, &userID, jobName)
 		if err != nil {
-			debug.Error("Failed to create custom job execution: %v", err)
-
-			// Propagate meaningful error messages for keyspace-related errors
-			errMsg := err.Error()
-			if strings.Contains(errMsg, "overflow") || strings.Contains(errMsg, "exceeds") ||
-				strings.Contains(errMsg, "too large") || strings.Contains(errMsg, "keyspace") {
-				http.Error(w, fmt.Sprintf("Keyspace error: %s", errMsg), http.StatusBadRequest)
-				return
-			}
-
-			http.Error(w, fmt.Sprintf("Failed to create job: %s", errMsg), http.StatusInternalServerError)
+			debug.Error("Failed to create preparing job: %v", err)
+			writeJobCreationFailure(w, []jobCreationFailure{{Error: err.Error()}}, err)
 			return
 		}
 
-		createdJobs = append(createdJobs, jobExecution.ID.String())
+		go h.prepareAndFinalizeCustomJob(preparingJob.ID, config, filter, userID, hashlistID,
+			req.CustomJob.Loopback, req.CustomJobName)
 
-		if req.CustomJob.Loopback {
-			h.startLoopbackSession(ctx, hashlistID, models.LoopbackSourceCustom, nil, req.CustomJobName, &userID, []services.LoopbackOrigin{{
-				JobExecutionID: jobExecution.ID,
-				IsMutatable:    models.IsMutatableAttack(config.AttackMode, config.RuleIDs),
-			}})
+		message := "Preparing — calculating keyspace; the job will start automatically once it's ready."
+		if filter != nil {
+			message = "Preparing — generating the filtered wordlist and calculating keyspace; the job will start automatically once it's ready."
 		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":  "preparing",
+			"job_id":  preparingJob.ID.String(),
+			"ids":     []string{preparingJob.ID.String()},
+			"message": message,
+		})
+		return
 
 	default:
 		http.Error(w, "Invalid job type", http.StatusBadRequest)
@@ -1214,7 +1284,11 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 	}
 
 	if len(createdJobs) == 0 {
-		http.Error(w, "No jobs were created", http.StatusInternalServerError)
+		var firstErr error
+		if len(failures) > 0 {
+			firstErr = errors.New(failures[0].Error)
+		}
+		writeJobCreationFailure(w, failures, firstErr)
 		return
 	}
 
@@ -1224,18 +1298,46 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 		"message": fmt.Sprintf("%d job(s) created successfully", len(createdJobs)),
 	}
 
+	// Partial success: some presets/steps were created and some were not. This
+	// used to return a plain 201, so a workflow could silently lose steps and
+	// the user would never know. Still 201 (jobs were created), but the caller
+	// now gets the list of what did not make it.
+	if len(failures) > 0 {
+		response["failures"] = failures
+		response["message"] = fmt.Sprintf("%d job(s) created, %d failed", len(createdJobs), len(failures))
+		debug.Warning("Job creation partially succeeded for hashlist %d: %d created, %d failed (first: %s)",
+			hashlistID, len(createdJobs), len(failures), failures[0].Error)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(response)
 }
 
-// prepareAndCreateFilteredCustomJob runs in the background for a job already
-// created in the "preparing" state (GH #40). It generates the ephemeral filtered
-// wordlist(s) from the user's selected wordlists, then finalizes the job
-// (computes keyspace, creates scheduling units, flips to "pending") so the
-// scheduler picks it up. Any failure (0-match filter, full disk, etc.) marks the
-// job failed with the reason and removes the partial filtered wordlists.
-func (h *UserJobsHandler) prepareAndCreateFilteredCustomJob(jobID uuid.UUID, config services.CustomJobConfig, filter models.WordlistFilter, userID uuid.UUID) {
+// prepareAndFinalizeCustomJob runs in the background for a job already created
+// in the "preparing" state. It optionally generates the ephemeral filtered
+// wordlist(s) from the user's selected wordlists (GH #40), then finalizes the
+// job (computes keyspace, creates scheduling units, flips to "pending") so the
+// scheduler picks it up. Any failure (0-match filter, full disk, unresolvable
+// wordlist, etc.) marks the job failed with the reason and removes the partial
+// filtered wordlists.
+//
+// filter may be nil, in which case no wordlists are generated and this is purely
+// the asynchronous keyspace pre-flight — the common case, and the reason every
+// custom job now goes through here rather than only filtered ones.
+//
+// Runs on context.Background() deliberately: the HTTP request that started it
+// has already returned 202, so tying this work to the request context would
+// cancel the keyspace calculation the moment the client disconnected.
+func (h *UserJobsHandler) prepareAndFinalizeCustomJob(
+	jobID uuid.UUID,
+	config services.CustomJobConfig,
+	filter *models.WordlistFilter,
+	userID uuid.UUID,
+	hashlistID int64,
+	loopback bool,
+	customJobName string,
+) {
 	ctx := context.Background()
 
 	var filteredIDs models.IDArray
@@ -1259,6 +1361,12 @@ func (h *UserJobsHandler) prepareAndCreateFilteredCustomJob(jobID uuid.UUID, con
 		}
 	}
 
+	if filter == nil {
+		// No pre-filtering: finalize against the user's original wordlists.
+		h.finalizeCustomJob(ctx, jobID, config, hashlistID, userID, loopback, customJobName, failJob)
+		return
+	}
+
 	for _, wlIDStr := range config.WordlistIDs {
 		// Only filter global numeric wordlists. Client/potfile special IDs
 		// (e.g. "client:1", "potfile:2") are passed through unfiltered.
@@ -1269,7 +1377,7 @@ func (h *UserJobsHandler) prepareAndCreateFilteredCustomJob(jobID uuid.UUID, con
 		}
 
 		// Own the ephemeral wordlist by the job from creation so the sweep can find it.
-		wl, err := h.wordlistManager.CreateFilteredWordlistRecord(ctx, parentID, "", "", filter, true, &jobID, userID)
+		wl, err := h.wordlistManager.CreateFilteredWordlistRecord(ctx, parentID, "", "", *filter, true, &jobID, userID)
 		if err != nil {
 			debug.Error("Failed to create ephemeral filtered wordlist from %d: %v", parentID, err)
 			failJob(fmt.Sprintf("could not create filtered wordlist: %v", err))
@@ -1288,13 +1396,45 @@ func (h *UserJobsHandler) prepareAndCreateFilteredCustomJob(jobID uuid.UUID, con
 
 	config.WordlistIDs = filteredIDs
 
-	if err := h.jobExecutionService.FinalizeFilterJob(ctx, jobID, config); err != nil {
-		debug.Error("Failed to finalize filtered custom job %s: %v", jobID, err)
+	debug.Info("Generated %d ephemeral wordlist(s) for job %s; finalizing", len(createdWordlistIDs), jobID)
+	h.finalizeCustomJob(ctx, jobID, config, hashlistID, userID, loopback, customJobName, failJob)
+}
+
+// finalizeCustomJob computes the job's keyspace, creates its scheduling units and
+// flips it from "preparing" to "pending", then starts the loopback session if the
+// user asked for one.
+//
+// Shared by the filtered and unfiltered paths so both surface a failure the same
+// way — as a failed job carrying the reason, which is the only channel the user
+// has left once the request has returned 202.
+//
+// The loopback session is started here rather than at request time because until
+// the job reaches "pending" there is nothing for a session to attach to; a job
+// that fails during preparation should not leave an orphaned session behind.
+func (h *UserJobsHandler) finalizeCustomJob(
+	ctx context.Context,
+	jobID uuid.UUID,
+	config services.CustomJobConfig,
+	hashlistID int64,
+	userID uuid.UUID,
+	loopback bool,
+	customJobName string,
+	failJob func(reason string),
+) {
+	if err := h.jobExecutionService.FinalizeJob(ctx, jobID, config); err != nil {
+		debug.Error("Failed to finalize custom job %s: %v", jobID, err)
 		failJob(fmt.Sprintf("could not finalize job: %v", err))
 		return
 	}
 
-	debug.Info("Finalized filtered custom job %s with %d ephemeral wordlist(s)", jobID, len(createdWordlistIDs))
+	debug.Info("Finalized custom job %s (preparing -> pending)", jobID)
+
+	if loopback {
+		h.startLoopbackSession(ctx, hashlistID, models.LoopbackSourceCustom, nil, customJobName, &userID, []services.LoopbackOrigin{{
+			JobExecutionID: jobID,
+			IsMutatable:    models.IsMutatableAttack(config.AttackMode, config.RuleIDs),
+		}})
+	}
 }
 
 // GetJobDetail handles GET /api/jobs/{id}

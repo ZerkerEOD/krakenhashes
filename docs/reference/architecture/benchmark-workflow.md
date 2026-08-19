@@ -129,10 +129,41 @@ Hashcat provides the actual keyspace through `progress[1]` values, which the sys
 
 **job_executions table:**
 - `is_accurate_keyspace` (boolean): True when keyspace is from hashcat `progress[1]`
+- `base_keyspace_estimated` (boolean): True when `base_keyspace` itself is an upper-bound
+  estimate — see *Base vs effective keyspace* below
 - `avg_rule_multiplier` (float): Ratio of actual/estimated keyspace for improving future estimates
 
 **job_tasks table:**
 - `is_actual_keyspace` (boolean): True when task has actual keyspace from progress update
+
+### Base vs effective keyspace: only one of them self-heals
+
+The two keyspace values a job carries are **not** symmetric, which is why the two hashcat
+pre-flight commands are handled differently.
+
+`effective_keyspace` (from `--total-candidates`) has a fallback authority. If the command
+fails or times out, the job is created with an estimate and `is_accurate_keyspace = false`;
+the scheduler sees that, forces an agent benchmark before dispatching any chunk, and
+`HandleBenchmarkResult` replaces the estimate with hashcat's own `progress[1]`. Nothing is
+lost — this is the designed path, not an error path.
+
+`base_keyspace` (from `--keyspace`) has **no** such corrector. The benchmark never writes
+it, and it is the coordinate space chunk ranges are expressed in: `range_start`/`range_end`
+are base units and the dispatcher's tail gap runs to `scheduling_units.base_keyspace`. A
+wrong base is therefore not self-correcting — it changes what work gets dispatched.
+
+When the `--keyspace` pre-flight times out on a straight attack, the backend falls back to
+the wordlist's stored `word_count` and sets `base_keyspace_estimated`. That count is an
+**upper** bound: hashcat skips blank and over-length lines, so its keyspace can be slightly
+below the raw line count (rockyou: 14,344,384 vs 14,344,391). The final chunk can then
+address words hashcat does not index, hashcat exits 0 having tested nothing, and the agent
+reports `AGENT_NO_WORK`.
+
+`handleEstimatedKeyspaceOverrun` closes that loop: on an `AGENT_NO_WORK` failure, for a unit
+flagged `base_keyspace_estimated`, whose task range reaches the tail, it takes the failure as
+a measurement — the real keyspace ends where that task began — shrinks `base_keyspace` to
+match, clears the flag and retires the range. Outside those three conditions `AGENT_NO_WORK`
+keeps its usual meaning (a device that never ran), so this cannot mask an autotune skip.
 
 ## Hashlist Download Strategy for Benchmarks
 
