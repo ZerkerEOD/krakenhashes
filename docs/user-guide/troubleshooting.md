@@ -115,6 +115,24 @@ This guide helps you resolve common issues when using KrakenHashes. If your issu
   - Check attack mode parameters are valid
   - Ensure selected wordlists/rules exist
 
+**Some jobs created, others did not** (selecting several presets, or a multi-step workflow)
+- KrakenHashes now creates the ones it can and reports the rest rather than failing silently.
+  The message lists each item that did not make it and why.
+- **Solution**: act on the per-item reason — most often a preset that references a wordlist
+  or rule file that has since been deleted.
+
+### Job Stuck in Preparing
+
+A job sits in **Preparing** while KrakenHashes measures how large the attack is, which means
+reading the wordlist end to end. On a multi-gigabyte list this legitimately takes minutes.
+
+- **Normal**: it clears on its own and the job moves to Pending. Nothing to do.
+- **Still preparing after a long time**: check the job list for a **Failed** entry instead —
+  preparation failures land there with a reason rather than leaving the job stuck.
+- **Happens on every large job**: ask an administrator to raise **Keyspace Calculation
+  Timeout** (Admin → Job Execution → Job Control). Note this is a *different* setting from
+  the Speed Test timeouts under System Settings, which govern agent benchmarks.
+
 ### Job Stuck in Pending
 
 **Issue**: Job never starts
