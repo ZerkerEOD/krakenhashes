@@ -130,8 +130,8 @@ reading the wordlist end to end. On a multi-gigabyte list this legitimately take
 - **Still preparing after a long time**: check the job list for a **Failed** entry instead —
   preparation failures land there with a reason rather than leaving the job stuck.
 - **Happens on every large job**: ask an administrator to raise **Keyspace Calculation
-  Timeout** (Admin → Job Execution → Job Control). Note this is a *different* setting from
-  the Speed Test timeouts under System Settings, which govern agent benchmarks.
+  Timeout** (Admin → Job Execution → Keyspace & Benchmark). It sits next to the Agent Speed
+  Test timeouts in that panel, but they are different stages — raising those will not help.
 
 ### Job Stuck in Pending
 

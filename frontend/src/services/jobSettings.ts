@@ -42,6 +42,16 @@ export interface SettingsUpdateResponse {
   errors?: Record<string, string>;
 }
 
+/**
+ * @deprecated The admin UI no longer uses these. The Job Execution settings page
+ * reads `GET /api/admin/settings` and writes one key at a time via
+ * `PUT /api/admin/settings/{key}`, because the bulk endpoint below writes EVERY
+ * key on every save — so saving one field could silently overwrite a value an
+ * operator had just changed on another page.
+ *
+ * Both are kept for API compatibility with any external caller. Prefer
+ * `updateSystemSetting` from `services/systemSettings` for new code.
+ */
 export const getJobExecutionSettings = async (): Promise<JobExecutionSettings> => {
   const response = await api.get('/api/admin/settings/job-execution');
   return response.data;
@@ -60,6 +70,7 @@ export const getJobDefaultsForUsers = async (): Promise<UserJobDefaults> => {
   return response.data;
 };
 
+/** @deprecated See getJobExecutionSettings — writes every key, not just changed ones. */
 export const updateJobExecutionSettings = async (settings: JobExecutionSettings): Promise<SettingsUpdateResponse> => {
   const response = await api.put('/api/admin/settings/job-execution', settings);
   return response.data;
