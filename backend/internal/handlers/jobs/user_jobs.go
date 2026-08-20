@@ -722,6 +722,13 @@ type jobCreationFailure struct {
 	// Name is the preset/step name when known — more use to a human than a UUID.
 	Name  string `json:"name,omitempty"`
 	Error string `json:"error"`
+
+	// ClientError marks a failure caused by what the caller sent (a malformed ID,
+	// a reference to something that does not exist) rather than by the server
+	// failing to do its job. When every failure is one of these the response is a
+	// 400, so a bad request is not reported as a server fault. Not serialised —
+	// it only steers the status code.
+	ClientError bool `json:"-"`
 }
 
 // isKeyspaceError reports whether a job-creation error is about keyspace, and
@@ -740,9 +747,25 @@ func isKeyspaceError(err error) bool {
 	return false
 }
 
+// allClientErrors reports whether every recorded failure was caused by the
+// request itself. Used to answer 400 rather than 500 when the caller sent
+// something we could never have acted on.
+func allClientErrors(failures []jobCreationFailure) bool {
+	if len(failures) == 0 {
+		return false
+	}
+	for _, f := range failures {
+		if !f.ClientError {
+			return false
+		}
+	}
+	return true
+}
+
 // writeJobCreationFailure sends the response for a request where nothing could
 // be created. It reports the first real error instead of a generic message, and
-// maps keyspace problems to 400 so the UI can show them as actionable.
+// maps keyspace problems and bad input to 400 so the UI can show them as
+// actionable rather than as a server fault.
 func writeJobCreationFailure(w http.ResponseWriter, failures []jobCreationFailure, firstErr error) {
 	if firstErr == nil {
 		http.Error(w, "No jobs were created", http.StatusInternalServerError)
@@ -751,14 +774,18 @@ func writeJobCreationFailure(w http.ResponseWriter, failures []jobCreationFailur
 
 	status := http.StatusInternalServerError
 	prefix := "Failed to create job"
-	if isKeyspaceError(firstErr) {
+	switch {
+	case isKeyspaceError(firstErr):
 		status = http.StatusBadRequest
 		prefix = "Keyspace error"
+	case allClientErrors(failures):
+		status = http.StatusBadRequest
+		prefix = "Invalid request"
 	}
 
 	msg := fmt.Sprintf("%s: %s", prefix, firstErr.Error())
 	if len(failures) > 1 {
-		msg = fmt.Sprintf("%s (%d of %d items failed; first error shown)", msg, len(failures), len(failures))
+		msg = fmt.Sprintf("%s (and %d more; first error shown)", msg, len(failures)-1)
 	}
 	http.Error(w, msg, status)
 }
@@ -855,6 +882,11 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			presetJobID, err := uuid.Parse(presetJobIDStr)
 			if err != nil {
 				debug.Error("Invalid preset job ID: %s", presetJobIDStr)
+				failures = append(failures, jobCreationFailure{
+					PresetJobID: presetJobIDStr,
+					Error:       fmt.Sprintf("not a valid preset job ID: %q", presetJobIDStr),
+					ClientError: true,
+				})
 				continue
 			}
 
@@ -865,6 +897,7 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 				failures = append(failures, jobCreationFailure{
 					PresetJobID: presetJobID.String(),
 					Error:       fmt.Sprintf("preset job could not be loaded: %v", err),
+					ClientError: true,
 				})
 				continue
 			}
@@ -930,8 +963,9 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			if err != nil {
 				debug.Error("Invalid workflow ID: %s", workflowIDStr)
 				failures = append(failures, jobCreationFailure{
-					Name:  workflowIDStr,
-					Error: fmt.Sprintf("invalid workflow ID %q", workflowIDStr),
+					Name:        workflowIDStr,
+					Error:       fmt.Sprintf("invalid workflow ID %q", workflowIDStr),
+					ClientError: true,
 				})
 				continue
 			}
@@ -941,8 +975,9 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			if err != nil {
 				debug.Error("Failed to get workflow %s: %v", workflowID, err)
 				failures = append(failures, jobCreationFailure{
-					Name:  workflowIDStr,
-					Error: fmt.Sprintf("workflow could not be loaded: %v", err),
+					Name:        workflowIDStr,
+					Error:       fmt.Sprintf("workflow could not be loaded: %v", err),
+					ClientError: true,
 				})
 				continue
 			}

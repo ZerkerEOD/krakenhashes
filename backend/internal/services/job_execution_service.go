@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -312,6 +313,12 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 	var effectiveKeyspace *models.BigInt
 	var isAccurateKeyspace bool
 	var multiplicationFactor int64 = 1
+	// Set only when we fall through to a live calculation AND that calculation
+	// had to fall back to an estimate; carried down to the post-create block so
+	// the job is flagged and the operator told. A preset with a usable cached
+	// keyspace never reaches the pre-flight, so these stay zero.
+	var baseEstimated bool
+	var preflightTimeout time.Duration
 
 	if presetJob.Keyspace != nil && *presetJob.Keyspace > 0 {
 		totalKeyspace = presetJob.Keyspace
@@ -328,11 +335,13 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 	} else {
 		// Fallback to calculating keyspace if not pre-calculated
 		debug.Warning("Preset job has no pre-calculated keyspace, calculating now")
-		totalKeyspace, effectiveKeyspace, isAccurateKeyspace, err = s.calculateKeyspace(ctx, presetJob, hashlist)
-		if err != nil {
-			debug.Error("Failed to calculate keyspace: %v", err)
-			return nil, fmt.Errorf("keyspace calculation is required for job execution: %w", err)
+		ks, ksErr := s.calculateKeyspaceDetailed(ctx, presetJob, hashlist)
+		if ksErr != nil {
+			debug.Error("Failed to calculate keyspace: %v", ksErr)
+			return nil, fmt.Errorf("keyspace calculation is required for job execution: %w", ksErr)
 		}
+		totalKeyspace, effectiveKeyspace, isAccurateKeyspace = ks.base, ks.effective, ks.isAccurate
+		baseEstimated, preflightTimeout = ks.baseEstimated, ks.preflightTimeout
 		// Calculate multiplication factor from returned values.
 		// Rounded (not truncated) so 70923768/23641330 = 2.9999… → 3, not 2.
 		// This is a display-only value; correctness paths derive the ratio from
@@ -411,6 +420,18 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 	err = s.jobExecRepo.Create(ctx, jobExecution)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create job execution: %w", err)
+	}
+
+	// Record that base_keyspace is an upper-bound estimate and tell the operator.
+	// Mirrors CreateCustomJobExecution's handling, and must run BEFORE
+	// populateSchedulingUnitsIfEnabled below — that is what copies the flag onto
+	// the units, and without it on the unit the dispatcher's estimated-tail guard
+	// (resolveEstimatedKeyspaceOverrun) can never fire for this job.
+	if baseEstimated {
+		if err := s.jobExecRepo.SetBaseKeyspaceEstimated(ctx, jobExecution.ID, true); err != nil {
+			debug.Warning("Failed to flag job %s as base_keyspace_estimated: %v", jobExecution.ID, err)
+		}
+		s.dispatchKeyspaceEstimateNotification(ctx, jobExecution, preflightTimeout)
 	}
 
 	// Initialize increment layers if increment mode is enabled
@@ -497,7 +518,7 @@ func (s *JobExecutionService) computeKeyspaceStrategy(ctx context.Context, tempP
 	}
 
 	// For salted hash types, adjust effective_keyspace by salt count
-	// calculateKeyspace's --total-candidates = base × rules (no hashlist when run)
+	// calculateKeyspaceDetailed's --total-candidates = base × rules (no hashlist when run)
 	// Job's effective_keyspace = base × rules × salts (to match progress[1])
 	if effectiveKeyspace != nil && effectiveKeyspace.IsPositive() {
 		hashType, htErr := s.hashTypeRepo.GetByID(ctx, hashlist.HashTypeID)
@@ -710,7 +731,7 @@ func (s *JobExecutionService) FailJob(ctx context.Context, jobID uuid.UUID, reas
 	return nil
 }
 
-// calculateKeyspace calculates the total keyspace for a job using hashcat --keyspace
+// calculateKeyspaceDetailed calculates the total keyspace for a job using hashcat --keyspace
 // Returns: baseKeyspace, effectiveKeyspace, isAccurateKeyspace, error
 // If --total-candidates succeeds, effectiveKeyspace will be accurate and isAccurateKeyspace=true
 // Otherwise, effectiveKeyspace will be an estimate and isAccurateKeyspace=false
@@ -733,17 +754,15 @@ type keyspaceResult struct {
 	estimatedFromWordlists []string
 }
 
-// calculateKeyspace is the tuple-shaped wrapper kept for callers that only need
-// the three headline values. Use calculateKeyspaceDetailed when the caller has a
-// job row to annotate or an operator to notify.
-func (s *JobExecutionService) calculateKeyspace(ctx context.Context, presetJob *models.PresetJob, hashlist *models.HashList) (*int64, *models.BigInt, bool, error) {
-	res, err := s.calculateKeyspaceDetailed(ctx, presetJob, hashlist)
-	if err != nil {
-		return nil, nil, false, err
-	}
-	return res.base, res.effective, res.isAccurate, nil
-}
-
+// calculateKeyspaceDetailed is the only entry point for the keyspace pre-flight.
+//
+// There was briefly a tuple-shaped convenience wrapper around this that returned
+// (base, effective, isAccurate, error) and dropped baseEstimated/preflightTimeout.
+// It silently disabled the whole estimated-keyspace mechanism for preset jobs:
+// the fallback base was persisted without its flag, no operator notification was
+// sent, and — because the flag propagates to scheduling_units — the dispatcher's
+// tail guard could never fire. Callers take the struct so those fields cannot be
+// dropped by accident again.
 func (s *JobExecutionService) calculateKeyspaceDetailed(ctx context.Context, presetJob *models.PresetJob, hashlist *models.HashList) (keyspaceResult, error) {
 	debug.Log("Starting keyspace calculation for job execution", map[string]interface{}{
 		"preset_job_id":  presetJob.ID,
@@ -1137,8 +1156,10 @@ func describeHashcatOutput(stdout, stderr string) string {
 //
 // The result is an UPPER bound: hashcat skips words that exceed its maximum
 // password length, so its keyspace can be slightly below the raw line count.
-// Callers must therefore mark the job is_accurate_keyspace=false, and the
-// dispatcher must tolerate a short final gap (see clampRangeToAcknowledged).
+// Callers must therefore mark the job is_accurate_keyspace=false AND
+// base_keyspace_estimated=true, which is what arms resolveEstimatedKeyspaceOverrun
+// (internal/integration/job_websocket_integration.go) to retire the short final
+// gap instead of stranding the job below 100%.
 func (s *JobExecutionService) estimateBaseKeyspace(ctx context.Context, presetJob *models.PresetJob) (int64, bool) {
 	if presetJob.AttackMode != models.AttackModeStraight {
 		return 0, false
@@ -1155,6 +1176,14 @@ func (s *JobExecutionService) estimateBaseKeyspace(ctx context.Context, presetJo
 		count := s.getWordlistWordCount(ctx, wordlistIDStr)
 		if count <= 0 {
 			debug.Warning("No stored word count for wordlist %q; cannot estimate base keyspace", wordlistIDStr)
+			return 0, false
+		}
+		// Refuse rather than wrap. base_keyspace is the dispatch coordinate space,
+		// so a negative value here would not fail loudly — it would quietly produce
+		// nonsense chunk ranges. Not reachable with real wordlists (int64 max is
+		// ~9.2 quintillion words), but the check is one comparison.
+		if count > math.MaxInt64-total {
+			debug.Warning("Summed word count for the selected wordlists exceeds int64; cannot estimate base keyspace")
 			return 0, false
 		}
 		total += count
@@ -2690,7 +2719,7 @@ func (s *JobExecutionService) RepairPendingJobKeyspaces(ctx context.Context) (in
 		}
 
 		// Rebuild a preset-shaped struct from the job's own params so we reuse
-		// the exact same calculation path as creation (calculateKeyspace).
+		// the exact same calculation path as creation (calculateKeyspaceDetailed).
 		tempPreset := &models.PresetJob{
 			Name:               job.Name,
 			WordlistIDs:        job.WordlistIDs,
@@ -2704,11 +2733,15 @@ func (s *JobExecutionService) RepairPendingJobKeyspaces(ctx context.Context) (in
 			HexCharset:         job.HexCharset,
 		}
 
-		base, effective, accurate, kErr := s.calculateKeyspace(ctx, tempPreset, hashlist)
+		ks, kErr := s.calculateKeyspaceDetailed(ctx, tempPreset, hashlist)
 		if kErr != nil {
 			debug.Warning("RepairPendingJobKeyspaces: job %s keyspace calc failed: %v", job.ID, kErr)
 			continue
 		}
+		base, effective, accurate := ks.base, ks.effective, ks.isAccurate
+		// Repair only accepts an exact measurement. An estimated base is skipped
+		// rather than written, so this path never needs the baseEstimated flag —
+		// leaving the job as it is lets the agent benchmark resolve it instead.
 		if !accurate || base == nil || effective == nil || *base <= 0 || !effective.IsPositive() {
 			continue // couldn't measure accurately; leave for the agent benchmark
 		}
