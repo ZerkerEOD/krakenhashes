@@ -64,6 +64,48 @@ type AWSSettings struct {
 	InstanceTypeRates map[string]int `json:"instance_type_rates"`
 	// RootVolumeGB is a floor; the job's file set may require more.
 	RootVolumeGB int `json:"root_volume_gb"`
+	// EBSCentsPerGBMonth is the gp3 storage rate. Left at zero, EBS is simply
+	// never budgeted: Offer.StorageCentsPerHour stays 0, PlanLaunch's extraCents
+	// term is 0, and the reservation covers only compute. A 500GB volume on a
+	// long job is real money to be wrong about, and being wrong in this
+	// direction means over-committing the client's cap.
+	//
+	// Operator-supplied for the same reason as InstanceTypeRates, and it should
+	// be rounded UP: reservations are denominated in these declared cents and
+	// nothing cross-checks them against a real invoice.
+	EBSCentsPerGBMonth float64 `json:"ebs_cents_per_gb_month"`
+}
+
+// defaultEBSCentsPerGBMonth is us-east-1 gp3 at $0.08/GB-month. A wrong-region
+// default is better than silently budgeting zero for storage, and the operator
+// can override it in settings.
+const defaultEBSCentsPerGBMonth = 8.0
+
+// hoursPerMonth is AWS's own billing convention (730), not 720 or 744.
+const hoursPerMonth = 730
+
+/*
+ * ebsCentsPerHour converts an EBS volume size into the hourly rate the budget
+ * reserves against.
+ *
+ * Rounds UP, always. A reservation that under-states storage lets a client
+ * exceed a cap they were told was hard, which is the failure that matters here;
+ * over-reserving by a cent an hour only means renting slightly less.
+ */
+func (a *AWSProvider) ebsCentsPerHour(diskGB int) int {
+	if diskGB <= 0 {
+		return 0
+	}
+	rate := a.settings.EBSCentsPerGBMonth
+	if rate <= 0 {
+		rate = defaultEBSCentsPerGBMonth
+	}
+	perHour := (float64(diskGB) * rate) / hoursPerMonth
+	cents := int(perHour)
+	if perHour > float64(cents) {
+		cents++
+	}
+	return cents
 }
 
 // AWSCredentials is the encrypted secret blob.
@@ -278,6 +320,15 @@ func (a *AWSProvider) SearchOffers(ctx context.Context, q OfferQuery) ([]Offer, 
 		allowed[t] = true
 	}
 
+	// The volume that will actually be attached: the job's file set, floored at
+	// the configured root size. Budgeting the floor when the job needs more
+	// would under-reserve exactly on the big jobs where it matters.
+	diskGB := q.MinDiskGB
+	if a.settings.RootVolumeGB > diskGB {
+		diskGB = a.settings.RootVolumeGB
+	}
+	storageCentsPerHour := a.ebsCentsPerHour(diskGB)
+
 	var offers []Offer
 	for instType, cents := range a.settings.InstanceTypeRates {
 		if len(allowed) > 0 && !allowed[instType] {
@@ -287,13 +338,14 @@ func (a *AWSProvider) SearchOffers(ctx context.Context, q OfferQuery) ([]Offer, 
 			continue
 		}
 		offers = append(offers, Offer{
-			ID:              instType,
-			InstanceType:    instType,
-			GPUModel:        instType,
-			GPUCount:        1,
-			HourlyRateCents: cents,
-			Region:          a.settings.Region,
-			Raw:             models.JSONMap{"instance_type": instType},
+			ID:                  instType,
+			InstanceType:        instType,
+			GPUModel:            instType,
+			GPUCount:            1,
+			HourlyRateCents:     cents,
+			StorageCentsPerHour: storageCentsPerHour,
+			Region:              a.settings.Region,
+			Raw:                 models.JSONMap{"instance_type": instType},
 		})
 	}
 	if len(offers) == 0 {

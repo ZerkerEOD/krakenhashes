@@ -1,3 +1,19 @@
+// DISABLED - DOES NOT COMPILE. Renamed out of the build so it stops blocking
+// the rest of this package's tests.
+//
+// Written against older signatures: storeCredentials has since changed shape
+// (the test passes (dir string, agentID int, cert string, key string); the
+// current function takes an int and []byte arguments), and LoadCredentials no
+// longer takes a directory or returns 5 values.
+//
+// It has therefore produced zero coverage since those signatures changed, while
+// making the rest of this package unrunnable. Fixing it is a mechanical but
+// non-trivial migration of every call site plus its assumptions about where
+// credentials are stored - a deliberate task, not a side effect of another one.
+//
+// To bring it back: git mv this file to registration_advanced_test.go and start
+// from the current signatures in registration.go.
+
 package agent
 
 import (

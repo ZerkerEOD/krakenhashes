@@ -543,6 +543,19 @@ func main() {
 	)
 	cloudService.AgentImage = getEnvOrDefault("KH_CLOUD_AGENT_IMAGE", "zerkereod/krakenhashes-agent-cloud:latest")
 	cloudService.SystemUserID = models.SystemUserID.String()
+	// The deployment-wide spend ceiling lives in system_settings. Without this
+	// the service cannot read it and refuses to provision at all, which is the
+	// correct behaviour for an unreadable kill switch but not what we want here.
+	cloudService.SystemSettings = systemSettingsRepo
+
+	// Operator-tunable timings. These keys were seeded by the provisioning
+	// migration and read by nothing, so an admin who changed them was changing
+	// a display value. Loaded once at startup: they govern loop cadence, and
+	// re-reading them per tick would put a query on every sweep.
+	cloudSettings := cloudsvc.LoadSettings(context.Background(), systemSettingsRepo)
+	debug.Info("Cloud settings: reaper interval=%s, orphan grace=%s, idle drain=%s, instance cap=%d",
+		cloudSettings.ReaperInterval, cloudSettings.OrphanGrace, cloudSettings.IdleDrain,
+		cloudSettings.GlobalInstanceCap)
 
 	// The reaper's escalation path exists for one situation: automation has
 	// lost control of an instance that is still billing. Passing nil here made
@@ -557,9 +570,17 @@ func main() {
 	}
 
 	cloudReaper := cloudsvc.NewReaper(cloudInstanceRepo, cloudBudget, cloudService.ProviderFor, cloudNotifier)
+	cloudReaper.OrphanGrace = cloudSettings.OrphanGrace
+	cloudReaper.IdleDrain = cloudSettings.IdleDrain
 	cloudCtx, cloudCancel := context.WithCancel(context.Background())
 	defer cloudCancel()
-	go cloudReaper.Run(cloudCtx, time.Duration(getEnvIntOrDefault("KH_CLOUD_REAPER_INTERVAL", 60))*time.Second)
+	// The environment variable still wins when set, so an operator debugging a
+	// stuck teardown can tighten the loop without a database write.
+	reaperInterval := cloudSettings.ReaperInterval
+	if env := getEnvIntOrDefault("KH_CLOUD_REAPER_INTERVAL", 0); env > 0 {
+		reaperInterval = time.Duration(env) * time.Second
+	}
+	go cloudReaper.Run(cloudCtx, reaperInterval)
 
 	// Pin rented agents to the job that paid for them. Nil-safe: leaving this
 	// unset would silently allow a cloud agent to take another client's work.
@@ -593,7 +614,10 @@ func main() {
 		routes.JobIntegrationManager.SetCloudStarvationPublisher(starvation)
 
 		autoscaler := cloudsvc.NewAutoscaler(starvation, cloudService)
-		autoscaler.GlobalInstanceCap = getEnvIntOrDefault("KH_CLOUD_MAX_INSTANCES", 0)
+		autoscaler.GlobalInstanceCap = cloudSettings.GlobalInstanceCap
+		if env := getEnvIntOrDefault("KH_CLOUD_MAX_INSTANCES", 0); env > 0 {
+			autoscaler.GlobalInstanceCap = env
+		}
 		autoscaler.LiveInstanceCount = cloudInstanceRepo.CountLive
 
 		interval := time.Duration(getEnvIntOrDefault("KH_CLOUD_AUTOSCALE_INTERVAL", 60)) * time.Second

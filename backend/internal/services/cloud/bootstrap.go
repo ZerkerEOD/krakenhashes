@@ -5,6 +5,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 )
 
 // Environment variables the cloud agent image understands. The entrypoint
@@ -29,6 +31,23 @@ const (
 	// tunnel would send it down a dead link in exactly the scenario the
 	// self-destruct exists for.
 	EnvNoProxy = "KH_NO_PROXY_EXTRA"
+	// EnvHostDeadlineFile points the container at the host's deadline file,
+	// bind-mounted in. Writing 0 to it is how an unprivileged container asks
+	// the host to terminate — its own poweroff cannot work (no CAP_SYS_BOOT)
+	// and --restart=unless-stopped undoes killing PID 1. Absent on providers
+	// like Vast.ai where there is no host to reach, which is why the container
+	// falls back to the provider's own destroy API there.
+	EnvHostDeadlineFile = "KH_HOST_DEADLINE_FILE"
+)
+
+// Paths for the AWS host-side deadline watchdog.
+const (
+	// hostDeadlineDir is on a real filesystem, not tmpfs. See the bootstrap
+	// script's comment for why that distinction is load-bearing.
+	hostDeadlineDir  = "/var/lib/krakenhashes"
+	hostDeadlinePath = "/var/lib/krakenhashes/deadline"
+	// containerDeadlinePath is where that file appears inside the container.
+	containerDeadlinePath = "/run/kh-host-deadline"
 )
 
 /*
@@ -72,8 +91,14 @@ func BuildCloudInitUserData(req LaunchRequest) (string, error) {
 # Step 1 arms the kill timer. Nothing else runs before it.
 set -uo pipefail
 
+# %s, NOT /run. /run is tmpfs: a reboot — which a GPU driver crash or a spot
+# reclamation warning can cause — would wipe the deadline, the watchdog would
+# find nothing to read, and the ONLY kill path that survives losing the backend
+# would be silently disarmed for the rest of the instance's life.
+mkdir -p %s
 DEADLINE=%d
-echo "$DEADLINE" > /run/krakenhashes-deadline
+echo "$DEADLINE" > %s
+sync
 
 cat >/usr/local/bin/kh-deadline-watchdog <<'WATCHDOG'
 #!/bin/bash
@@ -81,18 +106,31 @@ cat >/usr/local/bin/kh-deadline-watchdog <<'WATCHDOG'
 # regardless of whether the backend is reachable, the agent is healthy, or the
 # container ever started.
 #
+# It is also how the CONTAINER terminates the HOST. A rented container is
+# unprivileged: it has no CAP_SYS_BOOT, so its own poweroff falls through to
+# "kill -9 1", and --restart=unless-stopped then brings it straight back. The
+# container instead writes 0 into this file (bind-mounted into it) and this
+# watchdog powers the machine off within one poll.
+#
 # poweroff --force is deliberate: it bypasses a graceful shutdown that a wedged
 # GPU driver could otherwise stall indefinitely. Combined with the instance's
 # InstanceInitiatedShutdownBehavior=terminate, this stops billing.
-DEADLINE_FILE=/run/krakenhashes-deadline
+DEADLINE_FILE=%s
 while true; do
     if [ -r "$DEADLINE_FILE" ]; then
-        DEADLINE=$(cat "$DEADLINE_FILE")
+        DEADLINE=$(cat "$DEADLINE_FILE" 2>/dev/null || echo 0)
         NOW=$(date +%%s)
-        if [ "$NOW" -ge "$DEADLINE" ]; then
-            logger -t krakenhashes "absolute deadline reached; terminating instance"
+        # A deadline of 0 means "terminate now" — the container asking the host
+        # to do what it cannot do itself.
+        if [ "$DEADLINE" -eq 0 ] || [ "$NOW" -ge "$DEADLINE" ]; then
+            logger -t krakenhashes "deadline reached (deadline=$DEADLINE now=$NOW); terminating instance"
             poweroff --force --force
         fi
+    else
+        # The file is gone. Something removed the only record of when this
+        # machine should die, so terminate rather than run unbounded.
+        logger -t krakenhashes "deadline file missing; terminating instance"
+        poweroff --force --force
     fi
     sleep 30
 done
@@ -103,6 +141,11 @@ cat >/etc/systemd/system/kh-deadline.service <<'UNIT'
 [Unit]
 Description=KrakenHashes absolute deadline watchdog
 DefaultDependencies=no
+# The deadline now lives on a real filesystem, so the watchdog must not start
+# before that filesystem is mounted — it would read nothing and, under the
+# missing-file rule above, power off a healthy instance during boot.
+After=local-fs.target
+Requires=local-fs.target
 [Service]
 Type=simple
 ExecStart=/usr/local/bin/kh-deadline-watchdog
@@ -115,13 +158,31 @@ UNIT
 systemctl daemon-reload
 systemctl enable --now kh-deadline.service
 
-# Step 2: run the agent. Failures below are survivable precisely because the
-# watchdog above is already running.
-docker pull %s || true
+# Step 2: run the agent.
+#
+# A pull failure used to be swallowed with "|| true", so a missing or private
+# image produced a GPU instance that billed at full rate until its TTL with no
+# agent on it at all. Disarm the deadline instead and let the watchdog end it in
+# under a minute.
+if ! docker pull %s; then
+    logger -t krakenhashes "agent image pull failed; terminating instance"
+    echo 0 > %s
+    sleep 60
+fi
+
+# The deadline file is bind-mounted so the container can request its own
+# termination through the host. Read-write on purpose: writing 0 to it is the
+# container's only working self-destruct on AWS.
 docker run -d --restart=unless-stopped --name krakenhashes-agent \
   --gpus all \
+  -v %s:%s \
+  -e %s=%s \
 %s  %s
-`, deadline, req.Image, env.String(), req.Image)
+`, hostDeadlinePath, hostDeadlineDir, deadline, hostDeadlinePath,
+		hostDeadlinePath, req.Image, hostDeadlinePath,
+		hostDeadlinePath, containerDeadlinePath,
+		EnvHostDeadlineFile, containerDeadlinePath,
+		env.String(), req.Image)
 
 	return script, nil
 }
@@ -160,8 +221,25 @@ func BuildAgentEnv(
 		EnvDeadlineEpoch:           fmt.Sprintf("%d", time.Now().Add(ttl).Unix()),
 		EnvHeartbeatTimeoutSeconds: fmt.Sprintf("%d", int(heartbeatLoss.Seconds())),
 	}
+	/*
+	 * WireGuard's credential is not a key, it is a whole wireproxy config file,
+	 * and the entrypoint reads it from KH_VPN_CONFIG. Sending it as
+	 * KH_VPN_AUTH_KEY — which is what happened before this branch — left
+	 * KH_VPN_CONFIG empty, so start_wireguard hit its "FATAL: wireguard
+	 * selected but KH_VPN_CONFIG is empty" guard and the container
+	 * self-destructed on "VPN unavailable" every single time. WireGuard was a
+	 * selectable option that could never work.
+	 *
+	 * Routed to exactly one variable, not both: the config carries a private
+	 * key, and provider metadata is readable by the host operator, so it should
+	 * appear there once rather than twice.
+	 */
 	if vpnAuthKey != "" {
-		env[EnvVPNAuthKey] = vpnAuthKey
+		if vpnProvider == string(models.VPNProviderWireGuard) {
+			env[EnvVPNConfig] = vpnAuthKey
+		} else {
+			env[EnvVPNAuthKey] = vpnAuthKey
+		}
 	}
 	if vpnLoginServer != "" {
 		env[EnvVPNLoginServer] = vpnLoginServer

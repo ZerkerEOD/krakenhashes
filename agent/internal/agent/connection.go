@@ -1203,6 +1203,10 @@ func (c *Connection) readPump() {
 	// Set handlers for ping/pong
 	c.ws.SetPingHandler(func(appData string) error {
 		debug.Info("Received ping from server, sending pong")
+		// A server ping is proof the tunnel and the control plane are both up.
+		// On a rented instance this is what stops the in-guest watchdog from
+		// destroying a healthy machine.
+		noteBackendContact()
 		err := c.ws.SetReadDeadline(time.Now().Add(pongWait))
 		if err != nil {
 			debug.Error("Failed to set read deadline: %v", err)
@@ -1221,6 +1225,7 @@ func (c *Connection) readPump() {
 
 	c.ws.SetPongHandler(func(string) error {
 		debug.Info("Received pong from server")
+		noteBackendContact()
 		err := c.ws.SetReadDeadline(time.Now().Add(pongWait))
 		if err != nil {
 			debug.Error("Failed to set read deadline: %v", err)
@@ -1245,6 +1250,11 @@ func (c *Connection) readPump() {
 			c.isConnected.Store(false)
 			break
 		}
+
+		// Any decoded frame is proof of contact, not just heartbeats. Gating
+		// the cloud watchdog on one message type would let a stall in that type
+		// destroy a machine that is otherwise working normally.
+		noteBackendContact()
 
 		// Handle different message types
 		switch msg.Type {

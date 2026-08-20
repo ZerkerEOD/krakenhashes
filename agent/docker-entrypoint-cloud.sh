@@ -38,7 +38,13 @@ log() { echo "[kh-cloud $(date -u +%H:%M:%S)] $*"; }
 # KH_HEARTBEAT_FILE is overridable so the watchdog can be exercised without a
 # container, and KH_WATCHDOG_INTERVAL so that exercise takes seconds instead of
 # the 30s poll x 900s timeout a real instance uses.
+#
+# EXPORTED, not just set: the agent is the only thing that knows whether it can
+# still reach the backend, so the agent is what refreshes this file. Its
+# presence in the environment is also what tells the agent it is running under a
+# watchdog at all — an on-prem agent never sees it and writes nothing.
 : "${KH_HEARTBEAT_FILE:=/tmp/kh-last-contact}"
+export KH_HEARTBEAT_FILE
 HEARTBEAT_FILE="$KH_HEARTBEAT_FILE"
 : "${KH_DEADLINE_EPOCH:=0}"
 : "${KH_HEARTBEAT_LOSS_TIMEOUT:=900}"
@@ -61,10 +67,27 @@ self_destruct() {
             log "vast destroy call failed; falling back to poweroff"
     fi
 
-    # AWS (and anything else): the instance is launched with
-    # InstanceInitiatedShutdownBehavior=terminate, so powering off terminates
-    # and stops billing. --force twice skips a graceful shutdown that a wedged
-    # GPU driver could stall indefinitely.
+    # AWS (and anything else with a host we can reach): ask the HOST to
+    # terminate by disarming its deadline file, which is bind-mounted in.
+    #
+    # This exists because the obvious approach does not work. This container is
+    # unprivileged — no CAP_SYS_BOOT — so `poweroff` fails, and the fallback
+    # `kill -9 1` only kills the container, which `--restart=unless-stopped`
+    # then restarts. The machine keeps billing and the agent keeps coming back.
+    # The host watchdog polls this file every 30s and powers off on a 0.
+    if [ -n "${KH_HOST_DEADLINE_FILE:-}" ] && [ -w "${KH_HOST_DEADLINE_FILE}" ]; then
+        log "disarming host deadline ${KH_HOST_DEADLINE_FILE}; host watchdog will power off within 30s"
+        echo 0 > "${KH_HOST_DEADLINE_FILE}"
+        # Stop doing work while waiting to be terminated: a GPU that keeps
+        # running for another half-minute is billed for that half-minute.
+        pkill -9 hashcat 2>/dev/null
+        sleep 90
+    fi
+
+    # Last resort. On a privileged host this terminates (instances are launched
+    # with InstanceInitiatedShutdownBehavior=terminate); everywhere else it at
+    # least stops the agent. --force twice skips a graceful shutdown that a
+    # wedged GPU driver could stall indefinitely.
     poweroff --force --force 2>/dev/null || halt -f 2>/dev/null || kill -9 1
 }
 
