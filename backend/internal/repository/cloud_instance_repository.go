@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -254,6 +255,75 @@ func (r *CloudInstanceRepository) MarkLaunched(ctx context.Context, id uuid.UUID
  * AgentRepository.Create. A method here would only be useful for doing it the
  * unsafe way.
  */
+
+/*
+ * InstanceWorkStatus answers "does this rented machine still have anything to
+ * do?", which is the question no other teardown tier asks.
+ *
+ * Every other tier fires on something being wrong. This one fires on the
+ * ordinary happy ending — a job that finished early on an instance rented for
+ * hours longer.
+ */
+type InstanceWorkStatus struct {
+	// JobFinished is true once the parent job reaches a terminal state. There
+	// is then nothing that could ever need this instance again.
+	JobFinished bool
+	// JobExists is false when the job row is gone, which is also a reason to
+	// stop paying for the machine that was serving it.
+	JobExists bool
+	// LastActivityAt is the most recent moment this instance's agent had a task
+	// assigned, started or completed. Invalid when it has never had one — a
+	// distinct case from "idle since X", because an instance that has never
+	// worked is measured from when it became ready.
+	LastActivityAt sql.NullTime
+}
+
+/*
+ * WorkStatus reports whether an instance's job still needs it.
+ *
+ * Activity is measured from job_tasks rather than from scheduler state on
+ * purpose: this must not reimplement "is there dispatchable keyspace", which
+ * would drift from the allocator and start destroying instances the scheduler
+ * was about to use. Whether a task was recently handed to THIS agent is a fact,
+ * and a stale one only ever delays teardown.
+ */
+func (r *CloudInstanceRepository) WorkStatus(ctx context.Context, jobID uuid.UUID, agentID *int) (*InstanceWorkStatus, error) {
+	out := &InstanceWorkStatus{}
+
+	var status string
+	err := r.db.QueryRowContext(ctx,
+		`SELECT status FROM job_executions WHERE id = $1`, jobID).Scan(&status)
+	if errors.Is(err, sql.ErrNoRows) {
+		return out, nil // JobExists stays false
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read job status for cloud instance: %w", err)
+	}
+	out.JobExists = true
+	switch status {
+	case "completed", "failed", "cancelled":
+		out.JobFinished = true
+	}
+
+	if agentID == nil {
+		return out, nil
+	}
+	// GREATEST over the three lifecycle stamps: a task can be assigned and then
+	// sit for a while before it starts, and either is proof the instance is in
+	// use. COALESCE to assigned_at so a NULL completed_at cannot null the whole
+	// expression and make a busy agent look idle.
+	err = r.db.QueryRowContext(ctx, `
+		SELECT MAX(GREATEST(
+			COALESCE(completed_at, assigned_at),
+			COALESCE(started_at,   assigned_at),
+			assigned_at))
+		FROM job_tasks
+		WHERE agent_id = $1`, *agentID).Scan(&out.LastActivityAt)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("failed to read task activity for agent %d: %w", *agentID, err)
+	}
+	return out, nil
+}
 
 // AddIncurredCost advances the running cost estimate.
 func (r *CloudInstanceRepository) AddIncurredCost(ctx context.Context, id uuid.UUID, deltaCents int64) error {

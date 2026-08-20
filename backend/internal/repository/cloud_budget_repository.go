@@ -59,6 +59,32 @@ func NewCloudBudgetRepository(database *db.DB) *CloudBudgetRepository {
 // infrastructure in this codebase to own a period boundary.
 const budgetWindow = `recorded_at >= date_trunc('month', NOW())`
 
+/*
+ * GlobalCommittedThisMonth is committed spend across EVERY client in the
+ * current billing period.
+ *
+ * Per-client caps bound one engagement; this bounds the deployment. Without it,
+ * twenty funded clients each inside their own budget can still produce a bill
+ * nobody authorised, because no single check ever sees the total.
+ *
+ * Same arithmetic as the per-client state on purpose — reservation + release +
+ * reconciliation, with `incurred` excluded so a running instance is not counted
+ * twice. Any divergence between the two would show up as a system cap that
+ * disagrees with the sum of the client caps it is supposed to bound.
+ */
+func (r *CloudBudgetRepository) GlobalCommittedThisMonth(ctx context.Context) (int64, error) {
+	var committed int64
+	err := r.db.QueryRowContext(ctx, `
+		SELECT COALESCE(SUM(cents), 0)
+		FROM cloud_spend_ledger
+		WHERE kind IN ('reservation','release','reconciliation')
+		  AND `+budgetWindow).Scan(&committed)
+	if err != nil {
+		return 0, fmt.Errorf("failed to compute global committed cloud spend: %w", err)
+	}
+	return committed, nil
+}
+
 // GetPolicy returns the client's threshold ladder, falling back to the system
 // default row (client_id IS NULL) when the client has no override.
 func (r *CloudBudgetRepository) GetPolicy(ctx context.Context, clientID uuid.UUID) (*models.CloudBudgetPolicy, error) {
