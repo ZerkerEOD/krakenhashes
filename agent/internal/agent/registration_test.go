@@ -1,9 +1,16 @@
 package agent
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -178,8 +185,8 @@ func TestCleanupStaleLocks(t *testing.T) {
 	fileLocks[path3] = &sync.Mutex{}
 
 	// Set timestamps
-	lastUsed[path1] = time.Now().Add(-2 * lockTimeout)      // Stale
-	lastUsed[path2] = time.Now()                            // Fresh
+	lastUsed[path1] = time.Now().Add(-2 * lockTimeout)                // Stale
+	lastUsed[path2] = time.Now()                                      // Fresh
 	lastUsed[path3] = time.Now().Add(-lockTimeout - time.Millisecond) // Stale
 
 	// Cleanup
@@ -229,79 +236,98 @@ func TestGetFileLock(t *testing.T) {
 	assert.True(t, time2.After(time1))
 }
 
+/*
+ * generateTestCert produces a real self-signed certificate and key.
+ *
+ * The literals this replaced were hand-assembled PEM that no X.509 parser
+ * accepts — openssl rejects them too — so RegisterAgent failed at "failed to
+ * parse CA certificate" and the test had been red for as long as it existed.
+ * A fixture that cannot be parsed tests only the error path.
+ *
+ * Generated per run rather than checked in, so there is no expiry date to come
+ * back and break this in a few years.
+ */
+func generateTestCert(t *testing.T) (certPEM, keyPEM string) {
+	t.Helper()
+
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	template := x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "localhost"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(24 * time.Hour),
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
+	require.NoError(t, err)
+
+	keyDER, err := x509.MarshalPKCS8PrivateKey(key)
+	require.NoError(t, err)
+
+	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})),
+		string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER}))
+}
 
 func TestRegistrationIntegration(t *testing.T) {
+	// RegisterAgent writes its config relative to the working directory, which
+	// for a Go test is the package directory — so without this the run leaves
+	// an untracked config/ca.crt in the source tree that then shows up in
+	// everyone's `git status`.
+	//
+	// t.Chdir would be the obvious tool but needs go1.24, and this module
+	// declares go1.23.1; bumping a module's language version as a side effect
+	// of fixing a test is not a trade worth making.
+	origWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(t.TempDir()))
+	t.Cleanup(func() { _ = os.Chdir(origWD) })
+
+	certPEM, keyPEM := generateTestCert(t)
+
 	// Create test server
 	var registrationCalled bool
 	var caCertRequested bool
-	
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/ca.crt":
 			caCertRequested = true
 			// Return a test CA certificate (self-signed for testing)
 			w.Header().Set("Content-Type", "application/x-pem-file")
-			// This is a minimal valid test certificate
-			w.Write([]byte(`-----BEGIN CERTIFICATE-----
-MIIBkzCB/QIJANOueFS4hDNUMA0GCSqGSIb3DQEBCwUAMBQxEjAQBgNVBAMMCWxv
-Y2FsaG9zdDAeFw0yNDAxMDEwMDAwMDBaFw0zNDAxMDEwMDAwMDBaMBQxEjAQBgNV
-BAMMCWxvY2FsaG9zdDBcMA0GCSqGSIb3DQEBAQUAA0sAMEgCQQC4m+OM3LatgmEY
-JogGR21HWE0hMGCGrJDDQX8pdQRnAkBD4p85m0kYGC2dHgXxcn3Eq41dXyYmdPWC
-l6ISqS6pAgMBAAEwDQYJKoZIhvcNAQELBQADQQBY8L3KyFHb8wlQFoGVZGnm8fKz
-xY2vUbRPXsKwQv3UmgmFB2SGjn8mWJPb8xLN9P1HFhS5sFawDRMcl6QdDKzR
------END CERTIFICATE-----`))
-			
+			w.Write([]byte(certPEM))
+
 		case "/api/agent/register":
 			registrationCalled = true
-			
+
 			// Verify request
 			assert.Equal(t, "POST", r.Method)
 			assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
-			
+
 			var req RegistrationRequest
 			err := json.NewDecoder(r.Body).Decode(&req)
 			require.NoError(t, err)
 			assert.Equal(t, "test-claim-code", req.ClaimCode)
 			assert.NotEmpty(t, req.Hostname)
-			
+
 			// Send response with valid PEM certificates
 			resp := RegistrationResponse{
 				AgentID:       123,
 				APIKey:        "test-api-key",
 				DownloadToken: "test-download-token",
-				Certificate: `-----BEGIN CERTIFICATE-----
-MIIBkzCB/QIJANOueFS4hDNUMA0GCSqGSIb3DQEBCwUAMBQxEjAQBgNVBAMMCWxv
-Y2FsaG9zdDAeFw0yNDAxMDEwMDAwMDBaFw0zNDAxMDEwMDAwMDBaMBQxEjAQBgNV
-BAMMCWxvY2FsaG9zdDBcMA0GCSqGSIb3DQEBAQUAA0sAMEgCQQC4m+OM3LatgmEY
-JogGR21HWE0hMGCGrJDDQX8pdQRnAkBD4p85m0kYGC2dHgXxcn3Eq41dXyYmdPWC
-l6ISqS6pAgMBAAEwDQYJKoZIhvcNAQELBQADQQBY8L3KyFHb8wlQFoGVZGnm8fKz
-xY2vUbRPXsKwQv3UmgmFB2SGjn8mWJPb8xLN9P1HFhS5sFawDRMcl6QdDKzR
------END CERTIFICATE-----`,
-				PrivateKey: `-----BEGIN PRIVATE KEY-----
-MIIBVAIBADANBgkqhkiG9w0BAQEFAASCAT4wggE6AgEAAkEAuJvjjNy2rYJhGCaI
-BkdtR1hNITBghqyQw0F/KXUEZAJAQ+KfOZtJGBgtnR4F8XJ9xKuNXV8mJnT1gpei
-EqkuqQIDAQABAkBl6xyx1ZHa1h7L8aavFZwJ4bKKl9N7MHVHX7mCZKNMsnPCgYFm
-XLfyj0v2f0TcqQvhJdAkHPjEJY5h2c5qAKBhAiEA6GgLqYaZKdyQ1XanaP9V9Lrf
-DJb1MBW0nB1JRnmGJDECIQDLfGW9nP7D4mGGCHMXYJPBTB6b6dPQU2mEKRPqVIRU
-+QIgJWH1SAmUg3P7VQKPk8pBcvGBq7smVk6oQ7gFMUVJdwECIQC0YPHYRZrHTNyM
-Aw6jL7FTnOQKnPfg1mDl6KGYlDrlCQIgF8Y2Svkp5G6MO0FvYOdPDlULnJeUONKV
-oTOmGWvckEA=
------END PRIVATE KEY-----`,
-				CACertificate: `-----BEGIN CERTIFICATE-----
-MIIBkzCB/QIJANOueFS4hDNUMA0GCSqGSIb3DQEBCwUAMBQxEjAQBgNVBAMMCWxv
-Y2FsaG9zdDAeFw0yNDAxMDEwMDAwMDBaFw0zNDAxMDEwMDAwMDBaMBQxEjAQBgNV
-BAMMCWxvY2FsaG9zdDBcMA0GCSqGSIb3DQEBAQUAA0sAMEgCQQC4m+OM3LatgmEY
-JogGR21HWE0hMGCGrJDDQX8pdQRnAkBD4p85m0kYGC2dHgXxcn3Eq41dXyYmdPWC
-l6ISqS6pAgMBAAEwDQYJKoZIhvcNAQELBQADQQBY8L3KyFHb8wlQFoGVZGnm8fKz
-xY2vUbRPXsKwQv3UmgmFB2SGjn8mWJPb8xLN9P1HFhS5sFawDRMcl6QdDKzR
------END CERTIFICATE-----`,
+				Certificate:   certPEM,
+				PrivateKey:    keyPEM,
+				CACertificate: certPEM,
 				Endpoints: map[string]string{
 					"websocket": "wss://test.example.com/ws",
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(resp)
-			
+
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -312,7 +338,7 @@ xY2vUbRPXsKwQv3UmgmFB2SGjn8mWJPb8xLN9P1HFhS5sFawDRMcl6QdDKzR
 	// Extract just the port number from server.URL (http://127.0.0.1:PORT)
 	serverHost := server.URL[7:] // Remove "http://"
 	httpPort := serverHost[strings.LastIndex(serverHost, ":")+1:]
-	
+
 	urlConfig := &config.URLConfig{
 		BaseURL:      server.URL,
 		WebSocketURL: "ws://localhost:8080/ws",
@@ -320,7 +346,7 @@ xY2vUbRPXsKwQv3UmgmFB2SGjn8mWJPb8xLN9P1HFhS5sFawDRMcl6QdDKzR
 	}
 
 	// Register agent
-	err := RegisterAgent("test-claim-code", urlConfig)
+	err = RegisterAgent("test-claim-code", urlConfig)
 	assert.NoError(t, err)
 	assert.True(t, caCertRequested, "CA certificate should be requested")
 	assert.True(t, registrationCalled, "Registration endpoint should be called")

@@ -1179,6 +1179,50 @@ func (s *JobExecutionService) CreateJobExecution(
 
 ## Testing Strategies
 
+### Running the suite
+
+```bash
+cd backend
+# -p 1 IS REQUIRED, not a performance choice: several packages share one test
+# database and truncate it in their fixtures. Running two concurrently produces
+# deadlocks and foreign-key violations that look like real failures and do not
+# reproduce in isolation.
+go test -p 1 ./internal/...
+
+# Point at a different database if the default is not what you run.
+TEST_DATABASE_URL='postgres://user:pass@localhost:5432/krakenhashes_test?sslmode=disable' \
+  go test -p 1 ./internal/repository/...
+```
+
+`TruncateAll` destroys every row in the public schema, so the helpers refuse to
+touch a database whose name does not look like a test database. The default
+differs from the development database by five characters.
+
+### What CI actually runs
+
+`.github/workflows/test.yml` gates pull requests on the backend, agent, agent
+watchdog, frontend and migration suites. Two of its steps are deliberately
+**non-gating**, and the list is worth knowing before you assume green means
+everything passed:
+
+| Suite | Status | Why |
+|---|---|---|
+| `internal/services/scheduler` | reported, not gating | 3 pre-existing `max_agents_fifo` failures — migration `000154`'s setting description says overflow is priority-agnostic, the docs and `allocator.go` say priority-first. Unsettled spec, not a regression |
+| agent `internal/config`, `internal/jobs`, `internal/metrics/integration_test`, `internal/sync` | reported, not gating | Pre-existing failures |
+
+A gate that is red the day it lands gets ignored rather than fixed, so these run
+in `continue-on-error` steps where a *new* failure is still greppable in the
+log. Move each one up to the gating step as it is fixed.
+
+Two agent test files are quarantined as `.disabled`:
+`connection_pump_test.go` (broken since `219b3954`; restoring it needs an
+interface seam on `Connection.ws`, which is a production refactor) and
+`registration_advanced_test.go`. They failed to compile, which blocked all 43
+other tests in `internal/agent`.
+
+`go vet` and the gofmt check are likewise scoped — vet to the packages that are
+clean today, gofmt to the files a PR actually changed — for the same reason.
+
 ### Unit Testing
 
 ```go
