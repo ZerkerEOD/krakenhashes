@@ -1034,7 +1034,7 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 		}
 
 		// Debug logging for increment mode
-		debug.Info("Received custom job request with increment settings", map[string]interface{}{
+		debug.Info("Received custom job request with increment settings: %v", map[string]interface{}{
 			"increment_mode": req.CustomJob.IncrementMode,
 			"increment_min":  req.CustomJob.IncrementMin,
 			"increment_max":  req.CustomJob.IncrementMax,
