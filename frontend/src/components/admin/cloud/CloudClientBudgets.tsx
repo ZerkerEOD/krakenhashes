@@ -34,6 +34,9 @@ import {
   ClientCloudSettingsInput,
   CloudBudgetAssessment,
   CloudProviderKind,
+  CLOUD_PROVIDER_KINDS,
+  cloudProviderLabel,
+  requiresThirdPartyAck,
 } from '../../../types/cloud';
 import {
   acknowledgeClientProvider,
@@ -46,7 +49,7 @@ import {
 const apiError = (err: any, fallback: string): string =>
   err?.response?.data?.error || err?.message || fallback;
 
-const SELECTABLE_PROVIDERS: CloudProviderKind[] = ['aws', 'vastai', 'mock'];
+const SELECTABLE_PROVIDERS: CloudProviderKind[] = CLOUD_PROVIDER_KINDS;
 
 /** Dollars in the form, integer cents on the wire. */
 const centsToDollars = (cents: number | null): string =>
@@ -176,11 +179,14 @@ const CloudClientBudgets: React.FC = () => {
       setAllowlist((prev) => prev.filter((p) => p !== provider));
       return;
     }
-    // Vast.ai puts this client's hashes on machines whose owners have root.
-    // That consent is per-client and must be recorded before the allowlist
-    // can include it; the backend rejects the save otherwise.
-    if (provider === 'vastai' && editing && !editing.provider_ack?.vastai) {
-      setAckProvider('vastai');
+    // Peer providers put this client's hashes on machines whose owners have
+    // root. That consent is per-client and must be recorded before the
+    // allowlist can include it; the backend rejects the save otherwise.
+    //
+    // Predicate, not a provider name: AWS and RunPod Secure must go straight
+    // into the allowlist with no consent step.
+    if (requiresThirdPartyAck(provider) && editing && !editing.provider_ack?.[provider]) {
+      setAckProvider(provider);
       return;
     }
     setAllowlist((prev) => (prev.includes(provider) ? prev : [...prev, provider]));
@@ -289,9 +295,17 @@ const CloudClientBudgets: React.FC = () => {
                           key={provider}
                           size="small"
                           sx={{ mr: 0.5 }}
-                          color={provider === 'vastai' ? 'warning' : 'default'}
-                          icon={provider === 'vastai' ? <WarningIcon /> : undefined}
-                          label={provider}
+                          color={
+                            requiresThirdPartyAck(provider as CloudProviderKind)
+                              ? 'warning'
+                              : 'default'
+                          }
+                          icon={
+                            requiresThirdPartyAck(provider as CloudProviderKind) ? (
+                              <WarningIcon />
+                            ) : undefined
+                          }
+                          label={cloudProviderLabel(provider as CloudProviderKind)}
                         />
                       ))
                     )}
@@ -360,10 +374,10 @@ const CloudClientBudgets: React.FC = () => {
                     onChange={(e) => toggleProvider(provider, e.target.checked)}
                   />
                 }
-                label={provider}
+                label={cloudProviderLabel(provider)}
               />
-              {provider === 'vastai' && (
-                <Tooltip title={t('cloud.budgets.vastTooltip') as string}>
+              {requiresThirdPartyAck(provider) && (
+                <Tooltip title={t('cloud.budgets.peerTooltip') as string}>
                   <WarningIcon fontSize="small" color="warning" />
                 </Tooltip>
               )}

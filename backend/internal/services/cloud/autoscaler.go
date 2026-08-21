@@ -17,12 +17,33 @@ import (
  * Deliberately a snapshot rather than a callback: the scheduler cycle runs
  * every 3 seconds and must never block on network I/O or on money-moving
  * database writes, both of which provisioning involves.
+ *
+ * It is also the only place that knows HOW LONG each job has been starving,
+ * which is what min_starvation_seconds is evaluated against. The edges have to
+ * be observed here rather than inferred by the autoscaler: the scheduler
+ * publishes every 3 seconds and the autoscaler wakes every 60, so an autoscaler
+ * comparing its own consecutive wake-ups samples the truth at a twentieth of
+ * the rate — a job that starved for 59 seconds, got an agent, and starved again
+ * would look continuously starving to it. Tracking here also keeps working
+ * across the passes ScaleOnce abandons early (stale snapshot, idle on-prem
+ * capacity), which never reach any edge detection the autoscaler could do.
+ *
+ * The ages are DELIBERATELY NOT PERSISTED. A crash-looping backend that
+ * reloaded them would accumulate starvation age it never observed and rent the
+ * instant it came back up, which is the money-losing direction. Losing them
+ * costs one extra min_starvation_seconds of delay — the safe direction, and the
+ * same delay the rule asks for anyway. There is not even a window in which
+ * persisted ages would be read: after a restart ReadAges reports fresh=false
+ * until the scheduler publishes, and ScaleOnce already no-ops on that.
  */
 type StarvationSnapshot struct {
 	mu sync.RWMutex
-	// starvingJobs is parent_job_id -> true for units that got zero
-	// allocations this cycle.
-	starvingJobs map[uuid.UUID]bool
+	// startedAt is parent_job_id -> when that job was FIRST seen starving in
+	// its current continuous run. Key presence is the starving set itself:
+	// a job the scheduler stops reporting is deleted on that same Publish, so
+	// the map is bounded by how many jobs are concurrently starving rather than
+	// by everything that has ever starved.
+	startedAt map[uuid.UUID]time.Time
 	// idleOnPrem counts free on-prem agents. Non-zero means free capacity
 	// exists and renting would be wasteful.
 	idleOnPrem int
@@ -31,30 +52,105 @@ type StarvationSnapshot struct {
 
 // NewStarvationSnapshot creates an empty snapshot.
 func NewStarvationSnapshot() *StarvationSnapshot {
-	return &StarvationSnapshot{starvingJobs: make(map[uuid.UUID]bool)}
+	return &StarvationSnapshot{startedAt: make(map[uuid.UUID]time.Time)}
 }
 
-// Publish replaces the snapshot. Called by the scheduler cycle.
+/*
+ * Publish replaces the starving set, carrying each surviving job's first-seen
+ * time forward. Called by the scheduler cycle.
+ *
+ * A job that leaves the set loses its accumulated age, and re-entering starts
+ * its clock from zero. That reset is the point of the rule rather than an
+ * oversight: the question being asked is "has this job been unable to make ANY
+ * progress for N seconds", and a job that just got an agent has made progress.
+ * A high-water mark would let a job that starves for 30 seconds twice an hour
+ * eventually qualify for paid capacity, which is the opposite of what the rule
+ * is for.
+ */
 func (s *StarvationSnapshot) Publish(starving map[uuid.UUID]bool, idleOnPrem int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.starvingJobs = starving
+
+	// Stamped INSIDE the lock. Reading the clock first lets two concurrent
+	// publishes commit out of order, moving updatedAt backwards and restamping
+	// startedAt from the older view — which would reset starvation ages that
+	// had legitimately accumulated. Only the single-flight scheduler cycle
+	// calls this today, but StarvationPublisher is an exported interface whose
+	// documented contract is merely "must not block".
+	now := time.Now()
+
+	started := make(map[uuid.UUID]time.Time, len(starving))
+	for jobID, isStarving := range starving {
+		// The value is honoured, not just the key: publishStarvation only ever
+		// sets true, but a caller that maps a recovered job to false must not
+		// leave that job's clock running.
+		if !isStarving {
+			continue
+		}
+		if first, ok := s.startedAt[jobID]; ok {
+			started[jobID] = first
+			continue
+		}
+		started[jobID] = now
+	}
+	s.startedAt = started
 	s.idleOnPrem = idleOnPrem
-	s.updatedAt = time.Now()
+	s.updatedAt = now
 }
 
-// Read returns the current snapshot and whether it is fresh enough to act on.
-func (s *StarvationSnapshot) Read(maxAge time.Duration) (map[uuid.UUID]bool, int, bool) {
+/*
+ * ReadAges returns how long each currently starving job has been continuously
+ * starving, the leftover idle on-prem count, and whether the snapshot is fresh
+ * enough to act on.
+ *
+ * now is a parameter so that every rule evaluated during one provisioning pass
+ * is measured against the same instant, and so tests can drive the clock
+ * instead of sleeping through a 15-minute threshold.
+ *
+ * The map is a copy. ScaleOnce iterates it while the scheduler keeps publishing
+ * every 3 seconds, and handing back the live map would be a concurrent map read
+ * and write — a hard crash, not a wrong number.
+ */
+func (s *StarvationSnapshot) ReadAges(maxAge time.Duration, now time.Time) (
+	ages map[uuid.UUID]time.Duration, idleOnPrem int, fresh bool,
+) {
+	if now.IsZero() {
+		/*
+		 * A zero now breaks both halves of this function, in opposite
+		 * directions, so it is replaced rather than defended against.
+		 *
+		 * time.Time{}.Sub(anything recent) saturates to the MINIMUM int64
+		 * duration, not a large positive one. The staleness check at line 120
+		 * therefore passes trivially — every snapshot looks fresh forever — and
+		 * every age below saturates negative and is clamped to 0, so the
+		 * starvation rule would refuse every job forever instead of renting for
+		 * any of them. Stale data treated as fresh, and a rail that never opens.
+		 *
+		 * The clamp at 127 is what stands between a caller's mistake and a
+		 * minInt64 age reaching an evaluator; it is not redundant with this.
+		 */
+		now = time.Now()
+	}
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if s.updatedAt.IsZero() || time.Since(s.updatedAt) > maxAge {
+	if s.updatedAt.IsZero() || now.Sub(s.updatedAt) > maxAge {
 		return nil, 0, false
 	}
-	out := make(map[uuid.UUID]bool, len(s.starvingJobs))
-	for k, v := range s.starvingJobs {
-		out[k] = v
+
+	ages = make(map[uuid.UUID]time.Duration, len(s.startedAt))
+	for jobID, first := range s.startedAt {
+		age := now.Sub(first)
+		if age < 0 {
+			// Only reachable when a caller passes a now from before the last
+			// Publish. A negative age would fail every threshold anyway, but
+			// clamping keeps "age" a quantity an evaluator can compare or log
+			// without special-casing.
+			age = 0
+		}
+		ages[jobID] = age
 	}
-	return out, s.idleOnPrem, true
+	return ages, s.idleOnPrem, true
 }
 
 // Provisioner is the subset of the cloud service the autoscaler needs.
@@ -74,12 +170,38 @@ type Provisioner interface {
 type EligibleJob struct {
 	JobExecutionID uuid.UUID
 	ClientID       uuid.UUID
-	// MaxInstances is job_executions.cloud_max_instances, or a budget-derived
-	// value when unset.
+	/*
+	 * MaxInstances is job_executions.cloud_max_instances, COALESCEd to 0.
+	 *
+	 * Zero means no per-job ceiling, and there is no budget-derived fallback:
+	 * the column is nullable with no default and the job dialog sends undefined
+	 * when the field is left blank, so "cloud burst ticked, max instances
+	 * blank" is both the easy path and the uncapped one. What actually stops it
+	 * is downstream — the client budget reservation and the global monthly cap
+	 * — which bound spend but not instance count, so the autoscaler will add
+	 * one instance per 60-second tick until money runs out.
+	 *
+	 * Callers must not read a zero here as "a cap is in force".
+	 */
 	MaxInstances int
 	// Priority mirrors job_executions.priority, so the autoscaler spends a
 	// constrained budget in the same order the scheduler would dispatch.
 	Priority int
+
+	/*
+	 * MinStarvationSeconds is the resolved rule for this job's client, carried
+	 * here rather than looked up in the autoscaler.
+	 *
+	 * The comparison has to happen where the observation lives — the starvation
+	 * snapshot the autoscaler owns — but the THRESHOLD comes from a per-client
+	 * merge of two database rows. Passing it along the candidate list keeps the
+	 * autoscaler free of a rules repository and keeps CloudEligibleJobs from
+	 * having to sample an age the scheduler rewrites every 3 seconds.
+	 *
+	 * Zero is the in-band OFF value: rent on the first starving tick, which is
+	 * the behaviour that shipped before this rule existed.
+	 */
+	MinStarvationSeconds int
 	// CreatedAtNanos breaks priority ties oldest-first, matching
 	// GetSchedulable's ORDER BY.
 	CreatedAtNanos int64
@@ -136,12 +258,17 @@ func (a *Autoscaler) ScaleOnce(ctx context.Context) {
 	// A stale snapshot means the scheduler is not running or is wedged.
 	// Provisioning on stale starvation data could rent GPUs for work that is
 	// already finished, so do nothing.
-	starving, idleOnPrem, fresh := a.snapshot.Read(30 * time.Second)
+	//
+	// ages carries how long each job has been continuously starving. Nothing
+	// filters on it yet — min_starvation_seconds is evaluated by a separate
+	// rules evaluator that is wired in later — so today it only reaches the
+	// provisioning log line.
+	ages, idleOnPrem, fresh := a.snapshot.ReadAges(30*time.Second, time.Now())
 	if !fresh {
 		debug.Info("Cloud autoscaler: scheduler snapshot is stale; skipping this pass")
 		return
 	}
-	if len(starving) == 0 {
+	if len(ages) == 0 {
 		return
 	}
 	if idleOnPrem > 0 {
@@ -152,8 +279,8 @@ func (a *Autoscaler) ScaleOnce(ctx context.Context) {
 		return
 	}
 
-	candidates := make([]uuid.UUID, 0, len(starving))
-	for jobID := range starving {
+	candidates := make([]uuid.UUID, 0, len(ages))
+	for jobID := range ages {
 		candidates = append(candidates, jobID)
 	}
 
@@ -180,7 +307,24 @@ func (a *Autoscaler) ScaleOnce(ctx context.Context) {
 	}
 
 	for _, job := range eligible {
-		if a.GlobalInstanceCap > 0 && a.LiveInstanceCount != nil {
+		if a.GlobalInstanceCap > 0 {
+			/*
+			 * A cap with no counter is a cap that enforces nothing, so it
+			 * refuses rather than passing.
+			 *
+			 * These two fields are set separately by whoever builds the
+			 * autoscaler, and skipping the check when the counter is nil makes
+			 * the omission invisible: the operator's "never more than N rented
+			 * boxes" silently becomes unlimited, and nothing in the logs, the
+			 * settings UI or the tests says so. Refusing turns that same
+			 * mistake into a message naming the missing wiring.
+			 */
+			if a.LiveInstanceCount == nil {
+				debug.Error("Cloud autoscaler: global instance cap %d is configured but no live-instance "+
+					"counter was wired in; refusing to provision rather than treating the cap as unlimited",
+					a.GlobalInstanceCap)
+				return
+			}
 			live, err := a.LiveInstanceCount(ctx)
 			if err != nil {
 				debug.Error("Cloud autoscaler: could not count live instances: %v", err)
@@ -189,6 +333,29 @@ func (a *Autoscaler) ScaleOnce(ctx context.Context) {
 			if live >= a.GlobalInstanceCap {
 				debug.Info("Cloud autoscaler: global instance cap %d reached", a.GlobalInstanceCap)
 				return
+			}
+		}
+
+		/*
+		 * The starvation rail, checked here because this is the only place the
+		 * age exists.
+		 *
+		 * THIS CHANGES BEHAVIOUR that shipped before the rule: one starving
+		 * tick used to be enough, so a transient gap between chunks could cost
+		 * a full instance launch. The seeded default of 180s is three ticks of
+		 * the scheduler's publish interval.
+		 *
+		 * A job missing from `ages` cannot happen — CloudEligibleJobs is fed
+		 * from the starving set itself — but if it ever did, treating the
+		 * absence as age zero refuses rather than renting, which is the right
+		 * direction for a missing observation.
+		 */
+		if job.MinStarvationSeconds > 0 {
+			required := time.Duration(job.MinStarvationSeconds) * time.Second
+			if age := ages[job.JobExecutionID]; age < required {
+				debug.Debug("Cloud autoscaler: job %s has been starving for %s, under the "+
+					"%s minimum; not provisioning yet", job.JobExecutionID, age.Round(time.Second), required)
+				continue
 			}
 		}
 
@@ -209,6 +376,7 @@ func (a *Autoscaler) ScaleOnce(ctx context.Context) {
 			debug.Error("Cloud autoscaler: provisioning failed for job %s: %v", job.JobExecutionID, err)
 			continue
 		}
-		debug.Info("Cloud autoscaler: provisioned an instance for job %s", job.JobExecutionID)
+		debug.Info("Cloud autoscaler: provisioned an instance for job %s (starving for %s)",
+			job.JobExecutionID, ages[job.JobExecutionID].Round(time.Second))
 	}
 }

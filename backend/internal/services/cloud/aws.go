@@ -62,6 +62,29 @@ type AWSSettings struct {
 	// needs exact capacitystatus/preInstalledSw/tenancy filters or it silently
 	// returns the wrong SKU, and the operator already knows their real rates.
 	InstanceTypeRates map[string]int `json:"instance_type_rates"`
+
+	/*
+	 * InstanceTypeGPUs describes what hardware each instance type actually
+	 * carries, e.g. {"g5.12xlarge": {"gpu_model": "A10G", "gpu_count": 4}}.
+	 *
+	 * EC2 exposes no machine-readable GPU model or count on any API this code
+	 * calls, so an operator who wants cost-per-work ranking on AWS has to
+	 * declare it — the same bargain as InstanceTypeRates.
+	 *
+	 * Optional, and what happens without it is worth stating plainly: the
+	 * offer falls back to the instance type as its model name, which matches no
+	 * entry in DefaultGPUClasses, so the ranker rates it as unknown hardware.
+	 * Because unknown is deliberately pessimistic and identical for every
+	 * instance type, the ordering collapses back to a monotone function of
+	 * price per hour — exactly the sort cost-per-work exists to replace. It is
+	 * also unrecoverable by observation, because a benchmark filed under
+	 * "g5_xlarge" never matches a class-table entry either.
+	 *
+	 * Declaring the count matters as much as the model: a hardcoded count of 1
+	 * credits a 4-GPU g5.12xlarge with one GPU's throughput and makes it look
+	 * four times worse per dollar than it is.
+	 */
+	InstanceTypeGPUs map[string]AWSInstanceGPU `json:"instance_type_gpus"`
 	// RootVolumeGB is a floor; the job's file set may require more.
 	RootVolumeGB int `json:"root_volume_gb"`
 	// EBSCentsPerGBMonth is the gp3 storage rate. Left at zero, EBS is simply
@@ -74,6 +97,17 @@ type AWSSettings struct {
 	// be rounded UP: reservations are denominated in these declared cents and
 	// nothing cross-checks them against a real invoice.
 	EBSCentsPerGBMonth float64 `json:"ebs_cents_per_gb_month"`
+}
+
+// AWSInstanceGPU is the hardware an operator declares for one instance type.
+// GPUModel is matched through NormalizeGPUModel, so "A10G", "a10g" and
+// "NVIDIA A10G" all resolve to the same class-table entry.
+type AWSInstanceGPU struct {
+	GPUModel string `json:"gpu_model"`
+	GPUCount int    `json:"gpu_count"`
+	// VRAMGBPerGPU is optional. Left at zero it stays UNKNOWN and passes every
+	// VRAM filter, which is the correct behaviour for a field nobody declared.
+	VRAMGBPerGPU int `json:"vram_gb_per_gpu"`
 }
 
 // defaultEBSCentsPerGBMonth is us-east-1 gp3 at $0.08/GB-month. A wrong-region
@@ -337,17 +371,55 @@ func (a *AWSProvider) SearchOffers(ctx context.Context, q OfferQuery) ([]Offer, 
 		if q.MaxHourlyRateCents > 0 && cents > q.MaxHourlyRateCents {
 			continue
 		}
+		// Declared hardware when the operator supplied it. Falling back to the
+		// instance type as the model name is deliberate rather than lazy: it
+		// keeps a stable key so observations still accumulate per instance
+		// type, and the ranker rates it as unknown hardware, which is honest.
+		// See AWSSettings.InstanceTypeGPUs for what that costs.
+		gpuModel := instType
+		gpuCount := 1
+		vramGB := 0
+		if hw, ok := a.settings.InstanceTypeGPUs[instType]; ok {
+			if hw.GPUModel != "" {
+				gpuModel = hw.GPUModel
+			}
+			if hw.GPUCount > 0 {
+				gpuCount = hw.GPUCount
+			}
+			vramGB = hw.VRAMGBPerGPU
+		}
+
 		offers = append(offers, Offer{
 			ID:                  instType,
 			InstanceType:        instType,
-			GPUModel:            instType,
-			GPUCount:            1,
+			GPUModel:            gpuModel,
+			GPUCount:            gpuCount,
+			VRAMGBPerGPU:        vramGB,
 			HourlyRateCents:     cents,
 			StorageCentsPerHour: storageCentsPerHour,
 			Region:              a.settings.Region,
-			Raw:                 models.JSONMap{"instance_type": instType},
+			// EC2 publishes no per-GPU VRAM figure anywhere in the API — the
+			// instance type implies it, via a mapping AWS does not expose and
+			// this code deliberately does not invent. Unless the operator
+			// declared it in InstanceTypeGPUs, vramGB stays 0 = UNKNOWN, so
+			// these offers pass a VRAM floor or ceiling instead of vanishing
+			// the moment an operator sets one. Little is lost by that here:
+			// AWS is already constrained to instance_type_rates, an allowlist
+			// the operator wrote and priced by hand, so an unwanted card cannot
+			// appear unless they listed it themselves.
+			//
+			// No stock signal either: the only way EC2 reports capacity is by
+			// failing a launch with InsufficientInstanceCapacity, which is not
+			// something that can be known before spending.
+			Availability: AvailabilityUnknown,
+			Raw:          models.JSONMap{"instance_type": instType},
 		})
 	}
+
+	// Re-apply the full query. The loop above only enforces the two constraints
+	// AWS's own configuration can express; the shared post-filter is what makes
+	// the rest true for every provider alike.
+	offers = applyOfferConstraints(offers, q)
 	if len(offers) == 0 {
 		return nil, fmt.Errorf("aws: no configured instance type satisfies the request")
 	}

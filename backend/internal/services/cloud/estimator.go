@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 	"time"
 
@@ -51,6 +52,23 @@ type Projection struct {
 	// under a field named "..._seconds" would hand the UI a number 1e9 too
 	// large and turn every ETA into nonsense.
 	TimeToFinish time.Duration `json:"-"`
+
+	/*
+	 * TimeToFinishKnown separates "finishes immediately" from "nothing is
+	 * working on this", which TimeToFinish collapses onto the same zero.
+	 *
+	 * Every consumer previously had to reconstruct this from
+	 * OnPremSpeed+CloudSpeed, and the comment above only asks the UI to get it
+	 * right. That was survivable while the sole consumer was a dialog; it stops
+	 * being survivable once a provisioning rule reads this value, because a job
+	 * with no throughput is EXACTLY the starving job worth renting for, and
+	 * reading its zero as "finishes instantly" refuses to provision at the
+	 * precise moment provisioning is needed — silently, on every pass.
+	 *
+	 * False also when the remaining keyspace is zero or the projection floored
+	 * to sub-second: in all three cases the duration carries no information.
+	 */
+	TimeToFinishKnown bool `json:"time_to_finish_known"`
 
 	// ProjectedCostCents is what the cloud portion would cost over
 	// TimeToFinish.
@@ -171,18 +189,20 @@ func (e *Estimator) Project(
 	effBig, ok := new(big.Int).SetString(effective, 10)
 	if !ok || effBig.Sign() <= 0 || baseKeyspace <= 0 {
 		// No multiplier signal: treat the effective rate as a base rate.
-		p.TimeToFinish = time.Duration(float64(p.RemainingBase)/float64(total)) * time.Second
+		p.TimeToFinish = secondsToDuration(float64(p.RemainingBase) / float64(total))
 	} else {
 		// seconds = remainingBase * effective / (base * totalSpeed)
 		num := new(big.Int).Mul(big.NewInt(p.RemainingBase), effBig)
 		den := new(big.Int).Mul(big.NewInt(baseKeyspace), big.NewInt(total))
 		if den.Sign() > 0 {
-			secs := new(big.Int).Div(num, den)
-			if secs.IsInt64() {
-				p.TimeToFinish = time.Duration(secs.Int64()) * time.Second
-			}
+			p.TimeToFinish = bigSecondsToDuration(new(big.Int).Div(num, den))
 		}
 	}
+
+	// Past the guard above there is real throughput and real work left, so the
+	// duration means something — even if the division floored it to zero, which
+	// genuinely is "under a second away".
+	p.TimeToFinishKnown = true
 
 	if cloudHourlyRateCents > 0 && p.TimeToFinish > 0 {
 		p.ProjectedCostCents = costFor(p.TimeToFinish, cloudHourlyRateCents)
@@ -201,4 +221,64 @@ func (e *Estimator) Project(
 	p.WillFinish = p.CoveragePct >= 100
 
 	return p, nil
+}
+
+/*
+ * maxProjection is the largest span time.Duration can represent, ~292 years.
+ *
+ * Hashcat projections reach it easily and legitimately: a bcrypt hashlist with
+ * a billion remaining base words and a five-figure rule multiplier, against one
+ * weak GPU, is a genuine multi-century number. It is not an error to be
+ * discarded — it is the answer, and "longer than the heat death of this
+ * engagement" is exactly what the operator needs to see.
+ */
+const maxProjection = time.Duration(math.MaxInt64)
+
+/*
+ * bigSecondsToDuration converts whole seconds to a Duration, SATURATING at
+ * maxProjection rather than wrapping or giving up.
+ *
+ * Both of the obvious alternatives produce a small positive duration from an
+ * enormous one, which is the single most dangerous shape this value can take.
+ *
+ *   time.Duration(secs.Int64()) * time.Second wraps mod 2^64. 18_446_744_074
+ *   seconds — about 585 years — becomes 290ms.
+ *
+ *   Skipping the assignment when !secs.IsInt64() leaves TimeToFinish at 0 while
+ *   TimeToFinishKnown is still set true below, and this package's own warning
+ *   is that a zero here means NO THROUGHPUT, never "instant".
+ *
+ * Either way a job needing six centuries is reported as finishing immediately.
+ * Downstream that is not a cosmetic error: the skip-if-finishing-soon rule
+ * refuses to rent for it on every pass, permanently and silently, and
+ * ProjectedCostCents falls to zero, which drives CoveragePct to 100 and
+ * WillFinish to true — "the budget covers this job" for a 500-year run.
+ * Saturating keeps the value both huge and honest, so every one of those
+ * comparisons lands the right way round.
+ */
+func bigSecondsToDuration(secs *big.Int) time.Duration {
+	if secs.Sign() <= 0 {
+		return 0
+	}
+	if secs.Cmp(big.NewInt(int64(maxProjection/time.Second))) >= 0 {
+		return maxProjection
+	}
+	return time.Duration(secs.Int64()) * time.Second
+}
+
+// secondsToDuration is the float64 counterpart, saturating for the same
+// reasons. NaN and +Inf are possible here — the caller divides by a speed it
+// only knows to be non-zero — and both must land on a value that reads as "not
+// finishing soon" rather than as zero.
+func secondsToDuration(secs float64) time.Duration {
+	if math.IsNaN(secs) {
+		return maxProjection
+	}
+	if secs <= 0 {
+		return 0
+	}
+	if secs >= float64(maxProjection/time.Second) {
+		return maxProjection
+	}
+	return time.Duration(secs * float64(time.Second))
 }

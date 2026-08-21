@@ -536,7 +536,8 @@
         "secondWordlist": "Второй словарь",
         "allowHighPriorityOverride": "Разрешить переопределение высокого приоритета (может прерывать выполняющиеся задания)",
         "cloudBurstEnabled": "Allow cloud burst",
-        "cloudMaxInstances": "Max cloud instances"
+        "cloudMaxInstances": "Max cloud instances",
+        "cloudAllowCommunityHosts": "Разрешить чужие машины (Vast.ai, RunPod Community)"
       },
       "incrementModes": {
         "off": "Выкл (использовать полную маску)",
@@ -561,7 +562,8 @@
         "firstWordlist": "Слова из этого списка будут использоваться как первая часть",
         "secondWordlist": "Слова из этого списка будут добавлены к первому",
         "cloudBurstEnabled": "Rent GPU instances for jobs created from this preset when the on-prem fleet cannot keep up. Requires the client to be funded and opted in to a provider.",
-        "cloudMaxInstances": "Separate from Max Agents, which governs the shared on-prem pool. Leave blank to let the remaining budget decide."
+        "cloudMaxInstances": "Separate from Max Agents, which governs the shared on-prem pool. Leave blank to let the remaining budget decide.",
+        "cloudAllowCommunityHosts": "Это чужие машины. Их владельцы имеют root-доступ к контейнеру, поэтому хеши, словари и восстановленные пароли этого клиента доступны третьей стороне и хранятся на хосте в незашифрованном виде. Не рекомендуется для продуктивных или клиентских данных. Если оставить выключенным, задачи всё равно смогут использовать защищённые мощности (AWS, RunPod Secure Cloud), если клиент это разрешил."
       },
       "errors": {
         "nameRequired": "Название задания обязательно",
@@ -1464,7 +1466,8 @@
     "sections": {
       "providers": "Providers",
       "clients": "Client budgets",
-      "policy": "Threshold policy"
+      "policy": "Threshold policy",
+      "rules": "Правила выделения ресурсов"
     },
     "providers": {
       "title": "Cloud providers",
@@ -1508,11 +1511,12 @@
       "acknowledged": "Acknowledgement recorded",
       "ackFailed": "Failed to record acknowledgement",
       "ackTitle": "Acknowledge third-party data exposure",
-      "ackBody": "Vast.ai rents GPUs on individually-owned machines whose operators have root access to the container. Hashes, wordlists and cracked plaintexts placed there are visible to a third party. This is categorically different from AWS, where instances run inside your own account.",
+      "ackBody": {
+        "vastai": "Vast.ai сдаёт GPU на частных машинах, владельцы которых имеют root-доступ к контейнеру. Хеши, словари и восстановленные пароли будут видны третьей стороне. Это принципиально отличается от AWS или RunPod Secure Cloud.",
+        "runpod_community": "RunPod Community Cloud сдаёт GPU на чужих машинах, владельцы которых имеют root-доступ к контейнеру. Хеши, словари и восстановленные пароли будут видны третьей стороне. Сертификаты RunPod распространяются только на Secure Cloud."
+      },
       "ackConfirm": "Do you accept this exposure for workloads sent to this provider?",
       "ackAccept": "I understand and accept",
-      "vastWarningTitle": "Third-party hardware",
-      "vastWarningBody": "Vast.ai instances run on machines you do not control. Enable it only for clients whose data may be exposed to a third party, and acknowledge it per client as well.",
       "ephemeralKeyTitle": "Encryption key is ephemeral",
       "ephemeralKeyBody": "KH_ENCRYPTION_KEY is not set, so a random key was generated at startup. Every stored credential becomes unreadable after the next restart. Set KH_ENCRYPTION_KEY before saving provider credentials.",
       "vpnSection": "VPN connectivity",
@@ -1522,7 +1526,9 @@
       "kinds": {
         "aws": "AWS EC2 (your own account)",
         "vastai": "Vast.ai (third-party machines)",
-        "mock": "Mock (local test agents, no cost)"
+        "mock": "Mock (local test agents, no cost)",
+        "runpod": "RunPod Secure Cloud (ЦОД с сертификацией SOC 2)",
+        "runpod_community": "RunPod Community Cloud (чужие машины)"
       },
       "credentialKinds": {
         "oauth": "OAuth client — mint one ephemeral key per instance (recommended)",
@@ -1563,6 +1569,11 @@
         "backendVpnHost": "This server's address on the VPN",
         "backendVpnHostHelp": "The KH_HOST value cloud agents use. It must already appear in KH_ADDITIONAL_DNS_NAMES or KH_ADDITIONAL_IP_ADDRESSES, or agents will fail TLS hostname verification.",
         "enabled": "Enabled"
+      },
+      "peerWarningTitle": "Стороннее оборудование",
+      "peerWarningBody": {
+        "vastai": "Экземпляры Vast.ai работают на частных машинах, которые вы не контролируете. Включайте только для клиентов, чьи данные допустимо раскрыть третьей стороне, и подтвердите это отдельно для каждого клиента.",
+        "runpod_community": "RunPod Community Cloud работает на чужих машинах, владельцы которых имеют root-доступ к контейнеру. Сертификаты SOC 2, ISO 27001 и PCI DSS от RunPod распространяются только на Secure Cloud, но не на этот уровень. Включайте только для клиентов, чьи данные допустимо раскрыть третьей стороне."
       }
     },
     "budgets": {
@@ -1588,7 +1599,6 @@
       "ackWarningBody": "Allowing Vast.ai for {{name}} means this client's hashes, wordlists and cracked plaintexts may be placed on machines owned by third parties who have root access to the container.",
       "ackConfirm": "Do you accept this exposure for this client?",
       "ackAccept": "I understand and accept",
-      "vastTooltip": "Runs on third-party machines whose owners have root access",
       "actions": {
         "none": "Within budget",
         "notify": "Threshold reached",
@@ -1619,7 +1629,8 @@
         "invalidTtl": "Maximum lifetime must be a positive number of minutes",
         "enabledWithoutBudget": "Set a budget before enabling cloud burst — an unfunded client can never provision anything.",
         "enabledWithoutProvider": "Allow at least one provider before enabling cloud burst."
-      }
+      },
+      "peerTooltip": "Стороннее оборудование: данные этого клиента будут доступны владельцу машины."
     },
     "policy": {
       "title": "Spend threshold policy",
@@ -1691,6 +1702,43 @@
         "ttl": "TTL left",
         "disk": "Disk",
         "actions": "Actions"
+      }
+    },
+    "rules": {
+      "title": "Когда системе разрешено тратить",
+      "description": "Бюджеты определяют, сколько можно потратить. Эти правила определяют, когда вообще можно что-либо тратить. Без них автомасштабирование арендует уже после одного такта простоя, для любой задачи, в любое время и без потолка на задачу.",
+      "inheritTitle": "Это системные значения по умолчанию",
+      "inheritBody": "Клиенты наследуют каждое поле по отдельности, поэтому ужесточение значения здесь затронет всех клиентов, которые не переопределили именно это поле. Переопределения для клиента редактируются на его странице.",
+      "saved": "Правила сохранены",
+      "saveFailed": "Не удалось сохранить правила",
+      "loadFailed": "Не удалось загрузить правила",
+      "save": "Сохранить правила",
+      "fields": {
+        "minJobPriority": "Минимальный приоритет задачи",
+        "minStarvation": "Минимальное время простоя (минуты)",
+        "skipIfFinishing": "Пропустить, если завершится в течение (минуты)",
+        "maxSpendPerJob": "Максимальные расходы на задачу",
+        "windowEnabled": "Ограничить выделение ресурсов временным окном",
+        "windowStart": "Окно открывается",
+        "windowEnd": "Окно закрывается",
+        "windowTz": "Часовой пояс"
+      },
+      "helperText": {
+        "minJobPriority": "Абсолютный приоритет, а не процент. Текущий потолок: {{ceiling}}.",
+        "floorOff": "Порога нет: любая задача с облачным расширением может быть обслужена автоматически.",
+        "minStarvation": "Сколько времени задача не должна продвигаться вообще, прежде чем будут арендованы платные мощности. 0 — аренда при первом же такте. Применяется только к автомасштабированию.",
+        "skipIfFinishing": "Не арендовать для задачи, которая по прогнозу завершится за это время на имеющихся мощностях: арендованному экземпляру нужно 5–10 минут на запуск и синхронизацию. 0 — никогда не пропускать.",
+        "maxSpendPerJob": "Потолок облачных расходов на одну задачу за всё её время, без сброса по месяцам. Пусто — без ограничения. Действует везде, включая ручное выделение администратором.",
+        "windowEnabled": "Касается только запусков. Экземпляры никогда не останавливаются из-за закрытия окна — за это отвечают TTL и простой.",
+        "windowTz": "Имя IANA, например America/Chicago. Пусто — UTC.",
+        "windowWrap": "Время закрытия раньше времени открытия переходит через полночь — обычный способ записать «арендовать только ночью». Одинаковые значения означают «всегда открыто»."
+      },
+      "bands": {
+        "minimal": "Минимальный",
+        "low": "Низкий",
+        "normal": "Обычный",
+        "high": "Высокий",
+        "critical": "Критический"
       }
     }
   }

@@ -55,6 +55,19 @@ self_destruct() {
     local reason="$1"
     log "SELF-DESTRUCT: $reason"
 
+    # STOP THE GPU FIRST, before any provider branch.
+    #
+    # Every branch below can fail: the Vast DELETE can 4xx, the host deadline
+    # file may not be mounted, poweroff needs a capability we do not have. Until
+    # this line existed inside the AWS branch only, a failed Vast teardown fell
+    # through to `kill -9 1` with hashcat still running at full rate the whole
+    # way — billed at GPU rates for a teardown that was already going wrong.
+    #
+    # Killing hashcat is safe to do early and unconditionally: the backend
+    # re-dispatches the interrupted chunk to another agent, and we are on our
+    # way out regardless of which branch succeeds.
+    pkill -9 hashcat 2>/dev/null
+
     # Vast.ai: every container gets $CONTAINER_ID and $CONTAINER_API_KEY, and
     # that key is scoped to destroying only this instance. DELETE, never stop:
     # a stopped instance keeps billing storage.
@@ -78,9 +91,8 @@ self_destruct() {
     if [ -n "${KH_HOST_DEADLINE_FILE:-}" ] && [ -w "${KH_HOST_DEADLINE_FILE}" ]; then
         log "disarming host deadline ${KH_HOST_DEADLINE_FILE}; host watchdog will power off within 30s"
         echo 0 > "${KH_HOST_DEADLINE_FILE}"
-        # Stop doing work while waiting to be terminated: a GPU that keeps
-        # running for another half-minute is billed for that half-minute.
-        pkill -9 hashcat 2>/dev/null
+        # hashcat is already dead (see the top of this function), so this wait
+        # costs idle-instance rates rather than GPU rates.
         sleep 90
     fi
 

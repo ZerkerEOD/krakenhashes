@@ -141,6 +141,28 @@ type reaperFixture struct {
 	database  *db.DB
 	configID  uuid.UUID
 	clientID  uuid.UUID
+	// jobID is a live job every fixture instance belongs to. Instances are
+	// always provisioned FOR a job in production, and since job_execution_id is
+	// ON DELETE SET NULL, a null one means the job was deleted — which the
+	// reaper treats as "nothing will ever need this machine again". A fixture
+	// with no job would therefore be torn down for the wrong reason and every
+	// assertion below it would be testing that instead.
+	jobID uuid.UUID
+}
+
+/*
+ * newInstance creates a fixture instance attached to the fixture's job.
+ *
+ * Wraps testutil.CreateTestCloudInstance only to default JobExecutionID. Tests
+ * that want the job-less case set it deliberately.
+ */
+func (f *reaperFixture) newInstance(t *testing.T, opts testutil.InstanceOpts) (uuid.UUID, string) {
+	t.Helper()
+	if opts.JobExecutionID == nil {
+		job := f.jobID
+		opts.JobExecutionID = &job
+	}
+	return testutil.CreateTestCloudInstance(t, f.database, f.configID, opts)
 }
 
 func newReaperFixture(t *testing.T, capCents int64) *reaperFixture {
@@ -165,9 +187,14 @@ func newReaperFixture(t *testing.T, capCents int64) *reaperFixture {
 		func(context.Context, uuid.UUID) (Provider, error) { return provider, nil },
 		notifier)
 
+	// A live job for the fixture's instances to belong to. Left running so the
+	// idle-drain tier never fires here — these tests are about the other tiers.
+	job := testutil.CreateCloudJob(t, database, clientID, true)
+
 	return &reaperFixture{
 		reaper: r, provider: provider, notifier: notifier,
-		instances: instances, database: database, configID: configID, clientID: clientID,
+		instances: instances, database: database, configID: configID,
+		clientID: clientID, jobID: job.JobID,
 	}
 }
 
@@ -188,7 +215,7 @@ func ahead(d time.Duration) *time.Time { t := time.Now().Add(d); return &t }
 func TestReaper_DestroysPastTTL(t *testing.T) {
 	f := newReaperFixture(t, 10_000)
 
-	id, _ := testutil.CreateTestCloudInstance(t, f.database, f.configID, testutil.InstanceOpts{
+	id, _ := f.newInstance(t, testutil.InstanceOpts{
 		ClientID:           &f.clientID,
 		ProviderInstanceID: "prov-ttl",
 		TTLEpoch:           ago(time.Minute),
@@ -210,7 +237,7 @@ func TestReaper_DestroysPastTTL(t *testing.T) {
 func TestReaper_DestroysWhenAgentNeverRegistered(t *testing.T) {
 	f := newReaperFixture(t, 10_000)
 
-	testutil.CreateTestCloudInstance(t, f.database, f.configID, testutil.InstanceOpts{
+	f.newInstance(t, testutil.InstanceOpts{
 		ClientID:           &f.clientID,
 		ProviderInstanceID: "prov-noagent",
 		ReadyDeadlineAt:    ago(time.Minute),
@@ -234,7 +261,7 @@ func TestReaper_KeepsInstanceWithAttachedAgent(t *testing.T) {
 	owner := testutil.CreateTestUser(t, f.database, "reaper-owner-"+uuid.NewString()[:8],
 		"reaper-owner-"+uuid.NewString()[:8]+"@test.local", testutil.DefaultTestPassword, "admin")
 	agentID := testutil.CreateTestAgent(t, f.database, owner.ID, nil)
-	testutil.CreateTestCloudInstance(t, f.database, f.configID, testutil.InstanceOpts{
+	f.newInstance(t, testutil.InstanceOpts{
 		ClientID:           &f.clientID,
 		ProviderInstanceID: "prov-healthy",
 		AgentID:            &agentID,
@@ -256,7 +283,7 @@ func TestReaper_DestroysOnTerminalProviderState(t *testing.T) {
 	f := newReaperFixture(t, 10_000)
 	f.provider.statuses["prov-dead"] = InstanceStatus{State: "gone", Terminal: true, Message: "exited"}
 
-	testutil.CreateTestCloudInstance(t, f.database, f.configID, testutil.InstanceOpts{
+	f.newInstance(t, testutil.InstanceOpts{
 		ClientID:           &f.clientID,
 		ProviderInstanceID: "prov-dead",
 		TTLEpoch:           ahead(time.Hour),
@@ -277,7 +304,7 @@ func TestReaper_DestroysOnTerminalProviderState(t *testing.T) {
 func TestReaper_AdoptsLostLaunchResponse(t *testing.T) {
 	f := newReaperFixture(t, 10_000)
 
-	id, label := testutil.CreateTestCloudInstance(t, f.database, f.configID, testutil.InstanceOpts{
+	id, label := f.newInstance(t, testutil.InstanceOpts{
 		ClientID:         &f.clientID,
 		State:            "launching",
 		LaunchDeadlineAt: ahead(10 * time.Minute),
@@ -307,7 +334,7 @@ func TestReaper_AdoptsLostLaunchResponse(t *testing.T) {
 func TestReaper_FailsInstanceThatNeverLaunched(t *testing.T) {
 	f := newReaperFixture(t, 10_000)
 
-	id, _ := testutil.CreateTestCloudInstance(t, f.database, f.configID, testutil.InstanceOpts{
+	id, _ := f.newInstance(t, testutil.InstanceOpts{
 		ClientID:         &f.clientID,
 		State:            "launching",
 		LaunchDeadlineAt: ago(time.Minute),
@@ -324,11 +351,16 @@ func TestReaper_FailsInstanceThatNeverLaunched(t *testing.T) {
 
 // TestReaper_DestroysOrphans: present at the provider, absent from the
 // database. This is why a dedicated provider account is recommended.
+//
+// Orphans are destroyed on the SECOND sighting, not the first — see
+// TestReaper_OrphanGraceProtectsALaunchInFlight for why. This test disables the
+// grace so it stays focused on the destruction itself.
 func TestReaper_DestroysOrphans(t *testing.T) {
 	f := newReaperFixture(t, 10_000)
+	f.reaper.OrphanGrace = 0
 
 	// A tracked instance is required for the sweep to fetch inventory at all.
-	testutil.CreateTestCloudInstance(t, f.database, f.configID, testutil.InstanceOpts{
+	f.newInstance(t, testutil.InstanceOpts{
 		ClientID:           &f.clientID,
 		ProviderInstanceID: "prov-tracked",
 		TTLEpoch:           ahead(time.Hour),
@@ -348,13 +380,161 @@ func TestReaper_DestroysOrphans(t *testing.T) {
 	}
 }
 
+/*
+ * TestReaper_OrphanGraceProtectsALaunchInFlight.
+ *
+ * OrphanGrace was loaded from settings, assigned in main.go, and read by
+ * nothing — orphans were destroyed the first time they were seen.
+ *
+ * The race it exists for is created by the sweep itself: ListLive is read once
+ * at the top of SweepOnce, but each provider's inventory is fetched later in
+ * the loop below it. An instance provisioned in that window appears in the
+ * inventory and not in `known`, so first-sight destruction tears down an
+ * instance whose row was written seconds earlier — surfacing to the operator as
+ * a launch that failed for no visible reason.
+ */
+func TestReaper_OrphanGraceProtectsALaunchInFlight(t *testing.T) {
+	f := newReaperFixture(t, 10_000)
+	f.reaper.OrphanGrace = time.Hour
+
+	f.newInstance(t, testutil.InstanceOpts{
+		ClientID:           &f.clientID,
+		ProviderInstanceID: "prov-tracked",
+		TTLEpoch:           ahead(time.Hour),
+		HourlyRateCents:    100,
+	})
+	f.provider.inventory["kh-just-launched"] = InstanceStatus{
+		ProviderInstanceID: "prov-inflight", State: "running",
+	}
+
+	// Several passes well inside the grace window.
+	for i := 0; i < 3; i++ {
+		f.reaper.SweepOnce(context.Background())
+	}
+
+	if f.provider.wasDestroyed("prov-inflight") {
+		t.Fatal("destroyed an unrecognised instance inside the orphan grace window; " +
+			"a launch racing the sweep would be torn down seconds after it started")
+	}
+}
+
+// TestReaper_OrphanDestroyedOnceGraceElapses: grace delays, it does not exempt.
+func TestReaper_OrphanDestroyedOnceGraceElapses(t *testing.T) {
+	f := newReaperFixture(t, 10_000)
+	f.reaper.OrphanGrace = time.Hour
+
+	f.newInstance(t, testutil.InstanceOpts{
+		ClientID:           &f.clientID,
+		ProviderInstanceID: "prov-tracked",
+		TTLEpoch:           ahead(time.Hour),
+		HourlyRateCents:    100,
+	})
+	f.provider.inventory["kh-real-orphan"] = InstanceStatus{
+		ProviderInstanceID: "prov-orphan", State: "running",
+	}
+
+	f.reaper.SweepOnce(context.Background()) // records first sight
+	if f.provider.wasDestroyed("prov-orphan") {
+		t.Fatal("destroyed on first sight despite a one-hour grace")
+	}
+
+	// Backdate the first sighting rather than sleeping an hour.
+	f.reaper.orphanMu.Lock()
+	f.reaper.orphanFirstSeen["kh-real-orphan"] = time.Now().Add(-2 * time.Hour)
+	f.reaper.orphanMu.Unlock()
+
+	f.reaper.SweepOnce(context.Background())
+	if !f.provider.wasDestroyed("prov-orphan") {
+		t.Error("an orphan older than the grace window must be destroyed")
+	}
+}
+
+/*
+ * TestReaper_ForgetsOrphansThatVanish.
+ *
+ * Without pruning, the first-seen map grows for the life of the process — and
+ * worse, a label that was briefly unrecognised, then adopted into a row, then
+ * legitimately reused would inherit its stale first-seen time and skip its
+ * grace period entirely.
+ */
+func TestReaper_ForgetsOrphansThatVanish(t *testing.T) {
+	f := newReaperFixture(t, 10_000)
+	f.reaper.OrphanGrace = time.Hour
+
+	f.newInstance(t, testutil.InstanceOpts{
+		ClientID:           &f.clientID,
+		ProviderInstanceID: "prov-tracked",
+		TTLEpoch:           ahead(time.Hour),
+		HourlyRateCents:    100,
+	})
+	f.provider.inventory["kh-transient"] = InstanceStatus{
+		ProviderInstanceID: "prov-transient", State: "running",
+	}
+
+	f.reaper.SweepOnce(context.Background())
+
+	// It disappears from the provider (destroyed elsewhere, or never really there).
+	delete(f.provider.inventory, "kh-transient")
+	f.reaper.SweepOnce(context.Background())
+
+	f.reaper.orphanMu.Lock()
+	_, remembered := f.reaper.orphanFirstSeen["kh-transient"]
+	f.reaper.orphanMu.Unlock()
+	if remembered {
+		t.Error("a label absent from every inventory is still tracked; the map grows " +
+			"unbounded and a reused label would skip its grace period")
+	}
+}
+
+/*
+ * TestReaper_ListFailureDoesNotPruneOrphanClocks.
+ *
+ * A provider that cannot be listed this pass tells us nothing about its labels.
+ * Pruning on that partial view would reset every orphan's clock on each failed
+ * list call, so a provider with a flaky API would never accumulate enough grace
+ * for anything to be reaped.
+ */
+func TestReaper_ListFailureDoesNotPruneOrphanClocks(t *testing.T) {
+	f := newReaperFixture(t, 10_000)
+	f.reaper.OrphanGrace = time.Hour
+
+	f.newInstance(t, testutil.InstanceOpts{
+		ClientID:           &f.clientID,
+		ProviderInstanceID: "prov-tracked",
+		TTLEpoch:           ahead(time.Hour),
+		HourlyRateCents:    100,
+	})
+	f.provider.inventory["kh-orphan"] = InstanceStatus{
+		ProviderInstanceID: "prov-orphan", State: "running",
+	}
+
+	f.reaper.SweepOnce(context.Background())
+	f.reaper.orphanMu.Lock()
+	first, ok := f.reaper.orphanFirstSeen["kh-orphan"]
+	f.reaper.orphanMu.Unlock()
+	if !ok {
+		t.Fatal("first sighting was not recorded")
+	}
+
+	f.provider.listErr = errors.New("provider API unavailable")
+	f.reaper.SweepOnce(context.Background())
+
+	f.reaper.orphanMu.Lock()
+	after, stillOK := f.reaper.orphanFirstSeen["kh-orphan"]
+	f.reaper.orphanMu.Unlock()
+	if !stillOK || !after.Equal(first) {
+		t.Error("a failed inventory listing reset the orphan clock; a flaky provider " +
+			"would then never accumulate enough grace to reap anything")
+	}
+}
+
 // TestReaper_ListFailureDoesNotDestroyAnything: without inventory the reaper
 // cannot tell an orphan from a tracked instance, so it must not guess.
 func TestReaper_ListFailureDoesNotDestroyAnything(t *testing.T) {
 	f := newReaperFixture(t, 10_000)
 	f.provider.listErr = errors.New("provider API unavailable")
 
-	testutil.CreateTestCloudInstance(t, f.database, f.configID, testutil.InstanceOpts{
+	f.newInstance(t, testutil.InstanceOpts{
 		ClientID:           &f.clientID,
 		ProviderInstanceID: "prov-safe",
 		TTLEpoch:           ahead(time.Hour),
@@ -381,7 +561,7 @@ func TestReaper_CountsDestroyFailuresAndEscalates(t *testing.T) {
 	f := newReaperFixture(t, 10_000)
 	f.provider.destroyErr = errors.New("provider refused")
 
-	id, _ := testutil.CreateTestCloudInstance(t, f.database, f.configID, testutil.InstanceOpts{
+	id, _ := f.newInstance(t, testutil.InstanceOpts{
 		ClientID:           &f.clientID,
 		ProviderInstanceID: "prov-stuck",
 		TTLEpoch:           ago(time.Minute),
@@ -421,7 +601,7 @@ func TestReaper_HardStopBudgetDestroys(t *testing.T) {
 	// Commit more than the cap so the ladder reports hard stop.
 	testutil.InsertLedgerEntry(t, f.database, f.clientID, nil, 200, "reservation", time.Now())
 
-	testutil.CreateTestCloudInstance(t, f.database, f.configID, testutil.InstanceOpts{
+	f.newInstance(t, testutil.InstanceOpts{
 		ClientID:           &f.clientID,
 		ProviderInstanceID: "prov-broke",
 		TTLEpoch:           ahead(time.Hour),
@@ -449,11 +629,11 @@ func TestReaper_BudgetIsPerClient(t *testing.T) {
 
 	testutil.InsertLedgerEntry(t, f.database, f.clientID, nil, 500, "reservation", time.Now())
 
-	testutil.CreateTestCloudInstance(t, f.database, f.configID, testutil.InstanceOpts{
+	f.newInstance(t, testutil.InstanceOpts{
 		ClientID: &f.clientID, ProviderInstanceID: "prov-broke",
 		TTLEpoch: ahead(time.Hour), HourlyRateCents: 100,
 	})
-	testutil.CreateTestCloudInstance(t, f.database, f.configID, testutil.InstanceOpts{
+	f.newInstance(t, testutil.InstanceOpts{
 		ClientID: &solvent, ProviderInstanceID: "prov-solvent",
 		TTLEpoch: ahead(time.Hour), HourlyRateCents: 100,
 	})
@@ -473,7 +653,7 @@ func TestReaper_DrainAllDestroysEverything(t *testing.T) {
 	f := newReaperFixture(t, 10_000)
 
 	for _, pid := range []string{"prov-a", "prov-b", "prov-c"} {
-		testutil.CreateTestCloudInstance(t, f.database, f.configID, testutil.InstanceOpts{
+		f.newInstance(t, testutil.InstanceOpts{
 			ClientID: &f.clientID, ProviderInstanceID: pid,
 			TTLEpoch: ahead(time.Hour), HourlyRateCents: 100,
 		})
@@ -494,7 +674,7 @@ func TestReaper_SettlesBudgetOnTeardown(t *testing.T) {
 	f := newReaperFixture(t, 10_000)
 	ctx := context.Background()
 
-	id, _ := testutil.CreateTestCloudInstance(t, f.database, f.configID, testutil.InstanceOpts{
+	id, _ := f.newInstance(t, testutil.InstanceOpts{
 		ClientID:           &f.clientID,
 		ProviderInstanceID: "prov-settle",
 		TTLEpoch:           ago(time.Minute),

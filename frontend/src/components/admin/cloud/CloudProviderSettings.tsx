@@ -46,6 +46,8 @@ import {
   CloudProviderConfig,
   CloudProviderConfigInput,
   CloudProviderKind,
+  CLOUD_PROVIDER_KINDS,
+  requiresThirdPartyAck,
   VPNCredentialKind,
   VPNProviderKind,
 } from '../../../types/cloud';
@@ -258,9 +260,9 @@ const CloudProviderSettings: React.FC = () => {
                       <Chip
                         size="small"
                         label={cfg.provider}
-                        color={cfg.provider === 'vastai' ? 'warning' : 'default'}
+                        color={requiresThirdPartyAck(cfg.provider) ? 'warning' : 'default'}
                       />
-                      {cfg.provider === 'vastai' && (
+                      {requiresThirdPartyAck(cfg.provider) && (
                         <Tooltip title={t('cloud.providers.thirdPartyBadge') as string}>
                           <WarningIcon fontSize="small" color="warning" sx={{ ml: 1, verticalAlign: 'middle' }} />
                         </Tooltip>
@@ -328,7 +330,7 @@ const CloudProviderSettings: React.FC = () => {
                           </Button>
                         </span>
                       </Tooltip>
-                      {cfg.provider === 'vastai' && !cfg.third_party_ack_at && (
+                      {requiresThirdPartyAck(cfg.provider) && !cfg.third_party_ack_at && (
                         <Button size="small" color="warning" onClick={() => setAckTarget(cfg)}>
                           {t('cloud.providers.acknowledge') as string}
                         </Button>
@@ -363,10 +365,16 @@ const CloudProviderSettings: React.FC = () => {
         <DialogContent>
           {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
 
-          {form.provider === 'vastai' && (
+          {/*
+            * Peer-hardware warning. Keyed off requiresThirdPartyAck rather
+            * than a provider name so AWS and RunPod Secure render with NO
+            * warning surface at all — they are the operator's own account and
+            * RunPod's own SOC 2 datacentres respectively.
+            */}
+          {requiresThirdPartyAck(form.provider) && (
             <Alert severity="warning" sx={{ mb: 2 }}>
-              <AlertTitle>{t('cloud.providers.vastWarningTitle') as string}</AlertTitle>
-              {t('cloud.providers.vastWarningBody') as string}
+              <AlertTitle>{t('cloud.providers.peerWarningTitle') as string}</AlertTitle>
+              {t(`cloud.providers.peerWarningBody.${form.provider}`) as string}
             </Alert>
           )}
 
@@ -388,9 +396,11 @@ const CloudProviderSettings: React.FC = () => {
               disabled={Boolean(editing)}
               onChange={(e) => setForm({ ...form, provider: e.target.value as CloudProviderKind })}
             >
-              <MenuItem value="aws">{t('cloud.providers.kinds.aws') as string}</MenuItem>
-              <MenuItem value="vastai">{t('cloud.providers.kinds.vastai') as string}</MenuItem>
-              <MenuItem value="mock">{t('cloud.providers.kinds.mock') as string}</MenuItem>
+              {CLOUD_PROVIDER_KINDS.map((kind) => (
+                <MenuItem key={kind} value={kind}>
+                  {t(`cloud.providers.kinds.${kind}`) as string}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
 
@@ -568,7 +578,9 @@ const CloudProviderSettings: React.FC = () => {
         <DialogContent>
           <Alert severity="warning" sx={{ mb: 2 }}>
             <AlertTitle>{t('cloud.providers.vastWarningTitle') as string}</AlertTitle>
-            {t('cloud.providers.ackBody') as string}
+            {/* Keyed by tier: naming the wrong provider in a data-exposure
+                consent dialog is the whole risk this dialog exists to manage. */}
+            {ackTarget && (t(`cloud.providers.ackBody.${ackTarget.provider}`) as string)}
           </Alert>
           <DialogContentText>{t('cloud.providers.ackConfirm') as string}</DialogContentText>
         </DialogContent>

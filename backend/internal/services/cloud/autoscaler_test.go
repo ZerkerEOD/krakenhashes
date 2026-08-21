@@ -84,7 +84,7 @@ func (f *fakeProvisioner) calls() []uuid.UUID {
 	return out
 }
 
-// freshSnapshot publishes starving jobs so Read reports the data as current.
+// freshSnapshot publishes starving jobs so ReadAges reports them as current.
 func freshSnapshot(idleOnPrem int, jobs ...uuid.UUID) *StarvationSnapshot {
 	s := NewStarvationSnapshot()
 	m := make(map[uuid.UUID]bool, len(jobs))
@@ -128,30 +128,53 @@ func TestAutoscaler_RespectsGlobalInstanceCap(t *testing.T) {
 }
 
 /*
- * TestAutoscaler_GlobalCapWithoutCounterIsUnlimited documents a live footgun
- * rather than asserting desired behaviour.
+ * TestAutoscaler_GlobalCapWithoutCounterRefuses pins the fail-closed direction
+ * of a half-wired cap.
  *
- * ScaleOnce only consults GlobalInstanceCap when LiveInstanceCount is also set,
- * so a cap configured without a counter silently enforces nothing. This test
- * exists so that if anyone ever changes that, they change it deliberately — and
- * so the main.go wiring that sets the pair together has a reason recorded.
+ * GlobalInstanceCap and LiveInstanceCount are separate fields set by whoever
+ * builds the autoscaler, so forgetting the counter is a one-line mistake at any
+ * future construction site. Skipping the check in that case turns an operator's
+ * "never more than N rented boxes" into unlimited, silently — no error, no log,
+ * and no test failure. Refusing makes the same mistake loud and costs nothing
+ * but a paused autoscaler.
+ *
+ * The assertion is on an exact call count in both directions, because the
+ * previous version of this test (`if len(calls) == 1 { fail }`) also passed when
+ * provisioning was broken outright and would have passed if the cap were made
+ * to fail closed — it pinned neither outcome.
  */
-func TestAutoscaler_GlobalCapWithoutCounterIsUnlimited(t *testing.T) {
+func TestAutoscaler_GlobalCapWithoutCounterRefuses(t *testing.T) {
 	jobA := uuid.New()
 	prov := newFakeProvisioner(EligibleJob{JobExecutionID: jobA, MaxInstances: 10})
 
 	a := NewAutoscaler(freshSnapshot(0, jobA), prov)
 	a.GlobalInstanceCap = 1
-	// LiveInstanceCount deliberately left nil.
+	// LiveInstanceCount deliberately left nil: the half-wired case.
 
 	for i := 0; i < 3; i++ {
 		a.ScaleOnce(context.Background())
 	}
 
-	if len(prov.calls()) == 1 {
-		t.Fatal("the cap appears to be enforced without a counter — if that is now " +
-			"true, delete this test; if it is not, main.go must keep setting " +
-			"GlobalInstanceCap and LiveInstanceCount together")
+	if n := len(prov.calls()); n != 0 {
+		t.Fatalf("a configured global cap with no counter must refuse to provision, got %d launches — "+
+			"the operator's instance ceiling is silently unlimited", n)
+	}
+}
+
+// TestAutoscaler_GlobalCapWithCounterStillProvisions is the control for the test
+// above: fail-closed must apply to the missing counter, not to the cap itself.
+func TestAutoscaler_GlobalCapWithCounterStillProvisions(t *testing.T) {
+	jobA := uuid.New()
+	prov := newFakeProvisioner(EligibleJob{JobExecutionID: jobA, MaxInstances: 10})
+
+	a := NewAutoscaler(freshSnapshot(0, jobA), prov)
+	a.GlobalInstanceCap = 5
+	a.LiveInstanceCount = func(context.Context) (int, error) { return 0, nil }
+
+	a.ScaleOnce(context.Background())
+
+	if n := len(prov.calls()); n != 1 {
+		t.Fatalf("a properly wired cap below its ceiling must still provision, got %d launches", n)
 	}
 }
 
@@ -340,32 +363,149 @@ func TestAutoscaler_SpendsInSchedulerOrder(t *testing.T) {
 }
 
 /*
- * TestStarvationSnapshot_ReadIsACopy.
+ * TestStarvationSnapshot_ReadAgesIsACopy.
  *
  * ScaleOnce iterates the map it gets back while the scheduler keeps publishing
  * every 3 seconds. Handing out the live map would be a concurrent map read and
  * write — a hard crash, not a wrong number.
  */
-func TestStarvationSnapshot_ReadIsACopy(t *testing.T) {
+func TestStarvationSnapshot_ReadAgesIsACopy(t *testing.T) {
 	jobA := uuid.New()
 	s := freshSnapshot(0, jobA)
 
-	got, _, ok := s.Read(time.Minute)
+	got, _, ok := s.ReadAges(time.Minute, time.Now())
 	if !ok {
 		t.Fatal("a just-published snapshot must read as fresh")
 	}
-	got[uuid.New()] = true
+	got[uuid.New()] = time.Hour
 
-	again, _, _ := s.Read(time.Minute)
+	again, _, _ := s.ReadAges(time.Minute, time.Now())
 	if len(again) != 1 {
 		t.Fatalf("mutating a returned snapshot changed the published one (%d entries)", len(again))
 	}
 }
 
-// TestStarvationSnapshot_ConcurrentPublishAndRead is the race-detector target
-// for the 3-second publisher against the 60-second reader.
-func TestStarvationSnapshot_ConcurrentPublishAndRead(t *testing.T) {
+/*
+ * TestStarvationSnapshot_AgeAccumulatesAcrossPublishes.
+ *
+ * This is the property min_starvation_seconds is built on. Publish replaces the
+ * set wholesale, so the obvious implementation restamps every job every 3
+ * seconds and no job ever ages past one scheduler cycle — a threshold of
+ * minutes would then be met either instantly or never, depending on which side
+ * of the restamp the reader landed.
+ */
+func TestStarvationSnapshot_AgeAccumulatesAcrossPublishes(t *testing.T) {
+	jobA := uuid.New()
 	s := NewStarvationSnapshot()
+
+	s.Publish(map[uuid.UUID]bool{jobA: true}, 0)
+	time.Sleep(50 * time.Millisecond)
+	s.Publish(map[uuid.UUID]bool{jobA: true}, 0)
+
+	ages, _, ok := s.ReadAges(time.Minute, time.Now())
+	if !ok {
+		t.Fatal("a just-published snapshot must read as fresh")
+	}
+	if ages[jobA] < 50*time.Millisecond {
+		t.Fatalf("age reset to %s on the second publish; the first-seen time must carry forward", ages[jobA])
+	}
+}
+
+/*
+ * TestStarvationSnapshot_ReEnteringRestartsTheClock.
+ *
+ * The rule asks whether a job has been unable to make ANY progress for N
+ * seconds, so getting an agent has to zero the clock. A high-water mark would
+ * let a job that starves briefly over and over eventually qualify for paid
+ * capacity it never needed.
+ *
+ * Asserted as the gap between two jobs read at the SAME instant: jobB starved
+ * throughout, jobA dropped out and came back, so under a high-water mark their
+ * ages would be equal. Comparing the two removes any dependence on how long the
+ * test itself took to reach the read.
+ */
+func TestStarvationSnapshot_ReEnteringRestartsTheClock(t *testing.T) {
+	jobA, jobB := uuid.New(), uuid.New()
+	s := NewStarvationSnapshot()
+
+	s.Publish(map[uuid.UUID]bool{jobA: true, jobB: true}, 0)
+	time.Sleep(50 * time.Millisecond)
+	// jobA got an agent: it has made progress, so its run ends here.
+	s.Publish(map[uuid.UUID]bool{jobB: true}, 0)
+	time.Sleep(50 * time.Millisecond)
+	s.Publish(map[uuid.UUID]bool{jobA: true, jobB: true}, 0)
+
+	ages, _, ok := s.ReadAges(time.Minute, time.Now())
+	if !ok {
+		t.Fatal("a just-published snapshot must read as fresh")
+	}
+	if gap := ages[jobB] - ages[jobA]; gap < 90*time.Millisecond {
+		t.Fatalf("the re-entering job is only %s younger than the job that never recovered; "+
+			"its clock kept running across a cycle in which it was not starving", gap)
+	}
+}
+
+/*
+ * TestStarvationSnapshot_DepartedJobsAreDropped.
+ *
+ * The age map is process-lifetime state fed by a 3-second publisher. If entries
+ * outlived their starvation it would grow with every job the server ever ran,
+ * and a job returning hours later would arrive pre-aged past any threshold.
+ */
+func TestStarvationSnapshot_DepartedJobsAreDropped(t *testing.T) {
+	jobA, jobB := uuid.New(), uuid.New()
+	s := NewStarvationSnapshot()
+
+	s.Publish(map[uuid.UUID]bool{jobA: true, jobB: true}, 0)
+	s.Publish(map[uuid.UUID]bool{jobA: true}, 0)
+
+	ages, _, _ := s.ReadAges(time.Minute, time.Now())
+	if _, ok := ages[jobB]; ok {
+		t.Error("a job the scheduler stopped reporting is still being aged")
+	}
+
+	s.mu.RLock()
+	tracked := len(s.startedAt)
+	s.mu.RUnlock()
+	if tracked != 1 {
+		t.Fatalf("tracking %d jobs after a publish naming one; entries must be dropped, not retained", tracked)
+	}
+}
+
+/*
+ * TestStarvationSnapshot_FreshnessBounds.
+ *
+ * Both directions are money guards. Before the first publish there is no
+ * starvation data at all, and an empty age map must not read as "nothing is
+ * starving and everything is fine"; past maxAge the scheduler is wedged and the
+ * ages are counting up against work that may already be finished.
+ */
+func TestStarvationSnapshot_FreshnessBounds(t *testing.T) {
+	jobA := uuid.New()
+	s := NewStarvationSnapshot()
+
+	if _, _, ok := s.ReadAges(30*time.Second, time.Now()); ok {
+		t.Fatal("an unpublished snapshot read as fresh")
+	}
+
+	s.Publish(map[uuid.UUID]bool{jobA: true}, 0)
+	if _, _, ok := s.ReadAges(30*time.Second, time.Now()); !ok {
+		t.Fatal("a just-published snapshot must read as fresh")
+	}
+	if _, _, ok := s.ReadAges(30*time.Second, time.Now().Add(31*time.Second)); ok {
+		t.Fatal("a snapshot older than maxAge read as fresh")
+	}
+}
+
+// TestStarvationSnapshot_ConcurrentPublishAndReadAges is the race-detector
+// target for the 3-second publisher against the 60-second reader. Publish now
+// reads the previous run's start times while it writes the new ones, so the
+// window in which an unlocked read could tear is wider than it was.
+func TestStarvationSnapshot_ConcurrentPublishAndReadAges(t *testing.T) {
+	s := NewStarvationSnapshot()
+	// A job present in every publish keeps the carry-forward path hot rather
+	// than exercising only first-sighting of brand new UUIDs.
+	stable := uuid.New()
 	var wg sync.WaitGroup
 	stop := make(chan struct{})
 
@@ -378,7 +518,7 @@ func TestStarvationSnapshot_ConcurrentPublishAndRead(t *testing.T) {
 				return
 			default:
 			}
-			s.Publish(map[uuid.UUID]bool{uuid.New(): true}, i%3)
+			s.Publish(map[uuid.UUID]bool{stable: true, uuid.New(): true}, i%3)
 		}
 	}()
 	go func() {
@@ -389,7 +529,7 @@ func TestStarvationSnapshot_ConcurrentPublishAndRead(t *testing.T) {
 				return
 			default:
 			}
-			if m, _, ok := s.Read(time.Minute); ok {
+			if m, _, ok := s.ReadAges(time.Minute, time.Now()); ok {
 				for range m {
 				}
 			}

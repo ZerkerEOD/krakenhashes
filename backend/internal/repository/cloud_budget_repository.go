@@ -304,9 +304,7 @@ func (r *CloudBudgetRepository) UpdateClientCloudSettings(ctx context.Context, c
 		allowlist = []string{}
 	}
 	for _, p := range allowlist {
-		switch models.CloudProvider(p) {
-		case models.CloudProviderVastAI, models.CloudProviderAWS, models.CloudProviderMock:
-		default:
+		if !models.CloudProvider(p).IsValid() {
 			return fmt.Errorf("unknown cloud provider %q in allowlist", p)
 		}
 	}
@@ -335,9 +333,7 @@ func (r *CloudBudgetRepository) UpdateClientCloudSettings(ctx context.Context, c
 // jsonb_set with create_if_missing merges into whatever is already there, so
 // acknowledging AWS does not erase an earlier Vast.ai acknowledgement.
 func (r *CloudBudgetRepository) RecordClientProviderAck(ctx context.Context, clientID uuid.UUID, provider string, userID uuid.UUID) error {
-	switch models.CloudProvider(provider) {
-	case models.CloudProviderVastAI, models.CloudProviderAWS, models.CloudProviderMock:
-	default:
+	if !models.CloudProvider(provider).IsValid() {
 		return fmt.Errorf("unknown cloud provider %q", provider)
 	}
 

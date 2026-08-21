@@ -548,7 +548,8 @@
         "allowHighPriorityOverride": "Autoriser le surclassement de priorité (peut interrompre les Jobs en cours)",
         "additionalArgs": "Arguments Hashcat supplémentaires",
         "cloudBurstEnabled": "Allow cloud burst",
-        "cloudMaxInstances": "Max cloud instances"
+        "cloudMaxInstances": "Max cloud instances",
+        "cloudAllowCommunityHosts": "Autoriser les machines de tiers (Vast.ai, RunPod Community)"
       },
       "incrementModes": {
         "off": "Désactivé (utiliser le masque complet)",
@@ -575,7 +576,8 @@
         "secondWordlist": "Les mots de cette liste seront ajoutés à la suite de la première",
         "additionalArgs": "Options Hashcat supplémentaires pour ce Job. En cas de conflit, les options définies au niveau de l'Agent sont prioritaires.",
         "cloudBurstEnabled": "Rent GPU instances for jobs created from this preset when the on-prem fleet cannot keep up. Requires the client to be funded and opted in to a provider.",
-        "cloudMaxInstances": "Separate from Max Agents, which governs the shared on-prem pool. Leave blank to let the remaining budget decide."
+        "cloudMaxInstances": "Separate from Max Agents, which governs the shared on-prem pool. Leave blank to let the remaining budget decide.",
+        "cloudAllowCommunityHosts": "Ce sont des machines qui ne vous appartiennent pas. Leur propriétaire dispose d’un accès root au conteneur : les empreintes, dictionnaires et mots de passe déchiffrés de ce client sont lisibles par un tiers et ne sont pas chiffrés au repos sur l’hôte. Déconseillé pour des données de production ou de mission client. Si vous laissez cette option désactivée, les tâches utiliseront tout de même la capacité sécurisée (AWS, RunPod Secure Cloud) si le client l’autorise."
       },
       "errors": {
         "nameRequired": "Le nom du Job est requis",
@@ -1481,7 +1483,8 @@
     "sections": {
       "providers": "Providers",
       "clients": "Client budgets",
-      "policy": "Threshold policy"
+      "policy": "Threshold policy",
+      "rules": "Règles de provisionnement"
     },
     "providers": {
       "title": "Cloud providers",
@@ -1525,11 +1528,12 @@
       "acknowledged": "Acknowledgement recorded",
       "ackFailed": "Failed to record acknowledgement",
       "ackTitle": "Acknowledge third-party data exposure",
-      "ackBody": "Vast.ai rents GPUs on individually-owned machines whose operators have root access to the container. Hashes, wordlists and cracked plaintexts placed there are visible to a third party. This is categorically different from AWS, where instances run inside your own account.",
+      "ackBody": {
+        "vastai": "Vast.ai loue des GPU sur des machines de particuliers dont les opérateurs disposent d’un accès root au conteneur. Les empreintes, dictionnaires et mots de passe déchiffrés qui y sont placés sont visibles par un tiers. C’est fondamentalement différent d’AWS ou de RunPod Secure Cloud, où les instances s’exécutent dans votre propre compte ou dans des centres de données SOC 2.",
+        "runpod_community": "RunPod Community Cloud loue des GPU sur des machines de tiers dont les propriétaires disposent d’un accès root au conteneur. Les empreintes, dictionnaires et mots de passe déchiffrés qui y sont placés sont visibles par un tiers. Les attestations de RunPod ne couvrent que Secure Cloud et ne s’étendent pas à ce niveau."
+      },
       "ackConfirm": "Do you accept this exposure for workloads sent to this provider?",
       "ackAccept": "I understand and accept",
-      "vastWarningTitle": "Third-party hardware",
-      "vastWarningBody": "Vast.ai instances run on machines you do not control. Enable it only for clients whose data may be exposed to a third party, and acknowledge it per client as well.",
       "ephemeralKeyTitle": "Encryption key is ephemeral",
       "ephemeralKeyBody": "KH_ENCRYPTION_KEY is not set, so a random key was generated at startup. Every stored credential becomes unreadable after the next restart. Set KH_ENCRYPTION_KEY before saving provider credentials.",
       "vpnSection": "VPN connectivity",
@@ -1539,7 +1543,9 @@
       "kinds": {
         "aws": "AWS EC2 (your own account)",
         "vastai": "Vast.ai (third-party machines)",
-        "mock": "Mock (local test agents, no cost)"
+        "mock": "Mock (local test agents, no cost)",
+        "runpod": "RunPod Secure Cloud (centres de données SOC 2)",
+        "runpod_community": "RunPod Community Cloud (machines de tiers)"
       },
       "credentialKinds": {
         "oauth": "OAuth client — mint one ephemeral key per instance (recommended)",
@@ -1580,6 +1586,11 @@
         "backendVpnHost": "This server's address on the VPN",
         "backendVpnHostHelp": "The KH_HOST value cloud agents use. It must already appear in KH_ADDITIONAL_DNS_NAMES or KH_ADDITIONAL_IP_ADDRESSES, or agents will fail TLS hostname verification.",
         "enabled": "Enabled"
+      },
+      "peerWarningTitle": "Matériel tiers",
+      "peerWarningBody": {
+        "vastai": "Les instances Vast.ai s’exécutent sur des machines de particuliers que vous ne contrôlez pas. Ne l’activez que pour les clients dont les données peuvent être exposées à un tiers, et confirmez-le également par client.",
+        "runpod_community": "RunPod Community Cloud s’exécute sur des machines de tiers dont les propriétaires disposent d’un accès root au conteneur. Les attestations SOC 2, ISO 27001 et PCI DSS de RunPod ne couvrent que Secure Cloud, pas ce niveau. Ne l’activez que pour les clients dont les données peuvent être exposées à un tiers, et confirmez-le également par client."
       }
     },
     "budgets": {
@@ -1605,7 +1616,6 @@
       "ackWarningBody": "Allowing Vast.ai for {{name}} means this client's hashes, wordlists and cracked plaintexts may be placed on machines owned by third parties who have root access to the container.",
       "ackConfirm": "Do you accept this exposure for this client?",
       "ackAccept": "I understand and accept",
-      "vastTooltip": "Runs on third-party machines whose owners have root access",
       "actions": {
         "none": "Within budget",
         "notify": "Threshold reached",
@@ -1636,7 +1646,8 @@
         "invalidTtl": "Maximum lifetime must be a positive number of minutes",
         "enabledWithoutBudget": "Set a budget before enabling cloud burst — an unfunded client can never provision anything.",
         "enabledWithoutProvider": "Allow at least one provider before enabling cloud burst."
-      }
+      },
+      "peerTooltip": "Matériel tiers : les données de ce client seront lisibles par le propriétaire de la machine."
     },
     "policy": {
       "title": "Spend threshold policy",
@@ -1708,6 +1719,43 @@
         "ttl": "TTL left",
         "disk": "Disk",
         "actions": "Actions"
+      }
+    },
+    "rules": {
+      "title": "Quand le système peut dépenser",
+      "description": "Les budgets régissent combien peut être dépensé. Ces règles régissent quand quoi que ce soit peut l’être. Sans elles, l’autoscaler loue dès le premier cycle de pénurie, pour n’importe quelle tâche, à n’importe quelle heure, sans plafond par tâche.",
+      "inheritTitle": "Ce sont les valeurs par défaut du système",
+      "inheritBody": "Les clients héritent de chaque champ individuellement : renforcer une valeur ici atteint donc tout client qui n’a pas redéfini ce champ précis. Les dérogations par client se modifient sur l’écran du client.",
+      "saved": "Règles de provisionnement enregistrées",
+      "saveFailed": "Échec de l’enregistrement des règles de provisionnement",
+      "loadFailed": "Échec du chargement des règles de provisionnement",
+      "save": "Enregistrer les règles",
+      "fields": {
+        "minJobPriority": "Priorité minimale de la tâche",
+        "minStarvation": "Durée minimale de pénurie (minutes)",
+        "skipIfFinishing": "Ignorer si terminé dans (minutes)",
+        "maxSpendPerJob": "Dépense maximale par tâche",
+        "windowEnabled": "Limiter le provisionnement à une plage horaire",
+        "windowStart": "Ouverture de la plage",
+        "windowEnd": "Fermeture de la plage",
+        "windowTz": "Fuseau horaire"
+      },
+      "helperText": {
+        "minJobPriority": "Priorité absolue, pas un pourcentage. Votre plafond actuel est {{ceiling}}.",
+        "floorOff": "Aucun seuil : toute tâche autorisée à déborder vers le cloud peut être provisionnée automatiquement.",
+        "minStarvation": "Durée pendant laquelle une tâche ne doit faire aucun progrès avant de louer de la capacité payante. 0 loue dès le premier cycle. Ne concerne que l’autoscaler.",
+        "skipIfFinishing": "Ne pas louer pour une tâche censée se terminer dans ce délai avec la capacité existante : une instance louée met 5 à 10 minutes à démarrer et se synchroniser. 0 n’ignore jamais.",
+        "maxSpendPerJob": "Plafond des dépenses cloud pour une tâche sur toute sa durée de vie, sans remise à zéro mensuelle. Vide signifie aucun plafond. Appliqué partout, y compris au provisionnement manuel par un administrateur.",
+        "windowEnabled": "Ne concerne que les démarrages. Les instances ne sont jamais détruites parce que la plage s’est fermée : le TTL et le drainage à l’inactivité s’en chargent.",
+        "windowTz": "Nom IANA, par ex. America/Chicago. Laisser vide pour UTC.",
+        "windowWrap": "Une heure de fermeture antérieure à l’heure d’ouverture traverse minuit, ce qui est la façon habituelle d’écrire « louer uniquement la nuit ». Les deux valeurs identiques signifient toujours ouvert."
+      },
+      "bands": {
+        "minimal": "Minimale",
+        "low": "Basse",
+        "normal": "Normale",
+        "high": "Haute",
+        "critical": "Critique"
       }
     }
   }

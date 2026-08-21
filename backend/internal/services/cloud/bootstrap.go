@@ -257,6 +257,18 @@ func BuildAgentEnv(
 		// 169.254.169.254 is IMDS; routing it through a proxy breaks instance
 		// identity lookups and the shutdown path.
 		env[EnvNoProxy] = "169.254.169.254"
+	case "runpod", "runpod_community":
+		/*
+		 * api.runpod.io is the v2 control plane, kept off-tunnel for the same
+		 * reason as console.vast.ai: the teardown path must survive the VPN
+		 * dying, and a self-destruct that needs the tunnel it is reacting to
+		 * the loss of cannot work.
+		 *
+		 * Both tiers get it. The teardown ladder is identical — RunPod exposes
+		 * no provider-enforced TTL on either side, so the in-guest deadline is
+		 * doing real work here rather than acting as a backstop.
+		 */
+		env[EnvNoProxy] = "api.runpod.io"
 	}
 	return env
 }

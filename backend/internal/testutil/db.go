@@ -338,6 +338,30 @@ func SeedDefaults(t *testing.T, database *db.DB) {
 		t.Fatalf("Failed to seed cloud_budget_policies default: %v", err)
 	}
 
+	/*
+	 * The system-default provisioning rules (client_id IS NULL), values matching
+	 * 20260821090000_add_cloud_provisioning_rules.up.sql.
+	 *
+	 * Required for the same reason as the budget policy above, and the failure
+	 * is louder: GetRules fails closed when this row is missing, so every
+	 * provisioning path refuses rather than degrading. Without this seed the
+	 * first test in a package passes and every later one fails with "the system
+	 * default row is missing", which reads like a rules bug rather than a
+	 * truncation artefact.
+	 */
+	_, err = database.Exec(`
+		INSERT INTO cloud_provisioning_rules (
+			client_id, min_job_priority, min_starvation_seconds,
+			skip_if_finishing_within_seconds, max_spend_per_job_cents,
+			provisioning_window_start, provisioning_window_end, provisioning_window_tz
+		)
+		VALUES (NULL, 0, 180, 900, 0, NULL, NULL, 'UTC')
+		ON CONFLICT DO NOTHING
+	`)
+	if err != nil && !strings.Contains(err.Error(), "does not exist") {
+		t.Fatalf("Failed to seed cloud_provisioning_rules default: %v", err)
+	}
+
 	// The system user (000001_initial_schema). Truncation removes it along with
 	// every other user, but code references its fixed UUID directly — cloud
 	// vouchers are minted under it, and Agent.OwnerID == SystemUserID is how a

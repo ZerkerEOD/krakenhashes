@@ -181,8 +181,78 @@ func TestPublishStarvation_IdleOnPremExcludesAllocatedAgents(t *testing.T) {
 		t.Fatalf("idleOnPrem = %d after every on-prem agent was allocated; the "+
 			"autoscaler would read this as spare capacity and never rent", rec.idleOnPrem)
 	}
-	if !rec.starving[job] {
-		t.Error("a unit with no allocation is still starving")
+	// The job itself is NOT starving: it took both agents this cycle, so it
+	// made progress. Starvation is asked per JOB, not per unit — see
+	// TestPublishStarvation_ProgressOnAnySiblingClearsTheJob.
+	if rec.starving[job] {
+		t.Error("a job that received allocations this cycle is making progress and is not starving")
+	}
+}
+
+/*
+ * TestPublishStarvation_ProgressOnAnySiblingClearsTheJob pins the per-JOB
+ * reading of starvation against the per-unit one.
+ *
+ * Consumers age this signal to decide whether to spend money, asking "has this
+ * job been unable to make ANY progress for N seconds". A per-unit answer makes
+ * every multi-unit job permanently starving: an increment job with more units
+ * than agents leaves siblings unallocated on every cycle, including the cycles
+ * where it is cracking at full throughput. The age would then grow without
+ * bound, and min_starvation_seconds — the rail an operator sets specifically to
+ * stop transient gaps from renting GPUs — would never reset for any job big
+ * enough to matter.
+ */
+func TestPublishStarvation_ProgressOnAnySiblingClearsTheJob(t *testing.T) {
+	job := uuid.New()
+	served, hungry1, hungry2 := uuid.New(), uuid.New(), uuid.New()
+	rec := &recordingPublisher{}
+	c := &Cycle{starvation: rec}
+
+	c.publishStarvation(
+		[]UnitInfo{
+			{ID: served, ParentJobID: job},
+			{ID: hungry1, ParentJobID: job},
+			{ID: hungry2, ParentJobID: job},
+		},
+		[]AgentInfo{{ID: 1}},
+		// One of three units got the only agent. The job advanced.
+		[]Allocation{{UnitID: served, AgentID: 1}},
+	)
+
+	if rec.starving[job] {
+		t.Error("a job that advanced this cycle must not be published as starving; " +
+			"its starvation age would grow without bound while it works")
+	}
+}
+
+/*
+ * TestPublishStarvation_NoAllocationAtAllIsStarving is the other half: the fix
+ * above must not silence the case the feature exists for.
+ *
+ * All agents are busy elsewhere, this job got nothing, and that is precisely
+ * when renting paid capacity is the right answer.
+ */
+func TestPublishStarvation_NoAllocationAtAllIsStarving(t *testing.T) {
+	hungryJob, busyJob := uuid.New(), uuid.New()
+	hungryUnit, busyUnit := uuid.New(), uuid.New()
+	rec := &recordingPublisher{}
+	c := &Cycle{starvation: rec}
+
+	c.publishStarvation(
+		[]UnitInfo{
+			{ID: hungryUnit, ParentJobID: hungryJob},
+			{ID: busyUnit, ParentJobID: busyJob},
+		},
+		[]AgentInfo{{ID: 1}},
+		// The only agent went to a different job.
+		[]Allocation{{UnitID: busyUnit, AgentID: 1}},
+	)
+
+	if !rec.starving[hungryJob] {
+		t.Error("a job that received no allocation at all is starving")
+	}
+	if rec.starving[busyJob] {
+		t.Error("the job that took the agent is not starving")
 	}
 }
 
