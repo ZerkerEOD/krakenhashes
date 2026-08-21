@@ -16,6 +16,7 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/rule"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/cloud"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/scheduler"
 	wsservice "github.com/ZerkerEOD/krakenhashes/backend/internal/services/websocket"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/wordlist"
@@ -92,6 +93,12 @@ type JobWebSocketIntegration struct {
 	ruleManager               rule.Manager
 	binaryManager             binary.Manager
 
+	// cloudBenchmarkRepo feeds observed cloud-agent speeds into the
+	// model-keyed table the cost/ETA estimator reads. Derived from db rather
+	// than passed in, so no caller has to be changed to enable it; nil only
+	// when db is nil, which is a test that has no database at all.
+	cloudBenchmarkRepo *repository.CloudGPUBenchmarkRepository
+
 	// Progress tracking
 	progressMutex   sync.RWMutex
 	taskProgressMap map[string]*models.JobProgress // TaskID -> Progress
@@ -160,6 +167,7 @@ func NewJobWebSocketIntegration(
 		wordlistManager:           wordlistManager,
 		ruleManager:               ruleManager,
 		binaryManager:             binaryManager,
+		cloudBenchmarkRepo:        newCloudBenchmarkRepo(db),
 		taskProgressMap:           make(map[string]*models.JobProgress),
 		completionCache:           make(map[string]time.Time),
 	}
@@ -2963,6 +2971,93 @@ func (s *JobWebSocketIntegration) dispatchTaskCompletedNotification(ctx context.
 	}
 }
 
+// newCloudBenchmarkRepo wraps the raw handle this type is constructed with.
+// Written as a free function because the constructor's parameter is itself
+// named db, which shadows the package inside that function body.
+func newCloudBenchmarkRepo(sqlDB *sql.DB) *repository.CloudGPUBenchmarkRepository {
+	if sqlDB == nil {
+		return nil
+	}
+	return repository.NewCloudGPUBenchmarkRepository(&db.DB{DB: sqlDB})
+}
+
+/*
+ * recordCloudGPUBenchmark files a rented agent's measured speed under its GPU
+ * MODEL, so the next provisioning decision about that model can be priced.
+ *
+ * WHY THIS IS NOT A SECOND WRITE TO agent_benchmarks
+ *
+ * The migration that created cloud_gpu_benchmarks says it plainly: a synthetic
+ * row in agent_benchmarks "would make CountAgentsWithRecentBenchmark treat an
+ * invented number as corroborating evidence and could quarantine real on-prem
+ * hardware." The real benchmark this speed came from has ALREADY been written
+ * to agent_benchmarks by the normal path above, for this specific agent. This
+ * is an additional, differently-keyed copy for a different consumer, and the
+ * two tables must not be conflated.
+ *
+ * ON-PREM AGENTS RECORD NOTHING. An agent with a NULL cloud_instance_id has no
+ * provider and no offer behind it, so there is no offer for the estimator to
+ * find the row from later.
+ *
+ * NORMALISATION IS LOAD-BEARING. The read path keys on
+ * cloud.NormalizeGPUModel's output, so the write must use the same function on
+ * the provider's raw string. A write that normalises differently — or not at
+ * all — produces a table that never matches a lookup, and the only symptom is
+ * that cost-per-work ranking silently degrades to the static GPU-class prior
+ * forever, with nothing in the logs.
+ *
+ * Every failure in here is logged and swallowed. This is an optimisation
+ * signal, not correctness: losing a sample makes the next rental estimate
+ * slightly worse, whereas returning an error would fail a benchmark the
+ * scheduler is waiting on and stall the job that paid for it.
+ */
+func (s *JobWebSocketIntegration) recordCloudGPUBenchmark(
+	ctx context.Context,
+	agentID, attackMode, hashType int,
+	saltCount *int,
+	speed int64,
+) {
+	if s.cloudBenchmarkRepo == nil {
+		return
+	}
+
+	identity, err := s.cloudBenchmarkRepo.ResolveCloudAgent(ctx, agentID)
+	if err != nil {
+		debug.Warning("Failed to resolve cloud instance for agent %d while recording GPU benchmark: %v", agentID, err)
+		return
+	}
+	if identity == nil {
+		// On-prem agent (or an instance row that no longer exists). Nothing to
+		// attribute this speed to.
+		return
+	}
+
+	model := cloud.NormalizeGPUModel(identity.GPUModel)
+	if model == "" {
+		debug.Warning("Cloud agent %d reports GPU model %q which normalises to empty; skipping GPU benchmark record",
+			agentID, identity.GPUModel)
+		return
+	}
+
+	if err := s.cloudBenchmarkRepo.Record(ctx, identity.Provider, model, identity.GPUCount,
+		attackMode, hashType, saltCount, speed); err != nil {
+		debug.Warning("Failed to record cloud GPU benchmark (agent %d, %s/%s x%d, mode %d, type %d): %v",
+			agentID, identity.Provider, model, identity.GPUCount, attackMode, hashType, err)
+		return
+	}
+
+	debug.Log("Recorded cloud GPU benchmark", map[string]interface{}{
+		"agent_id":    agentID,
+		"provider":    identity.Provider,
+		"gpu_model":   model,
+		"gpu_count":   identity.GPUCount,
+		"attack_mode": attackMode,
+		"hash_type":   hashType,
+		"salt_count":  saltCount,
+		"speed":       speed,
+	})
+}
+
 // HandleBenchmarkResult processes benchmark results from agents
 func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, agentID int, result *wsservice.BenchmarkResultPayload) error {
 	debug.Log("Processing benchmark result from agent", map[string]interface{}{
@@ -3089,6 +3184,13 @@ func (s *JobWebSocketIntegration) HandleBenchmarkResult(ctx context.Context, age
 		"speed":       result.Speed,
 		"salt_count":  saltCount,
 	})
+
+	// Mirror the same measurement into the model-keyed cloud table, if this
+	// agent is rented. Deliberately placed after the guards above so only a
+	// real, positive speed is ever folded in, and it reuses saltCount so the
+	// cloud row is keyed by the same stable value the scheduler looks
+	// agent_benchmarks up with.
+	s.recordCloudGPUBenchmark(ctx, agentID, result.AttackMode, result.HashType, saltCount, result.Speed)
 
 	// Update benchmark_requests table to mark this benchmark as complete
 	_, err = s.db.ExecContext(ctx, `
@@ -3728,7 +3830,11 @@ func (s *JobWebSocketIntegration) processCrackedHashes(ctx context.Context, task
 			for _, hash := range hashes {
 				// Check if hash is already cracked to prevent double counting
 				if hash.IsCracked {
-					debug.Warning("Skipping already-cracked hash in crack batch [hash_id=%s, hash_value=%s, current_password=%s, new_password=%s, last_updated=%v, hashlist_id=%d]",
+					// hash.Password is a *string; %v renders a nil as "<nil>"
+					// rather than the pointer address %s would print. This line
+					// failed `go vet`, which go test runs by default — so it was
+					// blocking the entire package's tests from building.
+					debug.Warning("Skipping already-cracked hash in crack batch [hash_id=%s, hash_value=%s, current_password=%v, new_password=%s, last_updated=%v, hashlist_id=%d]",
 						hash.ID, hashValue, hash.Password, password, hash.LastUpdated, jobExecution.HashlistID)
 					continue
 				}

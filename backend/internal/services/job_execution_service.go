@@ -276,6 +276,11 @@ type CustomJobConfig struct {
 	// governs only the shared on-prem pool). Off by default.
 	CloudBurstEnabled bool
 	CloudMaxInstances *int
+	// CloudAllowCommunityHosts opts this job onto peer-operated hardware
+	// (Vast.ai, RunPod Community), where the host's owner has root over the
+	// container. Independent of CloudBurstEnabled: a job may legitimately burst
+	// to SOC 2 capacity while never touching someone else's machine.
+	CloudAllowCommunityHosts bool
 }
 
 // CreateJobExecution creates a new job execution from a preset job and hashlist
@@ -391,7 +396,11 @@ func (s *JobExecutionService) CreateJobExecution(ctx context.Context, presetJobI
 		// scheduler actually reads.
 		CloudBurstEnabled: presetJob.CloudBurstEnabled,
 		CloudMaxInstances: presetJob.CloudMaxInstances,
-		CreatedBy:         createdBy,
+		// Peer-host consent travels with the preset for the same reason: it is
+		// the job row the provisioning gate reads, so a flag left behind here
+		// silently denies capacity the operator did allow.
+		CloudAllowCommunityHosts: presetJob.CloudAllowCommunityHosts,
+		CreatedBy:                createdBy,
 
 		// Copy all configuration from preset to make job self-contained
 		Name:                      customJobName, // Will be set after getting client info
@@ -548,17 +557,18 @@ func (s *JobExecutionService) CreateCustomJobExecution(ctx context.Context, conf
 
 	// Create self-contained job execution
 	jobExecution := &models.JobExecution{
-		PresetJobID:           nil, // NULL for custom jobs
-		HashlistID:            hashlistID,
-		AssociationWordlistID: config.AssociationWordlistID, // For association attacks (-a 9)
-		Status:                models.JobExecutionStatusPending,
-		Priority:              config.Priority,
-		ProcessedKeyspace:     models.NewBigInt(0),
-		AttackMode:            config.AttackMode,
-		MaxAgents:             config.MaxAgents,
-		CloudBurstEnabled:     config.CloudBurstEnabled,
-		CloudMaxInstances:     config.CloudMaxInstances,
-		CreatedBy:             createdBy,
+		PresetJobID:              nil, // NULL for custom jobs
+		HashlistID:               hashlistID,
+		AssociationWordlistID:    config.AssociationWordlistID, // For association attacks (-a 9)
+		Status:                   models.JobExecutionStatusPending,
+		Priority:                 config.Priority,
+		ProcessedKeyspace:        models.NewBigInt(0),
+		AttackMode:               config.AttackMode,
+		MaxAgents:                config.MaxAgents,
+		CloudBurstEnabled:        config.CloudBurstEnabled,
+		CloudMaxInstances:        config.CloudMaxInstances,
+		CloudAllowCommunityHosts: config.CloudAllowCommunityHosts,
+		CreatedBy:                createdBy,
 
 		// Direct configuration (not from preset)
 		Name:                      customJobName, // Will be set with proper naming logic
@@ -760,6 +770,7 @@ func (s *JobExecutionService) CreatePreparingFilterJob(ctx context.Context, conf
 		MaxAgents:                 config.MaxAgents,
 		CloudBurstEnabled:         config.CloudBurstEnabled,
 		CloudMaxInstances:         config.CloudMaxInstances,
+		CloudAllowCommunityHosts:  config.CloudAllowCommunityHosts,
 		CreatedBy:                 createdBy,
 		Name:                      name,
 		WordlistIDs:               config.WordlistIDs, // user's selection (display only until finalize)

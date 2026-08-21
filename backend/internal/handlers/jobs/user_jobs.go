@@ -971,6 +971,11 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 				// governs only the shared on-prem pool.
 				CloudBurstEnabled bool `json:"cloud_burst_enabled"`
 				CloudMaxInstances *int `json:"cloud_max_instances"`
+				// CloudAllowCommunityHosts opts this job onto peer-operated
+				// hardware, where the machine's owner has root over the
+				// container. Independent of the burst flag: a job may burst to
+				// SOC 2 capacity while never touching someone else's machine.
+				CloudAllowCommunityHosts bool `json:"cloud_allow_community_hosts"`
 			} `json:"custom_job"`
 		}
 		if err := json.Unmarshal(rawReq, &req); err != nil {
@@ -1115,6 +1120,7 @@ func (h *UserJobsHandler) CreateJobFromHashlist(w http.ResponseWriter, r *http.R
 			AdditionalArgs:            req.CustomJob.AdditionalArgs,
 			CloudBurstEnabled:         req.CustomJob.CloudBurstEnabled,
 			CloudMaxInstances:         req.CustomJob.CloudMaxInstances,
+			CloudAllowCommunityHosts:  req.CustomJob.CloudAllowCommunityHosts,
 		}
 
 		// Add association wordlist ID for mode 9
@@ -1528,41 +1534,42 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 
 	// Prepare response
 	response := map[string]interface{}{
-		"id":                       jobID.String(),
-		"name":                     getJobName(*job, hashlist),
-		"hashlist_id":              job.HashlistID,
-		"hashlist_name":            hashlist.Name,
-		"status":                   string(job.Status),
-		"priority":                 job.Priority,
-		"max_agents":               job.MaxAgents,
-		"cloud_burst_enabled":      job.CloudBurstEnabled,
-		"cloud_max_instances":      job.CloudMaxInstances,
-		"chunk_size_seconds":       job.ChunkSizeSeconds,
-		"attack_mode":              job.AttackMode,
-		"hash_type":                formattedHashType,
-		"effective_keyspace":       job.EffectiveKeyspace,
-		"base_keyspace":            job.BaseKeyspace,
-		"processed_keyspace":       job.ProcessedKeyspace,
-		"dispatched_keyspace":      job.DispatchedKeyspace,
-		"dispatched_percent":       dispatchedPercent,
-		"searched_percent":         searchedPercent,
-		"overall_progress_percent": overallProgressPercent,
-		"multiplication_factor":    job.MultiplicationFactor,
-		"increment_mode":           job.IncrementMode,
-		"increment_min":            job.IncrementMin,
-		"increment_max":            job.IncrementMax,
-		"cracked_count":            crackedCount,
-		"agent_count":              agentCount,
-		"total_speed":              totalSpeed,
-		"created_at":               job.CreatedAt.Format(time.RFC3339),
-		"updated_at":               job.UpdatedAt.Format(time.RFC3339),
-		"tasks":                    taskSummaries,
-		"total_tasks":              totalTasks,
-		"wordlist_ids":             job.WordlistIDs,
-		"wordlist_names":           wordlistNames,
-		"rule_ids":                 job.RuleIDs,
-		"rule_names":               ruleNames,
-		"mask":                     job.Mask,
+		"id":                          jobID.String(),
+		"name":                        getJobName(*job, hashlist),
+		"hashlist_id":                 job.HashlistID,
+		"hashlist_name":               hashlist.Name,
+		"status":                      string(job.Status),
+		"priority":                    job.Priority,
+		"max_agents":                  job.MaxAgents,
+		"cloud_burst_enabled":         job.CloudBurstEnabled,
+		"cloud_allow_community_hosts": job.CloudAllowCommunityHosts,
+		"cloud_max_instances":         job.CloudMaxInstances,
+		"chunk_size_seconds":          job.ChunkSizeSeconds,
+		"attack_mode":                 job.AttackMode,
+		"hash_type":                   formattedHashType,
+		"effective_keyspace":          job.EffectiveKeyspace,
+		"base_keyspace":               job.BaseKeyspace,
+		"processed_keyspace":          job.ProcessedKeyspace,
+		"dispatched_keyspace":         job.DispatchedKeyspace,
+		"dispatched_percent":          dispatchedPercent,
+		"searched_percent":            searchedPercent,
+		"overall_progress_percent":    overallProgressPercent,
+		"multiplication_factor":       job.MultiplicationFactor,
+		"increment_mode":              job.IncrementMode,
+		"increment_min":               job.IncrementMin,
+		"increment_max":               job.IncrementMax,
+		"cracked_count":               crackedCount,
+		"agent_count":                 agentCount,
+		"total_speed":                 totalSpeed,
+		"created_at":                  job.CreatedAt.Format(time.RFC3339),
+		"updated_at":                  job.UpdatedAt.Format(time.RFC3339),
+		"tasks":                       taskSummaries,
+		"total_tasks":                 totalTasks,
+		"wordlist_ids":                job.WordlistIDs,
+		"wordlist_names":              wordlistNames,
+		"rule_ids":                    job.RuleIDs,
+		"rule_names":                  ruleNames,
+		"mask":                        job.Mask,
 	}
 
 	if job.StartedAt != nil {

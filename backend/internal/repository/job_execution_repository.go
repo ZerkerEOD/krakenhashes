@@ -32,9 +32,9 @@ func (r *JobExecutionRepository) Create(ctx context.Context, exec *models.JobExe
 			chunk_size_seconds, status_updates_enabled, allow_high_priority_override, additional_args,
 			increment_mode, increment_min, increment_max,
 			base_keyspace, effective_keyspace, multiplication_factor, is_accurate_keyspace,
-			cloud_burst_enabled, cloud_max_instances
+			cloud_burst_enabled, cloud_max_instances, cloud_allow_community_hosts
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31)
 		RETURNING id, created_at`
 
 	err := r.db.QueryRowContext(ctx, query,
@@ -68,6 +68,7 @@ func (r *JobExecutionRepository) Create(ctx context.Context, exec *models.JobExe
 		exec.IsAccurateKeyspace,
 		exec.CloudBurstEnabled,
 		exec.CloudMaxInstances,
+		exec.CloudAllowCommunityHosts,
 	).Scan(&exec.ID, &exec.CreatedAt)
 
 	if err != nil {
@@ -94,7 +95,7 @@ func (r *JobExecutionRepository) GetByID(ctx context.Context, id uuid.UUID) (*mo
 			je.additional_args, je.hash_type, je.updated_at,
 			je.is_accurate_keyspace,
 			je.increment_mode, je.increment_min, je.increment_max,
-			je.cloud_burst_enabled, je.cloud_max_instances
+			je.cloud_burst_enabled, je.cloud_max_instances, je.cloud_allow_community_hosts
 		FROM job_executions je
 		WHERE je.id = $1`
 
@@ -113,7 +114,7 @@ func (r *JobExecutionRepository) GetByID(ctx context.Context, id uuid.UUID) (*mo
 		&exec.AdditionalArgs, &exec.HashType, &exec.UpdatedAt,
 		&exec.IsAccurateKeyspace,
 		&exec.IncrementMode, &exec.IncrementMin, &exec.IncrementMax,
-		&exec.CloudBurstEnabled, &exec.CloudMaxInstances,
+		&exec.CloudBurstEnabled, &exec.CloudMaxInstances, &exec.CloudAllowCommunityHosts,
 	)
 
 	if err == sql.ErrNoRows {
@@ -278,6 +279,17 @@ func (r *JobExecutionRepository) GetJobsByStatus(ctx context.Context, status mod
 // reads this flag when deciding to spend — a one-cycle delay can postpone a
 // rental, never cause an unwanted one.
 func (r *JobExecutionRepository) SetCloudBurst(ctx context.Context, id uuid.UUID, enabled bool, maxInstances *int) error {
+	/*
+	 * cloud_allow_community_hosts is DELIBERATELY NOT TOUCHED here.
+	 *
+	 * This is the workflow-level burst override, and "burst to paid capacity"
+	 * and "consent to peer-operated hardware" are separate decisions. Setting
+	 * the flag here would let a workflow toggle silently grant peer consent
+	 * that nobody gave; clearing it would silently revoke consent a preset
+	 * legitimately carries. Either way the value would stop reflecting anyone's
+	 * choice. The job already carries the preset's own value, copied at
+	 * creation, so leaving it alone is the only reading that stays true.
+	 */
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE job_executions
 		SET cloud_burst_enabled = $2, cloud_max_instances = $3, updated_at = NOW()

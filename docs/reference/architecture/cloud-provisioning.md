@@ -232,6 +232,48 @@ the estimator.
 
 ---
 
+## Provisioning rules: soft vs hard placement
+
+`decideProvisioningAction` is a pure function in the style of `decideBudgetAction` — table
+testable, no I/O, and its refusal strings are surfaced verbatim to the operator. Where the
+budget engine answers *how much*, this answers *when anything at all*.
+
+Rules are evaluated **cheapest first**, so a job that fails the priority floor never costs an
+estimator call or a spend query. That ordering is for the caller's benefit and cannot be
+exploited by calling with a half-filled input: `ProvisioningInput` is a plain value and its
+unset fields are not neutral — `SpendReadable: false` refuses, and `ProjectionAvailable: false`
+silently skips two rules.
+
+Placement splits on **soft vs hard**, not cheap vs expensive:
+
+| Rule | Placed in | Why there |
+|---|---|---|
+| Priority floor | `CloudEligibleJobs` (Go filter) | Means "not worth spending on automatically". Per-client merged rules cannot be a WHERE clause |
+| Skip if finishing soon | `CloudEligibleJobs` (Go filter) | Needs the estimator; projections are pessimistic for salted types, so overriding is legitimate |
+| Minimum starvation | Autoscaler | The age lives in `StarvationSnapshot`; the threshold is carried on `EligibleJob` so the comparison stays where the observation is |
+| Max spend per job | `ProvisionForJob` — **hard** | An admin-bypassable spend cap is not a spend cap |
+| Provisioning window | `ProvisionForJob` — **hard** | Usually encodes an external constraint, not an operator preference |
+| Peer-host opt-in | Provider filter — **hard** | Data-exposure consent; without it the job sees no peer offers but may still rent secure capacity |
+
+### Three traps worth naming
+
+**`TimeToFinish == 0` means no throughput, not "instant".** That is exactly the starving job
+this feature exists to rent for, so reading the zero as "finishing now" would refuse to
+provision at the precise moment it is needed, silently, on every pass. The rule fires only on
+`ProjectionAvailable && HaveThroughput && TimeToFinish > 0 && TimeToFinish <= window`; all four
+conditions are load-bearing and each has its own regression row.
+
+**Per-job spend joins through the instance**, not `cloud_spend_ledger.job_execution_id`. Only
+`reservation` rows carry that column, so filtering on it sums gross reservations with no
+releases netted out and over-reports every job whose instance terminated early.
+
+**Starvation is asked per job, not per unit.** An increment job with more units than agents
+leaves siblings unallocated on every cycle including the ones where it is cracking at full
+throughput, so a per-unit reading would make its starvation age grow without bound and the
+minimum-starvation rail would never reset for any job large enough to matter.
+
+---
+
 ## Estimation and the coverage bar
 
 Projections are computed in **base** keyspace, never effective: for salted types
@@ -284,12 +326,27 @@ could be offered another client's job.
 | PUT/DELETE | `/clients/{id}/policy` | Per-client threshold override |
 | POST | `/clients/{id}/acknowledge` | Per-client provider acknowledgement |
 | GET/PUT | `/policy` | System-default threshold ladder |
+| GET/PUT | `/rules` | System-default provisioning rules, **unmerged** |
+| GET/PUT/DELETE | `/clients/{id}/rules` | Per-client override; GET returns the **merged** view plus the raw override and the default |
 | GET | `/jobs/{id}/projection` | Coverage bar inputs |
+
+The two rules read routes are **deliberately asymmetric**, and conflating them is the one
+mistake here that quietly changes policy for every client. `/rules` returns the system default
+unmerged, because an admin editing the defaults has to see what the defaults themselves say.
+`/clients/{id}/rules` returns the merged view, because that is what the client is actually
+subject to — and the repository stamps the requested client's identity onto the result, so a
+load-edit-save round trip on a per-client screen can never target the system-default row.
+
+The client id always comes from the **URL**, never the body: a body-supplied `client_id` would
+let a request against one client's route write another's override, or with a null, the system
+default for everyone.
 
 Enabling a provider is refused unless it has credentials, a VPN provider, a VPN credential
 and a `backend_vpn_host`. An instance that cannot join the VPN can never reach the backend:
-it would boot, fail to connect, and bill until its watchdog fired. Vast.ai additionally
-requires the acknowledgement to already be on file.
+it would boot, fail to connect, and bill until its watchdog fired. Peer providers
+(`vastai`, `runpod_community`) additionally require the third-party acknowledgement to
+already be on file — routed through `CloudProvider.RequiresThirdPartyAck()`, which is the
+single place that trust-tier question is answered.
 
 Acknowledgements and credential changes are attributed to the authenticated caller, never
 to anything in the request body — `provider_ack` is written only through its own endpoint,
@@ -312,6 +369,29 @@ never through the settings update.
 | `env` must be a JSON **object** on create | The OpenAPI schema says string; sending a string silently drops every variable. |
 | **Unprivileged containers** — no `/dev/net/tun`, no `NET_ADMIN` | Userspace VPN only. OpenVPN is impossible. |
 | Hosts are individually-owned machines whose operators have root | Requires explicit per-client acknowledgement. |
+
+### RunPod
+
+Two provider kinds over one adapter, differing in the v2 API's `cloud: SECURE | COMMUNITY`
+field and in their consent chain. The API is weaker than both incumbents in ways that shape
+the design:
+
+- **No idempotency key, no server-side filter, no pagination.** Ownership is a client-side
+  anchored regex against the `kh-<uuid[:18]>` label every instance already carries, so a
+  dedicated account is a requirement rather than advice.
+- **No TTL field.** Teardown rests on the in-guest deadline and the backend reaper; there is
+  no provider-enforced ceiling to fall back on.
+- **No balance endpoint**, so pre-flight cannot verify funding — a `402` at create time is the
+  only signal.
+- **Billing buckets are one hour minimum**, so cost-so-far is unknown for most pods and
+  accrual stays wall-clock.
+- **A stopped pod still bills**, disk at roughly double. The adapter always terminates, never
+  stops, and never attaches network volumes — those outlive the pod and would retain cracked
+  plaintexts after termination.
+
+`api.runpod.io` is kept off-tunnel via `KH_NO_PROXY_EXTRA` for the same reason as
+`console.vast.ai`: a self-destruct path that needs the tunnel whose loss it is reacting to
+cannot work.
 
 ### AWS
 

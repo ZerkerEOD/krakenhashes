@@ -158,10 +158,15 @@ func (v *VastAIProvider) Preflight(ctx context.Context) (*PreflightReport, error
 
 // vastOffer is the subset of the offer object we rely on.
 type vastOffer struct {
-	ID              int     `json:"id"`
-	AskContractID   int     `json:"ask_contract_id"`
-	GPUName         string  `json:"gpu_name"`
-	NumGPUs         int     `json:"num_gpus"`
+	ID            int    `json:"id"`
+	AskContractID int    `json:"ask_contract_id"`
+	GPUName       string `json:"gpu_name"`
+	NumGPUs       int    `json:"num_gpus"`
+	// GPURAM is per-GPU memory in MEGABYTES. Not GB: a 24GB card reports
+	// ~24564. Reading it as GB would make every VRAM comparison off by 1024x,
+	// which does not fail loudly — it just makes every floor pass and every
+	// ceiling drop everything.
+	GPURAM          float64 `json:"gpu_ram"`
 	DPHTotal        float64 `json:"dph_total"`
 	StorageCost     float64 `json:"storage_cost"`
 	InetDownCost    float64 `json:"inet_down_cost"`
@@ -179,8 +184,8 @@ type vastOffer struct {
 // SearchOffers queries the marketplace.
 //
 // Filter values follow the REST API's units, which differ from the CLI's:
-// `duration` is SECONDS here (the CLI multiplies by 86400) and gpu_ram would
-// be MB. Getting these wrong silently returns the wrong machines.
+// `duration` is SECONDS here (the CLI multiplies by 86400) and `gpu_ram` is
+// MEGABYTES. Getting these wrong silently returns the wrong machines.
 func (v *VastAIProvider) SearchOffers(ctx context.Context, q OfferQuery) ([]Offer, error) {
 	minGPUs := q.MinGPUCount
 	if minGPUs < 1 {
@@ -220,6 +225,29 @@ func (v *VastAIProvider) SearchOffers(ctx context.Context, q OfferQuery) ([]Offe
 	if q.MinDuration > 0 {
 		query["duration"] = map[string]interface{}{"gte": int(q.MinDuration.Seconds())}
 	}
+	/*
+	 * VRAM push-down, in MEGABYTES, deliberately half a GB slack in each
+	 * direction.
+	 *
+	 * Vast.ai reports USABLE VRAM, so a 24GB card is 24564MB, not 24576. An
+	 * exact `gte: 24*1024` would therefore reject every 24GB card an operator
+	 * asked for — the server filter would be STRICTER than the rounding
+	 * vastVRAMGB does client-side, and the two disagreeing is worse than not
+	 * pushing down at all. The slack mirrors round-to-nearest exactly, so this
+	 * can only ever return a superset of what applyOfferConstraints keeps.
+	 * That is the intended relationship: this narrows the response, the shared
+	 * post-filter is the guarantee.
+	 */
+	if q.MinVRAMGBPerGPU > 0 || q.MaxVRAMGBPerGPU > 0 {
+		gpuRAM := map[string]interface{}{}
+		if q.MinVRAMGBPerGPU > 0 {
+			gpuRAM["gte"] = q.MinVRAMGBPerGPU*1024 - 512
+		}
+		if q.MaxVRAMGBPerGPU > 0 {
+			gpuRAM["lte"] = q.MaxVRAMGBPerGPU*1024 + 512
+		}
+		query["gpu_ram"] = gpuRAM
+	}
 
 	var resp struct {
 		Offers []vastOffer `json:"offers"`
@@ -245,6 +273,12 @@ func (v *VastAIProvider) SearchOffers(ctx context.Context, q OfferQuery) ([]Offe
 			BandwidthCentsPerGB: int(o.InetDownCost * 100),
 			Region:              o.Geolocation,
 			MaxDuration:         time.Duration(o.Duration) * time.Second,
+			VRAMGBPerGPU:        vastVRAMGB(o.GPURAM),
+			// Vast.ai has no stock enum to normalise. Its rentable/rented/
+			// verified filters already serve that role, so claiming a level
+			// here would be inventing data — unknown is the honest answer and
+			// passes any MinAvailability floor.
+			Availability: AvailabilityUnknown,
 			Raw: models.JSONMap{
 				"reliability": o.Reliability,
 				"cuda":        o.CudaMaxGood,
@@ -253,7 +287,24 @@ func (v *VastAIProvider) SearchOffers(ctx context.Context, q OfferQuery) ([]Offe
 			},
 		})
 	}
-	return offers, nil
+	// The server-side filters above are advisory — `rented` is proof of that —
+	// so the query's real guarantee is this, applied to whatever came back.
+	return applyOfferConstraints(offers, q), nil
+}
+
+/*
+ * vastVRAMGB converts Vast.ai's per-GPU megabytes into whole gigabytes.
+ *
+ * Rounds to NEAREST rather than truncating, because the API reports usable
+ * VRAM: a 24GB card is 24564MB, and truncation would call it 23GB and fail a
+ * 24GB floor the operator set precisely to get that card. Zero in stays zero
+ * out — that is UNKNOWN, and the filter must never read it as "no VRAM".
+ */
+func vastVRAMGB(megabytes float64) int {
+	if megabytes <= 0 {
+		return 0
+	}
+	return (int(megabytes) + 512) / 1024
 }
 
 /*

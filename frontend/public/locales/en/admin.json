@@ -538,7 +538,8 @@
         "allowHighPriorityOverride": "Allow High Priority Override (can interrupt running jobs)",
         "additionalArgs": "Additional Hashcat Arguments",
         "cloudBurstEnabled": "Allow cloud burst",
-        "cloudMaxInstances": "Max cloud instances"
+        "cloudMaxInstances": "Max cloud instances",
+        "cloudAllowCommunityHosts": "Allow peer-operated hosts (Vast.ai, RunPod Community)"
       },
       "incrementModes": {
         "off": "Off (use full mask)",
@@ -564,7 +565,8 @@
         "secondWordlist": "Words from this list will be appended to the first",
         "additionalArgs": "Extra hashcat flags for this job. Agent-level flags take priority on conflicts.",
         "cloudBurstEnabled": "Rent GPU instances for jobs created from this preset when the on-prem fleet cannot keep up. Requires the client to be funded and opted in to a provider.",
-        "cloudMaxInstances": "Separate from Max Agents, which governs the shared on-prem pool. Leave blank to let the remaining budget decide."
+        "cloudMaxInstances": "Separate from Max Agents, which governs the shared on-prem pool. Leave blank to let the remaining budget decide.",
+        "cloudAllowCommunityHosts": "These are someone else's machines. The host's owner has root over the container, so this client's hashes, wordlists and cracked plaintexts are readable by a third party and are not encrypted at rest on the host. Not recommended for production or client engagement data. Leave this off and jobs will still use secure capacity (AWS, RunPod Secure Cloud) if the client allows it."
       },
       "errors": {
         "nameRequired": "Job name is required",
@@ -1486,7 +1488,8 @@
     "sections": {
       "providers": "Providers",
       "clients": "Client budgets",
-      "policy": "Threshold policy"
+      "policy": "Threshold policy",
+      "rules": "Provisioning rules"
     },
     "providers": {
       "title": "Cloud providers",
@@ -1530,11 +1533,12 @@
       "acknowledged": "Acknowledgement recorded",
       "ackFailed": "Failed to record acknowledgement",
       "ackTitle": "Acknowledge third-party data exposure",
-      "ackBody": "Vast.ai rents GPUs on individually-owned machines whose operators have root access to the container. Hashes, wordlists and cracked plaintexts placed there are visible to a third party. This is categorically different from AWS, where instances run inside your own account.",
+      "ackBody": {
+        "vastai": "Vast.ai rents GPUs on individually-owned machines whose operators have root access to the container. Hashes, wordlists and cracked plaintexts placed there are visible to a third party. This is categorically different from AWS or RunPod Secure Cloud, where instances run inside your own account or in SOC 2 datacenters.",
+        "runpod_community": "RunPod Community Cloud rents GPUs on peer-operated machines whose owners have root access to the container. Hashes, wordlists and cracked plaintexts placed there are visible to a third party. RunPod’s compliance attestations cover Secure Cloud only and do not extend to this tier."
+      },
       "ackConfirm": "Do you accept this exposure for workloads sent to this provider?",
       "ackAccept": "I understand and accept",
-      "vastWarningTitle": "Third-party hardware",
-      "vastWarningBody": "Vast.ai instances run on machines you do not control. Enable it only for clients whose data may be exposed to a third party, and acknowledge it per client as well.",
       "ephemeralKeyTitle": "Encryption key is ephemeral",
       "ephemeralKeyBody": "KH_ENCRYPTION_KEY is not set, so a random key was generated at startup. Every stored credential becomes unreadable after the next restart. Set KH_ENCRYPTION_KEY before saving provider credentials.",
       "vpnSection": "VPN connectivity",
@@ -1544,7 +1548,9 @@
       "kinds": {
         "aws": "AWS EC2 (your own account)",
         "vastai": "Vast.ai (third-party machines)",
-        "mock": "Mock (local test agents, no cost)"
+        "mock": "Mock (local test agents, no cost)",
+        "runpod": "RunPod Secure Cloud (SOC 2 datacenters)",
+        "runpod_community": "RunPod Community Cloud (peer-operated machines)"
       },
       "credentialKinds": {
         "oauth": "OAuth client — mint one ephemeral key per instance (recommended)",
@@ -1585,6 +1591,11 @@
         "backendVpnHost": "This server's address on the VPN",
         "backendVpnHostHelp": "The KH_HOST value cloud agents use. It must already appear in KH_ADDITIONAL_DNS_NAMES or KH_ADDITIONAL_IP_ADDRESSES, or agents will fail TLS hostname verification.",
         "enabled": "Enabled"
+      },
+      "peerWarningTitle": "Third-party hardware",
+      "peerWarningBody": {
+        "vastai": "Vast.ai instances run on individually-owned machines you do not control. Enable it only for clients whose data may be exposed to a third party, and acknowledge it per client as well.",
+        "runpod_community": "RunPod Community Cloud runs on peer-operated machines whose owners have root over the container. RunPod's SOC 2, ISO 27001 and PCI DSS attestations cover Secure Cloud only, not this tier. Enable it only for clients whose data may be exposed to a third party, and acknowledge it per client as well."
       }
     },
     "budgets": {
@@ -1610,7 +1621,6 @@
       "ackWarningBody": "Allowing Vast.ai for {{name}} means this client's hashes, wordlists and cracked plaintexts may be placed on machines owned by third parties who have root access to the container.",
       "ackConfirm": "Do you accept this exposure for this client?",
       "ackAccept": "I understand and accept",
-      "vastTooltip": "Runs on third-party machines whose owners have root access",
       "actions": {
         "none": "Within budget",
         "notify": "Threshold reached",
@@ -1641,7 +1651,8 @@
         "invalidTtl": "Maximum lifetime must be a positive number of minutes",
         "enabledWithoutBudget": "Set a budget before enabling cloud burst — an unfunded client can never provision anything.",
         "enabledWithoutProvider": "Allow at least one provider before enabling cloud burst."
-      }
+      },
+      "peerTooltip": "Peer-operated hardware: this client’s data will be readable by the machine’s owner."
     },
     "policy": {
       "title": "Spend threshold policy",
@@ -1713,6 +1724,43 @@
         "ttl": "TTL left",
         "disk": "Disk",
         "actions": "Actions"
+      }
+    },
+    "rules": {
+      "title": "When the system may spend",
+      "description": "Budgets govern how much may be spent. These govern when anything may be spent at all. Without them the autoscaler rents after a single starving tick, for any job, at any hour, with no per-job ceiling.",
+      "inheritTitle": "These are the system defaults",
+      "inheritBody": "Clients inherit each field individually, so tightening a default here reaches every client that has not overridden that specific field. Per-client overrides are edited on the client screen.",
+      "saved": "Provisioning rules saved",
+      "saveFailed": "Failed to save provisioning rules",
+      "loadFailed": "Failed to load provisioning rules",
+      "save": "Save rules",
+      "fields": {
+        "minJobPriority": "Minimum job priority",
+        "minStarvation": "Minimum starvation time (minutes)",
+        "skipIfFinishing": "Skip if finishing within (minutes)",
+        "maxSpendPerJob": "Maximum spend per job",
+        "windowEnabled": "Restrict provisioning to a time window",
+        "windowStart": "Window opens",
+        "windowEnd": "Window closes",
+        "windowTz": "Timezone"
+      },
+      "helperText": {
+        "minJobPriority": "Absolute priority, not a percentage. Your current ceiling is {{ceiling}}.",
+        "floorOff": "No floor: any cloud-burst job qualifies for automatic provisioning.",
+        "minStarvation": "How long a job must make no progress at all before paid capacity is rented. 0 rents on the first starving tick. Applies to the autoscaler only.",
+        "skipIfFinishing": "Do not rent for a job projected to finish this soon on existing capacity — a rented instance needs 5-10 minutes to boot and sync. 0 never skips.",
+        "maxSpendPerJob": "Whole-life cap on cloud spend for one job, not month-windowed. Blank means no cap. Enforced everywhere, including manual admin provisioning.",
+        "windowEnabled": "Governs starts only. Instances are never torn down because the window closed — TTL and idle drain own teardown.",
+        "windowTz": "IANA name, e.g. America/Chicago. Leave blank for UTC.",
+        "windowWrap": "A closing time earlier than the opening time wraps midnight, which is the normal way to write \"only rent overnight\". Setting both to the same value means always open."
+      },
+      "bands": {
+        "minimal": "Minimal",
+        "low": "Low",
+        "normal": "Normal",
+        "high": "High",
+        "critical": "Critical"
       }
     }
   }

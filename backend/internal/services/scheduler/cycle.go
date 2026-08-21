@@ -220,6 +220,32 @@ func (c *Cycle) publishStarvation(unitInfos []UnitInfo, agentInfos []AgentInfo, 
 		if allocatedUnits[u.ID] {
 			continue
 		}
+		/*
+		 * A parent that got ANY allocation this cycle is making progress, so it
+		 * is not starving — even though siblings went unserved.
+		 *
+		 * Per-UNIT starvation is the wrong question to hand the autoscaler.
+		 * Consumers age this signal to decide whether to rent paid capacity,
+		 * and the question they ask is "has this job been unable to make any
+		 * progress for N seconds". An increment job with 20 units on 3 agents
+		 * leaves 17 units unallocated on every one of the 3-second cycles where
+		 * an agent picks up new work, so a per-unit answer republishes it as
+		 * starving forever: the age grows without bound while the job cracks at
+		 * full throughput, and min_starvation_seconds protects nothing. The
+		 * only jobs whose age ever reset would be single-unit ones and ones
+		 * already capped by max_agents.
+		 *
+		 * The deliberate trade: a badly UNDER-SERVED job — one that could use
+		 * twenty agents and lands one allocation every few cycles — has its age
+		 * reset by that trickle and takes longer to qualify for cloud burst.
+		 * That is the safe direction. Renting only after a job has been
+		 * completely stalled for the configured window costs latency; renting
+		 * for a job that never stopped working costs money, every hour, for
+		 * something the operator believed they had switched off.
+		 */
+		if perParent[u.ParentJobID] > 0 {
+			continue
+		}
 		// MaxAgents and ActiveAgentCount are parent-level: every sibling unit
 		// of an increment job carries the same pair, so this cap check is
 		// consistent across the parent regardless of unit iteration order.

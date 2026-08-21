@@ -32,7 +32,49 @@ type Offer struct {
 	// MaxDuration is how long the provider guarantees the capacity. Zero means
 	// unbounded. Filter on this: an offer that expires mid-job is wasted spend.
 	MaxDuration time.Duration
-	Raw         models.JSONMap
+
+	// VRAMGBPerGPU is per-GPU memory in GB.
+	//
+	// ZERO MEANS THE PROVIDER DOES NOT REPORT IT, which is not "zero VRAM" and
+	// must never be filtered as though it were — AWS reports no VRAM at all, so
+	// treating unknown as a failure would silently delete every AWS offer the
+	// moment an operator set a VRAM floor, with nothing in the logs to say why.
+	// Same class of trap as Projection.TimeToFinish == 0.
+	VRAMGBPerGPU int
+	// Availability is the provider's stock signal, AvailabilityUnknown when it
+	// has none.
+	Availability OfferAvailability
+
+	Raw models.JSONMap
+}
+
+// OfferAvailability normalises provider stock signals. Ordered so a greater
+// value is more available. Unknown sorts LOWEST but must never be FILTERED as
+// though it were None, for the same reason VRAMGBPerGPU == 0 must not be.
+type OfferAvailability int
+
+const (
+	// AvailabilityUnknown means the provider does not report stock at all.
+	AvailabilityUnknown OfferAvailability = iota
+	AvailabilityNone
+	AvailabilityLow
+	AvailabilityMedium
+	AvailabilityHigh
+)
+
+func (a OfferAvailability) String() string {
+	switch a {
+	case AvailabilityNone:
+		return "none"
+	case AvailabilityLow:
+		return "low"
+	case AvailabilityMedium:
+		return "medium"
+	case AvailabilityHigh:
+		return "high"
+	default:
+		return "unknown"
+	}
 }
 
 // LaunchRequest is everything a provider needs to start one instance.
@@ -150,6 +192,26 @@ type OfferQuery struct {
 	// VerifiedOnly asks for the provider's trusted tier where it has one.
 	VerifiedOnly bool
 	Limit        int
+
+	// MinVRAMGBPerGPU rejects GPUs too small for the attack: large rule stacks
+	// and big wordlists need headroom, and a job that OOMs on a rented GPU has
+	// paid for a boot, a file sync and nothing else.
+	MinVRAMGBPerGPU int
+	// MaxVRAMGBPerGPU is a COST brake, not a capability one. A 288GB B300 is
+	// only a little faster at hashcat than parts costing a fraction of it,
+	// because hashcat never touches the HBM that price is for. This is the
+	// bluntest way to say "never rent an LLM-training card to crack hashes".
+	// Zero means no ceiling.
+	MaxVRAMGBPerGPU int
+	// AllowedGPUModels and DeniedGPUModels hold NORMALISED model keys, as
+	// produced by NormalizeGPUModel. Deny wins over allow; an empty Allowed
+	// means "any". Matching on the normalised key means an operator writes
+	// "rtx_4090" once and it matches every provider's spelling of it.
+	AllowedGPUModels []string
+	DeniedGPUModels  []string
+	// MinAvailability is the provider stock floor. Providers that do not report
+	// availability satisfy any floor — see OfferAvailability.
+	MinAvailability OfferAvailability
 }
 
 // PreflightReport is a provider's honest self-assessment.

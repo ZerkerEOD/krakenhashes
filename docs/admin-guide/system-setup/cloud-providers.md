@@ -63,19 +63,47 @@ message if the configured host is not covered.
 
 ---
 
+## Trust tiers: which providers carry a warning, and why
+
+The consent machinery attaches to **third-party hardware**, not to "is it cloud". Two of the
+five provider kinds are third-party; three are not.
+
+| Kind | Hardware | Compliance | Consent chain |
+|---|---|---|---|
+| `aws` | Your **own** AWS account, AWS datacenters, your IAM | SOC 2 | **None** |
+| `runpod` (Secure Cloud) | RunPod's **own** datacenters, single-tenant per host | SOC 2 Type II, ISO 27001, PCI DSS | **None** |
+| `runpod_community` | **Peer-operated** machines; the owner has root over the container | **None of RunPod's attestations cover this tier** | **Full** |
+| `vastai` | **Individually-owned** consumer machines; the owner has root over the container | None | **Full** |
+| `mock` | Local `agent --test-mode` processes | n/a | None |
+
+!!! danger "What the peer tiers actually expose"
+    On `vastai` and `runpod_community` the machine's owner has **root over the container**.
+    Hashes, wordlists, potfiles and cracked plaintexts placed there are readable by a third
+    party and are **not encrypted at rest on the host**. The protection is a terms-of-service
+    clause, not an isolation boundary. Do not use these tiers for production or client
+    engagement data.
+
+    Those two kinds require **three** separate opt-ins, each attributed in the audit log:
+
+    1. A provider-level acknowledgement before the config can be enabled.
+    2. A per-client acknowledgement before that client may allowlist it.
+    3. A **per-job** opt-in — *Allow peer-operated hosts* — before any job lands on one.
+
+    Without the per-job flag a job simply does not see peer offers. It may still rent secure
+    capacity from the rest of the client's allowlist, so leaving it off degrades rather than
+    blocks.
+
+!!! note "AWS and RunPod Secure enable in one step"
+    Neither carries an acknowledgement dialog, a red chip, or the per-job flag. That is
+    deliberate: gating hardware you already control behind a data-exposure warning teaches
+    operators the warning is noise, and the one place it is real stops being read.
+
+Allowing AWS while forbidding the peer tiers is a first-class configuration —
+`cloud_provider_allowlist` is **empty by default**.
+
+---
+
 ## Vast.ai
-
-!!! danger "Third-party data exposure"
-    Vast.ai rents GPUs on **individually-owned machines whose operators have root over the
-    container**. Hashes, wordlists, potfiles and cracked plaintexts placed there are
-    exposed to a third party. This is categorically different from AWS, where the instance
-    runs inside *your own* account.
-
-    Enabling Vast.ai requires an explicit acknowledgement, and each client must be opted in
-    separately. Both are recorded in the audit log with attribution.
-
-    Allowing AWS while forbidding Vast.ai is a first-class configuration —
-    `cloud_provider_allowlist` is **empty by default**.
 
 ### Account setup
 
@@ -88,6 +116,42 @@ message if the configured host is not covered.
 
 Only **verified datacenter** hosts are ever offered, unconditionally. The cheaper
 unverified tier is also where "stuck connecting" and "bad driver" reports concentrate.
+
+---
+
+## RunPod
+
+RunPod is configured as **two separate provider kinds**, not one with a tier setting:
+
+- **`runpod` — Secure Cloud.** RunPod's own datacenters, single-tenant per host, covered by
+  their SOC 2 Type II, ISO 27001 and PCI DSS attestations. Treat it like AWS.
+- **`runpod_community` — Community Cloud.** Peer-operated machines. See the trust-tier table
+  above; none of those attestations extend to this tier.
+
+Splitting them is what lets a client allowlist Secure without ever being exposed to
+Community, and what keeps the consent chain attached to the tier that needs it.
+
+### Account setup
+
+1. Use a **dedicated RunPod account**. Ownership is determined client-side by matching pod
+   names against KrakenHashes' `kh-` label shape, because the v2 API offers no idempotency
+   key, no server-side filter and no way to tag a pod as ours. Orphan reconciliation will
+   destroy unrecognised pods that match that shape.
+2. Fund it with a **fixed prepaid balance and no auto-refill**. The v2 API exposes no balance
+   endpoint at all, so pre-flight cannot verify funding — the only signal is a `402` at
+   create time.
+3. Create an API key with pod read/write.
+
+### Operational caveats
+
+- **No provider-enforced TTL.** RunPod has no `autoTerminate` or `expiresAt` field, so
+  teardown rests on the in-guest deadline and the backend reaper. Prefer shorter TTLs here
+  than you would on AWS.
+- **A stopped pod still bills**, with volume disk charged at roughly double the running rate.
+  KrakenHashes always terminates and never stops, and never attaches network volumes — those
+  outlive the pod and would hold cracked plaintexts after termination.
+- **Billing granularity is one hour**, so cost-so-far reads as unknown for any pod that lived
+  less than that. Accrual stays wall-clock based.
 
 ---
 
@@ -196,6 +260,78 @@ per client before that client may be allowlisted for it. The provider-level ackn
 says the operator understands where Vast.ai runs; the per-client one says this particular
 engagement's data may go there. Both are attributed to the admin who accepted them.
 
+## Provisioning rules: when the system may spend
+
+Budgets govern **how much** may be spent. Provisioning rules govern **when anything may be
+spent at all** — the rails you need before leaving the autoscaler unattended. Without them
+it rents after a single starving tick, for any job, at any hour, with no per-job ceiling.
+
+Rules live at two levels. The **system default** applies everywhere; a **per-client override**
+layers on top **field by field**, so an unset field inherits. That differs from budget
+policies, which pick one whole row — and the difference matters in the direction that costs
+money: tightening a default must reach the clients that already have an override, because
+those are exactly the ones most likely to need tightening.
+
+Every rule has an in-band "off" value so a client can switch off an inherited rule without a
+second toggle per rule.
+
+| Rule | Default | Off value | Applies to |
+|---|---|---|---|
+| **Minimum job priority** | `0` (off) | `0` | Autoscaler only |
+| **Minimum starvation time** | `180s` | `0` | Autoscaler only |
+| **Skip if finishing within** | `900s` | `0` | Autoscaler only |
+| **Maximum spend per job** | `0` (off) | `0` | **Everything, including admins** |
+| **Provisioning window** | none | start = end | **Everything, including admins** |
+
+### Why two of them are not admin-bypassable
+
+The first three mean *"not important enough to spend on **automatically**"*. An operator
+clicking **Provision** has already made that judgement by hand, so blocking them would turn
+an autoscaler tuning knob into a lockout with no override.
+
+The last two are different in kind:
+
+- **A per-job spend cap an admin can click past is not a spend cap.**
+- **A provisioning window usually encodes something external** — a contract clause, a client's
+  change freeze, a maintenance period — not an operator preference. "I am an admin" is not the
+  authority that overrides someone else's policy.
+
+Both **fail closed**: if the committed spend for a job cannot be read, or the window's timezone
+cannot be resolved, provisioning refuses. A ceiling you cannot read has to behave like one
+that is engaged.
+
+### Notes on individual rules
+
+**Minimum job priority** is an **absolute** `job_executions.priority` value, not a percentage
+of your ceiling. See [Job Priority](../advanced/job-priority.md) — a floor of `700` means
+"High and above" at the default ceiling of 1000 and matches *nothing* on a 0-100 deployment.
+The admin UI renders the floor against your live ceiling and shows how many queued jobs
+currently clear it; a count of zero is displayed as a warning.
+
+**Minimum starvation time** changes shipped behaviour. Before this rule, one starving
+scheduler tick was enough, so a transient gap between chunks could cost a full instance
+launch. The 180-second default is three publish intervals. A job counts as starving only while
+it makes **no progress at all** — a job that receives any allocation has its clock reset,
+even if other units of the same job went unserved.
+
+**Skip if finishing within** avoids renting for a job that will finish before the instance
+finishes booting and syncing files (roughly 5–10 minutes). It fires only on a projection the
+estimator actually trusts: a job with no throughput reports a duration of zero, and that means
+*unknown*, never *instant*. Projections for salted hash types are deliberately pessimistic, so
+overriding this per client is legitimate.
+
+**Maximum spend per job** covers one job execution over its **whole life** and is deliberately
+not month-windowed — a per-job cap that resets at a month boundary is not a per-job cap. The
+cost of the launch under consideration counts against it *before* the launch happens.
+
+**Provisioning window** governs **starts only**. An instance is never torn down because the
+window closed; TTL and idle drain own teardown, and killing a mid-chunk instance would waste
+everything already paid for it. `end` earlier than `start` **wraps midnight**, which is the
+normal way to write "only rent overnight". Times are evaluated in the configured IANA zone, so
+a UTC server can still express local business hours.
+
+---
+
 ## Opting a job in
 
 Nothing bursts to paid capacity by accident. The opt-in exists in three places, all off by
@@ -203,9 +339,13 @@ default:
 
 | Where | Field | Notes |
 |---|---|---|
-| Preset job | *Allow cloud burst* + *Max cloud instances* | Copied onto every job created from the preset |
-| Workflow | *Allow cloud burst for every step* | Overrides each step's preset setting |
-| Custom job dialog | *Allow Cloud Burst* + *Max Cloud Instances* | One job only |
+| Preset job | *Allow cloud burst* + *Max cloud instances* + *Allow peer-operated hosts* | Copied onto every job created from the preset |
+| Workflow | *Allow cloud burst for every step* | Overrides each step's burst setting. **Does not** grant peer consent — that stays with each preset |
+| Custom job dialog | *Allow Cloud Burst* + *Max Cloud Instances* + *Allow peer-operated hosts* | One job only |
+
+The workflow toggle deliberately governs bursting only. "Spend money" and "put this client's
+hashes on someone else's machine" are separate decisions, and a workflow-level switch that
+silently granted the second would make the per-job consent meaningless.
 
 **Max cloud instances is deliberately separate from Max Agents.** Max Agents governs the
 shared on-prem pool, where its job is fleet fairness — stopping one job from monopolising

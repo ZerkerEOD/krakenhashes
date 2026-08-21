@@ -219,6 +219,13 @@ export interface JobDetailsResponse {
   /** True when this job may rent paid GPU capacity. Off by default. */
   cloud_burst_enabled?: boolean;
   /**
+   * True when this job may land on PEER-OPERATED hardware (Vast.ai, RunPod
+   * Community), where the machine's owner has root over the container. Off by
+   * default and separate from cloud_burst_enabled: without it the job simply
+   * does not see peer offers and may still rent secure capacity.
+   */
+  cloud_allow_community_hosts?: boolean;
+  /**
    * Cap on rented instances, separate from max_agents (which governs the
    * shared on-prem pool). null lets the remaining budget decide.
    */

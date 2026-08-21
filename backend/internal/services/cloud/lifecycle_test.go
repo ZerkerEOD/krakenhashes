@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -129,6 +131,11 @@ func newProvisionFixture(t *testing.T, budgetCents int64, offers []Offer) *provi
 		t.Fatalf("store test VPN credential: %v", err)
 	}
 
+	// The deployment-wide ceiling. TruncateAll empties system_settings, and the
+	// shipped default is 0 = disabled anyway, so a test that wants to spend has
+	// to say so — exactly like an operator enabling the feature.
+	setGlobalCloudCap(t, database, 1_000_000)
+
 	provider := &probeProvider{offers: offers}
 
 	svc := NewService(
@@ -141,6 +148,7 @@ func newProvisionFixture(t *testing.T, budgetCents int64, offers []Offer) *provi
 	)
 	svc.AgentImage = "test/agent:latest"
 	svc.SystemUserID = models.SystemUserID.String()
+	svc.SystemSettings = repository.NewSystemSettingsRepository(database)
 
 	// Bypass credential-driven construction: the probe IS the provider.
 	svc.mu.Lock()
@@ -150,6 +158,20 @@ func newProvisionFixture(t *testing.T, budgetCents int64, offers []Offer) *provi
 	return &provisionFixture{
 		db: database, svc: svc, provider: provider,
 		clientID: clientID, job: job, cfgID: cfgID,
+	}
+}
+
+// setGlobalCloudCap writes the deployment-wide monthly ceiling. Upserts because
+// TruncateAll removes the row the migration seeded.
+func setGlobalCloudCap(t *testing.T, database *db.DB, cents int64) {
+	t.Helper()
+	_, err := database.Exec(`
+		INSERT INTO system_settings (key, value, description, data_type)
+		VALUES ($1, $2, 'test', 'integer')
+		ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+		SettingGlobalMonthlyCapCents, strconv.FormatInt(cents, 10))
+	if err != nil {
+		t.Fatalf("set %s: %v", SettingGlobalMonthlyCapCents, err)
 	}
 }
 
@@ -353,6 +375,253 @@ func TestProvisionForJob_RefusesJobsThatDidNotOptIn(t *testing.T) {
 	}
 }
 
+/*
+ * TestProvisionForJob_PicksCheapestPerWorkNotPerHour.
+ *
+ * The whole point of the ranker. Given a slow cheap card and a fast pricier
+ * one, cost per HOUR picks the slow one and cost per WORK picks the fast one.
+ * Before ranking existed, service.go took offers[0] from a list the provider
+ * had sorted by hourly price, so the slow card won every time.
+ *
+ * The numbers are the real ones from the class table: an A5000 is 0.26x a 4090
+ * and a 5090 is 1.60x, so at 27c and 99c the A5000 costs 103.8 cents per
+ * reference-GPU-hour against the 5090's 61.9.
+ */
+func TestProvisionForJob_PicksCheapestPerWorkNotPerHour(t *testing.T) {
+	f := newProvisionFixture(t, 1_000_000, []Offer{
+		{ID: "cheap-slow", InstanceType: "RTX A5000", GPUModel: "RTX A5000",
+			GPUCount: 1, HourlyRateCents: 27, MaxDuration: 24 * time.Hour},
+		{ID: "pricey-fast", InstanceType: "RTX 5090", GPUModel: "NVIDIA GeForce RTX 5090",
+			GPUCount: 1, HourlyRateCents: 99, MaxDuration: 24 * time.Hour},
+	})
+
+	if err := f.svc.ProvisionForJob(context.Background(), f.job.JobID); err != nil {
+		t.Fatalf("ProvisionForJob: %v", err)
+	}
+
+	if got := f.provider.lastReq.Offer.ID; got != "pricey-fast" {
+		t.Errorf("rented %q; the RTX 5090 is cheaper per unit of work (61.9 vs 103.8 "+
+			"cents per reference-GPU-hour) even though it costs more per hour", got)
+	}
+
+	var gpu string
+	if err := f.db.QueryRow(
+		`SELECT gpu_model FROM cloud_instances WHERE job_execution_id = $1`, f.job.JobID).Scan(&gpu); err != nil {
+		t.Fatalf("read back instance: %v", err)
+	}
+	if !strings.Contains(gpu, "5090") {
+		t.Errorf("recorded gpu_model = %q, want the 5090", gpu)
+	}
+}
+
+/*
+ * TestProvisionForJob_FallsForwardWhenAnOfferVanishes.
+ *
+ * ErrOfferUnavailable's own doc said callers should try the next offer, and
+ * nothing did — capacity vanishing between search and launch failed the whole
+ * provision. On a marketplace that is an ordinary, frequent event.
+ *
+ * Retrying is safe only because of what the sentinel means: the provider
+ * rejected the create, so no instance exists and nothing is billing.
+ */
+func TestProvisionForJob_FallsForwardWhenAnOfferVanishes(t *testing.T) {
+	f := newProvisionFixture(t, 1_000_000, []Offer{
+		{ID: "gone", InstanceType: "RTX 5090", GPUModel: "RTX 5090",
+			GPUCount: 1, HourlyRateCents: 99, MaxDuration: 24 * time.Hour},
+		{ID: "available", InstanceType: "RTX 4090", GPUModel: "RTX 4090",
+			GPUCount: 1, HourlyRateCents: 74, MaxDuration: 24 * time.Hour},
+	})
+
+	// The first-ranked offer vanishes; the second succeeds.
+	f.provider.onLaunch = func(req LaunchRequest) error {
+		if req.Offer.ID == "gone" {
+			return ErrOfferUnavailable
+		}
+		return nil
+	}
+
+	if err := f.svc.ProvisionForJob(context.Background(), f.job.JobID); err != nil {
+		t.Fatalf("a vanished offer must fall forward to the next candidate, not fail: %v", err)
+	}
+	if f.provider.launched != 2 {
+		t.Errorf("Launch called %d times, want 2 (one vanished, one succeeded)", f.provider.launched)
+	}
+
+	/*
+	 * The failed attempt's reservation must be RELEASED, not left standing.
+	 * Otherwise six attempts against a busy marketplace consume six instances'
+	 * worth of a client's budget and the seventh is refused for no reason.
+	 */
+	var committed int64
+	if err := f.db.QueryRow(`
+		SELECT COALESCE(SUM(cents),0) FROM cloud_spend_ledger
+		WHERE client_id = $1 AND kind IN ('reservation','release')`, f.clientID).Scan(&committed); err != nil {
+		t.Fatalf("read ledger: %v", err)
+	}
+
+	var reserved int64
+	if err := f.db.QueryRow(`
+		SELECT COALESCE(SUM(reserved_cents),0) FROM cloud_instances
+		WHERE job_execution_id = $1 AND state <> 'failed'`, f.job.JobID).Scan(&reserved); err != nil {
+		t.Fatalf("read instances: %v", err)
+	}
+	if committed != reserved {
+		t.Errorf("committed spend is %d cents but only %d is held by a live instance; "+
+			"the vanished offer's reservation was not released", committed, reserved)
+	}
+}
+
+/*
+ * TestProvisionForJob_AmbiguousLaunchFailureDoesNotRetry.
+ *
+ * A timeout may have created a billing instance. Retrying would risk a second
+ * one, and the row must stay behind so the reaper can reconcile it by label.
+ */
+func TestProvisionForJob_AmbiguousLaunchFailureDoesNotRetry(t *testing.T) {
+	f := newProvisionFixture(t, 1_000_000, []Offer{
+		{ID: "first", InstanceType: "RTX 5090", GPUModel: "RTX 5090",
+			GPUCount: 1, HourlyRateCents: 99, MaxDuration: 24 * time.Hour},
+		{ID: "second", InstanceType: "RTX 4090", GPUModel: "RTX 4090",
+			GPUCount: 1, HourlyRateCents: 74, MaxDuration: 24 * time.Hour},
+	})
+	f.provider.launchErr = errors.New("connection reset by peer")
+
+	if err := f.svc.ProvisionForJob(context.Background(), f.job.JobID); err == nil {
+		t.Fatal("an ambiguous launch failure must be reported, not retried away")
+	}
+	if f.provider.launched != 1 {
+		t.Errorf("Launch called %d times; an ambiguous failure must NOT advance to the "+
+			"next candidate, because the first may have created a billing instance",
+			f.provider.launched)
+	}
+
+	var state string
+	if err := f.db.QueryRow(`
+		SELECT state FROM cloud_instances WHERE job_execution_id = $1`, f.job.JobID).Scan(&state); err != nil {
+		t.Fatalf("no row survived an ambiguous launch failure: %v", err)
+	}
+	if state == string(models.CloudInstanceTerminated) || state == string(models.CloudInstanceFailed) {
+		t.Errorf("row finalised as %q; the reaper skips finalised rows, so a machine the "+
+			"lost request may have created would never be reconciled", state)
+	}
+}
+
+/*
+ * TestProvisionForJob_RespectsProviderConcurrencyCap.
+ *
+ * cloud_provider_configs.max_concurrent_instances was stored, validated by the
+ * admin handler, returned by the API — and read by nothing. An operator who
+ * capped a provider at 3 could end up with any number of instances on it.
+ *
+ * It is the only PER-PROVIDER bound in the system: the global cap is
+ * deployment-wide and the budget is per client, so neither can express "this
+ * account's quota is 5" or "I do not trust this provider with more than 2 at
+ * once".
+ */
+func TestProvisionForJob_RespectsProviderConcurrencyCap(t *testing.T) {
+	f := newProvisionFixture(t, 1_000_000, testOffer(50))
+
+	if _, err := f.db.Exec(
+		`UPDATE cloud_provider_configs SET max_concurrent_instances = 1 WHERE id = $1`,
+		f.cfgID); err != nil {
+		t.Fatalf("set concurrency cap: %v", err)
+	}
+
+	if err := f.svc.ProvisionForJob(context.Background(), f.job.JobID); err != nil {
+		t.Fatalf("first provision (under the cap): %v", err)
+	}
+
+	launchedBefore := f.provider.launched
+	err := f.svc.ProvisionForJob(context.Background(), f.job.JobID)
+	if err == nil {
+		t.Fatal("provisioned a second instance on a provider capped at 1")
+	}
+	if !strings.Contains(err.Error(), "cap") {
+		t.Errorf("refusal %q does not say the provider is at its cap; an operator "+
+			"cannot tell this apart from a missing allowlist entry", err)
+	}
+	if f.provider.launched != launchedBefore {
+		t.Error("a provider at its concurrency cap was still contacted")
+	}
+}
+
+// TestProvisionForJob_ZeroConcurrencyCapIsUnlimited: 0 must mean "no cap",
+// consistent with every other 0-means-unlimited knob in this feature — and NOT
+// "cap of zero, therefore never provision".
+func TestProvisionForJob_ZeroConcurrencyCapIsUnlimited(t *testing.T) {
+	f := newProvisionFixture(t, 1_000_000, testOffer(50))
+
+	if _, err := f.db.Exec(
+		`UPDATE cloud_provider_configs SET max_concurrent_instances = 0 WHERE id = $1`,
+		f.cfgID); err != nil {
+		t.Fatalf("clear concurrency cap: %v", err)
+	}
+
+	for i := 0; i < 3; i++ {
+		if err := f.svc.ProvisionForJob(context.Background(), f.job.JobID); err != nil {
+			t.Fatalf("provision %d with no cap configured: %v", i+1, err)
+		}
+	}
+	if f.provider.launched != 3 {
+		t.Errorf("launched %d instances, want 3 — a zero cap must not bound anything", f.provider.launched)
+	}
+}
+
+/*
+ * TestProvisionForJob_RefusesFinishedJobs.
+ *
+ * The manual admin route checked cloud_burst_enabled and the client's
+ * cloud_enabled flag but never je.status, while the autoscaler's copy of the
+ * same predicate did. So an admin could rent a GPU for a cancelled or completed
+ * job — an instance the scheduler is then forbidden to give work to, billing by
+ * the second until its TTL expires. Both paths now share one predicate.
+ */
+func TestProvisionForJob_RefusesFinishedJobs(t *testing.T) {
+	for _, status := range []string{"completed", "failed", "cancelled"} {
+		t.Run(status, func(t *testing.T) {
+			f := newProvisionFixture(t, 100_000, testOffer(50))
+			if _, err := f.db.Exec(
+				`UPDATE job_executions SET status = $2 WHERE id = $1`, f.job.JobID, status); err != nil {
+				t.Fatalf("set job status: %v", err)
+			}
+
+			if err := f.svc.ProvisionForJob(context.Background(), f.job.JobID); err == nil {
+				t.Fatalf("provisioned a GPU for a %s job", status)
+			}
+			if f.provider.launched != 0 {
+				t.Fatalf("a provider was contacted for a %s job", status)
+			}
+		})
+	}
+}
+
+// TestCloudEligibleJobs_MatchesTheManualRoute: the two entry points share one
+// predicate now, and the point of sharing it is that they cannot drift again.
+func TestCloudEligibleJobs_MatchesTheManualRoute(t *testing.T) {
+	f := newProvisionFixture(t, 100_000, testOffer(50))
+	ctx := context.Background()
+
+	eligible, err := f.svc.CloudEligibleJobs(ctx, []uuid.UUID{f.job.JobID})
+	if err != nil {
+		t.Fatalf("CloudEligibleJobs: %v", err)
+	}
+	if len(eligible) != 1 {
+		t.Fatalf("a live cloud-burst job is eligible, got %d rows", len(eligible))
+	}
+
+	if _, err := f.db.Exec(
+		`UPDATE job_executions SET status = 'cancelled' WHERE id = $1`, f.job.JobID); err != nil {
+		t.Fatalf("cancel job: %v", err)
+	}
+	eligible, err = f.svc.CloudEligibleJobs(ctx, []uuid.UUID{f.job.JobID})
+	if err != nil {
+		t.Fatalf("CloudEligibleJobs: %v", err)
+	}
+	if len(eligible) != 0 {
+		t.Errorf("a cancelled job is still eligible for automatic provisioning")
+	}
+}
+
 // TestProvisionForJob_RefusesWhenNoOfferFits: an empty offer list must be a
 // refusal, never a launch with a zero-valued offer.
 func TestProvisionForJob_RefusesWhenNoOfferFits(t *testing.T) {
@@ -363,6 +632,96 @@ func TestProvisionForJob_RefusesWhenNoOfferFits(t *testing.T) {
 	}
 	if f.provider.launched != 0 {
 		t.Fatal("the provider was asked to launch with no offer selected")
+	}
+}
+
+/*
+ * TestProvisionForJob_GlobalCapIsAKillSwitch (C8).
+ *
+ * cloud_global_monthly_cap_cents shipped with a description promising it
+ * "disables cloud provisioning entirely" at 0, and with no code reading it at
+ * all. An operator who set it to 0 to stop a runaway would have watched
+ * instances keep launching.
+ *
+ * Zero means disabled rather than unlimited on purpose: a feature that spends
+ * money should require someone to state a ceiling before it can spend any.
+ */
+func TestProvisionForJob_GlobalCapIsAKillSwitch(t *testing.T) {
+	f := newProvisionFixture(t, 100_000, testOffer(50))
+	setGlobalCloudCap(t, f.db, 0)
+
+	err := f.svc.ProvisionForJob(context.Background(), f.job.JobID)
+	if err == nil {
+		t.Fatal("provisioned with the system-wide ceiling set to 0; the setting " +
+			"promises this disables cloud provisioning entirely")
+	}
+	if f.provider.launched != 0 {
+		t.Fatal("a provider was contacted with provisioning disabled")
+	}
+
+	var n int
+	if qerr := f.db.QueryRow(`SELECT COUNT(*) FROM cloud_instances`).Scan(&n); qerr != nil {
+		t.Fatalf("count instances: %v", qerr)
+	}
+	if n != 0 {
+		t.Errorf("%d instance row(s) created while provisioning was disabled", n)
+	}
+}
+
+/*
+ * TestProvisionForJob_GlobalCapBoundsTheDeployment.
+ *
+ * Per-client budgets bound one engagement. Twenty funded clients, each inside
+ * its own budget, can still produce a bill nobody authorised — no per-client
+ * check ever sees the total. This is the check that does.
+ */
+func TestProvisionForJob_GlobalCapBoundsTheDeployment(t *testing.T) {
+	f := newProvisionFixture(t, 1_000_000, testOffer(50))
+
+	// One successful launch, then lower the system ceiling below what it
+	// committed. The client still has plenty of its own budget left.
+	if err := f.svc.ProvisionForJob(context.Background(), f.job.JobID); err != nil {
+		t.Fatalf("first provision: %v", err)
+	}
+
+	var committed int64
+	if err := f.db.QueryRow(`
+		SELECT COALESCE(SUM(cents),0) FROM cloud_spend_ledger
+		WHERE kind IN ('reservation','release','reconciliation')`).Scan(&committed); err != nil {
+		t.Fatalf("read ledger: %v", err)
+	}
+	if committed <= 0 {
+		t.Fatalf("expected a committed reservation after a launch, got %d", committed)
+	}
+	setGlobalCloudCap(t, f.db, committed)
+
+	launchedBefore := f.provider.launched
+	err := f.svc.ProvisionForJob(context.Background(), f.job.JobID)
+	if err == nil {
+		t.Fatal("provisioned past the system-wide ceiling; a per-client budget is not " +
+			"a bound on the deployment")
+	}
+	if f.provider.launched != launchedBefore {
+		t.Error("a provider was contacted after the system-wide ceiling was reached")
+	}
+}
+
+/*
+ * TestProvisionForJob_UnreadableCapRefuses.
+ *
+ * An unreadable kill switch has to behave like an engaged one. The operator who
+ * set a ceiling and then lost their settings table is far better served by "no
+ * provisioning" than by "unlimited provisioning".
+ */
+func TestProvisionForJob_UnreadableCapRefuses(t *testing.T) {
+	f := newProvisionFixture(t, 100_000, testOffer(50))
+	f.svc.SystemSettings = nil
+
+	if err := f.svc.ProvisionForJob(context.Background(), f.job.JobID); err == nil {
+		t.Fatal("provisioned without being able to read the system-wide spend ceiling")
+	}
+	if f.provider.launched != 0 {
+		t.Fatal("a provider was contacted with the ceiling unreadable")
 	}
 }
 

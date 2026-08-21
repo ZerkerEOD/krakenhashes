@@ -8,6 +8,8 @@ import {
   CloudProviderConfig,
   CloudProviderConfigInput,
   CloudProviderKind,
+  CloudProvisioningRules,
+  CloudClientRulesView,
   ClientCloudSettings,
   ClientCloudSettingsInput,
 } from '../types/cloud';
@@ -210,4 +212,58 @@ export const ttlRemainingSeconds = (instance: CloudInstance): number => {
   if (!instance.ttl_epoch) return 0;
   const remaining = (new Date(instance.ttl_epoch).getTime() - Date.now()) / 1000;
   return remaining > 0 ? remaining : 0;
+};
+
+// ---------------------------------------------------------------------------
+// Provisioning rules — WHEN the system may spend, as opposed to how much.
+// ---------------------------------------------------------------------------
+
+/**
+ * The system default, UNMERGED.
+ *
+ * Deliberately not the merged view: an admin editing the defaults has to see
+ * what the defaults themselves say. Saving back a merged result would bake one
+ * client's override into the defaults for everyone.
+ */
+export const getDefaultProvisioningRules = async (): Promise<CloudProvisioningRules> => {
+  const response = await api.get<CloudProvisioningRules>('/api/admin/cloud/rules');
+  return response.data;
+};
+
+export const updateDefaultProvisioningRules = async (
+  rules: Partial<CloudProvisioningRules>
+): Promise<CloudProvisioningRules> => {
+  const response = await api.put<CloudProvisioningRules>('/api/admin/cloud/rules', rules);
+  return response.data;
+};
+
+/**
+ * What one client is actually subject to, plus the raw override and the default
+ * it was merged from. All three are needed because `effective` alone cannot
+ * distinguish "inherited" from "set to the same value as the default", and only
+ * the inherited one follows a later change to the default.
+ */
+export const getClientProvisioningRules = async (
+  clientId: string
+): Promise<CloudClientRulesView> => {
+  const response = await api.get<CloudClientRulesView>(
+    `/api/admin/cloud/clients/${clientId}/rules`
+  );
+  return response.data;
+};
+
+export const updateClientProvisioningRules = async (
+  clientId: string,
+  rules: Partial<CloudProvisioningRules>
+): Promise<CloudProvisioningRules> => {
+  const response = await api.put<CloudProvisioningRules>(
+    `/api/admin/cloud/clients/${clientId}/rules`,
+    rules
+  );
+  return response.data;
+};
+
+/** Drops a client override so every field inherits again. */
+export const deleteClientProvisioningRules = async (clientId: string): Promise<void> => {
+  await api.delete(`/api/admin/cloud/clients/${clientId}/rules`);
 };

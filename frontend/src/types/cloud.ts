@@ -1,4 +1,102 @@
-export type CloudProviderKind = 'vastai' | 'aws' | 'mock';
+export type CloudProviderKind =
+  | 'vastai'
+  | 'aws'
+  | 'runpod'
+  | 'runpod_community'
+  | 'mock';
+
+/**
+ * Every kind, in the order the UI should offer them: least surprising first,
+ * peer hardware last.
+ */
+export const CLOUD_PROVIDER_KINDS: CloudProviderKind[] = [
+  'aws',
+  'runpod',
+  'vastai',
+  'runpod_community',
+  'mock',
+];
+
+/**
+ * Whether this provider places client hash material on hardware the operator
+ * does not control. MIRRORS CloudProvider.RequiresThirdPartyAck in
+ * backend/internal/models/cloud.go — keep the two in step.
+ *
+ * True for peer/consumer hardware only: Vast.ai rents individually-owned
+ * machines and RunPod Community rents peer-operated hosts, and in both cases
+ * the host's owner has root over the container.
+ *
+ * Deliberately FALSE for AWS and RunPod Secure. AWS is the operator's own
+ * account; RunPod Secure is RunPod's own SOC 2 Type II datacentres. Both must
+ * render with NO warning surface at all — every red chip, every acknowledge
+ * dialog and every consent gate keys off this function, so making it true for
+ * them would not add safety, it would teach operators that the warning is noise
+ * and get the one real instance of it clicked through.
+ */
+export function requiresThirdPartyAck(kind: CloudProviderKind): boolean {
+  return kind === 'vastai' || kind === 'runpod_community';
+}
+
+/** Operator-facing name. The two RunPod tiers must never both read "RunPod". */
+export function cloudProviderLabel(kind: CloudProviderKind): string {
+  switch (kind) {
+    case 'aws':
+      return 'AWS';
+    case 'runpod':
+      return 'RunPod Secure Cloud';
+    case 'runpod_community':
+      return 'RunPod Community Cloud';
+    case 'vastai':
+      return 'Vast.ai';
+    case 'mock':
+      return 'Mock (testing)';
+    default:
+      return kind;
+  }
+}
+
+/**
+ * The rules an admin sets for WHEN provisioning may happen, as opposed to the
+ * budget ladder's HOW MUCH.
+ *
+ * Every field is nullable, and null means two different things depending on the
+ * row: on the system default it means the rule is not configured and constrains
+ * nothing; on a client override it means INHERIT. That is why each rule has an
+ * in-band "off" value (0, or start === end for the window) — so a client can
+ * switch off an inherited rule without null having to carry both meanings.
+ */
+export interface CloudProvisioningRules {
+  id: string;
+  client_id?: string | null;
+  /** Absolute job priority floor. 0 = no floor. */
+  min_job_priority?: number | null;
+  /** Continuous starvation required before renting. 0 = first starving tick. */
+  min_starvation_seconds?: number | null;
+  /** Refuse to rent for a job projected to finish this soon. 0 = never skip. */
+  skip_if_finishing_within_seconds?: number | null;
+  /** Whole-life cap on cloud spend for one job. 0 = no cap. Not month-windowed. */
+  max_spend_per_job_cents?: number | null;
+  /** "HH:MM:SS". Equal values mean always; end < start wraps midnight. */
+  provisioning_window_start?: string | null;
+  provisioning_window_end?: string | null;
+  /** IANA zone name. */
+  provisioning_window_tz?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * The per-client rules view.
+ *
+ * All three are returned because `effective` alone cannot tell "inherited" from
+ * "set to the same value as the default", and the two behave differently: only
+ * the inherited one follows a later change to the default.
+ */
+export interface CloudClientRulesView {
+  effective: CloudProvisioningRules;
+  override: CloudProvisioningRules | null;
+  system_default: CloudProvisioningRules;
+}
 
 /**
  * OpenVPN is deliberately absent: it needs /dev/net/tun and CAP_NET_ADMIN,

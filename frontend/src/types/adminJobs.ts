@@ -70,6 +70,13 @@ export interface PresetJob {
    */
   cloud_burst_enabled?: boolean;
   /**
+   * Opts jobs created from this preset onto PEER-OPERATED hardware (Vast.ai,
+   * RunPod Community), where the machine's owner has root over the container.
+   * Independent of cloud_burst_enabled: a preset may legitimately burst to
+   * SOC 2 capacity while never touching someone else's machine.
+   */
+  cloud_allow_community_hosts?: boolean;
+  /**
    * Caps rented instances, separately from max_agents. max_agents governs the
    * shared on-prem pool (fleet fairness); a rented instance is dedicated to one
    * job and paid for by its client, so it must not consume that budget.
@@ -98,6 +105,7 @@ export interface PresetJobFormData {
   increment_max: number | undefined; // Optional, backend applies defaults
   additional_args: string; // Additional hashcat arguments
   cloud_burst_enabled: boolean;
+  cloud_allow_community_hosts: boolean;
   cloud_max_instances: number | undefined;
 }
 

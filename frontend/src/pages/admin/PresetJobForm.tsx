@@ -75,6 +75,7 @@ const getInitialFormState = (defaultChunkDuration: number = 300): PresetJobFormD
   hex_charset: false,
   additional_args: '',
   cloud_burst_enabled: false,
+  cloud_allow_community_hosts: false,
   cloud_max_instances: undefined as number | undefined
 });
 
@@ -214,6 +215,7 @@ const PresetJobFormPage: React.FC = () => {
               hex_charset: presetJob.hex_charset || false,
               additional_args: presetJob.additional_args || '',
               cloud_burst_enabled: presetJob.cloud_burst_enabled || false,
+              cloud_allow_community_hosts: presetJob.cloud_allow_community_hosts || false,
               cloud_max_instances: presetJob.cloud_max_instances ?? undefined
             });
 
@@ -980,6 +982,27 @@ const PresetJobFormPage: React.FC = () => {
             {t('presetJobs.form.helperText.cloudBurstEnabled') as string}
           </FormHelperText>
         </Grid>
+
+        {/* Peer-host consent, separate from the burst toggle: bursting is
+            about spending money, this is about whose machine the client's
+            hashes land on. Jobs created from this preset inherit the value. */}
+        {formData.cloud_burst_enabled && (
+          <Grid item xs={12}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  name="cloud_allow_community_hosts"
+                  checked={formData.cloud_allow_community_hosts || false}
+                  onChange={handleChange}
+                />
+              }
+              label={t('presetJobs.form.fields.cloudAllowCommunityHosts') as string}
+            />
+            <Alert severity="warning" sx={{ mt: 1 }}>
+              {t('presetJobs.form.helperText.cloudAllowCommunityHosts') as string}
+            </Alert>
+          </Grid>
+        )}
 
         {formData.cloud_burst_enabled && (
           <Grid item xs={12} sm={6}>

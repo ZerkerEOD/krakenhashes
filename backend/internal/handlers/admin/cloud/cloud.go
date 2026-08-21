@@ -35,6 +35,10 @@ type Handler struct {
 	budgetRepo *repository.CloudBudgetRepository
 	budget     *cloudsvc.BudgetEngine
 	estimator  *cloudsvc.Estimator
+	// rules is the admin provisioning rails (when spending may happen). May be
+	// nil, in which case the rules routes report 503 rather than panicking —
+	// same reasoning as provisionForJob below.
+	rules *repository.CloudProvisioningRulesRepository
 	// providerFor resolves a configured provider for preflight and manual
 	// teardown.
 	providerFor func(ctx context.Context, providerConfigID uuid.UUID) (cloudsvc.Provider, error)
@@ -55,6 +59,7 @@ func NewHandler(
 	budgetRepo *repository.CloudBudgetRepository,
 	budget *cloudsvc.BudgetEngine,
 	estimator *cloudsvc.Estimator,
+	rules *repository.CloudProvisioningRulesRepository,
 	providerFor func(ctx context.Context, providerConfigID uuid.UUID) (cloudsvc.Provider, error),
 	invalidateProvider func(providerConfigID uuid.UUID),
 	provisionForJob func(ctx context.Context, jobID uuid.UUID) error,
@@ -65,6 +70,7 @@ func NewHandler(
 		budgetRepo:         budgetRepo,
 		budget:             budget,
 		estimator:          estimator,
+		rules:              rules,
 		providerFor:        providerFor,
 		invalidateProvider: invalidateProvider,
 		provisionForJob:    provisionForJob,
@@ -97,6 +103,15 @@ func (h *Handler) RegisterRoutes(r *mux.Router) {
 
 	s.HandleFunc("/policy", h.GetDefaultPolicy).Methods("GET", "OPTIONS")
 	s.HandleFunc("/policy", h.UpdateDefaultPolicy).Methods("PUT", "OPTIONS")
+
+	// Provisioning rules: WHEN spending may happen, as opposed to /policy's
+	// HOW MUCH. The client route returns the MERGED view; /rules returns the
+	// system default unmerged. See rules.go for why that asymmetry matters.
+	s.HandleFunc("/rules", h.GetDefaultRules).Methods("GET", "OPTIONS")
+	s.HandleFunc("/rules", h.UpdateDefaultRules).Methods("PUT", "OPTIONS")
+	s.HandleFunc("/clients/{clientId}/rules", h.GetClientRules).Methods("GET", "OPTIONS")
+	s.HandleFunc("/clients/{clientId}/rules", h.UpdateClientRules).Methods("PUT", "OPTIONS")
+	s.HandleFunc("/clients/{clientId}/rules", h.DeleteClientRules).Methods("DELETE", "OPTIONS")
 
 	s.HandleFunc("/jobs/{jobId}/projection", h.JobProjection).Methods("GET", "OPTIONS")
 	s.HandleFunc("/jobs/{jobId}/provision", h.ProvisionForJob).Methods("POST", "OPTIONS")
@@ -183,9 +198,7 @@ func (h *Handler) saveProvider(w http.ResponseWriter, r *http.Request, id uuid.U
 		writeErr(w, http.StatusBadRequest, "name is required")
 		return
 	}
-	switch in.Provider {
-	case models.CloudProviderVastAI, models.CloudProviderAWS, models.CloudProviderMock:
-	default:
+	if !in.Provider.IsValid() {
 		writeErr(w, http.StatusBadRequest, fmt.Sprintf("unsupported provider %q", in.Provider))
 		return
 	}
@@ -226,13 +239,19 @@ func (h *Handler) saveProvider(w http.ResponseWriter, r *http.Request, id uuid.U
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		// Vast.ai puts client data on machines the operator does not control.
-		// The acknowledgement is a separate, attributed action.
-		if in.Provider == models.CloudProviderVastAI &&
+		/*
+		 * Peer providers put client data on machines the operator does not
+		 * control, so enabling one is a separate, attributed action.
+		 *
+		 * Routed through the predicate rather than naming vastai: AWS and
+		 * RunPod Secure must keep enabling in ONE step with no acknowledgement
+		 * dance, and the surest way to lose that is for someone adding a
+		 * provider to extend this condition with an ||.
+		 */
+		if in.Provider.RequiresThirdPartyAck() &&
 			(existing == nil || !existing.ThirdPartyAckAt.Valid) {
 			writeErr(w, http.StatusBadRequest,
-				"Vast.ai runs GPUs on third-party machines whose owners have root over the container. "+
-					"Acknowledge the data-exposure terms before enabling it.")
+				providerAckPrompt(in.Provider))
 			return
 		}
 	}
@@ -426,12 +445,13 @@ func (h *Handler) UpdateClientSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, p := range in.ProviderAllowlist {
-		if p != string(models.CloudProviderVastAI) {
+		if !models.CloudProvider(p).RequiresThirdPartyAck() {
 			continue
 		}
 		if _, acked := current.ProviderAck[p]; !acked {
-			writeErr(w, http.StatusBadRequest,
-				"acknowledge Vast.ai third-party data exposure for this client before allowing it")
+			writeErr(w, http.StatusBadRequest, fmt.Sprintf(
+				"acknowledge %s third-party data exposure for this client before allowing it",
+				providerDisplayName(models.CloudProvider(p))))
 			return
 		}
 	}
@@ -754,4 +774,41 @@ func (h *Handler) ProvisionForJob(w http.ResponseWriter, r *http.Request) {
 		"status": "provisioning",
 		"job_id": jobID.String(),
 	})
+}
+
+// providerDisplayName is the operator-facing name for a provider kind. The two
+// RunPod tiers must never both render as "RunPod": an admin acknowledging
+// third-party data exposure needs to see that it is the Community tier they are
+// consenting to, not the SOC 2 one they probably think they bought.
+func providerDisplayName(p models.CloudProvider) string {
+	switch p {
+	case models.CloudProviderVastAI:
+		return "Vast.ai"
+	case models.CloudProviderAWS:
+		return "AWS"
+	case models.CloudProviderRunPod:
+		return "RunPod Secure Cloud"
+	case models.CloudProviderRunPodCommunity:
+		return "RunPod Community Cloud"
+	case models.CloudProviderMock:
+		return "Mock"
+	default:
+		return string(p)
+	}
+}
+
+// providerAckPrompt explains what is being acknowledged. The threat is the same
+// for both peer providers — the host's owner has root over the container — so
+// the wording is deliberately the same; only the reason the tier qualifies
+// differs.
+func providerAckPrompt(p models.CloudProvider) string {
+	switch p {
+	case models.CloudProviderRunPodCommunity:
+		return "RunPod Community Cloud runs on peer-operated machines whose owners have root over " +
+			"the container, and RunPod's SOC 2, ISO 27001 and PCI DSS attestations cover only Secure " +
+			"Cloud, not this tier. Acknowledge the data-exposure terms before enabling it."
+	default:
+		return providerDisplayName(p) + " runs GPUs on third-party machines whose owners have root " +
+			"over the container. Acknowledge the data-exposure terms before enabling it."
+	}
 }

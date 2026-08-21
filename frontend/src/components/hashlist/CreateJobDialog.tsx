@@ -186,6 +186,7 @@ export default function CreateJobDialog({
     // Cloud burst is opt-in per job (and separately capped from max_agents,
     // which governs only the shared on-prem pool). Nothing is rented without it.
     cloud_burst_enabled: false,
+    cloud_allow_community_hosts: false,
     cloud_max_instances: undefined as number | undefined
   });
 
@@ -473,6 +474,7 @@ export default function CreateJobDialog({
         hex_charset: false,
         additional_args: '',
         cloud_burst_enabled: false,
+        cloud_allow_community_hosts: false,
         cloud_max_instances: undefined
       });
       setTabValue(0);
@@ -1408,6 +1410,33 @@ export default function CreateJobDialog({
                       Rent GPU instances when the on-prem fleet cannot keep up. Requires the client to be funded and opted in to a provider.
                     </Typography>
                   </Grid>
+
+                  {/* Peer-host opt-in. Separate from the burst toggle above
+                      because they are separate decisions: bursting is about
+                      spending money, this is about WHOSE MACHINE the client's
+                      hashes land on. Without it the job simply does not see
+                      peer offers and may still rent secure capacity. */}
+                  {customJob.cloud_burst_enabled && (
+                    <Grid item xs={12}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={customJob.cloud_allow_community_hosts}
+                            onChange={(e) => setCustomJob(prev => ({ ...prev, cloud_allow_community_hosts: e.target.checked }))}
+                          />
+                        }
+                        label="Allow peer-operated hosts (Vast.ai, RunPod Community)"
+                      />
+                      <Alert severity="warning" sx={{ mt: 1 }}>
+                        These are someone else's machines. The host's owner has root over the
+                        container, so this client's hashes, wordlists and cracked plaintexts are
+                        readable by a third party and are <strong>not encrypted at rest on the
+                        host</strong>. Not recommended for production or client engagement data.
+                        Leave this off and the job will still use secure capacity (AWS, RunPod
+                        Secure Cloud) if the client allows it.
+                      </Alert>
+                    </Grid>
+                  )}
 
                   {customJob.cloud_burst_enabled && (
                     <Grid item xs={12} sm={6}>

@@ -10,6 +10,25 @@ import (
 	"syscall"
 	"time"
 
+	/*
+	 * Embed the IANA zone database in the binary (~450 KB) rather than trusting
+	 * the host to have /usr/share/zoneinfo.
+	 *
+	 * Provisioning windows are stored as an IANA name and evaluated with
+	 * time.LoadLocation, so on a host without the zone files EVERY name fails
+	 * to load. The failure is fail-closed by design — an unreadable window
+	 * refuses rather than rents — which means a missing OS package silently
+	 * stops all cloud provisioning for every client that configured a window,
+	 * and blocks the admin from fixing it, since UpsertRules validates zone
+	 * names the same way. The Dockerfiles do install tzdata; this makes the
+	 * binary correct anywhere it runs, including scratch images and a
+	 * developer's `go run`.
+	 *
+	 * Embedded data is only consulted when the host has no zone files, so this
+	 * does not override a deliberately patched system database.
+	 */
+	_ "time/tzdata"
+
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/binary"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/cache/filehash"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/config"
@@ -632,7 +651,9 @@ func main() {
 	if routes.AdminRouter != nil {
 		admincloud.NewHandler(
 			cloudProviderRepo, cloudInstanceRepo, cloudBudgetRepo, cloudBudget,
-			cloudsvc.NewEstimator(dbWrapper), cloudService.ProviderFor,
+			cloudsvc.NewEstimator(dbWrapper),
+			repository.NewCloudProvisioningRulesRepository(dbWrapper),
+			cloudService.ProviderFor,
 			cloudService.InvalidateProvider, cloudService.ProvisionForJob,
 		).RegisterRoutes(routes.AdminRouter)
 		debug.Info("Configured cloud admin routes: /api/admin/cloud/*")

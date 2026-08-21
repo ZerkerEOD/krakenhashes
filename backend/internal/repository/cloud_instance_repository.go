@@ -202,6 +202,28 @@ func (r *CloudInstanceRepository) CountLive(ctx context.Context) (int, error) {
 	return n, nil
 }
 
+/*
+ * CountLiveForConfig counts live instances belonging to one provider config.
+ *
+ * Backs cloud_provider_configs.max_concurrent_instances, which was stored,
+ * validated by the admin handler, round-tripped through the API and enforced by
+ * nothing at all — an operator who capped a provider at 3 could get any number.
+ *
+ * Per CONFIG rather than per provider kind: two configs of the same kind are
+ * usually two accounts or two regions, and a cap is a statement about the one
+ * account it was set on.
+ */
+func (r *CloudInstanceRepository) CountLiveForConfig(ctx context.Context, configID uuid.UUID) (int, error) {
+	var n int
+	err := r.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM cloud_instances
+		WHERE provider_config_id = $1 AND state NOT IN ('terminated','failed')`, configID).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count live instances for provider config %s: %w", configID, err)
+	}
+	return n, nil
+}
+
 // SetState transitions an instance, optionally recording why.
 func (r *CloudInstanceRepository) SetState(ctx context.Context, id uuid.UUID, state models.CloudInstanceState, reason string) error {
 	// $2 must be cast explicitly at BOTH use sites. Without the casts Postgres

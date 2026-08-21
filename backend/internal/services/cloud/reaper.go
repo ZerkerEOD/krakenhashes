@@ -3,6 +3,7 @@ package cloud
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
@@ -52,6 +53,18 @@ type Reaper struct {
 	OrphanGrace time.Duration
 	// IdleDrain is how long an instance may sit with no work before teardown.
 	IdleDrain time.Duration
+
+	// orphanFirstSeen is when each currently-unrecognised provider-side label
+	// was first observed, so OrphanGrace can be applied. Guarded by orphanMu
+	// because Run and a manually triggered SweepOnce could overlap.
+	//
+	// In memory rather than in the database, deliberately. A restart forgets
+	// and re-starts the clock, which delays a destruction by one grace period
+	// — the SAFE direction. Persisting it would mean a crash-looping backend
+	// accumulated grace it never actually observed and destroyed a live
+	// instance the moment it came up.
+	orphanMu        sync.Mutex
+	orphanFirstSeen map[string]time.Time
 }
 
 // NewReaper creates a reaper.
@@ -62,12 +75,13 @@ func NewReaper(
 	notifier Notifier,
 ) *Reaper {
 	return &Reaper{
-		instances:   instances,
-		budget:      budget,
-		providers:   providers,
-		notifier:    notifier,
-		OrphanGrace: 10 * time.Minute,
-		IdleDrain:   5 * time.Minute,
+		instances:       instances,
+		budget:          budget,
+		providers:       providers,
+		notifier:        notifier,
+		OrphanGrace:     10 * time.Minute,
+		IdleDrain:       5 * time.Minute,
+		orphanFirstSeen: make(map[string]time.Time),
 	}
 }
 
@@ -135,9 +149,23 @@ func (r *Reaper) SweepOnce(ctx context.Context) {
 		r.reconcileInstance(ctx, provider, inst, inventories[inst.ProviderConfigID], now)
 	}
 
-	// Orphans: present at the provider, absent from our database. This is the
-	// only recovery for a launch that applied but whose label never landed in
-	// a row, and it is why a dedicated provider account is recommended.
+	/*
+	 * Orphans: present at the provider, absent from our database. This is the
+	 * only recovery for a launch that applied but whose label never landed in
+	 * a row, and it is why a dedicated provider account is recommended.
+	 *
+	 * Gated on OrphanGrace, which until now was loaded from settings, assigned
+	 * in main.go and never read — orphans were destroyed on first sight.
+	 *
+	 * The race it exists for is real and this pass creates it: `live` is read
+	 * once at the top, but each provider's inventory is fetched later in the
+	 * loop below it. An instance provisioned in that window is in the inventory
+	 * and NOT in `known`, so first-sight destruction would tear down an
+	 * instance whose row was written seconds earlier — and the operator would
+	 * see a launch that "failed" for no visible reason.
+	 */
+	r.forgetVanishedOrphans(inventories)
+
 	for cfgID, inv := range inventories {
 		if inv == nil {
 			continue
@@ -150,10 +178,73 @@ func (r *Reaper) SweepOnce(ctx context.Context) {
 			if known[label] {
 				continue
 			}
+			if waited, ready := r.orphanAge(label, now); !ready {
+				debug.Info("Cloud reaper: label %s is unrecognised but only %s old; "+
+					"holding for the %s orphan grace in case its launch is still in flight",
+					label, waited.Round(time.Second), r.OrphanGrace)
+				continue
+			}
 			debug.Warning("Cloud reaper: destroying ORPHAN instance %s (present at provider, absent from database)", label)
 			if err := provider.Destroy(ctx, status.ProviderInstanceID); err != nil {
 				debug.Error("Cloud reaper: failed to destroy orphan %s: %v", label, err)
 			}
+		}
+	}
+}
+
+/*
+ * orphanAge reports how long a label has been unrecognised, and whether that is
+ * long enough to destroy it.
+ *
+ * First sight records the time and returns not-ready, so an orphan always
+ * survives at least one sweep. With OrphanGrace <= 0 the caller gets the old
+ * first-sight behaviour, which keeps the setting's "0 disables it" reading
+ * consistent with the other cloud knobs.
+ */
+func (r *Reaper) orphanAge(label string, now time.Time) (time.Duration, bool) {
+	if r.OrphanGrace <= 0 {
+		return 0, true
+	}
+
+	r.orphanMu.Lock()
+	defer r.orphanMu.Unlock()
+
+	first, seen := r.orphanFirstSeen[label]
+	if !seen {
+		r.orphanFirstSeen[label] = now
+		return 0, false
+	}
+	waited := now.Sub(first)
+	return waited, waited >= r.OrphanGrace
+}
+
+/*
+ * forgetVanishedOrphans drops labels that are no longer in any inventory.
+ *
+ * Without this the map grows for the life of the process, and — worse — a label
+ * that was briefly unrecognised, then adopted into a row, then legitimately
+ * reused would inherit its old first-seen time and skip its grace period.
+ *
+ * A nil inventory means that provider could not be listed this pass. Its labels
+ * are left untouched rather than forgotten, so one failed list call does not
+ * reset the clock on every orphan it owns.
+ */
+func (r *Reaper) forgetVanishedOrphans(inventories map[uuid.UUID]map[string]InstanceStatus) {
+	present := make(map[string]bool)
+	for _, inv := range inventories {
+		if inv == nil {
+			return // at least one provider is unreadable; do not prune on partial data
+		}
+		for label := range inv {
+			present[label] = true
+		}
+	}
+
+	r.orphanMu.Lock()
+	defer r.orphanMu.Unlock()
+	for label := range r.orphanFirstSeen {
+		if !present[label] {
+			delete(r.orphanFirstSeen, label)
 		}
 	}
 }
@@ -202,6 +293,27 @@ func (r *Reaper) reconcileInstance(ctx context.Context, provider Provider, inst 
 		return
 	}
 
+	/*
+	 * 4.5. The work is gone.
+	 *
+	 * This is the largest avoidable waste in the whole feature and the one no
+	 * other tier catches. Every tier above fires on something being WRONG — a
+	 * failed launch, an expired TTL, an exhausted budget. Nothing fires on the
+	 * ordinary happy ending: the job finishes at 14:02 on an instance rented
+	 * until 18:00, and a GPU bills for four hours with nothing to do.
+	 *
+	 * Two cases, deliberately separated:
+	 *
+	 *   - the job reached a terminal state: destroy now, no grace. There is
+	 *     nothing left that could ever need this instance.
+	 *   - the job is alive but this instance has had no task for IdleDrain:
+	 *     destroy after that grace, because a gap between chunks is normal and
+	 *     tearing down during one would waste the launch we just paid for.
+	 */
+	if r.instanceHasNoWork(ctx, inst, now) {
+		return
+	}
+
 	// 5. Budget. Assessed per client, so one client exhausting its budget
 	//    never tears down another's instances.
 	if inst.ClientID != nil {
@@ -233,6 +345,83 @@ func (r *Reaper) reconcileInstance(ctx context.Context, provider Provider, inst 
 			debug.Error("Cloud reaper: failed to record incurred cost: %v", err)
 		}
 	}
+}
+
+/*
+ * instanceHasNoWork destroys an instance whose job no longer needs it, and
+ * reports whether it did.
+ *
+ * Fails toward KEEPING the instance: a query error, an unknown activity time,
+ * or a job that is merely between chunks all leave it running. Destroying a
+ * busy instance throws away the launch that was just paid for and the work in
+ * flight on it, so the grace period is spent deliberately rather than saved.
+ */
+func (r *Reaper) instanceHasNoWork(ctx context.Context, inst *models.CloudInstance, now time.Time) bool {
+	/*
+	 * A null job on a launched instance means the job was DELETED, not that the
+	 * instance never had one. cloud_instances.job_execution_id is ON DELETE SET
+	 * NULL and ProvisionForJob always sets it, so the only way to arrive here
+	 * with nil is that the row it pointed at is gone.
+	 *
+	 * Skipping this case leaves a GPU running until its TTL with no job, no
+	 * work, and nothing else in the ladder that would notice. If a warm pool of
+	 * job-less instances is ever added, this is the branch it has to change.
+	 */
+	if inst.JobExecutionID == nil {
+		r.destroyByLookup(ctx, inst, "the job this instance was rented for was deleted")
+		return true
+	}
+
+	work, err := r.instances.WorkStatus(ctx, *inst.JobExecutionID, inst.AgentID)
+	if err != nil {
+		debug.Error("Cloud reaper: could not determine whether %s still has work: %v", inst.Label, err)
+		return false
+	}
+
+	if !work.JobExists {
+		r.destroyByLookup(ctx, inst, "the job this instance was rented for no longer exists")
+		return true
+	}
+	if work.JobFinished {
+		r.destroyByLookup(ctx, inst, "job finished; instance is no longer needed")
+		return true
+	}
+
+	// Idle drain disabled.
+	if r.IdleDrain <= 0 {
+		return false
+	}
+
+	// An instance that has never run a task is measured from when it became
+	// ready, not from epoch — otherwise every instance would look infinitely
+	// idle the moment it registered and be destroyed before its first chunk.
+	idleSince := work.LastActivityAt.Time
+	if !work.LastActivityAt.Valid {
+		if !inst.ReadyAt.Valid {
+			return false // not ready yet; nothing to measure from
+		}
+		idleSince = inst.ReadyAt.Time
+	}
+
+	if now.Sub(idleSince) < r.IdleDrain {
+		return false
+	}
+	r.destroyByLookup(ctx, inst,
+		fmt.Sprintf("no work for %s (idle drain)", now.Sub(idleSince).Round(time.Second)))
+	return true
+}
+
+// destroyByLookup resolves the instance's provider before tearing down. The
+// idle path is reached from reconcileInstance, which already holds a provider,
+// but the settle-and-destroy sequence is identical and worth not duplicating.
+func (r *Reaper) destroyByLookup(ctx context.Context, inst *models.CloudInstance, reason string) {
+	provider, err := r.providers(ctx, inst.ProviderConfigID)
+	if err != nil {
+		debug.Error("Cloud reaper: cannot resolve provider to destroy idle instance %s: %v", inst.Label, err)
+		return
+	}
+	debug.Info("Cloud reaper: destroying %s - %s", inst.Label, reason)
+	r.destroy(ctx, provider, inst, reason)
 }
 
 // remainingTTL returns how much of an instance's intended life is left.

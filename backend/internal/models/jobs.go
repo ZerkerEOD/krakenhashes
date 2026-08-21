@@ -156,6 +156,10 @@ type PresetJob struct {
 	// CloudBurstEnabled opts jobs created from this preset into renting paid
 	// GPU capacity. Off by default: nothing bursts to paid capacity by accident.
 	CloudBurstEnabled bool `json:"cloud_burst_enabled" db:"cloud_burst_enabled"`
+	// CloudAllowCommunityHosts opts them onto peer-operated hardware. Off by
+	// default and independent of the above: a preset may legitimately burst to
+	// SOC 2 capacity while never touching someone else's machine.
+	CloudAllowCommunityHosts bool `json:"cloud_allow_community_hosts" db:"cloud_allow_community_hosts"`
 	// CloudMaxInstances caps rented instances, SEPARATE from MaxAgents.
 	// MaxAgents governs the shared on-prem pool (fleet fairness); a rented
 	// instance is dedicated to this job and paid for by its client, so it must
@@ -277,20 +281,29 @@ type JobExecution struct {
 	// CloudMaxInstances caps that separately from MaxAgents, which governs only
 	// the shared on-prem pool — see the PresetJob fields for why they must not
 	// share one budget.
-	CloudBurstEnabled   bool       `json:"cloud_burst_enabled" db:"cloud_burst_enabled"`
-	CloudMaxInstances   *int       `json:"cloud_max_instances,omitempty" db:"cloud_max_instances"`
-	ProcessedKeyspace   BigInt     `json:"processed_keyspace" db:"processed_keyspace"`
-	AttackMode          AttackMode `json:"attack_mode" db:"attack_mode"`
-	CreatedBy           *uuid.UUID `json:"created_by" db:"created_by"`
-	CreatedAt           time.Time  `json:"created_at" db:"created_at"`
-	StartedAt           *time.Time `json:"started_at" db:"started_at"`
-	CrackingCompletedAt *time.Time `json:"cracking_completed_at" db:"cracking_completed_at"` // When all tasks finished hashcat work (job enters processing)
-	CompletedAt         *time.Time `json:"completed_at" db:"completed_at"`
-	UpdatedAt           time.Time  `json:"updated_at" db:"updated_at"`
-	ErrorMessage        *string    `json:"error_message" db:"error_message"`
-	InterruptedBy       *uuid.UUID `json:"interrupted_by" db:"interrupted_by"`
-	ConsecutiveFailures int        `json:"consecutive_failures" db:"consecutive_failures"` // Track consecutive task failures
-	ArchivedAt          *time.Time `json:"archived_at,omitempty" db:"archived_at"`
+	CloudBurstEnabled bool `json:"cloud_burst_enabled" db:"cloud_burst_enabled"`
+	CloudMaxInstances *int `json:"cloud_max_instances,omitempty" db:"cloud_max_instances"`
+	// CloudAllowCommunityHosts opts this job into PEER-OPERATED hardware
+	// (Vast.ai, RunPod Community), where the machine's owner has root over the
+	// container. Structurally the same decision as CloudBurstEnabled — nothing
+	// bursts to paid capacity by accident — extended one step to "nothing lands
+	// on someone else's machine by accident either".
+	//
+	// Without it the job simply does not see peer offers; it may still rent
+	// secure capacity (AWS, RunPod Secure) from the client's allowlist.
+	CloudAllowCommunityHosts bool       `json:"cloud_allow_community_hosts" db:"cloud_allow_community_hosts"`
+	ProcessedKeyspace        BigInt     `json:"processed_keyspace" db:"processed_keyspace"`
+	AttackMode               AttackMode `json:"attack_mode" db:"attack_mode"`
+	CreatedBy                *uuid.UUID `json:"created_by" db:"created_by"`
+	CreatedAt                time.Time  `json:"created_at" db:"created_at"`
+	StartedAt                *time.Time `json:"started_at" db:"started_at"`
+	CrackingCompletedAt      *time.Time `json:"cracking_completed_at" db:"cracking_completed_at"` // When all tasks finished hashcat work (job enters processing)
+	CompletedAt              *time.Time `json:"completed_at" db:"completed_at"`
+	UpdatedAt                time.Time  `json:"updated_at" db:"updated_at"`
+	ErrorMessage             *string    `json:"error_message" db:"error_message"`
+	InterruptedBy            *uuid.UUID `json:"interrupted_by" db:"interrupted_by"`
+	ConsecutiveFailures      int        `json:"consecutive_failures" db:"consecutive_failures"` // Track consecutive task failures
+	ArchivedAt               *time.Time `json:"archived_at,omitempty" db:"archived_at"`
 
 	// Self-contained configuration fields (no need to look up preset)
 	Name                      string             `json:"name" db:"name"`

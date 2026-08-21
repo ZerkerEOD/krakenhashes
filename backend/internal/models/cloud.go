@@ -14,12 +14,88 @@ type CloudProvider string
 const (
 	CloudProviderVastAI CloudProvider = "vastai"
 	CloudProviderAWS    CloudProvider = "aws"
+
+	/*
+	 * RunPod is TWO provider kinds, not one with a flag.
+	 *
+	 * Its API distinguishes them with a single `cloud: SECURE|COMMUNITY` field,
+	 * which makes one kind plus a toggle look natural. It is the wrong split:
+	 * the two tiers sit on opposite sides of the only line that matters here.
+	 * Secure runs in RunPod's own SOC 2 Type II datacentres; Community runs on
+	 * peer-operated machines whose owner has root over the container, and none
+	 * of RunPod's compliance claims extend to it.
+	 *
+	 * Separate kinds mean an admin allowlists them separately, a client can
+	 * permit one without the other, and the consent machinery attaches to
+	 * exactly the tier that needs it — see RequiresThirdPartyAck.
+	 */
+	CloudProviderRunPod          CloudProvider = "runpod"
+	CloudProviderRunPodCommunity CloudProvider = "runpod_community"
+
 	// CloudProviderMock drives the whole lifecycle against local
 	// `agent --test-mode` processes. It exists so the provisioning,
 	// isolation, budget and teardown paths can be exercised end to end
 	// without renting a GPU.
 	CloudProviderMock CloudProvider = "mock"
 )
+
+/*
+ * RequiresThirdPartyAck reports whether this provider places client hash
+ * material on hardware the operator does not control.
+ *
+ * TRUE for peer/consumer hardware only. Vast.ai rents individually-owned
+ * machines and RunPod Community rents peer-operated hosts; in both cases the
+ * machine's owner has root over the container, so the protection is a terms-of-
+ * service clause rather than an isolation boundary.
+ *
+ * FALSE for AWS and RunPod Secure, deliberately. AWS runs in the operator's own
+ * account under their own IAM, and RunPod Secure runs in RunPod's own SOC 2
+ * Type II datacentres — neither is a third party in the sense this gate is
+ * about. Gating them behind a data-exposure acknowledgement would not add
+ * safety; it would train operators to click through the one warning that is
+ * real.
+ *
+ * This is the single place that question is answered. The ack gate before
+ * enabling a config, the per-client allowlist gate, the provider skip during
+ * provisioning, the per-job peer opt-in and the red UI chips all route through
+ * here, so a sixth provider is one line rather than five scattered ||s.
+ */
+func (p CloudProvider) RequiresThirdPartyAck() bool {
+	return p == CloudProviderVastAI || p == CloudProviderRunPodCommunity
+}
+
+// AllCloudProviders is every supported kind, in the order a UI should offer
+// them: least surprising first, peer hardware last.
+var AllCloudProviders = []CloudProvider{
+	CloudProviderAWS,
+	CloudProviderRunPod,
+	CloudProviderVastAI,
+	CloudProviderRunPodCommunity,
+	CloudProviderMock,
+}
+
+/*
+ * IsValid reports whether this is a supported provider kind.
+ *
+ * The same three-way `case A, B, C:` validation was written out by hand in the
+ * provider-config handler, the client-allowlist writer and the per-client
+ * acknowledgement writer. Adding a kind meant finding all three, and the
+ * failure mode for missing one is quiet and asymmetric: a provider that can be
+ * configured but not allowlisted, or allowlisted but not acknowledged, with the
+ * error surfacing three screens away from the omission.
+ *
+ * Note this is NOT the same question as whether a provider can be stored — the
+ * database CHECK constraint on cloud_provider_configs.provider is the authority
+ * there, and the two must be kept in step.
+ */
+func (p CloudProvider) IsValid() bool {
+	for _, known := range AllCloudProviders {
+		if p == known {
+			return true
+		}
+	}
+	return false
+}
 
 // VPNProvider identifies how a cloud agent joins the operator's private
 // network. OpenVPN is deliberately absent: it needs /dev/net/tun and
@@ -424,4 +500,149 @@ type CloudGPUBenchmark struct {
 	Speed       int64     `json:"speed"`
 	SampleCount int       `json:"sample_count"`
 	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+/*
+ * CloudProvisioningRules governs WHEN provisioning may happen, as distinct from
+ * CloudBudgetPolicy's HOW MUCH may be spent.
+ *
+ * A rules row with a nil ClientID is the system default. Client rows override it
+ * PER FIELD, which is a deliberate divergence from CloudBudgetPolicy — see
+ * MergeProvisioningRules for why.
+ *
+ * Every field is a pointer so "not configured" is distinguishable from "set to
+ * zero". Zero is meaningful for all of these: it is each rule's in-band OFF
+ * value, which is what lets a client opt out of an inherited rule without a
+ * second boolean column per rule.
+ */
+type CloudProvisioningRules struct {
+	ID       uuid.UUID  `json:"id"`
+	ClientID *uuid.UUID `json:"client_id,omitempty"`
+
+	// MinJobPriority is an ABSOLUTE job_executions.priority floor. 0 = no floor.
+	//
+	// Note for any UI: the priority ceiling (max_job_priority) defaults to 1000
+	// while the shipped convention doc describes 0-100 bands, so a floor typed
+	// as "700" meaning "high priority" matches nothing under that convention and
+	// silently disables all automatic provisioning. Render this against the live
+	// ceiling, never as a bare number.
+	MinJobPriority *int `json:"min_job_priority,omitempty"`
+
+	// MinStarvationSeconds is how long a job must have been continuously
+	// starving before paid capacity is rented for it. 0 = rent on the first
+	// starving tick.
+	MinStarvationSeconds *int `json:"min_starvation_seconds,omitempty"`
+
+	// SkipIfFinishingWithinSeconds refuses to rent for a job projected to
+	// complete within this long on existing capacity. 0 = never skip.
+	SkipIfFinishingWithinSeconds *int `json:"skip_if_finishing_within_seconds,omitempty"`
+
+	// MaxSpendPerJobCents caps committed cloud spend for ONE job execution over
+	// its whole life. 0 = no cap. Not month-windowed.
+	MaxSpendPerJobCents *int64 `json:"max_spend_per_job_cents,omitempty"`
+
+	// ProvisioningWindowStart/End bound the wall-clock time at which a launch
+	// may START. Equal values mean always; End < Start wraps midnight. Never
+	// causes a teardown — TTL and idle drain own that.
+	ProvisioningWindowStart *string `json:"provisioning_window_start,omitempty"`
+	ProvisioningWindowEnd   *string `json:"provisioning_window_end,omitempty"`
+	// ProvisioningWindowTZ is an IANA name, so a UTC server can still express
+	// local business hours.
+	ProvisioningWindowTZ *string `json:"provisioning_window_tz,omitempty"`
+
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+/*
+ * MergeProvisioningRules layers a client override on top of the system default.
+ *
+ * NULL on an OVERRIDE row means INHERIT.
+ * NULL on the SYSTEM DEFAULT row means the rule is not configured and therefore
+ * constrains nothing.
+ *
+ * This deliberately differs from CloudBudgetRepository.GetPolicy, which picks
+ * one whole row and never merges. That is right for the budget ladder — its
+ * fields are coupled by a CHECK constraint, and an operator setting a client's
+ * thresholds means all of them. It is wrong here: these are independent safety
+ * rails, and "the admin tightened the default and it never reached the clients
+ * that had an override" is the failure mode that produces the invoice.
+ *
+ * The window is merged as a UNIT rather than field by field. A start inherited
+ * from the default paired with an end from an override is not a window anyone
+ * configured, and the two values only mean anything together.
+ */
+func MergeProvisioningRules(def, override *CloudProvisioningRules) *CloudProvisioningRules {
+	/*
+	 * No system default means no policy, and NIL IS THE FAIL-CLOSED ANSWER.
+	 *
+	 * The tempting thing is to return an empty struct, but under these
+	 * semantics an all-nil rules object is the MAXIMALLY PERMISSIVE one: every
+	 * rule whose pointer is nil is skipped, so it reads as "any job, any
+	 * priority, any hour, no per-job cap". And def == nil does not mean "the
+	 * rules are unconfigured" — it means the system-default ROW is missing,
+	 * i.e. the migration did not run or the row was truncated.
+	 *
+	 * Turning a broken database into unrestricted spending permission is the
+	 * wrong direction. decideProvisioningAction refuses on nil for the same
+	 * reason checkGlobalCap refuses on an unreadable ceiling: a policy we
+	 * cannot read has to behave like an engaged one.
+	 */
+	if def == nil {
+		return nil
+	}
+	if override == nil {
+		out := *def
+		return &out
+	}
+
+	out := *override
+	if out.MinJobPriority == nil {
+		out.MinJobPriority = def.MinJobPriority
+	}
+	if out.MinStarvationSeconds == nil {
+		out.MinStarvationSeconds = def.MinStarvationSeconds
+	}
+	if out.SkipIfFinishingWithinSeconds == nil {
+		out.SkipIfFinishingWithinSeconds = def.SkipIfFinishingWithinSeconds
+	}
+	if out.MaxSpendPerJobCents == nil {
+		out.MaxSpendPerJobCents = def.MaxSpendPerJobCents
+	}
+	/*
+	 * The BOUNDS merge as a unit; the ZONE merges on its own.
+	 *
+	 * Pairing the bounds is the point of the unit rule: a start inherited from
+	 * the default against an end from an override is not a window anyone
+	 * configured, and the two only mean anything together.
+	 *
+	 * The zone is not part of that pair, and folding it in loses money in both
+	 * directions. Inherit it only alongside the bounds and a client override
+	 * that sets its OWN window inherits no zone at all, so it silently
+	 * evaluates in UTC: default tz America/Chicago, override 22:00-06:00 with
+	 * no tz, and the autoscaler rents straight through the client's evening
+	 * business hours and stops at 01:00 — the exact inverse of the policy, with
+	 * no error and nothing in the logs. Skip it when the override has no bounds
+	 * and a zone-only override (the natural way to say "same hours, our local
+	 * time") is validated, stored, and then quietly discarded.
+	 *
+	 * So: bounds together, zone independently.
+	 */
+	if out.ProvisioningWindowStart == nil || out.ProvisioningWindowEnd == nil {
+		out.ProvisioningWindowStart = def.ProvisioningWindowStart
+		out.ProvisioningWindowEnd = def.ProvisioningWindowEnd
+	}
+	if out.ProvisioningWindowTZ == nil {
+		out.ProvisioningWindowTZ = def.ProvisioningWindowTZ
+	}
+
+	/*
+	 * Identity belongs to the row the caller asked about, not to whichever
+	 * input happened to supply the last field. A merged view carrying the
+	 * override's ID is the honest answer when an override exists; the
+	 * no-override case is handled by GetRules, which stamps the requested
+	 * ClientID so the result cannot be fed back into UpsertRules as the system
+	 * default.
+	 */
+	return &out
 }
