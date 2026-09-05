@@ -1,6 +1,6 @@
 -- Bind a claim voucher to the cloud instance it was minted for.
 --
--- Separate from 20260813120200 rather than folded into it: that migration has
+-- Separate from 20260822090200 rather than folded into it: that migration has
 -- already run on development databases, and an in-place edit to an applied
 -- migration is silently skipped — leaving a schema that does not match the code
 -- that expects it.

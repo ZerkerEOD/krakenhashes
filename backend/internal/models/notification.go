@@ -29,9 +29,12 @@ const (
 	NotificationTypeWebhookFailure          NotificationType = "webhook_failure"
 	NotificationTypeWordlistRegenFailed     NotificationType = "wordlist_regen_failed"
 	NotificationTypeAnalyticsExport         NotificationType = "analytics_export"
+	// Informational, not a failure: the job runs, but its base keyspace is an
+	// estimate because hashcat --keyspace exceeded keyspace_calculation_timeout_minutes.
+	NotificationTypeKeyspaceEstimateUsed NotificationType = "keyspace_estimate_used"
 
 	// Cloud GPU provisioning. The matching enum values are added by migration
-	// 20260813120100, which is deliberately separate from the migration that
+	// 20260822090100, which is deliberately separate from the migration that
 	// uses them: Postgres requires ALTER TYPE ... ADD VALUE to be committed
 	// before the new value can be referenced.
 	//
@@ -60,6 +63,7 @@ func AllNotificationTypes() []NotificationType {
 		NotificationTypeSecurityPasswordChanged,
 		NotificationTypeWebhookFailure,
 		NotificationTypeWordlistRegenFailed,
+		NotificationTypeKeyspaceEstimateUsed,
 		NotificationTypeCloudBudgetThreshold,
 		NotificationTypeCloudProvisionFailed,
 		NotificationTypeCloudTeardownFailed,
@@ -84,6 +88,7 @@ func (t NotificationType) IsValid() bool {
 		NotificationTypeSecurityPasswordChanged,
 		NotificationTypeWebhookFailure,
 		NotificationTypeWordlistRegenFailed,
+		NotificationTypeKeyspaceEstimateUsed,
 		NotificationTypeCloudBudgetThreshold,
 		NotificationTypeCloudProvisionFailed,
 		NotificationTypeCloudTeardownFailed,

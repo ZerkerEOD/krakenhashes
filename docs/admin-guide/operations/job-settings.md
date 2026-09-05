@@ -10,11 +10,78 @@ The Job Execution Settings page allows administrators to configure how KrakenHas
 2. Click on **Settings** in the navigation menu
 3. Select **Job Execution Settings**
 
-The settings are grouped into panels for easier management — chunking, agent behavior, job control,
-the scheduler's own timing and guards, and so on. Each `###` section below corresponds to a panel on
-that page.
+The settings are grouped into panels on the page — Keyspace & Benchmark, Benchmark Reliability,
+Chunking, Scheduling & Allocation, Task Health, Loopback, Potfile and Job Notifications.
+
+The `###` sections below group settings by topic for reference. Most map directly to a panel, but a
+few do not: settings previously under *Job Control* and *Agent Configuration* have been distributed
+into the topic panels above (see [Where a setting lives](#where-a-setting-lives)), so use the
+setting key rather than the section name when matching this page to the UI.
+
+## How this page saves
+
+Each field writes **only itself**, the moment you change it (toggles and dropdowns save
+immediately; text and number fields save when they lose focus). There is no Save button.
+
+This matters if you have previously been surprised by a setting reverting. Earlier versions
+submitted *every* setting on this page whenever any one of them was saved, so opening the page
+and touching one field would re-write all the others with whatever the form happened to be
+holding — silently overwriting a value changed elsewhere, and stamping every row with the same
+`updated_at`. That no longer happens; a save touches one key.
+
+## Where a setting lives
+
+The dividing line is: **Job Execution governs how a job runs; System Settings governs the system
+as a whole.**
+
+Settings that were on the wrong side of that line have moved:
+
+| Setting | Was | Now |
+|---------|-----|-----|
+| Agent speed-test timeouts, minimum status updates | System Settings → Speed Test | **Job Execution → Keyspace & Benchmark** |
+| Agent scheduling toggle, agent overflow allocation mode | System Settings | **Job Execution → Scheduling & Allocation** |
+| Analytics default date range | Job Execution → Agent Configuration | **System Settings** |
+| Jobs per page, job refresh interval | Job Execution → Job Control | **System Settings** (display preferences) |
 
 ## Settings Categories
+
+### Keyspace & Benchmark
+
+Groups every "how long may we spend measuring this?" control in one place, because the two that
+matter most were previously on different pages, in different units, both labelled *timeout*.
+
+| Setting | Runs on | Units | Description |
+|---------|---------|-------|-------------|
+| **Keyspace Calculation Timeout** (`keyspace_calculation_timeout_minutes`) | **Server** | minutes | Time allowed for `hashcat --keyspace` / `--total-candidates` when a job is created |
+| **Agent Speed Test Timeout** (`speed_test_timeout_seconds_uncompressed`) | **Agent** | seconds | Wall-clock limit for a benchmark on an uncompressed wordlist |
+| **Agent Speed Test Timeout, compressed** (`speed_test_timeout_seconds_compressed`) | **Agent** | seconds | Longer limit for compressed wordlists, which must be decompressed first |
+| **Minimum Status Updates** (`speed_test_min_status_updates`) | Agent | count | Status reports a speed test must produce before its result is trusted |
+| **Benchmark Cache Duration** (`benchmark_cache_duration_hours`) | — | hours | How long a benchmark stays valid before re-measuring |
+| **Benchmark History Retention** (`benchmark_history_retention_days`) | — | days | How long individual benchmark records are kept |
+
+They are separate stages. Raising the speed-test values does nothing for a slow keyspace
+calculation, and vice versa — see [Very large wordlists](#keyspace-calculation).
+
+### Benchmark Reliability
+
+Previously not exposed in the UI at all; these existed only in the database. They bound what
+happens when benchmarks repeatedly fail, so one bad agent — or one unrunnable job configuration —
+cannot consume the fleet re-running a benchmark that cannot succeed.
+
+| Setting | Description |
+|---------|-------------|
+| **Failure Threshold** (`benchmark_failure_threshold`) | Consecutive failures for one agent/job/attack combination before it is blocklisted |
+| **Hard Failure Cap** (`benchmark_hard_failure_cap`) | Absolute ceiling on attempts for a combination, regardless of the threshold |
+| **Blocklist Cooldown** (`benchmark_blocklist_cooldown_hours`) | How long a blocklisted combination stays blocked |
+| **Storm Threshold** (`benchmark_storm_threshold`) | Failures within the storm window that trigger an admin notification |
+| **Storm Window** (`benchmark_storm_window_minutes`) | Period over which storm failures are counted |
+| **Failure Streak Reset** (`agent_benchmark_streak_reset_minutes`) | Clean time before an agent's failure streak resets |
+| **Quarantine Failure Streak** (`agent_benchmark_quarantine_streak`) | Consecutive failures before the agent itself is quarantined |
+| **Quarantine Distinct Combinations** (`agent_benchmark_quarantine_distinct`) | How many *different* attack/hash-type combinations must fail before the agent — rather than the job — is blamed |
+
+The distinct-combination setting is the one that separates "this agent is broken" from "this job
+cannot run anywhere". Lower it and a healthy agent gets quarantined for one bad job; raise it and
+a genuinely faulty agent keeps being handed work.
 
 ### Job Chunking
 
@@ -81,6 +148,41 @@ Control job execution behavior and user interface settings.
 | **Max Chunk Retry Attempts** | Number of times to retry failed chunks | 3 | 0-10 | Set to 0 to disable retries |
 | **Jobs Per Page** | Default pagination size for job lists | 25 | 5-100 | Adjust based on UI preferences |
 | **Hashlist Bulk Batch Size** | Number of hashes processed per batch during import | 100,000 | 1,000-1,000,000 | Affects memory usage and import speed |
+| **Keyspace Calculation Timeout** (`keyspace_calculation_timeout_minutes`) | How long the backend may spend measuring a job's keyspace with hashcat | 4 minutes | 1-60 | Raise it for multi-gigabyte wordlists. **Not** the Speed Test timeouts — see below |
+
+#### Keyspace Calculation
+
+Before a job can be scheduled, the backend measures it by running `hashcat --keyspace` and
+`--total-candidates`, both of which read the wordlist end to end. On a multi-gigabyte list that
+takes minutes, and this setting bounds it.
+
+This runs **in the background**. Creating a job returns immediately with the job in
+`preparing`; it becomes `pending` once the measurement finishes. Users are never left waiting
+on the request, so raising this timeout costs nothing in responsiveness — it only lets a large
+wordlist finish being measured.
+
+**If the timeout is exceeded**, the job is not rejected. For a straight (`-a 0`) attack the
+backend falls back to the wordlist's stored word count, starts the job anyway, and notifies the
+user with a `keyspace_estimate_used` notification naming this setting. The job runs normally and
+its size is refined by the first agent benchmark. Attack modes whose keyspace cannot be derived
+without hashcat still fail, with a message naming this setting.
+
+Frequent `keyspace_estimate_used` notifications are the signal to raise this value.
+
+!!! warning "Three different 'timeouts' apply to a large wordlist"
+    All three now sit on this page, and the two that are most often confused are side by side
+    in the Keyspace & Benchmark panel. Note the differing units:
+
+    | Stage | Setting | Units | Panel |
+    |-------|---------|-------|-------|
+    | Word count at upload | *(none — always runs to completion)* | — | — |
+    | Keyspace measurement at job creation | `keyspace_calculation_timeout_minutes` | **minutes** | Keyspace & Benchmark |
+    | Agent speed test / benchmark | `speed_test_timeout_seconds_uncompressed` / `_compressed` | **seconds** | Keyspace & Benchmark |
+
+    Raising the Speed Test values does **not** affect keyspace measurement, and vice versa.
+    Before these were grouped, the speed-test timeouts lived under System Settings while the
+    keyspace timeout lived here — which is exactly how an operator ends up raising the wrong
+    one and concluding the setting does not work.
 
 #### Job Interruption Behavior
 

@@ -50,11 +50,16 @@ When you create a **custom job**, enable the wordlist filter option, choose your
 wordlist(s), and set the criteria. On submit:
 
 1. The job is created in a **`preparing`** state while KrakenHashes generates the temporary
-   (job-scoped) filtered wordlist in the background.
-2. Once generation finishes, the job automatically moves to **`pending`** and the scheduler picks
+   (job-scoped) filtered wordlist in the background and then measures its keyspace.
+2. Once both finish, the job automatically moves to **`pending`** and the scheduler picks
    it up — no further action needed.
 3. If generation fails (for example, the filter matches zero words), the job is marked **failed**
    with the reason, and the temporary wordlist is cleaned up.
+
+!!! note "Every custom job now starts in `preparing`"
+    This is no longer specific to filtered jobs — all custom jobs are measured in the
+    background, so they all pass briefly through `preparing`. See
+    [What "Preparing" means](jobs-workflows.md#what-preparing-means).
 
 These job-scoped filtered wordlists are temporary: they belong to the job that created them and are
 not added to your general wordlist library.

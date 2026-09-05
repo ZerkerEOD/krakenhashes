@@ -212,10 +212,33 @@ The scheduler reads several system settings (Admin → Settings). The most relev
 | `task_heartbeat_timeout_seconds`, `task_startup_grace_seconds`, `network_grace_seconds` | Liveness windows that decide when a running task is considered lost and gap-recovered (see [Scheduler (v2) Timing](../../admin-guide/operations/job-settings.md#scheduler-v2-timing)). |
 | `benchmark_cache_duration_hours` | How long a benchmark stays valid before re-benchmarking (default 168 = 7 days). |
 | `speed_test_timeout_seconds_uncompressed`, `speed_test_timeout_seconds_compressed` | Timeouts for an agent speed benchmark; compressed wordlists get the longer window because they must be decompressed first. (These replaced the single `speedtest_timeout_seconds`, which was deleted with the v1 scheduler.) |
-| `keyspace_calculation_timeout_minutes` | Timeout for hashcat keyspace queries on large attacks. |
+| `keyspace_calculation_timeout_minutes` | Timeout for the backend's `hashcat --keyspace` / `--total-candidates` pre-flight at job creation. **Not** the agent speed-test timeout above — see below. |
 
 See [Job Settings](../../admin-guide/operations/job-settings.md), [Job Priority](../../admin-guide/advanced/job-priority.md),
 and [Job Chunking System](../../admin-guide/advanced/chunking.md) for operator-facing detail.
+
+### Very large wordlists
+
+A multi-gigabyte wordlist is read end-to-end at three separate points, each with its
+own timeout. They are easy to confuse — all three are labelled "timeout" and two live
+on different settings pages — so when someone reports "I already raised that timeout",
+establish *which* one they changed before believing the symptom.
+
+| Stage | Runs on | Bounded by | Where in the UI |
+|-------|---------|-----------|-----------------|
+| Word count at upload | Backend, once per wordlist | none (streams the file) | — |
+| `--keyspace` / `--total-candidates` pre-flight | Backend, at job creation | `keyspace_calculation_timeout_minutes` (**minutes**) | Job Execution → Keyspace & Benchmark |
+| Speed test / benchmark | Agent, before the first chunk | `speed_test_timeout_seconds_uncompressed` / `_compressed` (**seconds**) | Job Execution → Keyspace & Benchmark |
+
+The pre-flight runs in the background: creating a custom job returns `202` with the job
+in `preparing`, and it flips to `pending` once the keyspace is known. A slow wordlist
+therefore delays the job becoming schedulable — it never fails the request.
+
+If `--keyspace` exceeds its timeout, the job is **not** rejected. For a straight attack
+(`-a 0`) the backend falls back to the wordlist's stored `word_count`, marks the job
+`is_accurate_keyspace = false` and `base_keyspace_estimated = true`, and notifies the
+operator (`keyspace_estimate_used`) with the setting to raise. Attack modes whose base
+keyspace cannot be derived without hashcat still fail, with a message naming the setting.
 
 ## Legacy v1 scheduler (deprecated)
 

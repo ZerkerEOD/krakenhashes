@@ -1206,11 +1206,19 @@ func (s *Service) handleHashcatOutput(ctx context.Context, agent *models.Agent, 
 			return
 		}
 
-		// Log the output for debugging
+		// Relayed hashcat output, routed through the logger rather than printed
+		// directly to stdout.
+		//
+		// These were fmt.Printf, which bypassed the level gate entirely: one line
+		// per status update per running task, unconditionally. On a busy server
+		// that is the only thing in the log — it filled the 10 MB stdout.log (and
+		// so the 1-hour diagnostic capture window) with routine status JSON while
+		// real failures were being dropped by the DEBUG gate. Status goes to
+		// Debug; agent-reported errors stay visible at Warning.
 		if payload.IsError {
-			fmt.Printf("[Agent %d][Task %s][ERROR] %s\n", agent.ID, payload.TaskID, payload.Output)
+			debug.Warning("[Agent %d][Task %s] hashcat error: %s", agent.ID, payload.TaskID, payload.Output)
 		} else {
-			fmt.Printf("[Agent %d][Task %s] %s\n", agent.ID, payload.TaskID, payload.Output)
+			debug.Debug("[Agent %d][Task %s] %s", agent.ID, payload.TaskID, payload.Output)
 		}
 
 		// TODO: Store output in database or forward to interested parties via SSE

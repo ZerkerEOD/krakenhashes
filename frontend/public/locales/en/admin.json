@@ -1264,7 +1264,11 @@
       "defaultChunkDurationHelper": "Target wall-clock time per chunk (scheduler-v2 sizes each agent's chunk to hit this)",
       "minChunkSeconds": "Minimum Chunk Duration",
       "minChunkSecondsHelper": "Floor for a single chunk's wall time; prevents tiny orphan chunks",
-      "minutes": "minutes"
+      "minutes": "minutes",
+      "overrunTolerance": "Chunk overrun tolerance",
+      "overrunToleranceHelper": "How far past its planned duration a chunk may run before the guard stops it and re-dispatches the remainder.",
+      "overrunGuard": "Enable chunk overrun guard",
+      "overrunGuardHelper": "Stops a task that runs well past its planned chunk duration and re-dispatches the unfinished part."
     },
     "agentConfig": {
       "title": "Agent Configuration",
@@ -1306,7 +1310,11 @@
       "maxBatchSize": "Maximum Batch Size",
       "maxBatchSizeHelper": "Number of staged passwords to process in each batch cycle (1,000 - 500,000)",
       "batchInterval": "Batch Interval",
-      "batchIntervalHelper": "Seconds between pot-file batch processing cycles (10 - 600)"
+      "batchIntervalHelper": "Seconds between pot-file batch processing cycles (10 - 600)",
+      "enableClientPotfiles": "Enable client pot-files",
+      "enableClientPotfilesHelper": "Keep a separate pot-file per client, in addition to the global one.",
+      "removeGlobalDefault": "Remove from global pot-file when a hashlist is deleted (default)",
+      "removeClientDefault": "Remove from client pot-file when a hashlist is deleted (default)"
     },
     "scheduler": {
       "title": "Scheduler (v2)",
@@ -1332,6 +1340,85 @@
       "updateSuccess": "Job execution settings updated successfully",
       "loadFailed": "Failed to load job execution settings",
       "saveFailed": "Failed to save settings"
+    },
+    "keyspaceBenchmark": {
+      "title": "Keyspace & Benchmark",
+      "caption": "How long KrakenHashes may spend measuring an attack. The first setting bounds the SERVER measuring the wordlist at job creation; the speed-test settings bound an AGENT measuring its own hash rate. They are different stages — raising one does not affect the other.",
+      "keyspaceTimeout": "Keyspace calculation timeout",
+      "keyspaceTimeoutHelper": "Server-side. Time allowed for hashcat --keyspace / --total-candidates when a job is created. Runs in the background, so raising this does not make job creation slower. If exceeded, a straight attack falls back to the wordlist word count and notifies the user.",
+      "speedTestUncompressed": "Agent speed test timeout",
+      "speedTestUncompressedHelper": "Agent-side. Wall-clock limit for an agent benchmark on an uncompressed wordlist.",
+      "speedTestCompressed": "Agent speed test timeout (compressed)",
+      "speedTestCompressedHelper": "Agent-side. Longer limit for compressed wordlists, which hashcat must decompress before it can report a rate.",
+      "minStatusUpdates": "Minimum status updates",
+      "minStatusUpdatesHelper": "How many hashcat status reports a speed test must produce before its result is trusted. Low values risk recording a rate taken before the GPU settled.",
+      "cacheDuration": "Benchmark cache duration",
+      "cacheDurationHelper": "How long a recorded benchmark stays valid before an agent is asked to re-measure.",
+      "historyRetention": "Benchmark history retention",
+      "historyRetentionHelper": "How long individual benchmark records are kept for trend analysis.",
+      "hours": "hours",
+      "days": "days"
+    },
+    "benchmarkReliability": {
+      "title": "Benchmark Reliability",
+      "caption": "What happens when benchmarks repeatedly fail. These protect against one bad agent, or one bad job configuration, consuming the fleet by re-running a benchmark that cannot succeed.",
+      "failureThreshold": "Failure threshold",
+      "failureThresholdHelper": "Consecutive benchmark failures for one agent/job/attack combination before it is blocklisted.",
+      "hardFailureCap": "Hard failure cap",
+      "hardFailureCapHelper": "Absolute ceiling on benchmark attempts for a combination, regardless of the threshold above.",
+      "blocklistCooldown": "Blocklist cooldown",
+      "blocklistCooldownHelper": "How long a blocklisted agent/job/attack combination stays blocked before it may be retried.",
+      "stormThreshold": "Benchmark storm threshold",
+      "stormThresholdHelper": "Number of benchmark failures inside the storm window that triggers an administrator notification.",
+      "stormWindow": "Benchmark storm window",
+      "stormWindowHelper": "The period over which storm-threshold failures are counted.",
+      "streakReset": "Failure streak reset",
+      "streakResetHelper": "How long an agent must go without a benchmark failure before its failure streak resets to zero.",
+      "quarantineStreak": "Quarantine failure streak",
+      "quarantineStreakHelper": "Consecutive failures across any combination before the agent itself is quarantined from benchmarking.",
+      "quarantineDistinct": "Quarantine distinct combinations",
+      "quarantineDistinctHelper": "How many DIFFERENT attack/hash-type combinations must fail before the agent is treated as faulty rather than the job."
+    },
+    "scheduling": {
+      "title": "Scheduling & Allocation",
+      "overflowMode": "Agent overflow allocation mode",
+      "overflowModeHelper": "How agents left over once jobs reach their max-agents limit are distributed.",
+      "maxConcurrentJobs": "Max concurrent jobs per agent",
+      "maxConcurrentJobsHelper": "How many jobs a single agent may work on at once.",
+      "agentScheduling": "Enable agent scheduling",
+      "agentSchedulingHelper": "Globally enables per-agent working-hours schedules. With this off, agent schedules are ignored.",
+      "jobInterruption": "Allow job interruption",
+      "jobInterruptionHelper": "Global gate for preemption. A job must ALSO have its own high-priority override flag and a non-zero priority before anything is interrupted."
+    },
+    "taskHealth": {
+      "title": "Task Health",
+      "caption": "When a running task is considered lost, and how aggressively work is recovered. Set these too tight and healthy tasks are evicted; too loose and a dead task holds its keyspace for hours.",
+      "heartbeatTimeout": "Task heartbeat timeout",
+      "heartbeatTimeoutHelper": "How long a running task may go without a heartbeat before it is treated as lost and its keyspace re-opened.",
+      "startupGrace": "Task startup grace",
+      "startupGraceHelper": "Extra time allowed after assignment before heartbeat rules apply, covering hashcat startup and file loading.",
+      "networkGrace": "Network grace",
+      "networkGraceHelper": "Short allowance for transient network interruptions before a missed heartbeat counts.",
+      "reconnectGrace": "Reconnect grace period",
+      "reconnectGraceHelper": "How long a disconnected agent may reconnect and reclaim its running task.",
+      "offlineBuffer": "Agent offline buffer",
+      "offlineBufferHelper": "How long messages for a briefly offline agent are buffered before being discarded.",
+      "maxRetryAttempts": "Max chunk retry attempts",
+      "maxRetryAttemptsHelper": "How many times a failed chunk is retried before the task is failed. Set to 0 to disable retries.",
+      "progressInterval": "Progress reporting interval",
+      "progressIntervalHelper": "How often agents report progress. Lower values give finer progress but more load.",
+      "hashlistRetention": "Agent hashlist retention",
+      "hashlistRetentionHelper": "How long agents keep a downloaded hashlist after finishing with it."
+    },
+    "loopback": {
+      "title": "Loopback",
+      "maxRounds": "Maximum loopback rounds",
+      "maxRoundsHelper": "Safety ceiling on how many times a loopback session re-runs an attack against newly cracked plaintexts before stopping, even if it is still finding new cracks."
+    },
+    "jobNotifications": {
+      "title": "Job Notifications",
+      "realtimeCracks": "Real-time crack notifications",
+      "realtimeCracksHelper": "Notify as hashes are cracked. Can add noticeable load on very large jobs."
     }
   },
   "monitoring": {

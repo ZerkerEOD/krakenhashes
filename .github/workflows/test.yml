@@ -295,11 +295,68 @@ jobs:
 
         steps:
             - uses: actions/checkout@v4
+              with:
+                  # Needed to diff against master for the ordering check below.
+                  fetch-depth: 0
 
             - uses: actions/setup-go@v5
               with:
                   go-version: '1.25'
                   cache-dependency-path: backend/go.sum
+
+            - name: Migrations must sort above master's newest
+              # THE ONE CHECK THAT CATCHES A PRODUCTION-BRICKING MERGE.
+              #
+              # golang-migrate tracks a single scalar schema_migrations.version and
+              # walks strictly FORWARD. A migration numbered BELOW a database's
+              # current version is never applied and never reported — so a branch
+              # that adds 20260813... while master has already shipped 20260815...
+              # installs cleanly on a fresh database and silently skips those files
+              # on every existing one. Whatever they created simply does not exist,
+              # and the first later migration that references it dies, leaving the
+              # database DIRTY and the backend refusing to start.
+              #
+              # The up/down job below cannot catch this: it runs against a FRESH
+              # database, where every version applies in sorted order by
+              # construction. That is precisely the blind spot this covers.
+              #
+              # Fix when it fires: rename your migration (and its .down.sql) to a
+              # timestamp above the reported maximum, preserving relative order
+              # among your own migrations if they depend on each other.
+              run: |
+                  base_ref="${{ github.event.pull_request.base.ref }}"
+                  [ -z "$base_ref" ] && base_ref="master"
+                  git fetch --no-tags --depth=1 origin "$base_ref" 2>/dev/null || true
+
+                  # Highest migration version already on the base branch.
+                  base_max=$(git ls-tree --name-only "origin/$base_ref" backend/db/migrations/ \
+                             | grep '\.up\.sql$' | xargs -n1 basename 2>/dev/null \
+                             | cut -d_ -f1 | sort -n | tail -1)
+                  if [ -z "$base_max" ]; then
+                    echo "Could not determine the base branch's highest migration; failing rather than passing blind."
+                    exit 1
+                  fi
+                  echo "Highest migration on origin/$base_ref: $base_max"
+
+                  # Migrations this branch ADDS relative to the base.
+                  added=$(git diff --name-only --diff-filter=A "origin/$base_ref"...HEAD -- backend/db/migrations/ \
+                          | grep '\.up\.sql$' | xargs -n1 basename 2>/dev/null || true)
+                  if [ -z "$added" ]; then
+                    echo "No new migrations."
+                    exit 0
+                  fi
+
+                  bad=0
+                  for f in $added; do
+                    v=$(echo "$f" | cut -d_ -f1)
+                    if [ "$v" -le "$base_max" ] 2>/dev/null; then
+                      echo "::error file=backend/db/migrations/$f::$f sorts at or below origin/$base_ref's newest migration ($base_max). It will be SILENTLY SKIPPED on every database already at $base_max. Renumber it above $base_max."
+                      bad=1
+                    else
+                      echo "ok: $f ($v > $base_max)"
+                    fi
+                  done
+                  exit $bad
 
             - name: Install golang-migrate
               run: go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
