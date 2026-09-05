@@ -296,7 +296,7 @@ func (s *LoopbackService) spawnRerun(ctx context.Context, session *models.Loopba
 	config := loopbackConfigFromJob(originJob, name)
 
 	// 1. Create the placeholder job (owns the ephemeral wordlist, ignored by scheduler).
-	prep, err := s.jobExecService.CreatePreparingFilterJob(ctx, config, session.HashlistID, creator, name)
+	prep, err := s.jobExecService.CreatePreparingJob(ctx, config, session.HashlistID, creator, name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create preparing loopback job: %w", err)
 	}
@@ -311,7 +311,7 @@ func (s *LoopbackService) spawnRerun(ctx context.Context, session *models.Loopba
 
 	// 3. Swap the wordlist to the delta, compute keyspace, and open the dispatch gate.
 	config.WordlistIDs = models.IDArray{strconv.Itoa(wl.ID)}
-	if err := s.jobExecService.FinalizeFilterJob(ctx, prep.ID, config); err != nil {
+	if err := s.jobExecService.FinalizeJob(ctx, prep.ID, config); err != nil {
 		_ = s.jobExecService.FailJob(ctx, prep.ID, fmt.Sprintf("loopback: failed to finalize job: %v", err))
 		return nil, err
 	}

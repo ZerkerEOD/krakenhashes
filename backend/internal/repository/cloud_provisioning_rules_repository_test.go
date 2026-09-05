@@ -29,7 +29,7 @@ import (
  * repository bug rather than a fixture gap.
  *
  * Values are exactly the migration's, so these tests see production defaults:
- * 20260821090000_add_cloud_provisioning_rules.up.sql.
+ * 20260822090500_add_cloud_provisioning_rules.up.sql.
  */
 func seedSystemDefaultRules(t *testing.T, database *db.DB) {
 	t.Helper()

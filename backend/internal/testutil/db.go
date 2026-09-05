@@ -295,7 +295,7 @@ func TruncateAll(t *testing.T, database *db.DB) {
  * SeedDefaults restores rows that migrations insert and TruncateAll removes.
  *
  * This is not optional. Truncation deletes the system-default row in
- * cloud_budget_policies seeded by 20260813120200_add_cloud_provisioning.up.sql;
+ * cloud_budget_policies seeded by 20260822090200_add_cloud_provisioning.up.sql;
  * without it CloudBudgetRepository.GetPolicy has no fallback and fails with
  * "no cloud budget policy found", so the first budget test in a package would
  * pass and every one after it would fail.
@@ -340,7 +340,7 @@ func SeedDefaults(t *testing.T, database *db.DB) {
 
 	/*
 	 * The system-default provisioning rules (client_id IS NULL), values matching
-	 * 20260821090000_add_cloud_provisioning_rules.up.sql.
+	 * 20260822090500_add_cloud_provisioning_rules.up.sql.
 	 *
 	 * Required for the same reason as the budget policy above, and the failure
 	 * is louder: GetRules fails closed when this row is missing, so every

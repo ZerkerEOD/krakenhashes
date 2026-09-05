@@ -409,10 +409,26 @@ export default function CreateJobDialog({
       }
 
       const response = await api.post(`/api/hashlists/${hashlistId}/create-job`, payload);
-      
+
+      // Partial success: the backend created some jobs and could not create
+      // others (a workflow step whose preset was deleted, a keyspace failure on
+      // one preset). It still returns 201, so without this the dropped items
+      // would vanish silently — the user would see "success" and a short jobs
+      // list. Surface them and do not auto-navigate, so the message is read.
+      const failures = response.data.failures as
+        | Array<{ preset_job_id?: string; name?: string; error: string }>
+        | undefined;
+      if (failures && failures.length > 0) {
+        setError(
+          `${response.data.message}. Not created: ` +
+          failures.map((f) => `${f.name || f.preset_job_id || 'item'} — ${f.error}`).join('; ')
+        );
+        return;
+      }
+
       setLoadingMessage(response.data.message || 'Job created successfully!');
       setSuccess(true);
-      
+
       // Navigate to jobs page after a short delay
       setTimeout(() => {
         onClose();

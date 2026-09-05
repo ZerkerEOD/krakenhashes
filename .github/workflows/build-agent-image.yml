@@ -4,18 +4,30 @@ on:
   push:
     branches:
       - master
+      # The cloud agent image exists only on this branch, and nothing can be
+      # provisioned without it -- zerkereod/krakenhashes-agent-cloud has never
+      # been published. Remove this line when the branch merges.
+      - feature/cloud-gpu-provisioning
     tags:
       - 'v*'
     paths:
       - 'agent/**'
       - 'versions.json'
       - '.github/workflows/build-agent-image.yml'
+  # Manual trigger: the paths allowlist above means a push that does not touch
+  # agent/** will not rebuild the images, which is wrong when only the tag
+  # target changed.
+  workflow_dispatch:
 
 env:
   REGISTRY: docker.io
   NVIDIA_IMAGE: zerkereod/krakenhashes-agent-nvidia
   AMD_IMAGE: zerkereod/krakenhashes-agent-amd
   CLOUD_IMAGE: zerkereod/krakenhashes-agent-cloud
+  # Non-release tag. master publishes :dev; any other branch publishes its own
+  # tag so a feature branch can NEVER overwrite the images master ships -- an
+  # operator running :dev must not silently receive unproven branch code.
+  DEV_TAG: ${{ github.ref_name == 'master' && 'dev' || 'cloud-gpu' }}
 
 jobs:
   # Check if agent files actually changed (for releases)
@@ -148,9 +160,9 @@ jobs:
           context: ./agent
           file: ./agent/Dockerfile
           push: true
-          tags: ${{ env.NVIDIA_IMAGE }}:dev
+          tags: ${{ env.NVIDIA_IMAGE }}:${{ env.DEV_TAG }}
           build-args: |
-            AGENT_VERSION=${{ steps.version.outputs.AGENT_VERSION }}-${{ steps.version.outputs.SHORT_SHA }}-dev
+            AGENT_VERSION=${{ steps.version.outputs.AGENT_VERSION }}-${{ steps.version.outputs.SHORT_SHA }}-${{ env.DEV_TAG }}
           cache-from: type=gha,scope=nvidia
           cache-to: type=gha,mode=max,scope=nvidia
 
@@ -216,9 +228,9 @@ jobs:
           context: ./agent
           file: ./agent/Dockerfile.rocm
           push: true
-          tags: ${{ env.AMD_IMAGE }}:dev
+          tags: ${{ env.AMD_IMAGE }}:${{ env.DEV_TAG }}
           build-args: |
-            AGENT_VERSION=${{ steps.version.outputs.AGENT_VERSION }}-${{ steps.version.outputs.SHORT_SHA }}-dev
+            AGENT_VERSION=${{ steps.version.outputs.AGENT_VERSION }}-${{ steps.version.outputs.SHORT_SHA }}-${{ env.DEV_TAG }}
           cache-from: type=gha,scope=amd
           cache-to: type=gha,mode=max,scope=amd
 
@@ -290,9 +302,9 @@ jobs:
           context: ./agent
           file: ./agent/Dockerfile.cloud
           push: true
-          tags: ${{ env.CLOUD_IMAGE }}:dev
+          tags: ${{ env.CLOUD_IMAGE }}:${{ env.DEV_TAG }}
           build-args: |
-            AGENT_VERSION=${{ steps.version.outputs.AGENT_VERSION }}-${{ steps.version.outputs.SHORT_SHA }}-dev
+            AGENT_VERSION=${{ steps.version.outputs.AGENT_VERSION }}-${{ steps.version.outputs.SHORT_SHA }}-${{ env.DEV_TAG }}
           cache-from: type=gha,scope=cloud
           cache-to: type=gha,mode=max,scope=cloud
 
@@ -341,8 +353,8 @@ jobs:
             echo "### Development Build" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**NVIDIA Image:**" >> $GITHUB_STEP_SUMMARY
-            echo "\`docker pull ${{ env.NVIDIA_IMAGE }}:dev\`" >> $GITHUB_STEP_SUMMARY
+            echo "\`docker pull ${{ env.NVIDIA_IMAGE }}:${{ env.DEV_TAG }}\`" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**AMD ROCm Image:**" >> $GITHUB_STEP_SUMMARY
-            echo "\`docker pull ${{ env.AMD_IMAGE }}:dev\`" >> $GITHUB_STEP_SUMMARY
+            echo "\`docker pull ${{ env.AMD_IMAGE }}:${{ env.DEV_TAG }}\`" >> $GITHUB_STEP_SUMMARY
           fi

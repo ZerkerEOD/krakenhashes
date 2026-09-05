@@ -1,4 +1,4 @@
--- Reverse 20260813120200_add_cloud_provisioning.
+-- Reverse 20260822090200_add_cloud_provisioning.
 --
 -- Order matters: agents.cloud_instance_id references cloud_instances, and the
 -- ledger references both cloud_instances and clients, so the referencing

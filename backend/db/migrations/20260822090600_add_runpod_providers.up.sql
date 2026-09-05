@@ -26,7 +26,7 @@
 -- WHY THE CONSTRAINT IS DROPPED AND RE-ADDED
 --
 -- The original was written inline (`provider VARCHAR(32) NOT NULL CHECK (...)`)
--- in 20260813120200. Postgres names such a constraint automatically --
+-- in 20260822090200. Postgres names such a constraint automatically --
 -- cloud_provider_configs_provider_check -- and there is no ALTER that edits a
 -- CHECK in place. Editing the applied migration instead would do nothing at
 -- all: golang-migrate records it as applied and never re-runs it, so the change

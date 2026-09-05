@@ -1,4 +1,4 @@
--- Reverse 20260813120000_add_claim_voucher_expiry.
+-- Reverse 20260822090000_add_claim_voucher_expiry.
 --
 -- Dropping the column restores the previous "vouchers never expire" behavior.
 -- Any expiry data is lost, which is the intended semantics of rolling back.

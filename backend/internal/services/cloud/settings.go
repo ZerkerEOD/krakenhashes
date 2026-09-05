@@ -22,7 +22,7 @@ import (
  * exactly one answer to check.
  */
 
-// Setting keys, matching 20260813120200_add_cloud_provisioning.up.sql.
+// Setting keys, matching 20260822090200_add_cloud_provisioning.up.sql.
 const (
 	SettingGlobalMonthlyCapCents = "cloud_global_monthly_cap_cents"
 	SettingGlobalInstanceCap     = "cloud_global_concurrent_instance_cap"

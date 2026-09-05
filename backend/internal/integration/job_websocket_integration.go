@@ -1417,6 +1417,131 @@ func formatBenchmarkErrorMessage(errorCode, rawError string) string {
 	}
 }
 
+// handleEstimatedKeyspaceOverrun closes out a task that failed with
+// AGENT_NO_WORK because it addressed base-keyspace units past the end of the
+// wordlist hashcat actually indexes.
+//
+// This can only happen on a unit flagged base_keyspace_estimated — i.e. the
+// hashcat --keyspace pre-flight timed out and base_keyspace was taken from
+// wordlists.word_count instead. That count is an upper bound: hashcat skips
+// blank and over-length lines, so its keyspace is at or below the raw line
+// count (on rockyou, 14,344,384 vs 14,344,391). Unlike effective_keyspace,
+// nothing downstream ever corrects base_keyspace, so the tail gap
+// [MAX(range_end), base_keyspace) stays open forever and the job hangs just
+// short of complete.
+//
+// The scope is deliberately narrow. AGENT_NO_WORK on a unit with an exact base
+// keyspace still means what it always meant (a device that never ran — see
+// reportNoWorkIfIdle), and must keep failing loudly; masking it here would hide
+// the autotune-skip class this project has already been bitten by. So all three
+// conditions must hold: the error is AGENT_NO_WORK, the unit's base is an
+// estimate, and the task's range reaches the current tail.
+//
+// Returns true if it handled the task (caller should stop processing).
+func (s *JobWebSocketIntegration) handleEstimatedKeyspaceOverrun(ctx context.Context, agentID int, progress *models.JobProgress) (bool, error) {
+	handled, err := resolveEstimatedKeyspaceOverrun(ctx, s.db, progress.TaskID, progress.ErrorMessage)
+	if err != nil || !handled {
+		return false, err
+	}
+
+	taskIDStr := progress.TaskID.String()
+	s.cacheCompletion(taskIDStr)
+	s.sendTaskCompleteAck(agentID, taskIDStr, true, "keyspace ended earlier than the estimate; range retired")
+	return true, nil
+}
+
+// resolveEstimatedKeyspaceOverrun is the database half of
+// handleEstimatedKeyspaceOverrun: it decides whether this failure is an
+// estimated-keyspace overrun and, if so, records the corrected keyspace and
+// retires the impossible range.
+//
+// Split out from the method so the decision can be tested against a real schema
+// without standing up the websocket handler and agent plumbing that the
+// acknowledgement half needs. All of the behaviour worth testing lives here.
+func resolveEstimatedKeyspaceOverrun(ctx context.Context, database *sql.DB, taskID uuid.UUID, errorMessage string) (bool, error) {
+	if !strings.Contains(strings.ToLower(errorMessage), "agent_no_work") {
+		return false, nil
+	}
+
+	var (
+		unitID     uuid.UUID
+		rangeStart sql.NullInt64
+		rangeEnd   sql.NullInt64
+		base       sql.NullInt64
+		estimated  bool
+	)
+	err := database.QueryRowContext(ctx, `
+		SELECT su.id, jt.range_start, jt.range_end, su.base_keyspace, su.base_keyspace_estimated
+		FROM job_tasks jt
+		JOIN scheduling_units su ON su.id = jt.scheduling_unit_id
+		WHERE jt.id = $1
+	`, taskID).Scan(&unitID, &rangeStart, &rangeEnd, &base, &estimated)
+	if err == sql.ErrNoRows {
+		// Legacy task with no scheduling unit — not our case.
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("load task/unit for overrun check: %w", err)
+	}
+
+	if !estimated || !rangeStart.Valid || !rangeEnd.Valid || !base.Valid {
+		return false, nil
+	}
+	// Only the tail. A no-work failure in the middle of the keyspace is a real
+	// failure — the words are there, so something else went wrong.
+	if rangeEnd.Int64 < base.Int64 {
+		return false, nil
+	}
+	// Guard against shrinking to zero on a unit that has never run: that would
+	// complete a job that did no work at all.
+	if rangeStart.Int64 <= 0 {
+		debug.Warning("Task %s reported no work over the whole estimated keyspace of unit %s; treating as a real failure, not an overrun",
+			taskID, unitID)
+		return false, nil
+	}
+
+	debug.Warning("Estimated base keyspace for unit %s overran the real wordlist size: task %s (range %d-%d) tested nothing. "+
+		"Shrinking base_keyspace %d → %d and closing the tail. Raise Admin Settings > Job Execution > Keyspace Calculation Timeout "+
+		"so hashcat --keyspace can complete and this estimate is not needed.",
+		unitID, taskID, rangeStart.Int64, rangeEnd.Int64, base.Int64, rangeStart.Int64)
+
+	tx, err := database.BeginTx(ctx, nil)
+	if err != nil {
+		return false, fmt.Errorf("begin overrun tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// The real keyspace ends where this task started. Recording it clears the
+	// tail gap for good rather than papering over one dispatch of it.
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE scheduling_units
+		SET base_keyspace = $1, base_keyspace_estimated = FALSE, updated_at = NOW()
+		WHERE id = $2
+	`, rangeStart.Int64, unitID); err != nil {
+		return false, fmt.Errorf("shrink unit base_keyspace: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE job_executions je
+		SET base_keyspace = $1, base_keyspace_estimated = FALSE, updated_at = NOW()
+		FROM scheduling_units su
+		WHERE su.id = $2 AND je.id = su.parent_job_id
+	`, rangeStart.Int64, unitID); err != nil {
+		return false, fmt.Errorf("shrink job base_keyspace: %w", err)
+	}
+	// Drop the impossible interval and task rather than leaving a failed row:
+	// the range no longer exists, so there is nothing to retry or report.
+	if _, err := tx.ExecContext(ctx, `DELETE FROM job_keyspace_intervals WHERE task_id = $1`, taskID); err != nil {
+		return false, fmt.Errorf("delete overrun interval: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM job_tasks WHERE id = $1`, taskID); err != nil {
+		return false, fmt.Errorf("delete overrun task: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return false, fmt.Errorf("commit overrun fix: %w", err)
+	}
+	return true, nil
+}
+
 // HandleJobProgress processes job progress updates from agents
 func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID int, progress *models.JobProgress) error {
 	debug.Log("Processing job progress from agent", map[string]interface{}{
@@ -1764,6 +1889,20 @@ func (s *JobWebSocketIntegration) HandleJobProgress(ctx context.Context, agentID
 			s.cacheCompletion(taskIDStr)
 			s.sendTaskCompleteAck(agentID, taskIDStr, true, "task rejected (race): "+progress.ErrorMessage)
 
+			return nil
+		}
+
+		// Estimated-keyspace overrun: the unit's base_keyspace came from stored
+		// word counts (the --keyspace pre-flight timed out), which is an UPPER
+		// bound, so the final chunk can address words past the end of what
+		// hashcat actually indexes. hashcat then exits 0 having tested nothing
+		// and the agent reports AGENT_NO_WORK. Treating that as a transient
+		// failure re-dispatches the same impossible range forever and strands
+		// the job just short of 100%. Instead, take it as the measurement it is
+		// — the real keyspace ends here — and shrink the unit to match.
+		if handled, hErr := s.handleEstimatedKeyspaceOverrun(ctx, agentID, progress); hErr != nil {
+			debug.Warning("estimated-keyspace overrun check for task %s: %v", progress.TaskID, hErr)
+		} else if handled {
 			return nil
 		}
 
