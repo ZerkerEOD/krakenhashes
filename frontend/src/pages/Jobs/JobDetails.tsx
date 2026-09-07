@@ -41,6 +41,7 @@ import BenchmarkBlocklistPanel from '../../components/jobs/BenchmarkBlocklistPan
 import CloudProjectionDialog from '../../components/jobs/CloudProjectionDialog';
 import { useSnackbar } from 'notistack';
 import { getMaxPriorityForUsers } from '../../services/systemSettings';
+import { provisionInstanceForJob } from '../../services/cloud';
 
 const JobDetails: React.FC = () => {
   const { t } = useTranslation('jobs');
@@ -50,6 +51,30 @@ const JobDetails: React.FC = () => {
   
   const [jobData, setJobData] = useState<JobDetailsResponse | null>(null);
   const [projectionOpen, setProjectionOpen] = useState(false);
+  const [provisioning, setProvisioning] = useState(false);
+
+  /*
+   * Manual provisioning is a spend, so it confirms first and reports the
+   * backend's refusal verbatim — those messages name the rail that blocked it
+   * (budget, window, consent, quota), which is exactly what an operator needs
+   * and what a generic "failed" would throw away.
+   */
+  const handleProvisionNow = async () => {
+    if (!id) return;
+    if (!window.confirm(t('cloud.cloudBurst.provisionConfirm') as string)) return;
+    setProvisioning(true);
+    try {
+      await provisionInstanceForJob(id);
+      enqueueSnackbar(t('cloud.cloudBurst.provisionRequested') as string, { variant: 'success' });
+    } catch (err: any) {
+      enqueueSnackbar(
+        err?.response?.data?.error || (t('cloud.cloudBurst.provisionFailed') as string),
+        { variant: 'error' }
+      );
+    } finally {
+      setProvisioning(false);
+    }
+  };
   const [layers, setLayers] = useState<JobIncrementLayerWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -998,6 +1023,26 @@ const JobDetails: React.FC = () => {
                           before any money is spent. */}
                       <Button size="small" onClick={() => setProjectionOpen(true)}>
                         {t('cloud.projection.title')}
+                      </Button>
+                      {/*
+                        * Rent one instance now, bypassing the autoscaler.
+                        *
+                        * The autoscaler applies the SOFT rules — minimum
+                        * starvation, skip-if-finishing-soon — and will not act
+                        * while any on-prem agent is idle. That is right for
+                        * automatic spending and wrong for an operator who has
+                        * decided they want capacity now, and it makes teardown
+                        * and provider testing nearly impossible to exercise
+                        * deliberately. The hard rails (window, per-job cap,
+                        * budget, consent) still apply.
+                        */}
+                      <Button
+                        size="small"
+                        color="warning"
+                        disabled={provisioning}
+                        onClick={handleProvisionNow}
+                      >
+                        {t('cloud.cloudBurst.provisionNow')}
                       </Button>
                     </Box>
                   </TableCell>

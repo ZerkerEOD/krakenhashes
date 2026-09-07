@@ -6,6 +6,8 @@ import {
 } from '@mui/material';
 import { DataGrid, GridColDef, GridRowParams, GridActionsCellItem, GridRowSelectionModel } from '@mui/x-data-grid';
 import AddIcon from '@mui/icons-material/Add';
+import { getClientCloudDefaults } from '../../services/cloud';
+import { ClientCloudDefaults } from '../../types/cloud';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FolderIcon from '@mui/icons-material/Folder';
@@ -40,6 +42,12 @@ export const AdminClients: React.FC = () => {
         remove_from_global_potfile_on_hashlist_delete: null,
         remove_from_client_potfile_on_hashlist_delete: null
     });
+    // What a newly created client will inherit, shown on the form so the
+    // operator is not left guessing whether it can spend.
+    const [cloudDefaults, setCloudDefaults] = useState<ClientCloudDefaults | null>(null);
+    useEffect(() => {
+        getClientCloudDefaults().then(setCloudDefaults).catch(() => setCloudDefaults(null));
+    }, []);
     const [formError, setFormError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState<boolean>(false);
     const [defaultRetention, setDefaultRetention] = useState<string | null>(null);
@@ -543,6 +551,30 @@ export const AdminClients: React.FC = () => {
                         label={t('clients.form.excludeFromPotfile', 'Exclude from global potfile')}
                         sx={{ mt: 2 }}
                     />
+
+                    {/*
+                      * Cloud burst is shown, not edited, here.
+                      *
+                      * A new client inherits the server defaults automatically,
+                      * so there is nothing to set at creation time. Duplicating
+                      * the budget controls onto this form would put the same
+                      * spend decision on two screens that can disagree, and the
+                      * one that actually governs spending is the one next to the
+                      * ledger and the threshold ladder.
+                      */}
+                    <Alert severity="info" sx={{ mt: 2 }}>
+                        {cloudDefaults
+                            ? (cloudDefaults.cloud_budget_cents === null
+                                ? t('clients.form.cloudInheritUnfunded')
+                                : t('clients.form.cloudInherit', {
+                                      amount: (cloudDefaults.cloud_budget_cents / 100).toFixed(2),
+                                      period: t(`cloud.budgets.periods.${cloudDefaults.cloud_budget_period}`),
+                                      state: cloudDefaults.cloud_enabled
+                                          ? t('clients.form.cloudEnabledWord')
+                                          : t('clients.form.cloudDisabledWord'),
+                                  }))
+                            : t('clients.form.cloudInheritUnknown')}
+                    </Alert>
                     <Typography variant="caption" color="textSecondary" display="block" sx={{ ml: 4, mt: -1, mb: 2 }}>
                         {t('clients.form.excludeFromPotfileHelperText', 'When enabled, cracked passwords from this client will not be added to the global potfile.')}
                     </Typography>

@@ -94,6 +94,10 @@ func (h *Handler) RegisterRoutes(r *mux.Router) {
 	s.HandleFunc("/instances/{id}", h.DestroyInstance).Methods("DELETE", "OPTIONS")
 
 	s.HandleFunc("/clients", h.ListClientSettings).Methods("GET", "OPTIONS")
+	// Registered before /clients/{clientId}/... so "defaults" is never captured
+	// as a client id, matching the preflight/acknowledge ordering above.
+	s.HandleFunc("/clients/defaults", h.GetClientDefaults).Methods("GET", "OPTIONS")
+	s.HandleFunc("/clients/defaults", h.UpdateClientDefaults).Methods("PUT", "OPTIONS")
 	s.HandleFunc("/clients/{clientId}/budget", h.ClientBudget).Methods("GET", "OPTIONS")
 	s.HandleFunc("/clients/{clientId}/settings", h.GetClientSettings).Methods("GET", "OPTIONS")
 	s.HandleFunc("/clients/{clientId}/settings", h.UpdateClientSettings).Methods("PUT", "OPTIONS")
@@ -387,6 +391,45 @@ func (h *Handler) AcknowledgeProvider(w http.ResponseWriter, r *http.Request) {
 	}
 	debug.Info("Cloud provider %s third-party data exposure acknowledged by %s", id, userID)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "acknowledged"})
+}
+
+/*
+ * GetClientDefaults returns the server-side values clients inherit when they
+ * have not set their own.
+ */
+func (h *Handler) GetClientDefaults(w http.ResponseWriter, r *http.Request) {
+	defaults, err := h.budgetRepo.GetClientCloudDefaults(r.Context())
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, defaults)
+}
+
+/*
+ * UpdateClientDefaults writes them.
+ *
+ * Raising the default budget funds every client that is still inheriting, all
+ * at once — which is the point of a default, and also why the repository
+ * refuses an unknown provider here rather than storing it and failing later at
+ * launch, one client at a time.
+ */
+func (h *Handler) UpdateClientDefaults(w http.ResponseWriter, r *http.Request) {
+	var in models.ClientCloudDefaults
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if err := h.budgetRepo.UpdateClientCloudDefaults(r.Context(), in); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	defaults, err := h.budgetRepo.GetClientCloudDefaults(r.Context())
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, defaults)
 }
 
 // ListClientSettings returns every client that could spend money — cloud

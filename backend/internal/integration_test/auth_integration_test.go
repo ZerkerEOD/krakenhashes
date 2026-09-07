@@ -208,7 +208,7 @@ func testAuthenticationCheck(t *testing.T, handler *auth.Handler, database *db.D
 	// Generate token and store it
 	token, err := jwt.GenerateToken(user.ID.String(), user.Role, 60)
 	require.NoError(t, err)
-	err = database.StoreToken(user.ID.String(), token)
+	_, err = database.StoreToken(user.ID.String(), token)
 	require.NoError(t, err)
 
 	// Test auth check with valid token
@@ -231,7 +231,7 @@ func testLogoutFlow(t *testing.T, handler *auth.Handler, database *db.DB, user *
 	// Generate token and store it
 	token, err := jwt.GenerateToken(user.ID.String(), user.Role, 60)
 	require.NoError(t, err)
-	err = database.StoreToken(user.ID.String(), token)
+	_, err = database.StoreToken(user.ID.String(), token)
 	require.NoError(t, err)
 
 	// Logout
@@ -457,7 +457,7 @@ func TestSecurityScenarios(t *testing.T) {
 		// Login and get token
 		token, err := jwt.GenerateToken(user.ID.String(), user.Role, 60)
 		require.NoError(t, err)
-		err = database.StoreToken(user.ID.String(), token)
+		_, err = database.StoreToken(user.ID.String(), token)
 		require.NoError(t, err)
 
 		// Simulate token being stolen and used from different IP
@@ -577,7 +577,7 @@ func TestConcurrentAccess(t *testing.T) {
 		// Launch concurrent token storage operations
 		for _, token := range tokens {
 			go func(t string) {
-				err := database.StoreToken(user.ID.String(), t)
+				_, err := database.StoreToken(user.ID.String(), t)
 				results <- err
 			}(token)
 		}

@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
@@ -54,10 +56,202 @@ func NewCloudBudgetRepository(database *db.DB) *CloudBudgetRepository {
 	return &CloudBudgetRepository{db: database}
 }
 
-// budgetWindow restricts the ledger to the current billing period. Computed on
-// read rather than rolled over by a scheduled job, because there is no cron
-// infrastructure in this codebase to own a period boundary.
-const budgetWindow = `recorded_at >= date_trunc('month', NOW())`
+/*
+ * globalBudgetWindow restricts the ledger to the current billing month.
+ *
+ * Deliberately fixed to a calendar month even though CLIENT budgets are now
+ * period-configurable. This bounds the deployment, not an engagement, and the
+ * setting it enforces is named cloud_global_monthly_cap_cents; letting it drift
+ * with a per-client period would make "the monthly cap" mean something
+ * different depending on which client last spent.
+ *
+ * Computed on read rather than rolled over by a scheduled job, because there is
+ * no cron infrastructure in this codebase to own a period boundary — and a
+ * boundary that exists only when a job runs is one that silently stops
+ * existing.
+ */
+const globalBudgetWindow = `recorded_at >= date_trunc('month', NOW())`
+
+/*
+ * clientBudgetWindow bounds the ledger to one client's current spend window.
+ *
+ * defaultPeriodParam is the placeholder ($2, $3, …) holding the server default,
+ * applied when the client has not chosen a period of its own.
+ *
+ * Postgres has date_trunc('quarter'); it has no half-year, so semiannual is
+ * expressed as the start of the year plus six months once past June. Both
+ * boundaries are calendar-aligned rather than rolling, so "this quarter" means
+ * the same thing to an operator reading an invoice.
+ *
+ * Expects `c` (clients) and `l` (cloud_spend_ledger) to be in scope.
+ */
+func clientBudgetWindow(defaultPeriodParam string) string {
+	return `l.recorded_at >= CASE COALESCE(c.cloud_budget_period, ` + defaultPeriodParam + `)
+			WHEN 'quarterly'  THEN date_trunc('quarter', NOW())
+			WHEN 'semiannual' THEN date_trunc('year', NOW())
+			     + (CASE WHEN EXTRACT(MONTH FROM NOW()) > 6
+			             THEN INTERVAL '6 months' ELSE INTERVAL '0 months' END)
+			ELSE date_trunc('month', NOW())
+		END`
+}
+
+/*
+ * resolveClientSettings fills the Effective* fields from the server defaults and
+ * records which fields are inheriting.
+ *
+ * Resolution lives here, in one function, rather than being re-derived by each
+ * caller — the budget engine, the eligibility query and the admin UI must agree
+ * on what a client's ceiling actually is, and three implementations of "nil
+ * means inherit" would eventually be two.
+ */
+func resolveClientSettings(s *models.ClientCloudSettings, d models.ClientCloudDefaults) {
+	s.InheritedFields = nil
+
+	if s.Enabled != nil {
+		s.EffectiveEnabled = *s.Enabled
+	} else {
+		s.EffectiveEnabled = d.Enabled
+		s.InheritedFields = append(s.InheritedFields, "cloud_enabled")
+	}
+
+	if s.BudgetCents != nil {
+		s.EffectiveBudgetCents = s.BudgetCents
+	} else {
+		s.EffectiveBudgetCents = d.BudgetCents
+		s.InheritedFields = append(s.InheritedFields, "cloud_budget_cents")
+	}
+
+	if s.BudgetPeriod != nil && s.BudgetPeriod.IsValid() {
+		s.EffectiveBudgetPeriod = *s.BudgetPeriod
+	} else {
+		s.EffectiveBudgetPeriod = d.BudgetPeriod
+		s.InheritedFields = append(s.InheritedFields, "cloud_budget_period")
+	}
+
+	if len(s.ProviderAllowlist) > 0 {
+		s.EffectiveProviderAllowlist = s.ProviderAllowlist
+	} else {
+		s.EffectiveProviderAllowlist = d.ProviderAllowlist
+		s.InheritedFields = append(s.InheritedFields, "cloud_provider_allowlist")
+	}
+	if s.EffectiveProviderAllowlist == nil {
+		s.EffectiveProviderAllowlist = []string{}
+	}
+}
+
+/*
+ * loadDefaults reads the server-side client defaults straight from
+ * system_settings.
+ *
+ * Read here rather than threaded in by every caller, because budgetState is
+ * reached from a transaction deep inside Reserve as well as from the admin API,
+ * and passing defaults down every one of those paths would guarantee that one
+ * of them eventually passes a stale or zero-valued struct — which, for the
+ * field that decides whether a client is funded, fails OPEN.
+ *
+ * Any read problem falls back to the cold-start value: unfunded, disabled,
+ * monthly. An unreadable default must never be the reason a client can spend.
+ */
+func (r *CloudBudgetRepository) loadDefaults(ctx context.Context) models.ClientCloudDefaults {
+	d := models.ClientCloudDefaults{
+		BudgetPeriod:      models.BudgetPeriodMonthly,
+		ProviderAllowlist: []string{},
+	}
+
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT key, value FROM system_settings
+		WHERE key IN ('cloud_default_client_budget_cents','cloud_default_budget_period',
+		              'cloud_default_cloud_enabled','cloud_default_provider_allowlist')`)
+	if err != nil {
+		return d
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var key string
+		var value sql.NullString
+		if err := rows.Scan(&key, &value); err != nil || !value.Valid {
+			continue
+		}
+		raw := strings.TrimSpace(value.String)
+		switch key {
+		case "cloud_default_client_budget_cents":
+			if raw == "" {
+				continue
+			}
+			if cents, err := strconv.ParseInt(raw, 10, 64); err == nil && cents >= 0 {
+				d.BudgetCents = &cents
+			}
+		case "cloud_default_budget_period":
+			if p := models.BudgetPeriod(raw); p.IsValid() {
+				d.BudgetPeriod = p
+			}
+		case "cloud_default_cloud_enabled":
+			d.Enabled = strings.EqualFold(raw, "true")
+		case "cloud_default_provider_allowlist":
+			for _, part := range strings.Split(raw, ",") {
+				if p := strings.TrimSpace(part); p != "" {
+					d.ProviderAllowlist = append(d.ProviderAllowlist, p)
+				}
+			}
+		}
+	}
+	return d
+}
+
+// GetClientCloudDefaults exposes the server defaults to the admin API.
+func (r *CloudBudgetRepository) GetClientCloudDefaults(ctx context.Context) (models.ClientCloudDefaults, error) {
+	return r.loadDefaults(ctx), nil
+}
+
+/*
+ * UpdateClientCloudDefaults writes the server defaults.
+ *
+ * A nil BudgetCents clears the row rather than storing 0, keeping "no default
+ * configured" distinguishable from "a default of zero". They produce the same
+ * outcome for an inheriting client, but only one of them is a decision.
+ */
+func (r *CloudBudgetRepository) UpdateClientCloudDefaults(ctx context.Context, in models.ClientCloudDefaults) error {
+	if in.BudgetCents != nil && *in.BudgetCents < 0 {
+		return fmt.Errorf("default cloud budget must not be negative")
+	}
+	if in.BudgetPeriod != "" && !in.BudgetPeriod.IsValid() {
+		return fmt.Errorf("unknown budget period %q", in.BudgetPeriod)
+	}
+	for _, p := range in.ProviderAllowlist {
+		if !models.CloudProvider(p).IsValid() {
+			return fmt.Errorf("unknown cloud provider %q in default allowlist", p)
+		}
+	}
+
+	period := in.BudgetPeriod
+	if period == "" {
+		period = models.BudgetPeriodMonthly
+	}
+
+	var budget interface{}
+	if in.BudgetCents != nil {
+		budget = strconv.FormatInt(*in.BudgetCents, 10)
+	}
+
+	pairs := []struct {
+		key   string
+		value interface{}
+	}{
+		{"cloud_default_client_budget_cents", budget},
+		{"cloud_default_budget_period", string(period)},
+		{"cloud_default_cloud_enabled", strconv.FormatBool(in.Enabled)},
+		{"cloud_default_provider_allowlist", strings.Join(in.ProviderAllowlist, ",")},
+	}
+	for _, p := range pairs {
+		if _, err := r.db.ExecContext(ctx,
+			`UPDATE system_settings SET value = $2, updated_at = NOW() WHERE key = $1`,
+			p.key, p.value); err != nil {
+			return fmt.Errorf("failed to write %s: %w", p.key, err)
+		}
+	}
+	return nil
+}
 
 /*
  * GlobalCommittedThisMonth is committed spend across EVERY client in the
@@ -78,7 +272,7 @@ func (r *CloudBudgetRepository) GlobalCommittedThisMonth(ctx context.Context) (i
 		SELECT COALESCE(SUM(cents), 0)
 		FROM cloud_spend_ledger
 		WHERE kind IN ('reservation','release','reconciliation')
-		  AND `+budgetWindow).Scan(&committed)
+		  AND `+globalBudgetWindow).Scan(&committed)
 	if err != nil {
 		return 0, fmt.Errorf("failed to compute global committed cloud spend: %w", err)
 	}
@@ -212,18 +406,22 @@ func (r *CloudBudgetRepository) ClientForJob(ctx context.Context, jobID uuid.UUI
 	return clientID, nil
 }
 
-// GetClientCloudSettings returns one client's cloud burst configuration.
+// GetClientCloudSettings returns one client's cloud burst configuration, with
+// the server defaults resolved into its Effective* fields.
 func (r *CloudBudgetRepository) GetClientCloudSettings(ctx context.Context, clientID uuid.UUID) (*models.ClientCloudSettings, error) {
+	defaults := r.loadDefaults(ctx)
 	s := &models.ClientCloudSettings{ClientID: clientID}
 	var budget sql.NullInt64
 	var ttl sql.NullInt32
+	var enabled sql.NullBool
+	var period sql.NullString
 
 	err := r.db.QueryRowContext(ctx, `
 		SELECT name, cloud_enabled, cloud_provider_allowlist,
-		       cloud_budget_cents, max_instance_ttl_minutes, provider_ack
+		       cloud_budget_cents, cloud_budget_period, max_instance_ttl_minutes, provider_ack
 		FROM clients WHERE id = $1`, clientID).Scan(
-		&s.ClientName, &s.Enabled, pq.Array(&s.ProviderAllowlist),
-		&budget, &ttl, &s.ProviderAck,
+		&s.ClientName, &enabled, pq.Array(&s.ProviderAllowlist),
+		&budget, &period, &ttl, &s.ProviderAck,
 	)
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("client %s not found", clientID)
@@ -232,9 +430,17 @@ func (r *CloudBudgetRepository) GetClientCloudSettings(ctx context.Context, clie
 		return nil, fmt.Errorf("failed to get client cloud settings: %w", err)
 	}
 
+	if enabled.Valid {
+		v := enabled.Bool
+		s.Enabled = &v
+	}
 	if budget.Valid {
 		v := budget.Int64
 		s.BudgetCents = &v
+	}
+	if period.Valid && period.String != "" {
+		v := models.BudgetPeriod(period.String)
+		s.BudgetPeriod = &v
 	}
 	if ttl.Valid {
 		v := int(ttl.Int32)
@@ -243,37 +449,60 @@ func (r *CloudBudgetRepository) GetClientCloudSettings(ctx context.Context, clie
 	if s.ProviderAllowlist == nil {
 		s.ProviderAllowlist = []string{}
 	}
+	resolveClientSettings(s, defaults)
 	return s, nil
 }
 
-// ListClientCloudSettings returns the cloud configuration for every client that
-// has cloud burst turned on OR a funded budget, so the admin sees anything that
-// could spend money — including a client left funded but disabled.
+/*
+ * ListClientCloudSettings returns the cloud configuration for EVERY client.
+ *
+ * It used to filter on `cloud_enabled = true OR cloud_budget_cents IS NOT NULL`,
+ * on the reasoning that an admin only needs to see what could spend money. That
+ * made the Client Budgets screen impossible to use for its own purpose: a newly
+ * created client is neither enabled nor funded, so it never appeared, and there
+ * was no way to fund the first one from the page whose entire job is funding
+ * clients. The filter hid exactly the rows an admin came to act on.
+ *
+ * Unfunded clients are not noise here — the table already renders their
+ * disabled state and empty allowlist, and "which of my clients cannot burst"
+ * is as much a question this page should answer as "which can".
+ */
 func (r *CloudBudgetRepository) ListClientCloudSettings(ctx context.Context) ([]*models.ClientCloudSettings, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, name, cloud_enabled, cloud_provider_allowlist,
-		       cloud_budget_cents, max_instance_ttl_minutes, provider_ack
+		       cloud_budget_cents, cloud_budget_period, max_instance_ttl_minutes, provider_ack
 		FROM clients
-		WHERE cloud_enabled = true OR cloud_budget_cents IS NOT NULL
 		ORDER BY name`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list client cloud settings: %w", err)
 	}
 	defer rows.Close()
 
+	defaults := r.loadDefaults(ctx)
+
 	var out []*models.ClientCloudSettings
 	for rows.Next() {
 		s := &models.ClientCloudSettings{}
 		var budget sql.NullInt64
 		var ttl sql.NullInt32
+		var enabled sql.NullBool
+		var period sql.NullString
 
-		if err := rows.Scan(&s.ClientID, &s.ClientName, &s.Enabled,
-			pq.Array(&s.ProviderAllowlist), &budget, &ttl, &s.ProviderAck); err != nil {
+		if err := rows.Scan(&s.ClientID, &s.ClientName, &enabled,
+			pq.Array(&s.ProviderAllowlist), &budget, &period, &ttl, &s.ProviderAck); err != nil {
 			return nil, fmt.Errorf("failed to scan client cloud settings: %w", err)
+		}
+		if enabled.Valid {
+			v := enabled.Bool
+			s.Enabled = &v
 		}
 		if budget.Valid {
 			v := budget.Int64
 			s.BudgetCents = &v
+		}
+		if period.Valid && period.String != "" {
+			v := models.BudgetPeriod(period.String)
+			s.BudgetPeriod = &v
 		}
 		if ttl.Valid {
 			v := int(ttl.Int32)
@@ -282,6 +511,7 @@ func (r *CloudBudgetRepository) ListClientCloudSettings(ctx context.Context) ([]
 		if s.ProviderAllowlist == nil {
 			s.ProviderAllowlist = []string{}
 		}
+		resolveClientSettings(s, defaults)
 		out = append(out, s)
 	}
 	return out, rows.Err()
@@ -309,15 +539,26 @@ func (r *CloudBudgetRepository) UpdateClientCloudSettings(ctx context.Context, c
 		}
 	}
 
+	// nil period clears the column, returning the client to inheriting the
+	// server default. A plain string could only ever set one.
+	var period interface{}
+	if in.BudgetPeriod != nil && *in.BudgetPeriod != "" {
+		if !in.BudgetPeriod.IsValid() {
+			return fmt.Errorf("unknown budget period %q", *in.BudgetPeriod)
+		}
+		period = string(*in.BudgetPeriod)
+	}
+
 	res, err := r.db.ExecContext(ctx, `
 		UPDATE clients
 		SET cloud_enabled = $2,
 		    cloud_provider_allowlist = $3,
 		    cloud_budget_cents = $4,
-		    max_instance_ttl_minutes = $5,
+		    cloud_budget_period = $5,
+		    max_instance_ttl_minutes = $6,
 		    updated_at = NOW()
 		WHERE id = $1`,
-		clientID, in.Enabled, pq.Array(allowlist), in.BudgetCents, in.MaxInstanceTTLMinutes)
+		clientID, in.Enabled, pq.Array(allowlist), in.BudgetCents, period, in.MaxInstanceTTLMinutes)
 	if err != nil {
 		return fmt.Errorf("failed to update client cloud settings: %w", err)
 	}
@@ -366,6 +607,7 @@ type queryRower interface {
 }
 
 func (r *CloudBudgetRepository) budgetState(ctx context.Context, q queryRower, clientID uuid.UUID) (*models.CloudBudgetState, error) {
+	defaults := r.loadDefaults(ctx)
 	state := &models.CloudBudgetState{ClientID: clientID}
 
 	var capCol sql.NullInt64
@@ -373,14 +615,14 @@ func (r *CloudBudgetRepository) budgetState(ctx context.Context, q queryRower, c
 
 	err := q.QueryRowContext(ctx, `
 		SELECT
-			c.cloud_budget_cents,
+			COALESCE(c.cloud_budget_cents, $3) AS cap,
 			COALESCE(SUM(l.cents) FILTER (WHERE l.kind IN ('reservation','release','reconciliation')), 0) AS committed,
 			COALESCE(SUM(l.cents) FILTER (WHERE l.kind = 'incurred'), 0)                                  AS incurred
 		FROM clients c
 		LEFT JOIN cloud_spend_ledger l
-		       ON l.client_id = c.id AND l.`+budgetWindow+`
+		       ON l.client_id = c.id AND `+clientBudgetWindow("$2")+`
 		WHERE c.id = $1
-		GROUP BY c.cloud_budget_cents`, clientID).Scan(&capCol, &committed, &incurred)
+		GROUP BY c.cloud_budget_cents`, clientID, string(defaults.BudgetPeriod), defaults.BudgetCents).Scan(&capCol, &committed, &incurred)
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("client %s not found", clientID)
 	}

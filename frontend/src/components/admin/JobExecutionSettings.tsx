@@ -45,6 +45,178 @@ import { getSystemSettings, updateSystemSetting } from '../../services/systemSet
 type SettingsMap = Record<string, string>;
 
 
+
+/*
+ * DECLARED AT MODULE SCOPE, NOT INSIDE THE COMPONENT.
+ *
+ * These four were previously defined in the render body. A component defined
+ * there gets a new function identity on every render, and React compares
+ * element types by identity — so it does not see an update to an existing
+ * field, it sees a different component type in that position, unmounts the
+ * subtree and mounts a fresh one. The DOM node is replaced on every keystroke
+ * and the caret is lost after each character typed.
+ *
+ * Panel was the worst of the four: it wraps every field on the page, so its
+ * remount cascaded through all of them regardless of how the inputs themselves
+ * were written.
+ *
+ * The shared state they close over now arrives through context rather than as
+ * props, which keeps all ~40 call sites unchanged.
+ */
+interface SettingsCtxValue {
+  values: SettingsMap;
+  setValues: React.Dispatch<React.SetStateAction<SettingsMap>>;
+  saveOne: (key: string, value: string, previous: string) => void;
+  loading: boolean;
+  savingKey: string | null;
+}
+
+const SettingsCtx = React.createContext<SettingsCtxValue | null>(null);
+
+const useSettingsCtx = (): SettingsCtxValue => {
+  const ctx = React.useContext(SettingsCtx);
+  if (!ctx) throw new Error('setting field rendered outside JobExecutionSettings');
+  return ctx;
+};
+
+const numberValueOf = (values: SettingsMap, key: string, fallback = 0): number => {
+  const parsed = parseInt(values[key] ?? '', 10);
+  return isNaN(parsed) ? fallback : parsed;
+};
+
+/** Number field bound to one setting key; saves on blur. */
+const NumberSetting: React.FC<{
+  settingKey: string;
+  label: string;
+  helper: string;
+  min?: number;
+  max?: number;
+  unit?: string;
+  /** Displayed unit differs from the stored unit (e.g. stored seconds, shown minutes). */
+  toDisplay?: (stored: number) => number;
+  toStored?: (shown: number) => number;
+}> = ({ settingKey, label, helper, min, max, unit, toDisplay, toStored }) => {
+  const { values, setValues, saveOne, loading, savingKey } = useSettingsCtx();
+  const stored = numberValueOf(values, settingKey);
+  const shown = toDisplay ? toDisplay(stored) : stored;
+  return (
+    <TextField
+      fullWidth
+      type="number"
+      label={label}
+      value={shown}
+      onChange={(e) => {
+        const parsed = parseInt(e.target.value, 10);
+        if (isNaN(parsed)) return;
+        const next = toStored ? toStored(parsed) : parsed;
+        setValues((v) => ({ ...v, [settingKey]: String(next) }));
+      }}
+      onBlur={(e) => {
+        const parsed = parseInt(e.target.value, 10);
+        if (isNaN(parsed)) return;
+        const next = String(toStored ? toStored(parsed) : parsed);
+        if (next === values[settingKey]) return;
+        saveOne(settingKey, next, values[settingKey] ?? '');
+      }}
+      disabled={loading || savingKey === settingKey}
+      helperText={helper}
+      InputProps={{
+        inputProps: { min, max },
+        endAdornment: unit ? <InputAdornment position="end">{unit}</InputAdornment> : undefined,
+      }}
+    />
+  );
+};
+
+/** Toggle bound to one setting key; saves immediately. */
+const SwitchSetting: React.FC<{ settingKey: string; label: string; helper?: string }> = ({
+  settingKey,
+  label,
+  helper,
+}) => {
+  const { values, setValues, saveOne, loading, savingKey } = useSettingsCtx();
+  const boolValue = (key: string): boolean => values[key] === 'true';
+  return (
+  <>
+    <FormControlLabel
+      control={
+        <Switch
+          checked={boolValue(settingKey)}
+          onChange={(e) => {
+            const previous = values[settingKey] ?? '';
+            const next = String(e.target.checked);
+            setValues((v) => ({ ...v, [settingKey]: next }));
+            saveOne(settingKey, next, previous);
+          }}
+          disabled={loading || savingKey === settingKey}
+        />
+      }
+      label={label}
+    />
+    {helper && (
+      <Typography variant="caption" color="textSecondary" display="block">
+        {helper}
+      </Typography>
+    )}
+    </>
+  );
+};
+
+/** Select bound to one setting key; saves immediately. */
+const SelectSetting: React.FC<{
+  settingKey: string;
+  label: string;
+  helper: string;
+  options: { value: string; label: string }[];
+}> = ({ settingKey, label, helper, options }) => {
+  const { values, setValues, saveOne, loading, savingKey } = useSettingsCtx();
+  return (
+  <TextField
+    select
+    fullWidth
+    label={label}
+    value={values[settingKey] ?? ''}
+    onChange={(e) => {
+      const previous = values[settingKey] ?? '';
+      setValues((v) => ({ ...v, [settingKey]: e.target.value }));
+      saveOne(settingKey, e.target.value, previous);
+    }}
+    disabled={loading || savingKey === settingKey}
+    helperText={helper}
+  >
+    {options.map((o) => (
+      <MenuItem key={o.value} value={o.value}>
+        {o.label}
+      </MenuItem>
+    ))}
+  </TextField>
+  );
+};
+
+const Panel: React.FC<{ title: string; children: React.ReactNode; caption?: string }> = ({
+  title,
+  caption,
+  children,
+}) => (
+  <Grid item xs={12}>
+    <Paper sx={{ p: 3 }}>
+      <Typography variant="subtitle1" gutterBottom fontWeight="bold">
+        {title}
+      </Typography>
+      {caption && (
+        <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
+          {caption}
+        </Typography>
+      )}
+      <Divider sx={{ mb: 2 }} />
+      <Grid container spacing={2}>
+        {children}
+      </Grid>
+    </Paper>
+  </Grid>
+);
+
+
 const JobExecutionSettingsComponent: React.FC = () => {
   const { t } = useTranslation('admin');
   const [values, setValues] = useState<SettingsMap>({});
@@ -109,130 +281,6 @@ const JobExecutionSettingsComponent: React.FC = () => {
 
   const boolValue = (key: string): boolean => values[key] === 'true';
 
-  /** Number field bound to one setting key; saves on blur. */
-  const NumberSetting: React.FC<{
-    settingKey: string;
-    label: string;
-    helper: string;
-    min?: number;
-    max?: number;
-    unit?: string;
-    /** Displayed unit differs from the stored unit (e.g. stored seconds, shown minutes). */
-    toDisplay?: (stored: number) => number;
-    toStored?: (shown: number) => number;
-  }> = ({ settingKey, label, helper, min, max, unit, toDisplay, toStored }) => {
-    const stored = numberValue(settingKey);
-    const shown = toDisplay ? toDisplay(stored) : stored;
-    return (
-      <TextField
-        fullWidth
-        type="number"
-        label={label}
-        value={shown}
-        onChange={(e) => {
-          const parsed = parseInt(e.target.value, 10);
-          if (isNaN(parsed)) return;
-          const next = toStored ? toStored(parsed) : parsed;
-          setValues((v) => ({ ...v, [settingKey]: String(next) }));
-        }}
-        onBlur={(e) => {
-          const parsed = parseInt(e.target.value, 10);
-          if (isNaN(parsed)) return;
-          const next = String(toStored ? toStored(parsed) : parsed);
-          if (next === values[settingKey]) return;
-          saveOne(settingKey, next, values[settingKey] ?? '');
-        }}
-        disabled={loading || savingKey === settingKey}
-        helperText={helper}
-        InputProps={{
-          inputProps: { min, max },
-          endAdornment: unit ? <InputAdornment position="end">{unit}</InputAdornment> : undefined,
-        }}
-      />
-    );
-  };
-
-  /** Toggle bound to one setting key; saves immediately. */
-  const SwitchSetting: React.FC<{ settingKey: string; label: string; helper?: string }> = ({
-    settingKey,
-    label,
-    helper,
-  }) => (
-    <>
-      <FormControlLabel
-        control={
-          <Switch
-            checked={boolValue(settingKey)}
-            onChange={(e) => {
-              const previous = values[settingKey] ?? '';
-              const next = String(e.target.checked);
-              setValues((v) => ({ ...v, [settingKey]: next }));
-              saveOne(settingKey, next, previous);
-            }}
-            disabled={loading || savingKey === settingKey}
-          />
-        }
-        label={label}
-      />
-      {helper && (
-        <Typography variant="caption" color="textSecondary" display="block">
-          {helper}
-        </Typography>
-      )}
-    </>
-  );
-
-  /** Select bound to one setting key; saves immediately. */
-  const SelectSetting: React.FC<{
-    settingKey: string;
-    label: string;
-    helper: string;
-    options: { value: string; label: string }[];
-  }> = ({ settingKey, label, helper, options }) => (
-    <TextField
-      select
-      fullWidth
-      label={label}
-      value={values[settingKey] ?? ''}
-      onChange={(e) => {
-        const previous = values[settingKey] ?? '';
-        setValues((v) => ({ ...v, [settingKey]: e.target.value }));
-        saveOne(settingKey, e.target.value, previous);
-      }}
-      disabled={loading || savingKey === settingKey}
-      helperText={helper}
-    >
-      {options.map((o) => (
-        <MenuItem key={o.value} value={o.value}>
-          {o.label}
-        </MenuItem>
-      ))}
-    </TextField>
-  );
-
-  const Panel: React.FC<{ title: string; children: React.ReactNode; caption?: string }> = ({
-    title,
-    caption,
-    children,
-  }) => (
-    <Grid item xs={12}>
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="subtitle1" gutterBottom fontWeight="bold">
-          {title}
-        </Typography>
-        {caption && (
-          <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
-            {caption}
-          </Typography>
-        )}
-        <Divider sx={{ mb: 2 }} />
-        <Grid container spacing={2}>
-          {children}
-        </Grid>
-      </Paper>
-    </Grid>
-  );
-
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -242,6 +290,10 @@ const JobExecutionSettingsComponent: React.FC = () => {
   }
 
   return (
+    // The hoisted field components read this rather than closing over the
+    // component's state, which is what lets them live at module scope and keep
+    // a stable identity across renders.
+    <SettingsCtx.Provider value={{ values, setValues, saveOne, loading, savingKey }}>
     <Box>
       <Typography variant="h6" gutterBottom>
         {t('jobExecution.title')}
@@ -649,6 +701,7 @@ const JobExecutionSettingsComponent: React.FC = () => {
         </Panel>
       </Grid>
     </Box>
+    </SettingsCtx.Provider>
   );
 };
 

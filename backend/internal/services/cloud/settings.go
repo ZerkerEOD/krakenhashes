@@ -36,7 +36,110 @@ const (
 
 	// SettingAgentImage is seeded by 20260907130000_add_cloud_agent_image.
 	SettingAgentImage = "cloud_agent_image"
+
+	// Client defaults, seeded by 20260907140000_add_cloud_budget_defaults.
+	// A client field left unset inherits the matching value here.
+	SettingDefaultClientBudgetCents = "cloud_default_client_budget_cents"
+	SettingDefaultBudgetPeriod      = "cloud_default_budget_period"
+	SettingDefaultCloudEnabled      = "cloud_default_cloud_enabled"
+	SettingDefaultProviderAllowlist = "cloud_default_provider_allowlist"
 )
+
+/*
+ * BudgetPeriod is the window a client's spend ceiling applies to.
+ *
+ * Calendar-aligned and computed on read rather than rolled over by a scheduled
+ * job, matching the existing monthly behaviour: there is no cron infrastructure
+ * in this codebase to own a period boundary, and a boundary that only exists
+ * when a job runs is a boundary that silently stops existing.
+ */
+type BudgetPeriod string
+
+const (
+	BudgetPeriodMonthly    BudgetPeriod = "monthly"
+	BudgetPeriodQuarterly  BudgetPeriod = "quarterly"
+	BudgetPeriodSemiannual BudgetPeriod = "semiannual"
+)
+
+// IsValid reports whether p is a period this code knows how to bound.
+func (p BudgetPeriod) IsValid() bool {
+	switch p {
+	case BudgetPeriodMonthly, BudgetPeriodQuarterly, BudgetPeriodSemiannual:
+		return true
+	}
+	return false
+}
+
+// AllBudgetPeriods is the set the API and UI offer, shortest window first.
+var AllBudgetPeriods = []BudgetPeriod{
+	BudgetPeriodMonthly, BudgetPeriodQuarterly, BudgetPeriodSemiannual,
+}
+
+/*
+ * ClientDefaults are the server-side values a client inherits when it has not
+ * set its own.
+ *
+ * BudgetCents is a pointer because "no default configured" and "a default of
+ * zero" must stay distinguishable. Nil leaves an inheriting client UNFUNDED,
+ * which is the fail-closed position this feature must not quietly give up;
+ * zero would produce the same outcome by accident and be indistinguishable
+ * from a misconfiguration.
+ */
+type ClientDefaults struct {
+	BudgetCents       *int64
+	Period            BudgetPeriod
+	Enabled           bool
+	ProviderAllowlist []string
+}
+
+// DefaultClientDefaults is the cold-start shape: nothing funded, nothing
+// enabled, monthly windows.
+func DefaultClientDefaults() ClientDefaults {
+	return ClientDefaults{
+		BudgetCents:       nil,
+		Period:            BudgetPeriodMonthly,
+		Enabled:           false,
+		ProviderAllowlist: []string{},
+	}
+}
+
+/*
+ * LoadClientDefaults reads the server-side client defaults.
+ *
+ * Every read failure falls back to the cold-start value rather than to
+ * something permissive: an unreadable default must not be the reason a client
+ * becomes fundable.
+ */
+func LoadClientDefaults(ctx context.Context, repo *repository.SystemSettingsRepository) ClientDefaults {
+	d := DefaultClientDefaults()
+	if repo == nil {
+		return d
+	}
+
+	if v, ok := readInt(ctx, repo, SettingDefaultClientBudgetCents); ok && v >= 0 {
+		cents := int64(v)
+		d.BudgetCents = &cents
+	}
+	if v, ok := readString(ctx, repo, SettingDefaultBudgetPeriod); ok {
+		if p := BudgetPeriod(strings.TrimSpace(v)); p.IsValid() {
+			d.Period = p
+		} else if v != "" {
+			debug.Warning("Cloud setting %s = %q is not a known budget period; using %s",
+				SettingDefaultBudgetPeriod, v, d.Period)
+		}
+	}
+	if v, ok := readString(ctx, repo, SettingDefaultCloudEnabled); ok {
+		d.Enabled = strings.EqualFold(strings.TrimSpace(v), "true")
+	}
+	if v, ok := readString(ctx, repo, SettingDefaultProviderAllowlist); ok {
+		for _, part := range strings.Split(v, ",") {
+			if p := strings.TrimSpace(part); p != "" {
+				d.ProviderAllowlist = append(d.ProviderAllowlist, p)
+			}
+		}
+	}
+	return d
+}
 
 // EnvAgentImage is the legacy environment variable SettingAgentImage replaces.
 // Still read as the bootstrap source and imported once, never authoritative
