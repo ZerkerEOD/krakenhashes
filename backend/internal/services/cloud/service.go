@@ -264,8 +264,33 @@ func (s *Service) ProvisionForJob(ctx context.Context, jobID uuid.UUID) error {
 	var maxTTLMinutes int
 	var allowlist []string
 	var allowCommunity bool
+	/*
+	 * The allowlist is resolved through the server default, not just
+	 * NULL-coalesced to empty.
+	 *
+	 * An empty per-client allowlist means "inherit" since inheritance landed,
+	 * exactly as a NULL budget does. Reading it raw made every inheriting
+	 * client fail here with "no permitted cloud providers" AFTER passing the
+	 * eligibility predicate — the autoscaler picked the job up once a minute
+	 * and failed it once a minute, which looks like a provider problem rather
+	 * than a resolution bug.
+	 *
+	 * Elements are trimmed individually because the setting is a
+	 * comma-separated string an admin may well have typed with spaces, and
+	 * " aws" matches no provider.
+	 */
 	err := s.db.QueryRowContext(ctx, `
-		SELECT c.id, c.name, COALESCE(c.max_instance_ttl_minutes, 0), COALESCE(c.cloud_provider_allowlist, '{}'),
+		SELECT c.id, c.name, COALESCE(c.max_instance_ttl_minutes, 0),
+		       CASE WHEN array_length(c.cloud_provider_allowlist, 1) > 0
+		            THEN c.cloud_provider_allowlist
+		            ELSE COALESCE((
+		                SELECT array_agg(btrim(p))
+		                FROM system_settings ss,
+		                     unnest(string_to_array(ss.value, ',')) AS p
+		                WHERE ss.key = 'cloud_default_provider_allowlist'
+		                  AND btrim(p) <> ''
+		            ), '{}')
+		       END,
 		       je.cloud_allow_community_hosts
 		FROM job_executions je
 		JOIN hashlists h ON h.id = je.hashlist_id
