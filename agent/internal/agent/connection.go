@@ -115,6 +115,12 @@ const (
 	WSTypeLogStatusResponse WSMessageType = "log_status_response" // Agent -> Server: report log file info
 	WSTypeLogPurge          WSMessageType = "log_purge"           // Server -> Agent: delete log files
 	WSTypeLogPurgeAck       WSMessageType = "log_purge_ack"       // Agent -> Server: confirm purge
+
+	// Certificate refresh. Sent after the server rotates its certificate
+	// authority, so a connected agent updates its trust material immediately
+	// instead of waiting for its next handshake to fail.
+	WSTypeCertRefresh    WSMessageType = "cert_refresh"     // Server -> Agent: re-pull CA and client cert
+	WSTypeCertRefreshAck WSMessageType = "cert_refresh_ack" // Agent -> Server: confirm refresh
 )
 
 // WSMessage represents a WebSocket message
@@ -585,6 +591,16 @@ type Connection struct {
 
 	// Atomic flag to track connection status
 	isConnected atomic.Bool
+
+	// tlsFailures suppresses duplicate TLS failure reports and duplicate console
+	// guidance, so an unreachable address is explained once rather than every
+	// 30 seconds for as long as the reconnect loop runs.
+	tlsFailures tlsFailureReporter
+
+	// lastCertFailure carries the most recent certFailureKind out of connect()
+	// so maintainConnection can tell the operator something specific instead of
+	// a generic "reconnecting" line.
+	lastCertFailure atomic.Int32
 
 	// TLS configuration
 	tlsConfig *tls.Config
@@ -1059,9 +1075,33 @@ func (c *Connection) connect() error {
 			debug.Error("WebSocket connection failed with no response: %v", err)
 			debug.Debug("Error type: %T", err)
 
+			kind, serverCert := classifyCertFailure(err)
+
+			// An unknown-address failure is server-side and terminal for this
+			// attempt. RenewCertificates only re-downloads ca.crt and this
+			// agent's own client certificate; the problem is that the SERVER's
+			// leaf has no name matching the address we dialled, and nothing on
+			// this side can add one. Running the renewal path anyway is what
+			// produced the misleading "connection failed after certificate
+			// renewal" error and pointed operators at the agent instead of the
+			// server. Report it once, say so plainly, and fail fast.
+			if kind == certFailureHostnameMismatch {
+				c.lastCertFailure.Store(int32(certFailureHostnameMismatch))
+				reportTLSFailure(&c.tlsFailures, c.urlConfig, kind, serverCert,
+					u.Hostname(), portNumber(u.Port()), err, version.Version)
+				if c.tlsFailures.shouldShowGuidance() {
+					printSANGuidance(u.Hostname(), portNumber(u.Port()), serverCert)
+				}
+				return fmt.Errorf("server certificate does not cover %s: %w", u.Host, err)
+			}
+
 			// Check if this is a certificate verification error
 			if isCertificateError(err) {
+				c.lastCertFailure.Store(int32(kind))
 				debug.Info("Certificate verification error detected, attempting to renew certificates")
+				if c.tlsFailures.shouldShowGuidance() {
+					printGenericCertGuidance(u.Host, kind, err)
+				}
 				if renewErr := RenewCertificates(c.urlConfig); renewErr != nil {
 					debug.Error("Failed to renew certificates: %v", renewErr)
 					return fmt.Errorf("certificate renewal failed: %w", renewErr)
@@ -1118,6 +1158,11 @@ func (c *Connection) connect() error {
 	console.Success("WebSocket connection established")
 	c.isConnected.Store(true)
 
+	// Clear the TLS failure suppression so a later recurrence is reported and
+	// explained again rather than silently swallowed by the cooldown.
+	c.lastCertFailure.Store(int32(certFailureNone))
+	c.tlsFailures.reset()
+
 	// Device detection is done at agent startup, not after connection
 	// This prevents running hashcat -I during active jobs after reconnections
 
@@ -1142,10 +1187,21 @@ func (c *Connection) maintainConnection() {
 			if !c.isConnected.Load() {
 				debug.Info("Connection state: disconnected")
 				debug.Info("Reconnection attempt %d - Waiting %v before retry", attempt, backoff)
+				// When the failure is the server certificate not covering our
+				// address, a generic "reconnecting" line is actively unhelpful:
+				// the loop will never succeed until an administrator acts. Say
+				// what is actually wrong instead.
+				sanBlocked := certFailureKind(c.lastCertFailure.Load()) == certFailureHostnameMismatch
 				if attempt == 1 {
 					console.Warning("Connection lost, reconnecting...")
 				} else if attempt%5 == 0 {
-					console.Warning("Still trying to reconnect (attempt %d)...", attempt)
+					if sanBlocked {
+						console.Warning("Still cannot verify the server certificate for this address "+
+							"(attempt %d). This needs an administrator to add the address in "+
+							"Admin -> Settings -> Server Certificate.", attempt)
+					} else {
+						console.Warning("Still trying to reconnect (attempt %d)...", attempt)
+					}
 				}
 				time.Sleep(backoff)
 
@@ -1934,6 +1990,10 @@ func (c *Connection) readPump() {
 		case WSTypeLogPurge:
 			debug.Info("Received log purge command")
 			c.handleLogPurge(msg.Payload)
+
+		case WSTypeCertRefresh:
+			debug.Info("Received certificate refresh command")
+			c.handleCertRefresh(msg.Payload)
 
 		default:
 			debug.Warning("Received unknown message type: %s", msg.Type)

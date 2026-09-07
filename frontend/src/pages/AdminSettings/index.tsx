@@ -22,6 +22,9 @@ import { getDefaultClientRetentionSetting, updateDefaultClientRetentionSetting }
 const SSOSettingsPage = lazy(() => import('../admin/SSOSettings'));
 // Lazy too: the cloud tab pulls in three sub-panels most admins never open.
 const CloudSettings = lazy(() => import('../../components/admin/cloud/CloudSettings'));
+const ServerCertificateSettings = lazy(
+  () => import('../../components/admin/certificates/ServerCertificateSettings')
+);
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -150,12 +153,18 @@ const ClientSettingsTab: React.FC = () => {
 };
 // --- End Client Settings Component ---
 
+/** Number of tabs rendered below; bounds the restored tab index. */
+const TAB_COUNT = 12;
+
 export const AdminSettings = () => {
   const { t } = useTranslation('admin');
   const [currentTab, setCurrentTab] = useState(() => {
     const savedTab = localStorage.getItem('adminSettingsTab');
     const initialTab = savedTab ? parseInt(savedTab, 10) : 0;
-    return initialTab >= 0 && initialTab < 11 ? initialTab : 0;
+    // Keep this bound in step with the number of <Tab> entries below. A stale
+    // bound silently drops the last tab from restoration: it stays clickable,
+    // but reopening the page always lands back on tab 0.
+    return initialTab >= 0 && initialTab < TAB_COUNT ? initialTab : 0;
   });
 
   const { userRole } = useAuth();
@@ -204,6 +213,7 @@ export const AdminSettings = () => {
             <Tab label={t('tabs.agentDownloads') as string} />
             <Tab label={t('tabs.notifications') as string} />
             <Tab label={t('tabs.cloudProvisioning') as string} />
+            <Tab label={t('tabs.serverCertificate') as string} />
           </Tabs>
         </Box>
 
@@ -246,6 +256,11 @@ export const AdminSettings = () => {
         <TabPanel value={currentTab} index={10}>
           <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>}>
             <CloudSettings />
+          </Suspense>
+        </TabPanel>
+        <TabPanel value={currentTab} index={11}>
+          <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>}>
+            <ServerCertificateSettings />
           </Suspense>
         </TabPanel>
       </Paper>

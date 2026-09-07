@@ -80,6 +80,24 @@ func (c *URLConfig) GetAPIBaseURL() string {
 	return fmt.Sprintf("%s/api", c.BaseURL)
 }
 
+// GetTLSFailureReportURL returns the URL for reporting a TLS handshake failure.
+//
+// Always plain HTTP on the HTTP port. This endpoint exists precisely for the case
+// where the HTTPS channel cannot be trusted, so it must not depend on it.
+func (c *URLConfig) GetTLSFailureReportURL() string {
+	return fmt.Sprintf("http://%s:%s/api/agent/tls-failure", c.hostname(), c.HTTPPort)
+}
+
+// hostname returns the configured host without its port.
+func (c *URLConfig) hostname() string {
+	parsedURL, err := url.Parse(c.BaseURL)
+	if err != nil {
+		debug.Error("Failed to parse base URL: %v", err)
+		return "localhost"
+	}
+	return parsedURL.Hostname()
+}
+
 // GetCACertURL returns the URL for downloading the CA certificate
 // This endpoint should always be HTTP since we don't have the CA cert yet
 func (c *URLConfig) GetCACertURL() string {

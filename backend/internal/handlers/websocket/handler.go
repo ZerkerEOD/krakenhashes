@@ -560,6 +560,9 @@ func (c *Client) readPump() {
 		case wsservice.TypeLogPurgeAck:
 			c.handler.handleLogPurgeAck(c, &msg)
 
+		case wsservice.TypeCertRefreshAck:
+			c.handler.handleCertRefreshAck(c, &msg)
+
 		default:
 			// Handle other message types
 		}
@@ -2755,6 +2758,70 @@ func (h *Handler) SendLogPurge(agentID int, requestID string) error {
 	}
 
 	return h.SendMessage(agentID, msg)
+}
+
+// SendCertRefresh asks one agent to re-pull its CA and client certificate.
+func (h *Handler) SendCertRefresh(agentID int, requestID, reason, caFingerprint string) error {
+	payload := wsservice.CertRefreshPayload{
+		RequestID:     requestID,
+		Reason:        reason,
+		CAFingerprint: caFingerprint,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal cert refresh payload: %w", err)
+	}
+
+	msg := &wsservice.Message{
+		Type:    wsservice.TypeCertRefresh,
+		Payload: payloadBytes,
+	}
+
+	return h.SendMessage(agentID, msg)
+}
+
+// BroadcastCertRefresh asks every connected agent to refresh, returning the
+// per-agent send errors.
+//
+// Only reaches agents that already have a working connection. That is the right
+// scope: this exists for CA rotation, where connected agents would otherwise keep
+// a stale trust store until their next reconnect. An agent failing because the
+// certificate does not name its address has no connection to receive this on, and
+// recovers through its own reconnect loop instead.
+func (h *Handler) BroadcastCertRefresh(requestID, reason, caFingerprint string) map[int]error {
+	agents := h.GetConnectedAgents()
+	results := make(map[int]error, len(agents))
+
+	for _, agentID := range agents {
+		if err := h.SendCertRefresh(agentID, requestID, reason, caFingerprint); err != nil {
+			debug.Warning("Failed to send cert refresh to agent %d: %v", agentID, err)
+			results[agentID] = err
+		} else {
+			results[agentID] = nil
+		}
+	}
+
+	return results
+}
+
+// handleCertRefreshAck records what an agent ended up holding after a refresh.
+//
+// An agent that never acks is an older build, not a broken one: readPump warns
+// and continues on unknown message types, so cert_refresh is safely ignored by
+// agents that predate it.
+func (h *Handler) handleCertRefreshAck(c *Client, msg *wsservice.Message) {
+	var payload wsservice.CertRefreshAckPayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		debug.Error("Failed to parse cert refresh ack from agent %d: %v", c.agent.ID, err)
+		return
+	}
+
+	if payload.Success {
+		debug.Info("Agent %d refreshed its certificates (CA %s)", c.agent.ID, payload.CAFingerprint)
+		return
+	}
+	debug.Warning("Agent %d failed to refresh its certificates: %s", c.agent.ID, payload.Message)
 }
 
 // reconcileAgentState compares agent's reported state with backend records and fixes discrepancies

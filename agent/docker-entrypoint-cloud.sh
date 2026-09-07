@@ -157,6 +157,28 @@ start_tailscale() {
     return 1
 }
 
+# wait_for_socks blocks until the local SOCKS5 proxy accepts a connection.
+#
+# This is the thing the agent actually depends on: every request it makes is
+# routed through 127.0.0.1:$SOCKS_PORT, so a VPN client that started but never
+# opened its listener is indistinguishable from one that never started, and
+# both must count as failure.
+#
+# bash's /dev/tcp is used deliberately -- it needs no netcat, no curl and no
+# addition to the image.
+wait_for_socks() {
+    local tries=$1
+    for _ in $(seq 1 "$tries"); do
+        if (exec 3<>/dev/tcp/127.0.0.1/${SOCKS_PORT}) 2>/dev/null; then
+            exec 3<&- 2>/dev/null || true
+            exec 3>&- 2>/dev/null || true
+            return 0
+        fi
+        sleep 2
+    done
+    return 1
+}
+
 start_netbird() {
     [ -n "${KH_VPN_AUTH_KEY:-}" ] || { log "FATAL: netbird selected but KH_VPN_AUTH_KEY is empty"; return 1; }
     # netstack mode is NetBird's userspace equivalent. Note it provides NO DNS,
@@ -167,8 +189,27 @@ start_netbird() {
     local args=(--setup-key "${KH_VPN_AUTH_KEY}" --hostname "kh-${HOSTNAME}" -F)
     [ -n "${KH_VPN_LOGIN_SERVER:-}" ] && args+=(--management-url "${KH_VPN_LOGIN_SERVER}")
     netbird up "${args[@]}" &
-    sleep 10
-    log "netbird netstack started"
+
+    # Previously this slept 10 seconds and returned, so the function's exit
+    # status was `log`'s -- always 0. `start_netbird || self_destruct` could
+    # therefore never fire, and a revoked or malformed setup key produced a
+    # fully billing instance that sat unreachable until the 15-minute heartbeat
+    # watchdog caught it. The tailscale path has always polled; this brings
+    # netbird in line.
+    for _ in $(seq 1 30); do
+        if netbird status 2>/dev/null | grep -q "Management: Connected"; then
+            log "netbird enrolled"
+            if wait_for_socks 15; then
+                log "netbird netstack started"
+                return 0
+            fi
+            log "FATAL: netbird enrolled but opened no SOCKS listener on ${SOCKS_PORT}"
+            return 1
+        fi
+        sleep 2
+    done
+    log "FATAL: netbird did not reach 'Management: Connected' within 60s"
+    return 1
 }
 
 start_wireguard() {
@@ -180,7 +221,12 @@ start_wireguard() {
     printf '\n[Socks5]\nBindAddress = 127.0.0.1:%s\n' "${SOCKS_PORT}" >> /etc/wireproxy/wireproxy.conf
     chmod 600 /etc/wireproxy/wireproxy.conf
     wireproxy -c /etc/wireproxy/wireproxy.conf &
-    sleep 5
+    # Same defect as netbird had: a fixed sleep made this function always return
+    # 0, so a malformed peer config produced a billing instance with no tunnel.
+    if ! wait_for_socks 15; then
+        log "FATAL: wireproxy opened no SOCKS listener on ${SOCKS_PORT}"
+        return 1
+    fi
     log "wireproxy started"
 }
 

@@ -59,10 +59,21 @@ mkdir -p /etc/krakenhashes/certs
 chown krakenhashes:krakenhashes /etc/krakenhashes/certs
 chmod 755 /etc/krakenhashes/certs
 
-# If certificates already exist, ensure they are readable
+# If certificates already exist, ensure they are readable by the backend.
+#
+# Default-deny: everything is tightened to 0600 and only files known to be public
+# are widened to 0644. A blanket `chmod 644` here silently reverts the 0600 the
+# TLS provider sets on ca.key/server.key/client.key when it writes them, and does
+# so on every container start -- leaving the CA signing key world-readable inside
+# the container and on the bind-mounted host directory. The certs dir also holds
+# certbot's privkey.pem and cloudflare.ini (an API token), neither of which is
+# named *.key, so an allowlist of public names is the only safe rule here.
 if [ -n "$(ls -A /etc/krakenhashes/certs 2>/dev/null)" ]; then
-    echo "Making existing certificates readable..."
-    find /etc/krakenhashes/certs -type f -exec chmod 644 {} \;
+    echo "Fixing certificate permissions..."
+    find /etc/krakenhashes/certs -type f -exec chmod 600 {} \;
+    find /etc/krakenhashes/certs -type f \
+        \( -name '*.crt' -o -name 'fullchain.pem' -o -name 'chain.pem' -o -name 'cert.pem' \) \
+        -exec chmod 644 {} \;
     find /etc/krakenhashes/certs -type f -exec chown krakenhashes:krakenhashes {} \;
 fi
 
@@ -180,6 +191,29 @@ chmod 644 /var/log/krakenhashes/logrotate.err
 # Set directory permissions
 chmod -R 755 "/var/log/krakenhashes"
 
+# Compute the certificate SAN defaults BEFORE the heredoc.
+#
+# Shell control flow written inside an unquoted heredoc is NOT executed -- it is
+# copied verbatim into the output file. An `if [ ... ]; then` line landing in
+# .env makes godotenv fail on the unexpected "[" in the key name, and godotenv
+# returns on the first bad line, so the ENTIRE file is discarded. That silently
+# dropped KH_ADDITIONAL_IP_ADDRESSES, KH_ADDITIONAL_DNS_NAMES, ALLOWED_ORIGINS
+# and DB_ARGUMENTS on every dev container, which is why setting the additional
+# IP addresses appeared to do nothing at all.
+#
+# For certbot mode, exclude localhost as it cannot be validated by any CA.
+# For self-signed and provided modes, include localhost for local development.
+if [ "${KH_TLS_MODE:-self-signed}" = "certbot" ]; then
+    KH_SAN_DNS_NAMES="$(hostname)"
+else
+    KH_SAN_DNS_NAMES="localhost,$(hostname)"
+fi
+
+# `hostname -i` returns SPACE-separated addresses on a multi-homed container.
+# Interpolated raw, those become a single unparseable SAN entry that the TLS
+# provider can only warn about and skip, so normalise the separator here.
+KH_SAN_IP_ADDRESSES="127.0.0.1,$(hostname -i | tr -s ' ' ',' | sed 's/,*$//')"
+
 # Create backend .env file
 cat > /etc/krakenhashes/.env << EOF
 # Server Configuration
@@ -188,15 +222,11 @@ KH_HOST=${KH_HOST:-0.0.0.0}
 KH_HTTPS_PORT=${KH_HTTPS_PORT:-31337}
 KH_IN_DOCKER=TRUE
 
-# Get container's hostname and IP
-# For certbot mode, exclude localhost as it cannot be validated by any CA
-# For self-signed and provided modes, include localhost for local development
-if [ "${KH_TLS_MODE}" = "certbot" ]; then
-    KH_ADDITIONAL_DNS_NAMES=$(hostname)
-else
-    KH_ADDITIONAL_DNS_NAMES=localhost,$(hostname)
-fi
-KH_ADDITIONAL_IP_ADDRESSES=127.0.0.1,0.0.0.0,$(hostname -i)
+# Container hostname and IP, used as the initial certificate SANs only.
+# These seed the very first certificate generation; after that the SAN list is
+# managed in Admin -> Settings and stored in the database.
+KH_ADDITIONAL_DNS_NAMES=${KH_SAN_DNS_NAMES}
+KH_ADDITIONAL_IP_ADDRESSES=${KH_SAN_IP_ADDRESSES}
 
 # Database Configuration
 DB_HOST=${DB_HOST:-postgres}

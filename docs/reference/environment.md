@@ -196,8 +196,15 @@ is process-local, so two backends dispatch the same keyspace intervals twice.
 
 | Variable | Type | Default | Required | Description |
 |----------|------|---------|----------|-------------|
-| `KH_ADDITIONAL_DNS_NAMES` | string | - | No | Comma-separated additional DNS names for certificates |
-| `KH_ADDITIONAL_IP_ADDRESSES` | string | - | No | Comma-separated additional IP addresses for certificates |
+| `KH_ADDITIONAL_DNS_NAMES` | string | - | Recommended [^sans] | Comma-separated additional DNS names for certificates |
+| `KH_ADDITIONAL_IP_ADDRESSES` | string | - | Recommended [^sans] | Comma-separated additional IP addresses for certificates |
+
+[^sans]: Optional to start the server, but an agent cannot connect to an address the
+    certificate does not name, so in practice one of these must be set or the addresses
+    must be added in **Admin → Settings → Server Certificate**. These variables seed the
+    first certificate only; after that the settings page is authoritative and the
+    variables are ignored. See the
+    [SSL/TLS setup guide](../admin-guide/system-setup/ssl-tls.md).
 | `KH_KEY_SIZE` | integer | `4096` | No | RSA key size (2048 or 4096) |
 | `KH_SERVER_CERT_VALIDITY` | integer | `365` | No | Server certificate validity in days |
 | `KH_CA_CERT_VALIDITY` | integer | `3650` | No | CA certificate validity in days |

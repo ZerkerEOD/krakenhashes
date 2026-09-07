@@ -100,3 +100,8 @@ docker-compose.dev-local.yml
 tests/ 
 # Local Rafter false-positive suppression policy (not consumed by CI)
 .rafter.yml
+
+# Certificates the agent metrics integration test generates at run time. The
+# test mints a fresh self-signed CA per run rather than carrying a fixture, so
+# anything landing here is a build artifact.
+agent/internal/metrics/integration_test/config/

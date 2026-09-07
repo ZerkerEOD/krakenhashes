@@ -96,6 +96,19 @@ const (
 	TypeLogStatusResponse MessageType = "log_status_response" // Agent responds with log status
 	TypeLogPurge          MessageType = "log_purge"           // Server requests log purge
 	TypeLogPurgeAck       MessageType = "log_purge_ack"       // Agent acknowledges log purge
+
+	// Certificate refresh.
+	//
+	// Sent after a CA rotation so connected agents re-pull ca.crt and their
+	// client certificate immediately, instead of discovering the change the next
+	// time a handshake fails.
+	//
+	// Deliberately NOT used for a server-leaf reissue: an agent affected by a
+	// missing address has no WebSocket by definition, so this channel cannot
+	// reach it. Those agents recover through their normal reconnect loop, which
+	// picks up the hot-swapped certificate on the next dial.
+	TypeCertRefresh    MessageType = "cert_refresh"     // Server asks the agent to refresh its certificates
+	TypeCertRefreshAck MessageType = "cert_refresh_ack" // Agent acknowledges the refresh
 )
 
 // Client represents a connected agent
@@ -513,6 +526,27 @@ type LogPurgeAckPayload struct {
 	Message   string `json:"message,omitempty"`
 }
 
+// CertRefreshPayload asks an agent to re-pull its trust material.
+type CertRefreshPayload struct {
+	RequestID string `json:"request_id"`
+	// Reason is "ca_rotated" or "leaf_reissued".
+	Reason string `json:"reason"`
+	// CAFingerprint is the SHA-256 of the new CA's DER. The agent compares it
+	// against the CA already on disk and does nothing when they match, so a
+	// broadcast to a large fleet does not trigger a download per agent.
+	CAFingerprint string `json:"ca_fingerprint"`
+}
+
+// CertRefreshAckPayload reports what the agent ended up holding.
+type CertRefreshAckPayload struct {
+	RequestID string `json:"request_id"`
+	Success   bool   `json:"success"`
+	Message   string `json:"message,omitempty"`
+	// CAFingerprint is what the agent now has, so the server can tell a
+	// successful refresh from a no-op.
+	CAFingerprint string `json:"ca_fingerprint,omitempty"`
+}
+
 // Service handles WebSocket business logic
 type Service struct {
 	agentService  *services.AgentService
@@ -682,6 +716,10 @@ func (s *Service) HandleMessage(ctx context.Context, agent *models.Agent, msg *M
 		return nil
 	case TypeLogPurgeAck:
 		// Log purge ack is handled in the handler layer
+		// Just update heartbeat here
+		return nil
+	case TypeCertRefreshAck:
+		// Certificate refresh ack is handled in the handler layer
 		// Just update heartbeat here
 		return nil
 	case TypeStateSyncResponse:

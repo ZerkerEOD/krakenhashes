@@ -20,7 +20,8 @@
     "monitoring": "Monitoring",
     "agentDownloads": "Téléchargements des Agents",
     "notifications": "Notifications",
-    "cloudProvisioning": "Cloud Provisioning"
+    "cloudProvisioning": "Cloud Provisioning",
+    "serverCertificate": "Server Certificate"
   },
   "common": {
     "cancel": "Annuler",
@@ -1484,7 +1485,8 @@
       "providers": "Providers",
       "clients": "Client budgets",
       "policy": "Threshold policy",
-      "rules": "Règles de provisionnement"
+      "rules": "Règles de provisionnement",
+      "system": "Limits & operations"
     },
     "providers": {
       "title": "Cloud providers",
@@ -1538,7 +1540,10 @@
       "ephemeralKeyBody": "KH_ENCRYPTION_KEY is not set, so a random key was generated at startup. Every stored credential becomes unreadable after the next restart. Set KH_ENCRYPTION_KEY before saving provider credentials.",
       "vpnSection": "VPN connectivity",
       "vpnSectionHelp": "This server is never exposed to the internet, so rented instances join the VPN you already run. OpenVPN is not supported: it needs /dev/net/tun and CAP_NET_ADMIN, which Vast.ai's unprivileged containers do not provide.",
-      "reusableKeyWarning": "A reusable key is shared by every instance and expires (Tailscale caps auth keys at 90 days). Once it lapses, provisioning is refused rather than launching instances that cannot connect. An OAuth client or PAT lets KrakenHashes mint a single-use ephemeral key per instance instead.",
+      "reusableKeyWarning": {
+        "tailscale": "A reusable key is shared by every instance and expires — Tailscale caps auth keys at 90 days. Once it lapses, provisioning is refused rather than launching instances that cannot connect. An OAuth client lets KrakenHashes mint a single-use ephemeral tagged key per instance instead.",
+        "netbird": "A reusable setup key is shared by every instance, so the same secret reaches every rented host. Set Credential expires at below if the key has an expiry — provisioning is then refused once it lapses instead of launching instances that cannot connect; leave it blank for a key that never expires. Tag or group is ignored for this credential type: the group and the ephemeral flag come from the key's own configuration in NetBird. An access token lets KrakenHashes mint a single-use ephemeral setup key per instance and set the group itself."
+      },
       "staticConfigWarning": "WireGuard uses a static peer config: there is no per-instance credential and no automatic deregistration when an instance dies. Tailscale or NetBird is safer.",
       "kinds": {
         "aws": "AWS EC2 (your own account)",
@@ -1550,7 +1555,7 @@
       "credentialKinds": {
         "oauth": "OAuth client — mint one ephemeral key per instance (recommended)",
         "pat": "Access token — mint one ephemeral key per instance (recommended)",
-        "reusable_key": "Reusable key — shared by every instance, expires",
+        "reusable_key": "Reusable key — shared by every instance",
         "static_config": "Static config — no per-instance credential"
       },
       "vpnCredentialHelp": {
@@ -1580,18 +1585,72 @@
         "credentialKind": "Credential type",
         "vpnCredential": "VPN credential",
         "credentialExpiry": "Credential expires at",
-        "credentialExpiryHelp": "Provisioning is refused after this time. You will be warned as it approaches.",
+        "credentialExpiryHelp": "Optional — leave blank for a key that never expires. Provisioning is refused after this time, and you will be warned as it approaches.",
         "vpnTag": "Tag or group",
         "vpnTagHelp": "e.g. tag:kraken-worker. Required for Tailscale OAuth; scopes what these nodes may reach.",
         "backendVpnHost": "This server's address on the VPN",
-        "backendVpnHostHelp": "The KH_HOST value cloud agents use. It must already appear in KH_ADDITIONAL_DNS_NAMES or KH_ADDITIONAL_IP_ADDRESSES, or agents will fail TLS hostname verification.",
-        "enabled": "Enabled"
+        "backendVpnHostHelp": "The KH_HOST value cloud agents use. The server certificate must cover it — add it under the Server Certificate tab and click Apply & Reissue, or agents will fail TLS hostname verification.",
+        "enabled": "Enabled",
+        "awsAccessKeyId": "AWS access key ID",
+        "awsAccessKeyIdHelp": "An IAM user or role key scoped to EC2 provisioning. Stored encrypted and never returned.",
+        "awsSecretAccessKey": "AWS secret access key",
+        "awsRegion": "Region",
+        "awsRegionHelp": "e.g. us-east-2. Every other AWS field below must live in this region.",
+        "awsSubnet": "Subnet ID",
+        "awsSubnetHelp": "e.g. subnet-0abc123. Must auto-assign a public IP, or the instance cannot reach your VPN's control plane.",
+        "awsSecurityGroups": "Security group IDs",
+        "awsSecurityGroupsHelp": "Comma-separated, e.g. sg-0abc123. Needs outbound access only; no inbound rule is required.",
+        "awsAmiSsm": "AMI SSM parameter",
+        "awsAmiSsmHelp": "Resolved at launch, so the image never goes stale. e.g. /aws/service/deeplearning/ami/x86_64/base-oss-nvidia-driver-gpu-ubuntu-22.04/latest/ami-id",
+        "awsAmiId": "AMI ID (overrides the SSM parameter)",
+        "awsAmiIdHelp": "Pin a specific image instead. Leave blank to resolve through SSM. One of the two is required.",
+        "awsInstanceProfile": "IAM instance profile ARN",
+        "awsInstanceProfileHelp": "Optional. Only needed if the agent itself must call AWS APIs.",
+        "awsRootVolume": "Root volume (GB)",
+        "awsRootVolumeHelp": "A floor; a job's file set may need more. Must be at least the AMI's snapshot size or the launch fails.",
+        "awsEbsRate": "EBS rate (cents/GB-month)",
+        "awsEbsRateHelp": "gp3 storage price. Left at 0 the budget reserves nothing for disk.",
+        "awsUseSpot": "Use spot capacity",
+        "awsUseSpotHelp": "Spot requests are one-time and terminate on interruption. Discounts on current-generation GPU are often modest, so this is not automatically cheaper. Spot and on-demand draw on separate vCPU quotas.",
+        "awsInstanceType": "Instance type",
+        "awsHourlyCents": "Cents/hour",
+        "awsGpuModel": "GPU model",
+        "awsGpuCount": "GPUs",
+        "awsVram": "VRAM/GPU",
+        "mockAgentBinary": "Agent binary path",
+        "mockAgentBinaryHelp": "Path to an agent binary the server can execute with --test-mode.",
+        "mockBackendHost": "Backend host for spawned agents",
+        "mockBackendHostHelp": "e.g. localhost:31337.",
+        "mockHourlyRate": "Simulated rate (cents/hour)",
+        "mockBootDelay": "Simulated boot delay (seconds)",
+        "mockFailLaunch": "Fault: fail every launch",
+        "mockDropLaunchResponse": "Fault: drop the launch response (instance runs but is reported failed)",
+        "mockNeverRegister": "Fault: instance never registers",
+        "mockFailDestroy": "Fault: fail every destroy",
+        "vpnTagIgnoredHelp": "Ignored for a NetBird reusable key: group membership and the ephemeral flag come from the setup key's own configuration in NetBird. Used only on the access-token path, as auto_groups on each minted key.",
+        "vpnUrl": {
+          "netbird": "NetBird management URL",
+          "tailscale": "Tailscale login server (Headscale)"
+        },
+        "vpnUrlHelp": {
+          "netbird": "Your self-hosted NetBird management server, e.g. https://netbird.example.com. Used both to mint setup keys and to start the client. Leave blank for NetBird's hosted service.",
+          "tailscale": "Only for a self-hosted control server. Note that access-token minting always uses api.tailscale.com and does not support Headscale."
+        }
       },
       "peerWarningTitle": "Matériel tiers",
       "peerWarningBody": {
         "vastai": "Les instances Vast.ai s’exécutent sur des machines de particuliers que vous ne contrôlez pas. Ne l’activez que pour les clients dont les données peuvent être exposées à un tiers, et confirmez-le également par client.",
         "runpod_community": "RunPod Community Cloud s’exécute sur des machines de tiers dont les propriétaires disposent d’un accès root au conteneur. Les attestations SOC 2, ISO 27001 et PCI DSS de RunPod ne couvrent que Secure Cloud, pas ce niveau. Ne l’activez que pour les clients dont les données peuvent être exposées à un tiers, et confirmez-le également par client."
-      }
+      },
+      "awsSection": "AWS placement and pricing",
+      "awsSectionHelp": "Where instances launch and what they cost. EC2 exposes no machine-readable GPU model or hourly rate to this code, so both are declared here.",
+      "awsInstanceTypes": "Instance types offered",
+      "awsInstanceTypesHelp": "Only the types listed here can be rented. Declare the rate you are willing to be billed at — round up, since the budget reserves against this number and nothing cross-checks it against an invoice. Declaring the GPU model and count is what enables cost-per-work ranking; without it, ranking falls back to price per hour.",
+      "awsAddInstanceType": "Add instance type",
+      "awsRemoveInstanceType": "Remove",
+      "mockSection": "Mock behaviour and fault injection",
+      "mockSectionHelp": "The mock provider spawns local agent --test-mode processes. The fault toggles exercise failure branches without recompiling.",
+      "providerNotImplemented": "This provider has no adapter yet: the backend rejects it with \"unsupported cloud provider\" at launch time. It can be saved, but nothing can be provisioned from it."
     },
     "budgets": {
       "title": "Client budgets",
@@ -1757,6 +1816,159 @@
         "high": "Haute",
         "critical": "Critique"
       }
+    },
+    "system": {
+      "ceilings": "Spend and concurrency ceilings",
+      "ceilingsHelp": "Absolute system-wide limits, applied before any client budget is consulted.",
+      "work": "Work sizing and teardown",
+      "workHelp": "How much work a rented instance is given at a time, and how quickly an idle one is released. Per-chunk overhead is billed at rental rates, so these trade throughput against waste.",
+      "reconciliation": "Reconciliation",
+      "reconciliationHelp": "How often the database is checked against what the provider is actually running, and how long an unrecognised instance is tolerated before it is destroyed.",
+      "capDisabledWarning": "Cloud provisioning is currently DISABLED: the global monthly cap is 0. Providers, client budgets and cloud-enabled jobs will all be configured correctly and nothing will ever be rented. Set a non-zero cap to enable it.",
+      "saved": "Setting saved",
+      "saveFailed": "Failed to save setting",
+      "loadFailed": "Failed to load cloud settings",
+      "units": {
+        "seconds": "s",
+        "minutes": "min"
+      },
+      "fields": {
+        "monthlyCap": "Global monthly spend cap",
+        "monthlyCapHelp": "Across all clients and providers. 0 disables cloud provisioning entirely — it is not unlimited.",
+        "concurrentCap": "Global concurrent instance cap",
+        "concurrentCapHelp": "Maximum rented instances at once, across every provider and client. 0 means unlimited, still bounded by budgets and provider quotas.",
+        "chunkDuration": "Target chunk duration",
+        "chunkDurationHelp": "Roughly 3x the on-prem default. Hashcat startup, kernel autotune and wordlist loading are billed at rental rates, so short chunks waste money. Always clamped to the instance's remaining lifetime.",
+        "teardownSlack": "Teardown slack",
+        "teardownSlackHelp": "Reserved at the end of an instance's lifetime for drain and destroy, so a chunk is never planned past the point the instance dies.",
+        "idleDrain": "Idle drain",
+        "idleDrainHelp": "Destroy a rented instance after this long with no pending work. Bounds how much you pay for a GPU that has run out of things to do.",
+        "reaperInterval": "Reaper interval",
+        "reaperIntervalHelp": "How often to reconcile the database against provider inventory and destroy anything that should not exist.",
+        "orphanGrace": "Orphan grace period",
+        "orphanGraceHelp": "Destroy instances found on the provider account with no matching database row after this long. This is the only recovery for a launch whose record never landed.",
+        "agentImage": "Agent image",
+        "agentImageHelp": "e.g. zerkereod/krakenhashes-agent-cloud:cloud-gpu. Leave blank to fall back to KH_CLOUD_AGENT_IMAGE, then to the built-in default. Note the built-in default is :latest, which only exists once a release has been tagged — pre-release deployments must set this."
+      },
+      "agent": "Cloud agent image",
+      "agentHelp": "The container image rented instances pull and run. It must be a tag that exists in the registry: a missing tag is not a startup error — the instance boots, the pull fails, and the host self-terminates about a minute later, billed.",
+      "save": "Save changes",
+      "discard": "Discard",
+      "unsaved": "{{count}} unsaved change(s)"
+    }
+  },
+  "serverCertificate": {
+    "title": "Server Certificate",
+    "description": "Manage the addresses the server's TLS certificate covers. Agents can only connect to an address listed here.",
+    "apply": "Apply & Reissue",
+    "warning": {
+      "title": "KrakenHashes is an internal tool",
+      "body": "It must never be reachable from the public internet. It handles cracked credentials, so only private and VPN addresses can be added to the certificate — public IP addresses are rejected. If this deployment is exposed publicly, take it offline before continuing."
+    },
+    "summary": {
+      "title": "Current certificate",
+      "unavailable": "The server certificate could not be read.",
+      "subject": "Subject",
+      "issuer": "Issuer",
+      "validity": "Valid",
+      "serial": "Serial",
+      "covers": "This certificate is valid for",
+      "coversNothing": "This certificate lists no addresses at all. No agent can connect.",
+      "daysRemaining": "{{count}} days left",
+      "caSubject": "Certificate authority",
+      "caExpires": "CA expires",
+      "caFingerprint": "CA fingerprint (SHA-256)",
+      "pending": "{{count}} address(es) have been saved but are not in the certificate yet. Click Apply & Reissue.",
+      "deprecatedEnv": "KH_ADDITIONAL_IP_ADDRESSES or KH_ADDITIONAL_DNS_NAMES is still set in the environment. It is no longer read — these settings replace it. Remove the variable to avoid confusion."
+    },
+    "sans": {
+      "title": "Addresses this certificate should cover",
+      "add": "Add",
+      "empty": "No additional addresses configured.",
+      "unsaved": "You have unsaved changes. Click Apply & Reissue to put them into the certificate.",
+      "lockedTooltip": "Always included. Removing it would break the internal proxy and health checks.",
+      "ip": {
+        "title": "IP addresses",
+        "help": "Private and VPN addresses only: 10.x, 172.16–31.x, 192.168.x, 100.64–127.x (Tailscale, NetBird), link-local, and IPv6 ULA.",
+        "placeholder": "192.168.1.50"
+      },
+      "dns": {
+        "title": "DNS names",
+        "help": "Hostnames agents and browsers use to reach this server.",
+        "placeholder": "kraken.internal"
+      }
+    },
+    "validation": {
+      "invalid_format": "\"{{address}}\" is not a valid address.",
+      "public_ip": "{{address}} is a public IP address and cannot be added. KrakenHashes is an internal-only tool. It handles cracked credentials and must never be reachable from the internet. Only private addresses (10.x, 172.16–31.x, 192.168.x, 100.64–127.x, link-local and IPv6 ULA) can be added. If this is your VPN's address, the VPN is using address space that belongs to someone else on the internet — change its network range to a private or CGNAT range.",
+      "duplicate": "{{address}} is already in the list.",
+      "bind_address": "{{address}} is a bind address, not a reachable one. No client connects to it.",
+      "multicast": "{{address}} is a multicast address and cannot identify a server.",
+      "wildcard_dns": "Wildcard names are not supported.",
+      "has_port": "Enter only the hostname, with no port.",
+      "is_ip": "That is an IP address. Add it to the IP address list instead.",
+      "too_long": "That name is longer than the 253-character limit."
+    },
+    "discovered": {
+      "title": "Discovered addresses",
+      "help": "Addresses seen reaching this server that the certificate does not cover. Nothing here is applied automatically.",
+      "empty": "No addresses discovered yet. Start an agent, or open this page from the address your agents use, and it will appear here.",
+      "address": "Address",
+      "source": "Source",
+      "reportedBy": "Reported by",
+      "lastSeen": "Last seen",
+      "hits": "Hits",
+      "actions": "Actions",
+      "add": "Add",
+      "added": "{{address}} added. Click Apply & Reissue to put it into the certificate.",
+      "dismiss": "Dismiss",
+      "pending": "Pending reissue",
+      "sources": {
+        "agent_tls_failure": "Agent TLS failure",
+        "host_header": "Browser / Host header",
+        "tls_sni": "TLS SNI",
+        "manual": "Manual"
+      },
+      "sourceHelp": {
+        "agent_tls_failure": "An authenticated agent reported that it could not verify this server's certificate for this address.",
+        "host_header": "Observed in a request's Host header. Anyone who can reach this server can influence this value — confirm it before adding.",
+        "tls_sni": "Observed as the server name in a TLS handshake.",
+        "manual": "Added by an administrator."
+      }
+    },
+    "reissue": {
+      "doneTitle": "Certificate reissued",
+      "noChangeTitle": "No change needed",
+      "noChangeBody": "The certificate already covers every configured address and is not close to expiry.",
+      "changes": "Changes",
+      "validUntil": "The new certificate is valid until {{date}}.",
+      "backendReloaded": "The API on port 31337 is already serving the new certificate. No restart was needed.",
+      "nginxReloaded": "The web UI on port 443 was reloaded and is serving the new certificate.",
+      "nginxFailed": "The web UI on port 443 is still serving the previous certificate",
+      "backup": "Previous certificate material was backed up to {{path}}.",
+      "agentsReconnect": "Agents that were failing will reconnect on their own within 30 seconds. No agent restart is needed.",
+      "agentsRefetch": "Every agent must re-fetch the CA. Agents do this automatically the next time a handshake fails, but browsers that trusted the old CA must install the new one by hand.",
+      "close": "Close",
+      "nginxFailedBody": "The API is already serving the new certificate, so agents are unaffected. The web UI on port 443 will keep presenting the previous one until KrakenHashes is restarted."
+    },
+    "confirmRemoval": {
+      "title": "Remove addresses from the certificate?",
+      "body": "The following addresses are in the current certificate and will be removed: {{addresses}}. Any agent connecting on one of them will stop being able to connect until it is added back.",
+      "cancel": "Cancel",
+      "confirm": "Remove and reissue"
+    },
+    "rotateCa": {
+      "section": "Advanced",
+      "title": "Rotate the certificate authority",
+      "warning": "Rotating the certificate authority issues a brand-new CA and re-signs the server and agent certificates. Every agent must re-download the CA before it can reconnect, and every browser that trusted the old CA will show warnings until the new ca.crt is installed. Only do this if the CA private key may have been exposed.",
+      "instruction": "Type {{phrase}} to confirm.",
+      "action": "Rotate CA"
+    },
+    "banner": {
+      "title": "{{count}} agent(s) cannot verify this server's certificate",
+      "body": "{{agents}} is connecting to {{address}}, which is not listed in the server certificate. It will keep retrying and cannot come online until the certificate is reissued.",
+      "anAgent": "An agent",
+      "action": "Fix in Server Certificate settings"
     }
   }
 }
