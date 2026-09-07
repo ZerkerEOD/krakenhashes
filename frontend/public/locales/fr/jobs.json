@@ -354,7 +354,11 @@
       "maxInstances": "Maximum rented instances",
       "maxInstancesHelp": "Separate from max agents, which governs the shared on-prem pool. Leave blank to let the remaining budget decide.",
       "badge": "Cloud burst",
-      "thirdPartyBadge": "Third-party host"
+      "thirdPartyBadge": "Third-party host",
+      "provisionNow": "Provision now",
+      "provisionConfirm": "Rent one cloud instance for this job now?\n\nThis bypasses the autoscaler's starvation and finishing-soon rules, and will spend money against this client's budget. The budget, spend window, per-job cap and provider consent still apply.",
+      "provisionRequested": "Cloud instance requested",
+      "provisionFailed": "Could not provision a cloud instance"
     }
   }
 }

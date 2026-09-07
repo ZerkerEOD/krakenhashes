@@ -158,7 +158,7 @@ func TestEdgeCases(t *testing.T) {
 
 		// Test expired session handling
 		expiredToken := generateExpiredToken(t, user.ID.String(), user.Role)
-		err := database.StoreToken(user.ID.String(), expiredToken)
+		_, err := database.StoreToken(user.ID.String(), expiredToken)
 		require.NoError(t, err)
 
 		// Expired token should not authenticate
@@ -205,8 +205,10 @@ func TestPerformanceScenarios(t *testing.T) {
 			token := performLogin(t, authHandler, "rapidtest", testutil.DefaultTestPassword, false, "")
 			if token != "" {
 				successCount++
-				// Clean up token
-				database.RemoveToken(token)
+				// Clean up token. RemoveTokenByString exists for exactly this
+				// case: RemoveToken takes the uuid the ledger is keyed on, and
+				// what performLogin hands back is the opaque token string.
+				database.RemoveTokenByString(token)
 			}
 		}
 		duration := time.Since(start)
@@ -221,7 +223,7 @@ func TestPerformanceScenarios(t *testing.T) {
 		// Generate token
 		token, err := jwt.GenerateToken(user.ID.String(), user.Role, 60)
 		require.NoError(t, err)
-		err = database.StoreToken(user.ID.String(), token)
+		_, err = database.StoreToken(user.ID.String(), token)
 		require.NoError(t, err)
 
 		const numValidations = 100

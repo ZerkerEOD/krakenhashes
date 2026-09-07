@@ -16,6 +16,8 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { useTranslation } from 'react-i18next';
+import MoneyField from './MoneyField';
+import ScaledNumberField from '../../common/ScaledNumberField';
 import {
   getDefaultProvisioningRules,
   updateDefaultProvisioningRules,
@@ -30,24 +32,6 @@ import { CloudProvisioningRules } from '../../../types/cloud';
  * Edits the UNMERGED default deliberately. Per-client overrides are edited on
  * the client screen, where the merged view is the useful one.
  */
-
-/** Dollars in the form, integer cents on the wire. */
-const centsToDollars = (cents?: number | null): string =>
-  cents === null || cents === undefined || cents === 0 ? '' : (cents / 100).toFixed(2);
-
-const dollarsToCents = (value: string): number => {
-  const parsed = parseFloat(value);
-  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed * 100) : 0;
-};
-
-/** Minutes in the form, seconds on the wire — nobody thinks in 900s. */
-const secondsToMinutes = (seconds?: number | null): string =>
-  seconds === null || seconds === undefined ? '' : String(Math.round(seconds / 60));
-
-const minutesToSeconds = (value: string): number => {
-  const parsed = parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed * 60 : 0;
-};
 
 /**
  * "HH:MM" for <input type="time"> from the backend's "HH:MM:SS", and back.
@@ -191,53 +175,40 @@ const CloudProvisioningRulesSettings: React.FC = () => {
 
         {/* Minimum starvation */}
         <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
-            type="number"
+          <ScaledNumberField
             label={t('cloud.rules.fields.minStarvation') as string}
-            value={secondsToMinutes(form.min_starvation_seconds)}
-            onChange={(e) =>
-              setForm((prev) => ({
-                ...prev,
-                min_starvation_seconds: minutesToSeconds(e.target.value),
-              }))
+            value={form.min_starvation_seconds}
+            toDisplay={(seconds) => Math.round(seconds / 60)}
+            toStored={(minutes) => Math.round(minutes * 60)}
+            onChange={(seconds) =>
+              setForm((prev) => ({ ...prev, min_starvation_seconds: seconds ?? 0 }))
             }
-            inputProps={{ min: 0 }}
             helperText={t('cloud.rules.helperText.minStarvation') as string}
           />
         </Grid>
 
         {/* Skip if finishing soon */}
         <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
-            type="number"
+          <ScaledNumberField
             label={t('cloud.rules.fields.skipIfFinishing') as string}
-            value={secondsToMinutes(form.skip_if_finishing_within_seconds)}
-            onChange={(e) =>
-              setForm((prev) => ({
-                ...prev,
-                skip_if_finishing_within_seconds: minutesToSeconds(e.target.value),
-              }))
+            value={form.skip_if_finishing_within_seconds}
+            toDisplay={(seconds) => Math.round(seconds / 60)}
+            toStored={(minutes) => Math.round(minutes * 60)}
+            onChange={(seconds) =>
+              setForm((prev) => ({ ...prev, skip_if_finishing_within_seconds: seconds ?? 0 }))
             }
-            inputProps={{ min: 0 }}
             helperText={t('cloud.rules.helperText.skipIfFinishing') as string}
           />
         </Grid>
 
         {/* Per-job spend cap */}
         <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
+          <MoneyField
             label={t('cloud.rules.fields.maxSpendPerJob') as string}
-            value={centsToDollars(form.max_spend_per_job_cents)}
-            onChange={(e) =>
-              setForm((prev) => ({
-                ...prev,
-                max_spend_per_job_cents: dollarsToCents(e.target.value),
-              }))
+            cents={form.max_spend_per_job_cents ?? null}
+            onChange={(cents) =>
+              setForm((prev) => ({ ...prev, max_spend_per_job_cents: cents }))
             }
-            InputProps={{ startAdornment: <Box sx={{ mr: 1 }}>$</Box> }}
             helperText={t('cloud.rules.helperText.maxSpendPerJob') as string}
           />
         </Grid>

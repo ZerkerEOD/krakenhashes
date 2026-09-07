@@ -8,6 +8,7 @@ import {
   CloudProviderConfig,
   CloudProviderConfigInput,
   CloudProviderKind,
+  ClientCloudDefaults,
   CloudProvisioningRules,
   CloudClientRulesView,
   ClientCloudSettings,
@@ -190,6 +191,22 @@ export const getJobProjection = async (
  * Resolves once the instance is recorded and requested from the provider, not
  * once the agent has registered. Watch the fleet view for that.
  */
+/** Server-side defaults every client inherits from. */
+export const getClientCloudDefaults = async (): Promise<ClientCloudDefaults> => {
+  const response = await api.get<ClientCloudDefaults>('/api/admin/cloud/clients/defaults');
+  return response.data;
+};
+
+export const updateClientCloudDefaults = async (
+  defaults: ClientCloudDefaults
+): Promise<ClientCloudDefaults> => {
+  const response = await api.put<ClientCloudDefaults>(
+    '/api/admin/cloud/clients/defaults',
+    defaults
+  );
+  return response.data;
+};
+
 export const provisionInstanceForJob = async (jobId: string): Promise<void> => {
   await api.post(`/api/admin/cloud/jobs/${jobId}/provision`);
 };

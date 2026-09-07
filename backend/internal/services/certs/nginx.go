@@ -50,19 +50,21 @@ func ReloadNginx() ReloadOutcome {
 		return ReloadOutcome{Attempted: false}
 	}
 
-	// Test before signalling. SIGHUP against a broken configuration takes nginx
-	// down rather than reloading it, which would turn a certificate reissue into
-	// a web UI outage.
-	if out, err := exec.Command("nginx", "-t").CombinedOutput(); err != nil {
-		detail := strings.TrimSpace(string(out))
-		debug.Error("nginx configuration test failed, refusing to reload: %v (%s)", err, detail)
-		return ReloadOutcome{
-			Attempted: true,
-			Succeeded: false,
-			Detail:    fmt.Sprintf("nginx -t failed: %v (%s)", err, detail),
-		}
-	}
-
+	// Deliberately no `nginx -t` precheck.
+	//
+	// It looked like a sensible guard and was actively harmful. Three reasons:
+	//
+	//  1. This operation replaces certificate FILES and never touches the nginx
+	//     configuration, so it cannot introduce a syntax error to guard against.
+	//  2. A reload is already safe. If nginx re-reads an invalid configuration it
+	//     logs the error, rolls back, and keeps serving with the old one -- it
+	//     does not go down.
+	//  3. `nginx -t` runs here as the backend's own unprivileged user, which
+	//     cannot open /var/run/nginx.pid, so it exits non-zero with
+	//     "Permission denied" even when it has just reported "syntax is ok".
+	//     Gating on that permanently disabled the reload: the web UI kept serving
+	//     a stale certificate after every reissue, on a deployment where the
+	//     configuration was perfectly valid.
 	debug.Info("Reloading nginx via supervisorctl to pick up the new certificate")
 	out, err := exec.Command("supervisorctl", "signal", "HUP", "nginx").CombinedOutput()
 	detail := strings.TrimSpace(string(out))

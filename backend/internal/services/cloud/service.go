@@ -206,11 +206,35 @@ func (s *Service) decrypt(ciphertext string) (string, error) {
  *
  * Expects `je` (job_executions) and `c` (clients) to be in scope.
  */
+/*
+ * The client-side clauses read through the server defaults, because
+ * clients.cloud_enabled is now tri-state and an empty allowlist means "inherit"
+ * rather than "nothing allowed".
+ *
+ * Written as scalar subqueries against system_settings rather than as bound
+ * parameters so that BOTH entry points get the resolution for free. The two
+ * copies of this predicate had already drifted once; a version that has to be
+ * fed the defaults correctly by each caller is a version that will drift again,
+ * and the direction it fails in is renting hardware for a client nobody funded.
+ *
+ * COALESCE on cloud_enabled: NULL means the client never chose, so fall through
+ * to cloud_default_cloud_enabled. A missing settings row yields NULL, and
+ * `NULL = true` is not true, so an unreadable default refuses rather than
+ * permits.
+ */
 const cloudEligibilityPredicate = `
 	    je.cloud_burst_enabled = true
 	AND je.status IN ('pending','running')
-	AND c.cloud_enabled = true
-	AND array_length(c.cloud_provider_allowlist, 1) > 0`
+	AND COALESCE(
+	        c.cloud_enabled,
+	        (SELECT lower(btrim(value)) = 'true' FROM system_settings
+	          WHERE key = 'cloud_default_cloud_enabled')
+	    ) = true
+	AND (
+	        array_length(c.cloud_provider_allowlist, 1) > 0
+	     OR COALESCE((SELECT btrim(value) FROM system_settings
+	                   WHERE key = 'cloud_default_provider_allowlist'), '') <> ''
+	    )`
 
 /*
  * ProvisionForJob rents one instance for a job.

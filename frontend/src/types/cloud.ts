@@ -156,11 +156,39 @@ export interface CloudProviderConfigInput {
   backend_vpn_host?: string;
 }
 
+/** The window a client's spend ceiling applies to. */
+export type BudgetPeriod = 'monthly' | 'quarterly' | 'semiannual';
+
+export const BUDGET_PERIODS: BudgetPeriod[] = ['monthly', 'quarterly', 'semiannual'];
+
+/**
+ * Server-side values a client inherits when it has not set its own.
+ *
+ * cloud_budget_cents is nullable and null is meaningful: no default configured,
+ * so an inheriting client stays unfunded. That is deliberately distinct from a
+ * default of 0, which would be the same outcome by accident.
+ */
+export interface ClientCloudDefaults {
+  cloud_budget_cents: number | null;
+  cloud_budget_period: BudgetPeriod;
+  cloud_enabled: boolean;
+  cloud_provider_allowlist: CloudProviderKind[];
+}
+
 /** Per-client cloud burst configuration. */
 export interface ClientCloudSettings {
   client_id: string;
   client_name: string;
-  cloud_enabled: boolean;
+  /** null means the client has never been configured and inherits the default. */
+  cloud_enabled: boolean | null;
+  cloud_budget_period: BudgetPeriod | null;
+  /** Server-resolved values. Read-only; never sent back. */
+  effective_cloud_enabled: boolean;
+  effective_cloud_provider_allowlist: CloudProviderKind[];
+  effective_cloud_budget_cents: number | null;
+  effective_cloud_budget_period: BudgetPeriod;
+  /** Which fields are taking their value from the server default. */
+  inherited_fields: string[];
   /**
    * Empty by default. A client must be explicitly opted in to each provider —
    * this is what keeps a client's hashes off Vast.ai's third-party machines
@@ -174,10 +202,16 @@ export interface ClientCloudSettings {
   provider_ack: Record<string, { at: string; by: string }>;
 }
 
+/**
+ * Every field is nullable so "clear this and go back to inheriting" is
+ * expressible. A plain boolean could only ever say "off", leaving no way to
+ * return an explicitly-set client to the default.
+ */
 export interface ClientCloudSettingsInput {
-  cloud_enabled: boolean;
+  cloud_enabled: boolean | null;
   cloud_provider_allowlist: CloudProviderKind[];
   cloud_budget_cents: number | null;
+  cloud_budget_period: BudgetPeriod | null;
   max_instance_ttl_minutes: number | null;
 }
 

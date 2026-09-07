@@ -258,7 +258,12 @@
       "dataRetention": "Datenaufbewahrung (Monate)",
       "dataRetentionHelperText": "Leer lassen für Systemstandard. 0 eingeben für dauerhafte Aufbewahrung.",
       "excludeFromPotfile": "Vom Potfile ausschließen (geknackte Passwörter nicht speichern)",
-      "excludeFromPotfileHelperText": "Aktivieren Sie dies für Kunden mit strengen Datenaufbewahrungsanforderungen"
+      "excludeFromPotfileHelperText": "Aktivieren Sie dies für Kunden mit strengen Datenaufbewahrungsanforderungen",
+      "cloudInherit": "Cloud burst: this client will inherit the server default — {{state}}, ${{amount}} per {{period}}. Change it in Cloud Provisioning → Client Budgets.",
+      "cloudInheritUnfunded": "Cloud burst: no default budget is set, so this client starts unfunded and cannot rent paid capacity. Set a default in Cloud Provisioning → Client Budgets.",
+      "cloudInheritUnknown": "Cloud burst settings are inherited from the server defaults in Cloud Provisioning → Client Budgets.",
+      "cloudEnabledWord": "enabled",
+      "cloudDisabledWord": "disabled"
     },
     "validation": {
       "nameRequired": "Kundenname ist erforderlich.",
@@ -1637,9 +1642,9 @@
     },
     "budgets": {
       "title": "Client budgets",
-      "description": "What each client may spend, and which providers their data may go to. Both are empty by default: no client bursts to paid capacity until it is funded and opted in.",
+      "description": "What each client may spend, and which providers their data may go to. Clients with blank fields follow the server defaults below.",
       "loadFailed": "Failed to load client budgets",
-      "empty": "No client has cloud burst enabled or a funded budget.",
+      "empty": "No clients exist yet. Create a client first, then fund it here.",
       "edit": "Edit",
       "editTitle": "Cloud settings — {{name}}",
       "saved": "Client cloud settings saved",
@@ -1675,12 +1680,14 @@
       },
       "fields": {
         "budget": "Budget",
-        "budgetHelp": "Spend ceiling for the current month. Leave blank to leave this client unfunded, which forbids provisioning entirely.",
+        "budgetHelp": "Spend ceiling for the current budget period. Leave blank to inherit the server default; a client only ends up unfunded if no default is set either.",
         "ttl": "Maximum instance lifetime (minutes)",
         "ttlHelp": "An instance is destroyed at this age regardless of progress. Leave blank to use the system default.",
         "providers": "Allowed providers",
         "providersHelp": "Empty means nothing may be rented for this client. Allowing AWS while forbidding Vast.ai is a normal configuration.",
-        "enabled": "Cloud burst enabled for this client"
+        "enabled": "Cloud burst",
+        "period": "Budget period",
+        "periodHelp": "Leave blank to inherit the server default."
       },
       "errors": {
         "invalidBudget": "Budget must be a number, e.g. 25.00",
@@ -1689,7 +1696,42 @@
         "enabledWithoutBudget": "Set a budget before enabling cloud burst — an unfunded client can never provision anything.",
         "enabledWithoutProvider": "Allow at least one provider before enabling cloud burst."
       },
-      "peerTooltip": "Fremde Hardware: Die Daten dieses Kunden sind für den Besitzer des Rechners lesbar."
+      "peerTooltip": "Fremde Hardware: Die Daten dieses Kunden sind für den Besitzer des Rechners lesbar.",
+      "defaults": {
+        "title": "Server defaults",
+        "description": "Values a client uses when it has not set its own. Leaving a client's field blank means it follows the default here, so changing this changes every client still inheriting.",
+        "summary": "{{amount}} per {{period}}",
+        "summaryUnset": "No default budget set — clients that inherit stay unfunded",
+        "budget": "Default budget",
+        "budgetHelp": "Leave blank for no default: inheriting clients then stay unfunded and cannot burst.",
+        "period": "Default budget period",
+        "enabled": "Clients may burst to paid capacity by default",
+        "providers": "Default providers",
+        "providersHelp": "Applied to any client whose own provider list is empty.",
+        "peerAckNote": "Peer-operated providers still require a per-client acknowledgement. Defaulting them in does not grant that consent — each client must still be acknowledged individually before its data can go there.",
+        "appliesNow": "Cloud burst is enabled by default and a default budget is set, so every client still inheriting can now provision paid capacity.",
+        "save": "Save defaults",
+        "saved": "Defaults saved",
+        "saveFailed": "Failed to save defaults",
+        "fundedButDisabled": "A default budget is set but cloud burst is off by default, so no inheriting client can provision anything. Tick the box above to make the budget usable.",
+        "enabledWithoutProviders": "Cloud burst is on by default but no default providers are selected, so inheriting clients still cannot rent anything. Choose at least one provider above.",
+        "willEnableTitle": "This will let {{count}} client(s) rent paid capacity",
+        "willEnableBody": "These clients have no settings of their own, so they follow the defaults above. Saving lets each of them provision cloud instances and spend against this budget. To keep a client out, set its own Cloud burst to Disabled.",
+        "andMore": "+{{count}} more",
+        "confirmTitle": "Enable cloud spending for {{count}} client(s)?",
+        "confirmBody": "{{count}} client(s) currently cannot rent anything. Saving these defaults gives each of them a {{amount}} ceiling per {{period}} and permission to spend it. The budget is per client, not shared, so this is the total exposure multiplied by the number of clients listed.",
+        "confirmAlternative": "Prefer to opt in one at a time? Cancel, leave cloud burst off by default, and set Cloud burst and a budget on each client individually instead.",
+        "confirmAccept": "Enable {{count}} client(s)"
+      },
+      "periods": {
+        "monthly": "month",
+        "quarterly": "quarter",
+        "semiannual": "six months"
+      },
+      "inheritLabel": "Inherit default ({{value}})",
+      "on": "Enabled",
+      "off": "Disabled",
+      "inheriting": "inheriting"
     },
     "policy": {
       "title": "Spend threshold policy",

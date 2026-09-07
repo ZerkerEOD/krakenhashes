@@ -457,29 +457,87 @@ type CloudBudgetState struct {
  * hashes off Vast.ai's third-party machines while still allowing AWS, which
  * runs inside the operator's own account.
  */
+/*
+ * ClientCloudSettings is one client's cloud burst configuration.
+ *
+ * The stored fields are TRI-STATE: nil (or, for the allowlist, empty) means the
+ * client has not been configured and inherits the server default. The Effective*
+ * fields are the resolved values the rest of the system acts on, returned
+ * alongside the raw ones so the UI can show "inheriting $10.00" rather than an
+ * empty box that looks like a mistake.
+ */
 type ClientCloudSettings struct {
 	ClientID   uuid.UUID `json:"client_id"`
 	ClientName string    `json:"client_name"`
-	Enabled    bool      `json:"cloud_enabled"`
-	// ProviderAllowlist holds CloudProvider values. Empty means no bursting.
+	// Enabled is nil when the client has never been configured either way.
+	// A NOT NULL boolean could not distinguish that from "explicitly off",
+	// which is why the column is nullable.
+	Enabled *bool `json:"cloud_enabled"`
+	// ProviderAllowlist holds CloudProvider values. Empty means inherit.
 	ProviderAllowlist []string `json:"cloud_provider_allowlist"`
-	// BudgetCents is nil when the client is unfunded, which forbids
+	// BudgetCents is nil when the client inherits the default. A client that
+	// inherits when no default is set stays unfunded, which forbids
 	// provisioning outright — distinct from a funded budget at zero headroom.
-	BudgetCents           *int64 `json:"cloud_budget_cents"`
-	MaxInstanceTTLMinutes *int   `json:"max_instance_ttl_minutes"`
+	BudgetCents           *int64        `json:"cloud_budget_cents"`
+	BudgetPeriod          *BudgetPeriod `json:"cloud_budget_period"`
+	MaxInstanceTTLMinutes *int          `json:"max_instance_ttl_minutes"`
 	// ProviderAck records who accepted each provider's data-exposure terms and
 	// when: {"vastai": {"at": "...", "by": "<user uuid>"}}.
 	ProviderAck JSONMap `json:"provider_ack"`
+
+	// Resolved values, server-computed. Never written back.
+	EffectiveEnabled           bool         `json:"effective_cloud_enabled"`
+	EffectiveProviderAllowlist []string     `json:"effective_cloud_provider_allowlist"`
+	EffectiveBudgetCents       *int64       `json:"effective_cloud_budget_cents"`
+	EffectiveBudgetPeriod      BudgetPeriod `json:"effective_cloud_budget_period"`
+	// InheritedFields names the fields taking their value from the server
+	// default, so the UI does not have to re-derive the comparison and risk
+	// disagreeing with the backend about what is actually in force.
+	InheritedFields []string `json:"inherited_fields"`
 }
 
-// ClientCloudSettingsInput is the admin-editable subset. Acknowledgements are
-// not settable here — they are recorded through their own endpoint so the
-// attribution is always the authenticated caller.
+// BudgetPeriod is the window a client's spend ceiling applies to. Mirrors
+// cloud.BudgetPeriod; kept here so models does not import the service package.
+type BudgetPeriod string
+
+const (
+	BudgetPeriodMonthly    BudgetPeriod = "monthly"
+	BudgetPeriodQuarterly  BudgetPeriod = "quarterly"
+	BudgetPeriodSemiannual BudgetPeriod = "semiannual"
+)
+
+// IsValid reports whether p is a period this code knows how to bound.
+func (p BudgetPeriod) IsValid() bool {
+	switch p {
+	case BudgetPeriodMonthly, BudgetPeriodQuarterly, BudgetPeriodSemiannual:
+		return true
+	}
+	return false
+}
+
+/*
+ * ClientCloudSettingsInput is the admin-editable subset. Acknowledgements are
+ * not settable here — they are recorded through their own endpoint so the
+ * attribution is always the authenticated caller.
+ *
+ * Every field is a pointer or a slice so that "clear this and inherit again" is
+ * expressible. A plain bool could only ever say "off", so a client could be
+ * enabled but never returned to inheriting.
+ */
 type ClientCloudSettingsInput struct {
-	Enabled               bool     `json:"cloud_enabled"`
-	ProviderAllowlist     []string `json:"cloud_provider_allowlist"`
-	BudgetCents           *int64   `json:"cloud_budget_cents"`
-	MaxInstanceTTLMinutes *int     `json:"max_instance_ttl_minutes"`
+	Enabled               *bool         `json:"cloud_enabled"`
+	ProviderAllowlist     []string      `json:"cloud_provider_allowlist"`
+	BudgetCents           *int64        `json:"cloud_budget_cents"`
+	BudgetPeriod          *BudgetPeriod `json:"cloud_budget_period"`
+	MaxInstanceTTLMinutes *int          `json:"max_instance_ttl_minutes"`
+}
+
+// ClientCloudDefaults is the server-side default every client inherits from.
+type ClientCloudDefaults struct {
+	BudgetCents       *int64       `json:"cloud_budget_cents"`
+	BudgetPeriod      BudgetPeriod `json:"cloud_budget_period"`
+	Enabled           bool         `json:"cloud_enabled"`
+	ProviderAllowlist []string     `json:"cloud_provider_allowlist"`
 }
 
 // CloudGPUBenchmark is an observed speed for a GPU model, used ONLY for

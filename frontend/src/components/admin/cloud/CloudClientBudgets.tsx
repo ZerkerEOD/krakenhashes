@@ -24,15 +24,30 @@ import {
   TextField,
   Tooltip,
   Typography,
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
 } from '@mui/material';
-import { Edit as EditIcon, Warning as WarningIcon } from '@mui/icons-material';
+import {
+  Edit as EditIcon,
+  ExpandMore as ExpandMoreIcon,
+  Warning as WarningIcon,
+} from '@mui/icons-material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { useTranslation } from 'react-i18next';
+import MoneyField from './MoneyField';
 import {
   ClientCloudSettings,
   ClientCloudSettingsInput,
   CloudBudgetAssessment,
+  ClientCloudDefaults,
+  BudgetPeriod,
+  BUDGET_PERIODS,
   CloudProviderKind,
   CLOUD_PROVIDER_KINDS,
   cloudProviderLabel,
@@ -41,6 +56,8 @@ import {
 import {
   acknowledgeClientProvider,
   getClientCloudBudget,
+  getClientCloudDefaults,
+  updateClientCloudDefaults,
   listClientCloudSettings,
   updateClientCloudSettings,
   formatCents,
@@ -114,7 +131,9 @@ const CloudClientBudgets: React.FC = () => {
   const [editing, setEditing] = useState<ClientCloudSettings | null>(null);
   const [budgetDollars, setBudgetDollars] = useState('');
   const [ttlMinutes, setTtlMinutes] = useState('');
-  const [enabled, setEnabled] = useState(false);
+  // '' means inherit; the tri-state a plain checkbox cannot express.
+  const [enabled, setEnabled] = useState<'' | 'on' | 'off'>('');
+  const [period, setPeriod] = useState<BudgetPeriod | ''>('');
   const [allowlist, setAllowlist] = useState<CloudProviderKind[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
   const [ackProvider, setAckProvider] = useState<CloudProviderKind | null>(null);
@@ -124,11 +143,80 @@ const CloudClientBudgets: React.FC = () => {
     queryFn: listClientCloudSettings,
   });
 
+  const { data: defaults } = useQuery<ClientCloudDefaults>({
+    queryKey: ['cloudClientDefaults'],
+    queryFn: getClientCloudDefaults,
+  });
+
+  const [defaultsForm, setDefaultsForm] = useState<ClientCloudDefaults | null>(null);
+  useEffect(() => {
+    if (defaults && defaultsForm === null) setDefaultsForm(defaults);
+  }, [defaults, defaultsForm]);
+
+  /*
+   * Which clients a given set of defaults would leave able to rent paid
+   * capacity.
+   *
+   * Resolved exactly the way the backend does — per field, override first,
+   * default second — because the whole point of showing this is that the
+   * operator can trust it. A count derived from slightly different rules than
+   * the ones that actually gate spending would be worse than no count at all.
+   */
+  const clientsEmpoweredBy = (d: ClientCloudDefaults | null): ClientCloudSettings[] => {
+    if (!d) return [];
+    return (clients ?? []).filter((c) => {
+      const enabled = c.cloud_enabled === null ? d.cloud_enabled : c.cloud_enabled;
+      const budget = c.cloud_budget_cents ?? d.cloud_budget_cents;
+      const providers =
+        c.cloud_provider_allowlist.length > 0
+          ? c.cloud_provider_allowlist
+          : d.cloud_provider_allowlist;
+      return enabled && budget !== null && providers.length > 0;
+    });
+  };
+
+  // The delta is what matters: clients that CANNOT spend today but could once
+  // this is saved. Showing the absolute total would cry wolf on every edit.
+  const newlyEmpowered = React.useMemo(() => {
+    const before = new Set(clientsEmpoweredBy(defaults ?? null).map((c) => c.client_id));
+    return clientsEmpoweredBy(defaultsForm).filter((c) => !before.has(c.client_id));
+  }, [clients, defaults, defaultsForm]);
+
+  const [confirmDefaults, setConfirmDefaults] = useState(false);
+
+  const submitDefaults = () => {
+    if (!defaultsForm) return;
+    // Only interrupt when the change widens who can spend. Narrowing it, or
+    // editing a period, saves straight through.
+    if (newlyEmpowered.length > 0) {
+      setConfirmDefaults(true);
+      return;
+    }
+    defaultsMutation.mutate(defaultsForm);
+  };
+
+  const defaultsMutation = useMutation({
+    mutationFn: updateClientCloudDefaults,
+    onSuccess: (saved) => {
+      enqueueSnackbar(t('cloud.budgets.defaults.saved') as string, { variant: 'success' });
+      setDefaultsForm(saved);
+      // Every inheriting client's effective values just changed.
+      queryClient.invalidateQueries({ queryKey: ['cloudClientSettings'] });
+      queryClient.invalidateQueries({ queryKey: ['cloudClientBudget'] });
+      queryClient.invalidateQueries({ queryKey: ['cloudClientDefaults'] });
+    },
+    onError: (err: any) =>
+      enqueueSnackbar(apiError(err, t('cloud.budgets.defaults.saveFailed') as string), {
+        variant: 'error',
+      }),
+  });
+
   useEffect(() => {
     if (!editing) return;
     setBudgetDollars(centsToDollars(editing.cloud_budget_cents));
     setTtlMinutes(editing.max_instance_ttl_minutes ? String(editing.max_instance_ttl_minutes) : '');
-    setEnabled(editing.cloud_enabled);
+    setEnabled(editing.cloud_enabled === null ? '' : editing.cloud_enabled ? 'on' : 'off');
+    setPeriod(editing.cloud_budget_period ?? '');
     setAllowlist(editing.cloud_provider_allowlist ?? []);
     setFormError(null);
   }, [editing]);
@@ -215,13 +303,22 @@ const CloudClientBudgets: React.FC = () => {
       }
     }
 
-    // Enabled with no funded budget can never provision anything; say so here
-    // rather than letting the operator discover it as a silent no-op.
-    if (enabled && cents === null) {
+    /*
+     * Validate against what will ACTUALLY be in force, not against what was
+     * typed. A client left inheriting is perfectly valid with empty fields, so
+     * these checks resolve through the defaults first — otherwise "inherit
+     * everything" would be rejected as "enabled without a budget".
+     */
+    const willBeEnabled = enabled === '' ? Boolean(defaults?.cloud_enabled) : enabled === 'on';
+    const willHaveBudget = cents !== null || (defaults?.cloud_budget_cents ?? null) !== null;
+    const willHaveProvider =
+      allowlist.length > 0 || (defaults?.cloud_provider_allowlist?.length ?? 0) > 0;
+
+    if (willBeEnabled && !willHaveBudget) {
       setFormError(t('cloud.budgets.errors.enabledWithoutBudget') as string);
       return;
     }
-    if (enabled && allowlist.length === 0) {
+    if (willBeEnabled && !willHaveProvider) {
       setFormError(t('cloud.budgets.errors.enabledWithoutProvider') as string);
       return;
     }
@@ -229,9 +326,10 @@ const CloudClientBudgets: React.FC = () => {
     saveMutation.mutate({
       clientId: editing.client_id,
       input: {
-        cloud_enabled: enabled,
+        cloud_enabled: enabled === '' ? null : enabled === 'on',
         cloud_provider_allowlist: allowlist,
         cloud_budget_cents: cents,
+        cloud_budget_period: period === '' ? null : period,
         max_instance_ttl_minutes: ttl,
       },
     });
@@ -251,6 +349,194 @@ const CloudClientBudgets: React.FC = () => {
           {apiError(error, t('cloud.budgets.loadFailed') as string)}
         </Alert>
       )}
+
+      {/*
+        * Server defaults. Placed above the client table because it is the
+        * setting that decides what every unconfigured client below is doing —
+        * reading the table without it tells you nothing about what will
+        * actually happen.
+        */}
+      <Accordion sx={{ mb: 3 }} defaultExpanded={(clients ?? []).length === 0}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Box>
+            <Typography variant="subtitle1">
+              {t('cloud.budgets.defaults.title') as string}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {defaultsForm?.cloud_budget_cents == null
+                ? (t('cloud.budgets.defaults.summaryUnset') as string)
+                : (t('cloud.budgets.defaults.summary', {
+                    amount: formatCents(defaultsForm.cloud_budget_cents),
+                    period: t(
+                      `cloud.budgets.periods.${defaultsForm.cloud_budget_period}`
+                    ) as string,
+                  }) as string)}
+            </Typography>
+          </Box>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t('cloud.budgets.defaults.description') as string}
+          </Typography>
+
+          {defaultsForm && (
+            <>
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
+                <Box sx={{ flex: '1 1 220px' }}>
+                  <MoneyField
+                    label={t('cloud.budgets.defaults.budget') as string}
+                    cents={defaultsForm.cloud_budget_cents}
+                    onChange={(cents) =>
+                      setDefaultsForm({ ...defaultsForm, cloud_budget_cents: cents })
+                    }
+                    helperText={t('cloud.budgets.defaults.budgetHelp') as string}
+                  />
+                </Box>
+                <Box sx={{ flex: '1 1 220px' }}>
+                  <FormControl fullWidth>
+                    <InputLabel>{t('cloud.budgets.defaults.period') as string}</InputLabel>
+                    <Select
+                      label={t('cloud.budgets.defaults.period') as string}
+                      value={defaultsForm.cloud_budget_period}
+                      onChange={(e) =>
+                        setDefaultsForm({
+                          ...defaultsForm,
+                          cloud_budget_period: e.target.value as BudgetPeriod,
+                        })
+                      }
+                    >
+                      {BUDGET_PERIODS.map((p) => (
+                        <MenuItem key={p} value={p}>
+                          {t(`cloud.budgets.periods.${p}`) as string}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Box>
+
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={defaultsForm.cloud_enabled}
+                    onChange={(e) =>
+                      setDefaultsForm({ ...defaultsForm, cloud_enabled: e.target.checked })
+                    }
+                  />
+                }
+                label={t('cloud.budgets.defaults.enabled') as string}
+              />
+
+              <Typography variant="subtitle2" sx={{ mt: 2 }}>
+                {t('cloud.budgets.defaults.providers') as string}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                {t('cloud.budgets.defaults.providersHelp') as string}
+              </Typography>
+              <Box>
+                {SELECTABLE_PROVIDERS.map((provider) => (
+                  <FormControlLabel
+                    key={provider}
+                    control={
+                      <Checkbox
+                        checked={defaultsForm.cloud_provider_allowlist.includes(provider)}
+                        onChange={(e) =>
+                          setDefaultsForm({
+                            ...defaultsForm,
+                            cloud_provider_allowlist: e.target.checked
+                              ? [...defaultsForm.cloud_provider_allowlist, provider]
+                              : defaultsForm.cloud_provider_allowlist.filter(
+                                  (p) => p !== provider
+                                ),
+                          })
+                        }
+                      />
+                    }
+                    label={cloudProviderLabel(provider)}
+                  />
+                ))}
+              </Box>
+
+              {/*
+                * Peer providers still need a per-client acknowledgement even
+                * when defaulted in, so say so rather than letting a default
+                * look like it granted consent on everyone's behalf.
+                */}
+              {defaultsForm.cloud_provider_allowlist.some((p) =>
+                requiresThirdPartyAck(p as CloudProviderKind)
+              ) && (
+                <Alert severity="warning" sx={{ mt: 1 }}>
+                  {t('cloud.budgets.defaults.peerAckNote') as string}
+                </Alert>
+              )}
+
+              {defaultsForm.cloud_enabled && defaultsForm.cloud_budget_cents !== null && (
+                <Alert severity="info" sx={{ mt: 2 }}>
+                  {t('cloud.budgets.defaults.appliesNow') as string}
+                </Alert>
+              )}
+
+              {/*
+                * Funding without enabling provisions nothing, and the two live
+                * in different controls, so the combination is easy to leave
+                * half-done and impossible to diagnose from the client table.
+                */}
+              {!defaultsForm.cloud_enabled && defaultsForm.cloud_budget_cents !== null && (
+                <Alert severity="warning" sx={{ mt: 2 }}>
+                  {t('cloud.budgets.defaults.fundedButDisabled') as string}
+                </Alert>
+              )}
+
+              {defaultsForm.cloud_enabled &&
+                defaultsForm.cloud_provider_allowlist.length === 0 && (
+                  <Alert severity="warning" sx={{ mt: 2 }}>
+                    {t('cloud.budgets.defaults.enabledWithoutProviders') as string}
+                  </Alert>
+                )}
+
+              {newlyEmpowered.length > 0 && (
+                <Alert severity="warning" sx={{ mt: 2 }}>
+                  <AlertTitle>
+                    {t('cloud.budgets.defaults.willEnableTitle', {
+                      count: newlyEmpowered.length,
+                    }) as string}
+                  </AlertTitle>
+                  {t('cloud.budgets.defaults.willEnableBody') as string}
+                  <Box sx={{ mt: 1 }}>
+                    {newlyEmpowered.slice(0, 12).map((c) => (
+                      <Chip
+                        key={c.client_id}
+                        size="small"
+                        sx={{ mr: 0.5, mb: 0.5 }}
+                        label={c.client_name}
+                      />
+                    ))}
+                    {newlyEmpowered.length > 12 && (
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={t('cloud.budgets.defaults.andMore', {
+                          count: newlyEmpowered.length - 12,
+                        }) as string}
+                      />
+                    )}
+                  </Box>
+                </Alert>
+              )}
+
+              <Box sx={{ mt: 2 }}>
+                <Button
+                  variant="contained"
+                  disabled={defaultsMutation.isPending}
+                  onClick={submitDefaults}
+                >
+                  {t('cloud.budgets.defaults.save') as string}
+                </Button>
+              </Box>
+            </>
+          )}
+        </AccordionDetails>
+      </Accordion>
 
       {isLoading ? (
         <CircularProgress />
@@ -337,6 +623,54 @@ const CloudClientBudgets: React.FC = () => {
         <DialogContent>
           {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
 
+          {/* Whether this client may spend at all comes FIRST: every field
+              below it is meaningless until this is answered. */}
+          {/*
+            * Three states, not a checkbox. A checkbox can only say on or off,
+            * which leaves no way to put a client back to following the server
+            * default once it has been set either way.
+            */}
+          <FormControl fullWidth margin="normal">
+            <InputLabel>{t('cloud.budgets.fields.enabled') as string}</InputLabel>
+            <Select
+              label={t('cloud.budgets.fields.enabled') as string}
+              value={enabled}
+              onChange={(e) => setEnabled(e.target.value as '' | 'on' | 'off')}
+            >
+              <MenuItem value="">
+                {t('cloud.budgets.inheritLabel', {
+                  value: defaults?.cloud_enabled
+                    ? (t('cloud.budgets.on') as string)
+                    : (t('cloud.budgets.off') as string),
+                }) as string}
+              </MenuItem>
+              <MenuItem value="on">{t('cloud.budgets.on') as string}</MenuItem>
+              <MenuItem value="off">{t('cloud.budgets.off') as string}</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth margin="normal">
+            <InputLabel>{t('cloud.budgets.fields.period') as string}</InputLabel>
+            <Select
+              label={t('cloud.budgets.fields.period') as string}
+              value={period}
+              onChange={(e) => setPeriod(e.target.value as BudgetPeriod | '')}
+            >
+              <MenuItem value="">
+                {t('cloud.budgets.inheritLabel', {
+                  value: t(
+                    `cloud.budgets.periods.${defaults?.cloud_budget_period ?? 'monthly'}`
+                  ) as string,
+                }) as string}
+              </MenuItem>
+              {BUDGET_PERIODS.map((p) => (
+                <MenuItem key={p} value={p}>
+                  {t(`cloud.budgets.periods.${p}`) as string}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
           <TextField
             fullWidth
             margin="normal"
@@ -392,16 +726,63 @@ const CloudClientBudgets: React.FC = () => {
             </Box>
           ))}
 
-          <FormControlLabel
-            sx={{ mt: 2 }}
-            control={<Checkbox checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />}
-            label={t('cloud.budgets.fields.enabled') as string}
-          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditing(null)}>{t('buttons.cancel', { ns: 'common' }) as string}</Button>
           <Button variant="contained" onClick={handleSave} disabled={saveMutation.isPending}>
             {t('buttons.save', { ns: 'common' }) as string}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/*
+        * Saving a default that widens who can spend is confirmed explicitly.
+        *
+        * This is the one action in the feature whose blast radius is not
+        * visible from the control that triggers it: a single checkbox on a
+        * defaults panel can hand paid capacity to every client that has never
+        * been configured. Naming them, and requiring a second click, keeps that
+        * from being something an operator discovers on an invoice.
+        */}
+      <Dialog open={confirmDefaults} onClose={() => setConfirmDefaults(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {t('cloud.budgets.defaults.confirmTitle', { count: newlyEmpowered.length }) as string}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            {t('cloud.budgets.defaults.confirmBody', {
+              count: newlyEmpowered.length,
+              amount:
+                defaultsForm?.cloud_budget_cents != null
+                  ? formatCents(defaultsForm.cloud_budget_cents)
+                  : '',
+              period: t(
+                `cloud.budgets.periods.${defaultsForm?.cloud_budget_period ?? 'monthly'}`
+              ) as string,
+            }) as string}
+          </DialogContentText>
+          <Box>
+            {newlyEmpowered.map((c) => (
+              <Chip key={c.client_id} size="small" sx={{ mr: 0.5, mb: 0.5 }} label={c.client_name} />
+            ))}
+          </Box>
+          <Alert severity="info" sx={{ mt: 2 }}>
+            {t('cloud.budgets.defaults.confirmAlternative') as string}
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDefaults(false)}>
+            {t('buttons.cancel', { ns: 'common' }) as string}
+          </Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={() => {
+              setConfirmDefaults(false);
+              if (defaultsForm) defaultsMutation.mutate(defaultsForm);
+            }}
+          >
+            {t('cloud.budgets.defaults.confirmAccept', { count: newlyEmpowered.length }) as string}
           </Button>
         </DialogActions>
       </Dialog>
