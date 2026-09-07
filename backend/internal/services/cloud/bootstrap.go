@@ -178,6 +178,18 @@ docker run -d --restart=unless-stopped --name krakenhashes-agent \
   -v %s:%s \
   -e %s=%s \
 %s  %s
+
+# Mirror the container's output to the serial console.
+#
+# Running the container detached means nothing the entrypoint logs reaches the
+# console, and ec2:GetConsoleOutput is the ONLY window into a rented instance
+# that never registers -- there is no SSH, no agent, and the machine deletes
+# itself. Without this, diagnosing a failed launch means inferring from timings
+# after the evidence has already been destroyed.
+#
+# Writes to /dev/console rather than syslog because only the console is captured
+# by the provider and readable after termination.
+nohup sh -c 'docker logs -f krakenhashes-agent >/dev/console 2>&1' >/dev/null 2>&1 &
 `, hostDeadlinePath, hostDeadlineDir, deadline, hostDeadlinePath,
 		hostDeadlinePath, req.Image, hostDeadlinePath,
 		hostDeadlinePath, containerDeadlinePath,

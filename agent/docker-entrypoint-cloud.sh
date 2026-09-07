@@ -190,25 +190,29 @@ start_netbird() {
     [ -n "${KH_VPN_LOGIN_SERVER:-}" ] && args+=(--management-url "${KH_VPN_LOGIN_SERVER}")
     netbird up "${args[@]}" &
 
-    # Previously this slept 10 seconds and returned, so the function's exit
-    # status was `log`'s -- always 0. `start_netbird || self_destruct` could
-    # therefore never fire, and a revoked or malformed setup key produced a
-    # fully billing instance that sat unreachable until the 15-minute heartbeat
-    # watchdog caught it. The tailscale path has always polled; this brings
-    # netbird in line.
-    for _ in $(seq 1 30); do
-        if netbird status 2>/dev/null | grep -q "Management: Connected"; then
-            log "netbird enrolled"
-            if wait_for_socks 15; then
-                log "netbird netstack started"
-                return 0
-            fi
-            log "FATAL: netbird enrolled but opened no SOCKS listener on ${SOCKS_PORT}"
-            return 1
-        fi
-        sleep 2
-    done
-    log "FATAL: netbird did not reach 'Management: Connected' within 60s"
+    # Readiness is the SOCKS listener, not `netbird status`.
+    #
+    # Two earlier versions of this were wrong in opposite directions. The
+    # original slept 10s and returned, so the function's exit status was
+    # `log`'s -- always 0 -- and `start_netbird || self_destruct` could never
+    # fire: a revoked key produced a billing instance that sat unreachable
+    # until the 15-minute heartbeat watchdog caught it.
+    #
+    # The replacement polled `netbird status` for "Management: Connected".
+    # That cannot work under `-F`: foreground mode never creates
+    # /var/run/netbird.sock, so status fails with "failed to connect to
+    # daemon" EVERY time, and each call blocks ~12s on a gRPC deadline before
+    # it does. Thirty of those is seven minutes of a healthy, billing instance
+    # before a self-destruct for a VPN that was actually up.
+    #
+    # The SOCKS listener is the right signal on both counts: it is what the
+    # agent proxies through, so it tests the thing that must work rather than a
+    # proxy for it, and it costs a TCP connect rather than a daemon round trip.
+    if wait_for_socks 45; then
+        log "netbird netstack started (SOCKS on ${SOCKS_PORT})"
+        return 0
+    fi
+    log "FATAL: netbird opened no SOCKS listener on ${SOCKS_PORT} within 90s"
     return 1
 }
 
