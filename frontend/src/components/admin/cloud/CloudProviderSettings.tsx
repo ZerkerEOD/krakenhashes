@@ -86,6 +86,91 @@ const CREDENTIAL_KINDS: Record<VPNProviderKind, VPNCredentialKind[]> = {
   wireguard: ['static_config'],
 };
 
+/**
+ * Which providers the backend can actually build a client for.
+ *
+ * buildProvider (backend/internal/services/cloud/service.go) handles vastai,
+ * aws and mock, and falls through to "unsupported cloud provider" for the two
+ * RunPod kinds — the adapter is not written yet. Offering them without saying
+ * so lets an admin configure a provider, enable it, allowlist it for a client
+ * and get silence, because nothing fails until the first launch attempt.
+ */
+const IMPLEMENTED_PROVIDERS: CloudProviderKind[] = ['aws', 'vastai', 'mock'];
+
+/**
+ * The settings key holding the VPN control-plane URL, per VPN provider.
+ *
+ * Self-hosted deployments are the norm for NetBird and common for Tailscale
+ * (Headscale), and without this the client is pointed at the vendor's SaaS.
+ * Read back by netbirdManagementURL/tailscaleLoginServer in
+ * backend/internal/services/cloud/vpn.go.
+ */
+const VPN_URL_SETTING: Partial<Record<VPNProviderKind, string>> = {
+  netbird: 'netbird_management_url',
+  tailscale: 'tailscale_login_server',
+};
+
+/**
+ * One row of the AWS instance-type table.
+ *
+ * AWSSettings splits this across two maps keyed by instance type
+ * (instance_type_rates and instance_type_gpus). That is the right shape on the
+ * wire and the wrong shape for a form, so the UI flattens it and re-splits on
+ * write — an operator should never have to keep two maps in agreement by hand.
+ */
+interface AWSInstanceRow {
+  instance_type: string;
+  hourly_cents: number;
+  gpu_model: string;
+  gpu_count: number;
+  vram_gb_per_gpu: number;
+}
+
+const emptyAWSRow = (): AWSInstanceRow => ({
+  instance_type: '',
+  hourly_cents: 0,
+  gpu_model: '',
+  gpu_count: 1,
+  vram_gb_per_gpu: 0,
+});
+
+const awsRowsFromSettings = (settings: Record<string, any>): AWSInstanceRow[] => {
+  const rates = (settings?.instance_type_rates ?? {}) as Record<string, number>;
+  const gpus = (settings?.instance_type_gpus ?? {}) as Record<string, any>;
+  const types = Array.from(new Set([...Object.keys(rates), ...Object.keys(gpus)]));
+  return types.map((instance_type) => ({
+    instance_type,
+    hourly_cents: rates[instance_type] ?? 0,
+    gpu_model: gpus[instance_type]?.gpu_model ?? '',
+    gpu_count: gpus[instance_type]?.gpu_count ?? 1,
+    vram_gb_per_gpu: gpus[instance_type]?.vram_gb_per_gpu ?? 0,
+  }));
+};
+
+const awsRowsToSettings = (rows: AWSInstanceRow[]) => {
+  const instance_type_rates: Record<string, number> = {};
+  const instance_type_gpus: Record<string, any> = {};
+  rows.forEach((row) => {
+    const key = row.instance_type.trim();
+    if (!key) return;
+    instance_type_rates[key] = row.hourly_cents;
+    /*
+     * The GPU declaration is optional and must stay genuinely absent when the
+     * model is blank. Writing {gpu_model: ""} instead would match no entry in
+     * the class table while still looking declared, and cost-per-work ranking
+     * would quietly collapse to price-per-hour with nothing to show for it.
+     */
+    if (row.gpu_model.trim()) {
+      instance_type_gpus[key] = {
+        gpu_model: row.gpu_model.trim(),
+        gpu_count: row.gpu_count || 1,
+        ...(row.vram_gb_per_gpu > 0 ? { vram_gb_per_gpu: row.vram_gb_per_gpu } : {}),
+      };
+    }
+  });
+  return { instance_type_rates, instance_type_gpus };
+};
+
 const CloudProviderSettings: React.FC = () => {
   const { t } = useTranslation('admin');
   const queryClient = useQueryClient();
@@ -98,6 +183,15 @@ const CloudProviderSettings: React.FC = () => {
   const [ackTarget, setAckTarget] = useState<CloudProviderConfig | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CloudProviderConfig | null>(null);
   const [preflight, setPreflight] = useState<CloudPreflightReport | null>(null);
+  /*
+   * AWS instance types are held here rather than derived from form.settings on
+   * every render, because awsRowsToSettings drops rows with a blank instance
+   * type — deriving would delete a half-typed row the moment it was created.
+   */
+  const [awsRows, setAwsRows] = useState<AWSInstanceRow[]>([]);
+  // AWS credentials are a JSON blob on the wire but two fields to a human.
+  const [awsKeyID, setAwsKeyID] = useState('');
+  const [awsSecret, setAwsSecret] = useState('');
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['cloudProviders'],
@@ -154,6 +248,9 @@ const CloudProviderSettings: React.FC = () => {
   const openCreate = () => {
     setEditing(null);
     setForm(emptyForm());
+    setAwsRows([emptyAWSRow()]);
+    setAwsKeyID('');
+    setAwsSecret('');
     setFormError(null);
     setDialogOpen(true);
   };
@@ -175,9 +272,26 @@ const CloudProviderSettings: React.FC = () => {
       vpn_tag_or_group: cfg.vpn_tag_or_group ?? '',
       backend_vpn_host: cfg.backend_vpn_host ?? '',
     });
+    const rows = awsRowsFromSettings(cfg.settings ?? {});
+    setAwsRows(rows.length ? rows : [emptyAWSRow()]);
+    setAwsKeyID('');
+    setAwsSecret('');
     setFormError(null);
     setDialogOpen(true);
   };
+
+  /** Write one provider-settings key without disturbing the others. */
+  const setSetting = (key: string, value: any) =>
+    setForm((f) => ({ ...f, settings: { ...f.settings, [key]: value } }));
+
+  /** Update the instance-type table and keep both settings maps in step. */
+  const updateAwsRows = (rows: AWSInstanceRow[]) => {
+    setAwsRows(rows);
+    setForm((f) => ({ ...f, settings: { ...f.settings, ...awsRowsToSettings(rows) } }));
+  };
+
+  const patchAwsRow = (index: number, patch: Partial<AWSInstanceRow>) =>
+    updateAwsRows(awsRows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
 
   const handleVPNProviderChange = (provider: VPNProviderKind) => {
     const kinds = CREDENTIAL_KINDS[provider];
@@ -194,6 +308,28 @@ const CloudProviderSettings: React.FC = () => {
   const handleSubmit = () => {
     setFormError(null);
     const payload: CloudProviderConfigInput = { ...form };
+
+    /*
+     * AWS credentials go over the wire as a JSON document, because that is
+     * what buildProvider unmarshals into AWSCredentials. Serialised here so
+     * the operator types an access key and a secret rather than JSON.
+     *
+     * Only sent when something was typed: blank means "keep the stored
+     * credential", and writing {"access_key_id":"","secret_access_key":""}
+     * would overwrite a working secret with an empty one.
+     */
+    if (payload.provider === 'aws') {
+      if (awsKeyID.trim() || awsSecret.trim()) {
+        payload.credentials = JSON.stringify({
+          access_key_id: awsKeyID.trim(),
+          secret_access_key: awsSecret.trim(),
+        });
+      } else {
+        payload.credentials = '';
+      }
+      payload.settings = { ...payload.settings, ...awsRowsToSettings(awsRows) };
+    }
+
     // Omit blank secrets entirely so the backend keeps the stored ciphertext.
     if (!payload.credentials) delete payload.credentials;
     if (!payload.vpn_credential) delete payload.vpn_credential;
@@ -356,7 +492,8 @@ const CloudProviderSettings: React.FC = () => {
       )}
 
       {/* --- Create / edit --- */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+      {/* md, not sm: the AWS section carries a five-column instance-type table. */}
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>
           {editing
             ? (t('cloud.providers.editTitle') as string)
@@ -404,21 +541,317 @@ const CloudProviderSettings: React.FC = () => {
             </Select>
           </FormControl>
 
-          <TextField
-            fullWidth
-            margin="normal"
-            type="password"
-            autoComplete="new-password"
-            label={t('cloud.providers.fields.credentials') as string}
-            value={form.credentials ?? ''}
-            onChange={(e) => setForm({ ...form, credentials: e.target.value })}
-            helperText={
-              editing
-                ? (t('cloud.providers.fields.credentialsKeepHelp') as string)
-                : (t('cloud.providers.fields.credentialsHelp', { provider: form.provider }) as string)
-            }
-            required={secretsRequired}
-          />
+          {!IMPLEMENTED_PROVIDERS.includes(form.provider) && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {t('cloud.providers.providerNotImplemented') as string}
+            </Alert>
+          )}
+
+          {/* AWS authenticates with an access key pair, not a single token. */}
+          {form.provider === 'aws' ? (
+            <>
+              <TextField
+                fullWidth
+                margin="normal"
+                autoComplete="off"
+                label={t('cloud.providers.fields.awsAccessKeyId') as string}
+                value={awsKeyID}
+                onChange={(e) => setAwsKeyID(e.target.value)}
+                helperText={
+                  editing
+                    ? (t('cloud.providers.fields.credentialsKeepHelp') as string)
+                    : (t('cloud.providers.fields.awsAccessKeyIdHelp') as string)
+                }
+                required={secretsRequired}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                type="password"
+                autoComplete="new-password"
+                label={t('cloud.providers.fields.awsSecretAccessKey') as string}
+                value={awsSecret}
+                onChange={(e) => setAwsSecret(e.target.value)}
+                required={secretsRequired}
+              />
+            </>
+          ) : (
+            <TextField
+              fullWidth
+              margin="normal"
+              type="password"
+              autoComplete="new-password"
+              label={t('cloud.providers.fields.credentials') as string}
+              value={form.credentials ?? ''}
+              onChange={(e) => setForm({ ...form, credentials: e.target.value })}
+              helperText={
+                editing
+                  ? (t('cloud.providers.fields.credentialsKeepHelp') as string)
+                  : (t('cloud.providers.fields.credentialsHelp', {
+                      provider: form.provider,
+                    }) as string)
+              }
+              required={secretsRequired}
+            />
+          )}
+
+          {form.provider === 'aws' && (
+            <>
+              <Typography variant="subtitle2" sx={{ mt: 3 }}>
+                {t('cloud.providers.awsSection') as string}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                {t('cloud.providers.awsSectionHelp') as string}
+              </Typography>
+
+              <TextField
+                fullWidth
+                margin="normal"
+                label={t('cloud.providers.fields.awsRegion') as string}
+                value={form.settings?.region ?? ''}
+                onChange={(e) => setSetting('region', e.target.value.trim())}
+                helperText={t('cloud.providers.fields.awsRegionHelp') as string}
+                required
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                label={t('cloud.providers.fields.awsSubnet') as string}
+                value={form.settings?.subnet_id ?? ''}
+                onChange={(e) => setSetting('subnet_id', e.target.value.trim())}
+                helperText={t('cloud.providers.fields.awsSubnetHelp') as string}
+                required
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                label={t('cloud.providers.fields.awsSecurityGroups') as string}
+                value={(form.settings?.security_group_ids ?? []).join(', ')}
+                onChange={(e) =>
+                  setSetting(
+                    'security_group_ids',
+                    e.target.value
+                      .split(',')
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                  )
+                }
+                helperText={t('cloud.providers.fields.awsSecurityGroupsHelp') as string}
+                required
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                label={t('cloud.providers.fields.awsAmiSsm') as string}
+                value={form.settings?.ami_ssm_parameter ?? ''}
+                onChange={(e) => setSetting('ami_ssm_parameter', e.target.value.trim())}
+                helperText={t('cloud.providers.fields.awsAmiSsmHelp') as string}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                label={t('cloud.providers.fields.awsAmiId') as string}
+                value={form.settings?.ami_id ?? ''}
+                onChange={(e) => setSetting('ami_id', e.target.value.trim())}
+                helperText={t('cloud.providers.fields.awsAmiIdHelp') as string}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                label={t('cloud.providers.fields.awsInstanceProfile') as string}
+                value={form.settings?.iam_instance_profile_arn ?? ''}
+                onChange={(e) => setSetting('iam_instance_profile_arn', e.target.value.trim())}
+                helperText={t('cloud.providers.fields.awsInstanceProfileHelp') as string}
+              />
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  type="number"
+                  label={t('cloud.providers.fields.awsRootVolume') as string}
+                  value={form.settings?.root_volume_gb ?? 100}
+                  onChange={(e) =>
+                    setSetting('root_volume_gb', parseInt(e.target.value, 10) || 0)
+                  }
+                  helperText={t('cloud.providers.fields.awsRootVolumeHelp') as string}
+                  inputProps={{ min: 0 }}
+                />
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  type="number"
+                  label={t('cloud.providers.fields.awsEbsRate') as string}
+                  value={form.settings?.ebs_cents_per_gb_month ?? 8}
+                  onChange={(e) =>
+                    setSetting('ebs_cents_per_gb_month', parseFloat(e.target.value) || 0)
+                  }
+                  helperText={t('cloud.providers.fields.awsEbsRateHelp') as string}
+                  inputProps={{ min: 0, step: 0.1 }}
+                />
+              </Box>
+              <FormControlLabel
+                sx={{ mt: 1 }}
+                control={
+                  <Checkbox
+                    checked={Boolean(form.settings?.use_spot)}
+                    onChange={(e) => setSetting('use_spot', e.target.checked)}
+                  />
+                }
+                label={t('cloud.providers.fields.awsUseSpot') as string}
+              />
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                {t('cloud.providers.fields.awsUseSpotHelp') as string}
+              </Typography>
+
+              <Typography variant="subtitle2" sx={{ mt: 2 }}>
+                {t('cloud.providers.awsInstanceTypes') as string}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                {t('cloud.providers.awsInstanceTypesHelp') as string}
+              </Typography>
+              {awsRows.map((row, i) => (
+                <Box key={i} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 1 }}>
+                  <TextField
+                    sx={{ flex: 2 }}
+                    size="small"
+                    label={t('cloud.providers.fields.awsInstanceType') as string}
+                    value={row.instance_type}
+                    onChange={(e) => patchAwsRow(i, { instance_type: e.target.value })}
+                  />
+                  <TextField
+                    sx={{ flex: 1 }}
+                    size="small"
+                    type="number"
+                    label={t('cloud.providers.fields.awsHourlyCents') as string}
+                    value={row.hourly_cents}
+                    onChange={(e) =>
+                      patchAwsRow(i, { hourly_cents: parseInt(e.target.value, 10) || 0 })
+                    }
+                    inputProps={{ min: 0 }}
+                  />
+                  <TextField
+                    sx={{ flex: 2 }}
+                    size="small"
+                    label={t('cloud.providers.fields.awsGpuModel') as string}
+                    value={row.gpu_model}
+                    onChange={(e) => patchAwsRow(i, { gpu_model: e.target.value })}
+                  />
+                  <TextField
+                    sx={{ flex: 1 }}
+                    size="small"
+                    type="number"
+                    label={t('cloud.providers.fields.awsGpuCount') as string}
+                    value={row.gpu_count}
+                    onChange={(e) =>
+                      patchAwsRow(i, { gpu_count: parseInt(e.target.value, 10) || 0 })
+                    }
+                    inputProps={{ min: 0 }}
+                  />
+                  <TextField
+                    sx={{ flex: 1 }}
+                    size="small"
+                    type="number"
+                    label={t('cloud.providers.fields.awsVram') as string}
+                    value={row.vram_gb_per_gpu}
+                    onChange={(e) =>
+                      patchAwsRow(i, { vram_gb_per_gpu: parseInt(e.target.value, 10) || 0 })
+                    }
+                    inputProps={{ min: 0 }}
+                  />
+                  <Tooltip title={t('cloud.providers.awsRemoveInstanceType') as string}>
+                    <span>
+                      <Button
+                        size="small"
+                        color="error"
+                        disabled={awsRows.length <= 1}
+                        onClick={() => updateAwsRows(awsRows.filter((_, j) => j !== i))}
+                        sx={{ mt: 0.5, minWidth: 0 }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </Button>
+                    </span>
+                  </Tooltip>
+                </Box>
+              ))}
+              <Button
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={() => updateAwsRows([...awsRows, emptyAWSRow()])}
+              >
+                {t('cloud.providers.awsAddInstanceType') as string}
+              </Button>
+            </>
+          )}
+
+          {form.provider === 'mock' && (
+            <>
+              <Typography variant="subtitle2" sx={{ mt: 3 }}>
+                {t('cloud.providers.mockSection') as string}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                {t('cloud.providers.mockSectionHelp') as string}
+              </Typography>
+              <TextField
+                fullWidth
+                margin="normal"
+                label={t('cloud.providers.fields.mockAgentBinary') as string}
+                value={form.settings?.agent_binary ?? ''}
+                onChange={(e) => setSetting('agent_binary', e.target.value.trim())}
+                helperText={t('cloud.providers.fields.mockAgentBinaryHelp') as string}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                label={t('cloud.providers.fields.mockBackendHost') as string}
+                value={form.settings?.backend_host ?? ''}
+                onChange={(e) => setSetting('backend_host', e.target.value.trim())}
+                helperText={t('cloud.providers.fields.mockBackendHostHelp') as string}
+              />
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  type="number"
+                  label={t('cloud.providers.fields.mockHourlyRate') as string}
+                  value={form.settings?.hourly_rate_cents ?? 0}
+                  onChange={(e) =>
+                    setSetting('hourly_rate_cents', parseInt(e.target.value, 10) || 0)
+                  }
+                  inputProps={{ min: 0 }}
+                />
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  type="number"
+                  label={t('cloud.providers.fields.mockBootDelay') as string}
+                  value={form.settings?.boot_delay_seconds ?? 0}
+                  onChange={(e) =>
+                    setSetting('boot_delay_seconds', parseInt(e.target.value, 10) || 0)
+                  }
+                  inputProps={{ min: 0 }}
+                />
+              </Box>
+              {(
+                [
+                  ['fail_launch', 'mockFailLaunch'],
+                  ['drop_launch_response', 'mockDropLaunchResponse'],
+                  ['never_register', 'mockNeverRegister'],
+                  ['fail_destroy', 'mockFailDestroy'],
+                ] as const
+              ).map(([key, label]) => (
+                <FormControlLabel
+                  key={key}
+                  control={
+                    <Checkbox
+                      checked={Boolean(form.settings?.[key])}
+                      onChange={(e) => setSetting(key, e.target.checked)}
+                    />
+                  }
+                  label={t(`cloud.providers.fields.${label}`) as string}
+                />
+              ))}
+            </>
+          )}
 
           <TextField
             fullWidth
@@ -486,7 +919,16 @@ const CloudProviderSettings: React.FC = () => {
             form.vpn_credential_kind === 'static_config') && (
             <Alert severity="warning" sx={{ mt: 1 }}>
               {form.vpn_credential_kind === 'reusable_key'
-                ? (t('cloud.providers.reusableKeyWarning') as string)
+                ? // Keyed by provider: the caveats are not shared. Tailscale's
+                  // 90-day auth-key cap does not apply to NetBird, and the
+                  // escape hatch is an OAuth client on one and a PAT on the
+                  // other, so a single string is wrong for whichever provider
+                  // it was not written for.
+                  (t(
+                    `cloud.providers.reusableKeyWarning.${
+                      form.vpn_provider === 'netbird' ? 'netbird' : 'tailscale'
+                    }`
+                  ) as string)
                 : (t('cloud.providers.staticConfigWarning') as string)}
             </Alert>
           )}
@@ -529,6 +971,24 @@ const CloudProviderSettings: React.FC = () => {
             />
           )}
 
+          {/*
+            * Control-plane URL. Required for a self-hosted NetBird (the mint
+            * call posts to {url}/api/setup-keys and the client is started with
+            * --management-url) and for Headscale. Blank means the vendor SaaS.
+            */}
+          {VPN_URL_SETTING[form.vpn_provider ?? 'tailscale'] && (
+            <TextField
+              fullWidth
+              margin="normal"
+              label={t(`cloud.providers.fields.vpnUrl.${form.vpn_provider}`) as string}
+              value={form.settings?.[VPN_URL_SETTING[form.vpn_provider!]!] ?? ''}
+              onChange={(e) =>
+                setSetting(VPN_URL_SETTING[form.vpn_provider!]!, e.target.value.trim())
+              }
+              helperText={t(`cloud.providers.fields.vpnUrlHelp.${form.vpn_provider}`) as string}
+            />
+          )}
+
           {form.vpn_provider !== 'wireguard' && (
             <TextField
               fullWidth
@@ -536,7 +996,17 @@ const CloudProviderSettings: React.FC = () => {
               label={t('cloud.providers.fields.vpnTag') as string}
               value={form.vpn_tag_or_group ?? ''}
               onChange={(e) => setForm({ ...form, vpn_tag_or_group: e.target.value })}
-              helperText={t('cloud.providers.fields.vpnTagHelp') as string}
+              /*
+               * NetBird only consumes this on the PAT path, as auto_groups on
+               * the key it mints. start_netbird passes --setup-key and
+               * --management-url and never reads KH_VPN_TAG, so with a reusable
+               * key the field does nothing and the help must say so.
+               */
+              helperText={
+                form.vpn_provider === 'netbird' && form.vpn_credential_kind === 'reusable_key'
+                  ? (t('cloud.providers.fields.vpnTagIgnoredHelp') as string)
+                  : (t('cloud.providers.fields.vpnTagHelp') as string)
+              }
             />
           )}
 
@@ -577,7 +1047,7 @@ const CloudProviderSettings: React.FC = () => {
         <DialogTitle>{t('cloud.providers.ackTitle') as string}</DialogTitle>
         <DialogContent>
           <Alert severity="warning" sx={{ mb: 2 }}>
-            <AlertTitle>{t('cloud.providers.vastWarningTitle') as string}</AlertTitle>
+            <AlertTitle>{t('cloud.providers.peerWarningTitle') as string}</AlertTitle>
             {/* Keyed by tier: naming the wrong provider in a data-exposure
                 consent dialog is the whole risk this dialog exists to manage. */}
             {ackTarget && (t(`cloud.providers.ackBody.${ackTarget.provider}`) as string)}

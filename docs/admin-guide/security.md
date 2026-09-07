@@ -194,6 +194,43 @@ Multiple TLS modes supported:
    - Automatic renewal via ACME
    - Production-ready certificates
 
+### Certificate names are restricted to internal addresses
+
+The addresses in the server certificate are managed in **Admin → Settings → Server
+Certificate**. Only private and VPN ranges are accepted — RFC 1918, CGNAT
+(`100.64.0.0/10`, used by Tailscale and by NetBird's default network), loopback,
+link-local, and IPv6 ULA. This is enforced on the server, not only in the UI.
+
+There is deliberately **no override of any kind** — not per address, and not by
+declaring extra ranges. KrakenHashes stores cracked credentials; naming an
+internet-routable address in its certificate is always a configuration error, and
+every escape hatch eventually gets used.
+
+This does mean a VPN configured on non-private address space will be refused, even
+though those addresses are private *within that overlay*. That is intended. The fix
+is to renumber the VPN onto RFC 1918 or `100.64.0.0/10`, which is also correct for
+its own sake: an overlay built on address space assigned to someone else stops every
+peer on it from reaching the real hosts there.
+
+### The agent bootstrap port (1337) must not be exposed
+
+Port 1337 serves plain HTTP, by necessity: it is how an agent obtains the CA
+certificate before it has any basis for trusting TLS. Three endpoints live there:
+
+| Endpoint | Sensitivity |
+|---|---|
+| `GET /ca.crt` | Public certificate; not sensitive |
+| `POST /api/agent/renew-certificates` | Accepts an agent API key **in cleartext** and returns a client certificate **and its private key** |
+| `POST /api/agent/tls-failure` | Accepts an agent API key in cleartext; returns no credentials and never causes a certificate to be issued |
+
+Anyone able to observe traffic on this port can capture a working agent identity from
+the renewal endpoint. It must be reachable by your agents and by nobody else, and it
+must **never** be published to the internet.
+
+The failure-reporting endpoint is deliberately constrained so that agent credentials
+cannot influence what a certificate asserts: a valid API key lets an agent *suggest*
+an address for an administrator to review, and nothing more.
+
 ### API Security
 
 - **Rate Limiting**: Prevents abuse and DoS attacks

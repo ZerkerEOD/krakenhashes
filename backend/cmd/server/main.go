@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	// Aliased: internal/handlers/tls below already takes the name `tls`.
+	cryptotls "crypto/tls"
 	"net/http"
 	"os"
 	"os/signal"
@@ -35,15 +37,19 @@ import (
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/database"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/db"
 	admincloud "github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/admin/cloud"
+	adminsettings "github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/admin/settings"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/agent"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/handlers/tls"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/middleware"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/routes"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/rule"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/services"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/certs"
 	cloudsvc "github.com/ZerkerEOD/krakenhashes/backend/internal/services/cloud"
 	retentionsvc "github.com/ZerkerEOD/krakenhashes/backend/internal/services/retention"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/services/sandiscovery"
 	tlsprovider "github.com/ZerkerEOD/krakenhashes/backend/internal/tls"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/version"
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/wordlist"
@@ -69,14 +75,33 @@ func main() {
 	debug.Debug("Current working directory: %s", cwd)
 
 	// Load .env file
+	//
+	// godotenv aborts on the FIRST unparseable line and returns without applying
+	// anything, so a single malformed line silently discards every variable in
+	// the file. That failure mode is indistinguishable from "no .env present"
+	// unless we check separately, and it has already cost real debugging time:
+	// a stray shell conditional written into .env by the container entrypoint
+	// dropped KH_ADDITIONAL_IP_ADDRESSES for every dev deployment. A present but
+	// broken .env is an error, not a missing-file fallback.
 	err = godotenv.Load()
 	if err != nil {
+		if _, statErr := os.Stat(".env"); statErr == nil {
+			debug.Error("A .env file exists in %s but could not be parsed: %v", cwd, err)
+			debug.Error("EVERY variable in that file has been ignored, not just the offending line.")
+			debug.Error("Fix the line named above; environment variables are being used instead.")
+		}
+
 		debug.Info("Attempting to load .env from current directory: %s", cwd)
 		debug.Warning("Failed to load .env file from current directory: %v", err)
 
 		debug.Info("Attempting to load .env from project root")
 		err = godotenv.Load("../.env")
 		if err != nil {
+			if _, statErr := os.Stat("../.env"); statErr == nil {
+				debug.Error("A .env file exists at ../.env but could not be parsed: %v", err)
+				debug.Error("EVERY variable in that file has been ignored, not just the offending line.")
+			}
+
 			debug.Warning("No .env file found, checking environment variables")
 
 			// Check required environment variables
@@ -286,6 +311,39 @@ func main() {
 	}
 	debug.Info("Database migrations completed successfully")
 
+	// Reconcile the server certificate with the configured subject alternative
+	// names.
+	//
+	// Placed here for two reasons that are not stylistic:
+	//
+	//   - It must run after migrations, because the SAN settings rows do not
+	//     exist on a fresh database until they are seeded. systemSettingsRepo is
+	//     constructed above, before migrations run, so the check cannot go there.
+	//   - It must run well before the HTTPS listener starts, so that a
+	//     certificate missing an agent's address is replaced before that agent
+	//     can fail a handshake against it.
+	//
+	// Non-fatal by design: a deployment that cannot reissue still boots on its
+	// existing certificate so an administrator can log in and fix it.
+	certService := certs.New(tlsProvider, systemSettingsRepo, appConfig)
+	certService.EnsureAtStartup(context.Background())
+
+	// Certificate-name discovery. Aggregates in memory and flushes periodically
+	// so the request path never performs a database write.
+	sanCandidateRepo := repository.NewTLSSANCandidateRepository(dbWrapper)
+	sanCache := sandiscovery.NewCache(sanCandidateRepo)
+	certService.AttachDiscovery(sanCache, sanCandidateRepo)
+	certService.RefreshDiscoveryIgnoreSet()
+	go sanCache.Run(context.Background())
+
+	// Observe the server name from TLS ClientHellos. Set here rather than inside
+	// GetTLSConfig because it needs the discovery cache, which needs a database.
+	// Returning nil keeps the base configuration; this hook only watches.
+	serverTLSConfig.GetConfigForClient = func(hi *cryptotls.ClientHelloInfo) (*cryptotls.Config, error) {
+		certService.ObserveSNI(hi.ServerName)
+		return nil, nil
+	}
+
 	// Initialize file hash cache for directory monitoring
 	// This cache reduces disk I/O by only recalculating MD5 hashes when files change
 	debug.Info("Initializing file hash cache...")
@@ -487,6 +545,15 @@ func main() {
 	httpRouter.Use(routes.GlobalCORSMiddleware)
 	httpsRouter.Use(routes.GlobalCORSMiddleware)
 
+	// Record the Host header of inbound requests as candidate certificate names.
+	//
+	// Registered on BOTH routers deliberately. The HTTP router on the bootstrap
+	// port serves /ca.crt, which an agent fetches before it has any working TLS
+	// at all -- for an agent whose handshake is failing, that request is the only
+	// passive observation this server ever gets.
+	httpRouter.Use(middleware.SANObserver(sanCache))
+	httpsRouter.Use(middleware.SANObserver(sanCache))
+
 	// Setup routes
 	debug.Info("Setting up routes")
 	routes.SetupRoutes(httpsRouter, sqlDB, tlsProvider, agentService, wordlistManager, ruleManager, binaryManager, potfileService, clientPotfileService, analyticsQueueService)
@@ -529,6 +596,16 @@ func main() {
 	certRenewalHandler := agent.NewCertificateRenewalHandler(tlsProvider, agentRepo)
 	httpRouter.HandleFunc("/api/agent/renew-certificates", certRenewalHandler.HandleCertificateRenewal).Methods("POST", "OPTIONS")
 
+	// Agent TLS-failure reporting.
+	//
+	// HTTP router only, and that is the whole point: an agent that can reach the
+	// HTTPS API does not have this problem. This is the one channel still open to
+	// an agent whose TLS handshake fails, and it is how the address that agent is
+	// actually dialling reaches the administrator.
+	debug.Info("Setting up agent TLS failure reporting route")
+	tlsFailureHandler := agent.NewTLSFailureHandler(agentRepo, sanCache)
+	httpRouter.HandleFunc("/api/agent/tls-failure", tlsFailureHandler.HandleTLSFailure).Methods("POST", "OPTIONS")
+
 	// Also add CA certificate route to HTTPS router for secure access
 	httpsRouter.HandleFunc("/ca.crt", tlsHandler.ServeCACertificate).Methods("GET", "HEAD", "OPTIONS")
 
@@ -560,12 +637,20 @@ func main() {
 		dbWrapper, cloudProviderRepo, cloudInstanceRepo, cloudBudget,
 		cloudFileSets, claimVoucherService,
 	)
-	cloudService.AgentImage = getEnvOrDefault("KH_CLOUD_AGENT_IMAGE", "zerkereod/krakenhashes-agent-cloud:latest")
+	// Bootstrap value only. The database setting cloud_agent_image is
+	// authoritative once configured; this is the fallback and the source the
+	// one-time import below copies from.
+	cloudService.AgentImage = getEnvOrDefault(cloudsvc.EnvAgentImage, cloudsvc.DefaultAgentImage)
 	cloudService.SystemUserID = models.SystemUserID.String()
 	// The deployment-wide spend ceiling lives in system_settings. Without this
 	// the service cannot read it and refuses to provision at all, which is the
 	// correct behaviour for an unreadable kill switch but not what we want here.
 	cloudService.SystemSettings = systemSettingsRepo
+
+	// Move KH_CLOUD_AGENT_IMAGE into the database once, so the admin UI shows
+	// the image that is actually in effect rather than an empty field beside a
+	// value only the host's environment knows about.
+	cloudsvc.ImportEnvAgentImageIfUnset(context.Background(), systemSettingsRepo)
 
 	// Operator-tunable timings. These keys were seeded by the provisioning
 	// migration and read by nothing, so an admin who changed them was changing
@@ -661,6 +746,28 @@ func main() {
 		debug.Warning("Admin router unavailable - cloud provisioning admin API not registered")
 	}
 	debug.Info("Cloud provisioning services started")
+
+	// Server-certificate admin API.
+	//
+	// Attached here rather than in SetupAdminRoutes because the handler needs the
+	// certificate service, which needs the TLS provider and the discovery cache —
+	// neither of which SetupAdminRoutes receives.
+	if routes.AdminRouter != nil {
+		adminsettings.NewCertificateHandler(certService).RegisterRoutes(routes.AdminRouter)
+		debug.Info("Configured TLS certificate admin routes: /api/admin/tls/*")
+	} else {
+		debug.Warning("Admin router unavailable - TLS certificate admin API not registered")
+	}
+
+	// Let a CA rotation push the new trust material to agents that are already
+	// connected, instead of leaving them with a stale CA until they reconnect.
+	// Wired here because the WebSocket handler is built inside SetupRoutes,
+	// after the certificate service is constructed.
+	if routes.WSHandler != nil {
+		certService.AttachAgentNotifier(routes.WSHandler.BroadcastCertRefresh)
+	} else {
+		debug.Warning("WebSocket handler unavailable - agents will refresh certificates on reconnect only")
+	}
 
 	// Create HTTPS server
 	debug.Info("Creating HTTPS server")

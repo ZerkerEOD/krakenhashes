@@ -2,7 +2,9 @@ package cloud
 
 import (
 	"context"
+	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
@@ -31,7 +33,26 @@ const (
 	SettingIdleDrainMinutes      = "cloud_idle_drain_minutes"
 	SettingReaperIntervalSeconds = "cloud_reaper_interval_seconds"
 	SettingOrphanGraceMinutes    = "cloud_orphan_grace_minutes"
+
+	// SettingAgentImage is seeded by 20260907130000_add_cloud_agent_image.
+	SettingAgentImage = "cloud_agent_image"
 )
+
+// EnvAgentImage is the legacy environment variable SettingAgentImage replaces.
+// Still read as the bootstrap source and imported once, never authoritative
+// after that.
+const EnvAgentImage = "KH_CLOUD_AGENT_IMAGE"
+
+/*
+ * DefaultAgentImage is the compiled fallback.
+ *
+ * Note that :latest does not exist until a release is tagged — the branch
+ * builds publish :dev and :cloud-gpu. That is deliberate (publishing :latest
+ * from a branch would push unreleased code to every deployment that never set
+ * this), but it means a pre-release deployment MUST override this, and the
+ * failure if it does not is a billed minute rather than a startup error.
+ */
+const DefaultAgentImage = "zerkereod/krakenhashes-agent-cloud:latest"
 
 // Settings is the resolved cloud configuration.
 type Settings struct {
@@ -54,6 +75,10 @@ type Settings struct {
 	// IdleDrain is how long an instance may sit with no task before teardown.
 	// Zero disables idle drain.
 	IdleDrain time.Duration
+	// AgentImage is the container image rented instances pull. Empty means the
+	// setting is unconfigured and the caller should fall back to the
+	// environment variable, then to DefaultAgentImage.
+	AgentImage string
 }
 
 // DefaultSettings mirrors the values seeded by the migration, so a deployment
@@ -100,7 +125,64 @@ func LoadSettings(ctx context.Context, repo *repository.SystemSettingsRepository
 		// Zero is meaningful here: it disables idle drain.
 		s.IdleDrain = time.Duration(v) * time.Minute
 	}
+	if v, ok := readString(ctx, repo, SettingAgentImage); ok {
+		s.AgentImage = strings.TrimSpace(v)
+	}
 	return s
+}
+
+/*
+ * ImportEnvAgentImageIfUnset copies KH_CLOUD_AGENT_IMAGE into system_settings
+ * the first time the backend boots after this setting lands, and never again.
+ *
+ * A NULL row means "never configured". Once the row holds any string the
+ * database is authoritative and the environment variable is dead — including
+ * when it holds the empty string, which is how an administrator says "use the
+ * compiled default".
+ *
+ * Mirrors certs.ImportEnvSANsIfUnset deliberately: an operator who has already
+ * moved one of these settings into the UI should not have to learn a second set
+ * of rules for the next one.
+ */
+func ImportEnvAgentImageIfUnset(ctx context.Context, repo *repository.SystemSettingsRepository) bool {
+	if repo == nil {
+		return false
+	}
+	setting, err := repo.GetSetting(ctx, SettingAgentImage)
+	if err != nil {
+		debug.Warning("Could not read %s; leaving it alone: %v", SettingAgentImage, err)
+		return false
+	}
+
+	envValue := strings.TrimSpace(os.Getenv(EnvAgentImage))
+
+	if setting != nil && setting.Value != nil {
+		// Already configured. Warn if the environment variable still disagrees:
+		// a stale variable that looks effective is how an operator ends up sure
+		// they pinned an image they did not pin.
+		if envValue != "" && envValue != *setting.Value {
+			debug.Warning("%s is set to %q but is NO LONGER READ. The cloud agent image is managed in "+
+				"Admin -> Cloud Provisioning -> Limits & operations (%s = %q). Remove the environment variable.",
+				EnvAgentImage, envValue, SettingAgentImage, *setting.Value)
+		}
+		return false
+	}
+
+	if err := repo.UpdateSetting(ctx, SettingAgentImage, envValue); err != nil {
+		debug.Warning("Could not import %s into %s: %v", EnvAgentImage, SettingAgentImage, err)
+		return false
+	}
+	debug.Info("Imported %s=%q into %s; the database is authoritative from now on",
+		EnvAgentImage, envValue, SettingAgentImage)
+	return true
+}
+
+func readString(ctx context.Context, repo *repository.SystemSettingsRepository, key string) (string, bool) {
+	setting, err := repo.GetSetting(ctx, key)
+	if err != nil || setting == nil || setting.Value == nil {
+		return "", false
+	}
+	return *setting.Value, true
 }
 
 func readInt(ctx context.Context, repo *repository.SystemSettingsRepository, key string) (int, bool) {

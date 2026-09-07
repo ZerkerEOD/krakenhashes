@@ -20,10 +20,23 @@ export const getMaxPriorityForUsers = async (): Promise<MaxPriorityConfig> => {
   return response.data;
 };
 
-// Agent scheduling settings
-export const getSystemSettings = async () => {
-  const response = await api.get('/api/admin/settings');
-  return response.data;
+export interface SystemSetting {
+  key: string;
+  value: string | null;
+  description?: string;
+  data_type?: string;
+}
+
+/**
+ * List every system setting.
+ *
+ * The handler wraps the list in a `{ data: [...] }` envelope. Unwrap it here so
+ * callers always receive the array — leaving the envelope to each caller meant
+ * one of them treating the object as an array and blowing up on `.forEach`.
+ */
+export const getSystemSettings = async (): Promise<SystemSetting[]> => {
+  const response = await api.get<{ data: SystemSetting[] | null }>('/api/admin/settings');
+  return response.data?.data ?? [];
 };
 
 export const updateSystemSetting = async (key: string, value: string) => {

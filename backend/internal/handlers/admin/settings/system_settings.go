@@ -166,6 +166,14 @@ func (h *SystemSettingsHandler) ListSettings(w http.ResponseWriter, r *http.Requ
 }
 
 // UpdateSetting updates a specific system setting
+// guardedSettingKeys maps a setting key to the endpoint that owns its validation.
+//
+// Reads are deliberately left open; only writes are redirected.
+var guardedSettingKeys = map[string]string{
+	"tls_additional_ip_addresses": "PUT /api/admin/tls/sans",
+	"tls_additional_dns_names":    "PUT /api/admin/tls/sans",
+}
+
 func (h *SystemSettingsHandler) UpdateSetting(w http.ResponseWriter, r *http.Request) {
 	debug.Info("Received request to update system setting")
 
@@ -181,7 +189,19 @@ func (h *SystemSettingsHandler) UpdateSetting(w http.ResponseWriter, r *http.Req
 
 	// Extract setting key from URL path
 	settingKey := r.URL.Path[len("/api/admin/settings/"):]
-	
+
+	// Some settings carry invariants this generic key/value endpoint cannot
+	// enforce. Writing them here would be a complete end-run around the
+	// validation on their dedicated endpoint -- the certificate name lists, for
+	// example, would let an administrator put a public, internet-routable
+	// address into the server certificate of a tool that must never be exposed.
+	if endpoint, guarded := guardedSettingKeys[settingKey]; guarded {
+		debug.Warning("Refused a generic write to guarded setting %s", settingKey)
+		http.Error(w, "This setting is validated elsewhere and cannot be written here. Use "+endpoint+".",
+			http.StatusBadRequest)
+		return
+	}
+
 	debug.Info("Updating setting %s to value: %s", settingKey, request.Value)
 
 	// Update the setting

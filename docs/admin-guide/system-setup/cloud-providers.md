@@ -51,15 +51,40 @@ to provision once it lapses** rather than launching an instance that can never c
 
 Cloud agents connect to the backend at its **VPN** address, and the agent sets no explicit
 `ServerName`, so SNI is whatever host it dials. That address must be in the certificate's
-SANs **before** the certificate is generated:
+subject alternative names.
 
-```bash
-KH_ADDITIONAL_DNS_NAMES=localhost,kraken.internal,kraken.tailnet-xxxx.ts.net
-KH_ADDITIONAL_IP_ADDRESSES=127.0.0.1,100.113.129.115
-```
+Add it in **Admin → Settings → Server Certificate** and click **Apply & Reissue** — for
+example the Tailscale name `kraken.tailnet-xxxx.ts.net` and its CGNAT address
+`100.113.129.115`. CGNAT addresses (`100.64.0.0/10`) are permitted out of the box, since
+that is what Tailscale uses and what NetBird's default account network is drawn from.
 
-KrakenHashes validates this when you enable a provider and refuses with an actionable
-message if the configured host is not covered.
+!!! warning "Self-hosted NetBird may sit outside CGNAT"
+    A self-hosted NetBird can be configured with any network range, and it is easy to
+    pick one that is not private. `100.133.64.0/19` looks like CGNAT because it starts
+    with `100.`, but CGNAT stops at `100.127.255.255`. KrakenHashes refuses addresses
+    above that, with no override.
+
+    Check with `netbird status` (the `NetBird IP` line) or `ip -o -4 addr show wt0`.
+    If your range is outside `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` or
+    `100.64.0.0/10`, change the VPN's network range. Renumbering re-allocates every
+    peer, so update `BackendVPNHost` and the certificate SAN list afterwards.
+
+The reissue is immediate and non-disruptive: it uses the existing certificate authority, so
+enrolled agents are unaffected and the backend needs no restart. You do **not** need to set
+this before first boot, and you must not delete the certs directory to change it.
+
+!!! note "Enabling a provider only checks that a VPN host is configured"
+    KrakenHashes requires `BackendVPNHost` to be non-empty before a provider can be
+    enabled, but it does not currently verify that the address appears in the
+    certificate. Check it yourself after adding the provider:
+
+    ```bash
+    openssl s_client -connect <vpn-address>:31337 </dev/null 2>/dev/null \
+      | openssl x509 -noout -text | grep -A1 "Subject Alternative Name"
+    ```
+
+    If a rented instance cannot connect, its reported address also appears under
+    **Discovered addresses** on the Server Certificate page.
 
 ---
 

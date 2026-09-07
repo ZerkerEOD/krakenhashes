@@ -837,6 +837,15 @@ func main() {
 		if err := conn.Start(); err != nil {
 			lastError = err
 			debug.Warning("Connection attempt %d failed: %v", i+1, err)
+
+			// Stop immediately when the server's certificate does not cover the
+			// address we are dialling. Two more attempts three seconds apart
+			// cannot change a server-side setting, and retrying only buries the
+			// explanation the operator needs under repeated failures.
+			if conn.LastFailureWasUncoveredAddress() {
+				break
+			}
+
 			time.Sleep(time.Second * time.Duration(i+1))
 			continue
 		}
@@ -924,6 +933,14 @@ func main() {
 	}
 
 	if lastError != nil {
+		// The uncovered-address case has already printed specific, actionable
+		// guidance via the console. Repeating a generic "failed after 3
+		// attempts" on top of it would bury the part that tells the operator
+		// what to do.
+		if conn != nil && conn.LastFailureWasUncoveredAddress() {
+			debug.Error("Exiting: the server certificate does not cover the configured address: %v", lastError)
+			os.Exit(1)
+		}
 		debug.Error("Failed to establish connection after 3 attempts: %v", lastError)
 		console.Error("Failed to establish connection after 3 attempts: %v", lastError)
 		os.Exit(1)

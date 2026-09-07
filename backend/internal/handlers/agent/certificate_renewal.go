@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -57,18 +58,23 @@ func (h *CertificateRenewalHandler) HandleCertificateRenewal(w http.ResponseWrit
 		return
 	}
 
-	// Get agent by ID
+	// Get agent by ID.
+	//
+	// Both failure paths below return an identical 401. Returning 404 for an
+	// unknown agent and 401 for a bad key made this an agent-ID oracle for an
+	// unauthenticated caller, and this endpoint is served over plain HTTP.
 	agent, err := h.agentRepo.GetByID(r.Context(), agentID)
 	if err != nil {
-		debug.Error("Agent not found: %v", err)
-		http.Error(w, "Agent not found", http.StatusNotFound)
+		debug.Debug("Certificate renewal for unknown agent %d", agentID)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	// Validate API key
-	if agent.APIKey.String != apiKey {
-		debug.Error("Invalid API key for agent %d", agentID)
-		http.Error(w, "Invalid API key", http.StatusUnauthorized)
+	// Validate API key in constant time. A plain != leaks key material through
+	// timing to anyone who can reach this port.
+	if subtle.ConstantTimeCompare([]byte(agent.APIKey.String), []byte(apiKey)) != 1 {
+		debug.Warning("Invalid API key presented for agent %d", agentID)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 

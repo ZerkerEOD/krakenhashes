@@ -6,13 +6,15 @@ import CloudProviderSettings from './CloudProviderSettings';
 import CloudClientBudgets from './CloudClientBudgets';
 import CloudBudgetPolicySettings from './CloudBudgetPolicySettings';
 import CloudProvisioningRulesSettings from './CloudProvisioningRulesSettings';
+import CloudSystemSettings from './CloudSystemSettings';
 
 /**
  * Cloud GPU provisioning admin tab.
  *
- * Four concerns, in the order an operator sets them up: where instances come
- * from, what each client may spend, what happens as a cap is approached, and
- * when the system is allowed to spend at all.
+ * Five concerns, in the order an operator sets them up: where instances come
+ * from, what each client may spend, what happens as a cap is approached, when
+ * the system is allowed to spend at all, and the system-wide ceilings and
+ * timings underneath all of it.
  *
  * The last two are separate tabs because they answer different questions. The
  * budget ladder is HOW MUCH; the rules are WHEN — priority floors, starvation
@@ -41,6 +43,7 @@ const CloudSettings: React.FC = () => {
         <Tab label={t('cloud.sections.clients') as string} />
         <Tab label={t('cloud.sections.policy') as string} />
         <Tab label={t('cloud.sections.rules') as string} />
+        <Tab label={t('cloud.sections.system') as string} />
       </Tabs>
       <Divider sx={{ mb: 3 }} />
 
@@ -48,6 +51,7 @@ const CloudSettings: React.FC = () => {
       {section === 1 && <CloudClientBudgets />}
       {section === 2 && <CloudBudgetPolicySettings />}
       {section === 3 && <CloudProvisioningRulesSettings />}
+      {section === 4 && <CloudSystemSettings />}
     </Box>
   );
 };

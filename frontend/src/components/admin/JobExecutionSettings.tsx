@@ -44,11 +44,6 @@ import { getSystemSettings, updateSystemSetting } from '../../services/systemSet
 
 type SettingsMap = Record<string, string>;
 
-interface RawSetting {
-  key: string;
-  value: string | null;
-  data_type?: string;
-}
 
 const JobExecutionSettingsComponent: React.FC = () => {
   const { t } = useTranslation('admin');
@@ -62,9 +57,9 @@ const JobExecutionSettingsComponent: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const data: RawSetting[] = await getSystemSettings();
+      const data = await getSystemSettings();
       const map: SettingsMap = {};
-      (data || []).forEach((s) => {
+      data.forEach((s) => {
         map[s.key] = s.value ?? '';
       });
       setValues(map);

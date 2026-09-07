@@ -58,10 +58,30 @@ This is often the fastest way to diagnose agent issues without direct machine ac
    ```
 
 2. **Certificate Issues**
+
+   **First, establish whether the fault is on the server or on this agent.** These are
+   two completely different problems and the fixes do not overlap.
+
+   ```bash
+   # What does the SERVER's certificate actually cover?
+   openssl s_client -connect your-backend:31337 </dev/null 2>/dev/null \
+     | openssl x509 -noout -text | grep -A1 "Subject Alternative Name"
+   ```
+
+   If the address in `KH_HOST` is **not** in that list, this is a **server-side**
+   problem. Renewing this agent's certificates cannot fix it — the server's
+   certificate simply does not name the address you are dialling. An administrator
+   must add it in **Admin → Settings → Server Certificate** and click
+   **Apply & Reissue**; this agent then reconnects on its own within 30 seconds, with
+   no restart. The agent reports the address automatically, so it will already be
+   waiting in that page's **Discovered addresses** list.
+
+   If the address *is* in the list, the problem is local to this agent:
+
    ```bash
    # Check certificate files exist
    ls -la ~/.krakenhashes/agent/config/*.crt ~/.krakenhashes/agent/config/*.key
-   
+
    # Verify certificate validity
    openssl x509 -in ~/.krakenhashes/agent/config/client.crt -text -noout | grep -E "Valid|Subject|Issuer"
    ```
@@ -92,16 +112,40 @@ This is often the fastest way to diagnose agent issues without direct machine ac
    ```
 
 2. **Renew Certificates**
+
+   !!! warning "Only helps for agent-side certificate problems"
+       If the diagnostic above showed that the server's certificate does not cover
+       your address, **skip this** — deleting the agent's certificates will not add a
+       name to the server's certificate, and the agent will fail identically after
+       restarting.
+
    ```bash
    # Stop agent
    systemctl stop krakenhashes-agent
-   
+
    # Remove old certificates
    rm ~/.krakenhashes/agent/config/*.crt ~/.krakenhashes/agent/config/*.key
-   
+
    # Start agent (will automatically renew certificates)
    systemctl start krakenhashes-agent
    ```
+
+### TLS certificate errors
+
+The agent classifies TLS failures and prints a different message for each. Match the
+message you see:
+
+| What the agent says | What is wrong | Who fixes it |
+|---|---|---|
+| "The server's certificate does not list this address" | The server certificate has no name matching the address this agent dials | **Administrator**: add the address in Admin → Settings → Server Certificate and click Apply & Reissue |
+| "This agent does not trust the server's certificate authority" | The CA was rotated, or `ca.crt` is stale | Automatic — the agent re-downloads `ca.crt` and retries |
+| "A certificate in the chain has expired" | A certificate is past its validity window | Automatic retry; if it persists, an administrator should reissue on the server |
+| "The server rejected this agent's certificate" | The server refused *this agent's* client certificate | Renew the agent's certificates (above), or re-register the agent |
+
+The agent reports the first case to the server over the plain-HTTP bootstrap port
+(`http://<host>:1337`), which is the one channel that still works when TLS
+verification is failing. That is how the address shows up in the administrator's
+**Discovered addresses** list without anyone having to read agent logs.
 
 3. **Fix Network/Firewall**
    ```bash

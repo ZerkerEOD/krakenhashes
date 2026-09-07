@@ -47,6 +47,7 @@ import {
 import { Agent, ClaimVoucher, AgentDevice } from '../types/agent';
 import { api } from '../services/api';
 import AgentInstall from '../components/agent/AgentInstall';
+import SanFailureBanner from '../components/admin/certificates/SanFailureBanner';
 import { formatAgentVersion, agentVersionStatus } from '../utils/agentVersion';
 
 /**
@@ -215,6 +216,11 @@ export default function AgentManagement() {
             {t('buttons.registerAgent') as string}
           </Button>
         </Box>
+
+        {/* An agent that cannot verify the server certificate never appears in
+            the list below, so the explanation has to be here rather than on a
+            row. */}
+        <SanFailureBanner />
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>

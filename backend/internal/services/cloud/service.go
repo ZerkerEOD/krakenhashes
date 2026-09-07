@@ -464,7 +464,7 @@ func (s *Service) attemptLaunch(ctx context.Context, p provisionParams, cand ran
 		DiskGB:         p.diskGB,
 		TTL:            plan.TTL,
 		Env:            env,
-		Image:          s.AgentImage,
+		Image:          s.agentImage(ctx),
 	})
 	if err != nil {
 		/*
@@ -522,6 +522,32 @@ func (s *Service) attemptLaunch(ctx context.Context, p provisionParams, cand ran
  * set a cap and then lost their database is far better served by "no
  * provisioning" than by "unlimited provisioning".
  */
+/*
+ * agentImage resolves the container image rented instances pull.
+ *
+ * Read per launch rather than latched at startup, so changing it in the admin
+ * UI takes effect on the next instance instead of the next restart. Precedence:
+ * the database setting, then the AgentImage field main.go seeded from
+ * KH_CLOUD_AGENT_IMAGE, then the compiled default.
+ *
+ * The fallbacks matter because the compiled default (:latest) does not exist
+ * until a release is tagged, and a wrong image is not a startup error: the
+ * instance boots, `docker pull` fails, the bootstrap disarms the deadline and
+ * the host terminates about a minute later. That minute is billed and the
+ * evidence dies with the instance.
+ */
+func (s *Service) agentImage(ctx context.Context) string {
+	if s.SystemSettings != nil {
+		if image := LoadSettings(ctx, s.SystemSettings).AgentImage; image != "" {
+			return image
+		}
+	}
+	if s.AgentImage != "" {
+		return s.AgentImage
+	}
+	return DefaultAgentImage
+}
+
 func (s *Service) checkGlobalCap(ctx context.Context) error {
 	if s.SystemSettings == nil {
 		return fmt.Errorf("cloud provisioning is not configured: the system-wide spend " +

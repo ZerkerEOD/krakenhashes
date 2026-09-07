@@ -330,8 +330,9 @@ func validateEnable(in *models.CloudProviderConfigInput, existing *models.CloudP
 	}
 	if in.BackendVPNHost == "" {
 		return fmt.Errorf(
-			"the backend's address on your VPN is required, and it must already appear in " +
-				"KH_ADDITIONAL_DNS_NAMES or KH_ADDITIONAL_IP_ADDRESSES or agents will fail TLS verification")
+			"the backend's address on your VPN is required, and the server certificate must " +
+				"already cover it or agents will fail TLS verification. Add it under " +
+				"Admin -> Settings -> Server Certificate and click Apply & Reissue")
 	}
 	return nil
 }
