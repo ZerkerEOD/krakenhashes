@@ -883,10 +883,27 @@ func (s *Service) CloudEligibleJobs(ctx context.Context, candidates []uuid.UUID)
 		JOIN clients c ON c.id = h.client_id
 		WHERE je.id = ANY($1::uuid[])
 		  AND `+cloudEligibilityPredicate+`
-		  -- Autoscaler-only: an unfunded client should never be picked up
-		  -- automatically, but on the manual path PlanLaunch's "no budget"
-		  -- message beats a row that silently does not match.
-		  AND c.cloud_budget_cents IS NOT NULL`,
+		  /*
+		   * Autoscaler-only: an unfunded client should never be picked up
+		   * automatically, but on the manual path PlanLaunch's "no budget"
+		   * message beats a row that silently does not match.
+		   *
+		   * Resolved through the server default, because a NULL budget stopped
+		   * meaning "unfunded" when inheritance landed and now means "use the
+		   * default". Left as a bare IS NOT NULL, this clause excluded every
+		   * inheriting client from automatic provisioning -- so setting a
+		   * default budget appeared to do nothing at all, which is the exact
+		   * failure the default was introduced to fix.
+		   *
+		   * The regex guard keeps a non-numeric settings value from erroring the
+		   * whole query: a malformed default then reads as no default, and the
+		   * client is simply not auto-provisioned.
+		   */
+		  AND COALESCE(
+		        c.cloud_budget_cents,
+		        (SELECT CASE WHEN btrim(value) ~ '^[0-9]+$' THEN btrim(value)::bigint END
+		           FROM system_settings WHERE key = 'cloud_default_client_budget_cents')
+		      ) IS NOT NULL`,
 		pq.Array(candidates))
 	if err != nil {
 		return nil, fmt.Errorf("resolve cloud-eligible jobs: %w", err)
