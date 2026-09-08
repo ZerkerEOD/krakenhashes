@@ -1282,6 +1282,40 @@ func (h *Handler) handleSyncStatus(client *Client, msg *wsservice.Message) {
 	debug.Info("File sync status update from agent %d: %s (%d%%)",
 		client.agent.ID, payload.Status, payload.Progress)
 
+	/*
+	 * A partially-failed sync must still leave the agent USABLE.
+	 *
+	 * Only "completed" was handled here, and that branch is also the one that
+	 * marks the agent active. Once the agent started reporting "failed" for a
+	 * sync that missed a file — instead of the blanket "completed" it used to
+	 * send regardless — an agent that failed to fetch one wordlist would have
+	 * been left in_progress and never marked active, so it would sit idle
+	 * forever. That is a worse outcome than the over-reporting it replaces.
+	 *
+	 * Record the failure honestly, then activate anyway. The agent is
+	 * connected and can work; it simply does not hold every file. Task
+	 * dispatch self-heals through the per-task ensure* downloads, and the
+	 * benchmark readiness gate holds work only while a sync is in_progress, so
+	 * "failed" costs nothing in scheduling terms while making the true state
+	 * visible to an operator.
+	 */
+	if payload.Status == "failed" {
+		debug.Warning("File sync reported failures for agent %d: %s", client.agent.ID, payload.Message)
+		if h.agentService != nil {
+			if err := h.agentService.UpdateAgentSyncStatus(context.Background(), client.agent.ID,
+				models.AgentSyncStatusFailed, payload.Message); err != nil {
+				debug.Error("Failed to record failed sync status for agent %d: %v", client.agent.ID, err)
+			}
+			if err := h.agentService.UpdateAgentStatusUnlessUpdating(client.ctx, client.agent.ID,
+				models.AgentStatusActive, nil); err != nil {
+				debug.Error("Failed to activate agent %d after partial sync: %v", client.agent.ID, err)
+			} else if h.updateService != nil {
+				h.updateService.ResolveIdleState(client.ctx, client.agent.ID)
+			}
+		}
+		return
+	}
+
 	// If sync is complete, update agent status
 	if payload.Status == "completed" {
 		debug.Info("File sync completed for agent %d", client.agent.ID)

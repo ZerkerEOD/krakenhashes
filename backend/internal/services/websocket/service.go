@@ -218,7 +218,11 @@ type FileSyncStatusPayload struct {
 	AgentID   int              `json:"agent_id"`
 	Status    string           `json:"status"`   // "in_progress", "completed", "failed"
 	Progress  int              `json:"progress"` // 0-100 percentage
-	Results   []FileSyncResult `json:"results,omitempty"`
+	// Message is the agent's human-readable summary, e.g. "File sync completed
+	// with 2 failures out of 17 files". The agent has always sent it; it was
+	// simply not decoded, so the reason a sync failed was dropped on the floor.
+	Message string           `json:"message,omitempty"`
+	Results []FileSyncResult `json:"results,omitempty"`
 }
 
 // FileSyncResult represents the result of a file sync operation

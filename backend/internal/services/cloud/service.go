@@ -407,8 +407,8 @@ func (s *Service) ProvisionForJob(ctx context.Context, jobID uuid.UUID) error {
 		if !errors.Is(lastErr, ErrOfferUnavailable) {
 			return lastErr
 		}
-		debug.Warning("Cloud: offer %s on %s vanished between search and launch (%d of %d); trying the next candidate",
-			cand.ID, cand.cfg.Name, i+1, len(ranked))
+		debug.Warning("Cloud: offer %s on %s vanished between search and launch (%d of %d): %v; trying the next candidate",
+			cand.ID, cand.cfg.Name, i+1, len(ranked), lastErr)
 	}
 	return fmt.Errorf("every one of the %d ranked cloud offers became unavailable: %w", len(ranked), lastErr)
 }

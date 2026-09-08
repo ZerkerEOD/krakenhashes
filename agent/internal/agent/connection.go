@@ -1509,7 +1509,7 @@ func (c *Connection) readPump() {
 			// This happens when download manager verified files exist on disk
 			if c.downloadManager != nil {
 				total, pending, downloading, _, _ := c.downloadManager.GetDownloadStats()
-				if pending == 0 && downloading == 0 && total > 0 {
+				if pending == 0 && downloading == 0 && total > 0 && c.downloadManager.GetActiveDownloads() == 0 {
 					// All files were already synced - immediately complete sync
 					debug.Info("All %d files already synced (verified on disk), sending sync_completed immediately", total)
 					c.sendSyncCompleted()
@@ -3329,8 +3329,14 @@ func (c *Connection) monitorDownloadProgress() {
 		debug.Info("Download progress: %d completed, %d failed, %d pending, %d downloading (total: %d)",
 			completed, failed, pending, downloading, total)
 
-		// Check if all downloads are resolved (no active downloads remaining)
-		if pending == 0 && downloading == 0 && total > 0 {
+		// Check if all downloads are resolved (no active downloads remaining).
+		//
+		// GetActiveDownloads is checked as well as this batch's counts because
+		// the counts are scoped to the current batch: if a new sync arrives
+		// while an earlier file is still in flight, this batch can be complete
+		// while the agent is still downloading. Reporting "synced" then would
+		// be the same over-claim this change exists to remove, just narrower.
+		if pending == 0 && downloading == 0 && total > 0 && c.downloadManager.GetActiveDownloads() == 0 {
 			// All downloads finished (either completed or failed)
 			if failed > 0 {
 				debug.Warning("File sync completed with %d failures out of %d total files", failed, total)
@@ -3345,6 +3351,13 @@ func (c *Connection) sendSyncStarted(filesToSync int) {
 	c.syncMutex.Lock()
 	c.syncStatus = "in_progress"
 	c.syncMutex.Unlock()
+
+	// Open a new stats batch before any file is queued, so the completion
+	// report describes this sync rather than everything downloaded since the
+	// process started.
+	if c.downloadManager != nil {
+		c.downloadManager.BeginBatch()
+	}
 
 	payload, _ := json.Marshal(map[string]interface{}{
 		"agent_id":      c.agentID,
@@ -3367,25 +3380,37 @@ func (c *Connection) sendSyncStarted(filesToSync int) {
 
 // sendSyncCompleted sends sync completed message to backend
 func (c *Connection) sendSyncCompleted() {
-	c.syncMutex.Lock()
-	if c.syncStatus == "completed" {
-		c.syncMutex.Unlock()
-		return // Already sent
-	}
-	c.syncStatus = "completed"
-	c.syncMutex.Unlock()
-
-	// Get final stats from download manager (single source of truth)
+	// Get final stats for THIS batch from the download manager.
 	total, _, _, completed, failed := c.downloadManager.GetDownloadStats()
 
-	// Send status message in the format the backend expects
+	// A sync that could not fetch every file is not a completed sync.
+	//
+	// This used to report status "completed" unconditionally and mention the
+	// failures only in the human-readable message, which no code reads. The
+	// backend keys off the status field, so an agent that failed to download a
+	// wordlist was recorded as fully synced and was then handed work it could
+	// not run — the failure surfaced much later as an unexplained job error.
+	//
+	// Reporting "failed" is safe for scheduling: the benchmark readiness gate
+	// holds work only while a sync is in_progress, so a failed sync does not
+	// strand the agent, it just stops claiming a completeness it does not have.
+	syncState := "completed"
 	statusMessage := "File sync completed successfully"
 	if failed > 0 {
+		syncState = "failed"
 		statusMessage = fmt.Sprintf("File sync completed with %d failures out of %d files", failed, total)
 	}
 
+	c.syncMutex.Lock()
+	if c.syncStatus == syncState {
+		c.syncMutex.Unlock()
+		return // Already sent
+	}
+	c.syncStatus = syncState
+	c.syncMutex.Unlock()
+
 	payload, _ := json.Marshal(map[string]interface{}{
-		"status":   "completed",
+		"status":   syncState,
 		"progress": 100,
 		"message":  statusMessage,
 	})
