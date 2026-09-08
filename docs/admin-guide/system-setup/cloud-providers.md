@@ -47,6 +47,38 @@ to provision once it lapses** rather than launching an instance that can never c
     NetBird's userspace mode provides no DNS. Pin the backend's overlay IP as the cloud
     host and make sure the server certificate has a matching IP SAN.
 
+!!! warning "Keep the NetBird client reasonably current"
+    A Dockerised backend behind NetBird works because NetBird marks traffic in `prerouting`,
+    *before* Docker's published-port DNAT rewrites the destination. That mark is what lets
+    the packet through the forward path after the rewrite. Older clients did not do this,
+    and on those the agent sees `operation timed out` — a **drop**, not a refusal — while
+    the peer, the handshake and the ACL all look healthy.
+
+    If cloud agents launch and never register, check the client version on the backend host
+    before anything else:
+
+    ```bash
+    netbird version
+    ```
+
+    Note the NetBird maintainers describe this marking as applying to **peer ACLs**
+    (destination is the peer itself) and not to route ACLs. Reaching the backend at its own
+    overlay address is the peer-ACL case, so it is covered.
+
+!!! tip "Testing from the Docker host proves nothing"
+    Locally-originated traffic never traverses the forwarding path, so
+    `curl https://<overlay-ip>:31337/` succeeds on a host where every remote peer is being
+    dropped. Always test from a **different** peer:
+
+    ```bash
+    curl -m 10 http://<backend-overlay-ip>:1337/ca.crt
+    ```
+
+    If that times out while the backend answers on the host itself, capture on both
+    interfaces to see where the packet dies — and check that nothing has left a stray
+    interface in the container's network namespace (`docker exec <app> ip route`). A second
+    route for the overlay range inside the container will silently blackhole every reply.
+
 ### 3. The server certificate must cover the VPN address
 
 Cloud agents connect to the backend at its **VPN** address, and the agent sets no explicit

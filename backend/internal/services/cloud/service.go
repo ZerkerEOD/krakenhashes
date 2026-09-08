@@ -32,6 +32,33 @@ type VoucherIssuer interface {
 	CreateCloudVoucher(ctx context.Context, expiresIn time.Duration, cloudInstanceID uuid.UUID) (*models.ClaimVoucher, error)
 }
 
+/*
+ * readyDeadlineWindow is how long a rented instance has to get its agent
+ * registered before it is destroyed unused.
+ *
+ * Enforced twice on purpose, from this one value: the reaper checks the row's
+ * ready_deadline_at, and the guest checks KH_READY_DEADLINE_EPOCH itself. The
+ * two cover different outages — the reaper cannot act when the backend is down,
+ * and the guest cannot act when its own agent process is wedged — and the
+ * scenario that motivated the guest copy is exactly the one where the backend
+ * is unreachable from the instance.
+ *
+ * TEN minutes, not the twenty this started at, because this window IS the unit
+ * price of a misconfiguration. An instance that can never register bills for
+ * the whole of it, and the autoscaler's dead-on-arrival breaker only stops
+ * after several such instances -- so the window multiplies. At twenty minutes
+ * and a g4dn.xlarge, three dead-on-arrival launches cost 53 cents; at ten they
+ * cost 26.
+ *
+ * Ten is still generous against measured behaviour. On a real launch the
+ * console showed the image pulled by t+106s and the agent started at t+136s,
+ * so registration happens inside three minutes; this leaves better than 3x
+ * headroom for a slower instance type or a cold image. Raise it if a fleet
+ * genuinely boots slower -- but understand that every extra minute is paid for
+ * on each failed launch, not just once.
+ */
+const readyDeadlineWindow = 10 * time.Minute
+
 // Service orchestrates cloud provisioning.
 type Service struct {
 	db        *db.DB
@@ -468,7 +495,7 @@ func (s *Service) attemptLaunch(ctx context.Context, p provisionParams, cand ran
 		FilesetBytes:       p.filesetBytes,
 		ReservedCents:      plan.ReserveCents,
 		LaunchDeadlineAt:   nullTime(now.Add(10 * time.Minute)),
-		ReadyDeadlineAt:    nullTime(now.Add(20 * time.Minute)),
+		ReadyDeadlineAt:    nullTime(now.Add(readyDeadlineWindow)),
 		TTLEpoch:           nullTime(now.Add(plan.TTL)),
 		VPNCredentialRef:   vpnCred.Ref,
 	}
@@ -497,9 +524,13 @@ func (s *Service) attemptLaunch(ctx context.Context, p provisionParams, cand ran
 	}
 
 	// 8. Launch.
+	// readyDeadlineWindow is passed rather than a second literal so the guest's
+	// registration rail and the row's ready_deadline_at are the same instant.
+	// Two independently written windows would drift, and the failure of the
+	// shorter one would look like the other rail misfiring.
 	env := BuildAgentEnv(cfg.BackendVPNHost, voucher.Code, string(cfg.VPNProvider),
 		vpnCred.AuthKey, vpnCred.LoginServer, vpnCred.Tag,
-		plan.TTL, 15*time.Minute, string(cfg.Provider))
+		plan.TTL, 15*time.Minute, readyDeadlineWindow, string(cfg.Provider))
 	env["KH_JOB_ID"] = p.jobID.String()
 
 	if err := s.instances.SetState(ctx, instanceID, models.CloudInstanceLaunching, ""); err != nil {
@@ -892,6 +923,78 @@ func (s *Service) LiveInstanceCountForJob(ctx context.Context, jobID uuid.UUID) 
 		return 0, err
 	}
 	return len(instances), nil
+}
+
+/*
+ * DeadOnArrivalCountForJob implements Provisioner.
+ *
+ * "Dead on arrival" is launched_at set (the provider really created it, so it
+ * really billed) with ready_at never stamped (the agent never completed
+ * registration) and the row now terminal. ready_at is written by the agent
+ * registration path, which is what makes it the honest test of whether the
+ * rented machine was ever reachable rather than merely running.
+ *
+ * Rows that never launched are excluded on purpose: they cost nothing, and
+ * counting them would let a harmless transient — a momentarily empty offer
+ * list, a provider 500 — trip a breaker meant for wasted money.
+ */
+func (s *Service) DeadOnArrivalCountForJob(ctx context.Context, jobID uuid.UUID) (int, error) {
+	var n int
+	err := s.db.QueryRowContext(ctx, `
+		SELECT count(*)
+		FROM cloud_instances
+		WHERE job_execution_id = $1
+		  AND launched_at IS NOT NULL
+		  AND ready_at IS NULL
+		  AND state IN ('terminated','failed')`, jobID).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("count dead-on-arrival instances for job %s: %w", jobID, err)
+	}
+	return n, nil
+}
+
+/*
+ * ConsecutiveDeadOnArrivals implements Provisioner.
+ *
+ * Counts back from the most recent launch and stops at the first instance that
+ * DID register. A plain total would be permanently poisoned by old failures --
+ * a deployment that failed five times in its first week could never provision
+ * again -- whereas a streak is self-clearing: one instance that registers
+ * proves rented hardware can reach the backend right now, which is the only
+ * thing this rail cares about.
+ *
+ * Bounded to a window because it is only ever compared against a small limit,
+ * so reading further back cannot change the answer and would grow with the
+ * table forever.
+ */
+func (s *Service) ConsecutiveDeadOnArrivals(ctx context.Context) (int, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT ready_at IS NULL
+		FROM cloud_instances
+		WHERE launched_at IS NOT NULL
+		  AND state IN ('terminated','failed')
+		ORDER BY launched_at DESC
+		LIMIT 25`)
+	if err != nil {
+		return 0, fmt.Errorf("read dead-on-arrival streak: %w", err)
+	}
+	defer rows.Close()
+
+	streak := 0
+	for rows.Next() {
+		var deadOnArrival bool
+		if err := rows.Scan(&deadOnArrival); err != nil {
+			return 0, fmt.Errorf("scan dead-on-arrival streak: %w", err)
+		}
+		if !deadOnArrival {
+			break
+		}
+		streak++
+	}
+	if err := rows.Err(); err != nil {
+		return 0, fmt.Errorf("read dead-on-arrival streak: %w", err)
+	}
+	return streak, nil
 }
 
 // CloudEligibleJobs implements Provisioner: filters candidates to jobs that

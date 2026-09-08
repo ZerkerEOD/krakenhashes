@@ -22,7 +22,7 @@ log() { echo "[kh-cloud $(date -u +%H:%M:%S)] $*"; }
 # 1. Self-destruct watchdogs
 # ---------------------------------------------------------------------------
 #
-# Two independent timers:
+# Three independent timers:
 #
 #   absolute deadline    KH_DEADLINE_EPOCH. Never reset. This is the hard cap
 #                        on what this instance can ever cost.
@@ -30,6 +30,11 @@ log() { echo "[kh-cloud $(date -u +%H:%M:%S)] $*"; }
 #                        proves it can reach the backend. Covers the case the
 #                        absolute deadline is too coarse for: the control plane
 #                        died an hour into a six-hour rental.
+#   ready deadline       KH_READY_DEADLINE_EPOCH. Absolute, like the kill
+#                        deadline. Covers the gap between the two above: an
+#                        agent that has NEVER reached the backend has no last
+#                        contact for the heartbeat timer to measure, so that
+#                        rail is silent and only the TTL remains.
 #
 # self_destruct must NOT go through the VPN. On Vast.ai the destroy call is the
 # whole point of the heartbeat timer — the tunnel being dead is exactly why
@@ -49,7 +54,27 @@ HEARTBEAT_FILE="$KH_HEARTBEAT_FILE"
 : "${KH_DEADLINE_EPOCH:=0}"
 : "${KH_HEARTBEAT_LOSS_TIMEOUT:=900}"
 : "${KH_WATCHDOG_INTERVAL:=30}"
-date +%s > "$HEARTBEAT_FILE"
+# Absolute instant by which the agent must have registered at least once. Zero
+# or unset disables the rail. See the watchdog for why it is absolute.
+: "${KH_READY_DEADLINE_EPOCH:=0}"
+
+# The heartbeat file is DELIBERATELY NOT seeded here.
+#
+# It used to be stamped with the current time on every start, which made "the
+# agent has proven it can reach the backend" indistinguishable from "this
+# container just booted". Under --restart=unless-stopped that turned the
+# heartbeat rail off entirely for the failure it most needed to cover: an agent
+# that cannot register exits, the container restarts within seconds, the seed
+# rewrites the timestamp, and the loss timer restarts from zero every time. It
+# can never reach KH_HEARTBEAT_LOSS_TIMEOUT, so the instance bills until some
+# other rail ends it -- in the observed case the backend-side reaper twenty
+# minutes later, and if the backend is what is unreachable, not until the TTL.
+#
+# The file is now written only by the agent, on real contact. Its ABSENCE means
+# "never registered", which is what KH_READY_DEADLINE_EPOCH bounds; its age
+# means "time since last contact", which is what the loss timeout bounds. The
+# file lives on the container filesystem, which a restart preserves, so a
+# successful registration is still remembered across the restart loop.
 
 self_destruct() {
     local reason="$1"
@@ -116,13 +141,26 @@ watchdog() {
             if [ $((now - last)) -ge "${KH_HEARTBEAT_LOSS_TIMEOUT}" ]; then
                 self_destruct "no contact with backend for ${KH_HEARTBEAT_LOSS_TIMEOUT}s"
             fi
+        elif [ "${KH_READY_DEADLINE_EPOCH}" -gt 0 ] && [ "$now" -ge "${KH_READY_DEADLINE_EPOCH}" ]; then
+            # No heartbeat file at all: the agent has never once reached the
+            # backend. The loss timeout cannot express this -- there is no last
+            # contact to measure from -- so without this branch the window
+            # between "VPN is up" and "agent registered" was bounded only by the
+            # full TTL, and a backend the guest cannot reach billed the entire
+            # lease for nothing.
+            #
+            # Compared against an ABSOLUTE epoch handed down at launch rather
+            # than time since this process started, because the container
+            # restarts on agent exit and any clock kept in here would restart
+            # with it -- which is exactly how the heartbeat rail was defeated.
+            self_destruct "agent never registered before the ready deadline"
         fi
 
         sleep "${KH_WATCHDOG_INTERVAL}"
     done
 }
 watchdog &
-log "watchdog armed (deadline=${KH_DEADLINE_EPOCH}, heartbeat_timeout=${KH_HEARTBEAT_LOSS_TIMEOUT}s, interval=${KH_WATCHDOG_INTERVAL}s, heartbeat_file=${HEARTBEAT_FILE})"
+log "watchdog armed (deadline=${KH_DEADLINE_EPOCH}, heartbeat_timeout=${KH_HEARTBEAT_LOSS_TIMEOUT}s, ready_deadline=${KH_READY_DEADLINE_EPOCH}, interval=${KH_WATCHDOG_INTERVAL}s, heartbeat_file=${HEARTBEAT_FILE})"
 
 # ---------------------------------------------------------------------------
 # 2. VPN, userspace mode

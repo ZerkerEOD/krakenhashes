@@ -161,6 +161,31 @@ type Provisioner interface {
 	ProvisionForJob(ctx context.Context, jobID uuid.UUID) error
 	// LiveInstanceCountForJob reports how many instances already serve a job.
 	LiveInstanceCountForJob(ctx context.Context, jobID uuid.UUID) (int, error)
+	/*
+	 * DeadOnArrivalCountForJob reports how many instances this job has rented
+	 * that reached the provider, billed, and died WITHOUT the agent ever
+	 * registering.
+	 *
+	 * Separate from a launch-error count because the expensive failure does not
+	 * look like an error here at all: ProvisionForJob returns nil, the instance
+	 * boots, cannot reach the backend, and self-destructs on the VPN rail some
+	 * minutes later. The job is still starving on the next tick, so the
+	 * autoscaler rents again — indefinitely, at the full hourly rate, with
+	 * every individual step reporting success.
+	 */
+	DeadOnArrivalCountForJob(ctx context.Context, jobID uuid.UUID) (int, error)
+	/*
+	 * ConsecutiveDeadOnArrivals reports how many of the most recently launched
+	 * instances -- across every job and client -- died without registering.
+	 *
+	 * The per-job count cannot see a broken DEPLOYMENT. A wrong backend
+	 * address, a lapsed VPN credential or an unreachable agent image fails
+	 * identically for every job, and the per-job breaker resets the moment
+	 * someone creates a new one, so the same misconfiguration bills again from
+	 * zero indefinitely. This is the counter that notices the pattern is the
+	 * deployment rather than the work.
+	 */
+	ConsecutiveDeadOnArrivals(ctx context.Context) (int, error)
 	// CloudEligibleJobs filters a candidate set down to jobs that opted in,
 	// whose client has funded budget and has allowed this provider.
 	CloudEligibleJobs(ctx context.Context, candidates []uuid.UUID) ([]EligibleJob, error)
@@ -227,11 +252,70 @@ type Autoscaler struct {
 	GlobalInstanceCap int
 	// LiveInstanceCount reports the current global total.
 	LiveInstanceCount func(ctx context.Context) (int, error)
+
+	/*
+	 * DeadOnArrivalLimit stops renting for a job once this many of its
+	 * instances have billed and died without the agent ever registering.
+	 *
+	 * This is a per-job circuit breaker, not a retry backoff, because the
+	 * failure it exists for is not a retryable transient: a wrong VPN key, a
+	 * backend unreachable over the overlay, an agent image that cannot start.
+	 * Every one of those reproduces exactly on the next attempt, and each
+	 * attempt costs a fresh instance-launch worth of billing. Backing off would
+	 * only change how fast the money drains.
+	 *
+	 * Counted over the LIFETIME of the job execution rather than a window, so a
+	 * permanently broken configuration stops costing money permanently instead
+	 * of resuming every hour. The escape hatch after a fix is Provision now on
+	 * the job, which bypasses the autoscaler's soft rules by design; the hard
+	 * rails (budget, global cap, VPN credential) still apply there.
+	 *
+	 * Zero disables the breaker.
+	 */
+	DeadOnArrivalLimit int
+
+	/*
+	 * GlobalDeadOnArrivalLimit halts ALL automatic provisioning once this many
+	 * consecutive launches, across every job, died without registering.
+	 *
+	 * There is deliberately no automatic reset. The condition it detects --
+	 * nothing this deployment rents can reach the backend -- does not heal on
+	 * its own, and a timer-based reset would simply re-bill every interval
+	 * forever, which is the behaviour this exists to stop.
+	 *
+	 * It cannot deadlock, because Provision now does not come through here. An
+	 * operator fixes the configuration, provisions one instance by hand, and a
+	 * single success clears the streak and releases the autoscaler. That the
+	 * escape hatch requires a human is the point: something is broken, and
+	 * resuming paid launches should be a decision rather than a timeout.
+	 *
+	 * Zero disables it.
+	 */
+	GlobalDeadOnArrivalLimit int
 }
+
+// defaultDeadOnArrivalLimit is deliberately small. Each dead-on-arrival
+// instance is a full launch-to-self-destruct cycle of billing — a few minutes
+// of GPU rate that bought nothing — so the breaker should trip while the waste
+// is still cents.
+const defaultDeadOnArrivalLimit = 3
+
+// defaultGlobalDeadOnArrivalLimit is higher than the per-job limit so a single
+// broken job trips its own breaker first and healthy jobs keep running. Only a
+// streak that outlives one job's worth of failures indicates the deployment.
+const defaultGlobalDeadOnArrivalLimit = 5
 
 // NewAutoscaler creates an autoscaler.
 func NewAutoscaler(snapshot *StarvationSnapshot, provisioner Provisioner) *Autoscaler {
-	return &Autoscaler{snapshot: snapshot, provisioner: provisioner}
+	return &Autoscaler{
+		snapshot:    snapshot,
+		provisioner: provisioner,
+		// On by default rather than opt-in: an operator who never hears of this
+		// setting is exactly the one who needs it, and the failure it guards
+		// against is silent by construction.
+		DeadOnArrivalLimit:       defaultDeadOnArrivalLimit,
+		GlobalDeadOnArrivalLimit: defaultGlobalDeadOnArrivalLimit,
+	}
 }
 
 // Run drives the autoscaler until the context is cancelled.
@@ -277,6 +361,31 @@ func (a *Autoscaler) ScaleOnce(ctx context.Context) {
 		// would not help.
 		debug.Info("Cloud autoscaler: %d on-prem agent(s) idle; not renting", idleOnPrem)
 		return
+	}
+
+	/*
+	 * Deployment-wide stop, checked before any per-job work.
+	 *
+	 * Placed ahead of CloudEligibleJobs so a broken deployment costs one cheap
+	 * query per tick rather than a per-job walk that ends in the same refusal.
+	 * An unreadable streak refuses, for the same reason every other money rail
+	 * here does: this exists to stop spending on a failure nothing else
+	 * reports, so "I could not tell" must not mean "carry on".
+	 */
+	if a.GlobalDeadOnArrivalLimit > 0 {
+		streak, err := a.provisioner.ConsecutiveDeadOnArrivals(ctx)
+		if err != nil {
+			debug.Error("Cloud autoscaler: could not read the dead-on-arrival streak: %v; not provisioning", err)
+			return
+		}
+		if streak >= a.GlobalDeadOnArrivalLimit {
+			debug.Warning("Cloud autoscaler: the last %d rented instances all billed and were destroyed "+
+				"without any agent registering. Halting ALL automatic provisioning -- this pattern means "+
+				"the deployment cannot be reached from rented hardware, not that one job is unlucky. "+
+				"Check backend_vpn_host, the VPN credential and the agent image, then use Provision now; "+
+				"one instance that registers clears this.", streak)
+			return
+		}
 	}
 
 	candidates := make([]uuid.UUID, 0, len(ages))
@@ -366,6 +475,36 @@ func (a *Autoscaler) ScaleOnce(ctx context.Context) {
 		}
 		if job.MaxInstances > 0 && have >= job.MaxInstances {
 			continue
+		}
+
+		/*
+		 * The dead-on-arrival rail.
+		 *
+		 * Checked after the live count so a job that currently has a healthy
+		 * instance is judged on that, not on its history — the count is a
+		 * lifetime total and would otherwise keep a recovered job from ever
+		 * scaling up again.
+		 *
+		 * A counting error refuses rather than provisions. The whole point of
+		 * this rail is to stop money leaving on a failure nothing else reports,
+		 * so treating "I could not tell" as "carry on spending" would defeat
+		 * it in precisely the situation it exists for.
+		 */
+		if a.DeadOnArrivalLimit > 0 && have == 0 {
+			doa, err := a.provisioner.DeadOnArrivalCountForJob(ctx, job.JobExecutionID)
+			if err != nil {
+				debug.Error("Cloud autoscaler: could not count dead-on-arrival instances for job %s: %v; "+
+					"not provisioning", job.JobExecutionID, err)
+				continue
+			}
+			if doa >= a.DeadOnArrivalLimit {
+				debug.Warning("Cloud autoscaler: job %s has rented %d instance(s) that billed and were "+
+					"destroyed without the agent ever registering; halting automatic provisioning for this "+
+					"job. Check the agent's route to the backend (VPN credential, backend_vpn_host, agent "+
+					"image), then use Provision now to resume.",
+					job.JobExecutionID, doa)
+				continue
+			}
 		}
 
 		// One instance per pass per job. Deliberately incremental: each

@@ -724,10 +724,26 @@ func main() {
 		}
 		autoscaler.LiveInstanceCount = cloudInstanceRepo.CountLive
 
+		// Negative disables the breaker; 0 means "leave the built-in default".
+		// A plain >0 test would make KH_CLOUD_DOA_LIMIT=0 a silent no-op rather
+		// than the off switch it reads as.
+		if env := getEnvIntOrDefault("KH_CLOUD_DOA_LIMIT", 0); env != 0 {
+			if env < 0 {
+				env = 0
+			}
+			autoscaler.DeadOnArrivalLimit = env
+		}
+		if env := getEnvIntOrDefault("KH_CLOUD_GLOBAL_DOA_LIMIT", 0); env != 0 {
+			if env < 0 {
+				env = 0
+			}
+			autoscaler.GlobalDeadOnArrivalLimit = env
+		}
+
 		interval := time.Duration(getEnvIntOrDefault("KH_CLOUD_AUTOSCALE_INTERVAL", 60)) * time.Second
 		go autoscaler.Run(cloudCtx, interval)
-		debug.Info("Cloud autoscaler started (interval=%s, global instance cap=%d)",
-			interval, autoscaler.GlobalInstanceCap)
+		debug.Info("Cloud autoscaler started (interval=%s, global instance cap=%d, dead-on-arrival limit=%d/job, %d deployment-wide)",
+			interval, autoscaler.GlobalInstanceCap, autoscaler.DeadOnArrivalLimit, autoscaler.GlobalDeadOnArrivalLimit)
 	} else {
 		debug.Warning("Scheduler unavailable - cloud autoscaler not started")
 	}

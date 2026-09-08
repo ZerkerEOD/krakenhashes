@@ -26,6 +26,28 @@ const (
 	// EnvHeartbeatTimeout is how long the agent may be unable to reach the
 	// backend before self-destructing.
 	EnvHeartbeatTimeoutSeconds = "KH_HEARTBEAT_LOSS_TIMEOUT"
+	/*
+	 * EnvReadyDeadlineEpoch is the instant by which the agent must have
+	 * registered at least once. It is the in-guest twin of the row's
+	 * ready_deadline_at.
+	 *
+	 * The heartbeat rail cannot cover this window: it measures time since the
+	 * LAST contact, and an agent that never registered has no last contact and
+	 * writes no heartbeat file, so that check is skipped entirely. Between "VPN
+	 * came up" and "agent registered" the only remaining rail was the full TTL
+	 * — which is how a backend the guest could not reach turned into an
+	 * instance billing for its entire lease.
+	 *
+	 * ABSOLUTE rather than a duration, for the same reason the kill deadline is:
+	 * the container restarts under --restart=unless-stopped, and a relative
+	 * clock would be reset by every restart. A crash-looping agent would then
+	 * never accumulate the window that is supposed to end it.
+	 *
+	 * Duplicating the server-side deadline in the guest is the point. The
+	 * reaper enforces ready_deadline_at only while the backend is up, and
+	 * "the backend is unreachable" is precisely the scenario this bounds.
+	 */
+	EnvReadyDeadlineEpoch = "KH_READY_DEADLINE_EPOCH"
 	// EnvNoProxy keeps the provider control plane and IMDS OFF the VPN. This
 	// is not an optimization: routing the self-destruct call through the
 	// tunnel would send it down a dead link in exactly the scenario the
@@ -189,7 +211,19 @@ docker run -d --restart=unless-stopped --name krakenhashes-agent \
 #
 # Writes to /dev/console rather than syslog because only the console is captured
 # by the provider and readable after termination.
-nohup sh -c 'docker logs -f krakenhashes-agent >/dev/console 2>&1' >/dev/null 2>&1 &
+#
+# The reattach loop is load-bearing: "docker logs -f" RETURNS when the container
+# exits, and --restart=unless-stopped means an agent that cannot register exits
+# and restarts repeatedly. A single follower therefore captured only the FIRST
+# attempt and then went silent, making a still-running instance look dead in the
+# console output and hiding every subsequent restart -- the exact evidence
+# needed to tell "never started" apart from "started and could not connect".
+#
+# The first follow takes the whole log so the initial boot is captured; every
+# reattach after that starts at the tail, because re-dumping the full history on
+# each restart would fill the provider's fixed-size console buffer with copies
+# and truncate away the newest attempt -- the only one worth reading.
+nohup sh -c 'tail_arg=""; while true; do docker logs -f $tail_arg krakenhashes-agent 2>&1 || true; tail_arg="--tail 0"; sleep 2; done >/dev/console 2>&1' >/dev/null 2>&1 &
 `, hostDeadlinePath, hostDeadlineDir, deadline, hostDeadlinePath,
 		hostDeadlinePath, req.Image, hostDeadlinePath,
 		hostDeadlinePath, containerDeadlinePath,
@@ -221,8 +255,10 @@ func BuildAgentEnv(
 	vpnTag string,
 	ttl time.Duration,
 	heartbeatLoss time.Duration,
+	readyBy time.Duration,
 	provider string,
 ) map[string]string {
+	now := time.Now()
 	env := map[string]string{
 		EnvKHHost:      backendHost,
 		EnvKHClaimCode: claimCode,
@@ -230,8 +266,17 @@ func BuildAgentEnv(
 		// .env, so the claim code never lands on a disk the host operator owns.
 		EnvKHEphemeral:             "true",
 		EnvVPNProvider:             vpnProvider,
-		EnvDeadlineEpoch:           fmt.Sprintf("%d", time.Now().Add(ttl).Unix()),
+		EnvDeadlineEpoch:           fmt.Sprintf("%d", now.Add(ttl).Unix()),
 		EnvHeartbeatTimeoutSeconds: fmt.Sprintf("%d", int(heartbeatLoss.Seconds())),
+	}
+	/*
+	 * A non-positive window means "no registration deadline", which the guest
+	 * reads as the rail being off. It is emitted only when set so that an
+	 * absent variable and a zero one mean the same thing in the entrypoint,
+	 * rather than zero meaning "deadline was at the epoch; die immediately".
+	 */
+	if readyBy > 0 {
+		env[EnvReadyDeadlineEpoch] = fmt.Sprintf("%d", now.Add(readyBy).Unix())
 	}
 	/*
 	 * WireGuard's credential is not a key, it is a whole wireproxy config file,

@@ -31,10 +31,41 @@ type fakeProvisioner struct {
 
 	provisionErr  error
 	provisionCall []uuid.UUID
+
+	// perJobDOA is how many of a job's instances billed and died without the
+	// agent ever registering.
+	perJobDOA map[uuid.UUID]int
+	doaErr    error
+
+	// globalDOA is the deployment-wide consecutive streak.
+	globalDOA    int
+	globalDOAErr error
+}
+
+func (f *fakeProvisioner) ConsecutiveDeadOnArrivals(_ context.Context) (int, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.globalDOAErr != nil {
+		return 0, f.globalDOAErr
+	}
+	return f.globalDOA, nil
 }
 
 func newFakeProvisioner(jobs ...EligibleJob) *fakeProvisioner {
-	return &fakeProvisioner{eligible: jobs, perJobLive: map[uuid.UUID]int{}}
+	return &fakeProvisioner{
+		eligible:   jobs,
+		perJobLive: map[uuid.UUID]int{},
+		perJobDOA:  map[uuid.UUID]int{},
+	}
+}
+
+func (f *fakeProvisioner) DeadOnArrivalCountForJob(_ context.Context, jobID uuid.UUID) (int, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.doaErr != nil {
+		return 0, f.doaErr
+	}
+	return f.perJobDOA[jobID], nil
 }
 
 func (f *fakeProvisioner) ProvisionForJob(_ context.Context, jobID uuid.UUID) error {
@@ -539,4 +570,158 @@ func TestStarvationSnapshot_ConcurrentPublishAndReadAges(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 	close(stop)
 	wg.Wait()
+}
+
+/*
+ * TestAutoscaler_HaltsAfterDeadOnArrivalInstances covers the failure that live
+ * AWS testing surfaced and that no existing rail caught.
+ *
+ * The instance launches, bills, cannot reach the backend over the VPN and
+ * self-destructs a few minutes later. ProvisionForJob returned nil, so nothing
+ * in the error path fires; the job is still starving on the next tick, so the
+ * autoscaler rents again. Observed live: three launches in seven minutes, on
+ * course to bill indefinitely with every step reporting success.
+ *
+ * Asserting an exact count matters here. A test that only checked "fewer than
+ * ten" would pass against a backoff that merely slowed the drain, and the point
+ * of the rail is that this failure never recovers on its own.
+ */
+func TestAutoscaler_HaltsAfterDeadOnArrivalInstances(t *testing.T) {
+	jobA := uuid.New()
+	prov := newFakeProvisioner(EligibleJob{JobExecutionID: jobA, MaxInstances: 10})
+
+	a := NewAutoscaler(freshSnapshot(0, jobA), prov)
+
+	// Each pass rents one instance which then dies without ever registering,
+	// exactly as the VPN-unreachable case does: the live count returns to zero
+	// and the dead-on-arrival tally grows.
+	for i := 0; i < 10; i++ {
+		a.ScaleOnce(context.Background())
+		prov.mu.Lock()
+		if prov.perJobLive[jobA] > 0 {
+			prov.perJobLive[jobA] = 0
+			prov.perJobDOA[jobA]++
+		}
+		prov.mu.Unlock()
+	}
+
+	if n := len(prov.calls()); n != defaultDeadOnArrivalLimit {
+		t.Fatalf("a job whose instances never register must stop being re-rented after %d attempts, "+
+			"got %d launches — each one is a full instance-launch of billing that bought nothing",
+			defaultDeadOnArrivalLimit, n)
+	}
+}
+
+/*
+ * TestAutoscaler_DeadOnArrivalCountErrorRefuses: the rail exists to stop money
+ * leaving on a failure nothing else reports, so an unreadable tally has to
+ * behave like a tripped breaker rather than an absent one.
+ */
+func TestAutoscaler_DeadOnArrivalCountErrorRefuses(t *testing.T) {
+	jobA := uuid.New()
+	prov := newFakeProvisioner(EligibleJob{JobExecutionID: jobA, MaxInstances: 10})
+	prov.doaErr = errors.New("database unavailable")
+
+	a := NewAutoscaler(freshSnapshot(0, jobA), prov)
+	a.ScaleOnce(context.Background())
+
+	if n := len(prov.calls()); n != 0 {
+		t.Fatalf("an unreadable dead-on-arrival count must refuse to provision, got %d launches", n)
+	}
+}
+
+/*
+ * TestAutoscaler_DeadOnArrivalDoesNotBlockScaleUp is the control. The tally is a
+ * lifetime total, so a job that recovered and now holds a healthy instance must
+ * still be able to add a second one — otherwise past failures would
+ * permanently cap a job that is currently working.
+ */
+func TestAutoscaler_DeadOnArrivalDoesNotBlockScaleUp(t *testing.T) {
+	jobA := uuid.New()
+	prov := newFakeProvisioner(EligibleJob{JobExecutionID: jobA, MaxInstances: 10})
+	prov.perJobDOA[jobA] = 99
+	prov.perJobLive[jobA] = 1 // one instance registered and is working
+
+	a := NewAutoscaler(freshSnapshot(0, jobA), prov)
+	a.ScaleOnce(context.Background())
+
+	if n := len(prov.calls()); n != 1 {
+		t.Fatalf("a job with a live registered instance must still scale up despite past "+
+			"dead-on-arrival launches, got %d launches", n)
+	}
+}
+
+/*
+ * TestAutoscaler_GlobalDeadOnArrivalHaltsEverything.
+ *
+ * The per-job breaker cannot see a broken DEPLOYMENT: a wrong backend address
+ * or a lapsed VPN credential fails identically for every job, and the per-job
+ * count starts at zero for each new one. Without this rail an operator who
+ * responds to a stuck job by creating another one pays the full per-job limit
+ * again, indefinitely.
+ *
+ * Asserted across several passes and several DIFFERENT jobs, because a version
+ * that only halted the job it first saw fail would pass a single-job test.
+ */
+func TestAutoscaler_GlobalDeadOnArrivalHaltsEverything(t *testing.T) {
+	jobA, jobB := uuid.New(), uuid.New()
+	prov := newFakeProvisioner(
+		EligibleJob{JobExecutionID: jobA, MaxInstances: 10},
+		EligibleJob{JobExecutionID: jobB, MaxInstances: 10},
+	)
+	prov.globalDOA = defaultGlobalDeadOnArrivalLimit // the deployment is broken
+
+	a := NewAutoscaler(freshSnapshot(0, jobA, jobB), prov)
+	for i := 0; i < 5; i++ {
+		a.ScaleOnce(context.Background())
+	}
+
+	if n := len(prov.calls()); n != 0 {
+		t.Fatalf("provisioned %d instance(s) while the last %d launches all failed to register; "+
+			"a broken deployment must stop spending, not restart per job", n, prov.globalDOA)
+	}
+}
+
+/*
+ * TestAutoscaler_GlobalDeadOnArrivalClearsOnSuccess: the streak is the reset
+ * mechanism. One instance that registers proves rented hardware can reach the
+ * backend, and the autoscaler must resume — otherwise the rail is a permanent
+ * off switch and the only recovery is editing the database.
+ */
+func TestAutoscaler_GlobalDeadOnArrivalClearsOnSuccess(t *testing.T) {
+	jobA := uuid.New()
+	prov := newFakeProvisioner(EligibleJob{JobExecutionID: jobA, MaxInstances: 10})
+	prov.globalDOA = defaultGlobalDeadOnArrivalLimit
+
+	a := NewAutoscaler(freshSnapshot(0, jobA), prov)
+	a.ScaleOnce(context.Background())
+	if n := len(prov.calls()); n != 0 {
+		t.Fatalf("expected the breaker to hold, got %d launches", n)
+	}
+
+	// An operator fixes the configuration and provisions one by hand; it
+	// registers, so the streak is broken.
+	prov.mu.Lock()
+	prov.globalDOA = 0
+	prov.mu.Unlock()
+
+	a.ScaleOnce(context.Background())
+	if n := len(prov.calls()); n != 1 {
+		t.Fatalf("a cleared streak must release the autoscaler, got %d launches", n)
+	}
+}
+
+// TestAutoscaler_GlobalDeadOnArrivalErrorRefuses: an unreadable streak must
+// behave like a tripped breaker, matching every other money rail here.
+func TestAutoscaler_GlobalDeadOnArrivalErrorRefuses(t *testing.T) {
+	jobA := uuid.New()
+	prov := newFakeProvisioner(EligibleJob{JobExecutionID: jobA, MaxInstances: 10})
+	prov.globalDOAErr = errors.New("database unavailable")
+
+	a := NewAutoscaler(freshSnapshot(0, jobA), prov)
+	a.ScaleOnce(context.Background())
+
+	if n := len(prov.calls()); n != 0 {
+		t.Fatalf("an unreadable dead-on-arrival streak must refuse to provision, got %d launches", n)
+	}
 }

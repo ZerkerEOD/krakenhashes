@@ -88,29 +88,30 @@ func (c *URLConfig) GetTLSFailureReportURL() string {
 	return fmt.Sprintf("http://%s:%s/api/agent/tls-failure", c.hostname(), c.HTTPPort)
 }
 
-// hostname returns the configured host without its port.
+// hostname returns the configured host without its port, falling back to
+// localhost when BaseURL does not yield one.
+//
+// The empty-hostname check is the load-bearing part, not the error check.
+// url.Parse is permissive: it accepts "not-a-valid-url" without error and
+// treats it as a relative path, so Hostname() returns "" and err is nil. Testing
+// only err produced URLs like "http://:1337/ca.crt", which fail to dial with a
+// message that says nothing about the real cause -- a malformed KH_HOST.
 func (c *URLConfig) hostname() string {
 	parsedURL, err := url.Parse(c.BaseURL)
 	if err != nil {
-		debug.Error("Failed to parse base URL: %v", err)
+		debug.Error("Failed to parse base URL %q: %v", c.BaseURL, err)
 		return "localhost"
 	}
-	return parsedURL.Hostname()
+	if host := parsedURL.Hostname(); host != "" {
+		return host
+	}
+	debug.Error("Base URL %q has no host; falling back to localhost", c.BaseURL)
+	return "localhost"
 }
 
 // GetCACertURL returns the URL for downloading the CA certificate
 // This endpoint should always be HTTP since we don't have the CA cert yet
 func (c *URLConfig) GetCACertURL() string {
-	// Parse the base URL to get host
-	parsedURL, err := url.Parse(c.BaseURL)
-	if err != nil {
-		debug.Error("Failed to parse base URL: %v", err)
-		return fmt.Sprintf("http://localhost:%s/ca.crt", c.HTTPPort)
-	}
-
-	// Get host without port
-	host := parsedURL.Hostname()
-
 	// Always use HTTP and the HTTP port for CA cert download
-	return fmt.Sprintf("http://%s:%s/ca.crt", host, c.HTTPPort)
+	return fmt.Sprintf("http://%s:%s/ca.crt", c.hostname(), c.HTTPPort)
 }

@@ -23,12 +23,25 @@ so the image stays small and the hashcat version stays under your control.
 
 ### 1. Arm the self-destruct — before anything else
 
-Two independent timers, armed as PID 1's first action:
+Three independent timers, armed as PID 1's first action:
 
 | Timer | Reset? | Covers |
 |---|---|---|
 | `KH_DEADLINE_EPOCH` (absolute) | never | the hard cap on what this instance can cost |
 | `KH_HEARTBEAT_LOSS_TIMEOUT` | on every successful backend contact | the control plane dying an hour into a six-hour rental |
+| `KH_READY_DEADLINE_EPOCH` (absolute) | never | an agent that has **never** reached the backend |
+
+The third exists because the heartbeat timer cannot cover the startup window. It measures
+time since the *last* contact, and an agent that never registered has no last contact and
+writes no heartbeat file — so that check is skipped entirely and only the TTL remains. A
+rented instance whose VPN came up but which could not reach the backend therefore billed
+its entire lease. It is absolute rather than a duration for the same reason the kill
+deadline is: the container restarts under `--restart=unless-stopped`, and any clock kept
+inside it restarts too, so a crash-looping agent would never accumulate the window.
+
+It mirrors the instance row's `ready_deadline_at`, which the backend reaper enforces from
+the other side. Both are needed: the reaper cannot act when the backend is down, and "the
+backend is unreachable from the instance" is precisely the case this bounds.
 
 This runs **before** the VPN starts and before the image is pulled. A VPN that never
 connects, or an agent that never starts, must still result in a destroyed instance — and
@@ -86,6 +99,7 @@ export NO_PROXY="127.0.0.1,localhost,<provider control plane>"
 | `KH_VPN_TAG` | Tag/group to place the node in |
 | `KH_DEADLINE_EPOCH` | Absolute kill time |
 | `KH_HEARTBEAT_LOSS_TIMEOUT` | Seconds of backend silence before self-destruct |
+| `KH_READY_DEADLINE_EPOCH` | Absolute instant by which the agent must have registered once; unset or `0` disables the rail |
 
 ### Why ephemeral mode exists
 
