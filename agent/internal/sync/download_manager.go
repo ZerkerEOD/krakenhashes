@@ -23,15 +23,23 @@ const (
 
 // DownloadTask represents a file download task
 type DownloadTask struct {
-	FileInfo     FileInfo
-	Status       DownloadStatus
-	Progress     int64
-	TotalSize    int64
-	Error        error
-	StartTime    time.Time
-	CompletedAt  time.Time
-	RetryCount   int
-	CancelFunc   context.CancelFunc
+	FileInfo    FileInfo
+	Status      DownloadStatus
+	Progress    int64
+	TotalSize   int64
+	Error       error
+	StartTime   time.Time
+	CompletedAt time.Time
+	RetryCount  int
+	CancelFunc  context.CancelFunc
+	// Generation is the sync batch this task last took part in. The downloads
+	// map is keyed by file and deliberately outlives any one sync so repeat
+	// requests dedup against it, which means it accumulates every file the
+	// agent has ever fetched. Counting the whole map made "3 failures out of
+	// 40" a statement about the PROCESS rather than the batch — and a single
+	// failure early in an agent's life then made every later sync look failed
+	// forever.
+	Generation uint64
 }
 
 // DownloadManager manages file downloads with deduplication and progress tracking
@@ -43,6 +51,18 @@ type DownloadManager struct {
 	semaphore     chan struct{}
 	wg            sync.WaitGroup
 	progressChan  chan DownloadProgress
+	// generation identifies the current sync batch. Bumped by BeginBatch.
+	generation uint64
+}
+
+// BeginBatch starts a new sync batch, so subsequent stats describe only the
+// files this sync was asked for rather than everything the process has ever
+// downloaded. Call it before queueing a batch's files.
+func (dm *DownloadManager) BeginBatch() uint64 {
+	dm.mu.Lock()
+	defer dm.mu.Unlock()
+	dm.generation++
+	return dm.generation
 }
 
 // DownloadProgress represents download progress information
@@ -118,8 +138,15 @@ func (dm *DownloadManager) QueueDownload(ctx context.Context, fileInfo FileInfo)
 	key := dm.generateFileKey(fileInfo)
 
 	dm.mu.Lock()
-	// Check if already downloading or queued
+	// Every path below stamps the current generation, including the early
+	// returns for files that are already present. A file the agent already
+	// holds is still part of THIS batch, and leaving it out would make an
+	// all-cached sync report zero files — which reads as "nothing to do" to
+	// the completion check and would leave the sync reported as in-progress
+	// forever, blocking the benchmark readiness gate.
 	if existingTask, exists := dm.downloads[key]; exists {
+		existingTask.Generation = dm.generation
+
 		// If the download is active, don't queue again
 		if existingTask.Status == DownloadStatusPending || existingTask.Status == DownloadStatusDownloading {
 			dm.mu.Unlock()
@@ -166,6 +193,7 @@ func (dm *DownloadManager) QueueDownload(ctx context.Context, fileInfo FileInfo)
 			Status:     DownloadStatusPending,
 			StartTime:  time.Now(),
 			CancelFunc: cancel,
+			Generation: dm.generation,
 		}
 		dm.downloads[key] = task
 
@@ -200,8 +228,20 @@ func (dm *DownloadManager) downloadWorker(ctx context.Context, key string, task 
 	// Show console status for this download
 	console.Status("Downloading %s (%s)...", task.FileInfo.Name, console.FormatBytes(task.FileInfo.Size))
 
-	// Perform the download using existing FileSync logic
-	err := dm.fileSync.DownloadFileWithInfoRetry(ctx, &task.FileInfo, 0)
+	// Route through DownloadFileFromInfo, not DownloadFileWithInfoRetry.
+	//
+	// The former checks first whether a binary archive is already on disk with
+	// a matching MD5, and if so extracts it (or skips entirely when the
+	// executables are already there) instead of fetching it again. Going
+	// straight to the retry-download skipped that check, so a pushed sync
+	// re-fetched a byte-identical ~467 MB hashcat tree.
+	//
+	// The in-process dedup in QueueDownload does not cover this: it is keyed on
+	// a map that starts empty every time the agent process starts. A cloud
+	// container restarting on a populated volume — which is exactly what
+	// --restart=unless-stopped does after an agent crash — therefore re-pulled
+	// the whole tree while the GPU billed.
+	err := dm.fileSync.DownloadFileFromInfo(ctx, &task.FileInfo)
 
 	if err != nil {
 		dm.updateTaskStatus(key, DownloadStatusFailed, err)
@@ -298,13 +338,27 @@ func (dm *DownloadManager) GetActiveDownloads() int {
 	return count
 }
 
-// GetDownloadStats returns statistics about downloads
+// GetDownloadStats returns statistics about the CURRENT sync batch.
+//
+// Scoped to the current generation rather than the whole map: the map is the
+// dedup index and keeps every file for the life of the process, so counting it
+// reported a running total. The visible symptom was a sync that had just
+// downloaded one file cleanly still reporting failures from a batch minutes
+// earlier, which is exactly the signal the backend uses to decide whether an
+// agent is ready for work.
+//
+// Before any batch has begun (generation 0) this reports the whole map, which
+// is the previous behaviour and keeps callers that never call BeginBatch
+// working unchanged.
 func (dm *DownloadManager) GetDownloadStats() (total, pending, downloading, completed, failed int) {
 	dm.mu.RLock()
 	defer dm.mu.RUnlock()
 
-	total = len(dm.downloads)
 	for _, task := range dm.downloads {
+		if dm.generation != 0 && task.Generation != dm.generation {
+			continue
+		}
+		total++
 		switch task.Status {
 		case DownloadStatusPending:
 			pending++

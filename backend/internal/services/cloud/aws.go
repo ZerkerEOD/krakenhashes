@@ -597,7 +597,19 @@ func (a *AWSProvider) Launch(ctx context.Context, req LaunchRequest) (*LaunchRes
 	out, err := a.ec2.RunInstances(ctx, a.buildRunInput(amiID, req, userData))
 	if err != nil {
 		if isCapacityError(err) {
-			return nil, ErrOfferUnavailable
+			// Wrap rather than return the bare sentinel. errors.Is still sees
+			// ErrOfferUnavailable, so the retry-next-candidate semantics in
+			// ProvisionForJob are unchanged — but the operator now gets the
+			// AWS code that actually fired.
+			//
+			// The three codes collapsed into this sentinel need completely
+			// different responses: InsufficientInstanceCapacity clears on its
+			// own and retrying another AZ or instance type is the fix, while
+			// VcpuLimitExceeded and MaxSpotInstanceCountExceeded are account
+			// quotas that will NEVER clear without a limit-increase request.
+			// Reporting all three as "cloud offer no longer available" sent us
+			// chasing spot capacity for a quota problem.
+			return nil, fmt.Errorf("%w: %w", ErrOfferUnavailable, err)
 		}
 		return nil, fmt.Errorf("aws: RunInstances: %w", err)
 	}
