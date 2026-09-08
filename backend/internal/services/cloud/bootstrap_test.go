@@ -132,7 +132,7 @@ func TestUserData_PullFailureIsNotSwallowed(t *testing.T) {
 func TestBuildAgentEnv_WireGuardGetsAConfigNotAnAuthKey(t *testing.T) {
 	const cfg = "[Interface]\nPrivateKey = abc\n"
 	env := BuildAgentEnv("backend.internal", "CODE", string(models.VPNProviderWireGuard),
-		cfg, "", "", time.Hour, 15*time.Minute, "aws")
+		cfg, "", "", time.Hour, 15*time.Minute, readyDeadlineWindow, "aws")
 
 	if env[EnvVPNConfig] != cfg {
 		t.Errorf("%s = %q, want the wireproxy config; the entrypoint fails closed on an "+
@@ -148,7 +148,7 @@ func TestBuildAgentEnv_WireGuardGetsAConfigNotAnAuthKey(t *testing.T) {
 // have moved anyone else's credential.
 func TestBuildAgentEnv_TailscaleStillUsesAnAuthKey(t *testing.T) {
 	env := BuildAgentEnv("backend.internal", "CODE", string(models.VPNProviderTailscale),
-		"tskey-abc", "https://login.example", "tag:kraken", time.Hour, 15*time.Minute, "vastai")
+		"tskey-abc", "https://login.example", "tag:kraken", time.Hour, 15*time.Minute, readyDeadlineWindow, "vastai")
 
 	if env[EnvVPNAuthKey] != "tskey-abc" {
 		t.Errorf("%s = %q, want the tailscale key", EnvVPNAuthKey, env[EnvVPNAuthKey])
@@ -169,12 +169,12 @@ func TestBuildAgentEnv_TailscaleStillUsesAnAuthKey(t *testing.T) {
  * teardown exists for.
  */
 func TestBuildAgentEnv_ProviderControlPlaneStaysOffTheTunnel(t *testing.T) {
-	vast := BuildAgentEnv("h", "C", "tailscale", "k", "", "", time.Hour, time.Minute, "vastai")
+	vast := BuildAgentEnv("h", "C", "tailscale", "k", "", "", time.Hour, time.Minute, readyDeadlineWindow, "vastai")
 	if !strings.Contains(vast[EnvNoProxy], "console.vast.ai") {
 		t.Errorf("%s = %q; the Vast destroy API must bypass the VPN", EnvNoProxy, vast[EnvNoProxy])
 	}
 
-	aws := BuildAgentEnv("h", "C", "tailscale", "k", "", "", time.Hour, time.Minute, "aws")
+	aws := BuildAgentEnv("h", "C", "tailscale", "k", "", "", time.Hour, time.Minute, readyDeadlineWindow, "aws")
 	if !strings.Contains(aws[EnvNoProxy], "169.254.169.254") {
 		t.Errorf("%s = %q; IMDS must bypass the VPN", EnvNoProxy, aws[EnvNoProxy])
 	}
@@ -184,7 +184,7 @@ func TestBuildAgentEnv_ProviderControlPlaneStaysOffTheTunnel(t *testing.T) {
 // configured by these two variables, and an unset one disables that timer.
 func TestBuildAgentEnv_DeadlineAndHeartbeatArePresent(t *testing.T) {
 	before := time.Now().Add(90 * time.Minute).Unix()
-	env := BuildAgentEnv("h", "C", "tailscale", "k", "", "", 90*time.Minute, 12*time.Minute, "aws")
+	env := BuildAgentEnv("h", "C", "tailscale", "k", "", "", 90*time.Minute, 12*time.Minute, readyDeadlineWindow, "aws")
 
 	if env[EnvDeadlineEpoch] == "" || env[EnvDeadlineEpoch] == "0" {
 		t.Fatalf("%s = %q; 0 disables the absolute deadline entirely", EnvDeadlineEpoch, env[EnvDeadlineEpoch])
@@ -198,5 +198,53 @@ func TestBuildAgentEnv_DeadlineAndHeartbeatArePresent(t *testing.T) {
 	}
 	if env[EnvHeartbeatTimeoutSeconds] != "720" {
 		t.Errorf("%s = %q, want 720", EnvHeartbeatTimeoutSeconds, env[EnvHeartbeatTimeoutSeconds])
+	}
+}
+
+/*
+ * TestBuildAgentEnv_ReadyDeadlineIsAbsoluteAndPresent.
+ *
+ * The gap this closes was found on a live AWS run: the VPN came up, so the
+ * "VPN unavailable" rail passed; the agent could not reach the backend, so it
+ * never registered and never wrote a heartbeat file, so the heartbeat rail had
+ * no last-contact time to measure and stayed silent. Nothing in the guest
+ * bounded the instance and it billed until a backend-side reaper -- which by
+ * definition cannot help when the backend is what is unreachable -- ended it.
+ *
+ * Asserting the value is an absolute epoch rather than merely non-empty is the
+ * point of the test. A duration here would be restarted by every container
+ * restart under --restart=unless-stopped, which is precisely how the heartbeat
+ * rail was defeated, and a crash-looping agent would never reach it.
+ */
+func TestBuildAgentEnv_ReadyDeadlineIsAbsoluteAndPresent(t *testing.T) {
+	want := time.Now().Add(20 * time.Minute).Unix()
+	env := BuildAgentEnv("h", "C", "tailscale", "k", "", "", time.Hour, 15*time.Minute, 20*time.Minute, "aws")
+
+	raw, ok := env[EnvReadyDeadlineEpoch]
+	if !ok {
+		t.Fatalf("%s is absent; an agent that never registers is then bounded only by the "+
+			"full TTL", EnvReadyDeadlineEpoch)
+	}
+	got, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		t.Fatalf("%s = %q, not an integer epoch", EnvReadyDeadlineEpoch, raw)
+	}
+	if got < want-5 || got > want+5 {
+		t.Errorf("%s = %d, want ~%d (an absolute instant, not a duration)",
+			EnvReadyDeadlineEpoch, got, want)
+	}
+}
+
+/*
+ * TestBuildAgentEnv_ZeroReadyWindowOmitsTheDeadline: an unset variable and a
+ * zero one must mean the same thing to the entrypoint -- rail off. Emitting a
+ * literal 0 would read as "the deadline passed in 1970" and destroy the
+ * instance on the watchdog's first poll.
+ */
+func TestBuildAgentEnv_ZeroReadyWindowOmitsTheDeadline(t *testing.T) {
+	env := BuildAgentEnv("h", "C", "tailscale", "k", "", "", time.Hour, 15*time.Minute, 0, "aws")
+	if v, present := env[EnvReadyDeadlineEpoch]; present {
+		t.Errorf("%s = %q; a disabled window must omit the variable, not send an epoch "+
+			"already in the past", EnvReadyDeadlineEpoch, v)
 	}
 }

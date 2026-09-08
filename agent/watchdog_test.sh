@@ -28,11 +28,20 @@ extract_watchdog() {
         | sed 's/^watchdog &//'
 }
 
+# SEED_HEARTBEAT=1 pre-creates the heartbeat file, standing in for an agent that
+# registered successfully at least once. The entrypoint deliberately no longer
+# does this itself: a seeded file makes "reached the backend" and "just booted"
+# indistinguishable, and under --restart=unless-stopped that reset the loss
+# timer on every restart of a crash-looping agent.
 run_watchdog_case() {
     local name="$1" ; shift
     local timeout_s="$1" ; shift
     local workdir
     workdir="$(mktemp -d)"
+
+    if [ "${SEED_HEARTBEAT:-0}" = "1" ]; then
+        date +%s > "$workdir/heartbeat"
+    fi
 
     # Order matters: the extracted block defines the REAL self_destruct (which
     # curls the provider and calls poweroff), so the stub has to be defined
@@ -85,13 +94,58 @@ else
 fi
 
 echo "=== heartbeat loss ==="
-# With a short timeout and nothing refreshing the file, the heartbeat watchdog
-# fires. This is correct behaviour for a genuinely disconnected agent.
-result="$(run_watchdog_case heartbeat_stale 6 KH_DEADLINE_EPOCH=0 KH_HEARTBEAT_LOSS_TIMEOUT=2)"
+# An agent that registered (file present) and then went quiet must self-destruct
+# once the loss timeout elapses. This is correct behaviour for a genuinely
+# disconnected agent.
+result="$(SEED_HEARTBEAT=1 run_watchdog_case heartbeat_stale 6 KH_DEADLINE_EPOCH=0 KH_HEARTBEAT_LOSS_TIMEOUT=2)"
 if echo "$result" | grep -q "no contact with backend"; then
     ok "a stale heartbeat self-destructs"
 else
     bad "a stale heartbeat did NOT self-destruct (got: ${result:-nothing})"
+fi
+
+echo "=== ready deadline (agent never registered) ==="
+# The gap found on a live AWS run: the VPN came up so the "VPN unavailable" rail
+# passed, but the agent could not reach the backend, never registered and never
+# wrote a heartbeat file. With no last contact to measure from, the loss timeout
+# is silent — the instance was bounded only by its full TTL.
+result="$(run_watchdog_case never_registered 6 KH_DEADLINE_EPOCH=0 KH_HEARTBEAT_LOSS_TIMEOUT=99999 KH_READY_DEADLINE_EPOCH=1)"
+if echo "$result" | grep -q "never registered"; then
+    ok "an agent that never registered self-destructs at the ready deadline"
+else
+    bad "an agent that never registered did NOT self-destruct (got: ${result:-nothing})"
+fi
+
+# The control: still inside the window, so nothing fires. Registration takes
+# minutes (image pull, VPN join, file sync) and killing during it would make the
+# rail unable to ever succeed.
+result="$(run_watchdog_case ready_window_open 4 KH_DEADLINE_EPOCH=0 KH_HEARTBEAT_LOSS_TIMEOUT=99999 KH_READY_DEADLINE_EPOCH=$(( $(date +%s) + 3600 )))"
+if [ -z "$result" ]; then
+    ok "a ready deadline still in the future does not fire early"
+else
+    bad "a future ready deadline fired early (got: $result)"
+fi
+
+# A registered agent must be judged by the loss timeout, never by a ready
+# deadline that has since passed — otherwise every instance would be destroyed
+# the moment it outlived its registration window, mid-job.
+result="$(SEED_HEARTBEAT=1 run_watchdog_case registered_past_ready 4 KH_DEADLINE_EPOCH=0 KH_HEARTBEAT_LOSS_TIMEOUT=99999 KH_READY_DEADLINE_EPOCH=1)"
+if [ -z "$result" ]; then
+    ok "an elapsed ready deadline does not fire once the agent has registered"
+else
+    bad "an elapsed ready deadline killed a registered agent (got: $result)"
+fi
+
+echo
+echo "=== the entrypoint must not seed the heartbeat file ==="
+echo "Seeding it on start makes 'reached the backend' and 'just booted' the same"
+echo "state. Under --restart=unless-stopped, a crash-looping agent then rewrites"
+echo "the timestamp every few seconds and the loss timer can never elapse."
+echo
+if grep -qE '^[[:space:]]*date \+%s > "\$HEARTBEAT_FILE"' "$ENTRYPOINT"; then
+    bad "the entrypoint seeds the heartbeat file; the loss rail is defeated by the restart loop"
+else
+    ok "the heartbeat file is written only by the agent, on real contact"
 fi
 
 echo
