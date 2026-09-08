@@ -123,6 +123,23 @@ const (
 	WSTypeCertRefreshAck WSMessageType = "cert_refresh_ack" // Agent -> Server: confirm refresh
 )
 
+/*
+ * benchmarkPreflightTimeout bounds fetching the files a benchmark needs, on a
+ * clock separate from the speed test itself.
+ *
+ * Generous on purpose: the hashcat archive extracts to roughly 467 MB across
+ * ~3,100 files and the extractor is single-threaded, so tens of seconds is
+ * normal and a slow link makes it minutes. The speed-test budget (120s + 60s
+ * grace by default) is far too tight to absorb that, and a fetch that overran
+ * it would be reported as a benchmark timeout rather than as "still
+ * provisioning".
+ *
+ * A rented instance is bounded independently by its own rails -- the 10-minute
+ * ready deadline and the 5-minute idle drain -- so this cap exists to stop an
+ * on-prem agent hanging forever, not to bound cloud spend.
+ */
+const benchmarkPreflightTimeout = 10 * time.Minute
+
 // WSMessage represents a WebSocket message
 type WSMessage struct {
 	Type      WSMessageType   `json:"type"`
@@ -198,6 +215,8 @@ type BenchmarkRequest struct {
 	RulePaths               []string                        `json:"rule_paths"`
 	Mask                    string                          `json:"mask,omitempty"`
 	BinaryPath              string                          `json:"binary_path"`
+	BinaryName              string                          `json:"binary_name,omitempty"`
+	BinaryMD5               string                          `json:"binary_md5,omitempty"`
 	TestDuration            int                             `json:"test_duration"`                       // Maximum seconds the agent should spend collecting status updates before giving up
 	TimeoutDuration         int                             `json:"timeout_duration"`                    // Hard wall-clock cap on the entire speed-test (context deadline); should be >= TestDuration
 	MinStatusUpdates        int                             `json:"min_status_updates,omitempty"`        // Minimum hashcat --status-json ticks the agent must collect before returning a result. <=0 means use the agent's default.
@@ -1836,6 +1855,8 @@ func (c *Connection) readPump() {
 					RulePaths:               benchmarkPayload.RulePaths,
 					Mask:                    benchmarkPayload.Mask,
 					BinaryPath:              benchmarkPayload.BinaryPath,
+					BinaryName:              benchmarkPayload.BinaryName,
+					BinaryMD5:               benchmarkPayload.BinaryMD5,
 					ReportInterval:          5,                                        // Default status interval
 					ExtraParameters:         benchmarkPayload.ExtraParameters,         // Agent-specific parameters
 					EnabledDevices:          benchmarkPayload.EnabledDevices,          // Device list
@@ -1869,8 +1890,40 @@ func (c *Connection) readPump() {
 				ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutDuration)*time.Second)
 				defer cancel()
 
+				jobManager := c.jobManager.(*jobs.JobManager)
+
+				/*
+				 * Fetch anything this benchmark needs and does not have --
+				 * above all the hashcat binary, which nothing in the agent ever
+				 * downloaded on demand.
+				 *
+				 * Given its OWN deadline, deliberately not the speed test's.
+				 * Fetching is not part of what the speed test measures, and the
+				 * uncompressed budget is 120s + 60s grace: a cold agent pulling
+				 * a ~467 MB hashcat tree can spend most of that before hashcat
+				 * is even invoked, so charging it to the same clock turns a slow
+				 * download into a BENCHMARK_TIMEOUT -- which classifies as
+				 * transient, IS counted, and heads straight back toward the
+				 * blocklist this whole change exists to avoid.
+				 */
+				preflightCtx, preflightCancel := context.WithTimeout(
+					context.Background(), benchmarkPreflightTimeout)
+				preflightErr := jobManager.EnsureBenchmarkFiles(preflightCtx, assignment)
+				preflightCancel()
+				if err := preflightErr; err != nil {
+					debug.Error("Benchmark pre-flight failed: %v", err)
+					// AGENT_NOT_PROVISIONED is the typed code the backend keys
+					// its "do not count this toward the blocklist" branch on.
+					// Without it the raw string falls through to CategoryUnknown
+					// -> transient -> three strikes -> 24h blocklist.
+					c.sendBenchmarkFailure(benchmarkPayload,
+						fmt.Sprintf("agent not provisioned for this job: %v", err),
+						"AGENT_NOT_PROVISIONED")
+					return
+				}
+
 				// Get the executor from job manager
-				executor := c.jobManager.(*jobs.JobManager).GetExecutor()
+				executor := jobManager.GetExecutor()
 				totalSpeed, deviceSpeeds, totalEffectiveKeyspace, agentBaseKeyspace, err := executor.RunSpeedTest(ctx, assignment, testDuration, minStatusUpdates)
 
 				if err != nil {

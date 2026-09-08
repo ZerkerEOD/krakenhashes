@@ -29,6 +29,23 @@ import (
 // longer, lift this to a system setting in a follow-up.
 const benchmarkInFlightWindow = 5 * time.Minute
 
+/*
+ * syncInProgressGrace bounds how long an agent reporting sync_status
+ * 'in_progress' is treated as not-ready-to-benchmark.
+ *
+ * A bound is mandatory, not defensive. sync_status is cleared by the agent's
+ * own sync_completed message or by readPump noticing a disconnect; an agent
+ * that dies in some way neither path catches stays 'in_progress' forever, and
+ * an unbounded gate would silently exclude it from every benchmark for the rest
+ * of its life. Past the grace we fail open and benchmark anyway -- the
+ * pre-flight on the agent will fetch whatever is missing, so the cost of being
+ * wrong here is a slower benchmark rather than a stuck agent.
+ *
+ * Ten minutes comfortably covers a ~467 MB hashcat archive plus wordlists on a
+ * slow link.
+ */
+const syncInProgressGrace = 10 * time.Minute
+
 // benchmarkRedispatchCooldown is a defense-in-depth backstop against
 // endless benchmark loops. If a SUCCESSFUL benchmark for an
 // (agent, attack_mode, hash_type) was recorded within this window yet the
@@ -269,6 +286,45 @@ func agentHasBenchmarkFor(ctx context.Context, database *db.DB, agentID, attackM
 	return exists, err
 }
 
+/*
+ * agentFileSyncInProgress reports whether an agent is actively downloading
+ * files right now, and therefore should not be handed a benchmark yet.
+ *
+ * Gates on 'in_progress' and deliberately NOT on 'pending'. That distinction is
+ * the whole design: 'pending' is the normal RESTING state of a cloud agent --
+ * they never run the full-corpus sync, and AgentSyncRecovery explicitly
+ * excludes them for that reason -- so gating on it would strand every rented
+ * agent permanently. 'in_progress' is transient by construction and is stamped
+ * with sync_started_at, so it can be bounded.
+ *
+ * Cheap and non-blocking on purpose. The obvious existing candidate for this,
+ * CheckAndSyncAgentFiles, sends the agent an inventory request and waits for
+ * the reply; doing that inside a 3-second dispatch cycle would block the loop
+ * on network I/O for every agent.
+ */
+func agentFileSyncInProgress(ctx context.Context, database *db.DB, agentID int, grace time.Duration) (bool, error) {
+	var inProgress bool
+	err := database.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM agents
+			WHERE id = $1
+			  AND sync_status = 'in_progress'
+			  AND sync_started_at IS NOT NULL
+			  AND sync_started_at > NOW() - ($2 * INTERVAL '1 second')
+			  -- Skew guard: a timestamp in the future means the writer's clock
+			  -- disagrees with the database's. Gating on a value we cannot
+			  -- interpret would exclude the agent from benchmarks for as long as
+			  -- the skew lasts, so treat it as not-syncing and let the agent's
+			  -- own pre-flight sort the files out. This also caught the tz-naive
+			  -- column bug that migration 20260908130000 fixes.
+			  AND sync_started_at <= NOW() + INTERVAL '1 minute'
+		)`, agentID, int(grace.Seconds())).Scan(&inProgress)
+	if err != nil {
+		return false, fmt.Errorf("check file sync state for agent %d: %w", agentID, err)
+	}
+	return inProgress, nil
+}
+
 // agentBenchmarkedSuccessfullyRecently reports whether agent_benchmark_history
 // has a successful row for (agent, attack_mode, hash_type) within the given
 // window, IGNORING salt_count. Used as the endless-loop safety cap: a recent
@@ -426,10 +482,20 @@ func buildBenchmarkRequest(
 		debug.Warning("benchmark: lookup agent %d extra_parameters: %v", g.AgentID, err)
 	}
 
-	binaryPath := ""
+	// Resolve WHICH binary to use, and enough about it for the agent to fetch
+	// it if absent. Resolving the id without the name/md5 is what left the
+	// agent able to detect a missing hashcat but not request one.
+	binaryPath, binaryName, binaryMD5 := "", "", ""
 	if binaryResolver != nil {
 		if binID, berr := binaryResolver.DetermineBinaryForTask(ctx, g.AgentID, unit.ParentJobID); berr == nil {
 			binaryPath = fmt.Sprintf("binaries/%d", binID)
+			// Non-fatal: an unnamed binary simply reverts to the older
+			// present-or-absent behaviour rather than blocking the benchmark.
+			if err := database.QueryRowContext(ctx,
+				`SELECT COALESCE(file_name,''), COALESCE(md5_hash,'')
+				   FROM binary_versions WHERE id = $1`, binID).Scan(&binaryName, &binaryMD5); err != nil {
+				debug.Warning("benchmark: lookup binary %d name/md5: %v", binID, err)
+			}
 		}
 	}
 
@@ -449,6 +515,8 @@ func buildBenchmarkRequest(
 		AttackMode:              g.AttackMode,
 		HashType:                g.HashType,
 		BinaryPath:              binaryPath,
+		BinaryName:              binaryName,
+		BinaryMD5:               binaryMD5,
 		HashlistID:              hashlistID,
 		HashlistPath:            hashlistPath,
 		WordlistPaths:           taskPayload.WordlistPaths,

@@ -624,6 +624,54 @@ func (c *Cycle) RunOnce(ctx context.Context) (res CycleResult, retErr error) {
 			} else if blocked {
 				continue
 			}
+			/*
+			 * Readiness gate: never benchmark an agent that is mid-download.
+			 *
+			 * This is the asymmetry that cost a rented GPU eight minutes and a
+			 * 24-hour blocklist. TASK dispatch is safe against missing files --
+			 * the agent's ensure* chain fetches them and the rejection loop
+			 * re-delivers -- so it is deliberately left fail-open here. A
+			 * BENCHMARK had no such pre-flight and simply invoked hashcat.
+			 *
+			 * Applies to the benchmark branch ONLY, and only to 'in_progress'.
+			 * A global sync_status gate was removed from getIdleAgents on
+			 * purpose, because it means "holds the entire corpus" -- something
+			 * cloud agents never do.
+			 *
+			 * A lookup error does NOT skip: refusing to benchmark on a
+			 * transient DB error would stall dispatch, and the agent's own
+			 * pre-flight now covers the case this gate is merely optimising.
+			 */
+			if syncing, sErr := agentFileSyncInProgress(ctx, c.db, alloc.AgentID, syncInProgressGrace); sErr != nil {
+				debug.Warning("cycle: file-sync state check (agent=%d unit=%s): %v", alloc.AgentID, u.ID, sErr)
+			} else if syncing {
+				debug.Info("cycle: agent %d is still downloading its files; deferring benchmark for unit %s",
+					alloc.AgentID, u.ID)
+				continue
+			}
+			/*
+			 * Second storm guard, for the case the blocklist cannot see: a
+			 * benchmark that SUCCEEDED recently but was not accepted, so the
+			 * cached-speed lookup above still reports the combo missing and we
+			 * re-dispatch on every 3-second cycle forever.
+			 *
+			 * This throttle already existed but only in IdentifyMissingBenchmarks,
+			 * which has no callers — the live path here inherited none of it. A
+			 * lookup failure deliberately does NOT skip: refusing to benchmark
+			 * on a transient DB error would stall dispatch entirely, and the
+			 * blocklist above already bounds genuinely repeating failures.
+			 */
+			if recent, rErr := agentBenchmarkedSuccessfullyRecently(
+				ctx, c.db, alloc.AgentID, u.AttackMode, hashType, benchmarkRedispatchCooldown,
+			); rErr != nil {
+				debug.Warning("cycle: recent-benchmark check (agent=%d unit=%s): %v", alloc.AgentID, u.ID, rErr)
+			} else if recent {
+				debug.Warning("cycle: agent %d benchmarked (attack_mode=%d hash_type=%d) successfully "+
+					"within %s but the cached-speed lookup still reports it missing — throttling "+
+					"re-dispatch. This usually means the stored salt_count disagrees with the lookup.",
+					alloc.AgentID, u.AttackMode, hashType, benchmarkRedispatchCooldown)
+				continue
+			}
 			benchGaps = append(benchGaps, BenchmarkGap{
 				AgentID:    alloc.AgentID,
 				UnitID:     u.ID,
@@ -1572,17 +1620,26 @@ func (c *Cycle) attachFileMD5s(ctx context.Context, payload *wsservice.TaskAssig
 		}
 	}
 
-	// BinaryPath format: "binaries/<binary_version_id>". Sent for completeness;
-	// binary versions are immutable (a new binary gets a new id and path), so
-	// the agent treats the binary directory as present-or-absent rather than
-	// re-verifying this hash.
+	/*
+	 * BinaryPath format: "binaries/<binary_version_id>". Binary versions are
+	 * immutable (a new binary gets a new id and path), so the agent treats the
+	 * directory as present-or-absent rather than re-verifying this hash.
+	 *
+	 * The NAME is sent alongside because "binaries/5" names a directory, and
+	 * the agent's downloader keys a binary on (id, archive filename). Without
+	 * it the agent could detect a missing binary but not ask for it — which is
+	 * why a freshly provisioned agent whose sync had not yet delivered hashcat
+	 * failed its benchmark outright instead of fetching what it lacked.
+	 */
 	if payload.BinaryPath != "" {
 		idStr := strings.TrimPrefix(payload.BinaryPath, "binaries/")
 		if id, convErr := strconv.Atoi(idStr); convErr == nil {
-			var md5 string
+			var md5, fileName string
 			if err := c.db.QueryRowContext(ctx,
-				`SELECT md5_hash FROM binary_versions WHERE id = $1`, id).Scan(&md5); err == nil {
+				`SELECT COALESCE(md5_hash,''), COALESCE(file_name,'')
+				   FROM binary_versions WHERE id = $1`, id).Scan(&md5, &fileName); err == nil {
 				payload.BinaryMD5 = md5
+				payload.BinaryName = fileName
 			}
 		}
 	}

@@ -204,33 +204,38 @@ type CharsetFileInfo struct {
 
 // JobTaskAssignment represents a task assignment from the backend
 type JobTaskAssignment struct {
-	TaskID            string                     `json:"task_id"`
-	JobExecutionID    string                     `json:"job_execution_id"`
-	HashlistID        int64                      `json:"hashlist_id"`
-	HashlistPath      string                     `json:"hashlist_path"` // Local path on agent
-	AttackMode        int                        `json:"attack_mode"`
-	HashType          int                        `json:"hash_type"`
-	KeyspaceStart     int64                      `json:"keyspace_start"`
-	KeyspaceEnd       int64                      `json:"keyspace_end"`
-	WordlistPaths     []string                   `json:"wordlist_paths"`                // Local paths on agent
-	RulePaths         []string                   `json:"rule_paths"`                    // Local paths on agent
-	Mask              string                     `json:"mask,omitempty"`                // For mask attacks
-	CustomCharsets    map[string]string          `json:"custom_charsets,omitempty"`     // Custom charsets: {"1": "?u?d", "3": "?s"}
-	CharsetFiles      map[string]CharsetFileInfo `json:"charset_files,omitempty"`       // File-based charsets: {"1": {name: "file.hcchr", ...}}
-	HexCharset        bool                       `json:"hex_charset,omitempty"`         // When true, auto-inject --hex-charset flag
-	BinaryPath        string                     `json:"binary_path"`                   // Hashcat binary to use
-	ChunkDuration     int                        `json:"chunk_duration"`                // Expected duration in seconds
-	ReportInterval    int                        `json:"report_interval"`               // Progress reporting interval
-	OutputFormat      string                     `json:"output_format"`                 // Hashcat output format
-	ExtraParameters   string                     `json:"extra_parameters,omitempty"`    // Agent-specific hashcat parameters
-	JobAdditionalArgs string                     `json:"job_additional_args,omitempty"` // Job-level hashcat parameters (merged with agent params)
-	EnabledDevices    []int                      `json:"enabled_devices,omitempty"`     // List of enabled device IDs
-	IncrementMode     string                     `json:"increment_mode,omitempty"`      // Mask increment mode: off, increment, increment_inverse
-	IncrementMin      *int                       `json:"increment_min,omitempty"`       // Starting mask length for increment mode
-	IncrementMax      *int                       `json:"increment_max,omitempty"`       // Maximum mask length for increment mode
-	IsKeyspaceSplit   bool                       `json:"is_keyspace_split"`             // Whether this task uses keyspace splitting (--skip/--limit)
-	Slow              bool                       `json:"slow,omitempty"`                // Hash type is slow (iterated) — add hashcat -S for wordlist attacks so host-side candidate generation keeps the GPU saturated under small --limit chunks
-	BaseKeyspace      int64                      `json:"base_keyspace,omitempty"`       // Server's base keyspace for --skip/--limit coordinate conversion
+	TaskID         string                     `json:"task_id"`
+	JobExecutionID string                     `json:"job_execution_id"`
+	HashlistID     int64                      `json:"hashlist_id"`
+	HashlistPath   string                     `json:"hashlist_path"` // Local path on agent
+	AttackMode     int                        `json:"attack_mode"`
+	HashType       int                        `json:"hash_type"`
+	KeyspaceStart  int64                      `json:"keyspace_start"`
+	KeyspaceEnd    int64                      `json:"keyspace_end"`
+	WordlistPaths  []string                   `json:"wordlist_paths"`            // Local paths on agent
+	RulePaths      []string                   `json:"rule_paths"`                // Local paths on agent
+	Mask           string                     `json:"mask,omitempty"`            // For mask attacks
+	CustomCharsets map[string]string          `json:"custom_charsets,omitempty"` // Custom charsets: {"1": "?u?d", "3": "?s"}
+	CharsetFiles   map[string]CharsetFileInfo `json:"charset_files,omitempty"`   // File-based charsets: {"1": {name: "file.hcchr", ...}}
+	HexCharset     bool                       `json:"hex_charset,omitempty"`     // When true, auto-inject --hex-charset flag
+	BinaryPath     string                     `json:"binary_path"`               // Hashcat binary to use
+	// BinaryName is the archive filename behind BinaryPath (BinaryMD5 already
+	// exists further down). Without it a missing binary could be detected but
+	// not requested, which is why nothing in the agent ever fetched hashcat on
+	// demand.
+	BinaryName        string `json:"binary_name,omitempty"`
+	ChunkDuration     int    `json:"chunk_duration"`                // Expected duration in seconds
+	ReportInterval    int    `json:"report_interval"`               // Progress reporting interval
+	OutputFormat      string `json:"output_format"`                 // Hashcat output format
+	ExtraParameters   string `json:"extra_parameters,omitempty"`    // Agent-specific hashcat parameters
+	JobAdditionalArgs string `json:"job_additional_args,omitempty"` // Job-level hashcat parameters (merged with agent params)
+	EnabledDevices    []int  `json:"enabled_devices,omitempty"`     // List of enabled device IDs
+	IncrementMode     string `json:"increment_mode,omitempty"`      // Mask increment mode: off, increment, increment_inverse
+	IncrementMin      *int   `json:"increment_min,omitempty"`       // Starting mask length for increment mode
+	IncrementMax      *int   `json:"increment_max,omitempty"`       // Maximum mask length for increment mode
+	IsKeyspaceSplit   bool   `json:"is_keyspace_split"`             // Whether this task uses keyspace splitting (--skip/--limit)
+	Slow              bool   `json:"slow,omitempty"`                // Hash type is slow (iterated) — add hashcat -S for wordlist attacks so host-side candidate generation keeps the GPU saturated under small --limit chunks
+	BaseKeyspace      int64  `json:"base_keyspace,omitempty"`       // Server's base keyspace for --skip/--limit coordinate conversion
 	// Effective-keyspace range (base × rule/salt multipliers) for this
 	// task. The real hashcat executor reads effective progress from
 	// hashcat's progress[0]/[1] and ignores these. They exist so the
