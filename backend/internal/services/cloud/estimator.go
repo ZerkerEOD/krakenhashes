@@ -160,22 +160,67 @@ func (e *Estimator) Project(
 		p.Note = "salted hash type: effective keyspace shrinks as salts crack, so real throughput will exceed this projection"
 	}
 
-	// Aggregate speed of agents currently on the job.
-	if err := e.db.QueryRowContext(ctx, `
+	/*
+	 * Aggregate speed of agents currently on the job, split by kind.
+	 *
+	 * The salt_count match is load-bearing, not defensive. agent_benchmarks is
+	 * unique on (agent, attack_mode, hash_type, salt_count), so a salted hash
+	 * type legitimately has SEVERAL rows per (agent, attack_mode, hash_type) —
+	 * one per salt count benchmarked. Joining without it made SUM(speed) add
+	 * them all together and report a fleet several times faster than it is,
+	 * which shortens every projection and makes the finishing-soon rule fire
+	 * when it should not. Derived the same way HandleBenchmarkResult stores it:
+	 * total_hashes for a salted type, NULL otherwise, compared NULL-safely.
+	 */
+	const speedSelect = `
 		SELECT COALESCE(SUM(ab.speed), 0)
 		FROM job_tasks t
 		JOIN scheduling_units su ON su.id = t.scheduling_unit_id
 		JOIN job_executions je ON je.id = su.parent_job_id
 		JOIN hashlists h ON h.id = je.hashlist_id
+		JOIN hash_types hty ON hty.id = h.hash_type_id
 		JOIN agents a ON a.id = t.agent_id
 		LEFT JOIN agent_benchmarks ab
-		       ON ab.agent_id = a.id AND ab.attack_mode = su.attack_mode AND ab.hash_type = h.hash_type_id
+		       ON ab.agent_id = a.id
+		      AND ab.attack_mode = su.attack_mode
+		      AND ab.hash_type = h.hash_type_id
+		      AND ab.salt_count IS NOT DISTINCT FROM
+		          (CASE WHEN hty.is_salted AND h.total_hashes > 0 THEN h.total_hashes END)
 		WHERE su.parent_job_id = $1
-		  AND t.status IN ('assigned','running')
-		  AND a.cloud_instance_id IS NULL`, jobID).Scan(&p.OnPremSpeed); err != nil {
+		  AND t.status IN ('assigned','running')`
+
+	if err := e.db.QueryRowContext(ctx,
+		speedSelect+` AND a.cloud_instance_id IS NULL`, jobID).Scan(&p.OnPremSpeed); err != nil {
 		return nil, fmt.Errorf("estimator: on-prem speed: %w", err)
 	}
-	p.CloudSpeed = extraCloudSpeed
+
+	/*
+	 * Running cloud speed, added to the caller's hypothetical.
+	 *
+	 * Without this the projection saw only on-prem agents, so in a cloud-only
+	 * deployment total was always 0, TimeToFinishKnown stayed false, and
+	 * skip_if_finishing_within_seconds could never fire — one of the two
+	 * brakes that stops the autoscaler renting for a job that is about to
+	 * finish anyway.
+	 *
+	 * Kept as a separate query rather than dropping the cloud exclusion above,
+	 * because OnPremSpeed and CloudSpeed are reported separately in the admin
+	 * estimate dialog, and because extraCloudSpeed is a HYPOTHETICAL ("what if
+	 * I add one more instance") — folding real cloud speed into that same
+	 * field would double-count it on the manual path.
+	 */
+	var runningCloudSpeed int64
+	if err := e.db.QueryRowContext(ctx,
+		speedSelect+`
+		  AND a.cloud_instance_id IS NOT NULL
+		  AND EXISTS (
+		        SELECT 1 FROM cloud_instances ci
+		         WHERE ci.id = a.cloud_instance_id
+		           AND ci.state NOT IN ('terminated','failed')
+		      )`, jobID).Scan(&runningCloudSpeed); err != nil {
+		return nil, fmt.Errorf("estimator: cloud speed: %w", err)
+	}
+	p.CloudSpeed = runningCloudSpeed + extraCloudSpeed
 
 	total := p.OnPremSpeed + p.CloudSpeed
 	if total <= 0 || p.RemainingBase <= 0 {

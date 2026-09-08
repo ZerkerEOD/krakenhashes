@@ -58,10 +58,12 @@ const FIELDS = {
     toStored: (dollars: number) => Math.round(dollars * 100),
   },
   concurrentCap: { key: 'cloud_global_concurrent_instance_cap' },
+  defaultMaxInstancesPerJob: { key: 'cloud_default_max_instances_per_job' },
   agentImage: { key: 'cloud_agent_image', text: true },
   chunkSeconds: { key: 'cloud_chunk_duration_seconds' },
   teardownSlack: { key: 'cloud_teardown_slack_seconds' },
   idleDrainMinutes: { key: 'cloud_idle_drain_minutes' },
+  commissioningGraceMinutes: { key: 'cloud_commissioning_grace_minutes' },
   reaperSeconds: { key: 'cloud_reaper_interval_seconds' },
   orphanGraceMinutes: { key: 'cloud_orphan_grace_minutes' },
 } satisfies Record<string, FieldSpec>;
@@ -330,6 +332,13 @@ const CloudSystemSettings: React.FC = () => {
               {...bind(FIELDS.concurrentCap)}
             />
           </Grid>
+          <Grid item xs={12} md={6}>
+            <SettingField
+              label={t('cloud.system.fields.defaultMaxInstancesPerJob') as string}
+              helper={t('cloud.system.fields.defaultMaxInstancesPerJobHelp') as string}
+              {...bind(FIELDS.defaultMaxInstancesPerJob)}
+            />
+          </Grid>
         </Grid>
       </Paper>
 
@@ -378,6 +387,14 @@ const CloudSystemSettings: React.FC = () => {
               helper={t('cloud.system.fields.idleDrainHelp') as string}
               unit={t('cloud.system.units.minutes') as string}
               {...bind(FIELDS.idleDrainMinutes)}
+            />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <SettingField
+              label={t('cloud.system.fields.commissioningGrace') as string}
+              helper={t('cloud.system.fields.commissioningGraceHelp') as string}
+              unit={t('cloud.system.units.minutes') as string}
+              {...bind(FIELDS.commissioningGraceMinutes)}
             />
           </Grid>
         </Grid>

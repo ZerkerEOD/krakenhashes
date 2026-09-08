@@ -159,8 +159,19 @@ type Provisioner interface {
 	// safe to call concurrently and must fail closed on any missing
 	// precondition (no budget, no VPN credential, no capacity).
 	ProvisionForJob(ctx context.Context, jobID uuid.UUID) error
-	// LiveInstanceCountForJob reports how many instances already serve a job.
-	LiveInstanceCountForJob(ctx context.Context, jobID uuid.UUID) (int, error)
+	/*
+	 * JobInstanceState reports how many instances currently serve a job, and
+	 * how many of those have never been given a task.
+	 *
+	 * The second number is the one that stops a burst. A commissioning
+	 * instance is money already committed to this job that has not yet proven
+	 * it can do anything: it is booting, or downloading files, or
+	 * benchmarking. The job goes on publishing as starving throughout, because
+	 * starvation means "got no NEW allocation this cycle" — so counting only
+	 * live instances made the autoscaler rent another one every tick for the
+	 * ten to twenty minutes a cold instance takes to become useful.
+	 */
+	JobInstanceState(ctx context.Context, jobID uuid.UUID) (live, commissioning int, err error)
 	/*
 	 * DeadOnArrivalCountForJob reports how many instances this job has rented
 	 * that reached the provider, billed, and died WITHOUT the agent ever
@@ -468,12 +479,35 @@ func (a *Autoscaler) ScaleOnce(ctx context.Context) {
 			}
 		}
 
-		have, err := a.provisioner.LiveInstanceCountForJob(ctx, job.JobExecutionID)
+		have, commissioning, err := a.provisioner.JobInstanceState(ctx, job.JobExecutionID)
 		if err != nil {
 			debug.Error("Cloud autoscaler: could not count instances for job %s: %v", job.JobExecutionID, err)
 			continue
 		}
 		if job.MaxInstances > 0 && have >= job.MaxInstances {
+			continue
+		}
+
+		/*
+		 * The settling rule: never rent a second instance for a job whose
+		 * first one has not yet done anything.
+		 *
+		 * This is what makes the "one per pass" intent below actually true. A
+		 * job stays starving for the whole time a rented instance is booting,
+		 * syncing and benchmarking, so one-per-60s-tick against a ten-to-
+		 * twenty-minute cold start is a burst of ten to twenty — every one of
+		 * them paid for, and all but the first almost certainly unwanted.
+		 *
+		 * It cannot wedge. The commissioning state is bounded from above by
+		 * the reaper's CommissioningGrace, and independently by the instance's
+		 * ready deadline and TTL. The instance either takes a task (and stops
+		 * being commissioning) or is destroyed (and stops being live), so this
+		 * gate always reopens.
+		 */
+		if commissioning > 0 {
+			debug.Info("Cloud autoscaler: job %s already has %d instance(s) commissioning; "+
+				"waiting for one to take work before renting another",
+				job.JobExecutionID, commissioning)
 			continue
 		}
 

@@ -749,3 +749,78 @@ func normaliseTestCode(code string) string {
 	}
 	return string(out)
 }
+
+/*
+ * TestCloudEligibleJobs_BlankMaxInstancesInheritsTheDefault.
+ *
+ * A job that leaves cloud_max_instances blank used to report MaxInstances=0,
+ * which the autoscaler reads as "no cap". That was survivable only while the
+ * on-prem brakes engaged; with no on-prem agents they are structurally dead and
+ * blank means the client budget is the only bound.
+ *
+ * This is a DB-backed test on purpose. The inheritance is resolved inside the
+ * SQL, and the budget default shipped with exactly this bug — the clause was
+ * written against the raw column, so every inheriting client silently failed to
+ * match and setting a default appeared to do nothing. A test that stubbed the
+ * query would not have caught that.
+ */
+func TestCloudEligibleJobs_BlankMaxInstancesInheritsTheDefault(t *testing.T) {
+	f := newProvisionFixture(t, 100_000, testOffer(50))
+	ctx := context.Background()
+
+	if _, err := f.db.Exec(
+		`UPDATE job_executions SET cloud_max_instances = NULL WHERE id = $1`, f.job.JobID); err != nil {
+		t.Fatalf("blank the per-job cap: %v", err)
+	}
+	if _, err := f.db.Exec(
+		`INSERT INTO system_settings (key, value, description, data_type)
+		 VALUES ('cloud_default_max_instances_per_job', '3', 'test', 'integer')
+		 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`); err != nil {
+		t.Fatalf("seed the default: %v", err)
+	}
+
+	eligible, err := f.svc.CloudEligibleJobs(ctx, []uuid.UUID{f.job.JobID})
+	if err != nil {
+		t.Fatalf("CloudEligibleJobs: %v", err)
+	}
+	if len(eligible) != 1 {
+		t.Fatalf("expected the job to remain eligible, got %d rows", len(eligible))
+	}
+	if eligible[0].MaxInstances != 3 {
+		t.Errorf("MaxInstances = %d, want 3 inherited from the server default. "+
+			"0 here means unlimited, which is the runaway this default exists to close",
+			eligible[0].MaxInstances)
+	}
+
+	// An explicit per-job value must still win over the default.
+	if _, err := f.db.Exec(
+		`UPDATE job_executions SET cloud_max_instances = 1 WHERE id = $1`, f.job.JobID); err != nil {
+		t.Fatalf("set an explicit cap: %v", err)
+	}
+	eligible, err = f.svc.CloudEligibleJobs(ctx, []uuid.UUID{f.job.JobID})
+	if err != nil {
+		t.Fatalf("CloudEligibleJobs: %v", err)
+	}
+	if len(eligible) != 1 || eligible[0].MaxInstances != 1 {
+		t.Errorf("an explicit per-job cap must override the default; got %+v", eligible)
+	}
+
+	// A malformed default must read as absent and fall back to unlimited rather
+	// than erroring the whole query and stalling every job.
+	if _, err := f.db.Exec(
+		`UPDATE job_executions SET cloud_max_instances = NULL WHERE id = $1`, f.job.JobID); err != nil {
+		t.Fatalf("re-blank the per-job cap: %v", err)
+	}
+	if _, err := f.db.Exec(
+		`UPDATE system_settings SET value = 'not-a-number'
+		  WHERE key = 'cloud_default_max_instances_per_job'`); err != nil {
+		t.Fatalf("corrupt the default: %v", err)
+	}
+	eligible, err = f.svc.CloudEligibleJobs(ctx, []uuid.UUID{f.job.JobID})
+	if err != nil {
+		t.Fatalf("a malformed default must not error the query: %v", err)
+	}
+	if len(eligible) != 1 || eligible[0].MaxInstances != 0 {
+		t.Errorf("malformed default should read as absent (0/unlimited); got %+v", eligible)
+	}
+}

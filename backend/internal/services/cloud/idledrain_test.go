@@ -173,42 +173,101 @@ func TestIdleDrain_BetweenChunksIsNotIdle(t *testing.T) {
 }
 
 /*
- * TestIdleDrain_NeverWorkedIsMeasuredFromReady.
+ * TestCommissioning_NeverWorkedIsMeasuredFromReady.
  *
- * An instance with no task history has no "last activity" at all. Measuring
- * that from zero would make every instance look infinitely idle the moment it
- * registered, and it would be destroyed before its first chunk ever arrived.
+ * An instance with no task history has no "last activity" at all, so it is
+ * judged by CommissioningGrace measured from ready_at — NOT by IdleDrain.
+ * Measuring from zero would make every instance look infinitely idle the moment
+ * it registered and destroy it before its first chunk ever arrived.
+ *
+ * IdleDrain is set absurdly low here on purpose: it must have no effect on an
+ * instance that has never worked. Before the split, that 1-minute value would
+ * have destroyed the fresh instance.
  */
-func TestIdleDrain_NeverWorkedIsMeasuredFromReady(t *testing.T) {
-	f := newIdleFixture(t, 10*time.Minute)
+func TestCommissioning_NeverWorkedIsMeasuredFromReady(t *testing.T) {
+	f := newIdleFixture(t, time.Minute)
+	f.reaper.CommissioningGrace = 30 * time.Minute
 	f.setJobStatus(t, "running")
 
-	fresh := f.liveInstance(t, time.Minute)
+	fresh := f.liveInstance(t, 15*time.Minute)
 	f.reaper.SweepOnce(context.Background())
 	if got := f.state(t, fresh); got == models.CloudInstanceTerminated {
-		t.Fatal("destroyed an instance that became ready one minute ago and has not " +
-			"been given its first chunk yet")
+		t.Fatal("destroyed an instance 15 minutes into commissioning with a 30 minute " +
+			"grace — this is the cold-start kill that produced the rent/kill/rent loop")
 	}
 
 	stale := f.liveInstance(t, 45*time.Minute)
 	f.reaper.SweepOnce(context.Background())
 	if got := f.state(t, stale); got != models.CloudInstanceTerminated {
-		t.Fatalf("instance ready 45 minutes ago with a 10 minute drain and no task "+
-			"ever assigned: state = %q, want terminated", got)
+		t.Fatalf("instance ready 45 minutes ago with a 30 minute commissioning grace and "+
+			"no task ever assigned: state = %q, want terminated", got)
+	}
+}
+
+/*
+ * TestCommissioning_WedgedInstanceStillDies.
+ *
+ * The ceiling is absolute. An agent stuck in sync_status='in_progress' — the
+ * state nothing else clears if it dies in a way readPump misses — must still be
+ * destroyed, because it bills every minute. This is why the clock is measured
+ * from ready_at, which is written once, rather than from any signal the agent
+ * can refresh.
+ */
+func TestCommissioning_WedgedInstanceStillDies(t *testing.T) {
+	f := newIdleFixture(t, 5*time.Minute)
+	f.reaper.CommissioningGrace = 30 * time.Minute
+	f.setJobStatus(t, "running")
+
+	id := f.liveInstance(t, 35*time.Minute)
+	if _, err := f.database.Exec(
+		`UPDATE agents SET sync_status = 'in_progress', sync_started_at = NOW() WHERE id = $1`,
+		f.agentID); err != nil {
+		t.Fatalf("failed to wedge the agent in sync: %v", err)
+	}
+
+	f.reaper.SweepOnce(context.Background())
+
+	if got := f.state(t, id); got != models.CloudInstanceTerminated {
+		t.Fatalf("an instance wedged in sync past its commissioning grace survived "+
+			"(state = %q); a freshly-stamped sync_started_at must not buy more time, "+
+			"or a wedged agent bills forever", got)
 	}
 }
 
 // TestIdleDrain_DisabledByZero: the setting's 0 must switch the behaviour off,
 // not switch it to "destroy everything immediately".
+//
+// The instance is given a task so this exercises the idle-drain path. Before
+// the commissioning split this test used an instance that had never worked,
+// which now belongs to CommissioningGrace instead — see
+// TestCommissioning_DisabledByZero.
 func TestIdleDrain_DisabledByZero(t *testing.T) {
 	f := newIdleFixture(t, 0)
 	id := f.liveInstance(t, 6*time.Hour)
 	f.setJobStatus(t, "running")
+	f.recordTask(t, 6*time.Hour)
 
 	f.reaper.SweepOnce(context.Background())
 
 	if got := f.state(t, id); got == models.CloudInstanceTerminated {
 		t.Fatal("idle drain is disabled (0) but an idle instance was destroyed anyway")
+	}
+}
+
+// TestCommissioning_DisabledByZero mirrors the above for the new clock, so an
+// operator who deliberately turns commissioning teardown off gets that, rather
+// than immediate destruction.
+func TestCommissioning_DisabledByZero(t *testing.T) {
+	f := newIdleFixture(t, 5*time.Minute)
+	f.reaper.CommissioningGrace = 0
+	f.setJobStatus(t, "running")
+
+	id := f.liveInstance(t, 6*time.Hour)
+	f.reaper.SweepOnce(context.Background())
+
+	if got := f.state(t, id); got == models.CloudInstanceTerminated {
+		t.Fatal("commissioning teardown is disabled (0) but a never-commissioned " +
+			"instance was destroyed anyway")
 	}
 }
 

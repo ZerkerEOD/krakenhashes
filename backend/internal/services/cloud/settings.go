@@ -31,8 +31,11 @@ const (
 	SettingChunkDurationSeconds  = "cloud_chunk_duration_seconds"
 	SettingTeardownSlackSeconds  = "cloud_teardown_slack_seconds"
 	SettingIdleDrainMinutes      = "cloud_idle_drain_minutes"
-	SettingReaperIntervalSeconds = "cloud_reaper_interval_seconds"
-	SettingOrphanGraceMinutes    = "cloud_orphan_grace_minutes"
+	// SettingCommissioningGraceMinutes is seeded by
+	// 20260909120000_add_cloud_commissioning_grace.
+	SettingCommissioningGraceMinutes = "cloud_commissioning_grace_minutes"
+	SettingReaperIntervalSeconds     = "cloud_reaper_interval_seconds"
+	SettingOrphanGraceMinutes        = "cloud_orphan_grace_minutes"
 
 	// SettingAgentImage is seeded by 20260907130000_add_cloud_agent_image.
 	SettingAgentImage = "cloud_agent_image"
@@ -43,6 +46,13 @@ const (
 	SettingDefaultBudgetPeriod      = "cloud_default_budget_period"
 	SettingDefaultCloudEnabled      = "cloud_default_cloud_enabled"
 	SettingDefaultProviderAllowlist = "cloud_default_provider_allowlist"
+
+	// SettingDefaultMaxInstancesPerJob is seeded by
+	// 20260909130000_add_cloud_default_max_instances. A job that leaves
+	// cloud_max_instances blank inherits this instead of being unlimited.
+	// Read in SQL by CloudEligibleJobs, not through LoadSettings, so the
+	// resolution happens in the same query as the budget default.
+	SettingDefaultMaxInstancesPerJob = "cloud_default_max_instances_per_job"
 )
 
 /*
@@ -176,8 +186,13 @@ type Settings struct {
 	// pass racing it.
 	OrphanGrace time.Duration
 	// IdleDrain is how long an instance may sit with no task before teardown.
-	// Zero disables idle drain.
+	// Zero disables idle drain. Applies only AFTER the instance has run at
+	// least one task; see CommissioningGrace for the cold-start window.
 	IdleDrain time.Duration
+	// CommissioningGrace bounds an instance that has never been given a task.
+	// It must exceed scheduler.ReadinessBudget() or healthy instances are
+	// destroyed mid-cold-start and immediately re-rented. Zero disables it.
+	CommissioningGrace time.Duration
 	// AgentImage is the container image rented instances pull. Empty means the
 	// setting is unconfigured and the caller should fall back to the
 	// environment variable, then to DefaultAgentImage.
@@ -194,6 +209,7 @@ func DefaultSettings() Settings {
 		ReaperInterval:        60 * time.Second,
 		OrphanGrace:           10 * time.Minute,
 		IdleDrain:             5 * time.Minute,
+		CommissioningGrace:    30 * time.Minute,
 	}
 }
 
@@ -227,6 +243,10 @@ func LoadSettings(ctx context.Context, repo *repository.SystemSettingsRepository
 	if v, ok := readInt(ctx, repo, SettingIdleDrainMinutes); ok {
 		// Zero is meaningful here: it disables idle drain.
 		s.IdleDrain = time.Duration(v) * time.Minute
+	}
+	if v, ok := readInt(ctx, repo, SettingCommissioningGraceMinutes); ok {
+		// Zero is meaningful here too: it disables commissioning teardown.
+		s.CommissioningGrace = time.Duration(v) * time.Minute
 	}
 	if v, ok := readString(ctx, repo, SettingAgentImage); ok {
 		s.AgentImage = strings.TrimSpace(v)
