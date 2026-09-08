@@ -13,8 +13,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	
+
 	"github.com/ZerkerEOD/krakenhashes/agent/internal/hardware/types"
+	filesync "github.com/ZerkerEOD/krakenhashes/agent/internal/sync"
 	"github.com/ZerkerEOD/krakenhashes/agent/pkg/debug"
 )
 
@@ -187,31 +188,57 @@ func (d *HashcatDetector) DetectPhysicalDevices(preferredVersion ...int64) (*typ
 // findLatestHashcatBinary finds the most recent hashcat binary in the binaries directory
 func (d *HashcatDetector) findLatestHashcatBinary() (string, error) {
 	binariesDir := filepath.Join(d.dataDirectory, "binaries")
-	
+
 	// Look for the latest version directory
 	entries, err := os.ReadDir(binariesDir)
 	if err != nil {
 		return "", fmt.Errorf("failed to read binaries directory: %w", err)
 	}
-	
+
 	var latestVersion int
 	var latestDir string
-	
+	// Tracked so an unusable version directory can be reported as such, rather
+	// than collapsing into "there are no versions at all" -- a materially
+	// different problem for an operator to chase.
+	var sawIncompleteVersion string
+
 	for _, entry := range entries {
 		if entry.IsDir() {
 			// Try to parse directory name as version number
 			version, err := strconv.Atoi(entry.Name())
-			if err == nil && version > latestVersion {
-				latestVersion = version
-				latestDir = entry.Name()
+			if err != nil || version <= latestVersion {
+				continue
 			}
+			/*
+			 * Skip a version that is not COMPLETELY extracted.
+			 *
+			 * "Latest" used to be decided on the directory name alone, so a
+			 * newer binary that was still being extracted shadowed a perfectly
+			 * good older one -- and the caller execs what it gets back, for
+			 * `hashcat -I` device detection. That meant running a partially
+			 * written binary.
+			 */
+			if !filesync.IsBinaryExtracted(filepath.Join(binariesDir, entry.Name())) {
+				debug.Debug("Skipping binary version %s: not fully extracted yet", entry.Name())
+				sawIncompleteVersion = entry.Name()
+				continue
+			}
+			latestVersion = version
+			latestDir = entry.Name()
 		}
 	}
-	
+
 	if latestDir == "" {
+		if sawIncompleteVersion != "" {
+			// Keep the "hashcat binary not found" wording: errorclass matches on
+			// it to classify this as not-ready rather than an agent fault, so an
+			// extraction in progress is never counted as a failure.
+			return "", fmt.Errorf("hashcat binary not found: version %s is present but not extracted completely",
+				sawIncompleteVersion)
+		}
 		return "", fmt.Errorf("no hashcat binary versions found")
 	}
-	
+
 	// Determine binary extension based on OS
 	var binaryName string
 	if runtime.GOOS == "windows" {
@@ -219,14 +246,14 @@ func (d *HashcatDetector) findLatestHashcatBinary() (string, error) {
 	} else {
 		binaryName = "hashcat.bin"
 	}
-	
+
 	binaryPath := filepath.Join(binariesDir, latestDir, binaryName)
-	
+
 	// Check if binary exists
 	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
 		return "", fmt.Errorf("hashcat binary not found at %s", binaryPath)
 	}
-	
+
 	return binaryPath, nil
 }
 
@@ -240,6 +267,12 @@ func (d *HashcatDetector) findSpecificHashcatBinary(version int64) (string, erro
 	// Check if version directory exists
 	if _, err := os.Stat(versionDir); os.IsNotExist(err) {
 		return "", fmt.Errorf("binary version %d directory not found", version)
+	}
+
+	// The executable's presence is not enough: the extractor creates it before
+	// writing its contents, and this path's result is executed.
+	if !filesync.IsBinaryExtracted(versionDir) {
+		return "", fmt.Errorf("hashcat binary %d is present but not extracted completely", version)
 	}
 
 	// Determine binary extension based on OS
@@ -277,10 +310,10 @@ func (d *HashcatDetector) ParseHashcatOutput(output string) ([]types.Device, err
 	var devices []types.Device
 	aliasMap := make(map[int]int) // Maps device ID to its alias ID
 	scanner := bufio.NewScanner(strings.NewReader(output))
-	
+
 	var currentDevice *types.Device
 	var currentBackend string
-	
+
 	// Regular expressions for parsing
 	backendRe := regexp.MustCompile(`^(HIP|OpenCL|CUDA) Info:`)
 	platformRe := regexp.MustCompile(`^\s*(OpenCL|CUDA|HIP) Platform ID #\d+`)
@@ -292,7 +325,7 @@ func (d *HashcatDetector) ParseHashcatOutput(output string) ([]types.Device, err
 	memoryTotalRe := regexp.MustCompile(`^\s*Memory\.Total\.+:\s+(\d+)\s+MB`)
 	memoryFreeRe := regexp.MustCompile(`^\s*Memory\.Free\.+:\s+(\d+)\s+MB`)
 	pciAddrRe := regexp.MustCompile(`^\s*PCI\.Addr\.(BDF|BDFe)\.+:\s+(.+)`)
-	
+
 	// First pass: collect alias information
 	tempScanner := bufio.NewScanner(strings.NewReader(output))
 	for tempScanner.Scan() {
@@ -306,19 +339,19 @@ func (d *HashcatDetector) ParseHashcatOutput(output string) ([]types.Device, err
 			}
 		}
 	}
-	
+
 	// Parse all devices - we'll handle alias filtering later
 	inPlatformSection := false
 	for scanner.Scan() {
 		line := scanner.Text()
-		
+
 		// Check for backend section
 		if matches := backendRe.FindStringSubmatch(line); matches != nil {
 			currentBackend = matches[1]
 			inPlatformSection = false
 			continue
 		}
-		
+
 		// Check for platform section (we want to skip platform entries)
 		if platformRe.MatchString(line) {
 			inPlatformSection = true
@@ -329,7 +362,7 @@ func (d *HashcatDetector) ParseHashcatOutput(output string) ([]types.Device, err
 			}
 			continue
 		}
-		
+
 		// Check for device ID
 		if matches := deviceIDRe.FindStringSubmatch(line); matches != nil {
 			inPlatformSection = false
@@ -337,25 +370,25 @@ func (d *HashcatDetector) ParseHashcatOutput(output string) ([]types.Device, err
 			if currentDevice != nil {
 				devices = append(devices, *currentDevice)
 			}
-			
+
 			// Start new device
 			deviceID, _ := strconv.Atoi(matches[1])
 			currentDevice = &types.Device{
-				ID:       deviceID,
-				Backend:  currentBackend,
-				Type:     "GPU", // Default to GPU type
-				Enabled:  true, // Default to enabled
-				IsAlias:  false, // We'll set this based on alias map
+				ID:      deviceID,
+				Backend: currentBackend,
+				Type:    "GPU", // Default to GPU type
+				Enabled: true,  // Default to enabled
+				IsAlias: false, // We'll set this based on alias map
 			}
-			
+
 			// Store alias information with the device
 			if aliasID, hasAlias := aliasMap[deviceID]; hasAlias {
 				currentDevice.AliasOf = aliasID
 			}
-			
+
 			continue
 		}
-		
+
 		// Parse device properties (but skip if we're in a platform section)
 		if currentDevice != nil && !inPlatformSection {
 			if matches := nameRe.FindStringSubmatch(line); matches != nil {
@@ -375,16 +408,16 @@ func (d *HashcatDetector) ParseHashcatOutput(output string) ([]types.Device, err
 			}
 		}
 	}
-	
+
 	// Don't forget the last device
 	if currentDevice != nil {
 		devices = append(devices, *currentDevice)
 	}
-	
+
 	if len(devices) == 0 {
 		return nil, fmt.Errorf("no devices found in hashcat output")
 	}
-	
+
 	return devices, nil
 }
 

@@ -330,31 +330,26 @@ func (fs *FileSync) ScanDirectory(fileType string) ([]FileInfo, error) {
 				debug.Info("Found binary archive: %s with ID %d", archiveFilename, fs.getBinaryIDFromPath(binaryIDDir))
 			}
 
-			// Check if this binary has already been extracted by looking for executable files
-			extractedFiles, err := fs.FindExtractedExecutables(binaryIDDir)
-			if err != nil {
-				debug.Error("Error searching for extracted executables in %s: %v", binaryIDDir, err)
-				continue
-			}
-
-			if len(extractedFiles) > 0 {
-				debug.Info("Binary ID %s has %d extracted executable files", entry.Name(), len(extractedFiles))
+			/*
+			 * Report, do not extract.
+			 *
+			 * This function is an INVENTORY scan. It used to perform a
+			 * multi-minute extraction inline, on two paths that are otherwise
+			 * read-only: the async file-sync handler, which runs under a
+			 * five-minute context, and PopulateHashCache on the BuildFileMap
+			 * goroutine -- whose completion is what unblocks job acceptance. A
+			 * slow disk here delayed the readiness gate or blew the budget
+			 * outright.
+			 *
+			 * An unextracted archive is now healed a few seconds later by the
+			 * async pre-check, or on demand by ensureBinary, both of which go
+			 * through EnsureBinaryExtracted and are serialized.
+			 */
+			if IsBinaryExtracted(binaryIDDir) {
+				debug.Info("Binary ID %s is extracted and usable", entry.Name())
 			} else if len(archiveFiles) > 0 {
-				// If we have archives but no extracted executables, extract them now
-				debug.Info("Binary ID %s has archives but no executables, extracting during scan...", entry.Name())
-
-				// Extract the first archive we find (usually there's just one)
-				archivePath := archiveFiles[0]
-				debug.Info("Extracting archive during scan: %s", filepath.Base(archivePath))
-				console.Status("Extracting binary archive %s...", filepath.Base(archivePath))
-
-				if err := fs.ExtractBinary7z(archivePath, binaryIDDir); err != nil {
-					debug.Error("Failed to extract binary archive during scan: %v", err)
-					console.Error("Failed to extract binary archive: %v", err)
-				} else {
-					debug.Info("Successfully extracted archive during scan")
-					console.Success("Binary archive extracted successfully")
-				}
+				debug.Info("Binary ID %s has an archive but is not usable yet; leaving it for "+
+					"the extraction path rather than extracting inside a directory scan", entry.Name())
 			}
 		}
 	} else {
@@ -427,7 +422,11 @@ func (fs *FileSync) getBinaryIDFromPath(path string) int {
 	return id
 }
 
-// FindExtractedExecutables checks if a binary has been extracted by looking for .bin or .exe files
+// FindExtractedExecutables lists the executables under a binary directory.
+//
+// NOT a completion check -- use IsBinaryExtracted for that. A name appears here
+// as soon as the file is created, which happens before its contents are
+// written, so a non-empty result says nothing about whether the tree is usable.
 func (fs *FileSync) FindExtractedExecutables(binaryDir string) ([]string, error) {
 	// Look for .bin or .exe files recursively
 	var execFiles []string
@@ -438,8 +437,17 @@ func (fs *FileSync) FindExtractedExecutables(binaryDir string) ([]string, error)
 			return nil // Skip errors and continue
 		}
 
-		// Skip directories
 		if d.IsDir() {
+			// Never descend into an in-flight or set-aside extraction. Those
+			// hold files that are not published and may still be being
+			// written; reporting them as the agent's executables would be a
+			// slower-motion version of the partial-tree bug this whole path
+			// exists to remove.
+			name := d.Name()
+			if path != binaryDir &&
+				(strings.HasPrefix(name, extractTempPrefix) || strings.HasPrefix(name, extractOldPrefix)) {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 
@@ -493,8 +501,16 @@ func (fs *FileSync) CalculateFileHash(filePath string) (string, error) {
 
 	hashStr := hex.EncodeToString(hash.Sum(nil))
 
-	// Update cache (write lock)
+	// Update cache (write lock).
+	//
+	// The nil check matters because FileSync is not always built by
+	// NewFileSync: tests construct bare literals, and a nil map assignment
+	// panics rather than simply missing the cache. Hashing still returns the
+	// right answer without a cache, so degrading to uncached is correct.
 	fs.hashCacheLock.Lock()
+	if fs.hashCache == nil {
+		fs.hashCache = make(map[string]CachedFileInfo)
+	}
 	fs.hashCache[filePath] = CachedFileInfo{
 		Path:    filePath,
 		ModTime: fileInfo.ModTime(),
@@ -565,29 +581,19 @@ func (fs *FileSync) DownloadFileFromInfo(ctx context.Context, fileInfo *FileInfo
 		binaryDir := filepath.Join(fs.dataDirs.Binaries, fmt.Sprintf("%d", fileInfo.ID))
 		archivePath := filepath.Join(binaryDir, fileInfo.Name)
 
-		// Check if the archive already exists and has the correct hash
+		// Archive already on disk with the right bytes: nothing to download,
+		// and EnsureBinaryExtracted decides cheaply whether anything still
+		// needs extracting. Delegating rather than deciding here is the point
+		// -- this was one of the five places that answered "is it extracted?"
+		// by looking for a filename, which a half-written tree satisfies.
 		if _, err := os.Stat(archivePath); err == nil {
-			// Archive exists, check hash
 			hash, err := fs.CalculateFileHash(archivePath)
 			if err == nil && hash == fileInfo.MD5Hash {
-				// Hash matches, check if already extracted
-				execFiles, err := fs.FindExtractedExecutables(binaryDir)
-				if err == nil && len(execFiles) > 0 {
-					debug.Info("Binary archive %s already extracted with %d executable files, skipping download and extraction",
-						fileInfo.Name, len(execFiles))
-					return nil
-				}
-
-				// Archive exists with correct hash but not extracted, extract it
-				debug.Info("Binary archive %s exists with correct hash but executables not found, extracting...", fileInfo.Name)
-				console.Status("Extracting existing binary archive %s...", fileInfo.Name)
-				if err := fs.ExtractBinary7z(archivePath, binaryDir); err != nil {
+				if err := fs.EnsureBinaryExtracted(archivePath, binaryDir); err != nil {
 					debug.Error("Failed to extract existing binary archive %s: %v", fileInfo.Name, err)
 					console.Error("Failed to extract binary archive %s: %v", fileInfo.Name, err)
 					return fmt.Errorf("failed to extract existing binary archive: %w", err)
 				}
-				debug.Info("Successfully extracted existing binary archive %s", fileInfo.Name)
-				console.Success("Binary archive %s extracted successfully", fileInfo.Name)
 				return nil
 			}
 		}
@@ -610,12 +616,20 @@ func (fs *FileSync) DownloadFileWithInfoRetry(ctx context.Context, fileInfo *Fil
 	// repeatedly-failing or slow download must not pin a slot and starve
 	// task-critical downloads like the hashlist). Held for the whole attempt and
 	// released on every return by the defer below.
-	select {
-	case fs.sem <- struct{}{}:
-		defer func() { <-fs.sem }()
-	case <-ctx.Done():
-		debug.Error("Context cancelled while waiting for download slot: %v", ctx.Err())
-		return ctx.Err()
+	//
+	// A nil sem means this FileSync was not built by NewFileSync, which is only
+	// true of test literals. Sending on a nil channel blocks FOREVER, so
+	// without this guard such a caller hangs rather than failing — and it did,
+	// invisibly, because a panic in an earlier test was killing the binary
+	// before this one ran. Treat "no semaphore" as "no configured limit".
+	if fs.sem != nil {
+		select {
+		case fs.sem <- struct{}{}:
+			defer func() { <-fs.sem }()
+		case <-ctx.Done():
+			debug.Error("Context cancelled while waiting for download slot: %v", ctx.Err())
+			return ctx.Err()
+		}
 	}
 
 	switch fileInfo.FileType {
@@ -901,17 +915,16 @@ func (fs *FileSync) DownloadFileWithInfoRetry(ctx context.Context, fileInfo *Fil
 		}
 	}
 
-	// For binary files, extract if it's a 7z archive
+	// For binary files, extract if it's a 7z archive. Through
+	// EnsureBinaryExtracted so this cannot race a concurrent extraction of the
+	// same directory, and so the completion marker is written.
 	if fileInfo.FileType == "binary" && strings.HasSuffix(strings.ToLower(fileInfo.Name), ".7z") {
 		debug.Info("Extracting 7z binary archive: %s", finalPath)
-		console.Status("Extracting binary archive %s...", fileInfo.Name)
-		if err := fs.ExtractBinary7z(finalPath, targetDir); err != nil {
+		if err := fs.EnsureBinaryExtracted(finalPath, targetDir); err != nil {
 			debug.Error("Failed to extract binary archive %s: %v", fileInfo.Name, err)
 			console.Error("Failed to extract binary archive %s: %v", fileInfo.Name, err)
 			return fmt.Errorf("failed to extract binary archive: %w", err)
 		}
-		debug.Info("Successfully extracted binary archive %s", fileInfo.Name)
-		console.Success("Binary archive %s extracted successfully", fileInfo.Name)
 	}
 
 	debug.Info("Successfully downloaded %s (%d bytes)", fileInfo.Name, size)
@@ -940,8 +953,13 @@ func (fs *FileSync) retryOrFailInfo(ctx context.Context, fileInfo *FileInfo, ret
 	// task-critical downloads (e.g. the hashlist) that share the same pool. The
 	// recursive DownloadFileWithInfoRetry re-acquires its own slot for the retry;
 	// we then re-acquire one here so the caller's deferred `<-fs.sem` stays balanced.
-	<-fs.sem
-	reacquire := func() { fs.sem <- struct{}{} }
+	// Mirrors the nil guard on acquisition: with no semaphore there is no slot
+	// to release or re-take, and both operations would block forever.
+	reacquire := func() {}
+	if fs.sem != nil {
+		<-fs.sem
+		reacquire = func() { fs.sem <- struct{}{} }
+	}
 
 	select {
 	case <-time.After(delay):
@@ -1097,10 +1115,24 @@ func (fs *FileSync) GetFilePath(fileType, category, name string) string {
 }
 
 // ExtractBinary7z extracts a 7z binary archive to the given directory
+/*
+ * ExtractBinary7z extracts an archive directly into targetDir.
+ *
+ * DEPRECATED for callers: use EnsureBinaryExtracted instead. This writes in
+ * place with no lock and no completion marker, so a concurrent caller can
+ * interleave writes into the same files and every "is it extracted?" probe can
+ * observe a half-written tree. It survives only as the mechanism
+ * EnsureBinaryExtracted drives against a private staging directory.
+ */
 func (fs *FileSync) ExtractBinary7z(archivePath, targetDir string) error {
+	return fs.extractTo(archivePath, targetDir)
+}
+
+// extractTo writes every file in the archive under targetDir. The caller is
+// responsible for exclusion and for making the result visible atomically.
+func (fs *FileSync) extractTo(archivePath, targetDir string) error {
 	debug.Info("Extracting 7z archive %s to %s", archivePath, targetDir)
 
-	// Open the 7z archive using bodgit/sevenzip
 	r, err := os.Open(archivePath)
 	if err != nil {
 		debug.Error("Failed to open archive file: %v", err)
@@ -1108,139 +1140,120 @@ func (fs *FileSync) ExtractBinary7z(archivePath, targetDir string) error {
 	}
 	defer r.Close()
 
-	// Get file info for size
 	fi, err := r.Stat()
 	if err != nil {
 		debug.Error("Failed to get archive file stats: %v", err)
 		return fmt.Errorf("failed to get archive file stats: %w", err)
 	}
 
-	// Create a sevenzip reader
 	sz, err := sevenzip.NewReader(r, fi.Size())
 	if err != nil {
 		debug.Error("Failed to create 7z reader: %v", err)
 		return fmt.Errorf("failed to create 7z reader: %w", err)
 	}
 
-	// First, check if all files are inside a single top directory
-	// If so, we'll strip that directory from the paths
-	var commonPrefix string
-	var hasCommonPrefix bool
+	commonPrefix, hasCommonPrefix := archiveCommonPrefix(sz)
 
-	if len(sz.File) > 0 {
-		// Gather all directory names
-		var dirNames []string
-		for _, file := range sz.File {
-			// Normalize path separators to forward slashes for consistent processing
-			normalizedName := strings.ReplaceAll(file.Name, "\\", "/")
-			dirPath := filepath.ToSlash(filepath.Dir(normalizedName))
-			if dirPath != "." {
-				dirNames = append(dirNames, dirPath)
-			}
-		}
-
-		// Check if all files share the same top-level directory
-		if len(dirNames) > 0 {
-			// Use forward slashes for splitting to ensure consistency across platforms
-			parts := strings.Split(dirNames[0], "/")
-			if len(parts) > 0 {
-				topDir := parts[0]
-				allInSameDir := true
-
-				for _, dirName := range dirNames {
-					parts := strings.Split(dirName, "/")
-					if len(parts) == 0 || parts[0] != topDir {
-						allInSameDir = false
-						break
-					}
-				}
-
-				if allInSameDir {
-					commonPrefix = topDir
-					hasCommonPrefix = true
-					debug.Info("All files in archive share common top directory: %s", commonPrefix)
-				}
-			}
-		}
-	}
-
-	// Process each file in the archive
 	for _, file := range sz.File {
-		// Skip directories, they will be created as needed
 		if file.FileInfo().IsDir() {
 			continue
 		}
 
-		// Create output path, stripping common prefix if needed
-		var outPath string
-		if hasCommonPrefix {
-			// Normalize the file name to use forward slashes for consistent prefix stripping
-			normalizedName := strings.ReplaceAll(file.Name, "\\", "/")
+		outPath := filepath.Join(targetDir, archiveRelPath(file.Name, commonPrefix, hasCommonPrefix))
 
-			// Strip the common directory prefix if present
-			relativePath := normalizedName
-			if strings.HasPrefix(relativePath, commonPrefix+"/") {
-				relativePath = relativePath[len(commonPrefix)+1:]
-				debug.Info("Stripping prefix from %s: result is %s", file.Name, relativePath)
-			}
-
-			// Convert back to platform-specific path separators
-			relativePath = filepath.FromSlash(relativePath)
-			outPath = filepath.Join(targetDir, relativePath)
-		} else {
-			outPath = filepath.Join(targetDir, file.Name)
-		}
-
-		debug.Info("Extracting file: %s to %s", file.Name, outPath)
-
-		// Ensure parent directory exists
 		if err := os.MkdirAll(filepath.Dir(outPath), 0750); err != nil {
 			debug.Error("Failed to create directory for %s: %v", outPath, err)
 			return fmt.Errorf("failed to create directory: %w", err)
 		}
 
-		// Open the file from the archive
 		rc, err := file.Open()
 		if err != nil {
 			debug.Error("Failed to open file in archive: %v", err)
 			return fmt.Errorf("failed to open file in archive: %w", err)
 		}
 
-		// Create the output file
-		outFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY, file.Mode())
+		/*
+		 * The mode is chosen HERE rather than chmod'd after the copy.
+		 *
+		 * A post-copy chmod leaves a window in which the file is complete but
+		 * not yet executable, and more importantly file.Mode() from a
+		 * Windows-produced 7z is frequently 0666 -- so the executable bit was
+		 * doing real work and cannot simply be dropped.
+		 *
+		 * O_EXCL is correct now that the target is a private staging directory:
+		 * a collision means a duplicate entry in the archive, which should be
+		 * surfaced rather than silently interleaved.
+		 */
+		mode := file.Mode()
+		if isLikelyExecutable(file.Name, file.FileInfo().IsDir()) {
+			mode = 0755
+		}
+
+		outFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC|os.O_EXCL, mode)
 		if err != nil {
 			rc.Close()
 			debug.Error("Failed to create output file %s: %v", outPath, err)
 			return fmt.Errorf("failed to create output file: %w", err)
 		}
 
-		// Copy the content
-		_, err = io.Copy(outFile, rc)
+		_, copyErr := io.Copy(outFile, rc)
+		if copyErr == nil {
+			// Flush before the rename that publishes this name, so a crash
+			// cannot leave a visible file with unwritten contents.
+			copyErr = outFile.Sync()
+		}
 		outFile.Close()
 		rc.Close()
 
-		if err != nil {
-			debug.Error("Failed to extract file %s: %v", file.Name, err)
-			return fmt.Errorf("failed to extract file: %w", err)
-		}
-
-		// Set executable permissions for binary files
-		// Check if this is likely an executable (hashcat, hashcat.exe, hashcat.bin, etc.)
-		baseName := filepath.Base(file.Name)
-		isExecutable := strings.HasPrefix(baseName, "hashcat") ||
-			strings.HasSuffix(file.Name, ".bin") ||
-			strings.HasSuffix(file.Name, ".exe") ||
-			(!strings.Contains(baseName, ".") && !file.FileInfo().IsDir())
-
-		if isExecutable {
-			debug.Info("Setting executable permissions for %s", outPath)
-			if err := os.Chmod(outPath, 0755); err != nil {
-				debug.Warning("Failed to set executable permissions for %s: %v", outPath, err)
-				// Continue despite this error
-			}
+		if copyErr != nil {
+			debug.Error("Failed to extract file %s: %v", file.Name, copyErr)
+			return fmt.Errorf("failed to extract file: %w", copyErr)
 		}
 	}
 
 	debug.Info("Extraction completed successfully for %s", archivePath)
 	return nil
+}
+
+// isLikelyExecutable mirrors the heuristic the extractor has always used.
+func isLikelyExecutable(name string, isDir bool) bool {
+	baseName := filepath.Base(name)
+	return strings.HasPrefix(baseName, "hashcat") ||
+		strings.HasSuffix(name, ".bin") ||
+		strings.HasSuffix(name, ".exe") ||
+		(!strings.Contains(baseName, ".") && !isDir)
+}
+
+// archiveCommonPrefix reports the single top-level directory every entry sits
+// under, if there is one, so it can be stripped on extraction.
+func archiveCommonPrefix(sz *sevenzip.Reader) (string, bool) {
+	if len(sz.File) == 0 {
+		return "", false
+	}
+
+	var dirNames []string
+	for _, file := range sz.File {
+		normalizedName := strings.ReplaceAll(file.Name, "\\", "/")
+		dirPath := filepath.ToSlash(filepath.Dir(normalizedName))
+		if dirPath != "." {
+			dirNames = append(dirNames, dirPath)
+		}
+	}
+	if len(dirNames) == 0 {
+		return "", false
+	}
+
+	parts := strings.Split(dirNames[0], "/")
+	if len(parts) == 0 {
+		return "", false
+	}
+	topDir := parts[0]
+	for _, dirName := range dirNames {
+		p := strings.Split(dirName, "/")
+		if len(p) == 0 || p[0] != topDir {
+			return "", false
+		}
+	}
+	debug.Info("All files in archive share common top directory: %s", topDir)
+	return topDir, true
 }

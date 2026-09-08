@@ -72,7 +72,7 @@ func TestFileSync_FindExtractedExecutables(t *testing.T) {
 	// Create test directory structure
 	tempDir := t.TempDir()
 	binaryDir := filepath.Join(tempDir, "binaries")
-	
+
 	// Create test directories and files
 	testStructure := []struct {
 		dir  string
@@ -88,7 +88,7 @@ func TestFileSync_FindExtractedExecutables(t *testing.T) {
 	for _, ts := range testStructure {
 		err := os.MkdirAll(ts.dir, 0755)
 		require.NoError(t, err)
-		
+
 		filePath := filepath.Join(ts.dir, ts.file)
 		err = ioutil.WriteFile(filePath, []byte("executable"), 0755)
 		require.NoError(t, err)
@@ -364,19 +364,20 @@ func TestFileSync_SyncDirectory(t *testing.T) {
 	assert.FileExists(t, filepath.Join(wordlistDir, "new-file.txt"))
 }
 
+// Superseded by TestEnsureBinaryExtracted_* in extract_test.go, which drive a
+// real checked-in archive rather than skipping. Kept only for the error path.
 func TestFileSync_ExtractBinary7z(t *testing.T) {
-	// Skip if we can't create a real 7z file for testing
-	t.Skip("Skipping 7z extraction test - requires real 7z file")
-	
+
 	fs := &FileSync{
 		dataDirs: &config.DataDirs{
 			Binaries: t.TempDir(),
 		},
 	}
 
-	// Test extraction (would need a real 7z file)
-	outputDir := fs.ExtractBinary7z("/nonexistent.7z", "123")
-	assert.Empty(t, outputDir)
+	// A missing archive must be an error, not a silent success that leaves the
+	// caller believing a binary is available.
+	err := fs.ExtractBinary7z("/nonexistent.7z", t.TempDir())
+	assert.Error(t, err)
 }
 
 func TestFileSync_LoadCACertificate(t *testing.T) {

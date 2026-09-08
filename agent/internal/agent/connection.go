@@ -674,6 +674,13 @@ type Connection struct {
 	detectionInProgress bool
 	deviceMutex         sync.Mutex
 
+	// extractInProgress guards the async binary-extraction pre-check. A plain
+	// flag rather than sync.Once because archives keep arriving: a Once would
+	// refuse to heal one that showed up after the first run, which is the whole
+	// purpose of the pre-check.
+	extractInProgress bool
+	extractMutex      sync.Mutex
+
 	// Task completion ACK tracking (GH Issue #12)
 	completionAckChan   chan *TaskCompleteAckPayload
 	completionAckMu     sync.RWMutex
@@ -1464,12 +1471,17 @@ func (c *Connection) readPump() {
 				go c.monitorDownloadProgress()
 			}
 
-			// Pre-check: Look for binary archives that need extraction
-			// This ensures we extract any archives that were downloaded but not extracted
-			if err := c.checkAndExtractBinaryArchives(); err != nil {
-				debug.Error("Error during pre-sync binary archive check: %v", err)
-				// Continue anyway, this is just a pre-check
-			}
+			/*
+			 * Pre-check for archives that arrived but were never extracted.
+			 *
+			 * Off readPump, because extracting a ~467 MB hashcat tree takes
+			 * tens of seconds and readPump is the goroutine that reads pings.
+			 * Blocking it here meant the connection could time out during a
+			 * perfectly successful extraction. Same reasoning as the task
+			 * handler below, which was already made async for this exact
+			 * reason.
+			 */
+			go c.checkAndExtractBinaryArchivesAsync()
 
 			// Check if binaries are being downloaded
 			hasBinaries := false
@@ -1505,16 +1517,9 @@ func (c *Connection) readPump() {
 
 			debug.Info("Queued %d files for download", len(commandPayload.Files))
 
-			// Check if all files were already available (no new downloads needed)
-			// This happens when download manager verified files exist on disk
-			if c.downloadManager != nil {
-				total, pending, downloading, _, _ := c.downloadManager.GetDownloadStats()
-				if pending == 0 && downloading == 0 && total > 0 && c.downloadManager.GetActiveDownloads() == 0 {
-					// All files were already synced - immediately complete sync
-					debug.Info("All %d files already synced (verified on disk), sending sync_completed immediately", total)
-					c.sendSyncCompleted()
-				}
-			}
+			// Check if all files were already available (no new downloads needed).
+			// This happens when the download manager verified files exist on disk.
+			c.maybeSendSyncCompleted()
 
 			// If binaries were downloaded, trigger device detection after downloads complete
 			if hasBinaries && c.downloadManager != nil {
@@ -3329,20 +3334,15 @@ func (c *Connection) monitorDownloadProgress() {
 		debug.Info("Download progress: %d completed, %d failed, %d pending, %d downloading (total: %d)",
 			completed, failed, pending, downloading, total)
 
-		// Check if all downloads are resolved (no active downloads remaining).
-		//
-		// GetActiveDownloads is checked as well as this batch's counts because
-		// the counts are scoped to the current batch: if a new sync arrives
-		// while an earlier file is still in flight, this batch can be complete
-		// while the agent is still downloading. Reporting "synced" then would
-		// be the same over-claim this change exists to remove, just narrower.
-		if pending == 0 && downloading == 0 && total > 0 && c.downloadManager.GetActiveDownloads() == 0 {
-			// All downloads finished (either completed or failed)
-			if failed > 0 {
-				debug.Warning("File sync completed with %d failures out of %d total files", failed, total)
-			}
-			c.sendSyncCompleted()
+		if failed > 0 && pending == 0 && downloading == 0 {
+			debug.Warning("File sync completed with %d failures out of %d total files", failed, total)
 		}
+
+		// Single place that decides whether the sync is finished: every
+		// condition (this batch resolved, nothing else downloading, no
+		// extraction running) lives in maybeSendSyncCompleted so the two call
+		// sites cannot drift apart.
+		c.maybeSendSyncCompleted()
 	}
 }
 
@@ -3497,36 +3497,92 @@ func (c *Connection) checkAndExtractBinaryArchives() error {
 			continue // No archives in this directory
 		}
 
-		// Check if any executables exist
-		execFiles, err := c.fileSync.FindExtractedExecutables(binaryIDDir)
-		if err != nil {
-			debug.Error("Failed to search for executables in %s: %v", binaryIDDir, err)
-			continue
-		}
-
-		// If we have archives but no executables, extract them
-		if len(execFiles) == 0 && len(archiveFiles) > 0 {
-			debug.Info("Found binary directory %s with archives but no executables, extracting...", entry.Name())
-
-			// Extract each archive
-			for _, archivePath := range archiveFiles {
-				archiveFilename := filepath.Base(archivePath)
-				debug.Info("Extracting binary archive %s during pre-sync check", archiveFilename)
-				console.Status("Extracting binary archive %s...", archiveFilename)
-
-				if err := c.fileSync.ExtractBinary7z(archivePath, binaryIDDir); err != nil {
-					debug.Error("Failed to extract binary archive %s: %v", archiveFilename, err)
-					console.Error("Failed to extract binary archive %s: %v", archiveFilename, err)
-					continue
-				}
-
-				debug.Info("Successfully extracted binary archive %s during pre-sync check", archiveFilename)
-				console.Success("Binary archive %s extracted successfully", archiveFilename)
+		// EnsureBinaryExtracted decides for itself whether anything is needed
+		// and is cheap when it is not, so there is no separate "is it already
+		// done?" probe here to get wrong.
+		for _, archivePath := range archiveFiles {
+			if err := c.fileSync.EnsureBinaryExtracted(archivePath, binaryIDDir); err != nil {
+				debug.Error("Failed to extract binary archive %s: %v", filepath.Base(archivePath), err)
+				console.Error("Failed to extract binary archive %s: %v", filepath.Base(archivePath), err)
 			}
 		}
 	}
 
 	return nil
+}
+
+/*
+ * checkAndExtractBinaryArchivesAsync runs the pre-check off readPump, at most
+ * once at a time.
+ *
+ * Modelled on TryDetectDevicesIfNeeded: take the mutex, bail if already
+ * running, set the flag, release, and clear in a defer. The actual work is
+ * already serialized per binary directory inside EnsureBinaryExtracted, so this
+ * flag exists only to stop goroutines piling up when several file-sync commands
+ * arrive together.
+ */
+func (c *Connection) checkAndExtractBinaryArchivesAsync() {
+	c.extractMutex.Lock()
+	if c.extractInProgress {
+		c.extractMutex.Unlock()
+		debug.Debug("Binary extraction pre-check already running; skipping duplicate")
+		return
+	}
+	c.extractInProgress = true
+	c.extractMutex.Unlock()
+
+	defer func() {
+		c.extractMutex.Lock()
+		c.extractInProgress = false
+		c.extractMutex.Unlock()
+
+		// Sync completion may have been held back while this ran. Re-evaluate
+		// now that the binaries are actually usable.
+		c.maybeSendSyncCompleted()
+	}()
+
+	if err := c.checkAndExtractBinaryArchives(); err != nil {
+		debug.Error("Error during binary archive pre-check: %v", err)
+	}
+}
+
+// binaryExtractInProgress reports whether the async pre-check is running.
+func (c *Connection) binaryExtractInProgress() bool {
+	c.extractMutex.Lock()
+	defer c.extractMutex.Unlock()
+	return c.extractInProgress
+}
+
+/*
+ * maybeSendSyncCompleted reports the sync finished, but only once every file is
+ * downloaded AND no extraction is still running.
+ *
+ * The extraction clause is the part that is easy to lose. Before the pre-check
+ * was moved off readPump it always finished before this point was reached, so
+ * "downloads are done" and "the binaries are usable" were the same statement.
+ * Detaching it separates them: without this guard the backend would be told the
+ * agent is synced while a hashcat tree is still being written, and the
+ * benchmark readiness gate — whose entire job is to hold work until the files
+ * are there — would open too early.
+ */
+func (c *Connection) maybeSendSyncCompleted() {
+	if c.downloadManager == nil {
+		return
+	}
+	total, pending, downloading, _, _ := c.downloadManager.GetDownloadStats()
+	if pending != 0 || downloading != 0 || total == 0 {
+		return
+	}
+	if c.downloadManager.GetActiveDownloads() != 0 {
+		return
+	}
+	if c.binaryExtractInProgress() {
+		debug.Info("All %d files downloaded, but a binary extraction is still running; "+
+			"holding sync_completed until it finishes", total)
+		return
+	}
+	debug.Info("All %d files synced and extracted, sending sync_completed", total)
+	c.sendSyncCompleted()
 }
 
 // DetectAndSendDevices detects available compute devices and sends them to the server

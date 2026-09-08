@@ -711,25 +711,23 @@ func (jm *JobManager) ensureBinary(ctx context.Context, assignment *JobTaskAssig
 }
 
 /*
- * hasExtractedHashcat reports whether a usable hashcat executable exists under
- * binaryDir.
+ * hasExtractedHashcat reports whether a COMPLETE, usable hashcat installation
+ * exists under binaryDir.
  *
- * Deliberately looks for the EXECUTABLE and not the .7z archive. A download
- * that completed but whose extraction died half-way leaves the archive in
- * place, and treating that as "present" is indistinguishable from the original
- * production failure: resolveHashcatBinary still finds nothing and the
- * benchmark still fails.
+ * Deliberately not the .7z archive: a download that completed but whose
+ * extraction died half-way leaves the archive in place, and treating that as
+ * "present" reproduces the original production failure with extra steps.
  *
- * Mirrors the names resolveHashcatBinary probes for, so the two cannot disagree
- * about what "installed" means.
+ * Deliberately not the executable's NAME either, which is what this used to
+ * check. The extractor creates hashcat.bin before copying 200+ MB into it, so
+ * an in-flight extraction satisfies a name probe and the agent would go on to
+ * exec a truncated binary. filesync.IsBinaryExtracted requires the completion
+ * marker the extractor writes last, so every probe in the agent -- here, the
+ * executor, the hardware detector and the sync scanner -- now shares one
+ * definition and cannot drift apart.
  */
 func hasExtractedHashcat(binaryDir string) bool {
-	for _, name := range []string{"hashcat.bin", "hashcat", "hashcat.exe"} {
-		if info, err := os.Stat(filepath.Join(binaryDir, name)); err == nil && !info.IsDir() {
-			return true
-		}
-	}
-	return false
+	return filesync.IsBinaryExtracted(binaryDir)
 }
 
 func (jm *JobManager) ensureWordlists(ctx context.Context, assignment *JobTaskAssignment) error {

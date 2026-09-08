@@ -484,25 +484,50 @@ curl -k -H "X-API-Key: YOUR_API_KEY" -H "X-Agent-ID: YOUR_AGENT_ID" \
 - Hashcat binary not executable
 - "No such file or directory" when running hashcat
 
+The agent extracts archives itself using a built-in 7z reader — `p7zip` is **not**
+required on the host. Extraction is serialized per binary directory and published
+atomically, and a directory is only considered usable once a `.khextracted.json`
+marker is present, so a partially extracted binary is never run.
+
 **Solutions:**
 
-1. **Install 7-Zip Support**
+1. **Let the agent re-extract**
+
+   Deleting the extracted tree is enough; the archive itself must be kept, or the
+   agent will re-download it (and the backend sizes cloud disks assuming the
+   archive and the tree coexist).
+
    ```bash
-   sudo apt install p7zip-full
-   
-   # Test extraction manually
-   cd ~/.krakenhashes/agent/data/binaries/
-   find . -name "*.7z" | head -1 | xargs 7z t  # Test archive
+   cd ~/.krakenhashes/agent/data/binaries/<id>/
+   # Remove everything except the .7z, then restart the agent.
+   find . -maxdepth 1 ! -name '.' ! -name '*.7z' -exec rm -rf {} +
    ```
 
-2. **Fix Extraction Permissions**
+   Restart the agent, or wait for the next file sync. It will detect the missing
+   marker and re-extract.
+
+2. **Do not extract by hand**
+
+   `7z x` reproduces the archive's own top-level directory, whereas the agent
+   strips it, so a manual extraction does not match what the agent expects. It is
+   harmless — the agent simply re-extracts properly — but it will not save any
+   work.
+
+3. **Check for space**
+
+   Extraction needs roughly the archive's uncompressed size free in the same
+   filesystem. If it is short, the agent removes the previous (already invalid)
+   tree first and retries; if it is still short it fails with a clear message
+   rather than half-filling the disk.
+
    ```bash
-   # Ensure extraction destination is writable
+   df -h ~/.krakenhashes/agent/data/binaries/
+   ```
+
+4. **Fix Extraction Permissions**
+   ```bash
+   # Ensure the extraction destination is writable
    chmod 755 ~/.krakenhashes/agent/data/binaries/
-   
-   # Re-extract manually if needed
-   cd ~/.krakenhashes/agent/data/binaries/
-   find . -name "*.7z" -exec 7z x {} \;
    ```
 
 ## Job Execution Failures

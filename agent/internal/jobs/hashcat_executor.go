@@ -20,6 +20,7 @@ import (
 	"syscall"
 	"time"
 
+	filesync "github.com/ZerkerEOD/krakenhashes/agent/internal/sync"
 	"github.com/ZerkerEOD/krakenhashes/agent/pkg/console"
 	"github.com/ZerkerEOD/krakenhashes/agent/pkg/debug"
 )
@@ -2766,6 +2767,28 @@ func (e *HashcatExecutor) resolveHashcatBinary(binaryPath string) (string, error
 			}
 		}
 
+		/*
+		 * Refuse an incomplete extraction before probing for a name.
+		 *
+		 * The extractor creates hashcat.bin with O_CREATE before copying
+		 * 200+ MB into it, and sets the executable bit from the archive's own
+		 * mode -- so a file that exists AND is executable can still be a
+		 * partially written binary. Every check below would pass for it, and
+		 * the caller would exec it.
+		 *
+		 * The message must keep the substring "but not extracted": errorclass
+		 * matches on it to classify this as CategoryAgentNotReady, which is
+		 * what stops an extraction still in progress being recorded as a
+		 * benchmark failure and counted toward the 24h blocklist.
+		 */
+		if !filesync.IsBinaryExtracted(binaryDir) {
+			if archives, _ := filepath.Glob(filepath.Join(binaryDir, "*.7z")); len(archives) > 0 {
+				return "", fmt.Errorf("hashcat archive found at %s but not extracted completely yet",
+					filepath.Base(archives[0]))
+			}
+			return "", fmt.Errorf("hashcat binary not found in directory %s (nothing extracted there)", binaryDir)
+		}
+
 		for _, path := range possiblePaths {
 			if fileInfo, err := os.Stat(path); err == nil {
 				// Check if it's the right type of executable for this OS
@@ -2786,10 +2809,11 @@ func (e *HashcatExecutor) resolveHashcatBinary(binaryPath string) (string, error
 			}
 		}
 
-		// Check if the .7z archive exists but hasn't been extracted
-		archivePath := filepath.Join(binaryDir, "hashcat-6.2.6+1017.7z")
-		if _, err := os.Stat(archivePath); err == nil {
-			return "", fmt.Errorf("hashcat archive found at %s but not extracted. Please ensure file sync extracts binaries", archivePath)
+		// Archive present but no usable executable. Globbed rather than
+		// matching one hardcoded filename, which was only ever right for a
+		// single hashcat build.
+		if archives, _ := filepath.Glob(filepath.Join(binaryDir, "*.7z")); len(archives) > 0 {
+			return "", fmt.Errorf("hashcat archive found at %s but not extracted. Please ensure file sync extracts binaries", archives[0])
 		}
 
 		return "", fmt.Errorf("hashcat binary not found in directory %s. Checked paths: %v", binaryDir, possiblePaths)
