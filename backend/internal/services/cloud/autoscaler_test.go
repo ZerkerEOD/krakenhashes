@@ -40,6 +40,12 @@ type fakeProvisioner struct {
 	// globalDOA is the deployment-wide consecutive streak.
 	globalDOA    int
 	globalDOAErr error
+
+	// perJobCommissioning is how many of a job's live instances have not yet
+	// been given a task. Zero by default so the existing tests describe a fleet
+	// of WARM instances, which is what they were written against; the settling
+	// rule is exercised by the tests that set this explicitly.
+	perJobCommissioning map[uuid.UUID]int
 }
 
 func (f *fakeProvisioner) ConsecutiveDeadOnArrivals(_ context.Context) (int, error) {
@@ -53,9 +59,10 @@ func (f *fakeProvisioner) ConsecutiveDeadOnArrivals(_ context.Context) (int, err
 
 func newFakeProvisioner(jobs ...EligibleJob) *fakeProvisioner {
 	return &fakeProvisioner{
-		eligible:   jobs,
-		perJobLive: map[uuid.UUID]int{},
-		perJobDOA:  map[uuid.UUID]int{},
+		eligible:            jobs,
+		perJobLive:          map[uuid.UUID]int{},
+		perJobDOA:           map[uuid.UUID]int{},
+		perJobCommissioning: map[uuid.UUID]int{},
 	}
 }
 
@@ -79,13 +86,13 @@ func (f *fakeProvisioner) ProvisionForJob(_ context.Context, jobID uuid.UUID) er
 	return nil
 }
 
-func (f *fakeProvisioner) LiveInstanceCountForJob(_ context.Context, jobID uuid.UUID) (int, error) {
+func (f *fakeProvisioner) JobInstanceState(_ context.Context, jobID uuid.UUID) (int, int, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.countErr != nil {
-		return 0, f.countErr
+		return 0, 0, f.countErr
 	}
-	return f.perJobLive[jobID], nil
+	return f.perJobLive[jobID], f.perJobCommissioning[jobID], nil
 }
 
 func (f *fakeProvisioner) CloudEligibleJobs(_ context.Context, candidates []uuid.UUID) ([]EligibleJob, error) {
@@ -723,5 +730,70 @@ func TestAutoscaler_GlobalDeadOnArrivalErrorRefuses(t *testing.T) {
 
 	if n := len(prov.calls()); n != 0 {
 		t.Fatalf("an unreadable dead-on-arrival streak must refuse to provision, got %d launches", n)
+	}
+}
+
+/*
+ * TestAutoscaler_WaitsForACommissioningInstance (the settling rule).
+ *
+ * A job publishes as starving for as long as it gets no NEW allocation, which
+ * includes the entire time a freshly rented instance spends booting, syncing a
+ * ~467 MB hashcat archive and benchmarking. Counting only live instances made
+ * the autoscaler rent another one on every 60-second tick throughout that
+ * window — a burst of ten to twenty paid instances for a job that asked for
+ * one, with the per-job cap frequently blank and therefore unlimited.
+ *
+ * MaxInstances is deliberately 0 (uncapped) here so the ONLY thing that can
+ * stop the second rental is the settling rule.
+ */
+func TestAutoscaler_WaitsForACommissioningInstance(t *testing.T) {
+	jobA := uuid.New()
+	prov := newFakeProvisioner(EligibleJob{JobExecutionID: jobA, MaxInstances: 0})
+	a := NewAutoscaler(freshSnapshot(0, jobA), prov)
+
+	// First pass rents one. ProvisionForJob bumps perJobLive; mark it as still
+	// commissioning, which is what a real instance is for its first minutes.
+	a.ScaleOnce(context.Background())
+	prov.mu.Lock()
+	prov.perJobCommissioning[jobA] = 1
+	prov.mu.Unlock()
+
+	for i := 0; i < 10; i++ {
+		a.ScaleOnce(context.Background())
+	}
+
+	if got := len(prov.calls()); got != 1 {
+		t.Fatalf("rented %d instances while the first was still commissioning; want 1. "+
+			"Ten ticks against a cold start is exactly the burst this rule exists to stop", got)
+	}
+}
+
+// Once the instance has taken work it is no longer commissioning, and normal
+// scaling must resume — otherwise the settling rule would be a permanent cap of
+// one and cloud burst could never scale a job out.
+func TestAutoscaler_ResumesOnceInstanceTakesWork(t *testing.T) {
+	jobA := uuid.New()
+	prov := newFakeProvisioner(EligibleJob{JobExecutionID: jobA, MaxInstances: 3})
+	a := NewAutoscaler(freshSnapshot(0, jobA), prov)
+
+	a.ScaleOnce(context.Background())
+	prov.mu.Lock()
+	prov.perJobCommissioning[jobA] = 1
+	prov.mu.Unlock()
+	a.ScaleOnce(context.Background())
+
+	if got := len(prov.calls()); got != 1 {
+		t.Fatalf("expected the settling rule to hold at 1, got %d", got)
+	}
+
+	// The instance takes a task.
+	prov.mu.Lock()
+	prov.perJobCommissioning[jobA] = 0
+	prov.mu.Unlock()
+
+	a.ScaleOnce(context.Background())
+	if got := len(prov.calls()); got != 2 {
+		t.Fatalf("after the first instance took work the autoscaler rented %d total; want 2. "+
+			"The settling rule must reopen, not become a permanent cap of one", got)
 	}
 }

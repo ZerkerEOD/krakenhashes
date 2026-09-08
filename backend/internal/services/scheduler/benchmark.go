@@ -58,6 +58,22 @@ const syncInProgressGrace = 10 * time.Minute
 // belt-and-suspenders bound so a future regression can't storm the agents.
 const benchmarkRedispatchCooldown = 5 * time.Minute
 
+/*
+ * ReadinessBudget is the longest a HEALTHY agent may legitimately go between
+ * becoming ready and receiving its first task: the sync gate failing open,
+ * plus one benchmark and one stale-window retry.
+ *
+ * Exported because it is a cross-package invariant, not a local detail. The
+ * cloud reaper tears down an instance that has never been given a task, and if
+ * that clock is shorter than this budget it destroys healthy instances for
+ * doing exactly what the scheduler told them to do — which then re-rents, in a
+ * loop. cloud.CommissioningGrace must exceed this, and a test asserts it so
+ * that moving either constant fails CI rather than quietly reopening the loop.
+ */
+func ReadinessBudget() time.Duration {
+	return syncInProgressGrace + 2*benchmarkInFlightWindow
+}
+
 // BenchmarkGap describes one (agent, unit-combo) tuple that lacks a
 // cached speed in agent_benchmarks.
 type BenchmarkGap struct {

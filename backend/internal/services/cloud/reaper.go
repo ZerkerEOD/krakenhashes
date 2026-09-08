@@ -52,7 +52,30 @@ type Reaper struct {
 	// reconciliation pass racing it.
 	OrphanGrace time.Duration
 	// IdleDrain is how long an instance may sit with no work before teardown.
+	// It applies ONLY to an instance that has already run at least one task —
+	// see CommissioningGrace for the other case.
 	IdleDrain time.Duration
+
+	/*
+	 * CommissioningGrace bounds an instance that has NEVER been given a task.
+	 *
+	 * Splitting this out from IdleDrain is not tidiness, it closes a spend
+	 * loop. A cold instance must finish a file sync and then a benchmark
+	 * before any job_tasks row can exist, and the scheduler's own windows
+	 * allow ~20 minutes for that (scheduler.ReadinessBudget). Measuring it
+	 * with a 5-minute idle drain destroyed instances for doing exactly what
+	 * they had been told to do — and because the job was still starving, the
+	 * autoscaler immediately rented another. Neither dead-on-arrival breaker
+	 * caught it: both key on ready_at IS NULL, and an instance killed during
+	 * sync has ready_at set. It looped at full rate, logging success.
+	 *
+	 * Measured from cloud_instances.ready_at, which is written exactly once
+	 * (COALESCE in AgentRepository), so nothing can extend it. That is the
+	 * point: an agent wedged in sync_status='in_progress' forever still dies
+	 * here. A refreshable stamp — benchmark_requests.requested_at is the
+	 * tempting one — would be re-stamped every redispatch and never fire.
+	 */
+	CommissioningGrace time.Duration
 
 	// orphanFirstSeen is when each currently-unrecognised provider-side label
 	// was first observed, so OrphanGrace can be applied. Guarded by orphanMu
@@ -75,13 +98,14 @@ func NewReaper(
 	notifier Notifier,
 ) *Reaper {
 	return &Reaper{
-		instances:       instances,
-		budget:          budget,
-		providers:       providers,
-		notifier:        notifier,
-		OrphanGrace:     10 * time.Minute,
-		IdleDrain:       5 * time.Minute,
-		orphanFirstSeen: make(map[string]time.Time),
+		instances:          instances,
+		budget:             budget,
+		providers:          providers,
+		notifier:           notifier,
+		OrphanGrace:        10 * time.Minute,
+		IdleDrain:          5 * time.Minute,
+		CommissioningGrace: 30 * time.Minute,
+		orphanFirstSeen:    make(map[string]time.Time),
 	}
 }
 
@@ -387,27 +411,47 @@ func (r *Reaper) instanceHasNoWork(ctx context.Context, inst *models.CloudInstan
 		return true
 	}
 
+	/*
+	 * Never given a task: this is COMMISSIONING, not idleness.
+	 *
+	 * A cold instance must complete a file sync and then a benchmark before a
+	 * job_tasks row can exist, and LastActivityAt is derived only from
+	 * job_tasks — a benchmark is invisible to it. Judging that window with the
+	 * between-chunks idle drain is what produced the rent/kill/rent loop this
+	 * split exists to stop.
+	 *
+	 * ready_at is written once and never moved, so this ceiling is absolute:
+	 * an instance wedged in sync forever is still destroyed here.
+	 */
+	if !work.LastActivityAt.Valid {
+		if !inst.ReadyAt.Valid {
+			// Has not registered at all. ready_deadline_at owns that case;
+			// measuring from nothing would destroy every instance mid-boot.
+			return false
+		}
+		if r.CommissioningGrace <= 0 {
+			return false // commissioning teardown disabled
+		}
+		waited := now.Sub(inst.ReadyAt.Time)
+		if waited < r.CommissioningGrace {
+			return false
+		}
+		r.destroyByLookup(ctx, inst, fmt.Sprintf(
+			"registered %s ago and was never given a task (commissioning grace %s)",
+			waited.Round(time.Second), r.CommissioningGrace))
+		return true
+	}
+
 	// Idle drain disabled.
 	if r.IdleDrain <= 0 {
 		return false
 	}
 
-	// An instance that has never run a task is measured from when it became
-	// ready, not from epoch — otherwise every instance would look infinitely
-	// idle the moment it registered and be destroyed before its first chunk.
-	idleSince := work.LastActivityAt.Time
-	if !work.LastActivityAt.Valid {
-		if !inst.ReadyAt.Valid {
-			return false // not ready yet; nothing to measure from
-		}
-		idleSince = inst.ReadyAt.Time
-	}
-
-	if now.Sub(idleSince) < r.IdleDrain {
+	if now.Sub(work.LastActivityAt.Time) < r.IdleDrain {
 		return false
 	}
 	r.destroyByLookup(ctx, inst,
-		fmt.Sprintf("no work for %s (idle drain)", now.Sub(idleSince).Round(time.Second)))
+		fmt.Sprintf("no work for %s (idle drain)", now.Sub(work.LastActivityAt.Time).Round(time.Second)))
 	return true
 }
 

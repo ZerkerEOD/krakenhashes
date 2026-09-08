@@ -916,13 +916,38 @@ func (s *Service) eligibleProviders(ctx context.Context, allowlist []string, all
 	return out, skipped, nil
 }
 
-// LiveInstanceCountForJob implements Provisioner.
-func (s *Service) LiveInstanceCountForJob(ctx context.Context, jobID uuid.UUID) (int, error) {
-	instances, err := s.instances.ListLiveForJob(ctx, jobID)
+/*
+ * JobInstanceState implements Provisioner.
+ *
+ * "Commissioning" is deliberately defined as "no job_tasks row has ever named
+ * this instance's agent", not as a lifecycle state on the row. The states an
+ * instance passes through (provisioning, running) say where the PROVIDER
+ * thinks it is; they say nothing about whether it has become useful to us. An
+ * instance can sit in `running` for twenty minutes downloading a hashcat
+ * archive, and during all of that the job it was rented for keeps publishing as
+ * starving.
+ *
+ * agent_id IS NULL counts as commissioning because that instance is still
+ * booting — it has not registered at all yet. An instance that was retargeted
+ * to a different job carries its earlier tasks and correctly reads as warm.
+ */
+func (s *Service) JobInstanceState(ctx context.Context, jobID uuid.UUID) (int, int, error) {
+	var live, commissioning int
+	err := s.db.QueryRowContext(ctx, `
+		SELECT count(*),
+		       count(*) FILTER (
+		           WHERE ci.agent_id IS NULL
+		              OR NOT EXISTS (
+		                  SELECT 1 FROM job_tasks t WHERE t.agent_id = ci.agent_id
+		              )
+		       )
+		FROM cloud_instances ci
+		WHERE ci.job_execution_id = $1
+		  AND ci.state NOT IN ('terminated', 'failed')`, jobID).Scan(&live, &commissioning)
 	if err != nil {
-		return 0, err
+		return 0, 0, fmt.Errorf("failed to read instance state for job %s: %w", jobID, err)
 	}
-	return len(instances), nil
+	return live, commissioning, nil
 }
 
 /*
@@ -1004,7 +1029,30 @@ func (s *Service) CloudEligibleJobs(ctx context.Context, candidates []uuid.UUID)
 		return nil, nil
 	}
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT je.id, c.id, COALESCE(je.cloud_max_instances, 0), je.priority,
+		SELECT je.id, c.id,
+		       /*
+		        * A blank per-job cap inherits the server default rather than
+		        * meaning "unlimited".
+		        *
+		        * Unlimited was defensible while two other brakes engaged: the
+		        * autoscaler refuses to rent while any on-prem agent is idle,
+		        * and the finishing-soon rule skips jobs about to complete. Both
+		        * are computed from on-prem agents, so in a cloud-only
+		        * deployment both are structurally dead — and "blank" is both
+		        * the default and the easy path. That left a job whose only
+		        * bound was the budget, renting once per tick until it drained.
+		        *
+		        * Same shape and the same regex guard as the budget default
+		        * below: a malformed setting reads as absent, which falls back
+		        * to 0 (unlimited) rather than erroring the whole query.
+		        */
+		       COALESCE(
+		         je.cloud_max_instances,
+		         (SELECT CASE WHEN btrim(value) ~ '^[0-9]+$' THEN btrim(value)::int END
+		            FROM system_settings WHERE key = 'cloud_default_max_instances_per_job'),
+		         0
+		       ),
+		       je.priority,
 		       EXTRACT(EPOCH FROM je.created_at)::bigint * 1000000000
 		FROM job_executions je
 		JOIN hashlists h ON h.id = je.hashlist_id
