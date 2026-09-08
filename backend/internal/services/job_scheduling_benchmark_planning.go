@@ -1578,6 +1578,52 @@ func (s *JobSchedulingService) AttributeBenchmarkFailure(
 
 	benchmarkRepo := s.jobExecutionService.benchmarkRepo
 
+	/*
+	 * NOT-READY: the agent had not finished provisioning, so nothing was
+	 * attempted and there is nothing to attribute.
+	 *
+	 * Returns BEFORE RecordFailureAttempt on purpose. Counting this would be
+	 * counting the same non-event repeatedly: the condition clears on its own
+	 * once the file sync lands, but the counter does not, so three of them
+	 * inside eleven seconds tripped the threshold and blocklisted a perfectly
+	 * healthy agent for 24 hours. Step 2 above has already cleared the
+	 * in-flight benchmark_requests row, so the agent becomes eligible again on
+	 * the next cycle and simply retries once it has its files.
+	 */
+	if category.IsNotReady() {
+		/*
+		 * Back off briefly rather than not at all.
+		 *
+		 * Step 2 has already cleared the in-flight benchmark_requests row, so
+		 * without this the agent is eligible again on the very next 3-second
+		 * cycle — and each retry re-attempts a multi-hundred-megabyte download.
+		 * A short entry in the existing blocklist table reuses the dispatch
+		 * gate at cycle.go's needsBench branch and expires on its own, so the
+		 * agent retries as soon as its files could plausibly have landed.
+		 *
+		 * Deliberately minutes, not the 24 hours a real agent fault earns: this
+		 * is a condition that clears itself, and the cost of waiting too long
+		 * is a rented GPU idling until the drain reaper recycles it.
+		 */
+		expiresAt := time.Now().Add(benchmarkNotReadyCooldown)
+		jobScoped := jobExecutionID
+		if _, err := benchmarkRepo.AddBlocklistEntry(
+			ctx, agentID, &jobScoped, attackMode, hashType,
+			fmt.Sprintf("agent %d is still provisioning for this job (hash_type=%d, attack_mode=%d); "+
+				"retrying after %s — not counted as a benchmark failure",
+				agentID, hashType, int(attackMode), benchmarkNotReadyCooldown),
+			expiresAt,
+		); err != nil {
+			// Non-fatal: without the cooldown we retry sooner than ideal, which
+			// is still far better than the counted-failure path this replaces.
+			debug.Warning("AddBlocklistEntry(not-ready, agent=%d, job=%s): %v", agentID, jobExecutionID, err)
+		}
+		debug.Info("agent %d is not provisioned yet for job %s (hash_type=%d, attack_mode=%d); "+
+			"not counting this as a benchmark failure, retrying after %s: %s",
+			agentID, jobExecutionID, hashType, int(attackMode), benchmarkNotReadyCooldown, errMsg)
+		return nil
+	}
+
 	// 4. Upsert failure counter.
 	attempt, err := benchmarkRepo.RecordFailureAttempt(
 		ctx, agentID, jobExecutionID, attackMode, hashType, errMsg,
@@ -1800,6 +1846,19 @@ func (s *JobSchedulingService) benchmarkFailureThreshold(ctx context.Context) in
 
 // benchmarkBlocklistCooldown returns the cooldown duration for new blocklist
 // entries.
+/*
+ * benchmarkNotReadyCooldown is how long to wait before re-offering a benchmark
+ * to an agent that was still provisioning.
+ *
+ * Two minutes is set against measured behaviour, not guessed: a cloud agent
+ * registers ~2.3 minutes after launch and its hashcat archive is ~467 MB across
+ * ~3,100 files, so a download plus extraction is tens of seconds. Long enough
+ * that a retry has a real chance of finding the files present; short enough that
+ * the instance is not still waiting when the 5-minute idle-drain reaper decides
+ * it has no work and recycles it.
+ */
+const benchmarkNotReadyCooldown = 2 * time.Minute
+
 func (s *JobSchedulingService) benchmarkBlocklistCooldown(ctx context.Context) time.Duration {
 	const defaultCooldown = 24 * time.Hour
 	setting, err := s.systemSettingsRepo.GetSetting(ctx, "benchmark_blocklist_cooldown_hours")

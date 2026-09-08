@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -456,6 +457,14 @@ func (jm *JobManager) ProcessJobAssignment(ctx context.Context, assignmentData [
 		return fmt.Errorf("failed to ensure charset files: %w", err)
 	}
 
+	// Ensure the assigned hashcat build is present and extracted. Last in the
+	// chain because it is the most expensive step (~467 MB across ~3k files)
+	// and there is no point paying it for a task that fails an earlier check.
+	err = jm.ensureBinary(ctx, &assignment)
+	if err != nil {
+		return fmt.Errorf("failed to ensure hashcat binary: %w", err)
+	}
+
 	// Run benchmark if needed
 	err = jm.ensureBenchmark(ctx, &assignment)
 	if err != nil {
@@ -588,6 +597,141 @@ func resolveDataPath(dataDir, relPath string) (string, error) {
 // not already present locally. Big shared wordlists synced via the inventory are
 // left untouched; only missing files (e.g. just-created ephemeral filtered lists)
 // are fetched. Association wordlists (mode 9) are handled by ensureAssociationFiles.
+/*
+ * EnsureBenchmarkFiles gives a benchmark the same pre-flight a task gets.
+ *
+ * The benchmark path used to fetch only the hashlist and charset files and then
+ * invoke hashcat directly, while task dispatch ran eight download-if-missing
+ * checks. That asymmetry is why a benchmark was the one operation that could
+ * hard-fail on a file the agent would happily have downloaded: an agent whose
+ * sync was still in flight failed within seconds of connecting, three times,
+ * and earned a 24-hour blocklist for a condition that cleared itself half a
+ * minute later.
+ *
+ * Hashlist and charsets are deliberately NOT repeated here — the caller already
+ * handles them, and its hashlist step force-refreshes rather than
+ * fetch-if-missing, which is behaviour a benchmark wants and a task does not.
+ */
+func (jm *JobManager) EnsureBenchmarkFiles(ctx context.Context, assignment *JobTaskAssignment) error {
+	if err := jm.ensureRules(ctx, assignment); err != nil {
+		return fmt.Errorf("failed to ensure rules: %w", err)
+	}
+	if err := jm.ensureAssociationFiles(ctx, assignment); err != nil {
+		return fmt.Errorf("failed to ensure association files: %w", err)
+	}
+	if err := jm.ensureWordlists(ctx, assignment); err != nil {
+		return fmt.Errorf("failed to ensure wordlists: %w", err)
+	}
+	if err := jm.ensureClientPotfile(ctx, assignment); err != nil {
+		return fmt.Errorf("failed to ensure client potfile: %w", err)
+	}
+	if err := jm.ensureClientWordlists(ctx, assignment); err != nil {
+		return fmt.Errorf("failed to ensure client wordlists: %w", err)
+	}
+	if err := jm.ensureBinary(ctx, assignment); err != nil {
+		return fmt.Errorf("failed to ensure hashcat binary: %w", err)
+	}
+	return nil
+}
+
+/*
+ * ensureBinary downloads and extracts the hashcat build this task was assigned,
+ * if the agent does not already have it.
+ *
+ * THIS DID NOT EXIST. Not here, and not in the benchmark path either — the only
+ * thing that ever consulted the binary was resolveHashcatBinary, which os.Stats
+ * the directory and returns an error. A binary therefore only ever arrived
+ * because a backend-pushed file sync happened to deliver it first, and any agent
+ * asked to work before that landed failed outright rather than fetching what it
+ * lacked. On-prem agents survive this by being long-lived and already holding
+ * the file; a freshly provisioned cloud instance starts with an empty disk and
+ * loses the race every time.
+ *
+ * Presence is tested by looking for an extracted EXECUTABLE, not for the
+ * archive: a half-finished extraction leaves the .7z in place, and treating that
+ * as "present" reproduces the original failure with extra steps.
+ *
+ * Delegates to DownloadFileFromInfo, which already handles the three states —
+ * archive absent, archive present but unextracted, and archive present and
+ * extracted — and skips the ~467 MB download when the local copy's md5 matches.
+ */
+func (jm *JobManager) ensureBinary(ctx context.Context, assignment *JobTaskAssignment) error {
+	if assignment.BinaryPath == "" {
+		return nil
+	}
+	/*
+	 * No name means an older backend that sends only the path. Fall back to the
+	 * previous present-or-absent behaviour rather than guessing a filename:
+	 * being unable to self-heal is the status quo, whereas a wrong guess would
+	 * download something and still not resolve.
+	 */
+	if assignment.BinaryName == "" {
+		debug.Debug("Binary %s carries no archive name; skipping on-demand fetch", assignment.BinaryPath)
+		return nil
+	}
+	idStr := strings.TrimPrefix(strings.TrimPrefix(assignment.BinaryPath, "binaries/"), "hashcat_")
+	binaryID, err := strconv.Atoi(idStr)
+	if err != nil {
+		debug.Debug("Binary path %q is not an id-form path; skipping on-demand fetch", assignment.BinaryPath)
+		return nil
+	}
+
+	// Presence is checked BEFORE anything else, including whether file sync is
+	// wired up. The overwhelmingly common case is "already there", and it must
+	// not depend on a downloader it will never use.
+	binaryDir := filepath.Join(jm.config.DataDirectory, "binaries", idStr)
+	if hasExtractedHashcat(binaryDir) {
+		return nil
+	}
+
+	if jm.fileSync == nil {
+		return fmt.Errorf("hashcat binary %s is missing and file sync is not initialized", assignment.BinaryPath)
+	}
+
+	console.Status("Hashcat binary %s not present locally, fetching before running work...", assignment.BinaryPath)
+	debug.Info("Binary %s missing locally, downloading %s on demand", assignment.BinaryPath, assignment.BinaryName)
+
+	fileInfo := &filesync.FileInfo{
+		Name:     assignment.BinaryName,
+		FileType: "binary",
+		MD5Hash:  assignment.BinaryMD5,
+		ID:       binaryID,
+	}
+	if err := jm.fileSync.DownloadFileFromInfo(ctx, fileInfo); err != nil {
+		return fmt.Errorf("failed to download hashcat binary %s: %w", assignment.BinaryName, err)
+	}
+
+	// Verify rather than trust: extraction is where this most plausibly fails
+	// half-way, and a benchmark that proceeds anyway earns a 24h blocklist.
+	if !hasExtractedHashcat(binaryDir) {
+		return fmt.Errorf("hashcat binary %s downloaded but no executable found in %s", assignment.BinaryName, binaryDir)
+	}
+	debug.Info("Hashcat binary ready: %s", binaryDir)
+	return nil
+}
+
+/*
+ * hasExtractedHashcat reports whether a usable hashcat executable exists under
+ * binaryDir.
+ *
+ * Deliberately looks for the EXECUTABLE and not the .7z archive. A download
+ * that completed but whose extraction died half-way leaves the archive in
+ * place, and treating that as "present" is indistinguishable from the original
+ * production failure: resolveHashcatBinary still finds nothing and the
+ * benchmark still fails.
+ *
+ * Mirrors the names resolveHashcatBinary probes for, so the two cannot disagree
+ * about what "installed" means.
+ */
+func hasExtractedHashcat(binaryDir string) bool {
+	for _, name := range []string{"hashcat.bin", "hashcat", "hashcat.exe"} {
+		if info, err := os.Stat(filepath.Join(binaryDir, name)); err == nil && !info.IsDir() {
+			return true
+		}
+	}
+	return false
+}
+
 func (jm *JobManager) ensureWordlists(ctx context.Context, assignment *JobTaskAssignment) error {
 	if assignment.AttackMode == int(AttackModeAssociation) {
 		return nil

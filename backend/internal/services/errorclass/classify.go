@@ -42,12 +42,52 @@ const (
 	// fault (capped retries) so a novel error neither disables a good agent nor
 	// loops forever (the per-tuple hard cap still applies).
 	CategoryUnknown Category = "unknown"
+
+	/*
+	 * CategoryAgentNotReady: the agent does not yet have what it needs to run —
+	 * most often the hashcat binary, which arrives by file sync after the agent
+	 * registers.
+	 *
+	 * This is NOT evidence about the agent, and unlike a transient fault it is
+	 * not even a failed attempt: nothing was tried. It must therefore not count
+	 * toward the failure threshold at all. Before this existed, a freshly
+	 * provisioned agent reported "hashcat binary not found", which matched no
+	 * marker, fell through to Unknown, counted as transient, and hit the
+	 * threshold three times inside eleven seconds -- earning a 24-hour
+	 * blocklist for a condition that resolved itself thirty seconds later.
+	 */
+	CategoryAgentNotReady Category = "agent_not_ready"
 )
 
 // IsTransient reports whether the category should be retried rather than
 // treated as agent-specific evidence (transient + unknown).
+//
+// CategoryAgentNotReady is deliberately excluded. It is retryable, but callers
+// must not treat it as a failed ATTEMPT -- see IsNotReady, which they should
+// check first and return on.
 func (c Category) IsTransient() bool {
 	return c == CategoryAgentTransient || c == CategoryUnknown
+}
+
+// IsNotReady reports that nothing was actually attempted because the agent was
+// not provisioned yet. Callers should return before recording a failure.
+func (c Category) IsNotReady() bool {
+	return c == CategoryAgentNotReady
+}
+
+/*
+ * agentNotReadyMarkers indicate the agent had not finished provisioning for this
+ * job. The typed code is emitted by the agent's benchmark pre-flight; the bare
+ * strings catch an older agent that predates it, and the executor's own
+ * resolveHashcatBinary message, which is what we actually saw in production.
+ */
+var agentNotReadyMarkers = []string{
+	"agent_not_provisioned",
+	"agent not provisioned",
+	"hashcat binary not found",
+	"failed to resolve hashcat binary",
+	"but not extracted",
+	"failed to ensure hashcat binary",
 }
 
 // hashlistFatalMarkers indicate the hashlist content is wrong for the chosen
@@ -139,6 +179,13 @@ func Classify(message string) Category {
 	// re-dispatch, not an agent fault.
 	if strings.Contains(m, "agent_autotune") || strings.Contains(m, "agent_no_work") {
 		return CategoryAgentTransient
+	}
+	// Checked before every marker list: the agent aborts its pre-flight without
+	// invoking hashcat, so none of the downstream lists can legitimately match,
+	// and misclassifying this as a real failure is what produced the 24h
+	// blocklist this category exists to prevent.
+	if containsAny(m, agentNotReadyMarkers) {
+		return CategoryAgentNotReady
 	}
 	if containsAny(m, hashlistFatalMarkers) {
 		return CategoryHashlistFatal

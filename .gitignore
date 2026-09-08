@@ -14,6 +14,12 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+# Timestamped backups written beside .env by tooling and by hand. The three
+# patterns above do NOT match ".env.bak.20260908113906", so one of these sat
+# untracked-but-unignored in the working tree carrying DB_PASSWORD, JWT_SECRET
+# and SSO_ENCRYPTION_KEY, one `git add -A` away from being committed.
+.env.bak*
+.env.*.bak
 
 # Development files
 test_*.txt

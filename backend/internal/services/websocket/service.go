@@ -52,11 +52,11 @@ const (
 	TypeBufferedMessages        MessageType = "buffered_messages"
 	TypeCurrentTaskStatus       MessageType = "current_task_status"
 	TypeAgentShutdown           MessageType = "agent_shutdown"
-	TypePendingOutfiles         MessageType = "pending_outfiles"        // Agent reports tasks with unacknowledged outfiles
-	TypeOutfileDeleteRejected   MessageType = "outfile_delete_rejected" // Agent rejects outfile deletion (line count mismatch)
-	TypeTaskStopAck             MessageType = "task_stop_ack"           // Agent acknowledges stop command (GH Issue #12)
-	TypeStateSyncResponse       MessageType = "state_sync_response"     // Agent responds with state sync (GH Issue #12)
-	TypeAgentOrphanReport       MessageType = "agent_orphan_report"     // Agent audits an "Already an instance" hashcat collision (Slice C)
+	TypePendingOutfiles         MessageType = "pending_outfiles"         // Agent reports tasks with unacknowledged outfiles
+	TypeOutfileDeleteRejected   MessageType = "outfile_delete_rejected"  // Agent rejects outfile deletion (line count mismatch)
+	TypeTaskStopAck             MessageType = "task_stop_ack"            // Agent acknowledges stop command (GH Issue #12)
+	TypeStateSyncResponse       MessageType = "state_sync_response"      // Agent responds with state sync (GH Issue #12)
+	TypeAgentOrphanReport       MessageType = "agent_orphan_report"      // Agent audits an "Already an instance" hashcat collision (Slice C)
 	TypeTaskAssignmentRejected  MessageType = "task_assignment_rejected" // Agent refused an inbound task_assignment (e.g., shutdown in progress)
 
 	// Server -> Agent messages
@@ -316,6 +316,21 @@ type TaskAssignmentPayload struct {
 	WordlistMD5s map[string]string `json:"wordlist_md5s,omitempty"` // wire path -> md5
 	RuleMD5s     map[string]string `json:"rule_md5s,omitempty"`     // wire path -> md5
 	BinaryMD5    string            `json:"binary_md5,omitempty"`    // md5 for BinaryPath
+	/*
+	 * BinaryName is the archive filename for BinaryPath, e.g.
+	 * "hashcat-7.1.2+338.7z".
+	 *
+	 * Required for the agent to fetch a binary it does not have. BinaryPath
+	 * ("binaries/5") names a DIRECTORY, and the agent's download path keys a
+	 * binary on (id, archive filename) — so with the path and md5 alone there
+	 * was no way to construct the request, and nothing anywhere in the agent
+	 * fetched a missing binary on demand. It only ever appeared because a
+	 * backend-pushed file sync happened to deliver it first.
+	 *
+	 * Omitted when unknown, and the agent falls back to its previous
+	 * present-or-absent behaviour, so an older agent is unaffected.
+	 */
+	BinaryName string `json:"binary_name,omitempty"`
 
 	// Server's base keyspace for agent-side coordinate conversion
 	// Agents with -O may have a different outer-loop keyspace; this lets them convert --skip/--limit
@@ -388,6 +403,17 @@ type BenchmarkRequestPayload struct {
 	AttackMode     int    `json:"attack_mode"`
 	HashType       int    `json:"hash_type"`
 	BinaryPath     string `json:"binary_path"`
+	/*
+	 * BinaryName / BinaryMD5 let the agent FETCH the binary it was told to use.
+	 *
+	 * The benchmark path is where their absence hurt most: unlike task
+	 * dispatch, it had no pre-flight at all, so a rented instance whose file
+	 * sync was still running failed the benchmark within seconds of
+	 * registering, three times, and earned a 24h blocklist for a condition that
+	 * resolved itself half a minute later.
+	 */
+	BinaryName string `json:"binary_name,omitempty"`
+	BinaryMD5  string `json:"binary_md5,omitempty"`
 	// Additional fields for real-world speed test
 	TaskID                  string                     `json:"task_id,omitempty"`
 	HashlistID              int64                      `json:"hashlist_id,omitempty"`
