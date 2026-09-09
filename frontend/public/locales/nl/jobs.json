@@ -207,6 +207,15 @@
       "hybridMaskWordlist": "Hybride masker + woordenlijst",
       "association": "Associatie",
       "modeNumber": "Modus {{mode}}"
+    },
+    "diagnostics": {
+      "cloud_budget_blocked": "Cloudbudget bereikt",
+      "cloud_cap_reached": "Limiet voor cloud-instanties bereikt",
+      "cloud_settling": "Wachten tot een gehuurde instantie is opgestart",
+      "cloud_no_capacity": "Geen cloudcapaciteit beschikbaar",
+      "cloud_dead_on_arrival": "Gehuurde instanties konden geen verbinding maken",
+      "cloud_launch_failed": "Kon geen cloud-instantie huren",
+      "seenTimes": "{{count}} keer gezien"
     }
   },
   "common": {

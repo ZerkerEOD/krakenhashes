@@ -1877,13 +1877,20 @@
         "orphanGrace": "Orphan grace period",
         "orphanGraceHelp": "Destroy instances found on the provider account with no matching database row after this long. This is the only recovery for a launch whose record never landed.",
         "agentImage": "Agent image",
-        "agentImageHelp": "e.g. zerkereod/krakenhashes-agent-cloud:cloud-gpu. Leave blank to fall back to KH_CLOUD_AGENT_IMAGE, then to the built-in default. Note the built-in default is :latest, which only exists once a release has been tagged — pre-release deployments must set this."
+        "agentImageHelp": "e.g. zerkereod/krakenhashes-agent-cloud:cloud-gpu. Leave blank to fall back to KH_CLOUD_AGENT_IMAGE, then to the built-in default. Note the built-in default is :latest, which only exists once a release has been tagged — pre-release deployments must set this.",
+        "defaultBurstEnabled": "Cloud-Burst für alle Jobs aktivieren",
+        "defaultBurstEnabledHelp": "Behandelt jeden Job als Cloud-Burst-fähig, ohne das Kästchen in jedem Preset, Workflow und Job anzuhaken. Gedacht für Installationen ohne eigene GPUs, bei denen Mieten die einzige Möglichkeit ist, Arbeit auszuführen. Client-Budgets und Instanzlimits gelten weiterhin. Wirkt sofort, auch für bereits eingereihte Jobs.",
+        "defaultClient": "Standard-Abrechnungsclient",
+        "defaultClientHelp": "Cloud-Kosten für eine Hashliste ohne eigenen Client werden hier abgerechnet. Bleibt die Auswahl leer, kann nicht zugeordnete Arbeit überhaupt keine Kapazität mieten. Budgets, Instanzlimits und die Schwellenwertstaffel gelten für den gewählten Client wie gewohnt — ein Client namens „Nicht zugeordnet“ hält den Kostenbericht ehrlich.",
+        "defaultClientNone": "Keiner — nicht zugeordnete Arbeit kann die Cloud nicht nutzen"
       },
       "agent": "Cloud agent image",
       "agentHelp": "The container image rented instances pull and run. It must be a tag that exists in the registry: a missing tag is not a startup error — the instance boots, the pull fails, and the host self-terminates about a minute later, billed.",
       "save": "Save changes",
       "discard": "Discard",
-      "unsaved": "{{count}} unsaved change(s)"
+      "unsaved": "{{count}} unsaved change(s)",
+      "eligibility": "Reine Cloud-Bereitstellungen",
+      "eligibilityHelp": "Ob Jobs überhaupt für das Mieten in Betracht gezogen werden. Alles oben begrenzt, wie viel ausgegeben werden darf; dies entscheidet, ob überhaupt etwas ausgegeben wird."
     }
   },
   "serverCertificate": {

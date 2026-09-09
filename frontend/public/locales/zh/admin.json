@@ -1877,13 +1877,20 @@
         "orphanGrace": "Orphan grace period",
         "orphanGraceHelp": "Destroy instances found on the provider account with no matching database row after this long. This is the only recovery for a launch whose record never landed.",
         "agentImage": "Agent image",
-        "agentImageHelp": "e.g. zerkereod/krakenhashes-agent-cloud:cloud-gpu. Leave blank to fall back to KH_CLOUD_AGENT_IMAGE, then to the built-in default. Note the built-in default is :latest, which only exists once a release has been tagged — pre-release deployments must set this."
+        "agentImageHelp": "e.g. zerkereod/krakenhashes-agent-cloud:cloud-gpu. Leave blank to fall back to KH_CLOUD_AGENT_IMAGE, then to the built-in default. Note the built-in default is :latest, which only exists once a release has been tagged — pre-release deployments must set this.",
+        "defaultBurstEnabled": "为所有作业启用云端扩容",
+        "defaultBurstEnabledHelp": "将所有作业视为已启用云端扩容，无需在每个预设、工作流和作业上逐一勾选。适用于没有本地 GPU 的部署，此时租用是唯一能执行任务的方式。客户预算和实例上限仍然生效。立即生效，包括已在队列中的作业。",
+        "defaultClient": "默认计费客户",
+        "defaultClientHelp": "未分配客户的哈希列表所产生的云端支出将计入此客户。保持为「无」时，未分配的工作将完全无法租用算力。预算、实例上限和阈值梯度会照常应用于所选客户——将客户命名为「未分配工作」可让支出报表保持真实。",
+        "defaultClientNone": "无 — 未分配的工作无法使用云端"
       },
       "agent": "Cloud agent image",
       "agentHelp": "The container image rented instances pull and run. It must be a tag that exists in the registry: a missing tag is not a startup error — the instance boots, the pull fails, and the host self-terminates about a minute later, billed.",
       "save": "Save changes",
       "discard": "Discard",
-      "unsaved": "{{count}} unsaved change(s)"
+      "unsaved": "{{count}} unsaved change(s)",
+      "eligibility": "纯云端部署",
+      "eligibilityHelp": "决定作业是否会被考虑租用云端算力。以上各项限制的是可以花多少钱；此项决定是否花钱。"
     }
   },
   "serverCertificate": {

@@ -3,10 +3,14 @@ package cloud
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/google/uuid"
 )
 
@@ -795,5 +799,128 @@ func TestAutoscaler_ResumesOnceInstanceTakesWork(t *testing.T) {
 	if got := len(prov.calls()); got != 2 {
 		t.Fatalf("after the first instance took work the autoscaler rented %d total; want 2. "+
 			"The settling rule must reopen, not become a permanent cap of one", got)
+	}
+}
+
+// fakeDiag records what the autoscaler would surface to an operator.
+type fakeDiag struct {
+	mu       sync.Mutex
+	recorded []string // "reason|detail"
+	cleared  []string
+}
+
+func (f *fakeDiag) Record(scope, scopeID, reason, severity, detail string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.recorded = append(f.recorded, reason+"|"+detail)
+}
+
+func (f *fakeDiag) ClearScope(scope, scopeID string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.cleared = append(f.cleared, scopeID)
+}
+
+func (f *fakeDiag) reasons() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]string, 0, len(f.recorded))
+	for _, r := range f.recorded {
+		out = append(out, strings.SplitN(r, "|", 2)[0])
+	}
+	return out
+}
+
+/*
+ * In a cloud-only deployment this diagnostic is the ONLY signal an operator
+ * gets. The per-agent path cannot serve them: recordIdleReasons iterates agents
+ * and is not even reached when there are none, which is precisely their
+ * situation. So a refusal that records nothing is a job sitting at pending with
+ * no explanation anywhere in the product.
+ */
+func TestAutoscaler_RecordsWhyItRefused(t *testing.T) {
+	jobA := uuid.New()
+	prov := newFakeProvisioner(EligibleJob{JobExecutionID: jobA, MaxInstances: 0})
+	prov.provisionErr = errors.New("budget: provisioning blocked: spend at 103.3% of cap (hard stop at 100%)")
+
+	diag := &fakeDiag{}
+	a := NewAutoscaler(freshSnapshot(0, jobA), prov)
+	a.Diagnostics = diag
+
+	a.ScaleOnce(context.Background())
+
+	got := diag.reasons()
+	if len(got) != 1 || got[0] != models.DiagReasonCloudBudgetBlocked {
+		t.Fatalf("recorded %v, want exactly [%s]", got, models.DiagReasonCloudBudgetBlocked)
+	}
+	if !strings.Contains(diag.recorded[0], "103.3%") {
+		t.Errorf("detail lost the actual reason: %q", diag.recorded[0])
+	}
+}
+
+// The settling rule is a normal, self-resolving wait. It still has to be
+// visible, or "nothing is happening" looks identical to a fault.
+func TestAutoscaler_RecordsSettlingWait(t *testing.T) {
+	jobA := uuid.New()
+	prov := newFakeProvisioner(EligibleJob{JobExecutionID: jobA, MaxInstances: 0})
+	diag := &fakeDiag{}
+	a := NewAutoscaler(freshSnapshot(0, jobA), prov)
+	a.Diagnostics = diag
+
+	a.ScaleOnce(context.Background())
+	prov.mu.Lock()
+	prov.perJobCommissioning[jobA] = 1
+	prov.mu.Unlock()
+	a.ScaleOnce(context.Background())
+
+	found := false
+	for _, r := range diag.reasons() {
+		if r == models.DiagReasonCloudSettling {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("recorded %v, want %s among them", diag.reasons(), models.DiagReasonCloudSettling)
+	}
+}
+
+// A successful provision must clear the job's stale reasons, or "budget
+// blocked" lingers on screen after the operator has raised the budget.
+func TestAutoscaler_ClearsDiagnosticsOnSuccess(t *testing.T) {
+	jobA := uuid.New()
+	prov := newFakeProvisioner(EligibleJob{JobExecutionID: jobA, MaxInstances: 5})
+	diag := &fakeDiag{}
+	a := NewAutoscaler(freshSnapshot(0, jobA), prov)
+	a.Diagnostics = diag
+
+	a.ScaleOnce(context.Background())
+
+	if len(diag.cleared) != 1 || diag.cleared[0] != jobA.String() {
+		t.Errorf("cleared %v, want the provisioned job's scope cleared", diag.cleared)
+	}
+}
+
+// The classifier is what makes the message actionable: "out of money" and "AWS
+// had no capacity" need opposite responses from the operator.
+func TestClassifyProvisionFailure(t *testing.T) {
+	cases := []struct {
+		err        error
+		wantReason string
+	}{
+		{repository.ErrInsufficientBudget, models.DiagReasonCloudBudgetBlocked},
+		{ErrOfferUnavailable, models.DiagReasonCloudNoCapacity},
+		{fmt.Errorf("wrapped: %w", ErrOfferUnavailable), models.DiagReasonCloudNoCapacity},
+		{errors.New("budget: provisioning blocked: spend at 99% of cap"), models.DiagReasonCloudBudgetBlocked},
+		{errors.New("every one of the 1 ranked cloud offers became unavailable"), models.DiagReasonCloudNoCapacity},
+		{errors.New("no VPN provider configured"), models.DiagReasonCloudLaunchFailed},
+	}
+	for _, tc := range cases {
+		reason, severity := classifyProvisionFailure(tc.err)
+		if reason != tc.wantReason {
+			t.Errorf("classifyProvisionFailure(%v) = %s, want %s", tc.err, reason, tc.wantReason)
+		}
+		if severity == "" {
+			t.Errorf("classifyProvisionFailure(%v) returned an empty severity", tc.err)
+		}
 	}
 }

@@ -2,12 +2,48 @@ package cloud
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/models"
+	"github.com/ZerkerEOD/krakenhashes/backend/internal/repository"
 	"github.com/ZerkerEOD/krakenhashes/backend/pkg/debug"
 	"github.com/google/uuid"
 )
+
+/*
+ * classifyProvisionFailure maps a ProvisionForJob error onto an operator-facing
+ * reason code.
+ *
+ * Every one of these is a precondition the operator can act on, and in a
+ * cloud-only deployment this text is the only signal they get -- so the code
+ * has to distinguish "you are out of money" from "AWS had no capacity", which
+ * need completely different responses.
+ */
+func classifyProvisionFailure(err error) (reason, severity string) {
+	switch {
+	case errors.Is(err, repository.ErrInsufficientBudget):
+		return models.DiagReasonCloudBudgetBlocked, models.DiagSeverityWarning
+	case errors.Is(err, ErrOfferUnavailable):
+		return models.DiagReasonCloudNoCapacity, models.DiagSeverityInfo
+	}
+
+	// Budget refusals that are not the sentinel come back as a plain message
+	// from the ladder (BudgetEngine formats them), so they are matched on text.
+	msg := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(msg, "budget"):
+		return models.DiagReasonCloudBudgetBlocked, models.DiagSeverityWarning
+	case strings.Contains(msg, "no longer available"),
+		strings.Contains(msg, "no offer"),
+		strings.Contains(msg, "became unavailable"):
+		return models.DiagReasonCloudNoCapacity, models.DiagSeverityInfo
+	}
+	return models.DiagReasonCloudLaunchFailed, models.DiagSeverityError
+}
 
 /*
  * StarvationSnapshot is what the scheduler publishes each cycle so the
@@ -153,6 +189,24 @@ func (s *StarvationSnapshot) ReadAges(maxAge time.Duration, now time.Time) (
 	return ages, s.idleOnPrem, true
 }
 
+// recordJobDiag notes why this job was not provisioned for, against the job
+// scope so it can be surfaced next to the job itself.
+func (a *Autoscaler) recordJobDiag(jobID uuid.UUID, reason, severity, detail string) {
+	if a.Diagnostics == nil {
+		return
+	}
+	a.Diagnostics.Record(models.DiagScopeJob, jobID.String(), reason, severity, detail)
+}
+
+// clearJobDiag drops a job's cloud diagnostics once it has been provisioned
+// for, so a stale "budget blocked" does not linger after the budget is raised.
+func (a *Autoscaler) clearJobDiag(jobID uuid.UUID) {
+	if a.Diagnostics == nil {
+		return
+	}
+	a.Diagnostics.ClearScope(models.DiagScopeJob, jobID.String())
+}
+
 // Provisioner is the subset of the cloud service the autoscaler needs.
 type Provisioner interface {
 	// ProvisionForJob rents one instance for a job. Implementations must be
@@ -254,9 +308,33 @@ type EligibleJob struct {
  * acts when a job is starving AND no idle on-prem agent could have taken the
  * work.
  */
+/*
+ * DiagnosticRecorder is the narrow slice of the diagnostics service the
+ * autoscaler needs, declared here so the cloud package does not depend on
+ * services (the same shape as Notifier above).
+ *
+ * Optional: a nil recorder is valid and every call is a no-op, so a deployment
+ * that never wires one behaves exactly as before.
+ */
+type DiagnosticRecorder interface {
+	Record(scope, scopeID, reason, severity, detail string)
+	ClearScope(scope, scopeID string)
+}
+
 type Autoscaler struct {
 	snapshot    *StarvationSnapshot
 	provisioner Provisioner
+
+	/*
+	 * Diagnostics makes a refusal visible to the operator instead of only to
+	 * the log.
+	 *
+	 * Recorded against the JOB, not an agent. At the moment the autoscaler
+	 * refuses there is frequently no agent at all -- that is the entire
+	 * situation in a cloud-only deployment -- so an agent-scoped diagnostic
+	 * would have nothing to attach to and no page to appear on.
+	 */
+	Diagnostics DiagnosticRecorder
 
 	// GlobalInstanceCap bounds live rented instances across all clients.
 	// Zero means unlimited (budget still applies).
@@ -452,6 +530,13 @@ func (a *Autoscaler) ScaleOnce(ctx context.Context) {
 			}
 			if live >= a.GlobalInstanceCap {
 				debug.Info("Cloud autoscaler: global instance cap %d reached", a.GlobalInstanceCap)
+				for _, job := range eligible {
+					a.recordJobDiag(job.JobExecutionID, models.DiagReasonCloudCapReached,
+						models.DiagSeverityInfo,
+						fmt.Sprintf("Deployment-wide cloud instance cap of %d reached (%d running). "+
+							"Raise it in Cloud Provisioning settings or wait for an instance to finish.",
+							a.GlobalInstanceCap, live))
+				}
 				return
 			}
 		}
@@ -485,6 +570,9 @@ func (a *Autoscaler) ScaleOnce(ctx context.Context) {
 			continue
 		}
 		if job.MaxInstances > 0 && have >= job.MaxInstances {
+			a.recordJobDiag(job.JobExecutionID, models.DiagReasonCloudCapReached,
+				models.DiagSeverityInfo,
+				fmt.Sprintf("This job already has its maximum of %d rented instance(s).", job.MaxInstances))
 			continue
 		}
 
@@ -508,6 +596,10 @@ func (a *Autoscaler) ScaleOnce(ctx context.Context) {
 			debug.Info("Cloud autoscaler: job %s already has %d instance(s) commissioning; "+
 				"waiting for one to take work before renting another",
 				job.JobExecutionID, commissioning)
+			a.recordJobDiag(job.JobExecutionID, models.DiagReasonCloudSettling,
+				models.DiagSeverityInfo,
+				fmt.Sprintf("%d rented instance(s) are still starting up (downloading files and "+
+					"benchmarking). Waiting for one to take work before renting another.", commissioning))
 			continue
 		}
 
@@ -537,6 +629,11 @@ func (a *Autoscaler) ScaleOnce(ctx context.Context) {
 					"job. Check the agent's route to the backend (VPN credential, backend_vpn_host, agent "+
 					"image), then use Provision now to resume.",
 					job.JobExecutionID, doa)
+				a.recordJobDiag(job.JobExecutionID, models.DiagReasonCloudDeadOnArrival,
+					models.DiagSeverityError,
+					fmt.Sprintf("%d rented instance(s) billed and were destroyed without the agent ever "+
+						"connecting back. Automatic provisioning is halted for this job. Check the VPN "+
+						"credential, backend_vpn_host and agent image, then use Provision now to resume.", doa))
 				continue
 			}
 		}
@@ -547,8 +644,12 @@ func (a *Autoscaler) ScaleOnce(ctx context.Context) {
 		// first instance had proven it can even register.
 		if err := a.provisioner.ProvisionForJob(ctx, job.JobExecutionID); err != nil {
 			debug.Error("Cloud autoscaler: provisioning failed for job %s: %v", job.JobExecutionID, err)
+			reason, severity := classifyProvisionFailure(err)
+			a.recordJobDiag(job.JobExecutionID, reason, severity, err.Error())
 			continue
 		}
+		// Provisioned: whatever was blocking it no longer is.
+		a.clearJobDiag(job.JobExecutionID)
 		debug.Info("Cloud autoscaler: provisioned an instance for job %s (starving for %s)",
 			job.JobExecutionID, ages[job.JobExecutionID].Round(time.Second))
 	}

@@ -209,6 +209,15 @@
       "hybridMaskWordlist": "Hybrid Mask + Wordlist",
       "association": "Association",
       "modeNumber": "Mode {{mode}}"
+    },
+    "diagnostics": {
+      "cloud_budget_blocked": "Cloud budget reached",
+      "cloud_cap_reached": "Cloud instance cap reached",
+      "cloud_settling": "Waiting for a rented instance to start up",
+      "cloud_no_capacity": "No cloud capacity available",
+      "cloud_dead_on_arrival": "Rented instances could not connect back",
+      "cloud_launch_failed": "Could not rent a cloud instance",
+      "seenTimes": "Seen {{count}} times"
     }
   },
   "common": {

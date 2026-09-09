@@ -1877,13 +1877,20 @@
         "orphanGrace": "Orphan grace period",
         "orphanGraceHelp": "Destroy instances found on the provider account with no matching database row after this long. This is the only recovery for a launch whose record never landed.",
         "agentImage": "Agent image",
-        "agentImageHelp": "e.g. zerkereod/krakenhashes-agent-cloud:cloud-gpu. Leave blank to fall back to KH_CLOUD_AGENT_IMAGE, then to the built-in default. Note the built-in default is :latest, which only exists once a release has been tagged — pre-release deployments must set this."
+        "agentImageHelp": "e.g. zerkereod/krakenhashes-agent-cloud:cloud-gpu. Leave blank to fall back to KH_CLOUD_AGENT_IMAGE, then to the built-in default. Note the built-in default is :latest, which only exists once a release has been tagged — pre-release deployments must set this.",
+        "defaultBurstEnabled": "Включить облачный burst для всех заданий",
+        "defaultBurstEnabledHelp": "Считает все задания разрешёнными для облачного burst, без установки флажка в каждом пресете, рабочем процессе и задании. Предназначено для развёртываний без собственных GPU, где аренда — единственный способ выполнять работу. Бюджеты клиентов и ограничения на количество экземпляров продолжают действовать. Действует немедленно, в том числе для уже поставленных в очередь заданий.",
+        "defaultClient": "Клиент для списания по умолчанию",
+        "defaultClientHelp": "Облачные расходы по списку хешей без собственного клиента списываются сюда. Если оставить «Нет», нераспределённая работа не сможет арендовать мощности вообще. Бюджеты, ограничения на экземпляры и пороговая шкала применяются к выбранному клиенту как обычно — клиент с именем «Нераспределённая работа» сохраняет отчёт о расходах честным.",
+        "defaultClientNone": "Нет — нераспределённая работа не может использовать облако"
       },
       "agent": "Cloud agent image",
       "agentHelp": "The container image rented instances pull and run. It must be a tag that exists in the registry: a missing tag is not a startup error — the instance boots, the pull fails, and the host self-terminates about a minute later, billed.",
       "save": "Save changes",
       "discard": "Discard",
-      "unsaved": "{{count}} unsaved change(s)"
+      "unsaved": "{{count}} unsaved change(s)",
+      "eligibility": "Развёртывания только в облаке",
+      "eligibilityHelp": "Рассматриваются ли задания для аренды вообще. Всё выше ограничивает, сколько можно потратить; это решает, будет ли потрачено хоть что-то."
     }
   },
   "serverCertificate": {

@@ -207,6 +207,15 @@
       "hybridMaskWordlist": "混合 掩码 + 字典",
       "association": "关联",
       "modeNumber": "模式 {{mode}}"
+    },
+    "diagnostics": {
+      "cloud_budget_blocked": "已达到云预算上限",
+      "cloud_cap_reached": "已达到云实例数量上限",
+      "cloud_settling": "正在等待租用实例启动",
+      "cloud_no_capacity": "没有可用的云容量",
+      "cloud_dead_on_arrival": "租用的实例无法连接回服务器",
+      "cloud_launch_failed": "无法租用云实例",
+      "seenTimes": "已出现 {{count}} 次"
     }
   },
   "common": {

@@ -207,6 +207,15 @@
       "hybridMaskWordlist": "Гибрид: маска + словарь",
       "association": "Ассоциативная атака",
       "modeNumber": "Режим {{mode}}"
+    },
+    "diagnostics": {
+      "cloud_budget_blocked": "Достигнут облачный бюджет",
+      "cloud_cap_reached": "Достигнут лимит облачных экземпляров",
+      "cloud_settling": "Ожидание запуска арендованного экземпляра",
+      "cloud_no_capacity": "Нет доступных облачных мощностей",
+      "cloud_dead_on_arrival": "Арендованные экземпляры не смогли подключиться",
+      "cloud_launch_failed": "Не удалось арендовать облачный экземпляр",
+      "seenTimes": "Замечено {{count}} раз"
     }
   },
   "common": {

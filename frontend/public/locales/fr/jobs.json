@@ -208,6 +208,15 @@
       "hybridMaskWordlist": "Hybride Masque + Wordlist",
       "association": "Association",
       "modeNumber": "Mode {{mode}}"
+    },
+    "diagnostics": {
+      "cloud_budget_blocked": "Budget cloud atteint",
+      "cloud_cap_reached": "Plafond d'instances cloud atteint",
+      "cloud_settling": "Attente du démarrage d'une instance louée",
+      "cloud_no_capacity": "Aucune capacité cloud disponible",
+      "cloud_dead_on_arrival": "Les instances louées n'ont pas pu se reconnecter",
+      "cloud_launch_failed": "Impossible de louer une instance cloud",
+      "seenTimes": "Vu {{count}} fois"
     }
   },
   "common": {

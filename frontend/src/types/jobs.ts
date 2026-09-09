@@ -230,6 +230,28 @@ export interface JobDetailsResponse {
    * shared on-prem pool). null lets the remaining budget decide.
    */
   cloud_max_instances?: number | null;
+  /**
+   * Why the scheduler or the cloud autoscaler is not acting on this job.
+   *
+   * Present because a cloud-only deployment has no other channel: every
+   * provisioning refusal used to be a server log line, and the per-agent
+   * diagnostics view cannot help an operator whose fleet is entirely rented,
+   * since it iterates agents and there are none.
+   */
+  diagnostics?: SchedulingDiagnostic[] | null;
+}
+
+/** One deduplicated "why is nothing happening" reason. */
+export interface SchedulingDiagnostic {
+  id: number;
+  scope: string;
+  scope_id: string;
+  reason_code: string;
+  severity: 'info' | 'warning' | 'error' | string;
+  detail: string;
+  count: number;
+  first_seen: string;
+  last_seen: string;
 }
 
 // Job detail response

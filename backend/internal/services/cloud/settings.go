@@ -53,6 +53,27 @@ const (
 	// Read in SQL by CloudEligibleJobs, not through LoadSettings, so the
 	// resolution happens in the same query as the budget default.
 	SettingDefaultMaxInstancesPerJob = "cloud_default_max_instances_per_job"
+
+	// SettingDefaultBurstEnabled is seeded by
+	// 20260909140000_add_cloud_default_burst_enabled. Treats every job as
+	// cloud-burst enabled, for deployments with no on-prem GPUs where ticking
+	// the per-job box on every preset, workflow and job is the whole workflow
+	// and missing one looks like a broken install.
+	//
+	// Read in SQL by cloudEligibilityPredicate rather than through
+	// LoadSettings, so both provisioning entry points resolve it from one copy
+	// of the rule and turning it on also frees jobs that are already queued.
+	SettingDefaultBurstEnabled = "cloud_default_burst_enabled"
+
+	// SettingDefaultClientID is seeded by
+	// 20260909150000_add_cloud_default_client. The client that cloud spend is
+	// billed to when a hashlist has no client of its own, for deployments that
+	// do not model clients at all.
+	//
+	// Read in SQL by cloudBillingClientID rather than through LoadSettings, so
+	// the eligibility queries and explainIneligible resolve it from one copy of
+	// the rule and cannot disagree about who is being charged.
+	SettingDefaultClientID = "cloud_default_client_id"
 )
 
 /*

@@ -1986,13 +1986,20 @@
         "orphanGrace": "Orphan grace period",
         "orphanGraceHelp": "Destroy instances found on the provider account with no matching database row after this long. This is the only recovery for a launch whose record never landed.",
         "agentImage": "Agent image",
-        "agentImageHelp": "e.g. zerkereod/krakenhashes-agent-cloud:cloud-gpu. Leave blank to fall back to KH_CLOUD_AGENT_IMAGE, then to the built-in default. Note the built-in default is :latest, which only exists once a release has been tagged — pre-release deployments must set this."
+        "agentImageHelp": "e.g. zerkereod/krakenhashes-agent-cloud:cloud-gpu. Leave blank to fall back to KH_CLOUD_AGENT_IMAGE, then to the built-in default. Note the built-in default is :latest, which only exists once a release has been tagged — pre-release deployments must set this.",
+        "defaultBurstEnabled": "Enable cloud burst for every job",
+        "defaultBurstEnabledHelp": "Treats every job as cloud-burst enabled, without ticking the box on each preset, workflow and job. Intended for deployments with no on-prem GPUs, where renting is the only way work ever runs. Client budgets and instance caps still apply. Takes effect immediately, including for jobs already queued.",
+        "defaultClient": "Default billing client",
+        "defaultClientHelp": "Cloud spend for a hashlist with no client of its own is billed here. Leave as None and unassigned work cannot rent capacity at all. Budgets, instance caps and the threshold ladder apply to the client you pick exactly as normal — a client named something like \"Unassigned Work\" keeps the spend report honest.",
+        "defaultClientNone": "None — unassigned work cannot use cloud"
       },
       "agent": "Cloud agent image",
       "agentHelp": "The container image rented instances pull and run. It must be a tag that exists in the registry: a missing tag is not a startup error — the instance boots, the pull fails, and the host self-terminates about a minute later, billed.",
       "save": "Save changes",
       "discard": "Discard",
-      "unsaved": "{{count}} unsaved change(s)"
+      "unsaved": "{{count}} unsaved change(s)",
+      "eligibility": "Cloud-only deployments",
+      "eligibilityHelp": "Whether jobs are considered for renting at all. Everything above bounds what may be spent; this decides whether anything is."
     }
   },
   "serverCertificate": {

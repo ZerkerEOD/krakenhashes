@@ -5,9 +5,12 @@ import {
   Button,
   Chip,
   CircularProgress,
+  FormControlLabel,
   Grid,
   InputAdornment,
+  MenuItem,
   Paper,
+  Switch,
   TextField,
   Typography,
 } from '@mui/material';
@@ -15,6 +18,7 @@ import { Save as SaveIcon, Undo as UndoIcon } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
 import { useTranslation } from 'react-i18next';
 import { getSystemSettings, updateSystemSetting } from '../../../services/systemSettings';
+import { listClients } from '../../../services/api';
 
 /**
  * System-wide cloud settings.
@@ -45,6 +49,10 @@ interface FieldSpec {
   key: string;
   /** Free text rather than a number, e.g. a container image reference. */
   text?: boolean;
+  /** Stored as the string "true"/"false" and shown as a switch. */
+  bool?: boolean;
+  /** Stored as an opaque id string and chosen from a list, not typed. */
+  select?: boolean;
   toDisplay?: (stored: number) => number;
   toStored?: (shown: number) => number;
 }
@@ -59,6 +67,8 @@ const FIELDS = {
   },
   concurrentCap: { key: 'cloud_global_concurrent_instance_cap' },
   defaultMaxInstancesPerJob: { key: 'cloud_default_max_instances_per_job' },
+  defaultBurstEnabled: { key: 'cloud_default_burst_enabled', bool: true },
+  defaultClientId: { key: 'cloud_default_client_id', select: true },
   agentImage: { key: 'cloud_agent_image', text: true },
   chunkSeconds: { key: 'cloud_chunk_duration_seconds' },
   teardownSlack: { key: 'cloud_teardown_slack_seconds' },
@@ -75,7 +85,10 @@ type SettingsMap = Record<string, string>;
 /** The display string for a spec, given the raw stored value. */
 const toDisplayString = (spec: FieldSpec, stored: string | undefined): string => {
   const raw = stored ?? '';
-  if (spec.text) return raw;
+  // Anything other than an explicit "true" reads as off, so a missing or
+  // malformed row shows the switch off rather than implying spend is enabled.
+  if (spec.bool) return raw.trim().toLowerCase() === 'true' ? 'true' : 'false';
+  if (spec.text || spec.select) return raw;
   const parsed = parseFloat(raw);
   const value = isNaN(parsed) ? 0 : parsed;
   return String(spec.toDisplay ? spec.toDisplay(value) : value);
@@ -83,7 +96,8 @@ const toDisplayString = (spec: FieldSpec, stored: string | undefined): string =>
 
 /** The stored string for a spec, given what the operator typed. Null if unusable. */
 const toStoredString = (spec: FieldSpec, shown: string): string | null => {
-  if (spec.text) return shown.trim();
+  if (spec.bool) return shown === 'true' ? 'true' : 'false';
+  if (spec.text || spec.select) return shown.trim();
   const trimmed = shown.trim();
   if (trimmed === '') return null;
   const parsed = Number(trimmed);
@@ -148,6 +162,104 @@ const SettingField: React.FC<SettingFieldProps> = ({
   />
 );
 
+/*
+ * Boolean equivalent of SettingField. Hoisted for the same reason.
+ *
+ * Still Save-to-commit rather than save-on-toggle, matching every other field
+ * on this panel: this one decides whether jobs may rent hardware, and a switch
+ * that spends money the instant it is brushed is not a switch anyone should
+ * have to be careful around. The dirty highlight is the confirmation that the
+ * change is pending.
+ */
+interface SettingSwitchProps {
+  label: string;
+  helper: string;
+  value: string;
+  onChange: (raw: string) => void;
+  disabled: boolean;
+  dirty?: boolean;
+}
+
+/*
+ * A select over existing clients, for the default billing client.
+ *
+ * Free text would be a UUID field, and a mistyped UUID fails exactly like an
+ * unset one: the join matches nothing and jobs silently stop provisioning. The
+ * setting stores a bare UUID string, so the empty option has to be explicit —
+ * that is the "unassigned work cannot use cloud" default, not an absence.
+ */
+interface SettingSelectProps {
+  label: string;
+  helper: string;
+  noneLabel: string;
+  value: string;
+  options: Array<{ id: string; name: string }>;
+  onChange: (raw: string) => void;
+  disabled: boolean;
+  dirty?: boolean;
+}
+
+const SettingSelect: React.FC<SettingSelectProps> = ({
+  label,
+  helper,
+  noneLabel,
+  value,
+  options,
+  onChange,
+  disabled,
+  dirty,
+}) => (
+  <TextField
+    select
+    fullWidth
+    label={label}
+    // A value that names no known client would make MUI blank the control and
+    // read as "None", quietly hiding a misconfiguration that stops all cloud
+    // provisioning. Fall back to the empty option only when it really is empty.
+    value={options.some((o) => o.id === value) ? value : ''}
+    onChange={(e) => onChange(e.target.value)}
+    disabled={disabled}
+    helperText={helper}
+    focused={dirty || undefined}
+    color={dirty ? 'warning' : undefined}
+  >
+    <MenuItem value="">
+      <em>{noneLabel}</em>
+    </MenuItem>
+    {options.map((o) => (
+      <MenuItem key={o.id} value={o.id}>
+        {o.name}
+      </MenuItem>
+    ))}
+  </TextField>
+);
+
+const SettingSwitch: React.FC<SettingSwitchProps> = ({
+  label,
+  helper,
+  value,
+  onChange,
+  disabled,
+  dirty,
+}) => (
+  <Box>
+    <FormControlLabel
+      control={
+        <Switch
+          checked={value === 'true'}
+          onChange={(e) => onChange(e.target.checked ? 'true' : 'false')}
+          disabled={disabled}
+          color={dirty ? 'warning' : 'primary'}
+        />
+      }
+      label={label}
+    />
+    <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 1.75 }}>
+      {helper}
+    </Typography>
+  </Box>
+);
+
 const CloudSystemSettings: React.FC = () => {
   const { t } = useTranslation('admin');
   const { enqueueSnackbar } = useSnackbar();
@@ -159,6 +271,30 @@ const CloudSystemSettings: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /*
+   * Clients for the default-billing-client picker.
+   *
+   * Failure is deliberately non-fatal: the list is only needed by one optional
+   * field, and blocking the whole panel on it would take the global spend cap
+   * offline too.
+   */
+  const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    listClients()
+      .then((res) => {
+        if (cancelled) return;
+        const rows = res.data?.data ?? [];
+        setClients(rows.map((c: any) => ({ id: String(c.id), name: c.name })));
+      })
+      .catch(() => {
+        /* leave the picker empty; the rest of the panel still works */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const fetchSettings = useCallback(async () => {
     setLoading(true);
@@ -340,6 +476,35 @@ const CloudSystemSettings: React.FC = () => {
             />
           </Grid>
         </Grid>
+      </Paper>
+
+      {/*
+        * Its own section rather than a row in "ceilings": every other setting
+        * here bounds what may be spent, and this one decides whether anything
+        * is spent at all. An operator with no on-prem GPUs has to find this, so
+        * it should not be buried among numeric limits it does not resemble.
+        */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          {t('cloud.system.eligibility') as string}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t('cloud.system.eligibilityHelp') as string}
+        </Typography>
+        <SettingSwitch
+          label={t('cloud.system.fields.defaultBurstEnabled') as string}
+          helper={t('cloud.system.fields.defaultBurstEnabledHelp') as string}
+          {...bind(FIELDS.defaultBurstEnabled)}
+        />
+        <Box sx={{ mt: 3, maxWidth: 480 }}>
+          <SettingSelect
+            label={t('cloud.system.fields.defaultClient') as string}
+            helper={t('cloud.system.fields.defaultClientHelp') as string}
+            noneLabel={t('cloud.system.fields.defaultClientNone') as string}
+            options={clients}
+            {...bind(FIELDS.defaultClientId)}
+          />
+        </Box>
       </Paper>
 
       <Paper sx={{ p: 3, mb: 3 }}>
