@@ -416,6 +416,100 @@ its detail page: the coverage bar is the share of the remaining work the budget 
 complete. Below 100% the budget runs out before the job does, and launching requires an
 explicit acknowledgement — partial progress may still be worth buying, but not by accident.
 
+## Cloud-only deployments (no on-prem GPUs)
+
+KrakenHashes works with **no GPU hardware of your own** — every agent rented, run, and
+destroyed on demand. The feature is named "cloud burst" because it was built to extend an
+existing fleet, but nothing in the scheduler requires one: the autoscaler's
+"don't rent while an on-prem agent is idle" check simply never engages when there are no
+on-prem agents.
+
+Two things are worth understanding before you rely on it.
+
+### Everything is off until you turn it on
+
+The shipped defaults are deliberately fail-closed, and several of them fail **silently** —
+the job simply sits at `pending`. Work through this list in order:
+
+| Setting | Default | Where |
+|---|---|---|
+| `cloud_global_monthly_cap_cents` | **`0` — disables cloud entirely** | Cloud Provisioning → System |
+| `cloud_default_client_budget_cents` | **unset — clients stay unfunded** | Cloud Provisioning → Client Budgets |
+| `cloud_default_cloud_enabled` | **`false`** | Cloud Provisioning → Client Budgets |
+| `cloud_default_provider_allowlist` | **unset** | Cloud Provisioning → Client Budgets |
+| `cloud_agent_image` | `…:latest`, which does not exist pre-release | Cloud Provisioning → System |
+| `require_client_for_hashlist` | `false` | System Settings |
+| `cloud_burst_enabled` | `false`, per job | each preset, workflow, or job |
+| `cloud_default_burst_enabled` | **`false`** | Cloud Provisioning → System |
+| `cloud_default_client_id` | **unset** | Cloud Provisioning → System |
+
+!!! danger "Work with no client needs somewhere to bill"
+    Cloud spend is tracked and budgeted per client — the ledger, the budget window,
+    the threshold ladder and the spend report are all keyed on one — so provisioning
+    needs a client to charge. A hashlist created without one is skipped, and on the
+    autoscaler path it used to be skipped with no message at all.
+
+    You have two ways to resolve it, depending on whether your deployment models
+    clients:
+
+    - **You do use clients:** set `require_client_for_hashlist` to `true` so a
+      hashlist cannot be uploaded without one. Note this gates *new uploads only* —
+      it does not repair hashlists that already exist without a client.
+    - **You don't use clients:** create one (call it something like
+      `Unassigned Work`), give it a budget, and nominate it as
+      **`cloud_default_client_id`**. All work with no client of its own bills there.
+      Budgets, instance caps and the threshold ladder apply to it exactly as they
+      would to any other client, so the spend is bounded and shows up in the report
+      as an ordinary row.
+
+    A hashlist's own client always wins — the fallback never redirects spend away
+    from an engagement that has one. Leave `cloud_default_client_id` unset and
+    behaviour is unchanged: unassigned work simply cannot rent capacity.
+
+!!! tip "Turn on cloud burst once, not per job"
+    `cloud_burst_enabled` is per job and defaults to off, which is right when cloud
+    burst extends a fleet you already own and backwards when renting is the only way
+    work ever runs. Set **`cloud_default_burst_enabled`** (Cloud Provisioning →
+    System → Cloud-only deployments) and every job is treated as opted in, including
+    jobs already sitting in the queue. Client budgets and both instance caps still
+    apply on top of it — this decides which jobs are *considered* for renting, not
+    how much may be spent.
+
+    Leave it off in a hybrid deployment and tick the box per preset instead: jobs
+    inherit the flag from the preset they are created from, so it is one tick per
+    preset rather than one per job.
+
+### The safety rails are different without on-prem agents
+
+Two of the three brakes on runaway renting are computed from on-prem agents and are
+therefore inert here:
+
+- the "an on-prem agent is idle, don't rent" check, and
+- `skip_if_finishing_within_seconds`, which needs on-prem throughput to project from.
+
+What still applies is the client budget, the deployment-wide cap, and the per-job instance
+cap. **Set `cloud_default_max_instances_per_job`** (shipped default `2`) and
+`cloud_global_concurrent_instance_cap` accordingly — a blank per-job cap inherits the
+default rather than meaning unlimited, but the deployment cap ships at `0`, which *is*
+unlimited.
+
+Also raise `cloud_commissioning_grace_minutes` (default 30) rather than lowering it. A
+rented instance must download its files and run a benchmark before it can be given work,
+and destroying it mid-startup means paying for the launch and then paying again for its
+replacement.
+
+### When nothing happens
+
+Open the job. Provisioning refusals are shown on the job detail page — budget reached,
+instance cap reached, waiting for an instance to start up, no capacity at the provider,
+or instances that could not connect back. That panel is the first place to look; the
+server log is no longer the only record.
+
+If the job shows nothing at all, it was never considered cloud-eligible. Click
+**Provision now** on the job, which names the specific precondition that failed —
+including the two that are otherwise invisible: no client to bill, and cloud burst
+never enabled.
+
 ## Verifying before you spend
 
 Run the pre-flight from the provider page. For AWS it reports, separately:

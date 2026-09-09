@@ -207,6 +207,15 @@
       "hybridMaskWordlist": "Hybrid Maske + Wortliste",
       "association": "Assoziation",
       "modeNumber": "Modus {{mode}}"
+    },
+    "diagnostics": {
+      "cloud_budget_blocked": "Cloud-Budget erreicht",
+      "cloud_cap_reached": "Obergrenze für Cloud-Instanzen erreicht",
+      "cloud_settling": "Warten auf den Start einer gemieteten Instanz",
+      "cloud_no_capacity": "Keine Cloud-Kapazität verfügbar",
+      "cloud_dead_on_arrival": "Gemietete Instanzen konnten keine Verbindung herstellen",
+      "cloud_launch_failed": "Cloud-Instanz konnte nicht gemietet werden",
+      "seenTimes": "{{count}}-mal aufgetreten"
     }
   },
   "common": {

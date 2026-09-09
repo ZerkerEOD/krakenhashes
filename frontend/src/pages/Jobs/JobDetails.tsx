@@ -16,6 +16,7 @@ import {
   Chip,
   CircularProgress,
   Alert,
+  AlertTitle,
   Skeleton,
   TextField,
   IconButton,
@@ -920,6 +921,38 @@ const JobDetails: React.FC = () => {
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
           {error}
         </Alert>
+      )}
+
+      {/*
+        * Why nothing is happening.
+        *
+        * Placed above the job information rather than beside the cloud row on
+        * purpose: the case this exists for is a job sitting at pending with no
+        * agents and no instances, where there is nothing else on the page that
+        * would draw the eye. Previously the only record of a provisioning
+        * refusal was a line in the server log, which is no help at all to
+        * someone running an entirely rented fleet — or to a remote tester.
+        */}
+      {(jobData.diagnostics ?? []).length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          {(jobData.diagnostics ?? []).map((d) => (
+            <Alert
+              key={d.id}
+              severity={d.severity === 'error' ? 'error' : d.severity === 'warning' ? 'warning' : 'info'}
+              sx={{ mb: 1 }}
+            >
+              <AlertTitle>
+                {t('details.diagnostics.' + d.reason_code, { defaultValue: d.reason_code })}
+              </AlertTitle>
+              {d.detail}
+              {d.count > 1 && (
+                <Typography variant="caption" display="block" sx={{ mt: 0.5, opacity: 0.8 }}>
+                  {t('details.diagnostics.seenTimes', { count: d.count })}
+                </Typography>
+              )}
+            </Alert>
+          ))}
+        </Box>
       )}
 
       {/* Job Information Table */}

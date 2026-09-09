@@ -207,6 +207,15 @@
       "hybridMaskWordlist": "Hibrido mascara + diccionario",
       "association": "Asociacion",
       "modeNumber": "Modo {{mode}}"
+    },
+    "diagnostics": {
+      "cloud_budget_blocked": "Presupuesto de nube alcanzado",
+      "cloud_cap_reached": "Límite de instancias en la nube alcanzado",
+      "cloud_settling": "Esperando a que arranque una instancia alquilada",
+      "cloud_no_capacity": "No hay capacidad disponible en la nube",
+      "cloud_dead_on_arrival": "Las instancias alquiladas no pudieron conectarse",
+      "cloud_launch_failed": "No se pudo alquilar una instancia en la nube",
+      "seenTimes": "Visto {{count}} veces"
     }
   },
   "common": {

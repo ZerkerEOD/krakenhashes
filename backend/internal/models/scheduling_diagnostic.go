@@ -31,6 +31,27 @@ const (
 	DiagReasonAtCapacity        = "at_capacity"         // compatible units all at cap (enforce_max_agents)
 )
 
+/*
+ * Cloud provisioning reason codes, recorded against DiagScopeJob.
+ *
+ * These exist because a cloud-only deployment has no other channel. Every
+ * refusal used to be a debug.* line in the server log, and the one place
+ * diagnostics surfaced -- recordIdleReasons -- iterates agents and is not even
+ * reached when there are none. So the operator whose entire fleet is rented saw
+ * a job sit at pending with no explanation anywhere in the product.
+ *
+ * Job-scoped rather than agent-scoped for the same reason: at the moment these
+ * fire there is, by definition, no agent to hang them off.
+ */
+const (
+	DiagReasonCloudBudgetBlocked = "cloud_budget_blocked" // client budget ladder stopped provisioning
+	DiagReasonCloudCapReached    = "cloud_cap_reached"    // a global or per-job instance cap is in force
+	DiagReasonCloudSettling      = "cloud_settling"       // an instance is already commissioning for this job
+	DiagReasonCloudNoCapacity    = "cloud_no_capacity"    // provider had no usable offer, or it vanished
+	DiagReasonCloudDeadOnArrival = "cloud_dead_on_arrival"
+	DiagReasonCloudLaunchFailed  = "cloud_launch_failed" // anything else ProvisionForJob refused
+)
+
 // SchedulingDiagnostic is one deduplicated diagnostic row: a single
 // (scope, scope_id, reason_code) tuple whose count/last_seen are bumped in
 // place on every recurrence rather than inserting new rows.

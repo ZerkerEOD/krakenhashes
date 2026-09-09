@@ -1877,13 +1877,20 @@
         "orphanGrace": "Orphan grace period",
         "orphanGraceHelp": "Destroy instances found on the provider account with no matching database row after this long. This is the only recovery for a launch whose record never landed.",
         "agentImage": "Agent image",
-        "agentImageHelp": "e.g. zerkereod/krakenhashes-agent-cloud:cloud-gpu. Leave blank to fall back to KH_CLOUD_AGENT_IMAGE, then to the built-in default. Note the built-in default is :latest, which only exists once a release has been tagged — pre-release deployments must set this."
+        "agentImageHelp": "e.g. zerkereod/krakenhashes-agent-cloud:cloud-gpu. Leave blank to fall back to KH_CLOUD_AGENT_IMAGE, then to the built-in default. Note the built-in default is :latest, which only exists once a release has been tagged — pre-release deployments must set this.",
+        "defaultBurstEnabled": "Habilitar cloud burst para todos los trabajos",
+        "defaultBurstEnabledHelp": "Trata todos los trabajos como habilitados para cloud burst, sin marcar la casilla en cada preset, flujo de trabajo y trabajo. Pensado para despliegues sin GPU propias, donde alquilar es la única forma de ejecutar trabajo. Los presupuestos de cliente y los límites de instancias siguen aplicándose. Surte efecto de inmediato, incluso para los trabajos ya en cola.",
+        "defaultClient": "Cliente de facturación predeterminado",
+        "defaultClientHelp": "El gasto en la nube de una lista de hashes sin cliente propio se factura aquí. Si se deja en Ninguno, el trabajo sin asignar no puede alquilar capacidad. Los presupuestos, los límites de instancias y la escala de umbrales se aplican al cliente elegido con normalidad: un cliente llamado «Trabajo sin asignar» mantiene honesto el informe de gastos.",
+        "defaultClientNone": "Ninguno — el trabajo sin asignar no puede usar la nube"
       },
       "agent": "Cloud agent image",
       "agentHelp": "The container image rented instances pull and run. It must be a tag that exists in the registry: a missing tag is not a startup error — the instance boots, the pull fails, and the host self-terminates about a minute later, billed.",
       "save": "Save changes",
       "discard": "Discard",
-      "unsaved": "{{count}} unsaved change(s)"
+      "unsaved": "{{count}} unsaved change(s)",
+      "eligibility": "Despliegues solo en la nube",
+      "eligibilityHelp": "Si los trabajos se consideran siquiera para alquilar capacidad. Todo lo anterior limita cuánto se puede gastar; esto decide si se gasta algo."
     }
   },
   "serverCertificate": {

@@ -46,11 +46,45 @@ type UserJobsHandler struct {
 	benchmarkRepo         *repository.BenchmarkRepository
 	loopbackService       *services.LoopbackService
 	wsHandler             WSHandler
+	// diagnostics surfaces scheduling/provisioning reasons on the job detail
+	// page. Optional: nil simply omits them.
+	diagnostics *services.DiagnosticsService
+}
+
+// SetDiagnostics wires the buffered diagnostics store so the job detail page
+// can explain why a job is not being provisioned for. Without it a cloud-only
+// operator has no in-product signal at all — the per-agent diagnostics path
+// cannot help, because it iterates agents and there are none.
+func (h *UserJobsHandler) SetDiagnostics(d *services.DiagnosticsService) {
+	h.diagnostics = d
 }
 
 // WSHandler interface for WebSocket operations
 type WSHandler interface {
 	SendMessage(agentID int, msg interface{}) error
+}
+
+/*
+ * jobDiagnostics reads the active "why is nothing happening" reasons for a job.
+ *
+ * Read through the service rather than the repository so pending in-memory
+ * records are force-flushed first: the autoscaler runs once a minute and
+ * buffers, so a straight database read would routinely miss the very refusal
+ * the operator has just opened the page to understand.
+ *
+ * Never fails the request. A job detail page that 500s because a diagnostic
+ * could not be read is strictly worse than one without the explanation.
+ */
+func (h *UserJobsHandler) jobDiagnostics(ctx context.Context, jobID uuid.UUID) []models.SchedulingDiagnostic {
+	if h.diagnostics == nil {
+		return nil
+	}
+	diags, err := h.diagnostics.ListActiveByScope(ctx, models.DiagScopeJob, jobID.String())
+	if err != nil {
+		debug.Warning("job detail: could not read diagnostics for job %s: %v", jobID, err)
+		return nil
+	}
+	return diags
 }
 
 // SetWSHandler sets the WebSocket handler after creation
@@ -1738,6 +1772,7 @@ func (h *UserJobsHandler) GetJobDetail(w http.ResponseWriter, r *http.Request) {
 		"total_speed":                 totalSpeed,
 		"created_at":                  job.CreatedAt.Format(time.RFC3339),
 		"updated_at":                  job.UpdatedAt.Format(time.RFC3339),
+		"diagnostics":                 h.jobDiagnostics(r.Context(), jobID),
 		"tasks":                       taskSummaries,
 		"total_tasks":                 totalTasks,
 		"wordlist_ids":                job.WordlistIDs,

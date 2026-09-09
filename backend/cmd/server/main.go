@@ -725,6 +725,20 @@ func main() {
 		}
 		autoscaler.LiveInstanceCount = cloudInstanceRepo.CountLive
 
+		// Surface provisioning refusals on the job itself. Without this the
+		// only record is a server log line, which is no use at all to a
+		// cloud-only operator whose jobs are sitting at pending — and the
+		// per-agent diagnostics path cannot help them, because it iterates
+		// agents and they have none.
+		if diag := routes.JobIntegrationManager.DiagnosticsService(); diag != nil {
+			autoscaler.Diagnostics = diag
+			// Same store, read side: the job detail page renders what the
+			// autoscaler records here.
+			if routes.UserJobsHandlerInstance != nil {
+				routes.UserJobsHandlerInstance.SetDiagnostics(diag)
+			}
+		}
+
 		// Negative disables the breaker; 0 means "leave the built-in default".
 		// A plain >0 test would make KH_CLOUD_DOA_LIMIT=0 a silent no-op rather
 		// than the off switch it reads as.

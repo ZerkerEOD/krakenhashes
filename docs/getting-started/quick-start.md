@@ -110,7 +110,10 @@ Open your browser and navigate to:
     - Choose a preset job template or configure custom settings
     - Start the job
 
-**Note**: Jobs require at least one connected agent to execute. Without agents, jobs will remain in pending status.
+**Note**: Jobs require at least one agent to execute, and will stay in pending status
+without one. That agent does not have to be a machine you own — KrakenHashes can rent
+GPU capacity on demand and run the agent there. If you have no GPU hardware at all, see
+[Cloud-only deployments](../admin-guide/system-setup/cloud-providers.md#cloud-only-deployments-no-on-prem-gpus).
 
 ## Common Tasks
 

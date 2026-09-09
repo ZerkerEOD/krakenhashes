@@ -248,9 +248,22 @@ func (s *Service) decrypt(ciphertext string) (string, error) {
  * to cloud_default_cloud_enabled. A missing settings row yields NULL, and
  * `NULL = true` is not true, so an unreadable default refuses rather than
  * permits.
+ *
+ * cloud_default_burst_enabled exists for cloud-only deployments. je.cloud_burst_enabled
+ * is per job and defaults false, so without a server-wide default an operator whose
+ * every agent is rented has to tick a box on every preset, workflow and job — and a
+ * single missed tick looks identical to a broken install: the job just sits at pending.
+ * Resolved here rather than stamped onto rows at job creation so that flipping it also
+ * frees the jobs already queued, which is the situation an operator is in when they
+ * discover they needed it. It ships false, and COALESCE(..., false) means an
+ * unreadable row refuses rather than spends.
  */
 const cloudEligibilityPredicate = `
-	    je.cloud_burst_enabled = true
+	    (
+	        je.cloud_burst_enabled = true
+	     OR COALESCE((SELECT lower(btrim(value)) = 'true' FROM system_settings
+	                   WHERE key = 'cloud_default_burst_enabled'), false)
+	    )
 	AND je.status IN ('pending','running')
 	AND COALESCE(
 	        c.cloud_enabled,
@@ -262,6 +275,144 @@ const cloudEligibilityPredicate = `
 	     OR COALESCE((SELECT btrim(value) FROM system_settings
 	                   WHERE key = 'cloud_default_provider_allowlist'), '') <> ''
 	    )`
+
+/*
+ * cloudBillingClientJoin resolves which client a job's cloud spend is billed to.
+ *
+ * Cloud money is tracked per client everywhere — the ledger, the budget window,
+ * the threshold ladder, the spend report — so provisioning needs a client even
+ * when the work does not naturally have one. Plenty of deployments never assign
+ * clients at all (a single-org install has no billing entity to model), and
+ * before this they were locked out of cloud entirely: both entry points joined
+ * clients directly, so a client-less hashlist matched no row and the autoscaler
+ * said nothing.
+ *
+ * The fallback is a real client the admin nominates, not a synthetic NULL
+ * bucket. That keeps ONE budget path rather than a second one guarded by NULL
+ * checks, and it means unassigned spend appears as an ordinary row in the
+ * client budget UI and the spend report instead of somewhere those pages cannot
+ * render. Name it "Unassigned Work" and the report reads honestly.
+ *
+ * Still an INNER JOIN, deliberately. If the setting is unset, malformed, or
+ * names a client that has since been deleted, COALESCE yields NULL, nothing
+ * matches, and the job is ineligible — the same refusal as before this existed.
+ * A LEFT JOIN here would let a job through with no budget holder at all, which
+ * is the one outcome worse than refusing to rent.
+ *
+ * The regex guard matters: value::uuid on '' or 'none' raises and would error
+ * the whole query, stalling provisioning for every job rather than just this
+ * one. Same defensive shape as the numeric guard on the max-instances default.
+ *
+ * Expects `je` and `h` (hashlists) to be in scope; binds `c`.
+ */
+const cloudBillingClientID = `COALESCE(
+	    h.client_id,
+	    (SELECT CASE
+	              WHEN btrim(value) ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+	              THEN btrim(value)::uuid
+	            END
+	       FROM system_settings WHERE key = 'cloud_default_client_id')
+	)`
+
+// Shared by the eligibility queries and by explainIneligible, so the diagnostic
+// can never name a cause the eligibility check does not actually have. The two
+// hand-written copies of the older predicate had already drifted once.
+const cloudBillingClientJoin = `JOIN clients c ON c.id = ` + cloudBillingClientID
+
+/*
+ * explainIneligible turns "no rows matched" into the specific precondition that
+ * failed.
+ *
+ * Deliberately a separate query run only on the failure path, so the hot
+ * eligibility check stays a single indexed lookup. It re-derives each clause of
+ * cloudEligibilityPredicate independently — plus the client join, which is not
+ * IN the predicate but is what silently excludes a client-less hashlist.
+ *
+ * Never returns an empty string: an operator reading "not cloud-eligible" with
+ * no reason is exactly the situation this exists to end.
+ */
+/*
+ * billingClientPhrase names which client a message is about.
+ *
+ * "cloud is disabled for its client" sends an operator to a hashlist that has
+ * no client, looking for a setting that is not there. When the fallback is in
+ * play the client they need is the one they nominated, and nothing on the job
+ * points at it.
+ */
+func billingClientPhrase(isFallback bool) string {
+	if isFallback {
+		return "the default billing client this unassigned work bills to"
+	}
+	return "its client"
+}
+
+func (s *Service) explainIneligible(ctx context.Context, jobID uuid.UUID) string {
+	var (
+		jobExists        bool
+		burstEnabled     sql.NullBool
+		status           sql.NullString
+		hasClient        bool
+		clientIsFallback bool
+		cloudEnabled     sql.NullBool
+		hasAllowlist     sql.NullBool
+	)
+	err := s.db.QueryRowContext(ctx, `
+		SELECT true,
+		       je.cloud_burst_enabled
+		         OR COALESCE((SELECT lower(btrim(value)) = 'true' FROM system_settings
+		                       WHERE key = 'cloud_default_burst_enabled'), false),
+		       je.status,
+		       -- Not "does the hashlist have a client" but "is there a client to
+		       -- bill", which the nominated default can satisfy.
+		       c.id IS NOT NULL,
+		       h.client_id IS NULL,
+		       COALESCE(
+		           c.cloud_enabled,
+		           (SELECT lower(btrim(value)) = 'true' FROM system_settings
+		             WHERE key = 'cloud_default_cloud_enabled')
+		       ),
+		       (
+		           array_length(c.cloud_provider_allowlist, 1) > 0
+		        OR COALESCE((SELECT btrim(value) FROM system_settings
+		                      WHERE key = 'cloud_default_provider_allowlist'), '') <> ''
+		       )
+		FROM job_executions je
+		JOIN hashlists h ON h.id = je.hashlist_id
+		LEFT JOIN clients c ON c.id = `+cloudBillingClientID+`
+		WHERE je.id = $1`, jobID).
+		Scan(&jobExists, &burstEnabled, &status, &hasClient, &clientIsFallback,
+			&cloudEnabled, &hasAllowlist)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "no such job"
+		}
+		return fmt.Sprintf("could not determine why (%v)", err)
+	}
+
+	switch {
+	case !hasClient:
+		return "its hashlist is not assigned to a client, and no default billing client " +
+			"is set. Cloud spend is tracked and budgeted per client, so there has to be " +
+			"one to charge. Either assign a client to the hashlist, or — if this " +
+			"deployment does not use clients — nominate one under Cloud Provisioning -> " +
+			"System -> Cloud-only deployments and all unassigned work bills to it"
+	case burstEnabled.Valid && !burstEnabled.Bool:
+		return "cloud burst is not enabled on it. Tick \"Allow cloud burst\" on the job, " +
+			"or on the preset/workflow it is created from. In a deployment with no on-prem " +
+			"GPUs, set cloud_default_burst_enabled instead so every job is opted in"
+	case status.Valid && status.String != "pending" && status.String != "running":
+		return fmt.Sprintf("its status is %q; only pending or running jobs can provision", status.String)
+	case cloudEnabled.Valid && !cloudEnabled.Bool:
+		return "cloud is disabled for " + billingClientPhrase(clientIsFallback) +
+			". Enable it on that client, or set the server default in " +
+			"Cloud Provisioning -> Client Budgets"
+	case hasAllowlist.Valid && !hasAllowlist.Bool:
+		return billingClientPhrase(clientIsFallback) + " permits no cloud providers. " +
+			"Set an allowlist on that client, or a server default in " +
+			"Cloud Provisioning -> Client Budgets"
+	}
+	return "one of its cloud preconditions is not met"
+}
 
 /*
  * ProvisionForJob rents one instance for a job.
@@ -321,10 +472,18 @@ func (s *Service) ProvisionForJob(ctx context.Context, jobID uuid.UUID) error {
 		       je.cloud_allow_community_hosts
 		FROM job_executions je
 		JOIN hashlists h ON h.id = je.hashlist_id
-		JOIN clients c ON c.id = h.client_id
+		`+cloudBillingClientJoin+`
 		WHERE je.id = $1 AND `+cloudEligibilityPredicate, jobID).
 		Scan(&clientID, &clientName, &maxTTLMinutes, pq.Array(&allowlist), &allowCommunity)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// "no rows in result set" names none of the four conditions that
+			// could have failed, and this is the message an operator sees after
+			// clicking Provision now. Two of them fail completely silently
+			// otherwise: a hashlist with no client can never match, because both
+			// entry points INNER JOIN clients.
+			return fmt.Errorf("job %s is not cloud-eligible: %s", jobID, s.explainIneligible(ctx, jobID))
+		}
 		return fmt.Errorf("job %s is not cloud-eligible: %w", jobID, err)
 	}
 
@@ -1056,7 +1215,7 @@ func (s *Service) CloudEligibleJobs(ctx context.Context, candidates []uuid.UUID)
 		       EXTRACT(EPOCH FROM je.created_at)::bigint * 1000000000
 		FROM job_executions je
 		JOIN hashlists h ON h.id = je.hashlist_id
-		JOIN clients c ON c.id = h.client_id
+		`+cloudBillingClientJoin+`
 		WHERE je.id = ANY($1::uuid[])
 		  AND `+cloudEligibilityPredicate+`
 		  /*

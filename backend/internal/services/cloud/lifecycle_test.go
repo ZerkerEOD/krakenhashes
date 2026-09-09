@@ -824,3 +824,306 @@ func TestCloudEligibleJobs_BlankMaxInstancesInheritsTheDefault(t *testing.T) {
 		t.Errorf("malformed default should read as absent (0/unlimited); got %+v", eligible)
 	}
 }
+
+/*
+ * TestProvisionForJob_ExplainsWhyIneligible.
+ *
+ * "job X is not cloud-eligible: sql: no rows in result set" is what an operator
+ * saw after clicking Provision now, and it names none of the four conditions
+ * that could have failed. Two of them are invisible otherwise: a hashlist with
+ * no client can NEVER burst, because both cloud entry points INNER JOIN clients
+ * — and on the autoscaler path there is no message at all.
+ *
+ * DB-backed because the whole thing is SQL, including the LEFT JOIN that is the
+ * only difference between detecting a missing client and silently excluding it.
+ */
+func TestProvisionForJob_ExplainsWhyIneligible(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("burst not enabled", func(t *testing.T) {
+		f := newProvisionFixture(t, 100_000, testOffer(50))
+		if _, err := f.db.Exec(
+			`UPDATE job_executions SET cloud_burst_enabled = false WHERE id = $1`, f.job.JobID); err != nil {
+			t.Fatalf("disable burst: %v", err)
+		}
+		// Pinned rather than assumed: the server-wide default would make this
+		// job eligible, and the test DB is shared, so a sibling test that turns
+		// it on would otherwise turn this assertion into a coin flip.
+		setBurstDefault(t, f.db, false)
+		err := f.svc.ProvisionForJob(ctx, f.job.JobID)
+		if err == nil {
+			t.Fatal("provisioned a job that had not opted in")
+		}
+		if !strings.Contains(err.Error(), "cloud burst is not enabled") {
+			t.Errorf("error = %q, want it to name the disabled flag", err)
+		}
+		if strings.Contains(err.Error(), "no rows in result set") {
+			t.Errorf("error still leaks the raw SQL message: %q", err)
+		}
+	})
+
+	t.Run("hashlist has no client", func(t *testing.T) {
+		f := newProvisionFixture(t, 100_000, testOffer(50))
+		if _, err := f.db.Exec(
+			`UPDATE hashlists SET client_id = NULL WHERE id = $1`, f.job.HashlistID); err != nil {
+			t.Fatalf("unassign client: %v", err)
+		}
+		// Pinned empty: a nominated fallback would make this job billable and
+		// turn the assertion into a coin flip on a shared database.
+		setDefaultBillingClient(t, f.db, "")
+		err := f.svc.ProvisionForJob(ctx, f.job.JobID)
+		if err == nil {
+			t.Fatal("provisioned a job whose hashlist has no client")
+		}
+		if !strings.Contains(err.Error(), "not assigned to a client") {
+			t.Errorf("error = %q, want it to name the missing client — this is the case "+
+				"that is otherwise completely silent", err)
+		}
+	})
+
+	t.Run("finished job", func(t *testing.T) {
+		f := newProvisionFixture(t, 100_000, testOffer(50))
+		if _, err := f.db.Exec(
+			`UPDATE job_executions SET status = 'completed' WHERE id = $1`, f.job.JobID); err != nil {
+			t.Fatalf("complete job: %v", err)
+		}
+		err := f.svc.ProvisionForJob(ctx, f.job.JobID)
+		if err == nil {
+			t.Fatal("provisioned a completed job")
+		}
+		if !strings.Contains(err.Error(), "completed") {
+			t.Errorf("error = %q, want it to name the job status", err)
+		}
+	})
+
+	t.Run("no such job", func(t *testing.T) {
+		f := newProvisionFixture(t, 100_000, testOffer(50))
+		err := f.svc.ProvisionForJob(ctx, uuid.New())
+		if err == nil {
+			t.Fatal("provisioned a job that does not exist")
+		}
+		if !strings.Contains(err.Error(), "no such job") {
+			t.Errorf("error = %q, want 'no such job'", err)
+		}
+	})
+}
+
+// setBurstDefault pins cloud_default_burst_enabled. Upserts rather than updates
+// because SetSetting is UPDATE-only and the row's presence depends on whether
+// the seeding migration has run against this database.
+func setBurstDefault(t *testing.T, database *db.DB, on bool) {
+	t.Helper()
+	value := "false"
+	if on {
+		value = "true"
+	}
+	if _, err := database.Exec(
+		`INSERT INTO system_settings (key, value, description, data_type)
+		 VALUES ('cloud_default_burst_enabled', $1, 'test', 'boolean')
+		 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, value); err != nil {
+		t.Fatalf("set cloud_default_burst_enabled=%s: %v", value, err)
+	}
+	t.Cleanup(func() {
+		// Shared database: leaving this on would silently make every later
+		// test's job cloud-eligible.
+		if _, err := database.Exec(
+			`UPDATE system_settings SET value = 'false'
+			  WHERE key = 'cloud_default_burst_enabled'`); err != nil {
+			t.Logf("reset cloud_default_burst_enabled: %v", err)
+		}
+	})
+}
+
+// setDefaultBillingClient pins cloud_default_client_id, resetting it afterwards
+// so a shared-database sibling test does not inherit a fallback that makes its
+// client-less fixtures unexpectedly eligible.
+func setDefaultBillingClient(t *testing.T, database *db.DB, value string) {
+	t.Helper()
+	if _, err := database.Exec(
+		`INSERT INTO system_settings (key, value, description, data_type)
+		 VALUES ('cloud_default_client_id', $1, 'test', 'string')
+		 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, value); err != nil {
+		t.Fatalf("set cloud_default_client_id=%q: %v", value, err)
+	}
+	t.Cleanup(func() {
+		if _, err := database.Exec(
+			`UPDATE system_settings SET value = '' WHERE key = 'cloud_default_client_id'`); err != nil {
+			t.Logf("reset cloud_default_client_id: %v", err)
+		}
+	})
+}
+
+/*
+ * TestDefaultBillingClient_LetsClientlessWorkBurst.
+ *
+ * Cloud money is per client everywhere, so both entry points joined clients and
+ * a hashlist with no client could never rent capacity — which locked out every
+ * deployment that does not model clients at all. require_client_for_hashlist
+ * does not help: it gates new uploads only, so it neither repairs the hashlists
+ * that already exist nor suits a team that has no clients to name.
+ *
+ * The fallback must hold in BOTH directions. Letting client-less work through
+ * with no budget holder would be worse than refusing it, so the unset,
+ * malformed and dangling-reference cases all have to keep refusing.
+ */
+func TestDefaultBillingClient_LetsClientlessWorkBurst(t *testing.T) {
+	ctx := context.Background()
+	f := newProvisionFixture(t, 100_000, testOffer(50))
+
+	// The fixture's own client becomes the nominated fallback; the hashlist
+	// then loses its direct assignment. Same client either way, so anything
+	// that changes is the resolution path and not the client's own settings.
+	fallback := f.clientID
+	if _, err := f.db.Exec(
+		`UPDATE hashlists SET client_id = NULL WHERE id = $1`, f.job.HashlistID); err != nil {
+		t.Fatalf("unassign client: %v", err)
+	}
+
+	// Unset: refuses, and says so in terms that name the fix.
+	setDefaultBillingClient(t, f.db, "")
+	eligible, err := f.svc.CloudEligibleJobs(ctx, []uuid.UUID{f.job.JobID})
+	if err != nil {
+		t.Fatalf("CloudEligibleJobs: %v", err)
+	}
+	if len(eligible) != 0 {
+		t.Fatalf("with no fallback set, client-less work must stay ineligible; got %d rows", len(eligible))
+	}
+	if err := f.svc.ProvisionForJob(ctx, f.job.JobID); err == nil {
+		t.Error("provisioned client-less work with no fallback client")
+	} else if !strings.Contains(err.Error(), "no default billing client") {
+		t.Errorf("error = %q, want it to name the missing fallback", err)
+	}
+
+	// Nominated: the same job, untouched, is now billable on both paths.
+	setDefaultBillingClient(t, f.db, fallback.String())
+	eligible, err = f.svc.CloudEligibleJobs(ctx, []uuid.UUID{f.job.JobID})
+	if err != nil {
+		t.Fatalf("CloudEligibleJobs: %v", err)
+	}
+	if len(eligible) != 1 {
+		t.Fatalf("a nominated fallback must make client-less work eligible; got %d rows", len(eligible))
+	}
+	// The spend has to land on the fallback, or the budget bounds nothing and
+	// the client budget page cannot show it.
+	if eligible[0].ClientID != fallback {
+		t.Errorf("ClientID = %s, want the fallback %s — spend must be attributed to "+
+			"the nominated client or no budget applies to it", eligible[0].ClientID, fallback)
+	}
+	if err := f.svc.ProvisionForJob(ctx, f.job.JobID); err != nil {
+		t.Errorf("manual route must agree with the autoscaler: %v", err)
+	}
+
+	// Malformed: must refuse, and must not error the query — a raised cast here
+	// would stall provisioning for every job, not just this one.
+	setDefaultBillingClient(t, f.db, "not-a-uuid")
+	eligible, err = f.svc.CloudEligibleJobs(ctx, []uuid.UUID{f.job.JobID})
+	if err != nil {
+		t.Fatalf("a malformed fallback must not error the query: %v", err)
+	}
+	if len(eligible) != 0 {
+		t.Errorf("a malformed fallback must refuse, not permit; got %d rows", len(eligible))
+	}
+
+	// Well-formed but naming no client — the shape a deleted client leaves
+	// behind. Refuses, rather than provisioning against a budget that is gone.
+	setDefaultBillingClient(t, f.db, uuid.New().String())
+	eligible, err = f.svc.CloudEligibleJobs(ctx, []uuid.UUID{f.job.JobID})
+	if err != nil {
+		t.Fatalf("a dangling fallback must not error the query: %v", err)
+	}
+	if len(eligible) != 0 {
+		t.Errorf("a fallback naming no client must refuse; got %d rows", len(eligible))
+	}
+}
+
+/*
+ * TestDefaultBillingClient_DoesNotOverrideAnAssignedClient.
+ *
+ * The fallback is for work that has no client, not a redirect. If it ever won
+ * over h.client_id, spend would silently move off the engagement that incurred
+ * it and onto someone else's budget — visible only in the spend report, after
+ * the money was gone.
+ */
+func TestDefaultBillingClient_DoesNotOverrideAnAssignedClient(t *testing.T) {
+	ctx := context.Background()
+	f := newProvisionFixture(t, 100_000, testOffer(50))
+
+	setDefaultBillingClient(t, f.db, uuid.New().String())
+
+	eligible, err := f.svc.CloudEligibleJobs(ctx, []uuid.UUID{f.job.JobID})
+	if err != nil {
+		t.Fatalf("CloudEligibleJobs: %v", err)
+	}
+	if len(eligible) != 1 {
+		t.Fatalf("a job with its own client must be unaffected by the fallback; got %d rows", len(eligible))
+	}
+	if eligible[0].ClientID != f.clientID {
+		t.Errorf("ClientID = %s, want the hashlist's own client %s — the fallback must "+
+			"never redirect spend away from the client that incurred it",
+			eligible[0].ClientID, f.clientID)
+	}
+}
+
+/*
+ * TestCloudDefaultBurstEnabled_OptsInEveryJob.
+ *
+ * job_executions.cloud_burst_enabled defaults false and has to be ticked on
+ * every preset, workflow and job. That is right when cloud burst extends a
+ * fleet you own and exactly backwards when you own no GPUs at all, where a
+ * single missed tick is indistinguishable from a broken install: the job sits
+ * at pending and nothing says why.
+ *
+ * Covers both entry points, because the whole point of resolving this inside
+ * cloudEligibilityPredicate is that the autoscaler and the manual route cannot
+ * drift apart on it — they already had, once, on je.status.
+ */
+func TestCloudDefaultBurstEnabled_OptsInEveryJob(t *testing.T) {
+	ctx := context.Background()
+	f := newProvisionFixture(t, 100_000, testOffer(50))
+
+	if _, err := f.db.Exec(
+		`UPDATE job_executions SET cloud_burst_enabled = false WHERE id = $1`, f.job.JobID); err != nil {
+		t.Fatalf("disable per-job burst: %v", err)
+	}
+
+	// Off: the job is invisible to both paths.
+	setBurstDefault(t, f.db, false)
+	eligible, err := f.svc.CloudEligibleJobs(ctx, []uuid.UUID{f.job.JobID})
+	if err != nil {
+		t.Fatalf("CloudEligibleJobs: %v", err)
+	}
+	if len(eligible) != 0 {
+		t.Fatalf("default off must leave an un-ticked job ineligible, got %d rows", len(eligible))
+	}
+
+	// On: the same job, unchanged, is now eligible on both paths. Asserted
+	// without touching the row, because the value of resolving this in the
+	// predicate is that it frees jobs that are ALREADY queued — which is the
+	// state an operator is in when they work out they needed the setting.
+	setBurstDefault(t, f.db, true)
+	eligible, err = f.svc.CloudEligibleJobs(ctx, []uuid.UUID{f.job.JobID})
+	if err != nil {
+		t.Fatalf("CloudEligibleJobs: %v", err)
+	}
+	if len(eligible) != 1 {
+		t.Errorf("default on must make an un-ticked job eligible, got %d rows", len(eligible))
+	}
+	if err := f.svc.ProvisionForJob(ctx, f.job.JobID); err != nil {
+		t.Errorf("manual route must agree with the autoscaler: %v", err)
+	}
+
+	// A malformed value must read as off. This is a spend switch, so the
+	// direction it fails in matters more than that it fails.
+	if _, err := f.db.Exec(
+		`UPDATE system_settings SET value = 'yes-please'
+		  WHERE key = 'cloud_default_burst_enabled'`); err != nil {
+		t.Fatalf("corrupt the default: %v", err)
+	}
+	eligible, err = f.svc.CloudEligibleJobs(ctx, []uuid.UUID{f.job.JobID})
+	if err != nil {
+		t.Fatalf("a malformed default must not error the query: %v", err)
+	}
+	if len(eligible) != 0 {
+		t.Errorf("a malformed default must refuse, not permit; got %d eligible rows", len(eligible))
+	}
+}

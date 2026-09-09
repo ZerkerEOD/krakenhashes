@@ -1894,13 +1894,20 @@
         "orphanGrace": "Orphan grace period",
         "orphanGraceHelp": "Destroy instances found on the provider account with no matching database row after this long. This is the only recovery for a launch whose record never landed.",
         "agentImage": "Agent image",
-        "agentImageHelp": "e.g. zerkereod/krakenhashes-agent-cloud:cloud-gpu. Leave blank to fall back to KH_CLOUD_AGENT_IMAGE, then to the built-in default. Note the built-in default is :latest, which only exists once a release has been tagged — pre-release deployments must set this."
+        "agentImageHelp": "e.g. zerkereod/krakenhashes-agent-cloud:cloud-gpu. Leave blank to fall back to KH_CLOUD_AGENT_IMAGE, then to the built-in default. Note the built-in default is :latest, which only exists once a release has been tagged — pre-release deployments must set this.",
+        "defaultBurstEnabled": "Activer le cloud burst pour toutes les tâches",
+        "defaultBurstEnabledHelp": "Traite toutes les tâches comme éligibles au cloud burst, sans cocher la case sur chaque préréglage, workflow et tâche. Prévu pour les déploiements sans GPU sur site, où la location est le seul moyen d'exécuter du travail. Les budgets client et les plafonds d'instances s'appliquent toujours. Prend effet immédiatement, y compris pour les tâches déjà en file d'attente.",
+        "defaultClient": "Client de facturation par défaut",
+        "defaultClientHelp": "Les dépenses cloud d'une liste de hachages sans client propre sont facturées ici. Laissé sur Aucun, le travail non attribué ne peut louer aucune capacité. Les budgets, les plafonds d'instances et l'échelle de seuils s'appliquent normalement au client choisi — un client nommé « Travail non attribué » garde le rapport de dépenses honnête.",
+        "defaultClientNone": "Aucun — le travail non attribué ne peut pas utiliser le cloud"
       },
       "agent": "Cloud agent image",
       "agentHelp": "The container image rented instances pull and run. It must be a tag that exists in the registry: a missing tag is not a startup error — the instance boots, the pull fails, and the host self-terminates about a minute later, billed.",
       "save": "Save changes",
       "discard": "Discard",
-      "unsaved": "{{count}} unsaved change(s)"
+      "unsaved": "{{count}} unsaved change(s)",
+      "eligibility": "Déploiements 100 % cloud",
+      "eligibilityHelp": "Détermine si les tâches sont seulement éligibles à la location. Tout ce qui précède limite ce qui peut être dépensé ; ceci décide si quelque chose l'est."
     }
   },
   "serverCertificate": {
